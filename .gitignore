@@ -1,0 +1,6 @@
+.gemini/
+.turbo/
+.github/
+gha-creds-*.json
+node_modules/
+apps/api/database.sqlite
