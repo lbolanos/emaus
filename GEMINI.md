@@ -4,7 +4,7 @@ You are an expert full-stack software architect and senior engineer. Your specia
 </META:SYSTEM_PROMPT>
 
 PROJECT:OVERVIEW
-This project is a "Retreat Logistics Management System." Its purpose is to manage the logistical details of religious retreats organized by various parishes worldwide. The system must track retreats, venues (houses), participants (walkers and servers), room assignments, table assignments, support efforts (palancas), and inventory. The application will consist of a Vue.js frontend and an Express.js backend API.
+This project is a "Emaus Retreat Logistics Management System." Its purpose is to manage the logistical details of religious retreats organized by various parishes worldwide. The system must track retreats, venues (houses), participants (walkers and servers), room assignments, table assignments, support efforts (palancas), and inventory. The application will consist of a Vue.js frontend and an Express.js backend API.
 </PROJECT:OVERVIEW>
 
 PROJECT:TECH_STACK
@@ -13,9 +13,9 @@ Monorepo: pnpm Workspaces, Turborepo
 
 Language: TypeScript (Strict Mode)
 
-Backend: Node.js, Express.js, TypeORM, SQLite, Zod (for validation)
+Backend: Node.js, Express.js, TypeORM, SQLite, Zod (for validation), Passport.js (for authentication), `express-session`, `bcrypt`
 
-Frontend: Vue.js 3 (Composition API with <script setup>), Vite, Pinia (for state management)
+Frontend: Vue.js 3 (Composition API with <script setup>), Vite, Pinia (for state management), vue-i18n (for internationalization)
 
 UI: Tailwind CSS, shadcn-vue (v4)
 
@@ -32,53 +32,89 @@ Single Source of Truth: Zod schemas, located in packages/types, are the single s
 
 Type Safety: The entire codebase must be strictly typed with TypeScript. Avoid the use of any unless absolutely necessary and justified.
 
+Authentication: All data-access API endpoints are protected and require a valid user session. Authentication is handled via Passport.js, supporting both Google OAuth2 and local email/password strategies.
+
 API Validation: All API endpoints MUST validate incoming requests (body, params, query) using a generic Zod validation middleware. No unvalidated data should ever reach the service layer.
 
 State Management: All global frontend state must be managed via Pinia stores. Stores should be defined using the setup store syntax.
 
-Component Styling: All styling must be done using Tailwind CSS utility classes. Components from shadcn-vue should be used as the base for the UI, customized as needed.
+Component Styling: All styling must be done using Tailwind CSS utility classes. Components from shadcn-vue should be used as the base for the UI, customized as needed. The `packages/ui` directory contains the core component library. The theme is defined in `apps/web/tailwind.config.js` and `apps/web/src/assets/main.css`.
+
+Dark Mode: For components that need to appear on a dark background (like the sidebar), the `dark` class must be added to a parent element to apply the correct dark theme variant of the component styles.
 
 Dependencies: Internal workspace dependencies must use the workspace:* protocol in package.json.
+
+Internationalization (i18n): The web application supports English and Spanish. All display text MUST be managed through `vue-i18n`.
+- **Locale Files**: Translation keys are stored in JSON files located at `apps/web/src/locales/`. There is one file per supported language (e.g., `en.json`, `es.json`).
+- **Usage**: In Vue components, use the `$t('key.path')` function to display translated text.
+- **Language Switching**: The `LanguageSwitcher.vue` component provides a dropdown in the header to allow users to change the language manually.
+- **Default Language**: The application will attempt to set the initial language based on the user's browser settings. If the browser's language is not supported, it will default to English.
+
 </PROJECT:ARCHITECTURE_RULES>
+
+PROJECT:UI_COMPONENTS
+The `packages/ui` package contains a set of reusable UI components built with `shadcn-vue`. These components are then used in the `web` application. The available components are:
+- Button
+- Card (Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle)
+- Dialog (Dialog, DialogTrigger, DialogContent, etc.)
+- Input
+- Label
+- Select (Select, SelectTrigger, SelectContent, etc.)
+- Table (Table, TableHeader, TableBody, etc.)
+- Tabs (Tabs, TabsContent, TabsList, TabsTrigger)
+- Sonner
+</PROJECT:UI_COMPONENTS>
 
 PROJECT:DATA_MODELS
 
+User: Represents a system user.
+Properties: id (UUID), googleId (string, optional), email (string, unique), displayName (string), password (string, hashed, optional), photo (string, optional).
+
 Participant: Represents a person attending a retreat, either as a "walker" (attendee) or a "server" (staff).
-
-Properties: id (UUID), type (Enum: 'WALKER', 'SERVER'), firstName (string), lastName (string), nickname (string, optional), birthDate (Date), civilStatus (string), parish (string), address (object), contact (object), occupation (string, optional), snores (boolean), medicalNotes (string, optional), dietaryRestrictions (string, optional), emergencyContacts (array of objects), tShirtSize (string), invitedBy (string, optional), isCancelled (boolean), retreatId (FK to Retreat).
-
-Walker-specific properties: palancaManagerId (FK to another Participant of type 'SERVER'), palancasRequested (number).
+Properties: id (UUID), firstName (string), lastName (string), email (string), retreatId (FK to Retreat), tableId (FK to Table, optional), roomId (FK to Room, optional).
 
 Retreat: Represents a specific retreat event.
-
-Properties: id (UUID), parish (string), startDate (Date), endDate (Date), houseId (FK to House).
+Properties: id (UUID), parish (string), startDate (Date), endDate (Date), houseId (FK to House, optional).
 
 House: Represents a venue where retreats are held.
-
 Properties: id (UUID), name (string), address (string), capacity (number).
 
-Room: A physical room at a House. Room assignment logic will consider hasBunkBed, participant age, and if the participant snores.
-
-Properties: id (UUID), roomNumber (string), capacity (number), hasBunkBed (boolean), houseId (FK to House).
+Room: A physical room at a House.
+Properties: id (UUID), roomNumber (string), capacity (number), houseId (FK to House).
 
 Table: A group or table at a retreat.
-
 Properties: id (UUID), name (string), retreatId (FK to Retreat).
 
-PalancaLog: A record of a support contact ("palanca") made for a walker.
-
-Properties: id (UUID), note (text), contactDate (Date), participantId (FK to Participant of type 'WALKER').
-
-InventoryItem: An item in the retreat's material inventory.
-
-Properties: id (UUID), name (string), type (string), quantity (number), unit (string, e.g., 'sheets', 'units').
-
-Assignments: (Junction tables/relations)
-
-A Participant is assigned to one Table.
-
-A Participant is assigned to one Room.
 </PROJECT:DATA_MODELS>
+
+API_ENDPOINTS
+
+Authentication:
+- `POST /api/auth/register`: Register a new user with email, password, and displayName.
+- `POST /api/auth/login`: Log in with email and password. Returns the user object on success.
+- `GET /api/auth/google`: Initiates the Google OAuth2 login flow.
+- `GET /api/auth/google/callback`: The callback URL for Google OAuth2, which then redirects to the frontend.
+- `GET /api/auth/status`: Gets the currently authenticated user. Returns user object if authenticated, 401 otherwise.
+- `POST /api/auth/logout`: Logs out the current user and destroys the session.
+- `POST /api/auth/password/request`: Requests a password reset. To prevent user enumeration, it always returns a success message. The reset token is logged to the server console for development.
+- `POST /api/auth/password/reset`: Resets the user's password using a valid token.
+
+Retreats:
+- `GET /api/retreats`: Get a list of all retreats, sorted by most recent.
+- `POST /api/retreats`: Create a new retreat.
+
+Houses:
+- `GET /api/houses`: Get a list of all houses.
+
+Participants:
+- `GET /api/participants`: Get a list of participants (walkers or servers). Can be filtered by `retreatId` and `type` query parameters.
+- `POST /api/participants/walker`: Create a new walker.
+- `POST /api/participants/server`: Create a new server.
+- `GET /api/participants/:id`: Get a single participant by ID.
+- `PUT /api/participants/:id`: Update a participant.
+- `DELETE /api/participants/:id`: Delete a participant.
+
+</API_ENDPOINTS>
 
 PROTOCOL:EXPLAIN
 When I ask you to explain something, provide a clear, concise, and technically accurate explanation. If explaining code, break it down logically. Reference the project's architecture rules and tech stack where relevant. Do not suggest implementation details unless explicitly asked.
@@ -108,7 +144,7 @@ Ensure all new code is covered by corresponding tests where applicable.
 </PROTOCOL:IMPLEMENT>
 
 PROTOCOL:TEST
-When I ask you to write tests, you will generate unit or integration tests using the project's designated testing framework (Jest for backend, Vitest for frontend).
+When I ask you to write tests, you will generate unit or integration tests using the project's designated testing framework (Jest for backend), Vitest (for frontend).
 
 Tests should cover the primary logic, edge cases, and error handling.
 
