@@ -1,0 +1,55 @@
+{
+  "login": {
+    "title": "Iniciar Sesión",
+    "description": "Ingrese su correo electrónico y contraseña a continuación para iniciar sesión",
+    "emailLabel": "Correo Electrónico",
+    "emailPlaceholder": "m@example.com",
+    "passwordLabel": "Contraseña",
+    "loginButton": "Iniciar Sesión",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "orContinueWith": "O continuar con",
+    "google": "Google"
+  },
+  "sidebar": {
+    "walkers": "Caminantes",
+    "retreat": "Retiro",
+    "loadingRetreats": "Cargando retiros...",
+    "noRetreatsFound": "No se encontraron retiros.",
+    "addRetreat": "Agregar Retiro",
+    "selectRetreat": "Selecciona un retiro"
+  },
+  "walkers": {
+    "title": "Caminantes",
+    "addWalker": "Agregar Caminante",
+    "name": "Nombre",
+    "email": "Correo Electrónico",
+    "actions": "Acciones",
+    "loading": "Cargando...",
+    "selectRetreatPrompt": "Por favor seleccione un retiro para ver los participantes.",
+    "noWalkersFound": "No se encontraron caminantes para este retiro."
+  },
+  "addWalkerModal": {
+    "title": "Agregar Nuevo Caminante",
+    "description": "Ingrese los detalles del nuevo caminante.",
+    "firstName": "Nombre",
+    "lastName": "Apellido",
+    "email": "Correo Electrónico",
+    "submit": "Guardar Caminante",
+    "cancel": "Cancelar"
+  },
+  "addRetreatModal": {
+    "title": "Agregar Nuevo Retiro",
+    "description": "Ingrese los detalles del nuevo retiro.",
+    "parishName": "Nombre de la Parroquia",
+    "startDate": "Fecha de Inicio",
+    "endDate": "Fecha de Fin",
+    "house": "Casa",
+    "selectHouse": "Selecciona una casa",
+    "submit": "Guardar Retiro",
+    "cancel": "Cancelar"
+  },
+  "language": {
+    "english": "Inglés",
+    "spanish": "Español"
+  }
+}

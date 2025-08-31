@@ -1,0 +1,55 @@
+{
+  "login": {
+    "title": "Login",
+    "description": "Enter your email and password below to login",
+    "emailLabel": "Email",
+    "emailPlaceholder": "m@example.com",
+    "passwordLabel": "Password",
+    "loginButton": "Login",
+    "forgotPassword": "Forgot your password?",
+    "orContinueWith": "Or continue with",
+    "google": "Google"
+  },
+  "sidebar": {
+    "walkers": "Walkers",
+    "retreat": "Retreat",
+    "loadingRetreats": "Loading retreats...",
+    "noRetreatsFound": "No retreats found.",
+    "addRetreat": "Add Retreat",
+    "selectRetreat": "Select a retreat"
+  },
+  "walkers": {
+    "title": "Walkers",
+    "addWalker": "Add Walker",
+    "name": "Name",
+    "email": "Email",
+    "actions": "Actions",
+    "loading": "Loading...",
+    "selectRetreatPrompt": "Please select a retreat to see the participants.",
+    "noWalkersFound": "No walkers found for this retreat."
+  },
+  "addWalkerModal": {
+    "title": "Add New Walker",
+    "description": "Enter the details of the new walker.",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "email": "Email",
+    "submit": "Save Walker",
+    "cancel": "Cancel"
+  },
+  "addRetreatModal": {
+    "title": "Add New Retreat",
+    "description": "Enter the details of the new retreat.",
+    "parishName": "Parish Name",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "house": "House",
+    "selectHouse": "Select a house",
+    "submit": "Save Retreat",
+    "cancel": "Cancel"
+  },
+  "language": {
+    "english": "English",
+    "spanish": "Spanish"
+  }
+}

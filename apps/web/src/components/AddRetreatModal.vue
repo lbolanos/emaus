@@ -2,38 +2,38 @@
   <Dialog :open="open" @update:open="emit('update:open', $event)">
     <DialogContent class="sm:max-w-[425px]">
       <DialogHeader>
-        <DialogTitle>Add New Retreat</DialogTitle>
+        <DialogTitle>{{ $t('addRetreatModal.title') }}</DialogTitle>
         <DialogDescription>
-          Enter the details of the new retreat.
+          {{ $t('addRetreatModal.description') }}
         </DialogDescription>
       </DialogHeader>
       <form @submit.prevent="handleSubmit">
         <div class="grid gap-4 py-4">
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="parish" class="text-right">
-              Parish
+              {{ $t('addRetreatModal.parishName') }}
             </Label>
             <Input id="parish" v-model="formData.parish" class="col-span-3" required />
           </div>
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="startDate" class="text-right">
-              Start Date
+              {{ $t('addRetreatModal.startDate') }}
             </Label>
             <Input id="startDate" type="date" v-model="startDate" class="col-span-3" required />
           </div>
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="endDate" class="text-right">
-              End Date
+              {{ $t('addRetreatModal.endDate') }}
             </Label>
             <Input id="endDate" type="date" v-model="endDate" class="col-span-3" required />
           </div>
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="houseId" class="text-right">
-              House
+              {{ $t('addRetreatModal.house') }}
             </Label>
             <Select v-model="formData.houseId">
               <SelectTrigger class="col-span-3">
-                <SelectValue placeholder="Select a house" />
+                <SelectValue :placeholder="$t('addRetreatModal.selectHouse')" />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
@@ -47,10 +47,10 @@
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" @click="emit('update:open', false)">
-            Cancel
+            {{ $t('addRetreatModal.cancel') }}
           </Button>
           <Button type="submit">
-            Save Retreat
+            {{ $t('addRetreatModal.submit') }}
           </Button>
         </DialogFooter>
       </form>

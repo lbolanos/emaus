@@ -2,38 +2,38 @@
   <Dialog :open="open" @update:open="emit('update:open', $event)">
     <DialogContent class="sm:max-w-[425px]">
       <DialogHeader>
-        <DialogTitle>Add New Walker</DialogTitle>
+        <DialogTitle>{{ $t('addWalkerModal.title') }}</DialogTitle>
         <DialogDescription>
-          Enter the details of the new walker.
+          {{ $t('addWalkerModal.description') }}
         </DialogDescription>
       </DialogHeader>
       <form @submit.prevent="handleSubmit">
         <div class="grid gap-4 py-4">
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="firstName" class="text-right">
-              First Name
+              {{ $t('addWalkerModal.firstName') }}
             </Label>
             <Input id="firstName" v-model="formData.firstName" class="col-span-3" required />
           </div>
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="lastName" class="text-right">
-              Last Name
+              {{ $t('addWalkerModal.lastName') }}
             </Label>
             <Input id="lastName" v-model="formData.lastName" class="col-span-3" required />
           </div>
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="email" class="text-right">
-              Email
+              {{ $t('addWalkerModal.email') }}
             </Label>
             <Input id="email" type="email" v-model="formData.email" class="col-span-3" required />
           </div>
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" @click="emit('update:open', false)">
-            Cancel
+            {{ $t('addWalkerModal.cancel') }}
           </Button>
           <Button type="submit">
-            Save Walker
+            {{ $t('addWalkerModal.submit') }}
           </Button>
         </DialogFooter>
       </form>

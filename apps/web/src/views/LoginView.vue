@@ -3,29 +3,29 @@
     <Card class="w-full max-w-md">
       <CardHeader class="space-y-1 text-center">
         <CardTitle class="text-2xl">
-          Sign in to your account
+          {{ $t('login.title') }}
         </CardTitle>
         <CardDescription>
-          Enter your email and password below to login
+          {{ $t('login.description') }}
         </CardDescription>
       </CardHeader>
       <CardContent class="grid gap-4">
         <form @submit.prevent="handleLogin" class="grid gap-4">
           <div class="grid gap-2">
-            <Label for="email">Email</Label>
+            <Label for="email">{{ $t('login.emailLabel') }}</Label>
             <Input
               id="email"
               type="email"
-              placeholder="m@example.com"
+              :placeholder="$t('login.emailPlaceholder')"
               required
               v-model="email"
             />
           </div>
           <div class="grid gap-2">
             <div class="flex items-center">
-              <Label for="password">Password</Label>
+              <Label for="password">{{ $t('login.passwordLabel') }}</Label>
               <router-link to="/request-password-reset" class="ml-auto inline-block text-sm underline">
-                Forgot your password?
+                {{ $t('login.forgotPassword') }}
               </router-link>
             </div>
             <Input id="password" type="password" required v-model="password" />
@@ -34,7 +34,7 @@
             {{ error }}
           </div>
           <Button type="submit" class="w-full">
-            Sign In
+            {{ $t('login.loginButton') }}
           </Button>
         </form>
         <div class="relative">
@@ -43,14 +43,14 @@
           </div>
           <div class="relative flex justify-center text-xs uppercase">
             <span class="bg-background px-2 text-muted-foreground">
-              Or continue with
+              {{ $t('login.orContinueWith') }}
             </span>
           </div>
         </div>
         <a :href="googleLoginUrl">
           <Button variant="outline" class="w-full">
             <img src="/google-logo.svg" alt="Google logo" class="w-4 h-4 mr-2" />
-            Google
+            {{ $t('login.google') }}
           </Button>
         </a>
       </CardContent>

@@ -45,33 +45,33 @@ const handleAddWalker = async (walkerData: CreateWalker) => {
 <template>
   <div>
     <div class="flex justify-between items-center mb-4">
-      <h2 class="text-xl font-semibold">Walkers</h2>
+      <h2 class="text-xl font-semibold">{{ $t('walkers.title') }}</h2>
       <Button
         @click="isModalOpen = true"
         :disabled="!selectedRetreatId"
       >
-        Add Walker
+        {{ $t('walkers.addWalker') }}
       </Button>
     </div>
-    <div v-if="loading">Loading...</div>
+    <div v-if="loading">{{ $t('walkers.loading') }}</div>
     <div v-else-if="error" class="text-red-500">{{ error }}</div>
     <div v-else-if="!selectedRetreatId" class="text-center text-gray-500 py-8">
-      <p>Please select a retreat to see the participants.</p>
+      <p>{{ $t('walkers.selectRetreatPrompt') }}</p>
     </div>
     <Table v-else>
-      <TableCaption v-if="walkers.length === 0">No walkers found for this retreat.</TableCaption>
+      <TableCaption v-if="walkers.length === 0">{{ $t('walkers.noWalkersFound') }}</TableCaption>
       <TableHeader>
         <TableRow>
-          <TableHead>First Name</TableHead>
-          <TableHead>Last Name</TableHead>
-          <TableHead>Email</TableHead>
+          <TableHead>{{ $t('walkers.name') }}</TableHead>
+          <TableHead>{{ $t('walkers.email') }}</TableHead>
+          <TableHead>{{ $t('walkers.actions') }}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         <TableRow v-for="walker in walkers" :key="walker.id">
-          <TableCell>{{ walker.firstName }}</TableCell>
-          <TableCell>{{ walker.lastName }}</TableCell>
+          <TableCell>{{ walker.firstName }} {{ walker.lastName }}</TableCell>
           <TableCell>{{ walker.email }}</TableCell>
+          <TableCell></TableCell>
         </TableRow>
       </TableBody>
     </Table>

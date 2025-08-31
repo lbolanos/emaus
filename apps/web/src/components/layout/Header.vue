@@ -3,11 +3,14 @@
     <div>
       <!-- Can add breadcrumbs or page title here -->
     </div>
-    <div v-if="auth.isAuthenticated && auth.user" class="flex items-center gap-4">
-      <span>{{ auth.user.displayName }}</span>
-      <Button @click="handleLogout" variant="ghost" size="icon">
-        <LogOut class="w-5 h-5" />
-      </Button>
+    <div class="flex items-center gap-4">
+      <LanguageSwitcher />
+      <div v-if="auth.isAuthenticated && auth.user" class="flex items-center gap-4">
+        <span>{{ auth.user.displayName }}</span>
+        <Button @click="handleLogout" variant="ghost" size="icon">
+          <LogOut class="w-5 h-5" />
+        </Button>
+      </div>
     </div>
   </header>
 </template>
@@ -17,6 +20,7 @@ import { LogOut } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter } from 'vue-router';
 import { Button } from '@repo/ui/components/ui/button';
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 
 const auth = useAuthStore();
 const router = useRouter();

@@ -5,19 +5,19 @@
     </div>
 
     <div class="px-4 py-2 border-t border-b border-gray-700">
-      <Label for="retreat-selector" class="block text-sm font-medium text-gray-400 mb-1">Retreat</Label>
-      <div v-if="retreatStore.loading">Loading retreats...</div>
+      <Label for="retreat-selector" class="block text-sm font-medium text-gray-400 mb-1">{{ $t('sidebar.retreat') }}</Label>
+      <div v-if="retreatStore.loading">{{ $t('sidebar.loadingRetreats') }}</div>
       <div v-else-if="retreatStore.retreats.length === 0" class="text-center">
-        <p class="text-sm text-gray-400 mb-2">No retreats found.</p>
+        <p class="text-sm text-gray-400 mb-2">{{ $t('sidebar.noRetreatsFound') }}</p>
         <Button @click="isModalOpen = true" class="w-full">
           <Plus class="w-4 h-4 mr-2" />
-          Add Retreat
+          {{ $t('sidebar.addRetreat') }}
         </Button>
       </div>
       <div v-else class="flex items-center space-x-2">
         <Select v-model="retreatStore.selectedRetreatId">
           <SelectTrigger id="retreat-selector">
-            <SelectValue placeholder="Select a retreat" />
+            <SelectValue :placeholder="$t('sidebar.selectRetreat')" />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
@@ -42,7 +42,7 @@
           :class="[isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white']"
         >
           <Users class="w-6 h-6 mr-3" />
-          Participants
+          {{ $t('sidebar.walkers') }}
         </a>
       </router-link>
       <!-- Add other menu items here -->
