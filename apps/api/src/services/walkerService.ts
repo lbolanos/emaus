@@ -4,7 +4,10 @@ import { CreateWalker, UpdateWalker } from '@repo/types';
 
 const walkerRepository = AppDataSource.getRepository(Walker);
 
-export const findAllWalkers = async (): Promise<Walker[]> => {
+export const findAllWalkers = async (retreatId?: string): Promise<Walker[]> => {
+  if (retreatId) {
+    return walkerRepository.find({ where: { retreat: { id: retreatId } } });
+  }
   return walkerRepository.find();
 };
 

@@ -5,13 +5,14 @@ import { Retreat } from './entities/retreat.entity';
 import { Table } from './entities/table.entity';
 import { Walker } from './entities/walker.entity';
 import { Server } from './entities/server.entity';
+import { User } from './entities/user.entity';
 
 export const AppDataSource = new DataSource({
   type: 'sqlite',
   database: 'database.sqlite',
   synchronize: true,
   logging: true,
-  entities: [House, Room, Retreat, Table, Walker, Server],
+  entities: [House, Room, Retreat, Table, Walker, Server, User],
   migrations: [],
   subscribers: [],
 });

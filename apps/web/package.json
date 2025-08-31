@@ -10,7 +10,9 @@
   "dependencies": {
     "@repo/types": "workspace:*",
     "@repo/ui": "workspace:*",
+    "@vueuse/core": "^13.8.0",
     "axios": "^1.6.8",
+    "lucide-vue-next": "^0.363.0",
     "pinia": "^2.1.7",
     "vue": "^3.4.21",
     "vue-router": "^4.3.0"

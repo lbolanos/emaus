@@ -18,8 +18,11 @@ export class Retreat {
   @Column('date')
   endDate!: Date;
 
-  @ManyToOne(() => House, (house) => house.retreats)
-  house!: House;
+  @Column({ type: 'uuid', nullable: true })
+  houseId?: string;
+
+  @ManyToOne(() => House, (house) => house.retreats, { nullable: true })
+  house?: House;
 
   @OneToMany(() => Walker, (walker) => walker.retreat)
   walkers!: Walker[];

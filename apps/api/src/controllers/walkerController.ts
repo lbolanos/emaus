@@ -3,7 +3,8 @@ import * as walkerService from '../services/walkerService';
 
 export const getAllWalkers = async (req: Request, res: Response) => {
   try {
-    const walkers = await walkerService.findAllWalkers();
+    const { retreatId } = req.query;
+    const walkers = await walkerService.findAllWalkers(retreatId as string | undefined);
     res.json(walkers);
   } catch (error) {
     res.status(500).json({ message: 'Error retrieving walkers' });

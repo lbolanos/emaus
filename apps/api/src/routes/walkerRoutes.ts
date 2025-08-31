@@ -8,8 +8,11 @@ import {
 } from '../controllers/walkerController';
 import { validateRequest } from '../middleware/validateRequest';
 import { createWalkerSchema, updateWalkerSchema } from '@repo/types';
+import { isAuthenticated } from '../middleware/isAuthenticated';
 
 const router = Router();
+
+router.use(isAuthenticated);
 
 router.get('/', getAllWalkers);
 router.get('/:id', getWalkerById);

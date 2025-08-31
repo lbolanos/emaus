@@ -27,7 +27,7 @@ export const retreatSchema = z.object({
   parish: z.string(),
   startDate: z.coerce.date(),
   endDate: z.coerce.date(),
-  houseId: idSchema,
+  houseId: idSchema.optional(),
 });
 export type Retreat = z.infer<typeof retreatSchema>;
 
@@ -65,17 +65,35 @@ export type Server = z.infer<typeof serverSchema>;
 // --- API Request Schemas ---
 
 // POST /walkers
-export const createWalkerSchema = walkerSchema.omit({ id: true });
-export type CreateWalker = z.infer<typeof createWalkerSchema>;
+export const createWalkerSchema = z.object({
+  body: walkerSchema.omit({ id: true }),
+});
+export type CreateWalker = z.infer<typeof createWalkerSchema.shape.body>;
 
 // PUT /walkers/:id
-export const updateWalkerSchema = walkerSchema.partial();
-export type UpdateWalker = z.infer<typeof updateWalkerSchema>;
+export const updateWalkerSchema = z.object({
+  body: walkerSchema.partial(),
+  params: z.object({ id: idSchema }),
+});
+export type UpdateWalker = z.infer<typeof updateWalkerSchema.shape.body>;
 
 // POST /servers
-export const createServerSchema = serverSchema.omit({ id: true });
-export type CreateServer = z.infer<typeof createServerSchema>;
+export const createServerSchema = z.object({
+  body: serverSchema.omit({ id: true }),
+});
+export type CreateServer = z.infer<typeof createServerSchema.shape.body>;
 
 // PUT /servers/:id
-export const updateServerSchema = serverSchema.partial();
-export type UpdateServer = z.infer<typeof updateServerSchema>;
+export const updateServerSchema = z.object({
+  body: serverSchema.partial(),
+  params: z.object({ id: idSchema }),
+});
+export type UpdateServer = z.infer<typeof updateServerSchema.shape.body>;
+
+// POST /retreats
+export const createRetreatSchema = z.object({
+  body: retreatSchema.omit({ id: true }),
+});
+export type CreateRetreat = z.infer<typeof createRetreatSchema.shape.body>;
+
+export * from './user';
