@@ -6,7 +6,9 @@ import RequestPasswordResetView from '../views/RequestPasswordResetView.vue';
 import ResetPasswordView from '../views/ResetPasswordView.vue';
 import WalkerRegistrationView from '../views/WalkerRegistrationView.vue';
 import ServerRegistrationView from '../views/ServerRegistrationView.vue';
+import RetreatDashboardView from '../views/RetreatDashboardView.vue';
 import { useAuthStore } from '@/stores/authStore';
+import { useRetreatStore } from '@/stores/retreatStore';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -27,14 +29,16 @@ const router = createRouter({
       component: ResetPasswordView,
     },
     {
-      path: '/retreat/:retreatId/walker-registration',
+      path: '/register/walker/:retreatId',
       name: 'walker-registration',
       component: WalkerRegistrationView,
+      props: true,
     },
     {
-      path: '/retreat/:retreatId/server-registration',
+      path: '/register/server/:retreatId',
       name: 'server-registration',
       component: ServerRegistrationView,
+      props: true,
     },
     {
       path: '/',
@@ -43,8 +47,19 @@ const router = createRouter({
       children: [
         {
           path: '',
+          name: 'home',
+          component: WalkersView, // Default component for '/'
+        },
+        {
+          path: 'walkers',
           name: 'walkers',
           component: WalkersView,
+        },
+        {
+          path: 'retreats/:id/dashboard',
+          name: 'retreat-dashboard',
+          component: RetreatDashboardView,
+          props: true,
         },
       ],
     },
@@ -63,10 +78,29 @@ router.beforeEach(async (to, from, next) => {
   if (requiresAuth && !auth.isAuthenticated) {
     next({ name: 'login' });
   } else if (to.name === 'login' && auth.isAuthenticated) {
-    next({ name: 'walkers' });
+    next({ name: 'home' });
+  } else if (to.path === '/' && auth.isAuthenticated) { // New logic for root path redirection
+    const retreatStore = useRetreatStore();
+    try {
+      await retreatStore.fetchRetreats();
+    } catch (error) {
+      console.error('Failed to fetch retreats during root path redirect:', error);
+      // Fallback if fetching retreats fails
+      next({ name: 'walkers' });
+      return;
+    }
+
+    if (retreatStore.retreats.length > 0) {
+      if (!retreatStore.selectedRetreatId) {
+        retreatStore.selectedRetreatId = retreatStore.retreats[0].id;
+      }
+      next({ name: 'retreat-dashboard', params: { id: retreatStore.selectedRetreatId } });
+    } else {
+      next({ name: 'walkers' });
+    }
   } else {
     next();
   }
 });
 
-export default router
+export default router;

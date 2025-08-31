@@ -18,6 +18,7 @@ const i18n = createI18n({
     en,
     es,
   },
+  messageCompiler: 'runtime',
 });
 
 export default i18n;

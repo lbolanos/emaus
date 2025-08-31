@@ -95,12 +95,7 @@ export class Participant {
   dietaryRestrictionsDetails?: string;
 
   @Column('simple-array')
-  sacraments!:
-    | 'baptism'
-    | 'communion'
-    | 'confirmation'
-    | 'marriage'
-    | 'none'[];
+  sacraments!: string[];
 
   @Column('varchar')
   emergencyContact1Name!: string;

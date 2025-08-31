@@ -5,36 +5,35 @@
     </div>
 
     <div class="px-4 py-2 border-t border-b border-gray-700">
-      <Label for="retreat-selector" class="block text-sm font-medium text-gray-400 mb-1">{{ $t('sidebar.retreat') }}</Label>
-      <div v-if="retreatStore.loading">{{ $t('sidebar.loadingRetreats') }}</div>
-      <div v-else-if="retreatStore.retreats.length === 0" class="text-center">
-        <p class="text-sm text-gray-400 mb-2">{{ $t('sidebar.noRetreatsFound') }}</p>
-        <Button @click="isModalOpen = true" class="w-full">
-          <Plus class="w-4 h-4 mr-2" />
-          {{ $t('sidebar.addRetreat') }}
-        </Button>
-      </div>
-      <div v-else class="flex items-center space-x-2">
-        <Select v-model="retreatStore.selectedRetreatId">
-          <SelectTrigger id="retreat-selector">
-            <SelectValue :placeholder="$t('sidebar.selectRetreat')" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem v-for="retreat in retreatStore.retreats" :key="retreat.id" :value="retreat.id">
-                {{ retreat.parish }} - {{ new Date(retreat.startDate).toLocaleDateString() }}
-              </SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-        <Button @click="isModalOpen = true" variant="outline" size="icon">
-          <Plus class="w-5 h-5" />
+      <div v-if="auth.isAuthenticated && auth.user" class="flex items-center gap-4">
+        <span>{{ auth.user.displayName }}</span>
+        <Button @click="handleLogout" variant="ghost" size="icon">
+          <LogOut class="w-5 h-5" />
         </Button>
       </div>
     </div>
 
     <nav class="flex-1 px-2 py-4 space-y-1">
-      <router-link to="/" v-slot="{ href, navigate, isActive }">
+      <router-link
+        v-if="retreatStore.selectedRetreatId"
+        :to="{ name: 'retreat-dashboard', params: { id: retreatStore.selectedRetreatId } }"
+        v-slot="{ href, navigate, isActive }"
+      >
+        <a
+          :href="href"
+          @click="navigate"
+          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+          :class="[isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white']"
+        >
+          <LayoutDashboard class="w-6 h-6 mr-3" />
+          {{ $t('sidebar.retreatDashboard') }}
+        </a>
+      </router-link>
+      <router-link
+        v-if="retreatStore.selectedRetreatId"
+        :to="{ name: 'walkers' }"
+        v-slot="{ href, navigate, isActive }"
+      >
         <a
           :href="href"
           @click="navigate"
@@ -47,41 +46,22 @@
       </router-link>
       <!-- Add other menu items here -->
     </nav>
-
-    <AddRetreatModal :open="isModalOpen" @update:open="isModalOpen = $event" @submit="handleAddRetreat" />
   </aside>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
-import { useRetreatStore } from '@/stores/retreatStore';
-import type { CreateRetreat } from '@repo/types';
-import { Users, Plus } from 'lucide-vue-next';
-import AddRetreatModal from '@/components/AddRetreatModal.vue';
+import { LogOut, Users, LayoutDashboard } from 'lucide-vue-next'; // Import LayoutDashboard icon
+import { useAuthStore } from '@/stores/authStore';
+import { useRouter } from 'vue-router';
 import { Button } from '@repo/ui/components/ui/button';
-import { Label } from '@repo/ui/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@repo/ui/components/ui/select';
+import { useRetreatStore } from '@/stores/retreatStore'; // New import
 
-const retreatStore = useRetreatStore();
-const isModalOpen = ref(false);
+const auth = useAuthStore();
+const router = useRouter();
+const retreatStore = useRetreatStore(); // New instance
 
-onMounted(() => {
-  retreatStore.fetchRetreats();
-});
-
-const handleAddRetreat = async (retreatData: CreateRetreat) => {
-  try {
-    await retreatStore.createRetreat(retreatData);
-    isModalOpen.value = false;
-  } catch (err) {
-    console.error('Failed to create retreat:', err);
-  }
+const handleLogout = async () => {
+  await auth.logout();
+  router.push('/login');
 };
 </script>

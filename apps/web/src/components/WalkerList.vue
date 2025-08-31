@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { useWalkerStore } from '@/stores/walkerStore';
 import { useRetreatStore } from '@/stores/retreatStore';
-import { onMounted, ref, watch } from 'vue';
+import { watch } from 'vue'; // Removed onMounted
 import { storeToRefs } from 'pinia';
-import type { CreateWalker } from '@repo/types';
-import AddWalkerModal from './AddWalkerModal.vue';
 import { Button } from '@repo/ui/components/ui/button';
 import {
   Table,
@@ -20,9 +18,7 @@ const walkerStore = useWalkerStore();
 const { walkers, loading, error } = storeToRefs(walkerStore);
 
 const retreatStore = useRetreatStore();
-const { selectedRetreatId } = storeToRefs(retreatStore);
-
-const isModalOpen = ref(false);
+const { selectedRetreatId, walkerRegistrationLink } = storeToRefs(retreatStore);
 
 watch(selectedRetreatId, (newId) => {
   if (newId) {
@@ -32,12 +28,9 @@ watch(selectedRetreatId, (newId) => {
   }
 }, { immediate: true });
 
-const handleAddWalker = async (walkerData: CreateWalker) => {
-  try {
-    await walkerStore.createWalker(walkerData);
-    isModalOpen.value = false;
-  } catch (err) {
-    console.error('Failed to create walker:', err);
+const openRegistrationLink = () => {
+  if (walkerRegistrationLink.value) {
+    window.open(walkerRegistrationLink.value, '_blank');
   }
 };
 </script>
@@ -47,7 +40,7 @@ const handleAddWalker = async (walkerData: CreateWalker) => {
     <div class="flex justify-between items-center mb-4">
       <h2 class="text-xl font-semibold">{{ $t('walkers.title') }}</h2>
       <Button
-        @click="isModalOpen = true"
+        @click="openRegistrationLink"
         :disabled="!selectedRetreatId"
       >
         {{ $t('walkers.addWalker') }}
@@ -75,12 +68,5 @@ const handleAddWalker = async (walkerData: CreateWalker) => {
         </TableRow>
       </TableBody>
     </Table>
-    <AddWalkerModal
-      v-if="selectedRetreatId"
-      :open="isModalOpen"
-      @update:open="isModalOpen = $event"
-      @submit="handleAddWalker"
-      :retreat-id="selectedRetreatId"
-    />
   </div>
 </template>

@@ -71,7 +71,7 @@ User: Represents a system user.
 Properties: id (UUID), googleId (string, optional), email (string, unique), displayName (string), password (string, hashed, optional), photo (string, optional).
 
 Participant: Represents a person attending a retreat, either as a "walker" (attendee) or a "server" (staff).
-Properties: id (UUID), firstName (string), lastName (string), email (string), retreatId (FK to Retreat), tableId (FK to Table, optional), roomId (FK to Room, optional).
+Properties: id (UUID), firstName (string), lastName (string), email (string), retreatId (FK to Retreat), tableId (FK to Table, optional), roomId (FK to Room, optional), sacraments (string[], values enforced by Zod schema: 'baptism', 'communion', 'confirmation', 'marriage', 'none').
 
 Retreat: Represents a specific retreat event.
 Properties: id (UUID), parish (string), startDate (Date), endDate (Date), houseId (FK to House, optional).

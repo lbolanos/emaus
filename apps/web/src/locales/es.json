@@ -16,7 +16,8 @@
     "loadingRetreats": "Cargando retiros...",
     "noRetreatsFound": "No se encontraron retiros.",
     "addRetreat": "Agregar Retiro",
-    "selectRetreat": "Selecciona un retiro"
+    "selectRetreat": "Selecciona un retiro",
+    "retreatDashboard": "Panel de Retiro"
   },
   "walkers": {
     "title": "Caminantes",
@@ -51,6 +52,28 @@
     "successDescription": "El retiro ha sido creado exitosamente. Aquí están los enlaces de registro:",
     "walkerUrl": "URL de Registro de Caminante",
     "serverUrl": "URL de Registro de Servidor"
+  },
+  "editRetreatModal": {
+    "title": "Editar Retiro",
+    "description": "Edita los detalles del retiro.",
+    "parish": "Nombre de la Parroquia",
+    "startDate": "Fecha de Inicio",
+    "endDate": "Fecha de Fin",
+    "house": "Casa",
+    "selectHouse": "Selecciona una casa",
+    "saveChanges": "Guardar Cambios"
+  },
+  "retreatDashboard": {
+    "title": "Panel de Retiro",
+    "selectedRetreat": "Retiro Seleccionado",
+    "walkersCount": "Número de Caminantes",
+    "serversCount": "Número de Servidores",
+    "walkerRegistrationLink": "Enlace Público de Registro de Caminantes",
+    "serverRegistrationLink": "Enlace Público de Registro de Servidores",
+    "noRetreatSelected": "Ningún retiro seleccionado. Por favor, selecciona o agrega un retiro.",
+    "copyLink": "Copiar Enlace",
+    "openLink": "Abrir Enlace",
+    "linkCopied": "¡Enlace copiado al portapapeles!"
   },
   "language": {
     "english": "Inglés",

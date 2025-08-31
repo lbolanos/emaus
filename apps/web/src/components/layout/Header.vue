@@ -1,32 +1,99 @@
 <template>
-  <header class="flex items-center justify-between h-16 px-4 bg-white border-b">
-    <div>
-      <!-- Can add breadcrumbs or page title here -->
-    </div>
+  <header class="flex items-center justify-between px-4 bg-white border-b">
     <div class="flex items-center gap-4">
-      <LanguageSwitcher />
-      <div v-if="auth.isAuthenticated && auth.user" class="flex items-center gap-4">
-        <span>{{ auth.user.displayName }}</span>
-        <Button @click="handleLogout" variant="ghost" size="icon">
-          <LogOut class="w-5 h-5" />
-        </Button>
+      <div class="px-4 py-2">
+        <!--Label for="retreat-selector" class="text-sm font-medium text-gray-400 mb-1">{{ $t('sidebar.retreat') }}</Label-->
+        <div v-if="retreatStore.loading">{{ $t('sidebar.loadingRetreats') }}</div>
+        <div v-else-if="retreatStore.retreats.length === 0" class="text-center">
+          <p class="text-sm text-gray-400 mb-2">{{ $t('sidebar.noRetreatsFound') }}</p>
+          <Button @click="isAddModalOpen = true" class="w-full">
+            <Plus class="w-4 h-4 mr-2" />
+            {{ $t('sidebar.addRetreat') }}
+          </Button>
+        </div>
+        <div v-else class="flex items-center space-x-2">
+          <Select v-model="retreatStore.selectedRetreatId">
+            <SelectTrigger id="retreat-selector">
+              <SelectValue :placeholder="$t('sidebar.selectRetreat')" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem v-for="retreat in retreatStore.retreats" :key="retreat.id" :value="retreat.id">
+                  {{ retreat.parish }} - {{ new Date(retreat.startDate).toLocaleDateString() }}
+                </SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <Button @click="isAddModalOpen = true" variant="outline" size="icon">
+            <Plus class="w-5 h-5" />
+          </Button>
+          <Button
+            v-if="retreatStore.selectedRetreatId"
+            @click="isEditModalOpen = true"
+            variant="outline"
+            size="icon"
+          >
+            <Edit class="w-5 h-5" />
+          </Button>
+        </div>
       </div>
     </div>
+    <div>
+      <LanguageSwitcher />
+    </div>
   </header>
+  <AddRetreatModal :open="isAddModalOpen" @update:open="isAddModalOpen = $event" @submit="handleAddRetreat" />
+  <EditRetreatModal
+    :open="isEditModalOpen"
+    @update:open="isEditModalOpen = $event"
+    :retreat="retreatStore.selectedRetreat"
+    @submit="handleEditRetreat"
+  />
 </template>
 
 <script setup lang="ts">
-import { LogOut } from 'lucide-vue-next';
-import { useAuthStore } from '@/stores/authStore';
-import { useRouter } from 'vue-router';
+import { onMounted, ref, computed } from 'vue';
+import { useRetreatStore } from '@/stores/retreatStore';
+import type { CreateRetreat, Retreat } from '@repo/types'; // Import Retreat type
+import { Plus, Edit } from 'lucide-vue-next'; // Import Edit icon
+import AddRetreatModal from '@/components/AddRetreatModal.vue';
+import EditRetreatModal from '@/components/EditRetreatModal.vue'; // New import
 import { Button } from '@repo/ui/components/ui/button';
+import { Label } from '@repo/ui/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@repo/ui/components/ui/select';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 
-const auth = useAuthStore();
-const router = useRouter();
+const retreatStore = useRetreatStore();
+const isAddModalOpen = ref(false);
+const isEditModalOpen = ref(false); // New ref for edit modal
 
-const handleLogout = async () => {
-  await auth.logout();
-  router.push('/login');
+onMounted(() => {
+  retreatStore.fetchRetreats();
+});
+
+const handleAddRetreat = async (retreatData: CreateRetreat) => {
+  try {
+    await retreatStore.createRetreat(retreatData);
+    isAddModalOpen.value = false;
+  } catch (err) {
+    console.error('Failed to create retreat:', err);
+  }
+};
+
+const handleEditRetreat = async (retreatData: Retreat) => { // New function for editing
+  try {
+    // Assuming an updateRetreat action exists in retreatStore
+    await retreatStore.updateRetreat(retreatData); // This action needs to be implemented in retreatStore
+    isEditModalOpen.value = false;
+  } catch (err) {
+    console.error('Failed to update retreat:', err);
+  }
 };
 </script>

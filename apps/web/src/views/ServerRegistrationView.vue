@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner';
-import { ref } from 'vue';
-import { useRoute } from 'vue-router';
+import { ref, watch } from 'vue'; // Import watch
 import { z } from 'zod';
 import { serverSchema, Server } from '@repo/types';
 
@@ -14,23 +13,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@repo/ui/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@repo/ui/components/ui/radio-group';
 
-const route = useRoute();
+const props = defineProps<{ retreatId: string }>(); // Define prop
 
-
-const retreatId = route.params.retreatId as string;
-
-const formData = ref<Partial<Omit<Server, 'id'>>>({
-  retreatId,
+const formData = ref<Partial<Omit<Server, 'id'>>>({ // Initialize with prop
+  retreatId: props.retreatId,
   type: 'server',
   sacraments: [],
- });
+});
+
+// Watch for changes in retreatId prop and update formData
+watch(() => props.retreatId, (newRetreatId) => {
+  formData.value.retreatId = newRetreatId;
+}, { immediate: true });
 
 const onSubmit = async () => {
   try {
     const validatedData = serverSchema.parse(formData.value);
     // TODO: Call API to save data
     console.log(validatedData);
-        toast('Registration Successful');
+    toast('Registration Successful');
   } catch (error) {
     if (error instanceof z.ZodError) {
       toast.error('Validation Error', { description: error.errors.map((e) => e.message).join('\n') });

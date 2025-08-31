@@ -16,7 +16,8 @@
     "loadingRetreats": "Loading retreats...",
     "noRetreatsFound": "No retreats found.",
     "addRetreat": "Add Retreat",
-    "selectRetreat": "Select a retreat"
+    "selectRetreat": "Select a retreat",
+    "retreatDashboard": "Retreat Dashboard"
   },
   "walkers": {
     "title": "Walkers",
@@ -51,6 +52,28 @@
     "successDescription": "The retreat has been created successfully. Here are the registration links:",
     "walkerUrl": "Walker Registration URL",
     "serverUrl": "Server Registration URL"
+  },
+  "editRetreatModal": {
+    "title": "Edit Retreat",
+    "description": "Edit the details of the retreat.",
+    "parish": "Parish Name",
+    "startDate": "Start Date",
+    "endDate": "EndDate",
+    "house": "House",
+    "selectHouse": "Select a house",
+    "saveChanges": "Save Changes"
+  },
+  "retreatDashboard": {
+    "title": "Retreat Dashboard",
+    "selectedRetreat": "Selected Retreat",
+    "walkersCount": "Number of Walkers",
+    "serversCount": "Number of Servers",
+    "walkerRegistrationLink": "Public Walker Registration Link",
+    "serverRegistrationLink": "Public Server Registration Link",
+    "noRetreatSelected": "No retreat selected. Please select or add a retreat.",
+    "copyLink": "Copy Link",
+    "openLink": "Open Link",
+    "linkCopied": "Link copied to clipboard!"
   },
   "language": {
     "english": "English",

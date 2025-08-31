@@ -16,7 +16,7 @@
             <Input
               id="email"
               type="email"
-              :placeholder="$t('login.emailPlaceholder')"
+              placeholder="user@example.com"
               required
               v-model="email"
             />

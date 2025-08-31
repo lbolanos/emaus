@@ -16,6 +16,27 @@ export const useRetreatStore = defineStore('retreat', () => {
     return null;
   });
 
+  const selectedRetreat = computed(() => { // New computed property
+    if (selectedRetreatId.value) {
+      return retreats.value.find(retreat => retreat.id === selectedRetreatId.value) || null;
+    }
+    return null;
+  });
+
+  const walkerRegistrationLink = computed(() => {
+    if (selectedRetreatId.value) {
+      return `${window.location.origin}/register/walker/${selectedRetreatId.value}`;
+    }
+    return '';
+  });
+
+  const serverRegistrationLink = computed(() => {
+    if (selectedRetreatId.value) {
+      return `${window.location.origin}/register/server/${selectedRetreatId.value}`;
+    }
+    return '';
+  });
+
   function selectRetreat(retreatId: string) {
     selectedRetreatId.value = retreatId;
   }
@@ -26,7 +47,7 @@ export const useRetreatStore = defineStore('retreat', () => {
     try {
       const response = await api.get('/retreats');
       retreats.value = response.data;
-      if (mostRecentRetreat.value) {
+      if (mostRecentRetreat.value && !selectedRetreatId.value) { // Only select if nothing is selected
         selectRetreat(mostRecentRetreat.value.id);
       }
     } catch (err) {
@@ -51,14 +72,36 @@ export const useRetreatStore = defineStore('retreat', () => {
     }
   }
 
+  // Add updateRetreat action for EditRetreatModal
+  async function updateRetreat(retreatData: Retreat) {
+    loading.value = true;
+    error.value = null;
+    try {
+      const response = await api.put(`/retreats/${retreatData.id}`, retreatData);
+      const index = retreats.value.findIndex(r => r.id === retreatData.id);
+      if (index !== -1) {
+        retreats.value[index] = response.data;
+      }
+    } catch (err) {
+      error.value = 'Failed to update retreat.';
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   return {
     retreats,
     selectedRetreatId,
     loading,
     error,
     mostRecentRetreat,
+    selectedRetreat, // Export new computed property
     selectRetreat,
     fetchRetreats,
     createRetreat,
+    updateRetreat, // Export new action
+    walkerRegistrationLink,
+    serverRegistrationLink,
   };
 });

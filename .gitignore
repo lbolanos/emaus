@@ -2,6 +2,7 @@
 .turbo/
 .github/
 .env
+dist/
 gha-creds-*.json
 node_modules/
 apps/api/database.sqlite
