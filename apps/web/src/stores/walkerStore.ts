@@ -22,7 +22,7 @@ export const useWalkerStore = defineStore('walker', () => {
     loading.value = true;
     error.value = null;
     try {
-      const response = await api.get('/walkers', { params: { retreatId } });
+      const response = await api.get('/participants', { params: { retreatId } });
       walkers.value = response.data;
     } catch (err) {
       error.value = 'Failed to fetch walkers.';
@@ -35,7 +35,7 @@ export const useWalkerStore = defineStore('walker', () => {
     loading.value = true;
     error.value = null;
     try {
-      const response = await api.post('/walkers', walkerData);
+      const response = await api.post('/participants/walker', walkerData);
       walkers.value.push(response.data);
     } catch (err) {
       error.value = 'Failed to create walker.';

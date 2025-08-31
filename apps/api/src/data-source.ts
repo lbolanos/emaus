@@ -3,8 +3,7 @@ import { House } from './entities/house.entity';
 import { Room } from './entities/room.entity';
 import { Retreat } from './entities/retreat.entity';
 import { Table } from './entities/table.entity';
-import { Walker } from './entities/walker.entity';
-import { Server } from './entities/server.entity';
+import { Participant } from './entities/participant.entity';
 import { User } from './entities/user.entity';
 
 export const AppDataSource = new DataSource({
@@ -12,7 +11,7 @@ export const AppDataSource = new DataSource({
   database: 'database.sqlite',
   synchronize: true,
   logging: true,
-  entities: [House, Room, Retreat, Table, Walker, Server, User],
+  entities: [House, Room, Retreat, Table, Participant, User],
   migrations: [],
   subscribers: [],
 });

@@ -4,6 +4,8 @@ import WalkersView from '../views/WalkersView.vue';
 import LoginView from '../views/LoginView.vue';
 import RequestPasswordResetView from '../views/RequestPasswordResetView.vue';
 import ResetPasswordView from '../views/ResetPasswordView.vue';
+import WalkerRegistrationView from '../views/WalkerRegistrationView.vue';
+import ServerRegistrationView from '../views/ServerRegistrationView.vue';
 import { useAuthStore } from '@/stores/authStore';
 
 const router = createRouter({
@@ -23,6 +25,16 @@ const router = createRouter({
       path: '/reset-password',
       name: 'reset-password',
       component: ResetPasswordView,
+    },
+    {
+      path: '/retreat/:retreatId/walker-registration',
+      name: 'walker-registration',
+      component: WalkerRegistrationView,
+    },
+    {
+      path: '/retreat/:retreatId/server-registration',
+      name: 'server-registration',
+      component: ServerRegistrationView,
     },
     {
       path: '/',

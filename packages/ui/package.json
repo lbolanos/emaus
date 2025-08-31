@@ -6,11 +6,15 @@
     "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
+    "@vueuse/core": "^13.8.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
+    "embla-carousel-vue": "^8.6.0",
     "lucide-vue-next": "^0.363.0",
     "radix-vue": "^1.6.2",
-    "tailwind-merge": "^2.2.2"
+    "reka-ui": "^2.5.0",
+    "tailwind-merge": "^2.2.2",
+    "vue-sonner": "^2.0.8"
   },
   "devDependencies": {
     "@repo/config": "workspace:*",
@@ -26,6 +30,19 @@
     "./components/ui/dialog": "./src/components/ui/dialog/index.ts",
     "./components/ui/table": "./src/components/ui/table/index.ts",
     "./components/ui/select": "./src/components/ui/select/index.ts",
+    "./components/ui/tabs": "./src/components/ui/tabs/index.ts",
+    "./components/ui/sonner": "./src/components/ui/sonner/index.ts",
+    "./components/ui/checkbox": "./src/components/ui/checkbox/index.ts",
+    "./components/ui/switch": "./src/components/ui/switch/index.ts",
+    "./components/ui/radio-group": "./src/components/ui/radio-group/index.ts",
+    "./components/ui/popover": "./src/components/ui/popover/index.ts",
+    "./components/ui/tooltip": "./src/components/ui/tooltip/index.ts",
+    "./components/ui/alert": "./src/components/ui/alert/index.ts",
+    "./components/ui/avatar": "./src/components/ui/avatar/index.ts",
+    "./components/ui/badge": "./src/components/ui/badge/index.ts",
+    "./components/ui/calendar": "./src/components/ui/calendar/index.ts",
+    "./components/ui/carousel": "./src/components/ui/carousel/index.ts",
+    "./components/ui/dropdown-menu": "./src/components/ui/dropdown-menu/index.ts",
     "./lib/utils": "./src/lib/utils.ts"
   }
 }

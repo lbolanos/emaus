@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from 'typeorm';
 import { House } from './house.entity';
-import { Walker } from './walker.entity';
+import { Participant } from './participant.entity';
 
 @Entity()
 export class Room {
@@ -16,6 +16,6 @@ export class Room {
   @ManyToOne(() => House, (house) => house.rooms)
   house!: House;
 
-  @OneToMany(() => Walker, (walker) => walker.room)
-  walkers!: Walker[];
+  @OneToMany(() => Participant, (participant) => participant.room)
+  participants!: Participant[];
 }

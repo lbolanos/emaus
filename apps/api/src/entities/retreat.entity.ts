@@ -1,7 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from 'typeorm';
 import { House } from './house.entity';
-import { Walker } from './walker.entity';
-import { Server } from './server.entity';
+import { Participant } from './participant.entity';
 import { Table } from './table.entity';
 
 @Entity()
@@ -24,11 +23,8 @@ export class Retreat {
   @ManyToOne(() => House, (house) => house.retreats, { nullable: true })
   house?: House;
 
-  @OneToMany(() => Walker, (walker) => walker.retreat)
-  walkers!: Walker[];
-
-  @OneToMany(() => Server, (server) => server.retreat)
-  servers!: Server[];
+  @OneToMany(() => Participant, (participant) => participant.retreat)
+  participants!: Participant[];
 
   @OneToMany(() => Table, (table) => table.retreat)
   tables!: Table[];

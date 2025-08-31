@@ -56,6 +56,29 @@
       </form>
     </DialogContent>
   </Dialog>
+  <Dialog :open="showSuccessDialog" @update:open="closeSuccessDialog">
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>{{ $t('addRetreatModal.successTitle') }}</DialogTitle>
+        <DialogDescription>
+          {{ $t('addRetreatModal.successDescription') }}
+        </DialogDescription>
+      </DialogHeader>
+      <div class="space-y-4">
+        <div>
+          <Label>{{ $t('addRetreatModal.walkerUrl') }}</Label>
+          <Input :model-value="walkerUrl" readonly />
+        </div>
+        <div>
+          <Label>{{ $t('addRetreatModal.serverUrl') }}</Label>
+          <Input :model-value="serverUrl" readonly />
+        </div>
+      </div>
+      <DialogFooter>
+        <Button @click="closeSuccessDialog">{{ $t('common.close') }}</Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>
 
 <script setup lang="ts">
@@ -83,7 +106,7 @@ import {
 } from '@repo/ui/components/ui/select';
 
 const props = defineProps<{ open: boolean }>();
-const emit = defineEmits<{ (e: 'update:open', value: boolean): void; (e: 'submit', data: CreateRetreat): void }>();
+const emit = defineEmits<{ (e: 'update:open', value: boolean): void; (e: 'submit', data: CreateRetreat): Promise<Retreat | undefined> }>();
 
 const houseStore = useHouseStore();
 
@@ -112,8 +135,29 @@ const endDate = computed({
   set: (val) => formData.value.endDate = new Date(val),
 });
 
-const handleSubmit = () => {
-  emit('submit', { ...formData.value });
+const showSuccessDialog = ref(false);
+const createdRetreat = ref<Retreat | null>(null);
+
+const walkerUrl = computed(() => {
+  if (!createdRetreat.value) return '';
+  return `${window.location.origin}/retreat/${createdRetreat.value.id}/walker-registration`;
+});
+
+const serverUrl = computed(() => {
+  if (!createdRetreat.value) return '';
+  return `${window.location.origin}/retreat/${createdRetreat.value.id}/server-registration`;
+});
+
+const handleSubmit = async () => {
+  const retreat = await emit('submit', { ...formData.value });
+  if (retreat) {
+    createdRetreat.value = retreat;
+    showSuccessDialog.value = true;
+  }
+};
+
+const closeSuccessDialog = () => {
+  showSuccessDialog.value = false;
   emit('update:open', false);
 };
 </script>

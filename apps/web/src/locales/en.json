@@ -46,10 +46,166 @@
     "house": "House",
     "selectHouse": "Select a house",
     "submit": "Save Retreat",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "successTitle": "Retreat Created",
+    "successDescription": "The retreat has been created successfully. Here are the registration links:",
+    "walkerUrl": "Walker Registration URL",
+    "serverUrl": "Server Registration URL"
   },
   "language": {
     "english": "English",
     "spanish": "Spanish"
+  },
+  "common": {
+    "yes": "Yes",
+    "no": "No",
+    "submit": "Submit"
+  },
+  "walkerRegistration": {
+    "title": "Walker Registration",
+    "tabs": {
+      "personalInfo": "Personal Information",
+      "healthInfo": "Health Information",
+      "emergencyContact": "Emergency Contact",
+      "otherInfo": "Other Information"
+    },
+    "fields": {
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "nickname": "Nickname",
+      "birthDate": "Date of Birth",
+      "maritalStatus": {
+        "label": "Marital Status",
+        "placeholder": "Select your marital status",
+        "options": {
+          "single": "Single",
+          "married": "Married",
+          "separated_divorced": "Separated/Divorced",
+          "widowed": "Widowed",
+          "other": "Other"
+        }
+      },
+      "street": "Street",
+      "houseNumber": "No.",
+      "postalCode": "Postal Code",
+      "neighborhood": "Neighborhood",
+      "city": "City/Municipality",
+      "state": "State",
+      "country": "Country",
+      "parish": "Parish",
+      "homePhone": "Home Phone",
+      "workPhone": "Work Phone",
+      "cellPhone": "Cell Phone",
+      "email": "Email",
+      "occupation": "Occupation",
+      "snores": "Do you snore when you sleep?",
+      "hasMedication": "Are you taking any special medication?",
+      "medicationDetails": "Which one?",
+      "medicationSchedule": "At what time or how often?",
+      "hasDietaryRestrictions": "Do you have any dietary restrictions?",
+      "dietaryRestrictionsDetails": "Which one?",
+      "sacraments": {
+        "label": "Sacraments received",
+        "options": {
+          "baptism": "Baptism",
+          "communion": "Communion",
+          "confirmation": "Confirmation",
+          "marriage": "Marriage",
+          "none": "None"
+        }
+      },
+      "emergencyContact": {
+        "name": "Name",
+        "relation": "Relation",
+        "homePhone": "Home Phone",
+        "workPhone": "Work Phone",
+        "cellPhone": "Cell Phone",
+        "email": "Email"
+      },
+      "tshirtSize": {
+        "label": "T-Shirt Size",
+        "placeholder": "Select a size",
+        "options": {
+          "s": "Small (S)",
+          "m": "Medium (M)",
+          "l": "Large (L)",
+          "xl": "Extra Large (XL)",
+          "xxl": "Extra Extra Large (XXL)"
+        }
+      },
+      "invitedBy": "Invited by",
+      "isInvitedByEmausMember": "Does the person who invited you belong to Emaus?",
+      "inviterHomePhone": "Inviter's Home Phone",
+      "inviterWorkPhone": "Inviter's Work Phone",
+      "inviterCellPhone": "Inviter's Cell Phone",
+      "inviterEmail": "Inviter's Email",
+      "pickupLocation": "Convenient meeting point",
+      "arrivesOnOwn": "I will arrive on my own"
+    },
+    "emergencyContact1": "In case of emergency, contact (1):",
+    "emergencyContact2": "In case of emergency, contact (2):"
+  },
+  "serverRegistration": {
+    "title": "Server Registration",
+    "tabs": {
+      "personalInfo": "Personal Information",
+      "healthInfo": "Health Information",
+      "emergencyContact": "Emergency Contact"
+    },
+    "fields": {
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "nickname": "Nickname",
+      "birthDate": "Date of Birth",
+      "maritalStatus": {
+        "label": "Marital Status",
+        "placeholder": "Select your marital status",
+        "options": {
+          "single": "Single",
+          "married": "Married",
+          "separated_divorced": "Separated/Divorced",
+          "widowed": "Widowed",
+          "other": "Other"
+        }
+      },
+      "street": "Street",
+      "houseNumber": "No.",
+      "postalCode": "Postal Code",
+      "neighborhood": "Neighborhood/County/etc..",
+      "city": "City/Municipality",
+      "state": "State/Province/Department",
+      "country": "Country",
+      "parish": "Parish",
+      "homePhone": "Home Phone",
+      "workPhone": "Work Phone",
+      "cellPhone": "Cell Phone",
+      "email": "Email",
+      "occupation": "Occupation",
+      "snores": "Do you snore when you sleep?",
+      "hasMedication": "Are you taking any special medication?",
+      "medicationDetails": "Which one?",
+      "hasDietaryRestrictions": "Do you have any dietary restrictions?",
+      "dietaryRestrictionsDetails": "Which one?",
+      "sacraments": {
+        "label": "Sacraments received",
+        "options": {
+          "baptism": "Baptism",
+          "communion": "Communion",
+          "confirmation": "Confirmation",
+          "marriage": "Marriage",
+          "none": "None"
+        }
+      },
+      "emergencyContact": {
+        "name": "Name",
+        "relation": "Relation",
+        "homePhone": "Home Phone",
+        "workPhone": "Work Phone",
+        "cellPhone": "Cell Phone",
+        "email": "Email"
+      }
+    },
+    "emergencyContact1": "In case of emergency, contact (1):",
+    "emergencyContact2": "In case of emergency, contact (2):"
   }
 }

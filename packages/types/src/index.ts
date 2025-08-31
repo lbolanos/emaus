@@ -39,56 +39,95 @@ export const tableSchema = z.object({
 });
 export type Table = z.infer<typeof tableSchema>;
 
-// Walker Schema
-export const walkerSchema = z.object({
+// Participant Schema
+export const participantSchema = z.object({
   id: idSchema,
+  type: z.enum(['walker', 'server']),
   firstName: z.string(),
   lastName: z.string(),
+  nickname: z.string().optional(),
+  birthDate: z.coerce.date(),
+  maritalStatus: z.enum(['single', 'married', 'separated_divorced', 'widowed', 'other']),
+  street: z.string(),
+  houseNumber: z.string(),
+  postalCode: z.string(),
+  neighborhood: z.string(),
+  city: z.string(),
+  state: z.string(),
+  country: z.string(),
+  parish: z.string().optional(),
+  homePhone: z.string().optional(),
+  workPhone: z.string().optional(),
+  cellPhone: z.string(),
   email: z.string().email(),
+  occupation: z.string(),
+  snores: z.boolean(),
+  hasMedication: z.boolean(),
+  medicationDetails: z.string().optional(),
+  medicationSchedule: z.string().optional(),
+  hasDietaryRestrictions: z.boolean(),
+  dietaryRestrictionsDetails: z.string().optional(),
+  sacraments: z.array(z.enum(['baptism', 'communion', 'confirmation', 'marriage', 'none'])),
+  emergencyContact1Name: z.string(),
+  emergencyContact1Relation: z.string(),
+  emergencyContact1HomePhone: z.string().optional(),
+  emergencyContact1WorkPhone: z.string().optional(),
+  emergencyContact1CellPhone: z.string(),
+  emergencyContact1Email: z.string().email().optional(),
+  emergencyContact2Name: z.string().optional(),
+  emergencyContact2Relation: z.string().optional(),
+  emergencyContact2HomePhone: z.string().optional(),
+  emergencyContact2WorkPhone: z.string().optional(),
+  emergencyContact2CellPhone: z.string().optional(),
+  emergencyContact2Email: z.string().email().optional(),
+  tshirtSize: z.enum(['S', 'M', 'L', 'XL', 'XXL']).optional(),
+  invitedBy: z.string().optional(),
+  isInvitedByEmausMember: z.boolean().optional(),
+  inviterHomePhone: z.string().optional(),
+  inviterWorkPhone: z.string().optional(),
+  inviterCellPhone: z.string().optional(),
+  inviterEmail: z.string().email().optional(),
+  pickupLocation: z.string().optional(),
+  arrivesOnOwn: z.boolean().optional(),
   retreatId: idSchema,
   tableId: idSchema.optional(),
   roomId: idSchema.optional(),
 });
-export type Walker = z.infer<typeof walkerSchema>;
 
-// Server Schema
-export const serverSchema = z.object({
-  id: idSchema,
-  firstName: z.string(),
-  lastName: z.string(),
-  role: z.string(),
-  retreatId: idSchema,
-  tableId: idSchema.optional(),
+export const walkerSchema = participantSchema.extend({
+  type: z.literal('walker'),
 });
+
+export const serverSchema = participantSchema.extend({
+  type: z.literal('server'),
+});
+
+export type Participant = z.infer<typeof participantSchema>;
+export type Walker = z.infer<typeof walkerSchema>;
 export type Server = z.infer<typeof serverSchema>;
+
 
 // --- API Request Schemas ---
 
-// POST /walkers
+// POST /participants/walker
 export const createWalkerSchema = z.object({
   body: walkerSchema.omit({ id: true }),
 });
 export type CreateWalker = z.infer<typeof createWalkerSchema.shape.body>;
 
-// PUT /walkers/:id
-export const updateWalkerSchema = z.object({
-  body: walkerSchema.partial(),
-  params: z.object({ id: idSchema }),
-});
-export type UpdateWalker = z.infer<typeof updateWalkerSchema.shape.body>;
-
-// POST /servers
+// POST /participants/server
 export const createServerSchema = z.object({
   body: serverSchema.omit({ id: true }),
 });
 export type CreateServer = z.infer<typeof createServerSchema.shape.body>;
 
-// PUT /servers/:id
-export const updateServerSchema = z.object({
-  body: serverSchema.partial(),
+// PUT /participants/:id
+export const updateParticipantSchema = z.object({
+  body: participantSchema.partial(),
   params: z.object({ id: idSchema }),
 });
-export type UpdateServer = z.infer<typeof updateServerSchema.shape.body>;
+export type UpdateParticipant = z.infer<typeof updateParticipantSchema.shape.body>;
+
 
 // POST /retreats
 export const createRetreatSchema = z.object({

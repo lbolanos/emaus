@@ -46,10 +46,166 @@
     "house": "Casa",
     "selectHouse": "Selecciona una casa",
     "submit": "Guardar Retiro",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "successTitle": "Retiro Creado",
+    "successDescription": "El retiro ha sido creado exitosamente. Aquí están los enlaces de registro:",
+    "walkerUrl": "URL de Registro de Caminante",
+    "serverUrl": "URL de Registro de Servidor"
   },
   "language": {
     "english": "Inglés",
     "spanish": "Español"
+  },
+  "common": {
+    "yes": "Sí",
+    "no": "No",
+    "submit": "Enviar"
+  },
+  "walkerRegistration": {
+    "title": "Registro de Caminante",
+    "tabs": {
+      "personalInfo": "Información Personal",
+      "healthInfo": "Información de Salud",
+      "emergencyContact": "Contacto de Emergencia",
+      "otherInfo": "Otra Información"
+    },
+    "fields": {
+      "firstName": "Nombre",
+      "lastName": "Apellidos",
+      "nickname": "Apodo",
+      "birthDate": "Fecha de Nacimiento",
+      "maritalStatus": {
+        "label": "Estado Civil",
+        "placeholder": "Selecciona tu estado civil",
+        "options": {
+          "single": "Soltero",
+          "married": "Casado",
+          "separated_divorced": "Separado/Divorciado",
+          "widowed": "Viudo",
+          "other": "Otro"
+        }
+      },
+      "street": "Calle",
+      "houseNumber": "No.",
+      "postalCode": "Código Postal",
+      "neighborhood": "Colonia",
+      "city": "Ciudad/Municipio",
+      "state": "Estado",
+      "country": "País",
+      "parish": "Parroquia",
+      "homePhone": "Teléfono Casa",
+      "workPhone": "Teléfono Trabajo",
+      "cellPhone": "Teléfono Celular",
+      "email": "Correo Electrónico",
+      "occupation": "Ocupación",
+      "snores": "¿Roncas al dormir?",
+      "hasMedication": "¿Tomas alguna medicina en especial/Enfermedad?",
+      "medicationDetails": "¿Cuál?",
+      "medicationSchedule": "¿A qué horas o cada cuánto?",
+      "hasDietaryRestrictions": "¿Tiene alguna restricción en su alimentación?",
+      "dietaryRestrictionsDetails": "¿Cuál?",
+      "sacraments": {
+        "label": "Sacramentos recibidos",
+        "options": {
+          "baptism": "Bautismo",
+          "communion": "Comunión",
+          "confirmation": "Confirmación",
+          "marriage": "Matrimonio",
+          "none": "Ninguno"
+        }
+      },
+      "emergencyContact": {
+        "name": "Nombre",
+        "relation": "Relación",
+        "homePhone": "Teléfono Casa",
+        "workPhone": "Teléfono Trabajo",
+        "cellPhone": "Teléfono Celular",
+        "email": "Correo Electrónico"
+      },
+      "tshirtSize": {
+        "label": "Tamaño Camiseta",
+        "placeholder": "Selecciona una talla",
+        "options": {
+          "s": "Pequeña (S)",
+          "m": "Mediana (M)",
+          "l": "Grande (L)",
+          "xl": "Extra Grande (XL)",
+          "xxl": "Extra Extra Grande (XXL)"
+        }
+      },
+      "invitedBy": "Invitado por",
+      "isInvitedByEmausMember": "¿Quien te invitó, pertenece a Emaús?",
+      "inviterHomePhone": "Teléfono Casa del que invita",
+      "inviterWorkPhone": "Teléfono Trabajo del que invita",
+      "inviterCellPhone": "Teléfono Celular del que invita",
+      "inviterEmail": "Correo Electrónico del que invita",
+      "pickupLocation": "Punto de encuentro conveniente",
+      "arrivesOnOwn": "Llego por mi cuenta"
+    },
+    "emergencyContact1": "En caso de emergencia contactar a (1):",
+    "emergencyContact2": "En caso de emergencia contactar a (2):"
+  },
+  "serverRegistration": {
+    "title": "Registro de Servidor",
+    "tabs": {
+      "personalInfo": "Información Personal",
+      "healthInfo": "Información de Salud",
+      "emergencyContact": "Contacto de Emergencia"
+    },
+    "fields": {
+      "firstName": "Nombre",
+      "lastName": "Apellidos",
+      "nickname": "Apodo",
+      "birthDate": "Fecha de Nacimiento",
+      "maritalStatus": {
+        "label": "Estado Civil",
+        "placeholder": "Selecciona tu estado civil",
+        "options": {
+          "single": "Soltero",
+          "married": "Casado",
+          "separated_divorced": "Separado/Divorciado",
+          "widowed": "Viudo",
+          "other": "Otro"
+        }
+      },
+      "street": "Calle",
+      "houseNumber": "No.",
+      "postalCode": "Código Postal",
+      "neighborhood": "Colonia/Condado/etc..",
+      "city": "Ciudad/Municipio",
+      "state": "Estado/Provincia/Departamento",
+      "country": "País",
+      "parish": "Parroquia",
+      "homePhone": "Teléfono Casa",
+      "workPhone": "Teléfono Trabajo",
+      "cellPhone": "Teléfono Celular",
+      "email": "Correo Electrónico",
+      "occupation": "Ocupación",
+      "snores": "¿Roncas al dormir?",
+      "hasMedication": "¿Tomas alguna medicina en especial?",
+      "medicationDetails": "¿Cuál?",
+      "hasDietaryRestrictions": "¿Tiene alguna restricción en su alimentación?",
+      "dietaryRestrictionsDetails": "¿Cuál?",
+      "sacraments": {
+        "label": "Sacramentos recibidos",
+        "options": {
+          "baptism": "Bautismo",
+          "communion": "Comunión",
+          "confirmation": "Confirmación",
+          "marriage": "Matrimonio",
+          "none": "Ninguno"
+        }
+      },
+      "emergencyContact": {
+        "name": "Nombre",
+        "relation": "Relación",
+        "homePhone": "Teléfono Casa",
+        "workPhone": "Teléfono Trabajo",
+        "cellPhone": "Teléfono Celular",
+        "email": "Correo Electrónico"
+      }
+    },
+    "emergencyContact1": "En caso de emergencia contactar a (1):",
+    "emergencyContact2": "En caso de emergencia contactar a (2):"
   }
 }
