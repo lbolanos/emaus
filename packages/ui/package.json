@@ -5,6 +5,13 @@
   "scripts": {
     "lint": "eslint . --max-warnings 0"
   },
+  "dependencies": {
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.0",
+    "lucide-vue-next": "^0.363.0",
+    "radix-vue": "^1.6.2",
+    "tailwind-merge": "^2.2.2"
+  },
   "devDependencies": {
     "@repo/config": "workspace:*",
     "@repo/tsconfig": "workspace:*",
@@ -12,6 +19,13 @@
     "typescript": "^5.3.3"
   },
   "exports": {
-    "./Button.vue": "./src/Button.vue"
+    "./components/ui/button": "./src/components/ui/button/index.ts",
+    "./components/ui/input": "./src/components/ui/input/index.ts",
+    "./components/ui/label": "./src/components/ui/label/index.ts",
+    "./components/ui/card": "./src/components/ui/card/index.ts",
+    "./components/ui/dialog": "./src/components/ui/dialog/index.ts",
+    "./components/ui/table": "./src/components/ui/table/index.ts",
+    "./components/ui/select": "./src/components/ui/select/index.ts",
+    "./lib/utils": "./src/lib/utils.ts"
   }
 }

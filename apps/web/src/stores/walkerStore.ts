@@ -10,6 +10,10 @@ export const useWalkerStore = defineStore('walker', () => {
 
   const walkerCount = computed(() => walkers.value.length);
 
+  function clearWalkers() {
+    walkers.value = [];
+  }
+
   async function fetchWalkers(retreatId: string) {
     if (!retreatId) {
       walkers.value = [];
@@ -41,5 +45,5 @@ export const useWalkerStore = defineStore('walker', () => {
     }
   }
 
-  return { walkers, loading, error, walkerCount, fetchWalkers, createWalker };
+  return { walkers, loading, error, walkerCount, fetchWalkers, createWalker, clearWalkers };
 })

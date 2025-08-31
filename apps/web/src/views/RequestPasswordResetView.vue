@@ -1,41 +1,55 @@
 <template>
-  <div class="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-    <div class="sm:mx-auto sm:w-full sm:max-w-md">
-      <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">Reset your password</h2>
-      <p class="mt-2 text-center text-sm text-gray-600">
-        Enter your email address and we will send you a link to reset your password.
-      </p>
-    </div>
-
-    <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-      <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-        <div v-if="message" class="text-green-500 text-sm mb-4">
-          {{ message }}
+  <div class="min-h-screen bg-background flex flex-col justify-center items-center p-4">
+    <Card class="w-full max-w-md">
+      <CardHeader class="space-y-1 text-center">
+        <CardTitle class="text-2xl">
+          Reset your password
+        </CardTitle>
+        <CardDescription>
+          Enter your email address and we will send you a link to reset your password.
+        </CardDescription>
+      </CardHeader>
+      <CardContent class="grid gap-4">
+        <div v-if="message" class="text-center">
+          <p class="text-green-500 text-sm mb-4">{{ message }}</p>
+          <Button variant="link" @click="message = null">Try another email</Button>
         </div>
-        <form v-else class="space-y-6" @submit.prevent="handleRequest">
-          <div>
-            <label for="email" class="block text-sm font-medium text-gray-700"> Email address </label>
-            <div class="mt-1">
-              <input v-model="email" id="email" name="email" type="email" autocomplete="email" required class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900" />
-            </div>
+        <form v-else @submit.prevent="handleRequest" class="grid gap-4">
+          <div class="grid gap-2">
+            <Label for="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="m@example.com"
+              required
+              v-model="email"
+            />
           </div>
-
-          <div v-if="error" class="text-red-500 text-sm">
+          <div v-if="error" class="text-destructive text-sm">
             {{ error }}
           </div>
-
-          <div>
-            <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Send password reset email</button>
-          </div>
+          <Button type="submit" class="w-full">
+            Send password reset email
+          </Button>
         </form>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
 import { api } from '@/services/api';
+import { Button } from '@repo/ui/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@repo/ui/components/ui/card';
+import { Input } from '@repo/ui/components/ui/input';
+import { Label } from '@repo/ui/components/ui/label';
 
 const email = ref('');
 const message = ref<string | null>(null);

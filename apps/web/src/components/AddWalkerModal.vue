@@ -1,32 +1,60 @@
 <template>
-  <SimpleModal :open="open" @update:open="emit('update:open', $event)" title="Add New Walker">
-    <form @submit.prevent="handleSubmit">
-      <div class="space-y-4">
-        <div>
-          <label for="firstName" class="block text-sm font-medium text-gray-700">First Name</label>
-          <input v-model="formData.firstName" type="text" id="firstName" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required />
+  <Dialog :open="open" @update:open="emit('update:open', $event)">
+    <DialogContent class="sm:max-w-[425px]">
+      <DialogHeader>
+        <DialogTitle>Add New Walker</DialogTitle>
+        <DialogDescription>
+          Enter the details of the new walker.
+        </DialogDescription>
+      </DialogHeader>
+      <form @submit.prevent="handleSubmit">
+        <div class="grid gap-4 py-4">
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="firstName" class="text-right">
+              First Name
+            </Label>
+            <Input id="firstName" v-model="formData.firstName" class="col-span-3" required />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="lastName" class="text-right">
+              Last Name
+            </Label>
+            <Input id="lastName" v-model="formData.lastName" class="col-span-3" required />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="email" class="text-right">
+              Email
+            </Label>
+            <Input id="email" type="email" v-model="formData.email" class="col-span-3" required />
+          </div>
         </div>
-        <div>
-          <label for="lastName" class="block text-sm font-medium text-gray-700">Last Name</label>
-          <input v-model="formData.lastName" type="text" id="lastName" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required />
-        </div>
-        <div>
-          <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
-          <input v-model="formData.email" type="email" id="email" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900" required />
-        </div>
-      </div>
-      <div class="mt-6 flex justify-end">
-        <button type="button" @click="emit('update:open', false)" class="mr-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Cancel</button>
-        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Save Walker</button>
-      </div>
-    </form>
-  </SimpleModal>
+        <DialogFooter>
+          <Button type="button" variant="outline" @click="emit('update:open', false)">
+            Cancel
+          </Button>
+          <Button type="submit">
+            Save Walker
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
+  </Dialog>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
 import type { CreateWalker } from '@repo/types';
-import SimpleModal from './SimpleModal.vue';
+import { Button } from '@repo/ui/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@repo/ui/components/ui/dialog';
+import { Input } from '@repo/ui/components/ui/input';
+import { Label } from '@repo/ui/components/ui/label';
 
 const props = defineProps<{ open: boolean; retreatId: string }>();
 const emit = defineEmits<{ (e: 'update:open', value: boolean): void; (e: 'submit', data: CreateWalker): void }>();
@@ -39,6 +67,12 @@ const formData = ref<Omit<CreateWalker, 'retreatId'>>({
 
 const handleSubmit = () => {
   emit('submit', { ...formData.value, retreatId: props.retreatId });
+  // Reset form after submit
+  formData.value = {
+    firstName: '',
+    lastName: '',
+    email: '',
+  };
   emit('update:open', false);
 };
 </script>

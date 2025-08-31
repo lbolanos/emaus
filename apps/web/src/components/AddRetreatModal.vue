@@ -1,40 +1,86 @@
 <template>
-  <SimpleModal :open="open" @update:open="emit('update:open', $event)" title="Add New Retreat">
-    <form @submit.prevent="handleSubmit">
-      <div class="space-y-4">
-        <div>
-          <label for="parish" class="block text-sm font-medium text-gray-700">Parish</label>
-          <input v-model="formData.parish" type="text" id="parish" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900" required />
+  <Dialog :open="open" @update:open="emit('update:open', $event)">
+    <DialogContent class="sm:max-w-[425px]">
+      <DialogHeader>
+        <DialogTitle>Add New Retreat</DialogTitle>
+        <DialogDescription>
+          Enter the details of the new retreat.
+        </DialogDescription>
+      </DialogHeader>
+      <form @submit.prevent="handleSubmit">
+        <div class="grid gap-4 py-4">
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="parish" class="text-right">
+              Parish
+            </Label>
+            <Input id="parish" v-model="formData.parish" class="col-span-3" required />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="startDate" class="text-right">
+              Start Date
+            </Label>
+            <Input id="startDate" type="date" v-model="startDate" class="col-span-3" required />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="endDate" class="text-right">
+              End Date
+            </Label>
+            <Input id="endDate" type="date" v-model="endDate" class="col-span-3" required />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="houseId" class="text-right">
+              House
+            </Label>
+            <Select v-model="formData.houseId">
+              <SelectTrigger class="col-span-3">
+                <SelectValue placeholder="Select a house" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem v-for="house in houseStore.houses" :key="house.id" :value="house.id">
+                    {{ house.name }}
+                  </SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        <div>
-          <label for="startDate" class="block text-sm font-medium text-gray-700">Start Date</label>
-          <input v-model="formData.startDate" type="date" id="startDate" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900" required />
-        </div>
-        <div>
-          <label for="endDate" class="block text-sm font-medium text-gray-700">End Date</label>
-          <input v-model="formData.endDate" type="date" id="endDate" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900" required />
-        </div>
-        <div>
-          <label for="houseId" class="block text-sm font-medium text-gray-700">House</label>
-          <select v-model="formData.houseId" id="houseId" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900">
-            <option value="">None</option>
-            <option v-for="house in houseStore.houses" :key="house.id" :value="house.id">{{ house.name }}</option>
-          </select>
-        </div>
-      </div>
-      <div class="mt-6 flex justify-end">
-        <button type="button" @click="emit('update:open', false)" class="mr-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Cancel</button>
-        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Save Retreat</button>
-      </div>
-    </form>
-  </SimpleModal>
+        <DialogFooter>
+          <Button type="button" variant="outline" @click="emit('update:open', false)">
+            Cancel
+          </Button>
+          <Button type="submit">
+            Save Retreat
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
+  </Dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import type { CreateRetreat } from '@repo/types';
 import { useHouseStore } from '@/stores/houseStore';
-import SimpleModal from './SimpleModal.vue';
+import { Button } from '@repo/ui/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@repo/ui/components/ui/dialog';
+import { Input } from '@repo/ui/components/ui/input';
+import { Label } from '@repo/ui/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@repo/ui/components/ui/select';
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ (e: 'update:open', value: boolean): void; (e: 'submit', data: CreateRetreat): void }>();
@@ -51,7 +97,19 @@ const formData = ref<CreateRetreat>({
   parish: '',
   startDate: new Date(),
   endDate: new Date(),
-  houseId: '',
+  houseId: undefined,
+});
+
+const toISODate = (date: Date) => date.toISOString().split('T')[0];
+
+const startDate = computed({
+  get: () => toISODate(formData.value.startDate),
+  set: (val) => formData.value.startDate = new Date(val),
+});
+
+const endDate = computed({
+  get: () => toISODate(formData.value.endDate),
+  set: (val) => formData.value.endDate = new Date(val),
 });
 
 const handleSubmit = () => {

@@ -5,9 +5,9 @@
     </div>
     <div v-if="auth.isAuthenticated && auth.user" class="flex items-center gap-4">
       <span>{{ auth.user.displayName }}</span>
-      <button @click="handleLogout" class="p-2 rounded-full hover:bg-gray-100">
+      <Button @click="handleLogout" variant="ghost" size="icon">
         <LogOut class="w-5 h-5" />
-      </button>
+      </Button>
     </div>
   </header>
 </template>
@@ -16,6 +16,7 @@
 import { LogOut } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter } from 'vue-router';
+import { Button } from '@repo/ui/components/ui/button';
 
 const auth = useAuthStore();
 const router = useRouter();
