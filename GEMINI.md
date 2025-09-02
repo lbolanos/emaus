@@ -73,6 +73,8 @@ Properties: id (UUID), googleId (string, optional), email (string, unique), disp
 
 Participant: Represents a person attending a retreat, either as a "walker" (attendee) or a "server" (staff).
 Properties: id (UUID), firstName (string), lastName (string), email (string), retreatId (FK to Retreat), tableId (FK to Table, optional), roomId (FK to Room, optional), sacraments (string[], values enforced by Zod schema: 'baptism', 'communion', 'confirmation', 'marriage', 'none').
+Walker-specific properties: palancaManagerId (FK to another Participant of type 'SERVER'), palancasRequested (number). numero de palancas solicitadas. numero de palancas recibidas
+
 
 Retreat: Represents a specific retreat event.
 Properties: id (UUID), parish (string), startDate (Date), endDate (Date), houseId (FK to House, optional).
@@ -85,6 +87,13 @@ Properties: id (UUID), roomNumber (string), capacity (number), houseId (FK to Ho
 
 Table: A group or table at a retreat.
 Properties: id (UUID), name (string), retreatId (FK to Retreat).
+
+
+PalancaLog: A record of a support contact ("palanca") made for a walker.
+Properties: id (UUID), note (text), contactDate (Date), participantId (FK to Participant of type 'WALKER').
+
+InventoryItem: An item in the retreat's material inventory.
+Properties: id (UUID), name (string), type (string), quantity (number), unit (string, e.g., 'sheets', 'units').
 
 </PROJECT:DATA_MODELS>
 
