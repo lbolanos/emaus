@@ -52,6 +52,7 @@ export const useAuthStore = defineStore('auth', () => {
         description: error.response?.data?.message || error.message || 'An unexpected error occurred.',
         variant: 'destructive',
       });
+      throw error.response?.data || error;
     } finally {
       loading.value = false;
     }
@@ -106,6 +107,7 @@ export const useAuthStore = defineStore('auth', () => {
         description: error.response?.data?.message || error.message || 'An unexpected error occurred.',
         variant: 'destructive',
       });
+      throw error.response?.data || error;
     } finally {
       loading.value = false;
     }
@@ -126,6 +128,7 @@ export const useAuthStore = defineStore('auth', () => {
         description: error.response?.data?.message || error.message || 'An unexpected error occurred.',
         variant: 'destructive',
       });
+      throw error.response?.data || error;
     } finally {
       loading.value = false;
     }

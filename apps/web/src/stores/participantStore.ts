@@ -20,6 +20,7 @@ export const useParticipantStore = defineStore('participant', () => {
         description: error.response?.data?.message || error.message || `Failed to fetch ${type}s`,
         variant: 'destructive',
       });
+      throw error;
     } finally {
       loading.value = false;
     }
@@ -40,6 +41,7 @@ export const useParticipantStore = defineStore('participant', () => {
         description: error.response?.data?.message || error.message || 'Failed to create Participant',
         variant: 'destructive',
       });
+      throw error;
     } finally {
       loading.value = false;
     }

@@ -26,6 +26,7 @@ export const useServerStore = defineStore('server', () => {
       servers.value = response.data;
     } catch (err) {
       error.value = 'Failed to fetch servers.';
+      throw err;
     } finally {
       loading.value = false;
     }

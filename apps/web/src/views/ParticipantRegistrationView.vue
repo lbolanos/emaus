@@ -270,13 +270,21 @@ const onSubmit = async () => {
     isDialogOpen.value = false
     currentStep.value = 1
     formData.value = getInitialFormData()
-  } catch (error) {
+  } catch (error: any) {
     console.error('Submission error:', error)
-    toast({
-      title: 'Submission Failed',
-      description: 'An unexpected error occurred during registration.',
-      variant: 'destructive',
-    })
+    if (error.response && error.response.status === 409) {
+      toast({
+        title: 'Registration Failed',
+        description: 'A participant with this email already exists in this retreat.',
+        variant: 'destructive',
+      })
+    } else {
+      toast({
+        title: 'Submission Failed',
+        description: 'An unexpected error occurred during registration.',
+        variant: 'destructive',
+      })
+    }
   }
 }
 

@@ -20,6 +20,7 @@ export const useHouseStore = defineStore('house', () => {
         description: error.response?.data?.message || error.message || 'Failed to fetch houses',
         variant: 'destructive',
       });
+      throw error;
     } finally {
       loading.value = false;
     }

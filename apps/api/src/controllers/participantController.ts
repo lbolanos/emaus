@@ -29,6 +29,11 @@ export const createParticipant = async (req: Request, res: Response) => {
     const newParticipant = await participantService.createParticipant(req.body);
     res.status(201).json(newParticipant);
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes('already exists')) {
+        return res.status(409).json({ message: error.message });
+      }
+    }
     res.status(500).json({ message: 'Error creating Participant' });
   }
 };

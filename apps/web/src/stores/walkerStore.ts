@@ -26,6 +26,7 @@ export const useWalkerStore = defineStore('walker', () => {
       walkers.value = response.data;
     } catch (err) {
       error.value = 'Failed to fetch walkers.';
+      throw err;
     } finally {
       loading.value = false;
     }

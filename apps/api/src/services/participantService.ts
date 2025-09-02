@@ -18,6 +18,17 @@ export const findParticipantById = async (id: string): Promise<Participant | nul
 export const createParticipant = async (
   participantData: CreateParticipant
 ): Promise<Participant> => {
+  const existingParticipant = await participantRepository.findOne({
+    where: {
+      email: participantData.email,
+      retreatId: participantData.retreatId,
+    },
+  });
+
+  if (existingParticipant) {
+    throw new Error('A participant with this email already exists in this retreat.');
+  }
+
   const newParticipant = participantRepository.create({
     ...participantData
   });
