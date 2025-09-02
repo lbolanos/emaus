@@ -109,8 +109,7 @@ Houses:
 
 Participants:
 - `GET /api/participants`: Get a list of participants (walkers or servers). Can be filtered by `retreatId` and `type` query parameters.
-- `POST /api/participants/walker`: Create a new walker.
-- `POST /api/participants/server`: Create a new server.
+- `POST /api/participants/new`: Create a new participant.
 - `GET /api/participants/:id`: Get a single participant by ID.
 - `PUT /api/participants/:id`: Update a participant.
 - `DELETE /api/participants/:id`: Delete a participant.
