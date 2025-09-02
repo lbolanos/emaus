@@ -13,6 +13,7 @@ import Step1PersonalInfo from '@/components/registration/Step1PersonalInfo.vue'
 import Step2AddressInfo from '@/components/registration/Step2AddressInfo.vue'
 import Step3ServiceInfo from '@/components/registration/Step3ServiceInfo.vue'
 import Step4EmergencyContact from '@/components/registration/Step4EmergencyContact.vue'
+import Step5OtherInfo from '@/components/registration/Step5OtherInfo.vue'
 
 const props = defineProps<{ retreatId: string; type: string }>()
 const participantStore = useParticipantStore()
@@ -58,13 +59,22 @@ const getInitialFormData = (): Partial<Omit<Participant, 'id'>> => ({
   emergencyContact2WorkPhone: '',
   emergencyContact2CellPhone: '',
   emergencyContact2Email: '',
+  tshirtSize: undefined,
+  invitedBy: '',
+  isInvitedByEmausMember: undefined,
+  inviterHomePhone: '',
+  inviterWorkPhone: '',
+  inviterCellPhone: '',
+  inviterEmail: undefined,
+  pickupLocation: '',
+  arrivesOnOwn: true,
 })
 
 const formData = ref(getInitialFormData())
 
 const isDialogOpen = ref(false)
 const currentStep = ref(1)
-const totalSteps = 5 // Now 4 steps + summary
+const totalSteps = computed(() => props.type === 'walker' ? 6 : 5)
 
 const formErrors = reactive<Record<string, string>>({})
 
@@ -154,10 +164,31 @@ const step4Schema = z.object({
   path: ['emergencyContact2PhoneNumbers'],
 })
 
-const stepSchemas = [step1Schema, step2Schema, step3Schema, step4Schema]
+const step5Schema = z.object({
+  tshirtSize: z.enum(['S', 'M', 'L', 'XL', 'XXL'], { required_error: 'T-shirt size is required' }),
+  invitedBy: z.string().optional(),
+  isInvitedByEmausMember: z.boolean().optional(),
+  inviterHomePhone: z.string().optional(),
+  inviterWorkPhone: z.string().optional(),
+  inviterCellPhone: z.string().optional(),
+  inviterEmail: z.preprocess(
+    val => (val === '' ? undefined : val),
+    z.string().email({ message: 'Invalid inviter email address' }).optional(),
+  ),
+  pickupLocation: z.string().optional(),
+  arrivesOnOwn: z.boolean().optional(),
+})
+
+const stepSchemas = computed(() => {
+  const schemas = [step1Schema, step2Schema, step3Schema, step4Schema]
+  if (props.type === 'walker') {
+    schemas.push(step5Schema)
+  }
+  return schemas
+})
 
 const validateStep = (step: number) => {
-  const schema = stepSchemas[step - 1]
+  const schema = stepSchemas.value[step - 1]
   if (!schema) return true
 
   // Clear previous errors
@@ -195,7 +226,7 @@ watch(formData, (newValue, oldValue) => {
 
 const nextStep = () => {
   if (validateStep(currentStep.value)) {
-    if (currentStep.value < totalSteps) {
+    if (currentStep.value < totalSteps.value) {
       currentStep.value++
     }
   }
@@ -259,6 +290,8 @@ const summaryData = computed(() => {
     { label: 'serverRegistration.fields.hasMedication', value: formData.value.hasMedication ? 'common.yes' : 'common.no' },
     { label: 'serverRegistration.fields.hasDietaryRestrictions', value: formData.value.hasDietaryRestrictions ? 'common.yes' : 'common.no' },
     { label: 'serverRegistration.emergencyContact1', value: `${formData.value.emergencyContact1Name} (${formData.value.emergencyContact1Relation}) - ${formData.value.emergencyContact1CellPhone || formData.value.emergencyContact1WorkPhone || formData.value.emergencyContact1HomePhone}` },
+    { label: 'walkerRegistration.fields.tshirtSize.label', value: formData.value.tshirtSize },
+    { label: 'walkerRegistration.fields.invitedBy', value: formData.value.invitedBy },
   ]
 })
 </script>
@@ -292,9 +325,10 @@ const summaryData = computed(() => {
             <Step2AddressInfo v-show="currentStep === 2" v-model="formData" :errors="formErrors" />
             <Step3ServiceInfo v-show="currentStep === 3" v-model="formData" :errors="formErrors" />
             <Step4EmergencyContact v-show="currentStep === 4" v-model="formData" :errors="formErrors" />
+            <Step5OtherInfo v-show="currentStep === 5 && props.type === 'walker'" v-model="formData" :errors="formErrors" />
 
-            <!-- Step 5: Summary -->
-            <div v-show="currentStep === 5">
+            <!-- Step 6: Summary -->
+            <div v-show="currentStep === totalSteps">
               <Card>
                 <CardHeader>
                   <CardTitle>{{ $t('serverRegistration.summary.title') }}</CardTitle>
@@ -319,3 +353,4 @@ const summaryData = computed(() => {
     </div>
   </div>
 </template>
+
