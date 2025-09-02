@@ -182,7 +182,8 @@
     },
     "tabs": {
       "personalInfo": "Información Personal",
-      "healthInfo": "Información de Salud",
+      "addressInfo": "Información de Dirección",
+      "serviceInfo": "Información de Servicio y Salud",
       "emergencyContact": "Contacto de Emergencia"
     },
     "summary": {
