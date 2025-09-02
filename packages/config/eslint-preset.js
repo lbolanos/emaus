@@ -1,17 +1,17 @@
 module.exports = {
-  parser: "@typescript-eslint/parser",
-  plugins: ["@typescript-eslint", "prettier"],
+  parser: "vue-eslint-parser",
   extends: [
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended",
+    "plugin:@typescript-eslint/recommended-requiring-type-checking",
+    "plugin:vue/vue3-recommended",
     "prettier",
   ],
-  rules: {
-    "prettier/prettier": "error",
-  },
   parserOptions: {
+    parser: "@typescript-eslint/parser",
     ecmaVersion: 2020,
     sourceType: "module",
+    project: ["./tsconfig.json"],
   },
   env: {
     node: true,

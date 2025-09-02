@@ -15,7 +15,7 @@ Language: TypeScript (Strict Mode)
 
 Backend: Node.js, Express.js, TypeORM, SQLite, Zod (for validation), Passport.js (for authentication), `express-session`, `bcrypt`
 
-Frontend: Vue.js 3 (Composition API with <script setup>), Vite, Pinia (for state management), vue-i18n (for internationalization)
+Frontend: Vue.js 3 (Composition API with <script setup>), Vite, Pinia (for state management), vue-i18n (for internationalization), country-state-city (for country/state/city selection)
 
 UI: Tailwind CSS, shadcn-vue (v4)
 
@@ -56,13 +56,14 @@ PROJECT:UI_COMPONENTS
 The `packages/ui` package contains a set of reusable UI components built with `shadcn-vue`. These components are then used in the `web` application. The available components are:
 - Button
 - Card (Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle)
+- Command (Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut)
 - Dialog (Dialog, DialogTrigger, DialogContent, etc.)
 - Input
 - Label
 - Select (Select, SelectTrigger, SelectContent, etc.)
 - Table (Table, TableHeader, TableBody, etc.)
 - Tabs (Tabs, TabsContent, TabsList, TabsTrigger)
-- Sonner
+- Toast (Toast, Toaster, useToast): For displaying no
 </PROJECT:UI_COMPONENTS>
 
 PROJECT:DATA_MODELS

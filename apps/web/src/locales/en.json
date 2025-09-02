@@ -82,7 +82,10 @@
   "common": {
     "yes": "Yes",
     "no": "No",
-    "submit": "Submit"
+    "submit": "Submit",
+    "next": "Next",
+    "previous": "Previous",
+    "noResults": "No results found."
   },
   "walkerRegistration": {
     "title": "Walker Registration",
@@ -170,10 +173,21 @@
   },
   "serverRegistration": {
     "title": "Server Registration",
+    "description": "Please fill out the form below to register as a server for the retreat.",
+    "step": "Step {current} of {total}",
+    "landing": {
+      "title": "Serve at the Next Retreat",
+      "subtitle": "Join us in service and fellowship. Register now to be a part of the team.",
+      "cta": "Register Now"
+    },
     "tabs": {
       "personalInfo": "Personal Information",
       "healthInfo": "Health Information",
       "emergencyContact": "Emergency Contact"
+    },
+    "summary": {
+      "title": "Registration Summary",
+      "description": "Please review your information before submitting."
     },
     "fields": {
       "firstName": "First Name",
@@ -207,6 +221,7 @@
       "snores": "Do you snore when you sleep?",
       "hasMedication": "Are you taking any special medication?",
       "medicationDetails": "Which one?",
+      "medicationSchedule": "Medication Schedule",
       "hasDietaryRestrictions": "Do you have any dietary restrictions?",
       "dietaryRestrictionsDetails": "Which one?",
       "sacraments": {

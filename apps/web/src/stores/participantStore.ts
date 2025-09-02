@@ -1,33 +1,75 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import type { Participant } from '@repo/types';
+import { useToast } from '@repo/ui/components/ui/toast/use-toast';
+import type { Participant, CreateWalkerInput, CreateServerInput } from 'types';
 import { api } from '@/services/api';
 
 export const useParticipantStore = defineStore('participant', () => {
   const participants = ref<Participant[]>([]);
   const loading = ref(false);
-  const error = ref<string | null>(null);
+  const { toast } = useToast();
 
-  const fetchParticipants = async (retreatId?: string) => {
-    loading.value = true;
-    error.value = null;
+  async function fetchParticipants(retreatId: string, type: 'walker' | 'server') {
     try {
-      const response = await api.get<Participant[]>('/participants', {
-        params: { retreatId },
-      });
+      loading.value = true;
+      const response = await api.get('/participants', { params: { retreatId, type } });
       participants.value = response.data;
-    } catch (err: any) {
-      error.value = err.message || 'Failed to fetch participants';
-      console.error('Error fetching participants:', err);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || error.message || `Failed to fetch ${type}s`,
+        variant: 'destructive',
+      });
     } finally {
       loading.value = false;
     }
-  };
+  }
+
+  async function createWalker(data: CreateWalkerInput) {
+    try {
+      loading.value = true;
+      const response = await api.post('/participants/walker', data);
+      participants.value.push(response.data);
+      toast({
+        title: 'Success',
+        description: 'Walker created successfully',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || error.message || 'Failed to create walker',
+        variant: 'destructive',
+      });
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function createServer(data: CreateServerInput) {
+    try {
+      loading.value = true;
+      const response = await api.post('/participants/server', data);
+      participants.value.push(response.data);
+      toast({
+        title: 'Success',
+        description: 'Server created successfully',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || error.message || 'Failed to create server',
+        variant: 'destructive',
+      });
+    } finally {
+      loading.value = false;
+    }
+  }
 
   return {
     participants,
     loading,
-    error,
     fetchParticipants,
+    createWalker,
+    createServer,
   };
 });

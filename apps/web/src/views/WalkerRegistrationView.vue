@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { toast } from 'vue-sonner';
+import { useToast } from '@repo/ui/components/ui/toast/use-toast';
 import { ref, watch } from 'vue'; // Import watch
 import { z } from 'zod';
 import { walkerSchema, Walker } from '@repo/types';
@@ -14,6 +14,7 @@ import { Checkbox } from '@repo/ui/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@repo/ui/components/ui/radio-group';
 
 const props = defineProps<{ retreatId: string }>(); // Define prop
+const { toast } = useToast();
 
 const formData = ref<Partial<Omit<Walker, 'id'>>>({ // Initialize with prop
   retreatId: props.retreatId,

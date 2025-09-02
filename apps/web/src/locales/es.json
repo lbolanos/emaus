@@ -82,7 +82,10 @@
   "common": {
     "yes": "Sí",
     "no": "No",
-    "submit": "Enviar"
+    "submit": "Enviar",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "noResults": "No se encontraron resultados."
   },
   "walkerRegistration": {
     "title": "Registro de Caminante",
@@ -170,10 +173,21 @@
   },
   "serverRegistration": {
     "title": "Registro de Servidor",
+    "description": "Por favor, rellene el siguiente formulario para registrarse como servidor para el retiro.",
+    "step": "Paso {current} de {total}",
+    "landing": {
+      "title": "Sirve en el Próximo Retiro",
+      "subtitle": "Únete a nosotros en servicio y compañerismo. Regístrate ahora para ser parte del equipo.",
+      "cta": "Regístrate Ahora"
+    },
     "tabs": {
       "personalInfo": "Información Personal",
       "healthInfo": "Información de Salud",
       "emergencyContact": "Contacto de Emergencia"
+    },
+    "summary": {
+      "title": "Resumen de Registro",
+      "description": "Por favor, revise su información antes de enviarla."
     },
     "fields": {
       "firstName": "Nombre",
@@ -207,6 +221,7 @@
       "snores": "¿Roncas al dormir?",
       "hasMedication": "¿Tomas alguna medicina en especial?",
       "medicationDetails": "¿Cuál?",
+      "medicationSchedule": "Horario de Medicamentos",
       "hasDietaryRestrictions": "¿Tiene alguna restricción en su alimentación?",
       "dietaryRestrictionsDetails": "¿Cuál?",
       "sacraments": {

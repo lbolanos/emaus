@@ -30,13 +30,14 @@ import { useRoute } from 'vue-router';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { Button } from '@repo/ui/components/ui/button';
-import { toast } from 'vue-sonner';
+import { useToast } from '@repo/ui/components/ui/toast/use-toast';
 import { useI18n } from 'vue-i18n';
 import { storeToRefs } from 'pinia';
 
 const { t } = useI18n();
 const route = useRoute();
 const retreatStore = useRetreatStore();
+const { toast } = useToast();
 const { walkerRegistrationLink, serverRegistrationLink } = storeToRefs(retreatStore);
 const participantStore = useParticipantStore();
 

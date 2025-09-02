@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { useToast } from '@repo/ui/components/ui/toast/use-toast';
 import type { Retreat, CreateRetreat } from '@repo/types';
 import { api } from '@/services/api';
 
@@ -7,7 +8,7 @@ export const useRetreatStore = defineStore('retreat', () => {
   const retreats = ref<Retreat[]>([]);
   const selectedRetreatId = ref<string | null>(null);
   const loading = ref(false);
-  const error = ref<string | null>(null);
+  const { toast } = useToast();
 
   const mostRecentRetreat = computed(() => {
     if (retreats.value.length > 0) {
@@ -43,15 +44,18 @@ export const useRetreatStore = defineStore('retreat', () => {
 
   async function fetchRetreats() {
     loading.value = true;
-    error.value = null;
     try {
       const response = await api.get('/retreats');
       retreats.value = response.data;
       if (mostRecentRetreat.value && !selectedRetreatId.value) { // Only select if nothing is selected
         selectRetreat(mostRecentRetreat.value.id);
       }
-    } catch (err) {
-      error.value = 'Failed to fetch retreats.';
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: err.response?.data?.message || err.message || 'Failed to fetch retreats.',
+        variant: 'destructive',
+      });
     } finally {
       loading.value = false;
     }
@@ -59,13 +63,20 @@ export const useRetreatStore = defineStore('retreat', () => {
 
   async function createRetreat(retreatData: CreateRetreat) {
     loading.value = true;
-    error.value = null;
     try {
       const response = await api.post('/retreats', retreatData);
       retreats.value.unshift(response.data); // Add to the beginning of the list
       selectRetreat(response.data.id);
-    } catch (err) {
-      error.value = 'Failed to create retreat.';
+      toast({
+        title: 'Success',
+        description: 'Retreat created successfully.',
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: err.response?.data?.message || err.message || 'Failed to create retreat.',
+        variant: 'destructive',
+      });
       throw err;
     } finally {
       loading.value = false;
@@ -75,15 +86,22 @@ export const useRetreatStore = defineStore('retreat', () => {
   // Add updateRetreat action for EditRetreatModal
   async function updateRetreat(retreatData: Retreat) {
     loading.value = true;
-    error.value = null;
     try {
       const response = await api.put(`/retreats/${retreatData.id}`, retreatData);
       const index = retreats.value.findIndex(r => r.id === retreatData.id);
       if (index !== -1) {
         retreats.value[index] = response.data;
       }
-    } catch (err) {
-      error.value = 'Failed to update retreat.';
+      toast({
+        title: 'Success',
+        description: 'Retreat updated successfully.',
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: err.response?.data?.message || err.message || 'Failed to update retreat.',
+        variant: 'destructive',
+      });
       throw err;
     } finally {
       loading.value = false;
@@ -94,7 +112,6 @@ export const useRetreatStore = defineStore('retreat', () => {
     retreats,
     selectedRetreatId,
     loading,
-    error,
     mostRecentRetreat,
     selectedRetreat, // Export new computed property
     selectRetreat,
