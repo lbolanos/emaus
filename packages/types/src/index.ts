@@ -100,32 +100,19 @@ export const participantSchema = z.object({
   roomId: idSchema.optional(),
 });
 
-export const walkerSchema = participantSchema.extend({
-  type: z.literal('walker'),
-});
 
-export const serverSchema = participantSchema.extend({
-  type: z.literal('server'),
-});
 
 export type Participant = z.infer<typeof participantSchema>;
-export type Walker = z.infer<typeof walkerSchema>;
-export type Server = z.infer<typeof serverSchema>;
 
 
 // --- API Request Schemas ---
 
-// POST /participants/walker
-export const createWalkerSchema = z.object({
-  body: walkerSchema.omit({ id: true }),
+// POST /participants/new
+export const createParticipantSchema = z.object({
+  body: participantSchema.omit({ id: true }),
 });
-export type CreateWalker = z.infer<typeof createWalkerSchema.shape.body>;
+export type CreateParticipant = z.infer<typeof createParticipantSchema.shape.body>;
 
-// POST /participants/server
-export const createServerSchema = z.object({
-  body: serverSchema.omit({ id: true }),
-});
-export type CreateServer = z.infer<typeof createServerSchema.shape.body>;
 
 // PUT /participants/:id
 export const updateParticipantSchema = z.object({

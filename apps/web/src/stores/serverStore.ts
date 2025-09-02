@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { Server, CreateServer } from '@repo/types';
+import type { Participant } from '@repo/types'
 import { api } from '@/services/api';
 
 export const useServerStore = defineStore('server', () => {
-  const servers = ref<Server[]>([]);
+  const servers = ref<Participant[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -31,19 +31,6 @@ export const useServerStore = defineStore('server', () => {
     }
   }
 
-  async function createServer(serverData: CreateServer) {
-    loading.value = true;
-    error.value = null;
-    try {
-      const response = await api.post('/participants/server', serverData);
-      servers.value.push(response.data);
-    } catch (err) {
-      error.value = 'Failed to create server.';
-      throw err; // Rethrow to be caught in the component
-    } finally {
-      loading.value = false;
-    }
-  }
 
-  return { servers, loading, error, serverCount, fetchServers, createServer, clearServers };
+  return { servers, loading, error, serverCount, fetchServers, clearServers };
 });

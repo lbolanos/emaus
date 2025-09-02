@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Walker, CreateWalker } from '@repo/types'
+import type { Participant } from '@repo/types'
 import { api } from '@/services/api'
 
 export const useWalkerStore = defineStore('walker', () => {
-  const walkers = ref<Walker[]>([])
+  const walkers = ref<Participant[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -22,7 +22,7 @@ export const useWalkerStore = defineStore('walker', () => {
     loading.value = true;
     error.value = null;
     try {
-      const response = await api.get('/participants', { params: { retreatId } });
+      const response = await api.get('/participants', { params: { retreatId, type: 'walker'  } });
       walkers.value = response.data;
     } catch (err) {
       error.value = 'Failed to fetch walkers.';
@@ -31,19 +31,6 @@ export const useWalkerStore = defineStore('walker', () => {
     }
   }
 
-  async function createWalker(walkerData: CreateWalker) {
-    loading.value = true;
-    error.value = null;
-    try {
-      const response = await api.post('/participants/walker', walkerData);
-      walkers.value.push(response.data);
-    } catch (err) {
-      error.value = 'Failed to create walker.';
-      throw err; // Rethrow to be caught in the component
-    } finally {
-      loading.value = false;
-    }
-  }
 
-  return { walkers, loading, error, walkerCount, fetchWalkers, createWalker, clearWalkers };
+  return { walkers, loading, error, walkerCount, fetchWalkers, clearWalkers };
 })

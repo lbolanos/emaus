@@ -12,6 +12,7 @@
   },
   "sidebar": {
     "walkers": "Walkers",
+    "servers": "Servers",
     "retreat": "Retreat",
     "loadingRetreats": "Loading retreats...",
     "noRetreatsFound": "No retreats found.",
@@ -19,7 +20,7 @@
     "selectRetreat": "Select a retreat",
     "retreatDashboard": "Retreat Dashboard"
   },
-  "walkers": {
+  "participants": {
     "title": "Walkers",
     "addWalker": "Add Walker",
     "name": "Name",
@@ -27,16 +28,8 @@
     "actions": "Actions",
     "loading": "Loading...",
     "selectRetreatPrompt": "Please select a retreat to see the participants.",
-    "noWalkersFound": "No walkers found for this retreat."
-  },
-  "addWalkerModal": {
-    "title": "Add New Walker",
-    "description": "Enter the details of the new walker.",
-    "firstName": "First Name",
-    "lastName": "Last Name",
-    "email": "Email",
-    "submit": "Save Walker",
-    "cancel": "Cancel"
+    "noWalkersFound": "No walkers found for this retreat.",
+    "addParticipant": "Add Participant"
   },
   "addRetreatModal": {
     "title": "Add New Retreat",
@@ -89,6 +82,11 @@
   },
   "walkerRegistration": {
     "title": "Walker Registration",
+    "description": "Please fill out the form below to register as a walker for the retreat.",
+    "landing": {
+      "title": "Emaus Retreat",
+      "subtitle": "Register now to be a part of the retreat."
+    },    
     "tabs": {
       "personalInfo": "Personal Information",
       "healthInfo": "Health Information",

@@ -44,6 +44,22 @@
           {{ $t('sidebar.walkers') }}
         </a>
       </router-link>
+      
+      <router-link
+        v-if="retreatStore.selectedRetreatId"
+        :to="{ name: 'servers' }"
+        v-slot="{ href, navigate, isActive }"
+      >
+        <a
+          :href="href"
+          @click="navigate"
+          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+          :class="[isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white']"
+        >
+          <Users class="w-6 h-6 mr-3" />
+          {{ $t('sidebar.servers') }}
+        </a>
+      </router-link>
       <!-- Add other menu items here -->
     </nav>
   </aside>

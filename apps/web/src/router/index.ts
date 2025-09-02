@@ -1,11 +1,11 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import AppLayout from '@/layouts/AppLayout.vue';
 import WalkersView from '../views/WalkersView.vue';
+import ServersView from '../views/ServersView.vue';
 import LoginView from '../views/LoginView.vue';
 import RequestPasswordResetView from '../views/RequestPasswordResetView.vue';
 import ResetPasswordView from '../views/ResetPasswordView.vue';
-import WalkerRegistrationView from '../views/WalkerRegistrationView.vue';
-import ServerRegistrationView from '../views/ServerRegistrationView.vue';
+import ParticipantRegistrationView from '../views/ParticipantRegistrationView.vue';
 import RetreatDashboardView from '../views/RetreatDashboardView.vue';
 import { useAuthStore } from '@/stores/authStore';
 import { useRetreatStore } from '@/stores/retreatStore';
@@ -29,15 +29,9 @@ const router = createRouter({
       component: ResetPasswordView,
     },
     {
-      path: '/register/walker/:retreatId',
-      name: 'walker-registration',
-      component: WalkerRegistrationView,
-      props: true,
-    },
-    {
-      path: '/register/server/:retreatId',
-      name: 'server-registration',
-      component: ServerRegistrationView,
+      path: '/register/:type/:retreatId',
+      name: 'registration',
+      component: ParticipantRegistrationView,
       props: true,
     },
     {
@@ -54,6 +48,11 @@ const router = createRouter({
           path: 'walkers',
           name: 'walkers',
           component: WalkersView,
+        },
+        {
+          path: 'servers',
+          name: 'servers',
+          component: ServersView,
         },
         {
           path: 'retreats/:id/dashboard',

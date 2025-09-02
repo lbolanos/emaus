@@ -3,8 +3,8 @@ import * as participantService from '../services/participantService';
 
 export const getAllParticipants = async (req: Request, res: Response) => {
   try {
-    const { retreatId } = req.query;
-    const participants = await participantService.findAllParticipants(retreatId as string | undefined);
+    const { retreatId, type } = req.query;
+    const participants = await participantService.findAllParticipants(retreatId as string | undefined, type as 'walker' | 'server' | undefined);
     res.json(participants);
   } catch (error) {
     res.status(500).json({ message: 'Error retrieving participants' });
@@ -24,23 +24,15 @@ export const getParticipantById = async (req: Request, res: Response) => {
   }
 };
 
-export const createWalker = async (req: Request, res: Response) => {
+export const createParticipant = async (req: Request, res: Response) => {
   try {
-    const newWalker = await participantService.createWalker(req.body);
-    res.status(201).json(newWalker);
+    const newParticipant = await participantService.createParticipant(req.body);
+    res.status(201).json(newParticipant);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating walker' });
+    res.status(500).json({ message: 'Error creating Participant' });
   }
 };
 
-export const createServer = async (req: Request, res: Response) => {
-  try {
-    const newServer = await participantService.createServer(req.body);
-    res.status(201).json(newServer);
-  } catch (error) {
-    res.status(500).json({ message: 'Error creating server' });
-  }
-};
 
 export const updateParticipant = async (req: Request, res: Response) => {
   try {

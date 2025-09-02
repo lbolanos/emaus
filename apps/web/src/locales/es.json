@@ -12,6 +12,7 @@
   },
   "sidebar": {
     "walkers": "Caminantes",
+    "servers": "Servidores",
     "retreat": "Retiro",
     "loadingRetreats": "Cargando retiros...",
     "noRetreatsFound": "No se encontraron retiros.",
@@ -19,7 +20,7 @@
     "selectRetreat": "Selecciona un retiro",
     "retreatDashboard": "Panel de Retiro"
   },
-  "walkers": {
+  "participants": {
     "title": "Caminantes",
     "addWalker": "Agregar Caminante",
     "name": "Nombre",
@@ -27,16 +28,8 @@
     "actions": "Acciones",
     "loading": "Cargando...",
     "selectRetreatPrompt": "Por favor seleccione un retiro para ver los participantes.",
-    "noWalkersFound": "No se encontraron caminantes para este retiro."
-  },
-  "addWalkerModal": {
-    "title": "Agregar Nuevo Caminante",
-    "description": "Ingrese los detalles del nuevo caminante.",
-    "firstName": "Nombre",
-    "lastName": "Apellido",
-    "email": "Correo Electrónico",
-    "submit": "Guardar Caminante",
-    "cancel": "Cancelar"
+    "noWalkersFound": "No se encontraron caminantes para este retiro.",
+    "addParticipant": "Adicionar participante"
   },
   "addRetreatModal": {
     "title": "Agregar Nuevo Retiro",
@@ -89,6 +82,11 @@
   },
   "walkerRegistration": {
     "title": "Registro de Caminante",
+    "description": "Por favor, rellene el siguiente formulario para registrarse como caminante del retiro.",
+    "landing": {
+      "title": "Retiro de Emaus",
+      "subtitle": "Regístrate ahora para ser parte del retiro."
+    },
     "tabs": {
       "personalInfo": "Información Personal",
       "healthInfo": "Información de Salud",
@@ -170,7 +168,7 @@
     },
     "emergencyContact1": "En caso de emergencia contactar a (1):",
     "emergencyContact2": "En caso de emergencia contactar a (2):"
-  },
+  },  
   "serverRegistration": {
     "title": "Registro de Servidor",
     "description": "Por favor, rellene el siguiente formulario para registrarse como servidor para el retiro.",

@@ -145,7 +145,7 @@ const walkerUrl = computed(() => {
 
 const serverUrl = computed(() => {
   if (!createdRetreat.value) return '';
-  return `${window.location.origin}/retreat/${createdRetreat.value.id}/server-registration`;
+  return `${window.location.origin}/retreat/${createdRetreat.value.id}/registration`;
 });
 
 const handleSubmit = async () => {

@@ -2,25 +2,25 @@
 import { computed, ref, watch, reactive } from 'vue'
 import { useToast } from '@repo/ui/components/ui/toast/use-toast'
 import { z } from 'zod'
-import { serverSchema, Server } from '@repo/types'
-import { useServerStore } from '@/stores/serverStore'
+import { participantSchema, Participant } from '@repo/types'
+import { useParticipantStore } from '@/stores/participantStore'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/ui/card'
 import { Button } from '@repo/ui/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@repo/ui/components/ui/dialog'
 
-import Step1PersonalInfo from '@/components/server-registration/Step1PersonalInfo.vue'
-import Step2AddressInfo from '@/components/server-registration/Step2AddressInfo.vue'
-import Step3ServiceInfo from '@/components/server-registration/Step3ServiceInfo.vue'
-import Step4EmergencyContact from '@/components/server-registration/Step4EmergencyContact.vue'
+import Step1PersonalInfo from '@/components/registration/Step1PersonalInfo.vue'
+import Step2AddressInfo from '@/components/registration/Step2AddressInfo.vue'
+import Step3ServiceInfo from '@/components/registration/Step3ServiceInfo.vue'
+import Step4EmergencyContact from '@/components/registration/Step4EmergencyContact.vue'
 
-const props = defineProps<{ retreatId: string }>()
-const serverStore = useServerStore()
+const props = defineProps<{ retreatId: string; type: string }>()
+const participantStore = useParticipantStore()
 const { toast } = useToast()
 
-const getInitialFormData = (): Partial<Omit<Server, 'id'>> => ({
+const getInitialFormData = (): Partial<Omit<Participant, 'id'>> => ({
   retreatId: props.retreatId,
-  type: 'server',
+  type: props.type as 'server' | 'walker',
   sacraments: [],
   firstName: '',
   lastName: '',
@@ -216,8 +216,7 @@ const onSubmit = async () => {
   for (const key in formErrors) {
     delete formErrors[key]
   }
-
-  const result = serverSchema.omit({ id: true }).safeParse(formData.value)
+  const result = participantSchema.omit({ id: true }).safeParse(formData.value)
   if (!result.success) {
     const errors: string[] = []
     result.error.errors.forEach((e) => {
@@ -235,7 +234,7 @@ const onSubmit = async () => {
   }
 
   try {
-    await serverStore.createServer(result.data)
+    await participantStore.createParticipant(result.data)
     toast({ title: 'Registration Successful' })
     isDialogOpen.value = false
     currentStep.value = 1
@@ -273,8 +272,8 @@ const summaryData = computed(() => {
       <div class="absolute inset-0 bg-black opacity-50"></div>
     </div>
     <div class="relative z-10 flex flex-col items-center justify-center h-full text-white text-center">
-      <h1 class="text-5xl font-bold mb-4">{{ $t('serverRegistration.landing.title') }}</h1>
-      <p class="text-xl mb-8">{{ $t('serverRegistration.landing.subtitle') }}</p>
+      <h1 class="text-5xl font-bold mb-4">{{ $t( props.type === 'walker' ? 'walkerRegistration.landing.title' : 'serverRegistration.landing.title') }}</h1>
+      <p class="text-xl mb-8">{{ $t( props.type === 'walker' ? 'walkerRegistration.landing.subtitle' : 'serverRegistration.landing.subtitle') }}</p>
       <Dialog v-model:open="isDialogOpen">
         <DialogTrigger as-child>
           <Button size="lg" variant="outline" class="bg-transparent hover:bg-white hover:text-black">
@@ -283,9 +282,9 @@ const summaryData = computed(() => {
         </DialogTrigger>
         <DialogContent class="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{{ $t('serverRegistration.title') }}</DialogTitle>
+            <DialogTitle>{{ $t( props.type === 'walker' ? 'walkerRegistration.title' : 'serverRegistration.title') }}</DialogTitle>
             <DialogDescription>
-              {{ $t('serverRegistration.description') }} ({{ $t('serverRegistration.step', { current: currentStep, total: totalSteps }) }})
+              {{ $t( props.type === 'walker' ? 'walkerRegistration.description' : 'serverRegistration.description') }} ({{ $t('serverRegistration.step', { current: currentStep, total: totalSteps }) }})
             </DialogDescription>
           </DialogHeader>
           <div class="container mx-auto p-4">
