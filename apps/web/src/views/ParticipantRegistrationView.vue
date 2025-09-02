@@ -302,9 +302,8 @@ const summaryData = computed(() => {
       class="absolute inset-0 bg-cover bg-center"
       style="background-image: url('/header_bck.png');"
     >
-      <div class="absolute inset-0 bg-black opacity-50"></div>
-    </div>
-    <div class="relative z-10 flex flex-col items-center justify-center h-full text-white text-center">
+    
+    <div class="relative z-10 flex flex-col items-center justify-center h-full text-white text-center" >
       <h1 class="text-5xl font-bold mb-4">{{ $t( props.type === 'walker' ? 'walkerRegistration.landing.title' : 'serverRegistration.landing.title') }}</h1>
       <p class="text-xl mb-8">{{ $t( props.type === 'walker' ? 'walkerRegistration.landing.subtitle' : 'serverRegistration.landing.subtitle') }}</p>
       <Dialog v-model:open="isDialogOpen">
@@ -350,6 +349,7 @@ const summaryData = computed(() => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
     </div>
   </div>
 </template>

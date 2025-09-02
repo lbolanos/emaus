@@ -56,7 +56,7 @@
           class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
           :class="[isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white']"
         >
-          <Users class="w-6 h-6 mr-3" />
+          <UtensilsCrossed class="w-6 h-6 mr-3" />
           {{ $t('sidebar.servers') }}
         </a>
       </router-link>
@@ -66,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import { LogOut, Users, LayoutDashboard } from 'lucide-vue-next'; // Import LayoutDashboard icon
+import { LogOut, Users,UtensilsCrossed, LayoutDashboard } from 'lucide-vue-next'; // Import LayoutDashboard icon
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter } from 'vue-router';
 import { Button } from '@repo/ui/components/ui/button';
