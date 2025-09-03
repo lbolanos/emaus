@@ -71,13 +71,15 @@ const openEditModal = (house: any) => {
   isModalOpen.value = true;
 };
 
-const handleSubmit = (data: any) => {
+const handleSubmit = async (data: any) => {
+  let success = false;
   if (data.id) {
-    // Update
-    store.updateHouse(data.id, data);
+    success = await store.updateHouse(data.id, data);
   } else {
-    // Create
-    store.createHouse(data);
+    success = await store.createHouse(data);
+  }
+  if (success) {
+    isModalOpen.value = false;
   }
 };
 

@@ -17,9 +17,16 @@ export const findHouseById = async (id: string): Promise<House | null> => {
 export const createHouse = async (
   houseData: any // CreateHouse
 ): Promise<House> => {
-  const { id, beds, ...houseInfo } = houseData;
+  const { id, beds, name, ...houseInfo } = houseData;
 
-  const newHouse = houseRepository.create(houseInfo);
+  const existingHouse = await houseRepository.findOne({ where: { name } });
+  if (existingHouse) {
+    const error = new Error('House with the same name already exists');
+    (error as any).statusCode = 409;
+    throw error;
+  }
+
+  const newHouse = houseRepository.create({ ...houseInfo, name });
   const savedHouse = await houseRepository.save(newHouse);
 
   if (beds && beds.length > 0) {
@@ -47,10 +54,19 @@ export const updateHouse = async (
     return null;
   }
 
-  const { beds, ...houseInfo } = houseData;
+  const { beds, name, ...houseInfo } = houseData;
+
+  if (name && name !== house.name) {
+    const existingHouse = await houseRepository.findOne({ where: { name } });
+    if (existingHouse) {
+      const error = new Error('House with the same name already exists');
+      (error as any).statusCode = 409;
+      throw error;
+    }
+  }
 
   // Update house properties
-  houseRepository.merge(house, houseInfo);
+  houseRepository.merge(house, { ...houseInfo, name });
   await houseRepository.save(house);
 
   // M-anage beds

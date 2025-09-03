@@ -14,17 +14,24 @@
           <h3 class="font-semibold text-lg text-center">Step 1: General Information</h3>
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="name" class="text-right">Name</Label>
-            <Input id="name" v-model="formData.name" class="col-span-3" required />
+            <div class="col-span-3">
+              <Input id="name" v-model="formData.name" />
+              <p v-if="formErrors.name" class="text-red-500 text-sm">{{ formErrors.name }}</p>
+            </div>
           </div>
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="address1" class="text-right">Address 1</Label>
-            <gmp-place-autocomplete
-              ref="autocompleteField"
-              class="col-span-3"
-              placeholder="Enter an address"
-              :requested-fields="['addressComponents', 'location', 'googleMapsURI']"
-            >
-            </gmp-place-autocomplete>
+            <div class="col-span-3">
+              <gmp-place-autocomplete
+                ref="autocompleteField"
+                class="w-full"
+                placeholder="Enter an address"
+                :requested-fields="['addressComponents', 'location', 'googleMapsURI']"
+                :value="formData.address1"
+              >
+              </gmp-place-autocomplete>
+              <p v-if="formErrors.address1" class="text-red-500 text-sm">{{ formErrors.address1 }}</p>
+            </div>
           </div>
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="address2" class="text-right">Address 2</Label>
@@ -32,23 +39,38 @@
           </div>
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="city" class="text-right">City</Label>
-            <Input id="city" v-model="formData.city" class="col-span-3" required />
+            <div class="col-span-3">
+              <Input id="city" v-model="formData.city" />
+              <p v-if="formErrors.city" class="text-red-500 text-sm">{{ formErrors.city }}</p>
+            </div>
           </div>
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="state" class="text-right">State</Label>
-            <Input id="state" v-model="formData.state" class="col-span-3" required />
+            <div class="col-span-3">
+              <Input id="state" v-model="formData.state" />
+              <p v-if="formErrors.state" class="text-red-500 text-sm">{{ formErrors.state }}</p>
+            </div>
           </div>
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="zipCode" class="text-right">Zip Code</Label>
-            <Input id="zipCode" v-model="formData.zipCode" class="col-span-3" required />
+            <div class="col-span-3">
+              <Input id="zipCode" v-model="formData.zipCode" />
+              <p v-if="formErrors.zipCode" class="text-red-500 text-sm">{{ formErrors.zipCode }}</p>
+            </div>
           </div>
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="country" class="text-right">Country</Label>
-            <Input id="country" v-model="formData.country" class="col-span-3" required />
+            <div class="col-span-3">
+              <Input id="country" v-model="formData.country" />
+              <p v-if="formErrors.country" class="text-red-500 text-sm">{{ formErrors.country }}</p>
+            </div>
           </div>
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="googleMapsUrl" class="text-right">Google Maps URL</Label>
-            <Input id="googleMapsUrl" v-model="formData.googleMapsUrl" class="col-span-3" required />
+            <div class="col-span-3">
+              <Input id="googleMapsUrl" v-model="formData.googleMapsUrl" />
+              <p v-if="formErrors.googleMapsUrl" class="text-red-500 text-sm">{{ formErrors.googleMapsUrl }}</p>
+            </div>
           </div>
           <div v-if="formData.latitude && formData.longitude" ref="mapContainer" class="h-64 mt-4"></div>
         </div>
@@ -58,32 +80,44 @@
           <h3 class="font-semibold text-lg text-center">Step 2: Capacity</h3>
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="capacity" class="text-right">Bed Capacity</Label>
-            <Input id="capacity" v-model.number="formData.capacity" type="number" class="col-span-3" required disabled />
+            <Input id="capacity" :model-value="formData.beds.length" type="number" class="col-span-3" required disabled />
           </div>
           <div class="mt-4">
             <h3 class="font-semibold">Beds</h3>
-            <div v-for="(bed, index) in formData.beds" :key="index" class="grid grid-cols-12 gap-2 items-center mt-2">
-              <Input v-model="bed.roomNumber" placeholder="Room #" class="col-span-2" />
-              <Input v-model="bed.bedNumber" placeholder="Bed #" class="col-span-2" />
-              <Select v-model="bed.type">
-                <SelectTrigger class="col-span-3">
-                  <SelectValue placeholder="Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="normal">Normal</SelectItem>
-                  <SelectItem value="litera">Litera</SelectItem>
-                  <SelectItem value="colchon">Colchon</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select v-model="bed.defaultUsage">
-                <SelectTrigger class="col-span-3">
-                  <SelectValue placeholder="Usage" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="caminante">Caminante</SelectItem>
-                  <SelectItem value="servidor">Servidor</SelectItem>
-                </SelectContent>
-              </Select>
+            <div v-for="(field, index) in formData.beds" :key="index" class="grid grid-cols-12 gap-2 items-center mt-2">
+              <div class="col-span-2">
+                <Input v-model="field.roomNumber" placeholder="Room #" />
+                <p v-if="formErrors['beds[' + index + '].roomNumber']" class="text-red-500 text-sm">{{ formErrors['beds[' + index + '].roomNumber'] }}</p>
+              </div>
+              <div class="col-span-2">
+                <Input v-model="field.bedNumber" placeholder="Bed #" />
+                 <p v-if="formErrors['beds[' + index + '].bedNumber']" class="text-red-500 text-sm">{{ formErrors['beds[' + index + '].bedNumber'] }}</p>
+              </div>
+              <div class="col-span-3">
+                <Select v-model="field.type">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="normal">Normal</SelectItem>
+                    <SelectItem value="litera">Litera</SelectItem>
+                    <SelectItem value="colchon">Colchon</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p v-if="formErrors['beds[' + index + '].type']" class="text-red-500 text-sm">{{ formErrors['beds[' + index + '].type'] }}</p>
+              </div>
+              <div class="col-span-3">
+                <Select v-model="field.defaultUsage">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Usage" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="caminante">Caminante</SelectItem>
+                    <SelectItem value="servidor">Servidor</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p v-if="formErrors['beds[' + index + '].defaultUsage']" class="text-red-500 text-sm">{{ formErrors['beds[' + index + '].defaultUsage'] }}</p>
+              </div>
               <Button type="button" variant="destructive" size="icon" @click="removeBed(index)" class="col-span-1">
                 <Trash2 class="h-4 w-4" />
               </Button>
@@ -121,7 +155,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, nextTick } from 'vue';
+import { ref, watch, computed, nextTick, reactive } from 'vue';
 import { Button } from '@repo/ui/components/ui/button';
 import { Progress } from '@repo/ui/components/ui/progress';
 import {
@@ -143,23 +177,115 @@ import {
   SelectValue,
 } from '@repo/ui/components/ui/select';
 import { Trash2 } from 'lucide-vue-next';
-// import type { House } from 'types'; // TODO: Define types
+import { z } from 'zod';
+import { useToast } from '@repo/ui/components/ui/toast/use-toast';
 
-const props = defineProps<{
-  open: boolean;
-  house?: any | null; // TODO: use House type
-}>();
+const props = defineProps({
+  open: Boolean,
+  house: {
+    type: Object as () => any | null,
+    default: null,
+  },
+});
 
-const emit = defineEmits<{
-  (e: 'update:open', value: boolean): void;
-  (e: 'submit', data: any): void; // TODO: use House type
-}>();
+const emit = defineEmits<{ (e: 'update:open', value: boolean): void; (e: 'submit', data: any): Promise<boolean> }>();
 
+const { toast } = useToast();
 const currentStep = ref(1);
 
+const getInitialFormData = () => ({
+  id: props.house?.id || null,
+  name: props.house?.name || '',
+  address1: props.house?.address1 || '',
+  address2: props.house?.address2 || '',
+  city: props.house?.city || '',
+  state: props.house?.state || '',
+  zipCode: props.house?.zipCode || '',
+  country: props.house?.country || '',
+  googleMapsUrl: props.house?.googleMapsUrl || '',
+  notes: props.house?.notes || '',
+  latitude: props.house?.latitude || null,
+  longitude: props.house?.longitude || null,
+  beds: props.house?.beds ? JSON.parse(JSON.stringify(props.house.beds)) : [],
+});
+
+const formData = ref(getInitialFormData());
+const formErrors = reactive<Record<string, string>>({});
+
+const step1Schema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  address1: z.string().min(1, 'Address 1 is required'),
+  address2: z.string().optional(),
+  city: z.string().min(1, 'City is required'),
+  state: z.string().min(1, 'State is required'),
+  zipCode: z.string().min(1, 'Zip Code is required'),
+  country: z.string().min(1, 'Country is required'),
+  googleMapsUrl: z.string().url('Must be a valid URL').min(1, 'Google Maps URL is required'),
+  latitude: z.number().nullable(),
+  longitude: z.number().nullable(),
+}).refine(data => data.latitude !== null && data.longitude !== null, {
+    message: "A valid address with location is required. Please use the autocomplete.",
+    path: ["address1"],
+});
+
+const step2Schema = z.object({
+  beds: z.array(z.object({
+    roomNumber: z.string().min(1, 'Required'),
+    bedNumber: z.string().min(1, 'Required'),
+    type: z.string().min(1, 'Type is required'),
+    defaultUsage: z.string().min(1, 'Usage is required'),
+  })).min(1, 'At least one bed is required'),
+});
+
+const step3Schema = z.object({
+  notes: z.string().optional(),
+});
+
+const stepSchemas = [step1Schema, step2Schema, step3Schema];
+
+const validateStep = (step: number) => {
+  const schema = stepSchemas[step - 1];
+  if (!schema) return true;
+
+  // Clear previous errors
+  Object.keys(formErrors).forEach(key => delete formErrors[key]);
+
+  const result = schema.safeParse(formData.value);
+  if (!result.success) {
+    const errors: string[] = [];
+    result.error.errors.forEach((e) => {
+      const path = e.path.join('.');
+      formErrors[path] = e.message;
+      errors.push(e.message);
+    });
+    toast({
+      title: `Please correct the errors in step ${step}`,
+      description: errors.join('\n'),
+      variant: 'destructive',
+    });
+    return false;
+  }
+  return true;
+};
+
+const addBed = () => {
+  formData.value.beds.push({
+    roomNumber: '',
+    bedNumber: '',
+    type: '',
+    defaultUsage: '',
+  });
+};
+
+const removeBed = (index: number) => {
+  formData.value.beds.splice(index, 1);
+};
+
 const nextStep = () => {
-  if (currentStep.value < 3) {
-    currentStep.value++;
+  if (validateStep(currentStep.value)) {
+    if (currentStep.value < 3) {
+      currentStep.value++;
+    }
   }
 };
 
@@ -175,41 +301,16 @@ const mapContainer = ref<HTMLElement | null>(null);
 let map: google.maps.Map | null = null;
 let marker: google.maps.Marker | null = null;
 
-const getInitialFormData = () => ({
-  id: props.house?.id || null,
-  name: props.house?.name || '',
-  address1: props.house?.address1 || '',
-  address2: props.house?.address2 || '',
-  city: props.house?.city || '',
-  state: props.house?.state || '',
-  zipCode: props.house?.zipCode || '',
-  country: props.house?.country || '',
-  googleMapsUrl: props.house?.googleMapsUrl || '',
-  notes: props.house?.notes || '',
-  capacity: props.house?.capacity || 0,
-  latitude: props.house?.latitude || null,
-  longitude: props.house?.longitude || null,
-  beds: props.house?.beds ? JSON.parse(JSON.stringify(props.house.beds)) : [],
-});
-
-const formData = ref(getInitialFormData());
-
 const initMap = (lat: number, lng: number) => {
   if (mapContainer.value) {
     const center = { lat, lng };
     if (!map) {
-      map = new google.maps.Map(mapContainer.value, {
-        center,
-        zoom: 15,
-      });
+      map = new google.maps.Map(mapContainer.value, { center, zoom: 15 });
     } else {
       map.setCenter(center);
     }
     if (!marker) {
-      marker = new google.maps.Marker({
-        position: center,
-        map: map,
-      });
+      marker = new google.maps.Marker({ position: center, map: map });
     } else {
       marker.setPosition(center);
     }
@@ -230,7 +331,7 @@ const handlePlaceChange = async ({ placePrediction }: any) => {
       const type = component.types[0];
       address[type] = component.longText;
     });
-    formData.value.address1 = `${address.street_number || ''} ${address.route || ''}`.trim();
+    formData.value.address1 = `${address.route || ''} ${address.street_number || ''}, ${address.sublocality_level_1 || ''}`.trim();
     formData.value.city = address.locality || '';
     formData.value.state = address.administrative_area_level_1 || '';
     formData.value.zipCode = address.postal_code || '';
@@ -247,11 +348,11 @@ const handlePlaceChange = async ({ placePrediction }: any) => {
 
 watch(() => props.open, async (isOpen) => {
   if (isOpen) {
-    currentStep.value = 1; // Reset to first step when opening
+    currentStep.value = 1;
     formData.value = getInitialFormData();
-    formData.value.capacity = formData.value.beds.length;
+    Object.keys(formErrors).forEach(key => delete formErrors[key]);
+
     await nextTick();
-    // Set the initial value of the autocomplete input if editing
     if (autocompleteField.value) {
       if (formData.value.address1) {
         autocompleteField.value.value = formData.value.address1;
@@ -267,29 +368,13 @@ watch(() => props.open, async (isOpen) => {
   }
 });
 
-watch(() => formData.value.beds, (newBeds) => {
-  formData.value.capacity = newBeds.length;
-}, { deep: true });
-
 watch([() => formData.value.latitude, currentStep], async ([newLat, newStep]) => {
   if (newLat && formData.value.longitude && newStep === 1) {
     await nextTick();
     initMap(newLat, formData.value.longitude);
   }
-}, { immediate: true });
+}, { deep: true, immediate: true });
 
-const addBed = () => {
-  formData.value.beds.push({
-    roomNumber: '',
-    bedNumber: '',
-    type: 'normal',
-    defaultUsage: 'caminante',
-  });
-};
-
-const removeBed = (index: number) => {
-  formData.value.beds.splice(index, 1);
-};
 
 const handleCancel = () => {
   if (document.activeElement instanceof HTMLElement) {
@@ -298,19 +383,27 @@ const handleCancel = () => {
   emit('update:open', false);
 };
 
-const handleSubmit = () => {
-  // Manually update address1 from the autocomplete input before submitting
+const handleSubmit = async () => {
+  for (let i = 1; i <= 3; i++) {
+    if (!validateStep(i)) {
+      currentStep.value = i;
+      return;
+    }
+  }
+
   if (autocompleteField.value) {
     formData.value.address1 = autocompleteField.value.value || formData.value.address1;
   }
-  emit('submit', formData.value);
+  
+  const success = await emit('submit', { ...formData.value, capacity: formData.value.beds.length });
 
-  // Defer closing the dialog to allow other operations to complete
-  nextTick(() => {
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-    emit('update:open', false);
-  });
+  if (success) {
+    nextTick(() => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      emit('update:open', false);
+    });
+  }
 };
 </script>

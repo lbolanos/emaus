@@ -27,8 +27,10 @@ export const createHouse = async (req: Request, res: Response) => {
   try {
     const newHouse = await houseService.createHouse(req.body);
     res.status(201).json(newHouse);
-  } catch (error) {
-    res.status(500).json({ message: 'Error creating house' });
+  } catch (error: any) {
+    const statusCode = error.statusCode || 500;
+    const message = error.message || 'Error creating house';
+    res.status(statusCode).json({ message });
   }
 };
 
@@ -43,8 +45,10 @@ export const updateHouse = async (req: Request, res: Response) => {
     } else {
       res.status(404).json({ message: 'House not found' });
     }
-  } catch (error) {
-    res.status(500).json({ message: 'Error updating house' });
+  } catch (error: any) {
+    const statusCode = error.statusCode || 500;
+    const message = error.message || 'Error updating house';
+    res.status(statusCode).json({ message });
   }
 };
 

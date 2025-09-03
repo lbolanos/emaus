@@ -36,13 +36,14 @@ export const useHouseStore = defineStore('house', () => {
         title: 'Success',
         description: 'House created successfully',
       });
+      return true;
     } catch (error: any) {
       toast({
         title: 'Error',
         description: error.response?.data?.message || error.message || 'Failed to create house',
         variant: 'destructive',
       });
-      throw error;
+      return false;
     } finally {
       loading.value = false;
     }
@@ -69,13 +70,14 @@ export const useHouseStore = defineStore('house', () => {
         title: 'Success',
         description: 'House updated successfully',
       });
+      return true;
     } catch (error: any) {
       toast({
         title: 'Error',
         description: error.response?.data?.message || error.message || 'Failed to update house',
         variant: 'destructive',
       });
-      throw error;
+      return false;
     } finally {
       loading.value = false;
     }
