@@ -45,6 +45,7 @@
     "./components/ui/toast/use-toast": "./src/components/ui/toast/use-toast.ts",
     "./components/ui/toast/Toaster.vue": "./src/components/ui/toast/Toaster.vue",
     "./components/ui/dropdown-menu": "./src/components/ui/dropdown-menu/index.ts",
+    "./components/ui/scroll-area": "./src/components/ui/scroll-area/index.ts",
     "./components/ui/command": "./src/components/ui/command/index.ts",
     "./lib/utils": "./src/lib/utils.ts"
   }

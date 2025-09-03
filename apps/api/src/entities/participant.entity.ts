@@ -4,6 +4,8 @@ import {
   Column,
   ManyToOne,
   JoinColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { Retreat } from './retreat.entity';
 import { Table } from './table.entity';
@@ -15,22 +17,22 @@ export class Participant {
   id!: string;
 
   @Column({ type: 'varchar' })
-  type!: 'walker' | 'server';
+  type!: 'walker' | 'server'; // Corresponde a 'tipousuario'
 
   @Column('varchar')
-  firstName!: string;
+  firstName!: string; // Corresponde a 'nombre'
 
   @Column('varchar')
-  lastName!: string;
+  lastName!: string; // Corresponde a 'apellidos'
 
   @Column({ type: 'varchar', nullable: true })
-  nickname?: string;
+  nickname?: string; // Corresponde a 'apodo'
 
   @Column('date')
-  birthDate!: Date;
+  birthDate!: Date; // Combina 'dia', 'mes', 'anio'
 
   @Column('varchar')
-  maritalStatus!:
+  maritalStatus!: // Corresponde a 'estadocivil'
     | 'single'
     | 'married'
     | 'separated_divorced'
@@ -38,127 +40,167 @@ export class Participant {
     | 'other';
 
   @Column('varchar')
-  street!: string;
+  street!: string; // Corresponde a 'dircalle'
 
   @Column('varchar')
-  houseNumber!: string;
+  houseNumber!: string; // Corresponde a 'dirnumero'
 
   @Column('varchar')
-  postalCode!: string;
+  postalCode!: string; // Corresponde a 'dircp'
 
   @Column('varchar')
-  neighborhood!: string;
+  neighborhood!: string; // Corresponde a 'dircolonia'
 
   @Column('varchar')
-  city!: string;
+  city!: string; // Corresponde a 'dirmunicipio'
 
   @Column('varchar')
-  state!: string;
+  state!: string; // Corresponde a 'direstado'
 
   @Column('varchar')
-  country!: string;
+  country!: string; // Corresponde a 'dirpais'
 
   @Column({ type: 'varchar', nullable: true })
-  parish?: string;
+  parish?: string; // Corresponde a 'parroquia'
 
   @Column({ type: 'varchar', nullable: true })
-  homePhone?: string;
+  homePhone?: string; // Corresponde a 'telcasa'
 
   @Column({ type: 'varchar', nullable: true })
-  workPhone?: string;
+  workPhone?: string; // Corresponde a 'teltrabajo'
 
   @Column('varchar')
-  cellPhone!: string;
+  cellPhone!: string; // Corresponde a 'telcelular'
 
   @Column('varchar')
   email!: string;
 
   @Column('varchar')
-  occupation!: string;
+  occupation!: string; // Corresponde a 'ocupacion'
 
   @Column('boolean')
-  snores!: boolean;
+  snores!: boolean; // Corresponde a 'ronca'
 
   @Column('boolean')
-  hasMedication!: boolean;
+  hasMedication!: boolean; // Corresponde a 'medicinaespecial'
 
   @Column({ type: 'varchar', nullable: true })
-  medicationDetails?: string;
+  medicationDetails?: string; // Corresponde a 'medicinacual'
 
   @Column({ type: 'varchar', nullable: true })
-  medicationSchedule?: string;
+  medicationSchedule?: string; // Corresponde a 'medicinahora'
 
   @Column('boolean')
-  hasDietaryRestrictions!: boolean;
+  hasDietaryRestrictions!: boolean; // Corresponde a 'alimentosrestringidos'
 
   @Column({ type: 'varchar', nullable: true })
-  dietaryRestrictionsDetails?: string;
+  dietaryRestrictionsDetails?: string; // Corresponde a 'alimentoscual'
 
   @Column('simple-array')
-  sacraments!: string[];
+  sacraments!: string[]; // Combina campos de sacramentos
 
   @Column('varchar')
-  emergencyContact1Name!: string;
+  emergencyContact1Name!: string; // Corresponde a 'emerg1nombre'
 
   @Column('varchar')
-  emergencyContact1Relation!: string;
+  emergencyContact1Relation!: string; // Corresponde a 'emerg1relacion'
 
   @Column({ type: 'varchar', nullable: true })
-  emergencyContact1HomePhone?: string;
+  emergencyContact1HomePhone?: string; // Corresponde a 'emerg1telcasa'
 
   @Column({ type: 'varchar', nullable: true })
-  emergencyContact1WorkPhone?: string;
+  emergencyContact1WorkPhone?: string; // Corresponde a 'emerg1teltrabajo'
 
   @Column('varchar')
-  emergencyContact1CellPhone!: string;
+  emergencyContact1CellPhone!: string; // Corresponde a 'emerg1telcelular'
 
   @Column({ type: 'varchar', nullable: true })
-  emergencyContact1Email?: string;
+  emergencyContact1Email?: string; // Corresponde a 'emerg1email'
 
   @Column({ type: 'varchar', nullable: true })
-  emergencyContact2Name?: string;
+  emergencyContact2Name?: string; // Corresponde a 'emerg2nombre'
 
   @Column({ type: 'varchar', nullable: true })
-  emergencyContact2Relation?: string;
+  emergencyContact2Relation?: string; // Corresponde a 'emerg2relacion'
 
   @Column({ type: 'varchar', nullable: true })
-  emergencyContact2HomePhone?: string;
+  emergencyContact2HomePhone?: string; // Corresponde a 'emerg2telcasa'
 
   @Column({ type: 'varchar', nullable: true })
-  emergencyContact2WorkPhone?: string;
+  emergencyContact2WorkPhone?: string; // Corresponde a 'emerg2teltrabajo'
 
   @Column({ type: 'varchar', nullable: true })
-  emergencyContact2CellPhone?: string;
+  emergencyContact2CellPhone?: string; // Corresponde a 'emerg2telcelular'
 
   @Column({ type: 'varchar', nullable: true })
-  emergencyContact2Email?: string;
+  emergencyContact2Email?: string; // Corresponde a 'emerg2email'
 
   @Column({ type: 'varchar', nullable: true })
-  tshirtSize?: 'S' | 'M' | 'L' | 'XL' | 'XXL';
+  tshirtSize?: 'S' | 'M' | 'L' | 'XL' | 'XXL'; // Corresponde a 'camiseta'
 
   @Column({ type: 'varchar', nullable: true })
-  invitedBy?: string;
+  invitedBy?: string; // Corresponde a 'invitadopor'
 
   @Column({ type: 'boolean', nullable: true })
-  isInvitedByEmausMember?: boolean;
+  isInvitedByEmausMember?: boolean; // Corresponde a 'invitadaporemaus'
 
   @Column({ type: 'varchar', nullable: true })
-  inviterHomePhone?: string;
+  inviterHomePhone?: string; // Corresponde a 'invtelcasa'
 
   @Column({ type: 'varchar', nullable: true })
-  inviterWorkPhone?: string;
+  inviterWorkPhone?: string; // Corresponde a 'invteltrabajo'
 
   @Column({ type: 'varchar', nullable: true })
-  inviterCellPhone?: string;
+  inviterCellPhone?: string; // Corresponde a 'invtelcelular'
 
   @Column({ type: 'varchar', nullable: true })
-  inviterEmail?: string;
+  inviterEmail?: string; // Corresponde a 'invemail'
 
   @Column({ type: 'varchar', nullable: true })
-  pickupLocation?: string;
+  pickupLocation?: string; // Corresponde a 'puntoencuentro'
 
   @Column({ type: 'boolean', nullable: true })
   arrivesOnOwn?: boolean;
+
+  // --- CAMPOS AGREGADOS ---
+
+  @Column({ type: 'date', nullable: true })
+  paymentDate?: Date; // Corresponde a 'fechapago'
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  paymentAmount?: number; // Corresponde a 'montopago'
+
+  @Column({ type: 'boolean', default: false })
+  isScholarship!: boolean; // Corresponde a 'becado'
+
+  @Column({ type: 'varchar', nullable: true })
+  palancasCoordinator?: string; // Corresponde a 'palancasencargado'
+
+  @Column({ type: 'boolean', nullable: true })
+  palancasRequested?: boolean; // Corresponde a 'palancaspedidas'
+
+  @Column({ type: 'text', nullable: true })
+  palancasReceived?: string; // Corresponde a 'palancas'
+
+  @Column({ type: 'text', nullable: true })
+  palancasNotes?: string; // Corresponde a 'notaspalancas'
+  
+  @Column({ type: 'boolean', nullable: true })
+  requestsSingleRoom?: boolean; // Corresponde a 'habitacionindividual'
+
+  @Column({ type: 'boolean', default: false })
+  isCancelled!: boolean; // Corresponde a 'cancelado'
+
+  @Column({ type: 'text', nullable: true })
+  notes?: string; // Corresponde a 'notas'
+
+  @CreateDateColumn({ type: 'datetime' })
+  registrationDate!: Date; // Corresponde a 'fecharegistro'
+
+  @UpdateDateColumn({ type: 'datetime' })
+  lastUpdatedDate!: Date;
+
+  // --- RELACIONES ---
 
   @Column('uuid')
   retreatId!: string;
@@ -168,14 +210,14 @@ export class Participant {
   retreat!: Retreat;
 
   @Column({ type: 'uuid', nullable: true })
-  tableId?: string;
+  tableId?: string; // Corresponde a 'mesa'
 
   @ManyToOne(() => Table, (table) => table.participants, { nullable: true })
   @JoinColumn({ name: 'tableId' })
   table?: Table;
 
   @Column({ type: 'uuid', nullable: true })
-  roomId?: string;
+  roomId?: string; // Corresponde a 'habitacion'
 
   @ManyToOne(() => Room, (room) => room.participants, { nullable: true })
   @JoinColumn({ name: 'roomId' })
