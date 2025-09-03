@@ -74,3 +74,32 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Fix for Google Places Autocomplete suggestions appearing behind dialog */
+.pac-container {
+  z-index: 9999 !important;
+}
+
+.map-container {
+  height: 200px;
+  width: 100%;
+  margin-top: 1rem;
+  border-radius: 0.5rem;
+}
+
+/* Styling for the new PlaceAutocompleteElement */
+gmp-place-autocomplete::part(input) {
+  display: flex;
+  height: 2.5rem; /* h-10 */
+  width: 100%;
+  border-radius: 0.375rem; /* rounded-md */
+  border: 1px solid hsl(var(--input));
+  background-color: hsl(var(--background));
+  padding: 0.5rem 0.75rem; /* px-3 py-2 */
+  font-size: 0.875rem; /* text-sm */
+  outline: none;
+}
+
+gmp-place-autocomplete::part(input):focus {
+  box-shadow: 0 0 0 2px hsl(var(--ring));
+}

@@ -14,13 +14,49 @@
             <Input id="name" v-model="formData.name" class="col-span-3" required />
           </div>
           <div class="grid grid-cols-4 items-center gap-4">
-            <Label for="address" class="text-right">Address</Label>
-            <Textarea id="address" v-model="formData.address" class="col-span-3" />
+            <Label for="address1" class="text-right">Address 1</Label>
+            <gmp-place-autocomplete
+              ref="autocompleteField"
+              class="col-span-3"
+              placeholder="Enter an address"
+              :requested-fields="['addressComponents', 'location', 'googleMapsURI']"
+            >
+            </gmp-place-autocomplete>
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="address2" class="text-right">Address 2</Label>
+            <Input id="address2" v-model="formData.address2" class="col-span-3" />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="city" class="text-right">City</Label>
+            <Input id="city" v-model="formData.city" class="col-span-3" required />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="state" class="text-right">State</Label>
+            <Input id="state" v-model="formData.state" class="col-span-3" required />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="zipCode" class="text-right">Zip Code</Label>
+            <Input id="zipCode" v-model="formData.zipCode" class="col-span-3" required />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="country" class="text-right">Country</Label>
+            <Input id="country" v-model="formData.country" class="col-span-3" required />
           </div>
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="googleMapsUrl" class="text-right">Google Maps URL</Label>
-            <Input id="googleMapsUrl" v-model="formData.googleMapsUrl" class="col-span-3" />
+            <Input id="googleMapsUrl" v-model="formData.googleMapsUrl" class="col-span-3" required />
           </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="notes" class="text-right">Notes</Label>
+            <Textarea id="notes" v-model="formData.notes" class="col-span-3" required />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="capacity" class="text-right">Bed Capacity</Label>
+            <Input id="capacity" v-model.number="formData.capacity" type="number" class="col-span-3" required />
+          </div>
+
+          <div v-if="formData.latitude && formData.longitude" ref="mapContainer" class="h-64 mt-4"></div>
 
           <div class="mt-4">
             <h3 class="font-semibold">Beds</h3>
@@ -54,7 +90,7 @@
           </div>
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" @click="emit('update:open', false)">
+          <Button type="button" variant="outline" @click="handleCancel">
             Cancel
           </Button>
           <Button type="submit">
@@ -67,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, nextTick } from 'vue';
 import { Button } from '@repo/ui/components/ui/button';
 import {
   Dialog,
@@ -101,22 +137,107 @@ const emit = defineEmits<{
 }>();
 
 const isEditing = computed(() => !!props.house);
+const autocompleteField = ref<any>(null);
+const mapContainer = ref<HTMLElement | null>(null);
+let map: google.maps.Map | null = null;
+let marker: google.maps.Marker | null = null;
 
 const getInitialFormData = () => ({
   id: props.house?.id || null,
   name: props.house?.name || '',
-  address: props.house?.address || '',
+  address1: props.house?.address1 || '',
+  address2: props.house?.address2 || '',
+  city: props.house?.city || '',
+  state: props.house?.state || '',
+  zipCode: props.house?.zipCode || '',
+  country: props.house?.country || '',
   googleMapsUrl: props.house?.googleMapsUrl || '',
+  notes: props.house?.notes || '',
+  capacity: props.house?.capacity || 0,
+  latitude: props.house?.latitude || null,
+  longitude: props.house?.longitude || null,
   beds: props.house?.beds ? JSON.parse(JSON.stringify(props.house.beds)) : [],
 });
 
 const formData = ref(getInitialFormData());
 
-watch(() => props.open, (isOpen) => {
+const initMap = (lat: number, lng: number) => {
+  if (mapContainer.value) {
+    const center = { lat, lng };
+    if (!map) {
+      map = new google.maps.Map(mapContainer.value, {
+        center,
+        zoom: 15,
+      });
+    } else {
+      map.setCenter(center);
+    }
+    if (!marker) {
+      marker = new google.maps.Marker({
+        position: center,
+        map: map,
+      });
+    } else {
+      marker.setPosition(center);
+    }
+  }
+};
+
+const handlePlaceChange = async ({ placePrediction }: any) => {
+  if (!placePrediction) return;
+
+  const place = placePrediction.toPlace();
+  await place.fetchFields({
+    fields: ['addressComponents', 'location', 'googleMapsURI'],
+  });
+
+  if (place.addressComponents) {
+    const address: { [key: string]: string } = {};
+    place.addressComponents.forEach((component: any) => {
+      const type = component.types[0];
+      address[type] = component.longText;
+    });
+    formData.value.address1 = `${address.street_number || ''} ${address.route || ''}`.trim();
+    formData.value.city = address.locality || '';
+    formData.value.state = address.administrative_area_level_1 || '';
+    formData.value.zipCode = address.postal_code || '';
+    formData.value.country = address.country || '';
+  }
+  if (place.location) {
+    formData.value.latitude = place.location.lat();
+    formData.value.longitude = place.location.lng();
+  }
+  if (place.googleMapsURI) {
+    formData.value.googleMapsUrl = place.googleMapsURI;
+  }
+};
+
+watch(() => props.open, async (isOpen) => {
   if (isOpen) {
     formData.value = getInitialFormData();
+    await nextTick();
+    // Set the initial value of the autocomplete input if editing
+    if (autocompleteField.value) {
+      if (formData.value.address1) {
+        autocompleteField.value.value = formData.value.address1;
+      }
+      autocompleteField.value.addEventListener('gmp-select', handlePlaceChange);
+    }
+  } else {
+    if (autocompleteField.value) {
+      autocompleteField.value.removeEventListener('gmp-select', handlePlaceChange);
+    }
+    map = null;
+    marker = null;
   }
 });
+
+watch(() => formData.value.latitude, async (newLat) => {
+  if (newLat && formData.value.longitude) {
+    await nextTick();
+    initMap(newLat, formData.value.longitude);
+  }
+}, { immediate: true });
 
 const addBed = () => {
   formData.value.beds.push({
@@ -131,8 +252,26 @@ const removeBed = (index: number) => {
   formData.value.beds.splice(index, 1);
 };
 
-const handleSubmit = () => {
-  emit('submit', formData.value);
+const handleCancel = () => {
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
   emit('update:open', false);
+};
+
+const handleSubmit = () => {
+  // Manually update address1 from the autocomplete input before submitting
+  if (autocompleteField.value) {
+    formData.value.address1 = autocompleteField.value.value || formData.value.address1;
+  }
+  emit('submit', formData.value);
+
+  // Defer closing the dialog to allow other operations to complete
+  nextTick(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    emit('update:open', false);
+  });
 };
 </script>

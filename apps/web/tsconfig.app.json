@@ -3,6 +3,6 @@
   "compilerOptions": {
     "composite": true,
     "lib": [],
-    "types": ["node"]
+    "types": ["node", "@types/google.maps"]
   }
 }

@@ -11,10 +11,37 @@ export class House {
   name!: string;
 
   @Column('varchar')
-  address!: string;
+  address1!: string;
+
+  @Column('varchar', { nullable: true })
+  address2?: string;
+
+  @Column('varchar')
+  city!: string;
+
+  @Column('varchar')
+  state!: string;
+
+  @Column('varchar')
+  zipCode!: string;
+
+  @Column('varchar')
+  country!: string;
+
+  @Column('integer')
+  capacity!: number;
+
+  @Column('float', { nullable: true })
+  latitude?: number;
+
+  @Column('float', { nullable: true })
+  longitude?: number;
 
   @Column('varchar', { nullable: true })
   googleMapsUrl?: string;
+
+  @Column('text', { nullable: true })
+  notes?: string;
 
   @OneToMany(() => Bed, (bed) => bed.house)
   beds!: Bed[];

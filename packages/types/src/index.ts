@@ -7,8 +7,17 @@ const idSchema = z.string().uuid();
 export const houseSchema = z.object({
   id: idSchema,
   name: z.string(),
-  address: z.string(),
+  address1: z.string(),
+  address2: z.string().optional(),
+  city: z.string(),
+  state: z.string(),
+  zipCode: z.string(),
+  country: z.string(),
   capacity: z.number().int().positive(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+  googleMapsUrl: z.string().url().optional(),
+  notes: z.string().optional(),
 });
 export type House = z.infer<typeof houseSchema>;
 
