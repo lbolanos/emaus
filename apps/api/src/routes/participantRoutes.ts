@@ -4,6 +4,7 @@ import {
   deleteParticipant,
   getAllParticipants,
   getParticipantById,
+  importParticipants,
   updateParticipant,
 } from '../controllers/participantController';
 import { validateRequest } from '../middleware/validateRequest';
@@ -19,6 +20,7 @@ router.use(isAuthenticated);
 
 router.get('/', getAllParticipants);
 router.get('/:id', getParticipantById);
+router.post('/import/:retreatId', importParticipants);
 router.put('/:id', validateRequest(updateParticipantSchema), updateParticipant);
 router.delete('/:id', deleteParticipant);
 

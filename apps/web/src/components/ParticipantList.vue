@@ -60,7 +60,7 @@ const participantToDelete = ref<any>(null);
 const allColumns = ref([
     //{ key: 'id', label: 'participants.id' },
     //{ key: 'type', label: 'participants.type' },
-    { key: 'firstName', label: 'serverRegistration.fields.firstName' },
+    { key: 'firstName', label: 'participants.firstName' },
     { key: 'lastName', label: 'participants.lastName' },
     { key: 'nickname', label: 'participants.nickname' },
     { key: 'birthDate', label: 'participants.birthDate' },
@@ -225,7 +225,7 @@ const handleFileUpload = async (event: Event) => {
                  return;
             }
 
-            await participantStore.importParticipants(selectedRetreatId.value!, json);
+            await participantStore.importParticipants(selectedRetreatId.value!, props.type,  json);
             isImportDialogOpen.value = false;
             toast({ title: $t('participants.import.successTitle'), description: `${json.length} ${$t('participants.import.successDesc')}` });
         } catch (err) {

@@ -47,6 +47,30 @@ export const useParticipantStore = defineStore('participant', () => {
     }
   }
 
+  async function importParticipants(retreatId: string, type: 'walker' | 'server', participantsData: any[]) {
+    try {
+      loading.value = true;
+      const response = await api.post(`/participants/import/${retreatId}`, { participants: participantsData });
+      // Assuming the API returns the updated list or a success message
+      // Re-fetch participants to ensure the list is up-to-date
+      await fetchParticipants(retreatId, type);
+      toast({
+        title: 'Success',
+        description: `${response.data.importedCount} participants imported, ${response.data.updatedCount} updated.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || error.message || 'Failed to import participants',
+        variant: 'destructive',
+      });
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+
   function clearParticipants() {
     participants.value = [];
   }
@@ -59,5 +83,6 @@ export const useParticipantStore = defineStore('participant', () => {
     fetchParticipants,
     createParticipant,
     clearParticipants,
+    importParticipants,
   };
 });

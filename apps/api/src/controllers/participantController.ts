@@ -63,3 +63,16 @@ export const deleteParticipant = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error deleting participant' });
   }
 };
+
+export const importParticipants = async (req: Request, res: Response) => {
+  try {
+    const { retreatId } = req.params;
+    const { participants } = req.body;
+
+    const result = await participantService.importParticipants(retreatId, participants);
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ message: 'Error importing participants' });
+  }
+};
