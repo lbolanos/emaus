@@ -2,7 +2,10 @@
   <div class="p-4">
     <div class="flex justify-between items-center mb-4">
       <h1 class="text-2xl font-bold">Houses</h1>
-      <Button @click="openAddModal">Add House</Button>
+      <div class="flex items-center space-x-2">
+        <Input v-model="searchQuery" placeholder="Search..." class="max-w-sm" />
+        <Button @click="openAddModal">Add House</Button>
+      </div>
     </div>
 
     <div v-if="store.loading">Loading...</div>
@@ -17,9 +20,9 @@
           </TableRow>
         </TableHeader>
         <TableBody>
-          <TableRow v-for="house in store.houses" :key="house.id">
+          <TableRow v-for="house in filteredHouses" :key="house.id">
             <TableCell>{{ house.name }}</TableCell>
-            <TableCell>{{ house.address }}</TableCell>
+            <TableCell>{{ house.address1 }}</TableCell>
             <TableCell>{{ house.beds?.length || 0 }}</TableCell>
             <TableCell class="space-x-2">
               <Button variant="outline" size="sm" @click="openEditModal(house)">Edit</Button>
@@ -40,9 +43,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, computed } from 'vue';
 import { useHouseStore } from '@/stores/houseStore';
 import { Button } from '@repo/ui/components/ui/button';
+import { Input } from '@repo/ui/components/ui/input';
 import {
   Table,
   TableHeader,
@@ -56,6 +60,17 @@ import AddEditHouseModal from '@/components/AddEditHouseModal.vue';
 const store = useHouseStore();
 const isModalOpen = ref(false);
 const selectedHouse = ref<any | null>(null);
+const searchQuery = ref('');
+
+const filteredHouses = computed(() => {
+  if (!searchQuery.value) {
+    return store.houses;
+  }
+  return store.houses.filter(house =>
+    house.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+    (house.address1 && house.address1.toLowerCase().includes(searchQuery.value.toLowerCase()))
+  );
+});
 
 onMounted(() => {
   store.fetchHouses();
