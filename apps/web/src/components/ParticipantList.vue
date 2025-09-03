@@ -44,10 +44,12 @@ const $ct = (key: string) => key.split('.').pop()?.replace(/([A-Z])/g, ' $1').re
 
 const props = withDefaults(defineProps<{
     type: 'walker' | 'server',
+    isCanceled?: boolean,
     columnsToShowInTable?: string[],
     columnsToShowInForm?: string[],
     columnsToEditInForm?: string[],
 }>(), {
+    isCanceled: false,
     columnsToShowInTable: () => ['firstName', 'lastName', 'email', 'cellPhone'],
     columnsToShowInForm: () => [],
     columnsToEditInForm: () => [],
@@ -71,7 +73,7 @@ const participantToDelete = ref<any>(null);
 const isEditDialogOpen = ref(false);
 const participantToEdit = ref<any>(null);
 const filterStatus = ref<'active' | 'canceled'>('active');
-const isCanceled = computed(() => filterStatus.value === 'canceled');
+const isCanceled = computed(() => filterStatus.value === 'canceled' || props.isCanceled);
 
 // --- DEFINICIÓN Y VISIBILIDAD DE COLUMNAS ---
 const allColumns = ref([

@@ -80,6 +80,25 @@
           <span v-if="!isCollapsed">{{ $t('sidebar.servers') }}</span>
         </a>
       </router-link>
+      <router-link
+        v-if="retreatStore.selectedRetreatId"
+        :to="{ name: 'canceled' }"
+        v-slot="{ href, navigate, isActive }"
+        custom
+      >
+        <a
+          :href="href"
+          @click="navigate"
+          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+          :class="[
+            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+            { 'justify-center': isCollapsed }
+          ]"
+        >
+          <UtensilsCrossed class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+          <span v-if="!isCollapsed">{{ $t('sidebar.canceled') }}</span>
+        </a>
+      </router-link>
       <!-- Add other menu items here following the same pattern -->
     </nav>
   </aside>

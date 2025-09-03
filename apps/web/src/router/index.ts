@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import AppLayout from '@/layouts/AppLayout.vue';
 import WalkersView from '../views/WalkersView.vue';
 import ServersView from '../views/ServersView.vue';
+import CanceledView from '../views/CanceledView.vue';
 import LoginView from '../views/LoginView.vue';
 import RequestPasswordResetView from '../views/RequestPasswordResetView.vue';
 import ResetPasswordView from '../views/ResetPasswordView.vue';
@@ -53,6 +54,11 @@ const router = createRouter({
           path: 'servers',
           name: 'servers',
           component: ServersView,
+        },
+        {
+          path: 'canceled',
+          name: 'canceled',
+          component: CanceledView,
         },
         {
           path: 'retreats/:id/dashboard',

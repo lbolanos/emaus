@@ -16,6 +16,7 @@
   "sidebar": {
     "walkers": "Caminantes",
     "servers": "Servidores",
+    "canceled": "Cancelados",
     "retreat": "Retiro",
     "loadingRetreats": "Cargando retiros...",
     "noRetreatsFound": "No se encontraron retiros.",

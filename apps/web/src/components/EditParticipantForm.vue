@@ -29,7 +29,7 @@ const getColumnLabel = (key: string) => {
 const getColumnType = (key: string) => {
     const col = props.allColumns.find(c => c.key === key);
     if (col && col.type) return col.type;
-    if (key.startsWith('is') || key.startsWith('has') || key.startsWith('requests') || key === 'arrivesOnOwn' || key === 'snores') return 'boolean';
+    if (key.startsWith('is') || key.startsWith('has') || key.startsWith('requests') || key === 'arrivesOnOwn' || key === 'snores' || key === 'palancasRequested') return 'boolean';
     if (key.toLowerCase().includes('notes') || key.toLowerCase().includes('details')) return 'textarea';
     if (key.toLowerCase().includes('date')) return 'date';
     return 'text';

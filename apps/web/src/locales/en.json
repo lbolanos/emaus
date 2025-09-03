@@ -17,6 +17,7 @@
     "walkers": "Walkers",
     "servers": "Servers",
     "retreat": "Retreat",
+    "canceled": "Canceled",
     "loadingRetreats": "Loading retreats...",
     "noRetreatsFound": "No retreats found.",
     "addRetreat": "Add Retreat",
