@@ -46,6 +46,11 @@
       "errorNoEmail": "No emails found in the file",
       "successTitle": "Success",
       "successDesc": "Participants imported successfully"
+    },
+    "status": {
+      "title": "Filter by status",
+      "active": "Active",
+      "canceled": "Canceled"
     }
   },
   "addRetreatModal": {

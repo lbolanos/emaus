@@ -9,7 +9,6 @@ const walkerFormEditColumns = walkerTableColumns.filter(c => !nonEditableColumns
 
 <template>
   <ParticipantList type="walker"
-    :is-canceled="false"
     :columns-to-show-in-table="walkerTableColumns"
     :columns-to-show-in-form="walkerFormShowColumns"
     :columns-to-edit-in-form="walkerFormEditColumns"

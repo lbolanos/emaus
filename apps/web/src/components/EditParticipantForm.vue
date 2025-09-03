@@ -85,8 +85,8 @@ const handleCancel = () => {
         <Switch
           v-if="getColumnType(key) === 'boolean'"
           :id="key"
-          :checked="localParticipant[key]"
-          @update:checked="value => localParticipant[key] = value"
+          :model-value="localParticipant[key]"
+          @update:model-value="value => localParticipant[key] = value"
         />
       </template>
       <p v-else class="text-sm text-gray-500 pt-2">{{ participant[key] || 'N/A' }}</p>

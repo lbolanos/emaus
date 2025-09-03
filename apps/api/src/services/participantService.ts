@@ -64,6 +64,7 @@ export const updateParticipant = async (
   if (!participant) {
     return null;
   }
+  participantData.lastUpdatedDate = new Date();
   participantRepository.merge(participant, participantData);
   return participantRepository.save(participant);
 };

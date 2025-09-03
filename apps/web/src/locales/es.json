@@ -46,6 +46,11 @@
       "errorNoEmail": "No se encontraron correos electrónicos en el archivo",
       "successTitle": "Exitoso",
       "successDesc": "Participantes importados exitosamente"
+    },
+    "status": {
+      "title": "Filtrar por estado",
+      "active": "Activos",
+      "canceled": "Cancelados"
     }
   },
   "addRetreatModal": {

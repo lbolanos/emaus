@@ -33,8 +33,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from '@repo/ui/components/ui/dropdown-menu';
-import { ArrowUpDown, Trash2, Edit, FileUp, FileDown, Columns } from 'lucide-vue-next';
+import { ArrowUpDown, Trash2, Edit, FileUp, FileDown, Columns, ListFilter } from 'lucide-vue-next';
 import { useToast } from '@repo/ui/components/ui/toast/use-toast';
 
 // Traducción (simulada, usa tu sistema de i18n)
@@ -42,12 +44,10 @@ const $ct = (key: string) => key.split('.').pop()?.replace(/([A-Z])/g, ' $1').re
 
 const props = withDefaults(defineProps<{
     type: 'walker' | 'server',
-    isCanceled?: boolean,
     columnsToShowInTable?: string[],
     columnsToShowInForm?: string[],
     columnsToEditInForm?: string[],
 }>(), {
-    isCanceled: false,
     columnsToShowInTable: () => ['firstName', 'lastName', 'email', 'cellPhone'],
     columnsToShowInForm: () => [],
     columnsToEditInForm: () => [],
@@ -70,6 +70,8 @@ const isDeleteDialogOpen = ref(false);
 const participantToDelete = ref<any>(null);
 const isEditDialogOpen = ref(false);
 const participantToEdit = ref<any>(null);
+const filterStatus = ref<'active' | 'canceled'>('active');
+const isCanceled = computed(() => filterStatus.value === 'canceled');
 
 // --- DEFINICIÓN Y VISIBILIDAD DE COLUMNAS ---
 const allColumns = ref([
@@ -302,9 +304,9 @@ const exportData = (format: 'csv' | 'xlsx') => {
 
 
 // --- WATCHER PARA CARGAR DATOS ---
-watch(selectedRetreatId, (newId) => {
+watch([selectedRetreatId, filterStatus], ([newId]) => {
     if (newId) {
-        participantStore.fetchParticipants(newId, props.type);
+        participantStore.fetchParticipants(newId, props.type, isCanceled.value);
     } else {
         participantStore.clearParticipants();
     }
@@ -322,6 +324,22 @@ watch(selectedRetreatId, (newId) => {
                 class="max-w-sm"
             />
             <div class="flex gap-2">
+                <!-- Filtro de estado -->
+                <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
+                        <Button variant="outline">
+                            <ListFilter class="mr-2 h-4 w-4" />
+                            <span>{{ $t(`participants.status.${filterStatus}`) }}</span>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                        <DropdownMenuLabel>{{ $t('participants.status.title') }}</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem @click="filterStatus = 'active'">{{ $t('participants.status.active') }}</DropdownMenuItem>
+                        <DropdownMenuItem @click="filterStatus = 'canceled'">{{ $t('participants.status.canceled') }}</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+
                 <!-- Selección de Columnas -->
                 <Dialog>
                     <DialogTrigger as-child>
