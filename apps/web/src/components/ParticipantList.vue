@@ -29,17 +29,15 @@ import {
 import ColumnSelector from './ColumnSelector.vue';
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@repo/ui/components/ui/dropdown-menu';
-import { ArrowUpDown, ChevronDown, Trash2, Edit, FileUp, FileDown, Eye, EyeOff, Columns } from 'lucide-vue-next';
+import { ArrowUpDown, Trash2, Edit, FileUp, FileDown, Columns } from 'lucide-vue-next';
 import { useToast } from '@repo/ui/components/ui/toast/use-toast';
 
 // Traducción (simulada, usa tu sistema de i18n)
-const $t = (key: string) => key.split('.').pop()?.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()) || key;
+const $ct = (key: string) => key.split('.').pop()?.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()) || key;
 
 const props = defineProps<{ type: 'walker' | 'server' }>();
 const { toast } = useToast();
@@ -62,7 +60,7 @@ const participantToDelete = ref<any>(null);
 const allColumns = ref([
     //{ key: 'id', label: 'participants.id' },
     //{ key: 'type', label: 'participants.type' },
-    { key: 'firstName', label: 'participants.firstName' },
+    { key: 'firstName', label: 'serverRegistration.fields.firstName' },
     { key: 'lastName', label: 'participants.lastName' },
     { key: 'nickname', label: 'participants.nickname' },
     { key: 'birthDate', label: 'participants.birthDate' },
@@ -126,14 +124,6 @@ const allColumns = ref([
 ]);
 
 const visibleColumns = ref<string[]>(['firstName', 'lastName', 'email', 'cellPhone']);
-
-const sortedColumnsForMenu = computed(() => {
-    return [...allColumns.value].sort((a, b) => {
-        const aVisible = visibleColumns.value.includes(a.key);
-        const bVisible = visibleColumns.value.includes(b.key);
-        return Number(aVisible) - Number(bVisible);
-    });
-});
 
 const toggleColumn = (key: string) => {
     const index = visibleColumns.value.indexOf(key);
@@ -206,8 +196,8 @@ const confirmDelete = async () => {
     if (participantToDelete.value) {
         await participantStore.deleteParticipant(participantToDelete.value.id);
         toast({
-            title: $t('participants.deleteSuccessTitle'),
-            description: `${participantToDelete.value.firstName} ${participantToDelete.value.lastName} ${$t('participants.deleteSuccessDesc')}`,
+            title: $t('participants.delete.SuccessTitle'),
+            description: `${participantToDelete.value.firstName} ${participantToDelete.value.lastName} ${$t('participants.delete.SuccessDesc')}`,
         });
     }
     isDeleteDialogOpen.value = false;
@@ -231,16 +221,16 @@ const handleFileUpload = async (event: Event) => {
             const json = XLSX.utils.sheet_to_json(worksheet);
 
             if (json.length > 0 && !('email' in json[0])) {
-                 toast({ title: $t('import.errorTitle'), description: $t('import.errorNoEmail'), variant: 'destructive' });
+                 toast({ title: $t('participants.import.errorTitle'), description: $t('participants.import.errorNoEmail'), variant: 'destructive' });
                  return;
             }
 
             await participantStore.importParticipants(selectedRetreatId.value!, json);
             isImportDialogOpen.value = false;
-            toast({ title: $t('import.successTitle'), description: `${json.length} ${$t('import.successDesc')}` });
+            toast({ title: $t('participants.import.successTitle'), description: `${json.length} ${$t('participants.import.successDesc')}` });
         } catch (err) {
             console.error('Error importing file:', err);
-            toast({ title: $t('import.errorTitle'), description: $t('import.errorGeneric'), variant: 'destructive' });
+            toast({ title: $t('common.import.errorTitle'), description: $t('common.import.errorGeneric'), variant: 'destructive' });
         }
     };
     reader.readAsArrayBuffer(file);
@@ -249,8 +239,11 @@ const handleFileUpload = async (event: Event) => {
 const exportData = (format: 'csv' | 'xlsx') => {
     const dataToExport = filteredAndSortedParticipants.value.map(p => {
         const record: { [key: string]: any } = {};
-        allColumns.value.forEach(col => {
-             record[$t(col.label)] = getNestedProperty(p, col.key);
+        visibleColumns.value.forEach(colKey => {
+            const col = allColumns.value.find(c => c.key === colKey);
+            if (col) {
+                 record[$ct(col.label)] = getNestedProperty(p, col.key);
+            }
         });
         return record;
     });
@@ -280,7 +273,7 @@ watch(selectedRetreatId, (newId) => {
         <div class="flex flex-col sm:flex-row justify-between items-center gap-2 mb-4">
             <Input
                 v-model="searchQuery"
-                :placeholder="$t('participants.searchPlaceholder')"
+                :placeholder="$t('common.searchPlaceholder')"
                 class="max-w-sm"
             />
             <div class="flex gap-2">
@@ -289,15 +282,15 @@ watch(selectedRetreatId, (newId) => {
                     <DialogTrigger as-child>
                         <Button variant="outline">
                             <Columns class="mr-2 h-4 w-4" />
-                            {{ $t('participants.columns') }}
+                            {{ $t('common.columns') }}
                         </Button>
                     </DialogTrigger>
                     <DialogContent class="max-w-4xl">
                         <DialogHeader>
-                            <DialogTitle>{{ $t('participants.selectColumns') }}</DialogTitle>
+                            <DialogTitle>{{ $ct('participants.selectColumns') }}</DialogTitle>
                         </DialogHeader>
                         <ColumnSelector
-                            :all-columns="allColumns.map(c => ({ ...c, label: $t(c.label) }))"
+                            :all-columns="allColumns.map(c => ({ ...c, label: $ct(c.label) }))"
                             v-model="visibleColumns"
                         />
                     </DialogContent>
@@ -310,13 +303,21 @@ watch(selectedRetreatId, (newId) => {
                     </DialogTrigger>
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>{{ $t('import.title') }}</DialogTitle>
-                            <DialogDescription>{{ $t('import.description') }}</DialogDescription>
+                            <DialogTitle>{{ $t('participants.import.title') }}</DialogTitle>
+                            <DialogDescription>{{ $t('participants.import.description') }}</DialogDescription>
                         </DialogHeader>
                         <Input type="file" @change="handleFileUpload" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" />
                     </DialogContent>
                 </Dialog>
-                <Button variant="outline" size="icon" @click="exportData('xlsx')"><FileDown class="h-4 w-4" /></Button>
+                                <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
+                        <Button variant="outline" size="icon"><FileDown class="h-4 w-4" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                        <DropdownMenuItem @click="exportData('xlsx')">{{ $t('export.xlsx') }}</DropdownMenuItem>
+                        <DropdownMenuItem @click="exportData('csv')">{{ $t('export.csv') }}</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
 
                 <!-- Añadir Participante -->
                 <Button @click="openRegistrationLink" :disabled="!selectedRetreatId">
@@ -337,7 +338,7 @@ watch(selectedRetreatId, (newId) => {
                 <TableHeader>
                     <TableRow>
                         <TableHead v-for="colKey in visibleColumns" :key="colKey" @click="handleSort(colKey)" class="cursor-pointer">
-                           {{ $t(allColumns.find(c => c.key === colKey)?.label) }}
+                           {{ $ct(allColumns.find(c => c.key === colKey)?.label) }}
                            <ArrowUpDown v-if="sortKey === colKey" class="inline-block ml-2 h-4 w-4" />
                         </TableHead>
                         <TableHead>{{ $t('participants.actions') }}</TableHead>
@@ -365,12 +366,12 @@ watch(selectedRetreatId, (newId) => {
                 <DialogHeader>
                     <DialogTitle>{{ $t('delete.confirmTitle') }}</DialogTitle>
                     <DialogDescription>
-                        {{ $t('delete.confirmMessage1') }} <strong>{{ participantToDelete?.firstName }} {{ participantToDelete?.lastName }}</strong>. {{ $t('delete.confirmMessage2') }}
+                        {{ $t('participants.delete.confirmMessage1') }} <strong>{{ participantToDelete?.firstName }} {{ participantToDelete?.lastName }}</strong>. {{ $t('participants.delete.confirmMessage2') }}
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
-                    <Button variant="outline" @click="isDeleteDialogOpen = false">{{ $t('actions.cancel') }}</Button>
-                    <Button variant="destructive" @click="confirmDelete">{{ $t('actions.delete') }}</Button>
+                    <Button variant="outline" @click="isDeleteDialogOpen = false">{{ $t('common.actions.cancel') }}</Button>
+                    <Button variant="destructive" @click="confirmDelete">{{ $t('common.actions.delete') }}</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

@@ -1,4 +1,7 @@
 {
+  "delete": {
+    "confirmTitle": "¿Estás seguro?"
+  },
   "login": {
     "title": "Iniciar Sesión",
     "description": "Ingrese su correo electrónico y contraseña a continuación para iniciar sesión",
@@ -28,8 +31,22 @@
     "actions": "Acciones",
     "loading": "Cargando...",
     "selectRetreatPrompt": "Por favor seleccione un retiro para ver los participantes.",
-    "noWalkersFound": "No se encontraron caminantes para este retiro.",
-    "addParticipant": "Adicionar participante"
+    "noParticipantsFound": "No se encontraron caminantes para este retiro.",
+    "addParticipant": "Adicionar participante",
+    "delete": {
+      "confirmMessage1": "Esta acción no se puede deshacer. Esto eliminará permanentemente a",
+      "confirmMessage2": "del Retiro.",
+      "SuccessTitle": "Borrado Exitoso",
+      "SuccessDesc": "El Participante fue borrado exitosamente."
+    },
+    "import": {
+      "title": "Importar Participantes",
+      "description": "Importar Participantes desde un archivo Excel o CSV",
+      "errorTitle": "Error al importar",
+      "errorNoEmail": "No se encontraron correos electrónicos en el archivo",
+      "successTitle": "Exitoso",
+      "successDesc": "Participantes importados exitosamente"
+    }
   },
   "addRetreatModal": {
     "title": "Agregar Nuevo Retiro",
@@ -78,7 +95,17 @@
     "submit": "Enviar",
     "next": "Siguiente",
     "previous": "Anterior",
-    "noResults": "No se encontraron resultados."
+    "noResults": "No se encontraron resultados.",
+    "searchPlaceholder": "Buscar...",
+    "columns": "columns",
+    "actions": {
+      "cancel": "Cancelar",
+      "delete": "Eliminar"
+    },
+    "import": {
+      "errorTitle": "Error al importar",
+      "errorGeneric": "Un error ha ocurrido en la importación"
+    }
   },
   "walkerRegistration": {
     "title": "Registro de Caminante",
@@ -244,5 +271,9 @@
     },
     "emergencyContact1": "En caso de emergencia contactar a (1):",
     "emergencyContact2": "En caso de emergencia contactar a (2):"
+  },
+  "export": {
+    "xlsx": "Exportar a XLSX",
+    "csv": "Exportar a CSV"
   }
 }

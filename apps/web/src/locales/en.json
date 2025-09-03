@@ -1,4 +1,7 @@
 {
+  "delete": {
+    "confirmTitle": "Are you sure?"
+  },
   "login": {
     "title": "Login",
     "description": "Enter your email and password below to login",
@@ -28,8 +31,22 @@
     "actions": "Actions",
     "loading": "Loading...",
     "selectRetreatPrompt": "Please select a retreat to see the participants.",
-    "noWalkersFound": "No walkers found for this retreat.",
-    "addParticipant": "Add Participant"
+    "noParticipantsFound": "No walkers found for this retreat.",
+    "addParticipant": "Add Participant",
+    "delete": {
+      "confirmMessage1": "This action cannot be undone. This will permanently delete",
+      "confirmMessage2": "from the retreat.",
+      "SuccessTitle": "Deletion Successful",
+      "SuccessDesc": "The participant was successfully deleted."
+    },
+    "import": {
+      "title": "Import Participants",
+      "description": "Import Participants from an Excel or CSV file",
+      "errorTitle": "Import error",
+      "errorNoEmail": "No emails found in the file",
+      "successTitle": "Success",
+      "successDesc": "Participants imported successfully"
+    }
   },
   "addRetreatModal": {
     "title": "Add New Retreat",
@@ -78,7 +95,17 @@
     "submit": "Submit",
     "next": "Next",
     "previous": "Previous",
-    "noResults": "No results found."
+    "noResults": "No results found.",
+    "searchPlaceholder": "Search...",
+    "columns": "columns",
+    "actions": {
+      "cancel": "Cancel",
+      "delete": "Delete"
+    },
+    "import": {
+      "errorTitle": "Import Error",
+      "errorGeneric": "An error occurred while importing"
+    }
   },
   "walkerRegistration": {
     "title": "Walker Registration",
@@ -244,5 +271,9 @@
     },
     "emergencyContact1": "In case of emergency, contact (1):",
     "emergencyContact2": "In case of emergency, contact (2):"
+  },
+  "export": {
+    "xlsx": "Export to XLSX",
+    "csv": "Export to CSV"
   }
 }
