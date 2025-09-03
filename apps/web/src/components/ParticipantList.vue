@@ -183,6 +183,20 @@ const getNestedProperty = (obj: any, path: string) => {
     return path.split('.').reduce((acc, part) => acc && acc[part], obj);
 };
 
+const formColumnsToShow = computed(() => {
+    const combined = new Set([...props.columnsToShowInForm, ...visibleColumns.value]);
+    return Array.from(combined);
+});
+
+const formColumnsToEdit = computed(() => {
+    const combined = new Set([...props.columnsToEditInForm, ...visibleColumns.value]);
+    const nonEditableSystemKeys = [
+        'id', 'id_on_retreat', 'type', 'email', 'registrationDate', 
+        'lastUpdatedDate', 'retreatId', 'tableId', 'roomId'
+    ];
+    return Array.from(combined).filter(key => !nonEditableSystemKeys.includes(key));
+});
+
 
 // --- MANEJO DE ACCIONES ---
 
@@ -417,8 +431,8 @@ watch(selectedRetreatId, (newId) => {
                     v-if="participantToEdit"
                     :participant="participantToEdit"
                     :all-columns="allColumns.map(c => ({ ...c, label: $ct(c.label) }))"
-                    :columns-to-show="columnsToShowInForm.length > 0 ? columnsToShowInForm : allColumns.map(c => c.key)"
-                    :columns-to-edit="columnsToEditInForm.length > 0 ? columnsToEditInForm : allColumns.map(c => c.key)"
+                    :columns-to-show="formColumnsToShow"
+                    :columns-to-edit="formColumnsToEdit"
                     @save="handleUpdateParticipant"
                     @cancel="isEditDialogOpen = false"
                 />

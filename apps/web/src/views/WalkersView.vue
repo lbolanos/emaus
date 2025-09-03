@@ -3,7 +3,8 @@ import ParticipantList from '@/components/ParticipantList.vue'
 
 const walkerTableColumns = ['firstName', 'lastName', 'email', 'cellPhone', 'parish', 'paymentAmount'];
 const walkerFormShowColumns = ['firstName', 'lastName', 'cellPhone', 'parish', 'paymentAmount', 'email'];
-const walkerFormEditColumns = ['firstName', 'lastName', 'cellPhone', 'parish', 'paymentAmount'];
+const nonEditableColumns = ['email'];
+const walkerFormEditColumns = walkerTableColumns.filter(c => !nonEditableColumns.includes(c));
 </script>
 
 <template>

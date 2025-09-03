@@ -3,7 +3,8 @@ import ParticipantList from '@/components/ParticipantList.vue'
 
 const serverTableColumns = ['firstName', 'lastName', 'email', 'cellPhone', 'parish', 'paymentAmount'];
 const serverFormShowColumns = ['firstName', 'lastName', 'cellPhone', 'parish', 'paymentAmount', 'email'];
-const serverFormEditColumns = ['firstName', 'lastName', 'cellPhone', 'parish', 'paymentAmount'];
+const nonEditableColumns = ['email'];
+const serverFormEditColumns = serverTableColumns.filter(c => !nonEditableColumns.includes(c));
 </script>
 
 <template>

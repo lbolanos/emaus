@@ -75,7 +75,7 @@ export const participantSchema = z.object({
   emergencyContact1WorkPhone: z.string().optional(),
   emergencyContact1CellPhone: z.string(),
   emergencyContact1Email: z.preprocess(
-    (val) => (val === '' ? undefined : val),
+    (val) => (val === '' || val === null ? undefined : val),
     z.string().email({ message: "Invalid email address" }).optional(),
   ),
   emergencyContact2Name: z.string().optional(),
@@ -84,7 +84,7 @@ export const participantSchema = z.object({
   emergencyContact2WorkPhone: z.string().optional(),
   emergencyContact2CellPhone: z.string().optional(),
   emergencyContact2Email: z.preprocess(
-    (val) => (val === '' ? undefined : val),
+    (val) => (val === '' || val === null ? undefined : val),
     z.string().email({ message: "Invalid email address" }).optional(),
   ),
   tshirtSize: z.enum(['S', 'M', 'G', 'X', '2']).optional(),
