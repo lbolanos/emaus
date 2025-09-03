@@ -46,11 +46,11 @@ const getErrorMessage = (field: string) => props.errors[field]
               <SelectValue :placeholder="$t('serverRegistration.fields.maritalStatus.placeholder')" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="single">{{ $t('serverRegistration.fields.maritalStatus.options.single') }}</SelectItem>
-              <SelectItem value="married">{{ $t('serverRegistration.fields.maritalStatus.options.married') }}</SelectItem>
-              <SelectItem value="separated_divorced">{{ $t('serverRegistration.fields.maritalStatus.options.separated_divorced') }}</SelectItem>
-              <SelectItem value="widowed">{{ $t('serverRegistration.fields.maritalStatus.options.widowed') }}</SelectItem>
-              <SelectItem value="other">{{ $t('serverRegistration.fields.maritalStatus.options.other') }}</SelectItem>
+              <SelectItem value="S">{{ $t('serverRegistration.fields.maritalStatus.options.single') }}</SelectItem>
+              <SelectItem value="C">{{ $t('serverRegistration.fields.maritalStatus.options.married') }}</SelectItem>
+              <SelectItem value="D">{{ $t('serverRegistration.fields.maritalStatus.options.separated_divorced') }}</SelectItem>
+              <SelectItem value="V">{{ $t('serverRegistration.fields.maritalStatus.options.widowed') }}</SelectItem>
+              <SelectItem value="O">{{ $t('serverRegistration.fields.maritalStatus.options.other') }}</SelectItem>
             </SelectContent>
           </Select>
           <p v-if="hasError('maritalStatus')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('maritalStatus') }}</p>

@@ -34,13 +34,24 @@ export const createParticipant = async (
       retreatId: participantData.retreatId
     },
   });
-
   if (existingParticipant) {
     throw new Error('A participant with this email already exists in this retreat.');
   }
 
+  //find max id_on_retreat in the retreat and assign to new participant
+  const maxIdOnRetreat = await participantRepository.createQueryBuilder('participant')
+    .select('MAX(participant.id_on_retreat)', 'maxId')
+    .where('participant.retreatId = :retreatId', { retreatId: participantData.retreatId })
+    .getRawOne();
+
+  const id_on_retreat = (maxIdOnRetreat.maxId || 0) + 1;
+
   const newParticipant = participantRepository.create({
-    ...participantData, isCancelled : false, registrationDate: new Date(), lastUpdatedDate: new Date()
+    ...participantData,
+    id_on_retreat,
+    isCancelled: false,
+    registrationDate: new Date(),
+    lastUpdatedDate: new Date()
   });
   return participantRepository.save(newParticipant);
 };
@@ -67,7 +78,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
   const mapToEnglishKeys = (participant: any) => {
     return {
-      id: participant.id?.trim(),
+      id_on_retreat: participant.id?.trim(),
       type: (participant.tipousuario?.trim() === '3' ? 'walker' : 'server') as 'walker' | 'server',
       firstName: participant.nombre?.trim(),
       lastName: participant.apellidos?.trim(),
@@ -94,10 +105,10 @@ export const importParticipants = async (retreatId: string, participantsData: an
       hasDietaryRestrictions: participant.alimentosrestringidos?.trim() === 'S',
       dietaryRestrictionsDetails: participant.alimentoscual?.trim(),
       sacraments: [
-        participant.sacramentobautismo?.trim() === 'S' ? 'bautismo' : '',
-        participant.sacramentocomunion?.trim() === 'S' ? 'comunion' : '',
-        participant.sacramentoconfirmacion?.trim() === 'S' ? 'confirmacion' : '',
-        participant.sacramentomatrimonio?.trim() === 'S' ? 'matrimonio' : '',
+        participant.sacramentobautismo?.trim() === 'S' ? 'baptism' : '',
+        participant.sacramentocomunion?.trim() === 'S' ? 'communion' : '',
+        participant.sacramentoconfirmacion?.trim() === 'S' ? 'confirmation' : '',
+        participant.sacramentomatrimonio?.trim() === 'S' ? 'marriage' : '',
       ].filter(s => s),
       emergencyContact1Name: participant.emerg1nombre?.trim(),
       emergencyContact1Relation: participant.emerg1relacion?.trim(),

@@ -84,7 +84,7 @@ const step1Schema = z.object({
   lastName: z.string().min(1, 'Last Name is required'),
   nickname: z.string().optional(),
   birthDate: z.string().min(1, 'Birth Date is required'),
-  maritalStatus: z.enum(['single', 'married', 'separated_divorced', 'widowed', 'other']),
+  maritalStatus: z.enum(['S', 'C', 'D', 'V', 'O']),
   parish: z.string().min(1, 'Parish is required'),
   homePhone: z.string().optional(),
   workPhone: z.string().optional(),
@@ -165,7 +165,7 @@ const step4Schema = z.object({
 })
 
 const step5Schema = z.object({
-  tshirtSize: z.enum(['S', 'M', 'L', 'XL', 'XXL'], { required_error: 'T-shirt size is required' }),
+  tshirtSize: z.enum(['S', 'M', 'G', 'X', '2'], { required_error: 'T-shirt size is required' }),
   invitedBy: z.string().optional(),
   isInvitedByEmausMember: z.boolean().optional(),
   inviterHomePhone: z.string().optional(),

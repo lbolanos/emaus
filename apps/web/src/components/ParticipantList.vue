@@ -27,6 +27,7 @@ import {
   DialogTrigger,
 } from '@repo/ui/components/ui/dialog';
 import ColumnSelector from './ColumnSelector.vue';
+import EditParticipantForm from './EditParticipantForm.vue';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,7 +40,19 @@ import { useToast } from '@repo/ui/components/ui/toast/use-toast';
 // Traducción (simulada, usa tu sistema de i18n)
 const $ct = (key: string) => key.split('.').pop()?.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()) || key;
 
-const props = defineProps<{ type: 'walker' | 'server' }>();
+const props = withDefaults(defineProps<{
+    type: 'walker' | 'server',
+    isCanceled?: boolean,
+    columnsToShowInTable?: string[],
+    columnsToShowInForm?: string[],
+    columnsToEditInForm?: string[],
+}>(), {
+    isCanceled: false,
+    columnsToShowInTable: () => ['firstName', 'lastName', 'email', 'cellPhone'],
+    columnsToShowInForm: () => [],
+    columnsToEditInForm: () => [],
+});
+
 const { toast } = useToast();
 
 // Stores de Pinia
@@ -55,11 +68,13 @@ const sortOrder = ref<'asc' | 'desc'>('asc');
 const isImportDialogOpen = ref(false);
 const isDeleteDialogOpen = ref(false);
 const participantToDelete = ref<any>(null);
+const isEditDialogOpen = ref(false);
+const participantToEdit = ref<any>(null);
 
 // --- DEFINICIÓN Y VISIBILIDAD DE COLUMNAS ---
 const allColumns = ref([
-    //{ key: 'id', label: 'participants.id' },
-    //{ key: 'type', label: 'participants.type' },
+    { key: 'id_on_retreat', label: 'participants.id' },
+    { key: 'type', label: 'participants.type' },
     { key: 'firstName', label: 'participants.firstName' },
     { key: 'lastName', label: 'participants.lastName' },
     { key: 'nickname', label: 'participants.nickname' },
@@ -123,7 +138,7 @@ const allColumns = ref([
     { key: 'roomId', label: 'participants.roomId' },
 ]);
 
-const visibleColumns = ref<string[]>(['firstName', 'lastName', 'email', 'cellPhone']);
+const visibleColumns = ref<string[]>(props.columnsToShowInTable);
 
 const toggleColumn = (key: string) => {
     const index = visibleColumns.value.indexOf(key);
@@ -202,6 +217,22 @@ const confirmDelete = async () => {
     }
     isDeleteDialogOpen.value = false;
     participantToDelete.value = null;
+};
+
+const openEditDialog = (participant: any) => {
+    participantToEdit.value = participant;
+    isEditDialogOpen.value = true;
+};
+
+const handleUpdateParticipant = async (updatedParticipant: any) => {  
+    console.log('Updating participant:', updatedParticipant);
+    console.log('Participant ID:', updatedParticipant.id);
+    await participantStore.updateParticipant(updatedParticipant.id, updatedParticipant);
+    toast({
+        title: 'Success',
+        description: 'Participant updated successfully.',
+    });
+    isEditDialogOpen.value = false;
 };
 
 // --- IMPORTACIÓN / EXPORTACIÓN ---
@@ -351,7 +382,7 @@ watch(selectedRetreatId, (newId) => {
                         </TableCell>
                         <TableCell>
                             <div class="flex gap-2">
-                                <Button variant="ghost" size="icon" @click="() => {/* Lógica de Editar */ }"><Edit class="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" @click="openEditDialog(participant)"><Edit class="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" class="text-red-500 hover:text-red-700" @click="openDeleteDialog(participant)"><Trash2 class="h-4 w-4" /></Button>
                             </div>
                         </TableCell>
@@ -373,6 +404,24 @@ watch(selectedRetreatId, (newId) => {
                     <Button variant="outline" @click="isDeleteDialogOpen = false">{{ $t('common.actions.cancel') }}</Button>
                     <Button variant="destructive" @click="confirmDelete">{{ $t('common.actions.delete') }}</Button>
                 </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        <!-- Diálogo de Edición -->
+        <Dialog v-model:open="isEditDialogOpen">
+            <DialogContent class="max-w-4xl">
+                <DialogHeader>
+                    <DialogTitle>Edit Participant</DialogTitle>
+                </DialogHeader>
+                <EditParticipantForm
+                    v-if="participantToEdit"
+                    :participant="participantToEdit"
+                    :all-columns="allColumns.map(c => ({ ...c, label: $ct(c.label) }))"
+                    :columns-to-show="columnsToShowInForm.length > 0 ? columnsToShowInForm : allColumns.map(c => c.key)"
+                    :columns-to-edit="columnsToEditInForm.length > 0 ? columnsToEditInForm : allColumns.map(c => c.key)"
+                    @save="handleUpdateParticipant"
+                    @cancel="isEditDialogOpen = false"
+                />
             </DialogContent>
         </Dialog>
     </div>

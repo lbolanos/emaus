@@ -29,9 +29,9 @@ const getErrorMessage = (field: string) => props.errors[field]
           <SelectContent>
             <SelectItem value="S">{{ $t('walkerRegistration.fields.tshirtSize.options.s') }}</SelectItem>
             <SelectItem value="M">{{ $t('walkerRegistration.fields.tshirtSize.options.m') }}</SelectItem>
-            <SelectItem value="L">{{ $t('walkerRegistration.fields.tshirtSize.options.l') }}</SelectItem>
-            <SelectItem value="XL">{{ $t('walkerRegistration.fields.tshirtSize.options.xl') }}</SelectItem>
-            <SelectItem value="XXL">{{ $t('walkerRegistration.fields.tshirtSize.options.xxl') }}</SelectItem>
+            <SelectItem value="G">{{ $t('walkerRegistration.fields.tshirtSize.options.l') }}</SelectItem>
+            <SelectItem value="X">{{ $t('walkerRegistration.fields.tshirtSize.options.xl') }}</SelectItem>
+            <SelectItem value="2">{{ $t('walkerRegistration.fields.tshirtSize.options.xxl') }}</SelectItem>
           </SelectContent>
         </Select>
         <p v-if="hasError('tshirtSize')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('tshirtSize') }}</p>

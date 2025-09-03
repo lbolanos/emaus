@@ -16,6 +16,9 @@ export class Participant {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
+  @Column('int')
+  id_on_retreat!: number; // Corresponde a 'id'
+
   @Column({ type: 'varchar' })
   type!: 'walker' | 'server'; // Corresponde a 'tipousuario'
 
@@ -33,11 +36,11 @@ export class Participant {
 
   @Column('varchar')
   maritalStatus!: // Corresponde a 'estadocivil'
-    | 'single'
-    | 'married'
-    | 'separated_divorced'
-    | 'widowed'
-    | 'other';
+    | 'S'
+    | 'C'
+    | 'D'
+    | 'V'
+    | 'O';
 
   @Column('varchar')
   street!: string; // Corresponde a 'dircalle'
@@ -136,7 +139,7 @@ export class Participant {
   emergencyContact2Email?: string; // Corresponde a 'emerg2email'
 
   @Column({ type: 'varchar', nullable: true })
-  tshirtSize?: 'S' | 'M' | 'L' | 'XL' | 'XXL'; // Corresponde a 'camiseta'
+  tshirtSize?: 'S' | 'M' | 'G' | 'X' | '2'; // Corresponde a 'camiseta'
 
   @Column({ type: 'varchar', nullable: true })
   invitedBy?: string; // Corresponde a 'invitadopor'

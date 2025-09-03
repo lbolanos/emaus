@@ -42,12 +42,13 @@ export type Table = z.infer<typeof tableSchema>;
 // Participant Schema
 export const participantSchema = z.object({
   id: idSchema,
+  id_on_retreat: z.number().int().positive().optional(),
   type: z.enum(['walker', 'server']),
   firstName: z.string(),
   lastName: z.string(),
   nickname: z.string().optional(),
   birthDate: z.coerce.date(),
-  maritalStatus: z.enum(['single', 'married', 'separated_divorced', 'widowed', 'other']),
+  maritalStatus: z.enum(['S', 'C', 'D', 'V', 'O']),
   street: z.string(),
   houseNumber: z.string(),
   postalCode: z.string(),
@@ -86,7 +87,7 @@ export const participantSchema = z.object({
     (val) => (val === '' ? undefined : val),
     z.string().email({ message: "Invalid email address" }).optional(),
   ),
-  tshirtSize: z.enum(['S', 'M', 'L', 'XL', 'XXL']).optional(),
+  tshirtSize: z.enum(['S', 'M', 'G', 'X', '2']).optional(),
   invitedBy: z.string().optional(),
   isInvitedByEmausMember: z.boolean().optional(),
   inviterHomePhone: z.string().optional(),
@@ -109,7 +110,7 @@ export type Participant = z.infer<typeof participantSchema>;
 
 // POST /participants/new
 export const createParticipantSchema = z.object({
-  body: participantSchema.omit({ id: true }),
+  body: participantSchema.omit({ id: true, id_on_retreat: true }),
 });
 export type CreateParticipant = z.infer<typeof createParticipantSchema.shape.body>;
 

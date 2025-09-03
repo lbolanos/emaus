@@ -6,3 +6,4 @@ dist/
 gha-creds-*.json
 node_modules/
 apps/api/database.sqlite
+apps/api/2database.sqlite
