@@ -47,6 +47,7 @@
     "./components/ui/dropdown-menu": "./src/components/ui/dropdown-menu/index.ts",
     "./components/ui/scroll-area": "./src/components/ui/scroll-area/index.ts",
     "./components/ui/textarea": "./src/components/ui/textarea/index.ts",
+    "./components/ui/progress": "./src/components/ui/progress/index.ts",
     "./components/ui/command": "./src/components/ui/command/index.ts",
     "./lib/utils": "./src/lib/utils.ts"
   }

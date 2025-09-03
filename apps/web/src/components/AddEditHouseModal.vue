@@ -7,8 +7,11 @@
           {{ isEditing ? 'Edit the details of the house.' : 'Enter the details of the new house.' }}
         </DialogDescription>
       </DialogHeader>
+      <Progress :model-value="(currentStep / 3) * 100" class="mb-4" />
       <form @submit.prevent="handleSubmit">
-        <div class="grid gap-4 py-4">
+        <!-- Step 1: General Information -->
+        <div v-if="currentStep === 1" class="grid gap-4 py-4">
+          <h3 class="font-semibold text-lg text-center">Step 1: General Information</h3>
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="name" class="text-right">Name</Label>
             <Input id="name" v-model="formData.name" class="col-span-3" required />
@@ -47,17 +50,16 @@
             <Label for="googleMapsUrl" class="text-right">Google Maps URL</Label>
             <Input id="googleMapsUrl" v-model="formData.googleMapsUrl" class="col-span-3" required />
           </div>
-          <div class="grid grid-cols-4 items-center gap-4">
-            <Label for="notes" class="text-right">Notes</Label>
-            <Textarea id="notes" v-model="formData.notes" class="col-span-3" required />
-          </div>
+          <div v-if="formData.latitude && formData.longitude" ref="mapContainer" class="h-64 mt-4"></div>
+        </div>
+
+        <!-- Step 2: Capacity -->
+        <div v-if="currentStep === 2" class="grid gap-4 py-4">
+          <h3 class="font-semibold text-lg text-center">Step 2: Capacity</h3>
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="capacity" class="text-right">Bed Capacity</Label>
-            <Input id="capacity" v-model.number="formData.capacity" type="number" class="col-span-3" required />
+            <Input id="capacity" v-model.number="formData.capacity" type="number" class="col-span-3" required disabled />
           </div>
-
-          <div v-if="formData.latitude && formData.longitude" ref="mapContainer" class="h-64 mt-4"></div>
-
           <div class="mt-4">
             <h3 class="font-semibold">Beds</h3>
             <div v-for="(bed, index) in formData.beds" :key="index" class="grid grid-cols-12 gap-2 items-center mt-2">
@@ -89,11 +91,27 @@
             <Button type="button" variant="outline" size="sm" @click="addBed" class="mt-2">Add Bed</Button>
           </div>
         </div>
+
+        <!-- Step 3: Notes -->
+        <div v-if="currentStep === 3" class="grid gap-4 py-4">
+          <h3 class="font-semibold text-lg text-center">Step 3: Notes</h3>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="notes" class="text-right">Notes</Label>
+            <Textarea id="notes" v-model="formData.notes" class="col-span-3" />
+          </div>
+        </div>
+
         <DialogFooter>
           <Button type="button" variant="outline" @click="handleCancel">
             Cancel
           </Button>
-          <Button type="submit">
+          <Button v-if="currentStep > 1" type="button" variant="outline" @click="prevStep">
+            Back
+          </Button>
+          <Button v-if="currentStep < 3" type="button" @click="nextStep">
+            Next
+          </Button>
+          <Button v-if="currentStep === 3" type="submit">
             {{ isEditing ? 'Save Changes' : 'Save House' }}
           </Button>
         </DialogFooter>
@@ -105,6 +123,7 @@
 <script setup lang="ts">
 import { ref, watch, computed, nextTick } from 'vue';
 import { Button } from '@repo/ui/components/ui/button';
+import { Progress } from '@repo/ui/components/ui/progress';
 import {
   Dialog,
   DialogContent,
@@ -135,6 +154,20 @@ const emit = defineEmits<{
   (e: 'update:open', value: boolean): void;
   (e: 'submit', data: any): void; // TODO: use House type
 }>();
+
+const currentStep = ref(1);
+
+const nextStep = () => {
+  if (currentStep.value < 3) {
+    currentStep.value++;
+  }
+};
+
+const prevStep = () => {
+  if (currentStep.value > 1) {
+    currentStep.value--;
+  }
+};
 
 const isEditing = computed(() => !!props.house);
 const autocompleteField = ref<any>(null);
@@ -214,7 +247,9 @@ const handlePlaceChange = async ({ placePrediction }: any) => {
 
 watch(() => props.open, async (isOpen) => {
   if (isOpen) {
+    currentStep.value = 1; // Reset to first step when opening
     formData.value = getInitialFormData();
+    formData.value.capacity = formData.value.beds.length;
     await nextTick();
     // Set the initial value of the autocomplete input if editing
     if (autocompleteField.value) {
@@ -232,8 +267,12 @@ watch(() => props.open, async (isOpen) => {
   }
 });
 
-watch(() => formData.value.latitude, async (newLat) => {
-  if (newLat && formData.value.longitude) {
+watch(() => formData.value.beds, (newBeds) => {
+  formData.value.capacity = newBeds.length;
+}, { deep: true });
+
+watch([() => formData.value.latitude, currentStep], async ([newLat, newStep]) => {
+  if (newLat && formData.value.longitude && newStep === 1) {
     await nextTick();
     initMap(newLat, formData.value.longitude);
   }

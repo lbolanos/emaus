@@ -17,7 +17,7 @@ export const findHouseById = async (id: string): Promise<House | null> => {
 export const createHouse = async (
   houseData: any // CreateHouse
 ): Promise<House> => {
-  const { beds, ...houseInfo } = houseData;
+  const { id, beds, ...houseInfo } = houseData;
 
   const newHouse = houseRepository.create(houseInfo);
   const savedHouse = await houseRepository.save(newHouse);
