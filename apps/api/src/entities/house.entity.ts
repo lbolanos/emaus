@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
-import { Room } from './room.entity';
+import { Bed } from './bed.entity';
 import { Retreat } from './retreat.entity';
 
 @Entity()
@@ -13,11 +13,11 @@ export class House {
   @Column('varchar')
   address!: string;
 
-  @Column('integer')
-  capacity!: number;
+  @Column('varchar', { nullable: true })
+  googleMapsUrl?: string;
 
-  @OneToMany(() => Room, (room) => room.house)
-  rooms!: Room[];
+  @OneToMany(() => Bed, (bed) => bed.house)
+  beds!: Bed[];
 
   @OneToMany(() => Retreat, (retreat) => retreat.house)
   retreats!: Retreat[];

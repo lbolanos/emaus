@@ -4,7 +4,7 @@ You are an expert full-stack software architect and senior engineer. Your specia
 </META:SYSTEM_PROMPT>
 
 PROJECT:OVERVIEW
-This project is a "Emaus Retreat Logistics Management System." Its purpose is to manage the logistical details of religious retreats organized by various parishes worldwide. The system must track retreats, venues (houses), participants (walkers and servers), room assignments, table assignments, support efforts (palancas), and inventory. The application will consist of a Vue.js frontend and an Express.js backend API.
+This project is a "Emaus Retreat Logistics Management System." Its purpose is to manage the logistical details of religious retreats organized by various parishes worldwide. The system must track retreats, venues (houses), participants (walkers and servers), bed assignments, table assignments, support efforts (palancas), and inventory. The application will consist of a Vue.js frontend and an Express.js backend API.
 </PROJECT:OVERVIEW>
 
 PROJECT:TECH_STACK
@@ -82,8 +82,8 @@ Properties: id (UUID), parish (string), startDate (Date), endDate (Date), houseI
 House: Represents a venue where retreats are held.
 Properties: id (UUID), name (string), address (string), capacity (number).
 
-Room: A physical room at a House.
-Properties: id (UUID), roomNumber (string), capacity (number), houseId (FK to House).
+Bed: A physical bed in a room at a House.
+Properties: id (UUID), roomNumber (string), bedNumber (string), type (enum: 'normal', 'litera', 'colchon'), defaultUsage (enum: 'caminante', 'servidor'), houseId (FK to House).
 
 Table: A group or table at a retreat.
 Properties: id (UUID), name (string), retreatId (FK to Retreat).

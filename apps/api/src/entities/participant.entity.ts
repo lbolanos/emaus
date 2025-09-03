@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 import { Retreat } from './retreat.entity';
 import { Table } from './table.entity';
-import { Room } from './room.entity';
+//import { Room } from './room.entity';
 
 @Entity('participants')
 export class Participant {
@@ -222,7 +222,7 @@ export class Participant {
   @Column({ type: 'uuid', nullable: true })
   roomId?: string; // Corresponde a 'habitacion'
 
-  @ManyToOne(() => Room, (room) => room.participants, { nullable: true })
-  @JoinColumn({ name: 'roomId' })
-  room?: Room;
+  //@ManyToOne(() => Room, (room) => room.participants, { nullable: true })
+  //@JoinColumn({ name: 'roomId' })
+  //room?: Room;
 }

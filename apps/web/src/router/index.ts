@@ -3,6 +3,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import WalkersView from '../views/WalkersView.vue';
 import ServersView from '../views/ServersView.vue';
 import CanceledView from '../views/CanceledView.vue';
+import HousesView from '../views/HousesView.vue';
 import LoginView from '../views/LoginView.vue';
 import RequestPasswordResetView from '../views/RequestPasswordResetView.vue';
 import ResetPasswordView from '../views/ResetPasswordView.vue';
@@ -59,6 +60,11 @@ const router = createRouter({
           path: 'canceled',
           name: 'canceled',
           component: CanceledView,
+        },
+        {
+          path: 'houses',
+          name: 'houses',
+          component: HousesView,
         },
         {
           path: 'retreats/:id/dashboard',

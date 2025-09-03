@@ -44,6 +44,8 @@ The monorepo is organized into `apps` and `packages`:
     pnpm install
     ```
 
+must call pnpm --filter app db:seed
+
 ### Development
 
 To start the development servers for both the backend and frontend, run the following command from the root of the project:
@@ -56,8 +58,13 @@ El listado de participantes debe poder descargarse en formato excel o csv.
 debe poder seleccionar las columnas que desea ver en el listado.
 debe poder buscar un participante y orden por alguna columna.
 Los participantes nunca se borrar pero cambiar a type = 'deleted'
-importar todos los participantes de un archivo de excel o csv.  se importan de acuerdo a su correo electronico.  Si no existe si crea y si existe se actualiza.
-menu para adicionar y editar casas de retiro. al hacer clic debe desaparecer la seleccion de retiro porque es independiente del retiro.  las casas tienen un listado de habitaciones con numero de camas y colchones, uso por defecto para caminante o servidor y si tiene litera. Ubicacion de la casa google maps y direccion.
+importar todos los participantes de un archivo de excel o csv.  se importan de acuerdo a su correo electronico.  Si no existe se crea y si existe se actualiza.
+crear un formulario en el que le diga los campos que puede modificar y los campos a mostrar
+agregar un menu para los participantes borrados
+
+TODO
+menu item para adicionar y editar casas de retiro. las casas tienen un listado de camas de habitacion con identificacion que corresponde a numero de habitacion y numero de cama,  tipo de cama puede ser normal, litera o colchon, uso por defecto para caminante o servidor. Ubicacion de la casa google maps y direccion.
+al selecciona del menu casas de retiro debe desaparecer la seleccion de retiro porque es independiente del retiro.
 al crear el retiro se deben leer las habitaciones de la casa de retiro, crear una entidad room_bed que contiene el numero de habitacion y numero de cama o colchon y asignarlas al retiro.  Tambien se deben crear al menos 5 mesas.  Tiene que tener un maximo de caminantes por mesa y un minimo y al crear participante si sobrepasa algun limite crear o borrar una mesa y reordenar las mesas teniendo en cuenta las reglas.
 cada que se agregue un caminante debe asignarse una mesa en la que no este ningun caminante con el mismo servidor que lo invito, tambien debe asignarse una habitacion de acuerdo a su edad.  los que tienen litera para los jovenes.  los que no tienen litera para los mas viejos. En caso de colchon para los servidores primero.
 agregar una forma de administrar las tablas de la base de datos con solo permisos para el superadmin.
@@ -65,11 +72,18 @@ manejo de inventario.  importar y export excel o csv.  Debe tener un ratio con r
 llevar tambien el registro de las camisetas y chaquetas que necesitan los servidores.
 
 
+agregar un limite de caminantes maximo al retiro.  Si sobrepasa este limite al crear un nuevo caminante debe colocarlo como  tipo 'waiting'
+Listado Palancas
+Listado Pagos, Notas & Puntos de Encuentro
+Listado Notas & Puntos de Encuentro
+Listado Cuartos
+Listado Mesa y Tipo de Usuario
+Listado Alimentos
+Listado Cancelados
+Listado Para Cancelar & Notas
+Listado En Espera, Tipo Usuario, Cancelar
 
-
-agregar un menu para los participantes borrados
-crear un formulario en el que le diga los campos que puede modificar y los campos a mostrar
-
+cookie jwt para acceso
 
 This will use Turborepo to run the `dev` script in both `apps/api` and `apps/web`.
 

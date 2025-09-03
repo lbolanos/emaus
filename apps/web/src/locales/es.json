@@ -22,7 +22,8 @@
     "noRetreatsFound": "No se encontraron retiros.",
     "addRetreat": "Agregar Retiro",
     "selectRetreat": "Selecciona un retiro",
-    "retreatDashboard": "Panel de Retiro"
+    "retreatDashboard": "Panel de Retiro",
+    "houses": "Casas"
   },
   "participants": {
     "title": "Caminantes",
