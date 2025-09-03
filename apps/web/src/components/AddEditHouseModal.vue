@@ -23,6 +23,7 @@
             <Label for="address1" class="text-right">Address 1</Label>
             <div class="col-span-3">
               <gmp-place-autocomplete
+                v-if="address1_is_editing"
                 ref="autocompleteField"
                 class="w-full"
                 placeholder="Enter an address"
@@ -30,6 +31,12 @@
                 :value="formData.address1"
               >
               </gmp-place-autocomplete>
+              <Input
+                v-else
+                id="address1"
+                v-model="formData.address1"
+                @click="address1_is_editing = true"
+              />
               <p v-if="formErrors.address1" class="text-red-500 text-sm">{{ formErrors.address1 }}</p>
             </div>
           </div>
@@ -192,6 +199,7 @@ const emit = defineEmits<{ (e: 'update:open', value: boolean): void; (e: 'submit
 
 const { toast } = useToast();
 const currentStep = ref(1);
+const address1_is_editing = ref(true);
 
 const getInitialFormData = () => ({
   id: props.house?.id || null,
@@ -322,7 +330,7 @@ const handlePlaceChange = async ({ placePrediction }: any) => {
 
   const place = placePrediction.toPlace();
   await place.fetchFields({
-    fields: ['addressComponents', 'location', 'googleMapsURI'],
+    fields: ['addressComponents','displayName', 'location', 'googleMapsURI'],
   });
 
   if (place.addressComponents) {
@@ -344,6 +352,7 @@ const handlePlaceChange = async ({ placePrediction }: any) => {
   if (place.googleMapsURI) {
     formData.value.googleMapsUrl = place.googleMapsURI;
   }
+  address1_is_editing.value = false;
 };
 
 watch(() => props.open, async (isOpen) => {
@@ -351,20 +360,26 @@ watch(() => props.open, async (isOpen) => {
     currentStep.value = 1;
     formData.value = getInitialFormData();
     Object.keys(formErrors).forEach(key => delete formErrors[key]);
+    address1_is_editing.value = !formData.value.address1;
 
     await nextTick();
     if (autocompleteField.value) {
       if (formData.value.address1) {
         autocompleteField.value.value = formData.value.address1;
       }
-      autocompleteField.value.addEventListener('gmp-select', handlePlaceChange);
     }
   } else {
-    if (autocompleteField.value) {
-      autocompleteField.value.removeEventListener('gmp-select', handlePlaceChange);
-    }
     map = null;
     marker = null;
+  }
+});
+
+watch(autocompleteField, (newField, oldField) => {
+  if (oldField) {
+    oldField.removeEventListener('gmp-select', handlePlaceChange);
+  }
+  if (newField) {
+    newField.addEventListener('gmp-select', handlePlaceChange);
   }
 });
 
