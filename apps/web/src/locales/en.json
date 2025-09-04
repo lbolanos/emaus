@@ -31,6 +31,7 @@
     "addWalker": "Add Walker",
     "name": "Name",
     "email": "Email",
+    "table": "Table",
     "actions": "Actions",
     "loading": "Loading...",
     "selectRetreatPrompt": "Please select a retreat to see the participants.",

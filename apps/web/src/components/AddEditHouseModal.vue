@@ -91,45 +91,50 @@
           </div>
           <div class="mt-4">
             <h3 class="font-semibold">Beds</h3>
-            <div v-for="(field, index) in formData.beds" :key="index" class="grid grid-cols-12 gap-2 items-center mt-2">
-              <div class="col-span-2">
-                <Input v-model="field.roomNumber" placeholder="Room #" />
-                <p v-if="formErrors['beds[' + index + '].roomNumber']" class="text-red-500 text-sm">{{ formErrors['beds[' + index + '].roomNumber'] }}</p>
+            <ScrollArea ref="bedScrollArea" class="h-[300px] w-full rounded-md border p-4">
+              <div v-for="(field, index) in formData.beds" :key="index" class="grid grid-cols-12 gap-2 items-center mb-2">
+                <div class="col-span-2">
+                  <Input v-model="field.roomNumber" placeholder="Room #" />
+                  <p v-if="formErrors['beds[' + index + '].roomNumber']" class="text-red-500 text-sm">{{ formErrors['beds[' + index + '].roomNumber'] }}</p>
+                </div>
+                <div class="col-span-2">
+                  <Input v-model="field.bedNumber" placeholder="Bed #" />
+                   <p v-if="formErrors['beds[' + index + '].bedNumber']" class="text-red-500 text-sm">{{ formErrors['beds[' + index + '].bedNumber'] }}</p>
+                </div>
+                <div class="col-span-3">
+                  <Select v-model="field.type">
+                    <SelectTrigger>
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">Normal</SelectItem>
+                      <SelectItem value="litera">Litera</SelectItem>
+                      <SelectItem value="colchon">Colchon</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p v-if="formErrors['beds[' + index + '].type']" class="text-red-500 text-sm">{{ formErrors['beds[' + index + '].type'] }}</p>
+                </div>
+                <div class="col-span-3">
+                  <Select v-model="field.defaultUsage">
+                    <SelectTrigger>
+                      <SelectValue placeholder="Usage" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="caminante">Caminante</SelectItem>
+                      <SelectItem value="servidor">Servidor</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p v-if="formErrors['beds[' + index + '].defaultUsage']" class="text-red-500 text-sm">{{ formErrors['beds[' + index + '].defaultUsage'] }}</p>
+                </div>
+                <Button type="button" variant="destructive" size="icon" @click="removeBed(index)" class="col-span-1">
+                  <Trash2 class="h-4 w-4" />
+                </Button>
               </div>
-              <div class="col-span-2">
-                <Input v-model="field.bedNumber" placeholder="Bed #" />
-                 <p v-if="formErrors['beds[' + index + '].bedNumber']" class="text-red-500 text-sm">{{ formErrors['beds[' + index + '].bedNumber'] }}</p>
-              </div>
-              <div class="col-span-3">
-                <Select v-model="field.type">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="normal">Normal</SelectItem>
-                    <SelectItem value="litera">Litera</SelectItem>
-                    <SelectItem value="colchon">Colchon</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p v-if="formErrors['beds[' + index + '].type']" class="text-red-500 text-sm">{{ formErrors['beds[' + index + '].type'] }}</p>
-              </div>
-              <div class="col-span-3">
-                <Select v-model="field.defaultUsage">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Usage" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="caminante">Caminante</SelectItem>
-                    <SelectItem value="servidor">Servidor</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p v-if="formErrors['beds[' + index + '].defaultUsage']" class="text-red-500 text-sm">{{ formErrors['beds[' + index + '].defaultUsage'] }}</p>
-              </div>
-              <Button type="button" variant="destructive" size="icon" @click="removeBed(index)" class="col-span-1">
-                <Trash2 class="h-4 w-4" />
-              </Button>
+            </ScrollArea>
+            <div class="flex gap-2 mt-2">
+              <Button type="button" variant="outline" size="sm" @click="addNewRoom">Add New Room</Button>
+              <Button type="button" variant="outline" size="sm" @click="addBed">Add Bed</Button>
             </div>
-            <Button type="button" variant="outline" size="sm" @click="addBed" class="mt-2">Add Bed</Button>
           </div>
         </div>
 
@@ -183,6 +188,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@repo/ui/components/ui/select';
+import { ScrollArea } from '@repo/ui/components/ui/scroll-area';
 import { Trash2 } from 'lucide-vue-next';
 import { z } from 'zod';
 import { useToast } from '@repo/ui/components/ui/toast/use-toast';
@@ -201,6 +207,7 @@ const { toast } = useToast();
 const currentStep = ref(1);
 const address1_is_editing = ref(true);
 
+const bedScrollArea = ref<InstanceType<typeof ScrollArea> | null>(null);
 const getInitialFormData = () => ({
   id: props.house?.id || null,
   name: props.house?.name || '',
@@ -276,13 +283,68 @@ const validateStep = (step: number) => {
   return true;
 };
 
+const scrollToBedListBottom = async () => {
+  await nextTick();
+  // The ref `bedScrollArea` gives us access to the component instance.
+  // The scrollable element is a child of the component's root element.
+  const scrollAreaElement = bedScrollArea.value?.$el as HTMLElement | undefined;
+  if (scrollAreaElement) {
+    const viewport = scrollAreaElement.querySelector<HTMLElement>('[data-reka-scroll-area-viewport]');
+    if (viewport) viewport.scrollTop = viewport.scrollHeight;
+  }
+};
+const incrementAlphanumeric = (value: string): string => {
+  if (!value) return '';
+  const match = value.match(/^(.*?)(\d+)$/);
+  if (match) {
+    const prefix = match[1] || '';
+    const number = parseInt(match[2], 10);
+    return `${prefix}${number + 1}`;
+  }
+  return ''; // or return value to not change it, or some other default
+};
+
 const addBed = () => {
-  formData.value.beds.push({
-    roomNumber: '',
-    bedNumber: '',
-    type: '',
-    defaultUsage: '',
-  });
+  const beds = formData.value.beds;
+  if (beds.length > 0) {
+    const lastBed = beds[beds.length - 1];
+
+    formData.value.beds.push({
+      roomNumber: lastBed.roomNumber, // Keep the same room number
+      bedNumber: incrementAlphanumeric(lastBed.bedNumber),
+      type: lastBed.type,
+      defaultUsage: lastBed.defaultUsage,
+    });
+    scrollToBedListBottom();
+  } else {
+    // Default for the very first bed
+    formData.value.beds.push({
+      roomNumber: '',
+      bedNumber: '',
+      type: '',
+      defaultUsage: '',
+    });
+    scrollToBedListBottom();
+  }
+};
+
+const addNewRoom = () => {
+  const beds = formData.value.beds;
+  if (beds.length > 0) {
+    const lastBed = beds[beds.length - 1];
+
+    formData.value.beds.push({
+      roomNumber: incrementAlphanumeric(lastBed.roomNumber),
+      bedNumber: '1',
+      type: lastBed.type,
+      defaultUsage: lastBed.defaultUsage,
+    });
+    scrollToBedListBottom();
+  } else {
+    // If no beds exist, just add a blank one (same as addBed)
+    addBed();
+    // addBed() will call scrollToBedListBottom()
+  }
 };
 
 const removeBed = (index: number) => {

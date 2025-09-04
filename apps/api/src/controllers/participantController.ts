@@ -4,7 +4,12 @@ import * as participantService from '../services/participantService';
 export const getAllParticipants = async (req: Request, res: Response) => {
   try {
     const { retreatId, type, isCanceled } = req.query;
-    const participants = await participantService.findAllParticipants(retreatId as string | undefined, type as 'walker' | 'server' | undefined, isCanceled === 'true');
+    const participants = await participantService.findAllParticipants(
+      retreatId as string | undefined,
+      type as 'walker' | 'server' | undefined,
+      isCanceled === 'true',
+      ['table'] // Include table relation
+    );
     res.json(participants);
   } catch (error) {
     res.status(500).json({ message: 'Error retrieving participants' });

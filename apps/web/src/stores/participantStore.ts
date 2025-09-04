@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { useToast } from '@repo/ui/components/ui/toast/use-toast';
-import type { Participant, CreateParticipantInput } from 'types';
+import type { Participant, CreateParticipant } from '@repo/types';
 import { api } from '@/services/api';
 
 export const useParticipantStore = defineStore('participant', () => {
@@ -26,7 +26,7 @@ export const useParticipantStore = defineStore('participant', () => {
     }
   }
 
-  async function createParticipant(data: CreateParticipantInput) {
+  async function createParticipant(data: CreateParticipant) {
     try {
       loading.value = true;
       const response = await api.post('/participants/new', data);

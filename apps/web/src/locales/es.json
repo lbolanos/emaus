@@ -31,6 +31,7 @@
     "addWalker": "Agregar Caminante",
     "name": "Nombre",
     "email": "Correo Electrónico",
+    "table": "Mesa",
     "actions": "Acciones",
     "loading": "Cargando...",
     "selectRetreatPrompt": "Por favor seleccione un retiro para ver los participantes.",

@@ -50,7 +50,7 @@ const props = withDefaults(defineProps<{
     columnsToEditInForm?: string[],
 }>(), {
     isCanceled: false,
-    columnsToShowInTable: () => ['firstName', 'lastName', 'email', 'cellPhone'],
+    columnsToShowInTable: () => ['firstName', 'lastName', 'email', 'cellPhone', 'table.name'],
     columnsToShowInForm: () => [],
     columnsToEditInForm: () => [],
 });
@@ -82,6 +82,7 @@ const allColumns = ref([
     { key: 'firstName', label: 'participants.firstName' },
     { key: 'lastName', label: 'participants.lastName' },
     { key: 'nickname', label: 'participants.nickname' },
+    { key: 'table.name', label: 'participants.table' },
     { key: 'birthDate', label: 'participants.birthDate' },
     { key: 'maritalStatus', label: 'participants.maritalStatus' },
     { key: 'street', label: 'participants.street' },

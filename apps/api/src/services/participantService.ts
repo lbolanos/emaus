@@ -1,11 +1,76 @@
 import { AppDataSource } from '../data-source';
 import { Participant } from '../entities/participant.entity';
+import { Table } from '../entities/table.entity';
 import { CreateParticipant, UpdateParticipant } from '@repo/types';
+import { v4 as uuidv4 } from 'uuid';
+import { In } from 'typeorm';
 
 const participantRepository = AppDataSource.getRepository(Participant);
+const tableRepository = AppDataSource.getRepository(Table);
 
-export const findAllParticipants = async (retreatId?: string, type?: 'walker' | 'server' | 'deleted', isCancelled?: boolean): Promise<Participant[]> => {
-  const where: any = { isCancelled: false };
+const MIN_WALKERS_PER_TABLE = 5;
+const MAX_WALKERS_PER_TABLE = 7;
+
+const rebalanceTablesForRetreat = async (retreatId: string) => {
+  // 1. Get all active walkers and all tables for the retreat
+  const walkers = await participantRepository.find({
+    where: { retreatId, type: 'walker', isCancelled: false },
+    order: { registrationDate: 'ASC' },
+  });
+  const tables = await tableRepository.find({
+    where: { retreatId },
+    order: { name: 'ASC' },
+  });
+
+  const walkerCount = walkers.length;
+  let tableCount = tables.length;
+
+  // 2. Determine the ideal number of tables
+  const idealTableCount = Math.max(1, Math.ceil(walkerCount / MAX_WALKERS_PER_TABLE));
+
+  // 3. Adjust the number of tables if necessary
+  if (tableCount < idealTableCount) {
+    // Add more tables
+    for (let i = tableCount + 1; i <= idealTableCount; i++) {
+      const newTable = tableRepository.create({
+        id: uuidv4(),
+        name: `Table ${i}`,
+        retreatId,
+      });
+      await tableRepository.save(newTable);
+      tables.push(newTable);
+    }
+  } else if (tableCount > idealTableCount && tableCount > 5) { // Don't delete the original 5
+    // Remove excess, empty tables
+    const tablesToDelete = tables.slice(idealTableCount);
+    const tableIdsToDelete = tablesToDelete.map(t => t.id);
+    if (tableIdsToDelete.length > 0) {
+      await tableRepository.delete({ id: In(tableIdsToDelete) });
+    }
+    tables.splice(idealTableCount);
+  }
+
+  // 4. Clear all existing table assignments for walkers
+  await participantRepository.update({ retreatId, type: 'walker' }, { tableId: undefined });
+
+  // 5. Distribute walkers evenly among the tables
+  if (walkers.length > 0) {
+    let tableIndex = 0;
+    for (const walker of walkers) {
+      walker.tableId = tables[tableIndex].id;
+      await participantRepository.save(walker);
+      tableIndex = (tableIndex + 1) % tables.length;
+    }
+  }
+};
+
+export const findAllParticipants = async (
+  retreatId?: string,
+  type?: 'walker' | 'server',
+  isCancelled?: boolean,
+  relations: string[] = []
+): Promise<Participant[]> => {
+  const where: any = {};
 
   if (retreatId) {
     where.retreatId = retreatId;
@@ -18,11 +83,11 @@ export const findAllParticipants = async (retreatId?: string, type?: 'walker' | 
   if (isCancelled !== undefined) {
     where.isCancelled = isCancelled;
   }
-  return participantRepository.find({ where });
+  return participantRepository.find({ where, relations });
 };
 
 export const findParticipantById = async (id: string): Promise<Participant | null> => {
-  return participantRepository.findOneBy({ id, isCancelled: false });
+  return participantRepository.findOneBy({ id });
 };
 
 export const createParticipant = async (
@@ -38,7 +103,6 @@ export const createParticipant = async (
     throw new Error('A participant with this email already exists in this retreat.');
   }
 
-  //find max id_on_retreat in the retreat and assign to new participant
   const maxIdOnRetreat = await participantRepository.createQueryBuilder('participant')
     .select('MAX(participant.id_on_retreat)', 'maxId')
     .where('participant.retreatId = :retreatId', { retreatId: participantData.retreatId })
@@ -53,7 +117,14 @@ export const createParticipant = async (
     registrationDate: new Date(),
     lastUpdatedDate: new Date()
   });
-  return participantRepository.save(newParticipant);
+  
+  const savedParticipant = await participantRepository.save(newParticipant);
+
+  if (savedParticipant.type === 'walker') {
+    await rebalanceTablesForRetreat(savedParticipant.retreatId);
+  }
+
+  return savedParticipant;
 };
 
 export const updateParticipant = async (
@@ -64,19 +135,37 @@ export const updateParticipant = async (
   if (!participant) {
     return null;
   }
+  
+  const wasCancelled = participant.isCancelled;
+
   participantData.lastUpdatedDate = new Date();
   participantRepository.merge(participant, participantData);
-  return participantRepository.save(participant);
+  const updatedParticipant = await participantRepository.save(participant);
+
+  // Rebalance if the participant is a walker and their cancelled status changed
+  if (updatedParticipant.type === 'walker' && wasCancelled !== updatedParticipant.isCancelled) {
+    await rebalanceTablesForRetreat(updatedParticipant.retreatId);
+  }
+
+  return updatedParticipant;
 };
 
 export const deleteParticipant = async (id: string): Promise<void> => {
-  await participantRepository.update(id, { isCancelled: true });
+  const participant = await participantRepository.findOneBy({ id });
+  if (participant) {
+    await participantRepository.update(id, { isCancelled: true, tableId: undefined });
+    if (participant.type === 'walker') {
+      await rebalanceTablesForRetreat(participant.retreatId);
+    }
+  }
 };
 
 export const importParticipants = async (retreatId: string, participantsData: any[]) => {
+  // For simplicity, we'll rebalance once at the end.
+  
   let importedCount = 0;
   let updatedCount = 0;
-
+  
   const mapToEnglishKeys = (participant: any) => {
     return {
       id_on_retreat: participant.id?.trim(),
@@ -166,6 +255,8 @@ export const importParticipants = async (retreatId: string, participantsData: an
       importedCount++;
     }
   }
+  
+  await rebalanceTablesForRetreat(retreatId);
 
   return { importedCount, updatedCount };
 };
