@@ -37,8 +37,8 @@ const getColumnType = (key: string) => {
 
 const handleSave = () => {
   const participantToSave = { ...localParticipant.value };
-  if (participantToSave.roomId === null || participantToSave.roomId === '') {
-    delete participantToSave.roomId;
+  if (participantToSave.retreatBedId === null || participantToSave.retreatBedId === '') {
+    delete participantToSave.retreatBedId;
   }
   if (participantToSave.tableId === null || participantToSave.tableId === '') {
     delete participantToSave.tableId;

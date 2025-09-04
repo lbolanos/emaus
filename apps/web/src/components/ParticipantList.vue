@@ -40,7 +40,7 @@ import { ArrowUpDown, Trash2, Edit, FileUp, FileDown, Columns, ListFilter } from
 import { useToast } from '@repo/ui/components/ui/toast/use-toast';
 
 // Traducción (simulada, usa tu sistema de i18n)
-const $ct = (key: string) => key.split('.').pop()?.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()) || key;
+//const $t = (key: string) => key.split('.').pop()?.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()) || key;
 
 const props = withDefaults(defineProps<{
     type: 'walker' | 'server' | 'waiting',
@@ -77,70 +77,70 @@ const isCanceled = computed(() => filterStatus.value === 'canceled' || props.isC
 
 // --- DEFINICIÓN Y VISIBILIDAD DE COLUMNAS ---
 const allColumns = ref([
-    { key: 'id_on_retreat', label: 'participants.id' },
-    { key: 'type', label: 'participants.type' },
-    { key: 'firstName', label: 'participants.firstName' },
-    { key: 'lastName', label: 'participants.lastName' },
-    { key: 'nickname', label: 'participants.nickname' },
-    { key: 'table.name', label: 'participants.table' },
-    { key: 'birthDate', label: 'participants.birthDate' },
-    { key: 'maritalStatus', label: 'participants.maritalStatus' },
-    { key: 'street', label: 'participants.street' },
-    { key: 'houseNumber', label: 'participants.houseNumber' },
-    { key: 'postalCode', label: 'participants.postalCode' },
-    { key: 'neighborhood', label: 'participants.neighborhood' },
-    { key: 'city', label: 'participants.city' },
-    { key: 'state', label: 'participants.state' },
-    { key: 'country', label: 'participants.country' },
-    { key: 'parish', label: 'participants.parish' },
-    { key: 'homePhone', label: 'participants.homePhone' },
-    { key: 'workPhone', label: 'participants.workPhone' },
-    { key: 'cellPhone', label: 'participants.cellPhone' },
-    { key: 'email', label: 'participants.email' },
-    { key: 'occupation', label: 'participants.occupation' },
-    { key: 'snores', label: 'participants.snores' },
-    { key: 'hasMedication', label: 'participants.hasMedication' },
-    { key: 'medicationDetails', label: 'participants.medicationDetails' },
-    { key: 'medicationSchedule', label: 'participants.medicationSchedule' },
-    { key: 'hasDietaryRestrictions', label: 'participants.hasDietaryRestrictions' },
-    { key: 'dietaryRestrictionsDetails', label: 'participants.dietaryRestrictionsDetails' },
-    { key: 'sacraments', label: 'participants.sacraments' },
-    { key: 'emergencyContact1Name', label: 'participants.emergencyContact1Name' },
-    { key: 'emergencyContact1Relation', label: 'participants.emergencyContact1Relation' },
-    { key: 'emergencyContact1HomePhone', label: 'participants.emergencyContact1HomePhone' },
-    { key: 'emergencyContact1WorkPhone', label: 'participants.emergencyContact1WorkPhone' },
-    { key: 'emergencyContact1CellPhone', label: 'participants.emergencyContact1CellPhone' },
-    { key: 'emergencyContact1Email', label: 'participants.emergencyContact1Email' },
-    { key: 'emergencyContact2Name', label: 'participants.emergencyContact2Name' },
-    { key: 'emergencyContact2Relation', label: 'participants.emergencyContact2Relation' },
-    { key: 'emergencyContact2HomePhone', label: 'participants.emergencyContact2HomePhone' },
-    { key: 'emergencyContact2WorkPhone', label: 'participants.emergencyContact2WorkPhone' },
-    { key: 'emergencyContact2CellPhone', label: 'participants.emergencyContact2CellPhone' },
-    { key: 'emergencyContact2Email', label: 'participants.emergencyContact2Email' },
-    { key: 'tshirtSize', label: 'participants.tshirtSize' },
-    { key: 'invitedBy', label: 'participants.invitedBy' },
-    { key: 'isInvitedByEmausMember', label: 'participants.isInvitedByEmausMember' },
-    { key: 'inviterHomePhone', label: 'participants.inviterHomePhone' },
-    { key: 'inviterWorkPhone', label: 'participants.inviterWorkPhone' },
-    { key: 'inviterCellPhone', label: 'participants.inviterCellPhone' },
-    { key: 'inviterEmail', label: 'participants.inviterEmail' },
-    { key: 'pickupLocation', label: 'participants.pickupLocation' },
-    { key: 'arrivesOnOwn', label: 'participants.arrivesOnOwn' },
-    { key: 'paymentDate', label: 'participants.paymentDate' },
-    { key: 'paymentAmount', label: 'participants.paymentAmount' },
-    { key: 'isScholarship', label: 'participants.isScholarship' },
-    { key: 'palancasCoordinator', label: 'participants.palancasCoordinator' },
-    { key: 'palancasRequested', label: 'participants.palancasRequested' },
-    { key: 'palancasReceived', label: 'participants.palancasReceived' },
-    { key: 'palancasNotes', label: 'participants.palancasNotes' },
-    { key: 'requestsSingleRoom', label: 'participants.requestsSingleRoom' },
-    { key: 'isCancelled', label: 'participants.isCancelled' },
-    { key: 'notes', label: 'participants.notes' },
-    { key: 'registrationDate', label: 'participants.registrationDate' },
-    { key: 'lastUpdatedDate', label: 'participants.lastUpdatedDate' },
-    { key: 'retreatId', label: 'participants.retreatId' },
-    { key: 'tableId', label: 'participants.tableId' },
-    { key: 'roomId', label: 'participants.roomId' },
+    { key: 'id_on_retreat', label: 'participants.fields.id' },
+    { key: 'type', label: 'participants.fields.type' },
+    { key: 'firstName', label: 'participants.fields.firstName' },
+    { key: 'lastName', label: 'participants.fields.lastName' },
+    { key: 'nickname', label: 'participants.fields.nickname' },
+    { key: 'table.name', label: 'participants.fields.table' },
+    { key: 'birthDate', label: 'participants.fields.birthDate' },
+    { key: 'maritalStatus', label: 'participants.fields.maritalStatus' },
+    { key: 'street', label: 'participants.fields.street' },
+    { key: 'houseNumber', label: 'participants.fields.houseNumber' },
+    { key: 'postalCode', label: 'participants.fields.postalCode' },
+    { key: 'neighborhood', label: 'participants.fields.neighborhood' },
+    { key: 'city', label: 'participants.fields.city' },
+    { key: 'state', label: 'participants.fields.state' },
+    { key: 'country', label: 'participants.fields.country' },
+    { key: 'parish', label: 'participants.fields.parish' },
+    { key: 'homePhone', label: 'participants.fields.homePhone' },
+    { key: 'workPhone', label: 'participants.fields.workPhone' },
+    { key: 'cellPhone', label: 'participants.fields.cellPhone' },
+    { key: 'email', label: 'participants.fields.email' },
+    { key: 'occupation', label: 'participants.fields.occupation' },
+    { key: 'snores', label: 'participants.fields.snores' },
+    { key: 'hasMedication', label: 'participants.fields.hasMedication' },
+    { key: 'medicationDetails', label: 'participants.fields.medicationDetails' },
+    { key: 'medicationSchedule', label: 'participants.fields.medicationSchedule' },
+    { key: 'hasDietaryRestrictions', label: 'participants.fields.hasDietaryRestrictions' },
+    { key: 'dietaryRestrictionsDetails', label: 'participants.fields.dietaryRestrictionsDetails' },
+    { key: 'sacraments', label: 'participants.fields.sacraments' },
+    { key: 'emergencyContact1Name', label: 'participants.fields.emergencyContact1Name' },
+    { key: 'emergencyContact1Relation', label: 'participants.fields.emergencyContact1Relation' },
+    { key: 'emergencyContact1HomePhone', label: 'participants.fields.emergencyContact1HomePhone' },
+    { key: 'emergencyContact1WorkPhone', label: 'participants.fields.emergencyContact1WorkPhone' },
+    { key: 'emergencyContact1CellPhone', label: 'participants.fields.emergencyContact1CellPhone' },
+    { key: 'emergencyContact1Email', label: 'participants.fields.emergencyContact1Email' },
+    { key: 'emergencyContact2Name', label: 'participants.fields.emergencyContact2Name' },
+    { key: 'emergencyContact2Relation', label: 'participants.fields.emergencyContact2Relation' },
+    { key: 'emergencyContact2HomePhone', label: 'participants.fields.emergencyContact2HomePhone' },
+    { key: 'emergencyContact2WorkPhone', label: 'participants.fields.emergencyContact2WorkPhone' },
+    { key: 'emergencyContact2CellPhone', label: 'participants.fields.emergencyContact2CellPhone' },
+    { key: 'emergencyContact2Email', label: 'participants.fields.emergencyContact2Email' },
+    { key: 'tshirtSize', label: 'participants.fields.tshirtSize' },
+    { key: 'invitedBy', label: 'participants.fields.invitedBy' },
+    { key: 'isInvitedByEmausMember', label: 'participants.fields.isInvitedByEmausMember' },
+    { key: 'inviterHomePhone', label: 'participants.fields.inviterHomePhone' },
+    { key: 'inviterWorkPhone', label: 'participants.fields.inviterWorkPhone' },
+    { key: 'inviterCellPhone', label: 'participants.fields.inviterCellPhone' },
+    { key: 'inviterEmail', label: 'participants.fields.inviterEmail' },
+    { key: 'pickupLocation', label: 'participants.fields.pickupLocation' },
+    { key: 'arrivesOnOwn', label: 'participants.fields.arrivesOnOwn' },
+    { key: 'paymentDate', label: 'participants.fields.paymentDate' },
+    { key: 'paymentAmount', label: 'participants.fields.paymentAmount' },
+    { key: 'isScholarship', label: 'participants.fields.isScholarship' },
+    { key: 'palancasCoordinator', label: 'participants.fields.palancasCoordinator' },
+    { key: 'palancasRequested', label: 'participants.fields.palancasRequested' },
+    { key: 'palancasReceived', label: 'participants.fields.palancasReceived' },
+    { key: 'palancasNotes', label: 'participants.fields.palancasNotes' },
+    { key: 'requestsSingleRoom', label: 'participants.fields.requestsSingleRoom' },
+    { key: 'isCancelled', label: 'participants.fields.isCancelled' },
+    { key: 'notes', label: 'participants.fields.notes' },
+    { key: 'registrationDate', label: 'participants.fields.registrationDate' },
+    { key: 'lastUpdatedDate', label: 'participants.fields.lastUpdatedDate' },
+    { key: 'retreatId', label: 'participants.fields.retreatId' },
+    { key: 'tableId', label: 'participants.fields.tableId' },
+    { key: 'retreatBedId', label: 'participants.fields.retreatBedId' },
 ]);
 
 const visibleColumns = ref<string[]>(props.columnsToShowInTable);
@@ -197,7 +197,7 @@ const formColumnsToEdit = computed(() => {
     const combined = new Set([...props.columnsToEditInForm, ...visibleColumns.value]);
     const nonEditableSystemKeys = [
         'id', 'id_on_retreat', 'type', 'email', 'registrationDate', 
-        'lastUpdatedDate', 'retreatId', 'tableId', 'roomId'
+        'lastUpdatedDate', 'retreatId', 'tableId', 'retreatBedId'
     ];
     return Array.from(combined).filter(key => !nonEditableSystemKeys.includes(key));
 });
@@ -292,7 +292,7 @@ const exportData = (format: 'csv' | 'xlsx') => {
         visibleColumns.value.forEach(colKey => {
             const col = allColumns.value.find(c => c.key === colKey);
             if (col) {
-                 record[$ct(col.label)] = getNestedProperty(p, col.key);
+                 record[$t(col.label)] = getNestedProperty(p, col.key);
             }
         });
         return record;
@@ -353,10 +353,10 @@ watch([selectedRetreatId, filterStatus], ([newId]) => {
                     </DialogTrigger>
                     <DialogContent class="max-w-4xl">
                         <DialogHeader>
-                            <DialogTitle>{{ $ct('participants.selectColumns') }}</DialogTitle>
+                            <DialogTitle>{{ $t('participants.selectColumns') }}</DialogTitle>
                         </DialogHeader>
                         <ColumnSelector
-                            :all-columns="allColumns.map(c => ({ ...c, label: $ct(c.label) }))"
+                            :all-columns="allColumns.map(c => ({ ...c, label: $t(c.label) }))"
                             v-model="visibleColumns"
                         />
                     </DialogContent>
@@ -404,7 +404,7 @@ watch([selectedRetreatId, filterStatus], ([newId]) => {
                 <TableHeader>
                     <TableRow>
                         <TableHead v-for="colKey in visibleColumns" :key="colKey" @click="handleSort(colKey)" class="cursor-pointer">
-                           {{ $ct(allColumns.find(c => c.key === colKey)?.label) }}
+                           {{ $t(allColumns.find(c => c.key === colKey)?.label) }}
                            <ArrowUpDown v-if="sortKey === colKey" class="inline-block ml-2 h-4 w-4" />
                         </TableHead>
                         <TableHead>{{ $t('participants.actions') }}</TableHead>
@@ -451,7 +451,7 @@ watch([selectedRetreatId, filterStatus], ([newId]) => {
                 <EditParticipantForm
                     v-if="participantToEdit"
                     :participant="participantToEdit"
-                    :all-columns="allColumns.map(c => ({ ...c, label: $ct(c.label) }))"
+                    :all-columns="allColumns.map(c => ({ ...c, label: $t(c.label) }))"
                     :columns-to-show="formColumnsToShow"
                     :columns-to-edit="formColumnsToEdit"
                     @save="handleUpdateParticipant"

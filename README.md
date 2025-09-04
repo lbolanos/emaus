@@ -79,11 +79,14 @@ Listado En Espera, Tipo Usuario, Cancelar
 Reporte Bolsas con campos id_retreat Nombre Apellidos Mesa Talla
 Reporte Medicinas
 agregar costo del retiro y notas de la cuenta y forma de pago
-
-IN PROGRESS
 agregar un limite de caminantes maximo y un limite de servidores maximo al retiro.
 Si sobrepasa este limite al crear un nuevo caminante debe colocarlo como  tipo 'waiting'
+Cuando se selecciona una casa en la creación del retiro se debe colocar el numero de camas de caminantes como maximo numero de caminantes del retiro.  Lo mismo con los servidores.
 
+
+IN PROGRESS
+agregar piso a los cuartos.  
+En listado de cuartos agregar los campos piso, edad, type y la forma de asignar
 
 TODO
 
@@ -96,9 +99,32 @@ manejo de inventario.  importar y export excel o csv.  Debe tener un ratio con r
 llevar tambien el registro de las camisetas y chaquetas que necesitan los servidores.
 cada usuario tiene asociado un listado de retiros y puede invitar a otro usuario con el correo a cualquier retiro que el tenga asociado.
 guardar en cache el listado de columnas que se han modificado
-agregar piso a los cuartos
+
 alimentos y medicinas agregar columna mesa para ordenar y lider
 asignar lider y colider de mesa
+cargos ...  palancas 1,  palancas 2,  palancas 3,  logistica, Inventario, Tesorero
+Sacerdotes
+Mantelitos
+Snacks
+Compras
+Transporte
+Música
+Comedor
+Salón
+Cuartos
+Oración
+Palanquitas
+Santísmo
+Campanero 
+Continua
+
+
+un usuario administrador y un usuario normal
+el administrador puede borrar casas de retiro
+colocar en español las columnas de participantes
+
+cookie jwt para acceso
+
 
 
 posibles host
@@ -106,16 +132,6 @@ https://www.vultr.com/
 https://www.hostinger.com/
 https://www.digitalocean.com/
 
-
-
-
-un usuario administrador y un usuario normal
-el administrador puede borrar casas de retiro
-colocar en español las columnas de participantes
-
-
-
-cookie jwt para acceso
 
 This will use Turborepo to run the `dev` script in both `apps/api` and `apps/web`.
 

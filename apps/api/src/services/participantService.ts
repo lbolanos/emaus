@@ -131,7 +131,7 @@ export const createParticipant = async (
     .where('participant.retreatId = :retreatId', { retreatId: participantData.retreatId })
     .getRawOne();
 
-  const id_on_retreat = (maxIdOnRetreat.maxId || 0) + 1;
+  const id_on_retreat = Number(maxIdOnRetreat.maxId || 0) + 1;
 
   // Create and save participant
   const newParticipant = participantRepository.create({

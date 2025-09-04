@@ -220,6 +220,10 @@ export class Participant {
   @JoinColumn({ name: 'tableId' })
   table?: Table;
 
+  @Column({ type: 'uuid', nullable: true })
+  retreatBedId?: string | null; // Corresponde a 'cama
+  
   @OneToOne(() => RetreatBed, (bed) => bed.participant, { nullable: true })
+  @JoinColumn({ name: 'retreatBedId' })
   retreatBed?: RetreatBed | null;
 }
