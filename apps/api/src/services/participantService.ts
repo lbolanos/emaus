@@ -1,12 +1,15 @@
 import { AppDataSource } from '../data-source';
 import { Participant } from '../entities/participant.entity';
 import { Table } from '../entities/table.entity';
+import { Retreat } from '../entities/retreat.entity';
 import { CreateParticipant, UpdateParticipant } from '@repo/types';
 import { v4 as uuidv4 } from 'uuid';
 import { In } from 'typeorm';
 
 const participantRepository = AppDataSource.getRepository(Participant);
 const tableRepository = AppDataSource.getRepository(Table);
+const retreatRepository = AppDataSource.getRepository(Retreat);
+
 
 const MIN_WALKERS_PER_TABLE = 5;
 const MAX_WALKERS_PER_TABLE = 7;
@@ -93,6 +96,9 @@ export const findParticipantById = async (id: string): Promise<Participant | nul
 export const createParticipant = async (
   participantData: CreateParticipant
 ): Promise<Participant> => {
+  const { retreatId, type } = participantData;
+
+  // Check if participant already exists
   const existingParticipant = await participantRepository.findOne({
     where: {
       email: participantData.email,
@@ -103,6 +109,23 @@ export const createParticipant = async (
     throw new Error('A participant with this email already exists in this retreat.');
   }
 
+  // Waiting list logic
+  if (type === 'walker' || type === 'server') {
+    const retreat = await retreatRepository.findOne({ where: { id: retreatId } });
+    if (retreat) {
+      const participantCount = await participantRepository.count({
+        where: { retreatId, type, isCancelled: false },
+      });
+
+      const limit = type === 'walker' ? retreat.max_walkers : retreat.max_servers;
+
+      if (limit !== null && limit !== undefined && participantCount >= limit) {
+        participantData.type = 'waiting';
+      }
+    }
+  }
+
+  // Assign id_on_retreat
   const maxIdOnRetreat = await participantRepository.createQueryBuilder('participant')
     .select('MAX(participant.id_on_retreat)', 'maxId')
     .where('participant.retreatId = :retreatId', { retreatId: participantData.retreatId })
@@ -110,6 +133,7 @@ export const createParticipant = async (
 
   const id_on_retreat = (maxIdOnRetreat.maxId || 0) + 1;
 
+  // Create and save participant
   const newParticipant = participantRepository.create({
     ...participantData,
     id_on_retreat,
@@ -120,6 +144,7 @@ export const createParticipant = async (
   
   const savedParticipant = await participantRepository.save(newParticipant);
 
+  // Rebalance tables if a new walker was added (not waiting)
   if (savedParticipant.type === 'walker') {
     await rebalanceTablesForRetreat(savedParticipant.retreatId);
   }

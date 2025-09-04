@@ -247,7 +247,9 @@ const onSubmit = async () => {
   for (const key in formErrors) {
     delete formErrors[key]
   }
-  const result = participantSchema.omit({ id: true }).safeParse(formData.value)
+  // The server will set registrationDate and lastUpdatedDate, so we omit them from client-side validation.
+  const validationSchema = participantSchema.omit({ id: true, registrationDate: true, lastUpdatedDate: true });
+  const result = validationSchema.safeParse(formData.value)
   if (!result.success) {
     const errors: string[] = []
     result.error.errors.forEach((e) => {
@@ -361,4 +363,3 @@ const summaryData = computed(() => {
     </div>
   </div>
 </template>
-
