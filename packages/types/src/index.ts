@@ -36,7 +36,10 @@ export const retreatSchema = z.object({
   parish: z.string(),
   startDate: z.coerce.date(),
   endDate: z.coerce.date(),
-  houseId: idSchema.optional(),
+  houseId: idSchema,
+  openingNotes: z.string().optional(),
+  closingNotes: z.string().optional(),
+  thingsToBringNotes: z.string().optional(),
 });
 export type Retreat = z.infer<typeof retreatSchema>;
 
@@ -47,6 +50,22 @@ export const tableSchema = z.object({
   retreatId: idSchema,
 });
 export type Table = z.infer<typeof tableSchema>;
+
+// Participant Schema (forward declaration)
+export type Participant = z.infer<typeof participantSchema>;
+
+// RetreatBed Schema
+export const retreatBedSchema = z.object({
+  id: idSchema,
+  roomNumber: z.string(),
+  bedNumber: z.string(),
+  type: z.enum(['normal', 'litera', 'colchon']),
+  defaultUsage: z.enum(['caminante', 'servidor']),
+  retreatId: idSchema,
+  participantId: idSchema.nullable().optional(),
+  participant: z.lazy(() => participantSchema).nullable().optional(),
+});
+export type RetreatBed = z.infer<typeof retreatBedSchema>;
 
 // Participant Schema
 export const participantSchema = z.object({
@@ -143,13 +162,8 @@ export const participantSchema = z.object({
   arrivesOnOwn: z.boolean().optional(),
   retreatId: idSchema,
   tableId: idSchema.optional(),
-  roomId: idSchema.optional(),
+  retreatBedId: idSchema.nullable().optional(),
 });
-
-
-
-export type Participant = z.infer<typeof participantSchema>;
-
 
 // --- API Request Schemas ---
 

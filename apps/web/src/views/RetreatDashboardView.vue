@@ -17,6 +17,18 @@
         <Button size="sm" @click="copyLink(serverRegistrationLink)">{{ $t('retreatDashboard.copyLink') }}</Button>
         <Button size="sm" @click="openLink(serverRegistrationLink)">{{ $t('retreatDashboard.openLink') }}</Button>
       </div>
+      <div v-if="retreatStore.selectedRetreat.openingNotes" class="mt-4">
+        <h2 class="font-bold">{{ $t('retreatDashboard.openingNotes') }}</h2>
+        <p>{{ retreatStore.selectedRetreat.openingNotes }}</p>
+      </div>
+      <div v-if="retreatStore.selectedRetreat.closingNotes" class="mt-4">
+        <h2 class="font-bold">{{ $t('retreatDashboard.closingNotes') }}</h2>
+        <p>{{ retreatStore.selectedRetreat.closingNotes }}</p>
+      </div>
+      <div v-if="retreatStore.selectedRetreat.thingsToBringNotes" class="mt-4">
+        <h2 class="font-bold">{{ $t('retreatDashboard.thingsToBringNotes') }}</h2>
+        <p>{{ retreatStore.selectedRetreat.thingsToBringNotes }}</p>
+      </div>
     </div>
     <div v-else>
       <p>{{ $t('retreatDashboard.noRetreatSelected') }}</p>
@@ -46,7 +58,9 @@ const serversCount = ref(0);
 
 const copyLink = (link: string) => {
   navigator.clipboard.writeText(link);
-  toast.success(t('retreatDashboard.linkCopied'));
+  toast({
+    title: t('retreatDashboard.linkCopied'),
+  });
 };
 
 const openLink = (link: string) => {

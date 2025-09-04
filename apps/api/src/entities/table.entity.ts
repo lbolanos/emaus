@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { Retreat } from './retreat.entity';
 import { Participant } from './participant.entity';
 
@@ -10,7 +10,11 @@ export class Table {
   @Column('varchar')
   name!: string;
 
-  @ManyToOne(() => Retreat, (retreat) => retreat.tables)
+  @Column('uuid')
+  retreatId!: string;
+
+  @ManyToOne(() => Retreat, (retreat) => retreat.tables, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'retreatId' })
   retreat!: Retreat;
 
   @OneToMany(() => Participant, (participant) => participant.table)

@@ -43,9 +43,9 @@ export class House {
   @Column('text', { nullable: true })
   notes?: string;
 
-  @OneToMany(() => Bed, (bed) => bed.house)
+  @OneToMany(() => Bed, (bed) => bed.house, { cascade: true, onDelete: 'CASCADE' })
   beds!: Bed[];
 
-  @OneToMany(() => Retreat, (retreat) => retreat.house)
+  @OneToMany(() => Retreat, (retreat) => retreat.house, { onDelete: 'RESTRICT' })
   retreats!: Retreat[];
 }

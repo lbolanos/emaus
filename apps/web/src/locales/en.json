@@ -23,7 +23,8 @@
     "addRetreat": "Add Retreat",
     "selectRetreat": "Select a retreat",
     "retreatDashboard": "Retreat Dashboard",
-    "houses": "Houses"
+    "houses": "Houses",
+    "bedAssignments": "Bed Assignments"
   },
   "participants": {
     "title": "Walkers",
@@ -63,6 +64,9 @@
     "endDate": "End Date",
     "house": "House",
     "selectHouse": "Select a house",
+    "openingNotes": "Opening Notes",
+    "closingNotes": "Closing Notes",
+    "thingsToBringNotes": "Things to Bring Notes",
     "submit": "Save Retreat",
     "cancel": "Cancel",
     "successTitle": "Retreat Created",
@@ -90,7 +94,10 @@
     "noRetreatSelected": "No retreat selected. Please select or add a retreat.",
     "copyLink": "Copy Link",
     "openLink": "Open Link",
-    "linkCopied": "Link copied to clipboard!"
+    "linkCopied": "Link copied to clipboard!",
+    "openingNotes": "Opening Notes",
+    "closingNotes": "Closing Notes",
+    "thingsToBringNotes": "Things to Bring"
   },
   "language": {
     "english": "English",

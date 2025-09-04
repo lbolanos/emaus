@@ -37,6 +37,6 @@ export class Bed {
   })
   defaultUsage!: BedUsage;
 
-  @ManyToOne(() => House, (house) => house.beds)
+  @ManyToOne(() => House, (house) => house.beds, { onDelete: 'CASCADE' })
   house!: House;
 }

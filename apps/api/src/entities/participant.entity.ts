@@ -6,10 +6,11 @@ import {
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToOne,
 } from 'typeorm';
 import { Retreat } from './retreat.entity';
 import { Table } from './table.entity';
-//import { Room } from './room.entity';
+import { RetreatBed } from './retreatBed.entity';
 
 @Entity('participants')
 export class Participant {
@@ -36,7 +37,7 @@ export class Participant {
 
   @Column('varchar')
   maritalStatus!: // Corresponde a 'estadocivil'
-    | 'S'
+  | 'S'
     | 'C'
     | 'D'
     | 'V'
@@ -187,7 +188,7 @@ export class Participant {
 
   @Column({ type: 'text', nullable: true })
   palancasNotes?: string; // Corresponde a 'notaspalancas'
-  
+
   @Column({ type: 'boolean', nullable: true })
   requestsSingleRoom?: boolean; // Corresponde a 'habitacionindividual'
 
@@ -219,10 +220,6 @@ export class Participant {
   @JoinColumn({ name: 'tableId' })
   table?: Table;
 
-  @Column({ type: 'uuid', nullable: true })
-  roomId?: string; // Corresponde a 'habitacion'
-
-  //@ManyToOne(() => Room, (room) => room.participants, { nullable: true })
-  //@JoinColumn({ name: 'roomId' })
-  //room?: Room;
+  @OneToOne(() => RetreatBed, (bed) => bed.participant, { nullable: true })
+  retreatBed?: RetreatBed | null;
 }

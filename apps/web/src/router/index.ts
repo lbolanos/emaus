@@ -9,6 +9,7 @@ import RequestPasswordResetView from '../views/RequestPasswordResetView.vue';
 import ResetPasswordView from '../views/ResetPasswordView.vue';
 import ParticipantRegistrationView from '../views/ParticipantRegistrationView.vue';
 import RetreatDashboardView from '../views/RetreatDashboardView.vue';
+import BedAssignmentsView from '../views/BedAssignmentsView.vue';
 import { useAuthStore } from '@/stores/authStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 
@@ -70,6 +71,12 @@ const router = createRouter({
           path: 'retreats/:id/dashboard',
           name: 'retreat-dashboard',
           component: RetreatDashboardView,
+          props: true,
+        },
+        {
+          path: 'retreats/:id/bed-assignments',
+          name: 'bed-assignments',
+          component: BedAssignmentsView,
           props: true,
         },
       ],

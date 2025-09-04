@@ -31,7 +31,7 @@
             <Label for="houseId" class="text-right">
               {{ $t('addRetreatModal.house') }}
             </Label>
-            <Select v-model="formData.houseId">
+            <Select v-model="formData.houseId" required>
               <SelectTrigger class="col-span-3">
                 <SelectValue :placeholder="$t('addRetreatModal.selectHouse')" />
               </SelectTrigger>
@@ -43,6 +43,24 @@
                 </SelectGroup>
               </SelectContent>
             </Select>
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="openingNotes" class="text-right">
+              {{ $t('addRetreatModal.openingNotes') }}
+            </Label>
+            <Textarea id="openingNotes" v-model="formData.openingNotes" class="col-span-3" />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="closingNotes" class="text-right">
+              {{ $t('addRetreatModal.closingNotes') }}
+            </Label>
+            <Textarea id="closingNotes" v-model="formData.closingNotes" class="col-span-3" />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="thingsToBringNotes" class="text-right">
+              {{ $t('addRetreatModal.thingsToBringNotes') }}
+            </Label>
+            <Textarea id="thingsToBringNotes" v-model="formData.thingsToBringNotes" class="col-span-3" />
           </div>
         </div>
         <DialogFooter>
@@ -83,7 +101,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import type { CreateRetreat } from '@repo/types';
+import type { CreateRetreat, Retreat } from '@repo/types';
 import { useHouseStore } from '@/stores/houseStore';
 import { Button } from '@repo/ui/components/ui/button';
 import {
@@ -104,6 +122,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@repo/ui/components/ui/select';
+import { Textarea } from '@repo/ui/components/ui/textarea';
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ (e: 'update:open', value: boolean): void; (e: 'submit', data: CreateRetreat): Promise<Retreat | undefined> }>();
@@ -120,7 +139,10 @@ const formData = ref<CreateRetreat>({
   parish: '',
   startDate: new Date(),
   endDate: new Date(),
-  houseId: undefined,
+  houseId: '',
+  openingNotes: '',
+  closingNotes: '',
+  thingsToBringNotes: '',
 });
 
 const toISODate = (date: Date) => date.toISOString().split('T')[0];

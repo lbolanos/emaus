@@ -23,7 +23,8 @@
     "addRetreat": "Agregar Retiro",
     "selectRetreat": "Selecciona un retiro",
     "retreatDashboard": "Panel de Retiro",
-    "houses": "Casas"
+    "houses": "Casas",
+    "bedAssignments": "Asignación de Camas"
   },
   "participants": {
     "title": "Caminantes",
@@ -63,6 +64,9 @@
     "endDate": "Fecha de Fin",
     "house": "Casa",
     "selectHouse": "Selecciona una casa",
+    "openingNotes": "Notas de Apertura",
+    "closingNotes": "Notas de Cierre",
+    "thingsToBringNotes": "Notas de Cosas para Traer",
     "submit": "Guardar Retiro",
     "cancel": "Cancelar",
     "successTitle": "Retiro Creado",
@@ -90,7 +94,10 @@
     "noRetreatSelected": "Ningún retiro seleccionado. Por favor, selecciona o agrega un retiro.",
     "copyLink": "Copiar Enlace",
     "openLink": "Abrir Enlace",
-    "linkCopied": "¡Enlace copiado al portapapeles!"
+    "linkCopied": "¡Enlace copiado al portapapeles!",
+    "openingNotes": "Notas de Apertura",
+    "closingNotes": "Notas de Cierre",
+    "thingsToBringNotes": "Cosas para Traer"
   },
   "language": {
     "english": "Inglés",
