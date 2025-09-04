@@ -96,6 +96,8 @@
     "copyLink": "Copiar Enlace",
     "openLink": "Abrir Enlace",
     "linkCopied": "¡Enlace copiado al portapapeles!",
+    "showQr": "Mostrar QR",
+    "qrCodeTitle": "Código QR de Registro",
     "openingNotes": "Notas de Apertura",
     "closingNotes": "Notas de Cierre",
     "thingsToBringNotes": "Cosas para Traer"

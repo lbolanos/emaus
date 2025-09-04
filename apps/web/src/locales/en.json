@@ -96,6 +96,8 @@
     "copyLink": "Copy Link",
     "openLink": "Open Link",
     "linkCopied": "Link copied to clipboard!",
+    "showQr": "Show QR",
+    "qrCodeTitle": "Registration QR Code",
     "openingNotes": "Opening Notes",
     "closingNotes": "Closing Notes",
     "thingsToBringNotes": "Things to Bring"
