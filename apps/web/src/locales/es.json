@@ -16,6 +16,16 @@
   "sidebar": {
     "walkers": "Caminantes",
     "servers": "Servidores",
+    "palancas": "Palancas",
+    "payments": "Pagos",
+    "notesAndMeetingPoints": "Notas y Puntos de Encuentro",
+    "rooms": "Cuartos",
+    "userTypeAndTable": "Tipo de Usuario y Mesa",
+    "food": "Alimentos",
+    "cancellationAndNotes": "Cancelación y Notas",
+    "waitingList": "Lista de Espera",
+    "bagsReport": "Reporte de Bolsas",
+    "medicinesReport": "Reporte de Medicinas",
     "canceled": "Cancelados",
     "retreat": "Retiro",
     "loadingRetreats": "Cargando retiros...",
@@ -56,6 +66,14 @@
       "active": "Activos",
       "canceled": "Cancelados"
     }
+  },
+  "rooms": {
+    "title": "Cuartos",
+    "room": "Cuarto",
+    "bedNumber": "Número de Cama",
+    "participant": "Participante",
+    "unassigned": "Sin asignar",
+    "noRoomsFound": "No se encontraron cuartos para este retiro."
   },
   "addRetreatModal": {
     "title": "Agregar Nuevo Retiro",

@@ -16,6 +16,16 @@
   "sidebar": {
     "walkers": "Walkers",
     "servers": "Servers",
+    "palancas": "Palancas",
+    "payments": "Payments",
+    "notesAndMeetingPoints": "Notes & Meeting Points",
+    "rooms": "Rooms",
+    "userTypeAndTable": "User Type & Table",
+    "food": "Food",
+    "cancellationAndNotes": "Cancellation & Notes",
+    "waitingList": "Waiting List",
+    "bagsReport": "Bags Report",
+    "medicinesReport": "Medicines Report",
     "retreat": "Retreat",
     "canceled": "Canceled",
     "loadingRetreats": "Loading retreats...",
@@ -56,6 +66,14 @@
       "active": "Active",
       "canceled": "Canceled"
     }
+  },
+  "rooms": {
+    "title": "Rooms",
+    "room": "Room",
+    "bedNumber": "Bed Number",
+    "participant": "Participant",
+    "unassigned": "Unassigned",
+    "noRoomsFound": "No rooms found for this retreat."
   },
   "addRetreatModal": {
     "title": "Add New Retreat",

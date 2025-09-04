@@ -23,7 +23,7 @@
 
     <nav class="flex-1 px-2 py-4 space-y-1">
       <router-link
-        v-if="retreatStore.selectedRetreatId"
+        vif="retreatStore.selectedRetreatId"
         :to="{ name: 'retreat-dashboard', params: { id: retreatStore.selectedRetreatId } }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -42,7 +42,7 @@
         </a>
       </router-link>
       <router-link
-        v-if="retreatStore.selectedRetreatId"
+        vif="retreatStore.selectedRetreatId"
         :to="{ name: 'walkers' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -62,7 +62,7 @@
       </router-link>
       
       <router-link
-        v-if="retreatStore.selectedRetreatId"
+        vif="retreatStore.selectedRetreatId"
         :to="{ name: 'servers' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -81,7 +81,197 @@
         </a>
       </router-link>
       <router-link
-        v-if="retreatStore.selectedRetreatId"
+        vif="retreatStore.selectedRetreatId"
+        :to="{ name: 'palancas' }"
+        v-slot="{ href, navigate, isActive }"
+        custom
+      >
+        <a
+          :href="href"
+          @click="navigate"
+          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+          :class="[
+            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+            { 'justify-center': isCollapsed }
+          ]"
+        >
+          <HandHeart class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+          <span v-if="!isCollapsed">{{ $t('sidebar.palancas') }}</span>
+        </a>
+      </router-link>
+      <router-link
+        vif="retreatStore.selectedRetreatId"
+        :to="{ name: 'payments' }"
+        v-slot="{ href, navigate, isActive }"
+        custom
+      >
+        <a
+          :href="href"
+          @click="navigate"
+          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+          :class="[
+            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+            { 'justify-center': isCollapsed }
+          ]"
+        >
+          <DollarSign class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+          <span v-if="!isCollapsed">{{ $t('sidebar.payments') }}</span>
+        </a>
+      </router-link>
+      <router-link
+        vif="retreatStore.selectedRetreatId"
+        :to="{ name: 'notes-and-meeting-points' }"
+        v-slot="{ href, navigate, isActive }"
+        custom
+      >
+        <a
+          :href="href"
+          @click="navigate"
+          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+          :class="[
+            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+            { 'justify-center': isCollapsed }
+          ]"
+        >
+          <NotebookPen class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+          <span v-if="!isCollapsed">{{ $t('sidebar.notesAndMeetingPoints') }}</span>
+        </a>
+      </router-link>
+      <router-link
+        vif="retreatStore.selectedRetreatId"
+        :to="{ name: 'rooms' }"
+        v-slot="{ href, navigate, isActive }"
+        custom
+      >
+        <a
+          :href="href"
+          @click="navigate"
+          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+          :class="[
+            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+            { 'justify-center': isCollapsed }
+          ]"
+        >
+          <Building class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+          <span v-if="!isCollapsed">{{ $t('sidebar.rooms') }}</span>
+        </a>
+      </router-link>
+      <router-link
+        vif="retreatStore.selectedRetreatId"
+        :to="{ name: 'user-type-and-table' }"
+        v-slot="{ href, navigate, isActive }"
+        custom
+      >
+        <a
+          :href="href"
+          @click="navigate"
+          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+          :class="[
+            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+            { 'justify-center': isCollapsed }
+          ]"
+        >
+          <UsersRound class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+          <span v-if="!isCollapsed">{{ $t('sidebar.userTypeAndTable') }}</span>
+        </a>
+      </router-link>
+      <router-link
+        vif="retreatStore.selectedRetreatId"
+        :to="{ name: 'food' }"
+        v-slot="{ href, navigate, isActive }"
+        custom
+      >
+        <a
+          :href="href"
+          @click="navigate"
+          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+          :class="[
+            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+            { 'justify-center': isCollapsed }
+          ]"
+        >
+          <Salad class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+          <span v-if="!isCollapsed">{{ $t('sidebar.food') }}</span>
+        </a>
+      </router-link>
+      <router-link
+        vif="retreatStore.selectedRetreatId"
+        :to="{ name: 'cancellation-and-notes' }"
+        v-slot="{ href, navigate, isActive }"
+        custom
+      >
+        <a
+          :href="href"
+          @click="navigate"
+          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+          :class="[
+            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+            { 'justify-center': isCollapsed }
+          ]"
+        >
+          <FileX class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+          <span v-if="!isCollapsed">{{ $t('sidebar.cancellationAndNotes') }}</span>
+        </a>
+      </router-link>
+      <router-link
+        vif="retreatStore.selectedRetreatId"
+        :to="{ name: 'waiting-list' }"
+        v-slot="{ href, navigate, isActive }"
+        custom
+      >
+        <a
+          :href="href"
+          @click="navigate"
+          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+          :class="[
+            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+            { 'justify-center': isCollapsed }
+          ]"
+        >
+          <UserCheck class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+          <span v-if="!isCollapsed">{{ $t('sidebar.waitingList') }}</span>
+        </a>
+      </router-link>
+      <router-link
+        vif="retreatStore.selectedRetreatId"
+        :to="{ name: 'bags-report' }"
+        v-slot="{ href, navigate, isActive }"
+        custom
+      >
+        <a
+          :href="href"
+          @click="navigate"
+          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+          :class="[
+            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+            { 'justify-center': isCollapsed }
+          ]"
+        >
+          <ShoppingBag class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+          <span v-if="!isCollapsed">{{ $t('sidebar.bagsReport') }}</span>
+        </a>
+      </router-link>
+      <router-link
+        vif="retreatStore.selectedRetreatId"
+        :to="{ name: 'medicines-report' }"
+        v-slot="{ href, navigate, isActive }"
+        custom
+      >
+        <a
+          :href="href"
+          @click="navigate"
+          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+          :class="[
+            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+            { 'justify-center': isCollapsed }
+          ]"
+        >
+          <Pill class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+          <span v-if="!isCollapsed">{{ $t('sidebar.medicinesReport') }}</span>
+        </a>
+      </router-link>
+      <router-link
+        vif="retreatStore.selectedRetreatId"
         :to="{ name: 'bed-assignments', params: { id: retreatStore.selectedRetreatId } }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -100,7 +290,7 @@
         </a>
       </router-link>
       <router-link
-        v-if="retreatStore.selectedRetreatId"
+        vif="retreatStore.selectedRetreatId"
         :to="{ name: 'canceled' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -143,7 +333,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed } from 'lucide-vue-next';
+import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter } from 'vue-router';
 import { Button } from '@repo/ui/components/ui/button';
