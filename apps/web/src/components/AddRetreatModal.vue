@@ -62,6 +62,24 @@
             </Label>
             <Textarea id="thingsToBringNotes" v-model="formData.thingsToBringNotes" class="col-span-3" />
           </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="cost" class="text-right">
+              {{ $t('addRetreatModal.cost') }}
+            </Label>
+            <Input id="cost" v-model="formData.cost" class="col-span-3" />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="paymentInfo" class="text-right">
+              {{ $t('addRetreatModal.paymentInfo') }}
+            </Label>
+            <Textarea id="paymentInfo" v-model="formData.paymentInfo" class="col-span-3" />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="paymentMethods" class="text-right">
+              {{ $t('addRetreatModal.paymentMethods') }}
+            </Label>
+            <Textarea id="paymentMethods" v-model="formData.paymentMethods" class="col-span-3" />
+          </div>
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" @click="emit('update:open', false)">
@@ -143,6 +161,9 @@ const formData = ref<CreateRetreat>({
   openingNotes: '',
   closingNotes: '',
   thingsToBringNotes: '',
+  cost: '',
+  paymentInfo: '',
+  paymentMethods: '',
 });
 
 const toISODate = (date: Date) => date.toISOString().split('T')[0];

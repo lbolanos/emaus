@@ -29,6 +29,18 @@
         <h2 class="font-bold">{{ $t('retreatDashboard.thingsToBringNotes') }}</h2>
         <p>{{ retreatStore.selectedRetreat.thingsToBringNotes }}</p>
       </div>
+      <div v-if="retreatStore.selectedRetreat.cost" class="mt-4">
+        <h2 class="font-bold">{{ $t('retreatDashboard.cost') }}</h2>
+        <p>{{ retreatStore.selectedRetreat.cost }}</p>
+      </div>
+      <div v-if="retreatStore.selectedRetreat.paymentInfo" class="mt-4">
+        <h2 class="font-bold">{{ $t('retreatDashboard.paymentInfo') }}</h2>
+        <p>{{ retreatStore.selectedRetreat.paymentInfo }}</p>
+      </div>
+      <div v-if="retreatStore.selectedRetreat.paymentMethods" class="mt-4">
+        <h2 class="font-bold">{{ $t('retreatDashboard.paymentMethods') }}</h2>
+        <p>{{ retreatStore.selectedRetreat.paymentMethods }}</p>
+      </div>
     </div>
     <div v-else>
       <p>{{ $t('retreatDashboard.noRetreatSelected') }}</p>

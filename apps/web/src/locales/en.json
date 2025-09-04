@@ -86,6 +86,9 @@
     "openingNotes": "Opening Notes",
     "closingNotes": "Closing Notes",
     "thingsToBringNotes": "Things to Bring Notes",
+    "cost": "Cost",
+    "paymentInfo": "Payment Info",
+    "paymentMethods": "Payment Methods",
     "submit": "Save Retreat",
     "cancel": "Cancel",
     "successTitle": "Retreat Created",
@@ -101,6 +104,12 @@
     "endDate": "EndDate",
     "house": "House",
     "selectHouse": "Select a house",
+    "openingNotes": "Opening Notes",
+    "closingNotes": "Closing Notes",
+    "thingsToBringNotes": "Things to Bring Notes",
+    "cost": "Cost",
+    "paymentInfo": "Payment Info",
+    "paymentMethods": "Payment Methods",
     "saveChanges": "Save Changes"
   },
   "retreatDashboard": {
@@ -118,7 +127,10 @@
     "qrCodeTitle": "Registration QR Code",
     "openingNotes": "Opening Notes",
     "closingNotes": "Closing Notes",
-    "thingsToBringNotes": "Things to Bring"
+    "thingsToBringNotes": "Things to Bring",
+    "cost": "Cost",
+    "paymentInfo": "Payment Info",
+    "paymentMethods": "Payment Methods"
   },
   "language": {
     "english": "English",

@@ -3,13 +3,29 @@ import { Retreat } from '../entities/retreat.entity';
 import { Table } from '../entities/table.entity';
 import { House } from '../entities/house.entity';
 import { RetreatBed } from '../entities/retreatBed.entity';
-import type { CreateRetreat } from '@repo/types';
+import type { CreateRetreat, UpdateRetreat } from '@repo/types';
 import { v4 as uuidv4 } from 'uuid';
 
 export const getRetreats = async () => {
   const retreatRepository = AppDataSource.getRepository(Retreat);
   return retreatRepository.find({ relations: ['house'], order: { startDate: 'DESC' } });
 };
+
+export const findById = async (id: string) => {
+  const retreatRepository = AppDataSource.getRepository(Retreat);
+  return retreatRepository.findOne({ where: { id }, relations: ['house'] });
+}
+
+export const update = async (id: string, retreatData: UpdateRetreat) => {
+  const retreatRepository = AppDataSource.getRepository(Retreat);
+  const retreat = await retreatRepository.findOne({ where: { id } });
+  if (!retreat) {
+    return null;
+  }
+  Object.assign(retreat, retreatData);
+  await retreatRepository.save(retreat);
+  return retreat;
+}
 
 export const createRetreat = async (retreatData: CreateRetreat) => {
   const retreatRepository = AppDataSource.getRepository(Retreat);

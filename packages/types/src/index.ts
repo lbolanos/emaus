@@ -40,6 +40,9 @@ export const retreatSchema = z.object({
   openingNotes: z.string().optional(),
   closingNotes: z.string().optional(),
   thingsToBringNotes: z.string().optional(),
+  cost: z.string().optional(),
+  paymentInfo: z.string().optional(),
+  paymentMethods: z.string().optional(),
 });
 export type Retreat = z.infer<typeof retreatSchema>;
 
@@ -187,5 +190,12 @@ export const createRetreatSchema = z.object({
   body: retreatSchema.omit({ id: true }),
 });
 export type CreateRetreat = z.infer<typeof createRetreatSchema.shape.body>;
+
+// PUT /retreats/:id
+export const updateRetreatSchema = z.object({
+  body: retreatSchema.omit({ id: true }).partial(),
+  params: z.object({ id: idSchema }),
+});
+export type UpdateRetreat = z.infer<typeof updateRetreatSchema.shape.body>;
 
 export * from './user';

@@ -86,6 +86,9 @@
     "openingNotes": "Notas de Apertura",
     "closingNotes": "Notas de Cierre",
     "thingsToBringNotes": "Notas de Cosas para Traer",
+    "cost": "Costo",
+    "paymentInfo": "Información de Pago",
+    "paymentMethods": "Métodos de Pago",
     "submit": "Guardar Retiro",
     "cancel": "Cancelar",
     "successTitle": "Retiro Creado",
@@ -101,6 +104,12 @@
     "endDate": "Fecha de Fin",
     "house": "Casa",
     "selectHouse": "Selecciona una casa",
+    "openingNotes": "Notas de Apertura",
+    "closingNotes": "Notas de Cierre",
+    "thingsToBringNotes": "Notas de Cosas para Traer",
+    "cost": "Costo",
+    "paymentInfo": "Información de Pago",
+    "paymentMethods": "Métodos de Pago",
     "saveChanges": "Guardar Cambios"
   },
   "retreatDashboard": {
@@ -118,7 +127,10 @@
     "qrCodeTitle": "Código QR de Registro",
     "openingNotes": "Notas de Apertura",
     "closingNotes": "Notas de Cierre",
-    "thingsToBringNotes": "Cosas para Traer"
+    "thingsToBringNotes": "Cosas para Traer",
+    "cost": "Costo",
+    "paymentInfo": "Información de Pago",
+    "paymentMethods": "Métodos de Pago"
   },
   "language": {
     "english": "Inglés",

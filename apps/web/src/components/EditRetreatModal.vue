@@ -34,6 +34,42 @@
               </SelectContent>
             </Select>
           </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="openingNotes" class="text-right">
+              {{ $t('editRetreatModal.openingNotes') }}
+            </Label>
+            <Textarea id="openingNotes" v-model="form.openingNotes" class="col-span-3" />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="closingNotes" class="text-right">
+              {{ $t('editRetreatModal.closingNotes') }}
+            </Label>
+            <Textarea id="closingNotes" v-model="form.closingNotes" class="col-span-3" />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="thingsToBringNotes" class="text-right">
+              {{ $t('editRetreatModal.thingsToBringNotes') }}
+            </Label>
+            <Textarea id="thingsToBringNotes" v-model="form.thingsToBringNotes" class="col-span-3" />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="cost" class="text-right">
+              {{ $t('editRetreatModal.cost') }}
+            </Label>
+            <Input id="cost" v-model="form.cost" class="col-span-3" />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="paymentInfo" class="text-right">
+              {{ $t('editRetreatModal.paymentInfo') }}
+            </Label>
+            <Textarea id="paymentInfo" v-model="form.paymentInfo" class="col-span-3" />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="paymentMethods" class="text-right">
+              {{ $t('editRetreatModal.paymentMethods') }}
+            </Label>
+            <Textarea id="paymentMethods" v-model="form.paymentMethods" class="col-span-3" />
+          </div>
         </div>
         <DialogFooter>
           <Button type="submit">{{ $t('editRetreatModal.saveChanges') }}</Button>
@@ -50,13 +86,16 @@ import { Input } from '@repo/ui/components/ui/input';
 import { Label } from '@repo/ui/components/ui/label';
 import { Button } from '@repo/ui/components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@repo/ui/components/ui/select';
+import { Textarea } from '@repo/ui/components/ui/textarea';
 import { useHouseStore } from '@/stores/houseStore';
+import { useRetreatStore } from '@/stores/retreatStore';
 import type { Retreat } from '@repo/types';
 
 const props = defineProps<{ open: boolean; retreat: Retreat | null }>();
-const emit = defineEmits(['update:open', 'submit']);
+const emit = defineEmits(['update:open']);
 
 const houseStore = useHouseStore();
+const retreatStore = useRetreatStore();
 
 const form = ref<Retreat>({
   id: '',
@@ -76,7 +115,8 @@ onMounted(() => {
   houseStore.fetchHouses();
 });
 
-const handleSubmit = () => {
-  emit('submit', { ...form.value, startDate: new Date(form.value.startDate), endDate: new Date(form.value.endDate) });
+const handleSubmit = async () => {
+  await retreatStore.updateRetreat({ ...form.value, startDate: new Date(form.value.startDate), endDate: new Date(form.value.endDate) });
+  emit('update:open', false);
 };
 </script>

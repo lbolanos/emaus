@@ -42,4 +42,13 @@ export class Retreat {
 
   @Column({ type: 'text', nullable: true })
   thingsToBringNotes?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  cost?: string;
+
+  @Column({ type: 'text', nullable: true })
+  paymentInfo?: string;
+
+  @Column({ type: 'text', nullable: true })
+  paymentMethods?: string;
 }

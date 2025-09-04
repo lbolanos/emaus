@@ -61,6 +61,28 @@ export const useRetreatStore = defineStore('retreat', () => {
     }
   }
 
+  async function fetchRetreat(id: string) {
+    loading.value = true;
+    try {
+      const response = await api.get(`/retreats/${id}`);
+      const index = retreats.value.findIndex(r => r.id === id);
+      if (index !== -1) {
+        retreats.value[index] = response.data;
+      } else {
+        retreats.value.push(response.data);
+      }
+      selectRetreat(response.data.id);
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: err.response?.data?.message || err.message || 'Failed to fetch retreat.',
+        variant: 'destructive',
+      });
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function createRetreat(retreatData: CreateRetreat) {
     loading.value = true;
     try {
@@ -116,6 +138,7 @@ export const useRetreatStore = defineStore('retreat', () => {
     selectedRetreat, // Export new computed property
     selectRetreat,
     fetchRetreats,
+    fetchRetreat,
     createRetreat,
     updateRetreat, // Export new action
     walkerRegistrationLink,
