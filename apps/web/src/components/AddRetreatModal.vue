@@ -130,7 +130,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import type { CreateRetreat, Retreat } from '@repo/types';
 import { useHouseStore } from '@/stores/houseStore';
 import { Button } from '@repo/ui/components/ui/button';
@@ -178,6 +178,18 @@ const formData = ref<CreateRetreat>({
   paymentMethods: '',
   max_walkers: undefined,
   max_servers: undefined,
+});
+
+watch(() => formData.value.houseId, async (newHouseId) => {
+  if (newHouseId) {
+    const house = await houseStore.fetchHouseById(newHouseId);
+    if (house && house.beds) {
+      const walkerBeds = house.beds.filter((b: any) => b.defaultUsage === 'caminante').length;
+      const serverBeds = house.beds.filter((b: any) => b.defaultUsage === 'servidor').length;
+      formData.value.max_walkers = walkerBeds;
+      formData.value.max_servers = serverBeds;
+    }
+  }
 });
 
 const toISODate = (date: Date) => date.toISOString().split('T')[0];

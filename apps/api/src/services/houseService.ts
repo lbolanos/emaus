@@ -6,11 +6,11 @@ import { Bed } from '../entities/bed.entity';
 const houseRepository = AppDataSource.getRepository(House);
 const bedRepository = AppDataSource.getRepository(Bed);
 
-export const findAllHouses = async (): Promise<House[]> => {
-  return houseRepository.find({ relations: ['beds'] });
+export const getHouses = async (): Promise<House[]> => {
+  return houseRepository.find();
 };
 
-export const findHouseById = async (id: string): Promise<House | null> => {
+export const findById = async (id: string): Promise<House | null> => {
   return houseRepository.findOne({ where: { id }, relations: ['beds'] });
 };
 
@@ -38,7 +38,7 @@ export const createHouse = async (
     await bedRepository.save(newBeds);
   }
 
-  const result = await findHouseById((savedHouse as unknown as House).id);
+  const result = await findById((savedHouse as unknown as House).id);
   if (!result) {
     throw new Error('Could not find created house');
   }
@@ -104,7 +104,7 @@ export const updateHouse = async (
     await bedRepository.save(bedsToSave);
   }
 
-  return findHouseById(id);
+  return findById(id);
 };
 
 export const deleteHouse = async (id: string): Promise<void> => {

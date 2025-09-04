@@ -104,10 +104,33 @@ export const useHouseStore = defineStore('house', () => {
     }
   }
 
+  async function fetchHouseById(id: string) {
+    try {
+      loading.value = true;
+      const response = await api.get(`/houses/${id}`);
+      // Optionally update the houses array if needed, or just return the data
+      const index = houses.value.findIndex(h => h.id === id);
+      if (index !== -1) {
+        houses.value[index] = response.data;
+      }
+      return response.data;
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || error.message || `Failed to fetch house ${id}`,
+        variant: 'destructive',
+      });
+      throw error;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   return {
     houses,
     loading,
     fetchHouses,
+    fetchHouseById,
     createHouse,
     updateHouse,
     deleteHouse,

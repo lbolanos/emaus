@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
 import * as houseService from '../services/houseService';
 
-export const getAllHouses = async (req: Request, res: Response) => {
+export const getHouses = async (req: Request, res: Response) => {
   try {
-    const houses = await houseService.findAllHouses();
+    const houses = await houseService.getHouses();
     res.json(houses);
   } catch (error) {
     res.status(500).json({ message: 'Error retrieving houses' });
@@ -12,7 +12,7 @@ export const getAllHouses = async (req: Request, res: Response) => {
 
 export const getHouseById = async (req: Request, res: Response) => {
   try {
-    const house = await houseService.findHouseById(req.params.id);
+    const house = await houseService.findById(req.params.id);
     if (house) {
       res.json(house);
     } else {
