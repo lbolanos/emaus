@@ -43,7 +43,7 @@ import { useToast } from '@repo/ui/components/ui/toast/use-toast';
 const $ct = (key: string) => key.split('.').pop()?.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()) || key;
 
 const props = withDefaults(defineProps<{
-    type: 'walker' | 'server',
+    type: 'walker' | 'server' | 'waiting',
     isCanceled?: boolean,
     columnsToShowInTable?: string[],
     columnsToShowInForm?: string[],

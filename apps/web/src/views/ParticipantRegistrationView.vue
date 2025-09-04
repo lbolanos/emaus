@@ -21,7 +21,7 @@ const { toast } = useToast()
 
 const getInitialFormData = (): Partial<Omit<Participant, 'id'>> => ({
   retreatId: props.retreatId,
-  type: props.type as 'server' | 'walker',
+  type: props.type as 'walker' | 'server' | 'waiting',
   sacraments: [],
   firstName: '',
   lastName: '',

@@ -6,7 +6,7 @@ export const getAllParticipants = async (req: Request, res: Response) => {
     const { retreatId, type, isCanceled } = req.query;
     const participants = await participantService.findAllParticipants(
       retreatId as string | undefined,
-      type as 'walker' | 'server' | undefined,
+      type as 'walker' | 'server' | 'waiting' | undefined,
       isCanceled === 'true',
       ['table'] // Include table relation
     );

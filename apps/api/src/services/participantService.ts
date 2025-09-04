@@ -66,7 +66,7 @@ const rebalanceTablesForRetreat = async (retreatId: string) => {
 
 export const findAllParticipants = async (
   retreatId?: string,
-  type?: 'walker' | 'server',
+  type?: 'walker' | 'server' | 'waiting',
   isCancelled?: boolean,
   relations: string[] = []
 ): Promise<Participant[]> => {
@@ -169,7 +169,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
   const mapToEnglishKeys = (participant: any) => {
     return {
       id_on_retreat: participant.id?.trim(),
-      type: (participant.tipousuario?.trim() === '3' ? 'walker' : 'server') as 'walker' | 'server',
+      type: (participant.tipousuario?.trim() === '3' ? 'walker' : 'server') as 'walker' | 'server' | 'waiting',
       firstName: participant.nombre?.trim(),
       lastName: participant.apellidos?.trim(),
       nickname: participant.apodo?.trim(),

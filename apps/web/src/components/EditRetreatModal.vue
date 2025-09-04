@@ -70,6 +70,18 @@
             </Label>
             <Textarea id="paymentMethods" v-model="form.paymentMethods" class="col-span-3" />
           </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="max_walkers" class="text-right">
+              {{ $t('addRetreatModal.max_walkers') }}
+            </Label>
+            <Input id="max_walkers" type="number" v-model.number="form.max_walkers" class="col-span-3" />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="max_servers" class="text-right">
+              {{ $t('addRetreatModal.max_servers') }}
+            </Label>
+            <Input id="max_servers" type="number" v-model.number="form.max_servers" class="col-span-3" />
+          </div>
         </div>
         <DialogFooter>
           <Button type="submit">{{ $t('editRetreatModal.saveChanges') }}</Button>
@@ -97,17 +109,23 @@ const emit = defineEmits(['update:open']);
 const houseStore = useHouseStore();
 const retreatStore = useRetreatStore();
 
-const form = ref<Retreat>({
+const form = ref<Partial<Retreat>>({
   id: '',
   parish: '',
   startDate: new Date(),
   endDate: new Date(),
   houseId: undefined,
+  max_walkers: undefined,
+  max_servers: undefined,
 });
 
 watch(() => props.retreat, (newRetreat) => {
   if (newRetreat) {
-    form.value = { ...newRetreat, startDate: new Date(newRetreat.startDate).toISOString().split('T')[0], endDate: new Date(newRetreat.endDate).toISOString().split('T')[0] };
+    form.value = { 
+      ...newRetreat, 
+      startDate: new Date(newRetreat.startDate).toISOString().split('T')[0], 
+      endDate: new Date(newRetreat.endDate).toISOString().split('T')[0] 
+    };
   }
 }, { immediate: true });
 

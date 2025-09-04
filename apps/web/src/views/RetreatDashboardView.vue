@@ -3,8 +3,9 @@
     <h1 class="text-2xl font-bold mb-4">{{ $t('retreatDashboard.title') }}</h1>
     <div v-if="retreatStore.selectedRetreat">
       <p>{{ $t('retreatDashboard.selectedRetreat') }}: {{ retreatStore.selectedRetreat.parish }} - {{ new Date(retreatStore.selectedRetreat.startDate).toLocaleDateString() }}</p>
-      <p>{{ $t('retreatDashboard.walkersCount') }}: {{ walkersCount }}</p>
-      <p>{{ $t('retreatDashboard.serversCount') }}: {{ serversCount }}</p>
+      <p>{{ $t('retreatDashboard.walkersCount') }}: {{ walkersCount }} / {{ retreatStore.selectedRetreat.max_walkers || 'N/A' }}</p>
+      <p>{{ $t('retreatDashboard.serversCount') }}: {{ serversCount }} / {{ retreatStore.selectedRetreat.max_servers || 'N/A' }}</p>
+      <p>{{ $t('retreatDashboard.waitingCount') }}: {{ waitingCount }}</p>
       <div class="flex items-center gap-2 mt-2">
         <span>{{ $t('retreatDashboard.walkerRegistrationLink') }}:</span>
         <Button size="sm" @click="copyLink(walkerRegistrationLink)">{{ $t('retreatDashboard.copyLink') }}</Button>
@@ -85,6 +86,7 @@ const participantStore = useParticipantStore();
 
 const walkersCount = ref(0);
 const serversCount = ref(0);
+const waitingCount = ref(0);
 const isQrCodeVisible = ref(false);
 const qrCodeUrl = ref('');
 
@@ -115,11 +117,14 @@ watchEffect(async () => {
     walkersCount.value = participantStore.participants.filter(p => p.type === 'walker').length;
     await participantStore.fetchParticipants(retreatId, 'server');
     serversCount.value = participantStore.participants.filter(p => p.type === 'server').length;
+    await participantStore.fetchParticipants(retreatId, 'waiting');
+    waitingCount.value = participantStore.participants.filter(p => p.type === 'waiting').length;
   }
 });
 
 if (retreatStore.selectedRetreatId) {
   participantStore.fetchParticipants(retreatStore.selectedRetreatId, 'walker');
   participantStore.fetchParticipants(retreatStore.selectedRetreatId, 'server');
+  participantStore.fetchParticipants(retreatStore.selectedRetreatId, 'waiting');
 }
 </script>

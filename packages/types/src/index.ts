@@ -43,6 +43,8 @@ export const retreatSchema = z.object({
   cost: z.string().optional(),
   paymentInfo: z.string().optional(),
   paymentMethods: z.string().optional(),
+  max_walkers: z.number().int().positive().optional(),
+  max_servers: z.number().int().positive().optional(),
 });
 export type Retreat = z.infer<typeof retreatSchema>;
 
@@ -74,7 +76,7 @@ export type RetreatBed = z.infer<typeof retreatBedSchema>;
 export const participantSchema = z.object({
   id: idSchema,
   id_on_retreat: z.number().int().positive().optional(),
-  type: z.enum(['walker', 'server']),
+  type: z.enum(['walker', 'server', 'waiting']),
   firstName: z.string(),
   lastName: z.string(),
   nickname: z.string().optional(),

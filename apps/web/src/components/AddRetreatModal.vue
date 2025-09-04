@@ -80,6 +80,18 @@
             </Label>
             <Textarea id="paymentMethods" v-model="formData.paymentMethods" class="col-span-3" />
           </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="max_walkers" class="text-right">
+              {{ $t('addRetreatModal.max_walkers') }}
+            </Label>
+            <Input id="max_walkers" type="number" v-model.number="formData.max_walkers" class="col-span-3" />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="max_servers" class="text-right">
+              {{ $t('addRetreatModal.max_servers') }}
+            </Label>
+            <Input id="max_servers" type="number" v-model.number="formData.max_servers" class="col-span-3" />
+          </div>
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" @click="emit('update:open', false)">
@@ -164,6 +176,8 @@ const formData = ref<CreateRetreat>({
   cost: '',
   paymentInfo: '',
   paymentMethods: '',
+  max_walkers: undefined,
+  max_servers: undefined,
 });
 
 const toISODate = (date: Date) => date.toISOString().split('T')[0];

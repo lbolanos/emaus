@@ -9,7 +9,7 @@ export const useParticipantStore = defineStore('participant', () => {
   const loading = ref(false);
   const { toast } = useToast();
 
-  async function fetchParticipants(retreatId: string, type: 'walker' | 'server', isCanceled?: boolean) {
+  async function fetchParticipants(retreatId: string, type: 'walker' | 'server' | 'waiting', isCanceled?: boolean) {
     try {
       loading.value = true;
       const response = await api.get('/participants', { params: { retreatId, type, isCanceled } });
@@ -47,7 +47,7 @@ export const useParticipantStore = defineStore('participant', () => {
     }
   }
 
-  async function importParticipants(retreatId: string, type: 'walker' | 'server', participantsData: any[]) {
+  async function importParticipants(retreatId: string, type: 'walker' | 'server' | 'waiting', participantsData: any[]) {
     try {
       loading.value = true;
       const response = await api.post(`/participants/import/${retreatId}`, { participants: participantsData });

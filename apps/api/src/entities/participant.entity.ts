@@ -21,7 +21,7 @@ export class Participant {
   id_on_retreat!: number; // Corresponde a 'id'
 
   @Column({ type: 'varchar' })
-  type!: 'walker' | 'server'; // Corresponde a 'tipousuario'
+  type!: 'walker' | 'server' | 'waiting'; // Corresponde a 'tipousuario'
 
   @Column('varchar')
   firstName!: string; // Corresponde a 'nombre'

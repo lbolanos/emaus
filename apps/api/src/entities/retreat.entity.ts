@@ -51,4 +51,10 @@ export class Retreat {
 
   @Column({ type: 'text', nullable: true })
   paymentMethods?: string;
+
+  @Column({ type: 'int', nullable: true })
+  max_walkers?: number;
+
+  @Column({ type: 'int', nullable: true })
+  max_servers?: number;
 }

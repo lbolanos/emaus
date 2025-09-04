@@ -78,10 +78,12 @@ Listado Para Cancelar & Notas
 Listado En Espera, Tipo Usuario, Cancelar
 Reporte Bolsas con campos id_retreat Nombre Apellidos Mesa Talla
 Reporte Medicinas
+agregar costo del retiro y notas de la cuenta y forma de pago
 
 IN PROGRESS
+agregar un limite de caminantes maximo y un limite de servidores maximo al retiro.
+Si sobrepasa este limite al crear un nuevo caminante debe colocarlo como  tipo 'waiting'
 
-agregar costo del retiro y notas de la cuenta y forma de pago
 
 TODO
 
@@ -104,12 +106,12 @@ https://www.vultr.com/
 https://www.hostinger.com/
 https://www.digitalocean.com/
 
-agregar un limite de caminantes maximo al retiro.  Si sobrepasa este limite al crear un nuevo caminante debe colocarlo como  tipo 'waiting'
+
 
 
 un usuario administrador y un usuario normal
 el administrador puede borrar casas de retiro
-
+colocar en español las columnas de participantes
 
 
 
