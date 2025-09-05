@@ -59,20 +59,11 @@ const { toast } = useToast();
 
 // Stores de Pinia
 const participantStore = useParticipantStore();
-const { walkers, servers, waiting, loading } = storeToRefs(participantStore);
+const { participants: allParticipants, loading, error } = storeToRefs(participantStore);
 const retreatStore = useRetreatStore();
 const { selectedRetreatId, serverRegistrationLink, walkerRegistrationLink } = storeToRefs(retreatStore);
 
-const participants = computed(() => {
-  if (props.type === 'walker') {
-    return walkers.value;
-  } else if (props.type === 'server') {
-    return servers.value;
-  } else if (props.type === 'waiting') {
-    return waiting.value;
-  }
-  return [];
-});
+const participants = computed(() => (allParticipants.value || []).filter(p => p.type === props.type));
 
 // --- ESTADO LOCAL DEL COMPONENTE ---
 const searchQuery = ref('');
@@ -319,11 +310,11 @@ const exportData = (format: 'csv' | 'xlsx') => {
 
 // --- WATCHER PARA CARGAR DATOS ---
 watch([selectedRetreatId, filterStatus], ([newId]) => {
-    if (newId) {
-        participantStore.fetchParticipants(newId, isCanceled.value);
-    } else {
-        participantStore.clearParticipants();
-    }
+  if (newId) {
+    participantStore.filters.retreatId = newId;
+    participantStore.filters.isCancelled = isCanceled.value;
+    participantStore.fetchParticipants();
+  }
 }, { immediate: true });
 
 </script>

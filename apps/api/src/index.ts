@@ -1,11 +1,14 @@
 import 'reflect-metadata';
 import express from 'express';
+import 'express-async-errors';
 import cors from 'cors';
 import session from 'express-session';
 import { AppDataSource } from './data-source';
 import mainRouter from './routes';
 import { passport } from './services/authService';
+import tableMesaRoutes from './routes/tableMesaRoutes';
 import { config } from './config';
+import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -35,6 +38,9 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 app.use('/api', mainRouter);
+app.use('/api/tables', tableMesaRoutes);
+
+app.use(errorHandler);
 
 AppDataSource.initialize()
   .then(() => {

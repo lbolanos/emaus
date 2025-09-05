@@ -1,27 +1,38 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, reactive } from 'vue';
 import { useToast } from '@repo/ui/components/ui/toast/use-toast';
 import type { Participant, CreateParticipant } from '@repo/types';
 import { api } from '@/services/api';
 
 export const useParticipantStore = defineStore('participant', () => {
-  const allParticipants = ref<Participant[]>([]);
+  const participants = ref<Participant[]>([]);
   const loading = ref(false);
+  const error = ref<string | null>(null);
+  const filters = reactive<Record<string, any>>({});
   const { toast } = useToast();
 
-  const walkers = computed(() => allParticipants.value.filter(p => p.type === 'walker'));
-  const servers = computed(() => allParticipants.value.filter(p => p.type === 'server'));
-  const waiting = computed(() => allParticipants.value.filter(p => p.type === 'waiting'));
-
-  async function fetchParticipants(retreatId: string, isCanceled?: boolean) {
-    try {
-      loading.value = true;
-      const response = await api.get('/participants', { params: { retreatId, isCanceled } });
-      allParticipants.value = response.data;
-    } catch (error: any) {
+  async function fetchParticipants() {
+    if (!filters.retreatId) {
+      const message = 'Retreat ID is required to fetch participants.';
+      error.value = message;
       toast({
         title: 'Error',
-        description: error.response?.data?.message || error.message || `Failed to fetch participants`,
+        description: message,
+        variant: 'destructive',
+      });
+      return;
+    }
+    try {
+      loading.value = true;
+      error.value = null;
+      const response = await api.get('/participants', { params: filters });
+      participants.value = response.data;
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || `Failed to fetch participants`;
+      error.value = errorMessage;
+      toast({
+        title: 'Error',
+        description: errorMessage,
         variant: 'destructive',
       });
       throw error;
@@ -34,7 +45,7 @@ export const useParticipantStore = defineStore('participant', () => {
     try {
       loading.value = true;
       const response = await api.post('/participants/new', data);
-      allParticipants.value.push(response.data);
+      participants.value.push(response.data);
       toast({
         title: 'Success',
         description: 'Participant created successfully',
@@ -55,7 +66,7 @@ export const useParticipantStore = defineStore('participant', () => {
     try {
       loading.value = true;
       const response = await api.post(`/participants/import/${retreatId}`, { participants: participantsData });
-      await fetchParticipants(retreatId);
+      await fetchParticipants();
       toast({
         title: 'Success',
         description: `${response.data.importedCount} participants imported, ${response.data.updatedCount} updated.`,
@@ -85,9 +96,9 @@ export const useParticipantStore = defineStore('participant', () => {
     try {
       loading.value = true;
       const response = await api.put(`/participants/${id}`, data);
-      const index = allParticipants.value.findIndex(p => p.id === id);
+      const index = participants.value.findIndex(p => p.id === id);
       if (index !== -1) {
-        allParticipants.value[index] = response.data;
+        participants.value[index] = response.data;
       }
       toast({
         title: 'Success',
@@ -109,7 +120,7 @@ export const useParticipantStore = defineStore('participant', () => {
     try {
       loading.value = true;
       await api.delete(`/participants/${id}`);
-      allParticipants.value = allParticipants.value.filter(p => p.id !== id);
+      participants.value = participants.value.filter(p => p.id !== id);
       toast({
         title: 'Success',
         description: 'Participant deleted successfully',
@@ -126,19 +137,18 @@ export const useParticipantStore = defineStore('participant', () => {
     }
   }
 
-  function clearParticipants() {
-    allParticipants.value = [];
+  function setFilter(key: string, value: any) {
+    filters[key] = value;
   }
 
   return {
-    allParticipants,
-    walkers,
-    servers,
-    waiting,
+    participants,
     loading,
+    error,
+    filters,
     fetchParticipants,
+    setFilter,
     createParticipant,
-    clearParticipants,
     importParticipants,
     updateParticipant,
     deleteParticipant,

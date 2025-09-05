@@ -1,16 +1,16 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import * as houseService from '../services/houseService';
 
-export const getHouses = async (req: Request, res: Response) => {
+export const getHouses = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const houses = await houseService.getHouses();
     res.json(houses);
   } catch (error) {
-    res.status(500).json({ message: 'Error retrieving houses' });
+    next(error);
   }
 };
 
-export const getHouseById = async (req: Request, res: Response) => {
+export const getHouseById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const house = await houseService.findById(req.params.id);
     if (house) {
@@ -19,22 +19,20 @@ export const getHouseById = async (req: Request, res: Response) => {
       res.status(404).json({ message: 'House not found' });
     }
   } catch (error) {
-    res.status(500).json({ message: 'Error retrieving house' });
+    next(error);
   }
 };
 
-export const createHouse = async (req: Request, res: Response) => {
+export const createHouse = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const newHouse = await houseService.createHouse(req.body);
     res.status(201).json(newHouse);
   } catch (error: any) {
-    const statusCode = error.statusCode || 500;
-    const message = error.message || 'Error creating house';
-    res.status(statusCode).json({ message });
+    next(error);
   }
 };
 
-export const updateHouse = async (req: Request, res: Response) => {
+export const updateHouse = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const updatedHouse = await houseService.updateHouse(
       req.params.id,
@@ -46,17 +44,15 @@ export const updateHouse = async (req: Request, res: Response) => {
       res.status(404).json({ message: 'House not found' });
     }
   } catch (error: any) {
-    const statusCode = error.statusCode || 500;
-    const message = error.message || 'Error updating house';
-    res.status(statusCode).json({ message });
+    next(error);
   }
 };
 
-export const deleteHouse = async (req: Request, res: Response) => {
+export const deleteHouse = async (req: Request, res: Response, next: NextFunction) => {
   try {
     await houseService.deleteHouse(req.params.id);
     res.status(204).send();
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting house' });
+    next(error);
   }
 };

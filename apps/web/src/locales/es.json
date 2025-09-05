@@ -18,6 +18,7 @@
     "servers": "Servidores",
     "palancas": "Palancas",
     "payments": "Pagos",
+    "tables": "Mesas",
     "notesAndMeetingPoints": "Notas y Puntos de Encuentro",
     "rooms": "Etiquetas Cuartos",
     "userTypeAndTable": "Tipo de Usuario y Mesa",
@@ -228,6 +229,30 @@
       "errorGeneric": "Un error ha ocurrido en la importación"
     }
   },
+  "tables": {
+    "title": "Mesas del Retiro",
+    "description": "Gestiona las asignaciones de mesas, líderes y caminantes.",
+    "noTablesFound": "No se encontraron mesas para este retiro.",
+    "leader": "Líder",
+    "coLeader1": "Co-líder 1",
+    "coLeader2": "Co-líder 2",
+    "walkers": "Caminantes",
+    "unassigned": "Sin asignar",
+    "assign": "Asignar",
+    "assignLeaderModal": {
+      "title": "Asignar {role}",
+      "description": "Selecciona un servidor para asignar a este rol.",
+      "searchPlaceholder": "Buscar un servidor..."
+    },
+    "roles": {
+      "lider": "Líder",
+      "colider1": "Co-líder 1",
+      "colider2": "Co-líder 2"
+    },
+    "unassignedServers": "Servidores no Asignados",
+    "unassignedWalkers": "Caminantes no Asignados",
+    "rebalanceWalkers": "Rebalancear Caminantes"
+  },
   "walkerRegistration": {
     "title": "Registro de Caminante",
     "description": "Por favor, rellene el siguiente formulario para registrarse como caminante del retiro.",
@@ -397,7 +422,7 @@
     "xlsx": "Exportar a XLSX",
     "csv": "Exportar a CSV"
   },
-  "retreatCharges": {
+  "charges": {
     "title": "Cargos del Retiro",
     "createCharge": "Crear Cargo",
     "assignedParticipant": "Participante Asignado",

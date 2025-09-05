@@ -1,9 +1,9 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { House } from './house.entity';
 import { Participant } from './participant.entity';
-import { Table } from './table.entity';
+import { TableMesa } from './tableMesa.entity';
 import { RetreatBed } from './retreatBed.entity';
-import { RetreatCharge } from './retreatCharge.entity';
+import { Charge } from './charge.entity';
 
 @Entity()
 export class Retreat {
@@ -29,8 +29,8 @@ export class Retreat {
   @OneToMany(() => Participant, (participant) => participant.retreat)
   participants!: Participant[];
 
-  @OneToMany(() => Table, (table) => table.retreat)
-  tables!: Table[];
+  @OneToMany(() => TableMesa, (table) => table.retreat)
+  tablesMesa!: TableMesa[];
 
   @OneToMany(() => RetreatBed, (bed) => bed.retreat)
   beds!: RetreatBed[];
@@ -59,6 +59,6 @@ export class Retreat {
   @Column({ type: 'int', nullable: true })
   max_servers?: number;
 
-  @OneToMany(() => RetreatCharge, (charge) => charge.retreat)
-  charges!: RetreatCharge[];
+  @OneToMany(() => Charge, (charge) => charge.retreat)
+  charges!: Charge[];
 }

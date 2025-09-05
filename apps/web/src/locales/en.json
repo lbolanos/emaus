@@ -18,6 +18,7 @@
     "servers": "Servers",
     "palancas": "Palancas",
     "payments": "Payments",
+    "tables": "Tables",
     "notesAndMeetingPoints": "Notes & Meeting Points",
     "rooms": "Rooms Tags",
     "userTypeAndTable": "User Type & Table",
@@ -36,7 +37,7 @@
     "houses": "Houses",
     "bedAssignments": "Bed Assignments",
     "charges": "Charges"
-  },
+  },  
   "participants": {
     "title": "Walkers",
     "addWalker": "Add Walker",
@@ -129,7 +130,7 @@
       "notes": "Notes",
       "registrationDate": "Registered On",
       "lastUpdatedDate": "Last Updated",
-      "retreatId": "Retreat ID",
+      "retreatId": "Retreat ID", 
       "tableId": "Table ID",
       "retreatBedId": "Bed ID"
     }    
@@ -230,6 +231,30 @@
     "delete": "Delete",
     "cancel": "Cancel",
     "close": "Close"
+  },
+  "tables": {
+    "title": "Retreat Tables",
+    "description": "Manage table assignments, leaders, and walkers.",
+    "noTablesFound": "No tables found for this retreat.",
+    "leader": "Leader",
+    "coLeader1": "Co-Leader 1",
+    "coLeader2": "Co-Leader 2",
+    "walkers": "Walkers",
+    "unassigned": "Unassigned",
+    "assign": "Assign",
+    "assignLeaderModal": {
+      "title": "Assign {role}",
+      "description": "Select a server to assign to this role.",
+      "searchPlaceholder": "Search for a server..."
+    },
+    "roles": {
+      "lider": "Leader",
+      "colider1": "Co-Leader 1",
+      "colider2": "Co-Leader 2"
+    },
+    "unassignedServers": "Unassigned Servers",
+    "unassignedWalkers": "Unassigned Walkers",
+    "rebalanceWalkers": "Rebalance Walkers"
   },
   "walkerRegistration": {
     "title": "Walker Registration",
@@ -400,7 +425,7 @@
     "xlsx": "Export to XLSX",
     "csv": "Export to CSV"
   },
-  "retreatCharges": {
+  "charges": {
     "title": "Retreat Charges",
     "createCharge": "Create Charge",
     "assignedParticipant": "Assigned Participant",

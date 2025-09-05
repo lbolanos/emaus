@@ -1,11 +1,11 @@
 import { AppDataSource } from '../data-source';
-import { RetreatCharge } from '../entities/retreatCharge.entity';
+import { Charge } from '../entities/charge.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { Participant } from '../entities/participant.entity';
 import { v4 as uuidv4 } from 'uuid';
 
-export const findAllRetreatCharges = async (retreatId?: string) => {
-  const repository = AppDataSource.getRepository(RetreatCharge);
+export const findAllCharges = async (retreatId?: string) => {
+  const repository = AppDataSource.getRepository(Charge);
   const where = retreatId ? { retreatId } : {};
   return repository.find({
     where,
@@ -13,20 +13,20 @@ export const findAllRetreatCharges = async (retreatId?: string) => {
   });
 };
 
-export const findRetreatChargeById = async (id: string) => {
-  const repository = AppDataSource.getRepository(RetreatCharge);
+export const findChargeById = async (id: string) => {
+  const repository = AppDataSource.getRepository(Charge);
   return repository.findOne({
     where: { id },
     relations: ['retreat', 'participant'],
   });
 };
 
-export const createRetreatCharge = async (chargeData: {
+export const createCharge = async (chargeData: {
   name: string;
   description?: string;
   retreatId: string;
 }) => {
-  const repository = AppDataSource.getRepository(RetreatCharge);
+  const repository = AppDataSource.getRepository(Charge);
   const newCharge = repository.create({
     ...chargeData,
     id: uuidv4(),
@@ -34,24 +34,24 @@ export const createRetreatCharge = async (chargeData: {
   return repository.save(newCharge);
 };
 
-export const updateRetreatCharge = async (
+export const updateCharge = async (
   id: string,
   chargeData: Partial<{ name: string; description?: string }>
 ) => {
-  const repository = AppDataSource.getRepository(RetreatCharge);
+  const repository = AppDataSource.getRepository(Charge);
   const charge = await repository.findOne({ where: { id } });
   if (!charge) return null;
   Object.assign(charge, chargeData);
   return repository.save(charge);
 };
 
-export const deleteRetreatCharge = async (id: string) => {
-  const repository = AppDataSource.getRepository(RetreatCharge);
+export const deleteCharge = async (id: string) => {
+  const repository = AppDataSource.getRepository(Charge);
   await repository.delete(id);
 };
 
 export const assignChargeToParticipant = async (chargeId: string, participantId: string) => {
-  const chargeRepository = AppDataSource.getRepository(RetreatCharge);
+  const chargeRepository = AppDataSource.getRepository(Charge);
   const participantRepository = AppDataSource.getRepository(Participant);
 
   const charge = await chargeRepository.findOne({
@@ -68,7 +68,7 @@ export const assignChargeToParticipant = async (chargeId: string, participantId:
 };
 
 export const removeChargeFromParticipant = async (chargeId: string, participantId: string) => {
-  const chargeRepository = AppDataSource.getRepository(RetreatCharge);
+  const chargeRepository = AppDataSource.getRepository(Charge);
 
   const charge = await chargeRepository.findOne({
     where: { id: chargeId },
@@ -83,7 +83,7 @@ export const removeChargeFromParticipant = async (chargeId: string, participantI
 };
 
 export const getChargesForParticipant = async (participantId: string) => {
-  const repository = AppDataSource.getRepository(RetreatCharge);
+  const repository = AppDataSource.getRepository(Charge);
   return repository.find({
     where: { participantId },
     relations: ['retreat'],
@@ -91,7 +91,7 @@ export const getChargesForParticipant = async (participantId: string) => {
 };
 
 export const getParticipantsForCharge = async (chargeId: string) => {
-  const repository = AppDataSource.getRepository(RetreatCharge);
+  const repository = AppDataSource.getRepository(Charge);
   return repository.findOne({
     where: { id: chargeId },
     relations: ['participant'],
@@ -99,7 +99,7 @@ export const getParticipantsForCharge = async (chargeId: string) => {
 };
 
 export const createDefaultChargesForRetreat = async (retreat: Retreat) => {
-  const repository = AppDataSource.getRepository(RetreatCharge);
+  const repository = AppDataSource.getRepository(Charge);
   const defaultCharges = [
     'palancas 1',
     'palancas 2',

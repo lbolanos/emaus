@@ -1,16 +1,16 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { getRetreats, createRetreat as createRetreatService, findById, update } from '../services/retreatService';
 
-export const getAllRetreats = async (req: Request, res: Response) => {
+export const getAllRetreats = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const retreats = await getRetreats();
     res.json(retreats);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching retreats', error });
+    next(error);
   }
 };
 
-export const getRetreatById = async (req: Request, res: Response) => {
+export const getRetreatById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const retreat = await findById(req.params.id);
     if (!retreat) {
@@ -18,11 +18,11 @@ export const getRetreatById = async (req: Request, res: Response) => {
     }
     res.json(retreat);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching retreat', error });
+    next(error);
   }
 }
 
-export const updateRetreat = async (req: Request, res: Response) => {
+export const updateRetreat = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const retreat = await update(req.params.id, req.body);
     if (!retreat) {
@@ -30,15 +30,15 @@ export const updateRetreat = async (req: Request, res: Response) => {
     }
     res.json(retreat);
   } catch (error) {
-    res.status(500).json({ message: 'Error updating retreat', error });
+    next(error);
   }
 }
 
-export const createRetreat = async (req: Request, res: Response) => {
+export const createRetreat = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const newRetreat = await createRetreatService(req.body);
     res.status(201).json(newRetreat);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating retreat', error });
+    next(error);
   }
 };

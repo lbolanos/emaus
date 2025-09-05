@@ -2,11 +2,11 @@ import { DataSource } from 'typeorm';
 import { House } from './entities/house.entity';
 import { Bed } from './entities/bed.entity';
 import { Retreat } from './entities/retreat.entity';
-import { Table } from './entities/table.entity';
+import { TableMesa } from './entities/tableMesa.entity';
 import { Participant } from './entities/participant.entity';
 import { User } from './entities/user.entity';
 import { RetreatBed } from './entities/retreatBed.entity';
-import { RetreatCharge } from './entities/retreatCharge.entity';
+import { Charge } from './entities/charge.entity';
 
 
 export const AppDataSource = new DataSource({
@@ -14,7 +14,7 @@ export const AppDataSource = new DataSource({
   database: 'database.sqlite',
   synchronize: true,
   logging: true,
-  entities: [House, Bed, Retreat, RetreatBed, Table, Participant, User, RetreatCharge],
+  entities: [House, Bed, Retreat, RetreatBed, TableMesa, Participant, User, Charge],
   migrations: [],
   subscribers: [],
 });

@@ -1,9 +1,9 @@
 import { AppDataSource } from '../data-source';
 import { Retreat } from '../entities/retreat.entity';
-import { Table } from '../entities/table.entity';
 import { House } from '../entities/house.entity';
 import { RetreatBed } from '../entities/retreatBed.entity';
-import { createDefaultChargesForRetreat } from './retreatChargeService';
+import { createDefaultChargesForRetreat } from './chargeService';
+import { createDefaultTablesForRetreat } from './tableMesaService';
 import type { CreateRetreat, UpdateRetreat } from '@repo/types';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -30,7 +30,6 @@ export const update = async (id: string, retreatData: UpdateRetreat) => {
 
 export const createRetreat = async (retreatData: CreateRetreat) => {
   const retreatRepository = AppDataSource.getRepository(Retreat);
-  const tableRepository = AppDataSource.getRepository(Table);
   const houseRepository = AppDataSource.getRepository(House);
   const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
 
@@ -45,14 +44,7 @@ export const createRetreat = async (retreatData: CreateRetreat) => {
   await createDefaultChargesForRetreat(newRetreat);
 
   // 3. Create default tables
-  for (let i = 1; i <= 5; i++) {
-    const newTable = tableRepository.create({
-      id: uuidv4(),
-      name: `Table ${i}`,
-      retreat: newRetreat,
-    });
-    await tableRepository.save(newTable);
-  }
+  await createDefaultTablesForRetreat(newRetreat);
 
   // 3. Create retreat beds from house beds
   if (retreatData.houseId) {

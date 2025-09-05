@@ -20,6 +20,7 @@ import ResetPasswordView from '../views/ResetPasswordView.vue';
 import ParticipantRegistrationView from '../views/ParticipantRegistrationView.vue';
 import RetreatDashboardView from '../views/RetreatDashboardView.vue';
 import BedAssignmentsView from '../views/BedAssignmentsView.vue';
+import TablesView from '../views/TablesView.vue';
 import { useAuthStore } from '@/stores/authStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 
@@ -66,6 +67,11 @@ const router = createRouter({
           path: 'servers',
           name: 'servers',
           component: ServersView,
+        },
+        {
+          path: 'tables',
+          name: 'tables',
+          component: TablesView,
         },
         {
           path: 'palancas',
@@ -141,8 +147,8 @@ const router = createRouter({
         },
         {
           path: 'retreats/:id/charges',
-          name: 'retreat-charges',
-          component: () => import('../views/RetreatChargesView.vue'),
+          name: 'charges',
+          component: () => import('../views/ChargesView.vue'),
           props: true,
         },
       ],

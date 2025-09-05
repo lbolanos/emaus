@@ -61,7 +61,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { api } from '@/services/api';
@@ -69,6 +69,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui/components/ui/select';
 import type { RetreatBed } from '@repo/types';
 
+const props = defineProps<{ id: string }>();
 const retreatStore = useRetreatStore();
 const participantStore = useParticipantStore();
 
@@ -117,7 +118,7 @@ const sortedFloors = computed(() => {
 
 const unassignedParticipants = computed(() => {
   const assignedIds = new Set(beds.value.map(b => b.participantId).filter(Boolean));
-  return participantStore.allParticipants.filter(p => !assignedIds.has(p.id));
+  return (participantStore.allParticipants || []).filter(p => !assignedIds.has(p.id));
 });
 
 const unassignedWalkers = computed(() => {
@@ -139,17 +140,23 @@ const assignParticipant = async (bedId: string, participantId: string | null) =>
     // Refresh data
     await fetchBeds();
     if (retreatStore.selectedRetreatId) {
-      await participantStore.fetchParticipants(retreatStore.selectedRetreatId);
+      participantStore.filters.retreatId = retreatStore.selectedRetreatId;
+      await participantStore.fetchParticipants();
     }
   } catch (error) {
     console.error('Failed to assign participant:', error);
   }
 };
 
-onMounted(() => {
-  fetchBeds();
-  if (retreatStore.selectedRetreatId && participantStore.allParticipants.length === 0) {
-    participantStore.fetchParticipants(retreatStore.selectedRetreatId);
+watch(() => retreatStore.selectedRetreatId, (newId) => {
+  if (newId) {
+    fetchBeds();
+    participantStore.filters.retreatId = newId;
+    participantStore.fetchParticipants();
   }
+}, { immediate: true });
+
+onMounted(() => {
+  retreatStore.selectRetreat(props.id);
 });
 </script>

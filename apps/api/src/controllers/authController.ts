@@ -9,7 +9,7 @@ import * as crypto from 'crypto';
 // Temporary store for password reset tokens
 const passwordResetTokens = new Map<string, { userId: string; expires: number }>();
 
-export const register = async (req: Request, res: Response) => {
+export const register = async (req: Request, res: Response, next: NextFunction) => {
   const { email, password, displayName } = req.body;
   const userRepository = AppDataSource.getRepository(User);
 
@@ -30,7 +30,7 @@ export const register = async (req: Request, res: Response) => {
 
     res.status(201).json({ message: 'User created successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Error creating user', error });
+    next(error);
   }
 };
 
@@ -63,14 +63,14 @@ export const getAuthStatus = (req: Request, res: Response) => {
   }
 };
 
-export const logout = (req: Request, res: Response) => {
+export const logout = (req: Request, res: Response, next: NextFunction) => {
   req.logout((err) => {
     if (err) {
-      return res.status(500).json({ message: 'Error logging out' });
+      return next(err);
     }
     req.session.destroy((err) => {
       if (err) {
-        return res.status(500).json({ message: 'Error destroying session' });
+        return next(err);
       }
       res.clearCookie('connect.sid');
       res.json({ message: 'Logged out' });
@@ -78,7 +78,7 @@ export const logout = (req: Request, res: Response) => {
   });
 };
 
-export const requestPasswordReset = async (req: Request, res: Response) => {
+export const requestPasswordReset = async (req: Request, res: Response, next: NextFunction) => {
   const { email } = req.body;
   const userRepository = AppDataSource.getRepository(User);
 
@@ -98,11 +98,11 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
 
     res.json({ message: 'If a user with that email exists, a password reset link has been sent.' });
   } catch (error) {
-    res.status(500).json({ message: 'Error requesting password reset', error });
+    next(error);
   }
 };
 
-export const resetPassword = async (req: Request, res: Response) => {
+export const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
   const { token, password } = req.body;
   const tokenData = passwordResetTokens.get(token);
 
@@ -126,6 +126,6 @@ export const resetPassword = async (req: Request, res: Response) => {
 
     res.json({ message: 'Password has been reset successfully.' });
   } catch (error) {
-    res.status(500).json({ message: 'Error resetting password', error });
+    next(error);
   }
 };

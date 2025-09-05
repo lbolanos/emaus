@@ -1,71 +1,12 @@
 import { AppDataSource } from '../data-source';
 import { Participant } from '../entities/participant.entity';
-import { Table } from '../entities/table.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { CreateParticipant, UpdateParticipant } from '@repo/types';
 import { v4 as uuidv4 } from 'uuid';
-import { In } from 'typeorm';
+import { rebalanceTablesForRetreat } from './tableMesaService';
 
 const participantRepository = AppDataSource.getRepository(Participant);
-const tableRepository = AppDataSource.getRepository(Table);
 const retreatRepository = AppDataSource.getRepository(Retreat);
-
-
-const MIN_WALKERS_PER_TABLE = 5;
-const MAX_WALKERS_PER_TABLE = 7;
-
-const rebalanceTablesForRetreat = async (retreatId: string) => {
-  // 1. Get all active walkers and all tables for the retreat
-  const walkers = await participantRepository.find({
-    where: { retreatId, type: 'walker', isCancelled: false },
-    order: { registrationDate: 'ASC' },
-  });
-  const tables = await tableRepository.find({
-    where: { retreatId },
-    order: { name: 'ASC' },
-  });
-
-  const walkerCount = walkers.length;
-  let tableCount = tables.length;
-
-  // 2. Determine the ideal number of tables
-  const idealTableCount = Math.max(1, Math.ceil(walkerCount / MAX_WALKERS_PER_TABLE));
-
-  // 3. Adjust the number of tables if necessary
-  if (tableCount < idealTableCount) {
-    // Add more tables
-    for (let i = tableCount + 1; i <= idealTableCount; i++) {
-      const newTable = tableRepository.create({
-        id: uuidv4(),
-        name: `Table ${i}`,
-        retreatId,
-      });
-      await tableRepository.save(newTable);
-      tables.push(newTable);
-    }
-  } else if (tableCount > idealTableCount && tableCount > 5) { // Don't delete the original 5
-    // Remove excess, empty tables
-    const tablesToDelete = tables.slice(idealTableCount);
-    const tableIdsToDelete = tablesToDelete.map(t => t.id);
-    if (tableIdsToDelete.length > 0) {
-      await tableRepository.delete({ id: In(tableIdsToDelete) });
-    }
-    tables.splice(idealTableCount);
-  }
-
-  // 4. Clear all existing table assignments for walkers
-  await participantRepository.update({ retreatId, type: 'walker' }, { tableId: undefined });
-
-  // 5. Distribute walkers evenly among the tables
-  if (walkers.length > 0) {
-    let tableIndex = 0;
-    for (const walker of walkers) {
-      walker.tableId = tables[tableIndex].id;
-      await participantRepository.save(walker);
-      tableIndex = (tableIndex + 1) % tables.length;
-    }
-  }
-};
 
 export const findAllParticipants = async (
   retreatId?: string,

@@ -2,14 +2,14 @@
   <Dialog :open="open" @update:open="handleClose">
     <DialogContent class="sm:max-w-[425px]">
       <DialogHeader>
-        <DialogTitle>{{ isEditing ? $t('retreatCharges.addEditModal.editTitle') : $t('retreatCharges.addEditModal.createTitle') }}</DialogTitle>
+        <DialogTitle>{{ isEditing ? $t('charges.addEditModal.editTitle') : $t('charges.addEditModal.createTitle') }}</DialogTitle>
       </DialogHeader>
       <div class="grid gap-4 py-4">
         <div class="grid grid-cols-4 items-center gap-4">
           <Label for="name" class="text-right">
-            {{ $t('retreatCharges.addEditModal.chargeNameLabel') }}
+            {{ $t('charges.addEditModal.chargeNameLabel') }}
           </Label>
-          <Input id="name" v-model="chargeName" class="col-span-3" :placeholder="$t('retreatCharges.addEditModal.chargeNamePlaceholder')" />
+          <Input id="name" v-model="chargeName" class="col-span-3" :placeholder="$t('charges.addEditModal.chargeNamePlaceholder')" />
         </div>
       </div>
       <DialogFooter>
@@ -17,7 +17,7 @@
           {{ $t('common.cancel') }}
         </Button>
         <Button @click="handleSave">
-          {{ $t('retreatCharges.addEditModal.save') }}
+          {{ $t('charges.addEditModal.save') }}
         </Button>
       </DialogFooter>
     </DialogContent>
@@ -36,11 +36,11 @@ import {
 } from '@repo/ui/components/ui/dialog';
 import { Input } from '@repo/ui/components/ui/input';
 import { Label } from '@repo/ui/components/ui/label';
-import type { RetreatCharge } from '@repo/types/retreat';
+import type { Charge } from '@repo/types/retreat';
 
 const props = defineProps<{
   open: boolean;
-  charge: RetreatCharge | null;
+  charge: Charge | null;
 }>();
 
 const emit = defineEmits(['close', 'save']);

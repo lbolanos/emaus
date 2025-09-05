@@ -52,7 +52,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { useRetreatStore } from '@/stores/retreatStore';
 import type { CreateRetreat, Retreat } from '@repo/types'; // Import Retreat type
 import { Plus, Edit } from 'lucide-vue-next'; // Import Edit icon
@@ -77,6 +77,18 @@ const isEditModalOpen = ref(false); // New ref for edit modal
 onMounted(() => {
   retreatStore.fetchRetreats();
 });
+
+watch(
+  () => retreatStore.selectedRetreatId,
+  (newId, oldId) => {
+    if (newId && newId !== oldId) {
+      // Here you can add any logic that needs to run when the retreat changes.
+      // For example, if other stores need to be updated:
+      // useSomeOtherStore().fetchDataForRetreat(newId);
+      console.log(`Retreat selection changed from ${oldId} to ${newId}. Views should update now.`);
+    }
+  },
+);
 
 const handleAddRetreat = async (retreatData: CreateRetreat) => {
   try {

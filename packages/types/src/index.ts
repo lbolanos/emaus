@@ -70,8 +70,8 @@ export const tableSchema = z.object({
 });
 export type Table = z.infer<typeof tableSchema>;
 
-// RetreatCharge Schema
-export const retreatChargeSchema = z.object({
+// Charge Schema
+export const chargeSchema = z.object({
   id: idSchema,
   name: z.string(),
   description: z.string().optional(),
@@ -79,7 +79,7 @@ export const retreatChargeSchema = z.object({
   participant: z.lazy(() => participantSchema).optional(),
   participantId: idSchema.optional(),
 });
-export type RetreatCharge = z.infer<typeof retreatChargeSchema>;
+export type Charge = z.infer<typeof chargeSchema>;
 
 // Participant Schema (forward declaration)
 export type Participant = z.infer<typeof participantSchema>;
@@ -239,18 +239,18 @@ export const updateHouseSchema = z.object({
 });
 export type UpdateHouse = z.infer<typeof updateHouseSchema.shape.body>;
 
-// POST /retreat-charges
-export const createRetreatChargeSchema = z.object({
-  body: retreatChargeSchema.omit({ id: true, participant: true, participantId: true }),
+// POST /charges
+export const createChargeSchema = z.object({
+  body: chargeSchema.omit({ id: true, participant: true, participantId: true }),
 });
-export type CreateRetreatCharge = z.infer<typeof createRetreatChargeSchema.shape.body>;
+export type CreateCharge = z.infer<typeof createChargeSchema.shape.body>;
 
-// PUT /retreat-charges/:id
-export const updateRetreatChargeSchema = z.object({
-  body: retreatChargeSchema.omit({ id: true, retreatId: true, participant: true, participantId: true }).partial(),
+// PUT /charges/:id
+export const updateChargeSchema = z.object({
+  body: chargeSchema.omit({ id: true, retreatId: true, participant: true, participantId: true }).partial(),
   params: z.object({ id: idSchema }),
 });
-export type UpdateRetreatCharge = z.infer<typeof updateRetreatChargeSchema.shape.body>;
+export type UpdateCharge = z.infer<typeof updateChargeSchema.shape.body>;
 
 
 export * from './user';

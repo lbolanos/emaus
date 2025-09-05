@@ -19,7 +19,7 @@
       </CardHeader>
       <CardContent>
         <div v-if="charge.participant" class="mt-4">
-          <h4 class="font-semibold mb-2">{{ $t('retreatCharges.assignedParticipant') }}</h4>
+          <h4 class="font-semibold mb-2">{{ $t('charges.assignedParticipant') }}</h4>
           <Badge variant="secondary">
             {{ charge.participant.firstName }} {{ charge.participant.lastName }}
           </Badge>
@@ -27,7 +27,7 @@
         <div v-else class="mt-4">
           <Select @update:model-value="participantId => $emit('assign-charge', { chargeId: charge.id, participantId })">
             <SelectTrigger>
-              <SelectValue :placeholder="$t('retreatCharges.selectParticipantPlaceholder')" />
+              <SelectValue :placeholder="$t('charges.selectParticipantPlaceholder')" />
             </SelectTrigger>
             <SelectContent position="popper">
               <SelectItem v-for="participant in availableParticipants" :key="participant.id" :value="participant.id">
@@ -47,17 +47,17 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@repo
 import { Button } from '@repo/ui/components/ui/button';
 import { Badge } from '@repo/ui/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui/components/ui/select';
-import type { RetreatCharge } from '@repo/types/retreat';
+import type { Charge } from '@repo/types/retreat';
 import type { Participant } from '@repo/types';
 
 defineProps<{
-  charges: RetreatCharge[];
+  charges: Charge[];
   availableParticipants: Participant[];
 }>();
 
 defineEmits<{
   'assign-charge': [{ chargeId: number, participantId: number }];
-  'edit-charge': [charge: RetreatCharge];
+  'edit-charge': [charge: Charge];
   'delete-charge': [chargeId: number];
 }>();
 </script>

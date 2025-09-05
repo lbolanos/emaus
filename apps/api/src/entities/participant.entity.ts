@@ -10,9 +10,9 @@ import {
   OneToMany,
 } from 'typeorm';
 import { Retreat } from './retreat.entity';
-import { Table } from './table.entity';
+import { TableMesa } from './tableMesa.entity';
 import { RetreatBed } from './retreatBed.entity';
-import { RetreatCharge } from './retreatCharge.entity';
+import { Charge } from './charge.entity';
 
 @Entity('participants')
 export class Participant {
@@ -218,9 +218,9 @@ export class Participant {
   @Column({ type: 'uuid', nullable: true })
   tableId?: string; // Corresponde a 'mesa'
 
-  @ManyToOne(() => Table, (table) => table.participants, { nullable: true })
+  @ManyToOne(() => TableMesa, (table) => table.walkers, { nullable: true })
   @JoinColumn({ name: 'tableId' })
-  table?: Table;
+  tableMesa?: TableMesa;
 
   @Column({ type: 'uuid', nullable: true })
   retreatBedId?: string | null; // Corresponde a 'cama
@@ -229,6 +229,6 @@ export class Participant {
   @JoinColumn({ name: 'retreatBedId' })
   retreatBed?: RetreatBed | null;
 
-  @OneToMany(() => RetreatCharge, (charge) => charge.participant)
-  charges!: RetreatCharge[];
+  @OneToMany(() => Charge, (charge) => charge.participant)
+  charges!: Charge[];
 }

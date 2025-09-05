@@ -3,7 +3,7 @@ import { Retreat } from './retreat.entity';
 import { Participant } from './participant.entity';
 
 @Entity('retreat_charges')
-export class RetreatCharge {
+export class Charge {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 

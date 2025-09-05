@@ -85,8 +85,6 @@ Cuando se selecciona una casa en la creación del retiro se debe colocar el nume
 agregar piso a los cuartos.  
 En listado de cuartos agregar los campos piso, edad, type y la forma de asignar participante a la cama
 ordenar la lista de asignacion de camas por edad.
-
-IN PROGRESS
 crea un plan para crear una nueva entidad con su vista para los cargos del retiro.  Se deben poder asignar a un servidor. Los cargos por defecto se deben crear junto con la creacion de un retiro y son
 palancas 1,  palancas 2,  palancas 3,  logistica, Inventario, Tesorero
 Sacerdotes
@@ -104,6 +102,10 @@ Santísmo
 Campanero 
 Continua
 
+IN PROGRESS
+add lider, colider 1 and colider 2 to the table entity
+add a view to manage tables (mesas).  In the top are boxes with server names at the left, and boxes with walker at the right.
+below TableCard with all tables.  each TableCard has 4 dropzones,  for lider, colider1, colider2 and walkers.  The user can drag server and put in lider, colider1 or colider2.  Drag walker and put in walkers dropzone.
 
 TODO
 

@@ -1,26 +1,26 @@
 import { Router } from 'express';
 import {
-  createRetreatCharge,
-  deleteRetreatCharge,
-  getAllRetreatCharges,
-  getRetreatChargeById,
-  updateRetreatCharge,
+  createCharge,
+  deleteCharge,
+  getAllCharges,
+  getChargeById,
+  updateCharge,
   assignChargeToParticipant,
   removeChargeFromParticipant,
   getChargesForParticipant,
   getParticipantsForCharge
-} from '../controllers/retreatChargeController';
+} from '../controllers/chargeController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 
 const router = Router();
 
 router.use(isAuthenticated);
 
-router.get('/', getAllRetreatCharges);
-router.get('/:id', getRetreatChargeById);
-router.post('/', createRetreatCharge);
-router.put('/:id', updateRetreatCharge);
-router.delete('/:id', deleteRetreatCharge);
+router.get('/', getAllCharges);
+router.get('/:id', getChargeById);
+router.post('/', createCharge);
+router.put('/:id', updateCharge);
+router.delete('/:id', deleteCharge);
 
 // Charge assignment routes
 router.post('/:chargeId/assign/:participantId', assignChargeToParticipant);

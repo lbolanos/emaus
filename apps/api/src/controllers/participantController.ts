@@ -1,22 +1,22 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import * as participantService from '../services/participantService';
 
-export const getAllParticipants = async (req: Request, res: Response) => {
+export const getAllParticipants = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { retreatId, type, isCanceled } = req.query;
     const participants = await participantService.findAllParticipants(
       retreatId as string | undefined,
       type as 'walker' | 'server' | 'waiting' | undefined,
       isCanceled === 'true',
-      ['table'] // Include table relation
+      ['tableMesa'] // Include table relation
     );
     res.json(participants);
   } catch (error) {
-    res.status(500).json({ message: 'Error retrieving participants' });
+    next(error);
   }
 };
 
-export const getParticipantById = async (req: Request, res: Response) => {
+export const getParticipantById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const participant = await participantService.findParticipantById(req.params.id);
     if (participant) {
@@ -25,11 +25,11 @@ export const getParticipantById = async (req: Request, res: Response) => {
       res.status(404).json({ message: 'Participant not found' });
     }
   } catch (error) {
-    res.status(500).json({ message: 'Error retrieving participant' });
+    next(error);
   }
 };
 
-export const createParticipant = async (req: Request, res: Response) => {
+export const createParticipant = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const newParticipant = await participantService.createParticipant(req.body);
     res.status(201).json(newParticipant);
@@ -39,12 +39,12 @@ export const createParticipant = async (req: Request, res: Response) => {
         return res.status(409).json({ message: error.message });
       }
     }
-    res.status(500).json({ message: 'Error creating Participant' });
+    next(error);
   }
 };
 
 
-export const updateParticipant = async (req: Request, res: Response) => {
+export const updateParticipant = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const updatedParticipant = await participantService.updateParticipant(
       req.params.id,
@@ -56,20 +56,20 @@ export const updateParticipant = async (req: Request, res: Response) => {
       res.status(404).json({ message: 'Participant not found' });
     }
   } catch (error) {
-    res.status(500).json({ message: 'Error updating participant' });
+    next(error);
   }
 };
 
-export const deleteParticipant = async (req: Request, res: Response) => {
+export const deleteParticipant = async (req: Request, res: Response, next: NextFunction) => {
   try {
     await participantService.deleteParticipant(req.params.id);
     res.status(204).send();
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting participant' });
+    next(error);
   }
 };
 
-export const importParticipants = async (req: Request, res: Response) => {
+export const importParticipants = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { retreatId } = req.params;
     const { participants } = req.body;
@@ -78,6 +78,6 @@ export const importParticipants = async (req: Request, res: Response) => {
 
     res.status(200).json(result);
   } catch (error) {
-    res.status(500).json({ message: 'Error importing participants' });
+    next(error);
   }
 };
