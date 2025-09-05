@@ -23,7 +23,7 @@
 
     <nav class="flex-1 px-2 py-4 space-y-1">
       <router-link
-        vif="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId"
         :to="{ name: 'retreat-dashboard', params: { id: retreatStore.selectedRetreatId } }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -42,7 +42,7 @@
         </a>
       </router-link>
       <router-link
-        vif="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId"
         :to="{ name: 'walkers' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -62,7 +62,7 @@
       </router-link>
       
       <router-link
-        vif="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId"
         :to="{ name: 'servers' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -81,7 +81,7 @@
         </a>
       </router-link>
       <router-link
-        vif="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId"
         :to="{ name: 'palancas' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -100,7 +100,7 @@
         </a>
       </router-link>
       <router-link
-        vif="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId"
         :to="{ name: 'payments' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -119,7 +119,7 @@
         </a>
       </router-link>
       <router-link
-        vif="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId"
         :to="{ name: 'notes-and-meeting-points' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -138,7 +138,7 @@
         </a>
       </router-link>
       <router-link
-        vif="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId"
         :to="{ name: 'rooms' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -157,7 +157,7 @@
         </a>
       </router-link>
       <router-link
-        vif="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId"
         :to="{ name: 'user-type-and-table' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -176,7 +176,7 @@
         </a>
       </router-link>
       <router-link
-        vif="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId"
         :to="{ name: 'food' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -195,7 +195,7 @@
         </a>
       </router-link>
       <router-link
-        vif="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId"
         :to="{ name: 'cancellation-and-notes' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -214,7 +214,7 @@
         </a>
       </router-link>
       <router-link
-        vif="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId"
         :to="{ name: 'waiting-list' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -233,7 +233,7 @@
         </a>
       </router-link>
       <router-link
-        vif="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId"
         :to="{ name: 'bags-report' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -252,7 +252,7 @@
         </a>
       </router-link>
       <router-link
-        vif="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId"
         :to="{ name: 'medicines-report' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -271,7 +271,7 @@
         </a>
       </router-link>
       <router-link
-        vif="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId"
         :to="{ name: 'bed-assignments', params: { id: retreatStore.selectedRetreatId } }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -290,7 +290,7 @@
         </a>
       </router-link>
       <router-link
-        vif="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId"
         :to="{ name: 'canceled' }"
         v-slot="{ href, navigate, isActive }"
         custom

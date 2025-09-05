@@ -94,6 +94,10 @@
             <ScrollArea ref="bedScrollArea" class="h-[300px] w-full rounded-md border p-4">
               <div v-for="(field, index) in formData.beds" :key="index" class="grid grid-cols-12 gap-2 items-center mb-2">
                 <div class="col-span-2">
+                  <Input v-model.number="field.floor" type="number" placeholder="Floor" />
+                  <p v-if="formErrors['beds[' + index + '].floor']" class="text-red-500 text-sm">{{ formErrors['beds[' + index + '].floor'] }}</p>
+                </div>
+                <div class="col-span-2">
                   <Input v-model="field.roomNumber" placeholder="Room #" />
                   <p v-if="formErrors['beds[' + index + '].roomNumber']" class="text-red-500 text-sm">{{ formErrors['beds[' + index + '].roomNumber'] }}</p>
                 </div>
@@ -101,7 +105,7 @@
                   <Input v-model="field.bedNumber" placeholder="Bed #" />
                    <p v-if="formErrors['beds[' + index + '].bedNumber']" class="text-red-500 text-sm">{{ formErrors['beds[' + index + '].bedNumber'] }}</p>
                 </div>
-                <div class="col-span-3">
+                <div class="col-span-2">
                   <Select v-model="field.type">
                     <SelectTrigger>
                       <SelectValue placeholder="Type" />
@@ -114,7 +118,7 @@
                   </Select>
                   <p v-if="formErrors['beds[' + index + '].type']" class="text-red-500 text-sm">{{ formErrors['beds[' + index + '].type'] }}</p>
                 </div>
-                <div class="col-span-3">
+                <div class="col-span-2">
                   <Select v-model="field.defaultUsage">
                     <SelectTrigger>
                       <SelectValue placeholder="Usage" />
@@ -132,6 +136,7 @@
               </div>
             </ScrollArea>
             <div class="flex gap-2 mt-2">
+              <Button type="button" variant="outline" size="sm" @click="addNewFloor">Add New Floor</Button>
               <Button type="button" variant="outline" size="sm" @click="addNewRoom">Add New Room</Button>
               <Button type="button" variant="outline" size="sm" @click="addBed">Add Bed</Button>
             </div>
@@ -192,11 +197,12 @@ import { ScrollArea } from '@repo/ui/components/ui/scroll-area';
 import { Trash2 } from 'lucide-vue-next';
 import { z } from 'zod';
 import { useToast } from '@repo/ui/components/ui/toast/use-toast';
+import type { House, Bed } from '@repo/types';
 
 const props = defineProps({
   open: Boolean,
   house: {
-    type: Object as () => any | null,
+    type: Object as () => House | null,
     default: null,
   },
 });
@@ -247,6 +253,7 @@ const step2Schema = z.object({
   beds: z.array(z.object({
     roomNumber: z.string().min(1, 'Required'),
     bedNumber: z.string().min(1, 'Required'),
+    floor: z.number().int().optional(),
     type: z.string().min(1, 'Type is required'),
     defaultUsage: z.string().min(1, 'Usage is required'),
   })).min(1, 'At least one bed is required'),
@@ -311,6 +318,7 @@ const addBed = () => {
 
     formData.value.beds.push({
       roomNumber: lastBed.roomNumber, // Keep the same room number
+      floor: lastBed.floor,
       bedNumber: incrementAlphanumeric(lastBed.bedNumber),
       type: lastBed.type,
       defaultUsage: lastBed.defaultUsage,
@@ -319,10 +327,11 @@ const addBed = () => {
   } else {
     // Default for the very first bed
     formData.value.beds.push({
-      roomNumber: '',
-      bedNumber: '',
-      type: '',
-      defaultUsage: '',
+      roomNumber: '1',
+      floor: 1,
+      bedNumber: '1',
+      type: 'normal',
+      defaultUsage: 'caminante',
     });
     scrollToBedListBottom();
   }
@@ -335,6 +344,7 @@ const addNewRoom = () => {
 
     formData.value.beds.push({
       roomNumber: incrementAlphanumeric(lastBed.roomNumber),
+      floor: lastBed.floor,
       bedNumber: '1',
       type: lastBed.type,
       defaultUsage: lastBed.defaultUsage,
@@ -344,6 +354,26 @@ const addNewRoom = () => {
     // If no beds exist, just add a blank one (same as addBed)
     addBed();
     // addBed() will call scrollToBedListBottom()
+  }
+};
+
+const addNewFloor = () => {
+  const beds = formData.value.beds;
+  if (beds.length > 0) {
+    const lastBed = beds[beds.length - 1];
+    const newFloor = (lastBed.floor || 1) + 1;
+
+    formData.value.beds.push({
+      roomNumber: '1', // Reset room number for the new floor
+      floor: newFloor,
+      bedNumber: '1',
+      type: lastBed.type,
+      defaultUsage: lastBed.defaultUsage,
+    });
+    scrollToBedListBottom();
+  } else {
+    // If no beds exist, just add a blank one
+    addBed();
   }
 };
 

@@ -59,9 +59,20 @@ const { toast } = useToast();
 
 // Stores de Pinia
 const participantStore = useParticipantStore();
-const { participants, loading, error } = storeToRefs(participantStore);
+const { walkers, servers, waiting, loading } = storeToRefs(participantStore);
 const retreatStore = useRetreatStore();
 const { selectedRetreatId, serverRegistrationLink, walkerRegistrationLink } = storeToRefs(retreatStore);
+
+const participants = computed(() => {
+  if (props.type === 'walker') {
+    return walkers.value;
+  } else if (props.type === 'server') {
+    return servers.value;
+  } else if (props.type === 'waiting') {
+    return waiting.value;
+  }
+  return [];
+});
 
 // --- ESTADO LOCAL DEL COMPONENTE ---
 const searchQuery = ref('');
@@ -275,7 +286,7 @@ const handleFileUpload = async (event: Event) => {
                  return;
             }
 
-            await participantStore.importParticipants(selectedRetreatId.value!, props.type,  json);
+            await participantStore.importParticipants(selectedRetreatId.value!, json);
             isImportDialogOpen.value = false;
             toast({ title: $t('participants.import.successTitle'), description: `${json.length} ${$t('participants.import.successDesc')}` });
         } catch (err) {
@@ -309,7 +320,7 @@ const exportData = (format: 'csv' | 'xlsx') => {
 // --- WATCHER PARA CARGAR DATOS ---
 watch([selectedRetreatId, filterStatus], ([newId]) => {
     if (newId) {
-        participantStore.fetchParticipants(newId, props.type, isCanceled.value);
+        participantStore.fetchParticipants(newId, isCanceled.value);
     } else {
         participantStore.clearParticipants();
     }

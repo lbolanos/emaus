@@ -3,6 +3,19 @@ import { z } from 'zod';
 // Base UUID schema for reuse
 const idSchema = z.string().uuid();
 
+// Bed Schema
+export const bedSchema = z.object({
+  id: idSchema.optional(),
+  roomNumber: z.string(),
+  bedNumber: z.string(),
+  floor: z.number().int().optional(),
+  type: z.enum(['normal', 'litera', 'colchon']),
+  defaultUsage: z.enum(['caminante', 'servidor']),
+  houseId: idSchema.optional(),
+});
+export type Bed = z.infer<typeof bedSchema>;
+
+
 // House Schema
 export const houseSchema = z.object({
   id: idSchema,
@@ -18,6 +31,7 @@ export const houseSchema = z.object({
   longitude: z.number().optional(),
   googleMapsUrl: z.string().url().optional(),
   notes: z.string().optional(),
+  beds: z.array(bedSchema).optional(),
 });
 export type House = z.infer<typeof houseSchema>;
 
@@ -64,6 +78,7 @@ export const retreatBedSchema = z.object({
   id: idSchema,
   roomNumber: z.string(),
   bedNumber: z.string(),
+  floor: z.number().int().optional(),
   type: z.enum(['normal', 'litera', 'colchon']),
   defaultUsage: z.enum(['caminante', 'servidor']),
   retreatId: idSchema,
@@ -199,5 +214,19 @@ export const updateRetreatSchema = z.object({
   params: z.object({ id: idSchema }),
 });
 export type UpdateRetreat = z.infer<typeof updateRetreatSchema.shape.body>;
+
+// POST /houses
+export const createHouseSchema = z.object({
+  body: houseSchema.omit({ id: true }),
+});
+export type CreateHouse = z.infer<typeof createHouseSchema.shape.body>;
+
+// PUT /houses/:id
+export const updateHouseSchema = z.object({
+  body: houseSchema.partial(),
+  params: z.object({ id: idSchema }),
+});
+export type UpdateHouse = z.infer<typeof updateHouseSchema.shape.body>;
+
 
 export * from './user';

@@ -5,7 +5,7 @@ import { useRetreatStore } from '@/stores/retreatStore';
 import { api } from '@/services/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@repo/ui/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/ui/card';
-import type { RetreatBed } from '@repo/types';
+import type { RetreatBed, Participant } from '@repo/types';
 
 const route = useRoute();
 const retreatStore = useRetreatStore();
@@ -13,6 +13,18 @@ const beds = ref<RetreatBed[]>([]);
 const loading = ref(true);
 
 const retreatId = computed(() => route.params.id as string || retreatStore.selectedRetreatId);
+
+const calculateAge = (birthDate: string | Date): number | null => {
+  if (!birthDate) return null;
+  const dob = new Date(birthDate);
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const m = today.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+    age--;
+  }
+  return age;
+};
 
 const fetchBeds = async () => {
   if (!retreatId.value) return;
@@ -31,13 +43,18 @@ onMounted(fetchBeds);
 
 const groupedBeds = computed(() => {
   return beds.value.reduce((acc, bed) => {
+    const floor = bed.floor || 'Unassigned Floor'; // Handle cases where floor might be null or undefined
     const roomNumber = bed.roomNumber;
-    if (!acc[roomNumber]) {
-      acc[roomNumber] = [];
+
+    if (!acc[floor]) {
+      acc[floor] = {};
     }
-    acc[roomNumber].push(bed);
+    if (!acc[floor][roomNumber]) {
+      acc[floor][roomNumber] = [];
+    }
+    acc[floor][roomNumber].push(bed);
     return acc;
-  }, {} as Record<string, RetreatBed[]>);
+  }, {} as Record<string, Record<string, RetreatBed[]>>);
 });
 </script>
 
@@ -50,30 +67,43 @@ const groupedBeds = computed(() => {
     <div v-else-if="!beds.length" class="text-center">
       <p>{{ $t('rooms.noRoomsFound') }}</p>
     </div>
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <Card v-for="(roomBeds, roomNumber) in groupedBeds" :key="roomNumber">
-        <CardHeader>
-          <CardTitle>{{ $t('rooms.room') }} {{ roomNumber }}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{{ $t('rooms.bedNumber') }}</TableHead>
-                <TableHead>{{ $t('rooms.participant') }}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow v-for="bed in roomBeds" :key="bed.id">
-                <TableCell>{{ bed.bedNumber }}</TableCell>
-                <TableCell>
-                  {{ bed.participant ? `${bed.participant.firstName} ${bed.participant.lastName}` : $t('rooms.unassigned') }}
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+    <div v-else>
+      <div v-for="(floorRooms, floor) in groupedBeds" :key="floor" class="mb-8">
+        <h2 class="text-xl font-semibold mb-4">{{ $t('rooms.floor') }} {{ floor }}</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <Card v-for="(roomBeds, roomNumber) in floorRooms" :key="roomNumber">
+            <CardHeader>
+              <CardTitle>
+                {{ $t('rooms.room') }} {{ roomNumber }}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{{ $t('rooms.bedNumber') }}</TableHead>
+                    <!--TableHead>{{ $t('rooms.type') }}</TableHead-->
+                    <TableHead>{{ $t('rooms.participant') }}</TableHead>
+                    <!--TableHead>{{ $t('rooms.age') }}</TableHead-->
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow v-for="bed in roomBeds" :key="bed.id">
+                    <TableCell>{{ bed.bedNumber }}</TableCell>
+                    <!--TableCell>{{ bed.type }}</TableCell-->
+                    <TableCell>
+                      {{ bed.participant ? `${bed.participant.firstName} ${bed.participant.lastName}` : $t('rooms.unassigned') }}
+                    </TableCell>
+                    <!--TableCell>
+                      {{ bed.participant ? calculateAge(bed.participant.birthDate) : '' }}
+                    </TableCell-->
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   </div>
 </template>

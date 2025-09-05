@@ -19,7 +19,7 @@
     "palancas": "Palancas",
     "payments": "Pagos",
     "notesAndMeetingPoints": "Notas y Puntos de Encuentro",
-    "rooms": "Cuartos",
+    "rooms": "Etiquetas Cuartos",
     "userTypeAndTable": "Tipo de Usuario y Mesa",
     "food": "Alimentos",
     "cancellationAndNotes": "Cancelación y Notas",
@@ -137,10 +137,13 @@
   "rooms": {
     "title": "Cuartos",
     "room": "Cuarto",
+    "floor": "Piso",
     "bedNumber": "Número de Cama",
+    "type": "Tipo",
     "participant": "Participante",
-    "unassigned": "Sin asignar",
-    "noRoomsFound": "No se encontraron cuartos para este retiro."
+    "age": "Edad",
+    "unassigned": "No Asignada",
+    "noRoomsFound": "No hay cuatos disponibles para este retiro."
   },
   "addRetreatModal": {
     "title": "Agregar Nuevo Retiro",

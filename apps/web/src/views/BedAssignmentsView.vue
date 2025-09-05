@@ -4,44 +4,58 @@
     <div v-if="loading">Loading...</div>
     <div v-else-if="beds.length === 0">No beds found for this retreat.</div>
     <div v-else>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Room</TableHead>
-            <TableHead>Bed</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Default Usage</TableHead>
-            <TableHead>Assigned To</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          <TableRow v-for="bed in beds" :key="bed.id">
-            <TableCell>{{ bed.roomNumber }}</TableCell>
-            <TableCell>{{ bed.bedNumber }}</TableCell>
-            <TableCell>{{ bed.type }}</TableCell>
-            <TableCell>{{ bed.defaultUsage }}</TableCell>
-            <TableCell>
-              <Select :model-value="bed.participantId" @update:model-value="assignParticipant(bed.id, $event)">
-                <SelectTrigger>
-                  <SelectValue :placeholder="'Unassigned'">
-                    {{ bed.participant ? `${bed.participant.firstName} ${bed.participant.lastName}` : 'Unassigned' }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem :value="null">Unassigned</SelectItem>
-                  <SelectItem v-for="p in unassignedParticipants" :key="p.id" :value="p.id">
-                    {{ p.firstName }} {{ p.lastName }}
-                  </SelectItem>
-                   <!-- Also show the currently assigned participant in the list -->
-                  <SelectItem v-if="bed.participant" :value="bed.participant.id">
-                    {{ bed.participant.firstName }} {{ bed.participant.lastName }}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
+      <div v-for="floor in sortedFloors" :key="floor">
+        <h2 class="text-xl font-bold mt-8 mb-4">Floor {{ floor === '0' ? 'Unassigned' : floor }}</h2>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Room</TableHead>
+              <TableHead>Bed</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Default Usage</TableHead>
+              <TableHead>Assigned To</TableHead>
+              <TableHead>Age</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="bed in groupedBeds[floor]" :key="bed.id">
+              <TableCell>{{ bed.roomNumber }}</TableCell>
+              <TableCell>{{ bed.bedNumber }}</TableCell>
+              <TableCell>{{ bed.type }}</TableCell>
+              <TableCell>{{ bed.defaultUsage }}</TableCell>
+              <TableCell>
+                <Select :model-value="bed.participantId" @update:model-value="assignParticipant(bed.id, $event)">
+                  <SelectTrigger>
+                    <SelectValue :placeholder="'Unassigned'">
+                      {{ bed.participant ? `${bed.participant.firstName} ${bed.participant.lastName}` : 'Unassigned' }}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    <template v-if="bed.defaultUsage === 'caminante'">
+                      <SelectItem v-for="p in unassignedWalkers" :key="p.id" :value="p.id">
+                        {{ p.firstName }} {{ p.lastName }}
+                      </SelectItem>
+                    </template>
+                    <template v-else-if="bed.defaultUsage === 'servidor'">
+                      <SelectItem v-for="p in unassignedServers" :key="p.id" :value="p.id">
+                        {{ p.firstName }} {{ p.lastName }}
+                      </SelectItem>
+                    </template>
+                    <!-- Also show the currently assigned participant in the list -->
+                    <SelectItem v-if="bed.participant" :value="bed.participant.id">
+                      {{ bed.participant.firstName }} {{ bed.participant.lastName }}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </TableCell>
+              <TableCell>
+                {{ bed.participant ? calculateAge(bed.participant.birthDate) : '' }}
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
     </div>
   </div>
 </template>
@@ -61,6 +75,18 @@ const participantStore = useParticipantStore();
 const beds = ref<RetreatBed[]>([]);
 const loading = ref(false);
 
+const calculateAge = (birthDate: string | Date): number | null => {
+  if (!birthDate) return null;
+  const dob = new Date(birthDate);
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const m = today.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+    age--;
+  }
+  return age;
+};
+
 const fetchBeds = async () => {
   if (!retreatStore.selectedRetreatId) return;
   loading.value = true;
@@ -74,14 +100,42 @@ const fetchBeds = async () => {
   }
 };
 
+const groupedBeds = computed(() => {
+  return beds.value.reduce((acc, bed) => {
+    const floor = bed.floor || 0;
+    if (!acc[floor]) {
+      acc[floor] = [];
+    }
+    acc[floor].push(bed);
+    return acc;
+  }, {} as Record<string, RetreatBed[]>);
+});
+
+const sortedFloors = computed(() => {
+  return Object.keys(groupedBeds.value).sort((a, b) => Number(a) - Number(b));
+});
+
 const unassignedParticipants = computed(() => {
   const assignedIds = new Set(beds.value.map(b => b.participantId).filter(Boolean));
-  return participantStore.participants.filter(p => !assignedIds.has(p.id));
+  return participantStore.allParticipants.filter(p => !assignedIds.has(p.id));
+});
+
+const unassignedWalkers = computed(() => {
+  return unassignedParticipants.value
+    .filter(p => p.type === 'walker')
+    .sort((a, b) => new Date(a.birthDate).getTime() - new Date(b.birthDate).getTime());
+});
+
+const unassignedServers = computed(() => {
+  return unassignedParticipants.value
+    .filter(p => p.type === 'server')
+    .sort((a, b) => new Date(a.birthDate).getTime() - new Date(b.birthDate).getTime());
 });
 
 const assignParticipant = async (bedId: string, participantId: string | null) => {
+  const newParticipantId = participantId === 'unassigned' ? null : participantId;
   try {
-    await api.put(`/retreat-beds/${bedId}/assign`, { participantId });
+    await api.put(`/retreat-beds/${bedId}/assign`, { participantId: newParticipantId });
     // Refresh data
     await fetchBeds();
     if (retreatStore.selectedRetreatId) {
@@ -94,7 +148,7 @@ const assignParticipant = async (bedId: string, participantId: string | null) =>
 
 onMounted(() => {
   fetchBeds();
-  if (retreatStore.selectedRetreatId && participantStore.participants.length === 0) {
+  if (retreatStore.selectedRetreatId && participantStore.allParticipants.length === 0) {
     participantStore.fetchParticipants(retreatStore.selectedRetreatId);
   }
 });

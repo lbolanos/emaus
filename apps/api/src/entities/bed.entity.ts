@@ -23,6 +23,9 @@ export class Bed {
   @Column('varchar')
   bedNumber!: string;
 
+  @Column({ type: 'integer', nullable: true })
+  floor?: number;
+
   @Column({
     type: 'text',
     enum: BedType,

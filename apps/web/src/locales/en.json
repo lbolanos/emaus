@@ -19,7 +19,7 @@
     "palancas": "Palancas",
     "payments": "Payments",
     "notesAndMeetingPoints": "Notes & Meeting Points",
-    "rooms": "Rooms",
+    "rooms": "Rooms Tags",
     "userTypeAndTable": "User Type & Table",
     "food": "Food",
     "cancellationAndNotes": "Cancellation & Notes",
@@ -136,8 +136,11 @@
   "rooms": {
     "title": "Rooms",
     "room": "Room",
-    "bedNumber": "Bed Number",
+    "floor": "Floor",
+    "bedNumber": "Bed",
+    "type": "Type",
     "participant": "Participant",
+    "age": "Age",
     "unassigned": "Unassigned",
     "noRoomsFound": "No rooms found for this retreat."
   },

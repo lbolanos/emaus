@@ -9,7 +9,7 @@ export const getRetreatBeds = async (req: Request, res: Response) => {
   const beds = await retreatBedRepository.find({
     where: { retreatId: retreatId },
     relations: ['participant'],
-    order: { roomNumber: 'ASC', bedNumber: 'ASC' },
+    order: { floor: 'ASC', roomNumber: 'ASC', bedNumber: 'ASC' },
   });
   res.json(beds);
 };

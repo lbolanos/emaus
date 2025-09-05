@@ -1,12 +1,11 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { useToast } from '@repo/ui/components/ui/toast/use-toast';
-// import type { House, CreateHouseInput, UpdateHouseInput } from 'types'; // TODO: Create types
+import type { House, CreateHouse, UpdateHouse } from '@repo/types';
 import { api } from '@/services/api';
 
-// TODO: remove any
 export const useHouseStore = defineStore('house', () => {
-  const houses = ref<any[]>([]);
+  const houses = ref<House[]>([]);
   const loading = ref(false);
   const { toast } = useToast();
 
@@ -27,7 +26,7 @@ export const useHouseStore = defineStore('house', () => {
     }
   }
 
-  async function createHouse(data: any) {
+  async function createHouse(data: CreateHouse) {
     try {
       loading.value = true;
       const response = await api.post('/houses', data);
@@ -49,7 +48,7 @@ export const useHouseStore = defineStore('house', () => {
     }
   }
 
-  async function updateHouse(id: string, data: any) {
+  async function updateHouse(id: string, data: UpdateHouse) {
     if (!id) {
       const error = new Error('House ID is missing');
       toast({

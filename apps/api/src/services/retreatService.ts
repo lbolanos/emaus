@@ -63,6 +63,7 @@ export const createRetreat = async (retreatData: CreateRetreat) => {
           id: uuidv4(),
           roomNumber: bed.roomNumber,
           bedNumber: bed.bedNumber,
+          floor: bed.floor,
           type: bed.type,
           defaultUsage: bed.defaultUsage,
           retreat: newRetreat,

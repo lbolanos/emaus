@@ -7,7 +7,7 @@ const houseRepository = AppDataSource.getRepository(House);
 const bedRepository = AppDataSource.getRepository(Bed);
 
 export const getHouses = async (): Promise<House[]> => {
-  return houseRepository.find();
+  return houseRepository.find({ relations: ['beds'] });
 };
 
 export const findById = async (id: string): Promise<House | null> => {
