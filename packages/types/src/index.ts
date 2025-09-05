@@ -200,7 +200,7 @@ export const participantSchema = z.object({
 
 // POST /participants/new
 export const createParticipantSchema = z.object({
-  body: participantSchema.omit({ id: true, id_on_retreat: true, registrationDate: true, lastUpdatedDate: true }),
+  body: participantSchema.omit({ id: true, lastUpdatedDate: true, registrationDate: true }),
 });
 export type CreateParticipant = z.infer<typeof createParticipantSchema.shape.body>;
 

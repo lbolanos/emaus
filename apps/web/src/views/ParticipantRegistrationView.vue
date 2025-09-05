@@ -24,6 +24,7 @@ const getInitialFormData = (): Partial<Omit<Participant, 'id'>> => ({
   type: props.type as 'walker' | 'server' | 'waiting',
   sacraments: [],
   firstName: '',
+  registrationDate: undefined,
   lastName: '',
   nickname: '',
   birthDate: '',

@@ -4,18 +4,18 @@ import { Retreat } from '../entities/retreat.entity';
 import { Participant } from '../entities/participant.entity';
 import { v4 as uuidv4 } from 'uuid';
 
+const chargeRepository = AppDataSource.getRepository(Charge);
+
 export const findAllCharges = async (retreatId?: string) => {
-  const repository = AppDataSource.getRepository(Charge);
   const where = retreatId ? { retreatId } : {};
-  return repository.find({
+  return chargeRepository.find({
     where,
     relations: ['retreat', 'participant'],
   });
 };
 
 export const findChargeById = async (id: string) => {
-  const repository = AppDataSource.getRepository(Charge);
-  return repository.findOne({
+  return chargeRepository.findOne({
     where: { id },
     relations: ['retreat', 'participant'],
   });
@@ -26,28 +26,25 @@ export const createCharge = async (chargeData: {
   description?: string;
   retreatId: string;
 }) => {
-  const repository = AppDataSource.getRepository(Charge);
-  const newCharge = repository.create({
+  const newCharge = chargeRepository.create({
     ...chargeData,
     id: uuidv4(),
   });
-  return repository.save(newCharge);
+  return chargeRepository.save(newCharge);
 };
 
 export const updateCharge = async (
   id: string,
   chargeData: Partial<{ name: string; description?: string }>
 ) => {
-  const repository = AppDataSource.getRepository(Charge);
-  const charge = await repository.findOne({ where: { id } });
+  const charge = await chargeRepository.findOne({ where: { id } });
   if (!charge) return null;
   Object.assign(charge, chargeData);
-  return repository.save(charge);
+  return chargeRepository.save(charge);
 };
 
 export const deleteCharge = async (id: string) => {
-  const repository = AppDataSource.getRepository(Charge);
-  await repository.delete(id);
+  await chargeRepository.delete(id);
 };
 
 export const assignChargeToParticipant = async (chargeId: string, participantId: string) => {
@@ -63,13 +60,10 @@ export const assignChargeToParticipant = async (chargeId: string, participantId:
   if (!charge || !participant) return null;
 
   charge.participant = participant;
-  charge.participantId = participantId;
   return chargeRepository.save(charge);
 };
 
 export const removeChargeFromParticipant = async (chargeId: string, participantId: string) => {
-  const chargeRepository = AppDataSource.getRepository(Charge);
-
   const charge = await chargeRepository.findOne({
     where: { id: chargeId },
     relations: ['participant'],
@@ -83,8 +77,7 @@ export const removeChargeFromParticipant = async (chargeId: string, participantI
 };
 
 export const getChargesForParticipant = async (participantId: string) => {
-  const repository = AppDataSource.getRepository(Charge);
-  return repository.find({
+  return chargeRepository.find({
     where: { participantId },
     relations: ['retreat'],
   });
@@ -92,19 +85,19 @@ export const getChargesForParticipant = async (participantId: string) => {
 
 export const getParticipantsForCharge = async (chargeId: string) => {
   const repository = AppDataSource.getRepository(Charge);
-  return repository.findOne({
+  const charge = await repository.findOne({
     where: { id: chargeId },
     relations: ['participant'],
-  }).then(charge => charge?.participant ? [charge.participant] : []);
+  });
+  return charge?.participant ? [charge.participant] : [];
 };
 
 export const createDefaultChargesForRetreat = async (retreat: Retreat) => {
-  const repository = AppDataSource.getRepository(Charge);
   const defaultCharges = [
-    'palancas 1',
-    'palancas 2',
-    'palancas 3',
-    'logistica',
+    'Palancas 1',
+    'Palancas 2',
+    'Palancas 3',
+    'Logistica',
     'Inventario',
     'Tesorero',
     'Sacerdotes',
@@ -123,12 +116,12 @@ export const createDefaultChargesForRetreat = async (retreat: Retreat) => {
     'Continua'
   ];
 
-  const charges = defaultCharges.map(name => repository.create({
+  const charges = defaultCharges.map(name => chargeRepository.create({
     id: uuidv4(),
     name,
     retreatId: retreat.id,
     retreat,
   }));
 
-  return repository.save(charges);
+  return chargeRepository.save(charges);
 };

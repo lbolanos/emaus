@@ -63,7 +63,20 @@ export const useChargeStore = defineStore('charge', () => {
 
   async function assignParticipant(chargeId: string, participantId: string | null) {
     try {
-      const { data: updatedCharge } = await api.post<Charge>(`/charges/${chargeId}/assign`, { participantId });
+      let updatedCharge: Charge;
+
+      if (participantId) {
+        // Assign participant
+        const response = await api.post<Charge>(`/charges/${chargeId}/assign`, { participantId });
+        updatedCharge = response.data;
+      } else {
+        // Un-assign participant
+        const currentCharge = charges.value.find(c => c.id === chargeId);
+        if (!currentCharge?.participantId) return; // Nothing to do
+        const response = await api.delete<Charge>(`/charges/${chargeId}/assign/${currentCharge.participantId}`);
+        updatedCharge = response.data;
+      }
+
       const index = charges.value.findIndex(c => c.id === chargeId);
       if (index !== -1) {
         charges.value[index] = updatedCharge;

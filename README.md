@@ -102,35 +102,31 @@ Santísmo
 Campanero 
 Continua
 
-IN PROGRESS
 add lider, colider 1 and colider 2 to the table entity
 add a view to manage tables (mesas).  In the top are boxes with server names at the left, and boxes with walker at the right.
 below TableCard with all tables.  each TableCard has 4 dropzones,  for lider, colider1, colider2 and walkers.  The user can drag server and put in lider, colider1 or colider2.  Drag walker and put in walkers dropzone.
+asignar lider y colider de mesa
+colocar en español las columnas de participantes
+en el formulario de servidores preguntar por si necesita camiseta
+
+IN PROGRESS
 
 TODO
 
-al selecciona menu casas de retiro debe desaparecer la seleccion de retiro porque es independiente del retiro.
+cada que se agregue un caminante, debe asignarse a una mesa aleatoria en la que no este ningun caminante con el mismo servidor que lo invito. Tambien debe asignarse una cama de habitacion de acuerdo a su edad.  los que tienen litera para los jovenes.  las camas normales en los primeros pisos para los mas viejos. En caso de que toque asignar colchon para los servidores mas jovenes primero.
 
-
-cada que se agregue un caminante debe asignarse una mesa en la que no este ningun caminante con el mismo servidor que lo invito, tambien debe asignarse una habitacion de acuerdo a su edad.  los que tienen litera para los jovenes.  los que no tienen litera para los mas viejos. En caso de colchon para los servidores primero.
-agregar una forma de administrar las tablas de la base de datos con solo permisos para el superadmin.
 manejo de inventario.  importar y export excel o csv.  Debe tener un ratio con respecto al numero de caminantes de las unidades por defecto y alertar si sobrepasa.  ej si 10 caminante y ratio 1 entonces debe tener al menos 10 unidades. Si 10 caminantes y ratio 0.5 entonces debe tener al menos 5 unidades.
 llevar tambien el registro de las camisetas y chaquetas que necesitan los servidores.
+
+agregar una forma de administrar las tablas de la base de datos con solo permisos para el superadmin.
 cada usuario tiene asociado un listado de retiros y puede invitar a otro usuario con el correo a cualquier retiro que el tenga asociado.
-guardar en cache el listado de columnas que se han modificado
+guardar en un store el listado de columnas que se han modificado
 
 alimentos y medicinas agregar columna mesa para ordenar y lider
-asignar lider y colider de mesa
-
-
 
 un usuario administrador y un usuario normal
 el administrador puede borrar casas de retiro
-colocar en español las columnas de participantes
-
 cookie jwt para acceso
-
-
 
 posibles host
 https://www.vultr.com/
@@ -138,6 +134,7 @@ https://www.hostinger.com/
 https://www.digitalocean.com/
 
 
+al selecciona menu casas de retiro debe desaparecer la seleccion de retiro porque es independiente del retiro.
 This will use Turborepo to run the `dev` script in both `apps/api` and `apps/web`.
 
 -   The API will be available at `http://localhost:3001`.
