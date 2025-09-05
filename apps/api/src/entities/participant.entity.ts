@@ -7,10 +7,12 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToOne,
+  OneToMany,
 } from 'typeorm';
 import { Retreat } from './retreat.entity';
 import { Table } from './table.entity';
 import { RetreatBed } from './retreatBed.entity';
+import { RetreatCharge } from './retreatCharge.entity';
 
 @Entity('participants')
 export class Participant {
@@ -226,4 +228,7 @@ export class Participant {
   @OneToOne(() => RetreatBed, (bed) => bed.participant, { nullable: true })
   @JoinColumn({ name: 'retreatBedId' })
   retreatBed?: RetreatBed | null;
+
+  @OneToMany(() => RetreatCharge, (charge) => charge.participant)
+  charges!: RetreatCharge[];
 }

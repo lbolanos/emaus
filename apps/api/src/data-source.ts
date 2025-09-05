@@ -6,13 +6,15 @@ import { Table } from './entities/table.entity';
 import { Participant } from './entities/participant.entity';
 import { User } from './entities/user.entity';
 import { RetreatBed } from './entities/retreatBed.entity';
+import { RetreatCharge } from './entities/retreatCharge.entity';
+
 
 export const AppDataSource = new DataSource({
   type: 'sqlite',
   database: 'database.sqlite',
   synchronize: true,
   logging: true,
-  entities: [House, Bed, Retreat, RetreatBed, Table, Participant, User],
+  entities: [House, Bed, Retreat, RetreatBed, Table, Participant, User, RetreatCharge],
   migrations: [],
   subscribers: [],
 });

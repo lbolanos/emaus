@@ -3,6 +3,7 @@ import { Retreat } from '../entities/retreat.entity';
 import { Table } from '../entities/table.entity';
 import { House } from '../entities/house.entity';
 import { RetreatBed } from '../entities/retreatBed.entity';
+import { createDefaultChargesForRetreat } from './retreatChargeService';
 import type { CreateRetreat, UpdateRetreat } from '@repo/types';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -40,7 +41,10 @@ export const createRetreat = async (retreatData: CreateRetreat) => {
   });
   await retreatRepository.save(newRetreat);
 
-  // 2. Create default tables
+  // 2. Create default charges
+  await createDefaultChargesForRetreat(newRetreat);
+
+  // 3. Create default tables
   for (let i = 1; i <= 5; i++) {
     const newTable = tableRepository.create({
       id: uuidv4(),

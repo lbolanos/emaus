@@ -82,11 +82,28 @@ agregar costo del retiro y notas de la cuenta y forma de pago
 agregar un limite de caminantes maximo y un limite de servidores maximo al retiro.
 Si sobrepasa este limite al crear un nuevo caminante debe colocarlo como  tipo 'waiting'
 Cuando se selecciona una casa en la creación del retiro se debe colocar el numero de camas de caminantes como maximo numero de caminantes del retiro.  Lo mismo con los servidores.
-
+agregar piso a los cuartos.  
+En listado de cuartos agregar los campos piso, edad, type y la forma de asignar participante a la cama
+ordenar la lista de asignacion de camas por edad.
 
 IN PROGRESS
-agregar piso a los cuartos.  
-En listado de cuartos agregar los campos piso, edad, type y la forma de asignar
+crea un plan para crear una nueva entidad con su vista para los cargos del retiro.  Se deben poder asignar a un servidor. Los cargos por defecto se deben crear junto con la creacion de un retiro y son
+palancas 1,  palancas 2,  palancas 3,  logistica, Inventario, Tesorero
+Sacerdotes
+Mantelitos
+Snacks
+Compras
+Transporte
+Música
+Comedor
+Salón
+Cuartos
+Oración
+Palanquitas
+Santísmo
+Campanero 
+Continua
+
 
 TODO
 
@@ -102,21 +119,7 @@ guardar en cache el listado de columnas que se han modificado
 
 alimentos y medicinas agregar columna mesa para ordenar y lider
 asignar lider y colider de mesa
-cargos ...  palancas 1,  palancas 2,  palancas 3,  logistica, Inventario, Tesorero
-Sacerdotes
-Mantelitos
-Snacks
-Compras
-Transporte
-Música
-Comedor
-Salón
-Cuartos
-Oración
-Palanquitas
-Santísmo
-Campanero 
-Continua
+
 
 
 un usuario administrador y un usuario normal

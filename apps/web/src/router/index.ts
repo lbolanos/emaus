@@ -139,6 +139,12 @@ const router = createRouter({
           component: BedAssignmentsView,
           props: true,
         },
+        {
+          path: 'retreats/:id/charges',
+          name: 'retreat-charges',
+          component: () => import('../views/RetreatChargesView.vue'),
+          props: true,
+        },
       ],
     },
   ],

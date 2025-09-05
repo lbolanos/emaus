@@ -3,6 +3,7 @@ import { House } from './house.entity';
 import { Participant } from './participant.entity';
 import { Table } from './table.entity';
 import { RetreatBed } from './retreatBed.entity';
+import { RetreatCharge } from './retreatCharge.entity';
 
 @Entity()
 export class Retreat {
@@ -57,4 +58,7 @@ export class Retreat {
 
   @Column({ type: 'int', nullable: true })
   max_servers?: number;
+
+  @OneToMany(() => RetreatCharge, (charge) => charge.retreat)
+  charges!: RetreatCharge[];
 }

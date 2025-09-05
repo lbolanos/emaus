@@ -70,6 +70,17 @@ export const tableSchema = z.object({
 });
 export type Table = z.infer<typeof tableSchema>;
 
+// RetreatCharge Schema
+export const retreatChargeSchema = z.object({
+  id: idSchema,
+  name: z.string(),
+  description: z.string().optional(),
+  retreatId: idSchema,
+  participant: z.lazy(() => participantSchema).optional(),
+  participantId: idSchema.optional(),
+});
+export type RetreatCharge = z.infer<typeof retreatChargeSchema>;
+
 // Participant Schema (forward declaration)
 export type Participant = z.infer<typeof participantSchema>;
 
@@ -227,6 +238,19 @@ export const updateHouseSchema = z.object({
   params: z.object({ id: idSchema }),
 });
 export type UpdateHouse = z.infer<typeof updateHouseSchema.shape.body>;
+
+// POST /retreat-charges
+export const createRetreatChargeSchema = z.object({
+  body: retreatChargeSchema.omit({ id: true, participant: true, participantId: true }),
+});
+export type CreateRetreatCharge = z.infer<typeof createRetreatChargeSchema.shape.body>;
+
+// PUT /retreat-charges/:id
+export const updateRetreatChargeSchema = z.object({
+  body: retreatChargeSchema.omit({ id: true, retreatId: true, participant: true, participantId: true }).partial(),
+  params: z.object({ id: idSchema }),
+});
+export type UpdateRetreatCharge = z.infer<typeof updateRetreatChargeSchema.shape.body>;
 
 
 export * from './user';
