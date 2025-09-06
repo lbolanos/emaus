@@ -28,8 +28,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@repo/ui/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui/components/ui/select';
+import { Label } from '@repo/ui/components/ui/label';
+import { Switch } from '@repo/ui/components/ui/switch';
 import ColumnSelector from './ColumnSelector.vue';
 import EditParticipantForm from './EditParticipantForm.vue';
+import FilterDialog from './FilterDialog.vue';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,15 +52,17 @@ import { useToast } from '@repo/ui/components/ui/toast/use-toast';
 
 const props = withDefaults(defineProps<{
     type?: 'walker' | 'server' | 'waiting' | undefined,
-    isCanceled?: boolean,
+    isCancelled?: boolean,
     columnsToShowInTable?: string[],
     columnsToShowInForm?: string[],
     columnsToEditInForm?: string[],
+    defaultFilters?: Record<string, any>,
 }>(), {
-    isCanceled: false,
+    isCancelled: false,
     columnsToShowInTable: () => ['id_on_retreat', 'firstName', 'lastName', 'email', 'cellPhone', 'tableMesa.name'],
     columnsToShowInForm: () => [],
     columnsToEditInForm: () => [],
+    defaultFilters: () => ({}),
 });
 
 const { toast } = useToast();
@@ -89,8 +95,13 @@ const isDeleteDialogOpen = ref(false);
 const participantToDelete = ref<any>(null);
 const isEditDialogOpen = ref(false);
 const participantToEdit = ref<any>(null);
-const filterStatus = ref<'active' | 'canceled'>('active');
-const isCanceled = computed(() => filterStatus.value === 'canceled' || props.isCanceled);
+const isFilterDialogOpen = ref(false);
+
+// --- FILTERS ---
+const filters = ref<Record<string, any>>({});
+const filterStatus = ref<'active' | 'canceled'>(props.defaultFilters?.isCancelled ? 'canceled' : 'active');
+const isCancelled = computed(() => (filterStatus.value === 'canceled' || props.isCancelled) && filterStatus.value !== 'active');
+
 
 // --- DEFINICIÓN Y VISIBILIDAD DE COLUMNAS ---
 const allColumns = ref([
@@ -168,6 +179,7 @@ const visibleColumns = ref<string[]>([]);
 onMounted(() => {
     const savedColumns = participantStore.getColumnSelection(currentViewName.value, props.columnsToShowInTable);
     visibleColumns.value = [...savedColumns];
+    filters.value = { ...props.defaultFilters };
 });
 
 // Watch for column changes and save to store
@@ -201,6 +213,19 @@ const filteredAndSortedParticipants = computed(() => {
         );
     }
 
+    // 2. Filtrar por filtros dinámicos
+    const activeFilters = Object.entries(filters.value).filter(([, value]) => value !== undefined && value !== null && value !== '');
+    if (activeFilters.length > 0) {
+        result = result.filter(p => {
+            return activeFilters.every(([key, value]) => {
+                const participantValue = getNestedProperty(p, key);
+                if (typeof value === 'boolean') {
+                    return participantValue === value;
+                }
+                return String(participantValue).toLowerCase() === String(value).toLowerCase();
+            });
+        });
+    }
     // 2. Ordenar
     if (sortKey.value) {
         result.sort((a, b) => {
@@ -341,15 +366,49 @@ const closeColumnDialog = () => {
     isColumnDialogOpen.value = false;
 };
 
+const handleUpdateFilters = (newFilters: Record<string, any>) => {
+  filters.value = newFilters;
+};
+
+// --- FILTER DIALOG FUNCTIONS ---
+const filterableColumns = [
+  { key: 'snores', type: 'boolean' },
+  { key: 'hasMedication', type: 'boolean' },
+  { key: 'hasDietaryRestrictions', type: 'boolean' },
+  { key: 'isScholarship', type: 'boolean' },
+  { key: 'requestsSingleRoom', type: 'boolean' },
+  { key: 'arrivesOnOwn', type: 'boolean' },
+  { key: 'tshirtSize', type: 'select', options: ['s', 'm', 'l', 'xl', 'xxl'] },
+];
+
+const getColumnLabel = (key: string) => {
+  const col = allColumns.value.find(c => c.key === key);
+  return col ? $t(col.label) : key;
+};
+
+const handleResetFilters = () => {
+  filters.value = { ...props.defaultFilters };
+  isFilterDialogOpen.value = false;
+};
+
+const handleApplyFilters = () => {
+  isFilterDialogOpen.value = false;
+};
+
 
 // --- WATCHER PARA CARGAR DATOS ---
 watch([selectedRetreatId, filterStatus], ([newId]) => {
   if (newId) {
     participantStore.filters.retreatId = newId;
-    participantStore.filters.isCancelled = isCanceled.value;
+    participantStore.filters.isCancelled = isCancelled.value;
     participantStore.fetchParticipants();
   }
 }, { immediate: true });
+
+watch(() => props.defaultFilters, (newDefaults) => {
+    filters.value = { ...newDefaults };
+    filterStatus.value = newDefaults?.isCancelled ? 'canceled' : 'active';
+}, { deep: true });
 
 </script>
 
@@ -394,6 +453,12 @@ watch([selectedRetreatId, filterStatus], ([newId]) => {
                                 <DropdownMenuItem @click="filterStatus = 'canceled'">{{ $t('participants.status.canceled') }}</DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
+
+                        <!-- Dynamic Filters -->
+                        <DropdownMenuItem @click="isFilterDialogOpen = true">
+                            <ListFilter class="mr-2 h-4 w-4" />
+                            <span>Filters</span>
+                        </DropdownMenuItem>
 
                         <!-- Column Selector -->
                         <DropdownMenuItem @click="isColumnDialogOpen = true">
@@ -490,6 +555,57 @@ watch([selectedRetreatId, filterStatus], ([newId]) => {
                 />
             </DialogContent>
         </Dialog>
+
+        <!-- Filter Dialog -->
+        <div v-if="isFilterDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center">
+            <!-- Backdrop -->
+            <div class="absolute inset-0 bg-black/50" @click="isFilterDialogOpen = false"></div>
+
+            <!-- Modal Content -->
+            <div class="relative bg-white rounded-lg shadow-lg max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold">Filter Participants</h2>
+                        <Button variant="ghost" size="icon" @click="isFilterDialogOpen = false">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </Button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4 max-h-[60vh] overflow-y-auto">
+                        <div v-for="col in filterableColumns" :key="col.key" class="flex items-center justify-between space-x-2">
+                            <Label :for="col.key">{{ getColumnLabel(col.key) }}</Label>
+                            <template v-if="col.type === 'boolean'">
+                                <Switch
+                                    :id="col.key"
+                                    :checked="filters[col.key]"
+                                    @update:checked="(value: boolean) => filters[col.key] = value"
+                                />
+                            </template>
+                            <template v-if="col.type === 'select'">
+                                <Select v-model="filters[col.key]">
+                                    <SelectTrigger class="w-[180px]">
+                                        <SelectValue :placeholder="`Select ${getColumnLabel(col.key)}`" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem v-for="option in col.options" :key="option" :value="option">
+                                            {{ $t(`walkerRegistration.fields.tshirtSize.options.${option}`) }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end mt-6 space-x-2">
+                        <Button variant="outline" @click="handleResetFilters">Reset to Default</Button>
+                        <Button variant="ghost" @click="isFilterDialogOpen = false">Cancel</Button>
+                        <Button @click="handleApplyFilters">Apply Filters</Button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Column Selector Modal -->
         <div v-if="isColumnDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center">
