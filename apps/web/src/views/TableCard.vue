@@ -179,7 +179,7 @@ const onDrop = (event: DragEvent, role: ServerRole | 'walkers') => {
   if (role === 'walkers' && participant.type === 'walker') {
     tableMesaStore.assignWalkerToTable(props.table.id, participant.id, participant.sourceTableId);
   } else if (role !== 'walkers' && participant.type === 'server') {
-    tableMesaStore.assignLeader(props.table.id, participant.id, role as ServerRole);
+    tableMesaStore.assignLeader(props.table.id, participant.id, role as ServerRole, participant.sourceTableId, participant.sourceRole as ServerRole);
   }
 };
 

@@ -40,12 +40,28 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
     }
   };
 
-  const assignLeader = async (tableId: string, participantId: string, role: 'lider' | 'colider1' | 'colider2') => {
+  const assignLeader = async (tableId: string, participantId: string, role: 'lider' | 'colider1' | 'colider2', sourceTableId?: string, sourceRole?: 'lider' | 'colider1' | 'colider2') => {
     try {
+      // If moving within the same table, first unassign from the previous role
+      if (sourceTableId === tableId && sourceRole && sourceRole !== role) {
+        await unassignLeaderApi(tableId, sourceRole);
+      }
+
       const updatedTable = await assignLeaderToTable(tableId, participantId, role);
       const index = tables.value.findIndex(t => t.id === tableId);
       if (index !== -1) {
         tables.value[index] = updatedTable;
+      }
+
+      // If the participant came from another table, we need to refresh that table's state as well.
+      if (sourceTableId && sourceTableId !== tableId) {
+        try {
+          const sourceTable = await api.get(`/tables/${sourceTableId}`);
+          updateTableInState(sourceTable.data);
+        } catch (error) {
+          console.error(`Failed to refresh source table ${sourceTableId}`, error);
+          // Even if the source table refresh fails, the main operation succeeded.
+        }
       }
     } catch (e: any) {
       console.error(`Failed to assign ${role}`, e);
