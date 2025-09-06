@@ -3,19 +3,21 @@ import { ref } from 'vue';
 import {
   getTablesByRetreat,
   assignLeaderToTable,
-  rebalanceTables,
   assignWalkerToTable as assignWalkerToTableApi,
   unassignLeader as unassignLeaderApi,
   unassignWalker as unassignWalkerApi,
+  api
 } from '@/services/api';
-import type { TableMesa, Participant } from '@repo/types';
+import type { TableMesa } from '@repo/types';
 import { useRetreatStore } from './retreatStore';
+import { useToast } from '@repo/ui/components/ui/toast/use-toast';
 import { useParticipantStore } from './participantStore';
 
 export const useTableMesaStore = defineStore('tableMesa', () => {
   const tables = ref<TableMesa[]>([]);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
+  const { toast } = useToast();
 
   const retreatStore = useRetreatStore();
   const participantStore = useParticipantStore();
@@ -31,6 +33,7 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
       tables.value = await getTablesByRetreat(retreatStore.selectedRetreatId);
     } catch (e: any) {
       error.value = 'Failed to fetch tables.';
+      toast({ title: 'Error', description: error.value, variant: 'destructive' });
       console.error(e);
     } finally {
       isLoading.value = false;
@@ -46,19 +49,32 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
       }
     } catch (e: any) {
       console.error(`Failed to assign ${role}`, e);
-      // Optionally set an error state
+      toast({ title: 'Error', description: `Failed to assign ${role}`, variant: 'destructive' });
     }
   };
 
-  const assignWalkerToTable = async (tableId: string, participantId: string) => {
+  const assignWalkerToTable = async (
+    tableId: string,
+    participantId: string,
+    sourceTableId: string | undefined = undefined,
+  ) => {
     try {
       const updatedTable = await assignWalkerToTableApi(tableId, participantId);
-      const index = tables.value.findIndex(t => t.id === tableId);
-      if (index !== -1) {
-        tables.value[index] = updatedTable;
+      updateTableInState(updatedTable);
+
+      // If the participant came from another table, we need to refresh that table's state as well.
+      if (sourceTableId && sourceTableId !== tableId) {
+        try {
+          const sourceTable = await api.get(`/tables/${sourceTableId}`);
+          updateTableInState(sourceTable.data);
+        } catch (error) {
+          console.error(`Failed to refresh source table ${sourceTableId}`, error);
+          // Even if the source table refresh fails, the main operation succeeded.
+        }
       }
     } catch (e: any) {
       console.error(`Failed to assign walker`, e);
+      toast({ title: 'Error', description: 'Failed to assign walker', variant: 'destructive' });
     }
   };
 
@@ -71,6 +87,7 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
       }
     } catch (e: any) {
       console.error(`Failed to unassign ${role}`, e);
+      toast({ title: 'Error', description: `Failed to unassign ${role}`, variant: 'destructive' });
     }
   };
 
@@ -95,19 +112,57 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
       }
     } catch (e: any) {
       console.error(`Failed to unassign walker`, e);
+      toast({ title: 'Error', description: 'Failed to unassign walker', variant: 'destructive' });
     }
   };
 
   const rebalanceTables = async (retreatId: string) => {
     isLoading.value = true;
     try {
-      await rebalanceTables(retreatId);
+      await api.post(`/tables/rebalance/${retreatId}`)
       await fetchTables(); // Refetch tables to see the result of rebalancing
     } catch (e: any) {
       error.value = 'Failed to rebalance tables.';
+      toast({ title: 'Error', description: error.value, variant: 'destructive' });
       console.error(e);
     } finally {
       isLoading.value = false;
+    }
+  };
+
+  const createTable = async () => {
+    if (!retreatStore.selectedRetreatId) return;
+    try {
+      const newTableData = {
+        name: `Table ${tables.value.length + 1}`,
+        retreatId: retreatStore.selectedRetreatId,
+      };
+      const newTable = await api.post('/tables', newTableData);
+      tables.value.push(newTable);
+    } catch (e: any) {
+      console.error('Failed to create table', e);
+      toast({ title: 'Error', description: 'Failed to create table', variant: 'destructive' });
+    }
+  };
+
+  const deleteTable = async (tableId: string) => {
+    try {
+      await api.delete(`/tables/${tableId}`);
+      tables.value = tables.value.filter(t => t.id !== tableId);
+    } catch (e: any) {
+      const errorMessage = e.response?.data?.message || 'Failed to delete table';
+      console.error('Failed to delete table', e);
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
+      throw e; // Re-throw to be caught in the component
+    }
+  };
+
+  const updateTableInState = (updatedTable: TableMesa) => {
+    const index = tables.value.findIndex(t => t.id === updatedTable.id);
+    if (index !== -1) {
+      tables.value[index] = updatedTable;
+    } else {
+      tables.value.push(updatedTable);
     }
   };
 
@@ -125,5 +180,7 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
     rebalanceTables,
     unassignLeader,
     unassignWalkerFromTable,
+    createTable,
+    deleteTable,
   };
 });

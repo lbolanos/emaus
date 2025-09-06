@@ -158,8 +158,44 @@ export const rebalanceTablesForRetreat = async (retreatId: string) => {
     .where({ retreatId, type: 'walker' })
     .execute();
 
-  if (walkers.length > 0 && tables.length > 0) {
-    const updates = walkers.map((walker, i) => ({ id: walker.id, tableId: tables[i % tables.length].id }));
-    await participantRepository.save(updates);
+  // Distribute walkers
+  if (walkers.length === 0 || tables.length === 0) {
+    return;
   }
+
+  const tableWalkerCounts: Record<string, number> = tables.reduce((acc, t) => ({ ...acc, [t.id]: 0 }), {});
+  const walkerAssignments: { id: string; tableId: string | null }[] = [];
+  const assignedWalkersByInviter: Record<string, string[]> = {}; // inviter -> tableId[]
+
+  for (const walker of walkers) {
+    let availableTables = [...tables];
+
+    // If the walker was invited by someone, filter out tables where another walker invited by the same person already is.
+    if (walker.invitedBy && assignedWalkersByInviter[walker.invitedBy]) {
+      const tablesToExclude = assignedWalkersByInviter[walker.invitedBy];
+      const filteredTables = availableTables.filter(t => !tablesToExclude.includes(t.id));
+      // If filtering leaves at least one table, use the filtered list. Otherwise, use all tables to ensure assignment.
+      if (filteredTables.length > 0) {
+        availableTables = filteredTables;
+      }
+    }
+
+    // Sort available tables by the number of walkers they currently have, ascending.
+    availableTables.sort((a, b) => tableWalkerCounts[a.id] - tableWalkerCounts[b.id]);
+
+    // Assign the walker to the least populated table.
+    const targetTable = availableTables[0];
+    walkerAssignments.push({ id: walker.id, tableId: targetTable.id });
+    tableWalkerCounts[targetTable.id]++;
+
+    // Track the assignment for the inviter constraint.
+    if (walker.invitedBy) {
+      if (!assignedWalkersByInviter[walker.invitedBy]) {
+        assignedWalkersByInviter[walker.invitedBy] = [];
+      }
+      assignedWalkersByInviter[walker.invitedBy].push(targetTable.id);
+    }
+  }
+
+  await participantRepository.save(walkerAssignments);
 };

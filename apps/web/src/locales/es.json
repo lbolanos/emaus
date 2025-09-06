@@ -1,12 +1,9 @@
 {
-  "delete": {
-    "confirmTitle": "¿Estás seguro?"
-  },
   "login": {
     "title": "Iniciar Sesión",
-    "description": "Ingrese su correo electrónico y contraseña a continuación para iniciar sesión",
+    "description": "Ingresa tu correo y contraseña para iniciar sesión",
     "emailLabel": "Correo Electrónico",
-    "emailPlaceholder": "m@example.com",
+    "emailPlaceholder": "m@ejemplo.com",
     "passwordLabel": "Contraseña",
     "loginButton": "Iniciar Sesión",
     "forgotPassword": "¿Olvidaste tu contraseña?",
@@ -27,13 +24,13 @@
     "waitingList": "Lista de Espera",
     "bagsReport": "Reporte de Bolsas",
     "medicinesReport": "Reporte de Medicinas",
-    "canceled": "Cancelados",
     "retreat": "Retiro",
+    "canceled": "Cancelados",
     "loadingRetreats": "Cargando retiros...",
     "noRetreatsFound": "No se encontraron retiros.",
     "addRetreat": "Agregar Retiro",
     "selectRetreat": "Selecciona un retiro",
-    "retreatDashboard": "Panel de Retiro",
+    "retreatDashboard": "Dashboard del Retiro",
     "houses": "Casas",
     "bedAssignments": "Asignación de Camas",
     "charges": "Cargos"
@@ -46,21 +43,21 @@
     "table": "Mesa",
     "actions": "Acciones",
     "loading": "Cargando...",
-    "selectRetreatPrompt": "Por favor seleccione un retiro para ver los participantes.",
+    "selectRetreatPrompt": "Por favor, selecciona un retiro para ver los participantes.",
     "noParticipantsFound": "No se encontraron caminantes para este retiro.",
-    "addParticipant": "Adicionar participante",
+    "addParticipant": "Agregar Participante",
     "delete": {
       "confirmMessage1": "Esta acción no se puede deshacer. Esto eliminará permanentemente a",
-      "confirmMessage2": "del Retiro.",
-      "SuccessTitle": "Borrado Exitoso",
-      "SuccessDesc": "El Participante fue borrado exitosamente."
+      "confirmMessage2": "del retiro.",
+      "SuccessTitle": "Eliminación Exitosa",
+      "SuccessDesc": "El participante fue eliminado exitosamente."
     },
     "import": {
       "title": "Importar Participantes",
       "description": "Importar Participantes desde un archivo Excel o CSV",
-      "errorTitle": "Error al importar",
-      "errorNoEmail": "No se encontraron correos electrónicos en el archivo",
-      "successTitle": "Exitoso",
+      "errorTitle": "Error de importación",
+      "errorNoEmail": "No se encontraron correos en el archivo",
+      "successTitle": "Éxito",
       "successDesc": "Participantes importados exitosamente"
     },
     "status": {
@@ -68,18 +65,17 @@
       "active": "Activos",
       "canceled": "Cancelados"
     },
-
     "fields": {
       "id": "ID",
       "type": "Tipo",
       "firstName": "Nombre",
-      "lastName": "Apellidos",
+      "lastName": "Apellido",
       "nickname": "Apodo",
       "table": "Mesa",
       "birthDate": "Fecha Nac.",
       "maritalStatus": "Estado Civil",
       "street": "Calle",
-      "houseNumber": "Número Ext.",
+      "houseNumber": "N° de Casa",
       "postalCode": "C.P.",
       "neighborhood": "Colonia",
       "city": "Ciudad",
@@ -134,22 +130,22 @@
       "retreatId": "ID Retiro",
       "tableId": "ID Mesa",
       "retreatBedId": "ID Cuarto"
-    }    
+    }
   },
   "rooms": {
-    "title": "Cuartos",
-    "room": "Cuarto",
+    "title": "Habitaciones",
+    "room": "Habitación",
     "floor": "Piso",
-    "bedNumber": "Número de Cama",
+    "bedNumber": "Cama",
     "type": "Tipo",
     "participant": "Participante",
     "age": "Edad",
-    "unassigned": "No Asignada",
-    "noRoomsFound": "No hay cuatos disponibles para este retiro."
+    "unassigned": "Sin asignar",
+    "noRoomsFound": "No se encontraron habitaciones para este retiro."
   },
   "addRetreatModal": {
     "title": "Agregar Nuevo Retiro",
-    "description": "Ingrese los detalles del nuevo retiro.",
+    "description": "Ingresa los detalles del nuevo retiro.",
     "parishName": "Nombre de la Parroquia",
     "startDate": "Fecha de Inicio",
     "endDate": "Fecha de Fin",
@@ -157,12 +153,12 @@
     "selectHouse": "Selecciona una casa",
     "openingNotes": "Notas de Apertura",
     "closingNotes": "Notas de Cierre",
-    "thingsToBringNotes": "Notas de Cosas para Traer",
+    "thingsToBringNotes": "Notas de Qué Llevar",
     "cost": "Costo",
     "paymentInfo": "Información de Pago",
     "paymentMethods": "Métodos de Pago",
-    "max_walkers": "Max. Caminantes",
-    "max_servers": "Max. Servidores",
+    "max_walkers": "Máx. Caminantes",
+    "max_servers": "Máx. Servidores",
     "submit": "Guardar Retiro",
     "cancel": "Cancelar",
     "successTitle": "Retiro Creado",
@@ -180,21 +176,21 @@
     "selectHouse": "Selecciona una casa",
     "openingNotes": "Notas de Apertura",
     "closingNotes": "Notas de Cierre",
-    "thingsToBringNotes": "Notas de Cosas para Traer",
+    "thingsToBringNotes": "Notas de Qué Llevar",
     "cost": "Costo",
     "paymentInfo": "Información de Pago",
     "paymentMethods": "Métodos de Pago",
     "saveChanges": "Guardar Cambios"
   },
   "retreatDashboard": {
-    "title": "Panel de Retiro",
+    "title": "Dashboard del Retiro",
     "selectedRetreat": "Retiro Seleccionado",
     "walkersCount": "Número de Caminantes",
     "serversCount": "Número de Servidores",
     "waitingCount": "Número en Espera",
-    "walkerRegistrationLink": "Enlace Público de Registro de Caminantes",
-    "serverRegistrationLink": "Enlace Público de Registro de Servidores",
-    "noRetreatSelected": "Ningún retiro seleccionado. Por favor, selecciona o agrega un retiro.",
+    "walkerRegistrationLink": "Enlace Público de Registro de Caminante",
+    "serverRegistrationLink": "Enlace Público de Registro de Servidor",
+    "noRetreatSelected": "No hay retiro seleccionado. Por favor, selecciona o agrega un retiro.",
     "copyLink": "Copiar Enlace",
     "openLink": "Abrir Enlace",
     "linkCopied": "¡Enlace copiado al portapapeles!",
@@ -202,7 +198,7 @@
     "qrCodeTitle": "Código QR de Registro",
     "openingNotes": "Notas de Apertura",
     "closingNotes": "Notas de Cierre",
-    "thingsToBringNotes": "Cosas para Traer",
+    "thingsToBringNotes": "Qué Llevar",
     "cost": "Costo",
     "paymentInfo": "Información de Pago",
     "paymentMethods": "Métodos de Pago"
@@ -225,17 +221,22 @@
       "delete": "Eliminar"
     },
     "import": {
-      "errorTitle": "Error al importar",
-      "errorGeneric": "Un error ha ocurrido en la importación"
-    }
+      "errorTitle": "Error de Importación",
+      "errorGeneric": "Ocurrió un error al importar"
+    },
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "unknown": "Desconocido"
   },
   "tables": {
     "title": "Mesas del Retiro",
     "description": "Gestiona las asignaciones de mesas, líderes y caminantes.",
     "noTablesFound": "No se encontraron mesas para este retiro.",
     "leader": "Líder",
-    "coLeader1": "Co-líder 1",
-    "coLeader2": "Co-líder 2",
+    "coLeader1": "Co-Líder 1",
+    "coLeader2": "Co-Líder 2",
     "walkers": "Caminantes",
     "unassigned": "Sin asignar",
     "assign": "Asignar",
@@ -246,18 +247,35 @@
     },
     "roles": {
       "lider": "Líder",
-      "colider1": "Co-líder 1",
-      "colider2": "Co-líder 2"
+      "colider1": "Co-Líder 1",
+      "colider2": "Co-Líder 2"
     },
-    "unassignedServers": "Servidores no Asignados",
-    "unassignedWalkers": "Caminantes no Asignados",
-    "rebalanceWalkers": "Rebalancear Caminantes"
+    "unassignedServers": "Servidores Sin Asignar",
+    "unassignedWalkers": "Caminantes Sin Asignar",
+    "rebalanceWalkers": "Rebalancear Caminantes",
+    "rebalanceConfirmation": {
+      "title": "Confirmar Rebalanceo",
+      "description": "¿Estás seguro de que quieres rebalancear automáticamente todos los caminantes sin asignar entre las mesas? Esto intentará distribuirlos de la manera más equitativa posible.",
+      "confirm": "Confirmar Rebalanceo",
+      "rebalancing": "Rebalanceando...",
+      "successTitle": "Rebalanceo Exitoso",
+      "successDescription": "Los caminantes han sido rebalanceados exitosamente entre las mesas.",
+      "errorTitle": "Fallo el Rebalanceo",
+      "errorDescription": "Ocurrió un error al rebalancear los caminantes. Por favor, inténtalo de nuevo."
+    },
+    "addTable": "Agregar Mesa",
+    "deleteTable": {
+      "title": "Eliminar Mesa",
+      "description": "¿Estás seguro de que quieres eliminar esta mesa? Esta acción no se puede deshacer.",
+      "errorNotEmpty": "No se puede eliminar una mesa que tiene caminantes asignados."
+    },
+    "invitedBy": "Invitado por"
   },
   "walkerRegistration": {
     "title": "Registro de Caminante",
-    "description": "Por favor, rellene el siguiente formulario para registrarse como caminante del retiro.",
+    "description": "Por favor, completa el siguiente formulario para registrarte como caminante para el retiro.",
     "landing": {
-      "title": "Retiro de Emaus",
+      "title": "Retiro de Emaús",
       "subtitle": "Regístrate ahora para ser parte del retiro."
     },
     "tabs": {
@@ -268,17 +286,17 @@
     },
     "fields": {
       "firstName": "Nombre",
-      "lastName": "Apellidos",
+      "lastName": "Apellido",
       "nickname": "Apodo",
       "birthDate": "Fecha de Nacimiento",
       "maritalStatus": {
         "label": "Estado Civil",
         "placeholder": "Selecciona tu estado civil",
         "options": {
-          "single": "Soltero",
-          "married": "Casado",
-          "separated_divorced": "Separado/Divorciado",
-          "widowed": "Viudo",
+          "single": "Soltero(a)",
+          "married": "Casado(a)",
+          "separated_divorced": "Separado(a)/Divorciado(a)",
+          "widowed": "Viudo(a)",
           "other": "Otro"
         }
       },
@@ -290,16 +308,16 @@
       "state": "Estado",
       "country": "País",
       "parish": "Parroquia",
-      "homePhone": "Teléfono Casa",
-      "workPhone": "Teléfono Trabajo",
-      "cellPhone": "Teléfono Celular",
+      "homePhone": "Teléfono de Casa",
+      "workPhone": "Teléfono de Trabajo",
+      "cellPhone": "Celular",
       "email": "Correo Electrónico",
       "occupation": "Ocupación",
       "snores": "¿Roncas al dormir?",
-      "hasMedication": "¿Tomas alguna medicina en especial/Enfermedad?",
+      "hasMedication": "¿Estás tomando algún medicamento especial?",
       "medicationDetails": "¿Cuál?",
-      "medicationSchedule": "¿A qué horas o cada cuánto?",
-      "hasDietaryRestrictions": "¿Tiene alguna restricción en su alimentación?",
+      "medicationSchedule": "¿A qué hora o con qué frecuencia?",
+      "hasDietaryRestrictions": "¿Tienes alguna restricción alimenticia?",
       "dietaryRestrictionsDetails": "¿Cuál?",
       "sacraments": {
         "label": "Sacramentos recibidos",
@@ -314,13 +332,13 @@
       "emergencyContact": {
         "name": "Nombre",
         "relation": "Relación",
-        "homePhone": "Teléfono Casa",
-        "workPhone": "Teléfono Trabajo",
-        "cellPhone": "Teléfono Celular",
+        "homePhone": "Teléfono de Casa",
+        "workPhone": "Teléfono de Trabajo",
+        "cellPhone": "Celular",
         "email": "Correo Electrónico"
       },
       "tshirtSize": {
-        "label": "Tamaño Camiseta",
+        "label": "Talla de Camiseta",
         "placeholder": "Selecciona una talla",
         "options": {
           "s": "Pequeña (S)",
@@ -331,11 +349,11 @@
         }
       },
       "invitedBy": "Invitado por",
-      "isInvitedByEmausMember": "¿Quien te invitó, pertenece a Emaús?",
-      "inviterHomePhone": "Teléfono Casa del que invita",
-      "inviterWorkPhone": "Teléfono Trabajo del que invita",
-      "inviterCellPhone": "Teléfono Celular del que invita",
-      "inviterEmail": "Correo Electrónico del que invita",
+      "isInvitedByEmausMember": "¿La persona que te invitó pertenece a Emaús?",
+      "inviterHomePhone": "Teléfono de Casa del Invitador",
+      "inviterWorkPhone": "Teléfono de Trabajo del Invitador",
+      "inviterCellPhone": "Celular del Invitador",
+      "inviterEmail": "Correo Electrónico del Invitador",
       "pickupLocation": "Punto de encuentro conveniente",
       "arrivesOnOwn": "Llego por mi cuenta"
     },

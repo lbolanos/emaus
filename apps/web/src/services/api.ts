@@ -40,10 +40,6 @@ export const assignLeaderToTable = async (tableId: string, participantId: string
   return response.data;
 };
 
-export const rebalanceTables = async (retreatId: string): Promise<void> => {
-  await api.post(`/tables/rebalance/${retreatId}`);
-};
-
 export const assignWalkerToTable = async (tableId: string, participantId: string): Promise<TableMesa> => {
   const response = await api.post(`/tables/${tableId}/walkers`, { participantId });
   return response.data;

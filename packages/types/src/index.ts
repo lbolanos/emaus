@@ -222,6 +222,12 @@ export const createParticipantSchema = z.object({
 });
 export type CreateParticipant = z.infer<typeof createParticipantSchema.shape.body>;
 
+export const TableSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  retreatId: z.string().uuid(),
+});
+export const createTableSchema = TableSchema.omit({ id: true });
 
 // PUT /participants/:id
 export const updateParticipantSchema = z.object({

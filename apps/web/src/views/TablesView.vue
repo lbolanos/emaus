@@ -6,7 +6,8 @@
         <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ $t('tables.description') }}</p>
       </div>
       <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
-        <Button @click="handleRebalance">{{ $t('tables.rebalanceWalkers') }}</Button>
+        <Button @click="isRebalanceDialogOpen = true">{{ $t('tables.rebalanceWalkers') }}</Button>
+        <Button @click="handleCreateTable" class="ml-2">{{ $t('tables.addTable') }}</Button>
       </div>
     </div>
 
@@ -68,12 +69,53 @@
         <p>{{ $t('tables.noTablesFound') }}</p>
       </div>
       <div v-else class="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <TableCard v-for="table in tableMesaStore.tables" :key="table.id" :table="table" />
+        <TableCard
+          v-for="table in tableMesaStore.tables"
+          :key="table.id"
+          :table="table"
+          @delete="handleDeleteTable"
+        />
       </div>
     </div>
     <div v-else class="mt-8 text-center">
       <p>{{ $t('participants.selectRetreatPrompt') }}</p>
     </div>
+
+    <!-- Rebalance Confirmation Dialog -->
+    <Dialog :open="isRebalanceDialogOpen" @update:open="isRebalanceDialogOpen = $event">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{{ $t('tables.rebalanceConfirmation.title') }}</DialogTitle>
+          <DialogDescription>{{ $t('tables.rebalanceConfirmation.description') }}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" @click="isRebalanceDialogOpen = false">{{ $t('common.cancel') }}</Button>
+          <Button @click="confirmRebalance" :disabled="isRebalancing">
+            <Loader2 v-if="isRebalancing" class="w-4 h-4 mr-2 animate-spin" />
+            {{
+              isRebalancing ? $t('tables.rebalanceConfirmation.rebalancing') : $t('tables.rebalanceConfirmation.confirm')
+            }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <!-- Delete Table Confirmation Dialog -->
+    <Dialog :open="isDeleteDialogOpen" @update:open="isDeleteDialogOpen = $event">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{{ $t('tables.deleteTable.title') }}</DialogTitle>
+          <DialogDescription>{{ $t('tables.deleteTable.description') }}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" @click="isDeleteDialogOpen = false">{{ $t('common.cancel') }}</Button>
+          <Button variant="destructive" @click="confirmDeleteTable" :disabled="isDeleting">
+            <Loader2 v-if="isDeleting" class="w-4 h-4 mr-2 animate-spin" />
+            {{ $t('common.delete') }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
@@ -84,14 +126,25 @@ import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import TableCard from './TableCard.vue';
 import { Button } from '@repo/ui/components/ui/button';
-import type { Participant } from '@repo/types';
+import { useToast } from '@repo/ui/components/ui/toast/use-toast';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@repo/ui/components/ui/dialog';
+import { Loader2 } from 'lucide-vue-next';
+import type { Participant, TableMesa } from '@repo/types';
+import { useI18n } from 'vue-i18n';
 
 const tableMesaStore = useTableMesaStore();
 const retreatStore = useRetreatStore();
 const participantStore = useParticipantStore();
+const { toast } = useToast();
+const { t } = useI18n();
 
+const isRebalancing = ref(false);
+const isRebalanceDialogOpen = ref(false);
 const isOverUnassignedServer = ref(false);
 const isOverUnassignedWalker = ref(false);
+const isDeleteDialogOpen = ref(false);
+const isDeleting = ref(false);
+const tableToDelete = ref<TableMesa | null>(null);
 
 const unassignedServers = computed(() => {
   const assignedServerIds = new Set(
@@ -149,9 +202,45 @@ const onDropToUnassigned = (event: DragEvent, type: 'server' | 'walker') => {
   }
 };
 
-const handleRebalance = async () => {
+const handleCreateTable = () => {
+  tableMesaStore.createTable();
+};
+
+const confirmRebalance = async () => {
   if (retreatStore.selectedRetreatId) {
-    await tableMesaStore.rebalanceTables(retreatStore.selectedRetreatId);
+    isRebalancing.value = true;
+    try {
+      await tableMesaStore.rebalanceTables(retreatStore.selectedRetreatId);
+      isRebalanceDialogOpen.value = false;
+      toast({
+        title: t('tables.rebalanceConfirmation.successTitle'),
+        description: t('tables.rebalanceConfirmation.successDescription'),
+      });
+    } catch (error) {
+      toast({
+        title: t('tables.rebalanceConfirmation.errorTitle'),
+        description: t('tables.rebalanceConfirmation.errorDescription'),
+        variant: 'destructive',
+      });
+    } finally {
+      isRebalancing.value = false;
+    }
+  }
+};
+
+const handleDeleteTable = (table: TableMesa) => {
+  tableToDelete.value = table;
+  isDeleteDialogOpen.value = true;
+};
+
+const confirmDeleteTable = async () => {
+  if (!tableToDelete.value) return;
+  isDeleting.value = true;
+  try {
+    await tableMesaStore.deleteTable(tableToDelete.value.id);
+    isDeleteDialogOpen.value = false;
+  } finally {
+    isDeleting.value = false;
   }
 };
 

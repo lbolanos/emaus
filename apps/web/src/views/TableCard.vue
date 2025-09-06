@@ -1,13 +1,30 @@
 <template>
   <Card class="flex flex-col">
     <!-- Card Header -->
-    <CardHeader>
+    <CardHeader class="flex-row items-center justify-between">
       <CardTitle class="flex items-center justify-between">
         {{ table.name }}
-        <span class="text-sm font-normal text-gray-500 dark:text-gray-400">
-          {{ table.walkers?.length || 0 }} / 7
-        </span>
       </CardTitle>
+      <div class="flex items-center gap-2">
+        <span class="text-sm font-normal text-gray-500 dark:text-gray-400"> {{ table.walkers?.length || 0 }} / 7 </span>
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button variant="ghost" size="sm" class="w-8 h-8 p-0">
+              <MoreVertical class="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              @click="confirmDelete"
+              :disabled="hasWalkers"
+              class="text-red-600 focus:text-red-600 focus:bg-red-100/80 dark:focus:bg-red-900/40 dark:focus:text-red-500"
+            >
+              <Trash2 class="mr-2 h-4 w-4" />
+              <span>{{ $t('common.delete') }}</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </CardHeader>
 
     <!-- Card Content -->
@@ -65,6 +82,7 @@
               :key="walker.id"
               draggable="true"
               @dragstart="startDragFromTable($event, walker, 'walkers')"
+              :title="`${walker.firstName} ${walker.lastName}\n${$t('tables.invitedBy')}: ${walker.invitedBy || $t('common.unknown')}`"
               class="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm font-medium cursor-grab"
             >
               {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
@@ -91,13 +109,22 @@
 </style>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import type { PropType } from 'vue';
 import type { Participant, TableMesa, ServerRole } from '@repo/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/ui/card';
 import { useTableMesaStore } from '@/stores/tableMesaStore';
 import { useI18n } from 'vue-i18n';
 import ServerDropZone from './ServerDropZone.vue';
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@repo/ui/components/ui/dropdown-menu';
+import { Button } from '@repo/ui/components/ui/button';
+import { MoreVertical, Trash2 } from 'lucide-vue-next';
 
 const props = defineProps({
   table: {
@@ -106,6 +133,8 @@ const props = defineProps({
   },
 });
 
+const emit = defineEmits(['delete']);
+
 const { t } = useI18n();
 const tableMesaStore = useTableMesaStore();
 
@@ -113,6 +142,12 @@ const isOverServer = ref(false);
 const isOverWalker = ref(false);
 const dragOverRole = ref<ServerRole | null>(null);
 const isDropInvalid = ref(false);
+
+const hasWalkers = computed(() => (props.table.walkers?.length || 0) > 0);
+
+const confirmDelete = () => {
+  emit('delete', props.table);
+};
 
 const startDragFromTable = (event: DragEvent, participant: Participant, role?: ServerRole | 'walkers') => {
   if (event.dataTransfer) {
@@ -146,8 +181,14 @@ const onDrop = (event: DragEvent, role: ServerRole | 'walkers') => {
 
   const participant: Participant & { sourceTableId?: string; sourceRole?: ServerRole | 'walkers' } = JSON.parse(participantData);
 
+  // Ensure table ID is valid before proceeding
+  if (!props.table.id) {
+    console.error('Cannot assign participant: table ID is undefined');
+    return;
+  }
+
   if (role === 'walkers' && participant.type === 'walker') {
-    tableMesaStore.assignWalkerToTable(props.table.id, participant.id);
+    tableMesaStore.assignWalkerToTable(props.table.id, participant.id, participant.sourceTableId);
   } else if (role !== 'walkers' && participant.type === 'server') {
     tableMesaStore.assignLeader(props.table.id, participant.id, role as ServerRole);
   }
@@ -167,7 +208,7 @@ const onDragOver = (event: DragEvent, type: 'server' | 'walker', role: ServerRol
       isOverServer.value = true;
       dragOverRole.value = role;
       // Check if the spot is occupied
-      if (role && props.table[role] && props.table[role]?.id !== participant.id) {
+      if (role && (props.table as any)[role] && (props.table as any)[role]?.id !== participant.id) {
         isDropInvalid.value = true;
       } else {
         isDropInvalid.value = false;
