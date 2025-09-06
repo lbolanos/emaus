@@ -30,7 +30,7 @@ const getColumnLabel = (key: string) => {
 const getColumnType = (key: string) => {
     const col = props.allColumns.find(c => c.key === key);
     if (col && col.type) return col.type;
-    if (key === 'palancasCoordinator') return 'select';
+    if (key === 'palancasCoordinator' || key === 'pickupLocation') return 'select';
     if (key.startsWith('is') || key.startsWith('has') || key.startsWith('requests') || key === 'arrivesOnOwn' || key === 'snores' || key === 'palancasRequested') return 'boolean';
     if (key.toLowerCase().includes('notes') || key.toLowerCase().includes('details')) return 'textarea';
     if (key.toLowerCase().includes('date')) return 'date';
@@ -194,6 +194,25 @@ const calculateAge = (birthDate: string | Date) => {
             <SelectItem value="Palanquero 1">Palanquero 1</SelectItem>
             <SelectItem value="Palanquero 2">Palanquero 2</SelectItem>
             <SelectItem value="Palanquero 3">Palanquero 3</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          v-if="getColumnType(key) === 'select' && key === 'pickupLocation'"
+          :model-value="localParticipant[key]"
+          @update:model-value="(value: string) => localParticipant[key] = value"
+        >
+          <SelectTrigger class="w-full">
+            <SelectValue placeholder="Seleccionar Punto de Encuentro" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Parroquia">Parroquia</SelectItem>
+            <SelectItem value="Polanco">Polanco</SelectItem>
+            <SelectItem value="Bosques de las Lomas">Bosques de las Lomas</SelectItem>
+            <SelectItem value="Llego por mi cuenta">Llega por su cuenta</SelectItem>
+            <SelectItem value="Lilas">Lilas</SelectItem>
+            <SelectItem value="Auditorio">Auditorio</SelectItem>
+            <SelectItem value="Basílica">Basílica</SelectItem>
+            <SelectItem value="Casa">Casa</SelectItem>
           </SelectContent>
         </Select>
       </template>

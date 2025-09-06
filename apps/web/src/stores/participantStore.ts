@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, computed, reactive } from 'vue';
+import { ref, reactive } from 'vue';
 import { useToast } from '@repo/ui/components/ui/toast/use-toast';
 import type { Participant, CreateParticipant } from '@repo/types';
 import { api } from '@/services/api';

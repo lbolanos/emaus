@@ -166,6 +166,9 @@ export const createParticipant = async (
   if (existingParticipant) {
     throw new Error('A participant with this email already exists in this retreat.');
   }
+  if (participantData.arrivesOnOwn === true) {
+    participantData.pickupLocation = 'Llego por mi cuenta';
+  }
 
   // Waiting list logic
   if (type === 'walker' || type === 'server') {
