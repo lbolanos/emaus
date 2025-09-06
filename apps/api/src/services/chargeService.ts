@@ -94,9 +94,9 @@ export const getParticipantsForCharge = async (chargeId: string) => {
 
 export const createDefaultChargesForRetreat = async (retreat: Retreat) => {
   const defaultCharges = [
-    'Palancas 1',
-    'Palancas 2',
-    'Palancas 3',
+    'Palanquero 1',
+    'Palanquero 2',
+    'Palanquero 3',
     'Logistica',
     'Inventario',
     'Tesorero',

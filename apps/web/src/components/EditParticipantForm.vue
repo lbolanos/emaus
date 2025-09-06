@@ -58,9 +58,101 @@ const handleSave = () => {
 const handleCancel = () => {
   emit('cancel');
 };
+
+const calculateAge = (birthDate: string | Date) => {
+  if (!birthDate) return 'N/A';
+  const birth = new Date(birthDate);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+
+  return age;
+};
 </script>
 
 <template>
+  <!-- Table with participant information when palancasCoordinator is shown -->
+  <div v-if="columnsToShow.includes('palancasCoordinator')" class="mb-6 p-4 bg-gray-50 rounded-lg">
+    <h3 class="text-lg font-semibold mb-4">Participant Information</h3>
+    <div class="overflow-x-auto">
+      <table class="min-w-full bg-white border border-gray-300">
+        <tbody>
+          <!-- Full Name -->
+          <tr class="border-b border-gray-300">
+            <td class="px-4 py-2 font-medium bg-gray-100">Full Name</td>
+            <td class="px-4 py-2">{{ participant.firstName }} {{ participant.lastName }}</td>
+          </tr>
+          <!-- Age -->
+          <tr class="border-b border-gray-300">
+            <td class="px-4 py-2 font-medium bg-gray-100">Age</td>
+            <td class="px-4 py-2">{{ calculateAge(participant.birthDate) }}</td>
+          </tr>
+          <!-- All Phones -->
+          <tr class="border-b border-gray-300">
+            <td class="px-4 py-2 font-medium bg-gray-100">Phones</td>
+            <td class="px-4 py-2">
+              <div class="space-y-1">
+                <div v-if="participant.homePhone"><strong>Home:</strong> {{ participant.homePhone }}</div>
+                <div v-if="participant.workPhone"><strong>Work:</strong> {{ participant.workPhone }}</div>
+                <div v-if="participant.cellPhone"><strong>Cell:</strong> {{ participant.cellPhone }}</div>
+              </div>
+            </td>
+          </tr>
+          <!-- Inviter Data -->
+          <tr class="border-b border-gray-300">
+            <td class="px-4 py-2 font-medium bg-gray-100">Inviter Information</td>
+            <td class="px-4 py-2">
+              <div class="space-y-1">
+                <div v-if="participant.invitedBy"><strong>Name:</strong> {{ participant.invitedBy }}</div>
+                <div v-if="participant.isInvitedByEmausMember !== null"><strong>Emaus Member:</strong> {{ participant.isInvitedByEmausMember ? 'Yes' : 'No' }}</div>
+                <div v-if="participant.inviterHomePhone"><strong>Home Phone:</strong> {{ participant.inviterHomePhone }}</div>
+                <div v-if="participant.inviterWorkPhone"><strong>Work Phone:</strong> {{ participant.inviterWorkPhone }}</div>
+                <div v-if="participant.inviterCellPhone"><strong>Cell Phone:</strong> {{ participant.inviterCellPhone }}</div>
+                <div v-if="participant.inviterEmail"><strong>Email:</strong> {{ participant.inviterEmail }}</div>
+              </div>
+            </td>
+          </tr>
+          <!-- Emergency Contacts -->
+          <tr class="border-b border-gray-300">
+            <td class="px-4 py-2 font-medium bg-gray-100">Emergency Contacts</td>
+            <td class="px-4 py-2">
+              <div class="space-y-2">
+                <!-- Contact 1 -->
+                <div v-if="participant.emergencyContact1Name" class="border-t pt-2">
+                  <div class="font-medium">Contact 1:</div>
+                  <div class="ml-2 space-y-1">
+                    <div><strong>Name:</strong> {{ participant.emergencyContact1Name }}</div>
+                    <div><strong>Relation:</strong> {{ participant.emergencyContact1Relation }}</div>
+                    <div v-if="participant.emergencyContact1HomePhone"><strong>Home Phone:</strong> {{ participant.emergencyContact1HomePhone }}</div>
+                    <div v-if="participant.emergencyContact1WorkPhone"><strong>Work Phone:</strong> {{ participant.emergencyContact1WorkPhone }}</div>
+                    <div v-if="participant.emergencyContact1CellPhone"><strong>Cell Phone:</strong> {{ participant.emergencyContact1CellPhone }}</div>
+                    <div v-if="participant.emergencyContact1Email"><strong>Email:</strong> {{ participant.emergencyContact1Email }}</div>
+                  </div>
+                </div>
+                <!-- Contact 2 -->
+                <div v-if="participant.emergencyContact2Name" class="border-t pt-2">
+                  <div class="font-medium">Contact 2:</div>
+                  <div class="ml-2 space-y-1">
+                    <div><strong>Name:</strong> {{ participant.emergencyContact2Name }}</div>
+                    <div><strong>Relation:</strong> {{ participant.emergencyContact2Relation }}</div>
+                    <div v-if="participant.emergencyContact2HomePhone"><strong>Home Phone:</strong> {{ participant.emergencyContact2HomePhone }}</div>
+                    <div v-if="participant.emergencyContact2WorkPhone"><strong>Work Phone:</strong> {{ participant.emergencyContact2WorkPhone }}</div>
+                    <div v-if="participant.emergencyContact2CellPhone"><strong>Cell Phone:</strong> {{ participant.emergencyContact2CellPhone }}</div>
+                    <div v-if="participant.emergencyContact2Email"><strong>Email:</strong> {{ participant.emergencyContact2Email }}</div>
+                  </div>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto p-2">
     <div v-for="key in columnsToShow" :key="key" class="space-y-2">
       <Label :for="key">{{ getColumnLabel(key) }}</Label>
@@ -99,9 +191,9 @@ const handleCancel = () => {
             <SelectValue placeholder="Select Palancas Coordinator" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="Palancas 1">Palancas 1</SelectItem>
-            <SelectItem value="Palancas 2">Palancas 2</SelectItem>
-            <SelectItem value="Palancas 3">Palancas 3</SelectItem>
+            <SelectItem value="Palanquero 1">Palanquero 1</SelectItem>
+            <SelectItem value="Palanquero 2">Palanquero 2</SelectItem>
+            <SelectItem value="Palanquero 3">Palanquero 3</SelectItem>
           </SelectContent>
         </Select>
       </template>
