@@ -3,6 +3,7 @@ import { ref, watch } from 'vue';
 import { Button } from '@repo/ui/components/ui/button';
 import { Input } from '@repo/ui/components/ui/input';
 import { Label } from '@repo/ui/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui/components/ui/select';
 import { Switch } from '@repo/ui/components/ui/switch';
 import { Textarea } from '@repo/ui/components/ui/textarea';
 
@@ -29,6 +30,7 @@ const getColumnLabel = (key: string) => {
 const getColumnType = (key: string) => {
     const col = props.allColumns.find(c => c.key === key);
     if (col && col.type) return col.type;
+    if (key === 'palancasCoordinator') return 'select';
     if (key.startsWith('is') || key.startsWith('has') || key.startsWith('requests') || key === 'arrivesOnOwn' || key === 'snores' || key === 'palancasRequested') return 'boolean';
     if (key.toLowerCase().includes('notes') || key.toLowerCase().includes('details')) return 'textarea';
     if (key.toLowerCase().includes('date')) return 'date';
@@ -86,8 +88,22 @@ const handleCancel = () => {
           v-if="getColumnType(key) === 'boolean'"
           :id="key"
           :model-value="localParticipant[key]"
-          @update:model-value="value => localParticipant[key] = value"
+          @update:model-value="(value: string) => localParticipant[key] = value"
         />
+        <Select
+          v-if="getColumnType(key) === 'select' && key === 'palancasCoordinator'"
+          :model-value="localParticipant[key]"
+          @update:model-value="(value: string) => localParticipant[key] = value"
+        >
+          <SelectTrigger class="w-full">
+            <SelectValue placeholder="Select Palancas Coordinator" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Palancas 1">Palancas 1</SelectItem>
+            <SelectItem value="Palancas 2">Palancas 2</SelectItem>
+            <SelectItem value="Palancas 3">Palancas 3</SelectItem>
+          </SelectContent>
+        </Select>
       </template>
       <p v-else class="text-sm text-gray-500 pt-2">{{ participant[key] || 'N/A' }}</p>
     </div>
