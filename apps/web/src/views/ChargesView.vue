@@ -35,29 +35,7 @@
                       {{ charge.participant.firstName }} {{ charge.participant.lastName }}
                     </template>
                     <template v-else>
-                      <Popover>
-                        <PopoverTrigger as-child>
-                          <Button variant="outline" size="sm">{{ $t('charges.assign') }}</Button>
-                        </PopoverTrigger>
-                        <PopoverContent class="w-[300px] p-0">
-                          <Command>
-                            <CommandInput :placeholder="$t('charges.selectParticipantPlaceholder')" />
-                            <CommandList>
-                              <CommandEmpty>{{ $t('common.noResults') }}</CommandEmpty>
-                              <CommandGroup>
-                                <CommandItem
-                                  v-for="participant in availableParticipants"
-                                  :key="participant.id"
-                                  :value="`${participant.firstName} ${participant.lastName}`"
-                                  @select="assignParticipant(charge.id, participant.id)"
-                                >
-                                  {{ participant.firstName }} {{ participant.lastName }}
-                                </CommandItem>
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
+                      <Button variant="outline" size="sm" @click="openAssignModal(charge)">{{ $t('charges.assign') }}</Button>
                     </template>
                   </TableCell>
                   <TableCell>
@@ -106,6 +84,51 @@
             </DialogFooter>
         </DialogContent>
     </Dialog>
+
+    <!-- Assign Server Modal -->
+    <Dialog :open="isAssignModalOpen" @update:open="isAssignModalOpen = $event">
+      <DialogContent class="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{{ $t('charges.assignServer') }} - {{ selectedCharge?.name }}</DialogTitle>
+          <DialogDescription>{{ $t('charges.selectServerDescription') }}</DialogDescription>
+        </DialogHeader>
+        <div class="mt-4">
+          <div class="mb-4">
+            <Input
+              v-model="serverSearchTerm"
+              :placeholder="$t('charges.searchServersPlaceholder')"
+              class="w-full"
+            />
+          </div>
+          <div v-if="filteredParticipants.length === 0" class="text-center py-8 text-gray-500">
+            <template v-if="serverSearchTerm.trim()">
+              {{ $t('charges.noServersFound') }}
+            </template>
+            <template v-else>
+              {{ $t('charges.noAvailableServers') }}
+            </template>
+          </div>
+          <div v-else class="grid gap-3 max-h-96 overflow-y-auto">
+            <div
+              v-for="participant in filteredParticipants"
+              :key="participant.id"
+              class="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 cursor-pointer"
+              @click="assignParticipant(selectedCharge!.id, participant.id)"
+            >
+              <div class="flex flex-col">
+                <span class="font-medium">{{ participant.firstName }} {{ participant.lastName }}</span>
+                <span class="text-sm text-gray-500">{{ participant.email }}</span>
+                <span class="text-sm text-gray-500">{{ participant.cellPhone }}</span>
+              </div>
+              <Button variant="outline" size="sm">{{ $t('charges.assign') }}</Button>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" @click="isAssignModalOpen = false">{{ $t('common.cancel') }}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
@@ -118,8 +141,6 @@ import { storeToRefs } from 'pinia';
 import { Button } from '@repo/ui/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@repo/ui/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@repo/ui/components/ui/dialog';
-import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@repo/ui/components/ui/command';
 import { Input } from '@repo/ui/components/ui/input';
 import { Label } from '@repo/ui/components/ui/label';
 import { Edit, Trash2 } from 'lucide-vue-next';
@@ -135,13 +156,29 @@ const { charges, loading, error } = storeToRefs(chargeStore);
 
 const isAddEditModalOpen = ref(false);
 const isDeleteDialog = ref(false);
+const isAssignModalOpen = ref(false);
 const editingCharge = ref<Charge | null>(null);
 const chargeToDelete = ref<Charge | null>(null);
+const selectedCharge = ref<Charge | null>(null);
 const chargeName = ref('');
+const serverSearchTerm = ref('');
 
 const availableParticipants = computed(() => {
   const assignedIds = new Set(charges.value.map(c => c.participantId).filter(Boolean));
   return (participants.value || []).filter(p => p.type === 'server' && !p.isCancelled && !assignedIds.has(p.id));
+});
+
+const filteredParticipants = computed(() => {
+  if (!serverSearchTerm.value.trim()) {
+    return availableParticipants.value;
+  }
+  const searchTerm = serverSearchTerm.value.toLowerCase();
+  return availableParticipants.value.filter(participant =>
+    participant.firstName.toLowerCase().includes(searchTerm) ||
+    participant.lastName.toLowerCase().includes(searchTerm) ||
+    participant.email.toLowerCase().includes(searchTerm) ||
+    (participant.cellPhone && participant.cellPhone.includes(searchTerm))
+  );
 });
 
 onMounted(() => {
@@ -186,8 +223,16 @@ const confirmDelete = async () => {
   chargeToDelete.value = null;
 };
 
+const openAssignModal = (charge: Charge) => {
+  selectedCharge.value = charge;
+  serverSearchTerm.value = '';
+  isAssignModalOpen.value = true;
+};
+
 const assignParticipant = async (chargeId: string, participantId: string) => {
   const idToAssign = participantId === 'unassigned' ? null : participantId;
   await chargeStore.assignParticipant(chargeId, idToAssign);
+  isAssignModalOpen.value = false;
+  selectedCharge.value = null;
 };
 </script>
