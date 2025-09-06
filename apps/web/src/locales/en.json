@@ -462,7 +462,8 @@
     "columns": "columns",
     "actions": {
       "cancel": "Cancel",
-      "delete": "Delete",
+      "delete": "Delete",    
+      "close": "Close",
       "print": "Print"
     },
     "import": {

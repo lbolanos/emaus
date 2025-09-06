@@ -461,6 +461,7 @@
     "actions": {
       "cancel": "Cancelar",
       "delete": "Eliminar",
+      "close": "Cerrar",
       "print": "Imprimir"
     },
     "import": {

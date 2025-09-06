@@ -38,7 +38,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@repo/ui/components/ui/dropdown-menu';
-import { ArrowUpDown, Trash2, Edit, FileUp, FileDown, Columns, ListFilter } from 'lucide-vue-next';
+
+
+import { ArrowUpDown, Trash2, Edit, FileUp, FileDown, Columns, ListFilter, MoreVertical, Plus } from 'lucide-vue-next';
 import { useToast } from '@repo/ui/components/ui/toast/use-toast';
 
 // Traducción (simulada, usa tu sistema de i18n)
@@ -81,6 +83,7 @@ const participants = computed(() => {
 const searchQuery = ref('');
 const sortKey = ref('lastName');
 const sortOrder = ref<'asc' | 'desc'>('asc');
+const isColumnDialogOpen = ref(false);
 const isImportDialogOpen = ref(false);
 const isDeleteDialogOpen = ref(false);
 const participantToDelete = ref<any>(null);
@@ -334,6 +337,10 @@ const exportData = (format: 'csv' | 'xlsx') => {
     XLSX.writeFile(workbook, filename);
 };
 
+const closeColumnDialog = () => {
+    isColumnDialogOpen.value = false;
+};
+
 
 // --- WATCHER PARA CARGAR DATOS ---
 watch([selectedRetreatId, filterStatus], ([newId]) => {
@@ -356,68 +363,63 @@ watch([selectedRetreatId, filterStatus], ([newId]) => {
                 class="max-w-sm"
             />
             <div class="flex gap-2">
-                <!-- Filtro de estado -->
+                
+                <!-- Add Participant -->
+                <Button @click="openRegistrationLink" :disabled="!selectedRetreatId" :title="$t('participants.addParticipant')" size="icon" >
+                    <Plus class="h-4 w-4" />
+                </Button>
+                <!-- Three dots menu with all actions -->
                 <DropdownMenu>
                     <DropdownMenuTrigger as-child>
-                        <Button variant="outline">
-                            <ListFilter class="mr-2 h-4 w-4" />
-                            <span>{{ $t(`participants.status.${filterStatus}`) }}</span>
+                        <Button variant="outline" size="icon">
+                            <MoreVertical class="h-4 w-4" />
                         </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                        <DropdownMenuLabel>{{ $t('participants.status.title') }}</DropdownMenuLabel>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>{{ $t('participants.actions') }}</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem @click="filterStatus = 'active'">{{ $t('participants.status.active') }}</DropdownMenuItem>
-                        <DropdownMenuItem @click="filterStatus = 'canceled'">{{ $t('participants.status.canceled') }}</DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
 
-                <!-- Selección de Columnas -->
-                <Dialog>
-                    <DialogTrigger as-child>
-                        <Button variant="outline">
+                        <!-- Filter Status -->
+                        <DropdownMenu>
+                            <DropdownMenuTrigger as-child>
+                                <Button variant="ghost" class="w-full justify-start p-2">
+                                    <ListFilter class="mr-2 h-4 w-4" />
+                                    <span>{{ $t(`participants.status.${filterStatus}`) }}</span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent side="right">
+                                <DropdownMenuLabel>{{ $t('participants.status.title') }}</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem @click="filterStatus = 'active'">{{ $t('participants.status.active') }}</DropdownMenuItem>
+                                <DropdownMenuItem @click="filterStatus = 'canceled'">{{ $t('participants.status.canceled') }}</DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        <!-- Column Selector -->
+                        <DropdownMenuItem @click="isColumnDialogOpen = true">
                             <Columns class="mr-2 h-4 w-4" />
                             {{ $t('common.columns') }}
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent class="max-w-4xl">
-                        <DialogHeader>
-                            <DialogTitle>{{ $t('participants.selectColumns') }}</DialogTitle>
-                        </DialogHeader>
-                        <ColumnSelector
-                            :all-columns="allColumns.map(c => ({ ...c, label: $t(c.label) }))"
-                            v-model="visibleColumns"
-                        />
-                    </DialogContent>
-                </Dialog>
+                        </DropdownMenuItem>
 
-                <!-- Importar / Exportar -->
-                 <Dialog v-model:open="isImportDialogOpen">
-                    <DialogTrigger as-child>
-                         <Button variant="outline" size="icon"><FileUp class="h-4 w-4" /></Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>{{ $t('participants.import.title') }}</DialogTitle>
-                            <DialogDescription>{{ $t('participants.import.description') }}</DialogDescription>
-                        </DialogHeader>
-                        <Input type="file" @change="handleFileUpload" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" />
-                    </DialogContent>
-                </Dialog>
-                                <DropdownMenu>
-                    <DropdownMenuTrigger as-child>
-                        <Button variant="outline" size="icon"><FileDown class="h-4 w-4" /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                        <DropdownMenuItem @click="exportData('xlsx')">{{ $t('export.xlsx') }}</DropdownMenuItem>
-                        <DropdownMenuItem @click="exportData('csv')">{{ $t('export.csv') }}</DropdownMenuItem>
+                        <!-- Import -->
+                        <DropdownMenuItem @click="isImportDialogOpen = true">
+                            <FileUp class="mr-2 h-4 w-4" />
+                            {{ $t('participants.import.title') }}
+                        </DropdownMenuItem>
+
+                        <!-- Export -->
+                        <DropdownMenuItem @click="exportData('xlsx')">
+                            <FileDown class="h-4 w-4" />
+                            {{ $t('export.xlsx') }}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem @click="exportData('csv')">
+                            <FileDown class="h-4 w-4" />
+                            {{ $t('export.csv') }}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                     </DropdownMenuContent>
                 </DropdownMenu>
 
-                <!-- Añadir Participante -->
-                <Button @click="openRegistrationLink" :disabled="!selectedRetreatId">
-                    {{ $t('participants.addParticipant') }}
-                </Button>
             </div>
         </div>
 
@@ -488,5 +490,61 @@ watch([selectedRetreatId, filterStatus], ([newId]) => {
                 />
             </DialogContent>
         </Dialog>
+
+        <!-- Column Selector Modal -->
+        <div v-if="isColumnDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center">
+            <!-- Backdrop -->
+            <div class="absolute inset-0 bg-black/50" @click="closeColumnDialog"></div>
+
+            <!-- Modal Content -->
+            <div class="relative bg-white rounded-lg shadow-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold">{{ $t('participants.selectColumns') }}</h2>
+                        <Button variant="ghost" size="icon" @click="closeColumnDialog">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </Button>
+                    </div>
+                    <ColumnSelector
+                        :all-columns="allColumns.map(c => ({ ...c, label: $t(c.label) }))"
+                        v-model="visibleColumns"
+                    />
+                    <div class="flex justify-end mt-6">
+                        <Button variant="outline" @click="closeColumnDialog">
+                            {{ $t('common.actions.close') }}
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Import Modal -->
+        <div v-if="isImportDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center">
+            <!-- Backdrop -->
+            <div class="absolute inset-0 bg-black/50" @click="isImportDialogOpen = false"></div>
+
+            <!-- Modal Content -->
+            <div class="relative bg-white rounded-lg shadow-lg max-w-md w-full mx-4">
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold">{{ $t('participants.import.title') }}</h2>
+                        <Button variant="ghost" size="icon" @click="isImportDialogOpen = false">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </Button>
+                    </div>
+                    <p class="text-sm text-muted-foreground mb-4">{{ $t('participants.import.description') }}</p>
+                    <Input type="file" @change="handleFileUpload" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" />
+                    <div class="flex justify-end mt-6">
+                        <Button variant="outline" @click="isImportDialogOpen = false">
+                            {{ $t('common.actions.close') }}
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </template>

@@ -27,7 +27,7 @@ export const findAllParticipants = async (
   if (type) {
     where.type = type;
   }
-  if (isCancelled !== undefined) {
+  if (typeof isCancelled === 'boolean') {
     where.isCancelled = isCancelled;
   }
   return participantRepository.find({ where, relations });
