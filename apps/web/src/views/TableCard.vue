@@ -1,5 +1,5 @@
 <template>
-  <Card class="flex flex-col">
+  <Card class="flex flex-col" :class="{ 'opacity-50 pointer-events-none': !table.id }">
     <!-- Card Header -->
     <CardHeader class="flex-row items-center justify-between">
       <CardTitle class="flex items-center justify-between">
@@ -7,23 +7,15 @@
       </CardTitle>
       <div class="flex items-center gap-2">
         <span class="text-sm font-normal text-gray-500 dark:text-gray-400"> {{ table.walkers?.length || 0 }} / 7 </span>
-        <DropdownMenu>
-          <DropdownMenuTrigger as-child>
-            <Button variant="ghost" size="sm" class="w-8 h-8 p-0">
-              <MoreVertical class="w-4 h-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              @click="confirmDelete"
-              :disabled="hasWalkers"
-              class="text-red-600 focus:text-red-600 focus:bg-red-100/80 dark:focus:bg-red-900/40 dark:focus:text-red-500"
-            >
-              <Trash2 class="mr-2 h-4 w-4" />
-              <span>{{ $t('common.delete') }}</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button
+          variant="destructive"
+          size="icon"
+          @click="confirmDelete"
+          :disabled="hasWalkers"
+          :title="hasWalkers ? $t('tables.deleteTable.disabledTooltip') : $t('common.delete')"
+        >
+          <Trash2 class="w-4 h-4" />
+        </Button>
       </div>
     </CardHeader>
 
@@ -117,14 +109,8 @@ import { useTableMesaStore } from '@/stores/tableMesaStore';
 import { useI18n } from 'vue-i18n';
 import ServerDropZone from './ServerDropZone.vue';
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@repo/ui/components/ui/dropdown-menu';
 import { Button } from '@repo/ui/components/ui/button';
-import { MoreVertical, Trash2 } from 'lucide-vue-next';
+import { Trash2 } from 'lucide-vue-next';
 
 const props = defineProps({
   table: {
@@ -172,6 +158,9 @@ const startDragFromTable = (event: DragEvent, participant: Participant, role?: S
 };
 
 const onDrop = (event: DragEvent, role: ServerRole | 'walkers') => {
+  // Prevent drop if table is not saved yet
+  if (!props.table.id) return;
+
   isOverServer.value = false;
   isOverWalker.value = false;
   dragOverRole.value = null;
@@ -195,6 +184,9 @@ const onDrop = (event: DragEvent, role: ServerRole | 'walkers') => {
 };
 
 const onDragOver = (event: DragEvent, type: 'server' | 'walker', role: ServerRole | null = null) => {
+  // Prevent drag over if table is not saved yet
+  if (!props.table.id) return;
+
   const participantData = event.dataTransfer?.getData('application/json');
   if (!participantData) return;
   const participant: Participant = JSON.parse(participantData);

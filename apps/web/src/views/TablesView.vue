@@ -238,9 +238,9 @@ const confirmDeleteTable = async () => {
   isDeleting.value = true;
   try {
     await tableMesaStore.deleteTable(tableToDelete.value.id);
-    isDeleteDialogOpen.value = false;
   } finally {
     isDeleting.value = false;
+    isDeleteDialogOpen.value = false;
   }
 };
 

@@ -138,7 +138,7 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
         retreatId: retreatStore.selectedRetreatId,
       };
       const newTable = await api.post('/tables', newTableData);
-      tables.value.push(newTable);
+      tables.value.push(newTable.data);
     } catch (e: any) {
       console.error('Failed to create table', e);
       toast({ title: 'Error', description: 'Failed to create table', variant: 'destructive' });
