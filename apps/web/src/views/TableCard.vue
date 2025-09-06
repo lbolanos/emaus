@@ -8,6 +8,14 @@
       <div class="flex items-center gap-2">
         <span class="text-sm font-normal text-gray-500 dark:text-gray-400"> {{ table.walkers?.length || 0 }} / 7 </span>
         <Button
+          variant="outline"
+          size="icon"
+          @click="isDialogOpen = true"
+          :title="$t('tables.viewWalkers')"
+        >
+          <Eye class="w-4 h-4" />
+        </Button>
+        <Button
           variant="destructive"
           size="icon"
           @click="confirmDelete"
@@ -85,6 +93,38 @@
       </div>
     </CardContent>
   </Card>
+
+  <Dialog v-model:open="isDialogOpen">
+    <DialogContent class="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>Walkers and Inviters</DialogTitle>
+      </DialogHeader>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Walker Name</TableHead>
+            <TableHead>Invited By</TableHead>
+            <TableHead>Emaus Member</TableHead>
+            <TableHead>Home Phone</TableHead>
+            <TableHead>Work Phone</TableHead>
+            <TableHead>Cell Phone</TableHead>
+            <TableHead>Email</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow v-for="walker in table.walkers" :key="walker.id">
+            <TableCell>{{ walker.firstName }} {{ walker.lastName }}</TableCell>
+            <TableCell>{{ walker.invitedBy || 'N/A' }}</TableCell>
+            <TableCell>{{ walker.isInvitedByEmausMember ? 'Yes' : 'No' }}</TableCell>
+            <TableCell>{{ walker.inviterHomePhone || 'N/A' }}</TableCell>
+            <TableCell>{{ walker.inviterWorkPhone || 'N/A' }}</TableCell>
+            <TableCell>{{ walker.inviterCellPhone || 'N/A' }}</TableCell>
+            <TableCell>{{ walker.inviterEmail || 'N/A' }}</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    </DialogContent>
+  </Dialog>
 </template>
 
 <style scoped>
@@ -103,14 +143,16 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import type { PropType } from 'vue';
-import type { Participant, TableMesa, ServerRole } from '@repo/types';
+import type { Participant, TableMesa } from '@repo/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/ui/card';
 import { useTableMesaStore } from '@/stores/tableMesaStore';
 import { useI18n } from 'vue-i18n';
 import ServerDropZone from './ServerDropZone.vue';
 
 import { Button } from '@repo/ui/components/ui/button';
-import { Trash2 } from 'lucide-vue-next';
+import { Trash2, Eye } from 'lucide-vue-next';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@repo/ui/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@repo/ui/components/ui/table';
 
 const props = defineProps({
   table: {
@@ -126,8 +168,9 @@ const tableMesaStore = useTableMesaStore();
 
 const isOverServer = ref(false);
 const isOverWalker = ref(false);
-const dragOverRole = ref<ServerRole | null>(null);
+const dragOverRole = ref<'lider' | 'colider1' | 'colider2' | null>(null);
 const isDropInvalid = ref(false);
+const isDialogOpen = ref(false);
 
 const hasWalkers = computed(() => (props.table.walkers?.length || 0) > 0);
 
@@ -135,13 +178,13 @@ const confirmDelete = () => {
   emit('delete', props.table);
 };
 
-const startDragFromTable = (event: DragEvent, participant: Participant, role?: ServerRole | 'walkers') => {
+const startDragFromTable = (event: DragEvent, participant: Participant, role?: 'lider' | 'colider1' | 'colider2' | 'walkers') => {
   if (event.dataTransfer) {
     event.dataTransfer.dropEffect = 'move';
     event.dataTransfer.effectAllowed = 'move';
 
     // Find the role of the participant being dragged from this table
-    let sourceRole: ServerRole | 'walkers' | undefined = role;
+    let sourceRole: 'lider' | 'colider1' | 'colider2' | 'walkers' | undefined = role;
     if (!sourceRole) {
       if (props.table.lider?.id === participant.id) sourceRole = 'lider';
       else if (props.table.colider1?.id === participant.id) sourceRole = 'colider1';
@@ -157,7 +200,7 @@ const startDragFromTable = (event: DragEvent, participant: Participant, role?: S
   }
 };
 
-const onDrop = (event: DragEvent, role: ServerRole | 'walkers') => {
+const onDrop = (event: DragEvent, role: 'lider' | 'colider1' | 'colider2' | 'walkers') => {
   // Prevent drop if table is not saved yet
   if (!props.table.id) return;
 
@@ -168,7 +211,7 @@ const onDrop = (event: DragEvent, role: ServerRole | 'walkers') => {
   const participantData = event.dataTransfer?.getData('application/json');
   if (!participantData) return;
 
-  const participant: Participant & { sourceTableId?: string; sourceRole?: ServerRole | 'walkers' } = JSON.parse(participantData);
+  const participant: Participant & { sourceTableId?: string; sourceRole?: 'lider' | 'colider1' | 'colider2' | 'walkers' } = JSON.parse(participantData);
 
   // Ensure table ID is valid before proceeding
   if (!props.table.id) {
@@ -179,11 +222,11 @@ const onDrop = (event: DragEvent, role: ServerRole | 'walkers') => {
   if (role === 'walkers' && participant.type === 'walker') {
     tableMesaStore.assignWalkerToTable(props.table.id, participant.id, participant.sourceTableId);
   } else if (role !== 'walkers' && participant.type === 'server') {
-    tableMesaStore.assignLeader(props.table.id, participant.id, role as ServerRole, participant.sourceTableId, participant.sourceRole as ServerRole);
+    tableMesaStore.assignLeader(props.table.id, participant.id, role, participant.sourceTableId, participant.sourceRole);
   }
 };
 
-const onDragOver = (event: DragEvent, type: 'server' | 'walker', role: ServerRole | null = null) => {
+const onDragOver = (event: DragEvent, type: 'server' | 'walker', role: 'lider' | 'colider1' | 'colider2' | null = null) => {
   // Prevent drag over if table is not saved yet
   if (!props.table.id) return;
 
