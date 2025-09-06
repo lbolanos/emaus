@@ -3,11 +3,11 @@ import * as participantService from '../services/participantService';
 
 export const getAllParticipants = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { retreatId, type, isCanceled } = req.query;
+    const { retreatId, type, isCancelled: isCancelled } = req.query;
     const participants = await participantService.findAllParticipants(
       retreatId as string | undefined,
       type as 'walker' | 'server' | 'waiting' | undefined,
-      isCanceled === 'true',
+      isCancelled === 'true',
       ['tableMesa', 'retreatBed'] // Include table and bed relations
     );
     res.json(participants);
