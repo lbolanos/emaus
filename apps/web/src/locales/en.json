@@ -221,7 +221,8 @@
     "columns": "columns",
     "actions": {
       "cancel": "Cancel",
-      "delete": "Delete"
+      "delete": "Delete",
+      "print": "Print"
     },
     "import": {
       "errorTitle": "Import Error",
@@ -264,14 +265,24 @@
       "successDescription": "Walkers have been successfully rebalanced across the tables.",
       "errorTitle": "Rebalance Failed",
       "errorDescription": "An error occurred while rebalancing the walkers. Please try again."
-    }
-  },
-  "tables": {
+    },
     "addTable": "Add Table",
     "deleteTable": {
       "title": "Delete Table",
       "description": "Are you sure you want to delete this table? This action cannot be undone.",
-      "errorNotEmpty": "Cannot delete a table that has walkers assigned to it."
+      "errorNotEmpty": "Cannot delete a table that has walkers assigned to it.",
+      "disabledTooltip": "Cannot delete table with walkers assigned"
+    },
+    "viewWalkers": "View Walkers",
+    "tableCard": {
+      "dialogTitle": "Walkers and Inviters",
+      "walkerName": "Walker Name",
+      "invitedBy": "Invited By",
+      "roomNumber": "Room #",
+      "parish": "Parish",
+      "emausMember": "Emaus Member",
+      "email": "Email",
+      "notAvailable": "N/A"
     }
   },
   "walkerRegistration": {

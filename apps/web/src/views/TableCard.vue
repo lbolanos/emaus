@@ -97,29 +97,33 @@
   <Dialog v-model:open="isDialogOpen">
     <DialogContent class="max-w-4xl max-h-[80vh] overflow-y-auto">
       <DialogHeader>
-        <DialogTitle>Walkers and Inviters</DialogTitle>
+        <DialogTitle>{{ $t('tables.tableCard.dialogTitle') }}</DialogTitle>
       </DialogHeader>
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Walker Name</TableHead>
-            <TableHead>Invited By</TableHead>
-            <TableHead>Emaus Member</TableHead>
-            <TableHead>Home Phone</TableHead>
-            <TableHead>Work Phone</TableHead>
-            <TableHead>Cell Phone</TableHead>
-            <TableHead>Email</TableHead>
+            <TableHead>{{ $t('tables.tableCard.walkerName') }}</TableHead>
+            <TableHead>{{ $t('tables.tableCard.invitedBy') }}</TableHead>
+            <TableHead>{{ $t('tables.tableCard.roomNumber') }}</TableHead>
+            <TableHead>{{ $t('tables.tableCard.parish') }}</TableHead>
+            <TableHead>{{ $t('tables.tableCard.emausMember') }}</TableHead>
+            <!-- <TableHead>Home Phone</TableHead> -->
+            <!-- <TableHead>Work Phone</TableHead>
+            <TableHead>Cell Phone</TableHead>-->
+            <TableHead>{{ $t('tables.tableCard.email') }}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           <TableRow v-for="walker in table.walkers" :key="walker.id">
             <TableCell>{{ walker.firstName }} {{ walker.lastName }}</TableCell>
-            <TableCell>{{ walker.invitedBy || 'N/A' }}</TableCell>
-            <TableCell>{{ walker.isInvitedByEmausMember ? 'Yes' : 'No' }}</TableCell>
-            <TableCell>{{ walker.inviterHomePhone || 'N/A' }}</TableCell>
+            <TableCell>{{ walker.invitedBy || $t('tables.tableCard.notAvailable') }}</TableCell>
+            <TableCell>{{ walker.retreatBed?.roomNumber || $t('tables.tableCard.notAvailable') }}</TableCell>
+            <TableCell>{{ walker.parish || $t('tables.tableCard.notAvailable') }}</TableCell>
+            <TableCell>{{ walker.isInvitedByEmausMember ? $t('common.yes') : $t('common.no') }}</TableCell>
+            <!--TableCell>{{ walker.inviterHomePhone || 'N/A' }}</TableCell>
             <TableCell>{{ walker.inviterWorkPhone || 'N/A' }}</TableCell>
-            <TableCell>{{ walker.inviterCellPhone || 'N/A' }}</TableCell>
-            <TableCell>{{ walker.inviterEmail || 'N/A' }}</TableCell>
+            <TableCell>{{ walker.cellPhone || 'N/A' }}</TableCell-->
+            <TableCell>{{ walker.email || $t('tables.tableCard.notAvailable') }}</TableCell>
           </TableRow>
         </TableBody>
       </Table>

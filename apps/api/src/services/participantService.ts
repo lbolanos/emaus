@@ -260,7 +260,13 @@ export const importParticipants = async (retreatId: string, participantsData: an
   const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
     return {
       id_on_retreat: participant.id?.trim(),
-      type: (participant.tipousuario?.trim() === '3' ? 'walker' : 'server') as 'walker' | 'server' | 'waiting',
+      type: (() => {
+        const userType = participant.tipousuario?.trim();
+        if (userType === '3') return 'walker';
+        if (userType === '4') return 'waiting';
+        // Assuming anything else is a server for now, adjust if more types exist
+        return 'server';
+      })() as 'walker' | 'server' | 'waiting',
       firstName: participant.nombre?.trim() || '',
       lastName: participant.apellidos?.trim(),
       nickname: participant.apodo?.trim(),

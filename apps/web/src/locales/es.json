@@ -218,7 +218,8 @@
     "columns": "columnas",
     "actions": {
       "cancel": "Cancelar",
-      "delete": "Eliminar"
+      "delete": "Eliminar",
+      "print": "Imprimir"
     },
     "import": {
       "errorTitle": "Error de Importación",
@@ -267,9 +268,21 @@
     "deleteTable": {
       "title": "Eliminar Mesa",
       "description": "¿Estás seguro de que quieres eliminar esta mesa? Esta acción no se puede deshacer.",
-      "errorNotEmpty": "No se puede eliminar una mesa que tiene caminantes asignados."
+      "errorNotEmpty": "No se puede eliminar una mesa que tiene caminantes asignados.",
+      "disabledTooltip": "No se puede eliminar mesa con caminantes asignados"
     },
-    "invitedBy": "Invitado por"
+    "viewWalkers": "Ver Caminantes",
+    "invitedBy": "Invitado por",
+    "tableCard": {
+      "dialogTitle": "Caminantes e Invitadores",
+      "walkerName": "Nombre del Caminante",
+      "invitedBy": "Invitado por",
+      "roomNumber": "Habitación #",
+      "parish": "Parroquia",
+      "emausMember": "Miembro de Emaús",
+      "email": "Correo Electrónico",
+      "notAvailable": "N/A"
+    }
   },
   "walkerRegistration": {
     "title": "Registro de Caminante",

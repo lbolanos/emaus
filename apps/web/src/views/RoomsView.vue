@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { api } from '@/services/api';
+import { Button } from '@repo/ui/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@repo/ui/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/ui/card';
 import type { RetreatBed, Participant } from '@repo/types';
@@ -39,6 +40,10 @@ const fetchBeds = async () => {
   }
 };
 
+const printContent = () => {
+  window.print();
+};
+
 onMounted(fetchBeds);
 
 const groupedBeds = computed(() => {
@@ -59,8 +64,13 @@ const groupedBeds = computed(() => {
 </script>
 
 <template>
-  <div class="p-4">
-    <h1 class="text-2xl font-bold mb-4">{{ $t('rooms.title') }}</h1>
+  <div class="p-4 print-container">
+    <div class="flex justify-between items-center mb-4 no-print">
+      <h1 class="text-2xl font-bold">{{ $t('rooms.title') }}</h1>
+      <Button @click="printContent">
+        {{ $t('common.actions.print') }}
+      </Button>
+    </div>
     <div v-if="loading" class="text-center">
       <p>{{ $t('participants.loading') }}</p>
     </div>
@@ -68,9 +78,9 @@ const groupedBeds = computed(() => {
       <p>{{ $t('rooms.noRoomsFound') }}</p>
     </div>
     <div v-else>
-      <div v-for="(floorRooms, floor) in groupedBeds" :key="floor" class="mb-8">
+      <div v-for="(floorRooms, floor) in groupedBeds" :key="floor" class="mb-8 print-section">
         <h2 class="text-xl font-semibold mb-4">{{ $t('rooms.floor') }} {{ floor }}</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="card-container grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card v-for="(roomBeds, roomNumber) in floorRooms" :key="roomNumber">
             <CardHeader>
               <CardTitle>
@@ -107,3 +117,39 @@ const groupedBeds = computed(() => {
     </div>
   </div>
 </template>
+
+<style>
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-container, .print-container * {
+    visibility: visible;
+  }
+  .print-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .card-container {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  .card {
+    page-break-inside: avoid;
+    border: 1px solid #ccc;
+    margin-bottom: 1rem;
+  }
+  .print-section {
+    page-break-after: always;
+  }
+  .mb-8 {
+    margin-bottom: 0; /* Remove extra margin on print */
+  }
+}
+</style>
