@@ -8,7 +8,7 @@ export const getAllParticipants = async (req: Request, res: Response, next: Next
       retreatId as string | undefined,
       type as 'walker' | 'server' | 'waiting' | undefined,
       isCanceled === 'true',
-      ['tableMesa'] // Include table relation
+      ['tableMesa', 'retreatBed'] // Include table and bed relations
     );
     res.json(participants);
   } catch (error) {

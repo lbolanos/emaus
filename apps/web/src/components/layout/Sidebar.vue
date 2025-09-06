@@ -15,9 +15,18 @@
     <div class="px-4 py-2 border-t border-b border-gray-700">
       <div v-if="auth.isAuthenticated && auth.user" class="flex items-center gap-4" :class="{ 'justify-center': isCollapsed }">
         <span v-if="!isCollapsed">{{ auth.user.displayName }}</span>
-        <Button @click="handleLogout" variant="ghost" size="icon">
-          <LogOut class="w-5 h-5" />
-        </Button>
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <Button @click="handleLogout" variant="ghost" size="icon">
+                <LogOut class="w-5 h-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent v-if="isCollapsed" side="right">
+              <p>{{ $t('sidebar.logout') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </div>
 
@@ -28,18 +37,27 @@
         v-slot="{ href, navigate, isActive }"
         custom
       >
-        <a
-          :href="href"
-          @click="navigate"
-          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
-          :class="[
-            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-            { 'justify-center': isCollapsed }
-          ]"
-        >
-          <LayoutDashboard class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-          <span v-if="!isCollapsed">{{ $t('sidebar.retreatDashboard') }}</span>
-        </a>
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isCollapsed }
+                ]"
+              >
+                <LayoutDashboard class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+                <span v-if="!isCollapsed">{{ $t('sidebar.retreatDashboard') }}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isCollapsed" side="right">
+              <p>{{ $t('sidebar.retreatDashboard') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </router-link>
       <router-link
         v-if="retreatStore.selectedRetreatId"
@@ -47,18 +65,27 @@
         v-slot="{ href, navigate, isActive }"
         custom
       >
-        <a
-          :href="href"
-          @click="navigate"
-          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
-          :class="[
-            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-            { 'justify-center': isCollapsed }
-          ]"
-        >
-          <Users class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-          <span v-if="!isCollapsed">{{ $t('sidebar.walkers') }}</span>
-        </a>
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isCollapsed }
+                ]"
+              >
+                <Users class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+                <span v-if="!isCollapsed">{{ $t('sidebar.walkers') }}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isCollapsed" side="right">
+              <p>{{ $t('sidebar.walkers') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </router-link>
       
       <router-link
@@ -67,18 +94,27 @@
         v-slot="{ href, navigate, isActive }"
         custom
       >
-        <a
-          :href="href"
-          @click="navigate"
-          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
-          :class="[
-            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-            { 'justify-center': isCollapsed }
-          ]"
-        >
-          <UtensilsCrossed class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-          <span v-if="!isCollapsed">{{ $t('sidebar.servers') }}</span>
-        </a>
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isCollapsed }
+                ]"
+              >
+                <UtensilsCrossed class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+                <span v-if="!isCollapsed">{{ $t('sidebar.servers') }}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isCollapsed" side="right">
+              <p>{{ $t('sidebar.servers') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </router-link>
       <router-link
         v-if="retreatStore.selectedRetreatId"
@@ -86,18 +122,27 @@
         v-slot="{ href, navigate, isActive }"
         custom
       >
-        <a
-          :href="href"
-          @click="navigate"
-          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
-          :class="[
-            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-            { 'justify-center': isCollapsed }
-          ]"
-        >
-          <Table class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-          <span v-if="!isCollapsed">{{ $t('sidebar.tables') }}</span>
-        </a>
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isCollapsed }
+                ]"
+              >
+                <Table class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+                <span v-if="!isCollapsed">{{ $t('sidebar.tables') }}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isCollapsed" side="right">
+              <p>{{ $t('sidebar.tables') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </router-link>
       <router-link
         v-if="retreatStore.selectedRetreatId"
@@ -105,18 +150,27 @@
         v-slot="{ href, navigate, isActive }"
         custom
       >
-        <a
-          :href="href"
-          @click="navigate"
-          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
-          :class="[
-            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-            { 'justify-center': isCollapsed }
-          ]"
-        >
-          <UserCog class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-          <span v-if="!isCollapsed">{{ $t('sidebar.charges') }}</span>
-        </a>
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isCollapsed }
+                ]"
+              >
+                <UserCog class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+                <span v-if="!isCollapsed">{{ $t('sidebar.charges') }}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isCollapsed" side="right">
+              <p>{{ $t('sidebar.charges') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </router-link>
       <router-link
         v-if="retreatStore.selectedRetreatId"
@@ -124,18 +178,27 @@
         v-slot="{ href, navigate, isActive }"
         custom
       >
-        <a
-          :href="href"
-          @click="navigate"
-          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
-          :class="[
-            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-            { 'justify-center': isCollapsed }
-          ]"
-        >
-          <HandHeart class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-          <span v-if="!isCollapsed">{{ $t('sidebar.palancas') }}</span>
-        </a>
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isCollapsed }
+                ]"
+              >
+                <HandHeart class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+                <span v-if="!isCollapsed">{{ $t('sidebar.palancas') }}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isCollapsed" side="right">
+              <p>{{ $t('sidebar.palancas') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </router-link>
       <router-link
         v-if="retreatStore.selectedRetreatId"
@@ -143,18 +206,27 @@
         v-slot="{ href, navigate, isActive }"
         custom
       >
-        <a
-          :href="href"
-          @click="navigate"
-          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
-          :class="[
-            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-            { 'justify-center': isCollapsed }
-          ]"
-        >
-          <DollarSign class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-          <span v-if="!isCollapsed">{{ $t('sidebar.payments') }}</span>
-        </a>
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isCollapsed }
+                ]"
+              >
+                <DollarSign class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+                <span v-if="!isCollapsed">{{ $t('sidebar.payments') }}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isCollapsed" side="right">
+              <p>{{ $t('sidebar.payments') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </router-link>
       <router-link
         v-if="retreatStore.selectedRetreatId"
@@ -162,18 +234,27 @@
         v-slot="{ href, navigate, isActive }"
         custom
       >
-        <a
-          :href="href"
-          @click="navigate"
-          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
-          :class="[
-            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-            { 'justify-center': isCollapsed }
-          ]"
-        >
-          <NotebookPen class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-          <span v-if="!isCollapsed">{{ $t('sidebar.notesAndMeetingPoints') }}</span>
-        </a>
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isCollapsed }
+                ]"
+              >
+                <NotebookPen class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+                <span v-if="!isCollapsed">{{ $t('sidebar.notesAndMeetingPoints') }}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isCollapsed" side="right">
+              <p>{{ $t('sidebar.notesAndMeetingPoints') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </router-link>
       <router-link
         v-if="retreatStore.selectedRetreatId"
@@ -181,18 +262,27 @@
         v-slot="{ href, navigate, isActive }"
         custom
       >
-        <a
-          :href="href"
-          @click="navigate"
-          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
-          :class="[
-            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-            { 'justify-center': isCollapsed }
-          ]"
-        >
-          <Building class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-          <span v-if="!isCollapsed">{{ $t('sidebar.rooms') }}</span>
-        </a>
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isCollapsed }
+                ]"
+              >
+                <Building class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+                <span v-if="!isCollapsed">{{ $t('sidebar.rooms') }}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isCollapsed" side="right">
+              <p>{{ $t('sidebar.rooms') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </router-link>
       <router-link
         v-if="retreatStore.selectedRetreatId"
@@ -200,18 +290,27 @@
         v-slot="{ href, navigate, isActive }"
         custom
       >
-        <a
-          :href="href"
-          @click="navigate"
-          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
-          :class="[
-            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-            { 'justify-center': isCollapsed }
-          ]"
-        >
-          <UsersRound class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-          <span v-if="!isCollapsed">{{ $t('sidebar.userTypeAndTable') }}</span>
-        </a>
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isCollapsed }
+                ]"
+              >
+                <UsersRound class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+                <span v-if="!isCollapsed">{{ $t('sidebar.userTypeAndTable') }}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isCollapsed" side="right">
+              <p>{{ $t('sidebar.userTypeAndTable') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </router-link>
       <router-link
         v-if="retreatStore.selectedRetreatId"
@@ -219,18 +318,27 @@
         v-slot="{ href, navigate, isActive }"
         custom
       >
-        <a
-          :href="href"
-          @click="navigate"
-          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
-          :class="[
-            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-            { 'justify-center': isCollapsed }
-          ]"
-        >
-          <Salad class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-          <span v-if="!isCollapsed">{{ $t('sidebar.food') }}</span>
-        </a>
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isCollapsed }
+                ]"
+              >
+                <Salad class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+                <span v-if="!isCollapsed">{{ $t('sidebar.food') }}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isCollapsed" side="right">
+              <p>{{ $t('sidebar.food') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </router-link>
       <router-link
         v-if="retreatStore.selectedRetreatId"
@@ -238,18 +346,27 @@
         v-slot="{ href, navigate, isActive }"
         custom
       >
-        <a
-          :href="href"
-          @click="navigate"
-          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
-          :class="[
-            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-            { 'justify-center': isCollapsed }
-          ]"
-        >
-          <FileX class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-          <span v-if="!isCollapsed">{{ $t('sidebar.cancellationAndNotes') }}</span>
-        </a>
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isCollapsed }
+                ]"
+              >
+                <FileX class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+                <span v-if="!isCollapsed">{{ $t('sidebar.cancellationAndNotes') }}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isCollapsed" side="right">
+              <p>{{ $t('sidebar.cancellationAndNotes') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </router-link>
       <router-link
         v-if="retreatStore.selectedRetreatId"
@@ -257,18 +374,27 @@
         v-slot="{ href, navigate, isActive }"
         custom
       >
-        <a
-          :href="href"
-          @click="navigate"
-          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
-          :class="[
-            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-            { 'justify-center': isCollapsed }
-          ]"
-        >
-          <UserCheck class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-          <span v-if="!isCollapsed">{{ $t('sidebar.waitingList') }}</span>
-        </a>
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isCollapsed }
+                ]"
+              >
+                <UserCheck class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+                <span v-if="!isCollapsed">{{ $t('sidebar.waitingList') }}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isCollapsed" side="right">
+              <p>{{ $t('sidebar.waitingList') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </router-link>
       <router-link
         v-if="retreatStore.selectedRetreatId"
@@ -276,18 +402,27 @@
         v-slot="{ href, navigate, isActive }"
         custom
       >
-        <a
-          :href="href"
-          @click="navigate"
-          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
-          :class="[
-            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-            { 'justify-center': isCollapsed }
-          ]"
-        >
-          <ShoppingBag class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-          <span v-if="!isCollapsed">{{ $t('sidebar.bagsReport') }}</span>
-        </a>
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isCollapsed }
+                ]"
+              >
+                <ShoppingBag class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+                <span v-if="!isCollapsed">{{ $t('sidebar.bagsReport') }}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isCollapsed" side="right">
+              <p>{{ $t('sidebar.bagsReport') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </router-link>
       <router-link
         v-if="retreatStore.selectedRetreatId"
@@ -295,18 +430,27 @@
         v-slot="{ href, navigate, isActive }"
         custom
       >
-        <a
-          :href="href"
-          @click="navigate"
-          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
-          :class="[
-            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-            { 'justify-center': isCollapsed }
-          ]"
-        >
-          <Pill class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-          <span v-if="!isCollapsed">{{ $t('sidebar.medicinesReport') }}</span>
-        </a>
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isCollapsed }
+                ]"
+              >
+                <Pill class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+                <span v-if="!isCollapsed">{{ $t('sidebar.medicinesReport') }}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isCollapsed" side="right">
+              <p>{{ $t('sidebar.medicinesReport') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </router-link>
       <router-link
         v-if="retreatStore.selectedRetreatId"
@@ -314,18 +458,27 @@
         v-slot="{ href, navigate, isActive }"
         custom
       >
-        <a
-          :href="href"
-          @click="navigate"
-          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
-          :class="[
-            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-            { 'justify-center': isCollapsed }
-          ]"
-        >
-          <Bed class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-          <span v-if="!isCollapsed">{{ $t('sidebar.bedAssignments') }}</span>
-        </a>
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isCollapsed }
+                ]"
+              >
+                <Bed class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+                <span v-if="!isCollapsed">{{ $t('sidebar.bedAssignments') }}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isCollapsed" side="right">
+              <p>{{ $t('sidebar.bedAssignments') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </router-link>
       <router-link
         v-if="retreatStore.selectedRetreatId"
@@ -333,36 +486,54 @@
         v-slot="{ href, navigate, isActive }"
         custom
       >
-        <a
-          :href="href"
-          @click="navigate"
-          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
-          :class="[
-            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-            { 'justify-center': isCollapsed }
-          ]"
-        >
-          <Ban class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-          <span v-if="!isCollapsed">{{ $t('sidebar.canceled') }}</span>
-        </a>
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isCollapsed }
+                ]"
+              >
+                <Ban class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+                <span v-if="!isCollapsed">{{ $t('sidebar.canceled') }}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isCollapsed" side="right">
+              <p>{{ $t('sidebar.canceled') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </router-link>
       <router-link
         :to="{ name: 'houses' }"
         v-slot="{ href, navigate, isActive }"
         custom
       >
-        <a
-          :href="href"
-          @click="navigate"
-          class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
-          :class="[
-            isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-            { 'justify-center': isCollapsed }
-          ]"
-        >
-          <Home class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-          <span v-if="!isCollapsed">{{ $t('sidebar.houses') }}</span>
-        </a>
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isCollapsed }
+                ]"
+              >
+                <Home class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
+                <span v-if="!isCollapsed">{{ $t('sidebar.houses') }}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isCollapsed" side="right">
+              <p>{{ $t('sidebar.houses') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </router-link>
       <!-- Add other menu items here following the same pattern -->
     </nav>
@@ -375,6 +546,7 @@ import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter } from 'vue-router';
 import { Button } from '@repo/ui/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@repo/ui/components/ui/tooltip';
 import { useRetreatStore } from '@/stores/retreatStore';
 
 const auth = useAuthStore();

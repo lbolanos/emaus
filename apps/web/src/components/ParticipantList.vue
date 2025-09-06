@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useRetreatStore } from '@/stores/retreatStore';
+import { useI18n } from 'vue-i18n';
 import * as XLSX from 'xlsx';
 
 // Importa los componentes de UI necesarios
@@ -43,19 +44,20 @@ import { useToast } from '@repo/ui/components/ui/toast/use-toast';
 //const $t = (key: string) => key.split('.').pop()?.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()) || key;
 
 const props = withDefaults(defineProps<{
-    type: 'walker' | 'server' | 'waiting',
+    type?: 'walker' | 'server' | 'waiting' | undefined,
     isCanceled?: boolean,
     columnsToShowInTable?: string[],
     columnsToShowInForm?: string[],
     columnsToEditInForm?: string[],
 }>(), {
     isCanceled: false,
-    columnsToShowInTable: () => ['firstName', 'lastName', 'email', 'cellPhone', 'table.name'],
+    columnsToShowInTable: () => ['id_on_retreat', 'firstName', 'lastName', 'email', 'cellPhone', 'tableMesa.name'],
     columnsToShowInForm: () => [],
     columnsToEditInForm: () => [],
 });
 
 const { toast } = useToast();
+const { t: $t } = useI18n();
 
 // Stores de Pinia
 const participantStore = useParticipantStore();
@@ -63,7 +65,12 @@ const { participants: allParticipants, loading, error } = storeToRefs(participan
 const retreatStore = useRetreatStore();
 const { selectedRetreatId, serverRegistrationLink, walkerRegistrationLink } = storeToRefs(retreatStore);
 
-const participants = computed(() => (allParticipants.value || []).filter(p => p.type === props.type));
+const participants = computed(() => {
+    if (props.type === undefined) {
+        return allParticipants.value || [];
+    }
+    return (allParticipants.value || []).filter((p: any) => p.type === props.type);
+});
 
 // --- ESTADO LOCAL DEL COMPONENTE ---
 const searchQuery = ref('');
@@ -84,7 +91,7 @@ const allColumns = ref([
     { key: 'firstName', label: 'participants.fields.firstName' },
     { key: 'lastName', label: 'participants.fields.lastName' },
     { key: 'nickname', label: 'participants.fields.nickname' },
-    { key: 'table.name', label: 'participants.fields.table' },
+    { key: 'tableMesa.name', label: 'participants.fields.table' },
     { key: 'birthDate', label: 'participants.fields.birthDate' },
     { key: 'maritalStatus', label: 'participants.fields.maritalStatus' },
     { key: 'street', label: 'participants.fields.street' },
@@ -143,6 +150,7 @@ const allColumns = ref([
     { key: 'retreatId', label: 'participants.fields.retreatId' },
     { key: 'tableId', label: 'participants.fields.tableId' },
     { key: 'retreatBedId', label: 'participants.fields.retreatBedId' },
+    { key: 'retreatBed.roomNumber', label: 'rooms.roomNumber' },
 ]);
 
 const visibleColumns = ref<string[]>(props.columnsToShowInTable);
@@ -185,7 +193,7 @@ const filteredAndSortedParticipants = computed(() => {
     return result;
 });
 
-// Helper para obtener valores de propiedades anidadas (ej. 'table.name')
+// Helper para obtener valores de propiedades anidadas (ej. 'tableMesa.name')
 const getNestedProperty = (obj: any, path: string) => {
     return path.split('.').reduce((acc, part) => acc && acc[part], obj);
 };
@@ -272,7 +280,7 @@ const handleFileUpload = async (event: Event) => {
             const worksheet = workbook.Sheets[sheetName];
             const json = XLSX.utils.sheet_to_json(worksheet);
 
-            if (json.length > 0 && !('email' in json[0])) {
+            if (json.length > 0 && !('email' in (json[0] as any))) {
                  toast({ title: $t('participants.import.errorTitle'), description: $t('participants.import.errorNoEmail'), variant: 'destructive' });
                  return;
             }
@@ -406,7 +414,7 @@ watch([selectedRetreatId, filterStatus], ([newId]) => {
                 <TableHeader>
                     <TableRow>
                         <TableHead v-for="colKey in visibleColumns" :key="colKey" @click="handleSort(colKey)" class="cursor-pointer">
-                           {{ $t(allColumns.find(c => c.key === colKey)?.label) }}
+                           {{ $t(allColumns.find(c => c.key === colKey)?.label || '') }}
                            <ArrowUpDown v-if="sortKey === colKey" class="inline-block ml-2 h-4 w-4" />
                         </TableHead>
                         <TableHead>{{ $t('participants.actions') }}</TableHead>

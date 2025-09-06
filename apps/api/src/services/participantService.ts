@@ -230,7 +230,7 @@ export const updateParticipant = async (
   const wasCancelled = participant.isCancelled;
 
   participantData.lastUpdatedDate = new Date();
-  participantRepository.merge(participant, participantData);
+  participantRepository.merge(participant, participantData as any); // Cast to any to bypass DeepPartial type incompatibility
   const updatedParticipant = await participantRepository.save(participant);
 
   // Rebalance if the participant is a walker and their cancelled status changed
@@ -346,7 +346,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
     if (existingParticipant) {
       // Don't override existing type if they are on waiting list etc.
       const { type, ...updateData } = mappedData;
-      participantRepository.merge(existingParticipant, updateData);
+      participantRepository.merge(existingParticipant, updateData as any); // Cast to any to bypass DeepPartial type incompatibility
       await participantRepository.save(existingParticipant);
       updatedCount++;
     } else {
@@ -356,7 +356,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
         isCancelled: false,
         registrationDate: new Date(),
         lastUpdatedDate: new Date(),
-      });
+      } as any); // Cast to any to bypass DeepPartial type incompatibility
       await participantRepository.save(newParticipant);
       importedCount++;
     }

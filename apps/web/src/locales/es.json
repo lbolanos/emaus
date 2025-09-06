@@ -136,6 +136,7 @@
     "title": "Habitaciones",
     "room": "Habitación",
     "floor": "Piso",
+    "roomNumber": "Habitación #",
     "bedNumber": "Cama",
     "type": "Tipo",
     "participant": "Participante",
@@ -206,30 +207,6 @@
   "language": {
     "english": "Inglés",
     "spanish": "Español"
-  },
-  "common": {
-    "yes": "Sí",
-    "no": "No",
-    "submit": "Enviar",
-    "next": "Siguiente",
-    "previous": "Anterior",
-    "noResults": "No se encontraron resultados.",
-    "searchPlaceholder": "Buscar...",
-    "columns": "columnas",
-    "actions": {
-      "cancel": "Cancelar",
-      "delete": "Eliminar",
-      "print": "Imprimir"
-    },
-    "import": {
-      "errorTitle": "Error de Importación",
-      "errorGeneric": "Ocurrió un error al importar"
-    },
-    "edit": "Editar",
-    "delete": "Eliminar",
-    "cancel": "Cancelar",
-    "close": "Cerrar",
-    "unknown": "Desconocido"
   },
   "tables": {
     "title": "Mesas del Retiro",
@@ -470,7 +447,7 @@
     },
     "deleteConfirmationTitle": "Eliminar Cargo",
     "deleteConfirmation": "¿Estás seguro de que quieres eliminar este cargo? Esta acción no se puede deshacer."
-  },
+  },  
   "common": {
     "yes": "Sí",
     "no": "No",
@@ -482,15 +459,17 @@
     "columns": "columnas",
     "actions": {
       "cancel": "Cancelar",
-      "delete": "Eliminar"
+      "delete": "Eliminar",
+      "print": "Imprimir"
     },
     "import": {
-      "errorTitle": "Error al importar",
-      "errorGeneric": "Un error ha ocurrido en la importación"
+      "errorTitle": "Error de Importación",
+      "errorGeneric": "Ocurrió un error al importar"
     },
     "edit": "Editar",
     "delete": "Eliminar",
     "cancel": "Cancelar",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "unknown": "Desconocido"
   }
 }

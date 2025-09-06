@@ -81,9 +81,6 @@ export const chargeSchema = z.object({
 });
 export type Charge = z.infer<typeof chargeSchema>;
 
-// Participant Schema (forward declaration)
-export type Participant = z.infer<typeof participantSchema>;
-
 // RetreatBed Schema
 export const retreatBedSchema = z.object({
   id: idSchema,
@@ -94,9 +91,21 @@ export const retreatBedSchema = z.object({
   defaultUsage: z.enum(['caminante', 'servidor']),
   retreatId: idSchema,
   participantId: idSchema.nullable().optional(),
-  participant: z.lazy(() => participantSchema).nullable().optional(),
+  participant: z.any().nullable().optional(), // Use any to avoid circular reference
 });
 export type RetreatBed = z.infer<typeof retreatBedSchema>;
+
+// TableMesa Schema
+export const tableMesaSchema = z.object({
+  id: idSchema,
+  name: z.string(),
+  retreatId: idSchema,
+  lider: z.any().nullable().optional(),
+  colider1: z.any().nullable().optional(),
+  colider2: z.any().nullable().optional(),
+  walkers: z.array(z.any()).optional(),
+});
+export type TableMesa = z.infer<typeof tableMesaSchema>;
 
 // Participant Schema
 export const participantSchema = z.object({
@@ -200,19 +209,12 @@ export const participantSchema = z.object({
   retreatId: idSchema,
   tableId: idSchema.nullable().optional(),
   retreatBedId: idSchema.nullable().optional(),
+  tableMesa: tableMesaSchema.optional(),
+  retreatBed: retreatBedSchema.nullable().optional(),
 });
+export type Participant = z.infer<typeof participantSchema>;
 
-// TableMesa Schema
-export const tableMesaSchema = z.object({
-  id: idSchema,
-  name: z.string(),
-  retreatId: idSchema,
-  lider: z.lazy(() => participantSchema).nullable().optional(),
-  colider1: z.lazy(() => participantSchema).nullable().optional(),
-  colider2: z.lazy(() => participantSchema).nullable().optional(),
-  walkers: z.array(z.lazy(() => participantSchema)).optional(),
-});
-export type TableMesa = z.infer<typeof tableMesaSchema>;
+// Remove duplicate declaration - already defined above
 
 // --- API Request Schemas ---
 

@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import ParticipantList from '@/components/ParticipantList.vue'
 
-const tableColumns = ['firstName', 'lastName', 'type', 'table.name'];
-const formShowColumns = ['firstName', 'lastName', 'type', 'table.name'];
+const tableColumns = ['id_on_retreat', 'firstName', 'lastName', 'tableMesa.name', 'retreatBed.roomNumber', 'parish', 'invitedBy', 'type'];
+const formShowColumns = ['id_on_retreat', 'firstName', 'lastName', 'tableMesa.name', 'retreatBed.roomNumber', 'parish', 'invitedBy', 'type'];
 const nonEditableColumns = ['firstName', 'lastName'];
 const formEditColumns = tableColumns.filter(c => !nonEditableColumns.includes(c));
 </script>
 
 <template>
-  <ParticipantList type="walker"
+  <ParticipantList 
     :columns-to-show-in-table="tableColumns"
     :columns-to-show-in-form="formShowColumns"
     :columns-to-edit-in-form="formEditColumns"
