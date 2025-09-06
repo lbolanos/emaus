@@ -46,6 +46,7 @@
     "selectRetreatPrompt": "Por favor, selecciona un retiro para ver los participantes.",
     "noParticipantsFound": "No se encontraron caminantes para este retiro.",
     "addParticipant": "Agregar Participante",
+    "selectColumns": "Seleccionar Columnas",
     "delete": {
       "confirmMessage1": "Esta acción no se puede deshacer. Esto eliminará permanentemente a",
       "confirmMessage2": "del retiro.",

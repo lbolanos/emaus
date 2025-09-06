@@ -4,7 +4,7 @@ import { Input } from '@repo/ui/components/ui/input'
 import { Button } from '@repo/ui/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/ui/card'
 import { ScrollArea } from '@repo/ui/components/ui/scroll-area'
-import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-vue-next'
+import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, ChevronUp, ChevronDown, GripVertical } from 'lucide-vue-next'
 
 type Column = {
   key: string
@@ -28,7 +28,7 @@ const hiddenColumns = computed(() =>
 )
 
 const visibleColumns = computed(() =>
-  props.allColumns.filter(c => props.modelValue.includes(c.key))
+  props.modelValue.map(key => props.allColumns.find(c => c.key === key)).filter((c): c is Column => c !== undefined)
 )
 
 const filteredHidden = computed(() =>
@@ -45,11 +45,18 @@ const filteredVisible = computed(() =>
 
 const toggleSelection = (list: 'hidden' | 'visible', key: string) => {
   const selectedList = list === 'hidden' ? selectedHidden : selectedVisible
-  const index = selectedList.value.indexOf(key)
-  if (index > -1) {
-    selectedList.value.splice(index, 1)
+
+  if (list === 'visible') {
+    // Single selection for visible columns (radio button behavior)
+    selectedList.value = selectedList.value.includes(key) ? [] : [key]
   } else {
-    selectedList.value.push(key)
+    // Multi-selection for hidden columns (checkbox behavior)
+    const index = selectedList.value.indexOf(key)
+    if (index > -1) {
+      selectedList.value.splice(index, 1)
+    } else {
+      selectedList.value.push(key)
+    }
   }
 }
 
@@ -89,6 +96,53 @@ const moveAllToHidden = () => {
   selectedVisible.value = []
   emit('update:modelValue', [])
 }
+
+const moveSelectedUp = () => {
+  if (selectedVisible.value.length === 0) return
+
+  const newVisible = [...props.modelValue]
+  selectedVisible.value.forEach(key => {
+    const index = newVisible.indexOf(key)
+    if (index > 0) {
+      // Swap with previous item
+      [newVisible[index], newVisible[index - 1]] = [newVisible[index - 1], newVisible[index]]
+    }
+  })
+  emit('update:modelValue', newVisible)
+}
+
+const moveSelectedDown = () => {
+  if (selectedVisible.value.length === 0) return
+
+  const newVisible = [...props.modelValue]
+  // Process in reverse order to avoid index shifting issues
+  const reversedSelection = selectedVisible.value.slice().reverse()
+  reversedSelection.forEach(key => {
+    const index = newVisible.indexOf(key)
+    if (index < newVisible.length - 1) {
+      // Swap with next item
+      const temp = newVisible[index]
+      newVisible[index] = newVisible[index + 1]
+      newVisible[index + 1] = temp
+    }
+  })
+  emit('update:modelValue', newVisible)
+}
+
+const handleKeyDown = (event: KeyboardEvent, key: string) => {
+  // Only handle keyboard events for visible columns
+  if (!selectedVisible.value.includes(key)) {
+    selectedVisible.value = [key]
+  }
+
+  if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    moveSelectedUp()
+  } else if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    moveSelectedDown()
+  }
+}
 </script>
 
 <template>
@@ -118,6 +172,7 @@ const moveAllToHidden = () => {
 
     <!-- Controls -->
     <div class="flex flex-col gap-2">
+      <!-- Move between hidden/visible -->
       <Button @click="moveAllToVisible" :disabled="hiddenColumns.length === 0" size="icon">
         <ChevronsRight class="h-4 w-4" />
       </Button>
@@ -130,25 +185,47 @@ const moveAllToHidden = () => {
       <Button @click="moveAllToHidden" :disabled="visibleColumns.length === 0" size="icon">
         <ChevronsLeft class="h-4 w-4" />
       </Button>
+
+      <!-- Separator -->
+      <div class="border-t my-2"></div>
+
+      <!-- Reorder visible columns -->
+      <Button @click="moveSelectedUp" :disabled="selectedVisible.length === 0" size="icon">
+        <ChevronUp class="h-4 w-4" />
+      </Button>
+      <Button @click="moveSelectedDown" :disabled="selectedVisible.length === 0" size="icon">
+        <ChevronDown class="h-4 w-4" />
+      </Button>
     </div>
 
     <!-- Visible Columns -->
     <Card>
       <CardHeader>
         <CardTitle>Visible Columns</CardTitle>
-        <Input v-model="visibleSearch" placeholder="Search..." />
+        <div class="flex gap-2 items-center">
+          <Input v-model="visibleSearch" placeholder="Search..." class="flex-1" />
+          <span class="text-xs text-muted-foreground">Use ↑↓ to move</span>
+        </div>
       </CardHeader>
       <CardContent>
         <ScrollArea class="h-64">
           <ul class="space-y-1">
             <li
-              v-for="column in filteredVisible"
+              v-for="(column, index) in filteredVisible"
               :key="column.key"
               @click="toggleSelection('visible', column.key)"
               @dblclick="moveToHidden(column.key)"
-              :class="['p-2 rounded cursor-pointer', { 'bg-muted': selectedVisible.includes(column.key) }]"
+              @keydown="handleKeyDown($event, column.key)"
+              :class="[
+                'p-2 rounded cursor-pointer flex items-center gap-2 group transition-colors',
+                { 'bg-muted': selectedVisible.includes(column.key) },
+                { 'hover:bg-accent': !selectedVisible.includes(column.key) }
+              ]"
+              tabindex="0"
             >
-              {{ column.label }}
+              <GripVertical class="h-4 w-4 text-muted-foreground opacity-50 group-hover:opacity-100 cursor-grab" />
+              <span class="flex-1">{{ column.label }}</span>
+              <span class="text-xs text-muted-foreground">{{ index + 1 }}</span>
             </li>
           </ul>
         </ScrollArea>

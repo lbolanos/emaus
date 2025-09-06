@@ -9,6 +9,7 @@ export const useParticipantStore = defineStore('participant', () => {
   const loading = ref(false);
   const error = ref<string | null>(null);
   const filters = reactive<Record<string, any>>({});
+  const columnSelections = reactive<Record<string, string[]>>({});
   const { toast } = useToast();
 
   async function fetchParticipants() {
@@ -137,15 +138,51 @@ export const useParticipantStore = defineStore('participant', () => {
     }
   }
 
+  // Column selection methods
+  function saveColumnSelection(viewName: string, columns: string[]) {
+    columnSelections[viewName] = [...columns];
+    try {
+      localStorage.setItem(`participant-columns-${viewName}`, JSON.stringify(columns));
+    } catch (error) {
+      console.warn('Failed to save column selection to localStorage:', error);
+    }
+  }
+
+  function loadColumnSelection(viewName: string): string[] | null {
+    // First try to load from localStorage
+    try {
+      const stored = localStorage.getItem(`participant-columns-${viewName}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        columnSelections[viewName] = parsed;
+        return parsed;
+      }
+    } catch (error) {
+      console.warn('Failed to load column selection from localStorage:', error);
+    }
+
+    // Fallback to reactive state
+    return columnSelections[viewName] || null;
+  }
+
+  function getColumnSelection(viewName: string, defaultColumns: string[]): string[] {
+    const saved = loadColumnSelection(viewName);
+    return saved || defaultColumns;
+  }
+
   return {
     participants,
     loading,
     error,
     filters,
+    columnSelections,
     fetchParticipants,
     createParticipant,
     importParticipants,
     updateParticipant,
     deleteParticipant,
+    saveColumnSelection,
+    loadColumnSelection,
+    getColumnSelection,
   };
 });

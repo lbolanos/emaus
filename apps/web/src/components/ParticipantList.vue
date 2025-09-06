@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
+import { useRoute } from 'vue-router';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useI18n } from 'vue-i18n';
@@ -58,6 +59,10 @@ const props = withDefaults(defineProps<{
 
 const { toast } = useToast();
 const { t: $t } = useI18n();
+
+// Get current route for view identification
+const route = useRoute();
+const currentViewName = computed(() => route.name as string || 'unknown');
 
 // Stores de Pinia
 const participantStore = useParticipantStore();
@@ -153,7 +158,21 @@ const allColumns = ref([
     { key: 'retreatBed.roomNumber', label: 'rooms.roomNumber' },
 ]);
 
-const visibleColumns = ref<string[]>(props.columnsToShowInTable);
+// Initialize visible columns from store or props
+const visibleColumns = ref<string[]>([]);
+
+// Load saved columns on mount
+onMounted(() => {
+    const savedColumns = participantStore.getColumnSelection(currentViewName.value, props.columnsToShowInTable);
+    visibleColumns.value = [...savedColumns];
+});
+
+// Watch for column changes and save to store
+watch(visibleColumns, (newColumns) => {
+    if (newColumns && newColumns.length > 0) {
+        participantStore.saveColumnSelection(currentViewName.value, newColumns);
+    }
+}, { deep: true });
 
 const toggleColumn = (key: string) => {
     const index = visibleColumns.value.indexOf(key);

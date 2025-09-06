@@ -3,7 +3,7 @@
     <!-- Card Header -->
     <CardHeader class="flex-row items-center justify-between">
       <CardTitle class="flex items-center justify-between">
-        {{ tableMesa.name }}
+        {{ table.name }}
       </CardTitle>
       <div class="flex items-center gap-2">
         <span class="text-sm font-normal text-gray-500 dark:text-gray-400"> {{ table.walkers?.length || 0 }} / 7 </span>
