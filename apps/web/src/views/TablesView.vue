@@ -14,30 +14,44 @@
       <!-- Unassigned Servers -->
       <div>
         <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('tables.unassignedServers') }}</h3>
-        <div class="mt-2 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[100px] max-h-60 overflow-y-auto">
+        <div
+          @drop="onDropToUnassigned($event, 'server')"
+          @dragover.prevent="onDragOverUnassigned($event, 'server')"
+          @dragenter.prevent
+          @dragleave="isOverUnassignedServer = false"
+          class="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[20px] max-h-60 overflow-y-auto flex flex-wrap gap-2 transition-colors"
+          :class="{ 'border-primary bg-primary/10 border-dashed border-2': isOverUnassignedServer }"
+        >
           <div
             v-for="server in unassignedServers"
             :key="server.id"
             draggable="true"
             @dragstart="startDrag($event, server)"
-            class="p-2 my-1 bg-white dark:bg-gray-700 rounded shadow-sm cursor-grab"
+            class="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-sm font-medium cursor-grab"
           >
-            {{ server.firstName }} {{ server.lastName }}
+            {{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
           </div>
         </div>
       </div>
       <!-- Unassigned Walkers -->
       <div>
         <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('tables.unassignedWalkers') }}</h3>
-        <div class="mt-2 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[100px] max-h-60 overflow-y-auto">
+        <div
+          @drop="onDropToUnassigned($event, 'walker')"
+          @dragover.prevent="onDragOverUnassigned($event, 'walker')"
+          @dragenter.prevent
+          @dragleave="isOverUnassignedWalker = false"
+          class="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[20px] max-h-60 overflow-y-auto flex flex-wrap gap-2 transition-colors"
+          :class="{ 'border-primary bg-primary/10 border-dashed border-2': isOverUnassignedWalker }"
+        >
           <div
             v-for="walker in unassignedWalkers"
             :key="walker.id"
             draggable="true"
             @dragstart="startDrag($event, walker)"
-            class="p-2 my-1 bg-white dark:bg-gray-700 rounded shadow-sm cursor-grab"
+            class="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm font-medium cursor-grab"
           >
-            {{ walker.firstName }} {{ walker.lastName }}
+            {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
           </div>
         </div>
       </div>
@@ -64,7 +78,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed } from 'vue';
+import { onMounted, computed, ref } from 'vue';
 import { useTableMesaStore } from '@/stores/tableMesaStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
@@ -75,6 +89,9 @@ import type { Participant } from '@repo/types';
 const tableMesaStore = useTableMesaStore();
 const retreatStore = useRetreatStore();
 const participantStore = useParticipantStore();
+
+const isOverUnassignedServer = ref(false);
+const isOverUnassignedWalker = ref(false);
 
 const unassignedServers = computed(() => {
   const assignedServerIds = new Set(
@@ -87,7 +104,9 @@ const unassignedWalkers = computed(() => {
   const assignedWalkerIds = new Set(
     tableMesaStore.tables.flatMap(t => (t.walkers || []).map(w => w.id))
   );
-  return (participantStore.participants || []).filter(p => p.type === 'walker' && !p.isCancelled && !assignedWalkerIds.has(p.id) && !p.tableId);
+  return (participantStore.participants || []).filter(
+    p => p.type === 'walker' && !p.isCancelled && !assignedWalkerIds.has(p.id)
+  );
 });
 
 const startDrag = (event: DragEvent, participant: Participant) => {
@@ -95,6 +114,38 @@ const startDrag = (event: DragEvent, participant: Participant) => {
     event.dataTransfer.dropEffect = 'move';
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('application/json', JSON.stringify(participant));
+  }
+};
+
+const onDragOverUnassigned = (event: DragEvent, type: 'server' | 'walker') => {
+  const participantData = event.dataTransfer?.getData('application/json');
+  if (!participantData) return;
+
+  const participant = JSON.parse(participantData);
+
+  if (type === 'server' && participant.type === 'server') {
+    isOverUnassignedServer.value = true;
+  } else if (type === 'walker' && participant.type === 'walker') {
+    isOverUnassignedWalker.value = true;
+  }
+};
+
+const onDropToUnassigned = (event: DragEvent, type: 'server' | 'walker') => {
+  isOverUnassignedServer.value = false;
+  isOverUnassignedWalker.value = false;
+
+  const participantData = event.dataTransfer?.getData('application/json');
+  if (!participantData) return;
+
+  const participant = JSON.parse(participantData);
+
+  // Only proceed if the participant was dragged from a table
+  if (!participant.sourceTableId) return;
+
+  if (type === 'server' && participant.type === 'server' && participant.sourceRole && participant.sourceRole !== 'walkers') {
+    tableMesaStore.unassignLeader(participant.sourceTableId, participant.sourceRole);
+  } else if (type === 'walker' && participant.type === 'walker' && participant.sourceRole === 'walkers') {
+    tableMesaStore.unassignWalkerFromTable(participant.sourceTableId, participant.id);
   }
 };
 

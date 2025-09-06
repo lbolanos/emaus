@@ -36,15 +36,25 @@ export const updateTable = async (tableId: string, data: Partial<TableMesa>): Pr
 };
 
 export const assignLeaderToTable = async (tableId: string, participantId: string, role: 'lider' | 'colider1' | 'colider2'): Promise<TableMesa> => {
-  // This endpoint doesn't exist yet, but we can prepare the frontend for it.
-  // We'll use the generic updateTable for now.
-  return updateTable(tableId, { [`${role}Id`]: participantId });
+  const response = await api.post(`/tables/${tableId}/leader/${role}`, { participantId });
+  return response.data;
 };
 
 export const rebalanceTables = async (retreatId: string): Promise<void> => {
   await api.post(`/tables/rebalance/${retreatId}`);
 };
 
-export const assignWalkerToTable = async (tableId: string, participantId: string): Promise<void> => {
-  await api.post(`/tables/${tableId}/walkers`, { participantId });
+export const assignWalkerToTable = async (tableId: string, participantId: string): Promise<TableMesa> => {
+  const response = await api.post(`/tables/${tableId}/walkers`, { participantId });
+  return response.data;
+};
+
+export const unassignLeader = async (tableId: string, role: 'lider' | 'colider1' | 'colider2'): Promise<TableMesa> => {
+  const response = await api.delete(`/tables/${tableId}/leader/${role}`);
+  return response.data;
+};
+
+export const unassignWalker = async (tableId: string, walkerId: string): Promise<TableMesa> => {
+  const response = await api.delete(`/tables/${tableId}/walkers/${walkerId}`);
+  return response.data;
 };

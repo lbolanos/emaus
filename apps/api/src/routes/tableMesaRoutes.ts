@@ -14,4 +14,11 @@ router.put('/:id', tableMesaController.updateTable);
 router.delete('/:id', tableMesaController.deleteTable);
 router.post('/rebalance/:retreatId', tableMesaController.rebalanceTables);
 
+// Routes for assigning/unassigning participants
+router.post('/:id/leader/:role', tableMesaController.assignLeader);
+router.delete('/:id/leader/:role', tableMesaController.unassignLeader);
+
+router.post('/:id/walkers', tableMesaController.assignWalker);
+router.delete('/:id/walkers/:walkerId', tableMesaController.unassignWalker);
+
 export default router;

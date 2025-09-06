@@ -4,6 +4,7 @@ import { Participant } from '../entities/participant.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { v4 as uuidv4 } from 'uuid';
 import { In } from 'typeorm';
+import { tableMesaSchema } from '@repo/types';
 
 const tableMesaRepository = AppDataSource.getRepository(TableMesa);
 const participantRepository = AppDataSource.getRepository(Participant);
@@ -11,11 +12,12 @@ const participantRepository = AppDataSource.getRepository(Participant);
 const MAX_WALKERS_PER_TABLE = 7;
 
 export const findTablesByRetreatId = async (retreatId: string) => {
-  return tableMesaRepository.find({
+  const tables = await tableMesaRepository.find({
     where: { retreatId },
     relations: ['lider', 'colider1', 'colider2', 'walkers'],
     order: { name: 'ASC' },
   });
+  return tableMesaSchema.array().parse(tables);
 };
 
 export const findTableById = async (id: string) => {
@@ -55,33 +57,64 @@ export const deleteTable = async (id: string) => {
   await tableMesaRepository.delete(id);
 };
 
-export const assignLeader = async (tableId: string, participantId: string, role: 'lider' | 'colider1' | 'colider2') => {
-    const table = await tableMesaRepository.findOneBy({ id: tableId });
-    if (!table) throw new Error('Table not found');
+export const assignLeaderToTable = async (tableId: string, participantId: string, role: 'lider' | 'colider1' | 'colider2') => {
+  const table = await findTableById(tableId);
+  if (!table) throw new Error('Table not found');
 
-    const participant = await participantRepository.findOneBy({ id: participantId });
-    if (!participant) throw new Error('Participant not found');
+  const participant = await participantRepository.findOneBy({ id: participantId });
+  if (!participant) throw new Error('Participant not found');
+  if (participant.type !== 'server') throw new Error('Only servers can be assigned as leaders.');
 
-    // You might want to add logic to ensure a participant isn't a leader on multiple tables
+  // Un-assign the participant from any other leader role they might have
+  await AppDataSource.createQueryBuilder()
+    .update(TableMesa)
+    .set({ liderId: null })
+    .where({ liderId: participantId })
+    .execute();
+  await AppDataSource.createQueryBuilder()
+    .update(TableMesa)
+    .set({ colider1Id: null })
+    .where({ colider1Id: participantId })
+    .execute();
+  await AppDataSource.createQueryBuilder()
+    .update(TableMesa)
+    .set({ colider2Id: null })
+    .where({ colider2Id: participantId })
+    .execute();
 
-    table[role] = participant;
-    return tableMesaRepository.save(table);
+  // Assign to the new role
+  table[`${role}Id`] = participantId;
+  await tableMesaRepository.save(table);
+  return findTableById(tableId); // Return the table with all relations
+};
+
+export const unassignLeaderFromTable = async (tableId: string, role: 'lider' | 'colider1' | 'colider2') => {
+  const table = await findTableById(tableId);
+  if (!table) throw new Error('Table not found');
+
+  // Use a direct update to set the foreign key to null, which is more reliable.
+  await tableMesaRepository.update(tableId, { [`${role}Id`]: null });
+
+  return findTableById(tableId); // Refetch to get the updated state with relations.
 };
 
 export const assignWalkerToTable = async (tableId: string, participantId: string) => {
   const participant = await participantRepository.findOneBy({ id: participantId });
   if (!participant) throw new Error('Participant not found');
+  if (participant.type !== 'walker') throw new Error('Only walkers can be assigned to a table.');
 
-  participant.tableId = tableId;
-  return participantRepository.save(participant);
+  participant.tableId = tableId as string | null;
+  await participantRepository.save(participant);
+  return findTableById(tableId);
 };
 
-export const removeWalkerFromTable = async (participantId: string) => {
+export const unassignWalkerFromTable = async (tableId: string, participantId: string) => {
   const participant = await participantRepository.findOneBy({ id: participantId });
   if (!participant) throw new Error('Participant not found');
 
-  participant.tableId = undefined;
-  return participantRepository.save(participant);
+  participant.tableId = null;
+  await participantRepository.save(participant);
+  return findTableById(tableId);
 };
 
 export const rebalanceTablesForRetreat = async (retreatId: string) => {
@@ -121,7 +154,7 @@ export const rebalanceTablesForRetreat = async (retreatId: string) => {
   // Unassign all walkers in a single query
   await AppDataSource.createQueryBuilder()
     .update(Participant)
-    .set({ tableId: undefined })
+    .set({ tableId: null })
     .where({ retreatId, type: 'walker' })
     .execute();
 

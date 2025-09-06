@@ -62,3 +62,47 @@ export const deleteTable = async (req: Request, res: Response, next: NextFunctio
     next(error);
   }
 };
+
+export const assignLeader = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id: tableId, role } = req.params;
+    const { participantId } = req.body;
+    const updatedTable = await tableMesaService.assignLeaderToTable(tableId, participantId, role as any);
+    res.json(updatedTable);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const unassignLeader = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id: tableId, role } = req.params;
+    console.log(`Attempting to unassign leader from tableId: ${tableId}, role: ${role}`);
+    const updatedTable = await tableMesaService.unassignLeaderFromTable(tableId, role as any);
+    res.json(updatedTable);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const assignWalker = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id: tableId } = req.params;
+    const { participantId } = req.body;
+    const updatedTable = await tableMesaService.assignWalkerToTable(tableId, participantId);
+    res.json(updatedTable);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const unassignWalker = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id: tableId, walkerId } = req.params;
+    console.log(`Attempting to unassign walkerId: ${walkerId} from tableId: ${tableId}`);
+    const updatedTable = await tableMesaService.unassignWalkerFromTable(tableId, walkerId);
+    res.json(updatedTable);
+  } catch (error) {
+    next(error);
+  }
+};

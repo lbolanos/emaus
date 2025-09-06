@@ -132,7 +132,10 @@ export const participantSchema = z.object({
     (val) => (val === '' || val === null ? undefined : val),
     z.string().optional(),
   ),
-  requestsSingleRoom: z.boolean().optional(),
+  requestsSingleRoom: z.preprocess(
+    (val) => (val === null ? undefined : val),
+    z.boolean().optional(),
+  ),
   notes: z.preprocess(
     (val) => (val === '' || val === null ? undefined : val),
     z.string().optional(),
@@ -181,7 +184,7 @@ export const participantSchema = z.object({
     z.enum(['S', 'M', 'G', 'X', '2']).optional(),
   ),
   invitedBy: z.string().optional(),
-  isInvitedByEmausMember: z.boolean().optional(),
+  isInvitedByEmausMember: z.boolean().nullable().optional(),
   inviterHomePhone: z.string().optional(),
   inviterWorkPhone: z.string().optional(),
   inviterCellPhone: z.string().optional(),
@@ -190,11 +193,26 @@ export const participantSchema = z.object({
     z.string().email().optional(),
   ),
   pickupLocation: z.string().optional(),
-  arrivesOnOwn: z.boolean().optional(),
+  arrivesOnOwn: z.preprocess(
+    (val) => (val === null ? undefined : val),
+    z.boolean().optional(),
+  ),
   retreatId: idSchema,
-  tableId: idSchema.optional(),
+  tableId: idSchema.nullable().optional(),
   retreatBedId: idSchema.nullable().optional(),
 });
+
+// TableMesa Schema
+export const tableMesaSchema = z.object({
+  id: idSchema,
+  name: z.string(),
+  retreatId: idSchema,
+  lider: z.lazy(() => participantSchema).nullable().optional(),
+  colider1: z.lazy(() => participantSchema).nullable().optional(),
+  colider2: z.lazy(() => participantSchema).nullable().optional(),
+  walkers: z.array(z.lazy(() => participantSchema)).optional(),
+});
+export type TableMesa = z.infer<typeof tableMesaSchema>;
 
 // --- API Request Schemas ---
 

@@ -1,8 +1,16 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
-import { getTablesByRetreat, updateTable, assignLeaderToTable, rebalanceTables as rebalanceTablesApi, assignWalkerToTable as assignWalkerToTableApi } from '@/services/api';
+import { ref } from 'vue';
+import {
+  getTablesByRetreat,
+  assignLeaderToTable,
+  rebalanceTables,
+  assignWalkerToTable as assignWalkerToTableApi,
+  unassignLeader as unassignLeaderApi,
+  unassignWalker as unassignWalkerApi,
+} from '@/services/api';
 import type { TableMesa, Participant } from '@repo/types';
 import { useRetreatStore } from './retreatStore';
+import { useParticipantStore } from './participantStore';
 
 export const useTableMesaStore = defineStore('tableMesa', () => {
   const tables = ref<TableMesa[]>([]);
@@ -10,6 +18,7 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
   const error = ref<string | null>(null);
 
   const retreatStore = useRetreatStore();
+  const participantStore = useParticipantStore();
 
   const fetchTables = async () => {
     if (!retreatStore.selectedRetreatId) {
@@ -43,19 +52,56 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
 
   const assignWalkerToTable = async (tableId: string, participantId: string) => {
     try {
-      await assignWalkerToTableApi(tableId, participantId);
-      // For an optimistic update, we would manually move the walker here.
-      // For simplicity, we'll just refetch everything.
-      await fetchTables();
+      const updatedTable = await assignWalkerToTableApi(tableId, participantId);
+      const index = tables.value.findIndex(t => t.id === tableId);
+      if (index !== -1) {
+        tables.value[index] = updatedTable;
+      }
     } catch (e: any) {
       console.error(`Failed to assign walker`, e);
+    }
+  };
+
+  const unassignLeader = async (tableId: string, role: 'lider' | 'colider1' | 'colider2') => {
+    try {
+      const updatedTable = await unassignLeaderApi(tableId, role);
+      const index = tables.value.findIndex(t => t.id === tableId);
+      if (index !== -1) {
+        tables.value[index] = updatedTable;
+      }
+    } catch (e: any) {
+      console.error(`Failed to unassign ${role}`, e);
+    }
+  };
+
+  const unassignWalkerFromTable = async (tableId: string, walkerId: string) => {
+    try {
+      // Optimistically update the UI first for a faster user experience
+      const tableIndex = tables.value.findIndex(t => t.id === tableId);
+      if (tableIndex !== -1 && tables.value[tableIndex].walkers) {
+        const walkerIndex = tables.value[tableIndex].walkers.findIndex(w => w.id === walkerId);
+        if (walkerIndex !== -1) {
+          tables.value[tableIndex].walkers.splice(walkerIndex, 1);
+        }
+      }
+
+      // Then, call the API to persist the change
+      await unassignWalkerApi(tableId, walkerId);
+
+      // Manually update the participant in the participantStore to reflect the change
+      const participantIndex = participantStore.participants.findIndex(p => p.id === walkerId);
+      if (participantIndex !== -1) {
+        participantStore.participants[participantIndex].tableId = null;
+      }
+    } catch (e: any) {
+      console.error(`Failed to unassign walker`, e);
     }
   };
 
   const rebalanceTables = async (retreatId: string) => {
     isLoading.value = true;
     try {
-      await rebalanceTablesApi(retreatId);
+      await rebalanceTables(retreatId);
       await fetchTables(); // Refetch tables to see the result of rebalancing
     } catch (e: any) {
       error.value = 'Failed to rebalance tables.';
@@ -69,5 +115,15 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
     fetchTables();
   });
 
-  return { tables, isLoading, error, fetchTables, assignLeader, assignWalkerToTable, rebalanceTables };
+  return {
+    tables,
+    isLoading,
+    error,
+    fetchTables,
+    assignLeader,
+    assignWalkerToTable,
+    rebalanceTables,
+    unassignLeader,
+    unassignWalkerFromTable,
+  };
 });

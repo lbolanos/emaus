@@ -148,7 +148,7 @@ export class Participant {
   invitedBy?: string; // Corresponde a 'invitadopor'
 
   @Column({ type: 'boolean', nullable: true })
-  isInvitedByEmausMember?: boolean; // Corresponde a 'invitadaporemaus'
+  isInvitedByEmausMember?: boolean | null; // Corresponde a 'invitadaporemaus'
 
   @Column({ type: 'varchar', nullable: true })
   inviterHomePhone?: string; // Corresponde a 'invtelcasa'
@@ -216,7 +216,7 @@ export class Participant {
   retreat!: Retreat;
 
   @Column({ type: 'uuid', nullable: true })
-  tableId?: string; // Corresponde a 'mesa'
+  tableId?: string | null; // Corresponde a 'mesa'
 
   @ManyToOne(() => TableMesa, (table) => table.walkers, { nullable: true })
   @JoinColumn({ name: 'tableId' })

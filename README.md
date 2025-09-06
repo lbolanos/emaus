@@ -110,10 +110,15 @@ colocar en español las columnas de participantes
 en el formulario de servidores preguntar por si necesita camiseta
 
 IN PROGRESS
+cada que se agregue un caminante, debe asignarse a una mesa aleatoria en la que no este ningun caminante con el mismo servidor que lo invito. Tambien debe asignarse una cama de habitacion de acuerdo a su edad.  los que tienen litera para los jovenes.  las camas normales en los primeros pisos para los mas viejos. En caso de que toque asignar colchon para los servidores mas jovenes primero.
+al asignar la cama se deben asociar en la habitacion los que roncan con los que roncan y los que no roncan con los que no roncan.
+
+para la asignacion de mesas has que los en las mesas has que las cajas que se arrastran con servidores y caminantes sean bubbles con el primer nombre y la inicial de su apellido
+
 
 TODO
-
-cada que se agregue un caminante, debe asignarse a una mesa aleatoria en la que no este ningun caminante con el mismo servidor que lo invito. Tambien debe asignarse una cama de habitacion de acuerdo a su edad.  los que tienen litera para los jovenes.  las camas normales en los primeros pisos para los mas viejos. En caso de que toque asignar colchon para los servidores mas jovenes primero.
+en la vista de habitacion mostrar si ronca en la asignacion
+verificar que un participante solo puede estar en una mesa
 
 manejo de inventario.  importar y export excel o csv.  Debe tener un ratio con respecto al numero de caminantes de las unidades por defecto y alertar si sobrepasa.  ej si 10 caminante y ratio 1 entonces debe tener al menos 10 unidades. Si 10 caminantes y ratio 0.5 entonces debe tener al menos 5 unidades.
 llevar tambien el registro de las camisetas y chaquetas que necesitan los servidores.

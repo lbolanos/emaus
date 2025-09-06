@@ -137,17 +137,12 @@ export const useParticipantStore = defineStore('participant', () => {
     }
   }
 
-  function setFilter(key: string, value: any) {
-    filters[key] = value;
-  }
-
   return {
     participants,
     loading,
     error,
     filters,
     fetchParticipants,
-    setFilter,
     createParticipant,
     importParticipants,
     updateParticipant,
