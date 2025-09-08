@@ -4,7 +4,13 @@ import { Input } from '@repo/ui/components/ui/input'
 import { Button } from '@repo/ui/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/ui/card'
 import { ScrollArea } from '@repo/ui/components/ui/scroll-area'
-import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, ChevronUp, ChevronDown, GripVertical } from 'lucide-vue-next'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@repo/ui/components/ui/tooltip';
+import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, ChevronUp, ChevronDown, GripVertical, RotateCcw } from 'lucide-vue-next'
 
 type Column = {
   key: string
@@ -14,6 +20,7 @@ type Column = {
 const props = defineProps<{
   allColumns: Column[]
   modelValue: string[]
+  defaultColumns?: string[]
 }>()
 
 const emit = defineEmits(['update:modelValue'])
@@ -143,6 +150,14 @@ const handleKeyDown = (event: KeyboardEvent, key: string) => {
     moveSelectedDown()
   }
 }
+
+const resetToDefault = () => {
+  if (props.defaultColumns && props.defaultColumns.length > 0) {
+    selectedHidden.value = []
+    selectedVisible.value = []
+    emit('update:modelValue', [...props.defaultColumns])
+  }
+}
 </script>
 
 <template>
@@ -196,6 +211,23 @@ const handleKeyDown = (event: KeyboardEvent, key: string) => {
       <Button @click="moveSelectedDown" :disabled="selectedVisible.length === 0" size="icon">
         <ChevronDown class="h-4 w-4" />
       </Button>
+
+      <!-- Separator -->
+      <div class="border-t my-2"></div>
+
+      <!-- Reset to default -->
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger as-child>
+            <Button @click="resetToDefault" :disabled="!defaultColumns || defaultColumns.length === 0" size="icon" variant="outline">
+              <RotateCcw class="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Reset to default columns</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
 
     <!-- Visible Columns -->

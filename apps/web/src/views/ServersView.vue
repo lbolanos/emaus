@@ -13,6 +13,7 @@ const serverFormEditColumns = serverTableColumns.filter(c => !nonEditableColumns
     :columns-to-show-in-table="serverTableColumns"
     :columns-to-show-in-form="serverFormShowColumns"
     :columns-to-edit-in-form="serverFormEditColumns"
+    :default-filters="{}"
   />
 </template>
 

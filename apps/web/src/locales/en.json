@@ -134,7 +134,10 @@
       "retreatId": "Retreat ID", 
       "tableId": "Table ID",
       "retreatBedId": "Bed ID"
-    }    
+    },
+    "filters": {
+      "title": "Advanced Filters"
+    }
   },
   "rooms": {
     "title": "Rooms",
@@ -334,11 +337,11 @@
         "label": "T-Shirt Size",
         "placeholder": "Select a size",
         "options": {
-          "s": "Small (S)",
-          "m": "Medium (M)",
-          "l": "Large (L)",
-          "xl": "Extra Large (XL)",
-          "xxl": "Extra Extra Large (XXL)"
+          "S": "Small (S)",
+          "M": "Medium (M)",
+          "G": "Large (L)",
+          "X": "Extra Large (XL)",
+          "2": "Extra Extra Large (XXL)"
         }
       },
       "invitedBy": "Invited by",

@@ -131,6 +131,9 @@
       "retreatId": "ID Retiro",
       "tableId": "ID Mesa",
       "retreatBedId": "ID Cuarto"
+    },
+    "filters": {
+      "title": "Filtros Avanzados"
     }
   },
   "rooms": {
@@ -332,11 +335,11 @@
         "label": "Talla de Camiseta",
         "placeholder": "Selecciona una talla",
         "options": {
-          "s": "Pequeña (S)",
-          "m": "Mediana (M)",
-          "l": "Grande (L)",
-          "xl": "Extra Grande (XL)",
-          "xxl": "Extra Extra Grande (XXL)"
+          "S": "Pequeña (S)",
+          "M": "Mediana (M)",
+          "G": "Grande (L)",
+          "X": "Extra Grande (XL)",
+          "2": "Extra Extra Grande (XXL)"
         }
       },
       "invitedBy": "Invitado por",

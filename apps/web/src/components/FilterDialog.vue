@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, toRaw } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Button } from '@repo/ui/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@repo/ui/components/ui/dialog';
@@ -19,10 +19,31 @@ const emit = defineEmits(['update:open', 'update:filters']);
 const { t } = useI18n();
 const localFilters = ref<Record<string, any>>({});
 
+// Computed property for checkbox states to ensure reactivity
+const getCheckboxState = (key: string) => {
+  return !!localFilters.value[key];
+};
+
 watch(() => props.open, (isOpen) => {
   if (isOpen) {
     // When dialog opens, clone the current filters to local state
-    localFilters.value = JSON.parse(JSON.stringify(props.filters));
+    // Handle both plain objects and Proxy objects
+    let currentFilters = props.filters || {};
+
+    // If it's a Proxy with a value property, merge top-level and nested properties
+    if (currentFilters && typeof currentFilters === 'object' && 'value' in currentFilters) {
+      const proxyObj = currentFilters as any;
+      if (proxyObj.value && typeof proxyObj.value === 'object') {
+        // Merge top-level properties with nested value properties
+        const result = { ...proxyObj };
+        delete result.value; // Remove the value property
+        currentFilters = { ...result, ...proxyObj.value }; // Merge with nested properties
+      }
+    }
+
+    const plainFilters = JSON.parse(JSON.stringify(currentFilters));
+    // Ensure we don't create a reactive object
+    localFilters.value = Object.assign({}, plainFilters);
   }
 });
 
@@ -33,7 +54,7 @@ const filterableColumns = [
   { key: 'isScholarship', type: 'boolean' },
   { key: 'requestsSingleRoom', type: 'boolean' },
   { key: 'arrivesOnOwn', type: 'boolean' },
-  { key: 'tshirtSize', type: 'select', options: ['s', 'm', 'l', 'xl', 'xxl'] },
+  { key: 'tshirtSize', type: 'select', options: ['S', 'M', 'G', 'X', '2'] },
 ];
 
 const getColumnLabel = (key: string) => {
@@ -42,13 +63,25 @@ const getColumnLabel = (key: string) => {
 };
 
 const applyFilters = () => {
-  emit('update:filters', localFilters.value);
+  // Extract properties manually from the reactive object to create plain object
+  const currentFilters = localFilters.value || {};
+  const plainFilters: Record<string, any> = {};
+  Object.keys(currentFilters).forEach(key => {
+    plainFilters[key] = currentFilters[key];
+  });
+  emit('update:filters', plainFilters);
   emit('update:open', false);
 };
 
 const resetFilters = () => {
-  localFilters.value = JSON.parse(JSON.stringify(props.defaultFilters));
-  emit('update:filters', localFilters.value);
+  localFilters.value = JSON.parse(JSON.stringify(props.defaultFilters || {}));
+  // Extract properties manually from the reactive object to create plain object
+  const currentFilters = localFilters.value || {};
+  const plainFilters: Record<string, any> = {};
+  Object.keys(currentFilters).forEach(key => {
+    plainFilters[key] = currentFilters[key];
+  });
+  emit('update:filters', plainFilters);
   emit('update:open', false);
 };
 
@@ -75,14 +108,27 @@ const handleOpenChange = (value: boolean) => {
         <div v-for="col in filterableColumns" :key="col.key" class="flex items-center justify-between space-x-2">
           <Label :for="col.key">{{ getColumnLabel(col.key) }}</Label>
           <template v-if="col.type === 'boolean'">
-            <Switch
+            <input
               :id="col.key"
-              :checked="localFilters[col.key]"
-              @update:checked="(value) => localFilters[col.key] = value"
+              type="checkbox"
+              :checked="getCheckboxState(col.key)"
+              :key="`${col.key}-${getCheckboxState(col.key)}`"
+              @change="(event) => {
+                const value = (event.target as HTMLInputElement).checked;
+                // Create a completely new plain object
+                const currentFilters = { ...(localFilters.value || {}) };
+                const newFilters = { ...currentFilters, [col.key]: value };
+                localFilters.value = Object.assign({}, newFilters);
+              }"
             />
           </template>
           <template v-if="col.type === 'select'">
-             <Select v-model="localFilters[col.key]">
+             <Select v-model="localFilters[col.key]" @update:model-value="(value: string) => {
+               // Create a completely new plain object
+               const currentFilters = localFilters.value || {};
+               const newFilters = { ...currentFilters, [col.key]: value };
+               localFilters.value = Object.assign({}, newFilters);
+             }">
               <SelectTrigger class="w-[180px]">
                 <SelectValue :placeholder="`Select ${getColumnLabel(col.key)}`" />
               </SelectTrigger>

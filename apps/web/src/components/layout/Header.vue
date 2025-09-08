@@ -1,6 +1,9 @@
 <template>
   <header class="flex items-center justify-between px-4 bg-white border-b">
     <div class="flex items-center gap-4">
+      <Button variant="ghost" size="icon" @click="uiStore.toggleSidebar">
+        <Menu class="h-6 w-6" />
+      </Button>
       <div class="px-4 py-2">
         <!--Label for="retreat-selector" class="text-sm font-medium text-gray-400 mb-1">{{ $t('sidebar.retreat') }}</Label-->
         <div v-if="retreatStore.loading">{{ $t('sidebar.loadingRetreats') }}</div>
@@ -55,7 +58,7 @@
 import { onMounted, ref, watch } from 'vue';
 import { useRetreatStore } from '@/stores/retreatStore';
 import type { CreateRetreat, Retreat } from '@repo/types'; // Import Retreat type
-import { Plus, Edit } from 'lucide-vue-next'; // Import Edit icon
+import { Plus, Edit, Menu } from 'lucide-vue-next'; // Import Edit icon
 import AddRetreatModal from '@/components/AddRetreatModal.vue';
 import EditRetreatModal from '@/components/EditRetreatModal.vue'; // New import
 import { Button } from '@repo/ui/components/ui/button';
@@ -69,7 +72,9 @@ import {
   SelectValue,
 } from '@repo/ui/components/ui/select';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
+import { useUIStore } from '@/stores/ui';
 
+const uiStore = useUIStore();
 const retreatStore = useRetreatStore();
 const isAddModalOpen = ref(false);
 const isEditModalOpen = ref(false); // New ref for edit modal

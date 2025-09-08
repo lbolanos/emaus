@@ -1,20 +1,20 @@
 <template>
   <aside
     class="bg-gray-800 text-white flex flex-col dark transition-all duration-300 ease-in-out"
-    :class="isCollapsed ? 'w-20' : 'w-64'"
+    :class="isSidebarCollapsed ? 'w-20' : 'w-64'"
   >
     <div class="h-16 flex items-center justify-center relative">
-      <span v-if="!isCollapsed" class="text-2xl font-bold">EMAUS</span>
+      <span v-if="!isSidebarCollapsed" class="text-2xl font-bold">EMAUS</span>
        <!-- Show initials when collapsed -->
       <span v-else class="text-2xl font-bold">E</span>
-      <button @click="toggleSidebar" class="absolute right-0 top-1/2 transform -translate-y-1/2 translate-x-1/2 bg-gray-700 hover:bg-gray-600 rounded-full p-1 z-10">
-        <ChevronLeft class="w-5 h-5 transition-transform duration-300" :class="{ 'rotate-180': isCollapsed }" />
+      <button @click="uiStore.toggleSidebar" class="absolute right-0 top-1/2 transform -translate-y-1/2 translate-x-1/2 bg-gray-700 hover:bg-gray-600 rounded-full p-1 z-10">
+        <ChevronLeft class="w-5 h-5 transition-transform duration-300" :class="{ 'rotate-180': isSidebarCollapsed }" />
       </button>
     </div>
 
     <div class="px-4 py-2 border-t border-b border-gray-700">
-      <div v-if="auth.isAuthenticated && auth.user" class="flex items-center gap-4" :class="{ 'justify-center': isCollapsed }">
-        <span v-if="!isCollapsed">{{ auth.user.displayName }}</span>
+      <div v-if="auth.isAuthenticated && auth.user" class="flex items-center gap-4" :class="{ 'justify-center': isSidebarCollapsed }">
+        <span v-if="!isSidebarCollapsed">{{ auth.user.displayName }}</span>
         <TooltipProvider :delay-duration="100">
           <Tooltip>
             <TooltipTrigger as-child>
@@ -22,7 +22,7 @@
                 <LogOut class="w-5 h-5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent v-if="isCollapsed" side="right">
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
               <p>{{ $t('sidebar.logout') }}</p>
             </TooltipContent>
           </Tooltip>
@@ -46,14 +46,14 @@
                 class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
                 :class="[
                   isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-                  { 'justify-center': isCollapsed }
+                  { 'justify-center': isSidebarCollapsed }
                 ]"
               >
-                <LayoutDashboard class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-                <span v-if="!isCollapsed">{{ $t('sidebar.retreatDashboard') }}</span>
+                <LayoutDashboard class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.retreatDashboard') }}</span>
               </a>
             </TooltipTrigger>
-            <TooltipContent v-if="isCollapsed" side="right">
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
               <p>{{ $t('sidebar.retreatDashboard') }}</p>
             </TooltipContent>
           </Tooltip>
@@ -74,14 +74,14 @@
                 class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
                 :class="[
                   isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-                  { 'justify-center': isCollapsed }
+                  { 'justify-center': isSidebarCollapsed }
                 ]"
               >
-                <Users class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-                <span v-if="!isCollapsed">{{ $t('sidebar.walkers') }}</span>
+                <Users class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.walkers') }}</span>
               </a>
             </TooltipTrigger>
-            <TooltipContent v-if="isCollapsed" side="right">
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
               <p>{{ $t('sidebar.walkers') }}</p>
             </TooltipContent>
           </Tooltip>
@@ -103,14 +103,14 @@
                 class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
                 :class="[
                   isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-                  { 'justify-center': isCollapsed }
+                  { 'justify-center': isSidebarCollapsed }
                 ]"
               >
-                <UtensilsCrossed class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-                <span v-if="!isCollapsed">{{ $t('sidebar.servers') }}</span>
+                <UtensilsCrossed class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.servers') }}</span>
               </a>
             </TooltipTrigger>
-            <TooltipContent v-if="isCollapsed" side="right">
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
               <p>{{ $t('sidebar.servers') }}</p>
             </TooltipContent>
           </Tooltip>
@@ -131,14 +131,14 @@
                 class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
                 :class="[
                   isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-                  { 'justify-center': isCollapsed }
+                  { 'justify-center': isSidebarCollapsed }
                 ]"
               >
-                <Table class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-                <span v-if="!isCollapsed">{{ $t('sidebar.tables') }}</span>
+                <Table class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.tables') }}</span>
               </a>
             </TooltipTrigger>
-            <TooltipContent v-if="isCollapsed" side="right">
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
               <p>{{ $t('sidebar.tables') }}</p>
             </TooltipContent>
           </Tooltip>
@@ -159,14 +159,14 @@
                 class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
                 :class="[
                   isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-                  { 'justify-center': isCollapsed }
+                  { 'justify-center': isSidebarCollapsed }
                 ]"
               >
-                <UserCog class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-                <span v-if="!isCollapsed">{{ $t('sidebar.charges') }}</span>
+                <UserCog class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.charges') }}</span>
               </a>
             </TooltipTrigger>
-            <TooltipContent v-if="isCollapsed" side="right">
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
               <p>{{ $t('sidebar.charges') }}</p>
             </TooltipContent>
           </Tooltip>
@@ -187,14 +187,14 @@
                 class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
                 :class="[
                   isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-                  { 'justify-center': isCollapsed }
+                  { 'justify-center': isSidebarCollapsed }
                 ]"
               >
-                <HandHeart class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-                <span v-if="!isCollapsed">{{ $t('sidebar.palancas') }}</span>
+                <HandHeart class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.palancas') }}</span>
               </a>
             </TooltipTrigger>
-            <TooltipContent v-if="isCollapsed" side="right">
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
               <p>{{ $t('sidebar.palancas') }}</p>
             </TooltipContent>
           </Tooltip>
@@ -215,14 +215,14 @@
                 class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
                 :class="[
                   isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-                  { 'justify-center': isCollapsed }
+                  { 'justify-center': isSidebarCollapsed }
                 ]"
               >
-                <DollarSign class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-                <span v-if="!isCollapsed">{{ $t('sidebar.payments') }}</span>
+                <DollarSign class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.payments') }}</span>
               </a>
             </TooltipTrigger>
-            <TooltipContent v-if="isCollapsed" side="right">
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
               <p>{{ $t('sidebar.payments') }}</p>
             </TooltipContent>
           </Tooltip>
@@ -243,14 +243,14 @@
                 class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
                 :class="[
                   isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-                  { 'justify-center': isCollapsed }
+                  { 'justify-center': isSidebarCollapsed }
                 ]"
               >
-                <NotebookPen class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-                <span v-if="!isCollapsed">{{ $t('sidebar.notesAndMeetingPoints') }}</span>
+                <NotebookPen class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.notesAndMeetingPoints') }}</span>
               </a>
             </TooltipTrigger>
-            <TooltipContent v-if="isCollapsed" side="right">
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
               <p>{{ $t('sidebar.notesAndMeetingPoints') }}</p>
             </TooltipContent>
           </Tooltip>
@@ -271,14 +271,14 @@
                 class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
                 :class="[
                   isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-                  { 'justify-center': isCollapsed }
+                  { 'justify-center': isSidebarCollapsed }
                 ]"
               >
-                <Building class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-                <span v-if="!isCollapsed">{{ $t('sidebar.rooms') }}</span>
+                <Building class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.rooms') }}</span>
               </a>
             </TooltipTrigger>
-            <TooltipContent v-if="isCollapsed" side="right">
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
               <p>{{ $t('sidebar.rooms') }}</p>
             </TooltipContent>
           </Tooltip>
@@ -299,14 +299,14 @@
                 class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
                 :class="[
                   isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-                  { 'justify-center': isCollapsed }
+                  { 'justify-center': isSidebarCollapsed }
                 ]"
               >
-                <UsersRound class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-                <span v-if="!isCollapsed">{{ $t('sidebar.userTypeAndTable') }}</span>
+                <UsersRound class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.userTypeAndTable') }}</span>
               </a>
             </TooltipTrigger>
-            <TooltipContent v-if="isCollapsed" side="right">
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
               <p>{{ $t('sidebar.userTypeAndTable') }}</p>
             </TooltipContent>
           </Tooltip>
@@ -327,14 +327,14 @@
                 class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
                 :class="[
                   isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-                  { 'justify-center': isCollapsed }
+                  { 'justify-center': isSidebarCollapsed }
                 ]"
               >
-                <Salad class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-                <span v-if="!isCollapsed">{{ $t('sidebar.food') }}</span>
+                <Salad class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.food') }}</span>
               </a>
             </TooltipTrigger>
-            <TooltipContent v-if="isCollapsed" side="right">
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
               <p>{{ $t('sidebar.food') }}</p>
             </TooltipContent>
           </Tooltip>
@@ -355,14 +355,14 @@
                 class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
                 :class="[
                   isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-                  { 'justify-center': isCollapsed }
+                  { 'justify-center': isSidebarCollapsed }
                 ]"
               >
-                <FileX class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-                <span v-if="!isCollapsed">{{ $t('sidebar.cancellationAndNotes') }}</span>
+                <FileX class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.cancellationAndNotes') }}</span>
               </a>
             </TooltipTrigger>
-            <TooltipContent v-if="isCollapsed" side="right">
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
               <p>{{ $t('sidebar.cancellationAndNotes') }}</p>
             </TooltipContent>
           </Tooltip>
@@ -383,14 +383,14 @@
                 class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
                 :class="[
                   isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-                  { 'justify-center': isCollapsed }
+                  { 'justify-center': isSidebarCollapsed }
                 ]"
               >
-                <UserCheck class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-                <span v-if="!isCollapsed">{{ $t('sidebar.waitingList') }}</span>
+                <UserCheck class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.waitingList') }}</span>
               </a>
             </TooltipTrigger>
-            <TooltipContent v-if="isCollapsed" side="right">
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
               <p>{{ $t('sidebar.waitingList') }}</p>
             </TooltipContent>
           </Tooltip>
@@ -411,14 +411,14 @@
                 class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
                 :class="[
                   isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-                  { 'justify-center': isCollapsed }
+                  { 'justify-center': isSidebarCollapsed }
                 ]"
               >
-                <ShoppingBag class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-                <span v-if="!isCollapsed">{{ $t('sidebar.bagsReport') }}</span>
+                <ShoppingBag class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.bagsReport') }}</span>
               </a>
             </TooltipTrigger>
-            <TooltipContent v-if="isCollapsed" side="right">
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
               <p>{{ $t('sidebar.bagsReport') }}</p>
             </TooltipContent>
           </Tooltip>
@@ -439,14 +439,14 @@
                 class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
                 :class="[
                   isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-                  { 'justify-center': isCollapsed }
+                  { 'justify-center': isSidebarCollapsed }
                 ]"
               >
-                <Pill class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-                <span v-if="!isCollapsed">{{ $t('sidebar.medicinesReport') }}</span>
+                <Pill class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.medicinesReport') }}</span>
               </a>
             </TooltipTrigger>
-            <TooltipContent v-if="isCollapsed" side="right">
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
               <p>{{ $t('sidebar.medicinesReport') }}</p>
             </TooltipContent>
           </Tooltip>
@@ -467,14 +467,14 @@
                 class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
                 :class="[
                   isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-                  { 'justify-center': isCollapsed }
+                  { 'justify-center': isSidebarCollapsed }
                 ]"
               >
-                <Bed class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-                <span v-if="!isCollapsed">{{ $t('sidebar.bedAssignments') }}</span>
+                <Bed class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.bedAssignments') }}</span>
               </a>
             </TooltipTrigger>
-            <TooltipContent v-if="isCollapsed" side="right">
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
               <p>{{ $t('sidebar.bedAssignments') }}</p>
             </TooltipContent>
           </Tooltip>
@@ -495,14 +495,14 @@
                 class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
                 :class="[
                   isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-                  { 'justify-center': isCollapsed }
+                  { 'justify-center': isSidebarCollapsed }
                 ]"
               >
-                <Ban class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-                <span v-if="!isCollapsed">{{ $t('sidebar.canceled') }}</span>
+                <Ban class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.canceled') }}</span>
               </a>
             </TooltipTrigger>
-            <TooltipContent v-if="isCollapsed" side="right">
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
               <p>{{ $t('sidebar.canceled') }}</p>
             </TooltipContent>
           </Tooltip>
@@ -522,14 +522,14 @@
                 class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
                 :class="[
                   isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-                  { 'justify-center': isCollapsed }
+                  { 'justify-center': isSidebarCollapsed }
                 ]"
               >
-                <Home class="w-6 h-6" :class="{ 'mr-3': !isCollapsed }" />
-                <span v-if="!isCollapsed">{{ $t('sidebar.houses') }}</span>
+                <Home class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.houses') }}</span>
               </a>
             </TooltipTrigger>
-            <TooltipContent v-if="isCollapsed" side="right">
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
               <p>{{ $t('sidebar.houses') }}</p>
             </TooltipContent>
           </Tooltip>
@@ -541,23 +541,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { storeToRefs } from 'pinia';
 import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, UserCog, Table } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter } from 'vue-router';
 import { Button } from '@repo/ui/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@repo/ui/components/ui/tooltip';
 import { useRetreatStore } from '@/stores/retreatStore';
+import { useUIStore } from '@/stores/ui';
 
 const auth = useAuthStore();
 const router = useRouter();
 const retreatStore = useRetreatStore();
-
-const isCollapsed = ref(false);
-
-const toggleSidebar = () => {
-  isCollapsed.value = !isCollapsed.value;
-};
+const uiStore = useUIStore();
+const { isSidebarCollapsed } = storeToRefs(uiStore);
 
 const handleLogout = async () => {
   await auth.logout();

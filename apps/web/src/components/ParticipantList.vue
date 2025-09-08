@@ -26,11 +26,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@repo/ui/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui/components/ui/select';
-import { Label } from '@repo/ui/components/ui/label';
-import { Switch } from '@repo/ui/components/ui/switch';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@repo/ui/components/ui/tooltip';
 import ColumnSelector from './ColumnSelector.vue';
 import EditParticipantForm from './EditParticipantForm.vue';
 import FilterDialog from './FilterDialog.vue';
@@ -100,7 +102,17 @@ const isFilterDialogOpen = ref(false);
 // --- FILTERS ---
 const filters = ref<Record<string, any>>({});
 const filterStatus = ref<'active' | 'canceled'>(props.defaultFilters?.isCancelled ? 'canceled' : 'active');
-const isCancelled = computed(() => (filterStatus.value === 'canceled' || props.isCancelled) && filterStatus.value !== 'active');
+const isCancelled = computed(() => {
+  if (props.isCancelled) {
+    return true;
+  }
+  return filterStatus.value === 'canceled';
+});
+
+// Watch for filter changes
+watch(filters, (newFilters) => {
+  // Filters updated
+}, { deep: true });
 
 
 // --- DEFINICIÓN Y VISIBILIDAD DE COLUMNAS ---
@@ -214,19 +226,41 @@ const filteredAndSortedParticipants = computed(() => {
     }
 
     // 2. Filtrar por filtros dinámicos
-    const activeFilters = Object.entries(filters.value).filter(([, value]) => value !== undefined && value !== null && value !== '');
+    const filtersObj = filters.value || {};
+
+    // Extract actual filter values from Proxy objects
+    const extractFilters = (obj: any): Record<string, any> => {
+        if (obj && typeof obj === 'object') {
+            // If it's a Proxy with a value property, extract it
+            if (obj.value && typeof obj.value === 'object') {
+                // Merge top-level properties with nested value properties
+                const result = { ...obj };
+                delete result.value; // Remove the value property
+                return { ...result, ...obj.value }; // Merge with nested properties
+            }
+            // If it's already a plain object, return it
+            return { ...obj };
+        }
+        return {};
+    };
+
+    const actualFilters = extractFilters(filtersObj);
+    const activeFilters = Object.entries(actualFilters).filter(([, value]) => value !== undefined && value !== null && value !== '');
+
     if (activeFilters.length > 0) {
         result = result.filter(p => {
-            return activeFilters.every(([key, value]) => {
+            const matches = activeFilters.every(([key, value]) => {
                 const participantValue = getNestedProperty(p, key);
                 if (typeof value === 'boolean') {
                     return participantValue === value;
                 }
                 return String(participantValue).toLowerCase() === String(value).toLowerCase();
             });
+            return matches;
         });
     }
-    // 2. Ordenar
+
+    // 3. Ordenar
     if (sortKey.value) {
         result.sort((a, b) => {
             const valA = getNestedProperty(a, sortKey.value);
@@ -242,7 +276,8 @@ const filteredAndSortedParticipants = computed(() => {
 
 // Helper para obtener valores de propiedades anidadas (ej. 'tableMesa.name')
 const getNestedProperty = (obj: any, path: string) => {
-    return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+    const result = path.split('.').reduce((acc, part) => acc && acc[part], obj);
+    return result;
 };
 
 const formColumnsToShow = computed(() => {
@@ -300,15 +335,17 @@ const openEditDialog = (participant: any) => {
     isEditDialogOpen.value = true;
 };
 
-const handleUpdateParticipant = async (updatedParticipant: any) => {  
-    console.log('Updating participant:', updatedParticipant);
-    console.log('Participant ID:', updatedParticipant.id);
+const handleUpdateParticipant = async (updatedParticipant: any) => {
     await participantStore.updateParticipant(updatedParticipant.id, updatedParticipant);
     toast({
         title: 'Success',
         description: 'Participant updated successfully.',
     });
     isEditDialogOpen.value = false;
+};
+
+const toggleFilterStatus = () => {
+  filterStatus.value = filterStatus.value === 'active' ? 'canceled' : 'active';
 };
 
 // --- IMPORTACIÓN / EXPORTACIÓN ---
@@ -366,35 +403,6 @@ const closeColumnDialog = () => {
     isColumnDialogOpen.value = false;
 };
 
-const handleUpdateFilters = (newFilters: Record<string, any>) => {
-  filters.value = newFilters;
-};
-
-// --- FILTER DIALOG FUNCTIONS ---
-const filterableColumns = [
-  { key: 'snores', type: 'boolean' },
-  { key: 'hasMedication', type: 'boolean' },
-  { key: 'hasDietaryRestrictions', type: 'boolean' },
-  { key: 'isScholarship', type: 'boolean' },
-  { key: 'requestsSingleRoom', type: 'boolean' },
-  { key: 'arrivesOnOwn', type: 'boolean' },
-  { key: 'tshirtSize', type: 'select', options: ['s', 'm', 'l', 'xl', 'xxl'] },
-];
-
-const getColumnLabel = (key: string) => {
-  const col = allColumns.value.find(c => c.key === key);
-  return col ? $t(col.label) : key;
-};
-
-const handleResetFilters = () => {
-  filters.value = { ...props.defaultFilters };
-  isFilterDialogOpen.value = false;
-};
-
-const handleApplyFilters = () => {
-  isFilterDialogOpen.value = false;
-};
-
 
 // --- WATCHER PARA CARGAR DATOS ---
 watch([selectedRetreatId, filterStatus], ([newId]) => {
@@ -416,13 +424,26 @@ watch(() => props.defaultFilters, (newDefaults) => {
     <div>
         <!-- Toolbar de Acciones -->
         <div class="flex flex-col sm:flex-row justify-between items-center gap-2 mb-4">
-            <Input
-                v-model="searchQuery"
-                :placeholder="$t('common.searchPlaceholder')"
-                class="max-w-sm"
-            />
+            <div class="flex gap-2 items-center">
+                <Input
+                    v-model="searchQuery"
+                    :placeholder="$t('common.searchPlaceholder')"
+                    class="max-w-sm"
+                />
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger as-child>
+                            <Button variant="outline" size="icon" @click="isFilterDialogOpen = true">
+                                <ListFilter class="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>{{ $t('participants.filters.title') }}</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            </div>
             <div class="flex gap-2">
-                
                 <!-- Add Participant -->
                 <Button @click="openRegistrationLink" :disabled="!selectedRetreatId" :title="$t('participants.addParticipant')" size="icon" >
                     <Plus class="h-4 w-4" />
@@ -438,26 +459,10 @@ watch(() => props.defaultFilters, (newDefaults) => {
                         <DropdownMenuLabel>{{ $t('participants.actions') }}</DropdownMenuLabel>
                         <DropdownMenuSeparator />
 
-                        <!-- Filter Status -->
-                        <DropdownMenu>
-                            <DropdownMenuTrigger as-child>
-                                <Button variant="ghost" class="w-full justify-start p-2">
-                                    <ListFilter class="mr-2 h-4 w-4" />
-                                    <span>{{ $t(`participants.status.${filterStatus}`) }}</span>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent side="right">
-                                <DropdownMenuLabel>{{ $t('participants.status.title') }}</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem @click="filterStatus = 'active'">{{ $t('participants.status.active') }}</DropdownMenuItem>
-                                <DropdownMenuItem @click="filterStatus = 'canceled'">{{ $t('participants.status.canceled') }}</DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-
-                        <!-- Dynamic Filters -->
-                        <DropdownMenuItem @click="isFilterDialogOpen = true">
+                        <!-- Toggle Filter Status -->
+                        <DropdownMenuItem @click="toggleFilterStatus">
                             <ListFilter class="mr-2 h-4 w-4" />
-                            <span>Filters</span>
+                            <span>{{ filterStatus === 'active' ? 'Show Canceled' : 'Show Active' }}</span>
                         </DropdownMenuItem>
 
                         <!-- Column Selector -->
@@ -557,55 +562,16 @@ watch(() => props.defaultFilters, (newDefaults) => {
         </Dialog>
 
         <!-- Filter Dialog -->
-        <div v-if="isFilterDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center">
-            <!-- Backdrop -->
-            <div class="absolute inset-0 bg-black/50" @click="isFilterDialogOpen = false"></div>
+        <FilterDialog
+            :open="isFilterDialogOpen"
+            :filters="filters"
+            :default-filters="props.defaultFilters"
+            :all-columns="allColumns"
+            @update:open="isFilterDialogOpen = $event"
+            @update:filters="filters = $event"
+        />
 
-            <!-- Modal Content -->
-            <div class="relative bg-white rounded-lg shadow-lg max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
-                <div class="p-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-lg font-semibold">Filter Participants</h2>
-                        <Button variant="ghost" size="icon" @click="isFilterDialogOpen = false">
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                        </Button>
-                    </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4 max-h-[60vh] overflow-y-auto">
-                        <div v-for="col in filterableColumns" :key="col.key" class="flex items-center justify-between space-x-2">
-                            <Label :for="col.key">{{ getColumnLabel(col.key) }}</Label>
-                            <template v-if="col.type === 'boolean'">
-                                <Switch
-                                    :id="col.key"
-                                    :checked="filters[col.key]"
-                                    @update:checked="(value: boolean) => filters[col.key] = value"
-                                />
-                            </template>
-                            <template v-if="col.type === 'select'">
-                                <Select v-model="filters[col.key]">
-                                    <SelectTrigger class="w-[180px]">
-                                        <SelectValue :placeholder="`Select ${getColumnLabel(col.key)}`" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem v-for="option in col.options" :key="option" :value="option">
-                                            {{ $t(`walkerRegistration.fields.tshirtSize.options.${option}`) }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </template>
-                        </div>
-                    </div>
-
-                    <div class="flex justify-end mt-6 space-x-2">
-                        <Button variant="outline" @click="handleResetFilters">Reset to Default</Button>
-                        <Button variant="ghost" @click="isFilterDialogOpen = false">Cancel</Button>
-                        <Button @click="handleApplyFilters">Apply Filters</Button>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <!-- Column Selector Modal -->
         <div v-if="isColumnDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center">
@@ -625,6 +591,7 @@ watch(() => props.defaultFilters, (newDefaults) => {
                     </div>
                     <ColumnSelector
                         :all-columns="allColumns.map(c => ({ ...c, label: $t(c.label) }))"
+                        :default-columns="props.columnsToShowInTable"
                         v-model="visibleColumns"
                     />
                     <div class="flex justify-end mt-6">

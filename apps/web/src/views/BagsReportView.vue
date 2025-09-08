@@ -12,5 +12,6 @@ const formEditColumns = tableColumns.filter(c => !nonEditableColumns.includes(c)
     :columns-to-show-in-table="tableColumns"
     :columns-to-show-in-form="formShowColumns"
     :columns-to-edit-in-form="formEditColumns"
+    :default-filters="{}"
  />
 </template>

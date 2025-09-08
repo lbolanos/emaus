@@ -201,6 +201,7 @@ export const participantSchema = z.object({
     (val) => (val === '' || val === null ? undefined : val),
     z.string().email().optional(),
   ),
+  family_friend_color: z.string().optional(),
   pickupLocation: z.string().optional(),
   arrivesOnOwn: z.preprocess(
     (val) => (val === null ? undefined : val),
