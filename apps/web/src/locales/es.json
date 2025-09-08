@@ -475,6 +475,7 @@
     "delete": "Eliminar",
     "cancel": "Cancelar",
     "close": "Cerrar",
-    "unknown": "Desconocido"
+    "unknown": "Desconocido",
+    "total": "Total"
   }
 }

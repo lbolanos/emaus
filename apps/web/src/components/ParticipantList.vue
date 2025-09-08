@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
   TableCaption,
+  TableFooter,
 } from '@repo/ui/components/ui/table';
 import {
   Dialog,
@@ -420,6 +421,13 @@ watch(() => props.defaultFilters, (newDefaults) => {
 
 </script>
 
+<style scoped>
+.participant-row:last-child {
+    border-width: 1px !important;
+    border-left-width: 4px !important;
+}
+</style>
+
 <template>
     <div>
         <!-- Toolbar de Acciones -->
@@ -512,7 +520,7 @@ watch(() => props.defaultFilters, (newDefaults) => {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    <TableRow v-for="participant in filteredAndSortedParticipants" :key="participant.id">
+                    <TableRow v-for="participant in filteredAndSortedParticipants" :key="participant.id" :class="[participant.family_friend_color ? 'border-l-4' : '']" :style="participant.family_friend_color ? { borderLeftColor: participant.family_friend_color } : {}" class="participant-row">
                         <TableCell v-for="colKey in visibleColumns" :key="`${participant.id}-${colKey}`">
                             {{ getNestedProperty(participant, colKey) || 'N/A' }}
                         </TableCell>
@@ -524,6 +532,13 @@ watch(() => props.defaultFilters, (newDefaults) => {
                         </TableCell>
                     </TableRow>
                 </TableBody>
+                <TableFooter>
+                  <TableRow>
+                    <TableCell :colspan="visibleColumns.length + 1" class="text-right font-bold">
+                      {{ $t('common.total') }}: {{ filteredAndSortedParticipants.length }}
+                    </TableCell>
+                  </TableRow>
+                </TableFooter>
             </Table>
         </div>
 

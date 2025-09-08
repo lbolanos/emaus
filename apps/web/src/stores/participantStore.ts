@@ -70,7 +70,7 @@ export const useParticipantStore = defineStore('participant', () => {
       await fetchParticipants();
       toast({
         title: 'Success',
-        description: `${response.data.importedCount} participants imported, ${response.data.updatedCount} updated.`,
+        description: `${response.data.importedCount} participants imported, ${response.data.updatedCount} updated, ${response.data.skippedCount} skipped.`,
       });
     } catch (error: any) {
       toast({

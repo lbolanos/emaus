@@ -13,7 +13,7 @@ export const AppDataSource = new DataSource({
   type: 'sqlite',
   database: 'database.sqlite',
   synchronize: true,
-  logging: true,
+  logging: false,
   entities: [House, Bed, Retreat, RetreatBed, TableMesa, Participant, User, Charge],
   migrations: [],
   subscribers: [],

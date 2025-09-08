@@ -162,6 +162,9 @@ export class Participant {
   @Column({ type: 'varchar', nullable: true })
   inviterEmail?: string; // Corresponde a 'invemail'
 
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  family_friend_color?: string;
+
   @Column({ type: 'varchar', nullable: true })
   pickupLocation?: string; // Corresponde a 'puntoencuentro'
 

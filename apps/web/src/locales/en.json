@@ -476,6 +476,7 @@
     "edit": "Edit",
     "delete": "Delete",
     "cancel": "Cancel",
-    "close": "Close"
+    "close": "Close",
+    "total": "Total"
   }
 }

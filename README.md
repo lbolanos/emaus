@@ -115,7 +115,31 @@ para la asignacion de mesas has que los en las mesas has que las cajas que se ar
 verificar que un participante solo puede estar en una mesa
 
 IN PROGRESS
+al crear un caminante detectar que puede ser familiar o invitado por el mismo servidor de otro caminante y colocarlos de un mismo color usando el campo en participant family_friend_color.  if a walker has color, use this for the other. if not take an available color from a pool of 40 colors and verify not exists in any walker.
+it searches for existing participants invited by the same person using:
+	- invitedBy field
+    - Inviter email (case-insensitive)
+    - Inviter phone numbers (last 8 digits, normalized)
+i need the detect a walker is invited by any person.  if two walker are invited by same person put same color.  this behaviour is for walker not for server
+● Perfect! Now the color assignment logic works exactly as you want:
 
+  Updated logic:
+  1. Only for walkers - No color assignment for servers
+  2. Groups only - Colors are only assigned when there are 2 or more walkers in a group
+  3. Group detection by:
+    - Same invitedBy (invited by same person)
+    - Same inviter contact info (email, phone for Emaus members)
+    - Same lastName (family relationship)
+
+  When colors are assigned:
+  - When creating the 2nd+ walker in a group → assigns color to all walkers in the group
+  - When any walker in a group already has a color → reuses that color
+  - When it's the first walker in a potential group → no color assigned
+
+  When no colors are assigned:
+  - Single walkers with no group relationships
+  - Servers
+  - Walkers who don't match any group criteria
 
 TODO
 en la vista de habitacion mostrar si ronca en la asignacion
@@ -130,10 +154,31 @@ guardar en un store el listado de columnas que se han modificado
 
 alimentos y medicinas agregar columna mesa para ordenar y lider
 
-un usuario administrador y un usuario normal
+un superadmin,  un usuario administrador y un usuario 
 el administrador puede borrar casas de retiro
 cookie jwt para acceso
 analisis de seguridad de todo el sitio
+
+para las palancas agregar datos de si son becados y pagos y notas de pagos
+importar pagos
+agregar mesa y lider a alimentos y medicinas impresion.
+
+
+en mesas al pasar a un caminante o servidor validar que la mesa no tenga un familiar o invitador.
+
+
+create a migration pattern with a table in database to manage the migrations already executed
+
+Que debe pasar cuando se cancele un participante ...  unassign from retreatBed and from tableMesa
+Mensajes de palancas por defecto para enviar por whatsapp en la edicion de las palancas.
+
+Mensaje de Bienvenida a caminante
+Mensaje validar contacto de emergencia
+Mensaje para solicitar las palancas.
+Mensaje para recordar envio de las palancas.
+
+
+imprimir la mesa con lider caminantes telefonos, medicamentos y alimentos.
 
 posibles host
 https://www.vultr.com/

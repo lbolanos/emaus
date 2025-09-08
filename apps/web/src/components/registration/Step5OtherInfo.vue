@@ -27,11 +27,11 @@ const getErrorMessage = (field: string) => props.errors[field]
             <SelectValue :placeholder="$t('walkerRegistration.fields.tshirtSize.placeholder')" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="S">{{ $t('walkerRegistration.fields.tshirtSize.options.s') }}</SelectItem>
-            <SelectItem value="M">{{ $t('walkerRegistration.fields.tshirtSize.options.m') }}</SelectItem>
-            <SelectItem value="G">{{ $t('walkerRegistration.fields.tshirtSize.options.l') }}</SelectItem>
-            <SelectItem value="X">{{ $t('walkerRegistration.fields.tshirtSize.options.xl') }}</SelectItem>
-            <SelectItem value="2">{{ $t('walkerRegistration.fields.tshirtSize.options.xxl') }}</SelectItem>
+            <!--SelectItem value="S">{{ $t('walkerRegistration.fields.tshirtSize.options.S') }}</SelectItem-->
+            <SelectItem value="M">{{ $t('walkerRegistration.fields.tshirtSize.options.M') }}</SelectItem>
+            <SelectItem value="G">{{ $t('walkerRegistration.fields.tshirtSize.options.G') }}</SelectItem>
+            <SelectItem value="X">{{ $t('walkerRegistration.fields.tshirtSize.options.X') }}</SelectItem>
+            <SelectItem value="2">{{ $t('walkerRegistration.fields.tshirtSize.options.2') }}</SelectItem>
           </SelectContent>
         </Select>
         <p v-if="hasError('tshirtSize')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('tshirtSize') }}</p>
