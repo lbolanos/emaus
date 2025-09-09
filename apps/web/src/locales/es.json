@@ -263,6 +263,9 @@
       "emausMember": "Miembro de Emaús",
       "email": "Correo Electrónico",
       "notAvailable": "N/A"
+    },
+    "errors": {
+      "familyFriendConflict": "No se puede agregar al caminante. Ya existe un caminante con el mismo color de familia/amigo en esta mesa."
     }
   },
   "walkerRegistration": {

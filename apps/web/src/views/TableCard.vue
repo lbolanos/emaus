@@ -83,7 +83,8 @@
               draggable="true"
               @dragstart="startDragFromTable($event, walker, 'walkers')"
               :title="`${walker.firstName} ${walker.lastName}\n${$t('tables.invitedBy')}: ${walker.invitedBy || $t('common.unknown')}`"
-              class="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm font-medium cursor-grab"
+              :style="{ borderColor: walker.family_friend_color }"
+              class="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm font-medium cursor-grab border-2"
             >
               {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
             </div>
@@ -152,6 +153,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/ui
 import { useTableMesaStore } from '@/stores/tableMesaStore';
 import { useI18n } from 'vue-i18n';
 import ServerDropZone from './ServerDropZone.vue';
+import { useToast } from '@repo/ui/components/ui/toast/use-toast';
 
 import { Button } from '@repo/ui/components/ui/button';
 import { Trash2, Eye } from 'lucide-vue-next';
@@ -169,6 +171,7 @@ const emit = defineEmits(['delete']);
 
 const { t } = useI18n();
 const tableMesaStore = useTableMesaStore();
+const { toast } = useToast();
 
 const isOverServer = ref(false);
 const isOverWalker = ref(false);
@@ -224,6 +227,18 @@ const onDrop = (event: DragEvent, role: 'lider' | 'colider1' | 'colider2' | 'wal
   }
 
   if (role === 'walkers' && participant.type === 'walker') {
+    if (participant.family_friend_color) {
+      const hasConflict = props.table.walkers?.some(
+        (w) => w.family_friend_color === participant.family_friend_color
+      );
+      if (hasConflict) {
+        toast({
+          title: t('tables.errors.familyFriendConflict'),
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
     tableMesaStore.assignWalkerToTable(props.table.id, participant.id, participant.sourceTableId);
   } else if (role !== 'walkers' && participant.type === 'server') {
     tableMesaStore.assignLeader(props.table.id, participant.id, role, participant.sourceTableId, participant.sourceRole);

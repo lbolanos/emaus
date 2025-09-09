@@ -265,6 +265,9 @@
       "emausMember": "Emaus Member",
       "email": "Email",
       "notAvailable": "N/A"
+    },
+    "errors": {
+      "familyFriendConflict": "Cannot add walker. Another walker with the same family/friend color is already at this table."
     }
   },
   "walkerRegistration": {
