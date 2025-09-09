@@ -21,6 +21,7 @@ import ParticipantRegistrationView from '../views/ParticipantRegistrationView.vu
 import RetreatDashboardView from '../views/RetreatDashboardView.vue';
 import BedAssignmentsView from '../views/BedAssignmentsView.vue';
 import TablesView from '../views/TablesView.vue';
+import MessageTemplatesView from '../views/MessageTemplatesView.vue';
 import { useAuthStore } from '@/stores/authStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 
@@ -150,6 +151,11 @@ const router = createRouter({
           name: 'charges',
           component: () => import('../views/ChargesView.vue'),
           props: true,
+        },
+        {
+          path: 'settings/message-templates',
+          name: 'message-templates',
+          component: MessageTemplatesView,
         },
       ],
     },

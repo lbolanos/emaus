@@ -535,6 +535,40 @@
           </Tooltip>
         </TooltipProvider>
       </router-link>
+
+      <!-- Settings Section -->
+      <div class="px-2 pt-4 pb-2">
+        <h3 v-if="!isSidebarCollapsed" class="text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ $t('sidebar.settings.title') }}</h3>
+        <div v-else class="border-t border-gray-700 my-2"></div>
+      </div>
+      <router-link
+        :to="{ name: 'message-templates' }"
+        v-slot="{ href, navigate, isActive }"
+        custom
+      >
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isSidebarCollapsed }
+                ]"
+              >
+                <Settings class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.settings.messageTemplates') }}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
+              <p>{{ $t('sidebar.settings.messageTemplates') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </router-link>
+
       <!-- Add other menu items here following the same pattern -->
     </nav>
   </aside>
@@ -542,7 +576,7 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, UserCog, Table } from 'lucide-vue-next';
+import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, UserCog, Table, Settings } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter } from 'vue-router';
 import { Button } from '@repo/ui/components/ui/button';

@@ -113,8 +113,6 @@ cada que se agregue un caminante, debe asignarse a una mesa aleatoria en la que 
 al asignar la cama se deben asociar en la habitacion los que roncan con los que roncan y los que no roncan con los que no roncan.
 para la asignacion de mesas has que los en las mesas has que las cajas que se arrastran con servidores y caminantes sean bubbles con el primer nombre y la inicial de su apellido
 verificar que un participante solo puede estar en una mesa
-
-IN PROGRESS
 al crear un caminante detectar que puede ser familiar o invitado por el mismo servidor de otro caminante y colocarlos de un mismo color usando el campo en participant family_friend_color.  if a walker has color, use this for the other. if not take an available color from a pool of 40 colors and verify not exists in any walker.
 it searches for existing participants invited by the same person using:
 	- invitedBy field
@@ -141,9 +139,13 @@ i need the detect a walker is invited by any person.  if two walker are invited 
   - Servers
   - Walkers who don't match any group criteria
 
-TODO
 en la vista de habitacion mostrar si ronca en la asignacion
 
+
+IN PROGRESS
+en mesas al pasar a un caminante o servidor validar que la mesa no tenga un familiar o invitador.
+
+TODO
 
 manejo de inventario.  importar y export excel o csv.  Debe tener un ratio con respecto al numero de caminantes de las unidades por defecto y alertar si sobrepasa.  ej si 10 caminante y ratio 1 entonces debe tener al menos 10 unidades. Si 10 caminantes y ratio 0.5 entonces debe tener al menos 5 unidades.
 llevar tambien el registro de las camisetas y chaquetas que necesitan los servidores.
@@ -164,19 +166,21 @@ importar pagos
 agregar mesa y lider a alimentos y medicinas impresion.
 
 
-en mesas al pasar a un caminante o servidor validar que la mesa no tenga un familiar o invitador.
-
-
 create a migration pattern with a table in database to manage the migrations already executed
 
 Que debe pasar cuando se cancele un participante ...  unassign from retreatBed and from tableMesa
-Mensajes de palancas por defecto para enviar por whatsapp en la edicion de las palancas.
 
-Mensaje de Bienvenida a caminante
-Mensaje validar contacto de emergencia
-Mensaje para solicitar las palancas.
-Mensaje para recordar envio de las palancas.
-
+make a plan                                                                                                                                                                                                                                                                                                                                                                                                                     │
+crear una tabla en la base de datos con una vista para llevar los                                                                                                                                                                                                                                                                                                                                                               │
+Mensajes que envia palancas por defecto por whatsapp en la edicion de las palancas.                                                                                                                                                                                                                                                                                                                                             │
+Mensaje de Bienvenida a caminante                                                                                                                                                                                                                                                                                                                                                                                               │
+Mensaje validar contacto de emergencia                                                                                                                                                                                                                                                                                                                                                                                          │
+Mensaje para solicitar las palancas.                                                                                                                                                                                                                                                                                                                                                                                            │
+Mensaje para recordar envio de las palancas.                                                                                                                                                                                                                                                                                                                                                                                    │
+como son templates ingeniarse la forma para agregar los campos de participant o retreat necesarios en la plantilla                                                                                                                                                                                                                                                                                                              │
+Ej: Hola {participant.name}  Bienvenido al retiro {retreat.name}
+select one participant and preview how the message is going to send.
+create the default messages when the retreat is created
 
 imprimir la mesa con lider caminantes telefonos, medicamentos y alimentos.
 
@@ -184,6 +188,7 @@ posibles host
 https://www.vultr.com/
 https://www.hostinger.com/
 https://www.digitalocean.com/
+supabase
 
 
 al selecciona menu casas de retiro debe desaparecer la seleccion de retiro porque es independiente del retiro.

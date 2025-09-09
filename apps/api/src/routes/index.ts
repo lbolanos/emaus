@@ -7,6 +7,7 @@ import retreatBedRoutes from './retreatBedRoutes';
 import retreatRoutes from './retreatRoutes';
 import chargeRoutes from './chargeRoutes';
 import tableMesaRoutes from './tableMesaRoutes';
+import messageTemplateRoutes from './messageTemplateRoutes';
 
 const router = Router();
 
@@ -17,5 +18,6 @@ router.use('/retreats', retreatRoutes);
 router.use('/charges', chargeRoutes);
 router.use(retreatBedRoutes);
 router.use('/tables', tableMesaRoutes);
+router.use('/message-templates', messageTemplateRoutes);
 
 export default router;

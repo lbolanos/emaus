@@ -36,8 +36,71 @@
     "retreatDashboard": "Retreat Dashboard",
     "houses": "Houses",
     "bedAssignments": "Bed Assignments",
-    "charges": "Charges"
-  },  
+    "charges": "Charges",
+    "settings": {
+      "title": "Settings",
+      "messageTemplates": "Message Templates"
+    }
+  },
+  "messageTemplates": {
+    "title": "Message Templates",
+    "addNew": "Add New Template",
+    "loading": "Loading...",
+    "table": {
+      "name": "Name",
+      "type": "Type",
+      "message": "Message",
+      "actions": "Actions"
+    },
+    "dialog": {
+      "editTitle": "Edit Template",
+      "newTitle": "New Template",
+      "nameLabel": "Name",
+      "typeLabel": "Type",
+      "typePlaceholder": "Select a type",
+      "messageLabel": "Message",
+      "placeholdersHelp": "Use placeholders like {participant.firstName}, {retreat.name}",
+      "searchPlaceholder": "Search variables...",
+      "categoryAll": "All Categories",
+      "mostUsed": "Most Used",
+      "categoryMostUsed": "Most Used",
+      "charCount": "Character count: {count}",
+      "preview": "Preview",
+      "previewPlaceholder": "Your message preview will appear here...",
+      "copyVariable": "Copy",
+      "selectParticipant": "Select participant for preview",
+      "participantPlaceholder": "Choose a participant...",
+      "usedVariables": "Used Variables",
+      "save": "Save",
+      "variablesTitle": "Available Variables",
+      "categories": {
+        "participant": "Participant Variables",
+        "retreat": "Retreat Variables"
+      },
+      "variables": {
+        "retreatParish": "Retreat parish",
+        "retreatStartDate": "Retreat start date",
+        "retreatEndDate": "Retreat end date",
+        "retreatOpeningNotes": "Retreat opening notes",
+        "retreatClosingNotes": "Retreat closing notes",
+        "retreatThingsToBringNotes": "Retreat things to bring notes",
+        "retreatCost": "Retreat cost",
+        "retreatPaymentInfo": "Retreat payment info",
+        "retreatPaymentMethods": "Retreat payment methods",
+        "retreatMaxWalkers": "Retreat maximum walkers",
+        "retreatMaxServers": "Retreat maximum servers"
+      }
+    },
+    "deleteConfirm": "Are you sure you want to delete this template?",
+    "types": {
+      "WALKER_WELCOME": "Walker Welcome",
+      "SERVER_WELCOME": "Server Welcome", 
+      "EMERGENCY_CONTACT_VALIDATION": "Emergency Contact Validation",
+      "PALANCA_REQUEST": "Palanca Request",
+      "PALANCA_REMINDER": "Palanca Reminder",
+      "GENERAL": "General"
+    }
+  }, 
   "participants": {
     "title": "Walkers",
     "addWalker": "Add Walker",
@@ -470,16 +533,20 @@
       "cancel": "Cancel",
       "delete": "Delete",    
       "close": "Close",
-      "print": "Print"
+      "print": "Print",
+      "show": "Show",
+      "hide": "Hide"
     },
     "import": {
       "errorTitle": "Import Error",
       "errorGeneric": "An error occurred while importing"
     },
     "edit": "Edit",
+    "insert": "Insert",
     "delete": "Delete",
     "cancel": "Cancel",
     "close": "Close",
-    "total": "Total"
+    "total": "Total",
+    "click": "Click"
   }
 }

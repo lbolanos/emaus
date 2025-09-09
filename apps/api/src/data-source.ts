@@ -7,6 +7,7 @@ import { Participant } from './entities/participant.entity';
 import { User } from './entities/user.entity';
 import { RetreatBed } from './entities/retreatBed.entity';
 import { Charge } from './entities/charge.entity';
+import { MessageTemplate } from './entities/messageTemplate.entity';
 
 
 export const AppDataSource = new DataSource({
@@ -14,7 +15,7 @@ export const AppDataSource = new DataSource({
   database: 'database.sqlite',
   synchronize: true,
   logging: false,
-  entities: [House, Bed, Retreat, RetreatBed, TableMesa, Participant, User, Charge],
+  entities: [House, Bed, Retreat, RetreatBed, TableMesa, Participant, User, Charge, MessageTemplate],
   migrations: [],
   subscribers: [],
 });

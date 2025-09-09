@@ -33,7 +33,71 @@
     "retreatDashboard": "Dashboard del Retiro",
     "houses": "Casas",
     "bedAssignments": "Asignación de Camas",
-    "charges": "Cargos"
+    "charges": "Cargos",
+    "settings": {
+      "title": "Configuración",
+      "messageTemplates": "Plantillas de Mensajes"
+    }
+  },
+  "messageTemplates": {
+    "title": "Plantillas de Mensajes",
+    "addNew": "Agregar Nueva Plantilla",
+    "loading": "Cargando...",
+    "table": {
+      "name": "Nombre",
+      "type": "Tipo",
+      "message": "Mensaje",
+      "actions": "Acciones"
+    },
+    "dialog": {
+      "editTitle": "Editar Plantilla",
+      "newTitle": "Nueva Plantilla",
+      "nameLabel": "Nombre",
+      "typeLabel": "Tipo",
+      "typePlaceholder": "Selecciona un tipo",
+      "messageLabel": "Mensaje",
+      "placeholdersHelp": "Usa placeholders como {participant.firstName}, {retreat.name}",
+      "searchPlaceholder": "Buscar variables...",
+      "categoryAll": "Todas las Categorías",
+      "mostUsed": "Más Usados",
+      "categoryMostUsed": "Más Usados",
+      "charCount": "Conteo de caracteres: {count}",
+      "preview": "Vista Previa",
+      "previewPlaceholder": "La vista previa de tu mensaje aparecerá aquí...",
+      "copyVariable": "Copiar",
+        "selectParticipant": "Seleccionar participante para vista previa",
+        "participantPlaceholder": "Elige un participante...",
+        "usedVariables": "Variables Usadas",
+        "click": "Clic",
+        "save": "Guardar",
+        "variablesTitle": "Variables Disponibles",
+        "categories": {
+          "participant": "Variables del Participante",
+          "retreat": "Variables del Retiro"
+        },
+        "variables": {
+          "retreatParish": "Parroquia del retiro",
+          "retreatStartDate": "Fecha de inicio del retiro",
+          "retreatEndDate": "Fecha de fin del retiro",
+          "retreatOpeningNotes": "Notas de apertura del retiro",
+          "retreatClosingNotes": "Notas de cierre del retiro",
+          "retreatThingsToBringNotes": "Notas de qué llevar del retiro",
+          "retreatCost": "Costo del retiro",
+          "retreatPaymentInfo": "Información de pago del retiro",
+          "retreatPaymentMethods": "Métodos de pago del retiro",
+          "retreatMaxWalkers": "Máximo de caminantes del retiro",
+          "retreatMaxServers": "Máximo de servidores del retiro"
+        }
+      },
+    "deleteConfirm": "¿Estás seguro de que quieres eliminar esta plantilla?",
+    "types": {
+      "WALKER_WELCOME": "Bienvenida Caminante",
+      "SERVER_WELCOME": "Bienvenida Servidor",
+      "EMERGENCY_CONTACT_VALIDATION": "Validación Contacto Emergencia",
+      "PALANCA_REQUEST": "Solicitud Palanca",
+      "PALANCA_REMINDER": "Recordatorio Palanca",
+      "GENERAL": "General"
+    }
   },
   "participants": {
     "title": "Caminantes",
@@ -468,13 +532,16 @@
       "cancel": "Cancelar",
       "delete": "Eliminar",
       "close": "Cerrar",
-      "print": "Imprimir"
+      "print": "Imprimir",
+      "show": "Mostrar",
+      "hide": "Ocultar"
     },
     "import": {
       "errorTitle": "Error de Importación",
       "errorGeneric": "Ocurrió un error al importar"
     },
     "edit": "Editar",
+    "insert": "Insertar",
     "delete": "Eliminar",
     "cancel": "Cancelar",
     "close": "Cerrar",
