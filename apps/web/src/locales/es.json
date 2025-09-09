@@ -96,7 +96,11 @@
       "EMERGENCY_CONTACT_VALIDATION": "Validación Contacto Emergencia",
       "PALANCA_REQUEST": "Solicitud Palanca",
       "PALANCA_REMINDER": "Recordatorio Palanca",
-      "GENERAL": "General"
+      "GENERAL": "General",
+      "PRE_RETREAT_REMINDER": "Recordatorio Pre-Retiro",
+      "PAYMENT_REMINDER": "Recordatorio de Pago",
+      "POST_RETREAT_MESSAGE": "Mensaje Post-Retiro",
+      "CANCELLATION_CONFIRMATION": "Confirmación de Cancelación"
     }
   },
   "participants": {

@@ -429,27 +429,44 @@ const templateTypes = messageTemplateTypes.options;
 
 onMounted(async () => {
   await retreatStore.fetchRetreats();
-  await store.fetchTemplates();
   
-  // Fetch participants for the selected retreat
+  // Only fetch templates if a retreat is selected
   if (retreatStore.selectedRetreatId) {
+    await store.fetchTemplates(retreatStore.selectedRetreatId);
+    
+    // Fetch participants for the selected retreat
     participantStore.filters.retreatId = retreatStore.selectedRetreatId;
     await participantStore.fetchParticipants();
   }
 });
 
-// Watch for retreat changes and update participants
+// Watch for retreat changes and update participants and templates
 watch(() => retreatStore.selectedRetreatId, async (newRetreatId) => {
   if (newRetreatId) {
     participantStore.filters.retreatId = newRetreatId;
     await participantStore.fetchParticipants();
+    await store.fetchTemplates(newRetreatId);
   } else {
-    // Clear participants if no retreat is selected
+    // Clear participants and templates if no retreat is selected
     participants.value = [];
+    templates.value = [];
+    selectedParticipant.value = '';
   }
 });
 
+// Watch for participants changes and auto-select first walker
+watch(() => walkers.value, (newWalkers) => {
+  if (newWalkers.length > 0 && !selectedParticipant.value) {
+    selectedParticipant.value = newWalkers[0].id;
+  }
+}, { immediate: true });
+
 const openNewDialog = () => {
+  if (!retreatStore.selectedRetreatId) {
+    alert('Por favor selecciona un retiro primero');
+    return;
+  }
+  
   isEditing.value = false;
   currentTemplate.value = {
     name: '',
@@ -460,7 +477,11 @@ const openNewDialog = () => {
   searchQuery.value = '';
   selectedCategory.value = 'all';
   showPreview.value = 'false';
-  selectedParticipant.value = '';
+  
+  // Auto-select first walker for preview
+  const firstWalker = walkers.value[0];
+  selectedParticipant.value = firstWalker ? firstWalker.id : '';
+  
   isDialogOpen.value = true;
 };
 
@@ -471,7 +492,11 @@ const openEditDialog = (template: MessageTemplate) => {
   searchQuery.value = '';
   selectedCategory.value = 'all';
   showPreview.value = 'false';
-  selectedParticipant.value = '';
+  
+  // Auto-select first walker for preview
+  const firstWalker = walkers.value[0];
+  selectedParticipant.value = firstWalker ? firstWalker.id : '';
+  
   isDialogOpen.value = true;
 };
 
@@ -483,11 +508,21 @@ const handleDelete = async (id: string) => {
 
 const handleSubmit = async () => {
   try {
+    if (!retreatStore.selectedRetreatId) {
+      alert('Por favor selecciona un retiro primero');
+      return;
+    }
+    
+    const templateData = {
+      ...currentTemplate.value,
+      retreatId: retreatStore.selectedRetreatId,
+    };
+    
     if (isEditing.value && currentTemplate.value.id) {
-      const { id, createdAt, updatedAt, ...updateData } = currentTemplate.value;
-      await store.updateTemplate(id, updateData as UpdateMessageTemplate['body']);
+      const { id, createdAt, updatedAt, ...updateData } = templateData;
+      await store.updateTemplate(id as string, updateData as UpdateMessageTemplate['body']);
     } else {
-      await store.createTemplate(currentTemplate.value as CreateMessageTemplate['body']);
+      await store.createTemplate(templateData as CreateMessageTemplate['body']);
     }
     isDialogOpen.value = false;
   } catch (e) {
@@ -503,11 +538,20 @@ const handleSubmit = async () => {
     <Card>
       <CardHeader class="flex flex-row items-center justify-between">
         <CardTitle>{{ t('messageTemplates.title') }}</CardTitle>
-        <Button @click="openNewDialog">{{ t('messageTemplates.addNew') }}</Button>
+        <Button 
+          @click="openNewDialog" 
+          :disabled="!retreatStore.selectedRetreatId"
+          :title="!retreatStore.selectedRetreatId ? 'Selecciona un retiro primero' : ''"
+        >
+          {{ t('messageTemplates.addNew') }}
+        </Button>
       </CardHeader>
       <CardContent>
         <div v-if="loading">{{ t('messageTemplates.loading') }}</div>
         <div v-else-if="error" class="text-red-500">{{ error }}</div>
+        <div v-else-if="!retreatStore.selectedRetreatId" class="text-center py-8 text-muted-foreground">
+          Por favor selecciona un retiro para ver y gestionar las plantillas de mensajes.
+        </div>
         <Table v-else>
           <TableHeader>
             <TableRow>
@@ -563,6 +607,7 @@ const handleSubmit = async () => {
                 </Select>
               </div>
               
+                
               <!-- Message Field with Tabs -->
               <div class="space-y-2">
                 <div class="flex items-center justify-between">

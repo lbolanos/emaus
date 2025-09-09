@@ -9,11 +9,12 @@ export const useMessageTemplateStore = defineStore('message-template', () => {
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  const fetchTemplates = async () => {
+  const fetchTemplates = async (retreatId: string) => {
     loading.value = true;
     error.value = null;
     try {
-      const response = await api.get('/message-templates');
+      const url = `/message-templates?retreatId=${retreatId}`;
+      const response = await api.get(url);
       templates.value = response.data;
     } catch (e: any) {
       error.value = e.message || 'Failed to fetch templates';

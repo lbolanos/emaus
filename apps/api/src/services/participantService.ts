@@ -347,6 +347,11 @@ export const createParticipant = async (
       registrationDate: new Date(),
       lastUpdatedDate: new Date(),
     };
+    
+    if (!newParticipantData.nickname) {
+      newParticipantData.nickname = newParticipantData.firstName;
+    }
+
 
     console.log('COLOR ASSIGNMENT: Creating participant with data:', {
       ...newParticipantData,

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+const idSchema = z.string().uuid();
+
 export const messageTemplateTypes = z.enum([
   'WALKER_WELCOME',
   'SERVER_WELCOME',
@@ -7,13 +9,18 @@ export const messageTemplateTypes = z.enum([
   'PALANCA_REQUEST',
   'PALANCA_REMINDER',
   'GENERAL',
+  'PRE_RETREAT_REMINDER',
+  'PAYMENT_REMINDER',
+  'POST_RETREAT_MESSAGE',
+  'CANCELLATION_CONFIRMATION',
 ]);
 
 export const MessageTemplateSchema = z.object({
-  id: z.string().uuid(),
+  id: idSchema,
   name: z.string().min(1, 'Name is required'),
   type: messageTemplateTypes,
   message: z.string().min(1, 'Message is required'),
+  retreatId: idSchema,
   createdAt: z.date(),
   updatedAt: z.date(),
 });

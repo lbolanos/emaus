@@ -4,7 +4,13 @@ import { MessageTemplateService } from '../services/messageTemplateService';
 const messageTemplateService = new MessageTemplateService();
 
 export const getMessageTemplates = async (req: Request, res: Response) => {
-  const templates = await messageTemplateService.findAll();
+  const { retreatId } = req.query;
+  
+  if (!retreatId) {
+    return res.status(400).json({ message: 'retreatId is required' });
+  }
+  
+  const templates = await messageTemplateService.findAll(retreatId as string);
   res.json(templates);
 };
 

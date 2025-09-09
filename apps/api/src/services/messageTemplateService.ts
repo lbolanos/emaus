@@ -5,8 +5,8 @@ import { CreateMessageTemplate, UpdateMessageTemplate } from '@repo/types';
 export class MessageTemplateService {
   private messageTemplateRepository = AppDataSource.getRepository(MessageTemplate);
 
-  async findAll(): Promise<MessageTemplate[]> {
-    return this.messageTemplateRepository.find();
+  async findAll(retreatId: string): Promise<MessageTemplate[]> {
+    return this.messageTemplateRepository.find({ where: { retreatId } });
   }
 
   async findById(id: string): Promise<MessageTemplate | null> {
