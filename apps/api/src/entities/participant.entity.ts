@@ -13,6 +13,7 @@ import { Retreat } from './retreat.entity';
 import { TableMesa } from './tableMesa.entity';
 import { RetreatBed } from './retreatBed.entity';
 import { Charge } from './charge.entity';
+import { DateTransformer } from '../utils/date.transformer';
 
 @Entity('participants')
 export class Participant {
@@ -34,7 +35,10 @@ export class Participant {
 	@Column({ type: 'varchar', nullable: true })
 	nickname?: string; // Corresponde a 'apodo'
 
-	@Column('date')
+	@Column({
+		type: 'date',
+		transformer: new DateTransformer(),
+	})
 	birthDate!: Date; // Combina 'dia', 'mes', 'anio'
 
 	@Column('varchar')

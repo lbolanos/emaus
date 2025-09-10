@@ -280,17 +280,8 @@ const onSubmit = async () => {
     return
   }
 
-  const dataToSend = result.data as any;
-  if (formData.value.birthDate) {
-    const parts = formData.value.birthDate.split('-');
-    const year = parseInt(parts[0], 10);
-    const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
-    const day = parseInt(parts[2], 10);
-    dataToSend.birthDate = new Date(Date.UTC(year, month, day));
-  }
-
   try {
-    await participantStore.createParticipant(dataToSend)
+    await participantStore.createParticipant(result.data)
     toast({ title: 'Registration Successful' })
     isDialogOpen.value = false
     currentStep.value = 1

@@ -284,6 +284,22 @@ const getNestedProperty = (obj: any, path: string) => {
     return result;
 };
 
+const formatCell = (participant: any, colKey: string) => {
+    const value = getNestedProperty(participant, colKey);
+    if (['birthDate', 'registrationDate', 'lastUpdatedDate', 'paymentDate'].includes(colKey)) {
+        if (!value) return 'N/A';
+        const date = new Date(value);
+        const year = date.getUTCFullYear();
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    if (typeof value === 'boolean') {
+        return value ? $t('common.yes') : $t('common.no');
+    }
+    return value || 'N/A';
+};
+
 const formColumnsToShow = computed(() => {
     const combined = new Set([...props.columnsToShowInForm, ...visibleColumns.value]);
     return Array.from(combined);
@@ -530,7 +546,7 @@ watch(() => props.defaultFilters, (newDefaults) => {
                 <TableBody>
                     <TableRow v-for="participant in filteredAndSortedParticipants" :key="participant.id" :class="[participant.family_friend_color ? 'border-l-4' : '']" :style="participant.family_friend_color ? { borderLeftColor: participant.family_friend_color } : {}" class="participant-row">
                         <TableCell v-for="colKey in visibleColumns" :key="`${participant.id}-${colKey}`">
-                            {{ getNestedProperty(participant, colKey) || 'N/A' }}
+                            {{ formatCell(participant, colKey) }}
                         </TableCell>
                         <TableCell>
                             <div class="flex -space-x-3">

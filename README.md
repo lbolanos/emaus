@@ -156,7 +156,6 @@ create the default messages when the retreat is created
 
 En la lista de participantes el boton de mensajes debe abrir un dialogo en que puedes seleccionar el numero de telefono de todos los que tiene el participante: telefono casa, mobil, trabajo, telefono emergencia ..., telefono invitador, indicando de quien es el telefono, seleccionar el mensaje a enviar un boton enviar.
 
-IN PROGRESS
 manejo de inventario para el retiro.  
 Debe tener un ratio con respecto al numero de caminantes de las unidades por defecto y alertar si sobrepasa.  
 ej si 10 caminante y ratio 1 entonces debe tener al menos 10 unidades. Si 10 caminantes y ratio 0.5 entonces debe tener al menos 5 unidades.
@@ -168,7 +167,14 @@ un campo de unidad: frascos, cajas, litros ... etc
 al crear el retiro se deben crear por defecto todo el listado y poder agregar, modificar y borrar.
 add requiredQuantity to apps/api/src/entities/inventoryItem.entity.ts if is null or empty the ratio works but if has a value then the ratio does not work and have a fixed number of items not related with the amount of walkers
 
-llevar tambien el registro de las camisetas y chaquetas que necesitan los servidores.
+apps/web/src/views/ParticipantRegistrationView.vue
+En el registro de los servidores se necesita agregar cuatro campos uno para preguntar si necesita la camiseta blanca,  si necesita la camiseta azul,  y si necesita chaqueta, ademas de la talla.
+adicione los campos necesarios a apps/api/src/entities/retreatInventory.entity.ts
+en el inventario agregar camisetas blancas talla M que en el inventario del retiro requiredQuantity correspondera a la suma de los caminantes con tshirtSize=M mas el numero de servidores con el campo necesita camiseta blanca y con tshirtSize=M.  Lo mismo para las otras tallas.
+
+
+IN PROGRESS
+create a migration pattern with a table in database to manage the migrations already executed
 
 TODO
 
@@ -187,7 +193,7 @@ para las palancas agregar datos de si son becados y pagos y notas de pagos
 importar pagos
 agregar mesa y lider a alimentos y medicinas impresion.
 
-create a migration pattern with a table in database to manage the migrations already executed
+
 
 Que debe pasar cuando se cancele un participante ... unassign from retreatBed and from tableMesa
 
