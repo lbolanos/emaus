@@ -168,10 +168,9 @@ al crear el retiro se deben crear por defecto todo el listado y poder agregar, m
 add requiredQuantity to apps/api/src/entities/inventoryItem.entity.ts if is null or empty the ratio works but if has a value then the ratio does not work and have a fixed number of items not related with the amount of walkers
 
 apps/web/src/views/ParticipantRegistrationView.vue
-En el registro de los servidores se necesita agregar cuatro campos uno para preguntar si necesita la camiseta blanca,  si necesita la camiseta azul,  y si necesita chaqueta, ademas de la talla.
+En el registro de los servidores se necesita agregar cuatro campos uno para preguntar si necesita la camiseta blanca, si necesita la camiseta azul, y si necesita chaqueta, ademas de la talla.
 adicione los campos necesarios a apps/api/src/entities/retreatInventory.entity.ts
-en el inventario agregar camisetas blancas talla M que en el inventario del retiro requiredQuantity correspondera a la suma de los caminantes con tshirtSize=M mas el numero de servidores con el campo necesita camiseta blanca y con tshirtSize=M.  Lo mismo para las otras tallas.
-
+en el inventario agregar camisetas blancas talla M que en el inventario del retiro requiredQuantity correspondera a la suma de los caminantes con tshirtSize=M mas el numero de servidores con el campo necesita camiseta blanca y con tshirtSize=M. Lo mismo para las otras tallas.
 
 IN PROGRESS
 create a migration pattern with a table in database to manage the migrations already executed
@@ -192,8 +191,6 @@ analisis de seguridad de todo el sitio
 para las palancas agregar datos de si son becados y pagos y notas de pagos
 importar pagos
 agregar mesa y lider a alimentos y medicinas impresion.
-
-
 
 Que debe pasar cuando se cancele un participante ... unassign from retreatBed and from tableMesa
 

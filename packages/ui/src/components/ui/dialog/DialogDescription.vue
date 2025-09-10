@@ -9,8 +9,9 @@ import { cn } from '../../../lib/utils'
 const props = defineProps<DialogDescriptionProps & { class?: HTMLAttributes['class'] }>()
 
 const delegatedProps = computed(() => {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const { class: _, ...delegated } = props
-
+  void _
   return delegated
 })
 </script>

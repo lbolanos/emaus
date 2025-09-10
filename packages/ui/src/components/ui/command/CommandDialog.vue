@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { type HTMLAttributes, computed } from 'vue'
-import { ComboboxRoot, type ComboboxRootEmits, type ComboboxRootProps, useForwardPropsEmits } from 'radix-vue'
+import { type ComboboxRootEmits, type ComboboxRootProps, useForwardPropsEmits } from 'radix-vue'
 import { Dialog, DialogContent } from '@repo/ui/components/ui/dialog'
 import Command from './Command.vue'
 
@@ -10,7 +10,9 @@ const props = defineProps<ComboboxRootProps & {
 const emits = defineEmits<ComboboxRootEmits>()
 
 const delegatedProps = computed(() => {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const { class: _, ...delegated } = props
+  void _
   return delegated
 })
 

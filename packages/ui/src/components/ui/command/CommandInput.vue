@@ -13,7 +13,9 @@ const props = defineProps<ComboboxInputProps & {
 }>()
 
 const delegatedProps = computed(() => {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const { class: _, ...delegated } = props
+  void _
   return delegated
 })
 

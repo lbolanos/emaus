@@ -153,16 +153,34 @@ export const calculateRequiredQuantities = async (retreatId: string) => {
 			let requiredQuantity: number;
 
 			// Handle t-shirt calculations
-			if (inventory.inventoryItem.isCalculated && inventory.inventoryItem.calculationType === 'tshirt') {
-				requiredQuantity = await calculateTshirtQuantity(retreatId, inventory.inventoryItem.tshirtSize);
+			if (
+				inventory.inventoryItem.isCalculated &&
+				inventory.inventoryItem.calculationType === 'tshirt'
+			) {
+				requiredQuantity = await calculateTshirtQuantity(
+					retreatId,
+					inventory.inventoryItem.tshirtSize,
+				);
 			}
 			// Handle blue t-shirt calculations
-			else if (inventory.inventoryItem.isCalculated && inventory.inventoryItem.calculationType === 'bluetshirt') {
-				requiredQuantity = await calculateBlueTshirtQuantity(retreatId, inventory.inventoryItem.tshirtSize);
+			else if (
+				inventory.inventoryItem.isCalculated &&
+				inventory.inventoryItem.calculationType === 'bluetshirt'
+			) {
+				requiredQuantity = await calculateBlueTshirtQuantity(
+					retreatId,
+					inventory.inventoryItem.tshirtSize,
+				);
 			}
 			// Handle jacket calculations
-			else if (inventory.inventoryItem.isCalculated && inventory.inventoryItem.calculationType === 'jacket') {
-				requiredQuantity = await calculateJacketQuantity(retreatId, inventory.inventoryItem.tshirtSize);
+			else if (
+				inventory.inventoryItem.isCalculated &&
+				inventory.inventoryItem.calculationType === 'jacket'
+			) {
+				requiredQuantity = await calculateJacketQuantity(
+					retreatId,
+					inventory.inventoryItem.tshirtSize,
+				);
 			}
 			// Use fixed quantity if specified, otherwise calculate using ratio
 			else if (
@@ -193,9 +211,12 @@ export const calculateRequiredQuantities = async (retreatId: string) => {
 };
 
 // Helper function to calculate t-shirt quantities
-const calculateTshirtQuantity = async (retreatId: string, tshirtSize: string | null | undefined): Promise<number> => {
+const calculateTshirtQuantity = async (
+	retreatId: string,
+	tshirtSize: string | null | undefined,
+): Promise<number> => {
 	const participantRepository = AppDataSource.getRepository(Participant);
-	
+
 	if (!tshirtSize) return 0;
 
 	// Get count of walkers with this t-shirt size
@@ -223,9 +244,12 @@ const calculateTshirtQuantity = async (retreatId: string, tshirtSize: string | n
 };
 
 // Helper function to calculate blue t-shirt quantities
-const calculateBlueTshirtQuantity = async (retreatId: string, tshirtSize: string | null | undefined): Promise<number> => {
+const calculateBlueTshirtQuantity = async (
+	retreatId: string,
+	tshirtSize: string | null | undefined,
+): Promise<number> => {
 	const participantRepository = AppDataSource.getRepository(Participant);
-	
+
 	if (!tshirtSize) return 0;
 
 	// Get count of servers who need blue shirts and have this t-shirt size
@@ -243,9 +267,12 @@ const calculateBlueTshirtQuantity = async (retreatId: string, tshirtSize: string
 };
 
 // Helper function to calculate jacket quantities
-const calculateJacketQuantity = async (retreatId: string, tshirtSize: string | null | undefined): Promise<number> => {
+const calculateJacketQuantity = async (
+	retreatId: string,
+	tshirtSize: string | null | undefined,
+): Promise<number> => {
 	const participantRepository = AppDataSource.getRepository(Participant);
-	
+
 	if (!tshirtSize) return 0;
 
 	// Get count of servers who need jackets and have this t-shirt size

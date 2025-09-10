@@ -2,7 +2,6 @@
 import { type HTMLAttributes, computed } from 'vue'
 import {
   SelectContent,
-  type SelectContentEmits,
   type SelectContentProps,
   SelectPortal,
   SelectViewport,
@@ -10,11 +9,11 @@ import {
 import { cn } from '../../../lib/utils'
 
 const props = defineProps<SelectContentProps & { class?: HTMLAttributes['class'] }>()
-const emits = defineEmits<SelectContentEmits>()
 
 const delegatedProps = computed(() => {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const { class: _, ...delegated } = props
-
+  void _
   return delegated
 })
 </script>
