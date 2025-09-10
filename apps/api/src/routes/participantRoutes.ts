@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import {
-  createParticipant,
-  deleteParticipant,
-  getAllParticipants,
-  getParticipantById,
-  importParticipants,
-  updateParticipant,
+	createParticipant,
+	deleteParticipant,
+	getAllParticipants,
+	getParticipantById,
+	importParticipants,
+	updateParticipant,
 } from '../controllers/participantController';
 import { validateRequest } from '../middleware/validateRequest';
 import { createParticipantSchema, updateParticipantSchema } from '@repo/types';

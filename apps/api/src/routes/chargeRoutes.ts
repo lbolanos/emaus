@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import {
-  createCharge,
-  deleteCharge,
-  getAllCharges,
-  getChargeById,
-  updateCharge,
-  assignCharge,
-  removeCharge,
+	createCharge,
+	deleteCharge,
+	getAllCharges,
+	getChargeById,
+	updateCharge,
+	assignCharge,
+	removeCharge,
 } from '../controllers/chargeController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 

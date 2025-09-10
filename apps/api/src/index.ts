@@ -14,24 +14,24 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 app.use(
-  cors({
-    origin: config.frontend.url,
-    credentials: true,
-  })
+	cors({
+		origin: config.frontend.url,
+		credentials: true,
+	}),
 );
 app.use(express.json());
 
 app.use(
-  session({
-    secret: config.session.secret,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    },
-  })
+	session({
+		secret: config.session.secret,
+		resave: false,
+		saveUninitialized: false,
+		cookie: {
+			httpOnly: true,
+			secure: process.env.NODE_ENV === 'production',
+			maxAge: 24 * 60 * 60 * 1000, // 24 hours
+		},
+	}),
 );
 
 app.use(passport.initialize());
@@ -43,12 +43,12 @@ app.use('/api/tables', tableMesaRoutes);
 app.use(errorHandler);
 
 AppDataSource.initialize()
-  .then(() => {
-    console.log('Data Source has been initialized!');
-    app.listen(port, () => {
-      console.log(`Server is running on http://localhost:${port}`);
-    });
-  })
-  .catch((err) => {
-    console.error('Error during Data Source initialization:', err);
-  });
+	.then(() => {
+		console.log('Data Source has been initialized!');
+		app.listen(port, () => {
+			console.log(`Server is running on http://localhost:${port}`);
+		});
+	})
+	.catch((err) => {
+		console.error('Error during Data Source initialization:', err);
+	});

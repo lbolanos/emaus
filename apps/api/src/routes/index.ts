@@ -8,6 +8,7 @@ import retreatRoutes from './retreatRoutes';
 import chargeRoutes from './chargeRoutes';
 import tableMesaRoutes from './tableMesaRoutes';
 import messageTemplateRoutes from './messageTemplateRoutes';
+import inventoryRoutes from './inventoryRoutes';
 
 const router = Router();
 
@@ -19,5 +20,6 @@ router.use('/charges', chargeRoutes);
 router.use(retreatBedRoutes);
 router.use('/tables', tableMesaRoutes);
 router.use('/message-templates', messageTemplateRoutes);
+router.use('/inventory', inventoryRoutes);
 
 export default router;

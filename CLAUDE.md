@@ -45,6 +45,7 @@ pnpm format
 ## Key Business Concepts
 
 ### Participants
+
 - Two main types: 'walkers' (caminantes) and 'servers' (servidores)
 - Participants are never deleted - marked as 'deleted' instead
 - Can be imported/exported via Excel/CSV
@@ -52,18 +53,21 @@ pnpm format
 - Age-based room assignments (younger participants get bunk beds, older get regular beds on lower floors)
 
 ### Retreats
+
 - Each retreat has a house with specific room/bed configurations
 - Room assignments consider age, snoring habits, and bed types (normal, bunk, mattress)
 - Table assignments with leaders (lider, colider1, colider2) and walkers
 - Maximum limits for walkers and servers based on house capacity
 
 ### Houses
+
 - Track rooms with beds (identified by room number + bed number)
 - Bed types: normal, bunk, mattress
 - Default usage: walker or server
 - Google Maps integration and notes about facilities
 
 ### Data Management
+
 - Import/export functionality for participants, inventory, payments
 - Excel/CSV support with column selection
 - Real-time validation and error handling
@@ -84,6 +88,7 @@ The codebase has extensive Spanish documentation and requirements. Key features 
 ## Database Schema
 
 The system uses TypeORM with SQLite. Key entities include:
+
 - Participant (with family_friend_color, snoring info)
 - Retreat (with house, capacity limits, notes)
 - House (with rooms and beds)

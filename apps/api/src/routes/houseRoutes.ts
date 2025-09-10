@@ -1,5 +1,11 @@
 import { Router } from 'express';
-import { getHouses, getHouseById, createHouse, updateHouse, deleteHouse } from '../controllers/houseController';
+import {
+	getHouses,
+	getHouseById,
+	createHouse,
+	updateHouse,
+	deleteHouse,
+} from '../controllers/houseController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { validateRequest } from '../middleware/validateRequest';
 import { createHouseSchema, updateHouseSchema } from '@repo/types';

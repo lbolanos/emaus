@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import { passport } from '../services/authService';
 import {
-  googleCallback,
-  getAuthStatus,
-  logout,
-  register,
-  login,
-  requestPasswordReset,
-  resetPassword,
+	googleCallback,
+	getAuthStatus,
+	logout,
+	register,
+	login,
+	requestPasswordReset,
+	resetPassword,
 } from '../controllers/authController';
 
 const router = Router();
@@ -20,9 +20,9 @@ router.post('/login', login);
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
 router.get(
-  '/google/callback',
-  passport.authenticate('google', { failureRedirect: '/login' }),
-  googleCallback
+	'/google/callback',
+	passport.authenticate('google', { failureRedirect: '/login' }),
+	googleCallback,
 );
 
 // Session Management

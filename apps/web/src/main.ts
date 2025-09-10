@@ -18,5 +18,5 @@ app.use(i18n);
 const authStore = useAuthStore();
 
 authStore.checkAuthStatus().then(() => {
-  app.mount('#app');
+	app.mount('#app');
 });

@@ -4,35 +4,36 @@ This repository contains the monorepo for the Retreat Logistics Management Syste
 
 ## Tech Stack
 
--   **Monorepo:** pnpm Workspaces + Turborepo
--   **Language:** TypeScript (Strict Mode)
--   **Backend:** Node.js, Express.js, TypeORM, SQLite
--   **Frontend:** Vue.js 3 (Composition API), Vite, Pinia
--   **UI:** Tailwind CSS, shadcn-vue
--   **Validation:** Zod
--   **Code Quality:** ESLint, Prettier
+- **Monorepo:** pnpm Workspaces + Turborepo
+- **Language:** TypeScript (Strict Mode)
+- **Backend:** Node.js, Express.js, TypeORM, SQLite
+- **Frontend:** Vue.js 3 (Composition API), Vite, Pinia
+- **UI:** Tailwind CSS, shadcn-vue
+- **Validation:** Zod
+- **Code Quality:** ESLint, Prettier
 
 ## Project Structure
 
 The monorepo is organized into `apps` and `packages`:
 
--   `apps/api`: The Express.js backend server.
--   `apps/web`: The Vue.js frontend application.
--   `packages/config`: Shared ESLint configurations.
--   `packages/tsconfig`: Shared TypeScript configurations.
--   `packages/types`: Shared Zod schemas and TypeScript types.
--   `packages/ui`: Shared Vue components.
+- `apps/api`: The Express.js backend server.
+- `apps/web`: The Vue.js frontend application.
+- `packages/config`: Shared ESLint configurations.
+- `packages/tsconfig`: Shared TypeScript configurations.
+- `packages/types`: Shared Zod schemas and TypeScript types.
+- `packages/ui`: Shared Vue components.
 
 ## Getting Started
 
 ### Prerequisites
 
--   [Node.js](https://nodejs.org/) (v20 or later)
--   [pnpm](https://pnpm.io/)
+- [Node.js](https://nodejs.org/) (v20 or later)
+- [pnpm](https://pnpm.io/)
 
 ### Installation
 
 1.  Clone the repository:
+
     ```bash
     git clone <repository-url>
     cd emaus
@@ -44,7 +45,7 @@ The monorepo is organized into `apps` and `packages`:
     pnpm install
     ```
 
-must call 
+must call
 pnpm --filter api db:seed
 
 ### Development
@@ -59,14 +60,14 @@ El listado de participantes debe poder descargarse en formato excel o csv.
 debe poder seleccionar las columnas que desea ver en el listado.
 debe poder buscar un participante y orden por alguna columna.
 Los participantes nunca se borrar pero cambiar a type = 'deleted'
-importar todos los participantes de un archivo de excel o csv.  se importan de acuerdo a su correo electronico.  Si no existe se crea y si existe se actualiza.
+importar todos los participantes de un archivo de excel o csv. se importan de acuerdo a su correo electronico. Si no existe se crea y si existe se actualiza.
 crear un formulario en el que le diga los campos que puede modificar y los campos a mostrar
 agregar un menu para los participantes borrados
-menu item para adicionar y editar casas de retiro. las casas tienen un listado de camas de habitacion con identificacion que corresponde a numero de habitacion y numero de cama,  tipo de cama puede ser normal, litera o colchon, uso por defecto para caminante o servidor. Ubicacion de la casa google maps y direccion.
+menu item para adicionar y editar casas de retiro. las casas tienen un listado de camas de habitacion con identificacion que corresponde a numero de habitacion y numero de cama, tipo de cama puede ser normal, litera o colchon, uso por defecto para caminante o servidor. Ubicacion de la casa google maps y direccion.
 adicionar campo de notas a la casa como no tiene baños, no tiene almohadas etc.
-al crear el retiro se deben leer las habitaciones de la casa de retiro, crear una entidad room_bed que contiene el numero de habitacion y numero de cama o colchon y asignarlas al retiro.  Tambien se deben crear al menos 5 mesas.  Tiene que tener un maximo de caminantes por mesa y un minimo y al crear participante si sobrepasa algun limite crear o borrar una mesa y reordenar las mesas teniendo en cuenta las reglas.
+al crear el retiro se deben leer las habitaciones de la casa de retiro, crear una entidad room_bed que contiene el numero de habitacion y numero de cama o colchon y asignarlas al retiro. Tambien se deben crear al menos 5 mesas. Tiene que tener un maximo de caminantes por mesa y un minimo y al crear participante si sobrepasa algun limite crear o borrar una mesa y reordenar las mesas teniendo en cuenta las reglas.
 el campo house es obligatorio
-adicionar al retiro notas de inicio,  notas de cierre, notas de cosas para traer cepillo, jabon, medicinas.  Generar codigo QR de los enlaces.
+adicionar al retiro notas de inicio, notas de cierre, notas de cosas para traer cepillo, jabon, medicinas. Generar codigo QR de los enlaces.
 based on @apps/web/src/views/WalkersView.vue copy it and change the fields necessary for the task
 Listado Palancas
 Listado Pagos, Notas & Puntos de Encuentro
@@ -80,13 +81,13 @@ Reporte Bolsas con campos id_retreat Nombre Apellidos Mesa Talla
 Reporte Medicinas
 agregar costo del retiro y notas de la cuenta y forma de pago
 agregar un limite de caminantes maximo y un limite de servidores maximo al retiro.
-Si sobrepasa este limite al crear un nuevo caminante debe colocarlo como  tipo 'waiting'
-Cuando se selecciona una casa en la creación del retiro se debe colocar el numero de camas de caminantes como maximo numero de caminantes del retiro.  Lo mismo con los servidores.
+Si sobrepasa este limite al crear un nuevo caminante debe colocarlo como tipo 'waiting'
+Cuando se selecciona una casa en la creación del retiro se debe colocar el numero de camas de caminantes como maximo numero de caminantes del retiro. Lo mismo con los servidores.
 agregar piso a los cuartos.  
 En listado de cuartos agregar los campos piso, edad, type y la forma de asignar participante a la cama
 ordenar la lista de asignacion de camas por edad.
-crea un plan para crear una nueva entidad con su vista para los cargos del retiro.  Se deben poder asignar a un servidor. Los cargos por defecto se deben crear junto con la creacion de un retiro y son
-Palancas 1,  Palancas 2,  Palancas 3,
+crea un plan para crear una nueva entidad con su vista para los cargos del retiro. Se deben poder asignar a un servidor. Los cargos por defecto se deben crear junto con la creacion de un retiro y son
+Palancas 1, Palancas 2, Palancas 3,
 logistica, Inventario, Tesorero
 Sacerdotes
 Mantelitos
@@ -100,68 +101,75 @@ Cuartos
 Oración
 Palanquitas
 Santísmo
-Campanero 
+Campanero
 Continua
 
 add lider, colider 1 and colider 2 to the table entity
-add a view to manage tables (mesas).  In the top are boxes with server names at the left, and boxes with walker at the right.
-below TableCard with all tables.  each TableCard has 4 dropzones,  for lider, colider1, colider2 and walkers.  The user can drag server and put in lider, colider1 or colider2.  Drag walker and put in walkers dropzone.
+add a view to manage tables (mesas). In the top are boxes with server names at the left, and boxes with walker at the right.
+below TableCard with all tables. each TableCard has 4 dropzones, for lider, colider1, colider2 and walkers. The user can drag server and put in lider, colider1 or colider2. Drag walker and put in walkers dropzone.
 asignar lider y colider de mesa
 colocar en español las columnas de participantes
 en el formulario de servidores preguntar por si necesita camiseta
-cada que se agregue un caminante, debe asignarse a una mesa aleatoria en la que no este ningun caminante con el mismo servidor que lo invito. Tambien debe asignarse una cama de habitacion de acuerdo a su edad.  los que tienen litera para los jovenes.  las camas normales en los primeros pisos para los mas viejos. En caso de que toque asignar colchon para los servidores mas jovenes primero.
+cada que se agregue un caminante, debe asignarse a una mesa aleatoria en la que no este ningun caminante con el mismo servidor que lo invito. Tambien debe asignarse una cama de habitacion de acuerdo a su edad. los que tienen litera para los jovenes. las camas normales en los primeros pisos para los mas viejos. En caso de que toque asignar colchon para los servidores mas jovenes primero.
 al asignar la cama se deben asociar en la habitacion los que roncan con los que roncan y los que no roncan con los que no roncan.
 para la asignacion de mesas has que los en las mesas has que las cajas que se arrastran con servidores y caminantes sean bubbles con el primer nombre y la inicial de su apellido
 verificar que un participante solo puede estar en una mesa
-al crear un caminante detectar que puede ser familiar o invitado por el mismo servidor de otro caminante y colocarlos de un mismo color usando el campo en participant family_friend_color.  if a walker has color, use this for the other. if not take an available color from a pool of 40 colors and verify not exists in any walker.
-it searches for existing participants invited by the same person using:
-	- invitedBy field
-    - Inviter email (case-insensitive)
-    - Inviter phone numbers (last 8 digits, normalized)
-i need the detect a walker is invited by any person.  if two walker are invited by same person put same color.  this behaviour is for walker not for server
+al crear un caminante detectar que puede ser familiar o invitado por el mismo servidor de otro caminante y colocarlos de un mismo color usando el campo en participant family_friend_color. if a walker has color, use this for the other. if not take an available color from a pool of 40 colors and verify not exists in any walker.
+it searches for existing participants invited by the same person using: - invitedBy field - Inviter email (case-insensitive) - Inviter phone numbers (last 8 digits, normalized)
+i need the detect a walker is invited by any person. if two walker are invited by same person put same color. this behaviour is for walker not for server
 ● Perfect! Now the color assignment logic works exactly as you want:
 
-  Updated logic:
-  1. Only for walkers - No color assignment for servers
-  2. Groups only - Colors are only assigned when there are 2 or more walkers in a group
-  3. Group detection by:
-    - Same invitedBy (invited by same person)
-    - Same inviter contact info (email, phone for Emaus members)
-    - Same lastName (family relationship)
+Updated logic:
 
-  When colors are assigned:
-  - When creating the 2nd+ walker in a group → assigns color to all walkers in the group
-  - When any walker in a group already has a color → reuses that color
-  - When it's the first walker in a potential group → no color assigned
+1. Only for walkers - No color assignment for servers
+2. Groups only - Colors are only assigned when there are 2 or more walkers in a group
+3. Group detection by:
+   - Same invitedBy (invited by same person)
+   - Same inviter contact info (email, phone for Emaus members)
+   - Same lastName (family relationship)
 
-  When no colors are assigned:
-  - Single walkers with no group relationships
-  - Servers
-  - Walkers who don't match any group criteria
+When colors are assigned:
+
+- When creating the 2nd+ walker in a group → assigns color to all walkers in the group
+- When any walker in a group already has a color → reuses that color
+- When it's the first walker in a potential group → no color assigned
+
+When no colors are assigned:
+
+- Single walkers with no group relationships
+- Servers
+- Walkers who don't match any group criteria
 
 en la vista de habitacion mostrar si ronca en la asignacion
-
-
-IN PROGRESS
 en mesas al pasar a un caminante o servidor validar que la mesa no tenga un familiar o invitador.
-make a plan                                                                                                                                                                                                                                                                                                                                                                                                                     │
-crear una tabla en la base de datos con una vista para llevar los                                                                                                                                                                                                                                                                                                                                                               │
-Mensajes que envia palancas por defecto por whatsapp en la edicion de las palancas.                                                                                                                                                                                                                                                                                                                                             │
-Mensaje de Bienvenida a caminante                                                                                                                                                                                                                                                                                                                                                                                               │
-Mensaje validar contacto de emergencia                                                                                                                                                                                                                                                                                                                                                                                          │
-Mensaje para solicitar las palancas.                                                                                                                                                                                                                                                                                                                                                                                            │
-Mensaje para recordar envio de las palancas.                                                                                                                                                                                                                                                                                                                                                                                    │
-como son templates ingeniarse la forma para agregar los campos de participant o retreat necesarios en la plantilla                                                                                                                                                                                                                                                                                                              │
-Ej: Hola {participant.name}  Bienvenido al retiro {retreat.name}
+make a plan │
+crear una tabla en la base de datos con una vista para llevar los │
+Mensajes que envia palancas por defecto por whatsapp en la edicion de las palancas. │
+Mensaje de Bienvenida a caminante │
+Mensaje validar contacto de emergencia │
+Mensaje para solicitar las palancas. │
+Mensaje para recordar envio de las palancas. │
+como son templates ingeniarse la forma para agregar los campos de participant o retreat necesarios en la plantilla │
+Ej: Hola {participant.name} Bienvenido al retiro {retreat.name}
 select one participant and preview how the message is going to send.
 create the default messages when the retreat is created
 
-En la lista de participantes el boton de mensajes debe abrir un dialogo en que puedes seleccionar el numero de telefono de todos los que tiene el participante:  telefono casa, mobil, trabajo, telefono emergencia ...,  telefono invitador,  indicando de quien es el telefono,  seleccionar el mensaje a enviar un boton enviar.
+En la lista de participantes el boton de mensajes debe abrir un dialogo en que puedes seleccionar el numero de telefono de todos los que tiene el participante: telefono casa, mobil, trabajo, telefono emergencia ..., telefono invitador, indicando de quien es el telefono, seleccionar el mensaje a enviar un boton enviar.
+
+IN PROGRESS
+manejo de inventario para el retiro.  
+Debe tener un ratio con respecto al numero de caminantes de las unidades por defecto y alertar si sobrepasa.  
+ej si 10 caminante y ratio 1 entonces debe tener al menos 10 unidades. Si 10 caminantes y ratio 0.5 entonces debe tener al menos 5 unidades.
+importar y export excel o csv.
+cada articulo tiene que tener una categoria. las categorias son snacks, botiquin, aseo personal, papeleria
+tambien debe tener un campo de equipo y son: Recepción, Caminantes, Botiquín 1Eros Aux, Música, Comedor Salón Santísimo Campana Cuartos Papelería Palancas Snacks, Quema De Pecados, Pared Lavado De Manos Bolsas Salida
+un campo de cantidad requerida
+un campo de unidad: frascos, cajas, litros ... etc
+al crear el retiro se deben crear por defecto todo el listado y poder agregar, modificar y borrar.
+
+llevar tambien el registro de las camisetas y chaquetas que necesitan los servidores.
 
 TODO
-
-manejo de inventario.  importar y export excel o csv.  Debe tener un ratio con respecto al numero de caminantes de las unidades por defecto y alertar si sobrepasa.  ej si 10 caminante y ratio 1 entonces debe tener al menos 10 unidades. Si 10 caminantes y ratio 0.5 entonces debe tener al menos 5 unidades.
-llevar tambien el registro de las camisetas y chaquetas que necesitan los servidores.
 
 agregar una forma de administrar las tablas de la base de datos con solo permisos para el superadmin.
 cada usuario tiene asociado un listado de retiros y puede invitar a otro usuario con el correo a cualquier retiro que el tenga asociado.
@@ -169,7 +177,7 @@ guardar en un store el listado de columnas que se han modificado
 
 alimentos y medicinas agregar columna mesa para ordenar y lider
 
-un superadmin,  un usuario administrador y un usuario 
+un superadmin, un usuario administrador y un usuario
 el administrador puede borrar casas de retiro
 cookie jwt para acceso
 analisis de seguridad de todo el sitio
@@ -178,12 +186,11 @@ para las palancas agregar datos de si son becados y pagos y notas de pagos
 importar pagos
 agregar mesa y lider a alimentos y medicinas impresion.
 
-
 create a migration pattern with a table in database to manage the migrations already executed
 
-Que debe pasar cuando se cancele un participante ...  unassign from retreatBed and from tableMesa
+Que debe pasar cuando se cancele un participante ... unassign from retreatBed and from tableMesa
 
-
+hacer que funcione lint
 
 imprimir la mesa con lider caminantes telefonos, medicamentos y alimentos.
 
@@ -193,20 +200,8 @@ https://www.hostinger.com/
 https://www.digitalocean.com/
 supabase
 
-
 al selecciona menu casas de retiro debe desaparecer la seleccion de retiro porque es independiente del retiro.
 This will use Turborepo to run the `dev` script in both `apps/api` and `apps/web`.
 
--   The API will be available at `http://localhost:3001`.
--   The Web app will be available at `http://localhost:5173`.
-
-
-
-
-
-
-
-
-
-
-
+- The API will be available at `http://localhost:3001`.
+- The Web app will be available at `http://localhost:5173`.

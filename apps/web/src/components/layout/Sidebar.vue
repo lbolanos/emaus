@@ -174,6 +174,34 @@
       </router-link>
       <router-link
         v-if="retreatStore.selectedRetreatId"
+        :to="{ name: 'inventory', params: { id: retreatStore.selectedRetreatId } }"
+        v-slot="{ href, navigate, isActive }"
+        custom
+      >
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isSidebarCollapsed }
+                ]"
+              >
+                <Package class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">Inventario</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
+              <p>Inventario</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </router-link>
+      <router-link
+        v-if="retreatStore.selectedRetreatId"
         :to="{ name: 'palancas' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -568,6 +596,33 @@
           </Tooltip>
         </TooltipProvider>
       </router-link>
+      <router-link
+        :to="{ name: 'inventory-items' }"
+        v-slot="{ href, navigate, isActive }"
+        custom
+      >
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isSidebarCollapsed }
+                ]"
+              >
+                <Package class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">Artículos de Inventario</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
+              <p>Artículos de Inventario</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </router-link>
 
       <!-- Add other menu items here following the same pattern -->
     </nav>
@@ -576,7 +631,7 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, UserCog, Table, Settings } from 'lucide-vue-next';
+import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, UserCog, Table, Settings, Package } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter } from 'vue-router';
 import { Button } from '@repo/ui/components/ui/button';

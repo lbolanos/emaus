@@ -42,9 +42,10 @@ Component Styling: All styling must be done using Tailwind CSS utility classes. 
 
 Dark Mode: For components that need to appear on a dark background (like the sidebar), the `dark` class must be added to a parent element to apply the correct dark theme variant of the component styles.
 
-Dependencies: Internal workspace dependencies must use the workspace:* protocol in package.json.
+Dependencies: Internal workspace dependencies must use the workspace:\* protocol in package.json.
 
 Internationalization (i18n): The web application supports English and Spanish. All display text MUST be managed through `vue-i18n`.
+
 - **Locale Files**: Translation keys are stored in JSON files located at `apps/web/src/locales/`. There is one file per supported language (e.g., `en.json`, `es.json`).
 - **Usage**: In Vue components, use the `$t('key.path')` function to display translated text.
 - **Language Switching**: The `LanguageSwitcher.vue` component provides a dropdown in the header to allow users to change the language manually.
@@ -54,6 +55,7 @@ Internationalization (i18n): The web application supports English and Spanish. A
 
 PROJECT:UI_COMPONENTS
 The `packages/ui` package contains a set of reusable UI components built with `shadcn-vue`. These components are then used in the `web` application. The available components are:
+
 - Button
 - Card (Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle)
 - Command (Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut)
@@ -64,7 +66,7 @@ The `packages/ui` package contains a set of reusable UI components built with `s
 - Table (Table, TableHeader, TableBody, etc.)
 - Tabs (Tabs, TabsContent, TabsList, TabsTrigger)
 - Toast (Toast, Toaster, useToast): For displaying no
-</PROJECT:UI_COMPONENTS>
+  </PROJECT:UI_COMPONENTS>
 
 PROJECT:DATA_MODELS
 
@@ -74,7 +76,6 @@ Properties: id (UUID), googleId (string, optional), email (string, unique), disp
 Participant: Represents a person attending a retreat, either as a "walker" (attendee) or a "server" (staff).
 Properties: id (UUID), firstName (string), lastName (string), email (string), retreatId (FK to Retreat), tableId (FK to Table, optional), retreatBedId (FK to RetreatBed, optional), sacraments (string[], values enforced by Zod schema: 'baptism', 'communion', 'confirmation', 'marriage', 'none').
 Walker-specific properties: palancaManagerId (FK to another Participant of type 'SERVER'), palancasRequested (number). numero de palancas solicitadas. numero de palancas recibidas
-
 
 Retreat: Represents a specific retreat event.
 Properties: id (UUID), parish (string), startDate (Date), endDate (Date), houseId (FK to House, optional).
@@ -88,7 +89,6 @@ Properties: id (UUID), roomNumber (string), bedNumber (string), type (enum: 'nor
 Table: A group or table at a retreat.
 Properties: id (UUID), name (string), retreatId (FK to Retreat).
 
-
 PalancaLog: A record of a support contact ("palanca") made for a walker.
 Properties: id (UUID), note (text), contactDate (Date), participantId (FK to Participant of type 'WALKER').
 
@@ -100,6 +100,7 @@ Properties: id (UUID), name (string), type (string), quantity (number), unit (st
 API_ENDPOINTS
 
 Authentication:
+
 - `POST /api/auth/register`: Register a new user with email, password, and displayName.
 - `POST /api/auth/login`: Log in with email and password. Returns the user object on success.
 - `GET /api/auth/google`: Initiates the Google OAuth2 login flow.
@@ -110,13 +111,16 @@ Authentication:
 - `POST /api/auth/password/reset`: Resets the user's password using a valid token.
 
 Retreats:
+
 - `GET /api/retreats`: Get a list of all retreats, sorted by most recent.
 - `POST /api/retreats`: Create a new retreat.
 
 Houses:
+
 - `GET /api/houses`: Get a list of all houses.
 
 Participants:
+
 - `GET /api/participants`: Get a list of participants (walkers or servers). Can be filtered by `retreatId` and `type` query parameters.
 - `POST /api/participants/new`: Create a new participant.
 - `GET /api/participants/:id`: Get a single participant by ID.

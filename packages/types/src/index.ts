@@ -5,213 +5,206 @@ const idSchema = z.string().uuid();
 
 // Bed Schema
 export const bedSchema = z.object({
-  id: idSchema.optional(),
-  roomNumber: z.string(),
-  bedNumber: z.string(),
-  floor: z.number().int().optional(),
-  type: z.enum(['normal', 'litera', 'colchon']),
-  defaultUsage: z.enum(['caminante', 'servidor']),
-  houseId: idSchema.optional(),
+	id: idSchema.optional(),
+	roomNumber: z.string(),
+	bedNumber: z.string(),
+	floor: z.number().int().optional(),
+	type: z.enum(['normal', 'litera', 'colchon']),
+	defaultUsage: z.enum(['caminante', 'servidor']),
+	houseId: idSchema.optional(),
 });
 export type Bed = z.infer<typeof bedSchema>;
 
-
 // House Schema
 export const houseSchema = z.object({
-  id: idSchema,
-  name: z.string(),
-  address1: z.string(),
-  address2: z.string().optional(),
-  city: z.string(),
-  state: z.string(),
-  zipCode: z.string(),
-  country: z.string(),
-  capacity: z.number().int().positive(),
-  latitude: z.number().optional(),
-  longitude: z.number().optional(),
-  googleMapsUrl: z.string().url().optional(),
-  notes: z.string().optional(),
-  beds: z.array(bedSchema).optional(),
+	id: idSchema,
+	name: z.string(),
+	address1: z.string(),
+	address2: z.string().optional(),
+	city: z.string(),
+	state: z.string(),
+	zipCode: z.string(),
+	country: z.string(),
+	capacity: z.number().int().positive(),
+	latitude: z.number().optional(),
+	longitude: z.number().optional(),
+	googleMapsUrl: z.string().url().optional(),
+	notes: z.string().optional(),
+	beds: z.array(bedSchema).optional(),
 });
 export type House = z.infer<typeof houseSchema>;
 
 // Room Schema
 export const roomSchema = z.object({
-  id: idSchema,
-  roomNumber: z.string(),
-  capacity: z.number().int().positive(),
-  houseId: idSchema,
+	id: idSchema,
+	roomNumber: z.string(),
+	capacity: z.number().int().positive(),
+	houseId: idSchema,
 });
 export type Room = z.infer<typeof roomSchema>;
 
 // Retreat Schema
 export const retreatSchema = z.object({
-  id: idSchema,
-  parish: z.string(),
-  startDate: z.coerce.date(),
-  endDate: z.coerce.date(),
-  houseId: idSchema,
-  openingNotes: z.string().optional(),
-  closingNotes: z.string().optional(),
-  thingsToBringNotes: z.string().optional(),
-  cost: z.string().optional(),
-  paymentInfo: z.string().optional(),
-  paymentMethods: z.string().optional(),
-  max_walkers: z.number().int().positive().optional(),
-  max_servers: z.number().int().positive().optional(),
+	id: idSchema,
+	parish: z.string(),
+	startDate: z.coerce.date(),
+	endDate: z.coerce.date(),
+	houseId: idSchema,
+	openingNotes: z.string().optional(),
+	closingNotes: z.string().optional(),
+	thingsToBringNotes: z.string().optional(),
+	cost: z.string().optional(),
+	paymentInfo: z.string().optional(),
+	paymentMethods: z.string().optional(),
+	max_walkers: z.number().int().positive().optional(),
+	max_servers: z.number().int().positive().optional(),
 });
 export type Retreat = z.infer<typeof retreatSchema>;
 
 // Table Schema
 export const tableSchema = z.object({
-  id: idSchema,
-  name: z.string(),
-  retreatId: idSchema,
+	id: idSchema,
+	name: z.string(),
+	retreatId: idSchema,
 });
 export type Table = z.infer<typeof tableSchema>;
 
 // Charge Schema
 export const chargeSchema = z.object({
-  id: idSchema,
-  name: z.string(),
-  description: z.string().optional(),
-  retreatId: idSchema,
-  participant: z.lazy(() => participantSchema).optional(),
-  participantId: idSchema.optional(),
+	id: idSchema,
+	name: z.string(),
+	description: z.string().optional(),
+	retreatId: idSchema,
+	participant: z.lazy(() => participantSchema).optional(),
+	participantId: idSchema.optional(),
 });
 export type Charge = z.infer<typeof chargeSchema>;
 
 // RetreatBed Schema
 export const retreatBedSchema = z.object({
-  id: idSchema,
-  roomNumber: z.string(),
-  bedNumber: z.string(),
-  floor: z.number().int().optional(),
-  type: z.enum(['normal', 'litera', 'colchon']),
-  defaultUsage: z.enum(['caminante', 'servidor']),
-  retreatId: idSchema,
-  participantId: idSchema.nullable().optional(),
-  participant: z.any().nullable().optional(), // Use any to avoid circular reference
+	id: idSchema,
+	roomNumber: z.string(),
+	bedNumber: z.string(),
+	floor: z.number().int().optional(),
+	type: z.enum(['normal', 'litera', 'colchon']),
+	defaultUsage: z.enum(['caminante', 'servidor']),
+	retreatId: idSchema,
+	participantId: idSchema.nullable().optional(),
+	participant: z.any().nullable().optional(), // Use any to avoid circular reference
 });
 export type RetreatBed = z.infer<typeof retreatBedSchema>;
 
 // TableMesa Schema
 export const tableMesaSchema = z.object({
-  id: idSchema,
-  name: z.string(),
-  retreatId: idSchema,
-  lider: z.any().nullable().optional(),
-  colider1: z.any().nullable().optional(),
-  colider2: z.any().nullable().optional(),
-  walkers: z.array(z.any()).optional(),
+	id: idSchema,
+	name: z.string(),
+	retreatId: idSchema,
+	lider: z.any().nullable().optional(),
+	colider1: z.any().nullable().optional(),
+	colider2: z.any().nullable().optional(),
+	walkers: z.array(z.any()).optional(),
 });
 export type TableMesa = z.infer<typeof tableMesaSchema>;
 
 // Participant Schema
 export const participantSchema = z.object({
-  id: idSchema,
-  id_on_retreat: z.number().int().positive().optional(),
-  type: z.enum(['walker', 'server', 'waiting']),
-  firstName: z.string(),
-  lastName: z.string(),
-  nickname: z.string().optional(),
-  birthDate: z.coerce.date(),
-  registrationDate: z.coerce.date(),
-  lastUpdatedDate: z.coerce.date(),
-  isCancelled: z.boolean().optional(),
-  paymentDate: z.coerce.date().optional(),
-  paymentAmount: z.preprocess(
-    (val) => (val === null ? undefined : val),
-    z.number().optional(),
-  ),
-  isScholarship: z.boolean().optional(),
-  palancasCoordinator: z.preprocess(
-    (val) => (val === '' || val === null ? undefined : val),
-    z.string().optional(),
-  ),
-  palancasRequested: z.preprocess(
-    (val) => (val === null ? undefined : val),
-    z.boolean().optional(),
-  ),
-  palancasReceived: z.preprocess(
-    (val) => (val === '' || val === null ? undefined : val),
-    z.string().optional(),
-  ),
-  palancasNotes: z.preprocess(
-    (val) => (val === '' || val === null ? undefined : val),
-    z.string().optional(),
-  ),
-  requestsSingleRoom: z.preprocess(
-    (val) => (val === null ? undefined : val),
-    z.boolean().optional(),
-  ),
-  notes: z.preprocess(
-    (val) => (val === '' || val === null ? undefined : val),
-    z.string().optional(),
-  ),
-  maritalStatus: z.enum(['S', 'C', 'D', 'V', 'O']),
-  street: z.string(),
-  houseNumber: z.string(),
-  postalCode: z.string(),
-  neighborhood: z.string(),
-  city: z.string(),
-  state: z.string(),
-  country: z.string(),
-  parish: z.string().optional(),
-  homePhone: z.string().optional(),
-  workPhone: z.string().optional(),
-  cellPhone: z.string(),
-  email: z.string().email(),
-  occupation: z.string(),
-  snores: z.boolean(),
-  hasMedication: z.boolean(),
-  medicationDetails: z.string().optional(),
-  medicationSchedule: z.string().optional(),
-  hasDietaryRestrictions: z.boolean(),
-  dietaryRestrictionsDetails: z.string().optional(),
-  sacraments: z.array(z.enum(['baptism', 'communion', 'confirmation', 'marriage', 'none'])),
-  emergencyContact1Name: z.string(),
-  emergencyContact1Relation: z.string(),
-  emergencyContact1HomePhone: z.string().optional(),
-  emergencyContact1WorkPhone: z.string().optional(),
-  emergencyContact1CellPhone: z.string(),
-  emergencyContact1Email: z.preprocess(
-    (val) => (val === '' || val === null ? undefined : val),
-    z.string().email({ message: "Invalid email address" }).optional(),
-  ),
-  emergencyContact2Name: z.string().optional(),
-  emergencyContact2Relation: z.string().optional(),
-  emergencyContact2HomePhone: z.string().optional(),
-  emergencyContact2WorkPhone: z.string().optional(),
-  emergencyContact2CellPhone: z.string().optional(),
-  emergencyContact2Email: z.preprocess(
-    (val) => (val === '' || val === null ? undefined : val),
-    z.string().email({ message: "Invalid email address" }).optional(),
-  ),
-  tshirtSize: z.preprocess(
-    (val) => (val === '' || val === null ? undefined : val),
-    z.enum(['S', 'M', 'G', 'X', '2']).optional(),
-  ),
-  invitedBy: z.string().optional(),
-  isInvitedByEmausMember: z.boolean().nullable().optional(),
-  inviterHomePhone: z.string().optional(),
-  inviterWorkPhone: z.string().optional(),
-  inviterCellPhone: z.string().optional(),
-  inviterEmail: z.preprocess(
-    (val) => (val === '' || val === null ? undefined : val),
-    z.string().email().optional(),
-  ),
-  family_friend_color: z.string().optional(),
-  pickupLocation: z.string().optional(),
-  arrivesOnOwn: z.preprocess(
-    (val) => (val === null ? undefined : val),
-    z.boolean().optional(),
-  ),
-  retreatId: idSchema,
-  tableId: idSchema.nullable().optional(),
-  retreatBedId: idSchema.nullable().optional(),
-  tableMesa: tableMesaSchema.optional(),
-  retreatBed: retreatBedSchema.nullable().optional(),
+	id: idSchema,
+	id_on_retreat: z.number().int().positive().optional(),
+	type: z.enum(['walker', 'server', 'waiting']),
+	firstName: z.string(),
+	lastName: z.string(),
+	nickname: z.string().optional(),
+	birthDate: z.coerce.date(),
+	registrationDate: z.coerce.date(),
+	lastUpdatedDate: z.coerce.date(),
+	isCancelled: z.boolean().optional(),
+	paymentDate: z.coerce.date().optional(),
+	paymentAmount: z.preprocess((val) => (val === null ? undefined : val), z.number().optional()),
+	isScholarship: z.boolean().optional(),
+	palancasCoordinator: z.preprocess(
+		(val) => (val === '' || val === null ? undefined : val),
+		z.string().optional(),
+	),
+	palancasRequested: z.preprocess(
+		(val) => (val === null ? undefined : val),
+		z.boolean().optional(),
+	),
+	palancasReceived: z.preprocess(
+		(val) => (val === '' || val === null ? undefined : val),
+		z.string().optional(),
+	),
+	palancasNotes: z.preprocess(
+		(val) => (val === '' || val === null ? undefined : val),
+		z.string().optional(),
+	),
+	requestsSingleRoom: z.preprocess(
+		(val) => (val === null ? undefined : val),
+		z.boolean().optional(),
+	),
+	notes: z.preprocess(
+		(val) => (val === '' || val === null ? undefined : val),
+		z.string().optional(),
+	),
+	maritalStatus: z.enum(['S', 'C', 'D', 'V', 'O']),
+	street: z.string(),
+	houseNumber: z.string(),
+	postalCode: z.string(),
+	neighborhood: z.string(),
+	city: z.string(),
+	state: z.string(),
+	country: z.string(),
+	parish: z.string().optional(),
+	homePhone: z.string().optional(),
+	workPhone: z.string().optional(),
+	cellPhone: z.string(),
+	email: z.string().email(),
+	occupation: z.string(),
+	snores: z.boolean(),
+	hasMedication: z.boolean(),
+	medicationDetails: z.string().optional(),
+	medicationSchedule: z.string().optional(),
+	hasDietaryRestrictions: z.boolean(),
+	dietaryRestrictionsDetails: z.string().optional(),
+	sacraments: z.array(z.enum(['baptism', 'communion', 'confirmation', 'marriage', 'none'])),
+	emergencyContact1Name: z.string(),
+	emergencyContact1Relation: z.string(),
+	emergencyContact1HomePhone: z.string().optional(),
+	emergencyContact1WorkPhone: z.string().optional(),
+	emergencyContact1CellPhone: z.string(),
+	emergencyContact1Email: z.preprocess(
+		(val) => (val === '' || val === null ? undefined : val),
+		z.string().email({ message: 'Invalid email address' }).optional(),
+	),
+	emergencyContact2Name: z.string().optional(),
+	emergencyContact2Relation: z.string().optional(),
+	emergencyContact2HomePhone: z.string().optional(),
+	emergencyContact2WorkPhone: z.string().optional(),
+	emergencyContact2CellPhone: z.string().optional(),
+	emergencyContact2Email: z.preprocess(
+		(val) => (val === '' || val === null ? undefined : val),
+		z.string().email({ message: 'Invalid email address' }).optional(),
+	),
+	tshirtSize: z.preprocess(
+		(val) => (val === '' || val === null ? undefined : val),
+		z.enum(['S', 'M', 'G', 'X', '2']).optional(),
+	),
+	invitedBy: z.string().optional(),
+	isInvitedByEmausMember: z.boolean().nullable().optional(),
+	inviterHomePhone: z.string().optional(),
+	inviterWorkPhone: z.string().optional(),
+	inviterCellPhone: z.string().optional(),
+	inviterEmail: z.preprocess(
+		(val) => (val === '' || val === null ? undefined : val),
+		z.string().email().optional(),
+	),
+	family_friend_color: z.string().optional(),
+	pickupLocation: z.string().optional(),
+	arrivesOnOwn: z.preprocess((val) => (val === null ? undefined : val), z.boolean().optional()),
+	retreatId: idSchema,
+	tableId: idSchema.nullable().optional(),
+	retreatBedId: idSchema.nullable().optional(),
+	tableMesa: tableMesaSchema.optional(),
+	retreatBed: retreatBedSchema.nullable().optional(),
 });
 export type Participant = z.infer<typeof participantSchema>;
 
@@ -221,64 +214,64 @@ export type Participant = z.infer<typeof participantSchema>;
 
 // POST /participants/new
 export const createParticipantSchema = z.object({
-  body: participantSchema.omit({ id: true, lastUpdatedDate: true, registrationDate: true }),
+	body: participantSchema.omit({ id: true, lastUpdatedDate: true, registrationDate: true }),
 });
 export type CreateParticipant = z.infer<typeof createParticipantSchema.shape.body>;
 
 export const TableSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-  retreatId: z.string().uuid(),
+	id: z.string().uuid(),
+	name: z.string(),
+	retreatId: z.string().uuid(),
 });
 export const createTableSchema = TableSchema.omit({ id: true });
 
 // PUT /participants/:id
 export const updateParticipantSchema = z.object({
-  body: participantSchema.partial(),
-  params: z.object({ id: idSchema }),
+	body: participantSchema.partial(),
+	params: z.object({ id: idSchema }),
 });
 export type UpdateParticipant = z.infer<typeof updateParticipantSchema.shape.body>;
 
-
 // POST /retreats
 export const createRetreatSchema = z.object({
-  body: retreatSchema.omit({ id: true }),
+	body: retreatSchema.omit({ id: true }),
 });
 export type CreateRetreat = z.infer<typeof createRetreatSchema.shape.body>;
 
 // PUT /retreats/:id
 export const updateRetreatSchema = z.object({
-  body: retreatSchema.omit({ id: true }).partial(),
-  params: z.object({ id: idSchema }),
+	body: retreatSchema.omit({ id: true }).partial(),
+	params: z.object({ id: idSchema }),
 });
 export type UpdateRetreat = z.infer<typeof updateRetreatSchema.shape.body>;
 
 // POST /houses
 export const createHouseSchema = z.object({
-  body: houseSchema.omit({ id: true }),
+	body: houseSchema.omit({ id: true }),
 });
 export type CreateHouse = z.infer<typeof createHouseSchema.shape.body>;
 
 // PUT /houses/:id
 export const updateHouseSchema = z.object({
-  body: houseSchema.partial(),
-  params: z.object({ id: idSchema }),
+	body: houseSchema.partial(),
+	params: z.object({ id: idSchema }),
 });
 export type UpdateHouse = z.infer<typeof updateHouseSchema.shape.body>;
 
 // POST /charges
 export const createChargeSchema = z.object({
-  body: chargeSchema.omit({ id: true, participant: true, participantId: true }),
+	body: chargeSchema.omit({ id: true, participant: true, participantId: true }),
 });
 export type CreateCharge = z.infer<typeof createChargeSchema.shape.body>;
 
 // PUT /charges/:id
 export const updateChargeSchema = z.object({
-  body: chargeSchema.omit({ id: true, retreatId: true, participant: true, participantId: true }).partial(),
-  params: z.object({ id: idSchema }),
+	body: chargeSchema
+		.omit({ id: true, retreatId: true, participant: true, participantId: true })
+		.partial(),
+	params: z.object({ id: idSchema }),
 });
 export type UpdateCharge = z.infer<typeof updateChargeSchema.shape.body>;
-
 
 export * from './user';
 export * from './message-template';

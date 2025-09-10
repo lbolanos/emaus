@@ -1,5 +1,10 @@
 import { Router } from 'express';
-import { getAllRetreats, createRetreat, getRetreatById, updateRetreat } from '../controllers/retreatController';
+import {
+	getAllRetreats,
+	createRetreat,
+	getRetreatById,
+	updateRetreat,
+} from '../controllers/retreatController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { validateRequest } from '../middleware/validateRequest';
 import { createRetreatSchema, updateRetreatSchema } from '@repo/types';

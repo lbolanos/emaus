@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import {
-  getMessageTemplates,
-  getMessageTemplateById,
-  createMessageTemplate,
-  updateMessageTemplate,
-  deleteMessageTemplate,
+	getMessageTemplates,
+	getMessageTemplateById,
+	createMessageTemplate,
+	updateMessageTemplate,
+	deleteMessageTemplate,
 } from '../controllers/messageTemplateController';
 import { validateRequest } from '../middleware/validateRequest';
 import { CreateMessageTemplateSchema, UpdateMessageTemplateSchema } from '@repo/types';
