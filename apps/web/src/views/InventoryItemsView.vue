@@ -69,6 +69,7 @@
                 <th class="text-left py-3 px-4">Categoría</th>
                 <th class="text-left py-3 px-4">Equipo</th>
                 <th class="text-center py-3 px-4">Ratio</th>
+                <th class="text-center py-3 px-4">Cantidad Fija</th>
                 <th class="text-center py-3 px-4">Unidad</th>
                 <th class="text-center py-3 px-4">Estado</th>
                 <th class="text-center py-3 px-4">Acciones</th>
@@ -85,6 +86,7 @@
                 <td class="py-3 px-4">{{ item.category.name }}</td>
                 <td class="py-3 px-4">{{ item.team.name }}</td>
                 <td class="text-center py-3 px-4">{{ item.ratio }}</td>
+                <td class="text-center py-3 px-4">{{ item.requiredQuantity || '-' }}</td>
                 <td class="text-center py-3 px-4">{{ item.unit }}</td>
                 <td class="text-center py-3 px-4">
                   <Badge :variant="item.isActive ? 'default' : 'secondary'">
@@ -179,6 +181,22 @@
               required
               placeholder="1.0"
             />
+            <p class="text-sm text-gray-500 mt-1">
+              Deja en blanco o usa 0 si usarás cantidad fija
+            </p>
+          </div>
+          <div>
+            <Label for="requiredQuantity">Cantidad Fija (opcional)</Label>
+            <Input
+              id="requiredQuantity"
+              v-model.number="newItem.requiredQuantity"
+              type="number"
+              step="0.01"
+              placeholder="Cantidad fija no dependiente de caminantes"
+            />
+            <p class="text-sm text-gray-500 mt-1">
+              Si especificas cantidad fija, el ratio no se usará
+            </p>
           </div>
           <div>
             <Label for="unit">Unidad</Label>
@@ -260,6 +278,22 @@
               required
               placeholder="1.0"
             />
+            <p class="text-sm text-gray-500 mt-1">
+              Deja en blanco o usa 0 si usarás cantidad fija
+            </p>
+          </div>
+          <div>
+            <Label for="edit-requiredQuantity">Cantidad Fija (opcional)</Label>
+            <Input
+              id="edit-requiredQuantity"
+              v-model.number="editingItem.requiredQuantity"
+              type="number"
+              step="0.01"
+              placeholder="Cantidad fija no dependiente de caminantes"
+            />
+            <p class="text-sm text-gray-500 mt-1">
+              Si especificas cantidad fija, el ratio no se usará
+            </p>
           </div>
           <div>
             <Label for="edit-unit">Unidad</Label>
@@ -332,6 +366,7 @@ const newItem = ref({
   categoryId: '',
   teamId: '',
   ratio: 1.0,
+  requiredQuantity: null,
   unit: '',
 });
 
@@ -370,6 +405,7 @@ async function createItem() {
       categoryId: '',
       teamId: '',
       ratio: 1.0,
+      requiredQuantity: null,
       unit: '',
     };
     toast({

@@ -40,6 +40,9 @@ export class InventoryItem {
 	@Column('decimal', { precision: 5, scale: 2, default: 1.0 })
 	ratio!: number;
 
+	@Column('decimal', { precision: 10, scale: 2, nullable: true })
+	requiredQuantity?: number;
+
 	@Column('varchar')
 	unit!: string;
 

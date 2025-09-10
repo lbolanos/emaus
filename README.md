@@ -166,6 +166,7 @@ tambien debe tener un campo de equipo y son: Recepción, Caminantes, Botiquín 1
 un campo de cantidad requerida
 un campo de unidad: frascos, cajas, litros ... etc
 al crear el retiro se deben crear por defecto todo el listado y poder agregar, modificar y borrar.
+add requiredQuantity to apps/api/src/entities/inventoryItem.entity.ts if is null or empty the ratio works but if has a value then the ratio does not work and have a fixed number of items not related with the amount of walkers
 
 llevar tambien el registro de las camisetas y chaquetas que necesitan los servidores.
 

@@ -79,6 +79,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Recepción',
 			ratio: 0.03,
 			unit: 'cajas',
+			description: 'Cajas plásticas para guardar celulares durante el retiro',
 		},
 		{
 			name: 'Bolsas Zip Lock Sándwich',
@@ -86,6 +87,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Recepción',
 			ratio: 0.04,
 			unit: 'bolsas',
+			description: 'Bolsas herméticas para organizar materiales pequeños',
 		},
 		{
 			name: 'Marcadores y Plumas',
@@ -93,6 +95,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Recepción',
 			ratio: 0.08,
 			unit: 'piezas',
+			description: 'Marcadores y plumas para registro y actividades',
 		},
 		{
 			name: 'Gafetes Porta gafetes Plástico',
@@ -100,6 +103,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Recepción',
 			ratio: 1.0,
 			unit: 'piezas',
+			description: 'Portagafetes de plástico para identificación de participantes',
 		},
 
 		// Caminantes
@@ -109,6 +113,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 1.0,
 			unit: 'piezas',
+			description: 'Biblias para uso de los caminantes durante el retiro',
 		},
 		{
 			name: 'Cuadernitos',
@@ -116,6 +121,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 1.0,
 			unit: 'piezas',
+			description: 'Cuadernos para notas y reflexiones de los caminantes',
 		},
 		{
 			name: 'Pluma',
@@ -123,6 +129,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 1.0,
 			unit: 'piezas',
+			description: 'Plumas para escritura de los caminantes',
 		},
 		{
 			name: 'Rosarios',
@@ -130,6 +137,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 1.0,
 			unit: 'piezas',
+			description: 'Rosarios para oración de los caminantes',
 		},
 
 		// Palanquitas
@@ -139,75 +147,93 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Palanquitas',
 			ratio: 1.0,
 			unit: 'juegos',
+			description: 'Juego completo de palanquitas para cada caminante',
 		},
-
-		// Botiquín
-		{
-			name: 'Botiquín (Ver Listado Aparte)',
-			categoryId: 'Botiquín 1Eros Aux',
-			teamId: 'Botiquín 1Eros Aux',
-			ratio: 0.01,
-			unit: 'botiquín',
-		},
-
-		// Música
-		{
-			name: 'Bocina y Micrófono para Salón',
-			categoryId: 'Material Requerido',
-			teamId: 'Música',
-			ratio: 0.03,
-			unit: 'piezas',
-		},
-		{
-			name: 'Bocina y Micrófono para Comedor',
-			categoryId: 'Material Requerido',
-			teamId: 'Música',
-			ratio: 0.01,
-			unit: 'piezas',
-		},
+		// Fixed quantity items (not dependent on walker count)
 		{
 			name: 'Laptop para Charlas',
 			categoryId: 'Material Requerido',
 			teamId: 'Música',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Laptop para presentaciones y charlas durante el retiro',
 		},
 		{
-			name: 'Micrófono Adicional',
+			name: 'Bocina para Santísimo',
 			categoryId: 'Material Requerido',
-			teamId: 'Música',
+			teamId: 'Santísimo',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
-		},
-		{
-			name: 'Masking Tape Grueso (Cables Piso)',
-			categoryId: 'Material Requerido',
-			teamId: 'Música',
-			ratio: 0.01,
-			unit: 'piezas',
+			description: 'Bocina portátil para música durante el Santísimo',
 		},
 		{
 			name: 'Caja de Música',
 			categoryId: 'Material Requerido',
 			teamId: 'Música',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Caja de música para ambientación y momentos especiales',
 		},
 
-		// Comedor
+		// Música - Fixed quantity items
 		{
-			name: 'Pastel',
+			name: 'Bocina y Micrófono para Salón',
 			categoryId: 'Material Requerido',
-			teamId: 'Comedor',
-			ratio: 0.03,
-			unit: 'pasteles',
+			teamId: 'Música',
+			ratio: 0.01,
+			requiredQuantity: 2,
+			unit: 'piezas',
+			description: 'Sistema de sonido con micrófono para el salón principal',
 		},
 		{
-			name: 'Velitas',
+			name: 'Bocina y Micrófono para Comedor',
+			categoryId: 'Material Requerido',
+			teamId: 'Música',
+			ratio: 0.01,
+			requiredQuantity: 1,
+			unit: 'piezas',
+			description: 'Sistema de sonido para el área del comedor',
+		},
+		{
+			name: 'Micrófono Adicional',
+			categoryId: 'Material Requerido',
+			teamId: 'Música',
+			ratio: 0.01,
+			requiredQuantity: 1,
+			unit: 'piezas',
+			description: 'Micrófono inalámbrico adicional para presentaciones',
+		},
+		{
+			name: 'Masking Tape Grueso (Cables Piso)',
+			categoryId: 'Material Requerido',
+			teamId: 'Música',
+			ratio: 0.01,
+			requiredQuantity: 1,
+			unit: 'piezas',
+			description: 'Cinta adhesiva gruesa para fijar cables al suelo',
+		},
+
+		// Comedor - Fixed quantity items
+		{
+			name: 'Cumpleaños: Pastel',
 			categoryId: 'Material Requerido',
 			teamId: 'Comedor',
-			ratio: 0.03,
+			ratio: 0.01,
+			requiredQuantity: 2,
+			unit: 'pasteles',
+			description: 'Pasteles para celebración de cumpleaños durante el retiro',
+		},
+		{
+			name: 'Cumpleaños: Velitas',
+			categoryId: 'Material Requerido',
+			teamId: 'Comedor',
+			ratio: 0.01,
+			requiredQuantity: 2,
 			unit: 'piezas',
+			description: 'Velitas para pastel de cumpleaños',
 		},
 		{
 			name: 'Letreros Mesas con Número',
@@ -215,6 +241,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Comedor',
 			ratio: 0.17,
 			unit: 'piezas',
+			description: 'Letreros numerados para identificación de mesas',
 		},
 
 		// Salón
@@ -224,48 +251,61 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Salón',
 			ratio: 0.14,
 			unit: 'cajas',
+			description: 'Cajas de pañuelos desechables para el salón',
 		},
 		{
 			name: 'Banners: Invocación Al Espíritu Santo',
 			categoryId: 'Material Requerido',
 			teamId: 'Salón',
 			ratio: 0.06,
+			requiredQuantity: 4,
 			unit: 'piezas',
+			description: 'Banner con la oración de invocación al Espíritu Santo',
 		},
 		{
 			name: 'Banners: Confidencialidad',
 			categoryId: 'Material Requerido',
 			teamId: 'Salón',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Banner sobre la importancia de la confidencialidad',
 		},
 		{
 			name: 'Banners: Jesucristo Ha Resucitado',
 			categoryId: 'Material Requerido',
 			teamId: 'Salón',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Banner con la imagen de Jesucristo resucitado',
 		},
 		{
 			name: 'Banners: Divina Misericordia',
 			categoryId: 'Material Requerido',
 			teamId: 'Salón',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Banner con la imagen de la Divina Misericordia',
 		},
 		{
 			name: 'Banners: Rembrandt Hijo Pródigo',
 			categoryId: 'Material Requerido',
 			teamId: 'Salón',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Banner con la pintura del Hijo Pródigo de Rembrandt',
 		},
 		{
 			name: 'Banner / Cuadro Virgen de Guadalupe',
 			categoryId: 'Material Requerido',
 			teamId: 'Salón',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Banner o cuadro de la Virgen de Guadalupe',
 		},
 		{
 			name: 'Prit Tack para Letreros Cuartos',
@@ -273,10 +313,8 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Salón',
 			ratio: 0.03,
 			unit: 'piezas',
+			description: 'Adhesivo reutilizable para fijar letreros en las puertas',
 		},
-
-		// Oración
-		{ name: 'Santísimo', categoryId: 'Oración', teamId: 'Oración', ratio: 0.01, unit: 'piezas' },
 
 		// Santísimo
 		{
@@ -285,6 +323,8 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Santísimo',
 			ratio: 0.06,
 			unit: 'piezas',
+			requiredQuantity: 4,
+			description: 'Cirios pequeños para la ceremonia del Santísimo',
 		},
 		{
 			name: 'Platos para Cirios',
@@ -292,63 +332,80 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Santísimo',
 			ratio: 0.06,
 			unit: 'piezas',
+			requiredQuantity: 4,
+			description: 'Platos pequeños para colocar debajo de los cirios',
 		},
 		{
 			name: 'Corporal Grande',
 			categoryId: 'Santísimo',
 			teamId: 'Santísimo',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Corporal grande para la ceremonia del Santísimo',
 		},
-		{ name: 'Lámpara', categoryId: 'Santísimo', teamId: 'Santísimo', ratio: 0.01, unit: 'piezas' },
+		{
+			name: 'Lámpara',
+			categoryId: 'Santísimo',
+			teamId: 'Santísimo',
+			ratio: 0.01,
+			requiredQuantity: 1,
+			unit: 'piezas',
+			description: 'Lámpara para iluminación durante el Santísimo',
+		},
 		{
 			name: 'Pilas AAA',
 			categoryId: 'Santísimo',
 			teamId: 'Santísimo',
 			ratio: 0.04,
 			unit: 'piezas',
+			requiredQuantity: 3,
+			description: 'Pilas AAA para lámparas y dispositivos electrónicos',
 		},
 		{
 			name: 'Tijeras Pequeñas',
 			categoryId: 'Santísimo',
 			teamId: 'Santísimo',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Tijeras pequeñas para cortar materiales durante la ceremonia',
 		},
 		{
 			name: 'Encendedores',
 			categoryId: 'Santísimo',
 			teamId: 'Santísimo',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Encendedores para prender cirios durante la ceremonia',
 		},
 		{
 			name: 'Folder Oraciones Santísimo',
 			categoryId: 'Santísimo',
 			teamId: 'Santísimo',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Folder con oraciones para la ceremonia del Santísimo',
 		},
 		{
 			name: 'Letreros Santísimo Expuesto',
 			categoryId: 'Santísimo',
 			teamId: 'Santísimo',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Letreros para indicar que el Santísimo está expuesto',
 		},
 		{
 			name: 'Caja para Palancas Reclusorios',
 			categoryId: 'Santísimo',
 			teamId: 'Santísimo',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
-		},
-		{
-			name: 'Bocina para Santísimo',
-			categoryId: 'Santísimo',
-			teamId: 'Santísimo',
-			ratio: 0.01,
-			unit: 'piezas',
+			description: 'Caja especial para guardar palancas durante reclusorios',
 		},
 
 		// Campana
@@ -358,6 +415,8 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Campana',
 			ratio: 0.03,
 			unit: 'piezas',
+			requiredQuantity: 2,
+			description: 'Campanas para llamar a oración y anunciar actividades',
 		},
 
 		// Cuartos
@@ -367,30 +426,45 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Cuartos',
 			ratio: 1.0,
 			unit: 'rollos',
+			description: 'Rollos de papel de baño para los cuartos',
 		},
 
-		// Papelería
+		// Papelería - Fixed quantity items
 		{
 			name: 'Cinta Canela Café',
 			categoryId: 'Papelería',
 			teamId: 'Papelería',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Cinta adhesiva color canela para manualidades',
 		},
-		{ name: 'Diurex', categoryId: 'Papelería', teamId: 'Papelería', ratio: 0.01, unit: 'piezas' },
+		{
+			name: 'Diurex',
+			categoryId: 'Papelería',
+			teamId: 'Papelería',
+			ratio: 0.01,
+			requiredQuantity: 1,
+			unit: 'piezas',
+			description: 'Corrector líquido para errores de escritura',
+		},
 		{
 			name: 'Engrapadoras',
 			categoryId: 'Papelería',
 			teamId: 'Papelería',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Engrapadoras para unir documentos',
 		},
 		{
 			name: 'Guillotinas',
 			categoryId: 'Papelería',
 			teamId: 'Papelería',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Guillotinas para cortar papel de forma precisa',
 		},
 		{
 			name: 'Hojas Blancas',
@@ -398,28 +472,41 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Papelería',
 			ratio: 13.89,
 			unit: 'hojas',
+			description: 'Hojas de papel blanco tamaño carta para diversos usos',
 		},
 		{
 			name: 'Laptop e Impresora para Logística',
 			categoryId: 'Papelería',
 			teamId: 'Papelería',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Equipo de cómputo e impresión para tareas logísticas',
 		},
-		{ name: 'Lápices', categoryId: 'Papelería', teamId: 'Papelería', ratio: 1.39, unit: 'piezas' },
+		{
+			name: 'Lápices',
+			categoryId: 'Papelería',
+			teamId: 'Papelería',
+			ratio: 1.39,
+			unit: 'piezas',
+			description: 'Lápices para escritura y dibujo',
+		},
 		{
 			name: 'Sobres Blancos Grandes Oficio No. 10',
 			categoryId: 'Papelería',
 			teamId: 'Papelería',
 			ratio: 3.47,
 			unit: 'sobres',
+			description: 'Sobres grandes tamaño oficio para documentos',
 		},
 		{
 			name: 'Saca Puntas',
 			categoryId: 'Papelería',
 			teamId: 'Papelería',
 			ratio: 0.03,
+			requiredQuantity: 2,
 			unit: 'piezas',
+			description: 'Sacapuntas para afilar lápices',
 		},
 		{
 			name: 'Tarjetas de Agradecimiento Padres',
@@ -427,8 +514,18 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Papelería',
 			ratio: 0.28,
 			unit: 'piezas',
+			requiredQuantity: 20,
+			description: 'Tarjetas de agradecimiento para los padres de los caminantes',
 		},
-		{ name: 'Tijeras', categoryId: 'Papelería', teamId: 'Papelería', ratio: 0.01, unit: 'piezas' },
+		{
+			name: 'Tijeras',
+			categoryId: 'Papelería',
+			teamId: 'Papelería',
+			ratio: 0.01,
+			requiredQuantity: 1,
+			unit: 'piezas',
+			description: 'Tijeras para cortar papel y materiales',
+		},
 
 		// Palancas
 		{
@@ -437,13 +534,16 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Palancas',
 			ratio: 1.53,
 			unit: 'sobres',
+			description: 'Sobres especiales para las palancas de los caminantes',
 		},
 		{
 			name: 'Bolsas Salida',
 			categoryId: 'Bolsas Salida',
 			teamId: 'Palancas',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Bolsas para la salida de los caminantes',
 		},
 		{
 			name: 'Kleenex: Paquetitos Individuales',
@@ -451,13 +551,16 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Palancas',
 			ratio: 0.69,
 			unit: 'paquetes',
+			description: 'Paquetes individuales de pañuelos desechables',
 		},
 		{
 			name: 'Impresora: Cartuchos Tinta / Toners',
 			categoryId: 'Material Requerido',
 			teamId: 'Palancas',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Cartuchos de tinta o tóner para la impresora',
 		},
 
 		// Snacks
@@ -467,6 +570,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.03,
 			unit: 'piezas',
+			description: 'Garrafones o vitroleros para servir agua',
 		},
 		{
 			name: 'Vasos desechables',
@@ -474,6 +578,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.69,
 			unit: 'pzas',
+			description: 'Vasos desechables para servir bebidas',
 		},
 		{
 			name: 'Vasos para café',
@@ -481,6 +586,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.69,
 			unit: 'pzas',
+			description: 'Vasos térmicos para servir café',
 		},
 		{
 			name: 'Bolsa de carton (Son las bolsas de salida)',
@@ -488,21 +594,34 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.69,
 			unit: 'pzas',
+			description: 'Bolsas de cartón para la salida de los caminantes',
 		},
-		{ name: 'Lata Café', categoryId: 'Snacks', teamId: 'Caminantes', ratio: 0.01, unit: 'latas' },
+		{
+			name: 'Lata Café',
+			categoryId: 'Snacks',
+			teamId: 'Caminantes',
+			ratio: 0.01,
+			requiredQuantity: 1,
+			unit: 'latas',
+			description: 'Lata de café soluble para preparar bebidas',
+		},
 		{
 			name: 'Botella de valentina',
 			categoryId: 'Snacks',
 			teamId: 'Caminantes',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'pzas',
+			description: 'Salsa Valentina para condimentar snacks',
 		},
 		{
 			name: 'Botella de Chamoy o Miguelito',
 			categoryId: 'Snacks',
 			teamId: 'Caminantes',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'botellas',
+			description: 'Chamoy o Miguelito para dar sabor a las frutas',
 		},
 		{
 			name: 'Jarabes Agua Fresca',
@@ -510,35 +629,51 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.06,
 			unit: 'botellas',
+			description: 'Jarabes para preparar aguas frescas',
 		},
 		{
 			name: 'Cajas de Te variados',
 			categoryId: 'Snacks',
 			teamId: 'Caminantes',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'pzas',
+			description: 'Cajas con variedad de tés para servir',
 		},
 		{
 			name: 'Azucar, Splenda, una de cada uno. (sobres)',
 			categoryId: 'Snacks',
 			teamId: 'Caminantes',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'cajas',
+			description: 'Cajas de sobres de azúcar y Splenda para el café',
 		},
 		{
 			name: 'Cofeemate (sustituto de crema)',
 			categoryId: 'Snacks',
 			teamId: 'Caminantes',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'bote / caja',
+			description: 'Cremora o sustituto de crema para el café',
 		},
-		{ name: 'Cucharitas', categoryId: 'Snacks', teamId: 'Caminantes', ratio: 1.67, unit: 'bolsa' },
+		{
+			name: 'Cucharitas',
+			categoryId: 'Snacks',
+			teamId: 'Caminantes',
+			ratio: 1.67,
+			unit: 'bolsa',
+			description: 'Cucharitas desechables para el café y otros usos',
+		},
 		{
 			name: 'Bolsas de basura grandes',
 			categoryId: 'Snacks',
 			teamId: 'Caminantes',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'caja de 10',
+			description: 'Caja con 10 bolsas de basura grandes',
 		},
 		{
 			name: 'Platos desechables grandes para poner snacks',
@@ -546,6 +681,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.03,
 			unit: 'paquete',
+			description: 'Platos desechables grandes para servir snacks',
 		},
 		{
 			name: 'Cajas de Galletas',
@@ -553,6 +689,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.06,
 			unit: 'cajas',
+			description: 'Cajas de galletas surtidas para snacks',
 		},
 		{
 			name: 'Papas / Frituras',
@@ -560,15 +697,31 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.07,
 			unit: 'kgs',
+			description: 'Papas frituras y otros botanas saladas',
 		},
-		{ name: 'Cacahuates', categoryId: 'Snacks', teamId: 'Caminantes', ratio: 0.04, unit: 'kgs' },
-		{ name: 'Gomitas', categoryId: 'Snacks', teamId: 'Caminantes', ratio: 0.03, unit: 'kgs' },
+		{
+			name: 'Cacahuates',
+			categoryId: 'Snacks',
+			teamId: 'Caminantes',
+			ratio: 0.04,
+			unit: 'kgs',
+			description: 'Cacahuates surtidos para botana',
+		},
+		{
+			name: 'Gomitas',
+			categoryId: 'Snacks',
+			teamId: 'Caminantes',
+			ratio: 0.03,
+			unit: 'kgs',
+			description: 'Gomitas y dulces suaves',
+		},
 		{
 			name: 'Mentas',
 			categoryId: 'Snacks',
 			teamId: 'Caminantes',
 			ratio: 0.01,
 			unit: 'bolsa grande',
+			description: 'Bolsa grande de mentas y caramelos',
 		},
 		{
 			name: 'Cholocates minis para palanquitas',
@@ -576,6 +729,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.04,
 			unit: 'bolsas 50',
+			description: 'Bolsas con chocolates mini para las palanquitas',
 		},
 		{
 			name: 'Botella agua 500ml / 600ml',
@@ -583,6 +737,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.28,
 			unit: 'piezas',
+			description: 'Botellas de agua de 500ml o 600ml individuales',
 		},
 		{
 			name: 'Refresco cola 2L',
@@ -590,6 +745,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.06,
 			unit: '2L',
+			description: 'Refrescos de cola de 2 litros',
 		},
 		{
 			name: 'Refresco cola light 2L',
@@ -597,6 +753,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.04,
 			unit: '2L',
+			description: 'Refrescos de cola light de 2 litros',
 		},
 		{
 			name: 'Refresco manzana 2L',
@@ -604,6 +761,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.04,
 			unit: '2L',
+			description: 'Refrescos de manzana de 2 litros',
 		},
 		{
 			name: 'Refresco sprite 2L',
@@ -611,6 +769,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.04,
 			unit: '2L',
+			description: 'Refrescos Sprite de 2 litros',
 		},
 		{
 			name: 'Jugo de manzana 1L',
@@ -618,8 +777,17 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.06,
 			unit: '1L',
+			description: 'Jugo de manzana de 1 litro',
 		},
-		{ name: 'Pavera', categoryId: 'Snacks', teamId: 'Caminantes', ratio: 0.01, unit: 'piezas' },
+		{
+			name: 'Pavera',
+			categoryId: 'Snacks',
+			teamId: 'Caminantes',
+			ratio: 0.01,
+			requiredQuantity: 1,
+			unit: 'piezas',
+			description: 'Pavera para encender fuego y velas',
+		},
 
 		// Botiquín Médico
 		{
@@ -628,6 +796,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Botiquín 1Eros Aux',
 			ratio: 0.14,
 			unit: 'cajas',
+			description: 'Pastillas Next para el dolor de cabeza',
 		},
 		{
 			name: 'Agua oxigenada, botella 230ml',
@@ -635,6 +804,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Botiquín 1Eros Aux',
 			ratio: 3.19,
 			unit: 'ml',
+			description: 'Agua oxigenada para desinfectar heridas',
 		},
 		{
 			name: 'Alcohol, botella 200 ml',
@@ -642,6 +812,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Botiquín 1Eros Aux',
 			ratio: 2.78,
 			unit: 'ml',
+			description: 'Alcohol isopropílico para desinfección',
 		},
 		{
 			name: 'Eskapar cápsulas 200 mg',
@@ -649,6 +820,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Botiquín 1Eros Aux',
 			ratio: 0.21,
 			unit: 'capsulas',
+			description: 'Cápsulas de Eskapar para alergias',
 		},
 		{
 			name: 'Treda, 8 pastillas sueltas',
@@ -656,6 +828,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Botiquín 1Eros Aux',
 			ratio: 0.11,
 			unit: 'pastillas',
+			description: 'Pastillas sueltas Treda para alivio del dolor',
 		},
 		{
 			name: 'Advil, frasco 100 tabletas',
@@ -663,6 +836,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Botiquín 1Eros Aux',
 			ratio: 1.39,
 			unit: 'tabletas',
+			description: 'Tabletas de Advil para dolor e inflamación',
 		},
 		{
 			name: 'Tylenol frasco, 6 tabletas',
@@ -670,6 +844,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Botiquín 1Eros Aux',
 			ratio: 0.08,
 			unit: 'tabletas',
+			description: 'Tabletas de Tylenol para alivio del dolor',
 		},
 		{
 			name: 'Aliviax caja 4 tabletas',
@@ -677,6 +852,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Botiquín 1Eros Aux',
 			ratio: 0.06,
 			unit: 'tabletas',
+			description: 'Tabletas de Aliviax para dolor muscular',
 		},
 		{
 			name: 'Jeringas, caja con 3 unidades',
@@ -684,6 +860,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Botiquín 1Eros Aux',
 			ratio: 0.04,
 			unit: 'unidades',
+			description: 'Caja con 3 jeringas estériles',
 		},
 		{
 			name: 'Curitas, caja 75 piezas',
@@ -691,6 +868,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Botiquín 1Eros Aux',
 			ratio: 1.04,
 			unit: 'piezas',
+			description: 'Caja con 75 curitas de diferentes tamaños',
 		},
 		{
 			name: 'Gasas, caja con 10 piezas',
@@ -698,6 +876,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Botiquín 1Eros Aux',
 			ratio: 0.14,
 			unit: 'piezas',
+			description: 'Caja con 10 gasas estériles',
 		},
 		{
 			name: 'Nazil gotas imitado, 15 ml',
@@ -705,6 +884,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Botiquín 1Eros Aux',
 			ratio: 0.21,
 			unit: 'ml',
+			description: 'Gotas nasales de 15ml para congestión',
 		},
 		{
 			name: 'Alta Seltzer, cajas 12 tabletas',
@@ -712,6 +892,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Botiquín 1Eros Aux',
 			ratio: 0.28,
 			unit: 'tabletas',
+			description: 'Tabletas de Alta Seltzer para indigestión',
 		},
 		{
 			name: 'Melox, tabletas masticables',
@@ -719,13 +900,16 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Botiquín 1Eros Aux',
 			ratio: 0.42,
 			unit: 'tabletas',
+			description: 'Tabletas masticables de Melox para dolor',
 		},
 		{
 			name: 'Pepto bismol PLUS, frasco',
 			categoryId: 'Botiquín',
 			teamId: 'Botiquín 1Eros Aux',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'frasco',
+			description: 'Frasco de Pepto Bismol para problemas estomacales',
 		},
 		{
 			name: 'Clorotrimeton repetabs, tabletas',
@@ -733,6 +917,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Botiquín 1Eros Aux',
 			ratio: 0.26,
 			unit: 'tabletas',
+			description: 'Tabletas de Clorotrimeton para alergias',
 		},
 		{
 			name: 'Andantol, jalea 25g',
@@ -740,6 +925,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Botiquín 1Eros Aux',
 			ratio: 0.35,
 			unit: 'gr',
+			description: 'Jalea de Andantol 25g para picaduras',
 		},
 		{
 			name: 'cIproxina, tabletas 500 mg',
@@ -747,6 +933,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Botiquín 1Eros Aux',
 			ratio: 0.19,
 			unit: 'tabletas',
+			description: 'Tabletas de Ciproxina 500mg para infecciones',
 		},
 		{
 			name: 'Firac plus tab 1 tab cada 8 hrs',
@@ -754,20 +941,25 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Botiquín 1Eros Aux',
 			ratio: 0.28,
 			unit: 'tabletas',
+			description: 'Tabletas Firac Plus para resfriados',
 		},
 		{
 			name: 'Transpore cinta de 5 cms.',
 			categoryId: 'Botiquín',
 			teamId: 'Botiquín 1Eros Aux',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Cinta adhesiva médica de 5cm para vendajes',
 		},
 		{
 			name: 'Gatorade frasco',
 			categoryId: 'Botiquín',
 			teamId: 'Botiquín 1Eros Aux',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'frasco',
+			description: 'Frasco de Gatorade para hidratación',
 		},
 
 		// Aseo Personal
@@ -777,6 +969,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.14,
 			unit: 'piezas',
+			description: 'Cepillos de dientes para los caminantes',
 		},
 		{
 			name: 'Jabon de tocador',
@@ -784,6 +977,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.14,
 			unit: 'piezas',
+			description: 'Jabón de tocador para aseo personal',
 		},
 		{
 			name: 'Papel de baño, paquete 4 piezas',
@@ -791,6 +985,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.07,
 			unit: 'piezas',
+			description: 'Paquetes de papel de baño con 4 rollos',
 		},
 		{
 			name: 'Pasta de dientes chicas',
@@ -798,6 +993,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.14,
 			unit: 'piezas',
+			description: 'Tubos pequeños de pasta de dientes',
 		},
 		{
 			name: 'Shampoo chicos (de viaje)',
@@ -805,6 +1001,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.14,
 			unit: 'piezas',
+			description: 'Botellas pequeñas de shampoo para viaje',
 		},
 		{
 			name: 'Tapones de oído',
@@ -812,6 +1009,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.35,
 			unit: 'piezas',
+			description: 'Tapones de oído para dormir',
 		},
 		{
 			name: 'Rastrillos desechables',
@@ -819,6 +1017,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.07,
 			unit: 'piezas',
+			description: 'Rastrillos desechables para aseo personal',
 		},
 
 		// Quema De Pecados
@@ -828,27 +1027,34 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Quema De Pecados',
 			ratio: 0.03,
 			unit: 'piezas',
+			description: 'Encendedores largos para la ceremonia de quema de pecados',
 		},
 		{
 			name: 'Iniciador de Fuego (Doritos)',
 			categoryId: 'Quema De Pecados',
 			teamId: 'Quema De Pecados',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Doritos o snacks para iniciar el fuego en la ceremonia',
 		},
 		{
 			name: 'Pavera para Quema de Pecados',
 			categoryId: 'Quema De Pecados',
 			teamId: 'Quema De Pecados',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Pavera especial para la ceremonia de quema de pecados',
 		},
 		{
 			name: 'Porta Paveras de Alambre Rigido',
 			categoryId: 'Quema De Pecados',
 			teamId: 'Quema De Pecados',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Soporte de alambre rígido para las paveras',
 		},
 
 		// Pared
@@ -858,6 +1064,8 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Pared',
 			ratio: 0.03,
 			unit: 'piezas',
+			requiredQuantity: 1,
+			description: 'Linternas para iluminación en actividades nocturnas',
 		},
 		{
 			name: 'Láser',
@@ -865,6 +1073,8 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Pared',
 			ratio: 0.03,
 			unit: 'piezas',
+			requiredQuantity: 2,
+			description: 'Punteros láser para presentaciones y actividades',
 		},
 		{
 			name: 'Veladoras',
@@ -872,6 +1082,8 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Pared',
 			ratio: 0.69,
 			unit: 'piezas',
+			requiredQuantity: 50,
+			description: 'Veladoras para oración y momentos espirituales',
 		},
 
 		// Lavado De Manos
@@ -880,14 +1092,18 @@ export const createDefaultInventoryData = async () => {
 			categoryId: 'Lavado De Manos',
 			teamId: 'Lavado De Manos',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Jarra para contener agua durante el lavado de manos',
 		},
 		{
 			name: 'Recipiente de Agua (Palangana)',
 			categoryId: 'Lavado De Manos',
 			teamId: 'Lavado De Manos',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Palangana o recipiente para el lavado de manos',
 		},
 
 		// Bolsas Salida
@@ -897,6 +1113,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Bolsas Salida',
 			ratio: 0.01,
 			unit: 'piezas',
+			description: 'Etiquetas para los CDs de la salida',
 		},
 		{
 			name: 'CDs: Grabados',
@@ -904,6 +1121,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Bolsas Salida',
 			ratio: 1.53,
 			unit: 'piezas',
+			description: 'CDs grabados con música del retiro',
 		},
 		{
 			name: 'CDs: Sobres',
@@ -911,6 +1129,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Bolsas Salida',
 			ratio: 1.53,
 			unit: 'piezas',
+			description: 'Sobres para proteger los CDs de la salida',
 		},
 		{
 			name: 'Playeras',
@@ -918,6 +1137,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Bolsas Salida',
 			ratio: 1.0,
 			unit: 'piezas',
+			description: 'Playeras conmemorativas del retiro',
 		},
 
 		// Material Adicional
@@ -926,7 +1146,9 @@ export const createDefaultInventoryData = async () => {
 			categoryId: 'Papelería',
 			teamId: 'Papelería',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Paquete de hojas blancas tamaño carta',
 		},
 		{
 			name: 'Sobres tamaño carta',
@@ -934,14 +1156,23 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Papelería',
 			ratio: 1.39,
 			unit: 'piezas',
+			description: 'Sobres tamaño carta para correspondencia',
 		},
-		{ name: 'Plumas', categoryId: 'Papelería', teamId: 'Papelería', ratio: 0.97, unit: 'piezas' },
+		{
+			name: 'Plumas',
+			categoryId: 'Papelería',
+			teamId: 'Papelería',
+			ratio: 0.97,
+			unit: 'piezas',
+			description: 'Plumas para escritura y actividades',
+		},
 		{
 			name: 'Refrescos de 2 litros Ligth.',
 			categoryId: 'Snacks',
 			teamId: 'Caminantes',
 			ratio: 0.08,
 			unit: 'piezas',
+			description: 'Refrescos light de 2 litros varios sabores',
 		},
 		{
 			name: 'Refrescos de 2 litros Sabor.',
@@ -949,6 +1180,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.03,
 			unit: 'piezas',
+			description: 'Refrescos de 2 litros varios sabores',
 		},
 		{
 			name: 'Portagafetes',
@@ -956,21 +1188,32 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Recepción',
 			ratio: 0.97,
 			unit: 'piezas',
+			description: 'Portagafetes para identificación de participantes',
 		},
 		{
 			name: 'Rollo de servitoallas',
 			categoryId: 'Snacks',
 			teamId: 'Caminantes',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Rollo de servitoallas para limpieza',
 		},
-		{ name: 'Tijeras', categoryId: 'Papelería', teamId: 'Papelería', ratio: 0.03, unit: 'piezas' },
+		{
+			name: 'Tijeras',
+			categoryId: 'Papelería',
+			teamId: 'Papelería',
+			ratio: 0.03,
+			unit: 'piezas',
+			description: 'Tijeras adicionales para papelería',
+		},
 		{
 			name: 'Botellitas para agua bendita',
 			categoryId: 'Material Requerido',
 			teamId: 'Santísimo',
 			ratio: 0.69,
 			unit: 'piezas',
+			description: 'Botellitas pequeñas para agua bendita',
 		},
 		{
 			name: 'Rosarios',
@@ -978,6 +1221,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Caminantes',
 			ratio: 0.69,
 			unit: 'piezas',
+			description: 'Rosarios adicionales para los caminantes',
 		},
 		{
 			name: 'Campanas',
@@ -985,6 +1229,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Campana',
 			ratio: 0.03,
 			unit: 'piezas',
+			description: 'Campanas adicionales para el equipo',
 		},
 		{
 			name: 'Lásers',
@@ -992,6 +1237,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Pared',
 			ratio: 0.04,
 			unit: 'piezas',
+			description: 'Punteros láser adicionales para presentaciones',
 		},
 		{
 			name: 'Etiquetas blancas adhesivas. 30 x D25',
@@ -999,6 +1245,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Papelería',
 			ratio: 0.63,
 			unit: 'piezas',
+			description: 'Etiquetas adhesivas blancas de 30mm',
 		},
 		{
 			name: 'Plumones negros Sharpie/Esterbook',
@@ -1006,6 +1253,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Papelería',
 			ratio: 0.03,
 			unit: 'piezas',
+			description: 'Plumones negros indelebles Sharpie o Esterbook',
 		},
 		{
 			name: 'Bolsas indivudales de paquetes de Kleenex',
@@ -1013,6 +1261,7 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Palancas',
 			ratio: 0.21,
 			unit: 'piezas',
+			description: 'Paquetes individuales de Kleenex para las palancas',
 		},
 		{
 			name: 'Rollos de cinta canela',
@@ -1020,13 +1269,16 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Papelería',
 			ratio: 0.03,
 			unit: 'piezas',
+			description: 'Rollos de cinta adhesiva color canela',
 		},
 		{
 			name: 'Caja 50 bolsas Zip block Congelar Grande (Jumbo)',
 			categoryId: 'Material Requerido',
 			teamId: 'Recepción',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Caja con 50 bolsas Zip Lock grandes para congelar',
 		},
 		{
 			name: 'Bolsas de palpel grandes para Salida.',
@@ -1034,36 +1286,49 @@ export const createDefaultInventoryData = async () => {
 			teamId: 'Bolsas Salida',
 			ratio: 0.63,
 			unit: 'piezas',
+			description: 'Bolsas grandes de papel para la salida',
 		},
 		{
 			name: 'Engrapadora',
 			categoryId: 'Papelería',
 			teamId: 'Papelería',
 			ratio: 0.01,
+			requiredQuantity: 1,
 			unit: 'piezas',
+			description: 'Engrapadora adicional para papelería',
 		},
-		{ name: 'Pavera', categoryId: 'Snacks', teamId: 'Caminantes', ratio: 0.01, unit: 'piezas' },
 	];
 
-	const createdItems = await itemRepository.save(
-		items.map((item) => {
-			const category = createdCategories.find((cat) => cat.name === item.categoryId);
-			const team = createdTeams.find((t) => t.name === item.teamId);
+	const itemsToCreate = items.map((item) => {
+		const category = createdCategories.find((cat) => cat.name === item.categoryId);
+		const team = createdTeams.find((t) => t.name === item.teamId);
 
-			if (!category || !team) {
-				throw new Error(`Category ${item.categoryId} or team ${item.teamId} not found`);
-			}
+		if (!category || !team) {
+			throw new Error(`Category ${item.categoryId} or team ${item.teamId} not found`);
+		}
 
-			return itemRepository.create({
-				id: uuidv4(),
-				name: item.name,
-				categoryId: category.id,
-				teamId: team.id,
-				ratio: item.ratio,
-				unit: item.unit,
-			});
-		}),
-	);
+		const itemData: any = {
+			id: uuidv4(),
+			name: item.name,
+			categoryId: category.id,
+			teamId: team.id,
+			unit: item.unit,
+		};
+
+		if (item.requiredQuantity !== undefined) {
+			itemData.requiredQuantity = item.requiredQuantity;
+		} else {
+			itemData.ratio = item.ratio;
+		}
+
+		if (item.description !== undefined) {
+			itemData.description = item.description;
+		}
+
+		return itemData;
+	});
+
+	const createdItems = await itemRepository.save(itemsToCreate);
 
 	console.log('Default inventory data created successfully');
 	console.log(

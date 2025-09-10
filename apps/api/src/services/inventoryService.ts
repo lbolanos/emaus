@@ -158,7 +158,18 @@ export const calculateRequiredQuantities = async (retreatId: string) => {
 
 	// Calculate required quantities and update
 	const updatedInventories = inventories.map((inventory) => {
-		const requiredQuantity = Number((inventory.inventoryItem.ratio * walkerCount).toFixed(2));
+		let requiredQuantity: number;
+
+		// Use fixed quantity if specified, otherwise calculate using ratio
+		if (
+			inventory.inventoryItem.requiredQuantity !== null &&
+			inventory.inventoryItem.requiredQuantity !== undefined
+		) {
+			requiredQuantity = inventory.inventoryItem.requiredQuantity;
+		} else {
+			requiredQuantity = Number((inventory.inventoryItem.ratio * walkerCount).toFixed(2));
+		}
+
 		inventory.requiredQuantity = requiredQuantity;
 		inventory.isSufficient = inventory.currentQuantity >= requiredQuantity;
 		return inventory;
@@ -217,7 +228,15 @@ export const createDefaultInventoryForRetreat = async (retreat: Retreat) => {
 
 	// Create retreat inventory items
 	const newInventories = items.map((item) => {
-		const requiredQuantity = Number((item.ratio * walkerCount).toFixed(2));
+		let requiredQuantity: number;
+
+		// Use fixed quantity if specified, otherwise calculate using ratio
+		if (item.requiredQuantity !== null && item.requiredQuantity !== undefined) {
+			requiredQuantity = item.requiredQuantity;
+		} else {
+			requiredQuantity = Number((item.ratio * walkerCount).toFixed(2));
+		}
+
 		return retreatInventoryRepository.create({
 			id: uuidv4(),
 			retreatId: retreat.id,
@@ -242,6 +261,7 @@ export const exportInventoryToExcel = async (retreatId: string) => {
 		Categoría: inventory.inventoryItem.category.name,
 		Equipo: inventory.inventoryItem.team.name,
 		'Ratio por Caminante': inventory.inventoryItem.ratio,
+		'Cantidad Fija': inventory.inventoryItem.requiredQuantity || '',
 		Unidad: inventory.inventoryItem.unit,
 		'Cantidad Requerida': inventory.requiredQuantity,
 		'Cantidad Actual': inventory.currentQuantity,
