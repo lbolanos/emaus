@@ -536,33 +536,7 @@
           </Tooltip>
         </TooltipProvider>
       </router-link>
-      <router-link
-        :to="{ name: 'houses' }"
-        v-slot="{ href, navigate, isActive }"
-        custom
-      >
-        <TooltipProvider :delay-duration="100">
-          <Tooltip>
-            <TooltipTrigger as-child>
-              <a
-                :href="href"
-                @click="navigate"
-                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
-                :class="[
-                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
-                  { 'justify-center': isSidebarCollapsed }
-                ]"
-              >
-                <Home class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
-                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.houses') }}</span>
-              </a>
-            </TooltipTrigger>
-            <TooltipContent v-if="isSidebarCollapsed" side="right">
-              <p>{{ $t('sidebar.houses') }}</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </router-link>
+      
 
       <!-- Settings Section -->
       <div class="px-2 pt-4 pb-2">
@@ -619,6 +593,33 @@
             </TooltipTrigger>
             <TooltipContent v-if="isSidebarCollapsed" side="right">
               <p>Artículos de Inventario</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </router-link>
+      <router-link
+        :to="{ name: 'houses' }"
+        v-slot="{ href, navigate, isActive }"
+        custom
+      >
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isSidebarCollapsed }
+                ]"
+              >
+                <Home class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.houses') }}</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
+              <p>{{ $t('sidebar.houses') }}</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

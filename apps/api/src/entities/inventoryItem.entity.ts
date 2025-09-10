@@ -46,6 +46,15 @@ export class InventoryItem {
 	@Column('varchar')
 	unit!: string;
 
+	@Column({ type: 'boolean', default: false })
+	isCalculated!: boolean;
+
+	@Column({ type: 'varchar', nullable: true })
+	calculationType?: string;
+
+	@Column({ type: 'varchar', nullable: true })
+	tshirtSize?: string;
+
 	@Column('boolean', { default: true })
 	isActive!: boolean;
 

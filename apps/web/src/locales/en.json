@@ -439,7 +439,8 @@
       "personalInfo": "Personal Information",
       "addressInfo": "Address Information",
       "serviceInfo": "Service & Health Info",
-      "emergencyContact": "Emergency Contact"
+      "emergencyContact": "Emergency Contact",
+      "serverInfo": "Server Info"
     },
     "summary": {
       "title": "Registration Summary",
@@ -497,7 +498,10 @@
         "workPhone": "Work Phone",
         "cellPhone": "Cell Phone",
         "email": "Email"
-      }
+      },
+      "needsWhiteShirt": "Needs white shirt?",
+      "needsBlueShirt": "Needs blue shirt?",
+      "needsJacket": "Needs jacket?"
     },
     "emergencyContact1": "In case of emergency, contact (1):",
     "emergencyContact2": "In case of emergency, contact (2):"

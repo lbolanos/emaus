@@ -141,15 +141,6 @@ export const calculateRequiredQuantities = async (retreatId: string) => {
 	const retreatInventoryRepository = AppDataSource.getRepository(RetreatInventory);
 	const participantRepository = AppDataSource.getRepository(Participant);
 
-	// Get count of active walkers
-	const walkerCount = await participantRepository.count({
-		where: {
-			retreatId,
-			type: 'walker',
-			isCancelled: false,
-		},
-	});
-
 	// Get all retreat inventory items
 	const inventories = await retreatInventoryRepository.find({
 		where: { retreatId },
@@ -157,26 +148,118 @@ export const calculateRequiredQuantities = async (retreatId: string) => {
 	});
 
 	// Calculate required quantities and update
-	const updatedInventories = inventories.map((inventory) => {
-		let requiredQuantity: number;
+	const updatedInventories = await Promise.all(
+		inventories.map(async (inventory) => {
+			let requiredQuantity: number;
 
-		// Use fixed quantity if specified, otherwise calculate using ratio
-		if (
-			inventory.inventoryItem.requiredQuantity !== null &&
-			inventory.inventoryItem.requiredQuantity !== undefined
-		) {
-			requiredQuantity = inventory.inventoryItem.requiredQuantity;
-		} else {
-			requiredQuantity = Number((inventory.inventoryItem.ratio * walkerCount).toFixed(2));
-		}
+			// Handle t-shirt calculations
+			if (inventory.inventoryItem.isCalculated && inventory.inventoryItem.calculationType === 'tshirt') {
+				requiredQuantity = await calculateTshirtQuantity(retreatId, inventory.inventoryItem.tshirtSize);
+			}
+			// Handle blue t-shirt calculations
+			else if (inventory.inventoryItem.isCalculated && inventory.inventoryItem.calculationType === 'bluetshirt') {
+				requiredQuantity = await calculateBlueTshirtQuantity(retreatId, inventory.inventoryItem.tshirtSize);
+			}
+			// Handle jacket calculations
+			else if (inventory.inventoryItem.isCalculated && inventory.inventoryItem.calculationType === 'jacket') {
+				requiredQuantity = await calculateJacketQuantity(retreatId, inventory.inventoryItem.tshirtSize);
+			}
+			// Use fixed quantity if specified, otherwise calculate using ratio
+			else if (
+				inventory.inventoryItem.requiredQuantity !== null &&
+				inventory.inventoryItem.requiredQuantity !== undefined
+			) {
+				requiredQuantity = inventory.inventoryItem.requiredQuantity;
+			} else {
+				// Get count of active walkers for ratio-based calculations
+				const walkerCount = await participantRepository.count({
+					where: {
+						retreatId,
+						type: 'walker',
+						isCancelled: false,
+					},
+				});
+				requiredQuantity = Number((inventory.inventoryItem.ratio * walkerCount).toFixed(2));
+			}
 
-		inventory.requiredQuantity = requiredQuantity;
-		inventory.isSufficient = inventory.currentQuantity >= requiredQuantity;
-		return inventory;
-	});
+			inventory.requiredQuantity = requiredQuantity;
+			inventory.isSufficient = inventory.currentQuantity >= requiredQuantity;
+			return inventory;
+		}),
+	);
 
 	await retreatInventoryRepository.save(updatedInventories);
 	return updatedInventories;
+};
+
+// Helper function to calculate t-shirt quantities
+const calculateTshirtQuantity = async (retreatId: string, tshirtSize: string | null | undefined): Promise<number> => {
+	const participantRepository = AppDataSource.getRepository(Participant);
+	
+	if (!tshirtSize) return 0;
+
+	// Get count of walkers with this t-shirt size
+	const walkerCount = await participantRepository.count({
+		where: {
+			retreatId,
+			type: 'walker',
+			tshirtSize: tshirtSize as any,
+			isCancelled: false,
+		},
+	});
+
+	// Get count of servers who need white shirts and have this t-shirt size
+	const serverCount = await participantRepository.count({
+		where: {
+			retreatId,
+			type: 'server',
+			tshirtSize: tshirtSize as any,
+			needsWhiteShirt: true,
+			isCancelled: false,
+		},
+	});
+
+	return walkerCount + serverCount;
+};
+
+// Helper function to calculate blue t-shirt quantities
+const calculateBlueTshirtQuantity = async (retreatId: string, tshirtSize: string | null | undefined): Promise<number> => {
+	const participantRepository = AppDataSource.getRepository(Participant);
+	
+	if (!tshirtSize) return 0;
+
+	// Get count of servers who need blue shirts and have this t-shirt size
+	const serverCount = await participantRepository.count({
+		where: {
+			retreatId,
+			type: 'server',
+			tshirtSize: tshirtSize as any,
+			needsBlueShirt: true,
+			isCancelled: false,
+		},
+	});
+
+	return serverCount;
+};
+
+// Helper function to calculate jacket quantities
+const calculateJacketQuantity = async (retreatId: string, tshirtSize: string | null | undefined): Promise<number> => {
+	const participantRepository = AppDataSource.getRepository(Participant);
+	
+	if (!tshirtSize) return 0;
+
+	// Get count of servers who need jackets and have this t-shirt size
+	const serverCount = await participantRepository.count({
+		where: {
+			retreatId,
+			type: 'server',
+			tshirtSize: tshirtSize as any,
+			needsJacket: true,
+			isCancelled: false,
+		},
+	});
+
+	return serverCount;
 };
 
 export const getInventoryAlerts = async (retreatId: string) => {

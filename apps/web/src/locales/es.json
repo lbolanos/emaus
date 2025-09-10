@@ -438,7 +438,8 @@
       "personalInfo": "Información Personal",
       "addressInfo": "Información de Dirección",
       "serviceInfo": "Información de Servicio y Salud",
-      "emergencyContact": "Contacto de Emergencia"
+      "emergencyContact": "Contacto de Emergencia",
+      "serverInfo": "Información de Servidor"
     },
     "summary": {
       "title": "Resumen de Registro",
@@ -496,7 +497,10 @@
         "workPhone": "Teléfono Trabajo",
         "cellPhone": "Teléfono Celular",
         "email": "Correo Electrónico"
-      }
+      },
+      "needsWhiteShirt": "¿Necesita camisa blanca?",
+      "needsBlueShirt": "¿Necesita camisa azul?",
+      "needsJacket": "¿Necesita chaqueta?"
     },
     "emergencyContact1": "En caso de emergencia contactar a (1):",
     "emergencyContact2": "En caso de emergencia contactar a (2):"

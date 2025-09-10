@@ -14,6 +14,7 @@ import Step2AddressInfo from '@/components/registration/Step2AddressInfo.vue'
 import Step3ServiceInfo from '@/components/registration/Step3ServiceInfo.vue'
 import Step4EmergencyContact from '@/components/registration/Step4EmergencyContact.vue'
 import Step5OtherInfo from '@/components/registration/Step5OtherInfo.vue'
+import Step5ServerInfo from '@/components/registration/Step5ServerInfo.vue'
 
 const props = defineProps<{ retreatId: string; type: string }>()
 const participantStore = useParticipantStore()
@@ -61,6 +62,9 @@ const getInitialFormData = (): Partial<Omit<Participant, 'id'>> => ({
   emergencyContact2CellPhone: '',
   emergencyContact2Email: '',
   tshirtSize: undefined,
+  needsWhiteShirt: false,
+  needsBlueShirt: false,
+  needsJacket: false,
   invitedBy: '',
   isInvitedByEmausMember: undefined,
   inviterHomePhone: '',
@@ -75,7 +79,7 @@ const formData = ref(getInitialFormData())
 
 const isDialogOpen = ref(false)
 const currentStep = ref(1)
-const totalSteps = computed(() => props.type === 'walker' ? 6 : 5)
+const totalSteps = computed(() => 6)
 
 const formErrors = reactive<Record<string, string>>({})
 
@@ -165,7 +169,7 @@ const step4Schema = z.object({
   path: ['emergencyContact2PhoneNumbers'],
 })
 
-const step5Schema = z.object({
+const step5WalkerSchema = z.object({
   tshirtSize: z.enum(['S', 'M', 'G', 'X', '2'], { required_error: 'T-shirt size is required' }),
   invitedBy: z.string().optional(),
   isInvitedByEmausMember: z.boolean().optional(),
@@ -180,10 +184,19 @@ const step5Schema = z.object({
   arrivesOnOwn: z.boolean().optional(),
 })
 
+const step5ServerSchema = z.object({
+  needsWhiteShirt: z.boolean().optional(),
+  needsBlueShirt: z.boolean().optional(),
+  needsJacket: z.boolean().optional(),
+  tshirtSize: z.enum(['S', 'M', 'G', 'X', '2'], { required_error: 'T-shirt size is required' }),
+})
+
 const stepSchemas = computed(() => {
   const schemas = [step1Schema, step2Schema, step3Schema, step4Schema]
   if (props.type === 'walker') {
-    schemas.push(step5Schema)
+    schemas.push(step5WalkerSchema)
+  } else {
+    schemas.push(step5ServerSchema)
   }
   return schemas
 })
@@ -267,8 +280,17 @@ const onSubmit = async () => {
     return
   }
 
+  const dataToSend = result.data as any;
+  if (formData.value.birthDate) {
+    const parts = formData.value.birthDate.split('-');
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+    const day = parseInt(parts[2], 10);
+    dataToSend.birthDate = new Date(Date.UTC(year, month, day));
+  }
+
   try {
-    await participantStore.createParticipant(result.data)
+    await participantStore.createParticipant(dataToSend)
     toast({ title: 'Registration Successful' })
     isDialogOpen.value = false
     currentStep.value = 1
@@ -292,7 +314,7 @@ const onSubmit = async () => {
 }
 
 const summaryData = computed(() => {
-  return [
+  const data = [
     { label: 'serverRegistration.fields.firstName', value: formData.value.firstName },
     { label: 'serverRegistration.fields.lastName', value: formData.value.lastName },
     { label: 'serverRegistration.fields.email', value: formData.value.email },
@@ -302,8 +324,17 @@ const summaryData = computed(() => {
     { label: 'serverRegistration.fields.hasDietaryRestrictions', value: formData.value.hasDietaryRestrictions ? 'common.yes' : 'common.no' },
     { label: 'serverRegistration.emergencyContact1', value: `${formData.value.emergencyContact1Name} (${formData.value.emergencyContact1Relation}) - ${formData.value.emergencyContact1CellPhone || formData.value.emergencyContact1WorkPhone || formData.value.emergencyContact1HomePhone}` },
     { label: 'walkerRegistration.fields.tshirtSize.label', value: formData.value.tshirtSize },
-    { label: 'walkerRegistration.fields.invitedBy', value: formData.value.invitedBy },
   ]
+
+  if (props.type === 'walker') {
+    data.push({ label: 'walkerRegistration.fields.invitedBy', value: formData.value.invitedBy })
+  } else {
+    data.push({ label: 'serverRegistration.fields.needsWhiteShirt', value: formData.value.needsWhiteShirt ? 'common.yes' : 'common.no' })
+    data.push({ label: 'serverRegistration.fields.needsBlueShirt', value: formData.value.needsBlueShirt ? 'common.yes' : 'common.no' })
+    data.push({ label: 'serverRegistration.fields.needsJacket', value: formData.value.needsJacket ? 'common.yes' : 'common.no' })
+  }
+
+  return data
 })
 </script>
 
@@ -336,6 +367,7 @@ const summaryData = computed(() => {
             <Step3ServiceInfo v-show="currentStep === 3" v-model="formData" :errors="formErrors" />
             <Step4EmergencyContact v-show="currentStep === 4" v-model="formData" :errors="formErrors" />
             <Step5OtherInfo v-show="currentStep === 5 && props.type === 'walker'" v-model="formData" :errors="formErrors" />
+            <Step5ServerInfo v-show="currentStep === 5 && props.type === 'server'" v-model="formData" :errors="formErrors" />
 
             <!-- Step 6: Summary -->
             <div v-show="currentStep === totalSteps">

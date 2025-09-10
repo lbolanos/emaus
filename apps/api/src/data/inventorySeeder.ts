@@ -1297,6 +1297,177 @@ export const createDefaultInventoryData = async () => {
 			unit: 'piezas',
 			description: 'Engrapadora adicional para papelería',
 		},
+
+		// Camisetas Blancas - Calculado dinámicamente según participantes
+		{
+			name: 'Camisetas Blancas Talla S',
+			categoryId: 'Material Requerido',
+			teamId: 'Recepción',
+			ratio: 0.01,
+			unit: 'piezas',
+			description: 'Camisetas blancas talla S para participantes',
+			isCalculated: true,
+			calculationType: 'tshirt',
+			tshirtSize: 'S',
+		},
+		{
+			name: 'Camisetas Blancas Talla M',
+			categoryId: 'Material Requerido',
+			teamId: 'Recepción',
+			ratio: 0.01,
+			unit: 'piezas',
+			description: 'Camisetas blancas talla M para participantes',
+			isCalculated: true,
+			calculationType: 'tshirt',
+			tshirtSize: 'M',
+		},
+		{
+			name: 'Camisetas Blancas Talla G',
+			categoryId: 'Material Requerido',
+			teamId: 'Recepción',
+			ratio: 0.01,
+			unit: 'piezas',
+			description: 'Camisetas blancas talla G para participantes',
+			isCalculated: true,
+			calculationType: 'tshirt',
+			tshirtSize: 'G',
+		},
+		{
+			name: 'Camisetas Blancas Talla X',
+			categoryId: 'Material Requerido',
+			teamId: 'Recepción',
+			ratio: 0.01,
+			unit: 'piezas',
+			description: 'Camisetas blancas talla X para participantes',
+			isCalculated: true,
+			calculationType: 'tshirt',
+			tshirtSize: 'X',
+		},
+		{
+			name: 'Camisetas Blancas Talla 2',
+			categoryId: 'Material Requerido',
+			teamId: 'Recepción',
+			ratio: 0.01,
+			unit: 'piezas',
+			description: 'Camisetas blancas talla 2 para participantes',
+			isCalculated: true,
+			calculationType: 'tshirt',
+			tshirtSize: '2',
+		},
+
+		// Camisetas Azules - Calculado dinámicamente según servidores que necesitan camiseta azul
+		{
+			name: 'Camisetas Azules Talla S',
+			categoryId: 'Material Requerido',
+			teamId: 'Recepción',
+			ratio: 0.01,
+			unit: 'piezas',
+			description: 'Camisetas azules talla S para servidores',
+			isCalculated: true,
+			calculationType: 'bluetshirt',
+			tshirtSize: 'S',
+		},
+		{
+			name: 'Camisetas Azules Talla M',
+			categoryId: 'Material Requerido',
+			teamId: 'Recepción',
+			ratio: 0.01,
+			unit: 'piezas',
+			description: 'Camisetas azules talla M para servidores',
+			isCalculated: true,
+			calculationType: 'bluetshirt',
+			tshirtSize: 'M',
+		},
+		{
+			name: 'Camisetas Azules Talla G',
+			categoryId: 'Material Requerido',
+			teamId: 'Recepción',
+			ratio: 0.01,
+			unit: 'piezas',
+			description: 'Camisetas azules talla G para servidores',
+			isCalculated: true,
+			calculationType: 'bluetshirt',
+			tshirtSize: 'G',
+		},
+		{
+			name: 'Camisetas Azules Talla X',
+			categoryId: 'Material Requerido',
+			teamId: 'Recepción',
+			ratio: 0.01,
+			unit: 'piezas',
+			description: 'Camisetas azules talla X para servidores',
+			isCalculated: true,
+			calculationType: 'bluetshirt',
+			tshirtSize: 'X',
+		},
+		{
+			name: 'Camisetas Azules Talla 2',
+			categoryId: 'Material Requerido',
+			teamId: 'Recepción',
+			ratio: 0.01,
+			unit: 'piezas',
+			description: 'Camisetas azules talla 2 para servidores',
+			isCalculated: true,
+			calculationType: 'bluetshirt',
+			tshirtSize: '2',
+		},
+
+		// Chamarras - Calculado dinámicamente según servidores que necesitan chamarra
+		{
+			name: 'Chamarras Talla S',
+			categoryId: 'Material Requerido',
+			teamId: 'Recepción',
+			ratio: 0.01,
+			unit: 'piezas',
+			description: 'Chamarras talla S para servidores',
+			isCalculated: true,
+			calculationType: 'jacket',
+			tshirtSize: 'S',
+		},
+		{
+			name: 'Chamarras Talla M',
+			categoryId: 'Material Requerido',
+			teamId: 'Recepción',
+			ratio: 0.01,
+			unit: 'piezas',
+			description: 'Chamarras talla M para servidores',
+			isCalculated: true,
+			calculationType: 'jacket',
+			tshirtSize: 'M',
+		},
+		{
+			name: 'Chamarras Talla G',
+			categoryId: 'Material Requerido',
+			teamId: 'Recepción',
+			ratio: 0.01,
+			unit: 'piezas',
+			description: 'Chamarras talla G para servidores',
+			isCalculated: true,
+			calculationType: 'jacket',
+			tshirtSize: 'G',
+		},
+		{
+			name: 'Chamarras Talla X',
+			categoryId: 'Material Requerido',
+			teamId: 'Recepción',
+			ratio: 0.01,
+			unit: 'piezas',
+			description: 'Chamarras talla X para servidores',
+			isCalculated: true,
+			calculationType: 'jacket',
+			tshirtSize: 'X',
+		},
+		{
+			name: 'Chamarras Talla 2',
+			categoryId: 'Material Requerido',
+			teamId: 'Recepción',
+			ratio: 0.01,
+			unit: 'piezas',
+			description: 'Chamarras talla 2 para servidores',
+			isCalculated: true,
+			calculationType: 'jacket',
+			tshirtSize: '2',
+		},
 	];
 
 	const itemsToCreate = items.map((item) => {
@@ -1323,6 +1494,18 @@ export const createDefaultInventoryData = async () => {
 
 		if (item.description !== undefined) {
 			itemData.description = item.description;
+		}
+
+		if (item.isCalculated !== undefined) {
+			itemData.isCalculated = item.isCalculated;
+		}
+
+		if (item.calculationType !== undefined) {
+			itemData.calculationType = item.calculationType;
+		}
+
+		if (item.tshirtSize !== undefined) {
+			itemData.tshirtSize = item.tshirtSize;
 		}
 
 		return itemData;
