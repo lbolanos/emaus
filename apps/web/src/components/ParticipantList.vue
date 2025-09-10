@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia';
 import { useRoute } from 'vue-router';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useRetreatStore } from '@/stores/retreatStore';
+import MessageDialog from './MessageDialog.vue';
 import { useI18n } from 'vue-i18n';
 import * as XLSX from 'xlsx';
 
@@ -99,6 +100,8 @@ const participantToDelete = ref<any>(null);
 const isEditDialogOpen = ref(false);
 const participantToEdit = ref<any>(null);
 const isFilterDialogOpen = ref(false);
+const isMessageDialogOpen = ref(false);
+const messageParticipant = ref<any>(null);
 
 // --- FILTERS ---
 const filters = ref<Record<string, any>>({});
@@ -336,6 +339,11 @@ const openEditDialog = (participant: any) => {
     isEditDialogOpen.value = true;
 };
 
+const openMessageDialog = (participant: any) => {
+    messageParticipant.value = participant;
+    isMessageDialogOpen.value = true;
+};
+
 const handleUpdateParticipant = async (updatedParticipant: any) => {
     await participantStore.updateParticipant(updatedParticipant.id, updatedParticipant);
     toast({
@@ -525,9 +533,41 @@ watch(() => props.defaultFilters, (newDefaults) => {
                             {{ getNestedProperty(participant, colKey) || 'N/A' }}
                         </TableCell>
                         <TableCell>
-                            <div class="flex gap-2">
-                                <Button variant="ghost" size="icon" @click="openEditDialog(participant)"><Edit class="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" class="text-red-500 hover:text-red-700" @click="openDeleteDialog(participant)"><Trash2 class="h-4 w-4" /></Button>
+                            <div class="flex -space-x-3">
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger as-child>
+                                            <Button variant="ghost" size="icon" @click="openEditDialog(participant)"><Edit class="h-4 w-4" /></Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Editar Participante</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger as-child>
+                                            <Button variant="ghost" size="icon" @click="openMessageDialog(participant)">
+                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                                                </svg>
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Enviar Mensaje</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger as-child>
+                                            <Button variant="ghost" size="icon" class="text-red-500 hover:text-red-700" @click="openDeleteDialog(participant)"><Trash2 class="h-4 w-4" /></Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Eliminar Participante</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                             </div>
                         </TableCell>
                     </TableRow>
@@ -644,5 +684,11 @@ watch(() => props.defaultFilters, (newDefaults) => {
                 </div>
             </div>
         </div>
+
+        <!-- Message Dialog -->
+        <MessageDialog
+            v-model:open="isMessageDialogOpen"
+            :participant="messageParticipant"
+        />
     </div>
 </template>

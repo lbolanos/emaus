@@ -36,13 +36,13 @@ const createDefaultMessageTemplatesForRetreat = async (retreat: Retreat) => {
     {
       name: "Bienvenida Caminante",
       type: "WALKER_WELCOME" as const,
-      message: "¡Hola, **{participant.nickname}**!\n\nCon mucho gusto confirmamos tu lugar para la experiencia de fin de semana. Todo el equipo organizador está preparando los detalles para recibirte.\n\n**Datos importantes para tu llegada:**\n* **Nº de Participante:** {participant.numero_participante}\n* **Fecha de encuentro:** {retreat.startDate}\n* **Hora de llegada:** {participant.hora_llegada}\n\nTe pedimos ser puntual para facilitar el registro de todos. ¡Estamos muy contentos de que participes! Nos vemos pronto.",
+      message: "¡Hola, **{participant.nickname}**!\n\nCon mucho gusto confirmamos tu lugar para la experiencia de fin de semana. Todo el equipo organizador está preparando los detalles para recibirte.\n\n**Datos importantes para tu llegada:**\n* **Fecha de encuentro:** {retreat.startDate}\n* **Hora de llegada:** {participant.hora_llegada}\n\nTe pedimos ser puntual para facilitar el registro de todos. ¡Estamos muy contentos de que participes! Nos vemos pronto.",
       retreatId: retreat.id,
     },
     {
       name: "Bienvenida Servidor",
       type: "SERVER_WELCOME" as const,
-      message: "¡Hermano/a **{participant.nickname}**! ✝️\n\n¡Gracias por tu \"sí\" generoso al Señor! Es una verdadera bendición contar contigo en el equipo para preparar el camino a nuestros hermanos caminantes. Tu servicio y tu oración son el corazón de este retiro.\n\n**Información clave para tu servicio:**\n* **Nº de Servidor:** {participant.numero_servidor}\n* **Fecha de inicio de misión:** {retreat.startDate}\n* **Hora de llegada:** {participant.hora_llegada}\n\nQue el Señor te ilumine y fortalezca en esta hermosa misión que te encomienda. ¡Unidos en oración y servicio!\n\n¡Cristo ha resucitado!",
+      message: "¡Hermano/a **{participant.nickname}**! ✝️\n\n¡Gracias por tu \"sí\" generoso al Señor! Es una verdadera bendición contar contigo en el equipo para preparar el camino a nuestros hermanos caminantes. Tu servicio y tu oración son el corazón de este retiro.\n\n**Información clave para tu servicio:**\n* **Fecha de inicio de misión:** {retreat.startDate}\n* **Hora de llegada:** {participant.hora_llegada}\n\nQue el Señor te ilumine y fortalezca en esta hermosa misión que te encomienda. ¡Unidos en oración y servicio!\n\n¡Cristo ha resucitado!",
       retreatId: retreat.id,
     },
     {
@@ -60,7 +60,7 @@ const createDefaultMessageTemplatesForRetreat = async (retreat: Retreat) => {
     {
       name: "Recordatorio de Palanca",
       type: "PALANCA_REMINDER" as const,
-      message: "¡Paz y Bien, **{participant.nickname}**! 🙏\n\nEste es un recordatorio amistoso y lleno de cariño. Un caminante está esperando esas palabras de aliento que el Señor ha puesto en tu corazón; esa oración que solo tú puedes escribirle. ¡No dejes pasar la oportunidad de ser luz en su camino!\n\n* **La fecha límite para enviar tu palanca es el:** {retreat.fecha_limite_palanca}\n\nGracias por tu generosidad y por sostener este retiro con tu oración.",
+      message: "¡Paz y Bien, **{participant.nickname}**! 🙏\n\nEste es un recordatorio amistoso y lleno de cariño. Un caminante está esperando esas palabras de aliento que el Señor ha puesto en tu corazón; esa oración que solo tú puedes escribirle. ¡No dejes pasar la oportunidad de ser luz en su camino!\n\n* **La fecha límite para enviar tu palanca es el:** {retreat.startDate}\n\nGracias por tu generosidad y por sostener este retiro con tu oración.",
       retreatId: retreat.id,
     },
     {

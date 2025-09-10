@@ -342,19 +342,28 @@ const previewMessage = computed(() => {
     message = message.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
   });
   
-  // Replace retreat variables with mock data
+  // Replace retreat variables with actual retreat data
+  const retreat = retreatStore.selectedRetreat;
   const retreatReplacements = {
-    'retreat.parish': 'Parroquia de San Juan',
-    'retreat.startDate': '15 de Enero, 2024',
-    'retreat.endDate': '17 de Enero, 2024',
-    'retreat.openingNotes': 'Bienvenidos al retiro de Emaús. Que esta experiencia transforme sus vidas.',
-    'retreat.closingNotes': 'Gracias por participar. Lleven esta experiencia a sus comunidades.',
-    'retreat.thingsToBringNotes': 'Ropa cómoda, biblia, cuaderno, artículos de aseo personal.',
-    'retreat.cost': '$1,500',
-    'retreat.paymentInfo': 'Pago en efectivo o transferencia bancaria.',
-    'retreat.paymentMethods': 'Efectivo, Transferencia, Tarjeta de crédito',
-    'retreat.maxWalkers': '30',
-    'retreat.maxServers': '15'
+    'retreat.parish': retreat?.parish || '',
+    'retreat.startDate': retreat?.startDate ? new Date(retreat.startDate).toLocaleDateString('es-ES', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    }) : '',
+    'retreat.endDate': retreat?.endDate ? new Date(retreat.endDate).toLocaleDateString('es-ES', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    }) : '',
+    'retreat.openingNotes': retreat?.openingNotes || '',
+    'retreat.closingNotes': retreat?.closingNotes || '',
+    'retreat.thingsToBringNotes': retreat?.thingsToBringNotes || '',
+    'retreat.cost': retreat?.cost || '',
+    'retreat.paymentInfo': retreat?.paymentInfo || '',
+    'retreat.paymentMethods': retreat?.paymentMethods || '',
+    'retreat.maxWalkers': retreat?.max_walkers?.toString() || '',
+    'retreat.maxServers': retreat?.max_servers?.toString() || ''
   };
   
   // Apply all retreat variable replacements
