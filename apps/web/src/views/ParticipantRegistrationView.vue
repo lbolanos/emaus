@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, watch, reactive } from 'vue'
+import { computed, ref, watch, reactive, onMounted } from 'vue'
 import { useToast } from '@repo/ui/components/ui/toast/use-toast'
 import { z } from 'zod'
 import { participantSchema, Participant } from '@repo/types'
 import { useParticipantStore } from '@/stores/participantStore'
+import { useRetreatStore } from '@/stores/retreatStore'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/ui/card'
 import { Button } from '@repo/ui/components/ui/button'
@@ -18,10 +19,14 @@ import Step5ServerInfo from '@/components/registration/Step5ServerInfo.vue'
 
 const props = defineProps<{ retreatId: string; type: string }>()
 const participantStore = useParticipantStore()
+const retreatStore = useRetreatStore()
 const { toast } = useToast()
 
+const validRetreatId = ref(props.retreatId)
+const isLoading = ref(true)
+
 const getInitialFormData = (): Partial<Omit<Participant, 'id'>> => ({
-  retreatId: props.retreatId,
+  retreatId: validRetreatId.value,
   type: props.type as 'walker' | 'server' | 'waiting',
   sacraments: [],
   firstName: '',
@@ -62,9 +67,9 @@ const getInitialFormData = (): Partial<Omit<Participant, 'id'>> => ({
   emergencyContact2CellPhone: '',
   emergencyContact2Email: '',
   tshirtSize: undefined,
-  needsWhiteShirt: false,
-  needsBlueShirt: false,
-  needsJacket: false,
+  needsWhiteShirt: null,
+  needsBlueShirt: null,
+  needsJacket: null,
   invitedBy: '',
   isInvitedByEmausMember: undefined,
   inviterHomePhone: '',
@@ -185,10 +190,9 @@ const step5WalkerSchema = z.object({
 })
 
 const step5ServerSchema = z.object({
-  needsWhiteShirt: z.boolean().optional(),
-  needsBlueShirt: z.boolean().optional(),
-  needsJacket: z.boolean().optional(),
-  tshirtSize: z.enum(['S', 'M', 'G', 'X', '2'], { required_error: 'T-shirt size is required' }),
+  needsWhiteShirt: z.enum(['S', 'M', 'G', 'X', '2', 'null']).nullable().optional(),
+  needsBlueShirt: z.enum(['S', 'M', 'G', 'X', '2', 'null']).nullable().optional(),
+  needsJacket: z.enum(['S', 'M', 'G', 'X', '2', 'null']).nullable().optional()
 })
 
 const stepSchemas = computed(() => {
@@ -313,19 +317,60 @@ const summaryData = computed(() => {
     { label: 'serverRegistration.fields.snores', value: formData.value.snores ? 'common.yes' : 'common.no' },
     { label: 'serverRegistration.fields.hasMedication', value: formData.value.hasMedication ? 'common.yes' : 'common.no' },
     { label: 'serverRegistration.fields.hasDietaryRestrictions', value: formData.value.hasDietaryRestrictions ? 'common.yes' : 'common.no' },
-    { label: 'serverRegistration.emergencyContact1', value: `${formData.value.emergencyContact1Name} (${formData.value.emergencyContact1Relation}) - ${formData.value.emergencyContact1CellPhone || formData.value.emergencyContact1WorkPhone || formData.value.emergencyContact1HomePhone}` },
-    { label: 'walkerRegistration.fields.tshirtSize.label', value: formData.value.tshirtSize },
+    { label: 'serverRegistration.emergencyContact1', value: `${formData.value.emergencyContact1Name} (${formData.value.emergencyContact1Relation}) - ${formData.value.emergencyContact1CellPhone || formData.value.emergencyContact1WorkPhone || formData.value.emergencyContact1HomePhone}` }
   ]
 
   if (props.type === 'walker') {
-    data.push({ label: 'walkerRegistration.fields.invitedBy', value: formData.value.invitedBy })
+    data.push({ label: 'walkerRegistration.fields.invitedBy', value: formData.value.invitedBy },
+              { label: 'walkerRegistration.fields.tshirtSize.label', value: formData.value.tshirtSize }
+    )
   } else {
-    data.push({ label: 'serverRegistration.fields.needsWhiteShirt', value: formData.value.needsWhiteShirt ? 'common.yes' : 'common.no' })
-    data.push({ label: 'serverRegistration.fields.needsBlueShirt', value: formData.value.needsBlueShirt ? 'common.yes' : 'common.no' })
-    data.push({ label: 'serverRegistration.fields.needsJacket', value: formData.value.needsJacket ? 'common.yes' : 'common.no' })
+    data.push({ label: 'serverRegistration.fields.needsWhiteShirt', value: (formData.value.needsWhiteShirt === 'null' || !formData.value.needsWhiteShirt) ? 'serverRegistration.fields.noSizeNeeded' : formData.value.needsWhiteShirt })
+    data.push({ label: 'serverRegistration.fields.needsBlueShirt', value: (formData.value.needsBlueShirt === 'null' || !formData.value.needsBlueShirt) ? 'serverRegistration.fields.noSizeNeeded' : formData.value.needsBlueShirt })
+    data.push({ label: 'serverRegistration.fields.needsJacket', value: (formData.value.needsJacket === 'null' || !formData.value.needsJacket) ? 'serverRegistration.fields.noSizeNeeded' : formData.value.needsJacket })
   }
 
   return data
+})
+
+// Validate retreat ID on mount
+onMounted(async () => {
+  try {
+    await retreatStore.fetchRetreats()
+    
+    // Check if the provided retreatId exists
+    const retreatExists = retreatStore.retreats.some((retreat: any) => retreat.id === props.retreatId)
+    
+    if (!retreatExists) {
+      // Use the most recent retreat if available
+      if (retreatStore.mostRecentRetreat) {
+        validRetreatId.value = retreatStore.mostRecentRetreat.id
+        toast({
+          title: 'Retreat not found',
+          description: 'Using the most recent retreat instead',
+          variant: 'default',
+        })
+      } else {
+        toast({
+          title: 'Error',
+          description: 'No valid retreat found. Please contact administrator.',
+          variant: 'destructive',
+        })
+        return
+      }
+    }
+    
+    // Update formData with valid retreat ID
+    formData.value.retreatId = validRetreatId.value
+  } catch (error) {
+    toast({
+      title: 'Error',
+      description: 'Failed to validate retreat. Please try again.',
+      variant: 'destructive',
+    })
+  } finally {
+    isLoading.value = false
+  }
 })
 </script>
 
@@ -341,8 +386,8 @@ const summaryData = computed(() => {
       <p class="text-xl mb-8">{{ $t( props.type === 'walker' ? 'walkerRegistration.landing.subtitle' : 'serverRegistration.landing.subtitle') }}</p>
       <Dialog v-model:open="isDialogOpen">
         <DialogTrigger as-child>
-          <Button size="lg" variant="outline" class="bg-transparent hover:bg-white hover:text-black">
-            {{ $t('serverRegistration.landing.cta') }}
+          <Button size="lg" variant="outline" class="bg-transparent hover:bg-white hover:text-black" :disabled="isLoading">
+            {{ isLoading ? 'Loading...' : $t('serverRegistration.landing.cta') }}
           </Button>
         </DialogTrigger>
         <DialogContent class="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto">

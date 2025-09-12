@@ -313,12 +313,24 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			`CREATE INDEX IF NOT EXISTS "idx_retreat_inventory_inventoryItemId" ON "retreat_inventory" ("inventoryItemId")`,
 		);
 		// Create indexes for foreign keys that couldn't be added as constraints
-		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_participants_tableId" ON "participants" ("tableId")`);
-		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_participants_retreatBedId" ON "participants" ("retreatBedId")`);
-		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_tables_liderId" ON "tables" ("liderId")`);
-		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_tables_colider1Id" ON "tables" ("colider1Id")`);
-		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_tables_colider2Id" ON "tables" ("colider2Id")`);
-		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_retreat_charges_participantId" ON "retreat_charges" ("participantId")`);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_participants_tableId" ON "participants" ("tableId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_participants_retreatBedId" ON "participants" ("retreatBedId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_tables_liderId" ON "tables" ("liderId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_tables_colider1Id" ON "tables" ("colider1Id")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_tables_colider2Id" ON "tables" ("colider2Id")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_retreat_charges_participantId" ON "retreat_charges" ("participantId")`,
+		);
 	}
 
 	public async down(queryRunner: QueryRunner): Promise<void> {

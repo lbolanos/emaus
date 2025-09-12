@@ -234,8 +234,7 @@ const calculateTshirtQuantity = async (
 		where: {
 			retreatId,
 			type: 'server',
-			tshirtSize: tshirtSize as any,
-			needsWhiteShirt: true,
+			needsWhiteShirt: tshirtSize,
 			isCancelled: false,
 		},
 	});
@@ -252,13 +251,12 @@ const calculateBlueTshirtQuantity = async (
 
 	if (!tshirtSize) return 0;
 
-	// Get count of servers who need blue shirts and have this t-shirt size
+	// Get count of servers who need blue shirts and have this specific blue shirt size
 	const serverCount = await participantRepository.count({
 		where: {
 			retreatId,
 			type: 'server',
-			tshirtSize: tshirtSize as any,
-			needsBlueShirt: true,
+			needsBlueShirt: tshirtSize,
 			isCancelled: false,
 		},
 	});
@@ -275,13 +273,12 @@ const calculateJacketQuantity = async (
 
 	if (!tshirtSize) return 0;
 
-	// Get count of servers who need jackets and have this t-shirt size
+	// Get count of servers who need jackets and have this specific jacket size
 	const serverCount = await participantRepository.count({
 		where: {
 			retreatId,
 			type: 'server',
-			tshirtSize: tshirtSize as any,
-			needsJacket: true,
+			needsJacket: tshirtSize,
 			isCancelled: false,
 		},
 	});

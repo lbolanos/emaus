@@ -262,13 +262,13 @@ export const createParticipant = async (
 		let colorToAssign: string | null = null;
 
 		// Only apply family/friend color assignment to walkers
-		console.log('COLOR ASSIGNMENT: Starting color assignment for participant:', {
+		/*console.log('COLOR ASSIGNMENT: Starting color assignment for participant:', {
 			type: participantData.type,
 			invitedBy: participantData.invitedBy,
 			isInvitedByEmausMember: participantData.isInvitedByEmausMember,
 			email: participantData.email,
 			lastName: participantData.lastName,
-		});
+		});*/
 
 		if (participantData.type === 'walker') {
 			// Build search conditions to find participants in the same group
@@ -281,7 +281,7 @@ export const createParticipant = async (
 				if (inviterName) {
 					searchConditions.push('LOWER(participant.invitedBy) = :inviterName');
 					parameters.inviterName = inviterName;
-					console.log('COLOR ASSIGNMENT: Added invitedBy condition:', inviterName);
+					//console.log('COLOR ASSIGNMENT: Added invitedBy condition:', inviterName);
 				}
 			}
 
@@ -291,7 +291,7 @@ export const createParticipant = async (
 				if (inviterEmail) {
 					searchConditions.push('LOWER(participant.inviterEmail) = :inviterEmail');
 					parameters.inviterEmail = inviterEmail;
-					console.log('COLOR ASSIGNMENT: Added inviterEmail condition:', inviterEmail);
+					//console.log('COLOR ASSIGNMENT: Added inviterEmail condition:', inviterEmail);
 				}
 
 				const inviterPhones = [
@@ -308,7 +308,7 @@ export const createParticipant = async (
 					searchConditions.push('SUBSTR(participant.inviterCellPhone, -8) IN (:...inviterPhones)');
 					searchConditions.push('SUBSTR(participant.inviterWorkPhone, -8) IN (:...inviterPhones)');
 					searchConditions.push('SUBSTR(participant.inviterHomePhone, -8) IN (:...inviterPhones)');
-					console.log('COLOR ASSIGNMENT: Added inviter phone conditions:', inviterPhones);
+					//console.log('COLOR ASSIGNMENT: Added inviter phone conditions:', inviterPhones);
 				}
 			}
 
@@ -318,12 +318,12 @@ export const createParticipant = async (
 				if (lastName) {
 					searchConditions.push('LOWER(participant.lastName) = :lastName');
 					parameters.lastName = lastName;
-					console.log('COLOR ASSIGNMENT: Added lastName condition:', lastName);
+					//console.log('COLOR ASSIGNMENT: Added lastName condition:', lastName);
 				}
 			}
 
-			console.log('COLOR ASSIGNMENT: Final search conditions:', searchConditions);
-			console.log('COLOR ASSIGNMENT: Final parameters:', parameters);
+			//console.log('COLOR ASSIGNMENT: Final search conditions:', searchConditions);
+			//console.log('COLOR ASSIGNMENT: Final parameters:', parameters);
 
 			if (searchConditions.length > 0) {
 				// Find all existing walkers that match any of the group conditions
@@ -334,12 +334,12 @@ export const createParticipant = async (
 					.andWhere(new Brackets((qb) => qb.where(searchConditions.join(' OR '))));
 
 				const existingWalkers = await findAnyWalkerQb.setParameters(parameters).getMany();
-				console.log('COLOR ASSIGNMENT: Existing walkers found:', existingWalkers.length);
+				//console.log('COLOR ASSIGNMENT: Existing walkers found:', existingWalkers.length);
 
 				// Only assign color if there are 2 or more walkers in the group (including the new one)
 				if (existingWalkers.length >= 1) {
 					// This means we have a group: existing walkers + the new walker being created
-					console.log('COLOR ASSIGNMENT: Group found - assigning colors');
+					//console.log('COLOR ASSIGNMENT: Group found - assigning colors');
 
 					// Check if any existing walker already has a color
 					const existingWalkerWithColor = existingWalkers.find((w) => w.family_friend_color);
@@ -347,7 +347,7 @@ export const createParticipant = async (
 					if (existingWalkerWithColor?.family_friend_color) {
 						// Use the same color as existing walker in the group
 						colorToAssign = existingWalkerWithColor.family_friend_color;
-						console.log('COLOR ASSIGNMENT: Reusing existing color:', colorToAssign);
+						//console.log('COLOR ASSIGNMENT: Reusing existing color:', colorToAssign);
 					} else {
 						// Find all used colors in this retreat
 						const usedColorsResult = await participantRepository
@@ -358,22 +358,22 @@ export const createParticipant = async (
 							.getRawMany();
 						const usedColors = usedColorsResult.map((r) => r.color);
 
-						console.log('COLOR ASSIGNMENT: Used colors in retreat:', usedColors);
-						console.log('COLOR ASSIGNMENT: Total colors in pool:', COLOR_POOL.length);
+						//console.log('COLOR ASSIGNMENT: Used colors in retreat:', usedColors);
+						//console.log('COLOR ASSIGNMENT: Total colors in pool:', COLOR_POOL.length);
 
 						// Get an available color from the pool
 						const availableColor = COLOR_POOL.find((c) => !usedColors.includes(c));
 						colorToAssign =
 							availableColor || COLOR_POOL[Math.floor(Math.random() * COLOR_POOL.length)];
 
-						console.log('COLOR ASSIGNMENT: Selected new color:', colorToAssign);
+						//console.log('COLOR ASSIGNMENT: Selected new color:', colorToAssign);
 
 						if (colorToAssign) {
 							// Update all walkers in the group to use the new color
 							const updateConditions = searchConditions.map((condition) =>
 								condition.replace(/participant\./g, ''),
 							);
-							console.log('COLOR ASSIGNMENT: Update conditions:', updateConditions);
+							//console.log('COLOR ASSIGNMENT: Update conditions:', updateConditions);
 
 							const updateQb = participantRepository
 								.createQueryBuilder()
@@ -384,18 +384,18 @@ export const createParticipant = async (
 								.andWhere(new Brackets((qb) => qb.where(updateConditions.join(' OR '))));
 
 							const updateResult = await updateQb.setParameters(parameters).execute();
-							console.log('COLOR ASSIGNMENT: Update result:', updateResult);
+							//console.log('COLOR ASSIGNMENT: Update result:', updateResult);
 						}
 					}
 				} else {
-					console.log('COLOR ASSIGNMENT: No group found - single walker, no color assigned');
+					//console.log('COLOR ASSIGNMENT: No group found - single walker, no color assigned');
 				}
 			}
 		} else {
-			console.log('COLOR ASSIGNMENT: Skipping color assignment - not a walker');
+			//console.log('COLOR ASSIGNMENT: Skipping color assignment - not a walker');
 		}
 
-		console.log('COLOR ASSIGNMENT: Final color assigned:', colorToAssign);
+		//console.log('COLOR ASSIGNMENT: Final color assigned:', colorToAssign);
 
 		if (participantData.type === 'walker' || participantData.type === 'server') {
 			const retreat = await retreatRepository.findOne({ where: { id: participantData.retreatId } });
@@ -436,19 +436,19 @@ export const createParticipant = async (
 			newParticipantData.nickname = newParticipantData.firstName;
 		}
 
-		console.log('COLOR ASSIGNMENT: Creating participant with data:', {
+		/*console.log('COLOR ASSIGNMENT: Creating participant with data:', {
 			...newParticipantData,
 			family_friend_color: colorToAssign,
-		});
+		});*/
 
 		const newParticipant = participantRepository.create(newParticipantData);
 		let savedParticipant: Participant = await participantRepository.save(newParticipant);
 
-		console.log('COLOR ASSIGNMENT: Participant saved successfully:', {
+		/*console.log('COLOR ASSIGNMENT: Participant saved successfully:', {
 			id: savedParticipant.id,
 			email: savedParticipant.email,
 			family_friend_color: savedParticipant.family_friend_color,
-		});
+		});*/
 
 		if (assignRelationships && savedParticipant.type !== 'waiting') {
 			// Use the new unified assignment function
@@ -578,7 +578,11 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
 		emergencyContact2WorkPhone: participant.emerg2teltrabajo?.trim(),
 		emergencyContact2CellPhone: participant.emerg2telcelular?.trim(),
 		emergencyContact2Email: participant.emerg2email?.trim(),
-		tshirtSize: participant.camiseta?.trim(),
+		tshirtSize: (() => {
+			const size = participant.camiseta?.trim()?.toUpperCase();
+			const validSizes = ['S', 'M', 'G', 'X', '2'];
+			return validSizes.includes(size) ? size : null;
+		})(),
 		invitedBy: participant.invitadopor?.trim(),
 		isInvitedByEmausMember: participant.invitadaporemaus?.trim() === 'S' ? true : undefined,
 		inviterHomePhone: participant.invtelcasa?.trim(),

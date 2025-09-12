@@ -144,14 +144,14 @@ export class Participant {
 	@Column({ type: 'varchar', nullable: true })
 	tshirtSize?: 'S' | 'M' | 'G' | 'X' | '2'; // Corresponde a 'camiseta'
 
-	@Column({ type: 'boolean', nullable: true })
-	needsWhiteShirt?: boolean;
+	@Column({ type: 'varchar', nullable: true })
+	needsWhiteShirt?: string | null;
 
-	@Column({ type: 'boolean', nullable: true })
-	needsBlueShirt?: boolean;
+	@Column({ type: 'varchar', nullable: true })
+	needsBlueShirt?: string | null;
 
-	@Column({ type: 'boolean', nullable: true })
-	needsJacket?: boolean;
+	@Column({ type: 'varchar', nullable: true })
+	needsJacket?: string | null;
 
 	@Column({ type: 'varchar', nullable: true })
 	invitedBy?: string; // Corresponde a 'invitadopor'

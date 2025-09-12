@@ -498,9 +498,13 @@
         "cellPhone": "Teléfono Celular",
         "email": "Correo Electrónico"
       },
-      "needsWhiteShirt": "¿Necesita camisa blanca?",
-      "needsBlueShirt": "¿Necesita camisa azul?",
-      "needsJacket": "¿Necesita chaqueta?"
+      "needsWhiteShirt": "Talla de camisa blanca",
+      "needsWhiteShirtPlaceholder": "Seleccione talla o no necesita",
+      "needsBlueShirt": "Talla de camisa azul", 
+      "needsBlueShirtPlaceholder": "Seleccione talla o no necesita",
+      "needsJacket": "Talla de chaqueta",
+      "needsJacketPlaceholder": "Seleccione talla o no necesita",
+      "noSizeNeeded": "No necesita"
     },
     "emergencyContact1": "En caso de emergencia contactar a (1):",
     "emergencyContact2": "En caso de emergencia contactar a (2):"
