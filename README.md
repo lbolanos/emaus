@@ -168,29 +168,39 @@ al crear el retiro se deben crear por defecto todo el listado y poder agregar, m
 add requiredQuantity to apps/api/src/entities/inventoryItem.entity.ts if is null or empty the ratio works but if has a value then the ratio does not work and have a fixed number of items not related with the amount of walkers
 
 apps/web/src/views/ParticipantRegistrationView.vue
-En el registro de los servidores se necesita agregar cuatro campos uno para preguntar si necesita la camiseta blanca, si necesita la camiseta azul, y si necesita chaqueta, ademas de la talla.
+En el registro de los servidores se necesita agregar cuatro campos uno para preguntar si necesita la camiseta blanca,  si necesita la camiseta azul,  y si necesita chaqueta, ademas de la talla.
 adicione los campos necesarios a apps/api/src/entities/retreatInventory.entity.ts
-en el inventario agregar camisetas blancas talla M que en el inventario del retiro requiredQuantity correspondera a la suma de los caminantes con tshirtSize=M mas el numero de servidores con el campo necesita camiseta blanca y con tshirtSize=M. Lo mismo para las otras tallas.
+en el inventario agregar camisetas blancas talla M que en el inventario del retiro requiredQuantity correspondera a la suma de los caminantes con tshirtSize=M mas el numero de servidores con el campo necesita camiseta blanca y con tshirtSize=M.  Lo mismo para las otras tallas.
+
 
 IN PROGRESS
-create a migration pattern with a table in database to manage the migrations already executed
 
 TODO
 
 agregar una forma de administrar las tablas de la base de datos con solo permisos para el superadmin.
-cada usuario tiene asociado un listado de retiros y puede invitar a otro usuario con el correo a cualquier retiro que el tenga asociado.
 guardar en un store el listado de columnas que se han modificado
 
 alimentos y medicinas agregar columna mesa para ordenar y lider
 
-un superadmin, un usuario administrador y un usuario
-el administrador puede borrar casas de retiro
+un superadmin, un usuario administrador del retiro y un usuario servidor del retiro
+superadmin puede acceso total
+solo el superadmin puede borrar casas de retiro, articulos de inventario
+El administrador puede crear y editar casas de retiro, articulos de inventario.
+el servidor solo puede leer casas de retiro, articulos de inventario.
+cada usuario administrador tiene asociado un listado de retiros y puede invitar a otro usuario con el correo a cualquier retiro que el tenga asociado como administrador o como servidor del retiro.
+
 cookie jwt para acceso
 analisis de seguridad de todo el sitio
 
 para las palancas agregar datos de si son becados y pagos y notas de pagos
 importar pagos
 agregar mesa y lider a alimentos y medicinas impresion.
+
+create a database migration pattern with a table in database to manage the migrations already executed.
+add support for sqlite migrations and postgress migrations.
+
+una forma de hacer backup del retiro y luego importar.
+
 
 Que debe pasar cuando se cancele un participante ... unassign from retreatBed and from tableMesa
 
