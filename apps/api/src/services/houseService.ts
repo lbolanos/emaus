@@ -1,7 +1,7 @@
 import { AppDataSource } from '../data-source';
 import { House } from '../entities/house.entity';
 import { Bed } from '../entities/bed.entity';
-// import { CreateHouse, UpdateHouse } from '@repo/types'; // TODO: Define these types
+// import { CreateHouse, UpdateHouse } from '@repo/types'; // Types will be defined when needed
 
 const houseRepository = AppDataSource.getRepository(House);
 const bedRepository = AppDataSource.getRepository(Bed);
