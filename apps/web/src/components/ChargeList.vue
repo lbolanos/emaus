@@ -47,7 +47,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@repo
 import { Button } from '@repo/ui/components/ui/button';
 import { Badge } from '@repo/ui/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui/components/ui/select';
-import type { Charge } from '@repo/types/retreat';
+import type { Charge } from '@repo/types';
 import type { Participant } from '@repo/types';
 
 defineProps<{
@@ -56,8 +56,8 @@ defineProps<{
 }>();
 
 defineEmits<{
-  'assign-charge': [{ chargeId: number, participantId: number }];
+  'assign-charge': [{ chargeId: string, participantId: string }];
   'edit-charge': [charge: Charge];
-  'delete-charge': [chargeId: number];
+  'delete-charge': [chargeId: string];
 }>();
 </script>

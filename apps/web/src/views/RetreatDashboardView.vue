@@ -80,7 +80,7 @@
       </div>
       <div v-if="selectedRetreat.paymentMethods" class="mt-4">
         <h2 class="font-bold">{{ $t('retreatDashboard.paymentMethods') }}</h2>
-        <p>{{ retreatStore.selectedRetreat.paymentMethods }}</p>
+        <p>{{ selectedRetreat.paymentMethods }}</p>
       </div>
     </div>
     <div v-else>

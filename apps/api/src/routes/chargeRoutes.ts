@@ -9,19 +9,20 @@ import {
 	removeCharge,
 } from '../controllers/chargeController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
+import { requirePermission } from '../middleware/authorization';
 
 const router = Router();
 
 router.use(isAuthenticated);
 
-router.get('/', getAllCharges);
-router.get('/:id', getChargeById);
-router.post('/', createCharge);
-router.put('/:id', updateCharge);
-router.delete('/:id', deleteCharge);
+router.get('/', requirePermission('payment:list'), getAllCharges);
+router.get('/:id', requirePermission('payment:read'), getChargeById);
+router.post('/', requirePermission('payment:create'), createCharge);
+router.put('/:id', requirePermission('payment:update'), updateCharge);
+router.delete('/:id', requirePermission('payment:delete'), deleteCharge);
 
 // Charge assignment routes
-router.post('/:id/assign', assignCharge);
-router.delete('/:id/assign/:participantId', removeCharge);
+router.post('/:id/assign', requirePermission('payment:update'), assignCharge);
+router.delete('/:id/assign/:participantId', requirePermission('payment:update'), removeCharge);
 
 export default router;

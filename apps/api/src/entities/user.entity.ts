@@ -6,8 +6,11 @@ import {
 	UpdateDateColumn,
 	BeforeInsert,
 	BeforeUpdate,
+	OneToMany,
 } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { UserRole } from './userRole.entity';
+import { UserRetreat } from './userRetreat.entity';
 
 @Entity('users')
 export class User {
@@ -34,6 +37,12 @@ export class User {
 
 	@UpdateDateColumn()
 	updatedAt!: Date;
+
+	@OneToMany(() => UserRole, (userRole) => userRole.user)
+	userRoles!: UserRole[];
+
+	@OneToMany(() => UserRetreat, (userRetreat) => userRetreat.user)
+	userRetreats!: UserRetreat[];
 
 	@BeforeInsert()
 	@BeforeUpdate()

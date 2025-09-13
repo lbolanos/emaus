@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watchEffect } from 'vue';
 import { City } from 'country-state-city';
 import type { ICity } from 'country-state-city';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui/components/ui/select';
@@ -14,17 +14,13 @@ const emit = defineEmits(['update:modelValue']);
 
 const cities = ref<ICity[]>([]);
 
-watch(() => [props.countryCode, props.stateCode], ([newCountryCode, newStateCode], [oldCountryCode, oldStateCode] = []) => {
-  if (newCountryCode && newStateCode) {
-    cities.value = City.getCitiesOfState(newCountryCode, newStateCode);
+watchEffect(() => {
+  if (props.countryCode && props.stateCode) {
+    cities.value = City.getCitiesOfState(props.countryCode, props.stateCode);
   } else {
     cities.value = [];
   }
-  // Only reset the city if the country or state has actually changed from a previous valid value
-  if ((newCountryCode !== oldCountryCode && oldCountryCode !== undefined) || (newStateCode !== oldStateCode && oldStateCode !== undefined)) {
-    emit('update:modelValue', '');
-  }
-}, { immediate: true });
+}, { flush: 'pre' });
 
 const handleUpdate = (value: string) => {
   emit('update:modelValue', value);

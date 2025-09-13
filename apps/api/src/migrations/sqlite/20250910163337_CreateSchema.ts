@@ -72,7 +72,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			)
 		`);
 
-		// Create participants table (without foreign keys that reference tables not created yet)
+		// Create participants table (with correct shirt field types)
 		await queryRunner.query(`
 			CREATE TABLE IF NOT EXISTS "participants" (
 				"id" VARCHAR(36) PRIMARY KEY NOT NULL,
@@ -116,9 +116,9 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 				"emergencyContact2CellPhone" VARCHAR(255),
 				"emergencyContact2Email" VARCHAR(255),
 				"tshirtSize" VARCHAR(255) CHECK ("tshirtSize" IN ('S', 'M', 'G', 'X', '2')),
-				"needsWhiteShirt" BOOLEAN,
-				"needsBlueShirt" BOOLEAN,
-				"needsJacket" BOOLEAN,
+				"needsWhiteShirt" VARCHAR(10),
+				"needsBlueShirt" VARCHAR(10),
+				"needsJacket" VARCHAR(10),
 				"invitedBy" VARCHAR(255),
 				"isInvitedByEmausMember" BOOLEAN,
 				"inviterHomePhone" VARCHAR(255),
@@ -265,8 +265,70 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			)
 		`);
 
-		// Note: Foreign keys for circular dependencies are handled at the application level
-		// SQLite doesn't support adding foreign keys with ALTER TABLE
+		// Create permissions table
+		await queryRunner.query(`
+			CREATE TABLE IF NOT EXISTS "permissions" (
+				"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+				"resource" VARCHAR(255) NOT NULL,
+				"operation" VARCHAR(255) NOT NULL,
+				"description" TEXT,
+				"createdAt" DATETIME NOT NULL DEFAULT (datetime('now')),
+				"updatedAt" DATETIME NOT NULL DEFAULT (datetime('now')),
+				UNIQUE("resource", "operation")
+			);
+		`);
+
+		// Create roles table
+		await queryRunner.query(`
+			CREATE TABLE IF NOT EXISTS "roles" (
+				"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+				"name" VARCHAR(255) NOT NULL UNIQUE,
+				"description" TEXT,
+				"createdAt" DATETIME NOT NULL DEFAULT (datetime('now')),
+				"updatedAt" DATETIME NOT NULL DEFAULT (datetime('now'))
+			);
+		`);
+
+		// Create role_permissions table
+		await queryRunner.query(`
+			CREATE TABLE IF NOT EXISTS "role_permissions" (
+				"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+				"roleId" INTEGER NOT NULL,
+				"permissionId" INTEGER NOT NULL,
+				"createdAt" DATETIME NOT NULL DEFAULT (datetime('now')),
+				FOREIGN KEY("roleId") REFERENCES "roles"("id") ON DELETE CASCADE,
+				FOREIGN KEY("permissionId") REFERENCES "permissions"("id") ON DELETE CASCADE,
+				UNIQUE("roleId", "permissionId")
+			);
+		`);
+
+		// Create user_roles table
+		await queryRunner.query(`
+			CREATE TABLE IF NOT EXISTS "user_roles" (
+				"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+				"userId" VARCHAR NOT NULL,
+				"roleId" INTEGER NOT NULL,
+				"createdAt" DATETIME NOT NULL DEFAULT (datetime('now')),
+				FOREIGN KEY("userId") REFERENCES "users"("id") ON DELETE CASCADE,
+				FOREIGN KEY("roleId") REFERENCES "roles"("id") ON DELETE CASCADE,
+				UNIQUE("userId", "roleId")
+			);
+		`);
+
+		// Create user_retreats table
+		await queryRunner.query(`
+			CREATE TABLE IF NOT EXISTS "user_retreats" (
+				"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+				"userId" VARCHAR NOT NULL,
+				"retreatId" VARCHAR NOT NULL,
+				"roleId" INTEGER NOT NULL,
+				"createdAt" DATETIME NOT NULL DEFAULT (datetime('now')),
+				FOREIGN KEY("userId") REFERENCES "users"("id") ON DELETE CASCADE,
+				FOREIGN KEY("retreatId") REFERENCES "retreat"("id") ON DELETE CASCADE,
+				FOREIGN KEY("roleId") REFERENCES "roles"("id") ON DELETE CASCADE,
+				UNIQUE("userId", "retreatId", "roleId")
+			);
+		`);
 
 		// Create indexes for better performance
 		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_users_email" ON "users" ("email")`);
@@ -312,7 +374,6 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 		await queryRunner.query(
 			`CREATE INDEX IF NOT EXISTS "idx_retreat_inventory_inventoryItemId" ON "retreat_inventory" ("inventoryItemId")`,
 		);
-		// Create indexes for foreign keys that couldn't be added as constraints
 		await queryRunner.query(
 			`CREATE INDEX IF NOT EXISTS "idx_participants_tableId" ON "participants" ("tableId")`,
 		);
@@ -331,6 +392,239 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 		await queryRunner.query(
 			`CREATE INDEX IF NOT EXISTS "idx_retreat_charges_participantId" ON "retreat_charges" ("participantId")`,
 		);
+
+		// Insert default permissions
+		await queryRunner.query(`
+			INSERT INTO "permissions" ("resource", "operation", "description") VALUES
+			('house', 'create', 'Create new houses'),
+			('house', 'read', 'Read/view houses'),
+			('house', 'update', 'Update existing houses'),
+			('house', 'delete', 'Delete houses'),
+			('house', 'list', 'List houses'),
+			('inventoryItem', 'create', 'Create new inventory items'),
+			('inventoryItem', 'read', 'Read/view inventory items'),
+			('inventoryItem', 'update', 'Update existing inventory items'),
+			('inventoryItem', 'delete', 'Delete inventory items'),
+			('inventoryItem', 'list', 'List inventory items'),
+			('retreat', 'create', 'Create new retreats'),
+			('retreat', 'read', 'Read/view retreats'),
+			('retreat', 'update', 'Update existing retreats'),
+			('retreat', 'delete', 'Delete retreats'),
+			('retreat', 'list', 'List retreats'),
+			('participant', 'create', 'Create new participants'),
+			('participant', 'read', 'Read/view participants'),
+			('participant', 'update', 'Update existing participants'),
+			('participant', 'delete', 'Delete participants'),
+			('participant', 'list', 'List participants'),
+			('user', 'create', 'Create new users'),
+			('user', 'read', 'Read/view users'),
+			('user', 'update', 'Update existing users'),
+			('user', 'delete', 'Delete users'),
+			('user', 'list', 'List users'),
+			('table', 'create', 'Create new tables'),
+			('table', 'read', 'Read/view tables'),
+			('table', 'update', 'Update existing tables'),
+			('table', 'delete', 'Delete tables'),
+			('table', 'list', 'List tables'),
+			('payment', 'create', 'Create new payments'),
+			('payment', 'read', 'Read/view payments'),
+			('payment', 'update', 'Update existing payments'),
+			('payment', 'delete', 'Delete payments'),
+			('payment', 'list', 'List payments');
+		`);
+
+		// Insert default roles
+		await queryRunner.query(`
+			INSERT INTO "roles" ("name", "description") VALUES
+			('superadmin', 'Super administrator with full system access'),
+			('admin', 'Retreat administrator with management permissions'),
+			('servidor', 'Server with read-only access'),
+			('tesorero', 'Treasurer with financial management permissions'),
+			('logística', 'Logistics coordinator with logistics permissions'),
+			('palancas', 'Operations manager with operations permissions');
+		`);
+
+		// Get role IDs for easier reference
+		const rolesResult = await queryRunner.query(`SELECT id, name FROM "roles"`);
+		const permissionsResult = await queryRunner.query(
+			`SELECT id, resource, operation FROM "permissions"`,
+		);
+
+		const roles: { [key: string]: number } = {};
+		rolesResult.forEach((role: any) => {
+			roles[role.name] = role.id;
+		});
+
+		const permissions: { [key: string]: number } = {};
+		permissionsResult.forEach((permission: any) => {
+			permissions[`${permission.resource}:${permission.operation}`] = permission.id;
+		});
+
+		// Superadmin permissions - all permissions
+		const allPermissionIds = permissionsResult.map((p: any) => p.id);
+		for (const permissionId of allPermissionIds) {
+			await queryRunner.query(
+				`INSERT INTO "role_permissions" ("roleId", "permissionId") VALUES (?, ?)`,
+				[roles.superadmin, permissionId],
+			);
+		}
+
+		// Admin permissions - no delete for house and inventoryItem
+		const adminPermissions = [
+			'house:create',
+			'house:read',
+			'house:update',
+			'house:list',
+			'inventoryItem:create',
+			'inventoryItem:read',
+			'inventoryItem:update',
+			'inventoryItem:list',
+			'retreat:create',
+			'retreat:read',
+			'retreat:update',
+			'retreat:list',
+			'participant:create',
+			'participant:read',
+			'participant:update',
+			'participant:delete',
+			'participant:list',
+			'user:read',
+			'user:list',
+			'table:create',
+			'table:read',
+			'table:update',
+			'table:delete',
+			'table:list',
+			'payment:create',
+			'payment:read',
+			'payment:update',
+			'payment:delete',
+			'payment:list',
+		];
+
+		for (const perm of adminPermissions) {
+			if (permissions[perm]) {
+				await queryRunner.query(
+					`INSERT INTO "role_permissions" ("roleId", "permissionId") VALUES (?, ?)`,
+					[roles.admin, permissions[perm]],
+				);
+			}
+		}
+
+		// Servidor permissions - read-only for house and inventoryItem, read for others
+		const servidorPermissions = [
+			'house:read',
+			'house:list',
+			'inventoryItem:read',
+			'inventoryItem:list',
+			'retreat:read',
+			'participant:read',
+			'user:read',
+			'table:read',
+			'payment:read',
+		];
+
+		for (const perm of servidorPermissions) {
+			if (permissions[perm]) {
+				await queryRunner.query(
+					`INSERT INTO "role_permissions" ("roleId", "permissionId") VALUES (?, ?)`,
+					[roles.servidor, permissions[perm]],
+				);
+			}
+		}
+
+		// Tesorero permissions - financial focus
+		const tesoreroPermissions = [
+			'retreat:read',
+			'participant:read',
+			'user:read',
+			'payment:create',
+			'payment:read',
+			'payment:update',
+			'payment:delete',
+			'payment:list',
+		];
+
+		for (const perm of tesoreroPermissions) {
+			if (permissions[perm]) {
+				await queryRunner.query(
+					`INSERT INTO "role_permissions" ("roleId", "permissionId") VALUES (?, ?)`,
+					[roles.tesorero, permissions[perm]],
+				);
+			}
+		}
+
+		// Logística permissions - logistics focus
+		const logisticaPermissions = [
+			'house:read',
+			'house:list',
+			'inventoryItem:read',
+			'inventoryItem:list',
+			'retreat:read',
+			'participant:create',
+			'participant:read',
+			'participant:update',
+			'participant:delete',
+			'participant:list',
+			'user:read',
+			'table:create',
+			'table:read',
+			'table:update',
+			'table:delete',
+			'table:list',
+		];
+
+		for (const perm of logisticaPermissions) {
+			if (permissions[perm]) {
+				await queryRunner.query(
+					`INSERT INTO "role_permissions" ("roleId", "permissionId") VALUES (?, ?)`,
+					[roles.logística, permissions[perm]],
+				);
+			}
+		}
+
+		// Palancas permissions - operations focus
+		const palancasPermissions = [
+			'house:read',
+			'house:list',
+			'inventoryItem:read',
+			'inventoryItem:list',
+			'retreat:read',
+			'participant:create',
+			'participant:read',
+			'participant:update',
+			'participant:delete',
+			'participant:list',
+			'user:read',
+			'payment:create',
+			'payment:read',
+			'payment:update',
+			'payment:delete',
+			'payment:list',
+		];
+
+		for (const perm of palancasPermissions) {
+			if (permissions[perm]) {
+				await queryRunner.query(
+					`INSERT INTO "role_permissions" ("roleId", "permissionId") VALUES (?, ?)`,
+					[roles.palancas, permissions[perm]],
+				);
+			}
+		}
+
+		// Update existing master user to have superadmin role
+		const masterEmail = process.env.SEED_MASTER_USER_EMAIL || 'admin@example.com';
+		const userResult = await queryRunner.query(`SELECT id FROM "users" WHERE email = ? LIMIT 1`, [
+			masterEmail,
+		]);
+
+		if (userResult.length > 0) {
+			const userId = userResult[0].id;
+			await queryRunner.query(`INSERT INTO "user_roles" ("userId", "roleId") VALUES (?, ?)`, [
+				userId,
+				roles.superadmin,
+			]);
+		}
 	}
 
 	public async down(queryRunner: QueryRunner): Promise<void> {
@@ -352,6 +646,11 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_users_email"`);
 
 		// Drop tables in reverse order to respect foreign key constraints
+		await queryRunner.query(`DROP TABLE IF EXISTS "user_retreats"`);
+		await queryRunner.query(`DROP TABLE IF EXISTS "user_roles"`);
+		await queryRunner.query(`DROP TABLE IF EXISTS "role_permissions"`);
+		await queryRunner.query(`DROP TABLE IF EXISTS "roles"`);
+		await queryRunner.query(`DROP TABLE IF EXISTS "permissions"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "retreat_inventory"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "inventory_item"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "inventory_team"`);

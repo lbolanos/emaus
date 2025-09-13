@@ -21,7 +21,7 @@ function updateSacraments(sacrament: typeof sacramentOptions[number]) {
   const index = currentSacraments.indexOf(sacrament)
 
   if (index > -1) {
-    formData.value.sacraments = currentSacraments.filter(s => s !== sacrament)
+    formData.value.sacraments = currentSacraments.filter((s: string) => s !== sacrament)
   } else {
     formData.value.sacraments = [...currentSacraments, sacrament]
   }
@@ -36,11 +36,11 @@ function updateSacraments(sacrament: typeof sacramentOptions[number]) {
         <Label>{{ $t('serverRegistration.fields.snores') }}</Label>
         <RadioGroup v-model="formData.snores" class="flex space-x-4">
           <div class="flex items-center space-x-2">
-            <RadioGroupItem id="snores-yes" :value="true" />
+            <RadioGroupItem id="snores-yes" :value="'yes'" />
             <Label for="snores-yes">{{ $t('common.yes') }}</Label>
           </div>
           <div class="flex items-center space-x-2">
-            <RadioGroupItem id="snores-no" :value="false" />
+            <RadioGroupItem id="snores-no" :value="'no'" />
             <Label for="snores-no">{{ $t('common.no') }}</Label>
           </div>
         </RadioGroup>
@@ -50,11 +50,11 @@ function updateSacraments(sacrament: typeof sacramentOptions[number]) {
         <Label>{{ $t('serverRegistration.fields.hasMedication') }}</Label>
         <RadioGroup v-model="formData.hasMedication" class="flex space-x-4">
           <div class="flex items-center space-x-2">
-            <RadioGroupItem id="meds-yes" :value="true" />
+            <RadioGroupItem id="meds-yes" :value="'yes'" />
             <Label for="meds-yes">{{ $t('common.yes') }}</Label>
           </div>
           <div class="flex items-center space-x-2">
-            <RadioGroupItem id="meds-no" :value="false" />
+            <RadioGroupItem id="meds-no" :value="'no'" />
             <Label for="meds-no">{{ $t('common.no') }}</Label>
           </div>
         </RadioGroup>
@@ -74,11 +74,11 @@ function updateSacraments(sacrament: typeof sacramentOptions[number]) {
         <Label>{{ $t('serverRegistration.fields.hasDietaryRestrictions') }}</Label>
         <RadioGroup v-model="formData.hasDietaryRestrictions" class="flex space-x-4">
           <div class="flex items-center space-x-2">
-            <RadioGroupItem id="diet-yes" :value="true" />
+            <RadioGroupItem id="diet-yes" :value="'yes'" />
             <Label for="diet-yes">{{ $t('common.yes') }}</Label>
           </div>
           <div class="flex items-center space-x-2">
-            <RadioGroupItem id="diet-no" :value="false" />
+            <RadioGroupItem id="diet-no" :value="'no'" />
             <Label for="diet-no">{{ $t('common.no') }}</Label>
           </div>
         </RadioGroup>

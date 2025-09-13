@@ -13,11 +13,11 @@
           </div>
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="startDate" class="text-right">{{ $t('editRetreatModal.startDate') }}</Label>
-            <Input id="startDate" type="date" v-model="form.startDate" class="col-span-3" required />
+            <Input id="startDate" type="date" :value="form.startDate instanceof Date ? form.startDate.toISOString().split('T')[0] : form.startDate" @input="form.startDate = $event.target.value" class="col-span-3" required />
           </div>
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="endDate" class="text-right">{{ $t('editRetreatModal.endDate') }}</Label>
-            <Input id="endDate" type="date" v-model="form.endDate" class="col-span-3" required />
+            <Input id="endDate" type="date" :value="form.endDate instanceof Date ? form.endDate.toISOString().split('T')[0] : form.endDate" @input="form.endDate = $event.target.value" class="col-span-3" required />
           </div>
           <div class="grid grid-cols-4 items-center gap-4">
             <Label for="houseId" class="text-right">{{ $t('editRetreatModal.house') }}</Label>
@@ -123,8 +123,8 @@ watch(() => props.retreat, (newRetreat) => {
   if (newRetreat) {
     form.value = { 
       ...newRetreat, 
-      startDate: new Date(newRetreat.startDate).toISOString().split('T')[0], 
-      endDate: new Date(newRetreat.endDate).toISOString().split('T')[0] 
+      startDate: new Date(newRetreat.startDate), 
+      endDate: new Date(newRetreat.endDate) 
     };
   }
 }, { immediate: true });
@@ -134,7 +134,16 @@ onMounted(() => {
 });
 
 const handleSubmit = async () => {
-  await retreatStore.updateRetreat({ ...form.value, startDate: new Date(form.value.startDate), endDate: new Date(form.value.endDate) });
+  if (form.value.id && form.value.parish && form.value.houseId) {
+    await retreatStore.updateRetreat({ 
+      ...form.value, 
+      id: form.value.id,
+      parish: form.value.parish,
+      houseId: form.value.houseId,
+      startDate: new Date(form.value.startDate as string | Date), 
+      endDate: new Date(form.value.endDate as string | Date) 
+    });
+  }
   emit('update:open', false);
 };
 </script>

@@ -2,12 +2,14 @@ import { Request, Response, NextFunction } from 'express';
 import passport from 'passport';
 import { AppDataSource } from '../data-source';
 import { User } from '../entities/user.entity';
+import { UserService } from '../services/userService';
 import { config } from '../config';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
 
 // Temporary store for password reset tokens
 const passwordResetTokens = new Map<string, { userId: string; expires: number }>();
+const userService = new UserService();
 
 export const register = async (req: Request, res: Response, next: NextFunction) => {
 	const { email, password, displayName } = req.body;
@@ -34,19 +36,29 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 	}
 };
 
-export const login = (req: Request, res: Response, next: NextFunction) => {
-	passport.authenticate('local', (err: Error, user: User, info: any) => {
+export const login = async (req: Request, res: Response, next: NextFunction) => {
+	passport.authenticate('local', async (err: Error, user: User, info: any) => {
 		if (err) {
 			return next(err);
 		}
 		if (!user) {
 			return res.status(401).json({ message: info.message });
 		}
-		req.logIn(user, (err) => {
+		req.logIn(user, async (err) => {
 			if (err) {
 				return next(err);
 			}
-			return res.json(user);
+
+			try {
+				const userProfile = await userService.getUserProfile(user.id);
+				return res.json({
+					...user,
+					profile: userProfile,
+				});
+			} catch (error) {
+				console.error('Error fetching user profile:', error);
+				return res.json(user);
+			}
 		});
 	})(req, res, next);
 };
@@ -55,9 +67,18 @@ export const googleCallback = (req: Request, res: Response) => {
 	res.redirect(config.frontend.url);
 };
 
-export const getAuthStatus = (req: Request, res: Response) => {
+export const getAuthStatus = async (req: Request, res: Response) => {
 	if (req.isAuthenticated()) {
-		res.json(req.user);
+		try {
+			const userProfile = await userService.getUserProfile((req.user as any).id);
+			res.json({
+				...req.user,
+				profile: userProfile,
+			});
+		} catch (error) {
+			console.error('Error fetching user profile:', error);
+			res.json(req.user);
+		}
 	} else {
 		res.status(401).json({ message: 'Unauthorized' });
 	}

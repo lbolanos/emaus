@@ -157,7 +157,7 @@ const assignTableToWalker = async (participant: Participant): Promise<string | u
 	const tableRepo = AppDataSource.getRepository(TableMesa);
 	const participantRepo = AppDataSource.getRepository(Participant);
 
-	let tables = await tableRepo.find({
+	const tables = await tableRepo.find({
 		where: { retreatId: participant.retreatId },
 		relations: ['walkers'],
 	});
@@ -179,7 +179,7 @@ const assignTableToWalker = async (participant: Participant): Promise<string | u
 		});
 		const tablesToExclude = walkersInvitedBySamePerson.map((p) => p.tableId).filter(Boolean);
 		if (tablesToExclude.length > 0) {
-			suitableTables = tables.filter((t) => !tablesToExclude.includes(t.id as string));
+			suitableTables = tables.filter((t) => !tablesToExclude.includes(t.id));
 		}
 	}
 
@@ -534,7 +534,7 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
 			if (userType === '3') return 'walker';
 			if (userType === '4') return 'waiting';
 			return 'server';
-		})() as 'walker' | 'server' | 'waiting',
+		})(),
 		firstName: participant.nombre?.trim() || '',
 		lastName: participant.apellidos?.trim(),
 		nickname: participant.apodo?.trim(),

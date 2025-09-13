@@ -36,7 +36,7 @@ import {
 } from '@repo/ui/components/ui/dialog';
 import { Input } from '@repo/ui/components/ui/input';
 import { Label } from '@repo/ui/components/ui/label';
-import type { Charge } from '@repo/types/retreat';
+import type { Charge } from '@repo/types';
 
 const props = defineProps<{
   open: boolean;

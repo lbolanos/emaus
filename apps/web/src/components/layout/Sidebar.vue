@@ -60,7 +60,7 @@
         </TooltipProvider>
       </router-link>
       <router-link
-        v-if="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId && can.read('participant')"
         :to="{ name: 'walkers' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -89,7 +89,7 @@
       </router-link>
       
       <router-link
-        v-if="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId && can.read('participant')"
         :to="{ name: 'servers' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -117,7 +117,7 @@
         </TooltipProvider>
       </router-link>
       <router-link
-        v-if="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId && can.read('table')"
         :to="{ name: 'tables' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -145,7 +145,7 @@
         </TooltipProvider>
       </router-link>
       <router-link
-        v-if="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId && can.read('payment')"
         :to="{ name: 'charges', params: { id: retreatStore.selectedRetreatId } }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -173,7 +173,7 @@
         </TooltipProvider>
       </router-link>
       <router-link
-        v-if="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId && can.read('inventoryItem')"
         :to="{ name: 'inventory', params: { id: retreatStore.selectedRetreatId } }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -229,7 +229,7 @@
         </TooltipProvider>
       </router-link>
       <router-link
-        v-if="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId && can.read('payment')"
         :to="{ name: 'payments' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -285,7 +285,7 @@
         </TooltipProvider>
       </router-link>
       <router-link
-        v-if="retreatStore.selectedRetreatId"
+        v-if="retreatStore.selectedRetreatId && can.read('house')"
         :to="{ name: 'rooms' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -544,6 +544,7 @@
         <div v-else class="border-t border-gray-700 my-2"></div>
       </div>
       <router-link
+        v-if="can.read('participant')"
         :to="{ name: 'message-templates' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -571,6 +572,7 @@
         </TooltipProvider>
       </router-link>
       <router-link
+        v-if="can.read('inventoryItem')"
         :to="{ name: 'inventory-items' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -598,6 +600,7 @@
         </TooltipProvider>
       </router-link>
       <router-link
+        v-if="can.read('house')"
         :to="{ name: 'houses' }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -639,12 +642,16 @@ import { Button } from '@repo/ui/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@repo/ui/components/ui/tooltip';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useUIStore } from '@/stores/ui';
+import { useAuthPermissions } from '@/composables/useAuthPermissions';
 
 const auth = useAuthStore();
 const router = useRouter();
 const retreatStore = useRetreatStore();
 const uiStore = useUIStore();
 const { isSidebarCollapsed } = storeToRefs(uiStore);
+const { 
+  can 
+} = useAuthPermissions();
 
 const handleLogout = async () => {
   await auth.logout();

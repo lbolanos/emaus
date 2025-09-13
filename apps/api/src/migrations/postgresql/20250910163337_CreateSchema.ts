@@ -72,7 +72,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			)
 		`);
 
-		// Create participants table
+		// Create participants table (with correct shirt field types)
 		await queryRunner.query(`
 			CREATE TABLE IF NOT EXISTS "participants" (
 				"id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -102,7 +102,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 				"medication_schedule" VARCHAR(255),
 				"has_dietary_restrictions" BOOLEAN NOT NULL DEFAULT false,
 				"dietary_restrictions_details" TEXT,
-				"sacraments" TEXT[],
+				"sacraments" TEXT,
 				"emergency_contact1_name" VARCHAR(255) NOT NULL,
 				"emergency_contact1_relation" VARCHAR(255) NOT NULL,
 				"emergency_contact1_home_phone" VARCHAR(255),
@@ -116,9 +116,9 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 				"emergency_contact2_cell_phone" VARCHAR(255),
 				"emergency_contact2_email" VARCHAR(255),
 				"tshirt_size" VARCHAR(255) CHECK ("tshirt_size" IN ('S', 'M', 'G', 'X', '2')),
-				"needs_white_shirt" BOOLEAN,
-				"needs_blue_shirt" BOOLEAN,
-				"needs_jacket" BOOLEAN,
+				"needs_white_shirt" VARCHAR(10),
+				"needs_blue_shirt" VARCHAR(10),
+				"needs_jacket" VARCHAR(10),
 				"invited_by" VARCHAR(255),
 				"is_invited_by_emaus_member" BOOLEAN,
 				"inviter_home_phone" VARCHAR(255),
@@ -142,14 +142,12 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 				"last_updated_date" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				"retreatId" UUID NOT NULL,
 				"tableId" UUID,
-				"retreat_bed_id" UUID,
-				FOREIGN KEY ("retreatId") REFERENCES "retreat" ("id") ON DELETE CASCADE,
-				FOREIGN KEY ("tableId") REFERENCES "tables" ("id") ON DELETE SET NULL,
-				FOREIGN KEY ("retreat_bed_id") REFERENCES "retreat_bed" ("id") ON DELETE SET NULL
+				"retreatBedId" UUID,
+				FOREIGN KEY ("retreatId") REFERENCES "retreat" ("id") ON DELETE CASCADE
 			)
 		`);
 
-		// Create tables table
+		// Create tables table (without foreign keys that reference participants table)
 		await queryRunner.query(`
 			CREATE TABLE IF NOT EXISTS "tables" (
 				"id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -158,10 +156,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 				"liderId" UUID,
 				"colider1Id" UUID,
 				"colider2Id" UUID,
-				FOREIGN KEY ("retreatId") REFERENCES "retreat" ("id") ON DELETE CASCADE,
-				FOREIGN KEY ("liderId") REFERENCES "participants" ("id") ON DELETE SET NULL,
-				FOREIGN KEY ("colider1Id") REFERENCES "participants" ("id") ON DELETE SET NULL,
-				FOREIGN KEY ("colider2Id") REFERENCES "participants" ("id") ON DELETE SET NULL
+				FOREIGN KEY ("retreatId") REFERENCES "retreat" ("id") ON DELETE CASCADE
 			)
 		`);
 
@@ -175,22 +170,21 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 				"type" TEXT NOT NULL CHECK ("type" IN ('normal', 'litera', 'colchon')),
 				"default_usage" TEXT NOT NULL CHECK ("default_usage" IN ('caminante', 'servidor')),
 				"retreatId" UUID NOT NULL,
-				"participant_id" UUID,
+				"participantId" UUID,
 				FOREIGN KEY ("retreatId") REFERENCES "retreat" ("id") ON DELETE CASCADE,
-				FOREIGN KEY ("participant_id") REFERENCES "participants" ("id") ON DELETE SET NULL
+				FOREIGN KEY ("participantId") REFERENCES "participants" ("id") ON DELETE SET NULL
 			)
 		`);
 
-		// Create retreat_charges table
+		// Create retreat_charges table (without foreign key that references participants table)
 		await queryRunner.query(`
 			CREATE TABLE IF NOT EXISTS "retreat_charges" (
 				"id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 				"name" VARCHAR(255) NOT NULL,
 				"description" TEXT,
 				"retreatId" UUID NOT NULL,
-				"participant_id" UUID,
-				FOREIGN KEY ("retreatId") REFERENCES "retreat" ("id") ON DELETE CASCADE,
-				FOREIGN KEY ("participant_id") REFERENCES "participants" ("id") ON DELETE SET NULL
+				"participantId" UUID,
+				FOREIGN KEY ("retreatId") REFERENCES "retreat" ("id") ON DELETE CASCADE
 			)
 		`);
 
@@ -271,6 +265,71 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			)
 		`);
 
+		// Create permissions table
+		await queryRunner.query(`
+			CREATE TABLE IF NOT EXISTS "permissions" (
+				"id" SERIAL PRIMARY KEY,
+				"resource" VARCHAR(255) NOT NULL,
+				"operation" VARCHAR(255) NOT NULL,
+				"description" TEXT,
+				"created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				"updated_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				UNIQUE("resource", "operation")
+			);
+		`);
+
+		// Create roles table
+		await queryRunner.query(`
+			CREATE TABLE IF NOT EXISTS "roles" (
+				"id" SERIAL PRIMARY KEY,
+				"name" VARCHAR(255) NOT NULL UNIQUE,
+				"description" TEXT,
+				"created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				"updated_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+			);
+		`);
+
+		// Create role_permissions table
+		await queryRunner.query(`
+			CREATE TABLE IF NOT EXISTS "role_permissions" (
+				"id" SERIAL PRIMARY KEY,
+				"role_id" INTEGER NOT NULL,
+				"permission_id" INTEGER NOT NULL,
+				"created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				FOREIGN KEY("role_id") REFERENCES "roles"("id") ON DELETE CASCADE,
+				FOREIGN KEY("permission_id") REFERENCES "permissions"("id") ON DELETE CASCADE,
+				UNIQUE("role_id", "permission_id")
+			);
+		`);
+
+		// Create user_roles table
+		await queryRunner.query(`
+			CREATE TABLE IF NOT EXISTS "user_roles" (
+				"id" SERIAL PRIMARY KEY,
+				"user_id" UUID NOT NULL,
+				"role_id" INTEGER NOT NULL,
+				"created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				FOREIGN KEY("user_id") REFERENCES "users"("id") ON DELETE CASCADE,
+				FOREIGN KEY("role_id") REFERENCES "roles"("id") ON DELETE CASCADE,
+				UNIQUE("user_id", "role_id")
+			);
+		`);
+
+		// Create user_retreats table
+		await queryRunner.query(`
+			CREATE TABLE IF NOT EXISTS "user_retreats" (
+				"id" SERIAL PRIMARY KEY,
+				"user_id" UUID NOT NULL,
+				"retreat_id" UUID NOT NULL,
+				"role_id" INTEGER NOT NULL,
+				"created_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				FOREIGN KEY("user_id") REFERENCES "users"("id") ON DELETE CASCADE,
+				FOREIGN KEY("retreat_id") REFERENCES "retreat"("id") ON DELETE CASCADE,
+				FOREIGN KEY("role_id") REFERENCES "roles"("id") ON DELETE CASCADE,
+				UNIQUE("user_id", "retreat_id", "role_id")
+			);
+		`);
+
 		// Create indexes for better performance
 		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_users_email" ON "users" ("email")`);
 		await queryRunner.query(
@@ -283,7 +342,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			`CREATE INDEX IF NOT EXISTS "idx_participants_table_id" ON "participants" ("tableId")`,
 		);
 		await queryRunner.query(
-			`CREATE INDEX IF NOT EXISTS "idx_participants_retreat_bed_id" ON "participants" ("retreat_bed_id")`,
+			`CREATE INDEX IF NOT EXISTS "idx_participants_retreat_bed_id" ON "participants" ("retreatBedId")`,
 		);
 		await queryRunner.query(
 			`CREATE INDEX IF NOT EXISTS "idx_tables_retreat_id" ON "tables" ("retreatId")`,
@@ -292,13 +351,13 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			`CREATE INDEX IF NOT EXISTS "idx_retreat_bed_retreat_id" ON "retreat_bed" ("retreatId")`,
 		);
 		await queryRunner.query(
-			`CREATE INDEX IF NOT EXISTS "idx_retreat_bed_participant_id" ON "retreat_bed" ("participant_id")`,
+			`CREATE INDEX IF NOT EXISTS "idx_retreat_bed_participant_id" ON "retreat_bed" ("participantId")`,
 		);
 		await queryRunner.query(
 			`CREATE INDEX IF NOT EXISTS "idx_retreat_charges_retreat_id" ON "retreat_charges" ("retreatId")`,
 		);
 		await queryRunner.query(
-			`CREATE INDEX IF NOT EXISTS "idx_retreat_charges_participant_id" ON "retreat_charges" ("participant_id")`,
+			`CREATE INDEX IF NOT EXISTS "idx_retreat_charges_participant_id" ON "retreat_charges" ("participantId")`,
 		);
 		await queryRunner.query(
 			`CREATE INDEX IF NOT EXISTS "idx_message_templates_retreat_id" ON "message_templates" ("retreatId")`,
@@ -315,53 +374,260 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 		await queryRunner.query(
 			`CREATE INDEX IF NOT EXISTS "idx_retreat_inventory_inventory_item_id" ON "retreat_inventory" ("inventory_item_id")`,
 		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_participants_table_id" ON "participants" ("tableId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_participants_retreat_bed_id" ON "participants" ("retreatBedId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_tables_lider_id" ON "tables" ("liderId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_tables_colider1_id" ON "tables" ("colider1Id")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_tables_colider2_id" ON "tables" ("colider2Id")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_retreat_charges_participant_id" ON "retreat_charges" ("participantId")`,
+		);
 
-		// Create trigger for updated_at timestamp
+		// Insert default permissions
 		await queryRunner.query(`
-			CREATE OR REPLACE FUNCTION update_updated_at_column()
-			RETURNS TRIGGER AS $$
-			BEGIN
-				NEW.updated_at = CURRENT_TIMESTAMP;
-				RETURN NEW;
-			END;
-			$$ language 'plpgsql';
+			INSERT INTO "permissions" ("resource", "operation", "description") VALUES
+			('house', 'create', 'Create new houses'),
+			('house', 'read', 'Read/view houses'),
+			('house', 'update', 'Update existing houses'),
+			('house', 'delete', 'Delete houses'),
+			('house', 'list', 'List houses'),
+			('inventoryItem', 'create', 'Create new inventory items'),
+			('inventoryItem', 'read', 'Read/view inventory items'),
+			('inventoryItem', 'update', 'Update existing inventory items'),
+			('inventoryItem', 'delete', 'Delete inventory items'),
+			('inventoryItem', 'list', 'List inventory items'),
+			('retreat', 'create', 'Create new retreats'),
+			('retreat', 'read', 'Read/view retreats'),
+			('retreat', 'update', 'Update existing retreats'),
+			('retreat', 'delete', 'Delete retreats'),
+			('retreat', 'list', 'List retreats'),
+			('participant', 'create', 'Create new participants'),
+			('participant', 'read', 'Read/view participants'),
+			('participant', 'update', 'Update existing participants'),
+			('participant', 'delete', 'Delete participants'),
+			('participant', 'list', 'List participants'),
+			('user', 'create', 'Create new users'),
+			('user', 'read', 'Read/view users'),
+			('user', 'update', 'Update existing users'),
+			('user', 'delete', 'Delete users'),
+			('user', 'list', 'List users'),
+			('table', 'create', 'Create new tables'),
+			('table', 'read', 'Read/view tables'),
+			('table', 'update', 'Update existing tables'),
+			('table', 'delete', 'Delete tables'),
+			('table', 'list', 'List tables'),
+			('payment', 'create', 'Create new payments'),
+			('payment', 'read', 'Read/view payments'),
+			('payment', 'update', 'Update existing payments'),
+			('payment', 'delete', 'Delete payments'),
+			('payment', 'list', 'List payments');
 		`);
 
-		// Apply trigger to all tables with updated_at column
-		const tablesWithTrigger = [
-			'users',
-			'message_templates',
-			'inventory_category',
-			'inventory_team',
-			'inventory_item',
-			'retreat_inventory',
+		// Insert default roles
+		await queryRunner.query(`
+			INSERT INTO "roles" ("name", "description") VALUES
+			('superadmin', 'Super administrator with full system access'),
+			('admin', 'Retreat administrator with management permissions'),
+			('servidor', 'Server with read-only access'),
+			('tesorero', 'Treasurer with financial management permissions'),
+			('logística', 'Logistics coordinator with logistics permissions'),
+			('palancas', 'Operations manager with operations permissions');
+		`);
+
+		// Get role IDs for easier reference
+		const rolesResult = await queryRunner.query(`SELECT id, name FROM "roles"`);
+		const permissionsResult = await queryRunner.query(
+			`SELECT id, resource, operation FROM "permissions"`,
+		);
+
+		const roles: { [key: string]: number } = {};
+		rolesResult.forEach((role: any) => {
+			roles[role.name] = role.id;
+		});
+
+		const permissions: { [key: string]: number } = {};
+		permissionsResult.forEach((permission: any) => {
+			permissions[`${permission.resource}:${permission.operation}`] = permission.id;
+		});
+
+		// Superadmin permissions - all permissions
+		const allPermissionIds = permissionsResult.map((p: any) => p.id);
+		for (const permissionId of allPermissionIds) {
+			await queryRunner.query(
+				`INSERT INTO "role_permissions" ("role_id", "permission_id") VALUES ($1, $2)`,
+				[roles.superadmin, permissionId],
+			);
+		}
+
+		// Admin permissions - no delete for house and inventoryItem
+		const adminPermissions = [
+			'house:create',
+			'house:read',
+			'house:update',
+			'house:list',
+			'inventoryItem:create',
+			'inventoryItem:read',
+			'inventoryItem:update',
+			'inventoryItem:list',
+			'retreat:create',
+			'retreat:read',
+			'retreat:update',
+			'retreat:list',
+			'participant:create',
+			'participant:read',
+			'participant:update',
+			'participant:delete',
+			'participant:list',
+			'user:read',
+			'user:list',
+			'table:create',
+			'table:read',
+			'table:update',
+			'table:delete',
+			'table:list',
+			'payment:create',
+			'payment:read',
+			'payment:update',
+			'payment:delete',
+			'payment:list',
 		];
-		for (const table of tablesWithTrigger) {
-			await queryRunner.query(`
-				CREATE TRIGGER update_${table}_updated_at 
-					BEFORE UPDATE ON "${table}"
-					FOR EACH ROW
-					EXECUTE FUNCTION update_updated_at_column();
-			`);
+
+		for (const perm of adminPermissions) {
+			if (permissions[perm]) {
+				await queryRunner.query(
+					`INSERT INTO "role_permissions" ("role_id", "permission_id") VALUES ($1, $2)`,
+					[roles.admin, permissions[perm]],
+				);
+			}
+		}
+
+		// Servidor permissions - read-only for house and inventoryItem, read for others
+		const servidorPermissions = [
+			'house:read',
+			'house:list',
+			'inventoryItem:read',
+			'inventoryItem:list',
+			'retreat:read',
+			'participant:read',
+			'user:read',
+			'table:read',
+			'payment:read',
+		];
+
+		for (const perm of servidorPermissions) {
+			if (permissions[perm]) {
+				await queryRunner.query(
+					`INSERT INTO "role_permissions" ("role_id", "permission_id") VALUES ($1, $2)`,
+					[roles.servidor, permissions[perm]],
+				);
+			}
+		}
+
+		// Tesorero permissions - financial focus
+		const tesoreroPermissions = [
+			'retreat:read',
+			'participant:read',
+			'user:read',
+			'payment:create',
+			'payment:read',
+			'payment:update',
+			'payment:delete',
+			'payment:list',
+		];
+
+		for (const perm of tesoreroPermissions) {
+			if (permissions[perm]) {
+				await queryRunner.query(
+					`INSERT INTO "role_permissions" ("role_id", "permission_id") VALUES ($1, $2)`,
+					[roles.tesorero, permissions[perm]],
+				);
+			}
+		}
+
+		// Logística permissions - logistics focus
+		const logisticaPermissions = [
+			'house:read',
+			'house:list',
+			'inventoryItem:read',
+			'inventoryItem:list',
+			'retreat:read',
+			'participant:create',
+			'participant:read',
+			'participant:update',
+			'participant:delete',
+			'participant:list',
+			'user:read',
+			'table:create',
+			'table:read',
+			'table:update',
+			'table:delete',
+			'table:list',
+		];
+
+		for (const perm of logisticaPermissions) {
+			if (permissions[perm]) {
+				await queryRunner.query(
+					`INSERT INTO "role_permissions" ("role_id", "permission_id") VALUES ($1, $2)`,
+					[roles.logística, permissions[perm]],
+				);
+			}
+		}
+
+		// Palancas permissions - operations focus
+		const palancasPermissions = [
+			'house:read',
+			'house:list',
+			'inventoryItem:read',
+			'inventoryItem:list',
+			'retreat:read',
+			'participant:create',
+			'participant:read',
+			'participant:update',
+			'participant:delete',
+			'participant:list',
+			'user:read',
+			'payment:create',
+			'payment:read',
+			'payment:update',
+			'payment:delete',
+			'payment:list',
+		];
+
+		for (const perm of palancasPermissions) {
+			if (permissions[perm]) {
+				await queryRunner.query(
+					`INSERT INTO "role_permissions" ("role_id", "permission_id") VALUES ($1, $2)`,
+					[roles.palancas, permissions[perm]],
+				);
+			}
+		}
+
+		// Update existing master user to have superadmin role
+		const masterEmail = process.env.SEED_MASTER_USER_EMAIL || 'admin@example.com';
+		const userResult = await queryRunner.query(`SELECT id FROM "users" WHERE email = $1 LIMIT 1`, [
+			masterEmail,
+		]);
+
+		if (userResult.length > 0) {
+			const userId = userResult[0].id;
+			await queryRunner.query(`INSERT INTO "user_roles" ("user_id", "role_id") VALUES ($1, $2)`, [
+				userId,
+				roles.superadmin,
+			]);
 		}
 	}
 
 	public async down(queryRunner: QueryRunner): Promise<void> {
-		// Drop triggers first
-		const tablesWithTrigger = [
-			'users',
-			'message_templates',
-			'inventory_category',
-			'inventory_team',
-			'inventory_item',
-			'retreat_inventory',
-		];
-		for (const table of tablesWithTrigger) {
-			await queryRunner.query(`DROP TRIGGER IF EXISTS update_${table}_updated_at ON "${table}"`);
-		}
-
-		await queryRunner.query(`DROP FUNCTION IF EXISTS update_updated_at_column`);
-
 		// Drop indexes first
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_retreat_inventory_inventory_item_id"`);
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_retreat_inventory_retreat_id"`);
@@ -380,6 +646,11 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_users_email"`);
 
 		// Drop tables in reverse order to respect foreign key constraints
+		await queryRunner.query(`DROP TABLE IF EXISTS "user_retreats"`);
+		await queryRunner.query(`DROP TABLE IF EXISTS "user_roles"`);
+		await queryRunner.query(`DROP TABLE IF EXISTS "role_permissions"`);
+		await queryRunner.query(`DROP TABLE IF EXISTS "roles"`);
+		await queryRunner.query(`DROP TABLE IF EXISTS "permissions"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "retreat_inventory"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "inventory_item"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "inventory_team"`);

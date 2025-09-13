@@ -35,6 +35,34 @@ export class SeedInitialData20250910163452 implements MigrationInterface {
 
 		console.log('✅ Master user created/updated.');
 
+		// Assign superadmin role to master user
+		console.log('Assigning superadmin role to master user...');
+
+		// Get the superadmin role ID
+		const roleResult = await queryRunner.query(
+			`SELECT id FROM "roles" WHERE "name" = 'superadmin' LIMIT 1`,
+		);
+
+		if (roleResult.length > 0) {
+			const superadminRoleId = roleResult[0].id;
+
+			// Assign the role to the master user
+			await queryRunner.query(
+				`
+				INSERT INTO "user_roles" ("user_id", "role_id", "created_at")
+				VALUES ($1, $2, CURRENT_TIMESTAMP)
+				ON CONFLICT ("user_id", "role_id") DO NOTHING
+				`,
+				[masterUserId, superadminRoleId],
+			);
+
+			console.log('✅ Superadmin role assigned to master user.');
+		} else {
+			console.log(
+				'⚠️  Superadmin role not found. Make sure the schema migration has been run first.',
+			);
+		}
+
 		// Check if we need to create sample data (only if SEED_FORCE is true)
 		const forceSeed = process.env.SEED_FORCE === 'true';
 
@@ -328,8 +356,14 @@ export class SeedInitialData20250910163452 implements MigrationInterface {
 		// Remove houses
 		await queryRunner.query(`DELETE FROM "house" WHERE "name" = 'Casa Emaus Principal'`);
 
-		// Remove master user (only if it was created by this seed)
+		// Remove master user roles first (to avoid foreign key constraint issues)
 		const masterEmail = process.env.SEED_MASTER_USER_EMAIL || 'admin@example.com';
+		await queryRunner.query(
+			`DELETE FROM "user_roles" WHERE "user_id" IN (SELECT "id" FROM "users" WHERE "email" = $1)`,
+			[masterEmail],
+		);
+
+		// Remove master user (only if it was created by this seed)
 		await queryRunner.query(`DELETE FROM "users" WHERE "email" = $1`, [masterEmail]);
 
 		console.log('✅ Seeded data removed.');

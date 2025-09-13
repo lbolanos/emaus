@@ -366,7 +366,7 @@ const newItem = ref({
   categoryId: '',
   teamId: '',
   ratio: 1.0,
-  requiredQuantity: null,
+  requiredQuantity: undefined,
   unit: '',
 });
 
@@ -405,7 +405,7 @@ async function createItem() {
       categoryId: '',
       teamId: '',
       ratio: 1.0,
-      requiredQuantity: null,
+      requiredQuantity: undefined,
       unit: '',
     };
     toast({

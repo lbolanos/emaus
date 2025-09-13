@@ -13,7 +13,7 @@ export class Migration {
 	@Column({ name: 'timestamp', type: 'varchar', length: 14 })
 	timestamp!: string;
 
-	@Column({ name: 'executed_at', type: 'timestamp' })
+	@Column({ name: 'executed_at', type: 'datetime' })
 	executedAt!: Date;
 
 	@Column({ name: 'execution_time', type: 'integer' })

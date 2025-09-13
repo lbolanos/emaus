@@ -18,7 +18,7 @@ passport.use(
 		async (accessToken, refreshToken, profile, done) => {
 			const userRepository = AppDataSource.getRepository(User);
 			try {
-				let user = await userRepository.findOne({ where: { googleId: profile.id } });
+				const user = await userRepository.findOne({ where: { googleId: profile.id } });
 
 				if (user) {
 					return done(null, user);

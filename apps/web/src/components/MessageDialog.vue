@@ -33,8 +33,8 @@
         <!-- Template Selection -->
         <div class="space-y-2">
           <Label class="text-sm font-medium">Plantilla de Mensaje</Label>
-          <Select v-model="selectedTemplate" :disabled="templatesLoading" @open="() => console.log('Template select opened, loading:', templatesLoading.value)" @close="() => console.log('Template select closed')">
-            <SelectTrigger @click="() => console.log('Select trigger clicked, loading:', templatesLoading.value, 'disabled:', templatesLoading.value)">
+          <Select v-model="selectedTemplate" :disabled="templatesLoading" @open="() => console.log('Template select opened, loading:', templatesLoading)" @close="() => console.log('Template select closed')">
+            <SelectTrigger @click="() => console.log('Select trigger clicked, loading:', templatesLoading, 'disabled:', templatesLoading)">
               <SelectValue :placeholder="templatesLoading ? 'Cargando plantillas...' : 'Selecciona una plantilla'" />
             </SelectTrigger>
             <SelectContent>
@@ -140,7 +140,7 @@ const isOpen = computed({
   set: (value) => emit('update:open', value)
 });
 
-const selectedPhone = ref<string | null>(null);
+const selectedPhone = ref<string | undefined>(undefined);
 const selectedTemplate = ref('');
 const messagePreview = ref('');
 const editedMessage = ref('');
@@ -305,21 +305,22 @@ const relevantTemplates = computed(() => {
   if (!participantType) return allMessageTemplates.value || [];
   
   const allTemplates = allMessageTemplates.value || [];
-  console.log('All templates details:', allTemplates.map(t => ({ id: t.id, name: t.name, targetAudience: t.targetAudience })));
+  console.log('All templates details:', allTemplates.map(t => ({ id: t.id, name: t.name, type: t.type })));
   
   const templates = allTemplates.filter((template: any) => {
-    return template.targetAudience === 'all' || 
-           template.targetAudience === participantType ||
-           template.targetAudience === 'walker' ||  // Fallback for common values
-           template.targetAudience === 'server' ||
-           !template.targetAudience; // Show templates with no target audience
+    // Template doesn't have targetAudience property, use type instead
+    const templateType = template.type || '';
+    return templateType.includes('WALKER') || 
+           templateType.includes('SERVER') ||
+           templateType === 'GENERAL' ||
+           !templateType;
   });
   
   console.log('Relevant templates:', {
     participantType,
     allTemplatesCount: allTemplates.length,
     relevantTemplatesCount: templates.length,
-    templates: templates.map(t => ({ id: t.id, name: t.name, targetAudience: t.targetAudience }))
+    templates: templates.map(t => ({ id: t.id, name: t.name, type: t.type }))
   });
   
   // If no templates match the filter, show all templates as a fallback
@@ -549,10 +550,10 @@ const closeDialog = () => {
 };
 
 // Watchers
-watch(() => props.open, (newValue) => {
+watch(() => props.open, (newValue: boolean) => {
   if (newValue && props.participant) {
     // Initialize dialog when opened
-    selectedPhone.value = props.participant.cellPhone || null;
+    selectedPhone.value = props.participant.cellPhone || undefined;
     selectedTemplate.value = '';
     messagePreview.value = '';
     editedMessage.value = '';
@@ -579,7 +580,7 @@ watch(() => props.open, (newValue) => {
   }
 });
 
-watch(selectedTemplate, (newValue) => {
+watch(selectedTemplate, (newValue: string) => {
   console.log('Selected template changed:', newValue);
   updateMessagePreview();
 });
@@ -590,7 +591,7 @@ watch(() => props.participant, () => {
 
 
 // Debug watch
-watch(phoneOptionsDebug, (debug) => {
+watch(phoneOptionsDebug, (debug: any) => {
   console.log('Phone Options Debug:', debug);
 }, { immediate: true });
 
@@ -598,8 +599,8 @@ watch(phoneOptionsDebug, (debug) => {
 watch(() => [templatesLoading.value, allMessageTemplates.value], ([loading, templates]) => {
   console.log('Templates state changed:', {
     loading,
-    templatesCount: templates?.length || 0,
-    templates: templates?.map((t: any) => ({ id: t.id, name: t.name, targetAudience: t.targetAudience }))
+    templatesCount: Array.isArray(templates) ? templates.length : 0,
+    templates: Array.isArray(templates) ? templates.map((t: any) => ({ id: t.id, name: t.name, type: t.type })) : []
   });
 }, { immediate: true });
 

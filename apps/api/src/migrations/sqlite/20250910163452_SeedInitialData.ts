@@ -31,6 +31,188 @@ export class SeedInitialData20250910163452 implements MigrationInterface {
 
 		console.log('✅ Master user created/updated.');
 
+		// Assign superadmin role to master user
+		console.log('Assigning superadmin role to master user...');
+
+		// Get the superadmin role ID
+		const roleResult = await queryRunner.query(
+			`SELECT id FROM "roles" WHERE "name" = 'superadmin' LIMIT 1`,
+		);
+
+		if (roleResult.length > 0) {
+			const superadminRoleId = roleResult[0].id;
+
+			// Assign the role to the master user
+			await queryRunner.query(
+				`
+				INSERT OR IGNORE INTO "user_roles" ("userId", "roleId", "createdAt")
+				VALUES (?, ?, CURRENT_TIMESTAMP)
+				`,
+				[masterUserId, superadminRoleId],
+			);
+
+			console.log('✅ Superadmin role assigned to master user.');
+
+			// Create users for other roles
+			console.log('Creating users for other roles...');
+
+			// Admin user
+			const adminUserId = uuidv4();
+			const adminEmail = process.env.SEED_ADMIN_USER_EMAIL || 'admin@emaus.org';
+			const adminName = process.env.SEED_ADMIN_USER_NAME || 'Administrador';
+			const adminPassword = process.env.SEED_ADMIN_USER_PASSWORD || 'admin123';
+			const adminHashedPassword = await bcrypt.hash(adminPassword, 10);
+
+			await queryRunner.query(
+				`
+			INSERT OR IGNORE INTO "users" (
+				"id", "email", "displayName", "password", "createdAt", "updatedAt"
+			) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+			`,
+				[adminUserId, adminEmail, adminName, adminHashedPassword],
+			);
+
+			// Server user
+			const serverUserId = uuidv4();
+			const serverEmail = process.env.SEED_SERVER_USER_EMAIL || 'servidor@emaus.org';
+			const serverName = process.env.SEED_SERVER_USER_NAME || 'Servidor';
+			const serverPassword = process.env.SEED_SERVER_USER_PASSWORD || 'servidor123';
+			const serverHashedPassword = await bcrypt.hash(serverPassword, 10);
+
+			await queryRunner.query(
+				`
+			INSERT OR IGNORE INTO "users" (
+				"id", "email", "displayName", "password", "createdAt", "updatedAt"
+			) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+			`,
+				[serverUserId, serverEmail, serverName, serverHashedPassword],
+			);
+
+			// Treasurer user
+			const treasurerUserId = uuidv4();
+			const treasurerEmail = process.env.SEED_TREASURER_USER_EMAIL || 'tesorero@emaus.org';
+			const treasurerName = process.env.SEED_TREASURER_USER_NAME || 'Tesorero';
+			const treasurerPassword = process.env.SEED_TREASURER_USER_PASSWORD || 'tesorero123';
+			const treasurerHashedPassword = await bcrypt.hash(treasurerPassword, 10);
+
+			await queryRunner.query(
+				`
+			INSERT OR IGNORE INTO "users" (
+				"id", "email", "displayName", "password", "createdAt", "updatedAt"
+			) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+			`,
+				[treasurerUserId, treasurerEmail, treasurerName, treasurerHashedPassword],
+			);
+
+			// Logistics user
+			const logisticsUserId = uuidv4();
+			const logisticsEmail = process.env.SEED_LOGISTICS_USER_EMAIL || 'logistica@emaus.org';
+			const logisticsName = process.env.SEED_LOGISTICS_USER_NAME || 'Logística';
+			const logisticsPassword = process.env.SEED_LOGISTICS_USER_PASSWORD || 'logistica123';
+			const logisticsHashedPassword = await bcrypt.hash(logisticsPassword, 10);
+
+			await queryRunner.query(
+				`
+			INSERT OR IGNORE INTO "users" (
+				"id", "email", "displayName", "password", "createdAt", "updatedAt"
+			) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+			`,
+				[logisticsUserId, logisticsEmail, logisticsName, logisticsHashedPassword],
+			);
+
+			// Operations user
+			const operationsUserId = uuidv4();
+			const operationsEmail = process.env.SEED_OPERATIONS_USER_EMAIL || 'palancas@emaus.org';
+			const operationsName = process.env.SEED_OPERATIONS_USER_NAME || 'Palancas';
+			const operationsPassword = process.env.SEED_OPERATIONS_USER_PASSWORD || 'palancas123';
+			const operationsHashedPassword = await bcrypt.hash(operationsPassword, 10);
+
+			await queryRunner.query(
+				`
+			INSERT OR IGNORE INTO "users" (
+				"id", "email", "displayName", "password", "createdAt", "updatedAt"
+			) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+			`,
+				[operationsUserId, operationsEmail, operationsName, operationsHashedPassword],
+			);
+
+			console.log('✅ Users for all roles created.');
+
+			// Get all role IDs
+			const allRoles = await queryRunner.query(
+				`SELECT id, name FROM "roles" WHERE "name" IN ('admin', 'servidor', 'tesorero', 'logística', 'palancas')`,
+			);
+
+			const roleMap = new Map<string, string>();
+			allRoles.forEach((role: { id: string; name: string }) => {
+				roleMap.set(role.name, role.id);
+			});
+
+			// Assign roles to users
+			console.log('Assigning roles to users...');
+
+			// Assign admin role
+			if (roleMap.has('admin')) {
+				await queryRunner.query(
+					`
+				INSERT OR IGNORE INTO "user_roles" ("userId", "roleId", "createdAt")
+				VALUES (?, ?, CURRENT_TIMESTAMP)
+				`,
+					[adminUserId, roleMap.get('admin')],
+				);
+			}
+
+			// Assign server role
+			if (roleMap.has('servidor')) {
+				await queryRunner.query(
+					`
+				INSERT OR IGNORE INTO "user_roles" ("userId", "roleId", "createdAt")
+				VALUES (?, ?, CURRENT_TIMESTAMP)
+				`,
+					[serverUserId, roleMap.get('servidor')],
+				);
+			}
+
+			// Assign treasurer role
+			if (roleMap.has('tesorero')) {
+				await queryRunner.query(
+					`
+				INSERT OR IGNORE INTO "user_roles" ("userId", "roleId", "createdAt")
+				VALUES (?, ?, CURRENT_TIMESTAMP)
+				`,
+					[treasurerUserId, roleMap.get('tesorero')],
+				);
+			}
+
+			// Assign logistics role
+			if (roleMap.has('logística')) {
+				await queryRunner.query(
+					`
+				INSERT OR IGNORE INTO "user_roles" ("userId", "roleId", "createdAt")
+				VALUES (?, ?, CURRENT_TIMESTAMP)
+				`,
+					[logisticsUserId, roleMap.get('logística')],
+				);
+			}
+
+			// Assign operations role
+			if (roleMap.has('palancas')) {
+				await queryRunner.query(
+					`
+				INSERT OR IGNORE INTO "user_roles" ("userId", "roleId", "createdAt")
+				VALUES (?, ?, CURRENT_TIMESTAMP)
+				`,
+					[operationsUserId, roleMap.get('palancas')],
+				);
+			}
+
+			console.log('✅ Roles assigned to all users.');
+		} else {
+			console.log(
+				'⚠️  Superadmin role not found. Make sure the schema migration has been run first.',
+			);
+		}
+
 		// Check if we need to create sample data (only if SEED_FORCE is true)
 		const forceSeed = process.env.SEED_FORCE === 'true';
 
@@ -114,8 +296,15 @@ export class SeedInitialData20250910163452 implements MigrationInterface {
 
 			console.log('✅ Sample retreat created.');
 
-			// Create sample retreat beds
-			for (let i = 0; i < bedIds.length; i++) {
+			// Create 40 retreat beds - 20 for walkers and 20 for servers
+			console.log('Creating 40 retreat beds (20 for walkers, 20 for servers)...');
+
+			for (let i = 0; i < 40; i++) {
+				const roomNumber = Math.floor(i / 4) + 1; // 4 beds per room
+				const bedNumber = (i % 4) + 1;
+				const isWalker = i < 20; // First 20 beds for walkers, next 20 for servers
+				const bedType = i % 4 === 2 || i % 4 === 3 ? 'litera' : 'normal'; // Every 3rd and 4th bed is a bunk bed
+
 				await queryRunner.query(
 					`
 					INSERT OR IGNORE INTO "retreat_bed" (
@@ -124,10 +313,10 @@ export class SeedInitialData20250910163452 implements MigrationInterface {
 				`,
 					[
 						uuidv4(),
-						`Room ${(i + 1) * 100}`,
-						`Bed ${i + 1}`,
-						i === 2 ? 'litera' : 'normal',
-						i === 2 ? 'servidor' : 'caminante',
+						roomNumber.toString(),
+						bedNumber.toString(),
+						bedType,
+						isWalker ? 'caminante' : 'servidor',
 						retreatId,
 					],
 				);
@@ -315,8 +504,14 @@ export class SeedInitialData20250910163452 implements MigrationInterface {
 		// Remove houses
 		await queryRunner.query(`DELETE FROM "house" WHERE "name" = 'Casa Emaus Principal'`);
 
-		// Remove master user (only if it was created by this seed)
+		// Remove master user roles first (to avoid foreign key constraint issues)
 		const masterEmail = process.env.SEED_MASTER_USER_EMAIL || 'admin@example.com';
+		await queryRunner.query(
+			`DELETE FROM "user_roles" WHERE "userId" IN (SELECT "id" FROM "users" WHERE "email" = ?)`,
+			[masterEmail],
+		);
+
+		// Remove master user (only if it was created by this seed)
 		await queryRunner.query(`DELETE FROM "users" WHERE "email" = ?`, [masterEmail]);
 
 		console.log('✅ Seeded data removed.');

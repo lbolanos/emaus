@@ -30,7 +30,7 @@
 
 <script setup lang="ts">
 import type { PropType } from 'vue';
-import type { Participant, ServerRole } from '@repo/types';
+import type { Participant } from '@repo/types';
 
 defineProps({
   title: {
@@ -42,7 +42,7 @@ defineProps({
     default: null,
   },
   role: {
-    type: String as PropType<ServerRole>,
+    type: String as PropType<'lider' | 'colider1' | 'colider2'>,
     required: true,
   },
   isOver: {

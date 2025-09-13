@@ -135,7 +135,7 @@ export const rebalanceTablesForRetreat = async (retreatId: string) => {
 	});
 
 	const walkerCount = walkers.length;
-	let tableCount = tables.length;
+	const tableCount = tables.length;
 
 	const idealTableCount = Math.max(1, Math.ceil(walkerCount / MAX_WALKERS_PER_TABLE));
 

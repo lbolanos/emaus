@@ -241,7 +241,7 @@ const onDrop = (event: DragEvent, role: 'lider' | 'colider1' | 'colider2' | 'wal
     }
     tableMesaStore.assignWalkerToTable(props.table.id, participant.id, participant.sourceTableId);
   } else if (role !== 'walkers' && participant.type === 'server') {
-    tableMesaStore.assignLeader(props.table.id, participant.id, role, participant.sourceTableId, participant.sourceRole);
+    tableMesaStore.assignLeader(props.table.id, participant.id, role, participant.sourceTableId, participant.sourceRole as 'lider' | 'colider1' | 'colider2' | undefined);
   }
 };
 

@@ -1,5 +1,6 @@
 import axios from 'axios';
-//import { useAuthStore } from '@/stores/authStore';
+import { useAuthStore } from '@/stores/authStore';
+import { useToast } from '@repo/ui/components/ui/toast/use-toast';
 import type { TableMesa } from '@repo/types';
 
 export const api = axios.create({
@@ -10,19 +11,35 @@ export const api = axios.create({
 	},
 });
 
-/*api.interceptors.response.use(
-  response => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      const authStore = useAuthStore();
-      authStore.logout();
-    }
+// Response interceptor for error handling
+api.interceptors.response.use(
+	(response) => response,
+	(error) => {
+		const { toast } = useToast();
+		//const authStore = useAuthStore();
 
-    return Promise.reject(error);
-  },
+		if (error.response?.status === 401) {
+			// Unauthorized - clear auth state
+			//authStore.logout();
+			toast({
+				title: 'Sesión expirada',
+				description: 'Tu sesión ha expirado. Por favor inicia sesión nuevamente.',
+				variant: 'destructive',
+			});
+		} else if (error.response?.status === 403) {
+			// Forbidden - permission denied
+			toast({
+				title: 'Acceso denegado',
+				description: 'No tienes permisos para realizar esta acción.',
+				variant: 'destructive',
+			});
+		}
+
+		return Promise.reject(error);
+	},
 );
 
-export default api;*/
+export default api;
 
 // TableMesa API functions
 export const getTablesByRetreat = async (retreatId: string): Promise<TableMesa[]> => {

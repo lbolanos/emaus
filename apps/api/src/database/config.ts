@@ -12,6 +12,12 @@ import { InventoryCategory } from '../entities/inventoryCategory.entity';
 import { InventoryTeam } from '../entities/inventoryTeam.entity';
 import { InventoryItem } from '../entities/inventoryItem.entity';
 import { RetreatInventory } from '../entities/retreatInventory.entity';
+import { Role } from '../entities/role.entity';
+import { UserRole } from '../entities/userRole.entity';
+import { RolePermission } from '../entities/rolePermission.entity';
+import { UserRetreat } from '../entities/userRetreat.entity';
+import { Permission } from '../entities/permission.entity';
+import { Migration } from '../entities/migration.entity';
 
 export function createDatabaseConfig() {
 	const dbType = process.env.DB_TYPE || 'sqlite';
@@ -30,6 +36,12 @@ export function createDatabaseConfig() {
 		InventoryTeam,
 		InventoryItem,
 		RetreatInventory,
+		Role,
+		UserRole,
+		RolePermission,
+		UserRetreat,
+		Permission,
+		Migration,
 	];
 
 	if (dbType === 'postgresql') {

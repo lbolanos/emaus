@@ -34,7 +34,7 @@
               <TableCell>{{ bed.type }}</TableCell>
               <TableCell>{{ bed.defaultUsage }}</TableCell>
               <TableCell>
-                <Select :model-value="bed.participantId" @update:model-value="assignParticipant(bed.id, $event)">
+                <Select :model-value="bed.participantId || undefined" @update:model-value="assignParticipant(bed.id, $event)">
                   <SelectTrigger>
                     <SelectValue :placeholder="'Unassigned'">
                       {{ bed.participant ? `${bed.participant.firstName} ${bed.participant.lastName}` : 'Unassigned' }}

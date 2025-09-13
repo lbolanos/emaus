@@ -10,6 +10,7 @@ import {
 import { validateRequest } from '../middleware/validateRequest';
 import { createParticipantSchema, updateParticipantSchema } from '@repo/types';
 import { isAuthenticated } from '../middleware/isAuthenticated';
+import { requirePermission } from '../middleware/authorization';
 
 const router = Router();
 
@@ -18,10 +19,15 @@ router.post('/new', validateRequest(createParticipantSchema), createParticipant)
 
 router.use(isAuthenticated);
 
-router.get('/', getAllParticipants);
-router.get('/:id', getParticipantById);
-router.post('/import/:retreatId', importParticipants);
-router.put('/:id', validateRequest(updateParticipantSchema), updateParticipant);
-router.delete('/:id', deleteParticipant);
+router.get('/', requirePermission('participant:list'), getAllParticipants);
+router.get('/:id', requirePermission('participant:read'), getParticipantById);
+router.post('/import/:retreatId', requirePermission('participant:create'), importParticipants);
+router.put(
+	'/:id',
+	validateRequest(updateParticipantSchema),
+	requirePermission('participant:update'),
+	updateParticipant,
+);
+router.delete('/:id', requirePermission('participant:delete'), deleteParticipant);
 
 export default router;

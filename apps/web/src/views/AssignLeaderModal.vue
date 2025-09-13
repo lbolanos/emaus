@@ -74,7 +74,7 @@ const handleSelect = async (participantId: string) => {
 
 watch(() => props.open, (isOpen) => {
   if (isOpen) {
-    participantStore.setFilter('type', 'server');
+    participantStore.filters.type = 'server';
     participantStore.fetchParticipants();
   }
 });

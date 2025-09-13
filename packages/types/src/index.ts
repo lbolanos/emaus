@@ -276,5 +276,18 @@ export const updateChargeSchema = z.object({
 });
 export type UpdateCharge = z.infer<typeof updateChargeSchema.shape.body>;
 
-export * from './user';
+// User types (avoid conflicts with permissions exports)
+export type {
+	User,
+	UserRole,
+	UserRetreat,
+	Permission as UserPermission,
+	Role as UserRoleType,
+	RolePermission,
+	UserPermission as UserPermissionType,
+	UserRoleDetail,
+	UserProfile,
+} from './user';
+
 export * from './message-template';
+export * from './permissions';

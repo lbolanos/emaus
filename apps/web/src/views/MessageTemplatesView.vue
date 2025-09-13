@@ -249,8 +249,8 @@ const formattedParticipants = computed(() => {
     notes: participant.notes || '',
     registrationDate: participant.registrationDate || '',
     lastUpdatedDate: participant.lastUpdatedDate || '',
-    table: participant.tableMesa?.tableNumber || '',
-    roomNumber: participant.retreatBed?.room?.roomNumber || '',
+    table: participant.tableMesa?.name || '',
+    roomNumber: participant.retreatBed?.roomNumber || '',
     bedNumber: participant.retreatBed?.bedNumber || ''
   }));
 });
@@ -339,7 +339,7 @@ const previewMessage = computed(() => {
   
   // Apply all participant variable replacements
   Object.entries(participantReplacements).forEach(([key, value]) => {
-    message = message.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
+    message = message.replace(new RegExp(`\\{${key}\\}`, 'g'), String(value));
   });
   
   // Replace retreat variables with actual retreat data
@@ -396,7 +396,9 @@ const handleDrop = (e: DragEvent) => {
     // Move cursor after inserted variable
     nextTick(() => {
       textarea.focus();
-      textarea.setSelectionRange(start + draggedVariable.value.length, start + draggedVariable.value.length);
+      if (draggedVariable.value) {
+        textarea.setSelectionRange(start + draggedVariable.value.length, start + draggedVariable.value.length);
+      }
     });
   }
   draggedVariable.value = null;

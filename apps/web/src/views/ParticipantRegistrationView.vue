@@ -33,7 +33,7 @@ const getInitialFormData = (): Partial<Omit<Participant, 'id'>> => ({
   registrationDate: undefined,
   lastName: '',
   nickname: '',
-  birthDate: '',
+  birthDate: new Date(),
   maritalStatus: undefined,
   street: '',
   houseNumber: '',
@@ -196,7 +196,7 @@ const step5ServerSchema = z.object({
 })
 
 const stepSchemas = computed(() => {
-  const schemas = [step1Schema, step2Schema, step3Schema, step4Schema]
+  const schemas: any[] = [step1Schema, step2Schema, step3Schema, step4Schema]
   if (props.type === 'walker') {
     schemas.push(step5WalkerSchema)
   } else {
@@ -217,7 +217,7 @@ const validateStep = (step: number) => {
   const result = schema.safeParse(formData.value)
   if (!result.success) {
     const errors: string[] = []
-    result.error.errors.forEach((e) => {
+    result.error.errors.forEach((e: any) => {
       const path = e.path.join('.')
       formErrors[path] = e.message
       errors.push(`${path} - ${e.message}`)
@@ -270,7 +270,7 @@ const onSubmit = async () => {
   const result = validationSchema.safeParse(formData.value)
   if (!result.success) {
     const errors: string[] = []
-    result.error.errors.forEach((e) => {
+    result.error.errors.forEach((e: any) => {
       const path = e.path.join('.')
       formErrors[path] = e.message
       errors.push(`${path} - ${e.message}`)

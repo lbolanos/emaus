@@ -5,6 +5,7 @@ import { TableMesa } from './tableMesa.entity';
 import { RetreatBed } from './retreatBed.entity';
 import { Charge } from './charge.entity';
 import { RetreatInventory } from './retreatInventory.entity';
+import { UserRetreat } from './userRetreat.entity';
 
 @Entity()
 export class Retreat {
@@ -65,4 +66,7 @@ export class Retreat {
 
 	@OneToMany(() => RetreatInventory, (inventory) => inventory.retreat)
 	inventories!: RetreatInventory[];
+
+	@OneToMany(() => UserRetreat, (userRetreat) => userRetreat.retreat)
+	userRetreats!: UserRetreat[];
 }

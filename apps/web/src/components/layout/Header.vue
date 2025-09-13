@@ -15,7 +15,7 @@
           </Button>
         </div>
         <div v-else class="flex items-center space-x-2">
-          <Select v-model="retreatStore.selectedRetreatId">
+          <Select v-model="retreatStore.selectedRetreatId as string">
             <SelectTrigger id="retreat-selector">
               <SelectValue :placeholder="$t('sidebar.selectRetreat')" />
             </SelectTrigger>

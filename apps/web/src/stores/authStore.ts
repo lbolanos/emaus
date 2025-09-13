@@ -1,12 +1,29 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import type { User } from '@repo/types/user';
+import type { User, UserProfile } from '@repo/types';
 import { api } from '../services/api';
 import { useRouter } from 'vue-router';
 import { useToast } from '@repo/ui/components/ui/toast/use-toast';
 
+// Auth input types
+interface RegisterUserInput {
+	email: string;
+	password: string;
+	displayName: string;
+}
+
+interface RequestPasswordResetInput {
+	email: string;
+}
+
+interface ResetPasswordInput {
+	token: string;
+	newPassword: string;
+}
+
 export const useAuthStore = defineStore('auth', () => {
 	const user = ref<User | null>(null);
+	const userProfile = ref<UserProfile | null>(null);
 	const loading = ref(false);
 	const isAuthenticated = ref(false);
 	const router = useRouter();
@@ -17,6 +34,7 @@ export const useAuthStore = defineStore('auth', () => {
 			loading.value = true;
 			const response = await api.post('/auth/login', { email, password });
 			user.value = response.data;
+			userProfile.value = response.data.profile;
 			isAuthenticated.value = true;
 			toast({
 				title: 'Success',
@@ -25,6 +43,7 @@ export const useAuthStore = defineStore('auth', () => {
 		} catch (error: any) {
 			isAuthenticated.value = false;
 			user.value = null;
+			userProfile.value = null;
 			toast({
 				title: 'Login Failed',
 				description:
@@ -65,10 +84,12 @@ export const useAuthStore = defineStore('auth', () => {
 			const response = await api.get('/auth/status');
 			if (response.data) {
 				user.value = response.data;
+				userProfile.value = response.data.profile;
 				isAuthenticated.value = true;
 			}
 		} catch (error) {
 			user.value = null;
+			userProfile.value = null;
 			isAuthenticated.value = false;
 		}
 	}
@@ -79,6 +100,7 @@ export const useAuthStore = defineStore('auth', () => {
 			await api.post('/auth/logout');
 			isAuthenticated.value = false;
 			user.value = null;
+			userProfile.value = null;
 			toast({
 				title: 'Success',
 				description: 'Logged out successfully',
@@ -141,6 +163,7 @@ export const useAuthStore = defineStore('auth', () => {
 
 	return {
 		user,
+		userProfile,
 		loading,
 		isAuthenticated,
 		checkAuthStatus,

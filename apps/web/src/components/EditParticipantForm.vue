@@ -180,7 +180,7 @@ const calculateAge = (birthDate: string | Date) => {
           v-if="getColumnType(key) === 'boolean'"
           :id="key"
           :model-value="localParticipant[key]"
-          @update:model-value="(value: string) => localParticipant[key] = value"
+          @update:model-value="(value: boolean) => localParticipant[key] = value"
         />
         <Select
           v-if="getColumnType(key) === 'select' && key === 'palancasCoordinator'"
