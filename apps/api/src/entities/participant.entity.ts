@@ -12,7 +12,7 @@ import {
 import { Retreat } from './retreat.entity';
 import { TableMesa } from './tableMesa.entity';
 import { RetreatBed } from './retreatBed.entity';
-import { Charge } from './charge.entity';
+import { Responsability } from './responsability.entity';
 import { Payment } from './payment.entity';
 import { DateTransformer } from '../utils/date.transformer';
 
@@ -242,8 +242,8 @@ export class Participant {
 	@JoinColumn({ name: 'retreatBedId' })
 	retreatBed?: RetreatBed | null;
 
-	@OneToMany(() => Charge, (charge) => charge.participant)
-	charges!: Charge[];
+	@OneToMany(() => Responsability, (responsability) => responsability.participant)
+	responsibilities!: Responsability[];
 
 	@OneToMany(() => Payment, (payment) => payment.participant)
 	payments!: Payment[];

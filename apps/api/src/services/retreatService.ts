@@ -3,7 +3,7 @@ import { Retreat } from '../entities/retreat.entity';
 import { House } from '../entities/house.entity';
 import { RetreatBed } from '../entities/retreatBed.entity';
 import { GlobalMessageTemplateService } from './globalMessageTemplateService';
-import { createDefaultChargesForRetreat } from './chargeService';
+import { createDefaultResponsibilitiesForRetreat } from './responsabilityService';
 import { createDefaultTablesForRetreat } from './tableMesaService';
 import { createDefaultInventoryForRetreat } from './inventoryService';
 import { createDefaultInventoryData } from '../data/inventorySeeder';
@@ -46,8 +46,8 @@ export const createRetreat = async (retreatData: CreateRetreat) => {
 	});
 	await retreatRepository.save(newRetreat);
 
-	// 2. Create default charges
-	await createDefaultChargesForRetreat(newRetreat);
+	// 2. Create default responsibilities
+	await createDefaultResponsibilitiesForRetreat(newRetreat);
 
 	// 3. Create default tables
 	await createDefaultTablesForRetreat(newRetreat);

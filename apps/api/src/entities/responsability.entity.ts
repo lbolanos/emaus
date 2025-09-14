@@ -12,7 +12,7 @@ import {
 import { Retreat } from './retreat.entity';
 import { Participant } from './participant.entity';
 
-export enum ChargeType {
+export enum ResponsabilityType {
 	LIDER = 'lider',
 	COLIDER = 'colider',
 	SERVIDOR = 'servidor',
@@ -23,8 +23,8 @@ export enum ChargeType {
 	OTRO = 'otro',
 }
 
-@Entity('retreat_charges')
-export class Charge {
+@Entity('retreat_responsibilities')
+export class Responsability {
 	@PrimaryGeneratedColumn('uuid')
 	id!: string;
 
@@ -36,9 +36,9 @@ export class Charge {
 
 	@Column({
 		type: 'varchar',
-		default: ChargeType.OTRO,
+		default: ResponsabilityType.OTRO,
 	})
-	chargeType!: string;
+	responsabilityType!: string;
 
 	@Column('boolean', { default: false })
 	isLeadership!: boolean;
@@ -52,11 +52,13 @@ export class Charge {
 	@Column('uuid')
 	retreatId!: string;
 
-	@ManyToOne(() => Retreat, (retreat) => retreat.charges, { onDelete: 'CASCADE' })
+	@ManyToOne(() => Retreat, (retreat) => retreat.responsibilities, { onDelete: 'CASCADE' })
 	@JoinColumn({ name: 'retreatId' })
 	retreat!: Retreat;
 
-	@ManyToOne(() => Participant, (participant) => participant.charges, { onDelete: 'SET NULL' })
+	@ManyToOne(() => Participant, (participant) => participant.responsibilities, {
+		onDelete: 'SET NULL',
+	})
 	@JoinColumn({ name: 'participantId' })
 	participant?: Participant;
 

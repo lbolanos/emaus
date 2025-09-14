@@ -176,9 +176,9 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			)
 		`);
 
-		// Create retreat_charges table (without foreign key that references participants table)
+		// Create retreat_responsibilities table (without foreign key that references participants table)
 		await queryRunner.query(`
-			CREATE TABLE IF NOT EXISTS "retreat_charges" (
+			CREATE TABLE IF NOT EXISTS "retreat_responsibilities" (
 				"id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 				"name" VARCHAR(255) NOT NULL,
 				"description" TEXT,
@@ -354,10 +354,10 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			`CREATE INDEX IF NOT EXISTS "idx_retreat_bed_participant_id" ON "retreat_bed" ("participantId")`,
 		);
 		await queryRunner.query(
-			`CREATE INDEX IF NOT EXISTS "idx_retreat_charges_retreat_id" ON "retreat_charges" ("retreatId")`,
+			`CREATE INDEX IF NOT EXISTS "idx_retreat_responsibilities_retreat_id" ON "retreat_responsibilities" ("retreatId")`,
 		);
 		await queryRunner.query(
-			`CREATE INDEX IF NOT EXISTS "idx_retreat_charges_participant_id" ON "retreat_charges" ("participantId")`,
+			`CREATE INDEX IF NOT EXISTS "idx_retreat_responsibilities_participant_id" ON "retreat_responsibilities" ("participantId")`,
 		);
 		await queryRunner.query(
 			`CREATE INDEX IF NOT EXISTS "idx_message_templates_retreat_id" ON "message_templates" ("retreatId")`,
@@ -390,7 +390,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			`CREATE INDEX IF NOT EXISTS "idx_tables_colider2_id" ON "tables" ("colider2Id")`,
 		);
 		await queryRunner.query(
-			`CREATE INDEX IF NOT EXISTS "idx_retreat_charges_participant_id" ON "retreat_charges" ("participantId")`,
+			`CREATE INDEX IF NOT EXISTS "idx_retreat_responsibilities_participant_id" ON "retreat_responsibilities" ("participantId")`,
 		);
 
 		// Insert default permissions
@@ -634,8 +634,8 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_inventory_item_team_id"`);
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_inventory_item_category_id"`);
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_message_templates_retreat_id"`);
-		await queryRunner.query(`DROP INDEX IF EXISTS "idx_retreat_charges_participant_id"`);
-		await queryRunner.query(`DROP INDEX IF EXISTS "idx_retreat_charges_retreat_id"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_retreat_responsibilities_participant_id"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_retreat_responsibilities_retreat_id"`);
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_retreat_bed_participant_id"`);
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_retreat_bed_retreat_id"`);
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_tables_retreat_id"`);
@@ -656,7 +656,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 		await queryRunner.query(`DROP TABLE IF EXISTS "inventory_team"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "inventory_category"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "message_templates"`);
-		await queryRunner.query(`DROP TABLE IF EXISTS "retreat_charges"`);
+		await queryRunner.query(`DROP TABLE IF EXISTS "retreat_responsibilities"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "retreat_bed"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "tables"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "participants"`);

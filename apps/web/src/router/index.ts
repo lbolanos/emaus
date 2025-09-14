@@ -158,9 +158,9 @@ const router = createRouter({
 					props: true,
 				},
 				{
-					path: 'retreats/:id/charges',
-					name: 'charges',
-					component: () => import('../views/ChargesView.vue'),
+					path: 'retreats/:id/responsibilities',
+					name: 'responsibilities',
+					component: () => import('../views/ResponsabilitiesView.vue'),
 					props: true,
 				},
 				{

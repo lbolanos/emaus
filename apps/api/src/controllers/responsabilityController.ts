@@ -1,0 +1,97 @@
+import { Request, Response, NextFunction } from 'express';
+import {
+	findAllResponsibilities,
+	findResponsabilityById,
+	createResponsability as createResponsabilityService,
+	updateResponsability as updateResponsabilityService,
+	deleteResponsability as deleteResponsabilityService,
+	assignResponsabilityToParticipant as assignResponsabilityToParticipantService,
+	removeResponsabilityFromParticipant as removeResponsabilityFromParticipantService,
+} from '../services/responsabilityService';
+
+export const getAllResponsibilities = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { retreatId } = req.query;
+		const responsibilities = await findAllResponsibilities(retreatId as string | undefined);
+		res.json(responsibilities);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const getResponsabilityById = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const responsability = await findResponsabilityById(req.params.id);
+		if (responsability) {
+			res.json(responsability);
+		} else {
+			res.status(404).json({ message: 'Retreat responsability not found' });
+		}
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const createResponsability = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const newResponsability = await createResponsabilityService(req.body);
+		res.status(201).json(newResponsability);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const updateResponsability = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const updatedResponsability = await updateResponsabilityService(req.params.id, req.body);
+		if (updatedResponsability) {
+			res.json(updatedResponsability);
+		} else {
+			res.status(404).json({ message: 'Retreat responsability not found' });
+		}
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const deleteResponsability = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		await deleteResponsabilityService(req.params.id);
+		res.status(204).send();
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const assignResponsability = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id } = req.params;
+		const { participantId } = req.body;
+		if (!participantId) {
+			return res.status(400).json({ message: 'Participant ID is required' });
+		}
+		const responsability = await assignResponsabilityToParticipantService(id, participantId);
+		if (!responsability) {
+			return res.status(404).json({ message: 'Responsability or participant not found' });
+		}
+		res.status(200).json(responsability);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const removeResponsability = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id, participantId } = req.params;
+		const responsability = await removeResponsabilityFromParticipantService(id, participantId);
+		if (!responsability) {
+			return res.status(404).json({
+				message:
+					'Responsability or participant not found, or participant not assigned to this responsability',
+			});
+		}
+		res.status(200).json(responsability);
+	} catch (error) {
+		next(error);
+	}
+};

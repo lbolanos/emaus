@@ -145,8 +145,8 @@
         </TooltipProvider>
       </router-link>
       <router-link
-        v-if="retreatStore.selectedRetreatId && can.read('charge')"
-        :to="{ name: 'charges', params: { id: retreatStore.selectedRetreatId } }"
+        v-if="retreatStore.selectedRetreatId && can.read('responsability')"
+        :to="{ name: 'responsibilities', params: { id: retreatStore.selectedRetreatId } }"
         v-slot="{ href, navigate, isActive }"
         custom
       >

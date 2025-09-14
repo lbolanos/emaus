@@ -3,7 +3,7 @@ import { House } from './house.entity';
 import { Participant } from './participant.entity';
 import { TableMesa } from './tableMesa.entity';
 import { RetreatBed } from './retreatBed.entity';
-import { Charge } from './charge.entity';
+import { Responsability } from './responsability.entity';
 import { RetreatInventory } from './retreatInventory.entity';
 import { UserRetreat } from './userRetreat.entity';
 import { User } from './user.entity';
@@ -63,8 +63,8 @@ export class Retreat {
 	@Column({ type: 'int', nullable: true })
 	max_servers?: number;
 
-	@OneToMany(() => Charge, (charge) => charge.retreat)
-	charges!: Charge[];
+	@OneToMany(() => Responsability, (responsability) => responsability.retreat)
+	responsibilities!: Responsability[];
 
 	@OneToMany(() => RetreatInventory, (inventory) => inventory.retreat)
 	inventories!: RetreatInventory[];

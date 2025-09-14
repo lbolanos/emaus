@@ -6,7 +6,7 @@ import { RetreatBed } from '../entities/retreatBed.entity';
 import { TableMesa } from '../entities/tableMesa.entity';
 import { Participant } from '../entities/participant.entity';
 import { User } from '../entities/user.entity';
-import { Charge } from '../entities/charge.entity';
+import { Responsability } from '../entities/responsability.entity';
 import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { InventoryCategory } from '../entities/inventoryCategory.entity';
 import { InventoryTeam } from '../entities/inventoryTeam.entity';
@@ -31,7 +31,7 @@ export function createDatabaseConfig() {
 		TableMesa,
 		Participant,
 		User,
-		Charge,
+		Responsability,
 		MessageTemplate,
 		InventoryCategory,
 		InventoryTeam,

@@ -86,7 +86,7 @@ Cuando se selecciona una casa en la creación del retiro se debe colocar el nume
 agregar piso a los cuartos.  
 En listado de cuartos agregar los campos piso, edad, type y la forma de asignar participante a la cama
 ordenar la lista de asignacion de camas por edad.
-crea un plan para crear una nueva entidad con su vista para los cargos del retiro. Se deben poder asignar a un servidor. Los cargos por defecto se deben crear junto con la creacion de un retiro y son
+crea un plan para crear una nueva entidad con su vista para los responsabilidades del retiro. Se deben poder asignar a un servidor. Los responsabilidades por defecto se deben crear junto con la creacion de un retiro y son
 Palancas 1, Palancas 2, Palancas 3,
 logistica, Inventario, Tesorero
 Sacerdotes

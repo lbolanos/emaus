@@ -69,8 +69,8 @@ export const tableSchema = z.object({
 });
 export type Table = z.infer<typeof tableSchema>;
 
-// Charge Schema
-export enum ChargeType {
+// Responsability Schema
+export enum ResponsabilityType {
 	LIDER = 'lider',
 	COLIDER = 'colider',
 	SERVIDOR = 'servidor',
@@ -81,11 +81,11 @@ export enum ChargeType {
 	OTRO = 'otro',
 }
 
-export const chargeSchema = z.object({
+export const responsabilitySchema = z.object({
 	id: idSchema,
 	name: z.string(),
 	description: z.string().optional(),
-	chargeType: z.nativeEnum(ChargeType).default(ChargeType.OTRO),
+	responsabilityType: z.nativeEnum(ResponsabilityType).default(ResponsabilityType.OTRO),
 	isLeadership: z.boolean().default(false),
 	priority: z.number().int().min(0).default(0),
 	isActive: z.boolean().default(true),
@@ -95,7 +95,7 @@ export const chargeSchema = z.object({
 	createdAt: z.date(),
 	updatedAt: z.date(),
 });
-export type Charge = z.infer<typeof chargeSchema>;
+export type Responsability = z.infer<typeof responsabilitySchema>;
 
 // RetreatBed Schema
 export const retreatBedSchema = z.object({
@@ -278,20 +278,20 @@ export const updateHouseSchema = z.object({
 });
 export type UpdateHouse = z.infer<typeof updateHouseSchema.shape.body>;
 
-// POST /charges
-export const createChargeSchema = z.object({
-	body: chargeSchema.omit({ id: true, participant: true, participantId: true }),
+// POST /responsibilities
+export const createResponsabilitySchema = z.object({
+	body: responsabilitySchema.omit({ id: true, participant: true, participantId: true }),
 });
-export type CreateCharge = z.infer<typeof createChargeSchema.shape.body>;
+export type CreateResponsability = z.infer<typeof createResponsabilitySchema.shape.body>;
 
-// PUT /charges/:id
-export const updateChargeSchema = z.object({
-	body: chargeSchema
+// PUT /responsibilities/:id
+export const updateResponsabilitySchema = z.object({
+	body: responsabilitySchema
 		.omit({ id: true, retreatId: true, participant: true, participantId: true })
 		.partial(),
 	params: z.object({ id: idSchema }),
 });
-export type UpdateCharge = z.infer<typeof updateChargeSchema.shape.body>;
+export type UpdateResponsability = z.infer<typeof updateResponsabilitySchema.shape.body>;
 
 // User types (avoid conflicts with permissions exports)
 export type {

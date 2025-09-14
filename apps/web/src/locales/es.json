@@ -33,7 +33,6 @@
     "retreatDashboard": "Dashboard del Retiro",
     "houses": "Casas",
     "bedAssignments": "Asignación de Camas",
-    "charges": "Cargos",
     "responsibilities": "Responsabilidades",
     "settings": {
       "title": "Configuración",
@@ -514,23 +513,23 @@
     "xlsx": "Exportar a XLSX",
     "csv": "Exportar a CSV"
   },
-  "charges": {
-    "title": "Cargos del Retiro",
-    "createCharge": "Crear Cargo",
+  "responsibilities": {
+    "title": "Responsabilidades del Retiro",
+    "createResponsability": "Crear Responsabilidad",
     "assignedParticipant": "Participante Asignado",
     "selectParticipantPlaceholder": "Elegir un participante...",
     "assign": "Asignar",
     "edit": "Editar",
     "delete": "Eliminar",
     "addEditModal": {
-      "createTitle": "Crear Nuevo Cargo",
-      "editTitle": "Editar Cargo",
-      "chargeNameLabel": "Nombre del Cargo",
-      "chargeNamePlaceholder": "Ingrese el nombre del cargo",
+      "createTitle": "Crear Nuevo Responsabilidad",
+      "editTitle": "Editar Responsabilidad",
+      "responsabilityNameLabel": "Nombre del Responsabilidad",
+      "responsabilityNamePlaceholder": "Ingrese el nombre del responsabilidad",
       "save": "Guardar"
     },
-    "deleteConfirmationTitle": "Eliminar Cargo",
-    "deleteConfirmation": "¿Estás seguro de que quieres eliminar este cargo? Esta acción no se puede deshacer."
+    "deleteConfirmationTitle": "Eliminar Responsabilidad",
+    "deleteConfirmation": "¿Estás seguro de que quieres eliminar este responsabilidad? Esta acción no se puede deshacer."
   },  
   "common": {
     "yes": "Sí",

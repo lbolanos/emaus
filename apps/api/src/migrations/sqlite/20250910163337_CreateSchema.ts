@@ -179,13 +179,13 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			)
 		`);
 
-		// Create retreat_charges table (participant roles and responsibilities)
+		// Create retreat_responsibilities table (participant roles and responsibilities)
 		await queryRunner.query(`
-			CREATE TABLE IF NOT EXISTS "retreat_charges" (
+			CREATE TABLE IF NOT EXISTS "retreat_responsibilities" (
 				"id" VARCHAR(36) PRIMARY KEY NOT NULL,
 				"name" VARCHAR(255) NOT NULL,
 				"description" TEXT,
-				"chargeType" VARCHAR(50) NOT NULL DEFAULT 'otro' CHECK ("chargeType" IN ('lider', 'colider', 'servidor', 'musica', 'oracion', 'limpieza', 'cocina', 'otro')),
+				"responsabilityType" VARCHAR(50) NOT NULL DEFAULT 'otro' CHECK ("responsabilityType" IN ('lider', 'colider', 'servidor', 'musica', 'oracion', 'limpieza', 'cocina', 'otro')),
 				"isLeadership" BOOLEAN NOT NULL DEFAULT 0,
 				"priority" INTEGER NOT NULL DEFAULT 0,
 				"isActive" BOOLEAN NOT NULL DEFAULT 1,
@@ -498,19 +498,19 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			`CREATE INDEX IF NOT EXISTS "idx_retreat_bed_participantId" ON "retreat_bed" ("participantId")`,
 		);
 		await queryRunner.query(
-			`CREATE INDEX IF NOT EXISTS "idx_retreat_charges_retreatId" ON "retreat_charges" ("retreatId")`,
+			`CREATE INDEX IF NOT EXISTS "idx_retreat_responsibilities_retreatId" ON "retreat_responsibilities" ("retreatId")`,
 		);
 		await queryRunner.query(
-			`CREATE INDEX IF NOT EXISTS "idx_retreat_charges_participantId" ON "retreat_charges" ("participantId")`,
+			`CREATE INDEX IF NOT EXISTS "idx_retreat_responsibilities_participantId" ON "retreat_responsibilities" ("participantId")`,
 		);
 		await queryRunner.query(
-			`CREATE INDEX IF NOT EXISTS "idx_retreat_charges_chargeType" ON "retreat_charges" ("chargeType")`,
+			`CREATE INDEX IF NOT EXISTS "idx_retreat_responsibilities_responsabilityType" ON "retreat_responsibilities" ("responsabilityType")`,
 		);
 		await queryRunner.query(
-			`CREATE INDEX IF NOT EXISTS "idx_retreat_charges_isActive" ON "retreat_charges" ("isActive")`,
+			`CREATE INDEX IF NOT EXISTS "idx_retreat_responsibilities_isActive" ON "retreat_responsibilities" ("isActive")`,
 		);
 		await queryRunner.query(
-			`CREATE INDEX IF NOT EXISTS "idx_retreat_charges_priority" ON "retreat_charges" ("priority")`,
+			`CREATE INDEX IF NOT EXISTS "idx_retreat_responsibilities_priority" ON "retreat_responsibilities" ("priority")`,
 		);
 		await queryRunner.query(
 			`CREATE INDEX IF NOT EXISTS "idx_message_templates_retreatId" ON "message_templates" ("retreatId")`,
@@ -543,7 +543,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			`CREATE INDEX IF NOT EXISTS "idx_tables_colider2Id" ON "tables" ("colider2Id")`,
 		);
 		await queryRunner.query(
-			`CREATE INDEX IF NOT EXISTS "idx_retreat_charges_participantId" ON "retreat_charges" ("participantId")`,
+			`CREATE INDEX IF NOT EXISTS "idx_retreat_responsibilities_participantId" ON "retreat_responsibilities" ("participantId")`,
 		);
 
 		// Add indexes for RBAC tables
@@ -1058,8 +1058,8 @@ Un abrazo fuerte y ¡feliz cumpleaños!', 1, datetime('now'), datetime('now'));
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_inventory_item_teamId"`);
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_inventory_item_categoryId"`);
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_message_templates_retreatId"`);
-		await queryRunner.query(`DROP INDEX IF EXISTS "idx_retreat_charges_participantId"`);
-		await queryRunner.query(`DROP INDEX IF EXISTS "idx_retreat_charges_retreatId"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_retreat_responsibilities_participantId"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_retreat_responsibilities_retreatId"`);
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_retreat_bed_participantId"`);
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_retreat_bed_retreatId"`);
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_tables_retreatId"`);
@@ -1118,7 +1118,7 @@ Un abrazo fuerte y ¡feliz cumpleaños!', 1, datetime('now'), datetime('now'));
 		await queryRunner.query(`DROP TABLE IF EXISTS "inventory_team"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "inventory_category"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "message_templates"`);
-		await queryRunner.query(`DROP TABLE IF EXISTS "retreat_charges"`);
+		await queryRunner.query(`DROP TABLE IF EXISTS "retreat_responsibilities"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "retreat_bed"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "tables"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "participants"`);
