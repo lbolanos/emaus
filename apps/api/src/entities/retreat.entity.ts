@@ -7,6 +7,7 @@ import { Charge } from './charge.entity';
 import { RetreatInventory } from './retreatInventory.entity';
 import { UserRetreat } from './userRetreat.entity';
 import { User } from './user.entity';
+import { Payment } from './payment.entity';
 
 @Entity()
 export class Retreat {
@@ -83,4 +84,7 @@ export class Retreat {
 
 	@Column({ type: 'boolean', default: true })
 	roleInvitationEnabled!: boolean;
+
+	@OneToMany(() => Payment, (payment) => payment.retreat)
+	payments!: Payment[];
 }

@@ -18,6 +18,7 @@ import { RolePermission } from '../entities/rolePermission.entity';
 import { UserRetreat } from '../entities/userRetreat.entity';
 import { Permission } from '../entities/permission.entity';
 import { Migration } from '../entities/migration.entity';
+import { Payment } from '../entities/payment.entity';
 
 export function createDatabaseConfig() {
 	const dbType = process.env.DB_TYPE || 'sqlite';
@@ -42,6 +43,11 @@ export function createDatabaseConfig() {
 		UserRetreat,
 		Permission,
 		Migration,
+		Payment,
+		// Temporarily excluding entities with enum issues
+		// AuditLog,
+		// PermissionOverride,
+		// RoleRequest,
 	];
 
 	if (dbType === 'postgresql') {

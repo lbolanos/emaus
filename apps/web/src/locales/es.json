@@ -34,6 +34,7 @@
     "houses": "Casas",
     "bedAssignments": "Asignación de Camas",
     "charges": "Cargos",
+    "responsibilities": "Responsabilidades",
     "settings": {
       "title": "Configuración",
       "messageTemplates": "Plantillas de Mensajes"

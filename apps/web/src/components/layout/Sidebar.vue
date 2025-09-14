@@ -145,7 +145,7 @@
         </TooltipProvider>
       </router-link>
       <router-link
-        v-if="retreatStore.selectedRetreatId && can.read('payment')"
+        v-if="retreatStore.selectedRetreatId && can.read('charge')"
         :to="{ name: 'charges', params: { id: retreatStore.selectedRetreatId } }"
         v-slot="{ href, navigate, isActive }"
         custom
@@ -162,12 +162,12 @@
                   { 'justify-center': isSidebarCollapsed }
                 ]"
               >
-                <UserCog class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
-                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.charges') }}</span>
+                <Briefcase class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">{{ $t('sidebar.responsibilities') }}</span>
               </a>
             </TooltipTrigger>
             <TooltipContent v-if="isSidebarCollapsed" side="right">
-              <p>{{ $t('sidebar.charges') }}</p>
+              <p>{{ $t('sidebar.responsibilities') }}</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -691,7 +691,7 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, UserCog, Table, Settings, Package, Globe } from 'lucide-vue-next';
+import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, UserCog, Table, Settings, Package, Globe, Briefcase } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter } from 'vue-router';
 import { Button } from '@repo/ui';

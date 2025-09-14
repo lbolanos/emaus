@@ -179,15 +179,22 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			)
 		`);
 
-		// Create retreat_charges table (without foreign key that references participants table)
+		// Create retreat_charges table (participant roles and responsibilities)
 		await queryRunner.query(`
 			CREATE TABLE IF NOT EXISTS "retreat_charges" (
 				"id" VARCHAR(36) PRIMARY KEY NOT NULL,
 				"name" VARCHAR(255) NOT NULL,
 				"description" TEXT,
+				"chargeType" VARCHAR(50) NOT NULL DEFAULT 'otro' CHECK ("chargeType" IN ('lider', 'colider', 'servidor', 'musica', 'oracion', 'limpieza', 'cocina', 'otro')),
+				"isLeadership" BOOLEAN NOT NULL DEFAULT 0,
+				"priority" INTEGER NOT NULL DEFAULT 0,
+				"isActive" BOOLEAN NOT NULL DEFAULT 1,
 				"retreatId" VARCHAR(36) NOT NULL,
 				"participantId" VARCHAR(36),
-				FOREIGN KEY ("retreatId") REFERENCES "retreat" ("id") ON DELETE CASCADE
+				"createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				"updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				FOREIGN KEY ("retreatId") REFERENCES "retreat" ("id") ON DELETE CASCADE,
+				FOREIGN KEY ("participantId") REFERENCES "participants" ("id") ON DELETE SET NULL
 			)
 		`);
 
@@ -447,6 +454,26 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			)
 		`);
 
+		// Create payments table
+		await queryRunner.query(`
+			CREATE TABLE IF NOT EXISTS "payments" (
+				"id" VARCHAR(36) PRIMARY KEY NOT NULL,
+				"participantId" VARCHAR(36) NOT NULL,
+				"retreatId" VARCHAR(36) NOT NULL,
+				"amount" DECIMAL(10,2) NOT NULL,
+				"paymentDate" DATE NOT NULL,
+				"paymentMethod" VARCHAR(50) NOT NULL CHECK ("paymentMethod" IN ('cash', 'transfer', 'check', 'card', 'other')),
+				"referenceNumber" VARCHAR(100),
+				"notes" TEXT,
+				"recordedBy" VARCHAR(36) NOT NULL,
+				"createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				"updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				FOREIGN KEY ("participantId") REFERENCES "participants" ("id") ON DELETE CASCADE,
+				FOREIGN KEY ("retreatId") REFERENCES "retreat" ("id") ON DELETE CASCADE,
+				FOREIGN KEY ("recordedBy") REFERENCES "users" ("id") ON DELETE SET NULL
+			)
+		`);
+
 		// Create indexes for better performance
 		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_users_email" ON "users" ("email")`);
 		await queryRunner.query(
@@ -475,6 +502,15 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 		);
 		await queryRunner.query(
 			`CREATE INDEX IF NOT EXISTS "idx_retreat_charges_participantId" ON "retreat_charges" ("participantId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_retreat_charges_chargeType" ON "retreat_charges" ("chargeType")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_retreat_charges_isActive" ON "retreat_charges" ("isActive")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_retreat_charges_priority" ON "retreat_charges" ("priority")`,
 		);
 		await queryRunner.query(
 			`CREATE INDEX IF NOT EXISTS "idx_message_templates_retreatId" ON "message_templates" ("retreatId")`,
@@ -585,6 +621,20 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 		);
 		await queryRunner.query(
 			`CREATE INDEX IF NOT EXISTS "idx_permission_override_logs_created_at" ON "permission_override_logs"("created_at")`,
+		);
+
+		// Add indexes for payments table
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_payments_participantId" ON "payments"("participantId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_payments_retreatId" ON "payments"("retreatId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_payments_paymentDate" ON "payments"("paymentDate")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_payments_recordedBy" ON "payments"("recordedBy")`,
 		);
 
 		// Insert default permissions
@@ -1046,7 +1096,14 @@ Un abrazo fuerte y ¡feliz cumpleaños!', 1, datetime('now'), datetime('now'));
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_retreat_isPublic"`);
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_retreat_createdBy"`);
 
+		// Drop indexes for payments table first
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_payments_recordedBy"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_payments_paymentDate"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_payments_retreatId"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_payments_participantId"`);
+
 		// Drop tables in reverse order to respect foreign key constraints
+		await queryRunner.query(`DROP TABLE IF EXISTS "payments"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "permission_override_logs"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "permission_delegations"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "role_requests"`);

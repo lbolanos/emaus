@@ -333,3 +333,57 @@ export const getAuditStats = async (
 	const response = await api.get(`/audit/retreat/${retreatId}/stats?${params.toString()}`);
 	return response.data;
 };
+
+// Payment API functions
+export const createPayment = async (paymentData: any) => {
+	const response = await api.post('/payments', paymentData);
+	return response.data;
+};
+
+export const getPayments = async (filters?: {
+	retreatId?: string;
+	participantId?: string;
+	startDate?: string;
+	endDate?: string;
+	paymentMethod?: string;
+}) => {
+	const params = new URLSearchParams();
+	if (filters?.retreatId) params.append('retreatId', filters.retreatId);
+	if (filters?.participantId) params.append('participantId', filters.participantId);
+	if (filters?.startDate) params.append('startDate', filters.startDate);
+	if (filters?.endDate) params.append('endDate', filters.endDate);
+	if (filters?.paymentMethod) params.append('paymentMethod', filters.paymentMethod);
+
+	const response = await api.get(`/payments?${params.toString()}`);
+	return response.data;
+};
+
+export const getPaymentById = async (paymentId: string) => {
+	const response = await api.get(`/payments/${paymentId}`);
+	return response.data;
+};
+
+export const updatePayment = async (paymentId: string, paymentData: any) => {
+	const response = await api.put(`/payments/${paymentId}`, paymentData);
+	return response.data;
+};
+
+export const deletePayment = async (paymentId: string) => {
+	const response = await api.delete(`/payments/${paymentId}`);
+	return response.data;
+};
+
+export const getPaymentsByParticipant = async (participantId: string) => {
+	const response = await api.get(`/payments/participant/${participantId}`);
+	return response.data;
+};
+
+export const getPaymentsByRetreat = async (retreatId: string) => {
+	const response = await api.get(`/payments/retreat/${retreatId}`);
+	return response.data;
+};
+
+export const getPaymentSummaryByRetreat = async (retreatId: string) => {
+	const response = await api.get(`/payments/retreat/${retreatId}/summary`);
+	return response.data;
+};

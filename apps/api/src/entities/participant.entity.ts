@@ -13,6 +13,7 @@ import { Retreat } from './retreat.entity';
 import { TableMesa } from './tableMesa.entity';
 import { RetreatBed } from './retreatBed.entity';
 import { Charge } from './charge.entity';
+import { Payment } from './payment.entity';
 import { DateTransformer } from '../utils/date.transformer';
 
 @Entity('participants')
@@ -243,4 +244,7 @@ export class Participant {
 
 	@OneToMany(() => Charge, (charge) => charge.participant)
 	charges!: Charge[];
+
+	@OneToMany(() => Payment, (payment) => payment.participant)
+	payments!: Payment[];
 }

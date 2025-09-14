@@ -70,13 +70,30 @@ export const tableSchema = z.object({
 export type Table = z.infer<typeof tableSchema>;
 
 // Charge Schema
+export enum ChargeType {
+	LIDER = 'lider',
+	COLIDER = 'colider',
+	SERVIDOR = 'servidor',
+	MUSICA = 'musica',
+	ORACION = 'oracion',
+	LIMPIEZA = 'limpieza',
+	COCINA = 'cocina',
+	OTRO = 'otro',
+}
+
 export const chargeSchema = z.object({
 	id: idSchema,
 	name: z.string(),
 	description: z.string().optional(),
+	chargeType: z.nativeEnum(ChargeType).default(ChargeType.OTRO),
+	isLeadership: z.boolean().default(false),
+	priority: z.number().int().min(0).default(0),
+	isActive: z.boolean().default(true),
 	retreatId: idSchema,
 	participant: z.lazy(() => participantSchema).optional(),
 	participantId: idSchema.optional(),
+	createdAt: z.date(),
+	updatedAt: z.date(),
 });
 export type Charge = z.infer<typeof chargeSchema>;
 
@@ -291,6 +308,56 @@ export type {
 
 export * from './message-template';
 export * from './permissions';
+
+// Payment Schema
+export const paymentSchema = z.object({
+	id: idSchema,
+	participantId: idSchema,
+	retreatId: idSchema,
+	amount: z.number().positive(),
+	paymentDate: z.coerce.date(),
+	paymentMethod: z.enum(['cash', 'transfer', 'check', 'card', 'other']),
+	referenceNumber: z.string().optional(),
+	notes: z.string().optional(),
+	recordedBy: idSchema,
+	createdAt: z.coerce.date(),
+	updatedAt: z.coerce.date(),
+	participant: z.lazy(() => participantSchema).optional(),
+	retreat: z.lazy(() => retreatSchema).optional(),
+	recordedByUser: z.any().optional(), // Use any to avoid circular reference
+});
+export type Payment = z.infer<typeof paymentSchema>;
+
+// Payment Request Schemas
+export const createPaymentSchema = z.object({
+	body: paymentSchema.omit({
+		id: true,
+		createdAt: true,
+		updatedAt: true,
+		participant: true,
+		retreat: true,
+		recordedByUser: true,
+	}),
+});
+export type CreatePayment = z.infer<typeof createPaymentSchema.shape.body>;
+
+export const updatePaymentSchema = z.object({
+	body: paymentSchema
+		.omit({
+			id: true,
+			participantId: true,
+			retreatId: true,
+			recordedBy: true,
+			createdAt: true,
+			updatedAt: true,
+			participant: true,
+			retreat: true,
+			recordedByUser: true,
+		})
+		.partial(),
+	params: z.object({ id: idSchema }),
+});
+export type UpdatePayment = z.infer<typeof updatePaymentSchema.shape.body>;
 
 // Role management types
 export type {

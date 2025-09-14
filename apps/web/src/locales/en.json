@@ -37,6 +37,7 @@
     "houses": "Houses",
     "bedAssignments": "Bed Assignments",
     "charges": "Charges",
+    "responsibilities": "Responsibilities",
     "settings": {
       "title": "Settings",
       "messageTemplates": "Message Templates"

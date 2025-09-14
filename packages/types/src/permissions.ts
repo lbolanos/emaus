@@ -9,6 +9,7 @@ export const RESOURCES = {
 	user: [...DEFAULT_OPERATIONS] as const,
 	table: [...DEFAULT_OPERATIONS] as const,
 	payment: [...DEFAULT_OPERATIONS] as const,
+	charge: [...DEFAULT_OPERATIONS] as const,
 } as const;
 
 export type Resource = keyof typeof RESOURCES;

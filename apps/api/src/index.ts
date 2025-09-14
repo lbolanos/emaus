@@ -4,6 +4,7 @@ import 'express-async-errors';
 import cors from 'cors';
 import session from 'express-session';
 import { AppDataSource } from './data-source';
+export { AppDataSource } from './data-source';
 import mainRouter from './routes';
 import { passport } from './services/authService';
 import tableMesaRoutes from './routes/tableMesaRoutes';

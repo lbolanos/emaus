@@ -6,6 +6,7 @@ import houseRoutes from './houseRoutes';
 import retreatBedRoutes from './retreatBedRoutes';
 import retreatRoutes from './retreatRoutes';
 import chargeRoutes from './chargeRoutes';
+import retreatChargeRoutes from './retreatChargeRoutes';
 import tableMesaRoutes from './tableMesaRoutes';
 import messageTemplateRoutes from './messageTemplateRoutes';
 import globalMessageTemplateRoutes from './globalMessageTemplateRoutes';
@@ -17,6 +18,7 @@ import auditRoutes from './auditRoutes';
 import permissionInheritanceRoutes from './permissionInheritanceRoutes';
 import userManagementRoutes from './userManagementRoutes';
 import invitationRoutes from './invitationRoutes';
+import paymentRoutes from './paymentRoutes';
 
 const router = Router();
 
@@ -30,6 +32,7 @@ router.use('/permission-overrides', permissionOverrideRoutes);
 router.use('/permission-inheritance', permissionInheritanceRoutes);
 router.use('/audit', auditRoutes);
 router.use('/charges', chargeRoutes);
+router.use('/retreat-charges', retreatChargeRoutes);
 router.use(retreatBedRoutes);
 router.use('/tables', tableMesaRoutes);
 router.use('/message-templates', messageTemplateRoutes);
@@ -37,5 +40,6 @@ router.use('/global-message-templates', globalMessageTemplateRoutes);
 router.use('/inventory', inventoryRoutes);
 router.use('/user-management', userManagementRoutes);
 router.use('/invitations', invitationRoutes);
+router.use('/payments', paymentRoutes);
 
 export default router;

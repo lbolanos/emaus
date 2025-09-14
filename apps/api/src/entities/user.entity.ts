@@ -12,6 +12,7 @@ import * as bcrypt from 'bcrypt';
 import { UserRole } from './userRole.entity';
 import { UserRetreat } from './userRetreat.entity';
 import { Retreat } from './retreat.entity';
+import { Payment } from './payment.entity';
 
 @Entity('users')
 export class User {
@@ -59,6 +60,9 @@ export class User {
 
 	@OneToMany(() => UserRetreat, (userRetreat) => userRetreat.inviter)
 	sentInvitations!: UserRetreat[];
+
+	@OneToMany(() => Payment, (payment) => payment.recordedByUser)
+	recordedPayments!: Payment[];
 
 	@BeforeInsert()
 	@BeforeUpdate()
