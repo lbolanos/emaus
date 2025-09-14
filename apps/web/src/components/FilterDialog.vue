@@ -1,11 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, toRaw } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Button } from '@repo/ui/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@repo/ui/components/ui/dialog';
-import { Label } from '@repo/ui/components/ui/label';
-import { Switch } from '@repo/ui/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui/components/ui/select';
+import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, Label, Switch, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui';
 
 const props = defineProps<{
   open: boolean;

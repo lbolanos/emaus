@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { useToast } from '@repo/ui/components/ui/toast/use-toast';
+import { useToast } from '@repo/ui';
 import { api } from '@/services/api';
 
 export const useInventoryStore = defineStore('inventory', () => {

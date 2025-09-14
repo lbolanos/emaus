@@ -317,25 +317,25 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useInventoryStore } from '@/stores/inventoryStore';
-import { useToast } from '@repo/ui/components/ui/toast/use-toast';
+import { useToast } from '@repo/ui';
 import {
   Card,
   CardHeader,
   CardTitle,
   CardContent,
-} from '@repo/ui/components/ui/card';
-import { Button } from '@repo/ui/components/ui/button';
-import { Badge } from '@repo/ui/components/ui/badge';
-import { Input } from '@repo/ui/components/ui/input';
-import { Label } from '@repo/ui/components/ui/label';
-import { Textarea } from '@repo/ui/components/ui/textarea';
+} from '@repo/ui';
+import { Button } from '@repo/ui';
+import { Badge } from '@repo/ui';
+import { Input } from '@repo/ui';
+import { Label } from '@repo/ui';
+import { Textarea } from '@repo/ui';
 import {
   Select,
   SelectTrigger,
   SelectValue,
   SelectContent,
   SelectItem,
-} from '@repo/ui/components/ui/select';
+} from '@repo/ui';
 import {
   Dialog,
   DialogContent,
@@ -343,7 +343,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@repo/ui/components/ui/dialog';
+} from '@repo/ui';
 import {
   Plus,
   Pencil,

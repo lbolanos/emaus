@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { type HTMLAttributes, computed } from 'vue'
 import { type ComboboxRootEmits, type ComboboxRootProps, useForwardPropsEmits } from 'radix-vue'
-import { Dialog, DialogContent } from '@repo/ui/components/ui/dialog'
+import { Dialog, DialogContent } from '../dialog'
 import Command from './Command.vue'
 
 const props = defineProps<ComboboxRootProps & {

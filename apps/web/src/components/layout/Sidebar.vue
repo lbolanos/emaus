@@ -536,6 +536,34 @@
           </Tooltip>
         </TooltipProvider>
       </router-link>
+      <router-link
+        v-if="retreatStore.selectedRetreatId"
+        :to="{ name: 'role-management', params: { id: retreatStore.selectedRetreatId } }"
+        v-slot="{ href, navigate, isActive }"
+        custom
+      >
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isSidebarCollapsed }
+                ]"
+              >
+                <UserCog class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">Gestión de Roles</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
+              <p>Gestión de Roles</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </router-link>
       
 
       <!-- Settings Section -->
@@ -638,8 +666,8 @@ import { storeToRefs } from 'pinia';
 import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, UserCog, Table, Settings, Package } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter } from 'vue-router';
-import { Button } from '@repo/ui/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@repo/ui/components/ui/tooltip';
+import { Button } from '@repo/ui';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@repo/ui';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useUIStore } from '@/stores/ui';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';

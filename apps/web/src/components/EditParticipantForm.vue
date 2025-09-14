@@ -1,11 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { Button } from '@repo/ui/components/ui/button';
-import { Input } from '@repo/ui/components/ui/input';
-import { Label } from '@repo/ui/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui/components/ui/select';
-import { Switch } from '@repo/ui/components/ui/switch';
-import { Textarea } from '@repo/ui/components/ui/textarea';
+import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch, Textarea } from '@repo/ui';
 
 const props = defineProps<{
   participant: any;

@@ -18,14 +18,7 @@
 </template>
 
 <script setup lang="ts">
-import { Button } from '@repo/ui/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@repo/ui/components/ui/dialog';
+import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@repo/ui';
 
 defineProps<{
   open: boolean;

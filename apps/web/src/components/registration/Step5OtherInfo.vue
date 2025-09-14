@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/ui/card'
-import { Input } from '@repo/ui/components/ui/input'
-import { Label } from '@repo/ui/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui/components/ui/select'
-import { Checkbox } from '@repo/ui/components/ui/checkbox'
-import { RadioGroup, RadioGroupItem } from '@repo/ui/components/ui/radio-group'
+import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui'
+import { Input } from '@repo/ui'
+import { Label } from '@repo/ui'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui'
+import { Checkbox } from '@repo/ui'
+import { RadioGroup, RadioGroupItem } from '@repo/ui'
 
 const props = defineProps<{
   errors: Record<string, string>

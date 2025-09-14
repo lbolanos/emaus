@@ -2,7 +2,7 @@
 import { ref, watch } from 'vue';
 import { State } from 'country-state-city';
 import type { IState } from 'country-state-city';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui';
 
 const props = defineProps<{
   modelValue: string;

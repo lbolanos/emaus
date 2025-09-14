@@ -116,7 +116,7 @@ function dispatch(action: Action) {
 
 function useToast() {
 	return {
-		toasts: computed(() => state.value.toasts),
+		toasts: computed<ToasterToast[]>(() => state.value.toasts),
 		toast,
 		dismiss: (toastId?: string) => dispatch({ type: actionTypes.DISMISS_TOAST, toastId }),
 	};

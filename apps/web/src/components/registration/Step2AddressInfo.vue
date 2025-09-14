@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/ui/card'
-import { Input } from '@repo/ui/components/ui/input'
-import { Label } from '@repo/ui/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui'
+import { Input } from '@repo/ui'
+import { Label } from '@repo/ui'
 import CountrySelector from '@/components/form/CountrySelector.vue'
 import StateSelector from '@/components/form/StateSelector.vue'
 import CitySelector from '@/components/form/CitySelector.vue'

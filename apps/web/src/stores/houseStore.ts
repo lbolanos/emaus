@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { useToast } from '@repo/ui/components/ui/toast/use-toast';
+import { useToast } from '@repo/ui';
 import type { House, CreateHouse, UpdateHouse } from '@repo/types';
 import { api } from '@/services/api';
 

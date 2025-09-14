@@ -25,7 +25,7 @@
           </Badge>
         </div>
         <div v-else class="mt-4">
-          <Select @update:model-value="participantId => $emit('assign-charge', { chargeId: charge.id, participantId })">
+          <Select @update:model-value="(participantId: string) => $emit('assign-charge', { chargeId: charge.id, participantId })">
             <SelectTrigger>
               <SelectValue :placeholder="$t('charges.selectParticipantPlaceholder')" />
             </SelectTrigger>
@@ -43,10 +43,7 @@
 
 <script setup lang="ts">
 import { defineProps, defineEmits } from 'vue';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@repo/ui/components/ui/card';
-import { Button } from '@repo/ui/components/ui/button';
-import { Badge } from '@repo/ui/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui/components/ui/select';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui';
 import type { Charge } from '@repo/types';
 import type { Participant } from '@repo/types';
 

@@ -93,12 +93,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@repo/ui/components/ui/dialog';
-import { Input } from '@repo/ui/components/ui/input';
-import { Label } from '@repo/ui/components/ui/label';
-import { Button } from '@repo/ui/components/ui/button';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@repo/ui/components/ui/select';
-import { Textarea } from '@repo/ui/components/ui/textarea';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Button, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Textarea } from '@repo/ui';
 import { useHouseStore } from '@/stores/houseStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import type { Retreat } from '@repo/types';

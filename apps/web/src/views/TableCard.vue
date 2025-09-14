@@ -149,16 +149,16 @@
 import { ref, computed } from 'vue';
 import type { PropType } from 'vue';
 import type { Participant, TableMesa } from '@repo/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui';
 import { useTableMesaStore } from '@/stores/tableMesaStore';
 import { useI18n } from 'vue-i18n';
 import ServerDropZone from './ServerDropZone.vue';
-import { useToast } from '@repo/ui/components/ui/toast/use-toast';
+import { useToast } from '@repo/ui';
 
-import { Button } from '@repo/ui/components/ui/button';
+import { Button } from '@repo/ui';
 import { Trash2, Eye } from 'lucide-vue-next';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@repo/ui/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@repo/ui/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@repo/ui';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@repo/ui';
 
 const props = defineProps({
   table: {

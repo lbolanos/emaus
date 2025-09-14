@@ -26,16 +26,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import { Button } from '@repo/ui/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@repo/ui/components/ui/dialog';
-import { Input } from '@repo/ui/components/ui/input';
-import { Label } from '@repo/ui/components/ui/label';
+import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Input, Label } from '@repo/ui';
 import type { Charge } from '@repo/types';
 
 const props = defineProps<{

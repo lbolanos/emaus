@@ -34,7 +34,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useTableMesaStore } from '@/stores/tableMesaStore';
-import { Button } from '@repo/ui/components/ui/button';
+import { Button } from '@repo/ui';
 import {
   Dialog,
   DialogContent,
@@ -42,7 +42,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@repo/ui/components/ui/dialog';
+} from '@repo/ui';
 import {
   Command,
   CommandEmpty,
@@ -50,7 +50,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@repo/ui/components/ui/command';
+} from '@repo/ui';
 
 const props = defineProps<{
   open: boolean;

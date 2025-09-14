@@ -11,6 +11,7 @@ import {
 import * as bcrypt from 'bcrypt';
 import { UserRole } from './userRole.entity';
 import { UserRetreat } from './userRetreat.entity';
+import { Retreat } from './retreat.entity';
 
 @Entity('users')
 export class User {
@@ -43,6 +44,12 @@ export class User {
 
 	@OneToMany(() => UserRetreat, (userRetreat) => userRetreat.user)
 	userRetreats!: UserRetreat[];
+
+	@OneToMany(() => Retreat, (retreat) => retreat.creator)
+	createdRetreats!: Retreat[];
+
+	@OneToMany(() => UserRetreat, (userRetreat) => userRetreat.inviter)
+	sentInvitations!: UserRetreat[];
 
 	@BeforeInsert()
 	@BeforeUpdate()

@@ -6,6 +6,10 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
+    "clean": {
+      "outputs": ["dist/**", ".turbo/**"],
+      "cache": false
+    },
     "lint": {
       "dependsOn": ["^build"]
     },

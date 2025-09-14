@@ -291,3 +291,12 @@ export type {
 
 export * from './message-template';
 export * from './permissions';
+
+// Role management types
+export type {
+	RoleRequest,
+	CreateRoleRequest,
+	UpdateRoleRequest,
+	PermissionOverride,
+	CreatePermissionOverride,
+} from './user';

@@ -6,6 +6,7 @@ import { RetreatBed } from './retreatBed.entity';
 import { Charge } from './charge.entity';
 import { RetreatInventory } from './retreatInventory.entity';
 import { UserRetreat } from './userRetreat.entity';
+import { User } from './user.entity';
 
 @Entity()
 export class Retreat {
@@ -69,4 +70,17 @@ export class Retreat {
 
 	@OneToMany(() => UserRetreat, (userRetreat) => userRetreat.retreat)
 	userRetreats!: UserRetreat[];
+
+	@Column({ type: 'uuid', nullable: true })
+	createdBy?: string;
+
+	@ManyToOne(() => User, (user) => user.createdRetreats, { onDelete: 'SET NULL' })
+	@JoinColumn({ name: 'createdBy' })
+	creator?: User;
+
+	@Column({ type: 'boolean', default: false })
+	isPublic!: boolean;
+
+	@Column({ type: 'boolean', default: true })
+	roleInvitationEnabled!: boolean;
 }

@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import type { User, UserProfile } from '@repo/types';
 import { api } from '../services/api';
 import { useRouter } from 'vue-router';
-import { useToast } from '@repo/ui/components/ui/toast/use-toast';
+import { useToast } from '@repo/ui';
 
 // Auth input types
 interface RegisterUserInput {

@@ -322,12 +322,112 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 				"userId" VARCHAR NOT NULL,
 				"retreatId" VARCHAR NOT NULL,
 				"roleId" INTEGER NOT NULL,
+				"invitedBy" VARCHAR(36),
+				"invitedAt" DATETIME,
+				"expiresAt" DATETIME,
+				"status" VARCHAR(50),
+				"permissionsOverride" TEXT,
+				"updatedAt" DATETIME NOT NULL DEFAULT (datetime('now')),
 				"createdAt" DATETIME NOT NULL DEFAULT (datetime('now')),
 				FOREIGN KEY("userId") REFERENCES "users"("id") ON DELETE CASCADE,
 				FOREIGN KEY("retreatId") REFERENCES "retreat"("id") ON DELETE CASCADE,
 				FOREIGN KEY("roleId") REFERENCES "roles"("id") ON DELETE CASCADE,
+				FOREIGN KEY("invitedBy") REFERENCES "users"("id") ON DELETE SET NULL,
 				UNIQUE("userId", "retreatId", "roleId")
 			);
+		`);
+
+		// Add retreat management columns
+		await queryRunner.query(`ALTER TABLE "retreat" ADD COLUMN "createdBy" VARCHAR(36)`);
+		await queryRunner.query(`ALTER TABLE "retreat" ADD COLUMN "isPublic" BOOLEAN DEFAULT 0`);
+		await queryRunner.query(
+			`ALTER TABLE "retreat" ADD COLUMN "roleInvitationEnabled" BOOLEAN DEFAULT 0`,
+		);
+		await queryRunner.query(
+			`ALTER TABLE "retreat" ADD FOREIGN KEY("createdBy") REFERENCES "users"("id") ON DELETE SET NULL`,
+		);
+
+		// Create audit_logs table
+		await queryRunner.query(`
+			CREATE TABLE IF NOT EXISTS "audit_logs" (
+				"id" VARCHAR(36) PRIMARY KEY NOT NULL,
+				"actionType" VARCHAR(255) NOT NULL,
+				"resourceType" VARCHAR(255) NOT NULL,
+				"resourceId" VARCHAR(36) NOT NULL,
+				"userId" VARCHAR(36),
+				"targetUserId" VARCHAR(36),
+				"retreatId" VARCHAR(36),
+				"description" TEXT,
+				"oldValues" TEXT,
+				"newValues" TEXT,
+				"ipAddress" VARCHAR(255),
+				"userAgent" VARCHAR(255),
+				"createdAt" DATETIME NOT NULL DEFAULT (datetime('now')),
+				FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL,
+				FOREIGN KEY ("targetUserId") REFERENCES "users"("id") ON DELETE SET NULL,
+				FOREIGN KEY ("retreatId") REFERENCES "retreat"("id") ON DELETE SET NULL
+			)
+		`);
+
+		// Create role_requests table
+		await queryRunner.query(`
+			CREATE TABLE IF NOT EXISTS "role_requests" (
+				"id" VARCHAR(36) PRIMARY KEY NOT NULL,
+				"user_id" VARCHAR(36) NOT NULL,
+				"retreat_id" VARCHAR(36) NOT NULL,
+				"requested_role_id" INTEGER NOT NULL,
+				"requested_role" VARCHAR(255) NOT NULL,
+				"message" TEXT,
+				"status" VARCHAR(20) DEFAULT ('pending') CHECK ("status" IN ('pending', 'approved', 'rejected')),
+				"requested_at" DATETIME NOT NULL DEFAULT (datetime('now')),
+				"approved_at" DATETIME,
+				"rejected_at" DATETIME,
+				"approved_by" VARCHAR(36),
+				"rejected_by" VARCHAR(36),
+				"rejection_reason" TEXT,
+				FOREIGN KEY("user_id") REFERENCES "users"("id") ON DELETE CASCADE,
+				FOREIGN KEY("retreat_id") REFERENCES "retreat"("id") ON DELETE CASCADE,
+				FOREIGN KEY("requested_role_id") REFERENCES "roles"("id") ON DELETE CASCADE,
+				FOREIGN KEY("approved_by") REFERENCES "users"("id") ON DELETE SET NULL,
+				FOREIGN KEY("rejected_by") REFERENCES "users"("id") ON DELETE SET NULL,
+				UNIQUE("user_id", "retreat_id", "status")
+			)
+		`);
+
+		// Create permission_delegations table
+		await queryRunner.query(`
+			CREATE TABLE IF NOT EXISTS "permission_delegations" (
+				"id" VARCHAR(36) PRIMARY KEY NOT NULL,
+				"from_user_id" VARCHAR(36) NOT NULL,
+				"to_user_id" VARCHAR(36) NOT NULL,
+				"retreat_id" VARCHAR(36) NOT NULL,
+				"permissions" TEXT NOT NULL,
+				"expires_at" DATETIME NOT NULL,
+				"created_at" DATETIME NOT NULL DEFAULT (datetime('now')),
+				"revoked_at" DATETIME,
+				"revoked_by" VARCHAR(36),
+				"status" VARCHAR(50) NOT NULL DEFAULT 'active',
+				FOREIGN KEY ("from_user_id") REFERENCES "users"("id") ON DELETE CASCADE,
+				FOREIGN KEY ("to_user_id") REFERENCES "users"("id") ON DELETE CASCADE,
+				FOREIGN KEY ("retreat_id") REFERENCES "retreat"("id") ON DELETE CASCADE,
+				FOREIGN KEY ("revoked_by") REFERENCES "users"("id") ON DELETE SET NULL
+			)
+		`);
+
+		// Create permission_override_logs table
+		await queryRunner.query(`
+			CREATE TABLE IF NOT EXISTS "permission_override_logs" (
+				"id" VARCHAR(36) PRIMARY KEY NOT NULL,
+				"user_id" VARCHAR(36) NOT NULL,
+				"retreat_id" VARCHAR(36) NOT NULL,
+				"overrides" TEXT NOT NULL,
+				"set_by" VARCHAR(36) NOT NULL,
+				"reason" TEXT,
+				"created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				FOREIGN KEY("user_id") REFERENCES "users"("id") ON DELETE CASCADE,
+				FOREIGN KEY("retreat_id") REFERENCES "retreat"("id") ON DELETE CASCADE,
+				FOREIGN KEY("set_by") REFERENCES "users"("id") ON DELETE CASCADE
+			)
 		`);
 
 		// Create indexes for better performance
@@ -391,6 +491,83 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 		);
 		await queryRunner.query(
 			`CREATE INDEX IF NOT EXISTS "idx_retreat_charges_participantId" ON "retreat_charges" ("participantId")`,
+		);
+
+		// Add indexes for RBAC tables
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_retreat_createdBy" ON "retreat" ("createdBy")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_retreat_isPublic" ON "retreat" ("isPublic")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_user_retreats_invitedBy" ON "user_retreats" ("invitedBy")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_user_retreats_status" ON "user_retreats" ("status")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_user_retreats_expiresAt" ON "user_retreats" ("expiresAt")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "IDX_audit_logs_action_type" ON "audit_logs"("actionType")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "IDX_audit_logs_resource_type" ON "audit_logs"("resourceType")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "IDX_audit_logs_user_id" ON "audit_logs"("userId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "IDX_audit_logs_target_user_id" ON "audit_logs"("targetUserId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "IDX_audit_logs_retreat_id" ON "audit_logs"("retreatId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "IDX_audit_logs_created_at" ON "audit_logs"("createdAt")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "IDX_audit_logs_action_resource" ON "audit_logs"("actionType", "resourceType")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_role_requests_user_id" ON "role_requests" ("user_id")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_role_requests_retreat_id" ON "role_requests" ("retreat_id")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_role_requests_status" ON "role_requests" ("status")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_role_requests_requested_at" ON "role_requests" ("requested_at")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "IDX_permission_delegations_from_user" ON "permission_delegations"("from_user_id")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "IDX_permission_delegations_to_user" ON "permission_delegations"("to_user_id")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "IDX_permission_delegations_retreat" ON "permission_delegations"("retreat_id")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "IDX_permission_delegations_expires_at" ON "permission_delegations"("expires_at")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "IDX_permission_delegations_status" ON "permission_delegations"("status")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_permission_override_logs_user_id" ON "permission_override_logs"("user_id")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_permission_override_logs_retreat_id" ON "permission_override_logs"("retreat_id")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_permission_override_logs_set_by" ON "permission_override_logs"("set_by")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_permission_override_logs_created_at" ON "permission_override_logs"("created_at")`,
 		);
 
 		// Insert default permissions
@@ -645,7 +822,38 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_users_googleId"`);
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_users_email"`);
 
+		// Drop indexes for RBAC tables first
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_permission_override_logs_created_at"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_permission_override_logs_set_by"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_permission_override_logs_retreat_id"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_permission_override_logs_user_id"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "IDX_permission_delegations_status"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "IDX_permission_delegations_expires_at"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "IDX_permission_delegations_retreat"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "IDX_permission_delegations_to_user"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "IDX_permission_delegations_from_user"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_role_requests_requested_at"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_role_requests_status"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_role_requests_retreat_id"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_role_requests_user_id"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "IDX_audit_logs_action_resource"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "IDX_audit_logs_created_at"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "IDX_audit_logs_retreat_id"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "IDX_audit_logs_target_user_id"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "IDX_audit_logs_user_id"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "IDX_audit_logs_resource_type"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "IDX_audit_logs_action_type"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_user_retreats_expiresAt"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_user_retreats_status"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_user_retreats_invitedBy"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_retreat_isPublic"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_retreat_createdBy"`);
+
 		// Drop tables in reverse order to respect foreign key constraints
+		await queryRunner.query(`DROP TABLE IF EXISTS "permission_override_logs"`);
+		await queryRunner.query(`DROP TABLE IF EXISTS "permission_delegations"`);
+		await queryRunner.query(`DROP TABLE IF EXISTS "role_requests"`);
+		await queryRunner.query(`DROP TABLE IF EXISTS "audit_logs"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "user_retreats"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "user_roles"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "role_permissions"`);

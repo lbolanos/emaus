@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, watch, reactive, onMounted } from 'vue'
-import { useToast } from '@repo/ui/components/ui/toast/use-toast'
+import { useToast } from '@repo/ui'
 import { z } from 'zod'
 import { participantSchema, Participant } from '@repo/types'
 import { useParticipantStore } from '@/stores/participantStore'
 import { useRetreatStore } from '@/stores/retreatStore'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/ui/card'
-import { Button } from '@repo/ui/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@repo/ui/components/ui/dialog'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui'
+import { Button } from '@repo/ui'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@repo/ui'
 
 import Step1PersonalInfo from '@/components/registration/Step1PersonalInfo.vue'
 import Step2AddressInfo from '@/components/registration/Step2AddressInfo.vue'

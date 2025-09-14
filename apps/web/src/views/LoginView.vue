@@ -62,16 +62,16 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
-import { Button } from '@repo/ui/components/ui/button';
+import { Button } from '@repo/ui';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@repo/ui/components/ui/card';
-import { Input } from '@repo/ui/components/ui/input';
-import { Label } from '@repo/ui/components/ui/label';
+} from '@repo/ui';
+import { Input } from '@repo/ui';
+import { Label } from '@repo/ui';
 
 
 const googleLoginUrl = `${import.meta.env.VITE_API_URL}/auth/google`;

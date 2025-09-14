@@ -61,8 +61,8 @@ import type { CreateRetreat, Retreat } from '@repo/types'; // Import Retreat typ
 import { Plus, Edit, Menu } from 'lucide-vue-next'; // Import Edit icon
 import AddRetreatModal from '@/components/AddRetreatModal.vue';
 import EditRetreatModal from '@/components/EditRetreatModal.vue'; // New import
-import { Button } from '@repo/ui/components/ui/button';
-import { Label } from '@repo/ui/components/ui/label';
+import { Button } from '@repo/ui';
+import { Label } from '@repo/ui';
 import {
   Select,
   SelectContent,
@@ -70,7 +70,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@repo/ui/components/ui/select';
+} from '@repo/ui';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import { useUIStore } from '@/stores/ui';
 

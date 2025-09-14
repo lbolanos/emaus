@@ -2,8 +2,13 @@
   "name": "@repo/ui",
   "version": "0.0.0",
   "private": true,
+  "main": "./dist/index.umd.js",
+  "module": "./dist/index.es.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
-    "lint": "eslint src --ext .ts,.vue --max-warnings 0"
+    "lint": "eslint src --ext .ts,.vue --max-warnings 0",
+    "build": "vite build",
+    "clean": "rm -rf dist .turbo 2>/dev/null || true"
   },
   "dependencies": {
     "@vueuse/core": "^13.8.0",
@@ -20,35 +25,17 @@
     "@repo/tsconfig": "workspace:*",
     "eslint": "^8.57.0",
     "eslint-plugin-vue": "^10.4.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vite": "^5.1.4",
+    "@vitejs/plugin-vue": "^5.0.4",
+    "vite-plugin-dts": "^3.7.3",
+    "glob": "^10.3.10"
   },
   "exports": {
-    "./components/ui/button": "./src/components/ui/button/index.ts",
-    "./components/ui/input": "./src/components/ui/input/index.ts",
-    "./components/ui/label": "./src/components/ui/label/index.ts",
-    "./components/ui/card": "./src/components/ui/card/index.ts",
-    "./components/ui/dialog": "./src/components/ui/dialog/index.ts",
-    "./components/ui/table": "./src/components/ui/table/index.ts",
-    "./components/ui/select": "./src/components/ui/select/index.ts",
-    "./components/ui/tabs": "./src/components/ui/tabs/index.ts",
-    "./components/ui/checkbox": "./src/components/ui/checkbox/index.ts",
-    "./components/ui/switch": "./src/components/ui/switch/index.ts",
-    "./components/ui/radio-group": "./src/components/ui/radio-group/index.ts",
-    "./components/ui/popover": "./src/components/ui/popover/index.ts",
-    "./components/ui/tooltip": "./src/components/ui/tooltip/index.ts",
-    "./components/ui/alert": "./src/components/ui/alert/index.ts",
-    "./components/ui/avatar": "./src/components/ui/avatar/index.ts",
-    "./components/ui/badge": "./src/components/ui/badge/index.ts",
-    "./components/ui/calendar": "./src/components/ui/calendar/index.ts",
-    "./components/ui/carousel": "./src/components/ui/carousel/index.ts",
-    "./components/ui/toast": "./src/components/ui/toast/index.ts",
-    "./components/ui/toast/use-toast": "./src/components/ui/toast/use-toast.ts",
-    "./components/ui/toast/Toaster.vue": "./src/components/ui/toast/Toaster.vue",
-    "./components/ui/dropdown-menu": "./src/components/ui/dropdown-menu/index.ts",
-    "./components/ui/scroll-area": "./src/components/ui/scroll-area/index.ts",
-    "./components/ui/textarea": "./src/components/ui/textarea/index.ts",
-    "./components/ui/progress": "./src/components/ui/progress/index.ts",
-    "./components/ui/command": "./src/components/ui/command/index.ts",
-    "./lib/utils": "./src/lib/utils.ts"
+    ".": {
+      "import": "./dist/index.es.js",
+      "require": "./dist/index.umd.js",
+      "types": "./dist/index.d.ts"
+    }
   }
 }

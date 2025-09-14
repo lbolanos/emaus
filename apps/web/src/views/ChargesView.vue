@@ -138,11 +138,11 @@ import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useChargeStore } from '@/stores/chargeStore';
 import { storeToRefs } from 'pinia';
-import { Button } from '@repo/ui/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@repo/ui/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@repo/ui/components/ui/dialog';
-import { Input } from '@repo/ui/components/ui/input';
-import { Label } from '@repo/ui/components/ui/label';
+import { Button } from '@repo/ui';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@repo/ui';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@repo/ui';
+import { Input } from '@repo/ui';
+import { Label } from '@repo/ui';
 import { Edit, Trash2 } from 'lucide-vue-next';
 import type { Charge } from '@repo/types';
 

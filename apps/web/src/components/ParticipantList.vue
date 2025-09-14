@@ -9,8 +9,8 @@ import { useI18n } from 'vue-i18n';
 import * as XLSX from 'xlsx';
 
 // Importa los componentes de UI necesarios
-import { Button } from '@repo/ui/components/ui/button';
-import { Input } from '@repo/ui/components/ui/input';
+import { Button } from '@repo/ui';
+import { Input } from '@repo/ui';
 import {
   Table,
   TableBody,
@@ -20,7 +20,7 @@ import {
   TableRow,
   TableCaption,
   TableFooter,
-} from '@repo/ui/components/ui/table';
+} from '@repo/ui';
 import {
   Dialog,
   DialogContent,
@@ -28,13 +28,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@repo/ui/components/ui/dialog';
+} from '@repo/ui';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@repo/ui/components/ui/tooltip';
+} from '@repo/ui';
 import ColumnSelector from './ColumnSelector.vue';
 import EditParticipantForm from './EditParticipantForm.vue';
 import FilterDialog from './FilterDialog.vue';
@@ -45,11 +45,11 @@ import {
   DropdownMenuTrigger,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-} from '@repo/ui/components/ui/dropdown-menu';
+} from '@repo/ui';
 
 
 import { ArrowUpDown, Trash2, Edit, FileUp, FileDown, Columns, ListFilter, MoreVertical, Plus } from 'lucide-vue-next';
-import { useToast } from '@repo/ui/components/ui/toast/use-toast';
+import { useToast } from '@repo/ui';
 
 // Traducción (simulada, usa tu sistema de i18n)
 //const $t = (key: string) => key.split('.').pop()?.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()) || key;

@@ -3,9 +3,9 @@ import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { api } from '@/services/api';
-import { Button } from '@repo/ui/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@repo/ui/components/ui/table';
-import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/ui/card';
+import { Button } from '@repo/ui';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@repo/ui';
+import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui';
 import type { RetreatBed, Participant } from '@repo/types';
 
 const route = useRoute();

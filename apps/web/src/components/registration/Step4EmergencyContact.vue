@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/ui/card'
-import { Input } from '@repo/ui/components/ui/input'
-import { Label } from '@repo/ui/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui'
+import { Input } from '@repo/ui'
+import { Label } from '@repo/ui'
 
 const props = defineProps<{
   errors: Record<string, string>

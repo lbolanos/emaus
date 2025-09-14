@@ -95,7 +95,7 @@ import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useMessageTemplateStore } from '@/stores/messageTemplateStore';
-import { useToast } from '@repo/ui/components/ui/toast/use-toast';
+import { useToast } from '@repo/ui';
 
 import {
   Dialog,
@@ -104,17 +104,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@repo/ui/components/ui/dialog';
-import { Button } from '@repo/ui/components/ui/button';
-import { Label } from '@repo/ui/components/ui/label';
-import { Textarea } from '@repo/ui/components/ui/textarea';
+} from '@repo/ui';
+import { Button } from '@repo/ui';
+import { Label } from '@repo/ui';
+import { Textarea } from '@repo/ui';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@repo/ui/components/ui/select';
+} from '@repo/ui';
 
 interface Props {
   open: boolean;

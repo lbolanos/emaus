@@ -1,15 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { Input } from '@repo/ui/components/ui/input'
-import { Button } from '@repo/ui/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui/components/ui/card'
-import { ScrollArea } from '@repo/ui/components/ui/scroll-area'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@repo/ui/components/ui/tooltip';
+import { Input, Button, Card, CardContent, CardHeader, CardTitle, ScrollArea, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@repo/ui';
 import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, ChevronUp, ChevronDown, GripVertical, RotateCcw } from 'lucide-vue-next'
 
 type Column = {

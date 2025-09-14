@@ -40,16 +40,16 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { api } from '@/services/api';
-import { Button } from '@repo/ui/components/ui/button';
+import { Button } from '@repo/ui';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@repo/ui/components/ui/card';
-import { Input } from '@repo/ui/components/ui/input';
-import { Label } from '@repo/ui/components/ui/label';
+} from '@repo/ui';
+import { Input } from '@repo/ui';
+import { Label } from '@repo/ui';
 
 const email = ref('');
 const message = ref<string | null>(null);

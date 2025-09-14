@@ -6,6 +6,8 @@
     "dev": "turbo dev",
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "clean": "find . -name dist -type d -exec rm -rf {} + 2>/dev/null || true && find . -name .turbo -type d -exec rm -rf {} + 2>/dev/null || true && find . -name '.vite' -type d -exec rm -rf {} + 2>/dev/null || true",
+    "clean:all": "rm -rf node_modules pnpm-lock.yaml && find apps packages -name node_modules -type d -exec rm -rf {} + 2>/dev/null || true",
     "migration:run": "pnpm --filter api migration:run",
     "migration:create": "pnpm --filter api migration:create",
     "migration:show": "pnpm --filter api migration:show",

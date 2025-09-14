@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
+import dts from 'vite-plugin-dts';
 import path from 'path';
 
 // https://vitejs.dev/config/
@@ -13,6 +14,11 @@ export default defineConfig({
 				},
 			},
 		}),
+		dts({
+			tsconfigPath: './tsconfig.json',
+			outDir: 'dist/types',
+			strictOutput: true,
+		}),
 	],
 	resolve: {
 		alias: {
@@ -23,5 +29,12 @@ export default defineConfig({
 		outDir: 'dist',
 		emptyOutDir: true,
 		sourcemap: true,
+		rollupOptions: {
+			output: {
+				entryFileNames: 'assets/[name].js',
+				chunkFileNames: 'assets/[name]-[hash].js',
+				assetFileNames: 'assets/[name]-[hash][extname]',
+			},
+		},
 	},
 });

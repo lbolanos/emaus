@@ -45,8 +45,8 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue';
 import { useHouseStore } from '@/stores/houseStore';
-import { Button } from '@repo/ui/components/ui/button';
-import { Input } from '@repo/ui/components/ui/input';
+import { Button } from '@repo/ui';
+import { Input } from '@repo/ui';
 import {
   Table,
   TableHeader,
@@ -54,7 +54,7 @@ import {
   TableHead,
   TableBody,
   TableCell,
-} from '@repo/ui/components/ui/table';
+} from '@repo/ui';
 import AddEditHouseModal from '@/components/AddEditHouseModal.vue';
 
 const store = useHouseStore();

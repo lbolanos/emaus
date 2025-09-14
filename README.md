@@ -196,6 +196,8 @@ y usar esta informacion para mostrar lo que esta autorizado a hacer
 
 TODO
 
+Crear sistema para los agregar los pagos realizados
+
 agregar una forma de administrar las tablas de la base de datos con solo permisos para el superadmin.
 guardar en un store el listado de columnas que se han modificado
 

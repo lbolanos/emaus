@@ -3,6 +3,7 @@ import {
 	PrimaryGeneratedColumn,
 	Column,
 	CreateDateColumn,
+	UpdateDateColumn,
 	ManyToOne,
 	JoinColumn,
 } from 'typeorm';
@@ -24,8 +25,34 @@ export class UserRetreat {
 	@Column({ type: 'integer' })
 	roleId!: number;
 
+	@Column({ type: 'varchar', nullable: true })
+	invitedBy?: string;
+
+	@ManyToOne(() => User, (user) => user.sentInvitations, { onDelete: 'SET NULL' })
+	@JoinColumn({ name: 'invitedBy' })
+	inviter?: User;
+
+	@Column({ type: 'datetime', nullable: true })
+	invitedAt?: Date;
+
+	@Column({ type: 'datetime', nullable: true })
+	expiresAt?: Date;
+
+	@Column({
+		type: 'varchar',
+		default: 'active',
+		enum: ['pending', 'active', 'expired', 'revoked'],
+	})
+	status!: string;
+
+	@Column({ type: 'text', nullable: true })
+	permissionsOverride?: string;
+
 	@CreateDateColumn()
 	createdAt!: Date;
+
+	@UpdateDateColumn()
+	updatedAt!: Date;
 
 	@ManyToOne(() => User, (user) => user.userRetreats, { onDelete: 'CASCADE' })
 	@JoinColumn({ name: 'userId' })

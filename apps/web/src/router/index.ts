@@ -24,6 +24,7 @@ import TablesView from '../views/TablesView.vue';
 import MessageTemplatesView from '../views/MessageTemplatesView.vue';
 import InventoryView from '../views/InventoryView.vue';
 import InventoryItemsView from '../views/InventoryItemsView.vue';
+import RetreatRoleManagementView from '../views/RetreatRoleManagementView.vue';
 import { useAuthStore } from '@/stores/authStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 
@@ -169,6 +170,12 @@ const router = createRouter({
 					path: 'settings/message-templates',
 					name: 'message-templates',
 					component: MessageTemplatesView,
+				},
+				{
+					path: 'retreats/:id/role-management',
+					name: 'role-management',
+					component: RetreatRoleManagementView,
+					props: true,
 				},
 			],
 		},

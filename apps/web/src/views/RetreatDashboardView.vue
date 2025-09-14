@@ -16,6 +16,12 @@
       </p>
       <p>{{ $t('retreatDashboard.waitingCount') }}: {{ waitingCount }}</p>
 
+      <div class="flex items-center gap-2 mt-4">
+        <Button @click="showRoleRequestModal = true" variant="outline">
+          Solicitar Acceso al Retiro
+        </Button>
+      </div>
+
       <!-- Inventory Alerts Section -->
       <div v-if="inventoryAlerts.length > 0" class="mt-4">
         <Card class="border-red-200 bg-red-50">
@@ -97,6 +103,12 @@
         </div>
       </DialogContent>
     </Dialog>
+
+    <RoleRequestModal 
+      v-model:open="showRoleRequestModal" 
+      :retreat-id="selectedRetreat?.id || ''"
+      @submitted="handleRoleRequestSubmitted"
+    />
   </div>
 </template>
 
@@ -106,20 +118,21 @@ import { useRoute } from 'vue-router';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useInventoryStore } from '@/stores/inventoryStore';
-import { Button } from '@repo/ui/components/ui/button';
+import { Button } from '@repo/ui';
+import RoleRequestModal from '@/components/RoleRequestModal.vue';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@repo/ui/components/ui/dialog';
+} from '@repo/ui';
 import {
   Card,
   CardHeader,
   CardTitle,
   CardContent,
-} from '@repo/ui/components/ui/card';
-import { useToast } from '@repo/ui/components/ui/toast/use-toast';
+} from '@repo/ui';
+import { useToast } from '@repo/ui';
 import { useI18n } from 'vue-i18n';
 import { storeToRefs } from 'pinia';
 import QrcodeVue from 'qrcode.vue';
@@ -137,6 +150,7 @@ const { inventoryAlerts } = storeToRefs(inventoryStore);
 
 const isQrCodeVisible = ref(false);
 const qrCodeUrl = ref('');
+const showRoleRequestModal = ref(false);
 
 const walkersCount = computed(() => (participants.value || []).filter(p => p.type === 'walker' && !p.isCancelled).length);
 const serversCount = computed(() => (participants.value || []).filter(p => p.type === 'server' && !p.isCancelled).length);
@@ -156,6 +170,13 @@ const openLink = (link: string) => {
 const showQrCode = (url: string) => {
   qrCodeUrl.value = url;
   isQrCodeVisible.value = true;
+};
+
+const handleRoleRequestSubmitted = () => {
+  toast({
+    title: 'Solicitud enviada',
+    description: 'Tu solicitud ha sido enviada y será revisada por los administradores del retiro'
+  });
 };
 
 watchEffect(async () => {

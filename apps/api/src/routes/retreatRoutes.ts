@@ -14,19 +14,23 @@ const router = Router();
 
 router.use(isAuthenticated);
 
-router.get('/', requirePermission('retreat:list'), getAllRetreats);
+router.get('/', requirePermission('retreat:list'), (req: any, res: any, next: any) =>
+	getAllRetreats(req, res, next),
+);
 router.post(
 	'/',
 	validateRequest(createRetreatSchema),
 	requirePermission('retreat:create'),
-	createRetreat,
+	(req: any, res: any, next: any) => createRetreat(req, res, next),
 );
-router.get('/:id', requirePermission('retreat:read'), getRetreatById);
+router.get('/:id', requirePermission('retreat:read'), (req: any, res: any, next: any) =>
+	getRetreatById(req, res, next),
+);
 router.put(
 	'/:id',
 	validateRequest(updateRetreatSchema),
 	requirePermission('retreat:update'),
-	updateRetreat,
+	(req: any, res: any, next: any) => updateRetreat(req, res, next),
 );
 
 export default router;

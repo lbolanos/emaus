@@ -10,7 +10,7 @@ import {
 } from '@/services/api';
 import type { TableMesa } from '@repo/types';
 import { useRetreatStore } from './retreatStore';
-import { useToast } from '@repo/ui/components/ui/toast/use-toast';
+import { useToast } from '@repo/ui';
 import { useParticipantStore } from './participantStore';
 
 export const useTableMesaStore = defineStore('tableMesa', () => {

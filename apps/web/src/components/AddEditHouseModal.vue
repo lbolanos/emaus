@@ -173,31 +173,9 @@
 
 <script setup lang="ts">
 import { ref, watch, computed, nextTick, reactive } from 'vue';
-import { Button } from '@repo/ui/components/ui/button';
-import { Progress } from '@repo/ui/components/ui/progress';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@repo/ui/components/ui/dialog';
-import { Input } from '@repo/ui/components/ui/input';
-import { Label } from '@repo/ui/components/ui/label';
-import { Textarea } from '@repo/ui/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@repo/ui/components/ui/select';
-import { ScrollArea } from '@repo/ui/components/ui/scroll-area';
-import { Trash2 } from 'lucide-vue-next';
-import { z } from 'zod';
-import { useToast } from '@repo/ui/components/ui/toast/use-toast';
+import { Button, Progress, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, ScrollArea, useToast } from '@repo/ui';
 import type { House, Bed } from '@repo/types';
+import { z } from 'zod';
 
 const props = defineProps({
   open: Boolean,
@@ -244,7 +222,7 @@ const step1Schema = z.object({
   googleMapsUrl: z.string().url('Must be a valid URL').min(1, 'Google Maps URL is required'),
   latitude: z.number().nullable(),
   longitude: z.number().nullable(),
-}).refine(data => data.latitude !== null && data.longitude !== null, {
+}).refine((data: any) => data.latitude !== null && data.longitude !== null, {
     message: "A valid address with location is required. Please use the autocomplete.",
     path: ["address1"],
 });
@@ -275,7 +253,7 @@ const validateStep = (step: number) => {
   const result = schema.safeParse(formData.value);
   if (!result.success) {
     const errors: string[] = [];
-    result.error.errors.forEach((e) => {
+    result.error.errors.forEach((e: z.ZodIssue) => {
       const path = e.path.join('.');
       formErrors[path] = e.message;
       errors.push(e.message);

@@ -5,6 +5,8 @@ import {
 	findById,
 	update,
 } from '../services/retreatService';
+import { authorizationService, AuthenticatedRequest } from '../middleware/authorization';
+import { retreatRoleService } from '../services/retreatRoleService';
 
 export const getAllRetreats = async (req: Request, res: Response, next: NextFunction) => {
 	try {
@@ -39,9 +41,33 @@ export const updateRetreat = async (req: Request, res: Response, next: NextFunct
 	}
 };
 
-export const createRetreat = async (req: Request, res: Response, next: NextFunction) => {
+export const createRetreat = async (
+	req: AuthenticatedRequest,
+	res: Response,
+	next: NextFunction,
+) => {
 	try {
-		const newRetreat = await createRetreatService(req.body);
+		const userId = req.user?.id;
+		if (!userId) {
+			return res.status(401).json({ message: 'Unauthorized' });
+		}
+
+		// Add creator to the retreat data
+		const retreatData = {
+			...req.body,
+			createdBy: userId,
+		};
+
+		const newRetreat = await createRetreatService(retreatData);
+
+		// Automatically assign admin role to the creator for this retreat
+		try {
+			await retreatRoleService.inviteUserToRetreat(newRetreat.id, req.user!.email, 'admin', userId);
+		} catch (roleError) {
+			console.error('Error assigning admin role to retreat creator:', roleError);
+			// Don't fail the retreat creation if role assignment fails
+		}
+
 		res.status(201).json(newRetreat);
 	} catch (error) {
 		next(error);

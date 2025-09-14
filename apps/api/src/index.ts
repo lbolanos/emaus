@@ -10,6 +10,9 @@ import tableMesaRoutes from './routes/tableMesaRoutes';
 import { config } from './config';
 import { errorHandler } from './middleware/errorHandler';
 import { MigrationVerifier } from './database/migration-verifier';
+import { roleCleanupService } from './services/roleCleanupService';
+import { PerformanceMiddleware } from './middleware/performanceMiddleware';
+import { performanceOptimizationService } from './services/performanceOptimizationService';
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -38,6 +41,14 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Add performance optimization middleware
+app.use((req, res, next) => PerformanceMiddleware.trackPerformance(req as any, res, next));
+app.use((req, res, next) => PerformanceMiddleware.optimizePermissionCheck(req as any, res, next));
+app.use((req, res, next) => PerformanceMiddleware.optimizeRetreatUserQuery(req as any, res, next));
+app.use((req, res, next) => PerformanceMiddleware.invalidateCacheOnChanges(req as any, res, next));
+app.use((req, res, next) => PerformanceMiddleware.monitorMemory(req as any, res, next));
+app.use((req, res, next) => PerformanceMiddleware.optimizeDatabaseQueries(req as any, res, next));
+
 app.use('/api', mainRouter);
 app.use('/api/tables', tableMesaRoutes);
 
@@ -63,6 +74,14 @@ AppDataSource.initialize()
 			);
 			process.exit(1);
 		}
+
+		// Start role cleanup service
+		roleCleanupService.startScheduledTasks();
+		console.log('🧹 Role cleanup service started');
+
+		// Initialize performance optimization
+		await performanceOptimizationService.optimizeHeavyQueries();
+		console.log('⚡ Performance optimization initialized');
 
 		app.listen(port, () => {
 			console.log(`Server is running on http://localhost:${port}`);
