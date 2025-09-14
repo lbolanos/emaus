@@ -13,6 +13,10 @@ export const messageTemplateTypes = z.enum([
 	'PAYMENT_REMINDER',
 	'POST_RETREAT_MESSAGE',
 	'CANCELLATION_CONFIRMATION',
+	'USER_INVITATION',
+	'PASSWORD_RESET',
+	'RETREAT_SHARED_NOTIFICATION',
+	'BIRTHDAY_MESSAGE',
 ]);
 
 export const MessageTemplateSchema = z.object({

@@ -600,6 +600,34 @@
         </TooltipProvider>
       </router-link>
       <router-link
+        v-if="auth.userProfile?.roles?.some(role => role.role.name === 'superadmin')"
+        :to="{ name: 'global-message-templates' }"
+        v-slot="{ href, navigate, isActive }"
+        custom
+      >
+        <TooltipProvider :delay-duration="100">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <a
+                :href="href"
+                @click="navigate"
+                class="flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                :class="[
+                  isActive ? 'bg-gray-900 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white',
+                  { 'justify-center': isSidebarCollapsed }
+                ]"
+              >
+                <Globe class="w-6 h-6" :class="{ 'mr-3': !isSidebarCollapsed }" />
+                <span v-if="!isSidebarCollapsed">Plantillas Globales</span>
+              </a>
+            </TooltipTrigger>
+            <TooltipContent v-if="isSidebarCollapsed" side="right">
+              <p>Plantillas Globales</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </router-link>
+      <router-link
         v-if="can.read('inventoryItem')"
         :to="{ name: 'inventory-items' }"
         v-slot="{ href, navigate, isActive }"
@@ -663,7 +691,7 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, UserCog, Table, Settings, Package } from 'lucide-vue-next';
+import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, UserCog, Table, Settings, Package, Globe } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter } from 'vue-router';
 import { Button } from '@repo/ui';

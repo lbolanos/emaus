@@ -48,6 +48,9 @@ export class UserRetreat {
 	@Column({ type: 'text', nullable: true })
 	permissionsOverride?: string;
 
+	@Column({ type: 'varchar', nullable: true, unique: true })
+	invitationToken?: string;
+
 	@CreateDateColumn()
 	createdAt!: Date;
 

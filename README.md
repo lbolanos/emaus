@@ -175,6 +175,8 @@ create a database migration pattern with a table in database to manage the migra
 add support for sqlite migrations and postgress migrations.
 En el registro de los servidores se necesita modificar los campos si necesita la camiseta blanca, si necesita la camiseta azul, y si necesita chaqueta modificar the boolean a string y preguntar la talla o no necesita. si no necesita dejar en null.
 
+guardar en un store el listado de columnas que se han modificado
+
 IN PROGRESS
 
 roles: un superadmin, un usuario administrador del retiro, un usuario servidor del retiro, tesorero, logística, palancas
@@ -194,12 +196,24 @@ async updateParticipant(...
 enviar los permisos del usuario al frontend en el login
 y usar esta informacion para mostrar lo que esta autorizado a hacer
 
+create a UserManagementMailer service that get MessageTemplate of the retreat to send message to user to invite, passwordReset, notifyRetreatShared
+create the default MessageTemplate in retreat creation.
+get smtp connection parameters from env
+
+create a plan to create an InvitationController with inviteUser
+@Post('/', { rateLimit: { limit: 10 } })
+@GlobalScope('user:create')
+@Post('/:id/accept', { skipAuth: true })
+async acceptInvitation(
+en the frontend Views
+
 TODO
+
+since it is not in production modify apps/api/src/migrations/sqlite/20250910163337_CreateSchema.ts for schema.
 
 Crear sistema para los agregar los pagos realizados
 
 agregar una forma de administrar las tablas de la base de datos con solo permisos para el superadmin.
-guardar en un store el listado de columnas que se han modificado
 
 alimentos y medicinas agregar columna mesa para ordenar y lider
 

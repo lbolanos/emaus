@@ -22,9 +22,11 @@ import RetreatDashboardView from '../views/RetreatDashboardView.vue';
 import BedAssignmentsView from '../views/BedAssignmentsView.vue';
 import TablesView from '../views/TablesView.vue';
 import MessageTemplatesView from '../views/MessageTemplatesView.vue';
+import GlobalMessageTemplatesView from '../views/GlobalMessageTemplatesView.vue';
 import InventoryView from '../views/InventoryView.vue';
 import InventoryItemsView from '../views/InventoryItemsView.vue';
 import RetreatRoleManagementView from '../views/RetreatRoleManagementView.vue';
+import AcceptInvitationView from '../views/AcceptInvitationView.vue';
 import { useAuthStore } from '@/stores/authStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 
@@ -50,6 +52,12 @@ const router = createRouter({
 			path: '/register/:type/:retreatId',
 			name: 'registration',
 			component: ParticipantRegistrationView,
+			props: true,
+		},
+		{
+			path: '/accept-invitation/:token',
+			name: 'accept-invitation',
+			component: AcceptInvitationView,
 			props: true,
 		},
 		{
@@ -170,6 +178,11 @@ const router = createRouter({
 					path: 'settings/message-templates',
 					name: 'message-templates',
 					component: MessageTemplatesView,
+				},
+				{
+					path: 'settings/global-message-templates',
+					name: 'global-message-templates',
+					component: GlobalMessageTemplatesView,
 				},
 				{
 					path: 'retreats/:id/role-management',

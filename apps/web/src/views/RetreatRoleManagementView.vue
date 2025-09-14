@@ -129,59 +129,11 @@
       </CardContent>
     </Card>
 
-    <!-- Invite User Modal -->
-    <Dialog :open="showInviteModal" @update:open="showInviteModal = $event">
-      <DialogContent class="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Invitar Usuario al Retiro</DialogTitle>
-          <DialogDescription>
-            Invita un usuario a unirse a este retiro con un rol específico
-          </DialogDescription>
-        </DialogHeader>
-        <form @submit.prevent="inviteUser">
-          <div class="grid gap-4 py-4">
-            <div class="grid grid-cols-4 items-center gap-4">
-              <Label for="email" class="text-right">Email</Label>
-              <Input id="email" v-model="inviteForm.email" class="col-span-3" 
-                     type="email" required placeholder="usuario@ejemplo.com" />
-            </div>
-            <div class="grid grid-cols-4 items-center gap-4">
-              <Label for="role" class="text-right">Rol</Label>
-              <Select v-model="inviteForm.role" required>
-                <SelectTrigger class="col-span-3">
-                  <SelectValue placeholder="Seleccionar rol" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem v-for="role in availableRoles" :key="role" :value="role">
-                      {{ role }}
-                    </SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
-            <div class="grid grid-cols-4 items-center gap-4">
-              <Label for="expiresAt" class="text-right">Expira</Label>
-              <Input id="expiresAt" v-model="inviteForm.expiresAt" class="col-span-3" 
-                     type="date" />
-            </div>
-            <div class="grid grid-cols-4 items-center gap-4">
-              <Label for="message" class="text-right">Mensaje</Label>
-              <Textarea id="message" v-model="inviteForm.message" class="col-span-3" 
-                        placeholder="Mensaje personalizado (opcional)" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" @click="showInviteModal = false">
-              Cancelar
-            </Button>
-            <Button type="submit" :disabled="!inviteForm.email || !inviteForm.role">
-              Enviar Invitación
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <!-- Invite Users Modal -->
+    <InviteUsersModal
+      :is-open="showInviteModal"
+      @close="showInviteModal = false"
+    />
 
     <!-- Permission Overrides Modal -->
     <Dialog :open="showPermissionModal" @update:open="showPermissionModal = $event">
@@ -307,10 +259,11 @@ import {
   DialogDescription, DialogFooter, Label, Input, Select, SelectTrigger, 
   SelectValue, SelectContent, SelectGroup, SelectItem, Textarea, Switch
 } from '@repo/ui'
-import { 
-  UserPlus, RefreshCw, UserCheck, Users, Check, X, Clock, Shield, 
+import {
+  UserPlus, RefreshCw, UserCheck, Users, Check, X, Clock, Shield,
   Settings, UserMinus, Plus
 } from 'lucide-vue-next'
+import InviteUsersModal from '@/components/InviteUsersModal.vue'
 import { useAuthStore } from '@/stores/authStore'
 import api from '@/services/api'
 import type { 
@@ -338,12 +291,6 @@ const selectedRequest = ref<RoleRequest | null>(null)
 const requestAction = ref<'approve' | 'reject'>('approve')
 
 // Forms
-const inviteForm = ref({
-  email: '',
-  role: '',
-  expiresAt: '',
-  message: ''
-})
 
 const requestForm = ref({
   rejectionReason: ''
@@ -362,9 +309,6 @@ const isRetreatCreator = computed(() => {
   return true // Simplified for now
 })
 
-const availableRoles = Object.values([
-  'admin', 'servidor', 'tesorero', 'logística', 'palancas'
-])
 
 const availableResources = Object.values([
   'house', 'inventoryItem', 'retreat', 'participant', 'user', 'table', 'payment'
@@ -397,33 +341,8 @@ const refreshData = () => {
 
 const openInviteModal = () => {
   showInviteModal.value = true
-  inviteForm.value = { email: '', role: '', expiresAt: '', message: '' }
 }
 
-const inviteUser = async () => {
-  try {
-    await api.post(`/retreat-roles/retreat/${retreatId}/invite`, {
-      email: inviteForm.value.email,
-      roleName: inviteForm.value.role,
-      expiresAt: inviteForm.value.expiresAt ? new Date(inviteForm.value.expiresAt) : undefined,
-      message: inviteForm.value.message
-    })
-    
-    toast({
-      title: 'Invitación enviada',
-      description: `Se ha enviado una invitación a ${inviteForm.value.email}`
-    })
-    
-    showInviteModal.value = false
-    loadData()
-  } catch (error) {
-    toast({
-      title: 'Error',
-      description: 'No se pudo enviar la invitación',
-      variant: 'destructive'
-    })
-  }
-}
 
 const approveRequest = async (request: RoleRequest) => {
   selectedRequest.value = request

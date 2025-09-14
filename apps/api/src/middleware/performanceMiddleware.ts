@@ -223,19 +223,35 @@ export class PerformanceMonitor {
 }
 
 // Export middleware functions with proper context
-export const trackPerformance = (req: PerformanceRequest, res: Response, next: NextFunction): void => {
+export const trackPerformance = (
+	req: PerformanceRequest,
+	res: Response,
+	next: NextFunction,
+): void => {
 	PerformanceMiddleware.trackPerformance(req, res, next);
 };
 
-export const optimizePermissionCheck = (req: PerformanceRequest, res: Response, next: NextFunction): void => {
+export const optimizePermissionCheck = (
+	req: PerformanceRequest,
+	res: Response,
+	next: NextFunction,
+): void => {
 	PerformanceMiddleware.optimizePermissionCheck(req, res, next);
 };
 
-export const optimizeRetreatUserQuery = (req: PerformanceRequest, res: Response, next: NextFunction): void => {
+export const optimizeRetreatUserQuery = (
+	req: PerformanceRequest,
+	res: Response,
+	next: NextFunction,
+): void => {
 	PerformanceMiddleware.optimizeRetreatUserQuery(req, res, next);
 };
 
-export const invalidateCacheOnChanges = (req: PerformanceRequest, res: Response, next: NextFunction): void => {
+export const invalidateCacheOnChanges = (
+	req: PerformanceRequest,
+	res: Response,
+	next: NextFunction,
+): void => {
 	PerformanceMiddleware.invalidateCacheOnChanges(req, res, next);
 };
 
@@ -243,6 +259,10 @@ export const monitorMemory = (req: PerformanceRequest, res: Response, next: Next
 	PerformanceMiddleware.monitorMemory(req, res, next);
 };
 
-export const optimizeDatabaseQueries = (req: PerformanceRequest, res: Response, next: NextFunction): void => {
+export const optimizeDatabaseQueries = (
+	req: PerformanceRequest,
+	res: Response,
+	next: NextFunction,
+): void => {
 	PerformanceMiddleware.optimizeDatabaseQueries(req, res, next);
 };

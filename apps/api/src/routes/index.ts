@@ -8,12 +8,15 @@ import retreatRoutes from './retreatRoutes';
 import chargeRoutes from './chargeRoutes';
 import tableMesaRoutes from './tableMesaRoutes';
 import messageTemplateRoutes from './messageTemplateRoutes';
+import globalMessageTemplateRoutes from './globalMessageTemplateRoutes';
 import inventoryRoutes from './inventoryRoutes';
 import retreatRoleRoutes from './retreatRoleRoutes';
 import roleRequestRoutes from './roleRequestRoutes';
 import permissionOverrideRoutes from './permissionOverrideRoutes';
 import auditRoutes from './auditRoutes';
 import permissionInheritanceRoutes from './permissionInheritanceRoutes';
+import userManagementRoutes from './userManagementRoutes';
+import invitationRoutes from './invitationRoutes';
 
 const router = Router();
 
@@ -30,6 +33,9 @@ router.use('/charges', chargeRoutes);
 router.use(retreatBedRoutes);
 router.use('/tables', tableMesaRoutes);
 router.use('/message-templates', messageTemplateRoutes);
+router.use('/global-message-templates', globalMessageTemplateRoutes);
 router.use('/inventory', inventoryRoutes);
+router.use('/user-management', userManagementRoutes);
+router.use('/invitations', invitationRoutes);
 
 export default router;

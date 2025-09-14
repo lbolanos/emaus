@@ -33,6 +33,15 @@ export class User {
 	@Column({ type: 'varchar', nullable: true })
 	password?: string | null;
 
+	@Column({ type: 'boolean', default: false })
+	isPending?: boolean;
+
+	@Column({ type: 'varchar', nullable: true })
+	invitationToken?: string;
+
+	@Column({ type: 'datetime', nullable: true })
+	invitationExpiresAt?: Date;
+
 	@CreateDateColumn()
 	createdAt!: Date;
 

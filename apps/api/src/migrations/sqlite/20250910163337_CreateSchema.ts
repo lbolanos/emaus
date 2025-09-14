@@ -14,6 +14,9 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 				"displayName" VARCHAR(255) NOT NULL,
 				"photo" VARCHAR(500),
 				"password" VARCHAR(255),
+				"isPending" BOOLEAN DEFAULT 0,
+				"invitationToken" VARCHAR(255),
+				"invitationExpiresAt" DATETIME,
 				"createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				"updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 			)
@@ -193,12 +196,25 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			CREATE TABLE IF NOT EXISTS "message_templates" (
 				"id" VARCHAR(36) PRIMARY KEY NOT NULL,
 				"name" VARCHAR(255) NOT NULL,
-				"type" VARCHAR(255) NOT NULL CHECK ("type" IN ('WALKER_WELCOME', 'SERVER_WELCOME', 'EMERGENCY_CONTACT_VALIDATION', 'PALANCA_REQUEST', 'PALANCA_REMINDER', 'GENERAL', 'PRE_RETREAT_REMINDER', 'PAYMENT_REMINDER', 'POST_RETREAT_MESSAGE', 'CANCELLATION_CONFIRMATION')),
+				"type" VARCHAR(255) NOT NULL CHECK ("type" IN ('WALKER_WELCOME', 'SERVER_WELCOME', 'EMERGENCY_CONTACT_VALIDATION', 'PALANCA_REQUEST', 'PALANCA_REMINDER', 'GENERAL', 'PRE_RETREAT_REMINDER', 'PAYMENT_REMINDER', 'POST_RETREAT_MESSAGE', 'CANCELLATION_CONFIRMATION', 'USER_INVITATION', 'PASSWORD_RESET', 'RETREAT_SHARED_NOTIFICATION')),
 				"message" TEXT NOT NULL,
 				"retreatId" VARCHAR(36) NOT NULL,
 				"createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				"updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				FOREIGN KEY ("retreatId") REFERENCES "retreat" ("id") ON DELETE CASCADE
+			)
+		`);
+
+		// Create global_message_templates table
+		await queryRunner.query(`
+			CREATE TABLE IF NOT EXISTS "global_message_templates" (
+				"id" VARCHAR(36) PRIMARY KEY NOT NULL,
+				"name" VARCHAR(255) NOT NULL,
+				"type" VARCHAR(255) NOT NULL CHECK ("type" IN ('WALKER_WELCOME', 'SERVER_WELCOME', 'EMERGENCY_CONTACT_VALIDATION', 'PALANCA_REQUEST', 'PALANCA_REMINDER', 'GENERAL', 'PRE_RETREAT_REMINDER', 'PAYMENT_REMINDER', 'POST_RETREAT_MESSAGE', 'CANCELLATION_CONFIRMATION', 'USER_INVITATION', 'PASSWORD_RESET', 'RETREAT_SHARED_NOTIFICATION', 'BIRTHDAY_MESSAGE')),
+				"message" TEXT NOT NULL,
+				"isActive" BOOLEAN NOT NULL DEFAULT (1),
+				"createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				"updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 			)
 		`);
 
@@ -325,8 +341,9 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 				"invitedBy" VARCHAR(36),
 				"invitedAt" DATETIME,
 				"expiresAt" DATETIME,
-				"status" VARCHAR(50),
+				"status" VARCHAR(50) DEFAULT ('active') CHECK ("status" IN ('pending', 'active', 'expired', 'revoked')),
 				"permissionsOverride" TEXT,
+				"invitationToken" VARCHAR(255),
 				"updatedAt" DATETIME NOT NULL DEFAULT (datetime('now')),
 				"createdAt" DATETIME NOT NULL DEFAULT (datetime('now')),
 				FOREIGN KEY("userId") REFERENCES "users"("id") ON DELETE CASCADE,
@@ -607,7 +624,12 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			('payment', 'read', 'Read/view payments'),
 			('payment', 'update', 'Update existing payments'),
 			('payment', 'delete', 'Delete payments'),
-			('payment', 'list', 'List payments');
+			('payment', 'list', 'List payments'),
+			('globalMessageTemplate', 'create', 'Create new global message templates'),
+			('globalMessageTemplate', 'read', 'Read/view global message templates'),
+			('globalMessageTemplate', 'update', 'Update existing global message templates'),
+			('globalMessageTemplate', 'delete', 'Delete global message templates'),
+			('globalMessageTemplate', 'list', 'List global message templates');
 		`);
 
 		// Insert default roles
@@ -802,6 +824,181 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 				roles.superadmin,
 			]);
 		}
+
+		// Insert default global message templates
+		await queryRunner.query(`
+			INSERT INTO "global_message_templates" ("id", "name", "type", "message", "isActive", "createdAt", "updatedAt") VALUES
+			(uuid(), 'Bienvenida Caminante', 'WALKER_WELCOME', '¡Hola, **{participant.nickname}**!
+
+Con mucho gusto confirmamos tu lugar para la experiencia de fin de semana. Todo el equipo organizador está preparando los detalles para recibirte.
+
+**Datos importantes para tu llegada:**
+* **Fecha de encuentro:** {retreat.startDate}
+* **Hora de llegada:** {participant.hora_llegada}
+
+Te pedimos ser puntual para facilitar el registro de todos. ¡Estamos muy contentos de que participes! Nos vemos pronto.', 1, datetime('now'), datetime('now')),
+
+			(uuid(), 'Bienvenida Servidor', 'SERVER_WELCOME', '¡Hermano/a **{participant.nickname}**! ✝️
+
+¡Gracias por tu "sí" generoso al Señor! Es una verdadera bendición contar contigo en el equipo para preparar el camino a nuestros hermanos caminantes. Tu servicio y tu oración son el corazón de este retiro.
+
+**Información clave para tu servicio:**
+* **Fecha de inicio de misión:** {retreat.startDate}
+* **Hora de llegada:** {participant.hora_llegada}
+
+Que el Señor te ilumine y fortalezca en esta hermosa misión que te encomienda. ¡Unidos en oración y servicio!
+
+¡Cristo ha resucitado!', 1, datetime('now'), datetime('now')),
+
+			(uuid(), 'Validación Contacto de Emergencia', 'EMERGENCY_CONTACT_VALIDATION', 'Hola **{participant.nickname}**, esperamos que estés muy bien.
+
+Estamos preparando todos los detalles para que tu fin de semana sea seguro. Para ello, necesitamos validar un dato importante.
+
+**Contacto de Emergencia Registrado:**
+* **Nombre:** {participant.emergencyContact1Name}
+* **Teléfono:** {participant.emergencyContact1CellPhone}
+
+Por favor, ayúdanos respondiendo a este mensaje con la palabra **CONFIRMADO** si los datos son correctos. Si hay algún error, simplemente envíanos la información correcta.
+
+¡Muchas gracias por tu ayuda!', 1, datetime('now'), datetime('now')),
+
+			(uuid(), 'Solicitud de Palanca', 'PALANCA_REQUEST', '¡Hola, hermano/a **{participant.nickname}**! ✨
+
+Te invitamos a ser parte del motor espiritual de este retiro. Tu **palanca** es mucho más que una carta: es una oración hecha palabra, un tesoro de amor y ánimo para un caminante que la recibirá como un regalo del cielo en el momento justo.
+
+El Señor quiere usar tus manos para escribir un mensaje que toque un corazón.
+
+* **Fecha límite para enviar tu palanca:** {retreat.fecha_limite_palanca}
+
+Que el Espíritu Santo inspire cada una de tus palabras. ¡Contamos contigo y con tu oración!', 1, datetime('now'), datetime('now')),
+
+			(uuid(), 'Recordatorio de Palanca', 'PALANCA_REMINDER', '¡Paz y Bien, **{participant.nickname}**! 🙏
+
+Este es un recordatorio amistoso y lleno de cariño. Un caminante está esperando esas palabras de aliento que el Señor ha puesto en tu corazón; esa oración que solo tú puedes escribirle. ¡No dejes pasar la oportunidad de ser luz en su camino!
+
+* **La fecha límite para enviar tu palanca es el:** {retreat.startDate}
+
+Gracias por tu generosidad y por sostener este retiro con tu oración.', 1, datetime('now'), datetime('now')),
+
+			(uuid(), 'Mensaje General', 'GENERAL', 'Hola **{participant.nickname}**, te escribimos de parte del equipo del Retiro de Emaús.
+
+{custom_message}
+
+Que tengas un día muy bendecido. Te tenemos presente en nuestras oraciones.
+
+Un abrazo en Cristo Resucitado.', 1, datetime('now'), datetime('now')),
+
+			(uuid(), 'Recordatorio Pre-Retiro', 'PRE_RETREAT_REMINDER', '¡Hola, **{participant.nickname}**!
+
+¡Ya falta muy poco para el inicio de la experiencia! Estamos preparando los últimos detalles para recibirte.
+
+Te recordamos algunos puntos importantes:
+* **Fecha:** {retreat.startDate}
+* **Hora de llegada:** {participant.hora_llegada}
+* **Lugar de encuentro:** {participant.pickupLocation}
+
+**Sugerencias sobre qué llevar:**
+{retreat.thingsToBringNotes}
+
+Ven con la mente abierta y sin expectativas, ¡prepárate para un fin de semana diferente!
+
+Un saludo.', 1, datetime('now'), datetime('now')),
+
+			(uuid(), 'Recordatorio de Pago', 'PAYMENT_REMINDER', 'Hola **{participant.nickname}**, ¿cómo estás?
+
+Te escribimos del equipo de organización. Para poder cerrar los detalles administrativos, te recordamos que está pendiente tu aporte de **{retreat.cost}**.
+
+Aquí te dejamos la información para realizarlo:
+{retreat.paymentInfo}
+
+Si ya lo realizaste, por favor ignora este mensaje. Si tienes alguna dificultad, no dudes en contactarnos con toda confianza. ¡Tu presencia es lo más importante!
+
+Saludos.', 1, datetime('now'), datetime('now')),
+
+			(uuid(), 'Mensaje Post-Retiro (Cuarto Día)', 'POST_RETREAT_MESSAGE', '¡Bienvenido a tu Cuarto Día, **{participant.nickname}**! 🎉
+
+¡Cristo ha resucitado! ¡En verdad ha resucitado!
+
+El retiro ha terminado, pero tu verdadero camino apenas comienza. Jesús resucitado camina contigo, no lo olvides nunca. La comunidad de Emaús está aquí para apoyarte.
+
+Te esperamos en nuestras reuniones de perseverancia para seguir creciendo juntos en la fe. La próxima es el **{retreat.next_meeting_date}**.
+
+¡Ánimo, peregrino! Un fuerte abrazo.', 1, datetime('now'), datetime('now')),
+
+			(uuid(), 'Confirmación de Cancelación', 'CANCELLATION_CONFIRMATION', 'Hola, **{participant.nickname}**.
+
+Hemos recibido tu notificación de cancelación. Lamentamos que no puedas acompañarnos en esta ocasión y esperamos que te encuentres bien.
+
+Las puertas siempre estarán abiertas para cuando sea el momento adecuado para ti. Te enviamos nuestros mejores deseos.
+
+Un saludo cordial.', 1, datetime('now'), datetime('now')),
+
+			(uuid(), 'Invitación de Usuario', 'USER_INVITATION', '<h2>Bienvenido/a al Retiro de Emaús</h2>
+
+<p>Hola <strong>{user.name}</strong>,</p>
+
+<p><strong>{inviterName}</strong> te ha invitado a unirte al retiro <strong>{retreat.name}</strong>.</p>
+
+<p><strong>Detalles del retiro:</strong></p>
+<ul>
+<li><strong>Fecha:</strong> {retreat.startDate}</li>
+<li><strong>Parroquia:</strong> {retreat.name}</li>
+</ul>
+
+<p>Para comenzar, por favor <a href="{shareLink}">haz clic aquí para aceptar la invitación</a> y crear tu cuenta.</p>
+
+<p>Si tienes alguna pregunta, no dudes en contactarnos.</p>
+
+<p>¡Esperamos contar con tu presencia!</p>
+
+<p>Atentamente,<br>Equipo de Emaús</p>', 1, datetime('now'), datetime('now')),
+
+			(uuid(), 'Restablecimiento de Contraseña', 'PASSWORD_RESET', '<h2>Restablecimiento de Contraseña</h2>
+
+<p>Hola <strong>{user.name}</strong>,</p>
+
+<p>Hemos recibido una solicitud para restablecer la contraseña de tu cuenta.</p>
+
+<p>Para continuar con el proceso, por favor <a href="{resetToken}">haz clic aquí</a> o copia y pega el siguiente enlace en tu navegador:</p>
+
+<p><a href="{resetToken}">{resetToken}</a></p>
+
+<p>Si no solicitaste este cambio, puedes ignorar este mensaje. Tu contraseña actual permanecerá sin cambios.</p>
+
+<p>El enlace expirará en 1 hora por seguridad.</p>
+
+<p>Atentamente,<br>Equipo de Emaús</p>', 1, datetime('now'), datetime('now')),
+
+			(uuid(), 'Notificación de Retiro Compartido', 'RETREAT_SHARED_NOTIFICATION', '<h2>Retiro Compartido Contigo</h2>
+
+<p>Hola <strong>{user.name}</strong>,</p>
+
+<p><strong>{inviterName}</strong> ha compartido contigo el retiro <strong>{retreat.name}</strong>.</p>
+
+<p><strong>Detalles del retiro:</strong></p>
+<ul>
+<li><strong>Fecha:</strong> {retreat.startDate}</li>
+<li><strong>Parroquia:</strong> {retreat.name}</li>
+</ul>
+
+<p>Puedes acceder al retiro utilizando el siguiente enlace: <a href="{shareLink}">{shareLink}</a></p>
+
+<p>Si tienes alguna pregunta sobre el retiro, por favor contacta a {inviterName}.</p>
+
+<p>¡Esperamos que disfrutes esta experiencia!</p>
+
+<p>Atentamente,<br>Equipo de Emaús</p>', 1, datetime('now'), datetime('now')),
+
+			(uuid(), 'Mensaje de Cumpleaños', 'BIRTHDAY_MESSAGE', '¡Feliz cumpleaños, **{participant.nickname}**! 🎂🎉
+
+Que este día tan especial esté lleno de alegría, bendiciones y momentos inolvidables junto a tus seres queridos.
+
+Que Dios te conceda muchos años más de vida, salud y felicidad. Que cada nuevo año que comiences esté lleno de sueños cumplidos y metas alcanzadas.
+
+La comunidad de Emaús te envía nuestros mejores deseos en tu cumpleaños. ¡Que tengas un día maravilloso!
+
+Un abrazo fuerte y ¡feliz cumpleaños!', 1, datetime('now'), datetime('now'));
+		`);
 	}
 
 	public async down(queryRunner: QueryRunner): Promise<void> {
