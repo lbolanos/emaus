@@ -76,10 +76,11 @@ app.use(csrfMiddleware.generateToken);
 
 // Ruta para obtener token CSRF
 app.get('/api/csrf-token', (req, res) => {
+	console.log('DEBUG: Generating CSRF token for path:', req.path);
 	res.json({ csrfToken: req.session.csrfToken });
 });
 
-app.use(mainRouter);
+app.use('/api', mainRouter);
 app.use('/api/tables', tableMesaRoutes);
 
 app.use(errorHandler);

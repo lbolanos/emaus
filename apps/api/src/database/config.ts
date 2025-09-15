@@ -19,6 +19,7 @@ import { UserRetreat } from '../entities/userRetreat.entity';
 import { Permission } from '../entities/permission.entity';
 import { Migration } from '../entities/migration.entity';
 import { Payment } from '../entities/payment.entity';
+import { GlobalMessageTemplate } from '../entities/globalMessageTemplate.entity';
 
 export function createDatabaseConfig() {
 	const dbType = process.env.DB_TYPE || 'sqlite';
@@ -33,6 +34,7 @@ export function createDatabaseConfig() {
 		User,
 		Responsability,
 		MessageTemplate,
+		GlobalMessageTemplate,
 		InventoryCategory,
 		InventoryTeam,
 		InventoryItem,

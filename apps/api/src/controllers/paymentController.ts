@@ -79,26 +79,30 @@ export class PaymentController {
 
 			const paymentRepository = AppDataSource.getRepository(Payment);
 
-			let where: WhereClause = {};
+			let where: any = {};
 
-			if (retreatId) {
-				where.retreatId = retreatId as string;
+			if (retreatId && typeof retreatId === 'string') {
+				where.retreatId = retreatId;
 			}
 
-			if (participantId) {
-				where.participantId = participantId as string;
+			if (participantId && typeof participantId === 'string') {
+				where.participantId = participantId;
 			}
 
-			if (paymentMethod) {
-				where.paymentMethod = paymentMethod as 'cash' | 'transfer' | 'check' | 'card' | 'other';
+			if (paymentMethod && typeof paymentMethod === 'string') {
+				// Validate payment method is one of the allowed values
+				const validMethods = ['cash', 'transfer', 'check', 'card', 'other'];
+				if (validMethods.includes(paymentMethod)) {
+					where.paymentMethod = paymentMethod as 'cash' | 'transfer' | 'check' | 'card' | 'other';
+				}
 			}
 
-			if (startDate && endDate) {
-				where.paymentDate = Between(new Date(startDate as string), new Date(endDate as string));
-			} else if (startDate) {
-				where.paymentDate = MoreThanOrEqual(new Date(startDate as string));
-			} else if (endDate) {
-				where.paymentDate = LessThanOrEqual(new Date(endDate as string));
+			if (startDate && endDate && typeof startDate === 'string' && typeof endDate === 'string') {
+				where.paymentDate = Between(new Date(startDate), new Date(endDate));
+			} else if (startDate && typeof startDate === 'string') {
+				where.paymentDate = MoreThanOrEqual(new Date(startDate));
+			} else if (endDate && typeof endDate === 'string') {
+				where.paymentDate = LessThanOrEqual(new Date(endDate));
 			}
 
 			const payments = await paymentRepository.find({

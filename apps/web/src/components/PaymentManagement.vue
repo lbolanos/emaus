@@ -30,19 +30,18 @@
 				</div>
 				<div>
 					<label class="block text-sm font-medium text-gray-700 mb-1">Método de Pago</label>
-					<Select v-model="filters.paymentMethod">
-						<SelectTrigger>
-							<SelectValue placeholder="Todos los métodos" />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="">Todos los métodos</SelectItem>
-							<SelectItem value="cash">Efectivo</SelectItem>
-							<SelectItem value="transfer">Transferencia</SelectItem>
-							<SelectItem value="check">Cheque</SelectItem>
-							<SelectItem value="card">Tarjeta</SelectItem>
-							<SelectItem value="other">Otro</SelectItem>
-						</SelectContent>
-					</Select>
+						<Select v-model="filters.paymentMethod">
+							<SelectTrigger>
+								<SelectValue placeholder="Todos los métodos" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="cash">Efectivo</SelectItem>
+								<SelectItem value="transfer">Transferencia</SelectItem>
+								<SelectItem value="check">Cheque</SelectItem>
+								<SelectItem value="card">Tarjeta</SelectItem>
+								<SelectItem value="other">Otro</SelectItem>
+							</SelectContent>
+						</Select>
 				</div>
 				<div>
 					<label class="block text-sm font-medium text-gray-700 mb-1">Fecha Inicio</label>

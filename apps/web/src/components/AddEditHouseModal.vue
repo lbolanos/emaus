@@ -174,6 +174,7 @@
 <script setup lang="ts">
 import { ref, watch, computed, nextTick, reactive } from 'vue';
 import { Button, Progress, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, ScrollArea, useToast } from '@repo/ui';
+import { Trash2 } from 'lucide-vue-next';
 import type { House, Bed } from '@repo/types';
 import { z } from 'zod';
 

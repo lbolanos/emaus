@@ -39,13 +39,16 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 export const login = async (req: Request, res: Response, next: NextFunction) => {
 	passport.authenticate('local', async (err: Error, user: User, info: any) => {
 		if (err) {
+			console.error('Error during login:', err);
 			return next(err);
 		}
 		if (!user) {
+			console.error('Login failed:', info.message);
 			return res.status(401).json({ message: info.message });
 		}
 		req.logIn(user, async (err) => {
 			if (err) {
+				console.error('Error during login2:', err);
 				return next(err);
 			}
 

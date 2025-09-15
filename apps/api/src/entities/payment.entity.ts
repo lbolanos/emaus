@@ -14,7 +14,7 @@ import { DateTransformer } from '../utils/date.transformer';
 
 export type PaymentMethod = 'cash' | 'transfer' | 'check' | 'card' | 'other';
 
-@Entity()
+@Entity('payments')
 export class Payment {
 	@PrimaryGeneratedColumn('uuid')
 	id!: string;
