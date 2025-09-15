@@ -241,7 +241,7 @@ import {
   Package,
   Pencil,
 } from 'lucide-vue-next';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 const route = useRoute();
 const inventoryStore = useInventoryStore();
@@ -304,11 +304,39 @@ async function saveEdit() {
 async function exportInventory() {
   try {
     const data = await inventoryStore.exportInventory(retreatId);
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
-    XLSX.writeFile(wb, `inventario_retiro_${retreatId}.xlsx`);
-    
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Inventario');
+
+    // Agregar encabezados
+    if (data.length > 0) {
+      const headers = Object.keys(data[0]);
+      worksheet.addRow(headers);
+
+      // Agregar datos
+      data.forEach((row: any) => {
+        worksheet.addRow(Object.values(row));
+      });
+    }
+
+    // Configurar estilo para encabezados
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE0E0E0' }
+    };
+
+    // Generar archivo
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `inventario_retiro_${retreatId}.xlsx`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+
     toast({
       title: 'Exportación Exitosa',
       description: 'El inventario se ha exportado correctamente',
@@ -328,10 +356,26 @@ async function handleFileUpload(event: Event) {
 
   try {
     const data = await file.arrayBuffer();
-    const workbook = XLSX.read(data, { type: 'array' });
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+    const buffer = Buffer.from(data);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer as any);
+    const worksheet = workbook.getWorksheet(1);
+
+    if (!worksheet) {
+      throw new Error('No se encontró ninguna hoja de cálculo');
+    }
+
+    const jsonData: any[] = [];
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber > 1) { // Skip header row
+        const rowData: any = {};
+        row.eachCell((cell, colNumber) => {
+          const header = worksheet.getRow(1).getCell(colNumber).value?.toString() || `column${colNumber}`;
+          rowData[header] = cell.value;
+        });
+        jsonData.push(rowData);
+      }
+    });
 
     const results = await inventoryStore.importInventory(retreatId, jsonData);
     importResults.value = results;

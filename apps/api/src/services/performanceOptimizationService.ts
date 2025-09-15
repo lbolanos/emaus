@@ -378,10 +378,10 @@ export class PerformanceOptimizationService {
 	public async optimizeHeavyQueries(): Promise<void> {
 		// Create optimized indexes for common queries
 		const indexes = [
-			'CREATE INDEX IF NOT EXISTS idx_user_retreat_composite ON user_retreats(user_id, retreat_id, status)',
-			'CREATE INDEX IF NOT EXISTS idx_role_permissions_composite ON role_permissions(role_id, permission_id)',
-			'CREATE INDEX IF NOT EXISTS idx_retreat_users_status ON user_retreats(retreat_id, status)',
-			'CREATE INDEX IF NOT EXISTS idx_user_retreats_created ON user_retreats(created_at)',
+			'CREATE INDEX IF NOT EXISTS idx_user_retreat_composite ON user_retreats(userId, retreatId, status)',
+			'CREATE INDEX IF NOT EXISTS idx_role_permissions_composite ON role_permissions(roleId, permissionId)',
+			'CREATE INDEX IF NOT EXISTS idx_retreat_users_status ON user_retreats(retreatId, status)',
+			'CREATE INDEX IF NOT EXISTS idx_user_retreats_created ON user_retreats(createdAt)',
 		];
 
 		for (const index of indexes) {

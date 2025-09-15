@@ -122,6 +122,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useGlobalMessageTemplateStore } from '@/stores/globalMessageTemplateStore';
+import { markdownToSafeHtml } from '@/utils/sanitize';
 
 interface Props {
 	template?: {
@@ -179,13 +180,8 @@ const previewMessage = computed(() => {
 		message = message.replace(new RegExp(key, 'g'), value);
 	});
 
-	// Convert basic markdown to HTML for preview
-	message = message
-		.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-		.replace(/\*(.*?)\*/g, '<em>$1</em>')
-		.replace(/\n/g, '<br>');
-
-	return message;
+	// Convert basic markdown to HTML for preview with sanitization
+	return markdownToSafeHtml(message);
 });
 
 // Initialize form data

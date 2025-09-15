@@ -207,18 +207,19 @@ create a plan to create an InvitationController with inviteUser
 async acceptInvitation(
 en the frontend Views
 
+Crear sistema para registrar los pagos realizados
+
+analisis de seguridad de todo el sitio
+
 TODO
 
 since it is not in production modify apps/api/src/migrations/sqlite/20250910163337_CreateSchema.ts for schema.
-
-Crear sistema para los agregar los pagos realizados
 
 agregar una forma de administrar las tablas de la base de datos con solo permisos para el superadmin.
 
 alimentos y medicinas agregar columna mesa para ordenar y lider
 
 cookie jwt para acceso
-analisis de seguridad de todo el sitio
 
 para las palancas agregar datos de si son becados y pagos y notas de pagos
 importar pagos

@@ -5,6 +5,7 @@ import App from './App.vue';
 import router from './router';
 import i18n from './i18n';
 import { useAuthStore } from './stores/authStore';
+import { initializeCsrfProtection } from './utils/csrf';
 
 import './assets/main.css';
 
@@ -16,6 +17,9 @@ app.use(router);
 app.use(i18n);
 
 const authStore = useAuthStore();
+
+// Inicializar protección CSRF
+initializeCsrfProtection();
 
 authStore.checkAuthStatus().then(() => {
 	app.mount('#app');

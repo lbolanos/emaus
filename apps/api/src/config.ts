@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import crypto from 'crypto';
 
 export const config = {
 	google: {
@@ -7,7 +8,7 @@ export const config = {
 		callbackUrl: process.env.GOOGLE_CALLBACK_URL || '/api/auth/google/callback',
 	},
 	session: {
-		secret: process.env.SESSION_SECRET || 'supersecretkey',
+		secret: process.env.SESSION_SECRET || crypto.randomBytes(64).toString('hex'),
 	},
 	frontend: {
 		url: process.env.FRONTEND_URL || 'http://localhost:5173',

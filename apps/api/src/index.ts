@@ -1,8 +1,10 @@
 import 'reflect-metadata';
+import './types/session';
 import express from 'express';
 import 'express-async-errors';
 import cors from 'cors';
 import session from 'express-session';
+import helmet from 'helmet';
 import { AppDataSource } from './data-source';
 export { AppDataSource } from './data-source';
 import mainRouter from './routes';
@@ -14,6 +16,7 @@ import { MigrationVerifier } from './database/migration-verifier';
 import { roleCleanupService } from './services/roleCleanupService';
 import { PerformanceMiddleware } from './middleware/performanceMiddleware';
 import { performanceOptimizationService } from './services/performanceOptimizationService';
+import { csrfMiddleware } from './middleware/csrfAlternative';
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -24,6 +27,23 @@ app.use(
 		credentials: true,
 	}),
 );
+// Headers de seguridad con Helmet
+app.use(
+	helmet({
+		contentSecurityPolicy: {
+			directives: {
+				defaultSrc: ["'self'"],
+				styleSrc: ["'self'", "'unsafe-inline'"],
+				scriptSrc: ["'self'"],
+				imgSrc: ["'self'", 'data:', 'https:'],
+				fontSrc: ["'self'", 'https:'],
+				connectSrc: ["'self'", 'https://*.googleapis.com', 'https://*.gstatic.com'],
+			},
+		},
+		crossOriginEmbedderPolicy: false,
+	}),
+);
+
 app.use(express.json());
 
 app.use(
@@ -34,6 +54,7 @@ app.use(
 		cookie: {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === 'production',
+			sameSite: 'strict',
 			maxAge: 24 * 60 * 60 * 1000, // 24 hours
 		},
 	}),
@@ -50,7 +71,15 @@ app.use((req, res, next) => PerformanceMiddleware.invalidateCacheOnChanges(req a
 app.use((req, res, next) => PerformanceMiddleware.monitorMemory(req as any, res, next));
 app.use((req, res, next) => PerformanceMiddleware.optimizeDatabaseQueries(req as any, res, next));
 
-app.use('/api', mainRouter);
+// Generar token CSRF para todas las peticiones
+app.use(csrfMiddleware.generateToken);
+
+// Ruta para obtener token CSRF
+app.get('/api/csrf-token', (req, res) => {
+	res.json({ csrfToken: req.session.csrfToken });
+});
+
+app.use(mainRouter);
 app.use('/api/tables', tableMesaRoutes);
 
 app.use(errorHandler);

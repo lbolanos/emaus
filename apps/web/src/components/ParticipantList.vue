@@ -6,7 +6,7 @@ import { useParticipantStore } from '@/stores/participantStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import MessageDialog from './MessageDialog.vue';
 import { useI18n } from 'vue-i18n';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 // Importa los componentes de UI necesarios
 import { Button } from '@repo/ui';
@@ -383,11 +383,36 @@ const handleFileUpload = async (event: Event) => {
     const reader = new FileReader();
     reader.onload = async (e) => {
         try {
-            const data = new Uint8Array(e.target?.result as ArrayBuffer);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            const json = XLSX.utils.sheet_to_json(worksheet);
+            const data = e.target?.result as ArrayBuffer;
+            const buffer = Buffer.from(data);
+            const workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.load(buffer as any);
+            const worksheet = workbook.getWorksheet(1);
+
+            if (!worksheet) {
+                throw new Error('No se encontró ninguna hoja de cálculo');
+            }
+
+            const json: any[] = [];
+            const headers: string[] = [];
+
+            // Leer encabezados
+            worksheet.getRow(1).eachCell((cell, colNumber) => {
+                headers[colNumber - 1] = cell.text;
+            });
+
+            // Leer datos
+            for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber++) {
+                const row = worksheet.getRow(rowNumber);
+                const rowData: any = {};
+
+                headers.forEach((header, index) => {
+                    const cell = row.getCell(index + 1);
+                    rowData[header] = cell.value;
+                });
+
+                json.push(rowData);
+            }
 
             if (json.length > 0 && !('email' in (json[0] as any))) {
                  toast({ title: $t('participants.import.errorTitle'), description: $t('participants.import.errorNoEmail'), variant: 'destructive' });
@@ -405,7 +430,7 @@ const handleFileUpload = async (event: Event) => {
     reader.readAsArrayBuffer(file);
 };
 
-const exportData = (format: 'csv' | 'xlsx') => {
+const exportData = async (format: 'csv' | 'xlsx') => {
     const dataToExport = filteredAndSortedParticipants.value.map(p => {
         const record: { [key: string]: any } = {};
         visibleColumns.value.forEach(colKey => {
@@ -417,11 +442,55 @@ const exportData = (format: 'csv' | 'xlsx') => {
         return record;
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Participants');
-    const filename = `participants_${props.type}_${new Date().toISOString().slice(0, 10)}.${format}`;
-    XLSX.writeFile(workbook, filename);
+    if (format === 'xlsx') {
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Participants');
+
+        // Agregar encabezados
+        if (dataToExport.length > 0) {
+            const headers = Object.keys(dataToExport[0]);
+            worksheet.addRow(headers);
+
+            // Agregar datos
+            dataToExport.forEach(row => {
+                worksheet.addRow(Object.values(row));
+            });
+        }
+
+        // Configurar estilo para encabezados
+        const headerRow = worksheet.getRow(1);
+        headerRow.font = { bold: true };
+        headerRow.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFE0E0E0' }
+        };
+
+        // Generar archivo
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `participants_${props.type}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+    } else if (format === 'csv') {
+        // Implementar exportación CSV si es necesario
+        const headers = dataToExport.length > 0 ? Object.keys(dataToExport[0]) : [];
+        const csvContent = [
+            headers.join(','),
+            ...dataToExport.map(row => headers.map(header => row[header]).join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `participants_${props.type}_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+    }
 };
 
 const closeColumnDialog = () => {

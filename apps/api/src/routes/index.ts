@@ -19,10 +19,17 @@ import permissionInheritanceRoutes from './permissionInheritanceRoutes';
 import userManagementRoutes from './userManagementRoutes';
 import invitationRoutes from './invitationRoutes';
 import paymentRoutes from './paymentRoutes';
+import { applyCsrfProtectionExcept } from '../middleware/routeCsrf';
 
 const router = Router();
 
+// Rutas de autenticación (sin CSRF para permitir login/logout)
 router.use('/auth', authRoutes);
+
+// Aplicar CSRF a todas las demás rutas
+applyCsrfProtectionExcept(router, ['/auth', '/csrf-token']);
+
+// Resto de las rutas (con protección CSRF)
 router.use('/participants', participantRoutes);
 router.use('/houses', houseRoutes);
 router.use('/retreats', retreatRoutes);

@@ -1,4 +1,5 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 
 export class CreateSchema20250910163337 implements MigrationInterface {
 	name = 'CreateSchema';
@@ -71,7 +72,11 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 				"paymentMethods" TEXT,
 				"max_walkers" INTEGER,
 				"max_servers" INTEGER,
-				FOREIGN KEY ("houseId") REFERENCES "house" ("id") ON DELETE RESTRICT
+				"createdBy" VARCHAR(36),
+				"isPublic" BOOLEAN DEFAULT 0,
+				"roleInvitationEnabled" BOOLEAN DEFAULT 0,
+				FOREIGN KEY ("houseId") REFERENCES "house" ("id") ON DELETE RESTRICT,
+				FOREIGN KEY ("createdBy") REFERENCES "users" ("id") ON DELETE SET NULL
 			)
 		`);
 
@@ -360,16 +365,6 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 				UNIQUE("userId", "retreatId", "roleId")
 			);
 		`);
-
-		// Add retreat management columns
-		await queryRunner.query(`ALTER TABLE "retreat" ADD COLUMN "createdBy" VARCHAR(36)`);
-		await queryRunner.query(`ALTER TABLE "retreat" ADD COLUMN "isPublic" BOOLEAN DEFAULT 0`);
-		await queryRunner.query(
-			`ALTER TABLE "retreat" ADD COLUMN "roleInvitationEnabled" BOOLEAN DEFAULT 0`,
-		);
-		await queryRunner.query(
-			`ALTER TABLE "retreat" ADD FOREIGN KEY("createdBy") REFERENCES "users"("id") ON DELETE SET NULL`,
-		);
 
 		// Create audit_logs table
 		await queryRunner.query(`
@@ -878,7 +873,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 		// Insert default global message templates
 		await queryRunner.query(`
 			INSERT INTO "global_message_templates" ("id", "name", "type", "message", "isActive", "createdAt", "updatedAt") VALUES
-			(uuid(), 'Bienvenida Caminante', 'WALKER_WELCOME', '¡Hola, **{participant.nickname}**!
+			('${uuidv4()}', 'Bienvenida Caminante', 'WALKER_WELCOME', '¡Hola, **{participant.nickname}**!
 
 Con mucho gusto confirmamos tu lugar para la experiencia de fin de semana. Todo el equipo organizador está preparando los detalles para recibirte.
 
@@ -888,7 +883,7 @@ Con mucho gusto confirmamos tu lugar para la experiencia de fin de semana. Todo 
 
 Te pedimos ser puntual para facilitar el registro de todos. ¡Estamos muy contentos de que participes! Nos vemos pronto.', 1, datetime('now'), datetime('now')),
 
-			(uuid(), 'Bienvenida Servidor', 'SERVER_WELCOME', '¡Hermano/a **{participant.nickname}**! ✝️
+			('${uuidv4()}', 'Bienvenida Servidor', 'SERVER_WELCOME', '¡Hermano/a **{participant.nickname}**! ✝️
 
 ¡Gracias por tu "sí" generoso al Señor! Es una verdadera bendición contar contigo en el equipo para preparar el camino a nuestros hermanos caminantes. Tu servicio y tu oración son el corazón de este retiro.
 
@@ -900,7 +895,7 @@ Que el Señor te ilumine y fortalezca en esta hermosa misión que te encomienda.
 
 ¡Cristo ha resucitado!', 1, datetime('now'), datetime('now')),
 
-			(uuid(), 'Validación Contacto de Emergencia', 'EMERGENCY_CONTACT_VALIDATION', 'Hola **{participant.nickname}**, esperamos que estés muy bien.
+			('${uuidv4()}', 'Validación Contacto de Emergencia', 'EMERGENCY_CONTACT_VALIDATION', 'Hola **{participant.nickname}**, esperamos que estés muy bien.
 
 Estamos preparando todos los detalles para que tu fin de semana sea seguro. Para ello, necesitamos validar un dato importante.
 
@@ -912,7 +907,7 @@ Por favor, ayúdanos respondiendo a este mensaje con la palabra **CONFIRMADO** s
 
 ¡Muchas gracias por tu ayuda!', 1, datetime('now'), datetime('now')),
 
-			(uuid(), 'Solicitud de Palanca', 'PALANCA_REQUEST', '¡Hola, hermano/a **{participant.nickname}**! ✨
+			('${uuidv4()}', 'Solicitud de Palanca', 'PALANCA_REQUEST', '¡Hola, hermano/a **{participant.nickname}**! ✨
 
 Te invitamos a ser parte del motor espiritual de este retiro. Tu **palanca** es mucho más que una carta: es una oración hecha palabra, un tesoro de amor y ánimo para un caminante que la recibirá como un regalo del cielo en el momento justo.
 
@@ -922,7 +917,7 @@ El Señor quiere usar tus manos para escribir un mensaje que toque un corazón.
 
 Que el Espíritu Santo inspire cada una de tus palabras. ¡Contamos contigo y con tu oración!', 1, datetime('now'), datetime('now')),
 
-			(uuid(), 'Recordatorio de Palanca', 'PALANCA_REMINDER', '¡Paz y Bien, **{participant.nickname}**! 🙏
+			('${uuidv4()}', 'Recordatorio de Palanca', 'PALANCA_REMINDER', '¡Paz y Bien, **{participant.nickname}**! 🙏
 
 Este es un recordatorio amistoso y lleno de cariño. Un caminante está esperando esas palabras de aliento que el Señor ha puesto en tu corazón; esa oración que solo tú puedes escribirle. ¡No dejes pasar la oportunidad de ser luz en su camino!
 
@@ -930,7 +925,7 @@ Este es un recordatorio amistoso y lleno de cariño. Un caminante está esperand
 
 Gracias por tu generosidad y por sostener este retiro con tu oración.', 1, datetime('now'), datetime('now')),
 
-			(uuid(), 'Mensaje General', 'GENERAL', 'Hola **{participant.nickname}**, te escribimos de parte del equipo del Retiro de Emaús.
+			('${uuidv4()}', 'Mensaje General', 'GENERAL', 'Hola **{participant.nickname}**, te escribimos de parte del equipo del Retiro de Emaús.
 
 {custom_message}
 
@@ -938,7 +933,7 @@ Que tengas un día muy bendecido. Te tenemos presente en nuestras oraciones.
 
 Un abrazo en Cristo Resucitado.', 1, datetime('now'), datetime('now')),
 
-			(uuid(), 'Recordatorio Pre-Retiro', 'PRE_RETREAT_REMINDER', '¡Hola, **{participant.nickname}**!
+			('${uuidv4()}', 'Recordatorio Pre-Retiro', 'PRE_RETREAT_REMINDER', '¡Hola, **{participant.nickname}**!
 
 ¡Ya falta muy poco para el inicio de la experiencia! Estamos preparando los últimos detalles para recibirte.
 
@@ -954,7 +949,7 @@ Ven con la mente abierta y sin expectativas, ¡prepárate para un fin de semana 
 
 Un saludo.', 1, datetime('now'), datetime('now')),
 
-			(uuid(), 'Recordatorio de Pago', 'PAYMENT_REMINDER', 'Hola **{participant.nickname}**, ¿cómo estás?
+			('${uuidv4()}', 'Recordatorio de Pago', 'PAYMENT_REMINDER', 'Hola **{participant.nickname}**, ¿cómo estás?
 
 Te escribimos del equipo de organización. Para poder cerrar los detalles administrativos, te recordamos que está pendiente tu aporte de **{retreat.cost}**.
 
@@ -965,7 +960,7 @@ Si ya lo realizaste, por favor ignora este mensaje. Si tienes alguna dificultad,
 
 Saludos.', 1, datetime('now'), datetime('now')),
 
-			(uuid(), 'Mensaje Post-Retiro (Cuarto Día)', 'POST_RETREAT_MESSAGE', '¡Bienvenido a tu Cuarto Día, **{participant.nickname}**! 🎉
+			('${uuidv4()}', 'Mensaje Post-Retiro (Cuarto Día)', 'POST_RETREAT_MESSAGE', '¡Bienvenido a tu Cuarto Día, **{participant.nickname}**! 🎉
 
 ¡Cristo ha resucitado! ¡En verdad ha resucitado!
 
@@ -975,7 +970,7 @@ Te esperamos en nuestras reuniones de perseverancia para seguir creciendo juntos
 
 ¡Ánimo, peregrino! Un fuerte abrazo.', 1, datetime('now'), datetime('now')),
 
-			(uuid(), 'Confirmación de Cancelación', 'CANCELLATION_CONFIRMATION', 'Hola, **{participant.nickname}**.
+			('${uuidv4()}', 'Confirmación de Cancelación', 'CANCELLATION_CONFIRMATION', 'Hola, **{participant.nickname}**.
 
 Hemos recibido tu notificación de cancelación. Lamentamos que no puedas acompañarnos en esta ocasión y esperamos que te encuentres bien.
 
@@ -983,7 +978,7 @@ Las puertas siempre estarán abiertas para cuando sea el momento adecuado para t
 
 Un saludo cordial.', 1, datetime('now'), datetime('now')),
 
-			(uuid(), 'Invitación de Usuario', 'USER_INVITATION', '<h2>Bienvenido/a al Retiro de Emaús</h2>
+			('${uuidv4()}', 'Invitación de Usuario', 'USER_INVITATION', '<h2>Bienvenido/a al Retiro de Emaús</h2>
 
 <p>Hola <strong>{user.name}</strong>,</p>
 
@@ -1003,7 +998,7 @@ Un saludo cordial.', 1, datetime('now'), datetime('now')),
 
 <p>Atentamente,<br>Equipo de Emaús</p>', 1, datetime('now'), datetime('now')),
 
-			(uuid(), 'Restablecimiento de Contraseña', 'PASSWORD_RESET', '<h2>Restablecimiento de Contraseña</h2>
+			('${uuidv4()}', 'Restablecimiento de Contraseña', 'PASSWORD_RESET', '<h2>Restablecimiento de Contraseña</h2>
 
 <p>Hola <strong>{user.name}</strong>,</p>
 
@@ -1019,7 +1014,7 @@ Un saludo cordial.', 1, datetime('now'), datetime('now')),
 
 <p>Atentamente,<br>Equipo de Emaús</p>', 1, datetime('now'), datetime('now')),
 
-			(uuid(), 'Notificación de Retiro Compartido', 'RETREAT_SHARED_NOTIFICATION', '<h2>Retiro Compartido Contigo</h2>
+			('${uuidv4()}', 'Notificación de Retiro Compartido', 'RETREAT_SHARED_NOTIFICATION', '<h2>Retiro Compartido Contigo</h2>
 
 <p>Hola <strong>{user.name}</strong>,</p>
 
@@ -1039,7 +1034,7 @@ Un saludo cordial.', 1, datetime('now'), datetime('now')),
 
 <p>Atentamente,<br>Equipo de Emaús</p>', 1, datetime('now'), datetime('now')),
 
-			(uuid(), 'Mensaje de Cumpleaños', 'BIRTHDAY_MESSAGE', '¡Feliz cumpleaños, **{participant.nickname}**! 🎂🎉
+			('${uuidv4()}', 'Mensaje de Cumpleaños', 'BIRTHDAY_MESSAGE', '¡Feliz cumpleaños, **{participant.nickname}**! 🎂🎉
 
 Que este día tan especial esté lleno de alegría, bendiciones y momentos inolvidables junto a tus seres queridos.
 
