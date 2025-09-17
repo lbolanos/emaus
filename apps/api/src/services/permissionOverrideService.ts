@@ -181,7 +181,7 @@ export class PermissionOverrideService {
 		const result = await AppDataSource.query(
 			`SELECT
 				ur.user_id,
-				u.display_name as user_name,
+				u.displayName as user_name,
 				u.email as user_email,
 				ur.permissions_override,
 				ur.updated_at as set_at

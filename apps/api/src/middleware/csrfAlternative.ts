@@ -42,7 +42,6 @@ export function csrfValidationMiddleware(req: Request, res: Response, next: Next
 	// Obtener token de la sesión
 	const sessionToken = req.session.csrfToken;
 	if (!sessionToken) {
-		console.log('DEBUG: No CSRF token in session');
 		return res.status(403).json({
 			message: 'Token CSRF no encontrado en la sesión',
 			error: 'CSRF_TOKEN_MISSING',
@@ -56,7 +55,6 @@ export function csrfValidationMiddleware(req: Request, res: Response, next: Next
 		(req.query._csrf as string);
 
 	if (!requestToken) {
-		console.log('DEBUG: No CSRF token in request');
 		return res.status(403).json({
 			message: 'Token CSRF requerido',
 			error: 'CSRF_TOKEN_REQUIRED',
@@ -65,16 +63,13 @@ export function csrfValidationMiddleware(req: Request, res: Response, next: Next
 
 	// Validar token
 	if (requestToken !== sessionToken) {
-		console.log('DEBUG: CSRF token mismatch');
 		return res.status(403).json({
 			message: 'Token CSRF inválido',
 			error: 'CSRF_TOKEN_INVALID',
 		});
 	}
-
-	console.log('DEBUG: CSRF validation successful');
-	// Regenerar token después de uso válido (opcional)
-	req.session.csrfToken = generateCsrfToken();
+	// No regenerar el token después de uso válido para mantener consistencia
+	// req.session.csrfToken = generateCsrfToken();
 
 	next();
 }

@@ -49,11 +49,15 @@ const assignBedToParticipant = async (
 		? entityManager.getRepository(RetreatBed)
 		: AppDataSource.getRepository(RetreatBed);
 
+	// Determine bed usage based on participant type
+	const bedUsage = participant.type === 'walker' ? 'caminante' : 'servidor';
+
 	// Find available beds using a query that respects the current transaction state
 	const availableBedsQuery = retreatBedRepository
 		.createQueryBuilder('bed')
 		.where('bed.retreatId = :retreatId', { retreatId: participant.retreatId })
 		.andWhere('bed.participantId IS NULL')
+		.andWhere('bed.defaultUsage = :bedUsage', { bedUsage })
 		.andWhere('bed.id NOT IN (:...excludedBedIds)', {
 			excludedBedIds: excludedBedIds.length > 0 ? excludedBedIds : [''],
 		});

@@ -61,12 +61,13 @@ export const createRetreat = async (
 		const newRetreat = await createRetreatService(retreatData);
 
 		// Automatically assign admin role to the creator for this retreat
-		try {
-			await retreatRoleService.inviteUserToRetreat(newRetreat.id, req.user!.email, 'admin', userId);
-		} catch (roleError) {
-			console.error('Error assigning admin role to retreat creator:', roleError);
-			// Don't fail the retreat creation if role assignment fails
-		}
+		// Note: Temporarily disabled to isolate 500 error
+		// try {
+		// 	await retreatRoleService.inviteUserToRetreat(newRetreat.id, req.user!.email, 'admin', userId);
+		// } catch (roleError) {
+		// 	console.error('Error assigning admin role to retreat creator:', roleError);
+		// 	// Don't fail the retreat creation if role assignment fails
+		// }
 
 		res.status(201).json(newRetreat);
 	} catch (error) {

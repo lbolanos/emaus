@@ -384,9 +384,8 @@ const handleFileUpload = async (event: Event) => {
     reader.onload = async (e) => {
         try {
             const data = e.target?.result as ArrayBuffer;
-            const buffer = Buffer.from(data);
             const workbook = new ExcelJS.Workbook();
-            await workbook.xlsx.load(buffer as any);
+            await workbook.xlsx.load(data);
             const worksheet = workbook.getWorksheet(1);
 
             if (!worksheet) {

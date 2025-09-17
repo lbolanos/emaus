@@ -103,7 +103,7 @@ export class RoleRequestService {
 
 	public async getRetreatRoleRequests(retreatId: string): Promise<RoleRequest[]> {
 		const result = await AppDataSource.query(
-			`SELECT rr.*, u.display_name as user_name, u.email as user_email, 
+			`SELECT rr.*, u.displayName as user_name, u.email as user_email,
 			        r.parish as retreat_name
 			 FROM role_requests rr
 			 LEFT JOIN users u ON rr.user_id = u.id
@@ -224,7 +224,7 @@ export class RoleRequestService {
 
 	private async getRoleRequestById(requestId: string): Promise<RoleRequest> {
 		const result = await AppDataSource.query(
-			`SELECT rr.*, u.display_name as user_name, u.email as user_email, 
+			`SELECT rr.*, u.displayName as user_name, u.email as user_email,
 			        r.parish as retreat_name
 			 FROM role_requests rr
 			 LEFT JOIN users u ON rr.user_id = u.id

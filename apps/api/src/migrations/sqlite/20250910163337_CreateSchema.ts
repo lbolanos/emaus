@@ -208,7 +208,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			CREATE TABLE IF NOT EXISTS "message_templates" (
 				"id" VARCHAR(36) PRIMARY KEY NOT NULL,
 				"name" VARCHAR(255) NOT NULL,
-				"type" VARCHAR(255) NOT NULL CHECK ("type" IN ('WALKER_WELCOME', 'SERVER_WELCOME', 'EMERGENCY_CONTACT_VALIDATION', 'PALANCA_REQUEST', 'PALANCA_REMINDER', 'GENERAL', 'PRE_RETREAT_REMINDER', 'PAYMENT_REMINDER', 'POST_RETREAT_MESSAGE', 'CANCELLATION_CONFIRMATION', 'USER_INVITATION', 'PASSWORD_RESET', 'RETREAT_SHARED_NOTIFICATION')),
+				"type" VARCHAR(255) NOT NULL CHECK ("type" IN ('WALKER_WELCOME', 'SERVER_WELCOME', 'EMERGENCY_CONTACT_VALIDATION', 'PALANCA_REQUEST', 'PALANCA_REMINDER', 'GENERAL', 'PRE_RETREAT_REMINDER', 'PAYMENT_REMINDER', 'POST_RETREAT_MESSAGE', 'CANCELLATION_CONFIRMATION', 'USER_INVITATION', 'PASSWORD_RESET', 'RETREAT_SHARED_NOTIFICATION', 'BIRTHDAY_MESSAGE')),
 				"message" TEXT NOT NULL,
 				"retreatId" VARCHAR(36) NOT NULL,
 				"createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1043,6 +1043,235 @@ Que Dios te conceda muchos años más de vida, salud y felicidad. Que cada nuevo
 La comunidad de Emaús te envía nuestros mejores deseos en tu cumpleaños. ¡Que tengas un día maravilloso!
 
 Un abrazo fuerte y ¡feliz cumpleaños!', 1, datetime('now'), datetime('now'));
+		`);
+
+		// Seed inventory data
+		await this.seedInventoryData(queryRunner);
+	}
+
+	private async seedInventoryData(queryRunner: QueryRunner): Promise<void> {
+		// Insert inventory categories
+		await queryRunner.query(`
+			INSERT INTO "inventory_category" ("id", "name", "description", "isActive", "createdAt", "updatedAt") VALUES
+			('cat-1', 'Snacks', 'Alimentos y botanas para los caminantes', 1, datetime('now'), datetime('now')),
+			('cat-2', 'Botiquín', 'Suministros médicos y de primeros auxilios', 1, datetime('now'), datetime('now')),
+			('cat-3', 'Aseo Personal', 'Artículos de higiene personal', 1, datetime('now'), datetime('now')),
+			('cat-4', 'Papelería', 'Material de oficina y escritura', 1, datetime('now'), datetime('now')),
+			('cat-5', 'Material Requerido', 'Material general requerido para el retiro', 1, datetime('now'), datetime('now')),
+			('cat-6', 'Botiquín 1Eros Aux', 'Botiquín de primeros auxilios', 1, datetime('now'), datetime('now')),
+			('cat-7', 'Oración', 'Material para oración y actividades espirituales', 1, datetime('now'), datetime('now')),
+			('cat-8', 'Santísimo', 'Material para el Santísimo', 1, datetime('now'), datetime('now')),
+			('cat-9', 'Quema De Pecados', 'Material para la quema de pecados', 1, datetime('now'), datetime('now')),
+			('cat-10', 'Lavado De Manos', 'Material para lavado de manos', 1, datetime('now'), datetime('now')),
+			('cat-11', 'Bolsas Salida', 'Material para bolsas de salida', 1, datetime('now'), datetime('now'))
+		`);
+
+		// Insert inventory teams
+		await queryRunner.query(`
+			INSERT INTO "inventory_team" ("id", "name", "description", "isActive", "createdAt", "updatedAt") VALUES
+			('team-1', 'Recepción', 'Equipo de recepción y registro', 1, datetime('now'), datetime('now')),
+			('team-2', 'Caminantes', 'Atención a los caminantes', 1, datetime('now'), datetime('now')),
+			('team-3', 'Palanquitas', 'Equipo de palanquitas', 1, datetime('now'), datetime('now')),
+			('team-4', 'Botiquín 1Eros Aux', 'Equipo de botiquín y primeros auxilios', 1, datetime('now'), datetime('now')),
+			('team-5', 'Música', 'Equipo de música y alabanza', 1, datetime('now'), datetime('now')),
+			('team-6', 'Comedor', 'Equipo de comedor y alimentación', 1, datetime('now'), datetime('now')),
+			('team-7', 'Salón', 'Equipo del salón', 1, datetime('now'), datetime('now')),
+			('team-8', 'Oración', 'Equipo de oración', 1, datetime('now'), datetime('now')),
+			('team-9', 'Santísimo', 'Equipo del Santísimo', 1, datetime('now'), datetime('now')),
+			('team-10', 'Campana', 'Equipo de la campana', 1, datetime('now'), datetime('now')),
+			('team-11', 'Cuartos', 'Equipo de asignación de cuartos', 1, datetime('now'), datetime('now')),
+			('team-12', 'Papelería', 'Equipo de papelería y materiales', 1, datetime('now'), datetime('now')),
+			('team-13', 'Palancas', 'Equipo de palancas y cartas', 1, datetime('now'), datetime('now')),
+			('team-14', 'Quema De Pecados', 'Equipo de la quema de pecados', 1, datetime('now'), datetime('now')),
+			('team-15', 'Pared', 'Equipo de la pared', 1, datetime('now'), datetime('now')),
+			('team-16', 'Lavado De Manos', 'Equipo de lavado de manos', 1, datetime('now'), datetime('now')),
+			('team-17', 'Bolsas Salida', 'Equipo de bolsas de salida', 1, datetime('now'), datetime('now')),
+			('team-18', 'Pared', 'Equipo de la pared', 1, datetime('now'), datetime('now'))
+		`);
+
+		// Insert inventory items
+		await queryRunner.query(`
+			INSERT INTO "inventory_item" ("id", "name", "description", "categoryId", "teamId", "ratio", "requiredQuantity", "unit", "isCalculated", "calculationType", "tshirtSize", "isActive", "createdAt", "updatedAt") VALUES
+			-- Recepción items
+			('item-1', 'Cajas de Plástico para Celulares', 'Cajas plásticas para guardar celulares durante el retiro', 'cat-5', 'team-1', 0.03, NULL, 'cajas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-2', 'Bolsas Zip Lock Sándwich', 'Bolsas herméticas para organizar materiales pequeños', 'cat-5', 'team-1', 0.04, NULL, 'bolsas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-3', 'Marcadores y Plumas', 'Marcadores y plumas para registro y actividades', 'cat-5', 'team-1', 0.08, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-4', 'Gafetes Porta gafetes Plástico', 'Portagafetes de plástico para identificación de participantes', 'cat-5', 'team-1', 1.0, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+
+			-- Caminantes items
+			('item-5', 'Biblias', 'Biblias para uso de los caminantes durante el retiro', 'cat-5', 'team-2', 1.0, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-6', 'Cuadernitos', 'Cuadernos para notas y reflexiones de los caminantes', 'cat-5', 'team-2', 1.0, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-7', 'Pluma', 'Plumas para escritura de los caminantes', 'cat-5', 'team-2', 1.0, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-8', 'Rosarios', 'Rosarios para oración de los caminantes', 'cat-5', 'team-2', 1.0, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+
+			-- Palanquitas
+			('item-9', 'Juego Palanquitas X Caminante', 'Juego completo de palanquitas para cada caminante', 'cat-5', 'team-3', 1.0, NULL, 'juegos', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+
+			-- Fixed quantity items
+			('item-10', 'Laptop para Charlas', 'Laptop para presentaciones y charlas durante el retiro', 'cat-5', 'team-5', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-11', 'Bocina para Santísimo', 'Bocina portátil para música durante el Santísimo', 'cat-5', 'team-9', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-12', 'Caja de Música', 'Caja de música para ambientación y momentos especiales', 'cat-5', 'team-5', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+
+			-- Música equipment
+			('item-13', 'Bocina y Micrófono para Salón', 'Sistema de sonido con micrófono para el salón principal', 'cat-5', 'team-5', 0.01, 2, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-14', 'Bocina y Micrófono para Comedor', 'Sistema de sonido para el área del comedor', 'cat-5', 'team-5', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-15', 'Micrófono Adicional', 'Micrófono inalámbrico adicional para presentaciones', 'cat-5', 'team-5', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-16', 'Masking Tape Grueso (Cables Piso)', 'Cinta adhesiva gruesa para fijar cables al suelo', 'cat-5', 'team-5', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+
+			-- Comedor
+			('item-17', 'Cumpleaños: Pastel', 'Pasteles para celebración de cumpleaños durante el retiro', 'cat-5', 'team-6', 0.01, 2, 'pasteles', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-18', 'Cumpleaños: Velitas', 'Velitas para pastel de cumpleaños', 'cat-5', 'team-6', 0.01, 2, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-19', 'Letreros Mesas con Número', 'Letreros numerados para identificación de mesas', 'cat-5', 'team-6', 0.17, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+
+			-- Salón
+			('item-20', 'Kleenex', 'Cajas de pañuelos desechables para el salón', 'cat-5', 'team-7', 0.14, NULL, 'cajas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-21', 'Banners: Invocación Al Espíritu Santo', 'Banner con la oración de invocación al Espíritu Santo', 'cat-5', 'team-7', 0.06, 4, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-22', 'Banners: Confidencialidad', 'Banner sobre la importancia de la confidencialidad', 'cat-5', 'team-7', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-23', 'Banners: Jesucristo Ha Resucitado', 'Banner con la imagen de Jesucristo resucitado', 'cat-5', 'team-7', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-24', 'Banners: Divina Misericordia', 'Banner con la imagen de la Divina Misericordia', 'cat-5', 'team-7', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-25', 'Banners: Rembrandt Hijo Pródigo', 'Banner con la pintura del Hijo Pródigo de Rembrandt', 'cat-5', 'team-7', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-26', 'Banner / Cuadro Virgen de Guadalupe', 'Banner o cuadro de la Virgen de Guadalupe', 'cat-5', 'team-7', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-27', 'Prit Tack para Letreros Cuartos', 'Adhesivo reutilizable para fijar letreros en las puertas', 'cat-5', 'team-7', 0.03, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+
+			-- Santísimo items
+			('item-28', 'Cirios No Mayor de 15 cms', 'Cirios pequeños para la ceremonia del Santísimo', 'cat-8', 'team-9', 0.06, 4, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-29', 'Platos para Cirios', 'Platos pequeños para colocar debajo de los cirios', 'cat-8', 'team-9', 0.06, 4, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-30', 'Corporal Grande', 'Corporal grande para la ceremonia del Santísimo', 'cat-8', 'team-9', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-31', 'Lámpara', 'Lámpara para iluminación durante el Santísimo', 'cat-8', 'team-9', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-32', 'Pilas AAA', 'Pilas AAA para lámparas y dispositivos electrónicos', 'cat-8', 'team-9', 0.04, 3, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-33', 'Tijeras Pequeñas', 'Tijeras pequeñas para cortar materiales durante la ceremonia', 'cat-8', 'team-9', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-34', 'Encendedores', 'Encendedores para prender cirios durante la ceremonia', 'cat-8', 'team-9', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-35', 'Folder Oraciones Santísimo', 'Folder con oraciones para la ceremonia del Santísimo', 'cat-8', 'team-9', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-36', 'Letreros Santísimo Expuesto', 'Letreros para indicar que el Santísimo está expuesto', 'cat-8', 'team-9', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-37', 'Caja para Palancas Reclusorios', 'Caja especial para guardar palancas durante reclusorios', 'cat-8', 'team-9', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+
+			-- Campana
+			('item-38', 'Campanas', 'Campanas para llamar a oración y anunciar actividades', 'cat-5', 'team-10', 0.03, 2, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+
+			-- Cuartos
+			('item-39', 'Papel de Baño', 'Rollos de papel de baño para los cuartos', 'cat-5', 'team-11', 1.0, NULL, 'rollos', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+
+			-- Sample T-shirt items (calculated)
+			('item-40', 'Camisetas Blancas Talla S', 'Camisetas blancas talla S para participantes', 'cat-5', 'team-1', 0.01, NULL, 'piezas', 1, 'tshirt', 'S', 1, datetime('now'), datetime('now')),
+			('item-41', 'Camisetas Blancas Talla M', 'Camisetas blancas talla M para participantes', 'cat-5', 'team-1', 0.01, NULL, 'piezas', 1, 'tshirt', 'M', 1, datetime('now'), datetime('now')),
+			('item-42', 'Camisetas Blancas Talla G', 'Camisetas blancas talla G para participantes', 'cat-5', 'team-1', 0.01, NULL, 'piezas', 1, 'tshirt', 'G', 1, datetime('now'), datetime('now')),
+			('item-43', 'Camisetas Blancas Talla X', 'Camisetas blancas talla X para participantes', 'cat-5', 'team-1', 0.01, NULL, 'piezas', 1, 'tshirt', 'X', 1, datetime('now'), datetime('now')),
+			('item-44', 'Camisetas Blancas Talla 2', 'Camisetas blancas talla 2 para participantes', 'cat-5', 'team-1', 0.01, NULL, 'piezas', 1, 'tshirt', '2', 1, datetime('now'), datetime('now')),
+
+			-- Blue T-shirts (calculated)
+			('item-45', 'Camisetas Azules Talla S', 'Camisetas azules talla S para servidores', 'cat-5', 'team-1', 0.01, NULL, 'piezas', 1, 'bluetshirt', 'S', 1, datetime('now'), datetime('now')),
+			('item-46', 'Camisetas Azules Talla M', 'Camisetas azules talla M para servidores', 'cat-5', 'team-1', 0.01, NULL, 'piezas', 1, 'bluetshirt', 'M', 1, datetime('now'), datetime('now')),
+			('item-47', 'Camisetas Azules Talla G', 'Camisetas azules talla G para servidores', 'cat-5', 'team-1', 0.01, NULL, 'piezas', 1, 'bluetshirt', 'G', 1, datetime('now'), datetime('now')),
+			('item-48', 'Camisetas Azules Talla X', 'Camisetas azules talla X para servidores', 'cat-5', 'team-1', 0.01, NULL, 'piezas', 1, 'bluetshirt', 'X', 1, datetime('now'), datetime('now')),
+			('item-49', 'Camisetas Azules Talla 2', 'Camisetas azules talla 2 para servidores', 'cat-5', 'team-1', 0.01, NULL, 'piezas', 1, 'bluetshirt', '2', 1, datetime('now'), datetime('now')),
+
+			-- Jackets (calculated)
+			('item-50', 'Chamarras Talla S', 'Chamarras talla S para servidores', 'cat-5', 'team-1', 0.01, NULL, 'piezas', 1, 'jacket', 'S', 1, datetime('now'), datetime('now')),
+			('item-51', 'Chamarras Talla M', 'Chamarras talla M para servidores', 'cat-5', 'team-1', 0.01, NULL, 'piezas', 1, 'jacket', 'M', 1, datetime('now'), datetime('now')),
+			('item-52', 'Chamarras Talla G', 'Chamarras talla G para servidores', 'cat-5', 'team-1', 0.01, NULL, 'piezas', 1, 'jacket', 'G', 1, datetime('now'), datetime('now')),
+			('item-53', 'Chamarras Talla X', 'Chamarras talla X para servidores', 'cat-5', 'team-1', 0.01, NULL, 'piezas', 1, 'jacket', 'X', 1, datetime('now'), datetime('now')),
+			('item-54', 'Chamarras Talla 2', 'Chamarras talla 2 para servidores', 'cat-5', 'team-1', 0.01, NULL, 'piezas', 1, 'jacket', '2', 1, datetime('now'), datetime('now')),
+
+			-- Papelería items
+			('item-55', 'Cinta Canela Café', 'Cinta adhesiva color canela para manualidades', 'cat-4', 'team-12', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-56', 'Diurex', 'Corrector líquido para errores de escritura', 'cat-4', 'team-12', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-57', 'Engrapadoras', 'Engrapadoras para unir documentos', 'cat-4', 'team-12', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-58', 'Guillotinas', 'Guillotinas para cortar papel de forma precisa', 'cat-4', 'team-12', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-59', 'Hojas Blancas', 'Hojas de papel blanco tamaño carta para diversos usos', 'cat-4', 'team-12', 13.89, NULL, 'hojas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-60', 'Laptop e Impresora para Logística', 'Equipo de cómputo e impresión para tareas logísticas', 'cat-4', 'team-12', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-61', 'Lápices', 'Lápices para escritura y dibujo', 'cat-4', 'team-12', 1.39, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-62', 'Sobres Blancos Grandes Oficio No. 10', 'Sobres grandes tamaño oficio para documentos', 'cat-4', 'team-12', 3.47, NULL, 'sobres', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-63', 'Saca Puntas', 'Sacapuntas para afilar lápices', 'cat-4', 'team-12', 0.03, 2, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-64', 'Tarjetas de Agradecimiento Padres', 'Tarjetas de agradecimiento para los padres de los caminantes', 'cat-4', 'team-12', 0.28, 20, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-65', 'Tijeras', 'Tijeras para cortar papel y materiales', 'cat-4', 'team-12', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+
+			-- Palancas items
+			('item-66', 'Sobres para Palancas', 'Sobres especiales para las palancas de los caminantes', 'cat-5', 'team-13', 1.53, NULL, 'sobres', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-67', 'Bolsas Salida', 'Bolsas para la salida de los caminantes', 'cat-11', 'team-13', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-68', 'Kleenex: Paquetitos Individuales', 'Paquetes individuales de pañuelos desechables', 'cat-5', 'team-13', 0.69, NULL, 'paquetes', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-69', 'Impresora: Cartuchos Tinta / Toners', 'Cartuchos de tinta o tóner para la impresora', 'cat-5', 'team-13', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+
+			-- Snacks items
+			('item-70', 'Garrafones / Vitroleros Agua', 'Garrafones o vitroleros para servir agua', 'cat-1', 'team-2', 0.03, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-71', 'Vasos desechables', 'Vasos desechables para servir bebidas', 'cat-1', 'team-2', 0.69, NULL, 'pzas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-72', 'Vasos para café', 'Vasos térmicos para servir café', 'cat-1', 'team-2', 0.69, NULL, 'pzas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-73', 'Bolsa de carton (Son las bolsas de salida)', 'Bolsas de cartón para la salida de los caminantes', 'cat-1', 'team-2', 0.69, NULL, 'pzas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-74', 'Lata Café', 'Lata de café soluble para preparar bebidas', 'cat-1', 'team-2', 0.01, 1, 'latas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-75', 'Botella de valentina', 'Salsa Valentina para condimentar snacks', 'cat-1', 'team-2', 0.01, 1, 'pzas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-76', 'Botella de Chamoy o Miguelito', 'Chamoy o Miguelito para dar sabor a las frutas', 'cat-1', 'team-2', 0.01, 1, 'botellas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-77', 'Jarabes Agua Fresca', 'Jarabes para preparar aguas frescas', 'cat-1', 'team-2', 0.06, NULL, 'botellas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-78', 'Cajas de Te variados', 'Cajas con variedad de tés para servir', 'cat-1', 'team-2', 0.01, 1, 'pzas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-79', 'Azucar, Splenda, una de cada uno. (sobres)', 'Cajas de sobres de azúcar y Splenda para el café', 'cat-1', 'team-2', 0.01, 1, 'cajas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-80', 'Cofeemate (sustituto de crema)', 'Cremora o sustituto de crema para el café', 'cat-1', 'team-2', 0.01, 1, 'bote / caja', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-81', 'Cucharitas', 'Cucharitas desechables para el café y otros usos', 'cat-1', 'team-2', 1.67, NULL, 'bolsa', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-82', 'Bolsas de basura grandes', 'Caja con 10 bolsas de basura grandes', 'cat-1', 'team-2', 0.01, 1, 'caja de 10', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-83', 'Platos desechables grandes para poner snacks', 'Platos desechables grandes para servir snacks', 'cat-1', 'team-2', 0.03, NULL, 'paquete', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-84', 'Cajas de Galletas', 'Cajas de galletas surtidas para snacks', 'cat-1', 'team-2', 0.06, NULL, 'cajas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-85', 'Papas / Frituras', 'Papas frituras y otros botanas saladas', 'cat-1', 'team-2', 0.07, NULL, 'kgs', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-86', 'Cacahuates', 'Cacahuates surtidos para botana', 'cat-1', 'team-2', 0.04, NULL, 'kgs', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-87', 'Gomitas', 'Gomitas y dulces suaves', 'cat-1', 'team-2', 0.03, NULL, 'kgs', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-88', 'Mentas', 'Bolsa grande de mentas y caramelos', 'cat-1', 'team-2', 0.01, NULL, 'bolsa grande', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-89', 'Cholocates minis para palanquitas', 'Bolsas con chocolates mini para las palanquitas', 'cat-1', 'team-2', 0.04, NULL, 'bolsas 50', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-90', 'Botella agua 500ml / 600ml', 'Botellas de agua de 500ml o 600ml individuales', 'cat-1', 'team-2', 0.28, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-91', 'Refresco cola 2L', 'Refrescos de cola de 2 litros', 'cat-1', 'team-2', 0.06, NULL, '2L', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-92', 'Refresco cola light 2L', 'Refrescos de cola light de 2 litros', 'cat-1', 'team-2', 0.04, NULL, '2L', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-93', 'Refresco manzana 2L', 'Refrescos de manzana de 2 litros', 'cat-1', 'team-2', 0.04, NULL, '2L', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-94', 'Refresco sprite 2L', 'Refrescos Sprite de 2 litros', 'cat-1', 'team-2', 0.04, NULL, '2L', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-95', 'Jugo de manzana 1L', 'Jugo de manzana de 1 litro', 'cat-1', 'team-2', 0.06, NULL, '1L', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-96', 'Pavera', 'Pavera para encender fuego y velas', 'cat-1', 'team-2', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+
+			-- Botiquín items
+			('item-97', 'Next, caja 10 tabletas', 'Pastillas Next para el dolor de cabeza', 'cat-2', 'team-4', 0.14, NULL, 'cajas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-98', 'Agua oxigenada, botella 230ml', 'Agua oxigenada para desinfectar heridas', 'cat-2', 'team-4', 3.19, NULL, 'ml', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-99', 'Alcohol, botella 200 ml', 'Alcohol isopropílico para desinfección', 'cat-2', 'team-4', 2.78, NULL, 'ml', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-100', 'Eskapar cápsulas 200 mg', 'Cápsulas de Eskapar para alergias', 'cat-2', 'team-4', 0.21, NULL, 'capsulas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-101', 'Treda, 8 pastillas sueltas', 'Pastillas sueltas Treda para alivio del dolor', 'cat-2', 'team-4', 0.11, NULL, 'pastillas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-102', 'Advil, frasco 100 tabletas', 'Tabletas de Advil para dolor e inflamación', 'cat-2', 'team-4', 1.39, NULL, 'tabletas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-103', 'Tylenol frasco, 6 tabletas', 'Tabletas de Tylenol para alivio del dolor', 'cat-2', 'team-4', 0.08, NULL, 'tabletas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-104', 'Aliviax caja 4 tabletas', 'Tabletas de Aliviax para dolor muscular', 'cat-2', 'team-4', 0.06, NULL, 'tabletas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-105', 'Jeringas, caja con 3 unidades', 'Caja con 3 jeringas estériles', 'cat-2', 'team-4', 0.04, NULL, 'unidades', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-106', 'Curitas, caja 75 piezas', 'Caja con 75 curitas de diferentes tamaños', 'cat-2', 'team-4', 1.04, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-107', 'Gasas, caja con 10 piezas', 'Caja con 10 gasas estériles', 'cat-2', 'team-4', 0.14, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-108', 'Nazil gotas imitado, 15 ml', 'Gotas nasales de 15ml para congestión', 'cat-2', 'team-4', 0.21, NULL, 'ml', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-109', 'Alta Seltzer, cajas 12 tabletas', 'Tabletas de Alta Seltzer para indigestión', 'cat-2', 'team-4', 0.28, NULL, 'tabletas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-110', 'Melox, tabletas masticables', 'Tabletas masticables de Melox para dolor', 'cat-2', 'team-4', 0.42, NULL, 'tabletas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-111', 'Pepto bismol PLUS, frasco', 'Frasco de Pepto Bismol para problemas estomacales', 'cat-2', 'team-4', 0.01, 1, 'frasco', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-112', 'Clorotrimeton repetabs, tabletas', 'Tabletas de Clorotrimeton para alergias', 'cat-2', 'team-4', 0.26, NULL, 'tabletas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-113', 'Andantol, jalea 25g', 'Jalea de Andantol 25g para picaduras', 'cat-2', 'team-4', 0.35, NULL, 'gr', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-114', 'cIproxina, tabletas 500 mg', 'Tabletas de Ciproxina 500mg para infecciones', 'cat-2', 'team-4', 0.19, NULL, 'tabletas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-115', 'Firac plus tab 1 tab cada 8 hrs', 'Tabletas Firac Plus para resfriados', 'cat-2', 'team-4', 0.28, NULL, 'tabletas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-116', 'Transpore cinta de 5 cms.', 'Cinta adhesiva médica de 5cm para vendajes', 'cat-2', 'team-4', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-117', 'Gatorade frasco', 'Frasco de Gatorade para hidratación', 'cat-2', 'team-4', 0.01, 1, 'frasco', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+
+			-- Aseo Personal items
+			('item-118', 'Cepillos de dientes', 'Cepillos de dientes para los caminantes', 'cat-3', 'team-2', 0.14, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-119', 'Jabon de tocador', 'Jabón de tocador para aseo personal', 'cat-3', 'team-2', 0.14, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-120', 'Papel de baño, paquete 4 piezas', 'Paquetes de papel de baño con 4 rollos', 'cat-3', 'team-2', 0.07, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-121', 'Pasta de dientes chicas', 'Tubos pequeños de pasta de dientes', 'cat-3', 'team-2', 0.14, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-122', 'Shampoo chicos (de viaje)', 'Botellas pequeñas de shampoo para viaje', 'cat-3', 'team-2', 0.14, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-123', 'Tapones de oído', 'Tapones de oído para dormir', 'cat-3', 'team-2', 0.35, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-124', 'Rastrillos desechables', 'Rastrillos desechables para aseo personal', 'cat-3', 'team-2', 0.07, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+
+			-- Quema De Pecados items
+			('item-125', 'Encendedores Largos', 'Encendedores largos para la ceremonia de quema de pecados', 'cat-9', 'team-14', 0.03, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-126', 'Iniciador de Fuego (Doritos)', 'Doritos o snacks para iniciar el fuego en la ceremonia', 'cat-9', 'team-14', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-127', 'Pavera para Quema de Pecados', 'Pavera especial para la ceremonia de quema de pecados', 'cat-9', 'team-14', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-128', 'Porta Paveras de Alambre Rigido', 'Soporte de alambre rígido para las paveras', 'cat-9', 'team-14', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+
+			-- Pared items
+			('item-129', 'Linternas', 'Linternas para iluminación en actividades nocturnas', 'cat-5', 'team-15', 0.03, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-130', 'Láser', 'Punteros láser para presentaciones y actividades', 'cat-5', 'team-15', 0.03, 2, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-131', 'Veladoras', 'Veladoras para oración y momentos espirituales', 'cat-5', 'team-15', 0.69, 50, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+
+			-- Lavado De Manos items
+			('item-132', 'Jarra para Lavado de Manos', 'Jarra para contener agua durante el lavado de manos', 'cat-10', 'team-16', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-133', 'Recipiente de Agua (Palangana)', 'Palangana o recipiente para el lavado de manos', 'cat-10', 'team-16', 0.01, 1, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+
+			-- Bolsas Salida items
+			('item-134', 'CDs: Etiquetas', 'Etiquetas para los CDs de la salida', 'cat-11', 'team-17', 0.01, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-135', 'CDs: Grabados', 'CDs grabados con música del retiro', 'cat-11', 'team-17', 1.53, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-136', 'CDs: Sobres', 'Sobres para proteger los CDs de la salida', 'cat-11', 'team-17', 1.53, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now')),
+			('item-137', 'Playeras', 'Playeras conmemorativas del retiro', 'cat-11', 'team-17', 1.0, NULL, 'piezas', 0, NULL, NULL, 1, datetime('now'), datetime('now'))
 		`);
 	}
 

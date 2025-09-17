@@ -2,6 +2,7 @@ import axios from 'axios';
 import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@repo/ui';
 import type { TableMesa } from '@repo/types';
+import { setupCsrfInterceptor } from '@/utils/csrf';
 
 export const api = axios.create({
 	baseURL: import.meta.env.VITE_API_URL,
@@ -10,6 +11,9 @@ export const api = axios.create({
 		'Content-Type': 'application/json',
 	},
 });
+
+// Apply CSRF interceptor to this axios instance
+setupCsrfInterceptor(api);
 
 // Response interceptor for error handling
 api.interceptors.response.use(

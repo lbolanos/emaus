@@ -563,14 +563,7 @@
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-      </router-link>
-      
-
-      <!-- Settings Section -->
-      <div class="px-2 pt-4 pb-2">
-        <h3 v-if="!isSidebarCollapsed" class="text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ $t('sidebar.settings.title') }}</h3>
-        <div v-else class="border-t border-gray-700 my-2"></div>
-      </div>
+      </router-link>      
       <router-link
         v-if="can.read('participant')"
         :to="{ name: 'message-templates' }"
@@ -599,6 +592,12 @@
           </Tooltip>
         </TooltipProvider>
       </router-link>
+
+      <!-- Settings Section -->
+      <div class="px-2 pt-4 pb-2">
+        <h3 v-if="!isSidebarCollapsed" class="text-xs font-semibold text-gray-400 uppercase tracking-wider">{{ $t('sidebar.settings.title') }}</h3>
+        <div v-else class="border-t border-gray-700 my-2"></div>
+      </div>
       <router-link
         v-if="auth.userProfile?.roles?.some(role => role.role.name === 'superadmin')"
         :to="{ name: 'global-message-templates' }"
