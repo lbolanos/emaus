@@ -37,10 +37,27 @@
     "houses": "Houses",
     "bedAssignments": "Bed Assignments",
     "responsibilities": "Responsibilities",
+    "inventory": "Inventory",
+    "roleManagement": "Role Management",
+    "sections": {
+      "main": "Main",
+      "people": "People",
+      "assignments": "Assignments",
+      "financial": "Financial",
+      "reports": "Reports",
+      "services": "Services",
+      "administration": "Administration",
+      "settings": "Settings"
+    },
     "settings": {
       "title": "Settings",
-      "messageTemplates": "Message Templates"
-    }
+      "messageTemplates": "Message Templates",
+      "globalMessageTemplates": "Global Templates",
+      "inventoryItems": "Inventory Items"
+    },
+    "logout": "Logout",
+    "searchPlaceholder": "Search...",
+    "selectRetreatFirst": "Please select a retreat first"
   },
   "messageTemplates": {
     "title": "Message Templates",

@@ -34,10 +34,27 @@
     "houses": "Casas",
     "bedAssignments": "Asignación de Camas",
     "responsibilities": "Responsabilidades",
+    "inventory": "Inventario",
+    "roleManagement": "Gestión de Roles",
+    "sections": {
+      "main": "Principal",
+      "people": "Personas",
+      "assignments": "Asignaciones",
+      "financial": "Financiero",
+      "reports": "Reportes",
+      "services": "Servicios",
+      "administration": "Administración",
+      "settings": "Configuración"
+    },
     "settings": {
       "title": "Configuración",
-      "messageTemplates": "Plantillas de Mensajes"
-    }
+      "messageTemplates": "Plantillas de Mensajes",
+      "globalMessageTemplates": "Plantillas Globales",
+      "inventoryItems": "Artículos de Inventario"
+    },
+    "logout": "Cerrar Sesión",
+    "searchPlaceholder": "Buscar...",
+    "selectRetreatFirst": "Por favor selecciona un retiro primero"
   },
   "messageTemplates": {
     "title": "Plantillas de Mensajes",

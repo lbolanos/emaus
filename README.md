@@ -222,9 +222,6 @@ agregar una forma de administrar las tablas de la base de datos con solo permiso
 
 alimentos y medicinas agregar columna mesa para ordenar y lider
 
-cookie jwt para acceso
-
-
 para las palancas agregar datos de si son becados y pagos y notas de pagos
 importar pagos
 agregar mesa y lider a alimentos y medicinas impresion.
