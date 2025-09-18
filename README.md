@@ -218,6 +218,8 @@ TODO
 since it is not in production modify apps/api/src/migrations/sqlite/20250910163337_CreateSchema.ts for schema.
 
 
+Notificaciones por correo.  Caminante ingresa.  Servidor ingresa.
+
 agregar una forma de administrar las tablas de la base de datos con solo permisos para el superadmin.
 
 alimentos y medicinas agregar columna mesa para ordenar y lider
