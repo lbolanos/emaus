@@ -58,6 +58,8 @@ export const retreatSchema = z.object({
 	paymentMethods: z.string().optional(),
 	max_walkers: z.number().int().positive().optional(),
 	max_servers: z.number().int().positive().optional(),
+	isPublic: z.boolean().default(false),
+	roleInvitationEnabled: z.boolean().default(true),
 });
 export type Retreat = z.infer<typeof retreatSchema>;
 

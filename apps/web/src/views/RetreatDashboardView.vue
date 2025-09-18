@@ -1,26 +1,84 @@
 <template>
-  <div class="p-4">
-    <h1 class="text-2xl font-bold mb-4">{{ $t('retreatDashboard.title') }}</h1>
-    <div v-if="selectedRetreat">
-      <p>
-        {{ $t('retreatDashboard.selectedRetreat') }}: {{ selectedRetreat.parish }} -
-        {{ new Date(selectedRetreat.startDate).toLocaleDateString() }}
-      </p>
-      <p>
-        {{ $t('retreatDashboard.walkersCount') }}: {{ walkersCount }} /
-        {{ selectedRetreat.max_walkers || 'N/A' }}
-      </p>
-      <p>
-        {{ $t('retreatDashboard.serversCount') }}: {{ serversCount }} /
-        {{ selectedRetreat.max_servers || 'N/A' }}
-      </p>
-      <p>{{ $t('retreatDashboard.waitingCount') }}: {{ waitingCount }}</p>
+  <div class="p-4 max-w-6xl mx-auto">
+    <div v-if="isLoading" class="flex items-center justify-center p-8">
+      <Loader2 class="w-8 h-8 animate-spin mr-2" />
+      <span>Cargando...</span>
+    </div>
 
-      <div class="flex items-center gap-2 mt-4">
-        <Button @click="showRoleRequestModal = true" variant="outline">
-          Solicitar Acceso al Retiro
-        </Button>
-      </div>
+    <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+      <p class="text-red-800">{{ error }}</p>
+    </div>
+
+    <div v-else>
+      <h1 class="text-3xl font-bold mb-6 flex items-center">
+        {{ $t('retreatDashboard.title') }}
+      </h1>
+
+      <div v-if="selectedRetreat">
+        <!-- Header Info Card -->
+        <Card class="mb-6">
+          <CardHeader>
+            <CardTitle class="flex items-center">
+              {{ selectedRetreat.parish }} -
+              {{ new Date(selectedRetreat.startDate).toLocaleDateString() }}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <!-- Walkers Section -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <Users class="w-5 h-5" />
+                    <span class="font-medium">{{ $t('retreatDashboard.walkersCount') }}</span>
+                  </div>
+                  <Badge :variant="walkersStatus === 'full' ? 'destructive' : walkersStatus === 'warning' ? 'secondary' : 'default'">
+                    {{ walkersCount }}/{{ selectedRetreat.max_walkers || '∞' }}
+                  </Badge>
+                </div>
+                <Progress v-if="selectedRetreat.max_walkers" :value="walkersPercentage" class="h-2" />
+                <p class="text-sm text-gray-600">{{ Math.round(walkersPercentage) }}% de capacidad</p>
+              </div>
+
+              <!-- Servers Section -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <UserPlus class="w-5 h-5" />
+                    <span class="font-medium">{{ $t('retreatDashboard.serversCount') }}</span>
+                  </div>
+                  <Badge :variant="serversStatus === 'full' ? 'destructive' : serversStatus === 'warning' ? 'secondary' : 'default'">
+                    {{ serversCount }}/{{ selectedRetreat.max_servers || '∞' }}
+                  </Badge>
+                </div>
+                <Progress v-if="selectedRetreat.max_servers" :value="serversPercentage" class="h-2" />
+                <p class="text-sm text-gray-600">{{ Math.round(serversPercentage) }}% de capacidad</p>
+              </div>
+
+              <!-- Waiting Section -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <Clock class="w-5 h-5" />
+                    <span class="font-medium">{{ $t('retreatDashboard.waitingCount') }}</span>
+                  </div>
+                  <Badge variant="secondary">
+                    {{ waitingCount }}
+                  </Badge>
+                </div>
+                <p class="text-sm text-gray-600">En lista de espera</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 mt-4">
+              <Button @click="showInviteModal = true" variant="outline">
+                <Mail class="w-4 h-4 mr-2" />
+                Invitar Alguien
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
 
       <!-- Inventory Alerts Section -->
       <div v-if="inventoryAlerts.length > 0" class="mt-4">
@@ -52,45 +110,106 @@
           </CardContent>
         </Card>
       </div>
-      <div class="flex items-center gap-2 mt-2">
-        <span>{{ $t('retreatDashboard.walkerRegistrationLink') }}:</span>
-        <Button size="sm" @click="copyLink(walkerRegistrationLink)">{{ $t('retreatDashboard.copyLink') }}</Button>
-        <Button size="sm" @click="openLink(walkerRegistrationLink)">{{ $t('retreatDashboard.openLink') }}</Button>
-        <Button size="sm" @click="showQrCode(walkerRegistrationLink)">{{ $t('retreatDashboard.showQr') }}</Button>
+        <!-- Registration Links Section -->
+        <Card class="mb-6">
+          <CardHeader>
+            <CardTitle>Enlaces de Registro</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Walker Registration -->
+              <div class="space-y-2">
+                <label class="text-sm font-medium">{{ $t('retreatDashboard.walkerRegistrationLink') }}</label>
+                <div class="flex items-center gap-2">
+                  <Button size="sm" @click="copyLink(walkerRegistrationLink)" variant="outline">
+                    <Copy class="w-4 h-4 mr-1" />
+                    {{ $t('retreatDashboard.copyLink') }}
+                  </Button>
+                  <Button size="sm" @click="openLink(walkerRegistrationLink)" variant="outline">
+                    <ExternalLink class="w-4 h-4 mr-1" />
+                    {{ $t('retreatDashboard.openLink') }}
+                  </Button>
+                  <Button size="sm" @click="showQrCode(walkerRegistrationLink)" variant="outline">
+                    <QrCode class="w-4 h-4 mr-1" />
+                    {{ $t('retreatDashboard.showQr') }}
+                  </Button>
+                </div>
+              </div>
+
+              <!-- Server Registration -->
+              <div class="space-y-2">
+                <label class="text-sm font-medium">{{ $t('retreatDashboard.serverRegistrationLink') }}</label>
+                <div class="flex items-center gap-2">
+                  <Button size="sm" @click="copyLink(serverRegistrationLink)" variant="outline">
+                    <Copy class="w-4 h-4 mr-1" />
+                    {{ $t('retreatDashboard.copyLink') }}
+                  </Button>
+                  <Button size="sm" @click="openLink(serverRegistrationLink)" variant="outline">
+                    <ExternalLink class="w-4 h-4 mr-1" />
+                    {{ $t('retreatDashboard.openLink') }}
+                  </Button>
+                  <Button size="sm" @click="showQrCode(serverRegistrationLink)" variant="outline">
+                    <QrCode class="w-4 h-4 mr-1" />
+                    {{ $t('retreatDashboard.showQr') }}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <!-- Additional Information Section -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <Card v-if="selectedRetreat.openingNotes">
+            <CardHeader>
+              <CardTitle class="text-lg">{{ $t('retreatDashboard.openingNotes') }}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p class="text-sm">{{ selectedRetreat.openingNotes }}</p>
+            </CardContent>
+          </Card>
+
+          <Card v-if="selectedRetreat.closingNotes">
+            <CardHeader>
+              <CardTitle class="text-lg">{{ $t('retreatDashboard.closingNotes') }}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p class="text-sm">{{ selectedRetreat.closingNotes }}</p>
+            </CardContent>
+          </Card>
+
+          <Card v-if="selectedRetreat.thingsToBringNotes">
+            <CardHeader>
+              <CardTitle class="text-lg">{{ $t('retreatDashboard.thingsToBringNotes') }}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p class="text-sm">{{ selectedRetreat.thingsToBringNotes }}</p>
+            </CardContent>
+          </Card>
+
+          <Card v-if="selectedRetreat.cost || selectedRetreat.paymentInfo || selectedRetreat.paymentMethods">
+            <CardHeader>
+              <CardTitle class="text-lg">Información de Pago</CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-3">
+              <div v-if="selectedRetreat.cost">
+                <h4 class="font-medium">{{ $t('retreatDashboard.cost') }}</h4>
+                <p class="text-sm">{{ selectedRetreat.cost }}</p>
+              </div>
+              <div v-if="selectedRetreat.paymentInfo">
+                <h4 class="font-medium">{{ $t('retreatDashboard.paymentInfo') }}</h4>
+                <p class="text-sm">{{ selectedRetreat.paymentInfo }}</p>
+              </div>
+              <div v-if="selectedRetreat.paymentMethods">
+                <h4 class="font-medium">{{ $t('retreatDashboard.paymentMethods') }}</h4>
+                <p class="text-sm">{{ selectedRetreat.paymentMethods }}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-      <div class="flex items-center gap-2 mt-2">
-        <span>{{ $t('retreatDashboard.serverRegistrationLink') }}:</span>
-        <Button size="sm" @click="copyLink(serverRegistrationLink)">{{ $t('retreatDashboard.copyLink') }}</Button>
-        <Button size="sm" @click="openLink(serverRegistrationLink)">{{ $t('retreatDashboard.openLink') }}</Button>
-        <Button size="sm" @click="showQrCode(serverRegistrationLink)">{{ $t('retreatDashboard.showQr') }}</Button>
+      <div v-else>
+        <p>{{ $t('retreatDashboard.noRetreatSelected') }}</p>
       </div>
-      <div v-if="selectedRetreat.openingNotes" class="mt-4">
-        <h2 class="font-bold">{{ $t('retreatDashboard.openingNotes') }}</h2>
-        <p>{{ selectedRetreat.openingNotes }}</p>
-      </div>
-      <div v-if="selectedRetreat.closingNotes" class="mt-4">
-        <h2 class="font-bold">{{ $t('retreatDashboard.closingNotes') }}</h2>
-        <p>{{ selectedRetreat.closingNotes }}</p>
-      </div>
-      <div v-if="selectedRetreat.thingsToBringNotes" class="mt-4">
-        <h2 class="font-bold">{{ $t('retreatDashboard.thingsToBringNotes') }}</h2>
-        <p>{{ selectedRetreat.thingsToBringNotes }}</p>
-      </div>
-      <div v-if="selectedRetreat.cost" class="mt-4">
-        <h2 class="font-bold">{{ $t('retreatDashboard.cost') }}</h2>
-        <p>{{ selectedRetreat.cost }}</p>
-      </div>
-      <div v-if="selectedRetreat.paymentInfo" class="mt-4">
-        <h2 class="font-bold">{{ $t('retreatDashboard.paymentInfo') }}</h2>
-        <p>{{ selectedRetreat.paymentInfo }}</p>
-      </div>
-      <div v-if="selectedRetreat.paymentMethods" class="mt-4">
-        <h2 class="font-bold">{{ $t('retreatDashboard.paymentMethods') }}</h2>
-        <p>{{ selectedRetreat.paymentMethods }}</p>
-      </div>
-    </div>
-    <div v-else>
-      <p>{{ $t('retreatDashboard.noRetreatSelected') }}</p>
     </div>
 
     <Dialog :open="isQrCodeVisible" @update:open="isQrCodeVisible = $event">
@@ -104,22 +223,21 @@
       </DialogContent>
     </Dialog>
 
-    <RoleRequestModal 
-      v-model:open="showRoleRequestModal" 
+    <InviteUsersModal
+      :is-open="showInviteModal"
       :retreat-id="selectedRetreat?.id || ''"
-      @submitted="handleRoleRequestSubmitted"
+      @close="showInviteModal = false"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watchEffect, computed } from 'vue';
+import { ref, watchEffect, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useInventoryStore } from '@/stores/inventoryStore';
 import { Button } from '@repo/ui';
-import RoleRequestModal from '@/components/RoleRequestModal.vue';
 import {
   Dialog,
   DialogContent,
@@ -136,7 +254,10 @@ import { useToast } from '@repo/ui';
 import { useI18n } from 'vue-i18n';
 import { storeToRefs } from 'pinia';
 import QrcodeVue from 'qrcode.vue';
-import { AlertTriangle } from 'lucide-vue-next';
+import { Badge } from '@repo/ui';
+import { Progress } from '@repo/ui';
+import InviteUsersModal from '@/components/InviteUsersModal.vue';
+import { AlertTriangle, Users, UserPlus, Clock, Copy, ExternalLink, QrCode, Loader2, Mail } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const route = useRoute();
@@ -150,17 +271,47 @@ const { inventoryAlerts } = storeToRefs(inventoryStore);
 
 const isQrCodeVisible = ref(false);
 const qrCodeUrl = ref('');
-const showRoleRequestModal = ref(false);
+const showInviteModal = ref(false);
+const isLoading = ref(false);
+const error = ref('');
 
 const walkersCount = computed(() => (participants.value || []).filter(p => p.type === 'walker' && !p.isCancelled).length);
 const serversCount = computed(() => (participants.value || []).filter(p => p.type === 'server' && !p.isCancelled).length);
 const waitingCount = computed(() => (participants.value || []).filter(p => p.type === 'waiting' && !p.isCancelled).length);
 
-const copyLink = (link: string) => {
-  navigator.clipboard.writeText(link);
-  toast({
-    title: t('retreatDashboard.linkCopied'),
-  });
+const walkersPercentage = computed(() => {
+  if (!selectedRetreat.value?.max_walkers) return 0;
+  return Math.min((walkersCount.value / selectedRetreat.value.max_walkers) * 100, 100);
+});
+
+const serversPercentage = computed(() => {
+  if (!selectedRetreat.value?.max_servers) return 0;
+  return Math.min((serversCount.value / selectedRetreat.value.max_servers) * 100, 100);
+});
+
+const getCapacityStatus = (current: number, max: number | undefined) => {
+  if (!max) return 'unknown';
+  const percentage = (current / max) * 100;
+  if (percentage >= 100) return 'full';
+  if (percentage >= 80) return 'warning';
+  return 'available';
+};
+
+const walkersStatus = computed(() => getCapacityStatus(walkersCount.value, selectedRetreat.value?.max_walkers));
+const serversStatus = computed(() => getCapacityStatus(serversCount.value, selectedRetreat.value?.max_servers));
+
+const copyLink = async (link: string) => {
+  try {
+    await navigator.clipboard.writeText(link);
+    toast({
+      title: t('retreatDashboard.linkCopied'),
+    });
+  } catch (err) {
+    toast({
+      title: 'Error al copiar el enlace',
+      variant: 'destructive',
+    });
+  }
 };
 
 const openLink = (link: string) => {
@@ -172,28 +323,37 @@ const showQrCode = (url: string) => {
   isQrCodeVisible.value = true;
 };
 
-const handleRoleRequestSubmitted = () => {
-  toast({
-    title: 'Solicitud enviada',
-    description: 'Tu solicitud ha sido enviada y será revisada por los administradores del retiro'
-  });
-};
 
-watchEffect(async () => {
-  const retreatId = route.params.id as string;
-  if (retreatId) {
+const loadRetreatData = async (retreatId: string) => {
+  isLoading.value = true;
+  error.value = '';
+
+  try {
     retreatStore.selectRetreat(retreatId);
     participantStore.filters.retreatId = retreatId;
+
     await Promise.all([
       participantStore.fetchParticipants(),
       inventoryStore.fetchInventoryAlerts(retreatId),
     ]);
+  } catch (err) {
+    error.value = 'Error al cargar los datos del retiro';
+    console.error('Error loading retreat data:', err);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+watchEffect(() => {
+  const retreatId = route.params.id as string;
+  if (retreatId) {
+    loadRetreatData(retreatId);
   }
 });
 
-if (retreatStore.selectedRetreatId) {
-  participantStore.filters.retreatId = retreatStore.selectedRetreatId;
-  participantStore.fetchParticipants();
-  inventoryStore.fetchInventoryAlerts(retreatStore.selectedRetreatId);
-}
+onMounted(async () => {
+  if (retreatStore.selectedRetreatId) {
+    await loadRetreatData(retreatStore.selectedRetreatId);
+  }
+});
 </script>
