@@ -22,6 +22,25 @@
       </div>
     </div>
 
+    <!-- Search Input -->
+    <div class="mb-6">
+      <div class="relative max-w-md">
+        <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+        <Input
+          v-model="searchQuery"
+          placeholder="Buscar artículos por nombre, equipo o categoría..."
+          class="pl-10 pr-10"
+        />
+        <button
+          v-if="searchQuery"
+          @click="searchQuery = ''"
+          class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          <X class="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+
     <!-- Inventory Alerts -->
     <Card v-if="inventoryAlerts.length > 0" class="border-red-200 bg-red-50">
       <CardHeader>
@@ -32,7 +51,7 @@
       </CardHeader>
       <CardContent>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div v-for="alert in inventoryAlerts" :key="alert.id" class="bg-white p-4 rounded-lg border border-red-200">
+          <div v-for="alert in inventoryAlerts.slice(0, 4)" :key="alert.id" class="bg-white p-4 rounded-lg border border-red-200">
             <div class="font-medium text-red-800">{{ alert.itemName }}</div>
             <div class="text-sm text-gray-600">{{ alert.categoryName }} - {{ alert.teamName }}</div>
             <div class="text-sm font-medium text-red-600">
@@ -42,6 +61,11 @@
               Requerido: {{ alert.requiredQuantity }} | Actual: {{ alert.currentQuantity }}
             </div>
           </div>
+        </div>
+        <div v-if="inventoryAlerts.length > 4" class="mt-3 text-center">
+          <Button variant="outline" size="sm" @click="showAllAlerts = true">
+            Ver todas las {{ inventoryAlerts.length }} alertas
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -55,7 +79,7 @@
     </Card>
 
     <!-- Inventory by Category -->
-    <div v-for="(categoryItems, category) in retreatInventoryByCategory" :key="category" class="space-y-4" v-if="!loading && Object.keys(retreatInventoryByCategory).length > 0">
+    <div v-for="(categoryItems, category) in filteredRetreatInventoryByCategory" :key="category" class="space-y-4" v-if="!loading && Object.keys(filteredRetreatInventoryByCategory).length > 0">
       <Card>
         <CardHeader>
           <CardTitle>{{ category }}</CardTitle>
@@ -127,12 +151,14 @@
     </div>
 
     <!-- Empty State -->
-    <Card v-if="Object.keys(retreatInventoryByCategory).length === 0">
+    <Card v-if="Object.keys(filteredRetreatInventoryByCategory).length === 0">
       <CardContent class="text-center py-8">
         <Package class="w-12 h-12 mx-auto text-gray-400 mb-4" />
-        <h3 class="text-lg font-medium text-gray-900 mb-2">No hay inventario configurado</h3>
-        <p class="text-gray-500 mb-4">Configura los artículos de inventario para este retiro</p>
-        <Button @click="calculateQuantities">Calcular Cantidades</Button>
+        <h3 v-if="searchQuery" class="text-lg font-medium text-gray-900 mb-2">No se encontraron resultados</h3>
+        <h3 v-else class="text-lg font-medium text-gray-900 mb-2">No hay inventario configurado</h3>
+        <p v-if="searchQuery" class="text-gray-500 mb-4">No hay artículos que coincidan con "{{ searchQuery }}"</p>
+        <p v-else class="text-gray-500 mb-4">Configura los artículos de inventario para este retiro</p>
+        <Button v-if="!searchQuery" @click="calculateQuantities">Calcular Cantidades</Button>
       </CardContent>
     </Card>
 
@@ -206,6 +232,35 @@
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <!-- All Alerts Dialog -->
+    <Dialog v-model:open="showAllAlerts">
+      <DialogContent class="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle class="flex items-center">
+            <AlertTriangle class="w-5 h-5 mr-2 text-red-600" />
+            Todas las Alertas de Inventario
+          </DialogTitle>
+        </DialogHeader>
+        <div class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div v-for="alert in inventoryAlerts" :key="alert.id" class="bg-white p-4 rounded-lg border border-red-200">
+              <div class="font-medium text-red-800">{{ alert.itemName }}</div>
+              <div class="text-sm text-gray-600">{{ alert.categoryName }} - {{ alert.teamName }}</div>
+              <div class="text-sm font-medium text-red-600">
+                Faltan: {{ alert.deficit }} {{ alert.unit }}
+              </div>
+              <div class="text-xs text-gray-500">
+                Requerido: {{ alert.requiredQuantity }} | Actual: {{ alert.currentQuantity }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" @click="showAllAlerts = false">Cerrar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
@@ -240,6 +295,8 @@ import {
   AlertTriangle,
   Package,
   Pencil,
+  Search,
+  X,
 } from 'lucide-vue-next';
 import ExcelJS from 'exceljs';
 
@@ -250,6 +307,8 @@ const { toast } = useToast();
 const retreatId = route.params.id as string;
 const showImportDialog = ref(false);
 const showEditDialog = ref(false);
+const showAllAlerts = ref(false);
+const searchQuery = ref('');
 const editingItem = ref<any>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
 const importResults = ref<any>(null);
@@ -258,6 +317,34 @@ const importResults = ref<any>(null);
 const loading = computed(() => inventoryStore.loading);
 const inventoryAlerts = computed(() => inventoryStore.inventoryAlerts);
 const retreatInventoryByCategory = computed(() => inventoryStore.retreatInventoryByCategory);
+
+// Filter inventory items based on search query
+const filteredRetreatInventoryByCategory = computed(() => {
+  if (!searchQuery.value.trim()) {
+    return retreatInventoryByCategory.value;
+  }
+
+  const query = searchQuery.value.toLowerCase().trim();
+  const filtered: { [key: string]: any[] } = {};
+
+  Object.entries(retreatInventoryByCategory.value).forEach(([category, items]) => {
+    const filteredItems = items.filter((item: any) => {
+      const itemName = item.inventoryItem?.name?.toLowerCase() || '';
+      const teamName = item.inventoryItem?.team?.name?.toLowerCase() || '';
+      const categoryName = category.toLowerCase();
+
+      return itemName.includes(query) ||
+             teamName.includes(query) ||
+             categoryName.includes(query);
+    });
+
+    if (filteredItems.length > 0) {
+      filtered[category] = filteredItems;
+    }
+  });
+
+  return filtered;
+});
 
 onMounted(async () => {
   await loadInventoryData();
