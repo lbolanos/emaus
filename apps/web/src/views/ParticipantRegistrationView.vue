@@ -4,7 +4,6 @@ import { useToast } from '@repo/ui'
 import { z } from 'zod'
 import { participantSchema, Participant } from '@repo/types'
 import { useParticipantStore } from '@/stores/participantStore'
-import { useRetreatStore } from '@/stores/retreatStore'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui'
 import { Button } from '@repo/ui'
@@ -19,7 +18,6 @@ import Step5ServerInfo from '@/components/registration/Step5ServerInfo.vue'
 
 const props = defineProps<{ retreatId: string; type: string }>()
 const participantStore = useParticipantStore()
-const retreatStore = useRetreatStore()
 const { toast } = useToast()
 
 const validRetreatId = ref(props.retreatId)
@@ -125,15 +123,23 @@ const step3Schema = z.object({
   dietaryRestrictionsDetails: z.string().optional(),
   sacraments: z.array(z.enum(['baptism', 'communion', 'confirmation', 'marriage', 'none'])).min(1, 'At least one sacrament must be selected'),
 }).refine((data) => {
-  if (data.hasMedication && (!data.medicationDetails || !data.medicationSchedule)) {
+  if (data.hasMedication && (!data.medicationDetails || data.medicationDetails.trim() === '')) {
     return false
   }
   return true
 }, {
-  message: 'Medication details and schedule are required if you have medication.',
+  message: 'Medication details are required if you have medication.',
   path: ['medicationDetails'],
 }).refine((data) => {
-  if (data.hasDietaryRestrictions && !data.dietaryRestrictionsDetails) {
+  if (data.hasMedication && (!data.medicationSchedule || data.medicationSchedule.trim() === '')) {
+    return false
+  }
+  return true
+}, {
+  message: 'Medication schedule is required if you have medication.',
+  path: ['medicationSchedule'],
+}).refine((data) => {
+  if (data.hasDietaryRestrictions && (!data.dietaryRestrictionsDetails || data.dietaryRestrictionsDetails.trim() === '')) {
     return false
   }
   return true
@@ -336,36 +342,26 @@ const summaryData = computed(() => {
 // Validate retreat ID on mount
 onMounted(async () => {
   try {
-    await retreatStore.fetchRetreats()
-    
-    // Check if the provided retreatId exists
-    const retreatExists = retreatStore.retreats.some((retreat: any) => retreat.id === props.retreatId)
-    
-    if (!retreatExists) {
-      // Use the most recent retreat if available
-      if (retreatStore.mostRecentRetreat) {
-        validRetreatId.value = retreatStore.mostRecentRetreat.id
-        toast({
-          title: 'Retreat not found',
-          description: 'Using the most recent retreat instead',
-          variant: 'default',
-        })
+    // Check if the provided retreatId exists using public endpoint
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/retreats/public/${props.retreatId}`)
+
+    if (response.ok) {
+      const retreat = await response.json()
+      if (retreat && retreat.isPublic) {
+        validRetreatId.value = retreat.id
       } else {
-        toast({
-          title: 'Error',
-          description: 'No valid retreat found. Please contact administrator.',
-          variant: 'destructive',
-        })
-        return
+        throw new Error('Retreat not found or not public')
       }
+    } else {
+      throw new Error('Retreat not found')
     }
-    
+
     // Update formData with valid retreat ID
     formData.value.retreatId = validRetreatId.value
   } catch (error) {
     toast({
       title: 'Error',
-      description: 'Failed to validate retreat. Please try again.',
+      description: 'Invalid retreat ID or retreat not available for registration. Please check your registration link.',
       variant: 'destructive',
     })
   } finally {
@@ -381,15 +377,58 @@ onMounted(async () => {
       style="background-image: url('/header_bck.png');"
     >
     
-    <div class="relative z-10 flex flex-col items-center justify-center h-full text-white text-center" >
-      <h1 class="text-5xl font-bold mb-4">{{ $t( props.type === 'walker' ? 'walkerRegistration.landing.title' : 'serverRegistration.landing.title') }}</h1>
-      <p class="text-xl mb-8">{{ $t( props.type === 'walker' ? 'walkerRegistration.landing.subtitle' : 'serverRegistration.landing.subtitle') }}</p>
-      <Dialog v-model:open="isDialogOpen">
-        <DialogTrigger as-child>
-          <Button size="lg" variant="outline" class="bg-transparent hover:bg-white hover:text-black" :disabled="isLoading">
-            {{ isLoading ? 'Loading...' : $t('serverRegistration.landing.cta') }}
-          </Button>
-        </DialogTrigger>
+    <div class="relative z-10 flex flex-col items-center justify-center h-full text-white text-center px-4" >
+      <div class="bg-black/20 backdrop-blur-sm rounded-2xl p-8 max-w-2xl mx-auto border border-white/10 shadow-2xl">
+        <div class="mb-6">
+          <div class="w-20 h-20 mx-auto mb-6 bg-white/10 rounded-full flex items-center justify-center">
+            <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <h1 class="text-4xl md:text-5xl font-bold mb-4">{{ $t( props.type === 'walker' ? 'walkerRegistration.landing.title' : 'serverRegistration.landing.title') }}</h1>
+          <p class="text-lg md:text-xl mb-6 opacity-90">{{ $t( props.type === 'walker' ? 'walkerRegistration.landing.subtitle' : 'serverRegistration.landing.subtitle') }}</p>
+        </div>
+
+        <div v-if="props.type === 'walker'" class="mb-8 space-y-4">
+          <div class="flex items-center justify-center space-x-3 mb-6">
+            <svg class="w-6 h-6 text-yellow-300" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+            </svg>
+            <span class="text-lg font-medium">Transforma tu vida</span>
+          </div>
+          <div class="flex items-center justify-center space-x-3 mb-6">
+            <svg class="w-6 h-6 text-green-300" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            <span class="text-lg font-medium">Encuentra tu propósito</span>
+          </div>
+          <div class="flex items-center justify-center space-x-3">
+            <svg class="w-6 h-6 text-blue-300" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
+            </svg>
+            <span class="text-lg font-medium">Construye amistades para siempre</span>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <Dialog v-model:open="isDialogOpen">
+            <DialogTrigger as-child>
+              <Button size="lg" class="bg-white text-black hover:bg-gray-100 font-semibold text-lg px-8 py-3 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg" :disabled="isLoading">
+                <span v-if="isLoading" class="flex items-center space-x-2">
+                  <svg class="animate-spin h-5 w-5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Cargando...</span>
+                </span>
+                <span v-else class="flex items-center space-x-2">
+                  {{ $t('serverRegistration.landing.cta') }}
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+                  </svg>
+                </span>
+              </Button>
+            </DialogTrigger>
         <DialogContent class="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{{ $t( props.type === 'walker' ? 'walkerRegistration.title' : 'serverRegistration.title') }}</DialogTitle>
@@ -427,7 +466,9 @@ onMounted(async () => {
             <Button @click="onSubmit" v-if="currentStep === totalSteps">{{ $t('common.submit') }}</Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+        </Dialog>
+      </div>
+      </div>
     </div>
     </div>
   </div>
