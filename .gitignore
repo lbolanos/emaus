@@ -11,13 +11,8 @@ apps/api/2database.sqlite
 dist/
 .vite/
 **/*.vue.js
-**/*.vue.d.ts
-**/*.vue.d.ts.map
 # JS/TS declaration files (except environment types)
 **/*.js
-**/*.d.ts
-**/*.d.ts.map
-!src/env.d.ts
 
 # Generated config files
 *.config.js
