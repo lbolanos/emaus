@@ -82,10 +82,14 @@ export const useAuthStore = defineStore('auth', () => {
 	async function checkAuthStatus() {
 		try {
 			const response = await api.get('/auth/status');
-			if (response.data) {
+			if (response.data && response.data.authenticated !== false) {
 				user.value = response.data;
 				userProfile.value = response.data.profile;
 				isAuthenticated.value = true;
+			} else {
+				user.value = null;
+				userProfile.value = null;
+				isAuthenticated.value = false;
 			}
 		} catch (error) {
 			user.value = null;

@@ -111,7 +111,16 @@ export const useRetreatStore = defineStore('retreat', () => {
 	async function updateRetreat(retreatData: Retreat) {
 		loading.value = true;
 		try {
+			// Debug logging
+			//console.log('RetreatStore - Updating retreat:', retreatData);
+			//console.log('RetreatStore - isPublic value:', retreatData.isPublic);
+
 			const response = await api.put(`/retreats/${retreatData.id}`, retreatData);
+
+			// Debug logging
+			//console.log('RetreatStore - API response:', response.data);
+			//console.log('RetreatStore - Response isPublic:', response.data.isPublic);
+
 			const index = retreats.value.findIndex((r) => r.id === retreatData.id);
 			if (index !== -1) {
 				retreats.value[index] = response.data;
@@ -121,6 +130,7 @@ export const useRetreatStore = defineStore('retreat', () => {
 				description: 'Retreat updated successfully.',
 			});
 		} catch (err: any) {
+			//console.error('RetreatStore - Update failed:', err);
 			toast({
 				title: 'Error',
 				description: err.response?.data?.message || err.message || 'Failed to update retreat.',

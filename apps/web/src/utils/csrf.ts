@@ -109,11 +109,20 @@ export function initializeCsrfProtection() {
 			// Ahora obtener el token CSRF
 			await fetchCsrfToken();
 		} catch (error) {
-			console.error('Error inicializando protección CSRF:', error);
-			// Reintentar después de un breve retraso
-			setTimeout(() => {
-				initializeSessionAndCsrf().catch(console.error);
-			}, 1000);
+			// El endpoint /auth/status ahora es público, pero puede devolver no autenticado
+			// Eso está bien, solo necesitamos establecer la sesión y obtener el token CSRF
+			console.warn('Auth status check failed, proceeding with CSRF token fetch:', error);
+
+			// Intentar obtener el token CSRF de todos modos
+			try {
+				await fetchCsrfToken();
+			} catch (csrfError) {
+				console.error('Error obteniendo token CSRF:', csrfError);
+				// Reintentar después de un breve retraso
+				setTimeout(() => {
+					initializeSessionAndCsrf().catch(console.error);
+				}, 1000);
+			}
 		}
 	};
 

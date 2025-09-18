@@ -89,6 +89,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { api } from '@/services/api';
 
 const route = useRoute();
 const router = useRouter();
@@ -119,17 +120,19 @@ const goToLogin = () => {
 
 const validateInvitation = async () => {
   try {
-    const response = await fetch(`/api/invitations/status/${token}`);
-    const data = await response.json();
+    const response = await api.get(`/invitations/status/${token}`);
 
-    if (response.ok) {
-      invitationData.value = data;
+    if (response.data.valid) {
+      invitationData.value = response.data;
     } else {
-      error.value = data.error || 'Invitación no válida o expirada';
+      error.value = response.data.message || 'Invitación no válida o expirada';
     }
-  } catch (err) {
+  } catch (err: any) {
     error.value = 'Error al verificar la invitación';
     console.error('Error validating invitation:', err);
+    if (err.response?.data?.message) {
+      error.value = err.response.data.message;
+    }
   } finally {
     loading.value = false;
   }
@@ -152,20 +155,12 @@ const acceptInvitation = async () => {
 
     isSubmitting.value = true;
 
-    const response = await fetch(`/api/invitations/${invitationData.value.user.id}/accept`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        displayName: formData.value.displayName,
-        password: formData.value.password,
-      }),
+    const response = await api.post(`/invitations/${invitationData.value.user.id}/accept`, {
+      displayName: formData.value.displayName,
+      password: formData.value.password,
     });
 
-    const data = await response.json();
-
-    if (response.ok) {
+    if (response.data.success) {
       formSuccess.value = '¡Invitación aceptada exitosamente!';
 
       // Redirect to login after successful acceptance
@@ -173,11 +168,14 @@ const acceptInvitation = async () => {
         router.push('/login');
       }, 2000);
     } else {
-      formError.value = data.error || 'Error al aceptar la invitación';
+      formError.value = response.data.message || 'Error al aceptar la invitación';
     }
-  } catch (err) {
+  } catch (err: any) {
     formError.value = 'Error de conexión. Por favor intente nuevamente.';
     console.error('Error accepting invitation:', err);
+    if (err.response?.data?.message) {
+      formError.value = err.response.data.message;
+    }
   } finally {
     isSubmitting.value = false;
   }

@@ -45,12 +45,18 @@
       <LanguageSwitcher />
     </div>
   </header>
-  <AddRetreatModal :open="isAddModalOpen" @update:open="isAddModalOpen = $event" @submit="handleAddRetreat" />
-  <EditRetreatModal
+  <RetreatModal
+    :open="isAddModalOpen"
+    mode="add"
+    @update:open="isAddModalOpen = $event"
+    @submit="handleAddRetreat"
+  />
+  <RetreatModal
     :open="isEditModalOpen"
-    @update:open="isEditModalOpen = $event"
+    mode="edit"
     :retreat="retreatStore.selectedRetreat"
-    @submit="handleEditRetreat"
+    @update:open="isEditModalOpen = $event"
+    @update="handleEditRetreat"
   />
 </template>
 
@@ -59,10 +65,8 @@ import { onMounted, ref, watch } from 'vue';
 import { useRetreatStore } from '@/stores/retreatStore';
 import type { CreateRetreat, Retreat } from '@repo/types'; // Import Retreat type
 import { Plus, Edit, Menu } from 'lucide-vue-next'; // Import Edit icon
-import AddRetreatModal from '@/components/AddRetreatModal.vue';
-import EditRetreatModal from '@/components/EditRetreatModal.vue'; // New import
+import RetreatModal from '@/components/RetreatModal.vue';
 import { Button } from '@repo/ui';
-import { Label } from '@repo/ui';
 import {
   Select,
   SelectContent,
@@ -106,6 +110,10 @@ const handleAddRetreat = async (retreatData: CreateRetreat) => {
 
 const handleEditRetreat = async (retreatData: Retreat) => { // New function for editing
   try {
+    // Debug logging
+    console.log('Header - Received update retreat data:', retreatData);
+    console.log('Header - isPublic value:', retreatData.isPublic);
+
     // Assuming an updateRetreat action exists in retreatStore
     await retreatStore.updateRetreat(retreatData); // This action needs to be implemented in retreatStore
     isEditModalOpen.value = false;

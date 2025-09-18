@@ -148,6 +148,8 @@ export class InvitationService {
 				} as User,
 				retreat,
 				resetToken: invitationToken,
+				inviterName: (await this.userRepository.findOne({ where: { id: ownerId } }))?.displayName || 'Equipo de Emaús',
+				shareLink: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/accept-invitation/${invitationToken}`,
 			};
 
 			const emailSent = await this.mailer.sendUserInvitation(
@@ -243,6 +245,27 @@ export class InvitationService {
 		user?: User;
 		message?: string;
 	}> {
+		// First check user_retreats table for the token
+		const userRetreat = await this.userRetreatRepository.findOne({
+			where: { invitationToken: token, status: 'pending' },
+			relations: ['user'],
+		});
+
+		if (userRetreat) {
+			// Check if the invitation has expired
+			if (userRetreat.expiresAt && userRetreat.expiresAt < new Date()) {
+				return { valid: false, message: 'Invitation has expired' };
+			}
+
+			// Also check if the user is still pending
+			if (!userRetreat.user.isPending) {
+				return { valid: false, message: 'Invitation already accepted' };
+			}
+
+			return { valid: true, user: userRetreat.user };
+		}
+
+		// Fallback to checking users table for backward compatibility
 		const user = await this.userRepository.findOne({
 			where: { invitationToken: token },
 		});

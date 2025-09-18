@@ -44,11 +44,11 @@ const getErrorMessage = (field: string) => props.errors[field]
         <Label>{{ $t('walkerRegistration.fields.isInvitedByEmausMember') }}</Label>
         <RadioGroup v-model="formData.isInvitedByEmausMember" class="flex space-x-4">
           <div class="flex items-center space-x-2">
-            <RadioGroupItem id="emaus-yes" :value="'yes'" />
+            <RadioGroupItem id="emaus-yes" :value="true" />
             <Label for="emaus-yes">{{ $t('common.yes') }}</Label>
           </div>
           <div class="flex items-center space-x-2">
-            <RadioGroupItem id="emaus-no" :value="'no'" />
+            <RadioGroupItem id="emaus-no" :value="false" />
             <Label for="emaus-no">{{ $t('common.no') }}</Label>
           </div>
         </RadioGroup>

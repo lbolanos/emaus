@@ -1,115 +1,124 @@
 <template>
-  <div class="modal-overlay" @click="$emit('close')">
-    <div class="modal-content" @click.stop>
-      <div class="modal-header">
-        <h2>Invitar Usuarios</h2>
-        <button class="close-button" @click="$emit('close')">×</button>
-      </div>
+  <Dialog :open="isOpen" @update:open="$emit('close')">
+    <DialogContent class="sm:max-w-[500px]">
+      <DialogHeader>
+        <DialogTitle class="flex items-center gap-2">
+          <Mail class="w-5 h-5" />
+          Invitar Alguien
+        </DialogTitle>
+        <DialogDescription>
+          Invita usuarios a este retiro con un rol específico
+        </DialogDescription>
+      </DialogHeader>
 
-      <div class="modal-body">
-        <div class="form-group">
-          <label>Correos Electrónicos (uno por línea)</label>
-          <textarea
-            v-model="emailsText"
-            rows="5"
-            placeholder="usuario1@ejemplo.com&#10;usuario2@ejemplo.com"
-            class="form-control"
-          ></textarea>
-        </div>
+      <form @submit.prevent="sendInvitations">
+        <div class="grid gap-4 py-4">
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="emails" class="text-right">Correos Electrónicos</Label>
+            <div class="col-span-3">
+              <Textarea
+                id="emails"
+                v-model="emailsText"
+                rows="4"
+                placeholder="usuario1@ejemplo.com&#10;usuario2@ejemplo.com"
+                class="resize-none"
+              />
+              <p class="text-xs text-gray-500 mt-1">Un correo por línea, máximo 10 invitaciones</p>
+            </div>
+          </div>
 
-        <div class="form-group">
-          <label>Retiro</label>
-          <select v-model="selectedRetreatId" class="form-control">
-            <option value="">Seleccionar Retiro</option>
-            <option v-for="retreat in retreats" :key="retreat.id" :value="retreat.id">
-              {{ retreat.parish }} ({{ formatDate(retreat.startDate) }})
-            </option>
-          </select>
-        </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="role" class="text-right">Rol</Label>
+            <Select v-model="selectedRole" required>
+              <SelectTrigger class="col-span-3">
+                <SelectValue placeholder="Seleccionar rol" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem v-for="role in availableRoles" :key="role" :value="role">
+                    {{ role }}
+                  </SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div class="form-group">
-          <label>Rol</label>
-          <select v-model="selectedRoleId" class="form-control">
-            <option value="">Seleccionar Rol</option>
-            <option v-for="role in roles" :key="role.id" :value="role.id">
-              {{ role.name }}
-            </option>
-          </select>
-        </div>
+          <div v-if="error" class="col-span-4 bg-red-50 border border-red-200 rounded-lg p-3">
+            <p class="text-red-800 text-sm">{{ error }}</p>
+          </div>
 
-        <div v-if="error" class="error-message">
-          {{ error }}
-        </div>
+          <div v-if="success" class="col-span-4 bg-green-50 border border-green-200 rounded-lg p-3">
+            <p class="text-green-800 text-sm">{{ success }}</p>
+          </div>
 
-        <div v-if="success" class="success-message">
-          {{ success }}
-        </div>
-
-        <div v-if="invitationResults.length > 0" class="results-section">
-          <h3>Resultados:</h3>
-          <div class="result-item" v-for="result in invitationResults" :key="result.email">
-            <span :class="['status', result.success ? 'success' : 'error']">
-              {{ result.success ? '✓' : '✗' }}
-            </span>
-            <span class="email">{{ result.email }}</span>
-            <span class="message">{{ result.message }}</span>
+          <div v-if="invitationResults.length > 0" class="col-span-4">
+            <h4 class="font-medium mb-2">Resultados:</h4>
+            <div class="space-y-2">
+              <div v-for="result in invitationResults" :key="result.email"
+                   class="flex items-center gap-2 p-2 rounded border"
+                   :class="result.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'">
+                <span :class="result.success ? 'text-green-600' : 'text-red-600'">
+                  {{ result.success ? '✓' : '✗' }}
+                </span>
+                <span class="font-medium">{{ result.email }}</span>
+                <span class="text-sm text-gray-600">{{ result.message }}</span>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="modal-footer">
-        <button class="btn btn-secondary" @click="$emit('close')">Cancelar</button>
-        <button
-          class="btn btn-primary"
-          @click="sendInvitations"
-          :disabled="isSending || !isValid"
-        >
-          {{ isSending ? 'Enviando...' : 'Enviar Invitaciones' }}
-        </button>
-      </div>
-    </div>
-  </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" @click="$emit('close')">
+            Cancelar
+          </Button>
+          <Button type="submit" :disabled="isSending || !isValid">
+            {{ isSending ? 'Enviando...' : 'Enviar Invitaciones' }}
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
+  </Dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { useRetreatStore } from '@/stores/retreatStore';
+import { ref, computed } from 'vue';
 import { useToast } from '@repo/ui';
+import { api } from '@/services/api';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+  Label, Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem,
+  Textarea, Button
+} from '@repo/ui';
+import { Mail } from 'lucide-vue-next';
 
-const props = defineProps<{
+interface Props {
   isOpen: boolean;
-}>();
+  retreatId?: string;
+}
+
+const props = defineProps<Props>();
 
 const emit = defineEmits<{
   close: [];
 }>();
 
 const emailsText = ref('');
-const selectedRetreatId = ref('');
-const selectedRoleId = ref('');
+const selectedRole = ref('');
 const isSending = ref(false);
 const error = ref('');
 const success = ref('');
 const invitationResults = ref<any[]>([]);
 
-const retreatStore = useRetreatStore();
-const retreats = computed(() => retreatStore.retreats);
-const roles = ref([
-  { id: 1, name: 'Administrador' },
-  { id: 2, name: 'Coordinador' },
-  { id: 3, name: 'Colaborador' },
-]);
-
 const { toast } = useToast();
+
+const availableRoles = [
+  'servidor', 'tesorero', 'logística', 'palancas'
+];
 
 const isValid = computed(() => {
   const emails = emailsText.value.split('\n').filter(email => email.trim());
-  return emails.length > 0 && emails.length <= 10 && selectedRetreatId.value && selectedRoleId.value;
+  return emails.length > 0 && emails.length <= 10 && selectedRole.value && props.retreatId;
 });
-
-const formatDate = (date: Date | string) => {
-  return new Date(date).toLocaleDateString('es-ES');
-};
 
 const sendInvitations = async () => {
   try {
@@ -133,33 +142,52 @@ const sendInvitations = async () => {
       return;
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const invalidEmails = emails.filter(email => !emailRegex.test(email));
+    if (invalidEmails.length > 0) {
+      error.value = `Correos inválidos: ${invalidEmails.join(', ')}`;
+      return;
+    }
+
+    // Map string role to numeric ID (assuming API expects numeric IDs)
+    const roleIdMap: Record<string, number> = {
+      'servidor': 2,
+      'tesorero': 3,
+      'logística': 4,
+      'palancas': 5
+    };
+
     const invitations = emails.map(email => ({
       email,
-      roleId: selectedRoleId.value,
-      retreatId: selectedRetreatId.value,
+      roleId: roleIdMap[selectedRole.value] || 2,
+      retreatId: props.retreatId,
     }));
 
-    const response = await fetch('/api/invitations', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ invitations }),
-    });
+    const response = await api.post('/invitations', { invitations });
+    const data = response.data;
 
-    const data = await response.json();
-
-    if (response.ok) {
-      success.value = 'Proceso de invitación completado';
+    if (response.status === 200) {
+      success.value = 'Invitaciones enviadas exitosamente';
       invitationResults.value = data.usersInvited;
 
+      // Show success toast
+      toast({
+        title: 'Invitaciones Enviadas',
+        description: `Se enviaron ${emails.length} invitaciones correctamente`,
+      });
+
       // Show toast for users created
-      if (data.usersCreated.length > 0) {
+      if (data.usersCreated && data.usersCreated.length > 0) {
         toast({
           title: 'Usuarios Creados',
           description: `Se crearon ${data.usersCreated.length} nuevas cuentas de usuario`,
         });
       }
+
+      // Reset form after successful submission
+      emailsText.value = '';
+      selectedRole.value = '';
     } else {
       error.value = data.error || 'Error al enviar invitaciones';
     }
@@ -170,199 +198,5 @@ const sendInvitations = async () => {
     isSending.value = false;
   }
 };
-
-onMounted(async () => {
-  await retreatStore.fetchRetreats();
-});
 </script>
 
-<style scoped>
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: white;
-  border-radius: 8px;
-  width: 90%;
-  max-width: 600px;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.modal-header {
-  padding: 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.modal-header h2 {
-  margin: 0;
-  color: #1f2937;
-}
-
-.close-button {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: #6b7280;
-  padding: 0;
-  width: 2rem;
-  height: 2rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-}
-
-.close-button:hover {
-  background: #f3f4f6;
-}
-
-.modal-body {
-  padding: 1.5rem;
-}
-
-.modal-footer {
-  padding: 1.5rem;
-  border-top: 1px solid #e5e7eb;
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-}
-
-.form-group {
-  margin-bottom: 1.5rem;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: #374151;
-}
-
-.form-control {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  font-size: 1rem;
-}
-
-.form-control:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-textarea.form-control {
-  resize: vertical;
-  min-height: 100px;
-}
-
-.btn {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  background: #6b7280;
-  color: white;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: #4b5563;
-}
-
-.btn-primary {
-  background: #3b82f6;
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: #2563eb;
-}
-
-.error-message {
-  color: #dc2626;
-  background: #fee2e2;
-  padding: 0.75rem;
-  border-radius: 4px;
-  margin-bottom: 1rem;
-}
-
-.success-message {
-  color: #059669;
-  background: #d1fae5;
-  padding: 0.75rem;
-  border-radius: 4px;
-  margin-bottom: 1rem;
-}
-
-.results-section {
-  margin-top: 1.5rem;
-}
-
-.results-section h3 {
-  margin: 0 0 1rem 0;
-  color: #1f2937;
-}
-
-.result-item {
-  display: flex;
-  align-items: center;
-  padding: 0.5rem;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.result-item:last-child {
-  border-bottom: none;
-}
-
-.status {
-  width: 1.5rem;
-  text-align: center;
-  margin-right: 0.5rem;
-}
-
-.status.success {
-  color: #059669;
-}
-
-.status.error {
-  color: #dc2626;
-}
-
-.email {
-  font-weight: 500;
-  color: #1f2937;
-  margin-right: 0.5rem;
-}
-
-.message {
-  color: #6b7280;
-  font-size: 0.875rem;
-}
-</style>
