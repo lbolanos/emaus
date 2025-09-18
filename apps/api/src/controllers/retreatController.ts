@@ -29,6 +29,25 @@ export const getRetreatById = async (req: Request, res: Response, next: NextFunc
 	}
 };
 
+export const getRetreatByIdPublic = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const retreat = await findById(req.params.id);
+		if (!retreat) {
+			return res.status(404).json({ message: 'Retreat not found' });
+		}
+		// Return only basic info needed for registration form validation
+		res.json({
+			id: retreat.id,
+			parish: retreat.parish,
+			isPublic: retreat.isPublic,
+			startDate: retreat.startDate,
+			endDate: retreat.endDate,
+		});
+	} catch (error) {
+		next(error);
+	}
+};
+
 export const updateRetreat = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const retreat = await update(req.params.id, req.body);

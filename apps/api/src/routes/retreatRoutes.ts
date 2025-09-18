@@ -4,6 +4,7 @@ import {
 	createRetreat,
 	getRetreatById,
 	updateRetreat,
+	getRetreatByIdPublic,
 } from '../controllers/retreatController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { validateRequest } from '../middleware/validateRequest';
@@ -12,6 +13,10 @@ import { requirePermission } from '../middleware/authorization';
 
 const router = Router();
 
+// Public route for retreat validation (used in registration form)
+router.get('/public/:id', getRetreatByIdPublic);
+
+// Authenticated routes
 router.use(isAuthenticated);
 
 router.get('/', requirePermission('retreat:list'), (req: any, res: any, next: any) =>
