@@ -709,7 +709,7 @@ const handleSubmit = async () => {
             </div>
             
             <!-- Right Column: Variables -->
-            <div v-if="showVariablesPanel" class="hidden lg:block lg:col-span-5 border-l pl-6 ml-6">
+            <div v-if="showVariablesPanel" class="lg:block lg:col-span-5 border-l pl-6 ml-6">
               <div class="space-y-4 h-full flex flex-col">
                 <div class="flex items-center justify-between">
                   <h3 class="text-lg font-semibold">{{ t('messageTemplates.dialog.variablesTitle') }}</h3>
