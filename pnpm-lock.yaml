@@ -109,6 +109,9 @@ importers:
       '@types/express':
         specifier: ^4.17.21
         version: 4.17.23
+      '@types/express-serve-static-core':
+        specifier: ^4.19.5
+        version: 4.19.6
       '@types/express-session':
         specifier: ^1.17.10
         version: 1.18.2
@@ -127,6 +130,9 @@ importers:
       '@types/passport-local':
         specifier: ^1.0.38
         version: 1.0.38
+      '@types/uuid':
+        specifier: ^9.0.8
+        version: 9.0.8
       '@typescript-eslint/eslint-plugin':
         specifier: ^6.21.0
         version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.9.2)
@@ -378,6 +384,9 @@ importers:
       vite-plugin-dts:
         specifier: ^3.7.3
         version: 3.9.1(@types/node@20.19.14)(typescript@5.9.2)(vite@5.4.20)
+      vue:
+        specifier: ^3.4.21
+        version: 3.5.21(typescript@5.9.2)
 
 packages:
 

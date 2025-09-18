@@ -41,6 +41,14 @@ The monorepo is organized into `apps` and `packages`:
 
 2.  Install dependencies using pnpm:
     ```bash
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+    command -v nvm
+    nvm install --lts
+    nvm install node
+    node -v
+    npm -v
+    npm install -g pnpm
+    npm install -g @google/gemini-cli
     corepack up
     pnpm install
     ```
