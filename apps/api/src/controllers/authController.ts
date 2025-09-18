@@ -83,7 +83,8 @@ export const getAuthStatus = async (req: Request, res: Response) => {
 			res.json(req.user);
 		}
 	} else {
-		res.status(401).json({ message: 'Unauthorized' });
+		// Return 200 with authenticated: false instead of 401
+		res.json({ authenticated: false });
 	}
 };
 
