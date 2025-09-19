@@ -216,7 +216,19 @@ analisis de seguridad de todo el sitio
 TODO
 
 since it is not in production modify apps/api/src/migrations/sqlite/20250910163337_CreateSchema.ts for schema.
+telefono de contacto en retiro
+colocar en nombre de piso camas y habitacion en edicion de casas
+telefon caminante esposa todos en la ficha de mesas
+id en la tabla de mesas
+dinamica imprimir dinamica de los equipos
+acdtividades por servidor
+si va litera en etiqueta de cuartos
 
+asigncacion de cuartos tal como se hace en las mesas con un dashboard.
+
+si cumple en los dias del retiro sacar una alarma.
+gafete mesa nombre apodo cuarto rosa
+colocar en reporte de bolas recordatorio de agua bendita, playera, celulares palancas,  invitacion para otro retiro.
 
 Notificaciones por correo.  Caminante ingresa.  Servidor ingresa.
 
