@@ -40,8 +40,13 @@ function checkBirthdaysDuringRetreat() {
     }
 
     // Parse the date string directly to get the correct calendar date
-    const birthDateStr = walker.birthDate
-    const [birthYear, birthMonth, birthDay] = birthDateStr.split('T')[0].split('-').map(Number)
+    const birthDateStr = new Date(walker.birthDate).toISOString()
+    const dateParts = birthDateStr.split('T')[0].split('-').map(Number)
+    if (dateParts.length !== 3) {
+      console.warn('Invalid date format:', walker.birthDate)
+      return false
+    }
+    const [birthYear, birthMonth, birthDay] = dateParts
     //console.log('🔍 DEBUG: Birth month:', birthMonth - 1, 'birth day:', birthDay)
     //console.log('🔍 DEBUG: Original birthDate string:', walker.birthDate)
     //console.log('🔍 DEBUG: Parsed from string - Year:', birthYear, 'Month:', birthMonth, 'Day:', birthDay)
@@ -92,20 +97,9 @@ onMounted(async () => {
   if (participantStore.participants.length === 0) {
     //console.log('🔍 DEBUG: No participants found, trying to load them...')
     try {
-      // Try to load participants - check available methods
-      const storeMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(participantStore))
-      //console.log('🔍 DEBUG: Available store methods:', storeMethods)
-
-      // Look for common loading methods
-      const loadMethod = storeMethods.find(method =>
-        method.toLowerCase().includes('load') ||
-        method.toLowerCase().includes('fetch') ||
-        method.toLowerCase().includes('get')
-      )
-
-      if (loadMethod && typeof (participantStore as any)[loadMethod] === 'function') {
-        //console.log('🔍 DEBUG: Using method:', loadMethod)
-        await (participantStore as any)[loadMethod]()
+      // Try to load participants using the fetchParticipants method
+      if (typeof participantStore.fetchParticipants === 'function') {
+        await participantStore.fetchParticipants()
       }
       //console.log('🔍 DEBUG: Participants loaded:', participantStore.participants.length)
     } catch (error) {

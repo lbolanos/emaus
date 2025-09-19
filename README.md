@@ -217,8 +217,6 @@ Crear sistema para registrar los pagos realizados
 
 analisis de seguridad de todo el sitio
 
-IN PROGRESS
-
 colocar en nombre de piso camas y habitacion en edicion de casas
 add a field telefono de contacto en retiro
 telefon caminante esposa todos en la ficha de mesas
@@ -227,11 +225,16 @@ si va litera en etiqueta de cuartos
 colocar en reporte de bolsas recordatorio de agua bendita, playera, celulares palancas, invitacion para otro retiro.
 si cumple en los dias del retiro sacar una alarma.
 
+IN PROGRESS
+cualquier mensaje se puede enviar por correo o por whatsapp
+llevar un registro de las comunicaciones del participantes.
+
 TODO
+since it is not in production modify apps/api/src/migrations/sqlite/20250910163337_CreateSchema.ts for schema.
+
+cuando un servidor se registre enviar tambien correo al servidor que lo invito para informar.
 
 en el mensaje de bienvenida del servidor agregar una url para que pueda cambiar su registro
-
-since it is not in production modify apps/api/src/migrations/sqlite/20250910163337_CreateSchema.ts for schema.
 
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
 agregar todas las actividades por servidor
