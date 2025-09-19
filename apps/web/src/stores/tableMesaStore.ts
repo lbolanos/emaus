@@ -156,7 +156,7 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
 		if (!retreatStore.selectedRetreatId) return;
 		try {
 			const newTableData = {
-				name: `Table ${tables.value.length + 1}`,
+				name: `Mesa ${tables.value.length + 1}`,
 				retreatId: retreatStore.selectedRetreatId,
 			};
 			const newTable = await api.post('/tables', newTableData);
