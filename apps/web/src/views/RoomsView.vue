@@ -92,18 +92,18 @@ const groupedBeds = computed(() => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>{{ $t('rooms.bedNumber') }}</TableHead>
-                    <!--TableHead>{{ $t('rooms.type') }}</TableHead-->
                     <TableHead>{{ $t('rooms.participant') }}</TableHead>
+                    <TableHead>{{ $t('rooms.type') }}</TableHead>
                     <!--TableHead>{{ $t('rooms.age') }}</TableHead-->
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   <TableRow v-for="bed in roomBeds" :key="bed.id">
-                    <TableCell>{{ bed.bedNumber }}</TableCell>
-                    <!--TableCell>{{ bed.type }}</TableCell-->
+                    <TableCell>{{ bed.bedNumber }}</TableCell>                    
                     <TableCell>
                       {{ bed.participant ? `${bed.participant.firstName} ${bed.participant.lastName}` : $t('rooms.unassigned') }}
                     </TableCell>
+                    <TableCell>{{ bed.type }}</TableCell>
                     <!--TableCell>
                       {{ bed.participant ? calculateAge(bed.participant.birthDate) : '' }}
                     </TableCell-->
