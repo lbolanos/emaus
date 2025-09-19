@@ -251,6 +251,17 @@
                 rows="3"
               />
             </div>
+
+            <div class="space-y-2">
+              <Label for="contactPhones">{{ $t('retreatModal.contactPhones') }}</Label>
+              <Textarea
+                id="contactPhones"
+                v-model="formData.contactPhones"
+                :placeholder="$t('retreatModal.contactPhonesPlaceholder')"
+                rows="3"
+              />
+              <p class="text-sm text-muted-foreground">{{ $t('retreatModal.contactPhonesHelp') }}</p>
+            </div>
           </div>
         </details>
 
@@ -394,6 +405,7 @@ const formData = ref({
   openingNotes: '',
   closingNotes: '',
   thingsToBringNotes: '',
+  contactPhones: '',
   cost: '',
   paymentInfo: '',
   paymentMethods: '',
@@ -579,6 +591,7 @@ const handleSubmit = async () => {
         openingNotes: formData.value.openingNotes,
         closingNotes: formData.value.closingNotes,
         thingsToBringNotes: formData.value.thingsToBringNotes,
+        contactPhones: formData.value.contactPhones,
         cost: formData.value.cost,
         paymentInfo: formData.value.paymentInfo,
         paymentMethods: formData.value.paymentMethods,
@@ -617,6 +630,7 @@ const resetForm = () => {
     openingNotes: '',
     closingNotes: '',
     thingsToBringNotes: '',
+    contactPhones: '',
     cost: '',
     paymentInfo: '',
     paymentMethods: '',
@@ -671,6 +685,7 @@ watch(() => props.open, (newOpen) => {
         openingNotes: props.retreat.openingNotes || '',
         closingNotes: props.retreat.closingNotes || '',
         thingsToBringNotes: props.retreat.thingsToBringNotes || '',
+        contactPhones: props.retreat.contactPhones || '',
         cost: props.retreat.cost || '',
         paymentInfo: props.retreat.paymentInfo || '',
         paymentMethods: props.retreat.paymentMethods || '',

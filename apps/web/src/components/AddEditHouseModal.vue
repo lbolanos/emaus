@@ -92,6 +92,15 @@
           <div class="mt-4">
             <h3 class="font-semibold">Beds</h3>
             <ScrollArea ref="bedScrollArea" class="h-[300px] w-full rounded-md border p-4">
+              <!-- Header row -->
+              <div class="grid grid-cols-12 gap-2 items-center mb-3 font-semibold text-sm text-gray-700 border-b pb-2">
+                <div class="col-span-2">Piso</div>
+                <div class="col-span-2">Habitación</div>
+                <div class="col-span-2">Cama</div>
+                <div class="col-span-2">Tipo</div>
+                <div class="col-span-2">Uso Pred.</div>
+                <div class="col-span-1"></div>
+              </div>
               <div v-for="(field, index) in formData.beds" :key="index" class="grid grid-cols-12 gap-2 items-center mb-2">
                 <div class="col-span-2">
                   <Input v-model.number="field.floor" type="number" placeholder="Floor" />

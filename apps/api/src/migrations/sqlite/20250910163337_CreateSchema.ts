@@ -67,6 +67,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 				"openingNotes" TEXT,
 				"closingNotes" TEXT,
 				"thingsToBringNotes" TEXT,
+				"contactPhones" TEXT,
 				"cost" VARCHAR(255),
 				"paymentInfo" TEXT,
 				"paymentMethods" TEXT,

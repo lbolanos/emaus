@@ -48,6 +48,9 @@ export class Retreat {
 	@Column({ type: 'text', nullable: true })
 	thingsToBringNotes?: string;
 
+	@Column({ type: 'text', nullable: true })
+	contactPhones?: string;
+
 	@Column({ type: 'varchar', nullable: true })
 	cost?: string;
 
