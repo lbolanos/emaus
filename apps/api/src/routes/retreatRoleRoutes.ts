@@ -37,11 +37,13 @@ router.get('/:retreatId/users', requireRetreatAccessOrCreator('retreatId'), (req
 router.get(
 	'/retreat/:retreatId/users',
 	async (req: any, res: any, next: any) => {
-		console.log('DEBUG: Retreat roles alias route - params:', req.params);
-		console.log('DEBUG: User:', req.user?.id);
-		console.log('DEBUG: Retreat ID:', req.params.retreatId);
+		//console.log('🔍 DEBUG: Retreat roles alias route - params:', req.params);
+		//console.log('🔍 DEBUG: User:', req.user?.id);
+		//console.log('🔍 DEBUG: Retreat ID:', req.params.retreatId);
 
-		const authService = await import('../middleware/authorization').then(m => m.authorizationService);
+		const authService = await import('../middleware/authorization').then(
+			(m) => m.authorizationService,
+		);
 
 		// Check if user has retreat access or is creator
 		const [hasAccess, isCreator] = await Promise.all([
@@ -49,14 +51,14 @@ router.get(
 			authService.isRetreatCreator(req.user.id, req.params.retreatId),
 		]);
 
-		console.log('DEBUG: Has retreat access:', hasAccess);
-		console.log('DEBUG: Is retreat creator:', isCreator);
+		//console.log('🔍 DEBUG: Has retreat access:', hasAccess);
+		//console.log('🔍 DEBUG: Is retreat creator:', isCreator);
 
 		if (hasAccess || isCreator) {
-			console.log('DEBUG: User has access or is creator, allowing access');
+			//console.log('🔍 DEBUG: User has access or is creator, allowing access');
 			return next();
 		} else {
-			console.log('DEBUG: User has no access and is not creator, denying access');
+			//console.log('🔍 DEBUG: User has no access and is not creator, denying access');
 			return res.status(403).json({ message: 'Forbidden' });
 		}
 	},

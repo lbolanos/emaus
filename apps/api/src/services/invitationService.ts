@@ -148,7 +148,9 @@ export class InvitationService {
 				} as User,
 				retreat,
 				resetToken: invitationToken,
-				inviterName: (await this.userRepository.findOne({ where: { id: ownerId } }))?.displayName || 'Equipo de Emaús',
+				inviterName:
+					(await this.userRepository.findOne({ where: { id: ownerId } }))?.displayName ||
+					'Equipo de Emaús',
 				shareLink: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/accept-invitation/${invitationToken}`,
 			};
 

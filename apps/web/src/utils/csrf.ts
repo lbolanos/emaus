@@ -13,7 +13,10 @@ axios.defaults.withCredentials = true;
 export async function fetchCsrfToken(): Promise<string> {
 	try {
 		const response = await axios.get('/csrf-token');
-		csrfToken = response.data.csrfToken || response.headers['x-csrf-token'] || '';
+		// Prioritize header token over body token since headers are set by middleware
+		const headerToken = response.headers['x-csrf-token'];
+		const bodyToken = response.data.csrfToken;
+		csrfToken = headerToken || bodyToken || '';
 		return csrfToken || '';
 	} catch (error) {
 		console.error('Error fetching CSRF token:', error);
@@ -25,10 +28,8 @@ export async function fetchCsrfToken(): Promise<string> {
  * Obtiene el token CSRF actual o lo obtiene si no existe
  */
 export async function getCsrfToken(): Promise<string> {
-	if (!csrfToken) {
-		return await fetchCsrfToken();
-	}
-	return csrfToken;
+	// Always fetch a fresh token to avoid using stale tokens
+	return await fetchCsrfToken();
 }
 
 /**
@@ -72,22 +73,25 @@ export function setupCsrfInterceptor(axiosInstance: any = axios) {
 	axiosInstance.interceptors.response.use(
 		(response: any) => response,
 		(error: any) => {
-			if (error.response?.status === 403 && (
-				error.response?.data?.error === 'CSRF_TOKEN_INVALID' ||
-				error.response?.data?.error === 'CSRF_TOKEN_REQUIRED'
-			)) {
+			if (
+				error.response?.status === 403 &&
+				(error.response?.data?.error === 'CSRF_TOKEN_INVALID' ||
+					error.response?.data?.error === 'CSRF_TOKEN_REQUIRED')
+			) {
 				console.error('Error de CSRF, obteniendo nuevo token...');
 				csrfToken = null; // Forzar nueva obtención
 
 				// Reintentar la petición automáticamente con nuevo token
-				return fetchCsrfToken().then(() => {
-					const originalRequest = error.config;
-					originalRequest.headers['X-CSRF-Token'] = csrfToken;
-					return axios.request(originalRequest);
-				}).catch((fetchError) => {
-					console.error('No se pudo obtener nuevo token CSRF:', fetchError);
-					return Promise.reject(error);
-				});
+				return fetchCsrfToken()
+					.then(() => {
+						const originalRequest = error.config;
+						originalRequest.headers['X-CSRF-Token'] = csrfToken;
+						return axios.request(originalRequest);
+					})
+					.catch((fetchError) => {
+						console.error('No se pudo obtener nuevo token CSRF:', fetchError);
+						return Promise.reject(error);
+					});
 			}
 			return Promise.reject(error);
 		},

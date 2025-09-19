@@ -18,9 +18,9 @@ app.use(i18n);
 
 const authStore = useAuthStore();
 
-// Inicializar protección CSRF
-initializeCsrfProtection();
-
+// Inicializar protección CSRF después de verificar autenticación
 authStore.checkAuthStatus().then(() => {
+	// Inicializar protección CSRF después de establecer sesión
+	initializeCsrfProtection();
 	app.mount('#app');
 });

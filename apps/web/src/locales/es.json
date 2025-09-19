@@ -224,7 +224,8 @@
     },
     "filters": {
       "title": "Filtros Avanzados"
-    }
+    },
+    "birthdayDuringRetreat": "Cumpleaños durante el retiro"
   },
   "rooms": {
     "title": "Habitaciones",

@@ -216,11 +216,12 @@ export const participantSchema = z.object({
 	inviterHomePhone: z.string().optional(),
 	inviterWorkPhone: z.string().optional(),
 	inviterCellPhone: z.string().optional(),
-	inviterEmail: z.preprocess(
+	inviterEmail: z.string().optional(),
+	/*preprocess(
 		(val) => (val === '' || val === null ? undefined : val),
 		z.string().email().optional(),
-	),
-	family_friend_color: z.string().optional(),
+	),*/
+	family_friend_color: z.string().nullable().optional(),
 	pickupLocation: z.string().optional(),
 	arrivesOnOwn: z.preprocess((val) => (val === null ? undefined : val), z.boolean().optional()),
 	retreatId: idSchema,

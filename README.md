@@ -185,8 +185,6 @@ En el registro de los servidores se necesita modificar los campos si necesita la
 
 guardar en un store el listado de columnas que se han modificado
 
-IN PROGRESS
-
 roles: un superadmin, un usuario administrador del retiro, un usuario servidor del retiro, tesorero, logística, palancas
 superadmin puede acceso total
 solo el superadmin puede borrar casas de retiro, articulos de inventario
@@ -215,30 +213,34 @@ create a plan to create an InvitationController with inviteUser
 async acceptInvitation(
 en the frontend Views
 
-
 Crear sistema para registrar los pagos realizados
 
 analisis de seguridad de todo el sitio
 
+IN PROGRESS
+
+colocar en nombre de piso camas y habitacion en edicion de casas
+add a field telefono de contacto en retiro
+telefon caminante esposa todos en la ficha de mesas
+id en la tabla de mesas
+si va litera en etiqueta de cuartos
+colocar en reporte de bolsas recordatorio de agua bendita, playera, celulares palancas, invitacion para otro retiro.
+si cumple en los dias del retiro sacar una alarma.
 
 TODO
 
+en el mensaje de bienvenida del servidor agregar una url para que pueda cambiar su registro
+
 since it is not in production modify apps/api/src/migrations/sqlite/20250910163337_CreateSchema.ts for schema.
-telefono de contacto en retiro
-colocar en nombre de piso camas y habitacion en edicion de casas
-telefon caminante esposa todos en la ficha de mesas
-id en la tabla de mesas
-dinamica imprimir dinamica de los equipos
-acdtividades por servidor
-si va litera en etiqueta de cuartos
+
+dinamica imprimir dinamica de los equipos instrucciones de la dinamica
+agregar todas las actividades por servidor
 
 asigncacion de cuartos tal como se hace en las mesas con un dashboard.
 
-si cumple en los dias del retiro sacar una alarma.
 gafete mesa nombre apodo cuarto rosa
-colocar en reporte de bolas recordatorio de agua bendita, playera, celulares palancas,  invitacion para otro retiro.
 
-Notificaciones por correo.  Caminante ingresa.  Servidor ingresa.
+Notificaciones por correo. Caminante ingresa. Servidor ingresa.
 
 agregar una forma de administrar las tablas de la base de datos con solo permisos para el superadmin.
 
@@ -255,6 +257,7 @@ Que debe pasar cuando se cancele un participante ... unassign from retreatBed an
 hacer que funcione lint
 
 imprimir la mesa con lider caminantes telefonos, medicamentos y alimentos.
+usar la ia para conversar y agregar o quitar base de datos.
 
 posibles host
 https://www.vultr.com/
@@ -267,10 +270,3 @@ This will use Turborepo to run the `dev` script in both `apps/api` and `apps/web
 
 - The API will be available at `http://localhost:3001`.
 - The Web app will be available at `http://localhost:5173`.
-
-
-
-
-
-
-

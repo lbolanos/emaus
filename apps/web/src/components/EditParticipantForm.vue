@@ -13,10 +13,6 @@ const emit = defineEmits(['save', 'cancel']);
 
 const localParticipant = ref<any>({});
 
-watch(() => props.participant, (newVal) => {
-  localParticipant.value = { ...newVal };
-}, { immediate: true, deep: true });
-
 const getColumnLabel = (key: string) => {
   const col = props.allColumns.find(c => c.key === key);
   return col ? col.label : key;
@@ -32,6 +28,88 @@ const getColumnType = (key: string) => {
     return 'text';
 }
 
+const formatDateForInput = (date: string | Date | null | undefined) => {
+  console.log('formatDateForInput - input date:', date);
+  console.log('formatDateForInput - input date type:', typeof date);
+
+  if (!date) return '';
+
+  // Parse the date string directly to avoid timezone conversion
+  let year, month, day;
+
+  if (typeof date === 'string') {
+    // Handle ISO format (YYYY-MM-DDTHH:mm:ss.sssZ)
+    if (date.includes('T')) {
+      const datePart = date.split('T')[0];
+      [year, month, day] = datePart.split('-');
+    } else {
+      // Handle YYYY-MM-DD format
+      [year, month, day] = date.split('-');
+    }
+  } else {
+    // Handle Date object - use UTC methods to avoid timezone issues
+    year = date.getUTCFullYear();
+    month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    day = String(date.getUTCDate()).padStart(2, '0');
+  }
+
+  if (!year || !month || !day) return '';
+
+  const result = `${year}-${month}-${day}`;
+  console.log('formatDateForInput - formatted result:', result);
+  return result;
+};
+
+const formatDateForDisplay = (date: string | Date | null | undefined) => {
+  if (!date) return 'N/A';
+
+  // Parse the date string directly to avoid timezone conversion
+  let year, month, day;
+
+  if (typeof date === 'string') {
+    // Handle ISO format (YYYY-MM-DDTHH:mm:ss.sssZ)
+    if (date.includes('T')) {
+      const datePart = date.split('T')[0];
+      [year, month, day] = datePart.split('-');
+    } else {
+      // Handle YYYY-MM-DD format
+      [year, month, day] = date.split('-');
+    }
+  } else {
+    // Handle Date object - use UTC methods to avoid timezone issues
+    year = date.getUTCFullYear();
+    month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    day = String(date.getUTCDate()).padStart(2, '0');
+  }
+
+  if (!year || !month || !day) return 'N/A';
+
+  return `${day}/${month}/${year}`;
+};
+
+watch(() => props.participant, (newVal) => {
+  console.log('EditParticipantForm - participant changed:', newVal);
+  console.log('EditParticipantForm - birthDate value:', newVal?.birthDate);
+  console.log('EditParticipantForm - birthDate type:', typeof newVal?.birthDate);
+
+  if (!newVal) {
+    localParticipant.value = {};
+    return;
+  }
+
+  // Create a copy and format dates properly
+  const formattedData = { ...newVal };
+
+  // Format date fields for the date input
+  props.allColumns.forEach(col => {
+    if (getColumnType(col.key) === 'date' && formattedData[col.key]) {
+      formattedData[col.key] = formatDateForInput(formattedData[col.key]);
+    }
+  });
+
+  localParticipant.value = formattedData;
+}, { immediate: true, deep: true });
+
 const handleSave = () => {
   const participantToSave = { ...localParticipant.value };
   if (participantToSave.retreatBedId === null || participantToSave.retreatBedId === '') {
@@ -44,6 +122,19 @@ const handleSave = () => {
   for (const key in participantToSave) {
     if (getColumnType(key) === 'boolean' && participantToSave[key] === null) {
       participantToSave[key] = false;
+    }
+
+    // Ensure dates are properly formatted as ISO strings
+    if (getColumnType(key) === 'date' && participantToSave[key]) {
+      if (typeof participantToSave[key] === 'string') {
+        // Convert string dates to Date objects then back to ISO string to ensure proper format
+        const date = new Date(participantToSave[key]);
+        if (!isNaN(date.getTime())) {
+          participantToSave[key] = date.toISOString();
+        }
+      } else if (participantToSave[key] instanceof Date) {
+        participantToSave[key] = participantToSave[key].toISOString();
+      }
     }
   }
 
@@ -165,7 +256,7 @@ const calculateAge = (birthDate: string | Date) => {
           v-model="localParticipant[key]"
           class="w-full"
         />
-        <Textarea
+          <Textarea
             v-if="getColumnType(key) === 'textarea'"
             :id="key"
             v-model="localParticipant[key]"
@@ -211,7 +302,7 @@ const calculateAge = (birthDate: string | Date) => {
           </SelectContent>
         </Select>
       </template>
-      <p v-else class="text-sm text-gray-500 pt-2">{{ participant[key] || 'N/A' }}</p>
+      <p v-else class="text-sm text-gray-500 pt-2">{{ getColumnType(key) === 'date' ? formatDateForDisplay(participant[key]) : (participant[key] || 'N/A') }}</p>
     </div>
   </div>
   <div class="flex justify-end gap-2 mt-4">

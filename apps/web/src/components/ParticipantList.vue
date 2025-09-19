@@ -284,6 +284,38 @@ const getNestedProperty = (obj: any, path: string) => {
     return result;
 };
 
+// Función para verificar si el cumpleaños del participante cae durante el retiro
+const hasBirthdayDuringRetreat = (participant: any) => {
+    if (!participant.birthDate) return false;
+
+    const currentRetreat = retreatStore.selectedRetreat || retreatStore.mostRecentRetreat;
+    if (!currentRetreat || !currentRetreat.startDate || !currentRetreat.endDate) return false;
+
+    // Parsear la fecha de nacimiento directamente del string
+    const birthDateStr = participant.birthDate;
+    const [birthYear, birthMonth, birthDay] = birthDateStr.split('T')[0].split('-').map(Number);
+
+    // Parsear fechas del retiro
+    const retreatStart = new Date(currentRetreat.startDate);
+    const retreatEnd = new Date(currentRetreat.endDate);
+
+    // Verificar cada día del retiro
+    const currentDate = new Date(retreatStart);
+    const endDate = new Date(retreatEnd);
+
+    while (currentDate <= endDate) {
+        const currentMonth = currentDate.getMonth() + 1; // Convertir a 1-indexed
+        const currentDay = currentDate.getDate();
+
+        if (currentMonth === birthMonth && currentDay === birthDay) {
+            return true;
+        }
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return false;
+};
+
 const formatCell = (participant: any, colKey: string) => {
     const value = getNestedProperty(participant, colKey);
     if (['birthDate', 'registrationDate', 'lastUpdatedDate', 'paymentDate'].includes(colKey)) {
@@ -298,6 +330,30 @@ const formatCell = (participant: any, colKey: string) => {
         return value ? $t('common.yes') : $t('common.no');
     }
     return value || 'N/A';
+};
+
+const getCellContent = (participant: any, colKey: string) => {
+    const value = getNestedProperty(participant, colKey);
+
+    if (colKey === 'birthDate' && hasBirthdayDuringRetreat(participant)) {
+        const formattedDate = formatCell(participant, colKey);
+        return {
+            value: formattedDate,
+            hasBirthday: true
+        };
+    }
+
+    if (colKey === 'firstName' && hasBirthdayDuringRetreat(participant)) {
+        return {
+            value: value || 'N/A',
+            hasBirthday: true
+        };
+    }
+
+    return {
+        value: formatCell(participant, colKey),
+        hasBirthday: false
+    };
 };
 
 const formColumnsToShow = computed(() => {
@@ -518,6 +574,10 @@ watch(() => props.defaultFilters, (newDefaults) => {
     border-width: 1px !important;
     border-left-width: 4px !important;
 }
+
+.bg-yellow-50 {
+    background-color: rgba(254, 249, 195, 0.5) !important;
+}
 </style>
 
 <template>
@@ -612,9 +672,14 @@ watch(() => props.defaultFilters, (newDefaults) => {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    <TableRow v-for="participant in filteredAndSortedParticipants" :key="participant.id" :class="[participant.family_friend_color ? 'border-l-4' : '']" :style="participant.family_friend_color ? { borderLeftColor: participant.family_friend_color } : {}" class="participant-row">
+                    <TableRow v-for="participant in filteredAndSortedParticipants" :key="participant.id" :class="[participant.family_friend_color ? 'border-l-4' : '', hasBirthdayDuringRetreat(participant) ? 'bg-yellow-50' : '']" :style="participant.family_friend_color ? { borderLeftColor: participant.family_friend_color } : {}" class="participant-row">
                         <TableCell v-for="colKey in visibleColumns" :key="`${participant.id}-${colKey}`">
-                            {{ formatCell(participant, colKey) }}
+                            <div class="flex items-center gap-1">
+                                {{ getCellContent(participant, colKey).value }}
+                                <span v-if="getCellContent(participant, colKey).hasBirthday" class="text-yellow-600" :title="$t('participants.birthdayDuringRetreat')">
+                                    🎂
+                                </span>
+                            </div>
                         </TableCell>
                         <TableCell>
                             <div class="flex -space-x-3">

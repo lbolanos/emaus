@@ -42,7 +42,9 @@ router.get(
 		console.log('DEBUG: Retreat ID:', req.params.retreatId);
 
 		// Check if user is retreat creator
-		const isCreator = await import('../middleware/authorization').then(m => m.authorizationService.isRetreatCreator(req.user.id, req.params.retreatId));
+		const isCreator = await import('../middleware/authorization').then((m) =>
+			m.authorizationService.isRetreatCreator(req.user.id, req.params.retreatId),
+		);
 		console.log('DEBUG: Is retreat creator:', isCreator);
 
 		if (isCreator) {
@@ -50,7 +52,9 @@ router.get(
 			return next();
 		} else {
 			console.log('DEBUG: User is not retreat creator, denying access');
-			return res.status(403).json({ message: 'Forbidden - Only retreat creator can perform this action' });
+			return res
+				.status(403)
+				.json({ message: 'Forbidden - Only retreat creator can perform this action' });
 		}
 	},
 	(req: any, res: any) => getRetreatRoleRequests(req, res),

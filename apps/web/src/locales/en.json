@@ -226,7 +226,8 @@
     },
     "filters": {
       "title": "Advanced Filters"
-    }
+    },
+    "birthdayDuringRetreat": "Birthday during retreat"
   },
   "rooms": {
     "title": "Rooms",
