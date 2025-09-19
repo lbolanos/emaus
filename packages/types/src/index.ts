@@ -53,6 +53,7 @@ export const retreatSchema = z.object({
 	openingNotes: z.string().optional(),
 	closingNotes: z.string().optional(),
 	thingsToBringNotes: z.string().optional(),
+	contactPhones: z.string().optional(),
 	cost: z.string().optional(),
 	paymentInfo: z.string().optional(),
 	paymentMethods: z.string().optional(),
