@@ -12,19 +12,30 @@ const participantRepository = AppDataSource.getRepository(Participant);
 const MAX_WALKERS_PER_TABLE = 7;
 
 export const findTablesByRetreatId = async (retreatId: string) => {
-	const tables = await tableMesaRepository.find({
-		where: { retreatId },
-		relations: ['lider', 'colider1', 'colider2', 'walkers'],
-		order: { name: 'ASC' },
-	});
+	const tables = await tableMesaRepository
+		.createQueryBuilder('table')
+		.leftJoinAndSelect('table.lider', 'lider')
+		.leftJoinAndSelect('table.colider1', 'colider1')
+		.leftJoinAndSelect('table.colider2', 'colider2')
+		.leftJoinAndSelect('table.walkers', 'walkers')
+		.leftJoinAndSelect('walkers.retreatBed', 'retreatBed')
+		.where('table.retreatId = :retreatId', { retreatId })
+		.orderBy('table.name', 'ASC')
+		.getMany();
+
 	return tableMesaSchema.array().parse(tables);
 };
 
 export const findTableById = async (id: string) => {
-	return tableMesaRepository.findOne({
-		where: { id },
-		relations: ['lider', 'colider1', 'colider2', 'walkers'],
-	});
+	return tableMesaRepository
+		.createQueryBuilder('table')
+		.leftJoinAndSelect('table.lider', 'lider')
+		.leftJoinAndSelect('table.colider1', 'colider1')
+		.leftJoinAndSelect('table.colider2', 'colider2')
+		.leftJoinAndSelect('table.walkers', 'walkers')
+		.leftJoinAndSelect('walkers.retreatBed', 'retreatBed')
+		.where('table.id = :id', { id })
+		.getOne();
 };
 
 export const createTable = async (tableData: { name: string; retreatId: string }) => {
