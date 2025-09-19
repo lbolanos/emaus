@@ -645,7 +645,22 @@ const isSectionCollapsed = (category: string) => {
 };
 
 const toggleSection = (category: string) => {
-  collapsedSections.value[category] = !collapsedSections.value[category];
+  // Ensure the category exists in collapsedSections
+  if (collapsedSections.value[category] === undefined) {
+    collapsedSections.value[category] = true;
+  }
+
+  const isCurrentlyCollapsed = collapsedSections.value[category];
+
+  // If we're opening a section (it was collapsed), close all others first
+  if (isCurrentlyCollapsed) {
+    Object.keys(collapsedSections.value).forEach(key => {
+      collapsedSections.value[key] = true;
+    });
+  }
+
+  // Toggle the current section (set to false to open, true to close)
+  collapsedSections.value[category] = !isCurrentlyCollapsed;
   saveCollapsedState();
 };
 
