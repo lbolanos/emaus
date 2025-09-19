@@ -82,11 +82,11 @@
               :key="walker.id"
               draggable="true"
               @dragstart="startDragFromTable($event, walker, 'walkers')"
-              :title="`${walker.firstName} ${walker.lastName}\n${$t('tables.invitedBy')}: ${walker.invitedBy || $t('common.unknown')}`"
+              :title="`${$t('tables.tableCard.retreatId')}: ${walker.id_on_retreat || $t('tables.tableCard.notAvailable')}\n${walker.firstName} ${walker.lastName}\n${$t('tables.invitedBy')}: ${walker.invitedBy || $t('common.unknown')}\n${$t('tables.tableCard.bedLocation')}: ${getBedLocation(walker.retreatBed) || $t('tables.tableCard.notAvailable')}`"
               :style="{ borderColor: walker.family_friend_color }"
               class="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm font-medium cursor-grab border-2"
             >
-              {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
+              {{ walker.id_on_retreat || '?' }} {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
             </div>
           </transition-group>
           <span v-else class="text-gray-400 text-sm mt-2 block">{{ $t('tables.unassigned') }}</span>
@@ -103,10 +103,12 @@
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead>{{ $t('tables.tableCard.retreatId') }}</TableHead>
             <TableHead>{{ $t('tables.tableCard.walkerName') }}</TableHead>
             <TableHead>{{ $t('tables.tableCard.invitedBy') }}</TableHead>
-            <TableHead>{{ $t('tables.tableCard.roomNumber') }}</TableHead>
+            <TableHead>{{ $t('tables.tableCard.bedLocation') }}</TableHead>
             <TableHead>{{ $t('tables.tableCard.parish') }}</TableHead>
+            <TableHead>{{ $t('tables.tableCard.phones') }}</TableHead>
             <TableHead>{{ $t('tables.tableCard.emausMember') }}</TableHead>
             <!-- <TableHead>Home Phone</TableHead> -->
             <!-- <TableHead>Work Phone</TableHead>
@@ -116,10 +118,12 @@
         </TableHeader>
         <TableBody>
           <TableRow v-for="walker in table.walkers" :key="walker.id">
+            <TableCell>{{ walker.id_on_retreat || $t('tables.tableCard.notAvailable') }}</TableCell>
             <TableCell>{{ walker.firstName }} {{ walker.lastName }}</TableCell>
             <TableCell>{{ walker.invitedBy || $t('tables.tableCard.notAvailable') }}</TableCell>
-            <TableCell>{{ walker.retreatBed?.roomNumber || $t('tables.tableCard.notAvailable') }}</TableCell>
+            <TableCell>{{ getBedLocation(walker.retreatBed) || $t('tables.tableCard.notAvailable') }}</TableCell>
             <TableCell>{{ walker.parish || $t('tables.tableCard.notAvailable') }}</TableCell>
+            <TableCell>{{ getPhones(walker) || $t('tables.tableCard.notAvailable') }}</TableCell>
             <TableCell>{{ walker.isInvitedByEmausMember ? $t('common.yes') : $t('common.no') }}</TableCell>
             <!--TableCell>{{ walker.inviterHomePhone || 'N/A' }}</TableCell>
             <TableCell>{{ walker.inviterWorkPhone || 'N/A' }}</TableCell>
@@ -293,5 +297,31 @@ const onDragLeave = (type: 'server' | 'walker') => {
   } else {
     isOverWalker.value = false;
   }
+};
+
+const getBedLocation = (retreatBed: any) => {
+  if (!retreatBed) return null;
+
+  const floor = retreatBed.floor !== undefined && retreatBed.floor !== null ? retreatBed.floor : '-';
+  const room = retreatBed.roomNumber || '-';
+  const bed = retreatBed.bedNumber || '-';
+
+  return `${floor}-${room}-${bed}`;
+};
+
+const getPhones = (walker: any) => {
+  const phones = [];
+
+  if (walker.homePhone) {
+    phones.push(`H: ${walker.homePhone}`);
+  }
+  if (walker.workPhone) {
+    phones.push(`W: ${walker.workPhone}`);
+  }
+  if (walker.cellPhone) {
+    phones.push(`C: ${walker.cellPhone}`);
+  }
+
+  return phones.length > 0 ? phones.join(', ') : null;
 };
 </script>
