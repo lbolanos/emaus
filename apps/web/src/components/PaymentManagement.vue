@@ -476,8 +476,16 @@ onMounted(async () => {
 	await Promise.all([
 		retreatStore.fetchRetreats(),
 		participantStore.fetchParticipants(),
-		paymentStore.fetchPayments(),
 	]);
+
+	// Set retreat filter to selected retreat from store, if available
+	if (retreatStore.selectedRetreatId) {
+		filters.value.retreatId = retreatStore.selectedRetreatId;
+		await paymentStore.fetchPayments(filters.value);
+		loadSummary();
+	} else {
+		await paymentStore.fetchPayments();
+	}
 });
 
 // Watch for retreat filter changes
