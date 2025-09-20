@@ -229,6 +229,7 @@ IN PROGRESS
 cualquier mensaje se puede enviar por correo o por whatsapp
 llevar un registro de las comunicaciones del participantes.
 
+
 TODO
 since it is not in production modify apps/api/src/migrations/sqlite/20250910163337_CreateSchema.ts for schema.
 
@@ -273,3 +274,9 @@ This will use Turborepo to run the `dev` script in both `apps/api` and `apps/web
 
 - The API will be available at `http://localhost:3001`.
 - The Web app will be available at `http://localhost:5173`.
+
+
+prompts:
+Please use the Playwright MCP server to test the following process:
+Clic en menu Plantillas Globales
+Clic editar Mensaje de cumpleaños,  seleccionar texto "¡Feliz cumpleaños" y clic en boton negrillas.

@@ -874,176 +874,33 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 		// Insert default global message templates
 		await queryRunner.query(`
 			INSERT INTO "global_message_templates" ("id", "name", "type", "message", "isActive", "createdAt", "updatedAt") VALUES
-			('${uuidv4()}', 'Bienvenida Caminante', 'WALKER_WELCOME', '¡Hola, **{participant.nickname}**!
+			('${uuidv4()}', 'Bienvenida Caminante', 'WALKER_WELCOME', '<p>¡Hola, <strong>{participant.nickname}</strong>!</p><p>Con mucho gusto confirmamos tu lugar para la experiencia de fin de semana. Todo el equipo organizador está preparando los detalles para recibirte.</p><p><strong>Datos importantes para tu llegada:</strong><br>* <strong>Fecha de encuentro:</strong> {retreat.startDate}<br>* <strong>Hora de llegada:</strong> {participant.hora_llegada}</p><p>Te pedimos ser puntual para facilitar el registro de todos. ¡Estamos muy contentos de que participes! Nos vemos pronto.</p>', 1, datetime('now'), datetime('now')),
 
-Con mucho gusto confirmamos tu lugar para la experiencia de fin de semana. Todo el equipo organizador está preparando los detalles para recibirte.
+			('${uuidv4()}', 'Bienvenida Servidor', 'SERVER_WELCOME', '<p>¡Hermano/a <strong>{participant.nickname}</strong>! ✝️</p><p>¡Gracias por tu "sí" generoso al Señor! Es una verdadera bendición contar contigo en el equipo para preparar el camino a nuestros hermanos caminantes. Tu servicio y tu oración son el corazón de este retiro.</p><p><strong>Información clave para tu servicio:</strong><br>* <strong>Fecha de inicio de misión:</strong> {retreat.startDate}<br>* <strong>Hora de llegada:</strong> {participant.hora_llegada}</p><p>Que el Señor te ilumine y fortalezca en esta hermosa misión que te encomienda. ¡Unidos en oración y servicio!</p><p>¡Cristo ha resucitado!</p>', 1, datetime('now'), datetime('now')),
 
-**Datos importantes para tu llegada:**
-* **Fecha de encuentro:** {retreat.startDate}
-* **Hora de llegada:** {participant.hora_llegada}
+			('${uuidv4()}', 'Validación Contacto de Emergencia', 'EMERGENCY_CONTACT_VALIDATION', '<p>Hola <strong>{participant.nickname}</strong>, esperamos que estés muy bien.</p><p>Estamos preparando todos los detalles para que tu fin de semana sea seguro. Para ello, necesitamos validar un dato importante.</p><p><strong>Contacto de Emergencia Registrado:</strong><br>* <strong>Nombre:</strong> {participant.emergencyContact1Name}<br>* <strong>Teléfono:</strong> {participant.emergencyContact1CellPhone}</p><p>Por favor, ayúdanos respondiendo a este mensaje con la palabra <strong>CONFIRMADO</strong> si los datos son correctos. Si hay algún error, simplemente envíanos la información correcta.</p><p>¡Muchas gracias por tu ayuda!</p>', 1, datetime('now'), datetime('now')),
 
-Te pedimos ser puntual para facilitar el registro de todos. ¡Estamos muy contentos de que participes! Nos vemos pronto.', 1, datetime('now'), datetime('now')),
+			('${uuidv4()}', 'Solicitud de Palanca', 'PALANCA_REQUEST', '<p>¡Hola, hermano/a <strong>{participant.nickname}</strong>! ✨</p><p>Te invitamos a ser parte del motor espiritual de este retiro. Tu <strong>palanca</strong> es mucho más que una carta: es una oración hecha palabra, un tesoro de amor y ánimo para un caminante que la recibirá como un regalo del cielo en el momento justo.</p><p>El Señor quiere usar tus manos para escribir un mensaje que toque un corazón.</p><p>* <strong>Fecha límite para enviar tu palanca:</strong> {retreat.fecha_limite_palanca}</p><p>Que el Espíritu Santo inspire cada una de tus palabras. ¡Contamos contigo y con tu oración!</p>', 1, datetime('now'), datetime('now')),
 
-			('${uuidv4()}', 'Bienvenida Servidor', 'SERVER_WELCOME', '¡Hermano/a **{participant.nickname}**! ✝️
+			('${uuidv4()}', 'Recordatorio de Palanca', 'PALANCA_REMINDER', '<p>¡Paz y Bien, <strong>{participant.nickname}</strong>! 🙏</p><p>Este es un recordatorio amistoso y lleno de cariño. Un caminante está esperando esas palabras de aliento que el Señor ha puesto en tu corazón; esa oración que solo tú puedes escribirle. ¡No dejes pasar la oportunidad de ser luz en su camino!</p><p>* <strong>La fecha límite para enviar tu palanca es el:</strong> {retreat.startDate}</p><p>Gracias por tu generosidad y por sostener este retiro con tu oración.</p>', 1, datetime('now'), datetime('now')),
 
-¡Gracias por tu "sí" generoso al Señor! Es una verdadera bendición contar contigo en el equipo para preparar el camino a nuestros hermanos caminantes. Tu servicio y tu oración son el corazón de este retiro.
+			('${uuidv4()}', 'Mensaje General', 'GENERAL', '<p>Hola <strong>{participant.nickname}</strong>, te escribimos de parte del equipo del Retiro de Emaús.</p><p>{custom_message}</p><p>Que tengas un día muy bendecido. Te tenemos presente en nuestras oraciones.</p><p>Un abrazo en Cristo Resucitado.</p>', 1, datetime('now'), datetime('now')),
 
-**Información clave para tu servicio:**
-* **Fecha de inicio de misión:** {retreat.startDate}
-* **Hora de llegada:** {participant.hora_llegada}
+			('${uuidv4()}', 'Recordatorio Pre-Retiro', 'PRE_RETREAT_REMINDER', '<p>¡Hola, <strong>{participant.nickname}</strong>!</p><p>¡Ya falta muy poco para el inicio de la experiencia! Estamos preparando los últimos detalles para recibirte.</p><p><strong>Te recordamos algunos puntos importantes:</strong><br>* <strong>Fecha:</strong> {retreat.startDate}<br>* <strong>Hora de llegada:</strong> {participant.hora_llegada}<br>* <strong>Lugar de encuentro:</strong> {participant.pickupLocation}</p><p><strong>Sugerencias sobre qué llevar:</strong><br>{retreat.thingsToBringNotes}</p><p>Ven con la mente abierta y sin expectativas, ¡prepárate para un fin de semana diferente!</p><p>Un saludo.</p>', 1, datetime('now'), datetime('now')),
 
-Que el Señor te ilumine y fortalezca en esta hermosa misión que te encomienda. ¡Unidos en oración y servicio!
+			('${uuidv4()}', 'Recordatorio de Pago', 'PAYMENT_REMINDER', '<p>Hola <strong>{participant.nickname}</strong>, ¿cómo estás?</p><p>Te escribimos del equipo de organización. Para poder cerrar los detalles administrativos, te recordamos que está pendiente tu aporte de <strong>{retreat.cost}</strong>.</p><p>Aquí te dejamos la información para realizarlo:<br>{retreat.paymentInfo}</p><p>Si ya lo realizaste, por favor ignora este mensaje. Si tienes alguna dificultad, no dudes en contactarnos con toda confianza. ¡Tu presencia es lo más importante!</p><p>Saludos.</p>', 1, datetime('now'), datetime('now')),
 
-¡Cristo ha resucitado!', 1, datetime('now'), datetime('now')),
+			('${uuidv4()}', 'Mensaje Post-Retiro (Cuarto Día)', 'POST_RETREAT_MESSAGE', '<p>¡Bienvenido a tu Cuarto Día, <strong>{participant.nickname}</strong>! 🎉</p><p>¡Cristo ha resucitado! ¡En verdad ha resucitado!</p><p>El retiro ha terminado, pero tu verdadero camino apenas comienza. Jesús resucitado camina contigo, no lo olvides nunca. La comunidad de Emaús está aquí para apoyarte.</p><p>Te esperamos en nuestras reuniones de perseverancia para seguir creciendo juntos en la fe. La próxima es el <strong>{retreat.next_meeting_date}</strong>.</p><p>¡Ánimo, peregrino! Un fuerte abrazo.</p>', 1, datetime('now'), datetime('now')),
 
-			('${uuidv4()}', 'Validación Contacto de Emergencia', 'EMERGENCY_CONTACT_VALIDATION', 'Hola **{participant.nickname}**, esperamos que estés muy bien.
+			('${uuidv4()}', 'Confirmación de Cancelación', 'CANCELLATION_CONFIRMATION', '<p>Hola, <strong>{participant.nickname}</strong>.</p><p>Hemos recibido tu notificación de cancelación. Lamentamos que no puedas acompañarnos en esta ocasión y esperamos que te encuentres bien.</p><p>Las puertas siempre estarán abiertas para cuando sea el momento adecuado para ti. Te enviamos nuestros mejores deseos.</p><p>Un saludo cordial.</p>', 1, datetime('now'), datetime('now')),
 
-Estamos preparando todos los detalles para que tu fin de semana sea seguro. Para ello, necesitamos validar un dato importante.
+			('${uuidv4()}', 'Invitación de Usuario', 'USER_INVITATION', '<h2>Bienvenido/a al Retiro de Emaús</h2><p>Hola <strong>{user.name}</strong>,</p><p><strong>{inviterName}</strong> te ha invitado a unirte al retiro <strong>{retreat.name}</strong>.</p><p><strong>Detalles del retiro:</strong></p><ul><li><strong>Fecha:</strong> {retreat.startDate}</li><li><strong>Parroquia:</strong> {retreat.name}</li></ul><p>Para comenzar, por favor <a href="{shareLink}">haz clic aquí para aceptar la invitación</a> y crear tu cuenta.</p><p>Si tienes alguna pregunta, no dudes en contactarnos.</p><p>¡Esperamos contar con tu presencia!</p><p>Atentamente,<br>Equipo de Emaús</p>', 1, datetime('now'), datetime('now')),
 
-**Contacto de Emergencia Registrado:**
-* **Nombre:** {participant.emergencyContact1Name}
-* **Teléfono:** {participant.emergencyContact1CellPhone}
+			('${uuidv4()}', 'Restablecimiento de Contraseña', 'PASSWORD_RESET', '<h2>Restablecimiento de Contraseña</h2><p>Hola <strong>{user.name}</strong>,</p><p>Hemos recibido una solicitud para restablecer la contraseña de tu cuenta.</p><p>Para continuar con el proceso, por favor <a href="{resetToken}">haz clic aquí</a> o copia y pega el siguiente enlace en tu navegador:</p><p><a href="{resetToken}">{resetToken}</a></p><p>Si no solicitaste este cambio, puedes ignorar este mensaje. Tu contraseña actual permanecerá sin cambios.</p><p>El enlace expirará en 1 hora por seguridad.</p><p>Atentamente,<br>Equipo de Emaús</p>', 1, datetime('now'), datetime('now')),
 
-Por favor, ayúdanos respondiendo a este mensaje con la palabra **CONFIRMADO** si los datos son correctos. Si hay algún error, simplemente envíanos la información correcta.
+			('${uuidv4()}', 'Notificación de Retiro Compartido', 'RETREAT_SHARED_NOTIFICATION', '<h2>Retiro Compartido Contigo</h2><p>Hola <strong>{user.name}</strong>,</p><p><strong>{inviterName}</strong> ha compartido contigo el retiro <strong>{retreat.name}</strong>.</p><p><strong>Detalles del retiro:</strong></p><ul><li><strong>Fecha:</strong> {retreat.startDate}</li><li><strong>Parroquia:</strong> {retreat.name}</li></ul><p>Puedes acceder al retiro utilizando el siguiente enlace: <a href="{shareLink}">{shareLink}</a></p><p>Si tienes alguna pregunta sobre el retiro, por favor contacta a {inviterName}.</p><p>¡Esperamos que disfrutes esta experiencia!</p><p>Atentamente,<br>Equipo de Emaús</p>', 1, datetime('now'), datetime('now')),
 
-¡Muchas gracias por tu ayuda!', 1, datetime('now'), datetime('now')),
-
-			('${uuidv4()}', 'Solicitud de Palanca', 'PALANCA_REQUEST', '¡Hola, hermano/a **{participant.nickname}**! ✨
-
-Te invitamos a ser parte del motor espiritual de este retiro. Tu **palanca** es mucho más que una carta: es una oración hecha palabra, un tesoro de amor y ánimo para un caminante que la recibirá como un regalo del cielo en el momento justo.
-
-El Señor quiere usar tus manos para escribir un mensaje que toque un corazón.
-
-* **Fecha límite para enviar tu palanca:** {retreat.fecha_limite_palanca}
-
-Que el Espíritu Santo inspire cada una de tus palabras. ¡Contamos contigo y con tu oración!', 1, datetime('now'), datetime('now')),
-
-			('${uuidv4()}', 'Recordatorio de Palanca', 'PALANCA_REMINDER', '¡Paz y Bien, **{participant.nickname}**! 🙏
-
-Este es un recordatorio amistoso y lleno de cariño. Un caminante está esperando esas palabras de aliento que el Señor ha puesto en tu corazón; esa oración que solo tú puedes escribirle. ¡No dejes pasar la oportunidad de ser luz en su camino!
-
-* **La fecha límite para enviar tu palanca es el:** {retreat.startDate}
-
-Gracias por tu generosidad y por sostener este retiro con tu oración.', 1, datetime('now'), datetime('now')),
-
-			('${uuidv4()}', 'Mensaje General', 'GENERAL', 'Hola **{participant.nickname}**, te escribimos de parte del equipo del Retiro de Emaús.
-
-{custom_message}
-
-Que tengas un día muy bendecido. Te tenemos presente en nuestras oraciones.
-
-Un abrazo en Cristo Resucitado.', 1, datetime('now'), datetime('now')),
-
-			('${uuidv4()}', 'Recordatorio Pre-Retiro', 'PRE_RETREAT_REMINDER', '¡Hola, **{participant.nickname}**!
-
-¡Ya falta muy poco para el inicio de la experiencia! Estamos preparando los últimos detalles para recibirte.
-
-Te recordamos algunos puntos importantes:
-* **Fecha:** {retreat.startDate}
-* **Hora de llegada:** {participant.hora_llegada}
-* **Lugar de encuentro:** {participant.pickupLocation}
-
-**Sugerencias sobre qué llevar:**
-{retreat.thingsToBringNotes}
-
-Ven con la mente abierta y sin expectativas, ¡prepárate para un fin de semana diferente!
-
-Un saludo.', 1, datetime('now'), datetime('now')),
-
-			('${uuidv4()}', 'Recordatorio de Pago', 'PAYMENT_REMINDER', 'Hola **{participant.nickname}**, ¿cómo estás?
-
-Te escribimos del equipo de organización. Para poder cerrar los detalles administrativos, te recordamos que está pendiente tu aporte de **{retreat.cost}**.
-
-Aquí te dejamos la información para realizarlo:
-{retreat.paymentInfo}
-
-Si ya lo realizaste, por favor ignora este mensaje. Si tienes alguna dificultad, no dudes en contactarnos con toda confianza. ¡Tu presencia es lo más importante!
-
-Saludos.', 1, datetime('now'), datetime('now')),
-
-			('${uuidv4()}', 'Mensaje Post-Retiro (Cuarto Día)', 'POST_RETREAT_MESSAGE', '¡Bienvenido a tu Cuarto Día, **{participant.nickname}**! 🎉
-
-¡Cristo ha resucitado! ¡En verdad ha resucitado!
-
-El retiro ha terminado, pero tu verdadero camino apenas comienza. Jesús resucitado camina contigo, no lo olvides nunca. La comunidad de Emaús está aquí para apoyarte.
-
-Te esperamos en nuestras reuniones de perseverancia para seguir creciendo juntos en la fe. La próxima es el **{retreat.next_meeting_date}**.
-
-¡Ánimo, peregrino! Un fuerte abrazo.', 1, datetime('now'), datetime('now')),
-
-			('${uuidv4()}', 'Confirmación de Cancelación', 'CANCELLATION_CONFIRMATION', 'Hola, **{participant.nickname}**.
-
-Hemos recibido tu notificación de cancelación. Lamentamos que no puedas acompañarnos en esta ocasión y esperamos que te encuentres bien.
-
-Las puertas siempre estarán abiertas para cuando sea el momento adecuado para ti. Te enviamos nuestros mejores deseos.
-
-Un saludo cordial.', 1, datetime('now'), datetime('now')),
-
-			('${uuidv4()}', 'Invitación de Usuario', 'USER_INVITATION', '<h2>Bienvenido/a al Retiro de Emaús</h2>
-
-<p>Hola <strong>{user.name}</strong>,</p>
-
-<p><strong>{inviterName}</strong> te ha invitado a unirte al retiro <strong>{retreat.name}</strong>.</p>
-
-<p><strong>Detalles del retiro:</strong></p>
-<ul>
-<li><strong>Fecha:</strong> {retreat.startDate}</li>
-<li><strong>Parroquia:</strong> {retreat.name}</li>
-</ul>
-
-<p>Para comenzar, por favor <a href="{shareLink}">haz clic aquí para aceptar la invitación</a> y crear tu cuenta.</p>
-
-<p>Si tienes alguna pregunta, no dudes en contactarnos.</p>
-
-<p>¡Esperamos contar con tu presencia!</p>
-
-<p>Atentamente,<br>Equipo de Emaús</p>', 1, datetime('now'), datetime('now')),
-
-			('${uuidv4()}', 'Restablecimiento de Contraseña', 'PASSWORD_RESET', '<h2>Restablecimiento de Contraseña</h2>
-
-<p>Hola <strong>{user.name}</strong>,</p>
-
-<p>Hemos recibido una solicitud para restablecer la contraseña de tu cuenta.</p>
-
-<p>Para continuar con el proceso, por favor <a href="{resetToken}">haz clic aquí</a> o copia y pega el siguiente enlace en tu navegador:</p>
-
-<p><a href="{resetToken}">{resetToken}</a></p>
-
-<p>Si no solicitaste este cambio, puedes ignorar este mensaje. Tu contraseña actual permanecerá sin cambios.</p>
-
-<p>El enlace expirará en 1 hora por seguridad.</p>
-
-<p>Atentamente,<br>Equipo de Emaús</p>', 1, datetime('now'), datetime('now')),
-
-			('${uuidv4()}', 'Notificación de Retiro Compartido', 'RETREAT_SHARED_NOTIFICATION', '<h2>Retiro Compartido Contigo</h2>
-
-<p>Hola <strong>{user.name}</strong>,</p>
-
-<p><strong>{inviterName}</strong> ha compartido contigo el retiro <strong>{retreat.name}</strong>.</p>
-
-<p><strong>Detalles del retiro:</strong></p>
-<ul>
-<li><strong>Fecha:</strong> {retreat.startDate}</li>
-<li><strong>Parroquia:</strong> {retreat.name}</li>
-</ul>
-
-<p>Puedes acceder al retiro utilizando el siguiente enlace: <a href="{shareLink}">{shareLink}</a></p>
-
-<p>Si tienes alguna pregunta sobre el retiro, por favor contacta a {inviterName}.</p>
-
-<p>¡Esperamos que disfrutes esta experiencia!</p>
-
-<p>Atentamente,<br>Equipo de Emaús</p>', 1, datetime('now'), datetime('now')),
-
-			('${uuidv4()}', 'Mensaje de Cumpleaños', 'BIRTHDAY_MESSAGE', '¡Feliz cumpleaños, **{participant.nickname}**! 🎂🎉
-
-Que este día tan especial esté lleno de alegría, bendiciones y momentos inolvidables junto a tus seres queridos.
-
-Que Dios te conceda muchos años más de vida, salud y felicidad. Que cada nuevo año que comiences esté lleno de sueños cumplidos y metas alcanzadas.
-
-La comunidad de Emaús te envía nuestros mejores deseos en tu cumpleaños. ¡Que tengas un día maravilloso!
-
-Un abrazo fuerte y ¡feliz cumpleaños!', 1, datetime('now'), datetime('now'));
+			('${uuidv4()}', 'Mensaje de Cumpleaños', 'BIRTHDAY_MESSAGE', '<p>¡Feliz cumpleaños, <strong>{participant.nickname}</strong>! 🎂🎉</p><p>Que este día tan especial esté lleno de alegría, bendiciones y momentos inolvidables junto a tus seres queridos.</p><p>Que Dios te conceda muchos años más de vida, salud y felicidad. Que cada nuevo año que comiences esté lleno de sueños cumplidos y metas alcanzadas.</p><p>La comunidad de Emaús te envía nuestros mejores deseos en tu cumpleaños. ¡Que tengas un día maravilloso!</p><p>Un abrazo fuerte y ¡feliz cumpleaños!</p>', 1, datetime('now'), datetime('now'));
 		`);
 
 		// Seed inventory data

@@ -21,8 +21,8 @@ This is a retreat logistics management system built as a monorepo using pnpm wor
 # Install dependencies
 pnpm install
 
-# Database seeding (required after initial setup)
-pnpm --filter api db:seed
+# Run all pending migrations
+pnpm --filter api migration:run
 
 # Development (runs both API and web)
 pnpm dev
@@ -96,7 +96,85 @@ The system uses TypeORM with SQLite. Key entities include:
 - Table (with leader assignments)
 - Various assignment and tracking entities
 
-## Important Implementation Notes
+## Authentication and Authorization
+
+### User Roles and Permissions
+
+The system implements role-based access control (RBAC) with the following roles:
+
+- **Superadmin**: Complete system access, including database management and user administration
+- **Admin**: Full access to retreat management features, user management within their scope
+- **Coordinator**: Retreat-specific access, can manage participants and assignments for assigned retreats
+- **Viewer**: Read-only access to retreat information and participant lists
+
+### Authentication System
+
+- JWT-based authentication with refresh tokens
+- Session management with configurable expiration
+- Password encryption using bcrypt
+- Account lockout after failed login attempts
+- Email verification for new user registration
+
+### Security Measures
+
+#### Cross-Site Request Forgery (CSRF) Protection
+
+- CSRF tokens for all state-changing operations
+- SameSite cookie settings
+- Origin header validation
+- Token refresh mechanism with secure handling
+
+#### Data Security
+
+- Input validation using Zod schemas
+- SQL injection prevention through TypeORM parameterized queries
+- XSS protection through proper output encoding
+- Secure file upload handling with validation
+- Rate limiting on authentication endpoints
+
+#### API Security
+
+- HTTPS enforcement in production
+- CORS configuration with allowed origins
+- API key management for third-party integrations
+- Request logging for security auditing
+- Error handling that doesn't expose sensitive information
+
+### Database Migration System
+
+#### Migration Management
+
+- TypeORM migration system for database schema changes
+- Automated migration generation with `pnpm --filter api migration:generate`
+- Manual migration files in `apps/api/src/migrations/sqlite/`
+- Migration rollback capabilities with `pnpm --filter api migration:revert`
+- Database seeding with `SEED_FORCE=true pnpm --filter api migration:run`
+
+#### Migration Best Practices
+
+- All schema changes must go through migrations
+- Migrations should be reversible
+- Test migrations in development before production deployment
+- Include data transformation logic when changing existing schemas
+- Document breaking changes in migration files
+
+### RBAC Implementation
+
+#### Permission Structure
+
+- Role-based permissions defined in database
+- Fine-grained permissions for specific actions
+- Hierarchical role inheritance
+- Dynamic permission checking in middleware
+
+#### Authorization Middleware
+
+- Route-level protection using decorators
+- Resource-based authorization checks
+- Permission caching for performance
+- Audit logging for sensitive operations
+
+### Important Implementation Notes
 
 - All UI text should be in Spanish
 - Use existing WalkerView.vue as template for new list views
@@ -104,3 +182,6 @@ The system uses TypeORM with SQLite. Key entities include:
 - Room assignments consider snoring compatibility
 - Table assignments prevent family/friend conflicts
 - Superadmin capabilities for database management
+- Always validate user permissions before data access
+- Implement proper error handling for unauthorized access
+- Use secure HTTP headers in all API responses

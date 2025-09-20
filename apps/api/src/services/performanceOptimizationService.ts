@@ -376,20 +376,35 @@ export class PerformanceOptimizationService {
 
 	// Database query optimization
 	public async optimizeHeavyQueries(): Promise<void> {
-		// Create optimized indexes for common queries
-		const indexes = [
-			'CREATE INDEX IF NOT EXISTS idx_user_retreat_composite ON user_retreats(userId, retreatId, status)',
-			'CREATE INDEX IF NOT EXISTS idx_role_permissions_composite ON role_permissions(roleId, permissionId)',
-			'CREATE INDEX IF NOT EXISTS idx_retreat_users_status ON user_retreats(retreatId, status)',
-			'CREATE INDEX IF NOT EXISTS idx_user_retreats_created ON user_retreats(createdAt)',
-		];
+		try {
+			// Check if user_retreats table exists before creating indexes
+			const tableCheck = await AppDataSource.query(`
+				SELECT name FROM sqlite_master
+				WHERE type='table' AND name='user_retreats'
+			`);
 
-		for (const index of indexes) {
-			try {
-				await AppDataSource.query(index);
-			} catch (error) {
-				console.warn(`Index creation failed: ${index}`, error);
+			if (tableCheck.length === 0) {
+				console.log('user_retreats table does not exist yet, skipping index creation');
+				return;
 			}
+
+			// Create optimized indexes for common queries
+			const indexes = [
+				'CREATE INDEX IF NOT EXISTS idx_user_retreat_composite ON user_retreats(userId, retreatId, status)',
+				'CREATE INDEX IF NOT EXISTS idx_role_permissions_composite ON role_permissions(roleId, permissionId)',
+				'CREATE INDEX IF NOT EXISTS idx_retreat_users_status ON user_retreats(retreatId, status)',
+				'CREATE INDEX IF NOT EXISTS idx_user_retreats_created ON user_retreats(createdAt)',
+			];
+
+			for (const index of indexes) {
+				try {
+					await AppDataSource.query(index);
+				} catch (error) {
+					console.warn(`Index creation failed: ${index}`, error);
+				}
+			}
+		} catch (error) {
+			console.warn('Failed to check table existence for index creation:', error);
 		}
 	}
 

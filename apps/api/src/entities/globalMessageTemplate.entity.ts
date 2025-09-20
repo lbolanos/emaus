@@ -5,6 +5,7 @@ import {
 	CreateDateColumn,
 	UpdateDateColumn,
 } from 'typeorm';
+import { GlobalMessageTemplate as IGlobalMessageTemplate } from '@repo/types';
 
 export enum GlobalMessageTemplateType {
 	WALKER_WELCOME = 'WALKER_WELCOME',
@@ -24,7 +25,7 @@ export enum GlobalMessageTemplateType {
 }
 
 @Entity('global_message_templates')
-export class GlobalMessageTemplate {
+export class GlobalMessageTemplate implements IGlobalMessageTemplate {
 	@PrimaryGeneratedColumn('uuid')
 	id!: string;
 
@@ -35,7 +36,21 @@ export class GlobalMessageTemplate {
 		type: 'varchar',
 		enum: GlobalMessageTemplateType,
 	})
-	type!: GlobalMessageTemplateType;
+	type!:
+		| 'WALKER_WELCOME'
+		| 'SERVER_WELCOME'
+		| 'EMERGENCY_CONTACT_VALIDATION'
+		| 'PALANCA_REQUEST'
+		| 'PALANCA_REMINDER'
+		| 'GENERAL'
+		| 'PRE_RETREAT_REMINDER'
+		| 'PAYMENT_REMINDER'
+		| 'POST_RETREAT_MESSAGE'
+		| 'CANCELLATION_CONFIRMATION'
+		| 'USER_INVITATION'
+		| 'PASSWORD_RESET'
+		| 'RETREAT_SHARED_NOTIFICATION'
+		| 'BIRTHDAY_MESSAGE';
 
 	@Column({ type: 'text' })
 	message!: string;

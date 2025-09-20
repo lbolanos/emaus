@@ -44,6 +44,34 @@ export const UpdateMessageTemplateSchema = z.object({
 	}),
 });
 
+export const GlobalMessageTemplateSchema = z.object({
+	id: idSchema,
+	name: z.string().min(1, 'Name is required'),
+	type: messageTemplateTypes,
+	message: z.string().min(1, 'Message is required'),
+	isActive: z.boolean().default(true),
+	createdAt: z.date(),
+	updatedAt: z.date(),
+});
+
+export const CreateGlobalMessageTemplateSchema = z.object({
+	body: GlobalMessageTemplateSchema.omit({
+		id: true,
+		createdAt: true,
+		updatedAt: true,
+	}),
+});
+
+export const UpdateGlobalMessageTemplateSchema = z.object({
+	body: CreateGlobalMessageTemplateSchema.shape.body.partial(),
+	params: z.object({
+		id: z.string().uuid(),
+	}),
+});
+
 export type MessageTemplate = z.infer<typeof MessageTemplateSchema>;
 export type CreateMessageTemplate = z.infer<typeof CreateMessageTemplateSchema>;
 export type UpdateMessageTemplate = z.infer<typeof UpdateMessageTemplateSchema>;
+export type GlobalMessageTemplate = z.infer<typeof GlobalMessageTemplateSchema>;
+export type CreateGlobalMessageTemplate = z.infer<typeof CreateGlobalMessageTemplateSchema>;
+export type UpdateGlobalMessageTemplate = z.infer<typeof UpdateGlobalMessageTemplateSchema>;

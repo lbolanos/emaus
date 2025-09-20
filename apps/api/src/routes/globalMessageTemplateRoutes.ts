@@ -1,57 +1,44 @@
 import { Router } from 'express';
 import { GlobalMessageTemplateController } from '../controllers/globalMessageTemplateController';
-import { isAuthenticated } from '../middleware/authentication';
+import { validateRequest } from '../middleware/validateRequest';
+import { CreateGlobalMessageTemplateSchema, UpdateGlobalMessageTemplateSchema } from '@repo/types';
+import { isAuthenticated } from '../middleware/isAuthenticated';
+import { requirePermission } from '../middleware/authorization';
 
 const router = Router();
 const globalMessageTemplateController = new GlobalMessageTemplateController();
 
-// Get all global message templates (all roles can read)
-router.get(
-	'/',
-	isAuthenticated,
-	globalMessageTemplateController.getAll.bind(globalMessageTemplateController),
-);
+router.use(isAuthenticated);
 
-// Get global message template by ID (all roles can read)
-router.get(
-	'/:id',
-	isAuthenticated,
-	globalMessageTemplateController.getById.bind(globalMessageTemplateController),
-);
+// Get all global message templates
+router.get('/', requirePermission('globalMessageTemplate:read'), globalMessageTemplateController.getAll.bind(globalMessageTemplateController));
 
-// Create global message template (superadmin only)
+// Get global message template by ID
+router.get('/:id', requirePermission('globalMessageTemplate:read'), globalMessageTemplateController.getById.bind(globalMessageTemplateController));
+
+// Create global message template
 router.post(
 	'/',
-	isAuthenticated,
+	validateRequest(CreateGlobalMessageTemplateSchema),
+	requirePermission('globalMessageTemplate:create'),
 	globalMessageTemplateController.create.bind(globalMessageTemplateController),
 );
 
-// Update global message template (superadmin only)
+// Update global message template
 router.put(
 	'/:id',
-	isAuthenticated,
+	validateRequest(UpdateGlobalMessageTemplateSchema),
+	requirePermission('globalMessageTemplate:update'),
 	globalMessageTemplateController.update.bind(globalMessageTemplateController),
 );
 
-// Delete global message template (superadmin only)
-router.delete(
-	'/:id',
-	isAuthenticated,
-	globalMessageTemplateController.delete.bind(globalMessageTemplateController),
-);
+// Delete global message template
+router.delete('/:id', requirePermission('globalMessageTemplate:delete'), globalMessageTemplateController.delete.bind(globalMessageTemplateController));
 
-// Toggle active status (superadmin only)
-router.post(
-	'/:id/toggle-active',
-	isAuthenticated,
-	globalMessageTemplateController.toggleActive.bind(globalMessageTemplateController),
-);
+// Toggle active status
+router.post('/:id/toggle-active', requirePermission('globalMessageTemplate:update'), globalMessageTemplateController.toggleActive.bind(globalMessageTemplateController));
 
-// Copy global template to specific retreat (all roles with retreat access)
-router.post(
-	'/:id/copy-to-retreat',
-	isAuthenticated,
-	globalMessageTemplateController.copyToRetreat.bind(globalMessageTemplateController),
-);
+// Copy global template to specific retreat
+router.post('/:id/copy-to-retreat', requirePermission('globalMessageTemplate:read'), globalMessageTemplateController.copyToRetreat.bind(globalMessageTemplateController));
 
 export default router;

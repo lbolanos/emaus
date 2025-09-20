@@ -92,7 +92,9 @@
       "variablesTitle": "Available Variables",
       "categories": {
         "participant": "Participant Variables",
-        "retreat": "Retreat Variables"
+        "retreat": "Retreat Variables",
+        "user": "User Variables",
+        "custom": "Custom Variables"
       },
       "variables": {
         "retreatParish": "Retreat parish",

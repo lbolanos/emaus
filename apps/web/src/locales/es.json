@@ -69,6 +69,8 @@
     "dialog": {
       "editTitle": "Editar Plantilla",
       "newTitle": "Nueva Plantilla",
+      "editDescription": "Edita una plantilla de mensaje existente",
+      "createDescription": "Crea una nueva plantilla de mensaje",
       "nameLabel": "Nombre",
       "typeLabel": "Tipo",
       "typePlaceholder": "Selecciona un tipo",
@@ -90,7 +92,9 @@
         "variablesTitle": "Variables Disponibles",
         "categories": {
           "participant": "Variables del Participante",
-          "retreat": "Variables del Retiro"
+          "retreat": "Variables del Retiro",
+          "user": "Variables del Usuario",
+          "custom": "Variables Personalizadas"
         },
         "variables": {
           "retreatParish": "Parroquia del retiro",
@@ -105,6 +109,18 @@
           "retreatMaxWalkers": "Máximo de caminantes del retiro",
           "retreatMaxServers": "Máximo de servidores del retiro"
         }
+      },
+      "editor": {
+        "bold": "Negrita",
+        "italic": "Cursiva",
+        "underline": "Subrayado",
+        "alignLeft": "Alinear a la izquierda",
+        "alignCenter": "Centrar",
+        "alignRight": "Alinear a la derecha",
+        "bulletList": "Lista con viñetas",
+        "numberedList": "Lista numerada",
+        "clearFormatting": "Limpiar formato",
+        "emoji": "Insertar emoji"
       },
     "deleteConfirm": "¿Estás seguro de que quieres eliminar esta plantilla?",
     "types": {
@@ -685,11 +701,13 @@
       "showMore": "Ver más",
       "showLess": "Ver menos"
     },
+    "click": "Clic",
     "import": {
       "errorTitle": "Error de Importación",
       "errorGeneric": "Ocurrió un error al importar"
     },
     "edit": "Editar",
+    "update": "Actualizar",
     "insert": "Insertar",
     "delete": "Eliminar",
     "cancel": "Cancelar",

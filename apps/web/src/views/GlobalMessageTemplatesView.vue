@@ -175,10 +175,10 @@
 		</div>
 
 		<!-- Create/Edit Modal -->
-		<AddEditGlobalMessageTemplateModal
-			v-if="showCreateModal || showEditModal"
+		<BaseMessageTemplateModal
+			v-model:open="showCreateModal"
 			:template="editingTemplate"
-			@close="closeModals"
+			:is-global="true"
 			@saved="handleTemplateSaved"
 		/>
 
@@ -199,14 +199,13 @@
 import { ref, onMounted } from 'vue';
 import { useGlobalMessageTemplateStore, type GlobalMessageTemplate } from '@/stores/globalMessageTemplateStore';
 import { useAuthStore } from '@/stores/authStore';
-import AddEditGlobalMessageTemplateModal from '@/components/AddEditGlobalMessageTemplateModal.vue';
+import BaseMessageTemplateModal from '@/components/BaseMessageTemplateModal.vue';
 import ConfirmationDialog from '@/components/ConfirmationDialog.vue';
 
 const globalMessageTemplateStore = useGlobalMessageTemplateStore();
 const authStore = useAuthStore();
 
 const showCreateModal = ref(false);
-const showEditModal = ref(false);
 const showDeleteDialog = ref(false);
 const editingTemplate = ref<GlobalMessageTemplate | null>(null);
 const templateToDelete = ref<GlobalMessageTemplate | null>(null);
@@ -261,7 +260,7 @@ const formatDate = (dateString: string) => {
 
 const editTemplate = (template: any) => {
 	editingTemplate.value = template;
-	showEditModal.value = true;
+	showCreateModal.value = true;
 };
 
 const toggleTemplateStatus = async (template: any) => {
@@ -291,7 +290,6 @@ const confirmDelete = async () => {
 
 const closeModals = () => {
 	showCreateModal.value = false;
-	showEditModal.value = false;
 	editingTemplate.value = null;
 };
 
@@ -305,7 +303,9 @@ const handleTemplateSaved = () => {
 .line-clamp-3 {
 	display: -webkit-box;
 	-webkit-line-clamp: 3;
+	line-clamp: 3;
 	-webkit-box-orient: vertical;
+	box-orient: vertical;
 	overflow: hidden;
 }
 </style>

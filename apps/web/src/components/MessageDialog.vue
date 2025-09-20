@@ -115,6 +115,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@repo/ui';
+import { convertHtmlToWhatsApp } from '@/utils/message';
 
 interface Props {
   open: boolean;
@@ -474,14 +475,14 @@ const copyToClipboard = async () => {
 // Send message function
 const sendMessage = () => {
   if (!selectedPhone.value || !props.participant) return;
-  
-  // Use the edited message
-  const messageToSend = editedMessage.value;
+
+  // Use the edited message and convert HTML to WhatsApp format
+  const messageToSend = convertHtmlToWhatsApp(editedMessage.value);
   copyToClipboard();
-  
+
   // Open WhatsApp with the message
   const phoneToUse = selectedPhone.value;
-  const whatsappUrl = `https://wa.me/${phoneToUse}?text=${encodeURIComponent(messageToSend)}`;
+  const whatsappUrl = `https://api.whatsapp.com/send?phone=${phoneToUse}&text=${encodeURIComponent(messageToSend)}`;
   window.open(whatsappUrl, '_blank');
   
   // Close dialog
