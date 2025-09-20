@@ -250,7 +250,7 @@ watch(() => props.disabled, (newValue) => {
 defineExpose({
   insertVariable: (variable: string) => {
     if (editor.value) {
-      editor.value.commands.insertContent(`<span style="background-color: #fef3c7; padding: 2px 4px; border-radius: 4px; font-family: monospace;">${variable}</span>`);
+      editor.value.commands.insertContent(variable);
     }
   },
   focus: () => editor.value?.commands.focus(),

@@ -78,6 +78,27 @@
                         <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413"/>
                       </svg>
                     </Button>
+                    <Select v-model="emailFormat">
+                      <SelectTrigger class="w-32">
+                        <SelectValue placeholder="Formato Email" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="basic">Básico</SelectItem>
+                        <SelectItem value="enhanced">Mejorado</SelectItem>
+                        <SelectItem value="outlook">Outlook</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      @click="downloadHtmlFile"
+                      title="Descargar HTML"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                      </svg>
+                    </Button>
                     <Button
                       type="button"
                       variant="outline"
@@ -93,10 +114,23 @@
                       type="button"
                       variant="outline"
                       size="sm"
-                      @click="exportToClipboard"
+                      @click="handleCopyRichTextToClipboard"
                       title="Copiar al portapapeles"
                     >
                       <Copy class="w-4 h-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      @click="showEmailPreview = !showEmailPreview; generateEmailPreview()"
+                      :class="{ 'bg-primary text-primary-foreground': showEmailPreview }"
+                      title="Vista Previa Email"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                      </svg>
                     </Button>
                   </div>
                   <Button
@@ -114,10 +148,11 @@
               </div>
 
               <Tabs v-model="activeTab" class="w-full">
-                <TabsList class="grid w-full grid-cols-3">
+                <TabsList :class="['grid w-full', showEmailPreview ? 'grid-cols-4' : 'grid-cols-3']">
                   <TabsTrigger value="edit">{{ t ? t('common.edit') : 'Editar' }}</TabsTrigger>
                   <TabsTrigger value="html">HTML</TabsTrigger>
                   <TabsTrigger value="preview">{{ t ? t('messageTemplates.dialog.preview') : 'Vista Previa' }}</TabsTrigger>
+                  <TabsTrigger value="email-preview" v-if="showEmailPreview">Email Preview</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="edit" class="space-y-2">
@@ -186,6 +221,29 @@
                     </div>
                     <div v-else class="text-muted-foreground italic">
                       {{ t ? t('messageTemplates.dialog.previewPlaceholder') : 'Escribe un mensaje para ver la vista previa' }}
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="email-preview" v-if="showEmailPreview" class="space-y-2">
+                  <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                      <Label class="text-sm font-medium">Formato: {{ emailFormat === 'basic' ? 'Básico' : emailFormat === 'enhanced' ? 'Mejorado' : 'Outlook' }}</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        @click="generateEmailPreview"
+                      >
+                        Actualizar Preview
+                      </Button>
+                    </div>
+                    <div class="w-full resize-y rounded-md border border-input bg-muted/50 px-3 py-2 text-sm overflow-y-auto min-h-[300px] max-h-[600px]" style="height: 400px;">
+                      <div v-if="emailPreviewHtml" class="email-preview-content" v-html="emailPreviewHtml">
+                      </div>
+                      <div v-else class="text-muted-foreground italic text-center py-8">
+                        Haz clic en "Actualizar Preview" para generar la vista previa del email
+                      </div>
                     </div>
                   </div>
                 </TabsContent>
@@ -349,7 +407,7 @@ import { useMessageTemplateStore } from '@/stores/messageTemplateStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import RichTextEditor from './RichTextEditor.vue';
 import { messageTemplateTypes } from '@repo/types';
-import { convertHtmlToWhatsApp, testEmojiConversion, beautifyHtml } from '@/utils/message';
+import { convertHtmlToWhatsApp, convertHtmlToEmail, detectEmailClient, copyRichTextToClipboard, testEmojiConversion, beautifyHtml } from '@/utils/message';
 
 interface Props {
   open: boolean;
@@ -391,6 +449,17 @@ const showVariablesPanel = ref(true);
 const searchQuery = ref('');
 const selectedCategory = ref('all');
 const activeTab = ref('edit');
+const emailFormat = ref<'basic' | 'enhanced' | 'outlook'>('enhanced');
+
+// Auto-detect email client on component mount
+const detectAndSetEmailFormat = () => {
+  const detectedFormat = detectEmailClient();
+  if (detectedFormat === 'basic' || detectedFormat === 'enhanced' || detectedFormat === 'outlook') {
+    emailFormat.value = detectedFormat;
+  }
+};
+const showEmailPreview = ref(false);
+const emailPreviewHtml = ref('');
 const richTextEditorRef = ref<InstanceType<typeof RichTextEditor> | null>(null);
 const selectedParticipant = ref('');
 
@@ -679,6 +748,7 @@ watch(
     console.log('Template watcher triggered:', { template, oldTemplate });
     if (template) {
       console.log('Setting form data from template');
+      detectAndSetEmailFormat(); // Auto-detect email format when template changes
       formData.value = {
         name: (template as any).name || '',
         type: (template as any).type || '',
@@ -794,29 +864,170 @@ const exportToWhatsApp = () => {
   });
 };
 
-const exportToEmail = () => {
+const generateEmailPreview = () => {
   const message = formData.value.message;
   if (!message) return;
 
-  // Create email subject and body
-  const subject = encodeURIComponent(formData.value.name || 'Mensaje de Emaús');
-  const body = encodeURIComponent(message);
+  // Convert HTML to email format
+  emailPreviewHtml.value = convertHtmlToEmail(message, {
+    format: emailFormat.value,
+    includeJavaScript: true,
+    preserveStyles: true
+  });
+};
 
-  // Create mailto URL
+const downloadHtmlFile = () => {
+  const message = formData.value.message;
+  if (!message) return;
+
+  // Convert HTML to email format
+  const emailHtml = convertHtmlToEmail(message, {
+    format: emailFormat.value,
+    includeJavaScript: true,
+    preserveStyles: true
+  });
+
+  // Create blob and download link
+  const blob = new Blob([emailHtml], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${formData.value.name || 'email'}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+const exportToEmail = async () => {
+  const message = formData.value.message;
+  if (!message) return;
+
+  // Convert HTML to email format
+  const emailHtml = convertHtmlToEmail(message, {
+    format: emailFormat.value,
+    includeJavaScript: true,
+    preserveStyles: true
+  });
+
+  // Convert HTML to plain text for the email body
+  const plainText = convertHtmlToWhatsApp(message);
+
+  // Create email subject
+  const subject = encodeURIComponent(formData.value.name || 'Mensaje de Emaús');
+
+  // Create email body with plain text and note about HTML version
+  const body = encodeURIComponent(`${plainText}\n\n---\nEste mensaje incluye formato HTML. Se ha generado una versión HTML completa que puedes descargar como archivo adjunto.`);
+
+  // Create mailto URL with shorter content
   const emailUrl = `mailto:?subject=${subject}&body=${body}`;
 
-  // Try to open email client
+  console.log('Attempting to open email client with URL (length:', emailUrl.length, 'characters)');
+
+  // Store HTML in localStorage as primary fallback
   try {
-    window.location.href = emailUrl;
-  } catch (error) {
-    console.error('Error opening email client:', error);
-    // Fallback: copy to clipboard
-    navigator.clipboard.writeText(`Asunto: ${decodeURIComponent(subject)}\n\n${message}`).then(() => {
-      alert('No se pudo abrir el cliente de correo. El mensaje ha sido copiado al portapapeles.');
-    }).catch(() => {
-      alert('No se pudo abrir el cliente de correo. Por favor, copia el mensaje manualmente.');
-    });
+    localStorage.setItem('emaus_email_html', emailHtml);
+    console.log('HTML version stored in localStorage');
+  } catch (e) {
+    console.log('Failed to store in localStorage:', e);
   }
+
+  // Copy HTML to clipboard
+  try {
+    await copyRichTextToClipboard(emailHtml);
+    console.log('HTML copied to clipboard');
+  } catch (e) {
+    console.log('Failed to copy to clipboard:', e);
+  }
+
+  // Open email client first
+  const emailWindow = window.open(emailUrl, '_self');
+
+  if (emailWindow) {
+    console.log('Email client opened successfully');
+    // Show user instructions after a short delay
+    setTimeout(() => {
+      showEmailInstructions();
+    }, 1500);
+  } else {
+    // Fallback if window.open fails
+    try {
+      const link = document.createElement('a');
+      link.href = emailUrl;
+      link.target = '_self';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      console.log('Link click method attempted');
+      setTimeout(() => {
+        showEmailInstructions();
+      }, 1500);
+    } catch (e) {
+      console.log('Link click method failed:', e);
+      // Final fallback
+      window.location.href = emailUrl;
+      setTimeout(() => {
+        showEmailInstructions();
+      }, 1500);
+    }
+  }
+};
+
+const handleCopyRichTextToClipboard = async () => {
+  //console.log('🚀 handleCopyRichTextToClipboard called!');
+  const message = formData.value.message;
+  if (!message) {
+    console.log('❌ No message content to copy');
+    return;
+  }
+
+  try {
+    console.log('📋 Starting clipboard copy with message length:', message.length);
+
+    // Store HTML in localStorage for the dynamic button to access
+    localStorage.setItem('emaus_email_html', message);
+    console.log('✅ HTML stored in localStorage');
+
+    // Call the imported utility function
+    const result = await copyRichTextToClipboard(message);
+    console.log('📋 Clipboard result:', result);
+
+    if (result.success) {
+      console.log('✅ Clipboard copy successful:', result.format);
+    } else {
+      console.error('❌ Clipboard copy failed:', result.message);
+    }
+  } catch (error) {
+    console.error('❌ Error in handleCopyRichTextToClipboard:', error);
+  }
+};
+
+const showEmailInstructions = () => {
+  const instructions = `
+¡Email iniciado!
+
+Para obtener la versión HTML completa del mensaje:
+
+1. COPIAR HTML (recomendado):
+   • Haz clic en el botón "Copiar HTML" que aparecerá
+   • Pega el contenido en tu email client
+
+2. DESCARGAR ARCHIVO:
+   • Usa el botón "Descargar HTML"
+   • Adjunta el archivo a tu email
+
+3. VISTA PREVIA:
+   • Usa la pestaña "Email Preview" para ver cómo se verá
+
+4. ALMACENAMIENTO LOCAL:
+   • El HTML está guardado en el navegador
+   • Pégalo manualmente si es necesario
+
+El email básico ya está abierto en tu cliente de correo.
+  `;
+
+  // Show instructions
+  alert(instructions.trim());
 };
 
 const copyVariableToClipboard = async (variable: string, event: Event) => {
@@ -828,26 +1039,7 @@ const copyVariableToClipboard = async (variable: string, event: Event) => {
   }
 };
 
-const exportToClipboard = async (event: MouseEvent) => {
-  const message = formData.value.message;
-  if (!message) return;
-
-  try {
-    await navigator.clipboard.writeText(message);
-
-    // Show feedback
-    const originalText = 'Copiar al portapapeles';
-    const button = event?.currentTarget as HTMLElement;
-    if (button) {
-      button.innerHTML = '✓ Copiado';
-      setTimeout(() => {
-        button.innerHTML = originalText;
-      }, 2000);
-    }
-  } catch (err) {
-    console.error('Error al copiar al portapapeles:', err);
-  }
-};
+// Removed unused exportToClipboard function - functionality moved to enhanced clipboard button
 
 const close = () => {
   isOpen.value = false;
@@ -1021,5 +1213,34 @@ const handleSubmit = async () => {
 
 .preview-content :deep(.text-right) {
   text-align: right;
+}
+
+.email-preview-content {
+  font-family: Arial, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+  padding: 20px;
+  background-color: #f5f5f5;
+}
+
+.email-preview-content :deep(.email-container) {
+  max-width: 600px;
+  margin: 0 auto;
+  background-color: white;
+  padding: 30px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.email-preview-content :deep(.email-body) {
+  margin-bottom: 30px;
+}
+
+.email-preview-content :deep(.email-footer) {
+  text-align: center;
+  color: #666;
+  font-size: 12px;
+  border-top: 1px solid #e0e0e0;
+  padding-top: 20px;
 }
 </style>

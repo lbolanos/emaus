@@ -224,6 +224,7 @@ const typeLabels: Record<string, string> = {
 	USER_INVITATION: 'Invitación de Usuario',
 	PASSWORD_RESET: 'Restablecimiento de Contraseña',
 	RETREAT_SHARED_NOTIFICATION: 'Notificación de Retiro Compartido',
+	BIRTHDAY_MESSAGE: 'Mensaje de Cumpleaños',
 };
 
 onMounted(async () => {
@@ -247,7 +248,12 @@ const getTypeLabel = (type: string) => {
 };
 
 const formatMessagePreview = (message: string) => {
-	return message.length > 150 ? message.substring(0, 150) + '...' : message;
+	// Extract text from HTML by removing all HTML tags
+	const plainText = message.replace(/<[^>]*>/g, ' ')
+		.replace(/\s+/g, ' ') // Replace multiple spaces with single space
+		.trim(); // Remove leading/trailing whitespace
+
+	return plainText.length > 150 ? plainText.substring(0, 150) + '...' : plainText;
 };
 
 const formatDate = (dateString: string) => {
