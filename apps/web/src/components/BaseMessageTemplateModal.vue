@@ -407,7 +407,7 @@ import { useMessageTemplateStore } from '@/stores/messageTemplateStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import RichTextEditor from './RichTextEditor.vue';
 import { messageTemplateTypes } from '@repo/types';
-import { convertHtmlToWhatsApp, convertHtmlToEmail, detectEmailClient, copyRichTextToClipboard, testEmojiConversion, beautifyHtml } from '@/utils/message';
+import { convertHtmlToWhatsApp, convertHtmlToEmail, detectEmailClient, copyRichTextToClipboard, testEmojiConversion, beautifyHtml, replaceAllVariables, ParticipantData, RetreatData } from '@/utils/message';
 
 interface Props {
   open: boolean;
@@ -467,7 +467,7 @@ const formData = ref({
   name: '',
   type: '',
   message: '',
-  isActive: true,
+  isActive: true, // This will be conditionally included/excluded based on template type
 });
 
 // Available types based on template type
@@ -661,67 +661,12 @@ const selectedParticipantData = computed(() => {
 });
 
 const previewMessage = computed(() => {
-  let message = formData.value.message;
+    let message = formData.value.message;
 
-  if (!props.isGlobal && selectedParticipantData.value) {
-    // Real participant data preview
-    const participant = selectedParticipantData.value;
-    const participantReplacements = {
-      'participant.nickname': (participant as any).nickname || '',
-      'participant.firstName': (participant as any).firstName || '',
-      'participant.lastName': (participant as any).lastName || '',
-      'participant.type': participant.type || '',
-      'participant.cellPhone': (participant as any).cellPhone || '',
-      'participant.email': (participant as any).email || '',
-      'participant.hora_llegada': '3:00 PM', // Default value
-    };
+  // Replace participant variables
+  message = replaceAllVariables(message, selectedParticipantData.value as ParticipantData, retreatStore.selectedRetreat as RetreatData);  
 
-    Object.entries(participantReplacements).forEach(([key, value]) => {
-      message = message.replace(new RegExp(`\\{${key}\\}`, 'g'), String(value));
-    });
-  } else {
-    // Sample data preview
-    const replacements = {
-      '{participant.nickname}': 'Juan Pérez',
-      '{participant.firstName}': 'Juan',
-      '{participant.lastName}': 'Pérez',
-      '{participant.hora_llegada}': '3:00 PM',
-      '{participant.type}': 'WALKER',
-      '{participant.cellPhone}': '123-456-7890',
-      '{participant.email}': 'juan@example.com',
-    };
-
-    Object.entries(replacements).forEach(([key, value]) => {
-      message = message.replace(new RegExp(key, 'g'), value);
-    });
-  }
-
-  // Retreat variables
-  const retreat = retreatStore.selectedRetreat;
-  const retreatReplacements = {
-    '{retreat.startDate}': retreat?.startDate ? new Date(retreat.startDate).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    }) : '15 de marzo de 2024',
-    '{retreat.endDate}': retreat?.endDate ? new Date(retreat.endDate).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    }) : '17 de marzo de 2024',
-    '{retreat.name}': retreat?.parish || 'Parroquia San José',
-    '{retreat.cost}': retreat?.cost || '50',
-    '{retreat.paymentInfo}': retreat?.paymentInfo || 'Transferencia bancaria',
-    '{retreat.thingsToBringNotes}': retreat?.thingsToBringNotes || 'Ropa cómoda, Biblia, cuaderno',
-    '{retreat.fecha_limite_palanca}': '10 de marzo de 2024',
-    '{retreat.next_meeting_date}': (retreat as any).next_meeting_date || '22 de marzo de 2024',
-  };
-
-  Object.entries(retreatReplacements).forEach(([key, value]) => {
-    message = message.replace(new RegExp(key, 'g'), value);
-  });
-
-  // User and custom variables
+  // Handle custom variables that aren't covered by the utility functions
   const customReplacements = {
     '{user.name}': 'María González',
     '{custom_message}': 'Este es un mensaje personalizado',
@@ -924,13 +869,6 @@ const exportToEmail = async () => {
 
   console.log('Attempting to open email client with URL (length:', emailUrl.length, 'characters)');
 
-  // Store HTML in localStorage as primary fallback
-  try {
-    localStorage.setItem('emaus_email_html', emailHtml);
-    console.log('HTML version stored in localStorage');
-  } catch (e) {
-    console.log('Failed to store in localStorage:', e);
-  }
 
   // Copy HTML to clipboard
   try {
@@ -983,10 +921,6 @@ const handleCopyRichTextToClipboard = async () => {
 
   try {
     console.log('📋 Starting clipboard copy with message length:', message.length);
-
-    // Store HTML in localStorage for the dynamic button to access
-    localStorage.setItem('emaus_email_html', message);
-    console.log('✅ HTML stored in localStorage');
 
     // Call the imported utility function
     const result = await copyRichTextToClipboard(message);
@@ -1069,7 +1003,9 @@ const handleSubmit = async () => {
       }
 
       const templateData = {
-        ...formData.value,
+        name: formData.value.name,
+        type: formData.value.type,
+        message: formData.value.message,
         retreatId: retreatStore.selectedRetreatId,
       };
 

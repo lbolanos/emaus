@@ -55,7 +55,7 @@ const filteredAndSortedTemplates = computed(() => {
     const query = searchQuery.value.toLowerCase();
     filtered = filtered.filter(template =>
       template.name.toLowerCase().includes(query) ||
-      template.message.toLowerCase().includes(query) ||
+      convertHtmlToText(template.message).toLowerCase().includes(query) ||
       t(`messageTemplates.types.${template.type}`).toLowerCase().includes(query)
     );
   }
@@ -107,6 +107,13 @@ const toggleRowExpansion = (templateId: string) => {
     newSet.add(templateId);
   }
   expandedRows.value = newSet;
+};
+
+const convertHtmlToText = (html: string): string => {
+  return html
+    .replace(/<[^>]*>/g, ' ') // Remove HTML tags
+    .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+    .trim(); // Remove leading/trailing whitespace
 };
 
 const handleSort = (field: 'name' | 'type') => {
@@ -284,10 +291,10 @@ const handleTemplateSaved = () => {
                   <div class="flex items-start gap-2">
                     <div class="flex-1 min-w-0">
                       <div class="text-sm truncate">
-                        {{ template.message }}
+                        {{ convertHtmlToText(template.message) }}
                       </div>
                       <div
-                        v-if="template.message.length > 100"
+                        v-if="convertHtmlToText(template.message).length > 100"
                         class="text-xs text-muted-foreground cursor-pointer hover:text-primary mt-1"
                         @click="toggleRowExpansion(template.id)"
                       >
@@ -295,7 +302,7 @@ const handleTemplateSaved = () => {
                       </div>
                     </div>
                     <Button
-                      v-if="template.message.length > 100"
+                      v-if="convertHtmlToText(template.message).length > 100"
                       variant="ghost"
                       size="sm"
                       @click="toggleRowExpansion(template.id)"
@@ -349,10 +356,10 @@ const handleTemplateSaved = () => {
                   <div class="space-y-2">
                     <div class="text-sm font-medium text-muted-foreground">Mensaje completo:</div>
                     <div class="bg-background border rounded-md p-3 text-sm font-mono whitespace-pre-wrap max-h-40 overflow-y-auto">
-                      {{ template.message }}
+                      {{ convertHtmlToText(template.message) }}
                     </div>
                     <div class="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{{ template.message.length }} caracteres</span>
+                      <span>{{ convertHtmlToText(template.message).length }} caracteres</span>
                       <span>Creado: {{ new Date(template.createdAt).toLocaleString('es-ES') }}</span>
                     </div>
                   </div>

@@ -229,7 +229,6 @@ IN PROGRESS
 cualquier mensaje se puede enviar por correo o por whatsapp
 llevar un registro de las comunicaciones del participantes.
 
-
 TODO
 since it is not in production modify apps/api/src/migrations/sqlite/20250910163337_CreateSchema.ts for schema.
 
@@ -259,6 +258,7 @@ una forma de hacer backup del retiro y luego importar.
 Que debe pasar cuando se cancele un participante ... unassign from retreatBed and from tableMesa
 
 hacer que funcione lint
+agregar al retiro hora de llegada de caminantes ... y hora de llegada de servidores el viernes.
 
 imprimir la mesa con lider caminantes telefonos, medicamentos y alimentos.
 usar la ia para conversar y agregar o quitar base de datos.
@@ -275,8 +275,13 @@ This will use Turborepo to run the `dev` script in both `apps/api` and `apps/web
 - The API will be available at `http://localhost:3001`.
 - The Web app will be available at `http://localhost:5173`.
 
-
 prompts:
 Please use the Playwright MCP server to test the following process:
-Clic en menu Plantillas Globales
-Clic editar Mensaje de cumpleaños,  seleccionar texto "¡Feliz cumpleaños" y clic en boton negrillas.
+connect http://localhost:5173
+login with
+SEED_MASTER_USER_EMAIL=leonardo.bolanos@gmail.com
+SEED_MASTER_USER_PASSWORD=ewdesrrcdww
+Clic Menu Global Templates
+Search for BIRTHDAY_MESSAGE and clic title="Editar"
+Select text "¡Feliz cumpleaños" y clic en boton negrillas.
+Fix any issue with text changes

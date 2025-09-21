@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import { GlobalMessageTemplateService } from '../services/globalMessageTemplateService';
 
-
 export class GlobalMessageTemplateController {
 	private globalMessageTemplateService: GlobalMessageTemplateService;
 

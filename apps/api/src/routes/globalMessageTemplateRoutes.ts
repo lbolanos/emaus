@@ -11,10 +11,18 @@ const globalMessageTemplateController = new GlobalMessageTemplateController();
 router.use(isAuthenticated);
 
 // Get all global message templates
-router.get('/', requirePermission('globalMessageTemplate:read'), globalMessageTemplateController.getAll.bind(globalMessageTemplateController));
+router.get(
+	'/',
+	requirePermission('globalMessageTemplate:read'),
+	globalMessageTemplateController.getAll.bind(globalMessageTemplateController),
+);
 
 // Get global message template by ID
-router.get('/:id', requirePermission('globalMessageTemplate:read'), globalMessageTemplateController.getById.bind(globalMessageTemplateController));
+router.get(
+	'/:id',
+	requirePermission('globalMessageTemplate:read'),
+	globalMessageTemplateController.getById.bind(globalMessageTemplateController),
+);
 
 // Create global message template
 router.post(
@@ -33,12 +41,24 @@ router.put(
 );
 
 // Delete global message template
-router.delete('/:id', requirePermission('globalMessageTemplate:delete'), globalMessageTemplateController.delete.bind(globalMessageTemplateController));
+router.delete(
+	'/:id',
+	requirePermission('globalMessageTemplate:delete'),
+	globalMessageTemplateController.delete.bind(globalMessageTemplateController),
+);
 
 // Toggle active status
-router.post('/:id/toggle-active', requirePermission('globalMessageTemplate:update'), globalMessageTemplateController.toggleActive.bind(globalMessageTemplateController));
+router.post(
+	'/:id/toggle-active',
+	requirePermission('globalMessageTemplate:update'),
+	globalMessageTemplateController.toggleActive.bind(globalMessageTemplateController),
+);
 
 // Copy global template to specific retreat
-router.post('/:id/copy-to-retreat', requirePermission('globalMessageTemplate:read'), globalMessageTemplateController.copyToRetreat.bind(globalMessageTemplateController));
+router.post(
+	'/:id/copy-to-retreat',
+	requirePermission('globalMessageTemplate:read'),
+	globalMessageTemplateController.copyToRetreat.bind(globalMessageTemplateController),
+);
 
 export default router;
