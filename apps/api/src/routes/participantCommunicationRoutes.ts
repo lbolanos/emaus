@@ -23,4 +23,10 @@ router.post('/', controller.createCommunication);
 // Delete a communication record
 router.delete('/:id', controller.deleteCommunication);
 
+// Email sending endpoints
+router.post('/email/send', controller.sendEmailViaBackend);
+router.get('/email/config', controller.checkSmtpConfig);
+router.post('/email/test', controller.sendTestEmail);
+router.post('/email/verify', controller.verifySmtpConnection);
+
 export default router;

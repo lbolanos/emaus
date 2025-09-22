@@ -185,3 +185,21 @@ The system implements role-based access control (RBAC) with the following roles:
 - Always validate user permissions before data access
 - Implement proper error handling for unauthorized access
 - Use secure HTTP headers in all API responses
+
+### API Integration
+
+**Always use the centralized API service** - never direct fetch calls.
+
+```typescript
+// ✅ CORRECT
+import { getSmtpConfig } from '@/services/api'
+const config = await getSmtpConfig();
+
+// ❌ INCORRECT
+const response = await fetch('/api/endpoint', {
+  headers: await setupCsrfHeaders(),
+  credentials: 'include'
+});
+```
+
+**Benefits**: Built-in CSRF protection, error handling, authentication, and consistent configuration. Add new functions to `/apps/web/src/services/api.ts`.

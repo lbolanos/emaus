@@ -170,6 +170,7 @@ interface Emits {
   (e: 'message-click', message: ParticipantCommunication): void;
   (e: 'copy-message', message: ParticipantCommunication): void;
   (e: 'loading-changed', loading: boolean): void;
+  (e: 'count-changed', count: number): void;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -235,12 +236,16 @@ const loadMore = () => {
   loadHistory(true);
 };
 
+// Watch communications count and emit changes
+watch(communications, (newCommunications) => {
+  emit('count-changed', newCommunications.length);
+}, { immediate: true });
+
 // Auto-load when component mounts or props change
 watch(
   [() => props.participantId, () => props.retreatId, () => props.visible],
   ([newParticipantId, newRetreatId, newVisible]) => {
     if (newParticipantId && newRetreatId && newVisible && props.autoLoad) {
-      clearCommunications();
       loadHistory();
     }
   },

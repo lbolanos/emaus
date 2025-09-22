@@ -22,6 +22,9 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
             Historial
+            <Badge v-if="historyMessageCount > 0" variant="secondary" class="ml-2 text-xs">
+              {{ historyMessageCount }}
+            </Badge>
           </Button>
         </div>
       </DialogHeader>
@@ -53,6 +56,55 @@
                 Email
               </Button>
             </div>
+          </div>
+
+          <!-- Email Send Method Selection (only show when email is selected) -->
+          <div v-if="sendMethod === 'email'" class="space-y-2">
+            <div class="flex items-center justify-between">
+              <Label class="text-sm font-medium">Método de Envío de Email</Label>
+              <div v-if="!emailServerConfigStatus.configured" class="flex items-center gap-1 text-xs text-yellow-600">
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+                <span>Servidor de correo no configurado</span>
+              </div>
+              <div v-else class="flex items-center gap-1 text-xs text-green-600">
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <span>Servidor de correo configurado</span>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                :class="{ 'bg-primary text-primary-foreground': emailSendMethod === 'user' }"
+                @click="emailSendMethod = 'user'"
+                title="Abrir cliente de correo del usuario"
+                :disabled="!emailServerConfigStatus.configured"
+              >
+                <span class="w-4 h-4 mr-2">📧</span>
+                Mi correo
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                :class="{ 'bg-primary text-primary-foreground': emailSendMethod === 'backend' }"
+                @click="emailSendMethod = 'backend'"
+                title="Enviar automáticamente desde el sistema"
+                :disabled="!emailServerConfigStatus.configured"
+              >
+                <span class="w-4 h-4 mr-2">🖥️</span>
+                Enviar automático
+              </Button>
+            </div>
+            <p v-if="emailSendMethod === 'user'" class="text-xs text-muted-foreground">
+              Abre tu programa de correo (Gmail, Outlook, etc.) y envía el mensaje tú mismo.
+            </p>
+            <p v-else-if="emailSendMethod === 'backend'" class="text-xs text-muted-foreground">
+              El sistema enviará el correo automáticamente sin que tengas que hacer nada.
+            </p>
           </div>
 
           <!-- Contact Selection -->
@@ -191,8 +243,20 @@
             @message-click="handleMessageClick"
             @copy-message="handleCopyMessage"
             @loading-changed="handleHistoryLoadingChanged"
+            @count-changed="handleHistoryCountChanged"
           />
         </div>
+
+        <!-- Hidden component to load count even when history is not visible -->
+        <ParticipantMessageHistory
+          v-if="props.participant?.id && retreatStore.selectedRetreatId && !showHistory"
+          :participant-id="props.participant?.id"
+          :retreat-id="retreatStore.selectedRetreatId || undefined"
+          :visible="false"
+          :auto-load="true"
+          @count-changed="handleHistoryCountChanged"
+          style="display: none;"
+        />
       </div>
 
       <DialogFooter>
@@ -246,6 +310,7 @@ import {
 } from '@repo/ui';
 import { convertHtmlToWhatsApp, convertHtmlToEmail, replaceAllVariables, ParticipantData, RetreatData } from '@/utils/message';
 import { useParticipantCommunicationStore } from '@/stores/participantCommunicationStore';
+import { getSmtpConfig, sendEmailViaBackend } from '@/services/api';
 import ParticipantMessageHistory from './ParticipantMessageHistory.vue';
 
 interface Props {
@@ -265,6 +330,7 @@ const retreatStore = useRetreatStore();
 const { selectedRetreat } = storeToRefs(retreatStore);
 const messageTemplateStore = useMessageTemplateStore();
 const { templates: allMessageTemplates, loading: templatesLoading } = storeToRefs(messageTemplateStore);
+const participantCommunicationStore = useParticipantCommunicationStore();
 
 // Reactive state
 const isOpen = computed({
@@ -273,6 +339,8 @@ const isOpen = computed({
 });
 
 const sendMethod = ref<'whatsapp' | 'email'>('whatsapp');
+const emailSendMethod = ref<'user' | 'backend'>('user');
+const emailServerConfigStatus = ref({ configured: false, host: null, user: null });
 const selectedContact = ref<string | undefined>(undefined);
 const selectedTemplate = ref('');
 const messagePreview = ref('');
@@ -287,6 +355,7 @@ const isSending = ref(false);
 const isAutoSaving = ref(false);
 const showValidationErrors = ref(false);
 const historyComponentLoading = ref(false);
+const historyMessageCount = ref(0);
 let ariaHiddenObserver: MutationObserver | null = null;
 
 // Contact options computed property - handles both phones and emails
@@ -730,6 +799,7 @@ const autoSaveMessage = () => {
   const draftData = {
     message: editedMessage.value,
     sendMethod: sendMethod.value,
+    emailSendMethod: emailSendMethod.value,
     selectedContact: selectedContact.value,
     timestamp: new Date().toISOString()
   };
@@ -757,6 +827,7 @@ const loadDraft = () => {
       if (draftAge < 24 * 60 * 60 * 1000) {
         editedMessage.value = draft.message;
         if (draft.sendMethod) sendMethod.value = draft.sendMethod;
+        if (draft.emailSendMethod) emailSendMethod.value = draft.emailSendMethod;
         if (draft.selectedContact) selectedContact.value = draft.selectedContact;
 
         toast({
@@ -767,6 +838,30 @@ const loadDraft = () => {
       }
     } catch (error) {
       console.error('Error loading draft:', error);
+    }
+  }
+};
+
+// Check email server configuration
+const checkEmailServerConfig = async (retryCount = 0) => {
+  try {
+    const config = await getSmtpConfig();
+    emailServerConfigStatus.value = config;
+
+    // If email is configured and no send method is set yet, set email as default
+    if (config.configured && sendMethod.value === 'whatsapp' && props.open) {
+      sendMethod.value = 'email';
+      emailSendMethod.value = 'backend';
+      selectedContact.value = props.participant?.email || props.participant?.cellPhone || undefined;
+    }
+  } catch (error) {
+    console.error('Error checking email server config:', error);
+    emailServerConfigStatus.value = { configured: false, host: null, user: null };
+
+    // Retry up to 3 times with 2 second delay if API is not ready
+    if (retryCount < 3) {
+      console.log(`Retrying email server config check (${retryCount + 1}/3)...`);
+      setTimeout(() => checkEmailServerConfig(retryCount + 1), 2000);
     }
   }
 };
@@ -908,50 +1003,95 @@ const sendMessage = async () => {
       });
     } else {
       // Email sending
-      const emailHtml = convertHtmlToEmail(editedMessage.value, props.participant);
-
-      // Create email content and store it
+      const emailHtml = convertHtmlToEmail(editedMessage.value, {
+        ...props.participant,
+        skipTemplate: true
+      });
       const subject = `Mensaje para ${props.participant.firstName} ${props.participant.lastName}`;
-      const emailContent = {
-        to: selectedContact.value,
-        subject: subject,
-        html: emailHtml,
-        text: editedMessage.value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-      };
+      const textContent = editedMessage.value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
-      // Store email content in localStorage for the email client
-      localStorage.setItem('emaus_email_to_send', JSON.stringify(emailContent));
+      if (emailSendMethod.value === 'user') {
+        // User email client method
+        const emailContent = {
+          to: selectedContact.value,
+          subject: subject,
+          html: emailHtml,
+          text: textContent
+        };
 
-      // Copy the email HTML to clipboard
-      await copyRichTextToClipboard();
+        // Store email content in localStorage for the email client
+        localStorage.setItem('emaus_email_to_send', JSON.stringify(emailContent));
 
-      // Open default email client
-      const emailUrl = `mailto:${encodeURIComponent(selectedContact.value)}?subject=${encodeURIComponent(subject)}`;
-      window.open(emailUrl, '_blank');
+        // Copy the email HTML to clipboard
+        await copyRichTextToClipboard();
+
+        // Open default email client
+        const emailUrl = `mailto:${encodeURIComponent(selectedContact.value)}?subject=${encodeURIComponent(subject)}`;
+        window.open(emailUrl, '_blank');
+      } else {
+        // Automatic sending method
+        try {
+          if (!retreatStore.selectedRetreatId) {
+            toast({
+              title: 'Error',
+              description: 'No se ha seleccionado un retiro.',
+              variant: 'destructive',
+            });
+            return;
+          }
+
+          await sendEmailViaBackend({
+            to: selectedContact.value,
+            subject: subject,
+            html: emailHtml,
+            text: textContent,
+            participantId: props.participant.id,
+            retreatId: retreatStore.selectedRetreatId,
+            templateId: selectedTemplate.value,
+            templateName: allMessageTemplates.value.find((t: any) => t.id === selectedTemplate.value)?.name
+          });
+
+          toast({
+            title: 'Email enviado exitosamente',
+            description: 'El correo electrónico ha sido enviado automáticamente desde el sistema.',
+          });
+        } catch (error) {
+          console.error('Error sending email via backend:', error);
+          toast({
+            title: 'Error al enviar email',
+            description: error instanceof Error ? error.message : 'No se pudo enviar el email automáticamente desde el sistema.',
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
     }
 
-    // Save communication to history
-    try {
-      const template = allMessageTemplates.value.find((t: any) => t.id === selectedTemplate.value);
-      const communicationStore = useParticipantCommunicationStore();
-      await communicationStore.createCommunication({
-        participantId: props.participant.id,
-        retreatId: retreatStore.selectedRetreatId!,
-        messageType: sendMethod.value,
-        recipientContact: selectedContact.value,
-        messageContent: editedMessage.value,
-        templateId: selectedTemplate.value,
-        templateName: template?.name,
-        subject: sendMethod.value === 'email' ? `Mensaje para ${props.participant.firstName} ${props.participant.lastName}` : undefined
-      });
-    } catch (historyError) {
-      console.error('Error saving communication history:', historyError);
-      // Don't block the sending process if history saving fails
-      toast({
-        title: 'Advertencia',
-        description: 'El mensaje se envió pero no se pudo guardar en el historial.',
-        variant: 'warning',
-      });
+    // Save communication to history for WhatsApp and user email methods
+    // (backend email sends are already saved by the backend)
+    if (sendMethod.value === 'whatsapp' || emailSendMethod.value === 'user') {
+      try {
+        const template = allMessageTemplates.value.find((t: any) => t.id === selectedTemplate.value);
+        const communicationStore = useParticipantCommunicationStore();
+        await communicationStore.createCommunication({
+          participantId: props.participant.id,
+          retreatId: retreatStore.selectedRetreatId!,
+          messageType: sendMethod.value,
+          recipientContact: selectedContact.value,
+          messageContent: editedMessage.value,
+          templateId: selectedTemplate.value,
+          templateName: template?.name,
+          subject: sendMethod.value === 'email' ? `Mensaje para ${props.participant.firstName} ${props.participant.lastName}` : undefined
+        });
+      } catch (historyError) {
+        console.error('Error saving communication history:', historyError);
+        // Don't block the sending process if history saving fails
+        toast({
+          title: 'Advertencia',
+          description: 'El mensaje se envió pero no se pudo guardar en el historial.',
+          variant: 'warning',
+        });
+      }
     }
 
     // Close dialog
@@ -1072,8 +1212,15 @@ const closeDialog = () => {
 watch(() => props.open, (newValue: boolean) => {
   if (newValue && props.participant) {
     // Initialize dialog when opened
-    sendMethod.value = 'whatsapp';
-    selectedContact.value = props.participant.cellPhone || props.participant.email || undefined;
+    // Set email as default if backend is configured, otherwise use WhatsApp
+    if (emailServerConfigStatus.value.configured) {
+      sendMethod.value = 'email';
+      emailSendMethod.value = 'backend';
+      selectedContact.value = props.participant.email || props.participant.cellPhone || undefined;
+    } else {
+      sendMethod.value = 'whatsapp';
+      selectedContact.value = props.participant.cellPhone || props.participant.email || undefined;
+    }
     selectedTemplate.value = '';
     messagePreview.value = '';
     editedMessage.value = '';
@@ -1089,8 +1236,14 @@ watch(() => props.open, (newValue: boolean) => {
       console.log('No retreat ID selected, cannot fetch templates');
     }
 
+    // Check email server configuration
+    checkEmailServerConfig();
+
     // Setup aria-hidden observer to handle the accessibility issue
     setupAriaHiddenObserver();
+
+    // Load message count immediately when dialog opens
+    loadMessageCount();
 
     // Delay focus management to avoid aria-hidden conflict
     setTimeout(() => {
@@ -1137,6 +1290,8 @@ watch(sendMethod, (newValue: 'whatsapp' | 'email') => {
   } else {
     selectedContact.value = props.participant.email ||
                            (contactOptions.value.length > 0 ? contactOptions.value[0].value : undefined);
+    // Check email server configuration when switching to email
+    checkEmailServerConfig();
   }
 
   // Update message format when send method changes
@@ -1150,7 +1305,8 @@ watch(sendMethod, (newValue: 'whatsapp' | 'email') => {
       emailPreviewHtml.value = convertHtmlToEmail(messagePreview.value, {
         format: 'enhanced',
         includeJavaScript: true,
-        preserveStyles: true
+        preserveStyles: true,
+        skipTemplate: true
       });
     }
   }
@@ -1228,6 +1384,31 @@ const handleCopyMessage = async (message: any) => {
 // Handle history loading state changes
 const handleHistoryLoadingChanged = (loading: boolean) => {
   historyComponentLoading.value = loading;
+};
+
+// Handle history message count changes
+const handleHistoryCountChanged = (count: number) => {
+  historyMessageCount.value = count;
+};
+
+// Load message count when dialog opens
+const loadMessageCount = async () => {
+  if (props.participant?.id && retreatStore.selectedRetreatId) {
+    try {
+      await participantCommunicationStore.fetchParticipantCommunications(
+        props.participant.id,
+        {
+          retreatId: retreatStore.selectedRetreatId,
+          limit: 1, // We only need the count, not the actual messages
+          offset: 0
+        }
+      );
+      // Update the count from the store
+      historyMessageCount.value = participantCommunicationStore.total;
+    } catch (error) {
+      console.error('Error loading message count:', error);
+    }
+  }
 };
 
 // Cleanup on component unmount

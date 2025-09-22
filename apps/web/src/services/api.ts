@@ -391,3 +391,33 @@ export const getPaymentSummaryByRetreat = async (retreatId: string) => {
 	const response = await api.get(`/payments/retreat/${retreatId}/summary`);
 	return response.data;
 };
+
+// Email API functions
+export const getSmtpConfig = async () => {
+	const response = await api.get('/participant-communications/email/config');
+	return response.data;
+};
+
+export const sendEmailViaBackend = async (data: {
+	to: string;
+	subject: string;
+	html: string;
+	text?: string;
+	participantId: string;
+	retreatId: string;
+	templateId?: string;
+	templateName?: string;
+}) => {
+	const response = await api.post('/participant-communications/email/send', data);
+	return response.data;
+};
+
+export const sendTestEmail = async (to: string) => {
+	const response = await api.post('/participant-communications/email/test', { to });
+	return response.data;
+};
+
+export const verifySmtpConnection = async () => {
+	const response = await api.post('/participant-communications/email/verify');
+	return response.data;
+};

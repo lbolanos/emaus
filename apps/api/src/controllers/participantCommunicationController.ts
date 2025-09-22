@@ -4,6 +4,7 @@ import { ParticipantCommunication, MessageType } from '../entities/participantCo
 import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { Participant } from '../entities/participant.entity';
 import { DeepPartial } from 'typeorm';
+import { EmailService, ParticipantEmailData } from '../services/emailService';
 
 class CreateCommunicationDTO {
 	participantId!: string;
@@ -20,6 +21,7 @@ export class ParticipantCommunicationController {
 	private communicationRepository = AppDataSource.getRepository(ParticipantCommunication);
 	private templateRepository = AppDataSource.getRepository(MessageTemplate);
 	private participantRepository = AppDataSource.getRepository(Participant);
+	private emailService = new EmailService();
 
 	// Get all communications for a participant
 	getParticipantCommunications = async (req: Request, res: Response) => {
@@ -251,6 +253,139 @@ export class ParticipantCommunicationController {
 			console.error('Error deleting communication:', error);
 			res.status(500).json({
 				error: 'Error al eliminar la comunicación',
+			});
+		}
+	};
+
+	// Send email via backend SMTP
+	sendEmailViaBackend = async (req: Request, res: Response) => {
+		try {
+			const { to, subject, html, text, participantId, retreatId, templateId, templateName } = req.body;
+
+			// Validate required fields
+			if (!to || !subject || !html || !participantId || !retreatId) {
+				return res.status(400).json({
+					error: 'Datos inválidos',
+					details: 'Faltan campos requeridos: to, subject, html, participantId, retreatId'
+				});
+			}
+
+			// Verify participant exists
+			const participant = await this.participantRepository.findOne({
+				where: { id: participantId },
+			});
+
+			if (!participant) {
+				return res.status(404).json({
+					error: 'Participante no encontrado',
+				});
+			}
+
+			// Send email via SMTP
+			const emailSent = await this.emailService.sendEmail({
+				to,
+				subject,
+				html,
+				text,
+			});
+
+			if (!emailSent) {
+				return res.status(500).json({
+					error: 'Error al enviar el correo electrónico',
+				});
+			}
+
+			// Create communication record
+			const communication = this.communicationRepository.create({
+				participantId,
+				retreatId,
+				messageType: 'email',
+				recipientContact: to,
+				messageContent: html,
+				templateId,
+				templateName,
+				subject,
+				sentBy: (req.user as any)?.id,
+			} as DeepPartial<ParticipantCommunication>);
+
+			const savedCommunication = await this.communicationRepository.save(communication);
+
+			// Fetch the complete record with relations
+			const completeCommunication = await this.communicationRepository.findOne({
+				where: { id: (savedCommunication as any).id },
+				relations: ['participant', 'retreat', 'template', 'sender'],
+			});
+
+			res.status(200).json({
+				success: true,
+				message: 'Correo electrónico enviado exitosamente',
+				communication: completeCommunication,
+			});
+		} catch (error) {
+			console.error('Error sending email via backend:', error);
+			res.status(500).json({
+				error: 'Error al enviar el correo electrónico',
+				details: error instanceof Error ? error.message : 'Error desconocido'
+			});
+		}
+	};
+
+	// Check SMTP configuration status
+	checkSmtpConfig = async (req: Request, res: Response) => {
+		try {
+			const configStatus = this.emailService.getSmtpConfigStatus();
+			res.json(configStatus);
+		} catch (error) {
+			console.error('Error checking SMTP config:', error);
+			res.status(500).json({
+				error: 'Error al verificar la configuración SMTP',
+			});
+		}
+	};
+
+	// Send test email
+	sendTestEmail = async (req: Request, res: Response) => {
+		try {
+			const { to } = req.body;
+
+			if (!to) {
+				return res.status(400).json({
+					error: 'Datos inválidos',
+					details: 'Se requiere el campo "to" para enviar el correo de prueba'
+				});
+			}
+
+			const emailSent = await this.emailService.sendTestEmail(to);
+
+			if (emailSent) {
+				res.json({
+					success: true,
+					message: 'Correo de prueba enviado exitosamente'
+				});
+			} else {
+				res.status(500).json({
+					error: 'Error al enviar el correo de prueba',
+				});
+			}
+		} catch (error) {
+			console.error('Error sending test email:', error);
+			res.status(500).json({
+				error: 'Error al enviar el correo de prueba',
+				details: error instanceof Error ? error.message : 'Error desconocido'
+			});
+		}
+	};
+
+	// Verify SMTP connection
+	verifySmtpConnection = async (req: Request, res: Response) => {
+		try {
+			const verification = await this.emailService.verifyConnection();
+			res.json(verification);
+		} catch (error) {
+			console.error('Error verifying SMTP connection:', error);
+			res.status(500).json({
+				success: false,
+				message: 'Error al verificar la conexión SMTP'
 			});
 		}
 	};
