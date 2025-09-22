@@ -17,6 +17,7 @@ import { roleCleanupService } from './services/roleCleanupService';
 import { PerformanceMiddleware } from './middleware/performanceMiddleware';
 import { performanceOptimizationService } from './services/performanceOptimizationService';
 import { csrfMiddleware } from './middleware/csrfAlternative';
+import './entities/participantCommunication.entity';
 
 const app = express();
 const port = process.env.PORT || 3001;

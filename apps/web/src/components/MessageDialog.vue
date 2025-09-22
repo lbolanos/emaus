@@ -1,144 +1,213 @@
 <template>
-  <Dialog v-model:open="isOpen">
-    <DialogContent class="max-w-2xl">
+  <Dialog v-model:open="isOpen" @keydown.esc="handleEscape" @keydown.ctrl.s.prevent="sendMessage" @keydown.ctrl.enter.prevent="sendMessage">
+    <DialogContent :class="showHistory ? 'max-w-5xl' : 'max-w-2xl'" class="focus:outline-none">
       <DialogHeader>
-        <DialogTitle>Enviar Mensaje a {{ participant?.firstName }} {{ participant?.lastName }}</DialogTitle>
-        <DialogDescription>
-          Selecciona el método de envío y la plantilla de mensaje
-        </DialogDescription>
+        <div class="flex items-center justify-between">
+          <div>
+            <DialogTitle>Enviar Mensaje a {{ participant?.firstName }} {{ participant?.lastName }}</DialogTitle>
+            <DialogDescription>
+              Selecciona el método de envío y la plantilla de mensaje
+            </DialogDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            @click="toggleHistory"
+            :class="{ 'bg-primary text-primary-foreground': showHistory }"
+            :disabled="!props.participant?.id || !retreatStore.selectedRetreatId"
+            :title="!props.participant?.id || !retreatStore.selectedRetreatId ? 'Selecciona un participante y retiro' : 'Ver historial de mensajes (Ctrl+H)'"
+            accesskey="h"
+          >
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Historial
+          </Button>
+        </div>
       </DialogHeader>
-
-      <div class="space-y-6">
-        <!-- Send Method Selection -->
-        <div class="space-y-2">
-          <Label class="text-sm font-medium">Método de Envío</Label>
-          <div class="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              :class="{ 'bg-primary text-primary-foreground': sendMethod === 'whatsapp' }"
-              @click="sendMethod = 'whatsapp'"
-            >
-              <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-              </svg>
-              WhatsApp
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              :class="{ 'bg-primary text-primary-foreground': sendMethod === 'email' }"
-              @click="sendMethod = 'email'"
-            >
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-              </svg>
-              Email
-            </Button>
-          </div>
-        </div>
-
-        <!-- Contact Selection -->
-        <div class="space-y-2">
-          <Label class="text-sm font-medium">
-            {{ sendMethod === 'whatsapp' ? 'Número de Teléfono' : 'Correo Electrónico' }}
-          </Label>
-          <Select v-model="selectedContact">
-            <SelectTrigger>
-              <SelectValue :placeholder="sendMethod === 'whatsapp' ? 'Selecciona un número de teléfono' : 'Selecciona un correo electrónico'" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="option in contactOptions" :key="option.value" :value="option.value">
-                <div class="flex flex-col">
-                  <span class="font-medium">{{ option.label }}</span>
-                  <span class="text-xs text-muted-foreground">{{ option.description }}</span>
-                </div>
-              </SelectItem>
-              <SelectItem v-if="contactOptions.length === 0" disabled value="no-contacts">
-                No hay {{ sendMethod === 'whatsapp' ? 'números de teléfono' : 'correos electrónicos' }} disponibles
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <!-- Template Selection -->
-        <div class="space-y-2">
-          <Label class="text-sm font-medium">Plantilla de Mensaje</Label>
-          <Select v-model="selectedTemplate" :disabled="templatesLoading" @open="() => console.log('Template select opened, loading:', templatesLoading)" @close="() => console.log('Template select closed')">
-            <SelectTrigger @click="() => console.log('Select trigger clicked, loading:', templatesLoading, 'disabled:', templatesLoading)">
-              <SelectValue :placeholder="templatesLoading ? 'Cargando plantillas...' : 'Selecciona una plantilla'" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="template in relevantTemplates" :key="template.id" :value="template.id">
-                {{ template.name }}
-              </SelectItem>
-              <SelectItem v-if="templatesLoading" disabled value="loading">
-                Cargando plantillas...
-              </SelectItem>
-              <SelectItem v-else-if="!relevantTemplates.length" disabled value="no-templates">
-                No hay plantillas disponibles
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <!-- Message Editing -->
-        <div v-if="selectedTemplate" class="space-y-2">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <Label class="text-sm font-medium">Editar Mensaje</Label>
-              <Badge variant="outline" class="text-xs">
-                {{ sendMethod === 'whatsapp' ? 'Formato WhatsApp' : 'Formato Email' }}
-              </Badge>
+      <div class="flex gap-6">
+        <!-- Main Content -->
+        <div class="flex-1 space-y-6">
+          <!-- Send Method Selection -->
+          <div class="space-y-2">
+            <Label class="text-sm font-medium">Método de Envío</Label>
+            <div class="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                :class="{ 'bg-primary text-primary-foreground': sendMethod === 'whatsapp' }"
+                @click="sendMethod = 'whatsapp'"
+                title="Enviar por WhatsApp"
+              >
+                <span class="w-4 h-4 mr-2">📱</span>
+                WhatsApp
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                :class="{ 'bg-primary text-primary-foreground': sendMethod === 'email' }"
+                @click="sendMethod = 'email'"
+                title="Enviar por Email"
+              >
+                <span class="w-4 h-4 mr-2">📧</span>
+                Email
+              </Button>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              @click="copyToClipboard"
-              class="text-xs"
-            >
-              {{ sendMethod === 'email' && activeTab === 'preview' ? 'Copiar HTML' : 'Copiar' }}
-            </Button>
           </div>
 
-          <!-- Tabs for Edit and Preview -->
-          <Tabs v-model="activeTab" class="w-full">
-            <TabsList class="grid w-full grid-cols-2">
-              <TabsTrigger value="edit">Editar</TabsTrigger>
-              <TabsTrigger value="preview" v-if="sendMethod === 'email'">Vista Previa</TabsTrigger>
-            </TabsList>
+          <!-- Contact Selection -->
+          <div class="space-y-2">
+            <Label class="text-sm font-medium">
+              {{ sendMethod === 'whatsapp' ? 'Número de Teléfono' : 'Correo Electrónico' }}
+            </Label>
+            <Select v-model="selectedContact">
+              <SelectTrigger>
+                <SelectValue :placeholder="sendMethod === 'whatsapp' ? 'Selecciona un número de teléfono' : 'Selecciona un correo electrónico'" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="option in contactOptions" :key="option.value" :value="option.value">
+                  <div class="flex flex-col">
+                    <span class="font-medium">{{ option.label }}</span>
+                    <span class="text-xs text-muted-foreground">{{ option.description }}</span>
+                  </div>
+                </SelectItem>
+                <SelectItem v-if="contactOptions.length === 0" disabled value="no-contacts">
+                  No hay {{ sendMethod === 'whatsapp' ? 'números de teléfono' : 'correos electrónicos' }} disponibles
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-            <TabsContent value="edit" class="space-y-2">
-              <Textarea
-                v-model="editedMessage"
-                :rows="8"
-                class="text-sm min-h-[260px]"
-                :placeholder="sendMethod === 'whatsapp' ? 'Edita el mensaje para WhatsApp aquí...' : 'Edita el mensaje para Email aquí...'"
-              />
-            </TabsContent>
+          <!-- Template Selection -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <Label class="text-sm font-medium">Plantilla de Mensaje</Label>
+              <div class="flex items-center gap-2">
+                <input
+                  v-model="templateSearch"
+                  type="text"
+                  placeholder="Buscar plantilla..."
+                  class="px-2 py-1 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                  @input="filterTemplates"
+                />
+                <Select v-model="templateTypeFilter" @update:model-value="filterTemplates">
+                  <SelectTrigger class="w-32 h-8">
+                    <SelectValue placeholder="Tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="WALKER">Caminantes</SelectItem>
+                    <SelectItem value="SERVER">Servidores</SelectItem>
+                    <SelectItem value="GENERAL">General</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Select v-model="selectedTemplate" :disabled="templatesLoading" @open="() => console.log('Template select opened, loading:', templatesLoading)" @close="() => console.log('Template select closed')">
+              <SelectTrigger @click="() => console.log('Select trigger clicked, loading:', templatesLoading, 'disabled:', templatesLoading)">
+                <SelectValue :placeholder="templatesLoading ? 'Cargando plantillas...' : 'Selecciona una plantilla'" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="template in relevantTemplates" :key="template.id" :value="template.id">
+                  {{ template.name }}
+                </SelectItem>
+                <SelectItem v-if="templatesLoading" disabled value="loading">
+                  Cargando plantillas...
+                </SelectItem>
+                <SelectItem v-else-if="!relevantTemplates.length" disabled value="no-templates">
+                  No hay plantillas disponibles
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-            <TabsContent value="preview" v-if="sendMethod === 'email'" class="space-y-2">
-              <div class="w-full rounded-md border border-input bg-muted/50 px-3 py-2 text-sm overflow-y-auto min-h-[300px] max-h-[500px]">
-                <div v-if="emailPreviewHtml" class="email-preview-content" v-html="emailPreviewHtml">
-                </div>
-                <div v-else class="text-muted-foreground italic text-center py-8">
-                  Selecciona una plantilla para generar la vista previa del email
+          <!-- Message Editing -->
+          <div v-if="selectedTemplate" class="space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <Label class="text-sm font-medium">Editar Mensaje</Label>
+                <Badge variant="outline" class="text-xs">
+                  {{ sendMethod === 'whatsapp' ? 'Formato WhatsApp' : 'Formato Email' }}
+                </Badge>
+                <div v-if="isAutoSaving" class="flex items-center gap-1 text-xs text-muted-foreground">
+                  <div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                  <span>Guardando...</span>
                 </div>
               </div>
-            </TabsContent>
-          </Tabs>
+              <Button
+                variant="outline"
+                size="sm"
+                @click="copyToClipboard"
+                class="text-xs"
+              >
+                {{ sendMethod === 'email' && activeTab === 'preview' ? 'Copiar HTML' : 'Copiar' }}
+              </Button>
+            </div>
+
+            <!-- Tabs for Edit and Preview -->
+            <Tabs v-model="activeTab" class="w-full">
+              <TabsList class="grid w-full grid-cols-2">
+                <TabsTrigger value="edit">Editar</TabsTrigger>
+                <TabsTrigger value="preview" v-if="sendMethod === 'email'">Vista Previa</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="edit" class="space-y-2">
+                <div class="relative">
+                  <Textarea
+                    v-model="editedMessage"
+                    :rows="8"
+                    class="text-sm min-h-[260px]"
+                    :class="{ 'border-red-500': showValidationErrors && validateMessage().length > 0 }"
+                    :placeholder="sendMethod === 'whatsapp' ? 'Edita el mensaje para WhatsApp aquí...' : 'Edita el mensaje para Email aquí...'"
+                  />
+                  <div v-if="showValidationErrors" class="mt-1">
+                    <div v-for="error in validateMessage()" :key="error" class="text-xs text-red-600">
+                      • {{ error }}
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="preview" v-if="sendMethod === 'email'" class="space-y-2">
+                <div class="w-full rounded-md border border-input bg-muted/50 px-3 py-2 text-sm overflow-y-auto min-h-[300px] max-h-[500px]">
+                  <div v-if="emailPreviewHtml" class="email-preview-content" v-html="emailPreviewHtml">
+                  </div>
+                  <div v-else class="text-muted-foreground italic text-center py-8">
+                    Selecciona una plantilla para generar la vista previa del email
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
+
+        <!-- History Sidebar -->
+        <div v-if="showHistory" class="w-80 border-l pl-6">
+          <ParticipantMessageHistory
+            :participant-id="props.participant?.id"
+            :retreat-id="retreatStore.selectedRetreatId || undefined"
+            :visible="showHistory"
+            :auto-load="true"
+            @message-click="handleMessageClick"
+            @copy-message="handleCopyMessage"
+            @loading-changed="handleHistoryLoadingChanged"
+          />
         </div>
       </div>
 
       <DialogFooter>
-        <Button variant="outline" @click="closeDialog">
+        <Button variant="outline" @click="closeDialog" title="Cerrar diálogo (Esc)">
           Cancelar
         </Button>
         <Button
           @click="sendMessage"
-          :disabled="!selectedContact || !selectedTemplate"
+          :disabled="!selectedContact || !selectedTemplate || isSending"
+          title="Enviar mensaje (Ctrl+S o Ctrl+Enter)"
         >
-          Enviar Mensaje
+          <span v-if="isSending" class="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+          <span v-else-if="sendMethod === 'whatsapp'">📱</span>
+          <span v-else>📧</span>
+          {{ isSending ? 'Enviando...' : 'Enviar Mensaje' }}
         </Button>
       </DialogFooter>
     </DialogContent>
@@ -146,7 +215,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, onBeforeUnmount, onUnmounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useMessageTemplateStore } from '@/stores/messageTemplateStore';
@@ -176,6 +245,8 @@ import {
   TabsTrigger,
 } from '@repo/ui';
 import { convertHtmlToWhatsApp, convertHtmlToEmail, replaceAllVariables, ParticipantData, RetreatData } from '@/utils/message';
+import { useParticipantCommunicationStore } from '@/stores/participantCommunicationStore';
+import ParticipantMessageHistory from './ParticipantMessageHistory.vue';
 
 interface Props {
   open: boolean;
@@ -208,6 +279,14 @@ const messagePreview = ref('');
 const editedMessage = ref('');
 const emailPreviewHtml = ref('');
 const activeTab = ref('edit');
+const showHistory = ref(false);
+const templateSearch = ref('');
+const templateTypeFilter = ref('all');
+const filteredTemplates = ref<any[]>([]);
+const isSending = ref(false);
+const isAutoSaving = ref(false);
+const showValidationErrors = ref(false);
+const historyComponentLoading = ref(false);
 let ariaHiddenObserver: MutationObserver | null = null;
 
 // Contact options computed property - handles both phones and emails
@@ -532,23 +611,7 @@ const phoneOptionsDebug = computed(() => {
   };
 });
 
-// Show all available templates for sending messages
-const relevantTemplates = computed(() => {
-  if (!props.participant) return [];
-
-  const allTemplates = allMessageTemplates.value || [];
-  console.log('All templates details:', allTemplates.map(t => ({ id: t.id, name: t.name, type: t.type })));
-
-  // Show all available templates - any template can be used for sending messages
-  const templates = allTemplates;
-
-  console.log('Available templates for sending:', {
-    allTemplatesCount: allTemplates.length,
-    templates: templates.map(t => ({ id: t.id, name: t.name, type: t.type }))
-  });
-
-  return templates;
-});
+// Template filtering functionality
 
 // Update message preview function
 const updateMessagePreview = () => {
@@ -587,6 +650,47 @@ const updateMessagePreview = () => {
   }
 };
 
+// Keyboard shortcuts and utility functions
+const handleEscape = () => {
+  if (showHistory.value) {
+    showHistory.value = false;
+  } else {
+    closeDialog();
+  }
+};
+
+const filterTemplates = () => {
+  const templates = allMessageTemplates.value || [];
+  const search = templateSearch.value.toLowerCase();
+  const typeFilter = templateTypeFilter.value;
+
+  filteredTemplates.value = templates.filter(template => {
+    const matchesSearch = !search ||
+      template.name.toLowerCase().includes(search) ||
+      template.message.toLowerCase().includes(search);
+
+    const matchesType = typeFilter === 'all' || template.type === typeFilter;
+
+    return matchesSearch && matchesType;
+  });
+};
+
+// Enhanced relevantTemplates computed property with filtering
+const relevantTemplates = computed(() => {
+  if (templateSearch.value || templateTypeFilter.value !== 'all') {
+    return filteredTemplates.value;
+  }
+
+  // Show all available templates - any template can be used for sending messages
+  const templates = allMessageTemplates.value || [];
+  console.log('Available templates for sending:', {
+    allTemplatesCount: templates.length,
+    templates: templates.map(t => ({ id: t.id, name: t.name, type: t.type }))
+  });
+
+  return templates;
+});
+
 // Copy to clipboard function
 const copyToClipboard = async () => {
   if (!editedMessage.value) return;
@@ -616,10 +720,132 @@ const copyToClipboard = async () => {
   }
 };
 
+// Auto-save functionality
+const autoSaveMessage = () => {
+  if (!editedMessage.value || !selectedTemplate.value) return;
+
+  isAutoSaving.value = true;
+
+  const draftKey = `message-draft-${props.participant?.id}-${selectedTemplate.value}`;
+  const draftData = {
+    message: editedMessage.value,
+    sendMethod: sendMethod.value,
+    selectedContact: selectedContact.value,
+    timestamp: new Date().toISOString()
+  };
+
+  localStorage.setItem(draftKey, JSON.stringify(draftData));
+
+  // Show auto-save indicator briefly
+  setTimeout(() => {
+    isAutoSaving.value = false;
+  }, 1000);
+};
+
+// Load draft functionality
+const loadDraft = () => {
+  if (!props.participant || !selectedTemplate.value) return;
+
+  const draftKey = `message-draft-${props.participant.id}-${selectedTemplate.value}`;
+  const draftData = localStorage.getItem(draftKey);
+
+  if (draftData) {
+    try {
+      const draft = JSON.parse(draftData);
+      // Only load if draft is less than 24 hours old
+      const draftAge = new Date().getTime() - new Date(draft.timestamp).getTime();
+      if (draftAge < 24 * 60 * 60 * 1000) {
+        editedMessage.value = draft.message;
+        if (draft.sendMethod) sendMethod.value = draft.sendMethod;
+        if (draft.selectedContact) selectedContact.value = draft.selectedContact;
+
+        toast({
+          title: 'Borrador recuperado',
+          description: 'Se ha restaurado un borrador guardado previamente.',
+          variant: 'default',
+        });
+      }
+    } catch (error) {
+      console.error('Error loading draft:', error);
+    }
+  }
+};
+
+// Clean up drafts when component unmounts or message is sent
+const cleanupDrafts = () => {
+  if (props.participant && selectedTemplate.value) {
+    const draftKey = `message-draft-${props.participant.id}-${selectedTemplate.value}`;
+    localStorage.removeItem(draftKey);
+  }
+};
+
+onUnmounted(() => {
+  cleanupDrafts();
+});
+
+// Message validation
+const validateMessage = () => {
+  const errors = [];
+
+  if (!selectedContact.value) {
+    errors.push('Selecciona un contacto');
+  }
+
+  if (!selectedTemplate.value) {
+    errors.push('Selecciona una plantilla');
+  }
+
+  if (!editedMessage.value.trim()) {
+    errors.push('El mensaje no puede estar vacío');
+  }
+
+  // Validate email format if sending via email
+  if (sendMethod.value === 'email' && selectedContact.value) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(selectedContact.value)) {
+      errors.push('El correo electrónico no tiene un formato válido');
+    }
+  }
+
+  // Validate phone format if sending via WhatsApp
+  if (sendMethod.value === 'whatsapp' && selectedContact.value) {
+    const phoneRegex = /^\+?[\d\s\-()]+$/;
+    if (!phoneRegex.test(selectedContact.value) || selectedContact.value.length < 8) {
+      errors.push('El número de teléfono no tiene un formato válido');
+    }
+  }
+
+  return errors;
+};
+
+// Clear draft
+const clearDraft = () => {
+  if (!props.participant || !selectedTemplate.value) return;
+
+  const draftKey = `message-draft-${props.participant.id}-${selectedTemplate.value}`;
+  localStorage.removeItem(draftKey);
+};
 
 // Send message function
 const sendMessage = async () => {
   if (!selectedContact.value || !selectedTemplate.value || !props.participant) return;
+
+  // Validate message before sending
+  const validationErrors = validateMessage();
+  if (validationErrors.length > 0) {
+    showValidationErrors.value = true;
+    toast({
+      title: 'Error de validación',
+      description: validationErrors.join('. '),
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  isSending.value = true;
+
+  // Clear draft when sending message
+  clearDraft();
 
   try {
     if (sendMethod.value === 'whatsapp') {
@@ -704,6 +930,30 @@ const sendMessage = async () => {
       window.open(emailUrl, '_blank');
     }
 
+    // Save communication to history
+    try {
+      const template = allMessageTemplates.value.find((t: any) => t.id === selectedTemplate.value);
+      const communicationStore = useParticipantCommunicationStore();
+      await communicationStore.createCommunication({
+        participantId: props.participant.id,
+        retreatId: retreatStore.selectedRetreatId!,
+        messageType: sendMethod.value,
+        recipientContact: selectedContact.value,
+        messageContent: editedMessage.value,
+        templateId: selectedTemplate.value,
+        templateName: template?.name,
+        subject: sendMethod.value === 'email' ? `Mensaje para ${props.participant.firstName} ${props.participant.lastName}` : undefined
+      });
+    } catch (historyError) {
+      console.error('Error saving communication history:', historyError);
+      // Don't block the sending process if history saving fails
+      toast({
+        title: 'Advertencia',
+        description: 'El mensaje se envió pero no se pudo guardar en el historial.',
+        variant: 'warning',
+      });
+    }
+
     // Close dialog
     closeDialog();
   } catch (error) {
@@ -713,6 +963,9 @@ const sendMessage = async () => {
       description: 'No se pudo enviar el mensaje. Por favor intenta de nuevo.',
       variant: 'destructive',
     });
+  } finally {
+    isSending.value = false;
+    showValidationErrors.value = false;
   }
 };
 
@@ -826,6 +1079,7 @@ watch(() => props.open, (newValue: boolean) => {
     editedMessage.value = '';
     emailPreviewHtml.value = '';
     activeTab.value = 'edit';
+    showHistory.value = false;
 
     // Load templates for the selected retreat
     if (retreatStore.selectedRetreatId) {
@@ -864,6 +1118,11 @@ watch(selectedTemplate, (newValue: string) => {
     setTimeout(() => {
       activeTab.value = 'preview';
     }, 100);
+  }
+
+  // Load draft when template is selected
+  if (newValue) {
+    loadDraft();
   }
 });
 
@@ -923,6 +1182,11 @@ watch(phoneOptionsDebug, (debug: any) => {
   console.log('Contact Options Debug:', debug);
 }, { immediate: true });
 
+// Auto-save functionality
+watch([editedMessage, sendMethod, selectedContact], () => {
+  autoSaveMessage();
+}, { deep: true });
+
 // Watch templates loading state
 watch(() => [templatesLoading.value, allMessageTemplates.value], ([loading, templates]) => {
   console.log('Templates state changed:', {
@@ -931,6 +1195,40 @@ watch(() => [templatesLoading.value, allMessageTemplates.value], ([loading, temp
     templates: Array.isArray(templates) ? templates.map((t: any) => ({ id: t.id, name: t.name, type: t.type })) : []
   });
 }, { immediate: true });
+
+// Toggle history function
+const toggleHistory = () => {
+  showHistory.value = !showHistory.value;
+};
+
+// Handle message click from history component
+const handleMessageClick = (message: any) => {
+  console.log('Message clicked:', message);
+  // You can implement actions like reusing the message template
+};
+
+// Handle copy message from history component
+const handleCopyMessage = async (message: any) => {
+  try {
+    await navigator.clipboard.writeText(message.messageContent);
+    toast({
+      title: 'Mensaje copiado',
+      description: 'El contenido del mensaje ha sido copiado al portapapeles.',
+    });
+  } catch (error) {
+    console.error('Error copying message:', error);
+    toast({
+      title: 'Error',
+      description: 'No se pudo copiar el mensaje.',
+      variant: 'destructive',
+    });
+  }
+};
+
+// Handle history loading state changes
+const handleHistoryLoadingChanged = (loading: boolean) => {
+  historyComponentLoading.value = loading;
+};
 
 // Cleanup on component unmount
 onBeforeUnmount(() => {

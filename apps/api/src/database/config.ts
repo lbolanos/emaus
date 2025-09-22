@@ -20,6 +20,7 @@ import { Permission } from '../entities/permission.entity';
 import { Migration } from '../entities/migration.entity';
 import { Payment } from '../entities/payment.entity';
 import { GlobalMessageTemplate } from '../entities/globalMessageTemplate.entity';
+import { ParticipantCommunication } from '../entities/participantCommunication.entity';
 
 export function createDatabaseConfig() {
 	const dbType = process.env.DB_TYPE || 'sqlite';
@@ -46,6 +47,7 @@ export function createDatabaseConfig() {
 		Permission,
 		Migration,
 		Payment,
+		ParticipantCommunication
 		// Temporarily excluding entities with enum issues
 		// AuditLog,
 		// PermissionOverride,

@@ -19,6 +19,7 @@ import permissionInheritanceRoutes from './permissionInheritanceRoutes';
 import userManagementRoutes from './userManagementRoutes';
 import invitationRoutes from './invitationRoutes';
 import paymentRoutes from './paymentRoutes';
+import participantCommunicationRoutes from './participantCommunicationRoutes';
 import { applyCsrfProtectionExcept } from '../middleware/routeCsrf';
 
 const router = Router();
@@ -48,5 +49,6 @@ router.use('/inventory', inventoryRoutes);
 router.use('/user-management', userManagementRoutes);
 router.use('/invitations', invitationRoutes);
 router.use('/payments', paymentRoutes);
+router.use('/participant-communications', participantCommunicationRoutes);
 
 export default router;

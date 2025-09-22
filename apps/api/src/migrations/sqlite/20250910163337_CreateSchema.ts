@@ -231,6 +231,27 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			)
 		`);
 
+		// Create participant_communications table
+		await queryRunner.query(`
+			CREATE TABLE IF NOT EXISTS "participant_communications" (
+				"id" VARCHAR(36) PRIMARY KEY NOT NULL,
+				"participantId" VARCHAR(36) NOT NULL,
+				"retreatId" VARCHAR(36) NOT NULL,
+				"messageType" VARCHAR(20) NOT NULL CHECK ("messageType" IN ('whatsapp', 'email')),
+				"recipientContact" VARCHAR(255) NOT NULL,
+				"messageContent" TEXT NOT NULL,
+				"templateId" VARCHAR(36),
+				"templateName" VARCHAR(255),
+				"subject" VARCHAR(500),
+				"sentAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				"sentBy" VARCHAR(36),
+				FOREIGN KEY ("participantId") REFERENCES "participants" ("id") ON DELETE CASCADE,
+				FOREIGN KEY ("retreatId") REFERENCES "retreat" ("id") ON DELETE CASCADE,
+				FOREIGN KEY ("templateId") REFERENCES "message_templates" ("id") ON DELETE SET NULL,
+				FOREIGN KEY ("sentBy") REFERENCES "users" ("id") ON DELETE SET NULL
+			)
+		`);
+
 		// Create inventory_category table
 		await queryRunner.query(`
 			CREATE TABLE IF NOT EXISTS "inventory_category" (
@@ -617,6 +638,20 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 		);
 		await queryRunner.query(
 			`CREATE INDEX IF NOT EXISTS "idx_permission_override_logs_created_at" ON "permission_override_logs"("created_at")`,
+		);
+
+		// Add indexes for participant_communications table
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_participant_communications_participantId" ON "participant_communications"("participantId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_participant_communications_retreatId" ON "participant_communications"("retreatId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_participant_communications_sentAt" ON "participant_communications"("sentAt")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_participant_communications_messageType" ON "participant_communications"("messageType")`,
 		);
 
 		// Add indexes for payments table
@@ -1178,6 +1213,12 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_retreat_isPublic"`);
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_retreat_createdBy"`);
 
+		// Drop indexes for communications table first
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_participant_communications_participantId"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_participant_communications_retreatId"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_participant_communications_sentAt"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_participant_communications_messageType"`);
+
 		// Drop indexes for payments table first
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_payments_recordedBy"`);
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_payments_paymentDate"`);
@@ -1185,6 +1226,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_payments_participantId"`);
 
 		// Drop tables in reverse order to respect foreign key constraints
+		await queryRunner.query(`DROP TABLE IF EXISTS "participant_communications"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "payments"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "permission_override_logs"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "permission_delegations"`);
