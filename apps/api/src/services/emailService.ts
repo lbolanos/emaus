@@ -3,6 +3,7 @@ import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { Participant } from '../entities/participant.entity';
 import { Retreat } from '../entities/retreat.entity';
 import * as nodemailer from 'nodemailer';
+import { replaceAllVariables, convertHtmlToEmail } from '@repo/utils';
 
 const retreatRepository = AppDataSource.getRepository(Retreat);
 const messageTemplateRepository = AppDataSource.getRepository(MessageTemplate);
@@ -69,10 +70,16 @@ export class EmailService {
 		try {
 			const subject = data.subject || `Mensaje para ${data.participant.firstName} ${data.participant.lastName}`;
 
+			// Use enhanced email formatting with convertHtmlToEmail
+			const enhancedHtml = convertHtmlToEmail(data.messageContent, {
+				format: 'enhanced',
+				skipTemplate: false
+			});
+
 			return await this.sendEmail({
 				to: data.to,
 				subject,
-				html: data.messageContent,
+				html: enhancedHtml,
 				text: this.htmlToText(data.messageContent),
 			});
 		} catch (error) {
@@ -180,10 +187,16 @@ export class EmailService {
 
 			const processedMessage = this.processTemplate(template.message, data);
 
+			// Use enhanced email formatting with convertHtmlToEmail
+			const enhancedHtml = convertHtmlToEmail(processedMessage, {
+				format: 'enhanced',
+				skipTemplate: false
+			});
+
 			return await this.sendEmail({
 				to,
 				subject: template.name,
-				html: processedMessage,
+				html: enhancedHtml,
 				text: this.htmlToText(processedMessage),
 			});
 		} catch (error) {
@@ -193,37 +206,6 @@ export class EmailService {
 	}
 
 	private processTemplate(template: string, data: Record<string, any>): string {
-		let processed = template;
-
-		// Replace participant variables
-		if (data.participant) {
-			const participant = data.participant;
-			processed = processed.replace(/{participant\.firstName}/g, participant.firstName || '');
-			processed = processed.replace(/{participant\.lastName}/g, participant.lastName || '');
-			processed = processed.replace(/{participant\.email}/g, participant.email || '');
-			processed = processed.replace(/{participant\.cellPhone}/g, participant.cellPhone || '');
-		}
-
-		// Replace retreat variables
-		if (data.retreat) {
-			const retreat = data.retreat;
-			processed = processed.replace(/{retreat\.name}/g, retreat.parish || '');
-			processed = processed.replace(
-				/{retreat\.startDate}/g,
-				retreat.startDate ? new Date(retreat.startDate).toLocaleDateString('es-ES') : ''
-			);
-			processed = processed.replace(
-				/{retreat\.endDate}/g,
-				retreat.endDate ? new Date(retreat.endDate).toLocaleDateString('es-ES') : ''
-			);
-		}
-
-		// Replace custom variables
-		Object.keys(data).forEach(key => {
-			const regex = new RegExp(`{${key}}`, 'g');
-			processed = processed.replace(regex, data[key] || '');
-		});
-
-		return processed.replace(/\n/g, '<br>');
+		return replaceAllVariables(template, data.participant, data.retreat).replace(/\n/g, '<br>');
 	}
 }

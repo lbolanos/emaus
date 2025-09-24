@@ -184,7 +184,7 @@ add support for sqlite migrations and postgress migrations.
 En el registro de los servidores se necesita modificar los campos si necesita la camiseta blanca, si necesita la camiseta azul, y si necesita chaqueta modificar the boolean a string y preguntar la talla o no necesita. si no necesita dejar en null.
 
 guardar en un store el listado de columnas que se han modificado
-
+hacer que funcione lint
 roles: un superadmin, un usuario administrador del retiro, un usuario servidor del retiro, tesorero, logística, palancas
 superadmin puede acceso total
 solo el superadmin puede borrar casas de retiro, articulos de inventario
@@ -225,16 +225,19 @@ si va litera en etiqueta de cuartos
 colocar en reporte de bolsas recordatorio de agua bendita, playera, celulares palancas, invitacion para otro retiro.
 si cumple en los dias del retiro sacar una alarma.
 
-IN PROGRESS
 cualquier mensaje se puede enviar por correo o por whatsapp
 llevar un registro de las comunicaciones del participantes.
 
-TODO
-since it is not in production modify apps/api/src/migrations/sqlite/20250910163337_CreateSchema.ts for schema.
-
-cuando un servidor se registre enviar tambien correo al servidor que lo invito para informar.
+IN PROGRESS
+cuando un participante se registre enviar correo de bienvenida
+cuando un caminante se registre enviar correo de bienvenida enviar tambien correo al servidor que lo invito para informar.
 
 en el mensaje de bienvenida del servidor agregar una url para que pueda cambiar su registro
+Notificaciones por correo a los administradores del retiro de eventos como Caminante ingresa. Servidor ingresa.  Forma de desactivar estas notificaciones.
+
+
+TODO
+since it is not in production modify apps/api/src/migrations/sqlite/20250910163337_CreateSchema.ts for schema.
 
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
 agregar todas las actividades por servidor
@@ -243,7 +246,9 @@ asigncacion de cuartos tal como se hace en las mesas con un dashboard.
 
 gafete mesa nombre apodo cuarto rosa
 
-Notificaciones por correo. Caminante ingresa. Servidor ingresa.
+Crear un retiro a partir de los datos del anterior retiro.  Casa de retiro, inventario, mensajes.
+
+remover del menu todos las paginas que requieras retiro si no esta seleccionado.
 
 agregar una forma de administrar las tablas de la base de datos con solo permisos para el superadmin.
 
@@ -257,7 +262,7 @@ una forma de hacer backup del retiro y luego importar.
 
 Que debe pasar cuando se cancele un participante ... unassign from retreatBed and from tableMesa
 
-hacer que funcione lint
+
 agregar al retiro hora de llegada de caminantes ... y hora de llegada de servidores el viernes.
 
 imprimir la mesa con lider caminantes telefonos, medicamentos y alimentos.

@@ -816,8 +816,7 @@ const generateEmailPreview = () => {
   // Convert HTML to email format
   emailPreviewHtml.value = convertHtmlToEmail(message, {
     format: emailFormat.value,
-    includeJavaScript: true,
-    preserveStyles: true
+    skipTemplate: false
   });
 };
 
@@ -828,8 +827,7 @@ const downloadHtmlFile = () => {
   // Convert HTML to email format
   const emailHtml = convertHtmlToEmail(message, {
     format: emailFormat.value,
-    includeJavaScript: true,
-    preserveStyles: true
+    skipTemplate: false
   });
 
   // Create blob and download link
@@ -851,8 +849,7 @@ const exportToEmail = async () => {
   // Convert HTML to email format
   const emailHtml = convertHtmlToEmail(message, {
     format: emailFormat.value,
-    includeJavaScript: true,
-    preserveStyles: true
+    skipTemplate: false
   });
 
   // Convert HTML to plain text for the email body

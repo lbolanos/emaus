@@ -3,8 +3,10 @@ import { Participant } from '../entities/participant.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { TableMesa } from '../entities/tableMesa.entity';
 import { RetreatBed } from '../entities/retreatBed.entity';
+import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { CreateParticipant, UpdateParticipant } from '@repo/types';
 import { rebalanceTablesForRetreat } from './tableMesaService';
+import { EmailService } from './emailService';
 import { In, Not, IsNull, ILike, Brackets } from 'typeorm';
 
 const participantRepository = AppDataSource.getRepository(Participant);
@@ -493,6 +495,107 @@ export const createParticipant = async (
 						where: { id: savedParticipant.id },
 					})) || savedParticipant;
 			}
+		}
+
+		// Send welcome email after successful registration
+		try {
+			const emailService = new EmailService();
+			const templateType = savedParticipant.type === 'walker' ? 'WALKER_WELCOME' : 'SERVER_WELCOME';
+
+			// Get retreat details for template variables
+			const retreat = await transactionalEntityManager
+				.getRepository(Retreat)
+				.findOne({
+					where: { id: savedParticipant.retreatId }
+				});
+
+			// Find the welcome template for this retreat
+			const welcomeTemplate = await transactionalEntityManager
+				.getRepository(MessageTemplate)
+				.findOne({
+					where: {
+						retreatId: savedParticipant.retreatId,
+						type: templateType
+					}
+				});
+
+			if (welcomeTemplate && savedParticipant.email) {
+				await emailService.sendEmailWithTemplate(
+					savedParticipant.email,
+					welcomeTemplate.id,
+					savedParticipant.retreatId,
+					{
+						participant: savedParticipant,
+						retreat: retreat
+					}
+				);
+			}
+
+			// Send notification email to the server who invited the participant
+			if (savedParticipant.invitedBy && retreat) {
+				// Find the server who invited this participant
+				const invitingServer = await transactionalEntityManager
+					.getRepository(Participant)
+					.findOne({
+						where: {
+							retreatId: savedParticipant.retreatId,
+							nickname: savedParticipant.invitedBy,
+							type: 'server'
+						}
+					});
+
+				if (invitingServer && invitingServer.email) {
+					// Find notification template for servers - use GENERAL type as fallback
+					const notificationTemplate = await transactionalEntityManager
+						.getRepository(MessageTemplate)
+						.findOne({
+							where: {
+								retreatId: savedParticipant.retreatId,
+								type: 'GENERAL'
+							}
+						});
+
+					if (notificationTemplate) {
+						await emailService.sendEmailWithTemplate(
+							invitingServer.email,
+							notificationTemplate.id,
+							savedParticipant.retreatId,
+							{
+								participant: savedParticipant,
+								retreat: retreat,
+								invitingServer: invitingServer
+							}
+						);
+						console.log(`Notification email sent to server ${invitingServer.nickname} for new participant ${savedParticipant.firstName} ${savedParticipant.lastName}`);
+					} else {
+						// If no template exists, send a simple notification
+						await emailService.sendParticipantEmail({
+							to: invitingServer.email,
+							subject: `Nuevo participante invitado: ${savedParticipant.firstName} ${savedParticipant.lastName}`,
+							participant: savedParticipant,
+							retreat: retreat,
+							messageContent: `
+								<h2>¡Hola ${invitingServer.firstName}!</h2>
+								<p>Te informamos que <strong>${savedParticipant.firstName} ${savedParticipant.lastName}</strong> se ha registrado exitosamente en el retiro.</p>
+								<p><strong>Detalles del participante:</strong></p>
+								<ul>
+									<li>Nombre: ${savedParticipant.firstName} ${savedParticipant.lastName}</li>
+									<li>Tipo: ${savedParticipant.type === 'walker' ? 'Caminante' : 'Servidor'}</li>
+									<li>Email: ${savedParticipant.email || 'No proporcionado'}</li>
+									<li>Teléfono: ${savedParticipant.cellPhone || 'No proporcionado'}</li>
+								</ul>
+								<p>Gracias por invitar a nuevos participantes al retiro.</p>
+							`
+						});
+						console.log(`Simple notification email sent to server ${invitingServer.nickname} for new participant ${savedParticipant.firstName} ${savedParticipant.lastName}`);
+					}
+				} else {
+					console.log(`Could not find server with nickname '${savedParticipant.invitedBy}' to send notification`);
+				}
+			}
+		} catch (emailError) {
+			console.error('Error sending welcome/notification emails:', emailError);
+			// Don't throw - registration succeeded even if email fails
 		}
 
 		return savedParticipant;

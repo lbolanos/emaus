@@ -713,8 +713,7 @@ const updateMessagePreview = () => {
     // Generate email preview HTML
     emailPreviewHtml.value = convertHtmlToEmail(message, {
       format: 'enhanced',
-      includeJavaScript: true,
-      preserveStyles: true
+      skipTemplate: false
     });
   }
 };
@@ -1304,8 +1303,6 @@ watch(sendMethod, (newValue: 'whatsapp' | 'email') => {
       // Generate email preview HTML
       emailPreviewHtml.value = convertHtmlToEmail(messagePreview.value, {
         format: 'enhanced',
-        includeJavaScript: true,
-        preserveStyles: true,
         skipTemplate: true
       });
     }
