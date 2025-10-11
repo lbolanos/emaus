@@ -185,7 +185,7 @@ En el registro de los servidores se necesita modificar los campos si necesita la
 
 guardar en un store el listado de columnas que se han modificado
 hacer que funcione lint
-roles: un superadmin, un usuario administrador del retiro, un usuario servidor del retiro, tesorero, logística, palancas
+roles: un superadmin, un usuario administrador del retiro, un usuario servidor del retiro, treasurer, logistics, palancas
 superadmin puede acceso total
 solo el superadmin puede borrar casas de retiro, articulos de inventario
 El administrador puede crear y editar casas de retiro, articulos de inventario.
@@ -227,6 +227,9 @@ si cumple en los dias del retiro sacar una alarma.
 
 cualquier mensaje se puede enviar por correo o por whatsapp
 llevar un registro de las comunicaciones del participantes.
+
+
+show the rol in header for the specific retreat selected
 
 IN PROGRESS
 cuando un participante se registre enviar correo de bienvenida
@@ -290,3 +293,5 @@ Clic Menu Global Templates
 Search for BIRTHDAY_MESSAGE and clic title="Editar"
 Select text "¡Feliz cumpleaños" y clic en boton negrillas.
 Fix any issue with text changes
+
+lsof -ti:3001 | xargs -r kill -9
