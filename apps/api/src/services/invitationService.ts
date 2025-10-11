@@ -2,10 +2,8 @@ import { AppDataSource } from '../data-source';
 import { User } from '../entities/user.entity';
 import { UserRetreat } from '../entities/userRetreat.entity';
 import { Retreat } from '../entities/retreat.entity';
-import { Role } from '../entities/role.entity';
 import { UserManagementMailer } from './userManagementMailer';
 import { v4 as uuidv4 } from 'uuid';
-import * as bcrypt from 'bcrypt';
 
 interface InvitationRequest {
 	email: string;
@@ -24,7 +22,6 @@ export class InvitationService {
 	private userRepository = AppDataSource.getRepository(User);
 	private userRetreatRepository = AppDataSource.getRepository(UserRetreat);
 	private retreatRepository = AppDataSource.getRepository(Retreat);
-	private roleRepository = AppDataSource.getRepository(Role);
 	private mailer = new UserManagementMailer();
 
 	async inviteUsers(
@@ -215,12 +212,9 @@ export class InvitationService {
 			}
 		}
 
-		// Hash password
-		const hashedPassword = await bcrypt.hash(password, 10);
-
-		// Update user
+		// Update user (password will be hashed automatically by User entity)
 		user.displayName = displayName;
-		user.password = hashedPassword;
+		user.password = password;
 		user.isPending = false;
 		user.invitationToken = undefined;
 		user.invitationExpiresAt = undefined;

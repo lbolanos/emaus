@@ -36,7 +36,17 @@ export class MessageTemplate implements IMessageTemplate {
 		| 'USER_INVITATION'
 		| 'PASSWORD_RESET'
 		| 'RETREAT_SHARED_NOTIFICATION'
-		| 'BIRTHDAY_MESSAGE';
+		| 'BIRTHDAY_MESSAGE'
+		// System templates (should not be used in retreat-specific templates)
+		| 'SYS_PASSWORD_RESET'
+		| 'SYS_USER_INVITATION'
+		| 'SYS_REGISTRATION_CONFIRMATION'
+		| 'SYS_EMAIL_VERIFICATION'
+		| 'SYS_ACCOUNT_LOCKED'
+		| 'SYS_ACCOUNT_UNLOCKED'
+		| 'SYS_ROLE_REQUESTED'
+		| 'SYS_ROLE_APPROVED'
+		| 'SYS_ROLE_REJECTED';
 
 	@Column({ type: 'text' })
 	message!: string;

@@ -3,6 +3,7 @@ import passport from 'passport';
 import { AppDataSource } from '../data-source';
 import { User } from '../entities/user.entity';
 import { UserService } from '../services/userService';
+import { GlobalMessageTemplateService } from '../services/globalMessageTemplateService';
 import { config } from '../config';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
@@ -10,6 +11,7 @@ import * as crypto from 'crypto';
 // Temporary store for password reset tokens
 const passwordResetTokens = new Map<string, { userId: string; expires: number }>();
 const userService = new UserService();
+const globalMessageTemplateService = new GlobalMessageTemplateService();
 
 export const register = async (req: Request, res: Response, next: NextFunction) => {
 	const { email, password, displayName } = req.body;
@@ -113,17 +115,25 @@ export const requestPasswordReset = async (req: Request, res: Response, next: Ne
 		if (!user) {
 			// To prevent user enumeration, we send a success response even if the user doesn't exist.
 			return res.json({
-				message: 'If a user with that email exists, a password reset link has been sent.',
+				message: 'Si existe un usuario con ese correo, se ha enviado un enlace para restablecer la contraseña.',
 			});
 		}
 
 		const token = crypto.randomBytes(32).toString('hex');
 		passwordResetTokens.set(token, { userId: user.id, expires: Date.now() + 3600000 }); // 1 hour expiry
 
-		// In a real app, you would email this token to the user
-		console.log(`Password reset token for ${email}: ${token}`);
+		// Create the password reset URL
+		const resetUrl = `${config.frontend.url}/reset-password?token=${token}`;
 
-		res.json({ message: 'If a user with that email exists, a password reset link has been sent.' });
+		// Send password reset email using the template service
+		try {
+			await globalMessageTemplateService.sendPasswordResetEmail(user, resetUrl);
+		} catch (emailError) {
+			console.error('Error sending password reset email:', emailError);
+			// Still return success to prevent user enumeration, but log the error
+		}
+
+		res.json({ message: 'Si existe un usuario con ese correo, se ha enviado un enlace para restablecer la contraseña.' });
 	} catch (error) {
 		next(error);
 	}

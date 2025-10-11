@@ -117,7 +117,11 @@ const availableRoles = [
 
 const isValid = computed(() => {
   const emails = emailsText.value.split('\n').filter(email => email.trim());
-  return emails.length > 0 && emails.length <= 10 && selectedRole.value && props.retreatId;
+  const hasValidEmails = emails.length > 0 && emails.length <= 10;
+  const hasSelectedRole = selectedRole.value !== '';
+  const hasRetreatId = props.retreatId && props.retreatId !== '';
+  
+  return hasValidEmails && hasSelectedRole && hasRetreatId;
 });
 
 const sendInvitations = async () => {
@@ -199,4 +203,3 @@ const sendInvitations = async () => {
   }
 };
 </script>
-

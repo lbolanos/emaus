@@ -17,6 +17,16 @@ export const messageTemplateTypes = z.enum([
 	'PASSWORD_RESET',
 	'RETREAT_SHARED_NOTIFICATION',
 	'BIRTHDAY_MESSAGE',
+	// System-wide templates with SYS_ prefix
+	'SYS_PASSWORD_RESET',
+	'SYS_USER_INVITATION',
+	'SYS_REGISTRATION_CONFIRMATION',
+	'SYS_EMAIL_VERIFICATION',
+	'SYS_ACCOUNT_LOCKED',
+	'SYS_ACCOUNT_UNLOCKED',
+	'SYS_ROLE_REQUESTED',
+	'SYS_ROLE_APPROVED',
+	'SYS_ROLE_REJECTED',
 ]);
 
 export const MessageTemplateSchema = z.object({

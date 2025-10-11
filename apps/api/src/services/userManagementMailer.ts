@@ -1,11 +1,9 @@
 import { AppDataSource } from '../data-source';
 import { MessageTemplate } from '../entities/messageTemplate.entity';
+import { GlobalMessageTemplate } from '../entities/globalMessageTemplate.entity';
 import { User } from '../entities/user.entity';
 import { Retreat } from '../entities/retreat.entity';
 import * as nodemailer from 'nodemailer';
-
-const userRepository = AppDataSource.getRepository(User);
-const retreatRepository = AppDataSource.getRepository(Retreat);
 
 export interface EmailTemplateData {
 	user: User;
@@ -17,6 +15,7 @@ export interface EmailTemplateData {
 
 export class UserManagementMailer {
 	private messageTemplateRepository = AppDataSource.getRepository(MessageTemplate);
+	private globalMessageTemplateRepository = AppDataSource.getRepository(GlobalMessageTemplate);
 	private transporter: nodemailer.Transporter;
 
 	constructor() {
@@ -37,9 +36,17 @@ export class UserManagementMailer {
 		data: EmailTemplateData,
 	): Promise<boolean> {
 		try {
-			const template = await this.messageTemplateRepository.findOne({
-				where: { retreatId, type: 'USER_INVITATION' },
-			});
+			let template: MessageTemplate | GlobalMessageTemplate | null =
+				await this.messageTemplateRepository.findOne({
+					where: { retreatId, type: 'USER_INVITATION' },
+				});
+
+			// Fallback to global system template if retreat-specific template not found
+			if (!template) {
+				template = await this.globalMessageTemplateRepository.findOne({
+					where: { type: 'SYS_USER_INVITATION', isActive: true },
+				});
+			}
 
 			if (!template) {
 				throw new Error('USER_INVITATION template not found');
@@ -68,9 +75,17 @@ export class UserManagementMailer {
 		data: EmailTemplateData,
 	): Promise<boolean> {
 		try {
-			const template = await this.messageTemplateRepository.findOne({
-				where: { retreatId, type: 'PASSWORD_RESET' },
-			});
+			let template: MessageTemplate | GlobalMessageTemplate | null =
+				await this.messageTemplateRepository.findOne({
+					where: { retreatId, type: 'PASSWORD_RESET' },
+				});
+
+			// Fallback to global system template if retreat-specific template not found
+			if (!template) {
+				template = await this.globalMessageTemplateRepository.findOne({
+					where: { type: 'SYS_PASSWORD_RESET', isActive: true },
+				});
+			}
 
 			if (!template) {
 				throw new Error('PASSWORD_RESET template not found');
@@ -99,9 +114,17 @@ export class UserManagementMailer {
 		data: EmailTemplateData,
 	): Promise<boolean> {
 		try {
-			const template = await this.messageTemplateRepository.findOne({
-				where: { retreatId, type: 'RETREAT_SHARED_NOTIFICATION' },
-			});
+			let template: MessageTemplate | GlobalMessageTemplate | null =
+				await this.messageTemplateRepository.findOne({
+					where: { retreatId, type: 'RETREAT_SHARED_NOTIFICATION' },
+				});
+
+			// Fallback to global system template if retreat-specific template not found
+			if (!template) {
+				template = await this.globalMessageTemplateRepository.findOne({
+					where: { type: 'SYS_USER_INVITATION', isActive: true }, // Use general invitation as fallback
+				});
+			}
 
 			if (!template) {
 				throw new Error('RETREAT_SHARED_NOTIFICATION template not found');
