@@ -130,7 +130,7 @@ export type TableMesa = z.infer<typeof tableMesaSchema>;
 export const participantSchema = z.object({
 	id: idSchema,
 	id_on_retreat: z.number().int().positive().optional(),
-	type: z.enum(['walker', 'server', 'waiting']),
+	type: z.enum(['walker', 'server', 'waiting', 'partial_server']),
 	firstName: z.string(),
 	lastName: z.string(),
 	nickname: z.string().optional(),

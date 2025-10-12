@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { InvitationController } from '../controllers/invitationController';
 import { rateLimit } from 'express-rate-limit';
+import { isAuthenticated } from '../middleware/isAuthenticated';
+import { requirePermission } from '../middleware/authorization';
 
 const router = Router();
 const invitationController = new InvitationController();
@@ -17,7 +19,13 @@ const invitationRateLimit = rateLimit({
 });
 
 // Invite users to retreat (rate limited)
-router.post('/', invitationRateLimit, invitationController.inviteUsers.bind(invitationController));
+router.post(
+	'/',
+	isAuthenticated,
+	requirePermission('retreat:invite'),
+	invitationRateLimit,
+	invitationController.inviteUsers.bind(invitationController),
+);
 
 // Accept invitation (no auth required)
 router.post('/:id/accept', invitationController.acceptInvitation.bind(invitationController));

@@ -68,12 +68,13 @@ export class EmailService {
 
 	async sendParticipantEmail(data: ParticipantEmailData): Promise<boolean> {
 		try {
-			const subject = data.subject || `Mensaje para ${data.participant.firstName} ${data.participant.lastName}`;
+			const subject =
+				data.subject || `Mensaje para ${data.participant.firstName} ${data.participant.lastName}`;
 
 			// Use enhanced email formatting with convertHtmlToEmail
 			const enhancedHtml = convertHtmlToEmail(data.messageContent, {
 				format: 'enhanced',
-				skipTemplate: false
+				skipTemplate: false,
 			});
 
 			return await this.sendEmail({
@@ -128,20 +129,21 @@ export class EmailService {
 			if (!this.isSmtpConfigured()) {
 				return {
 					success: false,
-					message: 'Configuración SMTP incompleta. Verifica las variables de entorno SMTP_HOST, SMTP_USER, y SMTP_PASS.'
+					message:
+						'Configuración SMTP incompleta. Verifica las variables de entorno SMTP_HOST, SMTP_USER, y SMTP_PASS.',
 				};
 			}
 
 			await this.transporter.verify();
 			return {
 				success: true,
-				message: 'Conexión SMTP verificada correctamente'
+				message: 'Conexión SMTP verificada correctamente',
 			};
 		} catch (error) {
 			console.error('SMTP connection verification failed:', error);
 			return {
 				success: false,
-				message: `Error de conexión SMTP: ${error instanceof Error ? error.message : 'Error desconocido'}`
+				message: `Error de conexión SMTP: ${error instanceof Error ? error.message : 'Error desconocido'}`,
 			};
 		}
 	}
@@ -174,7 +176,7 @@ export class EmailService {
 		to: string,
 		templateId: string,
 		retreatId: string,
-		data: Record<string, any>
+		data: Record<string, any>,
 	): Promise<boolean> {
 		try {
 			const template = await messageTemplateRepository.findOne({
@@ -190,7 +192,7 @@ export class EmailService {
 			// Use enhanced email formatting with convertHtmlToEmail
 			const enhancedHtml = convertHtmlToEmail(processedMessage, {
 				format: 'enhanced',
-				skipTemplate: false
+				skipTemplate: false,
 			});
 
 			return await this.sendEmail({

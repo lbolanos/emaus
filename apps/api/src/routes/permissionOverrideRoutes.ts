@@ -7,7 +7,7 @@ import {
 	getUserPermissionsWithOverrides,
 } from '../controllers/permissionOverrideController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
-import { requireRetreatCreator, requireRetreatAccessOrCreator } from '../middleware/authorization';
+import { requireRetreatAccessOrCreator } from '../middleware/authorization';
 
 const router = Router();
 
@@ -17,7 +17,7 @@ router.use(isAuthenticated);
 // Set permission overrides for a user in a retreat - only retreat creators
 router.post(
 	'/retreats/:retreatId/users/:userId/overrides',
-	requireRetreatCreator,
+	requireRetreatAccessOrCreator,
 	(req: any, res: any) => setPermissionOverrides(req, res),
 );
 
@@ -31,12 +31,12 @@ router.get(
 // Clear permission overrides for a user in a retreat - only retreat creators
 router.delete(
 	'/retreats/:retreatId/users/:userId/overrides',
-	requireRetreatCreator,
+	requireRetreatAccessOrCreator,
 	(req: any, res: any) => clearPermissionOverrides(req, res),
 );
 
 // Get all permission overrides for a retreat - only retreat creators
-router.get('/retreats/:retreatId/overrides', requireRetreatCreator, (req: any, res: any) =>
+router.get('/retreats/:retreatId/overrides', requireRetreatAccessOrCreator, (req: any, res: any) =>
 	getRetreatPermissionOverrides(req, res),
 );
 

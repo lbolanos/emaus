@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { PaymentController } from '../controllers/paymentController';
 import { isAuthenticated } from '../middleware/authentication';
-import { requirePermission } from '../middleware/authorization';
+import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
 
 const router = Router();
 const paymentController = new PaymentController();
@@ -55,6 +55,7 @@ router.get(
 router.get(
 	'/retreat/:retreatId',
 	requirePermission('payment:read'),
+	requireRetreatAccess('retreatId'),
 	paymentController.getPaymentsByRetreat.bind(paymentController),
 );
 
@@ -62,6 +63,7 @@ router.get(
 router.get(
 	'/retreat/:retreatId/summary',
 	requirePermission('payment:read'),
+	requireRetreatAccess('retreatId'),
 	paymentController.getPaymentSummaryByRetreat.bind(paymentController),
 );
 

@@ -266,7 +266,6 @@ export const testEmojiConversion = (text: string): string => {
 
 // Email formatting functions are now imported from @repo/utils to avoid duplication
 
-
 /**
  * Detects if the browser supports rich text clipboard operations
  */
@@ -623,11 +622,11 @@ export const beautifyHtml = (html: string): string => {
 // Import shared interfaces and functions from @repo/utils
 export type { ParticipantData, RetreatData } from '@repo/utils';
 export {
-  replaceAllVariables,
-  replaceParticipantVariables,
-  replaceRetreatVariables,
-  convertHtmlToEmail,
-  detectEmailClient
+	replaceAllVariables,
+	replaceParticipantVariables,
+	replaceRetreatVariables,
+	convertHtmlToEmail,
+	detectEmailClient,
 } from '@repo/utils';
 
 // Shared utility functions are now imported from @repo/utils

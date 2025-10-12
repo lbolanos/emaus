@@ -1,16 +1,21 @@
 import { Request, Response, NextFunction } from 'express';
 import {
-	getRetreats,
+	getRetreatsForUser,
 	createRetreat as createRetreatService,
 	findById,
 	update,
 } from '../services/retreatService';
-import { authorizationService, AuthenticatedRequest } from '../middleware/authorization';
-import { retreatRoleService } from '../services/retreatRoleService';
+import { AuthenticatedRequest } from '../middleware/authorization';
 
 export const getAllRetreats = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const retreats = await getRetreats();
+		const userId = (req as any).user?.id;
+		if (!userId) {
+			return res.status(401).json({ message: 'Unauthorized' });
+		}
+
+		// Only return retreats the user has access to
+		const retreats = await getRetreatsForUser(userId);
 		res.json(retreats);
 	} catch (error) {
 		next(error);

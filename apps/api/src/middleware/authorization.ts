@@ -40,22 +40,48 @@ export class AuthorizationService {
 			role: string;
 		}>;
 	}> {
+		// Check if we have cached final permissions
+		const cachedPermissionsResult =
+			await performanceOptimizationService.getCachedUserPermissionsResult(userId);
+		if (cachedPermissionsResult) {
+			return cachedPermissionsResult;
+		}
+
 		// Check cache for user retreats
 		const cachedUserRetreats = await performanceOptimizationService.getCachedUserRetreats(userId);
 
 		let userRetreats: UserRetreat[];
 		if (cachedUserRetreats) {
 			// Transform cached data back to entities for processing
-			userRetreats = cachedUserRetreats
-				.filter((ur) => ur.status === 'active')
+			// We need to fetch the actual role data since it's not fully cached
+			const activeCachedRetreats = cachedUserRetreats.filter((ur) => ur.status === 'active');
+			const roleNames = [...new Set(activeCachedRetreats.map((ur) => ur.role))];
+
+			// Fetch roles by name
+			const roles =
+				roleNames.length > 0
+					? await AppDataSource.getRepository(Role)
+							.createQueryBuilder('role')
+							.where('role.name IN (:...roleNames)', { roleNames })
+							.getMany()
+					: [];
+
+			const roleMap = new Map(roles.map((r) => [r.name, r]));
+
+			userRetreats = activeCachedRetreats
 				.map((ur) => {
 					const entity = new UserRetreat();
 					entity.userId = userId;
 					entity.retreatId = ur.retreatId;
 					entity.status = ur.status;
-					// Note: role object would need to be reconstructed or fetched
+					// Reconstruct the role object
+					const role = roleMap.get(ur.role);
+					if (role) {
+						entity.role = role;
+					}
 					return entity;
-				});
+				})
+				.filter((ur) => ur.role); // Filter out any entries without valid roles
 		} else {
 			// Fetch from database
 			userRetreats = await AppDataSource.getRepository(UserRetreat)
@@ -65,13 +91,17 @@ export class AuthorizationService {
 				.andWhere('userRetreat.status IN (:...statuses)', { statuses: ['active', 'pending'] })
 				.getMany();
 
-			// Cache the results
-			const cacheData = userRetreats.map((ur) => ({
+			// Cache the results (only if we have valid role data)
+			const validUserRetreats = userRetreats.filter((ur) => ur.role);
+			const cacheData = validUserRetreats.map((ur) => ({
 				retreatId: ur.retreatId,
 				role: ur.role.name,
 				status: ur.status,
 			}));
 			await performanceOptimizationService.setCachedUserRetreats(userId, cacheData);
+
+			// Filter out any userRetreats without valid roles
+			userRetreats = validUserRetreats;
 		}
 
 		const userRoles = await AppDataSource.getRepository(UserRole)
@@ -80,7 +110,9 @@ export class AuthorizationService {
 			.where('userRole.userId = :userId', { userId })
 			.getMany();
 
-		const roleIds = userRoles.map((ur) => ur.role.id);
+		// Filter out any userRoles without valid roles
+		const validUserRoles = userRoles.filter((ur) => ur.role);
+		const roleIds = validUserRoles.map((ur) => ur.role.id);
 		const retreatRoleIds = userRetreats.map((ur) => ur.role.id);
 		const allRoleIds = [...new Set([...roleIds, ...retreatRoleIds])];
 
@@ -93,17 +125,139 @@ export class AuthorizationService {
 		const permissions = rolePermissions.map(
 			(rp) => `${rp.permission.resource}:${rp.permission.operation}`,
 		);
-		const roles = userRoles.map((ur) => ur.role.name);
+		const roles = validUserRoles.map((ur) => ur.role.name);
 		const retreats = userRetreats.map((ur) => ({
 			retreatId: ur.retreatId,
 			role: ur.role.name,
 		}));
 
-		return {
+		const result = {
 			permissions: [...new Set(permissions)],
 			roles: [...new Set(roles)],
 			retreats,
 		};
+
+		// Cache the final computed permissions
+		await performanceOptimizationService.setCachedUserPermissionsResult(userId, result);
+		performanceOptimizationService.logCacheOperation(
+			'MISS',
+			'userPermissionsResult',
+			userId,
+			false,
+		);
+		performanceOptimizationService.logCacheOperation('SET', 'userPermissionsResult', userId, false);
+
+		return result;
+	}
+
+	public async getUserPermissionsForRetreat(userId: string, retreatId: string): Promise<{
+		permissions: string[];
+		roles: string[];
+		retreats: Array<{
+			retreatId: string;
+			role: string;
+		}>;
+		retreatSpecificRole?: string;
+	}> {
+		// Check cache for retreat-specific permissions
+		const cacheKey = `${userId}:${retreatId}`;
+		const cachedPermissionsResult =
+			await performanceOptimizationService.getCachedUserPermissionsResult(cacheKey);
+		if (cachedPermissionsResult) {
+			performanceOptimizationService.logCacheOperation(
+				'HIT',
+				'userPermissionsResult',
+				cacheKey,
+				true,
+			);
+			return cachedPermissionsResult;
+		}
+
+		// Get global permissions first (reuse existing logic)
+		const globalPermissions = await this.getUserPermissions(userId);
+
+		// Filter user retreats to only include the specific retreat
+		const filteredRetreats = globalPermissions.retreats.filter(
+			retreat => retreat.retreatId === retreatId
+		);
+
+		// Get the specific role for this retreat
+		const retreatSpecificRole = filteredRetreats.length > 0 ? filteredRetreats[0].role : undefined;
+
+		// If user has no access to this retreat, return minimal permissions
+		if (filteredRetreats.length === 0) {
+			const result = {
+				permissions: globalPermissions.permissions, // Keep global permissions
+				roles: globalPermissions.roles, // Keep global roles
+				retreats: [], // No retreat access
+				retreatSpecificRole: undefined,
+			};
+
+			// Cache the negative result for shorter time
+			await performanceOptimizationService.setCachedUserPermissionsResult(cacheKey, result);
+			return result;
+		}
+
+		// User has access to this retreat, get full permissions
+		// Fetch role permissions for both global roles and retreat-specific role
+		const userRoles = await AppDataSource.getRepository(UserRole)
+			.createQueryBuilder('userRole')
+			.leftJoinAndSelect('userRole.role', 'role')
+			.where('userRole.userId = :userId', { userId })
+			.getMany();
+
+		// Get retreat-specific role data
+		const userRetreat = await AppDataSource.getRepository(UserRetreat)
+			.createQueryBuilder('userRetreat')
+			.leftJoinAndSelect('userRetreat.role', 'role')
+			.where('userRetreat.userId = :userId', { userId })
+			.andWhere('userRetreat.retreatId = :retreatId', { retreatId })
+			.andWhere('userRetreat.status IN (:...statuses)', { statuses: ['active', 'pending'] })
+			.getOne();
+
+		// Collect all role IDs (global + retreat-specific)
+		const globalRoleIds = userRoles
+			.filter(ur => ur.role)
+			.map(ur => ur.role.id);
+
+		const retreatRoleId = userRetreat?.role?.id;
+
+		const allRoleIds = [...new Set([...globalRoleIds, retreatRoleId].filter(Boolean))];
+
+		// Get permissions for all relevant roles
+		const rolePermissions = await AppDataSource.getRepository(RolePermission)
+			.createQueryBuilder('rolePermission')
+			.leftJoinAndSelect('rolePermission.permission', 'permission')
+			.where('rolePermission.roleId IN (:...roleIds)', { roleIds: allRoleIds })
+			.getMany();
+
+		const permissions = rolePermissions.map(
+			(rp) => `${rp.permission.resource}:${rp.permission.operation}`,
+		);
+
+		const roles = [
+			...userRoles.filter(ur => ur.role).map(ur => ur.role.name),
+			...(userRetreat?.role ? [userRetreat.role.name] : [])
+		];
+
+		const result = {
+			permissions: [...new Set(permissions)],
+			roles: [...new Set(roles)],
+			retreats: filteredRetreats,
+			retreatSpecificRole,
+		};
+
+		// Cache the result
+		await performanceOptimizationService.setCachedUserPermissionsResult(cacheKey, result);
+		performanceOptimizationService.logCacheOperation(
+			'MISS',
+			'userPermissionsResult',
+			cacheKey,
+			false,
+		);
+		performanceOptimizationService.logCacheOperation('SET', 'userPermissionsResult', cacheKey, false);
+
+		return result;
 	}
 
 	public async hasPermission(userId: string, permission: string): Promise<boolean> {
@@ -117,44 +271,101 @@ export class AuthorizationService {
 	}
 
 	public async hasRetreatAccess(userId: string, retreatId: string): Promise<boolean> {
-		// Check cache first
-		const userRetreats = await performanceOptimizationService.getCachedUserRetreats(userId);
-		if (userRetreats) {
-			return userRetreats.some((ur) => ur.retreatId === retreatId && ur.status === 'active');
+		// Check if user is superadmin first - superadmins have access to all retreats
+		const isSuperadmin = await this.hasRole(userId, 'superadmin');
+		if (isSuperadmin) {
+			return true;
 		}
 
-		// Fallback to database query
-		const userRetreat = await AppDataSource.getRepository(UserRetreat)
-			.createQueryBuilder('userRetreat')
-			.leftJoin('userRetreat.role', 'role')
-			.where('userRetreat.userId = :userId', { userId })
-			.andWhere('userRetreat.retreatId = :retreatId', { retreatId })
-			.andWhere('userRetreat.status = :status', { status: 'active' })
-			.getOne();
+		// Check retreat access cache first
+		const cachedAccess = await performanceOptimizationService.getCachedRetreatAccess(
+			userId,
+			retreatId,
+		);
+		if (cachedAccess !== null) {
+			performanceOptimizationService.logCacheOperation(
+				'HIT',
+				'retreatAccess',
+				`${userId}:${retreatId}`,
+				true,
+			);
+			return cachedAccess;
+		}
 
-		return !!userRetreat;
+		// Check user retreats cache
+		const userRetreats = await performanceOptimizationService.getCachedUserRetreats(userId);
+		let hasAccess = false;
+
+		if (userRetreats) {
+			hasAccess = userRetreats.some((ur) => ur.retreatId === retreatId && ur.status === 'active');
+		} else {
+			// Fallback to database query
+			const userRetreat = await AppDataSource.getRepository(UserRetreat)
+				.createQueryBuilder('userRetreat')
+				.leftJoin('userRetreat.role', 'role')
+				.where('userRetreat.userId = :userId', { userId })
+				.andWhere('userRetreat.retreatId = :retreatId', { retreatId })
+				.andWhere('userRetreat.status = :status', { status: 'active' })
+				.getOne();
+
+			hasAccess = !!userRetreat;
+		}
+
+		// Cache the result for future queries
+		await performanceOptimizationService.setCachedRetreatAccess(userId, retreatId, hasAccess);
+		performanceOptimizationService.logCacheOperation(
+			'MISS',
+			'retreatAccess',
+			`${userId}:${retreatId}`,
+			false,
+		);
+		performanceOptimizationService.logCacheOperation(
+			'SET',
+			'retreatAccess',
+			`${userId}:${retreatId}`,
+			false,
+		);
+
+		return hasAccess;
 	}
 
 	public async hasRetreatRole(userId: string, retreatId: string, role: string): Promise<boolean> {
-		// Check cache first
-		const userRetreats = await performanceOptimizationService.getCachedUserRetreats(userId);
-		if (userRetreats) {
-			return userRetreats.some(
-				(ur) => ur.retreatId === retreatId && ur.role === role && ur.status === 'active',
-			);
+		// Check retreat role cache first
+		const cachedRole = await performanceOptimizationService.getCachedRetreatRole(
+			userId,
+			retreatId,
+			role,
+		);
+		if (cachedRole !== null) {
+			return cachedRole;
 		}
 
-		// Fallback to database query
-		const userRetreat = await AppDataSource.getRepository(UserRetreat)
-			.createQueryBuilder('userRetreat')
-			.leftJoin('userRetreat.role', 'role')
-			.where('userRetreat.userId = :userId', { userId })
-			.andWhere('userRetreat.retreatId = :retreatId', { retreatId })
-			.andWhere('role.name = :role', { role })
-			.andWhere('userRetreat.status = :status', { status: 'active' })
-			.getOne();
+		// Check user retreats cache
+		const userRetreats = await performanceOptimizationService.getCachedUserRetreats(userId);
+		let hasRole = false;
 
-		return !!userRetreat;
+		if (userRetreats) {
+			hasRole = userRetreats.some(
+				(ur) => ur.retreatId === retreatId && ur.role === role && ur.status === 'active',
+			);
+		} else {
+			// Fallback to database query
+			const userRetreat = await AppDataSource.getRepository(UserRetreat)
+				.createQueryBuilder('userRetreat')
+				.leftJoin('userRetreat.role', 'role')
+				.where('userRetreat.userId = :userId', { userId })
+				.andWhere('userRetreat.retreatId = :retreatId', { retreatId })
+				.andWhere('role.name = :role', { role })
+				.andWhere('userRetreat.status = :status', { status: 'active' })
+				.getOne();
+
+			hasRole = !!userRetreat;
+		}
+
+		// Cache the result for future queries
+		await performanceOptimizationService.setCachedRetreatRole(userId, retreatId, role, hasRole);
+
+		return hasRole;
 	}
 
 	public async isRetreatCreator(userId: string, retreatId: string): Promise<boolean> {
@@ -197,6 +408,8 @@ export class AuthorizationService {
 			performanceOptimizationService.invalidateUserRetreatCache(userId);
 			performanceOptimizationService.invalidateUserPermissionCache(userId);
 			performanceOptimizationService.invalidateRetreatPermissionCache(retreatId);
+			performanceOptimizationService.invalidateRetreatAccessCache(userId, retreatId);
+			performanceOptimizationService.invalidateUserPermissionsResultCache(userId);
 
 			return result;
 		}
@@ -218,6 +431,8 @@ export class AuthorizationService {
 		performanceOptimizationService.invalidateUserRetreatCache(userId);
 		performanceOptimizationService.invalidateUserPermissionCache(userId);
 		performanceOptimizationService.invalidateRetreatPermissionCache(retreatId);
+		performanceOptimizationService.invalidateRetreatAccessCache(userId, retreatId);
+		performanceOptimizationService.invalidateUserPermissionsResultCache(userId);
 
 		return result;
 	}
@@ -241,6 +456,8 @@ export class AuthorizationService {
 			performanceOptimizationService.invalidateUserRetreatCache(userId);
 			performanceOptimizationService.invalidateUserPermissionCache(userId);
 			performanceOptimizationService.invalidateRetreatPermissionCache(retreatId);
+			performanceOptimizationService.invalidateRetreatAccessCache(userId, retreatId);
+			performanceOptimizationService.invalidateUserPermissionsResultCache(userId);
 		}
 
 		return (result.affected || 0) > 0;
@@ -276,18 +493,42 @@ export const authorizationService = AuthorizationService.getInstance();
 export const requirePermission = (permission: string): any => {
 	return async (req: any, res: Response, next: NextFunction) => {
 		try {
+			//console.log('🔍 [PERMISSION CHECK] Starting permission check');
+			//console.log('🔍 [PERMISSION CHECK] Required permission:', permission);
+			//console.log('🔍 [PERMISSION CHECK] User:', req.user ? { id: req.user.id, email: req.user.email } : 'No user');
+			//console.log('🔍 [PERMISSION CHECK] URL:', req.originalUrl);
+			//console.log('🔍 [PERMISSION CHECK] Method:', req.method);
+
 			if (!req.user) {
+				console.log('❌ [PERMISSION CHECK] No user found in request');
 				return res.status(401).json({ message: 'Unauthorized' });
 			}
 
+			//console.log('🔍 [PERMISSION CHECK] Checking if user has permission...');
+			const userPermissions = await authorizationService.getUserPermissions(req.user.id);
+			//console.log('🔍 [PERMISSION CHECK] User permissions:', userPermissions.permissions);
+			//console.log('🔍 [PERMISSION CHECK] User roles:', userPermissions.roles);
+			//console.log('🔍 [PERMISSION CHECK] User retreats:', userPermissions.retreats);
+
 			const hasPermission = await authorizationService.hasPermission(req.user.id, permission);
+			//console.log('🔍 [PERMISSION CHECK] Has permission result:', hasPermission);
+
 			if (!hasPermission) {
-				return res.status(403).json({ message: 'Forbidden' });
+				console.log('❌ [PERMISSION CHECK] Permission denied for:', permission);
+				return res.status(403).json({
+					message: 'Forbidden',
+					details: {
+						requiredPermission: permission,
+						userPermissions: userPermissions.permissions,
+						userRoles: userPermissions.roles
+					}
+				});
 			}
 
+			console.log('✅ [PERMISSION CHECK] Permission granted for:', permission);
 			next();
 		} catch (error) {
-			console.error('Permission check error:', error);
+			console.error('❌ [PERMISSION CHECK] Permission check error:', error);
 			return res.status(500).json({ message: 'Internal server error' });
 		}
 	};
@@ -316,23 +557,52 @@ export const requireRole = (role: string): any => {
 export const requireRetreatAccess = (retreatIdParam: string = 'retreatId'): any => {
 	return async (req: any, res: Response, next: NextFunction) => {
 		try {
+			//console.log('🏠 [RETREAT ACCESS CHECK] Starting retreat access check');
+			//console.log('🏠 [RETREAT ACCESS CHECK] User:', req.user ? { id: req.user.id, email: req.user.email } : 'No user');
+			//console.log('🏠 [RETREAT ACCESS CHECK] URL:', req.originalUrl);
+			//console.log('🏠 [RETREAT ACCESS CHECK] Method:', req.method);
+			//console.log('🏠 [RETREAT ACCESS CHECK] Retreat ID param:', retreatIdParam);
+			//console.log('🏠 [RETREAT ACCESS CHECK] All params:', req.params);
+
 			if (!req.user) {
+				//console.log('❌ [RETREAT ACCESS CHECK] No user found in request');
 				return res.status(401).json({ message: 'Unauthorized' });
 			}
 
 			const retreatId = req.params[retreatIdParam];
 			if (!retreatId) {
+				//console.log('❌ [RETREAT ACCESS CHECK] No retreat ID found in params');
 				return res.status(400).json({ message: 'Retreat ID is required' });
 			}
 
+			//console.log('🏠 [RETREAT ACCESS CHECK] Retreat ID:', retreatId);
+			//console.log('🏠 [RETREAT ACCESS CHECK] Checking retreat access...');
+
 			const hasAccess = await authorizationService.hasRetreatAccess(req.user.id, retreatId);
+			//console.log('🏠 [RETREAT ACCESS CHECK] Has retreat access result:', hasAccess);
+
+			// Get detailed user retreat info for debugging
+			const userPermissions = await authorizationService.getUserPermissions(req.user.id);
+			//console.log('🏠 [RETREAT ACCESS CHECK] User retreats from permissions:', userPermissions.retreats);
+			//console.log('🏠 [RETREAT ACCESS CHECK] User has access to this retreat?', userPermissions.retreats.some(r => r.retreatId === retreatId));
+
 			if (!hasAccess) {
-				return res.status(403).json({ message: 'Forbidden' });
+				//console.log('❌ [RETREAT ACCESS CHECK] Retreat access denied for retreat:', retreatId);
+				return res.status(403).json({
+					message: 'Forbidden - No retreat access',
+					details: {
+						retreatId,
+						userRetreats: userPermissions.retreats,
+						userPermissions: userPermissions.permissions,
+						userRoles: userPermissions.roles
+					}
+				});
 			}
 
+			//console.log('✅ [RETREAT ACCESS CHECK] Retreat access granted for retreat:', retreatId);
 			next();
 		} catch (error) {
-			console.error('Retreat access check error:', error);
+			console.error('❌ [RETREAT ACCESS CHECK] Retreat access check error:', error);
 			return res.status(500).json({ message: 'Internal server error' });
 		}
 	};
@@ -421,7 +691,7 @@ export const requireRetreatAccessOrCreator = (retreatIdParam: string = 'retreatI
 
 export const loadUserPermissions = async (
 	req: AuthenticatedRequest,
-	res: Response,
+	_res: Response,
 	next: NextFunction,
 ) => {
 	try {

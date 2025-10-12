@@ -8,14 +8,16 @@ export const RESOURCES = {
 	inventoryItem: [...DEFAULT_OPERATIONS] as const,
 	retreat: [...DEFAULT_OPERATIONS] as const,
 	participant: [...DEFAULT_OPERATIONS] as const,
-	user: [...DEFAULT_OPERATIONS] as const,
+	user: [...DEFAULT_OPERATIONS, 'manage'] as const,
 	table: [...DEFAULT_OPERATIONS] as const,
 	payment: [...DEFAULT_OPERATIONS] as const,
 	responsability: [...DEFAULT_OPERATIONS] as const,
+	retreatInventory: [...DEFAULT_OPERATIONS] as const,
+	messageTemplate: [...DEFAULT_OPERATIONS] as const,
 } as const;
 
 export type ResourceType = keyof typeof RESOURCES;
-export type OperationType = (typeof DEFAULT_OPERATIONS)[number];
+export type OperationType = (typeof DEFAULT_OPERATIONS)[number] | 'manage';
 
 // Generate all possible permissions
 export type Permission = `${ResourceType}:${OperationType}`;

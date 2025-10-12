@@ -19,14 +19,11 @@ router.get('/public/:id', getRetreatByIdPublic);
 // Authenticated routes
 router.use(isAuthenticated);
 
-router.get('/', requirePermission('retreat:list'), (req: any, res: any, next: any) =>
+router.get('/', requirePermission('retreat:read'), (req: any, res: any, next: any) =>
 	getAllRetreats(req, res, next),
 );
-router.post(
-	'/',
-	validateRequest(createRetreatSchema),
-	requirePermission('retreat:create'),
-	(req: any, res: any, next: any) => createRetreat(req, res, next),
+router.post('/', validateRequest(createRetreatSchema), (req: any, res: any, next: any) =>
+	createRetreat(req, res, next),
 );
 router.get('/:id', requirePermission('retreat:read'), (req: any, res: any, next: any) =>
 	getRetreatById(req, res, next),

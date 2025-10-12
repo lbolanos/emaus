@@ -13,6 +13,7 @@
   "sidebar": {
     "walkers": "Caminantes",
     "servers": "Servidores",
+    "partialServers": "Angelitos",
     "palancas": "Palancas",
     "payments": "Pagos",
     "tables": "Mesas",
@@ -44,7 +45,7 @@
       "reports": "Reportes",
       "services": "Servicios",
       "administration": "Administración",
-      "settings": "Configuración"
+      "settings": "Configuración Global"
     },
     "settings": {
       "title": "Configuración",
@@ -403,12 +404,14 @@
       "optionalNotes": "Notas Opcionales"
     }
   },
-  "retreatDashboard": {
-    "title": "Dashboard del Retiro",
+    "retreatDashboard": {
+      "title": "Dashboard del Retiro",
+      "partialServersDescription": "Participantes que ayudan parcialmente",
     "selectedRetreat": "Retiro Seleccionado",
     "walkersCount": "# Caminantes",
     "serversCount": "# Servidores",
     "waitingCount": "# en Espera",
+    "partialServersCount": "# Servidores Parciales",
     "walkerRegistrationLink": "Enlace Público de Registro de Caminante",
     "serverRegistrationLink": "Enlace Público de Registro de Servidor",
     "noRetreatSelected": "No hay retiro seleccionado. Por favor, selecciona o agrega un retiro.",
@@ -682,6 +685,47 @@
     "deleteConfirmationTitle": "Eliminar Responsabilidad",
     "deleteConfirmation": "¿Estás seguro de que quieres eliminar este responsabilidad? Esta acción no se puede deshacer."
   },  
+  "inviteUsersModal": {
+    "title": "Invitar Alguien",
+    "description": "Invita usuarios a este retiro con un rol específico",
+    "emailLabel": "Correos Electrónicos",
+    "emailPlaceholder": "usuario1@ejemplo.com\nusuario2@ejemplo.com",
+    "emailHelp": "Un correo por línea, máximo 10 invitaciones",
+    "roleLabel": "Rol",
+    "rolePlaceholder": "Seleccionar rol",
+    "cancelButton": "Cancelar",
+    "sendingButton": "Enviando...",
+    "sendButton": "Enviar Invitaciones",
+    "resultsTitle": "Resultados:",
+    "errors": {
+      "noEmails": "Por favor ingrese al menos un correo electrónico",
+      "maxInvitations": "Máximo 10 invitaciones por solicitud",
+      "invalidEmails": "Correos inválidos: {emails}",
+      "connectionError": "Error de conexión. Por favor intente nuevamente.",
+      "sendError": "Error al enviar invitaciones",
+      "fetchRolesError": "Error al cargar los roles disponibles. Por favor actualice la página."
+    },
+    "success": {
+      "invitationsSent": "Invitaciones enviadas exitosamente",
+      "usersCreated": "Usuarios Creados",
+      "usersCreatedDesc": "Se crearon {count} nuevas cuentas de usuario"
+    },
+    "toasts": {
+      "invitationsSent": "Invitaciones Enviadas",
+      "invitationsSentDesc": "Se enviaron {count} invitaciones correctamente"
+    },
+    "roles": {
+      "regular_server": "Servidor Regular",
+      "treasurer": "Tesorero",
+      "logistics": "Logística",
+      "communications": "Palancas"
+    },
+    "addSampleEmails": "Agregar Correos de Ejemplo",
+    "loadingRoles": "Cargando roles...",
+    "selectedRole": "Rol seleccionado",
+    "emails": "correos",
+    "invitations": "invitaciones"
+  },
   "common": {
     "yes": "Sí",
     "no": "No",

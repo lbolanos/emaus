@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import AppLayout from '@/layouts/AppLayout.vue';
 import WalkersView from '../views/WalkersView.vue';
 import ServersView from '../views/ServersView.vue';
+import PartialServerView from '../views/PartialServerView.vue';
 import CanceledView from '../views/CanceledView.vue';
 import HousesView from '../views/HousesView.vue';
 import PalancasView from '../views/PalancasView.vue';
@@ -79,6 +80,11 @@ const router = createRouter({
 					path: 'servers',
 					name: 'servers',
 					component: ServersView,
+				},
+				{
+					path: 'partial-servers',
+					name: 'partial-servers',
+					component: PartialServerView,
 				},
 				{
 					path: 'tables',

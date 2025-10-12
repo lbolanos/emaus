@@ -74,14 +74,7 @@ export const getRetreatUsers = async (req: AuthenticatedRequest, res: Response) 
 			return res.status(401).json({ message: 'Unauthorized' });
 		}
 
-		// Check if user has access to this retreat
-		const hasAccess = await authorizationService.hasRetreatAccess(requestUserId, retreatId);
-		const isCreator = await authorizationService.isRetreatCreator(requestUserId, retreatId);
-
-		if (!hasAccess && !isCreator) {
-			return res.status(403).json({ message: 'Forbidden' });
-		}
-
+		// Authorization is handled by middleware (requireRetreatAccessOrCreator)
 		const users = await retreatRoleService.getRetreatUsers(retreatId);
 		res.json(users);
 	} catch (error) {
@@ -171,7 +164,7 @@ export const getAvailableRoles = async (req: Request, res: Response) => {
 		const roleRepository = AppDataSource.getRepository(Role);
 		const roles = await roleRepository.find({
 			where: {
-				name: In(['admin', 'servidor', 'tesorero', 'logística', 'palancas']),
+				name: In(['admin', 'treasurer', 'logistics', 'communications', 'regular_server']),
 			},
 			select: ['id', 'name', 'description'],
 		});

@@ -25,7 +25,7 @@ const isLoading = ref(true)
 
 const getInitialFormData = (): Partial<Omit<Participant, 'id'>> => ({
   retreatId: validRetreatId.value,
-  type: props.type as 'walker' | 'server' | 'waiting',
+  type: props.type as 'walker' | 'server' | 'waiting' | 'partial_server',
   sacraments: [],
   firstName: '',
   registrationDate: undefined,

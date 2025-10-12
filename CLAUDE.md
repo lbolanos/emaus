@@ -192,13 +192,13 @@ The system implements role-based access control (RBAC) with the following roles:
 
 ```typescript
 // ✅ CORRECT
-import { getSmtpConfig } from '@/services/api'
+import { getSmtpConfig } from '@/services/api';
 const config = await getSmtpConfig();
 
 // ❌ INCORRECT
 const response = await fetch('/api/endpoint', {
-  headers: await setupCsrfHeaders(),
-  credentials: 'include'
+	headers: await setupCsrfHeaders(),
+	credentials: 'include',
 });
 ```
 

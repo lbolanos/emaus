@@ -68,6 +68,19 @@
                 </div>
                 <p class="text-sm text-gray-600">En lista de espera</p>
               </div>
+              <!-- Partial Servers Section -->
+              <div class="space-y-2" v-if="partialServersCount > 0">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <UserPlus class="w-5 h-5" />
+                    <span class="font-medium">{{ $t('sidebar.partialServers') }}</span>
+                  </div>
+                  <Badge variant="secondary">
+                    {{ partialServersCount }}
+                  </Badge>
+                </div>
+                <p class="text-sm text-gray-600">{{ $t('retreatDashboard.partialServersDescription') }}</p>
+              </div>
             </div>
 
             <div class="flex items-center gap-2 mt-4">
@@ -232,7 +245,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watchEffect, computed, onMounted } from 'vue';
+import { ref, watch, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
@@ -278,6 +291,8 @@ const error = ref('');
 const walkersCount = computed(() => (participants.value || []).filter(p => p.type === 'walker' && !p.isCancelled).length);
 const serversCount = computed(() => (participants.value || []).filter(p => p.type === 'server' && !p.isCancelled).length);
 const waitingCount = computed(() => (participants.value || []).filter(p => p.type === 'waiting' && !p.isCancelled).length);
+const partialServersCount = computed(() => (participants.value || []).filter(p => p.type === 'partial_server' && !p.isCancelled).length);
+
 
 const walkersPercentage = computed(() => {
   if (!selectedRetreat.value?.max_walkers) return 0;
@@ -344,12 +359,25 @@ const loadRetreatData = async (retreatId: string) => {
   }
 };
 
-watchEffect(() => {
-  const retreatId = route.params.id as string;
-  if (retreatId) {
-    loadRetreatData(retreatId);
+watch(
+  () => route.params.id,
+  (newRetreatId, oldRetreatId) => {
+    if (newRetreatId && newRetreatId !== oldRetreatId) {
+      loadRetreatData(newRetreatId as string);
+    }
+  },
+  { immediate: true }
+);
+
+// Also watch for selectedRetreat changes from the store
+watch(
+  () => selectedRetreat.value?.id,
+  (newRetreatId, oldRetreatId) => {
+    if (newRetreatId && newRetreatId !== oldRetreatId) {
+      loadRetreatData(newRetreatId);
+    }
   }
-});
+);
 
 onMounted(async () => {
   if (retreatStore.selectedRetreatId) {

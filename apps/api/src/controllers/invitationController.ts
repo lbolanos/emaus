@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { InvitationService } from '../services/invitationService';
 import { AppDataSource } from '../data-source';
 import { User } from '../entities/user.entity';
+import { authorizationService } from '../middleware/authorization';
 
 export class InvitationController {
 	private invitationService: InvitationService;
@@ -27,11 +28,19 @@ export class InvitationController {
 				});
 			}
 
-			// Validate each invitation
+			// Validate each invitation and check retreat access
 			for (const invitation of invitations) {
 				if (!invitation.email || !invitation.roleId || !invitation.retreatId) {
 					return res.status(400).json({
 						error: 'Each invitation must include email, roleId, and retreatId',
+					});
+				}
+
+				// Check retreat access
+				const hasAccess = await authorizationService.hasRetreatAccess(userId, invitation.retreatId);
+				if (!hasAccess) {
+					return res.status(403).json({
+						error: `Forbidden - No access to retreat ${invitation.retreatId}`,
 					});
 				}
 			}

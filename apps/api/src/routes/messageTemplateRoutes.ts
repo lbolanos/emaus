@@ -15,20 +15,20 @@ const router = Router();
 
 router.use(isAuthenticated);
 
-router.get('/', requirePermission('participant:read'), getMessageTemplates);
-router.get('/:id', requirePermission('participant:read'), getMessageTemplateById);
+router.get('/', requirePermission('messageTemplate:read'), getMessageTemplates);
+router.get('/:id', requirePermission('messageTemplate:read'), getMessageTemplateById);
 router.post(
 	'/',
 	validateRequest(CreateMessageTemplateSchema),
-	requirePermission('participant:create'),
+	requirePermission('messageTemplate:create'),
 	createMessageTemplate,
 );
 router.put(
 	'/:id',
 	validateRequest(UpdateMessageTemplateSchema),
-	requirePermission('participant:update'),
+	requirePermission('messageTemplate:update'),
 	updateMessageTemplate,
 );
-router.delete('/:id', requirePermission('participant:delete'), deleteMessageTemplate);
+router.delete('/:id', requirePermission('messageTemplate:delete'), deleteMessageTemplate);
 
 export default router;

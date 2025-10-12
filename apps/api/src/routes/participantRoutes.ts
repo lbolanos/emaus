@@ -10,7 +10,7 @@ import {
 import { validateRequest } from '../middleware/validateRequest';
 import { createParticipantSchema, updateParticipantSchema } from '@repo/types';
 import { isAuthenticated } from '../middleware/isAuthenticated';
-import { requirePermission } from '../middleware/authorization';
+import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
 
 const router = Router();
 
@@ -21,7 +21,12 @@ router.use(isAuthenticated);
 
 router.get('/', requirePermission('participant:list'), getAllParticipants);
 router.get('/:id', requirePermission('participant:read'), getParticipantById);
-router.post('/import/:retreatId', requirePermission('participant:create'), importParticipants);
+router.post(
+	'/import/:retreatId',
+	requirePermission('participant:create'),
+	requireRetreatAccess('retreatId'),
+	importParticipants,
+);
 router.put(
 	'/:id',
 	validateRequest(updateParticipantSchema),

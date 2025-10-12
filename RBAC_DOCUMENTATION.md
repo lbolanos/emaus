@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Retreat-Specific Role-Based Access Control (RBAC) system allows users to have different roles and permissions across different retreats. This enables flexible permission management where a user can be an administrator in one retreat they created while being a treasurer (tesorero) in another retreat they were invited to join.
+The Retreat-Specific Role-Based Access Control (RBAC) system allows users to have different roles and permissions across different retreats. This enables flexible permission management where a user can be an administrator in one retreat they created while being a treasurer (treasurer) in another retreat they were invited to join.
 
 ## Core Concepts
 

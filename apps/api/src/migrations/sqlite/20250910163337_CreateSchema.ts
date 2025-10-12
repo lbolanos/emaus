@@ -86,7 +86,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			CREATE TABLE IF NOT EXISTS "participants" (
 				"id" VARCHAR(36) PRIMARY KEY NOT NULL,
 				"id_on_retreat" INTEGER NOT NULL,
-				"type" VARCHAR(255) NOT NULL CHECK ("type" IN ('walker', 'server', 'waiting')),
+				"type" VARCHAR(255) NOT NULL CHECK ("type" IN ('walker', 'server', 'waiting','partial_server')),
 				"firstName" VARCHAR(255) NOT NULL,
 				"lastName" VARCHAR(255) NOT NULL,
 				"nickname" VARCHAR(255),
@@ -223,7 +223,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			CREATE TABLE IF NOT EXISTS "global_message_templates" (
 				"id" VARCHAR(36) PRIMARY KEY NOT NULL,
 				"name" VARCHAR(255) NOT NULL,
-				"type" VARCHAR(255) NOT NULL CHECK ("type" IN ('WALKER_WELCOME', 'SERVER_WELCOME', 'EMERGENCY_CONTACT_VALIDATION', 'PALANCA_REQUEST', 'PALANCA_REMINDER', 'GENERAL', 'PRE_RETREAT_REMINDER', 'PAYMENT_REMINDER', 'POST_RETREAT_MESSAGE', 'CANCELLATION_CONFIRMATION', 'USER_INVITATION', 'PASSWORD_RESET', 'RETREAT_SHARED_NOTIFICATION', 'BIRTHDAY_MESSAGE')),
+				"type" VARCHAR(255) NOT NULL CHECK ("type" IN ('WALKER_WELCOME', 'SERVER_WELCOME', 'EMERGENCY_CONTACT_VALIDATION', 'PALANCA_REQUEST', 'PALANCA_REMINDER', 'GENERAL', 'PRE_RETREAT_REMINDER', 'PAYMENT_REMINDER', 'POST_RETREAT_MESSAGE', 'CANCELLATION_CONFIRMATION', 'USER_INVITATION', 'PASSWORD_RESET', 'RETREAT_SHARED_NOTIFICATION', 'BIRTHDAY_MESSAGE', 'SYS_PASSWORD_RESET', 'SYS_USER_INVITATION', 'SYS_REGISTRATION_CONFIRMATION', 'SYS_EMAIL_VERIFICATION', 'SYS_ACCOUNT_LOCKED', 'SYS_ACCOUNT_UNLOCKED', 'SYS_ROLE_REQUESTED', 'SYS_ROLE_APPROVED', 'SYS_ROLE_REJECTED')),
 				"message" TEXT NOT NULL,
 				"isActive" BOOLEAN NOT NULL DEFAULT (1),
 				"createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -670,7 +670,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 
 		// Insert default permissions
 		await queryRunner.query(`
-			INSERT INTO "permissions" ("resource", "operation", "description") VALUES
+			INSERT OR IGNORE INTO "permissions" ("resource", "operation", "description") VALUES
 			('house', 'create', 'Create new houses'),
 			('house', 'read', 'Read/view houses'),
 			('house', 'update', 'Update existing houses'),
@@ -686,6 +686,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			('retreat', 'update', 'Update existing retreats'),
 			('retreat', 'delete', 'Delete retreats'),
 			('retreat', 'list', 'List retreats'),
+			('retreat', 'invite', 'Invite users to retreat'),
 			('participant', 'create', 'Create new participants'),
 			('participant', 'read', 'Read/view participants'),
 			('participant', 'update', 'Update existing participants'),
@@ -696,6 +697,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			('user', 'update', 'Update existing users'),
 			('user', 'delete', 'Delete users'),
 			('user', 'list', 'List users'),
+			('user', 'manage', 'Manage user roles and retreat assignments'),
 			('table', 'create', 'Create new tables'),
 			('table', 'read', 'Read/view tables'),
 			('table', 'update', 'Update existing tables'),
@@ -706,6 +708,24 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			('payment', 'update', 'Update existing payments'),
 			('payment', 'delete', 'Delete payments'),
 			('payment', 'list', 'List payments'),
+			('retreatInventory', 'create', 'Create new retreat inventory'),
+			('retreatInventory', 'read', 'Read/view retreat inventory'),
+			('retreatInventory', 'update', 'Update existing retreat inventory'),
+			('retreatInventory', 'delete', 'Delete retreat inventory'),
+			('retreatInventory', 'list', 'List retreat inventory'),
+			('responsability', 'create', 'Create new responsibilities'),
+			('responsability', 'read', 'Read/view responsibilities'),
+			('responsability', 'update', 'Update existing responsibilities'),
+			('responsability', 'delete', 'Delete responsibilities'),
+			('responsability', 'list', 'List responsibilities'),
+			('messageTemplate', 'create', 'Create new message templates'),
+			('messageTemplate', 'read', 'Read/view message templates'),
+			('messageTemplate', 'update', 'Update existing message templates'),
+			('messageTemplate', 'delete', 'Delete message templates'),
+			('messageTemplate', 'list', 'List message templates'),
+			('audit', 'read', 'Read Audit logs'),
+			('system', 'admin', 'System administration tasks'),
+			('messageTemplate', 'list', 'List message templates'),
 			('globalMessageTemplate', 'create', 'Create new global message templates'),
 			('globalMessageTemplate', 'read', 'Read/view global message templates'),
 			('globalMessageTemplate', 'update', 'Update existing global message templates'),
@@ -716,12 +736,16 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 		// Insert default roles
 		await queryRunner.query(`
 			INSERT INTO "roles" ("name", "description") VALUES
+			-- Global roles (for user_roles table)
 			('superadmin', 'Super administrator with full system access'),
-			('admin', 'Retreat administrator with management permissions'),
-			('servidor', 'Server with read-only access'),
-			('tesorero', 'Treasurer with financial management permissions'),
-			('logística', 'Logistics coordinator with logistics permissions'),
-			('palancas', 'Operations manager with operations permissions');
+			('region_admin', 'Regional administrator with limited global access'),
+			('regular', 'Regular user with read-only access, no delete permissions'),
+			-- Retreat roles (for user_retreats table)
+			('admin', 'Retreat administrator with retreat management permissions'),
+			('treasurer', 'Treasurer with financial management permissions'),
+			('logistics', 'Logistics coordinator with inventory and logistics permissions'),
+			('communications', 'Communications coordinator with message template permissions'),
+			('regular_server', 'Regular server with basic retreat access');
 		`);
 
 		// Get role IDs for easier reference
@@ -740,7 +764,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			permissions[`${permission.resource}:${permission.operation}`] = permission.id;
 		});
 
-		// Superadmin permissions - all permissions
+		// Superadmin permissions - all permissions (global role)
 		const allPermissionIds = permissionsResult.map((p: any) => p.id);
 		for (const permissionId of allPermissionIds) {
 			await queryRunner.query(
@@ -749,8 +773,8 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			);
 		}
 
-		// Admin permissions - no delete for house and inventoryItem
-		const adminPermissions = [
+		// Region Admin permissions - global access to InventoryItem, House, global_message_templates (no delete on House)
+		const regionAdminPermissions = [
 			'house:create',
 			'house:read',
 			'house:update',
@@ -758,7 +782,94 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			'inventoryItem:create',
 			'inventoryItem:read',
 			'inventoryItem:update',
+			'inventoryItem:delete',
 			'inventoryItem:list',
+			'globalMessageTemplate:create',
+			'globalMessageTemplate:read',
+			'globalMessageTemplate:update',
+			'globalMessageTemplate:delete',
+			'globalMessageTemplate:list',
+		];
+
+		for (const perm of regionAdminPermissions) {
+			if (permissions[perm]) {
+				await queryRunner.query(
+					`INSERT INTO "role_permissions" ("roleId", "permissionId") VALUES (?, ?)`,
+					[roles.region_admin, permissions[perm]],
+				);
+			}
+		}
+
+		// Regular permissions - read-only access, NO delete permissions
+		const regularPermissions = [
+			'house:read',
+			'house:list',
+			'inventoryItem:read',
+			'inventoryItem:list',
+			'globalMessageTemplate:read',
+			'globalMessageTemplate:list',
+		];
+
+		for (const perm of regularPermissions) {
+			if (permissions[perm]) {
+				await queryRunner.query(
+					`INSERT INTO "role_permissions" ("roleId", "permissionId") VALUES (?, ?)`,
+					[roles.regular, permissions[perm]],
+				);
+			}
+		}
+
+		// Admin permissions (retreat role) - full retreat management except user management
+		const adminRetreatPermissions = [
+			'user:manage',
+			'retreat:create',
+			'retreat:read',
+			'retreat:update',
+			'retreat:list',
+			'retreat:invite',
+			'participant:create',
+			'participant:read',
+			'participant:update',
+			'participant:delete',
+			'participant:list',
+			'table:create',
+			'table:read',
+			'table:update',
+			'table:delete',
+			'table:list',
+			'responsability:create',
+			'responsability:read',
+			'responsability:update',
+			'responsability:delete',
+			'responsability:list',
+			'messageTemplate:create',
+			'messageTemplate:read',
+			'messageTemplate:update',
+			'messageTemplate:delete',
+			'messageTemplate:list',
+			'payment:create',
+			'payment:read',
+			'payment:update',
+			'payment:delete',
+			'payment:list',
+			'retreatInventory:create',
+			'retreatInventory:read',
+			'retreatInventory:update',
+			'retreatInventory:delete',
+			'retreatInventory:list',
+		];
+
+		for (const perm of adminRetreatPermissions) {
+			if (permissions[perm]) {
+				await queryRunner.query(
+					`INSERT INTO "role_permissions" ("roleId", "permissionId") VALUES (?, ?)`,
+					[roles.admin, permissions[perm]],
+				);
+			}
+		}
+
+		// Treasurer permissions (retreat role) - financial focus
+		const treasurerPermissions = [
 			'retreat:create',
 			'retreat:read',
 			'retreat:update',
@@ -768,13 +879,6 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			'participant:update',
 			'participant:delete',
 			'participant:list',
-			'user:read',
-			'user:list',
-			'table:create',
-			'table:read',
-			'table:update',
-			'table:delete',
-			'table:list',
 			'payment:create',
 			'payment:read',
 			'payment:update',
@@ -782,100 +886,42 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			'payment:list',
 		];
 
-		for (const perm of adminPermissions) {
+		for (const perm of treasurerPermissions) {
 			if (permissions[perm]) {
 				await queryRunner.query(
 					`INSERT INTO "role_permissions" ("roleId", "permissionId") VALUES (?, ?)`,
-					[roles.admin, permissions[perm]],
+					[roles.treasurer, permissions[perm]],
 				);
 			}
 		}
 
-		// Servidor permissions - read-only for house and inventoryItem, read for others
-		const servidorPermissions = [
-			'house:read',
-			'house:list',
-			'inventoryItem:read',
-			'inventoryItem:list',
+		// Logistics permissions (retreat role) - inventory and logistics focus
+		const logisticsPermissions = [
+			'retreat:create',
 			'retreat:read',
-			'participant:read',
-			'user:read',
-			'table:read',
-			'payment:read',
-		];
-
-		for (const perm of servidorPermissions) {
-			if (permissions[perm]) {
-				await queryRunner.query(
-					`INSERT INTO "role_permissions" ("roleId", "permissionId") VALUES (?, ?)`,
-					[roles.servidor, permissions[perm]],
-				);
-			}
-		}
-
-		// Tesorero permissions - financial focus
-		const tesoreroPermissions = [
-			'retreat:read',
-			'participant:read',
-			'user:read',
-			'payment:create',
-			'payment:read',
-			'payment:update',
-			'payment:delete',
-			'payment:list',
-		];
-
-		for (const perm of tesoreroPermissions) {
-			if (permissions[perm]) {
-				await queryRunner.query(
-					`INSERT INTO "role_permissions" ("roleId", "permissionId") VALUES (?, ?)`,
-					[roles.tesorero, permissions[perm]],
-				);
-			}
-		}
-
-		// Logística permissions - logistics focus
-		const logisticaPermissions = [
-			'house:read',
-			'house:list',
-			'inventoryItem:read',
-			'inventoryItem:list',
-			'retreat:read',
+			'retreat:update',
+			'retreat:list',
+			'retreat:invite',
 			'participant:create',
 			'participant:read',
 			'participant:update',
 			'participant:delete',
 			'participant:list',
-			'user:read',
 			'table:create',
 			'table:read',
 			'table:update',
 			'table:delete',
 			'table:list',
-		];
-
-		for (const perm of logisticaPermissions) {
-			if (permissions[perm]) {
-				await queryRunner.query(
-					`INSERT INTO "role_permissions" ("roleId", "permissionId") VALUES (?, ?)`,
-					[roles.logística, permissions[perm]],
-				);
-			}
-		}
-
-		// Palancas permissions - operations focus
-		const palancasPermissions = [
-			'house:read',
-			'house:list',
-			'inventoryItem:read',
-			'inventoryItem:list',
-			'retreat:read',
-			'participant:create',
-			'participant:read',
-			'participant:update',
-			'participant:delete',
-			'participant:list',
-			'user:read',
+			'responsability:create',
+			'responsability:read',
+			'responsability:update',
+			'responsability:delete',
+			'responsability:list',
+			'messageTemplate:create',
+			'messageTemplate:read',
+			'messageTemplate:update',
+			'messageTemplate:delete',
+			'messageTemplate:list',
 			'payment:create',
 			'payment:read',
 			'payment:update',
@@ -883,11 +929,61 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			'payment:list',
 		];
 
-		for (const perm of palancasPermissions) {
+		for (const perm of logisticsPermissions) {
 			if (permissions[perm]) {
 				await queryRunner.query(
 					`INSERT INTO "role_permissions" ("roleId", "permissionId") VALUES (?, ?)`,
-					[roles.palancas, permissions[perm]],
+					[roles.logistics, permissions[perm]],
+				);
+			}
+		}
+
+		// Communications permissions (retreat role) - message templates focus
+		const communicationsPermissions = [
+			'retreat:create',
+			'retreat:read',
+			'retreat:update',
+			'retreat:list',
+			//'retreat:invite',
+			'participant:create',
+			'participant:read',
+			'participant:update',
+			'participant:delete',
+			'participant:list',
+			'table:create',
+			'table:read',
+			'table:update',
+			'table:delete',
+			'table:list',
+			//'responsability:create',
+			//'responsability:read',
+			//'responsability:update',
+			//'responsability:delete',
+			//'responsability:list',
+			'messageTemplate:create',
+			'messageTemplate:read',
+			'messageTemplate:update',
+			'messageTemplate:delete',
+			'messageTemplate:list',
+		];
+
+		for (const perm of communicationsPermissions) {
+			if (permissions[perm]) {
+				await queryRunner.query(
+					`INSERT INTO "role_permissions" ("roleId", "permissionId") VALUES (?, ?)`,
+					[roles.communications, permissions[perm]],
+				);
+			}
+		}
+
+		// Regular Server permissions (retreat role) - basic read access
+		const regularServerPermissions = ['retreat:read', 'participant:read', 'table:read'];
+
+		for (const perm of regularServerPermissions) {
+			if (permissions[perm]) {
+				await queryRunner.query(
+					`INSERT INTO "role_permissions" ("roleId", "permissionId") VALUES (?, ?)`,
+					[roles.regular_server, permissions[perm]],
 				);
 			}
 		}
@@ -935,7 +1031,25 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 
 			('${uuidv4()}', 'Notificación de Retiro Compartido', 'RETREAT_SHARED_NOTIFICATION', '<h2>Retiro Compartido Contigo</h2><p>Hola <strong>{user.name}</strong>,</p><p><strong>{inviterName}</strong> ha compartido contigo el retiro <strong>{retreat.name}</strong>.</p><p><strong>Detalles del retiro:</strong></p><ul><li><strong>Fecha:</strong> {retreat.startDate}</li><li><strong>Parroquia:</strong> {retreat.name}</li></ul><p>Puedes acceder al retiro utilizando el siguiente enlace: <a href="{shareLink}">{shareLink}</a></p><p>Si tienes alguna pregunta sobre el retiro, por favor contacta a {inviterName}.</p><p>¡Esperamos que disfrutes esta experiencia!</p><p>Atentamente,<br>Equipo de Emaús</p>', 1, datetime('now'), datetime('now')),
 
-			('${uuidv4()}', 'Mensaje de Cumpleaños', 'BIRTHDAY_MESSAGE', '<p>¡Feliz cumpleaños, <strong>{participant.nickname}</strong>! 🎂🎉</p><p>Que este día tan especial esté lleno de alegría, bendiciones y momentos inolvidables junto a tus seres queridos.</p><p>Que Dios te conceda muchos años más de vida, salud y felicidad. Que cada nuevo año que comiences esté lleno de sueños cumplidos y metas alcanzadas.</p><p>La comunidad de Emaús te envía nuestros mejores deseos en tu cumpleaños. ¡Que tengas un día maravilloso!</p><p>Un abrazo fuerte y ¡feliz cumpleaños!</p>', 1, datetime('now'), datetime('now'));
+			('${uuidv4()}', 'Mensaje de Cumpleaños', 'BIRTHDAY_MESSAGE', '<p>¡Feliz cumpleaños, <strong>{participant.nickname}</strong>! 🎂🎉</p><p>Que este día tan especial esté lleno de alegría, bendiciones y momentos inolvidables junto a tus seres queridos.</p><p>Que Dios te conceda muchos años más de vida, salud y felicidad. Que cada nuevo año que comiences esté lleno de sueños cumplidos y metas alcanzadas.</p><p>La comunidad de Emaús te envía nuestros mejores deseos en tu cumpleaños. ¡Que tengas un día maravilloso!</p><p>Un abrazo fuerte y ¡feliz cumpleaños!</p>', 1, datetime('now'), datetime('now')),
+
+			('${uuidv4()}', 'Restablecimiento de Contraseña (Sistema)', 'SYS_PASSWORD_RESET', '<h2>Restablecimiento de Contraseña</h2><p>Hola <strong>{user.displayName}</strong>,</p><p>Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en el sistema Emaús.</p><p>Para continuar con el proceso, por favor <a href="{resetUrl}">haz clic aquí</a> o copia y pega el siguiente enlace en tu navegador:</p><p><a href="{resetUrl}">{resetUrl}</a></p><p>Si no solicitaste este cambio, puedes ignorar este mensaje. Tu contraseña actual permanecerá sin cambios.</p><p>El enlace expirará en 1 hora por seguridad.</p><p>Atentamente,<br>Equipo de Emaús</p>', 1, datetime('now'), datetime('now')),
+
+			('${uuidv4()}', 'Invitación de Usuario (Sistema)', 'SYS_USER_INVITATION', '<h2>Bienvenido/a al Sistema Emaús</h2><p>Hola <strong>{user.displayName}</strong>,</p><p><strong>{inviterName}</strong> te ha invitado a unirte al sistema de gestión de retiros Emaús con el rol de <strong>{role.name}</strong>.</p><p>Para comenzar, por favor <a href="{invitationUrl}">haz clic aquí para aceptar la invitación</a> y crear tu cuenta.</p><p>Tu correo electrónico para acceder es: <strong>{user.email}</strong></p><p>Si tienes alguna pregunta, no dudes en contactarnos.</p><p>¡Esperamos contar contigo!</p><p>Atentamente,<br>Equipo de Emaús</p>', 1, datetime('now'), datetime('now')),
+
+			('${uuidv4()}', 'Confirmación de Registro (Sistema)', 'SYS_REGISTRATION_CONFIRMATION', '<h2>¡Bienvenido/a al Sistema Emaús!</h2><p>Hola <strong>{user.displayName}</strong>,</p><p>Tu cuenta ha sido creada exitosamente en el sistema de gestión de retiros Emaús.</p><p><strong>Datos de tu cuenta:</strong></p><ul><li><strong>Correo electrónico:</strong> {user.email}</li><li><strong>Nombre:</strong> {user.displayName}</li></ul><p>Ya puedes comenzar a utilizar el sistema con tus credenciales.</p><p>Si tienes alguna pregunta, no dudes en contactar al administrador del sistema.</p><p>¡Que tengas un bendecido día!</p><p>Atentamente,<br>Equipo de Emaús</p>', 1, datetime('now'), datetime('now')),
+
+			('${uuidv4()}', 'Verificación de Correo Electrónico (Sistema)', 'SYS_EMAIL_VERIFICATION', '<h2>Verifica tu Correo Electrónico</h2><p>Hola <strong>{user.displayName}</strong>,</p><p>Por favor, verifica tu correo electrónico haciendo clic en el siguiente enlace:</p><p><a href="{verificationUrl}">Verificar Correo Electrónico</a></p><p>O copia y pega este enlace en tu navegador:<br><a href="{verificationUrl}">{verificationUrl}</a></p><p>Este enlace expirará en 24 horas por seguridad.</p><p>Si no creaste una cuenta en nuestro sistema, puedes ignorar este mensaje.</p><p>Atentamente,<br>Equipo de Emaús</p>', 1, datetime('now'), datetime('now')),
+
+			('${uuidv4()}', 'Cuenta Bloqueada (Sistema)', 'SYS_ACCOUNT_LOCKED', '<h2>Cuenta Temporalmente Bloqueada</h2><p>Hola <strong>{user.displayName}</strong>,</p><p>Tu cuenta ha sido temporalmente bloqueada debido a múltiples intentos de acceso fallidos.</p><p>Por razones de seguridad, tu cuenta permanecerá bloqueada durante 1 hora.</p><p>Si no reconoces esta actividad, por favor contacta inmediatamente al administrador del sistema.</p><p>Para desbloquear tu cuenta antes del tiempo estipulado, puedes solicitar el restablecimiento de contraseña.</p><p>Atentamente,<br>Equipo de Seguridad de Emaús</p>', 1, datetime('now'), datetime('now')),
+
+			('${uuidv4()}', 'Cuenta Desbloqueada (Sistema)', 'SYS_ACCOUNT_UNLOCKED', '<h2>Cuenta Desbloqueada</h2><p>Hola <strong>{user.displayName}</strong>,</p><p>Tu cuenta ha sido desbloqueada y ya puedes acceder al sistema normalmente.</p><p>Si no solicitaste esta acción, por favor contacta inmediatamente al administrador del sistema.</p><p>Te recomendamos utilizar una contraseña segura y cambiarla periódicamente.</p><p>Atentamente,<br>Equipo de Seguridad de Emaús</p>', 1, datetime('now'), datetime('now')),
+
+			('${uuidv4()}', 'Solicitud de Rol (Sistema)', 'SYS_ROLE_REQUESTED', '<h2>Solicitud de Rol Recibida</h2><p>Hola <strong>{user.displayName}</strong>,</p><p>Hemos recibido tu solicitud para el rol de <strong>{roleName}</strong> en el retiro <strong>{retreatName}</strong>.</p><p><strong>Detalles de la solicitud:</strong></p><ul><li><strong>Rol solicitado:</strong> {roleName}</li><li><strong>Retiro:</strong> {retreatName}</li><li><strong>Fecha de solicitud:</strong> {requestDate}</li></ul><p>Tu solicitud está siendo revisada por los administradores del retiro. Recibirás una respuesta próximamente.</p><p>Atentamente,<br>Equipo de Emaús</p>', 1, datetime('now'), datetime('now')),
+
+			('${uuidv4()}', 'Rol Aprobado (Sistema)', 'SYS_ROLE_APPROVED', '<h2>Solicitud de Rol Aprobada</h2><p>¡Felicitaciones <strong>{user.displayName}</strong>! 🎉</p><p>Tu solicitud para el rol de <strong>{roleName}</strong> en el retiro <strong>{retreatName}</strong> ha sido aprobada.</p><p>Ya tienes acceso a las funciones y permisos correspondientes a tu rol.</p><p><strong>Detalles del rol:</strong></p><ul><li><strong>Rol:</strong> {roleName}</li><li><strong>Retiro:</strong> {retreatName}</li><li><strong>Fecha de aprobación:</strong> {approvalDate}</li></ul><p>Gracias por tu disposición para servir en este retiro.</p><p>Atentamente,<br>Equipo de Emaús</p>', 1, datetime('now'), datetime('now')),
+
+			('${uuidv4()}', 'Rol Rechazado (Sistema)', 'SYS_ROLE_REJECTED', '<h2>Solicitud de Rol Rechazada</h2><p>Hola <strong>{user.displayName}</strong>,</p><p>Lamentamos informarte que tu solicitud para el rol de <strong>{roleName}</strong> en el retiro <strong>{retreatName}</strong> no ha podido ser aprobada en este momento.</p><p><strong>Motivo del rechazo:</strong><br>{rejectionReason}</p><p>Esto no significa que no valoramos tu disposición para servir. Puede que el cupo para este rol esté completo o que se necesiten perfiles específicos para esta función.</p><p>Te agradecemos tu comprensión y tu interés en participar.</p><p>Atentamente,<br>Equipo de Emaús</p>', 1, datetime('now'), datetime('now'));
 		`);
 
 		// Seed inventory data

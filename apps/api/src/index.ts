@@ -45,7 +45,7 @@ app.use(
 	}),
 );
 
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
 
 app.use(
 	session({
@@ -80,6 +80,95 @@ app.get('/api/csrf-token', (req, res) => {
 	console.log('DEBUG: Generating CSRF token for path:', req.path);
 	res.json({ csrfToken: req.session.csrfToken });
 });
+
+// Development-only cache monitoring endpoint
+if (process.env.NODE_ENV === 'development') {
+	app.get('/api/dev/cache-stats', (req, res) => {
+		const stats = performanceOptimizationService.getCacheStats();
+		const health = performanceOptimizationService.getCacheHealth();
+
+		res.json({
+			stats,
+			health,
+			timestamp: new Date().toISOString(),
+		});
+	});
+
+	app.post('/api/dev/cache-debug', async (req, res) => {
+		const { cacheType, key } = req.body;
+
+		if (!cacheType || !key) {
+			return res.status(400).json({ error: 'cacheType and key are required' });
+		}
+
+		const debugInfo = await performanceOptimizationService.debugCacheEntry(cacheType, key);
+		res.json(debugInfo);
+	});
+
+	app.post('/api/dev/cache-clear', (req, res) => {
+		const { cacheType } = req.body;
+
+		if (cacheType) {
+			// Clear specific cache type
+			switch (cacheType) {
+				case 'permission':
+					performanceOptimizationService.clearAllCaches();
+					break;
+				case 'userRetreat':
+					performanceOptimizationService.clearAllCaches();
+					break;
+				case 'retreat':
+					performanceOptimizationService.clearAllCaches();
+					break;
+				default:
+					return res.status(400).json({ error: 'Invalid cache type' });
+			}
+		} else {
+			// Clear all caches
+			performanceOptimizationService.clearAllCaches();
+		}
+
+		res.json({ message: 'Cache cleared successfully' });
+	});
+
+	app.get('/api/dev/cache-debug', async (req, res) => {
+		const { userId, retreatId } = req.query;
+
+		if (!userId) {
+			return res.status(400).json({ error: 'userId is required' });
+		}
+
+		try {
+			const userPermissionsResult = await performanceOptimizationService.getCachedUserPermissionsResult(userId as string);
+			const userRetreats = await performanceOptimizationService.getCachedUserRetreats(userId as string);
+
+			let retreatAccess = null;
+			let retreatPermissions = null;
+
+			if (retreatId) {
+				retreatAccess = await performanceOptimizationService.getCachedRetreatAccess(userId as string, retreatId as string);
+				retreatPermissions = await performanceOptimizationService.getCachedPermissions(userId as string, retreatId as string);
+			}
+
+			res.json({
+				userId,
+				retreatId,
+				userPermissionsResult,
+				userRetreats,
+				retreatAccess,
+				retreatPermissions,
+				cacheStats: performanceOptimizationService.getCacheStats(),
+				cacheHealth: performanceOptimizationService.getCacheHealth(),
+			});
+		} catch (error) {
+			console.error('Cache debug error:', error);
+			res.status(500).json({
+				error: 'Failed to debug cache',
+				details: error instanceof Error ? error.message : 'Unknown error'
+			});
+		}
+	});
+}
 
 app.use('/api', mainRouter);
 app.use('/api/tables', tableMesaRoutes);

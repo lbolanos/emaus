@@ -19,6 +19,8 @@ export class UserService {
 			.createQueryBuilder('userRetreat')
 			.leftJoinAndSelect('userRetreat.role', 'role')
 			.where('userRetreat.userId = :userId', { userId })
+			.andWhere('userRetreat.status = :status', { status: 'active' })
+			.andWhere('(userRetreat.expiresAt IS NULL OR userRetreat.expiresAt > datetime("now"))')
 			.getMany();
 
 		const roleIds = userRoles.map((ur) => ur.role.id);
@@ -36,29 +38,65 @@ export class UserService {
 			operation: rp.permission.operation,
 		}));
 
-		const roleDetails = await Promise.all(
-			userRoles.map(async (userRole) => {
-				const retreatsForRole = userRetreats
-					.filter((ur) => ur.roleId === userRole.roleId)
-					.map((ur) => ({
-						retreatId: ur.retreatId,
-						role: ur.role,
-					}));
+		// Group user retreats by role to create role details
+		const retreatRolesMap = new Map();
+		userRetreats.forEach((userRetreat) => {
+			const roleId = userRetreat.role.id;
+			if (!retreatRolesMap.has(roleId)) {
+				retreatRolesMap.set(roleId, {
+					role: userRetreat.role,
+					retreats: [],
+				});
+			}
+			retreatRolesMap.get(roleId).retreats.push({
+				retreatId: userRetreat.retreatId,
+				role: userRetreat.role,
+			});
+		});
 
+		// Create role details for global roles
+		const globalRoleDetails = userRoles.map((userRole) => {
+			const retreatsForRole = userRetreats
+				.filter((ur) => ur.roleId === userRole.roleId)
+				.map((ur) => ({
+					retreatId: ur.retreatId,
+					role: ur.role,
+				}));
+
+			const rolePermissionsForRole = rolePermissions
+				.filter((rp) => rp.roleId === userRole.roleId)
+				.map((rp) => ({
+					resource: rp.permission.resource,
+					operation: rp.permission.operation,
+				}));
+
+			return {
+				role: userRole.role,
+				retreats: retreatsForRole,
+				globalPermissions: rolePermissionsForRole,
+			};
+		});
+
+		// Create role details for retreat-only roles (not in global user_roles)
+		const retreatRoleDetails = Array.from(retreatRolesMap.values())
+			.filter((retreatRole) => !userRoles.some((ur) => ur.roleId === retreatRole.role.id))
+			.map((retreatRole) => {
 				const rolePermissionsForRole = rolePermissions
-					.filter((rp) => rp.roleId === userRole.roleId)
+					.filter((rp) => rp.roleId === retreatRole.role.id)
 					.map((rp) => ({
 						resource: rp.permission.resource,
 						operation: rp.permission.operation,
 					}));
 
 				return {
-					role: userRole.role,
-					retreats: retreatsForRole,
+					role: retreatRole.role,
+					retreats: retreatRole.retreats,
 					globalPermissions: rolePermissionsForRole,
 				};
-			}),
-		);
+			});
+
+		// Combine global and retreat-specific role details
+		const roleDetails = [...globalRoleDetails, ...retreatRoleDetails];
 
 		return {
 			roles: roleDetails,
@@ -82,6 +120,8 @@ export class UserService {
 			.leftJoin('userRetreat.role', 'role')
 			.where('userRetreat.userId = :userId', { userId })
 			.andWhere('userRetreat.retreatId = :retreatId', { retreatId })
+			.andWhere('userRetreat.status = :status', { status: 'active' })
+			.andWhere('(userRetreat.expiresAt IS NULL OR userRetreat.expiresAt > datetime("now"))')
 			.getOne();
 
 		return !!userRetreat;
@@ -94,6 +134,8 @@ export class UserService {
 			.where('userRetreat.userId = :userId', { userId })
 			.andWhere('userRetreat.retreatId = :retreatId', { retreatId })
 			.andWhere('role.name = :roleName', { roleName })
+			.andWhere('userRetreat.status = :status', { status: 'active' })
+			.andWhere('(userRetreat.expiresAt IS NULL OR userRetreat.expiresAt > datetime("now"))')
 			.getOne();
 
 		return !!userRetreat;

@@ -115,7 +115,8 @@ export const requestPasswordReset = async (req: Request, res: Response, next: Ne
 		if (!user) {
 			// To prevent user enumeration, we send a success response even if the user doesn't exist.
 			return res.json({
-				message: 'Si existe un usuario con ese correo, se ha enviado un enlace para restablecer la contraseña.',
+				message:
+					'Si existe un usuario con ese correo, se ha enviado un enlace para restablecer la contraseña.',
 			});
 		}
 
@@ -133,7 +134,10 @@ export const requestPasswordReset = async (req: Request, res: Response, next: Ne
 			// Still return success to prevent user enumeration, but log the error
 		}
 
-		res.json({ message: 'Si existe un usuario con ese correo, se ha enviado un enlace para restablecer la contraseña.' });
+		res.json({
+			message:
+				'Si existe un usuario con ese correo, se ha enviado un enlace para restablecer la contraseña.',
+		});
 	} catch (error) {
 		next(error);
 	}

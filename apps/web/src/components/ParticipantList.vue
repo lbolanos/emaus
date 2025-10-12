@@ -38,6 +38,8 @@ import {
 import ColumnSelector from './ColumnSelector.vue';
 import EditParticipantForm from './EditParticipantForm.vue';
 import FilterDialog from './FilterDialog.vue';
+import ImportParticipantsModal from './ImportParticipantsModal.vue';
+import ExportParticipantsModal from './ExportParticipantsModal.vue';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,7 +57,7 @@ import { useToast } from '@repo/ui';
 //const $t = (key: string) => key.split('.').pop()?.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()) || key;
 
 const props = withDefaults(defineProps<{
-    type?: 'walker' | 'server' | 'waiting' | undefined,
+    type?: 'walker' | 'server' | 'waiting' | 'partial_server' | undefined,
     isCancelled?: boolean,
     columnsToShowInTable?: string[],
     columnsToShowInForm?: string[],
@@ -93,6 +95,7 @@ const participants = computed(() => {
 const searchQuery = ref('');
 const sortKey = ref('lastName');
 const sortOrder = ref<'asc' | 'desc'>('asc');
+const searchTimeoutId = ref<NodeJS.Timeout | null>(null);
 const isColumnDialogOpen = ref(false);
 const isImportDialogOpen = ref(false);
 const isDeleteDialogOpen = ref(false);
@@ -102,6 +105,27 @@ const participantToEdit = ref<any>(null);
 const isFilterDialogOpen = ref(false);
 const isMessageDialogOpen = ref(false);
 const messageParticipant = ref<any>(null);
+
+// --- BULK SELECTION ---
+const selectedParticipants = ref<Set<string>>(new Set());
+const isBulkDeleteDialogOpen = ref(false);
+
+// --- EXPORT ---
+const isExportDialogOpen = ref(false);
+const exportSelectedColumns = ref<string[]>([]);
+
+// Computed properties for bulk selection
+const isAllSelected = computed(() =>
+    filteredAndSortedParticipants.value.length > 0 &&
+    selectedParticipants.value.size === filteredAndSortedParticipants.value.length
+);
+
+const isSomeSelected = computed(() =>
+    selectedParticipants.value.size > 0 &&
+    selectedParticipants.value.size < filteredAndSortedParticipants.value.length
+);
+
+const selectedCount = computed(() => selectedParticipants.value.size);
 
 // --- FILTERS ---
 const filters = ref<Record<string, any>>({});
@@ -431,60 +455,6 @@ const toggleFilterStatus = () => {
 
 // --- IMPORTACIÓN / EXPORTACIÓN ---
 
-const handleFileUpload = async (event: Event) => {
-    const target = event.target as HTMLInputElement;
-    const file = target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-        try {
-            const data = e.target?.result as ArrayBuffer;
-            const workbook = new ExcelJS.Workbook();
-            await workbook.xlsx.load(data);
-            const worksheet = workbook.getWorksheet(1);
-
-            if (!worksheet) {
-                throw new Error('No se encontró ninguna hoja de cálculo');
-            }
-
-            const json: any[] = [];
-            const headers: string[] = [];
-
-            // Leer encabezados
-            worksheet.getRow(1).eachCell((cell, colNumber) => {
-                headers[colNumber - 1] = cell.text;
-            });
-
-            // Leer datos
-            for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber++) {
-                const row = worksheet.getRow(rowNumber);
-                const rowData: any = {};
-
-                headers.forEach((header, index) => {
-                    const cell = row.getCell(index + 1);
-                    rowData[header] = cell.value;
-                });
-
-                json.push(rowData);
-            }
-
-            if (json.length > 0 && !('email' in (json[0] as any))) {
-                 toast({ title: $t('participants.import.errorTitle'), description: $t('participants.import.errorNoEmail'), variant: 'destructive' });
-                 return;
-            }
-
-            await participantStore.importParticipants(selectedRetreatId.value!, json);
-            isImportDialogOpen.value = false;
-            toast({ title: $t('participants.import.successTitle'), description: `${json.length} ${$t('participants.import.successDesc')}` });
-        } catch (err) {
-            console.error('Error importing file:', err);
-            toast({ title: $t('common.import.errorTitle'), description: $t('common.import.errorGeneric'), variant: 'destructive' });
-        }
-    };
-    reader.readAsArrayBuffer(file);
-};
-
 const exportData = async (format: 'csv' | 'xlsx') => {
     const dataToExport = filteredAndSortedParticipants.value.map(p => {
         const record: { [key: string]: any } = {};
@@ -548,6 +518,125 @@ const exportData = async (format: 'csv' | 'xlsx') => {
     }
 };
 
+// Bulk selection methods
+const toggleParticipantSelection = (participantId: string | number) => {
+    const id = String(participantId); // Ensure it's a string
+    if (selectedParticipants.value.has(id)) {
+        selectedParticipants.value.delete(id);
+    } else {
+        selectedParticipants.value.add(id);
+    }
+};
+
+const toggleAllParticipantsSelection = () => {
+    if (isAllSelected.value) {
+        selectedParticipants.value.clear();
+    } else {
+        selectedParticipants.value.clear();
+        filteredAndSortedParticipants.value.forEach(p => {
+            selectedParticipants.value.add(p.id);
+        });
+    }
+};
+
+const bulkDeleteSelected = async () => {
+    if (selectedParticipants.value.size === 0) return;
+
+    isBulkDeleteDialogOpen.value = true;
+};
+
+const confirmBulkDelete = async () => {
+    const participantIds = Array.from(selectedParticipants.value);
+
+    try {
+        // Delete participants in parallel
+        const deletePromises = participantIds.map(id =>
+            participantStore.deleteParticipant(id)
+        );
+        await Promise.all(deletePromises);
+
+        toast({
+            title: $t('participants.bulkDelete.successTitle'),
+            description: $t('participants.bulkDelete.successDesc', { count: participantIds.length }),
+        });
+
+        selectedParticipants.value.clear();
+        isBulkDeleteDialogOpen.value = false;
+    } catch (error) {
+        toast({
+            title: $t('participants.bulkDelete.errorTitle'),
+            description: $t('participants.bulkDelete.errorGeneric'),
+            variant: 'destructive',
+        });
+    }
+};
+
+const exportSelectedParticipants = async (format: 'csv' | 'xlsx') => {
+    const selectedIds = Array.from(selectedParticipants.value);
+    const selectedParticipantsData = filteredAndSortedParticipants.value.filter((p: any) =>
+        selectedIds.includes(p.id)
+    );
+
+    if (selectedParticipantsData.length === 0) return;
+
+    const dataToExport = selectedParticipantsData.map(p => {
+        const record: { [key: string]: any } = {};
+        visibleColumns.value.forEach(colKey => {
+            const col = allColumns.value.find(c => c.key === colKey);
+            if (col) {
+                record[$t(col.label)] = getNestedProperty(p, col.key);
+            }
+        });
+        return record;
+    });
+
+    // Export logic similar to exportData function...
+    exportAsFile(dataToExport, format, `selected_participants_${new Date().toISOString().slice(0, 10)}`);
+};
+
+const exportAsFile = async (data: any[], format: 'csv' | 'xlsx', filename: string) => {
+    if (format === 'xlsx') {
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Selected Participants');
+
+        if (data.length > 0) {
+            const headers = Object.keys(data[0]);
+            worksheet.addRow(headers);
+            data.forEach(row => worksheet.addRow(Object.values(row)));
+            const headerRow = worksheet.getRow(1);
+            headerRow.font = { bold: true };
+        }
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${filename}.xlsx`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+    } else {
+        const headers = data.length > 0 ? Object.keys(data[0]) : [];
+        const csvContent = [
+            headers.join(','),
+            ...data.map(row => headers.map(header => `"${row[header] || ''}"`).join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${filename}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+    }
+};
+
+const handleExport = async (data: any[], format: string, filename: string) => {
+    // Use the existing exportAsFile function
+    await exportAsFile(data, format as 'csv' | 'xlsx', filename);
+};
+
 const closeColumnDialog = () => {
     isColumnDialogOpen.value = false;
 };
@@ -566,6 +655,17 @@ watch(() => props.defaultFilters, (newDefaults) => {
     filters.value = { ...newDefaults };
     filterStatus.value = newDefaults?.isCancelled ? 'canceled' : 'active';
 }, { deep: true });
+
+// Watch for search query with debouncing (300ms delay)
+watch(searchQuery, (newQuery) => {
+    if (searchTimeoutId.value) {
+        clearTimeout(searchTimeoutId.value);
+    }
+    searchTimeoutId.value = setTimeout(() => {
+        // Debounced search logic can be implemented here if needed
+        // Currently, the search is already handled in the computed property
+    }, 300);
+});
 
 </script>
 
@@ -638,13 +738,9 @@ watch(() => props.defaultFilters, (newDefaults) => {
                         </DropdownMenuItem>
 
                         <!-- Export -->
-                        <DropdownMenuItem @click="exportData('xlsx')">
+                        <DropdownMenuItem @click="isExportDialogOpen = true">
                             <FileDown class="h-4 w-4" />
-                            {{ $t('export.xlsx') }}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem @click="exportData('csv')">
-                            <FileDown class="h-4 w-4" />
-                            {{ $t('export.csv') }}
+                            {{ $t('participants.export.title') }}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                     </DropdownMenuContent>
@@ -664,6 +760,17 @@ watch(() => props.defaultFilters, (newDefaults) => {
                 <TableCaption v-if="filteredAndSortedParticipants.length === 0">{{ $t('participants.noParticipantsFound') }}</TableCaption>
                 <TableHeader>
                     <TableRow>
+                        <!-- Bulk Selection Column -->
+                        <TableHead class="w-12">
+                            <input
+                                type="checkbox"
+                                :checked="isAllSelected"
+                                :indeterminate="isSomeSelected"
+                                @change="toggleAllParticipantsSelection"
+                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                        </TableHead>
+                        <!-- Data Columns -->
                         <TableHead v-for="colKey in visibleColumns" :key="colKey" @click="handleSort(colKey)" class="cursor-pointer">
                            {{ $t(allColumns.find(c => c.key === colKey)?.label || '') }}
                            <ArrowUpDown v-if="sortKey === colKey" class="inline-block ml-2 h-4 w-4" />
@@ -808,36 +915,43 @@ watch(() => props.defaultFilters, (newDefaults) => {
         </div>
 
         <!-- Import Modal -->
-        <div v-if="isImportDialogOpen" class="fixed inset-0 z-50 flex items-center justify-center">
-            <!-- Backdrop -->
-            <div class="absolute inset-0 bg-black/50" @click="isImportDialogOpen = false"></div>
+        <ImportParticipantsModal
+            v-model:isOpen="isImportDialogOpen"
+        />
 
-            <!-- Modal Content -->
-            <div class="relative bg-white rounded-lg shadow-lg max-w-md w-full mx-4">
-                <div class="p-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-lg font-semibold">{{ $t('participants.import.title') }}</h2>
-                        <Button variant="ghost" size="icon" @click="isImportDialogOpen = false">
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                        </Button>
-                    </div>
-                    <p class="text-sm text-muted-foreground mb-4">{{ $t('participants.import.description') }}</p>
-                    <Input type="file" @change="handleFileUpload" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" />
-                    <div class="flex justify-end mt-6">
-                        <Button variant="outline" @click="isImportDialogOpen = false">
-                            {{ $t('common.actions.close') }}
-                        </Button>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- Export Modal -->
+        <ExportParticipantsModal
+            v-model:isOpen="isExportDialogOpen"
+            :all-columns="allColumns"
+            :visible-columns="visibleColumns"
+            :selected-columns="exportSelectedColumns"
+            :all-participants="filteredAndSortedParticipants"
+            :selected-participants="selectedParticipants"
+            :current-type="props.type"
+            @update:selectedColumns="exportSelectedColumns = $event"
+            @export="handleExport"
+        />
 
         <!-- Message Dialog -->
         <MessageDialog
             v-model:open="isMessageDialogOpen"
             :participant="messageParticipant"
         />
+
+        <!-- Bulk Delete Dialog -->
+        <Dialog v-model:open="isBulkDeleteDialogOpen">
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{{ $t('participants.bulkDelete.title') }}</DialogTitle>
+                    <DialogDescription>
+                        {{ $t('participants.bulkDelete.confirmMessage', { count: selectedCount }) }}
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" @click="isBulkDeleteDialogOpen = false">{{ $t('common.actions.cancel') }}</Button>
+                    <Button variant="destructive" @click="confirmBulkDelete">{{ $t('common.actions.delete') }}</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </div>
 </template>

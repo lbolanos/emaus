@@ -102,7 +102,13 @@ export class ParticipantCommunicationController {
 			const dto = { ...req.body } as CreateCommunicationDTO;
 
 			// Basic validation
-			if (!dto.participantId || !dto.retreatId || !dto.messageType || !dto.recipientContact || !dto.messageContent) {
+			if (
+				!dto.participantId ||
+				!dto.retreatId ||
+				!dto.messageType ||
+				!dto.recipientContact ||
+				!dto.messageContent
+			) {
 				return res.status(400).json({
 					error: 'Datos inválidos',
 					details: 'Faltan campos requeridos',
@@ -260,13 +266,14 @@ export class ParticipantCommunicationController {
 	// Send email via backend SMTP
 	sendEmailViaBackend = async (req: Request, res: Response) => {
 		try {
-			const { to, subject, html, text, participantId, retreatId, templateId, templateName } = req.body;
+			const { to, subject, html, text, participantId, retreatId, templateId, templateName } =
+				req.body;
 
 			// Validate required fields
 			if (!to || !subject || !html || !participantId || !retreatId) {
 				return res.status(400).json({
 					error: 'Datos inválidos',
-					details: 'Faltan campos requeridos: to, subject, html, participantId, retreatId'
+					details: 'Faltan campos requeridos: to, subject, html, participantId, retreatId',
 				});
 			}
 
@@ -325,7 +332,7 @@ export class ParticipantCommunicationController {
 			console.error('Error sending email via backend:', error);
 			res.status(500).json({
 				error: 'Error al enviar el correo electrónico',
-				details: error instanceof Error ? error.message : 'Error desconocido'
+				details: error instanceof Error ? error.message : 'Error desconocido',
 			});
 		}
 	};
@@ -351,7 +358,7 @@ export class ParticipantCommunicationController {
 			if (!to) {
 				return res.status(400).json({
 					error: 'Datos inválidos',
-					details: 'Se requiere el campo "to" para enviar el correo de prueba'
+					details: 'Se requiere el campo "to" para enviar el correo de prueba',
 				});
 			}
 
@@ -360,7 +367,7 @@ export class ParticipantCommunicationController {
 			if (emailSent) {
 				res.json({
 					success: true,
-					message: 'Correo de prueba enviado exitosamente'
+					message: 'Correo de prueba enviado exitosamente',
 				});
 			} else {
 				res.status(500).json({
@@ -371,7 +378,7 @@ export class ParticipantCommunicationController {
 			console.error('Error sending test email:', error);
 			res.status(500).json({
 				error: 'Error al enviar el correo de prueba',
-				details: error instanceof Error ? error.message : 'Error desconocido'
+				details: error instanceof Error ? error.message : 'Error desconocido',
 			});
 		}
 	};
@@ -385,7 +392,7 @@ export class ParticipantCommunicationController {
 			console.error('Error verifying SMTP connection:', error);
 			res.status(500).json({
 				success: false,
-				message: 'Error al verificar la conexión SMTP'
+				message: 'Error al verificar la conexión SMTP',
 			});
 		}
 	};

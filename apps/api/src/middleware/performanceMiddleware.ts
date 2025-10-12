@@ -125,14 +125,21 @@ export class PerformanceMiddleware {
 
 	// Memory monitoring middleware
 	public static monitorMemory(req: PerformanceRequest, res: Response, next: NextFunction): void {
-		// Check memory usage periodically
-		if (Math.random() < 0.01) {
-			// 1% chance to check on each request
+		// Check memory usage much less frequently and only log warnings
+		if (Math.random() < 0.001) {
+			// 0.1% chance to check on each request (much less frequent)
 			performanceOptimizationService
-				.performCleanupIfNeeded()
+				.checkMemoryUsage()
+				.then((memoryCheck) => {
+					// Only perform cleanup if absolutely necessary (very high memory usage)
+					if (memoryCheck.shouldCleanup) {
+						console.warn('⚠️ High memory usage detected:', memoryCheck);
+						return performanceOptimizationService.performCleanupIfNeeded();
+					}
+				})
 				.then(() => next())
 				.catch((error) => {
-					console.error('Error performing memory cleanup:', error);
+					console.error('Error checking memory usage:', error);
 					next();
 				});
 		} else {

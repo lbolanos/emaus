@@ -188,7 +188,7 @@ CREATE INDEX "idx_permission_delegations_status" ON "permission_delegations"("st
 3. **retreat_admin** (Level: 80) - Retreat management
 4. **retreat_manager** (Level: 70) - Retreat operations
 5. **retreat_user** (Level: 60) - Basic retreat access
-6. **tesorero** (Level: 65) - Financial management
+6. **treasurer** (Level: 65) - Financial management
 
 ### Permissions Created
 
@@ -246,7 +246,7 @@ CREATE INDEX "idx_permission_delegations_status" ON "permission_delegations"("st
 
 - Basic retreat and participant read access
 
-#### tesorero
+#### treasurer
 
 - Financial management permissions
 - Retreat and participant read access

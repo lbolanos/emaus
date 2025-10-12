@@ -16,6 +16,7 @@
   "sidebar": {
     "walkers": "Walkers",
     "servers": "Servers",
+    "partialServers": "Partial Servers",
     "palancas": "Palancas",
     "payments": "Payments",
     "tables": "Tables",
@@ -47,7 +48,7 @@
       "reports": "Reports",
       "services": "Services",
       "administration": "Administration",
-      "settings": "Settings"
+      "settings": "Global Settings"
     },
     "settings": {
       "title": "Settings",
@@ -153,7 +154,53 @@
       "errorTitle": "Import error",
       "errorNoEmail": "No emails found in the file",
       "successTitle": "Success",
-      "successDesc": "Participants imported successfully"
+      "successDesc": "Participants imported successfully",
+      "dropZoneText": "Drop your file here or click to browse",
+      "supportedFormats": "Excel (.xlsx, .xls) and CSV (.csv) files supported",
+      "downloadTemplate": "Download Template",
+      "confirmImport": "Import Participants",
+      "dataPreview": "Data Preview",
+      "rowsToImport": "Ready to import: {count} rows",
+      "processing": "Processing...",
+      "error": {
+        "invalidFile": "Invalid file format. Please select a .xlsx, .xls, or .csv file.",
+        "fileTooLarge": "File too large. Maximum size is 10MB.",
+        "readFile": "Failed to read the file. Please check the file format.",
+        "emailRequired": "Email column is required",
+        "generic": "An error occurred during import. Please try again."
+      }
+    },
+    "export": {
+      "title": "Export Participants",
+      "description": "Export participant data to Excel or CSV",
+      "scope": "Export Scope",
+      "allParticipants": "All Participants",
+      "selectedParticipants": "Selected Participants ({count})",
+      "format": "Export Format",
+      "formatXlsx": "Excel (.xlsx)",
+      "formatCsv": "CSV (.csv)",
+      "filename": "Filename",
+      "columns": "Select Columns",
+      "selectAll": "Select All",
+      "selectVisible": "Select Visible",
+      "preview": "Data Preview",
+      "previewRows": "Preview ({count} rows)",
+      "processing": "Exporting...",
+      "startExport": "Export Data",
+      "updatePreview": "Update Preview",
+      "successTitle": "Export Completed",
+      "successDesc": "{count} participants exported to {filename}",
+      "errorTitle": "Export Failed",
+      "errorNoData": "No data to export.",
+      "errorGeneric": "An error occurred during export. Please try again."
+    },
+    "bulkDelete": {
+      "title": "Delete Selected Participants",
+      "confirmMessage": "Are you sure you want to delete {count} selected participant(s)? This action cannot be undone.",
+      "successTitle": "Deletion Successful",
+      "successDesc": "{count} participants were successfully deleted.",
+      "errorTitle": "Deletion Failed",
+      "errorGeneric": "An error occurred while deleting participants. Please try again."
     },
     "status": {
       "title": "Filter by status",
@@ -391,12 +438,14 @@
       "optionalNotes": "Optional Notes"
     }
   },
-  "retreatDashboard": {
-    "title": "Retreat Dashboard",
+    "retreatDashboard": {
+      "title": "Retreat Dashboard",
+      "partialServersDescription": "Participants who help partially",
     "selectedRetreat": "Selected Retreat",
     "walkersCount": "# Walkers",
     "serversCount": "# Servers",
     "waitingCount": "# Waiting",
+    "partialServersCount": "# Partial Servers",
     "walkerRegistrationLink": "Public Walker Registration Link",
     "serverRegistrationLink": "Public Server Registration Link",
     "noRetreatSelected": "No retreat selected. Please select or add a retreat.",
@@ -664,6 +713,47 @@
     },
     "deleteConfirmationTitle": "Delete Responsability",
     "deleteConfirmation": "Are you sure you want to delete this responsability? This action cannot be undone."
+  },
+  "inviteUsersModal": {
+    "title": "Invite Someone",
+    "description": "Invite users to this retreat with a specific role",
+    "emailLabel": "Email Addresses",
+    "emailPlaceholder": "user1@example.com\nuser2@example.com",
+    "emailHelp": "One email per line, maximum 10 invitations",
+    "roleLabel": "Role",
+    "rolePlaceholder": "Select role",
+    "cancelButton": "Cancel",
+    "sendingButton": "Sending...",
+    "sendButton": "Send Invitations",
+    "resultsTitle": "Results:",
+    "errors": {
+      "noEmails": "Please enter at least one email address",
+      "maxInvitations": "Maximum 10 invitations per request",
+      "invalidEmails": "Invalid emails: {emails}",
+      "connectionError": "Connection error. Please try again.",
+      "sendError": "Error sending invitations",
+      "fetchRolesError": "Error loading available roles. Please refresh the page."
+    },
+    "success": {
+      "invitationsSent": "Invitations sent successfully",
+      "usersCreated": "Users Created",
+      "usersCreatedDesc": "{count} new user accounts were created"
+    },
+    "toasts": {
+      "invitationsSent": "Invitations Sent",
+      "invitationsSentDesc": "{count} invitations were sent successfully"
+    },
+    "roles": {
+      "regular_server": "Regular Server",
+      "treasurer": "Treasurer",
+      "logistics": "Logistics",
+      "communications": "Communications"
+    },
+    "addSampleEmails": "Add Sample Emails",
+    "loadingRoles": "Loading roles...",
+    "selectedRole": "Selected role",
+    "emails": "emails",
+    "invitations": "invitations"
   },
   "common": {
     "yes": "Yes",

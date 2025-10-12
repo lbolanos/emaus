@@ -327,7 +327,7 @@ import { useRetreatStore } from '@/stores/retreatStore';
 import { useUIStore } from '@/stores/ui';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
 
-type PermissionType = 'retreat' | 'participant' | 'table' | 'house' | 'user' | 'inventoryItem' | 'payment' | 'responsability' | 'superadmin';
+type PermissionType = 'retreat' | 'participant' | 'table' | 'house' | 'user' | 'retreatInventory' | 'inventoryItem' | 'payment' | 'responsability' | 'messageTemplate' | 'superadmin';
 
 interface MenuItem {
   name: string;
@@ -427,6 +427,14 @@ const menuSections: MenuSection[] = [
         label: 'sidebar.servers'
       },
       {
+        name: 'partial-servers',
+        routeName: 'partial-servers',
+        icon: Users,
+        permission: 'participant',
+        requiresRetreat: true,
+        label: 'sidebar.partialServers'
+      },
+      {
         name: 'waiting-list',
         routeName: 'waiting-list',
         icon: UserCheck,
@@ -466,7 +474,7 @@ const menuSections: MenuSection[] = [
         name: 'inventory',
         routeName: 'inventory',
         icon: Package,
-        permission: 'inventoryItem',
+        permission: 'retreatInventory',
         requiresRetreat: true,
         label: 'sidebar.inventory'
       },
@@ -570,6 +578,7 @@ const menuSections: MenuSection[] = [
         name: 'role-management',
         routeName: 'role-management',
         icon: UserCog,
+        //permission: 'user',
         requiresRetreat: true,
         label: 'sidebar.roleManagement'
       },
@@ -577,7 +586,8 @@ const menuSections: MenuSection[] = [
         name: 'message-templates',
         routeName: 'message-templates',
         icon: Settings,
-        permission: 'participant',
+        permission: 'messageTemplate',
+        requiresRetreat: true,
         label: 'sidebar.settings.messageTemplates'
       },
     ],
@@ -591,6 +601,7 @@ const menuSections: MenuSection[] = [
         routeName: 'global-message-templates',
         icon: Globe,
         label: 'sidebar.settings.globalMessageTemplates',
+        requiresRetreat: false,
         permission: 'superadmin'
       },
       {
@@ -598,6 +609,7 @@ const menuSections: MenuSection[] = [
         routeName: 'inventory-items',
         icon: Package,
         permission: 'inventoryItem',
+        requiresRetreat: false,
         label: 'sidebar.settings.inventoryItems'
       },
       {
@@ -605,6 +617,7 @@ const menuSections: MenuSection[] = [
         routeName: 'houses',
         icon: Home,
         permission: 'house',
+        requiresRetreat: false,
         label: 'sidebar.houses'
       }
     ],
@@ -617,7 +630,26 @@ const filteredMenuSections = computed(() => {
     const filteredItems = section.items.filter(item => {
       if (item.requiresRetreat && !retreatStore.selectedRetreatId) return false;
       if (item.permission === 'superadmin' && !auth.userProfile?.roles?.some(role => role.role.name === 'superadmin')) return false;
-      if (item.permission && item.permission !== 'superadmin' && !can.read(item.permission)) return false;
+
+      // Special case for role management - requires user:manage permission
+      if (item.name === 'role-management') {
+        const hasUserManage = can.manage('user');
+        console.log(`[ROLE-MGMT] Can manage user: ${hasUserManage}`);
+        console.log(`[ROLE-MGMT] User permissions:`, useAuthPermissions().retreatSpecificPermissions.value);
+
+        if (!hasUserManage) {
+          console.log(`[ROLE-MGMT] ❌ REJECTED: Missing user:manage permission`);
+          return false;
+        } else {
+          console.log(`[ROLE-MGMT] ✅ ACCEPTED: Has user:manage permission`);
+        }
+      }
+
+      // Standard permission check for other items
+      if (item.permission && item.permission !== 'superadmin' && item.name !== 'role-management') {
+        const hasPermission = can.read(item.permission);
+        if (!hasPermission) return false;
+      }
 
       if (searchQuery.value.trim()) {
         const query = searchQuery.value.toLowerCase();

@@ -145,8 +145,8 @@ export const getUserPermissionsWithOverrides = async (req: AuthenticatedRequest,
 			}
 		}
 
-		// Get base permissions
-		const userPermissions = await authorizationService.getUserPermissions(userId);
+		// Get base permissions (retreat-specific)
+		const userPermissions = await authorizationService.getUserPermissionsForRetreat(userId, retreatId);
 
 		// Apply permission overrides
 		const effectivePermissions = await permissionOverrideService.applyPermissionOverrides(

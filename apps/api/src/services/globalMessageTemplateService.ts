@@ -166,7 +166,7 @@ export class GlobalMessageTemplateService {
 	 */
 	async processTemplate(
 		type: GlobalMessageTemplateType,
-		variables: TemplateVariables
+		variables: TemplateVariables,
 	): Promise<{ subject: string; html: string; text: string }> {
 		const template = await this.getTemplate(type);
 
@@ -183,7 +183,10 @@ export class GlobalMessageTemplateService {
 
 		// Replace user variables
 		if (variables.user) {
-			processedMessage = processedMessage.replace(/\{user\.displayName\}/g, variables.user.displayName);
+			processedMessage = processedMessage.replace(
+				/\{user\.displayName\}/g,
+				variables.user.displayName,
+			);
 			processedMessage = processedMessage.replace(/\{user\.email\}/g, variables.user.email);
 			processedMessage = processedMessage.replace(/\{user\.name\}/g, variables.user.displayName);
 		}
@@ -212,7 +215,7 @@ export class GlobalMessageTemplateService {
 	async sendSystemEmail(
 		type: GlobalMessageTemplateType,
 		toEmail: string,
-		variables: TemplateVariables
+		variables: TemplateVariables,
 	): Promise<{ success: boolean; error?: string }> {
 		try {
 			const { subject, html, text } = await this.processTemplate(type, variables);
@@ -244,18 +247,17 @@ export class GlobalMessageTemplateService {
 	/**
 	 * Send password reset email
 	 */
-	async sendPasswordResetEmail(user: User, resetUrl: string): Promise<{ success: boolean; error?: string }> {
-		return await this.sendSystemEmail(
-			GlobalMessageTemplateType.SYS_PASSWORD_RESET,
-			user.email,
-			{
-				user: {
-					displayName: user.displayName,
-					email: user.email,
-				},
-				resetUrl,
-			}
-		);
+	async sendPasswordResetEmail(
+		user: User,
+		resetUrl: string,
+	): Promise<{ success: boolean; error?: string }> {
+		return await this.sendSystemEmail(GlobalMessageTemplateType.SYS_PASSWORD_RESET, user.email, {
+			user: {
+				displayName: user.displayName,
+				email: user.email,
+			},
+			resetUrl,
+		});
 	}
 
 	/**
@@ -264,26 +266,24 @@ export class GlobalMessageTemplateService {
 	async sendUserInvitationEmail(
 		user: User,
 		invitationUrl: string,
-		inviterName: string
+		inviterName: string,
 	): Promise<{ success: boolean; error?: string }> {
-		return await this.sendSystemEmail(
-			GlobalMessageTemplateType.SYS_USER_INVITATION,
-			user.email,
-			{
-				user: {
-					displayName: user.displayName,
-					email: user.email,
-				},
-				invitationUrl,
-				inviterName,
-			}
-		);
+		return await this.sendSystemEmail(GlobalMessageTemplateType.SYS_USER_INVITATION, user.email, {
+			user: {
+				displayName: user.displayName,
+				email: user.email,
+			},
+			invitationUrl,
+			inviterName,
+		});
 	}
 
 	/**
 	 * Send registration confirmation email
 	 */
-	async sendRegistrationConfirmationEmail(user: User): Promise<{ success: boolean; error?: string }> {
+	async sendRegistrationConfirmationEmail(
+		user: User,
+	): Promise<{ success: boolean; error?: string }> {
 		return await this.sendSystemEmail(
 			GlobalMessageTemplateType.SYS_REGISTRATION_CONFIRMATION,
 			user.email,
@@ -292,7 +292,7 @@ export class GlobalMessageTemplateService {
 					displayName: user.displayName,
 					email: user.email,
 				},
-			}
+			},
 		);
 	}
 
@@ -301,7 +301,7 @@ export class GlobalMessageTemplateService {
 	 */
 	async sendEmailVerificationEmail(
 		user: User,
-		verificationUrl: string
+		verificationUrl: string,
 	): Promise<{ success: boolean; error?: string }> {
 		return await this.sendSystemEmail(
 			GlobalMessageTemplateType.SYS_EMAIL_VERIFICATION,
@@ -312,7 +312,7 @@ export class GlobalMessageTemplateService {
 					email: user.email,
 				},
 				verificationUrl,
-			}
+			},
 		);
 	}
 
@@ -320,32 +320,24 @@ export class GlobalMessageTemplateService {
 	 * Send account locked email
 	 */
 	async sendAccountLockedEmail(user: User): Promise<{ success: boolean; error?: string }> {
-		return await this.sendSystemEmail(
-			GlobalMessageTemplateType.SYS_ACCOUNT_LOCKED,
-			user.email,
-			{
-				user: {
-					displayName: user.displayName,
-					email: user.email,
-				},
-			}
-		);
+		return await this.sendSystemEmail(GlobalMessageTemplateType.SYS_ACCOUNT_LOCKED, user.email, {
+			user: {
+				displayName: user.displayName,
+				email: user.email,
+			},
+		});
 	}
 
 	/**
 	 * Send account unlocked email
 	 */
 	async sendAccountUnlockedEmail(user: User): Promise<{ success: boolean; error?: string }> {
-		return await this.sendSystemEmail(
-			GlobalMessageTemplateType.SYS_ACCOUNT_UNLOCKED,
-			user.email,
-			{
-				user: {
-					displayName: user.displayName,
-					email: user.email,
-				},
-			}
-		);
+		return await this.sendSystemEmail(GlobalMessageTemplateType.SYS_ACCOUNT_UNLOCKED, user.email, {
+			user: {
+				displayName: user.displayName,
+				email: user.email,
+			},
+		});
 	}
 
 	/**
@@ -354,21 +346,17 @@ export class GlobalMessageTemplateService {
 	async sendRoleRequestedEmail(
 		user: User,
 		roleName: string,
-		retreatName: string
+		retreatName: string,
 	): Promise<{ success: boolean; error?: string }> {
-		return await this.sendSystemEmail(
-			GlobalMessageTemplateType.SYS_ROLE_REQUESTED,
-			user.email,
-			{
-				user: {
-					displayName: user.displayName,
-					email: user.email,
-				},
-				roleName,
-				retreatName,
-				requestDate: new Date().toLocaleString('es-ES'),
-			}
-		);
+		return await this.sendSystemEmail(GlobalMessageTemplateType.SYS_ROLE_REQUESTED, user.email, {
+			user: {
+				displayName: user.displayName,
+				email: user.email,
+			},
+			roleName,
+			retreatName,
+			requestDate: new Date().toLocaleString('es-ES'),
+		});
 	}
 
 	/**
@@ -377,21 +365,17 @@ export class GlobalMessageTemplateService {
 	async sendRoleApprovedEmail(
 		user: User,
 		roleName: string,
-		retreatName: string
+		retreatName: string,
 	): Promise<{ success: boolean; error?: string }> {
-		return await this.sendSystemEmail(
-			GlobalMessageTemplateType.SYS_ROLE_APPROVED,
-			user.email,
-			{
-				user: {
-					displayName: user.displayName,
-					email: user.email,
-				},
-				roleName,
-				retreatName,
-				approvalDate: new Date().toLocaleString('es-ES'),
-			}
-		);
+		return await this.sendSystemEmail(GlobalMessageTemplateType.SYS_ROLE_APPROVED, user.email, {
+			user: {
+				displayName: user.displayName,
+				email: user.email,
+			},
+			roleName,
+			retreatName,
+			approvalDate: new Date().toLocaleString('es-ES'),
+		});
 	}
 
 	/**
@@ -401,21 +385,17 @@ export class GlobalMessageTemplateService {
 		user: User,
 		roleName: string,
 		retreatName: string,
-		rejectionReason: string
+		rejectionReason: string,
 	): Promise<{ success: boolean; error?: string }> {
-		return await this.sendSystemEmail(
-			GlobalMessageTemplateType.SYS_ROLE_REJECTED,
-			user.email,
-			{
-				user: {
-					displayName: user.displayName,
-					email: user.email,
-				},
-				roleName,
-				retreatName,
-				rejectionReason,
-			}
-		);
+		return await this.sendSystemEmail(GlobalMessageTemplateType.SYS_ROLE_REJECTED, user.email, {
+			user: {
+				displayName: user.displayName,
+				email: user.email,
+			},
+			roleName,
+			retreatName,
+			rejectionReason,
+		});
 	}
 
 	/**

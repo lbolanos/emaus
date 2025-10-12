@@ -15,7 +15,7 @@ const tableMesaRepository = AppDataSource.getRepository(TableMesa);
 
 export const findAllParticipants = async (
 	retreatId?: string,
-	type?: 'walker' | 'server' | 'waiting',
+	type?: 'walker' | 'server' | 'waiting' | 'partial_server',
 	isCancelled?: boolean,
 	relations: string[] = [],
 ): Promise<Participant[]> => {
@@ -137,7 +137,7 @@ const assignBedAndTableToParticipant = async (
 	const result: { bedId?: string; tableId?: string } = {};
 
 	// Assign bed if applicable
-	if (participant.type !== 'waiting') {
+	if (participant.type !== 'waiting' && participant.type !== 'partial_server') {
 		const bedId = await assignBedToParticipant(
 			participant,
 			Array.from(assignedBedIds),
@@ -456,7 +456,7 @@ export const createParticipant = async (
 			family_friend_color: savedParticipant.family_friend_color,
 		});*/
 
-		if (assignRelationships && savedParticipant.type !== 'waiting') {
+		if (assignRelationships && savedParticipant.type !== 'waiting' && savedParticipant.type !== 'partial_server') {
 			// Use the new unified assignment function
 			const assignedBedIds = new Set<string>();
 			const { bedId, tableId } = await assignBedAndTableToParticipant(
@@ -503,11 +503,9 @@ export const createParticipant = async (
 			const templateType = savedParticipant.type === 'walker' ? 'WALKER_WELCOME' : 'SERVER_WELCOME';
 
 			// Get retreat details for template variables
-			const retreat = await transactionalEntityManager
-				.getRepository(Retreat)
-				.findOne({
-					where: { id: savedParticipant.retreatId }
-				});
+			const retreat = await transactionalEntityManager.getRepository(Retreat).findOne({
+				where: { id: savedParticipant.retreatId },
+			});
 
 			// Find the welcome template for this retreat
 			const welcomeTemplate = await transactionalEntityManager
@@ -515,8 +513,8 @@ export const createParticipant = async (
 				.findOne({
 					where: {
 						retreatId: savedParticipant.retreatId,
-						type: templateType
-					}
+						type: templateType,
+					},
 				});
 
 			if (welcomeTemplate && savedParticipant.email) {
@@ -526,23 +524,21 @@ export const createParticipant = async (
 					savedParticipant.retreatId,
 					{
 						participant: savedParticipant,
-						retreat: retreat
-					}
+						retreat: retreat,
+					},
 				);
 			}
 
 			// Send notification email to the server who invited the participant
 			if (savedParticipant.invitedBy && retreat) {
 				// Find the server who invited this participant
-				const invitingServer = await transactionalEntityManager
-					.getRepository(Participant)
-					.findOne({
-						where: {
-							retreatId: savedParticipant.retreatId,
-							nickname: savedParticipant.invitedBy,
-							type: 'server'
-						}
-					});
+				const invitingServer = await transactionalEntityManager.getRepository(Participant).findOne({
+					where: {
+						retreatId: savedParticipant.retreatId,
+						nickname: savedParticipant.invitedBy,
+						type: 'server',
+					},
+				});
 
 				if (invitingServer && invitingServer.email) {
 					// Find notification template for servers - use GENERAL type as fallback
@@ -551,8 +547,8 @@ export const createParticipant = async (
 						.findOne({
 							where: {
 								retreatId: savedParticipant.retreatId,
-								type: 'GENERAL'
-							}
+								type: 'GENERAL',
+							},
 						});
 
 					if (notificationTemplate) {
@@ -563,10 +559,12 @@ export const createParticipant = async (
 							{
 								participant: savedParticipant,
 								retreat: retreat,
-								invitingServer: invitingServer
-							}
+								invitingServer: invitingServer,
+							},
 						);
-						console.log(`Notification email sent to server ${invitingServer.nickname} for new participant ${savedParticipant.firstName} ${savedParticipant.lastName}`);
+						console.log(
+							`Notification email sent to server ${invitingServer.nickname} for new participant ${savedParticipant.firstName} ${savedParticipant.lastName}`,
+						);
 					} else {
 						// If no template exists, send a simple notification
 						await emailService.sendParticipantEmail({
@@ -585,12 +583,16 @@ export const createParticipant = async (
 									<li>Teléfono: ${savedParticipant.cellPhone || 'No proporcionado'}</li>
 								</ul>
 								<p>Gracias por invitar a nuevos participantes al retiro.</p>
-							`
+							`,
 						});
-						console.log(`Simple notification email sent to server ${invitingServer.nickname} for new participant ${savedParticipant.firstName} ${savedParticipant.lastName}`);
+						console.log(
+							`Simple notification email sent to server ${invitingServer.nickname} for new participant ${savedParticipant.firstName} ${savedParticipant.lastName}`,
+						);
 					}
 				} else {
-					console.log(`Could not find server with nickname '${savedParticipant.invitedBy}' to send notification`);
+					console.log(
+						`Could not find server with nickname '${savedParticipant.invitedBy}' to send notification`,
+					);
 				}
 			}
 		} catch (emailError) {
@@ -640,6 +642,7 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
 			const userType = participant.tipousuario?.trim();
 			if (userType === '3') return 'walker';
 			if (userType === '4') return 'waiting';
+			if (userType === '5') return 'partial_server';
 			return 'server';
 		})(),
 		firstName: participant.nombre?.trim() || '',
@@ -783,7 +786,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 		// Process participants one by one with atomic bed assignment
 		for (const participant of participantsToProcess) {
-			if (participant.type !== 'waiting') {
+			if (participant.type !== 'waiting' && participant.type !== 'partial_server') {
 				// Use the new unified assignment function
 				const { bedId, tableId } = await assignBedAndTableToParticipant(
 					participant,

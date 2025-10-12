@@ -1,5 +1,6 @@
 import { computed } from 'vue';
 import { useAuthStore } from '@/stores/authStore';
+import { useRetreatStore } from '@/stores/retreatStore';
 import type { Permission, ResourceType, OperationType } from '@/utils/permissions';
 import {
 	hasPermission,
@@ -27,6 +28,7 @@ import {
  */
 export function useAuthPermissions() {
 	const authStore = useAuthStore();
+	const retreatStore = useRetreatStore();
 
 	// Get current user permissions reactively
 	const userPermissions = computed(() => {
@@ -34,43 +36,77 @@ export function useAuthPermissions() {
 		return authStore.userProfile.permissions.map((p) => `${p.resource}:${p.operation}`);
 	});
 
-	// Basic permission checking
+	// Get retreat-specific permissions based on selected retreat
+	const retreatSpecificPermissions = computed(() => {
+		if (!authStore.userProfile || !retreatStore.selectedRetreatId) return [];
+
+		// Get permissions from user's role for the selected retreat
+		const retreatRole = authStore.userProfile.roles.find((roleDetail) =>
+			roleDetail.retreats.some((retreat) => retreat.retreatId === retreatStore.selectedRetreatId),
+		);
+
+		if (!retreatRole) {
+			// If no specific retreat role, fall back to global permissions
+			return userPermissions.value;
+		}
+
+		// Combine global permissions with retreat-specific permissions
+		const globalPermissions = authStore.userProfile.permissions.map(
+			(p) => `${p.resource}:${p.operation}`,
+		);
+		const retreatPermissions = retreatRole.globalPermissions.map(
+			(p) => `${p.resource}:${p.operation}`,
+		);
+
+		// Remove duplicates and return unique permissions
+		return [...new Set([...globalPermissions, ...retreatPermissions])];
+	});
+
+	// Basic permission checking - use retreat-specific permissions
 	const hasPerm = (permission: Permission) => {
-		return hasPermission(userPermissions.value, permission);
+		return hasPermission(retreatSpecificPermissions.value, permission);
 	};
 
 	const hasAnyPerm = (permissions: Permission[]) => {
-		return hasAnyPermission(userPermissions.value, permissions);
+		return hasAnyPermission(retreatSpecificPermissions.value, permissions);
 	};
 
 	const hasAllPerms = (permissions: Permission[]) => {
-		return hasAllPermissions(userPermissions.value, permissions);
+		return hasAllPermissions(retreatSpecificPermissions.value, permissions);
 	};
 
-	// Resource-based permission checking
+	// Resource-based permission checking - use retreat-specific permissions
 	const canAccess = (resource: ResourceType, operation: OperationType) => {
-		return canAccessResource(userPermissions.value, resource, operation);
+		return canAccessResource(retreatSpecificPermissions.value, resource, operation);
 	};
 
 	const can = {
-		create: (resource: ResourceType) => canCreate(userPermissions.value, resource),
-		read: (resource: ResourceType) => canRead(userPermissions.value, resource),
-		update: (resource: ResourceType) => canUpdate(userPermissions.value, resource),
-		delete: (resource: ResourceType) => canDelete(userPermissions.value, resource),
-		list: (resource: ResourceType) => canList(userPermissions.value, resource),
+		create: (resource: ResourceType) => canCreate(retreatSpecificPermissions.value, resource),
+		read: (resource: ResourceType) => canRead(retreatSpecificPermissions.value, resource),
+		update: (resource: ResourceType) => canUpdate(retreatSpecificPermissions.value, resource),
+		delete: (resource: ResourceType) => canDelete(retreatSpecificPermissions.value, resource),
+		list: (resource: ResourceType) => canList(retreatSpecificPermissions.value, resource),
+		manage: (resource: ResourceType) => {
+			const result = canAccessResource(retreatSpecificPermissions.value, resource, 'manage');
+			if (resource === 'user') {
+				console.log(`[PERMISSIONS] can.manage(user): ${result}`);
+				console.log(`[PERMISSIONS] Available permissions:`, retreatSpecificPermissions.value);
+			}
+			return result;
+		},
 	};
 
-	// Role-based permission checking
-	const isSuper = computed(() => isSuperadmin(userPermissions.value));
-	const isAdm = computed(() => isAdmin(userPermissions.value));
+	// Role-based permission checking - use retreat-specific permissions
+	const isSuper = computed(() => isSuperadmin(retreatSpecificPermissions.value));
+	const isAdm = computed(() => isAdmin(retreatSpecificPermissions.value));
 
 	const canManage = {
-		retreat: computed(() => canManageRetreat(userPermissions.value)),
-		participants: computed(() => canManageParticipants(userPermissions.value)),
-		houses: computed(() => canManageHouses(userPermissions.value)),
-		inventory: computed(() => canManageInventory(userPermissions.value)),
-		tables: computed(() => canManageTables(userPermissions.value)),
-		payments: computed(() => canManagePayments(userPermissions.value)),
+		retreat: computed(() => canManageRetreat(retreatSpecificPermissions.value)),
+		participants: computed(() => canManageParticipants(retreatSpecificPermissions.value)),
+		houses: computed(() => canManageHouses(retreatSpecificPermissions.value)),
+		inventory: computed(() => canManageInventory(retreatSpecificPermissions.value)),
+		tables: computed(() => canManageTables(retreatSpecificPermissions.value)),
+		payments: computed(() => canManagePayments(retreatSpecificPermissions.value)),
 	};
 
 	// Get user roles
@@ -109,9 +145,26 @@ export function useAuthPermissions() {
 		);
 	};
 
+	// Get current user's role for the selected retreat
+	const currentRetreatRole = computed(() => {
+		if (!authStore.userProfile || !retreatStore.selectedRetreatId) return null;
+
+		const retreatRole = authStore.userProfile.roles.find((roleDetail) =>
+			roleDetail.retreats.some((retreat) => retreat.retreatId === retreatStore.selectedRetreatId),
+		);
+
+		return retreatRole?.role || null;
+	});
+
+	// Check if user has any role in the current retreat
+	const hasRoleInCurrentRetreat = computed(() => {
+		return !!currentRetreatRole.value;
+	});
+
 	return {
 		// Raw permissions
 		userPermissions,
+		retreatSpecificPermissions,
 
 		// Permission checking functions
 		hasPermission: hasPerm,
@@ -130,6 +183,8 @@ export function useAuthPermissions() {
 		// Role information
 		userRoles,
 		hasRole,
+		currentRetreatRole,
+		hasRoleInCurrentRetreat,
 
 		// Retreat-based permissions
 		userRetreats,

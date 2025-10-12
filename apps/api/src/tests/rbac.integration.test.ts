@@ -13,7 +13,7 @@ describe('RBAC Integration Tests', () => {
 	let testUser: User;
 	let testRetreat: Retreat;
 	let adminRole: Role;
-	let serverRole: Role;
+	let regularServerRole: Role;
 	let auditService: AuditService;
 
 	beforeAll(async () => {
@@ -49,11 +49,11 @@ describe('RBAC Integration Tests', () => {
 		});
 		await roleRepository.save(adminRole);
 
-		serverRole = roleRepository.create({
-			name: 'servidor',
-			description: 'Server role',
+		regularServerRole = roleRepository.create({
+			name: 'regular_server',
+			description: 'Regular server role',
 		});
-		await roleRepository.save(serverRole);
+		await roleRepository.save(regularServerRole);
 	});
 
 	afterAll(async () => {
@@ -65,14 +65,14 @@ describe('RBAC Integration Tests', () => {
 			const userRetreat = await retreatRoleService.inviteUserToRetreat(
 				testRetreat.id,
 				testUser.email,
-				'servidor',
+				'regular_server',
 				testUser.id,
 			);
 
 			expect(userRetreat).toBeTruthy();
 			expect(userRetreat.userId).toBe(testUser.id);
 			expect(userRetreat.retreatId).toBe(testRetreat.id);
-			expect(userRetreat.roleId).toBe(serverRole.id);
+			expect(userRetreat.roleId).toBe(regularServerRole.id);
 			expect(userRetreat.status).toBe('active');
 		});
 
@@ -85,7 +85,7 @@ describe('RBAC Integration Tests', () => {
 			const hasRole = await authorizationService.hasRetreatRole(
 				testUser.id,
 				testRetreat.id,
-				'servidor',
+				'regular_server',
 			);
 			expect(hasRole).toBe(true);
 		});
@@ -109,13 +109,13 @@ describe('RBAC Integration Tests', () => {
 			const roleRequest = await roleRequestService.createRoleRequest(
 				testUser.id,
 				testRetreat.id,
-				'tesorero',
+				'treasurer',
 			);
 
 			expect(roleRequest).toBeTruthy();
 			expect(roleRequest.userId).toBe(testUser.id);
 			expect(roleRequest.retreatId).toBe(testRetreat.id);
-			expect(roleRequest.requestedRole).toBe('tesorero');
+			expect(roleRequest.requestedRole).toBe('treasurer');
 			expect(roleRequest.status).toBe('pending');
 		});
 
@@ -127,7 +127,7 @@ describe('RBAC Integration Tests', () => {
 
 		test('should prevent duplicate requests', async () => {
 			await expect(
-				roleRequestService.createRoleRequest(testUser.id, testRetreat.id, 'tesorero'),
+				roleRequestService.createRoleRequest(testUser.id, testRetreat.id, 'treasurer'),
 			).rejects.toThrow('You already have a pending role request for this retreat');
 		});
 
@@ -216,7 +216,7 @@ describe('RBAC Integration Tests', () => {
 			await retreatRoleService.inviteUserToRetreat(
 				testRetreat.id,
 				testUser.email,
-				'logística',
+				'logistics',
 				testUser.id,
 			);
 
@@ -239,7 +239,7 @@ describe('RBAC Integration Tests', () => {
 			await roleRequestService.createRoleRequest(
 				testUser.id,
 				testRetreat.id,
-				'palancas',
+				'communications',
 				'Need access for logistics',
 			);
 
@@ -305,7 +305,7 @@ describe('RBAC Integration Tests', () => {
 				retreatRoleService.inviteUserToRetreat(
 					testRetreat.id,
 					'nonexistent@example.com',
-					'servidor',
+					'regular_server',
 					testUser.id,
 				),
 			).rejects.toThrow('User not found');
@@ -334,7 +334,7 @@ describe('RBAC Integration Tests', () => {
 				retreatRoleService.inviteUserToRetreat(
 					testRetreat.id,
 					otherUser.email,
-					'servidor',
+					'regular_server',
 					otherUser.id,
 				),
 			).rejects.toThrow('Only retreat creator can invite users');

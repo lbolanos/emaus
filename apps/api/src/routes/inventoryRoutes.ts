@@ -16,7 +16,7 @@ import {
 	importInventoryController,
 } from '../controllers/inventoryController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
-import { requirePermission } from '../middleware/authorization';
+import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
 
 const router = Router();
 
@@ -42,39 +42,46 @@ router.put('/items/:id', requirePermission('inventoryItem:update'), updateInvent
 // Retreat inventory routes
 router.get(
 	'/retreat/:retreatId',
-	requirePermission('inventoryItem:read'),
+	requirePermission('retreatInventory:read'),
+	requireRetreatAccess('retreatId'),
 	getRetreatInventoryController,
 );
 router.get(
 	'/retreat/:retreatId/by-category',
-	requirePermission('inventoryItem:read'),
+	requirePermission('retreatInventory:read'),
+	requireRetreatAccess('retreatId'),
 	getRetreatInventoryByCategoryController,
 );
 router.put(
 	'/retreat/:retreatId/:itemId',
-	requirePermission('inventoryItem:update'),
+	requirePermission('retreatInventory:update'),
+	requireRetreatAccess('retreatId'),
 	updateRetreatInventoryController,
 );
 router.post(
 	'/retreat/:retreatId/calculate',
-	requirePermission('inventoryItem:read'),
+	requirePermission('retreatInventory:read'),
+	requireRetreatAccess('retreatId'),
 	calculateRequiredQuantitiesController,
 );
 router.get(
 	'/retreat/:retreatId/alerts',
-	requirePermission('inventoryItem:read'),
+	requirePermission('retreatInventory:read'),
+	requireRetreatAccess('retreatId'),
 	getInventoryAlertsController,
 );
 
 // Import/Export routes
 router.get(
 	'/retreat/:retreatId/export',
-	requirePermission('inventoryItem:read'),
+	requirePermission('retreatInventory:read'),
+	requireRetreatAccess('retreatId'),
 	exportInventoryController,
 );
 router.post(
 	'/retreat/:retreatId/import',
-	requirePermission('inventoryItem:create'),
+	requirePermission('retreatInventory:create'),
+	requireRetreatAccess('retreatId'),
 	importInventoryController,
 );
 

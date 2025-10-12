@@ -174,10 +174,28 @@ export const getInventoryAlertsController = async (
 	next: NextFunction,
 ) => {
 	try {
+		//console.log('🚨 [INVENTORY ALERTS] Starting inventory alerts request');
+		//console.log('🚨 [INVENTORY ALERTS] Request URL:', req.originalUrl);
+		//console.log('🚨 [INVENTORY ALERTS] Request method:', req.method);
+		//console.log('🚨 [INVENTORY ALERTS] Request params:', req.params);
+		//console.log('🚨 [INVENTORY ALERTS] Request user:', (req as any).user ? { id: (req as any).user.id, email: (req as any).user.email } : 'No user');
+
 		const { retreatId } = req.params;
+		//console.log('🚨 [INVENTORY ALERTS] Extracted retreatId:', retreatId);
+
+		if (!retreatId) {
+			console.log('❌ [INVENTORY ALERTS] No retreatId found in params');
+			return res.status(400).json({ message: 'Retreat ID is required' });
+		}
+
+		//console.log('🚨 [INVENTORY ALERTS] Calling getInventoryAlerts service...');
 		const alerts = await getInventoryAlerts(retreatId);
+		//console.log('🚨 [INVENTORY ALERTS] Successfully retrieved alerts:', alerts);
+		console.log('✅ [INVENTORY ALERTS] Sending successful response');
+
 		res.json(alerts);
 	} catch (error) {
+		console.error('❌ [INVENTORY ALERTS] Error in inventory alerts controller:', error);
 		next(error);
 	}
 };

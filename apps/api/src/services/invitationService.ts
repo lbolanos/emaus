@@ -1,7 +1,9 @@
 import { AppDataSource } from '../data-source';
 import { User } from '../entities/user.entity';
 import { UserRetreat } from '../entities/userRetreat.entity';
+import { UserRole } from '../entities/userRole.entity';
 import { Retreat } from '../entities/retreat.entity';
+import { Role } from '../entities/role.entity';
 import { UserManagementMailer } from './userManagementMailer';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -21,7 +23,9 @@ interface InvitationResult {
 export class InvitationService {
 	private userRepository = AppDataSource.getRepository(User);
 	private userRetreatRepository = AppDataSource.getRepository(UserRetreat);
+	private userRoleRepository = AppDataSource.getRepository(UserRole);
 	private retreatRepository = AppDataSource.getRepository(Retreat);
+	private roleRepository = AppDataSource.getRepository(Role);
 	private mailer = new UserManagementMailer();
 
 	async inviteUsers(
@@ -78,10 +82,17 @@ export class InvitationService {
 
 		// Send invitation emails and create UserRetreat records
 		const retreatIds = [...new Set(invitations.map((inv) => inv.retreatId))];
+		const roleIds = [...new Set(invitations.map((inv) => inv.roleId))];
+
 		const retreats = await this.retreatRepository.find({
 			where: retreatIds.map((id) => ({ id })),
 		});
+		const roles = await this.roleRepository.find({
+			where: roleIds.map((id) => ({ id })),
+		});
+
 		const retreatMap = new Map(retreats.map((r) => [r.id, r]));
+		const roleMap = new Map(roles.map((r) => [r.id, r]));
 
 		for (const invitation of invitations) {
 			if (!usersToInvite.has(invitation.email)) {
@@ -95,12 +106,22 @@ export class InvitationService {
 
 			const { userId } = usersToInvite.get(invitation.email)!;
 			const retreat = retreatMap.get(invitation.retreatId);
+			const role = roleMap.get(invitation.roleId);
 
 			if (!retreat) {
 				usersInvited.push({
 					success: false,
 					email: invitation.email,
 					message: 'Retreat not found',
+				});
+				continue;
+			}
+
+			if (!role) {
+				usersInvited.push({
+					success: false,
+					email: invitation.email,
+					message: 'Role not found',
 				});
 				continue;
 			}
@@ -136,6 +157,27 @@ export class InvitationService {
 
 			await this.userRetreatRepository.save(userRetreat);
 
+			// Assign regular UserRole for administrative purposes
+			const regularRole = await this.roleRepository.findOne({
+				where: { name: 'regular' },
+			});
+
+			if (regularRole) {
+				// Check if user already has this role
+				const existingUserRole = await this.userRoleRepository.findOne({
+					where: { userId, roleId: regularRole.id },
+				});
+
+				if (!existingUserRole) {
+					const userRole = this.userRoleRepository.create({
+						userId,
+						roleId: regularRole.id,
+					});
+
+					await this.userRoleRepository.save(userRole);
+				}
+			}
+
 			// Send invitation email
 			const emailData = {
 				user: {
@@ -144,6 +186,7 @@ export class InvitationService {
 					displayName: invitation.email.split('@')[0],
 				} as User,
 				retreat,
+				role,
 				resetToken: invitationToken,
 				inviterName:
 					(await this.userRepository.findOne({ where: { id: ownerId } }))?.displayName ||

@@ -228,7 +228,6 @@ si cumple en los dias del retiro sacar una alarma.
 cualquier mensaje se puede enviar por correo o por whatsapp
 llevar un registro de las comunicaciones del participantes.
 
-
 show the rol in header for the specific retreat selected
 
 IN PROGRESS
@@ -236,8 +235,7 @@ cuando un participante se registre enviar correo de bienvenida
 cuando un caminante se registre enviar correo de bienvenida enviar tambien correo al servidor que lo invito para informar.
 
 en el mensaje de bienvenida del servidor agregar una url para que pueda cambiar su registro
-Notificaciones por correo a los administradores del retiro de eventos como Caminante ingresa. Servidor ingresa.  Forma de desactivar estas notificaciones.
-
+Notificaciones por correo a los administradores del retiro de eventos como Caminante ingresa. Servidor ingresa. Forma de desactivar estas notificaciones.
 
 TODO
 since it is not in production modify apps/api/src/migrations/sqlite/20250910163337_CreateSchema.ts for schema.
@@ -249,7 +247,7 @@ asigncacion de cuartos tal como se hace en las mesas con un dashboard.
 
 gafete mesa nombre apodo cuarto rosa
 
-Crear un retiro a partir de los datos del anterior retiro.  Casa de retiro, inventario, mensajes.
+Crear un retiro a partir de los datos del anterior retiro. Casa de retiro, inventario, mensajes.
 
 remover del menu todos las paginas que requieras retiro si no esta seleccionado.
 
@@ -264,7 +262,6 @@ agregar mesa y lider a alimentos y medicinas impresion.
 una forma de hacer backup del retiro y luego importar.
 
 Que debe pasar cuando se cancele un participante ... unassign from retreatBed and from tableMesa
-
 
 agregar al retiro hora de llegada de caminantes ... y hora de llegada de servidores el viernes.
 
@@ -295,3 +292,5 @@ Select text "¡Feliz cumpleaños" y clic en boton negrillas.
 Fix any issue with text changes
 
 lsof -ti:3001 | xargs -r kill -9
+enhance usability of
+enhance with user experience

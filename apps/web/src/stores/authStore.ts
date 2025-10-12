@@ -25,6 +25,7 @@ export const useAuthStore = defineStore('auth', () => {
 	const user = ref<User | null>(null);
 	const userProfile = ref<UserProfile | null>(null);
 	const loading = ref(false);
+	const refreshingProfile = ref(false);
 	const isAuthenticated = ref(false);
 	const router = useRouter();
 	const { toast } = useToast();
@@ -36,6 +37,9 @@ export const useAuthStore = defineStore('auth', () => {
 			user.value = response.data;
 			userProfile.value = response.data.profile;
 			isAuthenticated.value = true;
+
+			console.log('[AUTH] Login successful - User profile:', userProfile.value);
+
 			toast({
 				title: 'Success',
 				description: 'Logged in successfully',
@@ -165,10 +169,49 @@ export const useAuthStore = defineStore('auth', () => {
 		}
 	}
 
+	async function refreshUserProfile() {
+		if (!isAuthenticated.value) return;
+
+		try {
+			refreshingProfile.value = true;
+			const response = await api.get('/auth/status');
+			if (response.data && response.data.authenticated !== false) {
+				userProfile.value = response.data.profile;
+				console.log('[AUTH] Profile refreshed - New profile:', userProfile.value);
+			}
+		} catch (error: any) {
+			console.error('Failed to refresh user profile:', error);
+
+			// Check if it's an authentication error
+			if (error.response?.status === 401) {
+				// User session expired, logout
+				isAuthenticated.value = false;
+				user.value = null;
+				userProfile.value = null;
+				toast({
+					title: 'Session Expired',
+					description: 'Your session has expired. Please log in again.',
+					variant: 'destructive',
+				});
+				router.push('/login');
+			} else {
+				// Don't logout on other errors, just show warning
+				toast({
+					title: 'Warning',
+					description: 'Could not refresh permissions. Some features may be limited.',
+					variant: 'default',
+				});
+			}
+		} finally {
+			refreshingProfile.value = false;
+		}
+	}
+
 	return {
 		user,
 		userProfile,
 		loading,
+		refreshingProfile,
 		isAuthenticated,
 		checkAuthStatus,
 		login,
@@ -176,5 +219,6 @@ export const useAuthStore = defineStore('auth', () => {
 		logout,
 		requestPasswordReset,
 		resetPassword,
+		refreshUserProfile,
 	};
 });

@@ -3,11 +3,13 @@ import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { GlobalMessageTemplate } from '../entities/globalMessageTemplate.entity';
 import { User } from '../entities/user.entity';
 import { Retreat } from '../entities/retreat.entity';
+import { Role } from '../entities/role.entity';
 import * as nodemailer from 'nodemailer';
 
 export interface EmailTemplateData {
 	user: User;
 	retreat?: Retreat;
+	role?: Role;
 	resetToken?: string;
 	inviterName?: string;
 	shareLink?: string;
@@ -152,6 +154,7 @@ export class UserManagementMailer {
 
 		if (data.user) {
 			processed = processed.replace(/{user\.name}/g, data.user.displayName || '');
+			processed = processed.replace(/{user\.displayName}/g, data.user.displayName || '');
 			processed = processed.replace(/{user\.email}/g, data.user.email || '');
 			processed = processed.replace(/{user\.nickname}/g, data.user.displayName || '');
 		}
@@ -168,6 +171,11 @@ export class UserManagementMailer {
 			);
 		}
 
+		if (data.role) {
+			processed = processed.replace(/{role\.name}/g, data.role.name || '');
+			processed = processed.replace(/{role}/g, data.role.name || '');
+		}
+
 		if (data.resetToken) {
 			processed = processed.replace(/{resetToken}/g, data.resetToken);
 		}
@@ -178,6 +186,11 @@ export class UserManagementMailer {
 
 		if (data.shareLink) {
 			processed = processed.replace(/{shareLink}/g, data.shareLink);
+		}
+
+		// Handle invitationUrl - use shareLink as fallback for backwards compatibility
+		if (data.shareLink) {
+			processed = processed.replace(/{invitationUrl}/g, data.shareLink);
 		}
 
 		return processed.replace(/\n/g, '<br>');

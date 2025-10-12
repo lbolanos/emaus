@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import * as tableMesaController from '../controllers/tableMesaController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
-import { requirePermission } from '../middleware/authorization';
+import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
 
 const router = Router();
 
@@ -11,6 +11,7 @@ router.use(isAuthenticated);
 router.get(
 	'/retreat/:retreatId',
 	requirePermission('table:list'),
+	requireRetreatAccess('retreatId'),
 	tableMesaController.getTablesForRetreat,
 );
 router.get('/:id', requirePermission('table:read'), tableMesaController.getTable);
@@ -20,6 +21,7 @@ router.delete('/:id', requirePermission('table:delete'), tableMesaController.del
 router.post(
 	'/rebalance/:retreatId',
 	requirePermission('table:update'),
+	requireRetreatAccess('retreatId'),
 	tableMesaController.rebalanceTables,
 );
 

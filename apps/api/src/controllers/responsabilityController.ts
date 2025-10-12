@@ -8,10 +8,32 @@ import {
 	assignResponsabilityToParticipant as assignResponsabilityToParticipantService,
 	removeResponsabilityFromParticipant as removeResponsabilityFromParticipantService,
 } from '../services/responsabilityService';
+import { authorizationService } from '../middleware/authorization';
+
+// Helper function to check retreat access
+const checkRetreatAccess = async (req: Request, retreatId: string): Promise<boolean> => {
+	if (!req.user) {
+		return false;
+	}
+	const userId = (req.user as any)?.id;
+	if (!userId) {
+		return false;
+	}
+	return await authorizationService.hasRetreatAccess(userId, retreatId);
+};
 
 export const getAllResponsibilities = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const { retreatId } = req.query;
+
+		// If retreatId is provided, check retreat access
+		if (retreatId) {
+			const hasAccess = await checkRetreatAccess(req, retreatId as string);
+			if (!hasAccess) {
+				return res.status(403).json({ message: 'Forbidden - No access to this retreat' });
+			}
+		}
+
 		const responsibilities = await findAllResponsibilities(retreatId as string | undefined);
 		res.json(responsibilities);
 	} catch (error) {
@@ -23,6 +45,12 @@ export const getResponsabilityById = async (req: Request, res: Response, next: N
 	try {
 		const responsability = await findResponsabilityById(req.params.id);
 		if (responsability) {
+			// Check retreat access
+			const hasAccess = await checkRetreatAccess(req, responsability.retreatId);
+			if (!hasAccess) {
+				return res.status(403).json({ message: 'Forbidden - No access to this retreat' });
+			}
+
 			res.json(responsability);
 		} else {
 			res.status(404).json({ message: 'Retreat responsability not found' });
@@ -34,6 +62,14 @@ export const getResponsabilityById = async (req: Request, res: Response, next: N
 
 export const createResponsability = async (req: Request, res: Response, next: NextFunction) => {
 	try {
+		const { retreatId } = req.body;
+
+		// Check retreat access
+		const hasAccess = await checkRetreatAccess(req, retreatId);
+		if (!hasAccess) {
+			return res.status(403).json({ message: 'Forbidden - No access to this retreat' });
+		}
+
 		const newResponsability = await createResponsabilityService(req.body);
 		res.status(201).json(newResponsability);
 	} catch (error) {

@@ -77,7 +77,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			CREATE TABLE IF NOT EXISTS "participants" (
 				"id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 				"id_on_retreat" INTEGER NOT NULL,
-				"type" VARCHAR(255) NOT NULL CHECK ("type" IN ('walker', 'server', 'waiting')),
+				"type" VARCHAR(255) NOT NULL CHECK ("type" IN ('walker', 'server', 'waiting','partial_server')),
 				"first_name" VARCHAR(255) NOT NULL,
 				"last_name" VARCHAR(255) NOT NULL,
 				"nickname" VARCHAR(255),
@@ -439,7 +439,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			('superadmin', 'Super administrator with full system access'),
 			('admin', 'Retreat administrator with management permissions'),
 			('servidor', 'Server with read-only access'),
-			('tesorero', 'Treasurer with financial management permissions'),
+			('treasurer', 'Treasurer with financial management permissions'),
 			('logística', 'Logistics coordinator with logistics permissions'),
 			('palancas', 'Operations manager with operations permissions');
 		`);
@@ -549,7 +549,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 			if (permissions[perm]) {
 				await queryRunner.query(
 					`INSERT INTO "role_permissions" ("role_id", "permission_id") VALUES ($1, $2)`,
-					[roles.tesorero, permissions[perm]],
+					[roles.treasurer, permissions[perm]],
 				);
 			}
 		}

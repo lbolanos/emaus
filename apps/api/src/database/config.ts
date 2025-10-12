@@ -47,7 +47,7 @@ export function createDatabaseConfig() {
 		Permission,
 		Migration,
 		Payment,
-		ParticipantCommunication
+		ParticipantCommunication,
 		// Temporarily excluding entities with enum issues
 		// AuditLog,
 		// PermissionOverride,

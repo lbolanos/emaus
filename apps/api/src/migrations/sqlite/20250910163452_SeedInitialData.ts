@@ -56,10 +56,10 @@ export class SeedInitialData20250910163452 implements MigrationInterface {
 			// Create users for other roles
 			console.log('Creating users for other roles...');
 
-			// Admin user
+			// Region Admin user
 			const adminUserId = uuidv4();
 			const adminEmail = process.env.SEED_ADMIN_USER_EMAIL || 'admin@emaus.org';
-			const adminName = process.env.SEED_ADMIN_USER_NAME || 'Administrador';
+			const adminName = process.env.SEED_ADMIN_USER_NAME || 'Administrador Regional';
 			const adminPassword = process.env.SEED_ADMIN_USER_PASSWORD || 'admin123';
 			const adminHashedPassword = await bcrypt.hash(adminPassword, 10);
 
@@ -72,11 +72,11 @@ export class SeedInitialData20250910163452 implements MigrationInterface {
 				[adminUserId, adminEmail, adminName, adminHashedPassword],
 			);
 
-			// Server user
+			// Regular user
 			const serverUserId = uuidv4();
-			const serverEmail = process.env.SEED_SERVER_USER_EMAIL || 'servidor@emaus.org';
-			const serverName = process.env.SEED_SERVER_USER_NAME || 'Servidor';
-			const serverPassword = process.env.SEED_SERVER_USER_PASSWORD || 'servidor123';
+			const serverEmail = process.env.SEED_SERVER_USER_EMAIL || 'regular@emaus.org';
+			const serverName = process.env.SEED_SERVER_USER_NAME || 'Usuario Regular';
+			const serverPassword = process.env.SEED_SERVER_USER_PASSWORD || 'regular123';
 			const serverHashedPassword = await bcrypt.hash(serverPassword, 10);
 
 			await queryRunner.query(
@@ -90,7 +90,7 @@ export class SeedInitialData20250910163452 implements MigrationInterface {
 
 			// Treasurer user
 			const treasurerUserId = uuidv4();
-			const treasurerEmail = process.env.SEED_TREASURER_USER_EMAIL || 'tesorero@emaus.org';
+			const treasurerEmail = process.env.SEED_TREASURER_USER_EMAIL || 'treasurer@emaus.org';
 			const treasurerName = process.env.SEED_TREASURER_USER_NAME || 'Tesorero';
 			const treasurerPassword = process.env.SEED_TREASURER_USER_PASSWORD || 'tesorero123';
 			const treasurerHashedPassword = await bcrypt.hash(treasurerPassword, 10);
@@ -107,7 +107,7 @@ export class SeedInitialData20250910163452 implements MigrationInterface {
 			// Logistics user
 			const logisticsUserId = uuidv4();
 			const logisticsEmail = process.env.SEED_LOGISTICS_USER_EMAIL || 'logistica@emaus.org';
-			const logisticsName = process.env.SEED_LOGISTICS_USER_NAME || 'Logística';
+			const logisticsName = process.env.SEED_LOGISTICS_USER_NAME || 'Coordinador de Logística';
 			const logisticsPassword = process.env.SEED_LOGISTICS_USER_PASSWORD || 'logistica123';
 			const logisticsHashedPassword = await bcrypt.hash(logisticsPassword, 10);
 
@@ -120,10 +120,10 @@ export class SeedInitialData20250910163452 implements MigrationInterface {
 				[logisticsUserId, logisticsEmail, logisticsName, logisticsHashedPassword],
 			);
 
-			// Operations user
+			// Communications user
 			const operationsUserId = uuidv4();
 			const operationsEmail = process.env.SEED_OPERATIONS_USER_EMAIL || 'palancas@emaus.org';
-			const operationsName = process.env.SEED_OPERATIONS_USER_NAME || 'Palancas';
+			const operationsName = process.env.SEED_OPERATIONS_USER_NAME || 'Coordinador de Palancas';
 			const operationsPassword = process.env.SEED_OPERATIONS_USER_PASSWORD || 'palancas123';
 			const operationsHashedPassword = await bcrypt.hash(operationsPassword, 10);
 
@@ -140,7 +140,7 @@ export class SeedInitialData20250910163452 implements MigrationInterface {
 
 			// Get all role IDs
 			const allRoles = await queryRunner.query(
-				`SELECT id, name FROM "roles" WHERE "name" IN ('admin', 'servidor', 'tesorero', 'logística', 'palancas')`,
+				`SELECT id, name FROM "roles" WHERE "name" IN ('region_admin', 'regular', 'admin', 'treasurer', 'logistics', 'communications', 'regular_server')`,
 			);
 
 			const roleMap = new Map<string, string>();
@@ -151,58 +151,58 @@ export class SeedInitialData20250910163452 implements MigrationInterface {
 			// Assign roles to users
 			console.log('Assigning roles to users...');
 
-			// Assign admin role
-			if (roleMap.has('admin')) {
+			// Assign region admin role
+			if (roleMap.has('region_admin')) {
 				await queryRunner.query(
 					`
 				INSERT OR IGNORE INTO "user_roles" ("userId", "roleId", "createdAt")
 				VALUES (?, ?, CURRENT_TIMESTAMP)
 				`,
-					[adminUserId, roleMap.get('admin')],
+					[adminUserId, roleMap.get('region_admin')],
 				);
 			}
 
-			// Assign server role
-			if (roleMap.has('servidor')) {
+			// Assign regular role
+			if (roleMap.has('regular')) {
 				await queryRunner.query(
 					`
 				INSERT OR IGNORE INTO "user_roles" ("userId", "roleId", "createdAt")
 				VALUES (?, ?, CURRENT_TIMESTAMP)
 				`,
-					[serverUserId, roleMap.get('servidor')],
+					[serverUserId, roleMap.get('regular')],
 				);
 			}
 
-			// Assign treasurer role
-			if (roleMap.has('tesorero')) {
+			// Assign treasurer role (retreat role)
+			if (roleMap.has('treasurer')) {
 				await queryRunner.query(
 					`
 				INSERT OR IGNORE INTO "user_roles" ("userId", "roleId", "createdAt")
 				VALUES (?, ?, CURRENT_TIMESTAMP)
 				`,
-					[treasurerUserId, roleMap.get('tesorero')],
+					[treasurerUserId, roleMap.get('treasurer')],
 				);
 			}
 
-			// Assign logistics role
-			if (roleMap.has('logística')) {
+			// Assign logistics role (retreat role)
+			if (roleMap.has('logistics')) {
 				await queryRunner.query(
 					`
 				INSERT OR IGNORE INTO "user_roles" ("userId", "roleId", "createdAt")
 				VALUES (?, ?, CURRENT_TIMESTAMP)
 				`,
-					[logisticsUserId, roleMap.get('logística')],
+					[logisticsUserId, roleMap.get('logistics')],
 				);
 			}
 
-			// Assign operations role
-			if (roleMap.has('palancas')) {
+			// Assign communications role (retreat role)
+			if (roleMap.has('communications')) {
 				await queryRunner.query(
 					`
 				INSERT OR IGNORE INTO "user_roles" ("userId", "roleId", "createdAt")
 				VALUES (?, ?, CURRENT_TIMESTAMP)
 				`,
-					[operationsUserId, roleMap.get('palancas')],
+					[operationsUserId, roleMap.get('communications')],
 				);
 			}
 

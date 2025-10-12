@@ -4,6 +4,9 @@
       <div>
         <h1 class="text-2xl font-bold">Gestión de Roles del Retiro</h1>
         <p class="text-gray-600">Administra roles, invitaciones y permisos personalizados</p>
+        <p class="text-sm text-blue-600 mt-1">
+          Retiro seleccionado: ID {{ retreatId }}
+        </p>
       </div>
       <div class="flex gap-2">
         <Button @click="openInviteModal" :disabled="!isRetreatCreator">
@@ -132,6 +135,7 @@
     <!-- Invite Users Modal -->
     <InviteUsersModal
       :is-open="showInviteModal"
+      :retreat-id="retreatId"
       @close="showInviteModal = false"
     />
 
@@ -253,10 +257,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useToast } from '@repo/ui'
-import { 
+import {
   Card, CardHeader, CardTitle, CardDescription, CardContent,
-  Button, Badge, Dialog, DialogContent, DialogHeader, DialogTitle, 
-  DialogDescription, DialogFooter, Label, Input, Select, SelectTrigger, 
+  Button, Badge, Dialog, DialogContent, DialogHeader, DialogTitle,
+  DialogDescription, DialogFooter, Label, Input, Select, SelectTrigger,
   SelectValue, SelectContent, SelectGroup, SelectItem, Textarea, Switch
 } from '@repo/ui'
 import {
@@ -266,11 +270,11 @@ import {
 import InviteUsersModal from '@/components/InviteUsersModal.vue'
 import { useAuthStore } from '@/stores/authStore'
 import api from '@/services/api'
-import type { 
-  RoleRequest, 
-  UserRetreat, 
+import type {
+  RoleRequest,
+  UserRetreat,
   PermissionOverride,
-  User 
+  User
 } from '@repo/types'
 
 const route = useRoute()
@@ -323,7 +327,7 @@ const loadData = async () => {
       api.get(`/retreat-roles/retreat/${retreatId}/users`),
       api.get(`/role-requests/retreat/${retreatId}`)
     ])
-    
+
     retreatUsers.value = usersResponse.data
     pendingRequests.value = requestsResponse.data.filter((r: any) => r.status === 'pending')
   } catch (error) {
@@ -359,18 +363,18 @@ const rejectRequest = async (request: RoleRequest) => {
 
 const processRequestAction = async () => {
   if (!selectedRequest.value) return
-  
+
   try {
     await api.put(`/role-requests/${selectedRequest.value.id}`, {
       status: requestAction.value,
       rejectionReason: requestForm.value.rejectionReason
     })
-    
+
     toast({
       title: 'Solicitud procesada',
       description: `La solicitud ha sido ${requestAction.value === 'approve' ? 'aprobada' : 'rechazada'}`
     })
-    
+
     showRequestModal.value = false
     loadData()
   } catch (error) {
@@ -385,7 +389,7 @@ const processRequestAction = async () => {
 const openPermissionOverrides = async (user: UserRetreat) => {
   selectedUser.value = user
   showPermissionModal.value = true
-  
+
   try {
     const response = await api.get(`/permission-overrides/retreats/${retreatId}/users/${user.userId}/overrides`)
     permissionOverrides.value = response.data
@@ -408,18 +412,18 @@ const removePermissionOverride = (index: number) => {
 
 const savePermissionOverrides = async () => {
   if (!selectedUser.value) return
-  
+
   try {
     await api.post(`/permission-overrides/retreats/${retreatId}/users/${selectedUser.value.userId}/overrides`, {
       overrides: permissionOverrides.value,
       reason: overridesForm.value.reason
     })
-    
+
     toast({
       title: 'Permisos actualizados',
       description: 'Los permisos personalizados han sido guardados'
     })
-    
+
     showPermissionModal.value = false
     loadData()
   } catch (error) {
@@ -432,23 +436,24 @@ const savePermissionOverrides = async () => {
 }
 
 const removeUser = async (user: UserRetreat) => {
-  if (!confirm(`¿Estás seguro de que quieres eliminar al usuario ID: ${user.userId} del retiro?`)) {
+  if (!confirm(`¿Estás seguro de que quieres eliminar al usuario ID: ${user.userId} del retiro ID: ${retreatId}?`)) {
     return
   }
-  
+
   try {
-    await api.delete(`/retreat-roles/retreat/${retreatId}/users/${user.userId}`)
-    
+    await api.delete(`/retreat-roles/${retreatId}/users/${user.userId}`)
+
     toast({
       title: 'Usuario eliminado',
-      description: `Usuario ID: ${user.userId} ha sido eliminado del retiro`
+      description: `Usuario ID: ${user.userId} ha sido eliminado del retiro ID: ${retreatId}`
     })
-    
+
     loadData()
   } catch (error) {
+    console.error('Error removing user:', error)
     toast({
       title: 'Error',
-      description: 'No se pudo eliminar al usuario',
+      description: 'No se pudo eliminar al usuario del retiro seleccionado',
       variant: 'destructive'
     })
   }
@@ -457,10 +462,10 @@ const removeUser = async (user: UserRetreat) => {
 const getRoleBadgeVariant = (role: any) => {
   const variants: Record<string, any> = {
     'admin': 'default',
-    'servidor': 'secondary',
-    'tesorero': 'outline',
-    'logística': 'secondary',
-    'palancas': 'outline'
+    'regular_server': 'secondary',
+    'treasurer': 'outline',
+    'logistics': 'secondary',
+    'communications': 'outline'
   }
   return variants[role] || 'outline'
 }

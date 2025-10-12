@@ -286,7 +286,7 @@ const getRoleVariant = (role: string) => {
     'retreat_admin': 'default',
     'retreat_manager': 'secondary',
     'retreat_user': 'outline',
-    'tesorero': 'destructive'
+    'treasurer': 'destructive'
   }
   return variants[role] || 'outline'
 }
