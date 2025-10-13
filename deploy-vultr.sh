@@ -14,15 +14,18 @@ cd /var/www/emaus
 # Install dependencies
 echo "📦 Installing dependencies..."
 # Install dependencies with limited workers to save memory
-export NODE_OPTIONS="--max-old-space-size=2048"
+export NODE_OPTIONS="--max-old-space-size=1024"
+# Install pnpm
 curl -fsSL https://get.pnpm.io/install.sh | sh -
 export PNPM_HOME="$HOME/.local/share/pnpm"
 export PATH="$PNPM_HOME:$PATH"
-pnpm install --frozen-lockfile --reporter=append-only
+
+# Install with minimal memory and limited concurrency
+pnpm install --frozen-lockfile --reporter=append-only --shamefully-hoist=false
 
 # Build API
-echo "🔨 Building"
-pnpm build:lowmem
+echo "🔨 Building for VPS..."
+pnpm run build:vps
 
 
 # Install PM2 globally if not installed
