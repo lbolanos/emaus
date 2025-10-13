@@ -147,11 +147,8 @@ import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
 import Placeholder from '@tiptap/extension-placeholder';
-import CharacterCount from '@tiptap/extension-character-count';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
-import type { Extension } from '@tiptap/core';
-
 interface Props {
   modelValue?: string;
   placeholder?: string;
@@ -178,18 +175,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<Emits>();
 
-// Custom extension for character count
-const CustomCharacterCount: Extension = {
-  name: 'customCharacterCount',
-  addStorage() {
-    return {
-      count: 0,
-    };
-  },
-  onTransaction({ transaction }) {
-    (this.storage as any).count = transaction.doc.textContent.length;
-  },
-};
+
 
 const editor = useEditor({
   content: props.modelValue,
@@ -207,10 +193,7 @@ const editor = useEditor({
     Placeholder.configure({
       placeholder: props.placeholder
     }),
-    CharacterCount.configure({
-      limit: null
-    }),
-    CustomCharacterCount,
+
     Link.configure({
       openOnClick: false,
       linkOnPaste: true
