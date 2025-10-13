@@ -1,6 +1,13 @@
 #!/bin/bash
 set -e
 
+# Check if NEW_TAG is provided
+if [ -z "$NEW_TAG" ]; then
+    echo "❌ NEW_TAG environment variable is required"
+    echo "Usage: NEW_TAG=v0.0.3 ./create-release.sh"
+    exit 1
+fi
+
 echo "🚀 Creating GitHub Release for Emaus"
 
 # Check for required tools
@@ -115,17 +122,23 @@ while [ $WAIT_TIME -lt $MAX_WAIT ]; do
     # Check workflow runs status (only if we can access API)
     echo "🔍 Checking workflow status..."
 
-    WORKFLOW_URL="https://api.github.com/repos/$(git remote get-url origin | sed 's/.*github.com[:/]\([^/]*\)\/\(.*\)\.git/\1\/\2/')/actions/runs?event=push&per_page=5"
+    WORKFLOW_URL="https://api.github.com/repos/$(git remote get-url origin | sed 's/.*github.com[:/]\([^/]*\)\/\(.*\)\.git/\1\/\2/')/actions/runs?per_page=10"
 
     # Try to get workflow run for this specific tag
-    WORKFLOW_DATA=$(curl -s "$WORKFLOW_URL" -H "Authorization: token $(gh auth token 2>/dev/null || echo '')" 2>/dev/null)
+    GITHUB_TOKEN=$(gh auth token 2>/dev/null)
+    if [ $? -ne 0 ] || [ -z "$GITHUB_TOKEN" ]; then
+        echo "❌ Unable to get GitHub token"
+        WORKFLOW_DATA=""
+    else
+        WORKFLOW_DATA=$(curl -s "$WORKFLOW_URL" -H "Authorization: token $GITHUB_TOKEN" 2>/dev/null)
+    fi
 
     if [ $? -eq 0 ] && [ -n "$WORKFLOW_DATA" ]; then
         # Extract workflow run for the specific tag (try both current HEAD and tag name)
         CURRENT_SHA=$(git rev-parse HEAD)
 
-        # First try to find exact match for current tag or SHA
-        RUN_DATA=$(echo "$WORKFLOW_DATA" | jq -r ".workflow_runs[] | select(.head_sha == \"$CURRENT_SHA\" or (.head_branch == \"$NEW_TAG\" and .event == \"push\")) | {id: .id, status: .status, conclusion: .conclusion, html_url: .html_url, jobs_url: .jobs_url}" 2>/dev/null | head -1)
+        # First try to find exact match for current tag or SHA (look for tag push events)
+        RUN_DATA=$(echo "$WORKFLOW_DATA" | jq -r ".workflow_runs[] | select(.head_sha == \"$CURRENT_SHA\" or (.head_branch == \"$NEW_TAG\" and .event == \"push\") or (.event == \"push\" and (.head_branch | contains(\"$NEW_TAG\")))) | {id: .id, status: .status, conclusion: .conclusion, html_url: .html_url, jobs_url: .jobs_url}" 2>/dev/null | head -1)
 
         # If no exact match found, look for the most recent "Build and Release" workflow
         if [ -z "$RUN_DATA" ] || [ "$RUN_DATA" = "null" ]; then
@@ -145,7 +158,7 @@ while [ $WAIT_TIME -lt $MAX_WAIT ]; do
             if [ "$STATUS" = "in_progress" ] || [ "$STATUS" = "queued" ] || [ "$CONCLUSION" = "failure" ]; then
                 if [ -n "$JOBS_URL" ] && [ "$JOBS_URL" != "null" ]; then
                     echo "🔍 Fetching job details..."
-                    JOBS_DATA=$(curl -s "$JOBS_URL" -H "Authorization: token $(gh auth token 2>/dev/null || echo '')" 2>/dev/null)
+                    JOBS_DATA=$(curl -s "$JOBS_URL" -H "Authorization: token $GITHUB_TOKEN" 2>/dev/null)
 
                     if [ $? -eq 0 ] && [ -n "$JOBS_DATA" ]; then
                         echo "📋 Job Status:"
@@ -187,7 +200,10 @@ while [ $WAIT_TIME -lt $MAX_WAIT ]; do
             echo "DEBUG: WORKFLOW_DATA length: $(echo "$WORKFLOW_DATA" | wc -c)"
             echo "DEBUG: Current SHA: $CURRENT_SHA"
             echo "DEBUG: Looking for tag: $NEW_TAG"
-            echo "DEBUG: Currently running task: Monitoring GitHub Actions workflow for release $NEW_TAG"
+            echo "DEBUG: API response preview:"
+            echo "$WORKFLOW_DATA" | head -c 200
+            echo ""
+            echo "DEBUG: Total workflow runs: $(echo "$WORKFLOW_DATA" | jq -r '.total_count // 0' 2>/dev/null || echo "0")"
         fi
     else
         echo "⚠️ Could not access GitHub API"

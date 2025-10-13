@@ -45,48 +45,22 @@ jobs:
         # List files
         ls -la *.tar.gz
 
-    - name: Create GitHub Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        body: |
-          ## Changes
-
-          This release contains the built assets for Emaus Retreat Management System.
-
-          ### Installation
-
-          Download the appropriate archives for your deployment:
-          - `web-dist.tar.gz` - Frontend application
-          - `api-dist.tar.gz` - Backend API
-
-          ### Deployment
-
-          Extract the archives to your web server and configure according to your deployment requirements.
-
-        draft: false
-        prerelease: false
-
-    - name: Upload web assets
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./web-dist.tar.gz
-        asset_name: web-dist.tar.gz
-        asset_content_type: application/gzip
-
-    - name: Upload API assets
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./api-dist.tar.gz
-        asset_name: api-dist.tar.gz
-        asset_content_type: application/gzip
+    - name: Build Summary
+      run: |
+        echo "✅ Build completed successfully!"
+        echo "📊 Build artifacts:"
+        ls -lh *.tar.gz
+        echo ""
+        echo "📝 Manual Release Creation Steps:"
+        echo "1. Go to: https://github.com/${{ github.repository }}/releases/new"
+        echo "2. Choose tag: ${{ github.ref_name }}"
+        echo "3. Title: Release ${{ github.ref_name }}"
+        echo "4. Upload these files:"
+        echo "   - web-dist.tar.gz"
+        echo "   - api-dist.tar.gz"
+        echo "5. Publish the release"
+        echo ""
+        echo "🚀 Then deploy from your VPS:"
+        echo "export GITHUB_REPO=${{ github.repository }}"
+        echo "export RELEASE_TAG=${{ github.ref_name }}"
+        echo "./release-from-github.sh"
