@@ -7,7 +7,7 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "lint": "eslint src --ext .ts,.vue --max-warnings 0",
-    "build": "vite build",
+    "build": "NODE_OPTIONS='--max-old-space-size=8192' vite build",
     "clean": "rm -rf dist .turbo 2>/dev/null || true"
   },
   "dependencies": {

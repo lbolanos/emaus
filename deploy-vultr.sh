@@ -19,12 +19,9 @@ export PATH="$PNPM_HOME:$PATH"
 pnpm install --frozen-lockfile
 
 # Build API
-echo "🔨 Building API..."
-pnpm --filter api build
+echo "🔨 Building"
+pnpm build:lowmem
 
-# Build Web
-echo "🔨 Building web frontend..."
-pnpm --filter web build
 
 # Install PM2 globally if not installed
 if ! command -v pm2 &> /dev/null; then

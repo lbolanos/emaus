@@ -2,7 +2,9 @@
   "name": "emaus",
   "private": true,
   "scripts": {
-    "build": "turbo build",
+    "build": "NODE_OPTIONS='--max-old-space-size=16384' turbo build",
+    "build:lowmem": "NODE_OPTIONS='--max-old-space-size=3072' turbo build --concurrency=2",
+    "build:prod": "NODE_OPTIONS='--max-old-space-size=4096' turbo build --concurrency=1",
     "dev": "turbo dev",
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",

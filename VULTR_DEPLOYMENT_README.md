@@ -88,8 +88,8 @@ The deployment scripts work with any VPS provider that offers:
    ```bash
    #export database_password='YOUR_STRONG_DB_PASSWORD'
    #export api_url='https://yourdomain.com'
-   export frontend_url='https://yourdomain.com'   
-   export domain_name='yourdomain.com'
+   export frontend_url='https://emaus.cc'   
+   export domain_name='emaus.cc'
    ```
 
 3. **Run the setup script**
@@ -126,12 +126,12 @@ The deployment scripts work with any VPS provider that offers:
    Edit the environment files:
    ```bash
    # Edit API environment (apps/api/.env)
-   nano apps/api/.env
+   nano /var/www/emaus/apps/api/.env
    # Replace $database_password with your actual password
    # Replace $frontend_url with your domain
 
    # Edit web environment (apps/web/.env)
-   nano apps/web/.env
+   nano /var/www/emaus/apps/web/.env
    # Replace $api_url with your domain
    ```
 
@@ -142,6 +142,7 @@ The deployment scripts work with any VPS provider that offers:
    export frontend_url='https://yourdomain.com'
    export domain_name='yourdomain.com'
 
+   cd /var/www/emaus
    bash deploy-vultr.sh
    ```
 
