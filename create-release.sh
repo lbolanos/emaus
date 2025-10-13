@@ -93,12 +93,14 @@ fi
 
 # Wait for workflow to complete (basic check)
 echo "🔍 Monitoring GitHub Actions workflow..."
-MAX_WAIT=900  # 15 minutes (GitHub Actions timeout is usually 6 hours, but 15 min gives good feedback)
+MAX_WAIT=1800  # 30 minutes (GitHub Actions timeout is usually 6 hours, but 30 min gives good feedback)
 WAIT_TIME=0
 WORKFLOW_SUCCESS=false
 WORKFLOW_FAILED=false
 
 while [ $WAIT_TIME -lt $MAX_WAIT ]; do
+    echo "🔄 Task: Monitoring GitHub Actions workflow for release $NEW_TAG ($(date +%H:%M:%S))"
+
     # Check if release exists (success)
     if gh release view "$NEW_TAG" &> /dev/null; then
         echo ""
@@ -121,14 +123,44 @@ while [ $WAIT_TIME -lt $MAX_WAIT ]; do
     if [ $? -eq 0 ] && [ -n "$WORKFLOW_DATA" ]; then
         # Extract workflow run for the specific tag (try both current HEAD and tag name)
         CURRENT_SHA=$(git rev-parse HEAD)
-        RUN_DATA=$(echo "$WORKFLOW_DATA" | jq -r ".workflow_runs[] | select(.head_sha == \"$CURRENT_SHA\" or (.head_branch == \"$NEW_TAG\" and .event == \"push\")) | {status: .status, conclusion: .conclusion, html_url: .html_url}" 2>/dev/null | head -1)
 
-        if [ -n "$RUN_DATA" ]; then
+        # First try to find exact match for current tag or SHA
+        RUN_DATA=$(echo "$WORKFLOW_DATA" | jq -r ".workflow_runs[] | select(.head_sha == \"$CURRENT_SHA\" or (.head_branch == \"$NEW_TAG\" and .event == \"push\")) | {id: .id, status: .status, conclusion: .conclusion, html_url: .html_url, jobs_url: .jobs_url}" 2>/dev/null | head -1)
+
+        # If no exact match found, look for the most recent "Build and Release" workflow
+        if [ -z "$RUN_DATA" ] || [ "$RUN_DATA" = "null" ]; then
+            echo "🔍 No exact match found, looking for most recent Build and Release workflow..."
+            RUN_DATA=$(echo "$WORKFLOW_DATA" | jq -r '.workflow_runs[] | select(.name == "Build and Release") | {id: .id, status: .status, conclusion: .conclusion, html_url: .html_url, jobs_url: .jobs_url}' 2>/dev/null | head -1)
+        fi
+
+        if [ -n "$RUN_DATA" ] && [ "$RUN_DATA" != "null" ]; then
             STATUS=$(echo "$RUN_DATA" | jq -r '.status // empty' 2>/dev/null || echo "unknown")
             CONCLUSION=$(echo "$RUN_DATA" | jq -r '.conclusion // empty' 2>/dev/null || echo "unknown")
             HTML_URL=$(echo "$RUN_DATA" | jq -r '.html_url // empty' 2>/dev/null || echo "")
+            JOBS_URL=$(echo "$RUN_DATA" | jq -r '.jobs_url // empty' 2>/dev/null || echo "")
 
-            echo "📊 Status: $STATUS, Conclusion: $CONCLUSION"
+            echo "📊 Workflow Status: $STATUS, Conclusion: $CONCLUSION"
+
+            # If workflow is in progress or failed, fetch job details
+            if [ "$STATUS" = "in_progress" ] || [ "$STATUS" = "queued" ] || [ "$CONCLUSION" = "failure" ]; then
+                if [ -n "$JOBS_URL" ] && [ "$JOBS_URL" != "null" ]; then
+                    echo "🔍 Fetching job details..."
+                    JOBS_DATA=$(curl -s "$JOBS_URL" -H "Authorization: token $(gh auth token 2>/dev/null || echo '')" 2>/dev/null)
+
+                    if [ $? -eq 0 ] && [ -n "$JOBS_DATA" ]; then
+                        echo "📋 Job Status:"
+                        echo "$JOBS_DATA" | jq -r '.jobs[] | "  • \(.name): \(.status) \(.conclusion // "running")"' 2>/dev/null || echo "  Could not fetch job details"
+
+                        # Show currently running or recently failed job
+                        CURRENT_JOB=$(echo "$JOBS_DATA" | jq -r '.jobs[] | select(.status == "in_progress" or (.status == "completed" and .conclusion == "failure")) | .name' 2>/dev/null | head -1)
+                        if [ -n "$CURRENT_JOB" ] && [ "$CURRENT_JOB" != "null" ]; then
+                            echo "🎯 Current focus: $CURRENT_JOB"
+                        fi
+                    else
+                        echo "  Could not fetch job details"
+                    fi
+                fi
+            fi
 
             if [ "$CONCLUSION" = "failure" ] || [ "$CONCLUSION" = "timed_out" ] || [ "$CONCLUSION" = "action_required" ]; then
                 echo ""
@@ -152,6 +184,10 @@ while [ $WAIT_TIME -lt $MAX_WAIT ]; do
             fi
         else
             echo "⏳ Looking for workflow run..."
+            echo "DEBUG: WORKFLOW_DATA length: $(echo "$WORKFLOW_DATA" | wc -c)"
+            echo "DEBUG: Current SHA: $CURRENT_SHA"
+            echo "DEBUG: Looking for tag: $NEW_TAG"
+            echo "DEBUG: Currently running task: Monitoring GitHub Actions workflow for release $NEW_TAG"
         fi
     else
         echo "⚠️ Could not access GitHub API"
