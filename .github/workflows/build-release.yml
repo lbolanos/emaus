@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*.*.*'
 
+permissions:
+  contents: write  # Required for creating releases and uploading assets
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -42,25 +45,83 @@ jobs:
         tar -czf ../../../api-dist.tar.gz .
         cd ../../..
 
-        # List files
+        # List files for verification
         ls -la *.tar.gz
+
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        cat << EOF > release_notes.md
+        ## Release ${{ github.ref_name }}
+        
+        ### 📦 Build Artifacts
+        - \`web-dist.tar.gz\` - Web application distribution
+        - \`api-dist.tar.gz\` - API server distribution
+        
+        ### 🚀 Deployment Instructions
+        
+        Download and deploy using the release script:
+        
+        \`\`\`bash
+        export GITHUB_REPO=${{ github.repository }}
+        export RELEASE_TAG=${{ github.ref_name }}
+        ./release-from-github.sh
+        \`\`\`
+        
+        Or manually download and extract:
+        
+        \`\`\`bash
+        # Download artifacts
+        wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/web-dist.tar.gz
+        wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/api-dist.tar.gz
+        
+        # Extract
+        tar -xzf web-dist.tar.gz -C /path/to/web
+        tar -xzf api-dist.tar.gz -C /path/to/api
+        \`\`\`
+        
+        ### 📊 Build Information
+        - **Node Version:** 20
+        - **Build Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        - **Commit:** ${{ github.sha }}
+        EOF
+        
+        echo "Release notes generated"
+
+    - name: Create GitHub Release
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: Release ${{ github.ref_name }}
+        body_path: release_notes.md
+        draft: false
+        prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'rc') }}
+        files: |
+          web-dist.tar.gz
+          api-dist.tar.gz
+        fail_on_unmatched_files: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Build Summary
       run: |
-        echo "✅ Build completed successfully!"
-        echo "📊 Build artifacts:"
-        ls -lh *.tar.gz
-        echo ""
-        echo "📝 Manual Release Creation Steps:"
-        echo "1. Go to: https://github.com/${{ github.repository }}/releases/new"
-        echo "2. Choose tag: ${{ github.ref_name }}"
-        echo "3. Title: Release ${{ github.ref_name }}"
-        echo "4. Upload these files:"
-        echo "   - web-dist.tar.gz"
-        echo "   - api-dist.tar.gz"
-        echo "5. Publish the release"
-        echo ""
-        echo "🚀 Then deploy from your VPS:"
-        echo "export GITHUB_REPO=${{ github.repository }}"
-        echo "export RELEASE_TAG=${{ github.ref_name }}"
-        echo "./release-from-github.sh"
+        echo "✅ Build and Release completed successfully!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 📦 Released Artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| File | Size |" >> $GITHUB_STEP_SUMMARY
+        echo "|------|------|" >> $GITHUB_STEP_SUMMARY
+        echo "| web-dist.tar.gz | $(ls -lh web-dist.tar.gz | awk '{print $5}') |" >> $GITHUB_STEP_SUMMARY
+        echo "| api-dist.tar.gz | $(ls -lh api-dist.tar.gz | awk '{print $5}') |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 🔗 Release URL" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 🚀 Deploy Commands" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo '```bash' >> $GITHUB_STEP_SUMMARY
+        echo "export GITHUB_REPO=${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
+        echo "export RELEASE_TAG=${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "./release-from-github.sh" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
