@@ -226,12 +226,11 @@ router.beforeEach(async (to, from, next) => {
 			return;
 		}
 
-		if (retreatStore.retreats.length > 0) {
-			if (!retreatStore.selectedRetreatId) {
-				retreatStore.selectedRetreatId = retreatStore.retreats[0].id;
-			}
+		if (retreatStore.retreats.length > 0 && retreatStore.selectedRetreatId) {
+			// Only redirect to dashboard if we have retreats and a selected retreat
 			next({ name: 'retreat-dashboard', params: { id: retreatStore.selectedRetreatId } });
 		} else {
+			// Fallback to walkers if no retreats or no selected retreat
 			next({ name: 'walkers' });
 		}
 	} else {
