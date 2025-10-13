@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "vite",
     "build": "NODE_OPTIONS='--max-old-space-size=2048' vue-tsc && NODE_OPTIONS='--max-old-space-size=2048' vite build",
-    "build:vps": "NODE_OPTIONS='--max-old-space-size=1024' vue-tsc && NODE_OPTIONS='--max-old-space-size=1024' vite build --mode development",
+    "build:vps": "NODE_OPTIONS='--max-old-space-size=256' vue-tsc --noEmit --skipLibCheck && NODE_OPTIONS='--max-old-space-size=256' vite build --mode development --sourcemap false --minify false",
     "preview": "vite preview",
     "clean": "rm -rf dist .turbo .vite node_modules/.tmp 2>/dev/null || true",
     "lint": "eslint src --ext .vue,.ts,.js"
