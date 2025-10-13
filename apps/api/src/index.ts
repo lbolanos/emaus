@@ -1,6 +1,11 @@
 import 'reflect-metadata';
-import './types/session';
 import express from 'express';
+
+declare module 'express-session' {
+  interface SessionData {
+    csrfToken?: string;
+  }
+}
 import 'express-async-errors';
 import cors from 'cors';
 import session from 'express-session';
@@ -86,7 +91,7 @@ app.get('/health', (req, res) => {
 
 // Ruta para obtener token CSRF
 app.get('/api/csrf-token', (req, res) => {
-	console.log('DEBUG: Generating CSRF token for path:', req.path);
+	//console.log('DEBUG: Generating CSRF token for path:', req.path);
 	res.json({ csrfToken: req.session.csrfToken });
 });
 
