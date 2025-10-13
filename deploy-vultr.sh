@@ -13,7 +13,7 @@ cd /var/www/emaus
 
 # Install dependencies
 echo "📦 Installing dependencies..."
-curl -fsSL https://get.pnpm.io/install.sh | sh -
+#curl -fsSL https://get.pnpm.io/install.sh | sh -
 export PNPM_HOME="$HOME/.local/share/pnpm"
 export PATH="$PNPM_HOME:$PATH"
 pnpm install --frozen-lockfile
