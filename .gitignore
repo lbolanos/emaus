@@ -1,6 +1,6 @@
 .gemini/
 .turbo/
-.github/
+# .github/  # Uncomment if you want GitHub Actions workflows tracked
 .env
 dist/
 gha-creds-*.json

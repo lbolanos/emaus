@@ -1,0 +1,92 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'pnpm'
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 8
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Build application
+      run: pnpm build
+
+    - name: Create release archives
+      run: |
+        # Create web app archive
+        cd apps/web/dist
+        tar -czf ../../../web-dist.tar.gz .
+        cd ../../..
+
+        # Create API archive
+        cd apps/api/dist
+        tar -czf ../../../api-dist.tar.gz .
+        cd ../../..
+
+        # List files
+        ls -la *.tar.gz
+
+    - name: Create GitHub Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        body: |
+          ## Changes
+
+          This release contains the built assets for Emaus Retreat Management System.
+
+          ### Installation
+
+          Download the appropriate archives for your deployment:
+          - `web-dist.tar.gz` - Frontend application
+          - `api-dist.tar.gz` - Backend API
+
+          ### Deployment
+
+          Extract the archives to your web server and configure according to your deployment requirements.
+
+        draft: false
+        prerelease: false
+
+    - name: Upload web assets
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./web-dist.tar.gz
+        asset_name: web-dist.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload API assets
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./api-dist.tar.gz
+        asset_name: api-dist.tar.gz
+        asset_content_type: application/gzip
