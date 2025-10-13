@@ -2,6 +2,9 @@
 
 This repository contains the monorepo for the Retreat Logistics Management System, a full-stack application designed to manage religious retreats.
 
+
+El logotipo de Emaús Hombres, consiste en dos simples figuras, pragmáticas y superpuestas: la pri- mera es una cruz vacía o de color blanca, con bordes en color dorado, que se extiende desde la parte inferior; y la segunda figura, es una rosa roja, que aparece erguida desde la base de la cruz, hasta llegar al centro de ésta, con sus pétalos abiertos y extendidos.
+
 ## Tech Stack
 
 - **Monorepo:** pnpm Workspaces + Turborepo
