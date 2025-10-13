@@ -150,7 +150,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import CharacterCount from '@tiptap/extension-character-count';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
-import { Extension } from '@tiptap/core';
+import type { Extension } from '@tiptap/core';
 
 interface Props {
   modelValue?: string;
@@ -179,7 +179,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>();
 
 // Custom extension for character count
-const CustomCharacterCount = Extension.create({
+const CustomCharacterCount: Extension = {
   name: 'customCharacterCount',
   addStorage() {
     return {
@@ -187,9 +187,9 @@ const CustomCharacterCount = Extension.create({
     };
   },
   onTransaction({ transaction }) {
-    this.storage.count = transaction.doc.textContent.length;
+    (this.storage as any).count = transaction.doc.textContent.length;
   },
-});
+};
 
 const editor = useEditor({
   content: props.modelValue,
