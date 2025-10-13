@@ -18,17 +18,37 @@ passport.use(
 		async (accessToken, refreshToken, profile, done) => {
 			const userRepository = AppDataSource.getRepository(User);
 			try {
-				const user = await userRepository.findOne({ where: { googleId: profile.id } });
+				// First, check if user already exists with this Google ID
+				const userByGoogleId = await userRepository.findOne({ where: { googleId: profile.id } });
 
-				if (user) {
-					return done(null, user);
+				if (userByGoogleId) {
+					return done(null, userByGoogleId);
 				}
 
+				// Check if user exists with this email (previously registered locally)
+				const userEmail = profile.emails?.[0].value;
+				if (userEmail) {
+					const userByEmail = await userRepository.findOne({ where: { email: userEmail } });
+
+					if (userByEmail) {
+						// Link Google account to existing user
+						userByEmail.googleId = profile.id;
+						userByEmail.photo = profile.photos?.[0].value || userByEmail.photo;
+						// Update display name if Google provides one and current one is different
+						if (profile.displayName && profile.displayName !== userByEmail.displayName) {
+							userByEmail.displayName = profile.displayName;
+						}
+						await userRepository.save(userByEmail);
+						return done(null, userByEmail);
+					}
+				}
+
+				// Create new user if neither Google ID nor email exists
 				const newUser = userRepository.create({
 					id: uuidv4(),
 					googleId: profile.id,
 					displayName: profile.displayName,
-					email: profile.emails?.[0].value || '',
+					email: userEmail || '',
 					photo: profile.photos?.[0].value,
 				});
 
