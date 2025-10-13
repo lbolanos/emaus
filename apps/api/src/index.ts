@@ -75,6 +75,15 @@ app.use((req, res, next) => PerformanceMiddleware.optimizeDatabaseQueries(req as
 // Generar token CSRF para todas las peticiones
 app.use(csrfMiddleware.generateToken);
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+	res.json({
+		status: 'ok',
+		timestamp: new Date().toISOString(),
+		service: 'emaus-api'
+	});
+});
+
 // Ruta para obtener token CSRF
 app.get('/api/csrf-token', (req, res) => {
 	console.log('DEBUG: Generating CSRF token for path:', req.path);

@@ -1,0 +1,41 @@
+services:
+  # API Service
+  - type: web
+    name: emaus-api
+    env: node
+    plan: free
+    repo: https://github.com/lbolanos/emaus
+    rootDir: .
+    buildCommand: ./build.sh
+    startCommand: ./start.sh
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_TYPE
+        value: postgresql
+      - key: DATABASE_URL
+        fromDatabase:
+          name: emaus-db
+          property: connectionString
+    autoDeploy: yes
+
+  # Web Frontend Service
+  - type: web
+    name: emaus-web
+    env: static
+    plan: free
+    repo: https://github.com/lbolanos/emaus
+    rootDir: .
+    buildCommand: ./build-web.sh
+    staticPublishPath: ./apps/web/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://emaus-api.onrender.com
+    autoDeploy: yes
+
+databases:
+  - name: emaus-db
+    plan: free
+    databaseName: emaus
+    user: emaus_user

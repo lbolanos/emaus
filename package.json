@@ -12,7 +12,9 @@
     "migration:create": "pnpm --filter api migration:create",
     "migration:show": "pnpm --filter api migration:show",
     "migration:revert": "pnpm --filter api migration:revert",
-    "db:seed": "pnpm --filter api db:seed"
+    "db:seed": "pnpm --filter api db:seed",
+    "render-build": "pnpm install --frozen-lockfile && pnpm --filter api build",
+    "render-start": "cd apps/api && pnpm start"
   },
   "devDependencies": {
     "eslint": "^8.57.0",
