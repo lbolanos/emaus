@@ -17,6 +17,7 @@
               id="email"
               type="email"
               placeholder="user@example.com"
+              autocomplete="email"
               required
               v-model="email"
             />
@@ -28,7 +29,7 @@
                 {{ $t('login.forgotPassword') }}
               </router-link>
             </div>
-            <Input id="password" type="password" required v-model="password" />
+            <Input id="password" type="password" autocomplete="current-password" required v-model="password" />
           </div>
           <div v-if="error" class="text-destructive text-sm">
             {{ error }}
