@@ -26,9 +26,9 @@ jobs:
       run: pnpm install --frozen-lockfile
 
     - name: Build application
-      run: NODE_OPTIONS='--max-old-space-size=4096' pnpm build
+      run: NODE_OPTIONS='--max-old-space-size=6144' pnpm build
       env:
-        NODE_OPTIONS: '--max-old-space-size=4096'
+        NODE_OPTIONS: '--max-old-space-size=6144'
 
     - name: Create release archives
       run: |
