@@ -299,7 +299,7 @@ fi
 # Run database migrations
 echo -e "${BLUE}🗄️  Running database migrations...${NC}"
 cd apps/api
-if pnpm migration:run; then
+if pnpm migration:run:prod; then
     echo -e "${GREEN}✅ Migrations completed${NC}"
 else
     echo -e "${YELLOW}⚠️  Migration warnings (this might be okay)${NC}"

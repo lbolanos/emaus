@@ -295,5 +295,8 @@ Select text "¡Feliz cumpleaños" y clic en boton negrillas.
 Fix any issue with text changes
 
 lsof -ti:3001 | xargs -r kill -9
+git tag -d v0.0.1
+git push origin --delete v0.0.1
+pm2 restart emaus-api
 enhance usability of
 enhance with user experience
