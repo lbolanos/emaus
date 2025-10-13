@@ -67,7 +67,8 @@ install_packages
 
 # Install pnpm
 echo "📦 Installing pnpm..."
-curl -fsSL https://get.pnpm.io/install.sh | sh -
+#curl -fsSL https://get.pnpm.io/install.sh | sh -
+npm install -g pnpm
 export PNPM_HOME="$HOME/.local/share/pnpm"
 export PATH="$PNPM_HOME:$PATH"
 
