@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "NODE_OPTIONS='--max-old-space-size=8192' vue-tsc && NODE_OPTIONS='--max-old-space-size=8192' vite build",
+    "build": "NODE_OPTIONS='--max-old-space-size=4096' vue-tsc && NODE_OPTIONS='--max-old-space-size=4096' vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist .turbo .vite node_modules/.tmp 2>/dev/null || true",
     "lint": "eslint src --ext .vue,.ts,.js"

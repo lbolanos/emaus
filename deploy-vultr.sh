@@ -13,10 +13,12 @@ cd /var/www/emaus
 
 # Install dependencies
 echo "📦 Installing dependencies..."
-#curl -fsSL https://get.pnpm.io/install.sh | sh -
+# Install dependencies with limited workers to save memory
+export NODE_OPTIONS="--max-old-space-size=2048"
+curl -fsSL https://get.pnpm.io/install.sh | sh -
 export PNPM_HOME="$HOME/.local/share/pnpm"
 export PATH="$PNPM_HOME:$PATH"
-pnpm install --frozen-lockfile
+pnpm install --frozen-lockfile --reporter=append-only
 
 # Build API
 echo "🔨 Building"
