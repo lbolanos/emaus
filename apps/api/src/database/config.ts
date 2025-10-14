@@ -22,10 +22,13 @@ import { Payment } from '../entities/payment.entity';
 import { GlobalMessageTemplate } from '../entities/globalMessageTemplate.entity';
 import { ParticipantCommunication } from '../entities/participantCommunication.entity';
 
+import { Session } from '../entities/session.entity';
+
 export function createDatabaseConfig() {
 	const dbType = process.env.DB_TYPE || 'sqlite';
 
 	const entities = [
+    Session,
 		House,
 		Bed,
 		Retreat,

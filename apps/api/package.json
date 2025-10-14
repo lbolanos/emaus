@@ -7,7 +7,7 @@
     "dev": "vite-node --require dotenv/config src/index.ts",
     "dev:postgres": "DB_TYPE=postgresql pnpm dev",
     "dev:sqlite": "DB_TYPE=sqlite pnpm dev",
-    "build": "tsc",
+    "build": "vite build && tsc -p tsconfig.migrations.json",
     "start": "node dist/index.js",
     "clean": "rm -rf dist .turbo node_modules/.tmp 2>/dev/null || true",
     "lint": "eslint src --ext .ts",
@@ -31,6 +31,7 @@
     "migration:show:sqlite": "DB_TYPE=sqlite pnpm migration:show"
   },
   "dependencies": {
+    "connect-typeorm": "^2.0.0",
     "@repo/types": "workspace:*",
     "@repo/utils": "workspace:*",
     "@types/node-cron": "^3.0.11",
@@ -58,6 +59,7 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "vite-plugin-node": "^3.0.0",
     "@repo/config": "workspace:*",
     "@repo/tsconfig": "workspace:*",
     "@types/bcrypt": "^5.0.2",

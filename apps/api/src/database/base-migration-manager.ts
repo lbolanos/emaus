@@ -1,4 +1,10 @@
 import { DataSource, QueryRunner as TypeORMQueryRunner } from 'typeorm';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import {
 	DatabaseType,
 	MigrationInfo,
@@ -305,22 +311,30 @@ export class ${this.camelize(timestamp)}${this.camelize(name)} implements Migrat
 	}
 
 	protected async getAllMigrations(): Promise<MigrationInfo[]> {
-		const fs = require('fs');
-		const path = require('path');
-
 		try {
-			// Use absolute path for migrations directory
-			const absolutePath = path.resolve(process.cwd(), this.migrationsPath);
+			const isProd = __filename.includes('/dist/');
+			const fileExtension = isProd ? '.js' : '.ts';
+			const migrationsDir = isProd
+				? this.migrationsPath.replace('/src/', '/dist/')
+				: this.migrationsPath;
+
+			const absolutePath = path.resolve(process.cwd(), migrationsDir);
+			if (!fs.existsSync(absolutePath)) {
+				console.warn(`Migrations directory not found: ${absolutePath}`);
+				return [];
+			}
+
 			const migrationFiles = fs
 				.readdirSync(absolutePath)
-				.filter((file: string) => file.endsWith('.ts'))
+				.filter((file: string) => file.endsWith(fileExtension))
 				.sort();
 
 			const migrations: MigrationInfo[] = [];
+			const matchRegex = new RegExp(`(\\d{14})_(.+)\\${fileExtension}$`);
 
 			for (const file of migrationFiles) {
 				const filePath = path.join(absolutePath, file);
-				const match = file.match(/(\d{14})_(.+)\.ts$/);
+				const match = file.match(matchRegex);
 
 				if (match) {
 					const [, timestamp, name] = match;

@@ -245,4 +245,53 @@ Your Emaus application supports **multiple deployment strategies** - choose what
 
 All methods include automatic SSL, nginx configuration, PM2 process management, and database backup scripts.
 
+
+Step 1: Initial Deployment (HTTP only)
+bashCopy# Use the pre-SSL config
+cp nginx-pre-ssl.conf nginx.conf
+
+# Deploy your application
+domain_name=yourdomain.com ./deploy.sh
+Step 2: Setup SSL
+bashCopy# Create certbot webroot directory
+sudo mkdir -p /var/www/certbot
+
+# Run SSL setup
+domain_name=yourdomain.com CERTBOT_EMAIL=your@email.com ./ssl-setup.sh
+Step 3: Update to HTTPS config
+After SSL is obtained, the certbot will automatically update your nginx config. Or you can manually update it:
+bashCopy# Backup current config
+sudo cp /etc/nginx/sites-available/emaus /etc/nginx/sites-available/emaus.backup
+
+# Update with the full HTTPS config provided above
+# Make sure to replace $domain_name with your actual domain
+sudo nano /etc/nginx/sites-available/emaus
+
+# Test and reload
+sudo nginx -t
+sudo systemctl reload nginx
+Testing:
+bashCopy# Test HTTP redirect
+curl -I http://yourdomain.com
+
+# Test HTTPS
+curl -I https://yourdomain.com
+
+# Test SSL certificate
+openssl s_client -connect yourdomain.com:443 -servername yourdomain.com
+
+# Check SSL rating (optional)
+# Visit: https://www.ssllabs.com/ssltest/analyze.html?d=yourdomain.com
+Files to Change Summary:
+
+nginx.conf - Your main nginx configuration (choose pre-SSL or full HTTPS version)
+apps/web/.env.production - Update API URL to use HTTPS:
+envCopyVITE_API_URL=https://yourdomain.com/api
+
+
+Auto-conversion Script
+Here's a script that automatically converts your nginx config after SSL setup:
+convert-to-https.sh:
+
+
 **Happy deploying! 🚀**

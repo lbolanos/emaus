@@ -86,8 +86,16 @@
         <div v-if="currentStep === 2" class="grid gap-4 py-4">
           <h3 class="font-semibold text-lg text-center">Step 2: Capacity</h3>
           <div class="grid grid-cols-4 items-center gap-4">
-            <Label for="capacity" class="text-right">Bed Capacity</Label>
-            <Input id="capacity" :model-value="formData.beds.length" type="number" class="col-span-3" required disabled />
+            <Label for="totalCapacity" class="text-right">Total Capacity</Label>
+            <Input id="totalCapacity" :model-value="totalCapacity" type="number" class="col-span-3" disabled />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="caminanteCapacity" class="text-right">Caminante Capacity</Label>
+            <Input id="caminanteCapacity" :model-value="caminanteCapacity" type="number" class="col-span-3" disabled />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="servidorCapacity" class="text-right">Servidor Capacity</Label>
+            <Input id="servidorCapacity" :model-value="servidorCapacity" type="number" class="col-span-3" disabled />
           </div>
           <div class="mt-4">
             <h3 class="font-semibold">Beds</h3>
@@ -250,6 +258,16 @@ const step2Schema = z.object({
 const step3Schema = z.object({
   notes: z.string().optional(),
 });
+
+const totalCapacity = computed(() => formData.value.beds.length);
+
+const caminanteCapacity = computed(() =>
+  formData.value.beds.filter((bed: Bed) => bed.defaultUsage === 'caminante').length
+);
+
+const servidorCapacity = computed(() =>
+  formData.value.beds.filter((bed: Bed) => bed.defaultUsage === 'servidor').length
+);
 
 const stepSchemas = [step1Schema, step2Schema, step3Schema];
 

@@ -46,7 +46,7 @@
               id="emails"
               v-model="emailsText"
               rows="5"
-              :placeholder="t('inviteUsersModal.emailPlaceholder')"
+              :placeholder="t('inviteUsersModal.emailPlaceholder', ['@'])"
               class="resize-none text-sm leading-relaxed pr-20 border-2 transition-colors focus:border-blue-500"
               :class="{ 'border-red-300 bg-red-50': error && emailsText.trim() }"
             />

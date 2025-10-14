@@ -21,7 +21,7 @@ install_packages() {
         ubuntu|debian|pop|elementary|linuxmint)
             echo "📦 Using apt (Debian/Ubuntu family)"
             sudo apt update && sudo apt upgrade -y
-            sudo apt install -y curl wget git ufw sqlite3 nginx certbot python3-certbot-nginx
+            sudo apt install -y curl wget git ufw sqlite3 nginx certbot python3-certbot-nginx build-essential
             # Install Node.js 20 for Ubuntu/Debian
             curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
             sudo apt-get install -y nodejs

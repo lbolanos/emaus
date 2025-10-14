@@ -294,11 +294,39 @@ Search for BIRTHDAY_MESSAGE and clic title="Editar"
 Select text "¡Feliz cumpleaños" y clic en boton negrillas.
 Fix any issue with text changes
 
+
+git clean -fdx
 lsof -ti:3001 | xargs -r kill -9
 git tag -d v0.0.1
 git push origin --delete v0.0.1
+sudo nginx -t
+sudo systemctl status nginx
 pm2 restart emaus-api
+pm2 status
+sudo lsof -i :3001
+curl http://localhost/api/health 
+curl http://localhost/assets/index.js
+curl http://localhost:3001/api/auth/status
 less /root/.pm2/logs/emaus-api-error.log
 less /var/log/emaus-api-out.log
+pm2 logs emaus-api
+rsync -avz . root@155.138.230.215:/var/www/emaus/
+rsync -avz \
+--exclude '.git' \
+--exclude '.turbo' \
+--exclude 'apps/api/database.sqlite' \
+ . root@155.138.230.215:/var/www/emaus/
+
 enhance usability of
 enhance with user experience
+
+
+
+export frontend_url='https://emaus.cc'   
+export domain_name='emaus.cc'
+export VPS_HOST=155.138.230.215
+export VPS_USER=root
+export GITHUB_REPO=lbolanos/emaus
+export NEW_TAG=v0.0.1
+export RELEASE_TAG=v0.0.1
+export CERTBOT_EMAIL=leonardo.bolanos@gmail.com

@@ -18,7 +18,7 @@ SSH_PORT="${VPS_SSH_PORT:-22}"
 VPS_USER="${VPS_USER:root}"
 RSYNC_OPTS="-avz --delete --progress"
 BUILD_TIMEOUT=1800  # 30 minutes
-API_PORT="${API_PORT:-3000}"
+API_PORT="${API_PORT:-3001}"
 
 # Function to print colored output
 print_status() {
@@ -501,8 +501,8 @@ echo -e "${BLUE}⏳ Waiting for application to start...${NC}"
 sleep 5
 
 # Health check
-if curl -f -s http://localhost:3000/health > /dev/null 2>&1 || \
-   curl -f -s http://localhost:3000/ > /dev/null 2>&1; then
+if curl -f -s http://localhost:3001/health > /dev/null 2>&1 || \
+   curl -f -s http://localhost:3001/ > /dev/null 2>&1; then
     echo -e "${GREEN}✅ Application is running${NC}"
 else
     echo -e "${YELLOW}⚠️  Could not verify application status${NC}"

@@ -6,6 +6,17 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 	timestamp = '20250910163337';
 
 	public async up(queryRunner: QueryRunner): Promise<void> {
+		// Create sessions table for connect-typeorm
+		await queryRunner.query(`
+			CREATE TABLE IF NOT EXISTS "sessions" (
+				"id" VARCHAR(255) PRIMARY KEY NOT NULL,
+				"expiredAt" BIGINT NOT NULL,
+				"json" TEXT NOT NULL,
+				"destroyedAt" DATETIME
+			)
+		`);
+		await queryRunner.query(`CREATE INDEX "IDX_expiredAt" ON "sessions" ("expiredAt")`);
+
 		// Create users table
 		await queryRunner.query(`
 			CREATE TABLE IF NOT EXISTS "users" (
@@ -1340,6 +1351,7 @@ export class CreateSchema20250910163337 implements MigrationInterface {
 		await queryRunner.query(`DROP INDEX IF EXISTS "idx_payments_participantId"`);
 
 		// Drop tables in reverse order to respect foreign key constraints
+		await queryRunner.query(`DROP TABLE IF EXISTS "sessions"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "participant_communications"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "payments"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "permission_override_logs"`);

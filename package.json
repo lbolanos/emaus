@@ -5,6 +5,7 @@
     "build": "NODE_OPTIONS='--max-old-space-size=16384' turbo build",
     "build:lowmem": "NODE_OPTIONS='--max-old-space-size=3072' turbo build --concurrency=2",
     "build:prod": "NODE_OPTIONS='--max-old-space-size=4096' turbo build --concurrency=1",
+    "build:vps": "NODE_OPTIONS='--max-old-space-size=1536' turbo build --concurrency=1",
     "dev": "turbo dev",
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
@@ -22,7 +23,7 @@
     "eslint": "^8.57.0",
     "prettier": "^3.6.2",
     "turbo": "^2.5.6",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.3"
   },
   "packageManager": "pnpm@8.15.9+sha512.499434c9d8fdd1a2794ebf4552b3b25c0a633abcee5bb15e7b5de90f32f47b513aca98cd5cfd001c31f0db454bc3804edccd578501e4ca293a6816166bbd9f81",
   "dependencies": {

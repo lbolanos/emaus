@@ -15,7 +15,7 @@ APP_DIR="/var/www/emaus"
 BACKUP_DIR="/var/www/emaus-backups"
 DOWNLOAD_DIR="/tmp/emaus-release-$$"
 HEALTH_CHECK_TIMEOUT=30
-API_PORT=3000
+API_PORT=3001
 
 # Check if repository and tag are provided
 if [ -z "$GITHUB_REPO" ] || [ -z "$RELEASE_TAG" ]; then

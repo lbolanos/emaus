@@ -3,6 +3,8 @@ import { Strategy as LocalStrategy } from 'passport-local';
 import passport from 'passport';
 import { AppDataSource } from '../data-source';
 import { User } from '../entities/user.entity';
+import { UserRole } from '../entities/userRole.entity';
+import { Role } from '../entities/role.entity';
 import { config } from '../config';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcrypt';
@@ -17,6 +19,8 @@ passport.use(
 		},
 		async (accessToken, refreshToken, profile, done) => {
 			const userRepository = AppDataSource.getRepository(User);
+			const userRoleRepository = AppDataSource.getRepository(UserRole);
+			const roleRepository = AppDataSource.getRepository(Role);
 			try {
 				// First, check if user already exists with this Google ID
 				const userByGoogleId = await userRepository.findOne({ where: { googleId: profile.id } });
@@ -53,6 +57,17 @@ passport.use(
 				});
 
 				await userRepository.save(newUser);
+
+				// Assign default role to new Google user
+				const defaultRole = await roleRepository.findOne({ where: { name: 'regular' } });
+				if (defaultRole) {
+					const userRole = userRoleRepository.create({
+						userId: newUser.id,
+						roleId: defaultRole.id,
+					});
+					await userRoleRepository.save(userRole);
+				}
+
 				return done(null, newUser);
 			} catch (error) {
 				return done(error, undefined);
