@@ -298,5 +298,7 @@ lsof -ti:3001 | xargs -r kill -9
 git tag -d v0.0.1
 git push origin --delete v0.0.1
 pm2 restart emaus-api
+less /root/.pm2/logs/emaus-api-error.log
+less /var/log/emaus-api-out.log
 enhance usability of
 enhance with user experience

@@ -2,6 +2,7 @@
 .turbo/
 # .github/  # Uncomment if you want GitHub Actions workflows tracked
 .env
+.env.production
 dist/
 gha-creds-*.json
 node_modules/
