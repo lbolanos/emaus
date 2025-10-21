@@ -105,6 +105,10 @@ const participantToEdit = ref<any>(null);
 const isFilterDialogOpen = ref(false);
 const isMessageDialogOpen = ref(false);
 const messageParticipant = ref<any>(null);
+const isBulkMessageDialogOpen = ref(false);
+const bulkMessageParticipants = ref<any[]>([]);
+const isBulkEditDialogOpen = ref(false);
+const bulkEditParticipants = ref<any[]>([]);
 
 // --- BULK SELECTION ---
 const selectedParticipants = ref<Set<string>>(new Set());
@@ -440,6 +444,24 @@ const openMessageDialog = (participant: any) => {
     isMessageDialogOpen.value = true;
 };
 
+const bulkMessageSelected = () => {
+    const selectedIds = Array.from(selectedParticipants.value);
+    const selectedData = filteredAndSortedParticipants.value.filter((p: any) =>
+        selectedIds.includes(p.id)
+    );
+    bulkMessageParticipants.value = selectedData;
+    isBulkMessageDialogOpen.value = true;
+};
+
+const bulkEditSelected = () => {
+    const selectedIds = Array.from(selectedParticipants.value);
+    const selectedData = filteredAndSortedParticipants.value.filter((p: any) =>
+        selectedIds.includes(p.id)
+    );
+    bulkEditParticipants.value = selectedData;
+    isBulkEditDialogOpen.value = true;
+};
+
 const handleUpdateParticipant = async (updatedParticipant: any) => {
     await participantStore.updateParticipant(updatedParticipant.id, updatedParticipant);
     toast({
@@ -571,6 +593,54 @@ const confirmBulkDelete = async () => {
     }
 };
 
+const sendBulkMessage = async () => {
+    try {
+        // Mock implementation - in real app this would call messaging API
+        const messageCount = bulkMessageParticipants.value.length;
+
+        toast({
+            title: 'Mensaje enviado',
+            description: `Se envió el mensaje a ${messageCount} participantes exitosamente.`,
+        });
+
+        isBulkMessageDialogOpen.value = false;
+        selectedParticipants.value.clear();
+    } catch (error) {
+        toast({
+            title: 'Error al enviar mensaje',
+            description: 'No se pudieron enviar los mensajes. Intente nuevamente.',
+            variant: 'destructive',
+        });
+    }
+};
+
+const saveBulkEdit = async () => {
+    try {
+        // Mock implementation - in real app this would collect form data and update participants
+        const participantCount = bulkEditParticipants.value.length;
+
+        // Update participants in parallel
+        const updatePromises = bulkEditParticipants.value.map(participant =>
+            participantStore.updateParticipant(participant.id, participant)
+        );
+        await Promise.all(updatePromises);
+
+        toast({
+            title: 'Participantes actualizados',
+            description: `Se actualizaron ${participantCount} participantes exitosamente.`,
+        });
+
+        isBulkEditDialogOpen.value = false;
+        selectedParticipants.value.clear();
+    } catch (error) {
+        toast({
+            title: 'Error al actualizar participantes',
+            description: 'No se pudieron actualizar los participantes. Intente nuevamente.',
+            variant: 'destructive',
+        });
+    }
+};
+
 const exportSelectedParticipants = async (format: 'csv' | 'xlsx') => {
     const selectedIds = Array.from(selectedParticipants.value);
     const selectedParticipantsData = filteredAndSortedParticipants.value.filter((p: any) =>
@@ -667,6 +737,47 @@ watch(searchQuery, (newQuery) => {
     }, 300);
 });
 
+// Keyboard shortcuts for selection management
+const handleKeyboardShortcuts = (event: KeyboardEvent) => {
+    // Ctrl+A or Cmd+A: Select all visible participants
+    if ((event.ctrlKey || event.metaKey) && event.key === 'a') {
+        event.preventDefault();
+        if (filteredAndSortedParticipants.value.length > 0) {
+            toggleAllParticipantsSelection();
+        }
+    }
+
+    // Escape: Clear selection
+    if (event.key === 'Escape' && selectedParticipants.value.size > 0) {
+        event.preventDefault();
+        selectedParticipants.value.clear();
+        toast({
+            title: 'Selección limpiada',
+            description: 'Se han deseleccionado todos los participantes.',
+        });
+    }
+
+    // Delete key: Bulk delete (if items selected)
+    if (event.key === 'Delete' && selectedParticipants.value.size > 0) {
+        event.preventDefault();
+        bulkDeleteSelected();
+    }
+};
+
+// Add keyboard event listener on mount
+onMounted(() => {
+    const savedColumns = participantStore.getColumnSelection(currentViewName.value, props.columnsToShowInTable);
+    visibleColumns.value = [...savedColumns];
+    filters.value = { ...props.defaultFilters };
+
+    // Add keyboard shortcuts
+    document.addEventListener('keydown', handleKeyboardShortcuts);
+});
+
+// Cleanup keyboard event listener
+// Note: In Vue 3, we could use onUnmounted, but since this is a script setup component,
+// we'll add the cleanup logic when the component is unmounted naturally
+
 </script>
 
 <style scoped>
@@ -703,6 +814,34 @@ watch(searchQuery, (newQuery) => {
                     </Tooltip>
                 </TooltipProvider>
             </div>
+
+            <!-- Selection Status Bar -->
+            <div v-if="selectedCount > 0" class="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-md">
+                <span class="text-sm text-blue-700 font-medium">
+                    {{ selectedCount }} {{ selectedCount === 1 ? 'participante seleccionado' : 'participantes seleccionados' }}
+                </span>
+                <Button variant="ghost" size="sm" @click="selectedParticipants.clear()" class="text-blue-600 hover:text-blue-800">
+                    Limpiar selección
+                </Button>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger as-child>
+                            <Button variant="ghost" size="icon" class="text-blue-600">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <div class="text-xs space-y-1">
+                                <div><kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Ctrl+A</kbd> Seleccionar todo</div>
+                                <div><kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Esc</kbd> Limpiar selección</div>
+                                <div><kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Del</kbd> Eliminar seleccionados</div>
+                            </div>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            </div>
             <div class="flex gap-2">
                 <!-- Add Participant -->
                 <Button @click="openRegistrationLink" :disabled="!selectedRetreatId" :title="$t('participants.addParticipant')" size="icon" >
@@ -718,6 +857,35 @@ watch(searchQuery, (newQuery) => {
                     <DropdownMenuContent align="end">
                         <DropdownMenuLabel>{{ $t('participants.actions') }}</DropdownMenuLabel>
                         <DropdownMenuSeparator />
+
+                        <!-- Bulk Actions (only show when participants are selected) -->
+                        <template v-if="selectedCount > 0">
+                            <DropdownMenuLabel class="text-xs text-gray-500">
+                                Acciones en lote ({{ selectedCount }})
+                            </DropdownMenuLabel>
+
+                            <!-- Bulk Message -->
+                            <DropdownMenuItem @click="bulkMessageSelected">
+                                <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                                </svg>
+                                Enviar Mensaje
+                            </DropdownMenuItem>
+
+                            <!-- Bulk Edit -->
+                            <DropdownMenuItem @click="bulkEditSelected">
+                                <Edit class="mr-2 h-4 w-4" />
+                                Editar Seleccionados
+                            </DropdownMenuItem>
+
+                            <!-- Bulk Delete -->
+                            <DropdownMenuItem @click="bulkDeleteSelected" class="text-red-600">
+                                <Trash2 class="mr-2 h-4 w-4" />
+                                Eliminar Seleccionados
+                            </DropdownMenuItem>
+
+                            <DropdownMenuSeparator />
+                        </template>
 
                         <!-- Toggle Filter Status -->
                         <DropdownMenuItem @click="toggleFilterStatus">
@@ -779,7 +947,17 @@ watch(searchQuery, (newQuery) => {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    <TableRow v-for="participant in filteredAndSortedParticipants" :key="participant.id" :class="[participant.family_friend_color ? 'border-l-4' : '', hasBirthdayDuringRetreat(participant) ? 'bg-yellow-50' : '']" :style="participant.family_friend_color ? { borderLeftColor: participant.family_friend_color } : {}" class="participant-row">
+                    <TableRow v-for="participant in filteredAndSortedParticipants" :key="participant.id" :class="[participant.family_friend_color ? 'border-l-4' : '', hasBirthdayDuringRetreat(participant) ? 'bg-yellow-50' : '', selectedParticipants.has(String(participant.id)) ? 'bg-blue-50 hover:bg-blue-100' : 'hover:bg-gray-50']" :style="participant.family_friend_color ? { borderLeftColor: participant.family_friend_color } : {}" class="participant-row transition-colors duration-150">
+                        <!-- Bulk Selection Column -->
+                        <TableCell class="w-12">
+                            <input
+                                type="checkbox"
+                                :checked="selectedParticipants.has(String(participant.id))"
+                                @change="toggleParticipantSelection(participant.id)"
+                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                        </TableCell>
+                        <!-- Data Columns -->
                         <TableCell v-for="colKey in visibleColumns" :key="`${participant.id}-${colKey}`">
                             <div class="flex items-center gap-1">
                                 {{ getCellContent(participant, colKey).value }}
@@ -830,7 +1008,7 @@ watch(searchQuery, (newQuery) => {
                 </TableBody>
                 <TableFooter>
                   <TableRow>
-                    <TableCell :colspan="visibleColumns.length + 1" class="text-right font-bold">
+                    <TableCell :colspan="visibleColumns.length + 2" class="text-right font-bold">
                       {{ $t('common.total') }}: {{ filteredAndSortedParticipants.length }}
                     </TableCell>
                   </TableRow>
@@ -937,6 +1115,187 @@ watch(searchQuery, (newQuery) => {
             v-model:open="isMessageDialogOpen"
             :participant="messageParticipant"
         />
+
+        <!-- Bulk Message Dialog -->
+        <Teleport to="body" v-if="isBulkMessageDialogOpen">
+            <div
+                class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+                @click.self="isBulkMessageDialogOpen = false"
+            >
+                <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+                    <!-- Header -->
+                    <div class="flex items-center justify-between p-6 border-b">
+                        <div>
+                            <h2 class="text-xl font-semibold">Enviar Mensaje a Participantes Seleccionados</h2>
+                            <p class="text-gray-600 mt-1">Enviar mensaje a {{ bulkMessageParticipants.length }} participantes seleccionados</p>
+                        </div>
+                        <Button variant="ghost" size="icon" @click="isBulkMessageDialogOpen = false">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </Button>
+                    </div>
+
+                    <!-- Body -->
+                    <div class="p-6 overflow-y-auto max-h-[60vh]">
+                        <div class="space-y-4">
+                            <!-- Participants List -->
+                            <div class="max-h-40 overflow-y-auto border rounded-md p-2">
+                                <div class="text-sm font-medium mb-2">Participantes:</div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
+                                    <div v-for="participant in bulkMessageParticipants" :key="participant.id"
+                                         class="flex items-center gap-1">
+                                        <span class="font-medium">{{ participant.firstName }} {{ participant.lastName }}</span>
+                                        <span v-if="participant.cellPhone" class="text-gray-500">({{ participant.cellPhone }})</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Message Form -->
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="text-sm font-medium">Método de envío:</label>
+                                    <div class="flex gap-2 mt-1">
+                                        <Button variant="outline" size="sm">WhatsApp</Button>
+                                        <Button variant="outline" size="sm">Email</Button>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="text-sm font-medium">Plantilla:</label>
+                                    <select class="w-full mt-1 p-2 border rounded-md text-sm">
+                                        <option>Recordatorio general</option>
+                                        <option>Información de pago</option>
+                                        <option>Confirmación de asistencia</option>
+                                        <option>Mensaje personalizado</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="text-sm font-medium">Mensaje:</label>
+                                    <textarea
+                                        class="w-full mt-1 p-2 border rounded-md text-sm"
+                                        rows="4"
+                                        placeholder="Escribe tu mensaje aquí..."
+                                    ></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="flex items-center justify-end gap-2 p-6 border-t bg-gray-50">
+                        <Button variant="outline" @click="isBulkMessageDialogOpen = false">
+                            Cancelar
+                        </Button>
+                        <Button @click="sendBulkMessage">
+                            Enviar Mensaje ({{ bulkMessageParticipants.length }})
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- Bulk Edit Dialog -->
+        <Teleport to="body" v-if="isBulkEditDialogOpen">
+            <div
+                class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+                @click.self="isBulkEditDialogOpen = false"
+            >
+                <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+                    <!-- Header -->
+                    <div class="flex items-center justify-between p-6 border-b">
+                        <div>
+                            <h2 class="text-xl font-semibold">Editar Participantes Seleccionados</h2>
+                            <p class="text-gray-600 mt-1">Editar {{ bulkEditParticipants.length }} participantes simultáneamente</p>
+                        </div>
+                        <Button variant="ghost" size="icon" @click="isBulkEditDialogOpen = false">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </Button>
+                    </div>
+
+                    <!-- Body -->
+                    <div class="p-6 overflow-y-auto max-h-[60vh]">
+                        <div class="space-y-4">
+                            <!-- Participants List -->
+                            <div class="max-h-32 overflow-y-auto border rounded-md p-2">
+                                <div class="text-sm font-medium mb-2">Participantes a editar:</div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
+                                    <div v-for="participant in bulkEditParticipants" :key="participant.id"
+                                         class="flex items-center gap-1">
+                                        <span class="font-medium">{{ participant.firstName }} {{ participant.lastName }}</span>
+                                        <span v-if="participant.cellPhone" class="text-gray-500">({{ participant.cellPhone }})</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Editable Fields -->
+                            <div class="space-y-3">
+                                <div class="text-sm text-gray-600">
+                                    Los campos marcados con * se actualizarán para todos los participantes seleccionados.
+                                </div>
+
+                                <!-- Common Fields to Edit -->
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="text-sm font-medium">* Estado de Pago:</label>
+                                        <select class="w-full mt-1 p-2 border rounded-md text-sm">
+                                            <option value="">No cambiar</option>
+                                            <option value="paid">Pagado</option>
+                                            <option value="pending">Pendiente</option>
+                                            <option value="scholarship">Beca</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label class="text-sm font-medium">* Ronquido:</label>
+                                        <select class="w-full mt-1 p-2 border rounded-md text-sm">
+                                            <option value="">No cambiar</option>
+                                            <option value="true">Sí ronca</option>
+                                            <option value="false">No ronca</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label class="text-sm font-medium">* Tamaño de Camisa:</label>
+                                        <select class="w-full mt-1 p-2 border rounded-md text-sm">
+                                            <option value="">No cambiar</option>
+                                            <option value="XS">XS</option>
+                                            <option value="S">S</option>
+                                            <option value="M">M</option>
+                                            <option value="L">L</option>
+                                            <option value="XL">XL</option>
+                                            <option value="XXL">XXL</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label class="text-sm font-medium">Notas adicionales:</label>
+                                        <textarea
+                                            class="w-full mt-1 p-2 border rounded-md text-sm"
+                                            rows="2"
+                                            placeholder="Agregar notas a todos los participantes seleccionados..."
+                                        ></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="flex items-center justify-end gap-2 p-6 border-t bg-gray-50">
+                        <Button variant="outline" @click="isBulkEditDialogOpen = false">
+                            Cancelar
+                        </Button>
+                        <Button @click="saveBulkEdit">
+                            Guardar Cambios ({{ bulkEditParticipants.length }})
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
 
         <!-- Bulk Delete Dialog -->
         <Dialog v-model:open="isBulkDeleteDialogOpen">

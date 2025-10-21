@@ -315,6 +315,8 @@ rsync -avz \
 --exclude '.git' \
 --exclude '.turbo' \
 --exclude 'apps/api/database.sqlite' \
+--exclude 'apps/api/.env' \
+--exclude 'apps/web/.env' \
  . root@155.138.230.215:/var/www/emaus/
  
 ssh root@155.138.230.215 "cat /var/www/emaus/apps/api/database.sqlite" > apps/api/database.sqlite
