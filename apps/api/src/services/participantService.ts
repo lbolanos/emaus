@@ -202,6 +202,7 @@ const assignTableToWalker = async (participant: Participant): Promise<string | u
 export const createParticipant = async (
 	participantData: CreateParticipant,
 	assignRelationships = true,
+	isImporting = false,
 ): Promise<Participant> => {
 	const COLOR_POOL = [
 		'#FFADAD',
@@ -497,15 +498,21 @@ export const createParticipant = async (
 			}
 		}
 
-		// Send welcome email after successful registration
+		// Send welcome email after successful registration (only if not importing or if retreat is public)
 		try {
-			const emailService = new EmailService();
-			const templateType = savedParticipant.type === 'walker' ? 'WALKER_WELCOME' : 'SERVER_WELCOME';
-
-			// Get retreat details for template variables
+			// Get retreat details for template variables and to check if retreat is public
 			const retreat = await transactionalEntityManager.getRepository(Retreat).findOne({
 				where: { id: savedParticipant.retreatId },
 			});
+
+			// Skip email sending if importing and retreat is not public
+			if (isImporting && retreat && !retreat.isPublic) {
+				console.log(`Skipping email sending for imported participant ${savedParticipant.email} - retreat is not public`);
+				return savedParticipant;
+			}
+
+			const emailService = new EmailService();
+			const templateType = savedParticipant.type === 'walker' ? 'WALKER_WELCOME' : 'SERVER_WELCOME';
 
 			// Find the welcome template for this retreat
 			const welcomeTemplate = await transactionalEntityManager
@@ -744,6 +751,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				const newParticipant = await createParticipant(
 					{ ...mappedData, retreatId } as CreateParticipant,
 					false,
+					true, // isImporting = true
 				);
 				importedCount++;
 				processedParticipantIds.push(newParticipant.id);
