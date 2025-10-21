@@ -91,25 +91,27 @@ function checkBirthdaysDuringRetreat() {
 }
 
 onMounted(async () => {
-  //console.log('🔍 DEBUG: onMounted started')
+  // Ensure retreats are loaded first
+  if (retreatStore.retreats.length === 0) {
+    await retreatStore.fetchRetreats()
+  }
 
-  // Wait for participants to be loaded
-  if (participantStore.participants.length === 0) {
-    //console.log('🔍 DEBUG: No participants found, trying to load them...')
+  // Set retreat ID filter and fetch participants
+  const retreatId = retreatStore.selectedRetreatId || retreatStore.mostRecentRetreat?.id
+
+  if (retreatId) {
+    participantStore.filters.retreatId = retreatId
+
+    // Fetch participants
     try {
-      // Try to load participants using the fetchParticipants method
-      if (typeof participantStore.fetchParticipants === 'function') {
-        await participantStore.fetchParticipants()
-      }
-      //console.log('🔍 DEBUG: Participants loaded:', participantStore.participants.length)
+      await participantStore.fetchParticipants()
     } catch (error) {
-      console.error('🔍 DEBUG: Error loading participants:', error)
+      console.error('Error loading participants:', error)
     }
   }
 
   // Small delay to ensure data is ready
   setTimeout(() => {
-    //console.log('🔍 DEBUG: Checking birthdays with', participantStore.participants.length, 'participants')
     checkBirthdaysDuringRetreat()
   }, 500)
 })
