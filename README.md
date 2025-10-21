@@ -316,6 +316,15 @@ rsync -avz \
 --exclude '.turbo' \
 --exclude 'apps/api/database.sqlite' \
  . root@155.138.230.215:/var/www/emaus/
+ 
+ssh root@155.138.230.215 "cat /var/www/emaus/apps/api/database.sqlite" > apps/api/database.sqlite
+
+scp root@155.138.230.215:/var/www/emaus/apps/api/.env ./apps/api/
+scp root@155.138.230.215:/var/www/emaus/apps/api/.env.production ./apps/api/
+
+# Web files
+scp root@155.138.230.215:/var/www/emaus/apps/web/.env ./apps/web/
+scp root@155.138.230.215:/var/www/emaus/apps/web/.env.production ./apps/web/ 
 
 enhance usability of
 enhance with user experience

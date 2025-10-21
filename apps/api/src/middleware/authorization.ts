@@ -493,28 +493,14 @@ export const authorizationService = AuthorizationService.getInstance();
 export const requirePermission = (permission: string): any => {
 	return async (req: any, res: Response, next: NextFunction) => {
 		try {
-			//console.log('🔍 [PERMISSION CHECK] Starting permission check');
-			//console.log('🔍 [PERMISSION CHECK] Required permission:', permission);
-			//console.log('🔍 [PERMISSION CHECK] User:', req.user ? { id: req.user.id, email: req.user.email } : 'No user');
-			//console.log('🔍 [PERMISSION CHECK] URL:', req.originalUrl);
-			//console.log('🔍 [PERMISSION CHECK] Method:', req.method);
-
 			if (!req.user) {
-				console.log('❌ [PERMISSION CHECK] No user found in request');
 				return res.status(401).json({ message: 'Unauthorized' });
 			}
 
-			//console.log('🔍 [PERMISSION CHECK] Checking if user has permission...');
-			const userPermissions = await authorizationService.getUserPermissions(req.user.id);
-			//console.log('🔍 [PERMISSION CHECK] User permissions:', userPermissions.permissions);
-			//console.log('🔍 [PERMISSION CHECK] User roles:', userPermissions.roles);
-			//console.log('🔍 [PERMISSION CHECK] User retreats:', userPermissions.retreats);
-
 			const hasPermission = await authorizationService.hasPermission(req.user.id, permission);
-			//console.log('🔍 [PERMISSION CHECK] Has permission result:', hasPermission);
 
 			if (!hasPermission) {
-				console.log('❌ [PERMISSION CHECK] Permission denied for:', permission);
+				const userPermissions = await authorizationService.getUserPermissions(req.user.id);
 				return res.status(403).json({
 					message: 'Forbidden',
 					details: {
@@ -525,10 +511,9 @@ export const requirePermission = (permission: string): any => {
 				});
 			}
 
-			console.log('✅ [PERMISSION CHECK] Permission granted for:', permission);
 			next();
 		} catch (error) {
-			console.error('❌ [PERMISSION CHECK] Permission check error:', error);
+			console.error('Permission check error:', error);
 			return res.status(500).json({ message: 'Internal server error' });
 		}
 	};
@@ -557,37 +542,19 @@ export const requireRole = (role: string): any => {
 export const requireRetreatAccess = (retreatIdParam: string = 'retreatId'): any => {
 	return async (req: any, res: Response, next: NextFunction) => {
 		try {
-			//console.log('🏠 [RETREAT ACCESS CHECK] Starting retreat access check');
-			//console.log('🏠 [RETREAT ACCESS CHECK] User:', req.user ? { id: req.user.id, email: req.user.email } : 'No user');
-			//console.log('🏠 [RETREAT ACCESS CHECK] URL:', req.originalUrl);
-			//console.log('🏠 [RETREAT ACCESS CHECK] Method:', req.method);
-			//console.log('🏠 [RETREAT ACCESS CHECK] Retreat ID param:', retreatIdParam);
-			//console.log('🏠 [RETREAT ACCESS CHECK] All params:', req.params);
-
 			if (!req.user) {
-				//console.log('❌ [RETREAT ACCESS CHECK] No user found in request');
 				return res.status(401).json({ message: 'Unauthorized' });
 			}
 
 			const retreatId = req.params[retreatIdParam];
 			if (!retreatId) {
-				//console.log('❌ [RETREAT ACCESS CHECK] No retreat ID found in params');
 				return res.status(400).json({ message: 'Retreat ID is required' });
 			}
 
-			//console.log('🏠 [RETREAT ACCESS CHECK] Retreat ID:', retreatId);
-			//console.log('🏠 [RETREAT ACCESS CHECK] Checking retreat access...');
-
 			const hasAccess = await authorizationService.hasRetreatAccess(req.user.id, retreatId);
-			//console.log('🏠 [RETREAT ACCESS CHECK] Has retreat access result:', hasAccess);
-
-			// Get detailed user retreat info for debugging
-			const userPermissions = await authorizationService.getUserPermissions(req.user.id);
-			//console.log('🏠 [RETREAT ACCESS CHECK] User retreats from permissions:', userPermissions.retreats);
-			//console.log('🏠 [RETREAT ACCESS CHECK] User has access to this retreat?', userPermissions.retreats.some(r => r.retreatId === retreatId));
 
 			if (!hasAccess) {
-				//console.log('❌ [RETREAT ACCESS CHECK] Retreat access denied for retreat:', retreatId);
+				const userPermissions = await authorizationService.getUserPermissions(req.user.id);
 				return res.status(403).json({
 					message: 'Forbidden - No retreat access',
 					details: {
@@ -599,10 +566,9 @@ export const requireRetreatAccess = (retreatIdParam: string = 'retreatId'): any 
 				});
 			}
 
-			//console.log('✅ [RETREAT ACCESS CHECK] Retreat access granted for retreat:', retreatId);
 			next();
 		} catch (error) {
-			console.error('❌ [RETREAT ACCESS CHECK] Retreat access check error:', error);
+			console.error('Retreat access check error:', error);
 			return res.status(500).json({ message: 'Internal server error' });
 		}
 	};

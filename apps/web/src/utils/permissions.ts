@@ -53,7 +53,8 @@ export function canAccessResource(
 	resource: ResourceType,
 	operation: OperationType,
 ): boolean {
-	return hasPermission(userPermissions, `${resource}:${operation}` as Permission);
+	const permission = `${resource}:${operation}` as Permission;
+	return hasPermission(userPermissions, permission);
 }
 
 export function canCreate(userPermissions: string[] | undefined, resource: ResourceType): boolean {

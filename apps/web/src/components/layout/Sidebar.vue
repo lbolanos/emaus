@@ -626,7 +626,7 @@ const menuSections: MenuSection[] = [
 ];
 
 const filteredMenuSections = computed(() => {
-  return menuSections.map(section => {
+  const result = menuSections.map(section => {
     const filteredItems = section.items.filter(item => {
       if (item.requiresRetreat && !retreatStore.selectedRetreatId) return false;
       if (item.permission === 'superadmin' && !auth.userProfile?.roles?.some(role => role.role.name === 'superadmin')) return false;
@@ -634,15 +634,7 @@ const filteredMenuSections = computed(() => {
       // Special case for role management - requires user:manage permission
       if (item.name === 'role-management') {
         const hasUserManage = can.manage('user');
-        console.log(`[ROLE-MGMT] Can manage user: ${hasUserManage}`);
-        console.log(`[ROLE-MGMT] User permissions:`, useAuthPermissions().retreatSpecificPermissions.value);
-
-        if (!hasUserManage) {
-          console.log(`[ROLE-MGMT] ❌ REJECTED: Missing user:manage permission`);
-          return false;
-        } else {
-          console.log(`[ROLE-MGMT] ✅ ACCEPTED: Has user:manage permission`);
-        }
+        if (!hasUserManage) return false;
       }
 
       // Standard permission check for other items

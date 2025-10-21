@@ -33,7 +33,23 @@ export function useAuthPermissions() {
 	// Get current user permissions reactively
 	const userPermissions = computed(() => {
 		if (!authStore.userProfile) return [];
-		return authStore.userProfile.permissions.map((p) => `${p.resource}:${p.operation}`);
+
+		// Get permissions from the profile.permissions (if available) and from role globalPermissions
+		const profilePermissions = authStore.userProfile.permissions || [];
+		const globalPermissions: Array<{resource: string, operation: string}> = [];
+
+		// Extract permissions from all role globalPermissions
+		authStore.userProfile.roles?.forEach((roleDetail) => {
+			if (roleDetail.globalPermissions) {
+				globalPermissions.push(...roleDetail.globalPermissions);
+			}
+		});
+
+		// Combine and format all permissions
+		const allPermissions = [...profilePermissions, ...globalPermissions];
+		const formattedPermissions = allPermissions.map((p) => `${p.resource}:${p.operation}`);
+
+		return formattedPermissions;
 	});
 
 	// Get retreat-specific permissions based on selected retreat
@@ -51,7 +67,17 @@ export function useAuthPermissions() {
 		}
 
 		// Combine global permissions with retreat-specific permissions
-		const globalPermissions = authStore.userProfile.permissions.map(
+		const profilePermissions = authStore.userProfile.permissions || [];
+		const roleGlobalPermissions: Array<{resource: string, operation: string}> = [];
+
+		// Extract permissions from all role globalPermissions
+		authStore.userProfile.roles?.forEach((roleDetail) => {
+			if (roleDetail.globalPermissions) {
+				roleGlobalPermissions.push(...roleDetail.globalPermissions);
+			}
+		});
+
+		const globalPermissions = [...profilePermissions, ...roleGlobalPermissions].map(
 			(p) => `${p.resource}:${p.operation}`,
 		);
 		const retreatPermissions = retreatRole.globalPermissions.map(
@@ -82,17 +108,21 @@ export function useAuthPermissions() {
 
 	const can = {
 		create: (resource: ResourceType) => canCreate(retreatSpecificPermissions.value, resource),
-		read: (resource: ResourceType) => canRead(retreatSpecificPermissions.value, resource),
+		read: (resource: ResourceType) => {
+			// For resources that don't require a retreat (like 'house'), use global permissions
+			// For retreat-specific resources, use retreat-specific permissions
+			const permissionsToUse = retreatStore.selectedRetreatId ? retreatSpecificPermissions.value : userPermissions.value;
+			return canRead(permissionsToUse, resource);
+		},
 		update: (resource: ResourceType) => canUpdate(retreatSpecificPermissions.value, resource),
 		delete: (resource: ResourceType) => canDelete(retreatSpecificPermissions.value, resource),
-		list: (resource: ResourceType) => canList(retreatSpecificPermissions.value, resource),
+		list: (resource: ResourceType) => {
+			// For resources that don't require a retreat (like 'house'), use global permissions
+			const permissionsToUse = retreatStore.selectedRetreatId ? retreatSpecificPermissions.value : userPermissions.value;
+			return canList(permissionsToUse, resource);
+		},
 		manage: (resource: ResourceType) => {
-			const result = canAccessResource(retreatSpecificPermissions.value, resource, 'manage');
-			if (resource === 'user') {
-				console.log(`[PERMISSIONS] can.manage(user): ${result}`);
-				console.log(`[PERMISSIONS] Available permissions:`, retreatSpecificPermissions.value);
-			}
-			return result;
+			return canAccessResource(retreatSpecificPermissions.value, resource, 'manage');
 		},
 	};
 
