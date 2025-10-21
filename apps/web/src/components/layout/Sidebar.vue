@@ -626,7 +626,7 @@ const menuSections: MenuSection[] = [
 ];
 
 const filteredMenuSections = computed(() => {
-  const result = menuSections.map(section => {
+  return menuSections.map(section => {
     const filteredItems = section.items.filter(item => {
       if (item.requiresRetreat && !retreatStore.selectedRetreatId) return false;
       if (item.permission === 'superadmin' && !auth.userProfile?.roles?.some(role => role.role.name === 'superadmin')) return false;
