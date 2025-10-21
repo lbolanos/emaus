@@ -241,7 +241,78 @@
     "filters": {
       "title": "Filtros Avanzados"
     },
-    "birthdayDuringRetreat": "Cumpleaños durante el retiro"
+    "birthdayDuringRetreat": "Cumpleaños durante el retiro",
+    "selectedCount": "{count} participante seleccionado | {count} participantes seleccionados",
+    "clearSelection": "Limpiar selección",
+    "selectAll": "Seleccionar todo",
+    "deleteSelected": "Eliminar seleccionados",
+    "editParticipant": "Editar Participante",
+    "sendMessage": "Enviar Mensaje",
+    "deleteParticipant": "Eliminar Participante",
+    "showCanceled": "Mostrar Cancelados",
+    "showActive": "Mostrar Activos",
+    "bulkActions": {
+      "label": "Acciones en lote ({count})",
+      "sendMessage": "Enviar Mensaje",
+      "editSelected": "Editar Seleccionados",
+      "deleteSelected": "Eliminar Seleccionados"
+    },
+    "bulkMessage": {
+      "title": "Enviar Mensaje a Participantes Seleccionados",
+      "description": "Enviar mensaje a {count} participantes seleccionados",
+      "participants": "Participantes",
+      "method": "Método de envío",
+      "whatsapp": "WhatsApp",
+      "email": "Email",
+      "template": "Plantilla",
+      "message": "Mensaje",
+      "messagePlaceholder": "Escribe tu mensaje aquí...",
+      "templates": {
+        "generalReminder": "Recordatorio general",
+        "paymentInfo": "Información de pago",
+        "confirmation": "Confirmación de asistencia",
+        "custom": "Mensaje personalizado"
+      },
+      "sendButton": "Enviar Mensaje ({count})",
+      "successTitle": "Mensaje enviado",
+      "successDesc": "Se envió el mensaje a {count} participantes exitosamente.",
+      "errorTitle": "Error al enviar mensaje",
+      "errorDesc": "No se pudieron enviar los mensajes. Intente nuevamente."
+    },
+    "bulkEdit": {
+      "title": "Editar Participantes en Lote",
+      "description": "Editando {count} participantes seleccionados",
+      "affectedParticipants": "Participantes Afectados",
+      "participantCount": "{count} participantes",
+      "noPhone": "Sin teléfono",
+      "fieldsToModify": "Campos a modificar",
+      "instructions": "Instrucciones",
+      "instructionsText": "Los campos que dejes en blanco o en 'No cambiar' no se modificarán. Los cambios se aplicarán a todos los participantes seleccionados.",
+      "categories": {
+        "core": "Información Principal",
+        "health": "Salud y Accesibilidad",
+        "logistics": "Logística",
+        "payment": "Pagos",
+        "palancas": "Sistema de Palancas"
+      },
+      "changesReady": "{count} cambio listo para aplicar | {count} cambios listos para aplicar",
+      "noChanges": "No hay cambios para aplicar",
+      "saveChanges": "Guardar Cambios",
+      "successTitle": "Cambios guardados",
+      "successDesc": "Se actualizaron {participantCount} participantes con {changesCount} cambios.",
+      "errorTitle": "Error al guardar cambios",
+      "errorDesc": "No se pudieron guardar los cambios. Intente nuevamente."
+    },
+    "update": {
+      "successTitle": "Actualización Exitosa",
+      "successDesc": "El participante fue actualizado exitosamente."
+    },
+    "selectionCleared": "Selección limpiada",
+    "selectionClearedDesc": "Se han deseleccionado todos los participantes.",
+    "types": {
+      "walker": "Caminante",
+      "server": "Servidor"
+    }
   },
   "rooms": {
     "title": "Habitaciones",
@@ -756,6 +827,9 @@
     "cancel": "Cancelar",
     "close": "Cerrar",
     "unknown": "Desconocido",
-    "total": "Total"
+    "total": "Total",
+    "noChange": "No cambiar",
+    "and": "y",
+    "more": "más"
   }
 }

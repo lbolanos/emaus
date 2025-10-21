@@ -234,6 +234,7 @@ llevar un registro de las comunicaciones del participantes.
 show the rol in header for the specific retreat selected
 
 IN PROGRESS
+do not send email if is importing and if the retreat is not public
 cuando un participante se registre enviar correo de bienvenida
 cuando un caminante se registre enviar correo de bienvenida enviar tambien correo al servidor que lo invito para informar.
 

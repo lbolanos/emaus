@@ -275,7 +275,78 @@
     "filters": {
       "title": "Advanced Filters"
     },
-    "birthdayDuringRetreat": "Birthday during retreat"
+    "birthdayDuringRetreat": "Birthday during retreat",
+    "selectedCount": "{count} participant selected | {count} participants selected",
+    "clearSelection": "Clear Selection",
+    "selectAll": "Select All",
+    "deleteSelected": "Delete Selected",
+    "editParticipant": "Edit Participant",
+    "sendMessage": "Send Message",
+    "deleteParticipant": "Delete Participant",
+    "showCanceled": "Show Canceled",
+    "showActive": "Show Active",
+    "bulkActions": {
+      "label": "Bulk Actions ({count})",
+      "sendMessage": "Send Message",
+      "editSelected": "Edit Selected",
+      "deleteSelected": "Delete Selected"
+    },
+    "bulkMessage": {
+      "title": "Send Message to Selected Participants",
+      "description": "Send message to {count} selected participants",
+      "participants": "Participants",
+      "method": "Send Method",
+      "whatsapp": "WhatsApp",
+      "email": "Email",
+      "template": "Template",
+      "message": "Message",
+      "messagePlaceholder": "Type your message here...",
+      "templates": {
+        "generalReminder": "General Reminder",
+        "paymentInfo": "Payment Information",
+        "confirmation": "Attendance Confirmation",
+        "custom": "Custom Message"
+      },
+      "sendButton": "Send Message ({count})",
+      "successTitle": "Message Sent",
+      "successDesc": "Message was sent to {count} participants successfully.",
+      "errorTitle": "Error Sending Message",
+      "errorDesc": "Could not send messages. Please try again."
+    },
+    "bulkEdit": {
+      "title": "Edit Participants in Bulk",
+      "description": "Editing {count} selected participants",
+      "affectedParticipants": "Affected Participants",
+      "participantCount": "{count} participants",
+      "noPhone": "No phone",
+      "fieldsToModify": "Fields to modify",
+      "instructions": "Instructions",
+      "instructionsText": "Fields left blank or set to 'Don't change' will not be modified. Changes will be applied to all selected participants.",
+      "categories": {
+        "core": "Core Information",
+        "health": "Health & Accessibility",
+        "logistics": "Logistics",
+        "payment": "Payments",
+        "palancas": "Palancas System"
+      },
+      "changesReady": "{count} change ready to apply | {count} changes ready to apply",
+      "noChanges": "No changes to apply",
+      "saveChanges": "Save Changes",
+      "successTitle": "Changes Saved",
+      "successDesc": "Updated {participantCount} participants with {changesCount} changes.",
+      "errorTitle": "Error Saving Changes",
+      "errorDesc": "Could not save changes. Please try again."
+    },
+    "update": {
+      "successTitle": "Update Successful",
+      "successDesc": "The participant was successfully updated."
+    },
+    "selectionCleared": "Selection Cleared",
+    "selectionClearedDesc": "All participants have been deselected.",
+    "types": {
+      "walker": "Walker",
+      "server": "Server"
+    }
   },
   "rooms": {
     "title": "Rooms",
@@ -783,6 +854,9 @@
     "cancel": "Cancel",
     "close": "Close",
     "total": "Total",
-    "click": "Click"
+    "click": "Click",
+    "noChange": "Don't change",
+    "and": "and",
+    "more": "more"
   }
 }

@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import MessageDialog from './MessageDialog.vue';
+import BulkEditParticipantsModal from './BulkEditParticipantsModal.vue';
 import { useI18n } from 'vue-i18n';
 import ExcelJS from 'exceljs';
 
@@ -465,8 +466,8 @@ const bulkEditSelected = () => {
 const handleUpdateParticipant = async (updatedParticipant: any) => {
     await participantStore.updateParticipant(updatedParticipant.id, updatedParticipant);
     toast({
-        title: 'Success',
-        description: 'Participant updated successfully.',
+        title: $t('participants.update.successTitle'),
+        description: $t('participants.update.successDesc'),
     });
     isEditDialogOpen.value = false;
 };
@@ -599,43 +600,58 @@ const sendBulkMessage = async () => {
         const messageCount = bulkMessageParticipants.value.length;
 
         toast({
-            title: 'Mensaje enviado',
-            description: `Se envió el mensaje a ${messageCount} participantes exitosamente.`,
+            title: $t('participants.bulkMessage.successTitle'),
+            description: $t('participants.bulkMessage.successDesc', { count: messageCount }),
         });
 
         isBulkMessageDialogOpen.value = false;
         selectedParticipants.value.clear();
     } catch (error) {
         toast({
-            title: 'Error al enviar mensaje',
-            description: 'No se pudieron enviar los mensajes. Intente nuevamente.',
+            title: $t('participants.bulkMessage.errorTitle'),
+            description: $t('participants.bulkMessage.errorDesc'),
             variant: 'destructive',
         });
     }
 };
 
-const saveBulkEdit = async () => {
+const handleBulkEditSave = async (updatedParticipants: any[]) => {
     try {
-        // Mock implementation - in real app this would collect form data and update participants
-        const participantCount = bulkEditParticipants.value.length;
-
         // Update participants in parallel
-        const updatePromises = bulkEditParticipants.value.map(participant =>
+        const updatePromises = updatedParticipants.map(participant =>
             participantStore.updateParticipant(participant.id, participant)
         );
         await Promise.all(updatePromises);
 
         toast({
-            title: 'Participantes actualizados',
-            description: `Se actualizaron ${participantCount} participantes exitosamente.`,
+            title: $t('participants.bulkEdit.successTitle'),
+            description: $t('participants.bulkEdit.successDesc', { count: updatedParticipants.length }),
         });
 
-        isBulkEditDialogOpen.value = false;
         selectedParticipants.value.clear();
-    } catch (error) {
+    } catch (error: any) {
+        console.error('Bulk edit error:', error);
+
+        // Enhanced error handling for validation errors
+        let errorMessage = $t('participants.bulkEdit.errorDesc');
+        if (error.response?.data?.message) {
+            errorMessage = error.response.data.message;
+        }
+
+        // Handle specific validation errors
+        if (error.response?.data?.errors) {
+            const validationErrors = error.response.data.errors;
+            if (Array.isArray(validationErrors) && validationErrors.length > 0) {
+                const firstError = validationErrors[0];
+                if (firstError.path && firstError.message) {
+                    errorMessage = `Validation error for ${firstError.path.join('.')}: ${firstError.message}`;
+                }
+            }
+        }
+
         toast({
-            title: 'Error al actualizar participantes',
-            description: 'No se pudieron actualizar los participantes. Intente nuevamente.',
+            title: $t('participants.bulkEdit.errorTitle'),
+            description: errorMessage,
             variant: 'destructive',
         });
     }
@@ -752,8 +768,8 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
         event.preventDefault();
         selectedParticipants.value.clear();
         toast({
-            title: 'Selección limpiada',
-            description: 'Se han deseleccionado todos los participantes.',
+            title: $t('participants.selectionCleared'),
+            description: $t('participants.selectionClearedDesc'),
         });
     }
 
@@ -818,10 +834,10 @@ onMounted(() => {
             <!-- Selection Status Bar -->
             <div v-if="selectedCount > 0" class="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-md">
                 <span class="text-sm text-blue-700 font-medium">
-                    {{ selectedCount }} {{ selectedCount === 1 ? 'participante seleccionado' : 'participantes seleccionados' }}
+                    {{ $t('participants.selectedCount', { count: selectedCount }) }}
                 </span>
                 <Button variant="ghost" size="sm" @click="selectedParticipants.clear()" class="text-blue-600 hover:text-blue-800">
-                    Limpiar selección
+                    {{ $t('participants.clearSelection') }}
                 </Button>
                 <TooltipProvider>
                     <Tooltip>
@@ -834,9 +850,9 @@ onMounted(() => {
                         </TooltipTrigger>
                         <TooltipContent>
                             <div class="text-xs space-y-1">
-                                <div><kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Ctrl+A</kbd> Seleccionar todo</div>
-                                <div><kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Esc</kbd> Limpiar selección</div>
-                                <div><kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Del</kbd> Eliminar seleccionados</div>
+                                <div><kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Ctrl+A</kbd> {{ $t('participants.selectAll') }}</div>
+                                <div><kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Esc</kbd> {{ $t('participants.clearSelection') }}</div>
+                                <div><kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Del</kbd> {{ $t('participants.deleteSelected') }}</div>
                             </div>
                         </TooltipContent>
                     </Tooltip>
@@ -861,7 +877,7 @@ onMounted(() => {
                         <!-- Bulk Actions (only show when participants are selected) -->
                         <template v-if="selectedCount > 0">
                             <DropdownMenuLabel class="text-xs text-gray-500">
-                                Acciones en lote ({{ selectedCount }})
+                                {{ $t('participants.bulkActions.label', { count: selectedCount }) }}
                             </DropdownMenuLabel>
 
                             <!-- Bulk Message -->
@@ -869,19 +885,19 @@ onMounted(() => {
                                 <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
                                 </svg>
-                                Enviar Mensaje
+                                {{ $t('participants.bulkActions.sendMessage') }}
                             </DropdownMenuItem>
 
                             <!-- Bulk Edit -->
                             <DropdownMenuItem @click="bulkEditSelected">
                                 <Edit class="mr-2 h-4 w-4" />
-                                Editar Seleccionados
+                                {{ $t('participants.bulkActions.editSelected') }}
                             </DropdownMenuItem>
 
                             <!-- Bulk Delete -->
                             <DropdownMenuItem @click="bulkDeleteSelected" class="text-red-600">
                                 <Trash2 class="mr-2 h-4 w-4" />
-                                Eliminar Seleccionados
+                                {{ $t('participants.bulkActions.deleteSelected') }}
                             </DropdownMenuItem>
 
                             <DropdownMenuSeparator />
@@ -890,7 +906,7 @@ onMounted(() => {
                         <!-- Toggle Filter Status -->
                         <DropdownMenuItem @click="toggleFilterStatus">
                             <ListFilter class="mr-2 h-4 w-4" />
-                            <span>{{ filterStatus === 'active' ? 'Show Canceled' : 'Show Active' }}</span>
+                            <span>{{ filterStatus === 'active' ? $t('participants.showCanceled') : $t('participants.showActive') }}</span>
                         </DropdownMenuItem>
 
                         <!-- Column Selector -->
@@ -974,7 +990,7 @@ onMounted(() => {
                                             <Button variant="ghost" size="icon" @click="openEditDialog(participant)"><Edit class="h-4 w-4" /></Button>
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                            <p>Editar Participante</p>
+                                            <p>{{ $t('participants.editParticipant') }}</p>
                                         </TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>
@@ -988,7 +1004,7 @@ onMounted(() => {
                                             </Button>
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                            <p>Enviar Mensaje</p>
+                                            <p>{{ $t('participants.sendMessage') }}</p>
                                         </TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>
@@ -998,7 +1014,7 @@ onMounted(() => {
                                             <Button variant="ghost" size="icon" class="text-red-500 hover:text-red-700" @click="openDeleteDialog(participant)"><Trash2 class="h-4 w-4" /></Button>
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                            <p>Eliminar Participante</p>
+                                            <p>{{ $t('participants.deleteParticipant') }}</p>
                                         </TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>
@@ -1126,8 +1142,8 @@ onMounted(() => {
                     <!-- Header -->
                     <div class="flex items-center justify-between p-6 border-b">
                         <div>
-                            <h2 class="text-xl font-semibold">Enviar Mensaje a Participantes Seleccionados</h2>
-                            <p class="text-gray-600 mt-1">Enviar mensaje a {{ bulkMessageParticipants.length }} participantes seleccionados</p>
+                            <h2 class="text-xl font-semibold">{{ $t('participants.bulkMessage.title') }}</h2>
+                            <p class="text-gray-600 mt-1">{{ $t('participants.bulkMessage.description', { count: bulkMessageParticipants.length }) }}</p>
                         </div>
                         <Button variant="ghost" size="icon" @click="isBulkMessageDialogOpen = false">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1141,7 +1157,7 @@ onMounted(() => {
                         <div class="space-y-4">
                             <!-- Participants List -->
                             <div class="max-h-40 overflow-y-auto border rounded-md p-2">
-                                <div class="text-sm font-medium mb-2">Participantes:</div>
+                                <div class="text-sm font-medium mb-2">{{ $t('participants.bulkMessage.participants') }}:</div>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
                                     <div v-for="participant in bulkMessageParticipants" :key="participant.id"
                                          class="flex items-center gap-1">
@@ -1154,29 +1170,29 @@ onMounted(() => {
                             <!-- Message Form -->
                             <div class="space-y-3">
                                 <div>
-                                    <label class="text-sm font-medium">Método de envío:</label>
+                                    <label class="text-sm font-medium">{{ $t('participants.bulkMessage.method') }}:</label>
                                     <div class="flex gap-2 mt-1">
-                                        <Button variant="outline" size="sm">WhatsApp</Button>
-                                        <Button variant="outline" size="sm">Email</Button>
+                                        <Button variant="outline" size="sm">{{ $t('participants.bulkMessage.whatsapp') }}</Button>
+                                        <Button variant="outline" size="sm">{{ $t('participants.bulkMessage.email') }}</Button>
                                     </div>
                                 </div>
 
                                 <div>
-                                    <label class="text-sm font-medium">Plantilla:</label>
+                                    <label class="text-sm font-medium">{{ $t('participants.bulkMessage.template') }}:</label>
                                     <select class="w-full mt-1 p-2 border rounded-md text-sm">
-                                        <option>Recordatorio general</option>
-                                        <option>Información de pago</option>
-                                        <option>Confirmación de asistencia</option>
-                                        <option>Mensaje personalizado</option>
+                                        <option>{{ $t('participants.bulkMessage.templates.generalReminder') }}</option>
+                                        <option>{{ $t('participants.bulkMessage.templates.paymentInfo') }}</option>
+                                        <option>{{ $t('participants.bulkMessage.templates.confirmation') }}</option>
+                                        <option>{{ $t('participants.bulkMessage.templates.custom') }}</option>
                                     </select>
                                 </div>
 
                                 <div>
-                                    <label class="text-sm font-medium">Mensaje:</label>
+                                    <label class="text-sm font-medium">{{ $t('participants.bulkMessage.message') }}:</label>
                                     <textarea
                                         class="w-full mt-1 p-2 border rounded-md text-sm"
                                         rows="4"
-                                        placeholder="Escribe tu mensaje aquí..."
+                                        :placeholder="$t('participants.bulkMessage.messagePlaceholder')"
                                     ></textarea>
                                 </div>
                             </div>
@@ -1186,116 +1202,23 @@ onMounted(() => {
                     <!-- Footer -->
                     <div class="flex items-center justify-end gap-2 p-6 border-t bg-gray-50">
                         <Button variant="outline" @click="isBulkMessageDialogOpen = false">
-                            Cancelar
+                            {{ $t('common.actions.cancel') }}
                         </Button>
                         <Button @click="sendBulkMessage">
-                            Enviar Mensaje ({{ bulkMessageParticipants.length }})
+                            {{ $t('participants.bulkMessage.sendButton', { count: bulkMessageParticipants.length }) }}
                         </Button>
                     </div>
                 </div>
             </div>
         </Teleport>
 
-        <!-- Bulk Edit Dialog -->
-        <Teleport to="body" v-if="isBulkEditDialogOpen">
-            <div
-                class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-                @click.self="isBulkEditDialogOpen = false"
-            >
-                <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-                    <!-- Header -->
-                    <div class="flex items-center justify-between p-6 border-b">
-                        <div>
-                            <h2 class="text-xl font-semibold">Editar Participantes Seleccionados</h2>
-                            <p class="text-gray-600 mt-1">Editar {{ bulkEditParticipants.length }} participantes simultáneamente</p>
-                        </div>
-                        <Button variant="ghost" size="icon" @click="isBulkEditDialogOpen = false">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                        </Button>
-                    </div>
-
-                    <!-- Body -->
-                    <div class="p-6 overflow-y-auto max-h-[60vh]">
-                        <div class="space-y-4">
-                            <!-- Participants List -->
-                            <div class="max-h-32 overflow-y-auto border rounded-md p-2">
-                                <div class="text-sm font-medium mb-2">Participantes a editar:</div>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
-                                    <div v-for="participant in bulkEditParticipants" :key="participant.id"
-                                         class="flex items-center gap-1">
-                                        <span class="font-medium">{{ participant.firstName }} {{ participant.lastName }}</span>
-                                        <span v-if="participant.cellPhone" class="text-gray-500">({{ participant.cellPhone }})</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Editable Fields -->
-                            <div class="space-y-3">
-                                <div class="text-sm text-gray-600">
-                                    Los campos marcados con * se actualizarán para todos los participantes seleccionados.
-                                </div>
-
-                                <!-- Common Fields to Edit -->
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="text-sm font-medium">* Estado de Pago:</label>
-                                        <select class="w-full mt-1 p-2 border rounded-md text-sm">
-                                            <option value="">No cambiar</option>
-                                            <option value="paid">Pagado</option>
-                                            <option value="pending">Pendiente</option>
-                                            <option value="scholarship">Beca</option>
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label class="text-sm font-medium">* Ronquido:</label>
-                                        <select class="w-full mt-1 p-2 border rounded-md text-sm">
-                                            <option value="">No cambiar</option>
-                                            <option value="true">Sí ronca</option>
-                                            <option value="false">No ronca</option>
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label class="text-sm font-medium">* Tamaño de Camisa:</label>
-                                        <select class="w-full mt-1 p-2 border rounded-md text-sm">
-                                            <option value="">No cambiar</option>
-                                            <option value="XS">XS</option>
-                                            <option value="S">S</option>
-                                            <option value="M">M</option>
-                                            <option value="L">L</option>
-                                            <option value="XL">XL</option>
-                                            <option value="XXL">XXL</option>
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label class="text-sm font-medium">Notas adicionales:</label>
-                                        <textarea
-                                            class="w-full mt-1 p-2 border rounded-md text-sm"
-                                            rows="2"
-                                            placeholder="Agregar notas a todos los participantes seleccionados..."
-                                        ></textarea>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Footer -->
-                    <div class="flex items-center justify-end gap-2 p-6 border-t bg-gray-50">
-                        <Button variant="outline" @click="isBulkEditDialogOpen = false">
-                            Cancelar
-                        </Button>
-                        <Button @click="saveBulkEdit">
-                            Guardar Cambios ({{ bulkEditParticipants.length }})
-                        </Button>
-                    </div>
-                </div>
-            </div>
-        </Teleport>
+        <!-- Bulk Edit Participants Modal -->
+        <BulkEditParticipantsModal
+          v-model:isOpen="isBulkEditDialogOpen"
+          :participants="bulkEditParticipants"
+          :all-columns="allColumns"
+          @save="handleBulkEditSave"
+        />
 
         <!-- Bulk Delete Dialog -->
         <Dialog v-model:open="isBulkDeleteDialogOpen">
