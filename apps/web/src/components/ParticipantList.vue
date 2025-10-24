@@ -349,9 +349,21 @@ const formatCell = (participant: any, colKey: string) => {
     const value = getNestedProperty(participant, colKey);
 
     // Handle date formatting
-    if (['birthDate', 'registrationDate', 'lastUpdatedDate', 'paymentDate'].includes(colKey)) {
+    if (['birthDate', 'registrationDate', 'lastUpdatedDate'].includes(colKey)) {
         if (!value) return 'N/A';
         const date = new Date(value);
+        const year = date.getUTCFullYear();
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    // Handle paymentDate field - use computed property from API
+    if (colKey === 'paymentDate') {
+        const paymentDate = participant.lastPaymentDate;
+        if (!paymentDate) return 'N/A';
+        // Use existing date formatting logic for consistency
+        const date = new Date(paymentDate);
         const year = date.getUTCFullYear();
         const month = String(date.getUTCMonth() + 1).padStart(2, '0');
         const day = String(date.getUTCDate()).padStart(2, '0');

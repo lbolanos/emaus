@@ -2,12 +2,12 @@ import { AppDataSource } from '../data-source';
 import { Participant } from '../entities/participant.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { TableMesa } from '../entities/tableMesa.entity';
-import { RetreatBed } from '../entities/retreatBed.entity';
+import { RetreatBed, BedUsage } from '../entities/retreatBed.entity';
 import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { Payment } from '../entities/payment.entity';
 import { User } from '../entities/user.entity';
 import { CreateParticipant, UpdateParticipant } from '@repo/types';
-import { rebalanceTablesForRetreat } from './tableMesaService';
+import { rebalanceTablesForRetreat, assignLeaderToTable } from './tableMesaService';
 import { EmailService } from './emailService';
 import { In, Not, IsNull, ILike, Brackets } from 'typeorm';
 
@@ -745,6 +745,233 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
 	};
 };
 
+// Helper function to extract Excel-specific fields for table and bed assignments
+const extractExcelAssignments = (participant: any): {
+	tableName?: string;
+	roomNumber?: string;
+	tipousuario?: string;
+	leadershipRole?: 'lider' | 'colider1' | 'colider2' | null;
+} => {
+	const tipousuario = participant.tipousuario?.toString().trim();
+	let leadershipRole: 'lider' | 'colider1' | 'colider2' | null = null;
+
+	// Determine leadership role based on tipousuario
+	if (tipousuario === '1') {
+		leadershipRole = 'lider'; // Primero de Mesa
+	} else if (tipousuario === '2') {
+		leadershipRole = 'colider1'; // Segundo de Mesa (will be assigned to colider1 or colider2 based on availability)
+	}
+	// tipousuario = '0' (Servidor sin mesa) and others get no leadership role
+
+	return {
+		tableName: participant.mesa?.toString().trim(),
+		roomNumber: participant.habitacion?.toString().trim(),
+		tipousuario,
+		leadershipRole,
+	};
+};
+
+// Helper function to find available colider slot in a table
+const findAvailableColiderSlot = async (tableId: string): Promise<'colider1' | 'colider2' | null> => {
+	try {
+		const table = await tableMesaRepository.findOne({
+			where: { id: tableId },
+			select: ['colider1Id', 'colider2Id']
+		});
+
+		if (!table) return null;
+
+		// Check for available slots in order: colider1 first, then colider2
+		if (!table.colider1Id) return 'colider1';
+		if (!table.colider2Id) return 'colider2';
+
+		return null; // No available slots
+	} catch (error) {
+		console.error(`Error finding available colider slot in table "${tableId}":`, error);
+		return null;
+	}
+};
+
+// Helper function to assign leadership role during import
+const assignLeadershipRole = async (
+	retreatId: string,
+	participantId: string,
+	tableName: string,
+	leadershipRole: 'lider' | 'colider1' | 'colider2' | null,
+	participantEmail: string
+): Promise<void> => {
+	if (!leadershipRole || !tableName) return;
+
+	try {
+		// Check if participant is already a leader in another table
+		const existingLeadership = await checkExistingLeadership(participantId);
+		if (existingLeadership.isLeader) {
+			console.log(`🔄 Participant ${participantEmail} is already ${existingLeadership.role} in table "${existingLeadership.tableName}". Removing from previous assignment...`);
+
+			// Remove from existing table (the assignLeaderToTable function will handle this)
+		}
+
+		// Find or create the table by name
+		const tableId = await findOrCreateTableByName(retreatId, tableName);
+		if (!tableId) {
+			console.warn(`⚠️ Cannot assign leadership: Failed to find or create table "${tableName}" for participant ${participantEmail}`);
+			return;
+		}
+
+		// For colider1 role, find available slot (colider1 or colider2)
+		let finalRole = leadershipRole;
+		if (leadershipRole === 'colider1') {
+			const availableSlot = await findAvailableColiderSlot(tableId);
+			if (!availableSlot) {
+				console.warn(`⚠️ Cannot assign colider: No available colider slots in table "${tableName}" for participant ${participantEmail}`);
+				return;
+			}
+			finalRole = availableSlot;
+		}
+
+		// Assign leadership role using existing function (which handles removing from other tables)
+		await assignLeaderToTable(tableId, participantId, finalRole);
+
+		if (existingLeadership.isLeader) {
+			console.log(`✅ Moved participant ${participantEmail} from ${existingLeadership.role} of table "${existingLeadership.tableName}" to ${finalRole} of table "${tableName}"`);
+		} else {
+			console.log(`✅ Assigned participant ${participantEmail} as ${finalRole} of table "${tableName}"`);
+		}
+
+	} catch (error: any) {
+		console.error(`❌ Failed to assign leadership role for participant ${participantEmail}:`, error.message);
+	}
+};
+
+// Helper function to find or create table by name during import
+const findOrCreateTableByName = async (retreatId: string, tableName: string): Promise<string | undefined> => {
+	if (!tableName) return undefined;
+
+	try {
+		// First, try to find existing table
+		const existingTable = await tableMesaRepository.findOne({
+			where: {
+				retreatId,
+				name: tableName.toString() // Convert to string to handle numeric Excel values
+			},
+			select: ['id']
+		});
+
+		if (existingTable) {
+			return existingTable.id;
+		}
+
+		// Table doesn't exist, create it
+		console.log(`📋 Creating new table "${tableName}" for retreat ${retreatId}`);
+		const newTable = tableMesaRepository.create({
+			name: tableName.toString(),
+			retreatId
+		});
+		const savedTable = await tableMesaRepository.save(newTable);
+
+		console.log(`✅ Created table "${tableName}" with ID: ${savedTable.id}`);
+		return savedTable.id;
+
+	} catch (error) {
+		console.error(`Error finding or creating table "${tableName}":`, error);
+		return undefined;
+	}
+};
+
+// Helper function to check if participant is already a leader in any table
+const checkExistingLeadership = async (participantId: string): Promise<{
+	isLeader: boolean;
+	role?: 'lider' | 'colider1' | 'colider2';
+	tableName?: string;
+	tableId?: string;
+}> => {
+	try {
+		// Check all three leadership roles
+		const leaderTable = await tableMesaRepository.findOne({
+			where: { liderId: participantId },
+			select: ['id', 'name'],
+			relations: ['lider']
+		});
+
+		if (leaderTable) {
+			return {
+				isLeader: true,
+				role: 'lider',
+				tableName: leaderTable.name,
+				tableId: leaderTable.id
+			};
+		}
+
+		const colider1Table = await tableMesaRepository.findOne({
+			where: { colider1Id: participantId },
+			select: ['id', 'name']
+		});
+
+		if (colider1Table) {
+			return {
+				isLeader: true,
+				role: 'colider1',
+				tableName: colider1Table.name,
+				tableId: colider1Table.id
+			};
+		}
+
+		const colider2Table = await tableMesaRepository.findOne({
+			where: { colider2Id: participantId },
+			select: ['id', 'name']
+		});
+
+		if (colider2Table) {
+			return {
+				isLeader: true,
+				role: 'colider2',
+				tableName: colider2Table.name,
+				tableId: colider2Table.id
+			};
+		}
+
+		return { isLeader: false };
+	} catch (error) {
+		console.error(`Error checking existing leadership for participant ${participantId}:`, error);
+		return { isLeader: false };
+	}
+};
+
+// Helper function to find available bed by room number during import
+const findAvailableBedByRoom = async (
+	retreatId: string,
+	roomNumber: string,
+	participantType: 'walker' | 'server'
+): Promise<string | undefined> => {
+	if (!roomNumber) return undefined;
+
+	try {
+		const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
+
+		// Determine bed usage based on participant type
+		const bedUsage = participantType === 'walker' ? BedUsage.CAMINANTE : BedUsage.SERVIDOR;
+
+		// Find first available bed in the specified room
+		const availableBed = await retreatBedRepository.findOne({
+			where: {
+				retreatId,
+				roomNumber: roomNumber.toString(), // Convert to string to handle numeric Excel values
+				participantId: IsNull(), // Must be unassigned
+				defaultUsage: bedUsage, // Must match participant type
+			},
+			select: ['id'],
+			order: {
+				bedNumber: 'ASC' // Get the first bed in the room
+			}
+		});
+
+		return availableBed?.id;
+	} catch (error) {
+		console.error(`Error finding available bed in room "${roomNumber}":`, error);
+		return undefined;
+	}
+};
+
 // Helper function to create payment record during import
 const createPaymentFromImport = async (
 	participantId: string,
@@ -846,6 +1073,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 	for (const participantRawData of participantsData) {
 		const mappedData = mapToEnglishKeys(participantRawData);
+		const excelAssignments = extractExcelAssignments(participantRawData);
 
 		if (!mappedData.email) {
 			console.warn('Skipping participant due to missing email:', participantRawData);
@@ -853,6 +1081,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 			continue;
 		}
 
+		let participant: Participant;
 		try {
 			const existingParticipant = await participantRepository.findOne({
 				where: { email: mappedData.email, retreatId },
@@ -863,6 +1092,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				await updateParticipant(existingParticipant.id, updateData as UpdateParticipant);
 				updatedCount++;
 				processedParticipantIds.push(existingParticipant.id);
+				participant = existingParticipant;
 
 				// Create payment record if payment data exists in import
 				await createPaymentFromImport(existingParticipant.id, retreatId, participantRawData, user);
@@ -874,10 +1104,58 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				);
 				importedCount++;
 				processedParticipantIds.push(newParticipant.id);
+				participant = newParticipant;
 
 				// Create payment record if payment data exists in import
 				await createPaymentFromImport(newParticipant.id, retreatId, participantRawData, user);
 			}
+
+			// Handle table assignment from Excel 'mesa' field
+			if (excelAssignments.tableName && participant.type === 'walker') {
+				const tableId = await findOrCreateTableByName(retreatId, excelAssignments.tableName);
+				if (tableId) {
+					await participantRepository.update(participant.id, { tableId });
+					console.log(`✅ Assigned participant ${participant.email} to table "${excelAssignments.tableName}"`);
+				} else {
+					console.warn(`⚠️ Failed to create or find table "${excelAssignments.tableName}" for participant ${participant.email}`);
+				}
+			}
+
+			// Handle bed assignment from Excel 'habitacion' field
+			if (excelAssignments.roomNumber && participant.type !== 'waiting' && participant.type !== 'partial_server') {
+				const bedId = await findAvailableBedByRoom(retreatId, excelAssignments.roomNumber, participant.type);
+				if (bedId) {
+					// Update participant with bed assignment
+					await participantRepository.update(participant.id, { retreatBedId: bedId });
+
+					// Update the bed to point to the participant
+					const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
+					await retreatBedRepository.update(bedId, { participantId: participant.id });
+
+					console.log(`✅ Assigned participant ${participant.email} to bed in room "${excelAssignments.roomNumber}"`);
+				} else {
+					console.warn(`⚠️ No available bed found in room "${excelAssignments.roomNumber}" for participant ${participant.email}`);
+				}
+			}
+
+			// Handle leadership role assignment from Excel 'tipousuario' field
+			if (excelAssignments.leadershipRole && participant.type === 'server') {
+				// Only assign leadership if the participant also has a table assignment
+				if (excelAssignments.tableName) {
+					await assignLeadershipRole(
+						retreatId,
+						participant.id,
+						excelAssignments.tableName,
+						excelAssignments.leadershipRole,
+						participant.email
+					);
+				} else {
+					console.warn(`⚠️ Cannot assign leadership role to participant ${participant.email}: no table specified (mesa field required for tipousuario ${excelAssignments.tipousuario})`);
+				}
+			} else if (excelAssignments.leadershipRole && participant.type !== 'server') {
+				console.warn(`⚠️ Cannot assign leadership role to participant ${participant.email}: participant type is '${participant.type}' but leadership roles require 'server' type`);
+			}
+
 		} catch (error: any) {
 			console.error(`Failed to import participant ${mappedData.email}: ${error.message}`);
 			skippedCount++;
@@ -890,26 +1168,35 @@ export const importParticipants = async (retreatId: string, participantsData: an
 			transactionalEntityManager.getRepository(Participant);
 		const transactionalBedRepository = transactionalEntityManager.getRepository(RetreatBed);
 
-		// First, clear any existing bed assignments for these participants to avoid conflicts
-		await transactionalParticipantRepository
-			.createQueryBuilder()
-			.update(Participant)
-			.set({ retreatBedId: null })
-			.where('id IN (:...ids)', { ids: processedParticipantIds })
-			.execute();
-
-		// Clear existing participant assignments in beds for these participants
-		await transactionalBedRepository
-			.createQueryBuilder()
-			.update(RetreatBed)
-			.set({ participantId: null })
-			.where('participantId IN (:...ids)', { ids: processedParticipantIds })
-			.execute();
-
-		// Get all participants to process
+		// Get all participants to process to check for existing Excel assignments
 		const participantsToProcess = await transactionalParticipantRepository.find({
 			where: { id: In(processedParticipantIds) },
 		});
+
+		// Only clear assignments for participants that don't have Excel assignments
+		const participantsWithoutExcelAssignments = participantsToProcess.filter(
+			p => !p.tableId && !p.retreatBedId
+		);
+
+		if (participantsWithoutExcelAssignments.length > 0) {
+			const participantIdsWithoutAssignments = participantsWithoutExcelAssignments.map(p => p.id);
+
+			// Clear bed assignments for participants without Excel assignments
+			await transactionalParticipantRepository
+				.createQueryBuilder()
+				.update(Participant)
+				.set({ retreatBedId: null })
+				.where('id IN (:...ids)', { ids: participantIdsWithoutAssignments })
+				.execute();
+
+			// Clear existing participant assignments in beds for these participants
+			await transactionalBedRepository
+				.createQueryBuilder()
+				.update(RetreatBed)
+				.set({ participantId: null })
+				.where('participantId IN (:...ids)', { ids: participantIdsWithoutAssignments })
+				.execute();
+		}
 
 		// Track assigned beds to prevent duplicate assignments
 		const assignedBedIds = new Set<string>();
@@ -917,6 +1204,16 @@ export const importParticipants = async (retreatId: string, participantsData: an
 		// Process participants one by one with atomic bed assignment
 		for (const participant of participantsToProcess) {
 			if (participant.type !== 'waiting' && participant.type !== 'partial_server') {
+				// Skip if participant already has assignments from Excel import
+				const hasExistingAssignments = participant.tableId || participant.retreatBedId;
+				if (hasExistingAssignments) {
+					// Track existing bed assignments to prevent conflicts
+					if (participant.retreatBedId) {
+						assignedBedIds.add(participant.retreatBedId);
+					}
+					continue;
+				}
+
 				// Use the new unified assignment function
 				const { bedId, tableId } = await assignBedAndTableToParticipant(
 					participant,

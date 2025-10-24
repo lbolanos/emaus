@@ -277,6 +277,22 @@ export class Participant {
 	}
 
 	/**
+	 * Obtiene la fecha del último pago como string con formato YYYY-MM-DD
+	 */
+	get lastPaymentDate(): string | null {
+		const lastPayment = this.lastPayment;
+		if (!lastPayment || !lastPayment.paymentDate) {
+			return null;
+		}
+		// Retornar fecha en formato YYYY-MM-DD
+		const date = new Date(lastPayment.paymentDate);
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		return `${year}-${month}-${day}`;
+	}
+
+	/**
 	 * Verifica si el participante tiene pagos registrados
 	 */
 	get hasPayments(): boolean {
@@ -325,5 +341,21 @@ export class Participant {
 		}
 
 		return Math.max(0, expectedAmount - this.totalPaid);
+	}
+
+	/**
+	 * Custom JSON serialization to include computed properties
+	 */
+	toJSON() {
+		const { ...plainObject } = this;
+
+		// Add computed properties to JSON output
+		plainObject.totalPaid = this.totalPaid;
+		plainObject.paymentStatus = this.paymentStatus;
+		plainObject.paymentRemaining = this.paymentRemaining;
+		plainObject.hasPayments = this.hasPayments;
+		plainObject.lastPaymentDate = this.lastPaymentDate;
+
+		return plainObject;
 	}
 }

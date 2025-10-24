@@ -17,6 +17,7 @@ interface ParticipantPaymentData {
 	participant: Participant;
 	payments: Payment[];
 	totalPaid: number;
+	lastPaymentDate: string | null;
 }
 
 export class PaymentController {
