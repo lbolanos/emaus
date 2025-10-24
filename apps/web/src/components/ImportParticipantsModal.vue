@@ -35,7 +35,6 @@
                   isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400',
                   selectedFile ? 'bg-green-50 border-green-300' : ''
                 ]"
-                @click="triggerFileInput"
               >
                 <input
                   ref="fileInputRef"
