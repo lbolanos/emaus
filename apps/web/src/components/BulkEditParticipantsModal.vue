@@ -52,7 +52,9 @@ const fieldCategories = {
   payment: {
     label: $t('participants.bulkEdit.categories.payment'),
     icon: '💰',
-    fields: ['paymentDate', 'paymentAmount', 'isScholarship']
+    fields: ['isScholarship']
+    // Note: paymentDate and paymentAmount are handled through the Payment Management component
+    // We don't bulk edit these fields anymore as they should be managed via individual payment records
   },
   palancas: {
     label: $t('participants.bulkEdit.categories.palancas'),

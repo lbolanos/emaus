@@ -347,6 +347,8 @@ const hasBirthdayDuringRetreat = (participant: any) => {
 
 const formatCell = (participant: any, colKey: string) => {
     const value = getNestedProperty(participant, colKey);
+
+    // Handle date formatting
     if (['birthDate', 'registrationDate', 'lastUpdatedDate', 'paymentDate'].includes(colKey)) {
         if (!value) return 'N/A';
         const date = new Date(value);
@@ -355,9 +357,22 @@ const formatCell = (participant: any, colKey: string) => {
         const day = String(date.getUTCDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     }
+
+    // Handle payment amount - use calculated totalPaid instead of legacy paymentAmount
+    if (colKey === 'paymentAmount') {
+        const totalPaid = participant.totalPaid || 0;
+        if (totalPaid === 0) return '$0.00';
+        return new Intl.NumberFormat('es-MX', {
+            style: 'currency',
+            currency: 'MXN'
+        }).format(totalPaid);
+    }
+
+    // Handle boolean values
     if (typeof value === 'boolean') {
         return value ? $t('common.yes') : $t('common.no');
     }
+
     return value || 'N/A';
 };
 
@@ -368,20 +383,36 @@ const getCellContent = (participant: any, colKey: string) => {
         const formattedDate = formatCell(participant, colKey);
         return {
             value: formattedDate,
-            hasBirthday: true
+            hasBirthday: true,
+            hasPaymentStatus: false
         };
     }
 
     if (colKey === 'firstName' && hasBirthdayDuringRetreat(participant)) {
         return {
             value: value || 'N/A',
-            hasBirthday: true
+            hasBirthday: true,
+            hasPaymentStatus: false
+        };
+    }
+
+    // Add payment status indicator for payment amounts
+    if (colKey === 'paymentAmount') {
+        const paymentStatus = participant.paymentStatus || 'unpaid';
+        const formattedAmount = formatCell(participant, colKey);
+
+        return {
+            value: formattedAmount,
+            hasBirthday: false,
+            hasPaymentStatus: true,
+            paymentStatus
         };
     }
 
     return {
         value: formatCell(participant, colKey),
-        hasBirthday: false
+        hasBirthday: false,
+        hasPaymentStatus: false
     };
 };
 
@@ -979,6 +1010,19 @@ onMounted(() => {
                                 {{ getCellContent(participant, colKey).value }}
                                 <span v-if="getCellContent(participant, colKey).hasBirthday" class="text-yellow-600" :title="$t('participants.birthdayDuringRetreat')">
                                     🎂
+                                </span>
+                                <span v-if="getCellContent(participant, colKey).hasPaymentStatus"
+                                      :class="{
+                                        'text-green-600': getCellContent(participant, colKey).paymentStatus === 'paid',
+                                        'text-yellow-600': getCellContent(participant, colKey).paymentStatus === 'partial',
+                                        'text-red-600': getCellContent(participant, colKey).paymentStatus === 'unpaid',
+                                        'text-purple-600': getCellContent(participant, colKey).paymentStatus === 'overpaid'
+                                      }"
+                                      :title="`Estado: ${getCellContent(participant, colKey).paymentStatus}`">
+                                    <span v-if="getCellContent(participant, colKey).paymentStatus === 'paid'">✅</span>
+                                    <span v-else-if="getCellContent(participant, colKey).paymentStatus === 'partial'">⚠️</span>
+                                    <span v-else-if="getCellContent(participant, colKey).paymentStatus === 'unpaid'">❌</span>
+                                    <span v-else-if="getCellContent(participant, colKey).paymentStatus === 'overpaid'">💰</span>
                                 </span>
                             </div>
                         </TableCell>

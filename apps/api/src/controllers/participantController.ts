@@ -3,12 +3,13 @@ import * as participantService from '../services/participantService';
 
 export const getAllParticipants = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { retreatId, type, isCancelled: isCancelled } = req.query;
+		const { retreatId, type, isCancelled: isCancelled, includePayments } = req.query;
 		const participants = await participantService.findAllParticipants(
 			retreatId as string | undefined,
 			type as 'walker' | 'server' | 'waiting' | undefined,
 			isCancelled === 'true',
 			['tableMesa', 'retreatBed'], // Include table and bed relations
+			includePayments === 'true', // Include payment details when requested
 		);
 		res.json(participants);
 	} catch (error) {
@@ -18,7 +19,11 @@ export const getAllParticipants = async (req: Request, res: Response, next: Next
 
 export const getParticipantById = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const participant = await participantService.findParticipantById(req.params.id);
+		const { includePayments } = req.query;
+		const participant = await participantService.findParticipantById(
+			req.params.id,
+			includePayments === 'true'
+		);
 		if (participant) {
 			res.json(participant);
 		} else {
@@ -69,8 +74,9 @@ export const importParticipants = async (req: Request, res: Response, next: Next
 	try {
 		const { retreatId } = req.params;
 		const { participants } = req.body;
+		const user = req.user as any;
 
-		const result = await participantService.importParticipants(retreatId, participants);
+		const result = await participantService.importParticipants(retreatId, participants, user);
 
 		res.status(200).json(result);
 	} catch (error) {

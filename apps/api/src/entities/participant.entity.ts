@@ -247,4 +247,83 @@ export class Participant {
 
 	@OneToMany(() => Payment, (payment) => payment.participant)
 	payments!: Payment[];
+
+	// --- PROPERTIES COMPUTADAS ---
+
+	/**
+	 * Calcula el total pagado por el participante sumando todos sus pagos
+	 * Esta propiedad reemplaza al campo paymentAmount legado
+	 */
+	get totalPaid(): number {
+		if (!this.payments || this.payments.length === 0) {
+			return 0;
+		}
+		return this.payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+	}
+
+	/**
+	 * Obtiene el último pago registrado del participante
+	 */
+	get lastPayment(): Payment | null {
+		if (!this.payments || this.payments.length === 0) {
+			return null;
+		}
+		// Ordenar por fecha de pago y luego por fecha de creación
+		return this.payments.sort((a, b) => {
+			const dateCompare = new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime();
+			if (dateCompare !== 0) return dateCompare;
+			return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+		})[0];
+	}
+
+	/**
+	 * Verifica si el participante tiene pagos registrados
+	 */
+	get hasPayments(): boolean {
+		return this.payments && this.payments.length > 0;
+	}
+
+	/**
+	 * Calcula el estado de pago del participante
+	 * 'paid': Pagado completamente
+	 * 'partial': Pagado parcialmente
+	 * 'unpaid': Sin pagos
+	 * 'overpaid': Pagado de más
+	 */
+	get paymentStatus(): 'paid' | 'partial' | 'unpaid' | 'overpaid' {
+		const total = this.totalPaid;
+
+		// Si el participante es becado, consideramos que está pagado
+		if (this.isScholarship) {
+			return 'paid';
+		}
+
+		// Parsear el costo del retiro (puede ser un string con formato de moneda)
+		let expectedAmount = 0;
+		if (this.retreat?.cost) {
+			// Eliminar símbolos de moneda y convertir a número
+			const costString = this.retreat.cost.replace(/[^0-9.-]/g, '');
+			expectedAmount = parseFloat(costString) || 0;
+		}
+
+		if (total === 0) return 'unpaid';
+		if (total < expectedAmount) return 'partial';
+		if (total > expectedAmount) return 'overpaid';
+		return 'paid';
+	}
+
+	/**
+	 * Calcula el monto restante por pagar
+	 */
+	get paymentRemaining(): number {
+		if (this.isScholarship) return 0;
+
+		let expectedAmount = 0;
+		if (this.retreat?.cost) {
+			const costString = this.retreat.cost.replace(/[^0-9.-]/g, '');
+			expectedAmount = parseFloat(costString) || 0;
+		}
+
+		return Math.max(0, expectedAmount - this.totalPaid);
+	}
 }

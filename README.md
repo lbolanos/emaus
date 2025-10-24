@@ -295,6 +295,7 @@ Search for BIRTHDAY_MESSAGE and clic title="Editar"
 Select text "¡Feliz cumpleaños" y clic en boton negrillas.
 Fix any issue with text changes
 
+./start.sh
 
 git clean -fdx
 lsof -ti:3001 | xargs -r kill -9
@@ -320,6 +321,9 @@ rsync -avz \
 --exclude 'apps/web/.env' \
  . root@155.138.230.215:/var/www/emaus/
  
+scp root@155.138.230.215:/var/www/emaus/apps/api/database.sqlite apps/api/database.sqlite
+sqlite3 /var/www/emaus/apps/api/database.sqlite "INSERT OR IGNORE INTO user_roles (userId, roleId) VALUES ('254a1d26-3c53-485a-a0ec-950a43d30aed', 3);"
+sqlite3 /var/www/emaus/apps/api/database.sqlite "SELECT u.email, u.displayName, r.name as role_name FROM users u LEFT JOIN user_roles ur ON u.id = ur.userId LEFT JOIN roles r ON ur.roleId = r.id WHERE u.email = 'lunavalentinabe@isb.edu.mx';"
 ssh root@155.138.230.215 "cat /var/www/emaus/apps/api/database.sqlite" > apps/api/database.sqlite
 
 scp root@155.138.230.215:/var/www/emaus/apps/api/.env ./apps/api/

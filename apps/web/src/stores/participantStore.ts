@@ -26,7 +26,9 @@ export const useParticipantStore = defineStore('participant', () => {
 		try {
 			loading.value = true;
 			error.value = null;
-			const response = await api.get('/participants', { params: filters });
+			// Always include payments to calculate totalPaid
+			const paramsWithPayments = { ...filters, includePayments: true };
+			const response = await api.get('/participants', { params: paramsWithPayments });
 			participants.value = response.data;
 		} catch (error: any) {
 			const errorMessage =

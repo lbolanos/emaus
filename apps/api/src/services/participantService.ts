@@ -4,6 +4,8 @@ import { Retreat } from '../entities/retreat.entity';
 import { TableMesa } from '../entities/tableMesa.entity';
 import { RetreatBed } from '../entities/retreatBed.entity';
 import { MessageTemplate } from '../entities/messageTemplate.entity';
+import { Payment } from '../entities/payment.entity';
+import { User } from '../entities/user.entity';
 import { CreateParticipant, UpdateParticipant } from '@repo/types';
 import { rebalanceTablesForRetreat } from './tableMesaService';
 import { EmailService } from './emailService';
@@ -12,12 +14,15 @@ import { In, Not, IsNull, ILike, Brackets } from 'typeorm';
 const participantRepository = AppDataSource.getRepository(Participant);
 const retreatRepository = AppDataSource.getRepository(Retreat);
 const tableMesaRepository = AppDataSource.getRepository(TableMesa);
+const paymentRepository = AppDataSource.getRepository(Payment);
+const userRepository = AppDataSource.getRepository(User);
 
 export const findAllParticipants = async (
 	retreatId?: string,
 	type?: 'walker' | 'server' | 'waiting' | 'partial_server',
 	isCancelled?: boolean,
 	relations: string[] = [],
+	includePayments: boolean = false,
 ): Promise<Participant[]> => {
 	const where: any = {};
 
@@ -32,11 +37,33 @@ export const findAllParticipants = async (
 	if (typeof isCancelled === 'boolean') {
 		where.isCancelled = isCancelled;
 	}
-	return participantRepository.find({ where, relations });
+
+	// Always include payments and retreat relations for payment calculations
+	const allRelations = [...new Set([...relations, 'payments', 'retreat'])];
+	if (includePayments) {
+		allRelations.push('payments.recordedByUser');
+	}
+
+	return participantRepository.find({
+		where,
+		relations: allRelations,
+		order: {
+			lastName: 'ASC',
+			firstName: 'ASC'
+		}
+	});
 };
 
-export const findParticipantById = async (id: string): Promise<Participant | null> => {
-	return participantRepository.findOneBy({ id });
+export const findParticipantById = async (id: string, includePayments: boolean = false): Promise<Participant | null> => {
+	const relations = ['retreat', 'tableMesa', 'retreatBed'];
+	if (includePayments) {
+		relations.push('payments', 'payments.recordedByUser');
+	}
+
+	return participantRepository.findOne({
+		where: { id },
+		relations
+	});
 };
 
 const assignBedToParticipant = async (
@@ -707,10 +734,6 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
 		inviterCellPhone: participant.invtelcelular?.trim(),
 		inviterEmail: participant.invemail?.trim(),
 		pickupLocation: participant.puntoencuentro?.trim(),
-		paymentDate: participant.fechapago?.trim() ? new Date(participant.fechapago.trim()) : undefined,
-		paymentAmount: participant.montopago?.trim()
-			? parseFloat(participant.montopago.trim())
-			: undefined,
 		isScholarship: participant.becado?.trim() === 'S',
 		palancasCoordinator: participant.palancasencargado?.trim(),
 		palancasRequested: participant.palancaspedidas?.trim() === 'S',
@@ -722,7 +745,100 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
 	};
 };
 
-export const importParticipants = async (retreatId: string, participantsData: any[]) => {
+// Helper function to create payment record during import
+const createPaymentFromImport = async (
+	participantId: string,
+	retreatId: string,
+	participantRawData: any,
+	user: any
+): Promise<void> => {
+	const paymentAmount = participantRawData.montopago?.trim();
+	const paymentDate = participantRawData.fechapago?.trim();
+
+	if (!paymentAmount || !paymentDate) {
+		// No payment data in import, skip payment creation
+		return;
+	}
+
+	try {
+		// Validate user is provided
+		if (!user || !user.id) {
+			console.error('❌ No user provided for import - cannot create payment records');
+			return;
+		}
+
+		const amount = parseFloat(paymentAmount);
+		if (isNaN(amount) || amount <= 0) {
+			return; // Skip invalid amounts
+		}
+
+		// Check if payment already exists for this participant
+		const existingPayments = await paymentRepository.find({
+			where: { participantId },
+			relations: ['recordedByUser']
+		});
+
+		const totalExistingPayments = existingPayments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+
+		// Handle payment scenarios based on existing payments
+		if (existingPayments.length === 0) {
+			// No existing payments - create new payment
+			const payment = paymentRepository.create({
+				participantId,
+				retreatId,
+				amount,
+				paymentDate: new Date(paymentDate),
+				paymentMethod: 'other', // Default for imports
+				referenceNumber: 'IMPORT',
+				notes: 'Imported from Excel/CSV file',
+				recordedBy: user.id,
+			});
+
+			await paymentRepository.save(payment);
+			console.log(`✅ Created payment record for participant ${participantId}: $${amount}`);
+		} else if (totalExistingPayments < amount) {
+			// Existing payments sum less than imported amount - create adjustment payment
+			const adjustmentAmount = amount - totalExistingPayments;
+			const payment = paymentRepository.create({
+				participantId,
+				retreatId,
+				amount: adjustmentAmount,
+				paymentDate: new Date(paymentDate),
+				paymentMethod: 'other',
+				referenceNumber: 'IMPORT_ADJUSTMENT',
+				notes: `Import adjustment - bringing total to $${amount} (existing: $${totalExistingPayments})`,
+				recordedBy: user.id,
+			});
+
+			await paymentRepository.save(payment);
+			console.log(`✅ Created adjustment payment for participant ${participantId}: +$${adjustmentAmount} (total: $${amount})`);
+		} else if (totalExistingPayments > amount) {
+			// Existing payments sum exceeds imported amount - create refund/adjustment
+			const refundAmount = totalExistingPayments - amount;
+			const payment = paymentRepository.create({
+				participantId,
+				retreatId,
+				amount: -Math.abs(refundAmount), // Negative amount for refund
+				paymentDate: new Date(paymentDate),
+				paymentMethod: 'other',
+				referenceNumber: 'IMPORT_REFUND',
+				notes: `Import adjustment - bringing total to $${amount} (excess: $${totalExistingPayments})`,
+				recordedBy: user.id,
+			});
+
+			await paymentRepository.save(payment);
+			console.log(`⚠️ Created refund adjustment for participant ${participantId}: -$${Math.abs(refundAmount)} (total: $${amount})`);
+		} else {
+			// Total matches exactly - no action needed
+			console.log(`ℹ️ Payment amounts match for participant ${participantId}: $${amount} (no adjustment needed)`);
+		}
+	} catch (error: any) {
+		console.error(`❌ Failed to create payment adjustment for participant ${participantId}: ${error.message}`);
+		// Don't throw error - continue with participant creation even if payment fails
+	}
+};
+
+export const importParticipants = async (retreatId: string, participantsData: any[], user: any) => {
 	let importedCount = 0;
 	let updatedCount = 0;
 	let skippedCount = 0;
@@ -747,6 +863,9 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				await updateParticipant(existingParticipant.id, updateData as UpdateParticipant);
 				updatedCount++;
 				processedParticipantIds.push(existingParticipant.id);
+
+				// Create payment record if payment data exists in import
+				await createPaymentFromImport(existingParticipant.id, retreatId, participantRawData, user);
 			} else {
 				const newParticipant = await createParticipant(
 					{ ...mappedData, retreatId } as CreateParticipant,
@@ -755,6 +874,9 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				);
 				importedCount++;
 				processedParticipantIds.push(newParticipant.id);
+
+				// Create payment record if payment data exists in import
+				await createPaymentFromImport(newParticipant.id, retreatId, participantRawData, user);
 			}
 		} catch (error: any) {
 			console.error(`Failed to import participant ${mappedData.email}: ${error.message}`);
