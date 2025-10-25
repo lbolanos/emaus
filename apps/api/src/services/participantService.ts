@@ -2,7 +2,7 @@ import { AppDataSource } from '../data-source';
 import { Participant } from '../entities/participant.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { TableMesa } from '../entities/tableMesa.entity';
-import { RetreatBed, BedUsage } from '../entities/retreatBed.entity';
+import { RetreatBed, BedUsage, BedType } from '../entities/retreatBed.entity';
 import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { Payment } from '../entities/payment.entity';
 import { User } from '../entities/user.entity';
@@ -230,6 +230,7 @@ export const createParticipant = async (
 	participantData: CreateParticipant,
 	assignRelationships = true,
 	isImporting = false,
+	skipCapacityCheck = false,
 ): Promise<Participant> => {
 	const COLOR_POOL = [
 		'#FFADAD',
@@ -432,18 +433,43 @@ export const createParticipant = async (
 		//console.log('COLOR ASSIGNMENT: Final color assigned:', colorToAssign);
 
 		if (participantData.type === 'walker' || participantData.type === 'server') {
-			const retreat = await retreatRepository.findOne({ where: { id: participantData.retreatId } });
-			if (retreat) {
-				const participantCount = await participantRepository.count({
-					where: {
-						retreatId: participantData.retreatId,
-						type: participantData.type,
-						isCancelled: false,
-					},
-				});
-				const limit = participantData.type === 'walker' ? retreat.max_walkers : retreat.max_servers;
-				if (limit != null && participantCount >= limit) {
-					participantData.type = 'waiting';
+			if (skipCapacityCheck) {
+				console.log(`⚠️ SKIPPING CAPACITY CHECK during import for participant ${participantData.email}`);
+				console.log(`   - Preserving original type: ${participantData.type}`);
+				console.log(`   - Reason: Import mode - capacity limits disabled`);
+			} else {
+				const retreat = await retreatRepository.findOne({ where: { id: participantData.retreatId } });
+				if (retreat) {
+					console.log(`🔍 Checking capacity limits for participant type assignment:`);
+					console.log(`   - Retreat ID: ${participantData.retreatId}`);
+					console.log(`   - Participant email: ${participantData.email}`);
+					console.log(`   - Original type: ${participantData.type}`);
+					console.log(`   - Retreat max_walkers: ${retreat.max_walkers}`);
+					console.log(`   - Retreat max_servers: ${retreat.max_servers}`);
+
+					const participantCount = await participantRepository.count({
+						where: {
+							retreatId: participantData.retreatId,
+							type: participantData.type,
+							isCancelled: false,
+						},
+					});
+					const limit = participantData.type === 'walker' ? retreat.max_walkers : retreat.max_servers;
+
+					console.log(`   - Current ${participantData.type} count: ${participantCount}`);
+					console.log(`   - Capacity limit for ${participantData.type}: ${limit}`);
+					console.log(`   - Capacity check: ${participantCount} >= ${limit} = ${participantCount >= limit}`);
+
+					if (limit != null && participantCount >= limit) {
+						console.log(`⚠️ CAPACITY REACHED: Changing participant ${participantData.email} from '${participantData.type}' to 'waiting'`);
+						console.log(`   - Reason: ${participantCount} ${participantData.type}s already registered (limit: ${limit})`);
+						participantData.type = 'waiting';
+						console.log(`   - New type: ${participantData.type}`);
+					} else {
+						console.log(`✅ Capacity available: Keeping participant ${participantData.email} as '${participantData.type}'`);
+					}
+				} else {
+					console.log(`❌ WARNING: Could not find retreat ${participantData.retreatId} for capacity check`);
 				}
 			}
 		}
@@ -641,6 +667,7 @@ export const createParticipant = async (
 export const updateParticipant = async (
 	id: string,
 	participantData: UpdateParticipant,
+	skipRebalance: boolean = false,
 ): Promise<Participant | null> => {
 	const participant = await participantRepository.findOneBy({ id });
 	if (!participant) {
@@ -652,33 +679,50 @@ export const updateParticipant = async (
 	participantRepository.merge(participant, participantData as any);
 	const updatedParticipant = await participantRepository.save(participant);
 
-	if (updatedParticipant.type === 'walker' && wasCancelled !== updatedParticipant.isCancelled) {
+	if (updatedParticipant.type === 'walker' && wasCancelled !== updatedParticipant.isCancelled && !skipRebalance) {
+		console.log(`🔄 Participant cancellation status changed, rebalancing tables for retreat ${updatedParticipant.retreatId}`);
 		await rebalanceTablesForRetreat(updatedParticipant.retreatId);
+	} else if (updatedParticipant.type === 'walker' && wasCancelled !== updatedParticipant.isCancelled && skipRebalance) {
+		console.log(`⚠️ SKIPPING table rebalancing during import for participant ${updatedParticipant.email}`);
 	}
 
 	return updatedParticipant;
 };
 
-export const deleteParticipant = async (id: string): Promise<void> => {
+export const deleteParticipant = async (id: string, skipRebalance: boolean = false): Promise<void> => {
 	const participant = await participantRepository.findOneBy({ id });
 	if (participant) {
 		await participantRepository.update(id, { isCancelled: true, tableId: undefined });
-		if (participant.type === 'walker') {
+		if (participant.type === 'walker' && !skipRebalance) {
+			console.log(`🔄 Walker participant deleted, rebalancing tables for retreat ${participant.retreatId}`);
 			await rebalanceTablesForRetreat(participant.retreatId);
+		} else if (participant.type === 'walker' && skipRebalance) {
+			console.log(`⚠️ SKIPPING table rebalancing during import for deleted participant ${participant.email}`);
 		}
 	}
 };
 
 const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
+	const userType = participant.tipousuario?.trim();
+	let mappedType: string;
+
+	if (userType === '3') {
+		mappedType = 'walker';
+	} else if (userType === '4') {
+		mappedType = 'waiting';
+	} else if (userType === '5') {
+		mappedType = 'partial_server';
+	} else {
+		mappedType = 'server'; // Default for '0', '1', '2', or any other value
+	}
+
+	console.log(`🔍 Type mapping for ${participant.email || 'unknown'}:`);
+	console.log(`   - tipousuario value: "${userType}"`);
+	console.log(`   - Mapped to type: "${mappedType}"`);
+
 	return {
 		id_on_retreat: participant.id?.trim(),
-		type: (() => {
-			const userType = participant.tipousuario?.trim();
-			if (userType === '3') return 'walker';
-			if (userType === '4') return 'waiting';
-			if (userType === '5') return 'partial_server';
-			return 'server';
-		})(),
+		type: mappedType,
 		firstName: participant.nombre?.trim() || '',
 		lastName: participant.apellidos?.trim(),
 		nickname: participant.apodo?.trim(),
@@ -772,19 +816,43 @@ const extractExcelAssignments = (participant: any): {
 };
 
 // Helper function to find available colider slot in a table
-const findAvailableColiderSlot = async (tableId: string): Promise<'colider1' | 'colider2' | null> => {
+const findAvailableColiderSlot = async (
+	tableId: string,
+	assignedLeadershipIds?: Set<string>
+): Promise<'colider1' | 'colider2' | null> => {
 	try {
 		const table = await tableMesaRepository.findOne({
 			where: { id: tableId },
-			select: ['colider1Id', 'colider2Id']
+			select: ['colider1Id', 'colider2Id', 'name']
 		});
 
-		if (!table) return null;
+		if (!table) {
+			console.warn(`⚠️ Table with ID "${tableId}" not found when checking for colider slots`);
+			return null;
+		}
+
+		console.log(`🔍 Checking colider slots in table "${table.name}" (ID: ${tableId}): colider1Id=${table.colider1Id}, colider2Id=${table.colider2Id}`);
 
 		// Check for available slots in order: colider1 first, then colider2
-		if (!table.colider1Id) return 'colider1';
-		if (!table.colider2Id) return 'colider2';
+		if (!table.colider1Id) {
+			console.log(`✅ Found available colider1 slot in table "${table.name}"`);
+			return 'colider1';
+		}
+		if (!table.colider2Id) {
+			console.log(`✅ Found available colider2 slot in table "${table.name}"`);
+			return 'colider2';
+		}
 
+		// Additional check: if we have a tracking set, verify the same person isn't assigned to both slots
+		if (assignedLeadershipIds && table.colider1Id && table.colider2Id) {
+			if (table.colider1Id === table.colider2Id) {
+				console.warn(`⚠️ Same participant assigned to both colider1 and colider2 in table "${table.name}": ${table.colider1Id}`);
+				console.log(`🔧 Rejecting table "${table.name}" due to duplicate assignment - both slots have same participant`);
+				return null; // Reject this table entirely as it has duplicate assignments
+			}
+		}
+
+		console.log(`⚠️ No available colider slots in table "${table.name}" - both colider1 and colider2 are occupied`);
 		return null; // No available slots
 	} catch (error) {
 		console.error(`Error finding available colider slot in table "${tableId}":`, error);
@@ -799,8 +867,8 @@ const assignLeadershipRole = async (
 	tableName: string,
 	leadershipRole: 'lider' | 'colider1' | 'colider2' | null,
 	participantEmail: string
-): Promise<void> => {
-	if (!leadershipRole || !tableName) return;
+): Promise<{ tableCreated?: boolean }> => {
+	if (!leadershipRole || !tableName) return { tableCreated: false };
 
 	try {
 		// Check if participant is already a leader in another table
@@ -811,12 +879,17 @@ const assignLeadershipRole = async (
 			// Remove from existing table (the assignLeaderToTable function will handle this)
 		}
 
-		// Find or create the table by name
-		const tableId = await findOrCreateTableByName(retreatId, tableName);
-		if (!tableId) {
-			console.warn(`⚠️ Cannot assign leadership: Failed to find or create table "${tableName}" for participant ${participantEmail}`);
-			return;
+		// Find the table by name (tables are pre-created in batch)
+		const existingTable = await tableMesaRepository.findOne({
+			where: { name: tableName.toString(), retreatId },
+			select: ['id', 'name']
+		});
+
+		if (!existingTable) {
+			console.warn(`⚠️ Cannot assign leadership: Failed to find pre-created table "${tableName}" for participant ${participantEmail}`);
+			return { tableCreated: false };
 		}
+		const tableId = existingTable.id;
 
 		// For colider1 role, find available slot (colider1 or colider2)
 		let finalRole = leadershipRole;
@@ -838,43 +911,142 @@ const assignLeadershipRole = async (
 			console.log(`✅ Assigned participant ${participantEmail} as ${finalRole} of table "${tableName}"`);
 		}
 
+		return { tableCreated: false }; // Tables are pre-created, not created during leadership assignment
+
 	} catch (error: any) {
 		console.error(`❌ Failed to assign leadership role for participant ${participantEmail}:`, error.message);
+		return { tableCreated: false };
 	}
 };
 
 // Helper function to find or create table by name during import
-const findOrCreateTableByName = async (retreatId: string, tableName: string): Promise<string | undefined> => {
+const findOrCreateTableByName = async (retreatId: string, tableName: string): Promise<{ tableId: string; wasCreated: boolean } | undefined> => {
 	if (!tableName) return undefined;
 
-	try {
-		// First, try to find existing table
-		const existingTable = await tableMesaRepository.findOne({
-			where: {
-				retreatId,
-				name: tableName.toString() // Convert to string to handle numeric Excel values
-			},
-			select: ['id']
-		});
+	const tableNameStr = tableName.toString();
 
-		if (existingTable) {
-			return existingTable.id;
+	try {
+		// First, try to find existing table - add retry logic for concurrent access
+		let existingTable: TableMesa | null = null;
+		let retryCount = 0;
+		const maxRetries = 3;
+
+		while (retryCount < maxRetries && !existingTable) {
+			console.log(`🔍 Looking for existing table "${tableNameStr}" (attempt ${retryCount + 1}/${maxRetries})`);
+			existingTable = await tableMesaRepository.findOne({
+				where: {
+					retreatId,
+					name: tableNameStr
+				},
+				select: ['id', 'colider1Id', 'colider2Id', 'liderId']
+			});
+
+			if (existingTable) {
+				console.log(`🔍 Found existing table "${tableNameStr}" with ID: ${existingTable.id}`);
+				console.log(`📋 Table "${tableNameStr}" leadership slots: liderId=${existingTable.liderId}, colider1Id=${existingTable.colider1Id}, colider2Id=${existingTable.colider2Id}`);
+				return { tableId: existingTable.id, wasCreated: false };
+			}
+
+			// If not found and we have retries left, wait a bit and try again
+			if (retryCount < maxRetries - 1) {
+				console.log(`⏳ Table "${tableNameStr}" not found, waiting 50ms before retry...`);
+				await new Promise(resolve => setTimeout(resolve, 50)); // Wait 50ms
+			}
+			retryCount++;
 		}
 
 		// Table doesn't exist, create it
-		console.log(`📋 Creating new table "${tableName}" for retreat ${retreatId}`);
+		console.log(`📋 Creating new table "${tableNameStr}" for retreat ${retreatId}`);
+
+		// Verify retreat exists first
+		const retreatRepository = AppDataSource.getRepository(Retreat);
+		const retreat = await retreatRepository.findOne({
+			where: { id: retreatId },
+			select: ['id']
+		});
+
+		if (!retreat) {
+			console.error(`❌ Cannot create table "${tableNameStr}": Retreat ${retreatId} not found`);
+			return undefined;
+		}
+
+		// Create table with validation
 		const newTable = tableMesaRepository.create({
-			name: tableName.toString(),
+			name: tableNameStr,
 			retreatId
 		});
-		const savedTable = await tableMesaRepository.save(newTable);
 
-		console.log(`✅ Created table "${tableName}" with ID: ${savedTable.id}`);
-		return savedTable.id;
+		console.log(`🔧 Table data to save:`, JSON.stringify({ name: tableNameStr, retreatId }, null, 2));
 
-	} catch (error) {
-		console.error(`Error finding or creating table "${tableName}":`, error);
+			// Use a transaction to ensure table creation is atomic and durable
+		console.log(`💾 Saving table with explicit transaction for "${tableNameStr}"`);
+		const savedTable = await AppDataSource.transaction(async (transactionalEntityManager) => {
+			const transactionalTableRepository = transactionalEntityManager.getRepository(TableMesa);
+			const createdTable = await transactionalTableRepository.save(newTable);
+			console.log(`💾 Table saved within transaction: ID=${createdTable.id}, Name=${createdTable.name}`);
+			return createdTable;
+		});
+		console.log(`✅ Table transaction committed successfully: ID=${savedTable.id}, Name=${savedTable.name}`);
+
+		console.log(`💾 Table saved to database:`, JSON.stringify({ id: savedTable.id, name: savedTable.name, retreatId: savedTable.retreatId }, null, 2));
+
+		// Verify the table was actually saved by querying it again
+		const verificationTable = await tableMesaRepository.findOne({
+			where: { id: savedTable.id },
+			select: ['id', 'name', 'retreatId', 'colider1Id', 'colider2Id', 'liderId']
+		});
+
+		if (!verificationTable) {
+			console.error(`❌ Verification failed: Table "${tableNameStr}" was saved but cannot be retrieved from database`);
+			return undefined;
+		}
+
+		console.log(`✅ Successfully created and verified table "${tableNameStr}" with ID: ${verificationTable.id}`);
+		console.log(`📋 New table "${tableNameStr}" leadership slots: liderId=${verificationTable.liderId}, colider1Id=${verificationTable.colider1Id}, colider2Id=${verificationTable.colider2Id}`);
+
+		return { tableId: verificationTable.id, wasCreated: true };
+
+	} catch (error: any) {
+		console.error(`❌ Error finding table "${tableNameStr}":`, error.message);
+		console.error(`Error details:`, error);
 		return undefined;
+	}
+};
+
+// New function to create multiple tables in a single transaction
+const createTablesInBatch = async (retreatId: string, tableNames: string[]): Promise<number> => {
+	let tablesActuallyCreated = 0;
+	try {
+		await AppDataSource.transaction(async (transactionalEntityManager) => {
+			const transactionalTableRepository = transactionalEntityManager.getRepository(TableMesa);
+
+			for (const tableName of tableNames) {
+				// Check if table already exists
+				const existingTable = await transactionalTableRepository.findOne({
+					where: { name: tableName, retreatId },
+					select: ['id', 'name']
+				});
+
+				if (!existingTable) {
+					console.log(`🏗️ Creating table "${tableName}" in batch transaction`);
+					const newTable = transactionalTableRepository.create({
+						name: tableName,
+						retreatId
+					});
+					await transactionalTableRepository.save(newTable);
+					console.log(`✅ Table "${tableName}" created in batch: ID=${newTable.id}`);
+					tablesActuallyCreated++;
+				} else {
+					console.log(`📋 Table "${tableName}" already exists in batch: ID=${existingTable.id}`);
+				}
+			}
+		});
+		console.log(`✅ Batch table transaction committed successfully`);
+		console.log(`📊 Batch creation summary: ${tablesActuallyCreated} actually created out of ${tableNames.length} requested`);
+		return tablesActuallyCreated;
+	} catch (error: any) {
+		console.error(`❌ Batch table creation failed: ${error.message}`);
+		throw error;
 	}
 };
 
@@ -937,12 +1109,151 @@ const checkExistingLeadership = async (participantId: string): Promise<{
 	}
 };
 
+// Helper function to get the next bed number in a room
+const getNextBedNumber = async (retreatId: string, roomNumber: string): Promise<string> => {
+	try {
+		const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
+
+		// Find existing beds in this room for this retreat
+		const existingBeds = await retreatBedRepository.find({
+			where: {
+				retreatId,
+				roomNumber: roomNumber.toString()
+			},
+			select: ['bedNumber'],
+			order: { bedNumber: 'ASC' }
+		});
+
+		if (existingBeds.length === 0) {
+			return '1'; // First bed in the room
+		}
+
+		// Extract numeric values from bed numbers and find the highest
+		const bedNumbers = existingBeds.map(bed => {
+			const num = parseInt(bed.bedNumber);
+			return isNaN(num) ? 0 : num;
+		});
+
+		const maxBedNumber = Math.max(...bedNumbers);
+		return String(maxBedNumber + 1);
+	} catch (error) {
+		console.error(`Error getting next bed number for room "${roomNumber}":`, error);
+		return '1'; // Default to first bed if there's an error
+	}
+};
+
+// Helper function to create a new RetreatBed for a room
+const createRetreatBedForRoom = async (
+	retreatId: string,
+	roomNumber: string,
+	participantType: 'walker' | 'server'
+): Promise<{ bedId: string; wasCreated: boolean } | undefined> => {
+	try {
+		const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
+
+		// Get the next bed number for this room
+		const bedNumber = await getNextBedNumber(retreatId, roomNumber);
+
+		console.log(`🔍 Checking if bed ${bedNumber} already exists in room "${roomNumber}" for ${participantType}`);
+
+		// Check if a bed with this room number and bed number already exists
+		const existingBed = await retreatBedRepository.findOne({
+			where: {
+				retreatId,
+				roomNumber: roomNumber.toString(),
+				bedNumber,
+			},
+			select: ['id', 'participantId', 'defaultUsage']
+		});
+
+		if (existingBed) {
+			console.log(`📋 Bed ${bedNumber} already exists in room "${roomNumber}" (ID: ${existingBed.id})`);
+			console.log(`   - Current participant assignment: ${existingBed.participantId || 'unassigned'}`);
+			console.log(`   - Default usage: ${existingBed.defaultUsage}`);
+
+			// If the bed is unassigned or matches the required usage, return it
+			if (!existingBed.participantId && existingBed.defaultUsage === (participantType === 'walker' ? BedUsage.CAMINANTE : BedUsage.SERVIDOR)) {
+				console.log(`✅ Using existing unassigned bed ${bedNumber} in room "${roomNumber}" for ${participantType}`);
+				return { bedId: existingBed.id, wasCreated: false };
+			} else if (existingBed.participantId) {
+				console.log(`⚠️ Bed ${bedNumber} in room "${roomNumber}" is already assigned to participant ${existingBed.participantId}`);
+				// Try to find the next available bed number
+				const nextBedNumber = (parseInt(bedNumber) + 1).toString();
+				console.log(`🔄 Trying next bed number: ${nextBedNumber}`);
+
+				// Check if next bed number exists
+				const nextExistingBed = await retreatBedRepository.findOne({
+					where: {
+						retreatId,
+						roomNumber: roomNumber.toString(),
+						bedNumber: nextBedNumber,
+					},
+					select: ['id', 'participantId']
+				});
+
+				if (!nextExistingBed) {
+					const newBedId = await createNewBed(retreatBedRepository, retreatId, roomNumber, nextBedNumber, participantType);
+					return newBedId ? { bedId: newBedId, wasCreated: true } : undefined;
+				} else {
+					console.log(`⚠️ Next bed ${nextBedNumber} also exists, cannot create bed in room "${roomNumber}"`);
+					return undefined;
+				}
+			} else {
+				console.log(`⚠️ Existing bed ${bedNumber} has different usage (${existingBed.defaultUsage}) than required (${participantType === 'walker' ? BedUsage.CAMINANTE : BedUsage.SERVIDOR})`);
+				return undefined;
+			}
+		}
+
+		// If no existing bed found, create a new one
+		const newBedId = await createNewBed(retreatBedRepository, retreatId, roomNumber, bedNumber, participantType);
+		return newBedId ? { bedId: newBedId, wasCreated: true } : undefined;
+
+	} catch (error: any) {
+		console.error(`❌ Failed to create RetreatBed for room "${roomNumber}":`, error.message);
+		return undefined;
+	}
+};
+
+// Helper function to actually create a new bed
+const createNewBed = async (
+	retreatBedRepository: any,
+	retreatId: string,
+	roomNumber: string,
+	bedNumber: string,
+	participantType: 'walker' | 'server'
+): Promise<string> => {
+	try {
+		// Determine bed usage based on participant type
+		const bedUsage = participantType === 'walker' ? BedUsage.CAMINANTE : BedUsage.SERVIDOR;
+
+		// Create new RetreatBed with sensible defaults
+		const newBed = retreatBedRepository.create({
+			roomNumber: roomNumber.toString(),
+			bedNumber,
+			floor: 1, // Default to ground floor
+			type: BedType.NORMAL, // Use enum value
+			defaultUsage: bedUsage,
+			retreatId
+		});
+
+		const savedBed = await retreatBedRepository.save(newBed);
+		const savedBedArray = Array.isArray(savedBed) ? savedBed : [savedBed];
+		console.log(`🛏️ Created new RetreatBed ${savedBedArray[0].id} in room "${roomNumber}" (bed ${bedNumber}) for ${participantType}`);
+
+		return savedBedArray[0].id;
+	} catch (error: any) {
+		console.error(`❌ Failed to create new RetreatBed:`, error.message);
+		throw error; // Re-throw to indicate failure
+	}
+};
+
 // Helper function to find available bed by room number during import
 const findAvailableBedByRoom = async (
 	retreatId: string,
 	roomNumber: string,
-	participantType: 'walker' | 'server'
-): Promise<string | undefined> => {
+	participantType: 'walker' | 'server',
+	assignedBedIds?: Set<string>
+): Promise<{ bedId: string; wasCreated: boolean } | undefined> => {
 	if (!roomNumber) return undefined;
 
 	try {
@@ -952,20 +1263,46 @@ const findAvailableBedByRoom = async (
 		const bedUsage = participantType === 'walker' ? BedUsage.CAMINANTE : BedUsage.SERVIDOR;
 
 		// Find first available bed in the specified room
+		let whereCondition: any = {
+			retreatId,
+			roomNumber: roomNumber.toString(), // Convert to string to handle numeric Excel values
+			participantId: IsNull(), // Must be unassigned
+			defaultUsage: bedUsage, // Must match participant type
+		};
+
+		// If we have a tracking set of assigned bed IDs, exclude those beds
+		if (assignedBedIds && assignedBedIds.size > 0) {
+			whereCondition.id = Not(In(Array.from(assignedBedIds)));
+		}
+
 		const availableBed = await retreatBedRepository.findOne({
-			where: {
-				retreatId,
-				roomNumber: roomNumber.toString(), // Convert to string to handle numeric Excel values
-				participantId: IsNull(), // Must be unassigned
-				defaultUsage: bedUsage, // Must match participant type
-			},
+			where: whereCondition,
 			select: ['id'],
 			order: {
 				bedNumber: 'ASC' // Get the first bed in the room
 			}
 		});
 
-		return availableBed?.id;
+		// If bed found, return its ID
+		if (availableBed) {
+			return { bedId: availableBed.id, wasCreated: false };
+		}
+
+		// No available bed found, try to create one
+		console.log(`🔍 No available bed found in room "${roomNumber}" for ${participantType}. Attempting to create new bed...`);
+		const bedResult = await createRetreatBedForRoom(retreatId, roomNumber, participantType);
+
+		if (bedResult) {
+			if (bedResult.wasCreated) {
+				console.log(`✅ Created and assigned new bed in room "${roomNumber}" for ${participantType}`);
+			} else {
+				console.log(`✅ Reused existing bed in room "${roomNumber}" for ${participantType}`);
+			}
+			return bedResult;
+		} else {
+			console.warn(`⚠️ Failed to create or find bed in room "${roomNumber}" for ${participantType}`);
+			return undefined;
+		}
 	} catch (error) {
 		console.error(`Error finding available bed in room "${roomNumber}":`, error);
 		return undefined;
@@ -978,25 +1315,25 @@ const createPaymentFromImport = async (
 	retreatId: string,
 	participantRawData: any,
 	user: any
-): Promise<void> => {
+): Promise<{ paymentCreated: boolean }> => {
 	const paymentAmount = participantRawData.montopago?.trim();
 	const paymentDate = participantRawData.fechapago?.trim();
 
 	if (!paymentAmount || !paymentDate) {
 		// No payment data in import, skip payment creation
-		return;
+		return { paymentCreated: false };
 	}
 
 	try {
 		// Validate user is provided
 		if (!user || !user.id) {
 			console.error('❌ No user provided for import - cannot create payment records');
-			return;
+			return { paymentCreated: false };
 		}
 
 		const amount = parseFloat(paymentAmount);
 		if (isNaN(amount) || amount <= 0) {
-			return; // Skip invalid amounts
+			return { paymentCreated: false }; // Skip invalid amounts
 		}
 
 		// Check if payment already exists for this participant
@@ -1006,6 +1343,7 @@ const createPaymentFromImport = async (
 		});
 
 		const totalExistingPayments = existingPayments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+		let paymentCreated = false;
 
 		// Handle payment scenarios based on existing payments
 		if (existingPayments.length === 0) {
@@ -1023,6 +1361,7 @@ const createPaymentFromImport = async (
 
 			await paymentRepository.save(payment);
 			console.log(`✅ Created payment record for participant ${participantId}: $${amount}`);
+			paymentCreated = true;
 		} else if (totalExistingPayments < amount) {
 			// Existing payments sum less than imported amount - create adjustment payment
 			const adjustmentAmount = amount - totalExistingPayments;
@@ -1039,6 +1378,7 @@ const createPaymentFromImport = async (
 
 			await paymentRepository.save(payment);
 			console.log(`✅ Created adjustment payment for participant ${participantId}: +$${adjustmentAmount} (total: $${amount})`);
+			paymentCreated = true;
 		} else if (totalExistingPayments > amount) {
 			// Existing payments sum exceeds imported amount - create refund/adjustment
 			const refundAmount = totalExistingPayments - amount;
@@ -1055,13 +1395,18 @@ const createPaymentFromImport = async (
 
 			await paymentRepository.save(payment);
 			console.log(`⚠️ Created refund adjustment for participant ${participantId}: -$${Math.abs(refundAmount)} (total: $${amount})`);
+			paymentCreated = true;
 		} else {
 			// Total matches exactly - no action needed
 			console.log(`ℹ️ Payment amounts match for participant ${participantId}: $${amount} (no adjustment needed)`);
 		}
+
+		return { paymentCreated };
+
 	} catch (error: any) {
 		console.error(`❌ Failed to create payment adjustment for participant ${participantId}: ${error.message}`);
 		// Don't throw error - continue with participant creation even if payment fails
+		return { paymentCreated: false };
 	}
 };
 
@@ -1069,11 +1414,51 @@ export const importParticipants = async (retreatId: string, participantsData: an
 	let importedCount = 0;
 	let updatedCount = 0;
 	let skippedCount = 0;
+	let tablesCreated = 0;
+	let bedsCreated = 0;
+	let paymentsCreated = 0;
 	const processedParticipantIds: string[] = [];
 
+	console.log(`🚀 Starting import process for retreat ${retreatId} with ${participantsData.length} participants`);
+	console.log(`📊 Initial database state check: counting existing tables...`);
+	const initialTableCount = await tableMesaRepository.count({ where: { retreatId } });
+	console.log(`📋 Found ${initialTableCount} existing tables in retreat ${retreatId}`);
+
+	// First pass: Identify all tables that need to be created
+	console.log(`🔍 First pass: Identifying tables that need to be created...`);
+	const tablesToCreate = new Set<string>();
+	for (const participantRawData of participantsData) {
+		const excelAssignments = extractExcelAssignments(participantRawData);
+		if (excelAssignments.tableName) {
+			tablesToCreate.add(excelAssignments.tableName.toString());
+		}
+	}
+
+	// Create all needed tables in a single transaction
+	if (tablesToCreate.size > 0) {
+		console.log(`🏗️ Creating ${tablesToCreate.size} tables in batch: [${Array.from(tablesToCreate).join(', ')}]`);
+		const actualTablesCreated = await createTablesInBatch(retreatId, Array.from(tablesToCreate));
+		tablesCreated = actualTablesCreated;
+		console.log(`✅ Batch table creation completed: ${tablesCreated} tables actually created`);
+	}
+
+	// Initialize tracking to prevent duplicate assignments during import
+	const assignedBedIds = new Set<string>();
+	const bedAssignmentQueue: Array<{ participant: any; bedNumber: string; roomNumber: string; participantType: 'walker' | 'server' }> = [];
+
+	// Leadership role tracking to prevent same person from being assigned to multiple roles
+	const assignedLeadershipIds = new Set<string>();
+	const leadershipAssignmentQueue: Array<{ participant: any; tableName: string; leadershipRole: 'lider' | 'colider1' | 'colider2' | null; participantEmail: string }> = [];
+
+	// Second pass: Process participants and collect bed assignments
 	for (const participantRawData of participantsData) {
 		const mappedData = mapToEnglishKeys(participantRawData);
 		const excelAssignments = extractExcelAssignments(participantRawData);
+
+		console.log(`👤 Importing participant: ${mappedData.email}`);
+		console.log(`   - Original type from Excel: ${participantRawData.tipousuario} -> ${mappedData.type}`);
+		console.log(`   - Excel table assignment: ${excelAssignments.tableName}`);
+		console.log(`   - Excel room assignment: ${excelAssignments.roomNumber}`);
 
 		if (!mappedData.email) {
 			console.warn('Skipping participant due to missing email:', participantRawData);
@@ -1089,66 +1474,81 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 			if (existingParticipant) {
 				const { type, ...updateData } = mappedData;
-				await updateParticipant(existingParticipant.id, updateData as UpdateParticipant);
+				console.log(`🔄 Updating existing participant: ${existingParticipant.email}`);
+				console.log(`   - Current type: ${existingParticipant.type}`);
+				console.log(`   - Type from Excel: ${type} (will not be changed on update)`);
+
+				const updatedParticipant = await updateParticipant(existingParticipant.id, updateData as UpdateParticipant, true); // skipRebalance = true during import
+				console.log(`✅ Updated participant: ${updatedParticipant.email} -> Final type: ${updatedParticipant.type}`);
 				updatedCount++;
 				processedParticipantIds.push(existingParticipant.id);
 				participant = existingParticipant;
 
 				// Create payment record if payment data exists in import
-				await createPaymentFromImport(existingParticipant.id, retreatId, participantRawData, user);
+				const paymentResult = await createPaymentFromImport(existingParticipant.id, retreatId, participantRawData, user);
+				if (paymentResult.paymentCreated) {
+					paymentsCreated++;
+				}
 			} else {
 				const newParticipant = await createParticipant(
 					{ ...mappedData, retreatId } as CreateParticipant,
 					false,
 					true, // isImporting = true
+					true, // skipCapacityCheck = true during import
 				);
+				console.log(`✅ Created new participant: ${newParticipant.email} -> Final type: ${newParticipant.type}`);
 				importedCount++;
 				processedParticipantIds.push(newParticipant.id);
 				participant = newParticipant;
 
 				// Create payment record if payment data exists in import
-				await createPaymentFromImport(newParticipant.id, retreatId, participantRawData, user);
+				const paymentResult = await createPaymentFromImport(newParticipant.id, retreatId, participantRawData, user);
+				if (paymentResult.paymentCreated) {
+					paymentsCreated++;
+				}
 			}
 
-			// Handle table assignment from Excel 'mesa' field
+			// Handle table assignment from Excel 'mesa' field (tables are pre-created in batch)
 			if (excelAssignments.tableName && participant.type === 'walker') {
-				const tableId = await findOrCreateTableByName(retreatId, excelAssignments.tableName);
-				if (tableId) {
-					await participantRepository.update(participant.id, { tableId });
+				console.log(`🔍 Processing table assignment for participant ${participant.email} -> table "${excelAssignments.tableName}"`);
+
+				// Tables are pre-created, just find the existing one
+				const existingTable = await tableMesaRepository.findOne({
+					where: { name: excelAssignments.tableName.toString(), retreatId },
+					select: ['id', 'name']
+				});
+
+				if (existingTable) {
+					console.log(`📋 Found pre-created table: ${existingTable.name} (ID: ${existingTable.id})`);
+					await participantRepository.update(participant.id, { tableId: existingTable.id });
 					console.log(`✅ Assigned participant ${participant.email} to table "${excelAssignments.tableName}"`);
 				} else {
-					console.warn(`⚠️ Failed to create or find table "${excelAssignments.tableName}" for participant ${participant.email}`);
+					console.error(`❌ CRITICAL: Pre-created table "${excelAssignments.tableName}" not found! This should not happen.`);
 				}
 			}
 
-			// Handle bed assignment from Excel 'habitacion' field
+			// Handle bed assignment from Excel 'habitacion' field - collect for batch processing
 			if (excelAssignments.roomNumber && participant.type !== 'waiting' && participant.type !== 'partial_server') {
-				const bedId = await findAvailableBedByRoom(retreatId, excelAssignments.roomNumber, participant.type);
-				if (bedId) {
-					// Update participant with bed assignment
-					await participantRepository.update(participant.id, { retreatBedId: bedId });
-
-					// Update the bed to point to the participant
-					const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
-					await retreatBedRepository.update(bedId, { participantId: participant.id });
-
-					console.log(`✅ Assigned participant ${participant.email} to bed in room "${excelAssignments.roomNumber}"`);
-				} else {
-					console.warn(`⚠️ No available bed found in room "${excelAssignments.roomNumber}" for participant ${participant.email}`);
-				}
+				console.log(`🛏️ Queueing bed assignment for participant ${participant.email} -> room "${excelAssignments.roomNumber}"`);
+				bedAssignmentQueue.push({
+					participant: participant,
+					bedNumber: '', // Will be determined by findAvailableBedByRoom
+					roomNumber: excelAssignments.roomNumber,
+					participantType: participant.type
+				});
 			}
 
-			// Handle leadership role assignment from Excel 'tipousuario' field
+			// Handle leadership role assignment from Excel 'tipousuario' field - collect for batch processing
 			if (excelAssignments.leadershipRole && participant.type === 'server') {
 				// Only assign leadership if the participant also has a table assignment
 				if (excelAssignments.tableName) {
-					await assignLeadershipRole(
-						retreatId,
-						participant.id,
-						excelAssignments.tableName,
-						excelAssignments.leadershipRole,
-						participant.email
-					);
+					console.log(`👑 Queueing leadership assignment for participant ${participant.email} -> role ${excelAssignments.leadershipRole} at table "${excelAssignments.tableName}"`);
+					leadershipAssignmentQueue.push({
+						participant: participant,
+						tableName: excelAssignments.tableName,
+						leadershipRole: excelAssignments.leadershipRole,
+						participantEmail: participant.email
+					});
 				} else {
 					console.warn(`⚠️ Cannot assign leadership role to participant ${participant.email}: no table specified (mesa field required for tipousuario ${excelAssignments.tipousuario})`);
 				}
@@ -1157,26 +1557,193 @@ export const importParticipants = async (retreatId: string, participantsData: an
 			}
 
 		} catch (error: any) {
-			console.error(`Failed to import participant ${mappedData.email}: ${error.message}`);
+			console.error(`❌ Failed to import participant ${mappedData.email}: ${error.message}`);
+			console.error(`📋 Error stack trace:`, error.stack);
+			console.error(`🔍 Error details:`, {
+				message: error.message,
+				name: error.name,
+				participantEmail: mappedData.email,
+				retreatId,
+				tablesCreatedSoFar: tablesCreated,
+				step: 'individual participant processing'
+			});
 			skippedCount++;
 		}
 	}
 
+	// Process bed assignments in batch to prevent duplicate assignments
+	console.log(`🛏️ Processing ${bedAssignmentQueue.length} queued bed assignments...`);
+
+	for (const bedAssignment of bedAssignmentQueue) {
+		const { participant, roomNumber, participantType } = bedAssignment;
+
+		// Check if this participant already has a bed assigned (from previous import)
+		if (participant.retreatBedId) {
+			console.log(`⚠️ Participant ${participant.email} already has bed assigned (${participant.retreatBedId}), skipping...`);
+			continue;
+		}
+
+		// Find or create a bed that hasn't been assigned yet in this batch
+		const bedResult = await findAvailableBedByRoom(
+			retreatId,
+			roomNumber,
+			participantType,
+			assignedBedIds // Pass the tracking set to avoid duplicates
+		);
+
+		if (bedResult) {
+			const { bedId, wasCreated } = bedResult;
+
+			// Mark this bed as assigned to prevent other participants from getting it
+			assignedBedIds.add(bedId);
+
+			// Update participant with bed assignment
+			await participantRepository.update(participant.id, { retreatBedId: bedId });
+
+			// Update the bed to point to the participant
+			const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
+			await retreatBedRepository.update(bedId, { participantId: participant.id });
+
+			console.log(`✅ Assigned participant ${participant.email} to bed ${bedId} in room "${roomNumber}"`);
+
+			// Track bed creation
+			if (wasCreated) {
+				bedsCreated++;
+			}
+		} else {
+			console.warn(`⚠️ No available bed found in room "${roomNumber}" for participant ${participant.email}`);
+		}
+	}
+	console.log(`🛏️ Bed assignment processing completed`);
+
+	// Process leadership assignments in batch to prevent duplicate role assignments
+	console.log(`👑 Processing ${leadershipAssignmentQueue.length} queued leadership assignments...`);
+
+	for (const leadershipAssignment of leadershipAssignmentQueue) {
+		const { participant, tableName, leadershipRole, participantEmail } = leadershipAssignment;
+
+		// Check if this participant is already assigned to a leadership role in this batch
+		if (assignedLeadershipIds.has(participant.id)) {
+			console.log(`⚠️ Participant ${participantEmail} is already assigned to a leadership role in this batch, skipping additional assignments...`);
+			continue;
+		}
+
+		// Check database for existing leadership assignments (from previous imports)
+		const existingLeadership = await checkExistingLeadership(participant.id);
+		if (existingLeadership.isLeader) {
+			console.log(`🔄 Participant ${participantEmail} is already ${existingLeadership.role} in table "${existingLeadership.tableName}" from previous import. Removing from previous assignment...`);
+		}
+
+		// Find the pre-created table
+		const existingTable = await tableMesaRepository.findOne({
+			where: { name: tableName.toString(), retreatId },
+			select: ['id', 'name']
+		});
+
+		if (existingTable) {
+			console.log(`📋 Found pre-created table for leadership: ${existingTable.name} (ID: ${existingTable.id})`);
+
+			// For colider1 role, find available slot (colider1 or colider2)
+			let finalRole = leadershipRole;
+			if (leadershipRole === 'colider1') {
+				const availableSlot = await findAvailableColiderSlot(existingTable.id, assignedLeadershipIds);
+				if (!availableSlot) {
+					console.warn(`⚠️ Cannot assign colider: No available colider slots in table "${tableName}" for participant ${participantEmail}`);
+					continue;
+				}
+				finalRole = availableSlot;
+			}
+
+			// Double-check: make sure this participant isn't already assigned to this table in any capacity
+			const currentTableState = await tableMesaRepository.findOne({
+				where: { id: existingTable.id },
+				select: ['liderId', 'colider1Id', 'colider2Id']
+			});
+
+			if (currentTableState) {
+				const currentAssignments = [currentTableState.liderId, currentTableState.colider1Id, currentTableState.colider2Id];
+				if (currentAssignments.includes(participant.id)) {
+					console.warn(`⚠️ Participant ${participantEmail} is already assigned to table "${tableName}" in some capacity, skipping duplicate assignment...`);
+					continue;
+				}
+			}
+
+			// Mark this participant as assigned to prevent multiple assignments in the same batch
+			assignedLeadershipIds.add(participant.id);
+
+			// Assign leadership role using existing function (which handles removing from other tables)
+			await assignLeaderToTable(existingTable.id, participant.id, finalRole);
+
+			// Verify the assignment didn't create duplicates
+			const verificationTableState = await tableMesaRepository.findOne({
+				where: { id: existingTable.id },
+				select: ['liderId', 'colider1Id', 'colider2Id']
+			});
+
+			if (verificationTableState) {
+				const assignments = [verificationTableState.liderId, verificationTableState.colider1Id, verificationTableState.colider2Id];
+				const uniqueAssignments = assignments.filter(id => id !== null);
+
+				// Check for duplicates
+				if (uniqueAssignments.length !== new Set(uniqueAssignments).size) {
+					console.error(`❌ CRITICAL: Duplicate assignment detected in table "${tableName}" after assignment!`);
+					console.error(`   Assignments: lider=${verificationTableState.liderId}, colider1=${verificationTableState.colider1Id}, colider2=${verificationTableState.colider2Id}`);
+
+					// Find and remove the duplicate
+					const duplicates = uniqueAssignments.filter((id, index) => uniqueAssignments.indexOf(id) !== index);
+					for (const duplicateId of duplicates) {
+						console.log(`🔧 Removing duplicate assignment for participant ${duplicateId} from table "${tableName}"`);
+						if (verificationTableState.colider1Id === duplicateId) {
+							await tableMesaRepository.update(existingTable.id, { colider1Id: null });
+						} else if (verificationTableState.colider2Id === duplicateId) {
+							await tableMesaRepository.update(existingTable.id, { colider2Id: null });
+						}
+					}
+				} else {
+					if (existingLeadership.isLeader) {
+						console.log(`✅ Moved participant ${participantEmail} from ${existingLeadership.role} of table "${existingLeadership.tableName}" to ${finalRole} of table "${tableName}"`);
+					} else {
+						console.log(`✅ Assigned participant ${participantEmail} as ${finalRole} of table "${tableName}"`);
+					}
+				}
+			}
+		} else {
+			console.error(`❌ CRITICAL: Pre-created table "${tableName}" not found for leadership assignment!`);
+		}
+	}
+	console.log(`👑 Leadership assignment processing completed`);
+
 	// Assign beds and tables using the new redesigned system
-	await AppDataSource.transaction(async (transactionalEntityManager) => {
-		const transactionalParticipantRepository =
-			transactionalEntityManager.getRepository(Participant);
-		const transactionalBedRepository = transactionalEntityManager.getRepository(RetreatBed);
+	console.log(`🔄 Starting main transaction for bed/table assignment for ${processedParticipantIds.length} processed participants`);
+	console.log(`📊 Pre-transaction table count: ${await tableMesaRepository.count({ where: { retreatId } })}`);
+
+	// Check participant table assignments before main transaction
+	const participantsWithTableBefore = await participantRepository.count({
+		where: { retreatId, tableId: Not(IsNull()) }
+	});
+	console.log(`📊 Pre-transaction: ${participantsWithTableBefore} participants have table assignments`);
+
+	try {
+		await AppDataSource.transaction(async (transactionalEntityManager) => {
+			console.log(`✅ Main transaction started successfully`);
+			console.log(`🔍 Main transaction: processing ${processedParticipantIds.length} participants`);
+
+			const transactionalParticipantRepository =
+				transactionalEntityManager.getRepository(Participant);
+			const transactionalBedRepository = transactionalEntityManager.getRepository(RetreatBed);
 
 		// Get all participants to process to check for existing Excel assignments
 		const participantsToProcess = await transactionalParticipantRepository.find({
 			where: { id: In(processedParticipantIds) },
 		});
 
-		// Only clear assignments for participants that don't have Excel assignments
-		const participantsWithoutExcelAssignments = participantsToProcess.filter(
-			p => !p.tableId && !p.retreatBedId
-		);
+		console.log(`📊 Main transaction: found ${participantsToProcess.length} participants to process`);
+
+		// Count participants with existing Excel assignments
+		const participantsWithExcelAssignments = participantsToProcess.filter(p => p.tableId || p.retreatBedId);
+		const participantsWithoutExcelAssignments = participantsToProcess.filter(p => !p.tableId && !p.retreatBedId);
+
+		console.log(`📋 Main transaction: ${participantsWithExcelAssignments.length} participants have Excel assignments, ${participantsWithoutExcelAssignments.length} need automatic assignments`);
 
 		if (participantsWithoutExcelAssignments.length > 0) {
 			const participantIdsWithoutAssignments = participantsWithoutExcelAssignments.map(p => p.id);
@@ -1207,6 +1774,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				// Skip if participant already has assignments from Excel import
 				const hasExistingAssignments = participant.tableId || participant.retreatBedId;
 				if (hasExistingAssignments) {
+					console.log(`✅ Main transaction: preserving Excel assignments for participant ${participant.email} (tableId: ${participant.tableId}, bedId: ${participant.retreatBedId})`);
 					// Track existing bed assignments to prevent conflicts
 					if (participant.retreatBedId) {
 						assignedBedIds.add(participant.retreatBedId);
@@ -1249,10 +1817,77 @@ export const importParticipants = async (retreatId: string, participantsData: an
 						.execute();
 				}
 			}
-		}
+			}
+
+			console.log(`🔄 Main transaction: about to commit all participant updates`);
+		});
+		console.log(`✅ Main transaction completed successfully`);
+	} catch (error: any) {
+		console.error(`❌ MAIN TRANSACTION FAILED: ${error.message}`);
+		console.error(`📋 Transaction error stack trace:`, error.stack);
+		console.error(`🔍 Transaction error details:`, {
+			message: error.message,
+			name: error.name,
+			retreatId,
+			tablesCreatedSoFar: tablesCreated,
+			processedParticipantsCount: processedParticipantIds.length,
+			step: 'main bed/table assignment transaction'
+		});
+		throw error; // Re-throw to stop the import process
+	}
+
+	// Check participant table assignments after main transaction
+	const participantsWithTableAfter = await participantRepository.count({
+		where: { retreatId, tableId: Not(IsNull()) }
 	});
+	console.log(`📊 Post-transaction: ${participantsWithTableAfter} participants have table assignments`);
 
-	await rebalanceTablesForRetreat(retreatId);
+	console.log(`📊 Post-transaction table count: ${await tableMesaRepository.count({ where: { retreatId } })}`);
 
-	return { importedCount, updatedCount, skippedCount };
+	// Final verification: Check all tables that should exist based on our tracking
+	console.log(`🔍 Final verification: Checking database state...`);
+	const finalTableCount = await tableMesaRepository.count({ where: { retreatId } });
+	const expectedTableCount = initialTableCount + tablesCreated;
+
+	console.log(`📊 Final table count verification:`);
+	console.log(`   - Initial tables: ${initialTableCount}`);
+	console.log(`   - Tables actually created during import: ${tablesCreated}`);
+	console.log(`   - Expected final count: ${expectedTableCount}`);
+	console.log(`   - Actual final count: ${finalTableCount}`);
+
+	if (finalTableCount !== expectedTableCount) {
+		console.error(`❌ CRITICAL ERROR: Table count mismatch! Expected ${expectedTableCount}, found ${finalTableCount}`);
+		console.error(`   This indicates that ${expectedTableCount - finalTableCount} tables were lost due to transaction rollbacks`);
+
+		// List all tables to see what's missing
+		const allTables = await tableMesaRepository.find({
+			where: { retreatId },
+			select: ['id', 'name'],
+			order: { name: 'ASC' }
+		});
+		console.log(`📋 Current tables in database:`, allTables.map(t => `${t.name} (${t.id})`));
+	} else {
+		console.log(`✅ Table count verification passed - all created tables are persisted`);
+	}
+
+	// NOTE: Skipping rebalanceTablesForRetreat during import to prevent table deletions
+	// The import process explicitly creates and assigns tables based on Excel data
+	// Calling rebalance would delete tables that were intentionally created during import
+	console.log(`⚠️ SKIPPING rebalanceTablesForRetreat during import to preserve explicitly created tables`);
+	console.log(`📋 Import process has already handled table assignments based on Excel data`);
+
+	// For debugging purposes, let us know what would have happened:
+	const currentTableCount = await tableMesaRepository.count({ where: { retreatId } });
+	console.log(`📊 Current table count (preserving all tables): ${currentTableCount}`);
+
+	console.log(`🎉 Import process completed: imported=${importedCount}, updated=${updatedCount}, skipped=${skippedCount}, tablesCreated=${tablesCreated}, bedsCreated=${bedsCreated}, paymentsCreated=${paymentsCreated}`);
+
+	return {
+		importedCount,
+		updatedCount,
+		skippedCount,
+		tablesCreated,
+		bedsCreated,
+		paymentsCreated
+	};
 };
