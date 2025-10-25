@@ -308,8 +308,8 @@ export class SeedInitialData20250910163452 implements MigrationInterface {
 				await queryRunner.query(
 					`
 					INSERT OR IGNORE INTO "retreat_bed" (
-						"id", "roomNumber", "bedNumber", "type", "defaultUsage", "retreatId"
-					) VALUES (?, ?, ?, ?, ?, ?)
+						"id", "roomNumber", "bedNumber", "type", "defaultUsage", "retreatId", "floor"
+					) VALUES (?, ?, ?, ?, ?, ?, ?)
 				`,
 					[
 						uuidv4(),
@@ -318,6 +318,7 @@ export class SeedInitialData20250910163452 implements MigrationInterface {
 						bedType,
 						isWalker ? 'caminante' : 'servidor',
 						retreatId,
+						i < 20 ? 1 : 2, // Walkers on floor 1, servers on floor 2
 					],
 				);
 			}
