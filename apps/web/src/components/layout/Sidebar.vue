@@ -101,34 +101,56 @@
         <template v-for="(section, sectionIndex) in filteredMenuSections.filter(s => s.position === 'top')" :key="section.category">
         <!-- Section Header -->
         <div class="px-2 py-2">
-          <button
-            @click="toggleSection(section.category)"
-            @keydown.enter="toggleSection(section.category)"
-            @keydown.space.prevent="toggleSection(section.category)"
-            class="w-full flex items-center justify-between text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-300 transition-all duration-200 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1 group"
-            :class="{ 'justify-center': isSidebarCollapsed }"
-            :title="isSidebarCollapsed ? $t(getCategoryTitle(section.category)) : ''"
-            :aria-expanded="!isSectionCollapsed(section.category)"
-            :aria-controls="`section-${section.category}`"
-          >
-            <span v-if="!isSidebarCollapsed" class="group-hover:text-gray-200 transition-colors duration-200">{{ $t(getCategoryTitle(section.category)) }}</span>
-            <ChevronDown
-              v-if="!isSidebarCollapsed"
-              class="w-4 h-4 transition-all duration-200 text-gray-500 group-hover:text-gray-300 group-hover:scale-110"
-              :class="{ 'rotate-180': isSectionCollapsed(section.category) }"
-            />
-          </button>
+          <TooltipProvider :delay-duration="100">
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <button
+                  @click="toggleSection(section.category)"
+                  @keydown.enter="toggleSection(section.category)"
+                  @keydown.space.prevent="toggleSection(section.category)"
+                  class="w-full flex items-center justify-between text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-300 transition-all duration-200 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1 group"
+                  :class="{ 'justify-center': isSidebarCollapsed }"
+                  :aria-expanded="!isSectionCollapsed(section.category)"
+                  :aria-controls="`section-${section.category}`"
+                >
+                  <span v-if="!isSidebarCollapsed" class="group-hover:text-gray-200 transition-colors duration-200">{{ $t(getCategoryTitle(section.category)) }}</span>
+                  <div v-else class="w-4 h-4 rounded-sm flex items-center justify-center transition-colors duration-200"
+                       :class="{
+                         'bg-blue-600 group-hover:bg-blue-500': !isSectionCollapsed(section.category),
+                         'bg-gray-600 group-hover:bg-gray-500': isSectionCollapsed(section.category)
+                       }">
+                    <span class="text-xs font-bold transition-colors duration-200"
+                          :class="{
+                            'text-blue-200': !isSectionCollapsed(section.category),
+                            'text-gray-300': isSectionCollapsed(section.category)
+                          }">{{ $t(getCategoryTitle(section.category)).charAt(0).toUpperCase() }}</span>
+                  </div>
+                  <ChevronDown
+                    v-if="!isSidebarCollapsed"
+                    class="w-4 h-4 transition-all duration-200 text-gray-500 group-hover:text-gray-300 group-hover:scale-110"
+                    :class="{ 'rotate-180': isSectionCollapsed(section.category) }"
+                  />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent v-if="isSidebarCollapsed" side="right">
+                <p>{{ $t(getCategoryTitle(section.category)) }}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         <!-- Section Content -->
         <div
           :id="`section-${section.category}`"
           class="overflow-hidden transition-all duration-300 ease-in-out"
-          :class="{ 'max-h-0 opacity-0 py-0': isSectionCollapsed(section.category), 'max-h-96 opacity-100 py-1': !isSectionCollapsed(section.category) }"
+          :class="{
+            'max-h-0 opacity-0 py-0': isSectionCollapsed(section.category),
+            'max-h-96 opacity-100 py-1': !isSectionCollapsed(section.category)
+          }"
         >
           <div class="space-y-1 transform transition-transform duration-200 ease-in-out"
                :class="{ 'translate-y-0': !isSectionCollapsed(section.category), '-translate-y-2': isSectionCollapsed(section.category) }">
-            <template v-for="(item, itemIndex) in section.items" :key="item.name">
+            <template v-for="item in section.items" :key="item.name">
               <TooltipProvider :delay-duration="100">
                 <Tooltip>
                   <TooltipTrigger as-child>
@@ -209,34 +231,56 @@
         <template v-for="(section, sectionIndex) in filteredMenuSections.filter(s => s.position === 'bottom')" :key="section.category">
           <!-- Section Header -->
           <div class="px-2 py-2">
-            <button
-              @click="toggleSection(section.category)"
-              @keydown.enter="toggleSection(section.category)"
-              @keydown.space.prevent="toggleSection(section.category)"
-              class="w-full flex items-center justify-between text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-300 transition-all duration-200 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1 group"
-              :class="{ 'justify-center': isSidebarCollapsed }"
-              :title="isSidebarCollapsed ? $t(getCategoryTitle(section.category)) : ''"
-              :aria-expanded="!isSectionCollapsed(section.category)"
-              :aria-controls="`section-${section.category}`"
-            >
-              <span v-if="!isSidebarCollapsed" class="group-hover:text-gray-200 transition-colors duration-200">{{ $t(getCategoryTitle(section.category)) }}</span>
-              <ChevronDown
-                v-if="!isSidebarCollapsed"
-                class="w-4 h-4 transition-all duration-200 text-gray-500 group-hover:text-gray-300 group-hover:scale-110"
-                :class="{ 'rotate-180': isSectionCollapsed(section.category) }"
-              />
-            </button>
+            <TooltipProvider :delay-duration="100">
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <button
+                    @click="toggleSection(section.category)"
+                    @keydown.enter="toggleSection(section.category)"
+                    @keydown.space.prevent="toggleSection(section.category)"
+                    class="w-full flex items-center justify-between text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-300 transition-all duration-200 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1 group"
+                    :class="{ 'justify-center': isSidebarCollapsed }"
+                    :aria-expanded="!isSectionCollapsed(section.category)"
+                    :aria-controls="`section-${section.category}`"
+                  >
+                    <span v-if="!isSidebarCollapsed" class="group-hover:text-gray-200 transition-colors duration-200">{{ $t(getCategoryTitle(section.category)) }}</span>
+                    <div v-else class="w-4 h-4 rounded-sm flex items-center justify-center transition-colors duration-200"
+                         :class="{
+                           'bg-blue-600 group-hover:bg-blue-500': !isSectionCollapsed(section.category),
+                           'bg-gray-600 group-hover:bg-gray-500': isSectionCollapsed(section.category)
+                         }">
+                      <span class="text-xs font-bold transition-colors duration-200"
+                            :class="{
+                              'text-blue-200': !isSectionCollapsed(section.category),
+                              'text-gray-300': isSectionCollapsed(section.category)
+                            }">{{ $t(getCategoryTitle(section.category)).charAt(0).toUpperCase() }}</span>
+                    </div>
+                    <ChevronDown
+                      v-if="!isSidebarCollapsed"
+                      class="w-4 h-4 transition-all duration-200 text-gray-500 group-hover:text-gray-300 group-hover:scale-110"
+                      :class="{ 'rotate-180': isSectionCollapsed(section.category) }"
+                    />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent v-if="isSidebarCollapsed" side="right">
+                  <p>{{ $t(getCategoryTitle(section.category)) }}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
 
           <!-- Section Content -->
           <div
             :id="`section-${section.category}`"
             class="overflow-hidden transition-all duration-300 ease-in-out"
-            :class="{ 'max-h-0 opacity-0 py-0': isSectionCollapsed(section.category), 'max-h-96 opacity-100 py-1': !isSectionCollapsed(section.category) }"
+            :class="{
+              'max-h-0 opacity-0 py-0': isSectionCollapsed(section.category),
+              'max-h-96 opacity-100 py-1': !isSectionCollapsed(section.category)
+            }"
           >
             <div class="space-y-1 transform transition-transform duration-200 ease-in-out"
                  :class="{ 'translate-y-0': !isSectionCollapsed(section.category), '-translate-y-2': isSectionCollapsed(section.category) }">
-              <template v-for="(item, itemIndex) in section.items" :key="item.name">
+              <template v-for="item in section.items" :key="item.name">
                 <TooltipProvider :delay-duration="100">
                   <Tooltip>
                     <TooltipTrigger as-child>
@@ -317,10 +361,10 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { ref, computed, nextTick, onMounted } from 'vue';
+import { ref, computed, nextTick, onMounted, watch } from 'vue';
 import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { Button } from '@repo/ui';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@repo/ui';
 import { useRetreatStore } from '@/stores/retreatStore';
@@ -354,6 +398,7 @@ const retreatStore = useRetreatStore();
 const uiStore = useUIStore();
 const { isSidebarCollapsed } = storeToRefs(uiStore);
 const { can } = useAuthPermissions();
+const route = useRoute();
 
 const sidebarRef = ref<HTMLElement>();
 const searchInput = ref<HTMLInputElement>();
@@ -361,6 +406,7 @@ const searchQuery = ref('');
 const focusedIndex = ref(-1);
 const isSearchFocused = ref(false);
 const collapsedSections = ref<Record<string, boolean>>({});
+const expandedWhenCollapsed = ref<string | null>(null); // Track which section is expanded when sidebar is collapsed
 
 // Load collapsed state from localStorage
 const loadCollapsedState = () => {
@@ -664,11 +710,60 @@ const allMenuItems = computed(() => {
   return filteredMenuSections.value.flatMap(section => section.items);
 });
 
+// Find which section contains the current active route
+const currentActiveSection = computed(() => {
+  const currentRouteName = route.name as string;
+  return filteredMenuSections.value.find(section =>
+    section.items.some(item => item.routeName === currentRouteName)
+  )?.category;
+});
+
 const isSectionCollapsed = (category: string) => {
+  // When sidebar is collapsed, check if this section should be expanded
+  if (isSidebarCollapsed.value) {
+    // If this section is explicitly expanded when collapsed, show it
+    if (expandedWhenCollapsed.value === category) {
+      return false;
+    }
+    // If this is the section containing the current route, show it as expanded (default behavior)
+    if (currentActiveSection.value === category) {
+      return false;
+    }
+    // Otherwise, show it as collapsed
+    return true;
+  }
   return collapsedSections.value[category] ?? false;
 };
 
 const toggleSection = (category: string) => {
+  // When sidebar is collapsed, toggle the expandedWhenCollapsed state
+  if (isSidebarCollapsed.value) {
+    // If clicking on the same section that's currently expanded, collapse it
+    if (expandedWhenCollapsed.value === category) {
+      expandedWhenCollapsed.value = null;
+    } else {
+      // Otherwise, expand the clicked section
+      expandedWhenCollapsed.value = category;
+    }
+    return;
+  }
+
+  // If sidebar is collapsed and clicking on active section, expand it first
+  if (isSidebarCollapsed.value && currentActiveSection.value === category) {
+    uiStore.toggleSidebar();
+    // After expanding, ensure the active section stays open
+    nextTick(() => {
+      // Close all sections first
+      Object.keys(collapsedSections.value).forEach(key => {
+        collapsedSections.value[key] = true;
+      });
+      // Keep the active section open
+      collapsedSections.value[category] = false;
+      saveCollapsedState();
+    });
+    return;
+  }
+
   // Ensure the category exists in collapsedSections
   if (collapsedSections.value[category] === undefined) {
     collapsedSections.value[category] = true;
@@ -847,6 +942,14 @@ const getRouteWithParams = (item: MenuItem) => {
 
   return route;
 };
+
+// Watch for sidebar state changes to reset expandedWhenCollapsed when expanding
+watch(isSidebarCollapsed, (isCollapsed) => {
+  if (!isCollapsed) {
+    // When sidebar expands, reset the collapsed state tracking
+    expandedWhenCollapsed.value = null;
+  }
+});
 
 onMounted(() => {
   // Load collapsed state from localStorage
