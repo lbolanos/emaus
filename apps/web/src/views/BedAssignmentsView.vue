@@ -16,6 +16,11 @@
         </div>
       </div>
       <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
+        <Button @click="toggleViewMode" variant="outline" class="mr-2">
+          <Layers v-if="viewMode === 'individual'" class="w-4 h-4 mr-2" />
+          <BedDouble v-else class="w-4 h-4 mr-2" />
+          {{ viewMode === 'individual' ? $t('bedAssignments.groupByRoom') : $t('bedAssignments.individualBeds') }}
+        </Button>
         <Button @click="isAutoAssignDialogOpen = true" variant="outline">{{ $t('bedAssignments.autoAssign') }}</Button>
         <Button @click="isClearAssignmentsDialogOpen = true" variant="outline" class="ml-2">{{ $t('bedAssignments.clearAll') }}</Button>
         <Button @click="exportAssignments" class="ml-2">{{ $t('bedAssignments.export') }}</Button>
@@ -225,32 +230,61 @@
 
         <!-- Search results or all beds -->
         <div v-else>
-          <div v-for="floor in sortedFilteredFloors" :key="floor" class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-              <div class="flex items-center justify-between">
-                <h2 class="text-xl font-bold text-gray-900 dark:text-white">
-                  {{ floor === '0' ? $t('bedAssignments.unassignedFloor') : `${$t('bedAssignments.floor')} ${floor}` }}
-                </h2>
-                <div class="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-                  <span>{{ groupedFilteredBeds[floor].length }} {{ $t('bedAssignments.beds') }}</span>
-                  <span>{{ groupedFilteredBeds[floor].filter(b => b.participant).length }} {{ $t('bedAssignments.occupied') }}</span>
+          <!-- Individual bed view -->
+          <div v-if="viewMode === 'individual'">
+            <div v-for="floor in sortedFilteredFloors" :key="floor" class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+              <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                <div class="flex items-center justify-between">
+                  <h2 class="text-xl font-bold text-gray-900 dark:text-white">
+                    {{ floor === '0' ? $t('bedAssignments.unassignedFloor') : `${$t('bedAssignments.floor')} ${floor}` }}
+                  </h2>
+                  <div class="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                    <span>{{ groupedFilteredBeds[floor].length }} {{ $t('bedAssignments.beds') }}</span>
+                    <span>{{ groupedFilteredBeds[floor].filter(b => b.participant).length }} {{ $t('bedAssignments.occupied') }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  <BedCard
+                    v-for="bed in groupedFilteredBeds[floor]"
+                    :key="bed.id"
+                    :bed="bed"
+                    :is-over="isOverBed === bed.id"
+                    :highlighted="shouldHighlightBed(bed)"
+                    @drop="onDropToBed"
+                    @dragover="onDragOverBed"
+                    @dragleave="onDragLeaveBed"
+                    @assign="assignParticipant"
+                    @unassign="unassignParticipant"
+                  />
                 </div>
               </div>
             </div>
-            <div class="p-6">
-              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                <BedCard
-                  v-for="bed in groupedFilteredBeds[floor]"
-                  :key="bed.id"
-                  :bed="bed"
-                  :is-over="isOverBed === bed.id"
-                  :highlighted="shouldHighlightBed(bed)"
-                  @drop="onDropToBed"
-                  @dragover="onDragOverBed"
-                  @dragleave="onDragLeaveBed"
-                  @assign="assignParticipant"
-                  @unassign="unassignParticipant"
-                />
+          </div>
+
+          <!-- Grouped room view -->
+          <div v-else>
+            <div v-for="floor in sortedFilteredFloors" :key="floor" class="space-y-6">
+              <div v-if="Object.keys(groupedFilteredBedsByRoomAndFloor[floor] || {}).length > 0">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                  {{ floor === '0' ? $t('bedAssignments.unassignedFloor') : `${$t('bedAssignments.floor')} ${floor}` }}
+                </h2>
+                <div class="space-y-6">
+                  <RoomCard
+                    v-for="(roomBeds, roomNumber) in groupedFilteredBedsByRoomAndFloor[floor]"
+                    :key="roomNumber"
+                    :room-number="roomNumber"
+                    :beds="roomBeds"
+                    :is-over-bed="isOverBed"
+                    :search-query="searchQuery"
+                    @drop="onDropToBed"
+                    @dragover="onDragOverBed"
+                    @dragleave="onDragLeaveBed"
+                    @assign="assignParticipant"
+                    @unassign="unassignParticipant"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -307,10 +341,11 @@ import { api } from '@/services/api';
 import { Button } from '@repo/ui';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@repo/ui';
 import { Loader2 } from 'lucide-vue-next';
-import { Users, BedDouble, UserX, Home, Search, X } from 'lucide-vue-next';
+import { Users, BedDouble, UserX, Home, Search, X, Layers } from 'lucide-vue-next';
 import type { RetreatBed, Participant } from '@repo/types';
 import { useI18n } from 'vue-i18n';
 import BedCard from './BedCard.vue';
+import RoomCard from './RoomCard.vue';
 
 const props = defineProps<{ id: string }>();
 const retreatStore = useRetreatStore();
@@ -332,6 +367,9 @@ const isClearing = ref(false);
 const isOverUnassignedServer = ref(false);
 const isOverUnassignedWalker = ref(false);
 const isOverBed = ref<string | null>(null);
+
+// View mode state
+const viewMode = ref<'individual' | 'grouped'>('individual');
 
 // Search states
 const searchQuery = ref('');
@@ -504,6 +542,25 @@ const sortedFilteredFloors = computed(() => {
   return Object.keys(groupedFilteredBeds.value).sort((a, b) => Number(a) - Number(b));
 });
 
+// Room grouping computed properties
+const groupedFilteredBedsByRoomAndFloor = computed(() => {
+  return filteredBeds.value.reduce((acc, bed) => {
+    const floor = bed.floor || 0;
+    const roomNumber = bed.roomNumber;
+
+    if (!acc[floor]) {
+      acc[floor] = {};
+    }
+
+    if (!acc[floor][roomNumber]) {
+      acc[floor][roomNumber] = [];
+    }
+
+    acc[floor][roomNumber].push(bed);
+    return acc;
+  }, {} as Record<string, Record<string, RetreatBed[]>>);
+});
+
 // Drag and drop functions
 const startDrag = (event: DragEvent, participant: Participant) => {
   if (event.dataTransfer) {
@@ -529,11 +586,11 @@ const onDragOverUnassigned = (event: DragEvent, participantType: 'server' | 'wal
   }
 };
 
-const onDropToUnassigned = async (_event: DragEvent, _participantType: 'server' | 'walker') => {
+const onDropToUnassigned = async (event: DragEvent, _participantType: 'server' | 'walker') => {
   isOverUnassignedServer.value = false;
   isOverUnassignedWalker.value = false;
 
-  const participantData = _event.dataTransfer?.getData('application/json');
+  const participantData = event.dataTransfer?.getData('application/json');
   if (!participantData) return;
 
   const participant = JSON.parse(participantData);
@@ -721,6 +778,10 @@ const shouldHighlightBed = (bed: RetreatBed) => {
     bed.bedNumber.toLowerCase().includes(query) ||
     (bed.floor && bed.floor.toString().includes(query))
   );
+};
+
+const toggleViewMode = () => {
+  viewMode.value = viewMode.value === 'individual' ? 'grouped' : 'individual';
 };
 
 const getFilterLabel = () => {

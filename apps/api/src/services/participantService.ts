@@ -1638,17 +1638,31 @@ export const importParticipants = async (retreatId: string, participantsData: an
 		for (const bedAssignment of bedAssignmentQueue) {
 			const { participant, roomNumber, participantType } = bedAssignment;
 
-			// Skip cancelled participants
-			if (participant.isCancelled) {
-				console.log(`🚫 Skipping Excel bed assignment for cancelled participant ${participant.email}`);
+			// Refresh participant data to get the latest cancellation status (handles duplicate rows in Excel)
+			const freshParticipant = await transactionalParticipantRepository.findOne({
+				where: { id: participant.id },
+				select: ['id', 'type', 'isCancelled', 'email', 'firstName', 'lastName']
+			});
+
+			if (!freshParticipant) {
+				console.warn(`⚠️ Participant ${participant.email} not found during bed assignment, skipping...`);
 				continue;
 			}
 
+			// Skip cancelled participants
+			if (freshParticipant.isCancelled) {
+				console.log(`🚫 Skipping Excel bed assignment for cancelled participant ${freshParticipant.email}`);
+				continue;
+			}
+
+			// Use the fresh participant data for all subsequent operations
+			const participantForAssignment = freshParticipant;
+
 			// Check if this participant already has a bed assigned
-			const hasExistingBedAssignment = await bedQueryUtils.participantHasBedAssignment(participant.id);
+			const hasExistingBedAssignment = await bedQueryUtils.participantHasBedAssignment(participantForAssignment.id);
 			if (hasExistingBedAssignment) {
-				const existingBed = await bedQueryUtils.getParticipantBedAssignment(participant.id);
-				console.log(`⚠️ Participant ${participant.email} already has bed assigned (${existingBed?.id}), skipping Excel assignment...`);
+				const existingBed = await bedQueryUtils.getParticipantBedAssignment(participantForAssignment.id);
+				console.log(`⚠️ Participant ${participantForAssignment.email} already has bed assigned (${existingBed?.id}), skipping Excel assignment...`);
 				if (existingBed) {
 					assignedBedIds.add(existingBed.id);
 				}
@@ -1673,18 +1687,18 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				await transactionalBedRepository
 					.createQueryBuilder()
 					.update(RetreatBed)
-					.set({ participantId: participant.id })
+					.set({ participantId: participantForAssignment.id })
 					.where('id = :id', { id: bedId })
 					.execute();
 
-				console.log(`✅ Excel assignment: Assigned participant ${participant.email} to bed ${bedId} in room "${roomNumber}"`);
+				console.log(`✅ Excel assignment: Assigned participant ${participantForAssignment.email} to bed ${bedId} in room "${roomNumber}"`);
 
 				// Track bed creation
 				if (wasCreated) {
 					bedsCreated++;
 				}
 			} else {
-				console.warn(`⚠️ No available bed found in room "${roomNumber}" for participant ${participant.email} (Excel assignment)`);
+				console.warn(`⚠️ No available bed found in room "${roomNumber}" for participant ${participantForAssignment.email} (Excel assignment)`);
 			}
 		}
 		console.log(`🛏️ Excel bed assignment processing completed within transaction`);

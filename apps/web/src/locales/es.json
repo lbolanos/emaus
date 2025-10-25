@@ -640,7 +640,13 @@
     "filterApplied": "Filtro aplicado",
     "noSearchResults": "No se encontraron resultados",
     "noSearchResultsDesc": "Intenta ajustar tu búsqueda o filtros",
-    "clearSearch": "Limpiar búsqueda"
+    "clearSearch": "Limpiar búsqueda",
+    "groupByRoom": "Agrupar por Habitación",
+    "individualBeds": "Camas Individuales",
+    "room": "Habitación",
+    "noBedsInRoom": "No hay camas en esta habitación",
+    "walkerShort": "Cam",
+    "serverShort": "Serv"
   },
   "walkerRegistration": {
     "title": "Registro de Caminante",

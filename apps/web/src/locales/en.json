@@ -673,7 +673,13 @@
     "filterApplied": "Filter Applied",
     "noSearchResults": "No Results Found",
     "noSearchResultsDesc": "Try adjusting your search or filters",
-    "clearSearch": "Clear Search"
+    "clearSearch": "Clear Search",
+    "groupByRoom": "Group by Room",
+    "individualBeds": "Individual Beds",
+    "room": "Room",
+    "noBedsInRoom": "No beds in this room",
+    "walkerShort": "Walk",
+    "serverShort": "Serv"
   },
   "walkerRegistration": {
     "title": "Walker Registration",
@@ -941,8 +947,6 @@
     "and": "and",
     "more": "more",
     "loading": "Loading...",
-    "error": "Error",
-    "confirm": "Confirm",
-    "delete": "Delete"
+    "error": "Error"
   }
 }
