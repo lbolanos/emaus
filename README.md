@@ -232,14 +232,13 @@ cualquier mensaje se puede enviar por correo o por whatsapp
 llevar un registro de las comunicaciones del participantes.
 
 show the rol in header for the specific retreat selected
-
-IN PROGRESS
 do not send email if is importing and if the retreat is not public
 cuando un participante se registre enviar correo de bienvenida
 cuando un caminante se registre enviar correo de bienvenida enviar tambien correo al servidor que lo invito para informar.
 
-en el mensaje de bienvenida del servidor agregar una url para que pueda cambiar su registro
-Notificaciones por correo a los administradores del retiro de eventos como Caminante ingresa. Servidor ingresa. Forma de desactivar estas notificaciones.
+IN PROGRESS
+
+asignacion de cuartos tal como se hace en las mesas con un dashboard.
 
 TODO
 since it is not in production modify apps/api/src/migrations/sqlite/20250910163337_CreateSchema.ts for schema.
@@ -247,7 +246,6 @@ since it is not in production modify apps/api/src/migrations/sqlite/202509101633
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
 agregar todas las actividades por servidor
 
-asigncacion de cuartos tal como se hace en las mesas con un dashboard.
 
 gafete mesa nombre apodo cuarto rosa
 
@@ -271,6 +269,13 @@ agregar al retiro hora de llegada de caminantes ... y hora de llegada de servido
 
 imprimir la mesa con lider caminantes telefonos, medicamentos y alimentos.
 usar la ia para conversar y agregar o quitar base de datos.
+
+una forma de asegurar que no se modifique las mesas.  lock tables
+
+
+en el mensaje de bienvenida del servidor agregar una url para que pueda cambiar su registro
+Notificaciones por correo a los administradores del retiro de eventos como Caminante ingresa. Servidor ingresa. Forma de desactivar estas notificaciones.
+
 
 posibles host
 https://www.vultr.com/
