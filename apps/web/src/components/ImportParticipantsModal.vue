@@ -132,7 +132,7 @@
                 <CheckCircle class="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
                 <div>
                   <h4 class="font-medium text-green-800">{{ $t('participants.import.successTitle') }}</h4>
-                  <p class="text-green-600 mt-1">{{ $t('participants.import.successDesc', { count: importedCount }) }}</p>
+                  <p class="text-green-600 mt-1">{{ importSummary || $t('participants.import.successDesc', { count: importedCount }) }}</p>
                 </div>
               </div>
             </div>
@@ -198,8 +198,8 @@ const emit = defineEmits<{
   'update:isOpen': [value: boolean];
 }>();
 
-const { toast } = useToast();
 const { t: $t } = useI18n();
+const { toast } = useToast();
 
 const participantStore = useParticipantStore();
 const retreatStore = useRetreatStore();
@@ -217,6 +217,7 @@ const importData = ref<any[]>([]);
 const importError = ref('');
 const importSuccess = ref(false);
 const importedCount = ref(0);
+const importSummary = ref('');
 
 // Sync modalOpen with props.isOpen
 watch(() => props.isOpen, (isOpen) => {
@@ -503,18 +504,48 @@ const confirmImport = async () => {
     // Simulate progress
     importProgress.value = 25;
 
-    await participantStore.importParticipants(selectedRetreatId.value!, importData.value);
+    const responseData = await participantStore.importParticipants(selectedRetreatId.value!, importData.value);
+
+    // Create comprehensive summary message
+    const {
+      importedCount: imported,
+      updatedCount: updated,
+      skippedCount: skipped,
+      tablesCreated,
+      bedsCreated,
+      paymentsCreated
+    } = responseData;
+
+    let summaryLines = [];
+    if (imported > 0) summaryLines.push(`${imported} participants imported`);
+    if (updated > 0) summaryLines.push(`${updated} updated`);
+    if (skipped > 0) summaryLines.push(`${skipped} skipped`);
+
+    // Add entity creation details
+    const entityLines = [];
+    if (tablesCreated > 0) entityLines.push(`${tablesCreated} table${tablesCreated === 1 ? '' : 's'} created`);
+    if (bedsCreated > 0) entityLines.push(`${bedsCreated} bed${bedsCreated === 1 ? '' : 's'} created`);
+    if (paymentsCreated > 0) entityLines.push(`${paymentsCreated} payment${paymentsCreated === 1 ? '' : 's'} created`);
+
+    let description = summaryLines.join(', ');
+    if (entityLines.length > 0) {
+      description += (description ? '. ' : '') + entityLines.join(', ');
+    }
+
+    importSummary.value = description || 'No changes made';
+
+    // Show toast notification
+    toast({
+      title: 'Import Complete',
+      description: importSummary.value,
+    });
 
     importProgress.value = 100;
     importSuccess.value = true;
-    importedCount.value = importData.value.length;
-
-    toast({
-      title: $t('participants.import.successTitle'),
-      description: $t('participants.import.successDesc', { count: importedCount.value }),
-    });
+    importedCount.value = imported + updated; // Total participants processed
   } catch (error: any) {
     importError.value = error.message || $t('participants.import.error.generic');
+    console.error('Import error:', error);
     importProgress.value = 0;
   } finally {
     isImporting.value = false;
@@ -533,6 +564,7 @@ const resetImport = () => {
   isImporting.value = false;
   isDragging.value = false;
   dragCounter.value = 0;
+  importSummary.value = '';
 
   if (fileInputRef.value) {
     console.log('[ImportModal] Clearing file input');

@@ -74,10 +74,9 @@ export const useParticipantStore = defineStore('participant', () => {
 				participants: participantsData,
 			});
 			await fetchParticipants();
-			toast({
-				title: 'Success',
-				description: `${response.data.importedCount} participants imported, ${response.data.updatedCount} updated, ${response.data.skippedCount} skipped.`,
-			});
+
+			// Return the response data for further processing
+			return response.data;
 		} catch (error: any) {
 			toast({
 				title: 'Error',
