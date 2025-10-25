@@ -709,12 +709,12 @@ export const updateParticipant = async (
 
 	const updatedParticipant = await participantRepository.save(participant);
 
-	if (updatedParticipant.type === 'walker' && wasCancelled !== updatedParticipant.isCancelled && !skipRebalance) {
+	/*if (updatedParticipant.type === 'walker' && wasCancelled !== updatedParticipant.isCancelled && !skipRebalance) {
 		console.log(`🔄 Participant cancellation status changed, rebalancing tables for retreat ${updatedParticipant.retreatId}`);
 		await rebalanceTablesForRetreat(updatedParticipant.retreatId);
 	} else if (updatedParticipant.type === 'walker' && wasCancelled !== updatedParticipant.isCancelled && skipRebalance) {
 		console.log(`⚠️ SKIPPING table rebalancing during import for participant ${updatedParticipant.email}`);
-	}
+	}*/
 
 	return updatedParticipant;
 };
@@ -723,12 +723,12 @@ export const deleteParticipant = async (id: string, skipRebalance: boolean = fal
 	const participant = await participantRepository.findOneBy({ id });
 	if (participant) {
 		await participantRepository.update(id, { isCancelled: true, tableId: undefined });
-		if (participant.type === 'walker' && !skipRebalance) {
+		/*if (participant.type === 'walker' && !skipRebalance) {
 			console.log(`🔄 Walker participant deleted, rebalancing tables for retreat ${participant.retreatId}`);
 			await rebalanceTablesForRetreat(participant.retreatId);
 		} else if (participant.type === 'walker' && skipRebalance) {
 			console.log(`⚠️ SKIPPING table rebalancing during import for deleted participant ${participant.email}`);
-		}
+		}*/
 	}
 };
 
@@ -1802,7 +1802,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 	// NOTE: Skipping rebalanceTablesForRetreat during import to prevent table deletions
 	// The import process explicitly creates and assigns tables based on Excel data
 	// Calling rebalance would delete tables that were intentionally created during import
-	console.log(`⚠️ SKIPPING rebalanceTablesForRetreat during import to preserve explicitly created tables`);
+	//console.log(`⚠️ SKIPPING rebalanceTablesForRetreat during import to preserve explicitly created tables`);
 	console.log(`📋 Import process has already handled table assignments based on Excel data`);
 
 	// For debugging purposes, let us know what would have happened:
