@@ -158,7 +158,7 @@ export const replaceParticipantVariables = (
 		notes: 'Participante entusiasta y comprometido',
 		registrationDate: '2024-01-01',
 		lastUpdatedDate: '2024-01-10',
-		tableMesa: { name: 'Mesa 1' },
+		tableMesa: { name: '01' },
 		retreatBed: { roomNumber: '101', bedNumber: '1' },
 	};
 
