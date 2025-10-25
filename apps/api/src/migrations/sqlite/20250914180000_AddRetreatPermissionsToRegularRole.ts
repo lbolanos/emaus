@@ -1,8 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddRetreatPermissionsToRegularRole20250114180000 implements MigrationInterface {
-	name = 'AddRetreatPermissionsToRegularRole20250114180000';
-	timestamp = '20250114180000';
+export class AddRetreatPermissionsToRegularRole20250914180000 implements MigrationInterface {
+	name = 'AddRetreatPermissionsToRegularRole20250914180000';
+	timestamp = '20250914180000';
 
 	public async up(queryRunner: QueryRunner): Promise<void> {
 		console.log('🔧 PRODUCTION FIX: Adding retreat permissions to regular role...');

@@ -183,12 +183,6 @@ export class Participant {
 
 	// --- CAMPOS AGREGADOS ---
 
-	@Column({ type: 'date', nullable: true })
-	paymentDate?: Date; // Corresponde a 'fechapago'
-
-	@Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
-	paymentAmount?: number; // Corresponde a 'montopago'
-
 	@Column({ type: 'boolean', default: false })
 	isScholarship!: boolean; // Corresponde a 'becado'
 

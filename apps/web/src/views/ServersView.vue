@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import ParticipantList from '@/components/ParticipantList.vue'
 
-const serverTableColumns = ['id_on_retreat','firstName', 'lastName', 'email', 'cellPhone', 'parish', 'paymentAmount'];
-const serverFormShowColumns = ['id_on_retreat','firstName', 'lastName', 'cellPhone', 'parish', 'paymentAmount', 'email'];
+const serverTableColumns = ['id_on_retreat','firstName', 'lastName', 'email', 'cellPhone', 'parish', 'totalPaid'];
+const serverFormShowColumns = ['id_on_retreat','firstName', 'lastName', 'cellPhone', 'parish', 'totalPaid', 'email'];
 const nonEditableColumns = ['email'];
 const serverFormEditColumns = serverTableColumns.filter(c => !nonEditableColumns.includes(c));
 </script>

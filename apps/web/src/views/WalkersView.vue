@@ -5,8 +5,8 @@ import { useRetreatStore } from '@/stores/retreatStore'
 import { useParticipantStore } from '@/stores/participantStore'
 import ParticipantList from '@/components/ParticipantList.vue'
 
-const walkerTableColumns = ['id_on_retreat','firstName', 'lastName', 'email', 'cellPhone', 'parish', 'paymentAmount'];
-const walkerFormShowColumns = ['id_on_retreat','firstName', 'lastName', 'cellPhone', 'parish', 'paymentAmount', 'email'];
+const walkerTableColumns = ['id_on_retreat','firstName', 'lastName', 'email', 'cellPhone', 'parish', 'totalPaid'];
+const walkerFormShowColumns = ['id_on_retreat','firstName', 'lastName', 'cellPhone', 'parish', 'totalPaid', 'email'];
 const nonEditableColumns = ['email'];
 const walkerFormEditColumns = walkerTableColumns.filter(c => !nonEditableColumns.includes(c));
 

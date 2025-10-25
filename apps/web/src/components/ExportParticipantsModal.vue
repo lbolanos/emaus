@@ -364,7 +364,7 @@ const createExportRecord = (participant: any, columns: string[]): Record<string,
       const value = getNestedProperty(participant, columnKey);
 
       // Format based on column type
-      if (['birthDate', 'registrationDate', 'lastUpdatedDate', 'paymentDate'].includes(columnKey)) {
+      if (['birthDate', 'registrationDate', 'lastUpdatedDate', 'lastPaymentDate'].includes(columnKey)) {
         if (value) {
           record[$t(column.label)] = new Date(value).toISOString().split('T')[0];
         } else {

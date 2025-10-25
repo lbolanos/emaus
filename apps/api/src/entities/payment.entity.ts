@@ -53,12 +53,12 @@ export class Payment {
 	@Column({ type: 'text', nullable: true })
 	notes?: string;
 
-	@Column({ type: 'uuid' })
-	recordedBy!: string;
+	@Column({ type: 'uuid', nullable: true })
+	recordedBy?: string;
 
 	@ManyToOne(() => User, (user) => user.recordedPayments, { onDelete: 'SET NULL' })
 	@JoinColumn({ name: 'recordedBy' })
-	recordedByUser!: User;
+	recordedByUser?: User;
 
 	@CreateDateColumn({ type: 'datetime' })
 	createdAt!: Date;

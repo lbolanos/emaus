@@ -138,8 +138,6 @@ export const participantSchema = z.object({
 	registrationDate: z.coerce.date(),
 	lastUpdatedDate: z.coerce.date(),
 	isCancelled: z.boolean().optional(),
-	paymentDate: z.coerce.date().optional(),
-	paymentAmount: z.preprocess((val) => (val === null ? undefined : val), z.number().optional()),
 	isScholarship: z.boolean().optional(),
 	palancasCoordinator: z.preprocess(
 		(val) => (val === '' || val === null ? undefined : val),

@@ -199,8 +199,9 @@ const allColumns = ref([
     { key: 'inviterEmail', label: 'participants.fields.inviterEmail' },
     { key: 'pickupLocation', label: 'participants.fields.pickupLocation' },
     { key: 'arrivesOnOwn', label: 'participants.fields.arrivesOnOwn' },
-    { key: 'paymentDate', label: 'participants.fields.paymentDate' },
-    { key: 'paymentAmount', label: 'participants.fields.paymentAmount' },
+    { key: 'lastPaymentDate', label: 'participants.fields.lastPaymentDate' },
+    { key: 'totalPaid', label: 'participants.fields.totalPaid' },
+    { key: 'paymentStatus', label: 'participants.fields.paymentStatus' },
     { key: 'isScholarship', label: 'participants.fields.isScholarship' },
     { key: 'palancasCoordinator', label: 'participants.fields.palancasCoordinator' },
     { key: 'palancasRequested', label: 'participants.fields.palancasRequested' },
@@ -358,8 +359,8 @@ const formatCell = (participant: any, colKey: string) => {
         return `${year}-${month}-${day}`;
     }
 
-    // Handle paymentDate field - use computed property from API
-    if (colKey === 'paymentDate') {
+    // Handle lastPaymentDate field - use computed property from API
+    if (colKey === 'lastPaymentDate') {
         const paymentDate = participant.lastPaymentDate;
         if (!paymentDate) return 'N/A';
         // Use existing date formatting logic for consistency
@@ -370,14 +371,26 @@ const formatCell = (participant: any, colKey: string) => {
         return `${year}-${month}-${day}`;
     }
 
-    // Handle payment amount - use calculated totalPaid instead of legacy paymentAmount
-    if (colKey === 'paymentAmount') {
+    // Handle totalPaid field - use calculated totalPaid from API
+    if (colKey === 'totalPaid') {
         const totalPaid = participant.totalPaid || 0;
         if (totalPaid === 0) return '$0.00';
         return new Intl.NumberFormat('es-MX', {
             style: 'currency',
             currency: 'MXN'
         }).format(totalPaid);
+    }
+
+    // Handle paymentStatus field - use computed property from API
+    if (colKey === 'paymentStatus') {
+        const status = participant.paymentStatus || 'unpaid';
+        const statusMap: Record<string, string> = {
+            'paid': 'Pagado',
+            'partial': 'Parcial',
+            'unpaid': 'No pagado',
+            'overpaid': 'Sobre-pagado'
+        };
+        return statusMap[status] || status;
     }
 
     // Handle boolean values
@@ -408,13 +421,26 @@ const getCellContent = (participant: any, colKey: string) => {
         };
     }
 
-    // Add payment status indicator for payment amounts
-    if (colKey === 'paymentAmount') {
+    // Add payment status indicator for totalPaid amounts
+    if (colKey === 'totalPaid') {
         const paymentStatus = participant.paymentStatus || 'unpaid';
         const formattedAmount = formatCell(participant, colKey);
 
         return {
             value: formattedAmount,
+            hasBirthday: false,
+            hasPaymentStatus: true,
+            paymentStatus
+        };
+    }
+
+    // Add payment status indicator for paymentStatus column
+    if (colKey === 'paymentStatus') {
+        const formattedStatus = formatCell(participant, colKey);
+        const paymentStatus = participant.paymentStatus || 'unpaid';
+
+        return {
+            value: formattedStatus,
             hasBirthday: false,
             hasPaymentStatus: true,
             paymentStatus
