@@ -136,6 +136,7 @@ export const unassignWalkerFromTable = async (tableId: string, participantId: st
 };
 
 export const rebalanceTablesForRetreat = async (retreatId: string) => {
+	console.log(`🔄 Rebalancing tables for retreat ${retreatId}...`);
 	const walkers = await participantRepository.find({
 		where: { retreatId, type: 'walker', isCancelled: false },
 		order: { registrationDate: 'ASC' },

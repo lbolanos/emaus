@@ -333,13 +333,13 @@ export class SeedInitialData20250910163452 implements MigrationInterface {
 			`,
 				[
 					tableIds[0],
-					'Mesa 1',
+					'01',
 					retreatId,
 					tableIds[1],
-					'Mesa 2',
+					'02',
 					retreatId,
 					tableIds[2],
-					'Mesa 3',
+					'03',
 					retreatId,
 				],
 			);
