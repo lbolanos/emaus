@@ -1459,50 +1459,9 @@ export const importParticipants = async (retreatId: string, participantsData: an
 		}
 	}
 
-	// Process bed assignments in batch to prevent duplicate assignments
-	console.log(`🛏️ Processing ${bedAssignmentQueue.length} queued bed assignments...`);
-
-	for (const bedAssignment of bedAssignmentQueue) {
-		const { participant, roomNumber, participantType } = bedAssignment;
-
-		// Check if this participant already has a bed assigned (from previous import)
-		const hasExistingBedAssignment = await bedQueryUtils.participantHasBedAssignment(participant.id);
-		if (hasExistingBedAssignment) {
-			const existingBed = await bedQueryUtils.getParticipantBedAssignment(participant.id);
-			console.log(`⚠️ Participant ${participant.email} already has bed assigned (${existingBed?.id}), skipping...`);
-			continue;
-		}
-
-		// Find or create a bed that hasn't been assigned yet in this batch
-		const bedResult = await findAvailableBedByRoom(
-			retreatId,
-			roomNumber,
-			participantType,
-			assignedBedIds // Pass the tracking set to avoid duplicates
-		);
-
-		if (bedResult) {
-			const { bedId, wasCreated } = bedResult;
-
-			// Mark this bed as assigned to prevent other participants from getting it
-			assignedBedIds.add(bedId);
-
-
-			// Update the bed to point to the participant
-			const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
-			await retreatBedRepository.update(bedId, { participantId: participant.id });
-
-			console.log(`✅ Assigned participant ${participant.email} to bed ${bedId} in room "${roomNumber}"`);
-
-			// Track bed creation
-			if (wasCreated) {
-				bedsCreated++;
-			}
-		} else {
-			console.warn(`⚠️ No available bed found in room "${roomNumber}" for participant ${participant.email}`);
-		}
-	}
-	console.log(`🛏️ Bed assignment processing completed`);
+	// Note: Bed assignments will be processed within the main transaction to ensure consistency
+	// This prevents the issue where assignments made outside the transaction were later cleared
+	console.log(`🛏️ ${bedAssignmentQueue.length} bed assignments queued for processing in main transaction...`);
 
 	// Process leadership assignments in batch to prevent duplicate role assignments
 	console.log(`👑 Processing ${leadershipAssignmentQueue.length} queued leadership assignments...`);
@@ -1668,27 +1627,69 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 		console.log(`📋 Main transaction: ${participantsWithExcelAssignments.length} participants have Excel table assignments, ${participantsWithoutExcelAssignments.length} need automatic assignments`);
 
-		if (participantsWithoutExcelAssignments.length > 0) {
-			const participantIdsWithoutAssignments = participantsWithoutExcelAssignments.map(p => p.id);
-
-			// Note: retreatBedId column has been removed - no need to clear it
-			// Bed assignments are now handled solely through the retreat_bed table
-
-			// Clear existing participant assignments in beds for these participants
-
-			// Clear existing participant assignments in beds for these participants
-			await transactionalBedRepository
-				.createQueryBuilder()
-				.update(RetreatBed)
-				.set({ participantId: null })
-				.where('participantId IN (:...ids)', { ids: participantIdsWithoutAssignments })
-				.execute();
-		}
+		// Note: We no longer clear bed assignments here since they are now handled atomically
+		// within the transaction along with all other assignments to ensure consistency
 
 		// Track assigned beds to prevent duplicate assignments
 		const assignedBedIds = new Set<string>();
 
-		// Process participants one by one with atomic bed assignment
+		// First, process Excel bed assignments within the transaction to ensure consistency
+		console.log(`🛏️ Processing ${bedAssignmentQueue.length} Excel bed assignments within main transaction...`);
+		for (const bedAssignment of bedAssignmentQueue) {
+			const { participant, roomNumber, participantType } = bedAssignment;
+
+			// Skip cancelled participants
+			if (participant.isCancelled) {
+				console.log(`🚫 Skipping Excel bed assignment for cancelled participant ${participant.email}`);
+				continue;
+			}
+
+			// Check if this participant already has a bed assigned
+			const hasExistingBedAssignment = await bedQueryUtils.participantHasBedAssignment(participant.id);
+			if (hasExistingBedAssignment) {
+				const existingBed = await bedQueryUtils.getParticipantBedAssignment(participant.id);
+				console.log(`⚠️ Participant ${participant.email} already has bed assigned (${existingBed?.id}), skipping Excel assignment...`);
+				if (existingBed) {
+					assignedBedIds.add(existingBed.id);
+				}
+				continue;
+			}
+
+			// Find or create a bed that hasn't been assigned yet in this batch
+			const bedResult = await findAvailableBedByRoom(
+				retreatId,
+				roomNumber,
+				participantType,
+				assignedBedIds
+			);
+
+			if (bedResult) {
+				const { bedId, wasCreated } = bedResult;
+
+				// Mark this bed as assigned to prevent other participants from getting it
+				assignedBedIds.add(bedId);
+
+				// Update the bed to point to the participant within the transaction
+				await transactionalBedRepository
+					.createQueryBuilder()
+					.update(RetreatBed)
+					.set({ participantId: participant.id })
+					.where('id = :id', { id: bedId })
+					.execute();
+
+				console.log(`✅ Excel assignment: Assigned participant ${participant.email} to bed ${bedId} in room "${roomNumber}"`);
+
+				// Track bed creation
+				if (wasCreated) {
+					bedsCreated++;
+				}
+			} else {
+				console.warn(`⚠️ No available bed found in room "${roomNumber}" for participant ${participant.email} (Excel assignment)`);
+			}
+		}
+		console.log(`🛏️ Excel bed assignment processing completed within transaction`);
+
+		// Process participants one by one with atomic bed assignment for any remaining unassigned participants
 		for (const participant of participantsToProcess) {
 			// Skip cancelled participants entirely
 			if (participant.isCancelled) {
