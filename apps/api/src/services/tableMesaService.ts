@@ -79,6 +79,7 @@ export const assignLeaderToTable = async (
 	const participant = await participantRepository.findOneBy({ id: participantId });
 	if (!participant) throw new Error('Participant not found');
 	if (participant.type !== 'server') throw new Error('Only servers can be assigned as leaders.');
+	if (participant.isCancelled) throw new Error('Cannot assign cancelled participants as leaders.');
 
 	// Un-assign the participant from any other leader role they might have
 	await AppDataSource.createQueryBuilder()
@@ -120,6 +121,7 @@ export const assignWalkerToTable = async (tableId: string, participantId: string
 	const participant = await participantRepository.findOneBy({ id: participantId });
 	if (!participant) throw new Error('Participant not found');
 	if (participant.type !== 'walker') throw new Error('Only walkers can be assigned to a table.');
+	if (participant.isCancelled) throw new Error('Cannot assign cancelled participants to tables.');
 
 	participant.tableId = tableId as string | null;
 	await participantRepository.save(participant);
@@ -170,11 +172,11 @@ export const rebalanceTablesForRetreat = async (retreatId: string) => {
 		tables.splice(idealTableCount);
 	}
 
-	// Unassign all walkers in a single query
+	// Unassign all non-cancelled walkers in a single query
 	await AppDataSource.createQueryBuilder()
 		.update(Participant)
 		.set({ tableId: null })
-		.where({ retreatId, type: 'walker' })
+		.where({ retreatId, type: 'walker', isCancelled: false })
 		.execute();
 
 	// Distribute walkers

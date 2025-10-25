@@ -5,17 +5,15 @@ import { TableMesa } from '../entities/tableMesa.entity';
 import { RetreatBed, BedUsage, BedType } from '../entities/retreatBed.entity';
 import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { Payment } from '../entities/payment.entity';
-import { User } from '../entities/user.entity';
 import { CreateParticipant, UpdateParticipant } from '@repo/types';
 import { rebalanceTablesForRetreat, assignLeaderToTable } from './tableMesaService';
 import { EmailService } from './emailService';
 import { In, Not, IsNull, ILike, Brackets } from 'typeorm';
 
 const participantRepository = AppDataSource.getRepository(Participant);
-const retreatRepository = AppDataSource.getRepository(Retreat);
 const tableMesaRepository = AppDataSource.getRepository(TableMesa);
 const paymentRepository = AppDataSource.getRepository(Payment);
-const userRepository = AppDataSource.getRepository(User);
+
 
 export const findAllParticipants = async (
 	retreatId?: string,
@@ -71,6 +69,12 @@ const assignBedToParticipant = async (
 	excludedBedIds: string[] = [],
 	entityManager?: any,
 ): Promise<string | undefined> => {
+	// Don't assign beds to cancelled participants
+	if (participant.isCancelled) {
+		console.log(`🚫 Skipping bed assignment for cancelled participant ${participant.email}`);
+		return undefined;
+	}
+
 	if (!participant.birthDate) return undefined;
 
 	const age = new Date().getFullYear() - new Date(participant.birthDate).getFullYear();
@@ -162,6 +166,12 @@ const assignBedAndTableToParticipant = async (
 	entityManager: any,
 ): Promise<{ bedId?: string; tableId?: string }> => {
 	const result: { bedId?: string; tableId?: string } = {};
+
+	// Don't assign anything to cancelled participants
+	if (participant.isCancelled) {
+		console.log(`🚫 Skipping bed and table assignment for cancelled participant ${participant.email}`);
+		return result;
+	}
 
 	// Assign bed if applicable
 	if (participant.type !== 'waiting' && participant.type !== 'partial_server') {
@@ -677,6 +687,25 @@ export const updateParticipant = async (
 	const wasCancelled = participant.isCancelled;
 	participantData.lastUpdatedDate = new Date();
 	participantRepository.merge(participant, participantData as any);
+
+	// If participant is being marked as cancelled, clear their assignments
+	if (participantData.isCancelled === true && !wasCancelled) {
+		console.log(`🚫 Participant ${participant.email} is being cancelled, clearing assignments`);
+		participant.tableId = undefined;
+		participant.retreatBedId = undefined;
+
+		// Also clear the participant assignment in the RetreatBed table
+		if (participant.retreatBedId) {
+			const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
+			await retreatBedRepository
+				.createQueryBuilder()
+				.update(RetreatBed)
+				.set({ participantId: null })
+				.where('id = :id', { id: participant.retreatBedId })
+				.execute();
+		}
+	}
+
 	const updatedParticipant = await participantRepository.save(participant);
 
 	if (updatedParticipant.type === 'walker' && wasCancelled !== updatedParticipant.isCancelled && !skipRebalance) {
@@ -857,159 +886,6 @@ const findAvailableColiderSlot = async (
 	} catch (error) {
 		console.error(`Error finding available colider slot in table "${tableId}":`, error);
 		return null;
-	}
-};
-
-// Helper function to assign leadership role during import
-const assignLeadershipRole = async (
-	retreatId: string,
-	participantId: string,
-	tableName: string,
-	leadershipRole: 'lider' | 'colider1' | 'colider2' | null,
-	participantEmail: string
-): Promise<{ tableCreated?: boolean }> => {
-	if (!leadershipRole || !tableName) return { tableCreated: false };
-
-	try {
-		// Check if participant is already a leader in another table
-		const existingLeadership = await checkExistingLeadership(participantId);
-		if (existingLeadership.isLeader) {
-			console.log(`🔄 Participant ${participantEmail} is already ${existingLeadership.role} in table "${existingLeadership.tableName}". Removing from previous assignment...`);
-
-			// Remove from existing table (the assignLeaderToTable function will handle this)
-		}
-
-		// Find the table by name (tables are pre-created in batch)
-		const existingTable = await tableMesaRepository.findOne({
-			where: { name: tableName.toString(), retreatId },
-			select: ['id', 'name']
-		});
-
-		if (!existingTable) {
-			console.warn(`⚠️ Cannot assign leadership: Failed to find pre-created table "${tableName}" for participant ${participantEmail}`);
-			return { tableCreated: false };
-		}
-		const tableId = existingTable.id;
-
-		// For colider1 role, find available slot (colider1 or colider2)
-		let finalRole = leadershipRole;
-		if (leadershipRole === 'colider1') {
-			const availableSlot = await findAvailableColiderSlot(tableId);
-			if (!availableSlot) {
-				console.warn(`⚠️ Cannot assign colider: No available colider slots in table "${tableName}" for participant ${participantEmail}`);
-				return;
-			}
-			finalRole = availableSlot;
-		}
-
-		// Assign leadership role using existing function (which handles removing from other tables)
-		await assignLeaderToTable(tableId, participantId, finalRole);
-
-		if (existingLeadership.isLeader) {
-			console.log(`✅ Moved participant ${participantEmail} from ${existingLeadership.role} of table "${existingLeadership.tableName}" to ${finalRole} of table "${tableName}"`);
-		} else {
-			console.log(`✅ Assigned participant ${participantEmail} as ${finalRole} of table "${tableName}"`);
-		}
-
-		return { tableCreated: false }; // Tables are pre-created, not created during leadership assignment
-
-	} catch (error: any) {
-		console.error(`❌ Failed to assign leadership role for participant ${participantEmail}:`, error.message);
-		return { tableCreated: false };
-	}
-};
-
-// Helper function to find or create table by name during import
-const findOrCreateTableByName = async (retreatId: string, tableName: string): Promise<{ tableId: string; wasCreated: boolean } | undefined> => {
-	if (!tableName) return undefined;
-
-	const tableNameStr = tableName.toString();
-
-	try {
-		// First, try to find existing table - add retry logic for concurrent access
-		let existingTable: TableMesa | null = null;
-		let retryCount = 0;
-		const maxRetries = 3;
-
-		while (retryCount < maxRetries && !existingTable) {
-			console.log(`🔍 Looking for existing table "${tableNameStr}" (attempt ${retryCount + 1}/${maxRetries})`);
-			existingTable = await tableMesaRepository.findOne({
-				where: {
-					retreatId,
-					name: tableNameStr
-				},
-				select: ['id', 'colider1Id', 'colider2Id', 'liderId']
-			});
-
-			if (existingTable) {
-				console.log(`🔍 Found existing table "${tableNameStr}" with ID: ${existingTable.id}`);
-				console.log(`📋 Table "${tableNameStr}" leadership slots: liderId=${existingTable.liderId}, colider1Id=${existingTable.colider1Id}, colider2Id=${existingTable.colider2Id}`);
-				return { tableId: existingTable.id, wasCreated: false };
-			}
-
-			// If not found and we have retries left, wait a bit and try again
-			if (retryCount < maxRetries - 1) {
-				console.log(`⏳ Table "${tableNameStr}" not found, waiting 50ms before retry...`);
-				await new Promise(resolve => setTimeout(resolve, 50)); // Wait 50ms
-			}
-			retryCount++;
-		}
-
-		// Table doesn't exist, create it
-		console.log(`📋 Creating new table "${tableNameStr}" for retreat ${retreatId}`);
-
-		// Verify retreat exists first
-		const retreatRepository = AppDataSource.getRepository(Retreat);
-		const retreat = await retreatRepository.findOne({
-			where: { id: retreatId },
-			select: ['id']
-		});
-
-		if (!retreat) {
-			console.error(`❌ Cannot create table "${tableNameStr}": Retreat ${retreatId} not found`);
-			return undefined;
-		}
-
-		// Create table with validation
-		const newTable = tableMesaRepository.create({
-			name: tableNameStr,
-			retreatId
-		});
-
-		console.log(`🔧 Table data to save:`, JSON.stringify({ name: tableNameStr, retreatId }, null, 2));
-
-			// Use a transaction to ensure table creation is atomic and durable
-		console.log(`💾 Saving table with explicit transaction for "${tableNameStr}"`);
-		const savedTable = await AppDataSource.transaction(async (transactionalEntityManager) => {
-			const transactionalTableRepository = transactionalEntityManager.getRepository(TableMesa);
-			const createdTable = await transactionalTableRepository.save(newTable);
-			console.log(`💾 Table saved within transaction: ID=${createdTable.id}, Name=${createdTable.name}`);
-			return createdTable;
-		});
-		console.log(`✅ Table transaction committed successfully: ID=${savedTable.id}, Name=${savedTable.name}`);
-
-		console.log(`💾 Table saved to database:`, JSON.stringify({ id: savedTable.id, name: savedTable.name, retreatId: savedTable.retreatId }, null, 2));
-
-		// Verify the table was actually saved by querying it again
-		const verificationTable = await tableMesaRepository.findOne({
-			where: { id: savedTable.id },
-			select: ['id', 'name', 'retreatId', 'colider1Id', 'colider2Id', 'liderId']
-		});
-
-		if (!verificationTable) {
-			console.error(`❌ Verification failed: Table "${tableNameStr}" was saved but cannot be retrieved from database`);
-			return undefined;
-		}
-
-		console.log(`✅ Successfully created and verified table "${tableNameStr}" with ID: ${verificationTable.id}`);
-		console.log(`📋 New table "${tableNameStr}" leadership slots: liderId=${verificationTable.liderId}, colider1Id=${verificationTable.colider1Id}, colider2Id=${verificationTable.colider2Id}`);
-
-		return { tableId: verificationTable.id, wasCreated: true };
-
-	} catch (error: any) {
-		console.error(`❌ Error finding table "${tableNameStr}":`, error.message);
-		console.error(`Error details:`, error);
-		return undefined;
 	}
 };
 
@@ -1770,6 +1646,12 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 		// Process participants one by one with atomic bed assignment
 		for (const participant of participantsToProcess) {
+			// Skip cancelled participants entirely
+			if (participant.isCancelled) {
+				console.log(`🚫 Skipping cancelled participant ${participant.email} in main transaction`);
+				continue;
+			}
+
 			if (participant.type !== 'waiting' && participant.type !== 'partial_server') {
 				// Skip if participant already has assignments from Excel import
 				const hasExistingAssignments = participant.tableId || participant.retreatBedId;
