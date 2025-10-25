@@ -532,8 +532,8 @@ export const createParticipant = async (
 				where: { id: savedParticipant.retreatId },
 			});
 
-			// Skip email sending if importing and retreat is not public
-			if (isImporting && retreat && !retreat.isPublic) {
+			// Skip email sending if importing or retreat is not public
+			if (isImporting || !retreat || !retreat.isPublic) {
 				console.log(`Skipping email sending for imported participant ${savedParticipant.email} - retreat is not public`);
 				return savedParticipant;
 			}
