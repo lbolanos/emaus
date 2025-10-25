@@ -6,14 +6,14 @@ import {
 	JoinColumn,
 	CreateDateColumn,
 	UpdateDateColumn,
-	OneToOne,
 	OneToMany,
+	OneToOne,
 } from 'typeorm';
 import { Retreat } from './retreat.entity';
 import { TableMesa } from './tableMesa.entity';
-import { RetreatBed } from './retreatBed.entity';
 import { Responsability } from './responsability.entity';
 import { Payment } from './payment.entity';
+import { RetreatBed } from './retreatBed.entity';
 import { DateTransformer } from '../utils/date.transformer';
 
 @Entity('participants')
@@ -229,18 +229,14 @@ export class Participant {
 	@JoinColumn({ name: 'tableId' })
 	tableMesa?: TableMesa;
 
-	@Column({ type: 'uuid', nullable: true })
-	retreatBedId?: string | null; // Corresponde a 'cama
-
-	@OneToOne(() => RetreatBed, (bed) => bed.participant, { nullable: true })
-	@JoinColumn({ name: 'retreatBedId' })
-	retreatBed?: RetreatBed | null;
-
 	@OneToMany(() => Responsability, (responsability) => responsability.participant)
 	responsibilities!: Responsability[];
 
 	@OneToMany(() => Payment, (payment) => payment.participant)
 	payments!: Payment[];
+
+	@OneToOne(() => RetreatBed, (retreatBed) => retreatBed.participant)
+	retreatBed?: RetreatBed | null;
 
 	// --- PROPERTIES COMPUTADAS ---
 
@@ -336,7 +332,7 @@ export class Participant {
 
 		return Math.max(0, expectedAmount - this.totalPaid);
 	}
-
+	
 	/**
 	 * Custom JSON serialization to include computed properties
 	 */

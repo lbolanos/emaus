@@ -224,7 +224,6 @@ export const participantSchema = z.object({
 	arrivesOnOwn: z.preprocess((val) => (val === null ? undefined : val), z.boolean().optional()),
 	retreatId: idSchema,
 	tableId: idSchema.nullable().optional(),
-	retreatBedId: idSchema.nullable().optional(),
 	tableMesa: tableMesaSchema.optional(),
 	retreatBed: retreatBedSchema.nullable().optional(),
 });

@@ -46,7 +46,7 @@ export class RetreatBed {
 	@Column({ type: 'uuid' })
 	retreatId!: string;
 
-	@OneToOne(() => Participant, (participant) => participant.retreatBed, {
+	@OneToOne(() => Participant, {
 		nullable: true,
 		onDelete: 'SET NULL',
 	})

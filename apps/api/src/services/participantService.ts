@@ -8,11 +8,15 @@ import { Payment } from '../entities/payment.entity';
 import { CreateParticipant, UpdateParticipant } from '@repo/types';
 import { rebalanceTablesForRetreat, assignLeaderToTable } from './tableMesaService';
 import { EmailService } from './emailService';
+import { BedQueryUtils } from '../utils/bedQueryUtils';
 import { In, Not, IsNull, ILike, Brackets } from 'typeorm';
 
 const participantRepository = AppDataSource.getRepository(Participant);
 const tableMesaRepository = AppDataSource.getRepository(TableMesa);
 const paymentRepository = AppDataSource.getRepository(Payment);
+
+// Create BedQueryUtils instance
+const bedQueryUtils = new BedQueryUtils();
 
 
 export const findAllParticipants = async (
@@ -497,7 +501,6 @@ export const createParticipant = async (
 			...restOfParticipantData,
 			family_friend_color: colorToAssign || undefined,
 			id_on_retreat,
-			isCancelled: false,
 			registrationDate: new Date(),
 			lastUpdatedDate: new Date(),
 		};
@@ -688,22 +691,20 @@ export const updateParticipant = async (
 	participantData.lastUpdatedDate = new Date();
 	participantRepository.merge(participant, participantData as any);
 
-	// If participant is being marked as cancelled, clear their assignments
+	// If participant is being marked as cancelled, clear their assignments atomically
 	if (participantData.isCancelled === true && !wasCancelled) {
 		console.log(`🚫 Participant ${participant.email} is being cancelled, clearing assignments`);
 		participant.tableId = undefined;
-		participant.retreatBedId = undefined;
 
 		// Also clear the participant assignment in the RetreatBed table
-		if (participant.retreatBedId) {
-			const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
-			await retreatBedRepository
-				.createQueryBuilder()
-				.update(RetreatBed)
-				.set({ participantId: null })
-				.where('id = :id', { id: participant.retreatBedId })
-				.execute();
-		}
+		const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
+		await retreatBedRepository
+			.createQueryBuilder()
+			.update(RetreatBed)
+			.set({ participantId: null })
+			.where('participantId = :id', { id: participant.id })
+			.execute();
+
 	}
 
 	const updatedParticipant = await participantRepository.save(participant);
@@ -1295,7 +1296,18 @@ export const importParticipants = async (retreatId: string, participantsData: an
 	let paymentsCreated = 0;
 	const processedParticipantIds: string[] = [];
 
-	console.log(`🚀 Starting import process for retreat ${retreatId} with ${participantsData.length} participants`);
+	// Sort participants so cancelled ones are processed first
+	// This ensures cancelled participants don't interfere with active participant assignments
+	const sortedParticipantsData = participantsData.sort((a, b) => {
+		const aCancelled = a.cancelado?.trim() === 'S';
+		const bCancelled = b.cancelado?.trim() === 'S';
+
+		if (aCancelled && !bCancelled) return -1; // a is cancelled, b is not - a comes first
+		if (!aCancelled && bCancelled) return 1; // b is cancelled, a is not - b comes first
+		return 0; // both are the same (both cancelled or both not cancelled)
+	});
+
+	console.log(`🚀 Starting import process for retreat ${retreatId} with ${sortedParticipantsData.length} participants`);
 	console.log(`📊 Initial database state check: counting existing tables...`);
 	const initialTableCount = await tableMesaRepository.count({ where: { retreatId } });
 	console.log(`📋 Found ${initialTableCount} existing tables in retreat ${retreatId}`);
@@ -1327,12 +1339,12 @@ export const importParticipants = async (retreatId: string, participantsData: an
 	const leadershipAssignmentQueue: Array<{ participant: any; tableName: string; leadershipRole: 'lider' | 'colider1' | 'colider2' | null; participantEmail: string }> = [];
 
 	// Second pass: Process participants and collect bed assignments
-	for (const participantRawData of participantsData) {
+	for (const participantRawData of sortedParticipantsData) {
 		const mappedData = mapToEnglishKeys(participantRawData);
 		const excelAssignments = extractExcelAssignments(participantRawData);
 
 		console.log(`👤 Importing participant: ${mappedData.email}`);
-		console.log(`   - Original type from Excel: ${participantRawData.tipousuario} -> ${mappedData.type}`);
+		console.log(`   - Original type from Excel: ${participantRawData.tipousuario} -> ${mappedData.type} -> ${mappedData.isCancelled ? 'cancelled' : 'active'}`);
 		console.log(`   - Excel table assignment: ${excelAssignments.tableName}`);
 		console.log(`   - Excel room assignment: ${excelAssignments.roomNumber}`);
 
@@ -1355,7 +1367,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				console.log(`   - Type from Excel: ${type} (will not be changed on update)`);
 
 				const updatedParticipant = await updateParticipant(existingParticipant.id, updateData as UpdateParticipant, true); // skipRebalance = true during import
-				console.log(`✅ Updated participant: ${updatedParticipant.email} -> Final type: ${updatedParticipant.type}`);
+				console.log(`✅ Updated participant: ${updatedParticipant.email} -> Final type: ${updatedParticipant.type} -> Cancelled: ${updatedParticipant.isCancelled}`);
 				updatedCount++;
 				processedParticipantIds.push(existingParticipant.id);
 				participant = existingParticipant;
@@ -1372,7 +1384,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 					true, // isImporting = true
 					true, // skipCapacityCheck = true during import
 				);
-				console.log(`✅ Created new participant: ${newParticipant.email} -> Final type: ${newParticipant.type}`);
+				console.log(`✅ Created new participant: ${newParticipant.email} -> Final type: ${newParticipant.type} -> Cancelled: ${newParticipant.isCancelled}`);
 				importedCount++;
 				processedParticipantIds.push(newParticipant.id);
 				participant = newParticipant;
@@ -1454,8 +1466,10 @@ export const importParticipants = async (retreatId: string, participantsData: an
 		const { participant, roomNumber, participantType } = bedAssignment;
 
 		// Check if this participant already has a bed assigned (from previous import)
-		if (participant.retreatBedId) {
-			console.log(`⚠️ Participant ${participant.email} already has bed assigned (${participant.retreatBedId}), skipping...`);
+		const hasExistingBedAssignment = await bedQueryUtils.participantHasBedAssignment(participant.id);
+		if (hasExistingBedAssignment) {
+			const existingBed = await bedQueryUtils.getParticipantBedAssignment(participant.id);
+			console.log(`⚠️ Participant ${participant.email} already has bed assigned (${existingBed?.id}), skipping...`);
 			continue;
 		}
 
@@ -1473,8 +1487,6 @@ export const importParticipants = async (retreatId: string, participantsData: an
 			// Mark this bed as assigned to prevent other participants from getting it
 			assignedBedIds.add(bedId);
 
-			// Update participant with bed assignment
-			await participantRepository.update(participant.id, { retreatBedId: bedId });
 
 			// Update the bed to point to the participant
 			const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
@@ -1497,6 +1509,36 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 	for (const leadershipAssignment of leadershipAssignmentQueue) {
 		const { participant, tableName, leadershipRole, participantEmail } = leadershipAssignment;
+
+		// Skip cancelled participants entirely - double-check participant status before assignment
+		if (participant.isCancelled) {
+			console.log(`🚫 Skipping leadership assignment for cancelled participant ${participant.email}`);
+			continue;
+		}
+
+		// Fresh participant lookup to ensure we have the latest cancellation status
+		const freshParticipant = await participantRepository.findOne({
+			where: { id: participant.id },
+			select: ['id', 'type', 'isCancelled', 'email', 'firstName', 'lastName']
+		});
+
+		if (!freshParticipant) {
+			console.warn(`⚠️ Participant ${participantEmail} not found during leadership assignment, skipping...`);
+			continue;
+		}
+
+		if (freshParticipant.isCancelled) {
+			console.log(`🚫 Skipping leadership assignment for cancelled participant ${freshParticipant.email} (fresh lookup)`);
+			continue;
+		}
+
+		if (freshParticipant.type !== 'server') {
+			console.warn(`⚠️ Cannot assign leadership role to participant ${freshParticipant.email}: type is '${freshParticipant.type}' but servers only`);
+			continue;
+		}
+
+		// Update using the fresh participant data
+		const participantForAssignment = freshParticipant;
 
 		// Check if this participant is already assigned to a leadership role in this batch
 		if (assignedLeadershipIds.has(participant.id)) {
@@ -1548,7 +1590,12 @@ export const importParticipants = async (retreatId: string, participantsData: an
 			assignedLeadershipIds.add(participant.id);
 
 			// Assign leadership role using existing function (which handles removing from other tables)
-			await assignLeaderToTable(existingTable.id, participant.id, finalRole);
+			if (finalRole) {
+				await assignLeaderToTable(existingTable.id, participant.id, finalRole);
+			} else {
+				console.warn(`⚠️ Skipping leadership assignment for participant ${participantEmail}: no valid role (${leadershipRole})`);
+				continue;
+			}
 
 			// Verify the assignment didn't create duplicates
 			const verificationTableState = await tableMesaRepository.findOne({
@@ -1570,9 +1617,9 @@ export const importParticipants = async (retreatId: string, participantsData: an
 					for (const duplicateId of duplicates) {
 						console.log(`🔧 Removing duplicate assignment for participant ${duplicateId} from table "${tableName}"`);
 						if (verificationTableState.colider1Id === duplicateId) {
-							await tableMesaRepository.update(existingTable.id, { colider1Id: null });
+							await tableMesaRepository.update(existingTable.id, { colider1Id: undefined });
 						} else if (verificationTableState.colider2Id === duplicateId) {
-							await tableMesaRepository.update(existingTable.id, { colider2Id: null });
+							await tableMesaRepository.update(existingTable.id, { colider2Id: undefined });
 						}
 					}
 				} else {
@@ -1616,21 +1663,18 @@ export const importParticipants = async (retreatId: string, participantsData: an
 		console.log(`📊 Main transaction: found ${participantsToProcess.length} participants to process`);
 
 		// Count participants with existing Excel assignments
-		const participantsWithExcelAssignments = participantsToProcess.filter(p => p.tableId || p.retreatBedId);
-		const participantsWithoutExcelAssignments = participantsToProcess.filter(p => !p.tableId && !p.retreatBedId);
+		const participantsWithExcelAssignments = participantsToProcess.filter(p => p.tableId);
+		const participantsWithoutExcelAssignments = participantsToProcess.filter(p => !p.tableId);
 
-		console.log(`📋 Main transaction: ${participantsWithExcelAssignments.length} participants have Excel assignments, ${participantsWithoutExcelAssignments.length} need automatic assignments`);
+		console.log(`📋 Main transaction: ${participantsWithExcelAssignments.length} participants have Excel table assignments, ${participantsWithoutExcelAssignments.length} need automatic assignments`);
 
 		if (participantsWithoutExcelAssignments.length > 0) {
 			const participantIdsWithoutAssignments = participantsWithoutExcelAssignments.map(p => p.id);
 
-			// Clear bed assignments for participants without Excel assignments
-			await transactionalParticipantRepository
-				.createQueryBuilder()
-				.update(Participant)
-				.set({ retreatBedId: null })
-				.where('id IN (:...ids)', { ids: participantIdsWithoutAssignments })
-				.execute();
+			// Note: retreatBedId column has been removed - no need to clear it
+			// Bed assignments are now handled solely through the retreat_bed table
+
+			// Clear existing participant assignments in beds for these participants
 
 			// Clear existing participant assignments in beds for these participants
 			await transactionalBedRepository
@@ -1653,13 +1697,19 @@ export const importParticipants = async (retreatId: string, participantsData: an
 			}
 
 			if (participant.type !== 'waiting' && participant.type !== 'partial_server') {
-				// Skip if participant already has assignments from Excel import
-				const hasExistingAssignments = participant.tableId || participant.retreatBedId;
-				if (hasExistingAssignments) {
-					console.log(`✅ Main transaction: preserving Excel assignments for participant ${participant.email} (tableId: ${participant.tableId}, bedId: ${participant.retreatBedId})`);
+				// Check if participant already has bed assignment (from previous import or database)
+				const hasExistingBedAssignment = await bedQueryUtils.participantHasBedAssignment(participant.id);
+				const hasExistingTableAssignment = !!participant.tableId;
+
+				if (hasExistingTableAssignment || hasExistingBedAssignment) {
+					console.log(`✅ Main transaction: preserving existing assignments for participant ${participant.email} (tableId: ${participant.tableId}, hasBed: ${hasExistingBedAssignment})`);
+
 					// Track existing bed assignments to prevent conflicts
-					if (participant.retreatBedId) {
-						assignedBedIds.add(participant.retreatBedId);
+					if (hasExistingBedAssignment) {
+						const existingBed = await bedQueryUtils.getParticipantBedAssignment(participant.id);
+						if (existingBed) {
+							assignedBedIds.add(existingBed.id);
+						}
 					}
 					continue;
 				}
@@ -1671,30 +1721,12 @@ export const importParticipants = async (retreatId: string, participantsData: an
 					transactionalEntityManager,
 				);
 
-				// Prepare update object
-				const updates: any = {};
-				if (tableId) updates.tableId = tableId;
-
-				// Handle bed assignment with proper bidirectional relationship management
-				if (bedId) {
-					// First, assign the bed to the participant in the RetreatBed table using query builder
-					await transactionalBedRepository
-						.createQueryBuilder()
-						.update(RetreatBed)
-						.set({ participantId: participant.id })
-						.where('id = :id', { id: bedId })
-						.execute();
-
-					// Then update the participant with the bed assignment
-					updates.retreatBedId = bedId;
-				}
-
-				// Apply all updates to the participant using query builder to ensure individual updates
-				if (Object.keys(updates).length > 0) {
+				// Handle table assignment
+				if (tableId) {
 					await transactionalParticipantRepository
 						.createQueryBuilder()
 						.update(Participant)
-						.set(updates)
+						.set({ tableId })
 						.where('id = :id', { id: participant.id })
 						.execute();
 				}

@@ -23,41 +23,83 @@ export const assignParticipantToBed = async (req: Request, res: Response, next: 
 		const { bedId } = req.params;
 		const { participantId } = req.body; // participantId can be null to unassign
 
+		// Use TypeORM transaction for atomic operations
+		await AppDataSource.transaction(async (transactionalEntityManager) => {
+			const bedRepo = transactionalEntityManager.getRepository(RetreatBed);
+			const participantRepo = transactionalEntityManager.getRepository(Participant);
+
+			// If unassigning
+			if (participantId === null) {
+				const bed = await bedRepo.findOne({ where: { id: bedId } });
+				if (!bed) {
+					throw new Error('Bed not found');
+				}
+
+				await bedRepo.update(bedId, { participantId: null });
+				console.log(`✅ Unassigned participant from bed ${bedId}`);
+				return;
+			}
+
+			// Validate inputs
+			if (!participantId || typeof participantId !== 'string') {
+				throw new Error('Invalid participantId provided');
+			}
+
+			// Check if participant exists and is not cancelled
+			const participant = await participantRepo.findOne({ where: { id: participantId } });
+			if (!participant) {
+				throw new Error('Participant not found');
+			}
+			if (participant.isCancelled) {
+				throw new Error('Cannot assign cancelled participant to bed');
+			}
+
+			// Check if bed exists
+			const bed = await bedRepo.findOne({ where: { id: bedId } });
+			if (!bed) {
+				throw new Error('Bed not found');
+			}
+
+			// Check if bed is already assigned to someone else
+			if (bed.participantId && bed.participantId !== participantId) {
+				throw new Error('Bed is already assigned to another participant');
+			}
+
+			// Check if participant already has a bed (optional business rule)
+			const existingBed = await bedRepo.findOne({ where: { participantId } });
+			if (existingBed && existingBed.id !== bedId) {
+				throw new Error('Participant already has another bed assigned');
+			}
+
+			// Perform the assignment
+			await bedRepo.update(bedId, { participantId });
+			console.log(`✅ Assigned participant ${participantId} to bed ${bedId}`);
+		});
+
+		// Return the updated bed
 		const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
-		const participantRepository = AppDataSource.getRepository(Participant);
+		const updatedBed = await retreatBedRepository.findOne({
+			where: { id: bedId },
+			relations: ['participant']
+		});
 
-		const bed = await retreatBedRepository.findOneBy({ id: bedId });
-		if (!bed) {
-			return res.status(404).json({ message: 'Bed not found' });
+		res.json(updatedBed);
+
+	} catch (error: any) {
+		console.error('❌ Error in assignParticipantToBed:', error.message);
+
+		// Convert errors to appropriate HTTP responses
+		let statusCode = 400;
+		let message = error.message || 'Unknown error occurred';
+
+		if (message.includes('not found')) {
+			statusCode = 404;
+		} else if (message.includes('already assigned')) {
+			statusCode = 409; // Conflict
+		} else if (message.includes('cancelled')) {
+			statusCode = 422; // Unprocessable Entity
 		}
 
-		// If unassigning
-		if (participantId === null) {
-			bed.participant = null;
-			bed.participantId = null;
-			await retreatBedRepository.save(bed);
-			return res.json(bed);
-		}
-
-		// If assigning
-		const participant = await participantRepository.findOneBy({ id: participantId });
-		if (!participant) {
-			return res.status(404).json({ message: 'Participant not found' });
-		}
-
-		// Check if participant is already assigned to another bed
-		const existingBed = await retreatBedRepository.findOne({ where: { participantId } });
-		if (existingBed && existingBed.id !== bedId) {
-			// Unassign from old bed
-			existingBed.participant = null;
-			existingBed.participantId = null;
-			await retreatBedRepository.save(existingBed);
-		}
-
-		bed.participant = participant;
-		await retreatBedRepository.save(bed);
-		res.json(bed);
-	} catch (error) {
-		next(error);
+		res.status(statusCode).json({ message });
 	}
 };

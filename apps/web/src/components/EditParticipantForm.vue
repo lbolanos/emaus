@@ -112,9 +112,8 @@ watch(() => props.participant, (newVal) => {
 
 const handleSave = () => {
   const participantToSave = { ...localParticipant.value };
-  if (participantToSave.retreatBedId === null || participantToSave.retreatBedId === '') {
-    delete participantToSave.retreatBedId;
-  }
+  // Note: retreatBedId has been removed from participant entity
+  // Bed assignments are now handled through the retreat_bed table only
   if (participantToSave.tableId === null || participantToSave.tableId === '') {
     delete participantToSave.tableId;
   }

@@ -213,8 +213,7 @@ const allColumns = ref([
     { key: 'registrationDate', label: 'participants.fields.registrationDate' },
     { key: 'lastUpdatedDate', label: 'participants.fields.lastUpdatedDate' },
     { key: 'retreatId', label: 'participants.fields.retreatId' },
-    { key: 'tableId', label: 'participants.fields.tableId' },
-    { key: 'retreatBedId', label: 'participants.fields.retreatBedId' },
+    { key: 'tableId', label: 'participants.fields.tableId' },    
     { key: 'retreatBed.roomNumber', label: 'rooms.roomNumber' },
 ]);
 
@@ -462,8 +461,8 @@ const formColumnsToShow = computed(() => {
 const formColumnsToEdit = computed(() => {
     const combined = new Set([...props.columnsToEditInForm, ...visibleColumns.value]);
     const nonEditableSystemKeys = [
-        'id', 'id_on_retreat', 'type', 'email', 'registrationDate', 
-        'lastUpdatedDate', 'retreatId', 'tableId', 'retreatBedId'
+        'id', 'id_on_retreat', 'type', 'email', 'registrationDate',
+        'lastUpdatedDate', 'retreatId', 'tableId'
     ];
     return Array.from(combined).filter(key => !nonEditableSystemKeys.includes(key));
 });

@@ -82,7 +82,7 @@
               :key="walker.id"
               draggable="true"
               @dragstart="startDragFromTable($event, walker, 'walkers')"
-              :title="`${$t('tables.tableCard.retreatId')}: ${walker.id_on_retreat || $t('tables.tableCard.notAvailable')}\n${walker.firstName} ${walker.lastName}\n${$t('tables.invitedBy')}: ${walker.invitedBy || $t('common.unknown')}\n${$t('tables.tableCard.bedLocation')}: ${getBedLocation(walker.retreatBed) || $t('tables.tableCard.notAvailable')}`"
+              :title="`${$t('tables.tableCard.retreatId')}: ${walker.id_on_retreat || $t('tables.tableCard.notAvailable')}\n${walker.firstName} ${walker.lastName}\n${$t('tables.invitedBy')}: ${walker.invitedBy || $t('common.unknown')}\n${$t('tables.tableCard.bedLocation')}: ${getBedLocation(walker) || $t('tables.tableCard.notAvailable')}`"
               :style="{ borderColor: walker.family_friend_color }"
               class="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm font-medium cursor-grab border-2"
             >
