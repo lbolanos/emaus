@@ -332,7 +332,7 @@ export class Participant {
 
 		return Math.max(0, expectedAmount - this.totalPaid);
 	}
-	
+
 	/**
 	 * Custom JSON serialization to include computed properties
 	 */

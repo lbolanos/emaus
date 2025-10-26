@@ -80,11 +80,10 @@ export const assignParticipantToBed = async (req: Request, res: Response, next: 
 		const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
 		const updatedBed = await retreatBedRepository.findOne({
 			where: { id: bedId },
-			relations: ['participant']
+			relations: ['participant'],
 		});
 
 		res.json(updatedBed);
-
 	} catch (error: any) {
 		console.error('❌ Error in assignParticipantToBed:', error.message);
 

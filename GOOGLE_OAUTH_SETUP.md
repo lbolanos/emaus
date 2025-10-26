@@ -33,6 +33,7 @@ This guide explains how to create and configure Google OAuth credentials for the
 2. Click "Create Credentials" → "OAuth 2.0 Client IDs"
 
 ### If this is your first time:
+
 1. Click "Configure consent screen"
 2. Choose "External" user type
 3. Fill in the required fields:
@@ -44,6 +45,7 @@ This guide explains how to create and configure Google OAuth credentials for the
 6. On the Test users page, add your email if you want to test, then click "Save and Continue"
 
 ### Create the Client ID:
+
 1. Click "Create Credentials" → "OAuth 2.0 Client IDs"
 2. Choose "Web application" as the application type
 3. Enter a name for your client (e.g., "EMAUS Web App")
@@ -98,20 +100,24 @@ FRONTEND_URL=http://localhost:5173  # For development
 ## Troubleshooting
 
 ### Invalid Client Error
+
 - Verify your Client ID is correct and copied in full
 - Make sure the OAuth consent screen is configured
 - Check that the Google+ API (or alternative) is enabled
 
 ### Redirect URI Mismatch
+
 - Ensure your redirect URI in Google Console matches exactly: `{API_BASE_URL}/api/auth/google/callback`
 - For local development, it should be `http://localhost:3001/api/auth/google/callback`
 
 ### CORS Issues
+
 - Add your domain to the "Authorized JavaScript origins" in Google Console
 - For development: `http://localhost:5173`
 - For production: `https://yourdomain.com`
 
 ### HTTP vs HTTPS
+
 - OAuth requires HTTPS in production
 - Development can use HTTP, but production must use HTTPS
 - Make sure your `FRONTEND_URL` matches your Google Console configuration
@@ -119,12 +125,16 @@ FRONTEND_URL=http://localhost:5173  # For development
 ## Production Deployment
 
 ### 1. Update Redirect URIs
+
 In Google Cloud Console, update the OAuth client settings:
+
 - Add your production domain to "Authorized JavaScript origins"
 - Add your production callback URL to "Authorized redirect URIs"
 
 ### 2. Update Environment Variables
+
 Set the production values in your deployment environment:
+
 ```env
 GOOGLE_CLIENT_ID=your_production_client_id
 GOOGLE_CLIENT_SECRET=your_production_client_secret
@@ -132,7 +142,9 @@ FRONTEND_URL=https://yourdomain.com
 ```
 
 ### 3. Publish Consent Screen (if needed)
+
 If you want to move from "Testing" to "Published" status:
+
 1. Go to "OAuth consent screen"
 2. Verify all information is complete
 3. Click "Publish App"
@@ -158,6 +170,7 @@ If you want to move from "Testing" to "Published" status:
 ## Code Implementation Details
 
 The OAuth flow uses:
+
 - **Passport.js** with the Google OAuth 2.0 strategy
 - **Scopes**: `profile` and `email`
 - **Strategy Type**: Authorization Code flow
@@ -165,6 +178,7 @@ The OAuth flow uses:
 - **Frontend**: Vue.js application
 
 The authentication process:
+
 1. User clicks "Login with Google"
 2. User redirected to Google OAuth page
 3. User grants permissions
@@ -174,6 +188,7 @@ The authentication process:
 7. Session is established and user is logged in
 
 For more details, check the authentication-related files:
+
 - `apps/api/src/services/authService.ts` - Passport configuration
 - `apps/api/src/controllers/authController.ts` - Route handlers
 - `apps/api/src/routes/authRoutes.ts` - Route definitions

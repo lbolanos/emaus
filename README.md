@@ -2,7 +2,6 @@
 
 This repository contains the monorepo for the Retreat Logistics Management System, a full-stack application designed to manage religious retreats.
 
-
 El logotipo de Emaús Hombres, consiste en dos simples figuras, pragmáticas y superpuestas: la pri- mera es una cruz vacía o de color blanca, con bordes en color dorado, que se extiende desde la parte inferior; y la segunda figura, es una rosa roja, que aparece erguida desde la base de la cruz, hasta llegar al centro de ésta, con sus pétalos abiertos y extendidos.
 
 ## Tech Stack
@@ -238,12 +237,11 @@ cuando un caminante se registre enviar correo de bienvenida enviar tambien corre
 asignacion de cuartos tal como se hace en las mesas con un dashboard.
 remover del menu todos las paginas que requieras retiro si no esta seleccionado.
 
-
 IN PROGRESS
 agregar al retiro hora de llegada de caminantes ... y hora de llegada de servidores el viernes.
 add a button to create a docx file to imprimir la mesa con lideres caminantes telefonos, medicamentos y alimentos para entregar a los servidores.
 
-gafete apodo o nombre, tableMesa,  habitacion (floor, room, bed type) y  imagen de una rosa
+gafete apodo o nombre, tableMesa, habitacion (floor, room, bed type) y imagen de una rosa
 
 TODO
 since it is not in production modify apps/api/src/migrations/sqlite/20250910163337_CreateSchema.ts for schema.
@@ -269,11 +267,10 @@ Que debe pasar cuando se cancele un participante ... unassign from retreatBed an
 
 usar la ia para conversar y agregar o quitar base de datos.
 
-una forma de asegurar que no se modifique las mesas.  lock tables
+una forma de asegurar que no se modifique las mesas. lock tables
 
 en el mensaje de bienvenida del servidor agregar una url para que pueda cambiar su registro
 Notificaciones por correo a los administradores del retiro de eventos como Caminante ingresa. Servidor ingresa. Forma de desactivar estas notificaciones.
-
 
 posibles host
 https://www.vultr.com/
@@ -298,6 +295,8 @@ Search for BIRTHDAY_MESSAGE and clic title="Editar"
 Select text "¡Feliz cumpleaños" y clic en boton negrillas.
 Fix any issue with text changes
 
+pnpm lint && echo "✅ Lint passed" && pnpm format --check && echo "✅ Format check passed"
+
 ./start.sh
 
 git clean -fdx
@@ -309,7 +308,7 @@ sudo systemctl status nginx
 pm2 restart emaus-api
 pm2 status
 sudo lsof -i :3001
-curl http://localhost/api/health 
+curl http://localhost/api/health
 curl http://localhost/assets/index.js
 curl http://localhost:3001/api/auth/status
 less /root/.pm2/logs/emaus-api-error.log
@@ -323,7 +322,7 @@ rsync -avz \
 --exclude 'apps/api/.env' \
 --exclude 'apps/web/.env' \
  . root@155.138.230.215:/var/www/emaus/
- 
+
 scp root@155.138.230.215:/var/www/emaus/apps/api/database.sqlite apps/api/database.sqlite
 sqlite3 /var/www/emaus/apps/api/database.sqlite "INSERT OR IGNORE INTO user_roles (userId, roleId) VALUES ('254a1d26-3c53-485a-a0ec-950a43d30aed', 3);"
 sqlite3 /var/www/emaus/apps/api/database.sqlite "SELECT u.email, u.displayName, r.name as role_name FROM users u LEFT JOIN user_roles ur ON u.id = ur.userId LEFT JOIN roles r ON ur.roleId = r.id WHERE u.email = 'lunavalentinabe@isb.edu.mx';"
@@ -333,15 +332,14 @@ scp root@155.138.230.215:/var/www/emaus/apps/api/.env ./apps/api/
 scp root@155.138.230.215:/var/www/emaus/apps/api/.env.production ./apps/api/
 
 # Web files
+
 scp root@155.138.230.215:/var/www/emaus/apps/web/.env ./apps/web/
-scp root@155.138.230.215:/var/www/emaus/apps/web/.env.production ./apps/web/ 
+scp root@155.138.230.215:/var/www/emaus/apps/web/.env.production ./apps/web/
 
 enhance usability of
 enhance with user experience
 
-
-
-export frontend_url='https://emaus.cc'   
+export frontend_url='https://emaus.cc'  
 export domain_name='emaus.cc'
 export VPS_HOST=155.138.230.215
 export VPS_USER=root

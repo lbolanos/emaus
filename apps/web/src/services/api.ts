@@ -90,14 +90,20 @@ export const unassignWalker = async (tableId: string, walkerId: string): Promise
 };
 
 export const exportTablesToDocx = async (retreatId: string): Promise<void> => {
-	const response = await api.post(`/tables/export/${retreatId}`, {}, {
-		responseType: 'blob',
-	});
+	const response = await api.post(
+		`/tables/export/${retreatId}`,
+		{},
+		{
+			responseType: 'blob',
+		},
+	);
 
 	// Create a download link for the file
-	const url = window.URL.createObjectURL(new Blob([response.data], {
-		type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-	}));
+	const url = window.URL.createObjectURL(
+		new Blob([response.data], {
+			type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+		}),
+	);
 	const link = document.createElement('a');
 	link.href = url;
 	link.setAttribute('download', `mesas-retiro-${retreatId}.docx`);
@@ -108,14 +114,20 @@ export const exportTablesToDocx = async (retreatId: string): Promise<void> => {
 };
 
 export const exportRoomLabelsToDocx = async (retreatId: string): Promise<void> => {
-	const response = await api.post(`/retreats/${retreatId}/export-room-labels`, {}, {
-		responseType: 'blob',
-	});
+	const response = await api.post(
+		`/retreats/${retreatId}/export-room-labels`,
+		{},
+		{
+			responseType: 'blob',
+		},
+	);
 
 	// Create a download link for the file
-	const url = window.URL.createObjectURL(new Blob([response.data], {
-		type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-	}));
+	const url = window.URL.createObjectURL(
+		new Blob([response.data], {
+			type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+		}),
+	);
 	const link = document.createElement('a');
 	link.href = url;
 	link.setAttribute('download', `etiquetas-habitaciones-${retreatId}.docx`);
@@ -126,14 +138,20 @@ export const exportRoomLabelsToDocx = async (retreatId: string): Promise<void> =
 };
 
 export const exportBadgesToDocx = async (retreatId: string): Promise<void> => {
-	const response = await api.post(`/retreats/${retreatId}/export-badges`, {}, {
-		responseType: 'blob',
-	});
+	const response = await api.post(
+		`/retreats/${retreatId}/export-badges`,
+		{},
+		{
+			responseType: 'blob',
+		},
+	);
 
 	// Create a download link for the file
-	const url = window.URL.createObjectURL(new Blob([response.data], {
-		type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-	}));
+	const url = window.URL.createObjectURL(
+		new Blob([response.data], {
+			type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+		}),
+	);
 	const link = document.createElement('a');
 	link.href = url;
 	link.setAttribute('download', `gafetes-participantes-${retreatId}.docx`);
@@ -451,8 +469,8 @@ export const getWalkersByRetreat = async (retreatId: string): Promise<any[]> => 
 	const response = await api.get('/participants', {
 		params: {
 			retreatId,
-			type: 'walker'
-		}
+			type: 'walker',
+		},
 	});
 	return response.data;
 };

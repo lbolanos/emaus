@@ -209,9 +209,7 @@ export class PerformanceOptimizationService {
 	): Promise<Array<{ retreatId: string; role: string; status: string }> | null> {
 		const cacheKey = `user_retreats:${userId}`;
 		const cached =
-			this.globalCache.get<Array<{ retreatId: string; role: string; status: string }>>(
-				cacheKey,
-			);
+			this.globalCache.get<Array<{ retreatId: string; role: string; status: string }>>(cacheKey);
 
 		if (cached) {
 			this.recordCacheHit();
@@ -773,11 +771,10 @@ export class PerformanceOptimizationService {
 		const percentage = (usedMB / totalMB) * 100;
 
 		// More lenient cleanup thresholds to prevent aggressive cache clearing
-		const shouldCleanup = (
+		const shouldCleanup =
 			percentage > 90 || // Only cleanup if memory usage is very high
 			totalKeys > 50000 || // Much higher key threshold
-			stats.totalRetreatCaches > 500 // Much higher retreat cache threshold
-		);
+			stats.totalRetreatCaches > 500; // Much higher retreat cache threshold
 
 		return {
 			used: Math.round(usedMB),
@@ -801,7 +798,8 @@ export class PerformanceOptimizationService {
 	}
 
 	// Additional cleanup method for removing inactive retreat caches
-	public cleanupInactiveRetreatCaches(maxInactiveTime: number = 3600000): number { // 1 hour default
+	public cleanupInactiveRetreatCaches(maxInactiveTime: number = 3600000): number {
+		// 1 hour default
 		let cleanedCount = 0;
 
 		for (const [retreatId, retreatCache] of this.retreatCaches.entries()) {

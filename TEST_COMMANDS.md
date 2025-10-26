@@ -87,6 +87,7 @@ pnpm test:excel-import
 ## 🎯 Working Tests
 
 ### ✅ Field Mapping Tests
+
 ```bash
 # From project root
 pnpm test:field-mapping
@@ -99,14 +100,17 @@ cd apps/api && NODE_OPTIONS="--experimental-vm-modules" npx jest src/tests/servi
 ```
 
 **Results**: 15/15 tests passing
+
 - Tests Excel field mapping functionality
 - Validates Spanish-to-English field conversions
 - Tests data type conversions and edge cases
 
 ### ⚠️ Web Tests
+
 Currently disabled due to TypeScript compilation errors. Test files are moved to `__tests__.bak` directories.
 
 ### 🔧 API Tests
+
 Partially working. Field mapping tests work, but other tests have database setup issues with SQLite timestamp data types.
 
 ## 📊 Test Coverage
@@ -119,11 +123,13 @@ Partially working. Field mapping tests work, but other tests have database setup
 ## 🚀 Quick Start
 
 1. **Run working field mapping tests**:
+
    ```bash
    pnpm test:field-mapping
    ```
 
 2. **Build all packages**:
+
    ```bash
    pnpm build
    ```
@@ -136,18 +142,21 @@ Partially working. Field mapping tests work, but other tests have database setup
 ## 🛠️ Test Infrastructure
 
 ### Backend (Jest + TypeScript)
+
 - **Test Runner**: Jest with ES module support
 - **TypeScript**: Full type checking
 - **Database**: In-memory SQLite for isolated tests
 - **Coverage**: Built-in coverage reporting
 
 ### Frontend (Vitest + Vue Test Utils)
+
 - **Test Runner**: Vitest
 - **Component Testing**: Vue Test Utils
 - **Mocking**: Comprehensive mocking system
 - **E2E Testing**: Playwright integration
 
 ### Configuration Files
+
 - `jest.config.json` - Jest configuration for API
 - `vitest.config.ts` - Vitest configuration for web
 - `turbo.json` - Turbo pipeline configuration

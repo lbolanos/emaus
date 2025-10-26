@@ -157,7 +157,10 @@ export const exportTablesToDocx = async (req: Request, res: Response, next: Next
 		const buffer = await tableMesaService.exportTablesToDocx(retreatId);
 
 		// Set headers for file download
-		res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+		res.setHeader(
+			'Content-Type',
+			'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+		);
 		res.setHeader('Content-Disposition', `attachment; filename="mesas-retiro-${retreatId}.docx"`);
 		res.setHeader('Content-Length', buffer.length);
 

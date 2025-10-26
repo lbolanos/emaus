@@ -22,7 +22,7 @@ export const getParticipantById = async (req: Request, res: Response, next: Next
 		const { includePayments } = req.query;
 		const participant = await participantService.findParticipantById(
 			req.params.id,
-			includePayments === 'true'
+			includePayments === 'true',
 		);
 		if (participant) {
 			res.json(participant);

@@ -150,7 +150,10 @@ export class AuthorizationService {
 		return result;
 	}
 
-	public async getUserPermissionsForRetreat(userId: string, retreatId: string): Promise<{
+	public async getUserPermissionsForRetreat(
+		userId: string,
+		retreatId: string,
+	): Promise<{
 		permissions: string[];
 		roles: string[];
 		retreats: Array<{
@@ -178,7 +181,7 @@ export class AuthorizationService {
 
 		// Filter user retreats to only include the specific retreat
 		const filteredRetreats = globalPermissions.retreats.filter(
-			retreat => retreat.retreatId === retreatId
+			(retreat) => retreat.retreatId === retreatId,
 		);
 
 		// Get the specific role for this retreat
@@ -216,9 +219,7 @@ export class AuthorizationService {
 			.getOne();
 
 		// Collect all role IDs (global + retreat-specific)
-		const globalRoleIds = userRoles
-			.filter(ur => ur.role)
-			.map(ur => ur.role.id);
+		const globalRoleIds = userRoles.filter((ur) => ur.role).map((ur) => ur.role.id);
 
 		const retreatRoleId = userRetreat?.role?.id;
 
@@ -236,8 +237,8 @@ export class AuthorizationService {
 		);
 
 		const roles = [
-			...userRoles.filter(ur => ur.role).map(ur => ur.role.name),
-			...(userRetreat?.role ? [userRetreat.role.name] : [])
+			...userRoles.filter((ur) => ur.role).map((ur) => ur.role.name),
+			...(userRetreat?.role ? [userRetreat.role.name] : []),
 		];
 
 		const result = {
@@ -255,7 +256,12 @@ export class AuthorizationService {
 			cacheKey,
 			false,
 		);
-		performanceOptimizationService.logCacheOperation('SET', 'userPermissionsResult', cacheKey, false);
+		performanceOptimizationService.logCacheOperation(
+			'SET',
+			'userPermissionsResult',
+			cacheKey,
+			false,
+		);
 
 		return result;
 	}
@@ -506,8 +512,8 @@ export const requirePermission = (permission: string): any => {
 					details: {
 						requiredPermission: permission,
 						userPermissions: userPermissions.permissions,
-						userRoles: userPermissions.roles
-					}
+						userRoles: userPermissions.roles,
+					},
 				});
 			}
 
@@ -561,8 +567,8 @@ export const requireRetreatAccess = (retreatIdParam: string = 'retreatId'): any 
 						retreatId,
 						userRetreats: userPermissions.retreats,
 						userPermissions: userPermissions.permissions,
-						userRoles: userPermissions.roles
-					}
+						userRoles: userPermissions.roles,
+					},
 				});
 			}
 

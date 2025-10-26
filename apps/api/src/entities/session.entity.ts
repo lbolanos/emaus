@@ -3,16 +3,16 @@ import { ISession } from 'connect-typeorm';
 
 @Entity({ name: 'sessions' })
 export class Session implements ISession {
-  @Index()
-  @Column('bigint')
-  public expiredAt: number;
+	@Index()
+	@Column('bigint')
+	public expiredAt: number;
 
-  @PrimaryColumn('varchar', { length: 255 })
-  public id: string;
+	@PrimaryColumn('varchar', { length: 255 })
+	public id: string;
 
-  @Column('text')
-  public json: string;
+	@Column('text')
+	public json: string;
 
-  @DeleteDateColumn()
-  public destroyedAt?: Date;
+	@DeleteDateColumn()
+	public destroyedAt?: Date;
 }

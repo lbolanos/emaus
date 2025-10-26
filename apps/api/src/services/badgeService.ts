@@ -20,7 +20,7 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 		ShadingType,
 		HeadingLevel,
 		UnderlineType,
-		PageBreak
+		PageBreak,
 	} = await import('docx');
 	type ParagraphType = InstanceType<typeof Paragraph>;
 
@@ -59,14 +59,14 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 		return dateObj.toLocaleDateString('es-ES', {
 			day: '2-digit',
 			month: 'long',
-			year: 'numeric'
+			year: 'numeric',
 		});
 	};
 
 	const retreatDates = `${formatDate(retreat.startDate)} - ${formatDate(retreat.endDate)}`;
 	const generationTime = new Date().toLocaleString('es-ES', {
 		dateStyle: 'full',
-		timeStyle: 'short'
+		timeStyle: 'short',
 	});
 
 	const children: any[] = [];
@@ -76,38 +76,38 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 		new Paragraph({
 			children: [
 				new TextRun({
-					text: "🌹 ",
+					text: '🌹 ',
 					size: 36,
 				}),
 				new TextRun({
-					text: "EMAUS",
+					text: 'EMAUS',
 					bold: true,
 					size: 42,
-					color: "DC2626",
-					font: "Arial",
+					color: 'DC2626',
+					font: 'Arial',
 				}),
 			],
 			alignment: AlignmentType.CENTER,
 			spacing: { after: 180 },
-		})
+		}),
 	);
 
 	children.push(
 		new Paragraph({
 			children: [
 				new TextRun({
-					text: "RETIRO ESPIRITUAL",
+					text: 'RETIRO ESPIRITUAL',
 					bold: true,
 					size: 24,
-					color: "991B1B",
+					color: '991B1B',
 					allCaps: true,
-					font: "Arial",
+					font: 'Arial',
 					characterSpacing: 40,
 				}),
 			],
 			alignment: AlignmentType.CENTER,
 			spacing: { after: 350 },
-		})
+		}),
 	);
 
 	children.push(
@@ -117,39 +117,39 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 					text: retreat.parish.toUpperCase(),
 					bold: true,
 					size: 36,
-					color: "374151",
-					font: "Arial",
+					color: '374151',
+					font: 'Arial',
 				}),
 			],
 			alignment: AlignmentType.CENTER,
 			spacing: { after: 250 },
-		})
+		}),
 	);
 
 	children.push(
 		new Paragraph({
 			children: [
 				new TextRun({
-					text: "📅 ",
+					text: '📅 ',
 					size: 22,
 				}),
 				new TextRun({
 					text: retreatDates,
 					size: 24,
-					color: "6B7280",
-					font: "Arial",
+					color: '6B7280',
+					font: 'Arial',
 				}),
 			],
 			alignment: AlignmentType.CENTER,
 			spacing: { after: 350 },
-		})
+		}),
 	);
 
 	children.push(
 		new Paragraph({
 			children: [],
 			spacing: { after: 600 },
-		})
+		}),
 	);
 
 	// Title banner with red theme and rounded effect
@@ -162,33 +162,33 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 							new Paragraph({
 								children: [
 									new TextRun({
-										text: "🌹 ",
+										text: '🌹 ',
 										size: 28,
 									}),
 									new TextRun({
-										text: "GAFETES PARA PARTICIPANTES",
+										text: 'GAFETES PARA PARTICIPANTES',
 										bold: true,
 										size: 28,
-										color: "1E40AF",
-										font: "Arial",
+										color: '1E40AF',
+										font: 'Arial',
 										characterSpacing: 20,
 									}),
 								],
 								alignment: AlignmentType.CENTER,
-								spacing: { before: 300, after: 300 }
-							})
+								spacing: { before: 300, after: 300 },
+							}),
 						],
 						shading: {
-							fill: "DC2626",
-							type: ShadingType.SOLID
+							fill: 'DC2626',
+							type: ShadingType.SOLID,
 						},
 						borders: {
-							top: { color: "DC2626", size: 40, style: BorderStyle.SINGLE },
-							bottom: { color: "DC2626", size: 40, style: BorderStyle.SINGLE },
-							left: { color: "DC2626", size: 40, style: BorderStyle.SINGLE },
-							right: { color: "DC2626", size: 40, style: BorderStyle.SINGLE }
+							top: { color: 'DC2626', size: 40, style: BorderStyle.SINGLE },
+							bottom: { color: 'DC2626', size: 40, style: BorderStyle.SINGLE },
+							left: { color: 'DC2626', size: 40, style: BorderStyle.SINGLE },
+							right: { color: 'DC2626', size: 40, style: BorderStyle.SINGLE },
 						},
-						margins: { top: 250, bottom: 250, left: 500, right: 500 }
+						margins: { top: 250, bottom: 250, left: 500, right: 500 },
 					}),
 				],
 			}),
@@ -203,7 +203,7 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 		new Paragraph({
 			children: [],
 			spacing: { after: 900 },
-		})
+		}),
 	);
 
 	// If no participants assigned to beds, create empty badges section
@@ -218,243 +218,242 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 									new Paragraph({
 										children: [
 											new TextRun({
-												text: "⚠️ ",
+												text: '⚠️ ',
 												size: 20,
 											}),
 											new TextRun({
-												text: "No hay participantes asignados a habitaciones.",
+												text: 'No hay participantes asignados a habitaciones.',
 												size: 18,
-												color: "B91C1C",
-												font: "Arial",
+												color: 'B91C1C',
+												font: 'Arial',
 												bold: true,
-											})
+											}),
 										],
 										alignment: AlignmentType.CENTER,
-										spacing: { before: 250, after: 150 }
+										spacing: { before: 250, after: 150 },
 									}),
 									new Paragraph({
 										children: [
 											new TextRun({
 												text: "Para generar gafetes, primero asigna participantes a las camas desde la vista de 'Asignación de Camas'.",
 												size: 16,
-												color: "DC2626",
-												font: "Arial",
+												color: 'DC2626',
+												font: 'Arial',
 												italics: true,
-											})
+											}),
 										],
 										alignment: AlignmentType.CENTER,
-										spacing: { before: 100, after: 250 }
-									})
+										spacing: { before: 100, after: 250 },
+									}),
 								],
 								shading: {
-									fill: "FEF2F2",
-									type: ShadingType.SOLID
+									fill: 'FEF2F2',
+									type: ShadingType.SOLID,
 								},
 								borders: {
-									top: { color: "EF4444", size: 35, style: BorderStyle.SINGLE },
-									bottom: { color: "EF4444", size: 35, style: BorderStyle.SINGLE },
-									left: { color: "EF4444", size: 35, style: BorderStyle.SINGLE },
-									right: { color: "EF4444", size: 35, style: BorderStyle.SINGLE }
+									top: { color: 'EF4444', size: 35, style: BorderStyle.SINGLE },
+									bottom: { color: 'EF4444', size: 35, style: BorderStyle.SINGLE },
+									left: { color: 'EF4444', size: 35, style: BorderStyle.SINGLE },
+									right: { color: 'EF4444', size: 35, style: BorderStyle.SINGLE },
 								},
-								margins: { top: 250, bottom: 250, left: 450, right: 450 }
+								margins: { top: 250, bottom: 250, left: 450, right: 450 },
 							}),
 						],
 					}),
 				],
 				width: { size: 95, type: WidthType.PERCENTAGE },
 				alignment: AlignmentType.CENTER,
-			})
+			}),
 		);
 
 		children.push(
 			new Paragraph({
 				children: [],
 				spacing: { before: 400 },
-			})
+			}),
 		);
 	} else {
-
-	// Generate badges in groups of 3 per row for printability with red theme
-	const badges = bedsWithParticipants.map(bed => {
-		const participant = bed.participant!;
-		const getDisplayName = () => {
-			return participant.nickname || participant.firstName;
-		};
-
-		const getRoomInfo = (): string => {
-			return `Piso ${bed.floor || '?'}, Cuarto ${bed.roomNumber || '?'}`;
-		};
-
-		const getTableInfo = (): string => {
-			if (!participant.tableMesa) return 'No table assigned';
-			return `Mesa ${participant.tableMesa.name}`;
-		};
-
-		const getBedType = (): string => {
-			const bedTypeMap: Record<string, string> = {
-				'normal': 'Cama Normal',
-				'litera': 'Litera',
-				'colchon': 'Colchón',
+		// Generate badges in groups of 3 per row for printability with red theme
+		const badges = bedsWithParticipants.map((bed) => {
+			const participant = bed.participant!;
+			const getDisplayName = () => {
+				return participant.nickname || participant.firstName;
 			};
-			return bedTypeMap[bed.bedType] || bed.bedType || 'Bed';
-		};
 
-		return new TableCell({
-			children: [
-				new DocxTable({
-					rows: [
-						// Single cell badge with rose emoji
-						new TableRow({
-							children: [
-								new TableCell({
-									children: [
-										// Rose emoji in top right corner
-										new Paragraph({
-											children: [
-												new TextRun({
-													text: "🌹",
-													size: 32,
-												}),
-											],
-											alignment: AlignmentType.RIGHT,
-											spacing: { before: 200, after: 0 }
-										}),
-										// Name
-										new Paragraph({
-											children: [
-												new TextRun({
-													text: getDisplayName().toUpperCase(),
-													bold: true,
-													size: 36,
-													color: "1F2937",
-													font: "Arial",
-												})
-											],
-											alignment: AlignmentType.CENTER,
-											spacing: { before: 100, after: 250 }
-										}),
-										// Table info
-										new Paragraph({
-											children: [
-												new TextRun({
-													text: getTableInfo(),
-													size: 20,
-													color: "6B7280",
-													font: "Arial",
-												})
-											],
-											alignment: AlignmentType.CENTER,
-											spacing: { before: 0, after: 200 }
-										}),
-										// Divider line
-										new Paragraph({
-											children: [
-												new TextRun({
-													text: "─────────────────",
-													size: 16,
-													color: "E5E7EB",
-												})
-											],
-											alignment: AlignmentType.CENTER,
-											spacing: { before: 80, after: 80 }
-										}),
-										// Room info
-										new Paragraph({
-											children: [
-												new TextRun({
-													text: getRoomInfo() + ", " + getBedType(),
-													size: 18,
-													color: "9CA3AF",
-													font: "Arial",
-												})
-											],
-											alignment: AlignmentType.CENTER,
-											spacing: { before: 180, after: 280 }
-										}),
-									],
-									shading: { fill: "1E40AF", type: ShadingType.SOLID },
-									borders: {
-										top: { color: "DC2626", size: 18, style: BorderStyle.SINGLE },
-										bottom: { color: "DC2626", size: 18, style: BorderStyle.SINGLE },
-										left: { color: "DC2626", size: 18, style: BorderStyle.SINGLE },
-										right: { color: "DC2626", size: 18, style: BorderStyle.SINGLE }
-									},
-									margins: { top: 0, bottom: 0, left: 350, right: 350 }
-								}),
-							],
-						}),
-					],
-					width: { size: 100, type: WidthType.PERCENTAGE },
-					borders: {
-						top: { style: BorderStyle.NONE },
-						bottom: { style: BorderStyle.NONE },
-						left: { style: BorderStyle.NONE },
-						right: { style: BorderStyle.NONE }
-					}
-				})
-			],
-			width: { size: 50, type: WidthType.PERCENTAGE },
-			margins: { top: 400, bottom: 400, left: 200, right: 200 },
-			borders: {
-				top: { style: BorderStyle.NONE },
-				bottom: { style: BorderStyle.NONE },
-				left: { style: BorderStyle.NONE },
-				right: { style: BorderStyle.NONE }
-			}
-		});
-	});
+			const getRoomInfo = (): string => {
+				return `Piso ${bed.floor || '?'}, Cuarto ${bed.roomNumber || '?'}`;
+			};
 
-	// Group badges into rows of 2
-	const badgeRows: any[] = [];
-	for (let i = 0; i < badges.length; i += 2) {
-		badgeRows.push(
-			new TableRow({
-				children: badges.slice(i, i + 2),
-			})
-		);
-	}
+			const getTableInfo = (): string => {
+				if (!participant.tableMesa) return 'No table assigned';
+				return `Mesa ${participant.tableMesa.name}`;
+			};
 
-	// If last row is incomplete, pad with empty cells
-	if (badgeRows.length > 0 && badgeRows[badgeRows.length - 1]) {
-		const lastRow = badgeRows[badgeRows.length - 1];
-		if (lastRow.children) {
-			while (lastRow.children.length < 2) {
-				lastRow.children.push(
-					new TableCell({
-						children: [],
-						width: { size: 50, type: WidthType.PERCENTAGE },
+			const getBedType = (): string => {
+				const bedTypeMap: Record<string, string> = {
+					normal: 'Cama Normal',
+					litera: 'Litera',
+					colchon: 'Colchón',
+				};
+				return bedTypeMap[bed.bedType] || bed.bedType || 'Bed';
+			};
+
+			return new TableCell({
+				children: [
+					new DocxTable({
+						rows: [
+							// Single cell badge with rose emoji
+							new TableRow({
+								children: [
+									new TableCell({
+										children: [
+											// Rose emoji in top right corner
+											new Paragraph({
+												children: [
+													new TextRun({
+														text: '🌹',
+														size: 32,
+													}),
+												],
+												alignment: AlignmentType.RIGHT,
+												spacing: { before: 200, after: 0 },
+											}),
+											// Name
+											new Paragraph({
+												children: [
+													new TextRun({
+														text: getDisplayName().toUpperCase(),
+														bold: true,
+														size: 36,
+														color: '1F2937',
+														font: 'Arial',
+													}),
+												],
+												alignment: AlignmentType.CENTER,
+												spacing: { before: 100, after: 250 },
+											}),
+											// Table info
+											new Paragraph({
+												children: [
+													new TextRun({
+														text: getTableInfo(),
+														size: 20,
+														color: '6B7280',
+														font: 'Arial',
+													}),
+												],
+												alignment: AlignmentType.CENTER,
+												spacing: { before: 0, after: 200 },
+											}),
+											// Divider line
+											new Paragraph({
+												children: [
+													new TextRun({
+														text: '─────────────────',
+														size: 16,
+														color: 'E5E7EB',
+													}),
+												],
+												alignment: AlignmentType.CENTER,
+												spacing: { before: 80, after: 80 },
+											}),
+											// Room info
+											new Paragraph({
+												children: [
+													new TextRun({
+														text: getRoomInfo() + ', ' + getBedType(),
+														size: 18,
+														color: '9CA3AF',
+														font: 'Arial',
+													}),
+												],
+												alignment: AlignmentType.CENTER,
+												spacing: { before: 180, after: 280 },
+											}),
+										],
+										shading: { fill: '1E40AF', type: ShadingType.SOLID },
+										borders: {
+											top: { color: 'DC2626', size: 18, style: BorderStyle.SINGLE },
+											bottom: { color: 'DC2626', size: 18, style: BorderStyle.SINGLE },
+											left: { color: 'DC2626', size: 18, style: BorderStyle.SINGLE },
+											right: { color: 'DC2626', size: 18, style: BorderStyle.SINGLE },
+										},
+										margins: { top: 0, bottom: 0, left: 350, right: 350 },
+									}),
+								],
+							}),
+						],
+						width: { size: 100, type: WidthType.PERCENTAGE },
 						borders: {
 							top: { style: BorderStyle.NONE },
 							bottom: { style: BorderStyle.NONE },
 							left: { style: BorderStyle.NONE },
-							right: { style: BorderStyle.NONE }
-						}
-					})
-				);
+							right: { style: BorderStyle.NONE },
+						},
+					}),
+				],
+				width: { size: 50, type: WidthType.PERCENTAGE },
+				margins: { top: 400, bottom: 400, left: 200, right: 200 },
+				borders: {
+					top: { style: BorderStyle.NONE },
+					bottom: { style: BorderStyle.NONE },
+					left: { style: BorderStyle.NONE },
+					right: { style: BorderStyle.NONE },
+				},
+			});
+		});
+
+		// Group badges into rows of 2
+		const badgeRows: any[] = [];
+		for (let i = 0; i < badges.length; i += 2) {
+			badgeRows.push(
+				new TableRow({
+					children: badges.slice(i, i + 2),
+				}),
+			);
+		}
+
+		// If last row is incomplete, pad with empty cells
+		if (badgeRows.length > 0 && badgeRows[badgeRows.length - 1]) {
+			const lastRow = badgeRows[badgeRows.length - 1];
+			if (lastRow.children) {
+				while (lastRow.children.length < 2) {
+					lastRow.children.push(
+						new TableCell({
+							children: [],
+							width: { size: 50, type: WidthType.PERCENTAGE },
+							borders: {
+								top: { style: BorderStyle.NONE },
+								bottom: { style: BorderStyle.NONE },
+								left: { style: BorderStyle.NONE },
+								right: { style: BorderStyle.NONE },
+							},
+						}),
+					);
+				}
 			}
 		}
-	}
 
-	const badgesTable = new DocxTable({
-		rows: badgeRows,
-		width: { size: 100, type: WidthType.PERCENTAGE },
-		borders: {
-			top: { style: BorderStyle.NONE },
-			bottom: { style: BorderStyle.NONE },
-			left: { style: BorderStyle.NONE },
-			right: { style: BorderStyle.NONE }
-		},
-		margins: { top: 0, bottom: 0, left: 0, right: 0 }
-	});
+		const badgesTable = new DocxTable({
+			rows: badgeRows,
+			width: { size: 100, type: WidthType.PERCENTAGE },
+			borders: {
+				top: { style: BorderStyle.NONE },
+				bottom: { style: BorderStyle.NONE },
+				left: { style: BorderStyle.NONE },
+				right: { style: BorderStyle.NONE },
+			},
+			margins: { top: 0, bottom: 0, left: 0, right: 0 },
+		});
 
-	children.push(badgesTable);
+		children.push(badgesTable);
 
-	children.push(
-		new Paragraph({
-			children: [],
-			spacing: { before: 500 },
-		})
-	);
+		children.push(
+			new Paragraph({
+				children: [],
+				spacing: { before: 500 },
+			}),
+		);
 	}
 
 	// Footer with red theme
@@ -462,20 +461,20 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 		new Paragraph({
 			children: [
 				new TextRun({
-					text: "🌹 ",
+					text: '🌹 ',
 					size: 24,
 				}),
 				new TextRun({
-					text: "Bendiciones para todos los participantes del retiro",
+					text: 'Bendiciones para todos los participantes del retiro',
 					italics: true,
 					size: 20,
-					color: "DC2626",
-					font: "Arial",
+					color: 'DC2626',
+					font: 'Arial',
 				}),
 			],
 			alignment: AlignmentType.CENTER,
 			spacing: { before: 300, after: 200 },
-		})
+		}),
 	);
 
 	// Create document
@@ -498,17 +497,17 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 							new Paragraph({
 								children: [
 									new TextRun({
-										text: "🌹 EMAUS",
+										text: '🌹 EMAUS',
 										bold: true,
 										size: 18,
-										color: "DC2626",
-										font: "Arial",
+										color: 'DC2626',
+										font: 'Arial',
 									}),
 									new TextRun({
-										text: " · Sistema de Gestión de Retiros",
+										text: ' · Sistema de Gestión de Retiros',
 										size: 16,
-										color: "6B7280",
-										font: "Arial",
+										color: '6B7280',
+										font: 'Arial',
 									}),
 								],
 								alignment: AlignmentType.CENTER,
@@ -517,8 +516,8 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 							new Paragraph({
 								children: [
 									new TextRun({
-										text: "─────────────────────────────────────",
-										color: "FECACA",
+										text: '─────────────────────────────────────',
+										color: 'FECACA',
 										size: 14,
 									}),
 								],
@@ -533,8 +532,8 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 							new Paragraph({
 								children: [
 									new TextRun({
-										text: "─────────────────────────────────────",
-										color: "FECACA",
+										text: '─────────────────────────────────────',
+										color: 'FECACA',
 										size: 14,
 									}),
 								],
@@ -546,8 +545,8 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 									new TextRun({
 										text: `📄 Documento generado el ${generationTime}`,
 										size: 16,
-										color: "991B1B",
-										font: "Arial",
+										color: '991B1B',
+										font: 'Arial',
 									}),
 								],
 								alignment: AlignmentType.CENTER,
@@ -556,11 +555,11 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 							new Paragraph({
 								children: [
 									new TextRun({
-										text: "EMAUS · Sistema de Gestión de Retiros Espirituales",
+										text: 'EMAUS · Sistema de Gestión de Retiros Espirituales',
 										size: 14,
-										color: "DC2626",
+										color: 'DC2626',
 										italics: true,
-										font: "Arial",
+										font: 'Arial',
 									}),
 								],
 								alignment: AlignmentType.CENTER,

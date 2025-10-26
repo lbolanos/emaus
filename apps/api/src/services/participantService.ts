@@ -18,7 +18,6 @@ const paymentRepository = AppDataSource.getRepository(Payment);
 // Create BedQueryUtils instance
 const bedQueryUtils = new BedQueryUtils();
 
-
 export const findAllParticipants = async (
 	retreatId?: string,
 	type?: 'walker' | 'server' | 'waiting' | 'partial_server',
@@ -51,12 +50,15 @@ export const findAllParticipants = async (
 		relations: allRelations,
 		order: {
 			lastName: 'ASC',
-			firstName: 'ASC'
-		}
+			firstName: 'ASC',
+		},
 	});
 };
 
-export const findParticipantById = async (id: string, includePayments: boolean = false): Promise<Participant | null> => {
+export const findParticipantById = async (
+	id: string,
+	includePayments: boolean = false,
+): Promise<Participant | null> => {
 	const relations = ['retreat', 'tableMesa', 'retreatBed'];
 	if (includePayments) {
 		relations.push('payments', 'payments.recordedByUser');
@@ -64,7 +66,7 @@ export const findParticipantById = async (id: string, includePayments: boolean =
 
 	return participantRepository.findOne({
 		where: { id },
-		relations
+		relations,
 	});
 };
 
@@ -173,7 +175,9 @@ const assignBedAndTableToParticipant = async (
 
 	// Don't assign anything to cancelled participants
 	if (participant.isCancelled) {
-		console.log(`🚫 Skipping bed and table assignment for cancelled participant ${participant.email}`);
+		console.log(
+			`🚫 Skipping bed and table assignment for cancelled participant ${participant.email}`,
+		);
 		return result;
 	}
 
@@ -448,11 +452,15 @@ export const createParticipant = async (
 
 		if (participantData.type === 'walker' || participantData.type === 'server') {
 			if (skipCapacityCheck) {
-				console.log(`⚠️ SKIPPING CAPACITY CHECK during import for participant ${participantData.email}`);
+				console.log(
+					`⚠️ SKIPPING CAPACITY CHECK during import for participant ${participantData.email}`,
+				);
 				console.log(`   - Preserving original type: ${participantData.type}`);
 				console.log(`   - Reason: Import mode - capacity limits disabled`);
 			} else {
-				const retreat = await retreatRepository.findOne({ where: { id: participantData.retreatId } });
+				const retreat = await retreatRepository.findOne({
+					where: { id: participantData.retreatId },
+				});
 				if (retreat) {
 					console.log(`🔍 Checking capacity limits for participant type assignment:`);
 					console.log(`   - Retreat ID: ${participantData.retreatId}`);
@@ -468,22 +476,33 @@ export const createParticipant = async (
 							isCancelled: false,
 						},
 					});
-					const limit = participantData.type === 'walker' ? retreat.max_walkers : retreat.max_servers;
+					const limit =
+						participantData.type === 'walker' ? retreat.max_walkers : retreat.max_servers;
 
 					console.log(`   - Current ${participantData.type} count: ${participantCount}`);
 					console.log(`   - Capacity limit for ${participantData.type}: ${limit}`);
-					console.log(`   - Capacity check: ${participantCount} >= ${limit} = ${participantCount >= limit}`);
+					console.log(
+						`   - Capacity check: ${participantCount} >= ${limit} = ${participantCount >= limit}`,
+					);
 
 					if (limit != null && participantCount >= limit) {
-						console.log(`⚠️ CAPACITY REACHED: Changing participant ${participantData.email} from '${participantData.type}' to 'waiting'`);
-						console.log(`   - Reason: ${participantCount} ${participantData.type}s already registered (limit: ${limit})`);
+						console.log(
+							`⚠️ CAPACITY REACHED: Changing participant ${participantData.email} from '${participantData.type}' to 'waiting'`,
+						);
+						console.log(
+							`   - Reason: ${participantCount} ${participantData.type}s already registered (limit: ${limit})`,
+						);
 						participantData.type = 'waiting';
 						console.log(`   - New type: ${participantData.type}`);
 					} else {
-						console.log(`✅ Capacity available: Keeping participant ${participantData.email} as '${participantData.type}'`);
+						console.log(
+							`✅ Capacity available: Keeping participant ${participantData.email} as '${participantData.type}'`,
+						);
 					}
 				} else {
-					console.log(`❌ WARNING: Could not find retreat ${participantData.retreatId} for capacity check`);
+					console.log(
+						`❌ WARNING: Could not find retreat ${participantData.retreatId} for capacity check`,
+					);
 				}
 			}
 		}
@@ -523,7 +542,11 @@ export const createParticipant = async (
 			family_friend_color: savedParticipant.family_friend_color,
 		});*/
 
-		if (assignRelationships && savedParticipant.type !== 'waiting' && savedParticipant.type !== 'partial_server') {
+		if (
+			assignRelationships &&
+			savedParticipant.type !== 'waiting' &&
+			savedParticipant.type !== 'partial_server'
+		) {
 			// Use the new unified assignment function
 			const assignedBedIds = new Set<string>();
 			const { bedId, tableId } = await assignBedAndTableToParticipant(
@@ -573,7 +596,9 @@ export const createParticipant = async (
 
 			// Skip email sending if importing or retreat is not public
 			if (isImporting || !retreat || !retreat.isPublic) {
-				console.log(`Skipping email sending for imported participant ${savedParticipant.email} - retreat is not public`);
+				console.log(
+					`Skipping email sending for imported participant ${savedParticipant.email} - retreat is not public`,
+				);
 				return savedParticipant;
 			}
 
@@ -704,7 +729,6 @@ export const updateParticipant = async (
 			.set({ participantId: null })
 			.where('participantId = :id', { id: participant.id })
 			.execute();
-
 	}
 
 	const updatedParticipant = await participantRepository.save(participant);
@@ -719,7 +743,10 @@ export const updateParticipant = async (
 	return updatedParticipant;
 };
 
-export const deleteParticipant = async (id: string, skipRebalance: boolean = false): Promise<void> => {
+export const deleteParticipant = async (
+	id: string,
+	skipRebalance: boolean = false,
+): Promise<void> => {
 	const participant = await participantRepository.findOneBy({ id });
 	if (participant) {
 		await participantRepository.update(id, { isCancelled: true, tableId: undefined });
@@ -820,7 +847,9 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
 };
 
 // Helper function to extract Excel-specific fields for table and bed assignments
-const extractExcelAssignments = (participant: any): {
+const extractExcelAssignments = (
+	participant: any,
+): {
 	tableName?: string;
 	roomNumber?: string;
 	tipousuario?: string;
@@ -848,12 +877,12 @@ const extractExcelAssignments = (participant: any): {
 // Helper function to find available colider slot in a table
 const findAvailableColiderSlot = async (
 	tableId: string,
-	assignedLeadershipIds?: Set<string>
+	assignedLeadershipIds?: Set<string>,
 ): Promise<'colider1' | 'colider2' | null> => {
 	try {
 		const table = await tableMesaRepository.findOne({
 			where: { id: tableId },
-			select: ['colider1Id', 'colider2Id', 'name']
+			select: ['colider1Id', 'colider2Id', 'name'],
 		});
 
 		if (!table) {
@@ -861,7 +890,9 @@ const findAvailableColiderSlot = async (
 			return null;
 		}
 
-		console.log(`🔍 Checking colider slots in table "${table.name}" (ID: ${tableId}): colider1Id=${table.colider1Id}, colider2Id=${table.colider2Id}`);
+		console.log(
+			`🔍 Checking colider slots in table "${table.name}" (ID: ${tableId}): colider1Id=${table.colider1Id}, colider2Id=${table.colider2Id}`,
+		);
 
 		// Check for available slots in order: colider1 first, then colider2
 		if (!table.colider1Id) {
@@ -876,13 +907,19 @@ const findAvailableColiderSlot = async (
 		// Additional check: if we have a tracking set, verify the same person isn't assigned to both slots
 		if (assignedLeadershipIds && table.colider1Id && table.colider2Id) {
 			if (table.colider1Id === table.colider2Id) {
-				console.warn(`⚠️ Same participant assigned to both colider1 and colider2 in table "${table.name}": ${table.colider1Id}`);
-				console.log(`🔧 Rejecting table "${table.name}" due to duplicate assignment - both slots have same participant`);
+				console.warn(
+					`⚠️ Same participant assigned to both colider1 and colider2 in table "${table.name}": ${table.colider1Id}`,
+				);
+				console.log(
+					`🔧 Rejecting table "${table.name}" due to duplicate assignment - both slots have same participant`,
+				);
 				return null; // Reject this table entirely as it has duplicate assignments
 			}
 		}
 
-		console.log(`⚠️ No available colider slots in table "${table.name}" - both colider1 and colider2 are occupied`);
+		console.log(
+			`⚠️ No available colider slots in table "${table.name}" - both colider1 and colider2 are occupied`,
+		);
 		return null; // No available slots
 	} catch (error) {
 		console.error(`Error finding available colider slot in table "${tableId}":`, error);
@@ -901,14 +938,14 @@ const createTablesInBatch = async (retreatId: string, tableNames: string[]): Pro
 				// Check if table already exists
 				const existingTable = await transactionalTableRepository.findOne({
 					where: { name: tableName, retreatId },
-					select: ['id', 'name']
+					select: ['id', 'name'],
 				});
 
 				if (!existingTable) {
 					console.log(`🏗️ Creating table "${tableName}" in batch transaction`);
 					const newTable = transactionalTableRepository.create({
 						name: tableName,
-						retreatId
+						retreatId,
 					});
 					await transactionalTableRepository.save(newTable);
 					console.log(`✅ Table "${tableName}" created in batch: ID=${newTable.id}`);
@@ -919,7 +956,9 @@ const createTablesInBatch = async (retreatId: string, tableNames: string[]): Pro
 			}
 		});
 		console.log(`✅ Batch table transaction committed successfully`);
-		console.log(`📊 Batch creation summary: ${tablesActuallyCreated} actually created out of ${tableNames.length} requested`);
+		console.log(
+			`📊 Batch creation summary: ${tablesActuallyCreated} actually created out of ${tableNames.length} requested`,
+		);
 		return tablesActuallyCreated;
 	} catch (error: any) {
 		console.error(`❌ Batch table creation failed: ${error.message}`);
@@ -928,7 +967,9 @@ const createTablesInBatch = async (retreatId: string, tableNames: string[]): Pro
 };
 
 // Helper function to check if participant is already a leader in any table
-const checkExistingLeadership = async (participantId: string): Promise<{
+const checkExistingLeadership = async (
+	participantId: string,
+): Promise<{
 	isLeader: boolean;
 	role?: 'lider' | 'colider1' | 'colider2';
 	tableName?: string;
@@ -939,7 +980,7 @@ const checkExistingLeadership = async (participantId: string): Promise<{
 		const leaderTable = await tableMesaRepository.findOne({
 			where: { liderId: participantId },
 			select: ['id', 'name'],
-			relations: ['lider']
+			relations: ['lider'],
 		});
 
 		if (leaderTable) {
@@ -947,13 +988,13 @@ const checkExistingLeadership = async (participantId: string): Promise<{
 				isLeader: true,
 				role: 'lider',
 				tableName: leaderTable.name,
-				tableId: leaderTable.id
+				tableId: leaderTable.id,
 			};
 		}
 
 		const colider1Table = await tableMesaRepository.findOne({
 			where: { colider1Id: participantId },
-			select: ['id', 'name']
+			select: ['id', 'name'],
 		});
 
 		if (colider1Table) {
@@ -961,13 +1002,13 @@ const checkExistingLeadership = async (participantId: string): Promise<{
 				isLeader: true,
 				role: 'colider1',
 				tableName: colider1Table.name,
-				tableId: colider1Table.id
+				tableId: colider1Table.id,
 			};
 		}
 
 		const colider2Table = await tableMesaRepository.findOne({
 			where: { colider2Id: participantId },
-			select: ['id', 'name']
+			select: ['id', 'name'],
 		});
 
 		if (colider2Table) {
@@ -975,7 +1016,7 @@ const checkExistingLeadership = async (participantId: string): Promise<{
 				isLeader: true,
 				role: 'colider2',
 				tableName: colider2Table.name,
-				tableId: colider2Table.id
+				tableId: colider2Table.id,
 			};
 		}
 
@@ -995,10 +1036,10 @@ const getNextBedNumber = async (retreatId: string, roomNumber: string): Promise<
 		const existingBeds = await retreatBedRepository.find({
 			where: {
 				retreatId,
-				roomNumber: roomNumber.toString()
+				roomNumber: roomNumber.toString(),
 			},
 			select: ['bedNumber'],
-			order: { bedNumber: 'ASC' }
+			order: { bedNumber: 'ASC' },
 		});
 
 		if (existingBeds.length === 0) {
@@ -1006,7 +1047,7 @@ const getNextBedNumber = async (retreatId: string, roomNumber: string): Promise<
 		}
 
 		// Extract numeric values from bed numbers and find the highest
-		const bedNumbers = existingBeds.map(bed => {
+		const bedNumbers = existingBeds.map((bed) => {
 			const num = parseInt(bed.bedNumber);
 			return isNaN(num) ? 0 : num;
 		});
@@ -1023,7 +1064,7 @@ const getNextBedNumber = async (retreatId: string, roomNumber: string): Promise<
 const createRetreatBedForRoom = async (
 	retreatId: string,
 	roomNumber: string,
-	participantType: 'walker' | 'server'
+	participantType: 'walker' | 'server',
 ): Promise<{ bedId: string; wasCreated: boolean } | undefined> => {
 	try {
 		const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
@@ -1031,7 +1072,9 @@ const createRetreatBedForRoom = async (
 		// Get the next bed number for this room
 		const bedNumber = await getNextBedNumber(retreatId, roomNumber);
 
-		console.log(`🔍 Checking if bed ${bedNumber} already exists in room "${roomNumber}" for ${participantType}`);
+		console.log(
+			`🔍 Checking if bed ${bedNumber} already exists in room "${roomNumber}" for ${participantType}`,
+		);
 
 		// Check if a bed with this room number and bed number already exists
 		const existingBed = await retreatBedRepository.findOne({
@@ -1040,20 +1083,32 @@ const createRetreatBedForRoom = async (
 				roomNumber: roomNumber.toString(),
 				bedNumber,
 			},
-			select: ['id', 'participantId', 'defaultUsage']
+			select: ['id', 'participantId', 'defaultUsage'],
 		});
 
 		if (existingBed) {
-			console.log(`📋 Bed ${bedNumber} already exists in room "${roomNumber}" (ID: ${existingBed.id})`);
-			console.log(`   - Current participant assignment: ${existingBed.participantId || 'unassigned'}`);
+			console.log(
+				`📋 Bed ${bedNumber} already exists in room "${roomNumber}" (ID: ${existingBed.id})`,
+			);
+			console.log(
+				`   - Current participant assignment: ${existingBed.participantId || 'unassigned'}`,
+			);
 			console.log(`   - Default usage: ${existingBed.defaultUsage}`);
 
 			// If the bed is unassigned or matches the required usage, return it
-			if (!existingBed.participantId && existingBed.defaultUsage === (participantType === 'walker' ? BedUsage.CAMINANTE : BedUsage.SERVIDOR)) {
-				console.log(`✅ Using existing unassigned bed ${bedNumber} in room "${roomNumber}" for ${participantType}`);
+			if (
+				!existingBed.participantId &&
+				existingBed.defaultUsage ===
+					(participantType === 'walker' ? BedUsage.CAMINANTE : BedUsage.SERVIDOR)
+			) {
+				console.log(
+					`✅ Using existing unassigned bed ${bedNumber} in room "${roomNumber}" for ${participantType}`,
+				);
 				return { bedId: existingBed.id, wasCreated: false };
 			} else if (existingBed.participantId) {
-				console.log(`⚠️ Bed ${bedNumber} in room "${roomNumber}" is already assigned to participant ${existingBed.participantId}`);
+				console.log(
+					`⚠️ Bed ${bedNumber} in room "${roomNumber}" is already assigned to participant ${existingBed.participantId}`,
+				);
 				// Try to find the next available bed number
 				const nextBedNumber = (parseInt(bedNumber) + 1).toString();
 				console.log(`🔄 Trying next bed number: ${nextBedNumber}`);
@@ -1065,26 +1120,41 @@ const createRetreatBedForRoom = async (
 						roomNumber: roomNumber.toString(),
 						bedNumber: nextBedNumber,
 					},
-					select: ['id', 'participantId']
+					select: ['id', 'participantId'],
 				});
 
 				if (!nextExistingBed) {
-					const newBedId = await createNewBed(retreatBedRepository, retreatId, roomNumber, nextBedNumber, participantType);
+					const newBedId = await createNewBed(
+						retreatBedRepository,
+						retreatId,
+						roomNumber,
+						nextBedNumber,
+						participantType,
+					);
 					return newBedId ? { bedId: newBedId, wasCreated: true } : undefined;
 				} else {
-					console.log(`⚠️ Next bed ${nextBedNumber} also exists, cannot create bed in room "${roomNumber}"`);
+					console.log(
+						`⚠️ Next bed ${nextBedNumber} also exists, cannot create bed in room "${roomNumber}"`,
+					);
 					return undefined;
 				}
 			} else {
-				console.log(`⚠️ Existing bed ${bedNumber} has different usage (${existingBed.defaultUsage}) than required (${participantType === 'walker' ? BedUsage.CAMINANTE : BedUsage.SERVIDOR})`);
+				console.log(
+					`⚠️ Existing bed ${bedNumber} has different usage (${existingBed.defaultUsage}) than required (${participantType === 'walker' ? BedUsage.CAMINANTE : BedUsage.SERVIDOR})`,
+				);
 				return undefined;
 			}
 		}
 
 		// If no existing bed found, create a new one
-		const newBedId = await createNewBed(retreatBedRepository, retreatId, roomNumber, bedNumber, participantType);
+		const newBedId = await createNewBed(
+			retreatBedRepository,
+			retreatId,
+			roomNumber,
+			bedNumber,
+			participantType,
+		);
 		return newBedId ? { bedId: newBedId, wasCreated: true } : undefined;
-
 	} catch (error: any) {
 		console.error(`❌ Failed to create RetreatBed for room "${roomNumber}":`, error.message);
 		return undefined;
@@ -1097,7 +1167,7 @@ const createNewBed = async (
 	retreatId: string,
 	roomNumber: string,
 	bedNumber: string,
-	participantType: 'walker' | 'server'
+	participantType: 'walker' | 'server',
 ): Promise<string> => {
 	try {
 		// Determine bed usage based on participant type
@@ -1110,12 +1180,14 @@ const createNewBed = async (
 			floor: 1, // Default to ground floor
 			type: BedType.NORMAL, // Use enum value
 			defaultUsage: bedUsage,
-			retreatId
+			retreatId,
 		});
 
 		const savedBed = await retreatBedRepository.save(newBed);
 		const savedBedArray = Array.isArray(savedBed) ? savedBed : [savedBed];
-		console.log(`🛏️ Created new RetreatBed ${savedBedArray[0].id} in room "${roomNumber}" (bed ${bedNumber}) for ${participantType}`);
+		console.log(
+			`🛏️ Created new RetreatBed ${savedBedArray[0].id} in room "${roomNumber}" (bed ${bedNumber}) for ${participantType}`,
+		);
 
 		return savedBedArray[0].id;
 	} catch (error: any) {
@@ -1129,7 +1201,7 @@ const findAvailableBedByRoom = async (
 	retreatId: string,
 	roomNumber: string,
 	participantType: 'walker' | 'server',
-	assignedBedIds?: Set<string>
+	assignedBedIds?: Set<string>,
 ): Promise<{ bedId: string; wasCreated: boolean } | undefined> => {
 	if (!roomNumber) return undefined;
 
@@ -1156,8 +1228,8 @@ const findAvailableBedByRoom = async (
 			where: whereCondition,
 			select: ['id'],
 			order: {
-				bedNumber: 'ASC' // Get the first bed in the room
-			}
+				bedNumber: 'ASC', // Get the first bed in the room
+			},
 		});
 
 		// If bed found, return its ID
@@ -1166,18 +1238,24 @@ const findAvailableBedByRoom = async (
 		}
 
 		// No available bed found, try to create one
-		console.log(`🔍 No available bed found in room "${roomNumber}" for ${participantType}. Attempting to create new bed...`);
+		console.log(
+			`🔍 No available bed found in room "${roomNumber}" for ${participantType}. Attempting to create new bed...`,
+		);
 		const bedResult = await createRetreatBedForRoom(retreatId, roomNumber, participantType);
 
 		if (bedResult) {
 			if (bedResult.wasCreated) {
-				console.log(`✅ Created and assigned new bed in room "${roomNumber}" for ${participantType}`);
+				console.log(
+					`✅ Created and assigned new bed in room "${roomNumber}" for ${participantType}`,
+				);
 			} else {
 				console.log(`✅ Reused existing bed in room "${roomNumber}" for ${participantType}`);
 			}
 			return bedResult;
 		} else {
-			console.warn(`⚠️ Failed to create or find bed in room "${roomNumber}" for ${participantType}`);
+			console.warn(
+				`⚠️ Failed to create or find bed in room "${roomNumber}" for ${participantType}`,
+			);
 			return undefined;
 		}
 	} catch (error) {
@@ -1191,7 +1269,7 @@ const createPaymentFromImport = async (
 	participantId: string,
 	retreatId: string,
 	participantRawData: any,
-	user: any
+	user: any,
 ): Promise<{ paymentCreated: boolean }> => {
 	const paymentAmount = participantRawData.montopago?.trim();
 	const paymentDate = participantRawData.fechapago?.trim();
@@ -1216,10 +1294,13 @@ const createPaymentFromImport = async (
 		// Check if payment already exists for this participant
 		const existingPayments = await paymentRepository.find({
 			where: { participantId },
-			relations: ['recordedByUser']
+			relations: ['recordedByUser'],
 		});
 
-		const totalExistingPayments = existingPayments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+		const totalExistingPayments = existingPayments.reduce(
+			(sum, payment) => sum + Number(payment.amount),
+			0,
+		);
 		let paymentCreated = false;
 
 		// Handle payment scenarios based on existing payments
@@ -1254,7 +1335,9 @@ const createPaymentFromImport = async (
 			});
 
 			await paymentRepository.save(payment);
-			console.log(`✅ Created adjustment payment for participant ${participantId}: +$${adjustmentAmount} (total: $${amount})`);
+			console.log(
+				`✅ Created adjustment payment for participant ${participantId}: +$${adjustmentAmount} (total: $${amount})`,
+			);
 			paymentCreated = true;
 		} else if (totalExistingPayments > amount) {
 			// Existing payments sum exceeds imported amount - create refund/adjustment
@@ -1271,17 +1354,22 @@ const createPaymentFromImport = async (
 			});
 
 			await paymentRepository.save(payment);
-			console.log(`⚠️ Created refund adjustment for participant ${participantId}: -$${Math.abs(refundAmount)} (total: $${amount})`);
+			console.log(
+				`⚠️ Created refund adjustment for participant ${participantId}: -$${Math.abs(refundAmount)} (total: $${amount})`,
+			);
 			paymentCreated = true;
 		} else {
 			// Total matches exactly - no action needed
-			console.log(`ℹ️ Payment amounts match for participant ${participantId}: $${amount} (no adjustment needed)`);
+			console.log(
+				`ℹ️ Payment amounts match for participant ${participantId}: $${amount} (no adjustment needed)`,
+			);
 		}
 
 		return { paymentCreated };
-
 	} catch (error: any) {
-		console.error(`❌ Failed to create payment adjustment for participant ${participantId}: ${error.message}`);
+		console.error(
+			`❌ Failed to create payment adjustment for participant ${participantId}: ${error.message}`,
+		);
 		// Don't throw error - continue with participant creation even if payment fails
 		return { paymentCreated: false };
 	}
@@ -1307,7 +1395,9 @@ export const importParticipants = async (retreatId: string, participantsData: an
 		return 0; // both are the same (both cancelled or both not cancelled)
 	});
 
-	console.log(`🚀 Starting import process for retreat ${retreatId} with ${sortedParticipantsData.length} participants`);
+	console.log(
+		`🚀 Starting import process for retreat ${retreatId} with ${sortedParticipantsData.length} participants`,
+	);
 	console.log(`📊 Initial database state check: counting existing tables...`);
 	const initialTableCount = await tableMesaRepository.count({ where: { retreatId } });
 	console.log(`📋 Found ${initialTableCount} existing tables in retreat ${retreatId}`);
@@ -1324,7 +1414,9 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 	// Create all needed tables in a single transaction
 	if (tablesToCreate.size > 0) {
-		console.log(`🏗️ Creating ${tablesToCreate.size} tables in batch: [${Array.from(tablesToCreate).join(', ')}]`);
+		console.log(
+			`🏗️ Creating ${tablesToCreate.size} tables in batch: [${Array.from(tablesToCreate).join(', ')}]`,
+		);
 		const actualTablesCreated = await createTablesInBatch(retreatId, Array.from(tablesToCreate));
 		tablesCreated = actualTablesCreated;
 		console.log(`✅ Batch table creation completed: ${tablesCreated} tables actually created`);
@@ -1332,11 +1424,21 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 	// Initialize tracking to prevent duplicate assignments during import
 	const assignedBedIds = new Set<string>();
-	const bedAssignmentQueue: Array<{ participant: any; bedNumber: string; roomNumber: string; participantType: 'walker' | 'server' }> = [];
+	const bedAssignmentQueue: Array<{
+		participant: any;
+		bedNumber: string;
+		roomNumber: string;
+		participantType: 'walker' | 'server';
+	}> = [];
 
 	// Leadership role tracking to prevent same person from being assigned to multiple roles
 	const assignedLeadershipIds = new Set<string>();
-	const leadershipAssignmentQueue: Array<{ participant: any; tableName: string; leadershipRole: 'lider' | 'colider1' | 'colider2' | null; participantEmail: string }> = [];
+	const leadershipAssignmentQueue: Array<{
+		participant: any;
+		tableName: string;
+		leadershipRole: 'lider' | 'colider1' | 'colider2' | null;
+		participantEmail: string;
+	}> = [];
 
 	// Second pass: Process participants and collect bed assignments
 	for (const participantRawData of sortedParticipantsData) {
@@ -1344,7 +1446,9 @@ export const importParticipants = async (retreatId: string, participantsData: an
 		const excelAssignments = extractExcelAssignments(participantRawData);
 
 		console.log(`👤 Importing participant: ${mappedData.email}`);
-		console.log(`   - Original type from Excel: ${participantRawData.tipousuario} -> ${mappedData.type} -> ${mappedData.isCancelled ? 'cancelled' : 'active'}`);
+		console.log(
+			`   - Original type from Excel: ${participantRawData.tipousuario} -> ${mappedData.type} -> ${mappedData.isCancelled ? 'cancelled' : 'active'}`,
+		);
 		console.log(`   - Excel table assignment: ${excelAssignments.tableName}`);
 		console.log(`   - Excel room assignment: ${excelAssignments.roomNumber}`);
 
@@ -1366,14 +1470,25 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				console.log(`   - Current type: ${existingParticipant.type}`);
 				console.log(`   - Type from Excel: ${type} (will not be changed on update)`);
 
-				const updatedParticipant = await updateParticipant(existingParticipant.id, updateData as UpdateParticipant, true); // skipRebalance = true during import
-				console.log(`✅ Updated participant: ${updatedParticipant.email} -> Final type: ${updatedParticipant.type} -> Cancelled: ${updatedParticipant.isCancelled}`);
+				const updatedParticipant = await updateParticipant(
+					existingParticipant.id,
+					updateData as UpdateParticipant,
+					true,
+				); // skipRebalance = true during import
+				console.log(
+					`✅ Updated participant: ${updatedParticipant.email} -> Final type: ${updatedParticipant.type} -> Cancelled: ${updatedParticipant.isCancelled}`,
+				);
 				updatedCount++;
 				processedParticipantIds.push(existingParticipant.id);
 				participant = existingParticipant;
 
 				// Create payment record if payment data exists in import
-				const paymentResult = await createPaymentFromImport(existingParticipant.id, retreatId, participantRawData, user);
+				const paymentResult = await createPaymentFromImport(
+					existingParticipant.id,
+					retreatId,
+					participantRawData,
+					user,
+				);
 				if (paymentResult.paymentCreated) {
 					paymentsCreated++;
 				}
@@ -1384,13 +1499,20 @@ export const importParticipants = async (retreatId: string, participantsData: an
 					true, // isImporting = true
 					true, // skipCapacityCheck = true during import
 				);
-				console.log(`✅ Created new participant: ${newParticipant.email} -> Final type: ${newParticipant.type} -> Cancelled: ${newParticipant.isCancelled}`);
+				console.log(
+					`✅ Created new participant: ${newParticipant.email} -> Final type: ${newParticipant.type} -> Cancelled: ${newParticipant.isCancelled}`,
+				);
 				importedCount++;
 				processedParticipantIds.push(newParticipant.id);
 				participant = newParticipant;
 
 				// Create payment record if payment data exists in import
-				const paymentResult = await createPaymentFromImport(newParticipant.id, retreatId, participantRawData, user);
+				const paymentResult = await createPaymentFromImport(
+					newParticipant.id,
+					retreatId,
+					participantRawData,
+					user,
+				);
 				if (paymentResult.paymentCreated) {
 					paymentsCreated++;
 				}
@@ -1398,31 +1520,45 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 			// Handle table assignment from Excel 'mesa' field (tables are pre-created in batch)
 			if (excelAssignments.tableName && participant.type === 'walker') {
-				console.log(`🔍 Processing table assignment for participant ${participant.email} -> table "${excelAssignments.tableName}"`);
+				console.log(
+					`🔍 Processing table assignment for participant ${participant.email} -> table "${excelAssignments.tableName}"`,
+				);
 
 				// Tables are pre-created, just find the existing one
 				const existingTable = await tableMesaRepository.findOne({
 					where: { name: excelAssignments.tableName.toString(), retreatId },
-					select: ['id', 'name']
+					select: ['id', 'name'],
 				});
 
 				if (existingTable) {
-					console.log(`📋 Found pre-created table: ${existingTable.name} (ID: ${existingTable.id})`);
+					console.log(
+						`📋 Found pre-created table: ${existingTable.name} (ID: ${existingTable.id})`,
+					);
 					await participantRepository.update(participant.id, { tableId: existingTable.id });
-					console.log(`✅ Assigned participant ${participant.email} to table "${excelAssignments.tableName}"`);
+					console.log(
+						`✅ Assigned participant ${participant.email} to table "${excelAssignments.tableName}"`,
+					);
 				} else {
-					console.error(`❌ CRITICAL: Pre-created table "${excelAssignments.tableName}" not found! This should not happen.`);
+					console.error(
+						`❌ CRITICAL: Pre-created table "${excelAssignments.tableName}" not found! This should not happen.`,
+					);
 				}
 			}
 
 			// Handle bed assignment from Excel 'habitacion' field - collect for batch processing
-			if (excelAssignments.roomNumber && participant.type !== 'waiting' && participant.type !== 'partial_server') {
-				console.log(`🛏️ Queueing bed assignment for participant ${participant.email} -> room "${excelAssignments.roomNumber}"`);
+			if (
+				excelAssignments.roomNumber &&
+				participant.type !== 'waiting' &&
+				participant.type !== 'partial_server'
+			) {
+				console.log(
+					`🛏️ Queueing bed assignment for participant ${participant.email} -> room "${excelAssignments.roomNumber}"`,
+				);
 				bedAssignmentQueue.push({
 					participant: participant,
 					bedNumber: '', // Will be determined by findAvailableBedByRoom
 					roomNumber: excelAssignments.roomNumber,
-					participantType: participant.type
+					participantType: participant.type,
 				});
 			}
 
@@ -1430,20 +1566,25 @@ export const importParticipants = async (retreatId: string, participantsData: an
 			if (excelAssignments.leadershipRole && participant.type === 'server') {
 				// Only assign leadership if the participant also has a table assignment
 				if (excelAssignments.tableName) {
-					console.log(`👑 Queueing leadership assignment for participant ${participant.email} -> role ${excelAssignments.leadershipRole} at table "${excelAssignments.tableName}"`);
+					console.log(
+						`👑 Queueing leadership assignment for participant ${participant.email} -> role ${excelAssignments.leadershipRole} at table "${excelAssignments.tableName}"`,
+					);
 					leadershipAssignmentQueue.push({
 						participant: participant,
 						tableName: excelAssignments.tableName,
 						leadershipRole: excelAssignments.leadershipRole,
-						participantEmail: participant.email
+						participantEmail: participant.email,
 					});
 				} else {
-					console.warn(`⚠️ Cannot assign leadership role to participant ${participant.email}: no table specified (mesa field required for tipousuario ${excelAssignments.tipousuario})`);
+					console.warn(
+						`⚠️ Cannot assign leadership role to participant ${participant.email}: no table specified (mesa field required for tipousuario ${excelAssignments.tipousuario})`,
+					);
 				}
 			} else if (excelAssignments.leadershipRole && participant.type !== 'server') {
-				console.warn(`⚠️ Cannot assign leadership role to participant ${participant.email}: participant type is '${participant.type}' but leadership roles require 'server' type`);
+				console.warn(
+					`⚠️ Cannot assign leadership role to participant ${participant.email}: participant type is '${participant.type}' but leadership roles require 'server' type`,
+				);
 			}
-
 		} catch (error: any) {
 			console.error(`❌ Failed to import participant ${mappedData.email}: ${error.message}`);
 			console.error(`📋 Error stack trace:`, error.stack);
@@ -1453,7 +1594,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				participantEmail: mappedData.email,
 				retreatId,
 				tablesCreatedSoFar: tablesCreated,
-				step: 'individual participant processing'
+				step: 'individual participant processing',
 			});
 			skippedCount++;
 		}
@@ -1461,7 +1602,9 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 	// Note: Bed assignments will be processed within the main transaction to ensure consistency
 	// This prevents the issue where assignments made outside the transaction were later cleared
-	console.log(`🛏️ ${bedAssignmentQueue.length} bed assignments queued for processing in main transaction...`);
+	console.log(
+		`🛏️ ${bedAssignmentQueue.length} bed assignments queued for processing in main transaction...`,
+	);
 
 	// Process leadership assignments in batch to prevent duplicate role assignments
 	console.log(`👑 Processing ${leadershipAssignmentQueue.length} queued leadership assignments...`);
@@ -1471,28 +1614,36 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 		// Skip cancelled participants entirely - double-check participant status before assignment
 		if (participant.isCancelled) {
-			console.log(`🚫 Skipping leadership assignment for cancelled participant ${participant.email}`);
+			console.log(
+				`🚫 Skipping leadership assignment for cancelled participant ${participant.email}`,
+			);
 			continue;
 		}
 
 		// Fresh participant lookup to ensure we have the latest cancellation status
 		const freshParticipant = await participantRepository.findOne({
 			where: { id: participant.id },
-			select: ['id', 'type', 'isCancelled', 'email', 'firstName', 'lastName']
+			select: ['id', 'type', 'isCancelled', 'email', 'firstName', 'lastName'],
 		});
 
 		if (!freshParticipant) {
-			console.warn(`⚠️ Participant ${participantEmail} not found during leadership assignment, skipping...`);
+			console.warn(
+				`⚠️ Participant ${participantEmail} not found during leadership assignment, skipping...`,
+			);
 			continue;
 		}
 
 		if (freshParticipant.isCancelled) {
-			console.log(`🚫 Skipping leadership assignment for cancelled participant ${freshParticipant.email} (fresh lookup)`);
+			console.log(
+				`🚫 Skipping leadership assignment for cancelled participant ${freshParticipant.email} (fresh lookup)`,
+			);
 			continue;
 		}
 
 		if (freshParticipant.type !== 'server') {
-			console.warn(`⚠️ Cannot assign leadership role to participant ${freshParticipant.email}: type is '${freshParticipant.type}' but servers only`);
+			console.warn(
+				`⚠️ Cannot assign leadership role to participant ${freshParticipant.email}: type is '${freshParticipant.type}' but servers only`,
+			);
 			continue;
 		}
 
@@ -1501,31 +1652,42 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 		// Check if this participant is already assigned to a leadership role in this batch
 		if (assignedLeadershipIds.has(participant.id)) {
-			console.log(`⚠️ Participant ${participantEmail} is already assigned to a leadership role in this batch, skipping additional assignments...`);
+			console.log(
+				`⚠️ Participant ${participantEmail} is already assigned to a leadership role in this batch, skipping additional assignments...`,
+			);
 			continue;
 		}
 
 		// Check database for existing leadership assignments (from previous imports)
 		const existingLeadership = await checkExistingLeadership(participant.id);
 		if (existingLeadership.isLeader) {
-			console.log(`🔄 Participant ${participantEmail} is already ${existingLeadership.role} in table "${existingLeadership.tableName}" from previous import. Removing from previous assignment...`);
+			console.log(
+				`🔄 Participant ${participantEmail} is already ${existingLeadership.role} in table "${existingLeadership.tableName}" from previous import. Removing from previous assignment...`,
+			);
 		}
 
 		// Find the pre-created table
 		const existingTable = await tableMesaRepository.findOne({
 			where: { name: tableName.toString(), retreatId },
-			select: ['id', 'name']
+			select: ['id', 'name'],
 		});
 
 		if (existingTable) {
-			console.log(`📋 Found pre-created table for leadership: ${existingTable.name} (ID: ${existingTable.id})`);
+			console.log(
+				`📋 Found pre-created table for leadership: ${existingTable.name} (ID: ${existingTable.id})`,
+			);
 
 			// For colider1 role, find available slot (colider1 or colider2)
 			let finalRole = leadershipRole;
 			if (leadershipRole === 'colider1') {
-				const availableSlot = await findAvailableColiderSlot(existingTable.id, assignedLeadershipIds);
+				const availableSlot = await findAvailableColiderSlot(
+					existingTable.id,
+					assignedLeadershipIds,
+				);
 				if (!availableSlot) {
-					console.warn(`⚠️ Cannot assign colider: No available colider slots in table "${tableName}" for participant ${participantEmail}`);
+					console.warn(
+						`⚠️ Cannot assign colider: No available colider slots in table "${tableName}" for participant ${participantEmail}`,
+					);
 					continue;
 				}
 				finalRole = availableSlot;
@@ -1534,13 +1696,19 @@ export const importParticipants = async (retreatId: string, participantsData: an
 			// Double-check: make sure this participant isn't already assigned to this table in any capacity
 			const currentTableState = await tableMesaRepository.findOne({
 				where: { id: existingTable.id },
-				select: ['liderId', 'colider1Id', 'colider2Id']
+				select: ['liderId', 'colider1Id', 'colider2Id'],
 			});
 
 			if (currentTableState) {
-				const currentAssignments = [currentTableState.liderId, currentTableState.colider1Id, currentTableState.colider2Id];
+				const currentAssignments = [
+					currentTableState.liderId,
+					currentTableState.colider1Id,
+					currentTableState.colider2Id,
+				];
 				if (currentAssignments.includes(participant.id)) {
-					console.warn(`⚠️ Participant ${participantEmail} is already assigned to table "${tableName}" in some capacity, skipping duplicate assignment...`);
+					console.warn(
+						`⚠️ Participant ${participantEmail} is already assigned to table "${tableName}" in some capacity, skipping duplicate assignment...`,
+					);
 					continue;
 				}
 			}
@@ -1552,29 +1720,43 @@ export const importParticipants = async (retreatId: string, participantsData: an
 			if (finalRole) {
 				await assignLeaderToTable(existingTable.id, participant.id, finalRole);
 			} else {
-				console.warn(`⚠️ Skipping leadership assignment for participant ${participantEmail}: no valid role (${leadershipRole})`);
+				console.warn(
+					`⚠️ Skipping leadership assignment for participant ${participantEmail}: no valid role (${leadershipRole})`,
+				);
 				continue;
 			}
 
 			// Verify the assignment didn't create duplicates
 			const verificationTableState = await tableMesaRepository.findOne({
 				where: { id: existingTable.id },
-				select: ['liderId', 'colider1Id', 'colider2Id']
+				select: ['liderId', 'colider1Id', 'colider2Id'],
 			});
 
 			if (verificationTableState) {
-				const assignments = [verificationTableState.liderId, verificationTableState.colider1Id, verificationTableState.colider2Id];
-				const uniqueAssignments = assignments.filter(id => id !== null);
+				const assignments = [
+					verificationTableState.liderId,
+					verificationTableState.colider1Id,
+					verificationTableState.colider2Id,
+				];
+				const uniqueAssignments = assignments.filter((id) => id !== null);
 
 				// Check for duplicates
 				if (uniqueAssignments.length !== new Set(uniqueAssignments).size) {
-					console.error(`❌ CRITICAL: Duplicate assignment detected in table "${tableName}" after assignment!`);
-					console.error(`   Assignments: lider=${verificationTableState.liderId}, colider1=${verificationTableState.colider1Id}, colider2=${verificationTableState.colider2Id}`);
+					console.error(
+						`❌ CRITICAL: Duplicate assignment detected in table "${tableName}" after assignment!`,
+					);
+					console.error(
+						`   Assignments: lider=${verificationTableState.liderId}, colider1=${verificationTableState.colider1Id}, colider2=${verificationTableState.colider2Id}`,
+					);
 
 					// Find and remove the duplicate
-					const duplicates = uniqueAssignments.filter((id, index) => uniqueAssignments.indexOf(id) !== index);
+					const duplicates = uniqueAssignments.filter(
+						(id, index) => uniqueAssignments.indexOf(id) !== index,
+					);
 					for (const duplicateId of duplicates) {
-						console.log(`🔧 Removing duplicate assignment for participant ${duplicateId} from table "${tableName}"`);
+						console.log(
+							`🔧 Removing duplicate assignment for participant ${duplicateId} from table "${tableName}"`,
+						);
 						if (verificationTableState.colider1Id === duplicateId) {
 							await tableMesaRepository.update(existingTable.id, { colider1Id: undefined });
 						} else if (verificationTableState.colider2Id === duplicateId) {
@@ -1583,27 +1765,39 @@ export const importParticipants = async (retreatId: string, participantsData: an
 					}
 				} else {
 					if (existingLeadership.isLeader) {
-						console.log(`✅ Moved participant ${participantEmail} from ${existingLeadership.role} of table "${existingLeadership.tableName}" to ${finalRole} of table "${tableName}"`);
+						console.log(
+							`✅ Moved participant ${participantEmail} from ${existingLeadership.role} of table "${existingLeadership.tableName}" to ${finalRole} of table "${tableName}"`,
+						);
 					} else {
-						console.log(`✅ Assigned participant ${participantEmail} as ${finalRole} of table "${tableName}"`);
+						console.log(
+							`✅ Assigned participant ${participantEmail} as ${finalRole} of table "${tableName}"`,
+						);
 					}
 				}
 			}
 		} else {
-			console.error(`❌ CRITICAL: Pre-created table "${tableName}" not found for leadership assignment!`);
+			console.error(
+				`❌ CRITICAL: Pre-created table "${tableName}" not found for leadership assignment!`,
+			);
 		}
 	}
 	console.log(`👑 Leadership assignment processing completed`);
 
 	// Assign beds and tables using the new redesigned system
-	console.log(`🔄 Starting main transaction for bed/table assignment for ${processedParticipantIds.length} processed participants`);
-	console.log(`📊 Pre-transaction table count: ${await tableMesaRepository.count({ where: { retreatId } })}`);
+	console.log(
+		`🔄 Starting main transaction for bed/table assignment for ${processedParticipantIds.length} processed participants`,
+	);
+	console.log(
+		`📊 Pre-transaction table count: ${await tableMesaRepository.count({ where: { retreatId } })}`,
+	);
 
 	// Check participant table assignments before main transaction
 	const participantsWithTableBefore = await participantRepository.count({
-		where: { retreatId, tableId: Not(IsNull()) }
+		where: { retreatId, tableId: Not(IsNull()) },
 	});
-	console.log(`📊 Pre-transaction: ${participantsWithTableBefore} participants have table assignments`);
+	console.log(
+		`📊 Pre-transaction: ${participantsWithTableBefore} participants have table assignments`,
+	);
 
 	try {
 		await AppDataSource.transaction(async (transactionalEntityManager) => {
@@ -1614,138 +1808,162 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				transactionalEntityManager.getRepository(Participant);
 			const transactionalBedRepository = transactionalEntityManager.getRepository(RetreatBed);
 
-		// Get all participants to process to check for existing Excel assignments
-		const participantsToProcess = await transactionalParticipantRepository.find({
-			where: { id: In(processedParticipantIds) },
-		});
-
-		console.log(`📊 Main transaction: found ${participantsToProcess.length} participants to process`);
-
-		// Count participants with existing Excel assignments
-		const participantsWithExcelAssignments = participantsToProcess.filter(p => p.tableId);
-		const participantsWithoutExcelAssignments = participantsToProcess.filter(p => !p.tableId);
-
-		console.log(`📋 Main transaction: ${participantsWithExcelAssignments.length} participants have Excel table assignments, ${participantsWithoutExcelAssignments.length} need automatic assignments`);
-
-		// Note: We no longer clear bed assignments here since they are now handled atomically
-		// within the transaction along with all other assignments to ensure consistency
-
-		// Track assigned beds to prevent duplicate assignments
-		const assignedBedIds = new Set<string>();
-
-		// First, process Excel bed assignments within the transaction to ensure consistency
-		console.log(`🛏️ Processing ${bedAssignmentQueue.length} Excel bed assignments within main transaction...`);
-		for (const bedAssignment of bedAssignmentQueue) {
-			const { participant, roomNumber, participantType } = bedAssignment;
-
-			// Refresh participant data to get the latest cancellation status (handles duplicate rows in Excel)
-			const freshParticipant = await transactionalParticipantRepository.findOne({
-				where: { id: participant.id },
-				select: ['id', 'type', 'isCancelled', 'email', 'firstName', 'lastName']
+			// Get all participants to process to check for existing Excel assignments
+			const participantsToProcess = await transactionalParticipantRepository.find({
+				where: { id: In(processedParticipantIds) },
 			});
 
-			if (!freshParticipant) {
-				console.warn(`⚠️ Participant ${participant.email} not found during bed assignment, skipping...`);
-				continue;
-			}
-
-			// Skip cancelled participants
-			if (freshParticipant.isCancelled) {
-				console.log(`🚫 Skipping Excel bed assignment for cancelled participant ${freshParticipant.email}`);
-				continue;
-			}
-
-			// Use the fresh participant data for all subsequent operations
-			const participantForAssignment = freshParticipant;
-
-			// Check if this participant already has a bed assigned
-			const hasExistingBedAssignment = await bedQueryUtils.participantHasBedAssignment(participantForAssignment.id);
-			if (hasExistingBedAssignment) {
-				const existingBed = await bedQueryUtils.getParticipantBedAssignment(participantForAssignment.id);
-				console.log(`⚠️ Participant ${participantForAssignment.email} already has bed assigned (${existingBed?.id}), skipping Excel assignment...`);
-				if (existingBed) {
-					assignedBedIds.add(existingBed.id);
-				}
-				continue;
-			}
-
-			// Find or create a bed that hasn't been assigned yet in this batch
-			const bedResult = await findAvailableBedByRoom(
-				retreatId,
-				roomNumber,
-				participantType,
-				assignedBedIds
+			console.log(
+				`📊 Main transaction: found ${participantsToProcess.length} participants to process`,
 			);
 
-			if (bedResult) {
-				const { bedId, wasCreated } = bedResult;
+			// Count participants with existing Excel assignments
+			const participantsWithExcelAssignments = participantsToProcess.filter((p) => p.tableId);
+			const participantsWithoutExcelAssignments = participantsToProcess.filter((p) => !p.tableId);
 
-				// Mark this bed as assigned to prevent other participants from getting it
-				assignedBedIds.add(bedId);
+			console.log(
+				`📋 Main transaction: ${participantsWithExcelAssignments.length} participants have Excel table assignments, ${participantsWithoutExcelAssignments.length} need automatic assignments`,
+			);
 
-				// Update the bed to point to the participant within the transaction
-				await transactionalBedRepository
-					.createQueryBuilder()
-					.update(RetreatBed)
-					.set({ participantId: participantForAssignment.id })
-					.where('id = :id', { id: bedId })
-					.execute();
+			// Note: We no longer clear bed assignments here since they are now handled atomically
+			// within the transaction along with all other assignments to ensure consistency
 
-				console.log(`✅ Excel assignment: Assigned participant ${participantForAssignment.email} to bed ${bedId} in room "${roomNumber}"`);
+			// Track assigned beds to prevent duplicate assignments
+			const assignedBedIds = new Set<string>();
 
-				// Track bed creation
-				if (wasCreated) {
-					bedsCreated++;
+			// First, process Excel bed assignments within the transaction to ensure consistency
+			console.log(
+				`🛏️ Processing ${bedAssignmentQueue.length} Excel bed assignments within main transaction...`,
+			);
+			for (const bedAssignment of bedAssignmentQueue) {
+				const { participant, roomNumber, participantType } = bedAssignment;
+
+				// Refresh participant data to get the latest cancellation status (handles duplicate rows in Excel)
+				const freshParticipant = await transactionalParticipantRepository.findOne({
+					where: { id: participant.id },
+					select: ['id', 'type', 'isCancelled', 'email', 'firstName', 'lastName'],
+				});
+
+				if (!freshParticipant) {
+					console.warn(
+						`⚠️ Participant ${participant.email} not found during bed assignment, skipping...`,
+					);
+					continue;
 				}
-			} else {
-				console.warn(`⚠️ No available bed found in room "${roomNumber}" for participant ${participantForAssignment.email} (Excel assignment)`);
-			}
-		}
-		console.log(`🛏️ Excel bed assignment processing completed within transaction`);
 
-		// Process participants one by one with atomic bed assignment for any remaining unassigned participants
-		for (const participant of participantsToProcess) {
-			// Skip cancelled participants entirely
-			if (participant.isCancelled) {
-				console.log(`🚫 Skipping cancelled participant ${participant.email} in main transaction`);
-				continue;
-			}
+				// Skip cancelled participants
+				if (freshParticipant.isCancelled) {
+					console.log(
+						`🚫 Skipping Excel bed assignment for cancelled participant ${freshParticipant.email}`,
+					);
+					continue;
+				}
 
-			if (participant.type !== 'waiting' && participant.type !== 'partial_server') {
-				// Check if participant already has bed assignment (from previous import or database)
-				const hasExistingBedAssignment = await bedQueryUtils.participantHasBedAssignment(participant.id);
-				const hasExistingTableAssignment = !!participant.tableId;
+				// Use the fresh participant data for all subsequent operations
+				const participantForAssignment = freshParticipant;
 
-				if (hasExistingTableAssignment || hasExistingBedAssignment) {
-					console.log(`✅ Main transaction: preserving existing assignments for participant ${participant.email} (tableId: ${participant.tableId}, hasBed: ${hasExistingBedAssignment})`);
-
-					// Track existing bed assignments to prevent conflicts
-					if (hasExistingBedAssignment) {
-						const existingBed = await bedQueryUtils.getParticipantBedAssignment(participant.id);
-						if (existingBed) {
-							assignedBedIds.add(existingBed.id);
-						}
+				// Check if this participant already has a bed assigned
+				const hasExistingBedAssignment = await bedQueryUtils.participantHasBedAssignment(
+					participantForAssignment.id,
+				);
+				if (hasExistingBedAssignment) {
+					const existingBed = await bedQueryUtils.getParticipantBedAssignment(
+						participantForAssignment.id,
+					);
+					console.log(
+						`⚠️ Participant ${participantForAssignment.email} already has bed assigned (${existingBed?.id}), skipping Excel assignment...`,
+					);
+					if (existingBed) {
+						assignedBedIds.add(existingBed.id);
 					}
 					continue;
 				}
 
-				// Use the new unified assignment function
-				const { bedId, tableId } = await assignBedAndTableToParticipant(
-					participant,
+				// Find or create a bed that hasn't been assigned yet in this batch
+				const bedResult = await findAvailableBedByRoom(
+					retreatId,
+					roomNumber,
+					participantType,
 					assignedBedIds,
-					transactionalEntityManager,
 				);
 
-				// Handle table assignment
-				if (tableId) {
-					await transactionalParticipantRepository
+				if (bedResult) {
+					const { bedId, wasCreated } = bedResult;
+
+					// Mark this bed as assigned to prevent other participants from getting it
+					assignedBedIds.add(bedId);
+
+					// Update the bed to point to the participant within the transaction
+					await transactionalBedRepository
 						.createQueryBuilder()
-						.update(Participant)
-						.set({ tableId })
-						.where('id = :id', { id: participant.id })
+						.update(RetreatBed)
+						.set({ participantId: participantForAssignment.id })
+						.where('id = :id', { id: bedId })
 						.execute();
+
+					console.log(
+						`✅ Excel assignment: Assigned participant ${participantForAssignment.email} to bed ${bedId} in room "${roomNumber}"`,
+					);
+
+					// Track bed creation
+					if (wasCreated) {
+						bedsCreated++;
+					}
+				} else {
+					console.warn(
+						`⚠️ No available bed found in room "${roomNumber}" for participant ${participantForAssignment.email} (Excel assignment)`,
+					);
 				}
 			}
+			console.log(`🛏️ Excel bed assignment processing completed within transaction`);
+
+			// Process participants one by one with atomic bed assignment for any remaining unassigned participants
+			for (const participant of participantsToProcess) {
+				// Skip cancelled participants entirely
+				if (participant.isCancelled) {
+					console.log(`🚫 Skipping cancelled participant ${participant.email} in main transaction`);
+					continue;
+				}
+
+				if (participant.type !== 'waiting' && participant.type !== 'partial_server') {
+					// Check if participant already has bed assignment (from previous import or database)
+					const hasExistingBedAssignment = await bedQueryUtils.participantHasBedAssignment(
+						participant.id,
+					);
+					const hasExistingTableAssignment = !!participant.tableId;
+
+					if (hasExistingTableAssignment || hasExistingBedAssignment) {
+						console.log(
+							`✅ Main transaction: preserving existing assignments for participant ${participant.email} (tableId: ${participant.tableId}, hasBed: ${hasExistingBedAssignment})`,
+						);
+
+						// Track existing bed assignments to prevent conflicts
+						if (hasExistingBedAssignment) {
+							const existingBed = await bedQueryUtils.getParticipantBedAssignment(participant.id);
+							if (existingBed) {
+								assignedBedIds.add(existingBed.id);
+							}
+						}
+						continue;
+					}
+
+					// Use the new unified assignment function
+					const { bedId, tableId } = await assignBedAndTableToParticipant(
+						participant,
+						assignedBedIds,
+						transactionalEntityManager,
+					);
+
+					// Handle table assignment
+					if (tableId) {
+						await transactionalParticipantRepository
+							.createQueryBuilder()
+							.update(Participant)
+							.set({ tableId })
+							.where('id = :id', { id: participant.id })
+							.execute();
+					}
+				}
 			}
 
 			console.log(`🔄 Main transaction: about to commit all participant updates`);
@@ -1760,18 +1978,22 @@ export const importParticipants = async (retreatId: string, participantsData: an
 			retreatId,
 			tablesCreatedSoFar: tablesCreated,
 			processedParticipantsCount: processedParticipantIds.length,
-			step: 'main bed/table assignment transaction'
+			step: 'main bed/table assignment transaction',
 		});
 		throw error; // Re-throw to stop the import process
 	}
 
 	// Check participant table assignments after main transaction
 	const participantsWithTableAfter = await participantRepository.count({
-		where: { retreatId, tableId: Not(IsNull()) }
+		where: { retreatId, tableId: Not(IsNull()) },
 	});
-	console.log(`📊 Post-transaction: ${participantsWithTableAfter} participants have table assignments`);
+	console.log(
+		`📊 Post-transaction: ${participantsWithTableAfter} participants have table assignments`,
+	);
 
-	console.log(`📊 Post-transaction table count: ${await tableMesaRepository.count({ where: { retreatId } })}`);
+	console.log(
+		`📊 Post-transaction table count: ${await tableMesaRepository.count({ where: { retreatId } })}`,
+	);
 
 	// Final verification: Check all tables that should exist based on our tracking
 	console.log(`🔍 Final verification: Checking database state...`);
@@ -1785,16 +2007,23 @@ export const importParticipants = async (retreatId: string, participantsData: an
 	console.log(`   - Actual final count: ${finalTableCount}`);
 
 	if (finalTableCount !== expectedTableCount) {
-		console.error(`❌ CRITICAL ERROR: Table count mismatch! Expected ${expectedTableCount}, found ${finalTableCount}`);
-		console.error(`   This indicates that ${expectedTableCount - finalTableCount} tables were lost due to transaction rollbacks`);
+		console.error(
+			`❌ CRITICAL ERROR: Table count mismatch! Expected ${expectedTableCount}, found ${finalTableCount}`,
+		);
+		console.error(
+			`   This indicates that ${expectedTableCount - finalTableCount} tables were lost due to transaction rollbacks`,
+		);
 
 		// List all tables to see what's missing
 		const allTables = await tableMesaRepository.find({
 			where: { retreatId },
 			select: ['id', 'name'],
-			order: { name: 'ASC' }
+			order: { name: 'ASC' },
 		});
-		console.log(`📋 Current tables in database:`, allTables.map(t => `${t.name} (${t.id})`));
+		console.log(
+			`📋 Current tables in database:`,
+			allTables.map((t) => `${t.name} (${t.id})`),
+		);
 	} else {
 		console.log(`✅ Table count verification passed - all created tables are persisted`);
 	}
@@ -1809,7 +2038,9 @@ export const importParticipants = async (retreatId: string, participantsData: an
 	const currentTableCount = await tableMesaRepository.count({ where: { retreatId } });
 	console.log(`📊 Current table count (preserving all tables): ${currentTableCount}`);
 
-	console.log(`🎉 Import process completed: imported=${importedCount}, updated=${updatedCount}, skipped=${skippedCount}, tablesCreated=${tablesCreated}, bedsCreated=${bedsCreated}, paymentsCreated=${paymentsCreated}`);
+	console.log(
+		`🎉 Import process completed: imported=${importedCount}, updated=${updatedCount}, skipped=${skippedCount}, tablesCreated=${tablesCreated}, bedsCreated=${bedsCreated}, paymentsCreated=${paymentsCreated}`,
+	);
 
 	return {
 		importedCount,
@@ -1817,6 +2048,6 @@ export const importParticipants = async (retreatId: string, participantsData: an
 		skippedCount,
 		tablesCreated,
 		bedsCreated,
-		paymentsCreated
+		paymentsCreated,
 	};
 };

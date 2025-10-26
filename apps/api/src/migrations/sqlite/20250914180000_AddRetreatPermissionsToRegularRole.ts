@@ -40,20 +40,27 @@ export class AddRetreatPermissionsToRegularRole20250914180000 implements Migrati
 					`INSERT INTO "role_permissions" ("roleId", "permissionId", "createdAt") VALUES (?, ?, datetime('now'))`,
 					[regularRoleId, permission.id],
 				);
-				console.log(`✅ Added ${permission.resource}:${permission.operation} permission to regular role`);
+				console.log(
+					`✅ Added ${permission.resource}:${permission.operation} permission to regular role`,
+				);
 			} else {
-				console.log(`ℹ️  ${permission.resource}:${permission.operation} permission already exists for regular role`);
+				console.log(
+					`ℹ️  ${permission.resource}:${permission.operation} permission already exists for regular role`,
+				);
 			}
 		}
 
 		// Verify the fix by checking regular role permissions
-		const finalPermissions = await queryRunner.query(`
+		const finalPermissions = await queryRunner.query(
+			`
 			SELECT p.resource, p.operation
 			FROM "role_permissions" rp
 			JOIN "permissions" p ON rp.permissionId = p.id
 			WHERE rp.roleId = ?
 			ORDER BY p.resource, p.operation
-		`, [regularRoleId]);
+		`,
+			[regularRoleId],
+		);
 
 		console.log('🔍 Final regular role permissions:');
 		finalPermissions.forEach((perm: any) => {
@@ -61,10 +68,12 @@ export class AddRetreatPermissionsToRegularRole20250914180000 implements Migrati
 		});
 
 		// Check if retreat:read is now available
-		const hasRetreatRead = finalPermissions.some((perm: any) =>
-			perm.resource === 'retreat' && perm.operation === 'read'
+		const hasRetreatRead = finalPermissions.some(
+			(perm: any) => perm.resource === 'retreat' && perm.operation === 'read',
 		);
-		console.log(`\n✅ PRODUCTION FIX COMPLETE: Regular role now has retreat:read permission: ${hasRetreatRead ? 'YES' : 'NO'}`);
+		console.log(
+			`\n✅ PRODUCTION FIX COMPLETE: Regular role now has retreat:read permission: ${hasRetreatRead ? 'YES' : 'NO'}`,
+		);
 
 		console.log('\n🎯 This fixes the 403 error for Google login users like Luna');
 		console.log('👥 Users affected: All users with "regular" role who log in via Google');
@@ -86,7 +95,8 @@ export class AddRetreatPermissionsToRegularRole20250914180000 implements Migrati
 		const regularRoleId = regularRoleResult[0].id;
 
 		// Remove retreat permissions from regular role
-		await queryRunner.query(`
+		await queryRunner.query(
+			`
 			DELETE FROM "role_permissions"
 			WHERE "roleId" = ?
 			AND "permissionId" IN (
@@ -94,7 +104,9 @@ export class AddRetreatPermissionsToRegularRole20250914180000 implements Migrati
 				WHERE "resource" = 'retreat'
 				AND "operation" IN ('read', 'list')
 			)
-		`, [regularRoleId]);
+		`,
+			[regularRoleId],
+		);
 
 		console.log('✅ Removed retreat permissions from regular role');
 	}

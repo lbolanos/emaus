@@ -17,7 +17,7 @@ export class BedQueryUtils {
 	 */
 	async findParticipantWithBed(
 		participantId: string,
-		includeBedInfo: boolean = true
+		includeBedInfo: boolean = true,
 	): Promise<Participant | null> {
 		const relations = ['retreat', 'tableMesa'];
 
@@ -28,7 +28,7 @@ export class BedQueryUtils {
 
 		const participant = await this.participantRepository.findOne({
 			where: { id: participantId },
-			relations
+			relations,
 		});
 
 		return participant;
@@ -42,7 +42,7 @@ export class BedQueryUtils {
 		options: {
 			includeBedInfo?: boolean;
 			includeRelations?: string[];
-		} = {}
+		} = {},
 	): Promise<Participant[]> {
 		const { includeBedInfo = true, includeRelations = [] } = options;
 
@@ -55,7 +55,7 @@ export class BedQueryUtils {
 
 		const participants = await this.participantRepository.find({
 			where,
-			relations
+			relations,
 		});
 
 		return participants;
@@ -67,7 +67,7 @@ export class BedQueryUtils {
 	async getParticipantBedAssignment(participantId: string): Promise<RetreatBed | null> {
 		return await this.retreatBedRepository.findOne({
 			where: { participantId },
-			relations: ['retreat']
+			relations: ['retreat'],
 		});
 	}
 
@@ -76,7 +76,7 @@ export class BedQueryUtils {
 	 */
 	async participantHasBedAssignment(participantId: string): Promise<boolean> {
 		const count = await this.retreatBedRepository.count({
-			where: { participantId }
+			where: { participantId },
 		});
 		return count > 0;
 	}
@@ -100,7 +100,7 @@ export class BedQueryUtils {
 			bedNumber?: string;
 			bedType?: string;
 			floor?: number;
-		}
+		},
 	): Promise<Participant[]> {
 		const bedWhereClause: any = { retreatId };
 
@@ -113,18 +113,18 @@ export class BedQueryUtils {
 
 		const assignedBeds = await this.retreatBedRepository.find({
 			where: bedWhereClause,
-			relations: ['retreat']
+			relations: ['retreat'],
 		});
 
 		if (assignedBeds.length === 0) return [];
 
 		const participantIds = assignedBeds
-			.filter(bed => bed.participantId)
-			.map(bed => bed.participantId!);
+			.filter((bed) => bed.participantId)
+			.map((bed) => bed.participantId!);
 
 		return await this.participantRepository.find({
 			where: { id: participantIds as any, isCancelled: false },
-			relations: ['retreat', 'tableMesa']
+			relations: ['retreat', 'tableMesa'],
 		});
 	}
 
@@ -140,14 +140,14 @@ export class BedQueryUtils {
 	}> {
 		const [totalParticipants, totalBeds, assignedBeds] = await Promise.all([
 			this.participantRepository.count({
-				where: { retreatId, isCancelled: false }
+				where: { retreatId, isCancelled: false },
 			}),
 			this.retreatBedRepository.count({
-				where: { retreatId }
+				where: { retreatId },
 			}),
 			this.retreatBedRepository.count({
-				where: { retreatId, participantId: Not(IsNull()) }
-			})
+				where: { retreatId, participantId: Not(IsNull()) },
+			}),
 		]);
 
 		const participantsWithBeds = assignedBeds; // Since we have single source of truth
@@ -158,7 +158,7 @@ export class BedQueryUtils {
 			participantsWithBeds,
 			totalBeds,
 			assignedBeds,
-			availableBeds
+			availableBeds,
 		};
 	}
 }

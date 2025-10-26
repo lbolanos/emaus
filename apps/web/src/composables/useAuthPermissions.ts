@@ -36,7 +36,7 @@ export function useAuthPermissions() {
 
 		// Get permissions from the profile.permissions (if available) and from role globalPermissions
 		const profilePermissions = authStore.userProfile.permissions || [];
-		const globalPermissions: Array<{resource: string, operation: string}> = [];
+		const globalPermissions: Array<{ resource: string; operation: string }> = [];
 
 		// Extract permissions from all role globalPermissions
 		authStore.userProfile.roles?.forEach((roleDetail) => {
@@ -68,7 +68,7 @@ export function useAuthPermissions() {
 
 		// Combine global permissions with retreat-specific permissions
 		const profilePermissions = authStore.userProfile.permissions || [];
-		const roleGlobalPermissions: Array<{resource: string, operation: string}> = [];
+		const roleGlobalPermissions: Array<{ resource: string; operation: string }> = [];
 
 		// Extract permissions from all role globalPermissions
 		authStore.userProfile.roles?.forEach((roleDetail) => {
@@ -111,14 +111,18 @@ export function useAuthPermissions() {
 		read: (resource: ResourceType) => {
 			// For resources that don't require a retreat (like 'house'), use global permissions
 			// For retreat-specific resources, use retreat-specific permissions
-			const permissionsToUse = retreatStore.selectedRetreatId ? retreatSpecificPermissions.value : userPermissions.value;
+			const permissionsToUse = retreatStore.selectedRetreatId
+				? retreatSpecificPermissions.value
+				: userPermissions.value;
 			return canRead(permissionsToUse, resource);
 		},
 		update: (resource: ResourceType) => canUpdate(retreatSpecificPermissions.value, resource),
 		delete: (resource: ResourceType) => canDelete(retreatSpecificPermissions.value, resource),
 		list: (resource: ResourceType) => {
 			// For resources that don't require a retreat (like 'house'), use global permissions
-			const permissionsToUse = retreatStore.selectedRetreatId ? retreatSpecificPermissions.value : userPermissions.value;
+			const permissionsToUse = retreatStore.selectedRetreatId
+				? retreatSpecificPermissions.value
+				: userPermissions.value;
 			return canList(permissionsToUse, resource);
 		},
 		manage: (resource: ResourceType) => {

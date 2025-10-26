@@ -110,13 +110,19 @@ export const exportRoomLabelsToDocx = async (req: Request, res: Response, next: 
 			return res.status(400).json({ message: 'Invalid retreat ID' });
 		}
 
-	// Import the service function to avoid circular dependencies
+		// Import the service function to avoid circular dependencies
 		const { exportRoomLabelsToDocx } = await import('../services/roomService');
 		const buffer = await exportRoomLabelsToDocx(retreatId);
 
 		// Set headers for file download
-		res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-		res.setHeader('Content-Disposition', `attachment; filename="etiquetas-habitaciones-${retreatId}.docx"`);
+		res.setHeader(
+			'Content-Type',
+			'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+		);
+		res.setHeader(
+			'Content-Disposition',
+			`attachment; filename="etiquetas-habitaciones-${retreatId}.docx"`,
+		);
 		res.setHeader('Content-Length', buffer.length);
 
 		// Send the file
@@ -143,12 +149,20 @@ export const exportBadgesToDocx = async (req: Request, res: Response, next: Next
 		const buffer = await exportBadgesToDocx(retreatId);
 
 		if (!buffer) {
-			return res.status(404).json({ message: 'No se pudieron generar los gafetes. Verifica que hay participantes asignados.' });
+			return res.status(404).json({
+				message: 'No se pudieron generar los gafetes. Verifica que hay participantes asignados.',
+			});
 		}
 
 		// Set headers for file download
-		res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-		res.setHeader('Content-Disposition', `attachment; filename="gafetes-participantes-${retreatId}.docx"`);
+		res.setHeader(
+			'Content-Type',
+			'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+		);
+		res.setHeader(
+			'Content-Disposition',
+			`attachment; filename="gafetes-participantes-${retreatId}.docx"`,
+		);
 		res.setHeader('Content-Length', buffer.length);
 
 		// Send the file

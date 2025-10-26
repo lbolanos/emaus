@@ -213,21 +213,25 @@ const response = await fetch('/api/endpoint', {
 ## Testing System
 
 ### Available Tests
+
 - **Field Mapping Tests**: 15 tests covering Excel import field mapping functionality
 - **Test Coverage**: Spanish-to-English field conversions, data validation, edge cases
 - **Test Framework**: Jest for backend, Vitest for frontend
 
 ### Test Status
+
 ✅ **Working**: Field mapping tests (15/15 passing)
 ⚠️ **Disabled**: Frontend tests (temporarily moved to `__tests__.bak` due to TypeScript issues)
 ⚠️ **Disabled**: Service/Controller tests (database setup issues)
 
 ### Key Test Files
+
 - `apps/api/src/tests/services/fieldMapping.simple.test.ts` - Working Excel import tests
 - `apps/api/jest.config.json` - Jest configuration
 - `apps/api/src/tests/jest.setup.ts` - Global test setup and cleanup
 
 ### Test Results
+
 ```bash
 pnpm test
 # PASS src/tests/services/fieldMapping.simple.test.ts

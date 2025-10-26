@@ -179,17 +179,7 @@ export class SeedInitialData20250910163452 implements MigrationInterface {
 				VALUES ($1, $2, $3), ($4, $5, $6), ($7, $8, $9)
 				ON CONFLICT DO NOTHING
 			`,
-				[
-					tableIds[0],
-					'01',
-					retreatId,
-					tableIds[1],
-					'02',
-					retreatId,
-					tableIds[2],
-					'03',
-					retreatId,
-				],
+				[tableIds[0], '01', retreatId, tableIds[1], '02', retreatId, tableIds[2], '03', retreatId],
 			);
 
 			console.log('✅ Sample tables created.');

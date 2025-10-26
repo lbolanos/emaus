@@ -332,17 +332,7 @@ export class SeedInitialData20250910163452 implements MigrationInterface {
 				INSERT OR IGNORE INTO "tables" ("id", "name", "retreatId")
 				VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?)
 			`,
-				[
-					tableIds[0],
-					'01',
-					retreatId,
-					tableIds[1],
-					'02',
-					retreatId,
-					tableIds[2],
-					'03',
-					retreatId,
-				],
+				[tableIds[0], '01', retreatId, tableIds[1], '02', retreatId, tableIds[2], '03', retreatId],
 			);
 
 			console.log('✅ Sample tables created.');

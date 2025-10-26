@@ -22,6 +22,7 @@ This guide provides step-by-step instructions for deploying the Emaus Retreat Lo
 Before provisioning your VPS, set up SSH keys for secure password-less access:
 
 **On your local machine:**
+
 ```bash
 # Generate SSH key pair (if you don't have one)
 ssh-keygen -t ed25519 -C "your-email@example.com"
@@ -34,6 +35,7 @@ cat ~/.ssh/id_ed25519.pub
 ```
 
 **Alternative - Using ssh-copy-id:**
+
 ```bash
 # Install if not available
 sudo apt install openssh-client  # Ubuntu/Debian
@@ -44,6 +46,7 @@ ssh-copy-id -i ~/.ssh/id_ed25519.pub root@YOUR_SERVER_IP
 ```
 
 **Test SSH access:**
+
 ```bash
 # Try connecting without password
 ssh root@YOUR_SERVER_IP
@@ -54,6 +57,7 @@ ssh root@YOUR_SERVER_IP
 ## Step 1: Provision VPS
 
 ### Vultr (Recommended)
+
 1. **Log into Vultr**
    - Go to https://vultr.com/
    - Sign in to your account
@@ -70,7 +74,9 @@ ssh root@YOUR_SERVER_IP
    - Note the server IP address after creation
 
 ### Other Providers
+
 The deployment scripts work with any VPS provider that offers:
+
 - **Ubuntu 22.04 LTS** (easiest setup)
 - **AlmaLinux 8 x64** (great alternative)
 - **Rocky Linux** (RHEL-compatible)
@@ -80,19 +86,22 @@ The deployment scripts work with any VPS provider that offers:
 ## Step 2: Initial Server Setup
 
 1. **Connect to your VPS**
+
    ```bash
    ssh root@YOUR_SERVER_IP
    ```
 
 2. **Set environment variables**
+
    ```bash
    #export database_password='YOUR_STRONG_DB_PASSWORD'
    #export api_url='https://yourdomain.com'
-   export frontend_url='https://emaus.cc'   
+   export frontend_url='https://emaus.cc'
    export domain_name='emaus.cc'
    ```
 
 3. **Run the setup script**
+
    ```bash
    # Download and run setup script
    curl -fsSL https://raw.githubusercontent.com/lbolanos/emaus/master/setup-vultr.sh | bash
@@ -117,6 +126,7 @@ The deployment scripts work with any VPS provider that offers:
 ## Step 3: Deploy Application
 
 1. **Clone your repository**
+
    ```bash
    cd /var/www/emaus
    git clone https://github.com/lbolanos/emaus.git .
@@ -124,6 +134,7 @@ The deployment scripts work with any VPS provider that offers:
 
 2. **Configure environment variables**
    Edit the environment files:
+
    ```bash
    # Edit API environment (apps/api/.env)
    nano /var/www/emaus/apps/api/.env
@@ -136,6 +147,7 @@ The deployment scripts work with any VPS provider that offers:
    ```
 
 3. **Run deployment script**
+
    ```bash
    # Make sure environment variables are still set
    export database_password='YOUR_STRONG_DB_PASSWORD'
@@ -163,6 +175,7 @@ If you have a domain name:
 ## Step 5: Verify Deployment
 
 1. **Check application status**
+
    ```bash
    # Check if services are running
    pm2 status
@@ -192,6 +205,7 @@ If you have a domain name:
 ## Maintenance
 
 ### Daily Backups
+
 ```bash
 # Run daily database backup
 bash backup-db.sh
@@ -202,6 +216,7 @@ crontab -e
 ```
 
 ### Updates
+
 ```bash
 # Update server packages monthly
 sudo apt update && sudo apt upgrade -y
@@ -212,6 +227,7 @@ sudo systemctl reload nginx
 ```
 
 ### Monitoring
+
 ```bash
 # Check logs
 pm2 logs
@@ -228,6 +244,7 @@ df -h
 ### Common Issues
 
 **API not starting**
+
 ```bash
 cd /var/www/emaus
 pm2 logs emaus-api
@@ -235,6 +252,7 @@ pm2 logs emaus-api
 ```
 
 **Web app shows "Cannot connect to API"**
+
 ```bash
 # Check API is running
 curl http://localhost:3001/health
@@ -242,6 +260,7 @@ curl http://localhost:3001/health
 ```
 
 **SSL certificate issues**
+
 ```bash
 sudo certbot certificates
 sudo certbot renew
@@ -250,6 +269,7 @@ sudo certbot renew
 ### Performance Tuning
 
 For the basic $5/month plan:
+
 - The app is configured to handle ~100-200 concurrent users
 - If you need more capacity, consider upgrading to $10/month plan
 
@@ -271,6 +291,7 @@ For the basic $5/month plan:
 ## Support
 
 If you encounter issues:
+
 1. Check the logs using `pm2 logs`
 2. Verify environment variables are set correctly
 3. Ensure database is accessible: `sudo -u postgres psql -d emaus`

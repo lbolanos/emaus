@@ -28,7 +28,7 @@ export function createDatabaseConfig() {
 	const dbType = process.env.DB_TYPE || 'sqlite';
 
 	const entities = [
-    Session,
+		Session,
 		House,
 		Bed,
 		Retreat,
