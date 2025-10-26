@@ -169,7 +169,7 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 										text: "GAFETES PARA PARTICIPANTES",
 										bold: true,
 										size: 28,
-										color: "FFFFFF",
+										color: "1E40AF",
 										font: "Arial",
 										characterSpacing: 20,
 									}),
@@ -183,10 +183,10 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 							type: ShadingType.SOLID
 						},
 						borders: {
-							top: { color: "DC2626", size: 40, style: BorderStyle.THICK },
-							bottom: { color: "DC2626", size: 40, style: BorderStyle.THICK },
-							left: { color: "DC2626", size: 40, style: BorderStyle.THICK },
-							right: { color: "DC2626", size: 40, style: BorderStyle.THICK }
+							top: { color: "DC2626", size: 40, style: BorderStyle.SINGLE },
+							bottom: { color: "DC2626", size: 40, style: BorderStyle.SINGLE },
+							left: { color: "DC2626", size: 40, style: BorderStyle.SINGLE },
+							right: { color: "DC2626", size: 40, style: BorderStyle.SINGLE }
 						},
 						margins: { top: 250, bottom: 250, left: 500, right: 500 }
 					}),
@@ -251,10 +251,10 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 									type: ShadingType.SOLID
 								},
 								borders: {
-									top: { color: "EF4444", size: 35, style: BorderStyle.THICK },
-									bottom: { color: "EF4444", size: 35, style: BorderStyle.THICK },
-									left: { color: "EF4444", size: 35, style: BorderStyle.THICK },
-									right: { color: "EF4444", size: 35, style: BorderStyle.THICK }
+									top: { color: "EF4444", size: 35, style: BorderStyle.SINGLE },
+									bottom: { color: "EF4444", size: 35, style: BorderStyle.SINGLE },
+									left: { color: "EF4444", size: 35, style: BorderStyle.SINGLE },
+									right: { color: "EF4444", size: 35, style: BorderStyle.SINGLE }
 								},
 								margins: { top: 250, bottom: 250, left: 450, right: 450 }
 							}),
@@ -282,19 +282,19 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 		};
 
 		const getRoomInfo = (): string => {
-			return `Floor ${bed.floor || '?'}, Room ${bed.roomNumber || '?'}`;
+			return `Piso ${bed.floor || '?'}, Cuarto ${bed.roomNumber || '?'}`;
 		};
 
 		const getTableInfo = (): string => {
 			if (!participant.tableMesa) return 'No table assigned';
-			return `Table ${participant.tableMesa.name}`;
+			return `Mesa ${participant.tableMesa.name}`;
 		};
 
 		const getBedType = (): string => {
 			const bedTypeMap: Record<string, string> = {
-				'normal': 'Normal Bed',
-				'litera': 'Bunk Bed',
-				'colchon': 'Mattress'
+				'normal': 'Cama Normal',
+				'litera': 'Litera',
+				'colchon': 'Colchón',
 			};
 			return bedTypeMap[bed.bedType] || bed.bedType || 'Bed';
 		};
@@ -372,12 +372,12 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 											spacing: { before: 180, after: 280 }
 										}),
 									],
-									shading: { fill: "FFFFFF", type: ShadingType.SOLID },
+									shading: { fill: "1E40AF", type: ShadingType.SOLID },
 									borders: {
-										top: { color: "DC2626", size: 40, style: BorderStyle.THICK },
-										bottom: { color: "DC2626", size: 40, style: BorderStyle.THICK },
-										left: { color: "DC2626", size: 40, style: BorderStyle.THICK },
-										right: { color: "DC2626", size: 40, style: BorderStyle.THICK }
+										top: { color: "DC2626", size: 18, style: BorderStyle.SINGLE },
+										bottom: { color: "DC2626", size: 18, style: BorderStyle.SINGLE },
+										left: { color: "DC2626", size: 18, style: BorderStyle.SINGLE },
+										right: { color: "DC2626", size: 18, style: BorderStyle.SINGLE }
 									},
 									margins: { top: 0, bottom: 0, left: 350, right: 350 }
 								}),
@@ -393,7 +393,7 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 					}
 				})
 			],
-			width: { size: 33.33, type: WidthType.PERCENTAGE },
+			width: { size: 50, type: WidthType.PERCENTAGE },
 			margins: { top: 400, bottom: 400, left: 200, right: 200 },
 			borders: {
 				top: { style: BorderStyle.NONE },
@@ -404,12 +404,12 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 		});
 	});
 
-	// Group badges into rows of 3
+	// Group badges into rows of 2
 	const badgeRows: any[] = [];
-	for (let i = 0; i < badges.length; i += 3) {
+	for (let i = 0; i < badges.length; i += 2) {
 		badgeRows.push(
 			new TableRow({
-				children: badges.slice(i, i + 3),
+				children: badges.slice(i, i + 2),
 			})
 		);
 	}
@@ -418,11 +418,11 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 	if (badgeRows.length > 0 && badgeRows[badgeRows.length - 1]) {
 		const lastRow = badgeRows[badgeRows.length - 1];
 		if (lastRow.children) {
-			while (lastRow.children.length < 3) {
+			while (lastRow.children.length < 2) {
 				lastRow.children.push(
 					new TableCell({
 						children: [],
-						width: { size: 33.33, type: WidthType.PERCENTAGE },
+						width: { size: 50, type: WidthType.PERCENTAGE },
 						borders: {
 							top: { style: BorderStyle.NONE },
 							bottom: { style: BorderStyle.NONE },
