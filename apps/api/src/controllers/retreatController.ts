@@ -98,3 +98,31 @@ export const createRetreat = async (
 		next(error);
 	}
 };
+
+export const exportRoomLabelsToDocx = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id: retreatId } = req.params;
+
+		// Validate retreatId is a valid UUID
+		if (
+			!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(retreatId)
+		) {
+			return res.status(400).json({ message: 'Invalid retreat ID' });
+		}
+
+	// Import the service function to avoid circular dependencies
+		const { exportRoomLabelsToDocx } = await import('../services/roomService');
+		const buffer = await exportRoomLabelsToDocx(retreatId);
+
+		// Set headers for file download
+		res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+		res.setHeader('Content-Disposition', `attachment; filename="etiquetas-habitaciones-${retreatId}.docx"`);
+		res.setHeader('Content-Length', buffer.length);
+
+		// Send the file
+		res.send(buffer);
+	} catch (error: any) {
+		console.error('Error exporting room labels to DOCX:', error);
+		next(error);
+	}
+};

@@ -2,16 +2,22 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useRetreatStore } from '@/stores/retreatStore';
-import { api } from '@/services/api';
+import { api, exportRoomLabelsToDocx } from '@/services/api';
 import { Button } from '@repo/ui';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@repo/ui';
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui';
+import { useToast } from '@repo/ui';
+import { Loader2 } from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
 import type { RetreatBed, Participant } from '@repo/types';
 
 const route = useRoute();
 const retreatStore = useRetreatStore();
+const { toast } = useToast();
+const { t } = useI18n();
 const beds = ref<RetreatBed[]>([]);
 const loading = ref(true);
+const isExporting = ref(false);
 
 const retreatId = computed(() => route.params.id as string || retreatStore.selectedRetreatId);
 
@@ -44,6 +50,35 @@ const printContent = () => {
   window.print();
 };
 
+const handleExportRoomLabels = async () => {
+  if (!retreatId.value) {
+    toast({
+      title: t('common.error'),
+      description: 'Por favor, selecciona un retiro.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  isExporting.value = true;
+  try {
+    await exportRoomLabelsToDocx(retreatId.value);
+    toast({
+      title: t('rooms.exportSuccess.title'),
+      description: t('rooms.exportSuccess.description'),
+    });
+  } catch (error) {
+    console.error('Error exporting room labels:', error);
+    toast({
+      title: t('rooms.exportError.title'),
+      description: t('rooms.exportError.description'),
+      variant: 'destructive',
+    });
+  } finally {
+    isExporting.value = false;
+  }
+};
+
 onMounted(fetchBeds);
 
 const groupedBeds = computed(() => {
@@ -67,9 +102,15 @@ const groupedBeds = computed(() => {
   <div class="p-4 print-container">
     <div class="flex justify-between items-center mb-4 no-print">
       <h1 class="text-2xl font-bold">{{ $t('rooms.title') }}</h1>
-      <Button @click="printContent">
-        {{ $t('common.actions.print') }}
-      </Button>
+      <div class="flex gap-2">
+        <Button @click="handleExportRoomLabels" :disabled="isExporting">
+          <Loader2 v-if="isExporting" class="w-4 h-4 mr-2 animate-spin" />
+          {{ isExporting ? $t('rooms.exporting') : $t('rooms.exportLabels') }}
+        </Button>
+        <Button @click="printContent">
+          {{ $t('common.actions.print') }}
+        </Button>
+      </div>
     </div>
     <div v-if="loading" class="text-center">
       <p>{{ $t('participants.loading') }}</p>

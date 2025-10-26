@@ -361,7 +361,17 @@
     "participant": "Participant",
     "age": "Age",
     "unassigned": "Unassigned",
-    "noRoomsFound": "No rooms found for this retreat."
+    "noRoomsFound": "No rooms found for this retreat.",
+    "exportLabels": "Print Labels",
+    "exporting": "Generating labels...",
+    "exportSuccess": {
+      "title": "Labels Generated",
+      "description": "Room labels have been generated successfully."
+    },
+    "exportError": {
+      "title": "Error Generating Labels",
+      "description": "An error occurred while generating labels. Please try again."
+    }
   },
   "addRetreatModal": {
     "title": "Add New Retreat",

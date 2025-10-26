@@ -327,7 +327,17 @@
     "participant": "Participante",
     "age": "Edad",
     "unassigned": "Sin asignar",
-    "noRoomsFound": "No se encontraron habitaciones para este retiro."
+    "noRoomsFound": "No se encontraron habitaciones para este retiro.",
+    "exportLabels": "Imprimir Etiquetas",
+    "exporting": "Generando etiquetas...",
+    "exportSuccess": {
+      "title": "Etiquetas Generadas",
+      "description": "Las etiquetas de habitaciones han sido generadas exitosamente."
+    },
+    "exportError": {
+      "title": "Error al Generar Etiquetas",
+      "description": "Ocurrió un error al generar las etiquetas. Por favor, inténtalo de nuevo."
+    }
   },
   "addRetreatModal": {
     "title": "Agregar Nuevo Retiro",
