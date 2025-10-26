@@ -1,0 +1,31 @@
+<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Rose flower - simplified design -->
+  <g transform="translate(20, 20)">
+    <!-- Stem -->
+    <path d="M0,-8 Q-2,2 -1,8 L1,8 Q2,2 0,-8" fill="#2d5016" stroke="#2d5016" stroke-width="0.5"/>
+
+    <!-- Rose petals - outer layer -->
+    <ellipse cx="-4" cy="-4" rx="4" ry="3" fill="#c41e3a" transform="rotate(-15 -4 -4)"/>
+    <ellipse cx="4" cy="-4" rx="4" ry="3" fill="#c41e3a" transform="rotate(15 4 -4)"/>
+    <ellipse cx="-4" cy="2" rx="3.5" ry="2.5" fill="#c41e3a" transform="rotate(-30 -4 2)"/>
+    <ellipse cx="4" cy="2" rx="3.5" ry="2.5" fill="#c41e3a" transform="rotate(30 4 2)"/>
+
+    <!-- Rose petals - middle layer -->
+    <ellipse cx="-2" cy="-2" rx="3" ry="2.5" fill="#e74c3c" transform="rotate(-20 -2 -2)"/>
+    <ellipse cx="2" cy="-2" rx="3" ry="2.5" fill="#e74c3c" transform="rotate(20 2 -2)"/>
+    <ellipse cx="0" cy="1" rx="2.8" ry="2" fill="#e74c3c"/>
+
+    <!-- Rose center -->
+    <circle cx="0" cy="-1" r="2" fill="#ff6b6b"/>
+
+    <!-- Inner detail -->
+    <circle cx="0" cy="-1" r="1" fill="#ffa0a0"/>
+
+    <!-- Leaf -->
+    <ellipse cx="2" cy="4" rx="3" ry="1.5" fill="#4a7c59" transform="rotate(25 2 4)"/>
+
+    <!-- Subtle highlight on petals -->
+    <ellipse cx="-2" cy="-3" rx="1.5" ry="1" fill="#ff8a8a" opacity="0.6"/>
+    <ellipse cx="2" cy="-3" rx="1.5" ry="1" fill="#ff8a8a" opacity="0.6"/>
+  </g>
+</svg>

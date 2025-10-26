@@ -16,6 +16,7 @@
     "palancas": "Palancas",
     "payments": "Pagos",
     "tables": "Mesas",
+    "walkerBadges": "Gafetes Caminantes",
     "notesAndMeetingPoints": "Notas y Puntos de Encuentro",
     "rooms": "Etiquetas Cuartos",
     "userTypeAndTable": "Tipo de Usuario y Mesa",
@@ -948,7 +949,22 @@
     "more": "más",
     "loading": "Cargando...",
     "error": "Error",
-    "confirm": "Confirmar",
-    "delete": "Eliminar"
+    "confirm": "Confirmar"
+  },
+  "badges": {
+    "title": "Gafetes de Caminantes",
+    "description": "Imprime gafetes individuales para cada caminante con su información de mesa y habitación",
+    "printBadges": "Imprimir Gafetes",
+    "noWalkersFound": "No se encontraron caminantes para este retiro",
+    "fetchError": "Error al cargar los caminantes",
+    "rose": "Rosa",
+    "floor": "Piso",
+    "room": "Cuarto",
+    "table": "Mesa",
+    "normalBed": "Cama Normal",
+    "bunkBed": "Litera",
+    "mattress": "Colchón",
+    "noRoomAssigned": "Sin habitación asignada",
+    "noTableAssigned": "Sin mesa asignada"
   }
 }

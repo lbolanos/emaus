@@ -22,6 +22,7 @@ import ParticipantRegistrationView from '../views/ParticipantRegistrationView.vu
 import RetreatDashboardView from '../views/RetreatDashboardView.vue';
 import BedAssignmentsView from '../views/BedAssignmentsView.vue';
 import TablesView from '../views/TablesView.vue';
+import BadgesView from '../views/BadgesView.vue';
 import MessageTemplatesView from '../views/MessageTemplatesView.vue';
 import GlobalMessageTemplatesView from '../views/GlobalMessageTemplatesView.vue';
 import InventoryView from '../views/InventoryView.vue';
@@ -90,6 +91,11 @@ const router = createRouter({
 					path: 'tables',
 					name: 'tables',
 					component: TablesView,
+				},
+				{
+					path: 'walker-badges',
+					name: 'walker-badges',
+					component: BadgesView,
 				},
 				{
 					path: 'palancas',

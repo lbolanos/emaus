@@ -6,6 +6,7 @@ import {
 	updateRetreat,
 	getRetreatByIdPublic,
 	exportRoomLabelsToDocx,
+	exportBadgesToDocx,
 } from '../controllers/retreatController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { validateRequest } from '../middleware/validateRequest';
@@ -40,6 +41,12 @@ router.post(
 	'/:id/export-room-labels',
 	requirePermission('retreat:read'),
 	(req: any, res: any, next: any) => exportRoomLabelsToDocx(req, res, next),
+);
+
+router.post(
+	'/:id/export-badges',
+	requirePermission('retreat:read'),
+	(req: any, res: any, next: any) => exportBadgesToDocx(req, res, next),
 );
 
 export default router;

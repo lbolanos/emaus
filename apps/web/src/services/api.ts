@@ -125,6 +125,24 @@ export const exportRoomLabelsToDocx = async (retreatId: string): Promise<void> =
 	window.URL.revokeObjectURL(url);
 };
 
+export const exportBadgesToDocx = async (retreatId: string): Promise<void> => {
+	const response = await api.post(`/retreats/${retreatId}/export-badges`, {}, {
+		responseType: 'blob',
+	});
+
+	// Create a download link for the file
+	const url = window.URL.createObjectURL(new Blob([response.data], {
+		type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+	}));
+	const link = document.createElement('a');
+	link.href = url;
+	link.setAttribute('download', `gafetes-participantes-${retreatId}.docx`);
+	document.body.appendChild(link);
+	link.click();
+	link.remove();
+	window.URL.revokeObjectURL(url);
+};
+
 // Retreat Role Management API functions
 export const getRetreatUsers = async (retreatId: string) => {
 	const response = await api.get(`/retreat-roles/retreat/${retreatId}/users`);
@@ -425,6 +443,22 @@ export const getPaymentsByRetreat = async (retreatId: string) => {
 
 export const getPaymentSummaryByRetreat = async (retreatId: string) => {
 	const response = await api.get(`/payments/retreat/${retreatId}/summary`);
+	return response.data;
+};
+
+// Participant API functions
+export const getWalkersByRetreat = async (retreatId: string): Promise<any[]> => {
+	const response = await api.get('/participants', {
+		params: {
+			retreatId,
+			type: 'walker'
+		}
+	});
+	return response.data;
+};
+
+export const getParticipantById = async (participantId: string) => {
+	const response = await api.get(`/participants/${participantId}`);
 	return response.data;
 };
 

@@ -126,3 +126,35 @@ export const exportRoomLabelsToDocx = async (req: Request, res: Response, next: 
 		next(error);
 	}
 };
+
+export const exportBadgesToDocx = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id: retreatId } = req.params;
+
+		// Validate retreatId is a valid UUID
+		if (
+			!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(retreatId)
+		) {
+			return res.status(400).json({ message: 'Invalid retreat ID' });
+		}
+
+		// Import the service function to avoid circular dependencies
+		const { exportBadgesToDocx } = await import('../services/badgeService');
+		const buffer = await exportBadgesToDocx(retreatId);
+
+		if (!buffer) {
+			return res.status(404).json({ message: 'No se pudieron generar los gafetes. Verifica que hay participantes asignados.' });
+		}
+
+		// Set headers for file download
+		res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+		res.setHeader('Content-Disposition', `attachment; filename="gafetes-participantes-${retreatId}.docx"`);
+		res.setHeader('Content-Length', buffer.length);
+
+		// Send the file
+		res.send(buffer);
+	} catch (error: any) {
+		console.error('Error exporting badges to DOCX:', error);
+		next(error);
+	}
+};

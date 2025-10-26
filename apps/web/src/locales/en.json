@@ -19,6 +19,7 @@
     "palancas": "Palancas",
     "payments": "Payments",
     "tables": "Tables",
+    "walkerBadges": "Walker Badges",
     "notesAndMeetingPoints": "Notes & Meeting Points",
     "rooms": "Rooms Tags",
     "userTypeAndTable": "User Type & Table",
@@ -975,5 +976,21 @@
     "more": "more",
     "loading": "Loading...",
     "error": "Error"
+  },
+  "badges": {
+    "title": "Walker Badges",
+    "description": "Print individual badges for each walker with their table and room information",
+    "printBadges": "Print Badges",
+    "noWalkersFound": "No walkers found for this retreat",
+    "fetchError": "Error loading walkers",
+    "rose": "Rose",
+    "floor": "Floor",
+    "room": "Room",
+    "table": "Table",
+    "normalBed": "Normal Bed",
+    "bunkBed": "Bunk Bed",
+    "mattress": "Mattress",
+    "noRoomAssigned": "No room assigned",
+    "noTableAssigned": "No table assigned"
   }
 }
