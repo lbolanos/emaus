@@ -465,14 +465,6 @@ const menuSections: MenuSection[] = [
         label: 'sidebar.walkers'
       },
       {
-        name: 'walker-badges',
-        routeName: 'walker-badges',
-        icon: CreditCard,
-        permission: 'participant',
-        requiresRetreat: true,
-        label: 'sidebar.walkerBadges'
-      },
-      {
         name: 'servers',
         routeName: 'servers',
         icon: UtensilsCrossed,
@@ -601,6 +593,14 @@ const menuSections: MenuSection[] = [
         icon: ShoppingBag,
         requiresRetreat: true,
         label: 'sidebar.bagsReport'
+      },      
+      {
+        name: 'walker-badges',
+        routeName: 'walker-badges',
+        icon: CreditCard,
+        permission: 'participant',
+        requiresRetreat: true,
+        label: 'sidebar.walkerBadges'
       },
       {
         name: 'medicines-report',
