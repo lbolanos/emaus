@@ -543,6 +543,16 @@
       "errorDescription": "Ocurrió un error al rebalancear los caminantes. Por favor, inténtalo de nuevo."
     },
     "addTable": "Agregar Mesa",
+    "exportDocx": "Imprimir Mesas",
+    "exporting": "Generando documento...",
+    "exportSuccess": {
+      "title": "Documento Generado",
+      "description": "El documento con la información de las mesas ha sido descargado exitosamente."
+    },
+    "exportError": {
+      "title": "Error al Generar Documento",
+      "description": "Ocurrió un error al generar el documento. Por favor, inténtalo de nuevo."
+    },
     "deleteTable": {
       "title": "Eliminar Mesa",
       "description": "¿Estás seguro de que quieres eliminar esta mesa? Esta acción no se puede deshacer.",

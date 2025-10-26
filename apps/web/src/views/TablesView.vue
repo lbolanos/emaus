@@ -8,6 +8,10 @@
       <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
         <Button @click="isRebalanceDialogOpen = true">{{ $t('tables.rebalanceWalkers') }}</Button>
         <Button @click="handleCreateTable" class="ml-2">{{ $t('tables.addTable') }}</Button>
+        <Button @click="handleExportTables" class="ml-2" :disabled="isExporting">
+          <Loader2 v-if="isExporting" class="w-4 h-4 mr-2 animate-spin" />
+          {{ isExporting ? $t('tables.exporting') : $t('tables.exportDocx') }}
+        </Button>
       </div>
     </div>
 
@@ -131,6 +135,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Loader2 } from 'lucide-vue-next';
 import type { Participant, TableMesa } from '@repo/types';
 import { useI18n } from 'vue-i18n';
+import { exportTablesToDocx } from '@/services/api';
 
 const tableMesaStore = useTableMesaStore();
 const retreatStore = useRetreatStore();
@@ -145,6 +150,7 @@ const isOverUnassignedWalker = ref(false);
 const isDeleteDialogOpen = ref(false);
 const isDeleting = ref(false);
 const tableToDelete = ref<TableMesa | null>(null);
+const isExporting = ref(false);
 
 const unassignedServers = computed(() => {
   const assignedServerIds = new Set(
@@ -241,6 +247,35 @@ const confirmDeleteTable = async () => {
   } finally {
     isDeleting.value = false;
     isDeleteDialogOpen.value = false;
+  }
+};
+
+const handleExportTables = async () => {
+  if (!retreatStore.selectedRetreatId) {
+    toast({
+      title: t('common.error'),
+      description: 'Por favor, selecciona un retiro.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  isExporting.value = true;
+  try {
+    await exportTablesToDocx(retreatStore.selectedRetreatId);
+    toast({
+      title: t('tables.exportSuccess.title'),
+      description: t('tables.exportSuccess.description'),
+    });
+  } catch (error) {
+    console.error('Error exporting tables:', error);
+    toast({
+      title: t('tables.exportError.title'),
+      description: t('tables.exportError.description'),
+      variant: 'destructive',
+    });
+  } finally {
+    isExporting.value = false;
   }
 };
 

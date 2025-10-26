@@ -577,6 +577,16 @@
       "errorDescription": "An error occurred while rebalancing the walkers. Please try again."
     },
     "addTable": "Add Table",
+    "exportDocx": "Print Tables",
+    "exporting": "Generating document...",
+    "exportSuccess": {
+      "title": "Document Generated",
+      "description": "The document with table information has been successfully downloaded."
+    },
+    "exportError": {
+      "title": "Error Generating Document",
+      "description": "An error occurred while generating the document. Please try again."
+    },
     "deleteTable": {
       "title": "Delete Table",
       "description": "Are you sure you want to delete this table? This action cannot be undone.",

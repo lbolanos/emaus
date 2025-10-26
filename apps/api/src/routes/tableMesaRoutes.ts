@@ -25,6 +25,13 @@ router.post(
 	tableMesaController.rebalanceTables,
 );
 
+router.post(
+	'/export/:retreatId',
+	requirePermission('table:read'),
+	requireRetreatAccess('retreatId'),
+	tableMesaController.exportTablesToDocx,
+);
+
 // Routes for assigning/unassigning participants
 router.post(
 	'/:id/leader/:role',

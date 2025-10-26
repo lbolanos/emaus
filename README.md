@@ -241,6 +241,7 @@ remover del menu todos las paginas que requieras retiro si no esta seleccionado.
 
 IN PROGRESS
 agregar al retiro hora de llegada de caminantes ... y hora de llegada de servidores el viernes.
+add a button to create a docx file to imprimir la mesa con lideres caminantes telefonos, medicamentos y alimentos para entregar a los servidores.
 
 TODO
 since it is not in production modify apps/api/src/migrations/sqlite/20250910163337_CreateSchema.ts for schema.
@@ -264,11 +265,12 @@ una forma de hacer backup del retiro y luego importar.
 
 Que debe pasar cuando se cancele un participante ... unassign from retreatBed and from tableMesa
 
-imprimir la mesa con lider caminantes telefonos, medicamentos y alimentos.
+
+
+
 usar la ia para conversar y agregar o quitar base de datos.
 
 una forma de asegurar que no se modifique las mesas.  lock tables
-
 
 en el mensaje de bienvenida del servidor agregar una url para que pueda cambiar su registro
 Notificaciones por correo a los administradores del retiro de eventos como Caminante ingresa. Servidor ingresa. Forma de desactivar estas notificaciones.

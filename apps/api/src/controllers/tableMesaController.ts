@@ -142,3 +142,29 @@ export const unassignWalker = async (req: Request, res: Response, next: NextFunc
 		next(error);
 	}
 };
+
+export const exportTablesToDocx = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { retreatId } = req.params;
+
+		// Validate retreatId is a valid UUID
+		if (
+			!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(retreatId)
+		) {
+			return res.status(400).json({ message: 'Invalid retreat ID' });
+		}
+
+		const buffer = await tableMesaService.exportTablesToDocx(retreatId);
+
+		// Set headers for file download
+		res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+		res.setHeader('Content-Disposition', `attachment; filename="mesas-retiro-${retreatId}.docx"`);
+		res.setHeader('Content-Length', buffer.length);
+
+		// Send the file
+		res.send(buffer);
+	} catch (error: any) {
+		console.error('Error exporting tables to DOCX:', error);
+		next(error);
+	}
+};
