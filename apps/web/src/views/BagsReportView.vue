@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useRetreatStore } from '@/stores/retreatStore'
+import { useParticipantStore } from '@/stores/participantStore'
 import ParticipantList from '@/components/ParticipantList.vue'
 
 const tableColumns = ['id_on_retreat', 'firstName', 'lastName', 'tableMesa.name', 'tshirtSize'];
@@ -15,6 +17,30 @@ const items = [
   'Palancas',
   'Invitación para otro retiro'
 ]
+
+const retreatStore = useRetreatStore()
+const participantStore = useParticipantStore()
+
+onMounted(async () => {
+  // Ensure retreats are loaded first
+  if (retreatStore.retreats.length === 0) {
+    await retreatStore.fetchRetreats()
+  }
+
+  // Set retreat ID filter and fetch participants
+  const retreatId = retreatStore.selectedRetreatId || retreatStore.mostRecentRetreat?.id
+
+  if (retreatId) {
+    participantStore.filters.retreatId = retreatId
+
+    // Fetch participants
+    try {
+      await participantStore.fetchParticipants()
+    } catch (error) {
+      console.error('Error loading participants:', error)
+    }
+  }
+})
 </script>
 
 <template>
