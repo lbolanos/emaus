@@ -29,6 +29,7 @@ import InventoryView from '../views/InventoryView.vue';
 import InventoryItemsView from '../views/InventoryItemsView.vue';
 import RetreatRoleManagementView from '../views/RetreatRoleManagementView.vue';
 import AcceptInvitationView from '../views/AcceptInvitationView.vue';
+import TelemetryDashboardView from '../views/TelemetryDashboardView.vue';
 import { useAuthStore } from '@/stores/authStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 
@@ -202,6 +203,12 @@ const router = createRouter({
 					component: RetreatRoleManagementView,
 					props: true,
 				},
+				{
+					path: 'telemetry',
+					name: 'telemetry',
+					component: TelemetryDashboardView,
+					meta: { requiresSuperadmin: true },
+				},
 			],
 		},
 	],
@@ -215,8 +222,12 @@ router.beforeEach(async (to, from, next) => {
 	}
 
 	const requiresAuth = to.matched.some((record) => record.meta.requiresAuth);
+	const requiresSuperadmin = to.matched.some((record) => record.meta.requiresSuperadmin);
 
 	if (requiresAuth && !auth.isAuthenticated) {
+		next({ name: 'login' });
+	} else if (requiresSuperadmin && !auth.isAuthenticated) {
+		// Redirect unauthenticated users trying to access telemetry
 		next({ name: 'login' });
 	} else if (to.name === 'login' && auth.isAuthenticated) {
 		next({ name: 'home' });

@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { performanceOptimizationService } from '../services/performanceOptimizationService';
 import { AuthenticatedRequest } from '../middleware/authorization';
+import { influxdbService } from '../services/influxdbService';
+import { TelemetryMetricType, TelemetryMetricUnit } from '../entities/telemetryMetric.entity';
 
 export interface PerformanceRequest extends AuthenticatedRequest {
 	performance?: {
@@ -25,6 +27,9 @@ export class PerformanceMiddleware {
 			if (duration > 1000) {
 				console.warn(`⚠️ Slow request: ${req.method} ${req.path} took ${duration}ms`);
 			}
+
+			// Collect telemetry data
+			PerformanceMiddleware.collectPerformanceTelemetry(req, res, duration);
 
 			return originalSend.call(this, data);
 		};
@@ -131,6 +136,9 @@ export class PerformanceMiddleware {
 			performanceOptimizationService
 				.checkMemoryUsage()
 				.then((memoryCheck) => {
+					// Collect memory telemetry
+					PerformanceMiddleware.collectMemoryTelemetry(req, memoryCheck);
+
 					// Only perform cleanup if absolutely necessary (very high memory usage)
 					if (memoryCheck.shouldCleanup) {
 						console.warn('⚠️ High memory usage detected:', memoryCheck);
@@ -177,56 +185,156 @@ export class PerformanceMiddleware {
 
 		next();
 	}
-}
 
-// Utility functions for performance monitoring
-export class PerformanceMonitor {
-	private static metrics = {
-		totalRequests: 0,
-		slowRequests: 0,
-		cachedRequests: 0,
-		averageResponseTime: 0,
-	};
+	// Collect performance telemetry data
+	private static async collectPerformanceTelemetry(
+		req: PerformanceRequest,
+		res: Response,
+		duration: number,
+	): Promise<void> {
+		try {
+			// Create InfluxDB point for API response time
+			const responseTimeMetric = {
+				metricType: TelemetryMetricType.API_RESPONSE_TIME,
+				unit: TelemetryMetricUnit.MILLISECONDS,
+				value: duration,
+				tags: {
+					method: req.method,
+					route: req.path,
+					status: res.statusCode.toString(),
+				},
+				metadata: {
+					cached: req.performance?.cached || false,
+					userAgent: req.get('User-Agent'),
+					ip: req.ip || req.connection.remoteAddress,
+				},
+				userId: req.user?.id,
+				retreatId: req.params.retreatId,
+				endpoint: req.path,
+				component: 'api',
+				createdAt: new Date(),
+			};
 
+			await influxdbService.writeMetric(responseTimeMetric as any);
+
+			// Track error rates
+			if (res.statusCode >= 400) {
+				const errorMetric = {
+					metricType: TelemetryMetricType.ERROR_RATE,
+					unit: TelemetryMetricUnit.PERCENTAGE,
+					value: 1, // 1 error
+					tags: {
+						method: req.method,
+						route: req.path,
+						status: res.statusCode.toString(),
+					},
+					metadata: {
+						errorMessage: res.locals.error?.message,
+						errorType: res.locals.error?.name,
+					},
+					userId: req.user?.id,
+					retreatId: req.params.retreatId,
+					endpoint: req.path,
+					component: 'api',
+					createdAt: new Date(),
+				};
+
+				await influxdbService.writeMetric(errorMetric as any);
+			}
+
+			// Update performance monitor metrics
+			PerformanceMiddleware.recordRequest(duration, req.performance?.cached || false);
+
+			// Periodically flush InfluxDB writes
+			if (Math.random() < 0.01) {
+				await influxdbService.flush();
+			}
+		} catch (error) {
+			console.error('Failed to collect performance telemetry:', error);
+			// Don't throw - telemetry failures shouldn't affect the main application
+		}
+	}
+
+	// Collect memory telemetry data
+	private static async collectMemoryTelemetry(
+		req: PerformanceRequest,
+		memoryCheck: any,
+	): Promise<void> {
+		try {
+			const memoryMetric = {
+				metricType: TelemetryMetricType.MEMORY_USAGE,
+				unit: TelemetryMetricUnit.BYTES,
+				value: memoryCheck.heapUsed || 0,
+				tags: {
+					component: 'api',
+					type: 'heap_used',
+				},
+				metadata: {
+					heapTotal: memoryCheck.heapTotal,
+					external: memoryCheck.external,
+					rss: memoryCheck.rss,
+					shouldCleanup: memoryCheck.shouldCleanup,
+				},
+				userId: req.user?.id,
+				retreatId: req.params.retreatId,
+				component: 'api',
+				createdAt: new Date(),
+			};
+
+			await influxdbService.writeMetric(memoryMetric as any);
+		} catch (error) {
+			console.error('Failed to collect memory telemetry:', error);
+			// Don't throw - telemetry failures shouldn't affect the main application
+		}
+	}
+
+	// Utility functions for performance monitoring
 	public static recordRequest(duration: number, cached: boolean = false): void {
-		this.metrics.totalRequests++;
+		PerformanceMiddleware.metrics.totalRequests++;
 
 		if (duration > 1000) {
-			this.metrics.slowRequests++;
+			PerformanceMiddleware.metrics.slowRequests++;
 		}
 
 		if (cached) {
-			this.metrics.cachedRequests++;
+			PerformanceMiddleware.metrics.cachedRequests++;
 		}
 
 		// Update average response time
-		this.metrics.averageResponseTime =
-			(this.metrics.averageResponseTime * (this.metrics.totalRequests - 1) + duration) /
-			this.metrics.totalRequests;
+		PerformanceMiddleware.metrics.averageResponseTime =
+			(PerformanceMiddleware.metrics.averageResponseTime * (PerformanceMiddleware.metrics.totalRequests - 1) + duration) /
+			PerformanceMiddleware.metrics.totalRequests;
 	}
 
 	public static getMetrics() {
 		return {
-			...this.metrics,
+			...PerformanceMiddleware.metrics,
 			cacheHitRate:
-				this.metrics.totalRequests > 0
-					? (this.metrics.cachedRequests / this.metrics.totalRequests) * 100
+				PerformanceMiddleware.metrics.totalRequests > 0
+					? (PerformanceMiddleware.metrics.cachedRequests / PerformanceMiddleware.metrics.totalRequests) * 100
 					: 0,
 			slowRequestRate:
-				this.metrics.totalRequests > 0
-					? (this.metrics.slowRequests / this.metrics.totalRequests) * 100
+				PerformanceMiddleware.metrics.totalRequests > 0
+					? (PerformanceMiddleware.metrics.slowRequests / PerformanceMiddleware.metrics.totalRequests) * 100
 					: 0,
 		};
 	}
 
 	public static resetMetrics(): void {
-		this.metrics = {
+		PerformanceMiddleware.metrics = {
 			totalRequests: 0,
 			slowRequests: 0,
 			cachedRequests: 0,
 			averageResponseTime: 0,
 		};
 	}
+
+	private static metrics = {
+		totalRequests: 0,
+		slowRequests: 0,
+		cachedRequests: 0,
+		averageResponseTime: 0,
+	};
 }
 
 // Export middleware functions with proper context

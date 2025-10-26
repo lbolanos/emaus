@@ -362,7 +362,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { ref, computed, nextTick, onMounted, watch } from 'vue';
-import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard } from 'lucide-vue-next';
+import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter, useRoute } from 'vue-router';
 import { Button } from '@repo/ui';
@@ -673,6 +673,14 @@ const menuSections: MenuSection[] = [
         permission: 'house',
         requiresRetreat: false,
         label: 'sidebar.houses'
+      },
+      {
+        name: 'telemetry',
+        routeName: 'telemetry',
+        icon: Activity,
+        label: 'sidebar.telemetry',
+        requiresRetreat: false,
+        permission: 'superadmin'
       }
     ],
     position: 'bottom'

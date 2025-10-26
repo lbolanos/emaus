@@ -21,6 +21,10 @@ import { Migration } from '../entities/migration.entity';
 import { Payment } from '../entities/payment.entity';
 import { GlobalMessageTemplate } from '../entities/globalMessageTemplate.entity';
 import { ParticipantCommunication } from '../entities/participantCommunication.entity';
+import { TelemetryMetric } from '../entities/telemetryMetric.entity';
+import { TelemetryEvent } from '../entities/telemetryEvent.entity';
+import { TelemetrySession } from '../entities/telemetrySession.entity';
+import { TelemetryDashboard } from '../entities/telemetryDashboard.entity';
 
 import { Session } from '../entities/session.entity';
 
@@ -51,6 +55,11 @@ export function createDatabaseConfig() {
 		Migration,
 		Payment,
 		ParticipantCommunication,
+		// Telemetry entities
+		TelemetryMetric,
+		TelemetryEvent,
+		TelemetrySession,
+		TelemetryDashboard,
 		// Temporarily excluding entities with enum issues
 		// AuditLog,
 		// PermissionOverride,

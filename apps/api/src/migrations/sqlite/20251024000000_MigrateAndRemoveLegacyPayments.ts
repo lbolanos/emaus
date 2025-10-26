@@ -37,6 +37,18 @@ export class MigrateAndRemoveLegacyPayments20251024000000 implements MigrationIn
 
 			console.log(`Found ${participantsWithPayment.length} participants with legacy payment data`);
 
+			// Find a user to assign as recordedBy (preferably admin user)
+			const systemUser = await queryRunner.query(
+				`SELECT id FROM "users" WHERE email LIKE '%admin%' OR email LIKE '%root%' LIMIT 1`
+			);
+
+			// If no admin found, use any available user
+			const fallbackUser = systemUser.length === 0 ?
+				await queryRunner.query(`SELECT id FROM "users" LIMIT 1`) :
+				systemUser;
+
+			const recordedByUserId = fallbackUser.length > 0 ? fallbackUser[0].id : null;
+
 			// Create payment records for each participant
 			for (const participant of participantsWithPayment) {
 				// Check if payment records already exist
@@ -48,6 +60,11 @@ export class MigrateAndRemoveLegacyPayments20251024000000 implements MigrationIn
 				// Only create payment if no existing records found
 				if (existingPayments[0].count === 0) {
 					const paymentId = 'pay_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
+
+					if (!recordedByUserId) {
+						console.warn('⚠️ No system user found for recordedBy field. Using fallback UUID.');
+					}
+
 					await queryRunner.query(
 						`
                         INSERT INTO "payments" (
@@ -56,7 +73,7 @@ export class MigrateAndRemoveLegacyPayments20251024000000 implements MigrationIn
                             "createdAt", "updatedAt"
                         ) VALUES (
                             ?, ?, ?, ?, ?, 'other', 'MIGRATED',
-                            'Migrated from legacy participant.paymentAmount field', NULL,
+                            'Migrated from legacy participant.paymentAmount field', ?,
                             datetime('now'), datetime('now')
                         )
                     `,
@@ -66,6 +83,7 @@ export class MigrateAndRemoveLegacyPayments20251024000000 implements MigrationIn
 							participant.retreatId,
 							participant.paymentAmount,
 							participant.paymentDate,
+							recordedByUserId || '00000000-0000-0000-0000-000000000000', // fallback UUID
 						],
 					);
 

@@ -44,6 +44,7 @@
     "migration:show:sqlite": "DB_TYPE=sqlite pnpm migration:show"
   },
   "dependencies": {
+    "@influxdata/influxdb-client": "^1.35.0",
     "@repo/types": "workspace:*",
     "@repo/utils": "workspace:*",
     "@types/node-cron": "^3.0.11",

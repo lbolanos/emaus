@@ -3,6 +3,16 @@ import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@repo/ui';
 import type { TableMesa } from '@repo/types';
 import { setupCsrfInterceptor } from '@/utils/csrf';
+import { telemetryService } from './telemetryService';
+
+// Extend axios request config to include metadata
+declare module 'axios' {
+	interface InternalAxiosRequestConfig {
+		metadata?: {
+			startTime?: number;
+		};
+	}
+}
 
 export const api = axios.create({
 	baseURL: import.meta.env.VITE_API_URL,
@@ -15,12 +25,52 @@ export const api = axios.create({
 // Apply CSRF interceptor to this axios instance
 setupCsrfInterceptor(api);
 
-// Response interceptor for error handling
+// Request interceptor for timing API calls
+api.interceptors.request.use(
+	(config) => {
+		// Add request start time for telemetry
+		config.metadata = { startTime: Date.now() };
+		return config;
+	},
+	(error) => {
+		return Promise.reject(error);
+	},
+);
+
+// Response interceptor for telemetry and error handling
 api.interceptors.response.use(
-	(response) => response,
+	(response) => {
+		// Track API call performance
+		const startTime = response.config.metadata?.startTime;
+		if (startTime && telemetryService.isTelemetryActive()) {
+			const duration = Date.now() - startTime;
+			telemetryService.trackApiCallTime(
+				response.config.url || 'unknown',
+				duration,
+				true,
+			);
+		}
+
+		return response;
+	},
 	(error) => {
 		const { toast } = useToast();
-		//const authStore = useAuthStore();
+
+		// Track API call performance for failed requests
+		const startTime = error.config?.metadata?.startTime;
+		if (startTime && telemetryService.isTelemetryActive()) {
+			const duration = Date.now() - startTime;
+			telemetryService.trackApiCallTime(
+				error.config?.url || 'unknown',
+				duration,
+				false,
+			);
+		}
+
+		// Track errors for telemetry
+		if (telemetryService.isTelemetryActive()) {
+			telemetryService.trackError(error, `API call to ${error.config?.url}`);
+		}
 
 		if (error.response?.status === 401) {
 			// Unauthorized - clear auth state
@@ -507,5 +557,56 @@ export const sendTestEmail = async (to: string) => {
 
 export const verifySmtpConnection = async () => {
 	const response = await api.post('/participant-communications/email/verify');
+	return response.data;
+};
+
+// Telemetry API functions
+export const getTelemetryHealth = async () => {
+	const response = await api.get('/telemetry/health');
+	return response.data;
+};
+
+export const getAggregatedMetrics = async (startDate: string, endDate: string) => {
+	const response = await api.get('/telemetry/metrics/aggregated', {
+		params: { startDate, endDate },
+	});
+	return response.data;
+};
+
+export const getBusinessMetrics = async (startDate: string, endDate: string) => {
+	const response = await api.get('/telemetry/business', {
+		params: { startDate, endDate },
+	});
+	return response.data;
+};
+
+export const getUserBehaviorMetrics = async (startDate: string, endDate: string) => {
+	const response = await api.get('/telemetry/user-behavior', {
+		params: { startDate, endDate },
+	});
+	return response.data;
+};
+
+export const getSystemHealthMetrics = async (startDate: string, endDate: string) => {
+	const response = await api.get('/telemetry/system-health', {
+		params: { startDate, endDate },
+	});
+	return response.data;
+};
+
+export const getMetricsTimeSeries = async (
+	metricType: string,
+	startDate: string,
+	endDate: string,
+	interval: 'hour' | 'day' | 'week' | 'month' = 'hour',
+) => {
+	const response = await api.get('/telemetry/metrics/timeseries', {
+		params: { metricType, startDate, endDate, interval },
+	});
+	return response.data;
+};
+
+export const cleanupTelemetryData = async (retentionDays: number = 90) => {
+	const response = await api.post('/telemetry/cleanup', { retentionDays });
 	return response.data;
 };

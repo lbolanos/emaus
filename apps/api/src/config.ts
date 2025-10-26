@@ -27,6 +27,6 @@ export const config = {
 			masterUserEmail: process.env.SEED_MASTER_USER_EMAIL || 'admin@example.com',
 			masterUserName: process.env.SEED_MASTER_USER_NAME || 'Administrator',
 			masterUserPassword: process.env.SEED_MASTER_USER_PASSWORD || 'password',
-		},
+			},
 	},
 };

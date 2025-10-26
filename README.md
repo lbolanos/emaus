@@ -236,6 +236,7 @@ cuando un participante se registre enviar correo de bienvenida
 cuando un caminante se registre enviar correo de bienvenida enviar tambien correo al servidor que lo invito para informar.
 asignacion de cuartos tal como se hace en las mesas con un dashboard.
 remover del menu todos las paginas que requieras retiro si no esta seleccionado.
+Que debe pasar cuando se cancele un participante ... unassign from retreatBed and from tableMesa
 
 IN PROGRESS
 agregar al retiro hora de llegada de caminantes ... y hora de llegada de servidores el viernes.
@@ -244,8 +245,6 @@ add a button to create a docx file to imprimir la mesa con lideres caminantes te
 gafete apodo o nombre, tableMesa, habitacion (floor, room, bed type) y imagen de una rosa
 
 TODO
-since it is not in production modify apps/api/src/migrations/sqlite/20250910163337_CreateSchema.ts for schema.
-
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
 agregar todas las actividades por servidor
 
@@ -262,8 +261,6 @@ importar pagos
 agregar mesa y lider a alimentos y medicinas impresion.
 
 una forma de hacer backup del retiro y luego importar.
-
-Que debe pasar cuando se cancele un participante ... unassign from retreatBed and from tableMesa
 
 usar la ia para conversar y agregar o quitar base de datos.
 
@@ -347,3 +344,23 @@ export GITHUB_REPO=lbolanos/emaus
 export NEW_TAG=v0.0.1
 export RELEASE_TAG=v0.0.1
 export CERTBOT_EMAIL=leonardo.bolanos@gmail.com
+
+
+# how to update
+
+## local
+scp root@155.138.230.215:/var/www/emaus/apps/api/database.sqlite apps/api/database.sqlite
+pnpm migration:run
+
+
+rsync -avz \
+--exclude '.git' \
+--exclude '.turbo' \
+--exclude 'apps/api/database.sqlite' \
+--exclude 'apps/api/.env' \
+--exclude 'apps/web/.env' \
+ . root@155.138.230.215:/var/www/emaus/
+
+## remote
+pm2 logs emaus-api
+pm2 restart emaus-api
