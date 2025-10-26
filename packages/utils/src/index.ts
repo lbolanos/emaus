@@ -86,6 +86,8 @@ export interface RetreatData {
 	paymentMethods?: string;
 	max_walkers?: number;
 	max_servers?: number;
+	walkerArrivalTime?: string;
+	serverArrivalTimeFriday?: string;
 }
 
 /**
@@ -263,6 +265,8 @@ export const replaceRetreatVariables = (
 		paymentMethods: 'Transferencia, efectivo',
 		max_walkers: 30,
 		max_servers: 15,
+		walkerArrivalTime: '18:00',
+		serverArrivalTimeFriday: '16:00',
 	};
 
 	// Use mock data if retreat is undefined or null
@@ -292,6 +296,8 @@ export const replaceRetreatVariables = (
 		'retreat.paymentMethods': retreatData.paymentMethods || '',
 		'retreat.maxWalkers': retreatData.max_walkers?.toString() || '',
 		'retreat.maxServers': retreatData.max_servers?.toString() || '',
+		'retreat.walkerArrivalTime': retreatData.walkerArrivalTime || '',
+		'retreat.serverArrivalTimeFriday': retreatData.serverArrivalTimeFriday || '',
 	};
 
 	// Apply all retreat variable replacements

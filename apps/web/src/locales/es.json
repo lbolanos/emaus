@@ -107,7 +107,9 @@
           "retreatPaymentInfo": "Información de pago del retiro",
           "retreatPaymentMethods": "Métodos de pago del retiro",
           "retreatMaxWalkers": "Máximo de caminantes del retiro",
-          "retreatMaxServers": "Máximo de servidores del retiro"
+          "retreatMaxServers": "Máximo de servidores del retiro",
+          "retreatWalkerArrivalTime": "Hora de llegada de caminantes del retiro",
+          "retreatServerArrivalTimeFriday": "Hora de llegada de servidores del retiro (viernes)"
         }
       },
       "editor": {
@@ -473,7 +475,12 @@
       "settings": "Configuración",
       "paymentInfo": "Información de Pago",
       "optionalNotes": "Notas Opcionales"
-    }
+    },
+    "walkerArrivalTime": "Hora de llegada de caminantes",
+    "walkerArrivalTimeDescription": "Hora en que deben llegar los caminantes al retiro",
+    "serverArrivalTimeFriday": "Hora de llegada de servidores (viernes)",
+    "serverArrivalTimeFridayDescription": "Hora en que deben llegar los servidores el viernes",
+    "timePlaceholder": "HH:MM"
   },
     "retreatDashboard": {
       "title": "Dashboard del Retiro",

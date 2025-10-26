@@ -99,6 +99,39 @@
               <p v-if="errors.endDate" class="text-sm text-red-500">{{ errors.endDate }}</p>
             </div>
           </div>
+
+          <!-- Arrival Times Section -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div class="space-y-2">
+              <Label for="walkerArrivalTime">
+                {{ $t('retreatModal.walkerArrivalTime') }}
+              </Label>
+              <Input
+                id="walkerArrivalTime"
+                type="time"
+                v-model="formData.walkerArrivalTime"
+                :placeholder="$t('retreatModal.timePlaceholder')"
+              />
+              <p class="text-sm text-muted-foreground">
+                {{ $t('retreatModal.walkerArrivalTimeDescription') }}
+              </p>
+            </div>
+
+            <div class="space-y-2">
+              <Label for="serverArrivalTimeFriday">
+                {{ $t('retreatModal.serverArrivalTimeFriday') }}
+              </Label>
+              <Input
+                id="serverArrivalTimeFriday"
+                type="time"
+                v-model="formData.serverArrivalTimeFriday"
+                :placeholder="$t('retreatModal.timePlaceholder')"
+              />
+              <p class="text-sm text-muted-foreground">
+                {{ $t('retreatModal.serverArrivalTimeFridayDescription') }}
+              </p>
+            </div>
+          </div>
         </div>
 
         <!-- Capacity Section -->
@@ -413,6 +446,8 @@ const formData = ref({
   max_servers: undefined as number | undefined,
   isPublic: false,
   roleInvitationEnabled: true,
+  walkerArrivalTime: '',
+  serverArrivalTimeFriday: '',
 });
 
 // Validation errors
@@ -597,6 +632,8 @@ const handleSubmit = async () => {
         paymentMethods: formData.value.paymentMethods,
         max_walkers: formData.value.max_walkers,
         max_servers: formData.value.max_servers,
+        walkerArrivalTime: formData.value.walkerArrivalTime || undefined,
+        serverArrivalTimeFriday: formData.value.serverArrivalTimeFriday || undefined,
       };
 
       // Debug logging
@@ -638,6 +675,8 @@ const resetForm = () => {
     max_servers: undefined,
     isPublic: false,
     roleInvitationEnabled: true,
+    walkerArrivalTime: '',
+    serverArrivalTimeFriday: '',
   };
   errors.value = {};
 };
@@ -693,6 +732,8 @@ watch(() => props.open, (newOpen) => {
         max_servers: props.retreat.max_servers,
         isPublic: props.retreat.isPublic,
         roleInvitationEnabled: props.retreat.roleInvitationEnabled,
+        walkerArrivalTime: props.retreat.walkerArrivalTime || '',
+        serverArrivalTimeFriday: props.retreat.serverArrivalTimeFriday || '',
       };
     } else if (props.initialData) {
       // Add mode with initial data

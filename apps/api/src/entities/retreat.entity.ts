@@ -88,6 +88,12 @@ export class Retreat {
 	@Column({ type: 'boolean', default: true })
 	roleInvitationEnabled!: boolean;
 
+	@Column({ type: 'time', nullable: true })
+	walkerArrivalTime?: Date;
+
+	@Column({ type: 'time', nullable: true })
+	serverArrivalTimeFriday?: Date;
+
 	@OneToMany(() => Payment, (payment) => payment.retreat)
 	payments!: Payment[];
 }

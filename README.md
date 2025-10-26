@@ -235,10 +235,12 @@ show the rol in header for the specific retreat selected
 do not send email if is importing and if the retreat is not public
 cuando un participante se registre enviar correo de bienvenida
 cuando un caminante se registre enviar correo de bienvenida enviar tambien correo al servidor que lo invito para informar.
+asignacion de cuartos tal como se hace en las mesas con un dashboard.
+remover del menu todos las paginas que requieras retiro si no esta seleccionado.
+
 
 IN PROGRESS
-
-asignacion de cuartos tal como se hace en las mesas con un dashboard.
+agregar al retiro hora de llegada de caminantes ... y hora de llegada de servidores el viernes.
 
 TODO
 since it is not in production modify apps/api/src/migrations/sqlite/20250910163337_CreateSchema.ts for schema.
@@ -246,12 +248,9 @@ since it is not in production modify apps/api/src/migrations/sqlite/202509101633
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
 agregar todas las actividades por servidor
 
-
 gafete mesa nombre apodo cuarto rosa
 
 Crear un retiro a partir de los datos del anterior retiro. Casa de retiro, inventario, mensajes.
-
-remover del menu todos las paginas que requieras retiro si no esta seleccionado.
 
 agregar una forma de administrar las tablas de la base de datos con solo permisos para el superadmin.
 
@@ -264,8 +263,6 @@ agregar mesa y lider a alimentos y medicinas impresion.
 una forma de hacer backup del retiro y luego importar.
 
 Que debe pasar cuando se cancele un participante ... unassign from retreatBed and from tableMesa
-
-agregar al retiro hora de llegada de caminantes ... y hora de llegada de servidores el viernes.
 
 imprimir la mesa con lider caminantes telefonos, medicamentos y alimentos.
 usar la ia para conversar y agregar o quitar base de datos.

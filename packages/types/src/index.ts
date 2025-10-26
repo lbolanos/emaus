@@ -61,6 +61,8 @@ export const retreatSchema = z.object({
 	max_servers: z.number().int().positive().optional(),
 	isPublic: z.boolean().default(false),
 	roleInvitationEnabled: z.boolean().default(true),
+	walkerArrivalTime: z.string().regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
+	serverArrivalTimeFriday: z.string().regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
 });
 export type Retreat = z.infer<typeof retreatSchema>;
 

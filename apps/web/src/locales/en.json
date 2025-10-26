@@ -107,7 +107,9 @@
         "retreatPaymentInfo": "Retreat payment info",
         "retreatPaymentMethods": "Retreat payment methods",
         "retreatMaxWalkers": "Retreat maximum walkers",
-        "retreatMaxServers": "Retreat maximum servers"
+        "retreatMaxServers": "Retreat maximum servers",
+        "retreatWalkerArrivalTime": "Retreat walker arrival time",
+        "retreatServerArrivalTimeFriday": "Retreat server arrival time (Friday)"
       }
     },
     "deleteConfirm": "Are you sure you want to delete this template?",
@@ -507,7 +509,12 @@
       "settings": "Settings",
       "paymentInfo": "Payment Information",
       "optionalNotes": "Optional Notes"
-    }
+    },
+    "walkerArrivalTime": "Walker Arrival Time",
+    "walkerArrivalTimeDescription": "Time when walkers should arrive at the retreat",
+    "serverArrivalTimeFriday": "Server Arrival Time (Friday)",
+    "serverArrivalTimeFridayDescription": "Time when servers should arrive on Friday",
+    "timePlaceholder": "HH:MM"
   },
     "retreatDashboard": {
       "title": "Retreat Dashboard",
