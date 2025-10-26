@@ -19,3 +19,13 @@ dist/
 *.config.js
 *.config.d.ts
 *.config.d.ts.map
+
+# Test coverage and artifacts
+coverage/
+*.lcov
+.nyc_output/
+junit.xml
+test-results/
+
+# Test backed up files
+**/__tests__.bak/

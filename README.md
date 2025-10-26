@@ -243,13 +243,15 @@ IN PROGRESS
 agregar al retiro hora de llegada de caminantes ... y hora de llegada de servidores el viernes.
 add a button to create a docx file to imprimir la mesa con lideres caminantes telefonos, medicamentos y alimentos para entregar a los servidores.
 
+gafete apodo o nombre, tableMesa,  habitacion (floor, room, bed type) y  imagen de una rosa
+
 TODO
 since it is not in production modify apps/api/src/migrations/sqlite/20250910163337_CreateSchema.ts for schema.
 
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
 agregar todas las actividades por servidor
 
-gafete mesa nombre apodo cuarto rosa
+Telemetry
 
 Crear un retiro a partir de los datos del anterior retiro. Casa de retiro, inventario, mensajes.
 
@@ -264,9 +266,6 @@ agregar mesa y lider a alimentos y medicinas impresion.
 una forma de hacer backup del retiro y luego importar.
 
 Que debe pasar cuando se cancele un participante ... unassign from retreatBed and from tableMesa
-
-
-
 
 usar la ia para conversar y agregar o quitar base de datos.
 

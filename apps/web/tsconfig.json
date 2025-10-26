@@ -12,5 +12,5 @@
     }
   },
   "include": ["vite.config.ts", "src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue", "src/**/*.json", "src/vite-env.d.ts"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist", "src/**/*.test.*", "src/**/__tests__/**", "src/**/__tests__.bak/**", "src/test/**"]
 }

@@ -1,12 +1,13 @@
-import { AppDataSource } from '../data-source';
+import { DataSource } from 'typeorm';
+import path from 'node:path';
 
 // Test database configuration
-const testDataSource = new AppDataSource({
+const testDataSource = new DataSource({
 	type: 'sqlite',
 	database: ':memory:',
 	synchronize: false,
-	entities: ['../entities/*.entity.ts'],
-	migrations: ['../migrations/sqlite/*.ts'],
+	entities: [path.join(__dirname, '../entities/*.entity.ts')],
+	migrations: [path.join(__dirname, '../migrations/sqlite/*.ts')],
 });
 
 export async function setupTestDatabase() {

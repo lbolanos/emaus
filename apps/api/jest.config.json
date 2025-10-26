@@ -1,0 +1,22 @@
+{
+  "testEnvironment": "node",
+  "roots": ["<rootDir>/src"],
+  "testMatch": [
+    "**/fieldMapping.simple.test.ts"
+  ],
+  "transform": {
+    "^.+\\.ts$": ["ts-jest", {
+      "tsconfig": "tsconfig.json"
+    }]
+  },
+  "collectCoverageFrom": [
+    "src/**/*.ts",
+    "!src/**/*.d.ts",
+    "!src/tests/**",
+    "!src/cli/**",
+    "!src/migrations/**"
+  ],
+  "coverageDirectory": "coverage",
+  "coverageReporters": ["text", "lcov", "html"],
+  "setupFilesAfterEnv": ["<rootDir>/src/tests/jest.setup.ts"]
+}

@@ -25,6 +25,7 @@ export class PerformanceOptimizationService {
 	private retreatCaches: Map<string, NodeCache> = new Map();
 	private globalCache: NodeCache; // For user-global data
 	private metrics: PerformanceMetrics;
+	private metricsInterval: NodeJS.Timeout | null = null;
 
 	private constructor() {
 		const cacheConfig: CacheConfig = {
@@ -546,7 +547,7 @@ export class PerformanceOptimizationService {
 
 	private startMetricsCollection(): void {
 		// Periodically log metrics
-		setInterval(() => {
+		this.metricsInterval = setInterval(() => {
 			this.logMetrics();
 		}, 300000); // Every 5 minutes
 	}
@@ -819,6 +820,16 @@ export class PerformanceOptimizationService {
 		}
 
 		return cleanedCount;
+	}
+
+	/**
+	 * Cleanup method for tests
+	 */
+	cleanup(): void {
+		if (this.metricsInterval) {
+			clearInterval(this.metricsInterval);
+			this.metricsInterval = null;
+		}
 	}
 }
 
