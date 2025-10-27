@@ -159,7 +159,7 @@ describe('Telemetry System', () => {
 				TelemetryMetricType.API_RESPONSE_TIME,
 				startDate,
 				endDate,
-				'hour'
+				'hour',
 			);
 
 			expect(Array.isArray(data)).toBe(true);
@@ -185,13 +185,18 @@ describe('Telemetry System', () => {
 	describe('Convenience Methods', () => {
 		it('should track user login', async () => {
 			await expect(
-				collectionService.trackUserLogin('test-user-id', 'test-session-id', '127.0.0.1', 'Test-Agent')
+				collectionService.trackUserLogin(
+					'test-user-id',
+					'test-session-id',
+					'127.0.0.1',
+					'Test-Agent',
+				),
 			).resolves.not.toThrow();
 		});
 
 		it('should track user logout', async () => {
 			await expect(
-				collectionService.trackUserLogout('test-user-id', 'test-session-id')
+				collectionService.trackUserLogout('test-user-id', 'test-session-id'),
 			).resolves.not.toThrow();
 		});
 
@@ -200,8 +205,8 @@ describe('Telemetry System', () => {
 				collectionService.trackParticipantRegistration(
 					'test-user-id',
 					'test-retreat-id',
-					'test-participant-id'
-				)
+					'test-participant-id',
+				),
 			).resolves.not.toThrow();
 		});
 
@@ -212,25 +217,27 @@ describe('Telemetry System', () => {
 					'test-retreat-id',
 					'test-payment-id',
 					100,
-					'success'
-				)
+					'success',
+				),
 			).resolves.not.toThrow();
 		});
 
 		it('should track page view', async () => {
 			await expect(
-				collectionService.trackPageView('test-user-id', 'test-session-id', '/test-page', '127.0.0.1')
+				collectionService.trackPageView(
+					'test-user-id',
+					'test-session-id',
+					'/test-page',
+					'127.0.0.1',
+				),
 			).resolves.not.toThrow();
 		});
 
 		it('should track feature usage', async () => {
 			await expect(
-				collectionService.trackFeatureUsage(
-					'test-user-id',
-					'test-feature',
-					'test-action',
-					{ metadata: 'test' }
-				)
+				collectionService.trackFeatureUsage('test-user-id', 'test-feature', 'test-action', {
+					metadata: 'test',
+				}),
 			).resolves.not.toThrow();
 		});
 	});

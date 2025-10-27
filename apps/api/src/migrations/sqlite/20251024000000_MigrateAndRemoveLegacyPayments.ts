@@ -39,13 +39,14 @@ export class MigrateAndRemoveLegacyPayments20251024000000 implements MigrationIn
 
 			// Find a user to assign as recordedBy (preferably admin user)
 			const systemUser = await queryRunner.query(
-				`SELECT id FROM "users" WHERE email LIKE '%admin%' OR email LIKE '%root%' LIMIT 1`
+				`SELECT id FROM "users" WHERE email LIKE '%admin%' OR email LIKE '%root%' LIMIT 1`,
 			);
 
 			// If no admin found, use any available user
-			const fallbackUser = systemUser.length === 0 ?
-				await queryRunner.query(`SELECT id FROM "users" LIMIT 1`) :
-				systemUser;
+			const fallbackUser =
+				systemUser.length === 0
+					? await queryRunner.query(`SELECT id FROM "users" LIMIT 1`)
+					: systemUser;
 
 			const recordedByUserId = fallbackUser.length > 0 ? fallbackUser[0].id : null;
 

@@ -185,7 +185,9 @@ export class TelemetryAggregationService {
 			const capacityUtilizationResult = await this.telemetryMetricRepository
 				.createQueryBuilder('metric')
 				.select('metric.value', 'value')
-				.where('metric.metricType = :type', { type: TelemetryMetricType.RETREAT_CAPACITY_UTILIZATION })
+				.where('metric.metricType = :type', {
+					type: TelemetryMetricType.RETREAT_CAPACITY_UTILIZATION,
+				})
 				.orderBy('metric.createdAt', 'DESC')
 				.limit(1)
 				.getRawOne();
@@ -249,16 +251,16 @@ export class TelemetryAggregationService {
 			// Most visited pages
 			const mostVisitedPagesResult = await this.telemetryEventRepository
 				.createQueryBuilder('event')
-				.select('event.eventData->>\'page\'', 'page')
+				.select("event.eventData->>'page'", 'page')
 				.addSelect('COUNT(*)', 'views')
 				.where('event.eventType = :type', { type: TelemetryEventType.PAGE_VIEW })
 				.andWhere('event.createdAt BETWEEN :start AND :end', { start: startDate, end: endDate })
-				.groupBy('event.eventData->>\'page\'')
+				.groupBy("event.eventData->>'page'")
 				.orderBy('views', 'DESC')
 				.limit(10)
 				.getRawMany();
 
-			const mostVisitedPages = mostVisitedPagesResult.map(row => ({
+			const mostVisitedPages = mostVisitedPagesResult.map((row) => ({
 				page: row.page || 'unknown',
 				views: parseInt(row.views),
 			}));
@@ -266,16 +268,16 @@ export class TelemetryAggregationService {
 			// Most used features
 			const mostUsedFeaturesResult = await this.telemetryEventRepository
 				.createQueryBuilder('event')
-				.select('event.eventData->>\'feature\'', 'feature')
+				.select("event.eventData->>'feature'", 'feature')
 				.addSelect('COUNT(*)', 'usage')
 				.where('event.eventType = :type', { type: TelemetryEventType.FEATURE_USAGE })
 				.andWhere('event.createdAt BETWEEN :start AND :end', { start: startDate, end: endDate })
-				.groupBy('event.eventData->>\'feature\'')
+				.groupBy("event.eventData->>'feature'")
 				.orderBy('usage', 'DESC')
 				.limit(10)
 				.getRawMany();
 
-			const mostUsedFeatures = mostUsedFeaturesResult.map(row => ({
+			const mostUsedFeatures = mostUsedFeaturesResult.map((row) => ({
 				feature: row.feature || 'unknown',
 				usage: parseInt(row.usage),
 			}));
@@ -314,14 +316,15 @@ export class TelemetryAggregationService {
 				.createQueryBuilder('event')
 				.select('COUNT(*)', 'count')
 				.where('event.eventType = :type', { type: TelemetryEventType.SECURITY_ALERT })
-				.andWhere('event.eventData->>\'reason\' = :reason', { reason: 'authentication_failed' })
+				.andWhere("event.eventData->>'reason' = :reason", { reason: 'authentication_failed' })
 				.andWhere('event.createdAt BETWEEN :start AND :end', { start: startDate, end: endDate })
 				.getRawOne();
 
 			const authSuccess = parseInt(authSuccessResult?.count || '0');
 			const authFailed = parseInt(authFailedResult?.count || '0');
 			const totalAuthAttempts = authSuccess + authFailed;
-			const authenticationSuccessRate = totalAuthAttempts > 0 ? (authSuccess / totalAuthAttempts) * 100 : 100;
+			const authenticationSuccessRate =
+				totalAuthAttempts > 0 ? (authSuccess / totalAuthAttempts) * 100 : 100;
 
 			// System errors
 			const systemErrorsResult = await this.telemetryEventRepository
@@ -407,7 +410,7 @@ export class TelemetryAggregationService {
 				.orderBy('timestamp', 'ASC')
 				.getRawMany();
 
-			return results.map(row => ({
+			return results.map((row) => ({
 				timestamp: new Date(row.timestamp),
 				value: parseFloat(row.value),
 				count: parseInt(row.count),
@@ -460,7 +463,9 @@ export class TelemetryAggregationService {
 // Export singleton instance
 let telemetryAggregationServiceInstance: TelemetryAggregationService | null = null;
 
-export const getTelemetryAggregationService = (dataSource: DataSource): TelemetryAggregationService => {
+export const getTelemetryAggregationService = (
+	dataSource: DataSource,
+): TelemetryAggregationService => {
 	if (!telemetryAggregationServiceInstance) {
 		telemetryAggregationServiceInstance = new TelemetryAggregationService(dataSource);
 	}

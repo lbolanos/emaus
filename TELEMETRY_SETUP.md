@@ -5,6 +5,7 @@ This guide explains how to set up the complete telemetry system for the Emaus re
 ## Quick Start for Production
 
 ### For InfluxDB Cloud Setup:
+
 1. **Environment Setup**: Use Option A in Step 2 with `INFLUXDB_ORG=db502fe7945647c5`
 2. **Get API Token**: Follow "Getting InfluxDB Cloud Token" section below
 3. **Test Connection**: Run `pnpm run dev` and check API health endpoint
@@ -13,6 +14,7 @@ This guide explains how to set up the complete telemetry system for the Emaus re
 ## Overview
 
 The telemetry system consists of:
+
 - **InfluxDB**: Time-series database for storing metrics and events
 - **Grafana**: Visualization platform for dashboards and analytics
 - **In-system Dashboard**: Vue.js dashboard for superadmins
@@ -37,7 +39,7 @@ services:
     image: influxdb:2.7
     container_name: emaus-influxdb
     ports:
-      - "8086:8086"
+      - '8086:8086'
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
       - DOCKER_INFLUXDB_INIT_USERNAME=admin
@@ -54,7 +56,7 @@ services:
     image: grafana/grafana:10.2.0
     container_name: emaus-grafana
     ports:
-      - "3000:3000"
+      - '3000:3000'
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin123
       - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
@@ -73,6 +75,7 @@ networks:
 ```
 
 2. Start the services:
+
 ```bash
 docker-compose up -d
 ```
@@ -141,7 +144,7 @@ GRAFANA_API_KEY=your-grafana-api-key-here
      - ✅ Write to `telemetry` bucket in `db502fe7945647c5` organization
      - ✅ Read from `telemetry` bucket in `db502fe7945647c5` organization
 
-4. **Generate and Copy Token**:
+5. **Generate and Copy Token**:
    - Click "Generate" to create the token
    - **IMPORTANT**: Copy the token immediately - you won't see it again!
    - Store it securely in your `.env` file
@@ -187,16 +190,19 @@ GRAFANA_API_KEY=your-grafana-api-key-here
 ## Step 3: Initialize the Telemetry System
 
 1. Run the database migrations:
+
 ```bash
 pnpm --filter api migration:run
 ```
 
 2. Run the Grafana setup script:
+
 ```bash
 pnpm --filter api ts-node src/scripts/setupGrafana.ts
 ```
 
 This will:
+
 - Test InfluxDB and Grafana connections
 - Create pre-built dashboards in Grafana
 - Send test data to verify integration
@@ -207,6 +213,7 @@ This will:
 ### In-System Dashboard
 
 1. Start the application:
+
 ```bash
 pnpm dev
 ```
@@ -238,33 +245,36 @@ For advanced observability, you can send OpenTelemetry data directly to Grafana 
    - Copy the **Endpoint URL** and **Instance ID** (these will be different)
 
 2. **Install OpenTelemetry Packages**:
+
 ```bash
 pnpm add @opentelemetry/api @opentelemetry/sdk-node @opentelemetry/exporter-otlp-proto @opentelemetry/auto-instrumentations-node
 ```
 
 3. **Create OTLP Configuration** (`apps/api/src/config/opentelemetry.ts`):
+
 ```typescript
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-otlp-proto';
 
 const traceExporter = new OTLPTraceExporter({
-  url: 'https://otlp-gateway-prod-us-east-0.grafana.net/otlp', // Replace with your endpoint
-  headers: {
-    'Authorization': `Basic ${Buffer.from('your-instance-id:your-api-token').toString('base64')}`,
-  },
+	url: 'https://otlp-gateway-prod-us-east-0.grafana.net/otlp', // Replace with your endpoint
+	headers: {
+		Authorization: `Basic ${Buffer.from('your-instance-id:your-api-token').toString('base64')}`,
+	},
 });
 
 export const otelSDK = new NodeSDK({
-  serviceName: 'emaus-retreat-api',
-  serviceVersion: '1.0.0',
-  traceExporter,
-  instrumentations: [getNodeAutoInstrumentations()],
+	serviceName: 'emaus-retreat-api',
+	serviceVersion: '1.0.0',
+	traceExporter,
+	instrumentations: [getNodeAutoInstrumentations()],
 });
 ```
 
 4. **Initialize OpenTelemetry** (`apps/api/src/index.ts`):
-Add this at the top of your main application file:
+   Add this at the top of your main application file:
+
 ```typescript
 import { otelSDK } from './config/opentelemetry';
 
@@ -273,6 +283,7 @@ otelSDK.start();
 ```
 
 5. **Configure Environment Variables**:
+
 ```env
 # OpenTelemetry
 OTEL_SERVICE_NAME=emaus-retreat-api
@@ -286,6 +297,7 @@ OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic your-encoded-credentials
 For production environments, use the OpenTelemetry Collector:
 
 1. **Download and Configure Collector**:
+
 ```yaml
 # otel-collector-config.yaml
 receivers:
@@ -296,9 +308,9 @@ receivers:
 
 exporters:
   otlp/grafana:
-    endpoint: "https://otlp-gateway-prod-us-east-0.grafana.net/otlp"
+    endpoint: 'https://otlp-gateway-prod-us-east-0.grafana.net/otlp'
     headers:
-      Authorization: "Basic <base64-encoded-credentials>"
+      Authorization: 'Basic <base64-encoded-credentials>'
 
 service:
   pipelines:
@@ -309,12 +321,14 @@ service:
 ```
 
 2. **Run Collector**:
+
 ```bash
 docker run -v $(pwd)/otel-collector-config.yaml:/etc/otelcol/config.yaml \
   otel/opentelemetry-collector:latest
 ```
 
 3. **Configure App to Send to Collector**:
+
 ```env
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 ```
@@ -324,6 +338,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 #### Backend Telemetry
 
 The system automatically collects:
+
 - API response times
 - Database query performance
 - Memory usage
@@ -340,16 +355,17 @@ import { telemetryService } from '@/services/telemetryService';
 // Initialize telemetry when user logs in
 const authStore = useAuthStore();
 watch(
-  () => authStore.user,
-  async (user) => {
-    if (user) {
-      await telemetryService.initialize(user.id);
-    }
-  }
+	() => authStore.user,
+	async (user) => {
+		if (user) {
+			await telemetryService.initialize(user.id);
+		}
+	},
 );
 ```
 
 The frontend automatically tracks:
+
 - Page load times
 - API call performance
 - User interactions
@@ -361,19 +377,21 @@ The frontend automatically tracks:
 ### Adding New Metrics
 
 1. **Backend**: Use the telemetry service
+
 ```typescript
 import { getTelemetryCollectionService } from './services/telemetryCollectionService';
 
 const telemetryService = getTelemetryCollectionService(AppDataSource);
 await telemetryService.trackMetric({
-  metricType: 'custom_metric',
-  unit: 'count',
-  value: 42,
-  tags: { category: 'custom' }
+	metricType: 'custom_metric',
+	unit: 'count',
+	value: 42,
+	tags: { category: 'custom' },
 });
 ```
 
 2. **Frontend**: Use the telemetry service
+
 ```typescript
 import { telemetryService } from '@/services/telemetryService';
 
@@ -410,17 +428,17 @@ await telemetryService.trackFeatureUsage('custom-feature', 'action', { metadata:
    - Verify the token and organization settings
    - Ensure the bucket exists
 
-2. **Grafana Connection Failed**
+3. **Grafana Connection Failed**
    - Check that Grafana is running on port 3000
    - Verify the API key has admin permissions
    - Check network connectivity between services
 
-3. **No Data in Dashboards**
+4. **No Data in Dashboards**
    - Verify data is being sent to InfluxDB
    - Check the time range in Grafana dashboards
    - Ensure the data source is properly configured
 
-4. **Frontend Telemetry Not Working**
+5. **Frontend Telemetry Not Working**
    - Check that telemetryService.initialize() is called
    - Verify user authentication
    - Check browser console for errors
@@ -428,6 +446,7 @@ await telemetryService.trackFeatureUsage('custom-feature', 'action', { metadata:
 ### Debug Mode
 
 Enable debug logging by setting:
+
 ```env
 NODE_ENV=development
 ```

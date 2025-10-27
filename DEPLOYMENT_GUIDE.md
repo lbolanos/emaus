@@ -136,7 +136,6 @@ cd ../../../apps/api/dist && tar -czf ../../../api-dist.tar.gz .
 
 ---
 
-
 ---
 
 ## 🔧 Environment Configuration Setup
@@ -148,6 +147,7 @@ cd ../../../apps/api/dist && tar -czf ../../../api-dist.tar.gz .
 ### Required Environment Variables
 
 #### API Configuration (`apps/api/.env`)
+
 ```bash
 DB_TYPE=sqlite
 DB_DATABASE=database.sqlite
@@ -157,6 +157,7 @@ NODE_ENV=production
 ```
 
 #### Frontend Configuration (`apps/web/.env.production`)
+
 ```bash
 # Use environment variables, not hardcoded values
 VITE_API_URL=https://yourdomain.com/api
@@ -166,6 +167,7 @@ VITE_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
 ### 🔧 Setting Up Environment Variables
 
 #### Method 1: Environment Variables (Recommended for Production)
+
 ```bash
 # Set at deployment time
 export VITE_API_URL=https://yourdomain.com/api
@@ -176,6 +178,7 @@ export VITE_GOOGLE_MAPS_API_KEY=your-google-maps-key
 ```
 
 #### Method 2: Configuration File
+
 ```bash
 # Copy example template
 cp apps/web/.env.production.example apps/web/.env.production
@@ -185,6 +188,7 @@ nano apps/web/.env.production
 ```
 
 #### Method 3: GitHub Repository Secrets (For CI/CD)
+
 1. Go to GitHub Repository Settings
 2. Navigate to Secrets and variables > Actions
 3. Add repository secret: `VITE_GOOGLE_MAPS_API_KEY`

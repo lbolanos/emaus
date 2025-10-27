@@ -48,7 +48,6 @@ async function setupGrafana() {
 		console.log('2. Login with your admin credentials');
 		console.log('3. Navigate to Dashboards to view the telemetry dashboards');
 		console.log('4. The in-system dashboard is available at /telemetry for superadmins');
-
 	} catch (error) {
 		console.error('❌ Setup failed:', error);
 		process.exit(1);
@@ -125,7 +124,7 @@ async function sendTestData() {
 
 // Run the setup if this script is executed directly
 if (require.main === module) {
-	setupGrafana();
+	void setupGrafana();
 }
 
 export { setupGrafana };

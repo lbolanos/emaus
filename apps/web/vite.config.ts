@@ -9,8 +9,12 @@ export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, process.cwd(), '');
 
 	// Determine which environment config file to use
-	const envFile = mode === 'development' ? '.env.development' :
-					mode === 'staging' ? '.env.staging' : '.env.production';
+	const envFile =
+		mode === 'development'
+			? '.env.development'
+			: mode === 'staging'
+				? '.env.staging'
+				: '.env.production';
 
 	console.log(`[VITE] Loading environment from: ${envFile}`);
 	console.log(`[VITE] Environment variables:`, env);

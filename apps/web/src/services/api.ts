@@ -48,11 +48,7 @@ api.interceptors.response.use(
 		const startTime = response.config.metadata?.startTime;
 		if (startTime && telemetryService.isTelemetryActive()) {
 			const duration = Date.now() - startTime;
-			telemetryService.trackApiCallTime(
-				response.config.url || 'unknown',
-				duration,
-				true,
-			);
+			telemetryService.trackApiCallTime(response.config.url || 'unknown', duration, true);
 		}
 
 		return response;
@@ -64,11 +60,7 @@ api.interceptors.response.use(
 		const startTime = error.config?.metadata?.startTime;
 		if (startTime && telemetryService.isTelemetryActive()) {
 			const duration = Date.now() - startTime;
-			telemetryService.trackApiCallTime(
-				error.config?.url || 'unknown',
-				duration,
-				false,
-			);
+			telemetryService.trackApiCallTime(error.config?.url || 'unknown', duration, false);
 		}
 
 		// Track errors for telemetry

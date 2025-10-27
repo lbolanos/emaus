@@ -74,16 +74,19 @@ VITE_API_URL=https://your-api-domain.com/api
 ## 🔧 How Environment Variables Flow Works
 
 ### Build Time (GitHub Actions)
+
 ```
 GitHub Secrets → Environment Variables → Vite Build Process → Built Application
 ```
 
 ### Deployment Time (Manual)
+
 ```
 Shell Environment → Deployment Script → Runtime Config Generation → Application
 ```
 
 ### Runtime (Application)
+
 ```
 Runtime Config → Environment Detection → Dynamic Configuration → Live Application
 ```
@@ -93,6 +96,7 @@ Runtime Config → Environment Detection → Dynamic Configuration → Live Appl
 ### For Web Frontend (`apps/web/`)
 
 1. **Runtime Environment Variables** (highest priority)
+
    ```bash
    export VITE_API_URL=https://prod.example.com/api
    export VITE_GOOGLE_MAPS_API_KEY=your-key
@@ -100,6 +104,7 @@ Runtime Config → Environment Detection → Dynamic Configuration → Live Appl
    ```
 
 2. **Build-time Variables** (`VITE_*` prefixed)
+
    ```bash
    # apps/web/.env.production
    VITE_API_URL=https://prod.example.com/api
@@ -115,6 +120,7 @@ Runtime Config → Environment Detection → Dynamic Configuration → Live Appl
 ### For API Backend (`apps/api/`)
 
 1. **Configuration Files**
+
    ```bash
    # apps/api/.env
    DB_TYPE=sqlite
@@ -155,6 +161,7 @@ VITE_GOOGLE_MAPS_API_KEY=${VITE_GOOGLE_MAPS_API_KEY:-}
 ```
 
 This line is **correctly placed** because:
+
 - ✅ It's read before runtime config generation
 - ✅ Used in the `cat > runtime-config.js` heredoc
 - ✅ Available during configuration file creation
@@ -193,6 +200,7 @@ pnpm dev
 ### Environment Variables Not Working
 
 1. **Check Timing**
+
    ```bash
    # Verify variables are set BEFORE running script
    echo "API_URL: $VITE_API_URL"
@@ -201,6 +209,7 @@ pnpm dev
    ```
 
 2. **Check File Permissions**
+
    ```bash
    # Ensure .env files have correct permissions
    chmod 600 apps/web/.env.production
@@ -224,7 +233,7 @@ pnpm dev
 ❌ **Setting variables AFTER script runs**
 ❌ **Using wrong file locations**
 ❌ **Forgetting to export in subshells**
-❌ **Incorrect variable names (VITE_ prefix required for frontend)**
+❌ **Incorrect variable names (VITE\_ prefix required for frontend)**
 ❌ **Not setting GitHub repository secrets**
 
 ## ✅ Best Practice Summary

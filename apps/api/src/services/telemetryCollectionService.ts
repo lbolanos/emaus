@@ -1,6 +1,14 @@
 import { Repository, DataSource } from 'typeorm';
-import { TelemetryMetric, TelemetryMetricType, TelemetryMetricUnit } from '../entities/telemetryMetric.entity';
-import { TelemetryEvent, TelemetryEventType, TelemetryEventSeverity } from '../entities/telemetryEvent.entity';
+import {
+	TelemetryMetric,
+	TelemetryMetricType,
+	TelemetryMetricUnit,
+} from '../entities/telemetryMetric.entity';
+import {
+	TelemetryEvent,
+	TelemetryEventType,
+	TelemetryEventSeverity,
+} from '../entities/telemetryEvent.entity';
 import { TelemetrySession } from '../entities/telemetrySession.entity';
 import { influxdbService } from './influxdbService';
 
@@ -86,11 +94,11 @@ export class TelemetryCollectionService {
 	async collectMetrics(metricsData: MetricData[]): Promise<void> {
 		try {
 			// Store in local database
-			const metrics = metricsData.map(data =>
+			const metrics = metricsData.map((data) =>
 				this.telemetryMetricRepository.create({
 					...data,
 					createdAt: new Date(),
-				})
+				}),
 			);
 			await this.telemetryMetricRepository.save(metrics);
 
@@ -124,11 +132,11 @@ export class TelemetryCollectionService {
 	async collectEvents(eventsData: EventData[]): Promise<void> {
 		try {
 			// Store in local database
-			const events = eventsData.map(data =>
+			const events = eventsData.map((data) =>
 				this.telemetryEventRepository.create({
 					...data,
 					createdAt: new Date(),
-				})
+				}),
 			);
 			await this.telemetryEventRepository.save(events);
 
@@ -182,13 +190,16 @@ export class TelemetryCollectionService {
 	}
 
 	// Update an existing session
-	async updateSession(sessionId: string, updates: {
-		pageViews?: number;
-		interactions?: number;
-		errors?: number;
-		duration?: number;
-		lastActivity?: Date;
-	}): Promise<void> {
+	async updateSession(
+		sessionId: string,
+		updates: {
+			pageViews?: number;
+			interactions?: number;
+			errors?: number;
+			duration?: number;
+			lastActivity?: Date;
+		},
+	): Promise<void> {
 		try {
 			await this.telemetrySessionRepository.update(sessionId, {
 				...updates,
@@ -205,8 +216,9 @@ export class TelemetryCollectionService {
 		try {
 			const session = await this.telemetrySessionRepository.findOne({ where: { id: sessionId } });
 			if (session) {
-				const duration = session.lastActivity ?
-					(session.lastActivity.getTime() - session.createdAt.getTime()) / 1000 : 0;
+				const duration = session.lastActivity
+					? (session.lastActivity.getTime() - session.createdAt.getTime()) / 1000
+					: 0;
 
 				await this.telemetrySessionRepository.update(sessionId, {
 					isActive: false,
@@ -240,7 +252,12 @@ export class TelemetryCollectionService {
 	// Convenience methods for common telemetry types
 
 	// Track user authentication events
-	async trackUserLogin(userId: string, sessionId: string, ipAddress?: string, userAgent?: string): Promise<void> {
+	async trackUserLogin(
+		userId: string,
+		sessionId: string,
+		ipAddress?: string,
+		userAgent?: string,
+	): Promise<void> {
 		await this.collectEvent({
 			eventType: TelemetryEventType.USER_LOGIN,
 			severity: TelemetryEventSeverity.INFO,
@@ -268,7 +285,11 @@ export class TelemetryCollectionService {
 		});
 	}
 
-	async trackAuthenticationFailure(ipAddress?: string, userAgent?: string, reason?: string): Promise<void> {
+	async trackAuthenticationFailure(
+		ipAddress?: string,
+		userAgent?: string,
+		reason?: string,
+	): Promise<void> {
 		await this.collectEvent({
 			eventType: TelemetryEventType.SECURITY_ALERT,
 			severity: TelemetryEventSeverity.WARNING,
@@ -281,7 +302,11 @@ export class TelemetryCollectionService {
 	}
 
 	// Track business events
-	async trackParticipantRegistration(userId: string, retreatId: string, participantId: string): Promise<void> {
+	async trackParticipantRegistration(
+		userId: string,
+		retreatId: string,
+		participantId: string,
+	): Promise<void> {
 		await this.collectEvent({
 			eventType: TelemetryEventType.PARTICIPANT_CREATED,
 			severity: TelemetryEventSeverity.INFO,
@@ -295,9 +320,18 @@ export class TelemetryCollectionService {
 		});
 	}
 
-	async trackPaymentProcessing(userId: string, retreatId: string, paymentId: string, amount: number, status: string): Promise<void> {
+	async trackPaymentProcessing(
+		userId: string,
+		retreatId: string,
+		paymentId: string,
+		amount: number,
+		status: string,
+	): Promise<void> {
 		await this.collectEvent({
-			eventType: status === 'success' ? TelemetryEventType.PAYMENT_PROCESSED : TelemetryEventType.PAYMENT_FAILED,
+			eventType:
+				status === 'success'
+					? TelemetryEventType.PAYMENT_PROCESSED
+					: TelemetryEventType.PAYMENT_FAILED,
 			severity: status === 'success' ? TelemetryEventSeverity.INFO : TelemetryEventSeverity.WARNING,
 			description: `Payment ${status}: ${amount}`,
 			resourceType: 'payment',
@@ -310,7 +344,11 @@ export class TelemetryCollectionService {
 	}
 
 	// Track performance metrics
-	async trackDatabaseQueryTime(queryTime: number, queryType: string, userId?: string): Promise<void> {
+	async trackDatabaseQueryTime(
+		queryTime: number,
+		queryType: string,
+		userId?: string,
+	): Promise<void> {
 		await this.collectMetric({
 			metricType: TelemetryMetricType.DATABASE_QUERY_TIME,
 			unit: TelemetryMetricUnit.MILLISECONDS,
@@ -334,7 +372,12 @@ export class TelemetryCollectionService {
 	}
 
 	// Track user behavior
-	async trackPageView(userId: string, sessionId: string, page: string, ipAddress?: string): Promise<void> {
+	async trackPageView(
+		userId: string,
+		sessionId: string,
+		page: string,
+		ipAddress?: string,
+	): Promise<void> {
 		await this.collectEvent({
 			eventType: TelemetryEventType.PAGE_VIEW,
 			severity: TelemetryEventSeverity.INFO,
@@ -347,7 +390,12 @@ export class TelemetryCollectionService {
 		});
 	}
 
-	async trackFeatureUsage(userId: string, feature: string, action: string, metadata?: Record<string, any>): Promise<void> {
+	async trackFeatureUsage(
+		userId: string,
+		feature: string,
+		action: string,
+		metadata?: Record<string, any>,
+	): Promise<void> {
 		await this.collectEvent({
 			eventType: TelemetryEventType.FEATURE_USAGE,
 			severity: TelemetryEventSeverity.INFO,
@@ -361,7 +409,10 @@ export class TelemetryCollectionService {
 	// Health check method
 	async checkHealth(): Promise<{ database: boolean; influxdb: boolean }> {
 		try {
-			const databaseHealth = await this.telemetryMetricRepository.count().then(() => true).catch(() => false);
+			const databaseHealth = await this.telemetryMetricRepository
+				.count()
+				.then(() => true)
+				.catch(() => false);
 			const influxdbHealth = await influxdbService.checkConnection();
 
 			return {
@@ -378,7 +429,9 @@ export class TelemetryCollectionService {
 // Export singleton instance
 let telemetryCollectionServiceInstance: TelemetryCollectionService | null = null;
 
-export const getTelemetryCollectionService = (dataSource: DataSource): TelemetryCollectionService => {
+export const getTelemetryCollectionService = (
+	dataSource: DataSource,
+): TelemetryCollectionService => {
 	if (!telemetryCollectionServiceInstance) {
 		telemetryCollectionServiceInstance = new TelemetryCollectionService(dataSource);
 	}

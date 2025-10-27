@@ -115,12 +115,24 @@ async function main() {
 
 	// --- 4. Performance, CSRF, and API Routes ---
 	console.log('[INIT] Step 4: Configuring performance, CSRF, and API routes...');
-	app.use((req, res, next) => PerformanceMiddleware.trackPerformance(req as PerformanceRequest, res, next));
-	app.use((req, res, next) => PerformanceMiddleware.optimizePermissionCheck(req as PerformanceRequest, res, next));
-	app.use((req, res, next) => PerformanceMiddleware.optimizeRetreatUserQuery(req as PerformanceRequest, res, next));
-	app.use((req, res, next) => PerformanceMiddleware.invalidateCacheOnChanges(req as PerformanceRequest, res, next));
-	app.use((req, res, next) => PerformanceMiddleware.monitorMemory(req as PerformanceRequest, res, next));
-	app.use((req, res, next) => PerformanceMiddleware.optimizeDatabaseQueries(req as PerformanceRequest, res, next));
+	app.use((req, res, next) =>
+		PerformanceMiddleware.trackPerformance(req as PerformanceRequest, res, next),
+	);
+	app.use((req, res, next) =>
+		PerformanceMiddleware.optimizePermissionCheck(req as PerformanceRequest, res, next),
+	);
+	app.use((req, res, next) =>
+		PerformanceMiddleware.optimizeRetreatUserQuery(req as PerformanceRequest, res, next),
+	);
+	app.use((req, res, next) =>
+		PerformanceMiddleware.invalidateCacheOnChanges(req as PerformanceRequest, res, next),
+	);
+	app.use((req, res, next) =>
+		PerformanceMiddleware.monitorMemory(req as PerformanceRequest, res, next),
+	);
+	app.use((req, res, next) =>
+		PerformanceMiddleware.optimizeDatabaseQueries(req as PerformanceRequest, res, next),
+	);
 	app.use((req, res, next) => csrfMiddleware.generateToken(req as PerformanceRequest, res, next));
 
 	app.get('/health', (_req, res) => {

@@ -329,7 +329,6 @@ rsync -avz \
 --exclude 'apps/web/.env' \
  . root@155.138.230.215:/var/www/emaus/
 
-
 scp root@155.138.230.215:/var/www/emaus/apps/api/database.sqlite apps/api/database.sqlite
 sqlite3 /var/www/emaus/apps/api/database.sqlite "INSERT OR IGNORE INTO user_roles (userId, roleId) VALUES ('254a1d26-3c53-485a-a0ec-950a43d30aed', 3);"
 sqlite3 /var/www/emaus/apps/api/database.sqlite "SELECT u.email, u.displayName, r.name as role_name FROM users u LEFT JOIN user_roles ur ON u.id = ur.userId LEFT JOIN roles r ON ur.roleId = r.id WHERE u.email = 'lunavalentinabe@isb.edu.mx';"
@@ -338,9 +337,10 @@ ssh root@155.138.230.215 "cat /var/www/emaus/apps/api/database.sqlite" > apps/ap
 scp root@155.138.230.215:/var/www/emaus/apps/api/.env ./apps/api/
 scp root@155.138.230.215:/var/www/emaus/apps/api/.env.production ./apps/api/
 
-
 # how to deploy best way
-## local 
+
+## local
+
 scp root@155.138.230.215:/var/www/emaus/apps/web/.env ./apps/web/
 scp root@155.138.230.215:/var/www/emaus/apps/web/.env.production ./apps/web/
 
@@ -359,6 +359,7 @@ export CERTBOT_EMAIL=leonardo.bolanos@gmail.com
 ./create-release.sh
 
 ## remote
+
 export frontend_url='https://emaus.cc'  
 export DOMAIN_NAME='emaus.cc'
 export VPS_HOST=155.138.230.215
@@ -372,10 +373,12 @@ export CERTBOT_EMAIL=leonardo.bolanos@gmail.com
 # how to update
 
 ## local testing the migration
+
 scp root@155.138.230.215:/var/www/emaus/apps/api/database.sqlite apps/api/database.sqlite
 pnpm migration:run
 
 ## copy files
+
 rsync -avz \
 --exclude '.git' \
 --exclude '.turbo' \
@@ -385,7 +388,6 @@ rsync -avz \
  . root@155.138.230.215:/var/www/emaus/
 
 ## remote
+
 pm2 logs emaus-api
 pm2 restart emaus-api
-
-

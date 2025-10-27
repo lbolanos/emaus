@@ -57,7 +57,9 @@ class RuntimeConfigManager {
 
 		// 1. Check runtime injected configuration first
 		if (window.EMAUS_RUNTIME_CONFIG?.environment) {
-			console.log(`[CONFIG] Runtime environment from injection: ${window.EMAUS_RUNTIME_CONFIG.environment}`);
+			console.log(
+				`[CONFIG] Runtime environment from injection: ${window.EMAUS_RUNTIME_CONFIG.environment}`,
+			);
 			return window.EMAUS_RUNTIME_CONFIG.environment;
 		}
 
@@ -68,12 +70,16 @@ class RuntimeConfigManager {
 		console.log(`[CONFIG] Runtime environment detection: hostname=${hostname}, port=${port}`);
 
 		// Staging environment detection
-		const isStaging = hostname.includes('staging') || hostname.includes('stg') ||
-			hostname.includes('staging.') || hostname.includes('-stg.') ||
+		const isStaging =
+			hostname.includes('staging') ||
+			hostname.includes('stg') ||
+			hostname.includes('staging.') ||
+			hostname.includes('-stg.') ||
 			(port && ['3001', '3002', '8081'].includes(port));
 
 		// Localhost/development detection
-		const isLocalhost = hostname === 'localhost' ||
+		const isLocalhost =
+			hostname === 'localhost' ||
 			hostname === '127.0.0.1' ||
 			hostname.startsWith('192.168.') ||
 			hostname.startsWith('10.') ||
@@ -116,7 +122,7 @@ class RuntimeConfigManager {
 				environment,
 				apiUrl,
 				googleMapsApiKey,
-				source: 'runtime-injected'
+				source: 'runtime-injected',
 			});
 		} else {
 			// 2. Build-time environment variables (with runtime safety check)
@@ -129,7 +135,7 @@ class RuntimeConfigManager {
 						environment,
 						apiUrl,
 						googleMapsApiKey,
-						source: 'build-time'
+						source: 'build-time',
 					});
 				} else {
 					// Fallback to environment-based defaults
@@ -139,7 +145,7 @@ class RuntimeConfigManager {
 						environment,
 						apiUrl,
 						googleMapsApiKey,
-						source: 'defaults'
+						source: 'defaults',
 					});
 				}
 			} catch (error) {
@@ -151,7 +157,7 @@ class RuntimeConfigManager {
 					apiUrl,
 					googleMapsApiKey,
 					source: 'fallback',
-					error: error instanceof Error ? error.message : String(error)
+					error: error instanceof Error ? error.message : String(error),
 				});
 			}
 		}
@@ -256,9 +262,11 @@ class RuntimeConfigManager {
 			console.log('[CONFIG] Configuration updated:', updatedConfig);
 
 			// Dispatch event for app updates
-			window.dispatchEvent(new CustomEvent('emaus-config-updated', {
-				detail: updatedConfig
-			}));
+			window.dispatchEvent(
+				new CustomEvent('emaus-config-updated', {
+					detail: updatedConfig,
+				}),
+			);
 
 			return updatedConfig;
 		} catch (error) {

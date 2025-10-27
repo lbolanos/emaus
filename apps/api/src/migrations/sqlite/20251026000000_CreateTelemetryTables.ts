@@ -26,10 +26,18 @@ export class CreateTelemetryTables20251026000000 implements MigrationInterface {
 			)
 		`);
 
-		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_telemetry_metrics_metricType_createdAt" ON "telemetry_metrics" ("metricType", "createdAt")`);
-		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_telemetry_metrics_userId" ON "telemetry_metrics" ("userId")`);
-		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_telemetry_metrics_retreatId" ON "telemetry_metrics" ("retreatId")`);
-		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_telemetry_metrics_tags" ON "telemetry_metrics" ("tags")`);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_telemetry_metrics_metricType_createdAt" ON "telemetry_metrics" ("metricType", "createdAt")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_telemetry_metrics_userId" ON "telemetry_metrics" ("userId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_telemetry_metrics_retreatId" ON "telemetry_metrics" ("retreatId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_telemetry_metrics_tags" ON "telemetry_metrics" ("tags")`,
+		);
 
 		// Create telemetry_events table
 		await queryRunner.query(`
@@ -55,10 +63,18 @@ export class CreateTelemetryTables20251026000000 implements MigrationInterface {
 			)
 		`);
 
-		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_telemetry_events_eventType_severity_createdAt" ON "telemetry_events" ("eventType", "severity", "createdAt")`);
-		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_telemetry_events_userId" ON "telemetry_events" ("userId")`);
-		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_telemetry_events_retreatId" ON "telemetry_events" ("retreatId")`);
-		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_telemetry_events_resourceType_resourceId" ON "telemetry_events" ("resourceType", "resourceId")`);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_telemetry_events_eventType_severity_createdAt" ON "telemetry_events" ("eventType", "severity", "createdAt")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_telemetry_events_userId" ON "telemetry_events" ("userId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_telemetry_events_retreatId" ON "telemetry_events" ("retreatId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_telemetry_events_resourceType_resourceId" ON "telemetry_events" ("resourceType", "resourceId")`,
+		);
 
 		// Create telemetry_sessions table
 		await queryRunner.query(`
@@ -84,9 +100,15 @@ export class CreateTelemetryTables20251026000000 implements MigrationInterface {
 			)
 		`);
 
-		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_telemetry_sessions_userId_isActive" ON "telemetry_sessions" ("userId", "isActive")`);
-		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_telemetry_sessions_createdAt" ON "telemetry_sessions" ("createdAt")`);
-		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_telemetry_sessions_lastActivity" ON "telemetry_sessions" ("lastActivity")`);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_telemetry_sessions_userId_isActive" ON "telemetry_sessions" ("userId", "isActive")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_telemetry_sessions_createdAt" ON "telemetry_sessions" ("createdAt")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_telemetry_sessions_lastActivity" ON "telemetry_sessions" ("lastActivity")`,
+		);
 
 		// Create telemetry_dashboards table
 		await queryRunner.query(`
@@ -108,9 +130,15 @@ export class CreateTelemetryTables20251026000000 implements MigrationInterface {
 			)
 		`);
 
-		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_telemetry_dashboards_userId_isDefault" ON "telemetry_dashboards" ("userId", "isDefault")`);
-		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_telemetry_dashboards_dashboardType" ON "telemetry_dashboards" ("dashboardType")`);
-		await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_telemetry_dashboards_isActive" ON "telemetry_dashboards" ("isActive")`);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_telemetry_dashboards_userId_isDefault" ON "telemetry_dashboards" ("userId", "isDefault")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_telemetry_dashboards_dashboardType" ON "telemetry_dashboards" ("dashboardType")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX IF NOT EXISTS "idx_telemetry_dashboards_isActive" ON "telemetry_dashboards" ("isActive")`,
+		);
 
 		console.log('📊 Created telemetry tables');
 

@@ -21,7 +21,7 @@ export const validateRequest =
 				const parts = [
 					{ name: 'body', data: req.body },
 					{ name: 'query', data: req.query },
-					{ name: 'params', data: req.params }
+					{ name: 'params', data: req.params },
 				];
 
 				for (const part of parts) {
@@ -45,32 +45,34 @@ export const validateRequest =
 	};
 
 // Specialized validators for specific use cases
-export const validateQuery = (schema: AnyZodObject) => (req: Request, res: Response, next: NextFunction) => {
-	try {
-		schema.parse(req.query);
-		next();
-	} catch (error) {
-		if (error instanceof ZodError) {
-			return res.status(400).json({
-				message: 'Query validation error',
-				errors: error.errors,
-			});
+export const validateQuery =
+	(schema: AnyZodObject) => (req: Request, res: Response, next: NextFunction) => {
+		try {
+			schema.parse(req.query);
+			next();
+		} catch (error) {
+			if (error instanceof ZodError) {
+				return res.status(400).json({
+					message: 'Query validation error',
+					errors: error.errors,
+				});
+			}
+			next(error);
 		}
-		next(error);
-	}
-};
+	};
 
-export const validateBody = (schema: AnyZodObject) => (req: Request, res: Response, next: NextFunction) => {
-	try {
-		schema.parse(req.body);
-		next();
-	} catch (error) {
-		if (error instanceof ZodError) {
-			return res.status(400).json({
-				message: 'Body validation error',
-				errors: error.errors,
-			});
+export const validateBody =
+	(schema: AnyZodObject) => (req: Request, res: Response, next: NextFunction) => {
+		try {
+			schema.parse(req.body);
+			next();
+		} catch (error) {
+			if (error instanceof ZodError) {
+				return res.status(400).json({
+					message: 'Body validation error',
+					errors: error.errors,
+				});
+			}
+			next(error);
 		}
-		next(error);
-	}
-};
+	};

@@ -58,7 +58,9 @@ export class InfluxdbService {
 				this.influxDB = null;
 			}
 		} else {
-			console.warn('InfluxDB not configured - telemetry data will only be stored in local database');
+			console.warn(
+				'InfluxDB not configured - telemetry data will only be stored in local database',
+			);
 			this.writeApi = null;
 			this.influxDB = null;
 		}
@@ -221,9 +223,7 @@ export class InfluxdbService {
 
 		try {
 			// Create a simple test point
-			const testPoint = new Point('health_check')
-				.floatField('test', 1)
-				.timestamp(new Date());
+			const testPoint = new Point('health_check').floatField('test', 1).timestamp(new Date());
 
 			this.writeApi.writePoint(testPoint);
 			await this.writeApi.flush();

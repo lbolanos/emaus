@@ -183,7 +183,7 @@ class TelemetryService {
 				...data,
 				userId: this.userId,
 				component: data.component || 'frontend',
-				ipAddress: data.ipAddress || await this.getClientIP(),
+				ipAddress: data.ipAddress || (await this.getClientIP()),
 				userAgent: data.userAgent || navigator.userAgent,
 			});
 		} catch (error) {
@@ -207,7 +207,11 @@ class TelemetryService {
 	}
 
 	// Track feature usage
-	async trackFeatureUsage(feature: string, action: string, metadata?: Record<string, any>): Promise<void> {
+	async trackFeatureUsage(
+		feature: string,
+		action: string,
+		metadata?: Record<string, any>,
+	): Promise<void> {
 		if (!this.isActive) return;
 
 		try {
@@ -279,7 +283,7 @@ class TelemetryService {
 
 		try {
 			await api.post('/telemetry/metrics/batch', {
-				metrics: metrics.map(metric => ({
+				metrics: metrics.map((metric) => ({
 					...metric,
 					userId: this.userId,
 					component: metric.component || 'frontend',
@@ -296,8 +300,8 @@ class TelemetryService {
 
 		try {
 			// Pre-fetch IP addresses for events that need them
-			const ipPromises = events.map(event =>
-				event.ipAddress ? Promise.resolve(event.ipAddress) : this.getClientIP()
+			const ipPromises = events.map((event) =>
+				event.ipAddress ? Promise.resolve(event.ipAddress) : this.getClientIP(),
 			);
 			const ipAddresses = await Promise.all(ipPromises);
 
@@ -335,13 +339,15 @@ export const telemetryService = new TelemetryService();
 
 // Export convenience functions for common telemetry tasks
 export const trackPageView = (page: string) => telemetryService.trackPageView(page);
-export const trackFeatureUsage = (feature: string, action: string, metadata?: Record<string, any>) =>
-	telemetryService.trackFeatureUsage(feature, action, metadata);
+export const trackFeatureUsage = (
+	feature: string,
+	action: string,
+	metadata?: Record<string, any>,
+) => telemetryService.trackFeatureUsage(feature, action, metadata);
 export const trackUserInteraction = (interaction: string, element?: string) =>
 	telemetryService.trackUserInteraction(interaction, element);
 export const trackError = (error: Error, context?: string) =>
 	telemetryService.trackError(error, context);
-export const trackPageLoadTime = (loadTime: number) =>
-	telemetryService.trackPageLoadTime(loadTime);
+export const trackPageLoadTime = (loadTime: number) => telemetryService.trackPageLoadTime(loadTime);
 export const trackApiCallTime = (endpoint: string, duration: number, success: boolean) =>
 	telemetryService.trackApiCallTime(endpoint, duration, success);

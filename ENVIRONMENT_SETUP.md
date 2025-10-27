@@ -6,15 +6,15 @@ This document explains how to set up environment variables for the Emaus applica
 
 ### Required Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `VITE_API_URL` | API endpoint URL | `https://emaus.cc/api` |
-| `VITE_GOOGLE_MAPS_API_KEY` | Google Maps API key | `AIzaSy...` |
+| Variable                   | Description         | Example                |
+| -------------------------- | ------------------- | ---------------------- |
+| `VITE_API_URL`             | API endpoint URL    | `https://emaus.cc/api` |
+| `VITE_GOOGLE_MAPS_API_KEY` | Google Maps API key | `AIzaSy...`            |
 
 ### Optional Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
+| Variable   | Description      | Default      |
+| ---------- | ---------------- | ------------ |
 | `NODE_ENV` | Environment mode | `production` |
 
 ## Setup Methods
@@ -31,21 +31,27 @@ For GitHub Actions, set up repository secrets:
 ### 2. Environment Variables (.env files)
 
 #### Development
+
 Create `apps/web/.env.development`:
+
 ```bash
 VITE_API_URL=http://localhost:3001/api
 VITE_GOOGLE_MAPS_API_KEY=your-dev-key
 ```
 
 #### Staging
+
 Create `apps/web/.env.staging`:
+
 ```bash
 VITE_API_URL=https://staging.emaus.cc/api
 VITE_GOOGLE_MAPS_API_KEY=your-staging-key
 ```
 
 #### Production
+
 Copy the example file and add your values:
+
 ```bash
 cp apps/web/.env.production.example apps/web/.env.production
 # Edit apps/web/.env.production with your actual values
@@ -85,16 +91,19 @@ The GitHub workflow (`.github/workflows/build-release.yml`) now:
 The application uses a sophisticated runtime configuration system that:
 
 🔄 **Detects Environment Automatically**
+
 - Development: localhost, 127.0.0.1, ports 5173, 8080, 3000
 - Staging: domains containing 'staging' or 'stg'
 - Production: all other domains
 
 🌐 **Supports Runtime Changes**
+
 - `window.getEmausConfig()` - Get current configuration
 - `window.updateEmausConfig()` - Update configuration at runtime
 - Environment detection happens automatically
 
 🛡️ **Security Best Practices**
+
 - No hardcoded API keys in source code
 - Environment variables passed at build/deployment time
 - Runtime config generated dynamically
@@ -103,6 +112,7 @@ The application uses a sophisticated runtime configuration system that:
 ## Testing Environment Configuration
 
 Use the test page to verify configuration:
+
 ```bash
 # Start development server
 python3 -m http.server 8080
@@ -112,6 +122,7 @@ http://localhost:8080/test-runtime-config.html
 ```
 
 This will show:
+
 - Detected environment
 - Current API URL
 - Google Maps API key status

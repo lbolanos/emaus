@@ -29,7 +29,7 @@ export class PerformanceMiddleware {
 			}
 
 			// Collect telemetry data
-			PerformanceMiddleware.collectPerformanceTelemetry(req, res, duration);
+			void PerformanceMiddleware.collectPerformanceTelemetry(req, res, duration);
 
 			return originalSend.call(this, data);
 		};
@@ -137,7 +137,7 @@ export class PerformanceMiddleware {
 				.checkMemoryUsage()
 				.then((memoryCheck) => {
 					// Collect memory telemetry
-					PerformanceMiddleware.collectMemoryTelemetry(req, memoryCheck);
+					void PerformanceMiddleware.collectMemoryTelemetry(req, memoryCheck);
 
 					// Only perform cleanup if absolutely necessary (very high memory usage)
 					if (memoryCheck.shouldCleanup) {
@@ -302,7 +302,9 @@ export class PerformanceMiddleware {
 
 		// Update average response time
 		PerformanceMiddleware.metrics.averageResponseTime =
-			(PerformanceMiddleware.metrics.averageResponseTime * (PerformanceMiddleware.metrics.totalRequests - 1) + duration) /
+			(PerformanceMiddleware.metrics.averageResponseTime *
+				(PerformanceMiddleware.metrics.totalRequests - 1) +
+				duration) /
 			PerformanceMiddleware.metrics.totalRequests;
 	}
 
@@ -311,11 +313,15 @@ export class PerformanceMiddleware {
 			...PerformanceMiddleware.metrics,
 			cacheHitRate:
 				PerformanceMiddleware.metrics.totalRequests > 0
-					? (PerformanceMiddleware.metrics.cachedRequests / PerformanceMiddleware.metrics.totalRequests) * 100
+					? (PerformanceMiddleware.metrics.cachedRequests /
+							PerformanceMiddleware.metrics.totalRequests) *
+						100
 					: 0,
 			slowRequestRate:
 				PerformanceMiddleware.metrics.totalRequests > 0
-					? (PerformanceMiddleware.metrics.slowRequests / PerformanceMiddleware.metrics.totalRequests) * 100
+					? (PerformanceMiddleware.metrics.slowRequests /
+							PerformanceMiddleware.metrics.totalRequests) *
+						100
 					: 0,
 		};
 	}
