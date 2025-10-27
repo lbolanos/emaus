@@ -136,12 +136,18 @@ cd ../../../apps/api/dist && tar -czf ../../../api-dist.tar.gz .
 
 ---
 
-## ⚙️ Environment Configuration
+
+---
+
+## 🔧 Environment Configuration Setup
+
+### 🚨 IMPORTANT: Security Best Practices
+
+**Never hardcode API keys in your deployment files!** Use environment variables or repository secrets.
 
 ### Required Environment Variables
 
-**API (.env):**
-
+#### API Configuration (`apps/api/.env`)
 ```bash
 DB_TYPE=sqlite
 DB_DATABASE=database.sqlite
@@ -150,24 +156,74 @@ FRONTEND_URL=https://yourdomain.com
 NODE_ENV=production
 ```
 
-**Web (.env):**
-
+#### Frontend Configuration (`apps/web/.env.production`)
 ```bash
+# Use environment variables, not hardcoded values
 VITE_API_URL=https://yourdomain.com/api
-VITE_GOOGLE_MAPS_API_KEY=your-key-here
+VITE_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
 ```
 
-### Updating Environment Variables
+### 🔧 Setting Up Environment Variables
+
+#### Method 1: Environment Variables (Recommended for Production)
+```bash
+# Set at deployment time
+export VITE_API_URL=https://yourdomain.com/api
+export VITE_GOOGLE_MAPS_API_KEY=your-google-maps-key
+
+# Run deployment script
+./release-from-github.sh
+```
+
+#### Method 2: Configuration File
+```bash
+# Copy example template
+cp apps/web/.env.production.example apps/web/.env.production
+
+# Edit with your actual values
+nano apps/web/.env.production
+```
+
+#### Method 3: GitHub Repository Secrets (For CI/CD)
+1. Go to GitHub Repository Settings
+2. Navigate to Secrets and variables > Actions
+3. Add repository secret: `VITE_GOOGLE_MAPS_API_KEY`
+4. The GitHub workflow will automatically use this secret
+
+### 🔄 Updating Environment Variables
 
 ```bash
-# On VPS, edit the files:
+# On VPS, edit environment or configuration files:
 nano apps/api/.env
-nano apps/web/.env
+nano apps/web/.env.production
 
-# Restart services
+# Or set environment variables before running deployment:
+export VITE_API_URL=https://new-domain.com/api
+export VITE_GOOGLE_MAPS_API_KEY=new-key
+
+# Restart services to apply changes
 pm2 restart ecosystem.config.js
 sudo systemctl reload nginx
 ```
+
+### 🔑 Google Maps API Key Setup
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+2. Create API key with these restrictions:
+   - HTTP referrers: `*.yourdomain.com/*`
+   - APIs enabled: Maps JavaScript, Geocoding, Places
+3. Add to environment variables or repository secrets
+4. Never commit API keys to your repository
+
+### 🧪 Runtime Configuration Benefits
+
+The new runtime configuration system provides:
+
+✅ **No Hardcoded Values**: API keys loaded from environment
+✅ **Environment Detection**: Auto-detects dev/staging/production
+✅ **Runtime Updates**: Change configuration without rebuilds
+✅ **Security**: Sensitive data kept in secrets/environment
+✅ **Flexibility**: Same build works across environments
 
 ---
 

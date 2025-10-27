@@ -73,9 +73,10 @@ import {
 } from '@repo/ui';
 import { Input } from '@repo/ui';
 import { Label } from '@repo/ui';
+import { getApiUrl } from '@/config/runtimeConfig';
 
 
-const googleLoginUrl = `${import.meta.env.VITE_API_URL}/auth/google`;
+const googleLoginUrl = `${getApiUrl()}/auth/google`;
 
 const email = ref('');
 const password = ref('');

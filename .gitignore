@@ -3,6 +3,8 @@
 # .github/  # Uncomment if you want GitHub Actions workflows tracked
 .env
 .env.production
+.env.development
+.env.staging
 dist/
 gha-creds-*.json
 node_modules/

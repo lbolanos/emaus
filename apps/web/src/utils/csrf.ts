@@ -1,10 +1,10 @@
 import axios from 'axios';
+import { getApiUrl } from '@/config/runtimeConfig';
 
 let csrfToken: string | null = null;
 
-// Configurar Axios con la URL base de la API
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-axios.defaults.baseURL = apiUrl;
+// Configurar Axios con la URL base de la API (runtime)
+axios.defaults.baseURL = getApiUrl();
 axios.defaults.withCredentials = true;
 
 /**

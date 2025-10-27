@@ -218,6 +218,152 @@ rm -rf apps/api/dist
 mkdir -p apps/api/dist
 tar -xzf "$DOWNLOAD_DIR/api-dist.tar.gz" -C apps/api/dist/
 
+# Deploy runtime configuration for environment flexibility
+echo -e "${BLUE}🔧 Setting up runtime configuration...${NC}"
+echo -e "${YELLOW}⚠️  Note: API keys should be provided via environment variables:${NC}"
+echo -e "${YELLOW}   VITE_API_URL and VITE_GOOGLE_MAPS_API_KEY${NC}"
+
+# Load environment variables from .env files if they exist
+VITE_API_URL=${VITE_API_URL:-https://emaus.cc/api
+VITE_GOOGLE_MAPS_API_KEY=${VITE_GOOGLE_MAPS_API_KEY:-}
+if [ -f "apps/web/.env.production" ]; then
+    # Export variables from .env.production, ignoring comments and empty lines
+    export $(grep -v '^#' apps/web/.env.production | grep -v '^$' | xargs)
+fi
+
+# Determine API URL based on environment
+get_api_url() {
+    local env=$1
+    case $env in
+        "development")
+            echo "http://localhost:3001/api"
+            ;;
+        "staging")
+            echo "https://staging.emaus.cc/api"
+            ;;
+        "production"|*)
+            echo "${VITE_API_URL:-https://emaus.cc/api}"
+            ;;
+    esac
+}
+
+# Create comprehensive runtime config for production deployment
+cat > apps/web/dist/runtime-config.js << EOF
+/**
+ * Runtime Configuration for Emaus Frontend - Production Deployment
+ *
+ * This file enables dynamic environment switching at runtime
+ * without requiring application rebuilds.
+ *
+ * IMPORTANT: API keys and sensitive values should be provided via environment variables
+ * at deployment time, not hardcoded in this file.
+ */
+
+// Configuration defaults based on environment detection
+function detectEnvironment() {
+    const hostname = window.location.hostname;
+    const port = window.location.port;
+
+    // Localhost detection
+    const isLocalhost = hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname.startsWith('192.168.') ||
+        hostname.startsWith('10.') ||
+        (port && ['5173', '8080', '3000', '8787'].includes(port));
+
+    // Staging detection
+    const isStaging = hostname.includes('staging') || hostname.includes('stg') ||
+        hostname.includes('staging.') || hostname.includes('-stg.') ||
+        (port && ['3001', '3002', '8081'].includes(port));
+
+    if (isStaging) return 'staging';
+    if (isLocalhost) return 'development';
+    return 'production';
+}
+
+function getApiUrl(environment) {
+    switch (environment) {
+        case 'development':
+            return 'http://localhost:3001/api';
+        case 'staging':
+            return 'https://staging.emaus.cc/api';
+        case 'production':
+        default:
+            return '$(get_api_url production)';
+    }
+}
+
+// Initialize configuration
+const environment = detectEnvironment();
+const isDevelopment = environment === 'development';
+const isStaging = environment === 'staging';
+const isProduction = environment === 'production';
+
+// Set up global configuration
+window.EMAUS_RUNTIME_CONFIG = {
+    apiUrl: getApiUrl(environment),
+    googleMapsApiKey: '$VITE_GOOGLE_MAPS_API_KEY',
+    environment,
+    isDevelopment,
+    isStaging,
+    isProduction,
+};
+
+console.log('[CONFIG] Production runtime configuration loaded:', window.EMAUS_RUNTIME_CONFIG);
+
+/**
+ * Update configuration at runtime (useful for testing)
+ */
+window.updateEmausConfig = function(newConfig) {
+    window.EMAUS_RUNTIME_CONFIG = {
+        ...window.EMAUS_RUNTIME_CONFIG,
+        ...newConfig
+    };
+    console.log('[CONFIG] Runtime configuration updated:', window.EMAUS_RUNTIME_CONFIG);
+
+    // Trigger custom event for app updates
+    if (typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(new CustomEvent('emaus-config-updated', {
+            detail: window.EMAUS_RUNTIME_CONFIG
+        }));
+    }
+};
+
+/**
+ * Get current configuration
+ */
+window.getEmausConfig = function() {
+    return window.EMAUS_RUNTIME_CONFIG;
+};
+
+console.log('[CONFIG] Runtime configuration functions ready');
+EOF
+
+echo -e "${GREEN}✅ Production runtime configuration created${NC}"
+echo -e "${BLUE}💡 You can now modify configuration by editing apps/web/dist/runtime-config.js${NC}"
+echo -e "${BLUE}🔧 Use updateEmausConfig() to change settings at runtime${NC}"
+echo -e ""
+echo -e "${YELLOW}📋 Environment Variable Setup:${NC}"
+echo -e "   export VITE_API_URL=https://your-api-domain.com/api"
+echo -e "   export VITE_GOOGLE_MAPS_API_KEY=your-google-maps-key"
+echo -e "   ./release-from-github.sh"
+echo -e ""
+echo -e "${BLUE}📄 Or create apps/web/.env.production with your values${NC}"
+echo -e "   See apps/web/.env.production.example for template"
+
+# Verify and fix environment configuration
+echo -e "${BLUE}🔧 Verifying environment configuration...${NC}"
+
+# Ensure frontend environment files exist and have correct API URL
+if [ -f "apps/web/.env.production" ]; then
+    echo -e "${GREEN}✅ Frontend .env.production found${NC}"
+    # Copy production env to development env for runtime
+    cp apps/web/.env.production apps/web/.env
+    echo -e "${BLUE}📝 Updated frontend .env with production values${NC}"
+else
+    echo -e "${YELLOW}⚠️  Warning: No frontend .env.production found${NC}"
+fi
+
 # Verify extraction
 if [ ! -f "apps/api/dist/index.js" ]; then
     echo -e "${RED}❌ Error: API index.js not found after extraction${NC}"

@@ -4,6 +4,7 @@ import { useToast } from '@repo/ui'
 import { z } from 'zod'
 import { participantSchema, Participant } from '@repo/types'
 import { useParticipantStore } from '@/stores/participantStore'
+import { getApiUrl } from '@/config/runtimeConfig'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui'
 import { Button } from '@repo/ui'
@@ -343,7 +344,7 @@ const summaryData = computed(() => {
 onMounted(async () => {
   try {
     // Check if the provided retreatId exists using public endpoint
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/retreats/public/${props.retreatId}`)
+    const response = await fetch(`${getApiUrl()}/retreats/public/${props.retreatId}`)
 
     if (response.ok) {
       const retreat = await response.json()

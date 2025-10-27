@@ -1,9 +1,9 @@
 import axios from 'axios';
-import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@repo/ui';
 import type { TableMesa } from '@repo/types';
 import { setupCsrfInterceptor } from '@/utils/csrf';
 import { telemetryService } from './telemetryService';
+import { getApiUrl } from '@/config/runtimeConfig';
 
 // Extend axios request config to include metadata
 declare module 'axios' {
@@ -14,8 +14,12 @@ declare module 'axios' {
 	}
 }
 
+// Import type definitions
+import type { ImportMetaEnv } from '@/config/vite-env';
+declare const import_meta: ImportMeta;
+
 export const api = axios.create({
-	baseURL: import.meta.env.VITE_API_URL,
+	baseURL: getApiUrl(),
 	withCredentials: true,
 	headers: {
 		'Content-Type': 'application/json',

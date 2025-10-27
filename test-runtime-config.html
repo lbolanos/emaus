@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="Emaus Runtime Config Test">
+    <title>Runtime Configuration Quick Test</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8fafc;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .result {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+        .success { background: #f0fdf4; border: 1px solid #86efac; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #fca5a5; color: #dc2626; }
+        .config-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .config-label {
+            font-weight: 600;
+            color: #374151;
+        }
+        .config-value {
+            font-family: 'Monaco', 'Menlo', monospace;
+            background: #f1f5f9;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px 10px 0 0;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        .status-active { background: #dcfce7; color: #166534; }
+        .status-inactive { background: #f1f5f9; color: #6b7280; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Runtime Configuration Quick Test</h1>
+        <p><strong>Purpose:</strong> Quick verification that the runtime configuration system is working correctly.</p>
+
+        <div id="test-results">
+            <h2>🔄 Loading Runtime Configuration...</h2>
+        </div>
+
+        <div id="test-controls" style="display: none;">
+            <h2>🎯 Test Functions</h2>
+            <button onclick="testUpdateConfig()">🔄 Test Configuration Update</button>
+            <button onclick="window.open('/test-config.html', '_blank')">📋 Open Comprehensive Test</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import runtime config
+        import('./apps/web/dist/runtime-config.js')
+            .catch(err => console.error('Failed to load runtime config:', err));
+
+        // Test configuration
+        window.addEventListener('load', () => {
+            const config = window.getEmausConfig?.();
+            const resultsDiv = document.getElementById('test-results');
+
+            if (config) {
+                resultsDiv.innerHTML = `
+                    <div class="result success">
+                        <h2>✅ Runtime Configuration Working!</h2>
+                        <div class="config-item">
+                            <span class="config-label">Environment:</span>
+                            <span class="config-value">${config.environment || 'unknown'}</span>
+                            <span class="status ${config.isDevelopment ? 'status-active' : 'status-inactive'}">DEV</span>
+                            <span class="status ${config.isStaging ? 'status-active' : 'status-inactive'}">STAGING</span>
+                            <span class="status ${config.isProduction ? 'status-active' : 'status-inactive'}">PROD</span>
+                        </div>
+                        <div class="config-item">
+                            <span class="config-label">API URL:</span>
+                            <span class="config-value">${config.apiUrl || 'undefined'}</span>
+                        </div>
+                        <div class="config-item">
+                            <span class="config-label">Google Maps:</span>
+                            <span class="config-value">${config.googleMapsApiKey ? '✅ Available' : '❌ Missing'}</span>
+                        </div>
+                    </div>
+                `;
+
+                // Show test controls
+                document.getElementById('test-controls').style.display = 'block';
+
+                console.log('[TEST] Runtime configuration test passed:', config);
+            } else {
+                resultsDiv.innerHTML = `
+                    <div class="result error">
+                        <h2>❌ Configuration Failed to Load</h2>
+                        <p><strong>Error:</strong> Runtime configuration is not available</p>
+                        <p><strong>Causes:</strong></p>
+                        <ul>
+                            <li>apps/web/dist/runtime-config.js not found</li>
+                            <li>JavaScript module loading failed</li>
+                            <li>Runtime error in configuration loading</li>
+                        </ul>
+                        <p><strong>Solution:</strong> Check browser console for details and ensure that build completed successfully.</p>
+                    </div>
+                `;
+
+                console.error('[TEST] Runtime configuration test failed');
+            }
+        });
+
+        // Test functions
+        function testUpdateConfig() {
+            if (window.updateEmausConfig) {
+                window.updateEmausConfig({
+                    testMode: true,
+                    lastUpdated: new Date().toISOString(),
+                    environment: 'test-updated'
+                });
+
+                // Refresh display
+                setTimeout(() => {
+                    const config = window.getEmausConfig();
+                    const resultsDiv = document.getElementById('test-results');
+                    const currentValue = resultsDiv.querySelector('.config-value');
+                    if (currentValue) {
+                        currentValue.textContent = `${config.environment} (updated: ${config.lastUpdated})`;
+                        currentValue.style.background = '#fef3c7';
+                    }
+                }, 100);
+
+                alert('✅ Configuration update test successful!\n\nEnvironment temporarily set to: test-updated\n\nReload page to restore original settings.');
+                console.log('[TEST] Configuration update test passed:', window.getEmausConfig());
+            } else {
+                alert('❌ Configuration update failed!\n\nwindow.updateEmausConfig function not available.');
+            }
+        }
+    </script>
+</body>
+</html>
