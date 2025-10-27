@@ -320,6 +320,16 @@ rsync -avz \
 --exclude 'apps/web/.env' \
  . root@155.138.230.215:/var/www/emaus/
 
+rsync -avz \
+--exclude '.git' \
+--exclude '.turbo' \
+--exclude 'apps/api/database.sqlite' \
+--exclude 'apps/api/.env' \
+--exclude 'node_modules' \
+--exclude 'apps/web/.env' \
+ . root@155.138.230.215:/var/www/emaus/
+
+
 scp root@155.138.230.215:/var/www/emaus/apps/api/database.sqlite apps/api/database.sqlite
 sqlite3 /var/www/emaus/apps/api/database.sqlite "INSERT OR IGNORE INTO user_roles (userId, roleId) VALUES ('254a1d26-3c53-485a-a0ec-950a43d30aed', 3);"
 sqlite3 /var/www/emaus/apps/api/database.sqlite "SELECT u.email, u.displayName, r.name as role_name FROM users u LEFT JOIN user_roles ur ON u.id = ur.userId LEFT JOIN roles r ON ur.roleId = r.id WHERE u.email = 'lunavalentinabe@isb.edu.mx';"
@@ -337,7 +347,7 @@ enhance usability of
 enhance with user experience
 
 export frontend_url='https://emaus.cc'  
-export domain_name='emaus.cc'
+export DOMAIN_NAME='emaus.cc'
 export VPS_HOST=155.138.230.215
 export VPS_USER=root
 export GITHUB_REPO=lbolanos/emaus
@@ -345,14 +355,15 @@ export NEW_TAG=v0.0.1
 export RELEASE_TAG=v0.0.1
 export CERTBOT_EMAIL=leonardo.bolanos@gmail.com
 
+./create-release.sh
 
 # how to update
 
-## local
+## local testing the migration
 scp root@155.138.230.215:/var/www/emaus/apps/api/database.sqlite apps/api/database.sqlite
 pnpm migration:run
 
-
+## copy files
 rsync -avz \
 --exclude '.git' \
 --exclude '.turbo' \

@@ -91,7 +91,7 @@ export RELEASE_TAG=v1.0.0
 ### Step 3: SSL Setup (Optional but Recommended)
 
 ```bash
-export domain_name=yourdomain.com
+export DOMAIN_NAME=yourdomain.com
 ./ssl-setup.sh
 ```
 
@@ -272,14 +272,14 @@ cp nginx-pre-ssl.conf nginx.conf
 
 # Deploy your application
 
-domain_name=yourdomain.com ./deploy.sh
+DOMAIN_NAME=yourdomain.com ./deploy.sh
 Step 2: Setup SSL
 bashCopy# Create certbot webroot directory
 sudo mkdir -p /var/www/certbot
 
 # Run SSL setup
 
-domain_name=yourdomain.com CERTBOT_EMAIL=your@email.com ./ssl-setup.sh
+DOMAIN_NAME=yourdomain.com CERTBOT_EMAIL=your@email.com ./ssl-setup.sh
 Step 3: Update to HTTPS config
 After SSL is obtained, the certbot will automatically update your nginx config. Or you can manually update it:
 bashCopy# Backup current config
@@ -287,7 +287,7 @@ sudo cp /etc/nginx/sites-available/emaus /etc/nginx/sites-available/emaus.backup
 
 # Update with the full HTTPS config provided above
 
-# Make sure to replace $domain_name with your actual domain
+# Make sure to replace $DOMAIN_NAME with your actual domain
 
 sudo nano /etc/nginx/sites-available/emaus
 

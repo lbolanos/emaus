@@ -138,28 +138,28 @@ echo ""
 
 # Check required environment variables
 MISSING_VARS=""
-if [ -z "$domain_name" ]; then 
-    MISSING_VARS="$MISSING_VARS domain_name"
+if [ -z "$DOMAIN_NAME" ]; then 
+    MISSING_VARS="$MISSING_VARS DOMAIN_NAME"
 fi
 
 if [ -n "$MISSING_VARS" ]; then
     print_warning "Missing environment variables:$MISSING_VARS"
     echo ""
     echo "Usage:"
-    echo "  export domain_name=your-domain.com"
+    echo "  export DOMAIN_NAME=your-domain.com"
     echo "  export VITE_GOOGLE_MAPS_API_KEY=your-api-key  # optional"
     echo "  $0"
     echo ""
-    read -p "Enter domain name: " domain_name
+    read -p "Enter domain name: " DOMAIN_NAME
     
-    if [ -z "$domain_name" ]; then
+    if [ -z "$DOMAIN_NAME" ]; then
         print_error "Domain name is required"
         exit 1
     fi
 fi
 
 print_header "Configuration:"
-echo "  Domain: $domain_name"
+echo "  Domain: $DOMAIN_NAME"
 echo "  App Directory: $APP_DIR"
 echo "  Log Directory: $LOG_DIR"
 echo ""
@@ -251,7 +251,7 @@ print_header "📝 Creating production environment files..."
 # Web app .env.production
 mkdir -p apps/web
 cat > apps/web/.env.production << EOF
-VITE_API_URL=https://${domain_name}/api
+VITE_API_URL=https://${DOMAIN_NAME}/api
 VITE_GOOGLE_MAPS_API_KEY=${VITE_GOOGLE_MAPS_API_KEY:-}
 EOF
 print_success "Web app .env.production created"
@@ -344,8 +344,9 @@ cat > ecosystem.config.js << EOF
 module.exports = {
   apps: [{
     name: 'emaus-api',
-    script: 'dist/index.js',
-    cwd: '$APP_DIR/apps/api',
+    script: 'apps/api/env-wrapper.sh',
+    args: ['node', 'dist/index.js'],
+    cwd: '$APP_DIR',
     instances: 1,
     exec_mode: 'fork',
     env: {
@@ -377,7 +378,7 @@ if [ ! -f "nginx.conf" ]; then
 fi
 
 # Create Nginx config with domain substitution
-sed "s/\$domain_name/$domain_name/g" nginx.conf > /tmp/emaus-nginx.conf
+sed "s/\$DOMAIN_NAME/$DOMAIN_NAME/g" nginx.conf > /tmp/emaus-nginx.conf
 
 # Backup existing nginx config if it exists
 if [ -f "/etc/nginx/sites-available/emaus" ]; then
@@ -473,7 +474,7 @@ print_header "══════════════════════
 echo ""
 
 print_header "📊 Deployment Information:"
-echo "  Domain: $domain_name"
+echo "  Domain: $DOMAIN_NAME"
 echo "  Application Directory: $APP_DIR"
 echo "  Log Directory: $LOG_DIR"
 echo "  Git Commit: $(git rev-parse --short HEAD)"
@@ -481,18 +482,18 @@ echo "  Deployed: $(date)"
 echo ""
 
 print_header "🌐 Access URLs:"
-echo "  Application: https://$domain_name"
+echo "  Application: https://$DOMAIN_NAME"
 echo "  API (direct): http://localhost:$API_PORT"
 echo ""
 
 print_header "🔒 SSL Certificate Setup:"
 if command_exists certbot; then
-    if [ -d "/etc/letsencrypt/live/$domain_name" ]; then
+    if [ -d "/etc/letsencrypt/live/$DOMAIN_NAME" ]; then
         print_success "SSL certificate already exists"
         sudo certbot renew --dry-run
     else
         print_warning "SSL certificate not configured"
-        echo "Run: sudo certbot --nginx -d $domain_name -d www.$domain_name"
+        echo "Run: sudo certbot --nginx -d $DOMAIN_NAME -d www.$DOMAIN_NAME"
     fi
 else
     print_warning "Certbot not installed"
@@ -516,7 +517,7 @@ DEPLOYED_AT=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
 DEPLOYED_BY=$USER
 GIT_COMMIT=$(git rev-parse HEAD)
 GIT_BRANCH=$(git branch --show-current)
-DOMAIN=$domain_name
+DOMAIN=$DOMAIN_NAME
 NODE_VERSION=$(node --version)
 PNPM_VERSION=$(pnpm --version)
 EOF

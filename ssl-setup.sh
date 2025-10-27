@@ -385,27 +385,27 @@ print_header "══════════════════════
 echo ""
 
 # Check domain parameter
-if [ -z "$domain_name" ]; then
+if [ -z "$DOMAIN_NAME" ]; then
     print_error "Domain name not provided"
     echo ""
     echo "Usage:"
-    echo "  export domain_name=yourdomain.com"
+    echo "  export DOMAIN_NAME=yourdomain.com"
     echo "  export CERTBOT_EMAIL=your@email.com  # optional but recommended"
     echo "  $0"
     echo ""
     echo "Or:"
-    echo "  domain_name=yourdomain.com CERTBOT_EMAIL=your@email.com $0"
+    echo "  DOMAIN_NAME=yourdomain.com CERTBOT_EMAIL=your@email.com $0"
     exit 1
 fi
 
 # Validate domain
-if ! validate_domain "$domain_name"; then
+if ! validate_domain "$DOMAIN_NAME"; then
     exit 1
 fi
 
 print_header "Configuration:"
-echo "  Domain: $domain_name"
-echo "  WWW Domain: www.$domain_name"
+echo "  Domain: $DOMAIN_NAME"
+echo "  WWW Domain: www.$DOMAIN_NAME"
 if [ -n "$CERTBOT_EMAIL" ]; then
     echo "  Email: $CERTBOT_EMAIL"
 else
@@ -441,7 +441,7 @@ CERTBOT_VERSION=$(certbot --version 2>&1 | grep -oP '\d+\.\d+\.\d+' || echo "unk
 print_success "Certbot version: $CERTBOT_VERSION"
 
 # Check DNS configuration
-if ! check_dns "$domain_name"; then
+if ! check_dns "$DOMAIN_NAME"; then
     read -p "Continue without proper DNS? (y/N): " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -450,7 +450,7 @@ if ! check_dns "$domain_name"; then
 fi
 
 # Check for existing certificate
-if check_existing_cert "$domain_name"; then
+if check_existing_cert "$DOMAIN_NAME"; then
     print_success "Using existing certificate"
     exit 0
 fi
@@ -486,11 +486,11 @@ if [[ $REPLY =~ ^[Nn]$ ]]; then
 fi
 
 # Try nginx plugin first, fallback to standalone
-if setup_ssl_nginx_plugin "$domain_name"; then
+if setup_ssl_nginx_plugin "$DOMAIN_NAME"; then
     SSL_SUCCESS=true
 else
     print_warning "Nginx plugin failed, trying standalone mode..."
-    if setup_ssl_standalone "$domain_name"; then
+    if setup_ssl_standalone "$DOMAIN_NAME"; then
         SSL_SUCCESS=true
     else
         SSL_SUCCESS=false
@@ -516,7 +516,7 @@ if [ "$SSL_SUCCESS" = true ]; then
     setup_auto_renewal
     
     # Verify SSL
-    verify_ssl "$domain_name"
+    verify_ssl "$DOMAIN_NAME"
     
     # Display summary
     echo ""
@@ -526,12 +526,12 @@ if [ "$SSL_SUCCESS" = true ]; then
     echo ""
     
     print_header "📋 SSL Certificate Information:"
-    sudo certbot certificates -d "$domain_name" 2>/dev/null || true
+    sudo certbot certificates -d "$DOMAIN_NAME" 2>/dev/null || true
     echo ""
     
     print_header "🌐 Your application is now secure:"
-    echo "  https://$domain_name"
-    echo "  https://www.$domain_name"
+    echo "  https://$DOMAIN_NAME"
+    echo "  https://www.$DOMAIN_NAME"
     echo ""
     
     print_header "🔄 Automatic Renewal:"
@@ -541,15 +541,15 @@ if [ "$SSL_SUCCESS" = true ]; then
     echo ""
     
     print_header "📊 Certificate Status:"
-    echo "  Location: /etc/letsencrypt/live/$domain_name/"
-    echo "  Expiry: $(sudo certbot certificates -d "$domain_name" 2>/dev/null | grep "Expiry Date" | cut -d: -f2- || echo "Run 'sudo certbot certificates' to check")"
+    echo "  Location: /etc/letsencrypt/live/$DOMAIN_NAME/"
+    echo "  Expiry: $(sudo certbot certificates -d "$DOMAIN_NAME" 2>/dev/null | grep "Expiry Date" | cut -d: -f2- || echo "Run 'sudo certbot certificates' to check")"
     echo ""
     
     print_header "🔧 Useful Commands:"
     echo "  Check status:  sudo certbot certificates"
     echo "  Renew now:     sudo certbot renew"
     echo "  Test renewal:  sudo certbot renew --dry-run"
-    echo "  Revoke cert:   sudo certbot revoke --cert-path /etc/letsencrypt/live/$domain_name/cert.pem"
+    echo "  Revoke cert:   sudo certbot revoke --cert-path /etc/letsencrypt/live/$DOMAIN_NAME/cert.pem"
     echo ""
 else
     print_error "SSL setup failed"

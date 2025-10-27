@@ -255,7 +255,9 @@ cat > ecosystem.config.js << EOF
 module.exports = {
   apps: [{
     name: 'emaus-api',
-    script: 'apps/api/dist/index.js',
+    script: 'apps/api/env-wrapper.sh',
+    args: ['node', 'dist/index.js'],
+    cwd: '$APP_DIR',
     instances: 1,
     exec_mode: 'fork',
     env: {
@@ -278,10 +280,22 @@ EOF
 if command_exists nginx; then
     if [ -f "nginx.conf" ]; then
         echo -e "${BLUE}🌐 Configuring Nginx...${NC}"
-        sudo cp nginx.conf /etc/nginx/sites-available/emaus
+
+        # Check for domain name and create appropriate config
+        if [ -n "$DOMAIN_NAME" ]; then
+            # Create Nginx config with domain substitution
+            sed "s/\$DOMAIN_NAME/$DOMAIN_NAME/g" nginx.conf > /tmp/emaus-nginx.conf
+            sudo cp /tmp/emaus-nginx.conf /etc/nginx/sites-available/emaus
+            rm /tmp/emaus-nginx.conf
+        else
+            # Copy config without SSL certificate paths for development
+            echo -e "${YELLOW}⚠️  DOMAIN_NAME not set, creating development config${NC}"
+            sudo cp nginx.conf /etc/nginx/sites-available/emaus
+        fi
+
         sudo ln -sf /etc/nginx/sites-available/emaus /etc/nginx/sites-enabled/
         sudo rm -f /etc/nginx/sites-enabled/default
-        
+
         # Test nginx config
         if sudo nginx -t; then
             echo -e "${BLUE}🔄 Reloading Nginx...${NC}"
@@ -299,10 +313,14 @@ fi
 # Run database migrations
 echo -e "${BLUE}🗄️  Running database migrations...${NC}"
 cd apps/api
-if pnpm migration:run:prod; then
-    echo -e "${GREEN}✅ Migrations completed${NC}"
+if [ -f "dist/cli/migration-cli.js" ]; then
+    if pnpm migration:run:prod; then
+        echo -e "${GREEN}✅ Migrations completed${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Migration warnings (this might be okay)${NC}"
+    fi
 else
-    echo -e "${YELLOW}⚠️  Migration warnings (this might be okay)${NC}"
+    echo -e "${YELLOW}⚠️  Migration CLI not found in dist, skipping migrations${NC}"
 fi
 cd "$APP_DIR"
 

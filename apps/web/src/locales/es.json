@@ -53,6 +53,7 @@
       "globalMessageTemplates": "Plantillas Globales",
       "inventoryItems": "Artículos de Inventario"
     },
+    "telemetry": "Telemetría",
     "logout": "Cerrar Sesión",
     "searchPlaceholder": "Buscar...",
     "selectRetreatFirst": "Por favor selecciona un retiro primero"

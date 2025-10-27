@@ -56,6 +56,7 @@
       "globalMessageTemplates": "Global Templates",
       "inventoryItems": "Inventory Items"
     },
+    "telemetry": "Telemetry",
     "logout": "Logout",
     "searchPlaceholder": "Search...",
     "selectRetreatFirst": "Please select a retreat first"

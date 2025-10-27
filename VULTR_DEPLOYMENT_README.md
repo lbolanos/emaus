@@ -97,7 +97,7 @@ The deployment scripts work with any VPS provider that offers:
    #export database_password='YOUR_STRONG_DB_PASSWORD'
    #export api_url='https://yourdomain.com'
    export frontend_url='https://emaus.cc'
-   export domain_name='emaus.cc'
+   export DOMAIN_NAME='emaus.cc'
    ```
 
 3. **Run the setup script**
@@ -152,7 +152,7 @@ The deployment scripts work with any VPS provider that offers:
    # Make sure environment variables are still set
    export database_password='YOUR_STRONG_DB_PASSWORD'
    export frontend_url='https://yourdomain.com'
-   export domain_name='yourdomain.com'
+   export DOMAIN_NAME='yourdomain.com'
 
    cd /var/www/emaus
    bash deploy-vultr.sh
@@ -168,7 +168,7 @@ If you have a domain name:
 
 2. **Setup SSL with Let's Encrypt**
    ```bash
-   export domain_name='yourdomain.com'
+   export DOMAIN_NAME='yourdomain.com'
    bash ssl-setup.sh
    ```
 

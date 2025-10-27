@@ -1,6 +1,10 @@
 import 'dotenv/config';
 import crypto from 'crypto';
 
+// Debug environment loading
+console.log('[CONFIG] NODE_ENV:', process.env.NODE_ENV);
+console.log('[CONFIG] FRONTEND_URL from env:', process.env.FRONTEND_URL);
+
 export const config = {
 	google: {
 		clientId: process.env.GOOGLE_CLIENT_ID || '',

@@ -17,7 +17,7 @@ import { config } from './config';
 import { errorHandler } from './middleware/errorHandler';
 import { MigrationVerifier } from './database/migration-verifier';
 import { roleCleanupService } from './services/roleCleanupService';
-import { PerformanceMiddleware } from './middleware/performanceMiddleware';
+import { PerformanceMiddleware, PerformanceRequest } from './middleware/performanceMiddleware';
 import { performanceOptimizationService } from './services/performanceOptimizationService';
 import { csrfMiddleware } from './middleware/csrfAlternative';
 
@@ -41,9 +41,32 @@ async function main() {
 
 	// --- 2. Basic Middleware ---
 	console.log('[INIT] Step 2: Configuring basic middleware (CORS, Helmet, JSON)...');
+
+	// Dynamic CSP based on environment - get frontend URL from .env
+	const frontendUrl = config.frontend.url;
+	const isDevelopment = frontendUrl.includes('localhost');
+
+	// Build connect-src array dynamically
+	const connectSrc = [
+		"'self'",
+		'https://*.googleapis.com',
+		'https://*.gstatic.com',
+		// Always include the frontend URL from environment
+		frontendUrl,
+	];
+
+	// Add localhost URLs for development
+	if (isDevelopment) {
+		connectSrc.push('http://localhost:5173', 'http://localhost:3001');
+	}
+
+	console.log(`[CSP] ${isDevelopment ? 'Development' : 'Production'} mode detected`);
+	console.log(`[CSP] Frontend URL from env: ${frontendUrl}`);
+	console.log(`[CSP] Connect sources: ${connectSrc.join(', ')}`);
+
 	app.use(
 		cors({
-			origin: config.frontend.url,
+			origin: frontendUrl,
 			credentials: true,
 		}),
 	);
@@ -56,12 +79,7 @@ async function main() {
 					scriptSrc: ["'self'", 'https://maps.googleapis.com', "'unsafe-eval'"],
 					imgSrc: ["'self'", 'data:', 'https:'],
 					fontSrc: ["'self'", 'https:'],
-					connectSrc: [
-						"'self'",
-						'https://*.googleapis.com',
-						'https://*.gstatic.com',
-						'https://emaus.cc',
-					],
+					connectSrc,
 				},
 			},
 			crossOriginEmbedderPolicy: false,
@@ -97,15 +115,15 @@ async function main() {
 
 	// --- 4. Performance, CSRF, and API Routes ---
 	console.log('[INIT] Step 4: Configuring performance, CSRF, and API routes...');
-	app.use((req, res, next) => PerformanceMiddleware.trackPerformance(req, res, next));
-	app.use((req, res, next) => PerformanceMiddleware.optimizePermissionCheck(req, res, next));
-	app.use((req, res, next) => PerformanceMiddleware.optimizeRetreatUserQuery(req, res, next));
-	app.use((req, res, next) => PerformanceMiddleware.invalidateCacheOnChanges(req, res, next));
-	app.use((req, res, next) => PerformanceMiddleware.monitorMemory(req, res, next));
-	app.use((req, res, next) => PerformanceMiddleware.optimizeDatabaseQueries(req, res, next));
-	app.use((req, res, next) => csrfMiddleware.generateToken(req, res, next));
+	app.use((req, res, next) => PerformanceMiddleware.trackPerformance(req as PerformanceRequest, res, next));
+	app.use((req, res, next) => PerformanceMiddleware.optimizePermissionCheck(req as PerformanceRequest, res, next));
+	app.use((req, res, next) => PerformanceMiddleware.optimizeRetreatUserQuery(req as PerformanceRequest, res, next));
+	app.use((req, res, next) => PerformanceMiddleware.invalidateCacheOnChanges(req as PerformanceRequest, res, next));
+	app.use((req, res, next) => PerformanceMiddleware.monitorMemory(req as PerformanceRequest, res, next));
+	app.use((req, res, next) => PerformanceMiddleware.optimizeDatabaseQueries(req as PerformanceRequest, res, next));
+	app.use((req, res, next) => csrfMiddleware.generateToken(req as PerformanceRequest, res, next));
 
-	app.get('/health', (req, res) => {
+	app.get('/health', (_req, res) => {
 		res.json({ status: 'ok', timestamp: new Date().toISOString(), service: 'emaus-api' });
 	});
 	app.get('/api/csrf-token', (req, res) => {
@@ -121,7 +139,7 @@ async function main() {
 	const __dirname = path.dirname(__filename);
 	const webAppPath = path.resolve(__dirname, '..', '..', '..', 'apps', 'web', 'dist');
 	app.use(express.static(webAppPath));
-	app.get('*', (req, res) => {
+	app.get('*', (_req, res) => {
 		res.sendFile(path.join(webAppPath, 'index.html'));
 	});
 	console.log('[INIT] Step 5: Static file serving configured.');
