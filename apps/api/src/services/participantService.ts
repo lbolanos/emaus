@@ -569,15 +569,18 @@ export const createParticipant = async (
 			if (bedId || tableId) {
 				// Use query builder to ensure individual updates
 				const updates: any = {};
-				if (bedId) updates.retreatBedId = bedId;
+				// Note: retreatBedId is no longer stored in Participant entity
+				// The relationship is managed through RetreatBed.participantId only
 				if (tableId) updates.tableId = tableId;
 
-				await transactionalEntityManager
-					.createQueryBuilder()
-					.update(Participant)
-					.set(updates)
-					.where('id = :id', { id: savedParticipant.id })
-					.execute();
+				if (Object.keys(updates).length > 0) {
+					await transactionalEntityManager
+						.createQueryBuilder()
+						.update(Participant)
+						.set(updates)
+						.where('id = :id', { id: savedParticipant.id })
+						.execute();
+				}
 
 				// Refresh the participant to get the updated data
 				savedParticipant =
