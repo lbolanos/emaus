@@ -338,8 +338,9 @@ ssh root@155.138.230.215 "cat /var/www/emaus/apps/api/database.sqlite" > apps/ap
 scp root@155.138.230.215:/var/www/emaus/apps/api/.env ./apps/api/
 scp root@155.138.230.215:/var/www/emaus/apps/api/.env.production ./apps/api/
 
-# Web files
 
+# how to deploy best way
+## local 
 scp root@155.138.230.215:/var/www/emaus/apps/web/.env ./apps/web/
 scp root@155.138.230.215:/var/www/emaus/apps/web/.env.production ./apps/web/
 
@@ -356,6 +357,17 @@ export RELEASE_TAG=v0.0.1
 export CERTBOT_EMAIL=leonardo.bolanos@gmail.com
 
 ./create-release.sh
+
+## remote
+export frontend_url='https://emaus.cc'  
+export DOMAIN_NAME='emaus.cc'
+export VPS_HOST=155.138.230.215
+export VPS_USER=root
+export GITHUB_REPO=lbolanos/emaus
+export NEW_TAG=v0.0.1
+export RELEASE_TAG=v0.0.1
+export CERTBOT_EMAIL=leonardo.bolanos@gmail.com
+./release-from-github.sh
 
 # how to update
 
@@ -375,3 +387,5 @@ rsync -avz \
 ## remote
 pm2 logs emaus-api
 pm2 restart emaus-api
+
+
