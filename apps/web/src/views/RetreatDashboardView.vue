@@ -88,6 +88,10 @@
                 <Mail class="w-4 h-4 mr-2" />
                 Invitar Alguien
               </Button>
+              <Button @click="openFlyer" variant="outline">
+                <FileText class="w-4 h-4 mr-2" />
+                Ver Flyer
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -246,7 +250,7 @@
 
 <script setup lang="ts">
 import { ref, watch, computed, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useInventoryStore } from '@/stores/inventoryStore';
@@ -270,10 +274,11 @@ import QrcodeVue from 'qrcode.vue';
 import { Badge } from '@repo/ui';
 import { Progress } from '@repo/ui';
 import InviteUsersModal from '@/components/InviteUsersModal.vue';
-import { AlertTriangle, Users, UserPlus, Clock, Copy, ExternalLink, QrCode, Loader2, Mail } from 'lucide-vue-next';
+import { AlertTriangle, Users, UserPlus, Clock, Copy, ExternalLink, QrCode, Loader2, Mail, FileText } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const route = useRoute();
+const router = useRouter();
 const retreatStore = useRetreatStore();
 const { selectedRetreat, walkerRegistrationLink, serverRegistrationLink } = storeToRefs(retreatStore);
 const { toast } = useToast();
@@ -336,6 +341,12 @@ const openLink = (link: string) => {
 const showQrCode = (url: string) => {
   qrCodeUrl.value = url;
   isQrCodeVisible.value = true;
+};
+
+const openFlyer = () => {
+  if (selectedRetreat.value?.id) {
+    router.push({ name: 'retreat-flyer', params: { id: selectedRetreat.value.id } });
+  }
 };
 
 
