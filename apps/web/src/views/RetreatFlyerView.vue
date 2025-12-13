@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-gray-100 py-4">
     <!-- Print Button -->
-    <div class="fixed top-4 right-4 z-50 print:hidden">
+    <div class="right-4 z-50 print:hidden">
       <Button @click="handlePrint" class="bg-blue-600 hover:bg-blue-700">
         <Printer class="w-4 h-4 mr-2" />
         Imprimir Flyer
@@ -24,11 +24,50 @@
           <!-- Emaús Logo Section -->
           <div class="relative z-10 flex flex-col items-center flex-shrink-0 mr-4">
             <div class="relative mb-1">
-              <div class="text-amber-800 dark:text-amber-600 relative">
-                <Home class="w-12 h-12 text-amber-700" fill="currentColor" />
-                <Plus class="w-6 h-6 absolute -top-3 left-1/2 transform -translate-x-1/2 font-bold text-amber-700" />
-              </div>
-              <Flower class="w-6 h-6 text-red-600 absolute top-0 -right-2 transform rotate-12" />
+              <!-- Custom Cross and Rose Logo -->
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="80" height="80" class="relative">
+                <!-- Cross -->
+                <rect x="85" y="20" width="30" height="160" fill="#8B4513" rx="2"/>
+                <rect x="40" y="60" width="120" height="30" fill="#8B4513" rx="2"/>
+
+                <!-- Cross border/outline -->
+                <rect x="85" y="20" width="30" height="160" fill="none" stroke="#5D3A1A" stroke-width="2" rx="2"/>
+                <rect x="40" y="60" width="120" height="30" fill="none" stroke="#5D3A1A" stroke-width="2" rx="2"/>
+
+                <!-- Rose center -->
+                <circle cx="100" cy="75" r="18" fill="#C41E3A"/>
+
+                <!-- Rose petals - outer layer -->
+                <ellipse cx="100" cy="55" rx="12" ry="10" fill="#E32636"/>
+                <ellipse cx="118" cy="68" rx="10" ry="12" fill="#DC143C"/>
+                <ellipse cx="115" cy="88" rx="12" ry="10" fill="#E32636"/>
+                <ellipse cx="85" cy="88" rx="12" ry="10" fill="#DC143C"/>
+                <ellipse cx="82" cy="68" rx="10" ry="12" fill="#E32636"/>
+
+                <!-- Rose petals - inner layer -->
+                <ellipse cx="100" cy="62" rx="8" ry="7" fill="#8B0000"/>
+                <ellipse cx="110" cy="72" rx="7" ry="8" fill="#A52A2A"/>
+                <ellipse cx="107" cy="82" rx="8" ry="6" fill="#8B0000"/>
+                <ellipse cx="93" cy="82" rx="8" ry="6" fill="#A52A2A"/>
+                <ellipse cx="90" cy="72" rx="7" ry="8" fill="#8B0000"/>
+
+                <!-- Rose center detail -->
+                <circle cx="100" cy="75" r="6" fill="#800020"/>
+                <path d="M97 72 Q100 68 103 72 Q106 76 100 80 Q94 76 97 72" fill="#4A0010"/>
+
+                <!-- Rose leaves -->
+                <ellipse cx="130" cy="90" rx="15" ry="8" fill="#228B22" transform="rotate(30 130 90)"/>
+                <ellipse cx="70" cy="90" rx="15" ry="8" fill="#228B22" transform="rotate(-30 70 90)"/>
+                <path d="M130 90 L118 85" stroke="#006400" stroke-width="1" fill="none"/>
+                <path d="M70 90 L82 85" stroke="#006400" stroke-width="1" fill="none"/>
+
+                <!-- Small leaf veins -->
+                <path d="M125 88 L130 90 L125 92" stroke="#006400" stroke-width="0.5" fill="none"/>
+                <path d="M75 88 L70 90 L75 92" stroke="#006400" stroke-width="0.5" fill="none"/>
+
+                <!-- Text EMAUS -->
+                <text x="100" y="195" font-family="Georgia, serif" font-size="18" font-weight="bold" fill="#8B4513" text-anchor="middle">EMAUS</text>
+              </svg>
             </div>
             <h2 class="text-lg font-bold uppercase tracking-widest text-gray-800 leading-none">Emaús</h2>
             <p class="text-[0.65rem] text-gray-600 text-center uppercase font-semibold leading-tight mt-1">Tlalpan XI<br/>Del Valle III</p>
@@ -38,7 +77,7 @@
           <div class="relative z-10 text-right flex-1">
             <p class="text-sm md:text-base text-blue-600 font-semibold mb-[-10px] mr-2 uppercase tracking-wide">un fin de semana de</p>
             <h1 class="text-6xl md:text-8xl font-bold text-red-600 leading-none transform -rotate-1 origin-bottom-right pb-2 pr-2"
-                style="font-family: 'Dancing Script', cursive;">Esperanza</h1>
+                style="font-family: 'Miltonian Tattoo', cursive; text-shadow: 14px 11px 7px rgba(0, 0, 0, 0.3);">Esperanza</h1>
             <p class="text-sm text-gray-500 italic">"La esperanza no decepciona: es silenciosa, humilde y fuerte"</p>
           </div>
         </header>
@@ -221,14 +260,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { Button } from '@repo/ui';
 import {
-  Home,
-  Plus,
-  Flower,
   MapPin,
   Clock,
   Calendar,
@@ -355,7 +391,7 @@ onMounted(async () => {
 
 <style scoped>
 /* Import fonts */
-@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Oswald:wght@300;400;500;700&family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Miltonian+Tattoo&family=Oswald:wght@300;400;500;700&family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
 /* Print-optimized styles */
