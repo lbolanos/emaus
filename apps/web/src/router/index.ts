@@ -30,6 +30,7 @@ import InventoryItemsView from '../views/InventoryItemsView.vue';
 import RetreatRoleManagementView from '../views/RetreatRoleManagementView.vue';
 import AcceptInvitationView from '../views/AcceptInvitationView.vue';
 import TelemetryDashboardView from '../views/TelemetryDashboardView.vue';
+import RetreatFlyerView from '../views/RetreatFlyerView.vue';
 import { useAuthStore } from '@/stores/authStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 
@@ -162,6 +163,12 @@ const router = createRouter({
 					path: 'retreats/:id/dashboard',
 					name: 'retreat-dashboard',
 					component: RetreatDashboardView,
+					props: true,
+				},
+				{
+					path: 'retreats/:id/flyer',
+					name: 'retreat-flyer',
+					component: RetreatFlyerView,
 					props: true,
 				},
 				{
