@@ -29,11 +29,12 @@ export default defineConfig(({ mode }) => {
 					},
 				},
 			}),
-			dts({
+			// Only generate DTS in development mode to save memory
+			...(mode === 'development' ? [dts({
 				tsconfigPath: './tsconfig.json',
 				outDir: 'dist/types',
 				strictOutput: true,
-			}),
+			})] : []),
 		],
 		resolve: {
 			alias: {
@@ -44,13 +45,23 @@ export default defineConfig(({ mode }) => {
 		build: {
 			outDir: 'dist',
 			emptyOutDir: true,
-			sourcemap: true,
+			sourcemap: mode === 'development',
+			minify: mode === 'production' ? 'terser' : false,
+			target: 'es2015',
+			chunkSizeWarningLimit: 1000,
 			rollupOptions: {
 				output: {
+					manualChunks: {
+						// Split vendor chunks to reduce memory pressure
+						vendor: ['vue', 'vue-router', 'pinia'],
+						ui: ['@repo/ui', 'lucide-vue-next'],
+						editor: ['@tiptap/vue-3', '@tiptap/starter-kit', 'element-tiptap'],
+					},
 					entryFileNames: 'assets/[name].js',
 					chunkFileNames: 'assets/[name]-[hash].js',
 					assetFileNames: 'assets/[name]-[hash][extname]',
 				},
+				treeshake: 'smallest',
 			},
 		},
 	};
