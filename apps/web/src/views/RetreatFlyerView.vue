@@ -34,6 +34,7 @@
             </div>
             <h2 class="text-xl font-bold uppercase tracking-[0.2em] text-white leading-none font-header text-shadow-sm">Emaús</h2>
             <p class="text-[0.7rem] text-white/90 text-center uppercase font-medium leading-tight mt-1 tracking-wider">{{ retreatParish }}</p>
+            <p v-if="retreatNumber" class="text-[0.9rem] text-yellow-300 text-center uppercase font-bold leading-tight tracking-wider drop-shadow-md font-header">{{ retreatNumber }}</p>
           </div>
 
           <!-- Main Title -->
@@ -196,9 +197,9 @@
                     <Phone class="w-4 h-4" />
                   </div>
                   <div class="space-y-2">
-                    <div v-for="(phone, index) in contactPhones" :key="phone.number || index" class="text-sm">
-                      <span class="font-bold text-gray-800 block text-xs uppercase text-gray-400">{{ phone.name }}</span>
-                      <span class="text-gray-700 font-medium font-mono">{{ phone.number }}</span>
+                    <div v-for="(phone, index) in contactPhones" :key="phone?.number || index" class="text-sm">
+                      <span class="font-bold text-gray-800 block text-xs uppercase text-gray-400">{{ phone?.name }}</span>
+                      <span class="text-gray-700 font-medium font-mono">{{ phone?.number }}</span>
                     </div>
                   </div>
                 </div>
@@ -254,6 +255,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 // Ensure this path matches your project structure
 import { useRetreatStore } from '@/stores/retreatStore';
 import { Button } from '@repo/ui';
@@ -273,13 +275,21 @@ import QrcodeVue from 'qrcode.vue';
 
 const route = useRoute();
 const retreatStore = useRetreatStore();
+const { t } = useI18n();
 const selectedRetreat = computed(() => retreatStore.selectedRetreat);
 const walkerRegistrationLink = computed(() => retreatStore.walkerRegistrationLink);
 
 // Dynamic data from retreat store
-const retreatData = computed(() => selectedRetreat.value || null);
+// Dynamic data from retreat store
+// Cast to any to accept 'house' property which exists at runtime/API but not in stricter Zod schema
+const retreatData = computed(() => (selectedRetreat.value as any) || null);
 
 const retreatTypeText = computed(() => {
+  // Use explicit type if available
+  if (retreatData.value?.retreat_type) {
+    return t(`retreatModal.types.${retreatData.value.retreat_type}`);
+  }
+
   // Try to determine retreat type from available data
   const parish = retreatData.value?.parish?.toLowerCase() || '';
   const houseName = retreatData.value?.house?.name?.toLowerCase() || '';
@@ -287,17 +297,21 @@ const retreatTypeText = computed(() => {
 
   // Simple heuristic-based type detection
   if (parish.includes('mujer') || houseName.includes('mujer') || paymentInfo.includes('mujer')) {
-    return 'MUJERES';
+    return t('retreatModal.types.women');
   }
   if (parish.includes('joven') || houseName.includes('joven') || paymentInfo.includes('joven')) {
     return 'JÓVENES';
   }
   if (parish.includes('matrimonio') || houseName.includes('matrimonio') || paymentInfo.includes('matrimonio')) {
-    return 'MATRIMONIOS';
+    return t('retreatModal.types.couples');
   }
 
   // Default fallback based on typical Emaús retreat types
-  return 'HOMBRES';
+  return t('retreatModal.types.men');
+});
+
+const retreatNumber = computed(() => {
+  return retreatData.value?.retreat_number_version || '';
 });
 
 const formatDateRange = computed(() => {
@@ -394,17 +408,17 @@ const thingsToBringItems = computed(() => {
   // Handle different formats: bullet points, numbered lists, etc.
   const items = notes
     .split(/[\n•*]/) // Split by newlines or bullet characters
-    .map(item => item.trim())
-    .map(item => item.replace(/^[•\*\-\d\.]\s*/, '')) // Remove leading bullet/number characters
-    .filter(item => item.length > 0)
-    .map(item => {
+    .map((item: string) => item.trim())
+    .map((item: string) => item.replace(/^[•*\-\d.]\s*/, '')) // Remove leading bullet/number characters
+    .filter((item: string) => item.length > 0)
+    .map((item: string) => {
       // Clean up the item text
       return item
         .replace(/\(para tu uso\)/gi, '')
         .replace(/etc\./gi, '')
         .trim();
     })
-    .filter(item => item.length > 0);
+    .filter((item: string) => item.length > 0);
 
   return items;
 });
@@ -428,6 +442,7 @@ const paymentInfo = computed(() => {
   if (!paymentInfoRaw) return '';
 
   // Fix character encoding issues (replace \u001f and other control characters) and replace line feeds with <br>
+  // eslint-disable-next-line no-control-regex
   let info = paymentInfoRaw.replace(/\n/g, '<br>').replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
   console.log('Formatted Payment Info:', info);
   return info;
