@@ -19,7 +19,7 @@
         :style="flyerStyles"
       >
         <!-- Header Section -->
-        <header class="relative h-40 px-6 py-4 flex flex-row items-center justify-between overflow-hidden print:px-6 print:py-3">
+        <header class="relative h-38 px-6 py-1 flex flex-row items-center justify-between overflow-hidden print:px-6 print:py-3">
           <!-- Background Image -->
           <div class="absolute inset-0 bg-cover bg-center z-0"
                style="background-image: url('/header_bck.png');">
@@ -30,7 +30,7 @@
           <div class="relative z-10 flex flex-col items-center flex-shrink-0 mr-6 drop-shadow-lg">
             <div class="relative mb-2 transform hover:scale-105 transition-transform duration-300">
               <!-- Logo Image -->
-              <img src="/logo_man.svg" alt="Emaus Logo" class="w-20 h-20 object-contain filter drop-shadow-md" />
+              <img src="/crossRoseButtT.png" alt="Emaus Logo" class="w-20 h-20 object-contain filter drop-shadow-md" />
             </div>
             <h2 class="text-xl font-bold uppercase tracking-[0.2em] text-white leading-none font-header text-shadow-sm">Emaús</h2>
             <p class="text-[0.7rem] text-white/90 text-center uppercase font-medium leading-tight mt-1 tracking-wider">{{ retreatParish }}</p>
@@ -40,15 +40,15 @@
           <div class="relative z-10 text-right flex-1">
             <p class="text-base md:text-lg text-white/90 font-medium mb-[-5px] mr-2 uppercase tracking-widest text-shadow-sm">un fin de semana de</p>
             <h1 class="text-5xl md:text-7xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-300 leading-none transform -rotate-2 origin-bottom-right pb-4 pr-2 font-display"
-                style="font-family: 'Miltonian Tattoo', cursive; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.5));">Esperanza</h1>
+                style="font-family: 'Miltonian Tattoo', cursive; filter: drop-shadow(10px 17px 2px rgba(0,0,0,0.5));">Esperanza</h1>
             <p class="text-sm text-white/80 italic font-light tracking-wide">"La esperanza no decepciona: es silenciosa, humilde y fuerte"</p>
           </div>
         </header>
 
         <!-- Retreat Type Banner -->
         <div class="relative z-20">
-          <div class="bg-blue-900/80 backdrop-blur-sm text-white p-2 shadow-xl border-y border-blue-500/30 print:bg-blue-800 print:text-white">
-            <div class="flex flex-col md:flex-row print:flex-row items-center justify-center gap-2 md:gap-8 print:gap-4 text-center">
+          <div class="bg-blue-900/80 backdrop-blur-sm text-white p-2 shadow-xl border-y border-blue-500/30 print:bg-blue-900/80 print:text-white">
+            <div class="flex flex-col md:flex-row print:flex-row items-center justify-center gap-2 md:gap-6 print:gap-2 text-center">
               <h3 class="text-xl md:text-2xl font-bold uppercase tracking-widest font-header">Retiro Católico</h3>
               <span class="hidden md:block print:block w-px h-8 bg-blue-500/30"></span>
               <div class="flex items-center gap-3">
@@ -84,9 +84,16 @@
                 <div class="bg-blue-100 p-2 rounded-xl text-blue-700 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300 print:bg-blue-50">
                   <MapPin class="w-5 h-5" />
                 </div>
-                <div>
+                <div class="flex-1">
                   <h4 class="font-bold text-lg uppercase text-gray-800 tracking-wide">Lugar: {{ retreatLocation }}</h4>
                   <p class="text-gray-600 leading-tight">{{ retreatAddress }}</p>
+                </div>
+                <!-- Google Maps QR Code -->
+                <div v-if="googleMapsUrl" class="flex flex-col items-center gap-1">
+                  <div class="p-1 bg-white rounded-xl shadow-sm">
+                    <QrcodeVue :value="googleMapsUrl" :size="70" level="L" background="#ffffff" class="rounded-lg" />
+                  </div>
+                  <span class="text-xs text-gray-500 font-medium">Ubicación</span>
                 </div>
               </div>
 
@@ -159,28 +166,7 @@
 
           <!-- Right Column - Registration & Payment -->
           <div class="md:col-span-5 space-y-3 print:col-span-5">
-            <!-- Registration QR Code -->
-            <div class="bg-white/40 backdrop-blur-sm p-3 rounded-2xl shadow-lg border border-yellow-200/50 text-center relative overflow-hidden group hover:shadow-xl transition-shadow duration-300 print:shadow-none print:bg-white/60  print:p-3">
-              <div class="absolute top-0 right-0 w-24 h-24 bg-yellow-400/20 rounded-bl-full -mr-10 -mt-10 z-0 transition-transform group-hover:scale-110 duration-500"></div>
-              <div class="absolute bottom-0 left-0 w-16 h-16 bg-blue-400/10 rounded-tr-full -ml-8 -mb-8 z-0"></div>
-              
-              <h3 class="relative z-10 text-2xl font-bold text-blue-700 uppercase mb-1 tracking-wide">¡Regístrate!</h3>
-              <p class="relative z-10 text-sm text-gray-600 mb-4 font-medium">Escanea para asegurar tu lugar</p>
-              
-              <div class="flex justify-center mb-4 relative z-10">
-                <div class="p-2 bg-white rounded-xl shadow-sm">
-                  <QrcodeVue :value="registrationUrl" :size="110" level="H" background="#ffffff" class="rounded-lg" />
-                </div>
-              </div>
-              
-              <div class="print:hidden relative z-10">
-                  <a :href="registrationUrl" target="_blank"
-                     class="block w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3 px-6 rounded-xl text-sm shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5">
-                    Ir al Registro
-                  </a>
-              </div>
-              <div class="mt-3 text-[10px] text-gray-400 font-mono uppercase tracking-wider">{{ registrationDomain }}</div>
-            </div>
+            
 
             <!-- Payment Information -->
             <div class="bg-gradient-to-br from-yellow-50/40 to-orange-50/40 backdrop-blur-sm p-3 rounded-2xl border border-yellow-200 shadow-lg print:shadow-none print:bg-yellow-50/30 print:p-3">
@@ -190,7 +176,7 @@
               </div>
               <div class="space-y-3 text-sm">
                 <div v-if="paymentInfo" class="text-gray-700 bg-white/50 p-3 rounded-lg border border-yellow-100">
-                  {{ paymentInfo }}
+                  <span v-html="paymentInfo"></span>
                 </div>
                 <div v-if="paymentMethods">
                   <span class="block text-[10px] text-gray-500 uppercase tracking-wider mb-1">Métodos de pago</span>
@@ -217,6 +203,28 @@
                   </div>
                 </div>
               </div>
+            </div>
+            <!-- Registration QR Code -->
+            <div class="bg-white/40 backdrop-blur-sm p-3 rounded-2xl shadow-lg border border-yellow-200/50 text-center relative overflow-hidden group hover:shadow-xl transition-shadow duration-300 print:shadow-none print:bg-white/60  print:p-3">
+              <div class="absolute top-0 right-0 w-24 h-24 bg-yellow-400/20 rounded-bl-full -mr-10 -mt-10 z-0 transition-transform group-hover:scale-110 duration-500"></div>
+              <div class="absolute bottom-0 left-0 w-16 h-16 bg-blue-400/10 rounded-tr-full -ml-8 -mb-8 z-0"></div>
+              
+              <h3 class="relative z-10 text-2xl font-bold text-blue-700 uppercase mb-1 tracking-wide">¡Regístrate!</h3>
+              <p class="relative z-10 text-sm text-gray-600 mb-4 font-medium">Escanea para asegurar tu lugar</p>
+              
+              <div class="flex justify-center mb-4 relative z-10">
+                <div class="p-2 bg-white rounded-xl shadow-sm">
+                  <QrcodeVue :value="registrationUrl" :size="70" level="L" background="#ffffff" class="rounded-lg" />
+                </div>
+              </div>
+              
+              <div class="print:hidden relative z-10">
+                  <a :href="registrationUrl" target="_blank"
+                     class="block w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3 px-6 rounded-xl text-sm shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5">
+                    Ir al Registro
+                  </a>
+              </div>
+              <div class="mt-3 text-[10px] text-gray-400 font-mono uppercase tracking-wider">{{ registrationDomain }}</div>
             </div>
           </div>
         </div>
@@ -419,8 +427,10 @@ const paymentInfo = computed(() => {
   const paymentInfoRaw = retreatData.value?.paymentInfo;
   if (!paymentInfoRaw) return '';
 
-  // Fix character encoding issues (replace \u001f and other control characters)
-  return paymentInfoRaw.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
+  // Fix character encoding issues (replace \u001f and other control characters) and replace line feeds with <br>
+  let info = paymentInfoRaw.replace(/\n/g, '<br>').replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
+  console.log('Formatted Payment Info:', info);
+  return info;
 });
 const paymentMethods = computed(() => retreatData.value?.paymentMethods);
 
@@ -470,6 +480,15 @@ const registrationDomain = computed(() => {
   } catch {
     return 'emaus.cc';
   }
+});
+
+const googleMapsUrl = computed(() => {
+  let googleMapsUrlTmp = retreatData.value?.house?.googleMapsUrl;
+  if (googleMapsUrlTmp && googleMapsUrlTmp.trim()) {
+    console.log('Google Maps URL found:', googleMapsUrlTmp);
+    return googleMapsUrlTmp.trim();
+  }
+  return googleMapsUrlTmp;
 });
 
 // Styling for the flyer
