@@ -19,7 +19,7 @@
         :style="flyerStyles"
       >
         <!-- Header Section -->
-        <header class="relative h-40 px-6 py-4 flex flex-row items-center justify-between overflow-hidden print:px-6 print:py-4">
+        <header class="relative h-40 px-6 py-4 flex flex-row items-center justify-between overflow-hidden print:px-6 print:py-3">
           <!-- Background Image -->
           <div class="absolute inset-0 bg-cover bg-center z-0"
                style="background-image: url('/header_bck.png');">
@@ -33,7 +33,7 @@
               <img src="/logo_man.svg" alt="Emaus Logo" class="w-20 h-20 object-contain filter drop-shadow-md" />
             </div>
             <h2 class="text-xl font-bold uppercase tracking-[0.2em] text-white leading-none font-header text-shadow-sm">Emaús</h2>
-            <p class="text-[0.7rem] text-white/90 text-center uppercase font-medium leading-tight mt-1 tracking-wider">Tlalpan XI<br/>Del Valle III</p>
+            <p class="text-[0.7rem] text-white/90 text-center uppercase font-medium leading-tight mt-1 tracking-wider">{{ retreatParish }}</p>
           </div>
 
           <!-- Main Title -->
@@ -68,9 +68,9 @@
              style="background-image: url('/jesus_bg.png'); background-size: cover; background-position: center;">
           
           <!-- Left Column - Event Details -->
-          <div class="md:col-span-7 space-y-2 print:col-span-7 print:p-4">
+          <div class="md:col-span-7 space-y-2 print:col-span-7">
             <!-- Intro Card -->
-            <div class="bg-white/40 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-white/40 print:bg-white/80 print:shadow-none print:rounded-none print:border-none">
+            <div class="bg-white/40 backdrop-blur-sm p-3 rounded-2xl shadow-lg border border-white/40 print:bg-white/80 print:shadow-none print:rounded-none print:border-none print:p-3">
               <p class="text-lg text-gray-700 italic text-center leading-relaxed">
                 Un encuentro de esperanza donde sentirás paz, amor y tranquilidad. <br/>
                 <span class="font-bold text-blue-700 not-italic text-xl mt-2 block">¡Atrévete, vívelo!</span>
@@ -78,8 +78,7 @@
             </div>
 
             <!-- Details Cards -->
-            <!-- Details Cards -->
-            <div class="bg-white/40 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-white/40 space-y-3 print:bg-white/80 print:shadow-none print:rounded-none print:border-none print:space-y-2">
+            <div class="bg-white/40 backdrop-blur-sm p-3 rounded-2xl shadow-lg border border-white/40 space-y-3 print:bg-white/80 print:shadow-none print:rounded-none print:border-none print:space-y-2 print:p-3">
               <!-- Location -->
               <div class="flex gap-3 items-start group">
                 <div class="bg-blue-100 p-2 rounded-xl text-blue-700 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300 print:bg-blue-50">
@@ -98,9 +97,9 @@
                 </div>
                 <div>
                   <h4 class="font-bold text-lg uppercase text-gray-800 tracking-wide">INICIO: {{ formatDate(startDate) }}</h4>
-                  <p class="text-base font-bold text-gray-800">{{ openingNotes || '5:00 PM EN PUNTO' }}</p>
-                  <p class="text-sm text-red-600 font-bold flex items-center gap-1 mt-1 bg-red-50 px-2 py-0.5 rounded-md w-max">
-                    <AlertTriangle class="w-4 h-4" /> Llegar 5:30 PM máximo para registro
+                  <p class="text-base font-bold text-gray-800">{{ openingTimeDisplay }}</p>
+                  <p class="text-sm text-red-600 font-bold flex items-center gap-1 mt-1 bg-red-50 px-2 py-0.5 rounded-md w-full text-justify">
+                    <AlertTriangle class="w-4 h-4" /> {{ registrationDeadline }}
                   </p>
                 </div>
               </div>
@@ -112,10 +111,8 @@
                 </div>
                 <div>
                   <h4 class="font-bold text-lg uppercase text-gray-800 tracking-wide">FIN: {{ formatDate(endDate) }}</h4>
-                  <p class="text-base font-bold text-gray-800 mb-2">6:30 PM con Misa de Cierre</p>
                   <div class="text-sm bg-gray-50/80 p-3 rounded-lg border border-gray-200 print:bg-gray-50">
-                    <p class="font-bold text-blue-700">{{ closingLocation || 'Pqia. La Esperanza de María' }}</p>
-                    <p class="mb-1 text-gray-600">{{ closingAddress || 'Alborada 430, Parques del Pedregal' }}</p>
+                    <p class="font-bold text-blue-700">{{ closingLocation }}</p>
                     <p class="text-amber-600 font-bold uppercase text-xs flex items-center gap-1 mt-1">
                       <Users class="w-4 h-4" /> Importante que tu familia asista
                     </p>
@@ -125,12 +122,21 @@
             </div>
 
             <!-- What to Bring -->
-            <!-- What to Bring -->
-            <div class="bg-white/40 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-white/40 print:bg-white/80 print:shadow-none print:rounded-none print:border-none">
+            <div class="bg-white/40 backdrop-blur-sm p-3 rounded-2xl shadow-lg border border-white/40 print:bg-white/80 print:shadow-none print:rounded-none print:border-none print:p-3">
               <h4 class="font-bold text-base uppercase text-gray-800 mb-4 flex items-center gap-2 border-b border-gray-200 pb-2">
                 <Backpack class="w-5 h-5 text-blue-600" /> Qué llevar:
               </h4>
-              <ul class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm text-gray-700">
+
+              <!-- Dynamic items list if available -->
+              <ul v-if="thingsToBringItems.length > 0" class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm text-gray-700">
+                <li v-for="item in thingsToBringItems" :key="item" class="flex items-center gap-2">
+                  <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                  {{ item }}
+                </li>
+              </ul>
+
+              <!-- Default items list when no dynamic data -->
+              <ul v-else class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm text-gray-700">
                 <li class="flex items-center gap-2">
                   <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div> Termo personal
                 </li>
@@ -146,20 +152,15 @@
                 <li class="flex items-center gap-2">
                   <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div> Ropa cómoda
                 </li>
-                <li class="col-span-2 text-gray-500 italic text-xs mt-2 pl-4 border-l-2 border-gray-300">
-                  * Sábanas y cobijas incluidas
-                </li>
               </ul>
-              <div v-if="thingsToBringNotes" class="mt-3 text-xs text-gray-600 italic bg-yellow-50 p-2 rounded border border-yellow-100">
-                {{ thingsToBringNotes }}
-              </div>
+
             </div>
           </div>
 
           <!-- Right Column - Registration & Payment -->
-          <div class="md:col-span-5 space-y-3 print:col-span-5 print:p-4">
+          <div class="md:col-span-5 space-y-3 print:col-span-5">
             <!-- Registration QR Code -->
-            <div class="bg-white/40 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-yellow-200/50 text-center relative overflow-hidden group hover:shadow-xl transition-shadow duration-300 print:shadow-none print:bg-white/60">
+            <div class="bg-white/40 backdrop-blur-sm p-3 rounded-2xl shadow-lg border border-yellow-200/50 text-center relative overflow-hidden group hover:shadow-xl transition-shadow duration-300 print:shadow-none print:bg-white/60  print:p-3">
               <div class="absolute top-0 right-0 w-24 h-24 bg-yellow-400/20 rounded-bl-full -mr-10 -mt-10 z-0 transition-transform group-hover:scale-110 duration-500"></div>
               <div class="absolute bottom-0 left-0 w-16 h-16 bg-blue-400/10 rounded-tr-full -ml-8 -mb-8 z-0"></div>
               
@@ -182,9 +183,9 @@
             </div>
 
             <!-- Payment Information -->
-            <div class="bg-gradient-to-br from-yellow-50/40 to-orange-50/40 backdrop-blur-sm p-4 rounded-2xl border border-yellow-200 shadow-lg print:shadow-none print:bg-yellow-50/30">
+            <div class="bg-gradient-to-br from-yellow-50/40 to-orange-50/40 backdrop-blur-sm p-3 rounded-2xl border border-yellow-200 shadow-lg print:shadow-none print:bg-yellow-50/30 print:p-3">
               <div class="flex justify-between items-end mb-4 border-b border-yellow-200/50 pb-3">
-                <span class="text-sm font-bold uppercase text-gray-500 tracking-wider">Costo de Recuperación</span>
+                <span class="text-sm font-bold uppercase text-gray-500 tracking-wider">Costo:</span>
                 <span class="text-3xl font-bold text-gray-800 leading-none font-header">{{ formatCost }}</span>
               </div>
               <div class="space-y-3 text-sm">
@@ -199,19 +200,20 @@
             </div>
 
             <!-- Contact Information -->
-            <div class="bg-white/40 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-white/40 print:shadow-none print:bg-white/60">
+            <div class="bg-white/40 backdrop-blur-sm p-3 rounded-2xl shadow-lg border border-white/40 print:shadow-none print:bg-white/60 print:p-3">
               <h4 class="text-sm font-bold text-gray-400 uppercase mb-3 flex items-center gap-2 tracking-wider">
                 <Info class="w-4 h-4" /> Informes
               </h4>
-              <div class="grid grid-cols-1 gap-3">
-                <div v-for="phone in contactPhones" :key="phone"
-                   class="flex items-center gap-3 bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:border-blue-200 transition-colors print:shadow-none">
-                  <div class="bg-green-100 p-1.5 rounded-full text-green-600">
+              <div class="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:border-blue-200 transition-colors print:shadow-none">
+                <div class="flex items-start gap-3">
+                  <div class="bg-green-100 p-1.5 rounded-full text-green-600 flex-shrink-0 mt-0.5">
                     <Phone class="w-4 h-4" />
                   </div>
-                  <div class="text-sm">
-                    <span class="font-bold text-gray-800 block text-xs uppercase text-gray-400">Contacto</span>
-                    <span class="text-gray-700 font-medium font-mono">{{ phone }}</span>
+                  <div class="space-y-2">
+                    <div v-for="(phone, index) in contactPhones" :key="phone.number || index" class="text-sm">
+                      <span class="font-bold text-gray-800 block text-xs uppercase text-gray-400">{{ phone.name }}</span>
+                      <span class="text-gray-700 font-medium font-mono">{{ phone.number }}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -270,7 +272,24 @@ const walkerRegistrationLink = computed(() => retreatStore.walkerRegistrationLin
 const retreatData = computed(() => selectedRetreat.value || null);
 
 const retreatTypeText = computed(() => {
-  return 'HOMBRES'; // Could be 'MUJERES', 'JOVENES', etc.
+  // Try to determine retreat type from available data
+  const parish = retreatData.value?.parish?.toLowerCase() || '';
+  const houseName = retreatData.value?.house?.name?.toLowerCase() || '';
+  const paymentInfo = retreatData.value?.paymentInfo?.toLowerCase() || '';
+
+  // Simple heuristic-based type detection
+  if (parish.includes('mujer') || houseName.includes('mujer') || paymentInfo.includes('mujer')) {
+    return 'MUJERES';
+  }
+  if (parish.includes('joven') || houseName.includes('joven') || paymentInfo.includes('joven')) {
+    return 'JÓVENES';
+  }
+  if (parish.includes('matrimonio') || houseName.includes('matrimonio') || paymentInfo.includes('matrimonio')) {
+    return 'MATRIMONIOS';
+  }
+
+  // Default fallback based on typical Emaús retreat types
+  return 'HOMBRES';
 });
 
 const formatDateRange = computed(() => {
@@ -294,36 +313,153 @@ const formatDate = (dateValue: Date | string | undefined) => {
 const startDate = computed(() => retreatData.value?.startDate);
 const endDate = computed(() => retreatData.value?.endDate);
 
-const retreatLocation = computed(() => 'Centro Cruces');
-const retreatAddress = computed(() => 'Calle de la Moneda 85A, Col. Tlalpan, CDMX');
-const openingNotes = computed(() => retreatData.value?.openingNotes);
-const closingLocation = computed(() => 'Pqia. La Esperanza de María');
-const closingAddress = computed(() => 'Alborada 430, Parques del Pedregal');
-const thingsToBringNotes = computed(() => retreatData.value?.thingsToBringNotes);
+const retreatParish = computed(() => {
+  const parish = retreatData.value?.parish;
+  return parish;
+});
+
+const openingTimeDisplay = computed(() => {
+  const walkerArrivalTime = retreatData.value?.walkerArrivalTime;
+
+  if (walkerArrivalTime) {
+    const [hours, minutes] = walkerArrivalTime.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour > 12 ? hour - 12 : hour || 12;
+    return `${displayHour}:${minutes || '00'} ${ampm} EN PUNTO`;
+  }
+
+  return '5:00 PM EN PUNTO';
+});
+
+const registrationDeadline = computed(() => {
+  const openingNotes = retreatData.value?.openingNotes;
+
+  if (openingNotes && openingNotes.trim()) {
+    return openingNotes.trim();
+  }
+
+  const walkerArrivalTime = retreatData.value?.walkerArrivalTime;
+  if (walkerArrivalTime) {
+    const [hours, minutes] = walkerArrivalTime.split(':');
+    const hour = parseInt(hours) + 0.5; // Add 30 minutes
+    const displayHour = hour > 12 ? Math.floor(hour - 12) : Math.floor(hour);
+    const displayMinutes = hour % 1 !== 0 ? '30' : minutes || '00';
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    return `Llegar ${displayHour}:${displayMinutes} ${ampm} máximo para registro`;
+  }
+
+  return 'Llegar 5:30 PM máximo para registro';
+});
+
+const retreatLocation = computed(() => {
+  return retreatData.value?.house?.name || retreatData.value?.parish || 'Casa de Retiro';
+});
+
+const retreatAddress = computed(() => {
+  const house = retreatData.value?.house;
+  if (!house) return '';
+
+  const addressParts = [
+    house.address1,
+    house.address2,
+    house.city,
+    house.state,
+    house.zipCode,
+    house.country
+  ].filter(part => part && part.trim());
+
+  return addressParts.join(', ');
+});
+
+
+const closingLocation = computed(() => {
+  return retreatData.value?.closingNotes;
+});
+
+
+const thingsToBringItems = computed(() => {
+  const notes = retreatData.value?.thingsToBringNotes;
+  if (!notes) return [];
+
+  // Parse the thingsToBringNotes to extract individual items
+  // Handle different formats: bullet points, numbered lists, etc.
+  const items = notes
+    .split(/[\n•*]/) // Split by newlines or bullet characters
+    .map(item => item.trim())
+    .map(item => item.replace(/^[•\*\-\d\.]\s*/, '')) // Remove leading bullet/number characters
+    .filter(item => item.length > 0)
+    .map(item => {
+      // Clean up the item text
+      return item
+        .replace(/\(para tu uso\)/gi, '')
+        .replace(/etc\./gi, '')
+        .trim();
+    })
+    .filter(item => item.length > 0);
+
+  return items;
+});
 
 const formatCost = computed(() => {
   const cost = retreatData.value?.cost;
   if (!cost) return '$ 2,800';
-  return cost.trim();
+
+  // Parse cost as number and format as currency
+  const numericCost = parseFloat(cost.toString().replace(/[^0-9.]/g, ''));
+  if (isNaN(numericCost)) return cost.trim();
+
+  return new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: 'MXN'
+  }).format(numericCost);
 });
 
-const paymentInfo = computed(() => retreatData.value?.paymentInfo);
+const paymentInfo = computed(() => {
+  const paymentInfoRaw = retreatData.value?.paymentInfo;
+  if (!paymentInfoRaw) return '';
+
+  // Fix character encoding issues (replace \u001f and other control characters)
+  return paymentInfoRaw.replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
+});
 const paymentMethods = computed(() => retreatData.value?.paymentMethods);
 
 const contactPhones = computed(() => {
   const phones = retreatData.value?.contactPhones;
-  if (!phones) return ['55 1298-4941', '55 5455-0764'];
+  if (!phones) return [];
+
   try {
-    // Check if phones is string or array to be safe
-    const phoneStr = Array.isArray(phones) ? phones.join(',') : phones;
-    return phoneStr.split(',').map(phone => phone.trim()).filter(phone => phone.length > 0);
+    // Handle different phone formats
+    let phoneStr: string;
+    if (Array.isArray(phones)) {
+      phoneStr = phones.join('\n');
+    } else {
+      phoneStr = phones.toString();
+    }
+
+    // Split by newlines or commas and clean up
+    return phoneStr
+      .split(/[\n,]+/)
+      .map(phone => phone.trim())
+      .filter(phone => phone.length > 0)
+      .map(phone => {
+        // Extract phone number patterns and keep the name
+        const match = phone.match(/(.+?)\s*(\d[\d\s-]*\d)/);
+        if (match) {
+          return { name: match[1].trim(), number: match[2].trim() };
+        }
+        // If no name found, try to extract just the number
+        const numberMatch = phone.match(/(\d[\d\s-]*\d)/);
+        return numberMatch ? { name: 'Contacto', number: numberMatch[1] } : null;
+      })
+      .filter(Boolean);
   } catch {
-    return ['55 1298-4941', '55 5455-0764'];
+    return [];
   }
 });
 
 const registrationUrl = computed(() => {
-  return walkerRegistrationLink.value || 'https://www.emaus.mx/tlalpan';
+  return walkerRegistrationLink.value || 'https://emaus.cc/';
 });
 
 const registrationDomain = computed(() => {
@@ -332,7 +468,7 @@ const registrationDomain = computed(() => {
     const domain = new URL(url).hostname;
     return domain.replace('www.', '');
   } catch {
-    return 'emaus.mx/tlalpan';
+    return 'emaus.cc';
   }
 });
 
@@ -340,9 +476,6 @@ const registrationDomain = computed(() => {
 const flyerStyles = {
   fontFamily: "'Roboto', sans-serif",
   // We use max-width in mm to match A4 paper
-  width: '100%',
-  maxWidth: '210mm',
-  margin: '0 auto',
   width: '100%',
   maxWidth: '210mm',
   margin: '0 auto',
