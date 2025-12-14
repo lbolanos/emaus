@@ -15,188 +15,203 @@
       <!-- Added id="printable-area" for the CSS isolation trick -->
       <div
         id="printable-area"
-        class="print-optimized shadow-lg print:shadow-none"
+        class="print-optimized shadow-2xl print:shadow-none rounded-3xl overflow-hidden relative"
         :style="flyerStyles"
       >
         <!-- Header Section -->
-        <header class="relative bg-blue-50/80 border-b-4 border-blue-700 px-6 py-4 flex flex-row items-center justify-between overflow-hidden print:px-6 print:py-4">
-          <!-- Background Pattern -->
+        <header class="relative h-40 px-6 py-4 flex flex-row items-center justify-between overflow-hidden print:px-6 print:py-4">
           <!-- Background Image -->
-          <div class="absolute inset-0 bg-cover bg-center"
+          <div class="absolute inset-0 bg-cover bg-center z-0"
                style="background-image: url('/header_bck.png');">
+            <div class="absolute inset-0 bg-gradient-to-b from-black/30 to-transparent"></div>
           </div>
 
           <!-- Emaús Logo Section -->
-          <div class="relative z-10 flex flex-col items-center flex-shrink-0 mr-4">
-            <div class="relative mb-1">
-              <!-- Custom Cross and Rose Logo -->
+          <div class="relative z-10 flex flex-col items-center flex-shrink-0 mr-6 drop-shadow-lg">
+            <div class="relative mb-2 transform hover:scale-105 transition-transform duration-300">
               <!-- Logo Image -->
-              <img src="/logo_man.svg" alt="Emaus Logo" class="w-20 h-20 object-contain" />
+              <img src="/logo_man.svg" alt="Emaus Logo" class="w-20 h-20 object-contain filter drop-shadow-md" />
             </div>
-            <h2 class="text-lg font-bold uppercase tracking-widest text-gray-800 leading-none">Emaús</h2>
-            <p class="text-[0.65rem] text-gray-600 text-center uppercase font-semibold leading-tight mt-1">Tlalpan XI<br/>Del Valle III</p>
+            <h2 class="text-xl font-bold uppercase tracking-[0.2em] text-white leading-none font-header text-shadow-sm">Emaús</h2>
+            <p class="text-[0.7rem] text-white/90 text-center uppercase font-medium leading-tight mt-1 tracking-wider">Tlalpan XI<br/>Del Valle III</p>
           </div>
 
           <!-- Main Title -->
           <div class="relative z-10 text-right flex-1">
-            <p class="text-sm md:text-base text-gray-200 font-semibold mb-[-10px] mr-2 uppercase tracking-wide">un fin de semana de</p>
-            <h1 class="text-6xl md:text-8xl font-bold text-red-600 leading-none transform -rotate-1 origin-bottom-right pb-2 pr-2 font-display"
-                style="font-family: 'Miltonian Tattoo', cursive; text-shadow: 14px 11px 7px rgba(0, 0, 0, 0.3);">Esperanza</h1>
-            <p class="text-sm text-gray-300 italic">"La esperanza no decepciona: es silenciosa, humilde y fuerte"</p>
+            <p class="text-base md:text-lg text-white/90 font-medium mb-[-5px] mr-2 uppercase tracking-widest text-shadow-sm">un fin de semana de</p>
+            <h1 class="text-5xl md:text-7xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-300 leading-none transform -rotate-2 origin-bottom-right pb-4 pr-2 font-display"
+                style="font-family: 'Miltonian Tattoo', cursive; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.5));">Esperanza</h1>
+            <p class="text-sm text-white/80 italic font-light tracking-wide">"La esperanza no decepciona: es silenciosa, humilde y fuerte"</p>
           </div>
         </header>
+
         <!-- Retreat Type Banner -->
-        <!-- Added print:bg-blue-800/print:text-white to force background colors if user browser settings allow -->
-        <div class="bg-gradient-to-r from-blue-700 to-blue-900 text-white p-3 shadow-md relative z-20 print:bg-blue-800 print:text-white">
-          <!-- Added print:flex-row and print:gap-8 to force single row layout in print -->
-          <div class="flex flex-col md:flex-row print:flex-row items-center justify-center gap-2 md:gap-8 print:gap-8 text-center">
-            <h3 class="text-xl md:text-2xl font-bold uppercase tracking-wide">Retiro Católico</h3>
-            <!-- Added print:block to ensure separators show up in print -->
-            <span class="hidden md:block print:block w-px h-6 bg-blue-400/50"></span>
-            <div class="flex items-center gap-2">
-              <span class="text-sm opacity-90">Emaús para</span>
-              <span class="text-lg font-bold uppercase text-yellow-300 tracking-wider border-2 border-yellow-300 px-2 rounded print:text-yellow-400 print:border-yellow-400">
-                {{ retreatTypeText }}
-              </span>
+        <div class="relative z-20">
+          <div class="bg-blue-900/80 backdrop-blur-sm text-white p-2 shadow-xl border-y border-blue-500/30 print:bg-blue-800 print:text-white">
+            <div class="flex flex-col md:flex-row print:flex-row items-center justify-center gap-2 md:gap-8 print:gap-4 text-center">
+              <h3 class="text-xl md:text-2xl font-bold uppercase tracking-widest font-header">Retiro Católico</h3>
+              <span class="hidden md:block print:block w-px h-8 bg-blue-500/30"></span>
+              <div class="flex items-center gap-3">
+                <span class="text-sm opacity-80 uppercase tracking-wide">Emaús para</span>
+                <span class="text-xl font-bold uppercase text-yellow-300 tracking-widest border border-yellow-400/60 px-5 py-1 rounded-lg bg-gradient-to-r from-yellow-500/20 to-yellow-400/20 backdrop-blur-sm shadow-inner print:text-yellow-400 print:border-yellow-400">
+                  {{ retreatTypeText }}
+                </span>
+              </div>
+              <span class="hidden md:block print:block w-px h-8 bg-blue-500/30"></span>
+              <p class="text-xl font-bold text-white tracking-wide">{{ formatDateRange }}</p>
             </div>
-            <!-- Added print:block to ensure separators show up in print -->
-            <span class="hidden md:block print:block w-px h-6 bg-blue-400/50"></span>
-            <p class="text-xl font-bold text-white">{{ formatDateRange }}</p>
           </div>
         </div>
 
         <!-- Main Content Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-0 print:grid-cols-12"
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 p-3 print:grid-cols-12 print:gap-4 print:p-3"
              style="background-image: url('/jesus_bg.png'); background-size: cover; background-position: center;">
+          
           <!-- Left Column - Event Details -->
-          <div class="md:col-span-7 p-5 space-y-5 bg-white/80 border-r border-gray-100 print:col-span-7">
-            <p class="text-sm text-gray-600 italic text-center mb-4 border-b border-gray-100 pb-2">
-              Un encuentro de esperanza donde sentirás paz, amor y tranquilidad. <br/>
-              <span class="font-bold text-blue-600 not-italic">¡Atrévete, vívelo!</span>
-            </p>
-
-            <!-- Location -->
-            <div class="flex gap-3 items-start">
-              <div class="bg-blue-100 p-2 rounded-lg text-blue-700 print:bg-blue-50">
-                <MapPin class="w-5 h-5" />
-              </div>
-              <div>
-                <h4 class="font-bold text-base uppercase text-gray-800">Lugar: {{ retreatLocation }}</h4>
-                <p class="text-sm text-gray-600 leading-tight">{{ retreatAddress }}</p>
-              </div>
+          <div class="md:col-span-7 space-y-2 print:col-span-7 print:p-4">
+            <!-- Intro Card -->
+            <div class="bg-white/40 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-white/40 print:bg-white/80 print:shadow-none print:rounded-none print:border-none">
+              <p class="text-lg text-gray-700 italic text-center leading-relaxed">
+                Un encuentro de esperanza donde sentirás paz, amor y tranquilidad. <br/>
+                <span class="font-bold text-blue-700 not-italic text-xl mt-2 block">¡Atrévete, vívelo!</span>
+              </p>
             </div>
 
-            <!-- Start Time -->
-            <div class="flex gap-3 items-start">
-              <div class="bg-blue-100 p-2 rounded-lg text-blue-700 print:bg-blue-50">
-                <Clock class="w-5 h-5" />
+            <!-- Details Cards -->
+            <!-- Details Cards -->
+            <div class="bg-white/40 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-white/40 space-y-3 print:bg-white/80 print:shadow-none print:rounded-none print:border-none print:space-y-2">
+              <!-- Location -->
+              <div class="flex gap-3 items-start group">
+                <div class="bg-blue-100 p-2 rounded-xl text-blue-700 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300 print:bg-blue-50">
+                  <MapPin class="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 class="font-bold text-lg uppercase text-gray-800 tracking-wide">Lugar: {{ retreatLocation }}</h4>
+                  <p class="text-gray-600 leading-tight">{{ retreatAddress }}</p>
+                </div>
               </div>
-              <div>
-                <h4 class="font-bold text-base uppercase text-gray-800">INICIO: {{ formatDate(startDate) }}</h4>
-                <p class="text-sm font-bold text-gray-800">{{ openingNotes || '5:00 PM EN PUNTO' }}</p>
-                <p class="text-xs text-red-500 font-semibold flex items-center gap-1">
-                  <AlertTriangle class="w-4 h-4" /> Llegar 5:30 PM máximo para registro
-                </p>
-              </div>
-            </div>
 
-            <!-- End Time -->
-            <div class="flex gap-3 items-start">
-              <div class="bg-blue-100 p-2 rounded-lg text-blue-700 print:bg-blue-50">
-                <Calendar class="w-5 h-5" />
-              </div>
-              <div>
-                <h4 class="font-bold text-base uppercase text-gray-800">FIN: {{ formatDate(endDate) }}</h4>
-                <p class="text-sm font-bold text-gray-800 mb-1">6:30 PM con Misa de Cierre</p>
-                <div class="text-xs bg-gray-50 p-2 rounded border border-gray-200 print:bg-gray-50">
-                  <p class="font-bold text-blue-600">{{ closingLocation || 'Pqia. La Esperanza de María' }}</p>
-                  <p class="mb-1 text-gray-500">{{ closingAddress || 'Alborada 430, Parques del Pedregal' }}</p>
-                  <p class="text-amber-600 font-bold uppercase text-[10px] flex items-center gap-1">
-                    <Users class="w-4 h-4" /> Importante que tu familia asista
+              <!-- Start Time -->
+              <div class="flex gap-3 items-start group">
+                <div class="bg-blue-100 p-2 rounded-xl text-blue-700 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300 print:bg-blue-50">
+                  <Clock class="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 class="font-bold text-lg uppercase text-gray-800 tracking-wide">INICIO: {{ formatDate(startDate) }}</h4>
+                  <p class="text-base font-bold text-gray-800">{{ openingNotes || '5:00 PM EN PUNTO' }}</p>
+                  <p class="text-sm text-red-600 font-bold flex items-center gap-1 mt-1 bg-red-50 px-2 py-0.5 rounded-md w-max">
+                    <AlertTriangle class="w-4 h-4" /> Llegar 5:30 PM máximo para registro
                   </p>
+                </div>
+              </div>
+
+              <!-- End Time -->
+              <div class="flex gap-3 items-start group">
+                <div class="bg-blue-100 p-2 rounded-xl text-blue-700 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300 print:bg-blue-50">
+                  <Calendar class="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 class="font-bold text-lg uppercase text-gray-800 tracking-wide">FIN: {{ formatDate(endDate) }}</h4>
+                  <p class="text-base font-bold text-gray-800 mb-2">6:30 PM con Misa de Cierre</p>
+                  <div class="text-sm bg-gray-50/80 p-3 rounded-lg border border-gray-200 print:bg-gray-50">
+                    <p class="font-bold text-blue-700">{{ closingLocation || 'Pqia. La Esperanza de María' }}</p>
+                    <p class="mb-1 text-gray-600">{{ closingAddress || 'Alborada 430, Parques del Pedregal' }}</p>
+                    <p class="text-amber-600 font-bold uppercase text-xs flex items-center gap-1 mt-1">
+                      <Users class="w-4 h-4" /> Importante que tu familia asista
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
 
             <!-- What to Bring -->
-            <div class="mt-2 pt-4 border-t border-dashed border-gray-200">
-              <h4 class="font-bold text-sm uppercase text-gray-800 mb-2 flex items-center gap-2">
+            <!-- What to Bring -->
+            <div class="bg-white/40 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-white/40 print:bg-white/80 print:shadow-none print:rounded-none print:border-none">
+              <h4 class="font-bold text-base uppercase text-gray-800 mb-4 flex items-center gap-2 border-b border-gray-200 pb-2">
                 <Backpack class="w-5 h-5 text-blue-600" /> Qué llevar:
               </h4>
-              <ul class="grid grid-cols-2 gap-x-2 gap-y-1 text-xs text-gray-700">
-                <li class="flex items-center gap-1">
-                  <Check class="w-4 h-4 text-green-500" /> Termo personal
+              <ul class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm text-gray-700">
+                <li class="flex items-center gap-2">
+                  <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div> Termo personal
                 </li>
-                <li class="flex items-center gap-1">
-                  <Check class="w-4 h-4 text-green-500" /> Toalla
+                <li class="flex items-center gap-2">
+                  <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div> Toalla
                 </li>
-                <li class="flex items-center gap-1">
-                  <Check class="w-4 h-4 text-green-500" /> Artículos de Aseo
+                <li class="flex items-center gap-2">
+                  <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div> Artículos de Aseo
                 </li>
-                <li class="flex items-center gap-1">
-                  <Check class="w-4 h-4 text-green-500" /> Chamarra/Sudadera
+                <li class="flex items-center gap-2">
+                  <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div> Chamarra/Sudadera
                 </li>
-                <li class="flex items-center gap-1">
-                  <Check class="w-4 h-4 text-green-500" /> Ropa cómoda
+                <li class="flex items-center gap-2">
+                  <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div> Ropa cómoda
                 </li>
-                <li class="col-span-2 text-gray-400 italic text-[10px] mt-1 ml-5">
+                <li class="col-span-2 text-gray-500 italic text-xs mt-2 pl-4 border-l-2 border-gray-300">
                   * Sábanas y cobijas incluidas
                 </li>
               </ul>
-              <div v-if="thingsToBringNotes" class="mt-2 text-xs text-gray-600 italic">
+              <div v-if="thingsToBringNotes" class="mt-3 text-xs text-gray-600 italic bg-yellow-50 p-2 rounded border border-yellow-100">
                 {{ thingsToBringNotes }}
               </div>
             </div>
           </div>
 
           <!-- Right Column - Registration & Payment -->
-          <div class="md:col-span-5 bg-yellow-50/30 p-5 flex flex-col gap-4 border-l border-gray-100 print:col-span-5 print:bg-yellow-50/30">
+          <div class="md:col-span-5 space-y-3 print:col-span-5 print:p-4">
             <!-- Registration QR Code -->
-            <div class="bg-white/60 p-4 rounded-xl shadow-sm border border-yellow-200 text-center relative overflow-hidden print:shadow-none">
-              <div class="absolute top-0 right-0 w-16 h-16 bg-yellow-100/50 rounded-bl-full -mr-8 -mt-8 z-0"></div>
-              <h3 class="relative z-10 text-xl font-bold text-blue-600 uppercase mb-1">¡Regístrate!</h3>
-              <p class="relative z-10 text-xs text-gray-500 mb-3">Escanea para asegurar tu lugar</p>
-              <div class="flex justify-center mb-3">
-                <QrcodeVue :value="registrationUrl" :size="110" level="H" background="#ffffff00" class="border-4 border-white/50 shadow-md rounded-lg print:shadow-none" />
+            <div class="bg-white/40 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-yellow-200/50 text-center relative overflow-hidden group hover:shadow-xl transition-shadow duration-300 print:shadow-none print:bg-white/60">
+              <div class="absolute top-0 right-0 w-24 h-24 bg-yellow-400/20 rounded-bl-full -mr-10 -mt-10 z-0 transition-transform group-hover:scale-110 duration-500"></div>
+              <div class="absolute bottom-0 left-0 w-16 h-16 bg-blue-400/10 rounded-tr-full -ml-8 -mb-8 z-0"></div>
+              
+              <h3 class="relative z-10 text-2xl font-bold text-blue-700 uppercase mb-1 tracking-wide">¡Regístrate!</h3>
+              <p class="relative z-10 text-sm text-gray-600 mb-4 font-medium">Escanea para asegurar tu lugar</p>
+              
+              <div class="flex justify-center mb-4 relative z-10">
+                <div class="p-2 bg-white rounded-xl shadow-sm">
+                  <QrcodeVue :value="registrationUrl" :size="110" level="H" background="#ffffff" class="rounded-lg" />
+                </div>
               </div>
-              <div class="print:hidden">
+              
+              <div class="print:hidden relative z-10">
                   <a :href="registrationUrl" target="_blank"
-                     class="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full text-sm shadow transition-colors">
+                     class="block w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3 px-6 rounded-xl text-sm shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5">
                     Ir al Registro
                   </a>
               </div>
-              <div class="mt-1 text-[10px] text-gray-400 font-mono">{{ registrationDomain }}</div>
+              <div class="mt-3 text-[10px] text-gray-400 font-mono uppercase tracking-wider">{{ registrationDomain }}</div>
             </div>
 
             <!-- Payment Information -->
-            <div class="bg-gradient-to-br from-yellow-50 to-orange-50 p-4 rounded-xl border border-yellow-200 shadow-sm print:shadow-none print:bg-yellow-50">
-              <div class="flex justify-between items-end mb-2 border-b border-yellow-200 pb-2">
-                <span class="text-xs font-bold uppercase text-gray-500">Costo</span>
-                <span class="text-2xl font-bold text-gray-800 leading-none">{{ formatCost }}</span>
+            <div class="bg-gradient-to-br from-yellow-50/40 to-orange-50/40 backdrop-blur-sm p-4 rounded-2xl border border-yellow-200 shadow-lg print:shadow-none print:bg-yellow-50/30">
+              <div class="flex justify-between items-end mb-4 border-b border-yellow-200/50 pb-3">
+                <span class="text-sm font-bold uppercase text-gray-500 tracking-wider">Costo de Recuperación</span>
+                <span class="text-3xl font-bold text-gray-800 leading-none font-header">{{ formatCost }}</span>
               </div>
-              <div class="space-y-2 text-xs">
-                <div v-if="paymentInfo" class="text-gray-600">
+              <div class="space-y-3 text-sm">
+                <div v-if="paymentInfo" class="text-gray-700 bg-white/50 p-3 rounded-lg border border-yellow-100">
                   {{ paymentInfo }}
                 </div>
                 <div v-if="paymentMethods">
-                  <span class="block text-[10px] text-gray-500 uppercase">Métodos de pago</span>
+                  <span class="block text-[10px] text-gray-500 uppercase tracking-wider mb-1">Métodos de pago</span>
                   <span class="font-bold text-gray-800">{{ paymentMethods }}</span>
                 </div>
               </div>
             </div>
 
             <!-- Contact Information -->
-            <div class="mt-auto">
-              <h4 class="text-sm font-bold text-gray-400 uppercase mb-2 flex items-center gap-1">
+            <div class="bg-white/40 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-white/40 print:shadow-none print:bg-white/60">
+              <h4 class="text-sm font-bold text-gray-400 uppercase mb-3 flex items-center gap-2 tracking-wider">
                 <Info class="w-4 h-4" /> Informes
               </h4>
-              <div class="grid grid-cols-1 gap-2">
+              <div class="grid grid-cols-1 gap-3">
                 <div v-for="phone in contactPhones" :key="phone"
-                   class="flex items-center gap-2 bg-white p-2 rounded shadow-sm print:shadow-none border border-gray-100">
-                  <Phone class="w-4 h-4 text-green-600" />
-                  <div class="text-xs">
-                    <span class="font-bold text-gray-800">Contacto</span>
-                    <span class="text-gray-600 ml-1">{{ phone }}</span>
+                   class="flex items-center gap-3 bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:border-blue-200 transition-colors print:shadow-none">
+                  <div class="bg-green-100 p-1.5 rounded-full text-green-600">
+                    <Phone class="w-4 h-4" />
+                  </div>
+                  <div class="text-sm">
+                    <span class="font-bold text-gray-800 block text-xs uppercase text-gray-400">Contacto</span>
+                    <span class="text-gray-700 font-medium font-mono">{{ phone }}</span>
                   </div>
                 </div>
               </div>
@@ -205,21 +220,21 @@
         </div>
 
         <!-- Footer -->
-        <footer class="relative bg-black h-24 md:h-28 flex items-center justify-between px-6 overflow-hidden mt-auto print:bg-black print:h-24">
+        <footer class="relative bg-black h-20 flex items-center justify-between px-6 overflow-hidden mt-auto print:bg-black print:h-20">
            <!-- Note: Background images often don't print by default. We keep the fallback color strong. -->
-          <div class="absolute inset-0 opacity-40 bg-cover bg-center print:opacity-40"
+          <div class="absolute inset-0 opacity-50 bg-cover bg-center print:opacity-40"
                :style="{ backgroundImage: 'url(\'https://images.unsplash.com/photo-1495616811223-4d98c6e9d869?q=80&w=2600&auto=format&fit=crop\')' }">
           </div>
-          <div class="absolute inset-0 bg-gradient-to-r from-black via-transparent to-black opacity-90 print:opacity-80"></div>
+          <div class="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-black opacity-90 print:opacity-80"></div>
 
           <div class="relative z-10 flex flex-col justify-center h-full">
-            <h2 class="text-4xl md:text-5xl font-bold text-white leading-none mb-1 font-display" style="font-family: 'Dancing Script', cursive;">Ven</h2>
-            <div class="bg-yellow-500 text-black text-[10px] md:text-xs font-bold px-2 py-0.5 rounded uppercase w-max print:bg-yellow-500 print:text-black">Cupo Limitado</div>
+            <h2 class="text-4xl md:text-5xl font-bold text-white leading-none mb-1 font-display drop-shadow-lg" style="font-family: 'Dancing Script', cursive;">Ven</h2>
+            <div class="bg-yellow-500 text-black text-[10px] md:text-xs font-bold px-3 py-1 rounded-full uppercase w-max tracking-wider shadow-lg print:bg-yellow-500 print:text-black">Cupo Limitado</div>
           </div>
 
           <div class="relative z-10 max-w-lg text-right flex flex-col justify-center h-full">
-            <h3 class="text-lg md:text-xl font-bold text-white uppercase tracking-wider mb-1">¡No te lo pierdas!</h3>
-            <p class="text-[9px] text-gray-400 leading-tight opacity-90">
+            <h3 class="text-xl md:text-2xl font-bold text-white uppercase tracking-widest mb-1 font-header">¡No te lo pierdas!</h3>
+            <p class="text-[10px] text-gray-400 leading-tight opacity-80 max-w-[200px] ml-auto">
               * Para asegurar lugar: llenar formato en línea y cubrir el 50% del costo.
             </p>
           </div>
