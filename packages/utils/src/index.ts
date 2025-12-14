@@ -88,6 +88,8 @@ export interface RetreatData {
 	max_servers?: number;
 	walkerArrivalTime?: string;
 	serverArrivalTimeFriday?: string;
+	retreat_type?: string;
+	retreat_number_version?: string;
 }
 
 /**
@@ -267,6 +269,8 @@ export const replaceRetreatVariables = (
 		max_servers: 15,
 		walkerArrivalTime: '18:00',
 		serverArrivalTimeFriday: '16:00',
+		retreat_type: 'men',
+		retreat_number_version: 'I',
 	};
 
 	// Use mock data if retreat is undefined or null
@@ -276,17 +280,17 @@ export const replaceRetreatVariables = (
 		'retreat.parish': retreatData.parish || '',
 		'retreat.startDate': retreatData.startDate
 			? new Date(retreatData.startDate).toLocaleDateString('es-ES', {
-					year: 'numeric',
-					month: 'long',
-					day: 'numeric',
-				})
+				year: 'numeric',
+				month: 'long',
+				day: 'numeric',
+			})
 			: '',
 		'retreat.endDate': retreatData.endDate
 			? new Date(retreatData.endDate).toLocaleDateString('es-ES', {
-					year: 'numeric',
-					month: 'long',
-					day: 'numeric',
-				})
+				year: 'numeric',
+				month: 'long',
+				day: 'numeric',
+			})
 			: '',
 		'retreat.openingNotes': retreatData.openingNotes || '',
 		'retreat.closingNotes': retreatData.closingNotes || '',
@@ -298,6 +302,8 @@ export const replaceRetreatVariables = (
 		'retreat.maxServers': retreatData.max_servers?.toString() || '',
 		'retreat.walkerArrivalTime': retreatData.walkerArrivalTime || '',
 		'retreat.serverArrivalTimeFriday': retreatData.serverArrivalTimeFriday || '',
+		'retreat.type': retreatData.retreat_type || '',
+		'retreat.number': retreatData.retreat_number_version || '',
 	};
 
 	// Apply all retreat variable replacements
@@ -380,9 +386,9 @@ const createEmailTemplate = (
     <!-- Fallback content for text-only email clients -->
     <div style="display:none;font-size:0;color:#ffffff;line-height:0;mso-hide:all">
       ${content
-				.replace(/<[^>]*>/g, ' ')
-				.replace(/\s+/g, ' ')
-				.trim()}
+			.replace(/<[^>]*>/g, ' ')
+			.replace(/\s+/g, ' ')
+			.trim()}
     </div>
   `;
 
@@ -605,10 +611,9 @@ const createEmailTemplate = (
         <body>
           ${textFallback}
           <div class="email-container">
-            ${
-							skipTemplate
-								? ''
-								: `
+            ${skipTemplate
+					? ''
+					: `
             <div class="email-header">
               <h1 style="margin: 0; font-size: 28px; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative; z-index: 1;">
                 Mensaje de Emaús
@@ -618,7 +623,7 @@ const createEmailTemplate = (
               </p>
             </div>
             `
-						}
+				}
             <div class="email-body">
               <div class="message-box">
                 ${content}
@@ -648,10 +653,9 @@ const createEmailTemplate = (
         <body>
           ${textFallback}
           <div class="email-container">
-            ${
-							skipTemplate
-								? ''
-								: `
+            ${skipTemplate
+					? ''
+					: `
             <div class="email-header">
               <h1 style="margin: 0; font-size: 28px; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative; z-index: 1;">
                 Mensaje de Emaús
@@ -661,7 +665,7 @@ const createEmailTemplate = (
               </p>
             </div>
             `
-						}
+				}
             <div class="email-body">
               <div class="message-box">
                 ${content}
@@ -694,10 +698,9 @@ const createEmailTemplate = (
         <body>
           ${textFallback}
           <table class="email-container" align="center" border="0" cellpadding="0" cellspacing="0" width="600">
-            ${
-							skipTemplate
-								? ''
-								: `
+            ${skipTemplate
+					? ''
+					: `
             <tr>
               <td class="email-header" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; text-align: center; padding: 35px 30px; position: relative;">
                 <h1 style="margin: 0; font-size: 28px; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative; z-index: 1;">
@@ -709,7 +712,7 @@ const createEmailTemplate = (
               </td>
             </tr>
             `
-						}
+				}
             <tr>
               <td class="email-body">
                 <div class="message-box">

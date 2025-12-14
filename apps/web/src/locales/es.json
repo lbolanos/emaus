@@ -86,46 +86,46 @@
       "preview": "Vista Previa",
       "previewPlaceholder": "La vista previa de tu mensaje aparecerá aquí...",
       "copyVariable": "Copiar",
-        "selectParticipant": "Seleccionar participante para vista previa",
-        "participantPlaceholder": "Elige un participante...",
-        "usedVariables": "Variables Usadas",
-        "click": "Clic",
-        "save": "Guardar",
-        "variablesTitle": "Variables Disponibles",
-        "categories": {
-          "participant": "Variables del Participante",
-          "retreat": "Variables del Retiro",
-          "user": "Variables del Usuario",
-          "custom": "Variables Personalizadas"
-        },
-        "variables": {
-          "retreatParish": "Parroquia del retiro",
-          "retreatStartDate": "Fecha de inicio del retiro",
-          "retreatEndDate": "Fecha de fin del retiro",
-          "retreatOpeningNotes": "Notas de apertura del retiro",
-          "retreatClosingNotes": "Notas de cierre del retiro",
-          "retreatThingsToBringNotes": "Notas de qué llevar del retiro",
-          "retreatCost": "Costo del retiro",
-          "retreatPaymentInfo": "Información de pago del retiro",
-          "retreatPaymentMethods": "Métodos de pago del retiro",
-          "retreatMaxWalkers": "Máximo de caminantes del retiro",
-          "retreatMaxServers": "Máximo de servidores del retiro",
-          "retreatWalkerArrivalTime": "Hora de llegada de caminantes del retiro",
-          "retreatServerArrivalTimeFriday": "Hora de llegada de servidores del retiro (viernes)"
-        }
+      "selectParticipant": "Seleccionar participante para vista previa",
+      "participantPlaceholder": "Elige un participante...",
+      "usedVariables": "Variables Usadas",
+      "click": "Clic",
+      "save": "Guardar",
+      "variablesTitle": "Variables Disponibles",
+      "categories": {
+        "participant": "Variables del Participante",
+        "retreat": "Variables del Retiro",
+        "user": "Variables del Usuario",
+        "custom": "Variables Personalizadas"
       },
-      "editor": {
-        "bold": "Negrita",
-        "italic": "Cursiva",
-        "underline": "Subrayado",
-        "alignLeft": "Alinear a la izquierda",
-        "alignCenter": "Centrar",
-        "alignRight": "Alinear a la derecha",
-        "bulletList": "Lista con viñetas",
-        "numberedList": "Lista numerada",
-        "clearFormatting": "Limpiar formato",
-        "emoji": "Insertar emoji"
-      },
+      "variables": {
+        "retreatParish": "Parroquia del retiro",
+        "retreatStartDate": "Fecha de inicio del retiro",
+        "retreatEndDate": "Fecha de fin del retiro",
+        "retreatOpeningNotes": "Notas de apertura del retiro",
+        "retreatClosingNotes": "Notas de cierre del retiro",
+        "retreatThingsToBringNotes": "Notas de qué llevar del retiro",
+        "retreatCost": "Costo del retiro",
+        "retreatPaymentInfo": "Información de pago del retiro",
+        "retreatPaymentMethods": "Métodos de pago del retiro",
+        "retreatMaxWalkers": "Máximo de caminantes del retiro",
+        "retreatMaxServers": "Máximo de servidores del retiro",
+        "retreatWalkerArrivalTime": "Hora de llegada de caminantes del retiro",
+        "retreatServerArrivalTimeFriday": "Hora de llegada de servidores del retiro (viernes)"
+      }
+    },
+    "editor": {
+      "bold": "Negrita",
+      "italic": "Cursiva",
+      "underline": "Subrayado",
+      "alignLeft": "Alinear a la izquierda",
+      "alignCenter": "Centrar",
+      "alignRight": "Alinear a la derecha",
+      "bulletList": "Lista con viñetas",
+      "numberedList": "Lista numerada",
+      "clearFormatting": "Limpiar formato",
+      "emoji": "Insertar emoji"
+    },
     "deleteConfirm": "¿Estás seguro de que quieres eliminar esta plantilla?",
     "types": {
       "all": "Todos los Tipos",
@@ -482,11 +482,20 @@
     "linkCopied": "Enlace de {type} copiado al portapapeles",
     "closeAndContinue": "Cerrar y Continuar",
     "sections": {
-      "basicInfo": "Información Básica",
-      "capacity": "Capacidad",
-      "settings": "Configuración",
-      "paymentInfo": "Información de Pago",
-      "optionalNotes": "Notas Opcionales"
+      "general": "General",
+      "logistics": "Logística",
+      "financials": "Finanzas",
+      "notes": "Notas"
+    },
+    "retreatType": "Tipo de Retiro",
+    "retreatTypePlaceholder": "Selecciona el tipo",
+    "retreatNumber": "Número / Versión",
+    "retreatNumberPlaceholder": "Ej. XVI",
+    "types": {
+      "men": "Hombres",
+      "women": "Mujeres",
+      "couples": "Matrimonios",
+      "effeta": "Effetá"
     },
     "walkerArrivalTime": "Hora de llegada de caminantes",
     "walkerArrivalTimeDescription": "Hora en que deben llegar los caminantes al retiro",
@@ -494,9 +503,9 @@
     "serverArrivalTimeFridayDescription": "Hora en que deben llegar los servidores el viernes",
     "timePlaceholder": "HH:MM"
   },
-    "retreatDashboard": {
-      "title": "Dashboard del Retiro",
-      "partialServersDescription": "Participantes que ayudan parcialmente",
+  "retreatDashboard": {
+    "title": "Dashboard del Retiro",
+    "partialServersDescription": "Participantes que ayudan parcialmente",
     "selectedRetreat": "Retiro Seleccionado",
     "walkersCount": "# Caminantes",
     "serversCount": "# Servidores",
@@ -765,7 +774,7 @@
     },
     "emergencyContact1": "En caso de emergencia contactar a (1):",
     "emergencyContact2": "En caso de emergencia contactar a (2):"
-  },  
+  },
   "serverRegistration": {
     "title": "Registro de Servidor",
     "description": "Por favor, rellene el siguiente formulario para registrarse como servidor para el retiro.",
@@ -841,7 +850,7 @@
       },
       "needsWhiteShirt": "Talla de camisa blanca",
       "needsWhiteShirtPlaceholder": "Seleccione talla o no necesita",
-      "needsBlueShirt": "Talla de camisa azul", 
+      "needsBlueShirt": "Talla de camisa azul",
       "needsBlueShirtPlaceholder": "Seleccione talla o no necesita",
       "needsJacket": "Talla de chaqueta",
       "needsJacketPlaceholder": "Seleccione talla o no necesita",
@@ -871,7 +880,7 @@
     },
     "deleteConfirmationTitle": "Eliminar Responsabilidad",
     "deleteConfirmation": "¿Estás seguro de que quieres eliminar este responsabilidad? Esta acción no se puede deshacer."
-  },  
+  },
   "inviteUsersModal": {
     "title": "Invitar Alguien",
     "description": "Invita usuarios a este retiro con un rol específico",

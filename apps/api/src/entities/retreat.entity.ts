@@ -45,6 +45,12 @@ export class Retreat {
 	@Column({ type: 'text', nullable: true })
 	closingNotes?: string;
 
+	@Column({ type: 'varchar', nullable: true })
+	retreat_type?: string;
+
+	@Column({ type: 'varchar', nullable: true })
+	retreat_number_version?: string;
+
 	@Column({ type: 'text', nullable: true })
 	thingsToBringNotes?: string;
 

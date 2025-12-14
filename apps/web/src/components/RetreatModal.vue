@@ -12,16 +12,18 @@
 
       <form @submit.prevent="handleSubmit" class="space-y-6">
         <Tabs v-model="activeTab" class="w-full">
-          <TabsList class="grid w-full grid-cols-5">
-            <TabsTrigger value="basic-info">Información Básica</TabsTrigger>
-            <TabsTrigger value="capacity">Capacidad</TabsTrigger>
-            <TabsTrigger value="settings">Configuración</TabsTrigger>
-            <TabsTrigger value="payment">Pagos</TabsTrigger>
-            <TabsTrigger value="notes">Notas</TabsTrigger>
+          <TabsList class="grid w-full grid-cols-4">
+            <TabsTrigger value="general">{{ $t('retreatModal.sections.general') }}</TabsTrigger>
+            <TabsTrigger value="logistics">{{ $t('retreatModal.sections.logistics') }}</TabsTrigger>
+            <TabsTrigger value="financials">{{ $t('retreatModal.sections.financials') }}</TabsTrigger>
+            <TabsTrigger value="notes">{{ $t('retreatModal.sections.notes') }}</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="basic-info" class="space-y-6 mt-6">
+          <!-- General Tab -->
+          <TabsContent value="general" class="space-y-6 mt-6">
+            <!-- Basic Info: Type, Number, Parish, House -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
               <div class="space-y-2">
                 <Label for="parish">
                   {{ $t('retreatModal.parish') }}
@@ -35,6 +37,36 @@
                   required
                 />
                 <p v-if="errors.parish" class="text-sm text-red-500">{{ errors.parish }}</p>
+              </div>
+              
+              <div class="space-y-2">
+                <Label for="retreatType">
+                  {{ $t('retreatModal.retreatType') }}
+                </Label>
+                <Select v-model="formData.retreat_type">
+                  <SelectTrigger id="retreatType">
+                    <SelectValue :placeholder="$t('retreatModal.retreatTypePlaceholder')" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="men">{{ $t('retreatModal.types.men') }}</SelectItem>
+                      <SelectItem value="women">{{ $t('retreatModal.types.women') }}</SelectItem>
+                      <SelectItem value="couples">{{ $t('retreatModal.types.couples') }}</SelectItem>
+                      <SelectItem value="effeta">{{ $t('retreatModal.types.effeta') }}</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div class="space-y-2">
+                <Label for="retreatNumber">
+                  {{ $t('retreatModal.retreatNumber') }}
+                </Label>
+                <Input
+                  id="retreatNumber"
+                  v-model="formData.retreat_number_version"
+                  :placeholder="$t('retreatModal.retreatNumberPlaceholder')"
+                />
               </div>
 
               <div class="space-y-2">
@@ -58,22 +90,11 @@
                   </SelectContent>
                 </Select>
                 <p v-if="errors.houseId" class="text-sm text-red-500">{{ errors.houseId }}</p>
-
-                <!-- House capacity info -->
-                <div v-if="houseCapacity.walkerBeds !== null && mode === 'add'" class="text-xs text-muted-foreground">
-                  <div class="flex items-center space-x-4">
-                    <span class="flex items-center">
-                      <div class="w-2 h-2 bg-blue-500 rounded-full mr-1"></div>
-                      {{ $t('retreatModal.walkerBeds', { count: houseCapacity.walkerBeds }) }}
-                    </span>
-                    <span class="flex items-center">
-                      <div class="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
-                      {{ $t('retreatModal.serverBeds', { count: houseCapacity.serverBeds }) }}
-                    </span>
-                  </div>
-                </div>
               </div>
+            </div>
 
+            <!-- Dates -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="space-y-2">
                 <Label for="startDate">
                   {{ $t('retreatModal.startDate') }}
@@ -106,42 +127,11 @@
                 <p v-if="errors.endDate" class="text-sm text-red-500">{{ errors.endDate }}</p>
               </div>
             </div>
-
-            <!-- Arrival Times Section -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <div class="space-y-2">
-                <Label for="walkerArrivalTime">
-                  {{ $t('retreatModal.walkerArrivalTime') }}
-                </Label>
-                <Input
-                  id="walkerArrivalTime"
-                  type="time"
-                  v-model="formData.walkerArrivalTime"
-                  :placeholder="$t('retreatModal.timePlaceholder')"
-                />
-                <p class="text-sm text-muted-foreground">
-                  {{ $t('retreatModal.walkerArrivalTimeDescription') }}
-                </p>
-              </div>
-
-              <div class="space-y-2">
-                <Label for="serverArrivalTimeFriday">
-                  {{ $t('retreatModal.serverArrivalTimeFriday') }}
-                </Label>
-                <Input
-                  id="serverArrivalTimeFriday"
-                  type="time"
-                  v-model="formData.serverArrivalTimeFriday"
-                  :placeholder="$t('retreatModal.timePlaceholder')"
-                />
-                <p class="text-sm text-muted-foreground">
-                  {{ $t('retreatModal.serverArrivalTimeFridayDescription') }}
-                </p>
-              </div>
-            </div>
           </TabsContent>
 
-          <TabsContent value="capacity" class="space-y-6 mt-6">
+          <!-- Logistics Tab -->
+          <TabsContent value="logistics" class="space-y-6 mt-6">
+            <!-- Capacity -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="space-y-2">
                 <Label for="max_walkers">{{ $t('retreatModal.max_walkers') }}</Label>
@@ -169,14 +159,61 @@
                 <p v-if="errors.max_servers" class="text-sm text-red-500">{{ errors.max_servers }}</p>
               </div>
             </div>
-          </TabsContent>
 
-          <TabsContent value="settings" class="space-y-6 mt-6">
+            <!-- House capacity info display -->
+            <div v-if="houseCapacity.walkerBeds !== null && mode === 'add'" class="text-sm text-muted-foreground p-3 border rounded-md bg-muted/20">
+              <span class="font-medium mr-2">House Bed Capacity:</span>
+              <div class="flex items-center space-x-4 inline-flex">
+                <span class="flex items-center">
+                  <div class="w-2 h-2 bg-blue-500 rounded-full mr-1"></div>
+                  {{ $t('retreatModal.walkerBeds', { count: houseCapacity.walkerBeds }) }}
+                </span>
+                <span class="flex items-center">
+                  <div class="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
+                  {{ $t('retreatModal.serverBeds', { count: houseCapacity.serverBeds }) }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Arrival Times -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="space-y-2">
+                <Label for="walkerArrivalTime">
+                  {{ $t('retreatModal.walkerArrivalTime') }}
+                </Label>
+                <Input
+                  id="walkerArrivalTime"
+                  type="time"
+                  v-model="formData.walkerArrivalTime"
+                  :placeholder="$t('retreatModal.timePlaceholder')"
+                />
+                <p class="text-xs text-muted-foreground">
+                  {{ $t('retreatModal.walkerArrivalTimeDescription') }}
+                </p>
+              </div>
+
+              <div class="space-y-2">
+                <Label for="serverArrivalTimeFriday">
+                  {{ $t('retreatModal.serverArrivalTimeFriday') }}
+                </Label>
+                <Input
+                  id="serverArrivalTimeFriday"
+                  type="time"
+                  v-model="formData.serverArrivalTimeFriday"
+                  :placeholder="$t('retreatModal.timePlaceholder')"
+                />
+                <p class="text-xs text-muted-foreground">
+                  {{ $t('retreatModal.serverArrivalTimeFridayDescription') }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Public & Roles Settings -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="p-4 border rounded-lg">
                 <div class="space-y-1">
                   <Label for="isPublic" class="font-medium">{{ $t('retreatModal.isPublic') }}</Label>
-                  <p class="text-sm text-muted-foreground">{{ $t('retreatModal.isPublicDescription') }}</p>
+                  <p class="text-xs text-muted-foreground">{{ $t('retreatModal.isPublicDescription') }}</p>
                 </div>
                 <RadioGroup v-model="formData.isPublic" :disabled="isSubmitting" class="flex space-x-4 mt-2">
                   <div class="flex items-center space-x-2">
@@ -193,7 +230,7 @@
               <div class="p-4 border rounded-lg">
                 <div class="space-y-1">
                   <Label for="roleInvitationEnabled" class="font-medium">{{ $t('retreatModal.roleInvitationEnabled') }}</Label>
-                  <p class="text-sm text-muted-foreground">{{ $t('retreatModal.roleInvitationDescription') }}</p>
+                  <p class="text-xs text-muted-foreground">{{ $t('retreatModal.roleInvitationDescription') }}</p>
                 </div>
                 <RadioGroup v-model="formData.roleInvitationEnabled" :disabled="isSubmitting" class="flex space-x-4 mt-2">
                   <div class="flex items-center space-x-2">
@@ -209,16 +246,15 @@
             </div>
           </TabsContent>
 
-          <TabsContent value="payment" class="space-y-6 mt-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="space-y-2">
-                <Label for="cost">{{ $t('retreatModal.cost') }}</Label>
-                <Input
-                  id="cost"
-                  v-model="formData.cost"
-                  :placeholder="$t('retreatModal.costPlaceholder')"
-                />
-              </div>
+          <!-- Financials Tab -->
+          <TabsContent value="financials" class="space-y-6 mt-6">
+            <div class="space-y-2">
+              <Label for="cost">{{ $t('retreatModal.cost') }}</Label>
+              <Input
+                id="cost"
+                v-model="formData.cost"
+                :placeholder="$t('retreatModal.costPlaceholder')"
+              />
             </div>
 
             <div class="space-y-2">
@@ -227,7 +263,7 @@
                 id="paymentInfo"
                 v-model="formData.paymentInfo"
                 :placeholder="$t('retreatModal.paymentInfoPlaceholder')"
-                rows="3"
+                rows="4"
               />
             </div>
 
@@ -237,11 +273,12 @@
                 id="paymentMethods"
                 v-model="formData.paymentMethods"
                 :placeholder="$t('retreatModal.paymentMethodsPlaceholder')"
-                rows="3"
+                rows="4"
               />
             </div>
           </TabsContent>
 
+          <!-- Notes Tab -->
           <TabsContent value="notes" class="space-y-6 mt-6">
             <div class="space-y-2">
               <Label for="openingNotes">{{ $t('retreatModal.openingNotes') }}</Label>
@@ -416,7 +453,7 @@ const isSubmitting = ref(false);
 const showSuccessDialog = ref(false);
 const createdRetreat = ref<Retreat | null>(null);
 const copiedType = ref<string | null>(null);
-const activeTab = ref('basic-info');
+const activeTab = ref('general');
 
 // Form data
 const formData = ref({
@@ -437,6 +474,8 @@ const formData = ref({
   roleInvitationEnabled: true,
   walkerArrivalTime: '',
   serverArrivalTimeFriday: '',
+  retreat_type: undefined as 'men' | 'women' | 'couples' | 'effeta' | undefined,
+  retreat_number_version: '',
 });
 
 // Validation errors
@@ -623,6 +662,8 @@ const handleSubmit = async () => {
         max_servers: formData.value.max_servers,
         walkerArrivalTime: formData.value.walkerArrivalTime || undefined,
         serverArrivalTimeFriday: formData.value.serverArrivalTimeFriday || undefined,
+        retreat_type: formData.value.retreat_type || undefined,
+        retreat_number_version: formData.value.retreat_number_version || undefined,
       };
 
       // Debug logging
@@ -666,6 +707,8 @@ const resetForm = () => {
     roleInvitationEnabled: true,
     walkerArrivalTime: '',
     serverArrivalTimeFriday: '',
+    retreat_type: undefined,
+    retreat_number_version: '',
   };
   errors.value = {};
 };
@@ -704,7 +747,7 @@ const copyToClipboard = async (text: string, type: string) => {
 watch(() => props.open, (newOpen) => {
   if (newOpen) {
     // Reset to first tab when modal opens
-    activeTab.value = 'basic-info';
+    activeTab.value = 'general';
 
     if (props.mode === 'edit' && props.retreat) {
       // Edit mode - populate with retreat data
@@ -726,6 +769,8 @@ watch(() => props.open, (newOpen) => {
         roleInvitationEnabled: props.retreat.roleInvitationEnabled,
         walkerArrivalTime: props.retreat.walkerArrivalTime || '',
         serverArrivalTimeFriday: props.retreat.serverArrivalTimeFriday || '',
+        retreat_type: props.retreat.retreat_type || undefined,
+        retreat_number_version: props.retreat.retreat_number_version || '',
       };
     } else if (props.initialData) {
       // Add mode with initial data

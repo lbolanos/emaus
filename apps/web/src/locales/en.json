@@ -132,7 +132,7 @@
       "RETREAT_SHARED_NOTIFICATION": "Retreat Shared Notification",
       "BIRTHDAY_MESSAGE": "Birthday Message"
     }
-  }, 
+  },
   "participants": {
     "title": "Walkers",
     "addWalker": "Add Walker",
@@ -273,7 +273,7 @@
       "notes": "Notes",
       "registrationDate": "Registered On",
       "lastUpdatedDate": "Last Updated",
-      "retreatId": "Retreat ID", 
+      "retreatId": "Retreat ID",
       "tableId": "Table ID",
       "retreatBedId": "Bed ID"
     },
@@ -476,6 +476,16 @@
     "editDescription": "Edit the details of the retreat.",
     "parish": "Parish Name",
     "parishPlaceholder": "Enter the parish name",
+    "retreatType": "Retreat Type",
+    "retreatTypePlaceholder": "Select type",
+    "retreatNumber": "Number / Version",
+    "retreatNumberPlaceholder": "Ex. XVI",
+    "types": {
+      "men": "Men",
+      "women": "Women",
+      "couples": "Couples",
+      "effeta": "Effeta"
+    },
     "startDate": "Start Date",
     "endDate": "End Date",
     "house": "House",
@@ -516,11 +526,10 @@
     "linkCopied": "{type} link copied to clipboard",
     "closeAndContinue": "Close and Continue",
     "sections": {
-      "basicInfo": "Basic Information",
-      "capacity": "Capacity",
-      "settings": "Settings",
-      "paymentInfo": "Payment Information",
-      "optionalNotes": "Optional Notes"
+      "general": "General",
+      "logistics": "Logistics",
+      "financials": "Financials",
+      "notes": "Notes"
     },
     "walkerArrivalTime": "Walker Arrival Time",
     "walkerArrivalTimeDescription": "Time when walkers should arrive at the retreat",
@@ -528,9 +537,9 @@
     "serverArrivalTimeFridayDescription": "Time when servers should arrive on Friday",
     "timePlaceholder": "HH:MM"
   },
-    "retreatDashboard": {
-      "title": "Retreat Dashboard",
-      "partialServersDescription": "Participants who help partially",
+  "retreatDashboard": {
+    "title": "Retreat Dashboard",
+    "partialServersDescription": "Participants who help partially",
     "selectedRetreat": "Selected Retreat",
     "walkersCount": "# Walkers",
     "serversCount": "# Servers",
@@ -716,7 +725,7 @@
     "landing": {
       "title": "Emaus Retreat",
       "subtitle": "Register now to be a part of the retreat."
-    },    
+    },
     "tabs": {
       "personalInfo": "Personal Information",
       "healthInfo": "Health Information",

@@ -30,11 +30,15 @@ export default defineConfig(({ mode }) => {
 				},
 			}),
 			// Only generate DTS in development mode to save memory
-			...(mode === 'development' ? [dts({
-				tsconfigPath: './tsconfig.json',
-				outDir: 'dist/types',
-				strictOutput: true,
-			})] : []),
+			...(mode === 'development'
+				? [
+						dts({
+							tsconfigPath: './tsconfig.json',
+							outDir: 'dist/types',
+							strictOutput: true,
+						}),
+					]
+				: []),
 		],
 		resolve: {
 			alias: {

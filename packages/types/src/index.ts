@@ -59,6 +59,8 @@ export const retreatSchema = z.object({
 	paymentMethods: z.string().optional(),
 	max_walkers: z.number().int().positive().optional(),
 	max_servers: z.number().int().positive().optional(),
+	retreat_type: z.enum(['men', 'women', 'couples', 'effeta']).optional(),
+	retreat_number_version: z.string().optional(),
 	isPublic: z.boolean().default(false),
 	roleInvitationEnabled: z.boolean().default(true),
 	walkerArrivalTime: z
