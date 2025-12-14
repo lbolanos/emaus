@@ -15,63 +15,23 @@
       <!-- Added id="printable-area" for the CSS isolation trick -->
       <div
         id="printable-area"
-        class="print-optimized bg-white shadow-lg print:shadow-none"
+        class="print-optimized shadow-lg print:shadow-none"
         :style="flyerStyles"
       >
         <!-- Header Section -->
-        <header class="relative bg-blue-50 border-b-4 border-blue-700 px-6 py-4 flex flex-row items-center justify-between overflow-hidden print:px-6 print:py-4">
+        <header class="relative bg-blue-50/80 border-b-4 border-blue-700 px-6 py-4 flex flex-row items-center justify-between overflow-hidden print:px-6 print:py-4">
           <!-- Background Pattern -->
-          <div class="absolute inset-0 opacity-10 bg-cover bg-center print:opacity-10"
-               :style="{ backgroundImage: 'url(\'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjIiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4xKSIvPjwvc3ZnPg==\')' }">
+          <!-- Background Image -->
+          <div class="absolute inset-0 bg-cover bg-center"
+               style="background-image: url('/header_bck.png');">
           </div>
 
           <!-- Emaús Logo Section -->
           <div class="relative z-10 flex flex-col items-center flex-shrink-0 mr-4">
             <div class="relative mb-1">
               <!-- Custom Cross and Rose Logo -->
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="80" height="80" class="relative">
-                <!-- Cross -->
-                <rect x="85" y="20" width="30" height="160" fill="#8B4513" rx="2"/>
-                <rect x="40" y="60" width="120" height="30" fill="#8B4513" rx="2"/>
-
-                <!-- Cross border/outline -->
-                <rect x="85" y="20" width="30" height="160" fill="none" stroke="#5D3A1A" stroke-width="2" rx="2"/>
-                <rect x="40" y="60" width="120" height="30" fill="none" stroke="#5D3A1A" stroke-width="2" rx="2"/>
-
-                <!-- Rose center -->
-                <circle cx="100" cy="75" r="18" fill="#C41E3A"/>
-
-                <!-- Rose petals - outer layer -->
-                <ellipse cx="100" cy="55" rx="12" ry="10" fill="#E32636"/>
-                <ellipse cx="118" cy="68" rx="10" ry="12" fill="#DC143C"/>
-                <ellipse cx="115" cy="88" rx="12" ry="10" fill="#E32636"/>
-                <ellipse cx="85" cy="88" rx="12" ry="10" fill="#DC143C"/>
-                <ellipse cx="82" cy="68" rx="10" ry="12" fill="#E32636"/>
-
-                <!-- Rose petals - inner layer -->
-                <ellipse cx="100" cy="62" rx="8" ry="7" fill="#8B0000"/>
-                <ellipse cx="110" cy="72" rx="7" ry="8" fill="#A52A2A"/>
-                <ellipse cx="107" cy="82" rx="8" ry="6" fill="#8B0000"/>
-                <ellipse cx="93" cy="82" rx="8" ry="6" fill="#A52A2A"/>
-                <ellipse cx="90" cy="72" rx="7" ry="8" fill="#8B0000"/>
-
-                <!-- Rose center detail -->
-                <circle cx="100" cy="75" r="6" fill="#800020"/>
-                <path d="M97 72 Q100 68 103 72 Q106 76 100 80 Q94 76 97 72" fill="#4A0010"/>
-
-                <!-- Rose leaves -->
-                <ellipse cx="130" cy="90" rx="15" ry="8" fill="#228B22" transform="rotate(30 130 90)"/>
-                <ellipse cx="70" cy="90" rx="15" ry="8" fill="#228B22" transform="rotate(-30 70 90)"/>
-                <path d="M130 90 L118 85" stroke="#006400" stroke-width="1" fill="none"/>
-                <path d="M70 90 L82 85" stroke="#006400" stroke-width="1" fill="none"/>
-
-                <!-- Small leaf veins -->
-                <path d="M125 88 L130 90 L125 92" stroke="#006400" stroke-width="0.5" fill="none"/>
-                <path d="M75 88 L70 90 L75 92" stroke="#006400" stroke-width="0.5" fill="none"/>
-
-                <!-- Text EMAUS -->
-                <text x="100" y="195" font-family="Georgia, serif" font-size="18" font-weight="bold" fill="#8B4513" text-anchor="middle">EMAUS</text>
-              </svg>
+              <!-- Logo Image -->
+              <img src="/logo_man.svg" alt="Emaus Logo" class="w-20 h-20 object-contain" />
             </div>
             <h2 class="text-lg font-bold uppercase tracking-widest text-gray-800 leading-none">Emaús</h2>
             <p class="text-[0.65rem] text-gray-600 text-center uppercase font-semibold leading-tight mt-1">Tlalpan XI<br/>Del Valle III</p>
@@ -79,10 +39,10 @@
 
           <!-- Main Title -->
           <div class="relative z-10 text-right flex-1">
-            <p class="text-sm md:text-base text-blue-600 font-semibold mb-[-10px] mr-2 uppercase tracking-wide">un fin de semana de</p>
+            <p class="text-sm md:text-base text-gray-200 font-semibold mb-[-10px] mr-2 uppercase tracking-wide">un fin de semana de</p>
             <h1 class="text-6xl md:text-8xl font-bold text-red-600 leading-none transform -rotate-1 origin-bottom-right pb-2 pr-2 font-display"
                 style="font-family: 'Miltonian Tattoo', cursive; text-shadow: 14px 11px 7px rgba(0, 0, 0, 0.3);">Esperanza</h1>
-            <p class="text-sm text-gray-500 italic">"La esperanza no decepciona: es silenciosa, humilde y fuerte"</p>
+            <p class="text-sm text-gray-300 italic">"La esperanza no decepciona: es silenciosa, humilde y fuerte"</p>
           </div>
         </header>
         <!-- Retreat Type Banner -->
@@ -106,9 +66,10 @@
         </div>
 
         <!-- Main Content Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-0 print:grid-cols-12">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-0 print:grid-cols-12"
+             style="background-image: url('/jesus_bg.png'); background-size: cover; background-position: center;">
           <!-- Left Column - Event Details -->
-          <div class="md:col-span-7 p-5 space-y-5 bg-white border-r border-gray-100 print:col-span-7">
+          <div class="md:col-span-7 p-5 space-y-5 bg-white/80 border-r border-gray-100 print:col-span-7">
             <p class="text-sm text-gray-600 italic text-center mb-4 border-b border-gray-100 pb-2">
               Un encuentro de esperanza donde sentirás paz, amor y tranquilidad. <br/>
               <span class="font-bold text-blue-600 not-italic">¡Atrévete, vívelo!</span>
@@ -189,14 +150,14 @@
           </div>
 
           <!-- Right Column - Registration & Payment -->
-          <div class="md:col-span-5 bg-yellow-50/30 p-5 flex flex-col gap-4 border-l border-gray-100 print:col-span-5 print:bg-yellow-50">
+          <div class="md:col-span-5 bg-yellow-50/30 p-5 flex flex-col gap-4 border-l border-gray-100 print:col-span-5 print:bg-yellow-50/30">
             <!-- Registration QR Code -->
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-yellow-200 text-center relative overflow-hidden print:shadow-none">
-              <div class="absolute top-0 right-0 w-16 h-16 bg-yellow-100 rounded-bl-full -mr-8 -mt-8 z-0"></div>
+            <div class="bg-white/60 p-4 rounded-xl shadow-sm border border-yellow-200 text-center relative overflow-hidden print:shadow-none">
+              <div class="absolute top-0 right-0 w-16 h-16 bg-yellow-100/50 rounded-bl-full -mr-8 -mt-8 z-0"></div>
               <h3 class="relative z-10 text-xl font-bold text-blue-600 uppercase mb-1">¡Regístrate!</h3>
               <p class="relative z-10 text-xs text-gray-500 mb-3">Escanea para asegurar tu lugar</p>
               <div class="flex justify-center mb-3">
-                <QrcodeVue :value="registrationUrl" :size="110" level="H" class="border-4 border-white shadow-md rounded-lg print:shadow-none" />
+                <QrcodeVue :value="registrationUrl" :size="110" level="H" background="#ffffff00" class="border-4 border-white/50 shadow-md rounded-lg print:shadow-none" />
               </div>
               <div class="print:hidden">
                   <a :href="registrationUrl" target="_blank"
@@ -370,6 +331,9 @@ const flyerStyles = {
   width: '100%',
   maxWidth: '210mm',
   margin: '0 auto',
+  width: '100%',
+  maxWidth: '210mm',
+  margin: '0 auto',
 };
 
 // Print functionality
@@ -410,7 +374,8 @@ onMounted(async () => {
     width: 100%;
     margin: 0;
     padding: 0;
-    background: white; /* Ensure background is white */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
   
   /* Reset margins for the page */
