@@ -222,9 +222,6 @@
         <!-- Footer -->
         <footer class="relative bg-black h-20 flex items-center justify-between px-6 overflow-hidden mt-auto print:bg-black print:h-20">
            <!-- Note: Background images often don't print by default. We keep the fallback color strong. -->
-          <div class="absolute inset-0 opacity-50 bg-cover bg-center print:opacity-40"
-               :style="{ backgroundImage: 'url(\'https://images.unsplash.com/photo-1495616811223-4d98c6e9d869?q=80&w=2600&auto=format&fit=crop\')' }">
-          </div>
           <div class="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-black opacity-90 print:opacity-80"></div>
 
           <div class="relative z-10 flex flex-col justify-center h-full">
