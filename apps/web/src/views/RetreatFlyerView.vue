@@ -29,8 +29,8 @@
           <!-- Emaús Logo Section -->
           <div class="relative z-10 flex flex-col items-center flex-shrink-0 mr-6 drop-shadow-lg">
             <div class="relative mb-2 transform hover:scale-105 transition-transform duration-300">
-              <!-- Logo Image -->
-              <img src="/crossRoseButtT.png" alt="Emaus Logo" class="w-20 h-20 object-contain filter drop-shadow-md" />
+              <!-- Dynamic Logo Image -->
+              <img :src="retreatTypeLogo" alt="Emaus Logo" class="w-20 h-20 object-contain filter drop-shadow-md" />
             </div>
             <h2 class="text-xl font-bold uppercase tracking-[0.2em] text-white leading-none font-header text-shadow-sm">Emaús</h2>
             <p class="text-[0.7rem] text-white/90 text-center uppercase font-medium leading-tight mt-1 tracking-wider">{{ retreatParish }}</p>
@@ -308,6 +308,35 @@ const retreatTypeText = computed(() => {
 
   // Default fallback based on typical Emaús retreat types
   return t('retreatModal.types.men');
+});
+
+const retreatTypeLogo = computed(() => {
+  // Use explicit type if available
+  if (retreatData.value?.retreat_type) {
+    const logos: Record<string, string> = {
+      men: '/man_logo.png',
+      women: '/woman_logo.png',
+      couples: '/crossRoseButtT.png', // Default to man logo for couples
+      effeta: '/crossRoseButtT.png'   // Default to man logo for effeta
+    };
+    return logos[retreatData.value.retreat_type] || '/crossRoseButtT.png';
+  }
+
+  // Try to determine retreat type from available data
+  const parish = retreatData.value?.parish?.toLowerCase() || '';
+  const houseName = retreatData.value?.house?.name?.toLowerCase() || '';
+  const paymentInfo = retreatData.value?.paymentInfo?.toLowerCase() || '';
+
+  // Simple heuristic-based type detection
+  if (parish.includes('mujer') || houseName.includes('mujer') || paymentInfo.includes('mujer')) {
+    return '/woman_logo.png';
+  }
+  if (parish.includes('matrimonio') || houseName.includes('matrimonio') || paymentInfo.includes('matrimonio')) {
+    return '/man_logo.png'; // Couples use man logo
+  }
+
+  // Default fallback (men, joven, effeta, and unknown)
+  return '/man_logo.png';
 });
 
 const retreatNumber = computed(() => {
