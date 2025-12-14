@@ -560,6 +560,40 @@
     "paymentInfo": "Payment Info",
     "paymentMethods": "Payment Methods"
   },
+  "retreatFlyer": {
+    "printButton": "Print Flyer",
+    "catholicRetreat": "Catholic Retreat",
+    "emausFor": "Emaus for",
+    "weekendOfHope": "a weekend of",
+    "hope": "Hope",
+    "hopeQuote": "Hope does not disappoint: it is silent, humble, and strong",
+    "encounterDescription": "An encounter of hope where you will feel peace, love, and tranquility.",
+    "dareToLiveIt": "Dare to live it!",
+    "location": "Location:",
+    "locationQR": "Location",
+    "startTime": "START:",
+    "endTime": "END:",
+    "arrivalTimeNote": "Important that your family attends",
+    "whatToBring": "What to bring:",
+    "defaultItems": {
+      "personalThermos": "Personal thermos",
+      "towel": "Towel",
+      "toiletries": "Toiletries",
+      "jacketSweatshirt": "Jacket/Sweatshirt",
+      "comfortableClothes": "Comfortable clothes"
+    },
+    "cost": "Cost:",
+    "paymentMethods": "Payment methods",
+    "information": "Information",
+    "contact": "Contact",
+    "register": "Register!",
+    "scanToRegister": "Scan to secure your spot",
+    "goToRegistration": "Go to Registration",
+    "limitedCapacity": "Limited Capacity",
+    "dontMissIt": "Don't miss it!",
+    "reservationNote": "* To secure your spot: fill out the online form and pay 50% of the cost.",
+    "come": "Come"
+  },
   "language": {
     "english": "English",
     "spanish": "Spanish"

@@ -526,6 +526,40 @@
     "paymentInfo": "Información de Pago",
     "paymentMethods": "Métodos de Pago"
   },
+  "retreatFlyer": {
+    "printButton": "Imprimir Flyer",
+    "catholicRetreat": "Retiro Católico",
+    "emausFor": "Emaús para",
+    "weekendOfHope": "un fin de semana de",
+    "hope": "Esperanza",
+    "hopeQuote": "La esperanza no decepciona: es silenciosa, humilde y fuerte",
+    "encounterDescription": "Un encuentro de esperanza donde sentirás paz, amor y tranquilidad.",
+    "dareToLiveIt": "¡Atrévete, vívelo!",
+    "location": "Lugar:",
+    "locationQR": "Ubicación",
+    "startTime": "INICIO:",
+    "endTime": "FIN:",
+    "arrivalTimeNote": "Importante que tu familia asista",
+    "whatToBring": "Qué llevar:",
+    "defaultItems": {
+      "personalThermos": "Termo personal",
+      "towel": "Toalla",
+      "toiletries": "Artículos de Aseo",
+      "jacketSweatshirt": "Chamarra/Sudadera",
+      "comfortableClothes": "Ropa cómoda"
+    },
+    "cost": "Costo:",
+    "paymentMethods": "Métodos de pago",
+    "information": "Informes",
+    "contact": "Contacto",
+    "register": "¡Regístrate!",
+    "scanToRegister": "Escanea para asegurar tu lugar",
+    "goToRegistration": "Ir al Registro",
+    "limitedCapacity": "Cupo Limitado",
+    "dontMissIt": "¡No te lo pierdas!",
+    "reservationNote": "* Para asegurar lugar: llenar formato en línea y cubrir el 50% del costo.",
+    "come": "Ven"
+  },
   "language": {
     "english": "Inglés",
     "spanish": "Español"
