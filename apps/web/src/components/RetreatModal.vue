@@ -11,167 +11,167 @@
       </DialogHeader>
 
       <form @submit.prevent="handleSubmit" class="space-y-6">
-        <!-- Basic Information Section -->
-        <div class="space-y-4">
-          <h3 class="text-lg font-medium text-foreground">{{ $t('retreatModal.sections.basicInfo') }}</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="space-y-2">
-              <Label for="parish">
-                {{ $t('retreatModal.parish') }}
-                <span class="text-red-500">*</span>
-              </Label>
-              <Input
-                id="parish"
-                v-model="formData.parish"
-                :class="{ 'border-red-500': errors.parish }"
-                :placeholder="$t('retreatModal.parishPlaceholder')"
-                required
-              />
-              <p v-if="errors.parish" class="text-sm text-red-500">{{ errors.parish }}</p>
-            </div>
+        <Tabs v-model="activeTab" class="w-full">
+          <TabsList class="grid w-full grid-cols-5">
+            <TabsTrigger value="basic-info">Información Básica</TabsTrigger>
+            <TabsTrigger value="capacity">Capacidad</TabsTrigger>
+            <TabsTrigger value="settings">Configuración</TabsTrigger>
+            <TabsTrigger value="payment">Pagos</TabsTrigger>
+            <TabsTrigger value="notes">Notas</TabsTrigger>
+          </TabsList>
 
-            <div class="space-y-2">
-              <Label for="houseId">
-                {{ $t('retreatModal.house') }}
-                <span class="text-red-500">*</span>
-              </Label>
-              <Select v-model="formData.houseId">
-                <SelectTrigger id="houseId" :class="{ 'border-red-500': errors.houseId }">
-                  <SelectValue :placeholder="$t('retreatModal.selectHouse')" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem v-for="house in availableHouses" :key="house.id" :value="house.id">
-                      <div class="flex flex-col">
-                        <span class="font-medium">{{ house.name }}</span>
-                        <span class="text-xs text-muted-foreground">{{ house.city }}, {{ house.state }}</span>
-                      </div>
-                    </SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <p v-if="errors.houseId" class="text-sm text-red-500">{{ errors.houseId }}</p>
+          <TabsContent value="basic-info" class="space-y-6 mt-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="space-y-2">
+                <Label for="parish">
+                  {{ $t('retreatModal.parish') }}
+                  <span class="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="parish"
+                  v-model="formData.parish"
+                  :class="{ 'border-red-500': errors.parish }"
+                  :placeholder="$t('retreatModal.parishPlaceholder')"
+                  required
+                />
+                <p v-if="errors.parish" class="text-sm text-red-500">{{ errors.parish }}</p>
+              </div>
 
-              <!-- House capacity info -->
-              <div v-if="houseCapacity.walkerBeds !== null && mode === 'add'" class="text-xs text-muted-foreground">
-                <div class="flex items-center space-x-4">
-                  <span class="flex items-center">
-                    <div class="w-2 h-2 bg-blue-500 rounded-full mr-1"></div>
-                    {{ $t('retreatModal.walkerBeds', { count: houseCapacity.walkerBeds }) }}
-                  </span>
-                  <span class="flex items-center">
-                    <div class="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
-                    {{ $t('retreatModal.serverBeds', { count: houseCapacity.serverBeds }) }}
-                  </span>
+              <div class="space-y-2">
+                <Label for="houseId">
+                  {{ $t('retreatModal.house') }}
+                  <span class="text-red-500">*</span>
+                </Label>
+                <Select v-model="formData.houseId">
+                  <SelectTrigger id="houseId" :class="{ 'border-red-500': errors.houseId }">
+                    <SelectValue :placeholder="$t('retreatModal.selectHouse')" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem v-for="house in availableHouses" :key="house.id" :value="house.id">
+                        <div class="flex flex-col">
+                          <span class="font-medium">{{ house.name }}</span>
+                          <span class="text-xs text-muted-foreground">{{ house.city }}, {{ house.state }}</span>
+                        </div>
+                      </SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <p v-if="errors.houseId" class="text-sm text-red-500">{{ errors.houseId }}</p>
+
+                <!-- House capacity info -->
+                <div v-if="houseCapacity.walkerBeds !== null && mode === 'add'" class="text-xs text-muted-foreground">
+                  <div class="flex items-center space-x-4">
+                    <span class="flex items-center">
+                      <div class="w-2 h-2 bg-blue-500 rounded-full mr-1"></div>
+                      {{ $t('retreatModal.walkerBeds', { count: houseCapacity.walkerBeds }) }}
+                    </span>
+                    <span class="flex items-center">
+                      <div class="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
+                      {{ $t('retreatModal.serverBeds', { count: houseCapacity.serverBeds }) }}
+                    </span>
+                  </div>
                 </div>
+              </div>
+
+              <div class="space-y-2">
+                <Label for="startDate">
+                  {{ $t('retreatModal.startDate') }}
+                  <span class="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  v-model="startDate"
+                  :min="minDate"
+                  :class="{ 'border-red-500': errors.startDate }"
+                  required
+                />
+                <p v-if="errors.startDate" class="text-sm text-red-500">{{ errors.startDate }}</p>
+              </div>
+
+              <div class="space-y-2">
+                <Label for="endDate">
+                  {{ $t('retreatModal.endDate') }}
+                  <span class="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  v-model="endDate"
+                  :min="startDate || minDate"
+                  :class="{ 'border-red-500': errors.endDate }"
+                  required
+                />
+                <p v-if="errors.endDate" class="text-sm text-red-500">{{ errors.endDate }}</p>
               </div>
             </div>
 
-            <div class="space-y-2">
-              <Label for="startDate">
-                {{ $t('retreatModal.startDate') }}
-                <span class="text-red-500">*</span>
-              </Label>
-              <Input
-                id="startDate"
-                type="date"
-                v-model="startDate"
-                :min="minDate"
-                :class="{ 'border-red-500': errors.startDate }"
-                required
-              />
-              <p v-if="errors.startDate" class="text-sm text-red-500">{{ errors.startDate }}</p>
-            </div>
+            <!-- Arrival Times Section -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div class="space-y-2">
+                <Label for="walkerArrivalTime">
+                  {{ $t('retreatModal.walkerArrivalTime') }}
+                </Label>
+                <Input
+                  id="walkerArrivalTime"
+                  type="time"
+                  v-model="formData.walkerArrivalTime"
+                  :placeholder="$t('retreatModal.timePlaceholder')"
+                />
+                <p class="text-sm text-muted-foreground">
+                  {{ $t('retreatModal.walkerArrivalTimeDescription') }}
+                </p>
+              </div>
 
-            <div class="space-y-2">
-              <Label for="endDate">
-                {{ $t('retreatModal.endDate') }}
-                <span class="text-red-500">*</span>
-              </Label>
-              <Input
-                id="endDate"
-                type="date"
-                v-model="endDate"
-                :min="startDate || minDate"
-                :class="{ 'border-red-500': errors.endDate }"
-                required
-              />
-              <p v-if="errors.endDate" class="text-sm text-red-500">{{ errors.endDate }}</p>
+              <div class="space-y-2">
+                <Label for="serverArrivalTimeFriday">
+                  {{ $t('retreatModal.serverArrivalTimeFriday') }}
+                </Label>
+                <Input
+                  id="serverArrivalTimeFriday"
+                  type="time"
+                  v-model="formData.serverArrivalTimeFriday"
+                  :placeholder="$t('retreatModal.timePlaceholder')"
+                />
+                <p class="text-sm text-muted-foreground">
+                  {{ $t('retreatModal.serverArrivalTimeFridayDescription') }}
+                </p>
+              </div>
             </div>
-          </div>
+          </TabsContent>
 
-          <!-- Arrival Times Section -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <div class="space-y-2">
-              <Label for="walkerArrivalTime">
-                {{ $t('retreatModal.walkerArrivalTime') }}
-              </Label>
-              <Input
-                id="walkerArrivalTime"
-                type="time"
-                v-model="formData.walkerArrivalTime"
-                :placeholder="$t('retreatModal.timePlaceholder')"
-              />
-              <p class="text-sm text-muted-foreground">
-                {{ $t('retreatModal.walkerArrivalTimeDescription') }}
-              </p>
+          <TabsContent value="capacity" class="space-y-6 mt-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="space-y-2">
+                <Label for="max_walkers">{{ $t('retreatModal.max_walkers') }}</Label>
+                <Input
+                  id="max_walkers"
+                  type="number"
+                  v-model.number="formData.max_walkers"
+                  :placeholder="$t('retreatModal.maxWalkersPlaceholder')"
+                  :class="{ 'border-red-500': errors.max_walkers }"
+                  min="1"
+                />
+                <p v-if="errors.max_walkers" class="text-sm text-red-500">{{ errors.max_walkers }}</p>
+              </div>
+
+              <div class="space-y-2">
+                <Label for="max_servers">{{ $t('retreatModal.max_servers') }}</Label>
+                <Input
+                  id="max_servers"
+                  type="number"
+                  v-model.number="formData.max_servers"
+                  :placeholder="$t('retreatModal.maxServersPlaceholder')"
+                  :class="{ 'border-red-500': errors.max_servers }"
+                  min="1"
+                />
+                <p v-if="errors.max_servers" class="text-sm text-red-500">{{ errors.max_servers }}</p>
+              </div>
             </div>
+          </TabsContent>
 
-            <div class="space-y-2">
-              <Label for="serverArrivalTimeFriday">
-                {{ $t('retreatModal.serverArrivalTimeFriday') }}
-              </Label>
-              <Input
-                id="serverArrivalTimeFriday"
-                type="time"
-                v-model="formData.serverArrivalTimeFriday"
-                :placeholder="$t('retreatModal.timePlaceholder')"
-              />
-              <p class="text-sm text-muted-foreground">
-                {{ $t('retreatModal.serverArrivalTimeFridayDescription') }}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Capacity Section -->
-        <div class="space-y-4">
-          <h3 class="text-lg font-medium text-foreground">{{ $t('retreatModal.sections.capacity') }}</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="space-y-2">
-              <Label for="max_walkers">{{ $t('retreatModal.max_walkers') }}</Label>
-              <Input
-                id="max_walkers"
-                type="number"
-                v-model.number="formData.max_walkers"
-                :placeholder="$t('retreatModal.maxWalkersPlaceholder')"
-                :class="{ 'border-red-500': errors.max_walkers }"
-                min="1"
-              />
-              <p v-if="errors.max_walkers" class="text-sm text-red-500">{{ errors.max_walkers }}</p>
-            </div>
-
-            <div class="space-y-2">
-              <Label for="max_servers">{{ $t('retreatModal.max_servers') }}</Label>
-              <Input
-                id="max_servers"
-                type="number"
-                v-model.number="formData.max_servers"
-                :placeholder="$t('retreatModal.maxServersPlaceholder')"
-                :class="{ 'border-red-500': errors.max_servers }"
-                min="1"
-              />
-              <p v-if="errors.max_servers" class="text-sm text-red-500">{{ errors.max_servers }}</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Settings Section -->
-        <details class="space-y-4">
-          <summary class="cursor-pointer text-lg font-medium text-foreground hover:text-primary">
-            {{ $t('retreatModal.sections.settings') }}
-          </summary>
-          <div class="pt-4">
+          <TabsContent value="settings" class="space-y-6 mt-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="p-4 border rounded-lg">
                 <div class="space-y-1">
@@ -207,15 +207,9 @@
                 </RadioGroup>
               </div>
             </div>
-          </div>
-        </details>
+          </TabsContent>
 
-        <!-- Payment Information Section -->
-        <details class="space-y-4">
-          <summary class="cursor-pointer text-lg font-medium text-foreground hover:text-primary">
-            {{ $t('retreatModal.sections.paymentInfo') }}
-          </summary>
-          <div class="space-y-4 pt-4">
+          <TabsContent value="payment" class="space-y-6 mt-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="space-y-2">
                 <Label for="cost">{{ $t('retreatModal.cost') }}</Label>
@@ -246,15 +240,9 @@
                 rows="3"
               />
             </div>
-          </div>
-        </details>
+          </TabsContent>
 
-        <!-- Optional Notes Section -->
-        <details class="space-y-4">
-          <summary class="cursor-pointer text-lg font-medium text-foreground hover:text-primary">
-            {{ $t('retreatModal.sections.optionalNotes') }}
-          </summary>
-          <div class="space-y-4 pt-4">
+          <TabsContent value="notes" class="space-y-6 mt-6">
             <div class="space-y-2">
               <Label for="openingNotes">{{ $t('retreatModal.openingNotes') }}</Label>
               <Textarea
@@ -295,8 +283,8 @@
               />
               <p class="text-sm text-muted-foreground">{{ $t('retreatModal.contactPhonesHelp') }}</p>
             </div>
-          </div>
-        </details>
+          </TabsContent>
+        </Tabs>
 
         <DialogFooter>
           <div class="flex justify-between items-center w-full">
@@ -400,7 +388,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Button, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Textarea, RadioGroup, RadioGroupItem } from '@repo/ui';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Button, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Textarea, RadioGroup, RadioGroupItem, Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui';
 import { Loader2 } from 'lucide-vue-next';
 import { useHouseStore } from '@/stores/houseStore';
 import { useToast } from '@repo/ui';
@@ -428,6 +416,7 @@ const isSubmitting = ref(false);
 const showSuccessDialog = ref(false);
 const createdRetreat = ref<Retreat | null>(null);
 const copiedType = ref<string | null>(null);
+const activeTab = ref('basic-info');
 
 // Form data
 const formData = ref({
@@ -714,6 +703,9 @@ const copyToClipboard = async (text: string, type: string) => {
 // Watchers
 watch(() => props.open, (newOpen) => {
   if (newOpen) {
+    // Reset to first tab when modal opens
+    activeTab.value = 'basic-info';
+
     if (props.mode === 'edit' && props.retreat) {
       // Edit mode - populate with retreat data
       formData.value = {
