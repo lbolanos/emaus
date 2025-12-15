@@ -525,7 +525,15 @@
       "limitedCapacity": "Cupo Limitado",
       "dontMissIt": "¡No te lo pierdas!",
       "reservationNote": "Nota de Reservación",
-      "comeLabel": "Etiqueta Ven"
+      "comeLabel": "Etiqueta Ven",
+      "tabs": {
+        "settings": "Configuración",
+        "overrides": "Textos Personalizados",
+        "header": "Encabezado",
+        "content": "Contenido",
+        "footer": "Pie de Página",
+        "json": "JSON"
+      }
     }
   },
   "retreatDashboard": {

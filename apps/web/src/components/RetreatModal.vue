@@ -325,134 +325,173 @@
 
           <!-- Flyer Tab -->
           <TabsContent value="flyer" class="space-y-6 mt-6">
-            <div class="space-y-2">
-              <Label for="titleOverride">{{ $t('retreatModal.flyer.titleOverride') }}</Label>
-              <Input
-                id="titleOverride"
-                v-model="formData.flyer_options.titleOverride"
-                :placeholder="$t('retreatFlyer.hope')"
-              />
-            </div>
+            <Tabs default-value="settings" class="w-full">
+              <TabsList class="grid w-full grid-cols-5 mb-4">
+                <TabsTrigger value="settings">{{ $t('retreatModal.flyer.tabs.settings') }}</TabsTrigger>
+                <TabsTrigger value="header">{{ $t('retreatModal.flyer.tabs.header') }}</TabsTrigger>
+                <TabsTrigger value="content">{{ $t('retreatModal.flyer.tabs.content') }}</TabsTrigger>
+                <TabsTrigger value="footer">{{ $t('retreatModal.flyer.tabs.footer') }}</TabsTrigger>
+                <TabsTrigger value="json">{{ $t('retreatModal.flyer.tabs.json') }}</TabsTrigger>
+              </TabsList>
 
-            <div class="space-y-2">
-              <Label for="subtitleOverride">{{ $t('retreatModal.flyer.subtitleOverride') }}</Label>
-              <Input
-                id="subtitleOverride"
-                v-model="formData.flyer_options.subtitleOverride"
-                :placeholder="$t('retreatFlyer.weekendOfHope')"
-              />
-            </div>
+              <!-- Settings Tab -->
+              <TabsContent value="settings" class="space-y-6">
+                <div class="space-y-4 p-4 border rounded-md">
+                   <div class="flex items-center space-x-2">
+                       <input
+                          type="checkbox"
+                          id="showQrCodesLocation"
+                          v-model="formData.flyer_options.showQrCodesLocation"
+                          class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <Label for="showQrCodesLocation" class="cursor-pointer">{{ $t('retreatModal.flyer.showQrCodesLocation') }}</Label>
+                  </div>
+                   <div class="flex items-center space-x-2">
+                       <input
+                          type="checkbox"
+                          id="showQrCodesRegistration"
+                          v-model="formData.flyer_options.showQrCodesRegistration"
+                          class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <Label for="showQrCodesRegistration" class="cursor-pointer">{{ $t('retreatModal.flyer.showQrCodesRegistration') }}</Label>
+                  </div>
+                </div>
+              </TabsContent>
 
-            <div class="space-y-2">
-              <Label for="hopeQuoteOverride">{{ $t('retreatModal.flyer.hopeQuoteOverride') }}</Label>
-              <Textarea
-                id="hopeQuoteOverride"
-                v-model="formData.flyer_options.hopeQuoteOverride"
-                :placeholder="$t('retreatFlyer.hopeQuote')"
-                rows="2"
-              />
-            </div>
-            <div class="space-y-2">
-              <Label for="encounterDescriptionOverride">{{ $t('retreatModal.flyer.description') }}</Label>
-              <Textarea
-                id="encounterDescriptionOverride"
-                v-model="formData.flyer_options.encounterDescriptionOverride"
-                :placeholder="$t('retreatFlyer.encounterDescription')"
-                rows="2"
-              />
-            </div>
-            
-
-
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
-        
-                 <div class="flex items-center space-x-2">
-                     <input
-                        type="checkbox"
-                        id="showQrCodesLocation"
-                        v-model="formData.flyer_options.showQrCodesLocation"
-                        class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+               <!-- Header Tab -->
+              <TabsContent value="header" class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <div class="space-y-2">
+                      <Label>{{ $t('retreatModal.flyer.headerCatholicRetreat') }}</Label>
+                      <Input v-model="formData.flyer_options.catholicRetreatOverride" :placeholder="$t('retreatFlyer.catholicRetreat')" />
+                     </div>
+                     <div class="space-y-2">
+                      <Label>{{ $t('retreatModal.flyer.headerEmausFor') }}</Label>
+                      <Input v-model="formData.flyer_options.emausForOverride" :placeholder="$t('retreatFlyer.emausFor')" />
+                     </div>
+                     <div class="space-y-2">
+                      <Label>{{ $t('retreatModal.flyer.headerWeekendOf') }}</Label>
+                      <Input v-model="formData.flyer_options.weekendOfHopeOverride" :placeholder="$t('retreatFlyer.weekendOfHope')" />
+                     </div>
+                      <div class="space-y-2">
+                      <Label>{{ $t('retreatModal.flyer.headerHope') }}</Label>
+                      <Input v-model="formData.flyer_options.hopeOverride" :placeholder="$t('retreatFlyer.hope')" />
+                     </div>
+                </div>
+                 <!-- Main Text Overrides usually go in Header or top section -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+                    <div class="space-y-2">
+                      <Label for="titleOverride">{{ $t('retreatModal.flyer.titleOverride') }}</Label>
+                      <Input
+                        id="titleOverride"
+                        v-model="formData.flyer_options.titleOverride"
+                        :placeholder="$t('retreatFlyer.hope')"
                       />
-                      <Label for="showQrCodesLocation">{{ $t('retreatModal.flyer.showQrCodesLocation') }}</Label>
-                </div>
-                 <div class="flex items-center space-x-2">
-                     <input
-                        type="checkbox"
-                        id="showQrCodesRegistration"
-                        v-model="formData.flyer_options.showQrCodesRegistration"
-                        class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    </div>
+                    <div class="space-y-2">
+                      <Label for="subtitleOverride">{{ $t('retreatModal.flyer.subtitleOverride') }}</Label>
+                      <Input
+                        id="subtitleOverride"
+                        v-model="formData.flyer_options.subtitleOverride"
+                        :placeholder="$t('retreatFlyer.weekendOfHope')"
                       />
-                      <Label for="showQrCodesRegistration">{{ $t('retreatModal.flyer.showQrCodesRegistration') }}</Label>
-                </div>      
-               <!-- Header Section -->
-               <div class="space-y-2">
-                <Label>{{ $t('retreatModal.flyer.headerCatholicRetreat') }}</Label>
-                <Input v-model="formData.flyer_options.catholicRetreatOverride" :placeholder="$t('retreatFlyer.catholicRetreat')" />
-               </div>
-               <div class="space-y-2">
-                <Label>{{ $t('retreatModal.flyer.headerEmausFor') }}</Label>
-                <Input v-model="formData.flyer_options.emausForOverride" :placeholder="$t('retreatFlyer.emausFor')" />
-               </div>
-               <div class="space-y-2">
-                <Label>{{ $t('retreatModal.flyer.headerWeekendOf') }}</Label>
-                <Input v-model="formData.flyer_options.weekendOfHopeOverride" :placeholder="$t('retreatFlyer.weekendOfHope')" />
-               </div>
-                <div class="space-y-2">
-                <Label>{{ $t('retreatModal.flyer.headerHope') }}</Label>
-                <Input v-model="formData.flyer_options.hopeOverride" :placeholder="$t('retreatFlyer.hope')" />
-               </div>
-            </div>
+                    </div>
+                </div>
+              </TabsContent>
 
+              <!-- Content Tab -->
+              <TabsContent value="content" class="space-y-6">
+                 <div class="grid grid-cols-1 gap-4">
+                     <div class="space-y-2">
+                      <Label for="hopeQuoteOverride">{{ $t('retreatModal.flyer.hopeQuoteOverride') }}</Label>
+                      <Textarea
+                        id="hopeQuoteOverride"
+                        v-model="formData.flyer_options.hopeQuoteOverride"
+                        :placeholder="$t('retreatFlyer.hopeQuote')"
+                        rows="2"
+                      />
+                    </div>
+                    
+                    <div class="space-y-2">
+                      <Label for="encounterDescriptionOverride">{{ $t('retreatModal.flyer.description') }}</Label>
+                      <Textarea
+                        id="encounterDescriptionOverride"
+                        v-model="formData.flyer_options.encounterDescriptionOverride"
+                        :placeholder="$t('retreatFlyer.encounterDescription')"
+                        rows="3"
+                      />
+                    </div>
 
+                     <div class="space-y-2">
+                        <Label>{{ $t('retreatModal.flyer.whatToBringHeader') }}</Label>
+                        <Input v-model="formData.flyer_options.whatToBringOverride" :placeholder="$t('retreatFlyer.whatToBring')" />
+                    </div>
+                     <div class="space-y-2">
+                        <Label>{{ $t('retreatModal.flyer.arrivalNote') }}</Label>
+                        <Input v-model="formData.flyer_options.arrivalTimeNoteOverride" :placeholder="$t('retreatFlyer.arrivalTimeNote')" />
+                    </div>
+                </div>
+              </TabsContent>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Footer Tab -->
+               <TabsContent value="footer" class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                        <Label>{{ $t('retreatModal.flyer.callToActionDareToLiveIt') }}</Label>
+                        <Input v-model="formData.flyer_options.dareToLiveItOverride" :placeholder="$t('retreatFlyer.dareToLiveIt')" />
+                    </div>
+                      <div class="space-y-2">
+                        <Label>{{ $t('retreatModal.flyer.registerButton') }}</Label>
+                        <Input v-model="formData.flyer_options.registerOverride" :placeholder="$t('retreatFlyer.register')" />
+                    </div>
+                     <div class="space-y-2">
+                        <Label>{{ $t('retreatModal.flyer.scanToRegister') }}</Label>
+                        <Input v-model="formData.flyer_options.scanToRegisterOverride" :placeholder="$t('retreatFlyer.scanToRegister')" />
+                    </div>
+                     <div class="space-y-2">
+                        <Label>{{ $t('retreatModal.flyer.goToRegistration') }}</Label>
+                        <Input v-model="formData.flyer_options.goToRegistrationOverride" :placeholder="$t('retreatFlyer.goToRegistration')" />
+                    </div>
+                     <div class="space-y-2">
+                        <Label>{{ $t('retreatModal.flyer.limitedCapacity') }}</Label>
+                        <Input v-model="formData.flyer_options.limitedCapacityOverride" :placeholder="$t('retreatFlyer.limitedCapacity')" />
+                    </div>
+                    <div class="space-y-2">
+                        <Label>{{ $t('retreatModal.flyer.dontMissIt') }}</Label>
+                        <Input v-model="formData.flyer_options.dontMissItOverride" :placeholder="$t('retreatFlyer.dontMissIt')" />
+                    </div>
+                    
+                     <div class="space-y-2">
+                        <Label>{{ $t('retreatModal.flyer.comeLabel') }}</Label>
+                        <Input v-model="formData.flyer_options.comeOverride" :placeholder="$t('retreatFlyer.come')" />
+                    </div>
+                    <div class="col-span-1 md:col-span-2 space-y-2">
+                        <Label>{{ $t('retreatModal.flyer.reservationNote') }}</Label>
+                        <Textarea
+                          id="reservationNoteOverride"
+                          v-model="formData.flyer_options.reservationNoteOverride"
+                          :placeholder="$t('retreatFlyer.reservationNote')"
+                          rows="2"
+                        />                    
+                    </div>
+                </div>
+               </TabsContent>
+
+              <!-- JSON Tab -->
+              <TabsContent value="json" class="space-y-4">
                 <div class="space-y-2">
-                    <Label>{{ $t('retreatModal.flyer.callToActionDareToLiveIt') }}</Label>
-                    <Input v-model="formData.flyer_options.dareToLiveItOverride" :placeholder="$t('retreatFlyer.dareToLiveIt')" />
+                  <Label for="flyerOptionsJson">Flyer Options JSON</Label>
+                  <Textarea
+                    id="flyerOptionsJson"
+                    v-model="flyerOptionsJsonString"
+                    rows="20"
+                    class="font-mono text-sm"
+                    @blur="parseFlyerOptionsJson"
+                  />
+                  <p v-if="flyerOptionsJsonError" class="text-sm text-red-500">{{ flyerOptionsJsonError }}</p>
                 </div>
-                 <div class="space-y-2">
-                    <Label>{{ $t('retreatModal.flyer.arrivalNote') }}</Label>
-                    <Input v-model="formData.flyer_options.arrivalTimeNoteOverride" :placeholder="$t('retreatFlyer.arrivalTimeNote')" />
-                </div>
-                 <div class="space-y-2">
-                    <Label>{{ $t('retreatModal.flyer.whatToBringHeader') }}</Label>
-                    <Input v-model="formData.flyer_options.whatToBringOverride" :placeholder="$t('retreatFlyer.whatToBring')" />
-                </div>
-                  <div class="space-y-2">
-                    <Label>{{ $t('retreatModal.flyer.registerButton') }}</Label>
-                    <Input v-model="formData.flyer_options.registerOverride" :placeholder="$t('retreatFlyer.register')" />
-                </div>
-                 <div class="space-y-2">
-                    <Label>{{ $t('retreatModal.flyer.scanToRegister') }}</Label>
-                    <Input v-model="formData.flyer_options.scanToRegisterOverride" :placeholder="$t('retreatFlyer.scanToRegister')" />
-                </div>
-                 <div class="space-y-2">
-                    <Label>{{ $t('retreatModal.flyer.goToRegistration') }}</Label>
-                    <Input v-model="formData.flyer_options.goToRegistrationOverride" :placeholder="$t('retreatFlyer.goToRegistration')" />
-                </div>
-                 <div class="space-y-2">
-                    <Label>{{ $t('retreatModal.flyer.limitedCapacity') }}</Label>
-                    <Input v-model="formData.flyer_options.limitedCapacityOverride" :placeholder="$t('retreatFlyer.limitedCapacity')" />
-                </div>
-                <div class="space-y-2">
-                    <Label>{{ $t('retreatModal.flyer.dontMissIt') }}</Label>
-                    <Input v-model="formData.flyer_options.dontMissItOverride" :placeholder="$t('retreatFlyer.dontMissIt')" />
-                </div>
-                 <div class="space-y-2">
-                    <Label>{{ $t('retreatModal.flyer.reservationNote') }}</Label>
-                    <Textarea
-                      id="reservationNoteOverride"
-                      v-model="formData.flyer_options.reservationNoteOverride"
-                      :placeholder="$t('retreatFlyer.reservationNote')"
-                      rows="2"
-                    />                    
-                </div>
-                 <div class="space-y-2">
-                    <Label>{{ $t('retreatModal.flyer.comeLabel') }}</Label>
-                    <Input v-model="formData.flyer_options.comeOverride" :placeholder="$t('retreatFlyer.come')" />
-                </div>
-            </div>
+              </TabsContent>
+            </Tabs>
           </TabsContent>
         </Tabs>
 
@@ -587,6 +626,38 @@ const showSuccessDialog = ref(false);
 const createdRetreat = ref<Retreat | null>(null);
 const copiedType = ref<string | null>(null);
 const activeTab = ref('general');
+
+// JSON Editor for flyer_options
+const flyerOptionsJsonError = ref<string | null>(null);
+
+const flyerOptionsJsonString = computed({
+  get: () => {
+    try {
+      return JSON.stringify(formData.value.flyer_options, null, 2);
+    } catch {
+      return '{}';
+    }
+  },
+  set: (value: string) => {
+    try {
+      const parsed = JSON.parse(value);
+      formData.value.flyer_options = parsed;
+      flyerOptionsJsonError.value = null;
+    } catch (e: any) {
+      flyerOptionsJsonError.value = `Invalid JSON: ${e.message}`;
+    }
+  }
+});
+
+const parseFlyerOptionsJson = () => {
+  try {
+    const parsed = JSON.parse(flyerOptionsJsonString.value);
+    formData.value.flyer_options = parsed;
+    flyerOptionsJsonError.value = null;
+  } catch (e: any) {
+    flyerOptionsJsonError.value = `Invalid JSON: ${e.message}`;
+  }
+};
 
 // Form data
 const formData = ref({
