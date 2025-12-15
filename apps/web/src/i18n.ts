@@ -11,6 +11,26 @@ const getBrowserLocale = () => {
 	return 'en';
 };
 
+const getStoredLocale = () => {
+	try {
+		const stored = localStorage.getItem('preferred-locale');
+		if (stored && ['en', 'es'].includes(stored)) {
+			return stored;
+		}
+	} catch (error) {
+		console.warn('Failed to read locale from localStorage:', error);
+	}
+	return null;
+};
+
+const storeLocale = (locale: string) => {
+	try {
+		localStorage.setItem('preferred-locale', locale);
+	} catch (error) {
+		console.warn('Failed to store locale to localStorage:', error);
+	}
+};
+
 /**
  * Enhanced safe message compiler with support for:
  * - Named interpolation: {name}
@@ -358,7 +378,7 @@ export function createSafeI18n(messages: Record<string, any>) {
 
 const i18n = createI18n({
 	legacy: false,
-	locale: getBrowserLocale(),
+	locale: getStoredLocale() || getBrowserLocale(),
 	fallbackLocale: 'en',
 	messages: {
 		en,
@@ -379,5 +399,7 @@ const i18n = createI18n({
 	missingWarn: process.env.NODE_ENV !== 'production',
 	fallbackWarn: process.env.NODE_ENV !== 'production',
 });
+
+export { storeLocale };
 
 export default i18n;

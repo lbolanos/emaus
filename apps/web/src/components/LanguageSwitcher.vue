@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@repo/ui'
+import { storeLocale } from '@/i18n'
 
 const { t, locale } = useI18n()
 
 const handleUpdate = (value: string) => {
   locale.value = value
+  storeLocale(value)
 }
 </script>
 
