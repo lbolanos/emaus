@@ -380,8 +380,8 @@ export DOMAIN_NAME='emaus.cc'
 export VPS_HOST=155.138.230.215
 export VPS_USER=root
 export GITHUB_REPO=lbolanos/emaus
-export NEW_TAG=v0.0.2
-export RELEASE_TAG=v0.0.2
+export NEW_TAG=v0.0.3
+export RELEASE_TAG=v0.0.3
 export CERTBOT_EMAIL=leonardo.bolanos@gmail.com
 
 ./create-release.sh

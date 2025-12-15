@@ -53,33 +53,12 @@ export default defineConfig(({ mode }) => {
 			minify: mode === 'production' ? 'terser' : false,
 			target: 'es2015',
 			chunkSizeWarningLimit: 1000,
-			rollupOptions: {
-				output: {
-					manualChunks(id) {
-						// Split vendor chunks to reduce memory pressure
-						if (id.includes('node_modules')) {
-							// Vue ecosystem
-							if (id.includes('vue') || id.includes('vue-router') || id.includes('pinia')) {
-								return 'vendor';
-							}
-							// UI components
-							if (id.includes('@repo/ui') || id.includes('lucide-vue-next')) {
-								return 'ui';
-							}
-							// Editor components
-							if (id.includes('@tiptap') || id.includes('element-tiptap')) {
-								return 'editor';
-							}
-							// All other node modules
-							return 'vendor';
-						}
-					},
-					entryFileNames: 'assets/[name].js',
-					chunkFileNames: 'assets/[name]-[hash].js',
-					assetFileNames: 'assets/[name]-[hash][extname]',
-				},
-				treeshake: 'smallest',
-			},
+			// Disable manual chunks to avoid memory issues with chunk splitting
+			// rollupOptions: {
+			// 	output: {
+			// 		manualChunks: undefined,
+			// 	},
+			// },
 		},
 	};
 });
