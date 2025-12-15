@@ -93,6 +93,8 @@ The codebase has extensive Spanish documentation and requirements. Key features 
 
 ## Database Schema
 
+the file for database is in  apps/api/database.sqlite
+
 The system uses TypeORM with SQLite. Key entities include:
 
 - Participant (with family_friend_color, snoring info)
