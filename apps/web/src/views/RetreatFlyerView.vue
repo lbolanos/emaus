@@ -546,7 +546,7 @@ const subtitleText = computed(() => {
 });
 
 const quoteText = computed(() => {
-  return flyerOptions.value?.hopeQuoteOverride || flyerOptions.value?.quoteOverride || t('retreatFlyer.hopeQuote');
+  return flyerOptions.value?.hopeQuoteOverride || t('retreatFlyer.hopeQuote');
 });
 
 const showQrCodes = computed(() => {
@@ -597,7 +597,6 @@ const subtitleTextRefined = computed(() => {
 });
 const quoteTextRefined = computed(() => {
     if (flyerOptions.value?.hopeQuoteOverride) return flyerOptions.value.hopeQuoteOverride;
-    if (flyerOptions.value?.quoteOverride) return flyerOptions.value.quoteOverride;
     return t('retreatFlyer.hopeQuote');
 });
 

@@ -274,7 +274,7 @@
                 id="paymentMethods"
                 v-model="formData.paymentMethods"
                 :placeholder="$t('retreatModal.paymentMethodsPlaceholder')"
-                rows="4"
+                rows="2"
               />
             </div>
           </TabsContent>
@@ -287,7 +287,7 @@
                 id="openingNotes"
                 v-model="formData.openingNotes"
                 :placeholder="$t('retreatModal.openingNotesPlaceholder')"
-                rows="3"
+                rows="2"
               />
             </div>
 
@@ -297,7 +297,7 @@
                 id="closingNotes"
                 v-model="formData.closingNotes"
                 :placeholder="$t('retreatModal.closingNotesPlaceholder')"
-                rows="3"
+                rows="2"
               />
             </div>
 
@@ -307,7 +307,7 @@
                 id="thingsToBringNotes"
                 v-model="formData.thingsToBringNotes"
                 :placeholder="$t('retreatModal.thingsToBringPlaceholder')"
-                rows="3"
+                rows="2"
               />
             </div>
 
@@ -317,7 +317,7 @@
                 id="contactPhones"
                 v-model="formData.contactPhones"
                 :placeholder="$t('retreatModal.contactPhonesPlaceholder')"
-                rows="3"
+                rows="2"
               />
               <p class="text-sm text-muted-foreground">{{ $t('retreatModal.contactPhonesHelp') }}</p>
             </div>
@@ -344,10 +344,10 @@
             </div>
 
             <div class="space-y-2">
-              <Label for="quoteOverride">{{ $t('retreatModal.flyer.quoteOverride') }}</Label>
+              <Label for="hopeQuoteOverride">{{ $t('retreatModal.flyer.hopeQuoteOverride') }}</Label>
               <Textarea
-                id="quoteOverride"
-                v-model="formData.flyer_options.quoteOverride"
+                id="hopeQuoteOverride"
+                v-model="formData.flyer_options.hopeQuoteOverride"
                 :placeholder="$t('retreatFlyer.hopeQuote')"
                 rows="2"
               />
@@ -358,11 +358,15 @@
                 id="encounterDescriptionOverride"
                 v-model="formData.flyer_options.encounterDescriptionOverride"
                 :placeholder="$t('retreatFlyer.encounterDescription')"
-                rows="4"
+                rows="2"
               />
             </div>
             
-            <div class="flex flex-col space-y-2 pt-2">
+
+
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+        
                  <div class="flex items-center space-x-2">
                      <input
                         type="checkbox"
@@ -380,10 +384,7 @@
                         class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
                       <Label for="showQrCodesRegistration">{{ $t('retreatModal.flyer.showQrCodesRegistration') }}</Label>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+                </div>      
                <!-- Header Section -->
                <div class="space-y-2">
                 <Label>{{ $t('retreatModal.flyer.headerCatholicRetreat') }}</Label>
@@ -403,10 +404,6 @@
                </div>
             </div>
 
-             <div class="space-y-2">
-                <Label>{{ $t('retreatModal.flyer.quote') }}</Label>
-                <Textarea v-model="formData.flyer_options.hopeQuoteOverride" :placeholder="$t('retreatFlyer.hopeQuote')" rows="2" />
-            </div>
 
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -444,7 +441,12 @@
                 </div>
                  <div class="space-y-2">
                     <Label>{{ $t('retreatModal.flyer.reservationNote') }}</Label>
-                    <Input v-model="formData.flyer_options.reservationNoteOverride" :placeholder="$t('retreatFlyer.reservationNote')" />
+                    <Textarea
+                      id="reservationNoteOverride"
+                      v-model="formData.flyer_options.reservationNoteOverride"
+                      :placeholder="$t('retreatFlyer.reservationNote')"
+                      rows="2"
+                    />                    
                 </div>
                  <div class="space-y-2">
                     <Label>{{ $t('retreatModal.flyer.comeLabel') }}</Label>
@@ -610,7 +612,6 @@ const formData = ref({
   flyer_options: {
     titleOverride: '',
     subtitleOverride: '',
-    quoteOverride: '',
     showQrCodes: true, // Deprecated in UI but kept for state shape if needed
     showQrCodesLocation: true,
     showQrCodesRegistration: true,
@@ -868,7 +869,6 @@ const resetForm = () => {
     flyer_options: {
         titleOverride: '',
         subtitleOverride: '',
-        quoteOverride: '',
         showQrCodes: true,
         showQrCodesLocation: true,
         showQrCodesRegistration: true,
@@ -957,7 +957,6 @@ watch(() => props.open, (newOpen) => {
           flyer_options: {
             titleOverride: (props.retreat as any).flyer_options?.titleOverride || '',
             subtitleOverride: (props.retreat as any).flyer_options?.subtitleOverride || '',
-            quoteOverride: (props.retreat as any).flyer_options?.quoteOverride || '',
             showQrCodes: legacyShowQr,
             showQrCodesLocation: (props.retreat as any).flyer_options?.showQrCodesLocation ?? legacyShowQr,
             showQrCodesRegistration: (props.retreat as any).flyer_options?.showQrCodesRegistration ?? legacyShowQr,
@@ -992,7 +991,6 @@ watch(() => props.open, (newOpen) => {
         flyer_options: {
           titleOverride: initialFlyerOptions.titleOverride || '',
           subtitleOverride: initialFlyerOptions.subtitleOverride || '',
-          quoteOverride: initialFlyerOptions.quoteOverride || '',
           showQrCodes: legacyShowQrInitial,
           showQrCodesLocation: initialFlyerOptions.showQrCodesLocation ?? legacyShowQrInitial,
           showQrCodesRegistration: initialFlyerOptions.showQrCodesRegistration ?? legacyShowQrInitial,

@@ -507,7 +507,7 @@
       "title": "Volante",
       "titleOverride": "Título",
       "subtitleOverride": "Subtítulo",
-      "quoteOverride": "Cita",
+      "hopeQuoteOverride": "Cita",
       "showQrCodesLocation": "Mostrar QR de Ubicación",
       "showQrCodesRegistration": "Mostrar QR de Registro",
       "headerCatholicRetreat": "Encabezado: Retiro Católico",

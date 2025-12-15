@@ -541,7 +541,7 @@
       "title": "Flyer",
       "titleOverride": "Title",
       "subtitleOverride": "Subtitle",
-      "quoteOverride": "Quote",
+      "hopeQuoteOverride": "Quote",
       "showQrCodesLocation": "Show Location QR Code",
       "showQrCodesRegistration": "Show Registration QR Code",
       "headerCatholicRetreat": "Header: Catholic Retreat",

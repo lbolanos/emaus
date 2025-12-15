@@ -47,7 +47,6 @@ export type Room = z.infer<typeof roomSchema>;
 export const flyerOptionsSchema = z.object({
 	titleOverride: z.string().optional(),
 	subtitleOverride: z.string().optional(),
-	quoteOverride: z.string().optional(),
 	cssStyles: z.record(z.string()).optional(),
 	// showQrCodes is deprecated, replaced by granularity below
 	showQrCodes: z.boolean().default(true).optional(),
@@ -69,7 +68,7 @@ export const flyerOptionsSchema = z.object({
 	emausForOverride: z.string().optional(),
 	weekendOfHopeOverride: z.string().optional(),
 	hopeOverride: z.string().optional(), // Overlaps with titleOverride?
-	hopeQuoteOverride: z.string().optional(), // Overlaps with quoteOverride?
+	hopeQuoteOverride: z.string().optional(),
 	encounterDescriptionOverride: z.string().optional(),
 	dareToLiveItOverride: z.string().optional(),
 	arrivalTimeNoteOverride: z.string().optional(),
