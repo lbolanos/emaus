@@ -43,6 +43,47 @@ export const roomSchema = z.object({
 });
 export type Room = z.infer<typeof roomSchema>;
 
+// Flyer Options Schema
+export const flyerOptionsSchema = z.object({
+	titleOverride: z.string().optional(),
+	subtitleOverride: z.string().optional(),
+	quoteOverride: z.string().optional(),
+	cssStyles: z.record(z.string()).optional(),
+	// showQrCodes is deprecated, replaced by granularity below
+	showQrCodes: z.boolean().default(true).optional(),
+	showQrCodesLocation: z.boolean().default(true),
+	showQrCodesRegistration: z.boolean().default(true),
+
+	// New fields
+	catholicRetreat: z.string().optional(),
+	emausFor: z.string().optional(),
+	weekendOfHope: z.string().optional(), // Mapping to existing override key if needed, or separate? Let's use new keys for all.
+	// user supplied "weekendOfHope": "a weekend of", this was actually subtitleOverride logic before?
+	// To avoid confusion, I will add explicit overrides for every key provided by the user.
+	// If titleOverride and subtitleOverride map to these, we should clarify.
+	// Assuming titleOverride -> 'hope' and subtitleOverride -> 'weekendOfHope' based on previous code.
+	// BUT user asked for "change all this texts in flyer options".
+	// It's safer to add explicit overrides for each specific label if they want granular control.
+
+	catholicRetreatOverride: z.string().optional(),
+	emausForOverride: z.string().optional(),
+	weekendOfHopeOverride: z.string().optional(),
+	hopeOverride: z.string().optional(), // Overlaps with titleOverride?
+	hopeQuoteOverride: z.string().optional(), // Overlaps with quoteOverride?
+	encounterDescriptionOverride: z.string().optional(),
+	dareToLiveItOverride: z.string().optional(),
+	arrivalTimeNoteOverride: z.string().optional(),
+	whatToBringOverride: z.string().optional(),
+	registerOverride: z.string().optional(),
+	scanToRegisterOverride: z.string().optional(),
+	goToRegistrationOverride: z.string().optional(),
+	limitedCapacityOverride: z.string().optional(),
+	dontMissItOverride: z.string().optional(),
+	reservationNoteOverride: z.string().optional(),
+	comeOverride: z.string().optional(),
+});
+export type FlyerOptions = z.infer<typeof flyerOptionsSchema>;
+
 // Retreat Schema
 export const retreatSchema = z.object({
 	id: idSchema,
@@ -71,6 +112,7 @@ export const retreatSchema = z.object({
 		.string()
 		.regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
 		.optional(),
+	flyer_options: flyerOptionsSchema.optional(),
 });
 export type Retreat = z.infer<typeof retreatSchema>;
 

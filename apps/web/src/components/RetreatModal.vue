@@ -12,11 +12,12 @@
 
       <form @submit.prevent="handleSubmit" class="space-y-6">
         <Tabs v-model="activeTab" class="w-full">
-          <TabsList class="grid w-full grid-cols-4">
+          <TabsList class="grid w-full grid-cols-5">
             <TabsTrigger value="general">{{ $t('retreatModal.sections.general') }}</TabsTrigger>
             <TabsTrigger value="logistics">{{ $t('retreatModal.sections.logistics') }}</TabsTrigger>
             <TabsTrigger value="financials">{{ $t('retreatModal.sections.financials') }}</TabsTrigger>
             <TabsTrigger value="notes">{{ $t('retreatModal.sections.notes') }}</TabsTrigger>
+            <TabsTrigger value="flyer">{{ $t('retreatModal.sections.flyer') }}</TabsTrigger>
           </TabsList>
 
           <!-- General Tab -->
@@ -321,6 +322,136 @@
               <p class="text-sm text-muted-foreground">{{ $t('retreatModal.contactPhonesHelp') }}</p>
             </div>
           </TabsContent>
+
+          <!-- Flyer Tab -->
+          <TabsContent value="flyer" class="space-y-6 mt-6">
+            <div class="space-y-2">
+              <Label for="titleOverride">{{ $t('retreatModal.flyer.titleOverride') }}</Label>
+              <Input
+                id="titleOverride"
+                v-model="formData.flyer_options.titleOverride"
+                :placeholder="$t('retreatFlyer.hope')"
+              />
+            </div>
+
+            <div class="space-y-2">
+              <Label for="subtitleOverride">{{ $t('retreatModal.flyer.subtitleOverride') }}</Label>
+              <Input
+                id="subtitleOverride"
+                v-model="formData.flyer_options.subtitleOverride"
+                :placeholder="$t('retreatFlyer.weekendOfHope')"
+              />
+            </div>
+
+            <div class="space-y-2">
+              <Label for="quoteOverride">{{ $t('retreatModal.flyer.quoteOverride') }}</Label>
+              <Textarea
+                id="quoteOverride"
+                v-model="formData.flyer_options.quoteOverride"
+                :placeholder="$t('retreatFlyer.hopeQuote')"
+                rows="2"
+              />
+            </div>
+            <div class="space-y-2">
+              <Label for="encounterDescriptionOverride">{{ $t('retreatModal.flyer.description') }}</Label>
+              <Textarea
+                id="encounterDescriptionOverride"
+                v-model="formData.flyer_options.encounterDescriptionOverride"
+                :placeholder="$t('retreatFlyer.encounterDescription')"
+                rows="4"
+              />
+            </div>
+            
+            <div class="flex flex-col space-y-2 pt-2">
+                 <div class="flex items-center space-x-2">
+                     <input
+                        type="checkbox"
+                        id="showQrCodesLocation"
+                        v-model="formData.flyer_options.showQrCodesLocation"
+                        class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <Label for="showQrCodesLocation">{{ $t('retreatModal.flyer.showQrCodesLocation') }}</Label>
+                </div>
+                 <div class="flex items-center space-x-2">
+                     <input
+                        type="checkbox"
+                        id="showQrCodesRegistration"
+                        v-model="formData.flyer_options.showQrCodesRegistration"
+                        class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <Label for="showQrCodesRegistration">{{ $t('retreatModal.flyer.showQrCodesRegistration') }}</Label>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+               <!-- Header Section -->
+               <div class="space-y-2">
+                <Label>{{ $t('retreatModal.flyer.headerCatholicRetreat') }}</Label>
+                <Input v-model="formData.flyer_options.catholicRetreatOverride" :placeholder="$t('retreatFlyer.catholicRetreat')" />
+               </div>
+               <div class="space-y-2">
+                <Label>{{ $t('retreatModal.flyer.headerEmausFor') }}</Label>
+                <Input v-model="formData.flyer_options.emausForOverride" :placeholder="$t('retreatFlyer.emausFor')" />
+               </div>
+               <div class="space-y-2">
+                <Label>{{ $t('retreatModal.flyer.headerWeekendOf') }}</Label>
+                <Input v-model="formData.flyer_options.weekendOfHopeOverride" :placeholder="$t('retreatFlyer.weekendOfHope')" />
+               </div>
+                <div class="space-y-2">
+                <Label>{{ $t('retreatModal.flyer.headerHope') }}</Label>
+                <Input v-model="formData.flyer_options.hopeOverride" :placeholder="$t('retreatFlyer.hope')" />
+               </div>
+            </div>
+
+             <div class="space-y-2">
+                <Label>{{ $t('retreatModal.flyer.quote') }}</Label>
+                <Textarea v-model="formData.flyer_options.hopeQuoteOverride" :placeholder="$t('retreatFlyer.hopeQuote')" rows="2" />
+            </div>
+
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="space-y-2">
+                    <Label>{{ $t('retreatModal.flyer.callToActionDareToLiveIt') }}</Label>
+                    <Input v-model="formData.flyer_options.dareToLiveItOverride" :placeholder="$t('retreatFlyer.dareToLiveIt')" />
+                </div>
+                 <div class="space-y-2">
+                    <Label>{{ $t('retreatModal.flyer.arrivalNote') }}</Label>
+                    <Input v-model="formData.flyer_options.arrivalTimeNoteOverride" :placeholder="$t('retreatFlyer.arrivalTimeNote')" />
+                </div>
+                 <div class="space-y-2">
+                    <Label>{{ $t('retreatModal.flyer.whatToBringHeader') }}</Label>
+                    <Input v-model="formData.flyer_options.whatToBringOverride" :placeholder="$t('retreatFlyer.whatToBring')" />
+                </div>
+                  <div class="space-y-2">
+                    <Label>{{ $t('retreatModal.flyer.registerButton') }}</Label>
+                    <Input v-model="formData.flyer_options.registerOverride" :placeholder="$t('retreatFlyer.register')" />
+                </div>
+                 <div class="space-y-2">
+                    <Label>{{ $t('retreatModal.flyer.scanToRegister') }}</Label>
+                    <Input v-model="formData.flyer_options.scanToRegisterOverride" :placeholder="$t('retreatFlyer.scanToRegister')" />
+                </div>
+                 <div class="space-y-2">
+                    <Label>{{ $t('retreatModal.flyer.goToRegistration') }}</Label>
+                    <Input v-model="formData.flyer_options.goToRegistrationOverride" :placeholder="$t('retreatFlyer.goToRegistration')" />
+                </div>
+                 <div class="space-y-2">
+                    <Label>{{ $t('retreatModal.flyer.limitedCapacity') }}</Label>
+                    <Input v-model="formData.flyer_options.limitedCapacityOverride" :placeholder="$t('retreatFlyer.limitedCapacity')" />
+                </div>
+                <div class="space-y-2">
+                    <Label>{{ $t('retreatModal.flyer.dontMissIt') }}</Label>
+                    <Input v-model="formData.flyer_options.dontMissItOverride" :placeholder="$t('retreatFlyer.dontMissIt')" />
+                </div>
+                 <div class="space-y-2">
+                    <Label>{{ $t('retreatModal.flyer.reservationNote') }}</Label>
+                    <Input v-model="formData.flyer_options.reservationNoteOverride" :placeholder="$t('retreatFlyer.reservationNote')" />
+                </div>
+                 <div class="space-y-2">
+                    <Label>{{ $t('retreatModal.flyer.comeLabel') }}</Label>
+                    <Input v-model="formData.flyer_options.comeOverride" :placeholder="$t('retreatFlyer.come')" />
+                </div>
+            </div>
+          </TabsContent>
         </Tabs>
 
         <DialogFooter>
@@ -476,6 +607,30 @@ const formData = ref({
   serverArrivalTimeFriday: '',
   retreat_type: undefined as 'men' | 'women' | 'couples' | 'effeta' | undefined,
   retreat_number_version: '',
+  flyer_options: {
+    titleOverride: '',
+    subtitleOverride: '',
+    quoteOverride: '',
+    showQrCodes: true, // Deprecated in UI but kept for state shape if needed
+    showQrCodesLocation: true,
+    showQrCodesRegistration: true,
+    catholicRetreatOverride: '',
+    emausForOverride: '',
+    weekendOfHopeOverride: '',
+    hopeOverride: '',
+    hopeQuoteOverride: '',
+    encounterDescriptionOverride: '',
+    dareToLiveItOverride: '',
+    arrivalTimeNoteOverride: '',
+    whatToBringOverride: '',
+    registerOverride: '',
+    scanToRegisterOverride: '',
+    goToRegistrationOverride: '',
+    limitedCapacityOverride: '',
+    dontMissItOverride: '',
+    reservationNoteOverride: '',
+    comeOverride: '',
+  },
 });
 
 // Validation errors
@@ -664,6 +819,7 @@ const handleSubmit = async () => {
         serverArrivalTimeFriday: formData.value.serverArrivalTimeFriday || undefined,
         retreat_type: formData.value.retreat_type || undefined,
         retreat_number_version: formData.value.retreat_number_version || undefined,
+        flyer_options: formData.value.flyer_options,
       };
 
       // Debug logging
@@ -709,6 +865,30 @@ const resetForm = () => {
     serverArrivalTimeFriday: '',
     retreat_type: undefined,
     retreat_number_version: '',
+    flyer_options: {
+        titleOverride: '',
+        subtitleOverride: '',
+        quoteOverride: '',
+        showQrCodes: true,
+        showQrCodesLocation: true,
+        showQrCodesRegistration: true,
+        catholicRetreatOverride: '',
+        emausForOverride: '',
+        weekendOfHopeOverride: '',
+        hopeOverride: '',
+        hopeQuoteOverride: '',
+        encounterDescriptionOverride: '',
+        dareToLiveItOverride: '',
+        arrivalTimeNoteOverride: '',
+        whatToBringOverride: '',
+        registerOverride: '',
+        scanToRegisterOverride: '',
+        goToRegistrationOverride: '',
+        limitedCapacityOverride: '',
+        dontMissItOverride: '',
+        reservationNoteOverride: '',
+        comeOverride: '',
+    },
   };
   errors.value = {};
 };
@@ -750,35 +930,89 @@ watch(() => props.open, (newOpen) => {
     activeTab.value = 'general';
 
     if (props.mode === 'edit' && props.retreat) {
-      // Edit mode - populate with retreat data
-      formData.value = {
-        parish: props.retreat.parish,
-        startDate: new Date(props.retreat.startDate),
-        endDate: new Date(props.retreat.endDate),
-        houseId: props.retreat.houseId,
-        openingNotes: props.retreat.openingNotes || '',
-        closingNotes: props.retreat.closingNotes || '',
-        thingsToBringNotes: props.retreat.thingsToBringNotes || '',
-        contactPhones: props.retreat.contactPhones || '',
-        cost: props.retreat.cost || '',
-        paymentInfo: props.retreat.paymentInfo || '',
-        paymentMethods: props.retreat.paymentMethods || '',
-        max_walkers: props.retreat.max_walkers,
-        max_servers: props.retreat.max_servers,
-        isPublic: props.retreat.isPublic,
-        roleInvitationEnabled: props.retreat.roleInvitationEnabled,
-        walkerArrivalTime: props.retreat.walkerArrivalTime || '',
-        serverArrivalTimeFriday: props.retreat.serverArrivalTimeFriday || '',
-        retreat_type: props.retreat.retreat_type || undefined,
-        retreat_number_version: props.retreat.retreat_number_version || '',
+      // Edit mode - populate        // Initialize with legacy showQrCodes if new fields are undefined
+        const legacyShowQr = (props.retreat as any).flyer_options?.showQrCodes ?? true;
+
+        formData.value = {
+          ...formData.value,
+          parish: props.retreat.parish,
+          startDate: props.retreat.startDate ? new Date(props.retreat.startDate) : new Date(),
+          endDate: props.retreat.endDate ? new Date(props.retreat.endDate) : new Date(),
+          houseId: props.retreat.houseId,
+          openingNotes: props.retreat.openingNotes || '',
+          closingNotes: props.retreat.closingNotes || '',
+          thingsToBringNotes: props.retreat.thingsToBringNotes || '',
+          contactPhones: props.retreat.contactPhones || '',
+          cost: props.retreat.cost || '',
+          paymentInfo: props.retreat.paymentInfo || '',
+          paymentMethods: props.retreat.paymentMethods || '',
+          max_walkers: props.retreat.max_walkers,
+          max_servers: props.retreat.max_servers,
+          isPublic: props.retreat.isPublic,
+          roleInvitationEnabled: props.retreat.roleInvitationEnabled,
+          walkerArrivalTime: props.retreat.walkerArrivalTime || '',
+          serverArrivalTimeFriday: props.retreat.serverArrivalTimeFriday || '',
+          retreat_type: props.retreat.retreat_type,
+          retreat_number_version: props.retreat.retreat_number_version || '',
+          flyer_options: {
+            titleOverride: (props.retreat as any).flyer_options?.titleOverride || '',
+            subtitleOverride: (props.retreat as any).flyer_options?.subtitleOverride || '',
+            quoteOverride: (props.retreat as any).flyer_options?.quoteOverride || '',
+            showQrCodes: legacyShowQr,
+            showQrCodesLocation: (props.retreat as any).flyer_options?.showQrCodesLocation ?? legacyShowQr,
+            showQrCodesRegistration: (props.retreat as any).flyer_options?.showQrCodesRegistration ?? legacyShowQr,
+            catholicRetreatOverride: (props.retreat as any).flyer_options?.catholicRetreatOverride || '',
+            emausForOverride: (props.retreat as any).flyer_options?.emausForOverride || '',
+            weekendOfHopeOverride: (props.retreat as any).flyer_options?.weekendOfHopeOverride || '',
+            hopeOverride: (props.retreat as any).flyer_options?.hopeOverride || '',
+            hopeQuoteOverride: (props.retreat as any).flyer_options?.hopeQuoteOverride || '',
+            encounterDescriptionOverride: (props.retreat as any).flyer_options?.encounterDescriptionOverride || '',
+            dareToLiveItOverride: (props.retreat as any).flyer_options?.dareToLiveItOverride || '',
+            arrivalTimeNoteOverride: (props.retreat as any).flyer_options?.arrivalTimeNoteOverride || '',
+            whatToBringOverride: (props.retreat as any).flyer_options?.whatToBringOverride || '',
+            registerOverride: (props.retreat as any).flyer_options?.registerOverride || '',
+            scanToRegisterOverride: (props.retreat as any).flyer_options?.scanToRegisterOverride || '',
+            goToRegistrationOverride: (props.retreat as any).flyer_options?.goToRegistrationOverride || '',
+            limitedCapacityOverride: (props.retreat as any).flyer_options?.limitedCapacityOverride || '',
+            dontMissItOverride: (props.retreat as any).flyer_options?.dontMissItOverride || '',
+            reservationNoteOverride: (props.retreat as any).flyer_options?.reservationNoteOverride || '',
+            comeOverride: (props.retreat as any).flyer_options?.comeOverride || '',
+        },
       };
     } else if (props.initialData) {
       // Add mode with initial data
+      const initialFlyerOptions = (props.initialData.flyer_options || {}) as any;
+      const legacyShowQrInitial = initialFlyerOptions.showQrCodes ?? true;
+
       formData.value = {
         ...formData.value,
         ...props.initialData,
         startDate: props.initialData.startDate ? new Date(props.initialData.startDate) : new Date(),
         endDate: props.initialData.endDate ? new Date(props.initialData.endDate) : new Date(),
+        flyer_options: {
+          titleOverride: initialFlyerOptions.titleOverride || '',
+          subtitleOverride: initialFlyerOptions.subtitleOverride || '',
+          quoteOverride: initialFlyerOptions.quoteOverride || '',
+          showQrCodes: legacyShowQrInitial,
+          showQrCodesLocation: initialFlyerOptions.showQrCodesLocation ?? legacyShowQrInitial,
+          showQrCodesRegistration: initialFlyerOptions.showQrCodesRegistration ?? legacyShowQrInitial,
+          catholicRetreatOverride: initialFlyerOptions.catholicRetreatOverride || '',
+          emausForOverride: initialFlyerOptions.emausForOverride || '',
+          weekendOfHopeOverride: initialFlyerOptions.weekendOfHopeOverride || '',
+          hopeOverride: initialFlyerOptions.hopeOverride || '',
+          hopeQuoteOverride: initialFlyerOptions.hopeQuoteOverride || '',
+          encounterDescriptionOverride: initialFlyerOptions.encounterDescriptionOverride || '',
+          dareToLiveItOverride: initialFlyerOptions.dareToLiveItOverride || '',
+          arrivalTimeNoteOverride: initialFlyerOptions.arrivalTimeNoteOverride || '',
+          whatToBringOverride: initialFlyerOptions.whatToBringOverride || '',
+          registerOverride: initialFlyerOptions.registerOverride || '',
+          scanToRegisterOverride: initialFlyerOptions.scanToRegisterOverride || '',
+          goToRegistrationOverride: initialFlyerOptions.goToRegistrationOverride || '',
+          limitedCapacityOverride: initialFlyerOptions.limitedCapacityOverride || '',
+          dontMissItOverride: initialFlyerOptions.dontMissItOverride || '',
+          reservationNoteOverride: initialFlyerOptions.reservationNoteOverride || '',
+          comeOverride: initialFlyerOptions.comeOverride || '',
+        },
       };
     } else {
       // Add mode - reset form

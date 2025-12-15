@@ -100,6 +100,9 @@ export class Retreat {
 	@Column({ type: 'time', nullable: true })
 	serverArrivalTimeFriday?: Date;
 
+	@Column({ type: 'simple-json', nullable: true })
+	flyer_options?: Record<string, any>;
+
 	@OneToMany(() => Payment, (payment) => payment.retreat)
 	payments!: Payment[];
 }

@@ -485,7 +485,8 @@
       "general": "General",
       "logistics": "Logística",
       "financials": "Finanzas",
-      "notes": "Notas"
+      "notes": "Notas",
+      "flyer": "Volante"
     },
     "retreatType": "Tipo de Retiro",
     "retreatTypePlaceholder": "Selecciona el tipo",
@@ -501,7 +502,31 @@
     "walkerArrivalTimeDescription": "Hora en que deben llegar los caminantes al retiro",
     "serverArrivalTimeFriday": "Hora de llegada de servidores (viernes)",
     "serverArrivalTimeFridayDescription": "Hora en que deben llegar los servidores el viernes",
-    "timePlaceholder": "HH:MM"
+    "timePlaceholder": "HH:MM",
+    "flyer": {
+      "title": "Volante",
+      "titleOverride": "Título",
+      "subtitleOverride": "Subtítulo",
+      "quoteOverride": "Cita",
+      "showQrCodesLocation": "Mostrar QR de Ubicación",
+      "showQrCodesRegistration": "Mostrar QR de Registro",
+      "headerCatholicRetreat": "Encabezado: Retiro Católico",
+      "headerEmausFor": "Encabezado: Emaús Para",
+      "headerWeekendOf": "Encabezado: Fin de Semana de (Subtítulo)",
+      "headerHope": "Encabezado: Esperanza (Título)",
+      "quote": "Cita",
+      "description": "Descripción",
+      "callToActionDareToLiveIt": "Llamada a la Acción: ¡Atrévete a vivirlo!",
+      "arrivalNote": "Nota de Llegada",
+      "whatToBringHeader": "Encabezado: Qué Llevar",
+      "registerButton": "Botón de Registro",
+      "scanToRegister": "Escanea para Registrarte",
+      "goToRegistration": "Ir al Registro",
+      "limitedCapacity": "Cupo Limitado",
+      "dontMissIt": "¡No te lo pierdas!",
+      "reservationNote": "Nota de Reservación",
+      "comeLabel": "Etiqueta Ven"
+    }
   },
   "retreatDashboard": {
     "title": "Dashboard del Retiro",
