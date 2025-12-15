@@ -60,15 +60,17 @@ export const assignParticipantToBed = async (req: Request, res: Response, next: 
 				throw new Error('Bed not found');
 			}
 
+			// Check if participant already has a bed and unassign if necessary
+			const existingBed = await bedRepo.findOne({ where: { participantId } });
+			if (existingBed && existingBed.id !== bedId) {
+				// Unassign participant from their current bed
+				await bedRepo.update(existingBed.id, { participantId: null });
+				console.log(`✅ Unassigned participant ${participantId} from previous bed ${existingBed.id}`);
+			}
+
 			// Check if bed is already assigned to someone else
 			if (bed.participantId && bed.participantId !== participantId) {
 				throw new Error('Bed is already assigned to another participant');
-			}
-
-			// Check if participant already has a bed (optional business rule)
-			const existingBed = await bedRepo.findOne({ where: { participantId } });
-			if (existingBed && existingBed.id !== bedId) {
-				throw new Error('Participant already has another bed assigned');
 			}
 
 			// Perform the assignment
