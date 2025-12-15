@@ -269,6 +269,34 @@ una forma de asegurar que no se modifique las mesas. lock tables
 en el mensaje de bienvenida del servidor agregar una url para que pueda cambiar su registro
 Notificaciones por correo a los administradores del retiro de eventos como Caminante ingresa. Servidor ingresa. Forma de desactivar estas notificaciones.
 
+en el inventario agregar un campo que indique cuantas unidades deben comprarse y sacar un reporte de inventario a comprar.
+que quede fijo el header en la creacion de las habitaciones de la casa
+crear el flyer del retiro en la web.
+obligatorio
+telefono celular
+no obligatorios
+parroquia y ocupacion
+
+obligatorio dos contactos de emergencia y obligatorio correo y algun celular
+Considera que esta es la primera persona a la que contactaremos en caso de alguna emergencia.
+
+agregar un parametro en el retiro para no solicitar punto de Convenient meeting point
+
+agregar un filtro de quienes han pagado en la lista de caminantes.
+agregar litera de arriba y de abajo.
+agregar un tag a los caminantes para que no queden en la misma mesa.
+deberia enviar directo al link despues de accept InvitationController
+que no salga en negro el tabla de mesas
+al dar clic en print tables, seleccionar los campos que se deben imprimir.
+verificar mover los caminantes en el vista de camas. already has another bed assignment. verificar permisos para admin.
+al agarrar un caminante debe hacer scroll para cambiar abajo o arriba
+pendiente en listado de pagos que ordene
+esta poniendo un dia antes al registrar un pago. que se pueda imprimir
+listado de caminantes imprimir.
+imprimir bag report
+nombre del retiro en gafete. No colocar el piso solo el cuarto y cama.
+poder imprimir solo algunos gafetes.
+
 posibles host
 https://www.vultr.com/
 https://www.hostinger.com/
@@ -352,21 +380,23 @@ export DOMAIN_NAME='emaus.cc'
 export VPS_HOST=155.138.230.215
 export VPS_USER=root
 export GITHUB_REPO=lbolanos/emaus
-export NEW_TAG=v0.0.1
-export RELEASE_TAG=v0.0.1
+export NEW_TAG=v0.0.2
+export RELEASE_TAG=v0.0.2
 export CERTBOT_EMAIL=leonardo.bolanos@gmail.com
 
 ./create-release.sh
 
 ## remote
+ssh root@155.138.230.215
 
+cd /var/www/emaus/
 export frontend_url='https://emaus.cc'  
 export DOMAIN_NAME='emaus.cc'
 export VPS_HOST=155.138.230.215
 export VPS_USER=root
 export GITHUB_REPO=lbolanos/emaus
-export NEW_TAG=v0.0.1
-export RELEASE_TAG=v0.0.1
+export NEW_TAG=v0.0.2
+export RELEASE_TAG=v0.0.2
 export CERTBOT_EMAIL=leonardo.bolanos@gmail.com
 ./release-from-github.sh
 

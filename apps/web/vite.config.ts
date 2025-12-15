@@ -55,11 +55,24 @@ export default defineConfig(({ mode }) => {
 			chunkSizeWarningLimit: 1000,
 			rollupOptions: {
 				output: {
-					manualChunks: {
+					manualChunks(id) {
 						// Split vendor chunks to reduce memory pressure
-						vendor: ['vue', 'vue-router', 'pinia'],
-						ui: ['@repo/ui', 'lucide-vue-next'],
-						editor: ['@tiptap/vue-3', '@tiptap/starter-kit', 'element-tiptap'],
+						if (id.includes('node_modules')) {
+							// Vue ecosystem
+							if (id.includes('vue') || id.includes('vue-router') || id.includes('pinia')) {
+								return 'vendor';
+							}
+							// UI components
+							if (id.includes('@repo/ui') || id.includes('lucide-vue-next')) {
+								return 'ui';
+							}
+							// Editor components
+							if (id.includes('@tiptap') || id.includes('element-tiptap')) {
+								return 'editor';
+							}
+							// All other node modules
+							return 'vendor';
+						}
 					},
 					entryFileNames: 'assets/[name].js',
 					chunkFileNames: 'assets/[name]-[hash].js',

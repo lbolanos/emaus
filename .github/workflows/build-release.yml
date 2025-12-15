@@ -29,10 +29,10 @@ jobs:
       run: pnpm install --frozen-lockfile
 
     - name: Build application
-      run: NODE_ENV=production NODE_OPTIONS='--max-old-space-size=6144' pnpm build
+      run: NODE_ENV=production NODE_OPTIONS='--max-old-space-size=8192' pnpm build
       env:
         NODE_ENV: production
-        NODE_OPTIONS: '--max-old-space-size=6144'
+        NODE_OPTIONS: '--max-old-space-size=8192'
         # Set default production environment variables
         VITE_API_URL: https://emaus.cc/api
         # Google Maps API key should be set as repository secret
