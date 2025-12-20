@@ -64,162 +64,171 @@
         </div>
         </div>
 
-        <!-- Main Content Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 p-3 print:grid-cols-12 print:gap-4 print:p-3"
-             style="background-image: url('/jesus_bg.png'); background-size: cover; background-position: center;">
-          
-          <!-- Left Column - Event Details -->
-          <div class="md:col-span-7 space-y-2 print:col-span-7">
-            <!-- Intro Card -->
-            <div class="bg-white/40 backdrop-blur-sm p-3 rounded-2xl shadow-lg border border-white/40 print:bg-white/80 print:shadow-none print:rounded-none print:border-none print:p-3">
-              <p class="text-lg text-gray-700 italic text-center leading-relaxed">
-                {{ encounterDescriptionText }} <br/>
-                <span class="font-bold text-blue-700 not-italic text-xl mt-2 block">{{ dareToLiveItText }}</span>
+        <!-- Main Content Area -->
+        <div class="relative p-3 print:p-3"
+             data-main-content
+             :style="{
+               backgroundImage: 'url(/jesus2.png)',
+               backgroundSize: 'cover',
+               backgroundPosition: 'center',
+               minHeight: calculatedHeight + 'px'
+             }">
+
+          <!-- Intro Card -->
+          <div class="absolute" style="top: 10px; left: -20px; width: 600px; height: auto;">
+            <div class="relative p-3 print:bg-white/80 print:shadow-none print:rounded-none print:border-none print:p-3">
+              <p class="text-xl text-gray-800 text-center leading-relaxed drop-shadow-md" style="font-family: 'Playfair Display', serif;">
+                <span class="font-bold" v-html="encounterDescriptionText.replace(/\n/g, '<br>')"></span> <br/>
+                <span class="font-black text-blue-800 text-2xl mt-3 block tracking-wide" style="font-family: 'Playfair Display', serif;">{{ dareToLiveItText }}</span>
               </p>
-            </div>
-
-            <!-- Details Cards -->
-            <div class="bg-white/40 backdrop-blur-sm p-3 rounded-2xl shadow-lg border border-white/40 space-y-3 print:bg-white/80 print:shadow-none print:rounded-none print:border-none print:space-y-2 print:p-3">
-              <!-- Location -->
-              <div class="flex gap-3 items-start group">
-                <div class="bg-blue-100 p-2 rounded-xl text-blue-700 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300 print:bg-blue-50">
-                  <MapPin class="w-5 h-5" />
-                </div>
-                <div class="flex-1">
-                  <h4 class="font-bold text-lg uppercase text-gray-800 tracking-wide">{{ t('retreatFlyer.location') }} {{ retreatLocation }}</h4>
-                  <p class="text-gray-600 leading-tight">{{ retreatAddress }}</p>
-                </div>
-                <!-- Google Maps QR Code -->
-                <div v-if="googleMapsUrl && showQrCodesLocation" class="flex flex-col items-center gap-1">
-                  <div class="p-1 bg-white rounded-xl shadow-sm">
-                    <QrcodeVue :value="googleMapsUrl" :size="70" level="L" background="#ffffff" class="rounded-lg" />
-                  </div>
-                  <span class="text-xs text-gray-500 font-medium">{{ t('retreatFlyer.locationQR') }}</span>
-                </div>
-              </div>
-
-              <!-- Start Time -->
-              <div class="flex gap-3 items-start group">
-                <div class="bg-blue-100 p-2 rounded-xl text-blue-700 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300 print:bg-blue-50">
-                  <Clock class="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 class="font-bold text-lg uppercase text-gray-800 tracking-wide">{{ t('retreatFlyer.startTime') }} {{ formatDate(startDate) }}</h4>
-                  <p class="text-base font-bold text-gray-800">{{ openingTimeDisplay }}</p>
-                  <p class="text-sm text-red-600 font-bold flex items-center gap-1 mt-1 bg-red-50 px-2 py-0.5 rounded-md w-full text-justify">
-                    <AlertTriangle class="w-4 h-4" /> {{ registrationDeadline }}
-                  </p>
-                </div>
-              </div>
-
-              <!-- End Time -->
-              <div class="flex gap-3 items-start group">
-                <div class="bg-blue-100 p-2 rounded-xl text-blue-700 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300 print:bg-blue-50">
-                  <Calendar class="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 class="font-bold text-lg uppercase text-gray-800 tracking-wide">{{ t('retreatFlyer.endTime') }} {{ formatDate(endDate) }}</h4>
-                  <div class="text-sm bg-gray-50/80 p-3 rounded-lg border border-gray-200 print:bg-gray-50">
-                    <p class="font-bold text-blue-700">{{ closingLocation }}</p>
-                    <p class="text-amber-600 font-bold uppercase text-xs flex items-center gap-1 mt-1">
-                      <Users class="w-4 h-4" /> {{ arrivalTimeNoteText }}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- What to Bring -->
-            <div class="bg-white/40 backdrop-blur-sm p-3 rounded-2xl shadow-lg border border-white/40 print:bg-white/80 print:shadow-none print:rounded-none print:border-none print:p-3">
-              <h4 class="font-bold text-base uppercase text-gray-800 mb-4 flex items-center gap-2 border-b border-gray-200 pb-2">
-                <Backpack class="w-5 h-5 text-blue-600" /> {{ whatToBringText }}
-              </h4>
-
-              <!-- Dynamic items list if available -->
-              <ul v-if="thingsToBringItems.length > 0" class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm text-gray-700">
-                <li v-for="item in thingsToBringItems" :key="item" class="flex items-center gap-2">
-                  <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                  {{ item }}
-                </li>
-              </ul>
-
-              <!-- Default items list when no dynamic data -->
-              <ul v-else class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm text-gray-700">
-                <li class="flex items-center gap-2">
-                  <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div> {{ t('retreatFlyer.defaultItems.personalThermos') }}
-                </li>
-                <li class="flex items-center gap-2">
-                  <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div> {{ t('retreatFlyer.defaultItems.towel') }}
-                </li>
-                <li class="flex items-center gap-2">
-                  <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div> {{ t('retreatFlyer.defaultItems.toiletries') }}
-                </li>
-                <li class="flex items-center gap-2">
-                  <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div> {{ t('retreatFlyer.defaultItems.jacketSweatshirt') }}
-                </li>
-                <li class="flex items-center gap-2">
-                  <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div> {{ t('retreatFlyer.defaultItems.comfortableClothes') }}
-                </li>
-              </ul>
-
             </div>
           </div>
 
-          <!-- Right Column - Registration & Payment -->
-          <div class="md:col-span-5 space-y-3 print:col-span-5">
-            
-
-            <!-- Payment Information -->
-            <div class="bg-gradient-to-br from-yellow-50/40 to-orange-50/40 backdrop-blur-sm p-3 rounded-2xl border border-yellow-200 shadow-lg print:shadow-none print:bg-yellow-50/30 print:p-3">
-              <div class="flex justify-between items-end mb-4 border-b border-yellow-200/50 pb-3">
-                <span class="text-sm font-bold uppercase text-gray-500 tracking-wider">{{ t('retreatFlyer.cost') }}</span>
-                <span class="text-3xl font-bold text-gray-800 leading-none font-header">{{ formatCost }}</span>
+          <!-- Location Card -->
+          <div class="absolute bg-white/40 p-3 rounded-2xl shadow-lg border border-white/40 print:bg-white/80 print:shadow-none print:rounded-none print:border-none print:p-3"
+               style="top: 598px; left: 350px; width: 420px; height: auto;">
+            <div class="flex gap-3 items-start group">
+              <div class="bg-blue-100 p-2 rounded-xl text-blue-700 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300 print:bg-blue-50">
+                <MapPin class="w-5 h-5" />
               </div>
-              <div class="space-y-3 text-sm">
-                <div v-if="paymentInfo" class="text-gray-700 bg-white/50 p-3 rounded-lg border border-yellow-100">
-                  <span v-html="paymentInfo"></span>
+              <div class="flex-1">
+                <h4 class="font-bold text-lg uppercase text-gray-800 tracking-wide">{{ t('retreatFlyer.location') }} {{ retreatLocation }}</h4>
+                <p class="text-gray-600 leading-tight">{{ retreatAddress }}</p>
+              </div>
+              <!-- Google Maps QR Code -->
+              <div v-if="googleMapsUrl && showQrCodesLocation" class="flex flex-col items-center gap-1">
+                <div class="p-1 bg-white rounded-xl shadow-sm">
+                  <QrcodeVue :value="googleMapsUrl" :size="70" level="L" background="#ffffff" class="rounded-lg" />
                 </div>
-                <div v-if="paymentMethods">
-                  <span class="block text-[10px] text-gray-500 uppercase tracking-wider mb-1">{{ t('retreatFlyer.paymentMethods') }}</span>
-                  <span class="font-bold text-gray-800">{{ paymentMethods }}</span>
+                <span class="text-xs text-gray-500 font-medium">{{ t('retreatFlyer.locationQR') }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Start Time Card -->
+          <div class="absolute bg-white/40 p-3 rounded-2xl shadow-lg border border-white/40 print:bg-white/80 print:shadow-none print:rounded-none print:border-none print:p-3"
+               style="top: 177px; left: 20px; width: 464px; height: auto;">
+            <div class="flex gap-3 items-start group">
+              <div class="bg-blue-100 p-2 rounded-xl text-blue-700 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300 print:bg-blue-50">
+                <Clock class="w-5 h-5" />
+              </div>
+              <div>
+                <h4 class="font-bold text-lg uppercase text-gray-800 tracking-wide">{{ t('retreatFlyer.startTime') }} {{ formatDate(startDate) }}</h4>
+                <p class="text-base font-bold text-gray-800">{{ openingTimeDisplay }}</p>
+                <p class="text-sm text-red-600 font-bold flex items-center gap-1 mt-1 bg-red px-2 py-0.5 rounded-md w-full text-justify">
+                  <AlertTriangle class="w-4 h-4" /> {{ registrationDeadline }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- End Time Card -->
+          <div class="absolute bg-white/40 backdrop-blur-sm p-3 rounded-2xl shadow-lg border border-white/40 print:bg-white/80 print:shadow-none print:rounded-none print:border-none print:p-3"
+               style="top: 310px; left: 327px; width: 454px; height: auto;">
+            <div class="flex gap-3 items-start group">
+              <div class="bg-blue-100 p-2 rounded-xl text-blue-700 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300 print:bg-blue-50">
+                <Calendar class="w-5 h-5" />
+              </div>
+              <div>
+                <h4 class="font-bold text-lg uppercase text-gray-800 tracking-wide">{{ t('retreatFlyer.endTime') }} {{ formatDate(endDate) }}</h4>
+                <div class="text-sm bg-gray-50/80 p-3 rounded-lg border border-gray-200 print:bg-gray-50">
+                  <p class="font-bold text-blue-700">{{ closingLocation }}</p>
+                  <p class="text-amber-600 font-bold uppercase text-xs flex items-center gap-1 mt-1">
+                    <Users class="w-4 h-4" /> {{ arrivalTimeNoteText }}
+                  </p>
                 </div>
               </div>
             </div>
+          </div>
 
-            <!-- Contact Information -->
-            <div class="bg-white/40 backdrop-blur-sm p-3 rounded-2xl shadow-lg border border-white/40 print:shadow-none print:bg-white/60 print:p-3">
-              <h4 class="text-sm font-bold text-gray-400 uppercase mb-3 flex items-center gap-2 tracking-wider">
-                <Info class="w-4 h-4" /> {{ t('retreatFlyer.information') }}
-              </h4>
-              <div class="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:border-blue-200 transition-colors print:shadow-none">
-                <div class="flex items-start gap-3">
-                  <div class="bg-green-100 p-1.5 rounded-full text-green-600 flex-shrink-0 mt-0.5">
-                    <Phone class="w-4 h-4" />
-                  </div>
-                  <div class="space-y-2">
-                    <div v-for="(phone, index) in contactPhones" :key="phone?.number || index" class="text-sm">
-                      <span class="font-bold text-gray-800 block text-xs uppercase text-gray-400">{{ phone?.name || t('retreatFlyer.contact') }}</span>
-                      <span class="text-gray-700 font-medium font-mono">{{ phone?.number }}</span>
-                    </div>
+          <!-- What to Bring Card -->
+          <div class="absolute p-2 print:bg-white/80 print:shadow-none print:rounded-none print:border-none print:p-3"
+               style="top: 559px; left: 20px; width: 300px; height: auto;">
+            <h4 class="font-bold text-xs uppercase text-gray-800 mb-2 flex items-center gap-1 border-b border-gray-200 pb-1">
+              <Backpack class="w-3 h-3 text-blue-600" /> {{ whatToBringText }}
+            </h4>
+
+            <!-- Dynamic items list if available -->
+            <ul v-if="thingsToBringItems.length > 0" class="grid grid-cols-2 gap-x-2 gap-y-1 text-xs text-gray-700">
+              <li v-for="item in thingsToBringItems" :key="item" class="flex items-center gap-1">
+                <div class="w-1 h-1 rounded-full bg-green-500"></div>
+                {{ item }}
+              </li>
+            </ul>
+
+            <!-- Default items list when no dynamic data -->
+            <ul v-else class="grid grid-cols-2 gap-x-2 gap-y-1 text-xs text-gray-700">
+              <li class="flex items-center gap-1">
+                <div class="w-1 h-1 rounded-full bg-green-500"></div> {{ t('retreatFlyer.defaultItems.personalThermos') }}
+              </li>
+              <li class="flex items-center gap-1">
+                <div class="w-1 h-1 rounded-full bg-green-500"></div> {{ t('retreatFlyer.defaultItems.towel') }}
+              </li>
+              <li class="flex items-center gap-1">
+                <div class="w-1 h-1 rounded-full bg-green-500"></div> {{ t('retreatFlyer.defaultItems.toiletries') }}
+              </li>
+              <li class="flex items-center gap-1">
+                <div class="w-1 h-1 rounded-full bg-green-500"></div> {{ t('retreatFlyer.defaultItems.jacketSweatshirt') }}
+              </li>
+              <li class="flex items-center gap-1">
+                <div class="w-1 h-1 rounded-full bg-green-500"></div> {{ t('retreatFlyer.defaultItems.comfortableClothes') }}
+              </li>
+            </ul>
+          </div>
+
+          <!-- Payment Information Card -->
+          <div class="absolute p-3 text-right print:bg-yellow-50/30 print:p-3"
+               style="top: 462px; left: 455px; width: 320px; height: auto;">
+            <div class="mb-2">
+              <span class="text-xs font-bold uppercase text-gray-500 tracking-wider">{{ t('retreatFlyer.cost') }}</span>
+              <div class="text-2xl font-bold text-gray-800 leading-none font-header">{{ formatCost }}</div>
+            </div>
+            <div class="space-y-2 text-xs">
+              <div v-if="paymentInfo" class="text-gray-700">
+                <span v-html="paymentInfo"></span>
+              </div>
+              <div v-if="paymentMethods">
+                <span class="block text-[8px] text-gray-500 uppercase tracking-wider mb-1">{{ t('retreatFlyer.paymentMethods') }}</span>
+                <span class="font-bold text-gray-800">{{ paymentMethods }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Contact Information Card -->
+          <div class="absolute bg-white/40 backdrop-blur-sm p-3 rounded-2xl shadow-lg border border-white/40 print:shadow-none print:bg-white/60 print:p-3"
+               style="top: 309px; left: 20px; width: 300px; height: auto;">
+            <h4 class="text-sm font-bold text-gray-400 uppercase mb-3 flex items-center gap-2 tracking-wider">
+              <Info class="w-4 h-4" /> {{ t('retreatFlyer.information') }}
+            </h4>
+            <div class="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:border-blue-200 transition-colors print:shadow-none">
+              <div class="flex items-start gap-3">
+                <div class="bg-green-100 p-1.5 rounded-full text-green-600 flex-shrink-0 mt-0.5">
+                  <Phone class="w-4 h-4" />
+                </div>
+                <div class="space-y-2">
+                  <div v-for="(phone, index) in contactPhones" :key="phone?.number || index" class="text-sm">
+                    <span class="font-bold text-gray-800 block text-xs uppercase text-gray-400">{{ phone?.name || t('retreatFlyer.contact') }}</span>
+                    <span class="text-gray-700 font-medium font-mono">{{ phone?.number }}</span>
                   </div>
                 </div>
               </div>
             </div>
-            <!-- Registration QR Code -->
-            <div v-if="showQrCodesRegistration" class="bg-white/40 backdrop-blur-sm p-3 rounded-2xl shadow-lg border border-yellow-200/50 text-center relative overflow-hidden group hover:shadow-xl transition-shadow duration-300 print:shadow-none print:bg-white/60  print:p-3">
-              <div class="absolute top-0 right-0 w-24 h-24 bg-yellow-400/20 rounded-bl-full -mr-10 -mt-10 z-0 transition-transform group-hover:scale-110 duration-500"></div>
-              <div class="absolute bottom-0 left-0 w-16 h-16 bg-blue-400/10 rounded-tr-full -ml-8 -mb-8 z-0"></div>
+          </div>
 
-              <h3 class="relative z-10 text-2xl font-bold text-blue-700 uppercase mb-1 tracking-wide">{{ registerText }}</h3>
-              <p class="relative z-10 text-sm text-gray-600 mb-4 font-medium">{{ scanToRegisterText }}</p>
+          <!-- Registration QR Code Card -->
+          <div v-if="showQrCodesRegistration" class="absolute relative p-3 text-center print:p-3"
+               style="top: -9px; left: 498px; width: 320px; height: auto;">
+            <div>
+              <h3 class="text-2xl font-bold text-blue-700 uppercase mb-1 tracking-wide">{{ registerText }}</h3>
+              <p class="text-sm text-gray-600 mb-4 font-medium">{{ scanToRegisterText }}</p>
 
-              <div class="flex justify-center mb-4 relative z-10">
+              <div class="flex justify-center mb-4">
                 <div class="p-2 bg-white rounded-xl shadow-sm">
                   <QrcodeVue :value="registrationUrl" :size="70" level="L" background="#ffffff" class="rounded-lg" />
                 </div>
               </div>
 
-              <div class="print:hidden relative z-10">
+              <div class="print:hidden">
                   <a :href="registrationUrl" target="_blank"
                      class="block w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3 px-6 rounded-xl text-sm shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5">
                     {{ goToRegistrationText }}
@@ -231,9 +240,11 @@
         </div>
 
         <!-- Footer -->
-        <footer class="relative bg-black h-20 flex items-center justify-between px-6 overflow-hidden mt-auto print:bg-black print:h-20">
-           <!-- Note: Background images often don't print by default. We keep the fallback color strong. -->
-          <div class="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-black opacity-90 print:opacity-80"></div>
+        <footer class="relative h-20 flex items-center justify-between px-6 overflow-hidden mt-auto print:h-20">
+           <!-- Footer Background Image -->
+           <div class="absolute inset-0 bg-cover bg-center z-0" style="background-image: url('/footer.png');">
+             <div class="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-black opacity-90 print:opacity-80"></div>
+           </div>
 
           <div class="relative z-10 flex flex-col justify-center h-full">
             <h2 class="text-4xl md:text-5xl font-bold text-white leading-none mb-1 font-display drop-shadow-lg" style="font-family: 'Dancing Script', cursive;">{{ comeText }}</h2>
@@ -253,7 +264,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 // Ensure this path matches your project structure
@@ -283,6 +294,35 @@ const walkerRegistrationLink = computed(() => retreatStore.walkerRegistrationLin
 // Dynamic data from retreat store
 // Cast to any to accept 'house' property which exists at runtime/API but not in stricter Zod schema
 const retreatData = computed(() => (selectedRetreat.value as any) || null);
+
+// Calculate the dynamic height needed for the main content area based on actual DOM elements
+const mainContentHeight = ref(400);
+
+const calculateContentHeight = () => {
+  nextTick(() => {
+    // Find all absolutely positioned cards within the main content area
+    const mainContent = document.querySelector('[data-main-content]');
+    if (!mainContent) return;
+
+    const cards = mainContent.querySelectorAll('.absolute');
+    let maxBottom = 0;
+
+    cards.forEach(card => {
+      const rect = card.getBoundingClientRect();
+      const parentRect = mainContent.getBoundingClientRect();
+      const relativeBottom = rect.bottom - parentRect.top;
+      maxBottom = Math.max(maxBottom, relativeBottom);
+    });
+
+    // Set height with padding
+    mainContentHeight.value = maxBottom + 40;
+  });
+};
+
+const calculatedHeight = computed(() => {
+  // Use a reasonable minimum height during initial render
+  return mainContentHeight.value;
+});
 
 const retreatTypeText = computed(() => {
   // Use explicit type if available
@@ -619,13 +659,28 @@ const handlePrint = () => {
   window.print();
 };
 
-// Load retreat data
+// Load retreat data and calculate initial height
 onMounted(async () => {
   const retreatId = route.params.id as string;
   if (retreatId && !selectedRetreat.value) {
     retreatStore.selectRetreat(retreatId);
   }
+  // Calculate height after component is mounted
+  await nextTick();
+  calculateContentHeight();
 });
+
+// Watch for changes in QR code visibility
+watch(showQrCodesRegistration, () => {
+  nextTick(() => {
+    calculateContentHeight();
+  });
+});
+
+// Also recalculate when window resizes
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', calculateContentHeight);
+}
 </script>
 
 <style>
@@ -666,7 +721,7 @@ onMounted(async () => {
 
 <style scoped>
 /* Import fonts */
-@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Miltonian+Tattoo&family=Oswald:wght@300;400;500;700&family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Miltonian+Tattoo&family=Oswald:wght@300;400;500;700&family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
 /* Regular screen styles */
