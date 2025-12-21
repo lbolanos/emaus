@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 py-6 print:p-0 print:bg-white print:min-h-0">
     <!-- Print Button -->
-    <div class="fixed top-6 right-6 z-50 print:hidden">
+    <div class="fixed top-14 left-120 z-50 print:hidden">
       <Button @click="handlePrint" class="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 transition-all hover:scale-105 hover:shadow-blue-500/50 border border-blue-500/30">
         <Printer class="w-5 h-5" />
         <span class="font-semibold">{{ t('retreatFlyer.printButton') }}</span>
@@ -9,7 +9,7 @@
     </div>
 
     <!-- Flyer Container -->
-    <div class="max-w-[850px] mx-auto px-4 print:max-w-none print:w-full print:px-0">
+    <div class="max-w-[850px] mx-auto px-4 print:max-w-[210mm] print:w-[210mm] print:mx-0 print:px-0">
       <div
         id="printable-area"
         class="print-optimized shadow-2xl print:shadow-none rounded-3xl overflow-hidden relative bg-white border border-gray-200"
@@ -80,8 +80,8 @@
           <div class="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/10 pointer-events-none"></div>
 
           <!-- Intro Card - Enhanced with better shadow and border -->
-          <div class="absolute z-10" style="top: -5px; left: 15px; width: 560px;">
-            <div class=" p-6 rounded-2xl print: print:shadow-lg hover:shadow-blue-500/20 transition-all">
+          <div class="absolute z-10" style="top: -13px; left: 15px; width: 560px; max-width: 70%;">
+            <div class=" p-6 rounded-2xl hover:shadow-blue-500/20 transition-all">
               <p class="text-[19px] text-gray-900 text-center leading-relaxed font-medium" style="font-family: 'Playfair Display', serif;">
                 <span class="font-bold" v-html="encounterDescriptionText.replace(/\n/g, '<br>')"></span>
               </p>
@@ -94,8 +94,8 @@
           </div>
 
           <!-- Start Time Card - Enhanced -->
-          <div class="absolute z-10  p-5 rounded-2xl print: hover:shadow-blue-500/20 transition-all"
-               style="top: 180px; left: 15px; width: 490px;">
+          <div class="absolute z-10  p-5 rounded-2xl hover:shadow-blue-500/20 transition-all"
+               style="top: 172px; left: 15px; width: 490px; max-width: 60%;">
             <div class="flex gap-4 items-start group">
               <div class="bg-gradient-to-br from-blue-500 to-blue-700 p-3.5 rounded-xl text-white shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
                 <Clock class="w-7 h-7" />
@@ -115,8 +115,8 @@
           </div>
 
           <!-- Contact Information Card - Compacted -->
-          <div class="absolute z-10 p-3 print: hover:shadow-green-500/20 transition-all "
-               style="top: 294px; left: 488px; width: 300px;">
+          <div class="absolute z-10 p-3 hover:shadow-green-500/20 transition-all "
+               style="top: 286px; left: 488px; width: 300px; max-width: 35%;">
             <h4 class="text-[12px] font-black text-gray-700 uppercase mb-2 flex items-center justify-end gap-2 tracking-[0.1em] text-right">
               {{ t('retreatFlyer.information') }}
               <div class="bg-gradient-to-br from-blue-400 to-blue-600 p-1.5 rounded-lg shadow">
@@ -140,8 +140,8 @@
           </div>
 
           <!-- End Time Card - Enhanced -->
-          <div class="absolute z-10  p-5 print: hover:shadow-green-500/20 transition-all"
-               style="top: 370px; left: 15px; width: 460px;">
+          <div class="absolute z-10  p-5 hover:shadow-green-500/20 transition-all"
+               style="top: 477px; left: 15px; width: 460px; max-width: 55%;">
             <div class="flex gap-4 items-start group">
               <div class="bg-gradient-to-br from-green-500 to-green-700 p-3.5 rounded-xl text-white shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
                 <Calendar class="w-7 h-7" />
@@ -149,19 +149,17 @@
               <div class="flex-1">
                 <h4 class="font-black text-[15px] uppercase text-gray-500 tracking-[0.15em] mb-1.5">{{ t('retreatFlyer.endTime') }}</h4>
                 <p class="text-[17px] text-green-700 font-bold mb-1">{{ formatDate(endDate) }}</p>
-                <div class="mt-3 p-4 rounded-xl border-2 border-blue-200/60 shadow-md">
-                  <p class="font-bold text-blue-900 text-[16px] mb-2">{{ closingLocation }}</p>
-                  <p class="text-amber-700 font-bold uppercase text-[12px] flex items-center gap-2 bg-amber-50/80 px-3 py-2 rounded-lg border border-amber-200">
-                    <Users class="w-5 h-5 flex-shrink-0" /> {{ arrivalTimeNoteText }}
-                  </p>
-                </div>
+                <p class="font-bold text-gray-100 text-[16px] mb-2">{{ closingLocation }}</p>
+                <p class="text-gray-100 font-bold uppercase text-[12px] flex items-center gap-2 backdrop-blur-sm px-3 py-2 rounded-lg border border-amber-200">
+                  <Users class="w-5 h-5 flex-shrink-0" /> {{ arrivalTimeNoteText }}
+                </p>
               </div>
             </div>
           </div>
 
           <!-- What to Bring Card - Enhanced -->
-          <div class="absolute z-10  p-3 print: hover:shadow-purple-500/20 transition-all"
-               style="top: 708px; left: 59px; width: 677px;">
+          <div class="absolute z-10  p-3 hover:shadow-purple-500/20 transition-all"
+               style="top: 700px; left: 59px; width: 677px; max-width: 80%;">
             <h4 class="font-black text-[13px] uppercase bg-gradient-to-r from-purple-400 via-purple-300 to-purple-400 bg-clip-text text-transparent mb-2 flex items-center gap-2 border-b border-purple-200/50 pb-2 tracking-[0.1em]">
               <div class="bg-gradient-to-br from-purple-400 to-purple-600 p-2 rounded-lg shadow">
                 <Backpack class="w-4 h-4 text-white" />
@@ -201,8 +199,8 @@
           </div>
 
           <!-- Payment Information Card - Enhanced -->
-          <div class="absolute z-10 print:bg-yellow-50 hover:shadow-yellow-500/30 transition-all"
-               style="top: 471px; left: 460px; width: 330px;">
+          <div class="absolute z-10 hover:shadow-yellow-500/30 transition-all"
+               style="top: 463px; left: 460px; width: 330px; max-width: 38%;">
             <div class="text-center mb-4 pb-4 border-b-2 border-yellow-200">
               <span class="text-[22px] font-black uppercase text-blue-700 tracking-[0.2em] block mb-2">{{ t('retreatFlyer.cost') }}</span>
               <div class="text-[42px] font-black text-gray-900 leading-none font-header drop-shadow-md bg-gradient-to-r from-yellow-200/50 to-orange-200/50 px-4 py-2 rounded-xl inline-block border-2 border-yellow-300/50">
@@ -221,30 +219,30 @@
           </div>
 
           <!-- Location Card - Enhanced -->
-          <div class="absolute z-10 p-5 print: hover:shadow-red-500/20 transition-all"
-               style="top: 584px; left: 15px; width: 440px;">
+          <div class="absolute z-10 p-5 hover:shadow-red-500/20 transition-all"
+               style="top: 362px; left: 15px; width: 440px; max-width: 52%;">
             <div class="flex gap-4 items-start group">
               <div class="bg-gradient-to-br from-red-500 to-red-700 p-3.5 rounded-xl text-white shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
                 <MapPin class="w-7 h-7" />
               </div>
               <div class="flex-1">
                 <h4 class="font-black text-[15px] uppercase bg-gradient-to-r from-red-600 via-orange-500 to-red-600 bg-clip-text text-transparent tracking-[0.15em] mb-1.5">{{ t('retreatFlyer.location') }}</h4>
-                <p class="text-[18px] font-black text-white leading-tight">{{ retreatLocation }}</p>
-                <p class="text-[12px] text-gray-200 leading-snug mt-1.5 font-medium">{{ retreatAddress }}</p>
+                <p class="text-[18px] font-black text-black leading-tight">{{ retreatLocation }}</p>
+                <p class="text-[12px] text-blue-900 leading-snug mt-1.5 font-medium">{{ retreatAddress }}</p>
               </div>
               <!-- Google Maps QR Code -->
               <div v-if="googleMapsUrl && showQrCodesLocation" class="flex flex-col items-center gap-2">
                 <div class="p-2.5 bg-white rounded-xl shadow-xl border-2 border-red-200 hover:scale-105 transition-transform">
                   <QrcodeVue :value="googleMapsUrl" :size="75" level="L" background="#ffffff" class="rounded-lg" />
                 </div>
-                <span class="text-[10px] text-gray-200 font-black uppercase tracking-wider">{{ t('retreatFlyer.locationQR') }}</span>
+                <span class="text-[10px] text-black font-black uppercase tracking-wider">{{ t('retreatFlyer.locationQR') }}</span>
               </div>
             </div>
           </div>
 
           <!-- Registration QR Code Card - Enhanced -->
-          <div v-if="showQrCodesRegistration" class="absolute z-10  p-5 print:bg-blue-50 text-center hover:shadow-blue-500/30 transition-all"
-               style="top: 10px; right: 44px; width: 200px;">
+          <div v-if="showQrCodesRegistration" class="absolute z-10  p-5 text-center hover:shadow-blue-500/30 transition-all"
+               style="top: 2px; right: 44px; width: 200px; max-width: 23%;">
             <h3 class="text-[24px] font-black text-blue-700 uppercase mb-2 tracking-[0.15em] drop-shadow-sm">{{ registerText }}</h3>
             <p class="text-[11px] text-gray-600 mb-4 font-bold leading-tight">{{ scanToRegisterText }}</p>
 
@@ -253,26 +251,23 @@
                 <QrcodeVue :value="registrationUrl" :size="110" level="L" background="#ffffff" class="rounded-lg" />
               </div>
             </div>
-
-            <div class="print:hidden">
-            </div>
             <div class="mt-3 text-[9px] text-gray-500 font-mono uppercase tracking-[0.15em] bg-white/50 px-2 py-1 rounded">{{ registrationDomain }}</div>
           </div>
         </div>
 
         <!-- Footer - Enhanced -->
-        <footer class="relative h-[100px] flex items-center justify-between px-8 overflow-hidden mt-auto print:h-[90px] print:px-6">
+        <footer class="relative h-[100px] flex items-center justify-between px-8 overflow-hidden mt-auto print:h-[100px] print:px-8">
           <!-- Footer Background Image -->
           <div class="absolute inset-0 bg-cover bg-center z-0" style="background-image: url('/footer.png');">
-            <div class="absolute inset-0 bg-gradient-to-r from-black via-gray-900 to-black opacity-95 print:opacity-90"></div>
+            <div class="absolute inset-0 bg-gradient-to-r from-black via-gray-900 to-black opacity-60 print:opacity-90"></div>
           </div>
 
           <div class="relative z-10 flex flex-col justify-center h-full">
-            <h2 class="text-[56px] font-bold text-white leading-none mb-2 font-display drop-shadow-2xl transform hover:scale-105 transition-transform" 
+            <h2 class="text-[46px] font-bold text-white leading-none mb-2 font-display drop-shadow-2xl transform hover:scale-105 transition-transform" 
                 style="font-family: 'Dancing Script', cursive; text-shadow: 4px 4px 12px rgba(0,0,0,0.6);">
               {{ comeText }}
             </h2>
-            <div class="bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-400 text-black text-[12px] font-black px-5 py-2.5 rounded-full uppercase w-max tracking-[0.2em] shadow-2xl print:bg-yellow-400 animate-pulse hover:scale-105 transition-transform border-2 border-yellow-300">
+            <div class="bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-400 text-black text-[12px] font-black px-5 py-1 rounded-full uppercase w-max tracking-[0.2em] shadow-2xl print:bg-yellow-400 animate-pulse hover:scale-105 transition-transform border-2 border-yellow-300">
               {{ limitedCapacityText }}
             </div>
           </div>
@@ -303,7 +298,6 @@ import {
   Clock,
   Calendar,
   Backpack,
-  Check,
   Users,
   Info,
   Phone,
@@ -343,7 +337,7 @@ const calculateContentHeight = () => {
     });
 
     // Set height with padding
-    mainContentHeight.value = maxBottom + 40;
+    mainContentHeight.value = maxBottom + 10;
   });
 };
 
@@ -605,18 +599,6 @@ const googleMapsUrl = computed(() => {
 
 const flyerOptions = computed(() => (retreatData.value as any)?.flyer_options);
 
-const titleText = computed(() => {
-  return flyerOptions.value?.hopeOverride || flyerOptions.value?.titleOverride || t('retreatFlyer.hope');
-});
-
-const subtitleText = computed(() => {
-  return flyerOptions.value?.weekendOfHopeOverride || flyerOptions.value?.subtitleOverride || t('retreatFlyer.weekendOfHope');
-});
-
-const quoteText = computed(() => {
-  return flyerOptions.value?.hopeQuoteOverride || t('retreatFlyer.hopeQuote');
-});
-
 const showQrCodes = computed(() => {
   return flyerOptions.value?.showQrCodes ?? true;
 });
@@ -632,10 +614,6 @@ const showQrCodesRegistration = computed(() => {
 // New override computed properties
 const catholicRetreatText = computed(() => flyerOptions.value?.catholicRetreatOverride || t('retreatFlyer.catholicRetreat'));
 const emausForText = computed(() => flyerOptions.value?.emausForOverride || t('retreatFlyer.emausFor'));
-// Map weekendOfHopeOverride to subtitleOverride if not explicit, but prefer weekendOfHopeOverride if present
-const weekendOfHopeOverrideText = computed(() => flyerOptions.value?.weekendOfHopeOverride || flyerOptions.value?.subtitleOverride || t('retreatFlyer.weekendOfHope'));
-// Using subtitleText computed above might be cleaner, let's update subtitleText and titleText to use the new keys too if they are more "primary" now.
-// Actually, I should update the older computed props to check the new keys too for backward compatibility or clarity.
 
 const encounterDescriptionText = computed(() => flyerOptions.value?.encounterDescriptionOverride || t('retreatFlyer.encounterDescription'));
 const dareToLiveItText = computed(() => flyerOptions.value?.dareToLiveItOverride || t('retreatFlyer.dareToLiveIt'));
@@ -643,7 +621,6 @@ const arrivalTimeNoteText = computed(() => flyerOptions.value?.arrivalTimeNoteOv
 const whatToBringText = computed(() => flyerOptions.value?.whatToBringOverride || t('retreatFlyer.whatToBring'));
 const registerText = computed(() => flyerOptions.value?.registerOverride || t('retreatFlyer.register'));
 const scanToRegisterText = computed(() => flyerOptions.value?.scanToRegisterOverride || t('retreatFlyer.scanToRegister'));
-const goToRegistrationText = computed(() => flyerOptions.value?.goToRegistrationOverride || t('retreatFlyer.goToRegistration'));
 const limitedCapacityText = computed(() => flyerOptions.value?.limitedCapacityOverride || t('retreatFlyer.limitedCapacity'));
 const dontMissItText = computed(() => flyerOptions.value?.dontMissItOverride || t('retreatFlyer.dontMissIt'));
 const reservationNoteText = computed(() => flyerOptions.value?.reservationNoteOverride || t('retreatFlyer.reservationNote'));
@@ -676,9 +653,9 @@ const quoteTextRefined = computed(() => {
 // Styling for the flyer
 const flyerStyles = {
   fontFamily: "'Roboto', sans-serif",
-  // We use max-width in mm to match A4 paper
+  // Screen styles
   width: '100%',
-  maxWidth: '210mm',
+  maxWidth: '850px',
   margin: '0 auto',
 };
 
@@ -718,7 +695,7 @@ if (typeof window !== 'undefined') {
     visibility: hidden;
   }
 
-  #printable-area, 
+  #printable-area,
   #printable-area * {
     visibility: visible;
   }
@@ -727,17 +704,23 @@ if (typeof window !== 'undefined') {
     position: absolute;
     left: 0;
     top: 0;
-    width: 100%;
+    width: 210mm;
+    max-width: 210mm;
     margin: 0;
     padding: 0;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    color-adjust: exact;
+    overflow: hidden;
   }
-  
+
   @page {
     size: A4;
     margin: 5mm;
+  }
+
+  /* Ensure all absolutely positioned elements stay within bounds */
+  #printable-area .absolute {
+    max-width: 210mm;
   }
 }
 </style>
@@ -749,6 +732,14 @@ if (typeof window !== 'undefined') {
   width: 100%;
   max-width: 850px;
   margin: 0 auto;
+}
+
+@media print {
+  .print-optimized {
+    width: 210mm !important;
+    max-width: 210mm !important;
+    margin: 0 !important;
+  }
 }
 
 .font-display {
