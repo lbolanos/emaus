@@ -374,6 +374,7 @@
                   <div class="flex items-center gap-2">
                     <DoorOpen class="w-4 h-4 text-gray-500" />
                     <span class="text-sm font-medium text-gray-700">Habitación {{ roomNum }}</span>
+                    <Badge variant="outline" class="text-[10px]">{{ roomBeds.length }} cama(s)</Badge>
                   </div>
 
                   <div v-for="bed in roomBeds" :key="bed.index" class="grid grid-cols-12 gap-2 items-center ml-6 rounded hover:bg-gray-50 transition-colors">
