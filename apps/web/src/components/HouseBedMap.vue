@@ -363,9 +363,14 @@
                             <div class="font-bold text-sm mb-1">Cama {{ bed.bedNumber }}</div>
                             <div class="text-xs opacity-75">{{ getBedTypeLabel(bed.type) }}</div>
                             <div class="text-xs mt-1">
-                              <Badge :variant="bed.defaultUsage === 'caminante' ? 'default' : 'secondary'" class="text-xs">
+                              <div
+                                class="px-2 py-1 rounded text-xs font-medium"
+                                :class="bed.defaultUsage === 'caminante'
+                                  ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                  : 'bg-orange-100 text-orange-800 border border-orange-200'"
+                              >
                                 {{ bed.defaultUsage === 'caminante' ? 'C' : 'S' }}
-                              </Badge>
+                              </div>
                             </div>
                           </div>
 
