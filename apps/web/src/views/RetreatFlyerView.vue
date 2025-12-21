@@ -143,12 +143,12 @@
           <div class="absolute z-10  p-5 hover:shadow-green-500/20 transition-all"
                style="top: 477px; left: 15px; width: 460px; max-width: 55%;">
             <div class="flex gap-4 items-start group">
-              <div class="bg-gradient-to-br from-green-500 to-green-700 p-3.5 rounded-xl text-white shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+              <div class="bg-gradient-to-br from-blue-500 to-blue-700 p-3.5 rounded-xl text-white shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
                 <Calendar class="w-7 h-7" />
               </div>
               <div class="flex-1">
-                <h4 class="font-black text-[15px] uppercase text-gray-500 tracking-[0.15em] mb-1.5">{{ t('retreatFlyer.endTime') }}</h4>
-                <p class="text-[17px] text-green-700 font-bold mb-1">{{ formatDate(endDate) }}</p>
+                <h4 class="font-black text-[15px] uppercase text-gray-900 tracking-[0.15em] mb-1.5">{{ t('retreatFlyer.endTime') }}</h4>
+                <p class="text-[17px] text-blue-700 font-bold mb-0.5">{{ formatDate(endDate) }}</p>
                 <p class="font-bold text-gray-100 text-[16px] mb-2">{{ closingLocation }}</p>
                 <p class="text-gray-100 font-bold uppercase text-[12px] flex items-center gap-2 backdrop-blur-sm px-3 py-2 rounded-lg border border-amber-200">
                   <Users class="w-5 h-5 flex-shrink-0" /> {{ arrivalTimeNoteText }}
@@ -222,11 +222,11 @@
           <div class="absolute z-10 p-5 hover:shadow-red-500/20 transition-all"
                style="top: 362px; left: 15px; width: 440px; max-width: 52%;">
             <div class="flex gap-4 items-start group">
-              <div class="bg-gradient-to-br from-red-500 to-red-700 p-3.5 rounded-xl text-white shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+              <div class="bg-gradient-to-br from-green-500 to-green-700 p-3.5 rounded-xl text-white shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
                 <MapPin class="w-7 h-7" />
               </div>
               <div class="flex-1">
-                <h4 class="font-black text-[15px] uppercase bg-gradient-to-r from-red-600 via-orange-500 to-red-600 bg-clip-text text-transparent tracking-[0.15em] mb-1.5">{{ t('retreatFlyer.location') }}</h4>
+                <h4 class="font-black text-[15px] uppercase bg-gradient-to-r from-green-600 via-green-500 to-green-600 bg-clip-text text-transparent tracking-[0.15em] mb-1.5">{{ t('retreatFlyer.location') }}</h4>
                 <p class="text-[18px] font-black text-black leading-tight">{{ retreatLocation }}</p>
                 <p class="text-[12px] text-blue-900 leading-snug mt-1.5 font-medium">{{ retreatAddress }}</p>
               </div>
