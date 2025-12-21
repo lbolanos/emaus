@@ -1,6 +1,6 @@
 <template>
   <Dialog :open="open" @update:open="emit('update:open', $event)">
-    <DialogContent class="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+    <DialogContent class="sm:max-w-[800px] max-h-[85vh] overflow-hidden flex flex-col">
       <DialogHeader class="">
         <div class="flex items-center justify-between">
           <div>
@@ -349,7 +349,7 @@
         <!-- Enhanced Beds List -->
           <ScrollArea ref="bedScrollArea" class="h-[400px] w-full rounded-md border p-4">
             <!-- Group beds by floor -->
-            <div v-for="(floorBeds, floorNum) in groupedBeds" :key="floorNum" class="mb-6">
+            <div v-for="(floorBeds, floorNum) in groupedBeds" :key="floorNum" class="mb-4">
               <div class="flex items-center gap-2 mb-3 pb-2 border-b">
                 <div class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
                   {{ floorNum }}
@@ -359,31 +359,31 @@
               </div>
 
               <!-- Group beds by room within floor -->
-              <div v-for="(roomBeds, roomNum) in groupBedsByRoom(floorBeds)" :key="roomNum" class="mb-4 ml-4">
-                <div class="flex items-center gap-2 mb-2">
+              <div v-for="(roomBeds, roomNum) in groupBedsByRoom(floorBeds)" :key="roomNum" class="mb-2 ml-4">
+                <div class="flex items-center gap-2">
                   <DoorOpen class="w-4 h-4 text-gray-500" />
                   <span class="text-sm font-medium text-gray-700">Habitación {{ roomNum }}</span>
                 </div>
 
-                <div class="grid grid-cols-12 gap-2 items-center mb-1 ml-6">
-                  <div class="col-span-3 text-xs text-gray-500">Cama</div>
-                  <div class="col-span-3 text-xs text-gray-500">Tipo</div>
-                  <div class="col-span-3 text-xs text-gray-500">Uso Pred.</div>
-                  <div class="col-span-3 text-xs text-gray-500 text-right">Acciones</div>
+                <div class="grid grid-cols-12 gap-2 items-center ml-6 text-[8px] text-gray-500">
+                  <div class="col-span-3 ">Cama</div>
+                  <div class="col-span-3 ">Tipo</div>
+                  <div class="col-span-3 ">Uso Pred.</div>
+                  <div class="col-span-3 text-right">Acciones</div>
                 </div>
 
-                <div v-for="bed in roomBeds" :key="bed.index" class="grid grid-cols-12 gap-2 items-center mb-2 ml-6 p-2 rounded hover:bg-gray-50 transition-colors">
+                <div v-for="bed in roomBeds" :key="bed.index" class="grid grid-cols-12 gap-2 items-center ml-6 rounded hover:bg-gray-50 transition-colors">
                   <div class="col-span-3">
                     <Input
                       v-model="bed.bedNumber"
                       placeholder="#"
-                      :class="{ 'border-red-500': formErrors[`beds[${bed.index}].bedNumber`] }"
+                      :class="{ 'border-red-500': formErrors[`beds[${bed.index}].bedNumber`] } + ' h-6 text-[12px]'"
                       @blur="validateBedField(bed.index, 'bedNumber')"
                     />
                   </div>
                   <div class="col-span-3">
                     <Select v-model="bed.type">
-                      <SelectTrigger>
+                      <SelectTrigger  class="h-6 text-[12px]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -395,7 +395,7 @@
                   </div>
                   <div class="col-span-3">
                     <Select v-model="bed.defaultUsage">
-                      <SelectTrigger>
+                      <SelectTrigger  class="h-6 text-[12px]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -428,28 +428,28 @@
           </ScrollArea>
 
           <!-- Editable Next Bed -->
-          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div class="flex items-center mb-3">
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-2">
+            <div class="flex items-center">
               <Info class="w-4 h-4 mr-2 text-blue-600" />
-              <span class="text-sm text-blue-800 font-medium">Configurar próxima cama:</span>
+              <span class="text-[10px] text-blue-800 font-medium">Configurar próxima cama:</span>
             </div>
             <div class="grid grid-cols-5 gap-2 items-center">
               <div>
-                <Label class="text-xs text-blue-700">Piso</Label>
-                <Input v-model.number="nextBedData.floor" type="number" min="1" class="h-8" />
+                <Label class=" text-[10px] text-blue-700">Piso</Label>
+                <Input v-model.number="nextBedData.floor" type="number" min="1" class="h-6 text-[10px]" />
               </div>
               <div>
-                <Label class="text-xs text-blue-700">Habitación</Label>
-                <Input v-model="nextBedData.roomNumber" placeholder="#" class="h-8" />
+                <Label class="text-[10px] text-blue-700">Habitación</Label>
+                <Input v-model="nextBedData.roomNumber" placeholder="#" class="h-6 text-[10px]" />
               </div>
               <div>
-                <Label class="text-xs text-blue-700">Cama</Label>
-                <Input v-model="nextBedData.bedNumber" placeholder="#" class="h-8" />
+                <Label class="text-[10px] text-blue-700">Cama</Label>
+                <Input v-model="nextBedData.bedNumber" placeholder="#" class="h-6 text-[10px]" />
               </div>
               <div>
-                <Label class="text-xs text-blue-700">Tipo</Label>
+                <Label class="text-[10px] text-blue-700">Tipo</Label>
                 <Select v-model="nextBedData.type">
-                  <SelectTrigger class="h-8">
+                  <SelectTrigger class="h-6 text-[10px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -460,9 +460,9 @@
                 </Select>
               </div>
               <div>
-                <Label class="text-xs text-blue-700">Uso</Label>
+                <Label class="text-[10px] text-blue-700">Uso</Label>
                 <Select v-model="nextBedData.defaultUsage">
-                  <SelectTrigger class="h-8">
+                  <SelectTrigger class="h-6 text-[10px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
