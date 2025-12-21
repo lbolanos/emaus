@@ -209,6 +209,22 @@
         </div>
       </div>
 
+      <!-- Border Style Legend -->
+      <div class="flex flex-wrap items-center gap-4 p-3 bg-amber-50 rounded-lg text-sm">
+        <div class="font-medium">Bordes:</div>
+        <div class="flex items-center gap-1">
+          <div class="w-4 h-4 bg-green-100 border-2 border-green-500 border-solid"></div>
+          <span>Guardado</span>
+        </div>
+        <div class="flex items-center gap-1">
+          <div class="w-4 h-4 bg-green-100 border-2 border-green-500 border-dashed"></div>
+          <span>Nuevo/Modificado</span>
+        </div>
+        <div class="text-xs text-gray-600 ml-auto">
+          Las camas con bordes discontinuos tienen cambios pendientes de guardar
+        </div>
+      </div>
+
       <!-- Main Content -->
       <div class="flex-1 overflow-hidden flex flex-col min-h-0">
         <div class="flex-1 w-full overflow-y-auto scrollbar-thin p-6">
@@ -303,7 +319,7 @@
                         <div
                           :class="[
                             'p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md hover:scale-105 relative',
-                            getBedColorClasses(bed.type, bed.defaultUsage),
+                            getBedColorClasses(bed.type, bed.defaultUsage, bed),
                             selectedBeds.includes(bed) ? 'ring-2 ring-blue-500 ring-offset-2 scale-105 shadow-lg' : '',
                             hoveredBed === bed ? 'z-10' : ''
                           ]"
@@ -315,6 +331,11 @@
                           @keydown.space.prevent="toggleBedSelection(bed, $event)"
                           @keydown.delete.stop="quickDeleteBed(bed)"
                         >
+                          <!-- Modified Indicator -->
+                          <div v-if="isBedModified(bed)" class="absolute top-1 right-1 z-20">
+                            <div class="w-2 h-2 bg-orange-500 rounded-full animate-pulse" title="Con cambios pendientes"></div>
+                          </div>
+
                           <!-- Selection Checkbox -->
                           <div class="absolute top-1 left-1 z-20">
                             <div
@@ -1379,9 +1400,32 @@ const handleSave = async () => {
   }
 };
 
+// Helper function to check if a bed is new or edited
+const isBedModified = (bed: BedType & { id?: string }) => {
+  if (!bed.id || !originalHouse.value?.beds) return true; // New bed
+
+  // Check if bed exists in original
+  const originalBed = originalHouse.value.beds.find(b =>
+    (b.id && b.id === bed.id) ||
+    (!b.id && !bed.id && b.roomNumber === bed.roomNumber && b.bedNumber === bed.bedNumber && (b.floor || 1) === (bed.floor || 1))
+  );
+
+  if (!originalBed) return true; // New bed
+
+  // Check if any properties changed
+  return originalBed.type !== bed.type ||
+         originalBed.defaultUsage !== bed.defaultUsage ||
+         originalBed.roomNumber !== bed.roomNumber ||
+         originalBed.bedNumber !== bed.bedNumber ||
+         (originalBed.floor || 1) !== (bed.floor || 1);
+};
+
 // Methods
-const getBedColorClasses = (type: string, usage: string) => {
+const getBedColorClasses = (type: string, usage: string, bed?: BedType & { id?: string }) => {
   const baseClasses = 'relative border-2 ';
+
+  // Check if bed is modified (new or edited)
+  const modified = bed ? isBedModified(bed) : false;
 
   // Background color based on type
   const typeColors = {
@@ -1390,12 +1434,13 @@ const getBedColorClasses = (type: string, usage: string) => {
     colchon: 'bg-purple-100 border-purple-500 hover:bg-purple-200'
   };
 
-  // Border style based on usage
-  const usageStyles = usage === 'caminante'
-    ? 'border-dashed'
-    : 'border-solid';
+  // Border style based on modification status
+  const borderStyle = modified ? 'border-dashed' : 'border-solid';
 
-  return baseClasses + (typeColors[type as keyof typeof typeColors] || typeColors.normal) + ' ' + usageStyles;
+  // Add visual indicator for modified beds
+  const modifiedClass = modified ? 'ring-2 ring-orange-200 ring-offset-1' : '';
+
+  return baseClasses + (typeColors[type as keyof typeof typeColors] || typeColors.normal) + ' ' + borderStyle + ' ' + modifiedClass;
 };
 
 const getBedTypeLabel = (type: string) => {
