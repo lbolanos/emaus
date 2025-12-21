@@ -966,7 +966,6 @@ const addNewRoom = () => {
     };
 
     formData.value.beds = [...formData.value.beds, newBed];
-    hasUnsavedChanges.value = true;
     scrollToBedListBottom();
   } else {
     // If no beds exist, just add a blank one (same as addBed)
@@ -989,7 +988,6 @@ const addNewFloor = () => {
     };
 
     formData.value.beds = [...formData.value.beds, newBed];
-    hasUnsavedChanges.value = true;
     scrollToBedListBottom();
   } else {
     // If no beds exist, just add a blank one
@@ -1033,7 +1031,6 @@ const confirmDeleteBed = async (index: number) => {
 
 const removeBed = (index: number) => {
   formData.value.beds.splice(index, 1);
-  hasUnsavedChanges.value = true;
 };
 
 const applyBulkOperations = () => {
@@ -1057,7 +1054,6 @@ const applyBulkOperations = () => {
 
   formData.value.beds = [...formData.value.beds, ...newBeds];
   showBulkOperations.value = false;
-  hasUnsavedChanges.value = true;
   toast({
     title: 'Camas generadas',
     description: `Se agregaron ${newBeds.length} camas exitosamente`,
@@ -1073,7 +1069,6 @@ const clearAllBeds = () => {
   );
   if (confirmed) {
     formData.value.beds = [];
-    hasUnsavedChanges.value = true;
     toast({
       title: 'Camas eliminadas',
       description: 'Todas las camas han sido eliminadas',
@@ -1201,7 +1196,7 @@ watch(() => props.open, async (isOpen) => {
   if (isOpen) {
     currentStep.value = 1;
     formData.value = getInitialFormData();
-    hasUnsavedChanges.value = false;
+    checkForChanges(); // This will set hasUnsavedChanges to false
     isSubmitting.value = false;
     showBulkOperations.value = false;
     Object.keys(formErrors).forEach(key => delete formErrors[key]);
@@ -1235,10 +1230,41 @@ watch([() => formData.value.latitude, currentStep], async ([newLat, newStep]) =>
   }
 }, { deep: true, immediate: true });
 
-// Watch for form changes
-watch(formData, () => {
-  hasUnsavedChanges.value = true;
-}, { deep: true });
+// Function to compare two objects deeply
+const deepEqual = (obj1: any, obj2: any): boolean => {
+  if (obj1 === obj2) return true;
+
+  if (obj1 == null || obj2 == null) return obj1 === obj2;
+
+  if (typeof obj1 !== typeof obj2) return false;
+
+  if (typeof obj1 !== 'object') return obj1 === obj2;
+
+  if (Array.isArray(obj1) !== Array.isArray(obj2)) return false;
+
+  const keys1 = Object.keys(obj1);
+  const keys2 = Object.keys(obj2);
+
+  if (keys1.length !== keys2.length) return false;
+
+  for (const key of keys1) {
+    if (!keys2.includes(key)) return false;
+    if (!deepEqual(obj1[key], obj2[key])) return false;
+  }
+
+  return true;
+};
+
+// Function to check if there are actual changes
+const checkForChanges = () => {
+  const initialData = getInitialFormData();
+  const hasChanges = !deepEqual(formData.value, initialData);
+  hasUnsavedChanges.value = hasChanges;
+  console.log('Checking for changes:', { hasChanges, current: formData.value, initial: initialData });
+};
+
+// Watch for form changes with proper comparison
+watch(formData, checkForChanges, { deep: true });
 
 const handleEnterKey = (event: KeyboardEvent) => {
   // Allow Enter in textareas
@@ -1258,7 +1284,7 @@ const handleResetForm = () => {
   }
 
   formData.value = getInitialFormData();
-  hasUnsavedChanges.value = false;
+  checkForChanges(); // This will set hasUnsavedChanges to false
   currentStep.value = 1;
   Object.keys(formErrors).forEach(key => delete formErrors[key]);
 
@@ -1300,7 +1326,7 @@ const handleSubmit = async () => {
     const success = await emit('submit', { ...formData.value, capacity: formData.value.beds.length });
 
     if (success) {
-      hasUnsavedChanges.value = false;
+      checkForChanges(); // This will set hasUnsavedChanges to false
       nextTick(() => {
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
