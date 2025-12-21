@@ -1,6 +1,6 @@
 <template>
   <Dialog :open="open" @update:open="emit('update:open', $event)">
-    <DialogContent class="sm:max-w-[800px] max-h-[85vh] overflow-hidden flex flex-col">
+    <DialogContent class="sm:max-w-[800px] h-[80vh] flex flex-col">
       <DialogHeader>
         <div class="flex items-center gap-2">
           <DialogTitle class="flex items-center gap-2">
@@ -13,15 +13,15 @@
         </div>
       </DialogHeader>
 
-      <form @submit.prevent="handleSubmit" class="flex-1 flex flex-col overflow-hidden">
+      <form @submit.prevent="handleSubmit" class="flex flex-col h-full">
         <!-- Configuration Section -->
-        <div class="grid gap-4 py-4 border-b">
-          <h3 class="font-semibold text-lg flex items-center gap-2">
+        <div class="border-b pb-4">
+          <h3 class="font-semibold text-lg flex items-center gap-2 mb-4">
             <span class="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold">1</span>
             Configuración
           </h3>
 
-          <div class="grid grid-cols-4 gap-4">
+          <div class="grid grid-cols-4 gap-4 mb-4">
             <div>
               <Label for="startFloor" class="text-sm font-medium">Piso inicial</Label>
               <Input
@@ -120,14 +120,14 @@
         </div>
 
         <!-- Preview Section -->
-        <div class="min-h-0 flex-1 flex flex-col">
-          <h3 class="font-semibold text-lg flex items-center gap-2 py-4">
+        <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <h3 class="font-semibold text-lg flex items-center gap-2 py-4 flex-shrink-0">
             <span class="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold">2</span>
             Previsualización
             <Badge variant="outline" class="text-xs">{{ previewBeds.length }} cama(s) totales</Badge>
           </h3>
 
-          <div class="flex-1 flex flex-col border rounded-lg overflow-hidden">
+          <div class="flex-1 border rounded-lg overflow-hidden bg-white">
             <!-- Preview Header with Stats -->
             <div class="bg-gray-50 p-3 border-b flex-shrink-0">
               <div class="flex items-center justify-between">
@@ -141,7 +141,7 @@
               </div>
             </div>
 
-            <ScrollArea class="flex-1 min-h-0">
+            <div class="flex-1 overflow-y-auto" style="height: calc(100% - 60px);">
               <div class="p-4">
                 <div v-if="previewBeds.length === 0" class="text-center py-8 text-gray-500">
                   <Settings class="w-12 h-12 mx-auto mb-3 text-gray-300" />
@@ -149,9 +149,9 @@
                   <p class="text-xs mt-1">Ajusta la configuración y verás cómo se organizarán las camas</p>
                 </div>
 
-                <div v-else class="space-y-4">
+                <div v-else class="space-y-4 pb-4">
                   <!-- Group by floor -->
-                  <div v-for="(floorBeds, floorNum) in groupedPreviewBeds" :key="floorNum" class="border-l-4 border-blue-200 pl-4">
+                  <div v-for="(floorBeds, floorNum) in groupedPreviewBeds" :key="floorNum" class="border-l-4 border-blue-200 pl-4 bg-gray-50 p-4 rounded mb-4">
                     <div class="flex items-center gap-2 mb-3">
                       <div class="w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center">
                         {{ floorNum }}
@@ -169,17 +169,17 @@
                       </div>
 
                       <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 ml-6">
-                        <div v-for="bed in roomBeds" :key="bed.id" class="bg-gray-50 p-2 rounded text-xs border border-gray-200 hover:bg-gray-100 transition-colors">
+                        <div v-for="bed in roomBeds" :key="bed.id" class="bg-white p-2 rounded text-xs border border-gray-200 hover:bg-gray-100 transition-colors shadow-sm">
                           <div class="font-medium text-gray-700">Cama {{ bed.bedNumber }}</div>
-                          <div class="text-gray-500">{{ bed.typeLabel }}</div>
-                          <div class="text-gray-500">{{ bed.usageLabel }}</div>
+                          <div class="text-gray-500 text-xs">{{ bed.typeLabel }}</div>
+                          <div class="text-gray-500 text-xs">{{ bed.usageLabel }}</div>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </ScrollArea>
+            </div>
           </div>
         </div>
 
@@ -245,17 +245,25 @@ const usageLabels: Record<string, string> = {
   'servidor': 'Servidor'
 };
 
+// Generate UUID helper function
+const generateUUID = (): string => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 // Generate preview beds based on configuration
 const previewBeds = computed(() => {
   const beds = [];
   const { startFloor, numFloors, startRoom, roomsPerFloor, bedsPerRoom, bedType, defaultUsage } = config.value;
 
-  let bedId = 1;
   for (let floor = startFloor; floor < startFloor + numFloors; floor++) {
     for (let room = startRoom; room < startRoom + roomsPerFloor; room++) {
       for (let bed = 1; bed <= bedsPerRoom; bed++) {
         beds.push({
-          id: bedId++,
+          id: generateUUID(),
           floor,
           roomNumber: room.toString(),
           bedNumber: bed.toString(),

@@ -967,12 +967,19 @@ const groupBedsByRoom = (floorBeds: (Bed & { index: number })[]) => {
 
 const confirmDeleteBed = async (index: number) => {
   const bed = formData.value.beds[index];
-  const confirmed = window.confirm(
-    `¿Estás seguro que quieres eliminar la cama ${bed.bedNumber} de la habitación ${bed.roomNumber}?`
-  );
-  if (confirmed) {
-    removeBed(index);
+  if (!bed) {
+    toast({
+      title: 'Error',
+      description: 'No se encontró la cama para eliminar',
+      variant: 'destructive',
+    });
+    return;
   }
+  removeBed(index);
+  toast({
+    title: 'Cama eliminada',
+    description: `La cama ${bed.bedNumber} ha sido eliminada exitosamente`,
+  });
 };
 
 const removeBed = (index: number) => {
@@ -980,11 +987,69 @@ const removeBed = (index: number) => {
 };
 
 const handleBulkOperationsSubmit = (newBeds: any[]) => {
-  formData.value.beds = [...formData.value.beds, ...newBeds];
+  // Check for potential duplicates
+  const existingBeds = formData.value.beds;
+  const duplicates = [];
+  const uniqueNewBeds = [];
+
+  newBeds.forEach(newBed => {
+    // Check if a bed with same floor, room, and bed number already exists
+    const duplicate = existingBeds.find(existing =>
+      existing.floor === newBed.floor &&
+      existing.roomNumber === newBed.roomNumber &&
+      existing.bedNumber === newBed.bedNumber
+    );
+
+    if (duplicate) {
+      duplicates.push({
+        existing: duplicate,
+        new: newBed
+      });
+    } else {
+      uniqueNewBeds.push(newBed);
+    }
+  });
+
+  if (duplicates.length > 0) {
+    const duplicateCount = duplicates.length;
+    const confirmed = window.confirm(
+      `⚠️ Se encontraron ${duplicateCount} cama(s) que ya existen:\n\n` +
+      duplicates.map(d =>
+        `- Piso ${d.new.floor}, Habitación ${d.new.roomNumber}, Cama ${d.new.bedNumber}`
+      ).join('\n') +
+      `\n\n¿Desea continuar de todas formas? Las camas duplicadas reemplazarán a las existentes.`
+    );
+
+    if (!confirmed) {
+      return; // User cancelled the operation
+    }
+
+    // Remove existing duplicates and add all new beds (including the ones that replace duplicates)
+    const updatedBeds = existingBeds.filter(existingBed =>
+      !duplicates.some(duplicate =>
+        duplicate.existing.id === existingBed.id ||
+        (duplicate.existing.floor === existingBed.floor &&
+         duplicate.existing.roomNumber === existingBed.roomNumber &&
+         duplicate.existing.bedNumber === existingBed.bedNumber)
+      )
+    );
+
+    formData.value.beds = [...updatedBeds, ...uniqueNewBeds, ...duplicates.map(d => d.new)];
+  } else {
+    // No duplicates, just add the new beds
+    formData.value.beds = [...existingBeds, ...uniqueNewBeds];
+  }
+
   showBulkOperations.value = false;
+
+  const totalAdded = uniqueNewBeds.length + duplicates.length;
+  const successMessage = duplicates.length > 0
+    ? `Se agregaron ${totalAdded} camas (${duplicateCount} reemplazaron camas existentes)`
+    : `Se agregaron ${totalAdded} camas exitosamente`;
+
   toast({
     title: 'Camas generadas',
-    description: `Se agregaron ${newBeds.length} camas exitosamente`,
+    description: successMessage,
   });
   scrollToBedListBottom();
 };
