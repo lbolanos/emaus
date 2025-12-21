@@ -1,7 +1,7 @@
 <template>
   <Dialog :open="open" @update:open="emit('update:open', $event)">
     <DialogContent class="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
-      <DialogHeader class="pb-3">
+      <DialogHeader class="">
         <div class="flex items-center justify-between">
           <div>
             <DialogTitle>{{ isEditing ? 'Editar Casa' : 'Agregar Nueva Casa' }}</DialogTitle>
@@ -20,10 +20,10 @@
           </div>
         </div>
       </DialogHeader>
-      <Progress :model-value="(currentStep / 3) * 100" class="mb-3" />
+      <Progress :model-value="(currentStep / 3) * 100" />
       <form @submit.prevent="handleSubmit" @keydown.enter.prevent="handleEnterKey" class="flex-1 flex flex-col overflow-hidden">
         <!-- Step 1: General Information -->
-        <div v-if="currentStep === 1" class="grid gap-4 py-4">
+        <div v-if="currentStep === 1" class="grid gap-1">
           <h3 class="font-semibold text-lg text-center flex items-center justify-center gap-2">
             <span class="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold">1</span>
             Información General
@@ -217,7 +217,7 @@
           </div>
 
           <!-- Map section with loading state -->
-          <div v-if="formData.latitude && formData.longitude" class="mt-4">
+          <div v-if="formData.latitude && formData.longitude" class="mt-2">
             <div ref="mapContainer" class="h-64 rounded-lg border overflow-hidden relative">
               <div v-if="mapLoading" class="absolute inset-0 flex items-center justify-center bg-gray-100">
                 <div class="flex items-center gap-2">
@@ -234,14 +234,14 @@
         </div>
 
         <!-- Step 2: Capacity -->
-        <div v-if="currentStep === 2" class="grid gap-4 py-4">
-          <h3 class="font-semibold text-lg text-center flex items-center justify-center gap-2">
+        <div v-if="currentStep === 2" class="grid">
+          <h3 class="font-semibold text-lg text-center flex items-center justify-center gap-1">
             <span class="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold">2</span>
             Capacidad y Camas
           </h3>
 
           <!-- Capacity Summary Cards -->
-          <div class="grid grid-cols-3 gap-4 mb-6">
+          <div class="grid grid-cols-3 gap-2 mb-2 mt-2">
             <Card class="p-4">
               <div class="text-center">
                 <div class="text-2xl font-bold text-blue-600">{{ totalCapacity }}</div>
@@ -427,8 +427,55 @@
             </div>
           </ScrollArea>
 
+          <!-- Editable Next Bed -->
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div class="flex items-center mb-3">
+              <Info class="w-4 h-4 mr-2 text-blue-600" />
+              <span class="text-sm text-blue-800 font-medium">Configurar próxima cama:</span>
+            </div>
+            <div class="grid grid-cols-5 gap-2 items-center">
+              <div>
+                <Label class="text-xs text-blue-700">Piso</Label>
+                <Input v-model.number="nextBedData.floor" type="number" min="1" class="h-8" />
+              </div>
+              <div>
+                <Label class="text-xs text-blue-700">Habitación</Label>
+                <Input v-model="nextBedData.roomNumber" placeholder="#" class="h-8" />
+              </div>
+              <div>
+                <Label class="text-xs text-blue-700">Cama</Label>
+                <Input v-model="nextBedData.bedNumber" placeholder="#" class="h-8" />
+              </div>
+              <div>
+                <Label class="text-xs text-blue-700">Tipo</Label>
+                <Select v-model="nextBedData.type">
+                  <SelectTrigger class="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="normal">Normal</SelectItem>
+                    <SelectItem value="litera">Litera</SelectItem>
+                    <SelectItem value="colchon">Colchón</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label class="text-xs text-blue-700">Uso</Label>
+                <Select v-model="nextBedData.defaultUsage">
+                  <SelectTrigger class="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="caminante">Caminante</SelectItem>
+                    <SelectItem value="servidor">Servidor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
           <!-- Quick Add Buttons -->
-          <div class="flex gap-2 mt-4 p-3 bg-gray-50 rounded-lg">
+          <div class="flex gap-2 bg-gray-50 rounded-lg justify-center">
             <Button type="button" variant="outline" size="sm" @click="addNewFloor" class="flex items-center gap-1">
               <Plus class="w-4 h-4" />
               Nuevo Piso
@@ -441,10 +488,6 @@
               <Plus class="w-4 h-4" />
               Nueva Cama
             </Button>
-            <div class="ml-auto text-xs text-gray-500 flex items-center">
-              <Info class="w-3 h-3 mr-1" />
-              Total: {{ formData.beds.length }} cama(s)
-            </div>
           </div>
         </div>
 
@@ -632,6 +675,80 @@ const servidorCapacity = computed(() =>
 
 const stepSchemas = [step1Schema, step2Schema, step3Schema];
 
+// Default next bed data for editing
+const nextBedData = reactive({
+  roomNumber: '1',
+  floor: 1,
+  bedNumber: '1',
+  type: 'normal' as 'normal' | 'litera' | 'colchon',
+  defaultUsage: 'caminante' as 'caminante' | 'servidor'
+});
+
+// Function to update next bed data based on current beds
+const updateNextBedData = () => {
+  const beds = formData.value.beds;
+
+  if (beds.length === 0) {
+    nextBedData.roomNumber = '1';
+    nextBedData.floor = 1;
+    nextBedData.bedNumber = '1';
+    nextBedData.type = 'normal';
+    nextBedData.defaultUsage = 'caminante';
+    return;
+  }
+
+  // Find the actual last bed that was most recently created
+  // This should be the logical last bed for proper sequencing
+  const logicalLastBed = findLastBedInLogicalOrder(beds);
+
+  if (!logicalLastBed) {
+    const fallbackBed = beds[beds.length - 1];
+    nextBedData.roomNumber = '1';
+    nextBedData.floor = 1;
+    nextBedData.bedNumber = '1';
+    nextBedData.type = fallbackBed?.type || 'normal';
+    nextBedData.defaultUsage = fallbackBed?.defaultUsage || 'caminante';
+    return;
+  }
+
+  const newBedNumber = incrementAlphanumeric(logicalLastBed.bedNumber) || (parseInt(logicalLastBed.bedNumber) + 1).toString();
+
+
+  // Update the reactive nextBedData
+  nextBedData.roomNumber = logicalLastBed.roomNumber;
+  nextBedData.floor = logicalLastBed.floor;
+  nextBedData.bedNumber = newBedNumber;
+  nextBedData.type = logicalLastBed.type || 'normal';
+  nextBedData.defaultUsage = logicalLastBed.defaultUsage || 'caminante';
+
+};
+
+// Watch for changes in beds and update next bed data
+watch(() => formData.value.beds, () => {
+  updateNextBedData();
+}, { deep: true, immediate: true });
+
+// Computed property for display
+const nextBedInfo = computed(() => {
+  const typeLabels: Record<string, string> = {
+    'normal': 'Normal',
+    'litera': 'Litera',
+    'colchon': 'Colchón'
+  };
+
+  const usageLabels: Record<string, string> = {
+    'caminante': 'Caminante',
+    'servidor': 'Servidor'
+  };
+
+  return {
+    ...nextBedData,
+    typeLabel: typeLabels[nextBedData.type] || nextBedData.type,
+    usageLabel: usageLabels[nextBedData.defaultUsage] || nextBedData.defaultUsage,
+    display: `Piso ${nextBedData.floor}, Habitación ${nextBedData.roomNumber}, Cama ${nextBedData.bedNumber} (${typeLabels[nextBedData.type] || nextBedData.type}, ${usageLabels[nextBedData.defaultUsage] || nextBedData.defaultUsage})`
+  };
+});
+
 const validateField = (fieldName: string) => {
   if (!fieldName) return;
 
@@ -743,71 +860,108 @@ const incrementAlphanumeric = (value: string): string => {
   return result;
 };
 
+const findLastBedInLogicalOrder = (beds: Bed[]) => {
+
+  if (beds.length === 0) return null;
+
+  // Group beds by floor, then by room, then sort by bed number
+  const bedsByFloor: { [floor: number]: { [room: string]: Bed[] } } = {};
+
+  // Organize beds by floor and room
+  beds.forEach(bed => {
+    const floor = bed.floor || 1;
+    const room = bed.roomNumber || '1';
+
+    if (!bedsByFloor[floor]) {
+      bedsByFloor[floor] = {};
+    }
+    if (!bedsByFloor[floor][room]) {
+      bedsByFloor[floor][room] = [];
+    }
+    bedsByFloor[floor][room].push(bed);
+  });
+
+  // Find the highest floor number
+  const floors = Object.keys(bedsByFloor)
+    .map(f => parseInt(f))
+    .sort((a, b) => a - b);
+
+  const lastFloor = floors[floors.length - 1];
+
+  // Find the highest room number on the last floor
+  const roomsOnLastFloor = Object.keys(bedsByFloor[lastFloor]);
+  const lastRoom = roomsOnLastFloor.sort((a, b) => {
+    // Try to sort numerically, fall back to string comparison
+    const aNum = parseInt(a);
+    const bNum = parseInt(b);
+    if (!isNaN(aNum) && !isNaN(bNum)) {
+      return aNum - bNum;
+    }
+    return a.localeCompare(b);
+  })[roomsOnLastFloor.length - 1];
+
+
+  // Sort beds in the last room by bed number
+  const bedsInLastRoom = bedsByFloor[lastFloor][lastRoom].sort((a, b) => {
+    // Extract numeric part for proper sorting
+    const aNum = parseInt(a.bedNumber.replace(/\D/g, ''));
+    const bNum = parseInt(b.bedNumber.replace(/\D/g, ''));
+    const aMatch = a.bedNumber.match(/^(.*?)(\d+)$/);
+    const bMatch = b.bedNumber.match(/^(.*?)(\d+)$/);
+
+    if (!isNaN(aNum) && !isNaN(bNum)) {
+      // Same numeric value, sort by prefix
+      if (aNum === bNum) {
+        const aPrefix = aMatch ? aMatch[1] : '';
+        const bPrefix = bMatch ? bMatch[1] : '';
+        return aPrefix.localeCompare(bPrefix);
+      }
+      return aNum - bNum;
+    }
+    return a.bedNumber.localeCompare(b.bedNumber);
+  });
+
+  const lastBed = bedsInLastRoom[bedsInLastRoom.length - 1];
+  return lastBed;
+};
+
 const addBed = () => {
-  const beds = formData.value.beds;
+  const newBed = {
+    roomNumber: nextBedData.roomNumber,
+    floor: nextBedData.floor,
+    bedNumber: nextBedData.bedNumber,
+    type: nextBedData.type,
+    defaultUsage: nextBedData.defaultUsage,
+  };
 
-  if (beds.length > 0) {
-    const lastBed = beds[beds.length - 1];
-    console.log('Last bed:', lastBed);
+  // Use Vue.set or spread to ensure reactivity
+  formData.value.beds = [...formData.value.beds, newBed];
+  hasUnsavedChanges.value = true;
 
-    const newBedNumber = incrementAlphanumeric(lastBed.bedNumber) || (parseInt(lastBed.bedNumber) + 1).toString();
+  // Small delay to ensure DOM update before scrolling
+  setTimeout(() => {
+    scrollToBedListBottom();
+  }, 50);
 
-    const newBed = {
-      roomNumber: lastBed.roomNumber, // Keep the same room number
-      floor: lastBed.floor,
-      bedNumber: newBedNumber,
-      type: lastBed.type,
-      defaultUsage: lastBed.defaultUsage,
-    };
-
-    console.log('New bed object:', newBed);
-
-    // Use Vue.set or spread to ensure reactivity
-    formData.value.beds = [...formData.value.beds, newBed];
-
-    hasUnsavedChanges.value = true;
-
-    // Small delay to ensure DOM update before scrolling
-    setTimeout(() => {
-      scrollToBedListBottom();
-    }, 50);
-  } else {
-    console.log('Adding first bed');
-    // Default for the very first bed
-    const newBed = {
-      roomNumber: '1',
-      floor: 1,
-      bedNumber: '1',
-      type: 'normal',
-      defaultUsage: 'caminante',
-    };
-
-    console.log('First bed object:', newBed);
-
-    formData.value.beds = [newBed];
-    console.log('Beds after first addition:', formData.value.beds);
-
-    hasUnsavedChanges.value = true;
-
-    // Small delay to ensure DOM update before scrolling
-    setTimeout(() => {
-      scrollToBedListBottom();
-    }, 50);
-  }
 };
 
 const addNewRoom = () => {
   const beds = formData.value.beds;
   if (beds.length > 0) {
-    const lastBed = beds[beds.length - 1];
+    // Find the current room number and increment it
+    const currentRoomNumber = nextBedData.roomNumber;
+    const newRoomNumber = incrementAlphanumeric(currentRoomNumber);
 
-    formData.value.beds.push({
-      roomNumber: incrementAlphanumeric(lastBed.roomNumber),
-      floor: lastBed.floor,
-      bedNumber: '1',
-      type: lastBed.type,
-      defaultUsage: lastBed.defaultUsage,
-    });
+    const newBed = {
+      roomNumber: newRoomNumber,
+      floor: nextBedData.floor, // Keep same floor as configured in next bed
+      bedNumber: '1', // Start with bed 1 in new room
+      type: nextBedData.type, // Use type from next bed configuration
+      defaultUsage: nextBedData.defaultUsage, // Use usage from next bed configuration
+    };
+
+    formData.value.beds = [...formData.value.beds, newBed];
+    hasUnsavedChanges.value = true;
     scrollToBedListBottom();
   } else {
     // If no beds exist, just add a blank one (same as addBed)
@@ -819,16 +973,18 @@ const addNewRoom = () => {
 const addNewFloor = () => {
   const beds = formData.value.beds;
   if (beds.length > 0) {
-    const lastBed = beds[beds.length - 1];
-    const newFloor = (lastBed.floor || 1) + 1;
+    const newFloor = (nextBedData.floor || 1) + 1;
 
-    formData.value.beds.push({
+    const newBed = {
       roomNumber: '1', // Reset room number for the new floor
       floor: newFloor,
-      bedNumber: '1',
-      type: lastBed.type,
-      defaultUsage: lastBed.defaultUsage,
-    });
+      bedNumber: '1', // Start with bed 1 on new floor
+      type: nextBedData.type, // Use type from next bed configuration
+      defaultUsage: nextBedData.defaultUsage, // Use usage from next bed configuration
+    };
+
+    formData.value.beds = [...formData.value.beds, newBed];
+    hasUnsavedChanges.value = true;
     scrollToBedListBottom();
   } else {
     // If no beds exist, just add a blank one
