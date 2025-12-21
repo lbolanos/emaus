@@ -145,6 +145,18 @@
             Guardar
           </Button>
 
+          <!-- Toggle Legend -->
+          <Button
+            :variant="showLegend ? 'outline' : 'default'"
+            size="sm"
+            @click="showLegend = !showLegend"
+            class="h-9 transition-colors"
+            :title="showLegend ? 'Ocultar leyenda' : 'Mostrar leyenda'"
+          >
+            <EyeOff v-if="showLegend" class="w-4 h-4" />
+            <Eye v-else class="w-4 h-4" />
+          </Button>
+
           <!-- Export/Print -->
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -173,7 +185,7 @@
       </div>
 
       <!-- Keyboard Shortcuts Help -->
-      <div class="text-xs text-gray-500 px-3 py-1 bg-blue-50 rounded-lg flex-shrink-0">
+      <div v-if="showLegend" class="text-xs text-gray-500 px-3 py-1 bg-blue-50 rounded-lg flex-shrink-0">
         Atajos: <kbd class="px-1 py-0.5 bg-white rounded border">Ctrl+Z</kbd> Deshacer |
         <kbd class="px-1 py-0.5 bg-white rounded border">Ctrl+Y</kbd> Rehacer |
         <kbd class="px-1 py-0.5 bg-white rounded border">Delete</kbd> Eliminar seleccionada |
@@ -181,7 +193,7 @@
       </div>
 
       <!-- Legend & Stats -->
-      <div class="flex flex-wrap items-center gap-4 p-3 bg-blue-50 rounded-lg text-sm">
+      <div v-if="showLegend" class="flex flex-wrap items-center gap-4 p-3 bg-blue-50 rounded-lg text-sm">
         <div class="font-medium">Leyenda:</div>
         <div class="flex items-center gap-1">
           <div class="w-4 h-4 rounded bg-green-500"></div>
@@ -210,7 +222,7 @@
       </div>
 
       <!-- Border Style Legend -->
-      <div class="flex flex-wrap items-center gap-4 p-3 bg-amber-50 rounded-lg text-sm">
+      <div v-if="showLegend" class="flex flex-wrap items-center gap-4 p-3 bg-amber-50 rounded-lg text-sm">
         <div class="font-medium">Bordes:</div>
         <div class="flex items-center gap-1">
           <div class="w-4 h-4 bg-green-100 border-2 border-green-500 border-solid"></div>
@@ -816,7 +828,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, reactive, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Card, Badge, Input, useToast, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@repo/ui';
-import { AlertCircle, Loader2, Save, Search, RotateCcw, RotateCw, Zap, CheckSquare, Square, FileText, FileSpreadsheet, MoreVertical, Copy, Users, Move, GripVertical, Eye } from 'lucide-vue-next';
+import { AlertCircle, Loader2, Save, Search, RotateCcw, RotateCw, Zap, CheckSquare, Square, FileText, FileSpreadsheet, MoreVertical, Copy, Users, Move, GripVertical, Eye, EyeOff } from 'lucide-vue-next';
 import { Building, Download, Printer, DoorOpen, Bed, Plus, Edit, Trash2, X } from 'lucide-vue-next';
 import type { House, Bed as BedType } from '@repo/types';
 
@@ -877,6 +889,9 @@ const bulkAddData = ref({
   bedType: 'normal' as const,
   defaultUsage: 'caminante' as const
 });
+
+// UI state with localStorage persistence
+const showLegend = ref(localStorage.getItem('houseBedMap_showLegend') !== 'false');
 
 // Helper function to generate a UUID v4
 const generateUUID = () => {
@@ -1723,6 +1738,11 @@ watch(() => props.house, (newHouse) => {
 watch(() => localHouse.value, () => {
   checkForChanges();
 }, { deep: true });
+
+// Watch for legend visibility changes and save to localStorage
+watch(showLegend, (newValue) => {
+  localStorage.setItem('houseBedMap_showLegend', newValue.toString());
+});
 </script>
 
 <style scoped>
