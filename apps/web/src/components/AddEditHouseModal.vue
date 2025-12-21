@@ -346,86 +346,91 @@
               </Button>
             </div>
           </div>
-        <!-- Enhanced Beds List -->
-          <ScrollArea ref="bedScrollArea" class="h-[400px] w-full rounded-md border p-4">
-            <!-- Group beds by floor -->
-            <div v-for="(floorBeds, floorNum) in groupedBeds" :key="floorNum" class="mb-4">
-              <div class="flex items-center gap-2 mb-3 pb-2 border-b">
-                <div class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
-                  {{ floorNum }}
-                </div>
-                <h4 class="font-semibold text-sm">Piso {{ floorNum }}</h4>
-                <Badge variant="outline" class="ml-auto">{{ floorBeds.length }} cama(s)</Badge>
-              </div>
-
-              <!-- Group beds by room within floor -->
-              <div v-for="(roomBeds, roomNum) in groupBedsByRoom(floorBeds)" :key="roomNum" class="mb-2 ml-4">
-                <div class="flex items-center gap-2">
-                  <DoorOpen class="w-4 h-4 text-gray-500" />
-                  <span class="text-sm font-medium text-gray-700">Habitación {{ roomNum }}</span>
-                </div>
-
-                <div class="grid grid-cols-12 gap-2 items-center ml-6 text-[8px] text-gray-500">
-                  <div class="col-span-3 ">Cama</div>
-                  <div class="col-span-3 ">Tipo</div>
-                  <div class="col-span-3 ">Uso Pred.</div>
-                  <div class="col-span-3 text-right">Acciones</div>
-                </div>
-
-                <div v-for="bed in roomBeds" :key="bed.index" class="grid grid-cols-12 gap-2 items-center ml-6 rounded hover:bg-gray-50 transition-colors">
-                  <div class="col-span-3">
-                    <Input
-                      v-model="bed.bedNumber"
-                      placeholder="#"
-                      :class="{ 'border-red-500': formErrors[`beds[${bed.index}].bedNumber`] } + ' h-6 text-[12px]'"
-                      @blur="validateBedField(bed.index, 'bedNumber')"
-                    />
-                  </div>
-                  <div class="col-span-3">
-                    <Select v-model="bed.type">
-                      <SelectTrigger  class="h-6 text-[12px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="normal">Normal</SelectItem>
-                        <SelectItem value="litera">Litera</SelectItem>
-                        <SelectItem value="colchon">Colchón</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div class="col-span-3">
-                    <Select v-model="bed.defaultUsage">
-                      <SelectTrigger  class="h-6 text-[12px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="caminante">Caminante</SelectItem>
-                        <SelectItem value="servidor">Servidor</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div class="col-span-3 flex justify-end">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      @click="confirmDeleteBed(bed.index)"
-                      class="text-red-500 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 class="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
+        <!-- Enhanced Beds List with Fixed Header -->
+          <div class="relative">
+            <!-- Fixed Header -->
+            <div class="bg-white border-b border-gray-200 px-4 py-2 sticky top-0 z-10 ml-4">
+              <div class="grid grid-cols-12 gap-2 items-center ml-6">
+                <div class="col-span-3 text-[10px] font-medium text-gray-700">Cama</div>
+                <div class="col-span-3 text-[10px] font-medium text-gray-700">Tipo</div>
+                <div class="col-span-3 text-[10px] font-medium text-gray-700">Uso Pred.</div>
+                <div class="col-span-3 text-[10px] font-medium text-gray-700 text-right">Acciones</div>
               </div>
             </div>
 
-            <!-- Empty state -->
-            <div v-if="formData.beds.length === 0" class="text-center py-8 text-gray-500">
-              <BedIcon class="w-12 h-12 mx-auto mb-3 text-gray-300" />
-              <p class="text-sm">No hay camas configuradas</p>
-              <p class="text-xs mt-1">Usa los botones de abajo para agregar camas</p>
-            </div>
-          </ScrollArea>
+            <ScrollArea ref="bedScrollArea" class="h-[380px] w-full rounded-md border p-4">
+              <!-- Group beds by floor -->
+              <div v-for="(floorBeds, floorNum) in groupedBeds" :key="floorNum" class="mb-4">
+                <div class="flex items-center gap-2 mb-3 pb-2 border-b">
+                  <div class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
+                    {{ floorNum }}
+                  </div>
+                  <h4 class="font-semibold text-sm">Piso {{ floorNum }}</h4>
+                  <Badge variant="outline" class="ml-auto">{{ floorBeds.length }} cama(s)</Badge>
+                </div>
+
+                <!-- Group beds by room within floor -->
+                <div v-for="(roomBeds, roomNum) in groupBedsByRoom(floorBeds)" :key="roomNum" class="ml-4" :data-room="roomNum">
+                  <div class="flex items-center gap-2">
+                    <DoorOpen class="w-4 h-4 text-gray-500" />
+                    <span class="text-sm font-medium text-gray-700">Habitación {{ roomNum }}</span>
+                  </div>
+
+                  <div v-for="bed in roomBeds" :key="bed.index" class="grid grid-cols-12 gap-2 items-center ml-6 rounded hover:bg-gray-50 transition-colors">
+                    <div class="col-span-3">
+                      <Input
+                        v-model="bed.bedNumber"
+                        placeholder="#"
+                        :class="{ 'border-red-500': formErrors[`beds[${bed.index}].bedNumber`] } + ' h-6 text-[12px]'"
+                        @blur="validateBedField(bed.index, 'bedNumber')"
+                      />
+                    </div>
+                    <div class="col-span-3">
+                      <Select v-model="bed.type">
+                        <SelectTrigger  class="h-6 text-[12px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="normal">Normal</SelectItem>
+                          <SelectItem value="litera">Litera</SelectItem>
+                          <SelectItem value="colchon">Colchón</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div class="col-span-3">
+                      <Select v-model="bed.defaultUsage">
+                        <SelectTrigger  class="h-6 text-[12px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="caminante">Caminante</SelectItem>
+                          <SelectItem value="servidor">Servidor</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div class="col-span-3 flex justify-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        @click="confirmDeleteBed(bed.index)"
+                        class="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 class="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Empty state -->
+              <div v-if="formData.beds.length === 0" class="text-center py-8 text-gray-500">
+                <BedIcon class="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p class="text-sm">No hay camas configuradas</p>
+                <p class="text-xs mt-1">Usa los botones de abajo para agregar camas</p>
+              </div>
+            </ScrollArea>
+          </div>
 
           <!-- Editable Next Bed -->
           <div class="bg-blue-50 border border-blue-200 rounded-lg p-2">
