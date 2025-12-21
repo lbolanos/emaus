@@ -23,10 +23,33 @@
           <TableRow v-for="house in filteredHouses" :key="house.id">
             <TableCell>{{ house.name }}</TableCell>
             <TableCell>{{ house.address1 }}</TableCell>
-            <TableCell>{{ house.beds?.length || 0 }}</TableCell>
+            <TableCell>
+              <div class="flex items-center gap-2">
+                <span>{{ house.beds?.length || 0 }}</span>
+                <Button
+                  v-if="house.beds && house.beds.length > 0"
+                  variant="ghost"
+                  size="sm"
+                  @click="openBedMap(house)"
+                  class="p-1 h-6 w-6"
+                  title="Ver mapa de camas"
+                >
+                  <Map class="w-4 h-4" />
+                </Button>
+              </div>
+            </TableCell>
             <TableCell class="space-x-2">
-              <Button variant="outline" size="sm" @click="openEditModal(house)">Edit</Button>
-              <Button variant="destructive" size="sm" @click="deleteHouse(house.id)">Delete</Button>
+              <Button variant="outline" size="sm" @click="openEditModal(house)">Editar</Button>
+              <Button
+                variant="outline"
+                size="sm"
+                @click="openBedMap(house)"
+                :disabled="!house.beds || house.beds.length === 0"
+              >
+                <Map class="w-4 h-4 mr-1" />
+                Mapa
+              </Button>
+              <Button variant="destructive" size="sm" @click="deleteHouse(house.id)">Eliminar</Button>
             </TableCell>
           </TableRow>
         </TableBody>
@@ -38,6 +61,13 @@
       :house="selectedHouse"
       @update:open="isModalOpen = $event"
       @submit="handleSubmit"
+    />
+
+    <HouseBedMap
+      :open="isBedMapOpen"
+      :house="selectedHouseForMap"
+      @update:open="isBedMapOpen = $event"
+      @save-house="handleSaveHouse"
     />
   </div>
 </template>
@@ -56,11 +86,15 @@ import {
   TableCell,
 } from '@repo/ui';
 import AddEditHouseModal from '@/components/AddEditHouseModal.vue';
+import HouseBedMap from '@/components/HouseBedMap.vue';
+import { Map } from 'lucide-vue-next';
 
 const store = useHouseStore();
 const isModalOpen = ref(false);
 const selectedHouse = ref<any | null>(null);
 const searchQuery = ref('');
+const isBedMapOpen = ref(false);
+const selectedHouseForMap = ref<any | null>(null);
 
 const filteredHouses = computed(() => {
   if (!searchQuery.value) {
@@ -99,8 +133,34 @@ const handleSubmit = async (data: any) => {
 };
 
 const deleteHouse = (id: string) => {
-  if (confirm('Are you sure you want to delete this house?')) {
+  if (confirm('¿Estás seguro que quieres eliminar esta casa?')) {
     store.deleteHouse(id);
   }
+};
+
+const openBedMap = (house: any) => {
+  selectedHouseForMap.value = house;
+  isBedMapOpen.value = true;
+};
+
+const handleSaveHouse = async (house: any) => {
+  // Normalize all bed data to ensure correct types
+  const normalizedHouse = {
+    ...house,
+    beds: house.beds?.map(bed => ({
+      ...bed,
+      roomNumber: bed.roomNumber?.toString() || '',
+      floor: Number(bed.floor) || 1,
+      bedNumber: bed.bedNumber?.toString() || '',
+      type: bed.type || 'normal',
+      defaultUsage: bed.defaultUsage || 'caminante'
+    })) || []
+  };
+
+  const success = await store.updateHouse(house.id, normalizedHouse);
+  if (success) {
+    selectedHouseForMap.value = normalizedHouse;
+  }
+  return success;
 };
 </script>
