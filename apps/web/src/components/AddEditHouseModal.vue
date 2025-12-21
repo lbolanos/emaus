@@ -277,7 +277,7 @@
                 class="flex items-center gap-1"
               >
                 <Settings class="w-4 h-4" />
-                Operaciones
+                Operaciones Masivas
               </Button>
               <Button
                 type="button"
@@ -288,61 +288,6 @@
               >
                 <Upload class="w-4 h-4" />
                 Importar
-              </Button>
-            </div>
-          </div>
-
-          <!-- Bulk Operations Panel -->
-          <div v-if="showBulkOperations" class="bg-gray-50 p-4 rounded-lg mb-4">
-            <h4 class="font-medium mb-3">Operaciones Masivas</h4>
-            <div class="grid grid-cols-3 gap-4 mb-3">
-              <div>
-                <Label class="text-sm">Piso inicial</Label>
-                <Input v-model.number="bulkOps.startFloor" type="number" min="1" placeholder="1" />
-              </div>
-              <div>
-                <Label class="text-sm">Número de pisos</Label>
-                <Input v-model.number="bulkOps.numFloors" type="number" min="1" placeholder="2" />
-              </div>
-              <div>
-                <Label class="text-sm">Camas por piso</Label>
-                <Input v-model.number="bulkOps.bedsPerFloor" type="number" min="1" placeholder="4" />
-              </div>
-            </div>
-            <div class="grid grid-cols-2 gap-4 mb-3">
-              <div>
-                <Label class="text-sm">Tipo de cama</Label>
-                <Select v-model="bulkOps.bedType">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="normal">Normal</SelectItem>
-                    <SelectItem value="litera">Litera</SelectItem>
-                    <SelectItem value="colchon">Colchón</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label class="text-sm">Uso por defecto</Label>
-                <Select v-model="bulkOps.defaultUsage">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar uso" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="caminante">Caminante</SelectItem>
-                    <SelectItem value="servidor">Servidor</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div class="flex gap-2">
-              <Button type="button" size="sm" @click="applyBulkOperations">
-                Generar Camas
-              </Button>
-              <Button type="button" variant="outline" size="sm" @click="clearAllBeds">
-                <Trash2 class="w-4 h-4 mr-1" />
-                Limpiar Todo
               </Button>
             </div>
           </div>
@@ -583,6 +528,13 @@
       </form>
     </DialogContent>
   </Dialog>
+
+  <!-- Bulk Operations Modal -->
+  <BulkOperationsModal
+    :open="showBulkOperations"
+    @update:open="showBulkOperations = $event"
+    @submit="handleBulkOperationsSubmit"
+  />
 </template>
 
 <script setup lang="ts">
@@ -591,6 +543,7 @@ import { Button, Progress, Dialog, DialogContent, DialogDescription, DialogFoote
 import { Trash2, Search, AlertCircle, MapPin, Loader2, ExternalLink, Bed as BedIcon, Settings, Upload, Plus, DoorOpen, Info, FileText, RotateCcw, ArrowLeft, ArrowRight, Save } from 'lucide-vue-next';
 import type { House, Bed } from '@repo/types';
 import { z } from 'zod';
+import BulkOperationsModal from './BulkOperationsModal.vue';
 
 const props = defineProps({
   open: Boolean,
@@ -612,14 +565,6 @@ const showBulkOperations = ref(false);
 
 const bedScrollArea = ref<InstanceType<typeof ScrollArea> | null>(null);
 
-// Bulk operations configuration
-const bulkOps = reactive({
-  startFloor: 1,
-  numFloors: 2,
-  bedsPerFloor: 4,
-  bedType: 'normal' as 'normal' | 'litera' | 'colchon',
-  defaultUsage: 'caminante' as 'caminante' | 'servidor'
-});
 const getInitialFormData = () => ({
   id: props.house?.id || null,
   name: props.house?.name || '',
@@ -1034,25 +979,7 @@ const removeBed = (index: number) => {
   formData.value.beds.splice(index, 1);
 };
 
-const applyBulkOperations = () => {
-  const newBeds: Bed[] = [];
-  const { startFloor, numFloors, bedsPerFloor, bedType, defaultUsage } = bulkOps;
-
-  for (let floor = startFloor; floor < startFloor + numFloors; floor++) {
-    for (let room = 1; room <= Math.ceil(bedsPerFloor / 4); room++) {
-      const bedsInRoom = Math.min(4, bedsPerFloor - (room - 1) * 4);
-      for (let bed = 1; bed <= bedsInRoom; bed++) {
-        newBeds.push({
-          roomNumber: room.toString(),
-          floor,
-          bedNumber: bed.toString(),
-          type: bedType,
-          defaultUsage,
-        });
-      }
-    }
-  }
-
+const handleBulkOperationsSubmit = (newBeds: any[]) => {
   formData.value.beds = [...formData.value.beds, ...newBeds];
   showBulkOperations.value = false;
   toast({
