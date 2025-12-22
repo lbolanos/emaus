@@ -237,14 +237,15 @@ cuando un caminante se registre enviar correo de bienvenida enviar tambien corre
 asignacion de cuartos tal como se hace en las mesas con un dashboard.
 remover del menu todos las paginas que requieras retiro si no esta seleccionado.
 Que debe pasar cuando se cancele un participante ... unassign from retreatBed and from tableMesa
-
-IN PROGRESS
 agregar al retiro hora de llegada de caminantes ... y hora de llegada de servidores el viernes.
 add a button to create a docx file to imprimir la mesa con lideres caminantes telefonos, medicamentos y alimentos para entregar a los servidores.
-
 gafete apodo o nombre, tableMesa, habitacion (floor, room, bed type) y imagen de una rosa
+crear el flyer del retiro en la web.
+verificar mover los caminantes en el vista de camas. already has another bed assignment. verificar permisos para admin.
 
-TODO
+## IN PROGRESS
+
+## TODO
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
 agregar todas las actividades por servidor
 
@@ -269,9 +270,11 @@ una forma de asegurar que no se modifique las mesas. lock tables
 en el mensaje de bienvenida del servidor agregar una url para que pueda cambiar su registro
 Notificaciones por correo a los administradores del retiro de eventos como Caminante ingresa. Servidor ingresa. Forma de desactivar estas notificaciones.
 
+## Pepe Toño
 en el inventario agregar un campo que indique cuantas unidades deben comprarse y sacar un reporte de inventario a comprar.
 que quede fijo el header en la creacion de las habitaciones de la casa
-crear el flyer del retiro en la web.
+
+
 obligatorio
 telefono celular
 no obligatorios
@@ -288,7 +291,7 @@ agregar un tag a los caminantes para que no queden en la misma mesa.
 deberia enviar directo al link despues de accept InvitationController
 que no salga en negro el tabla de mesas
 al dar clic en print tables, seleccionar los campos que se deben imprimir.
-verificar mover los caminantes en el vista de camas. already has another bed assignment. verificar permisos para admin.
+
 al agarrar un caminante debe hacer scroll para cambiar abajo o arriba
 pendiente en listado de pagos que ordene
 esta poniendo un dia antes al registrar un pago. que se pueda imprimir
@@ -297,11 +300,24 @@ imprimir bag report
 nombre del retiro en gafete. No colocar el piso solo el cuarto y cama.
 poder imprimir solo algunos gafetes.
 
-posibles host
-https://www.vultr.com/
-https://www.hostinger.com/
-https://www.digitalocean.com/
-supabase
+litera arriba
+litera abajo
+
+
+
+que los caminantes no vayan con la persona que no invito
+en caso de que no se pueda en ninguna mesa que hacer con ese caminante
+
+preguntar en el formulario si tiene discapacidad
+
+
+mas grande el mensaje de un encuentr o de esperanza 
+enpequeñecer el que llevar
+colocar una imagen en el footer
+atrevete vivelo en centro de la footer
+
+no deja enviar l invitacion si el usuario no existe
+
 
 al selecciona menu casas de retiro debe desaparecer la seleccion de retiro porque es independiente del retiro.
 This will use Turborepo to run the `dev` script in both `apps/api` and `apps/web`.
@@ -380,8 +396,8 @@ export DOMAIN_NAME='emaus.cc'
 export VPS_HOST=155.138.230.215
 export VPS_USER=root
 export GITHUB_REPO=lbolanos/emaus
-export NEW_TAG=v0.0.3
-export RELEASE_TAG=v0.0.3
+export NEW_TAG=v0.0.4
+export RELEASE_TAG=v0.0.4
 export CERTBOT_EMAIL=leonardo.bolanos@gmail.com
 
 ./create-release.sh
@@ -395,8 +411,8 @@ export DOMAIN_NAME='emaus.cc'
 export VPS_HOST=155.138.230.215
 export VPS_USER=root
 export GITHUB_REPO=lbolanos/emaus
-export NEW_TAG=v0.0.2
-export RELEASE_TAG=v0.0.2
+export NEW_TAG=v0.0.4
+export RELEASE_TAG=v0.0.4
 export CERTBOT_EMAIL=leonardo.bolanos@gmail.com
 ./release-from-github.sh
 
@@ -421,3 +437,10 @@ rsync -avz \
 
 pm2 logs emaus-api
 pm2 restart emaus-api
+
+
+## posibles host
+https://www.vultr.com/
+https://www.hostinger.com/
+https://www.digitalocean.com/
+supabase
