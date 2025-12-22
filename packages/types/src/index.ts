@@ -9,7 +9,7 @@ export const bedSchema = z.object({
 	roomNumber: z.string(),
 	bedNumber: z.string(),
 	floor: z.number().int().optional(),
-	type: z.enum(['normal', 'litera', 'colchon']),
+	type: z.enum(['normal', 'litera_abajo', 'litera_arriba', 'colchon']),
 	defaultUsage: z.enum(['caminante', 'servidor']),
 	houseId: idSchema.optional(),
 });
@@ -157,7 +157,7 @@ export const retreatBedSchema = z.object({
 	roomNumber: z.string(),
 	bedNumber: z.string(),
 	floor: z.number().int().optional(),
-	type: z.enum(['normal', 'litera', 'colchon']),
+	type: z.enum(['normal', 'litera_abajo', 'litera_arriba', 'colchon']),
 	defaultUsage: z.enum(['caminante', 'servidor']),
 	retreatId: idSchema,
 	participantId: idSchema.nullable().optional(),

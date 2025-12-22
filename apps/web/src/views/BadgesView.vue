@@ -28,7 +28,8 @@ const getRoomInfo = (walker: Participant): string => {
   const bed = walker.retreatBed;
   const bedTypeMap = {
     'normal': t('badges.normalBed'),
-    'litera': t('badges.bunkBed'),
+    'litera_abajo': t('badges.bottomBunk'),
+    'litera_arriba': t('badges.topBunk'),
     'colchon': t('badges.mattress')
   };
   return `${t('badges.floor')} ${bed.floor || '?'}, ${t('badges.room')} ${bed.roomNumber || '?'}, ${bedTypeMap[bed.type as keyof typeof bedTypeMap] || bed.type}`;

@@ -20,7 +20,7 @@
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
           <BedDouble v-if="bed.type === 'normal'" class="w-3 h-3 text-gray-600 dark:text-gray-400" />
-          <Layers v-else-if="bed.type === 'litera'" class="w-3 h-3 text-gray-600 dark:text-gray-400" />
+          <Layers v-else-if="bed.type === 'litera_abajo' || bed.type === 'litera_arriba'" class="w-3 h-3 text-gray-600 dark:text-gray-400" />
           <Square v-else class="w-3 h-3 text-gray-600 dark:text-gray-400" />
           <span class="text-xs font-medium text-gray-900 dark:text-white">
             {{ bed.bedNumber }}

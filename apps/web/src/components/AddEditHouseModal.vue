@@ -338,7 +338,8 @@
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="normal">Normal</SelectItem>
-                          <SelectItem value="litera">Litera</SelectItem>
+                          <SelectItem value="litera_abajo">Litera Inferior</SelectItem>
+                          <SelectItem value="litera_arriba">Litera Superior</SelectItem>
                           <SelectItem value="colchon">Colchón</SelectItem>
                         </SelectContent>
                       </Select>
@@ -405,7 +406,8 @@
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="normal">Normal</SelectItem>
-                    <SelectItem value="litera">Litera</SelectItem>
+                    <SelectItem value="litera_abajo">Litera Inferior</SelectItem>
+                    <SelectItem value="litera_arriba">Litera Superior</SelectItem>
                     <SelectItem value="colchon">Colchón</SelectItem>
                   </SelectContent>
                 </Select>
@@ -629,9 +631,9 @@ const stepSchemas = [step1Schema, step2Schema, step3Schema];
 // Default next bed data for editing
 const nextBedData = reactive({
   roomNumber: '1',
-  floor: 1,
+  floor: 1 as number,
   bedNumber: '1',
-  type: 'normal' as 'normal' | 'litera' | 'colchon',
+  type: 'normal' as 'normal' | 'litera_abajo' | 'litera_arriba' | 'colchon',
   defaultUsage: 'caminante' as 'caminante' | 'servidor'
 });
 
@@ -667,7 +669,7 @@ const updateNextBedData = () => {
 
   // Update the reactive nextBedData
   nextBedData.roomNumber = logicalLastBed.roomNumber;
-  nextBedData.floor = logicalLastBed.floor;
+  nextBedData.floor = logicalLastBed.floor || 1;
   nextBedData.bedNumber = newBedNumber;
   nextBedData.type = logicalLastBed.type || 'normal';
   nextBedData.defaultUsage = logicalLastBed.defaultUsage || 'caminante';
@@ -683,7 +685,8 @@ watch(() => formData.value.beds, () => {
 const nextBedInfo = computed(() => {
   const typeLabels: Record<string, string> = {
     'normal': 'Normal',
-    'litera': 'Litera',
+    'litera_abajo': 'Litera Inferior',
+    'litera_arriba': 'Litera Superior',
     'colchon': 'Colchón'
   };
 
@@ -943,7 +946,7 @@ const addNewFloor = () => {
 
 const groupedBeds = computed(() => {
   const groups: { [key: number]: (Bed & { index: number })[] } = {};
-  formData.value.beds.forEach((bed, index) => {
+  formData.value.beds.forEach((bed: any, index: number) => {
     const floor = bed.floor || 1;
     if (!groups[floor]) {
       groups[floor] = [];
@@ -989,12 +992,12 @@ const removeBed = (index: number) => {
 const handleBulkOperationsSubmit = (newBeds: any[]) => {
   // Check for potential duplicates
   const existingBeds = formData.value.beds;
-  const duplicates = [];
-  const uniqueNewBeds = [];
+  const duplicates: any[] = [];
+  const uniqueNewBeds: any[] = [];
 
   newBeds.forEach(newBed => {
     // Check if a bed with same floor, room, and bed number already exists
-    const duplicate = existingBeds.find(existing =>
+    const duplicate = existingBeds.find((existing: any) =>
       existing.floor === newBed.floor &&
       existing.roomNumber === newBed.roomNumber &&
       existing.bedNumber === newBed.bedNumber
@@ -1025,7 +1028,7 @@ const handleBulkOperationsSubmit = (newBeds: any[]) => {
     }
 
     // Remove existing duplicates and add all new beds (including the ones that replace duplicates)
-    const updatedBeds = existingBeds.filter(existingBed =>
+    const updatedBeds = existingBeds.filter((existingBed: any) =>
       !duplicates.some(duplicate =>
         duplicate.existing.id === existingBed.id ||
         (duplicate.existing.floor === existingBed.floor &&
@@ -1044,7 +1047,7 @@ const handleBulkOperationsSubmit = (newBeds: any[]) => {
 
   const totalAdded = uniqueNewBeds.length + duplicates.length;
   const successMessage = duplicates.length > 0
-    ? `Se agregaron ${totalAdded} camas (${duplicateCount} reemplazaron camas existentes)`
+    ? `Se agregaron ${totalAdded} camas (${duplicates.length} reemplazaron camas existentes)`
     : `Se agregaron ${totalAdded} camas exitosamente`;
 
   toast({

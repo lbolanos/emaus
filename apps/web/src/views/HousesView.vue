@@ -147,7 +147,7 @@ const handleSaveHouse = async (house: any) => {
   // Normalize all bed data to ensure correct types
   const normalizedHouse = {
     ...house,
-    beds: house.beds?.map(bed => ({
+    beds: house.beds?.map((bed: any) => ({
       ...bed,
       roomNumber: bed.roomNumber?.toString() || '',
       floor: Number(bed.floor) || 1,

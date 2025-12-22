@@ -20,7 +20,7 @@
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
           <BedDouble v-if="bed.type === 'normal'" class="w-4 h-4 text-gray-600 dark:text-gray-400" />
-          <Layers v-else-if="bed.type === 'litera'" class="w-4 h-4 text-gray-600 dark:text-gray-400" />
+          <Layers v-else-if="bed.type === 'litera_abajo' || bed.type === 'litera_arriba'" class="w-4 h-4 text-gray-600 dark:text-gray-400" />
           <Square v-else class="w-4 h-4 text-gray-600 dark:text-gray-400" />
           <span class="text-sm font-medium text-gray-900 dark:text-white">
             {{ bed.roomNumber }}-{{ bed.bedNumber }}
@@ -118,7 +118,8 @@
         </div>
         <div class="flex items-center gap-1">
           <span v-if="bed.type === 'normal'">{{ $t('bedAssignments.normalBed') }}</span>
-          <span v-else-if="bed.type === 'litera'">{{ $t('bedAssignments.bunkBed') }}</span>
+          <span v-else-if="bed.type === 'litera_abajo'">{{ $t('bedAssignments.bottomBunk') }}</span>
+          <span v-else-if="bed.type === 'litera_arriba'">{{ $t('bedAssignments.topBunk') }}</span>
           <span v-else>{{ $t('bedAssignments.mattress') }}</span>
         </div>
       </div>

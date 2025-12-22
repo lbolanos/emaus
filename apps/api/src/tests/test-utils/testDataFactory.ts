@@ -106,7 +106,7 @@ export class TestDataFactory {
 				roomNumber: `${Math.ceil(i / 4)}`, // 4 beds per room
 				bedNumber: `${((i - 1) % 4) + 1}`,
 				floor: Math.ceil(i / 10), // Floors 1-2
-				type: i % 3 === 0 ? BedType.LITERA : BedType.NORMAL,
+				type: i % 3 === 0 ? BedType.LITERA_ABAJO : i % 3 === 1 ? BedType.LITERA_ARRIBA : BedType.NORMAL,
 				defaultUsage: i % 2 === 0 ? BedUsage.CAMINANTE : BedUsage.SERVIDOR,
 				retreatId,
 				houseId,

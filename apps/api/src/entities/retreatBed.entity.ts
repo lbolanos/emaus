@@ -4,7 +4,8 @@ import { Participant } from './participant.entity';
 
 export enum BedType {
 	NORMAL = 'normal',
-	LITERA = 'litera',
+	LITERA_ABAJO = 'litera_abajo',
+	LITERA_ARRIBA = 'litera_arriba',
 	COLCHON = 'colchon',
 }
 

@@ -65,7 +65,8 @@
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
               <SelectItem value="normal">Normal</SelectItem>
-              <SelectItem value="litera">Litera</SelectItem>
+              <SelectItem value="litera_abajo">Litera Inferior</SelectItem>
+                <SelectItem value="litera_arriba">Litera Superior</SelectItem>
               <SelectItem value="colchon">Colchón</SelectItem>
             </SelectContent>
           </Select>
@@ -201,7 +202,11 @@
         </div>
         <div class="flex items-center gap-1">
           <div class="w-4 h-4 rounded bg-yellow-500"></div>
-          <span>Litera</span>
+          <span>Litera Inferior</span>
+        </div>
+        <div class="flex items-center gap-1">
+          <div class="w-4 h-4 rounded bg-orange-500"></div>
+          <span>Litera Superior</span>
         </div>
         <div class="flex items-center gap-1">
           <div class="w-4 h-4 rounded bg-purple-500"></div>
@@ -411,10 +416,17 @@
                               </button>
                               <button
                                 class="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 flex items-center"
-                                @click.stop="handleDropdownAction('changeType', bed, 'litera')"
+                                @click.stop="handleDropdownAction('changeType', bed, 'litera_abajo')"
                               >
                                 <div class="w-3 h-3 rounded bg-yellow-500 mr-2"></div>
-                                Litera
+                                Litera Inferior
+                              </button>
+                              <button
+                                class="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 flex items-center"
+                                @click.stop="handleDropdownAction('changeType', bed, 'litera_arriba')"
+                              >
+                                <div class="w-3 h-3 rounded bg-orange-500 mr-2"></div>
+                                Litera Superior
                               </button>
                               <button
                                 class="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 flex items-center"
@@ -541,10 +553,10 @@
           <div v-if="!editingBed" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
             <Card class="p-3">
               <div class="flex items-center gap-2">
-                <div class="w-8 h-8 rounded" :class="getBedColorClass(selectedBed?.type)"></div>
+                <div class="w-8 h-8 rounded" :class="getBedColorClass(selectedBed?.type || 'normal')"></div>
                 <div>
                   <div class="text-xs text-gray-500">Tipo</div>
-                  <div class="font-medium">{{ getBedTypeLabel(selectedBed?.type) }}</div>
+                  <div class="font-medium">{{ getBedTypeLabel(selectedBed?.type || 'normal') }}</div>
                 </div>
               </div>
             </Card>
@@ -605,8 +617,8 @@
             </Card>
             <Card class="p-3">
               <div class="text-center">
-                <div class="text-lg font-bold">{{ countByType('litera') }}</div>
-                <div class="text-xs text-gray-500">Literas</div>
+                <div class="text-lg font-bold">{{ countByType('litera_abajo') + countByType('litera_arriba') }}</div>
+                <div class="text-xs text-gray-500">Literas ({{ countByType('litera_abajo') }} inf / {{ countByType('litera_arriba') }} sup)</div>
               </div>
             </Card>
             <Card class="p-3">
@@ -656,7 +668,8 @@
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="normal">Normal</SelectItem>
-                <SelectItem value="litera">Litera</SelectItem>
+                <SelectItem value="litera_abajo">Litera Inferior</SelectItem>
+                <SelectItem value="litera_arriba">Litera Superior</SelectItem>
                 <SelectItem value="colchon">Colchón</SelectItem>
               </SelectContent>
             </Select>
@@ -705,7 +718,8 @@
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="normal">Normal</SelectItem>
-            <SelectItem value="litera">Litera</SelectItem>
+            <SelectItem value="litera_abajo">Litera Inferior</SelectItem>
+                <SelectItem value="litera_arriba">Litera Superior</SelectItem>
             <SelectItem value="colchon">Colchón</SelectItem>
           </SelectContent>
         </Select>
@@ -864,7 +878,8 @@
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="normal">Normal</SelectItem>
-                <SelectItem value="litera">Litera</SelectItem>
+                <SelectItem value="litera_abajo">Litera Inferior</SelectItem>
+                <SelectItem value="litera_arriba">Litera Superior</SelectItem>
                 <SelectItem value="colchon">Colchón</SelectItem>
               </SelectContent>
             </Select>
@@ -956,13 +971,13 @@ const showBulkAddModal = ref(false);
 const showBulkTypeModal = ref(false);
 const showBulkUsageModal = ref(false);
 const showBulkMoveModal = ref(false);
-const bulkNewType = ref<'normal' | 'litera' | 'colchon'>('normal');
+const bulkNewType = ref<'normal' | 'litera_abajo' | 'litera_arriba' | 'colchon'>('normal');
 const bulkNewUsage = ref<'caminante' | 'servidor'>('caminante');
 const bulkMoveFloor = ref<string>('1');
 const bulkMoveRoom = ref<string>('1');
 
 // Inline functions for dropdown menu
-const changeBedTypeInline = (bed: BedType & { id?: string }, type: 'normal' | 'litera' | 'colchon') => {
+const changeBedTypeInline = (bed: BedType & { id?: string }, type: 'normal' | 'litera_abajo' | 'litera_arriba' | 'colchon') => {
   if (!localHouse.value) return;
 
   const index = localHouse.value.beds?.findIndex(b =>
@@ -1287,7 +1302,8 @@ const countByType = (type: string) => {
 const getBedColorClass = (type: string) => {
   const colors = {
     normal: 'bg-green-500',
-    litera: 'bg-yellow-500',
+    litera_abajo: 'bg-yellow-500',
+    litera_arriba: 'bg-orange-500',
     colchon: 'bg-purple-500'
   };
   return colors[type as keyof typeof colors] || colors.normal;
@@ -1571,7 +1587,7 @@ const handleDropdownAction = (action: string, bed: BedType & { id?: string }, va
         break;
       case 'changeType':
         if (value) {
-          changeBedTypeInline(bed, value as 'normal' | 'litera' | 'colchon');
+          changeBedTypeInline(bed, value as 'normal' | 'litera_abajo' | 'litera_arriba' | 'colchon');
         }
         break;
       case 'changeUsage':
@@ -1726,7 +1742,8 @@ const getBedColorClasses = (type: string, usage: string, bed?: BedType & { id?: 
   // Background color based on type
   const typeColors = {
     normal: 'bg-green-100 border-green-500 hover:bg-green-200',
-    litera: 'bg-yellow-100 border-yellow-500 hover:bg-yellow-200',
+    litera_abajo: 'bg-yellow-100 border-yellow-500 hover:bg-yellow-200',
+    litera_arriba: 'bg-orange-100 border-orange-500 hover:bg-orange-200',
     colchon: 'bg-purple-100 border-purple-500 hover:bg-purple-200'
   };
 
@@ -1742,7 +1759,8 @@ const getBedColorClasses = (type: string, usage: string, bed?: BedType & { id?: 
 const getBedTypeLabel = (type: string) => {
   const labels = {
     normal: 'Normal',
-    litera: 'Litera',
+    litera_abajo: 'Litera Inferior',
+    litera_arriba: 'Litera Superior',
     colchon: 'Colchón'
   };
   return labels[type as keyof typeof labels] || type;
@@ -1880,7 +1898,7 @@ const addBedToRoom = (floor: number, room: string) => {
 
   // Find the highest numeric bed number in this room
   let nextBedNumber = 1;
-  let lastBedType: 'normal' | 'litera' | 'colchon' = 'normal';
+  let lastBedType: 'normal' | 'litera_abajo' | 'litera_arriba' | 'colchon' = 'normal';
   let lastBedUsage: 'caminante' | 'servidor' = 'caminante';
 
   // Sort existing beds by bed number to find the last one

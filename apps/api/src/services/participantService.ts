@@ -104,25 +104,25 @@ const assignBedToParticipant = async (
 	// Apply sorting based on participant type and age
 	if (participant.type === 'walker') {
 		if (age <= 40) {
-			// Younger walkers: prioritize bunk beds
+			// Younger walkers: prioritize bottom bunk beds first, then top bunk
 			availableBedsQuery
-				.orderBy("CASE WHEN bed.type = 'litera' THEN 1 WHEN bed.type = 'normal' THEN 2 ELSE 3 END")
+				.orderBy("CASE WHEN bed.type = 'litera_abajo' THEN 1 WHEN bed.type = 'litera_arriba' THEN 2 WHEN bed.type = 'normal' THEN 3 ELSE 4 END")
 				.addOrderBy('bed.floor', 'ASC');
 		} else {
 			// Older walkers: prioritize normal beds on lower floors
 			availableBedsQuery
-				.orderBy("CASE WHEN bed.type = 'normal' THEN 1 WHEN bed.type = 'litera' THEN 2 ELSE 3 END")
+				.orderBy("CASE WHEN bed.type = 'normal' THEN 1 WHEN bed.type = 'litera_abajo' THEN 2 WHEN bed.type = 'litera_arriba' THEN 3 ELSE 4 END")
 				.addOrderBy('bed.floor', 'ASC');
 		}
 	} else if (participant.type === 'server') {
 		if (age <= 35) {
 			// Younger servers: prioritize mattresses
 			availableBedsQuery.orderBy(
-				"CASE WHEN bed.type = 'colchon' THEN 1 WHEN bed.type = 'litera' THEN 2 ELSE 3 END",
+				"CASE WHEN bed.type = 'colchon' THEN 1 WHEN bed.type = 'litera_abajo' THEN 2 WHEN bed.type = 'litera_arriba' THEN 3 ELSE 4 END",
 			);
 		} else {
 			availableBedsQuery.orderBy(
-				"CASE WHEN bed.type = 'litera' THEN 1 WHEN bed.type = 'normal' THEN 2 ELSE 3 END",
+				"CASE WHEN bed.type = 'litera_abajo' THEN 1 WHEN bed.type = 'litera_arriba' THEN 2 WHEN bed.type = 'normal' THEN 3 ELSE 4 END",
 			);
 		}
 	}

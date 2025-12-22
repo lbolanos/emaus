@@ -88,7 +88,8 @@
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="normal">Normal</SelectItem>
-                  <SelectItem value="litera">Litera</SelectItem>
+                  <SelectItem value="litera_abajo">Litera Inferior</SelectItem>
+                  <SelectItem value="litera_arriba">Litera Superior</SelectItem>
                   <SelectItem value="colchon">Colchón</SelectItem>
                 </SelectContent>
               </Select>
@@ -230,13 +231,14 @@ const config = ref({
   startRoom: 1,
   roomsPerFloor: 2,
   bedsPerRoom: 4,
-  bedType: 'normal' as 'normal' | 'litera' | 'colchon',
+  bedType: 'normal' as 'normal' | 'litera_abajo' | 'litera_arriba' | 'colchon',
   defaultUsage: 'caminante' as 'caminante' | 'servidor'
 });
 
 const typeLabels: Record<string, string> = {
   'normal': 'Normal',
-  'litera': 'Litera',
+  'litera_abajo': 'Litera Inferior',
+  'litera_arriba': 'Litera Superior',
   'colchon': 'Colchón'
 };
 

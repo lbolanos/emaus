@@ -446,8 +446,9 @@ export const exportRoomLabelsToDocx = async (retreatId: string) => {
 						: 'Sin asignar';
 
 					const bedTypeMap: Record<string, { icon: string; label: string; color: string }> = {
-						litera: { icon: '🛏️', label: 'Litera', color: '2563EB' },
-						colchon: { icon: '🛌', label: 'Colchón', color: '7C3AED' },
+						litera_abajo: { icon: '🛏️', label: 'Litera Inferior', color: '2563EB' },
+						litera_arriba: { icon: '🛏️', label: 'Litera Superior', color: '7C3AED' },
+						colchon: { icon: '🛌', label: 'Colchón', color: 'DC2626' },
 						normal: { icon: '🛏️', label: 'Cama Normal', color: '059669' },
 					};
 
