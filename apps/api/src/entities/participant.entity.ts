@@ -103,6 +103,9 @@ export class Participant {
 	@Column({ type: 'varchar', nullable: true })
 	dietaryRestrictionsDetails?: string; // Corresponde a 'alimentoscual'
 
+	@Column({ type: 'text', nullable: true })
+	disabilitySupport?: string | null; // Apoyos requeridos por discapacidad
+
 	@Column('simple-array')
 	sacraments!: string[]; // Combina campos de sacramentos
 

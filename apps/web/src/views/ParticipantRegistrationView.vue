@@ -24,7 +24,7 @@ const { toast } = useToast()
 const validRetreatId = ref(props.retreatId)
 const isLoading = ref(true)
 
-const getInitialFormData = (): Partial<Omit<Participant, 'id'>> => ({
+const getInitialFormData = (): Partial<Omit<Participant, 'id'>> & { hasDisability?: boolean } => ({
   retreatId: validRetreatId.value,
   type: props.type as 'walker' | 'server' | 'waiting' | 'partial_server',
   sacraments: [],
@@ -53,6 +53,8 @@ const getInitialFormData = (): Partial<Omit<Participant, 'id'>> => ({
   medicationSchedule: '',
   hasDietaryRestrictions: undefined,
   dietaryRestrictionsDetails: '',
+  hasDisability: undefined,
+  disabilitySupport: '',
   emergencyContact1Name: '',
   emergencyContact1Relation: '',
   emergencyContact1HomePhone: '',
@@ -122,6 +124,8 @@ const step3Schema = z.object({
   medicationSchedule: z.string().optional(),
   hasDietaryRestrictions: z.boolean({ required_error: 'This field is required' }),
   dietaryRestrictionsDetails: z.string().optional(),
+  hasDisability: z.boolean().optional(),
+  disabilitySupport: z.string().optional(),
   sacraments: z.array(z.enum(['baptism', 'communion', 'confirmation', 'marriage', 'none'])).min(1, 'At least one sacrament must be selected'),
 }).refine((data) => {
   if (data.hasMedication && (!data.medicationDetails || data.medicationDetails.trim() === '')) {
@@ -147,6 +151,14 @@ const step3Schema = z.object({
 }, {
   message: 'Dietary restrictions details are required if you have dietary restrictions.',
   path: ['dietaryRestrictionsDetails'],
+}).refine((data) => {
+  if (data.hasDisability && (!data.disabilitySupport || data.disabilitySupport.trim() === '')) {
+    return false
+  }
+  return true
+}, {
+  message: 'Debe seleccionar al menos un tipo de apoyo si tiene discapacidad.',
+  path: ['disabilitySupport'],
 })
 
 // For servers: emergency contacts are optional

@@ -682,6 +682,24 @@ export const exportTablesToDocx = async (retreatId: string) => {
 							children: [
 								new Paragraph({
 									children: [
+										new TextRun({ text: 'APOYOS', bold: true, size: 10, color: 'FFFFFF' }),
+									],
+									alignment: AlignmentType.CENTER,
+								}),
+							],
+							width: { size: 18, type: WidthType.PERCENTAGE },
+							shading: { fill: '38A169', type: ShadingType.SOLID },
+							borders: {
+								top: { style: BorderStyle.NONE },
+								bottom: { style: BorderStyle.NONE },
+								left: { style: BorderStyle.NONE },
+								right: { style: BorderStyle.NONE },
+							},
+						}),
+						new TableCell({
+							children: [
+								new Paragraph({
+									children: [
 										new TextRun({
 											text: 'CONTACTO EMERGENCIA',
 											bold: true,
@@ -727,6 +745,12 @@ export const exportTablesToDocx = async (retreatId: string) => {
 				let food = '✅ Sin restricciones';
 				if (walker.hasDietaryRestrictions) {
 					food = `⚠️ ${walker.dietaryRestrictionsDetails || 'Con restricciones'}`;
+				}
+
+				// Enhanced disability support information with visual indicators
+				let disability = '✅ Sin apoyos requeridos';
+				if (walker.disabilitySupport) {
+					disability = `♿ ${walker.disabilitySupport}`;
 				}
 
 				// Enhanced emergency contact information
@@ -835,6 +859,29 @@ export const exportTablesToDocx = async (retreatId: string) => {
 												size: 9,
 												bold: walker.hasDietaryRestrictions,
 												color: walker.hasDietaryRestrictions ? 'C53030' : '22543D', // Red if has restrictions, dark green if not
+											}),
+										],
+										spacing: { before: 40, after: 40 },
+									}),
+								],
+								width: { size: 18, type: WidthType.PERCENTAGE },
+								shading: { fill: rowColor, type: ShadingType.SOLID },
+								borders: {
+									top: { color: 'C6F6D5', size: 1, style: BorderStyle.SINGLE },
+									bottom: { color: 'C6F6D5', size: 1, style: BorderStyle.SINGLE },
+									left: { color: 'C6F6D5', size: 1, style: BorderStyle.SINGLE },
+									right: { color: 'C6F6D5', size: 1, style: BorderStyle.SINGLE },
+								},
+							}),
+							new TableCell({
+								children: [
+									new Paragraph({
+										children: [
+											new TextRun({
+												text: disability,
+												size: 9,
+												bold: !!walker.disabilitySupport,
+												color: walker.disabilitySupport ? 'B7791F' : '22543D', // Amber if has support, dark green if not
 											}),
 										],
 										spacing: { before: 40, after: 40 },

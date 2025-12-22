@@ -238,6 +238,7 @@
       "medicationSchedule": "Medication Schedule",
       "hasDietaryRestrictions": "Dietary Needs?",
       "dietaryRestrictionsDetails": "Dietary Details",
+      "disabilitySupport": "Supports",
       "sacraments": "Sacraments",
       "emergencyContact1Name": "Contact 1 Name",
       "emergencyContact1Relation": "Contact 1 Relation",
@@ -932,6 +933,12 @@
       "medicationSchedule": "Medication Schedule",
       "hasDietaryRestrictions": "Do you have any dietary restrictions?",
       "dietaryRestrictionsDetails": "Which one?",
+      "hasDisability": "Do you have any mobility, visual, or other conditions?",
+      "disabilitySupportSubtext": "Indicate if you require specific supports for:",
+      "disabilityMobility": "Mobility (Ground floor bed / no stairs)",
+      "disabilityVision": "Vision (Guide or server accompaniment)",
+      "disabilityOther": "Other",
+      "disabilityOtherPlaceholder": "Please specify...",
       "sacraments": {
         "label": "Sacraments received",
         "options": {

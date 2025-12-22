@@ -204,6 +204,7 @@
       "medicationSchedule": "Horario med.",
       "hasDietaryRestrictions": "dieta?",
       "dietaryRestrictionsDetails": "Det. dieta",
+      "disabilitySupport": "Apoyos",
       "sacraments": "Sacramentos",
       "emergencyContact1Name": "Nombre (Emerg. 1)",
       "emergencyContact1Relation": "Parentesco (Emerg. 1)",
@@ -899,6 +900,12 @@
       "medicationSchedule": "Horario de Medicamentos",
       "hasDietaryRestrictions": "¿Tiene alguna restricción en su alimentación?",
       "dietaryRestrictionsDetails": "¿Cuál?",
+      "hasDisability": "¿Presentas alguna condición de movilidad, visual u otra?",
+      "disabilitySupportSubtext": "Indique si requiere apoyos específicos por:",
+      "disabilityMobility": "Movilidad (Cama en planta baja / sin escaleras)",
+      "disabilityVision": "Visión (Guía o acompañamiento de un servidor)",
+      "disabilityOther": "Otra",
+      "disabilityOtherPlaceholder": "Especifique...",
       "sacraments": {
         "label": "Sacramentos recibidos",
         "options": {

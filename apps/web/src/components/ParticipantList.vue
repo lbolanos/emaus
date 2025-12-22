@@ -177,6 +177,7 @@ const allColumns = ref([
     { key: 'medicationSchedule', label: 'participants.fields.medicationSchedule' },
     { key: 'hasDietaryRestrictions', label: 'participants.fields.hasDietaryRestrictions' },
     { key: 'dietaryRestrictionsDetails', label: 'participants.fields.dietaryRestrictionsDetails' },
+    { key: 'disabilitySupport', label: 'participants.fields.disabilitySupport' },
     { key: 'sacraments', label: 'participants.fields.sacraments' },
     { key: 'emergencyContact1Name', label: 'participants.fields.emergencyContact1Name' },
     { key: 'emergencyContact1Relation', label: 'participants.fields.emergencyContact1Relation' },

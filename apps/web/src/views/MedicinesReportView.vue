@@ -4,9 +4,9 @@ import { useRetreatStore } from '@/stores/retreatStore'
 import { useParticipantStore } from '@/stores/participantStore'
 import ParticipantList from '@/components/ParticipantList.vue'
 
-const tableColumns = ['id_on_retreat','firstName', 'lastName', 'hasMedication', 'medicationDetails', 'medicationSchedule'];
-const formShowColumns = ['id_on_retreat','firstName', 'lastName', 'hasMedication', 'medicationDetails', 'medicationSchedule'];
-const nonEditableColumns = ['id_on_retreat','firstName', 'lastName', 'hasMedication', 'medicationDetails', 'medicationSchedule'];
+const tableColumns = ['id_on_retreat','firstName', 'lastName', 'hasMedication', 'medicationDetails', 'medicationSchedule', 'disabilitySupport'];
+const formShowColumns = ['id_on_retreat','firstName', 'lastName', 'hasMedication', 'medicationDetails', 'medicationSchedule', 'disabilitySupport'];
+const nonEditableColumns = ['id_on_retreat','firstName', 'lastName', 'hasMedication', 'medicationDetails', 'medicationSchedule', 'disabilitySupport'];
 const formEditColumns = tableColumns.filter(c => !nonEditableColumns.includes(c));
 
 const retreatStore = useRetreatStore()

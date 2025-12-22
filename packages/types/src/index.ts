@@ -234,6 +234,7 @@ export const participantSchema = z.object({
 	medicationSchedule: z.string().optional(),
 	hasDietaryRestrictions: z.boolean(),
 	dietaryRestrictionsDetails: z.string().optional(),
+	disabilitySupport: z.string().optional(),
 	sacraments: z.array(z.enum(['baptism', 'communion', 'confirmation', 'marriage', 'none'])),
 	emergencyContact1Name: z.string(),
 	emergencyContact1Relation: z.string(),
