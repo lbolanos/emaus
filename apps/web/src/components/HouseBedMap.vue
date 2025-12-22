@@ -374,17 +374,92 @@
                             </div>
                           </div>
 
-                          <!-- Quick Actions Overlay -->
-                          <div class="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                            <Button size="sm" variant="outline" class="h-6 w-6 p-0" @click.stop="editBed(bed)" title="Editar">
-                              <Edit class="w-3 h-3" />
-                            </Button>
-                            <Button size="sm" variant="outline" class="h-6 w-6 p-0" @click.stop="duplicateBed(bed)" title="Duplicar">
-                              <Copy class="w-3 h-3" />
-                            </Button>
-                            <Button size="sm" variant="outline" class="h-6 w-6 p-0" @click.stop="quickDeleteBed(bed)" title="Eliminar">
-                              <Trash2 class="w-3 h-3" />
-                            </Button>
+                          <!-- Three Dot Menu Button -->
+                          <div class="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                            <button
+                              type="button"
+                              class="h-6 w-6 p-0 hover:bg-gray-100 rounded flex items-center justify-center bg-white"
+                              @click.prevent.stop="openBedDropdown(bed, $event)"
+                              title="Más opciones"
+                              data-dropdown-button
+                            >
+                              <MoreVertical class="w-3 h-3" />
+                            </button>
+
+                            <!-- Dropdown positioned right here -->
+                            <div
+                              v-if="showCustomDropdown && dropdownBed?.id === bed.id || (!dropdownBed?.id && !bed.id && dropdownBed?.roomNumber === bed.roomNumber && dropdownBed?.bedNumber === bed.bedNumber)"
+                              class="absolute top-6 right-0 bg-white border border-gray-200 rounded-md shadow-lg py-1 min-w-48 z-[60]"
+                              @click.stop
+                            >
+                              <!-- Edit Bed -->
+                              <button
+                                class="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 flex items-center"
+                                @click.stop="handleDropdownAction('edit', bed)"
+                              >
+                                <Edit class="w-4 h-4 mr-2" />
+                                Editar cama
+                              </button>
+
+                              <!-- Change Type -->
+                              <button
+                                class="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 flex items-center"
+                                @click.stop="handleDropdownAction('changeType', bed, 'normal')"
+                              >
+                                <div class="w-3 h-3 rounded bg-green-500 mr-2"></div>
+                                Normal
+                              </button>
+                              <button
+                                class="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 flex items-center"
+                                @click.stop="handleDropdownAction('changeType', bed, 'litera')"
+                              >
+                                <div class="w-3 h-3 rounded bg-yellow-500 mr-2"></div>
+                                Litera
+                              </button>
+                              <button
+                                class="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 flex items-center"
+                                @click.stop="handleDropdownAction('changeType', bed, 'colchon')"
+                              >
+                                <div class="w-3 h-3 rounded bg-purple-500 mr-2"></div>
+                                Colchón
+                              </button>
+
+                              <!-- Change Usage -->
+                              <button
+                                class="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 flex items-center"
+                                @click.stop="handleDropdownAction('changeUsage', bed, 'caminante')"
+                              >
+                                <div class="w-3 h-3 rounded-full bg-blue-100 border-2 border-blue-500 mr-2"></div>
+                                Caminante
+                              </button>
+                              <button
+                                class="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 flex items-center"
+                                @click.stop="handleDropdownAction('changeUsage', bed, 'servidor')"
+                              >
+                                <div class="w-3 h-3 rounded-full bg-orange-100 border-2 border-orange-500 mr-2"></div>
+                                Servidor
+                              </button>
+
+                              <hr class="my-1 border-gray-200" />
+
+                              <!-- Duplicate -->
+                              <button
+                                class="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 flex items-center"
+                                @click.stop="handleDropdownAction('duplicate', bed)"
+                              >
+                                <Copy class="w-4 h-4 mr-2" />
+                                Duplicar
+                              </button>
+
+                              <!-- Delete -->
+                              <button
+                                class="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 flex items-center text-red-600"
+                                @click.stop="handleDropdownAction('delete', bed)"
+                              >
+                                <Trash2 class="w-4 h-4 mr-2" />
+                                Eliminar
+                              </button>
+                            </div>
                           </div>
 
                           <!-- Drag Handle -->
@@ -449,7 +524,7 @@
             <h4 class="font-semibold">
               {{ selectedBeds.length === 1 ? 'Detalles de Cama' : `${selectedBeds.length} camas seleccionadas` }}
             </h4>
-            <div v-if="selectedBeds.length === 1" class="text-sm text-gray-600">
+            <div v-if="selectedBeds.length === 1 && selectedBed" class="text-sm text-gray-600">
               Habitación {{ selectedBed.roomNumber }}, Cama {{ selectedBed.bedNumber }}, Piso {{ selectedBed.floor || 1 }}
             </div>
           </div>
@@ -466,19 +541,19 @@
           <div v-if="!editingBed" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
             <Card class="p-3">
               <div class="flex items-center gap-2">
-                <div class="w-8 h-8 rounded" :class="getBedColorClass(selectedBed.type)"></div>
+                <div class="w-8 h-8 rounded" :class="getBedColorClass(selectedBed?.type)"></div>
                 <div>
                   <div class="text-xs text-gray-500">Tipo</div>
-                  <div class="font-medium">{{ getBedTypeLabel(selectedBed.type) }}</div>
+                  <div class="font-medium">{{ getBedTypeLabel(selectedBed?.type) }}</div>
                 </div>
               </div>
             </Card>
             <Card class="p-3">
               <div class="flex items-center gap-2">
-                <div class="w-8 h-8 rounded-full border-2" :class="selectedBed.defaultUsage === 'caminante' ? 'bg-blue-100 border-blue-500' : 'bg-orange-100 border-orange-500'"></div>
+                <div class="w-8 h-8 rounded-full border-2" :class="selectedBed?.defaultUsage === 'caminante' ? 'bg-blue-100 border-blue-500' : 'bg-orange-100 border-orange-500'"></div>
                 <div>
                   <div class="text-xs text-gray-500">Uso</div>
-                  <div class="font-medium">{{ selectedBed.defaultUsage === 'caminante' ? 'Caminante' : 'Servidor' }}</div>
+                  <div class="font-medium">{{ selectedBed?.defaultUsage === 'caminante' ? 'Caminante' : 'Servidor' }}</div>
                 </div>
               </div>
             </Card>
@@ -498,15 +573,15 @@
 
           <!-- Actions -->
           <div class="flex gap-2">
-            <Button variant="default" size="sm" @click="editBed(selectedBed)">
+            <Button variant="default" size="sm" @click="editBed(selectedBed!)" :disabled="!selectedBed">
               <Edit class="w-4 h-4 mr-1" />
               Editar
             </Button>
-            <Button variant="outline" size="sm" @click="duplicateBed(selectedBed)">
+            <Button variant="outline" size="sm" @click="duplicateBed(selectedBed!)" :disabled="!selectedBed">
               <Copy class="w-4 h-4 mr-1" />
               Duplicar
             </Button>
-            <Button variant="outline" size="sm" @click="quickDeleteBed(selectedBed)">
+            <Button variant="outline" size="sm" @click="quickDeleteBed(selectedBed!)" :disabled="!selectedBed">
               <Trash2 class="w-4 h-4 mr-1" />
               Eliminar
             </Button>
@@ -722,6 +797,7 @@
     </DialogContent>
   </Dialog>
 
+  
   <!-- Bulk Add Modal -->
   <Dialog :open="showBulkAddModal" @update:open="showBulkAddModal = $event">
     <DialogContent class="sm:max-w-[500px]">
@@ -885,6 +961,77 @@ const bulkNewUsage = ref<'caminante' | 'servidor'>('caminante');
 const bulkMoveFloor = ref<string>('1');
 const bulkMoveRoom = ref<string>('1');
 
+// Inline functions for dropdown menu
+const changeBedTypeInline = (bed: BedType & { id?: string }, type: 'normal' | 'litera' | 'colchon') => {
+  if (!localHouse.value) return;
+
+  const index = localHouse.value.beds?.findIndex(b =>
+    (b.id && bed.id && b.id === bed.id) ||
+    (!b.id && !bed.id &&
+     b.roomNumber === bed.roomNumber &&
+     b.bedNumber === bed.bedNumber &&
+     (b.floor || 1) === (bed.floor || 1))
+  );
+
+  if (index !== undefined && index > -1 && localHouse.value.beds) {
+    const bedCountBefore = localHouse.value.beds.length;
+    localHouse.value.beds[index].type = type;
+    const bedCountAfter = localHouse.value.beds.length;
+
+    saveToHistory();
+    hasUnsavedChanges.value = true;
+    checkForChanges();
+
+    if (bedCountAfter === bedCountBefore) {
+      toast({
+        title: 'Tipo cambiado',
+        description: `Cama ${bed.bedNumber} ahora es ${getBedTypeLabel(type)}`,
+      });
+    } else {
+      toast({
+        title: 'Error',
+        description: 'Error al cambiar tipo de cama',
+        variant: 'destructive',
+      });
+    }
+  }
+};
+
+const changeBedUsageInline = (bed: BedType & { id?: string }, usage: 'caminante' | 'servidor') => {
+  if (!localHouse.value) return;
+
+  const index = localHouse.value.beds?.findIndex(b =>
+    (b.id && bed.id && b.id === bed.id) ||
+    (!b.id && !bed.id &&
+     b.roomNumber === bed.roomNumber &&
+     b.bedNumber === bed.bedNumber &&
+     (b.floor || 1) === (bed.floor || 1))
+  );
+
+  if (index !== undefined && index > -1 && localHouse.value.beds) {
+    const bedCountBefore = localHouse.value.beds.length;
+    localHouse.value.beds[index].defaultUsage = usage;
+    const bedCountAfter = localHouse.value.beds.length;
+
+    saveToHistory();
+    hasUnsavedChanges.value = true;
+    checkForChanges();
+
+    if (bedCountAfter === bedCountBefore) {
+      toast({
+        title: 'Uso cambiado',
+        description: `Cama ${bed.bedNumber} ahora es para ${usage === 'caminante' ? 'Caminante' : 'Servidor'}`,
+      });
+    } else {
+      toast({
+        title: 'Error',
+        description: 'Error al cambiar uso de cama',
+        variant: 'destructive',
+      });
+    }
+  }
+};
+
 // Bulk add data
 const bulkAddData = ref({
   startFloor: 1,
@@ -898,6 +1045,11 @@ const bulkAddData = ref({
 // UI state with localStorage persistence
 const showLegend = ref(localStorage.getItem('houseBedMap_showLegend') !== 'false');
 
+// Custom dropdown menu state
+const showCustomDropdown = ref(false);
+const dropdownBed = ref<(BedType & { id?: string }) | null>(null);
+const dropdownPosition = ref({ x: 0, y: 0 });
+
 // Helper function to generate a UUID v4
 const generateUUID = () => {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -910,7 +1062,9 @@ const generateUUID = () => {
 // Computed properties
 const availableFloors = computed(() => {
   if (!localHouse.value?.beds) return [];
-  const floors = [...new Set(localHouse.value.beds.map(bed => bed.floor || 1))];
+  const floorSet = new Set(localHouse.value.beds.map(bed => bed.floor || 1));
+  const floors: number[] = [];
+  floorSet.forEach(floor => floors.push(floor));
   return floors.sort((a, b) => a - b);
 });
 
@@ -992,8 +1146,13 @@ const saveToHistory = () => {
   // Remove any history after current index
   history.value = history.value.slice(0, historyIndex.value + 1);
 
-  // Add current state to history
-  history.value.push(JSON.parse(JSON.stringify(localHouse.value)));
+  // Add current state to history (deep copy to avoid reference issues)
+  const houseCopy = {
+    ...localHouse.value,
+    beds: localHouse.value.beds ? [...localHouse.value.beds] : []
+  };
+
+  history.value.push(houseCopy);
 
   // Limit history size
   if (history.value.length > maxHistorySize) {
@@ -1038,6 +1197,17 @@ const handleKeydown = (e: KeyboardEvent) => {
   // Only handle keys when the modal is open
   if (!props.open) return;
 
+  // Escape: Close custom dropdown first, then deselect all
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    if (showCustomDropdown.value) {
+      closeCustomDropdown();
+    } else {
+      deselectAllBeds();
+    }
+    return;
+  }
+
   // Ctrl+Z: Undo
   if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
     e.preventDefault();
@@ -1056,13 +1226,6 @@ const handleKeydown = (e: KeyboardEvent) => {
   if (e.key === 'Delete' && selectedBeds.value.length > 0) {
     e.preventDefault();
     bulkDeleteBeds();
-    return;
-  }
-
-  // Escape: Deselect all
-  if (e.key === 'Escape') {
-    e.preventDefault();
-    deselectAllBeds();
     return;
   }
 
@@ -1106,7 +1269,9 @@ const deselectAllBeds = () => {
 };
 
 const selectAllBedsInRoom = (roomBeds: (BedType & { id?: string })[]) => {
-  selectedBeds.value = [...new Set([...selectedBeds.value, ...roomBeds])];
+  const combinedSet = new Set([...selectedBeds.value, ...roomBeds]);
+  selectedBeds.value = [];
+  combinedSet.forEach(bed => selectedBeds.value.push(bed));
 };
 
 const selectFloor = (floor: string) => {
@@ -1315,12 +1480,6 @@ const duplicateRoom = (floor: number, roomNumber: string) => {
 const quickDeleteBed = (bed: BedType & { id?: string }) => {
   if (!localHouse.value) return;
 
-  const confirmed = window.confirm(
-    `¿Eliminar cama ${bed.bedNumber} de la habitación ${bed.roomNumber}?`
-  );
-
-  if (!confirmed) return;
-
   const index = localHouse.value.beds?.findIndex(b =>
     (b.id && b.id === bed.id) ||
     (!b.id && !bed.id && b.roomNumber === bed.roomNumber && b.bedNumber === bed.bedNumber && (b.floor || 1) === (bed.floor || 1))
@@ -1370,6 +1529,102 @@ const exportToCSV = () => {
   URL.revokeObjectURL(url);
 };
 
+// Custom dropdown functions
+const openBedDropdown = (bed: BedType & { id?: string }, event: MouseEvent) => {
+  console.log('openBedDropdown called', bed);
+  event.stopPropagation();
+  event.preventDefault();
+
+  // Close any existing dropdown first
+  closeCustomDropdown();
+
+  dropdownBed.value = bed;
+  showCustomDropdown.value = true;
+
+  // Add escape key listener and click outside listener for closing
+  document.addEventListener('keydown', handleEscapeKey);
+  setTimeout(() => {
+    document.addEventListener('click', handleClickOutside);
+  }, 100);
+};
+
+const handleClickOutside = (event: MouseEvent) => {
+  const target = event.target as HTMLElement;
+  // Check if click is outside any bed dropdown
+  if (!target.closest('.group')) {
+    closeCustomDropdown();
+  }
+};
+
+
+const handleDropdownAction = (action: string, bed: BedType & { id?: string }, value?: any) => {
+  console.log('handleDropdownAction called:', action, bed, value);
+
+  // Use nextTick to ensure the dropdown is closed before triggering the action
+  closeCustomDropdown();
+
+  // Execute the action in the next tick to avoid immediate dialog closure
+  nextTick(() => {
+    switch (action) {
+      case 'edit':
+        editBed(bed);
+        break;
+      case 'changeType':
+        if (value) {
+          changeBedTypeInline(bed, value as 'normal' | 'litera' | 'colchon');
+        }
+        break;
+      case 'changeUsage':
+        if (value) {
+          changeBedUsageInline(bed, value as 'caminante' | 'servidor');
+        }
+        break;
+      case 'duplicate':
+        duplicateBed(bed);
+        break;
+      case 'delete':
+        quickDeleteBed(bed);
+        break;
+    }
+  });
+};
+
+const handleEscapeKey = (event: KeyboardEvent) => {
+  if (event.key === 'Escape' && showCustomDropdown.value) {
+    closeCustomDropdown();
+  }
+};
+
+const closeDropdownOutside = (event: MouseEvent) => {
+  const target = event.target as HTMLElement;
+
+  // Find the dropdown element
+  const dropdownElement = document.querySelector('[data-dropdown-menu]');
+  const buttonElement = document.querySelector('[data-dropdown-button]');
+
+  // Check if the click is inside the dropdown or on the button
+  const isInsideDropdown = dropdownElement && dropdownElement.contains(target);
+  const isOnButton = buttonElement && buttonElement.contains(target);
+
+  if (!isInsideDropdown && !isOnButton) {
+    closeCustomDropdown();
+  }
+};
+
+const closeCustomDropdown = () => {
+  console.log('closeCustomDropdown called');
+  showCustomDropdown.value = false;
+  dropdownBed.value = null;
+  document.removeEventListener('keydown', handleEscapeKey);
+  document.removeEventListener('click', handleClickOutside);
+};
+
+
+// Watch for debugging
+watch(showCustomDropdown, (newValue) => {
+  console.log('showCustomDropdown changed to:', newValue);
+});
+
 // Lifecycle hooks
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown);
@@ -1377,6 +1632,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleKeydown);
+  document.removeEventListener('click', closeDropdownOutside);
+  closeCustomDropdown();
 });
 
 const handleOpenChange = (open: boolean) => {
@@ -1398,7 +1655,7 @@ const handleSave = async () => {
     if (success) {
       originalHouse.value = JSON.parse(JSON.stringify(localHouse.value));
       // Update props.house to match the saved state
-      if (props.house) {
+      if (props.house && localHouse.value.beds) {
         props.house.beds = [...localHouse.value.beds];
       }
       hasUnsavedChanges.value = false;
@@ -1422,15 +1679,34 @@ const handleSave = async () => {
 
 // Helper function to check if a bed is new or edited
 const isBedModified = (bed: BedType & { id?: string }) => {
-  if (!bed.id || !originalHouse.value?.beds) return true; // New bed
+  if (!originalHouse.value?.beds) return false; // No original data, assume not modified
 
-  // Check if bed exists in original
+  // If bed has no ID, check if it exists in original by properties
+  if (!bed.id) {
+    const existsInOriginal = originalHouse.value.beds.some(b =>
+      !b.id &&
+      b.roomNumber === bed.roomNumber &&
+      b.bedNumber === bed.bedNumber &&
+      (b.floor || 1) === (bed.floor || 1)
+    );
+
+    if (!existsInOriginal) {
+      return true; // New bed
+    }
+  }
+
+  // Find the original bed
   const originalBed = originalHouse.value.beds.find(b =>
-    (b.id && b.id === bed.id) ||
-    (!b.id && !bed.id && b.roomNumber === bed.roomNumber && b.bedNumber === bed.bedNumber && (b.floor || 1) === (bed.floor || 1))
+    (b.id && bed.id && b.id === bed.id) ||
+    (!b.id && !bed.id &&
+     b.roomNumber === bed.roomNumber &&
+     b.bedNumber === bed.bedNumber &&
+     (b.floor || 1) === (bed.floor || 1))
   );
 
-  if (!originalBed) return true; // New bed
+  if (!originalBed) {
+    return true; // New bed
+  }
 
   // Check if any properties changed
   return originalBed.type !== bed.type ||
@@ -1604,8 +1880,8 @@ const addBedToRoom = (floor: number, room: string) => {
 
   // Find the highest numeric bed number in this room
   let nextBedNumber = 1;
-  let lastBedType = 'normal' as const;
-  let lastBedUsage = 'caminante' as const;
+  let lastBedType: 'normal' | 'litera' | 'colchon' = 'normal';
+  let lastBedUsage: 'caminante' | 'servidor' = 'caminante';
 
   // Sort existing beds by bed number to find the last one
   const sortedBeds = existingBeds.sort((a, b) => {
@@ -1619,8 +1895,8 @@ const addBedToRoom = (floor: number, room: string) => {
     const lastBedNum = parseInt(lastBed.bedNumber) || 0;
     nextBedNumber = lastBedNum + 1;
     // Use the type and usage from the last bed in the room
-    lastBedType = (lastBed.type as 'normal' | 'litera' | 'colchon') || 'normal';
-    lastBedUsage = (lastBed.defaultUsage as 'caminante' | 'servidor') || 'caminante';
+    lastBedType = lastBed.type || 'normal';
+    lastBedUsage = lastBed.defaultUsage || 'caminante';
   }
 
   const newBed = {
