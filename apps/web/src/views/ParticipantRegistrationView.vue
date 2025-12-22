@@ -94,12 +94,12 @@ const step1Schema = z.object({
   nickname: z.string().optional(),
   birthDate: z.string().min(1, 'Birth Date is required'),
   maritalStatus: z.enum(['S', 'C', 'D', 'V', 'O']),
-  parish: z.string().min(1, 'Parish is required'),
+  parish: z.string().optional(),
   homePhone: z.string().optional(),
   workPhone: z.string().optional(),
   cellPhone: z.string().optional(),
   email: z.string().email('Invalid email address').min(1, 'Email is required'),
-  occupation: z.string().min(1, 'Occupation is required'),
+  occupation: z.string().optional(),
 }).refine(data => data.cellPhone || data.workPhone || data.homePhone, {
   message: 'At least one phone number (Cell, Work, or Home) is required.',
   path: ['phoneNumbers'],
@@ -149,9 +149,10 @@ const step3Schema = z.object({
   path: ['dietaryRestrictionsDetails'],
 })
 
-const step4Schema = z.object({
-  emergencyContact1Name: z.string().min(1, 'Emergency Contact 1 Name is required'),
-  emergencyContact1Relation: z.string().min(1, 'Emergency Contact 1 Relation is required'),
+// For servers: emergency contacts are optional
+const step4ServerSchema = z.object({
+  emergencyContact1Name: z.string().optional(),
+  emergencyContact1Relation: z.string().optional(),
   emergencyContact1HomePhone: z.string().optional(),
   emergencyContact1WorkPhone: z.string().optional(),
   emergencyContact1CellPhone: z.string().optional(),
@@ -168,17 +169,28 @@ const step4Schema = z.object({
     val => (val === '' ? undefined : val),
     z.string().email({ message: 'Invalid email address' }).optional(),
   ),
-}).refine(data => data.emergencyContact1HomePhone || data.emergencyContact1WorkPhone || data.emergencyContact1CellPhone, {
-  message: 'At least one phone number is required for Emergency Contact 1.',
-  path: ['emergencyContact1PhoneNumbers'],
-}).refine((data) => {
-  if (data.emergencyContact2Name) {
-    return data.emergencyContact2HomePhone || data.emergencyContact2WorkPhone || data.emergencyContact2CellPhone
-  }
-  return true
-}, {
-  message: 'At least one phone number is required for Emergency Contact 2 if name is provided.',
-  path: ['emergencyContact2PhoneNumbers'],
+})
+
+// For walkers: 2 emergency contacts required, each with email and cell phone
+const step4WalkerSchema = z.object({
+  emergencyContact1Name: z.string().min(1, 'Emergency Contact 1 Name is required'),
+  emergencyContact1Relation: z.string().min(1, 'Emergency Contact 1 Relation is required'),
+  emergencyContact1HomePhone: z.string().optional(),
+  emergencyContact1WorkPhone: z.string().optional(),
+  emergencyContact1CellPhone: z.string().min(1, 'Cell phone is required for Emergency Contact 1'),
+  emergencyContact1Email: z.preprocess(
+    val => (val === '' ? undefined : val),
+    z.string().email({ message: 'Invalid email address' }).min(1, 'Email is required for Emergency Contact 1'),
+  ),
+  emergencyContact2Name: z.string().min(1, 'Emergency Contact 2 Name is required'),
+  emergencyContact2Relation: z.string().min(1, 'Emergency Contact 2 Relation is required'),
+  emergencyContact2HomePhone: z.string().optional(),
+  emergencyContact2WorkPhone: z.string().optional(),
+  emergencyContact2CellPhone: z.string().min(1, 'Cell phone is required for Emergency Contact 2'),
+  emergencyContact2Email: z.preprocess(
+    val => (val === '' ? undefined : val),
+    z.string().email({ message: 'Invalid email address' }).min(1, 'Email is required for Emergency Contact 2'),
+  ),
 })
 
 const step5WalkerSchema = z.object({
@@ -203,10 +215,12 @@ const step5ServerSchema = z.object({
 })
 
 const stepSchemas = computed(() => {
-  const schemas: any[] = [step1Schema, step2Schema, step3Schema, step4Schema]
+  const schemas: any[] = [step1Schema, step2Schema, step3Schema]
   if (props.type === 'walker') {
+    schemas.push(step4WalkerSchema)
     schemas.push(step5WalkerSchema)
   } else {
+    schemas.push(step4ServerSchema)
     schemas.push(step5ServerSchema)
   }
   return schemas
@@ -441,7 +455,7 @@ onMounted(async () => {
             <Step1PersonalInfo v-show="currentStep === 1" v-model="formData" :errors="formErrors" />
             <Step2AddressInfo v-show="currentStep === 2" v-model="formData" :errors="formErrors" />
             <Step3ServiceInfo v-show="currentStep === 3" v-model="formData" :errors="formErrors" />
-            <Step4EmergencyContact v-show="currentStep === 4" v-model="formData" :errors="formErrors" />
+            <Step4EmergencyContact v-show="currentStep === 4" v-model="formData" :errors="formErrors" :type="(props.type as 'walker' | 'server')" />
             <Step5OtherInfo v-show="currentStep === 5 && props.type === 'walker'" v-model="formData" :errors="formErrors" />
             <Step5ServerInfo v-show="currentStep === 5 && props.type === 'server'" v-model="formData" :errors="formErrors" />
 

@@ -227,7 +227,7 @@ export const participantSchema = z.object({
 	workPhone: z.string().optional(),
 	cellPhone: z.string(),
 	email: z.string().email(),
-	occupation: z.string(),
+	occupation: z.string().optional(),
 	snores: z.boolean(),
 	hasMedication: z.boolean(),
 	medicationDetails: z.string().optional(),
