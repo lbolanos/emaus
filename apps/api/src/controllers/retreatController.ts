@@ -40,13 +40,14 @@ export const getRetreatByIdPublic = async (req: Request, res: Response, next: Ne
 		if (!retreat) {
 			return res.status(404).json({ message: 'Retreat not found' });
 		}
-		// Return only basic info needed for registration form validation
+		// Return all flyer data needed for registration form
 		res.json({
 			id: retreat.id,
 			parish: retreat.parish,
 			isPublic: retreat.isPublic,
 			startDate: retreat.startDate,
 			endDate: retreat.endDate,
+			flyer_options: retreat.flyer_options || {},
 		});
 	} catch (error) {
 		next(error);

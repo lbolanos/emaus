@@ -514,6 +514,8 @@
     "isPublicDescription": "Allow anyone to register for this retreat",
     "roleInvitationEnabled": "Role-based Invitations",
     "roleInvitationDescription": "Allow sending role-based invitations",
+    "showPickupInfo": "Show pickup information",
+    "showPickupInfoDescription": "Controls whether pickup location fields are shown during registration",
     "saveChanges": "Save Changes",
     "create": "Create Retreat",
     "cancel": "Cancel",

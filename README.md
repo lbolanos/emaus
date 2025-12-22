@@ -242,14 +242,30 @@ add a button to create a docx file to imprimir la mesa con lideres caminantes te
 gafete apodo o nombre, tableMesa, habitacion (floor, room, bed type) y imagen de una rosa
 crear el flyer del retiro en la web.
 verificar mover los caminantes en el vista de camas. already has another bed assignment. verificar permisos para admin.
+mas grande el mensaje de un encuentr o de esperanza 
+enpequeñecer el que llevar
+colocar una imagen en el footer
+atrevete vivelo en centro de la footer
+que quede fijo el header en la creacion de las habitaciones de la casa
+
+Telemetry
 
 ## IN PROGRESS
+litera arriba
+litera abajo
+
+obligatorio un telefono celular
+no obligatorios
+parroquia y ocupacion
+obligatorio dos contactos de emergencia y obligatorio correo y algun celular
+agregar litera de arriba y de abajo.
+
+Considera que esta es la primera persona a la que contactaremos en caso de alguna emergencia.
+preguntar en el formulario si tiene discapacidad
 
 ## TODO
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
 agregar todas las actividades por servidor
-
-Telemetry
 
 Crear un retiro a partir de los datos del anterior retiro. Casa de retiro, inventario, mensajes.
 
@@ -272,24 +288,14 @@ Notificaciones por correo a los administradores del retiro de eventos como Camin
 
 ## Pepe Toño
 en el inventario agregar un campo que indique cuantas unidades deben comprarse y sacar un reporte de inventario a comprar.
-que quede fijo el header en la creacion de las habitaciones de la casa
-
-
-obligatorio
-telefono celular
-no obligatorios
-parroquia y ocupacion
-
-obligatorio dos contactos de emergencia y obligatorio correo y algun celular
-Considera que esta es la primera persona a la que contactaremos en caso de alguna emergencia.
 
 agregar un parametro en el retiro para no solicitar punto de Convenient meeting point
 
 agregar un filtro de quienes han pagado en la lista de caminantes.
-agregar litera de arriba y de abajo.
+
 agregar un tag a los caminantes para que no queden en la misma mesa.
 deberia enviar directo al link despues de accept InvitationController
-que no salga en negro el tabla de mesas
+que no salga en negro el tabla de mesas cuando se imprime a documento
 al dar clic en print tables, seleccionar los campos que se deben imprimir.
 
 al agarrar un caminante debe hacer scroll para cambiar abajo o arriba
@@ -300,23 +306,12 @@ imprimir bag report
 nombre del retiro en gafete. No colocar el piso solo el cuarto y cama.
 poder imprimir solo algunos gafetes.
 
-litera arriba
-litera abajo
-
-
-
-que los caminantes no vayan con la persona que no invito
+que los caminantes no vayan con la persona que lo invito
 en caso de que no se pueda en ninguna mesa que hacer con ese caminante
 
-preguntar en el formulario si tiene discapacidad
 
 
-mas grande el mensaje de un encuentr o de esperanza 
-enpequeñecer el que llevar
-colocar una imagen en el footer
-atrevete vivelo en centro de la footer
-
-no deja enviar l invitacion si el usuario no existe
+no deja enviar correo de invitacion si el usuario no existe
 
 
 al selecciona menu casas de retiro debe desaparecer la seleccion de retiro porque es independiente del retiro.

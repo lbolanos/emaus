@@ -470,6 +470,8 @@
     "isPublicDescription": "Permite que cualquiera se registre en este retiro",
     "roleInvitationEnabled": "Invitaciones por Rol",
     "roleInvitationDescription": "Permite enviar invitaciones basadas en roles",
+    "showPickupInfo": "Mostrar información de recogida",
+    "showPickupInfoDescription": "Controla si se muestran los campos de ubicación de recogida durante el registro",
     "saveChanges": "Guardar Cambios",
     "create": "Crear Retiro",
     "cancel": "Cancelar",

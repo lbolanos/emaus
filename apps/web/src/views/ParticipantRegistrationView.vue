@@ -23,6 +23,7 @@ const { toast } = useToast()
 
 const validRetreatId = ref(props.retreatId)
 const isLoading = ref(true)
+const retreatData = ref<any>(null)
 
 const getInitialFormData = (): Partial<Omit<Participant, 'id'>> & { hasDisability?: boolean } => ({
   retreatId: validRetreatId.value,
@@ -376,6 +377,8 @@ onMounted(async () => {
       const retreat = await response.json()
       if (retreat && retreat.isPublic) {
         validRetreatId.value = retreat.id
+        retreatData.value = retreat
+        console.log('Retreat showPickupInfo:', retreat?.flyer_options?.showPickupInfo)
       } else {
         throw new Error('Retreat not found or not public')
       }
@@ -468,7 +471,7 @@ onMounted(async () => {
             <Step2AddressInfo v-show="currentStep === 2" v-model="formData" :errors="formErrors" />
             <Step3ServiceInfo v-show="currentStep === 3" v-model="formData" :errors="formErrors" />
             <Step4EmergencyContact v-show="currentStep === 4" v-model="formData" :errors="formErrors" :type="(props.type as 'walker' | 'server')" />
-            <Step5OtherInfo v-show="currentStep === 5 && props.type === 'walker'" v-model="formData" :errors="formErrors" />
+            <Step5OtherInfo v-show="currentStep === 5 && props.type === 'walker'" v-model="formData" :errors="formErrors" :showPickupInfo="retreatData?.flyer_options?.showPickupInfo ?? true" />
             <Step5ServerInfo v-show="currentStep === 5 && props.type === 'server'" v-model="formData" :errors="formErrors" />
 
             <!-- Step 6: Summary -->

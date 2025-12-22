@@ -244,6 +244,23 @@
                   </div>
                 </RadioGroup>
               </div>
+
+              <div class="p-4 border rounded-lg">
+                <div class="space-y-1">
+                  <Label class="font-medium">{{ $t('retreatModal.showPickupInfo') }}</Label>
+                  <p class="text-xs text-muted-foreground">{{ $t('retreatModal.showPickupInfoDescription') }}</p>
+                </div>
+                <RadioGroup v-model="formData.flyer_options.showPickupInfo" :disabled="isSubmitting" class="flex space-x-4 mt-2">
+                  <div class="flex items-center space-x-2">
+                    <RadioGroupItem id="showPickupInfo-yes" :value="true" />
+                    <Label for="showPickupInfo-yes">{{ $t('common.yes') }}</Label>
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <RadioGroupItem id="showPickupInfo-no" :value="false" />
+                    <Label for="showPickupInfo-no">{{ $t('common.no') }}</Label>
+                  </div>
+                </RadioGroup>
+              </div>
             </div>
           </TabsContent>
 
@@ -686,6 +703,7 @@ const formData = ref({
     showQrCodes: true, // Deprecated in UI but kept for state shape if needed
     showQrCodesLocation: true,
     showQrCodesRegistration: true,
+    showPickupInfo: true,
     catholicRetreatOverride: '',
     emausForOverride: '',
     weekendOfHopeOverride: '',
@@ -943,6 +961,7 @@ const resetForm = () => {
         showQrCodes: true,
         showQrCodesLocation: true,
         showQrCodesRegistration: true,
+        showPickupInfo: true,
         catholicRetreatOverride: '',
         emausForOverride: '',
         weekendOfHopeOverride: '',
@@ -1031,6 +1050,7 @@ watch(() => props.open, (newOpen) => {
             showQrCodes: legacyShowQr,
             showQrCodesLocation: (props.retreat as any).flyer_options?.showQrCodesLocation ?? legacyShowQr,
             showQrCodesRegistration: (props.retreat as any).flyer_options?.showQrCodesRegistration ?? legacyShowQr,
+            showPickupInfo: (props.retreat as any).flyer_options?.showPickupInfo ?? true,
             catholicRetreatOverride: (props.retreat as any).flyer_options?.catholicRetreatOverride || '',
             emausForOverride: (props.retreat as any).flyer_options?.emausForOverride || '',
             weekendOfHopeOverride: (props.retreat as any).flyer_options?.weekendOfHopeOverride || '',
@@ -1065,6 +1085,7 @@ watch(() => props.open, (newOpen) => {
           showQrCodes: legacyShowQrInitial,
           showQrCodesLocation: initialFlyerOptions.showQrCodesLocation ?? legacyShowQrInitial,
           showQrCodesRegistration: initialFlyerOptions.showQrCodesRegistration ?? legacyShowQrInitial,
+          showPickupInfo: initialFlyerOptions.showPickupInfo ?? true,
           catholicRetreatOverride: initialFlyerOptions.catholicRetreatOverride || '',
           emausForOverride: initialFlyerOptions.emausForOverride || '',
           weekendOfHopeOverride: initialFlyerOptions.weekendOfHopeOverride || '',

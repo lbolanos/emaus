@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from '@repo/ui'
 
 const props = defineProps<{
   errors: Record<string, string>
+  showPickupInfo?: boolean
 }>()
 
 const formData = defineModel<Record<string, any>>({ required: true })
@@ -70,13 +71,15 @@ const getErrorMessage = (field: string) => props.errors[field]
         <Input id="inviterEmail" type="email" v-model="formData.inviterEmail" :class="{ 'border-red-500': hasError('inviterEmail') }" />
         <p v-if="hasError('inviterEmail')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('inviterEmail') }}</p>
       </div>
-      <div>
-        <Label for="pickupLocation">{{ $t('walkerRegistration.fields.pickupLocation') }}</Label>
-        <Input id="pickupLocation" v-model="formData.pickupLocation" />
-      </div>
-      <div class="flex items-center space-x-2">
-        <Checkbox id="arrivesOnOwn" v-model="formData.arrivesOnOwn" />
-        <Label for="arrivesOnOwn">{{ $t('walkerRegistration.fields.arrivesOnOwn') }}</Label>
+      <div v-if="showPickupInfo !== false">
+        <div>
+          <Label for="pickupLocation">{{ $t('walkerRegistration.fields.pickupLocation') }}</Label>
+          <Input id="pickupLocation" v-model="formData.pickupLocation" />
+        </div>
+        <div class="flex items-center space-x-2">
+          <Checkbox id="arrivesOnOwn" v-model="formData.arrivesOnOwn" />
+          <Label for="arrivesOnOwn">{{ $t('walkerRegistration.fields.arrivesOnOwn') }}</Label>
+        </div>
       </div>
     </CardContent>
   </Card>

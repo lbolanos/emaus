@@ -52,6 +52,7 @@ export const flyerOptionsSchema = z.object({
 	showQrCodes: z.boolean().default(true).optional(),
 	showQrCodesLocation: z.boolean().default(true),
 	showQrCodesRegistration: z.boolean().default(true),
+	showPickupInfo: z.boolean().default(true),
 
 	// New fields
 	catholicRetreat: z.string().optional(),
