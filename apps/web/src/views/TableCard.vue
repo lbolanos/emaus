@@ -79,12 +79,15 @@
           <transition-group v-if="table.walkers && table.walkers.length > 0" tag="div" name="list-item" class="mt-2 flex flex-wrap gap-2 min-h-[34px]">
             <div
               v-for="walker in table.walkers"
-              :key="walker.id"
+              :key="`${walker.id}-${searchIndexKey}`"
               draggable="true"
               @dragstart="startDragFromTable($event, walker, 'walkers')"
               :title="`${$t('tables.tableCard.retreatId')}: ${walker.id_on_retreat || $t('tables.tableCard.notAvailable')}\n${walker.firstName} ${walker.lastName}\n${$t('tables.invitedBy')}: ${walker.invitedBy || $t('common.unknown')}\n${$t('tables.tableCard.bedLocation')}: ${getBedLocation(walker) || $t('tables.tableCard.notAvailable')}`"
               :style="{ borderColor: walker.family_friend_color }"
-              class="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm font-medium cursor-grab border-2"
+              :data-participant-id="walker.id"
+              :data-table-id="table.id"
+              class="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm font-medium cursor-grab border-2 transition-all"
+              :class="getParticipantHighlightClass(walker)"
             >
               {{ walker.id_on_retreat || '?' }} {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
             </div>
@@ -150,7 +153,7 @@
 </style>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import type { PropType } from 'vue';
 import type { Participant, TableMesa } from '@repo/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui';
@@ -169,6 +172,10 @@ const props = defineProps({
     type: Object as PropType<TableMesa>,
     required: true,
   },
+  searchQuery: {
+    type: String,
+    default: '',
+  },
 });
 
 const emit = defineEmits(['delete']);
@@ -183,7 +190,104 @@ const dragOverRole = ref<'lider' | 'colider1' | 'colider2' | null>(null);
 const isDropInvalid = ref(false);
 const isDialogOpen = ref(false);
 
+// Force re-render when search index changes
+const searchIndexKey = ref(0);
+
+const handleSearchIndexChanged = () => {
+  searchIndexKey.value++;
+};
+
 const hasWalkers = computed(() => (props.table.walkers?.length || 0) > 0);
+
+// Normalize text: remove accents and convert to lowercase
+const normalizeText = (text: string): string => {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+};
+
+// Check if a participant matches the search query
+const participantMatches = (participant: Participant | null | undefined): boolean => {
+  if (!participant || !props.searchQuery?.trim()) return false;
+
+  const normalizedQuery = normalizeText(props.searchQuery.trim());
+  return Boolean(
+    (participant.firstName && normalizeText(participant.firstName).includes(normalizedQuery)) ||
+    (participant.lastName && normalizeText(participant.lastName).includes(normalizedQuery)) ||
+    (participant.nickname && normalizeText(participant.nickname).includes(normalizedQuery)) ||
+    (participant.id_on_retreat && participant.id_on_retreat.toString().includes(normalizedQuery))
+  );
+};
+
+// Get highlight class for a participant
+const getParticipantHighlightClass = (participant: Participant | null | undefined): string => {
+  if (!participant || !participantMatches(participant)) return '';
+
+  // Get current match index from parent (via window event or computed)
+  const allMatchingIds = getAllMatchingParticipantIds();
+  const matchIndex = allMatchingIds.indexOf(participant.id);
+
+  if (matchIndex === -1) return '';
+
+  // Get the global current match index from window
+  const currentMatchIndex = (window as any).__currentMatchIndex ?? 0;
+
+  if (matchIndex === currentMatchIndex) {
+    // Current match - prominent highlight with ring
+    return 'ring-2 ring-yellow-500 ring-offset-2 bg-yellow-200 dark:bg-yellow-700 scale-110';
+  } else {
+    // Other matches - subtle highlight
+    return 'bg-yellow-100 dark:bg-yellow-800/50';
+  }
+};
+
+// Get all matching participant IDs for this table
+const getAllMatchingParticipantIds = (): string[] => {
+  const ids: string[] = [];
+  const query = props.searchQuery?.toLowerCase().trim();
+  if (!query) return ids;
+
+  const checkParticipant = (p: Participant | null | undefined) => {
+    if (p && participantMatches(p)) {
+      ids.push(p.id);
+    }
+  };
+
+  checkParticipant(props.table.lider);
+  checkParticipant(props.table.colider1);
+  checkParticipant(props.table.colider2);
+  props.table.walkers?.forEach(checkParticipant);
+
+  return ids;
+};
+
+// Listen for scroll-to-participant events
+const handleScrollToParticipant = (event: Event) => {
+  const customEvent = event as CustomEvent;
+  const participantId = customEvent.detail?.participantId as string | undefined;
+  if (!participantId) return;
+
+  // Check if this table contains the participant
+  const participantIds = getAllMatchingParticipantIds();
+  if (!participantIds.includes(participantId)) return;
+
+  // Scroll to the participant element
+  const element = document.querySelector(`[data-participant-id="${participantId}"][data-table-id="${props.table.id}"]`);
+  if (element) {
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('scroll-to-participant', handleScrollToParticipant);
+  window.addEventListener('search-index-changed', handleSearchIndexChanged);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('scroll-to-participant', handleScrollToParticipant);
+  window.removeEventListener('search-index-changed', handleSearchIndexChanged);
+});
 
 const confirmDelete = () => {
   emit('delete', props.table);

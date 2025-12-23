@@ -1,14 +1,48 @@
 <template>
-  <div class="p-2 sm:p-3 lg:p-4">
-    <div class="sm:flex sm:items-center sm:justify-between">
-      <div class="sm:flex-auto">
-        <h1 class="text-2xl font-bold leading-6 text-gray-900 dark:text-white">{{ $t('tables.title') }}</h1>
-        <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ $t('tables.description') }}</p>
-      </div>
-      <!-- Buttons actions -->
-      <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
-        <DropdownMenu>
-          <DropdownMenuTrigger as-child>
+  <div class="h-full flex flex-col">
+    <!-- Sticky Header -->
+    <div class="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 sm:p-3 lg:p-4 border-b">
+      <div class="sm:flex sm:items-center sm:justify-between gap-4">
+        <div class="sm:flex-auto">
+          <h1 class="text-2xl font-bold leading-6 text-gray-900 dark:text-white">{{ $t('tables.title') }}</h1>
+          <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ $t('tables.description') }}</p>
+        </div>
+
+        <!-- Search and Actions -->
+        <div class="flex items-center gap-2 mt-4 sm:mt-0">
+          <!-- Search Bar -->
+          <div class="relative flex items-center">
+            <Input
+              v-model="searchQuery"
+              :placeholder="$t('common.searchPlaceholder')"
+              class="w-64 pr-20"
+            />
+            <div v-if="totalMatches > 0" class="absolute right-1 flex items-center bg-background rounded-md border">
+              <span class="text-xs px-2">{{ currentMatchIndex + 1 }} / {{ totalMatches }}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                class="h-7 w-7"
+                :disabled="currentMatchIndex === 0"
+                @click="goToPreviousMatch"
+              >
+                <ChevronLeft class="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                class="h-7 w-7"
+                :disabled="currentMatchIndex === totalMatches - 1"
+                @click="goToNextMatch"
+              >
+                <ChevronRight class="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          <!-- Actions Dropdown -->
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
             <Button variant="ghost" size="icon">
               <MoreVertical class="h-5 w-5" />
             </Button>
@@ -31,8 +65,11 @@
         </DropdownMenu>
       </div>
     </div>
+  </div>
 
-    <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+  <!-- Scrollable Content -->
+    <div class="flex-1 overflow-y-auto p-2 sm:p-3 lg:p-4">
+      <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
       <!-- Unassigned Servers -->
       <div>
         <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('tables.unassignedServers') }}</h3>
@@ -49,7 +86,10 @@
             :key="server.id"
             draggable="true"
             @dragstart="startDrag($event, server)"
-            class="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-sm font-medium cursor-grab"
+            :data-participant-id="server.id"
+            :data-is-unassigned="true"
+            class="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-sm font-medium cursor-grab transition-all"
+            :class="getParticipantHighlightClass(server.id)"
           >
             {{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
           </div>
@@ -71,7 +111,10 @@
             :key="walker.id"
             draggable="true"
             @dragstart="startDrag($event, walker)"
-            class="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm font-medium cursor-grab"
+            :data-participant-id="walker.id"
+            :data-is-unassigned="true"
+            class="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm font-medium cursor-grab transition-all"
+            :class="getParticipantHighlightClass(walker.id)"
           >
             {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
           </div>
@@ -94,12 +137,14 @@
           v-for="table in tableMesaStore.tables"
           :key="table.id"
           :table="table"
+          :search-query="searchQuery"
           @delete="handleDeleteTable"
         />
       </div>
     </div>
     <div v-else class="mt-8 text-center">
       <p>{{ $t('participants.selectRetreatPrompt') }}</p>
+    </div>
     </div>
 
     <!-- Rebalance Confirmation Dialog -->
@@ -141,15 +186,15 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed, ref } from 'vue';
+import { nextTick, onMounted, computed, ref, watch } from 'vue';
 import { useTableMesaStore } from '@/stores/tableMesaStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import TableCard from './TableCard.vue';
-import { Button } from '@repo/ui';
+import { Button, Input } from '@repo/ui';
 import { useToast } from '@repo/ui';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@repo/ui';
-import { Download, Loader2, MoreVertical, Plus, RefreshCw } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Download, Loader2, MoreVertical, Plus, RefreshCw } from 'lucide-vue-next';
 import type { Participant, TableMesa } from '@repo/types';
 import { useI18n } from 'vue-i18n';
 import { exportTablesToDocx } from '@/services/api';
@@ -168,6 +213,142 @@ const isDeleteDialogOpen = ref(false);
 const isDeleting = ref(false);
 const tableToDelete = ref<TableMesa | null>(null);
 const isExporting = ref(false);
+
+// Search functionality
+const searchQuery = ref('');
+const currentMatchIndex = ref(0);
+
+// Collect all participants from tables and unassigned areas
+const allParticipants = computed(() => {
+  const participants: Array<{ participant: Participant; source: string; tableId?: string; role?: string }> = [];
+
+  // Add unassigned servers
+  unassignedServers.value.forEach(p => {
+    participants.push({ participant: p, source: 'unassigned-server' });
+  });
+
+  // Add unassigned walkers
+  unassignedWalkers.value.forEach(p => {
+    participants.push({ participant: p, source: 'unassigned-walker' });
+  });
+
+  // Add assigned participants from tables
+  tableMesaStore.tables.forEach(table => {
+    if (table.lider) {
+      participants.push({ participant: table.lider, source: 'table', tableId: table.id, role: 'lider' });
+    }
+    if (table.colider1) {
+      participants.push({ participant: table.colider1, source: 'table', tableId: table.id, role: 'colider1' });
+    }
+    if (table.colider2) {
+      participants.push({ participant: table.colider2, source: 'table', tableId: table.id, role: 'colider2' });
+    }
+    (table.walkers || []).forEach(walker => {
+      participants.push({ participant: walker, source: 'table', tableId: table.id, role: 'walker' });
+    });
+  });
+
+  return participants;
+});
+
+// Normalize text: remove accents and convert to lowercase
+const normalizeText = (text: string): string => {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+};
+
+// Get matching participants based on search query
+const matchingParticipants = computed(() => {
+  if (!searchQuery.value.trim()) return [];
+
+  const normalizedQuery = normalizeText(searchQuery.value.trim());
+  return allParticipants.value.filter(({ participant }) => {
+    return (
+      (participant.firstName && normalizeText(participant.firstName).includes(normalizedQuery)) ||
+      (participant.lastName && normalizeText(participant.lastName).includes(normalizedQuery)) ||
+      (participant.nickname && normalizeText(participant.nickname).includes(normalizedQuery)) ||
+      (participant.id_on_retreat && participant.id_on_retreat.toString().includes(normalizedQuery))
+    );
+  });
+});
+
+const totalMatches = computed(() => matchingParticipants.value.length);
+
+// Get highlight class for a participant
+const getParticipantHighlightClass = (participantId: string) => {
+  if (!searchQuery.value.trim() || totalMatches.value === 0) return '';
+
+  const matchIndex = matchingParticipants.value.findIndex(m => m.participant.id === participantId);
+
+  if (matchIndex === -1) return '';
+
+  if (matchIndex === currentMatchIndex.value) {
+    // Current match - prominent highlight with ring
+    return 'ring-2 ring-yellow-500 ring-offset-2 bg-yellow-200 dark:bg-yellow-700 scale-110';
+  } else {
+    // Other matches - subtle highlight
+    return 'bg-yellow-100 dark:bg-yellow-800/50';
+  }
+};
+
+// Navigate between matches
+const goToPreviousMatch = () => {
+  if (currentMatchIndex.value > 0) {
+    currentMatchIndex.value--;
+    updateCurrentMatchIndex();
+    scrollToCurrentMatch();
+  }
+};
+
+const goToNextMatch = () => {
+  if (currentMatchIndex.value < totalMatches.value - 1) {
+    currentMatchIndex.value++;
+    updateCurrentMatchIndex();
+    scrollToCurrentMatch();
+  }
+};
+
+// Update the global current match index on window object
+const updateCurrentMatchIndex = () => {
+  (window as any).__currentMatchIndex = currentMatchIndex.value;
+  // Trigger a re-render in TableCard components
+  window.dispatchEvent(new CustomEvent('search-index-changed'));
+};
+
+// Scroll to the current match
+const scrollToCurrentMatch = () => {
+  if (totalMatches.value === 0) return;
+
+  const currentMatch = matchingParticipants.value[currentMatchIndex.value];
+  if (!currentMatch) return;
+
+  // Try to find the element in the unassigned areas first
+  const unassignedElement = document.querySelector(`[data-participant-id="${currentMatch.participant.id}"][data-is-unassigned="true"]`);
+
+  if (unassignedElement) {
+    unassignedElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  // If not in unassigned areas, it might be in a table - we'll emit an event or use a different approach
+  // For now, we'll just emit a custom event that TableCard can listen to
+  window.dispatchEvent(new CustomEvent('scroll-to-participant', {
+    detail: { participantId: currentMatch.participant.id }
+  }));
+};
+
+// Watch for search query changes to reset current match index
+watch(searchQuery, () => {
+  currentMatchIndex.value = 0;
+  updateCurrentMatchIndex();
+  if (totalMatches.value > 0) {
+    nextTick(() => {
+      scrollToCurrentMatch();
+    });
+  }
+});
 
 const unassignedServers = computed(() => {
   const assignedServerIds = new Set(
