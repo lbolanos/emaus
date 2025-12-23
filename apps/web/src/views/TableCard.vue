@@ -318,7 +318,10 @@ const startDragFromTable = (event: DragEvent, participant: Participant, role?: '
       sourceRole: sourceRole,
     };
     event.dataTransfer.setData('application/json', JSON.stringify(payload));
-    startDragState(participant.type);
+    // Only start drag state for valid types (walker or server)
+    if (participant.type === 'walker' || participant.type === 'server') {
+      startDragState(participant.type);
+    }
   }
 };
 

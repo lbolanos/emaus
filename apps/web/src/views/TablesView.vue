@@ -4,8 +4,8 @@
     <div class="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 sm:p-3 lg:p-4 border-b">
       <div class="sm:flex sm:items-center sm:justify-between gap-4">
         <div class="sm:flex-auto">
-          <h1 class="text-2xl font-bold leading-6 text-gray-900 dark:text-white">{{ $t('tables.title') }}</h1>
-          <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ $t('tables.description') }}</p>
+          <h1 class="text-[20px] font-bold leading-6 text-gray-900 dark:text-white">{{ $t('tables.title') }}</h1>
+          <p class="mt-2 text-[10px] text-gray-700 dark:text-gray-300">{{ $t('tables.description') }}</p>
         </div>
 
         <!-- Search and Actions -->
@@ -61,6 +61,10 @@
               <Loader2 v-else class="mr-2 h-4 w-4 animate-spin" />
               {{ isExporting ? $t('tables.exporting') : $t('tables.exportDocx') }}
             </DropdownMenuItem>
+            <DropdownMenuItem @click="handlePrintTables">
+              <Printer class="mr-2 h-4 w-4" />
+              {{ $t('tables.printTables') }}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         </div>
@@ -68,7 +72,7 @@
     </div>
 
     <!-- Sticky Unassigned Areas -->
-    <div class="sticky top-[88px] z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-2 sm:px-3 lg:px-4 py-2 border-b">
+    <div class="sticky top-[80px] z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-2 sm:px-3 lg:px-4 py-2 border-b">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <!-- Unassigned Servers -->
         <div>
@@ -127,7 +131,7 @@
 
     <!-- Scrollable Content -->
     <div class="flex-1 overflow-y-auto p-2 sm:p-3 lg:p-4">
-    <div v-if="retreatStore.selectedRetreatId">
+    <div v-if="retreatStore.selectedRetreatId" class="print-container">
       <div v-if="tableMesaStore.isLoading" class="mt-8 text-center">
         <p>{{ $t('participants.loading') }}</p>
       </div>
@@ -137,7 +141,7 @@
       <div v-else-if="tableMesaStore.tables.length === 0" class="mt-8 text-center">
         <p>{{ $t('tables.noTablesFound') }}</p>
       </div>
-      <div v-else class="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div v-else class="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 card-container">
         <TableCard
           v-for="table in tableMesaStore.tables"
           :key="table.id"
@@ -199,7 +203,7 @@ import TableCard from './TableCard.vue';
 import { Button, Input } from '@repo/ui';
 import { useToast } from '@repo/ui';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@repo/ui';
-import { ChevronLeft, ChevronRight, Download, Loader2, MoreVertical, Plus, RefreshCw } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Download, Loader2, MoreVertical, Plus, Printer, RefreshCw } from 'lucide-vue-next';
 import type { Participant, TableMesa } from '@repo/types';
 import { useI18n } from 'vue-i18n';
 import { exportTablesToDocx } from '@/services/api';
@@ -378,7 +382,10 @@ const startDrag = (event: DragEvent, participant: Participant) => {
     event.dataTransfer.dropEffect = 'move';
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('application/json', JSON.stringify(participant));
-    startDragState(participant.type);
+    // Only start drag state for valid types (walker or server)
+    if (participant.type === 'walker' || participant.type === 'server') {
+      startDragState(participant.type);
+    }
   }
 };
 
@@ -505,6 +512,10 @@ const handleExportTables = async () => {
   }
 };
 
+const handlePrintTables = () => {
+  window.print();
+};
+
 // Watch for retreat changes to fetch participants
 watch(
   () => [retreatStore.selectedRetreatId, retreatStore.retreats] as const,
@@ -524,3 +535,55 @@ onMounted(() => {
   }
 });
 </script>
+
+<style>
+@media print {
+  /* Hide everything except print container */
+  body * {
+    visibility: hidden;
+  }
+  .print-container, .print-container * {
+    visibility: visible;
+  }
+  .print-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  /* Hide non-printable elements */
+  .no-print,
+  .sticky,
+  button,
+  input {
+    display: none !important;
+  }
+
+  /* Optimize grid layout for print - 4 tables per page */
+  .card-container {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+  }
+
+  @page {
+    size: A4;
+    margin: 1cm;
+  }
+
+  /* Prevent page breaks within table cards */
+  .table-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border: 1px solid #ccc;
+    margin-bottom: 1rem;
+  }
+
+  /* Optimize colors for print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+</style>

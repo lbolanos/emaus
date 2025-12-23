@@ -635,6 +635,7 @@
       "errorDescription": "Ocurrió un error al rebalancear los caminantes. Por favor, inténtalo de nuevo."
     },
     "addTable": "Agregar Mesa",
+    "printTables": "Imprimir Mesas",
     "exportDocx": "Imprimir Mesas",
     "exporting": "Generando documento...",
     "exportSuccess": {
