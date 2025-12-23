@@ -25,6 +25,8 @@ import { TelemetryMetric } from '../entities/telemetryMetric.entity';
 import { TelemetryEvent } from '../entities/telemetryEvent.entity';
 import { TelemetrySession } from '../entities/telemetrySession.entity';
 import { TelemetryDashboard } from '../entities/telemetryDashboard.entity';
+import { Tag } from '../entities/tag.entity';
+import { ParticipantTag } from '../entities/participantTag.entity';
 
 import { Session } from '../entities/session.entity';
 
@@ -60,6 +62,9 @@ export function createDatabaseConfig() {
 		TelemetryEvent,
 		TelemetrySession,
 		TelemetryDashboard,
+		// Tag entities
+		Tag,
+		ParticipantTag,
 		// Temporarily excluding entities with enum issues
 		// AuditLog,
 		// PermissionOverride,

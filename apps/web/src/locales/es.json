@@ -242,6 +242,7 @@
       "lastUpdatedDate": "Últ. Actualización",
       "retreatId": "ID Retiro",
       "tableId": "ID Mesa",
+      "tags": "Etiquetas",
       "retreatBedId": "ID Cuarto"
     },
     "filters": {
@@ -666,7 +667,9 @@
       "notAvailable": "N/A"
     },
     "errors": {
-      "familyFriendConflict": "No se puede agregar al caminante. Ya existe un caminante con el mismo color de familia/amigo en esta mesa."
+      "familyFriendConflict": "No se puede agregar al caminante. Ya existe un caminante con el mismo color de familia/amigo en esta mesa.",
+      "tagConflict": "Conflicto de etiquetas",
+      "tagConflictDescription": "El líder y el caminante tienen la(s) etiqueta(s): {tags}"
     }
   },
   "bedAssignments": {
@@ -1056,5 +1059,16 @@
     "mattress": "Colchón",
     "noRoomAssigned": "Sin habitación asignada",
     "noTableAssigned": "Sin mesa asignada"
+  },
+  "tags": {
+    "selectLabel": "Etiquetas",
+    "searchPlaceholder": "Buscar o crear etiqueta...",
+    "createNew": "Crear nueva etiqueta: {name}",
+    "remove": "Eliminar etiqueta",
+    "error": {
+      "create": "Error al crear etiqueta",
+      "assign": "Error al asignar etiqueta",
+      "remove": "Error al eliminar etiqueta"
+    }
   }
 }

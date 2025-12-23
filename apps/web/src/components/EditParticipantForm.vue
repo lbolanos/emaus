@@ -1,6 +1,10 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch, Textarea } from '@repo/ui';
+import TagSelector from './TagSelector.vue';
+import { getParticipantTags, assignTagToParticipant, removeTagFromParticipant } from '@/services/api';
+import { useToast } from '@repo/ui';
+import type { Tag } from '@repo/types';
 
 const props = defineProps<{
   participant: any;
@@ -11,7 +15,9 @@ const props = defineProps<{
 
 const emit = defineEmits(['save', 'cancel']);
 
+const { toast } = useToast();
 const localParticipant = ref<any>({});
+const selectedTags = ref<Tag[]>([]);
 
 const getColumnLabel = (key: string) => {
   const col = props.allColumns.find(c => c.key === key);
@@ -21,6 +27,7 @@ const getColumnLabel = (key: string) => {
 const getColumnType = (key: string) => {
     const col = props.allColumns.find(c => c.key === key);
     if (col && col.type) return col.type;
+    if (key === 'tags') return 'tags';
     if (key === 'palancasCoordinator' || key === 'pickupLocation') return 'select';
     if (key.startsWith('is') || key.startsWith('has') || key.startsWith('requests') || key === 'arrivesOnOwn' || key === 'snores' || key === 'palancasRequested') return 'boolean';
     if (key.toLowerCase().includes('notes') || key.toLowerCase().includes('details')) return 'textarea';
@@ -87,6 +94,16 @@ const formatDateForDisplay = (date: string | Date | null | undefined) => {
   return `${day}/${month}/${year}`;
 };
 
+const loadParticipantTags = async () => {
+  if (!props.participant?.id) return;
+  try {
+    const tags = await getParticipantTags(props.participant.id);
+    selectedTags.value = tags;
+  } catch (error) {
+    console.error('Error loading participant tags:', error);
+  }
+};
+
 watch(() => props.participant, (newVal) => {
   console.log('EditParticipantForm - participant changed:', newVal);
   console.log('EditParticipantForm - birthDate value:', newVal?.birthDate);
@@ -108,10 +125,23 @@ watch(() => props.participant, (newVal) => {
   });
 
   localParticipant.value = formattedData;
+
+  // Load tags for the participant
+  loadParticipantTags();
 }, { immediate: true, deep: true });
 
-const handleSave = () => {
+const handleSave = async () => {
   const participantToSave = { ...localParticipant.value };
+
+  // Remove tags from participant data (handled separately)
+  delete participantToSave.tags;
+
+  // Also remove any nested tag-related data that might have been copied
+  delete (participantToSave as any).participantTags;
+
+  // Log what's being sent for debugging
+  console.log('Saving participant:', JSON.stringify(participantToSave, null, 2));
+
   // Note: retreatBedId has been removed from participant entity
   // Bed assignments are now handled through the retreat_bed table only
   if (participantToSave.tableId === null || participantToSave.tableId === '') {
@@ -137,7 +167,40 @@ const handleSave = () => {
     }
   }
 
+  // Save participant data first
   emit('save', participantToSave);
+
+  // Handle tag updates separately
+  try {
+    const currentTags = selectedTags.value;
+    const existingTags = props.participant.tags || [];
+    const existingTagIds = new Set(existingTags.map((t: any) => t.tag?.id || t.id).filter(Boolean));
+
+    // Add new tags
+    for (const tag of currentTags) {
+      if (!existingTagIds.has(tag.id)) {
+        await assignTagToParticipant(props.participant.id, tag.id);
+      }
+    }
+
+    // Remove removed tags
+    for (const existingTag of existingTags) {
+      const tagId = existingTag.tag?.id || existingTag.id;
+      if (!currentTags.find((t) => t.id === tagId)) {
+        await removeTagFromParticipant(props.participant.id, tagId);
+      }
+    }
+
+    // Reload tags after saving
+    await loadParticipantTags();
+  } catch (error: any) {
+    console.error('Error saving tags:', error);
+    toast({
+      title: 'Error al guardar etiquetas',
+      description: error.response?.data?.message || error.message,
+      variant: 'destructive',
+    });
+  }
 };
 
 const handleCancel = () => {
@@ -240,7 +303,8 @@ const calculateAge = (birthDate: string | Date) => {
 
   <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto p-2">
     <div v-for="key in columnsToShow" :key="key" class="space-y-2">
-      <Label :for="key">{{ getColumnLabel(key) }}</Label>
+      <!-- Skip label for tags field as TagSelector has its own label -->
+      <Label v-if="getColumnType(key) !== 'tags'" :for="key">{{ getColumnLabel(key) }}</Label>
       <template v-if="columnsToEdit.includes(key)">
         <Input
           v-if="getColumnType(key) === 'text'"
@@ -300,6 +364,11 @@ const calculateAge = (birthDate: string | Date) => {
             <SelectItem value="Casa">Casa</SelectItem>
           </SelectContent>
         </Select>
+        <TagSelector
+          v-if="getColumnType(key) === 'tags'"
+          v-model="selectedTags"
+          class="w-full"
+        />
       </template>
       <p v-else class="text-sm text-gray-500 pt-2">{{ getColumnType(key) === 'date' ? formatDateForDisplay(participant[key]) : (participant[key] || 'N/A') }}</p>
     </div>

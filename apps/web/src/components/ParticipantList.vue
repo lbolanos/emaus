@@ -41,6 +41,7 @@ import EditParticipantForm from './EditParticipantForm.vue';
 import FilterDialog from './FilterDialog.vue';
 import ImportParticipantsModal from './ImportParticipantsModal.vue';
 import ExportParticipantsModal from './ExportParticipantsModal.vue';
+import TagBadge from './TagBadge.vue';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -214,7 +215,8 @@ const allColumns = ref([
     { key: 'registrationDate', label: 'participants.fields.registrationDate' },
     { key: 'lastUpdatedDate', label: 'participants.fields.lastUpdatedDate' },
     { key: 'retreatId', label: 'participants.fields.retreatId' },
-    { key: 'tableId', label: 'participants.fields.tableId' },    
+    { key: 'tableId', label: 'participants.fields.tableId' },
+    { key: 'tags', label: 'participants.fields.tags' },
     { key: 'retreatBed.roomNumber', label: 'rooms.roomNumber' },
 ]);
 
@@ -348,6 +350,12 @@ const hasBirthdayDuringRetreat = (participant: any) => {
 
 const formatCell = (participant: any, colKey: string) => {
     const value = getNestedProperty(participant, colKey);
+
+    // Handle tags array - return as comma-separated list for text display
+    if (colKey === 'tags') {
+        if (!value || !Array.isArray(value) || value.length === 0) return 'N/A';
+        return value.map((t: any) => t.tag?.name || t.name || '').filter(Boolean).join(', ');
+    }
 
     // Handle date formatting
     if (['birthDate', 'registrationDate', 'lastUpdatedDate'].includes(colKey)) {
@@ -1044,7 +1052,20 @@ onMounted(() => {
                         </TableCell>
                         <!-- Data Columns -->
                         <TableCell v-for="colKey in visibleColumns" :key="`${participant.id}-${colKey}`">
-                            <div class="flex items-center gap-1">
+                            <!-- Special handling for tags column - display as badges -->
+                            <div v-if="colKey === 'tags'" class="flex flex-wrap gap-1">
+                                <TagBadge
+                                    v-for="pt in getNestedProperty(participant, colKey)"
+                                    :key="pt.tag?.id || pt.id"
+                                    :tag="pt.tag || pt"
+                                    :removable="false"
+                                />
+                                <span v-if="!getNestedProperty(participant, colKey) || getNestedProperty(participant, colKey)?.length === 0">
+                                    N/A
+                                </span>
+                            </div>
+                            <!-- Default cell rendering for other columns -->
+                            <div v-else class="flex items-center gap-1">
                                 {{ getCellContent(participant, colKey).value }}
                                 <span v-if="getCellContent(participant, colKey).hasBirthday" class="text-yellow-600" :title="$t('participants.birthdayDuringRetreat')">
                                     🎂

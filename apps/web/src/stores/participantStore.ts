@@ -102,6 +102,10 @@ export const useParticipantStore = defineStore('participant', () => {
 		}
 		try {
 			loading.value = true;
+
+			// Log the data being sent for debugging
+			//console.log('Updating participant:', id, 'with data:', JSON.stringify(data, null, 2));
+
 			const response = await api.put(`/participants/${id}`, data);
 			const index = participants.value.findIndex((p) => p.id === id);
 			if (index !== -1) {
@@ -112,10 +116,12 @@ export const useParticipantStore = defineStore('participant', () => {
 				description: 'Participant updated successfully',
 			});
 		} catch (error: any) {
+			console.error('Error updating participant:', error);
+			console.error('Error response:', error.response?.data);
 			toast({
 				title: 'Error',
 				description:
-					error.response?.data?.message || error.message || 'Failed to update participant',
+					error.response?.data?.message || error.response?.data?.details || error.message || 'Failed to update participant',
 				variant: 'destructive',
 			});
 			throw error;

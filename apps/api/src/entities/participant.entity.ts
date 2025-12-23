@@ -14,6 +14,7 @@ import { TableMesa } from './tableMesa.entity';
 import { Responsability } from './responsability.entity';
 import { Payment } from './payment.entity';
 import { RetreatBed } from './retreatBed.entity';
+import { ParticipantTag } from './participantTag.entity';
 import { DateTransformer } from '../utils/date.transformer';
 
 @Entity('participants')
@@ -237,6 +238,9 @@ export class Participant {
 
 	@OneToMany(() => Payment, (payment) => payment.participant)
 	payments!: Payment[];
+
+	@OneToMany(() => ParticipantTag, (participantTag) => participantTag.participant)
+	tags!: ParticipantTag[];
 
 	@OneToOne(() => RetreatBed, (retreatBed) => retreatBed.participant)
 	retreatBed?: RetreatBed | null;

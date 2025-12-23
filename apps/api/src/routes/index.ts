@@ -21,6 +21,7 @@ import invitationRoutes from './invitationRoutes';
 import paymentRoutes from './paymentRoutes';
 import participantCommunicationRoutes from './participantCommunicationRoutes';
 import telemetryRoutes from './telemetryRoutes';
+import tagRoutes from './tagRoutes';
 import { applyCsrfProtectionExcept } from '../middleware/routeCsrf';
 
 const router = Router();
@@ -52,5 +53,6 @@ router.use('/invitations', invitationRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/participant-communications', participantCommunicationRoutes);
 router.use('/telemetry', telemetryRoutes);
+router.use('/tags', tagRoutes);
 
 export default router;

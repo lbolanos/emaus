@@ -178,6 +178,27 @@ export const tableMesaSchema = z.object({
 });
 export type TableMesa = z.infer<typeof tableMesaSchema>;
 
+// Tag Schema
+export const tagSchema = z.object({
+	id: idSchema,
+	name: z.string().min(1).max(100),
+	color: z.string().regex(/^#[0-9A-F]{6}$/i).optional(),
+	description: z.string().optional(),
+	createdAt: z.coerce.date(),
+	updatedAt: z.coerce.date(),
+});
+export type Tag = z.infer<typeof tagSchema>;
+
+// ParticipantTag Schema
+export const participantTagSchema = z.object({
+	id: idSchema,
+	participantId: idSchema,
+	tagId: idSchema,
+	assignedAt: z.coerce.date(),
+	tag: tagSchema.optional(),
+});
+export type ParticipantTag = z.infer<typeof participantTagSchema>;
+
 // Participant Schema
 export const participantSchema = z.object({
 	id: idSchema,
@@ -235,7 +256,10 @@ export const participantSchema = z.object({
 	medicationSchedule: z.string().optional(),
 	hasDietaryRestrictions: z.boolean(),
 	dietaryRestrictionsDetails: z.string().optional(),
-	disabilitySupport: z.string().optional(),
+	disabilitySupport: z.preprocess(
+		(val) => (val === '' || val === null ? undefined : val),
+		z.string().optional(),
+	),
 	sacraments: z.array(z.enum(['baptism', 'communion', 'confirmation', 'marriage', 'none'])),
 	emergencyContact1Name: z.string(),
 	emergencyContact1Relation: z.string(),
@@ -279,6 +303,7 @@ export const participantSchema = z.object({
 	tableId: idSchema.nullable().optional(),
 	tableMesa: tableMesaSchema.optional(),
 	retreatBed: retreatBedSchema.nullable().optional(),
+	tags: z.array(participantTagSchema).optional(),
 });
 export type Participant = z.infer<typeof participantSchema>;
 

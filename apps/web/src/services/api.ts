@@ -606,3 +606,52 @@ export const cleanupTelemetryData = async (retentionDays: number = 90) => {
 	const response = await api.post('/telemetry/cleanup', { retentionDays });
 	return response.data;
 };
+
+// Tag API functions
+export const getAllTags = async () => {
+	const response = await api.get('/tags');
+	return response.data;
+};
+
+export const getTagById = async (tagId: string) => {
+	const response = await api.get(`/tags/${tagId}`);
+	return response.data;
+};
+
+export const createTag = async (tagData: { name: string; color?: string; description?: string }) => {
+	const response = await api.post('/tags', tagData);
+	return response.data;
+};
+
+export const updateTag = async (
+	tagId: string,
+	tagData: { name?: string; color?: string; description?: string },
+) => {
+	const response = await api.put(`/tags/${tagId}`, tagData);
+	return response.data;
+};
+
+export const deleteTag = async (tagId: string) => {
+	const response = await api.delete(`/tags/${tagId}`);
+	return response.data;
+};
+
+export const getParticipantTags = async (participantId: string) => {
+	const response = await api.get(`/tags/participant/${participantId}`);
+	return response.data;
+};
+
+export const assignTagToParticipant = async (participantId: string, tagId: string) => {
+	const response = await api.post(`/tags/participant/${participantId}/${tagId}`);
+	return response.data;
+};
+
+export const removeTagFromParticipant = async (participantId: string, tagId: string) => {
+	const response = await api.delete(`/tags/participant/${participantId}/${tagId}`);
+	return response.data;
+};
+
+export const checkTagConflict = async (leaderIds: string[], walkerIds: string[]) => {
+	const response = await api.post('/tags/check-conflict', { leaderIds, walkerIds });
+	return response.data;
+};

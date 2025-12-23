@@ -123,6 +123,28 @@ export const assignWalkerToTable = async (tableId: string, participantId: string
 	if (participant.type !== 'walker') throw new Error('Only walkers can be assigned to a table.');
 	if (participant.isCancelled) throw new Error('Cannot assign cancelled participants to tables.');
 
+	const table = await findTableById(tableId);
+	if (!table) throw new Error('Table not found');
+
+	// Check for tag conflicts with leaders
+	const leaderIds = [table.liderId, table.colider1Id, table.colider2Id].filter(
+		Boolean,
+	) as string[];
+
+	if (leaderIds.length > 0) {
+		const { getParticipantTags, checkTableTagConflict } = await import('./tagService');
+		const walkerTags = await getParticipantTags(participantId);
+
+		if (walkerTags.length > 0) {
+			const { hasConflict, conflicts } = await checkTableTagConflict(leaderIds, [participantId]);
+			if (hasConflict) {
+				throw new Error(
+					`No se puede asignar: el líder y el caminante tienen la(s) etiqueta(s): ${conflicts.join(', ')}`,
+				);
+			}
+		}
+	}
+
 	participant.tableId = tableId as string | null;
 	await participantRepository.save(participant);
 	return findTableById(tableId);
@@ -139,6 +161,8 @@ export const unassignWalkerFromTable = async (tableId: string, participantId: st
 
 export const rebalanceTablesForRetreat = async (retreatId: string) => {
 	console.log(`🔄 Rebalancing tables for retreat ${retreatId}...`);
+	const { getParticipantTags, checkTableTagConflict } = await import('./tagService');
+
 	const walkers = await participantRepository.find({
 		where: { retreatId, type: 'walker', isCancelled: false },
 		order: { registrationDate: 'ASC' },
@@ -184,6 +208,20 @@ export const rebalanceTablesForRetreat = async (retreatId: string) => {
 		return;
 	}
 
+	// Pre-load all participant tags for performance
+	const allParticipantIds = [
+		...walkers.map((w) => w.id),
+		...tables.flatMap((t) => [t.liderId, t.colider1Id, t.colider2Id].filter(Boolean)),
+	] as string[];
+
+	const participantTags = new Map<string, string[]>();
+	for (const pid of allParticipantIds) {
+		const tags = await getParticipantTags(pid);
+		if (tags.length > 0) {
+			participantTags.set(pid, tags.map((t) => t.id));
+		}
+	}
+
 	const tableWalkerCounts: Record<string, number> = tables.reduce(
 		(acc, t) => ({ ...acc, [t.id]: 0 }),
 		{},
@@ -202,6 +240,33 @@ export const rebalanceTablesForRetreat = async (retreatId: string) => {
 			if (filteredTables.length > 0) {
 				availableTables = filteredTables;
 			}
+		}
+
+		// Filter out tables where leaders have conflicting tags
+		const walkerTagIds = participantTags.get(walker.id) || [];
+		if (walkerTagIds.length > 0) {
+			const tablesWithoutTagConflicts = [];
+			for (const table of availableTables) {
+				const leaderIds = [table.liderId, table.colider1Id, table.colider2Id].filter(
+					Boolean,
+				) as string[];
+				let hasConflict = false;
+				for (const leaderId of leaderIds) {
+					const leaderTagIds = participantTags.get(leaderId) || [];
+					if (walkerTagIds.some((tagId) => leaderTagIds.includes(tagId))) {
+						hasConflict = true;
+						break;
+					}
+				}
+				if (!hasConflict) {
+					tablesWithoutTagConflicts.push(table);
+				}
+			}
+			// Use filtered list if any valid tables remain
+			if (tablesWithoutTagConflicts.length > 0) {
+				availableTables = tablesWithoutTagConflicts;
+			}
+			// If all tables have conflicts, use all tables to ensure assignment
 		}
 
 		// Sort available tables by the number of walkers they currently have, ascending.

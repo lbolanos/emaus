@@ -262,6 +262,8 @@ agregar litera de arriba y de abajo.
 
 Considera que esta es la primera persona a la que contactaremos en caso de alguna emergencia.
 preguntar en el formulario si tiene discapacidad
+agregar un parametro en el retiro para no solicitar punto de Convenient meeting point
+agregar un tag a los caminantes para que no queden en la misma mesa.
 
 ## TODO
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
@@ -289,11 +291,8 @@ Notificaciones por correo a los administradores del retiro de eventos como Camin
 ## Pepe Toño
 en el inventario agregar un campo que indique cuantas unidades deben comprarse y sacar un reporte de inventario a comprar.
 
-agregar un parametro en el retiro para no solicitar punto de Convenient meeting point
-
 agregar un filtro de quienes han pagado en la lista de caminantes.
 
-agregar un tag a los caminantes para que no queden en la misma mesa.
 deberia enviar directo al link despues de accept InvitationController
 que no salga en negro el tabla de mesas cuando se imprime a documento
 al dar clic en print tables, seleccionar los campos que se deben imprimir.

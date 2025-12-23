@@ -39,8 +39,8 @@ export const findAllParticipants = async (
 		where.isCancelled = isCancelled;
 	}
 
-	// Always include payments and retreat relations for payment calculations
-	const allRelations = [...new Set([...relations, 'payments', 'retreat'])];
+	// Always include payments, retreat, and tags relations for payment calculations and tag display
+	const allRelations = [...new Set([...relations, 'payments', 'retreat', 'tags', 'tags.tag'])];
 	if (includePayments) {
 		allRelations.push('payments.recordedByUser');
 	}
@@ -59,7 +59,7 @@ export const findParticipantById = async (
 	id: string,
 	includePayments: boolean = false,
 ): Promise<Participant | null> => {
-	const relations = ['retreat', 'tableMesa', 'retreatBed'];
+	const relations = ['retreat', 'tableMesa', 'retreatBed', 'tags', 'tags.tag'];
 	if (includePayments) {
 		relations.push('payments', 'payments.recordedByUser');
 	}
