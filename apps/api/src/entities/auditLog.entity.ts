@@ -45,10 +45,10 @@ export class AuditLog {
 	@PrimaryGeneratedColumn('uuid')
 	id!: string;
 
-	@Column({ type: 'enum', enum: AuditActionType })
+	@Column({ type: 'varchar', length: 255 })
 	actionType!: AuditActionType;
 
-	@Column({ type: 'enum', enum: AuditResourceType })
+	@Column({ type: 'varchar', length: 255 })
 	resourceType!: AuditResourceType;
 
 	@Column({ type: 'uuid' })
