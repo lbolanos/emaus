@@ -1,21 +1,38 @@
 <template>
-  <div class="p-4 sm:p-6 lg:p-8">
+  <div class="p-2 sm:p-3 lg:p-4">
     <div class="sm:flex sm:items-center sm:justify-between">
       <div class="sm:flex-auto">
         <h1 class="text-2xl font-bold leading-6 text-gray-900 dark:text-white">{{ $t('tables.title') }}</h1>
         <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ $t('tables.description') }}</p>
       </div>
+      <!-- Buttons actions -->
       <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
-        <Button @click="isRebalanceDialogOpen = true">{{ $t('tables.rebalanceWalkers') }}</Button>
-        <Button @click="handleCreateTable" class="ml-2">{{ $t('tables.addTable') }}</Button>
-        <Button @click="handleExportTables" class="ml-2" :disabled="isExporting">
-          <Loader2 v-if="isExporting" class="w-4 h-4 mr-2 animate-spin" />
-          {{ isExporting ? $t('tables.exporting') : $t('tables.exportDocx') }}
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button variant="ghost" size="icon">
+              <MoreVertical class="h-5 w-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem @click="isRebalanceDialogOpen = true">
+              <RefreshCw class="mr-2 h-4 w-4" />
+              {{ $t('tables.rebalanceWalkers') }}
+            </DropdownMenuItem>
+            <DropdownMenuItem @click="handleCreateTable">
+              <Plus class="mr-2 h-4 w-4" />
+              {{ $t('tables.addTable') }}
+            </DropdownMenuItem>
+            <DropdownMenuItem @click="handleExportTables" :disabled="isExporting">
+              <Download v-if="!isExporting" class="mr-2 h-4 w-4" />
+              <Loader2 v-else class="mr-2 h-4 w-4 animate-spin" />
+              {{ isExporting ? $t('tables.exporting') : $t('tables.exportDocx') }}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
 
-    <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
       <!-- Unassigned Servers -->
       <div>
         <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('tables.unassignedServers') }}</h3>
@@ -131,8 +148,8 @@ import { useParticipantStore } from '@/stores/participantStore';
 import TableCard from './TableCard.vue';
 import { Button } from '@repo/ui';
 import { useToast } from '@repo/ui';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@repo/ui';
-import { Loader2 } from 'lucide-vue-next';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@repo/ui';
+import { Download, Loader2, MoreVertical, Plus, RefreshCw } from 'lucide-vue-next';
 import type { Participant, TableMesa } from '@repo/types';
 import { useI18n } from 'vue-i18n';
 import { exportTablesToDocx } from '@/services/api';
