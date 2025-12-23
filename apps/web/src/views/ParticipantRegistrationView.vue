@@ -158,7 +158,7 @@ const step3Schema = z.object({
   }
   return true
 }, {
-  message: 'Debe seleccionar al menos un tipo de apoyo si tiene discapacidad.',
+  message: 'Debe seleccionar al menos un tipo de apoyo si tiene capacidad diferente.',
   path: ['disabilitySupport'],
 })
 
