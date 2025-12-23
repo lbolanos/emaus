@@ -257,7 +257,17 @@ const formatMessagePreview = (message: string) => {
 };
 
 const formatDate = (dateString: string) => {
-	return new Date(dateString).toLocaleDateString('es-ES', {
+	// Extract date parts to avoid timezone shift
+	let date: Date;
+	const match = dateString.match(/^(\d{4}-\d{2}-\d{2})/);
+	if (match) {
+		const [year, month, day] = match[1].split('-').map(Number);
+		date = new Date(year, month - 1, day);
+	} else {
+		const d = new Date(dateString);
+		date = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+	}
+	return date.toLocaleDateString('es-ES', {
 		year: 'numeric',
 		month: 'short',
 		day: 'numeric',

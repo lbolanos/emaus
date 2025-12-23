@@ -222,6 +222,7 @@
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/services/api';
+import { formatDate } from '@repo/utils';
 
 const route = useRoute();
 const router = useRouter();
@@ -241,10 +242,6 @@ const formData = ref({
 });
 
 const token = route.params.token as string;
-
-const formatDate = (date: Date | string) => {
-  return new Date(date).toLocaleDateString('es-ES');
-};
 
 const goToLogin = () => {
   router.push('/login');

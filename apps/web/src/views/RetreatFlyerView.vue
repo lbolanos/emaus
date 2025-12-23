@@ -407,14 +407,39 @@ const retreatNumber = computed(() => {
 
 const formatDateRange = computed(() => {
   if (!retreatData.value?.startDate || !retreatData.value?.endDate) return '';
-  const start = retreatData.value.startDate instanceof Date ? retreatData.value.startDate : new Date(retreatData.value.startDate);
-  const end = retreatData.value.endDate instanceof Date ? retreatData.value.endDate : new Date(retreatData.value.endDate);
+  // Extract date parts to avoid timezone shift
+  const parseDate = (dateValue: Date | string) => {
+    if (typeof dateValue === 'string') {
+      const match = dateValue.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (match) {
+        const [year, month, day] = match[1].split('-').map(Number);
+        return new Date(year, month - 1, day);
+      }
+    }
+    const d = dateValue instanceof Date ? dateValue : new Date(dateValue);
+    return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  };
+  const start = parseDate(retreatData.value.startDate);
+  const end = parseDate(retreatData.value.endDate);
   return `${start.getDate()} al ${end.getDate()} de ${start.toLocaleDateString('es-ES', { month: 'long' })}`;
 });
 
 const formatDate = (dateValue: Date | string | undefined) => {
   if (!dateValue) return '';
-  const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+  // Extract date parts to avoid timezone shift
+  let date: Date;
+  if (typeof dateValue === 'string') {
+    const match = dateValue.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (match) {
+      const [year, month, day] = match[1].split('-').map(Number);
+      date = new Date(year, month - 1, day);
+    } else {
+      const d = new Date(dateValue);
+      date = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+    }
+  } else {
+    date = new Date(dateValue.getUTCFullYear(), dateValue.getUTCMonth(), dateValue.getUTCDate());
+  }
   const options: Intl.DateTimeFormatOptions = {
     weekday: 'long',
     day: 'numeric',

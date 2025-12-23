@@ -22,7 +22,7 @@
             <SelectContent>
               <SelectGroup>
                 <SelectItem v-for="retreat in retreatStore.retreats" :key="retreat.id" :value="retreat.id">
-                  {{ retreat.parish }} - {{ new Date(retreat.startDate).toLocaleDateString() }}
+                  {{ retreat.parish }} - {{ formatDate(retreat.startDate) }}
                 </SelectItem>
               </SelectGroup>
             </SelectContent>
@@ -133,8 +133,8 @@ import { onMounted, ref, watch, computed } from 'vue';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
-import type { CreateRetreat, Retreat } from '@repo/types'; // Import Retreat type
-import { Plus, Edit, Menu, User } from 'lucide-vue-next'; // Import User icon for mobile
+import type { CreateRetreat, Retreat } from '@repo/types';
+import { Plus, Edit, Menu, User } from 'lucide-vue-next';
 import RetreatModal from '@/components/RetreatModal.vue';
 import { Button } from '@repo/ui';
 import {
@@ -151,6 +151,7 @@ import {
 } from '@repo/ui';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import { useUIStore } from '@/stores/ui';
+import { formatDate } from '@repo/utils';
 
 const uiStore = useUIStore();
 const retreatStore = useRetreatStore();

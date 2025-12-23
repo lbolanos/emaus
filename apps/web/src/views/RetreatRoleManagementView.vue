@@ -49,7 +49,7 @@
                   "{{ request.message }}"
                 </p>
                 <p class="text-xs text-gray-500">
-                  Solicitado el {{ new Date(request.requestedAt).toLocaleDateString() }}
+                  Solicitado el {{ formatDate(request.requestedAt) }}
                 </p>
               </div>
               <div class="flex gap-2">
@@ -100,14 +100,14 @@
                 </div>
                 <div v-if="user.expiresAt" class="text-sm text-amber-600 mb-2">
                   <Clock class="w-4 h-4 inline mr-1" />
-                  Expira el {{ new Date(user.expiresAt).toLocaleDateString() }}
+                  Expira el {{ formatDate(user.expiresAt) }}
                 </div>
                 <div v-if="user.permissionsOverride" class="text-sm text-blue-600 mb-2">
                   <Shield class="w-4 h-4 inline mr-1" />
                   Tiene permisos personalizados
                 </div>
                 <p v-if="user.invitedBy" class="text-xs text-gray-500">
-                  Invitado el {{ user.invitedAt ? new Date(user.invitedAt).toLocaleDateString() : 'Fecha desconocida' }}
+                  Invitado el {{ user.invitedAt ? formatDate(user.invitedAt) : 'Fecha desconocida' }}
                 </p>
               </div>
               <div class="flex gap-2">
@@ -276,6 +276,7 @@ import type {
   PermissionOverride,
   User
 } from '@repo/types'
+import { formatDate } from '@repo/utils'
 
 const route = useRoute()
 const { toast } = useToast()

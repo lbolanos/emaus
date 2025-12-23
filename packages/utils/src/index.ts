@@ -93,6 +93,24 @@ export interface RetreatData {
 }
 
 /**
+ * Format date avoiding timezone shifts caused by UTC to local conversion
+ * Handles ISO datetime strings (e.g., 2025-12-26T00:00:00.000Z) and YYYY-MM-DD formats
+ */
+export function formatDate(date: Date | string): string {
+	// Handle ISO datetime strings (e.g., 2025-12-26T00:00:00.000Z) or YYYY-MM-DD
+	if (typeof date === 'string') {
+		const match = date.match(/^(\d{4}-\d{2}-\d{2})/);
+		if (match) {
+			const [year, month, day] = match[1].split('-').map(Number);
+			return new Date(year, month - 1, day).toLocaleDateString();
+		}
+	}
+	// For Date objects - use UTC components to avoid timezone shift
+	const d = typeof date === 'string' ? new Date(date) : date;
+	return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()).toLocaleDateString();
+}
+
+/**
  * Replaces all participant variables in a message template with actual participant data
  * Uses mock data if participant is undefined or null
  */

@@ -20,7 +20,7 @@
           <CardHeader>
             <CardTitle class="flex items-center">
               {{ selectedRetreat.parish }} -
-              {{ new Date(selectedRetreat.startDate).toLocaleDateString() }}
+              {{ formatDate(selectedRetreat.startDate) }}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -275,6 +275,7 @@ import { Badge } from '@repo/ui';
 import { Progress } from '@repo/ui';
 import InviteUsersModal from '@/components/InviteUsersModal.vue';
 import { AlertTriangle, Users, UserPlus, Clock, Copy, ExternalLink, QrCode, Loader2, Mail, FileText } from 'lucide-vue-next';
+import { formatDate } from '@repo/utils';
 
 const { t } = useI18n();
 const route = useRoute();

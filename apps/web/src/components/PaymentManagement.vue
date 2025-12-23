@@ -291,6 +291,7 @@ import {
 	Trash2,
 } from 'lucide-vue-next';
 import type { Payment, CreatePayment, UpdatePayment } from '@repo/types';
+import { formatDate } from '@repo/utils';
 
 const paymentStore = usePaymentStore();
 const retreatStore = useRetreatStore();
@@ -347,10 +348,6 @@ const filteredPayments = computed(() => {
 });
 
 // Methods
-const formatDate = (date: string | Date) => {
-	return new Date(date).toLocaleDateString('es-ES');
-};
-
 const formatCurrency = (amount: number) => {
 	return amount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
