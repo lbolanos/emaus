@@ -1,14 +1,41 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useToast } from '@repo/ui';
 import type { Retreat, CreateRetreat } from '@repo/types';
 import { api } from '@/services/api';
 
+const STORAGE_KEY = 'selectedRetreatId';
+
 export const useRetreatStore = defineStore('retreat', () => {
 	const retreats = ref<Retreat[]>([]);
-	const selectedRetreatId = ref<string | null>(null);
+	const selectedRetreatId = ref<string | null>(loadFromStorage());
 	const loading = ref(false);
 	const { toast } = useToast();
+
+	function loadFromStorage(): string | null {
+		try {
+			return localStorage.getItem(STORAGE_KEY);
+		} catch {
+			return null;
+		}
+	}
+
+	function saveToStorage(id: string | null) {
+		try {
+			if (id) {
+				localStorage.setItem(STORAGE_KEY, id);
+			} else {
+				localStorage.removeItem(STORAGE_KEY);
+			}
+		} catch {
+			// Silently fail if localStorage is not available
+		}
+	}
+
+	// Watch for changes to selectedRetreatId and persist to localStorage
+	watch(selectedRetreatId, (newId) => {
+		saveToStorage(newId);
+	});
 
 	const mostRecentRetreat = computed(() => {
 		if (retreats.value.length > 0) {
