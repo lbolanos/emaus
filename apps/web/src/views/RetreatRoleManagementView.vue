@@ -36,7 +36,7 @@
           No hay solicitudes de rol pendientes
         </div>
         <div v-else class="space-y-4">
-          <div v-for="request in pendingRequests" :key="request.id" 
+          <div v-for="request in pendingRequests" :key="request.id"
                class="border rounded-lg p-4 bg-gray-50">
             <div class="flex items-start justify-between">
               <div class="flex-1">
@@ -69,59 +69,115 @@
     <!-- Current Users Section -->
     <Card>
       <CardHeader>
-        <CardTitle class="flex items-center">
-          <Users class="w-5 h-5 mr-2" />
-          Usuarios en el Retiro
-        </CardTitle>
-        <CardDescription>
-          Lista de usuarios con acceso a este retiro y sus roles asignados
-        </CardDescription>
+        <div class="flex items-center justify-between">
+          <div>
+            <CardTitle class="flex items-center">
+              <Users class="w-5 h-5 mr-2" />
+              Usuarios en el Retiro
+              <Badge variant="outline" class="ml-2">
+                {{ retreatUsers.length }} total
+              </Badge>
+            </CardTitle>
+            <CardDescription>
+              Lista de usuarios con acceso a este retiro y sus roles asignados
+            </CardDescription>
+          </div>
+          <div class="flex items-center gap-2">
+            <Input
+              v-model="searchQuery"
+              placeholder="Buscar usuario..."
+              class="w-64"
+            >
+              <template #prefix>
+                <Search class="w-4 h-4 text-gray-400" />
+              </template>
+            </Input>
+            <Select v-model="statusFilter">
+              <SelectTrigger class="w-40">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="active">Activos</SelectItem>
+                <SelectItem value="pending">Pendientes</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
-        <div v-if="retreatUsers.length === 0" class="text-center py-8 text-gray-500">
-          No hay usuarios asignados a este retiro
+        <div v-if="filteredUsers.length === 0" class="text-center py-8 text-gray-500">
+          {{ retreatUsers.length === 0 ? 'No hay usuarios asignados a este retiro' : 'No se encontraron usuarios' }}
         </div>
-        <div v-else class="space-y-4">
-          <div v-for="user in retreatUsers" :key="user.userId" 
-               class="border rounded-lg p-4">
-            <div class="flex items-start justify-between">
-              <div class="flex-1">
-                <div class="flex items-center gap-2 mb-2">
-                  <span class="font-medium">Usuario ID: {{ user.userId }}</span>
-                  <Badge :variant="getRoleBadgeVariant('default')">
-                    Usuario
+        <div v-else class="space-y-3">
+          <div v-for="assignment in filteredUsers" :key="assignment.user.id"
+               class="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+            <div class="flex items-start gap-4">
+              <!-- Avatar -->
+              <Avatar class="h-12 w-12 flex-shrink-0">
+                <AvatarImage v-if="assignment.user.photo" :src="assignment.user.photo" />
+                <AvatarFallback>
+                  {{ getInitials(assignment.user.displayName) }}
+                </AvatarFallback>
+              </Avatar>
+
+              <!-- User Info -->
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <h3 class="font-semibold text-base">
+                    {{ assignment.user.displayName }}
+                  </h3>
+                  <Badge :variant="getRoleBadgeVariant(assignment.role.name)">
+                    {{ getRoleDisplayName(assignment.role.name) }}
                   </Badge>
-                  <Badge v-if="user.status !== 'active'" :variant="getStatusBadgeVariant(user.status)">
-                    {{ getStatusText(user.status) }}
+                  <Badge :variant="getStatusBadgeVariant(assignment.status)">
+                    <span v-if="assignment.status === 'pending'" class="flex items-center gap-1">
+                      <Clock class="w-3 h-3" />
+                      {{ getStatusText(assignment.status) }}
+                    </span>
+                    <span v-else>{{ getStatusText(assignment.status) }}</span>
                   </Badge>
-                  <Badge v-if="user.invitedBy" variant="outline" class="text-xs">
-                    Invitado
+                  <Badge v-if="assignment.user.isPending" variant="outline" class="text-amber-600 border-amber-600">
+                    <Mail class="w-3 h-3 mr-1" />
+                    Pendiente de aceptación
                   </Badge>
                 </div>
-                <div v-if="user.expiresAt" class="text-sm text-amber-600 mb-2">
-                  <Clock class="w-4 h-4 inline mr-1" />
-                  Expira el {{ formatDate(user.expiresAt) }}
+
+                <div class="flex items-center gap-2 text-sm text-gray-600 mb-2">
+                  <Mail class="w-4 h-4" />
+                  <span>{{ assignment.user.email }}</span>
                 </div>
-                <div v-if="user.permissionsOverride" class="text-sm text-blue-600 mb-2">
-                  <Shield class="w-4 h-4 inline mr-1" />
-                  Tiene permisos personalizados
+
+                <!-- Inviter & Expiration Info -->
+                <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                  <span v-if="assignment.inviter" class="flex items-center gap-1">
+                    <UserPlus class="w-3 h-3" />
+                    Invitado por <span class="font-medium">{{ assignment.inviter.displayName }}</span>
+                  </span>
+                  <span class="flex items-center gap-1">
+                    <Calendar class="w-3 h-3" />
+                    Invitado el {{ formatDate(assignment.invitedAt) }}
+                  </span>
+                  <span v-if="assignment.expiresAt" class="flex items-center gap-1 text-amber-600">
+                    <Clock class="w-3 h-3" />
+                    Expira el {{ formatDate(assignment.expiresAt) }}
+                  </span>
                 </div>
-                <p v-if="user.invitedBy" class="text-xs text-gray-500">
-                  Invitado el {{ user.invitedAt ? formatDate(user.invitedAt) : 'Fecha desconocida' }}
-                </p>
               </div>
-              <div class="flex gap-2">
-                <Button 
-                  v-if="isRetreatCreator && user.userId !== currentUserId" 
-                  size="sm" 
-                  @click="openPermissionOverrides(user)"
+
+              <!-- Actions -->
+              <div class="flex flex-col gap-2">
+                <Button
+                  v-if="isRetreatCreator && assignment.user.id !== currentUserId"
+                  size="sm"
+                  @click="openPermissionOverrides(assignment)"
                   variant="outline">
                   <Settings class="w-4 h-4" />
                 </Button>
-                <Button 
-                  v-if="isRetreatCreator && user.userId !== currentUserId" 
-                  size="sm" 
-                  @click="removeUser(user)"
+                <Button
+                  v-if="isRetreatCreator && assignment.user.id !== currentUserId"
+                  size="sm"
+                  @click="removeUser(assignment)"
                   variant="destructive">
                   <UserMinus class="w-4 h-4" />
                 </Button>
@@ -145,7 +201,7 @@
         <DialogHeader>
           <DialogTitle>Permisos Personalizados</DialogTitle>
           <DialogDescription>
-            Gestiona permisos personalizados para el usuario ID: {{ selectedUser?.userId }}
+            Gestiona permisos personalizados para el usuario: {{ selectedUser?.user.displayName }}
           </DialogDescription>
         </DialogHeader>
         <div class="space-y-4">
@@ -254,21 +310,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useToast } from '@repo/ui'
 import {
   Card, CardHeader, CardTitle, CardDescription, CardContent,
   Button, Badge, Dialog, DialogContent, DialogHeader, DialogTitle,
   DialogDescription, DialogFooter, Label, Input, Select, SelectTrigger,
-  SelectValue, SelectContent, SelectGroup, SelectItem, Textarea, Switch
+  SelectValue, SelectContent, SelectGroup, SelectItem, Textarea, Switch,
+  Avatar, AvatarImage, AvatarFallback
 } from '@repo/ui'
 import {
   UserPlus, RefreshCw, UserCheck, Users, Check, X, Clock, Shield,
-  Settings, UserMinus, Plus
+  Settings, UserMinus, Plus, Search, Calendar, Mail
 } from 'lucide-vue-next'
 import InviteUsersModal from '@/components/InviteUsersModal.vue'
 import { useAuthStore } from '@/stores/authStore'
+import { useRetreatStore } from '@/stores/retreatStore'
 import api from '@/services/api'
 import type {
   RoleRequest,
@@ -279,21 +337,43 @@ import type {
 import { formatDate } from '@repo/utils'
 
 const route = useRoute()
+const router = useRouter()
 const { toast } = useToast()
 const authStore = useAuthStore()
+const retreatStore = useRetreatStore()
 
-const retreatId = route.params.id as string
+const retreatId = computed(() => route.params.id as string)
 const currentUserId = computed(() => authStore.user?.id || '')
 
+// API Response Type
+interface RetreatUserAssignment {
+  user: User & {
+    isPending?: boolean
+    invitationToken?: string | null
+    invitationExpiresAt?: string | null
+  }
+  role: {
+    id: number
+    name: string
+    description: string
+  }
+  inviter: User | null
+  status: 'active' | 'pending' | 'expired' | 'revoked'
+  invitedAt: string
+  expiresAt: string | null
+}
+
 // State
-const retreatUsers = ref<UserRetreat[]>([])
+const retreatUsers = ref<RetreatUserAssignment[]>([])
 const pendingRequests = ref<RoleRequest[]>([])
 const showInviteModal = ref(false)
 const showPermissionModal = ref(false)
 const showRequestModal = ref(false)
-const selectedUser = ref<UserRetreat | null>(null)
+const selectedUser = ref<RetreatUserAssignment | null>(null)
 const selectedRequest = ref<RoleRequest | null>(null)
 const requestAction = ref<'approve' | 'reject'>('approve')
+const searchQuery = ref('')
+const statusFilter = ref<'all' | 'active' | 'pending'>('all')
 
 // Forms
 
@@ -308,25 +388,45 @@ const overridesForm = ref({
 
 const permissionOverrides = ref<PermissionOverride[]>([])
 
-// Computed
-const isRetreatCreator = computed(() => {
-  // This should be determined by checking if the current user created the retreat
-  return true // Simplified for now
-})
-
-
 const availableResources = Object.values([
   'house', 'inventoryItem', 'retreat', 'participant', 'user', 'table', 'payment'
 ])
 
 const availableOperations = ['create', 'read', 'update', 'delete', 'list']
 
+// Computed
+const isRetreatCreator = computed(() => {
+  // This should be determined by checking if the current user created the retreat
+  return true // Simplified for now
+})
+
+const filteredUsers = computed(() => {
+  let filtered = retreatUsers.value
+
+  // Filter by status
+  if (statusFilter.value !== 'all') {
+    filtered = filtered.filter(u => u.status === statusFilter.value)
+  }
+
+  // Filter by search query
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase()
+    filtered = filtered.filter(u =>
+      u.user.displayName?.toLowerCase().includes(query) ||
+      u.user.email?.toLowerCase().includes(query) ||
+      u.role.name.toLowerCase().includes(query)
+    )
+  }
+
+  return filtered
+})
+
 // Methods
 const loadData = async () => {
   try {
     const [usersResponse, requestsResponse] = await Promise.all([
-      api.get(`/retreat-roles/retreat/${retreatId}/users`),
-      api.get(`/role-requests/retreat/${retreatId}`)
+      api.get(`/retreat-roles/retreat/${retreatId.value}/users`),
+      api.get(`/role-requests/retreat/${retreatId.value}`)
     ])
 
     retreatUsers.value = usersResponse.data
@@ -387,12 +487,12 @@ const processRequestAction = async () => {
   }
 }
 
-const openPermissionOverrides = async (user: UserRetreat) => {
+const openPermissionOverrides = async (user: RetreatUserAssignment) => {
   selectedUser.value = user
   showPermissionModal.value = true
 
   try {
-    const response = await api.get(`/permission-overrides/retreats/${retreatId}/users/${user.userId}/overrides`)
+    const response = await api.get(`/permission-overrides/retreats/${retreatId.value}/users/${user.user.id}/overrides`)
     permissionOverrides.value = response.data
   } catch (error) {
     permissionOverrides.value = []
@@ -415,7 +515,7 @@ const savePermissionOverrides = async () => {
   if (!selectedUser.value) return
 
   try {
-    await api.post(`/permission-overrides/retreats/${retreatId}/users/${selectedUser.value.userId}/overrides`, {
+    await api.post(`/permission-overrides/retreats/${retreatId.value}/users/${selectedUser.value.user.id}/overrides`, {
       overrides: permissionOverrides.value,
       reason: overridesForm.value.reason
     })
@@ -436,17 +536,17 @@ const savePermissionOverrides = async () => {
   }
 }
 
-const removeUser = async (user: UserRetreat) => {
-  if (!confirm(`¿Estás seguro de que quieres eliminar al usuario ID: ${user.userId} del retiro ID: ${retreatId}?`)) {
+const removeUser = async (assignment: RetreatUserAssignment) => {
+  if (!confirm(`¿Estás seguro de que quieres eliminar al usuario ${assignment.user.displayName} del retiro ID: ${retreatId.value}?`)) {
     return
   }
 
   try {
-    await api.delete(`/retreat-roles/${retreatId}/users/${user.userId}`)
+    await api.delete(`/retreat-roles/${retreatId.value}/users/${assignment.user.id}`)
 
     toast({
       title: 'Usuario eliminado',
-      description: `Usuario ID: ${user.userId} ha sido eliminado del retiro ID: ${retreatId}`
+      description: `${assignment.user.displayName} ha sido eliminado del retiro`
     })
 
     loadData()
@@ -460,9 +560,36 @@ const removeUser = async (user: UserRetreat) => {
   }
 }
 
-const getRoleBadgeVariant = (role: any) => {
+const getInitials = (name: string | null | undefined): string => {
+  if (!name) return '??'
+  return name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+const getRoleDisplayName = (role: string): string => {
+  const roleNames: Record<string, string> = {
+    'superadmin': 'Superadministrador',
+    'admin': 'Administrador',
+    'coordinator': 'Coordinador',
+    'viewer': 'Observador',
+    'regular_server': 'Servidor',
+    'treasurer': 'Tesorero',
+    'logistics': 'Logística',
+    'communications': 'Comunicaciones'
+  }
+  return roleNames[role] || role
+}
+
+const getRoleBadgeVariant = (role: string) => {
   const variants: Record<string, any> = {
+    'superadmin': 'destructive',
     'admin': 'default',
+    'coordinator': 'secondary',
+    'viewer': 'outline',
     'regular_server': 'secondary',
     'treasurer': 'outline',
     'logistics': 'secondary',
@@ -493,5 +620,19 @@ const getStatusText = (status: string) => {
 
 onMounted(() => {
   loadData()
+})
+
+// Watch for route changes to reload data when retreat ID changes
+watch(retreatId, () => {
+  if (retreatId.value) {
+    loadData()
+  }
+})
+
+// Watch for retreat changes in the store and navigate to new retreat
+watch(() => retreatStore.selectedRetreatId, (newId, oldId) => {
+  if (newId && newId !== oldId && newId !== retreatId.value) {
+    router.push(`/retreats/${newId}/role-management`)
+  }
 })
 </script>
