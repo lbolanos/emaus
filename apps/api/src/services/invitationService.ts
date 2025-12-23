@@ -1,4 +1,5 @@
 import { AppDataSource } from '../data-source';
+import { In } from 'typeorm';
 import { User } from '../entities/user.entity';
 import { UserRetreat } from '../entities/userRetreat.entity';
 import { UserRole } from '../entities/userRole.entity';
@@ -74,9 +75,8 @@ export class InvitationService {
 			});
 		}
 
-		// Add existing users who are pending
-		const pendingUsers = existingUsers.filter((user) => user.isPending);
-		for (const user of pendingUsers) {
+		// Add all existing users (both pending and active)
+		for (const user of existingUsers) {
 			usersToInvite.set(user.email, { userId: user.id, isNew: false });
 		}
 
@@ -99,7 +99,7 @@ export class InvitationService {
 				usersInvited.push({
 					success: false,
 					email: invitation.email,
-					message: 'User already exists and is not pending',
+					message: 'User not found - please try again',
 				});
 				continue;
 			}
@@ -126,9 +126,13 @@ export class InvitationService {
 				continue;
 			}
 
-			// Check if user already has a UserRetreat record for this retreat
+			// Check if user already has an active or pending UserRetreat record for this retreat
 			const existingUserRetreat = await this.userRetreatRepository.findOne({
-				where: { userId, retreatId: invitation.retreatId },
+				where: {
+					userId,
+					retreatId: invitation.retreatId,
+					status: In(['active', 'pending']),
+				},
 			});
 
 			if (existingUserRetreat) {
@@ -226,50 +230,51 @@ export class InvitationService {
 			return { success: false, message: 'User not found' };
 		}
 
-		if (!user.isPending) {
-			return { success: false, message: 'Invitation already accepted' };
-		}
+		const isNewUser = user.isPending;
 
-		if (user.invitationExpiresAt && user.invitationExpiresAt < new Date()) {
-			return { success: false, message: 'Invitation has expired' };
-		}
-
-		// Validate inviter if provided
-		if (inviterId) {
-			const inviter = await this.userRepository.findOne({
-				where: { id: inviterId },
-				relations: ['userRetreats'],
-			});
-
-			if (!inviter) {
-				return { success: false, message: 'Inviter not found' };
+		// For new users (pending), check invitation expiration
+		if (user.isPending) {
+			if (user.invitationExpiresAt && user.invitationExpiresAt < new Date()) {
+				return { success: false, message: 'Invitation has expired' };
 			}
 
-			// Check if inviter and invitee share at least one retreat
-			const inviterRetreatIds = inviter.userRetreats.map((ur) => ur.retreatId);
-			const inviteeRetreatIds = user.userRetreats.map((ur) => ur.retreatId);
-			const sharedRetreats = inviterRetreatIds.filter((id) => inviteeRetreatIds.includes(id));
+			// Validate inviter if provided for new users
+			if (inviterId) {
+				const inviter = await this.userRepository.findOne({
+					where: { id: inviterId },
+					relations: ['userRetreats'],
+				});
 
-			if (sharedRetreats.length === 0) {
-				return { success: false, message: 'Invalid inviter - no shared retreats' };
+				if (!inviter) {
+					return { success: false, message: 'Inviter not found' };
+				}
+
+				// Check if inviter and invitee share at least one retreat
+				const inviterRetreatIds = inviter.userRetreats.map((ur) => ur.retreatId);
+				const inviteeRetreatIds = user.userRetreats.map((ur) => ur.retreatId);
+				const sharedRetreats = inviterRetreatIds.filter((id) => inviteeRetreatIds.includes(id));
+
+				if (sharedRetreats.length === 0) {
+					return { success: false, message: 'Invalid inviter - no shared retreats' };
+				}
 			}
+
+			// Update user (password will be hashed automatically by User entity)
+			user.displayName = displayName;
+			user.password = password;
+			user.isPending = false;
+			user.invitationToken = undefined;
+			user.invitationExpiresAt = undefined;
+
+			await this.userRepository.save(user);
 		}
 
-		// Update user (password will be hashed automatically by User entity)
-		user.displayName = displayName;
-		user.password = password;
-		user.isPending = false;
-		user.invitationToken = undefined;
-		user.invitationExpiresAt = undefined;
-
-		await this.userRepository.save(user);
-
-		// Update UserRetreat records to active
+		// Update UserRetreat records to active (for both new and existing users)
 		await this.userRetreatRepository.update({ userId, status: 'pending' }, { status: 'active' });
 
 		return {
 			success: true,
-			message: 'Invitation accepted successfully',
+			message: isNewUser ? 'Account created and invitation accepted' : 'Invitation accepted successfully',
 			user: {
 				id: user.id,
 				email: user.email,
