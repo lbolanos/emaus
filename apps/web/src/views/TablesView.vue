@@ -477,14 +477,22 @@ const handleExportTables = async () => {
   }
 };
 
+// Watch for retreat changes to fetch participants
+watch(
+  () => [retreatStore.selectedRetreatId, retreatStore.retreats] as const,
+  ([newRetreatId, retreats]) => {
+    if (newRetreatId && retreats.length > 0) {
+      participantStore.filters.retreatId = newRetreatId;
+      participantStore.filters.isCancelled = false;
+      participantStore.fetchParticipants();
+    }
+  },
+  { immediate: true }
+);
+
 onMounted(() => {
   if (retreatStore.selectedRetreatId) {
     tableMesaStore.fetchTables();
-    // Fetch all participants (walkers and servers)
-    participantStore.filters = {};
-    participantStore.filters.retreatId = retreatStore.selectedRetreatId;
-    participantStore.filters.isCancelled = false;
-    participantStore.fetchParticipants();
   }
 });
 </script>
