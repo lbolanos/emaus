@@ -77,7 +77,7 @@
             @drop="onDropToUnassigned($event, 'server')"
             @dragover.prevent="onDragOverUnassigned($event, 'server')"
             @dragenter.prevent
-            @dragleave="isOverUnassignedServer = false"
+            @dragleave="onDragLeaveUnassigned($event, 'server')"
             class="mt-1 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[40px] max-h-32 overflow-y-auto flex flex-wrap gap-2 transition-colors"
             :class="{ 'border-primary bg-primary/10 border-dashed border-2': isOverUnassignedServer }"
           >
@@ -86,6 +86,7 @@
               :key="server.id"
               draggable="true"
               @dragstart="startDrag($event, server)"
+              @dragend="handleDragEnd"
               :data-participant-id="server.id"
               :data-is-unassigned="true"
               class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium cursor-grab transition-all"
@@ -102,7 +103,7 @@
             @drop="onDropToUnassigned($event, 'walker')"
             @dragover.prevent="onDragOverUnassigned($event, 'walker')"
             @dragenter.prevent
-            @dragleave="isOverUnassignedWalker = false"
+            @dragleave="onDragLeaveUnassigned($event, 'walker')"
             class="mt-1 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[40px] max-h-32 overflow-y-auto flex flex-wrap gap-2 transition-colors"
             :class="{ 'border-primary bg-primary/10 border-dashed border-2': isOverUnassignedWalker }"
           >
@@ -111,6 +112,7 @@
               :key="walker.id"
               draggable="true"
               @dragstart="startDrag($event, walker)"
+              @dragend="handleDragEnd"
               :data-participant-id="walker.id"
               :data-is-unassigned="true"
               class="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium cursor-grab transition-all"
@@ -201,12 +203,14 @@ import { ChevronLeft, ChevronRight, Download, Loader2, MoreVertical, Plus, Refre
 import type { Participant, TableMesa } from '@repo/types';
 import { useI18n } from 'vue-i18n';
 import { exportTablesToDocx } from '@/services/api';
+import { useDragState } from '@/composables/useDragState';
 
 const tableMesaStore = useTableMesaStore();
 const retreatStore = useRetreatStore();
 const participantStore = useParticipantStore();
 const { toast } = useToast();
 const { t } = useI18n();
+const { draggedParticipantType, startDrag: startDragState, endDrag } = useDragState();
 
 const isRebalancing = ref(false);
 const isRebalanceDialogOpen = ref(false);
@@ -374,19 +378,40 @@ const startDrag = (event: DragEvent, participant: Participant) => {
     event.dataTransfer.dropEffect = 'move';
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('application/json', JSON.stringify(participant));
+    startDragState(participant.type);
   }
 };
 
+const handleDragEnd = () => {
+  endDrag();
+  isOverUnassignedServer.value = false;
+  isOverUnassignedWalker.value = false;
+};
+
 const onDragOverUnassigned = (event: DragEvent, type: 'server' | 'walker') => {
-  const participantData = event.dataTransfer?.getData('application/json');
-  if (!participantData) return;
+  // Use the global drag state instead of dataTransfer.getData()
+  // which doesn't work in dragover events due to security restrictions
+  if (draggedParticipantType.value) {
+    if (type === 'server' && draggedParticipantType.value === 'server') {
+      isOverUnassignedServer.value = true;
+    } else if (type === 'walker' && draggedParticipantType.value === 'walker') {
+      isOverUnassignedWalker.value = true;
+    }
+  }
+};
 
-  const participant = JSON.parse(participantData);
+const onDragLeaveUnassigned = (event: DragEvent, type: 'server' | 'walker') => {
+  // Only hide highlight if actually leaving the drop zone (not entering a child element)
+  const target = event.currentTarget as HTMLElement;
+  const relatedTarget = event.relatedTarget as HTMLElement;
 
-  if (type === 'server' && participant.type === 'server') {
-    isOverUnassignedServer.value = true;
-  } else if (type === 'walker' && participant.type === 'walker') {
-    isOverUnassignedWalker.value = true;
+  // If relatedTarget is null or not a descendant of the drop zone, we're actually leaving
+  if (!relatedTarget || !target.contains(relatedTarget)) {
+    if (type === 'server') {
+      isOverUnassignedServer.value = false;
+    } else {
+      isOverUnassignedWalker.value = false;
+    }
   }
 };
 

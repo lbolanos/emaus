@@ -42,6 +42,7 @@
             @dragover="onDragOver($event, 'server', 'lider')"
             @dragleave="onDragLeave('server')"
             @dragstart="startDragFromTable"
+            @dragend="handleDragEnd"
           />
           <ServerDropZone
             :title="$t('tables.coLeader1')"
@@ -53,6 +54,7 @@
             @dragover="onDragOver($event, 'server', 'colider1')"
             @dragleave="onDragLeave('server')"
             @dragstart="startDragFromTable"
+            @dragend="handleDragEnd"
           />
           <ServerDropZone
             :title="$t('tables.coLeader2')"
@@ -64,6 +66,7 @@
             @dragover="onDragOver($event, 'server', 'colider2')"
             @dragleave="onDragLeave('server')"
             @dragstart="startDragFromTable"
+            @dragend="handleDragEnd"
           />
         </div>
 
@@ -82,6 +85,7 @@
               :key="`${walker.id}-${searchIndexKey}`"
               draggable="true"
               @dragstart="startDragFromTable($event, walker, 'walkers')"
+              @dragend="handleDragEnd"
               :title="`${$t('tables.tableCard.retreatId')}: ${walker.id_on_retreat || $t('tables.tableCard.notAvailable')}\n${walker.firstName} ${walker.lastName}\n${$t('tables.invitedBy')}: ${walker.invitedBy || $t('common.unknown')}\n${$t('tables.tableCard.bedLocation')}: ${getBedLocation(walker) || $t('tables.tableCard.notAvailable')}`"
               :style="{ borderColor: walker.family_friend_color }"
               :data-participant-id="walker.id"
@@ -161,6 +165,7 @@ import { useTableMesaStore } from '@/stores/tableMesaStore';
 import { useI18n } from 'vue-i18n';
 import ServerDropZone from './ServerDropZone.vue';
 import { useToast } from '@repo/ui';
+import { useDragState } from '@/composables/useDragState';
 
 import { Button } from '@repo/ui';
 import { Trash2, Eye } from 'lucide-vue-next';
@@ -183,6 +188,7 @@ const emit = defineEmits(['delete']);
 const { t } = useI18n();
 const tableMesaStore = useTableMesaStore();
 const { toast } = useToast();
+const { draggedParticipantType, startDrag: startDragState, endDrag } = useDragState();
 
 const isOverServer = ref(false);
 const isOverWalker = ref(false);
@@ -312,7 +318,15 @@ const startDragFromTable = (event: DragEvent, participant: Participant, role?: '
       sourceRole: sourceRole,
     };
     event.dataTransfer.setData('application/json', JSON.stringify(payload));
+    startDragState(participant.type);
   }
+};
+
+const handleDragEnd = () => {
+  endDrag();
+  isOverServer.value = false;
+  isOverWalker.value = false;
+  dragOverRole.value = null;
 };
 
 const onDrop = (event: DragEvent, role: 'lider' | 'colider1' | 'colider2' | 'walkers') => {
@@ -394,11 +408,11 @@ const onDragOver = (event: DragEvent, type: 'server' | 'walker', role: 'lider' |
   // Prevent drag over if table is not saved yet
   if (!props.table.id) return;
 
-  const participantData = event.dataTransfer?.getData('application/json');
-  if (!participantData) return;
-  const participant: Participant = JSON.parse(participantData);
+  // Use the global drag state instead of dataTransfer.getData()
+  // which doesn't work in dragover events due to security restrictions
+  if (!draggedParticipantType.value) return;
 
-  const isCompatible = participant.type === type;
+  const isCompatible = draggedParticipantType.value === type;
 
   if (type === 'server') {
     // Dragging over a SERVER zone.
@@ -406,8 +420,8 @@ const onDragOver = (event: DragEvent, type: 'server' | 'walker', role: 'lider' |
     if (isCompatible) {
       isOverServer.value = true;
       dragOverRole.value = role;
-      // Check if the spot is occupied
-      if (role && (props.table as any)[role] && (props.table as any)[role]?.id !== participant.id) {
+      // Check if the spot is occupied (we can't get participant.id here, so check if any participant exists)
+      if (role && (props.table as any)[role]) {
         isDropInvalid.value = true;
       } else {
         isDropInvalid.value = false;
