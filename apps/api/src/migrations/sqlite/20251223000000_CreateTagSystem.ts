@@ -8,11 +8,13 @@ export class CreateTagSystem20251223000000 implements MigrationInterface {
 		await queryRunner.query(`
             CREATE TABLE "tags" (
                 "id" varchar PRIMARY KEY NOT NULL,
-                "name" varchar(100) NOT NULL UNIQUE,
+                "name" varchar(100) NOT NULL,
                 "color" varchar(50),
                 "description" text,
+                "retreatId" varchar NOT NULL,
                 "createdAt" datetime NOT NULL DEFAULT (datetime('now')),
-                "updatedAt" datetime NOT NULL DEFAULT (datetime('now'))
+                "updatedAt" datetime NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY ("retreatId") REFERENCES "retreat"("id") ON DELETE CASCADE
             )
         `);
 		console.log('  Created tags table');
@@ -30,7 +32,16 @@ export class CreateTagSystem20251223000000 implements MigrationInterface {
         `);
 		console.log('  Created participant_tags table');
 
-		console.log(' Creating index on participant_tags for performance...');
+		console.log(' Creating indexes for performance...');
+		// Composite unique index on (retreatId, name)
+		await queryRunner.query(`
+            CREATE UNIQUE INDEX "idx_tags_retreatId_name" ON "tags"("retreatId", "name")
+        `);
+		// Index for filtering by retreatId
+		await queryRunner.query(`
+            CREATE INDEX "idx_tags_retreatId" ON "tags"("retreatId")
+        `);
+		// Indexes for participant_tags
 		await queryRunner.query(`
             CREATE INDEX "idx_participant_tags_participantId" ON "participant_tags"("participantId")
         `);
@@ -41,8 +52,10 @@ export class CreateTagSystem20251223000000 implements MigrationInterface {
 	}
 
 	public async down(queryRunner: QueryRunner): Promise<void> {
-		await queryRunner.query(`DROP INDEX "idx_participant_tags_tagId"`);
-		await queryRunner.query(`DROP INDEX "idx_participant_tags_participantId"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_participant_tags_tagId"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_participant_tags_participantId"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_tags_retreatId"`);
+		await queryRunner.query(`DROP INDEX IF EXISTS "idx_tags_retreatId_name"`);
 		await queryRunner.query(`DROP TABLE "participant_tags"`);
 		await queryRunner.query(`DROP TABLE "tags"`);
 	}

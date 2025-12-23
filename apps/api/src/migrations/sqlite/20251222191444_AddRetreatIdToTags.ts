@@ -7,6 +7,25 @@ export class AddRetreatIdToTags20251222191444 implements MigrationInterface {
 		console.log('[MIGRATION] AddRetreatIdToTags - Starting...');
 		console.log(`[MIGRATION] Target retreat ID: ${targetRetreatId}`);
 
+		// Check if tags table exists (it might not exist if CreateTagSystem hasn't run yet)
+		const tableExists = await queryRunner.query(`
+			SELECT name FROM sqlite_master WHERE type='table' AND name='tags'
+		`);
+
+		if (tableExists.length === 0) {
+			console.log('[MIGRATION] Tags table does not exist yet - CreateTagSystem will create it with retreatId. Skipping this migration.');
+			return;
+		}
+
+		// Check if retreatId column already exists
+		const tableInfo = await queryRunner.query(`PRAGMA table_info("tags")`);
+		const hasRetreatId = tableInfo.some((col: any) => col.name === 'retreatId');
+
+		if (hasRetreatId) {
+			console.log('[MIGRATION] Tags table already has retreatId column. Skipping this migration.');
+			return;
+		}
+
 		// 1. Verificar que el retiro existe
 		console.log('[MIGRATION] Checking if target retreat exists...');
 		const retreatExists = await queryRunner.query(`
