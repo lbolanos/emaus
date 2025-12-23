@@ -40,6 +40,20 @@
             </div>
           </div>
 
+          <!-- Column Selector -->
+          <Select v-model="columnCount">
+            <SelectTrigger class="w-[140px]">
+              <LayoutGrid class="h-4 w-4 mr-2" />
+              <SelectValue :placeholder="$t('tables.columns')" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">1 {{ $t('tables.column') }}</SelectItem>
+              <SelectItem value="2">2 {{ $t('tables.columns') }}</SelectItem>
+              <SelectItem value="3">3 {{ $t('tables.columns') }}</SelectItem>
+              <SelectItem value="4">4 {{ $t('tables.columns') }}</SelectItem>
+            </SelectContent>
+          </Select>
+
           <!-- Actions Dropdown -->
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
@@ -141,7 +155,7 @@
       <div v-else-if="tableMesaStore.tables.length === 0" class="mt-8 text-center">
         <p>{{ $t('tables.noTablesFound') }}</p>
       </div>
-      <div v-else class="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 card-container">
+      <div v-else class="mt-8 grid gap-6 card-container" :class="gridColumnsClass">
         <TableCard
           v-for="table in tableMesaStore.tables"
           :key="table.id"
@@ -200,10 +214,10 @@ import { useTableMesaStore } from '@/stores/tableMesaStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import TableCard from './TableCard.vue';
-import { Button, Input } from '@repo/ui';
+import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui';
 import { useToast } from '@repo/ui';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@repo/ui';
-import { ChevronLeft, ChevronRight, Download, Loader2, MoreVertical, Plus, Printer, RefreshCw } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Download, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw } from 'lucide-vue-next';
 import type { Participant, TableMesa } from '@repo/types';
 import { useI18n } from 'vue-i18n';
 import { exportTablesToDocx } from '@/services/api';
@@ -224,6 +238,18 @@ const isDeleteDialogOpen = ref(false);
 const isDeleting = ref(false);
 const tableToDelete = ref<TableMesa | null>(null);
 const isExporting = ref(false);
+const columnCount = ref('3');
+
+// Grid columns class based on selection
+const gridColumnsClass = computed(() => {
+  switch (columnCount.value) {
+    case '1': return 'grid-cols-1';
+    case '2': return 'grid-cols-1 sm:grid-cols-2';
+    case '3': return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
+    case '4': return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
+    default: return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
+  }
+});
 
 // Search functionality
 const searchQuery = ref('');

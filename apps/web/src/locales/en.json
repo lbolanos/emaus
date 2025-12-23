@@ -668,6 +668,8 @@
       "errorDescription": "An error occurred while rebalancing the walkers. Please try again."
     },
     "addTable": "Add Table",
+    "column": "Column",
+    "columns": "Columns",
     "exportDocx": "Print Tables",
     "exporting": "Generating document...",
     "exportSuccess": {
