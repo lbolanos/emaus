@@ -1,7 +1,7 @@
 <template>
   <div class="h-full flex flex-col">
     <!-- Sticky Header -->
-    <div class="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 sm:p-3 lg:p-4 border-b">
+    <div class="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 sm:p-3 lg:p-4 border-b">
       <div class="sm:flex sm:items-center sm:justify-between gap-4">
         <div class="sm:flex-auto">
           <h1 class="text-2xl font-bold leading-6 text-gray-900 dark:text-white">{{ $t('tables.title') }}</h1>
@@ -63,65 +63,68 @@
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Scrollable Content -->
+    <!-- Sticky Unassigned Areas -->
+    <div class="sticky top-[88px] z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-2 sm:px-3 lg:px-4 py-2 border-b">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Unassigned Servers -->
+        <div>
+          <h3 class="text-sm font-medium leading-5 text-gray-900 dark:text-white">{{ $t('tables.unassignedServers') }}</h3>
+          <div
+            @drop="onDropToUnassigned($event, 'server')"
+            @dragover.prevent="onDragOverUnassigned($event, 'server')"
+            @dragenter.prevent
+            @dragleave="isOverUnassignedServer = false"
+            class="mt-1 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[40px] max-h-32 overflow-y-auto flex flex-wrap gap-2 transition-colors"
+            :class="{ 'border-primary bg-primary/10 border-dashed border-2': isOverUnassignedServer }"
+          >
+            <div
+              v-for="server in unassignedServers"
+              :key="server.id"
+              draggable="true"
+              @dragstart="startDrag($event, server)"
+              :data-participant-id="server.id"
+              :data-is-unassigned="true"
+              class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium cursor-grab transition-all"
+              :class="getParticipantHighlightClass(server.id)"
+            >
+              {{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
+            </div>
+          </div>
+        </div>
+        <!-- Unassigned Walkers -->
+        <div>
+          <h3 class="text-sm font-medium leading-5 text-gray-900 dark:text-white">{{ $t('tables.unassignedWalkers') }}</h3>
+          <div
+            @drop="onDropToUnassigned($event, 'walker')"
+            @dragover.prevent="onDragOverUnassigned($event, 'walker')"
+            @dragenter.prevent
+            @dragleave="isOverUnassignedWalker = false"
+            class="mt-1 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[40px] max-h-32 overflow-y-auto flex flex-wrap gap-2 transition-colors"
+            :class="{ 'border-primary bg-primary/10 border-dashed border-2': isOverUnassignedWalker }"
+          >
+            <div
+              v-for="walker in unassignedWalkers"
+              :key="walker.id"
+              draggable="true"
+              @dragstart="startDrag($event, walker)"
+              :data-participant-id="walker.id"
+              :data-is-unassigned="true"
+              class="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium cursor-grab transition-all"
+              :class="getParticipantHighlightClass(walker.id)"
+            >
+              {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scrollable Content -->
     <div class="flex-1 overflow-y-auto p-2 sm:p-3 lg:p-4">
-      <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-      <!-- Unassigned Servers -->
-      <div>
-        <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('tables.unassignedServers') }}</h3>
-        <div
-          @drop="onDropToUnassigned($event, 'server')"
-          @dragover.prevent="onDragOverUnassigned($event, 'server')"
-          @dragenter.prevent
-          @dragleave="isOverUnassignedServer = false"
-          class="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[20px] max-h-60 overflow-y-auto flex flex-wrap gap-2 transition-colors"
-          :class="{ 'border-primary bg-primary/10 border-dashed border-2': isOverUnassignedServer }"
-        >
-          <div
-            v-for="server in unassignedServers"
-            :key="server.id"
-            draggable="true"
-            @dragstart="startDrag($event, server)"
-            :data-participant-id="server.id"
-            :data-is-unassigned="true"
-            class="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-sm font-medium cursor-grab transition-all"
-            :class="getParticipantHighlightClass(server.id)"
-          >
-            {{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
-          </div>
-        </div>
-      </div>
-      <!-- Unassigned Walkers -->
-      <div>
-        <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('tables.unassignedWalkers') }}</h3>
-        <div
-          @drop="onDropToUnassigned($event, 'walker')"
-          @dragover.prevent="onDragOverUnassigned($event, 'walker')"
-          @dragenter.prevent
-          @dragleave="isOverUnassignedWalker = false"
-          class="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[20px] max-h-60 overflow-y-auto flex flex-wrap gap-2 transition-colors"
-          :class="{ 'border-primary bg-primary/10 border-dashed border-2': isOverUnassignedWalker }"
-        >
-          <div
-            v-for="walker in unassignedWalkers"
-            :key="walker.id"
-            draggable="true"
-            @dragstart="startDrag($event, walker)"
-            :data-participant-id="walker.id"
-            :data-is-unassigned="true"
-            class="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm font-medium cursor-grab transition-all"
-            :class="getParticipantHighlightClass(walker.id)"
-          >
-            {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
-          </div>
-        </div>
-      </div>
-    </div>
-
     <div v-if="retreatStore.selectedRetreatId">
       <div v-if="tableMesaStore.isLoading" class="mt-8 text-center">
         <p>{{ $t('participants.loading') }}</p>
