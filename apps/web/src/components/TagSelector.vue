@@ -63,6 +63,7 @@ import type { Tag } from '@repo/types';
 const props = defineProps<{
 	modelValue: Tag[];
 	disabled?: boolean;
+	retreatId: string;
 }>();
 
 const emit = defineEmits<{
@@ -104,7 +105,7 @@ const removeTag = (tag: Tag) => {
 
 const createNewTag = async () => {
 	try {
-		const newTag = await createTag({ name: searchQuery.value });
+		const newTag = await createTag({ name: searchQuery.value }, props.retreatId);
 		allTags.value.push(newTag);
 		selectTag(newTag);
 	} catch (error: any) {
@@ -123,7 +124,7 @@ const closeDropdown = () => {
 };
 
 // Load all tags on mount
-getAllTags()
+getAllTags(props.retreatId)
 	.then((tags) => {
 		allTags.value = tags;
 	})

@@ -81,6 +81,26 @@ export const assignLeaderToTable = async (
 	if (participant.type !== 'server') throw new Error('Only servers can be assigned as leaders.');
 	if (participant.isCancelled) throw new Error('Cannot assign cancelled participants as leaders.');
 
+	// Check for tag conflicts with ALL participants at the table
+	const { checkTableTagConflict } = await import('./tagService');
+
+	// Get all existing participant IDs at the table (leaders + walkers), excluding the role being filled
+	const existingParticipantIds = [
+		table.liderId,
+		table.colider1Id,
+		table.colider2Id,
+		...(table.walkers || []).map((w) => w.id),
+	].filter((id) => id && id !== participantId) as string[];
+
+	if (existingParticipantIds.length > 0) {
+		const { hasConflict, conflicts } = await checkTableTagConflict(existingParticipantIds, participantId);
+		if (hasConflict) {
+			throw new Error(
+				`No se puede asignar: ya existe un participante con la(s) etiqueta(s): ${conflicts.join(', ')}`,
+			);
+		}
+	}
+
 	// Un-assign the participant from any other leader role they might have
 	await AppDataSource.createQueryBuilder()
 		.update(TableMesa)
@@ -126,22 +146,23 @@ export const assignWalkerToTable = async (tableId: string, participantId: string
 	const table = await findTableById(tableId);
 	if (!table) throw new Error('Table not found');
 
-	// Check for tag conflicts with leaders
-	const leaderIds = [table.liderId, table.colider1Id, table.colider2Id].filter(
-		Boolean,
-	) as string[];
+	// Check for tag conflicts with ALL participants at the table
+	const { checkTableTagConflict } = await import('./tagService');
 
-	if (leaderIds.length > 0) {
-		const { getParticipantTags, checkTableTagConflict } = await import('./tagService');
-		const walkerTags = await getParticipantTags(participantId);
+	// Get all existing participant IDs at the table (leaders + walkers)
+	const existingParticipantIds = [
+		table.liderId,
+		table.colider1Id,
+		table.colider2Id,
+		...(table.walkers || []).map((w) => w.id),
+	].filter(Boolean) as string[];
 
-		if (walkerTags.length > 0) {
-			const { hasConflict, conflicts } = await checkTableTagConflict(leaderIds, [participantId]);
-			if (hasConflict) {
-				throw new Error(
-					`No se puede asignar: el líder y el caminante tienen la(s) etiqueta(s): ${conflicts.join(', ')}`,
-				);
-			}
+	if (existingParticipantIds.length > 0) {
+		const { hasConflict, conflicts } = await checkTableTagConflict(existingParticipantIds, participantId);
+		if (hasConflict) {
+			throw new Error(
+				`No se puede asignar: ya existe un participante con la(s) etiqueta(s): ${conflicts.join(', ')}`,
+			);
 		}
 	}
 

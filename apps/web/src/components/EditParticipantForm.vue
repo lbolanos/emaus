@@ -140,7 +140,7 @@ const handleSave = async () => {
   delete (participantToSave as any).participantTags;
 
   // Log what's being sent for debugging
-  console.log('Saving participant:', JSON.stringify(participantToSave, null, 2));
+  //console.log('Saving participant:', JSON.stringify(participantToSave, null, 2));
 
   // Note: retreatBedId has been removed from participant entity
   // Bed assignments are now handled through the retreat_bed table only
@@ -367,6 +367,7 @@ const calculateAge = (birthDate: string | Date) => {
         <TagSelector
           v-if="getColumnType(key) === 'tags'"
           v-model="selectedTags"
+          :retreatId="participant.retreatId"
           class="w-full"
         />
       </template>

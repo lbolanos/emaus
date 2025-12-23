@@ -106,7 +106,11 @@ export const useParticipantStore = defineStore('participant', () => {
 			// Log the data being sent for debugging
 			//console.log('Updating participant:', id, 'with data:', JSON.stringify(data, null, 2));
 
-			const response = await api.put(`/participants/${id}`, data);
+			await api.put(`/participants/${id}`, data);
+
+			// Fetch the updated participant data including tags
+			const response = await api.get(`/participants/${id}`);
+
 			const index = participants.value.findIndex((p) => p.id === id);
 			if (index !== -1) {
 				participants.value[index] = response.data;

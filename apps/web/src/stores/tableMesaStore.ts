@@ -96,7 +96,8 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
 			}
 		} catch (e: any) {
 			console.error(`Failed to assign walker`, e);
-			toast({ title: 'Error', description: 'Failed to assign walker', variant: 'destructive' });
+			const errorMessage = e.response?.data?.message || e.message || 'Failed to assign walker';
+			toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
 		}
 	};
 

@@ -230,6 +230,41 @@ const onDrop = (event: DragEvent, role: 'lider' | 'colider1' | 'colider2' | 'wal
     return;
   }
 
+  // Get ALL participants at the table (leaders + walkers)
+  const allParticipants = [
+    props.table.lider,
+    props.table.colider1,
+    props.table.colider2,
+    ...(props.table.walkers || [])
+  ].filter(Boolean);
+
+  // Check tag conflicts with ALL participants
+  if (participant.tags && participant.tags.length > 0) {
+    const newParticipantTagIds = new Set(participant.tags.map((t: any) => t.tag?.id).filter(Boolean) as string[]);
+
+    for (const existingParticipant of allParticipants) {
+      // Skip if it's the same participant (moving within the table)
+      if (existingParticipant.id === participant.id) continue;
+
+      if (existingParticipant.tags) {
+        const existingTagIds = new Set(existingParticipant.tags.map((t: any) => t.tag?.id).filter(Boolean) as string[]);
+        const hasConflict = [...newParticipantTagIds].some((id) => existingTagIds.has(id));
+        if (hasConflict) {
+          const conflictingTags = participant.tags
+            .filter((t: any) => t.tag && existingTagIds.has(t.tag.id))
+            .map((t: any) => t.tag?.name)
+            .filter(Boolean);
+          toast({
+            title: 'Conflicto de etiquetas',
+            description: `Ya existe un participante con las etiquetas: ${conflictingTags.join(', ')}`,
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+    }
+  }
+
   if (role === 'walkers' && participant.type === 'walker') {
     // Check family/friend color conflicts (walker-walker)
     if (participant.family_friend_color) {
@@ -242,30 +277,6 @@ const onDrop = (event: DragEvent, role: 'lider' | 'colider1' | 'colider2' | 'wal
           variant: 'destructive',
         });
         return;
-      }
-    }
-
-    // Check tag conflicts with leaders (leader-walker)
-    const leaders = [props.table.lider, props.table.colider1, props.table.colider2].filter(Boolean);
-    if (leaders.length > 0 && participant.tags && participant.tags.length > 0) {
-      const walkerTagIds = new Set(participant.tags.map((t: any) => t.tag?.id).filter(Boolean) as string[]);
-      for (const leader of leaders) {
-        if (leader.tags) {
-          const leaderTagIds = new Set(leader.tags.map((t: any) => t.tag?.id).filter(Boolean) as string[]);
-          const hasConflict = [...walkerTagIds].some((id) => leaderTagIds.has(id));
-          if (hasConflict) {
-            const conflictingTags = participant.tags
-              .filter((t: any) => t.tag && leaderTagIds.has(t.tag.id))
-              .map((t: any) => t.tag?.name)
-              .filter(Boolean);
-            toast({
-              title: t('tables.errors.tagConflict'),
-              description: t('tables.errors.tagConflictDescription', { tags: conflictingTags.join(', ') }),
-              variant: 'destructive',
-            });
-            return;
-          }
-        }
       }
     }
 

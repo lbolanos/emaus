@@ -9,9 +9,15 @@ const participantTagRepository = AppDataSource.getRepository(ParticipantTag);
 const participantRepository = AppDataSource.getRepository(Participant);
 
 /**
- * Get all tags
+ * Get all tags, optionally filtered by retreatId
  */
-export const getAllTags = async () => {
+export const getAllTags = async (retreatId?: string) => {
+	if (retreatId) {
+		return tagRepository.find({
+			where: { retreatId },
+			order: { name: 'ASC' },
+		});
+	}
 	return tagRepository.find({ order: { name: 'ASC' } });
 };
 
@@ -66,14 +72,20 @@ export const removeTagFromParticipant = async (participantId: string, tagId: str
 /**
  * Create new tag
  */
-export const createTag = async (tagData: { name: string; color?: string; description?: string }) => {
-	const existingTag = await tagRepository.findOneBy({ name: tagData.name });
+export const createTag = async (
+	tagData: { name: string; color?: string; description?: string },
+	retreatId: string,
+) => {
+	const existingTag = await tagRepository.findOne({
+		where: { name: tagData.name, retreatId },
+	});
 	if (existingTag) {
-		throw new Error('Tag with this name already exists');
+		throw new Error('Tag with this name already exists in this retreat');
 	}
 
 	const tag = tagRepository.create({
 		...tagData,
+		retreatId,
 		id: uuidv4(),
 	});
 	return tagRepository.save(tag);
@@ -85,15 +97,23 @@ export const createTag = async (tagData: { name: string; color?: string; descrip
 export const updateTag = async (
 	tagId: string,
 	tagData: { name?: string; color?: string; description?: string },
+	retreatId: string,
 ) => {
 	const tag = await tagRepository.findOneBy({ id: tagId });
 	if (!tag) throw new Error('Tag not found');
 
-	// Check if name is being changed and if new name already exists
+	// Verify tag belongs to the retreat
+	if (tag.retreatId !== retreatId) {
+		throw new Error('Tag does not belong to this retreat');
+	}
+
+	// Check if name is being changed and if new name already exists in this retreat
 	if (tagData.name && tagData.name !== tag.name) {
-		const existingTag = await tagRepository.findOneBy({ name: tagData.name });
+		const existingTag = await tagRepository.findOne({
+			where: { name: tagData.name, retreatId },
+		});
 		if (existingTag) {
-			throw new Error('Tag with this name already exists');
+			throw new Error('Tag with this name already exists in this retreat');
 		}
 	}
 
@@ -104,7 +124,15 @@ export const updateTag = async (
 /**
  * Delete tag
  */
-export const deleteTag = async (tagId: string) => {
+export const deleteTag = async (tagId: string, retreatId: string) => {
+	const tag = await tagRepository.findOneBy({ id: tagId });
+	if (!tag) throw new Error('Tag not found');
+
+	// Verify tag belongs to the retreat
+	if (tag.retreatId !== retreatId) {
+		throw new Error('Tag does not belong to this retreat');
+	}
+
 	const result = await tagRepository.delete(tagId);
 	if (result.affected === 0) {
 		throw new Error('Tag not found');
@@ -112,41 +140,44 @@ export const deleteTag = async (tagId: string) => {
 };
 
 /**
- * Check for tag conflicts between leaders and walkers at a table
+ * Check for tag conflicts between any participants at a table
  * Returns list of conflicting tag names
  */
 export const checkTableTagConflict = async (
-	leaderIds: string[],
-	walkerIds: string[],
+	existingParticipantIds: string[],
+	newParticipantId: string,
 ): Promise<{ hasConflict: boolean; conflicts: string[] }> => {
-	if (leaderIds.length === 0 || walkerIds.length === 0) {
+	if (existingParticipantIds.length === 0) {
 		return { hasConflict: false, conflicts: [] };
 	}
 
-	// Get tags for all leaders
-	const leaderTags = await participantTagRepository
+	// Get tags for the new participant
+	const newParticipantTags = await participantTagRepository
 		.createQueryBuilder('pt')
 		.leftJoinAndSelect('pt.tag', 'tag')
-		.where('pt.participantId IN (:...leaderIds)', { leaderIds })
+		.where('pt.participantId = :newParticipantId', { newParticipantId })
 		.getMany();
 
-	// Get tags for all walkers
-	const walkerTags = await participantTagRepository
+	if (newParticipantTags.length === 0) {
+		return { hasConflict: false, conflicts: [] };
+	}
+
+	// Get tags for all existing participants at the table
+	const existingParticipantTags = await participantTagRepository
 		.createQueryBuilder('pt')
 		.leftJoinAndSelect('pt.tag', 'tag')
-		.where('pt.participantId IN (:...walkerIds)', { walkerIds })
+		.where('pt.participantId IN (:...existingParticipantIds)', { existingParticipantIds })
 		.getMany();
 
-	// Extract tag IDs
-	const leaderTagIds = new Set(leaderTags.map((pt) => pt.tagId));
-	const walkerTagIds = new Set(walkerTags.map((pt) => pt.tagId));
+	// Extract tag IDs for new participant
+	const newParticipantTagIds = new Set(newParticipantTags.map((pt) => pt.tagId));
 
 	// Find intersections
 	const conflicts: string[] = [];
-	for (const tagId of walkerTagIds) {
-		if (leaderTagIds.has(tagId)) {
-			const tag = leaderTags.find((pt) => pt.tagId === tagId)?.tag;
-			if (tag) {
+	for (const existingPt of existingParticipantTags) {
+		if (newParticipantTagIds.has(existingPt.tagId)) {
+			const tag = existingPt.tag;
+			if (tag && !conflicts.includes(tag.name)) {
 				conflicts.push(tag.name);
 			}
 		}

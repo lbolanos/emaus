@@ -8,6 +8,7 @@ import { RetreatInventory } from './retreatInventory.entity';
 import { UserRetreat } from './userRetreat.entity';
 import { User } from './user.entity';
 import { Payment } from './payment.entity';
+import { Tag } from './tag.entity';
 
 @Entity()
 export class Retreat {
@@ -32,6 +33,9 @@ export class Retreat {
 
 	@OneToMany(() => Participant, (participant) => participant.retreat)
 	participants!: Participant[];
+
+	@OneToMany(() => Tag, (tag) => tag.retreat)
+	tags!: Tag[];
 
 	@OneToMany(() => TableMesa, (table) => table.retreat)
 	tablesMesa!: TableMesa[];

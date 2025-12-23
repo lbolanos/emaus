@@ -184,6 +184,7 @@ export const tagSchema = z.object({
 	name: z.string().min(1).max(100),
 	color: z.string().regex(/^#[0-9A-F]{6}$/i).optional(),
 	description: z.string().optional(),
+	retreatId: idSchema,
 	createdAt: z.coerce.date(),
 	updatedAt: z.coerce.date(),
 });
@@ -301,7 +302,7 @@ export const participantSchema = z.object({
 	arrivesOnOwn: z.preprocess((val) => (val === null ? undefined : val), z.boolean().optional()),
 	retreatId: idSchema,
 	tableId: idSchema.nullable().optional(),
-	tableMesa: tableMesaSchema.optional(),
+	tableMesa: tableMesaSchema.nullable().optional(),
 	retreatBed: retreatBedSchema.nullable().optional(),
 	tags: z.array(participantTagSchema).optional(),
 });

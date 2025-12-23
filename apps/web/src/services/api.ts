@@ -608,8 +608,9 @@ export const cleanupTelemetryData = async (retentionDays: number = 90) => {
 };
 
 // Tag API functions
-export const getAllTags = async () => {
-	const response = await api.get('/tags');
+export const getAllTags = async (retreatId?: string) => {
+	const params = retreatId ? { retreatId } : {};
+	const response = await api.get('/tags', { params });
 	return response.data;
 };
 
@@ -618,21 +619,27 @@ export const getTagById = async (tagId: string) => {
 	return response.data;
 };
 
-export const createTag = async (tagData: { name: string; color?: string; description?: string }) => {
-	const response = await api.post('/tags', tagData);
+export const createTag = async (
+	tagData: { name: string; color?: string; description?: string },
+	retreatId: string,
+) => {
+	const response = await api.post('/tags', { ...tagData, retreatId });
 	return response.data;
 };
 
 export const updateTag = async (
 	tagId: string,
 	tagData: { name?: string; color?: string; description?: string },
+	retreatId: string,
 ) => {
-	const response = await api.put(`/tags/${tagId}`, tagData);
+	const response = await api.put(`/tags/${tagId}`, { ...tagData, retreatId });
 	return response.data;
 };
 
-export const deleteTag = async (tagId: string) => {
-	const response = await api.delete(`/tags/${tagId}`);
+export const deleteTag = async (tagId: string, retreatId: string) => {
+	const response = await api.delete(`/tags/${tagId}`, {
+		params: { retreatId },
+	});
 	return response.data;
 };
 
