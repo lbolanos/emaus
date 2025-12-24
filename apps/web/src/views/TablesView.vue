@@ -239,7 +239,12 @@ const isDeleteDialogOpen = ref(false);
 const isDeleting = ref(false);
 const tableToDelete = ref<TableMesa | null>(null);
 const isExporting = ref(false);
-const columnCount = ref('3');
+const columnCount = ref(localStorage.getItem('tables_column_count') || '3');
+
+// Persist column count to local storage
+watch(columnCount, (newValue) => {
+  localStorage.setItem('tables_column_count', newValue);
+});
 
 // Grid columns class based on selection
 const gridColumnsClass = computed(() => {
