@@ -154,7 +154,8 @@
     "actions": "Acciones",
     "loading": "Cargando...",
     "selectRetreatPrompt": "Por favor, selecciona un retiro para ver los participantes.",
-    "noParticipantsFound": "No se encontraron caminantes para este retiro.",
+    "noParticipantsFound": "No se encontraron participantes para este retiro.",
+    "noParticipantsMatch": "Ningún participante coincide con los filtros.",
     "addParticipant": "Agregar Participante",
     "selectColumns": "Seleccionar Columnas",
     "delete": {
@@ -246,7 +247,38 @@
       "retreatBedId": "ID Cuarto"
     },
     "filters": {
-      "title": "Filtros Avanzados"
+      "title": "Filtros Avanzados",
+      "tabs": {
+        "health": "Salud",
+        "logistics": "Logística",
+        "financial": "Financiero",
+        "contact": "Contacto",
+        "registration": "Registro",
+        "tags": "Etiquetas"
+      },
+      "noTagsFound": "No se encontraron etiquetas para este retiro.",
+      "options": {
+        "unassigned": "Sin asignar",
+        "paymentStatus": {
+          "paid": "Pagado",
+          "partial": "Parcial",
+          "unpaid": "No pagado",
+          "overpaid": "Sobrepagado"
+        },
+        "maritalStatus": {
+          "single": "Soltero/a",
+          "married": "Casado/a",
+          "separated_divorced": "Separado/a/Divorciado/a",
+          "widowed": "Viudo/a",
+          "other": "Otro"
+        }
+      },
+      "placeholder": {
+        "selectTable": "Selecciona una mesa",
+        "selectRoom": "Selecciona una habitación",
+        "selectPayment": "Selecciona estado de pago",
+        "selectMarital": "Selecciona estado civil"
+      }
     },
     "birthdayDuringRetreat": "Cumpleaños durante el retiro",
     "selectedCount": "{count} participante seleccionado | {count} participantes seleccionados",
@@ -1014,6 +1046,13 @@
     "previous": "Anterior",
     "noResults": "No se encontraron resultados.",
     "searchPlaceholder": "Buscar...",
+    "filters": {
+      "title": "Filtros",
+      "clearAll": "Borrar todo",
+      "active": "Activo",
+      "none": "Ninguno",
+      "all": "Todos"
+    },
     "columns": "columnas",
     "actions": {
       "cancel": "Cancelar",
@@ -1023,7 +1062,8 @@
       "show": "Mostrar",
       "hide": "Ocultar",
       "showMore": "Ver más",
-      "showLess": "Ver menos"
+      "showLess": "Ver menos",
+      "submit": "Enviar"
     },
     "click": "Clic",
     "import": {

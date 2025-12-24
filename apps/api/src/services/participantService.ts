@@ -24,19 +24,10 @@ export const findAllParticipants = async (
 	isCancelled?: boolean,
 	relations: string[] = [],
 	includePayments: boolean = false,
+	tagIds?: string[],
 ): Promise<Participant[]> => {
-	const where: any = {};
-
-	if (retreatId) {
-		where.retreatId = retreatId;
-	} else {
+	if (!retreatId) {
 		throw new Error('retreatId is required');
-	}
-	if (type) {
-		where.type = type;
-	}
-	if (typeof isCancelled === 'boolean') {
-		where.isCancelled = isCancelled;
 	}
 
 	// Always include payments, retreat, and tags relations for payment calculations and tag display
@@ -45,14 +36,47 @@ export const findAllParticipants = async (
 		allRelations.push('payments.recordedByUser');
 	}
 
-	return participantRepository.find({
-		where,
-		relations: allRelations,
-		order: {
-			lastName: 'ASC',
-			firstName: 'ASC',
-		},
+	const queryBuilder = participantRepository.createQueryBuilder('participant');
+
+	// Apply base relations
+	allRelations.forEach((relation) => {
+		const parts = relation.split('.');
+		if (parts.length === 1) {
+			queryBuilder.leftJoinAndSelect(`participant.${parts[0]}`, parts[0]);
+		} else {
+			// Handle nested relations like 'tags.tag'
+			queryBuilder.leftJoinAndSelect(`${parts[0]}.${parts[1]}`, parts[1]);
+		}
 	});
+
+	// Apply base filters
+	queryBuilder.where('participant.retreatId = :retreatId', { retreatId });
+
+	if (type) {
+		queryBuilder.andWhere('participant.type = :type', { type });
+	}
+
+	if (typeof isCancelled === 'boolean') {
+		queryBuilder.andWhere('participant.isCancelled = :isCancelled', { isCancelled });
+	}
+
+	// Apply tag filter if provided
+	if (tagIds && tagIds.length > 0) {
+		console.log('[Service] findAllParticipants - Applying tagIds filter:', tagIds);
+		const subQuery = queryBuilder
+			.subQuery()
+			.select('pt.participantId')
+			.from('participant_tags', 'pt')
+			.where('pt.tagId IN (:...tagIds)')
+			.getQuery();
+		queryBuilder.andWhere(`participant.id IN ${subQuery}`);
+		queryBuilder.setParameter('tagIds', tagIds);
+	}
+
+	return queryBuilder
+		.orderBy('participant.lastName', 'ASC')
+		.addOrderBy('participant.firstName', 'ASC')
+		.getMany();
 };
 
 export const findParticipantById = async (
@@ -157,10 +181,10 @@ const assignBedToParticipant = async (
 
 	// Debug: Check if we're getting the same bed for different participants
 	/*if (bed) {
-    console.log(`BED ASSIGNMENT: Participant ${participant.id} gets bed ${bed.id} (${bed.roomNumber}-${bed.bedNumber})`);
-    console.log(`BED ASSIGNMENT: Excluded beds: ${excludedBedIds.join(', ')}`);
+	console.log(`BED ASSIGNMENT: Participant ${participant.id} gets bed ${bed.id} (${bed.roomNumber}-${bed.bedNumber})`);
+	console.log(`BED ASSIGNMENT: Excluded beds: ${excludedBedIds.join(', ')}`);
   } else {
-    console.log(`BED ASSIGNMENT: No bed found for participant ${participant.id}`);
+	console.log(`BED ASSIGNMENT: No bed found for participant ${participant.id}`);
   }*/
 
 	return bed?.id;
@@ -1102,7 +1126,7 @@ const createRetreatBedForRoom = async (
 			if (
 				!existingBed.participantId &&
 				existingBed.defaultUsage ===
-					(participantType === 'walker' ? BedUsage.CAMINANTE : BedUsage.SERVIDOR)
+				(participantType === 'walker' ? BedUsage.CAMINANTE : BedUsage.SERVIDOR)
 			) {
 				console.log(
 					`✅ Using existing unassigned bed ${bedNumber} in room "${roomNumber}" for ${participantType}`,

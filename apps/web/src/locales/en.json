@@ -142,7 +142,8 @@
     "actions": "Actions",
     "loading": "Loading...",
     "selectRetreatPrompt": "Please select a retreat to see the participants.",
-    "noParticipantsFound": "No walkers found for this retreat.",
+    "noParticipantsFound": "No participants found for this retreat.",
+    "noParticipantsMatch": "No participants match your filters.",
     "addParticipant": "Add Participant",
     "selectColumns": "Select columns",
     "delete": {
@@ -276,10 +277,42 @@
       "lastUpdatedDate": "Last Updated",
       "retreatId": "Retreat ID",
       "tableId": "Table ID",
+      "tags": "Tags",
       "retreatBedId": "Bed ID"
     },
     "filters": {
-      "title": "Advanced Filters"
+      "title": "Advanced Filters",
+      "tabs": {
+        "health": "Health",
+        "logistics": "Logistics",
+        "financial": "Financial",
+        "contact": "Contact",
+        "registration": "Registration",
+        "tags": "Tags"
+      },
+      "noTagsFound": "No tags found for this retreat.",
+      "options": {
+        "unassigned": "Unassigned",
+        "paymentStatus": {
+          "paid": "Paid",
+          "partial": "Partial",
+          "unpaid": "Unpaid",
+          "overpaid": "Overpaid"
+        },
+        "maritalStatus": {
+          "single": "Single",
+          "married": "Married",
+          "separated_divorced": "Separated/Divorced",
+          "widowed": "Widowed",
+          "other": "Other"
+        }
+      },
+      "placeholder": {
+        "selectTable": "Select a table",
+        "selectRoom": "Select a room",
+        "selectPayment": "Select payment status",
+        "selectMarital": "Select marital status"
+      }
     },
     "birthdayDuringRetreat": "Birthday during retreat",
     "selectedCount": "{count} participant selected | {count} participants selected",
@@ -1039,6 +1072,13 @@
     "previous": "Previous",
     "noResults": "No results found.",
     "searchPlaceholder": "Search...",
+    "filters": {
+      "title": "Filters",
+      "clearAll": "Clear All",
+      "active": "Active",
+      "none": "None",
+      "all": "All"
+    },
     "columns": "columns",
     "actions": {
       "cancel": "Cancel",

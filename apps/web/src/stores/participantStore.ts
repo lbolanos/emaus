@@ -1,16 +1,31 @@
 import { defineStore } from 'pinia';
 import { ref, reactive } from 'vue';
 import { useToast } from '@repo/ui';
-import type { Participant, CreateParticipant } from '@repo/types';
+import type { Participant, CreateParticipant, Tag } from '@repo/types';
 import { api } from '@/services/api';
 
 export const useParticipantStore = defineStore('participant', () => {
 	const participants = ref<Participant[]>([]);
+	const tags = ref<Tag[]>([]);
 	const loading = ref(false);
+	const loadingTags = ref(false);
 	const error = ref<string | null>(null);
 	const filters = reactive<Record<string, any>>({});
 	const columnSelections = reactive<Record<string, string[]>>({});
 	const { toast } = useToast();
+
+	async function fetchTags(retreatId: string) {
+		if (!retreatId) return;
+		try {
+			loadingTags.value = true;
+			const response = await api.get('/tags', { params: { retreatId } });
+			tags.value = response.data;
+		} catch (error: any) {
+			console.error('Failed to fetch tags:', error);
+		} finally {
+			loadingTags.value = false;
+		}
+	}
 
 	async function fetchParticipants() {
 		if (!filters.retreatId) {
@@ -28,6 +43,7 @@ export const useParticipantStore = defineStore('participant', () => {
 			error.value = null;
 			// Always include payments to calculate totalPaid
 			const paramsWithPayments = { ...filters, includePayments: true };
+			console.log('[Store] fetchParticipants - Request Params:', paramsWithPayments);
 			const response = await api.get('/participants', { params: paramsWithPayments });
 			participants.value = response.data;
 		} catch (error: any) {
@@ -190,10 +206,13 @@ export const useParticipantStore = defineStore('participant', () => {
 
 	return {
 		participants,
+		tags,
 		loading,
+		loadingTags,
 		error,
 		filters,
 		columnSelections,
+		fetchTags,
 		fetchParticipants,
 		createParticipant,
 		importParticipants,

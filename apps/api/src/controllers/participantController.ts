@@ -3,13 +3,29 @@ import * as participantService from '../services/participantService';
 
 export const getAllParticipants = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { retreatId, type, isCancelled: isCancelled, includePayments } = req.query;
+		const { retreatId, type, isCancelled: isCancelled, includePayments, tagIds } = req.query;
+
+		console.log('[API] getAllParticipants - Query Params:', { retreatId, type, isCancelled, includePayments, tagIds });
+
+		// Parse tagIds from query if present
+		let parsedTagIds: string[] | undefined;
+		if (tagIds) {
+			if (Array.isArray(tagIds)) {
+				parsedTagIds = tagIds as string[];
+			} else if (typeof tagIds === 'string') {
+				parsedTagIds = tagIds.split(',').filter(Boolean);
+			}
+		}
+
+		console.log('[API] getAllParticipants - Parsed TagIDs:', parsedTagIds);
+
 		const participants = await participantService.findAllParticipants(
 			retreatId as string | undefined,
 			type as 'walker' | 'server' | 'waiting' | undefined,
 			isCancelled === 'true',
 			['tableMesa', 'retreatBed'], // Include table and bed relations
 			includePayments === 'true', // Include payment details when requested
+			parsedTagIds,
 		);
 		res.json(participants);
 	} catch (error) {

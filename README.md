@@ -297,23 +297,22 @@ no deja enviar correo de invitacion si el usuario existe
 en el inventario agregar un campo que indique cuantas unidades deben comprarse y sacar un reporte de inventario a comprar.
 
 agregar un filtro de quienes han pagado en la lista de caminantes.
+listado de caminantes imprimir.
 
 deberia enviar directo al link despues de accept InvitationController
-que no salga en negro el tabla de mesas cuando se imprime a documento
+
 al dar clic en print tables, seleccionar los campos que se deben imprimir.
 
 
 pendiente en listado de pagos que ordene
 listado de pagos que se pueda imprimir
-listado de caminantes imprimir.
+
 imprimir bag report
 nombre del retiro en gafete. No colocar el piso solo el cuarto y cama.
 poder imprimir solo algunos gafetes.
 
 
 en caso de que no se pueda en ninguna mesa que hacer con ese caminante
-
-
 
 al selecciona menu casas de retiro debe desaparecer la seleccion de retiro porque es independiente del retiro.
 This will use Turborepo to run the `dev` script in both `apps/api` and `apps/web`.

@@ -52,7 +52,7 @@ import {
 } from '@repo/ui';
 
 
-import { ArrowUpDown, Trash2, Edit, FileUp, FileDown, Columns, ListFilter, MoreVertical, Plus } from 'lucide-vue-next';
+import { ArrowUpDown, Trash2, Edit, FileUp, FileDown, Columns, ListFilter, MoreVertical, Plus, X } from 'lucide-vue-next';
 import { useToast } from '@repo/ui';
 
 // Traducción (simulada, usa tu sistema de i18n)
@@ -85,6 +85,7 @@ const participantStore = useParticipantStore();
 const { participants: allParticipants, loading, error } = storeToRefs(participantStore);
 const retreatStore = useRetreatStore();
 const { selectedRetreatId, serverRegistrationLink, walkerRegistrationLink } = storeToRefs(retreatStore);
+const { tags } = storeToRefs(participantStore);
 
 const participants = computed(() => {
     if (props.type === undefined) {
@@ -145,8 +146,139 @@ const isCancelled = computed(() => {
 
 // Watch for filter changes
 watch(filters, (newFilters) => {
-  // Filters updated
+  console.log('[Component] ParticipantList - Filters changed:', newFilters);
+  // Sync local filters with store filters for API calls
+  const actualFilters = extractFilters(newFilters);
+  console.log('[Component] ParticipantList - Extracted filters:', actualFilters);
+  
+  // Merge retreatId which is mandatory
+  if (selectedRetreatId.value) {
+    actualFilters.retreatId = selectedRetreatId.value;
+  }
+  
+  // Update store filters
+  Object.keys(participantStore.filters).forEach(key => {
+    delete participantStore.filters[key];
+  });
+  Object.assign(participantStore.filters, actualFilters);
+  
+  // Trigger API fetch for server-side filtering
+  participantStore.fetchParticipants();
 }, { deep: true });
+
+// --- FILTER LOGIC HELPERS ---
+const extractFilters = (obj: any): Record<string, any> => {
+    if (!obj || typeof obj !== 'object') return {};
+    
+    // Deep clone to avoid mutating the original
+    const result: Record<string, any> = {};
+    
+    Object.entries(obj).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+            // Skip empty arrays (e.g., tagIds: [])
+            if (Array.isArray(value) && value.length === 0) return;
+            result[key] = value;
+        }
+    });
+    
+    return result;
+};
+
+const activeDynamicFiltersCount = computed(() => {
+    const actualFilters = extractFilters(filters.value);
+    return Object.values(actualFilters).filter(v => v !== undefined && v !== null && v !== '').length;
+});
+
+const activeFiltersList = computed(() => {
+    const list: { key: string; label: string; value: any; type: 'search' | 'status' | 'dynamic' }[] = [];
+    
+    if (searchQuery.value) {
+        list.push({ 
+            key: 'search', 
+            label: $t('common.searchPlaceholder'), 
+            value: searchQuery.value, 
+            type: 'search' 
+        });
+    }
+    
+    if (filterStatus.value === 'canceled') {
+        list.push({ 
+            key: 'status', 
+            label: $t('participants.status.title'), 
+            value: $t('participants.status.canceled'), 
+            type: 'status' 
+        });
+    }
+    
+    const actualFilters = extractFilters(filters.value);
+    Object.entries(actualFilters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+            const col = allColumns.value.find(c => c.key === key);
+            const label = col ? $t(col.label) : key;
+            let displayValue = value;
+
+            // Handle boolean filters
+            if (typeof value === 'boolean') {
+                displayValue = value ? $t('common.yes') : $t('common.no');
+            }
+            // Handle tshirtSize filter
+            else if (key === 'tshirtSize') {
+                displayValue = $t(`walkerRegistration.fields.tshirtSize.options.${value}`);
+            }
+            // Handle paymentStatus filter
+            else if (key === 'paymentStatus') {
+                displayValue = $t(`participants.filters.options.paymentStatus.${value}`);
+            }
+            // Handle maritalStatus filter
+            else if (key === 'maritalStatus') {
+                displayValue = $t(`participants.filters.options.maritalStatus.${value}`);
+            }
+            // Handle unassigned value
+            else if (value === 'unassigned') {
+                displayValue = $t('participants.filters.options.unassigned');
+            }
+            // Handle tagIds filter
+            else if (key === 'tagIds' && Array.isArray(value) && value.length > 0) {
+                const tagNames = value.map(id => {
+                    const tag = tags.value.find(t => t.id === id);
+                    return tag ? tag.name : id;
+                });
+                displayValue = tagNames.join(', ');
+            }
+
+            list.push({ key, label, value: displayValue, type: 'dynamic' });
+        }
+    });
+    
+    return list;
+});
+
+const removeFilter = (filterKey: string, type: 'search' | 'status' | 'dynamic') => {
+    if (type === 'search') {
+        searchQuery.value = '';
+    } else if (type === 'status') {
+        filterStatus.value = 'active';
+    } else {
+        const newFilters = { ...filters.value };
+        delete newFilters[filterKey];
+        filters.value = newFilters;
+    }
+};
+
+const clearAllFilters = () => {
+    searchQuery.value = '';
+    filterStatus.value = 'active';
+    filters.value = { ...props.defaultFilters };
+    
+    // Also clear store filters to trigger a fresh fetch
+    Object.keys(participantStore.filters).forEach(key => {
+        delete participantStore.filters[key];
+    });
+    if (selectedRetreatId.value) {
+        participantStore.filters.retreatId = selectedRetreatId.value;
+    }
+    participantStore.fetchParticipants();
+};
 
 
 // --- DEFINICIÓN Y VISIBILIDAD DE COLUMNAS ---
@@ -223,11 +355,19 @@ const allColumns = ref([
 // Initialize visible columns from store or props
 const visibleColumns = ref<string[]>([]);
 
-// Load saved columns on mount
+// Load saved columns and initialize state on mount
 onMounted(() => {
+    console.log('[Component] ParticipantList - Mounted');
     const savedColumns = participantStore.getColumnSelection(currentViewName.value, props.columnsToShowInTable);
     visibleColumns.value = [...savedColumns];
     filters.value = { ...props.defaultFilters };
+    
+    if (selectedRetreatId.value) {
+        participantStore.fetchTags(selectedRetreatId.value);
+    }
+    
+    // Add keyboard shortcuts
+    document.addEventListener('keydown', handleKeyboardShortcuts);
 });
 
 // Watch for column changes and save to store
@@ -245,6 +385,12 @@ const toggleColumn = (key: string) => {
         visibleColumns.value.push(key);
     }
 };
+// Watch for retreat changes to fetch tags
+watch(selectedRetreatId, (newId) => {
+    if (newId) {
+        participantStore.fetchTags(newId);
+    }
+});
 
 // --- COMPUTED: PARTICIPANTES FILTRADOS Y ORDENADOS ---
 const filteredAndSortedParticipants = computed(() => {
@@ -261,35 +407,46 @@ const filteredAndSortedParticipants = computed(() => {
         );
     }
 
-    // 2. Filtrar por filtros dinámicos
-    const filtersObj = filters.value || {};
-
-    // Extract actual filter values from Proxy objects
-    const extractFilters = (obj: any): Record<string, any> => {
-        if (obj && typeof obj === 'object') {
-            // If it's a Proxy with a value property, extract it
-            if (obj.value && typeof obj.value === 'object') {
-                // Merge top-level properties with nested value properties
-                const result = { ...obj };
-                delete result.value; // Remove the value property
-                return { ...result, ...obj.value }; // Merge with nested properties
-            }
-            // If it's already a plain object, return it
-            return { ...obj };
-        }
-        return {};
-    };
-
-    const actualFilters = extractFilters(filtersObj);
+    const actualFilters = extractFilters(filters.value);
     const activeFilters = Object.entries(actualFilters).filter(([, value]) => value !== undefined && value !== null && value !== '');
 
     if (activeFilters.length > 0) {
         result = result.filter(p => {
             const matches = activeFilters.every(([key, value]) => {
+                // Handle tagIds filter
+                if (key === 'tagIds' && Array.isArray(value) && value.length > 0) {
+                    if (!p.tags || !Array.isArray(p.tags)) return false;
+                    const pTags = p.tags as any[];
+                    return value.some(tagId => pTags.some((pt: any) => pt.tagId === tagId));
+                }
+
                 const participantValue = getNestedProperty(p, key);
+
+                // Handle boolean filters (exact match)
                 if (typeof value === 'boolean') {
                     return participantValue === value;
                 }
+
+                // Handle "unassigned" special value for relational fields
+                if (value === 'unassigned') {
+                    if (key === 'tableMesa.name') {
+                        return !p.tableMesa || !p.tableMesa.name;
+                    }
+                    if (key === 'retreatBed.roomNumber') {
+                        return !p.retreatBed || !p.retreatBed.roomNumber;
+                    }
+                    // For other fields, treat null/undefined as unassigned
+                    return participantValue === null || participantValue === undefined || participantValue === '';
+                }
+
+                // Handle text partial matching for city, parish, disabilitySupport
+                if (key === 'city' || key === 'parish' || key === 'disabilitySupport') {
+                    const filterValue = String(value).toLowerCase();
+                    const participantStr = String(participantValue || '').toLowerCase();
+                    return participantStr.includes(filterValue);
+                }
+
+                // Handle exact match for other fields (tshirtSize, maritalStatus, paymentStatus, etc.)
                 return String(participantValue).toLowerCase() === String(value).toLowerCase();
             });
             return matches;
@@ -857,15 +1014,6 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
     }
 };
 
-// Add keyboard event listener on mount
-onMounted(() => {
-    const savedColumns = participantStore.getColumnSelection(currentViewName.value, props.columnsToShowInTable);
-    visibleColumns.value = [...savedColumns];
-    filters.value = { ...props.defaultFilters };
-
-    // Add keyboard shortcuts
-    document.addEventListener('keydown', handleKeyboardShortcuts);
-});
 
 // Cleanup keyboard event listener
 // Note: In Vue 3, we could use onUnmounted, but since this is a script setup component,
@@ -889,16 +1037,37 @@ onMounted(() => {
         <!-- Toolbar de Acciones -->
         <div class="flex flex-col sm:flex-row justify-between items-center gap-2 mb-4">
             <div class="flex gap-2 items-center">
-                <Input
-                    v-model="searchQuery"
-                    :placeholder="$t('common.searchPlaceholder')"
-                    class="max-w-sm"
-                />
+                <div class="relative w-full max-w-sm">
+                    <Input
+                        v-model="searchQuery"
+                        :placeholder="$t('common.searchPlaceholder')"
+                        class="pr-8"
+                    />
+                    <button
+                        v-if="searchQuery"
+                        @click="searchQuery = ''"
+                        class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                        <X class="h-4 w-4" />
+                    </button>
+                </div>
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger as-child>
-                            <Button variant="outline" size="icon" @click="isFilterDialogOpen = true">
+                            <Button 
+                                variant="outline" 
+                                size="icon" 
+                                @click="isFilterDialogOpen = true"
+                                :class="{ 'border-blue-500 bg-blue-50': activeDynamicFiltersCount > 0 }"
+                                class="relative"
+                            >
                                 <ListFilter class="h-4 w-4" />
+                                <span 
+                                    v-if="activeDynamicFiltersCount > 0" 
+                                    class="absolute -top-1 -right-1 w-4 h-4 bg-blue-600 text-white text-[10px] rounded-full flex items-center justify-center font-bold"
+                                >
+                                    {{ activeDynamicFiltersCount }}
+                                </span>
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent>
@@ -1010,6 +1179,33 @@ onMounted(() => {
             </div>
         </div>
 
+        <!-- Active Filters Chips -->
+        <div v-if="activeFiltersList.length > 0" class="flex flex-wrap items-center gap-2 mb-4">
+            <span class="text-sm text-gray-500 font-medium mr-1">{{ $t('common.filters.title') }}:</span>
+            <div 
+                v-for="filter in activeFiltersList" 
+                :key="`${filter.type}-${filter.key}`"
+                class="flex items-center gap-1 bg-gray-100 border px-2 py-1 rounded-full text-xs"
+            >
+                <span class="text-gray-500">{{ filter.label }}:</span>
+                <span class="font-medium">{{ filter.value }}</span>
+                <button 
+                    @click="removeFilter(filter.key, filter.type)"
+                    class="ml-1 hover:text-red-500 transition-colors"
+                >
+                    <X class="h-3 w-3" />
+                </button>
+            </div>
+            <Button 
+                variant="ghost" 
+                size="sm" 
+                @click="clearAllFilters"
+                class="text-xs h-7 px-2 text-gray-500 hover:text-red-600"
+            >
+                {{ $t('common.filters.clearAll') }}
+            </Button>
+        </div>
+
         <!-- Mensajes de estado y Tabla -->
         <div v-if="loading">{{ $t('participants.loading') }}</div>
         <div v-else-if="error" class="text-red-500">{{ error }}</div>
@@ -1018,7 +1214,21 @@ onMounted(() => {
         </div>
         <div v-else class="border rounded-md">
             <Table>
-                <TableCaption v-if="filteredAndSortedParticipants.length === 0">{{ $t('participants.noParticipantsFound') }}</TableCaption>
+                <TableCaption v-if="filteredAndSortedParticipants.length === 0">
+                    <div class="py-8 flex flex-col items-center gap-3">
+                        <p class="text-gray-500">
+                            {{ activeFiltersList.length > 0 ? $t('participants.noParticipantsMatch') : $t('participants.noParticipantsFound') }}
+                        </p>
+                        <Button 
+                            v-if="activeFiltersList.length > 0" 
+                            variant="outline" 
+                            size="sm" 
+                            @click="clearAllFilters"
+                        >
+                            {{ $t('common.filters.clearAll') }}
+                        </Button>
+                    </div>
+                </TableCaption>
                 <TableHeader>
                     <TableRow>
                         <!-- Bulk Selection Column -->
