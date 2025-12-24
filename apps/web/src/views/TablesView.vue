@@ -161,6 +161,7 @@
           :key="table.id"
           :table="table"
           :search-query="searchQuery"
+          class="table-card"
           @delete="handleDeleteTable"
         />
       </div>
@@ -600,8 +601,10 @@ onMounted(() => {
 
   /* Prevent page breaks within table cards */
   .table-card {
-    break-inside: avoid;
+    break-inside: avoid-page;
     page-break-inside: avoid;
+    display: block;
+    height: auto;
     border: 1px solid #ccc;
     margin-bottom: 1rem;
   }

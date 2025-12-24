@@ -249,10 +249,7 @@ atrevete vivelo en centro de la footer
 que quede fijo el header en la creacion de las habitaciones de la casa
 
 Telemetry
-
-## IN PROGRESS
-litera arriba
-litera abajo
+litera arriba, litera abajo
 
 obligatorio un telefono celular
 no obligatorios
@@ -267,6 +264,8 @@ agregar un parametro en el retiro para no solicitar punto de Convenient meeting 
 una forma de agregar tags a los participantes para que no queden en la misma mesa.  caminantes y servidores que tengan los mismos tags no pueden estar en la misma mesa.
 al agarrar un caminante debe hacer scroll para cambiar abajo o arriba
 esta poniendo un dia antes al registrar un pago.
+## IN PROGRESS
+
 
 ## TODO
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
@@ -313,9 +312,6 @@ poder imprimir solo algunos gafetes.
 
 
 en caso de que no se pueda en ninguna mesa que hacer con ese caminante
-
-
-
 
 
 
@@ -396,8 +392,8 @@ export DOMAIN_NAME='emaus.cc'
 export VPS_HOST=155.138.230.215
 export VPS_USER=root
 export GITHUB_REPO=lbolanos/emaus
-export NEW_TAG=v0.0.4
-export RELEASE_TAG=v0.0.4
+export NEW_TAG=v0.0.5
+export RELEASE_TAG=v0.0.5
 export CERTBOT_EMAIL=leonardo.bolanos@gmail.com
 
 ./create-release.sh
@@ -411,8 +407,8 @@ export DOMAIN_NAME='emaus.cc'
 export VPS_HOST=155.138.230.215
 export VPS_USER=root
 export GITHUB_REPO=lbolanos/emaus
-export NEW_TAG=v0.0.4
-export RELEASE_TAG=v0.0.4
+export NEW_TAG=v0.0.5
+export RELEASE_TAG=v0.0.5
 export CERTBOT_EMAIL=leonardo.bolanos@gmail.com
 ./release-from-github.sh
 
