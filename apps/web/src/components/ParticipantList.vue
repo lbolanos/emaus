@@ -52,7 +52,7 @@ import {
 } from '@repo/ui';
 
 
-import { ArrowUpDown, Trash2, Edit, FileUp, FileDown, Columns, ListFilter, MoreVertical, Plus, X } from 'lucide-vue-next';
+import { ArrowUpDown, Trash2, Edit, FileUp, FileDown, Columns, ListFilter, MoreVertical, Plus, X, Printer } from 'lucide-vue-next';
 import { useToast } from '@repo/ui';
 
 // Traducción (simulada, usa tu sistema de i18n)
@@ -652,6 +652,10 @@ const openRegistrationLink = () => {
     }
 };
 
+const handlePrint = () => {
+    window.print();
+};
+
 const openDeleteDialog = (participant: any) => {
     participantToDelete.value = participant;
     isDeleteDialogOpen.value = true;
@@ -1030,12 +1034,90 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
 .bg-yellow-50 {
     background-color: rgba(254, 249, 195, 0.5) !important;
 }
+
+@media print {
+    /* Scoped print styles for the table */
+    .print-only-header {
+        display: block !important;
+        margin-bottom: 20px !important;
+        text-align: center !important;
+    }
+
+    .participant-row {
+        page-break-inside: avoid !important;
+    }
+}
 </style>
 
+<style>
+/* Global print styles */
+.print-only-header {
+    display: none;
+}
+
+@media print {
+    @page {
+        margin: 1cm;
+    }
+
+    /* Hide elements marked with no-print class */
+    .no-print {
+        display: none !important;
+    }
+
+    /* Show print-only elements */
+    .print-only-header {
+        display: block !important;
+        margin-bottom: 20px !important;
+        text-align: center !important;
+    }
+
+    /* Remove border from table wrapper */
+    .border.rounded-md {
+        border: none !important;
+    }
+
+    /* Table styling */
+    table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        table-layout: auto !important;
+        margin: 0 !important;
+    }
+
+    th, td {
+        border: 1px solid #ddd !important;
+        padding: 4px 8px !important;
+        font-size: 8pt !important;
+        text-align: left !important;
+    }
+
+    thead {
+        display: table-header-group !important;
+    }
+
+    /* Avoid page breaks inside rows */
+    .participant-row {
+        page-break-inside: avoid !important;
+    }
+}
+</style>
+
+
+
 <template>
-    <div>
+    <div class="p-0 sm:p-4">
+        <!-- Print Header Container - only visible when printing -->
+        <div class="print-container">
+            <div class="print-only-header">
+                <h1 class="text-2xl font-bold">{{ retreatStore.selectedRetreat?.parish }}</h1>
+                <h2 class="text-xl">{{ $t(`sidebar.${props.type}s`) || (props.type === 'walker' ? 'Caminantes' : 'Servidores') }}</h2>
+                <p class="text-sm text-gray-500">{{ new Date().toLocaleDateString() }}</p>
+            </div>
+        </div>
+
         <!-- Toolbar de Acciones -->
-        <div class="flex flex-col sm:flex-row justify-between items-center gap-2 mb-4">
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-2 mb-4 no-print">
             <div class="flex gap-2 items-center">
                 <div class="relative w-full max-w-sm">
                     <Input
@@ -1169,8 +1251,14 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
 
                         <!-- Export -->
                         <DropdownMenuItem @click="isExportDialogOpen = true">
-                            <FileDown class="h-4 w-4" />
+                            <FileDown class="h-4 w-4 mr-2" />
                             {{ $t('participants.export.title') }}
+                        </DropdownMenuItem>
+                        
+                        <!-- Print -->
+                        <DropdownMenuItem @click="handlePrint">
+                            <Printer class="h-4 w-4 mr-2" />
+                            {{ $t('common.actions.print') || 'Print' }}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                     </DropdownMenuContent>
@@ -1180,7 +1268,7 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
         </div>
 
         <!-- Active Filters Chips -->
-        <div v-if="activeFiltersList.length > 0" class="flex flex-wrap items-center gap-2 mb-4">
+        <div v-if="activeFiltersList.length > 0" class="flex flex-wrap items-center gap-2 mb-4 no-print">
             <span class="text-sm text-gray-500 font-medium mr-1">{{ $t('common.filters.title') }}:</span>
             <div 
                 v-for="filter in activeFiltersList" 
@@ -1206,13 +1294,15 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
             </Button>
         </div>
 
-        <!-- Mensajes de estado y Tabla -->
-        <div v-if="loading">{{ $t('participants.loading') }}</div>
-        <div v-else-if="error" class="text-red-500">{{ error }}</div>
-        <div v-else-if="!selectedRetreatId" class="text-center text-gray-500 py-8">
-            <p>{{ $t('participants.selectRetreatPrompt') }}</p>
-        </div>
-        <div v-else class="border rounded-md">
+        <!-- Print Container for Table Content -->
+        <div class="print-container">
+            <!-- Mensajes de estado y Tabla -->
+            <div v-if="loading">{{ $t('participants.loading') }}</div>
+            <div v-else-if="error" class="text-red-500">{{ error }}</div>
+            <div v-else-if="!selectedRetreatId" class="text-center text-gray-500 py-8">
+                <p>{{ $t('participants.selectRetreatPrompt') }}</p>
+            </div>
+            <div v-else class="border rounded-md">
             <Table>
                 <TableCaption v-if="filteredAndSortedParticipants.length === 0">
                     <div class="py-8 flex flex-col items-center gap-3">
@@ -1232,7 +1322,7 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                 <TableHeader>
                     <TableRow>
                         <!-- Bulk Selection Column -->
-                        <TableHead class="w-12">
+                        <TableHead class="w-12 no-print">
                             <input
                                 type="checkbox"
                                 :checked="isAllSelected"
@@ -1246,13 +1336,13 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                            {{ $t(allColumns.find(c => c.key === colKey)?.label || '') }}
                            <ArrowUpDown v-if="sortKey === colKey" class="inline-block ml-2 h-4 w-4" />
                         </TableHead>
-                        <TableHead>{{ $t('participants.actions') }}</TableHead>
+                        <TableHead class="no-print">{{ $t('participants.actions') }}</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     <TableRow v-for="participant in filteredAndSortedParticipants" :key="participant.id" :class="[participant.family_friend_color ? 'border-l-4' : '', hasBirthdayDuringRetreat(participant) ? 'bg-yellow-50' : '', selectedParticipants.has(String(participant.id)) ? 'bg-blue-50 hover:bg-blue-100' : 'hover:bg-gray-50']" :style="participant.family_friend_color ? { borderLeftColor: participant.family_friend_color } : {}" class="participant-row transition-colors duration-150">
                         <!-- Bulk Selection Column -->
-                        <TableCell class="w-12">
+                        <TableCell class="w-12 no-print">
                             <input
                                 type="checkbox"
                                 :checked="selectedParticipants.has(String(participant.id))"
@@ -1295,7 +1385,7 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                                 </span>
                             </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell class="no-print">
                             <div class="flex -space-x-3">
                                 <TooltipProvider>
                                     <Tooltip>
@@ -1344,6 +1434,8 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                 </TableFooter>
             </Table>
         </div>
+        </div>
+        <!-- End Print Container -->
 
          <!-- Diálogo de Confirmación de Eliminación -->
         <Dialog v-model:open="isDeleteDialogOpen">
