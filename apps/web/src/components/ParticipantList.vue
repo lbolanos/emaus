@@ -1107,14 +1107,17 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
 
 <template>
     <div class="p-0 sm:p-4">
-        <!-- Print Header Container - only visible when printing -->
+        <!-- Print Container - wraps content that should be visible when printing -->
         <div class="print-container">
+            <!-- Print Header (only visible when printing) -->
             <div class="print-only-header">
                 <h1 class="text-2xl font-bold">{{ retreatStore.selectedRetreat?.parish }}</h1>
-                <h2 class="text-xl">{{ $t(`sidebar.${props.type}s`) || (props.type === 'walker' ? 'Caminantes' : 'Servidores') }}</h2>
+                <h2 class="text-xl">
+                {{ props.type ? $t(`sidebar.${props.type}s`) : $t('participants.all') }}
+            </h2>
                 <p class="text-sm text-gray-500">{{ new Date().toLocaleDateString() }}</p>
             </div>
-        </div>
+        <!-- End of Print Header -->
 
         <!-- Toolbar de Acciones -->
         <div class="flex flex-col sm:flex-row justify-between items-center gap-2 mb-4 no-print">
@@ -1294,10 +1297,8 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
             </Button>
         </div>
 
-        <!-- Print Container for Table Content -->
-        <div class="print-container">
-            <!-- Mensajes de estado y Tabla -->
-            <div v-if="loading">{{ $t('participants.loading') }}</div>
+        <!-- Mensajes de estado y Tabla -->
+        <div v-if="loading">{{ $t('participants.loading') }}</div>
             <div v-else-if="error" class="text-red-500">{{ error }}</div>
             <div v-else-if="!selectedRetreatId" class="text-center text-gray-500 py-8">
                 <p>{{ $t('participants.selectRetreatPrompt') }}</p>
