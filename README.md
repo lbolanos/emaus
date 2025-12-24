@@ -266,6 +266,10 @@ al agarrar un caminante debe hacer scroll para cambiar abajo o arriba
 esta poniendo un dia antes al registrar un pago.
 ## IN PROGRESS
 
+agregar un filtro de quienes han pagado en la lista de caminantes.
+listado de caminantes imprimir.
+
+imprimir bag report
 
 ## TODO
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
@@ -296,9 +300,6 @@ no deja enviar correo de invitacion si el usuario existe
 ## Pepe Toño
 en el inventario agregar un campo que indique cuantas unidades deben comprarse y sacar un reporte de inventario a comprar.
 
-agregar un filtro de quienes han pagado en la lista de caminantes.
-listado de caminantes imprimir.
-
 deberia enviar directo al link despues de accept InvitationController
 
 al dar clic en print tables, seleccionar los campos que se deben imprimir.
@@ -307,7 +308,6 @@ al dar clic en print tables, seleccionar los campos que se deben imprimir.
 pendiente en listado de pagos que ordene
 listado de pagos que se pueda imprimir
 
-imprimir bag report
 nombre del retiro en gafete. No colocar el piso solo el cuarto y cama.
 poder imprimir solo algunos gafetes.
 
