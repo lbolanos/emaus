@@ -15,6 +15,7 @@
     "test:api": "pnpm --filter api test",
     "test:web": "pnpm --filter web test",
     "test:field-mapping": "cd apps/api && NODE_OPTIONS=\"--experimental-vm-modules\" npx jest src/tests/services/fieldMapping.simple.test.ts --verbose --forceExit",
+    "test:vm": "cd apps/api && NODE_OPTIONS=\"--experimental-vm-modules\" npx jest",
     "test:watch": "turbo test:watch",
     "test:coverage": "turbo test:coverage",
     "migration:run": "pnpm --filter api migration:run",
@@ -23,10 +24,12 @@
     "migration:revert": "pnpm --filter api migration:revert",
     "db:seed": "pnpm --filter api db:seed",
     "render-build": "pnpm install --frozen-lockfile && pnpm --filter api build",
-    "render-start": "cd apps/api && pnpm start"
+    "render-start": "cd apps/api && pnpm start",
+    "prepare": "husky"
   },
   "devDependencies": {
     "eslint": "^8.57.0",
+    "husky": "^9.1.7",
     "prettier": "^3.6.2",
     "turbo": "^2.5.6",
     "typescript": "^5.9.3"

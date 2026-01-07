@@ -242,7 +242,7 @@ add a button to create a docx file to imprimir la mesa con lideres caminantes te
 gafete apodo o nombre, tableMesa, habitacion (floor, room, bed type) y imagen de una rosa
 crear el flyer del retiro en la web.
 verificar mover los caminantes en el vista de camas. already has another bed assignment. verificar permisos para admin.
-mas grande el mensaje de un encuentr o de esperanza 
+mas grande el mensaje de un encuentr o de esperanza
 enpequeñecer el que llevar
 colocar una imagen en el footer
 atrevete vivelo en centro de la footer
@@ -261,9 +261,10 @@ Considera que esta es la primera persona a la que contactaremos en caso de algun
 preguntar en el formulario si tiene discapacidad
 agregar un parametro en el retiro para no solicitar punto de Convenient meeting point
 
-una forma de agregar tags a los participantes para que no queden en la misma mesa.  caminantes y servidores que tengan los mismos tags no pueden estar en la misma mesa.
+una forma de agregar tags a los participantes para que no queden en la misma mesa. caminantes y servidores que tengan los mismos tags no pueden estar en la misma mesa.
 al agarrar un caminante debe hacer scroll para cambiar abajo o arriba
 esta poniendo un dia antes al registrar un pago.
+
 ## IN PROGRESS
 
 agregar un filtro de quienes han pagado en la lista de caminantes.
@@ -271,7 +272,11 @@ listado de caminantes imprimir.
 
 imprimir bag report
 
+1. Implement dependency injection for DataSource (remove singleton pattern)
+2. Redesign services to accept DataSource as a constructor parameter
+
 ## TODO
+
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
 agregar todas las actividades por servidor
 
@@ -296,21 +301,27 @@ Notificaciones por correo a los administradores del retiro de eventos como Camin
 que los caminantes no vayan con la persona que lo invito
 no deja enviar correo de invitacion si el usuario existe
 
+Solutions for future consideration:
+
+2. Add more component tests - Test additional components in the codebase
+3. Improve test coverage - Add edge cases and integration tests
+4. Set up coverage reporting - Generate code coverage reports
+5. Move to API backend tests - Work on the API service/controller tests
+6. Review and clean up code - Remove any console.logs or temporary debug code
 
 ## Pepe Toño
+
 en el inventario agregar un campo que indique cuantas unidades deben comprarse y sacar un reporte de inventario a comprar.
 
 deberia enviar directo al link despues de accept InvitationController
 
 al dar clic en print tables, seleccionar los campos que se deben imprimir.
 
-
 pendiente en listado de pagos que ordene
 listado de pagos que se pueda imprimir
 
 nombre del retiro en gafete. No colocar el piso solo el cuarto y cama.
 poder imprimir solo algunos gafetes.
-
 
 en caso de que no se pueda en ninguna mesa que hacer con ese caminante
 
@@ -398,6 +409,7 @@ export CERTBOT_EMAIL=leonardo.bolanos@gmail.com
 ./create-release.sh
 
 ## remote
+
 ssh root@155.138.230.215
 
 cd /var/www/emaus/
@@ -433,8 +445,8 @@ rsync -avz \
 pm2 logs emaus-api
 pm2 restart emaus-api
 
-
 ## posibles host
+
 https://www.vultr.com/
 https://www.hostinger.com/
 https://www.digitalocean.com/

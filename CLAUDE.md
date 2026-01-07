@@ -93,7 +93,7 @@ The codebase has extensive Spanish documentation and requirements. Key features 
 
 ## Database Schema
 
-the file for database is in  apps/api/database.sqlite
+the file for database is in apps/api/database.sqlite
 
 The system uses TypeORM with SQLite. Key entities include:
 
