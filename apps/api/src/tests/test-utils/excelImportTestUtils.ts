@@ -1,7 +1,8 @@
-import { importParticipants } from '../../services/participantService';
 import { TestDataFactory } from './testDataFactory';
 import { ExcelParticipantRow } from '../fixtures/excelFixtures';
-import { User, Retreat, Participant } from '../../entities';
+import { User } from '@/entities/user.entity';
+import { Retreat } from '@/entities/retreat.entity';
+import { Participant } from '@/entities/participant.entity';
 
 /**
  * Utility functions for Excel import testing
@@ -9,11 +10,14 @@ import { User, Retreat, Participant } from '../../entities';
 export class ExcelImportTestUtils {
 	/**
 	 * Execute a complete import process with test environment setup
+	 *
+	 * @param importParticipantsFunction - The importParticipants function (must be passed in to avoid early module loading)
 	 */
 	static async executeImport(
 		participantData: ExcelParticipantRow[],
 		userOverrides: Partial<User> = {},
 		retreatOverrides: Partial<Retreat> = {},
+		importParticipantsFunction?: any,
 	): Promise<{
 		result: any;
 		user: User;
@@ -30,8 +34,8 @@ export class ExcelImportTestUtils {
 		// Get participants before import
 		const participantsBefore = await this.getParticipantsForRetreat(retreat.id);
 
-		// Execute import
-		const result = await importParticipants(retreat.id, participantData, user);
+		// Execute import using the provided function
+		const result = await importParticipantsFunction(retreat.id, participantData, user);
 
 		// Get participants after import
 		const participantsAfter = await this.getParticipantsForRetreat(retreat.id);

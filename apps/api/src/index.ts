@@ -29,18 +29,14 @@ declare module 'express-session' {
 }
 
 async function main() {
-	console.log('[INIT] Starting application...');
 	const app = express();
 	app.set('trust proxy', 1);
 	const port = process.env.PORT || 3001;
 
 	// --- 1. Initialize Database Connection ---
-	console.log('[INIT] Step 1: Initializing Data Source...');
 	await AppDataSource.initialize();
-	console.log('[INIT] Step 1: Data Source has been initialized!');
 
 	// --- 2. Basic Middleware ---
-	console.log('[INIT] Step 2: Configuring basic middleware (CORS, Helmet, JSON)...');
 
 	// Dynamic CSP based on environment - get frontend URL from .env
 	const frontendUrl = config.frontend.url;
@@ -59,10 +55,6 @@ async function main() {
 	if (isDevelopment) {
 		connectSrc.push('http://localhost:5173', 'http://localhost:3001');
 	}
-
-	console.log(`[CSP] ${isDevelopment ? 'Development' : 'Production'} mode detected`);
-	console.log(`[CSP] Frontend URL from env: ${frontendUrl}`);
-	console.log(`[CSP] Connect sources: ${connectSrc.join(', ')}`);
 
 	app.use(
 		cors({
@@ -86,10 +78,8 @@ async function main() {
 		}),
 	);
 	app.use(express.json({ limit: '2mb' }));
-	console.log('[INIT] Step 2: Basic middleware configured.');
 
 	// --- 3. Session and Auth Middleware (AFTER DB connection) ---
-	console.log('[INIT] Step 3: Configuring session and auth middleware...');
 	const sessionRepository = AppDataSource.getRepository(Session);
 	app.use(
 		session({
@@ -111,10 +101,8 @@ async function main() {
 	);
 	app.use(passport.initialize());
 	app.use(passport.session());
-	console.log('[INIT] Step 3: Session and auth middleware configured.');
 
 	// --- 4. Performance, CSRF, and API Routes ---
-	console.log('[INIT] Step 4: Configuring performance, CSRF, and API routes...');
 	app.use((req, res, next) =>
 		PerformanceMiddleware.trackPerformance(req as PerformanceRequest, res, next),
 	);
@@ -143,10 +131,8 @@ async function main() {
 	});
 	app.use('/api', mainRouter);
 	app.use('/api/tables', tableMesaRoutes);
-	console.log('[INIT] Step 4: Routes configured.');
 
 	// --- 5. Static File Serving for Frontend ---
-	console.log('[INIT] Step 5: Configuring static file serving...');
 	const __filename = fileURLToPath(import.meta.url);
 	const __dirname = path.dirname(__filename);
 	const webAppPath = path.resolve(__dirname, '..', '..', '..', 'apps', 'web', 'dist');
@@ -154,15 +140,11 @@ async function main() {
 	app.get('*', (_req, res) => {
 		res.sendFile(path.join(webAppPath, 'index.html'));
 	});
-	console.log('[INIT] Step 5: Static file serving configured.');
 
 	// --- 6. Error Handler (must be last) ---
-	console.log('[INIT] Step 6: Configuring error handler...');
 	app.use(errorHandler);
-	console.log('[INIT] Step 6: Error handler configured.');
 
 	// --- 7. Post-Init Services ---
-	console.log('[INIT] Step 7: Running post-initialization services...');
 	const verifier = new MigrationVerifier(AppDataSource, {
 		...config.migrations,
 		logLevel: (config.migrations.logLevel as any) || 'info',
@@ -176,14 +158,9 @@ async function main() {
 	}
 
 	roleCleanupService.startScheduledTasks();
-	console.log('🧹 Role cleanup service started');
-
 	await performanceOptimizationService.optimizeHeavyQueries();
-	console.log('⚡ Performance optimization initialized');
-	console.log('[INIT] Step 7: Post-initialization services complete.');
 
 	// --- 8. Start Server ---
-	console.log('[INIT] Step 8: Starting server...');
 	app.listen(port, () => {
 		console.log(`✅ Server is running on http://localhost:${port}`);
 	});

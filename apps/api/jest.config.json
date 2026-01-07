@@ -2,13 +2,21 @@
   "testEnvironment": "node",
   "roots": ["<rootDir>/src"],
   "testMatch": [
-    "**/fieldMapping.simple.test.ts",
-    "**/telemetry.test.ts"
+    "**/__tests__/**/*.test.ts",
+    "**/tests/**/*.test.ts"
+  ],
+  "testPathIgnorePatterns": [
+    "/node_modules/",
+    "/dist/",
+    "/__tests__.bak/"
   ],
   "transform": {
     "^.+\\.ts$": ["ts-jest", {
       "tsconfig": "tsconfig.json"
     }]
+  },
+  "moduleNameMapper": {
+    "^@/(.*)$": "<rootDir>/src/$1"
   },
   "collectCoverageFrom": [
     "src/**/*.ts",
@@ -19,5 +27,14 @@
   ],
   "coverageDirectory": "coverage",
   "coverageReporters": ["text", "lcov", "html"],
-  "setupFilesAfterEnv": ["<rootDir>/src/tests/jest.setup.ts"]
+  "coverageThreshold": {
+    "global": {
+      "branches": 50,
+      "functions": 50,
+      "lines": 50,
+      "statements": 50
+    }
+  },
+  "setupFilesAfterEnv": ["<rootDir>/src/tests/jest.setup.ts"],
+  "resetModules": true
 }

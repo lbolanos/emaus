@@ -1,19 +1,39 @@
-import { AppDataSource } from '../../data-source';
-import { User } from '../entities/user.entity';
-import { Retreat } from '../entities/retreat.entity';
-import { House } from '../entities/house.entity';
-import { TableMesa } from '../entities/tableMesa.entity';
-import { RetreatBed, BedUsage, BedType } from '../entities/retreatBed.entity';
-import { InventoryItem } from '../entities/inventoryItem.entity';
-import { RetreatInventory } from '../entities/retreatInventory.entity';
-import { MessageTemplate } from '../entities/messageTemplate.entity';
+import { DataSource } from 'typeorm';
+import { AppDataSource } from '@/data-source';
+import { User } from '@/entities/user.entity';
+import { Retreat } from '@/entities/retreat.entity';
+import { House } from '@/entities/house.entity';
+import { TableMesa } from '@/entities/tableMesa.entity';
+import { RetreatBed, BedUsage, BedType } from '@/entities/retreatBed.entity';
+import { InventoryItem } from '@/entities/inventoryItem.entity';
+import { InventoryCategory } from '@/entities/inventoryCategory.entity';
+import { InventoryTeam } from '@/entities/inventoryTeam.entity';
+import { RetreatInventory } from '@/entities/retreatInventory.entity';
+import { MessageTemplate } from '@/entities/messageTemplate.entity';
 import * as bcrypt from 'bcrypt';
 
 /**
- * Test data factory for creating test entities for Excel import testing
+ * Test data factory for creating test entities for testing
+ *
+ * Can work with either the default AppDataSource or a custom test DataSource.
+ * Pass a custom dataSource when working with isolated test databases.
  */
 export class TestDataFactory {
-	private static testDataSource = AppDataSource;
+	private static testDataSource: DataSource = AppDataSource;
+
+	/**
+	 * Set a custom data source for testing
+	 */
+	static setDataSource(dataSource: DataSource) {
+		this.testDataSource = dataSource;
+	}
+
+	/**
+	 * Get the current data source
+	 */
+	static getDataSource(): DataSource {
+		return this.testDataSource;
+	}
 
 	/**
 	 * Create a test user with specified role
@@ -21,14 +41,15 @@ export class TestDataFactory {
 	static async createTestUser(overrides: Partial<User> = {}): Promise<User> {
 		const userRepository = this.testDataSource.getRepository(User);
 
-		const defaultUser = {
-			firstName: 'Test',
-			lastName: 'User',
+		// Generate a UUID for the user
+		const userId = userRepository.createQueryBuilder().select();
+
+		const defaultUser: Partial<User> = {
+			id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
 			email: `test-${Date.now()}@example.com`,
+			displayName: 'Test User',
 			password: await bcrypt.hash('password123', 10),
-			role: 'admin',
-			isActive: true,
-			emailVerified: true,
+			isPending: false,
 			...overrides,
 		};
 
@@ -46,24 +67,21 @@ export class TestDataFactory {
 		// Create associated house
 		const house = houseRepository.create({
 			name: 'Test House',
-			address: '123 Test Street',
+			address1: '123 Test Street',
 			city: 'Test City',
 			state: 'Test State',
+			zipCode: '12345',
 			country: 'Test Country',
-			maxOccupancy: 100,
+			capacity: 100,
 			notes: 'Test house for Excel import testing',
 		});
 		const savedHouse = await houseRepository.save(house);
 
-		const defaultRetreat = {
-			name: `Test Retreat ${Date.now()}`,
+		const defaultRetreat: Partial<Retreat> = {
+			parish: `Test Parish ${Date.now()}`,
 			startDate: new Date(),
 			endDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
-			isPublic: true,
-			max_walkers: 50,
-			max_servers: 20,
 			houseId: savedHouse.id,
-			notes: 'Test retreat for Excel import testing',
 			...overrides,
 		};
 
@@ -106,7 +124,14 @@ export class TestDataFactory {
 				roomNumber: `${Math.ceil(i / 4)}`, // 4 beds per room
 				bedNumber: `${((i - 1) % 4) + 1}`,
 				floor: Math.ceil(i / 10), // Floors 1-2
-				type: i % 3 === 0 ? BedType.LITERA_ABAJO : i % 3 === 1 ? BedType.LITERA_ARRIBA : BedType.NORMAL,
+				type:
+					i % 4 === 0
+						? BedType.NORMAL
+						: i % 4 === 1
+							? BedType.LITERA_ABAJO
+							: i % 4 === 2
+								? BedType.LITERA_ARRIBA
+								: BedType.COLCHON,
 				defaultUsage: i % 2 === 0 ? BedUsage.CAMINANTE : BedUsage.SERVIDOR,
 				retreatId,
 				houseId,
@@ -122,14 +147,33 @@ export class TestDataFactory {
 	 */
 	static async createTestInventoryItems(count: number = 10): Promise<InventoryItem[]> {
 		const inventoryRepository = this.testDataSource.getRepository(InventoryItem);
+		const categoryRepository = this.testDataSource.getRepository(InventoryCategory);
+		const teamRepository = this.testDataSource.getRepository(InventoryTeam);
 		const items: InventoryItem[] = [];
+
+		// Create a test category
+		const category = categoryRepository.create({
+			name: 'Test Category',
+			description: 'Test category for inventory items',
+		});
+		const savedCategory = await categoryRepository.save(category);
+
+		// Create a test team
+		const team = teamRepository.create({
+			name: 'Test Team',
+			description: 'Test team for inventory items',
+		});
+		const savedTeam = await teamRepository.save(team);
 
 		for (let i = 1; i <= count; i++) {
 			const item = inventoryRepository.create({
 				name: `Test Item ${i}`,
 				description: `Description for test item ${i}`,
-				category: 'Test Category',
+				categoryId: savedCategory.id,
+				teamId: savedTeam.id,
+				ratio: 2.0,
 				unit: 'pieces',
+				isCalculated: false,
 				isActive: true,
 			});
 			items.push(await inventoryRepository.save(item));
@@ -149,11 +193,13 @@ export class TestDataFactory {
 		const inventory: RetreatInventory[] = [];
 
 		for (const item of items) {
+			const requiredQty = Math.floor(Math.random() * 50) + 10; // 10-60 items
 			const retreatItem = retreatInventoryRepository.create({
 				retreatId,
-				itemId: item.id,
-				quantity: Math.floor(Math.random() * 50) + 10, // 10-60 items
-				walkerToItemRatio: 2,
+				inventoryItemId: item.id,
+				requiredQuantity: requiredQty,
+				currentQuantity: requiredQty,
+				isSufficient: true,
 			});
 			inventory.push(await retreatInventoryRepository.save(retreatItem));
 		}
@@ -173,10 +219,9 @@ export class TestDataFactory {
 		for (const type of templateTypes) {
 			const template = templateRepository.create({
 				retreatId,
+				name: `Test ${type} Template`,
 				type,
-				subject: `Test ${type} Template`,
-				content: `This is a test ${type.toLowerCase()} template content for retreat ${retreatId}.`,
-				isActive: true,
+				message: `This is a test ${type.toLowerCase()} template content for retreat ${retreatId}.`,
 			});
 			templates.push(await templateRepository.save(template));
 		}
@@ -202,8 +247,11 @@ export class TestDataFactory {
 		// Create test user
 		const user = await this.createTestUser(userOverrides);
 
-		// Create test retreat
-		const retreat = await this.createTestRetreat(retreatOverrides);
+		// Create test retreat with createdBy set to the user
+		const retreat = await this.createTestRetreat({
+			...retreatOverrides,
+			createdBy: user.id,
+		});
 
 		// Create tables
 		const tables = await this.createTestTables(retreat.id, 5);
