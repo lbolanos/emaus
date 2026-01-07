@@ -5,20 +5,20 @@ import { ref } from 'vue';
 const draggedParticipantType = ref<'server' | 'walker' | null>(null);
 
 export function useDragState() {
-  const startDrag = (type: 'server' | 'walker') => {
-    draggedParticipantType.value = type;
-  };
+	const startDrag = (type: 'server' | 'walker') => {
+		draggedParticipantType.value = type;
+	};
 
-  const endDrag = () => {
-    draggedParticipantType.value = null;
-  };
+	const endDrag = () => {
+		draggedParticipantType.value = null;
+	};
 
-  const getDraggedType = () => draggedParticipantType.value;
+	const getDraggedType = () => draggedParticipantType.value;
 
-  return {
-    draggedParticipantType,
-    startDrag,
-    endDrag,
-    getDraggedType,
-  };
+	return {
+		draggedParticipantType,
+		startDrag,
+		endDrag,
+		getDraggedType,
+	};
 }

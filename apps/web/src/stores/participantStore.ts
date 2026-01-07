@@ -141,7 +141,10 @@ export const useParticipantStore = defineStore('participant', () => {
 			toast({
 				title: 'Error',
 				description:
-					error.response?.data?.message || error.response?.data?.details || error.message || 'Failed to update participant',
+					error.response?.data?.message ||
+					error.response?.data?.details ||
+					error.message ||
+					'Failed to update participant',
 				variant: 'destructive',
 			});
 			throw error;

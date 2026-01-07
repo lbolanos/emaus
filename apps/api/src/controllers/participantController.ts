@@ -5,8 +5,6 @@ export const getAllParticipants = async (req: Request, res: Response, next: Next
 	try {
 		const { retreatId, type, isCancelled: isCancelled, includePayments, tagIds } = req.query;
 
-		console.log('[API] getAllParticipants - Query Params:', { retreatId, type, isCancelled, includePayments, tagIds });
-
 		// Parse tagIds from query if present
 		let parsedTagIds: string[] | undefined;
 		if (tagIds) {
@@ -16,8 +14,6 @@ export const getAllParticipants = async (req: Request, res: Response, next: Next
 				parsedTagIds = tagIds.split(',').filter(Boolean);
 			}
 		}
-
-		console.log('[API] getAllParticipants - Parsed TagIDs:', parsedTagIds);
 
 		const participants = await participantService.findAllParticipants(
 			retreatId as string | undefined,

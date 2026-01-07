@@ -65,7 +65,9 @@ export const assignParticipantToBed = async (req: Request, res: Response, next: 
 			if (existingBed && existingBed.id !== bedId) {
 				// Unassign participant from their current bed
 				await bedRepo.update(existingBed.id, { participantId: null });
-				console.log(`✅ Unassigned participant ${participantId} from previous bed ${existingBed.id}`);
+				console.log(
+					`✅ Unassigned participant ${participantId} from previous bed ${existingBed.id}`,
+				);
 			}
 
 			// Check if bed is already assigned to someone else

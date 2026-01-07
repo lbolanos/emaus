@@ -182,7 +182,10 @@ export type TableMesa = z.infer<typeof tableMesaSchema>;
 export const tagSchema = z.object({
 	id: idSchema,
 	name: z.string().min(1).max(100),
-	color: z.string().regex(/^#[0-9A-F]{6}$/i).optional(),
+	color: z
+		.string()
+		.regex(/^#[0-9A-F]{6}$/i)
+		.optional(),
 	description: z.string().optional(),
 	retreatId: idSchema,
 	createdAt: z.coerce.date(),

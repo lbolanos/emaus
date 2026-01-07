@@ -17,20 +17,26 @@ export class AddComprehensivePermissionsToAdminRole20251214180000 implements Mig
 			const adminRoleId = insertResult.lastID;
 
 			// Add all permissions except system:admin (reserved for superadmin)
-			await queryRunner.query(`
+			await queryRunner.query(
+				`
 				INSERT INTO role_permissions (roleId, permissionId)
 				SELECT ?, id FROM permissions
 				WHERE resource || ':' || operation != 'system:admin'
-			`, [adminRoleId]);
+			`,
+				[adminRoleId],
+			);
 		} else {
 			const adminRoleId = adminRoleResult[0].id;
 
 			// Add all missing permissions to the existing admin role except system:admin
-			await queryRunner.query(`
+			await queryRunner.query(
+				`
 				INSERT OR IGNORE INTO role_permissions (roleId, permissionId)
 				SELECT ?, id FROM permissions
 				WHERE resource || ':' || operation != 'system:admin'
-			`, [adminRoleId]);
+			`,
+				[adminRoleId],
+			);
 		}
 	}
 
@@ -44,7 +50,8 @@ export class AddComprehensivePermissionsToAdminRole20251214180000 implements Mig
 			const adminRoleId = adminRoleResult[0].id;
 
 			// Remove all permissions except those that admin should retain by default
-			await queryRunner.query(`
+			await queryRunner.query(
+				`
 				DELETE FROM role_permissions
 				WHERE roleId = ?
 				AND permissionId IN (
@@ -54,7 +61,9 @@ export class AddComprehensivePermissionsToAdminRole20251214180000 implements Mig
 					OR (resource || ':' || operation = 'system:admin')
 					OR (resource || ':' || operation = 'telemetry:read')
 				)
-			`, [adminRoleId]);
+			`,
+				[adminRoleId],
+			);
 		}
 	}
 }

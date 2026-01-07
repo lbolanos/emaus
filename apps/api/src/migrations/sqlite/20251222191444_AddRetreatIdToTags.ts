@@ -13,7 +13,9 @@ export class AddRetreatIdToTags20251222191444 implements MigrationInterface {
 		`);
 
 		if (tableExists.length === 0) {
-			console.log('[MIGRATION] Tags table does not exist yet - CreateTagSystem will create it with retreatId. Skipping this migration.');
+			console.log(
+				'[MIGRATION] Tags table does not exist yet - CreateTagSystem will create it with retreatId. Skipping this migration.',
+			);
 			return;
 		}
 

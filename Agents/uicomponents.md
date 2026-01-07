@@ -23,20 +23,17 @@ import { ref } from 'vue';
 import { Switch, Label } from '@repo/ui';
 
 const localFilters = ref({
-  snores: true,
-  hasMedication: false
+	snores: true,
+	hasMedication: false,
 });
 </script>
 
 <template>
-  <div class="flex items-center space-x-2">
-    <Label for="snores">Snores</Label>
-    <!-- ✅ BEST WAY: Direct v-model -->
-    <Switch
-      id="snores"
-      v-model="localFilters.snores"
-    />
-  </div>
+	<div class="flex items-center space-x-2">
+		<Label for="snores">Snores</Label>
+		<!-- ✅ BEST WAY: Direct v-model -->
+		<Switch id="snores" v-model="localFilters.snores" />
+	</div>
 </template>
 ```
 
@@ -46,17 +43,14 @@ If you need to perform actions during the toggle, you can still use the prop + e
 
 ```vue
 <template>
-  <Switch
-    :model-value="isActive"
-    @update:model-value="handleToggle"
-  />
+	<Switch :model-value="isActive" @update:model-value="handleToggle" />
 </template>
 
 <script setup lang="ts">
 const isActive = ref(true);
 const handleToggle = (value: boolean) => {
-  isActive.value = value;
-  // secondary actions...
+	isActive.value = value;
+	// secondary actions...
 };
 </script>
 ```
@@ -69,12 +63,12 @@ const handleToggle = (value: boolean) => {
 
 ## Component Compatibility Matrix (Updated)
 
-| Component | Works with `v-model`? | Works with `:checked`? | Recommended |
-|-----------|-----------------------|----------------------|-------------|
-| **Switch** (@repo/ui) | ✅ Yes | ✅ Yes (Legacy) | ✅ Yes |
-| **Input** (@repo/ui) | ✅ Yes | ✅ Yes | ✅ Yes |
-| **Select** (@repo/ui) | ✅ Yes | ✅ Yes | ✅ Yes |
-| Native `<input type="checkbox">` | N/A | ✅ Yes | ⚠️ Optional |
+| Component                        | Works with `v-model`? | Works with `:checked`? | Recommended |
+| -------------------------------- | --------------------- | ---------------------- | ----------- |
+| **Switch** (@repo/ui)            | ✅ Yes                | ✅ Yes (Legacy)        | ✅ Yes      |
+| **Input** (@repo/ui)             | ✅ Yes                | ✅ Yes                 | ✅ Yes      |
+| **Select** (@repo/ui)            | ✅ Yes                | ✅ Yes                 | ✅ Yes      |
+| Native `<input type="checkbox">` | N/A                   | ✅ Yes                 | ⚠️ Optional |
 
 ## @repo/ui Components Status
 
@@ -96,15 +90,18 @@ All core components in `@repo/ui` are now confirmed to work correctly with Vue 3
 When receiving filters or state as a prop, ensure you unwrap potential proxy structures before deep cloning:
 
 ```ts
-watch(() => props.open, (isOpen) => {
-  if (isOpen) {
-    let currentFilters = props.filters || {};
-    // Unwrap if the object is still wrapped in a .value proxy from certain store interactions
-    if (currentFilters && typeof currentFilters === 'object' && 'value' in currentFilters) {
-      currentFilters = { ...currentFilters, ...(currentFilters as any).value };
-      delete (currentFilters as any).value;
-    }
-    localFilters.value = JSON.parse(JSON.stringify(currentFilters));
-  }
-});
+watch(
+	() => props.open,
+	(isOpen) => {
+		if (isOpen) {
+			let currentFilters = props.filters || {};
+			// Unwrap if the object is still wrapped in a .value proxy from certain store interactions
+			if (currentFilters && typeof currentFilters === 'object' && 'value' in currentFilters) {
+				currentFilters = { ...currentFilters, ...(currentFilters as any).value };
+				delete (currentFilters as any).value;
+			}
+			localFilters.value = JSON.parse(JSON.stringify(currentFilters));
+		}
+	},
+);
 ```

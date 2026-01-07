@@ -22,28 +22,28 @@ Wrap all content that should appear when printing in a `.print-container` div:
 
 ```vue
 <template>
-  <div class="p-4">
-    <!-- Print Container - wraps content visible during print -->
-    <div class="print-container">
-      <!-- Header with print-only info -->
-      <div class="print-only-header">
-        <h1>{{ retreatStore.selectedRetreat?.parish }}</h1>
-        <h2>{{ props.type ? $t(`sidebar.${props.type}s`) : $t('participants.all') }}</h2>
-        <p>{{ new Date().toLocaleDateString() }}</p>
-      </div>
+	<div class="p-4">
+		<!-- Print Container - wraps content visible during print -->
+		<div class="print-container">
+			<!-- Header with print-only info -->
+			<div class="print-only-header">
+				<h1>{{ retreatStore.selectedRetreat?.parish }}</h1>
+				<h2>{{ props.type ? $t(`sidebar.${props.type}s`) : $t('participants.all') }}</h2>
+				<p>{{ new Date().toLocaleDateString() }}</p>
+			</div>
 
-      <!-- Toolbar (hidden during print) -->
-      <div class="toolbar no-print">
-        <Button @click="handlePrint">Print</Button>
-      </div>
+			<!-- Toolbar (hidden during print) -->
+			<div class="toolbar no-print">
+				<Button @click="handlePrint">Print</Button>
+			</div>
 
-      <!-- Main content (visible during print) -->
-      <div class="main-content">
-        <!-- Your table/content here -->
-      </div>
-    </div>
-    <!-- End Print Container -->
-  </div>
+			<!-- Main content (visible during print) -->
+			<div class="main-content">
+				<!-- Your table/content here -->
+			</div>
+		</div>
+		<!-- End Print Container -->
+	</div>
 </template>
 ```
 
@@ -58,6 +58,7 @@ Add the `.no-print` class to elements that should NOT appear in print:
 ```
 
 Common `.no-print` elements:
+
 - Toolbars and action buttons
 - Search/filter inputs
 - Pagination controls
@@ -73,55 +74,56 @@ Add both scoped and global print styles to your component:
 <style scoped>
 /* Scoped print styles */
 @media print {
-  .print-only-header {
-    display: block !important;
-    margin-bottom: 20px !important;
-    text-align: center !important;
-  }
+	.print-only-header {
+		display: block !important;
+		margin-bottom: 20px !important;
+		text-align: center !important;
+	}
 
-  .participant-row {
-    page-break-inside: avoid !important;
-  }
+	.participant-row {
+		page-break-inside: avoid !important;
+	}
 }
 </style>
 
 <style>
 /* Global print styles */
 .print-only-header {
-  display: none;
+	display: none;
 }
 
 @media print {
-  @page {
-    margin: 1cm;
-  }
+	@page {
+		margin: 1cm;
+	}
 
-  /* Hide elements marked with no-print class */
-  .no-print {
-    display: none !important;
-  }
+	/* Hide elements marked with no-print class */
+	.no-print {
+		display: none !important;
+	}
 
-  /* Show print-only elements */
-  .print-only-header {
-    display: block !important;
-  }
+	/* Show print-only elements */
+	.print-only-header {
+		display: block !important;
+	}
 
-  /* Table styling */
-  table {
-    width: 100% !important;
-    border-collapse: collapse !important;
-    margin: 0 !important;
-  }
+	/* Table styling */
+	table {
+		width: 100% !important;
+		border-collapse: collapse !important;
+		margin: 0 !important;
+	}
 
-  th, td {
-    border: 1px solid #ddd !important;
-    padding: 4px 8px !important;
-    font-size: 8pt !important;
-  }
+	th,
+	td {
+		border: 1px solid #ddd !important;
+		padding: 4px 8px !important;
+		font-size: 8pt !important;
+	}
 
-  thead {
-    display: table-header-group !important;
-  }
+	thead {
+		display: table-header-group !important;
+	}
 }
 </style>
 ```
@@ -132,7 +134,7 @@ Add a simple print function that calls `window.print()`:
 
 ```typescript
 const handlePrint = () => {
-  window.print();
+	window.print();
 };
 ```
 
@@ -143,74 +145,75 @@ Here's a complete example from `ParticipantList.vue`:
 ```vue
 <script setup lang="ts">
 const handlePrint = () => {
-  window.print();
+	window.print();
 };
 </script>
 
 <template>
-  <div class="p-0 sm:p-4">
-    <div class="print-container">
-      <!-- Print Header -->
-      <div class="print-only-header">
-        <h1 class="text-2xl font-bold">{{ retreatStore.selectedRetreat?.parish }}</h1>
-        <h2 class="text-xl">
-          {{ props.type ? $t(`sidebar.${props.type}s`) : $t('participants.all') }}
-        </h2>
-        <p class="text-sm text-gray-500">{{ new Date().toLocaleDateString() }}</p>
-      </div>
+	<div class="p-0 sm:p-4">
+		<div class="print-container">
+			<!-- Print Header -->
+			<div class="print-only-header">
+				<h1 class="text-2xl font-bold">{{ retreatStore.selectedRetreat?.parish }}</h1>
+				<h2 class="text-xl">
+					{{ props.type ? $t(`sidebar.${props.type}s`) : $t('participants.all') }}
+				</h2>
+				<p class="text-sm text-gray-500">{{ new Date().toLocaleDateString() }}</p>
+			</div>
 
-      <!-- Toolbar (no-print) -->
-      <div class="flex gap-2 mb-4 no-print">
-        <Button @click="handlePrint">
-          <Printer class="w-4 h-4 mr-2" />
-          Print
-        </Button>
-      </div>
+			<!-- Toolbar (no-print) -->
+			<div class="flex gap-2 mb-4 no-print">
+				<Button @click="handlePrint">
+					<Printer class="w-4 h-4 mr-2" />
+					Print
+				</Button>
+			</div>
 
-      <!-- Table Content -->
-      <div v-else class="border rounded-md">
-        <Table>
-          <!-- Your table content -->
-        </Table>
-      </div>
-    </div>
-  </div>
+			<!-- Table Content -->
+			<div v-else class="border rounded-md">
+				<Table>
+					<!-- Your table content -->
+				</Table>
+			</div>
+		</div>
+	</div>
 </template>
 
 <style scoped>
 @media print {
-  .print-only-header {
-    display: block !important;
-  }
-  .participant-row {
-    page-break-inside: avoid !important;
-  }
+	.print-only-header {
+		display: block !important;
+	}
+	.participant-row {
+		page-break-inside: avoid !important;
+	}
 }
 </style>
 
 <style>
 .print-only-header {
-  display: none;
+	display: none;
 }
 
 @media print {
-  @page {
-    margin: 1cm;
-  }
-  .no-print {
-    display: none !important;
-  }
-  .print-only-header {
-    display: block !important;
-  }
-  table {
-    width: 100% !important;
-    border-collapse: collapse !important;
-  }
-  th, td {
-    border: 1px solid #ddd !important;
-    padding: 4px 8px !important;
-  }
+	@page {
+		margin: 1cm;
+	}
+	.no-print {
+		display: none !important;
+	}
+	.print-only-header {
+		display: block !important;
+	}
+	table {
+		width: 100% !important;
+		border-collapse: collapse !important;
+	}
+	th,
+	td {
+		border: 1px solid #ddd !important;
+		padding: 4px 8px !important;
+	}
 }
 </style>
 ```
@@ -221,51 +224,51 @@ For printing badges or cards (like `BadgesView.vue`):
 
 ```vue
 <template>
-  <div class="p-4">
-    <div class="print-container">
-      <!-- Header with print button -->
-      <div class="flex justify-between items-center mb-6 no-print">
-        <h1>Badges</h1>
-        <Button @click="printBadges">Print</Button>
-      </div>
+	<div class="p-4">
+		<div class="print-container">
+			<!-- Header with print button -->
+			<div class="flex justify-between items-center mb-6 no-print">
+				<h1>Badges</h1>
+				<Button @click="printBadges">Print</Button>
+			</div>
 
-      <!-- Badges Grid -->
-      <div class="badges-container">
-        <div v-for="item in items" :key="item.id" class="badge-item">
-          <!-- Badge content -->
-        </div>
-      </div>
-    </div>
-  </div>
+			<!-- Badges Grid -->
+			<div class="badges-container">
+				<div v-for="item in items" :key="item.id" class="badge-item">
+					<!-- Badge content -->
+				</div>
+			</div>
+		</div>
+	</div>
 </template>
 
 <style scoped>
 .badges-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 24px;
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+	gap: 24px;
 }
 
 .badge-item {
-  background: white;
-  border-radius: 20px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+	background: white;
+	border-radius: 20px;
+	box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
 }
 
 @media print {
-  .badges-container {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin: 0;
-    padding: 0;
-  }
+	.badges-container {
+		grid-template-columns: repeat(3, 1fr);
+		gap: 16px;
+		margin: 0;
+		padding: 0;
+	}
 
-  .badge-item {
-    break-inside: avoid;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    margin-bottom: 16px;
-    border: 1px solid #e5e7eb;
-  }
+	.badge-item {
+		break-inside: avoid;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+		margin-bottom: 16px;
+		border: 1px solid #e5e7eb;
+	}
 }
 </style>
 ```
@@ -278,17 +281,18 @@ Prevent unwanted page breaks:
 
 ```css
 @media print {
-  /* Avoid breaking inside elements */
-  .badge-item,
-  .participant-row,
-  table {
-    page-break-inside: avoid;
-  }
+	/* Avoid breaking inside elements */
+	.badge-item,
+	.participant-row,
+	table {
+		page-break-inside: avoid;
+	}
 
-  /* Control page breaks before/after */
-  h1, h2 {
-    page-break-after: avoid;
-  }
+	/* Control page breaks before/after */
+	h1,
+	h2 {
+		page-break-after: avoid;
+	}
 }
 ```
 
@@ -298,26 +302,26 @@ Add a header that only appears during print:
 
 ```vue
 <template>
-  <div class="print-container">
-    <div class="print-only-header">
-      <h1>Report Title</h1>
-      <p>Date: {{ new Date().toLocaleDateString() }}</p>
-    </div>
-    <!-- Content -->
-  </div>
+	<div class="print-container">
+		<div class="print-only-header">
+			<h1>Report Title</h1>
+			<p>Date: {{ new Date().toLocaleDateString() }}</p>
+		</div>
+		<!-- Content -->
+	</div>
 </template>
 
 <style>
 .print-only-header {
-  display: none;
+	display: none;
 }
 
 @media print {
-  .print-only-header {
-    display: block !important;
-    text-align: center;
-    margin-bottom: 20px;
-  }
+	.print-only-header {
+		display: block !important;
+		text-align: center;
+		margin-bottom: 20px;
+	}
 }
 </style>
 ```
@@ -328,35 +332,35 @@ Use the `.no-print` class on table headers and cells:
 
 ```vue
 <template>
-  <Table>
-    <TableHeader>
-      <TableRow>
-        <!-- Selection column (hidden in print) -->
-        <TableHead class="no-print">
-          <input type="checkbox" />
-        </TableHead>
+	<Table>
+		<TableHeader>
+			<TableRow>
+				<!-- Selection column (hidden in print) -->
+				<TableHead class="no-print">
+					<input type="checkbox" />
+				</TableHead>
 
-        <!-- Data columns (visible in print) -->
-        <TableHead>Name</TableHead>
-        <TableHead>Email</TableHead>
+				<!-- Data columns (visible in print) -->
+				<TableHead>Name</TableHead>
+				<TableHead>Email</TableHead>
 
-        <!-- Actions column (hidden in print) -->
-        <TableHead class="no-print">Actions</TableHead>
-      </TableRow>
-    </TableHeader>
-    <TableBody>
-      <TableRow>
-        <TableCell class="no-print">
-          <input type="checkbox" />
-        </TableCell>
-        <TableCell>{{ name }}</TableCell>
-        <TableCell>{{ email }}</TableCell>
-        <TableCell class="no-print">
-          <Button>Edit</Button>
-        </TableCell>
-      </TableRow>
-    </TableBody>
-  </Table>
+				<!-- Actions column (hidden in print) -->
+				<TableHead class="no-print">Actions</TableHead>
+			</TableRow>
+		</TableHeader>
+		<TableBody>
+			<TableRow>
+				<TableCell class="no-print">
+					<input type="checkbox" />
+				</TableCell>
+				<TableCell>{{ name }}</TableCell>
+				<TableCell>{{ email }}</TableCell>
+				<TableCell class="no-print">
+					<Button>Edit</Button>
+				</TableCell>
+			</TableRow>
+		</TableBody>
+	</Table>
 </template>
 ```
 
@@ -366,17 +370,17 @@ Control page margins and size:
 
 ```css
 @media print {
-  @page {
-    margin: 1cm;
-    size: A4;
-    /* Or use custom size */
-    /* size: 8.5in 11in; */
-  }
+	@page {
+		margin: 1cm;
+		size: A4;
+		/* Or use custom size */
+		/* size: 8.5in 11in; */
+	}
 
-  /* Landscape mode */
-  @page landscape {
-    size: A4 landscape;
-  }
+	/* Landscape mode */
+	@page landscape {
+		size: A4 landscape;
+	}
 }
 ```
 
@@ -386,15 +390,15 @@ Ensure text is readable when printed:
 
 ```css
 @media print {
-  /* Force black text for better readability */
-  body {
-    color: #000 !important;
-  }
+	/* Force black text for better readability */
+	body {
+		color: #000 !important;
+	}
 
-  /* Remove background colors that don't print well */
-  .colored-background {
-    background: white !important;
-  }
+	/* Remove background colors that don't print well */
+	.colored-background {
+		background: white !important;
+	}
 }
 ```
 
@@ -430,10 +434,10 @@ Ensure text is readable when printed:
 
 ```css
 @media print {
-  .badge-image {
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
-  }
+	.badge-image {
+		print-color-adjust: exact;
+		-webkit-print-color-adjust: exact;
+	}
 }
 ```
 
@@ -445,9 +449,11 @@ Ensure text is readable when printed:
 
 ```css
 @media print {
-  .card, .row, table {
-    page-break-inside: avoid;
-  }
+	.card,
+	.row,
+	table {
+		page-break-inside: avoid;
+	}
 }
 ```
 
@@ -459,13 +465,13 @@ Ensure text is readable when printed:
 
 ```css
 .badges-container {
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
 }
 
 @media print {
-  .badges-container {
-    grid-template-columns: repeat(3, 1fr); /* Fixed for print */
-  }
+	.badges-container {
+		grid-template-columns: repeat(3, 1fr); /* Fixed for print */
+	}
 }
 ```
 
@@ -475,16 +481,16 @@ Add these keys to your locale files (`apps/web/src/locales/es.json`):
 
 ```json
 {
-  "sidebar": {
-    "walkers": "Caminantes",
-    "servers": "Servidores",
-    "partial_servers": "Angelitos",
-    "partialServers": "Angelitos",
-    "waitings": "Lista de Espera"
-  },
-  "participants": {
-    "all": "Participantes"
-  }
+	"sidebar": {
+		"walkers": "Caminantes",
+		"servers": "Servidores",
+		"partial_servers": "Angelitos",
+		"partialServers": "Angelitos",
+		"waitings": "Lista de Espera"
+	},
+	"participants": {
+		"all": "Participantes"
+	}
 }
 ```
 

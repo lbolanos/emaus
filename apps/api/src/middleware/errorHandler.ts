@@ -12,7 +12,7 @@ export const errorHandler = (err: Error, req: Request, res: Response, next: Next
 	];
 
 	const isValidationError = validationErrorPatterns.some((pattern) =>
-		err.message.toLowerCase().includes(pattern.toLowerCase())
+		err.message.toLowerCase().includes(pattern.toLowerCase()),
 	);
 
 	if (isValidationError) {

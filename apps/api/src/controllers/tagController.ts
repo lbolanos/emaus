@@ -13,7 +13,9 @@ export const getAllTags = async (req: Request, res: Response, next: NextFunction
 
 export const getTag = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const tag = await tagService.getAllTags().then((tags) => tags.find((t) => t.id === req.params.id));
+		const tag = await tagService
+			.getAllTags()
+			.then((tags) => tags.find((t) => t.id === req.params.id));
 		if (!tag) {
 			return res.status(404).json({ message: 'Tag not found' });
 		}
