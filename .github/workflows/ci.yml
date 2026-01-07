@@ -82,6 +82,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build @repo/ui package
+        run: pnpm --filter @repo/ui build
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'
+
       - name: Run web tests
         run: pnpm test:web
 
@@ -93,32 +98,10 @@ jobs:
           name: web-coverage
           fail_ci_if_error: false
 
-  typecheck:
-    name: Type Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run type check
-        run: pnpm build  # TypeScript type checking happens during build
-
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [lint, test-api, test-web, typecheck]
+    needs: [lint, test-api]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -143,7 +126,7 @@ jobs:
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [lint, test-api, test-web, typecheck, build]
+    needs: [lint, test-api, test-web, build]
     if: always()
     steps:
       - name: Generate CI Summary
@@ -154,6 +137,5 @@ jobs:
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Lint | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Test API | ${{ needs.test-api.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Test Web | ${{ needs.test-web.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Type Check | ${{ needs.typecheck.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Build | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Web | ${{ needs.test-web.result }} |" >> $GITHUB_STEP_SUMMARY
