@@ -1,0 +1,46 @@
+#!/usr/bin/env sh
+if [ -z "$SKIP_PRE_COMMIT" ]; then
+  echo "Running pre-commit checks..."
+
+  # Run lint (fast)
+  echo "Running lint..."
+  pnpm lint || {
+    echo "Lint failed. Fix errors and try again. To skip, use SKIP_PRE_COMMIT=1 git commit"
+    exit 1
+  }
+
+  # Run tests on changed files
+  echo "Running tests on changed packages..."
+
+  # Detect which packages have changed
+  CHANGED_API=$(git diff --cached --name-only | grep -c "^apps/api/" || true)
+  CHANGED_WEB=$(git diff --cached --name-only | grep -c "^apps/web/" || true)
+
+  if [ "$CHANGED_API" -gt 0 ]; then
+    echo "API changes detected, running API tests..."
+    pnpm test:api || {
+      echo "API tests failed. To skip, use SKIP_PRE_COMMIT=1 git commit"
+      exit 1
+    }
+  fi
+
+  if [ "$CHANGED_WEB" -gt 0 ]; then
+    echo "Web changes detected, running web tests..."
+    pnpm test:web || {
+      echo "Web tests failed. To skip, use SKIP_PRE_COMMIT=1 git commit"
+      exit 1
+    }
+  fi
+
+  # If no API or web changes but tests are generally needed, run all tests
+  if [ "$CHANGED_API" -eq 0 ] && [ "$CHANGED_WEB" -eq 0 ]; then
+    # Only run field mapping tests (fast) for other changes
+    echo "Running field mapping tests..."
+    pnpm test:field-mapping || {
+      echo "Tests failed. To skip, use SKIP_PRE_COMMIT=1 git commit"
+      exit 1
+    }
+  fi
+
+  echo "Pre-commit checks passed!"
+fi
