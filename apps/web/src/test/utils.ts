@@ -1,6 +1,7 @@
 import { mount, VueWrapper } from '@vue/test-utils';
 import { createPinia, Pinia, setActivePinia } from 'pinia';
 import { ComponentPublicInstance } from 'vue';
+import { vi } from 'vitest';
 
 /**
  * Test utilities for Vue components
@@ -35,12 +36,12 @@ export function createTestWrapper(component: any, options: TestMountOptions = {}
 			mocks: {
 				$t: (key: string) => key,
 				$router: {
-					push: jest.fn(),
-					replace: jest.fn(),
-					go: jest.fn(),
-					back: jest.fn(),
-					forward: jest.fn(),
-					resolve: jest.fn(() => ({ href: '/mocked-route' })),
+					push: vi.fn(),
+					replace: vi.fn(),
+					go: vi.fn(),
+					back: vi.fn(),
+					forward: vi.fn(),
+					resolve: vi.fn(() => ({ href: '/mocked-route' })),
 				},
 				$route: {
 					path: '/mocked-path',
@@ -204,11 +205,11 @@ export function mockStore(storeName: string, initialState: any = {}) {
 	const store = {
 		$id: storeName,
 		$state: { ...initialState },
-		$patch: jest.fn(),
-		$reset: jest.fn(),
-		$subscribe: jest.fn(),
-		$onAction: jest.fn(),
-		$dispose: jest.fn(),
+		$patch: vi.fn(),
+		$reset: vi.fn(),
+		$subscribe: vi.fn(),
+		$onAction: vi.fn(),
+		$dispose: vi.fn(),
 		...initialState,
 	};
 
@@ -255,11 +256,11 @@ export function createMockExcelFile(overrides: Partial<File> = {}): File {
 export function mockComponentMethod(
 	wrapper: VueWrapper,
 	methodName: string,
-	implementation: (...args: any[]) => any = jest.fn(),
+	implementation: (...args: any[]) => any = vi.fn(),
 ) {
 	const component = wrapper.vm as ComponentPublicInstance;
 	const originalMethod = (component as any)[methodName];
-	(component as any)[methodName] = jest.fn(implementation || originalMethod);
+	(component as any)[methodName] = vi.fn(implementation || originalMethod);
 
 	return {
 		restore: () => {
@@ -291,9 +292,9 @@ export function mockWindowLocation(href: string = 'http://localhost:3000') {
 			pathname: '/',
 			search: '',
 			hash: '',
-			assign: jest.fn(),
-			replace: jest.fn(),
-			reload: jest.fn(),
+			assign: vi.fn(),
+			replace: vi.fn(),
+			reload: vi.fn(),
 		},
 		writable: true,
 	});
@@ -303,9 +304,10 @@ export function mockWindowLocation(href: string = 'http://localhost:3000') {
  * Clean up mocks after tests
  */
 export function cleanupMocks() {
-	jest.clearAllMocks();
-	localStorageMock.clear();
-	sessionStorageMock.clear();
+	vi.clearAllMocks();
+	// Use the global window.localStorage/sessionStorage that has _reset method
+	(window.localStorage as any)?._reset?.();
+	(window.sessionStorage as any)?._reset?.();
 }
 
 /**
@@ -372,30 +374,4 @@ export const performanceUtils = {
 	},
 };
 
-// Create storage mocks
-const localStorageMock = {
-	getItem: jest.fn(),
-	setItem: jest.fn(),
-	removeItem: jest.fn(),
-	clear: jest.fn(),
-	length: 0,
-	key: jest.fn(),
-};
-
-const sessionStorageMock = {
-	getItem: jest.fn(),
-	setItem: jest.fn(),
-	removeItem: jest.fn(),
-	clear: jest.fn(),
-	length: 0,
-	key: jest.fn(),
-};
-
-// Set up global mocks
-Object.defineProperty(window, 'localStorage', {
-	value: localStorageMock,
-});
-
-Object.defineProperty(window, 'sessionStorage', {
-	value: sessionStorageMock,
-});
+// Note: localStorage and sessionStorage mocks are set up in src/test/setup.ts

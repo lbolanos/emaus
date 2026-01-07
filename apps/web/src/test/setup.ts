@@ -32,49 +32,49 @@ vi.mock('vue-router', () => ({
 	createWebHashHistory: vi.fn(),
 }));
 
-// Mock Pinia stores
-vi.mock('pinia', () => ({
-	createPinia: vi.fn(() => ({
-		_s: new Map(),
-		state: {},
-		_p: [],
-		install: vi.fn(),
-	})),
-	storeToRefs: vi.fn((store) =>
-		Object.keys(store).reduce((acc: Record<string, any>, key) => {
-			if (typeof store[key] === 'function') return acc;
-			acc[key] = { value: store[key] };
-			return acc;
-		}, {}),
-	),
-	defineStore: vi.fn((id, options) => {
-		const store = {
-			id,
-			_p: [],
-			$state: {},
-			$patch: vi.fn(),
-			$reset: vi.fn(),
-			$subscribe: vi.fn(),
-			$onAction: vi.fn(),
-			$dispose: vi.fn(),
-		};
-
-		if (typeof options === 'function') {
-			const result = options(() => store);
-			Object.assign(store, result);
-		} else if (options && typeof options.state === 'function') {
-			Object.assign(store, options.state());
-			if (options.getters) {
-				Object.assign(store, options.getters);
-			}
-			if (options.actions) {
-				Object.assign(store, options.actions);
-			}
-		}
-
-		return store;
-	}),
-}));
+// Do NOT mock Pinia - it's needed for store tests
+// vi.mock('pinia', () => ({
+// 	createPinia: vi.fn(() => ({
+// 		_s: new Map(),
+// 		state: {},
+// 		_p: [],
+// 		install: vi.fn(),
+// 	})),
+// 	storeToRefs: vi.fn((store) =>
+// 		Object.keys(store).reduce((acc: Record<string, any>, key) => {
+// 			if (typeof store[key] === 'function') return acc;
+// 			acc[key] = { value: store[key] };
+// 			return acc;
+// 		}, {}),
+// 	),
+// 	defineStore: vi.fn((id, options) => {
+// 		const store = {
+// 			id,
+// 			_p: [],
+// 			$state: {},
+// 			$patch: vi.fn(),
+// 			$reset: vi.fn(),
+// 			$subscribe: vi.fn(),
+// 			$onAction: vi.fn(),
+// 			$dispose: vi.fn(),
+// 		};
+//
+// 		if (typeof options === 'function') {
+// 			const result = options(() => store);
+// 			Object.assign(store, result);
+// 		} else if (options && typeof options.state === 'function') {
+// 			Object.assign(store, options.state());
+// 			if (options.getters) {
+// 				Object.assign(store, options.getters);
+// 			}
+// 			if (options.actions) {
+// 				Object.assign(store, options.actions);
+// 			}
+// 		}
+//
+// 		return store;
+// 	}),
+// }));
 
 // Mock Vue i18n
 vi.mock('vue-i18n', () => ({
@@ -93,27 +93,57 @@ vi.mock('vue-i18n', () => ({
 }));
 
 // Mock localStorage
-const localStorageMock = {
-	getItem: vi.fn(),
-	setItem: vi.fn(),
-	removeItem: vi.fn(),
-	clear: vi.fn(),
-	length: 0,
-	key: vi.fn(),
-};
+const localStorageMock = (() => {
+	let store: Record<string, string> = {};
+	return {
+		getItem: (key: string) => store[key] ?? null,
+		setItem: (key: string, value: string) => {
+			store[key] = value;
+		},
+		removeItem: (key: string) => {
+			delete store[key];
+		},
+		clear: () => {
+			store = {};
+		},
+		get length() {
+			return Object.keys(store).length;
+		},
+		key: (index: number) => Object.keys(store)[index] ?? null,
+		// Reset method for testing
+		_reset: () => {
+			store = {};
+		},
+	};
+})();
 Object.defineProperty(window, 'localStorage', {
 	value: localStorageMock,
 });
 
 // Mock sessionStorage
-const sessionStorageMock = {
-	getItem: vi.fn(),
-	setItem: vi.fn(),
-	removeItem: vi.fn(),
-	clear: vi.fn(),
-	length: 0,
-	key: vi.fn(),
-};
+const sessionStorageMock = (() => {
+	let store: Record<string, string> = {};
+	return {
+		getItem: (key: string) => store[key] ?? null,
+		setItem: (key: string, value: string) => {
+			store[key] = value;
+		},
+		removeItem: (key: string) => {
+			delete store[key];
+		},
+		clear: () => {
+			store = {};
+		},
+		get length() {
+			return Object.keys(store).length;
+		},
+		key: (index: number) => Object.keys(store)[index] ?? null,
+		// Reset method for testing
+		_reset: () => {
+			store = {};
+		},
+	};
+})();
 Object.defineProperty(window, 'sessionStorage', {
 	value: sessionStorageMock,
 });
