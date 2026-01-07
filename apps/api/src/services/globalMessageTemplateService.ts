@@ -1,3 +1,4 @@
+import { DataSource } from 'typeorm';
 import { AppDataSource } from '../data-source';
 import {
 	GlobalMessageTemplate,
@@ -6,6 +7,7 @@ import {
 import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { User } from '../entities/user.entity';
+import { getRepositories } from '../utils/repositoryHelpers';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface TemplateVariables {
@@ -26,8 +28,19 @@ export interface TemplateVariables {
 }
 
 export class GlobalMessageTemplateService {
-	private globalMessageTemplateRepository = AppDataSource.getRepository(GlobalMessageTemplate);
-	private messageTemplateRepository = AppDataSource.getRepository(MessageTemplate);
+	private dataSource: DataSource;
+
+	constructor(dataSource?: DataSource) {
+		this.dataSource = dataSource || AppDataSource;
+	}
+
+	private get globalMessageTemplateRepository() {
+		return getRepositories(this.dataSource).globalMessageTemplate;
+	}
+
+	private get messageTemplateRepository() {
+		return getRepositories(this.dataSource).messageTemplate;
+	}
 
 	async getAll(): Promise<GlobalMessageTemplate[]> {
 		return this.globalMessageTemplateRepository.find({

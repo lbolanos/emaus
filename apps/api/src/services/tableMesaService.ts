@@ -1,18 +1,18 @@
+import { DataSource } from 'typeorm';
 import { AppDataSource } from '../data-source';
 import { TableMesa } from '../entities/tableMesa.entity';
 import { Participant } from '../entities/participant.entity';
 import { Retreat } from '../entities/retreat.entity';
+import { getRepositories } from '../utils/repositoryHelpers';
 import { v4 as uuidv4 } from 'uuid';
 import { In } from 'typeorm';
 import { tableMesaSchema } from '@repo/types';
 
-const tableMesaRepository = AppDataSource.getRepository(TableMesa);
-const participantRepository = AppDataSource.getRepository(Participant);
-
 const MAX_WALKERS_PER_TABLE = 7;
 
-export const findTablesByRetreatId = async (retreatId: string) => {
-	const tables = await tableMesaRepository
+export const findTablesByRetreatId = async (retreatId: string, dataSource?: DataSource) => {
+	const repos = getRepositories(dataSource);
+	const tables = await repos.tableMesa
 		.createQueryBuilder('table')
 		.leftJoinAndSelect('table.lider', 'lider')
 		.leftJoinAndSelect('table.colider1', 'colider1')
@@ -26,8 +26,9 @@ export const findTablesByRetreatId = async (retreatId: string) => {
 	return tableMesaSchema.array().parse(tables);
 };
 
-export const findTableById = async (id: string) => {
-	return tableMesaRepository
+export const findTableById = async (id: string, dataSource?: DataSource) => {
+	const repos = getRepositories(dataSource);
+	return repos.tableMesa
 		.createQueryBuilder('table')
 		.leftJoinAndSelect('table.lider', 'lider')
 		.leftJoinAndSelect('table.colider1', 'colider1')
@@ -38,45 +39,58 @@ export const findTableById = async (id: string) => {
 		.getOne();
 };
 
-export const createTable = async (tableData: { name: string; retreatId: string }) => {
-	const newTable = tableMesaRepository.create({
+export const createTable = async (
+	tableData: { name: string; retreatId: string },
+	dataSource?: DataSource,
+) => {
+	const repos = getRepositories(dataSource);
+	const newTable = repos.tableMesa.create({
 		...tableData,
 		id: uuidv4(),
 	});
-	return tableMesaRepository.save(newTable);
+	return repos.tableMesa.save(newTable);
 };
 
-export const createDefaultTablesForRetreat = async (retreat: Retreat) => {
+export const createDefaultTablesForRetreat = async (retreat: Retreat, dataSource?: DataSource) => {
+	const repos = getRepositories(dataSource);
 	for (let i = 1; i <= 5; i++) {
-		const newTable = tableMesaRepository.create({
+		const newTable = repos.tableMesa.create({
 			id: uuidv4(),
 			name: `Table ${i}`,
 			retreatId: retreat.id,
 		});
-		await tableMesaRepository.save(newTable);
+		await repos.tableMesa.save(newTable);
 	}
 };
 
-export const updateTable = async (id: string, tableData: Partial<TableMesa>) => {
-	const table = await tableMesaRepository.findOneBy({ id });
+export const updateTable = async (
+	id: string,
+	tableData: Partial<TableMesa>,
+	dataSource?: DataSource,
+) => {
+	const repos = getRepositories(dataSource);
+	const table = await repos.tableMesa.findOneBy({ id });
 	if (!table) return null;
-	tableMesaRepository.merge(table, tableData);
-	return tableMesaRepository.save(table);
+	Object.assign(table, tableData);
+	return repos.tableMesa.save(table);
 };
 
-export const deleteTable = async (id: string) => {
-	await tableMesaRepository.delete(id);
+export const deleteTable = async (id: string, dataSource?: DataSource) => {
+	const repos = getRepositories(dataSource);
+	await repos.tableMesa.delete(id);
 };
 
 export const assignLeaderToTable = async (
 	tableId: string,
 	participantId: string,
 	role: 'lider' | 'colider1' | 'colider2',
+	dataSource?: DataSource,
 ) => {
-	const table = await findTableById(tableId);
+	const repos = getRepositories(dataSource);
+	let table = await findTableById(tableId, dataSource);
 	if (!table) throw new Error('Table not found');
 
-	const participant = await participantRepository.findOneBy({ id: participantId });
+	const participant = await repos.participant.findOneBy({ id: participantId });
 	if (!participant) throw new Error('Participant not found');
 	if (participant.type !== 'server') throw new Error('Only servers can be assigned as leaders.');
 	if (participant.isCancelled) throw new Error('Cannot assign cancelled participants as leaders.');
@@ -93,7 +107,10 @@ export const assignLeaderToTable = async (
 	].filter((id) => id && id !== participantId) as string[];
 
 	if (existingParticipantIds.length > 0) {
-		const { hasConflict, conflicts } = await checkTableTagConflict(existingParticipantIds, participantId);
+		const { hasConflict, conflicts } = await checkTableTagConflict(
+			existingParticipantIds,
+			participantId,
+		);
 		if (hasConflict) {
 			throw new Error(
 				`No se puede asignar: ya existe un participante con la(s) etiqueta(s): ${conflicts.join(', ')}`,
@@ -102,48 +119,57 @@ export const assignLeaderToTable = async (
 	}
 
 	// Un-assign the participant from any other leader role they might have
-	await AppDataSource.createQueryBuilder()
-		.update(TableMesa)
-		.set({ liderId: null })
-		.where({ liderId: participantId })
-		.execute();
-	await AppDataSource.createQueryBuilder()
-		.update(TableMesa)
-		.set({ colider1Id: null })
-		.where({ colider1Id: participantId })
-		.execute();
-	await AppDataSource.createQueryBuilder()
-		.update(TableMesa)
-		.set({ colider2Id: null })
-		.where({ colider2Id: participantId })
-		.execute();
+	const tablesWithParticipant = await repos.tableMesa.find({
+		where: [
+			{ liderId: participantId },
+			{ colider1Id: participantId },
+			{ colider2Id: participantId },
+		],
+	});
+	for (const t of tablesWithParticipant) {
+		if (t.liderId === participantId) t.liderId = null;
+		if (t.colider1Id === participantId) t.colider1Id = null;
+		if (t.colider2Id === participantId) t.colider2Id = null;
+		await repos.tableMesa.save(t);
+	}
+
+	// Refetch the table to get the updated state
+	table = await findTableById(tableId, dataSource);
+	if (!table) throw new Error('Table not found');
 
 	// Assign to the new role
 	table[`${role}Id`] = participantId;
-	await tableMesaRepository.save(table);
-	return findTableById(tableId); // Return the table with all relations
+	await repos.tableMesa.save(table);
+	return findTableById(tableId, dataSource); // Return the table with all relations
 };
 
 export const unassignLeaderFromTable = async (
 	tableId: string,
 	role: 'lider' | 'colider1' | 'colider2',
+	dataSource?: DataSource,
 ) => {
-	const table = await findTableById(tableId);
+	const repos = getRepositories(dataSource);
+	const table = await findTableById(tableId, dataSource);
 	if (!table) throw new Error('Table not found');
 
 	// Use a direct update to set the foreign key to null, which is more reliable.
-	await tableMesaRepository.update(tableId, { [`${role}Id`]: null });
+	await repos.tableMesa.update(tableId, { [`${role}Id`]: null });
 
-	return findTableById(tableId); // Refetch to get the updated state with relations.
+	return findTableById(tableId, dataSource); // Refetch to get the updated state with relations.
 };
 
-export const assignWalkerToTable = async (tableId: string, participantId: string) => {
-	const participant = await participantRepository.findOneBy({ id: participantId });
+export const assignWalkerToTable = async (
+	tableId: string,
+	participantId: string,
+	dataSource?: DataSource,
+) => {
+	const repos = getRepositories(dataSource);
+	const participant = await repos.participant.findOneBy({ id: participantId });
 	if (!participant) throw new Error('Participant not found');
 	if (participant.type !== 'walker') throw new Error('Only walkers can be assigned to a table.');
 	if (participant.isCancelled) throw new Error('Cannot assign cancelled participants to tables.');
 
-	const table = await findTableById(tableId);
+	const table = await findTableById(tableId, dataSource);
 	if (!table) throw new Error('Table not found');
 
 	// Check for tag conflicts with ALL participants at the table
@@ -158,7 +184,10 @@ export const assignWalkerToTable = async (tableId: string, participantId: string
 	].filter(Boolean) as string[];
 
 	if (existingParticipantIds.length > 0) {
-		const { hasConflict, conflicts } = await checkTableTagConflict(existingParticipantIds, participantId);
+		const { hasConflict, conflicts } = await checkTableTagConflict(
+			existingParticipantIds,
+			participantId,
+		);
 		if (hasConflict) {
 			throw new Error(
 				`No se puede asignar: ya existe un participante con la(s) etiqueta(s): ${conflicts.join(', ')}`,
@@ -167,28 +196,33 @@ export const assignWalkerToTable = async (tableId: string, participantId: string
 	}
 
 	participant.tableId = tableId as string | null;
-	await participantRepository.save(participant);
-	return findTableById(tableId);
+	await repos.participant.save(participant);
+	return findTableById(tableId, dataSource);
 };
 
-export const unassignWalkerFromTable = async (tableId: string, participantId: string) => {
-	const participant = await participantRepository.findOneBy({ id: participantId });
+export const unassignWalkerFromTable = async (
+	tableId: string,
+	participantId: string,
+	dataSource?: DataSource,
+) => {
+	const repos = getRepositories(dataSource);
+	const participant = await repos.participant.findOneBy({ id: participantId });
 	if (!participant) throw new Error('Participant not found');
 
 	participant.tableId = null;
-	await participantRepository.save(participant);
-	return findTableById(tableId);
+	await repos.participant.save(participant);
+	return findTableById(tableId, dataSource);
 };
 
-export const rebalanceTablesForRetreat = async (retreatId: string) => {
-	console.log(`🔄 Rebalancing tables for retreat ${retreatId}...`);
+export const rebalanceTablesForRetreat = async (retreatId: string, dataSource?: DataSource) => {
 	const { getParticipantTags, checkTableTagConflict } = await import('./tagService');
 
-	const walkers = await participantRepository.find({
+	const repos = getRepositories(dataSource);
+	const walkers = await repos.participant.find({
 		where: { retreatId, type: 'walker', isCancelled: false },
 		order: { registrationDate: 'ASC' },
 	});
-	const tables = await tableMesaRepository.find({
+	const tables = await repos.tableMesa.find({
 		where: { retreatId },
 		order: { name: 'ASC' },
 	});
@@ -200,7 +234,7 @@ export const rebalanceTablesForRetreat = async (retreatId: string) => {
 
 	if (tableCount < idealTableCount) {
 		for (let i = tableCount + 1; i <= idealTableCount; i++) {
-			const newTable = await createTable({ name: `Table ${i}`, retreatId });
+			const newTable = await createTable({ name: `Table ${i}`, retreatId }, dataSource);
 			tables.push(newTable);
 		}
 	} else if (tableCount > idealTableCount && tableCount > 5) {
@@ -211,14 +245,15 @@ export const rebalanceTablesForRetreat = async (retreatId: string) => {
 		});
 		const tableIdsToDelete = emptyTablesToDelete.map((t) => t.id);
 		if (tableIdsToDelete.length > 0) {
-			await tableMesaRepository.delete({ id: In(tableIdsToDelete) });
+			await repos.tableMesa.delete({ id: In(tableIdsToDelete) });
 		}
 		// This splice is optimistic. A better approach would be to refetch.
 		tables.splice(idealTableCount);
 	}
 
 	// Unassign all non-cancelled walkers in a single query
-	await AppDataSource.createQueryBuilder()
+	await (dataSource || AppDataSource)
+		.createQueryBuilder()
 		.update(Participant)
 		.set({ tableId: null })
 		.where({ retreatId, type: 'walker', isCancelled: false })
@@ -237,9 +272,12 @@ export const rebalanceTablesForRetreat = async (retreatId: string) => {
 
 	const participantTags = new Map<string, string[]>();
 	for (const pid of allParticipantIds) {
-		const tags = await getParticipantTags(pid);
+		const tags = await getParticipantTags(pid, dataSource);
 		if (tags.length > 0) {
-			participantTags.set(pid, tags.map((t) => t.id));
+			participantTags.set(
+				pid,
+				tags.map((t) => t.id),
+			);
 		}
 	}
 
@@ -307,10 +345,10 @@ export const rebalanceTablesForRetreat = async (retreatId: string) => {
 		}
 	}
 
-	await participantRepository.save(walkerAssignments);
+	await repos.participant.save(walkerAssignments);
 };
 
-export const exportTablesToDocx = async (retreatId: string) => {
+export const exportTablesToDocx = async (retreatId: string, dataSource?: DataSource) => {
 	const {
 		Document,
 		Packer,
@@ -329,8 +367,10 @@ export const exportTablesToDocx = async (retreatId: string) => {
 	} = await import('docx');
 	type ParagraphType = InstanceType<typeof Paragraph>;
 
+	const repos = getRepositories(dataSource);
+
 	// Get all tables with their participants
-	const tables = await tableMesaRepository
+	const tables = await repos.tableMesa
 		.createQueryBuilder('table')
 		.leftJoinAndSelect('table.lider', 'lider')
 		.leftJoinAndSelect('table.colider1', 'colider1')
@@ -342,7 +382,7 @@ export const exportTablesToDocx = async (retreatId: string) => {
 		.getMany();
 
 	// Get retreat information
-	const retreat = await AppDataSource.getRepository(Retreat).findOneBy({ id: retreatId });
+	const retreat = await repos.retreat.findOneBy({ id: retreatId });
 	if (!retreat) throw new Error('Retreat not found');
 
 	// Format retreat dates - handle both Date objects and strings

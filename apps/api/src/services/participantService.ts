@@ -62,7 +62,6 @@ export const findAllParticipants = async (
 
 	// Apply tag filter if provided
 	if (tagIds && tagIds.length > 0) {
-		console.log('[Service] findAllParticipants - Applying tagIds filter:', tagIds);
 		const subQuery = queryBuilder
 			.subQuery()
 			.select('pt.participantId')
@@ -101,7 +100,6 @@ const assignBedToParticipant = async (
 ): Promise<string | undefined> => {
 	// Don't assign beds to cancelled participants
 	if (participant.isCancelled) {
-		console.log(`🚫 Skipping bed assignment for cancelled participant ${participant.email}`);
 		return undefined;
 	}
 
@@ -130,12 +128,16 @@ const assignBedToParticipant = async (
 		if (age <= 40) {
 			// Younger walkers: prioritize bottom bunk beds first, then top bunk
 			availableBedsQuery
-				.orderBy("CASE WHEN bed.type = 'litera_abajo' THEN 1 WHEN bed.type = 'litera_arriba' THEN 2 WHEN bed.type = 'normal' THEN 3 ELSE 4 END")
+				.orderBy(
+					"CASE WHEN bed.type = 'litera_abajo' THEN 1 WHEN bed.type = 'litera_arriba' THEN 2 WHEN bed.type = 'normal' THEN 3 ELSE 4 END",
+				)
 				.addOrderBy('bed.floor', 'ASC');
 		} else {
 			// Older walkers: prioritize normal beds on lower floors
 			availableBedsQuery
-				.orderBy("CASE WHEN bed.type = 'normal' THEN 1 WHEN bed.type = 'litera_abajo' THEN 2 WHEN bed.type = 'litera_arriba' THEN 3 ELSE 4 END")
+				.orderBy(
+					"CASE WHEN bed.type = 'normal' THEN 1 WHEN bed.type = 'litera_abajo' THEN 2 WHEN bed.type = 'litera_arriba' THEN 3 ELSE 4 END",
+				)
 				.addOrderBy('bed.floor', 'ASC');
 		}
 	} else if (participant.type === 'server') {
@@ -175,16 +177,12 @@ const assignBedToParticipant = async (
 
 	// If no snorer-compatible beds found, get any available bed
 	//const allAvailableBeds = await availableBedsQuery.getMany();
-	//console.log(`BED ASSIGNMENT: Available beds for participant ${participant.id}:`, allAvailableBeds.map((b: RetreatBed) => `${b.id} (${b.roomNumber}-${b.bedNumber})`));
 
 	const bed = await availableBedsQuery.getOne();
 
 	// Debug: Check if we're getting the same bed for different participants
 	/*if (bed) {
-	console.log(`BED ASSIGNMENT: Participant ${participant.id} gets bed ${bed.id} (${bed.roomNumber}-${bed.bedNumber})`);
-	console.log(`BED ASSIGNMENT: Excluded beds: ${excludedBedIds.join(', ')}`);
   } else {
-	console.log(`BED ASSIGNMENT: No bed found for participant ${participant.id}`);
   }*/
 
 	return bed?.id;
@@ -199,7 +197,7 @@ const assignBedAndTableToParticipant = async (
 
 	// Don't assign anything to cancelled participants
 	if (participant.isCancelled) {
-		console.log(
+		console.warn(
 			`🚫 Skipping bed and table assignment for cancelled participant ${participant.email}`,
 		);
 		return result;
@@ -339,14 +337,6 @@ export const createParticipant = async (
 		let colorToAssign: string | null = null;
 
 		// Only apply family/friend color assignment to walkers
-		/*console.log('COLOR ASSIGNMENT: Starting color assignment for participant:', {
-			type: participantData.type,
-			invitedBy: participantData.invitedBy,
-			isInvitedByEmausMember: participantData.isInvitedByEmausMember,
-			email: participantData.email,
-			lastName: participantData.lastName,
-		});*/
-
 		if (participantData.type === 'walker') {
 			// Build search conditions to find participants in the same group
 			const searchConditions: string[] = [];
@@ -358,7 +348,6 @@ export const createParticipant = async (
 				if (inviterName) {
 					searchConditions.push('LOWER(participant.invitedBy) = :inviterName');
 					parameters.inviterName = inviterName;
-					//console.log('COLOR ASSIGNMENT: Added invitedBy condition:', inviterName);
 				}
 			}
 
@@ -368,7 +357,6 @@ export const createParticipant = async (
 				if (inviterEmail) {
 					searchConditions.push('LOWER(participant.inviterEmail) = :inviterEmail');
 					parameters.inviterEmail = inviterEmail;
-					//console.log('COLOR ASSIGNMENT: Added inviterEmail condition:', inviterEmail);
 				}
 
 				const inviterPhones = [
@@ -385,7 +373,6 @@ export const createParticipant = async (
 					searchConditions.push('SUBSTR(participant.inviterCellPhone, -8) IN (:...inviterPhones)');
 					searchConditions.push('SUBSTR(participant.inviterWorkPhone, -8) IN (:...inviterPhones)');
 					searchConditions.push('SUBSTR(participant.inviterHomePhone, -8) IN (:...inviterPhones)');
-					//console.log('COLOR ASSIGNMENT: Added inviter phone conditions:', inviterPhones);
 				}
 			}
 
@@ -395,12 +382,8 @@ export const createParticipant = async (
 				if (lastName) {
 					searchConditions.push('LOWER(participant.lastName) = :lastName');
 					parameters.lastName = lastName;
-					//console.log('COLOR ASSIGNMENT: Added lastName condition:', lastName);
 				}
 			}
-
-			//console.log('COLOR ASSIGNMENT: Final search conditions:', searchConditions);
-			//console.log('COLOR ASSIGNMENT: Final parameters:', parameters);
 
 			if (searchConditions.length > 0) {
 				// Find all existing walkers that match any of the group conditions
@@ -411,12 +394,10 @@ export const createParticipant = async (
 					.andWhere(new Brackets((qb) => qb.where(searchConditions.join(' OR '))));
 
 				const existingWalkers = await findAnyWalkerQb.setParameters(parameters).getMany();
-				//console.log('COLOR ASSIGNMENT: Existing walkers found:', existingWalkers.length);
 
 				// Only assign color if there are 2 or more walkers in the group (including the new one)
 				if (existingWalkers.length >= 1) {
 					// This means we have a group: existing walkers + the new walker being created
-					//console.log('COLOR ASSIGNMENT: Group found - assigning colors');
 
 					// Check if any existing walker already has a color
 					const existingWalkerWithColor = existingWalkers.find((w) => w.family_friend_color);
@@ -424,7 +405,6 @@ export const createParticipant = async (
 					if (existingWalkerWithColor?.family_friend_color) {
 						// Use the same color as existing walker in the group
 						colorToAssign = existingWalkerWithColor.family_friend_color;
-						//console.log('COLOR ASSIGNMENT: Reusing existing color:', colorToAssign);
 					} else {
 						// Find all used colors in this retreat
 						const usedColorsResult = await participantRepository
@@ -435,22 +415,16 @@ export const createParticipant = async (
 							.getRawMany();
 						const usedColors = usedColorsResult.map((r) => r.color);
 
-						//console.log('COLOR ASSIGNMENT: Used colors in retreat:', usedColors);
-						//console.log('COLOR ASSIGNMENT: Total colors in pool:', COLOR_POOL.length);
-
 						// Get an available color from the pool
 						const availableColor = COLOR_POOL.find((c) => !usedColors.includes(c));
 						colorToAssign =
 							availableColor || COLOR_POOL[Math.floor(Math.random() * COLOR_POOL.length)];
-
-						//console.log('COLOR ASSIGNMENT: Selected new color:', colorToAssign);
 
 						if (colorToAssign) {
 							// Update all walkers in the group to use the new color
 							const updateConditions = searchConditions.map((condition) =>
 								condition.replace(/participant\./g, ''),
 							);
-							//console.log('COLOR ASSIGNMENT: Update conditions:', updateConditions);
 
 							const updateQb = participantRepository
 								.createQueryBuilder()
@@ -461,38 +435,22 @@ export const createParticipant = async (
 								.andWhere(new Brackets((qb) => qb.where(updateConditions.join(' OR '))));
 
 							const updateResult = await updateQb.setParameters(parameters).execute();
-							//console.log('COLOR ASSIGNMENT: Update result:', updateResult);
 						}
 					}
-				} else {
-					//console.log('COLOR ASSIGNMENT: No group found - single walker, no color assigned');
 				}
 			}
-		} else {
-			//console.log('COLOR ASSIGNMENT: Skipping color assignment - not a walker');
 		}
-
-		//console.log('COLOR ASSIGNMENT: Final color assigned:', colorToAssign);
 
 		if (participantData.type === 'walker' || participantData.type === 'server') {
 			if (skipCapacityCheck) {
-				console.log(
+				console.warn(
 					`⚠️ SKIPPING CAPACITY CHECK during import for participant ${participantData.email}`,
 				);
-				console.log(`   - Preserving original type: ${participantData.type}`);
-				console.log(`   - Reason: Import mode - capacity limits disabled`);
 			} else {
 				const retreat = await retreatRepository.findOne({
 					where: { id: participantData.retreatId },
 				});
 				if (retreat) {
-					console.log(`🔍 Checking capacity limits for participant type assignment:`);
-					console.log(`   - Retreat ID: ${participantData.retreatId}`);
-					console.log(`   - Participant email: ${participantData.email}`);
-					console.log(`   - Original type: ${participantData.type}`);
-					console.log(`   - Retreat max_walkers: ${retreat.max_walkers}`);
-					console.log(`   - Retreat max_servers: ${retreat.max_servers}`);
-
 					const participantCount = await participantRepository.count({
 						where: {
 							retreatId: participantData.retreatId,
@@ -503,28 +461,25 @@ export const createParticipant = async (
 					const limit =
 						participantData.type === 'walker' ? retreat.max_walkers : retreat.max_servers;
 
-					console.log(`   - Current ${participantData.type} count: ${participantCount}`);
-					console.log(`   - Capacity limit for ${participantData.type}: ${limit}`);
-					console.log(
+					console.warn(
 						`   - Capacity check: ${participantCount} >= ${limit} = ${participantCount >= limit}`,
 					);
 
 					if (limit != null && participantCount >= limit) {
-						console.log(
+						console.warn(
 							`⚠️ CAPACITY REACHED: Changing participant ${participantData.email} from '${participantData.type}' to 'waiting'`,
 						);
-						console.log(
+						console.warn(
 							`   - Reason: ${participantCount} ${participantData.type}s already registered (limit: ${limit})`,
 						);
 						participantData.type = 'waiting';
-						console.log(`   - New type: ${participantData.type}`);
 					} else {
-						console.log(
+						console.warn(
 							`✅ Capacity available: Keeping participant ${participantData.email} as '${participantData.type}'`,
 						);
 					}
 				} else {
-					console.log(
+					console.warn(
 						`❌ WARNING: Could not find retreat ${participantData.retreatId} for capacity check`,
 					);
 				}
@@ -552,19 +507,8 @@ export const createParticipant = async (
 			newParticipantData.nickname = newParticipantData.firstName;
 		}
 
-		/*console.log('COLOR ASSIGNMENT: Creating participant with data:', {
-			...newParticipantData,
-			family_friend_color: colorToAssign,
-		});*/
-
 		const newParticipant = participantRepository.create(newParticipantData);
 		let savedParticipant: Participant = await participantRepository.save(newParticipant);
-
-		/*console.log('COLOR ASSIGNMENT: Participant saved successfully:', {
-			id: savedParticipant.id,
-			email: savedParticipant.email,
-			family_friend_color: savedParticipant.family_friend_color,
-		});*/
 
 		if (
 			assignRelationships &&
@@ -623,7 +567,7 @@ export const createParticipant = async (
 
 			// Skip email sending if importing or retreat is not public
 			if (isImporting || !retreat || !retreat.isPublic) {
-				console.log(
+				console.warn(
 					`Skipping email sending for imported participant ${savedParticipant.email} - retreat is not public`,
 				);
 				return savedParticipant;
@@ -687,7 +631,7 @@ export const createParticipant = async (
 								invitingServer: invitingServer,
 							},
 						);
-						console.log(
+						console.warn(
 							`Notification email sent to server ${invitingServer.nickname} for new participant ${savedParticipant.firstName} ${savedParticipant.lastName}`,
 						);
 					} else {
@@ -710,12 +654,12 @@ export const createParticipant = async (
 								<p>Gracias por invitar a nuevos participantes al retiro.</p>
 							`,
 						});
-						console.log(
+						console.warn(
 							`Simple notification email sent to server ${invitingServer.nickname} for new participant ${savedParticipant.firstName} ${savedParticipant.lastName}`,
 						);
 					}
 				} else {
-					console.log(
+					console.warn(
 						`Could not find server with nickname '${savedParticipant.invitedBy}' to send notification`,
 					);
 				}
@@ -745,7 +689,6 @@ export const updateParticipant = async (
 
 	// If participant is being marked as cancelled, clear their assignments atomically
 	if (participantData.isCancelled === true && !wasCancelled) {
-		console.log(`🚫 Participant ${participant.email} is being cancelled, clearing assignments`);
 		participant.tableId = undefined;
 
 		// Also clear the participant assignment in the RetreatBed table
@@ -761,10 +704,8 @@ export const updateParticipant = async (
 	const updatedParticipant = await participantRepository.save(participant);
 
 	/*if (updatedParticipant.type === 'walker' && wasCancelled !== updatedParticipant.isCancelled && !skipRebalance) {
-		console.log(`🔄 Participant cancellation status changed, rebalancing tables for retreat ${updatedParticipant.retreatId}`);
 		await rebalanceTablesForRetreat(updatedParticipant.retreatId);
 	} else if (updatedParticipant.type === 'walker' && wasCancelled !== updatedParticipant.isCancelled && skipRebalance) {
-		console.log(`⚠️ SKIPPING table rebalancing during import for participant ${updatedParticipant.email}`);
 	}*/
 
 	return updatedParticipant;
@@ -778,10 +719,8 @@ export const deleteParticipant = async (
 	if (participant) {
 		await participantRepository.update(id, { isCancelled: true, tableId: undefined });
 		/*if (participant.type === 'walker' && !skipRebalance) {
-			console.log(`🔄 Walker participant deleted, rebalancing tables for retreat ${participant.retreatId}`);
 			await rebalanceTablesForRetreat(participant.retreatId);
 		} else if (participant.type === 'walker' && skipRebalance) {
-			console.log(`⚠️ SKIPPING table rebalancing during import for deleted participant ${participant.email}`);
 		}*/
 	}
 };
@@ -799,10 +738,6 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
 	} else {
 		mappedType = 'server'; // Default for '0', '1', '2', or any other value
 	}
-
-	console.log(`🔍 Type mapping for ${participant.email || 'unknown'}:`);
-	console.log(`   - tipousuario value: "${userType}"`);
-	console.log(`   - Mapped to type: "${mappedType}"`);
 
 	return {
 		id_on_retreat: participant.id?.trim(),
@@ -917,17 +852,15 @@ const findAvailableColiderSlot = async (
 			return null;
 		}
 
-		console.log(
+		console.warn(
 			`🔍 Checking colider slots in table "${table.name}" (ID: ${tableId}): colider1Id=${table.colider1Id}, colider2Id=${table.colider2Id}`,
 		);
 
 		// Check for available slots in order: colider1 first, then colider2
 		if (!table.colider1Id) {
-			console.log(`✅ Found available colider1 slot in table "${table.name}"`);
 			return 'colider1';
 		}
 		if (!table.colider2Id) {
-			console.log(`✅ Found available colider2 slot in table "${table.name}"`);
 			return 'colider2';
 		}
 
@@ -937,14 +870,14 @@ const findAvailableColiderSlot = async (
 				console.warn(
 					`⚠️ Same participant assigned to both colider1 and colider2 in table "${table.name}": ${table.colider1Id}`,
 				);
-				console.log(
+				console.warn(
 					`🔧 Rejecting table "${table.name}" due to duplicate assignment - both slots have same participant`,
 				);
 				return null; // Reject this table entirely as it has duplicate assignments
 			}
 		}
 
-		console.log(
+		console.warn(
 			`⚠️ No available colider slots in table "${table.name}" - both colider1 and colider2 are occupied`,
 		);
 		return null; // No available slots
@@ -969,21 +902,16 @@ const createTablesInBatch = async (retreatId: string, tableNames: string[]): Pro
 				});
 
 				if (!existingTable) {
-					console.log(`🏗️ Creating table "${tableName}" in batch transaction`);
 					const newTable = transactionalTableRepository.create({
 						name: tableName,
 						retreatId,
 					});
 					await transactionalTableRepository.save(newTable);
-					console.log(`✅ Table "${tableName}" created in batch: ID=${newTable.id}`);
 					tablesActuallyCreated++;
-				} else {
-					console.log(`📋 Table "${tableName}" already exists in batch: ID=${existingTable.id}`);
 				}
 			}
 		});
-		console.log(`✅ Batch table transaction committed successfully`);
-		console.log(
+		console.warn(
 			`📊 Batch creation summary: ${tablesActuallyCreated} actually created out of ${tableNames.length} requested`,
 		);
 		return tablesActuallyCreated;
@@ -1099,7 +1027,7 @@ const createRetreatBedForRoom = async (
 		// Get the next bed number for this room
 		const bedNumber = await getNextBedNumber(retreatId, roomNumber);
 
-		console.log(
+		console.warn(
 			`🔍 Checking if bed ${bedNumber} already exists in room "${roomNumber}" for ${participantType}`,
 		);
 
@@ -1114,31 +1042,29 @@ const createRetreatBedForRoom = async (
 		});
 
 		if (existingBed) {
-			console.log(
+			console.warn(
 				`📋 Bed ${bedNumber} already exists in room "${roomNumber}" (ID: ${existingBed.id})`,
 			);
-			console.log(
+			console.warn(
 				`   - Current participant assignment: ${existingBed.participantId || 'unassigned'}`,
 			);
-			console.log(`   - Default usage: ${existingBed.defaultUsage}`);
 
 			// If the bed is unassigned or matches the required usage, return it
 			if (
 				!existingBed.participantId &&
 				existingBed.defaultUsage ===
-				(participantType === 'walker' ? BedUsage.CAMINANTE : BedUsage.SERVIDOR)
+					(participantType === 'walker' ? BedUsage.CAMINANTE : BedUsage.SERVIDOR)
 			) {
-				console.log(
+				console.warn(
 					`✅ Using existing unassigned bed ${bedNumber} in room "${roomNumber}" for ${participantType}`,
 				);
 				return { bedId: existingBed.id, wasCreated: false };
 			} else if (existingBed.participantId) {
-				console.log(
+				console.warn(
 					`⚠️ Bed ${bedNumber} in room "${roomNumber}" is already assigned to participant ${existingBed.participantId}`,
 				);
 				// Try to find the next available bed number
 				const nextBedNumber = (parseInt(bedNumber) + 1).toString();
-				console.log(`🔄 Trying next bed number: ${nextBedNumber}`);
 
 				// Check if next bed number exists
 				const nextExistingBed = await retreatBedRepository.findOne({
@@ -1160,13 +1086,13 @@ const createRetreatBedForRoom = async (
 					);
 					return newBedId ? { bedId: newBedId, wasCreated: true } : undefined;
 				} else {
-					console.log(
+					console.warn(
 						`⚠️ Next bed ${nextBedNumber} also exists, cannot create bed in room "${roomNumber}"`,
 					);
 					return undefined;
 				}
 			} else {
-				console.log(
+				console.warn(
 					`⚠️ Existing bed ${bedNumber} has different usage (${existingBed.defaultUsage}) than required (${participantType === 'walker' ? BedUsage.CAMINANTE : BedUsage.SERVIDOR})`,
 				);
 				return undefined;
@@ -1212,7 +1138,7 @@ const createNewBed = async (
 
 		const savedBed = await retreatBedRepository.save(newBed);
 		const savedBedArray = Array.isArray(savedBed) ? savedBed : [savedBed];
-		console.log(
+		console.warn(
 			`🛏️ Created new RetreatBed ${savedBedArray[0].id} in room "${roomNumber}" (bed ${bedNumber}) for ${participantType}`,
 		);
 
@@ -1265,18 +1191,16 @@ const findAvailableBedByRoom = async (
 		}
 
 		// No available bed found, try to create one
-		console.log(
+		console.warn(
 			`🔍 No available bed found in room "${roomNumber}" for ${participantType}. Attempting to create new bed...`,
 		);
 		const bedResult = await createRetreatBedForRoom(retreatId, roomNumber, participantType);
 
 		if (bedResult) {
 			if (bedResult.wasCreated) {
-				console.log(
+				console.warn(
 					`✅ Created and assigned new bed in room "${roomNumber}" for ${participantType}`,
 				);
-			} else {
-				console.log(`✅ Reused existing bed in room "${roomNumber}" for ${participantType}`);
 			}
 			return bedResult;
 		} else {
@@ -1345,7 +1269,6 @@ const createPaymentFromImport = async (
 			});
 
 			await paymentRepository.save(payment);
-			console.log(`✅ Created payment record for participant ${participantId}: $${amount}`);
 			paymentCreated = true;
 		} else if (totalExistingPayments < amount) {
 			// Existing payments sum less than imported amount - create adjustment payment
@@ -1362,7 +1285,7 @@ const createPaymentFromImport = async (
 			});
 
 			await paymentRepository.save(payment);
-			console.log(
+			console.warn(
 				`✅ Created adjustment payment for participant ${participantId}: +$${adjustmentAmount} (total: $${amount})`,
 			);
 			paymentCreated = true;
@@ -1381,13 +1304,13 @@ const createPaymentFromImport = async (
 			});
 
 			await paymentRepository.save(payment);
-			console.log(
+			console.warn(
 				`⚠️ Created refund adjustment for participant ${participantId}: -$${Math.abs(refundAmount)} (total: $${amount})`,
 			);
 			paymentCreated = true;
 		} else {
 			// Total matches exactly - no action needed
-			console.log(
+			console.warn(
 				`ℹ️ Payment amounts match for participant ${participantId}: $${amount} (no adjustment needed)`,
 			);
 		}
@@ -1422,15 +1345,12 @@ export const importParticipants = async (retreatId: string, participantsData: an
 		return 0; // both are the same (both cancelled or both not cancelled)
 	});
 
-	console.log(
+	console.warn(
 		`🚀 Starting import process for retreat ${retreatId} with ${sortedParticipantsData.length} participants`,
 	);
-	console.log(`📊 Initial database state check: counting existing tables...`);
 	const initialTableCount = await tableMesaRepository.count({ where: { retreatId } });
-	console.log(`📋 Found ${initialTableCount} existing tables in retreat ${retreatId}`);
 
 	// First pass: Identify all tables that need to be created
-	console.log(`🔍 First pass: Identifying tables that need to be created...`);
 	const tablesToCreate = new Set<string>();
 	for (const participantRawData of participantsData) {
 		const excelAssignments = extractExcelAssignments(participantRawData);
@@ -1441,12 +1361,11 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 	// Create all needed tables in a single transaction
 	if (tablesToCreate.size > 0) {
-		console.log(
+		console.warn(
 			`🏗️ Creating ${tablesToCreate.size} tables in batch: [${Array.from(tablesToCreate).join(', ')}]`,
 		);
 		const actualTablesCreated = await createTablesInBatch(retreatId, Array.from(tablesToCreate));
 		tablesCreated = actualTablesCreated;
-		console.log(`✅ Batch table creation completed: ${tablesCreated} tables actually created`);
 	}
 
 	// Initialize tracking to prevent duplicate assignments during import
@@ -1472,12 +1391,9 @@ export const importParticipants = async (retreatId: string, participantsData: an
 		const mappedData = mapToEnglishKeys(participantRawData);
 		const excelAssignments = extractExcelAssignments(participantRawData);
 
-		console.log(`👤 Importing participant: ${mappedData.email}`);
-		console.log(
+		console.warn(
 			`   - Original type from Excel: ${participantRawData.tipousuario} -> ${mappedData.type} -> ${mappedData.isCancelled ? 'cancelled' : 'active'}`,
 		);
-		console.log(`   - Excel table assignment: ${excelAssignments.tableName}`);
-		console.log(`   - Excel room assignment: ${excelAssignments.roomNumber}`);
 
 		if (!mappedData.email) {
 			console.warn('Skipping participant due to missing email:', participantRawData);
@@ -1493,16 +1409,13 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 			if (existingParticipant) {
 				const { type, ...updateData } = mappedData;
-				console.log(`🔄 Updating existing participant: ${existingParticipant.email}`);
-				console.log(`   - Current type: ${existingParticipant.type}`);
-				console.log(`   - Type from Excel: ${type} (will not be changed on update)`);
 
 				const updatedParticipant = await updateParticipant(
 					existingParticipant.id,
 					updateData as UpdateParticipant,
 					true,
 				); // skipRebalance = true during import
-				console.log(
+				console.warn(
 					`✅ Updated participant: ${updatedParticipant.email} -> Final type: ${updatedParticipant.type} -> Cancelled: ${updatedParticipant.isCancelled}`,
 				);
 				updatedCount++;
@@ -1526,7 +1439,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 					true, // isImporting = true
 					true, // skipCapacityCheck = true during import
 				);
-				console.log(
+				console.warn(
 					`✅ Created new participant: ${newParticipant.email} -> Final type: ${newParticipant.type} -> Cancelled: ${newParticipant.isCancelled}`,
 				);
 				importedCount++;
@@ -1547,7 +1460,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 			// Handle table assignment from Excel 'mesa' field (tables are pre-created in batch)
 			if (excelAssignments.tableName && participant.type === 'walker') {
-				console.log(
+				console.warn(
 					`🔍 Processing table assignment for participant ${participant.email} -> table "${excelAssignments.tableName}"`,
 				);
 
@@ -1558,11 +1471,11 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				});
 
 				if (existingTable) {
-					console.log(
+					console.warn(
 						`📋 Found pre-created table: ${existingTable.name} (ID: ${existingTable.id})`,
 					);
 					await participantRepository.update(participant.id, { tableId: existingTable.id });
-					console.log(
+					console.warn(
 						`✅ Assigned participant ${participant.email} to table "${excelAssignments.tableName}"`,
 					);
 				} else {
@@ -1578,7 +1491,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				participant.type !== 'waiting' &&
 				participant.type !== 'partial_server'
 			) {
-				console.log(
+				console.warn(
 					`🛏️ Queueing bed assignment for participant ${participant.email} -> room "${excelAssignments.roomNumber}"`,
 				);
 				bedAssignmentQueue.push({
@@ -1593,7 +1506,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 			if (excelAssignments.leadershipRole && participant.type === 'server') {
 				// Only assign leadership if the participant also has a table assignment
 				if (excelAssignments.tableName) {
-					console.log(
+					console.warn(
 						`👑 Queueing leadership assignment for participant ${participant.email} -> role ${excelAssignments.leadershipRole} at table "${excelAssignments.tableName}"`,
 					);
 					leadershipAssignmentQueue.push({
@@ -1629,19 +1542,18 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 	// Note: Bed assignments will be processed within the main transaction to ensure consistency
 	// This prevents the issue where assignments made outside the transaction were later cleared
-	console.log(
+	console.warn(
 		`🛏️ ${bedAssignmentQueue.length} bed assignments queued for processing in main transaction...`,
 	);
 
 	// Process leadership assignments in batch to prevent duplicate role assignments
-	console.log(`👑 Processing ${leadershipAssignmentQueue.length} queued leadership assignments...`);
 
 	for (const leadershipAssignment of leadershipAssignmentQueue) {
 		const { participant, tableName, leadershipRole, participantEmail } = leadershipAssignment;
 
 		// Skip cancelled participants entirely - double-check participant status before assignment
 		if (participant.isCancelled) {
-			console.log(
+			console.warn(
 				`🚫 Skipping leadership assignment for cancelled participant ${participant.email}`,
 			);
 			continue;
@@ -1661,7 +1573,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 		}
 
 		if (freshParticipant.isCancelled) {
-			console.log(
+			console.warn(
 				`🚫 Skipping leadership assignment for cancelled participant ${freshParticipant.email} (fresh lookup)`,
 			);
 			continue;
@@ -1679,7 +1591,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 		// Check if this participant is already assigned to a leadership role in this batch
 		if (assignedLeadershipIds.has(participant.id)) {
-			console.log(
+			console.warn(
 				`⚠️ Participant ${participantEmail} is already assigned to a leadership role in this batch, skipping additional assignments...`,
 			);
 			continue;
@@ -1688,7 +1600,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 		// Check database for existing leadership assignments (from previous imports)
 		const existingLeadership = await checkExistingLeadership(participant.id);
 		if (existingLeadership.isLeader) {
-			console.log(
+			console.warn(
 				`🔄 Participant ${participantEmail} is already ${existingLeadership.role} in table "${existingLeadership.tableName}" from previous import. Removing from previous assignment...`,
 			);
 		}
@@ -1700,7 +1612,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 		});
 
 		if (existingTable) {
-			console.log(
+			console.warn(
 				`📋 Found pre-created table for leadership: ${existingTable.name} (ID: ${existingTable.id})`,
 			);
 
@@ -1781,7 +1693,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 						(id, index) => uniqueAssignments.indexOf(id) !== index,
 					);
 					for (const duplicateId of duplicates) {
-						console.log(
+						console.warn(
 							`🔧 Removing duplicate assignment for participant ${duplicateId} from table "${tableName}"`,
 						);
 						if (verificationTableState.colider1Id === duplicateId) {
@@ -1792,11 +1704,11 @@ export const importParticipants = async (retreatId: string, participantsData: an
 					}
 				} else {
 					if (existingLeadership.isLeader) {
-						console.log(
+						console.warn(
 							`✅ Moved participant ${participantEmail} from ${existingLeadership.role} of table "${existingLeadership.tableName}" to ${finalRole} of table "${tableName}"`,
 						);
 					} else {
-						console.log(
+						console.warn(
 							`✅ Assigned participant ${participantEmail} as ${finalRole} of table "${tableName}"`,
 						);
 					}
@@ -1808,13 +1720,12 @@ export const importParticipants = async (retreatId: string, participantsData: an
 			);
 		}
 	}
-	console.log(`👑 Leadership assignment processing completed`);
 
 	// Assign beds and tables using the new redesigned system
-	console.log(
+	console.warn(
 		`🔄 Starting main transaction for bed/table assignment for ${processedParticipantIds.length} processed participants`,
 	);
-	console.log(
+	console.warn(
 		`📊 Pre-transaction table count: ${await tableMesaRepository.count({ where: { retreatId } })}`,
 	);
 
@@ -1822,15 +1733,12 @@ export const importParticipants = async (retreatId: string, participantsData: an
 	const participantsWithTableBefore = await participantRepository.count({
 		where: { retreatId, tableId: Not(IsNull()) },
 	});
-	console.log(
+	console.warn(
 		`📊 Pre-transaction: ${participantsWithTableBefore} participants have table assignments`,
 	);
 
 	try {
 		await AppDataSource.transaction(async (transactionalEntityManager) => {
-			console.log(`✅ Main transaction started successfully`);
-			console.log(`🔍 Main transaction: processing ${processedParticipantIds.length} participants`);
-
 			const transactionalParticipantRepository =
 				transactionalEntityManager.getRepository(Participant);
 			const transactionalBedRepository = transactionalEntityManager.getRepository(RetreatBed);
@@ -1840,7 +1748,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				where: { id: In(processedParticipantIds) },
 			});
 
-			console.log(
+			console.warn(
 				`📊 Main transaction: found ${participantsToProcess.length} participants to process`,
 			);
 
@@ -1848,7 +1756,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 			const participantsWithExcelAssignments = participantsToProcess.filter((p) => p.tableId);
 			const participantsWithoutExcelAssignments = participantsToProcess.filter((p) => !p.tableId);
 
-			console.log(
+			console.warn(
 				`📋 Main transaction: ${participantsWithExcelAssignments.length} participants have Excel table assignments, ${participantsWithoutExcelAssignments.length} need automatic assignments`,
 			);
 
@@ -1859,7 +1767,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 			const assignedBedIds = new Set<string>();
 
 			// First, process Excel bed assignments within the transaction to ensure consistency
-			console.log(
+			console.warn(
 				`🛏️ Processing ${bedAssignmentQueue.length} Excel bed assignments within main transaction...`,
 			);
 			for (const bedAssignment of bedAssignmentQueue) {
@@ -1880,7 +1788,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 				// Skip cancelled participants
 				if (freshParticipant.isCancelled) {
-					console.log(
+					console.warn(
 						`🚫 Skipping Excel bed assignment for cancelled participant ${freshParticipant.email}`,
 					);
 					continue;
@@ -1897,7 +1805,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 					const existingBed = await bedQueryUtils.getParticipantBedAssignment(
 						participantForAssignment.id,
 					);
-					console.log(
+					console.warn(
 						`⚠️ Participant ${participantForAssignment.email} already has bed assigned (${existingBed?.id}), skipping Excel assignment...`,
 					);
 					if (existingBed) {
@@ -1928,7 +1836,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 						.where('id = :id', { id: bedId })
 						.execute();
 
-					console.log(
+					console.warn(
 						`✅ Excel assignment: Assigned participant ${participantForAssignment.email} to bed ${bedId} in room "${roomNumber}"`,
 					);
 
@@ -1942,13 +1850,11 @@ export const importParticipants = async (retreatId: string, participantsData: an
 					);
 				}
 			}
-			console.log(`🛏️ Excel bed assignment processing completed within transaction`);
 
 			// Process participants one by one with atomic bed assignment for any remaining unassigned participants
 			for (const participant of participantsToProcess) {
 				// Skip cancelled participants entirely
 				if (participant.isCancelled) {
-					console.log(`🚫 Skipping cancelled participant ${participant.email} in main transaction`);
 					continue;
 				}
 
@@ -1960,7 +1866,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 					const hasExistingTableAssignment = !!participant.tableId;
 
 					if (hasExistingTableAssignment || hasExistingBedAssignment) {
-						console.log(
+						console.warn(
 							`✅ Main transaction: preserving existing assignments for participant ${participant.email} (tableId: ${participant.tableId}, hasBed: ${hasExistingBedAssignment})`,
 						);
 
@@ -1992,10 +1898,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 					}
 				}
 			}
-
-			console.log(`🔄 Main transaction: about to commit all participant updates`);
 		});
-		console.log(`✅ Main transaction completed successfully`);
 	} catch (error: any) {
 		console.error(`❌ MAIN TRANSACTION FAILED: ${error.message}`);
 		console.error(`📋 Transaction error stack trace:`, error.stack);
@@ -2014,24 +1917,17 @@ export const importParticipants = async (retreatId: string, participantsData: an
 	const participantsWithTableAfter = await participantRepository.count({
 		where: { retreatId, tableId: Not(IsNull()) },
 	});
-	console.log(
+	console.warn(
 		`📊 Post-transaction: ${participantsWithTableAfter} participants have table assignments`,
 	);
 
-	console.log(
+	console.warn(
 		`📊 Post-transaction table count: ${await tableMesaRepository.count({ where: { retreatId } })}`,
 	);
 
 	// Final verification: Check all tables that should exist based on our tracking
-	console.log(`🔍 Final verification: Checking database state...`);
 	const finalTableCount = await tableMesaRepository.count({ where: { retreatId } });
 	const expectedTableCount = initialTableCount + tablesCreated;
-
-	console.log(`📊 Final table count verification:`);
-	console.log(`   - Initial tables: ${initialTableCount}`);
-	console.log(`   - Tables actually created during import: ${tablesCreated}`);
-	console.log(`   - Expected final count: ${expectedTableCount}`);
-	console.log(`   - Actual final count: ${finalTableCount}`);
 
 	if (finalTableCount !== expectedTableCount) {
 		console.error(
@@ -2047,25 +1943,20 @@ export const importParticipants = async (retreatId: string, participantsData: an
 			select: ['id', 'name'],
 			order: { name: 'ASC' },
 		});
-		console.log(
+		console.warn(
 			`📋 Current tables in database:`,
 			allTables.map((t) => `${t.name} (${t.id})`),
 		);
-	} else {
-		console.log(`✅ Table count verification passed - all created tables are persisted`);
 	}
 
 	// NOTE: Skipping rebalanceTablesForRetreat during import to prevent table deletions
 	// The import process explicitly creates and assigns tables based on Excel data
 	// Calling rebalance would delete tables that were intentionally created during import
-	//console.log(`⚠️ SKIPPING rebalanceTablesForRetreat during import to preserve explicitly created tables`);
-	console.log(`📋 Import process has already handled table assignments based on Excel data`);
 
 	// For debugging purposes, let us know what would have happened:
 	const currentTableCount = await tableMesaRepository.count({ where: { retreatId } });
-	console.log(`📊 Current table count (preserving all tables): ${currentTableCount}`);
 
-	console.log(
+	console.warn(
 		`🎉 Import process completed: imported=${importedCount}, updated=${updatedCount}, skipped=${skippedCount}, tablesCreated=${tablesCreated}, bedsCreated=${bedsCreated}, paymentsCreated=${paymentsCreated}`,
 	);
 

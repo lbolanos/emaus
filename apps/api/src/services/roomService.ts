@@ -1,8 +1,10 @@
+import { DataSource } from 'typeorm';
 import { AppDataSource } from '../data-source';
 import { RetreatBed } from '../entities/retreatBed.entity';
 import { Retreat } from '../entities/retreat.entity';
+import { getRepositories } from '../utils/repositoryHelpers';
 
-export const exportRoomLabelsToDocx = async (retreatId: string) => {
+export const exportRoomLabelsToDocx = async (retreatId: string, dataSource?: DataSource) => {
 	const {
 		Document,
 		Packer,
@@ -23,12 +25,13 @@ export const exportRoomLabelsToDocx = async (retreatId: string) => {
 	} = await import('docx');
 	type ParagraphType = InstanceType<typeof Paragraph>;
 
+	const repos = getRepositories(dataSource);
+
 	// Get retreat beds with participant information
-	const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
-	const retreat = await AppDataSource.getRepository(Retreat).findOneBy({ id: retreatId });
+	const retreat = await repos.retreat.findOneBy({ id: retreatId });
 	if (!retreat) throw new Error('Retreat not found');
 
-	const beds = await retreatBedRepository
+	const beds = await repos.retreatBed
 		.createQueryBuilder('bed')
 		.leftJoinAndSelect('bed.participant', 'participant')
 		.where('bed.retreatId = :retreatId', { retreatId })

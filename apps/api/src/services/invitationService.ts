@@ -274,7 +274,9 @@ export class InvitationService {
 
 		return {
 			success: true,
-			message: isNewUser ? 'Account created and invitation accepted' : 'Invitation accepted successfully',
+			message: isNewUser
+				? 'Account created and invitation accepted'
+				: 'Invitation accepted successfully',
 			user: {
 				id: user.id,
 				email: user.email,

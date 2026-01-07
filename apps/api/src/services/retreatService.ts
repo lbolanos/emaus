@@ -1,9 +1,11 @@
+import { DataSource } from 'typeorm';
 import { AppDataSource } from '../data-source';
 import { Retreat } from '../entities/retreat.entity';
 import { House } from '../entities/house.entity';
 import { RetreatBed } from '../entities/retreatBed.entity';
 import { UserRetreat } from '../entities/userRetreat.entity';
 import { Role } from '../entities/role.entity';
+import { getRepository, getRepositories } from '../utils/repositoryHelpers';
 import { GlobalMessageTemplateService } from './globalMessageTemplateService';
 import { createDefaultResponsibilitiesForRetreat } from './responsabilityService';
 import { createDefaultTablesForRetreat } from './tableMesaService';
@@ -14,23 +16,22 @@ import { ROLES } from '@repo/types';
 import type { CreateRetreat, UpdateRetreat } from '@repo/types';
 import { v4 as uuidv4 } from 'uuid';
 
-export const getRetreats = async () => {
-	const retreatRepository = AppDataSource.getRepository(Retreat);
+export const getRetreats = async (dataSource?: DataSource) => {
+	const retreatRepository = getRepository(Retreat, dataSource);
 	return retreatRepository.find({ relations: ['house'], order: { startDate: 'DESC' } });
 };
 
-export const getRetreatsForUser = async (userId: string) => {
-	const retreatRepository = AppDataSource.getRepository(Retreat);
-	const userRetreatRepository = AppDataSource.getRepository(UserRetreat);
+export const getRetreatsForUser = async (userId: string, dataSource?: DataSource) => {
+	const repos = getRepositories(dataSource);
 
 	// Check if user is superadmin - if so, return all retreats
 	const isSuperadmin = await authorizationService.hasRole(userId, ROLES.superadmin);
 	if (isSuperadmin) {
-		return retreatRepository.find({ relations: ['house'], order: { startDate: 'DESC' } });
+		return repos.retreat.find({ relations: ['house'], order: { startDate: 'DESC' } });
 	}
 
 	// Get retreats the user has access to via user_retreats table
-	const userRetreats = await userRetreatRepository.find({
+	const userRetreats = await repos.userRetreat.find({
 		where: { userId, status: 'active' },
 		relations: ['retreat'],
 	});
@@ -38,7 +39,7 @@ export const getRetreatsForUser = async (userId: string) => {
 	const retreatIdsFromUserRetreats = userRetreats.map((ur) => ur.retreatId);
 
 	// Get retreats the user created
-	const createdRetreats = await retreatRepository.find({
+	const createdRetreats = await repos.retreat.find({
 		where: { createdBy: userId },
 		relations: ['house'],
 	});
@@ -53,7 +54,7 @@ export const getRetreatsForUser = async (userId: string) => {
 	}
 
 	// Use TypeORM's In operator to get all accessible retreats
-	const queryBuilder = retreatRepository.createQueryBuilder('retreat');
+	const queryBuilder = repos.retreat.createQueryBuilder('retreat');
 	queryBuilder.where('retreat.id IN (:...retreatIds)', { retreatIds: allRetreatIds });
 	queryBuilder.leftJoinAndSelect('retreat.house', 'house');
 	queryBuilder.orderBy('retreat.startDate', 'DESC');
@@ -62,13 +63,13 @@ export const getRetreatsForUser = async (userId: string) => {
 	return retreats;
 };
 
-export const findById = async (id: string) => {
-	const retreatRepository = AppDataSource.getRepository(Retreat);
+export const findById = async (id: string, dataSource?: DataSource) => {
+	const retreatRepository = getRepository(Retreat, dataSource);
 	return retreatRepository.findOne({ where: { id }, relations: ['house'] });
 };
 
-export const update = async (id: string, retreatData: UpdateRetreat) => {
-	const retreatRepository = AppDataSource.getRepository(Retreat);
+export const update = async (id: string, retreatData: UpdateRetreat, dataSource?: DataSource) => {
+	const retreatRepository = getRepository(Retreat, dataSource);
 	const retreat = await retreatRepository.findOne({ where: { id } });
 	if (!retreat) {
 		return null;
@@ -78,22 +79,21 @@ export const update = async (id: string, retreatData: UpdateRetreat) => {
 	return retreat;
 };
 
-export const createRetreat = async (retreatData: CreateRetreat & { createdBy?: string }) => {
-	const retreatRepository = AppDataSource.getRepository(Retreat);
-	const houseRepository = AppDataSource.getRepository(House);
-	const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
-	const roleRepository = AppDataSource.getRepository(Role);
-	const userRetreatRepository = AppDataSource.getRepository(UserRetreat);
+export const createRetreat = async (
+	retreatData: CreateRetreat & { createdBy?: string },
+	dataSource?: DataSource,
+) => {
+	const repos = getRepositories(dataSource);
 
 	// 0. Ensure default inventory data exists
 	await createDefaultInventoryData();
 
 	// 1. Create and save the retreat
-	const newRetreat = retreatRepository.create({
+	const newRetreat = repos.retreat.create({
 		...retreatData,
 		id: uuidv4(),
 	});
-	await retreatRepository.save(newRetreat);
+	await repos.retreat.save(newRetreat);
 
 	// 2. Assign retreat creator role to the user
 	if (retreatData.createdBy) {
@@ -103,10 +103,10 @@ export const createRetreat = async (retreatData: CreateRetreat & { createdBy?: s
 		});
 
 		// Get the admin role for retreat-specific assignment
-		const adminRole = await roleRepository.findOne({ where: { name: 'admin' } });
+		const adminRole = await repos.role.findOne({ where: { name: 'admin' } });
 		if (adminRole) {
 			console.log('Found admin role:', adminRole);
-			const creatorRetreatAssignment = userRetreatRepository.create({
+			const creatorRetreatAssignment = repos.userRetreat.create({
 				userId: retreatData.createdBy,
 				retreatId: newRetreat.id,
 				roleId: adminRole.id,
@@ -115,7 +115,7 @@ export const createRetreat = async (retreatData: CreateRetreat & { createdBy?: s
 				invitedAt: new Date(),
 			});
 			console.log('Created UserRetreat assignment:', creatorRetreatAssignment);
-			await userRetreatRepository.save(creatorRetreatAssignment);
+			await repos.userRetreat.save(creatorRetreatAssignment);
 			console.log('UserRetreat assignment saved successfully');
 		} else {
 			console.log('Admin role not found!');
@@ -125,28 +125,28 @@ export const createRetreat = async (retreatData: CreateRetreat & { createdBy?: s
 	}
 
 	// 3. Create default responsibilities
-	await createDefaultResponsibilitiesForRetreat(newRetreat);
+	await createDefaultResponsibilitiesForRetreat(newRetreat, dataSource);
 
 	// 4. Create default tables
-	await createDefaultTablesForRetreat(newRetreat);
+	await createDefaultTablesForRetreat(newRetreat, dataSource);
 
 	// 5. Copy global message templates to this retreat
-	const globalMessageTemplateService = new GlobalMessageTemplateService();
+	const globalMessageTemplateService = new GlobalMessageTemplateService(dataSource);
 	await globalMessageTemplateService.copyAllActiveTemplatesToRetreat(newRetreat);
 
 	// 6. Create default inventory
-	await createDefaultInventoryForRetreat(newRetreat);
+	await createDefaultInventoryForRetreat(newRetreat, dataSource);
 
 	// 7. Create retreat beds from house beds
 	if (retreatData.houseId) {
-		const house = await houseRepository.findOne({
+		const house = await repos.house.findOne({
 			where: { id: retreatData.houseId },
 			relations: ['beds'],
 		});
 
 		if (house && house.beds) {
 			const newRetreatBeds = house.beds.map((bed) => {
-				return retreatBedRepository.create({
+				return repos.retreatBed.create({
 					id: uuidv4(),
 					roomNumber: bed.roomNumber,
 					bedNumber: bed.bedNumber,
@@ -156,9 +156,15 @@ export const createRetreat = async (retreatData: CreateRetreat & { createdBy?: s
 					retreat: newRetreat,
 				});
 			});
-			await retreatBedRepository.save(newRetreatBeds);
+			await repos.retreatBed.save(newRetreatBeds);
 		}
 	}
 
-	return newRetreat;
+	// Fetch the retreat with house relation before returning
+	const result = await repos.retreat.findOne({
+		where: { id: newRetreat.id },
+		relations: ['house'],
+	});
+
+	return result;
 };

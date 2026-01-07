@@ -544,6 +544,11 @@ export class PerformanceOptimizationService {
 	}
 
 	private startMetricsCollection(): void {
+		// Skip interval creation during tests to prevent open handles
+		if (process.env.NODE_ENV === 'test') {
+			return;
+		}
+
 		// Periodically log metrics
 		this.metricsInterval = setInterval(() => {
 			this.logMetrics();

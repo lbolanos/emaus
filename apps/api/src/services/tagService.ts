@@ -1,31 +1,31 @@
+import { DataSource } from 'typeorm';
 import { AppDataSource } from '../data-source';
 import { Tag } from '../entities/tag.entity';
 import { ParticipantTag } from '../entities/participantTag.entity';
 import { Participant } from '../entities/participant.entity';
+import { getRepositories } from '../utils/repositoryHelpers';
 import { v4 as uuidv4 } from 'uuid';
-
-const tagRepository = AppDataSource.getRepository(Tag);
-const participantTagRepository = AppDataSource.getRepository(ParticipantTag);
-const participantRepository = AppDataSource.getRepository(Participant);
 
 /**
  * Get all tags, optionally filtered by retreatId
  */
-export const getAllTags = async (retreatId?: string) => {
+export const getAllTags = async (retreatId?: string, dataSource?: DataSource) => {
+	const repos = getRepositories(dataSource);
 	if (retreatId) {
-		return tagRepository.find({
+		return repos.tag.find({
 			where: { retreatId },
 			order: { name: 'ASC' },
 		});
 	}
-	return tagRepository.find({ order: { name: 'ASC' } });
+	return repos.tag.find({ order: { name: 'ASC' } });
 };
 
 /**
  * Get tags for a participant
  */
-export const getParticipantTags = async (participantId: string) => {
-	const participantTags = await participantTagRepository
+export const getParticipantTags = async (participantId: string, dataSource?: DataSource) => {
+	const repos = getRepositories(dataSource);
+	const participantTags = await repos.participantTag
 		.createQueryBuilder('pt')
 		.leftJoinAndSelect('pt.tag', 'tag')
 		.where('pt.participantId = :participantId', { participantId })
@@ -37,33 +37,43 @@ export const getParticipantTags = async (participantId: string) => {
 /**
  * Assign tag to participant
  */
-export const assignTagToParticipant = async (participantId: string, tagId: string) => {
+export const assignTagToParticipant = async (
+	participantId: string,
+	tagId: string,
+	dataSource?: DataSource,
+) => {
+	const repos = getRepositories(dataSource);
 	// Verify participant exists
-	const participant = await participantRepository.findOneBy({ id: participantId });
+	const participant = await repos.participant.findOneBy({ id: participantId });
 	if (!participant) throw new Error('Participant not found');
 
 	// Verify tag exists
-	const tag = await tagRepository.findOneBy({ id: tagId });
+	const tag = await repos.tag.findOneBy({ id: tagId });
 	if (!tag) throw new Error('Tag not found');
 
 	// Check if already assigned
-	const existing = await participantTagRepository.findOneBy({ participantId, tagId });
+	const existing = await repos.participantTag.findOneBy({ participantId, tagId });
 	if (existing) return existing;
 
-	const participantTag = participantTagRepository.create({
+	const participantTag = repos.participantTag.create({
 		id: uuidv4(),
 		participantId,
 		tagId,
 	});
 
-	return participantTagRepository.save(participantTag);
+	return repos.participantTag.save(participantTag);
 };
 
 /**
  * Remove tag from participant
  */
-export const removeTagFromParticipant = async (participantId: string, tagId: string) => {
-	const result = await participantTagRepository.delete({ participantId, tagId });
+export const removeTagFromParticipant = async (
+	participantId: string,
+	tagId: string,
+	dataSource?: DataSource,
+) => {
+	const repos = getRepositories(dataSource);
+	const result = await repos.participantTag.delete({ participantId, tagId });
 	if (result.affected === 0) {
 		throw new Error('Tag assignment not found');
 	}
@@ -75,20 +85,22 @@ export const removeTagFromParticipant = async (participantId: string, tagId: str
 export const createTag = async (
 	tagData: { name: string; color?: string; description?: string },
 	retreatId: string,
+	dataSource?: DataSource,
 ) => {
-	const existingTag = await tagRepository.findOne({
+	const repos = getRepositories(dataSource);
+	const existingTag = await repos.tag.findOne({
 		where: { name: tagData.name, retreatId },
 	});
 	if (existingTag) {
 		throw new Error('Tag with this name already exists in this retreat');
 	}
 
-	const tag = tagRepository.create({
+	const tag = repos.tag.create({
 		...tagData,
 		retreatId,
 		id: uuidv4(),
 	});
-	return tagRepository.save(tag);
+	return repos.tag.save(tag);
 };
 
 /**
@@ -98,8 +110,10 @@ export const updateTag = async (
 	tagId: string,
 	tagData: { name?: string; color?: string; description?: string },
 	retreatId: string,
+	dataSource?: DataSource,
 ) => {
-	const tag = await tagRepository.findOneBy({ id: tagId });
+	const repos = getRepositories(dataSource);
+	const tag = await repos.tag.findOneBy({ id: tagId });
 	if (!tag) throw new Error('Tag not found');
 
 	// Verify tag belongs to the retreat
@@ -109,7 +123,7 @@ export const updateTag = async (
 
 	// Check if name is being changed and if new name already exists in this retreat
 	if (tagData.name && tagData.name !== tag.name) {
-		const existingTag = await tagRepository.findOne({
+		const existingTag = await repos.tag.findOne({
 			where: { name: tagData.name, retreatId },
 		});
 		if (existingTag) {
@@ -117,15 +131,16 @@ export const updateTag = async (
 		}
 	}
 
-	tagRepository.merge(tag, tagData);
-	return tagRepository.save(tag);
+	repos.tag.merge(tag, tagData);
+	return repos.tag.save(tag);
 };
 
 /**
  * Delete tag
  */
-export const deleteTag = async (tagId: string, retreatId: string) => {
-	const tag = await tagRepository.findOneBy({ id: tagId });
+export const deleteTag = async (tagId: string, retreatId: string, dataSource?: DataSource) => {
+	const repos = getRepositories(dataSource);
+	const tag = await repos.tag.findOneBy({ id: tagId });
 	if (!tag) throw new Error('Tag not found');
 
 	// Verify tag belongs to the retreat
@@ -133,7 +148,7 @@ export const deleteTag = async (tagId: string, retreatId: string) => {
 		throw new Error('Tag does not belong to this retreat');
 	}
 
-	const result = await tagRepository.delete(tagId);
+	const result = await repos.tag.delete(tagId);
 	if (result.affected === 0) {
 		throw new Error('Tag not found');
 	}
@@ -146,13 +161,15 @@ export const deleteTag = async (tagId: string, retreatId: string) => {
 export const checkTableTagConflict = async (
 	existingParticipantIds: string[],
 	newParticipantId: string,
+	dataSource?: DataSource,
 ): Promise<{ hasConflict: boolean; conflicts: string[] }> => {
+	const repos = getRepositories(dataSource);
 	if (existingParticipantIds.length === 0) {
 		return { hasConflict: false, conflicts: [] };
 	}
 
 	// Get tags for the new participant
-	const newParticipantTags = await participantTagRepository
+	const newParticipantTags = await repos.participantTag
 		.createQueryBuilder('pt')
 		.leftJoinAndSelect('pt.tag', 'tag')
 		.where('pt.participantId = :newParticipantId', { newParticipantId })
@@ -163,7 +180,7 @@ export const checkTableTagConflict = async (
 	}
 
 	// Get tags for all existing participants at the table
-	const existingParticipantTags = await participantTagRepository
+	const existingParticipantTags = await repos.participantTag
 		.createQueryBuilder('pt')
 		.leftJoinAndSelect('pt.tag', 'tag')
 		.where('pt.participantId IN (:...existingParticipantIds)', { existingParticipantIds })
@@ -192,7 +209,8 @@ export const checkTableTagConflict = async (
 /**
  * Get tags by IDs
  */
-export const getTagsByIds = async (tagIds: string[]): Promise<Tag[]> => {
+export const getTagsByIds = async (tagIds: string[], dataSource?: DataSource): Promise<Tag[]> => {
+	const repos = getRepositories(dataSource);
 	if (tagIds.length === 0) return [];
-	return tagRepository.findByIds(tagIds);
+	return repos.tag.findByIds(tagIds);
 };

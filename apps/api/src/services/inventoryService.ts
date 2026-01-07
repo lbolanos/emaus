@@ -1,3 +1,4 @@
+import { DataSource } from 'typeorm';
 import { AppDataSource } from '../data-source';
 import { InventoryCategory } from '../entities/inventoryCategory.entity';
 import { InventoryTeam } from '../entities/inventoryTeam.entity';
@@ -5,80 +6,94 @@ import { InventoryItem } from '../entities/inventoryItem.entity';
 import { RetreatInventory } from '../entities/retreatInventory.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { Participant } from '../entities/participant.entity';
+import { getRepositories } from '../utils/repositoryHelpers';
 import { v4 as uuidv4 } from 'uuid';
 
 // Category Services
-export const getInventoryCategories = async () => {
-	const categoryRepository = AppDataSource.getRepository(InventoryCategory);
-	return categoryRepository.find({ where: { isActive: true }, order: { name: 'ASC' } });
+export const getInventoryCategories = async (dataSource?: DataSource) => {
+	const repos = getRepositories(dataSource);
+	return repos.inventoryCategory.find({ where: { isActive: true }, order: { name: 'ASC' } });
 };
 
-export const createInventoryCategory = async (categoryData: Partial<InventoryCategory>) => {
-	const categoryRepository = AppDataSource.getRepository(InventoryCategory);
-	const newCategory = categoryRepository.create({
+export const createInventoryCategory = async (
+	categoryData: Partial<InventoryCategory>,
+	dataSource?: DataSource,
+) => {
+	const repos = getRepositories(dataSource);
+	const newCategory = repos.inventoryCategory.create({
 		id: uuidv4(),
 		...categoryData,
 	});
-	return categoryRepository.save(newCategory);
+	return repos.inventoryCategory.save(newCategory);
 };
 
 // Team Services
-export const getInventoryTeams = async () => {
-	const teamRepository = AppDataSource.getRepository(InventoryTeam);
-	return teamRepository.find({ where: { isActive: true }, order: { name: 'ASC' } });
+export const getInventoryTeams = async (dataSource?: DataSource) => {
+	const repos = getRepositories(dataSource);
+	return repos.inventoryTeam.find({ where: { isActive: true }, order: { name: 'ASC' } });
 };
 
-export const createInventoryTeam = async (teamData: Partial<InventoryTeam>) => {
-	const teamRepository = AppDataSource.getRepository(InventoryTeam);
-	const newTeam = teamRepository.create({
+export const createInventoryTeam = async (
+	teamData: Partial<InventoryTeam>,
+	dataSource?: DataSource,
+) => {
+	const repos = getRepositories(dataSource);
+	const newTeam = repos.inventoryTeam.create({
 		id: uuidv4(),
 		...teamData,
 	});
-	return teamRepository.save(newTeam);
+	return repos.inventoryTeam.save(newTeam);
 };
 
 // Inventory Item Services
-export const getInventoryItems = async () => {
-	const itemRepository = AppDataSource.getRepository(InventoryItem);
-	return itemRepository.find({
+export const getInventoryItems = async (dataSource?: DataSource) => {
+	const repos = getRepositories(dataSource);
+	return repos.inventoryItem.find({
 		where: { isActive: true },
 		relations: ['category', 'team'],
 		order: { name: 'ASC' },
 	});
 };
 
-export const createInventoryItem = async (itemData: Partial<InventoryItem>) => {
-	const itemRepository = AppDataSource.getRepository(InventoryItem);
-	const newItem = itemRepository.create({
+export const createInventoryItem = async (
+	itemData: Partial<InventoryItem>,
+	dataSource?: DataSource,
+) => {
+	const repos = getRepositories(dataSource);
+	const newItem = repos.inventoryItem.create({
 		id: uuidv4(),
 		...itemData,
 	});
-	return itemRepository.save(newItem);
+	return repos.inventoryItem.save(newItem);
 };
 
-export const updateInventoryItem = async (id: string, itemData: Partial<InventoryItem>) => {
-	const itemRepository = AppDataSource.getRepository(InventoryItem);
-	const item = await itemRepository.findOne({ where: { id } });
+export const updateInventoryItem = async (
+	id: string,
+	itemData: Partial<InventoryItem>,
+	dataSource?: DataSource,
+) => {
+	const repos = getRepositories(dataSource);
+	const item = await repos.inventoryItem.findOne({ where: { id } });
 	if (!item) {
 		return null;
 	}
 	Object.assign(item, itemData);
-	return itemRepository.save(item);
+	return repos.inventoryItem.save(item);
 };
 
 // Retreat Inventory Services
-export const getRetreatInventory = async (retreatId: string) => {
-	const retreatInventoryRepository = AppDataSource.getRepository(RetreatInventory);
-	return retreatInventoryRepository.find({
+export const getRetreatInventory = async (retreatId: string, dataSource?: DataSource) => {
+	const repos = getRepositories(dataSource);
+	return repos.retreatInventory.find({
 		where: { retreatId },
 		relations: ['inventoryItem', 'inventoryItem.category', 'inventoryItem.team'],
 		order: { createdAt: 'ASC' },
 	});
 };
 
-export const getRetreatInventoryByCategory = async (retreatId: string) => {
-	const retreatInventoryRepository = AppDataSource.getRepository(RetreatInventory);
-	const inventories = await retreatInventoryRepository.find({
+export const getRetreatInventoryByCategory = async (retreatId: string, dataSource?: DataSource) => {
+	const repos = getRepositories(dataSource);
+	const inventories = await repos.retreatInventory.find({
 		where: { retreatId },
 		relations: ['inventoryItem', 'inventoryItem.category', 'inventoryItem.team'],
 		order: { createdAt: 'ASC' },
@@ -114,9 +129,10 @@ export const updateRetreatInventory = async (
 	retreatId: string,
 	itemId: string,
 	updateData: { currentQuantity?: number; notes?: string },
+	dataSource?: DataSource,
 ) => {
-	const retreatInventoryRepository = AppDataSource.getRepository(RetreatInventory);
-	const inventory = await retreatInventoryRepository.findOne({
+	const repos = getRepositories(dataSource);
+	const inventory = await repos.retreatInventory.findOne({
 		where: { retreatId, inventoryItemId: itemId },
 	});
 
@@ -133,16 +149,15 @@ export const updateRetreatInventory = async (
 		inventory.notes = updateData.notes;
 	}
 
-	return retreatInventoryRepository.save(inventory);
+	return repos.retreatInventory.save(inventory);
 };
 
 // Ratio Calculation Services
-export const calculateRequiredQuantities = async (retreatId: string) => {
-	const retreatInventoryRepository = AppDataSource.getRepository(RetreatInventory);
-	const participantRepository = AppDataSource.getRepository(Participant);
+export const calculateRequiredQuantities = async (retreatId: string, dataSource?: DataSource) => {
+	const repos = getRepositories(dataSource);
 
 	// Get all retreat inventory items
-	const inventories = await retreatInventoryRepository.find({
+	const inventories = await repos.retreatInventory.find({
 		where: { retreatId },
 		relations: ['inventoryItem'],
 	});
@@ -160,6 +175,7 @@ export const calculateRequiredQuantities = async (retreatId: string) => {
 				requiredQuantity = await calculateTshirtQuantity(
 					retreatId,
 					inventory.inventoryItem.tshirtSize,
+					dataSource,
 				);
 			}
 			// Handle blue t-shirt calculations
@@ -170,6 +186,7 @@ export const calculateRequiredQuantities = async (retreatId: string) => {
 				requiredQuantity = await calculateBlueTshirtQuantity(
 					retreatId,
 					inventory.inventoryItem.tshirtSize,
+					dataSource,
 				);
 			}
 			// Handle jacket calculations
@@ -180,6 +197,7 @@ export const calculateRequiredQuantities = async (retreatId: string) => {
 				requiredQuantity = await calculateJacketQuantity(
 					retreatId,
 					inventory.inventoryItem.tshirtSize,
+					dataSource,
 				);
 			}
 			// Use fixed quantity if specified, otherwise calculate using ratio
@@ -190,7 +208,7 @@ export const calculateRequiredQuantities = async (retreatId: string) => {
 				requiredQuantity = inventory.inventoryItem.requiredQuantity;
 			} else {
 				// Get count of active walkers for ratio-based calculations
-				const walkerCount = await participantRepository.count({
+				const walkerCount = await repos.participant.count({
 					where: {
 						retreatId,
 						type: 'walker',
@@ -206,7 +224,7 @@ export const calculateRequiredQuantities = async (retreatId: string) => {
 		}),
 	);
 
-	await retreatInventoryRepository.save(updatedInventories);
+	await repos.retreatInventory.save(updatedInventories);
 	return updatedInventories;
 };
 
@@ -214,13 +232,14 @@ export const calculateRequiredQuantities = async (retreatId: string) => {
 const calculateTshirtQuantity = async (
 	retreatId: string,
 	tshirtSize: string | null | undefined,
+	dataSource?: DataSource,
 ): Promise<number> => {
-	const participantRepository = AppDataSource.getRepository(Participant);
+	const repos = getRepositories(dataSource);
 
 	if (!tshirtSize) return 0;
 
 	// Get count of walkers with this t-shirt size
-	const walkerCount = await participantRepository.count({
+	const walkerCount = await repos.participant.count({
 		where: {
 			retreatId,
 			type: 'walker',
@@ -230,7 +249,7 @@ const calculateTshirtQuantity = async (
 	});
 
 	// Get count of servers who need white shirts and have this t-shirt size
-	const serverCount = await participantRepository.count({
+	const serverCount = await repos.participant.count({
 		where: {
 			retreatId,
 			type: 'server',
@@ -246,13 +265,14 @@ const calculateTshirtQuantity = async (
 const calculateBlueTshirtQuantity = async (
 	retreatId: string,
 	tshirtSize: string | null | undefined,
+	dataSource?: DataSource,
 ): Promise<number> => {
-	const participantRepository = AppDataSource.getRepository(Participant);
+	const repos = getRepositories(dataSource);
 
 	if (!tshirtSize) return 0;
 
 	// Get count of servers who need blue shirts and have this specific blue shirt size
-	const serverCount = await participantRepository.count({
+	const serverCount = await repos.participant.count({
 		where: {
 			retreatId,
 			type: 'server',
@@ -268,13 +288,14 @@ const calculateBlueTshirtQuantity = async (
 const calculateJacketQuantity = async (
 	retreatId: string,
 	tshirtSize: string | null | undefined,
+	dataSource?: DataSource,
 ): Promise<number> => {
-	const participantRepository = AppDataSource.getRepository(Participant);
+	const repos = getRepositories(dataSource);
 
 	if (!tshirtSize) return 0;
 
 	// Get count of servers who need jackets and have this specific jacket size
-	const serverCount = await participantRepository.count({
+	const serverCount = await repos.participant.count({
 		where: {
 			retreatId,
 			type: 'server',
@@ -286,9 +307,9 @@ const calculateJacketQuantity = async (
 	return serverCount;
 };
 
-export const getInventoryAlerts = async (retreatId: string) => {
-	const retreatInventoryRepository = AppDataSource.getRepository(RetreatInventory);
-	const alerts = await retreatInventoryRepository.find({
+export const getInventoryAlerts = async (retreatId: string, dataSource?: DataSource) => {
+	const repos = getRepositories(dataSource);
+	const alerts = await repos.retreatInventory.find({
 		where: {
 			retreatId,
 			isSufficient: false,
@@ -316,16 +337,17 @@ export const getInventoryAlerts = async (retreatId: string) => {
 };
 
 // Default Inventory Creation
-export const createDefaultInventoryForRetreat = async (retreat: Retreat) => {
-	const retreatInventoryRepository = AppDataSource.getRepository(RetreatInventory);
-	const itemRepository = AppDataSource.getRepository(InventoryItem);
+export const createDefaultInventoryForRetreat = async (
+	retreat: Retreat,
+	dataSource?: DataSource,
+) => {
+	const repos = getRepositories(dataSource);
 
 	// Get all active inventory items
-	const items = await itemRepository.find({ where: { isActive: true } });
+	const items = await repos.inventoryItem.find({ where: { isActive: true } });
 
 	// Get initial walker count (will be 0 for new retreats)
-	const participantRepository = AppDataSource.getRepository(Participant);
-	const walkerCount = await participantRepository.count({
+	const walkerCount = await repos.participant.count({
 		where: {
 			retreatId: retreat.id,
 			type: 'walker',
@@ -344,7 +366,7 @@ export const createDefaultInventoryForRetreat = async (retreat: Retreat) => {
 			requiredQuantity = Number((item.ratio * walkerCount).toFixed(2));
 		}
 
-		return retreatInventoryRepository.create({
+		return repos.retreatInventory.create({
 			id: uuidv4(),
 			retreatId: retreat.id,
 			inventoryItemId: item.id,
@@ -354,13 +376,13 @@ export const createDefaultInventoryForRetreat = async (retreat: Retreat) => {
 		});
 	});
 
-	await retreatInventoryRepository.save(newInventories);
+	await repos.retreatInventory.save(newInventories);
 	return newInventories;
 };
 
 // Import/Export Services
-export const exportInventoryToExcel = async (retreatId: string) => {
-	const inventories = await getRetreatInventory(retreatId);
+export const exportInventoryToExcel = async (retreatId: string, dataSource?: DataSource) => {
+	const inventories = await getRetreatInventory(retreatId, dataSource);
 
 	const exportData = inventories.map((inventory) => ({
 		Artículo: inventory.inventoryItem.name,
@@ -379,9 +401,12 @@ export const exportInventoryToExcel = async (retreatId: string) => {
 	return exportData;
 };
 
-export const importInventoryFromExcel = async (retreatId: string, excelData: any[]) => {
-	const retreatInventoryRepository = AppDataSource.getRepository(RetreatInventory);
-	const itemRepository = AppDataSource.getRepository(InventoryItem);
+export const importInventoryFromExcel = async (
+	retreatId: string,
+	excelData: any[],
+	dataSource?: DataSource,
+) => {
+	const repos = getRepositories(dataSource);
 
 	const results = {
 		success: [],
@@ -391,7 +416,7 @@ export const importInventoryFromExcel = async (retreatId: string, excelData: any
 	for (const row of excelData) {
 		try {
 			// Find inventory item by name
-			const item = await itemRepository.findOne({
+			const item = await repos.inventoryItem.findOne({
 				where: { name: row['Artículo'] || row['Articulo'] },
 				relations: ['category', 'team'],
 			});
@@ -405,12 +430,12 @@ export const importInventoryFromExcel = async (retreatId: string, excelData: any
 			}
 
 			// Find or create retreat inventory
-			let retreatInventory = await retreatInventoryRepository.findOne({
+			let retreatInventory = await repos.retreatInventory.findOne({
 				where: { retreatId, inventoryItemId: item.id },
 			});
 
 			if (!retreatInventory) {
-				retreatInventory = retreatInventoryRepository.create({
+				retreatInventory = repos.retreatInventory.create({
 					id: uuidv4(),
 					retreatId,
 					inventoryItemId: item.id,
@@ -427,7 +452,7 @@ export const importInventoryFromExcel = async (retreatId: string, excelData: any
 					retreatInventory.currentQuantity >= retreatInventory.requiredQuantity;
 			}
 
-			await retreatInventoryRepository.save(retreatInventory);
+			await repos.retreatInventory.save(retreatInventory);
 			results.success.push({ row, inventory: retreatInventory });
 		} catch (error) {
 			results.errors.push({
