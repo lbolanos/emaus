@@ -1124,5 +1124,27 @@
     "mattress": "Mattress",
     "noRoomAssigned": "No room assigned",
     "noTableAssigned": "No table assigned"
+  },
+  "help": {
+    "title": "Help & Documentation",
+    "search": "Search documentation...",
+    "button": {
+      "tooltip": "Get help for this page"
+    },
+    "panel": {
+      "title": "Quick Help",
+      "contextualHelp": "Help for the current page",
+      "viewFullDocs": "View Full Documentation"
+    },
+    "sections": {
+      "gettingStarted": "Getting Started",
+      "walkers": "Walkers",
+      "servers": "Servers",
+      "tables": "Tables",
+      "bedAssignments": "Bed Assignments",
+      "payments": "Payments",
+      "reports": "Reports",
+      "settings": "Settings"
+    }
   }
 }

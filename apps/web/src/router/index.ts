@@ -31,6 +31,7 @@ import RetreatRoleManagementView from '../views/RetreatRoleManagementView.vue';
 import AcceptInvitationView from '../views/AcceptInvitationView.vue';
 import TelemetryDashboardView from '../views/TelemetryDashboardView.vue';
 import RetreatFlyerView from '../views/RetreatFlyerView.vue';
+import HelpView from '../views/HelpView.vue';
 import { useAuthStore } from '@/stores/authStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 
@@ -215,6 +216,17 @@ const router = createRouter({
 					name: 'telemetry',
 					component: TelemetryDashboardView,
 					meta: { requiresSuperadmin: true },
+				},
+				{
+					path: 'help',
+					name: 'help',
+					component: HelpView,
+				},
+				{
+					path: 'help/:section',
+					name: 'help-section',
+					component: HelpView,
+					props: true,
 				},
 			],
 		},

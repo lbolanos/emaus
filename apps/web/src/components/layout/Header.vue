@@ -111,6 +111,20 @@
       <div>
         <LanguageSwitcher />
       </div>
+
+      <!-- Help Button -->
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger as-child>
+            <Button variant="ghost" size="icon" @click="isHelpPanelOpen = true">
+              <HelpCircle class="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>{{ $t('help.button.tooltip') }}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   </header>
   <RetreatModal
@@ -126,6 +140,7 @@
     @update:open="isEditModalOpen = $event"
     @update="handleEditRetreat"
   />
+  <HelpPanel :open="isHelpPanelOpen" @close="isHelpPanelOpen = false" />
 </template>
 
 <script setup lang="ts">
@@ -134,8 +149,9 @@ import { useRetreatStore } from '@/stores/retreatStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import type { CreateRetreat, Retreat } from '@repo/types';
-import { Plus, Edit, Menu, User } from 'lucide-vue-next';
+import { Plus, Edit, Menu, User, HelpCircle } from 'lucide-vue-next';
 import RetreatModal from '@/components/RetreatModal.vue';
+import HelpPanel from '@/components/HelpPanel.vue';
 import { Button } from '@repo/ui';
 import {
   Select,
@@ -151,14 +167,17 @@ import {
 } from '@repo/ui';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import { useUIStore } from '@/stores/ui';
+import { useHelpStore } from '@/stores/helpStore';
 import { formatDate } from '@repo/utils';
 
 const uiStore = useUIStore();
 const retreatStore = useRetreatStore();
 const authStore = useAuthStore();
+const helpStore = useHelpStore();
 const { currentRetreatRole } = useAuthPermissions();
 const isAddModalOpen = ref(false);
 const isEditModalOpen = ref(false); // New ref for edit modal
+const isHelpPanelOpen = ref(false); // Ref for help panel
 
 // Computed property for selected retreat name
 const selectedRetreatName = computed(() => {

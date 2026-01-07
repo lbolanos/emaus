@@ -1141,5 +1141,27 @@
       "assign": "Error al asignar etiqueta",
       "remove": "Error al eliminar etiqueta"
     }
+  },
+  "help": {
+    "title": "Ayuda y Documentación",
+    "search": "Buscar documentación...",
+    "button": {
+      "tooltip": "Obtener ayuda para esta página"
+    },
+    "panel": {
+      "title": "Ayuda Rápida",
+      "contextualHelp": "Ayuda para la página actual",
+      "viewFullDocs": "Ver Documentación Completa"
+    },
+    "sections": {
+      "gettingStarted": "Primeros Pasos",
+      "walkers": "Caminantes",
+      "servers": "Servidores",
+      "tables": "Mesas",
+      "bedAssignments": "Asignaciones de Camas",
+      "payments": "Pagos",
+      "reports": "Reportes",
+      "settings": "Configuración"
+    }
   }
 }
