@@ -41,6 +41,10 @@ export enum TelemetryEventType {
 	REPORT_GENERATED = 'report_generated',
 	DATA_EXPORTED = 'data_exported',
 	DATA_IMPORTED = 'data_imported',
+
+	// Frontend Events
+	PAGE_VIEW = 'page_view',
+	FEATURE_USAGE = 'feature_usage',
 }
 
 export enum TelemetryEventSeverity {
