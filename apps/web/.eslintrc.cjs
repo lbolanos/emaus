@@ -1,0 +1,36 @@
+module.exports = {
+  root: true,
+  extends: ["../../packages/config/eslint-preset.js"],
+  parserOptions: {
+    project: "./tsconfig.json",
+    extraFileExtensions: [".vue"],
+  },
+  env: {
+    browser: true,
+  },
+  ignorePatterns: [
+    "src/**/__tests__.bak/**",
+    "src/**/__tests__/**",
+    "src/stubs/**",
+    "src/test/**",
+    "tests/**",
+    "dist/**",
+    "node_modules/**",
+  ],
+  rules: {
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-unsafe-assignment": "off",
+    "@typescript-eslint/no-unsafe-member-access": "off",
+    "@typescript-eslint/no-unsafe-call": "off",
+    "@typescript-eslint/no-unsafe-argument": "off",
+    "@typescript-eslint/no-unsafe-return": "off",
+    "@typescript-eslint/no-floating-promises": "off",
+    "@typescript-eslint/no-unused-vars": "off",
+    "@typescript-eslint/no-redundant-type-constituents": "off",
+    "@typescript-eslint/no-misused-promises": "off",
+    "@typescript-eslint/require-await": "off",
+    "@typescript-eslint/no-unnecessary-type-assertion": "off",
+    "vue/multi-word-component-names": "off",
+    "no-undef": "off",
+  },
+};
