@@ -21,14 +21,15 @@ export function configurePassportStrategies(
 ) {
 	const repos = getRepositories(dataSource);
 
-	// Google OAuth2 Strategy
-	passportInstance.use(
-		new GoogleStrategy(
-			{
-				clientID: config.google.clientId,
-				clientSecret: config.google.clientSecret,
-				callbackURL: config.google.callbackUrl,
-			},
+	// Google OAuth2 Strategy - only register if credentials are configured
+	if (config.google.clientId && config.google.clientSecret) {
+		passportInstance.use(
+			new GoogleStrategy(
+				{
+					clientID: config.google.clientId,
+					clientSecret: config.google.clientSecret,
+					callbackURL: config.google.callbackUrl,
+				},
 			async (accessToken, refreshToken, profile, done) => {
 				try {
 					// First, check if user already exists with this Google ID
@@ -84,6 +85,7 @@ export function configurePassportStrategies(
 			},
 		),
 	);
+	}
 
 	// Local Email/Password Strategy
 	passportInstance.use(
