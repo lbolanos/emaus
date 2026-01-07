@@ -99,14 +99,15 @@ describe('RBAC Integration Tests', () => {
 	});
 
 	describe('Retreat Role Management', () => {
-		// SKIP: These tests fail because retreatRoleService uses AuditService internally
-		// which has the same metadata caching issue as other services
-		test.skip('should assign role to user in retreat', async () => {
+		test('should assign role to user in retreat', async () => {
 			const userRetreat = await retreatRoleService.inviteUserToRetreat(
 				testRetreat.id,
 				testUser.email,
 				'regular_server',
 				testUser.id,
+				undefined,
+				undefined,
+				testDataSource,
 			);
 
 			expect(userRetreat).toBeTruthy();
@@ -116,30 +117,66 @@ describe('RBAC Integration Tests', () => {
 			expect(userRetreat.status).toBe('active');
 		});
 
-		test.skip('should check retreat access', async () => {
-			const hasAccess = await authorizationService.hasRetreatAccess(testUser.id, testRetreat.id);
+		test('should check retreat access', async () => {
+			// First assign the user to the retreat
+			await retreatRoleService.inviteUserToRetreat(
+				testRetreat.id,
+				testUser.email,
+				'regular_server',
+				testUser.id,
+				undefined,
+				undefined,
+				testDataSource,
+			);
+
+			const hasAccess = await authorizationService.hasRetreatAccess(testUser.id, testRetreat.id, testDataSource);
 			expect(hasAccess).toBe(true);
 		});
 
-		test.skip('should check retreat role', async () => {
+		test('should check retreat role', async () => {
+			// First assign the user to the retreat
+			await retreatRoleService.inviteUserToRetreat(
+				testRetreat.id,
+				testUser.email,
+				'regular_server',
+				testUser.id,
+				undefined,
+				undefined,
+				testDataSource,
+			);
+
 			const hasRole = await authorizationService.hasRetreatRole(
 				testUser.id,
 				testRetreat.id,
 				'regular_server',
+				testDataSource,
 			);
 			expect(hasRole).toBe(true);
 		});
 
-		test.skip('should remove user from retreat', async () => {
+		test('should remove user from retreat', async () => {
+			// First assign the user to the retreat
+			await retreatRoleService.inviteUserToRetreat(
+				testRetreat.id,
+				testUser.email,
+				'regular_server',
+				testUser.id,
+				undefined,
+				undefined,
+				testDataSource,
+			);
+
 			const result = await retreatRoleService.removeUserFromRetreat(
 				testRetreat.id,
 				testUser.id,
 				testUser.id,
+				undefined,
+				testDataSource,
 			);
 
 			expect(result).toBe(true);
 
-			const hasAccess = await authorizationService.hasRetreatAccess(testUser.id, testRetreat.id);
+			const hasAccess = await authorizationService.hasRetreatAccess(testUser.id, testRetreat.id, testDataSource);
 			expect(hasAccess).toBe(false);
 		});
 	});
@@ -304,31 +341,35 @@ describe('RBAC Integration Tests', () => {
 	});
 
 	describe('Error Handling', () => {
-		// SKIP: These tests depend on retreatRoleService which uses AuditService internally
-		// AuditService has the same metadata caching issue as other services
-		test.skip('should handle non-existent user', async () => {
+		test('should handle non-existent user', async () => {
 			await expect(
 				retreatRoleService.inviteUserToRetreat(
 					testRetreat.id,
 					'nonexistent@example.com',
 					'regular_server',
 					testUser.id,
+					undefined,
+					undefined,
+					testDataSource,
 				),
 			).rejects.toThrow('User not found');
 		});
 
-		test.skip('should handle non-existent role', async () => {
+		test('should handle non-existent role', async () => {
 			await expect(
 				retreatRoleService.inviteUserToRetreat(
 					testRetreat.id,
 					testUser.email,
 					'nonexistent_role',
 					testUser.id,
+					undefined,
+					undefined,
+					testDataSource,
 				),
 			).rejects.toThrow('Role not found');
 		});
 
-		test.skip('should handle unauthorized access', async () => {
+		test('should handle unauthorized access', async () => {
 			const otherUser = testDataSource.getRepository(User).create({
 				id: `user-${Date.now()}-other`,
 				email: 'other@example.com',
@@ -344,6 +385,9 @@ describe('RBAC Integration Tests', () => {
 					otherUser.email,
 					'regular_server',
 					otherUser.id,
+					undefined,
+					undefined,
+					testDataSource,
 				),
 			).rejects.toThrow('Only retreat creator can invite users');
 		});

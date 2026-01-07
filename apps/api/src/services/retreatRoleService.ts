@@ -1,4 +1,4 @@
-import { AppDataSource } from '../data-source';
+import { AppDataSource, DataSource } from '../data-source';
 import { UserRetreat } from '../entities/userRetreat.entity';
 import { User } from '../entities/user.entity';
 import { Role } from '../entities/role.entity';
@@ -6,6 +6,7 @@ import { Retreat } from '../entities/retreat.entity';
 import { authorizationService } from '../middleware/authorization';
 import { AuditService } from './auditService';
 import { Request } from 'express';
+import { getRepositories } from '../utils/repositoryHelpers';
 
 export class RetreatRoleService {
 	private static instance: RetreatRoleService;
@@ -29,18 +30,19 @@ export class RetreatRoleService {
 		invitedBy: string,
 		expiresAt?: Date,
 		req?: Request,
+		dataSource?: DataSource,
 	): Promise<UserRetreat> {
-		const userRepository = AppDataSource.getRepository(User);
-		const roleRepository = AppDataSource.getRepository(Role);
+		const repos = getRepositories(dataSource);
+		const ds = dataSource || AppDataSource;
 
 		// Find the user by email
-		const user = await userRepository.findOne({ where: { email: userEmail } });
+		const user = await repos.user.findOne({ where: { email: userEmail } });
 		if (!user) {
 			throw new Error('User not found');
 		}
 
 		// Find the role by name
-		const role = await roleRepository.findOne({ where: { name: roleName } });
+		const role = await repos.role.findOne({ where: { name: roleName } });
 		if (!role) {
 			throw new Error('Role not found');
 		}
@@ -52,8 +54,7 @@ export class RetreatRoleService {
 		}
 
 		// Check if user already has a role in this retreat
-		const userRetreatRepository = AppDataSource.getRepository(UserRetreat);
-		const existingUserRetreat = await userRetreatRepository.findOne({
+		const existingUserRetreat = await repos.userRetreat.findOne({
 			where: {
 				userId: user.id,
 				retreatId,
@@ -74,10 +75,11 @@ export class RetreatRoleService {
 			existingUserRetreat.invitedBy = invitedBy;
 			existingUserRetreat.invitedAt = new Date();
 			existingUserRetreat.expiresAt = expiresAt;
-			userRetreat = await userRetreatRepository.save(existingUserRetreat);
+			userRetreat = await repos.userRetreat.save(existingUserRetreat);
 
 			// Log role assignment/change
-			await this.auditService.logRoleAssignment(
+			const auditSvc = dataSource ? new AuditService(dataSource) : this.auditService;
+			await auditSvc.logRoleAssignment(
 				userRetreat.id.toString(),
 				invitedBy,
 				user.id,
@@ -94,10 +96,12 @@ export class RetreatRoleService {
 				role.id,
 				invitedBy,
 				expiresAt,
+				dataSource,
 			);
 
 			// Log role invitation and assignment
-			await this.auditService.logRoleInvitation(
+			const auditSvc = dataSource ? new AuditService(dataSource) : this.auditService;
+			await auditSvc.logRoleInvitation(
 				userRetreat.id.toString(),
 				invitedBy,
 				userEmail,
@@ -106,7 +110,7 @@ export class RetreatRoleService {
 				auditOptions,
 			);
 
-			await this.auditService.logRoleAssignment(
+			await auditSvc.logRoleAssignment(
 				userRetreat.id.toString(),
 				invitedBy,
 				user.id,
@@ -125,7 +129,10 @@ export class RetreatRoleService {
 		userId: string,
 		removedBy: string,
 		req?: Request,
+		dataSource?: DataSource,
 	): Promise<boolean> {
+		const repos = getRepositories(dataSource);
+
 		// Check if the remover has permission
 		const isCreator = await authorizationService.isRetreatCreator(removedBy, retreatId);
 		if (!isCreator) {
@@ -133,8 +140,7 @@ export class RetreatRoleService {
 		}
 
 		// Find all user roles in this retreat and revoke them
-		const userRetreatRepository = AppDataSource.getRepository(UserRetreat);
-		const userRoles = await userRetreatRepository.find({
+		const userRoles = await repos.userRetreat.find({
 			where: {
 				userId,
 				retreatId,
@@ -148,11 +154,13 @@ export class RetreatRoleService {
 			userAgent: req?.headers['user-agent'],
 		};
 
+		const auditSvc = dataSource ? new AuditService(dataSource) : this.auditService;
+
 		for (const userRole of userRoles) {
 			const roleName = userRole.role?.name || 'unknown';
 
 			// Log role removal
-			await this.auditService.logRoleRemoval(
+			await auditSvc.logRoleRemoval(
 				userRole.id.toString(),
 				removedBy,
 				userId,
@@ -161,7 +169,7 @@ export class RetreatRoleService {
 				auditOptions,
 			);
 
-			await authorizationService.revokeRetreatRole(userId, retreatId, userRole.roleId);
+			await authorizationService.revokeRetreatRole(userId, retreatId, userRole.roleId, dataSource);
 		}
 
 		return true;

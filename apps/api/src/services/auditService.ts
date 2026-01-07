@@ -5,6 +5,7 @@ import { Retreat } from '../entities/retreat.entity';
 import { UserRetreat } from '../entities/userRetreat.entity';
 import { RoleRequest } from '../entities/roleRequest.entity';
 import { PermissionOverride } from '../entities/permissionOverride.entity';
+import { AppDataSource } from '../data-source';
 
 export interface AuditLogOptions {
 	userId?: string;
@@ -18,10 +19,14 @@ export interface AuditLogOptions {
 }
 
 export class AuditService {
-	private auditLogRepository: Repository<AuditLog>;
+	private dataSource: DataSource;
 
-	constructor(dataSource: DataSource) {
-		this.auditLogRepository = dataSource.getRepository(AuditLog);
+	constructor(dataSource?: DataSource) {
+		this.dataSource = dataSource || AppDataSource;
+	}
+
+	private get auditLogRepository(): Repository<AuditLog> {
+		return this.dataSource.getRepository(AuditLog);
 	}
 
 	async logRoleAssignment(

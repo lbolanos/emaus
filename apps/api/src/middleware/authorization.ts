@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { AppDataSource } from '../data-source';
+import { AppDataSource, DataSource } from '../data-source';
 import { User } from '../entities/user.entity';
 import { UserRole } from '../entities/userRole.entity';
 import { UserRetreat } from '../entities/userRetreat.entity';
@@ -9,6 +9,7 @@ import { Permission } from '../entities/permission.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { ROLES } from '@repo/types';
 import { performanceOptimizationService } from '../services/performanceOptimizationService';
+import { getRepositories } from '../utils/repositoryHelpers';
 
 export interface AuthenticatedRequest extends Request {
 	user?: User;
@@ -276,7 +277,7 @@ export class AuthorizationService {
 		return userRoles.roles.includes(role);
 	}
 
-	public async hasRetreatAccess(userId: string, retreatId: string): Promise<boolean> {
+	public async hasRetreatAccess(userId: string, retreatId: string, dataSource?: DataSource): Promise<boolean> {
 		// Check if user is superadmin first - superadmins have access to all retreats
 		const isSuperadmin = await this.hasRole(userId, 'superadmin');
 		if (isSuperadmin) {
@@ -306,7 +307,8 @@ export class AuthorizationService {
 			hasAccess = userRetreats.some((ur) => ur.retreatId === retreatId && ur.status === 'active');
 		} else {
 			// Fallback to database query
-			const userRetreat = await AppDataSource.getRepository(UserRetreat)
+			const repos = getRepositories(dataSource);
+			const userRetreat = await repos.userRetreat
 				.createQueryBuilder('userRetreat')
 				.leftJoin('userRetreat.role', 'role')
 				.where('userRetreat.userId = :userId', { userId })
@@ -335,7 +337,7 @@ export class AuthorizationService {
 		return hasAccess;
 	}
 
-	public async hasRetreatRole(userId: string, retreatId: string, role: string): Promise<boolean> {
+	public async hasRetreatRole(userId: string, retreatId: string, role: string, dataSource?: DataSource): Promise<boolean> {
 		// Check retreat role cache first
 		const cachedRole = await performanceOptimizationService.getCachedRetreatRole(
 			userId,
@@ -356,7 +358,8 @@ export class AuthorizationService {
 			);
 		} else {
 			// Fallback to database query
-			const userRetreat = await AppDataSource.getRepository(UserRetreat)
+			const repos = getRepositories(dataSource);
+			const userRetreat = await repos.userRetreat
 				.createQueryBuilder('userRetreat')
 				.leftJoin('userRetreat.role', 'role')
 				.where('userRetreat.userId = :userId', { userId })
@@ -374,8 +377,9 @@ export class AuthorizationService {
 		return hasRole;
 	}
 
-	public async isRetreatCreator(userId: string, retreatId: string): Promise<boolean> {
-		const retreat = await AppDataSource.getRepository(Retreat)
+	public async isRetreatCreator(userId: string, retreatId: string, dataSource?: DataSource): Promise<boolean> {
+		const repos = getRepositories(dataSource);
+		const retreat = await repos.retreat
 			.createQueryBuilder('retreat')
 			.where('retreat.id = :retreatId', { retreatId })
 			.andWhere('retreat.createdBy = :userId', { userId })
@@ -390,11 +394,12 @@ export class AuthorizationService {
 		roleId: number,
 		invitedBy?: string,
 		expiresAt?: Date,
+		dataSource?: DataSource,
 	): Promise<UserRetreat> {
-		const userRetreatRepository = AppDataSource.getRepository(UserRetreat);
+		const repos = getRepositories(dataSource);
 
 		// Check if assignment already exists
-		const existingAssignment = await userRetreatRepository.findOne({
+		const existingAssignment = await repos.userRetreat.findOne({
 			where: {
 				userId,
 				retreatId,
@@ -408,7 +413,7 @@ export class AuthorizationService {
 			existingAssignment.invitedBy = invitedBy;
 			existingAssignment.invitedAt = new Date();
 			existingAssignment.expiresAt = expiresAt;
-			const result = await userRetreatRepository.save(existingAssignment);
+			const result = await repos.userRetreat.save(existingAssignment);
 
 			// Invalidate cache
 			performanceOptimizationService.invalidateUserRetreatCache(userId);
@@ -421,7 +426,7 @@ export class AuthorizationService {
 		}
 
 		// Create new assignment
-		const userRetreat = userRetreatRepository.create({
+		const userRetreat = repos.userRetreat.create({
 			userId,
 			retreatId,
 			roleId,
@@ -431,7 +436,7 @@ export class AuthorizationService {
 			status: 'active',
 		});
 
-		const result = await userRetreatRepository.save(userRetreat);
+		const result = await repos.userRetreat.save(userRetreat);
 
 		// Invalidate cache
 		performanceOptimizationService.invalidateUserRetreatCache(userId);
@@ -447,8 +452,10 @@ export class AuthorizationService {
 		userId: string,
 		retreatId: string,
 		roleId: number,
+		dataSource?: DataSource,
 	): Promise<boolean> {
-		const result = await AppDataSource.getRepository(UserRetreat)
+		const repos = getRepositories(dataSource);
+		const result = await repos.userRetreat
 			.createQueryBuilder()
 			.update(UserRetreat)
 			.set({ status: 'revoked' })
