@@ -242,13 +242,11 @@ onMounted(async () => {
                 <span class="info-label">{{ getRoomInfo(walker) }}</span>
               </div>
             </div>
+          </div>
 
-            <!-- Footer decoration -->
-            <div class="badge-footer">
-              <div class="footer-dots">
-                <span></span><span></span><span></span>
-              </div>
-            </div>
+          <!-- Emaus text at bottom -->
+          <div class="badge-footer">
+            <span class="emaus-text">Emaús</span>
           </div>
         </div>
       </div>
@@ -290,35 +288,40 @@ onMounted(async () => {
 }
 
 .badge-content {
-  padding: 16px 20px;
+  padding: 12px 20px 16px;
   height: 100%;
   display: grid;
   grid-template-columns: 100px 1fr;
-  gap: 16px;
+  grid-template-rows: auto 1fr auto;
+  gap: 8px 16px;
   position: relative;
 }
 
-/* Header with logo - left side, full height */
+/* Header with logo - left side, upper position */
 .badge-header {
+  grid-column: 1;
+  grid-row: 1 / 3;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  height: 100%;
+  padding-top: 8px;
 }
 
 .badge-logo {
   width: 90px;
-  height: 90px;
+  height: 133px;
   object-fit: contain;
 }
 
 /* Right side wrapper - contains name and info */
 .badge-right {
+  grid-column: 2;
+  grid-row: 1 / 3;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  gap: 12px;
-  padding-top: 4px;
+  gap: 10px;
+  padding-top: 10px;
 }
 
 /* Name section - right side, top */
@@ -398,18 +401,29 @@ onMounted(async () => {
 }
 
 .info-label {
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
   color: #475569;
   letter-spacing: 0.2px;
 }
 
-/* Footer decoration - at bottom of right column */
+/* Footer decoration - Emaus text at bottom below logo */
 .badge-footer {
+  grid-column: 1;
+  grid-row: 3;
   display: flex;
-  justify-content: flex-end;
-  margin-top: auto;
-  padding-top: 8px;
+  justify-content: center;
+  align-items: flex-end;
+  padding-bottom: 4px;
+}
+
+.emaus-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e11d48;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-shadow: 0 1px 2px rgba(225, 29, 72, 0.2);
 }
 
 .footer-dots {
@@ -482,19 +496,27 @@ onMounted(async () => {
   }
 
   .badge-content {
-    padding: 10px 14px;
-    gap: 12px;
+    padding: 8px 14px 10px;
+    gap: 6px 12px;
     grid-template-columns: 80px 1fr;
+    grid-template-rows: auto 1fr auto;
+  }
+
+  .badge-header {
+    grid-row: 1 / 3;
+    padding-top: 4px;
   }
 
   .badge-right {
-    gap: 8px;
-    padding-top: 2px;
+    grid-column: 2;
+    grid-row: 1 / 3;
+    gap: 6px;
+    padding-top: 6px;
   }
 
   .badge-logo {
-    width: 70px;
-    height: 70px;
+    width: 65px;
+    height: 113px;
   }
 
   .walker-name {
@@ -526,12 +548,18 @@ onMounted(async () => {
   }
 
   .info-label {
-    font-size: 9px;
+    font-size: 12px;
   }
 
   .badge-footer {
-    margin-top: 4px;
-    padding-top: 4px;
+    grid-column: 1;
+    grid-row: 3;
+    padding-bottom: 2px;
+  }
+
+  .emaus-text {
+    font-size: 10px;
+    letter-spacing: 1.5px;
   }
 
   .footer-dots span {
@@ -559,16 +587,25 @@ onMounted(async () => {
 
   .badge-content {
     grid-template-columns: 80px 1fr;
-    gap: 12px;
-  }
-
-  .badge-right {
-    gap: 10px;
-    padding-top: 4px;
+    grid-template-rows: auto 1fr auto;
+    gap: 6px 12px;
   }
 
   .badge-header {
-    height: 100%;
+    grid-row: 1 / 3;
+    padding-top: 6px;
+  }
+
+  .badge-right {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    gap: 8px;
+    padding-top: 8px;
+  }
+
+  .badge-footer {
+    grid-column: 1;
+    grid-row: 3;
   }
 }
 </style>
