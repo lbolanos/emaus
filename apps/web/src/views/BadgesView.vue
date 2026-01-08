@@ -5,7 +5,7 @@ import { useRetreatStore } from '@/stores/retreatStore';
 import { getWalkersByRetreat, exportBadgesToDocx } from '@/services/api';
 import { Button } from '@repo/ui';
 import { useToast } from '@repo/ui';
-import { Loader2, Printer, MoreVertical, FileDown } from 'lucide-vue-next';
+import { Loader2, Printer, MoreVertical, FileDown, Check, Search, X } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import type { Participant } from '@repo/types';
 import {
@@ -25,25 +25,92 @@ const walkers = ref<Participant[]>([]);
 const loading = ref(true);
 const isExporting = ref(false);
 
+// Selection and filter state
+const selectedBadges = ref<Set<string>>(new Set());
+const nameFilter = ref('');
+const isPrinting = ref(false);
+
 const retreatId = computed(() => route.params.id as string || retreatStore.selectedRetreatId);
 
 const retreatName = computed(() => {
-  console.log('DEBUG: retreatName computed');
-  console.log('DEBUG: selectedRetreat:', retreatStore.selectedRetreat);
-  console.log('DEBUG: retreatStore.retreats:', retreatStore.retreats);
   // Retreat schema doesn't have 'name', use 'parish' instead
-  const name = retreatStore.selectedRetreat?.parish || '';
-  console.log('DEBUG: retreatName value:', name);
-  return name;
+  return retreatStore.selectedRetreat?.parish || '';
 });
 
 // Dynamic data from retreat store
 const retreatData = computed(() => {
-  console.log('DEBUG: retreatData computed');
-  const data = (retreatStore.selectedRetreat as any) || null;
-  console.log('DEBUG: retreatData value:', data);
-  return data;
+  return (retreatStore.selectedRetreat as any) || null;
 });
+
+// Filtered walkers based on name search
+const filteredWalkers = computed(() => {
+  if (!nameFilter.value.trim()) {
+    return walkers.value;
+  }
+  const filter = nameFilter.value.toLowerCase();
+  return walkers.value.filter(walker => {
+    const name = getDisplayName(walker).toLowerCase();
+    return name.includes(filter);
+  });
+});
+
+// Count of selected badges
+const selectedCount = computed(() => selectedBadges.value.size);
+
+// Check if a walker is selected
+const isSelected = (id: string): boolean => {
+  return selectedBadges.value.has(id);
+};
+
+// Toggle selection of a walker
+const toggleSelection = (id: string): void => {
+  if (selectedBadges.value.has(id)) {
+    selectedBadges.value.delete(id);
+  } else {
+    selectedBadges.value.add(id);
+  }
+};
+
+// Select all visible (filtered) walkers
+const selectAllVisible = (): void => {
+  filteredWalkers.value.forEach(walker => {
+    selectedBadges.value.add(walker.id);
+  });
+};
+
+// Clear all selections
+const clearSelection = (): void => {
+  selectedBadges.value.clear();
+};
+
+// Print only selected badges
+const printSelectedBadges = (): void => {
+  if (selectedBadges.value.size === 0) {
+    toast({
+      title: 'Aviso',
+      description: 'Por favor, selecciona al menos un gafete para imprimir.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  // Add hidden class to non-selected badges
+  const badgeItems = document.querySelectorAll('.badge-item');
+  badgeItems.forEach(item => {
+    const walkerId = item.getAttribute('data-walker-id');
+    if (walkerId && !selectedBadges.value.has(walkerId)) {
+      item.classList.add('badge-hidden');
+    }
+  });
+
+  // Print
+  window.print();
+
+  // Remove hidden class after print
+  badgeItems.forEach(item => {
+    item.classList.remove('badge-hidden');
+  });
+};
 
 const retreatTypeLogo = computed(() => {
   // Use explicit type if available
@@ -146,21 +213,11 @@ const exportBadges = async () => {
 };
 
 onMounted(async () => {
-  console.log('DEBUG: onMounted started');
   const id = retreatId.value;
-  console.log('DEBUG: retreatId from route:', id);
-  console.log('DEBUG: selectedRetreatId from store:', retreatStore.selectedRetreatId);
-  console.log('DEBUG: selectedRetreat before fetch:', retreatStore.selectedRetreat);
-
   if (id && !retreatStore.selectedRetreat) {
-    console.log('DEBUG: Fetching retreat with id:', id);
     await retreatStore.fetchRetreat(id);
-    console.log('DEBUG: selectedRetreat after fetch:', retreatStore.selectedRetreat);
   }
-
-  console.log('DEBUG: Fetching walkers...');
   await fetchWalkers();
-  console.log('DEBUG: Walkers fetched:', walkers.value.length);
 });
 </script>
 
@@ -197,8 +254,55 @@ onMounted(async () => {
             <Printer class="mr-2 h-4 w-4" />
             {{ $t('badges.printBadges') }}
           </DropdownMenuItem>
+
+          <DropdownMenuSeparator v-if="selectedCount > 0" />
+
+          <!-- Print selected -->
+          <DropdownMenuItem
+            v-if="selectedCount > 0"
+            @click="printSelectedBadges"
+            class="text-rose-600"
+          >
+            <Check class="mr-2 h-4 w-4" />
+            Imprimir seleccionados ({{ selectedCount }})
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+    </div>
+
+    <!-- Filter section -->
+    <div v-if="!loading && walkers.length" class="filter-section no-print">
+      <div class="filter-input-wrapper">
+        <Search class="search-icon" />
+        <input
+          v-model="nameFilter"
+          type="text"
+          placeholder="Filtrar por nombre..."
+          class="filter-input"
+        />
+        <X
+          v-if="nameFilter"
+          @click="nameFilter = ''"
+          class="clear-icon"
+        />
+      </div>
+      <span class="badge-count">
+        {{ filteredWalkers.length }} de {{ walkers.length }} gafetes
+      </span>
+      <button
+        v-if="nameFilter || selectedCount > 0"
+        @click="selectAllVisible"
+        class="filter-btn"
+      >
+        Seleccionar todos
+      </button>
+      <button
+        v-if="selectedCount > 0"
+        @click="clearSelection"
+        class="filter-btn"
+      >
+        Deseleccionar
+      </button>
     </div>
 
     <div v-if="loading" class="text-center py-8">
@@ -212,10 +316,21 @@ onMounted(async () => {
 
     <div v-else class="badges-container">
       <div
-        v-for="walker in walkers"
+        v-for="walker in filteredWalkers"
         :key="walker.id"
+        :data-walker-id="walker.id"
         class="badge-item"
+        :class="{ 'selected': isSelected(walker.id) }"
+        @click="toggleSelection(walker.id)"
       >
+        <!-- Checkbox -->
+        <input
+          type="checkbox"
+          :checked="isSelected(walker.id)"
+          @click.stop
+          @change="toggleSelection(walker.id)"
+          class="no-print badge-checkbox"
+        />
         <div class="badge-content">
           <!-- Logo on left side -->
           <div class="badge-header">
@@ -273,6 +388,7 @@ onMounted(async () => {
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
   overflow: hidden;
   position: relative;
+  cursor: pointer;
   min-height: 180px;
   aspect-ratio: 2.2 / 1;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -461,6 +577,107 @@ onMounted(async () => {
     opacity: 1;
     transform: scale(1.1);
   }
+}
+
+/* Filter section styles */
+.filter-section {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.filter-input-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.filter-input {
+  width: 100%;
+  padding: 10px 12px 10px 40px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.filter-input:focus {
+  border-color: #e11d48;
+  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.1);
+}
+
+.clear-icon {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.clear-icon:hover {
+  color: #6b7280;
+}
+
+.badge-count {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.filter-btn {
+  padding: 8px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: white;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-btn:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+/* Badge checkbox */
+.badge-checkbox {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  z-index: 10;
+  accent-color: #e11d48;
+}
+
+.badge-item.selected {
+  border: 2px solid #e11d48 !important;
+  box-shadow: 0 0 0 4px rgba(225, 29, 72, 0.15) !important;
+}
+
+.badge-hidden {
+  display: none !important;
 }
 
 /* Print styles */
