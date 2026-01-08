@@ -154,35 +154,29 @@ onMounted(fetchWalkers);
         class="badge-item"
       >
         <div class="badge-content">
-          <!-- Decorative header -->
+          <!-- Logo on left side -->
           <div class="badge-header">
-            <div class="css-rose">
-              <div class="rose-petals">
-                <div class="petal petal-1"></div>
-                <div class="petal petal-2"></div>
-                <div class="petal petal-3"></div>
-                <div class="petal petal-4"></div>
-                <div class="petal petal-5"></div>
+            <img src="/man_logo.png" alt="Logo" class="badge-logo" />
+          </div>
+
+          <!-- Right side content: name and info -->
+          <div class="badge-right">
+            <!-- Name section -->
+            <div class="name-section">
+              <h2 class="walker-name">{{ getDisplayName(walker) }}</h2>
+              <div class="name-underline"></div>
+            </div>
+
+            <!-- Info section -->
+            <div class="info-section">
+              <div class="info-item">
+                <div class="info-icon">🍽️</div>
+                <span class="info-label">{{ getTableInfo(walker) }}</span>
               </div>
-              <div class="rose-center"></div>
-            </div>
-          </div>
-
-          <!-- Name section -->
-          <div class="name-section">
-            <h2 class="walker-name">{{ getDisplayName(walker) }}</h2>
-            <div class="name-underline"></div>
-          </div>
-
-          <!-- Info section -->
-          <div class="info-section">
-            <div class="info-item">
-              <div class="info-icon">🍽️</div>
-              <span class="info-label">{{ getTableInfo(walker) }}</span>
-            </div>
-            <div class="info-item">
-              <div class="info-icon">🛏️</div>
-              <span class="info-label">{{ getRoomInfo(walker) }}</span>
+              <div class="info-item">
+                <div class="info-icon">🛏️</div>
+                <span class="info-label">{{ getRoomInfo(walker) }}</span>
+              </div>
             </div>
           </div>
 
@@ -203,7 +197,7 @@ onMounted(fetchWalkers);
 <style scoped>
 .badges-container {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
   gap: 24px;
   padding: 24px 0;
 }
@@ -217,7 +211,8 @@ onMounted(fetchWalkers);
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
   overflow: hidden;
   position: relative;
-  min-height: 220px;
+  min-height: 180px;
+  aspect-ratio: 2.2 / 1;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: 1px solid rgba(231, 229, 228, 0.8);
 }
@@ -231,101 +226,46 @@ onMounted(fetchWalkers);
 }
 
 .badge-content {
-  padding: 24px;
+  padding: 16px 20px;
   height: 100%;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 16px;
   position: relative;
 }
 
-/* Header with rose */
+/* Header with logo - left side, full height */
 .badge-header {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 8px;
-}
-
-.css-rose {
-  width: 48px;
-  height: 48px;
-  background: linear-gradient(135deg, #fef3f2 0%, #fee2e2 100%);
-  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow:
-    0 4px 12px rgba(225, 29, 72, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  position: relative;
+  height: 100%;
 }
 
-.rose-petals {
-  position: relative;
-  width: 32px;
-  height: 32px;
+.badge-logo {
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
 }
 
-.petal {
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  background: linear-gradient(135deg, #e11d48 0%, #f43f5e 100%);
-  border-radius: 50% 50% 50% 0;
-  box-shadow: 0 2px 4px rgba(225, 29, 72, 0.3);
+/* Right side wrapper - contains name and info */
+.badge-right {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 12px;
+  padding-top: 4px;
 }
 
-.petal-1 {
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%) rotate(0deg);
-}
-
-.petal-2 {
-  top: 6px;
-  right: 2px;
-  transform: rotate(72deg);
-}
-
-.petal-3 {
-  bottom: 4px;
-  right: 4px;
-  transform: rotate(144deg);
-}
-
-.petal-4 {
-  bottom: 4px;
-  left: 4px;
-  transform: rotate(216deg);
-}
-
-.petal-5 {
-  top: 6px;
-  left: 2px;
-  transform: rotate(288deg);
-}
-
-.rose-center {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 8px;
-  height: 8px;
-  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-  border-radius: 50%;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
-  z-index: 10;
-}
-
-/* Name section */
+/* Name section - right side, top */
 .name-section {
-  text-align: center;
-  margin-bottom: 24px;
-  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
 }
 
 .walker-name {
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 800;
   background: linear-gradient(135deg, #1e293b 0%, #475569 100%);
   -webkit-background-clip: text;
@@ -333,34 +273,33 @@ onMounted(fetchWalkers);
   background-clip: text;
   margin: 0;
   text-transform: uppercase;
-  letter-spacing: 2px;
+  letter-spacing: 1.5px;
   line-height: 1.3;
 }
 
 .name-underline {
-  width: 60px;
+  width: 50px;
   height: 4px;
   background: linear-gradient(90deg, #e11d48 0%, #f43f5e 50%, #e11d48 100%);
-  margin: 12px auto 0;
+  margin: 10px 0 0;
   border-radius: 2px;
 }
 
-/* Info section */
+/* Info section - right side, below name */
 .info-section {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 14px;
+  justify-content: flex-start;
+  gap: 10px;
 }
 
 .info-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   background: linear-gradient(135deg, #fefefe 0%, #f9fafb 100%);
-  padding: 12px 16px;
-  border-radius: 14px;
+  padding: 10px 14px;
+  border-radius: 12px;
   border: 1px solid rgba(229, 231, 235, 0.8);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   transition: all 0.2s ease;
@@ -372,44 +311,45 @@ onMounted(fetchWalkers);
 }
 
 .info-icon {
-  font-size: 20px;
-  width: 36px;
-  height: 36px;
+  font-size: 18px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #fef3f2 0%, #fee2e2 100%);
-  border-radius: 10px;
+  border-radius: 9px;
   flex-shrink: 0;
   box-shadow: 0 2px 6px rgba(225, 29, 72, 0.1);
 }
 
 .info-label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: #475569;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.2px;
 }
 
-/* Footer decoration */
+/* Footer decoration - bottom right */
 .badge-footer {
-  margin-top: auto;
-  padding-top: 16px;
+  position: absolute;
+  bottom: 12px;
+  right: 20px;
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .footer-dots {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .footer-dots span {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   background: linear-gradient(135deg, #e11d48 0%, #f43f5e 100%);
   border-radius: 50%;
-  opacity: 0.6;
+  opacity: 0.5;
   transition: all 0.3s ease;
 }
 
@@ -447,8 +387,10 @@ onMounted(fetchWalkers);
   }
 
   .badges-container {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    column-gap: 10mm;
+    row-gap: 8mm;
     margin: 0;
     padding: 0;
   }
@@ -458,29 +400,64 @@ onMounted(fetchWalkers);
     box-shadow:
       0 4px 12px rgba(0, 0, 0, 0.08),
       inset 0 1px 0 rgba(255, 255, 255, 0.8);
-    margin-bottom: 16px;
-    min-height: 200px;
+    margin-bottom: 0;
+    min-height: 180px;
+    max-width: 85mm;
+    width: 100%;
     border: 1px solid #e5e7eb;
+    aspect-ratio: 2.2 / 1;
   }
 
   .badge-content {
-    padding: 16px;
+    padding: 10px 14px;
+    gap: 12px;
+    grid-template-columns: 80px 1fr;
+  }
+
+  .badge-right {
+    gap: 8px;
+    padding-top: 2px;
+  }
+
+  .badge-logo {
+    width: 70px;
+    height: 70px;
   }
 
   .walker-name {
-    font-size: 22px;
+    font-size: 16px;
+  }
+
+  .name-underline {
+    width: 35px;
+    height: 3px;
+  }
+
+  .info-section {
+    gap: 6px;
   }
 
   .info-item {
-    padding: 10px 12px;
+    padding: 6px 8px;
+  }
+
+  .info-icon {
+    width: 24px;
+    height: 24px;
+    font-size: 14px;
   }
 
   .info-label {
-    font-size: 11px;
+    font-size: 9px;
+  }
+
+  .badge-footer {
+    bottom: 8px;
+    right: 14px;
   }
 
   .footer-dots span {
-    opacity: 0.5;
+    opacity: 0.4;
     animation: none;
   }
 
@@ -499,13 +476,21 @@ onMounted(fetchWalkers);
   }
 
   .badge-item {
-    min-height: 200px;
+    min-height: 160px;
   }
-}
 
-@media print and (max-width: 768px) {
-  .badges-container {
-    grid-template-columns: repeat(2, 1fr);
+  .badge-content {
+    grid-template-columns: 80px 1fr;
+    gap: 12px;
+  }
+
+  .badge-right {
+    gap: 10px;
+    padding-top: 4px;
+  }
+
+  .badge-header {
+    height: 100%;
   }
 }
 </style>
