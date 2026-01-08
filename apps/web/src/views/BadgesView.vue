@@ -42,6 +42,11 @@ const retreatData = computed(() => {
   return (retreatStore.selectedRetreat as any) || null;
 });
 
+// Retreat number (version)
+const retreatNumber = computed(() => {
+  return retreatData.value?.retreat_number_version || '';
+});
+
 // Filtered walkers based on name search
 const filteredWalkers = computed(() => {
   if (!nameFilter.value.trim()) {
@@ -342,7 +347,10 @@ onMounted(async () => {
             <!-- Name section -->
             <div class="name-section">
               <h2 class="walker-name">{{ getDisplayName(walker) }}</h2>
-              <p v-if="retreatName" class="retreat-name">{{ retreatName }}</p>
+              <div class="retreat-info">
+                <p v-if="retreatName" class="retreat-name">{{ retreatName }}</p>
+                <span v-if="retreatNumber" class="retreat-number">{{ retreatNumber }}</span>
+              </div>
               <div class="name-underline"></div>
             </div>
 
@@ -460,6 +468,13 @@ onMounted(async () => {
   line-height: 1.3;
 }
 
+.retreat-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .retreat-name {
   font-size: 11px;
   font-weight: 600;
@@ -468,6 +483,19 @@ onMounted(async () => {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   line-height: 1.2;
+}
+
+.retreat-number {
+  font-size: 10px;
+  font-weight: 700;
+  color: #f59e0b;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 2px 8px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 12px;
+  margin-top: 4px;
 }
 
 .name-underline {
@@ -750,6 +778,12 @@ onMounted(async () => {
   .retreat-name {
     font-size: 8px;
     margin: 2px 0 0;
+  }
+
+  .retreat-number {
+    font-size: 7px;
+    padding: 1px 6px;
+    margin-top: 2px;
   }
 
   .name-underline {
