@@ -1108,11 +1108,11 @@
     "error": "Error"
   },
   "badges": {
-    "title": "Walker Badges",
-    "description": "Print individual badges for each walker with their table and room information",
+    "title": "Badges",
+    "description": "Print individual badges for each participant with their table and room information",
     "printBadges": "Print Badges",
-    "noWalkersFound": "No walkers found for this retreat",
-    "fetchError": "Error loading walkers",
+    "noParticipantFound": "No participant found for this retreat",
+    "fetchError": "Error loading participants",
     "rose": "Rose",
     "floor": "Floor",
     "room": "Room",

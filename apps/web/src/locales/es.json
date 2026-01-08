@@ -1113,12 +1113,12 @@
     "confirm": "Confirmar"
   },
   "badges": {
-    "title": "Gafetes de Caminantes",
-    "description": "Imprime gafetes individuales para cada caminante con su información de mesa y habitación",
+    "title": "Gafetes",
+    "description": "Imprime gafetes individuales para cada participante con su información de mesa y habitación",
     "exportDocx": "Exportar DOCX",
     "printBadges": "Imprimir Gafetes",
-    "noWalkersFound": "No se encontraron caminantes para este retiro",
-    "fetchError": "Error al cargar los caminantes",
+    "noParticipantFound": "No se encontraron participantes para este retiro",
+    "fetchError": "Error al cargar los participantes",
     "rose": "Rosa",
     "floor": "Piso",
     "room": "Cuarto",

@@ -521,6 +521,18 @@ export const getWalkersByRetreat = async (retreatId: string): Promise<any[]> => 
 	return response.data;
 };
 
+export const getParticipantsByRetreat = async (
+	retreatId: string,
+	type?: 'walker' | 'server' | 'waiting' | 'partial_server' | undefined
+): Promise<any[]> => {
+	const params: Record<string, string> = { retreatId };
+	if (type) {
+		params.type = type;
+	}
+	const response = await api.get('/participants', { params });
+	return response.data;
+};
+
 export const getParticipantById = async (participantId: string) => {
 	const response = await api.get(`/participants/${participantId}`);
 	return response.data;

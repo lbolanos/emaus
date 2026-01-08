@@ -265,7 +265,6 @@ una forma de agregar tags a los participantes para que no queden en la misma mes
 al agarrar un caminante debe hacer scroll para cambiar abajo o arriba
 esta poniendo un dia antes al registrar un pago.
 
-## IN PROGRESS
 
 agregar un filtro de quienes han pagado en la lista de caminantes.
 listado de caminantes imprimir.
@@ -274,6 +273,15 @@ imprimir bag report
 
 1. Implement dependency injection for DataSource (remove singleton pattern)
 2. Redesign services to accept DataSource as a constructor parameter
+2. Add more component tests - Test additional components in the codebase
+3. Improve test coverage - Add edge cases and integration tests
+4. Set up coverage reporting - Generate code coverage reports
+5. Move to API backend tests - Work on the API service/controller tests
+6. Review and clean up code - Remove any console.logs or temporary debug code
+
+## IN PROGRESS
+nombre del retiro en gafete. No colocar el piso solo el cuarto y cama.
+poder imprimir solo algunos gafetes.
 
 ## TODO
 
@@ -301,13 +309,6 @@ Notificaciones por correo a los administradores del retiro de eventos como Camin
 que los caminantes no vayan con la persona que lo invito
 no deja enviar correo de invitacion si el usuario existe
 
-Solutions for future consideration:
-
-2. Add more component tests - Test additional components in the codebase
-3. Improve test coverage - Add edge cases and integration tests
-4. Set up coverage reporting - Generate code coverage reports
-5. Move to API backend tests - Work on the API service/controller tests
-6. Review and clean up code - Remove any console.logs or temporary debug code
 
 ## Pepe Toño
 
@@ -320,12 +321,10 @@ al dar clic en print tables, seleccionar los campos que se deben imprimir.
 pendiente en listado de pagos que ordene
 listado de pagos que se pueda imprimir
 
-nombre del retiro en gafete. No colocar el piso solo el cuarto y cama.
-poder imprimir solo algunos gafetes.
-
 en caso de que no se pueda en ninguna mesa que hacer con ese caminante
 
 al selecciona menu casas de retiro debe desaparecer la seleccion de retiro porque es independiente del retiro.
+
 This will use Turborepo to run the `dev` script in both `apps/api` and `apps/web`.
 
 - The API will be available at `http://localhost:3001`.

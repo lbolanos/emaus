@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useRetreatStore } from '@/stores/retreatStore';
-import { getWalkersByRetreat, exportBadgesToDocx } from '@/services/api';
+import { getWalkersByRetreat, getParticipantsByRetreat, exportBadgesToDocx } from '@/services/api';
 import { Button } from '@repo/ui';
 import { useToast } from '@repo/ui';
 import { Loader2, Printer, MoreVertical, FileDown, Check, Search, X } from 'lucide-vue-next';
@@ -15,19 +15,27 @@ import {
   DropdownMenuTrigger,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@repo/ui';
 
 const route = useRoute();
 const retreatStore = useRetreatStore();
 const { toast } = useToast();
 const { t } = useI18n();
-const walkers = ref<Participant[]>([]);
+const participants = ref<Participant[]>([]);
 const loading = ref(true);
 const isExporting = ref(false);
 
 // Selection and filter state
 const selectedBadges = ref<Set<string>>(new Set());
 const nameFilter = ref('');
+const typeFilter = ref<string>('all');
+const tableFilter = ref<string>('all');
+const roomFilter = ref<string>('all');
 const isPrinting = ref(false);
 
 const retreatId = computed(() => route.params.id as string || retreatStore.selectedRetreatId);
@@ -47,16 +55,81 @@ const retreatNumber = computed(() => {
   return retreatData.value?.retreat_number_version || '';
 });
 
-// Filtered walkers based on name search
-const filteredWalkers = computed(() => {
-  if (!nameFilter.value.trim()) {
-    return walkers.value;
-  }
-  const filter = nameFilter.value.toLowerCase();
-  return walkers.value.filter(walker => {
-    const name = getDisplayName(walker).toLowerCase();
-    return name.includes(filter);
+// Get unique table names from participants for dropdown
+const availableTables = computed(() => {
+  const tables = new Set<string>();
+  participants.value.forEach(p => {
+    if (p.tableMesa?.name) {
+      tables.add(p.tableMesa.name);
+    }
   });
+  return Array.from(tables).sort((a, b) => {
+    // Try to sort numerically if tables are numbered
+    const numA = parseInt(a);
+    const numB = parseInt(b);
+    if (!isNaN(numA) && !isNaN(numB)) {
+      return numA - numB;
+    }
+    return a.localeCompare(b);
+  });
+});
+
+// Get unique room numbers from participants for dropdown
+const availableRooms = computed(() => {
+  const rooms = new Set<string>();
+  participants.value.forEach(p => {
+    if (p.retreatBed?.roomNumber) {
+      rooms.add(p.retreatBed.roomNumber);
+    }
+  });
+  return Array.from(rooms).sort((a, b) => {
+    // Try to sort numerically
+    const numA = parseInt(a);
+    const numB = parseInt(b);
+    if (!isNaN(numA) && !isNaN(numB)) {
+      return numA - numB;
+    }
+    return a.localeCompare(b);
+  });
+});
+
+// Filtered participants with multi-filter logic
+const filteredParticipants = computed(() => {
+  let results = participants.value;
+
+  // Apply type filter
+  if (typeFilter.value !== 'all') {
+    results = results.filter(p => p.type === typeFilter.value);
+  }
+
+  // Apply table filter
+  if (tableFilter.value !== 'all') {
+    if (tableFilter.value === 'none') {
+      results = results.filter(p => !p.tableMesa);
+    } else {
+      results = results.filter(p => p.tableMesa?.name === tableFilter.value);
+    }
+  }
+
+  // Apply room filter
+  if (roomFilter.value !== 'all') {
+    if (roomFilter.value === 'none') {
+      results = results.filter(p => !p.retreatBed);
+    } else {
+      results = results.filter(p => p.retreatBed?.roomNumber === roomFilter.value);
+    }
+  }
+
+  // Apply name filter (existing logic)
+  if (nameFilter.value.trim()) {
+    const filter = nameFilter.value.toLowerCase();
+    results = results.filter(p => {
+      const name = getDisplayName(p).toLowerCase();
+      return name.includes(filter);
+    });
+  }
+
+  return results;
 });
 
 // Count of selected badges
@@ -76,9 +149,9 @@ const toggleSelection = (id: string): void => {
   }
 };
 
-// Select all visible (filtered) walkers
+// Select all visible (filtered) participants
 const selectAllVisible = (): void => {
-  filteredWalkers.value.forEach(walker => {
+  filteredParticipants.value.forEach(walker => {
     selectedBadges.value.add(walker.id);
   });
 };
@@ -167,13 +240,14 @@ const getTableInfo = (walker: Participant): string => {
   return `${t('badges.table')} ${walker.tableMesa.name}`;
 };
 
-const fetchWalkers = async () => {
+const fetchParticipants = async () => {
   if (!retreatId.value) return;
   loading.value = true;
   try {
-    walkers.value = await getWalkersByRetreat(retreatId.value);
+    // Fetch ALL participants (walkers + servers + others)
+    participants.value = await getParticipantsByRetreat(retreatId.value);
   } catch (error) {
-    console.error('Error fetching walkers:', error);
+    console.error('Error fetching participants:', error);
     toast({
       title: t('common.error'),
       description: t('badges.fetchError'),
@@ -222,7 +296,7 @@ onMounted(async () => {
   if (id && !retreatStore.selectedRetreat) {
     await retreatStore.fetchRetreat(id);
   }
-  await fetchWalkers();
+  await fetchParticipants();
 });
 </script>
 
@@ -239,7 +313,7 @@ onMounted(async () => {
       <!-- Three dot dropdown menu -->
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
-          <Button variant="outline" size="icon" :disabled="loading || !walkers.length">
+          <Button variant="outline" size="icon" :disabled="loading || !participants.length">
             <MoreVertical class="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -276,7 +350,7 @@ onMounted(async () => {
     </div>
 
     <!-- Filter section -->
-    <div v-if="!loading && walkers.length" class="filter-section no-print">
+    <div v-if="!loading && participants.length" class="filter-section no-print">
       <div class="filter-input-wrapper">
         <Search class="search-icon" />
         <input
@@ -291,11 +365,60 @@ onMounted(async () => {
           class="clear-icon"
         />
       </div>
+
+      <!-- Type filter -->
+      <div class="filter-dropdown">
+        <Select v-model="typeFilter">
+          <SelectTrigger class="w-[160px]">
+            <SelectValue placeholder="Tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="walker">Caminantes</SelectItem>
+            <SelectItem value="server">Servidores</SelectItem>
+            <SelectItem value="waiting">En espera</SelectItem>
+            <SelectItem value="partial_server">Servidor parcial</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <!-- Table filter -->
+      <div class="filter-dropdown">
+        <Select v-model="tableFilter">
+          <SelectTrigger class="w-[160px]">
+            <SelectValue placeholder="Mesa" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas</SelectItem>
+            <SelectItem value="none">Sin mesa</SelectItem>
+            <SelectItem v-for="table in availableTables" :key="table" :value="table">
+              Mesa {{ table }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <!-- Room filter -->
+      <div class="filter-dropdown">
+        <Select v-model="roomFilter">
+          <SelectTrigger class="w-[160px]">
+            <SelectValue placeholder="Habitación" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas</SelectItem>
+            <SelectItem value="none">Sin habitación</SelectItem>
+            <SelectItem v-for="room in availableRooms" :key="room" :value="room">
+              Habitación {{ room }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <span class="badge-count">
-        {{ filteredWalkers.length }} de {{ walkers.length }} gafetes
+        {{ filteredParticipants.length }} de {{ participants.length }} gafetes
       </span>
       <button
-        v-if="nameFilter || selectedCount > 0"
+        v-if="nameFilter || typeFilter !== 'all' || tableFilter !== 'all' || roomFilter !== 'all' || selectedCount > 0"
         @click="selectAllVisible"
         class="filter-btn"
       >
@@ -315,25 +438,25 @@ onMounted(async () => {
       <p>{{ $t('participants.loading') }}</p>
     </div>
 
-    <div v-else-if="!walkers.length" class="text-center py-8">
-      <p>{{ $t('badges.noWalkersFound') }}</p>
+    <div v-else-if="!participants.length" class="text-center py-8">
+      <p>{{ $t('badges.noParticipantFound') }}</p>
     </div>
 
     <div v-else class="badges-container">
       <div
-        v-for="walker in filteredWalkers"
-        :key="walker.id"
-        :data-walker-id="walker.id"
+        v-for="participant in filteredParticipants"
+        :key="participant.id"
+        :data-walker-id="participant.id"
         class="badge-item"
-        :class="{ 'selected': isSelected(walker.id) }"
-        @click="toggleSelection(walker.id)"
+        :class="{ 'selected': isSelected(participant.id) }"
+        @click="toggleSelection(participant.id)"
       >
         <!-- Checkbox -->
         <input
           type="checkbox"
-          :checked="isSelected(walker.id)"
+          :checked="isSelected(participant.id)"
           @click.stop
-          @change="toggleSelection(walker.id)"
+          @change="toggleSelection(participant.id)"
           class="no-print badge-checkbox"
         />
         <div class="badge-content">
@@ -346,7 +469,7 @@ onMounted(async () => {
           <div class="badge-right">
             <!-- Name section -->
             <div class="name-section">
-              <h2 class="walker-name">{{ getDisplayName(walker) }}</h2>
+              <h2 class="walker-name">{{ getDisplayName(participant) }}</h2>
               <div class="retreat-info">
                 <p v-if="retreatName" class="retreat-name">{{ retreatName }}</p>
                 <span v-if="retreatNumber" class="retreat-number">{{ retreatNumber }}</span>
@@ -358,11 +481,11 @@ onMounted(async () => {
             <div class="info-section">
               <div class="info-item">
                 <div class="info-icon">🍽️</div>
-                <span class="info-label">{{ getTableInfo(walker) }}</span>
+                <span class="info-label">{{ getTableInfo(participant) }}</span>
               </div>
               <div class="info-item">
                 <div class="info-icon">🛏️</div>
-                <span class="info-label">{{ getRoomInfo(walker) }}</span>
+                <span class="info-label">{{ getRoomInfo(participant) }}</span>
               </div>
             </div>
           </div>
@@ -398,7 +521,7 @@ onMounted(async () => {
   position: relative;
   cursor: pointer;
   min-height: 180px;
-  aspect-ratio: 2.2 / 1;
+  aspect-ratio: 1.8 / 1;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: 1px solid rgba(231, 229, 228, 0.8);
 }
@@ -558,7 +681,7 @@ onMounted(async () => {
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  padding-bottom: 4px;
+  padding-bottom: 15px;
 }
 
 .emaus-text {
@@ -687,6 +810,29 @@ onMounted(async () => {
   border-color: #d1d5db;
 }
 
+/* Filter dropdown styles */
+.filter-dropdown {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.filter-dropdown :deep(.select-trigger) {
+  height: 42px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.filter-dropdown :deep(.select-trigger:hover) {
+  border-color: #d1d5db;
+  background: #f9fafb;
+}
+
+.filter-dropdown :deep(.select-trigger:focus) {
+  border-color: #e11d48;
+  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.1);
+}
+
 /* Badge checkbox */
 .badge-checkbox {
   position: absolute;
@@ -744,7 +890,7 @@ onMounted(async () => {
     max-width: 85mm;
     width: 100%;
     border: 1px solid #e5e7eb;
-    aspect-ratio: 2.2 / 1;
+    aspect-ratio: 1.8 / 1;
   }
 
   .badge-content {
@@ -812,7 +958,7 @@ onMounted(async () => {
   .badge-footer {
     grid-column: 1;
     grid-row: 3;
-    padding-bottom: 2px;
+    padding-bottom: 15px;
   }
 
   .emaus-text {
@@ -834,6 +980,31 @@ onMounted(async () => {
 
 /* Responsive design */
 @media (max-width: 768px) {
+  .filter-section {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-input-wrapper {
+    width: 100%;
+  }
+
+  .filter-dropdown {
+    width: 100%;
+  }
+
+  .filter-dropdown :deep(.select-trigger) {
+    width: 100%;
+  }
+
+  .badge-count {
+    text-align: center;
+  }
+
+  .filter-btn {
+    width: 100%;
+  }
+
   .badges-container {
     grid-template-columns: 1fr;
     gap: 20px;
