@@ -27,6 +27,53 @@ const isExporting = ref(false);
 
 const retreatId = computed(() => route.params.id as string || retreatStore.selectedRetreatId);
 
+const retreatName = computed(() => {
+  console.log('DEBUG: retreatName computed');
+  console.log('DEBUG: selectedRetreat:', retreatStore.selectedRetreat);
+  console.log('DEBUG: retreatStore.retreats:', retreatStore.retreats);
+  // Retreat schema doesn't have 'name', use 'parish' instead
+  const name = retreatStore.selectedRetreat?.parish || '';
+  console.log('DEBUG: retreatName value:', name);
+  return name;
+});
+
+// Dynamic data from retreat store
+const retreatData = computed(() => {
+  console.log('DEBUG: retreatData computed');
+  const data = (retreatStore.selectedRetreat as any) || null;
+  console.log('DEBUG: retreatData value:', data);
+  return data;
+});
+
+const retreatTypeLogo = computed(() => {
+  // Use explicit type if available
+  if (retreatData.value?.retreat_type) {
+    const logos: Record<string, string> = {
+      men: '/man_logo.png',
+      women: '/woman_logo.png',
+      couples: '/crossRoseButtT.png',
+      effeta: '/crossRoseButtT.png'
+    };
+    return logos[retreatData.value.retreat_type] || '/crossRoseButtT.png';
+  }
+
+  // Try to determine retreat type from available data
+  const parish = retreatData.value?.parish?.toLowerCase() || '';
+  const houseName = retreatData.value?.house?.name?.toLowerCase() || '';
+  const paymentInfo = retreatData.value?.paymentInfo?.toLowerCase() || '';
+
+  // Simple heuristic-based type detection
+  if (parish.includes('mujer') || houseName.includes('mujer') || paymentInfo.includes('mujer')) {
+    return '/woman_logo.png';
+  }
+  if (parish.includes('matrimonio') || houseName.includes('matrimonio') || paymentInfo.includes('matrimonio')) {
+    return '/man_logo.png';
+  }
+
+  // Default fallback (men, joven, effeta, and unknown)
+  return '/man_logo.png';
+});
+
 const getDisplayName = (walker: Participant): string => {
   return walker.nickname || walker.firstName;
 };
@@ -98,7 +145,23 @@ const exportBadges = async () => {
   }
 };
 
-onMounted(fetchWalkers);
+onMounted(async () => {
+  console.log('DEBUG: onMounted started');
+  const id = retreatId.value;
+  console.log('DEBUG: retreatId from route:', id);
+  console.log('DEBUG: selectedRetreatId from store:', retreatStore.selectedRetreatId);
+  console.log('DEBUG: selectedRetreat before fetch:', retreatStore.selectedRetreat);
+
+  if (id && !retreatStore.selectedRetreat) {
+    console.log('DEBUG: Fetching retreat with id:', id);
+    await retreatStore.fetchRetreat(id);
+    console.log('DEBUG: selectedRetreat after fetch:', retreatStore.selectedRetreat);
+  }
+
+  console.log('DEBUG: Fetching walkers...');
+  await fetchWalkers();
+  console.log('DEBUG: Walkers fetched:', walkers.value.length);
+});
 </script>
 
 <template>
@@ -156,7 +219,7 @@ onMounted(fetchWalkers);
         <div class="badge-content">
           <!-- Logo on left side -->
           <div class="badge-header">
-            <img src="/man_logo.png" alt="Logo" class="badge-logo" />
+            <img :src="retreatTypeLogo" alt="Logo" class="badge-logo" />
           </div>
 
           <!-- Right side content: name and info -->
@@ -164,6 +227,7 @@ onMounted(fetchWalkers);
             <!-- Name section -->
             <div class="name-section">
               <h2 class="walker-name">{{ getDisplayName(walker) }}</h2>
+              <p v-if="retreatName" class="retreat-name">{{ retreatName }}</p>
               <div class="name-underline"></div>
             </div>
 
@@ -178,12 +242,12 @@ onMounted(fetchWalkers);
                 <span class="info-label">{{ getRoomInfo(walker) }}</span>
               </div>
             </div>
-          </div>
 
-          <!-- Footer decoration -->
-          <div class="badge-footer">
-            <div class="footer-dots">
-              <span></span><span></span><span></span>
+            <!-- Footer decoration -->
+            <div class="badge-footer">
+              <div class="footer-dots">
+                <span></span><span></span><span></span>
+              </div>
             </div>
           </div>
         </div>
@@ -277,6 +341,16 @@ onMounted(fetchWalkers);
   line-height: 1.3;
 }
 
+.retreat-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  margin: 4px 0 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+}
+
 .name-underline {
   width: 50px;
   height: 4px;
@@ -330,13 +404,12 @@ onMounted(fetchWalkers);
   letter-spacing: 0.2px;
 }
 
-/* Footer decoration - bottom right */
+/* Footer decoration - at bottom of right column */
 .badge-footer {
-  position: absolute;
-  bottom: 12px;
-  right: 20px;
   display: flex;
-  justify-content: flex-start;
+  justify-content: flex-end;
+  margin-top: auto;
+  padding-top: 8px;
 }
 
 .footer-dots {
@@ -428,6 +501,11 @@ onMounted(fetchWalkers);
     font-size: 16px;
   }
 
+  .retreat-name {
+    font-size: 8px;
+    margin: 2px 0 0;
+  }
+
   .name-underline {
     width: 35px;
     height: 3px;
@@ -452,8 +530,8 @@ onMounted(fetchWalkers);
   }
 
   .badge-footer {
-    bottom: 8px;
-    right: 14px;
+    margin-top: 4px;
+    padding-top: 4px;
   }
 
   .footer-dots span {
