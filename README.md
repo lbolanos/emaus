@@ -265,7 +265,6 @@ una forma de agregar tags a los participantes para que no queden en la misma mes
 al agarrar un caminante debe hacer scroll para cambiar abajo o arriba
 esta poniendo un dia antes al registrar un pago.
 
-
 agregar un filtro de quienes han pagado en la lista de caminantes.
 listado de caminantes imprimir.
 
@@ -273,15 +272,30 @@ imprimir bag report
 
 1. Implement dependency injection for DataSource (remove singleton pattern)
 2. Redesign services to accept DataSource as a constructor parameter
-2. Add more component tests - Test additional components in the codebase
-3. Improve test coverage - Add edge cases and integration tests
-4. Set up coverage reporting - Generate code coverage reports
-5. Move to API backend tests - Work on the API service/controller tests
-6. Review and clean up code - Remove any console.logs or temporary debug code
+3. Add more component tests - Test additional components in the codebase
+4. Improve test coverage - Add edge cases and integration tests
+5. Set up coverage reporting - Generate code coverage reports
+6. Move to API backend tests - Work on the API service/controller tests
+7. Review and clean up code - Remove any console.logs or temporary debug code
 
-## IN PROGRESS
 nombre del retiro en gafete. No colocar el piso solo el cuarto y cama.
 poder imprimir solo algunos gafetes.
+
+## IN PROGRESS
+
+create a detail plan for community managment.  
+I need the user can create his own community with address where is the meeting and a way to announce the the meetings or events and duration.  
+from the retreat the user has access, add the participants to the community.  
+the system must know which community members assist to meeting in order to send message to members that do not assist
+the idea is that admin community can follow the participant if he can continue with the process.  
+the community participant can be part of diferent communities in each community he has a state: far_from_location, no_answer, another_group, active_member.
+i need dashboard with pie with state. another pie with frequency of participation with high, medium, low, none.
+Add the way to invite another user to admin my community
+
+apps/web/src/components/layout/Sidebar.vue apps/web/src/components/layout/Header.vue docs_dev/HELP_SYSTEM_GUIDE.md
+necesito que mejores la usabilidad y user experience del sitio. hay temas globales como retiros, casas de retiros, comunidades, Telemetria, Plantillas globales.
+cuando se selecciona retiros se muestra para poder seleccionar el retiro. Pero si selecciona alguna otra no se necesita seleccionar retiro.
+agrega la documenatcion necesaria acerca de esto en apps/web/src/docs
 
 ## TODO
 
@@ -308,7 +322,6 @@ en el mensaje de bienvenida del servidor agregar una url para que pueda cambiar 
 Notificaciones por correo a los administradores del retiro de eventos como Caminante ingresa. Servidor ingresa. Forma de desactivar estas notificaciones.
 que los caminantes no vayan con la persona que lo invito
 no deja enviar correo de invitacion si el usuario existe
-
 
 ## Pepe Toño
 
