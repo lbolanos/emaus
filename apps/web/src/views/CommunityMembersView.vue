@@ -285,11 +285,12 @@ const filteredMembers = computed(() => {
     let compareValue = 0;
 
     switch (sortColumn.value) {
-      case 'name':
+      case 'name': {
         const aName = `${a.participant?.firstName} ${a.participant?.lastName}`.toLowerCase();
         const bName = `${b.participant?.firstName} ${b.participant?.lastName}`.toLowerCase();
         compareValue = aName.localeCompare(bName);
         break;
+      }
       case 'email':
         compareValue = (a.participant?.email || '').localeCompare(b.participant?.email || '');
         break;

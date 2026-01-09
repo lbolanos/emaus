@@ -281,8 +281,6 @@ imprimir bag report
 nombre del retiro en gafete. No colocar el piso solo el cuarto y cama.
 poder imprimir solo algunos gafetes.
 
-## IN PROGRESS
-
 create a detail plan for community managment.  
 I need the user can create his own community with address where is the meeting and a way to announce the the meetings or events and duration.  
 from the retreat the user has access, add the participants to the community.  
@@ -301,6 +299,8 @@ when clic in importar miembros the dialog is not closed
 
 enhance the ux and usability of all community views
 
+## IN PROGRESS
+
 apps/web/src/components/layout/Sidebar.vue apps/web/src/components/layout/Header.vue docs_dev/HELP_SYSTEM_GUIDE.md
 necesito que mejores la usabilidad y user experience del sitio. hay temas globales como retiros, casas de retiros, comunidades, Telemetria, Plantillas globales.
 cuando se selecciona retiros se muestra para poder seleccionar el retiro. Pero si selecciona alguna otra no se necesita seleccionar retiro.
@@ -308,7 +308,6 @@ agrega la documenatcion necesaria acerca de esto en apps/web/src/docs
 
 aumentar el coverage de las pruebas
 verificar que todas la pruebas pasen.
-
 
 ## TODO
 
@@ -331,6 +330,17 @@ usar la ia para conversar y agregar o quitar base de datos.
 
 una forma de asegurar que no se modifique las mesas. lock tables
 
+api.ts:709
+POST http://localhost:3001/api/communities 400 (Bad Request)
+Promise.then
+createCommunity @ api.ts:709
+createCommunity @ communityStore.ts:91
+handleSave @ CommunityListView.vue:429
+
+CommunityListView.vue:439 Failed to save community:
+AxiosError {message: 'Request failed with status code 400', name: 'AxiosError', code: 'ERR_BAD_REQUEST', config: {…}, request: XMLHttpRequest, …}
+handleSave @ CommunityListView.vue:439
+
 en el mensaje de bienvenida del servidor agregar una url para que pueda cambiar su registro
 Notificaciones por correo a los administradores del retiro de eventos como Caminante ingresa. Servidor ingresa. Forma de desactivar estas notificaciones.
 que los caminantes no vayan con la persona que lo invito
@@ -338,17 +348,19 @@ no deja enviar correo de invitacion si el usuario existe
 
 ## comunidades
 
-un boton para mostrar  todos los mensajes enviados a un participante y la forma de enviar un mensaje tal como se hace en apps/web/src/components/ParticipantList.vue
-
-
+se debe contar desde la fecha de ingreso para el porcentaje de participacion
+agregar notas de participantes de la comunidad
+agregar historial de reuniones y eventos de un miembro
+un boton para mostrar todos los mensajes enviados a un participante y la forma de enviar un mensaje tal como se hace en apps/web/src/components/ParticipantList.vue
 
 Implementar la funcionalidad de invitar un usuario a ser administrador de la comunidad
 
-agregar una flyer para la reunion que pueda salvarse como pdf para que tengan el link de la ubicacion.  Crear un campo en la reunion con mensaje template que utilice variables como fecha, nombre, descripcion, duracion,  localizacion de la comunidad.
+agregar una flyer para la reunion que pueda salvarse como pdf para que tengan el link de la ubicacion. Crear un campo en la reunion con mensaje template que utilice variables como fecha, nombre, descripcion, duracion, localizacion de la comunidad.
 
 un formulario basico para crear un participante de la comunidad asi no tenga retiro asociado.
 
 ## landing
+
 crear una landing page que muestre los retiros proximos y las comunidades y sus proximas reuniones
 
 ## Pepe Toño

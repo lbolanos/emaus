@@ -90,14 +90,16 @@ export class CommunityService {
 
 		// Only calculate if there are meetings
 		if (pastMeetings.length === 0) {
-			return members.map(m => ({
-				...m,
-				lastMeetingsAttendanceRate: 0,
-				lastMeetingsFrequency: 'none' as const,
-			})).sort((a, b) => b.joinedAt.getTime() - a.joinedAt.getTime());
+			return members
+				.map((m) => ({
+					...m,
+					lastMeetingsAttendanceRate: 0,
+					lastMeetingsFrequency: 'none' as const,
+				}))
+				.sort((a, b) => b.joinedAt.getTime() - a.joinedAt.getTime());
 		}
 
-		const meetingIds = pastMeetings.map(m => m.id);
+		const meetingIds = pastMeetings.map((m) => m.id);
 
 		// Get all attendance records for these meetings
 		const attendances = await this.attendanceRepo.find({
@@ -117,7 +119,7 @@ export class CommunityService {
 
 		// Add calculated rate and frequency to each member
 		const totalMeetings = meetingIds.length;
-		const membersWithRate = members.map(member => {
+		const membersWithRate = members.map((member) => {
 			const attendedCount = attendanceByMember[member.id] || 0;
 			const rate = totalMeetings > 0 ? (attendedCount / totalMeetings) * 100 : 0;
 
@@ -369,8 +371,7 @@ export class CommunityService {
 			startDate: nextStartDate,
 			endDate: meeting.endDate
 				? new Date(
-						nextStartDate.getTime() +
-							(meeting.endDate.getTime() - meeting.startDate.getTime()),
+						nextStartDate.getTime() + (meeting.endDate.getTime() - meeting.startDate.getTime()),
 					)
 				: undefined,
 			durationMinutes: meeting.durationMinutes,

@@ -101,10 +101,8 @@ router.put(
 router.delete('/meetings/:id', requirePermission('community:update'), (req, res) =>
 	CommunityController.deleteMeeting(req, res),
 );
-router.post(
-	'/meetings/:id/next-instance',
-	requirePermission('community:update'),
-	(req, res) => CommunityController.createNextMeetingInstance(req, res),
+router.post('/meetings/:id/next-instance', requirePermission('community:update'), (req, res) =>
+	CommunityController.createNextMeetingInstance(req, res),
 );
 
 // Attendance

@@ -31,7 +31,12 @@ const router = Router();
 router.use('/auth', authRoutes);
 
 // Aplicar CSRF a todas las demás rutas
-applyCsrfProtectionExcept(router, ['/auth', '/csrf-token', '/communities/public', '/communities/invitations']);
+applyCsrfProtectionExcept(router, [
+	'/auth',
+	'/csrf-token',
+	'/communities/public',
+	'/communities/invitations',
+]);
 
 // Resto de las rutas (con protección CSRF)
 router.use('/participants', participantRoutes);
