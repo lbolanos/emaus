@@ -75,7 +75,7 @@
               {{ member.participant.email }}
             </div>
             <div class="flex items-center gap-2 mt-1">
-              <Badge variant="outline">
+              <Badge :variant="getFrequencyBadgeVariant(member.lastMeetingsFrequency)">
                 {{ Math.round(member.lastMeetingsAttendanceRate || 0) }}%
               </Badge>
             </div>
@@ -184,13 +184,22 @@ const toggleAttendance = async (member: any) => {
   const newStatus = !member.attended;
 
   try {
-    await communityStore.recordAttendance(props.id, props.meetingId, [{
-      memberId: member.id,
-      attended: newStatus
-    }]);
+    await communityStore.recordSingleAttendance(props.id, props.meetingId, member.id, newStatus);
 
     // Update local state
     member.attended = newStatus;
+
+    // Refetch members to get updated attendance rates
+    await communityStore.fetchMembers(props.id);
+
+    // Update membersWithAttendance with new rates while preserving current meeting attendance
+    membersWithAttendance.value = members.value.map(m => {
+      const existingMember = membersWithAttendance.value.find(mwa => mwa.id === m.id);
+      return {
+        ...m,
+        attended: existingMember?.attended ?? false,
+      };
+    });
 
     // Show subtle feedback
     if (newStatus) {
@@ -210,6 +219,17 @@ const toggleAttendance = async (member: any) => {
     member.attended = !newStatus;
   } finally {
     savingStates.value[member.id] = false;
+  }
+};
+
+// Helper function to get badge variant based on frequency
+const getFrequencyBadgeVariant = (frequency: string | undefined): any => {
+  switch (frequency?.toLowerCase()) {
+    case 'high': return 'success';
+    case 'medium': return 'warning';
+    case 'low': return 'danger';
+    case 'none': return 'neutral';
+    default: return 'neutral';
   }
 };
 </script>

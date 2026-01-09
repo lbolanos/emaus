@@ -297,6 +297,7 @@ location fields apps/web/src/views/CommunityListView.vue based on apps/web/src/c
 cuando edito la comunidad y cierro el dialogo la interface se queda sin reponder
 
 el boton de submit al agregar una reunion no esta haciendo nada
+when clic in importar miembros the dialog is not closed
 
 enhance the ux and usability of all community views
 
@@ -304,6 +305,10 @@ apps/web/src/components/layout/Sidebar.vue apps/web/src/components/layout/Header
 necesito que mejores la usabilidad y user experience del sitio. hay temas globales como retiros, casas de retiros, comunidades, Telemetria, Plantillas globales.
 cuando se selecciona retiros se muestra para poder seleccionar el retiro. Pero si selecciona alguna otra no se necesita seleccionar retiro.
 agrega la documenatcion necesaria acerca de esto en apps/web/src/docs
+
+aumentar el coverage de las pruebas
+verificar que todas la pruebas pasen.
+
 
 ## TODO
 
@@ -332,6 +337,12 @@ que los caminantes no vayan con la persona que lo invito
 no deja enviar correo de invitacion si el usuario existe
 
 ## comunidades
+
+un boton para mostrar  todos los mensajes enviados a un participante y la forma de enviar un mensaje tal como se hace en apps/web/src/components/ParticipantList.vue
+
+
+
+Implementar la funcionalidad de invitar un usuario a ser administrador de la comunidad
 
 agregar una flyer para la reunion que pueda salvarse como pdf para que tengan el link de la ubicacion.  Crear un campo en la reunion con mensaje template que utilice variables como fecha, nombre, descripcion, duracion,  localizacion de la comunidad.
 

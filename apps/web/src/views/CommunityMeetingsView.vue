@@ -76,6 +76,16 @@
                   <p>{{ $t('community.attendance.copyPublicLink') }}</p>
                 </TooltipContent>
               </Tooltip>
+              <Tooltip v-if="meeting.isRecurrenceTemplate">
+                <TooltipTrigger as-child>
+                  <Button size="sm" variant="ghost" @click="handleCreateNextInstance(meeting)" :disabled="loadingCommunity">
+                    <CalendarPlus class="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{{ $t('community.meeting.createNextInstance') }}</p>
+                </TooltipContent>
+              </Tooltip>
               <Tooltip>
                 <TooltipTrigger as-child>
                   <Button size="sm" variant="ghost" @click="openEditModal(meeting)">
@@ -267,5 +277,22 @@ const copyAttendanceLink = (meeting: any) => {
     title: $t('community.attendance.publicLinkCopied'),
     description: $t('community.attendance.publicLinkWarning'),
   });
+};
+
+const handleCreateNextInstance = async (meeting: any) => {
+  try {
+    await communityStore.createNextMeetingInstance(meeting.id);
+    toast({
+      title: $t('community.meeting.nextInstanceCreated'),
+      description: $t('community.meeting.nextInstanceCreatedDesc'),
+    });
+  } catch (error: any) {
+    console.error('Failed to create next instance:', error);
+    toast({
+      title: $t('community.meeting.nextInstanceError'),
+      description: error.response?.data?.message || error.message,
+      variant: 'destructive',
+    });
+  }
 };
 </script>

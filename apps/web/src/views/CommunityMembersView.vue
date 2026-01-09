@@ -40,27 +40,6 @@
         </div>
       </div>
 
-      <!-- Bulk Action Bar -->
-      <div v-if="selectedMemberIds.size > 0" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-background border rounded-lg shadow-lg p-3 flex items-center gap-3">
-        <div class="flex items-center gap-2">
-          <CheckSquare class="w-5 h-5 text-primary" />
-          <span class="font-medium">{{ selectedMemberIds.size }} {{ $t('community.members.selected') }}</span>
-        </div>
-        <div class="h-6 w-px bg-border"></div>
-        <div class="flex items-center gap-2">
-          <Button variant="outline" size="sm" @click="openBulkStateModal">
-            {{ $t('community.members.changeState') }}
-          </Button>
-          <Button variant="outline" size="sm" @click="openBulkRemoveDialog" class="text-destructive hover:text-destructive">
-            <UserMinus class="w-4 h-4 mr-1" />
-            {{ $t('community.members.remove') }}
-          </Button>
-          <Button variant="ghost" size="sm" @click="clearSelection">
-            <X class="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-
       <div class="flex items-center space-x-2">
         <div class="relative flex-1 max-w-sm">
           <Search class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -130,47 +109,52 @@
       </div>
 
       <Card>
-        <Table>
+        <Table class="text-sm">
           <TableHeader>
             <TableRow>
-              <TableHead class="w-[50px]">
-                <Checkbox
-                  :checked="allSelected"
-                  :indeterminate="someSelected"
-                  @update:checked="toggleSelectAll"
-                  :aria-label="allSelected ? $t('community.members.deselectAll') : $t('community.members.selectAll')"
-                />
+              <TableHead>
+                <button @click="sortBy('name')" class="flex items-center gap-1 hover:text-primary transition-colors">
+                  {{ $t('participants.name') }}
+                  <ChevronUp v-if="sortColumn === 'name' && sortDirection === 'asc'" class="w-3.5 h-3.5" />
+                  <ChevronDown v-if="sortColumn === 'name' && sortDirection === 'desc'" class="w-3.5 h-3.5" />
+                </button>
               </TableHead>
-              <TableHead>{{ $t('participants.name') }}</TableHead>
-              <TableHead>{{ $t('participants.email') }}</TableHead>
-              <TableHead>{{ $t('community.admin.status') }}</TableHead>
-              <TableHead>{{ $t('community.participationRate') }}</TableHead>
+              <TableHead>
+                <button @click="sortBy('email')" class="flex items-center gap-1 hover:text-primary transition-colors">
+                  {{ $t('participants.email') }}
+                  <ChevronUp v-if="sortColumn === 'email' && sortDirection === 'asc'" class="w-3.5 h-3.5" />
+                  <ChevronDown v-if="sortColumn === 'email' && sortDirection === 'desc'" class="w-3.5 h-3.5" />
+                </button>
+              </TableHead>
+              <TableHead>
+                <button @click="sortBy('state')" class="flex items-center gap-1 hover:text-primary transition-colors">
+                  {{ $t('community.admin.status') }}
+                  <ChevronUp v-if="sortColumn === 'state' && sortDirection === 'asc'" class="w-3.5 h-3.5" />
+                  <ChevronDown v-if="sortColumn === 'state' && sortDirection === 'desc'" class="w-3.5 h-3.5" />
+                </button>
+              </TableHead>
+              <TableHead>
+                <button @click="sortBy('attendance')" class="flex items-center gap-1 hover:text-primary transition-colors">
+                  {{ $t('community.participationRate') }}
+                  <ChevronUp v-if="sortColumn === 'attendance' && sortDirection === 'asc'" class="w-3.5 h-3.5" />
+                  <ChevronDown v-if="sortColumn === 'attendance' && sortDirection === 'desc'" class="w-3.5 h-3.5" />
+                </button>
+              </TableHead>
               <TableHead>{{ $t('participants.actions') }}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow v-for="member in filteredMembers" :key="member.id" :class="{ 'bg-muted/50': selectedMemberIds.has(member.id) }">
-              <TableCell>
-                <Checkbox
-                  :model-value="selectedMemberIds.has(member.id)"
-                  @update:model-value="
-                    $event
-                      ? selectedMemberIds.add(member.id)
-                      : selectedMemberIds.delete(member.id)
-                  "
-                  :aria-label="`${selectedMemberIds.has(member.id) ? 'Deseleccionar' : 'Seleccionar'} ${member.participant?.firstName} ${member.participant?.lastName}`"
-                />
-              </TableCell>
-              <TableCell class="font-medium">
+            <TableRow v-for="member in filteredMembers" :key="member.id" class="hover:bg-muted/50">
+              <TableCell class="font-medium py-2">
                 {{ member.participant?.firstName }} {{ member.participant?.lastName }}
               </TableCell>
-              <TableCell>{{ member.participant?.email }}</TableCell>
-              <TableCell>
+              <TableCell class="py-2">{{ member.participant?.email }}</TableCell>
+              <TableCell class="py-2">
                 <Select
                   :model-value="member.state"
                   @update:model-value="updateMemberState(member.id, $event)"
                 >
-                  <SelectTrigger class="h-8 w-[160px]">
+                  <SelectTrigger class="h-7 w-[140px] text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -180,8 +164,8 @@
                   </SelectContent>
                 </Select>
               </TableCell>
-              <TableCell>
-                <Badge :variant="getFrequencyVariant(member.lastMeetingsFrequency)">
+              <TableCell class="py-2">
+                <Badge :variant="getFrequencyVariant(member.lastMeetingsFrequency)" class="text-xs">
                   {{ $t(`community.participationFrequency.${member.lastMeetingsFrequency?.toLowerCase() || 'none'}`) }}
                   ({{ Math.round(member.lastMeetingsAttendanceRate || 0) }}%)
                 </Badge>
@@ -200,7 +184,7 @@
               </TableCell>
             </TableRow>
             <TableRow v-if="filteredMembers.length === 0">
-              <TableCell colspan="6" class="text-center py-8 text-muted-foreground">
+              <TableCell colspan="5" class="text-center py-8 text-muted-foreground">
                 No members found.
               </TableCell>
             </TableRow>
@@ -232,55 +216,6 @@
         </DialogFooter>
       </DialogContent>
     </Dialog>
-
-    <!-- Bulk State Change Modal -->
-    <Dialog :open="isBulkStateModalOpen" @update:open="isBulkStateModalOpen = false">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{{ $t('community.members.changeState') }}</DialogTitle>
-          <DialogDescription>
-            {{ $t('community.members.confirmBulkChange', { count: selectedMemberIds.size, state: bulkNewState || '...' }) }}
-          </DialogDescription>
-        </DialogHeader>
-        <div class="py-4">
-          <Label for="bulkState">Nuevo estado</Label>
-          <Select v-model="bulkNewState">
-            <SelectTrigger id="bulkState" class="mt-2">
-              <SelectValue placeholder="Selecciona un estado" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="state in states" :key="state" :value="state">
-                {{ $t(`community.memberStates.${state}`) }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" @click="isBulkStateModalOpen = false">{{ $t('common.actions.cancel') }}</Button>
-          <Button @click="handleBulkStateChange" :disabled="!bulkNewState">
-            {{ $t('community.members.changeState') }}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
-    <!-- Bulk Remove Dialog -->
-    <Dialog :open="isBulkRemoveDialogOpen" @update:open="isBulkRemoveDialogOpen = false">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{{ $t('delete.confirmTitle') }}</DialogTitle>
-          <DialogDescription>
-            {{ $t('community.members.confirmBulkRemove', { count: selectedMemberIds.size }) }}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" @click="isBulkRemoveDialogOpen = false">{{ $t('common.actions.cancel') }}</Button>
-          <Button variant="destructive" @click="handleBulkRemove">
-            {{ $t('community.members.remove') }}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
     </div>
   </TooltipProvider>
 </template>
@@ -290,9 +225,9 @@ import { ref, onMounted, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
-import { Loader2, UserPlus, UserMinus, Search, ChevronRight, CheckSquare, Square, X, Download } from 'lucide-vue-next';
+import { Loader2, UserPlus, UserMinus, Search, ChevronRight, ChevronUp, ChevronDown, Download } from 'lucide-vue-next';
 import {
-  Button, Input, Card, Badge, Checkbox,
+  Button, Input, Card, Badge,
   Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -317,10 +252,10 @@ const searchQuery = ref('');
 const stateFilter = ref('all');
 const isImportModalOpen = ref(false);
 const memberToRemove = ref<any>(null);
-const selectedMemberIds = ref<Set<string>>(new Set());
-const isBulkStateModalOpen = ref(false);
-const bulkNewState = ref<MemberState | ''>('');
-const isBulkRemoveDialogOpen = ref(false);
+
+// Sort state
+const sortColumn = ref<'name' | 'email' | 'state' | 'attendance'>('attendance');
+const sortDirection = ref<'asc' | 'desc'>('desc');
 
 const states = Object.values(MemberStateEnum.enum);
 
@@ -334,7 +269,7 @@ const fetchMembers = async () => {
 };
 
 const filteredMembers = computed(() => {
-  return members.value.filter(member => {
+  let filtered = members.value.filter(member => {
     // Safety check for participant data
     if (!member.participant) return false;
 
@@ -344,30 +279,43 @@ const filteredMembers = computed(() => {
     const matchesState = stateFilter.value === 'all' || member.state === stateFilter.value;
     return matchesSearch && matchesState;
   });
+
+  // Sort filtered members
+  filtered = [...filtered].sort((a, b) => {
+    let compareValue = 0;
+
+    switch (sortColumn.value) {
+      case 'name':
+        const aName = `${a.participant?.firstName} ${a.participant?.lastName}`.toLowerCase();
+        const bName = `${b.participant?.firstName} ${b.participant?.lastName}`.toLowerCase();
+        compareValue = aName.localeCompare(bName);
+        break;
+      case 'email':
+        compareValue = (a.participant?.email || '').localeCompare(b.participant?.email || '');
+        break;
+      case 'state':
+        compareValue = a.state.localeCompare(b.state);
+        break;
+      case 'attendance':
+        compareValue = (a.lastMeetingsAttendanceRate || 0) - (b.lastMeetingsAttendanceRate || 0);
+        break;
+    }
+
+    return sortDirection.value === 'asc' ? compareValue : -compareValue;
+  });
+
+  return filtered;
 });
 
-const selectedMembers = computed(() => {
-  return members.value.filter(m => selectedMemberIds.value.has(m.id));
-});
-
-const allSelected = computed(() => {
-  return filteredMembers.value.length > 0 && selectedMemberIds.value.size === filteredMembers.value.length;
-});
-
-const someSelected = computed(() => {
-  return selectedMemberIds.value.size > 0 && selectedMemberIds.value.size < filteredMembers.value.length;
-});
-
-const toggleSelectAll = () => {
-  if (allSelected.value) {
-    selectedMemberIds.value.clear();
+const sortBy = (column: 'name' | 'email' | 'state' | 'attendance') => {
+  if (sortColumn.value === column) {
+    // Toggle direction if clicking the same column
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
   } else {
-    filteredMembers.value.forEach(m => selectedMemberIds.value.add(m.id));
+    // New column, set to descending by default (except for name/email where ascending is more natural)
+    sortColumn.value = column;
+    sortDirection.value = column === 'name' || column === 'email' ? 'asc' : 'desc';
   }
-};
-
-const clearSelection = () => {
-  selectedMemberIds.value.clear();
 };
 
 const updateMemberState = async (memberId: string, newState: any) => {
@@ -393,71 +341,13 @@ const handleRemove = async () => {
   }
 };
 
-const openBulkStateModal = () => {
-  bulkNewState.value = '';
-  isBulkStateModalOpen.value = true;
-};
-
-const handleBulkStateChange = async () => {
-  if (!bulkNewState.value || selectedMemberIds.value.size === 0) return;
-
-  // Type guard to ensure bulkNewState is a valid MemberState
-  const newState = bulkNewState.value as MemberState;
-
-  try {
-    for (const memberId of selectedMemberIds.value) {
-      await communityStore.updateMemberState(props.id, memberId, newState);
-    }
-    toast({
-      title: 'Estados actualizados',
-      description: `${selectedMemberIds.value.size} miembros han sido actualizados a ${newState}`,
-    });
-    isBulkStateModalOpen.value = false;
-    clearSelection();
-  } catch (error) {
-    console.error('Failed to bulk update member states:', error);
-    toast({
-      title: 'Error',
-      description: 'No se pudieron actualizar los estados',
-      variant: 'destructive',
-    });
-  }
-};
-
-const openBulkRemoveDialog = () => {
-  isBulkRemoveDialogOpen.value = true;
-};
-
-const handleBulkRemove = async () => {
-  if (selectedMemberIds.value.size === 0) return;
-
-  try {
-    for (const memberId of selectedMemberIds.value) {
-      await communityStore.removeMember(props.id, memberId);
-    }
-    toast({
-      title: 'Miembros eliminados',
-      description: `${selectedMemberIds.value.size} miembros han sido eliminados de la comunidad`,
-    });
-    isBulkRemoveDialogOpen.value = false;
-    clearSelection();
-  } catch (error) {
-    console.error('Failed to bulk remove members:', error);
-    toast({
-      title: 'Error',
-      description: 'No se pudieron eliminar los miembros',
-      variant: 'destructive',
-    });
-  }
-};
-
 const getFrequencyVariant = (frequency: string | undefined): any => {
-  switch (frequency) {
-    case 'HIGH': return 'default';
-    case 'MEDIUM': return 'secondary';
-    case 'LOW': return 'outline';
-    case 'NONE': return 'destructive';
-    default: return 'outline';
+  switch (frequency?.toLowerCase()) {
+    case 'high': return 'success';
+    case 'medium': return 'warning';
+    case 'low': return 'danger';
+    case 'none': return 'neutral';
+    default: return 'neutral';
   }
 };
 

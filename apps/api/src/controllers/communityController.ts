@@ -137,6 +137,33 @@ export class CommunityController {
 		}
 	}
 
+	// --- Recurrence Instance Management ---
+
+	static async createNextMeetingInstance(req: Request, res: Response) {
+		const { id: meetingId } = req.params;
+
+		try {
+			const newMeeting = await communityService.createNextMeetingInstance(meetingId);
+			res.status(201).json(newMeeting);
+		} catch (error: any) {
+			if (error.message === 'Meeting not found') {
+				return res.status(404).json({ message: 'Meeting not found' });
+			}
+			if (error.message === 'Meeting is not a recurrence template') {
+				return res.status(400).json({ message: 'Meeting is not a recurrence template' });
+			}
+			if (
+				error.message.includes('Failed to calculate') ||
+				error.message.includes('must be in the future') ||
+				error.message.includes('Maximum number') ||
+				error.message.includes('already exists')
+			) {
+				return res.status(400).json({ message: error.message });
+			}
+			throw error;
+		}
+	}
+
 	// --- Attendance Tracking ---
 
 	static async recordAttendance(req: Request, res: Response) {
@@ -144,6 +171,26 @@ export class CommunityController {
 		const records = req.body;
 		const attendance = await communityService.recordAttendance(meetingId, records);
 		res.status(201).json(attendance);
+	}
+
+	static async recordSingleAttendance(req: Request, res: Response) {
+		const { id: communityId, meetingId } = req.params;
+		const { memberId, attended } = req.body;
+
+		try {
+			const attendance = await communityService.recordSingleAttendance(
+				communityId,
+				meetingId,
+				memberId,
+				attended,
+			);
+			res.status(201).json(attendance);
+		} catch (error: any) {
+			if (error.message === 'Member not found') {
+				return res.status(404).json({ message: 'Member not found' });
+			}
+			throw error;
+		}
 	}
 
 	static async getAttendance(req: Request, res: Response) {

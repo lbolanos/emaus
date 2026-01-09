@@ -791,6 +791,11 @@ export async function deleteCommunityMeeting(
 	await api.delete(`/communities/meetings/${meetingId}?scope=${scope}`);
 }
 
+export async function createNextMeetingInstance(meetingId: string): Promise<CommunityMeeting> {
+	const response = await api.post(`/communities/meetings/${meetingId}/next-instance`);
+	return response.data;
+}
+
 export async function getCommunityAttendance(
 	communityId: string,
 	meetingId: string,
@@ -807,6 +812,19 @@ export async function recordCommunityAttendance(
 	const response = await api.post(
 		`/communities/${communityId}/meetings/${meetingId}/attendance`,
 		records,
+	);
+	return response.data;
+}
+
+export async function recordSingleCommunityAttendance(
+	communityId: string,
+	meetingId: string,
+	memberId: string,
+	attended: boolean,
+): Promise<CommunityAttendance> {
+	const response = await api.post(
+		`/communities/${communityId}/meetings/${meetingId}/attendance/single`,
+		{ memberId, attended },
 	);
 	return response.data;
 }

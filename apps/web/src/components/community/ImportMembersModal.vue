@@ -422,6 +422,7 @@ const handleImport = () => {
 const confirmImport = async () => {
   showConfirmDialog.value = false;
   isImporting.value = true;
+  let importSuccess = false;
 
   try {
     await communityStore.importMembers(
@@ -436,7 +437,7 @@ const confirmImport = async () => {
     });
 
     emit('imported');
-    handleClose();
+    importSuccess = true;
   } catch (error: any) {
     console.error('Failed to import members:', error);
     toast({
@@ -446,6 +447,10 @@ const confirmImport = async () => {
     });
   } finally {
     isImporting.value = false;
+    // Close dialog after import completes (only on success)
+    if (importSuccess) {
+      emit('update:open', false);
+    }
   }
 };
 

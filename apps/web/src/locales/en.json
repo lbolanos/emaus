@@ -1238,7 +1238,12 @@
           "all": "All repetitions",
           "allFuture": "This and all future"
         }
-      }
+      },
+      "createNextInstance": "Create Next Meeting",
+      "nextInstanceCreated": "Next meeting created",
+      "nextInstanceCreatedDesc": "The next meeting in the series has been created.",
+      "nextInstanceError": "Error creating next meeting",
+      "instanceAlreadyExists": "A meeting for this date already exists"
     },
     "stats": {
       "totalMembers": "Total Members",

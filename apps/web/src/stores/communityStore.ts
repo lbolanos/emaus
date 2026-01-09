@@ -308,6 +308,21 @@ export const useCommunityStore = defineStore('community', () => {
 		}
 	};
 
+	const createNextMeetingInstance = async (meetingId: string) => {
+		loading.value = true;
+		error.value = null;
+		try {
+			const newMeeting = await api.createNextMeetingInstance(meetingId);
+			meetings.value.unshift(newMeeting);
+			return newMeeting;
+		} catch (err: any) {
+			error.value = err.message || 'Failed to create next meeting instance';
+			throw err;
+		} finally {
+			loading.value = false;
+		}
+	};
+
 	const fetchAttendance = async (communityId: string, meetingId: string) => {
 		loading.value = true;
 		error.value = null;
@@ -333,6 +348,20 @@ export const useCommunityStore = defineStore('community', () => {
 			throw err;
 		} finally {
 			loading.value = false;
+		}
+	};
+
+	const recordSingleAttendance = async (
+		communityId: string,
+		meetingId: string,
+		memberId: string,
+		attended: boolean,
+	) => {
+		try {
+			return await api.recordSingleCommunityAttendance(communityId, meetingId, memberId, attended);
+		} catch (err: any) {
+			error.value = err.message || 'Failed to record attendance';
+			throw err;
 		}
 	};
 
@@ -478,8 +507,10 @@ export const useCommunityStore = defineStore('community', () => {
 		createMeeting,
 		updateMeeting,
 		deleteMeeting,
+		createNextMeetingInstance,
 		fetchAttendance,
 		recordAttendance,
+		recordSingleAttendance,
 		fetchDashboardStats,
 		fetchAdmins,
 		fetchInvitationStatus,

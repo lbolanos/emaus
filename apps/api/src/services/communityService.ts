@@ -8,6 +8,7 @@ import { User } from '../entities/user.entity';
 import { Participant } from '../entities/participant.entity';
 import { MemberState } from '@repo/types';
 import { In, MoreThanOrEqual } from 'typeorm';
+import { calculateNextOccurrence } from '../utils/recurrenceUtils';
 
 export class CommunityService {
 	private communityRepo = AppDataSource.getRepository(Community);
@@ -75,10 +76,75 @@ export class CommunityService {
 			where.state = state;
 		}
 
-		return this.memberRepo.find({
+		const members = await this.memberRepo.find({
 			where,
 			relations: ['participant'],
-			order: { joinedAt: 'DESC' },
+		});
+
+		// Calculate attendance rate for each member
+		// Get all past meetings for this community
+		const pastMeetings = await this.meetingRepo.find({
+			where: { communityId },
+			select: ['id'],
+		});
+
+		// Only calculate if there are meetings
+		if (pastMeetings.length === 0) {
+			return members.map(m => ({
+				...m,
+				lastMeetingsAttendanceRate: 0,
+				lastMeetingsFrequency: 'none' as const,
+			})).sort((a, b) => b.joinedAt.getTime() - a.joinedAt.getTime());
+		}
+
+		const meetingIds = pastMeetings.map(m => m.id);
+
+		// Get all attendance records for these meetings
+		const attendances = await this.attendanceRepo.find({
+			where: { meetingId: In(meetingIds) },
+		});
+
+		// Group attendance by member - count how many meetings they attended
+		const attendanceByMember: Record<string, number> = {};
+		for (const record of attendances) {
+			if (record.attended) {
+				if (!attendanceByMember[record.memberId]) {
+					attendanceByMember[record.memberId] = 0;
+				}
+				attendanceByMember[record.memberId]++;
+			}
+		}
+
+		// Add calculated rate and frequency to each member
+		const totalMeetings = meetingIds.length;
+		const membersWithRate = members.map(member => {
+			const attendedCount = attendanceByMember[member.id] || 0;
+			const rate = totalMeetings > 0 ? (attendedCount / totalMeetings) * 100 : 0;
+
+			// Determine frequency based on rate
+			let frequency: 'high' | 'medium' | 'low' | 'none' = 'none';
+			if (rate >= 75) {
+				frequency = 'high';
+			} else if (rate >= 25) {
+				frequency = 'medium';
+			} else if (rate >= 1) {
+				frequency = 'low';
+			} else {
+				frequency = 'none';
+			}
+
+			return {
+				...member,
+				lastMeetingsAttendanceRate: rate,
+				lastMeetingsFrequency: frequency,
+			};
+		});
+
+		// Sort by attendance rate (highest first), then by join date
+		return membersWithRate.sort((a, b) => {
+			const rateDiff = (b.lastMeetingsAttendanceRate || 0) - (a.lastMeetingsAttendanceRate || 0);
+			if (rateDiff !== 0) return rateDiff;
+			return b.joinedAt.getTime() - a.joinedAt.getTime();
 		});
 	}
 
@@ -234,6 +300,93 @@ export class CommunityService {
 			});
 			return;
 		}
+	}
+
+	// --- Recurrence Instance Management ---
+
+	async createNextMeetingInstance(meetingId: string) {
+		// 1. Fetch the meeting
+		const meeting = await this.getMeetingById(meetingId);
+
+		if (!meeting) {
+			throw new Error('Meeting not found');
+		}
+
+		// 2. Validate it's a recurrence template
+		if (!meeting.isRecurrenceTemplate) {
+			throw new Error('Meeting is not a recurrence template');
+		}
+
+		// 3. Calculate next occurrence
+		const nextStartDate = calculateNextOccurrence(
+			meeting.startDate,
+			meeting.recurrenceFrequency,
+			meeting.recurrenceInterval,
+			meeting.recurrenceDayOfWeek,
+			meeting.recurrenceDayOfMonth,
+		);
+
+		if (!nextStartDate) {
+			throw new Error('Failed to calculate next occurrence');
+		}
+
+		// 4. Validate next date is in the future
+		if (nextStartDate <= new Date()) {
+			throw new Error('Next occurrence must be in the future');
+		}
+
+		// 5. Check if an instance with this date already exists
+		const existingInstance = await this.meetingRepo.findOne({
+			where: {
+				communityId: meeting.communityId,
+				parentMeetingId: meetingId,
+				startDate: nextStartDate,
+			},
+		});
+
+		if (existingInstance) {
+			throw new Error('A meeting instance for this date already exists');
+		}
+
+		// 6. Check for maximum instances (optional safety limit)
+		const existingInstances = await this.meetingRepo.count({
+			where: {
+				communityId: meeting.communityId,
+				parentMeetingId: meetingId,
+			},
+		});
+
+		if (existingInstances >= 52) {
+			// Max 52 instances (1 year of weekly)
+			throw new Error('Maximum number of instances reached (52)');
+		}
+
+		// 7. Create the new instance with recurrence data copied
+		const newMeeting = this.meetingRepo.create({
+			communityId: meeting.communityId,
+			title: meeting.title,
+			description: meeting.description,
+			startDate: nextStartDate,
+			endDate: meeting.endDate
+				? new Date(
+						nextStartDate.getTime() +
+							(meeting.endDate.getTime() - meeting.startDate.getTime()),
+					)
+				: undefined,
+			durationMinutes: meeting.durationMinutes,
+			isAnnouncement: meeting.isAnnouncement,
+			// Copy recurrence configuration so this instance can also create further instances
+			recurrenceFrequency: meeting.recurrenceFrequency,
+			recurrenceInterval: meeting.recurrenceInterval,
+			recurrenceDayOfWeek: meeting.recurrenceDayOfWeek,
+			recurrenceDayOfMonth: meeting.recurrenceDayOfMonth,
+			isRecurrenceTemplate: true,
+			// Link to parent
+			parentMeetingId: meetingId,
+			instanceDate: nextStartDate,
+		});
+
+		return this.meetingRepo.save(newMeeting);
 	}
 
 	// --- Attendance Tracking ---

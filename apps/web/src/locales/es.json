@@ -1256,7 +1256,12 @@
           "all": "Todas las repeticiones",
           "allFuture": "Esta y todas las futuras"
         }
-      }
+      },
+      "createNextInstance": "Crear Siguiente Reunión",
+      "nextInstanceCreated": "Siguiente reunión creada",
+      "nextInstanceCreatedDesc": "La próxima reunión de la serie ha sido creada.",
+      "nextInstanceError": "Error al crear siguiente reunión",
+      "instanceAlreadyExists": "Ya existe una reunión para esta fecha"
     },
     "stats": {
       "totalMembers": "Total de Miembros",
