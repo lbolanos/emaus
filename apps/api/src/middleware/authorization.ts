@@ -277,7 +277,11 @@ export class AuthorizationService {
 		return userRoles.roles.includes(role);
 	}
 
-	public async hasRetreatAccess(userId: string, retreatId: string, dataSource?: DataSource): Promise<boolean> {
+	public async hasRetreatAccess(
+		userId: string,
+		retreatId: string,
+		dataSource?: DataSource,
+	): Promise<boolean> {
 		// Check if user is superadmin first - superadmins have access to all retreats
 		const isSuperadmin = await this.hasRole(userId, 'superadmin');
 		if (isSuperadmin) {
@@ -337,7 +341,12 @@ export class AuthorizationService {
 		return hasAccess;
 	}
 
-	public async hasRetreatRole(userId: string, retreatId: string, role: string, dataSource?: DataSource): Promise<boolean> {
+	public async hasRetreatRole(
+		userId: string,
+		retreatId: string,
+		role: string,
+		dataSource?: DataSource,
+	): Promise<boolean> {
 		// Check retreat role cache first
 		const cachedRole = await performanceOptimizationService.getCachedRetreatRole(
 			userId,
@@ -377,7 +386,11 @@ export class AuthorizationService {
 		return hasRole;
 	}
 
-	public async isRetreatCreator(userId: string, retreatId: string, dataSource?: DataSource): Promise<boolean> {
+	public async isRetreatCreator(
+		userId: string,
+		retreatId: string,
+		dataSource?: DataSource,
+	): Promise<boolean> {
 		const repos = getRepositories(dataSource);
 		const retreat = await repos.retreat
 			.createQueryBuilder('retreat')

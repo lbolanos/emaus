@@ -129,7 +129,11 @@ describe('RBAC Integration Tests', () => {
 				testDataSource,
 			);
 
-			const hasAccess = await authorizationService.hasRetreatAccess(testUser.id, testRetreat.id, testDataSource);
+			const hasAccess = await authorizationService.hasRetreatAccess(
+				testUser.id,
+				testRetreat.id,
+				testDataSource,
+			);
 			expect(hasAccess).toBe(true);
 		});
 
@@ -176,7 +180,11 @@ describe('RBAC Integration Tests', () => {
 
 			expect(result).toBe(true);
 
-			const hasAccess = await authorizationService.hasRetreatAccess(testUser.id, testRetreat.id, testDataSource);
+			const hasAccess = await authorizationService.hasRetreatAccess(
+				testUser.id,
+				testRetreat.id,
+				testDataSource,
+			);
 			expect(hasAccess).toBe(false);
 		});
 	});

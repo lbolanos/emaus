@@ -294,6 +294,12 @@ Add the way to invite another user to admin my community
 
 location fields apps/web/src/views/CommunityListView.vue based on apps/web/src/components/AddEditHouseModal.vue
 
+cuando edito la comunidad y cierro el dialogo la interface se queda sin reponder
+
+el boton de submit al agregar una reunion no esta haciendo nada
+
+enhance the ux and usability of all community views
+
 apps/web/src/components/layout/Sidebar.vue apps/web/src/components/layout/Header.vue docs_dev/HELP_SYSTEM_GUIDE.md
 necesito que mejores la usabilidad y user experience del sitio. hay temas globales como retiros, casas de retiros, comunidades, Telemetria, Plantillas globales.
 cuando se selecciona retiros se muestra para poder seleccionar el retiro. Pero si selecciona alguna otra no se necesita seleccionar retiro.

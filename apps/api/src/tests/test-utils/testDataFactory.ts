@@ -10,6 +10,12 @@ import { InventoryCategory } from '@/entities/inventoryCategory.entity';
 import { InventoryTeam } from '@/entities/inventoryTeam.entity';
 import { RetreatInventory } from '@/entities/retreatInventory.entity';
 import { MessageTemplate } from '@/entities/messageTemplate.entity';
+import { Community } from '@/entities/community.entity';
+import { CommunityMember } from '@/entities/communityMember.entity';
+import { CommunityMeeting } from '@/entities/communityMeeting.entity';
+import { CommunityAttendance } from '@/entities/communityAttendance.entity';
+import { CommunityAdmin } from '@/entities/communityAdmin.entity';
+import { Participant } from '@/entities/participant.entity';
 import * as bcrypt from 'bcrypt';
 
 /**
@@ -230,8 +236,97 @@ export class TestDataFactory {
 	}
 
 	/**
-	 * Create a complete test environment with all necessary entities
+	 * Create a test community
 	 */
+	static async createTestCommunity(
+		userId: string,
+		overrides: Partial<Community> = {},
+	): Promise<Community> {
+		const communityRepository = this.testDataSource.getRepository(Community);
+		const adminRepository = this.testDataSource.getRepository(CommunityAdmin);
+
+		const defaultCommunity: Partial<Community> = {
+			name: `Test Community ${Date.now()}`,
+			address1: '456 Community Way',
+			city: 'Community City',
+			state: 'CM',
+			zipCode: '54321',
+			country: 'Test Country',
+			createdBy: userId,
+			...overrides,
+		};
+		const community = communityRepository.create(defaultCommunity);
+		const savedCommunity = await communityRepository.save(community);
+
+		// Add user as owner
+		const admin = adminRepository.create({
+			communityId: savedCommunity.id,
+			userId,
+			role: 'owner',
+			status: 'active',
+			acceptedAt: new Date(),
+		});
+		await adminRepository.save(admin);
+
+		return savedCommunity;
+	}
+
+	/**
+	 * Create a test community member
+	 */
+	static async createTestCommunityMember(
+		communityId: string,
+		participantId: string,
+		overrides: Partial<CommunityMember> = {},
+	): Promise<CommunityMember> {
+		const memberRepository = this.testDataSource.getRepository(CommunityMember);
+		const member = memberRepository.create({
+			communityId,
+			participantId,
+			state: 'active_member' as any,
+			...overrides,
+		});
+		return await memberRepository.save(member);
+	}
+
+	/**
+	 * Create a test participant
+	 */
+	static async createTestParticipant(
+		retreatId: string,
+		overrides: Partial<Participant> = {},
+	): Promise<Participant> {
+		const participantRepository = this.testDataSource.getRepository(Participant);
+		const defaultParticipant: Partial<Participant> = {
+			id_on_retreat: Math.floor(Math.random() * 1000),
+			firstName: 'Test',
+			lastName: `Participant ${Date.now()}`,
+			email: `participant-${Date.now()}@example.com`,
+			type: 'walker' as any,
+			birthDate: new Date('1990-01-01'),
+			maritalStatus: 'S',
+			street: 'Main St',
+			houseNumber: '123',
+			postalCode: '12345',
+			neighborhood: 'Test Neighborhood',
+			city: 'Test City',
+			state: 'TS',
+			country: 'Test Country',
+			cellPhone: '1234567890',
+			occupation: 'Test Occupation',
+			snores: false,
+			hasMedication: false,
+			hasDietaryRestrictions: false,
+			sacraments: [],
+			emergencyContact1Name: 'Emergency Contact',
+			emergencyContact1Relation: 'Friend',
+			emergencyContact1CellPhone: '0987654321',
+			retreatId,
+			...overrides,
+		};
+		const participant = participantRepository.create(defaultParticipant);
+		return await participantRepository.save(participant);
+	}
 	static async createCompleteTestEnvironment(
 		userOverrides: Partial<User> = {},
 		retreatOverrides: Partial<Retreat> = {},
@@ -287,6 +382,11 @@ export class TestDataFactory {
 
 		// Clean up in order of dependencies to avoid foreign key constraints
 		const entities = [
+			'community_attendance',
+			'community_meeting',
+			'community_member',
+			'community_admin',
+			'community',
 			'payment',
 			'participant',
 			'retreat_inventory',

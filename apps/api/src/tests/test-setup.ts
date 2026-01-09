@@ -33,6 +33,11 @@ import { AuditLog } from '../entities/auditLog.entity';
 // Note: RoleRequest and PermissionOverride excluded due to SQLite incompatibility
 // They use 'timestamp' and 'json' types which PostgreSQL supports but SQLite doesn't
 import { Session } from '../entities/session.entity';
+import { Community } from '../entities/community.entity';
+import { CommunityMember } from '../entities/communityMember.entity';
+import { CommunityMeeting } from '../entities/communityMeeting.entity';
+import { CommunityAttendance } from '../entities/communityAttendance.entity';
+import { CommunityAdmin } from '../entities/communityAdmin.entity';
 
 const entities = [
 	Session,
@@ -65,6 +70,11 @@ const entities = [
 	Tag,
 	ParticipantTag,
 	AuditLog,
+	Community,
+	CommunityMember,
+	CommunityMeeting,
+	CommunityAttendance,
+	CommunityAdmin,
 ];
 
 // Test database configuration - will be created in setupTestDatabase
@@ -221,6 +231,11 @@ export async function clearTestData() {
 	// Clear tables in dependency order (children before parents)
 	// This respects foreign key constraints
 	const clearOrder = [
+		'community_attendance',
+		'community_meeting',
+		'community_member',
+		'community_admin',
+		'community',
 		'payment',
 		'participant_tag',
 		'participant_communication',

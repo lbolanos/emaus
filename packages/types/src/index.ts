@@ -391,6 +391,7 @@ export type {
 
 export * from './message-template';
 export * from './permissions';
+export * from './community';
 
 // Payment Schema
 export const paymentSchema = z.object({

@@ -41,6 +41,7 @@
     "roleManagement": "Gestión de Roles",
     "sections": {
       "main": "Principal",
+      "community": "Comunidad",
       "people": "Personas",
       "assignments": "Asignaciones",
       "financial": "Financiero",
@@ -58,7 +59,8 @@
     "telemetry": "Telemetría",
     "logout": "Cerrar Sesión",
     "searchPlaceholder": "Buscar...",
-    "selectRetreatFirst": "Por favor selecciona un retiro primero"
+    "selectRetreatFirst": "Por favor selecciona un retiro primero",
+    "communities": "Comunidades"
   },
   "messageTemplates": {
     "title": "Plantillas de Mensajes",
@@ -1161,7 +1163,105 @@
       "bedAssignments": "Asignaciones de Camas",
       "payments": "Pagos",
       "reports": "Reportes",
-      "settings": "Configuración"
+      "settings": "Configuración",
+      "communities": "Comunidades"
+    }
+  },
+  "community": {
+    "title": "Comunidades",
+    "noCommunitiesFound": "No se encontraron comunidades. ¡Crea una para comenzar!",
+    "addCommunity": "Agregar Comunidad",
+    "editCommunity": "Editar Comunidad",
+    "deleteCommunity": "Eliminar Comunidad",
+    "communityName": "Nombre de la Comunidad",
+    "address": "Dirección de Reunión",
+    "description": "Descripción",
+    "members": "Miembros",
+    "meetings": "Reuniones",
+    "participationRate": "Frecuencia de Participación",
+    "dashboard": "Dashboard",
+    "admins": "Administradores",
+    "actions": "Acciones",
+    "saveCommunity": "Guardar Comunidad",
+    "creating": "Creando...",
+    "updating": "Actualizando...",
+    "deleteConfirm": "¿Estás seguro de que deseas eliminar esta comunidad? Todos los miembros y reuniones serán eliminados.",
+    "memberStates": {
+      "active_member": "Miembro Activo",
+      "far_from_location": "Vive Lejos",
+      "no_answer": "Sin Respuesta",
+      "another_group": "Otro Grupo"
+    },
+    "participationFrequency": {
+      "high": "Alta",
+      "medium": "Media",
+      "low": "Baja",
+      "none": "Ninguna"
+    },
+    "import": {
+      "title": "Importar Miembros",
+      "selectRetreat": "Seleccionar Retiro",
+      "selectParticipants": "Seleccionar Participantes para Importar",
+      "importing": "Importando...",
+      "successTitle": "Importación Exitosa",
+      "successDesc": "Los participantes seleccionados han sido agregados a la comunidad."
+    },
+    "meeting": {
+      "title": "Reuniones y Anuncios",
+      "addMeeting": "Agregar Reunión",
+      "addAnnouncement": "Agregar Anuncio",
+      "meetingTitle": "Título",
+      "startDate": "Fecha y Hora",
+      "duration": "Duración (min)",
+      "isAnnouncement": "¿Es Anuncio?",
+      "noMeetingsFound": "No se encontraron reuniones.",
+      "recordAttendance": "Registrar Asistencia",
+      "viewAttendance": "Ver Asistencia",
+      "attendanceRecorded": "Asistencia registrada exitosamente",
+      "absent": "Ausente",
+      "present": "Presente",
+      "editMeeting": "Editar Reunión",
+      "recurrence": {
+        "title": "Repetir reunión",
+        "description": "Crear una reunión recurrente",
+        "frequency": "Frecuencia",
+        "daily": "Diaria",
+        "weekly": "Semanal",
+        "monthly": "Mensual",
+        "every": "Cada",
+        "weeks": "semanas",
+        "dayOfWeek": "Día de la semana",
+        "dayOfMonth": "Día del mes",
+        "updateScope": {
+          "title": "Actualizar repeticiones",
+          "this": "Solo esta reunión",
+          "all": "Todas las repeticiones",
+          "allFuture": "Esta y todas las futuras"
+        }
+      }
+    },
+    "stats": {
+      "totalMembers": "Total de Miembros",
+      "lastMeetings": "Últimas Reuniones",
+      "memberStatus": "Distribución de Estado de Miembros",
+      "participationRate": "Frecuencia de Participación"
+    },
+    "admin": {
+      "title": "Administradores de Comunidad",
+      "inviteAdmin": "Invitar Co-Administrador",
+      "emailLabel": "Correo Electrónico",
+      "inviteButton": "Enviar Invitación",
+      "noAdminsFound": "Aún no hay co-administradores.",
+      "invitationSent": "Invitación enviada exitosamente",
+      "acceptTitle": "Invitación a Comunidad",
+      "acceptDesc": "Has sido invitado a co-administrar la comunidad: {name}",
+      "acceptButton": "Aceptar Invitación",
+      "revokeAdmin": "Revocar Acceso",
+      "revokeConfirm": "¿Estás seguro de que deseas revocar el acceso de administrador a este usuario?",
+      "role": "Rol",
+      "status": "Estado",
+      "invitedBy": "Invitado por",
+      "acceptedAt": "Aceptado el"
     }
   }
 }

@@ -21,7 +21,27 @@ interface InvitationResult {
 	userId?: string;
 }
 
+interface InvitationStatusResponse {
+	valid: boolean;
+	user?: {
+		id: string;
+		email: string;
+		displayName: string;
+	};
+	retreats?: {
+		id: string;
+		parish: string;
+		startDate: Date;
+		endDate: Date;
+	}[];
+	community?: any;
+	message?: string;
+}
+
+import { CommunityService } from './communityService';
+
 export class InvitationService {
+	private communityService = new CommunityService();
 	private userRepository = AppDataSource.getRepository(User);
 	private userRetreatRepository = AppDataSource.getRepository(UserRetreat);
 	private userRoleRepository = AppDataSource.getRepository(UserRole);
@@ -36,6 +56,7 @@ export class InvitationService {
 		usersInvited: InvitationResult[];
 		usersCreated: string[];
 	}> {
+		// ... existing implementation ...
 		const usersInvited: InvitationResult[] = [];
 		const usersCreated: string[] = [];
 		const usersToInvite = new Map<string, { userId: string; isNew: boolean }>();
@@ -290,6 +311,7 @@ export class InvitationService {
 		valid: boolean;
 		user?: User;
 		message?: string;
+		isCommunity?: boolean;
 	}> {
 		// First check user_retreats table for the token
 		const userRetreat = await this.userRetreatRepository.findOne({
@@ -309,6 +331,12 @@ export class InvitationService {
 			}
 
 			return { valid: true, user: userRetreat.user };
+		}
+
+		// Check community invitations
+		const communityStatus = await this.communityService.getInvitationStatus(token);
+		if (communityStatus && communityStatus.valid) {
+			return { valid: true, user: communityStatus.user, isCommunity: true };
 		}
 
 		// Fallback to checking users table for backward compatibility
@@ -331,21 +359,7 @@ export class InvitationService {
 		return { valid: true, user };
 	}
 
-	async getInvitationStatus(token: string): Promise<{
-		valid: boolean;
-		user?: {
-			id: string;
-			email: string;
-			displayName: string;
-		};
-		retreats?: Array<{
-			id: string;
-			parish: string;
-			startDate: Date;
-			endDate: Date;
-		}>;
-		message?: string;
-	}> {
+	async getInvitationStatus(token: string): Promise<InvitationStatusResponse> {
 		const validation = await this.validateInvitationToken(token);
 
 		if (!validation.valid || !validation.user) {
@@ -364,6 +378,13 @@ export class InvitationService {
 			endDate: ur.retreat.endDate,
 		}));
 
+		// Handle community specific info if applicable
+		let communityInfo = null;
+		if ((validation as any).isCommunity) {
+			const status = await this.communityService.getInvitationStatus(token);
+			communityInfo = status?.community;
+		}
+
 		return {
 			valid: true,
 			user: {
@@ -372,6 +393,7 @@ export class InvitationService {
 				displayName: validation.user.displayName,
 			},
 			retreats,
+			community: communityInfo,
 		};
 	}
 }

@@ -228,6 +228,42 @@ const router = createRouter({
 					component: HelpView,
 					props: true,
 				},
+				// Community Routes
+				{
+					path: 'communities',
+					name: 'communities',
+					component: () => import('../views/CommunityListView.vue'),
+				},
+				{
+					path: 'communities/:id',
+					name: 'community-dashboard',
+					component: () => import('../views/CommunityDashboardView.vue'),
+					props: true,
+				},
+				{
+					path: 'communities/:id/members',
+					name: 'community-members',
+					component: () => import('../views/CommunityMembersView.vue'),
+					props: true,
+				},
+				{
+					path: 'communities/:id/meetings',
+					name: 'community-meetings',
+					component: () => import('../views/CommunityMeetingsView.vue'),
+					props: true,
+				},
+				{
+					path: 'communities/:id/attendance/:meetingId',
+					name: 'community-attendance',
+					component: () => import('../views/CommunityAttendanceView.vue'),
+					props: true,
+				},
+				{
+					path: 'communities/:id/admins',
+					name: 'community-admins',
+					component: () => import('../views/CommunityAdminsView.vue'),
+					props: true,
+				},
 			],
 		},
 	],

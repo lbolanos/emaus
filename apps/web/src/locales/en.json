@@ -42,6 +42,7 @@
     "roleManagement": "Role Management",
     "sections": {
       "main": "Main",
+      "community": "Community",
       "people": "People",
       "assignments": "Assignments",
       "financial": "Financial",
@@ -59,7 +60,8 @@
     "telemetry": "Telemetry",
     "logout": "Logout",
     "searchPlaceholder": "Search...",
-    "selectRetreatFirst": "Please select a retreat first"
+    "selectRetreatFirst": "Please select a retreat first",
+    "communities": "Communities"
   },
   "messageTemplates": {
     "title": "Message Templates",
@@ -1145,6 +1147,83 @@
       "payments": "Payments",
       "reports": "Reports",
       "settings": "Settings"
+    }
+  },
+  "community": {
+    "title": "Communities",
+    "noCommunitiesFound": "No communities found. Create one to get started!",
+    "addCommunity": "Add Community",
+    "editCommunity": "Edit Community",
+    "deleteCommunity": "Delete Community",
+    "communityName": "Community Name",
+    "address": "Meeting Address",
+    "description": "Description",
+    "members": "Members",
+    "meetings": "Meetings",
+    "dashboard": "Dashboard",
+    "admins": "Admins",
+    "actions": "Actions",
+    "saveCommunity": "Save Community",
+    "creating": "Creating...",
+    "updating": "Updating...",
+    "deleteConfirm": "Are you sure you want to delete this community? All members and meetings will be removed.",
+    "memberStates": {
+      "active_member": "Active Member",
+      "far_from_location": "Far from Location",
+      "no_answer": "No Answer",
+      "another_group": "Another Group"
+    },
+    "participationFrequency": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+      "none": "None"
+    },
+    "import": {
+      "title": "Import Members",
+      "selectRetreat": "Select Retreat",
+      "selectParticipants": "Select Participants to Import",
+      "importing": "Importing...",
+      "successTitle": "Import Successful",
+      "successDesc": "The selected participants have been added to the community."
+    },
+    "meeting": {
+      "title": "Meetings & Announcements",
+      "addMeeting": "Add Meeting",
+      "addAnnouncement": "Add Announcement",
+      "meetingTitle": "Title",
+      "startDate": "Date & Time",
+      "duration": "Duration (min)",
+      "isAnnouncement": "Is Announcement?",
+      "noMeetingsFound": "No meetings found.",
+      "recordAttendance": "Record Attendance",
+      "viewAttendance": "View Attendance",
+      "attendanceRecorded": "Attendance recorded successfully",
+      "absent": "Absent",
+      "present": "Present"
+    },
+    "stats": {
+      "totalMembers": "Total Members",
+      "lastMeetings": "Last Meetings",
+      "memberStatus": "Member Status Distribution",
+      "participationRate": "Participation Frequency"
+    },
+    "admin": {
+      "title": "Community Admins",
+      "inviteAdmin": "Invite Co-Admin",
+      "emailLabel": "Email Address",
+      "inviteButton": "Send Invitation",
+      "noAdminsFound": "No co-admins yet.",
+      "invitationSent": "Invitation sent successfully",
+      "acceptTitle": "Community Invitation",
+      "acceptDesc": "You have been invited to co-administer the community: {name}",
+      "acceptButton": "Accept Invitation",
+      "revokeAdmin": "Revoke Admin Access",
+      "revokeConfirm": "Are you sure you want to revoke admin access for this user?",
+      "role": "Role",
+      "status": "Status",
+      "invitedBy": "Invited By",
+      "acceptedAt": "Accepted At"
     }
   }
 }

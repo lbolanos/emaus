@@ -454,6 +454,20 @@ const menuSections: MenuSection[] = [
     position: 'top'
   },
   {
+    category: 'community',
+    items: [
+      {
+        name: 'communities',
+        routeName: 'communities',
+        icon: UsersRound,
+        permission: 'superadmin', // Only superadmins/admins see list. Admin permission logic will be handled inside.
+        requiresRetreat: false,
+        label: 'sidebar.communities'
+      }
+    ],
+    position: 'top'
+  },
+  {
     category: 'people',
     items: [
       {

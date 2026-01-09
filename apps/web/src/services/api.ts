@@ -1,6 +1,14 @@
 import axios from 'axios';
 import { useToast } from '@repo/ui';
-import type { TableMesa } from '@repo/types';
+import type {
+	TableMesa,
+	Community,
+	CommunityMember,
+	CommunityMeeting,
+	CommunityAdmin,
+	CommunityAttendance,
+	MemberState,
+} from '@repo/types';
 import { setupCsrfInterceptor } from '@/utils/csrf';
 import { telemetryService } from './telemetryService';
 import { getApiUrl } from '@/config/runtimeConfig';
@@ -523,13 +531,23 @@ export const getWalkersByRetreat = async (retreatId: string): Promise<any[]> => 
 
 export const getParticipantsByRetreat = async (
 	retreatId: string,
-	type?: 'walker' | 'server' | 'waiting' | 'partial_server' | undefined
+	type?: 'walker' | 'server' | 'waiting' | 'partial_server' | undefined,
 ): Promise<any[]> => {
 	const params: Record<string, string> = { retreatId };
 	if (type) {
 		params.type = type;
 	}
 	const response = await api.get('/participants', { params });
+	return response.data;
+};
+
+export const getPotentialMembersFromRetreat = async (
+	communityId: string,
+	retreatId: string,
+): Promise<any[]> => {
+	const response = await api.get(`/communities/${communityId}/members/potential`, {
+		params: { retreatId },
+	});
 	return response.data;
 };
 
@@ -674,3 +692,153 @@ export const checkTagConflict = async (leaderIds: string[], walkerIds: string[])
 	const response = await api.post('/tags/check-conflict', { leaderIds, walkerIds });
 	return response.data;
 };
+
+// Community API functions
+
+export async function getCommunities(): Promise<Community[]> {
+	const response = await api.get('/communities');
+	return response.data;
+}
+
+export async function getCommunityById(id: string): Promise<Community> {
+	const response = await api.get(`/communities/${id}`);
+	return response.data;
+}
+
+export async function createCommunity(data: any): Promise<Community> {
+	const response = await api.post('/communities', data);
+	return response.data;
+}
+
+export async function updateCommunity(id: string, data: any): Promise<Community> {
+	const response = await api.put(`/communities/${id}`, data);
+	return response.data;
+}
+
+export async function deleteCommunity(id: string): Promise<void> {
+	await api.delete(`/communities/${id}`);
+}
+
+export async function getCommunityMembers(
+	communityId: string,
+	state?: string,
+): Promise<CommunityMember[]> {
+	const response = await api.get(`/communities/${communityId}/members`, {
+		params: { state },
+	});
+	return response.data;
+}
+
+export async function addCommunityMember(
+	communityId: string,
+	participantId: string,
+): Promise<CommunityMember> {
+	const response = await api.post(`/communities/${communityId}/members`, { participantId });
+	return response.data;
+}
+
+export async function importMembersFromRetreat(
+	communityId: string,
+	retreatId: string,
+	participantIds: string[],
+): Promise<CommunityMember[]> {
+	const response = await api.post(`/communities/${communityId}/members/import`, {
+		retreatId,
+		participantIds,
+	});
+	return response.data;
+}
+
+export async function updateCommunityMemberState(
+	communityId: string,
+	memberId: string,
+	state: string,
+): Promise<CommunityMember> {
+	const response = await api.put(`/communities/${communityId}/members/${memberId}`, { state });
+	return response.data;
+}
+
+export async function removeCommunityMember(communityId: string, memberId: string): Promise<void> {
+	await api.delete(`/communities/${communityId}/members/${memberId}`);
+}
+
+export async function getCommunityMeetings(communityId: string): Promise<CommunityMeeting[]> {
+	const response = await api.get(`/communities/${communityId}/meetings`);
+	return response.data;
+}
+
+export async function createCommunityMeeting(
+	communityId: string,
+	data: any,
+): Promise<CommunityMeeting> {
+	const response = await api.post(`/communities/${communityId}/meetings`, data);
+	return response.data;
+}
+
+export async function updateCommunityMeeting(
+	meetingId: string,
+	data: any,
+	scope: 'this' | 'all' | 'all_future' = 'this',
+): Promise<CommunityMeeting | CommunityMeeting[]> {
+	const response = await api.put(`/communities/meetings/${meetingId}?scope=${scope}`, data);
+	return response.data;
+}
+
+export async function deleteCommunityMeeting(
+	meetingId: string,
+	scope: 'this' | 'all' | 'all_future' = 'this',
+): Promise<void> {
+	await api.delete(`/communities/meetings/${meetingId}?scope=${scope}`);
+}
+
+export async function getCommunityAttendance(
+	communityId: string,
+	meetingId: string,
+): Promise<CommunityAttendance[]> {
+	const response = await api.get(`/communities/${communityId}/meetings/${meetingId}/attendance`);
+	return response.data;
+}
+
+export async function recordCommunityAttendance(
+	communityId: string,
+	meetingId: string,
+	records: any[],
+): Promise<CommunityAttendance[]> {
+	const response = await api.post(
+		`/communities/${communityId}/meetings/${meetingId}/attendance`,
+		records,
+	);
+	return response.data;
+}
+
+export async function getCommunityDashboardStats(communityId: string): Promise<any> {
+	const response = await api.get(`/communities/${communityId}/dashboard`);
+	return response.data;
+}
+
+export async function getCommunityAdmins(communityId: string): Promise<CommunityAdmin[]> {
+	const response = await api.get(`/communities/${communityId}/admins`);
+	return response.data;
+}
+
+export async function inviteCommunityAdmin(
+	communityId: string,
+	email: string,
+): Promise<CommunityAdmin> {
+	const response = await api.post(`/communities/${communityId}/admins/invite`, { email });
+	return response.data;
+}
+
+export async function getCommunityInvitationStatus(token: string): Promise<any> {
+	const response = await api.get(`/communities/invitations/status/${token}`);
+	return response.data;
+}
+
+export async function acceptCommunityInvitation(token: string): Promise<CommunityAdmin> {
+	const response = await api.post('/communities/invitations/accept', { token });
+	return response.data;
+}
+
+export async function revokeCommunityAdmin(communityId: string, userId: string): Promise<void> {
+	await api.delete(`/communities/${communityId}/admins/${userId}`);
+}

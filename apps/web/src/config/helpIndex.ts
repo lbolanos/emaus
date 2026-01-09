@@ -127,6 +127,21 @@ export const helpIndex: HelpSection[] = [
 			},
 		],
 	},
+	{
+		key: 'communities',
+		title: 'Communities',
+		titleEs: 'Comunidades',
+		icon: 'mdi-account-group',
+		routeContext: ['communities', 'community-dashboard', 'community-members'],
+		topics: [
+			{
+				key: 'community-management',
+				title: 'Community Management',
+				titleEs: 'Gestión de Comunidades',
+				content: 'communities.md',
+			},
+		],
+	},
 ];
 
 export function getHelpSectionByKey(key: string): HelpSection | undefined {

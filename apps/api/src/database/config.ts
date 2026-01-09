@@ -28,6 +28,11 @@ import { TelemetryDashboard } from '../entities/telemetryDashboard.entity';
 import { Tag } from '../entities/tag.entity';
 import { ParticipantTag } from '../entities/participantTag.entity';
 import { AuditLog } from '../entities/auditLog.entity';
+import { Community } from '../entities/community.entity';
+import { CommunityMember } from '../entities/communityMember.entity';
+import { CommunityMeeting } from '../entities/communityMeeting.entity';
+import { CommunityAdmin } from '../entities/communityAdmin.entity';
+import { CommunityAttendance } from '../entities/communityAttendance.entity';
 
 import { Session } from '../entities/session.entity';
 
@@ -68,6 +73,12 @@ export function createDatabaseConfig() {
 		ParticipantTag,
 		// Audit entities
 		AuditLog,
+		// Community entities
+		Community,
+		CommunityMember,
+		CommunityMeeting,
+		CommunityAdmin,
+		CommunityAttendance,
 		// Temporarily excluding entities with enum issues
 		// PermissionOverride,
 		// RoleRequest,

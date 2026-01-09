@@ -46,6 +46,7 @@
     "@vee-validate/zod": "^4.15.1",
     "@vueuse/core": "^13.8.0",
     "axios": "^1.6.8",
+    "chart.js": "^4.5.1",
     "country-state-city": "^3.2.1",
     "dompurify": "^3.2.6",
     "element-tiptap": "^2.2.1",
@@ -56,6 +57,7 @@
     "qrcode.vue": "^3.4.1",
     "vee-validate": "^4.15.1",
     "vue": "^3.4.21",
+    "vue-chartjs": "^5.3.3",
     "vue-i18n": "^9.13.1",
     "vue-router": "^4.3.0",
     "zod": "^3.22.4"

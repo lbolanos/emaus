@@ -30,61 +30,61 @@ export function configurePassportStrategies(
 					clientSecret: config.google.clientSecret,
 					callbackURL: config.google.callbackUrl,
 				},
-			async (accessToken, refreshToken, profile, done) => {
-				try {
-					// First, check if user already exists with this Google ID
-					const userByGoogleId = await repos.user.findOne({ where: { googleId: profile.id } });
+				async (accessToken, refreshToken, profile, done) => {
+					try {
+						// First, check if user already exists with this Google ID
+						const userByGoogleId = await repos.user.findOne({ where: { googleId: profile.id } });
 
-					if (userByGoogleId) {
-						return done(null, userByGoogleId);
-					}
-
-					// Check if user exists with this email (previously registered locally)
-					const userEmail = profile.emails?.[0].value;
-					if (userEmail) {
-						const userByEmail = await repos.user.findOne({ where: { email: userEmail } });
-
-						if (userByEmail) {
-							// Link Google account to existing user
-							userByEmail.googleId = profile.id;
-							userByEmail.photo = profile.photos?.[0].value || userByEmail.photo;
-							// Update display name if Google provides one and current one is different
-							if (profile.displayName && profile.displayName !== userByEmail.displayName) {
-								userByEmail.displayName = profile.displayName;
-							}
-							await repos.user.save(userByEmail);
-							return done(null, userByEmail);
+						if (userByGoogleId) {
+							return done(null, userByGoogleId);
 						}
-					}
 
-					// Create new user if neither Google ID nor email exists
-					const newUser = repos.user.create({
-						id: uuidv4(),
-						googleId: profile.id,
-						displayName: profile.displayName,
-						email: userEmail || '',
-						photo: profile.photos?.[0].value,
-					});
+						// Check if user exists with this email (previously registered locally)
+						const userEmail = profile.emails?.[0].value;
+						if (userEmail) {
+							const userByEmail = await repos.user.findOne({ where: { email: userEmail } });
 
-					await repos.user.save(newUser);
+							if (userByEmail) {
+								// Link Google account to existing user
+								userByEmail.googleId = profile.id;
+								userByEmail.photo = profile.photos?.[0].value || userByEmail.photo;
+								// Update display name if Google provides one and current one is different
+								if (profile.displayName && profile.displayName !== userByEmail.displayName) {
+									userByEmail.displayName = profile.displayName;
+								}
+								await repos.user.save(userByEmail);
+								return done(null, userByEmail);
+							}
+						}
 
-					// Assign default role to new Google user
-					const defaultRole = await repos.role.findOne({ where: { name: 'regular' } });
-					if (defaultRole) {
-						const userRole = repos.userRole.create({
-							userId: newUser.id,
-							roleId: defaultRole.id,
+						// Create new user if neither Google ID nor email exists
+						const newUser = repos.user.create({
+							id: uuidv4(),
+							googleId: profile.id,
+							displayName: profile.displayName,
+							email: userEmail || '',
+							photo: profile.photos?.[0].value,
 						});
-						await repos.userRole.save(userRole);
-					}
 
-					return done(null, newUser);
-				} catch (error) {
-					return done(error, undefined);
-				}
-			},
-		),
-	);
+						await repos.user.save(newUser);
+
+						// Assign default role to new Google user
+						const defaultRole = await repos.role.findOne({ where: { name: 'regular' } });
+						if (defaultRole) {
+							const userRole = repos.userRole.create({
+								userId: newUser.id,
+								roleId: defaultRole.id,
+							});
+							await repos.userRole.save(userRole);
+						}
+
+						return done(null, newUser);
+					} catch (error) {
+						return done(error, undefined);
+					}
+				},
+			),
+		);
 	}
 
 	// Local Email/Password Strategy
