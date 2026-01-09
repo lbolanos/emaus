@@ -68,161 +68,33 @@
             </div>
           </TabsContent>
 
-          <TabsContent value="datetime" class="flex-1 overflow-y-auto mt-4 space-y-4">
-            <!-- Date and Time -->
-            <div class="grid grid-cols-2 gap-4">
-              <div class="space-y-2">
-                <Label for="date">
-                  Fecha <span class="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="date"
-                  type="date"
-                  v-model="form.date"
-                  :class="{ 'border-red-500': errors.date }"
-                />
-                <p v-if="errors.date" class="text-sm text-red-500">{{ errors.date }}</p>
-              </div>
-
-              <div class="space-y-2">
-                <Label for="time">
-                  Hora <span class="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="time"
-                  type="time"
-                  v-model="form.time"
-                  :class="{ 'border-red-500': errors.time }"
-                />
-                <p v-if="errors.time" class="text-sm text-red-500">{{ errors.time }}</p>
-              </div>
-            </div>
-
-            <!-- Duration (only for meetings) -->
-            <div v-if="!form.isAnnouncement" class="space-y-3">
-              <div class="flex items-center justify-between">
-                <Label for="duration">
-                  Duración (minutos) <span class="text-red-500">*</span>
-                </Label>
-                <div class="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    @click="form.durationMinutes = 30"
-                  >30 min</Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    @click="form.durationMinutes = 60"
-                  >60 min</Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    @click="form.durationMinutes = 90"
-                  >90 min</Button>
-                </div>
-              </div>
-              <Input
-                id="duration"
-                type="number"
-                v-model="form.durationMinutes"
-                min="5"
-                max="480"
-                placeholder="60"
-                :class="{ 'border-red-500': errors.durationMinutes }"
-              />
-              <p v-if="errors.durationMinutes" class="text-sm text-red-500">{{ errors.durationMinutes }}</p>
-              <p class="text-xs text-muted-foreground">Duración estimada de la reunión</p>
-            </div>
+          <TabsContent value="datetime" class="flex-1 overflow-y-auto mt-4">
+            <MeetingDateTimeForm
+              :date="form.date"
+              :time="form.time"
+              :duration-minutes="form.durationMinutes"
+              :is-announcement="form.isAnnouncement"
+              :errors="errors"
+              @update:date="form.date = $event"
+              @update:time="form.time = $event"
+              @update:duration-minutes="form.durationMinutes = $event"
+            />
           </TabsContent>
 
-          <TabsContent value="recurrence" class="flex-1 overflow-y-auto mt-4 space-y-4">
+          <TabsContent value="recurrence" class="flex-1 overflow-y-auto mt-4">
             <div v-if="form.isAnnouncement" class="p-4 text-center text-muted-foreground">
               <p>Los anuncios no pueden ser recurrentes</p>
             </div>
-            <div v-else class="space-y-4">
-              <!-- Recurrence Toggle -->
-              <div class="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
-                <div class="flex-1">
-                  <Label class="font-medium">Repetir reunión</Label>
-                  <p class="text-sm text-muted-foreground">Crear una reunión recurrente</p>
-                </div>
-                <div class="flex items-center gap-2 ml-4">
-                  <span class="text-sm">{{ form.isRecurring ? 'Recurrente' : 'Única' }}</span>
-                  <Switch v-model="form.isRecurring" />
-                </div>
-              </div>
-
-              <!-- Recurrence Options -->
-              <div v-if="form.isRecurring" class="space-y-4 p-4 border rounded-lg bg-muted/30">
-                <!-- Frequency -->
-                <div class="space-y-2">
-                  <Label>Frecuencia</Label>
-                  <Select v-model="form.recurrence.frequency">
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona frecuencia" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="daily">Diaria</SelectItem>
-                      <SelectItem value="weekly">Semanal</SelectItem>
-                      <SelectItem value="monthly">Mensual</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <!-- Weekly Options -->
-                <div v-if="form.recurrence.frequency === 'weekly'" class="space-y-3">
-                  <div class="flex items-center gap-2">
-                    <Label>Cada</Label>
-                    <Input
-                      type="number"
-                      v-model="form.recurrence.interval"
-                      min="1"
-                      max="52"
-                      class="w-20"
-                    />
-                    <Label>semanas</Label>
-                  </div>
-                  <div>
-                    <Label>Día de la semana</Label>
-                    <div class="flex gap-1 mt-2">
-                      <Button
-                        v-for="day in weekDays"
-                        :key="day.value"
-                        type="button"
-                        :variant="form.recurrence.dayOfWeek === day.value ? 'default' : 'outline'"
-                        size="sm"
-                        @click="form.recurrence.dayOfWeek = day.value"
-                      >
-                        {{ day.label }}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Monthly Options -->
-                <div v-if="form.recurrence.frequency === 'monthly'" class="space-y-2">
-                  <Label>Día del mes</Label>
-                  <Input
-                    type="number"
-                    v-model="form.recurrence.dayOfMonth"
-                    min="1"
-                    max="31"
-                    placeholder="1-31"
-                  />
-                </div>
-
-                <!-- Preview -->
-                <div class="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
-                  <p class="text-sm text-blue-800 dark:text-blue-200">
-                    {{ getRecurrenceDescription() }}
-                  </p>
-                </div>
-              </div>
-            </div>
+            <MeetingRecurrenceForm
+              v-else
+              :is-recurring="form.isRecurring"
+              :recurrence="form.recurrence"
+              @update:is-recurring="form.isRecurring = $event"
+              @update:frequency="form.recurrence.frequency = $event"
+              @update:interval="form.recurrence.interval = $event"
+              @update:day-of-week="form.recurrence.dayOfWeek = $event"
+              @update:day-of-month="form.recurrence.dayOfMonth = $event"
+            />
           </TabsContent>
         </Tabs>
 
@@ -299,11 +171,13 @@ import { useCommunityStore } from '@/stores/communityStore';
 import { Info, Loader2, Trash2 } from 'lucide-vue-next';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-  Button, Label, Input, Textarea, Switch, Badge, Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
-  RadioGroup, RadioGroupItem, Tabs, TabsList, TabsTrigger, TabsContent
+  Button, Label, Input, Textarea, Switch, Badge, Tabs, TabsList, TabsTrigger, TabsContent,
+  RadioGroup, RadioGroupItem
 } from '@repo/ui';
 import { useToast } from '@repo/ui';
 import type { RecurrenceFrequency } from '@repo/types';
+import MeetingDateTimeForm from './forms/MeetingDateTimeForm.vue';
+import MeetingRecurrenceForm from './forms/MeetingRecurrenceForm.vue';
 
 const props = defineProps<{
   open: boolean;
@@ -319,16 +193,6 @@ const { toast } = useToast();
 const isSaving = ref(false);
 const isDeleting = ref(false);
 const updateScope = ref<'this' | 'all' | 'all_future'>('this');
-
-const weekDays = [
-  { value: 'monday', label: 'Lun' },
-  { value: 'tuesday', label: 'Mar' },
-  { value: 'wednesday', label: 'Mié' },
-  { value: 'thursday', label: 'Jue' },
-  { value: 'friday', label: 'Vie' },
-  { value: 'saturday', label: 'Sáb' },
-  { value: 'sunday', label: 'Dom' },
-];
 
 const form = ref({
   title: '',
@@ -382,26 +246,6 @@ const isFormValid = computed(() => {
 
   return baseValid;
 });
-
-const getRecurrenceDescription = () => {
-  if (!form.value.isRecurring) return '';
-  const { frequency, interval, dayOfWeek, dayOfMonth } = form.value.recurrence;
-
-  switch (frequency) {
-    case 'daily':
-      return 'Esta reunión se repetirá diariamente';
-    case 'weekly': {
-      const dayLabel = weekDays.find((d) => d.value === dayOfWeek)?.label || '';
-      return interval === 1
-        ? `Esta reunión se repetirá cada semana el ${dayLabel}`
-        : `Esta reunión se repetirá cada ${interval} semanas el ${dayLabel}`;
-    }
-    case 'monthly':
-      return `Esta reunión se repetirá cada mes el día ${dayOfMonth}`;
-    default:
-      return '';
-  }
-};
 
 const validateForm = () => {
   const newErrors: Record<string, string> = {};

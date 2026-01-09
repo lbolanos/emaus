@@ -10,6 +10,15 @@ import {
 	MemberState,
 } from '@repo/types';
 
+// Action history interface for undo functionality
+interface Action {
+	type: 'update' | 'delete' | 'create';
+	entity: 'member' | 'meeting';
+	data: any;
+	communityId: string;
+	timestamp: Date;
+}
+
 export const useCommunityStore = defineStore('community', () => {
 	// State
 	const communities = ref<Community[]>([]);
@@ -21,6 +30,7 @@ export const useCommunityStore = defineStore('community', () => {
 	const loading = ref(false);
 	const loadingCommunity = ref(false);
 	const error = ref<string | null>(null);
+	const actionHistory = ref<Action[]>([]);
 
 	// Getters
 	const membersByState = computed(() => {
@@ -170,6 +180,9 @@ export const useCommunityStore = defineStore('community', () => {
 		loading.value = true;
 		error.value = null;
 		try {
+			// Store previous state for undo
+			const previousData = members.value.find((m) => m.id === memberId);
+
 			const updated = await api.updateCommunityMemberState(communityId, memberId, state);
 			const index = members.value.findIndex((m) => m.id === memberId);
 			if (index !== -1) {
@@ -180,6 +193,21 @@ export const useCommunityStore = defineStore('community', () => {
 					participant: updated.participant || members.value[index].participant,
 				};
 			}
+
+			// Track action for undo (only keep last 10 actions)
+			if (previousData) {
+				actionHistory.value.push({
+					type: 'update',
+					entity: 'member',
+					data: { memberId, previousState: previousData.state, newState: state },
+					communityId,
+					timestamp: new Date(),
+				});
+				if (actionHistory.value.length > 10) {
+					actionHistory.value.shift();
+				}
+			}
+
 			return members.value[index];
 		} catch (err: any) {
 			error.value = err.message || 'Failed to update member state';
@@ -392,6 +420,36 @@ export const useCommunityStore = defineStore('community', () => {
 		}
 	};
 
+	// Undo the last action
+	const undoLastAction = async () => {
+		const action = actionHistory.value.pop();
+		if (!action) return false;
+
+		try {
+			if (action.type === 'update' && action.entity === 'member') {
+				await api.updateCommunityMemberState(
+					action.communityId,
+					action.data.memberId,
+					action.data.previousState,
+				);
+				const index = members.value.findIndex((m) => m.id === action.data.memberId);
+				if (index !== -1) {
+					members.value[index].state = action.data.previousState;
+				}
+				return true;
+			}
+			// Add more undo types here as needed (delete, create, etc.)
+			return false;
+		} catch (err) {
+			console.error('Failed to undo action:', err);
+			// Put action back if undo failed
+			actionHistory.value.push(action);
+			return false;
+		}
+	};
+
+	const canUndo = computed(() => actionHistory.value.length > 0);
+
 	return {
 		communities,
 		currentCommunity,
@@ -404,6 +462,8 @@ export const useCommunityStore = defineStore('community', () => {
 		loadingCommunity,
 		error,
 		membersByState,
+		actionHistory,
+		canUndo,
 		fetchCommunities,
 		fetchCommunity,
 		createCommunity,
@@ -426,5 +486,6 @@ export const useCommunityStore = defineStore('community', () => {
 		acceptInvitation,
 		inviteAdmin,
 		revokeAdmin,
+		undoLastAction,
 	};
 });

@@ -41,7 +41,7 @@
               <TableRow v-for="admin in activeAdmins" :key="admin.id">
                 <TableCell class="font-medium">
                   {{ admin.user.displayName }}
-                  <Badge v-if="admin.userId === currentCommunity.createdBy" variant="outline" class="ml-2">Creator</Badge>
+                  <Badge v-if="admin.userId === currentCommunity.createdBy" variant="outline" class="ml-2">{{ $t('community.admin.creator') }}</Badge>
                 </TableCell>
                 <TableCell>{{ admin.user.email }}</TableCell>
                 <TableCell>
@@ -111,13 +111,13 @@
         <DialogHeader>
           <DialogTitle>{{ $t('delete.confirmTitle') }}</DialogTitle>
           <DialogDescription>
-            Are you sure you want to revoke admin access for this user?
+            {{ $t('community.admin.revokeConfirm') }}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" @click="adminToRevoke = null">Cancel</Button>
+          <Button variant="outline" @click="adminToRevoke = null">{{ $t('common.actions.cancel') }}</Button>
           <Button @click="handleRevoke" variant="destructive">
-            Revoke Access
+            {{ $t('community.admin.revokeAdmin') }}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -127,16 +127,19 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
 import { Loader2, UserPlus, UserX, Copy, Trash2, ChevronRight } from 'lucide-vue-next';
-import { 
+import {
   Button, Card, CardHeader, CardTitle, Badge,
   Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@repo/ui';
 import { useToast } from '@repo/ui';
 import InviteAdminModal from '@/components/community/InviteAdminModal.vue';
+
+const { t: $t } = useI18n();
 
 const props = defineProps<{
   id: string;
@@ -170,8 +173,8 @@ const handleRevoke = async () => {
   try {
     await communityStore.revokeAdmin(props.id, adminToRevoke.value.userId);
     toast({
-      title: 'Access Revoked',
-      description: 'The admin access has been removed.'
+      title: $t('community.admin.revokeSuccess'),
+      description: $t('community.admin.revokeSuccessDesc')
     });
   } catch (error) {
     console.error('Failed to revoke admin access:', error);

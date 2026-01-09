@@ -1192,6 +1192,23 @@
       "no_answer": "Sin Respuesta",
       "another_group": "Otro Grupo"
     },
+    "members": {
+      "title": "Miembros",
+      "bulkActions": "Acciones en lote",
+      "selected": "seleccionados",
+      "selectAll": "Seleccionar todos",
+      "deselectAll": "Deseleccionar todos",
+      "changeState": "Cambiar estado",
+      "remove": "Eliminar miembros",
+      "confirmBulkRemove": "¿Eliminar {count} miembros de la comunidad?",
+      "confirmBulkChange": "¿Cambiar estado de {count} miembros a '{state}'?",
+      "searchPlaceholder": "Buscar miembros...",
+      "filterByState": "Filtrar por estado",
+      "allStates": "Todos los estados",
+      "export": "Exportar",
+      "exportSuccess": "Miembros exportados exitosamente",
+      "exportFailed": "Error al exportar miembros"
+    },
     "participationFrequency": {
       "high": "Alta",
       "medium": "Media",
@@ -1221,6 +1238,7 @@
       "absent": "Ausente",
       "present": "Presente",
       "editMeeting": "Editar Reunión",
+      "status": "Estado",
       "recurrence": {
         "title": "Repetir reunión",
         "description": "Crear una reunión recurrente",
@@ -1246,8 +1264,28 @@
       "memberStatus": "Distribución de Estado de Miembros",
       "participationRate": "Frecuencia de Participación"
     },
+    "attendance": {
+      "present": "Presente",
+      "absent": "Ausente",
+      "pending": "Pendiente",
+      "markAllPresent": "Marcar todos como presentes",
+      "markedAllPresent": "Todos marcados como presentes",
+      "save": "Guardar",
+      "saved": "Asistencia guardada",
+      "saveError": "Error al guardar la asistencia",
+      "unsavedChanges": "cambios sin guardar",
+      "unsavedWarning": "Tienes cambios sin guardar",
+      "noChanges": "Sin cambios",
+      "noChangesDesc": "No hay cambios para guardar",
+      "status": "Estado",
+      "searchPlaceholder": "Buscar miembros..."
+    },
     "admin": {
       "title": "Administradores de Comunidad",
+      "invite": "Invitar Administrador",
+      "admins": "Administradores",
+      "currentAdmins": "Administradores Actuales",
+      "pendingInvitations": "Invitaciones Pendientes",
       "inviteAdmin": "Invitar Co-Administrador",
       "emailLabel": "Correo Electrónico",
       "inviteButton": "Enviar Invitación",
@@ -1258,8 +1296,13 @@
       "acceptButton": "Aceptar Invitación",
       "revokeAdmin": "Revocar Acceso",
       "revokeConfirm": "¿Estás seguro de que deseas revocar el acceso de administrador a este usuario?",
+      "revokeSuccess": "Acceso Revocado",
+      "revokeSuccessDesc": "El acceso de administrador ha sido eliminado.",
       "role": "Rol",
       "status": "Estado",
+      "active": "Activo",
+      "pending": "Pendiente",
+      "creator": "Creador",
       "invitedBy": "Invitado por",
       "acceptedAt": "Aceptado el"
     }

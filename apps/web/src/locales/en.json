@@ -1173,6 +1173,23 @@
       "no_answer": "No Answer",
       "another_group": "Another Group"
     },
+    "members": {
+      "title": "Members",
+      "bulkActions": "Bulk Actions",
+      "selected": "selected",
+      "selectAll": "Select All",
+      "deselectAll": "Deselect All",
+      "changeState": "Change State",
+      "remove": "Remove Members",
+      "confirmBulkRemove": "Remove {count} members from community?",
+      "confirmBulkChange": "Change state of {count} members to '{state}'?",
+      "searchPlaceholder": "Search members...",
+      "filterByState": "Filter by state",
+      "allStates": "All States",
+      "export": "Export",
+      "exportSuccess": "Members exported successfully",
+      "exportFailed": "Failed to export members"
+    },
     "participationFrequency": {
       "high": "High",
       "medium": "Medium",
@@ -1200,7 +1217,27 @@
       "viewAttendance": "View Attendance",
       "attendanceRecorded": "Attendance recorded successfully",
       "absent": "Absent",
-      "present": "Present"
+      "present": "Present",
+      "editMeeting": "Edit Meeting",
+      "status": "Status",
+      "recurrence": {
+        "title": "Repeat Meeting",
+        "description": "Create a recurring meeting",
+        "frequency": "Frequency",
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "monthly": "Monthly",
+        "every": "Every",
+        "weeks": "weeks",
+        "dayOfWeek": "Day of week",
+        "dayOfMonth": "Day of month",
+        "updateScope": {
+          "title": "Update repetitions",
+          "this": "Only this meeting",
+          "all": "All repetitions",
+          "allFuture": "This and all future"
+        }
+      }
     },
     "stats": {
       "totalMembers": "Total Members",
@@ -1208,8 +1245,28 @@
       "memberStatus": "Member Status Distribution",
       "participationRate": "Participation Frequency"
     },
+    "attendance": {
+      "present": "Present",
+      "absent": "Absent",
+      "pending": "Pending",
+      "markAllPresent": "Mark All Present",
+      "markedAllPresent": "All marked as present",
+      "save": "Save",
+      "saved": "Attendance saved",
+      "saveError": "Failed to save attendance",
+      "unsavedChanges": "unsaved changes",
+      "unsavedWarning": "You have unsaved changes",
+      "noChanges": "No changes",
+      "noChangesDesc": "No changes to save",
+      "status": "Status",
+      "searchPlaceholder": "Search members..."
+    },
     "admin": {
       "title": "Community Admins",
+      "invite": "Invite Admin",
+      "admins": "Admins",
+      "currentAdmins": "Current Admins",
+      "pendingInvitations": "Pending Invitations",
       "inviteAdmin": "Invite Co-Admin",
       "emailLabel": "Email Address",
       "inviteButton": "Send Invitation",
@@ -1220,8 +1277,13 @@
       "acceptButton": "Accept Invitation",
       "revokeAdmin": "Revoke Admin Access",
       "revokeConfirm": "Are you sure you want to revoke admin access for this user?",
+      "revokeSuccess": "Access Revoked",
+      "revokeSuccessDesc": "The admin access has been removed.",
       "role": "Role",
       "status": "Status",
+      "active": "Active",
+      "pending": "Pending",
+      "creator": "Creator",
       "invitedBy": "Invited By",
       "acceptedAt": "Accepted At"
     }
