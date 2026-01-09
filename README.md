@@ -292,6 +292,8 @@ the community participant can be part of diferent communities in each community 
 i need dashboard with pie with state. another pie with frequency of participation with high, medium, low, none.
 Add the way to invite another user to admin my community
 
+location fields apps/web/src/views/CommunityListView.vue based on apps/web/src/components/AddEditHouseModal.vue
+
 apps/web/src/components/layout/Sidebar.vue apps/web/src/components/layout/Header.vue docs_dev/HELP_SYSTEM_GUIDE.md
 necesito que mejores la usabilidad y user experience del sitio. hay temas globales como retiros, casas de retiros, comunidades, Telemetria, Plantillas globales.
 cuando se selecciona retiros se muestra para poder seleccionar el retiro. Pero si selecciona alguna otra no se necesita seleccionar retiro.
