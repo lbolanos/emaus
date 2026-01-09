@@ -264,6 +264,80 @@ export class CommunityService {
 		});
 	}
 
+	async getPublicAttendanceData(communityId: string, meetingId: string) {
+		// Verify community and meeting exist
+		const community = await this.communityRepo.findOne({ where: { id: communityId } });
+		const meeting = await this.meetingRepo.findOne({ where: { id: meetingId, communityId } });
+
+		if (!community || !meeting) {
+			return null;
+		}
+
+		// Get members with their participants
+		const members = await this.memberRepo.find({
+			where: { communityId },
+			relations: ['participant'],
+			order: { joinedAt: 'ASC' },
+		});
+
+		// Get existing attendance
+		const attendance = await this.attendanceRepo.find({
+			where: { meetingId },
+		});
+
+		// Return combined data
+		return {
+			communityId,
+			communityName: community.name,
+			meetingId,
+			meetingTitle: meeting.title,
+			members: members.map((member) => ({
+				id: member.id,
+				participant: {
+					firstName: member.participant.firstName,
+					lastName: member.participant.lastName,
+					email: member.participant.email,
+				},
+				attended: attendance.find((a) => a.memberId === member.id)?.attended || false,
+			})),
+		};
+	}
+
+	async recordSingleAttendance(
+		communityId: string,
+		meetingId: string,
+		memberId: string,
+		attended: boolean,
+	) {
+		// Verify member belongs to community
+		const member = await this.memberRepo.findOne({
+			where: { id: memberId, communityId },
+		});
+
+		if (!member) {
+			throw new Error('Member not found');
+		}
+
+		// Upsert attendance record
+		const existing = await this.attendanceRepo.findOne({
+			where: { meetingId, memberId },
+		});
+
+		if (existing) {
+			existing.attended = attended;
+			existing.recordedAt = new Date();
+			return this.attendanceRepo.save(existing);
+		} else {
+			const attendance = this.attendanceRepo.create({
+				meetingId,
+				memberId,
+				attended,
+				recordedAt: new Date(),
+			});
+			return this.attendanceRepo.save(attendance);
+		}
+	}
+
 	// --- Dashboard & Analytics ---
 
 	async getDashboardStats(communityId: string) {

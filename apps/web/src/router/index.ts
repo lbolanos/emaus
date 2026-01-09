@@ -66,6 +66,13 @@ const router = createRouter({
 			props: true,
 		},
 		{
+			path: '/public/attendance/:communityId/:meetingId',
+			name: 'public-attendance',
+			component: () => import('../views/PublicAttendanceView.vue'),
+			props: true,
+			meta: { requiresAuth: false },
+		},
+		{
 			path: '/',
 			component: AppLayout,
 			meta: { requiresAuth: true },
@@ -271,13 +278,15 @@ const router = createRouter({
 
 router.beforeEach(async (to, from, next) => {
 	const auth = useAuthStore();
-	// Ensure auth status is checked before any navigation
-	if (!auth.isAuthenticated) {
+
+	// Check if route explicitly doesn't require auth
+	const requiresAuth = to.matched.some((record) => record.meta.requiresAuth !== false);
+	const requiresSuperadmin = to.matched.some((record) => record.meta.requiresSuperadmin);
+
+	// Ensure auth status is checked before any navigation (only if auth might be required)
+	if (requiresAuth && !auth.isAuthenticated) {
 		await auth.checkAuthStatus();
 	}
-
-	const requiresAuth = to.matched.some((record) => record.meta.requiresAuth);
-	const requiresSuperadmin = to.matched.some((record) => record.meta.requiresSuperadmin);
 
 	if (requiresAuth && !auth.isAuthenticated) {
 		next({ name: 'login' });

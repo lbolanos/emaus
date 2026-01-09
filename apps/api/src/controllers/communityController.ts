@@ -152,6 +152,34 @@ export class CommunityController {
 		res.json(attendance);
 	}
 
+	// --- Public Attendance (No Auth Required) ---
+
+	static async getPublicAttendanceData(req: Request, res: Response) {
+		const { communityId, meetingId } = req.params;
+		const data = await communityService.getPublicAttendanceData(communityId, meetingId);
+
+		if (!data) {
+			return res.status(404).json({ message: 'Community or meeting not found' });
+		}
+
+		res.json(data);
+	}
+
+	static async recordPublicAttendance(req: Request, res: Response) {
+		const { communityId, meetingId } = req.params;
+		const { memberId, attended } = req.body;
+
+		try {
+			await communityService.recordSingleAttendance(communityId, meetingId, memberId, attended);
+			res.json({ success: true, memberId, attended });
+		} catch (error: any) {
+			if (error.message === 'Member not found') {
+				return res.status(404).json({ message: 'Member not found' });
+			}
+			throw error;
+		}
+	}
+
 	// --- Dashboard & Analytics ---
 
 	static async getDashboardStats(req: Request, res: Response) {

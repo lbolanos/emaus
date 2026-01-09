@@ -1176,8 +1176,8 @@
     "communityName": "Nombre de la Comunidad",
     "address": "Dirección de Reunión",
     "description": "Descripción",
-    "members": "Miembros",
     "meetings": "Reuniones",
+    "membersLabel": "Miembros",
     "participationRate": "Frecuencia de Participación",
     "dashboard": "Dashboard",
     "admins": "Administradores",
@@ -1278,7 +1278,16 @@
       "noChanges": "Sin cambios",
       "noChangesDesc": "No hay cambios para guardar",
       "status": "Estado",
-      "searchPlaceholder": "Buscar miembros..."
+      "searchPlaceholder": "Buscar miembros...",
+      "total": "total",
+      "searchMembers": "Buscar miembros...",
+      "noMembersFound": "No se encontraron miembros",
+      "notFound": "Comunidad o reunión no encontrada",
+      "loadError": "Error al cargar la asistencia",
+      "publicLink": "Enlace público de asistencia",
+      "copyPublicLink": "Copiar enlace de asistencia",
+      "publicLinkCopied": "Enlace copiado al portapapeles",
+      "publicLinkWarning": "Cualquier persona con este enlace puede registrar asistencia"
     },
     "admin": {
       "title": "Administradores de Comunidad",

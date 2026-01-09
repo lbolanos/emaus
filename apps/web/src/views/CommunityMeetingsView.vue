@@ -66,6 +66,16 @@
                   <p>{{ $t('community.meeting.recordAttendance') }}</p>
                 </TooltipContent>
               </Tooltip>
+              <Tooltip v-if="!meeting.isAnnouncement">
+                <TooltipTrigger as-child>
+                  <Button size="sm" variant="ghost" @click="copyAttendanceLink(meeting)">
+                    <Share class="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{{ $t('community.attendance.copyPublicLink') }}</p>
+                </TooltipContent>
+              </Tooltip>
               <Tooltip>
                 <TooltipTrigger as-child>
                   <Button size="sm" variant="ghost" @click="openEditModal(meeting)">
@@ -152,16 +162,20 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
-import { Loader2, CalendarPlus, Calendar, Clock, CheckSquare, ChevronRight, Pencil, Trash2, RefreshCw } from 'lucide-vue-next';
+import { Loader2, CalendarPlus, Calendar, Clock, CheckSquare, ChevronRight, Pencil, Trash2, RefreshCw, Share } from 'lucide-vue-next';
 import {
   Button, Card, CardHeader, CardTitle, CardDescription, Badge,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
-  RadioGroup, RadioGroupItem, Label
+  RadioGroup, RadioGroupItem, Label, useToast
 } from '@repo/ui';
 import MeetingFormModal from '@/components/community/MeetingFormModal.vue';
+
+const { t: $t } = useI18n();
+const { toast } = useToast();
 
 const props = defineProps<{
   id: string;
@@ -244,5 +258,14 @@ const handleMeetingUpdated = (meetingId: string) => {
 
 const handleMeetingDeleted = (meetingId: string) => {
   fetchMeetings();
+};
+
+const copyAttendanceLink = (meeting: any) => {
+  const link = `${window.location.origin}/public/attendance/${props.id}/${meeting.id}`;
+  navigator.clipboard.writeText(link);
+  toast({
+    title: $t('community.attendance.publicLinkCopied'),
+    description: $t('community.attendance.publicLinkWarning'),
+  });
 };
 </script>

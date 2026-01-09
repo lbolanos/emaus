@@ -12,13 +12,13 @@
     <template v-else-if="currentCommunity">
       <div class="flex justify-between items-center">
         <div>
-          <h1 class="text-2xl font-bold">{{ currentCommunity.name }} - {{ $t('community.members') }}</h1>
+          <h1 class="text-2xl font-bold">{{ currentCommunity.name }} - {{ $t('community.membersLabel') }}</h1>
           <div class="flex items-center text-sm text-muted-foreground">
             <router-link :to="{ name: 'community-dashboard', params: { id: currentCommunity.id } }" class="hover:underline">
               {{ $t('community.dashboard') }}
             </router-link>
             <ChevronRight class="w-4 h-4 mx-1" />
-            <span>{{ $t('community.members') }}</span>
+            <span>{{ $t('community.membersLabel') }}</span>
           </div>
         </div>
         <div class="flex gap-2">

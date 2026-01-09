@@ -1158,8 +1158,9 @@
     "communityName": "Community Name",
     "address": "Meeting Address",
     "description": "Description",
-    "members": "Members",
     "meetings": "Meetings",
+    "membersLabel": "Members",
+    "participationRate": "Participation Frequency",
     "dashboard": "Dashboard",
     "admins": "Admins",
     "actions": "Actions",
@@ -1259,7 +1260,16 @@
       "noChanges": "No changes",
       "noChangesDesc": "No changes to save",
       "status": "Status",
-      "searchPlaceholder": "Search members..."
+      "searchPlaceholder": "Search members...",
+      "total": "total",
+      "searchMembers": "Search members...",
+      "noMembersFound": "No members found",
+      "notFound": "Community or meeting not found",
+      "loadError": "Failed to load attendance",
+      "publicLink": "Public attendance link",
+      "copyPublicLink": "Copy attendance link",
+      "publicLinkCopied": "Link copied to clipboard",
+      "publicLinkWarning": "Anyone with this link can record attendance"
     },
     "admin": {
       "title": "Community Admins",

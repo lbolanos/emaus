@@ -22,6 +22,14 @@ router.get('/invitations/status/:token', (req, res) =>
 );
 router.post('/invitations/accept', (req, res) => CommunityController.acceptInvitation(req, res));
 
+// Public attendance routes (NO AUTH required)
+router.get('/public/attendance/:communityId/:meetingId', (req, res) =>
+	CommunityController.getPublicAttendanceData(req, res),
+);
+router.post('/public/attendance/:communityId/:meetingId', (req, res) =>
+	CommunityController.recordPublicAttendance(req, res),
+);
+
 // All other community routes require authentication
 router.use(isAuthenticated);
 

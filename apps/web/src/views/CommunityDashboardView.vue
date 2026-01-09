@@ -14,7 +14,7 @@
           <Button variant="outline" as-child>
             <router-link :to="{ name: 'community-members', params: { id: currentCommunity.id } }">
               <Users class="mr-2 h-4 w-4" />
-              {{ $t('community.members') }}
+              {{ $t('community.membersLabel') }}
             </router-link>
           </Button>
           <Button variant="outline" as-child>

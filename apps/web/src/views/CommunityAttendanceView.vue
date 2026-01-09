@@ -29,24 +29,13 @@
             <span>{{ $t('community.meeting.recordAttendance') }}</span>
           </div>
         </div>
-        <div class="flex gap-2">
-          <div class="relative max-w-xs">
-            <Search class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              v-model="searchQuery"
-              :placeholder="$t('community.attendance.searchPlaceholder')"
-              class="pl-8"
-            />
-          </div>
-          <Button variant="outline" @click="markAllPresent" :disabled="isSaving">
-            <UserCheck class="w-4 h-4 mr-2" />
-            {{ $t('community.attendance.markAllPresent') }}
-          </Button>
-          <Button @click="saveAttendance" :disabled="isSaving || hasNoChanges">
-            <Loader2 v-if="isSaving" class="w-4 h-4 mr-2 animate-spin" />
-            <Check v-else class="w-4 h-4 mr-2" />
-            {{ $t('community.attendance.save') }}
-          </Button>
+        <div class="relative max-w-xs">
+          <Search class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            v-model="searchQuery"
+            :placeholder="$t('community.attendance.searchPlaceholder')"
+            class="pl-8"
+          />
         </div>
       </div>
 
@@ -60,151 +49,67 @@
         </Card>
         <Card class="flex-1 p-4">
           <div class="text-center">
-            <div class="text-2xl font-bold text-destructive">{{ absentCount }}</div>
-            <div class="text-sm text-muted-foreground">{{ $t('community.attendance.absent') }}</div>
-          </div>
-        </Card>
-        <Card class="flex-1 p-4">
-          <div class="text-center">
-            <div class="text-2xl font-bold text-muted-foreground">{{ pendingCount }}</div>
-            <div class="text-sm text-muted-foreground">{{ $t('community.attendance.pending') }}</div>
+            <div class="text-2xl font-bold text-muted-foreground">{{ members.length }}</div>
+            <div class="text-sm text-muted-foreground">{{ $t('community.attendance.total') }}</div>
           </div>
         </Card>
       </div>
 
-      <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{{ $t('participants.name') }}</TableHead>
-              <TableHead>{{ $t('community.participationRate') }}</TableHead>
-              <TableHead class="text-center">{{ $t('community.meeting.status') }}</TableHead>
-              <TableHead class="text-right">{{ $t('community.meeting.recordAttendance') }}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow
-              v-for="member in filteredMembers"
-              :key="member.id"
-              :class="{ 'bg-muted/30': attendanceMap[member.id] === true }"
-            >
-              <TableCell class="font-medium">
-                {{ member.participant.firstName }} {{ member.participant.lastName }}
-              </TableCell>
-              <TableCell>
-                <Badge variant="outline">
-                  {{ Math.round(member.lastMeetingsAttendanceRate || 0) }}%
-                </Badge>
-              </TableCell>
-              <TableCell class="text-center">
-                <Badge
-                  v-if="attendanceMap[member.id] === true"
-                  variant="default"
-                  class="gap-1"
-                >
-                  <Check class="w-3 h-3" />
-                  {{ $t('community.attendance.present') }}
-                </Badge>
-                <Badge
-                  v-else-if="attendanceMap[member.id] === false"
-                  variant="destructive"
-                  class="gap-1"
-                >
-                  <X class="w-3 h-3" />
-                  {{ $t('community.attendance.absent') }}
-                </Badge>
-                <Badge
-                  v-else
-                  variant="outline"
-                  class="gap-1"
-                >
-                  <Clock class="w-3 h-3" />
-                  {{ $t('community.attendance.pending') }}
-                </Badge>
-              </TableCell>
-              <TableCell class="text-right">
-                <div class="flex justify-end items-center gap-2">
-                  <!-- Quick Present Button (Primary Action) -->
-                  <Button
-                    size="sm"
-                    :variant="attendanceMap[member.id] === true ? 'default' : 'outline'"
-                    :class="{
-                      'bg-green-600 hover:bg-green-700': attendanceMap[member.id] === true,
-                      'hover:bg-green-50 hover:text-green-700 hover:border-green-700 dark:hover:bg-green-950': attendanceMap[member.id] !== true
-                    }"
-                    @click="togglePresent(member.id)"
-                    :aria-label="`${attendanceMap[member.id] === true ? 'Marcar como pendiente' : 'Marcar como presente'}: ${member.participant.firstName} ${member.participant.lastName}`"
-                  >
-                    <Check class="w-4 h-4 mr-1" />
-                    {{ $t('community.attendance.present') }}
-                  </Button>
-
-                  <!-- Absent Button (Secondary - Icon Only) -->
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    :class="{
-                      'text-destructive hover:bg-destructive/10': attendanceMap[member.id] === false
-                    }"
-                    @click="setAbsent(member.id)"
-                    :aria-label="`Marcar como ausente: ${member.participant.firstName} ${member.participant.lastName}`"
-                  >
-                    <X class="w-4 h-4" />
-                  </Button>
-
-                  <!-- Clear Button (Tertiary - Icon Only) -->
-                  <Button
-                    v-if="attendanceMap[member.id] !== null"
-                    size="sm"
-                    variant="ghost"
-                    @click="clearAttendance(member.id)"
-                    :aria-label="`Limpiar asistencia: ${member.participant.firstName} ${member.participant.lastName}`"
-                  >
-                    <RotateCcw class="w-4 h-4" />
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-            <TableRow v-if="filteredMembers.length === 0">
-              <TableCell colspan="4" class="text-center py-8 text-muted-foreground">
-                <Users class="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>No hay miembros en esta comunidad.</p>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </Card>
-
-      <!-- Quick Actions Footer -->
-      <Card v-if="hasUnsavedChanges" class="bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
-        <div class="flex items-center justify-between p-4">
-          <div class="flex items-center gap-2">
-            <Badge variant="outline" class="bg-amber-100 dark:bg-amber-900">
-              {{ unsavedCount }} {{ $t('community.attendance.unsavedChanges') }}
-            </Badge>
-            <span class="text-sm text-muted-foreground">{{ $t('community.attendance.unsavedWarning') }}</span>
+      <!-- Members List - Card-based Layout -->
+      <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+        <div
+          v-for="member in filteredMembers"
+          :key="member.id"
+          class="member-card flex items-center justify-between p-4 border rounded-lg transition-all cursor-pointer"
+          :class="{
+            'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800': member.attended,
+            'opacity-50 cursor-not-allowed': savingStates[member.id]
+          }"
+          @click="toggleAttendance(member)"
+        >
+          <div class="flex-1 min-w-0">
+            <div class="font-medium truncate">
+              {{ member.participant.firstName }} {{ member.participant.lastName }}
+            </div>
+            <div class="text-sm text-muted-foreground truncate" v-if="member.participant.email">
+              {{ member.participant.email }}
+            </div>
+            <div class="flex items-center gap-2 mt-1">
+              <Badge variant="outline">
+                {{ Math.round(member.lastMeetingsAttendanceRate || 0) }}%
+              </Badge>
+            </div>
           </div>
-          <Button @click="saveAttendance" :disabled="isSaving">
-            <Loader2 v-if="isSaving" class="w-4 h-4 mr-2 animate-spin" />
-            {{ $t('community.attendance.save') }}
-          </Button>
+          <button
+            class="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center transition-all"
+            :class="member.attended
+              ? 'bg-green-600 text-white'
+              : 'bg-muted text-muted-foreground'"
+          >
+            <Loader2 v-if="savingStates[member.id]" class="w-6 h-6 animate-spin" />
+            <Check v-else-if="member.attended" class="w-6 h-6" />
+            <div v-else class="w-4 h-4 rounded-full border-2 border-current" />
+          </button>
         </div>
-      </Card>
+      </div>
+
+      <!-- Empty State -->
+      <div v-if="filteredMembers.length === 0" class="text-center py-12 border rounded-lg bg-muted/50 text-muted-foreground">
+        <Users class="w-12 h-12 mx-auto mb-3 opacity-50" />
+        <p>No hay miembros en esta comunidad.</p>
+      </div>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
-import { Loader2, ChevronRight, Check, X, Clock, UserCheck, RotateCcw, Users, Search } from 'lucide-vue-next';
-import {
-  Button, Card, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Badge, Input
-} from '@repo/ui';
+import { ChevronRight, Check, Users, Search, Loader2 } from 'lucide-vue-next';
+import { Button, Card, Badge, Input } from '@repo/ui';
 import { useToast } from '@repo/ui';
-import { useRouter } from 'vue-router';
 
 const { t: $t } = useI18n();
 
@@ -213,27 +118,32 @@ const props = defineProps<{
   meetingId: string;
 }>();
 
-const router = useRouter();
 const communityStore = useCommunityStore();
 const { currentCommunity, members, loadingCommunity } = storeToRefs(communityStore);
 const { toast } = useToast();
 
 const currentMeeting = ref<any>(null);
 const loadingMeeting = ref(true);
-const isSaving = ref(false);
 const searchQuery = ref('');
-const attendanceMap = reactive<Record<string, boolean | null>>({});
-const initialAttendanceMap = reactive<Record<string, boolean | null>>({});
+const savingStates = ref<Record<string, boolean>>({});
+
+// Make members reactive with attended property
+const membersWithAttendance = ref<any[]>([]);
 
 // Computed property for filtered members
 const filteredMembers = computed(() => {
-  if (!searchQuery.value) return members.value;
+  if (!searchQuery.value) return membersWithAttendance.value;
   const query = searchQuery.value.toLowerCase().trim();
-  return members.value.filter(member => {
+  return membersWithAttendance.value.filter(member => {
     const fullName = `${member.participant.firstName} ${member.participant.lastName}`.toLowerCase();
     return fullName.includes(query) || (member.participant.email && member.participant.email.toLowerCase().includes(query));
   });
 });
+
+// Computed property for present count
+const presentCount = computed(() =>
+  membersWithAttendance.value.filter(m => m.attended).length
+);
 
 onMounted(async () => {
   await communityStore.fetchCommunity(props.id);
@@ -246,12 +156,13 @@ onMounted(async () => {
     // Fetch current attendance to populate
     const existingAttendance = await communityStore.fetchAttendance(props.id, props.meetingId);
 
-    // Initialize maps
-    members.value.forEach(member => {
+    // Initialize members with attendance (default to absent = false)
+    membersWithAttendance.value = members.value.map(member => {
       const record = existingAttendance?.find((a: any) => a.memberId === member.id);
-      const value = record ? record.attended : null;
-      attendanceMap[member.id] = value;
-      initialAttendanceMap[member.id] = value;
+      return {
+        ...member,
+        attended: record ? record.attended : false // Default to absent
+      };
     });
   } catch (error) {
     console.error('Failed to load meeting or attendance:', error);
@@ -265,89 +176,29 @@ onMounted(async () => {
   }
 });
 
-// Computed properties for stats
-const presentCount = computed(() =>
-  Object.values(attendanceMap).filter(v => v === true).length
-);
+// Toggle attendance with auto-save
+const toggleAttendance = async (member: any) => {
+  if (savingStates.value[member.id]) return;
 
-const absentCount = computed(() =>
-  Object.values(attendanceMap).filter(v => v === false).length
-);
+  savingStates.value[member.id] = true;
+  const newStatus = !member.attended;
 
-const pendingCount = computed(() =>
-  Object.values(attendanceMap).filter(v => v === null).length
-);
-
-const hasUnsavedChanges = computed(() => {
-  return Object.keys(attendanceMap).some(id => attendanceMap[id] !== initialAttendanceMap[id]);
-});
-
-const unsavedCount = computed(() => {
-  return Object.keys(attendanceMap).filter(id => attendanceMap[id] !== initialAttendanceMap[id]).length;
-});
-
-const hasNoChanges = computed(() => !hasUnsavedChanges.value);
-
-// Toggle present status (if present -> clear, if not present -> mark present)
-const togglePresent = (memberId: string) => {
-  if (attendanceMap[memberId] === true) {
-    attendanceMap[memberId] = null; // Clear if already present
-  } else {
-    attendanceMap[memberId] = true; // Mark as present
-  }
-};
-
-// Set as absent
-const setAbsent = (memberId: string) => {
-  attendanceMap[memberId] = false;
-};
-
-// Clear attendance (reset to null)
-const clearAttendance = (memberId: string) => {
-  attendanceMap[memberId] = null;
-};
-
-// Mark all as present
-const markAllPresent = () => {
-  members.value.forEach(member => {
-    attendanceMap[member.id] = true;
-  });
-  toast({
-    title: $t('community.attendance.markedAllPresent'),
-    description: `${members.value.length} miembros marcados como presentes`,
-  });
-};
-
-const saveAttendance = async () => {
-  const records = Object.entries(attendanceMap)
-    .filter(([_, value]) => value !== null)
-    .map(([memberId, isPresent]) => ({
-      memberId,
-      attended: isPresent === true
-    }));
-
-  if (records.length === 0) {
-    toast({
-      title: $t('community.attendance.noChanges'),
-      description: $t('community.attendance.noChangesDesc'),
-      variant: 'destructive',
-    });
-    return;
-  }
-
-  isSaving.value = true;
   try {
-    await communityStore.recordAttendance(props.id, props.meetingId, records);
+    await communityStore.recordAttendance(props.id, props.meetingId, [{
+      memberId: member.id,
+      attended: newStatus
+    }]);
 
-    // Update initial map to reflect saved state
-    Object.assign(initialAttendanceMap, attendanceMap);
+    // Update local state
+    member.attended = newStatus;
 
-    toast({
-      title: $t('community.attendance.saved'),
-      description: `${records.length} registros de asistencia guardados`,
-    });
-
-    router.push({ name: 'community-meetings', params: { id: props.id } });
+    // Show subtle feedback
+    if (newStatus) {
+      toast({
+        title: `${member.participant.firstName} marcado como presente`,
+        duration: 1500,
+      });
+    }
   } catch (error) {
     console.error('Failed to save attendance:', error);
     toast({
@@ -355,8 +206,28 @@ const saveAttendance = async () => {
       description: $t('community.attendance.saveError'),
       variant: 'destructive',
     });
+    // Revert the change on error
+    member.attended = !newStatus;
   } finally {
-    isSaving.value = false;
+    savingStates.value[member.id] = false;
   }
 };
 </script>
+
+<style scoped>
+.member-card {
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.member-card:active:not(.cursor-not-allowed) {
+  transform: scale(0.98);
+}
+
+/* Ensure touch targets are at least 44x44px for iOS */
+.member-card button {
+  min-width: 44px;
+  min-height: 44px;
+}
+</style>

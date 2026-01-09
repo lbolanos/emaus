@@ -331,6 +331,15 @@ Notificaciones por correo a los administradores del retiro de eventos como Camin
 que los caminantes no vayan con la persona que lo invito
 no deja enviar correo de invitacion si el usuario existe
 
+## comunidades
+
+agregar una flyer para la reunion que pueda salvarse como pdf para que tengan el link de la ubicacion.  Crear un campo en la reunion con mensaje template que utilice variables como fecha, nombre, descripcion, duracion,  localizacion de la comunidad.
+
+un formulario basico para crear un participante de la comunidad asi no tenga retiro asociado.
+
+## landing
+crear una landing page que muestre los retiros proximos y las comunidades y sus proximas reuniones
+
 ## Pepe Toño
 
 en el inventario agregar un campo que indique cuantas unidades deben comprarse y sacar un reporte de inventario a comprar.
