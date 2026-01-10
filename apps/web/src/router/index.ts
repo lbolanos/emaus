@@ -42,28 +42,33 @@ const router = createRouter({
 			path: '/login',
 			name: 'login',
 			component: LoginView,
+			meta: { requiresAuth: false },
 		},
 		{
 			path: '/request-password-reset',
 			name: 'request-password-reset',
 			component: RequestPasswordResetView,
+			meta: { requiresAuth: false },
 		},
 		{
 			path: '/reset-password',
 			name: 'reset-password',
 			component: ResetPasswordView,
+			meta: { requiresAuth: false },
 		},
 		{
 			path: '/register/:type/:retreatId',
 			name: 'registration',
 			component: ParticipantRegistrationView,
 			props: true,
+			meta: { requiresAuth: false },
 		},
 		{
 			path: '/accept-invitation/:token',
 			name: 'accept-invitation',
 			component: AcceptInvitationView,
 			props: true,
+			meta: { requiresAuth: false },
 		},
 		{
 			path: '/public/attendance/:communityId/:meetingId',
@@ -290,33 +295,45 @@ router.beforeEach(async (to, from, next) => {
 
 	if (requiresAuth && !auth.isAuthenticated) {
 		next({ name: 'login' });
-	} else if (requiresSuperadmin && !auth.isAuthenticated) {
+		return;
+	}
+
+	if (requiresSuperadmin && !auth.isAuthenticated) {
 		// Redirect unauthenticated users trying to access telemetry
 		next({ name: 'login' });
-	} else if (to.name === 'login' && auth.isAuthenticated) {
-		next({ name: 'home' });
-	} else if (to.path === '/' && auth.isAuthenticated) {
-		// New logic for root path redirection
+		return;
+	}
+
+	if (to.name === 'login' && auth.isAuthenticated) {
+		next({ name: 'walkers' });
+		return;
+	}
+
+	if (to.name === 'home' && auth.isAuthenticated) {
+		// New logic for root path redirection - only redirect if route name is 'home'
+		// This prevents infinite redirects when navigating to other routes
 		const retreatStore = useRetreatStore();
 		try {
 			await retreatStore.fetchRetreats();
 		} catch (error) {
 			console.error('Failed to fetch retreats during root path redirect:', error);
-			// Fallback if fetching retreats fails
-			next({ name: 'walkers' });
+			// Fallback if fetching retreats fails - let the route render normally
+			next();
 			return;
 		}
 
 		if (retreatStore.retreats.length > 0 && retreatStore.selectedRetreatId) {
 			// Only redirect to dashboard if we have retreats and a selected retreat
 			next({ name: 'retreat-dashboard', params: { id: retreatStore.selectedRetreatId } });
-		} else {
-			// Fallback to walkers if no retreats or no selected retreat
-			next({ name: 'walkers' });
+			return;
 		}
-	} else {
-		next();
+
+		// Fallback to walkers if no retreats or no selected retreat
+		next({ name: 'walkers' });
+		return;
 	}
+
+	next();
 });
 
 export default router;
