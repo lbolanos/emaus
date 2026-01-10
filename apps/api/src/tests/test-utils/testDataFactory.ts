@@ -407,4 +407,114 @@ export class TestDataFactory {
 			}
 		}
 	}
+
+	/**
+	 * Create a test role
+	 */
+	static async createTestRole(overrides: any = {}): Promise<any> {
+		const { Role } = await import('@/entities/role.entity');
+		const { v4: uuidv4 } = await import('uuid');
+		const roleRepository = this.testDataSource.getRepository(Role);
+		const role = roleRepository.create({
+			name: `test-role-${uuidv4()}`,
+			description: 'Test role',
+			...overrides,
+		});
+		return await roleRepository.save(role);
+	}
+
+	/**
+	 * Create a pending user with invitation token
+	 */
+	static async createPendingUserWithInvitation(retreatId: string, roleId: number): Promise<User> {
+		const { UserRetreat } = await import('@/entities/userRetreat.entity');
+		const { v4: uuidv4 } = await import('uuid');
+
+		const invitationToken = uuidv4();
+		const expiresAt = new Date();
+		expiresAt.setDate(expiresAt.getDate() + 7);
+
+		const user = await this.createTestUser({
+			isPending: true,
+			invitationToken,
+			invitationExpiresAt: expiresAt,
+		});
+
+		// Create UserRetreat record
+		const userRetreatRepository = this.testDataSource.getRepository(UserRetreat);
+		await userRetreatRepository.save({
+			userId: user.id,
+			retreatId,
+			roleId,
+			status: 'pending',
+			invitationToken,
+			expiresAt,
+		});
+
+		return user;
+	}
+
+	/**
+	 * Create a global message template
+	 */
+	static async createGlobalMessageTemplate(overrides: any = {}): Promise<any> {
+		const { GlobalMessageTemplate } = await import('@/entities/globalMessageTemplate.entity');
+		const templateRepository = this.testDataSource.getRepository(GlobalMessageTemplate);
+		const template = templateRepository.create({
+			name: `Test Template ${Date.now()}`,
+			type: 'TEST_TEMPLATE',
+			message: '<h1>Test Subject</h1><p>Hello {user.displayName}, this is a test.</p>',
+			isActive: true,
+			...overrides,
+		});
+		return await templateRepository.save(template);
+	}
+
+	/**
+	 * Create a test meeting for a community
+	 */
+	static async createTestCommunityMeeting(communityId: string, overrides: any = {}): Promise<any> {
+		const { CommunityMeeting } = await import('@/entities/communityMeeting.entity');
+		const meetingRepository = this.testDataSource.getRepository(CommunityMeeting);
+		const meeting = meetingRepository.create({
+			communityId,
+			title: 'Test Meeting',
+			startDate: new Date(),
+			durationMinutes: 60,
+			isAnnouncement: false,
+			...overrides,
+		});
+		return await meetingRepository.save(meeting);
+	}
+
+	/**
+	 * Create a test admin for a community
+	 */
+	static async createTestCommunityAdmin(communityId: string, userId: string, overrides: any = {}): Promise<any> {
+		const { CommunityAdmin } = await import('@/entities/communityAdmin.entity');
+		const adminRepository = this.testDataSource.getRepository(CommunityAdmin);
+		const admin = adminRepository.create({
+			communityId,
+			userId,
+			role: 'admin',
+			invitationToken: `test-token-${Date.now()}`,
+			status: 'pending',
+			...overrides,
+		});
+		return await adminRepository.save(admin);
+	}
+
+	/**
+	 * Create a test attendance record
+	 */
+	static async createTestCommunityAttendance(meetingId: string, memberId: string, attended: boolean): Promise<any> {
+		const { CommunityAttendance } = await import('@/entities/communityAttendance.entity');
+		const attendanceRepository = this.testDataSource.getRepository(CommunityAttendance);
+		const attendance = attendanceRepository.create({
+			meetingId,
+			memberId,
+			attended,
+		});
+		return await attendanceRepository.save(attendance);
+	}
 }

@@ -170,3 +170,39 @@ export const authTestScenarios = {
 		return requestFn().set('Authorization', `Basic ${token}`);
 	},
 };
+
+/**
+ * Helper to create mock request with user
+ */
+export function createMockRequest(user: any, body: any = {}, params: any = {}) {
+	return {
+		user,
+		body,
+		params,
+		query: {},
+	} as any;
+}
+
+/**
+ * Helper to create mock response
+ */
+export function createMockResponse() {
+	const res: any = {
+		status: jest.fn().mockReturnThis(),
+		json: jest.fn().mockReturnThis(),
+		send: jest.fn().mockReturnThis(),
+	};
+	return res;
+}
+
+/**
+ * Helper to create mock request with all properties
+ */
+export function createFullMockRequest(data: { user?: any; body?: any; params?: any; query?: any }) {
+	return {
+		user: data.user || { id: 'test-user-id' },
+		body: data.body || {},
+		params: data.params || {},
+		query: data.query || {},
+	} as any;
+}
