@@ -449,6 +449,41 @@ export const useCommunityStore = defineStore('community', () => {
 		}
 	};
 
+	const updateMemberNotes = async (communityId: string, memberId: string, notes: string | null) => {
+		loading.value = true;
+		error.value = null;
+		try {
+			const updated = await api.updateMemberNotes(communityId, memberId, notes);
+			const index = members.value.findIndex((m) => m.id === memberId);
+			if (index !== -1) {
+				members.value[index] = {
+					...members.value[index],
+					...updated,
+					participant: updated.participant || members.value[index].participant,
+				};
+			}
+			return members.value[index];
+		} catch (err: any) {
+			error.value = err.message || 'Failed to update member notes';
+			throw err;
+		} finally {
+			loading.value = false;
+		}
+	};
+
+	const fetchMemberTimeline = async (communityId: string, memberId: string) => {
+		loading.value = true;
+		error.value = null;
+		try {
+			return await api.getMemberTimeline(communityId, memberId);
+		} catch (err: any) {
+			error.value = err.message || 'Failed to fetch member timeline';
+			throw err;
+		} finally {
+			loading.value = false;
+		}
+	};
+
 	// Undo the last action
 	const undoLastAction = async () => {
 		const action = actionHistory.value.pop();
@@ -503,6 +538,8 @@ export const useCommunityStore = defineStore('community', () => {
 		fetchPotentialMembers,
 		updateMemberState,
 		removeMember,
+		updateMemberNotes,
+		fetchMemberTimeline,
 		fetchMeetings,
 		createMeeting,
 		updateMeeting,

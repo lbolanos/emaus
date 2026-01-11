@@ -299,6 +299,11 @@ when clic in importar miembros the dialog is not closed
 
 enhance the ux and usability of all community views
 
+se debe contar desde la fecha de ingreso para el porcentaje de participacion de los miembros de la comunidad
+
+agregar notas a los participantes de la comunidad
+agregar historial de reuniones y eventos de un miembro
+un boton para mostrar todos los mensajes enviados a un participante y la forma de enviar un mensaje tal como se hace en apps/web/src/components/ParticipantList.vue
 ## IN PROGRESS
 
 apps/web/src/components/layout/Sidebar.vue apps/web/src/components/layout/Header.vue docs_dev/HELP_SYSTEM_GUIDE.md
@@ -306,8 +311,6 @@ necesito que mejores la usabilidad y user experience del sitio. hay temas global
 cuando se selecciona retiros se muestra para poder seleccionar el retiro. Pero si selecciona alguna otra no se necesita seleccionar retiro.
 agrega la documenatcion necesaria acerca de esto en apps/web/src/docs
 
-aumentar el coverage de las pruebas
-verificar que todas la pruebas pasen.
 
 ## TODO
 
@@ -346,12 +349,12 @@ Notificaciones por correo a los administradores del retiro de eventos como Camin
 que los caminantes no vayan con la persona que lo invito
 no deja enviar correo de invitacion si el usuario existe
 
+
+aumentar el coverage de las pruebas
+verificar que todas la pruebas pasen.
+
 ## comunidades
 
-se debe contar desde la fecha de ingreso para el porcentaje de participacion
-agregar notas de participantes de la comunidad
-agregar historial de reuniones y eventos de un miembro
-un boton para mostrar todos los mensajes enviados a un participante y la forma de enviar un mensaje tal como se hace en apps/web/src/components/ParticipantList.vue
 
 Implementar la funcionalidad de invitar un usuario a ser administrador de la comunidad
 

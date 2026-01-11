@@ -54,6 +54,7 @@ export const communityMemberSchema = z.object({
 	state: MemberStateEnum.default('active_member'),
 	joinedAt: z.coerce.date(),
 	updatedAt: z.coerce.date(),
+	notes: z.string().nullable().optional(),
 	// Join relations (not always present)
 	participant: z.any().optional(),
 	// Calculated fields

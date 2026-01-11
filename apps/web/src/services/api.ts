@@ -860,3 +860,17 @@ export async function acceptCommunityInvitation(token: string): Promise<Communit
 export async function revokeCommunityAdmin(communityId: string, userId: string): Promise<void> {
 	await api.delete(`/communities/${communityId}/admins/${userId}`);
 }
+
+export async function updateMemberNotes(
+	communityId: string,
+	memberId: string,
+	notes: string | null,
+): Promise<CommunityMember> {
+	const response = await api.patch(`/communities/${communityId}/members/${memberId}/notes`, { notes });
+	return response.data;
+}
+
+export async function getMemberTimeline(communityId: string, memberId: string): Promise<any> {
+	const response = await api.get(`/communities/${communityId}/members/${memberId}/timeline`);
+	return response.data;
+}

@@ -45,6 +45,9 @@ export class CommunityMember {
 	@CreateDateColumn()
 	joinedAt!: Date;
 
+	@Column({ type: 'text', nullable: true })
+	notes?: string | null;
+
 	@UpdateDateColumn()
 	updatedAt!: Date;
 }

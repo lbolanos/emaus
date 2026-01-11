@@ -95,6 +95,26 @@ export class CommunityController {
 		res.status(204).send();
 	}
 
+	static async updateMemberNotes(req: Request, res: Response) {
+		const { memberId } = req.params;
+		const { notes } = req.body;
+		const member = await communityService.updateMemberNotes(memberId, notes);
+		res.json(member);
+	}
+
+	static async getMemberTimeline(req: Request, res: Response) {
+		const { memberId } = req.params;
+		try {
+			const timeline = await communityService.getMemberTimeline(memberId);
+			res.json(timeline);
+		} catch (error: any) {
+			if (error.message === 'Member not found') {
+				return res.status(404).json({ message: 'Member not found' });
+			}
+			throw error;
+		}
+	}
+
 	// --- Meeting Management ---
 
 	static async createMeeting(req: Request, res: Response) {

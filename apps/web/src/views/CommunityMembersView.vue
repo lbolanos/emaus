@@ -60,6 +60,61 @@
             </SelectItem>
           </SelectContent>
         </Select>
+
+        <!-- Column Settings Dropdown -->
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button variant="outline" size="icon">
+              <Settings2 class="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" class="w-48">
+            <div class="px-2 py-1.5 text-sm font-medium text-muted-foreground">
+              Columnas visibles
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem @click="visibleColumns.name = !visibleColumns.name">
+              <div class="flex items-center gap-2">
+                <div class="w-4 h-4 border rounded flex items-center justify-center">
+                  <Check v-if="visibleColumns.name" class="w-3 h-3" />
+                </div>
+                <span>Nombre</span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem @click="visibleColumns.email = !visibleColumns.email">
+              <div class="flex items-center gap-2">
+                <div class="w-4 h-4 border rounded flex items-center justify-center">
+                  <Check v-if="visibleColumns.email" class="w-3 h-3" />
+                </div>
+                <span>Email</span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem @click="visibleColumns.state = !visibleColumns.state">
+              <div class="flex items-center gap-2">
+                <div class="w-4 h-4 border rounded flex items-center justify-center">
+                  <Check v-if="visibleColumns.state" class="w-3 h-3" />
+                </div>
+                <span>Estado</span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem @click="visibleColumns.attendance = !visibleColumns.attendance">
+              <div class="flex items-center gap-2">
+                <div class="w-4 h-4 border rounded flex items-center justify-center">
+                  <Check v-if="visibleColumns.attendance" class="w-3 h-3" />
+                </div>
+                <span>Asistencia</span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem @click="visibleColumns.actions = !visibleColumns.actions">
+              <div class="flex items-center gap-2">
+                <div class="w-4 h-4 border rounded flex items-center justify-center">
+                  <Check v-if="visibleColumns.actions" class="w-3 h-3" />
+                </div>
+                <span>Acciones</span>
+              </div>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <!-- Filter Presets -->
@@ -112,44 +167,44 @@
         <Table class="text-sm">
           <TableHeader>
             <TableRow>
-              <TableHead>
+              <TableHead v-if="visibleColumns.name">
                 <button @click="sortBy('name')" class="flex items-center gap-1 hover:text-primary transition-colors">
                   {{ $t('participants.name') }}
                   <ChevronUp v-if="sortColumn === 'name' && sortDirection === 'asc'" class="w-3.5 h-3.5" />
                   <ChevronDown v-if="sortColumn === 'name' && sortDirection === 'desc'" class="w-3.5 h-3.5" />
                 </button>
               </TableHead>
-              <TableHead>
+              <TableHead v-if="visibleColumns.email">
                 <button @click="sortBy('email')" class="flex items-center gap-1 hover:text-primary transition-colors">
                   {{ $t('participants.email') }}
                   <ChevronUp v-if="sortColumn === 'email' && sortDirection === 'asc'" class="w-3.5 h-3.5" />
                   <ChevronDown v-if="sortColumn === 'email' && sortDirection === 'desc'" class="w-3.5 h-3.5" />
                 </button>
               </TableHead>
-              <TableHead>
+              <TableHead v-if="visibleColumns.state">
                 <button @click="sortBy('state')" class="flex items-center gap-1 hover:text-primary transition-colors">
                   {{ $t('community.admin.status') }}
                   <ChevronUp v-if="sortColumn === 'state' && sortDirection === 'asc'" class="w-3.5 h-3.5" />
                   <ChevronDown v-if="sortColumn === 'state' && sortDirection === 'desc'" class="w-3.5 h-3.5" />
                 </button>
               </TableHead>
-              <TableHead>
+              <TableHead v-if="visibleColumns.attendance">
                 <button @click="sortBy('attendance')" class="flex items-center gap-1 hover:text-primary transition-colors">
                   {{ $t('community.participationRate') }}
                   <ChevronUp v-if="sortColumn === 'attendance' && sortDirection === 'asc'" class="w-3.5 h-3.5" />
                   <ChevronDown v-if="sortColumn === 'attendance' && sortDirection === 'desc'" class="w-3.5 h-3.5" />
                 </button>
               </TableHead>
-              <TableHead>{{ $t('participants.actions') }}</TableHead>
+              <TableHead v-if="visibleColumns.actions">{{ $t('participants.actions') }}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             <TableRow v-for="member in filteredMembers" :key="member.id" class="hover:bg-muted/50">
-              <TableCell class="font-medium py-2">
+              <TableCell v-if="visibleColumns.name" class="font-medium py-2">
                 {{ member.participant?.firstName }} {{ member.participant?.lastName }}
               </TableCell>
-              <TableCell class="py-2">{{ member.participant?.email }}</TableCell>
-              <TableCell class="py-2">
+              <TableCell v-if="visibleColumns.email" class="py-2">{{ member.participant?.email }}</TableCell>
+              <TableCell v-if="visibleColumns.state" class="py-2">
                 <Select
                   :model-value="member.state"
                   @update:model-value="updateMemberState(member.id, $event)"
@@ -164,27 +219,66 @@
                   </SelectContent>
                 </Select>
               </TableCell>
-              <TableCell class="py-2">
+              <TableCell v-if="visibleColumns.attendance" class="py-2">
                 <Badge :variant="getFrequencyVariant(member.lastMeetingsFrequency)" class="text-xs">
                   {{ $t(`community.participationFrequency.${member.lastMeetingsFrequency?.toLowerCase() || 'none'}`) }}
                   ({{ Math.round(member.lastMeetingsAttendanceRate || 0) }}%)
                 </Badge>
               </TableCell>
-              <TableCell>
-                <Tooltip>
-                  <TooltipTrigger as-child>
-                    <Button variant="ghost" size="icon" @click="confirmRemove(member)" class="text-destructive">
-                      <UserMinus class="w-4 h-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Eliminar miembro</p>
-                  </TooltipContent>
-                </Tooltip>
+              <TableCell v-if="visibleColumns.actions">
+                <div class="flex items-center -space-x-3">
+                  <!-- Notes Button -->
+                  <Tooltip>
+                    <TooltipTrigger as-child>
+                      <Button variant="ghost" size="icon" @click="openNotesDialog(member)">
+                        <FileText class="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Notas</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <!-- Timeline Button -->
+                  <Tooltip>
+                    <TooltipTrigger as-child>
+                      <Button variant="ghost" size="icon" @click="openTimelineDialog(member)">
+                        <History class="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Historial</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <!-- Message Button -->
+                  <Tooltip>
+                    <TooltipTrigger as-child>
+                      <Button variant="ghost" size="icon" @click="openMessageDialog(member)">
+                        <MessageSquare class="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Mensajes</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <!-- Remove Button -->
+                  <Tooltip>
+                    <TooltipTrigger as-child>
+                      <Button variant="ghost" size="icon" @click="confirmRemove(member)" class="text-destructive">
+                        <UserMinus class="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Eliminar miembro</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
               </TableCell>
             </TableRow>
             <TableRow v-if="filteredMembers.length === 0">
-              <TableCell colspan="5" class="text-center py-8 text-muted-foreground">
+              <TableCell :colspan="visibleColumnCount" class="text-center py-8 text-muted-foreground">
                 No members found.
               </TableCell>
             </TableRow>
@@ -216,26 +310,51 @@
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <!-- Notes Dialog -->
+    <MemberNotesDialog
+      v-model:open="isNotesDialogOpen"
+      :member="notesMember"
+      @save="saveNotes"
+    />
+
+    <!-- Timeline Dialog -->
+    <MemberTimelineDialog
+      v-model:open="isTimelineDialogOpen"
+      :member="timelineMember"
+      :timeline-data="timelineData"
+      :loading="timelineLoading"
+    />
+
+    <!-- Message Dialog -->
+    <MessageDialog
+      v-model:open="isMessageDialogOpen"
+      :participant="messageParticipant"
+    />
     </div>
   </TooltipProvider>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
-import { Loader2, UserPlus, UserMinus, Search, ChevronRight, ChevronUp, ChevronDown, Download } from 'lucide-vue-next';
+import { Loader2, UserPlus, UserMinus, Search, ChevronRight, ChevronUp, ChevronDown, Download, FileText, History, MessageSquare, Settings2, Eye, EyeOff, Check } from 'lucide-vue-next';
 import {
   Button, Input, Card, Badge,
   Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator
 } from '@repo/ui';
 import { useToast } from '@repo/ui';
 import ImportMembersModal from '@/components/community/ImportMembersModal.vue';
 import SkeletonCard from '@/components/community/SkeletonCard.vue';
+import MemberNotesDialog from '@/components/community/MemberNotesDialog.vue';
+import MemberTimelineDialog from '@/components/community/MemberTimelineDialog.vue';
+import MessageDialog from '@/components/MessageDialog.vue';
 import { MemberStateEnum, type MemberState } from '@repo/types';
 
 const { t: $t } = useI18n();
@@ -252,6 +371,53 @@ const searchQuery = ref('');
 const stateFilter = ref('all');
 const isImportModalOpen = ref(false);
 const memberToRemove = ref<any>(null);
+
+// Notes dialog state
+const notesMember = ref<any>(null);
+const isNotesDialogOpen = ref(false);
+
+// Timeline dialog state
+const timelineMember = ref<any>(null);
+const timelineData = ref<any>(null);
+const isTimelineDialogOpen = ref(false);
+const timelineLoading = ref(false);
+
+// Message dialog state
+const messageParticipant = ref<any>(null);
+const isMessageDialogOpen = ref(false);
+
+// Column visibility state with localStorage
+const STORAGE_KEY = 'community-members-columns';
+
+interface ColumnVisibility {
+  name: boolean;
+  email: boolean;
+  state: boolean;
+  attendance: boolean;
+  actions: boolean;
+}
+
+const defaultColumns: ColumnVisibility = {
+  name: true,
+  email: false, // Hidden by default
+  state: true,
+  attendance: true,
+  actions: true,
+};
+
+const visibleColumns = ref<ColumnVisibility>(
+  JSON.parse(localStorage.getItem(STORAGE_KEY) || JSON.stringify(defaultColumns))
+);
+
+// Watch for changes and save to localStorage
+watch(visibleColumns, (newValue) => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(newValue));
+}, { deep: true });
+
+// Get visible column count for colspan
+const visibleColumnCount = computed(() => {
+  return Object.values(visibleColumns.value).filter(v => v).length;
+});
 
 // Sort state
 const sortColumn = ref<'name' | 'email' | 'state' | 'attendance'>('attendance');
@@ -354,14 +520,15 @@ const getFrequencyVariant = (frequency: string | undefined): any => {
 
 const exportMembers = () => {
   try {
-    const headers = ['Nombre', 'Email', 'Teléfono', 'Estado', 'Frecuencia de Participación', '% Asistencia'];
+    const headers = ['Nombre', 'Email', 'Teléfono', 'Estado', 'Frecuencia de Participación', '% Asistencia', 'Notas'];
     const rows = members.value.map(m => [
       `${m.participant?.firstName || ''} ${m.participant?.lastName || ''}`.trim(),
       m.participant?.email || '',
       m.participant?.cellPhone || m.participant?.homePhone || '',
       $t(`community.memberStates.${m.state}`),
       $t(`community.participationFrequency.${m.lastMeetingsFrequency?.toLowerCase() || 'none'}`),
-      `${Math.round(m.lastMeetingsAttendanceRate || 0)}%`
+      `${Math.round(m.lastMeetingsAttendanceRate || 0)}%`,
+      m.notes || ''
     ]);
 
     const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
@@ -389,5 +556,55 @@ const exportMembers = () => {
       variant: 'destructive',
     });
   }
+};
+
+// Notes dialog handlers
+const openNotesDialog = (member: any) => {
+  notesMember.value = { ...member }; // Clone to avoid direct mutation
+  isNotesDialogOpen.value = true;
+};
+
+const saveNotes = async (notes: string | null) => {
+  if (!notesMember.value) return;
+  try {
+    await communityStore.updateMemberNotes(props.id, notesMember.value.id, notes);
+    toast({
+      title: 'Notas guardadas',
+      description: 'Las notas han sido actualizadas correctamente.',
+    });
+    isNotesDialogOpen.value = false;
+  } catch (error) {
+    console.error('Failed to save notes:', error);
+    toast({
+      title: 'Error al guardar notas',
+      description: error instanceof Error ? error.message : 'Unknown error',
+      variant: 'destructive',
+    });
+  }
+};
+
+// Timeline dialog handlers
+const openTimelineDialog = async (member: any) => {
+  timelineMember.value = member;
+  isTimelineDialogOpen.value = true;
+  timelineLoading.value = true;
+  try {
+    timelineData.value = await communityStore.fetchMemberTimeline(props.id, member.id);
+  } catch (error) {
+    console.error('Failed to fetch timeline:', error);
+    toast({
+      title: 'Error al cargar historial',
+      description: error instanceof Error ? error.message : 'Unknown error',
+      variant: 'destructive',
+    });
+  } finally {
+    timelineLoading.value = false;
+  }
+};
+
+// Message dialog handlers
+const openMessageDialog = (member: any) => {
+  messageParticipant.value = member.participant;
+  isMessageDialogOpen.value = true;
 };
 </script>

@@ -81,6 +81,12 @@ router.put(
 router.delete('/:id/members/:memberId', requirePermission('community:update'), (req, res) =>
 	CommunityController.removeMember(req, res),
 );
+router.patch('/:id/members/:memberId/notes', requirePermission('community:update'), (req, res) =>
+	CommunityController.updateMemberNotes(req, res),
+);
+router.get('/:id/members/:memberId/timeline', requirePermission('community:read'), (req, res) =>
+	CommunityController.getMemberTimeline(req, res),
+);
 
 // Meetings
 router.get('/:id/meetings', requirePermission('community:read'), (req, res) =>

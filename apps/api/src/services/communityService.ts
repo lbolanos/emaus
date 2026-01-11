@@ -211,6 +211,44 @@ export class CommunityService {
 		await this.memberRepo.delete(memberId);
 	}
 
+	async updateMemberNotes(memberId: string, notes: string | null) {
+		await this.memberRepo.update(memberId, { notes });
+		return this.memberRepo.findOne({
+			where: { id: memberId },
+			relations: ['participant', 'community'],
+		});
+	}
+
+	async getMemberTimeline(memberId: string) {
+		const member = await this.memberRepo.findOne({
+			where: { id: memberId },
+			relations: ['participant', 'community'],
+		});
+
+		if (!member) {
+			throw new Error('Member not found');
+		}
+
+		// Get all attendance records for this member
+		const attendances = await this.attendanceRepo.find({
+			where: { memberId },
+			relations: ['meeting'],
+			order: { recordedAt: 'DESC' },
+		});
+
+		// Get all meetings for this community to build timeline
+		const meetings = await this.meetingRepo.find({
+			where: { communityId: member.communityId },
+			order: { startDate: 'DESC' },
+		});
+
+		return {
+			member,
+			attendances,
+			meetings,
+		};
+	}
+
 	// --- Meeting Management ---
 
 	async createMeeting(communityId: string, data: Partial<CommunityMeeting>) {
