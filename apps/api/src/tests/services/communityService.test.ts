@@ -51,6 +51,18 @@ describe('Community Service', () => {
 			expect(communities.length).toBeGreaterThan(0);
 			expect(communities[0].id).toBe(testCommunity.id);
 		});
+
+		it('should include memberCount in communities', async () => {
+			// Create some members for the test community
+			const p1 = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const p2 = await TestDataFactory.createTestParticipant(testRetreat.id);
+			await TestDataFactory.createTestCommunityMember(testCommunity.id, p1.id);
+			await TestDataFactory.createTestCommunityMember(testCommunity.id, p2.id);
+
+			const communities = await service.getCommunities(testUser.id);
+			expect(communities.length).toBeGreaterThan(0);
+			expect(communities[0].memberCount).toBe(2);
+		});
 	});
 
 	describe('Member Management', () => {

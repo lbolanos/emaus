@@ -126,6 +126,82 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * Community Admin Management Page
+ *
+ * PURPOSE:
+ * This page allows community administrators to manage other administrators for their community.
+ * It displays current active admins, pending invitations, and provides actions for inviting
+ * new admins and revoking access.
+ *
+ * ROLES & PERMISSIONS:
+ * - Only active community admins can access this page (enforced by requireCommunityAccess middleware)
+ * - The community creator (createdBy user) cannot be removed
+ * - All admins can invite new admins and revoke pending invitations
+ * - Only the creator can revoke other active admins
+ *
+ * ADMIN STATUS FLOW:
+ * 1. PENDING → User has been invited but hasn't accepted yet
+ *    - Shows in "Pending Invitations" section
+ *    - Can copy invitation link or revoke invitation
+ *    - invitationToken is set, acceptedAt is null
+ *
+ * 2. ACTIVE → User has accepted the invitation
+ *    - Shows in "Current Admins" section
+ *    - Has full admin access to the community
+ *    - invitationToken is null, acceptedAt is set
+ *
+ * 3. REVOKED → Admin access has been removed
+ *    - No longer shown in any list
+ *    - Cannot access community features
+ *
+ * INVITATION PROCESS:
+ * 1. Click "Invite Admin" button → Opens InviteAdminModal
+ * 2. Enter email address of existing user
+ * 3. System calls POST /api/communities/:id/admins/invite
+ *    - Validates user exists in the system
+ *    - Creates CommunityAdmin record with status='pending'
+ *    - Generates unique invitationToken (UUID)
+ *    - Sets invitationExpiresAt = 7 days from now
+ *    - Returns the token
+ * 4. Modal displays invitation link: /accept-community-invitation/{token}
+ * 5. Admin copies link and sends it to the invited user (via email, chat, etc.)
+ * 6. Invited user visits link and accepts (see AcceptCommunityInvitationView docs)
+ *
+ * REVOCATION PROCESS:
+ * 1. Click revoke button on admin or pending invitation
+ * 2. Confirmation dialog appears
+ * 3. System calls DELETE /api/communities/:id/admins/:userId
+ *    - Updates CommunityAdmin record: status='revoked'
+ *    - Clears invitationToken
+ *    - Invalidates user's permission cache
+ * 4. User no longer has admin access
+ *
+ * DATA STRUCTURE:
+ * - CommunityAdmin entity fields:
+ *   - id: UUID
+ *   - communityId: UUID (foreign key to Community)
+ *   - userId: UUID (foreign key to User)
+ *   - status: 'pending' | 'active' | 'revoked'
+ *   - role: 'admin' | 'owner' (owner is the creator)
+ *   - invitationToken: UUID | null (set when pending, cleared when accepted)
+ *   - invitationExpiresAt: Date | null (7 days after creation)
+ *   - acceptedAt: Date | null (set when user accepts)
+ *   - createdAt: Date
+ *   - updatedAt: Date
+ *
+ * API ENDPOINTS:
+ * - GET /api/communities/:id/admins - List all admins (requires community access)
+ * - POST /api/communities/:id/admins/invite - Invite new admin (requires community access)
+ * - DELETE /api/communities/:id/admins/:userId - Revoke admin (requires community access)
+ *
+ * SECURITY:
+ * - Only existing users can be invited (user must exist in User table)
+ * - Creator cannot be revoked
+ * - Invited user's email must match the email they use to login
+ * - Tokens expire after 7 days
+ * - Permission cache is invalidated on revoke
+ */
 import { ref, onMounted, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useCommunityStore } from '@/stores/communityStore';
@@ -184,7 +260,7 @@ const handleRevoke = async () => {
 };
 
 const copyInviteLink = (invitation: any) => {
-  const link = `${window.location.origin}/accept-invitation/${invitation.invitationToken}`;
+  const link = `${window.location.origin}/accept-community-invitation/${invitation.invitationToken}`;
   navigator.clipboard.writeText(link);
   toast({
     title: 'Copied',

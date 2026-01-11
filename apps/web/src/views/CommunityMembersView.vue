@@ -28,6 +28,17 @@
           </Button>
           <Tooltip>
             <TooltipTrigger as-child>
+              <Button @click="isCreateModalOpen = true">
+                <UserPlus class="w-4 h-4 mr-2" />
+                Crear miembro
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Crear nuevo miembro de comunidad</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger as-child>
               <Button @click="isImportModalOpen = true">
                 <UserPlus class="w-4 h-4 mr-2" />
                 {{ $t('community.import.title') }}
@@ -331,6 +342,13 @@
       v-model:open="isMessageDialogOpen"
       :participant="messageParticipant"
     />
+
+    <CreateMemberModal
+      v-if="currentCommunity"
+      v-model:open="isCreateModalOpen"
+      :community-id="currentCommunity.id"
+      @created="fetchMembers"
+    />
     </div>
   </TooltipProvider>
 </template>
@@ -351,6 +369,7 @@ import {
 } from '@repo/ui';
 import { useToast } from '@repo/ui';
 import ImportMembersModal from '@/components/community/ImportMembersModal.vue';
+import CreateMemberModal from '@/components/community/CreateMemberModal.vue';
 import SkeletonCard from '@/components/community/SkeletonCard.vue';
 import MemberNotesDialog from '@/components/community/MemberNotesDialog.vue';
 import MemberTimelineDialog from '@/components/community/MemberTimelineDialog.vue';
@@ -370,6 +389,7 @@ const { toast } = useToast();
 const searchQuery = ref('');
 const stateFilter = ref('all');
 const isImportModalOpen = ref(false);
+const isCreateModalOpen = ref(false);
 const memberToRemove = ref<any>(null);
 
 // Notes dialog state

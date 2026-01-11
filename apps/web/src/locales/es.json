@@ -1178,6 +1178,7 @@
     "description": "Descripción",
     "meetings": "Reuniones",
     "membersLabel": "Miembros",
+    "adminsLabel": "Administradores",
     "participationRate": "Frecuencia de Participación",
     "dashboard": "Dashboard",
     "admins": "Administradores",
@@ -1297,6 +1298,8 @@
     "admin": {
       "title": "Administradores de Comunidad",
       "invite": "Invitar Administrador",
+      "inviteDesc": "Invita a otro usuario a ayudar a administrar esta comunidad como coadministrador.",
+      "email": "Correo electrónico",
       "admins": "Administradores",
       "currentAdmins": "Administradores Actuales",
       "pendingInvitations": "Invitaciones Pendientes",

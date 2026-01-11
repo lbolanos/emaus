@@ -66,6 +66,21 @@
               />
               <p class="text-xs text-muted-foreground">Información adicional para los miembros (opcional)</p>
             </div>
+
+            <!-- Flyer Template -->
+            <div class="space-y-2">
+              <Label for="flyerTemplate">Plantilla del Flyer</Label>
+              <Textarea
+                id="flyerTemplate"
+                v-model="form.flyerTemplate"
+                placeholder="Usa variables como {{fecha}}, {{hora}}, {{nombre}}, {{descripcion}}, {{duracion}}, {{ubicacion}}, {{comunidad}}..."
+                rows="6"
+              />
+              <p class="text-xs text-muted-foreground">
+                Variables disponibles:
+                <span v-html="variableExamples"></span>
+              </p>
+            </div>
           </TabsContent>
 
           <TabsContent value="datetime" class="flex-1 overflow-y-auto mt-4">
@@ -179,6 +194,9 @@ import type { RecurrenceFrequency } from '@repo/types';
 import MeetingDateTimeForm from './forms/MeetingDateTimeForm.vue';
 import MeetingRecurrenceForm from './forms/MeetingRecurrenceForm.vue';
 
+// Variable examples for template
+const variableExamples = `<code class="bg-muted px-1 rounded">{{fecha}}</code>, <code class="bg-muted px-1 rounded">{{hora}}</code>, <code class="bg-muted px-1 rounded">{{nombre}}</code>, <code class="bg-muted px-1 rounded">{{descripcion}}</code>, <code class="bg-muted px-1 rounded">{{duracion}}</code>, <code class="bg-muted px-1 rounded">{{ubicacion}}</code>, <code class="bg-muted px-1 rounded">{{comunidad}}</code>`;
+
 const props = defineProps<{
   open: boolean;
   communityId: string;
@@ -197,6 +215,7 @@ const updateScope = ref<'this' | 'all' | 'all_future'>('this');
 const form = ref({
   title: '',
   description: '',
+  flyerTemplate: '',
   date: '',
   time: '',
   durationMinutes: 60,
@@ -316,31 +335,26 @@ const handleSubmit = async () => {
     const data: any = {
       title: form.value.title.trim(),
       description: form.value.description.trim() || undefined,
+      flyerTemplate: form.value.flyerTemplate.trim() || undefined,
       startDate,
       durationMinutes: form.value.isAnnouncement ? undefined : form.value.durationMinutes,
       isAnnouncement: form.value.isAnnouncement
     };
 
-    // Add or remove recurrence data
+    // Add recurrence data only if meeting is recurring and not an announcement
     if (form.value.isRecurring && !form.value.isAnnouncement) {
-      // Add recurrence data
       data.recurrenceFrequency = form.value.recurrence.frequency;
       data.recurrenceInterval = form.value.recurrence.frequency === 'weekly'
         ? form.value.recurrence.interval
         : 1;
       data.recurrenceDayOfWeek = form.value.recurrence.frequency === 'weekly'
         ? form.value.recurrence.dayOfWeek
-        : null;
+        : undefined;
       data.recurrenceDayOfMonth = form.value.recurrence.frequency === 'monthly'
         ? form.value.recurrence.dayOfMonth
-        : null;
-    } else {
-      // Explicitly remove recurrence by setting to null
-      data.recurrenceFrequency = null;
-      data.recurrenceInterval = null;
-      data.recurrenceDayOfWeek = null;
-      data.recurrenceDayOfMonth = null;
+        : undefined;
     }
+    // Don't include recurrence fields if not recurring (they'll be undefined)
 
     if (editingMeeting.value) {
       const scope = editingMeeting.value.isRecurrenceTemplate ? updateScope.value : 'this';
@@ -406,6 +420,7 @@ const resetForm = () => {
   form.value = {
     title: '',
     description: '',
+    flyerTemplate: '',
     date: '',
     time: '',
     durationMinutes: 60,
@@ -438,6 +453,7 @@ watch(() => props.meetingToEdit, (meeting) => {
     form.value = {
       title: meeting.title,
       description: meeting.description || '',
+      flyerTemplate: meeting.flyerTemplate || '',
       date: startDate.toISOString().split('T')[0],
       time: startDate.toTimeString().slice(0, 5),
       durationMinutes: meeting.durationMinutes || 60,

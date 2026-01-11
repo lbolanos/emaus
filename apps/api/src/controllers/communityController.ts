@@ -65,6 +65,13 @@ export class CommunityController {
 		res.status(201).json(member);
 	}
 
+	static async createCommunityMember(req: Request, res: Response) {
+		const { id } = req.params;
+		const participantData = req.body;
+		const member = await communityService.createCommunityMember(id, participantData);
+		res.status(201).json(member);
+	}
+
 	static async importFromRetreat(req: Request, res: Response) {
 		const { id } = req.params;
 		const { retreatId, participantIds } = req.body;

@@ -23,6 +23,12 @@
               {{ $t('community.meetings') }}
             </router-link>
           </Button>
+          <Button variant="outline" as-child>
+            <router-link :to="{ name: 'community-admins', params: { id: currentCommunity.id } }">
+              <UserCog class="mr-2 h-4 w-4" />
+              {{ $t('community.adminsLabel') }}
+            </router-link>
+          </Button>
         </div>
       </div>
 
@@ -93,7 +99,7 @@
 import { ref, onMounted, computed, watch } from 'vue';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
-import { Users, Calendar, CalendarCheck, Loader2 } from 'lucide-vue-next';
+import { Users, Calendar, CalendarCheck, Loader2, UserCog } from 'lucide-vue-next';
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@repo/ui';
 import { Pie } from 'vue-chartjs';
 import { Chart as ChartJS, Title, Tooltip, Legend, ArcElement, CategoryScale } from 'chart.js';

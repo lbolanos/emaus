@@ -98,7 +98,39 @@ El panel de la comunidad proporciona información sobre:
 3. Ingrese la dirección de correo electrónico del usuario
 4. Haga clic en **Enviar Invitación**
 
-El usuario recibirá un enlace de invitación válido por 7 días.
+El sistema generará un enlace de invitación que puede compartir con el usuario.
+
+### Compartir el Enlace de Invitación
+
+Después de crear una invitación:
+
+1. Copie el enlace de invitación que se muestra en la ventana modal
+2. Compártalo con el usuario invitado por correo electrónico, chat o cualquier otro método
+3. El enlace de invitación es válido por 7 días
+
+El enlace se verá así: `https://tu-dominio.com/accept-community-invitation/{token}`
+
+### Qué Debe Hacer el Usuario Invitado
+
+Cuando un usuario recibe un enlace de invitación:
+
+1. **Haga clic en el enlace de invitación** - Esto abrirá la página de aceptación de invitación
+2. **Si no ha iniciado sesión**:
+   - Haga clic en "Iniciar Sesión"
+   - El sistema recordará el token de invitación
+   - Después de iniciar sesión, regrese al mismo enlace
+3. **Revise los detalles de la invitación**:
+   - Nombre de la comunidad
+   - Su dirección de correo electrónico
+   - Fecha de vencimiento
+4. **Haga clic en "Aceptar Invitación"**
+5. **Espere la confirmación** - Será redirigido al panel de la comunidad
+
+Después de aceptar:
+- La comunidad aparecerá en su barra lateral bajo "Comunidades"
+- Tendrá acceso completo de administrador para administrar miembros, reuniones y ver análisis
+
+**Importante**: El usuario ya debe tener una cuenta en el sistema. Si no tiene una cuenta, necesita crear una primero antes de aceptar la invitación.
 
 ### Roles de Administrador
 

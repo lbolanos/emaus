@@ -163,6 +163,24 @@ export const useCommunityStore = defineStore('community', () => {
 		}
 	};
 
+	const createMember = async (
+		communityId: string,
+		participantData: { firstName: string; lastName: string; email: string; cellPhone: string },
+	) => {
+		loading.value = true;
+		error.value = null;
+		try {
+			const newMember = await api.createCommunityMember(communityId, participantData);
+			members.value.push(newMember);
+			return newMember;
+		} catch (err: any) {
+			error.value = err.message || 'Failed to create member';
+			throw err;
+		} finally {
+			loading.value = false;
+		}
+	};
+
 	const fetchPotentialMembers = async (communityId: string, retreatId: string) => {
 		loading.value = true;
 		error.value = null;
@@ -535,6 +553,7 @@ export const useCommunityStore = defineStore('community', () => {
 		deleteCommunity,
 		fetchMembers,
 		importMembers,
+		createMember,
 		fetchPotentialMembers,
 		updateMemberState,
 		removeMember,

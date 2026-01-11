@@ -313,6 +313,7 @@ agrega la documenatcion necesaria acerca de esto en apps/web/src/docs
 
 
 ## TODO
+al registrar un servidor es posible que ya exista como caminante que debemos hacer en este caso?
 
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
 agregar todas las actividades por servidor
@@ -358,9 +359,9 @@ verificar que todas la pruebas pasen.
 
 Implementar la funcionalidad de invitar un usuario a ser administrador de la comunidad
 
-agregar una flyer para la reunion que pueda salvarse como pdf para que tengan el link de la ubicacion. Crear un campo en la reunion con mensaje template que utilice variables como fecha, nombre, descripcion, duracion, localizacion de la comunidad.
+agregar una flyer para la reunion que pueda salvarse como pdf para que tengan el link de la ubicacion o imprimirse con el QR de la ubicacion. Crear un campo en la reunion con mensaje template que utilice variables como fecha, nombre, descripcion, duracion, localizacion de la comunidad para mostrar en el flyer.
 
-un formulario basico para crear un participante de la comunidad asi no tenga retiro asociado.
+agregar un formulario basico para crear un participante de la comunidad asi no tenga retiro asociado.
 
 ## landing
 

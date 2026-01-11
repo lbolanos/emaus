@@ -370,6 +370,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@repo/
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useUIStore } from '@/stores/ui';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
+import { useCommunityStore } from '@/stores/communityStore';
 
 type PermissionType = 'retreat' | 'participant' | 'table' | 'house' | 'user' | 'retreatInventory' | 'inventoryItem' | 'payment' | 'responsability' | 'messageTemplate' | 'superadmin';
 
@@ -395,6 +396,7 @@ interface MenuSection {
 const auth = useAuthStore();
 const router = useRouter();
 const retreatStore = useRetreatStore();
+const communityStore = useCommunityStore();
 const uiStore = useUIStore();
 const { isSidebarCollapsed } = storeToRefs(uiStore);
 const { can } = useAuthPermissions();
@@ -460,7 +462,7 @@ const menuSections: MenuSection[] = [
         name: 'communities',
         routeName: 'communities',
         icon: UsersRound,
-        permission: 'superadmin', // Only superadmins/admins see list. Admin permission logic will be handled inside.
+        // No permission required - shown to superadmins and community admins
         requiresRetreat: false,
         label: 'sidebar.communities'
       }
@@ -707,6 +709,13 @@ const filteredMenuSections = computed(() => {
       if (item.requiresRetreat && !retreatStore.selectedRetreatId) return false;
       if (item.permission === 'superadmin' && !auth.userProfile?.roles?.some(role => role.role.name === 'superadmin')) return false;
 
+      // Special case for communities - show if superadmin OR if user has communities
+      if (item.name === 'communities') {
+        const isSuperadmin = auth.userProfile?.roles?.some(role => role.role.name === 'superadmin');
+        const hasCommunities = communityStore.communities.length > 0;
+        if (!isSuperadmin && !hasCommunities) return false;
+      }
+
       // Special case for role management - requires user:manage permission
       if (item.name === 'role-management') {
         const hasUserManage = can.manage('user');
@@ -714,7 +723,7 @@ const filteredMenuSections = computed(() => {
       }
 
       // Standard permission check for other items
-      if (item.permission && item.permission !== 'superadmin' && item.name !== 'role-management') {
+      if (item.permission && item.permission !== 'superadmin' && item.name !== 'role-management' && item.name !== 'communities') {
         const hasPermission = can.read(item.permission);
         if (!hasPermission) return false;
       }
@@ -984,6 +993,13 @@ watch(isSidebarCollapsed, (isCollapsed) => {
 onMounted(() => {
   // Load collapsed state from localStorage
   loadCollapsedState();
+
+  // Fetch communities if user is authenticated
+  if (auth.isAuthenticated) {
+    communityStore.fetchCommunities().catch(err => {
+      console.error('Failed to fetch communities for sidebar:', err);
+    });
+  }
 
   // Global keyboard shortcuts
   const handleKeyDown = (event: KeyboardEvent) => {

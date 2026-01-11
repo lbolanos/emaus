@@ -72,7 +72,7 @@ const handleInvite = async () => {
   try {
     const response = await communityStore.inviteAdmin(props.communityId, email.value);
     if (response && response.invitationToken) {
-      invitationLink.value = `${window.location.origin}/accept-invitation/${response.invitationToken}`;
+      invitationLink.value = `${window.location.origin}/accept-community-invitation/${response.invitationToken}`;
     }
     toast({
       title: 'Invitation Created',

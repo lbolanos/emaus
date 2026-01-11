@@ -219,12 +219,12 @@ export class Participant {
 
 	// --- RELACIONES ---
 
-	@Column('uuid')
-	retreatId!: string;
+	@Column({ type: 'uuid', nullable: true })
+	retreatId?: string | null;
 
-	@ManyToOne(() => Retreat, (retreat) => retreat.participants)
+	@ManyToOne(() => Retreat, (retreat) => retreat.participants, { nullable: true })
 	@JoinColumn({ name: 'retreatId' })
-	retreat!: Retreat;
+	retreat?: Retreat | null;
 
 	@Column({ type: 'uuid', nullable: true })
 	tableId?: string | null; // Corresponde a 'mesa'
@@ -311,6 +311,11 @@ export class Participant {
 			return 'paid';
 		}
 
+		// Si no tiene retiro asociado, no hay pago esperado
+		if (!this.retreat) {
+			return 'unpaid';
+		}
+
 		// Parsear el costo del retiro (puede ser un string con formato de moneda)
 		let expectedAmount = 0;
 		if (this.retreat?.cost) {
@@ -330,6 +335,9 @@ export class Participant {
 	 */
 	get paymentRemaining(): number {
 		if (this.isScholarship) return 0;
+
+		// Si no tiene retiro asociado, no hay pago esperado
+		if (!this.retreat) return 0;
 
 		let expectedAmount = 0;
 		if (this.retreat?.cost) {

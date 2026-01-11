@@ -28,6 +28,9 @@ export class CommunityMeeting {
 	@Column({ type: 'text', nullable: true })
 	description?: string;
 
+	@Column({ type: 'text', nullable: true, name: 'flyer_template' })
+	flyerTemplate?: string;
+
 	@Column('datetime')
 	startDate!: Date;
 

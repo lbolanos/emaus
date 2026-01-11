@@ -47,9 +47,24 @@ export class CommunityService {
 			relations: ['community'],
 		});
 
-		return adminRecords
+		const communities = adminRecords
 			.map((record) => record.community)
 			.filter((community) => community && community.id);
+
+		// Add member count to each community
+		const communitiesWithCounts = await Promise.all(
+			communities.map(async (community) => {
+				const memberCount = await this.memberRepo.count({
+					where: { communityId: community.id },
+				});
+				return {
+					...community,
+					memberCount,
+				};
+			}),
+		);
+
+		return communitiesWithCounts;
 	}
 
 	async getCommunityById(id: string) {
@@ -172,6 +187,58 @@ export class CommunityService {
 		return this.memberRepo.save(member);
 	}
 
+	async createCommunityMember(
+		communityId: string,
+		participantData: {
+			firstName: string;
+			lastName: string;
+			email: string;
+			cellPhone: string;
+		},
+	) {
+		// 1. Create participant with retreatId: null and minimal required fields
+		const participant = this.participantRepo.create({
+			...participantData,
+			retreatId: null,
+			type: 'walker', // Default type for community members
+			id_on_retreat: 0, // Required field, set to 0 for community members
+			birthDate: new Date(), // Default date for community members
+			maritalStatus: 'O', // Default marital status (Other)
+			street: 'N/A',
+			houseNumber: 'N/A',
+			postalCode: '00000',
+			neighborhood: 'N/A',
+			city: 'N/A',
+			state: 'N/A',
+			country: 'N/A',
+			occupation: 'N/A',
+			snores: false,
+			hasMedication: false,
+			hasDietaryRestrictions: false,
+			sacraments: ['none'],
+			emergencyContact1Name: 'N/A',
+			emergencyContact1Relation: 'N/A',
+			emergencyContact1CellPhone: participantData.cellPhone,
+		});
+
+		const savedParticipant = await this.participantRepo.save(participant);
+
+		// 2. Add to community
+		const member = this.memberRepo.create({
+			communityId,
+			participantId: savedParticipant.id,
+			state: 'active_member',
+		});
+
+		const savedMember = await this.memberRepo.save(member);
+
+		// 3. Return member with participant data
+		return this.memberRepo.findOne({
+			where: { id: savedMember.id },
+			relations: ['participant'],
+		});
+	}
+
 	async importFromRetreat(communityId: string, retreatId: string, participantIds: string[]) {
 		const results = [];
 		for (const participantId of participantIds) {
@@ -261,10 +328,41 @@ export class CommunityService {
 	}
 
 	async getMeetings(communityId: string) {
-		return this.meetingRepo.find({
+		const meetings = await this.meetingRepo.find({
 			where: { communityId },
 			order: { startDate: 'DESC' },
 		});
+
+		// Get all members for this community (active members only)
+		const allMembers = await this.memberRepo.find({
+			where: { communityId, state: 'active_member' },
+		});
+
+		// Add attendance counts to each meeting
+		const meetingsWithCounts = await Promise.all(
+			meetings.map(async (meeting) => {
+				// Get members who joined before or on the meeting date
+				const eligibleMembers = allMembers.filter((m) => m.joinedAt <= meeting.startDate);
+
+				// Get attendance records for this meeting
+				const attendances = await this.attendanceRepo.find({
+					where: { meetingId: meeting.id },
+				});
+
+				const attendeeCount = attendances.filter((a) => a.attended === true).length;
+				// Count members with attended:false records + members without any record
+				const absentCount = attendances.filter((a) => a.attended === false).length +
+					(eligibleMembers.length - attendances.length);
+
+				return {
+					...meeting,
+					attendeeCount,
+					absentCount,
+				};
+			}),
+		);
+
+		return meetingsWithCounts;
 	}
 
 	async getMeetingById(id: string) {
@@ -415,8 +513,8 @@ export class CommunityService {
 			startDate: nextStartDate,
 			endDate: meeting.endDate
 				? new Date(
-						nextStartDate.getTime() + (meeting.endDate.getTime() - meeting.startDate.getTime()),
-					)
+					nextStartDate.getTime() + (meeting.endDate.getTime() - meeting.startDate.getTime()),
+				)
 				: undefined,
 			durationMinutes: meeting.durationMinutes,
 			isAnnouncement: meeting.isAnnouncement,
@@ -425,6 +523,7 @@ export class CommunityService {
 			recurrenceInterval: meeting.recurrenceInterval,
 			recurrenceDayOfWeek: meeting.recurrenceDayOfWeek,
 			recurrenceDayOfMonth: meeting.recurrenceDayOfMonth,
+			flyerTemplate: meeting.flyerTemplate,
 			isRecurrenceTemplate: true,
 			// Link to parent
 			parentMeetingId: meetingId,
@@ -663,6 +762,7 @@ export class CommunityService {
 			valid: true,
 			community: invitation.community,
 			user: invitation.user,
+			invitationExpiresAt: invitation.invitationExpiresAt,
 		};
 	}
 
@@ -679,7 +779,15 @@ export class CommunityService {
 		invitation.acceptedAt = new Date();
 		invitation.invitationToken = undefined;
 
-		return this.adminRepo.save(invitation);
+		const saved = await this.adminRepo.save(invitation);
+
+		// Invalidate user permission cache
+		const { performanceOptimizationService } = await import('./performanceOptimizationService');
+		performanceOptimizationService.invalidateUserPermissionCache(userId);
+		performanceOptimizationService.invalidateUserRetreatCache(userId);
+		performanceOptimizationService.invalidateUserPermissionsResultCache(userId);
+
+		return saved;
 	}
 
 	async revokeAdmin(communityId: string, userId: string) {

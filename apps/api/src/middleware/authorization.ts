@@ -702,3 +702,104 @@ export const loadUserPermissions = async (
 		next();
 	}
 };
+
+// Community-specific authorization middleware
+export const requireCommunityAccess = (communityIdParam: string = 'id'): any => {
+	return async (req: any, res: Response, next: NextFunction) => {
+		try {
+			if (!req.user) {
+				return res.status(401).json({ message: 'Unauthorized' });
+			}
+
+			const { CommunityAdmin } = await import('../entities/communityAdmin.entity');
+			const communityId = req.params[communityIdParam];
+
+			if (!communityId) {
+				return res.status(400).json({ message: 'Community ID is required' });
+			}
+
+			// Check if user is an active admin of this community
+			const adminRecord = await AppDataSource.getRepository(CommunityAdmin).findOne({
+				where: {
+					communityId,
+					userId: req.user.id,
+					status: 'active',
+				},
+			});
+
+			if (!adminRecord) {
+				return res.status(403).json({
+					message: 'Forbidden - Not a community admin',
+					details: {
+						communityId,
+						userId: req.user.id,
+					},
+				});
+			}
+
+			// Attach community admin info to request for later use
+			req.communityAdmin = adminRecord;
+
+			next();
+		} catch (error) {
+			console.error('Community access check error:', error);
+			return res.status(500).json({ message: 'Internal server error' });
+		}
+	};
+};
+
+// Community meeting authorization middleware - looks up community from meeting ID
+export const requireCommunityMeetingAccess = (meetingIdParam: string = 'id'): any => {
+	return async (req: any, res: Response, next: NextFunction) => {
+		try {
+			if (!req.user) {
+				return res.status(401).json({ message: 'Unauthorized' });
+			}
+
+			const { CommunityAdmin } = await import('../entities/communityAdmin.entity');
+			const { CommunityMeeting } = await import('../entities/communityMeeting.entity');
+			const meetingId = req.params[meetingIdParam];
+
+			if (!meetingId) {
+				return res.status(400).json({ message: 'Meeting ID is required' });
+			}
+
+			// Get the meeting to find its community
+			const meeting = await AppDataSource.getRepository(CommunityMeeting).findOne({
+				where: { id: meetingId },
+			});
+
+			if (!meeting) {
+				return res.status(404).json({ message: 'Meeting not found' });
+			}
+
+			// Check if user is an active admin of this meeting's community
+			const adminRecord = await AppDataSource.getRepository(CommunityAdmin).findOne({
+				where: {
+					communityId: meeting.communityId,
+					userId: req.user.id,
+					status: 'active',
+				},
+			});
+
+			if (!adminRecord) {
+				return res.status(403).json({
+					message: 'Forbidden - Not a community admin',
+					details: {
+						meetingId,
+						communityId: meeting.communityId,
+						userId: req.user.id,
+					},
+				});
+			}
+
+			// Attach community admin info to request for later use
+			req.communityAdmin = adminRecord;
+
+			next();
+		} catch (error) {
+			console.error('Community meeting access check error:', error);
+			return res.status(500).json({ message: 'Internal server error' });
+		}
+	};
+};

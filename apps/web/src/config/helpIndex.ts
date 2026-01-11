@@ -132,7 +132,7 @@ export const helpIndex: HelpSection[] = [
 		title: 'Communities',
 		titleEs: 'Comunidades',
 		icon: 'mdi-account-group',
-		routeContext: ['communities', 'community-dashboard', 'community-members'],
+		routeContext: ['communities', 'community-dashboard', 'community-members', 'community-admins', 'community-meetings'],
 		topics: [
 			{
 				key: 'community-management',

@@ -737,6 +737,14 @@ export async function addCommunityMember(
 	return response.data;
 }
 
+export async function createCommunityMember(
+	communityId: string,
+	participantData: { firstName: string; lastName: string; email: string; cellPhone: string },
+): Promise<CommunityMember> {
+	const response = await api.post(`/communities/${communityId}/members/create`, participantData);
+	return response.data;
+}
+
 export async function importMembersFromRetreat(
 	communityId: string,
 	retreatId: string,

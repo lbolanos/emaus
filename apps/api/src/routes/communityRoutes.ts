@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { CommunityController } from '../controllers/communityController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { validateRequest } from '../middleware/validateRequest';
-import { requirePermission } from '../middleware/authorization';
+import { requirePermission, requireCommunityAccess, requireCommunityMeetingAccess } from '../middleware/authorization';
 import {
 	createCommunitySchema,
 	updateCommunitySchema,
@@ -34,7 +34,8 @@ router.post('/public/attendance/:communityId/:meetingId', (req, res) =>
 router.use(isAuthenticated);
 
 // Communities CRUD
-router.get('/', requirePermission('community:read'), (req, res) =>
+// Get communities - any authenticated user can get their own communities (service filters by admin status)
+router.get('/', (req, res) =>
 	CommunityController.getCommunities(req, res),
 );
 router.post(
@@ -43,12 +44,12 @@ router.post(
 	validateRequest(createCommunitySchema),
 	(req, res) => CommunityController.createCommunity(req, res),
 );
-router.get('/:id', requirePermission('community:read'), (req, res) =>
+router.get('/:id', requireCommunityAccess(), (req, res) =>
 	CommunityController.getCommunityById(req, res),
 );
 router.put(
 	'/:id',
-	requirePermission('community:update'),
+	requireCommunityAccess(),
 	validateRequest(updateCommunitySchema),
 	(req, res) => CommunityController.updateCommunity(req, res),
 );
@@ -57,92 +58,95 @@ router.delete('/:id', requirePermission('community:delete'), (req, res) =>
 );
 
 // Members
-router.get('/:id/members', requirePermission('community:read'), (req, res) =>
+router.get('/:id/members', requireCommunityAccess(), (req, res) =>
 	CommunityController.getMembers(req, res),
 );
-router.get('/:id/members/potential', requirePermission('community:read'), (req, res) =>
+router.get('/:id/members/potential', requireCommunityAccess(), (req, res) =>
 	CommunityController.getPotentialMembers(req, res),
 );
-router.post('/:id/members', requirePermission('community:update'), (req, res) =>
+router.post('/:id/members', requireCommunityAccess(), (req, res) =>
 	CommunityController.addMember(req, res),
+);
+router.post('/:id/members/create', requireCommunityAccess(), (req, res) =>
+	CommunityController.createCommunityMember(req, res),
 );
 router.post(
 	'/:id/members/import',
-	requirePermission('community:update'),
+	requireCommunityAccess(),
 	validateRequest(importMembersSchema),
 	(req, res) => CommunityController.importFromRetreat(req, res),
 );
 router.put(
 	'/:id/members/:memberId',
-	requirePermission('community:update'),
+	requireCommunityAccess(),
 	validateRequest(updateMemberStateSchema),
 	(req, res) => CommunityController.updateMemberState(req, res),
 );
-router.delete('/:id/members/:memberId', requirePermission('community:update'), (req, res) =>
+router.delete('/:id/members/:memberId', requireCommunityAccess(), (req, res) =>
 	CommunityController.removeMember(req, res),
 );
-router.patch('/:id/members/:memberId/notes', requirePermission('community:update'), (req, res) =>
+router.patch('/:id/members/:memberId/notes', requireCommunityAccess(), (req, res) =>
 	CommunityController.updateMemberNotes(req, res),
 );
-router.get('/:id/members/:memberId/timeline', requirePermission('community:read'), (req, res) =>
+router.get('/:id/members/:memberId/timeline', requireCommunityAccess(), (req, res) =>
 	CommunityController.getMemberTimeline(req, res),
 );
 
 // Meetings
-router.get('/:id/meetings', requirePermission('community:read'), (req, res) =>
+router.get('/:id/meetings', requireCommunityAccess(), (req, res) =>
 	CommunityController.getMeetings(req, res),
 );
 router.post(
 	'/:id/meetings',
-	requirePermission('community:update'),
+	requireCommunityAccess(),
 	validateRequest(createCommunityMeetingSchema),
 	(req, res) => CommunityController.createMeeting(req, res),
 );
 router.put(
 	'/meetings/:id',
-	requirePermission('community:update'),
+	requireCommunityMeetingAccess(),
 	validateRequest(updateCommunityMeetingSchema),
 	(req, res) => CommunityController.updateMeeting(req, res),
 );
-router.delete('/meetings/:id', requirePermission('community:update'), (req, res) =>
+router.delete('/meetings/:id', requireCommunityMeetingAccess(), (req, res) =>
 	CommunityController.deleteMeeting(req, res),
 );
-router.post('/meetings/:id/next-instance', requirePermission('community:update'), (req, res) =>
+router.post('/meetings/:id/next-instance', requireCommunityMeetingAccess(), (req, res) =>
 	CommunityController.createNextMeetingInstance(req, res),
 );
 
 // Attendance
-router.get('/:id/meetings/:meetingId/attendance', requirePermission('community:read'), (req, res) =>
+router.get('/:id/meetings/:meetingId/attendance', requireCommunityAccess(), (req, res) =>
 	CommunityController.getAttendance(req, res),
 );
 router.post(
 	'/:id/meetings/:meetingId/attendance',
-	requirePermission('community:update'),
+	requireCommunityAccess(),
 	validateRequest(recordAttendanceSchema),
 	(req, res) => CommunityController.recordAttendance(req, res),
 );
 router.post(
 	'/:id/meetings/:meetingId/attendance/single',
-	requirePermission('community:update'),
+	requireCommunityAccess(),
 	(req, res) => CommunityController.recordSingleAttendance(req, res),
 );
 
 // Dashboard
-router.get('/:id/dashboard', requirePermission('community:read'), (req, res) =>
+router.get('/:id/dashboard', requireCommunityAccess(), (req, res) =>
 	CommunityController.getDashboardStats(req, res),
 );
 
 // Admins
-router.get('/:id/admins', requirePermission('community:admin'), (req, res) =>
+router.get('/:id/admins', requireCommunityAccess(), (req, res) =>
 	CommunityController.getAdmins(req, res),
 );
 router.post(
 	'/:id/admins/invite',
-	requirePermission('community:admin'),
+	requireCommunityAccess(),
 	validateRequest(inviteCommunityAdminSchema),
 	(req, res) => CommunityController.inviteAdmin(req, res),
 );
-router.delete('/:id/admins/:userId', requirePermission('community:admin'), (req, res) =>
+router.delete('/:id/admins/:userId', requireCommunityAccess(), (req, res) =>
 	CommunityController.revokeAdmin(req, res),
 );
 

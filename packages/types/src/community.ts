@@ -69,6 +69,7 @@ export const communityMeetingSchema = z.object({
 	communityId: z.string().uuid(),
 	title: z.string().min(1).max(200),
 	description: z.string().optional(),
+	flyerTemplate: z.string().optional(),
 	startDate: z.coerce.date(),
 	endDate: z.coerce.date().optional(),
 	durationMinutes: z.number().int().positive(),
@@ -142,6 +143,7 @@ export const createCommunityMeetingSchema = z.object({
 	body: z.object({
 		title: z.string().min(1).max(200),
 		description: z.string().optional(),
+		flyerTemplate: z.string().optional(),
 		startDate: z.coerce.date(),
 		endDate: z.coerce.date().optional(),
 		durationMinutes: z.number().int().positive().optional(),

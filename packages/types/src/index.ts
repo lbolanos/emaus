@@ -303,7 +303,7 @@ export const participantSchema = z.object({
 	family_friend_color: z.string().nullable().optional(),
 	pickupLocation: z.string().optional(),
 	arrivesOnOwn: z.preprocess((val) => (val === null ? undefined : val), z.boolean().optional()),
-	retreatId: idSchema,
+	retreatId: idSchema.nullable().optional(),
 	tableId: idSchema.nullable().optional(),
 	tableMesa: tableMesaSchema.nullable().optional(),
 	retreatBed: retreatBedSchema.nullable().optional(),

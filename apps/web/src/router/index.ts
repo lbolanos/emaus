@@ -71,6 +71,13 @@ const router = createRouter({
 			meta: { requiresAuth: false },
 		},
 		{
+			path: '/accept-community-invitation/:token',
+			name: 'accept-community-invitation',
+			component: () => import('../views/AcceptCommunityInvitationView.vue'),
+			props: true,
+			meta: { requiresAuth: false },
+		},
+		{
 			path: '/public/attendance/:communityId/:meetingId',
 			name: 'public-attendance',
 			component: () => import('../views/PublicAttendanceView.vue'),
@@ -262,6 +269,12 @@ const router = createRouter({
 					path: 'communities/:id/meetings',
 					name: 'community-meetings',
 					component: () => import('../views/CommunityMeetingsView.vue'),
+					props: true,
+				},
+				{
+					path: 'communities/:id/meetings/:meetingId/flyer',
+					name: 'community-meeting-flyer',
+					component: () => import('../views/CommunityMeetingFlyerView.vue'),
 					props: true,
 				},
 				{

@@ -47,13 +47,21 @@
                     <Clock class="w-4 h-4 mr-1" />
                     {{ meeting.durationMinutes }} min
                   </span>
+                  <span class="flex items-center text-green-600 dark:text-green-400">
+                    <UserCheck class="w-4 h-4 mr-1" />
+                    {{ meeting.attendeeCount ?? 0 }}
+                  </span>
+                  <span class="flex items-center text-red-600 dark:text-red-400">
+                    <UserX class="w-4 h-4 mr-1" />
+                    {{ meeting.absentCount ?? 0 }}
+                  </span>
                 </template>
               </CardDescription>
               <CardDescription v-if="meeting.description" class="mt-2 line-clamp-2">
                 {{ meeting.description }}
               </CardDescription>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center -space-x-3">
               <Tooltip v-if="!meeting.isAnnouncement">
                 <TooltipTrigger as-child>
                   <Button size="sm" variant="outline" as-child>
@@ -64,6 +72,18 @@
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>{{ $t('community.meeting.recordAttendance') }}</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <Button size="sm" variant="ghost" as-child>
+                    <router-link :to="{ name: 'community-meeting-flyer', params: { id: currentCommunity.id, meetingId: meeting.id } }">
+                      <FileText class="w-4 h-4" />
+                    </router-link>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Generar Flyer PDF</p>
                 </TooltipContent>
               </Tooltip>
               <Tooltip v-if="!meeting.isAnnouncement">
@@ -175,7 +195,7 @@ import { ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
-import { Loader2, CalendarPlus, Calendar, Clock, CheckSquare, ChevronRight, Pencil, Trash2, RefreshCw, Share } from 'lucide-vue-next';
+import { Loader2, CalendarPlus, Calendar, Clock, CheckSquare, ChevronRight, Pencil, Trash2, RefreshCw, Share, FileText, UserCheck, UserX } from 'lucide-vue-next';
 import {
   Button, Card, CardHeader, CardTitle, CardDescription, Badge,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,

@@ -98,7 +98,39 @@ The community dashboard provides insights into:
 3. Enter the email address of the user
 4. Click **Send Invitation**
 
-The user will receive an invitation link valid for 7 days.
+The system will generate an invitation link that you can share with the user.
+
+### Sharing the Invitation Link
+
+After creating an invitation:
+
+1. Copy the invitation link displayed in the modal
+2. Share it with the invited user via email, chat, or any other method
+3. The invitation link is valid for 7 days
+
+The link will look like: `https://your-domain.com/accept-community-invitation/{token}`
+
+### What the Invited User Must Do
+
+When a user receives an invitation link:
+
+1. **Click the invitation link** - This will open the invitation acceptance page
+2. **If not logged in**:
+   - Click "Login" (Iniciar Sesión)
+   - The system will remember the invitation token
+   - After logging in, return to the same link
+3. **Review the invitation details**:
+   - Community name
+   - Your email address
+   - Expiration date
+4. **Click "Accept Invitation"** (Aceptar Invitación)
+5. **Wait for confirmation** - You'll be redirected to the community dashboard
+
+After accepting:
+- The community will appear in your sidebar under "Comunidades" (Communities)
+- You'll have full admin access to manage members, meetings, and view analytics
+
+**Important**: The user must already have an account in the system. If they don't have an account, they need to create one first before accepting the invitation.
 
 ### Admin Roles
 
