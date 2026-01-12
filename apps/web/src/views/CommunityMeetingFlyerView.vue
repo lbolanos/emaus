@@ -50,12 +50,26 @@
       </div>
 
       <!-- Print Button - Premium styled -->
-      <Button 
-        @click="handlePrint" 
+      <Button
+        @click="handlePrint"
         class="print-button bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 hover:from-blue-700 hover:via-blue-600 hover:to-indigo-700 text-white px-5 py-2.5 rounded-xl shadow-xl flex items-center gap-2.5 transition-all duration-300 hover:scale-[1.02] hover:shadow-blue-500/40 border border-white/20"
       >
         <Printer class="w-5 h-5" />
-        <span class="font-semibold">Imprimir</span>
+        <span class="font-semibold hidden sm:inline">Imprimir</span>
+      </Button>
+
+      <!-- Copy Image Button -->
+      <Button
+        @click="handleCopyImage"
+        :disabled="isCopying"
+        class="copy-button bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-700 hover:via-emerald-600 hover:to-teal-700 text-white px-5 py-2.5 rounded-xl shadow-xl flex items-center gap-2.5 transition-all duration-300 hover:scale-[1.02] hover:shadow-emerald-500/40 border border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <Loader2 v-if="isCopying" class="w-5 h-5 animate-spin" />
+        <Check v-else-if="copySuccess" class="w-5 h-5" />
+        <Copy v-else class="w-5 h-5" />
+        <span class="font-semibold hidden sm:inline">
+          {{ isCopying ? 'Copiando...' : copySuccess ? '¡Copiado!' : 'Copiar imagen' }}
+        </span>
       </Button>
     </div>
 
@@ -68,7 +82,7 @@
     </div>
 
     <!-- Flyer Container - Dynamic Component -->
-    <div v-else class="max-w-[850px] mx-auto px-4 pt-20 sm:pt-4 print:max-w-[210mm] print:w-[210mm] print:mx-0 print:px-0 print:pt-0">
+    <div v-else ref="flyerRef" class="max-w-[850px] mx-auto px-4 pt-20 sm:pt-4 print:max-w-[210mm] print:w-[210mm] print:mx-0 print:px-0 print:pt-0">
       <component
         :is="flyerComponent"
         :meeting="meeting"
@@ -97,7 +111,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCommunityStore } from '@/stores/communityStore';
 import { Button } from '@repo/ui';
-import { Printer, Pencil, ArrowLeft, LayoutTemplate, Image } from 'lucide-vue-next';
+import { Printer, Pencil, ArrowLeft, LayoutTemplate, Image, Copy, Check, Loader2 } from 'lucide-vue-next';
 import DefaultFlyer from '@/components/flyers/DefaultFlyer.vue';
 import PosterFlyer from '@/components/flyers/PosterFlyer.vue';
 import MeetingFormModal from '@/components/community/MeetingFormModal.vue';
@@ -110,15 +124,21 @@ import {
   formatCommunityAddress,
   type MeetingFlyerData
 } from '@/utils/meetingFlyer';
+import html2canvas from 'html2canvas';
+import { useToast } from '@repo/ui';
 
 const route = useRoute();
 const router = useRouter();
 const communityStore = useCommunityStore();
+const { toast } = useToast();
 
 const meeting = ref<any>(null);
 const community = ref<any>(null);
 const flyerStyle = ref<FlyerStyle>(getSavedFlyerStyle());
 const isLoading = ref(true);
+const flyerRef = ref<HTMLElement | null>(null);
+const isCopying = ref(false);
+const copySuccess = ref(false);
 
 // Meeting modal state
 const isMeetingModalOpen = ref(false);
@@ -189,6 +209,72 @@ const handleGoBack = () => {
 const handleEditMeeting = () => {
   meetingToEdit.value = meeting.value;
   isMeetingModalOpen.value = true;
+};
+
+// Copy flyer as image to clipboard
+const handleCopyImage = async () => {
+  if (!flyerRef.value || isCopying.value) return;
+
+  isCopying.value = true;
+  copySuccess.value = false;
+
+  try {
+    // Find the actual flyer element (first child of the container)
+    const flyerElement = flyerRef.value.firstElementChild as HTMLElement;
+    if (!flyerElement) {
+      throw new Error('No se encontró el elemento del flyer');
+    }
+
+    // Use html2canvas to capture the flyer
+    const canvas = await html2canvas(flyerElement, {
+      scale: 2, // Higher scale for better quality
+      useCORS: true, // Allow cross-origin images
+      backgroundColor: '#ffffff',
+      logging: false,
+    });
+
+    // Convert canvas to blob
+    canvas.toBlob(async (blob) => {
+      if (!blob) {
+        throw new Error('No se pudo generar la imagen');
+      }
+
+      try {
+        // Copy to clipboard using Clipboard API
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob })
+        ]);
+
+        copySuccess.value = true;
+        toast({
+          title: '¡Flyer copiado!',
+          description: 'La imagen se ha copiado al portapapeles.',
+        });
+
+        // Reset success state after 2 seconds
+        setTimeout(() => {
+          copySuccess.value = false;
+        }, 2000);
+      } catch (error) {
+        console.error('Error copying to clipboard:', error);
+        toast({
+          title: 'Error al copiar',
+          description: 'No se pudo copiar la imagen al portapapeles.',
+          variant: 'destructive',
+        });
+      } finally {
+        isCopying.value = false;
+      }
+    }, 'image/png');
+  } catch (error) {
+    console.error('Error generating image:', error);
+    toast({
+      title: 'Error al generar imagen',
+      description: 'No se pudo capturar el flyer como imagen.',
+      variant: 'destructive',
+    });
+    isCopying.value = false;
+  }
 };
 
 // Handle meeting updated
@@ -310,6 +396,27 @@ onMounted(async () => {
 }
 
 .print-button:hover::before {
+  left: 100%;
+}
+
+/* Copy button glow effect */
+.copy-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.copy-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.copy-button:hover::before {
   left: 100%;
 }
 

@@ -5,11 +5,11 @@
 		:style="{ backgroundImage: `url('/poster.png')` }"
 	>
 		<!-- Overlay for better contrast -->
-		<div class="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/40 print:hidden"></div>
+		<div class="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/50 print:hidden"></div>
 		
 		<main class="relative flex min-h-[600px] w-full items-center justify-center p-8 md:p-12 print:p-6 print:min-h-0">
 			<!-- Main Content Card with enhanced glassmorphism -->
-			<section class="glass-card-premium relative flex max-w-2xl flex-col items-center justify-center rounded-3xl px-8 py-10 text-center sm:px-12 sm:py-12 md:px-16 md:py-14">
+			<section class="glass-card-premium relative flex max-w-2xl flex-col items-center justify-center rounded-3xl px-8 py-10 text-center sm:px-12 sm:py-12 md:px-16 md:py-14 shadow-2xl">
 				<!-- Decorative top accent -->
 				<div class="absolute -top-1 left-1/2 -translate-x-1/2 w-24 h-1 bg-gradient-to-r from-transparent via-emaus-gold to-transparent rounded-full"></div>
 				
@@ -36,7 +36,7 @@
 					<svg class="w-5 h-5 text-emaus-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
 					</svg>
-					<p class="text-xl sm:text-2xl md:text-3xl text-white font-bold capitalize">
+					<p class="text-xl sm:text-2xl md:text-3xl text-white font-bold capitalize text-shadow-strong">
 						{{ formattedDateOnly }}
 					</p>
 				</div>
@@ -46,13 +46,13 @@
 					<svg class="w-5 h-5 text-emaus-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 					</svg>
-					<p class="text-lg sm:text-xl md:text-2xl text-white/95 font-semibold tracking-wide">
+					<p class="text-lg sm:text-xl md:text-2xl text-white font-semibold tracking-wide text-shadow-strong">
 						{{ formattedTime }} hrs.
 					</p>
 				</div>
 
 				<!-- Description with better styling -->
-				<p v-if="processedDescription" class="mb-5 text-sm sm:text-base md:text-lg text-white/90 font-normal leading-relaxed max-w-lg px-4">
+				<p v-if="processedDescription" class="mb-5 text-sm sm:text-base md:text-lg text-white font-medium leading-relaxed max-w-lg px-4 text-shadow-medium">
 					{{ processedDescription }}
 				</p>
 
@@ -71,7 +71,7 @@
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
 					</svg>
-					<p class="text-sm sm:text-base md:text-lg text-white font-medium leading-snug text-center">
+					<p class="text-sm sm:text-base md:text-lg text-white font-semibold leading-snug text-center text-shadow-strong">
 						{{ locationMessage }}
 					</p>
 				</div>
@@ -147,21 +147,36 @@ const locationMessage = computed(() => {
 	min-height: 600px;
 }
 
-/* Enhanced Glassmorphism */
+/* Enhanced Glassmorphism with better contrast */
 .glass-card-premium {
 	background: linear-gradient(
 		135deg,
-		rgba(255, 255, 255, 0.15) 0%,
-		rgba(255, 255, 255, 0.08) 50%,
-		rgba(255, 255, 255, 0.12) 100%
+		rgba(30, 30, 40, 0.65) 0%,
+		rgba(20, 20, 30, 0.55) 50%,
+		rgba(30, 30, 40, 0.60) 100%
 	);
-	backdrop-filter: blur(16px) saturate(180%);
-	-webkit-backdrop-filter: blur(16px) saturate(180%);
-	border: 1px solid rgba(255, 255, 255, 0.25);
+	backdrop-filter: blur(20px) saturate(180%);
+	-webkit-backdrop-filter: blur(20px) saturate(180%);
+	border: 1px solid rgba(255, 255, 255, 0.15);
 	box-shadow: 
-		0 8px 32px rgba(0, 0, 0, 0.2),
-		inset 0 1px 0 rgba(255, 255, 255, 0.2),
-		inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+		0 8px 32px rgba(0, 0, 0, 0.4),
+		0 16px 48px rgba(0, 0, 0, 0.2),
+		inset 0 1px 0 rgba(255, 255, 255, 0.1),
+		inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* Text shadow utilities for better readability */
+.text-shadow-strong {
+	text-shadow: 
+		0 1px 2px rgba(0, 0, 0, 0.8),
+		0 2px 4px rgba(0, 0, 0, 0.6),
+		0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+.text-shadow-medium {
+	text-shadow: 
+		0 1px 2px rgba(0, 0, 0, 0.7),
+		0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
 /* Gold color */
