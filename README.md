@@ -363,6 +363,14 @@ agregar una flyer para la reunion que pueda salvarse como pdf para que tengan el
 
 agregar un formulario basico para crear un participante de la comunidad asi no tenga retiro asociado.
 
+
+apps/web/src/views/CommunityMeetingFlyerView.vue componentize the flyer to create a list of flyer styles.
+create button the open apps/web/src/components/community/MeetingFormModal.vue and change data for the flyer.
+en el formulario aumentar el width y agrega una pestaña para el flyerTemplate en el que se pueda hacer ver el mensaje final y el listado de variables que se puede agregar haciendo clic.
+adicionar un nuevo flyer style con el siguiente formato:  use apps/web/public/poster.png as background
+
+
+
 ## landing
 
 crear una landing page que muestre los retiros proximos y las comunidades y sus proximas reuniones

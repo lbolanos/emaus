@@ -1,6 +1,6 @@
 <template>
   <Dialog :open="open" @update:open="handleClose">
-    <DialogContent class="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
+    <DialogContent class="sm:max-w-[800px] max-h-[90vh] overflow-hidden flex flex-col">
       <DialogHeader>
         <DialogTitle>
           {{ editingMeeting ? $t('community.meeting.editMeeting') : $t('community.meeting.addMeeting') }}
@@ -34,10 +34,11 @@
 
         <!-- Tabs -->
         <Tabs default-value="general" class="flex-1 flex flex-col">
-          <TabsList class="grid w-full grid-cols-3">
+          <TabsList class="grid w-full grid-cols-4">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="datetime">Fecha y Hora</TabsTrigger>
             <TabsTrigger value="recurrence" :disabled="form.isAnnouncement">Repetición</TabsTrigger>
+            <TabsTrigger value="flyer">Flyer</TabsTrigger>
           </TabsList>
 
           <TabsContent value="general" class="flex-1 overflow-y-auto mt-4 space-y-4">
@@ -67,20 +68,43 @@
               <p class="text-xs text-muted-foreground">Información adicional para los miembros (opcional)</p>
             </div>
 
-            <!-- Flyer Template -->
-            <div class="space-y-2">
-              <Label for="flyerTemplate">Plantilla del Flyer</Label>
-              <Textarea
-                id="flyerTemplate"
-                v-model="form.flyerTemplate"
-                placeholder="Usa variables como {{fecha}}, {{hora}}, {{nombre}}, {{descripcion}}, {{duracion}}, {{ubicacion}}, {{comunidad}}..."
-                rows="6"
-              />
-              <p class="text-xs text-muted-foreground">
-                Variables disponibles:
-                <span v-html="variableExamples"></span>
-              </p>
+            <!-- Edit Scope (when editing recurring meeting) -->
+            <div v-if="editingMeeting?.isRecurrenceTemplate && !form.isAnnouncement" class="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg mb-4">
+              <Label class="font-medium mb-2 block text-amber-800 dark:text-amber-200">
+                Actualizar repeticiones
+              </Label>
+              <RadioGroup v-model="updateScope">
+                <div class="flex items-center gap-2 mb-2">
+                  <RadioGroupItem value="this" id="scope-this" />
+                  <Label for="scope-this" class="cursor-pointer">
+                    Solo esta reunión
+                  </Label>
+                </div>
+                <div class="flex items-center gap-2 mb-2">
+                  <RadioGroupItem value="all_future" id="scope-future" />
+                  <Label for="scope-future" class="cursor-pointer">
+                    Esta y todas las futuras
+                  </Label>
+                </div>
+                <div class="flex items-center gap-2">
+                  <RadioGroupItem value="all" id="scope-all" />
+                  <Label for="scope-all" class="cursor-pointer">
+                    Todas las repeticiones
+                  </Label>
+                </div>
+              </RadioGroup>
             </div>
+
+            <!-- Meeting Info (when editing) -->
+            <div v-if="editingMeeting" class="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg mb-4">
+              <div class="flex items-start gap-2">
+                <Info class="w-4 h-4 text-blue-600 mt-0.5" />
+                <div class="text-sm text-blue-800 dark:text-blue-200">
+                  <p class="font-medium mb-1">Editando reunión existente</p>
+                  <p class="text-blue-600 dark:text-blue-400">Los cambios se aplicarán a la reunión "{{ editingMeeting.title }}"</p>
+                </div>
+              </div>
+            </div>            
           </TabsContent>
 
           <TabsContent value="datetime" class="flex-1 overflow-y-auto mt-4">
@@ -111,45 +135,47 @@
               @update:day-of-month="form.recurrence.dayOfMonth = $event"
             />
           </TabsContent>
+
+          <TabsContent value="flyer" class="flex-1 overflow-y-auto mt-4 space-y-6">
+            <!-- Template Editor with Variable Buttons -->
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <Label for="flyerTemplate">Plantilla del Mensaje</Label>
+                <span class="text-xs text-muted-foreground">Haz clic en las variables para agregar</span>
+              </div>
+
+              <!-- Variable Buttons -->
+              <div class="flex flex-wrap gap-2">
+                <button
+                  v-for="variable in templateVariables"
+                  :key="variable.key"
+                  type="button"
+                  @click="insertVariable(variable.key)"
+                  class="px-3 py-1 text-xs bg-secondary hover:bg-secondary/80 rounded-full transition-colors">
+                  {{ variable.label }}
+                </button>
+              </div>
+
+              <!-- Template Textarea -->
+              <Textarea
+                id="flyerTemplate"
+                v-model="form.flyerTemplate"
+                rows="6"
+                placeholder="Escribe tu plantilla aquí..."
+                class="font-mono text-sm"
+              />
+            </div>
+
+            <!-- Live Preview -->
+            <div class="space-y-3">
+              <Label>Vista Previa del Mensaje</Label>
+              <div class="p-4 bg-muted rounded-lg min-h-[150px] border">
+                <div class="whitespace-pre-wrap text-sm">{{ previewMessage }}</div>
+              </div>
+            </div>
+          </TabsContent>
         </Tabs>
 
-        <!-- Edit Scope (when editing recurring meeting) -->
-        <div v-if="editingMeeting?.isRecurrenceTemplate && !form.isAnnouncement" class="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg mb-4">
-          <Label class="font-medium mb-2 block text-amber-800 dark:text-amber-200">
-            Actualizar repeticiones
-          </Label>
-          <RadioGroup v-model="updateScope">
-            <div class="flex items-center gap-2 mb-2">
-              <RadioGroupItem value="this" id="scope-this" />
-              <Label for="scope-this" class="cursor-pointer">
-                Solo esta reunión
-              </Label>
-            </div>
-            <div class="flex items-center gap-2 mb-2">
-              <RadioGroupItem value="all_future" id="scope-future" />
-              <Label for="scope-future" class="cursor-pointer">
-                Esta y todas las futuras
-              </Label>
-            </div>
-            <div class="flex items-center gap-2">
-              <RadioGroupItem value="all" id="scope-all" />
-              <Label for="scope-all" class="cursor-pointer">
-                Todas las repeticiones
-              </Label>
-            </div>
-          </RadioGroup>
-        </div>
-
-        <!-- Meeting Info (when editing) -->
-        <div v-if="editingMeeting" class="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg mb-4">
-          <div class="flex items-start gap-2">
-            <Info class="w-4 h-4 text-blue-600 mt-0.5" />
-            <div class="text-sm text-blue-800 dark:text-blue-200">
-              <p class="font-medium mb-1">Editando reunión existente</p>
-              <p class="text-blue-600 dark:text-blue-400">Los cambios se aplicarán a la reunión "{{ editingMeeting.title }}"</p>
-            </div>
-          </div>
-        </div>
 
         <!-- DialogFooter inside the form for submit functionality -->
         <DialogFooter class="flex-col sm:flex-row gap-3 border-t pt-4 mt-auto">
@@ -181,7 +207,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useCommunityStore } from '@/stores/communityStore';
 import { Info, Loader2, Trash2 } from 'lucide-vue-next';
 import {
@@ -193,9 +219,13 @@ import { useToast } from '@repo/ui';
 import type { RecurrenceFrequency } from '@repo/types';
 import MeetingDateTimeForm from './forms/MeetingDateTimeForm.vue';
 import MeetingRecurrenceForm from './forms/MeetingRecurrenceForm.vue';
-
-// Variable examples for template
-const variableExamples = `<code class="bg-muted px-1 rounded">{{fecha}}</code>, <code class="bg-muted px-1 rounded">{{hora}}</code>, <code class="bg-muted px-1 rounded">{{nombre}}</code>, <code class="bg-muted px-1 rounded">{{descripcion}}</code>, <code class="bg-muted px-1 rounded">{{duracion}}</code>, <code class="bg-muted px-1 rounded">{{ubicacion}}</code>, <code class="bg-muted px-1 rounded">{{comunidad}}</code>`;
+import {
+  replaceFlyerVariables,
+  formatDuration,
+  formatMeetingDate,
+  formatCommunityAddress,
+  type MeetingFlyerData
+} from '@/utils/meetingFlyer';
 
 const props = defineProps<{
   open: boolean;
@@ -211,6 +241,21 @@ const { toast } = useToast();
 const isSaving = ref(false);
 const isDeleting = ref(false);
 const updateScope = ref<'this' | 'all' | 'all_future'>('this');
+
+// Community data for preview
+const community = ref<any>(null);
+
+// Fetch community when modal opens
+watch(() => props.open, async (isOpen) => {
+  if (isOpen && props.communityId) {
+    try {
+      await communityStore.fetchCommunity(props.communityId);
+      community.value = communityStore.currentCommunity;
+    } catch (error) {
+      console.error('Failed to load community for preview:', error);
+    }
+  }
+});
 
 const form = ref({
   title: '',
@@ -231,6 +276,49 @@ const form = ref({
 
 const editingMeeting = ref<any>(null);
 const errors = ref<Record<string, string>>({});
+
+// Template variables with labels
+const templateVariables = [
+  { key: '{{fecha}}', label: 'Fecha' },
+  { key: '{{hora}}', label: 'Hora' },
+  { key: '{{nombre}}', label: 'Nombre' },
+  { key: '{{descripcion}}', label: 'Descripción' },
+  { key: '{{duracion}}', label: 'Duración' },
+  { key: '{{ubicacion}}', label: 'Ubicación' },
+  { key: '{{comunidad}}', label: 'Comunidad' },
+];
+
+// Insert variable at cursor position
+const insertVariable = (variable: string) => {
+  const textarea = document.querySelector('#flyerTemplate') as HTMLTextAreaElement;
+  if (textarea) {
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = form.value.flyerTemplate || '';
+    form.value.flyerTemplate = text.substring(0, start) + variable + text.substring(end);
+    textarea.focus();
+    setTimeout(() => {
+      textarea.setSelectionRange(start + variable.length, start + variable.length);
+    }, 0);
+  }
+};
+
+// Live preview computed
+const previewMessage = computed(() => {
+  if (!form.value.date || !form.value.time) {
+    return 'Completa la fecha y hora para ver la vista previa...';
+  }
+  const data: MeetingFlyerData = {
+    fecha: formatMeetingDate(new Date(form.value.date + 'T' + form.value.time)),
+    hora: form.value.time,
+    nombre: form.value.title || 'Nombre de la reunión',
+    descripcion: form.value.description || '',
+    duracion: form.value.isAnnouncement ? 'N/A' : formatDuration(form.value.durationMinutes),
+    ubicacion: community.value ? formatCommunityAddress(community.value) : 'Dirección de la comunidad',
+    comunidad: community.value?.name || 'Nombre de la comunidad',
+  };
+  return replaceFlyerVariables(form.value.flyerTemplate, data);
+});
 
 // Reset errors when form changes
 watch(() => [

@@ -49,11 +49,11 @@
                   </span>
                   <span class="flex items-center text-green-600 dark:text-green-400">
                     <UserCheck class="w-4 h-4 mr-1" />
-                    {{ meeting.attendeeCount ?? 0 }}
+                    {{ (meeting as any).attendeeCount ?? 0 }}
                   </span>
                   <span class="flex items-center text-red-600 dark:text-red-400">
                     <UserX class="w-4 h-4 mr-1" />
-                    {{ meeting.absentCount ?? 0 }}
+                    {{ (meeting as any).absentCount ?? 0 }}
                   </span>
                 </template>
               </CardDescription>
