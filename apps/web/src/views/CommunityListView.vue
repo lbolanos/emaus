@@ -1,7 +1,9 @@
 <template>
   <div class="p-4 space-y-4">
     <div class="flex justify-between items-center">
-      <h1 class="text-2xl font-bold">{{ $t('community.title') }}</h1>
+      <div>
+        <h1 class="text-2xl font-bold">{{ $t('community.title') }}</h1>
+      </div>
       <Button @click="openAddModal">
         <Plus class="w-4 h-4 mr-2" />
         {{ $t('community.addCommunity') }}
@@ -66,175 +68,197 @@
     </div>
 
     <!-- Modals -->
-    <Dialog :open="isFormModalOpen" @update:open="isFormModalOpen = $event">
-      <DialogContent class="sm:max-w-[700px] max-h-[85vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle>{{ editingCommunity ? $t('community.editCommunity') : $t('community.addCommunity') }}</DialogTitle>
-          <DialogDescription>
-            {{ editingCommunity ? 'Edita los detalles de la comunidad.' : 'Ingresa los detalles de la nueva comunidad.' }}
-          </DialogDescription>
-        </DialogHeader>
-        <form @submit.prevent="handleSave" class="flex-1 flex flex-col overflow-hidden">
-          <div class="flex-1 overflow-y-auto py-4 space-y-4">
-            <div class="space-y-2">
-              <Label for="name">{{ $t('community.communityName') }} <span class="text-red-500">*</span></Label>
-              <Input id="name" v-model="form.name" placeholder="Ej: Comunidad San Juan" />
+    <Teleport to="body" v-if="isFormModalOpen">
+      <div
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+        @click.self="isFormModalOpen = false"
+      >
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col">
+          <!-- Header -->
+          <div class="flex items-center justify-between p-6 border-b">
+            <div>
+              <h2 class="text-xl font-semibold">{{ editingCommunity ? $t('community.editCommunity') : $t('community.addCommunity') }}</h2>
+              <p class="text-gray-600 mt-1">
+                {{ editingCommunity ? 'Edita los detalles de la comunidad.' : 'Ingresa los detalles de la nueva comunidad.' }}
+              </p>
             </div>
-
-            <div class="space-y-2">
-              <Label for="address1">Dirección <span class="text-red-500">*</span></Label>
-              <div class="relative">
-                <gmp-place-autocomplete
-                  v-if="address1_is_editing"
-                  ref="autocompleteField"
-                  class="w-full"
-                  placeholder="Buscar dirección..."
-                  :requested-fields="['addressComponents', 'location', 'googleMapsURI']"
-                  :value="form.address1"
-                >
-                </gmp-place-autocomplete>
-                <div v-else class="relative">
-                  <Input
-                    id="address1"
-                    v-model="form.address1"
-                    class="pr-10"
-                    @click="address1_is_editing = true"
-                    readonly
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    class="absolute right-0 top-0 h-full px-2"
-                    @click="address1_is_editing = true"
-                  >
-                    <Search class="w-4 h-4" />
-                  </Button>
-                </div>
-                <p class="text-foreground/70 text-xs mt-1">Click para buscar o editar dirección usando Google Maps</p>
-              </div>
-            </div>
-
-            <div class="space-y-2">
-              <Label for="address2">Dirección 2</Label>
-              <Input id="address2" v-model="form.address2" placeholder="Apartamento, suite, etc. (opcional)" />
-              <p class="text-foreground/70 text-xs mt-1">Información adicional de la dirección</p>
-            </div>
-
-            <!-- Read-only fields that get auto-filled -->
-            <div class="bg-muted p-3 rounded-lg">
-              <p class="text-sm text-foreground mb-2 font-medium">Estos campos se autocompletan al seleccionar una dirección:</p>
-              <div class="grid grid-cols-2 gap-4">
-                <div class="space-y-1">
-                  <Label for="city" class="text-sm">Ciudad</Label>
-                  <Input
-                    id="city"
-                    v-model="form.city"
-                    placeholder="Ciudad"
-                    readonly
-                    class="bg-background text-foreground"
-                  />
-                </div>
-                <div class="space-y-1">
-                  <Label for="state" class="text-sm">Estado</Label>
-                  <Input
-                    id="state"
-                    v-model="form.state"
-                    placeholder="Estado"
-                    readonly
-                    class="bg-background text-foreground"
-                  />
-                </div>
-                <div class="space-y-1">
-                  <Label for="zipCode" class="text-sm">C.P.</Label>
-                  <Input
-                    id="zipCode"
-                    v-model="form.zipCode"
-                    placeholder="Código Postal"
-                    readonly
-                    class="bg-background text-foreground"
-                  />
-                </div>
-                <div class="space-y-1">
-                  <Label for="country" class="text-sm">País</Label>
-                  <Input
-                    id="country"
-                    v-model="form.country"
-                    placeholder="País"
-                    readonly
-                    class="bg-background text-foreground"
-                  />
-                </div>
-              </div>
-              <div class="mt-3 space-y-1">
-                <Label for="googleMapsUrl" class="text-sm">URL Google Maps</Label>
-                <div class="flex gap-2">
-                  <Input
-                    id="googleMapsUrl"
-                    v-model="form.googleMapsUrl"
-                    placeholder="https://maps.google.com/..."
-                    readonly
-                    class="bg-background"
-                  />
-                  <Button
-                    v-if="form.googleMapsUrl"
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    @click="openGoogleMaps"
-                    class="whitespace-nowrap"
-                  >
-                    <ExternalLink class="w-4 h-4 mr-1" />
-                    Ver
-                  </Button>
-                </div>
-                <p class="text-foreground/70 text-xs mt-1">Se genera automáticamente al seleccionar la dirección</p>
-              </div>
-            </div>
-
-            <div class="space-y-2">
-              <Label for="description">{{ $t('community.description') }}</Label>
-              <Textarea id="description" v-model="form.description" rows="3" placeholder="Describe la comunidad..." />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" @click="isFormModalOpen = false">{{ $t('addRetreatModal.cancel') }}</Button>
-            <Button type="submit" :disabled="isSaving">
-              <Loader2 v-if="isSaving" class="w-4 h-4 mr-2 animate-spin" />
-              {{ $t('community.saveCommunity') }}
+            <Button variant="ghost" size="icon" @click="isFormModalOpen = false">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
             </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          </div>
 
-    <Dialog :open="isDeleteDialogOpen" @update:open="isDeleteDialogOpen = $event">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{{ $t('delete.confirmTitle') }}</DialogTitle>
-          <DialogDescription>
-            {{ $t('community.deleteConfirm') }}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" @click="isDeleteDialogOpen = false">{{ $t('addRetreatModal.cancel') }}</Button>
-          <Button variant="destructive" @click="handleDelete">
-            {{ $t('community.deleteCommunity') }}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <!-- Body -->
+          <form @submit.prevent="handleSave" class="flex-1 flex flex-col overflow-hidden">
+            <div class="flex-1 overflow-y-auto p-6 space-y-4">
+              <div class="space-y-2">
+                <Label for="name">{{ $t('community.communityName') }} <span class="text-red-500">*</span></Label>
+                <Input id="name" v-model="form.name" placeholder="Ej: Comunidad San Juan" />
+              </div>
+
+              <div class="space-y-2">
+                <Label for="address1">Dirección <span class="text-red-500">*</span></Label>
+                <div class="relative">
+                  <gmp-place-autocomplete
+                    v-if="address1_is_editing"
+                    ref="autocompleteField"
+                    class="w-full"
+                    placeholder="Buscar dirección..."
+                    :requested-fields="['addressComponents', 'location', 'googleMapsURI']"
+                    :value="form.address1"
+                  >
+                  </gmp-place-autocomplete>
+                  <div v-else class="relative">
+                    <Input
+                      id="address1"
+                      v-model="form.address1"
+                      class="pr-10"
+                      @click="address1_is_editing = true"
+                      readonly
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      class="absolute right-0 top-0 h-full px-2"
+                      @click="address1_is_editing = true"
+                    >
+                      <Search class="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <p class="text-foreground/70 text-xs mt-1">Click para buscar o editar dirección usando Google Maps</p>
+                </div>
+              </div>
+
+              <div class="space-y-2">
+                <Label for="address2">Dirección 2</Label>
+                <Input id="address2" v-model="form.address2" placeholder="Apartamento, suite, etc. (opcional)" />
+                <p class="text-foreground/70 text-xs mt-1">Información adicional de la dirección</p>
+              </div>
+
+              <!-- Read-only fields that get auto-filled -->
+              <div class="bg-muted p-3 rounded-lg">
+                <p class="text-sm text-foreground mb-2 font-medium">Estos campos se autocompletan al seleccionar una dirección:</p>
+                <div class="grid grid-cols-2 gap-4">
+                  <div class="space-y-1">
+                    <Label for="city" class="text-sm">Ciudad</Label>
+                    <Input
+                      id="city"
+                      v-model="form.city"
+                      placeholder="Ciudad"
+                      readonly
+                      class="bg-background text-foreground"
+                    />
+                  </div>
+                  <div class="space-y-1">
+                    <Label for="state" class="text-sm">Estado</Label>
+                    <Input
+                      id="state"
+                      v-model="form.state"
+                      placeholder="Estado"
+                      readonly
+                      class="bg-background text-foreground"
+                    />
+                  </div>
+                  <div class="space-y-1">
+                    <Label for="zipCode" class="text-sm">C.P.</Label>
+                    <Input
+                      id="zipCode"
+                      v-model="form.zipCode"
+                      placeholder="Código Postal"
+                      readonly
+                      class="bg-background text-foreground"
+                    />
+                  </div>
+                  <div class="space-y-1">
+                    <Label for="country" class="text-sm">País</Label>
+                    <Input
+                      id="country"
+                      v-model="form.country"
+                      placeholder="País"
+                      readonly
+                      class="bg-background text-foreground"
+                    />
+                  </div>
+                </div>
+                <div class="mt-3 space-y-1">
+                  <Label for="googleMapsUrl" class="text-sm">URL Google Maps</Label>
+                  <div class="flex gap-2">
+                    <Input
+                      id="googleMapsUrl"
+                      v-model="form.googleMapsUrl"
+                      placeholder="https://maps.google.com/..."
+                      readonly
+                      class="bg-background"
+                    />
+                    <Button
+                      v-if="form.googleMapsUrl"
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      @click="openGoogleMaps"
+                      class="whitespace-nowrap"
+                    >
+                      <ExternalLink class="w-4 h-4 mr-1" />
+                      Ver
+                    </Button>
+                  </div>
+                  <p class="text-foreground/70 text-xs mt-1">Se genera automáticamente al seleccionar la dirección</p>
+                </div>
+              </div>
+
+              <div class="space-y-2">
+                <Label for="description">{{ $t('community.description') }}</Label>
+                <Textarea id="description" v-model="form.description" rows="3" placeholder="Describe la comunidad..." />
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="flex items-center justify-end gap-2 p-6 border-t bg-gray-50">
+              <Button type="button" variant="outline" @click="isFormModalOpen = false">{{ $t('addRetreatModal.cancel') }}</Button>
+              <Button type="submit" :disabled="isSaving">
+                <Loader2 v-if="isSaving" class="w-4 h-4 mr-2 animate-spin" />
+                {{ $t('community.saveCommunity') }}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </Teleport>
+
+    <Teleport to="body" v-if="isDeleteDialogOpen">
+      <div
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+        @click.self="isDeleteDialogOpen = false"
+      >
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+          <!-- Header -->
+          <div class="p-6 border-b">
+            <h2 class="text-xl font-semibold">{{ $t('delete.confirmTitle') }}</h2>
+            <p class="text-gray-600 mt-1">{{ $t('community.deleteConfirm') }}</p>
+          </div>
+
+          <!-- Footer -->
+          <div class="flex items-center justify-end gap-2 p-6 border-t bg-gray-50">
+            <Button variant="outline" @click="isDeleteDialogOpen = false">{{ $t('addRetreatModal.cancel') }}</Button>
+            <Button variant="destructive" @click="handleDelete">
+              {{ $t('community.deleteCommunity') }}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch, nextTick } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, watch, nextTick } from 'vue';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
 import { Plus, Users, MoreHorizontal, Edit, Trash2, ChevronRight, Loader2, Search, ExternalLink } from 'lucide-vue-next';
 import {
   Button, Card, CardHeader, CardTitle, CardDescription, CardFooter,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
   Label, Input, Textarea,
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator
 } from '@repo/ui';
@@ -329,34 +353,18 @@ watch(isFormModalOpen, async (isOpen) => {
     } else {
       address1_is_editing.value = true;
     }
-  } else {
-    // Clean up when modal closes
-    await nextTick();
-
-    // Remove event listener from autocomplete field
-    if (autocompleteField.value) {
-      autocompleteField.value.removeEventListener('gmp-select', handlePlaceChange);
-    }
-    autocompleteField.value = null;
-
-    // Remove Google Places autocomplete dropdowns
-    document.querySelectorAll('.pac-container').forEach(el => el.remove());
-
-    // CRITICAL: Ensure body is interactive after modal closes
-    // Use setTimeout to ensure this runs after Radix cleanup
-    setTimeout(() => {
-      document.body.style.overflow = '';
-      document.body.style.pointerEvents = '';
-      // Remove any remaining fixed overlays
-      const overlays = document.querySelectorAll('[data-radix-popper-content-wrapper], [data-radix-dropdown-menu-content]');
-      overlays.forEach(el => {
-        const parent = el.parentElement;
-        if (parent && parent.parentElement) {
-          parent.parentElement.removeChild(parent);
-        }
-      });
-    }, 100);
   }
+});
+
+// Cleanup before component unmounts
+onBeforeUnmount(() => {
+  // Remove event listener from autocomplete field
+  if (autocompleteField.value) {
+    autocompleteField.value.removeEventListener('gmp-select', handlePlaceChange);
+  }
+
+  // Remove Google Places autocomplete dropdowns
+  document.querySelectorAll('.pac-container').forEach(el => el.remove());
 });
 
 onMounted(async () => {

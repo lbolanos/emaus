@@ -114,3 +114,52 @@ watch(
     - This is the pattern used elsewhere in the codebase (Step3ServiceInfo.vue, ImportMembersModal.vue)
 
   Key takeaway: The reka-ui Checkbox component in this project works with @click + simple toggle pattern, not with @update:checked + explicit boolean handling. The checkbox's visual state is controlled by the :checked prop, and clicking just needs to toggle the underlying data.
+
+
+  Modal Freeze Issue
+
+  Problem
+
+  When closing the edit community dialog, the interface froze - but only for edit mode, not add new mode.
+
+  Root Cause
+
+  The issue was caused by the Google Places Autocomplete web component (gmp-place-autocomplete) creating DOM elements (.pac-container) outside the component tree. When using Radix Dialog with Teleport, these elements weren't being properly cleaned up.
+
+  Solution
+
+  Replace Radix Dialog with a custom div-based modal using <Teleport to="body" v-if="...">:
+
+  <Teleport to="body" v-if="isFormModalOpen">
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+         @click.self="isFormModalOpen = false">
+      <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col">
+        <!-- Header -->
+        <div class="flex items-center justify-between p-6 border-b">
+          <h2 class="text-xl font-semibold">Title</h2>
+          <Button variant="ghost" size="icon" @click="isFormModalOpen = false">X</Button>
+        </div>
+        <!-- Body -->
+        <div class="flex-1 overflow-y-auto p-6">...</div>
+        <!-- Footer -->
+        <div class="flex items-center justify-end gap-2 p-6 border-t bg-gray-50">...</div>
+      </div>
+    </div>
+  </Teleport>
+
+  Key Points
+
+  1. Use v-if on the Teleport - ensures complete unmounting when closed
+  2. Custom modal, not Radix Dialog - when you have third-party web components inside
+  3. Add onBeforeUnmount hook - for cleanup of external DOM elements:
+
+  onBeforeUnmount(() => {
+    document.querySelectorAll('.pac-container').forEach(el => el.remove());
+  });
+
+  When to Use This Pattern
+
+  - Use Radix Dialog: For simple forms without third-party web components
+  - Use Custom Modal + Teleport: When using web components that create global DOM elements (like Google Maps, autocomplete, etc.)
+
+  This pattern is already used in ParticipantList.vue (bulk message dialog) and BulkEditParticipantsModal.vue.

@@ -316,6 +316,8 @@ apps/web/src/views/CommunityMeetingFlyerView.vue componentize the flyer to creat
 create button the open apps/web/src/components/community/MeetingFormModal.vue and change data for the flyer.
 en el formulario aumentar el width y agrega una pestaña para el flyerTemplate en el que se pueda hacer ver el mensaje final y el listado de variables que se puede agregar haciendo clic.
 adicionar un nuevo flyer style con el siguiente formato:  use apps/web/public/poster.png as background
+the MessageTemplate and ParticipantCommunication now belongs to a retreat. I need new entity to save message templates for community.  also ParticipantCommunication save if was a communication of the retreat or the community.
+en el dashboard la frecuencia de participacion no esta funcionando corectamente
 
 
 ## IN PROGRESS
@@ -369,12 +371,13 @@ aumentar el coverage de las pruebas
 verificar que todas la pruebas pasen.
 
 ## comunidades
-the MessageTemplate and ParticipantCommunication now belongs to a retreat. I need new entity to save message templates for community.  also ParticipantCommunication save if was a communication of the retreat or the community.
 
 
-en el dashboard la frecuencia de participacion no esta funcionando corectamente
+
 
 al cerrar el dialogo de editar comunidad la interfaz deja de funcionar (frezee when closing edit community).  Try Teleport
+
+standarize the breadcrumb in community
 
 ## landing
 
@@ -400,7 +403,8 @@ This will use Turborepo to run the `dev` script in both `apps/api` and `apps/web
 - The API will be available at `http://localhost:3001`.
 - The Web app will be available at `http://localhost:5173`.
 
-prompts:
+## prompts:
+now is working.  tell me a little description of how to solve this problem to remember you next time 
 Please use the Playwright MCP server to test the following process:
 connect http://localhost:5173
 login with
