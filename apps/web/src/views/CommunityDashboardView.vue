@@ -14,10 +14,17 @@
         <div class="absolute inset-0 bg-grid-pattern opacity-5"></div>
         <div class="relative z-10">
           <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
-            <div class="space-y-2">
+          <div class="space-y-2">
               <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
                 {{ currentCommunity.name }}
               </h1>
+              <div class="flex items-center text-sm text-muted-foreground/80">
+                <router-link :to="{ name: 'communities' }" class="hover:underline hover:text-foreground transition-colors">
+                  {{ $t('community.title') }}
+                </router-link>
+                <ChevronRight class="w-4 h-4 mx-1" />
+                <span>{{ $t('community.dashboard') }}</span>
+              </div>
               <p class="text-muted-foreground flex items-center gap-2">
                 <MapPin class="w-4 h-4" />
                 {{ fullAddress }}

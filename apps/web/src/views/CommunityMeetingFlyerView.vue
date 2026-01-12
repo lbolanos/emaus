@@ -73,6 +73,20 @@
       </Button>
     </div>
 
+    <!-- Breadcrumb Navigation -->
+    <div class="max-w-[850px] mx-auto px-4 pt-16 sm:pt-4 print:hidden">
+      <div class="flex items-center text-sm text-gray-600 mb-4">
+        <router-link 
+          :to="{ name: 'community-meetings', params: { id: route.params.id } }" 
+          class="hover:underline hover:text-gray-900 transition-colors"
+        >
+          {{ $t('community.meeting.title') }}
+        </router-link>
+        <ChevronRight class="w-4 h-4 mx-1" />
+        <span class="truncate max-w-[200px]">{{ meeting?.title || 'Flyer' }}</span>
+      </div>
+    </div>
+
     <!-- Loading State -->
     <div v-if="isLoading" class="flex items-center justify-center min-h-[400px]">
       <div class="flex flex-col items-center gap-4">
@@ -111,7 +125,8 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCommunityStore } from '@/stores/communityStore';
 import { Button } from '@repo/ui';
-import { Printer, Pencil, ArrowLeft, LayoutTemplate, Image, Copy, Check, Loader2 } from 'lucide-vue-next';
+import { Printer, Pencil, ArrowLeft, LayoutTemplate, Image, Copy, Check, Loader2, ChevronRight } from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
 import DefaultFlyer from '@/components/flyers/DefaultFlyer.vue';
 import PosterFlyer from '@/components/flyers/PosterFlyer.vue';
 import MeetingFormModal from '@/components/community/MeetingFormModal.vue';
@@ -129,6 +144,7 @@ import { useToast } from '@repo/ui';
 
 const route = useRoute();
 const router = useRouter();
+const { t: $t } = useI18n();
 const communityStore = useCommunityStore();
 const { toast } = useToast();
 
