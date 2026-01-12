@@ -19,7 +19,7 @@ export const useGlobalMessageTemplateStore = defineStore('globalMessageTemplate'
 	}),
 
 	getters: {
-		activeTemplates: (state) => state.templates.filter((template) => template.isActive),
+		activeTemplates: (state) => state.templates.filter((template) => !!template.isActive),
 		getTemplateById: (state) => (id: string) =>
 			state.templates.find((template) => template.id === id),
 		getTemplatesByType: (state) => (type: string) =>
@@ -173,6 +173,45 @@ export const useGlobalMessageTemplateStore = defineStore('globalMessageTemplate'
 			} catch (error) {
 				this.error = 'Error al copiar las plantillas de mensaje globales al retiro';
 				console.error('Error copying all global message templates to retreat:', error);
+				throw error;
+			} finally {
+				this.loading = false;
+			}
+		},
+
+		async copyToCommunity(templateId: string, communityId: string) {
+			this.loading = true;
+			this.error = null;
+
+			try {
+				const response = await api.post(
+					`/global-message-templates/${templateId}/copy-to-community`,
+					{
+						communityId,
+					},
+				);
+				return response.data.template;
+			} catch (error) {
+				this.error = 'Error al copiar la plantilla de mensaje global a la comunidad';
+				console.error('Error copying global message template to community:', error);
+				throw error;
+			} finally {
+				this.loading = false;
+			}
+		},
+
+		async copyAllToCommunity(communityId: string) {
+			this.loading = true;
+			this.error = null;
+
+			try {
+				const response = await api.post(
+					`/global-message-templates/copy-all-to-community/${communityId}`,
+				);
+				return response.data.templates;
+			} catch (error) {
+				this.error = 'Error al copiar las plantillas de mensaje globales a la comunidad';
+				console.error('Error copying all global message templates to community:', error);
 				throw error;
 			} finally {
 				this.loading = false;

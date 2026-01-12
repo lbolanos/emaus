@@ -127,6 +127,7 @@ When a user receives an invitation link:
 5. **Wait for confirmation** - You'll be redirected to the community dashboard
 
 After accepting:
+
 - The community will appear in your sidebar under "Comunidades" (Communities)
 - You'll have full admin access to manage members, meetings, and view analytics
 

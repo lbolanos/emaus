@@ -289,6 +289,12 @@ const router = createRouter({
 					component: () => import('../views/CommunityAdminsView.vue'),
 					props: true,
 				},
+				{
+					path: 'communities/:id/templates',
+					name: 'community-templates',
+					component: () => import('../views/CommunityMessageTemplatesView.vue'),
+					props: true,
+				},
 			],
 		},
 	],

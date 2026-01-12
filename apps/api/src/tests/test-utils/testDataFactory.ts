@@ -490,7 +490,11 @@ export class TestDataFactory {
 	/**
 	 * Create a test admin for a community
 	 */
-	static async createTestCommunityAdmin(communityId: string, userId: string, overrides: any = {}): Promise<any> {
+	static async createTestCommunityAdmin(
+		communityId: string,
+		userId: string,
+		overrides: any = {},
+	): Promise<any> {
 		const { CommunityAdmin } = await import('@/entities/communityAdmin.entity');
 		const adminRepository = this.testDataSource.getRepository(CommunityAdmin);
 		const admin = adminRepository.create({
@@ -507,7 +511,11 @@ export class TestDataFactory {
 	/**
 	 * Create a test attendance record
 	 */
-	static async createTestCommunityAttendance(meetingId: string, memberId: string, attended: boolean): Promise<any> {
+	static async createTestCommunityAttendance(
+		meetingId: string,
+		memberId: string,
+		attended: boolean,
+	): Promise<any> {
 		const { CommunityAttendance } = await import('@/entities/communityAttendance.entity');
 		const attendanceRepository = this.testDataSource.getRepository(CommunityAttendance);
 		const attendance = attendanceRepository.create({

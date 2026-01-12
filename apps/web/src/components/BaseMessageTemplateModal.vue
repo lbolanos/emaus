@@ -992,6 +992,23 @@ const handleSubmit = async () => {
       } else {
         await globalMessageTemplateStore.create(formData.value);
       }
+    } else if (props.template?.scope === 'community') {
+      // Community-specific template
+      const { useCommunityMessageTemplateStore } = await import('@/stores/communityMessageTemplateStore');
+      const communityTemplateStore = useCommunityMessageTemplateStore();
+
+      const templateData = {
+        name: formData.value.name,
+        type: formData.value.type as any,
+        message: formData.value.message,
+        scope: 'community' as const,
+      };
+
+      if (props.template && (props.template as any).id) {
+        await communityTemplateStore.updateTemplate((props.template as any).communityId, (props.template as any).id, templateData);
+      } else {
+        await communityTemplateStore.createTemplate((props.template as any).communityId, templateData);
+      }
     } else {
       // Retreat-specific template
       if (!retreatStore.selectedRetreatId) {

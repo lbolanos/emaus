@@ -62,6 +62,35 @@
     "selectRetreatFirst": "Por favor selecciona un retiro primero",
     "communities": "Comunidades"
   },
+  "communityTemplates": {
+    "title": "Plantillas de Mensajes de la Comunidad",
+    "addNew": "Agregar Nueva Plantilla",
+    "importTemplates": "Importar Plantillas",
+    "loading": "Cargando plantillas...",
+    "noTemplates": "No hay plantillas disponibles",
+    "deleteConfirm": "¿Estás seguro de que deseas eliminar esta plantilla?",
+    "create": "Crear Plantilla",
+    "edit": "Editar Plantilla",
+    "table": {
+      "name": "Nombre",
+      "type": "Tipo",
+      "message": "Mensaje",
+      "actions": "Acciones"
+    },
+    "import": {
+      "title": "Importar Plantillas",
+      "fromGlobal": "Desde Globales",
+      "fromRetreat": "Desde Retiro",
+      "globalDescription": "Selecciona las plantillas globales que deseas importar a esta comunidad.",
+      "retreatDescription": "Selecciona un retiro y las plantillas que deseas importar a esta comunidad.",
+      "selectRetreat": "Seleccionar Retiro",
+      "chooseRetreat": "Elegir retiro...",
+      "willUpdate": "Actualizará",
+      "willCreate": "Nueva",
+      "importSelected": "Importar Seleccionadas",
+      "importing": "Importando..."
+    }
+  },
   "messageTemplates": {
     "title": "Plantillas de Mensajes",
     "addNew": "Agregar Nueva Plantilla",
@@ -146,7 +175,16 @@
       "USER_INVITATION": "Invitación de Usuario",
       "PASSWORD_RESET": "Restablecimiento de Contraseña",
       "RETREAT_SHARED_NOTIFICATION": "Notificación de Retiro Compartido",
-      "BIRTHDAY_MESSAGE": "Mensaje de Cumpleaños"
+      "BIRTHDAY_MESSAGE": "Mensaje de Cumpleaños",
+      "SYS_REGISTRATION_CONFIRMATION": "Confirmación de Registro (Sistema)",
+      "SYS_ACCOUNT_LOCKED": "Cuenta Bloqueada (Sistema)",
+      "SYS_ACCOUNT_UNLOCKED": "Cuenta Desbloqueada (Sistema)",
+      "SYS_USER_INVITATION": "Invitación de Usuario (Sistema)",
+      "SYS_PASSWORD_RESET": "Restablecimiento de Contraseña (Sistema)",
+      "SYS_ROLE_APPROVED": "Rol Aprobado (Sistema)",
+      "SYS_ROLE_REJECTED": "Rol Rechazado (Sistema)",
+      "SYS_ROLE_REQUESTED": "Solicitud de Rol (Sistema)",
+      "SYS_EMAIL_VERIFICATION": "Verificación de Correo (Sistema)"
     }
   },
   "participants": {
@@ -1092,7 +1130,8 @@
       "hide": "Ocultar",
       "showMore": "Ver más",
       "showLess": "Ver menos",
-      "submit": "Enviar"
+      "submit": "Enviar",
+      "importing": "Importando..."
     },
     "click": "Clic",
     "import": {
@@ -1179,6 +1218,7 @@
     "meetings": "Reuniones",
     "membersLabel": "Miembros",
     "adminsLabel": "Administradores",
+    "templatesLabel": "Plantillas",
     "participationRate": "Frecuencia de Participación",
     "dashboard": "Dashboard",
     "admins": "Administradores",
@@ -1268,7 +1308,14 @@
       "totalMembers": "Total de Miembros",
       "lastMeetings": "Últimas Reuniones",
       "memberStatus": "Distribución de Estado de Miembros",
-      "participationRate": "Frecuencia de Participación"
+      "participationRate": "Frecuencia de Participación",
+      "averageAttendance": "Asist. Promedio",
+      "upcomingMeetings": "Próximas",
+      "recentMeetings": "Reuniones Recientes",
+      "noRecentMeetings": "No hay reuniones recientes",
+      "quickActions": "Acciones Rápidas",
+      "attendancePercent": "{percent}%",
+      "noData": "Sin datos disponibles"
     },
     "attendance": {
       "present": "Presente",
@@ -1294,6 +1341,35 @@
       "copyPublicLink": "Copiar enlace de asistencia",
       "publicLinkCopied": "Enlace copiado al portapapeles",
       "publicLinkWarning": "Cualquier persona con este enlace puede registrar asistencia"
+    },
+    "templates": {
+      "title": "Plantillas de Mensajes",
+      "addNew": "Agregar Nueva",
+      "importTemplates": "Importar Plantillas",
+      "loading": "Cargando plantillas...",
+      "deleteConfirm": "¿Estás seguro de que deseas eliminar esta plantilla?",
+      "noTemplates": "No hay plantillas disponibles",
+      "create": "Crear Plantilla",
+      "edit": "Editar Plantilla",
+      "table": {
+        "name": "Nombre",
+        "type": "Tipo",
+        "message": "Mensaje",
+        "actions": "Acciones"
+      },
+      "import": {
+        "title": "Importar Plantillas",
+        "fromGlobal": "Desde Globales",
+        "fromRetreat": "Desde Retiro",
+        "globalDescription": "Selecciona las plantillas globales que deseas importar a esta comunidad.",
+        "retreatDescription": "Selecciona un retiro y las plantillas que deseas importar a esta comunidad.",
+        "selectRetreat": "Seleccionar Retiro",
+        "chooseRetreat": "Elegir retiro...",
+        "willUpdate": "Se actualizará",
+        "willCreate": "Nueva",
+        "importSelected": "Importar Seleccionadas",
+        "importing": "Importando..."
+      }
     },
     "admin": {
       "title": "Administradores de Comunidad",

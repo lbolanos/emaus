@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { MessageTemplate as IMessageTemplate, messageTemplateTypes } from '@repo/types';
 import { Retreat } from './retreat.entity';
+import { Community } from './community.entity';
 
 @Entity('message_templates')
 export class MessageTemplate implements IMessageTemplate {
@@ -48,15 +49,29 @@ export class MessageTemplate implements IMessageTemplate {
 		| 'SYS_ROLE_APPROVED'
 		| 'SYS_ROLE_REJECTED';
 
+	@Column({
+		type: 'varchar',
+		enum: ['retreat', 'community'],
+		default: 'retreat',
+	})
+	scope!: 'retreat' | 'community';
+
 	@Column({ type: 'text' })
 	message!: string;
 
-	@Column({ type: 'uuid' })
-	retreatId!: string;
+	@Column({ type: 'uuid', nullable: true })
+	retreatId?: string;
 
 	@ManyToOne(() => Retreat, { onDelete: 'CASCADE' })
 	@JoinColumn({ name: 'retreatId' })
-	retreat!: Retreat;
+	retreat?: Retreat;
+
+	@Column({ type: 'uuid', nullable: true })
+	communityId?: string;
+
+	@ManyToOne(() => Community, { onDelete: 'CASCADE' })
+	@JoinColumn({ name: 'communityId' })
+	community?: Community;
 
 	@CreateDateColumn()
 	createdAt!: Date;

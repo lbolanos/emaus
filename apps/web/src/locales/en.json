@@ -63,6 +63,35 @@
     "selectRetreatFirst": "Please select a retreat first",
     "communities": "Communities"
   },
+  "communityTemplates": {
+    "title": "Community Message Templates",
+    "addNew": "Add New Template",
+    "importTemplates": "Import Templates",
+    "loading": "Loading templates...",
+    "noTemplates": "No templates available",
+    "deleteConfirm": "Are you sure you want to delete this template?",
+    "create": "Create Template",
+    "edit": "Edit Template",
+    "table": {
+      "name": "Name",
+      "type": "Type",
+      "message": "Message",
+      "actions": "Actions"
+    },
+    "import": {
+      "title": "Import Templates",
+      "fromGlobal": "From Global",
+      "fromRetreat": "From Retreat",
+      "globalDescription": "Select the global templates you want to import to this community.",
+      "retreatDescription": "Select a retreat and the templates you want to import to this community.",
+      "selectRetreat": "Select Retreat",
+      "chooseRetreat": "Choose retreat...",
+      "willUpdate": "Will update",
+      "willCreate": "New",
+      "importSelected": "Import Selected",
+      "importing": "Importing..."
+    }
+  },
   "messageTemplates": {
     "title": "Message Templates",
     "addNew": "Add New Template",
@@ -132,7 +161,16 @@
       "USER_INVITATION": "User Invitation",
       "PASSWORD_RESET": "Password Reset",
       "RETREAT_SHARED_NOTIFICATION": "Retreat Shared Notification",
-      "BIRTHDAY_MESSAGE": "Birthday Message"
+      "BIRTHDAY_MESSAGE": "Birthday Message",
+      "SYS_REGISTRATION_CONFIRMATION": "Registration Confirmation (System)",
+      "SYS_ACCOUNT_LOCKED": "Account Locked (System)",
+      "SYS_ACCOUNT_UNLOCKED": "Account Unlocked (System)",
+      "SYS_USER_INVITATION": "User Invitation (System)",
+      "SYS_PASSWORD_RESET": "Password Reset (System)",
+      "SYS_ROLE_APPROVED": "Role Approved (System)",
+      "SYS_ROLE_REJECTED": "Role Rejected (System)",
+      "SYS_ROLE_REQUESTED": "Role Requested (System)",
+      "SYS_EMAIL_VERIFICATION": "Email Verification (System)"
     }
   },
   "participants": {
@@ -1090,7 +1128,8 @@
       "show": "Show",
       "hide": "Hide",
       "showMore": "Show more",
-      "showLess": "Show less"
+      "showLess": "Show less",
+      "importing": "Importing..."
     },
     "import": {
       "errorTitle": "Import Error",
@@ -1161,6 +1200,7 @@
     "meetings": "Meetings",
     "membersLabel": "Members",
     "adminsLabel": "Admins",
+    "templatesLabel": "Templates",
     "participationRate": "Participation Frequency",
     "dashboard": "Dashboard",
     "admins": "Admins",
@@ -1250,7 +1290,14 @@
       "totalMembers": "Total Members",
       "lastMeetings": "Last Meetings",
       "memberStatus": "Member Status Distribution",
-      "participationRate": "Participation Frequency"
+      "participationRate": "Participation Frequency",
+      "averageAttendance": "Avg. Attendance",
+      "upcomingMeetings": "Upcoming",
+      "recentMeetings": "Recent Meetings",
+      "noRecentMeetings": "No recent meetings yet",
+      "quickActions": "Quick Actions",
+      "attendancePercent": "{percent}%",
+      "noData": "No data available"
     },
     "attendance": {
       "present": "Present",
@@ -1276,6 +1323,35 @@
       "copyPublicLink": "Copy attendance link",
       "publicLinkCopied": "Link copied to clipboard",
       "publicLinkWarning": "Anyone with this link can record attendance"
+    },
+    "templates": {
+      "title": "Message Templates",
+      "addNew": "Add New",
+      "importTemplates": "Import Templates",
+      "loading": "Loading templates...",
+      "deleteConfirm": "Are you sure you want to delete this template?",
+      "noTemplates": "No templates available",
+      "create": "Create Template",
+      "edit": "Edit Template",
+      "table": {
+        "name": "Name",
+        "type": "Type",
+        "message": "Message",
+        "actions": "Actions"
+      },
+      "import": {
+        "title": "Import Templates",
+        "fromGlobal": "From Global",
+        "fromRetreat": "From Retreat",
+        "globalDescription": "Select the global templates you want to import to this community.",
+        "retreatDescription": "Select a retreat and the templates you want to import to this community.",
+        "selectRetreat": "Select Retreat",
+        "chooseRetreat": "Choose retreat...",
+        "willUpdate": "Will update",
+        "willCreate": "New",
+        "importSelected": "Import Selected",
+        "importing": "Importing..."
+      }
     },
     "admin": {
       "title": "Community Admins",

@@ -18,6 +18,7 @@
       <div class="flex justify-between items-center">
         <div>
           <h1 class="text-2xl font-bold">{{ currentMeeting.title }} - {{ $t('community.meeting.recordAttendance') }}</h1>
+          <p class="text-muted-foreground">{{ formatDate(currentMeeting.startDate) }}</p>
           <div class="flex items-center text-sm text-muted-foreground">
             <router-link
               :to="{ name: 'community-meetings', params: { id: currentCommunity.id } }"
@@ -110,6 +111,7 @@ import { storeToRefs } from 'pinia';
 import { ChevronRight, Check, Users, Search, Loader2 } from 'lucide-vue-next';
 import { Button, Card, Badge, Input } from '@repo/ui';
 import { useToast } from '@repo/ui';
+import { formatDate } from '@repo/utils';
 
 const { t: $t } = useI18n();
 

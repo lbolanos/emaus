@@ -2,7 +2,11 @@ import { Router } from 'express';
 import { CommunityController } from '../controllers/communityController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { validateRequest } from '../middleware/validateRequest';
-import { requirePermission, requireCommunityAccess, requireCommunityMeetingAccess } from '../middleware/authorization';
+import {
+	requirePermission,
+	requireCommunityAccess,
+	requireCommunityMeetingAccess,
+} from '../middleware/authorization';
 import {
 	createCommunitySchema,
 	updateCommunitySchema,
@@ -35,9 +39,7 @@ router.use(isAuthenticated);
 
 // Communities CRUD
 // Get communities - any authenticated user can get their own communities (service filters by admin status)
-router.get('/', (req, res) =>
-	CommunityController.getCommunities(req, res),
-);
+router.get('/', (req, res) => CommunityController.getCommunities(req, res));
 router.post(
 	'/',
 	requirePermission('community:create'),
@@ -47,11 +49,8 @@ router.post(
 router.get('/:id', requireCommunityAccess(), (req, res) =>
 	CommunityController.getCommunityById(req, res),
 );
-router.put(
-	'/:id',
-	requireCommunityAccess(),
-	validateRequest(updateCommunitySchema),
-	(req, res) => CommunityController.updateCommunity(req, res),
+router.put('/:id', requireCommunityAccess(), validateRequest(updateCommunitySchema), (req, res) =>
+	CommunityController.updateCommunity(req, res),
 );
 router.delete('/:id', requirePermission('community:delete'), (req, res) =>
 	CommunityController.deleteCommunity(req, res),
@@ -125,10 +124,8 @@ router.post(
 	validateRequest(recordAttendanceSchema),
 	(req, res) => CommunityController.recordAttendance(req, res),
 );
-router.post(
-	'/:id/meetings/:meetingId/attendance/single',
-	requireCommunityAccess(),
-	(req, res) => CommunityController.recordSingleAttendance(req, res),
+router.post('/:id/meetings/:meetingId/attendance/single', requireCommunityAccess(), (req, res) =>
+	CommunityController.recordSingleAttendance(req, res),
 );
 
 // Dashboard

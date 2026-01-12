@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
 import { GlobalMessageTemplateService } from '../services/globalMessageTemplateService';
+import { CommunityAdmin } from '../entities/communityAdmin.entity';
+import { AppDataSource } from '../data-source';
+import { MessageTemplate } from '../entities/messageTemplate.entity';
 
 export class GlobalMessageTemplateController {
 	private globalMessageTemplateService: GlobalMessageTemplateService;
@@ -155,6 +158,138 @@ export class GlobalMessageTemplateController {
 			});
 		} catch (error) {
 			console.error('Error in copyToRetreat:', error);
+			return res.status(500).json({
+				error: 'Internal server error',
+			});
+		}
+	}
+
+	async copyToCommunity(req: Request, res: Response) {
+		try {
+			const { id: globalTemplateId } = req.params;
+			const { communityId } = req.body;
+
+			// Check community admin access
+			if (!req.user) {
+				return res.status(401).json({ error: 'Unauthorized' });
+			}
+
+			const adminRecord = await AppDataSource.getRepository(CommunityAdmin).findOne({
+				where: {
+					communityId,
+					userId: (req.user as any).id,
+					status: 'active',
+				},
+			});
+
+			if (!adminRecord) {
+				return res.status(403).json({
+					error: 'Forbidden - Not a community admin',
+				});
+			}
+
+			const template = await this.globalMessageTemplateService.copyToCommunity(
+				globalTemplateId,
+				communityId,
+			);
+
+			if (!template) {
+				return res.status(404).json({
+					error: 'Global message template not found or cannot be copied',
+				});
+			}
+
+			return res.json({
+				message: 'Global message template copied to community successfully',
+				template,
+			});
+		} catch (error) {
+			console.error('Error in copyToCommunity:', error);
+			return res.status(500).json({
+				error: 'Internal server error',
+			});
+		}
+	}
+
+	async copyAllToCommunity(req: Request, res: Response) {
+		try {
+			const { communityId } = req.params;
+
+			// Check community admin access
+			if (!req.user) {
+				return res.status(401).json({ error: 'Unauthorized' });
+			}
+
+			const adminRecord = await AppDataSource.getRepository(CommunityAdmin).findOne({
+				where: {
+					communityId,
+					userId: (req.user as any).id,
+					status: 'active',
+				},
+			});
+
+			if (!adminRecord) {
+				return res.status(403).json({
+					error: 'Forbidden - Not a community admin',
+				});
+			}
+
+			const templates =
+				await this.globalMessageTemplateService.copyAllActiveTemplatesToCommunity(communityId);
+
+			return res.json({
+				message: `${templates.length} templates copied to community successfully`,
+				templates,
+			});
+		} catch (error) {
+			console.error('Error in copyAllToCommunity:', error);
+			return res.status(500).json({
+				error: 'Internal server error',
+			});
+		}
+	}
+
+	async copyRetreatTemplateToCommunity(req: Request, res: Response) {
+		try {
+			const { id: retreatTemplateId } = req.params;
+			const { communityId } = req.body;
+
+			// Check community admin access
+			if (!req.user) {
+				return res.status(401).json({ error: 'Unauthorized' });
+			}
+
+			const adminRecord = await AppDataSource.getRepository(CommunityAdmin).findOne({
+				where: {
+					communityId,
+					userId: (req.user as any).id,
+					status: 'active',
+				},
+			});
+
+			if (!adminRecord) {
+				return res.status(403).json({
+					error: 'Forbidden - Not a community admin',
+				});
+			}
+
+			const template = await this.globalMessageTemplateService.copyRetreatTemplateToCommunity(
+				retreatTemplateId,
+				communityId,
+			);
+
+			if (!template) {
+				return res.status(404).json({
+					error: 'Retreat template not found or cannot be copied',
+				});
+			}
+
+			return res.json({
+				message: 'Retreat template copied to community successfully',
+				template,
+			});
+		} catch (error) {
+			console.error('Error in copyRetreatTemplateToCommunity:', error);
 			return res.status(500).json({
 				error: 'Internal server error',
 			});

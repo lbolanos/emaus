@@ -61,4 +61,24 @@ router.post(
 	globalMessageTemplateController.copyToRetreat.bind(globalMessageTemplateController),
 );
 
+// Copy global template to community (uses community admin check in controller)
+router.post(
+	'/:id/copy-to-community',
+	globalMessageTemplateController.copyToCommunity.bind(globalMessageTemplateController),
+);
+
+// Copy all active global templates to community (uses community admin check in controller)
+router.post(
+	'/copy-all-to-community/:communityId',
+	globalMessageTemplateController.copyAllToCommunity.bind(globalMessageTemplateController),
+);
+
+// Copy retreat template to community (uses community admin check in controller)
+router.post(
+	'/retreat-templates/:id/copy-to-community',
+	globalMessageTemplateController.copyRetreatTemplateToCommunity.bind(
+		globalMessageTemplateController,
+	),
+);
+
 export default router;

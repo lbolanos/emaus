@@ -4,7 +4,7 @@
       <DialogHeader>
         <div class="flex items-center justify-between">
           <div>
-            <DialogTitle>Enviar Mensaje a {{ participant?.firstName }} {{ participant?.lastName }}</DialogTitle>
+            <DialogTitle>Enviar Mensaje a {{ displayName }}</DialogTitle>
             <DialogDescription>
               Selecciona el método de envío y la plantilla de mensaje
             </DialogDescription>
@@ -14,8 +14,8 @@
             size="sm"
             @click="toggleHistory"
             :class="{ 'bg-primary text-primary-foreground': showHistory }"
-            :disabled="!props.participant?.id || !retreatStore.selectedRetreatId"
-            :title="!props.participant?.id || !retreatStore.selectedRetreatId ? 'Selecciona un participante y retiro' : 'Ver historial de mensajes (Ctrl+H)'"
+            :disabled="!canShowHistory"
+            :title="!canShowHistory ? 'Selecciona un destinatario' : 'Ver historial de mensajes (Ctrl+H)'"
             accesskey="h"
           >
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -155,8 +155,8 @@
                 </Select>
               </div>
             </div>
-            <Select v-model="selectedTemplate" :disabled="templatesLoading" @open="() => console.log('Template select opened, loading:', templatesLoading)" @close="() => console.log('Template select closed')">
-              <SelectTrigger @click="() => console.log('Select trigger clicked, loading:', templatesLoading, 'disabled:', templatesLoading)">
+            <Select v-model="selectedTemplate" :disabled="templatesLoading">
+              <SelectTrigger>
                 <SelectValue :placeholder="templatesLoading ? 'Cargando plantillas...' : 'Selecciona una plantilla'" />
               </SelectTrigger>
               <SelectContent>
@@ -211,6 +211,7 @@
                     class="text-sm min-h-[260px]"
                     :class="{ 'border-red-500': showValidationErrors && validateMessage().length > 0 }"
                     :placeholder="sendMethod === 'whatsapp' ? 'Edita el mensaje para WhatsApp aquí...' : 'Edita el mensaje para Email aquí...'"
+                    @input="handleUserEdit"
                   />
                   <div v-if="showValidationErrors" class="mt-1">
                     <div v-for="error in validateMessage()" :key="error" class="text-xs text-red-600">
@@ -236,8 +237,20 @@
         <!-- History Sidebar -->
         <div v-if="showHistory" class="w-80 border-l pl-6">
           <ParticipantMessageHistory
-            :participant-id="props.participant?.id"
-            :retreat-id="retreatStore.selectedRetreatId || undefined"
+            v-if="canShowHistory && props.context === 'retreat'"
+            :participant-id="recipientId"
+            :retreat-id="contextId"
+            :visible="showHistory"
+            :auto-load="true"
+            @message-click="handleMessageClick"
+            @copy-message="handleCopyMessage"
+            @loading-changed="handleHistoryLoadingChanged"
+            @count-changed="handleHistoryCountChanged"
+          />
+          <CommunityMessageHistory
+            v-if="canShowHistory && props.context === 'community'"
+            :member-id="recipientId"
+            :community-id="contextId"
             :visible="showHistory"
             :auto-load="true"
             @message-click="handleMessageClick"
@@ -249,9 +262,18 @@
 
         <!-- Hidden component to load count even when history is not visible -->
         <ParticipantMessageHistory
-          v-if="props.participant?.id && retreatStore.selectedRetreatId && !showHistory"
-          :participant-id="props.participant?.id"
-          :retreat-id="retreatStore.selectedRetreatId || undefined"
+          v-if="canShowHistory && props.context === 'retreat' && !showHistory"
+          :participant-id="recipientId"
+          :retreat-id="contextId"
+          :visible="false"
+          :auto-load="true"
+          @count-changed="handleHistoryCountChanged"
+          style="display: none;"
+        />
+        <CommunityMessageHistory
+          v-if="canShowHistory && props.context === 'community' && !showHistory"
+          :member-id="recipientId"
+          :community-id="contextId"
           :visible="false"
           :auto-load="true"
           @count-changed="handleHistoryCountChanged"
@@ -279,63 +301,87 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount, onUnmounted } from 'vue';
+import { ref, computed, watch, onBeforeUnmount, onUnmounted, markRaw } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRetreatStore } from '@/stores/retreatStore';
+import { useCommunityStore } from '@/stores/communityStore';
 import { useMessageTemplateStore } from '@/stores/messageTemplateStore';
+import { useCommunityMessageTemplateStore } from '@/stores/communityMessageTemplateStore';
 import { useToast } from '@repo/ui';
-
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
 } from '@repo/ui';
 import { Button } from '@repo/ui';
 import { Label } from '@repo/ui';
 import { Textarea } from '@repo/ui';
 import { Badge } from '@repo/ui';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+	Tabs,
+	TabsContent,
+	TabsList,
+	TabsTrigger,
 } from '@repo/ui';
 import { convertHtmlToWhatsApp, convertHtmlToEmail, replaceAllVariables, ParticipantData, RetreatData } from '@/utils/message';
-import { useParticipantCommunicationStore } from '@/stores/participantCommunicationStore';
-import { getSmtpConfig, sendEmailViaBackend } from '@/services/api';
+import { useParticipantCommunicationStore, type ParticipantCommunication } from '@/stores/participantCommunicationStore';
+import { useCommunityCommunicationStore, type CommunityCommunication } from '@/stores/communityCommunicationStore';
+import { getSmtpConfig, sendEmailViaBackend, sendCommunityEmailViaBackend } from '@/services/api';
 import ParticipantMessageHistory from './ParticipantMessageHistory.vue';
+import CommunityMessageHistory from './CommunityMessageHistory.vue';
+import type { Participant, CommunityMember } from '@repo/types';
+
+// Constants
+const DRAFT_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
+const MAX_RETRY_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 2000;
 
 interface Props {
-  open: boolean;
-  participant: any;
+	open: boolean;
+	context: 'retreat' | 'community';
+	participant?: Participant | CommunityMember | null;
+	retreatId?: string;
+	communityId?: string;
 }
 
 interface Emits {
-  (e: 'update:open', value: boolean): void;
+	(e: 'update:open', value: boolean): void;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+	participant: null,
+	retreatId: '',
+	communityId: '',
+});
+
 const emit = defineEmits<Emits>();
 
 const { toast } = useToast();
 const retreatStore = useRetreatStore();
-const { selectedRetreat } = storeToRefs(retreatStore);
+const communityStore = useCommunityStore();
 const messageTemplateStore = useMessageTemplateStore();
-const { templates: allMessageTemplates, loading: templatesLoading } = storeToRefs(messageTemplateStore);
+const communityMessageTemplateStore = useCommunityMessageTemplateStore();
 const participantCommunicationStore = useParticipantCommunicationStore();
+const communityCommunicationStore = useCommunityCommunicationStore();
+
+const { selectedRetreat } = storeToRefs(retreatStore);
+const { currentCommunity } = storeToRefs(communityStore);
+const { templates: allMessageTemplates, loading: templatesLoading } = storeToRefs(
+	props.context === 'community' ? communityMessageTemplateStore : messageTemplateStore
+);
 
 // Reactive state
 const isOpen = computed({
-  get: () => props.open,
-  set: (value) => emit('update:open', value)
+	get: () => props.open,
+	set: (value) => emit('update:open', value)
 });
 
 const sendMethod = ref<'whatsapp' | 'email'>('whatsapp');
@@ -356,1091 +402,764 @@ const isAutoSaving = ref(false);
 const showValidationErrors = ref(false);
 const historyComponentLoading = ref(false);
 const historyMessageCount = ref(0);
+const isUserEditing = ref(false);
 let ariaHiddenObserver: MutationObserver | null = null;
 
-// Contact options computed property - handles both phones and emails
+// Computed properties
+const contextId = computed(() => props.context === 'retreat' ? props.retreatId : props.communityId);
+const recipientId = computed(() => {
+	if (!props.participant) return '';
+	// For community members, use the member ID
+	if (props.context === 'community') {
+		return (props.participant as CommunityMember).id;
+	}
+	// For retreat participants, use participant ID
+	return (props.participant as Participant).id;
+});
+
+const canShowHistory = computed(() => !!recipientId.value && !!contextId.value);
+
+const displayName = computed(() => {
+	if (!props.participant) return '';
+	const p = props.participant;
+	if ('participant' in p && p.participant) {
+		// CommunityMember with participant relation
+		return `${p.participant.firstName} ${p.participant.lastName}`;
+	}
+	// Participant or CommunityMember without relation
+	if ('firstName' in p) {
+		return `${p.firstName} ${p.lastName}`;
+	}
+	return '';
+});
+
+// Contact options computed property
 const contactOptions = computed(() => {
-  if (!props.participant) return [];
+	if (!props.participant) return [];
 
-  const participant = props.participant;
-  const options = [];
-  const usedValues = new Set();
+	const p = props.participant;
+	const options = [];
+	const usedValues = new Set();
 
-  if (sendMethod.value === 'whatsapp') {
-    // Phone options
-    if (participant.cellPhone && !usedValues.has(participant.cellPhone)) {
-      options.push({
-        value: participant.cellPhone,
-        label: 'Teléfono Móvil',
-        description: 'Teléfono móvil principal'
-      });
-      usedValues.add(participant.cellPhone);
-    }
+	// Get contact data from participant relation if available
+	const participantData = 'participant' in p && p.participant ? p.participant : p;
 
-    if (participant.homePhone && !usedValues.has(participant.homePhone)) {
-      options.push({
-        value: participant.homePhone,
-        label: 'Teléfono Casa',
-        description: 'Teléfono de casa'
-      });
-      usedValues.add(participant.homePhone);
-    }
+	if (sendMethod.value === 'whatsapp') {
+		// Phone options
+		const phoneFields = [
+			{ key: 'cellPhone', label: 'Teléfono Móvil', desc: 'Teléfono móvil principal' },
+			{ key: 'homePhone', label: 'Teléfono Casa', desc: 'Teléfono de casa' },
+			{ key: 'workPhone', label: 'Teléfono Trabajo', desc: 'Teléfono del trabajo' },
+			{ key: 'emergencyContact1CellPhone', label: 'Contacto Emergencia 1', desc: `Teléfono de ${participantData.emergencyContact1Name || 'Contacto de emergencia 1'}` },
+			{ key: 'emergencyContact1HomePhone', label: 'Contacto Emergencia 1 (Casa)', desc: `Teléfono de casa de ${participantData.emergencyContact1Name || 'Contacto de emergencia 1'}` },
+			{ key: 'emergencyContact1WorkPhone', label: 'Contacto Emergencia 1 (Trabajo)', desc: `Teléfono de trabajo de ${participantData.emergencyContact1Name || 'Contacto de emergencia 1'}` },
+			{ key: 'emergencyContact2CellPhone', label: 'Contacto Emergencia 2', desc: `Teléfono de ${participantData.emergencyContact2Name || 'Contacto de emergencia 2'}` },
+			{ key: 'emergencyContact2HomePhone', label: 'Contacto Emergencia 2 (Casa)', desc: `Teléfono de casa de ${participantData.emergencyContact2Name || 'Contacto de emergencia 2'}` },
+			{ key: 'emergencyContact2WorkPhone', label: 'Contacto Emergencia 2 (Trabajo)', desc: `Teléfono de trabajo de ${participantData.emergencyContact2Name || 'Contacto de emergencia 2'}` },
+			{ key: 'inviterCellPhone', label: 'Teléfono Invitador', desc: `Teléfono de quien invitó: ${participantData.invitedBy || 'Invitador'}` },
+			{ key: 'inviterHomePhone', label: 'Teléfono Invitador (Casa)', desc: `Teléfono de casa de quien invitó: ${participantData.invitedBy || 'Invitador'}` },
+			{ key: 'inviterWorkPhone', label: 'Teléfono Invitador (Trabajo)', desc: `Teléfono de trabajo de quien invitó: ${participantData.invitedBy || 'Invitador'}` },
+		];
 
-    if (participant.workPhone && !usedValues.has(participant.workPhone)) {
-      options.push({
-        value: participant.workPhone,
-        label: 'Teléfono Trabajo',
-        description: 'Teléfono del trabajo'
-      });
-      usedValues.add(participant.workPhone);
-    }
+		for (const field of phoneFields) {
+			const value = (participantData as any)[field.key];
+			if (value && !usedValues.has(value)) {
+				options.push({ value, label: field.label, description: field.desc });
+				usedValues.add(value);
+			}
+		}
+	} else {
+		// Email options
+		const emailFields = [
+			{ key: 'email', label: 'Correo Principal', desc: 'Correo electrónico principal' },
+			{ key: 'workEmail', label: 'Correo Trabajo', desc: 'Correo electrónico del trabajo' },
+			{ key: 'emergencyContact1Email', label: 'Correo Contacto Emergencia 1', desc: `Correo de ${participantData.emergencyContact1Name || 'Contacto de emergencia 1'}` },
+			{ key: 'emergencyContact2Email', label: 'Correo Contacto Emergencia 2', desc: `Correo de ${participantData.emergencyContact2Name || 'Contacto de emergencia 2'}` },
+			{ key: 'inviterEmail', label: 'Correo Invitador', desc: `Correo de quien invitó: ${participantData.invitedBy || 'Invitador'}` },
+		];
 
-    if (participant.emergencyContact1CellPhone && !usedValues.has(participant.emergencyContact1CellPhone)) {
-      options.push({
-        value: participant.emergencyContact1CellPhone,
-        label: 'Contacto Emergencia 1',
-        description: `Teléfono de ${participant.emergencyContact1Name || 'Contacto de emergencia 1'}`
-      });
-      usedValues.add(participant.emergencyContact1CellPhone);
-    }
+		for (const field of emailFields) {
+			const value = (participantData as any)[field.key];
+			if (value && !usedValues.has(value)) {
+				options.push({ value, label: field.label, description: field.desc });
+				usedValues.add(value);
+			}
+		}
+	}
 
-    if (participant.emergencyContact1HomePhone && !usedValues.has(participant.emergencyContact1HomePhone)) {
-      options.push({
-        value: participant.emergencyContact1HomePhone,
-        label: 'Contacto Emergencia 1 (Casa)',
-        description: `Teléfono de casa de ${participant.emergencyContact1Name || 'Contacto de emergencia 1'}`
-      });
-      usedValues.add(participant.emergencyContact1HomePhone);
-    }
-
-    if (participant.emergencyContact1WorkPhone && !usedValues.has(participant.emergencyContact1WorkPhone)) {
-      options.push({
-        value: participant.emergencyContact1WorkPhone,
-        label: 'Contacto Emergencia 1 (Trabajo)',
-        description: `Teléfono de trabajo de ${participant.emergencyContact1Name || 'Contacto de emergencia 1'}`
-      });
-      usedValues.add(participant.emergencyContact1WorkPhone);
-    }
-
-    if (participant.emergencyContact2CellPhone && !usedValues.has(participant.emergencyContact2CellPhone)) {
-      options.push({
-        value: participant.emergencyContact2CellPhone,
-        label: 'Contacto Emergencia 2',
-        description: `Teléfono de ${participant.emergencyContact2Name || 'Contacto de emergencia 2'}`
-      });
-      usedValues.add(participant.emergencyContact2CellPhone);
-    }
-
-    if (participant.emergencyContact2HomePhone && !usedValues.has(participant.emergencyContact2HomePhone)) {
-      options.push({
-        value: participant.emergencyContact2HomePhone,
-        label: 'Contacto Emergencia 2 (Casa)',
-        description: `Teléfono de casa de ${participant.emergencyContact2Name || 'Contacto de emergencia 2'}`
-      });
-      usedValues.add(participant.emergencyContact2HomePhone);
-    }
-
-    if (participant.emergencyContact2WorkPhone && !usedValues.has(participant.emergencyContact2WorkPhone)) {
-      options.push({
-        value: participant.emergencyContact2WorkPhone,
-        label: 'Contacto Emergencia 2 (Trabajo)',
-        description: `Teléfono de trabajo de ${participant.emergencyContact2Name || 'Contacto de emergencia 2'}`
-      });
-      usedValues.add(participant.emergencyContact2WorkPhone);
-    }
-
-    if (participant.inviterCellPhone && !usedValues.has(participant.inviterCellPhone)) {
-      options.push({
-        value: participant.inviterCellPhone,
-        label: 'Teléfono Invitador',
-        description: `Teléfono de quien invitó: ${participant.invitedBy || 'Invitador'}`
-      });
-      usedValues.add(participant.inviterCellPhone);
-    }
-
-    if (participant.inviterHomePhone && !usedValues.has(participant.inviterHomePhone)) {
-      options.push({
-        value: participant.inviterHomePhone,
-        label: 'Teléfono Invitador (Casa)',
-        description: `Teléfono de casa de quien invitó: ${participant.invitedBy || 'Invitador'}`
-      });
-      usedValues.add(participant.inviterHomePhone);
-    }
-
-    if (participant.inviterWorkPhone && !usedValues.has(participant.inviterWorkPhone)) {
-      options.push({
-        value: participant.inviterWorkPhone,
-        label: 'Teléfono Invitador (Trabajo)',
-        description: `Teléfono de trabajo de quien invitó: ${participant.invitedBy || 'Invitador'}`
-      });
-      usedValues.add(participant.inviterWorkPhone);
-    }
-  } else {
-    // Email options
-    if (participant.email && !usedValues.has(participant.email)) {
-      options.push({
-        value: participant.email,
-        label: 'Correo Principal',
-        description: 'Correo electrónico principal'
-      });
-      usedValues.add(participant.email);
-    }
-
-    if (participant.workEmail && !usedValues.has(participant.workEmail)) {
-      options.push({
-        value: participant.workEmail,
-        label: 'Correo Trabajo',
-        description: 'Correo electrónico del trabajo'
-      });
-      usedValues.add(participant.workEmail);
-    }
-
-    if (participant.emergencyContact1Email && !usedValues.has(participant.emergencyContact1Email)) {
-      options.push({
-        value: participant.emergencyContact1Email,
-        label: 'Correo Contacto Emergencia 1',
-        description: `Correo de ${participant.emergencyContact1Name || 'Contacto de emergencia 1'}`
-      });
-      usedValues.add(participant.emergencyContact1Email);
-    }
-
-    if (participant.emergencyContact2Email && !usedValues.has(participant.emergencyContact2Email)) {
-      options.push({
-        value: participant.emergencyContact2Email,
-        label: 'Correo Contacto Emergencia 2',
-        description: `Correo de ${participant.emergencyContact2Name || 'Contacto de emergencia 2'}`
-      });
-      usedValues.add(participant.emergencyContact2Email);
-    }
-
-    if (participant.inviterEmail && !usedValues.has(participant.inviterEmail)) {
-      options.push({
-        value: participant.inviterEmail,
-        label: 'Correo Invitador',
-        description: `Correo de quien invitó: ${participant.invitedBy || 'Invitador'}`
-      });
-      usedValues.add(participant.inviterEmail);
-    }
-  }
-
-  return options;
+	return options;
 });
 
-// Phone options computed property (for backward compatibility)
-const phoneOptions = computed(() => {
-  if (!props.participant) return [];
-  
-  const participant = props.participant;
-  const options = [];
-  const usedPhoneNumbers = new Set();
-  
-  if (participant.cellPhone && !usedPhoneNumbers.has(participant.cellPhone)) {
-    options.push({
-      value: participant.cellPhone,
-      label: 'Teléfono Móvil',
-      description: 'Teléfono móvil principal'
-    });
-    usedPhoneNumbers.add(participant.cellPhone);
-  }
-  
-  if (participant.homePhone && !usedPhoneNumbers.has(participant.homePhone)) {
-    options.push({
-      value: participant.homePhone,
-      label: 'Teléfono Casa',
-      description: 'Teléfono de casa'
-    });
-    usedPhoneNumbers.add(participant.homePhone);
-  }
-  
-  if (participant.workPhone && !usedPhoneNumbers.has(participant.workPhone)) {
-    options.push({
-      value: participant.workPhone,
-      label: 'Teléfono Trabajo',
-      description: 'Teléfono del trabajo'
-    });
-    usedPhoneNumbers.add(participant.workPhone);
-  }
-  
-  if (participant.emergencyContact1CellPhone && !usedPhoneNumbers.has(participant.emergencyContact1CellPhone)) {
-    options.push({
-      value: participant.emergencyContact1CellPhone,
-      label: 'Contacto Emergencia 1',
-      description: `Teléfono de ${participant.emergencyContact1Name || 'Contacto de emergencia 1'}`
-    });
-    usedPhoneNumbers.add(participant.emergencyContact1CellPhone);
-  }
-  
-  if (participant.emergencyContact1HomePhone && !usedPhoneNumbers.has(participant.emergencyContact1HomePhone)) {
-    options.push({
-      value: participant.emergencyContact1HomePhone,
-      label: 'Contacto Emergencia 1 (Casa)',
-      description: `Teléfono de casa de ${participant.emergencyContact1Name || 'Contacto de emergencia 1'}`
-    });
-    usedPhoneNumbers.add(participant.emergencyContact1HomePhone);
-  }
-  
-  if (participant.emergencyContact1WorkPhone && !usedPhoneNumbers.has(participant.emergencyContact1WorkPhone)) {
-    options.push({
-      value: participant.emergencyContact1WorkPhone,
-      label: 'Contacto Emergencia 1 (Trabajo)',
-      description: `Teléfono de trabajo de ${participant.emergencyContact1Name || 'Contacto de emergencia 1'}`
-    });
-    usedPhoneNumbers.add(participant.emergencyContact1WorkPhone);
-  }
-  
-  if (participant.emergencyContact2CellPhone && !usedPhoneNumbers.has(participant.emergencyContact2CellPhone)) {
-    options.push({
-      value: participant.emergencyContact2CellPhone,
-      label: 'Contacto Emergencia 2',
-      description: `Teléfono de ${participant.emergencyContact2Name || 'Contacto de emergencia 2'}`
-    });
-    usedPhoneNumbers.add(participant.emergencyContact2CellPhone);
-  }
-  
-  if (participant.emergencyContact2HomePhone && !usedPhoneNumbers.has(participant.emergencyContact2HomePhone)) {
-    options.push({
-      value: participant.emergencyContact2HomePhone,
-      label: 'Contacto Emergencia 2 (Casa)',
-      description: `Teléfono de casa de ${participant.emergencyContact2Name || 'Contacto de emergencia 2'}`
-    });
-    usedPhoneNumbers.add(participant.emergencyContact2HomePhone);
-  }
-  
-  if (participant.emergencyContact2WorkPhone && !usedPhoneNumbers.has(participant.emergencyContact2WorkPhone)) {
-    options.push({
-      value: participant.emergencyContact2WorkPhone,
-      label: 'Contacto Emergencia 2 (Trabajo)',
-      description: `Teléfono de trabajo de ${participant.emergencyContact2Name || 'Contacto de emergencia 2'}`
-    });
-    usedPhoneNumbers.add(participant.emergencyContact2WorkPhone);
-  }
-  
-  if (participant.inviterCellPhone && !usedPhoneNumbers.has(participant.inviterCellPhone)) {
-    options.push({
-      value: participant.inviterCellPhone,
-      label: 'Teléfono Invitador',
-      description: `Teléfono de quien invitó: ${participant.invitedBy || 'Invitador'}`
-    });
-    usedPhoneNumbers.add(participant.inviterCellPhone);
-  }
-  
-  if (participant.inviterHomePhone && !usedPhoneNumbers.has(participant.inviterHomePhone)) {
-    options.push({
-      value: participant.inviterHomePhone,
-      label: 'Teléfono Invitador (Casa)',
-      description: `Teléfono de casa de quien invitó: ${participant.invitedBy || 'Invitador'}`
-    });
-    usedPhoneNumbers.add(participant.inviterHomePhone);
-  }
-  
-  if (participant.inviterWorkPhone && !usedPhoneNumbers.has(participant.inviterWorkPhone)) {
-    options.push({
-      value: participant.inviterWorkPhone,
-      label: 'Teléfono Invitador (Trabajo)',
-      description: `Teléfono de trabajo de quien invitó: ${participant.invitedBy || 'Invitador'}`
-    });
-    usedPhoneNumbers.add(participant.inviterWorkPhone);
-  }
-  
-  return options;
-});
-
-// Debug computed property to check phone options
-const phoneOptionsDebug = computed(() => {
-  const participant = props.participant;
-  const allPhones = [
-    participant?.cellPhone,
-    participant?.homePhone,
-    participant?.workPhone,
-    participant?.emergencyContact1CellPhone,
-    participant?.emergencyContact1HomePhone,
-    participant?.emergencyContact1WorkPhone,
-    participant?.emergencyContact2CellPhone,
-    participant?.emergencyContact2HomePhone,
-    participant?.emergencyContact2WorkPhone,
-    participant?.inviterCellPhone,
-    participant?.inviterHomePhone,
-    participant?.inviterWorkPhone
-  ].filter(Boolean);
-
-  const uniquePhones = new Set(allPhones);
-  const hasDuplicates = allPhones.length !== uniquePhones.size;
-
-  return {
-    selectedContact: selectedContact.value,
-    sendMethod: sendMethod.value,
-    contactOptionsCount: contactOptions.value.length,
-    phoneOptionsCount: phoneOptions.value.length,
-    firstContactOption: contactOptions.value[0]?.value,
-    participantCellPhone: props.participant?.cellPhone,
-    participantEmail: props.participant?.email,
-    allPhones,
-    uniquePhones: Array.from(uniquePhones),
-    hasDuplicates
-  };
-});
-
-// Template filtering functionality
-
-// Update message preview function
-const updateMessagePreview = () => {
-  if (!selectedTemplate.value || !props.participant) {
-    messagePreview.value = '';
-    editedMessage.value = '';
-    return;
-  }
-  
-  const template = allMessageTemplates.value.find((t: any) => t.id === selectedTemplate.value);
-  if (!template) return;
-  
-  // Replace all variables using the utility function
-  let message = replaceAllVariables(
-    template.message,
-    props.participant as ParticipantData,
-    selectedRetreat.value as RetreatData
-  );
-  
-  messagePreview.value = message;
-
-  // Update editable message based on send method
-  if (sendMethod.value === 'whatsapp') {
-    // Show WhatsApp-friendly format in the text area
-    editedMessage.value = convertHtmlToWhatsApp(message);
-  } else {
-    // Show email preview format in the text area
-    editedMessage.value = convertHtmlToEmail(message, props.participant);
-
-    // Generate email preview HTML
-    emailPreviewHtml.value = convertHtmlToEmail(message, {
-      format: 'enhanced',
-      skipTemplate: false
-    });
-  }
-};
-
-// Keyboard shortcuts and utility functions
-const handleEscape = () => {
-  if (showHistory.value) {
-    showHistory.value = false;
-  } else {
-    closeDialog();
-  }
-};
-
+// Template filtering
 const filterTemplates = () => {
-  const templates = allMessageTemplates.value || [];
-  const search = templateSearch.value.toLowerCase();
-  const typeFilter = templateTypeFilter.value;
+	const templates = allMessageTemplates.value || [];
+	const search = templateSearch.value.toLowerCase();
+	const typeFilter = templateTypeFilter.value;
 
-  filteredTemplates.value = templates.filter(template => {
-    const matchesSearch = !search ||
-      template.name.toLowerCase().includes(search) ||
-      template.message.toLowerCase().includes(search);
+	filteredTemplates.value = templates.filter(template => {
+		const matchesSearch = !search ||
+			template.name.toLowerCase().includes(search) ||
+			template.message.toLowerCase().includes(search);
 
-    const matchesType = typeFilter === 'all' || template.type === typeFilter;
+		const matchesType = typeFilter === 'all' || template.type === typeFilter;
 
-    return matchesSearch && matchesType;
-  });
+		return matchesSearch && matchesType;
+	});
 };
 
-// Enhanced relevantTemplates computed property with filtering
 const relevantTemplates = computed(() => {
-  if (templateSearch.value || templateTypeFilter.value !== 'all') {
-    return filteredTemplates.value;
-  }
-
-  // Show all available templates - any template can be used for sending messages
-  const templates = allMessageTemplates.value || [];
-  console.log('Available templates for sending:', {
-    allTemplatesCount: templates.length,
-    templates: templates.map(t => ({ id: t.id, name: t.name, type: t.type }))
-  });
-
-  return templates;
+	if (templateSearch.value || templateTypeFilter.value !== 'all') {
+		return filteredTemplates.value;
+	}
+	return allMessageTemplates.value || [];
 });
 
-// Copy to clipboard function
+// Message preview
+const updateMessagePreview = () => {
+	if (!selectedTemplate.value || !props.participant) {
+		messagePreview.value = '';
+		editedMessage.value = '';
+		return;
+	}
+
+	const template = allMessageTemplates.value.find((t: any) => t.id === selectedTemplate.value);
+	if (!template) return;
+
+	// Get participant data
+	let participantData: ParticipantData;
+	if ('participant' in props.participant && props.participant.participant) {
+		participantData = props.participant.participant as ParticipantData;
+	} else {
+		participantData = props.participant as ParticipantData;
+	}
+
+	// Get retreat/community data for variables
+	const contextData = props.context === 'retreat'
+		? (selectedRetreat.value as RetreatData)
+		: {
+				name: currentCommunity.value?.name || '',
+				parish: currentCommunity.value?.name || '',
+				startDate: new Date().toISOString(),
+				endDate: new Date().toISOString(),
+		  };
+
+	let message = replaceAllVariables(template.message, participantData, contextData);
+	messagePreview.value = message;
+
+	// Update editable message based on send method
+	isUserEditing.value = false; // Reset edit flag when template changes
+	if (sendMethod.value === 'whatsapp') {
+		editedMessage.value = convertHtmlToWhatsApp(message);
+	} else {
+		editedMessage.value = convertHtmlToEmail(message, { format: 'enhanced', skipTemplate: false });
+		emailPreviewHtml.value = convertHtmlToEmail(message, {
+			format: 'enhanced',
+			skipTemplate: false
+		});
+	}
+};
+
+// Functions
+const handleEscape = () => {
+	if (showHistory.value) {
+		showHistory.value = false;
+	} else {
+		closeDialog();
+	}
+};
+
 const copyToClipboard = async () => {
-  if (!editedMessage.value) return;
+	if (!editedMessage.value) return;
 
-  try {
-    let contentToCopy = editedMessage.value;
-    let description = 'El mensaje ha sido copiado al portapapeles exitosamente.';
+	try {
+		let contentToCopy = editedMessage.value;
+		let description = 'El mensaje ha sido copiado al portapapeles exitosamente.';
 
-    // If in email preview tab, copy the email HTML
-    if (sendMethod.value === 'email' && activeTab.value === 'preview' && emailPreviewHtml.value) {
-      contentToCopy = emailPreviewHtml.value;
-      description = 'El contenido HTML del email ha sido copiado al portapapeles.';
-    }
+		if (sendMethod.value === 'email' && activeTab.value === 'preview' && emailPreviewHtml.value) {
+			contentToCopy = emailPreviewHtml.value;
+			description = 'El contenido HTML del email ha sido copiado al portapapeles.';
+		}
 
-    await navigator.clipboard.writeText(contentToCopy);
-    toast({
-      title: 'Copiado al portapapeles',
-      description: description,
-    });
-  } catch (err) {
-    console.error('Error copying to clipboard:', err);
-    toast({
-      title: 'Error',
-      description: 'No se pudo copiar el mensaje al portapapeles.',
-      variant: 'destructive',
-    });
-  }
+		await navigator.clipboard.writeText(contentToCopy);
+		toast({
+			title: 'Copiado al portapapeles',
+			description: description,
+		});
+	} catch (err) {
+		toast({
+			title: 'Error',
+			description: 'No se pudo copiar el mensaje al portapapeles.',
+			variant: 'destructive',
+		});
+	}
 };
 
-// Auto-save functionality
+const handleUserEdit = () => {
+	isUserEditing.value = true;
+};
+
 const autoSaveMessage = () => {
-  if (!editedMessage.value || !selectedTemplate.value) return;
+	if (!editedMessage.value || !selectedTemplate.value || isUserEditing.value) return;
 
-  isAutoSaving.value = true;
+	isAutoSaving.value = true;
 
-  const draftKey = `message-draft-${props.participant?.id}-${selectedTemplate.value}`;
-  const draftData = {
-    message: editedMessage.value,
-    sendMethod: sendMethod.value,
-    emailSendMethod: emailSendMethod.value,
-    selectedContact: selectedContact.value,
-    timestamp: new Date().toISOString()
-  };
+	const draftKey = `message-draft-${props.context}-${recipientId.value}-${selectedTemplate.value}`;
+	const draftData = {
+		message: editedMessage.value,
+		sendMethod: sendMethod.value,
+		emailSendMethod: emailSendMethod.value,
+		selectedContact: selectedContact.value,
+		timestamp: new Date().toISOString()
+	};
 
-  localStorage.setItem(draftKey, JSON.stringify(draftData));
+	localStorage.setItem(draftKey, JSON.stringify(draftData));
 
-  // Show auto-save indicator briefly
-  setTimeout(() => {
-    isAutoSaving.value = false;
-  }, 1000);
+	setTimeout(() => {
+		isAutoSaving.value = false;
+	}, 1000);
 };
 
-// Load draft functionality
 const loadDraft = () => {
-  if (!props.participant || !selectedTemplate.value) return;
+	if (!recipientId.value || !selectedTemplate.value) return;
 
-  const draftKey = `message-draft-${props.participant.id}-${selectedTemplate.value}`;
-  const draftData = localStorage.getItem(draftKey);
+	const draftKey = `message-draft-${props.context}-${recipientId.value}-${selectedTemplate.value}`;
+	const draftData = localStorage.getItem(draftKey);
 
-  if (draftData) {
-    try {
-      const draft = JSON.parse(draftData);
-      // Only load if draft is less than 24 hours old
-      const draftAge = new Date().getTime() - new Date(draft.timestamp).getTime();
-      if (draftAge < 24 * 60 * 60 * 1000) {
-        editedMessage.value = draft.message;
-        if (draft.sendMethod) sendMethod.value = draft.sendMethod;
-        if (draft.emailSendMethod) emailSendMethod.value = draft.emailSendMethod;
-        if (draft.selectedContact) selectedContact.value = draft.selectedContact;
+	if (draftData) {
+		try {
+			const draft = JSON.parse(draftData);
+			const draftAge = new Date().getTime() - new Date(draft.timestamp).getTime();
+			if (draftAge < DRAFT_EXPIRY_MS) {
+				isUserEditing.value = true; // Don't overwrite user's restored draft
+				editedMessage.value = draft.message;
+				if (draft.sendMethod) sendMethod.value = draft.sendMethod;
+				if (draft.emailSendMethod) emailSendMethod.value = draft.emailSendMethod;
+				if (draft.selectedContact) selectedContact.value = draft.selectedContact;
 
-        toast({
-          title: 'Borrador recuperado',
-          description: 'Se ha restaurado un borrador guardado previamente.',
-          variant: 'default',
-        });
-      }
-    } catch (error) {
-      console.error('Error loading draft:', error);
-    }
-  }
+				toast({
+					title: 'Borrador recuperado',
+					description: 'Se ha restaurado un borrador guardado previamente.',
+				});
+			}
+		} catch (error) {
+			// Silently fail on draft load errors
+		}
+	}
 };
 
-// Check email server configuration
 const checkEmailServerConfig = async (retryCount = 0) => {
-  try {
-    const config = await getSmtpConfig();
-    emailServerConfigStatus.value = config;
+	try {
+		const config = await getSmtpConfig();
+		emailServerConfigStatus.value = config;
 
-    // If email is configured and no send method is set yet, set email as default
-    if (config.configured && sendMethod.value === 'whatsapp' && props.open) {
-      sendMethod.value = 'email';
-      emailSendMethod.value = 'backend';
-      selectedContact.value = props.participant?.email || props.participant?.cellPhone || undefined;
-    }
-  } catch (error) {
-    console.error('Error checking email server config:', error);
-    emailServerConfigStatus.value = { configured: false, host: null, user: null };
+		if (config.configured && sendMethod.value === 'whatsapp' && props.open) {
+			sendMethod.value = 'email';
+			emailSendMethod.value = 'backend';
+			if (props.participant) {
+				const participantData = 'participant' in props.participant && props.participant.participant
+					? props.participant.participant
+					: props.participant;
+				selectedContact.value = (participantData as any).email || (participantData as any).cellPhone || undefined;
+			}
+		}
+	} catch (error) {
+		emailServerConfigStatus.value = { configured: false, host: null, user: null };
 
-    // Retry up to 3 times with 2 second delay if API is not ready
-    if (retryCount < 3) {
-      console.log(`Retrying email server config check (${retryCount + 1}/3)...`);
-      setTimeout(() => checkEmailServerConfig(retryCount + 1), 2000);
-    }
-  }
+		if (retryCount < MAX_RETRY_ATTEMPTS) {
+			setTimeout(() => checkEmailServerConfig(retryCount + 1), RETRY_DELAY_MS);
+		}
+	}
 };
 
-// Clean up drafts when component unmounts or message is sent
 const cleanupDrafts = () => {
-  if (props.participant && selectedTemplate.value) {
-    const draftKey = `message-draft-${props.participant.id}-${selectedTemplate.value}`;
-    localStorage.removeItem(draftKey);
-  }
+	if (recipientId.value && selectedTemplate.value) {
+		const draftKey = `message-draft-${props.context}-${recipientId.value}-${selectedTemplate.value}`;
+		localStorage.removeItem(draftKey);
+	}
 };
 
-onUnmounted(() => {
-  cleanupDrafts();
-});
-
-// Message validation
-const validateMessage = () => {
-  const errors = [];
-
-  if (!selectedContact.value) {
-    errors.push('Selecciona un contacto');
-  }
-
-  if (!selectedTemplate.value) {
-    errors.push('Selecciona una plantilla');
-  }
-
-  if (!editedMessage.value.trim()) {
-    errors.push('El mensaje no puede estar vacío');
-  }
-
-  // Validate email format if sending via email
-  if (sendMethod.value === 'email' && selectedContact.value) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(selectedContact.value)) {
-      errors.push('El correo electrónico no tiene un formato válido');
-    }
-  }
-
-  // Validate phone format if sending via WhatsApp
-  if (sendMethod.value === 'whatsapp' && selectedContact.value) {
-    const phoneRegex = /^\+?[\d\s\-()]+$/;
-    if (!phoneRegex.test(selectedContact.value) || selectedContact.value.length < 8) {
-      errors.push('El número de teléfono no tiene un formato válido');
-    }
-  }
-
-  return errors;
-};
-
-// Clear draft
 const clearDraft = () => {
-  if (!props.participant || !selectedTemplate.value) return;
+	if (!recipientId.value || !selectedTemplate.value) return;
 
-  const draftKey = `message-draft-${props.participant.id}-${selectedTemplate.value}`;
-  localStorage.removeItem(draftKey);
+	const draftKey = `message-draft-${props.context}-${recipientId.value}-${selectedTemplate.value}`;
+	localStorage.removeItem(draftKey);
 };
 
-// Send message function
-const sendMessage = async () => {
-  if (!selectedContact.value || !selectedTemplate.value || !props.participant) return;
+const validateMessage = () => {
+	const errors: string[] = [];
 
-  // Validate message before sending
-  const validationErrors = validateMessage();
-  if (validationErrors.length > 0) {
-    showValidationErrors.value = true;
-    toast({
-      title: 'Error de validación',
-      description: validationErrors.join('. '),
-      variant: 'destructive',
-    });
-    return;
-  }
+	if (!selectedContact.value) {
+		errors.push('Selecciona un contacto');
+	}
 
-  isSending.value = true;
+	if (!selectedTemplate.value) {
+		errors.push('Selecciona una plantilla');
+	}
 
-  // Clear draft when sending message
-  clearDraft();
+	if (!editedMessage.value.trim()) {
+		errors.push('El mensaje no puede estar vacío');
+	}
 
-  try {
-    if (sendMethod.value === 'whatsapp') {
-      // WhatsApp sending - convert HTML to WhatsApp-friendly text format
-      const messageToSend = convertHtmlToWhatsApp(editedMessage.value);
+	if (sendMethod.value === 'email' && selectedContact.value) {
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		if (!emailRegex.test(selectedContact.value)) {
+			errors.push('El correo electrónico no tiene un formato válido');
+		}
+	}
 
-      // Copy the converted message to clipboard
-      await navigator.clipboard.writeText(messageToSend);
+	if (sendMethod.value === 'whatsapp' && selectedContact.value) {
+		const phoneRegex = /^\+?[\d\s\-()]+$/;
+		if (!phoneRegex.test(selectedContact.value) || selectedContact.value.length < 8) {
+			errors.push('El número de teléfono no tiene un formato válido');
+		}
+	}
 
-      toast({
-        title: 'Mensaje copiado al portapapeles',
-        description: 'El mensaje ha sido convertido y copiado. Pégalo en WhatsApp.',
-      });
-
-      // Using WhatsApp's send endpoint with phone number and message
-      const encodedMessage = encodeURIComponent(messageToSend);
-      const phoneToUse = selectedContact.value;
-      const whatsappUrl = `https://api.whatsapp.com/send?phone=${phoneToUse}&text=${encodedMessage}`;
-      
-
-      console.log('WhatsApp URL:', whatsappUrl);
-      console.log('WhatsApp text:', messageToSend);
-
-      // Try different approaches in order of preference
-      const tryOpenUrl = (url: string, fallback?: () => void) => {
-        try {
-          const newWindow = window.open(url, '_blank', 'width=800,height=600');
-          if (newWindow) {
-            // Check if the window was blocked
-            setTimeout(() => {
-              if (newWindow.closed || newWindow.document.readyState === 'complete') {
-                console.log('WhatsApp window opened successfully');
-              }
-            }, 1000);
-          } else {
-            console.log('Popup blocked, trying fallback');
-            fallback?.();
-          }
-        } catch (error) {
-          console.error('Error opening WhatsApp:', error);
-          fallback?.();
-        }
-      };
-
-      // Try opening WhatsApp URL
-      tryOpenUrl(whatsappUrl, () => {
-        // Fallback: copy to clipboard
-        navigator.clipboard.writeText(messageToSend).then(() => {
-          toast({
-            title: 'Mensaje copiado al portapapeles',
-            description: 'Por favor, abre WhatsApp manualmente y pega el mensaje.',
-          });
-        }).catch(() => {
-          toast({
-            title: 'Error',
-            description: 'No se pudo abrir WhatsApp. Por favor, copia el mensaje manualmente.',
-            variant: 'destructive',
-          });
-        });
-      });
-    } else {
-      // Email sending
-      const emailHtml = convertHtmlToEmail(editedMessage.value, {
-        ...props.participant,
-        skipTemplate: true
-      });
-      const subject = `Mensaje para ${props.participant.firstName} ${props.participant.lastName}`;
-      const textContent = editedMessage.value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-
-      if (emailSendMethod.value === 'user') {
-        // User email client method
-        const emailContent = {
-          to: selectedContact.value,
-          subject: subject,
-          html: emailHtml,
-          text: textContent
-        };
-
-        // Store email content in localStorage for the email client
-        localStorage.setItem('emaus_email_to_send', JSON.stringify(emailContent));
-
-        // Copy the email HTML to clipboard
-        await copyRichTextToClipboard();
-
-        // Open default email client
-        const emailUrl = `mailto:${encodeURIComponent(selectedContact.value)}?subject=${encodeURIComponent(subject)}`;
-        window.open(emailUrl, '_blank');
-      } else {
-        // Automatic sending method
-        try {
-          if (!retreatStore.selectedRetreatId) {
-            toast({
-              title: 'Error',
-              description: 'No se ha seleccionado un retiro.',
-              variant: 'destructive',
-            });
-            return;
-          }
-
-          await sendEmailViaBackend({
-            to: selectedContact.value,
-            subject: subject,
-            html: emailHtml,
-            text: textContent,
-            participantId: props.participant.id,
-            retreatId: retreatStore.selectedRetreatId,
-            templateId: selectedTemplate.value,
-            templateName: allMessageTemplates.value.find((t: any) => t.id === selectedTemplate.value)?.name
-          });
-
-          toast({
-            title: 'Email enviado exitosamente',
-            description: 'El correo electrónico ha sido enviado automáticamente desde el sistema.',
-          });
-        } catch (error) {
-          console.error('Error sending email via backend:', error);
-          toast({
-            title: 'Error al enviar email',
-            description: error instanceof Error ? error.message : 'No se pudo enviar el email automáticamente desde el sistema.',
-            variant: 'destructive',
-          });
-          return;
-        }
-      }
-    }
-
-    // Save communication to history for WhatsApp and user email methods
-    // (backend email sends are already saved by the backend)
-    if (sendMethod.value === 'whatsapp' || emailSendMethod.value === 'user') {
-      try {
-        const template = allMessageTemplates.value.find((t: any) => t.id === selectedTemplate.value);
-        const communicationStore = useParticipantCommunicationStore();
-        await communicationStore.createCommunication({
-          participantId: props.participant.id,
-          retreatId: retreatStore.selectedRetreatId!,
-          messageType: sendMethod.value,
-          recipientContact: selectedContact.value,
-          messageContent: editedMessage.value,
-          templateId: selectedTemplate.value,
-          templateName: template?.name,
-          subject: sendMethod.value === 'email' ? `Mensaje para ${props.participant.firstName} ${props.participant.lastName}` : undefined
-        });
-      } catch (historyError) {
-        console.error('Error saving communication history:', historyError);
-        // Don't block the sending process if history saving fails
-        toast({
-          title: 'Advertencia',
-          description: 'El mensaje se envió pero no se pudo guardar en el historial.',
-          variant: 'warning',
-        });
-      }
-    }
-
-    // Close dialog
-    closeDialog();
-  } catch (error) {
-    console.error('Error sending message:', error);
-    toast({
-      title: 'Error',
-      description: 'No se pudo enviar el mensaje. Por favor intenta de nuevo.',
-      variant: 'destructive',
-    });
-  } finally {
-    isSending.value = false;
-    showValidationErrors.value = false;
-  }
+	return errors;
 };
 
-// Copy rich text to clipboard function
 const copyRichTextToClipboard = async () => {
-  const emailHtml = editedMessage.value;
+	if (!editedMessage.value) {
+		throw new Error('No se encontró el contenido del email');
+	}
 
-  if (!emailHtml) {
-    throw new Error('No se encontró el contenido del email');
-  }
+	try {
+		const htmlContent = editedMessage.value;
+		const blob = new Blob([htmlContent], { type: 'text/html' });
+		const clipboardItem = new ClipboardItem({ 'text/html': blob });
 
-  try {
-    const htmlContent = emailHtml;
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const clipboardItem = new ClipboardItem({ 'text/html': blob });
+		await navigator.clipboard.write([clipboardItem]);
 
-    await navigator.clipboard.write([clipboardItem]);
+		toast({
+			title: 'Email copiado al portapapeles',
+			description: 'El contenido del email ha sido copiado en formato HTML.',
+		});
+	} catch (err) {
+		// Fallback to plain text
+		try {
+			const plainText = editedMessage.value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+			await navigator.clipboard.writeText(plainText);
 
-    toast({
-      title: 'Email copiado al portapapeles',
-      description: 'El contenido del email ha sido copiado en formato HTML. Pégalo en tu cliente de correo.',
-    });
-  } catch (err) {
-    console.error('HTML clipboard failed:', err);
-
-    // Fallback to plain text
-    try {
-      const plainText = emailHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-      await navigator.clipboard.writeText(plainText);
-
-      toast({
-        title: 'Texto copiado al portapapeles',
-        description: 'El contenido del email ha sido copiado como texto plano.',
-      });
-    } catch (textErr) {
-      console.error('Text fallback failed:', textErr);
-      throw new Error('No se pudo copiar al portapapeles');
-    }
-  }
+			toast({
+				title: 'Texto copiado al portapapeles',
+				description: 'El contenido del email ha sido copiado como texto plano.',
+			});
+		} catch {
+			throw new Error('No se pudo copiar al portapapeles');
+		}
+	}
 };
 
-// Setup aria-hidden observer function
+const saveCommunicationToHistory = async (): Promise<void> => {
+	try {
+		const template = allMessageTemplates.value.find((t: any) => t.id === selectedTemplate.value);
+		if (!props.participant) return;
+		const participantData = 'participant' in props.participant && props.participant.participant
+			? props.participant.participant
+			: props.participant;
+
+		if (props.context === 'community') {
+			await communityCommunicationStore.createCommunication({
+				communityMemberId: recipientId.value,
+				communityId: props.communityId!,
+				messageType: sendMethod.value,
+				recipientContact: selectedContact.value!,
+				messageContent: editedMessage.value,
+				templateId: selectedTemplate.value,
+				templateName: template?.name,
+				subject: sendMethod.value === 'email' ? `Mensaje para ${displayName.value}` : undefined
+			});
+		} else {
+			await participantCommunicationStore.createCommunication({
+				participantId: (participantData as any).id || recipientId.value,
+				retreatId: props.retreatId!,
+				messageType: sendMethod.value,
+				recipientContact: selectedContact.value!,
+				messageContent: editedMessage.value,
+				templateId: selectedTemplate.value,
+				templateName: template?.name,
+				subject: sendMethod.value === 'email' ? `Mensaje para ${displayName.value}` : undefined
+			});
+		}
+	} catch (historyError) {
+		// Don't block sending if history save fails
+		toast({
+			title: 'Advertencia',
+			description: 'El mensaje se envió pero no se pudo guardar en el historial.',
+			variant: 'warning',
+		});
+	}
+};
+
+const sendMessage = async () => {
+	if (!selectedContact.value || !selectedTemplate.value || !props.participant) return;
+
+	const validationErrors = validateMessage();
+	if (validationErrors.length > 0) {
+		showValidationErrors.value = true;
+		toast({
+			title: 'Error de validación',
+			description: validationErrors.join('. '),
+			variant: 'destructive',
+		});
+		return;
+	}
+
+	isSending.value = true;
+	clearDraft();
+
+	try {
+		if (sendMethod.value === 'whatsapp') {
+			const messageToSend = convertHtmlToWhatsApp(editedMessage.value);
+			await navigator.clipboard.writeText(messageToSend);
+
+			toast({
+				title: 'Mensaje copiado al portapapeles',
+				description: 'El mensaje ha sido convertido y copiado. Pégalo en WhatsApp.',
+			});
+
+			const encodedMessage = encodeURIComponent(messageToSend);
+			const whatsappUrl = `https://api.whatsapp.com/send?phone=${selectedContact.value}&text=${encodedMessage}`;
+
+			const tryOpenUrl = (url: string, fallback?: () => void) => {
+				try {
+					const newWindow = window.open(url, '_blank', 'width=800,height=600');
+					if (!newWindow) {
+						fallback?.();
+					}
+				} catch {
+					fallback?.();
+				}
+			};
+
+			tryOpenUrl(whatsappUrl, () => {
+				navigator.clipboard.writeText(messageToSend).then(() => {
+					toast({
+						title: 'Mensaje copiado al portapapeles',
+						description: 'Por favor, abre WhatsApp manualmente y pega el mensaje.',
+					});
+				});
+			});
+
+			// Save to history
+			await saveCommunicationToHistory();
+		} else {
+			// Email sending
+			const participantData = 'participant' in props.participant && props.participant.participant
+				? props.participant.participant
+				: props.participant;
+
+			const emailHtml = convertHtmlToEmail(editedMessage.value, participantData);
+			const subject = `Mensaje para ${displayName.value}`;
+			const textContent = editedMessage.value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+
+			if (emailSendMethod.value === 'user') {
+				const emailContent = {
+					to: selectedContact.value,
+					subject: subject,
+					html: emailHtml,
+					text: textContent
+				};
+
+				localStorage.setItem('emaus_email_to_send', JSON.stringify(emailContent));
+				await copyRichTextToClipboard();
+
+				const emailUrl = `mailto:${encodeURIComponent(selectedContact.value)}?subject=${encodeURIComponent(subject)}`;
+				window.open(emailUrl, '_blank');
+
+				// Save to history
+				await saveCommunicationToHistory();
+			} else {
+				// Backend sending
+				if (!contextId.value) {
+					toast({
+						title: 'Error',
+						description: `No se ha seleccionado un ${props.context === 'retreat' ? 'retiro' : 'comunidad'}.`,
+						variant: 'destructive',
+					});
+					return;
+				}
+
+				if (props.context === 'community') {
+					await sendCommunityEmailViaBackend({
+						to: selectedContact.value,
+						subject: subject,
+						html: emailHtml,
+						text: textContent,
+						communityMemberId: recipientId.value,
+						communityId: props.communityId!,
+						templateId: selectedTemplate.value,
+						templateName: allMessageTemplates.value.find((t: any) => t.id === selectedTemplate.value)?.name
+					});
+				} else {
+					await sendEmailViaBackend({
+						to: selectedContact.value,
+						subject: subject,
+						html: emailHtml,
+						text: textContent,
+						participantId: (participantData as any).id,
+						retreatId: props.retreatId!,
+						templateId: selectedTemplate.value,
+						templateName: allMessageTemplates.value.find((t: any) => t.id === selectedTemplate.value)?.name
+					});
+				}
+
+				toast({
+					title: 'Email enviado exitosamente',
+					description: 'El correo electrónico ha sido enviado automáticamente desde el sistema.',
+				});
+				// Backend saves history automatically
+			}
+		}
+
+		closeDialog();
+	} catch (error) {
+		toast({
+			title: 'Error',
+			description: 'No se pudo enviar el mensaje. Por favor intenta de nuevo.',
+			variant: 'destructive',
+		});
+	} finally {
+		isSending.value = false;
+		showValidationErrors.value = false;
+	}
+};
+
 const setupAriaHiddenObserver = () => {
-  // Clean up existing observer
-  if (ariaHiddenObserver) {
-    ariaHiddenObserver.disconnect();
-    ariaHiddenObserver = null;
-  }
-  
-  // Create observer to watch for aria-hidden attribute changes on all elements
-  ariaHiddenObserver = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-      if (mutation.type === 'attributes' && mutation.attributeName === 'aria-hidden') {
-        const target = mutation.target as HTMLElement;
-        
-        // Check if this is a dialog element that shouldn't have aria-hidden
-        if (target.classList.contains('max-w-2xl') || 
-            target.closest('.fixed')?.classList.contains('max-w-2xl') ||
-            (target.getAttribute('role') === 'dialog' || target.closest('[role="dialog"]'))) {
-          
-          // Check if there's a focused element within this dialog
-          const activeElement = document.activeElement;
-          if (activeElement && target.contains(activeElement)) {
-            console.log('Removing aria-hidden from:', target);
-            target.removeAttribute('aria-hidden');
-          }
-        }
-      }
-    });
-  });
-  
-  // Start observing the entire document for aria-hidden changes
-  ariaHiddenObserver.observe(document.body, {
-    attributes: true,
-    attributeFilter: ['aria-hidden'],
-    subtree: true
-  });
-  
-  // Also check immediately for existing problematic aria-hidden attributes
-  const dialogElements = document.querySelectorAll('.max-w-2xl, [role="dialog"]');
-  dialogElements.forEach((element) => {
-    const activeElement = document.activeElement;
-    if (activeElement && element.contains(activeElement) && element.getAttribute('aria-hidden') === 'true') {
-      element.removeAttribute('aria-hidden');
-    }
-  });
+	if (ariaHiddenObserver) {
+		ariaHiddenObserver.disconnect();
+	}
+
+	ariaHiddenObserver = new MutationObserver((mutations) => {
+		mutations.forEach((mutation) => {
+			if (mutation.type === 'attributes' && mutation.attributeName === 'aria-hidden') {
+				const target = mutation.target as HTMLElement;
+
+				if (target.classList.contains('max-w-2xl') ||
+						target.closest('.fixed')?.classList.contains('max-w-2xl') ||
+						(target.getAttribute('role') === 'dialog' || target.closest('[role="dialog"]'))) {
+
+					const activeElement = document.activeElement;
+					if (activeElement && target.contains(activeElement)) {
+						target.removeAttribute('aria-hidden');
+					}
+				}
+			}
+		});
+	});
+
+	ariaHiddenObserver.observe(document.body, {
+		attributes: true,
+		attributeFilter: ['aria-hidden'],
+		subtree: true
+	});
+
+	const dialogElements = document.querySelectorAll('.max-w-2xl, [role="dialog"]');
+	dialogElements.forEach((element) => {
+		const activeElement = document.activeElement;
+		if (activeElement && element.contains(activeElement) && element.getAttribute('aria-hidden') === 'true') {
+			element.removeAttribute('aria-hidden');
+		}
+	});
 };
 
-// Cleanup observer function
 const cleanupAriaHiddenObserver = () => {
-  if (ariaHiddenObserver) {
-    ariaHiddenObserver.disconnect();
-    ariaHiddenObserver = null;
-  }
+	if (ariaHiddenObserver) {
+		ariaHiddenObserver.disconnect();
+		ariaHiddenObserver = null;
+	}
 };
 
-// Close dialog function
 const closeDialog = () => {
-  cleanupAriaHiddenObserver();
-  isOpen.value = false;
+	cleanupAriaHiddenObserver();
+	isOpen.value = false;
+};
+
+const toggleHistory = () => {
+	showHistory.value = !showHistory.value;
+};
+
+const handleMessageClick = (message: ParticipantCommunication | CommunityCommunication) => {
+	// Future: implement message reuse
+};
+
+const handleCopyMessage = async (message: ParticipantCommunication | CommunityCommunication) => {
+	try {
+		await navigator.clipboard.writeText(message.messageContent);
+		toast({
+			title: 'Mensaje copiado',
+			description: 'El contenido del mensaje ha sido copiado al portapapeles.',
+		});
+	} catch {
+		toast({
+			title: 'Error',
+			description: 'No se pudo copiar el mensaje.',
+			variant: 'destructive',
+		});
+	}
+};
+
+const handleHistoryLoadingChanged = (loading: boolean) => {
+	historyComponentLoading.value = loading;
+};
+
+const handleHistoryCountChanged = (count: number) => {
+	historyMessageCount.value = count;
+};
+
+const loadMessageCount = async () => {
+	if (recipientId.value && contextId.value) {
+		try {
+			if (props.context === 'community') {
+				await communityCommunicationStore.fetchMemberCommunications(
+					recipientId.value,
+					{ communityId: contextId.value, limit: 1 }
+				);
+				historyMessageCount.value = communityCommunicationStore.total;
+			} else {
+				await participantCommunicationStore.fetchParticipantCommunications(
+					recipientId.value,
+					{ retreatId: contextId.value, limit: 1 }
+				);
+				historyMessageCount.value = participantCommunicationStore.total;
+			}
+		} catch {
+			// Silently fail
+		}
+	}
 };
 
 // Watchers
 watch(() => props.open, (newValue: boolean) => {
-  if (newValue && props.participant) {
-    // Initialize dialog when opened
-    // Set email as default if backend is configured, otherwise use WhatsApp
-    if (emailServerConfigStatus.value.configured) {
-      sendMethod.value = 'email';
-      emailSendMethod.value = 'backend';
-      selectedContact.value = props.participant.email || props.participant.cellPhone || undefined;
-    } else {
-      sendMethod.value = 'whatsapp';
-      selectedContact.value = props.participant.cellPhone || props.participant.email || undefined;
-    }
-    selectedTemplate.value = '';
-    messagePreview.value = '';
-    editedMessage.value = '';
-    emailPreviewHtml.value = '';
-    activeTab.value = 'edit';
-    showHistory.value = false;
+	if (newValue && props.participant) {
+		if (emailServerConfigStatus.value.configured) {
+			sendMethod.value = 'email';
+			emailSendMethod.value = 'backend';
+			const participantData = 'participant' in props.participant && props.participant.participant
+				? props.participant.participant
+				: props.participant;
+			selectedContact.value = (participantData as any).email || (participantData as any).cellPhone || undefined;
+		} else {
+			sendMethod.value = 'whatsapp';
+			const participantData = 'participant' in props.participant && props.participant.participant
+				? props.participant.participant
+				: props.participant;
+			selectedContact.value = (participantData as any).cellPhone || (participantData as any).email || undefined;
+		}
 
-    // Load templates for the selected retreat
-    if (retreatStore.selectedRetreatId) {
-      console.log('Fetching templates for retreat:', retreatStore.selectedRetreatId);
-      messageTemplateStore.fetchTemplates(retreatStore.selectedRetreatId);
-    } else {
-      console.log('No retreat ID selected, cannot fetch templates');
-    }
+		selectedTemplate.value = '';
+		messagePreview.value = '';
+		editedMessage.value = '';
+		emailPreviewHtml.value = '';
+		activeTab.value = 'edit';
+		showHistory.value = false;
+		isUserEditing.value = false;
 
-    // Check email server configuration
-    checkEmailServerConfig();
+		// Load templates based on context
+		if (props.context === 'community' && props.communityId) {
+			communityMessageTemplateStore.fetchTemplates(props.communityId);
+		} else if (props.context === 'retreat' && props.retreatId) {
+			messageTemplateStore.fetchTemplates(props.retreatId);
+		}
 
-    // Setup aria-hidden observer to handle the accessibility issue
-    setupAriaHiddenObserver();
+		checkEmailServerConfig();
+		setupAriaHiddenObserver();
+		loadMessageCount();
 
-    // Load message count immediately when dialog opens
-    loadMessageCount();
-
-    // Delay focus management to avoid aria-hidden conflict
-    setTimeout(() => {
-      // Find and blur any focused select triggers that might cause issues
-      const focusedElement = document.activeElement as HTMLElement;
-      if (focusedElement && focusedElement.getAttribute('role') === 'combobox') {
-        focusedElement.blur();
-      }
-    }, 50);
-  }
+		setTimeout(() => {
+			const focusedElement = document.activeElement as HTMLElement;
+			if (focusedElement && focusedElement.getAttribute('role') === 'combobox') {
+				focusedElement.blur();
+			}
+		}, 50);
+	}
 });
 
-
-watch(() => props.participant, () => {
-  updateMessagePreview();
-});
-
-// Watch for template selection to auto-switch to preview for email
 watch(selectedTemplate, (newValue: string) => {
-  console.log('Selected template changed:', newValue);
-  updateMessagePreview();
+	updateMessagePreview();
 
-  // Auto-switch to preview tab when email is selected and template is chosen
-  if (newValue && sendMethod.value === 'email') {
-    setTimeout(() => {
-      activeTab.value = 'preview';
-    }, 100);
-  }
+	if (newValue && sendMethod.value === 'email') {
+		setTimeout(() => {
+			activeTab.value = 'preview';
+		}, 100);
+	}
 
-  // Load draft when template is selected
-  if (newValue) {
-    loadDraft();
-  }
+	if (newValue) {
+		loadDraft();
+	}
 });
 
-// Watch for send method changes to update selected contact and message format
 watch(sendMethod, (newValue: 'whatsapp' | 'email') => {
-  if (!props.participant) return;
+	if (!props.participant) return;
 
-  // Update selected contact based on the new method
-  if (newValue === 'whatsapp') {
-    selectedContact.value = props.participant.cellPhone ||
-                           (contactOptions.value.length > 0 ? contactOptions.value[0].value : undefined);
-  } else {
-    selectedContact.value = props.participant.email ||
-                           (contactOptions.value.length > 0 ? contactOptions.value[0].value : undefined);
-    // Check email server configuration when switching to email
-    checkEmailServerConfig();
-  }
+	const participantData = 'participant' in props.participant && props.participant.participant
+		? props.participant.participant
+		: props.participant;
 
-  // Update message format when send method changes
-  if (messagePreview.value) {
-    if (newValue === 'whatsapp') {
-      editedMessage.value = convertHtmlToWhatsApp(messagePreview.value);
-      emailPreviewHtml.value = '';
-    } else {
-      editedMessage.value = convertHtmlToEmail(messagePreview.value, props.participant);
-      // Generate email preview HTML
-      emailPreviewHtml.value = convertHtmlToEmail(messagePreview.value, {
-        format: 'enhanced',
-        skipTemplate: true
-      });
-    }
-  }
+	if (newValue === 'whatsapp') {
+		selectedContact.value = (participantData as any).cellPhone ||
+														(contactOptions.value.length > 0 ? contactOptions.value[0].value : undefined);
+	} else {
+		selectedContact.value = (participantData as any).email ||
+														(contactOptions.value.length > 0 ? contactOptions.value[0].value : undefined);
+		checkEmailServerConfig();
+	}
 
-  console.log('Send method changed to:', newValue, 'Selected contact:', selectedContact.value);
+	if (messagePreview.value && !isUserEditing.value) {
+		if (newValue === 'whatsapp') {
+			editedMessage.value = convertHtmlToWhatsApp(messagePreview.value);
+			emailPreviewHtml.value = '';
+		} else {
+			editedMessage.value = convertHtmlToEmail(messagePreview.value, participantData);
+			emailPreviewHtml.value = convertHtmlToEmail(messagePreview.value, {
+				format: 'enhanced',
+				skipTemplate: true
+			});
+		}
+	}
 
-  // Reset active tab to edit when switching send methods
-  activeTab.value = 'edit';
+	activeTab.value = 'edit';
 });
 
-// Watch for edited message changes to ensure proper formatting
-watch(editedMessage, (newValue: string) => {
-  if (!newValue || !messagePreview.value) return;
-
-  // Ensure the edited message shows the correct format based on send method
-  if (sendMethod.value === 'email') {
-    // For email, ensure we show the email-formatted version
-    const emailFormatted = convertHtmlToEmail(messagePreview.value, props.participant);
-    if (newValue !== emailFormatted && newValue !== convertHtmlToWhatsApp(messagePreview.value)) {
-      // Only update if the user hasn't manually edited the content
-      editedMessage.value = emailFormatted;
-    }
-  }
-}, { deep: true });
-
-
-// Debug watch
-watch(phoneOptionsDebug, (debug: any) => {
-  console.log('Contact Options Debug:', debug);
-}, { immediate: true });
-
-// Auto-save functionality
 watch([editedMessage, sendMethod, selectedContact], () => {
-  autoSaveMessage();
+	autoSaveMessage();
 }, { deep: true });
 
-// Watch templates loading state
-watch(() => [templatesLoading.value, allMessageTemplates.value], ([loading, templates]) => {
-  console.log('Templates state changed:', {
-    loading,
-    templatesCount: Array.isArray(templates) ? templates.length : 0,
-    templates: Array.isArray(templates) ? templates.map((t: any) => ({ id: t.id, name: t.name, type: t.type })) : []
-  });
-}, { immediate: true });
+onUnmounted(() => {
+	cleanupDrafts();
+});
 
-// Toggle history function
-const toggleHistory = () => {
-  showHistory.value = !showHistory.value;
-};
-
-// Handle message click from history component
-const handleMessageClick = (message: any) => {
-  console.log('Message clicked:', message);
-  // You can implement actions like reusing the message template
-};
-
-// Handle copy message from history component
-const handleCopyMessage = async (message: any) => {
-  try {
-    await navigator.clipboard.writeText(message.messageContent);
-    toast({
-      title: 'Mensaje copiado',
-      description: 'El contenido del mensaje ha sido copiado al portapapeles.',
-    });
-  } catch (error) {
-    console.error('Error copying message:', error);
-    toast({
-      title: 'Error',
-      description: 'No se pudo copiar el mensaje.',
-      variant: 'destructive',
-    });
-  }
-};
-
-// Handle history loading state changes
-const handleHistoryLoadingChanged = (loading: boolean) => {
-  historyComponentLoading.value = loading;
-};
-
-// Handle history message count changes
-const handleHistoryCountChanged = (count: number) => {
-  historyMessageCount.value = count;
-};
-
-// Load message count when dialog opens
-const loadMessageCount = async () => {
-  if (props.participant?.id && retreatStore.selectedRetreatId) {
-    try {
-      await participantCommunicationStore.fetchParticipantCommunications(
-        props.participant.id,
-        {
-          retreatId: retreatStore.selectedRetreatId,
-          limit: 1, // We only need the count, not the actual messages
-          offset: 0
-        }
-      );
-      // Update the count from the store
-      historyMessageCount.value = participantCommunicationStore.total;
-    } catch (error) {
-      console.error('Error loading message count:', error);
-    }
-  }
-};
-
-// Cleanup on component unmount
 onBeforeUnmount(() => {
-  cleanupAriaHiddenObserver();
+	cleanupAriaHiddenObserver();
 });
 </script>
 
 <style scoped>
 .email-preview-content {
-  font-family: Arial, sans-serif;
-  line-height: 1.6;
-  margin: 0;
-  padding: 20px;
-  background-color: #f5f5f5;
+	font-family: Arial, sans-serif;
+	line-height: 1.6;
+	margin: 0;
+	padding: 20px;
+	background-color: #f5f5f5;
 }
 
 .email-preview-content :deep(.email-container) {
-  max-width: 600px;
-  margin: 0 auto;
-  background-color: white;
-  padding: 30px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+	max-width: 600px;
+	margin: 0 auto;
+	background-color: white;
+	padding: 30px;
+	border-radius: 8px;
+	box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
 
 .email-preview-content :deep(.email-body) {
-  margin-bottom: 30px;
+	margin-bottom: 30px;
 }
 
 .email-preview-content :deep(.email-footer) {
-  text-align: center;
-  color: #666;
-  font-size: 12px;
-  border-top: 1px solid #e0e0e0;
-  padding-top: 20px;
+	text-align: center;
+	color: #666;
+	font-size: 12px;
+	border-top: 1px solid #e0e0e0;
+	padding-top: 20px;
 }
 </style>

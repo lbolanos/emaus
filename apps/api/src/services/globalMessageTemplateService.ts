@@ -6,6 +6,7 @@ import {
 } from '../entities/globalMessageTemplate.entity';
 import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { Retreat } from '../entities/retreat.entity';
+import { Community } from '../entities/community.entity';
 import { User } from '../entities/user.entity';
 import { getRepositories } from '../utils/repositoryHelpers';
 import { v4 as uuidv4 } from 'uuid';
@@ -149,6 +150,98 @@ export class GlobalMessageTemplateService {
 		}
 
 		return newTemplates;
+	}
+
+	async copyToCommunity(
+		globalTemplateId: string,
+		communityId: string,
+	): Promise<MessageTemplate | null> {
+		const globalTemplate = await this.globalMessageTemplateRepository.findOne({
+			where: { id: globalTemplateId },
+		});
+
+		if (!globalTemplate) {
+			return null;
+		}
+
+		// Don't copy system templates (SYS_ prefixed) to communities
+		if (globalTemplate.type.startsWith('SYS_')) {
+			return null;
+		}
+
+		// Check if a template with the same type already exists for this community
+		const existingCommunityTemplate = await this.messageTemplateRepository.findOne({
+			where: { communityId, type: globalTemplate.type, scope: 'community' },
+		});
+
+		if (existingCommunityTemplate) {
+			// Update existing template
+			existingCommunityTemplate.message = globalTemplate.message;
+			return this.messageTemplateRepository.save(existingCommunityTemplate);
+		}
+
+		// Create new template
+		const newTemplate = this.messageTemplateRepository.create({
+			name: globalTemplate.name,
+			type: globalTemplate.type,
+			message: globalTemplate.message,
+			communityId,
+			scope: 'community',
+		});
+
+		return this.messageTemplateRepository.save(newTemplate);
+	}
+
+	async copyAllActiveTemplatesToCommunity(communityId: string): Promise<MessageTemplate[]> {
+		const activeGlobalTemplates = await this.globalMessageTemplateRepository.find({
+			where: { isActive: true },
+		});
+
+		const newTemplates: MessageTemplate[] = [];
+
+		for (const globalTemplate of activeGlobalTemplates) {
+			const copiedTemplate = await this.copyToCommunity(globalTemplate.id, communityId);
+			if (copiedTemplate) {
+				newTemplates.push(copiedTemplate);
+			}
+		}
+
+		return newTemplates;
+	}
+
+	async copyRetreatTemplateToCommunity(
+		retreatTemplateId: string,
+		communityId: string,
+	): Promise<MessageTemplate | null> {
+		const retreatTemplate = await this.messageTemplateRepository.findOne({
+			where: { id: retreatTemplateId, scope: 'retreat' },
+		});
+
+		if (!retreatTemplate) {
+			return null;
+		}
+
+		// Check if a template with the same type already exists for this community
+		const existingCommunityTemplate = await this.messageTemplateRepository.findOne({
+			where: { communityId, type: retreatTemplate.type, scope: 'community' },
+		});
+
+		if (existingCommunityTemplate) {
+			// Update existing template
+			existingCommunityTemplate.message = retreatTemplate.message;
+			return this.messageTemplateRepository.save(existingCommunityTemplate);
+		}
+
+		// Create new template
+		const newTemplate = this.messageTemplateRepository.create({
+			name: retreatTemplate.name,
+			type: retreatTemplate.type,
+			message: retreatTemplate.message,
+			communityId,
+			scope: 'community',
+		});
+
+		return this.messageTemplateRepository.save(newTemplate);
 	}
 
 	// System template methods

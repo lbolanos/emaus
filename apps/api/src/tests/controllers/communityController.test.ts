@@ -35,10 +35,12 @@ describe('CommunityController', () => {
 
 			await CommunityController.getCommunityById(req, res);
 
-			expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-				id: testCommunity.id,
-				name: testCommunity.name,
-			}));
+			expect(res.json).toHaveBeenCalledWith(
+				expect.objectContaining({
+					id: testCommunity.id,
+					name: testCommunity.name,
+				}),
+			);
 			expect(res.json).toHaveBeenCalledTimes(1);
 		});
 
@@ -81,7 +83,11 @@ describe('CommunityController', () => {
 		it('should add single member', async () => {
 			const participant = await TestDataFactory.createTestParticipant(testRetreat.id);
 
-			const req = createMockRequest(testUser, { participantId: participant.id }, { id: testCommunity.id });
+			const req = createMockRequest(
+				testUser,
+				{ participantId: participant.id },
+				{ id: testCommunity.id },
+			);
 			const res = createMockResponse();
 
 			await CommunityController.addMember(req, res);
@@ -152,8 +158,14 @@ describe('CommunityController', () => {
 			const meeting = await TestDataFactory.createTestCommunityMeeting(testCommunity.id);
 			const participant1 = await TestDataFactory.createTestParticipant(testRetreat.id);
 			const participant2 = await TestDataFactory.createTestParticipant(testRetreat.id);
-			const member1 = await TestDataFactory.createTestCommunityMember(testCommunity.id, participant1.id);
-			const member2 = await TestDataFactory.createTestCommunityMember(testCommunity.id, participant2.id);
+			const member1 = await TestDataFactory.createTestCommunityMember(
+				testCommunity.id,
+				participant1.id,
+			);
+			const member2 = await TestDataFactory.createTestCommunityMember(
+				testCommunity.id,
+				participant2.id,
+			);
 
 			const attendanceData = [
 				{ memberId: member1.id, attended: true },
@@ -172,7 +184,10 @@ describe('CommunityController', () => {
 		it('should record single attendance', async () => {
 			const meeting = await TestDataFactory.createTestCommunityMeeting(testCommunity.id);
 			const participant = await TestDataFactory.createTestParticipant(testRetreat.id);
-			const member = await TestDataFactory.createTestCommunityMember(testCommunity.id, participant.id);
+			const member = await TestDataFactory.createTestCommunityMember(
+				testCommunity.id,
+				participant.id,
+			);
 
 			const req = createMockRequest(
 				testUser,
@@ -184,10 +199,12 @@ describe('CommunityController', () => {
 			await CommunityController.recordSingleAttendance(req, res);
 
 			expect(res.status).toHaveBeenCalledWith(201);
-			expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-				memberId: member.id,
-				attended: true,
-			}));
+			expect(res.json).toHaveBeenCalledWith(
+				expect.objectContaining({
+					memberId: member.id,
+					attended: true,
+				}),
+			);
 		});
 
 		it('should return 404 for single attendance with non-existent member', async () => {
@@ -210,8 +227,14 @@ describe('CommunityController', () => {
 			const meeting = await TestDataFactory.createTestCommunityMeeting(testCommunity.id);
 			const participant1 = await TestDataFactory.createTestParticipant(testRetreat.id);
 			const participant2 = await TestDataFactory.createTestParticipant(testRetreat.id);
-			const member1 = await TestDataFactory.createTestCommunityMember(testCommunity.id, participant1.id);
-			const member2 = await TestDataFactory.createTestCommunityMember(testCommunity.id, participant2.id);
+			const member1 = await TestDataFactory.createTestCommunityMember(
+				testCommunity.id,
+				participant1.id,
+			);
+			const member2 = await TestDataFactory.createTestCommunityMember(
+				testCommunity.id,
+				participant2.id,
+			);
 
 			// Record some attendance
 			await TestDataFactory.createTestCommunityAttendance(meeting.id, member1.id, true);
@@ -298,7 +321,9 @@ describe('CommunityController', () => {
 		it('should revoke admin', async () => {
 			// Create a different user for the admin (not the owner)
 			const otherUser = await TestDataFactory.createTestUser();
-			const admin = await TestDataFactory.createTestCommunityAdmin(testCommunity.id, otherUser.id, { role: 'admin' });
+			const admin = await TestDataFactory.createTestCommunityAdmin(testCommunity.id, otherUser.id, {
+				role: 'admin',
+			});
 
 			const req = createMockRequest(testUser, {}, { id: testCommunity.id, userId: admin.userId });
 			const res = createMockResponse();
@@ -313,7 +338,10 @@ describe('CommunityController', () => {
 		it('should get public attendance data', async () => {
 			const meeting = await TestDataFactory.createTestCommunityMeeting(testCommunity.id);
 			const participant = await TestDataFactory.createTestParticipant(testRetreat.id);
-			const member = await TestDataFactory.createTestCommunityMember(testCommunity.id, participant.id);
+			const member = await TestDataFactory.createTestCommunityMember(
+				testCommunity.id,
+				participant.id,
+			);
 
 			const req = createMockRequest(
 				testUser,

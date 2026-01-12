@@ -8,6 +8,7 @@ import type {
 	CommunityAdmin,
 	CommunityAttendance,
 	MemberState,
+	MessageTemplate,
 } from '@repo/types';
 import { setupCsrfInterceptor } from '@/utils/csrf';
 import { telemetryService } from './telemetryService';
@@ -586,6 +587,21 @@ export const verifySmtpConnection = async () => {
 	return response.data;
 };
 
+// Community Communication API functions
+export const sendCommunityEmailViaBackend = async (data: {
+	to: string;
+	subject: string;
+	html: string;
+	text?: string;
+	communityMemberId: string;
+	communityId: string;
+	templateId?: string;
+	templateName?: string;
+}) => {
+	const response = await api.post('/community-communications/email/send', data);
+	return response.data;
+};
+
 // Telemetry API functions
 export const getTelemetryHealth = async () => {
 	const response = await api.get('/telemetry/health');
@@ -874,11 +890,45 @@ export async function updateMemberNotes(
 	memberId: string,
 	notes: string | null,
 ): Promise<CommunityMember> {
-	const response = await api.patch(`/communities/${communityId}/members/${memberId}/notes`, { notes });
+	const response = await api.patch(`/communities/${communityId}/members/${memberId}/notes`, {
+		notes,
+	});
 	return response.data;
 }
 
 export async function getMemberTimeline(communityId: string, memberId: string): Promise<any> {
 	const response = await api.get(`/communities/${communityId}/members/${memberId}/timeline`);
 	return response.data;
+}
+
+// Community Message Template API functions
+export async function getCommunityMessageTemplates(
+	communityId: string,
+): Promise<MessageTemplate[]> {
+	const response = await api.get(`/message-templates/community/${communityId}`);
+	return response.data;
+}
+
+export async function createCommunityMessageTemplate(
+	communityId: string,
+	templateData: Omit<MessageTemplate, 'id' | 'createdAt' | 'updatedAt'>,
+): Promise<MessageTemplate> {
+	const response = await api.post(`/message-templates/community/${communityId}`, templateData);
+	return response.data;
+}
+
+export async function updateCommunityMessageTemplate(
+	communityId: string,
+	id: string,
+	templateData: Partial<MessageTemplate>,
+): Promise<MessageTemplate> {
+	const response = await api.put(`/message-templates/community/${communityId}/${id}`, templateData);
+	return response.data;
+}
+
+export async function deleteCommunityMessageTemplate(
+	communityId: string,
+	id: string,
+): Promise<void> {
+	await api.delete(`/message-templates/community/${communityId}/${id}`);
 }

@@ -311,10 +311,12 @@ agregar una flyer para la reunion que pueda salvarse como pdf para que tengan el
 
 agregar un formulario basico para crear un participante de la comunidad asi no tenga retiro asociado.
 
+
 apps/web/src/views/CommunityMeetingFlyerView.vue componentize the flyer to create a list of flyer styles.
 create button the open apps/web/src/components/community/MeetingFormModal.vue and change data for the flyer.
 en el formulario aumentar el width y agrega una pestaña para el flyerTemplate en el que se pueda hacer ver el mensaje final y el listado de variables que se puede agregar haciendo clic.
-adicionar un nuevo flyer style con el siguiente formato: use apps/web/public/poster.png as background
+adicionar un nuevo flyer style con el siguiente formato:  use apps/web/public/poster.png as background
+
 
 ## IN PROGRESS
 
@@ -323,8 +325,8 @@ necesito que mejores la usabilidad y user experience del sitio. hay temas global
 cuando se selecciona retiros se muestra para poder seleccionar el retiro. Pero si selecciona alguna otra no se necesita seleccionar retiro.
 agrega la documenatcion necesaria acerca de esto en apps/web/src/docs
 
-## TODO
 
+## TODO
 al registrar un servidor es posible que ya exista como caminante que debemos hacer en este caso?
 
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
@@ -362,12 +364,17 @@ Notificaciones por correo a los administradores del retiro de eventos como Camin
 que los caminantes no vayan con la persona que lo invito
 no deja enviar correo de invitacion si el usuario existe
 
+
 aumentar el coverage de las pruebas
 verificar que todas la pruebas pasen.
 
 ## comunidades
+the MessageTemplate and ParticipantCommunication now belongs to a retreat. I need new entity to save message templates for community.  also ParticipantCommunication save if was a communication of the retreat or the community.
 
-the MessageTemplate and ParticipantCommunication now belongs to a retreat. I need new entity to save message templates for community. also ParticipantCommunication save if was a communication of the retreat or the community.
+
+en el dashboard la frecuencia de participacion no esta funcionando corectamente
+
+al cerrar el dialogo de editar comunidad la interfaz deja de funcionar (frezee when closing edit community).  Try Teleport
 
 ## landing
 

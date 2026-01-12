@@ -340,6 +340,8 @@
     <!-- Message Dialog -->
     <MessageDialog
       v-model:open="isMessageDialogOpen"
+      context="community"
+      :community-id="currentCommunity?.id"
       :participant="messageParticipant"
     />
 
@@ -624,7 +626,7 @@ const openTimelineDialog = async (member: any) => {
 
 // Message dialog handlers
 const openMessageDialog = (member: any) => {
-  messageParticipant.value = member.participant;
+  messageParticipant.value = member;
   isMessageDialogOpen.value = true;
 };
 </script>

@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { Participant } from './participant.entity';
 import { Retreat } from './retreat.entity';
+import { Community } from './community.entity';
 import { MessageTemplate } from './messageTemplate.entity';
 import { User } from './user.entity';
 
@@ -25,12 +26,25 @@ export class ParticipantCommunication {
 	@JoinColumn({ name: 'participantId' })
 	participant!: Participant;
 
-	@Column({ type: 'uuid' })
-	retreatId!: string;
+	@Column({
+		type: 'varchar',
+		enum: ['retreat', 'community'],
+	})
+	scope!: 'retreat' | 'community';
+
+	@Column({ type: 'uuid', nullable: true })
+	retreatId?: string;
 
 	@ManyToOne(() => Retreat, { onDelete: 'CASCADE' })
 	@JoinColumn({ name: 'retreatId' })
-	retreat!: Retreat;
+	retreat?: Retreat;
+
+	@Column({ type: 'uuid', nullable: true })
+	communityId?: string;
+
+	@ManyToOne(() => Community, { onDelete: 'CASCADE' })
+	@JoinColumn({ name: 'communityId' })
+	community?: Community;
 
 	@Column({
 		type: 'varchar',

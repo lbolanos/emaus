@@ -129,8 +129,12 @@ export class MakeRetreatIdNullable20260111120000 implements MigrationInterface {
 		await queryRunner.query(`ALTER TABLE "participants_new" RENAME TO "participants"`);
 
 		// 5. Recreate indexes
-		await queryRunner.query(`CREATE INDEX "IDX_participants_retreatId" ON "participants" ("retreatId")`);
-		await queryRunner.query(`CREATE INDEX "IDX_participants_tableId" ON "participants" ("tableId")`);
+		await queryRunner.query(
+			`CREATE INDEX "IDX_participants_retreatId" ON "participants" ("retreatId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX "IDX_participants_tableId" ON "participants" ("tableId")`,
+		);
 
 		// 6. Recreate dependent views
 		await queryRunner.query(`
@@ -279,8 +283,12 @@ export class MakeRetreatIdNullable20260111120000 implements MigrationInterface {
 		await queryRunner.query(`ALTER TABLE "participants_new" RENAME TO "participants"`);
 
 		// 5. Recreate indexes
-		await queryRunner.query(`CREATE INDEX "IDX_participants_retreatId" ON "participants" ("retreatId")`);
-		await queryRunner.query(`CREATE INDEX "IDX_participants_tableId" ON "participants" ("tableId")`);
+		await queryRunner.query(
+			`CREATE INDEX "IDX_participants_retreatId" ON "participants" ("retreatId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX "IDX_participants_tableId" ON "participants" ("tableId")`,
+		);
 
 		// 6. Recreate dependent views
 		await queryRunner.query(`

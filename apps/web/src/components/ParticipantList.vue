@@ -1535,6 +1535,8 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
         <!-- Message Dialog -->
         <MessageDialog
             v-model:open="isMessageDialogOpen"
+            context="retreat"
+            :retreat-id="selectedRetreatId ?? undefined"
             :participant="messageParticipant"
         />
 

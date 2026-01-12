@@ -127,6 +127,7 @@ Cuando un usuario recibe un enlace de invitación:
 5. **Espere la confirmación** - Será redirigido al panel de la comunidad
 
 Después de aceptar:
+
 - La comunidad aparecerá en su barra lateral bajo "Comunidades"
 - Tendrá acceso completo de administrador para administrar miembros, reuniones y ver análisis
 

@@ -29,12 +29,16 @@ export const messageTemplateTypes = z.enum([
 	'SYS_ROLE_REJECTED',
 ]);
 
+export const messageTemplateScope = z.enum(['retreat', 'community']);
+
 export const MessageTemplateSchema = z.object({
 	id: idSchema,
 	name: z.string().min(1, 'Name is required'),
 	type: messageTemplateTypes,
+	scope: messageTemplateScope.default('retreat'),
 	message: z.string().min(1, 'Message is required'),
-	retreatId: idSchema,
+	retreatId: idSchema.optional(),
+	communityId: idSchema.optional(),
 	createdAt: z.date(),
 	updatedAt: z.date(),
 });
@@ -79,9 +83,17 @@ export const UpdateGlobalMessageTemplateSchema = z.object({
 	}),
 });
 
+export const ImportTemplateToCommunitySchema = z.object({
+	body: z.object({
+		communityId: z.string().uuid(),
+	}),
+});
+
 export type MessageTemplate = z.infer<typeof MessageTemplateSchema>;
+export type MessageTemplateScope = z.infer<typeof messageTemplateScope>;
 export type CreateMessageTemplate = z.infer<typeof CreateMessageTemplateSchema>;
 export type UpdateMessageTemplate = z.infer<typeof UpdateMessageTemplateSchema>;
 export type GlobalMessageTemplate = z.infer<typeof GlobalMessageTemplateSchema>;
 export type CreateGlobalMessageTemplate = z.infer<typeof CreateGlobalMessageTemplateSchema>;
 export type UpdateGlobalMessageTemplate = z.infer<typeof UpdateGlobalMessageTemplateSchema>;
+export type ImportTemplateToCommunity = z.infer<typeof ImportTemplateToCommunitySchema>;

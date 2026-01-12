@@ -55,7 +55,8 @@ const mockToast = vi.fn();
 // Mock @repo/ui
 vi.mock('@repo/ui', () => ({
 	Button: {
-		template: '<button :disabled="disabled" :data-variant="variant" :data-size="size"><slot /></button>',
+		template:
+			'<button :disabled="disabled" :data-variant="variant" :data-size="size"><slot /></button>',
 		props: ['variant', 'size', 'disabled'],
 	},
 	Dialog: {
@@ -69,7 +70,8 @@ vi.mock('@repo/ui', () => ({
 	DialogTitle: { template: '<h2 class="dialog-title-mock"><slot /></h2>' },
 	Label: { template: '<label class="label-mock"><slot /></label>' },
 	Input: {
-		template: '<input :type="type" :placeholder="placeholder" :required="required" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" class="input-mock" />',
+		template:
+			'<input :type="type" :placeholder="placeholder" :required="required" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" class="input-mock" />',
 		props: ['modelValue', 'type', 'placeholder', 'required'],
 	},
 	useToast: () => ({ toast: mockToast }),
@@ -246,7 +248,9 @@ describe('InviteAdminModal Component', () => {
 			wrapper.vm.email = 'invalid-email';
 			await nextTick();
 
-			const inviteButton = wrapper.findAll('button').find((b) => b.text().includes('community.admin.invite'));
+			const inviteButton = wrapper
+				.findAll('button')
+				.find((b) => b.text().includes('community.admin.invite'));
 			if (inviteButton) {
 				expect(inviteButton.attributes('disabled')).toBeDefined();
 			}
@@ -256,7 +260,9 @@ describe('InviteAdminModal Component', () => {
 			wrapper.vm.email = '';
 			await nextTick();
 
-			const inviteButton = wrapper.findAll('button').find((b) => b.text().includes('community.admin.invite'));
+			const inviteButton = wrapper
+				.findAll('button')
+				.find((b) => b.text().includes('community.admin.invite'));
 			if (inviteButton) {
 				expect(inviteButton.attributes('disabled')).toBeDefined();
 			}
@@ -266,7 +272,9 @@ describe('InviteAdminModal Component', () => {
 			wrapper.vm.email = 'valid@example.com';
 			await nextTick();
 
-			const inviteButton = wrapper.findAll('button').find((b) => b.text().includes('community.admin.invite'));
+			const inviteButton = wrapper
+				.findAll('button')
+				.find((b) => b.text().includes('community.admin.invite'));
 			if (inviteButton) {
 				expect(inviteButton.attributes('disabled')).toBeUndefined();
 			}
@@ -293,7 +301,9 @@ describe('InviteAdminModal Component', () => {
 		});
 
 		it('should emit update:open with false when clicked', async () => {
-			const cancelButton = wrapper.findAll('button').find((b) => b.text().includes('addRetreatModal.cancel'));
+			const cancelButton = wrapper
+				.findAll('button')
+				.find((b) => b.text().includes('addRetreatModal.cancel'));
 			if (cancelButton) {
 				await cancelButton.trigger('click');
 				await nextTick();
@@ -323,7 +333,9 @@ describe('InviteAdminModal Component', () => {
 			wrapper.vm.invitationLink = 'http://localhost:3000/accept-community-invitation/test-token';
 			await nextTick();
 
-			const copyButton = wrapper.findAll('button').find((b) => b.find('[data-icon="Copy"]').exists());
+			const copyButton = wrapper
+				.findAll('button')
+				.find((b) => b.find('[data-icon="Copy"]').exists());
 			expect(copyButton).toBeDefined();
 		});
 
@@ -340,7 +352,9 @@ describe('InviteAdminModal Component', () => {
 			await wrapper.vm.copyLink();
 			await nextTick();
 
-			expect(mockWriteText).toHaveBeenCalledWith('http://localhost:3000/accept-community-invitation/test-token');
+			expect(mockWriteText).toHaveBeenCalledWith(
+				'http://localhost:3000/accept-community-invitation/test-token',
+			);
 			expect(mockToast).toHaveBeenCalledWith({
 				title: 'Copied',
 				description: 'Invitation link copied to clipboard.',

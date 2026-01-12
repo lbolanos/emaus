@@ -171,7 +171,9 @@ describe('AcceptCommunityInvitationView Component', () => {
 			wrapper.vm.invitationData = null;
 			await nextTick();
 
-			const loginButton = wrapper.findAll('button').find((b: any) => b.text().includes('Ir al Inicio de Sesión'));
+			const loginButton = wrapper
+				.findAll('button')
+				.find((b: any) => b.text().includes('Ir al Inicio de Sesión'));
 			expect(loginButton).toBeDefined();
 		});
 	});
@@ -221,7 +223,9 @@ describe('AcceptCommunityInvitationView Component', () => {
 			wrapper.vm.invitationData = mockInvitationData;
 			await nextTick();
 
-			const loginButton = wrapper.findAll('button').find((b: any) => b.text().includes('Iniciar Sesión'));
+			const loginButton = wrapper
+				.findAll('button')
+				.find((b: any) => b.text().includes('Iniciar Sesión'));
 			expect(loginButton).toBeDefined();
 		});
 
@@ -237,7 +241,9 @@ describe('AcceptCommunityInvitationView Component', () => {
 			wrapper.vm.invitationData = mockInvitationData;
 			await nextTick();
 
-			const loginButton = wrapper.findAll('button').find((b: any) => b.text().includes('Iniciar Sesión'));
+			const loginButton = wrapper
+				.findAll('button')
+				.find((b: any) => b.text().includes('Iniciar Sesión'));
 			if (loginButton) {
 				await loginButton.trigger('click');
 				await nextTick();
@@ -317,7 +323,9 @@ describe('AcceptCommunityInvitationView Component', () => {
 			wrapper.vm.invitationData = mockInvitationData;
 			await nextTick();
 
-			const acceptButton = wrapper.findAll('button').find((b: any) => b.text().includes('Aceptar Invitación'));
+			const acceptButton = wrapper
+				.findAll('button')
+				.find((b: any) => b.text().includes('Aceptar Invitación'));
 			expect(acceptButton).toBeDefined();
 		});
 	});
@@ -375,7 +383,9 @@ describe('AcceptCommunityInvitationView Component', () => {
 			wrapper.vm.accepted = true;
 			await nextTick();
 
-			const communityButton = wrapper.findAll('button').find((b: any) => b.text().includes('Ir a la Comunidad'));
+			const communityButton = wrapper
+				.findAll('button')
+				.find((b: any) => b.text().includes('Ir a la Comunidad'));
 			expect(communityButton).toBeDefined();
 		});
 	});

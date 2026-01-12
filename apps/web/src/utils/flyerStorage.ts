@@ -4,7 +4,7 @@
 
 const FLYER_STYLE_KEY = 'emaus_flyer_style';
 const VALID_STYLES = ['default', 'poster'] as const;
-export type FlyerStyle = typeof VALID_STYLES[number];
+export type FlyerStyle = (typeof VALID_STYLES)[number];
 
 /**
  * Gets the saved flyer style from localStorage

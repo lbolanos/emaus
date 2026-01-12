@@ -67,6 +67,25 @@ export const useMessageTemplateStore = defineStore('message-template', () => {
 		}
 	};
 
+	const copyRetreatTemplateToCommunity = async (retreatTemplateId: string, communityId: string) => {
+		loading.value = true;
+		error.value = null;
+		try {
+			const response = await api.post(
+				`/global-message-templates/retreat-templates/${retreatTemplateId}/copy-to-community`,
+				{
+					communityId,
+				},
+			);
+			return response.data.template;
+		} catch (e: any) {
+			error.value = e.message || 'Failed to copy template to community';
+			throw e;
+		} finally {
+			loading.value = false;
+		}
+	};
+
 	return {
 		templates,
 		loading,
@@ -75,5 +94,6 @@ export const useMessageTemplateStore = defineStore('message-template', () => {
 		createTemplate,
 		updateTemplate,
 		deleteTemplate,
+		copyRetreatTemplateToCommunity,
 	};
 });

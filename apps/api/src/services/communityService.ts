@@ -351,7 +351,8 @@ export class CommunityService {
 
 				const attendeeCount = attendances.filter((a) => a.attended === true).length;
 				// Count members with attended:false records + members without any record
-				const absentCount = attendances.filter((a) => a.attended === false).length +
+				const absentCount =
+					attendances.filter((a) => a.attended === false).length +
 					(eligibleMembers.length - attendances.length);
 
 				return {
@@ -513,8 +514,8 @@ export class CommunityService {
 			startDate: nextStartDate,
 			endDate: meeting.endDate
 				? new Date(
-					nextStartDate.getTime() + (meeting.endDate.getTime() - meeting.startDate.getTime()),
-				)
+						nextStartDate.getTime() + (meeting.endDate.getTime() - meeting.startDate.getTime()),
+					)
 				: undefined,
 			durationMinutes: meeting.durationMinutes,
 			isAnnouncement: meeting.isAnnouncement,
@@ -638,8 +639,13 @@ export class CommunityService {
 	// --- Dashboard & Analytics ---
 
 	async getDashboardStats(communityId: string) {
-		// 1. Member State Distribution
+		const now = new Date();
+
+		// 1. Members and Basic Counts
 		const members = await this.memberRepo.find({ where: { communityId } });
+		const activeMembers = members.filter((m) => m.state === 'active_member');
+
+		// 2. Member State Distribution
 		const stateDistribution = members.reduce(
 			(acc, member) => {
 				acc[member.state] = (acc[member.state] || 0) + 1;
@@ -648,15 +654,18 @@ export class CommunityService {
 			{} as Record<string, number>,
 		);
 
-		// 2. Participation Frequency
-		// We define participation based on the last N meetings (e.g., 10)
-		// For each member, only count meetings that occurred AFTER they joined
-		const meetings = await this.meetingRepo.find({
+		// 3. Meeting Counts
+		const allMeetings = await this.meetingRepo.find({
 			where: { communityId, isAnnouncement: false },
 			order: { startDate: 'DESC' },
-			take: 10,
 		});
 
+		const pastMeetings = allMeetings.filter((m) => m.startDate <= now);
+		const upcomingMeetings = allMeetings.filter((m) => m.startDate > now);
+
+		// 4. Average Attendance and Recent Meetings
+		let averageAttendance = 0;
+		const recentMeetings = [];
 		const frequencyDistribution = {
 			high: 0,
 			medium: 0,
@@ -664,28 +673,92 @@ export class CommunityService {
 			none: 0,
 		};
 
-		if (meetings.length > 0) {
-			const meetingIds = meetings.map((m) => m.id);
-			for (const member of members) {
-				// Filter meetings to only include those on or after member's join date
-				const validMeetingsForMember = meetings.filter((m) => m.startDate >= member.joinedAt);
+		if (allMeetings.length > 0) {
+			// A meeting is "relevant" for attendance if it's in the past OR has at least one attendance record
+			const relevantUpcomingWithAttendance = await Promise.all(
+				upcomingMeetings.map(async (m) => {
+					const count = await this.attendanceRepo.count({ where: { meetingId: m.id } });
+					return count > 0 ? m : null;
+				}),
+			);
 
-				// If member has no valid meetings (all meetings were before they joined), count as 'none'
+			const relevantMeetings = [
+				...pastMeetings,
+				...relevantUpcomingWithAttendance.filter((m): m is CommunityMeeting => m !== null),
+			].sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
+
+			const meetingsForAvg = relevantMeetings.slice(0, 10);
+			let totalAttendanceRate = 0;
+			let meetingsWithValidRate = 0;
+
+			for (const meeting of relevantMeetings) {
+				// Eligible members = joined before or on meeting date
+				let eligibleMemberCount = activeMembers.filter(
+					(m) => m.joinedAt <= meeting.startDate,
+				).length;
+
+				// Fallback: If no members joined yet (historical data), use current active members count
+				if (eligibleMemberCount === 0) {
+					eligibleMemberCount = activeMembers.length;
+				}
+
+				let rate = 0;
+				if (eligibleMemberCount > 0) {
+					const attendanceCount = await this.attendanceRepo.count({
+						where: {
+							meetingId: meeting.id,
+							attended: true,
+						},
+					});
+					rate = (attendanceCount / eligibleMemberCount) * 100;
+
+					// Add to average if it's one of the last 10
+					if (meetingsForAvg.some((m) => m.id === meeting.id)) {
+						totalAttendanceRate += rate;
+						meetingsWithValidRate++;
+					}
+				}
+
+				// If it's one of the last 5, add to recent meetings list
+				if (recentMeetings.length < 5 && meeting.startDate <= now) {
+					recentMeetings.push({
+						id: meeting.id,
+						title: meeting.title,
+						startDate: meeting.startDate,
+						attendancePercent: Math.round(rate),
+					});
+				}
+			}
+
+			if (meetingsWithValidRate > 0) {
+				averageAttendance = totalAttendanceRate / meetingsWithValidRate;
+			}
+
+			// 5. Participation Frequency (Calculated on current members over last 10 relevant meetings)
+			const last10MeetingIdsForFreq = meetingsForAvg.map((m) => m.id);
+
+			for (const member of members) {
+				// A meeting is "valid" for a member if it occurred after they joined
+				// OR if they have an attendance record for it (handles historical data)
+				const attendances = await this.attendanceRepo.find({
+					where: {
+						memberId: member.id,
+						meetingId: In(last10MeetingIdsForFreq),
+						attended: true,
+					},
+				});
+				const attendedMeetingIds = new Set(attendances.map((a) => a.meetingId));
+
+				const validMeetingsForMember = meetingsForAvg.filter(
+					(m) => m.startDate >= member.joinedAt || attendedMeetingIds.has(m.id),
+				);
+
 				if (validMeetingsForMember.length === 0) {
 					frequencyDistribution.none++;
 					continue;
 				}
 
-				const validMeetingIds = validMeetingsForMember.map((m) => m.id);
-				const attendanceCount = await this.attendanceRepo.count({
-					where: {
-						memberId: member.id,
-						meetingId: In(validMeetingIds),
-						attended: true,
-					},
-				});
-
-				const rate = attendanceCount / validMeetingsForMember.length;
+				const rate = attendedMeetingIds.size / validMeetingsForMember.length;
 				if (rate >= 0.75) frequencyDistribution.high++;
 				else if (rate >= 0.25) frequencyDistribution.medium++;
 				else if (rate > 0) frequencyDistribution.low++;
@@ -697,7 +770,10 @@ export class CommunityService {
 
 		return {
 			memberCount: members.length,
-			meetingCount: meetings.length,
+			meetingCount: pastMeetings.length,
+			upcomingMeetingsCount: upcomingMeetings.length,
+			averageAttendance,
+			recentMeetings,
 			memberStateDistribution: Object.entries(stateDistribution).map(([state, count]) => ({
 				state,
 				count,
