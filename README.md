@@ -318,9 +318,11 @@ en el formulario aumentar el width y agrega una pestaña para el flyerTemplate e
 adicionar un nuevo flyer style con el siguiente formato:  use apps/web/public/poster.png as background
 the MessageTemplate and ParticipantCommunication now belongs to a retreat. I need new entity to save message templates for community.  also ParticipantCommunication save if was a communication of the retreat or the community.
 en el dashboard la frecuencia de participacion no esta funcionando corectamente
-
+al cerrar el dialogo de editar comunidad la interfaz deja de funcionar (frezee when closing edit community).  Try Teleport
 
 ## IN PROGRESS
+
+standarize the breadcrumb in community apps/web/src/views/CommunityListView.vue
 
 apps/web/src/components/layout/Sidebar.vue apps/web/src/components/layout/Header.vue docs_dev/HELP_SYSTEM_GUIDE.md
 necesito que mejores la usabilidad y user experience del sitio. hay temas globales como retiros, casas de retiros, comunidades, Telemetria, Plantillas globales.
@@ -373,11 +375,6 @@ verificar que todas la pruebas pasen.
 ## comunidades
 
 
-
-
-al cerrar el dialogo de editar comunidad la interfaz deja de funcionar (frezee when closing edit community).  Try Teleport
-
-standarize the breadcrumb in community
 
 ## landing
 
