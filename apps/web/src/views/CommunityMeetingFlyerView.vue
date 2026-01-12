@@ -1,38 +1,74 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 py-6 print:p-0 print:bg-white print:min-h-0">
-    <!-- Top Bar with Style Selector and Action Buttons -->
-    <div class="fixed top-20 right-8 z-50 print:hidden flex items-center gap-3">
-      <!-- Style Selector -->
-      <div class="flex items-center gap-2 bg-white rounded-lg shadow-lg p-1">
+  <div class="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50/50 to-indigo-100/30 py-8 print:p-0 print:bg-white print:min-h-0">
+    <!-- Enhanced Floating Toolbar -->
+    <div class="floating-toolbar fixed top-20 right-4 md:right-8 z-50 print:hidden flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+      <!-- Style Selector - Enhanced -->
+      <div class="toolbar-glass flex items-center gap-1 rounded-xl p-1 shadow-xl">
         <button
           @click="setFlyerStyle('default')"
-          :class="flyerStyle === 'default' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'"
-          class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors">
-          Estilo Default
+          :class="[
+            'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+            flyerStyle === 'default' 
+              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30' 
+              : 'text-gray-600 hover:bg-gray-100/80 hover:text-gray-900'
+          ]">
+          <LayoutTemplate class="w-4 h-4" />
+          <span class="hidden sm:inline">Default</span>
         </button>
         <button
           @click="setFlyerStyle('poster')"
-          :class="flyerStyle === 'poster' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'"
-          class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors">
-          Estilo Poster
+          :class="[
+            'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+            flyerStyle === 'poster' 
+              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30' 
+              : 'text-gray-600 hover:bg-gray-100/80 hover:text-gray-900'
+          ]">
+          <Image class="w-4 h-4" />
+          <span class="hidden sm:inline">Poster</span>
         </button>
       </div>
 
-      <!-- Action Buttons -->
-      <Button @click="handleEditMeeting" variant="outline" size="icon" title="Editar reunión">
-        <Pencil class="w-4 h-4" />
-      </Button>
-      <Button @click="handleGoBack" variant="outline">
-        Volver
-      </Button>
-      <Button @click="handlePrint" class="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 transition-all hover:scale-105 hover:shadow-blue-500/50 border border-blue-500/30">
+      <!-- Action Buttons Group -->
+      <div class="toolbar-glass flex items-center gap-1 rounded-xl p-1 shadow-xl">
+        <Button 
+          @click="handleEditMeeting" 
+          variant="ghost" 
+          size="icon" 
+          title="Editar reunión"
+          class="rounded-lg hover:bg-gray-100/80 transition-all"
+        >
+          <Pencil class="w-4 h-4 text-gray-600" />
+        </Button>
+        <Button 
+          @click="handleGoBack" 
+          variant="ghost"
+          class="rounded-lg hover:bg-gray-100/80 transition-all text-gray-600 gap-2"
+        >
+          <ArrowLeft class="w-4 h-4" />
+          <span class="hidden sm:inline">Volver</span>
+        </Button>
+      </div>
+
+      <!-- Print Button - Premium styled -->
+      <Button 
+        @click="handlePrint" 
+        class="print-button bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 hover:from-blue-700 hover:via-blue-600 hover:to-indigo-700 text-white px-5 py-2.5 rounded-xl shadow-xl flex items-center gap-2.5 transition-all duration-300 hover:scale-[1.02] hover:shadow-blue-500/40 border border-white/20"
+      >
         <Printer class="w-5 h-5" />
-        <span class="font-semibold">Imprimir Flyer</span>
+        <span class="font-semibold">Imprimir</span>
       </Button>
     </div>
 
+    <!-- Loading State -->
+    <div v-if="isLoading" class="flex items-center justify-center min-h-[400px]">
+      <div class="flex flex-col items-center gap-4">
+        <div class="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+        <p class="text-gray-500 font-medium">Cargando flyer...</p>
+      </div>
+    </div>
+
     <!-- Flyer Container - Dynamic Component -->
-    <div class="max-w-[850px] mx-auto px-4 print:max-w-[210mm] print:w-[210mm] print:mx-0 print:px-0">
+    <div v-else class="max-w-[850px] mx-auto px-4 pt-20 sm:pt-4 print:max-w-[210mm] print:w-[210mm] print:mx-0 print:px-0 print:pt-0">
       <component
         :is="flyerComponent"
         :meeting="meeting"
@@ -61,7 +97,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCommunityStore } from '@/stores/communityStore';
 import { Button } from '@repo/ui';
-import { Printer, Pencil } from 'lucide-vue-next';
+import { Printer, Pencil, ArrowLeft, LayoutTemplate, Image } from 'lucide-vue-next';
 import DefaultFlyer from '@/components/flyers/DefaultFlyer.vue';
 import PosterFlyer from '@/components/flyers/PosterFlyer.vue';
 import MeetingFormModal from '@/components/community/MeetingFormModal.vue';
@@ -82,6 +118,7 @@ const communityStore = useCommunityStore();
 const meeting = ref<any>(null);
 const community = ref<any>(null);
 const flyerStyle = ref<FlyerStyle>(getSavedFlyerStyle());
+const isLoading = ref(true);
 
 // Meeting modal state
 const isMeetingModalOpen = ref(false);
@@ -185,6 +222,8 @@ onMounted(async () => {
     }
   } catch (error) {
     console.error('Failed to load meeting flyer data:', error);
+  } finally {
+    isLoading.value = false;
   }
 });
 </script>
@@ -229,6 +268,51 @@ onMounted(async () => {
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Miltonian+Tattoo&family=Oswald:wght@300;400;500;700;900&family=Roboto:ital,wght@0,300;0,400;0,500;0,700;0,900;1,400&display=swap');
 
+/* Frosted glass toolbar */
+.toolbar-glass {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+}
+
+/* Floating toolbar animation */
+.floating-toolbar {
+  animation: slideInFromTop 0.4s ease-out;
+}
+
+@keyframes slideInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Print button glow effect */
+.print-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.print-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.print-button:hover::before {
+  left: 100%;
+}
+
 .print-optimized {
   width: 100%;
   max-width: 850px;
@@ -251,8 +335,8 @@ onMounted(async () => {
   font-family: 'Oswald', sans-serif;
 }
 
-/* Smooth transitions */
-* {
+/* Smooth transitions for interactive elements only */
+button, a, .transition-all {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 </style>
