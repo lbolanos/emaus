@@ -34,6 +34,17 @@ export const getRetreatById = async (req: Request, res: Response, next: NextFunc
 	}
 };
 
+export const getPublicRetreats = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		// Find all public retreats starting in the future
+		const { findPublicRetreats } = await import('../services/retreatService');
+		const retreats = await findPublicRetreats();
+		res.json(retreats);
+	} catch (error) {
+		next(error);
+	}
+};
+
 export const getRetreatByIdPublic = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const retreat = await findById(req.params.id);

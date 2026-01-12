@@ -34,6 +34,7 @@ import RetreatFlyerView from '../views/RetreatFlyerView.vue';
 import HelpView from '../views/HelpView.vue';
 import { useAuthStore } from '@/stores/authStore';
 import { useRetreatStore } from '@/stores/retreatStore';
+import LandingView from '../views/LandingView.vue';
 
 const router = createRouter({
 	history: createWebHistory(import.meta.env.BASE_URL),
@@ -86,6 +87,12 @@ const router = createRouter({
 		},
 		{
 			path: '/',
+			name: 'landing',
+			component: LandingView,
+			meta: { requiresAuth: false },
+		},
+		{
+			path: '/app',
 			component: AppLayout,
 			meta: { requiresAuth: true },
 			children: [

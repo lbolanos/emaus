@@ -1,0 +1,562 @@
+<template>
+  <div class="min-h-screen bg-white font-sans text-stone-800">
+    <!-- Navigation -->
+    <nav :class="['fixed w-full z-50 transition-all duration-300', scrolled ? 'bg-white/90 backdrop-blur-md shadow-sm py-3' : 'bg-transparent py-6']">
+      <div class="max-w-7xl mx-auto px-6 flex justify-between items-center">
+        <router-link to="/" class="flex items-center gap-2">
+          <img src="/crossRoseButtT.png" alt="Emmaus Rose" class="w-8 h-8" />
+          <span :class="['text-xl font-light tracking-widest uppercase', scrolled ? 'text-stone-800' : 'text-white']">Emmaus</span>
+        </router-link>
+
+        <div class="hidden md:flex items-center gap-8">
+          <a
+            href="#the-path"
+            :class="['text-sm font-medium hover:text-sage-600 transition-colors', scrolled ? 'text-stone-600' : 'text-white/90']"
+          >
+            {{ $t('landing.nav.thePath') }}
+          </a>
+          <a
+            href="#retreats"
+            :class="['text-sm font-medium hover:text-sage-600 transition-colors', scrolled ? 'text-stone-600' : 'text-white/90']"
+          >
+            {{ $t('landing.nav.retreats') }}
+          </a>
+          <a
+            href="#community"
+            :class="['text-sm font-medium hover:text-sage-600 transition-colors', scrolled ? 'text-stone-600' : 'text-white/90']"
+          >
+            {{ $t('landing.nav.community') }}
+          </a>
+          <a
+            href="#stories"
+            :class="['text-sm font-medium hover:text-sage-600 transition-colors', scrolled ? 'text-stone-600' : 'text-white/90']"
+          >
+            {{ $t('landing.nav.stories') }}
+          </a>
+          <div class="flex items-center gap-4 ml-4">
+            <router-link to="/login" :class="['text-sm font-medium', scrolled ? 'text-stone-600' : 'text-white/90']">{{ $t('landing.loginLink') }}</router-link>
+            <router-link to="/login" class="px-5 py-2 rounded-full bg-stone-800 text-white text-sm font-medium hover:bg-stone-700 transition-all">
+              {{ $t('landing.signupLink') }}
+            </router-link>
+          </div>
+        </div>
+
+        <button class="md:hidden" @click="isMenuOpen = !isMenuOpen">
+          <X v-if="isMenuOpen" :class="scrolled ? 'text-stone-800' : 'text-white'" :size="24" />
+          <Menu v-else :class="scrolled ? 'text-stone-800' : 'text-white'" :size="24" />
+        </button>
+      </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="relative h-screen flex items-center justify-center overflow-hidden">
+      <div class="absolute inset-0 z-0">
+        <img
+          src="/landing.png"
+          :alt="$t('landing.heroTitle')"
+          class="w-full h-full object-cover scale-105"
+        />
+        <div class="absolute inset-0 bg-black/20"></div>
+        <div class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white/90"></div>
+      </div>
+
+      <div class="relative z-10 text-center px-6 max-w-4xl animate-fade-in-up">
+        <h1 class="text-5xl md:text-7xl font-light text-white mb-6 tracking-tight">
+          {{ $t('landing.heroTitle') }}
+        </h1>
+        <p class="text-lg md:text-xl text-white/90 mb-10 font-light max-w-2xl mx-auto leading-relaxed">
+          {{ $t('landing.heroSubtitle') }}
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a href="#retreats" class="px-8 py-4 rounded-full bg-white text-stone-800 font-medium hover:shadow-xl transition-all transform hover:-translate-y-1">
+            {{ $t('landing.ctaButton') }}
+          </a>
+          <button class="px-8 py-4 rounded-full bg-white/10 backdrop-blur-md border border-white/30 text-white font-medium hover:bg-white/20 transition-all">
+            {{ $t('landing.watchStory') }}
+          </button>
+        </div>
+      </div>
+
+      <div class="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce hidden md:block">
+        <div class="w-px h-12 bg-gradient-to-b from-white to-transparent"></div>
+      </div>
+    </section>
+
+    <!-- Upcoming Retreats Grid -->
+    <section id="retreats" class="py-24 px-6 bg-white">
+      <div class="max-w-7xl mx-auto">
+        <div class="flex justify-between items-end mb-16">
+          <div>
+            <span class="text-sage-600 font-semibold tracking-widest uppercase text-xs mb-3 block" :style="{ color: '#8DAA91' }">
+              Seasonal Calendar
+            </span>
+            <h2 class="text-4xl font-light text-stone-900">{{ $t('landing.upcomingRetreats') }}</h2>
+          </div>
+          <router-link to="/login" class="hidden md:flex items-center gap-2 text-stone-500 hover:text-stone-900 transition-colors">
+            {{ $t('landing.viewAllDates') }}
+            <ChevronRight :size="18" />
+          </router-link>
+        </div>
+
+        <div v-if="loadingRetreats" class="flex justify-center py-12">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-sage-600" :style="{ borderColor: '#8DAA91' }"></div>
+        </div>
+
+        <div v-else-if="retreats.length === 0" class="text-center py-12 text-stone-500">
+          {{ $t('landing.noUpcomingRetreats') }}
+        </div>
+
+        <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-10">
+          <router-link
+            v-for="retreat in retreats"
+            :key="retreat.id"
+            :to="`/login`"
+            class="group cursor-pointer block"
+          >
+            <div class="aspect-[4/5] overflow-hidden rounded-2xl mb-6 relative">
+              <img
+                src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=800"
+                :alt="retreat.parish"
+                class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+              />
+              <div class="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tighter">
+                {{ $t('landing.viewDetails') }}
+              </div>
+            </div>
+            <div class="flex items-start justify-between">
+              <div>
+                <h3 class="text-xl font-medium mb-1 group-hover:text-sage-600 transition-colors leading-tight">
+                  {{ retreat.parish }}
+                </h3>
+                <p class="text-stone-500 text-sm flex items-center gap-1">
+                  <MapPin :size="14" :style="{ color: '#8DAA91' }" />
+                  {{ retreat.house?.city || '' }}{{ retreat.house?.state ? ', ' + retreat.house.state : '' }}
+                </p>
+              </div>
+              <div class="text-right">
+                <p class="text-xs font-bold text-stone-400 uppercase tracking-widest">
+                  {{ formatDateRange(retreat.startDate, retreat.endDate).monthYear }}
+                </p>
+                <p class="text-sm font-medium text-stone-900">
+                  {{ formatDateRange(retreat.startDate, retreat.endDate).dayRange }}
+                </p>
+              </div>
+            </div>
+          </router-link>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive Map Section -->
+    <section id="community" class="py-24 bg-stone-50 overflow-hidden relative">
+      <div class="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+        <div>
+          <span class="text-sage-600 font-semibold tracking-widest uppercase text-xs mb-3 block" :style="{ color: '#8DAA91' }">
+            Global Presence
+          </span>
+          <h2 class="text-4xl font-light text-stone-900 mb-6 leading-tight">{{ $t('landing.findCommunity') }}</h2>
+          <p class="text-stone-600 mb-8 leading-relaxed max-w-md">
+            {{ $t('landing.communityDesc') }}
+          </p>
+
+          <div class="space-y-4">
+            <div class="p-4 rounded-xl bg-white shadow-sm border border-stone-100 flex items-center gap-4">
+              <div class="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center text-stone-500">
+                <MapPin :size="20" />
+              </div>
+              <div>
+                <h4 class="font-medium">{{ $t('landing.useMyLocation') }}</h4>
+                <p class="text-xs text-stone-400">{{ $t('landing.findNearest') }}</p>
+              </div>
+            </div>
+            <div class="relative">
+              <input
+                v-model="searchQuery"
+                type="text"
+                :placeholder="$t('landing.searchPlaceholder')"
+                class="w-full px-6 py-4 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-sage-200 transition-all"
+              />
+              <button class="absolute right-2 top-2 bottom-2 px-4 bg-stone-800 text-white rounded-lg text-sm font-medium">
+                {{ $t('landing.search') }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="relative">
+          <div class="aspect-square bg-white rounded-3xl shadow-2xl overflow-hidden border-8 border-white relative group">
+            <!-- Mock Map UI -->
+            <div class="absolute inset-0 bg-[#e5e7eb] opacity-40"></div>
+            <svg class="absolute inset-0 w-full h-full text-stone-300" viewBox="0 0 800 800">
+              <path d="M100,200 Q400,100 700,300 T500,600 T100,200" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="8 8" />
+            </svg>
+
+            <!-- Pulse Map Pins -->
+            <div
+              v-for="(community, i) in communities.slice(0, 4)"
+              :key="community.id"
+              class="absolute flex items-center justify-center"
+              :style="getMapPinPosition(i)"
+            >
+              <div class="absolute w-12 h-12 bg-sage-500/20 rounded-full animate-ping" :style="{ backgroundColor: 'rgba(141, 170, 145, 0.2)' }"></div>
+              <div class="relative w-4 h-4 bg-sage-600 rounded-full border-2 border-white shadow-lg" :style="{ backgroundColor: '#8DAA91' }"></div>
+            </div>
+
+            <div class="absolute bottom-6 left-6 right-6 p-4 bg-white/90 backdrop-blur rounded-xl shadow-lg transform transition-all group-hover:-translate-y-2.5">
+              <div class="flex justify-between items-center">
+                <div>
+                  <p class="text-[10px] font-bold text-sage-600 uppercase tracking-widest" :style="{ color: '#8DAA91' }">
+                    {{ $t('landing.nearestCircle') }}
+                  </p>
+                  <p class="font-medium">{{ communities[0]?.name || 'Loading...' }}</p>
+                </div>
+                <router-link to="/login" class="px-3 py-1.5 bg-stone-800 text-white text-xs rounded-lg">{{ $t('landing.join') }}</router-link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Community Table -->
+    <section class="py-24 px-6 bg-white">
+      <div class="max-w-4xl mx-auto">
+        <div class="text-center mb-16">
+          <h2 class="text-3xl font-light mb-4">{{ $t('landing.communityMeetings') }}</h2>
+          <div class="w-12 h-1 bg-sage-600 mx-auto" :style="{ backgroundColor: '#8DAA91' }"></div>
+        </div>
+
+        <div v-if="loadingMeetings" class="flex justify-center py-12">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-sage-600" :style="{ borderColor: '#8DAA91' }"></div>
+        </div>
+
+        <div v-else-if="meetings.length === 0" class="text-center py-12 text-stone-500">
+          {{ $t('landing.noUpcomingMeetings') }}
+        </div>
+
+        <div v-else class="overflow-hidden border border-stone-100 rounded-2xl shadow-sm">
+          <table class="w-full text-left">
+            <thead class="bg-stone-50 border-b border-stone-100">
+              <tr>
+                <th class="px-8 py-5 text-sm font-semibold text-stone-500 uppercase tracking-wider">{{ $t('landing.tableHeaders.community') }}</th>
+                <th class="px-8 py-5 text-sm font-semibold text-stone-500 uppercase tracking-wider">{{ $t('landing.tableHeaders.schedule') }}</th>
+                <th class="px-8 py-5 text-sm font-semibold text-stone-500 uppercase tracking-wider">{{ $t('landing.tableHeaders.venue') }}</th>
+                <th class="px-8 py-5"></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-stone-100">
+              <tr v-for="meeting in meetings" :key="meeting.id" class="hover:bg-sage-50/30 transition-colors">
+                <td class="px-8 py-6">
+                  <div class="font-medium text-stone-900">{{ meeting.community?.name || meeting.community?.city || 'N/A' }}</div>
+                </td>
+                <td class="px-8 py-6">
+                  <div class="flex items-center gap-2 text-stone-600 text-sm">
+                    <Calendar :size="14" class="text-stone-300" />
+                    <span>{{ formatMeetingDate(meeting.startDate) }}</span>
+                    <span class="mx-1 text-stone-300">•</span>
+                    <Clock :size="14" class="text-stone-300" />
+                    <span>{{ formatMeetingTime(meeting.startDate) }}</span>
+                  </div>
+                </td>
+                <td class="px-8 py-6">
+                  <div class="text-sm text-stone-500">{{ meeting.community?.address || meeting.community?.city || 'TBD' }}</div>
+                </td>
+                <td class="px-8 py-6 text-right">
+                  <router-link to="/login" class="text-xs font-bold uppercase tracking-widest hover:text-sage-700 transition-colors" :style="{ color: '#8DAA91' }">
+                    {{ $t('landing.inquire') }}
+                  </router-link>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA Footer Wrapper -->
+    <section class="py-20 px-6">
+      <div class="max-w-7xl mx-auto rounded-[3rem] overflow-hidden relative bg-stone-900 text-white p-12 md:p-24 text-center">
+        <div class="absolute inset-0 opacity-20 pointer-events-none">
+          <img
+            src="https://images.unsplash.com/photo-1493246507139-91e8bef99c02?auto=format&fit=crop&q=80&w=2000"
+            class="w-full h-full object-cover"
+          />
+        </div>
+        <div class="relative z-10 max-w-2xl mx-auto">
+          <h2 class="text-4xl md:text-5xl font-light mb-8">{{ $t('landing.cta.title') }}</h2>
+          <p class="text-stone-300 mb-10 text-lg font-light leading-relaxed">
+            {{ $t('landing.cta.description') }}
+          </p>
+          <div class="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+            <input
+              v-model="email"
+              type="email"
+              :placeholder="$t('landing.cta.emailPlaceholder')"
+              :disabled="subscribing"
+              class="flex-1 px-6 py-4 rounded-full bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-white/30 disabled:opacity-50"
+            />
+            <button
+              @click="handleSubscribe"
+              :disabled="subscribing || !email.trim()"
+              class="px-8 py-4 rounded-full bg-white text-stone-900 font-bold text-sm hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {{ subscribing ? $t('landing.subscribe.subscribing') : $t('landing.cta.subscribe') }}
+            </button>
+          </div>
+          <p v-if="subscribeMessage" :class="['mt-4 text-sm', subscribeSuccess ? 'text-green-300' : 'text-red-300']">
+            {{ $t(subscribeMessage) }}
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Simple Footer -->
+    <footer class="py-12 border-t border-stone-100">
+      <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
+        <router-link to="/" class="flex items-center gap-2">
+          <img src="/crossRoseButtT.png" alt="Emmaus Rose" class="w-6 h-6" />
+          <span class="text-sm font-light tracking-widest uppercase">Emmaus</span>
+        </router-link>
+        <div class="flex gap-8 text-sm text-stone-400">
+          <a href="#" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.about') }}</a>
+          <a href="#" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.privacy') }}</a>
+          <a href="#" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.terms') }}</a>
+          <a href="#" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.contactUs') }}</a>
+        </div>
+        <div class="flex gap-4">
+          <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+            <Instagram :size="20" class="text-stone-400 hover:text-stone-900 transition-colors" />
+          </a>
+          <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+            <Facebook :size="20" class="text-stone-400 hover:text-stone-900 transition-colors" />
+          </a>
+          <a href="mailto:info@emmaus.org" aria-label="Email">
+            <Mail :size="20" class="text-stone-400 hover:text-stone-900 transition-colors" />
+          </a>
+        </div>
+      </div>
+      <p class="text-center text-[10px] text-stone-300 mt-8 tracking-widest uppercase font-bold">
+        {{ $t('landing.footer.copyright', { year: new Date().getFullYear() }) }}
+      </p>
+    </footer>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue';
+import {
+  MapPin,
+  Calendar,
+  Clock,
+  ChevronRight,
+  Menu,
+  X,
+  Instagram,
+  Facebook,
+  Mail
+} from 'lucide-vue-next';
+import { getPublicRetreats, getPublicCommunities, getPublicCommunityMeetings, subscribeToNewsletter } from '@/services/api';
+import { useToast } from '@repo/ui';
+
+const { toast } = useToast();
+
+// State
+const isMenuOpen = ref(false);
+const scrolled = ref(false);
+const searchQuery = ref('');
+const email = ref('');
+const loadingRetreats = ref(true);
+const loadingMeetings = ref(true);
+const subscribing = ref(false);
+const subscribeMessage = ref('');
+const subscribeSuccess = ref(false);
+
+// Data
+const retreats = ref<any[]>([]);
+const communities = ref<any[]>([]);
+const meetings = ref<any[]>([]);
+
+// Map pin positions for demo (distributed across the map)
+const getMapPinPosition = (index: number) => {
+  const positions = [
+    { top: '30%', left: '40%' },
+    { top: '55%', left: '70%' },
+    { top: '45%', left: '20%' },
+    { top: '20%', left: '80%' }
+  ];
+  return positions[index % positions.length];
+};
+
+// Format date range for retreat cards
+const formatDateRange = (startDate: string, endDate: string) => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  const monthYear = start.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+
+  const startDay = start.getDate();
+  const endDay = end.getDate();
+  const dayRange = `${startDay}${start.getMonth() === end.getMonth() ? `-${endDay}` : ''}`;
+
+  return { monthYear, dayRange };
+};
+
+// Format meeting date (day of week)
+const formatMeetingDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', { weekday: 'long' });
+};
+
+// Format meeting time
+const formatMeetingTime = (dateStr: string) => {
+  const date = new Date(dateStr);
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+};
+
+// Fetch data on mount
+const fetchData = async () => {
+  try {
+    loadingRetreats.value = true;
+    loadingMeetings.value = true;
+
+    const [retreatsData, communitiesData, meetingsData] = await Promise.all([
+      getPublicRetreats(),
+      getPublicCommunities(),
+      getPublicCommunityMeetings()
+    ]);
+
+    retreats.value = retreatsData;
+    communities.value = communitiesData;
+    meetings.value = meetingsData;
+  } catch (error) {
+    console.error('Failed to fetch landing page data:', error);
+  } finally {
+    loadingRetreats.value = false;
+    loadingMeetings.value = false;
+  }
+};
+
+// Subscribe to newsletter
+const handleSubscribe = async () => {
+  const emailValue = email.value.trim();
+
+  // Basic email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailValue || !emailRegex.test(emailValue)) {
+    subscribeMessage.value = 'landing.subscribe.invalidEmail';
+    subscribeSuccess.value = false;
+    return;
+  }
+
+  subscribing.value = true;
+  subscribeMessage.value = '';
+
+  try {
+    const result = await subscribeToNewsletter(emailValue);
+
+    if (result.alreadySubscribed) {
+      subscribeMessage.value = 'landing.subscribe.alreadySubscribed';
+      subscribeSuccess.value = true;
+    } else {
+      subscribeMessage.value = 'landing.subscribe.success';
+      subscribeSuccess.value = true;
+      email.value = ''; // Clear email on successful subscription
+    }
+  } catch (error: any) {
+    console.error('Newsletter subscription error:', error);
+    if (error.response?.status === 409) {
+      subscribeMessage.value = 'landing.subscribe.alreadySubscribed';
+    } else {
+      subscribeMessage.value = 'landing.subscribe.error';
+    }
+    subscribeSuccess.value = false;
+  } finally {
+    subscribing.value = false;
+  }
+};
+
+// Scroll handler
+const handleScroll = () => {
+  scrolled.value = window.scrollY > 20;
+};
+
+// Lifecycle
+onMounted(() => {
+  window.addEventListener('scroll', handleScroll);
+  fetchData();
+});
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll);
+});
+</script>
+
+<style scoped>
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 1s ease-out forwards;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateX(-50%) translateY(0);
+  }
+  50% {
+    transform: translateX(-50%) translateY(-10px);
+  }
+}
+
+.animate-bounce {
+  animation: bounce 2s infinite;
+}
+
+@keyframes ping {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.animate-ping {
+  animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Sage color utility */
+.hover\:text-sage-600:hover {
+  color: #8DAA91;
+}
+
+.bg-sage-600 {
+  background-color: #8DAA91;
+}
+
+.text-sage-600 {
+  color: #8DAA91;
+}
+
+.hover\:text-sage-700:hover {
+  color: #7a9680;
+}
+
+.focus\:ring-sage-200:focus {
+  --tw-ring-color: rgba(141, 170, 145, 0.5);
+}
+
+.hover\:bg-sage-50\/30:hover {
+  background-color: rgba(141, 170, 145, 0.15);
+}
+
+.bg-sage-500\/20 {
+  background-color: rgba(141, 170, 145, 0.2);
+}
+</style>

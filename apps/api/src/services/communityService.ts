@@ -514,8 +514,8 @@ export class CommunityService {
 			startDate: nextStartDate,
 			endDate: meeting.endDate
 				? new Date(
-						nextStartDate.getTime() + (meeting.endDate.getTime() - meeting.startDate.getTime()),
-					)
+					nextStartDate.getTime() + (meeting.endDate.getTime() - meeting.startDate.getTime()),
+				)
 				: undefined,
 			durationMinutes: meeting.durationMinutes,
 			isAnnouncement: meeting.isAnnouncement,
@@ -559,6 +559,31 @@ export class CommunityService {
 		return this.attendanceRepo.find({
 			where: { meetingId },
 			relations: ['member', 'member.participant'],
+		});
+	}
+
+	async getPublicCommunities() {
+		// Return basic info for all communities for the map
+		return this.communityRepo.find({
+			select: ['id', 'name', 'city', 'state', 'latitude', 'longitude'],
+		});
+	}
+
+	async getPublicMeetings() {
+		// Return upcoming public meetings (next 30 days)
+		const now = new Date();
+		const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+		return this.meetingRepo.find({
+			where: {
+				startDate: MoreThanOrEqual(now),
+				isAnnouncement: false,
+				// We'd ideally filter by date range but TypeORM simple find is limited.
+				// Let's just get future ones and limit.
+			},
+			relations: ['community'],
+			order: { startDate: 'ASC' },
+			take: 20
 		});
 	}
 

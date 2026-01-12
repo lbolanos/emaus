@@ -89,7 +89,7 @@ const handleLogin = async () => {
   error.value = null;
   try {
     await authStore.login(email.value, password.value);
-    router.push('/');
+    router.push('/app');
   } catch (err: any) {
     error.value = err.message || 'Failed to login';
   }

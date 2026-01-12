@@ -24,6 +24,7 @@ import communityCommunicationRoutes from './communityCommunicationRoutes';
 import telemetryRoutes from './telemetryRoutes';
 import tagRoutes from './tagRoutes';
 import communityRoutes from './communityRoutes';
+import newsletterRoutes from './newsletterRoutes';
 import { applyCsrfProtectionExcept } from '../middleware/routeCsrf';
 
 const router = Router();
@@ -37,6 +38,7 @@ applyCsrfProtectionExcept(router, [
 	'/csrf-token',
 	'/communities/public',
 	'/communities/invitations',
+	'/newsletter/subscribe',
 ]);
 
 // Resto de las rutas (con protección CSRF)
@@ -63,5 +65,6 @@ router.use('/community-communications', communityCommunicationRoutes);
 router.use('/telemetry', telemetryRoutes);
 router.use('/tags', tagRoutes);
 router.use('/communities', communityRoutes);
+router.use('/newsletter', newsletterRoutes);
 
 export default router;

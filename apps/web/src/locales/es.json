@@ -9,6 +9,63 @@
     "orContinueWith": "O continuar con",
     "google": "Google"
   },
+  "landing": {
+    "tagline": "Un Viaje de Fe, Esperanza y Comunidad",
+    "heroTitle": "Retiros Emaús",
+    "heroSubtitle": "Retiros de fin de semana para la renovación espiritual. Únete a nosotros para encontrar paz y propósito.",
+    "ctaButton": "Explorar Retiros",
+    "watchStory": "Ver Nuestra Historia",
+    "loginLink": "Iniciar Sesión",
+    "signupLink": "Registrarse",
+    "nav": {
+      "thePath": "El Camino",
+      "retreats": "Retiros",
+      "community": "Comunidad",
+      "stories": "Historias"
+    },
+    "upcomingRetreats": "Próximos Retiros",
+    "noUpcomingRetreats": "No hay retiros próximos en este momento.",
+    "viewAllDates": "Ver todas las fechas",
+    "viewDetails": "Ver Detalles",
+    "limitedSpots": "Lugares Limitados",
+    "findCommunity": "Encuentra tu Comunidad",
+    "communityDesc": "Emaús es más que un fin de semana; es una conexión de por vida. Descubre círculos locales que se reúnen semanalmente para conversación y apoyo cerca de ti.",
+    "useMyLocation": "Usar Mi Ubicación",
+    "findNearest": "Encuentra los 3 círculos más cercanos automáticamente",
+    "searchPlaceholder": "Buscar por ciudad o código postal...",
+    "search": "Buscar",
+    "nearestCircle": "Círculo Más Cercano",
+    "join": "Unirse",
+    "communityMeetings": "Horarios de Reuniones",
+    "noUpcomingMeetings": "No hay reuniones programadas en este momento.",
+    "tableHeaders": {
+      "community": "Comunidad",
+      "schedule": "Horario",
+      "venue": "Lugar",
+      "action": "Acción"
+    },
+    "inquire": "Informarse",
+    "cta": {
+      "title": "Comienza tu viaje hoy.",
+      "description": "Suscríbete a nuestro boletín para reflexiones estacionales y acceso anticipado a nuevas fechas de retiros.",
+      "emailPlaceholder": "correo@ejemplo.com",
+      "subscribe": "Suscribirse"
+    },
+    "footer": {
+      "about": "Sobre Retiros Emaús",
+      "contactUs": "Contáctanos",
+      "privacy": "Privacidad",
+      "terms": "Términos",
+      "copyright": "© {year} Retiros Emaús Internacional"
+    },
+    "subscribe": {
+      "success": "¡Gracias por suscribirte!",
+      "error": "Algo salió mal. Por favor intenta de nuevo.",
+      "invalidEmail": "Por favor ingresa un correo válido.",
+      "alreadySubscribed": "Ya estás suscrito a nuestro boletín.",
+      "subscribing": "Suscribiendo..."
+    }
+  },
   "sidebar": {
     "walkers": "Caminantes",
     "servers": "Servidores",

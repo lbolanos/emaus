@@ -33,6 +33,12 @@
     --ring: 222.2 84% 4.9%;
 
     --radius: 0.5rem;
+
+    /* Landing Page Theme */
+    --landing-sage: 140 30% 70%;
+    --landing-wood-light: 30 40% 85%;
+    --landing-wood: 30 50% 65%;
+    --landing-wood-dark: 25 45% 35%;
   }
 
   .dark {

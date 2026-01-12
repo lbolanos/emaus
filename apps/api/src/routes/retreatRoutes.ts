@@ -5,6 +5,7 @@ import {
 	getRetreatById,
 	updateRetreat,
 	getRetreatByIdPublic,
+	getPublicRetreats,
 	exportRoomLabelsToDocx,
 	exportBadgesToDocx,
 } from '../controllers/retreatController';
@@ -16,6 +17,7 @@ import { requirePermission } from '../middleware/authorization';
 const router = Router();
 
 // Public route for retreat validation (used in registration form)
+router.get('/public', getPublicRetreats);
 router.get('/public/:id', getRetreatByIdPublic);
 
 // Authenticated routes

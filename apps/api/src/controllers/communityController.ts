@@ -228,6 +228,16 @@ export class CommunityController {
 
 	// --- Public Attendance (No Auth Required) ---
 
+	static async getPublicCommunities(req: Request, res: Response) {
+		const communities = await communityService.getPublicCommunities();
+		res.json(communities);
+	}
+
+	static async getPublicMeetings(req: Request, res: Response) {
+		const meetings = await communityService.getPublicMeetings();
+		res.json(meetings);
+	}
+
 	static async getPublicAttendanceData(req: Request, res: Response) {
 		const { communityId, meetingId } = req.params;
 		const data = await communityService.getPublicAttendanceData(communityId, meetingId);

@@ -12,6 +12,63 @@
     "orContinueWith": "Or continue with",
     "google": "Google"
   },
+  "landing": {
+    "tagline": "A Journey of Faith, Hope & Community",
+    "heroTitle": "Emmaus Retreats",
+    "heroSubtitle": "Weekend retreats for spiritual renewal. Join us to find peace and purpose.",
+    "ctaButton": "Explore Retreats",
+    "watchStory": "Watch Our Story",
+    "loginLink": "Login",
+    "signupLink": "Sign Up",
+    "nav": {
+      "thePath": "The Path",
+      "retreats": "Retreats",
+      "community": "Community",
+      "stories": "Stories"
+    },
+    "upcomingRetreats": "Upcoming Retreats",
+    "noUpcomingRetreats": "No upcoming retreats at this time.",
+    "viewAllDates": "View all dates",
+    "viewDetails": "View Details",
+    "limitedSpots": "Limited Spots",
+    "findCommunity": "Find Your Community",
+    "communityDesc": "Emmaus is more than a weekend; it's a lifelong connection. Discover local circles meeting weekly for conversation and support near you.",
+    "useMyLocation": "Use My Location",
+    "findNearest": "Find the nearest 3 circles automatically",
+    "searchPlaceholder": "Search by city or zip code...",
+    "search": "Search",
+    "nearestCircle": "Nearest Circle",
+    "join": "Join",
+    "communityMeetings": "Community Meeting Times",
+    "noUpcomingMeetings": "No upcoming meetings scheduled at this time.",
+    "tableHeaders": {
+      "community": "Community",
+      "schedule": "Schedule",
+      "venue": "Venue",
+      "action": "Action"
+    },
+    "inquire": "Inquire",
+    "cta": {
+      "title": "Begin your journey today.",
+      "description": "Subscribe to our newsletter for seasonal reflections and first access to new retreat dates.",
+      "emailPlaceholder": "email@example.com",
+      "subscribe": "Subscribe"
+    },
+    "footer": {
+      "about": "About Emmaus Retreats",
+      "contactUs": "Contact Us",
+      "privacy": "Privacy",
+      "terms": "Terms",
+      "copyright": "© {year} Emmaus Retreats International"
+    },
+    "subscribe": {
+      "success": "Thank you for subscribing!",
+      "error": "Something went wrong. Please try again.",
+      "invalidEmail": "Please enter a valid email address.",
+      "alreadySubscribed": "You're already subscribed to our newsletter.",
+      "subscribing": "Subscribing..."
+    }
+  },
   "sidebar": {
     "walkers": "Walkers",
     "servers": "Servers",

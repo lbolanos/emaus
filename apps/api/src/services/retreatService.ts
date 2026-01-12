@@ -63,6 +63,19 @@ export const getRetreatsForUser = async (userId: string, dataSource?: DataSource
 	return retreats;
 };
 
+import { In, MoreThan } from 'typeorm';
+
+export const findPublicRetreats = async (dataSource?: DataSource) => {
+	const retreatRepository = getRepository(Retreat, dataSource);
+	return retreatRepository.find({
+		where: {
+			isPublic: true,
+			startDate: MoreThan(new Date())
+		},
+		order: { startDate: 'ASC' }
+	});
+};
+
 export const findById = async (id: string, dataSource?: DataSource) => {
 	const retreatRepository = getRepository(Retreat, dataSource);
 	return retreatRepository.findOne({ where: { id }, relations: ['house'] });

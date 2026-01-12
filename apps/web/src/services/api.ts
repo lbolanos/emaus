@@ -9,6 +9,7 @@ import type {
 	CommunityAttendance,
 	MemberState,
 	MessageTemplate,
+	Retreat,
 } from '@repo/types';
 import { setupCsrfInterceptor } from '@/utils/csrf';
 import { telemetryService } from './telemetryService';
@@ -858,6 +859,22 @@ export async function getCommunityDashboardStats(communityId: string): Promise<a
 	return response.data;
 }
 
+// Public API functions
+export async function getPublicRetreats(): Promise<Retreat[]> {
+	const response = await api.get('/retreats/public');
+	return response.data;
+}
+
+export async function getPublicCommunities(): Promise<Community[]> {
+	const response = await api.get('/communities/public');
+	return response.data;
+}
+
+export async function getPublicCommunityMeetings(): Promise<CommunityMeeting[]> {
+	const response = await api.get('/communities/public/meetings');
+	return response.data;
+}
+
 export async function getCommunityAdmins(communityId: string): Promise<CommunityAdmin[]> {
 	const response = await api.get(`/communities/${communityId}/admins`);
 	return response.data;
@@ -931,4 +948,16 @@ export async function deleteCommunityMessageTemplate(
 	id: string,
 ): Promise<void> {
 	await api.delete(`/message-templates/community/${communityId}/${id}`);
+}
+
+// Newsletter API functions
+export async function subscribeToNewsletter(email: string): Promise<{
+	id: string;
+	email: string;
+	isActive: boolean;
+	subscribedAt: string;
+	alreadySubscribed?: boolean;
+}> {
+	const response = await api.post('/newsletter/subscribe', { email });
+	return response.data;
 }

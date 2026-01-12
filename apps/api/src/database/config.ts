@@ -33,6 +33,7 @@ import { CommunityMember } from '../entities/communityMember.entity';
 import { CommunityMeeting } from '../entities/communityMeeting.entity';
 import { CommunityAdmin } from '../entities/communityAdmin.entity';
 import { CommunityAttendance } from '../entities/communityAttendance.entity';
+import { NewsletterSubscriber } from '../entities/newsletterSubscriber.entity';
 
 import { Session } from '../entities/session.entity';
 
@@ -79,6 +80,8 @@ export function createDatabaseConfig() {
 		CommunityMeeting,
 		CommunityAdmin,
 		CommunityAttendance,
+		// Newsletter entities
+		NewsletterSubscriber,
 		// Temporarily excluding entities with enum issues
 		// PermissionOverride,
 		// RoleRequest,
