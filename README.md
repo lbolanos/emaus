@@ -304,6 +304,18 @@ se debe contar desde la fecha de ingreso para el porcentaje de participacion de 
 agregar notas a los participantes de la comunidad
 agregar historial de reuniones y eventos de un miembro
 un boton para mostrar todos los mensajes enviados a un participante y la forma de enviar un mensaje tal como se hace en apps/web/src/components/ParticipantList.vue
+
+Implementar la funcionalidad de invitar un usuario a ser administrador de la comunidad
+
+agregar una flyer para la reunion que pueda salvarse como pdf para que tengan el link de la ubicacion o imprimirse con el QR de la ubicacion. Crear un campo en la reunion con mensaje template que utilice variables como fecha, nombre, descripcion, duracion, localizacion de la comunidad para mostrar en el flyer.
+
+agregar un formulario basico para crear un participante de la comunidad asi no tenga retiro asociado.
+
+apps/web/src/views/CommunityMeetingFlyerView.vue componentize the flyer to create a list of flyer styles.
+create button the open apps/web/src/components/community/MeetingFormModal.vue and change data for the flyer.
+en el formulario aumentar el width y agrega una pestaña para el flyerTemplate en el que se pueda hacer ver el mensaje final y el listado de variables que se puede agregar haciendo clic.
+adicionar un nuevo flyer style con el siguiente formato: use apps/web/public/poster.png as background
+
 ## IN PROGRESS
 
 apps/web/src/components/layout/Sidebar.vue apps/web/src/components/layout/Header.vue docs_dev/HELP_SYSTEM_GUIDE.md
@@ -311,8 +323,8 @@ necesito que mejores la usabilidad y user experience del sitio. hay temas global
 cuando se selecciona retiros se muestra para poder seleccionar el retiro. Pero si selecciona alguna otra no se necesita seleccionar retiro.
 agrega la documenatcion necesaria acerca de esto en apps/web/src/docs
 
-
 ## TODO
+
 al registrar un servidor es posible que ya exista como caminante que debemos hacer en este caso?
 
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
@@ -350,26 +362,12 @@ Notificaciones por correo a los administradores del retiro de eventos como Camin
 que los caminantes no vayan con la persona que lo invito
 no deja enviar correo de invitacion si el usuario existe
 
-
 aumentar el coverage de las pruebas
 verificar que todas la pruebas pasen.
 
 ## comunidades
 
-
-Implementar la funcionalidad de invitar un usuario a ser administrador de la comunidad
-
-agregar una flyer para la reunion que pueda salvarse como pdf para que tengan el link de la ubicacion o imprimirse con el QR de la ubicacion. Crear un campo en la reunion con mensaje template que utilice variables como fecha, nombre, descripcion, duracion, localizacion de la comunidad para mostrar en el flyer.
-
-agregar un formulario basico para crear un participante de la comunidad asi no tenga retiro asociado.
-
-
-apps/web/src/views/CommunityMeetingFlyerView.vue componentize the flyer to create a list of flyer styles.
-create button the open apps/web/src/components/community/MeetingFormModal.vue and change data for the flyer.
-en el formulario aumentar el width y agrega una pestaña para el flyerTemplate en el que se pueda hacer ver el mensaje final y el listado de variables que se puede agregar haciendo clic.
-adicionar un nuevo flyer style con el siguiente formato:  use apps/web/public/poster.png as background
-
-
+the MessageTemplate and ParticipantCommunication now belongs to a retreat. I need new entity to save message templates for community. also ParticipantCommunication save if was a communication of the retreat or the community.
 
 ## landing
 
