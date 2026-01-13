@@ -375,7 +375,8 @@ verificar que todas la pruebas pasen.
 
 ## comunidades
 
-
+in the login put the logo with a link to landingpage
+when login it redirects to landing ...  make dashboard the first page when logged
 
 ## landing
 
@@ -522,3 +523,46 @@ https://www.vultr.com/
 https://www.hostinger.com/
 https://www.digitalocean.com/
 supabase
+
+## migration vultr to aws
+scp -i ~/.ssh/id_ed25519 root@155.138.230.215:/var/www/emaus/apps/api/database.sqlite /tmp/emaus-db.sqlite 2>&1 && echo "✅ Database copied from Vultr"
+
+sudo chown www-data:www-data -R /var/www/emaus
+sudo chown ubuntu:ubuntu -R /var/www/emaus
+rsync -avz -e "ssh -i ~/.ssh/emaus-key.pem" \
+--exclude '.git' \
+--exclude '.turbo' \
+--exclude 'apps/api/database.sqlite' \
+--exclude 'apps/api/.env' \
+--exclude 'node_modules' \
+--exclude 'apps/web/.env' \
+ . ubuntu@3.138.49.105:/var/www/emaus/
+ 
+
+
+
+## aws
+ssh -i ~/.ssh/emaus-key.pem ubuntu@$(aws ec2 describe-instances --filters "Name=tag:Name,Values=emaus*" "Name=instance-state-name,Values=running" --query "Reservations[0].Instances[0].PublicIpAddress" --output text --region us-east-2 --profile emaus) "cd /var/www/emaus && if [ -f apps/api/.env.example ]; then cp apps/api/.env.example
+   apps/api/.env.production && echo 'Copied .env.example to .env.production'; else echo 'No .env.example found'; fi"
+ssh -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105
+
+📋 Next Steps:
+  1. Copy the setup script to the instance:
+     scp -i ~/.ssh/emaus-key.pem deploy/aws/setup-aws.sh ubuntu@3.138.49.105:/home/ubuntu/
+	 scp -i ~/.ssh/emaus-key.pem deploy/aws/deploy-aws.sh ubuntu@3.138.49.105:/home/ubuntu/
+
+  2. SSH into the instance:
+     ssh -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105
+
+  3. Run the setup script:
+     chmod +x setup-aws.sh && ./setup-aws.sh
+
+  4. Set environment variables and deploy:
+     export DOMAIN_NAME=emaus.cc
+	 export RELEASE_TAG=v0.0.5
+     cd /var/www/emaus/deploy/aws && ./deploy-aws.sh
+
+
+
+
+

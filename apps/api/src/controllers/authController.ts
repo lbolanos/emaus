@@ -69,7 +69,8 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 };
 
 export const googleCallback = (req: Request, res: Response) => {
-	res.redirect(config.frontend.url);
+	// Redirect to /app so the router guard can handle redirecting to the dashboard
+	res.redirect(`${config.frontend.url}/app`);
 };
 
 export const getAuthStatus = async (req: Request, res: Response) => {

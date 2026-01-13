@@ -1,5 +1,9 @@
 <template>
   <div class="min-h-screen bg-background flex flex-col justify-center items-center p-4">
+    <router-link to="/" class="flex items-center gap-2 mb-4">
+      <img src="/crossRoseButtT.png" alt="Emmaus Rose" class="w-8 h-8" />
+      <span class="text-xl font-light tracking-widest uppercase">{{ $t('landing.emmaus') }}</span>
+    </router-link>
     <Card class="w-full max-w-md">
       <CardHeader class="space-y-1 text-center">
         <CardTitle class="text-2xl">
@@ -10,7 +14,7 @@
         </CardDescription>
       </CardHeader>
       <CardContent class="grid gap-4">
-        <form @submit.prevent="handleLogin" class="grid gap-4">
+        <div class="grid gap-4">
           <div class="grid gap-2">
             <Label for="email">{{ $t('login.emailLabel') }}</Label>
             <Input
@@ -20,6 +24,7 @@
               autocomplete="email"
               required
               v-model="email"
+              @keyup.enter="handleLogin"
             />
           </div>
           <div class="grid gap-2">
@@ -29,15 +34,20 @@
                 {{ $t('login.forgotPassword') }}
               </router-link>
             </div>
-            <Input id="password" type="password" autocomplete="current-password" required v-model="password" />
+            <Input id="password" type="password" autocomplete="current-password" required v-model="password" @keyup.enter="handleLogin" />
           </div>
           <div v-if="error" class="text-destructive text-sm">
             {{ error }}
           </div>
-          <Button type="submit" class="w-full">
-            {{ $t('login.loginButton') }}
+          <Button
+            type="button"
+            @click="handleLogin"
+            :disabled="authStore.loading"
+            class="w-full"
+          >
+            {{ authStore.loading ? 'Loading...' : $t('login.loginButton') }}
           </Button>
-        </form>
+        </div>
         <div class="relative">
           <div class="absolute inset-0 flex items-center">
             <span class="w-full border-t" />
@@ -63,6 +73,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
+import { useRetreatStore } from '@/stores/retreatStore';
 import { Button } from '@repo/ui';
 import {
   Card,
@@ -75,7 +86,6 @@ import { Input } from '@repo/ui';
 import { Label } from '@repo/ui';
 import { getApiUrl } from '@/config/runtimeConfig';
 
-
 const googleLoginUrl = `${getApiUrl()}/auth/google`;
 
 const email = ref('');
@@ -83,13 +93,19 @@ const password = ref('');
 const error = ref<string | null>(null);
 
 const authStore = useAuthStore();
+const retreatStore = useRetreatStore();
 const router = useRouter();
 
 const handleLogin = async () => {
   error.value = null;
   try {
     await authStore.login(email.value, password.value);
-    router.push('/app');
+    await retreatStore.fetchRetreats();
+    if (retreatStore.mostRecentRetreat) {
+      router.push({ name: 'retreat-dashboard', params: { id: retreatStore.mostRecentRetreat.id } });
+    } else {
+      router.push('/app');
+    }
   } catch (err: any) {
     error.value = err.message || 'Failed to login';
   }

@@ -252,14 +252,14 @@ describe('Auth Controller', () => {
 	});
 
 	describe('googleCallback', () => {
-		test('should redirect to frontend URL', async () => {
+		test('should redirect to frontend /app URL (for dashboard redirect)', async () => {
 			const req = createMockRequest();
 			const res = createMockResponse();
 			const next = mockNext;
 
 			await authController.googleCallback(req, res, next);
 
-			expect(res.redirect).toHaveBeenCalledWith('http://localhost:5173');
+			expect(res.redirect).toHaveBeenCalledWith('http://localhost:5173/app');
 		});
 	});
 

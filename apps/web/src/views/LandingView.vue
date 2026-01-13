@@ -34,10 +34,10 @@
             {{ $t('landing.nav.stories') }}
           </a>
           <div class="flex items-center gap-4 ml-4">
-            <router-link to="/login" :class="['text-sm font-medium', scrolled ? 'text-stone-600' : 'text-white/90']">{{ $t('landing.loginLink') }}</router-link>
-            <router-link to="/login" class="px-5 py-2 rounded-full bg-stone-800 text-white text-sm font-medium hover:bg-stone-700 transition-all">
+            <button @click="handleLoginClick" :class="['text-sm font-medium', scrolled ? 'text-stone-600' : 'text-white/90']">{{ $t('landing.loginLink') }}</button>
+            <button @click="handleLoginClick" class="px-5 py-2 rounded-full bg-stone-800 text-white text-sm font-medium hover:bg-stone-700 transition-all">
               {{ $t('landing.signupLink') }}
-            </router-link>
+            </button>
           </div>
         </div>
 
@@ -389,10 +389,35 @@ import {
 } from 'lucide-vue-next';
 import { getPublicRetreats, getPublicCommunities, getPublicCommunityMeetings, subscribeToNewsletter } from '@/services/api';
 import { useToast } from '@repo/ui';
+import { useAuthStore } from '@/stores/authStore';
+import { useRetreatStore } from '@/stores/retreatStore';
+import { useRouter } from 'vue-router';
 import PublicJoinRequestModal from '@/components/community/PublicJoinRequestModal.vue';
 import PublicRetreatFlyerModal from '@/components/PublicRetreatFlyerModal.vue';
 
 const { toast } = useToast();
+const authStore = useAuthStore();
+const retreatStore = useRetreatStore();
+const router = useRouter();
+
+// Handle login button click - check if user is already logged in
+const handleLoginClick = async () => {
+  // Check authentication status
+  await authStore.checkAuthStatus();
+
+  if (authStore.isAuthenticated) {
+    // User is already logged in, redirect to dashboard
+    await retreatStore.fetchRetreats();
+    if (retreatStore.mostRecentRetreat) {
+      router.push({ name: 'retreat-dashboard', params: { id: retreatStore.mostRecentRetreat.id } });
+    } else {
+      router.push('/app');
+    }
+  } else {
+    // User is not logged in, go to login page
+    router.push('/login');
+  }
+};
 
 // State
 const isMenuOpen = ref(false);

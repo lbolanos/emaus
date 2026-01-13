@@ -11,9 +11,10 @@
     @keydown.esc.prevent="handleEscape"
   >
     <div class="h-16 flex items-center justify-center relative">
-      <span v-if="!isSidebarCollapsed" class="text-2xl font-bold">EMAUS</span>
-       <!-- Show initials when collapsed -->
-      <span v-else class="text-2xl font-bold">E</span>
+      <router-link to="/" class="flex items-center gap-2">
+        <img src="/crossRoseButtT.png" alt="Emmaus Rose" class="w-8 h-8" />
+        <span v-if="!isSidebarCollapsed" class="text-xl font-light tracking-widest uppercase">{{ $t('landing.emmaus') }}</span>
+      </router-link>
       <button
         @click="uiStore.toggleSidebar"
         class="absolute right-0 top-1/2 transform -translate-y-1/2 translate-x-1/2 bg-gray-700 hover:bg-gray-600 rounded-full p-1 z-10 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-500"

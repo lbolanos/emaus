@@ -331,13 +331,13 @@ router.beforeEach(async (to, from, next) => {
 	}
 
 	if (to.name === 'login' && auth.isAuthenticated) {
-		next({ name: 'walkers' });
+		// Let the login handler handle the redirect after successful login
+		next();
 		return;
 	}
 
 	if (to.name === 'home' && auth.isAuthenticated) {
-		// New logic for root path redirection - only redirect if route name is 'home'
-		// This prevents infinite redirects when navigating to other routes
+		// Redirect authenticated users to the most recent retreat's dashboard
 		const retreatStore = useRetreatStore();
 		try {
 			await retreatStore.fetchRetreats();
@@ -348,13 +348,13 @@ router.beforeEach(async (to, from, next) => {
 			return;
 		}
 
-		if (retreatStore.retreats.length > 0 && retreatStore.selectedRetreatId) {
-			// Only redirect to dashboard if we have retreats and a selected retreat
-			next({ name: 'retreat-dashboard', params: { id: retreatStore.selectedRetreatId } });
+		if (retreatStore.mostRecentRetreat) {
+			// Redirect to the most recent retreat's dashboard
+			next({ name: 'retreat-dashboard', params: { id: retreatStore.mostRecentRetreat.id } });
 			return;
 		}
 
-		// Fallback to walkers if no retreats or no selected retreat
+		// Fallback to walkers if no retreats exist
 		next({ name: 'walkers' });
 		return;
 	}

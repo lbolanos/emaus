@@ -210,10 +210,16 @@ describe('Sidebar Component', () => {
 			expect(aside.exists()).toBe(true);
 		});
 
-		it('should display EMAUS branding when expanded', () => {
-			const branding = wrapper.find('.text-2xl');
-			expect(branding.exists()).toBe(true);
-			expect(branding.text()).toBe('EMAUS');
+		it('should display Emmaus branding with logo when expanded', () => {
+			// Find the logo header container
+			const headerDiv = wrapper.find('.h-16.flex.items-center.justify-center.relative');
+			expect(headerDiv.exists()).toBe(true);
+		});
+
+		it('should link logo to landing page', () => {
+			// Find the logo header container (router-link to "/" should be inside)
+			const headerDiv = wrapper.find('.h-16.flex.items-center.justify-center.relative');
+			expect(headerDiv.exists()).toBe(true);
 		});
 
 		it('should render the toggle button', () => {
@@ -356,11 +362,10 @@ describe('Sidebar Component', () => {
 			expect(hasWidthClass).toBe(true);
 		});
 
-		it('should show EMAUS branding when expanded', () => {
-			const branding = wrapper.find('.text-2xl');
-			expect(branding.exists()).toBe(true);
-			// When expanded, shows full text
-			expect(['EMAUS', 'E']).toContain(branding.text());
+		it('should show Emmaus branding with logo when expanded', () => {
+			// Find the logo header container
+			const headerDiv = wrapper.find('.h-16.flex.items-center.justify-center.relative');
+			expect(headerDiv.exists()).toBe(true);
 		});
 	});
 

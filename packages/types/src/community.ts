@@ -6,6 +6,7 @@ export const MemberStateEnum = z.enum([
 	'no_answer', // No responde a comunicaciones
 	'another_group', // Se unió a otro grupo
 	'active_member', // Miembro activo
+	'pending_verification', // Pendiente de verificación por administrador
 ]);
 export type MemberState = z.infer<typeof MemberStateEnum>;
 
@@ -200,5 +201,17 @@ export const recordAttendanceSchema = z.object({
 export const inviteCommunityAdminSchema = z.object({
 	body: z.object({
 		email: z.string().email(),
+	}),
+});
+
+export const publicJoinRequestSchema = z.object({
+	body: z.object({
+		firstName: z.string().min(1),
+		lastName: z.string().min(1),
+		email: z.string().email(),
+		cellPhone: z.string().optional(),
+	}),
+	params: z.object({
+		id: z.string().uuid(),
 	}),
 });
