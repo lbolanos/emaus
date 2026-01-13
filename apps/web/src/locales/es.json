@@ -103,7 +103,11 @@
         "invalidCellPhone": "Teléfono inválido",
         "messageTooLong": "El mensaje no puede exceder 500 caracteres"
       }
-    }
+    },
+    "registerNow": "Registrarse Ahora",
+    "registerServer": "Registrarse como Servidor",
+    "important": "Importante",
+    "viewInMaps": "Ver en Google Maps"
   },
   "sidebar": {
     "walkers": "Caminantes",

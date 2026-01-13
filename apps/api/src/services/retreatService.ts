@@ -72,6 +72,7 @@ export const findPublicRetreats = async (dataSource?: DataSource) => {
 			isPublic: true,
 			startDate: MoreThan(new Date())
 		},
+		relations: ['house'],
 		order: { startDate: 'ASC' }
 	});
 };

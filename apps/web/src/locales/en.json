@@ -107,7 +107,11 @@
         "invalidCellPhone": "Please enter a valid phone number",
         "messageTooLong": "Message must be less than 500 characters"
       }
-    }
+    },
+    "registerNow": "Register Now",
+    "registerServer": "Register as Server",
+    "important": "Important",
+    "viewInMaps": "View in Google Maps"
   },
   "sidebar": {
     "walkers": "Walkers",

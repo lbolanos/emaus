@@ -115,13 +115,16 @@
           >
             <div class="aspect-[4/5] overflow-hidden rounded-2xl mb-6 relative">
               <img
-                src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=800"
+                :src="getRetreatImage(retreats.indexOf(retreat))"
                 :alt="retreat.parish"
                 class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
               />
-              <div class="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tighter">
+              <button
+                @click="openRetreatFlyer(retreat, $event)"
+                class="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tighter hover:bg-white hover:shadow-lg transition-all cursor-pointer"
+              >
                 {{ $t('landing.viewDetails') }}
-              </div>
+              </button>
             </div>
             <div class="flex items-start justify-between">
               <div>
@@ -361,6 +364,13 @@
       @submitted="isJoinModalOpen = false"
     />
 
+    <!-- Public Retreat Flyer Modal -->
+    <PublicRetreatFlyerModal
+      :open="isRetreatFlyerOpen"
+      :retreat="selectedRetreat"
+      @update:open="isRetreatFlyerOpen = $event"
+    />
+
   </div>
 </template>
 
@@ -380,6 +390,7 @@ import {
 import { getPublicRetreats, getPublicCommunities, getPublicCommunityMeetings, subscribeToNewsletter } from '@/services/api';
 import { useToast } from '@repo/ui';
 import PublicJoinRequestModal from '@/components/community/PublicJoinRequestModal.vue';
+import PublicRetreatFlyerModal from '@/components/PublicRetreatFlyerModal.vue';
 
 const { toast } = useToast();
 
@@ -398,10 +409,26 @@ const subscribeSuccess = ref(false);
 const isJoinModalOpen = ref(false);
 const selectedCommunity = ref<{ id: string; name: string } | null>(null);
 
+// Retreat flyer modal state
+const isRetreatFlyerOpen = ref(false);
+const selectedRetreat = ref<any>(null);
+
 // Data
 const retreats = ref<any[]>([]);
 const communities = ref<any[]>([]);
 const meetings = ref<any[]>([]);
+
+// Pool of retreat images
+const retreatImages = [
+  'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?q=80&w=1000&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=1000&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=1000&auto=format&fit=crop'
+];
+
+// Get image for retreat based on index
+const getRetreatImage = (index: number) => {
+  return retreatImages[index % retreatImages.length];
+};
 
 // Map pin positions for demo (distributed across the map)
 const getMapPinPosition = (index: number) => {
@@ -512,6 +539,14 @@ const openJoinModal = (communityId: string, communityName: string) => {
   console.log('Opening join modal:', { communityId, communityName });
   selectedCommunity.value = { id: communityId, name: communityName };
   isJoinModalOpen.value = true;
+};
+
+// Open retreat flyer modal
+const openRetreatFlyer = (retreat: any, event: Event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  selectedRetreat.value = retreat;
+  isRetreatFlyerOpen.value = true;
 };
 
 // Lifecycle
