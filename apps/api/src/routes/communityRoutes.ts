@@ -41,6 +41,11 @@ router.post('/public/attendance/:communityId/:meetingId', (req, res) =>
 	CommunityController.recordPublicAttendance(req, res),
 );
 
+// Public join request route (NO AUTH required)
+router.post('/:id/join-public', (req, res) =>
+	CommunityController.publicJoinRequest(req, res),
+);
+
 // All other community routes require authentication
 router.use(isAuthenticated);
 

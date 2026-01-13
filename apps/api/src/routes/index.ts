@@ -38,6 +38,7 @@ applyCsrfProtectionExcept(router, [
 	'/csrf-token',
 	'/communities/public',
 	'/communities/invitations',
+	'/communities/*/join-public',
 	'/newsletter/subscribe',
 ]);
 

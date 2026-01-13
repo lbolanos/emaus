@@ -899,4 +899,71 @@ export class CommunityService {
 			throw new Error('Cannot revoke owner');
 		}
 	}
+
+	async findMemberByEmailAndCommunity(email: string, communityId: string) {
+		const participant = await this.participantRepo.findOne({
+			where: { email },
+		});
+
+		if (!participant) return null;
+
+		return await this.memberRepo.findOne({
+			where: { communityId, participantId: participant.id },
+		});
+	}
+
+	async createPublicJoinRequest(
+		communityId: string,
+		participantData: {
+			firstName: string;
+			lastName: string;
+			email: string;
+			cellPhone?: string;
+		},
+	) {
+		// 1. Create participant with retreatId: null and minimal required fields
+		const participant = this.participantRepo.create({
+			firstName: participantData.firstName,
+			lastName: participantData.lastName,
+			email: participantData.email,
+			cellPhone: participantData.cellPhone || '',
+			retreatId: null,
+			type: 'walker', // Default type for community members
+			id_on_retreat: 0, // Required field, set to 0 for community members
+			birthDate: new Date(), // Default date for community members
+			maritalStatus: 'O', // Default marital status (Other)
+			street: 'N/A',
+			houseNumber: 'N/A',
+			postalCode: '00000',
+			neighborhood: 'N/A',
+			city: 'N/A',
+			state: 'N/A',
+			country: 'N/A',
+			occupation: 'N/A',
+			snores: false,
+			hasMedication: false,
+			hasDietaryRestrictions: false,
+			sacraments: ['none'],
+			emergencyContact1Name: 'N/A',
+			emergencyContact1Relation: 'N/A',
+			emergencyContact1CellPhone: participantData.cellPhone || 'N/A',
+		});
+
+		const savedParticipant = await this.participantRepo.save(participant);
+
+		// 2. Add to community with pending_verification state
+		const member = this.memberRepo.create({
+			communityId,
+			participantId: savedParticipant.id,
+			state: 'pending_verification',
+		});
+
+		const savedMember = await this.memberRepo.save(member);
+
+		// 3. Return member with participant data
+		return this.memberRepo.findOne({
+			where: { id: savedMember.id },
+			relations: ['participant'],
+		});
+	}
 }

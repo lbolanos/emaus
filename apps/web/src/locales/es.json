@@ -11,6 +11,7 @@
   },
   "landing": {
     "tagline": "Un Viaje de Fe, Esperanza y Comunidad",
+    "emmaus": "Emaús",
     "heroTitle": "Retiros Emaús",
     "heroSubtitle": "Retiros de fin de semana para la renovación espiritual. Únete a nosotros para encontrar paz y propósito.",
     "ctaButton": "Explorar Retiros",
@@ -27,6 +28,7 @@
     "noUpcomingRetreats": "No hay retiros próximos en este momento.",
     "viewAllDates": "Ver todas las fechas",
     "viewDetails": "Ver Detalles",
+    "seasonalCalendar": "Calendario Estacional",
     "limitedSpots": "Lugares Limitados",
     "findCommunity": "Encuentra tu Comunidad",
     "communityDesc": "Emaús es más que un fin de semana; es una conexión de por vida. Descubre círculos locales que se reúnen semanalmente para conversación y apoyo cerca de ti.",
@@ -41,9 +43,10 @@
     "tableHeaders": {
       "community": "Comunidad",
       "schedule": "Horario",
-      "venue": "Lugar",
-      "action": "Acción"
+      "venue": "Lugar"
     },
+    "notAvailable": "No Disponible",
+    "toBeDetermined": "Por Determinar",
     "inquire": "Informarse",
     "cta": {
       "title": "Comienza tu viaje hoy.",
@@ -64,6 +67,42 @@
       "invalidEmail": "Por favor ingresa un correo válido.",
       "alreadySubscribed": "Ya estás suscrito a nuestro boletín.",
       "subscribing": "Suscribiendo..."
+    },
+    "joinRequest": {
+      "modalTitle": "Unirse a {community}",
+      "modalDescription": "Ingresa tu información para solicitar membresía en esta comunidad.",
+      "retreatRequirement": "**Importante:** Los miembros de la comunidad deben haber completado un retiro de Emaús antes de unirse. Si no has completado un retiro, te contactaremos con información sobre próximos retiros.",
+      "firstName": "Nombre",
+      "firstNamePlaceholder": "Tu nombre",
+      "lastName": "Apellido",
+      "lastNamePlaceholder": "Tu apellido",
+      "email": "Correo Electrónico",
+      "emailPlaceholder": "tu@correo.com",
+      "cellPhone": "Teléfono",
+      "cellPhonePlaceholder": "555-1234",
+      "optional": "Opcional",
+      "message": "Mensaje",
+      "messagePlaceholder": "¿Por qué te gustaría unirte?",
+      "submit": "Enviar Solicitud",
+      "submitting": "Enviando...",
+      "success": "¡Solicitud enviada con éxito!",
+      "successDesc": "Nuestro equipo te contactará pronto.",
+      "error": "Algo salió mal. Por favor intenta de nuevo.",
+      "errorTitle": "Error al enviar solicitud",
+      "alreadyMember": "Ya eres miembro de esta comunidad.",
+      "validationError": "Error de validación",
+      "validationErrorDesc": "Por favor corrige los errores e intenta de nuevo.",
+      "validation": {
+        "firstName": "El nombre es requerido",
+        "firstNameMin": "El nombre debe tener al menos 2 caracteres",
+        "lastName": "El apellido es requerido",
+        "lastNameMin": "El apellido debe tener al menos 2 caracteres",
+        "email": "El correo electrónico es requerido",
+        "invalidEmail": "Correo electrónico inválido",
+        "cellPhone": "El teléfono es requerido",
+        "invalidCellPhone": "Teléfono inválido",
+        "messageTooLong": "El mensaje no puede exceder 500 caracteres"
+      }
     }
   },
   "sidebar": {
@@ -1288,7 +1327,8 @@
       "active_member": "Miembro Activo",
       "far_from_location": "Vive Lejos",
       "no_answer": "Sin Respuesta",
-      "another_group": "Otro Grupo"
+      "another_group": "Otro Grupo",
+      "pending_verification": "Pendiente Acc."
     },
     "members": {
       "title": "Miembros",

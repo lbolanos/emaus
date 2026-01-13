@@ -309,4 +309,56 @@ export class CommunityController {
 		await communityService.revokeAdmin(id, userId);
 		res.status(204).send();
 	}
+
+	// --- Public Join Request ---
+
+	static async publicJoinRequest(req: Request, res: Response) {
+		try {
+			const { id } = req.params;
+			const { firstName, lastName, email, cellPhone } = req.body;
+
+			// Validate required fields
+			if (!firstName || !lastName || !email || !cellPhone) {
+				return res.status(400).json({
+					message: 'First name, last name, email, and cell phone are required',
+				});
+			}
+
+			// Validate email format
+			const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+			if (!emailRegex.test(email)) {
+				return res.status(400).json({ message: 'Invalid email format' });
+			}
+
+			// Validate phone format
+			const phoneRegex = /^[+]?[\d\s()-]+$/;
+			if (!phoneRegex.test(cellPhone)) {
+				return res.status(400).json({ message: 'Invalid phone format' });
+			}
+
+			// Check for duplicate email in this community
+			const existingMember = await communityService.findMemberByEmailAndCommunity(
+				email,
+				id,
+			);
+			if (existingMember) {
+				return res.status(409).json({
+					message: 'Already a member of this community',
+				});
+			}
+
+			const member = await communityService.createPublicJoinRequest(id, {
+				firstName,
+				lastName,
+				email,
+				cellPhone,
+			});
+
+			res.status(201).json(member);
+		} catch (error: any) {
+			res.status(500).json({
+				message: error.message || 'Failed to submit join request',
+			});
+		}
+	}
 }

@@ -14,6 +14,7 @@
   },
   "landing": {
     "tagline": "A Journey of Faith, Hope & Community",
+    "emmaus": "Emmaus",
     "heroTitle": "Emmaus Retreats",
     "heroSubtitle": "Weekend retreats for spiritual renewal. Join us to find peace and purpose.",
     "ctaButton": "Explore Retreats",
@@ -30,6 +31,7 @@
     "noUpcomingRetreats": "No upcoming retreats at this time.",
     "viewAllDates": "View all dates",
     "viewDetails": "View Details",
+    "seasonalCalendar": "Seasonal Calendar",
     "limitedSpots": "Limited Spots",
     "findCommunity": "Find Your Community",
     "communityDesc": "Emmaus is more than a weekend; it's a lifelong connection. Discover local circles meeting weekly for conversation and support near you.",
@@ -44,9 +46,11 @@
     "tableHeaders": {
       "community": "Community",
       "schedule": "Schedule",
-      "venue": "Venue",
-      "action": "Action"
+      "venue": "Venue"
     },
+    "notAvailable": "N/A",
+    "toBeDetermined": "TBD",
+    "community": "Community",
     "inquire": "Inquire",
     "cta": {
       "title": "Begin your journey today.",
@@ -67,6 +71,42 @@
       "invalidEmail": "Please enter a valid email address.",
       "alreadySubscribed": "You're already subscribed to our newsletter.",
       "subscribing": "Subscribing..."
+    },
+    "joinRequest": {
+      "modalTitle": "Join {community}",
+      "modalDescription": "Enter your information to request membership in this community.",
+      "retreatRequirement": "**Important:** Community members must have completed an Emmaus retreat before joining. If you haven't completed a retreat, we will contact you with information about upcoming retreats.",
+      "firstName": "First Name",
+      "firstNamePlaceholder": "John",
+      "lastName": "Last Name",
+      "lastNamePlaceholder": "Doe",
+      "email": "Email",
+      "emailPlaceholder": "john@example.com",
+      "cellPhone": "Phone",
+      "cellPhonePlaceholder": "555-1234",
+      "optional": "Optional",
+      "message": "Message",
+      "messagePlaceholder": "Tell us about yourself...",
+      "submit": "Submit Request",
+      "submitting": "Submitting...",
+      "success": "Request submitted successfully!",
+      "successDesc": "Our team will contact you soon.",
+      "error": "Something went wrong. Please try again.",
+      "errorTitle": "Submission Error",
+      "validationError": "Validation Error",
+      "validationErrorDesc": "Please correct the errors in the form.",
+      "alreadyMember": "You are already a member of this community.",
+      "validation": {
+        "firstName": "First name is required",
+        "firstNameMin": "First name must be at least 2 characters",
+        "lastName": "Last name is required",
+        "lastNameMin": "Last name must be at least 2 characters",
+        "email": "Email is required",
+        "invalidEmail": "Please enter a valid email address",
+        "cellPhone": "Phone is required",
+        "invalidCellPhone": "Please enter a valid phone number",
+        "messageTooLong": "Message must be less than 500 characters"
+      }
     }
   },
   "sidebar": {
@@ -1270,7 +1310,8 @@
       "active_member": "Active Member",
       "far_from_location": "Far from Location",
       "no_answer": "No Answer",
-      "another_group": "Another Group"
+      "another_group": "Another Group",
+      "pending_verification": "Pending Acc."
     },
     "members": {
       "title": "Members",

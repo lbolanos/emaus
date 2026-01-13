@@ -875,6 +875,34 @@ export async function getPublicCommunityMeetings(): Promise<CommunityMeeting[]> 
 	return response.data;
 }
 
+// Public join request (no auth required, uses fetch directly)
+export async function publicCommunityJoinRequest(
+	communityId: string,
+	data: { firstName: string; lastName: string; email: string; cellPhone?: string },
+): Promise<CommunityMember> {
+	const response = await fetch(`/api/communities/${communityId}/join-public`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+		},
+		credentials: 'include',
+		body: JSON.stringify(data),
+	});
+
+	if (!response.ok) {
+		let errorMessage = 'Failed to submit join request';
+		try {
+			const error = await response.json();
+			errorMessage = error.message || errorMessage;
+		} catch {
+			errorMessage = `Server error: ${response.status} ${response.statusText}`;
+		}
+		throw new Error(errorMessage);
+	}
+
+	return response.json();
+}
+
 export async function getCommunityAdmins(communityId: string): Promise<CommunityAdmin[]> {
 	const response = await api.get(`/communities/${communityId}/admins`);
 	return response.data;

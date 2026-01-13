@@ -134,7 +134,9 @@
         <Button
           variant="outline"
           size="sm"
-          :class="{ 'bg-primary text-primary-foreground': stateFilter === 'all' }"
+          :class="stateFilter === 'all'
+            ? 'bg-gray-200 text-gray-900 border-gray-600 shadow-none ring-2 ring-gray-400 ring-offset-2 font-semibold'
+            : 'bg-gray-100 text-gray-700 border-gray-300 shadow-sm hover:bg-gray-200'"
           :aria-pressed="stateFilter === 'all'"
           @click="stateFilter = 'all'"
         >
@@ -143,7 +145,9 @@
         <Button
           variant="outline"
           size="sm"
-          :class="{ 'bg-primary text-primary-foreground': stateFilter === 'active_member' }"
+          :class="stateFilter === 'active_member'
+            ? 'bg-green-200 text-green-900 border-green-600 shadow-none ring-2 ring-green-400 ring-offset-2 font-semibold'
+            : 'bg-green-50 text-green-700 border-green-300 shadow-sm hover:bg-green-100'"
           :aria-pressed="stateFilter === 'active_member'"
           @click="stateFilter = 'active_member'"
         >
@@ -152,7 +156,9 @@
         <Button
           variant="outline"
           size="sm"
-          :class="{ 'bg-primary text-primary-foreground': stateFilter === 'far_from_location' }"
+          :class="stateFilter === 'far_from_location'
+            ? 'bg-blue-200 text-blue-900 border-blue-600 shadow-none ring-2 ring-blue-400 ring-offset-2 font-semibold'
+            : 'bg-blue-50 text-blue-700 border-blue-300 shadow-sm hover:bg-blue-100'"
           :aria-pressed="stateFilter === 'far_from_location'"
           @click="stateFilter = 'far_from_location'"
         >
@@ -161,11 +167,35 @@
         <Button
           variant="outline"
           size="sm"
-          :class="{ 'bg-primary text-primary-foreground': stateFilter === 'no_answer' }"
+          :class="stateFilter === 'no_answer'
+            ? 'bg-red-200 text-red-900 border-red-600 shadow-none ring-2 ring-red-400 ring-offset-2 font-semibold'
+            : 'bg-red-50 text-red-700 border-red-300 shadow-sm hover:bg-red-100'"
           :aria-pressed="stateFilter === 'no_answer'"
           @click="stateFilter = 'no_answer'"
         >
           Sin respuesta
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          :class="stateFilter === 'another_group'
+            ? 'bg-purple-200 text-purple-900 border-purple-600 shadow-none ring-2 ring-purple-400 ring-offset-2 font-semibold'
+            : 'bg-purple-50 text-purple-700 border-purple-300 shadow-sm hover:bg-purple-100'"
+          :aria-pressed="stateFilter === 'another_group'"
+          @click="stateFilter = 'another_group'"
+        >
+          Otro grupo
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          :class="stateFilter === 'pending_verification'
+            ? 'bg-yellow-200 text-yellow-900 border-yellow-600 shadow-none ring-2 ring-yellow-400 ring-offset-2 font-semibold'
+            : 'bg-yellow-50 text-yellow-700 border-yellow-300 shadow-sm hover:bg-yellow-100'"
+          :aria-pressed="stateFilter === 'pending_verification'"
+          @click="stateFilter = 'pending_verification'"
+        >
+          Pendientes
         </Button>
       </div>
 
@@ -212,7 +242,9 @@
           <TableBody>
             <TableRow v-for="member in filteredMembers" :key="member.id" class="hover:bg-muted/50">
               <TableCell v-if="visibleColumns.name" class="font-medium py-2">
-                {{ member.participant?.firstName }} {{ member.participant?.lastName }}
+                <div class="flex items-center gap-2">
+                  <span>{{ member.participant?.firstName }} {{ member.participant?.lastName }}</span>
+                </div>
               </TableCell>
               <TableCell v-if="visibleColumns.email" class="py-2">{{ member.participant?.email }}</TableCell>
               <TableCell v-if="visibleColumns.state" class="py-2">
@@ -220,7 +252,7 @@
                   :model-value="member.state"
                   @update:model-value="updateMemberState(member.id, $event)"
                 >
-                  <SelectTrigger class="h-7 w-[140px] text-xs">
+                  <SelectTrigger :class="['h-7 w-[140px] text-xs', getStateBorderClass(member.state)]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -391,8 +423,8 @@ const { toast } = useToast();
 const searchQuery = ref('');
 const stateFilter = ref('all');
 const isImportModalOpen = ref(false);
-const isCreateModalOpen = ref(false);
 const memberToRemove = ref<any>(null);
+const isCreateModalOpen = ref(false);
 
 // Notes dialog state
 const notesMember = ref<any>(null);
@@ -537,6 +569,18 @@ const getFrequencyVariant = (frequency: string | undefined): any => {
     case 'low': return 'danger';
     case 'none': return 'neutral';
     default: return 'neutral';
+  }
+};
+
+
+const getStateBorderClass = (state: string): string => {
+  switch (state) {
+    case 'active_member': return 'border-green-500';
+    case 'pending_verification': return 'border-yellow-500';
+    case 'far_from_location': return 'border-blue-500';
+    case 'no_answer': return 'border-red-500';
+    case 'another_group': return 'border-purple-500';
+    default: return 'border-gray-500';
   }
 };
 

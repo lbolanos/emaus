@@ -46,6 +46,15 @@ export default defineConfig(({ mode }) => {
 				'vue-i18n': 'vue-i18n/dist/vue-i18n.runtime.esm-bundler.js',
 			},
 		},
+		server: {
+			proxy: {
+				'/api': {
+					target: 'http://localhost:3001',
+					changeOrigin: true,
+					secure: false,
+				},
+			},
+		},
 		build: {
 			outDir: 'dist',
 			emptyOutDir: true,

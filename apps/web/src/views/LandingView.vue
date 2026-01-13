@@ -5,7 +5,7 @@
       <div class="max-w-7xl mx-auto px-6 flex justify-between items-center">
         <router-link to="/" class="flex items-center gap-2">
           <img src="/crossRoseButtT.png" alt="Emmaus Rose" class="w-8 h-8" />
-          <span :class="['text-xl font-light tracking-widest uppercase', scrolled ? 'text-stone-800' : 'text-white']">Emmaus</span>
+          <span :class="['text-xl font-light tracking-widest uppercase', scrolled ? 'text-stone-800' : 'text-white']">{{ $t('landing.emmaus') }}</span>
         </router-link>
 
         <div class="hidden md:flex items-center gap-8">
@@ -88,7 +88,7 @@
         <div class="flex justify-between items-end mb-16">
           <div>
             <span class="text-sage-600 font-semibold tracking-widest uppercase text-xs mb-3 block" :style="{ color: '#8DAA91' }">
-              Seasonal Calendar
+              {{ $t('landing.seasonalCalendar') }}
             </span>
             <h2 class="text-4xl font-light text-stone-900">{{ $t('landing.upcomingRetreats') }}</h2>
           </div>
@@ -192,15 +192,17 @@
             </svg>
 
             <!-- Pulse Map Pins -->
-            <div
+            <button
               v-for="(community, i) in communities.slice(0, 4)"
               :key="community.id"
-              class="absolute flex items-center justify-center"
+              @click="openJoinModal(community.id, community.name)"
+              class="absolute flex items-center justify-center cursor-pointer hover:scale-125 transition-transform"
               :style="getMapPinPosition(i)"
+              :title="community.name"
             >
               <div class="absolute w-12 h-12 bg-sage-500/20 rounded-full animate-ping" :style="{ backgroundColor: 'rgba(141, 170, 145, 0.2)' }"></div>
               <div class="relative w-4 h-4 bg-sage-600 rounded-full border-2 border-white shadow-lg" :style="{ backgroundColor: '#8DAA91' }"></div>
-            </div>
+            </button>
 
             <div class="absolute bottom-6 left-6 right-6 p-4 bg-white/90 backdrop-blur rounded-xl shadow-lg transform transition-all group-hover:-translate-y-2.5">
               <div class="flex justify-between items-center">
@@ -210,7 +212,12 @@
                   </p>
                   <p class="font-medium">{{ communities[0]?.name || 'Loading...' }}</p>
                 </div>
-                <router-link to="/login" class="px-3 py-1.5 bg-stone-800 text-white text-xs rounded-lg">{{ $t('landing.join') }}</router-link>
+                <button
+                  @click="openJoinModal(communities[0]?.id || '', communities[0]?.name || 'Community')"
+                  class="px-3 py-1.5 bg-stone-800 text-white text-xs rounded-lg hover:bg-stone-700 transition-colors"
+                >
+                  {{ $t('landing.join') }}
+                </button>
               </div>
             </div>
           </div>
@@ -247,7 +254,7 @@
             <tbody class="divide-y divide-stone-100">
               <tr v-for="meeting in meetings" :key="meeting.id" class="hover:bg-sage-50/30 transition-colors">
                 <td class="px-8 py-6">
-                  <div class="font-medium text-stone-900">{{ meeting.community?.name || meeting.community?.city || 'N/A' }}</div>
+                  <div class="font-medium text-stone-900">{{ meeting.community?.name || meeting.community?.city || $t('landing.notAvailable') }}</div>
                 </td>
                 <td class="px-8 py-6">
                   <div class="flex items-center gap-2 text-stone-600 text-sm">
@@ -259,12 +266,16 @@
                   </div>
                 </td>
                 <td class="px-8 py-6">
-                  <div class="text-sm text-stone-500">{{ meeting.community?.address || meeting.community?.city || 'TBD' }}</div>
+                  <div class="text-sm text-stone-500">{{ meeting.community?.address || meeting.community?.city || $t('landing.toBeDetermined') }}</div>
                 </td>
                 <td class="px-8 py-6 text-right">
-                  <router-link to="/login" class="text-xs font-bold uppercase tracking-widest hover:text-sage-700 transition-colors" :style="{ color: '#8DAA91' }">
+                  <button
+                    @click="openJoinModal(meeting.community?.id || '', meeting.community?.name || meeting.community?.city || $t('landing.community'))"
+                    class="text-xs font-bold uppercase tracking-widest hover:text-sage-700 transition-colors"
+                    :style="{ color: '#8DAA91' }"
+                  >
                     {{ $t('landing.inquire') }}
-                  </router-link>
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -278,7 +289,7 @@
       <div class="max-w-7xl mx-auto rounded-[3rem] overflow-hidden relative bg-stone-900 text-white p-12 md:p-24 text-center">
         <div class="absolute inset-0 opacity-20 pointer-events-none">
           <img
-            src="https://images.unsplash.com/photo-1493246507139-91e8bef99c02?auto=format&fit=crop&q=80&w=2000"
+            src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=2000&auto=format&fit=crop" 
             class="w-full h-full object-cover"
           />
         </div>
@@ -315,7 +326,7 @@
       <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
         <router-link to="/" class="flex items-center gap-2">
           <img src="/crossRoseButtT.png" alt="Emmaus Rose" class="w-6 h-6" />
-          <span class="text-sm font-light tracking-widest uppercase">Emmaus</span>
+          <span class="text-sm font-light tracking-widest uppercase">{{ $t('landing.emmaus') }}</span>
         </router-link>
         <div class="flex gap-8 text-sm text-stone-400">
           <a href="#" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.about') }}</a>
@@ -339,6 +350,17 @@
         {{ $t('landing.footer.copyright', { year: new Date().getFullYear() }) }}
       </p>
     </footer>
+
+    <!-- Public Join Request Modal -->
+    <PublicJoinRequestModal
+      v-if="selectedCommunity"
+      :open="isJoinModalOpen"
+      :community-id="selectedCommunity.id"
+      :community-name="selectedCommunity.name"
+      @update:open="isJoinModalOpen = $event"
+      @submitted="isJoinModalOpen = false"
+    />
+
   </div>
 </template>
 
@@ -357,6 +379,7 @@ import {
 } from 'lucide-vue-next';
 import { getPublicRetreats, getPublicCommunities, getPublicCommunityMeetings, subscribeToNewsletter } from '@/services/api';
 import { useToast } from '@repo/ui';
+import PublicJoinRequestModal from '@/components/community/PublicJoinRequestModal.vue';
 
 const { toast } = useToast();
 
@@ -370,6 +393,10 @@ const loadingMeetings = ref(true);
 const subscribing = ref(false);
 const subscribeMessage = ref('');
 const subscribeSuccess = ref(false);
+
+// Join modal state
+const isJoinModalOpen = ref(false);
+const selectedCommunity = ref<{ id: string; name: string } | null>(null);
 
 // Data
 const retreats = ref<any[]>([]);
@@ -478,6 +505,13 @@ const handleSubscribe = async () => {
 // Scroll handler
 const handleScroll = () => {
   scrolled.value = window.scrollY > 20;
+};
+
+// Open join modal for a community
+const openJoinModal = (communityId: string, communityName: string) => {
+  console.log('Opening join modal:', { communityId, communityName });
+  selectedCommunity.value = { id: communityId, name: communityName };
+  isJoinModalOpen.value = true;
 };
 
 // Lifecycle
