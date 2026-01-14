@@ -77,9 +77,9 @@
 						<p class="text-[14px] text-gray-700 leading-snug">{{ formattedAddress }}</p>
 					</div>
 					<!-- Google Maps QR Code -->
-					<div v-if="community?.googleMapsUrl" class="flex flex-col items-center gap-2 flex-shrink-0">
+					<div v-if="community?.googleMapsUrl && community.googleMapsUrl.trim()" class="flex flex-col items-center gap-2 flex-shrink-0">
 						<div class="p-2.5 bg-white rounded-xl shadow-xl border-2 border-green-200">
-							<QrcodeVue :value="community.googleMapsUrl" :size="100" level="L" background="#ffffff" class="rounded-lg" />
+							<QrcodeVue :value="community.googleMapsUrl" :size="100" level="L" background="#ffffff" render-as="canvas" class="rounded-lg" />
 						</div>
 						<span class="text-[10px] text-black font-black uppercase tracking-wider">Escanea para ver en Maps</span>
 					</div>

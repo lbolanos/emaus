@@ -139,7 +139,6 @@ import {
   formatCommunityAddress,
   type MeetingFlyerData
 } from '@/utils/meetingFlyer';
-import html2canvas from 'html2canvas';
 import { useToast } from '@repo/ui';
 
 const route = useRoute();
@@ -241,47 +240,60 @@ const handleCopyImage = async () => {
       throw new Error('No se encontró el elemento del flyer');
     }
 
-    // Use html2canvas to capture the flyer
-    const canvas = await html2canvas(flyerElement, {
-      scale: 2, // Higher scale for better quality
-      useCORS: true, // Allow cross-origin images
+    // Ensure the element has dimensions
+    const rect = flyerElement.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+      throw new Error('El flyer no tiene dimensiones válidas');
+    }
+
+    // Wait for all elements to be fully rendered
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // Ensure all images are loaded
+    const imagePromises: Promise<void>[] = [];
+    flyerElement.querySelectorAll('img').forEach((img) => {
+      if (!img.complete) {
+        imagePromises.push(
+          new Promise((resolve) => {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+            if (img.complete) resolve();
+          })
+        );
+      }
+    });
+    await Promise.all(imagePromises);
+
+    // Check canvas elements (QR codes) have proper dimensions
+    const canvases = flyerElement.querySelectorAll('canvas');
+    for (const canvas of canvases) {
+      if (canvas.width === 0 || canvas.height === 0) {
+        throw new Error('El código QR no está listo. Espere un momento y vuelva a intentar.');
+      }
+    }
+
+    // Use modern-screenshot which handles CSS gradients, SVGs, and canvases properly
+    const { domToBlob } = await import('modern-screenshot');
+    const blob = await domToBlob(flyerElement, {
+      scale: 2,
       backgroundColor: '#ffffff',
-      logging: false,
     });
 
-    // Convert canvas to blob
-    canvas.toBlob(async (blob) => {
-      if (!blob) {
-        throw new Error('No se pudo generar la imagen');
-      }
+    // Copy to clipboard using Clipboard API
+    await navigator.clipboard.write([
+      new ClipboardItem({ 'image/png': blob })
+    ]);
 
-      try {
-        // Copy to clipboard using Clipboard API
-        await navigator.clipboard.write([
-          new ClipboardItem({ 'image/png': blob })
-        ]);
+    copySuccess.value = true;
+    toast({
+      title: '¡Flyer copiado!',
+      description: 'La imagen se ha copiado al portapapeles.',
+    });
 
-        copySuccess.value = true;
-        toast({
-          title: '¡Flyer copiado!',
-          description: 'La imagen se ha copiado al portapapeles.',
-        });
-
-        // Reset success state after 2 seconds
-        setTimeout(() => {
-          copySuccess.value = false;
-        }, 2000);
-      } catch (error) {
-        console.error('Error copying to clipboard:', error);
-        toast({
-          title: 'Error al copiar',
-          description: 'No se pudo copiar la imagen al portapapeles.',
-          variant: 'destructive',
-        });
-      } finally {
-        isCopying.value = false;
-      }
-    }, 'image/png');
+    // Reset success state after 2 seconds
+    setTimeout(() => {
+      copySuccess.value = false;
+    }, 2000);
   } catch (error) {
     console.error('Error generating image:', error);
     toast({
@@ -289,6 +301,7 @@ const handleCopyImage = async () => {
       description: 'No se pudo capturar el flyer como imagen.',
       variant: 'destructive',
     });
+  } finally {
     isCopying.value = false;
   }
 };

@@ -78,10 +78,10 @@
 			</section>
 
 			<!-- QR Code Section - Enhanced -->
-			<div v-if="community?.googleMapsUrl" class="qr-container absolute bottom-4 left-4 flex flex-col items-center gap-2 md:bottom-6 md:left-6 print:bottom-2 print:left-2">
+			<div v-if="community?.googleMapsUrl && community.googleMapsUrl.trim()" class="qr-container absolute bottom-4 left-4 flex flex-col items-center gap-2 md:bottom-6 md:left-6 print:bottom-2 print:left-2">
 				<div class="qr-card relative overflow-hidden rounded-xl p-1 bg-gradient-to-br from-emaus-gold via-amber-400 to-emaus-gold shadow-lg">
 					<div class="bg-white rounded-lg p-2">
-						<QrcodeVue :value="community.googleMapsUrl" :size="80" level="L" background="#ffffff" class="rounded-sm" />
+						<QrcodeVue :value="community.googleMapsUrl" :size="80" level="L" background="#ffffff" render-as="canvas" class="rounded-sm" />
 					</div>
 				</div>
 				<span class="qr-label text-[10px] sm:text-xs font-bold uppercase tracking-widest text-white bg-black/40 backdrop-blur-sm px-3 py-1 rounded-full border border-white/20">
