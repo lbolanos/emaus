@@ -182,13 +182,13 @@ export const changePassword = async (req: Request, res: Response, next: NextFunc
 	const { currentPassword, newPassword, confirmPassword } = req.body;
 	const user = req.user as User;
 
-	// Validate request body
-	if (!currentPassword || !newPassword || !confirmPassword) {
-		return res.status(400).json({ message: 'Todos los campos son requeridos' });
+	// Validate request body (confirmPassword is optional, for client-side validation)
+	if (!currentPassword || !newPassword) {
+		return res.status(400).json({ message: 'La contraseña actual y la nueva contraseña son requeridas' });
 	}
 
-	// Validate new password and confirm password match
-	if (newPassword !== confirmPassword) {
+	// Validate new password and confirm password match (if confirmPassword is provided)
+	if (confirmPassword !== undefined && newPassword !== confirmPassword) {
 		return res.status(400).json({ message: 'Las contraseñas no coinciden' });
 	}
 

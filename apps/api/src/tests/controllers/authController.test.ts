@@ -492,7 +492,7 @@ describe('Auth Controller', () => {
 			await authController.changePassword(req, res, next);
 
 			expect(res.status).toHaveBeenCalledWith(400);
-			expect(res.json).toHaveBeenCalledWith({ message: 'Todos los campos son requeridos' });
+			expect(res.json).toHaveBeenCalledWith({ message: 'La contraseña actual y la nueva contraseña son requeridas' });
 		});
 
 		test('should return 400 when new password is missing', async () => {
@@ -510,10 +510,10 @@ describe('Auth Controller', () => {
 			await authController.changePassword(req, res, next);
 
 			expect(res.status).toHaveBeenCalledWith(400);
-			expect(res.json).toHaveBeenCalledWith({ message: 'Todos los campos son requeridos' });
+			expect(res.json).toHaveBeenCalledWith({ message: 'La contraseña actual y la nueva contraseña son requeridas' });
 		});
 
-		test('should return 400 when confirm password is missing', async () => {
+		test('should change password without confirmPassword field', async () => {
 			const req = createMockRequest({
 				user: testUser,
 				isAuthenticated: () => true,
@@ -527,8 +527,10 @@ describe('Auth Controller', () => {
 
 			await authController.changePassword(req, res, next);
 
-			expect(res.status).toHaveBeenCalledWith(400);
-			expect(res.json).toHaveBeenCalledWith({ message: 'Todos los campos son requeridos' });
+			expect(res.status).not.toHaveBeenCalledWith(401);
+			expect(res.json).toHaveBeenCalledWith({
+				message: 'Tu contraseña ha sido cambiada exitosamente.',
+			});
 		});
 
 		test('should return 400 when passwords do not match', async () => {

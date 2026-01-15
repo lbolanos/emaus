@@ -320,16 +320,18 @@ the MessageTemplate and ParticipantCommunication now belongs to a retreat. I nee
 en el dashboard la frecuencia de participacion no esta funcionando corectamente
 al cerrar el dialogo de editar comunidad la interfaz deja de funcionar (frezee when closing edit community).  Try Teleport
 standarize the breadcrumb in community apps/web/src/views/CommunityListView.vue
+in the login put the logo with a link to landingpage
+when login it redirects to landing ...  make dashboard the first page when logged
 
 ## IN PROGRESS
-
+Error al copiar la imagen del flyer de la reunión.
 
 
 apps/web/src/components/layout/Sidebar.vue apps/web/src/components/layout/Header.vue docs_dev/HELP_SYSTEM_GUIDE.md
 necesito que mejores la usabilidad y user experience del sitio. hay temas globales como retiros, casas de retiros, comunidades, Telemetria, Plantillas globales.
 cuando se selecciona retiros se muestra para poder seleccionar el retiro. Pero si selecciona alguna otra no se necesita seleccionar retiro.
 agrega la documenatcion necesaria acerca de esto en apps/web/src/docs
-
+crear una landing page que muestre los retiros proximos y las comunidades y sus proximas reuniones
 
 ## TODO
 al registrar un servidor es posible que ya exista como caminante que debemos hacer en este caso?
@@ -374,13 +376,23 @@ aumentar el coverage de las pruebas
 verificar que todas la pruebas pasen.
 
 ## comunidades
+Las comunidades tienen que ser aceptadas por los administradores de otras comunidades.
+crear una forma en el que los usuarios puedan ver y crear testimonios o mensajes de otros acerca de su experiencia.  
+los usuarios que quieran crear testimonios tienen que tener una comunidad asociada y el testimonio debe ser aceptado por el administrador de la comunidad asociada para poderse publicar.
 
-in the login put the logo with a link to landingpage
-when login it redirects to landing ...  make dashboard the first page when logged
 
 ## landing
+Política de Privacidad y un reCAPTCHA al formulario
+stories
 
-crear una landing page que muestre los retiros proximos y las comunidades y sus proximas reuniones
+una forma de agregar retiros desde mucho antes y que la gente se pueda inscribir sin necesidad de que tenga toda la informacion de la casa de retiro.
+Colocar la fecha de la proxima reunion en Horarios de reuniones. Cuando haga clic en el lugar lance google maps
+Corregir la fecha del retiro.
+Global Presence en español.
+en la seccion the path Agregar la lectura del dia en audio y en texto.  un boton solo visible para el superadmin con el que se suben.  
+tambien aregar en la seccion de path otro audio y otro texto.
+estos audios y texto se suben a la s3 publica.
+
 
 ## Pepe Toño
 
@@ -525,7 +537,7 @@ https://www.digitalocean.com/
 supabase
 
 ## migration vultr to aws
-scp -i ~/.ssh/id_ed25519 root@155.138.230.215:/var/www/emaus/apps/api/database.sqlite /tmp/emaus-db.sqlite 2>&1 && echo "✅ Database copied from Vultr"
+scp -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105:/var/www/emaus/apps/api/database.sqlite apps/api/database.sqlite 2>&1 && echo "✅ Database copied from AWS"
 
 sudo chown www-data:www-data -R /var/www/emaus
 sudo chown ubuntu:ubuntu -R /var/www/emaus
@@ -539,7 +551,7 @@ rsync -avz -e "ssh -i ~/.ssh/emaus-key.pem" \
  . ubuntu@3.138.49.105:/var/www/emaus/
  
 
-
+scp -i ~/.ssh/emaus-key.pem apps/api/database.sqlite ubuntu@3.138.49.105:/var/www/emaus/apps/api/database.sqlite 2>&1 && echo "✅ Database uploaded to AWS"
 
 ## aws
 ssh -i ~/.ssh/emaus-key.pem ubuntu@$(aws ec2 describe-instances --filters "Name=tag:Name,Values=emaus*" "Name=instance-state-name,Values=running" --query "Reservations[0].Instances[0].PublicIpAddress" --output text --region us-east-2 --profile emaus) "cd /var/www/emaus && if [ -f apps/api/.env.example ]; then cp apps/api/.env.example
