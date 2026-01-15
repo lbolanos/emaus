@@ -117,13 +117,19 @@ export const helpIndex: HelpSection[] = [
 		title: 'Settings',
 		titleEs: 'Configuración',
 		icon: 'mdi-cog',
-		routeContext: ['settings'],
+		routeContext: ['settings', 'change-password'],
 		topics: [
 			{
 				key: 'configuration',
 				title: 'Configuration Options',
 				titleEs: 'Opciones de Configuración',
 				content: 'settings.md',
+			},
+			{
+				key: 'password-management',
+				title: 'Password Management',
+				titleEs: 'Gestión de Contraseña',
+				content: 'password-management.md',
 			},
 		],
 	},
