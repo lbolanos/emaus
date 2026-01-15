@@ -477,7 +477,7 @@ describe('Auth Controller', () => {
 			expect(res.json).toHaveBeenCalledWith({ message: 'No autorizado' });
 		});
 
-		test('should return 400 when current password is missing', async () => {
+		test('should return 400 when current password is missing for user with password', async () => {
 			const req = createMockRequest({
 				user: testUser,
 				isAuthenticated: () => true,
@@ -492,7 +492,7 @@ describe('Auth Controller', () => {
 			await authController.changePassword(req, res, next);
 
 			expect(res.status).toHaveBeenCalledWith(400);
-			expect(res.json).toHaveBeenCalledWith({ message: 'La contraseña actual y la nueva contraseña son requeridas' });
+			expect(res.json).toHaveBeenCalledWith({ message: 'La contraseña actual es requerida' });
 		});
 
 		test('should return 400 when new password is missing', async () => {
@@ -510,7 +510,7 @@ describe('Auth Controller', () => {
 			await authController.changePassword(req, res, next);
 
 			expect(res.status).toHaveBeenCalledWith(400);
-			expect(res.json).toHaveBeenCalledWith({ message: 'La contraseña actual y la nueva contraseña son requeridas' });
+			expect(res.json).toHaveBeenCalledWith({ message: 'La nueva contraseña es requerida' });
 		});
 
 		test('should change password without confirmPassword field', async () => {
@@ -635,7 +635,7 @@ describe('Auth Controller', () => {
 			await authController.changePassword(req, res, next);
 
 			expect(res.status).toHaveBeenCalledWith(400);
-			expect(res.json).toHaveBeenCalledWith({ message: 'Usuario no encontrado o sin contraseña' });
+			expect(res.json).toHaveBeenCalledWith({ message: 'Usuario no encontrado' });
 		});
 
 		test('should return 400 when new password is exactly 8 characters but current password is wrong', async () => {
@@ -694,17 +694,16 @@ describe('Auth Controller', () => {
 			expect(isOldPasswordValid).toBe(false);
 		});
 
-		test('should call next on database error', async () => {
-			// Create a user without a password to trigger an error
-			const userWithoutPassword = await createTestUser();
+		test('should allow Google user (without password) to set first password', async () => {
+			// Create a Google user without a password
+			const googleUser = await createTestUser();
 			const userRepository = getTestDataSource().getRepository(User);
-			await userRepository.update(userWithoutPassword.id, { password: null });
+			await userRepository.update(googleUser.id, { password: null });
 
 			const req = createMockRequest({
-				user: userWithoutPassword,
+				user: googleUser,
 				isAuthenticated: () => true,
 				body: {
-					currentPassword: 'password123',
 					newPassword: 'newpassword123',
 					confirmPassword: 'newpassword123',
 				},
@@ -714,9 +713,122 @@ describe('Auth Controller', () => {
 
 			await authController.changePassword(req, res, next);
 
-			// Should return error for user without password
+			expect(res.status).not.toHaveBeenCalledWith(400);
+			expect(res.json).toHaveBeenCalledWith({
+				message: 'Tu contraseña ha sido configurada exitosamente.',
+			});
+		});
+
+		test('should allow Google user to set password without confirmPassword field', async () => {
+			const googleUser = await createTestUser();
+			const userRepository = getTestDataSource().getRepository(User);
+			await userRepository.update(googleUser.id, { password: null });
+
+			const req = createMockRequest({
+				user: googleUser,
+				isAuthenticated: () => true,
+				body: {
+					newPassword: 'newpassword123',
+				},
+			});
+			const res = createMockResponse();
+			const next = mockNext;
+
+			await authController.changePassword(req, res, next);
+
+			expect(res.json).toHaveBeenCalledWith({
+				message: 'Tu contraseña ha sido configurada exitosamente.',
+			});
+		});
+
+		test('should return 400 when Google user provides password too short', async () => {
+			const googleUser = await createTestUser();
+			const userRepository = getTestDataSource().getRepository(User);
+			await userRepository.update(googleUser.id, { password: null });
+
+			const req = createMockRequest({
+				user: googleUser,
+				isAuthenticated: () => true,
+				body: {
+					newPassword: 'short',
+				},
+			});
+			const res = createMockResponse();
+			const next = mockNext;
+
+			await authController.changePassword(req, res, next);
+
 			expect(res.status).toHaveBeenCalledWith(400);
-			expect(res.json).toHaveBeenCalledWith({ message: 'Usuario no encontrado o sin contraseña' });
+			expect(res.json).toHaveBeenCalledWith({ message: 'La contraseña debe tener al menos 8 caracteres' });
+		});
+
+		test('should allow Google user to change password after setting it', async () => {
+			const googleUser = await createTestUser();
+			const userRepository = getTestDataSource().getRepository(User);
+			await userRepository.update(googleUser.id, { password: null });
+
+			// First, set the password
+			const setReq = createMockRequest({
+				user: googleUser,
+				isAuthenticated: () => true,
+				body: {
+					newPassword: 'firstpassword123',
+				},
+			});
+			const setRes = createMockResponse();
+			await authController.changePassword(setReq, setRes, mockNext);
+
+			expect(setRes.json).toHaveBeenCalledWith({
+				message: 'Tu contraseña ha sido configurada exitosamente.',
+			});
+
+			// Now change the password (should require current password)
+			const changeReq = createMockRequest({
+				user: googleUser,
+				isAuthenticated: () => true,
+				body: {
+					currentPassword: 'firstpassword123',
+					newPassword: 'newpassword456',
+					confirmPassword: 'newpassword456',
+				},
+			});
+			const changeRes = createMockResponse();
+			await authController.changePassword(changeReq, changeRes, mockNext);
+
+			expect(changeRes.json).toHaveBeenCalledWith({
+				message: 'Tu contraseña ha sido cambiada exitosamente.',
+			});
+		});
+
+		test('should return 400 when Google user tries to change password without current password after setting it', async () => {
+			const googleUser = await createTestUser();
+			const userRepository = getTestDataSource().getRepository(User);
+			await userRepository.update(googleUser.id, { password: null });
+
+			// First, set the password
+			const setReq = createMockRequest({
+				user: googleUser,
+				isAuthenticated: () => true,
+				body: {
+					newPassword: 'firstpassword123',
+				},
+			});
+			const setRes = createMockResponse();
+			await authController.changePassword(setReq, setRes, mockNext);
+
+			// Now try to change without current password (should fail)
+			const changeReq = createMockRequest({
+				user: googleUser,
+				isAuthenticated: () => true,
+				body: {
+					newPassword: 'newpassword456',
+				},
+			});
+			const changeRes = createMockResponse();
+			await authController.changePassword(changeReq, changeRes, mockNext);
+
+			expect(changeRes.status).toHaveBeenCalledWith(400);
+			expect(changeRes.json).toHaveBeenCalledWith({ message: 'La contraseña actual es requerida' });
 		});
 	});
 });

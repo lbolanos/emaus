@@ -991,12 +991,18 @@ export async function subscribeToNewsletter(email: string): Promise<{
 }
 
 // Password change API function
-export async function changePassword(currentPassword: string, newPassword: string): Promise<{
+export async function changePassword(currentPassword: string | undefined, newPassword: string): Promise<{
 	message: string;
 }> {
 	const response = await api.post('/auth/password/change', {
-		currentPassword,
+		...(currentPassword !== undefined && { currentPassword }),
 		newPassword
 	});
+	return response.data;
+}
+
+// Get auth status (includes whether user has password)
+export async function getAuthStatus(): Promise<any> {
+	const response = await api.get('/auth/status');
 	return response.data;
 }

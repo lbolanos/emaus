@@ -183,18 +183,13 @@ export const changePassword = async (req: Request, res: Response, next: NextFunc
 	const user = req.user as User;
 
 	// Validate request body (confirmPassword is optional, for client-side validation)
-	if (!currentPassword || !newPassword) {
-		return res.status(400).json({ message: 'La contraseña actual y la nueva contraseña son requeridas' });
+	if (!newPassword) {
+		return res.status(400).json({ message: 'La nueva contraseña es requerida' });
 	}
 
 	// Validate new password and confirm password match (if confirmPassword is provided)
 	if (confirmPassword !== undefined && newPassword !== confirmPassword) {
 		return res.status(400).json({ message: 'Las contraseñas no coinciden' });
-	}
-
-	// Validate new password is different from current password
-	if (currentPassword === newPassword) {
-		return res.status(400).json({ message: 'La nueva contraseña debe ser diferente a la actual' });
 	}
 
 	// Validate minimum password length
@@ -208,22 +203,43 @@ export const changePassword = async (req: Request, res: Response, next: NextFunc
 		// Get fresh user data from database
 		const freshUser = await userRepository.findOne({ where: { id: user.id } });
 
-		if (!freshUser || !freshUser.password) {
-			return res.status(400).json({ message: 'Usuario no encontrado o sin contraseña' });
+		if (!freshUser) {
+			return res.status(400).json({ message: 'Usuario no encontrado' });
 		}
 
-		// Verify current password
-		const isCurrentPasswordValid = await bcrypt.compare(currentPassword, freshUser.password);
+		// If user has a password, validate the current password
+		const userHadPassword = !!freshUser.password;
 
-		if (!isCurrentPasswordValid) {
-			return res.status(400).json({ message: 'La contraseña actual es incorrecta' });
+		if (userHadPassword) {
+			if (!currentPassword) {
+				return res.status(400).json({ message: 'La contraseña actual es requerida' });
+			}
+
+			// Validate new password is different from current password
+			if (currentPassword === newPassword) {
+				return res.status(400).json({
+					message: 'La nueva contraseña debe ser diferente a la actual',
+				});
+			}
+
+			// Verify current password
+			const isCurrentPasswordValid = await bcrypt.compare(currentPassword, freshUser.password);
+
+			if (!isCurrentPasswordValid) {
+				return res.status(400).json({ message: 'La contraseña actual es incorrecta' });
+			}
 		}
 
 		// Update password (will be hashed automatically by @BeforeUpdate hook)
 		freshUser.password = newPassword;
 		await userRepository.save(freshUser);
 
-		res.json({ message: 'Tu contraseña ha sido cambiada exitosamente.' });
+		// Return appropriate success message based on whether user had a password before
+		const successMessage = userHadPassword
+			? 'Tu contraseña ha sido cambiada exitosamente.'
+			: 'Tu contraseña ha sido configurada exitosamente.';
+
+		res.json({ message: successMessage });
 	} catch (error) {
 		next(error);
 	}

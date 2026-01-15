@@ -189,6 +189,19 @@
     "show": "Mostrar",
     "hide": "Ocultar"
   },
+  "setPassword": {
+    "title": "Configurar Contraseña",
+    "description": "Tu cuenta de Google no tiene contraseña configurada. Configura una contraseña para poder iniciar sesión con correo y contraseña.",
+    "newPassword": "Contraseña",
+    "newPasswordPlaceholder": "Ingresa tu contraseña",
+    "submit": "Configurar Contraseña",
+    "successTitle": "Contraseña Configurada",
+    "successDesc": "Tu contraseña ha sido configurada exitosamente. Ahora puedes iniciar sesión con tu correo y contraseña.",
+    "validation": {
+      "newRequired": "La contraseña es requerida",
+      "minLength": "La contraseña debe tener al menos 8 caracteres"
+    }
+  },
   "communityTemplates": {
     "title": "Plantillas de Mensajes de la Comunidad",
     "addNew": "Agregar Nueva Plantilla",

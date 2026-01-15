@@ -1,17 +1,19 @@
 <template>
 	<div class="container mx-auto p-6">
 		<div class="mb-6">
-			<h1 class="text-2xl font-bold text-gray-900">{{ t('changePassword.title') }}</h1>
+			<h1 class="text-2xl font-bold text-gray-900">
+				{{ userHasPassword ? t('changePassword.title') : t('setPassword.title') }}
+			</h1>
 			<p class="text-gray-600 mt-2">
-				Cambia tu contraseña para mantener tu cuenta segura.
+				{{ userHasPassword ? 'Cambia tu contraseña para mantener tu cuenta segura.' : t('setPassword.description') }}
 			</p>
 		</div>
 
 		<!-- Form Card -->
 		<div class="max-w-md">
 			<form @submit.prevent="handleSubmit" class="bg-white rounded-lg shadow-md border border-gray-200 p-6 space-y-4">
-				<!-- Current Password -->
-				<div class="space-y-2">
+				<!-- Current Password (only shown for users with existing password) -->
+				<div v-if="userHasPassword" class="space-y-2">
 					<Label for="current-password">{{ t('changePassword.currentPassword') }}</Label>
 					<div class="relative">
 						<Input
@@ -37,12 +39,14 @@
 
 				<!-- New Password -->
 				<div class="space-y-2">
-					<Label for="new-password">{{ t('changePassword.newPassword') }}</Label>
+					<Label for="new-password">
+						{{ userHasPassword ? t('changePassword.newPassword') : t('setPassword.newPassword') }}
+					</Label>
 					<div class="relative">
 						<Input
 							id="new-password"
 							:type="showNewPassword ? 'text' : 'password'"
-							:placeholder="t('changePassword.newPasswordPlaceholder')"
+							:placeholder="userHasPassword ? t('changePassword.newPasswordPlaceholder') : t('setPassword.newPasswordPlaceholder')"
 							v-model="formData.newPassword"
 							:disabled="isLoading"
 							:class="{ 'border-red-500': errors.newPassword }"
@@ -107,7 +111,7 @@
 						class="flex-1"
 					>
 						<span v-if="isLoading" class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
-						{{ isLoading ? 'Cambiando...' : t('changePassword.submit') }}
+						{{ isLoading ? 'Guardando...' : (userHasPassword ? t('changePassword.submit') : t('setPassword.submit')) }}
 					</Button>
 				</div>
 			</form>
@@ -116,17 +120,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '@repo/ui';
 import { Button, Input, Label } from '@repo/ui';
 import { Eye, EyeOff } from 'lucide-vue-next';
-import { changePassword as changePasswordApi } from '@/services/api';
+import { changePassword as changePasswordApi, getAuthStatus } from '@/services/api';
 
 const { t } = useI18n();
 const router = useRouter();
 const { toast } = useToast();
+
+// Track whether user has a password (for Google users who haven't set one yet)
+const userHasPassword = ref<boolean>(true);
 
 // Form data
 const formData = reactive({
@@ -149,6 +156,18 @@ const errors = reactive<{
 	confirmPassword?: string;
 }>({});
 
+// Check if user has a password on mount
+onMounted(async () => {
+	try {
+		const authStatus = await getAuthStatus();
+		userHasPassword.value = !!authStatus.password;
+	} catch (error) {
+		console.error('Error checking auth status:', error);
+		// Default to true (assume user has password) on error
+		userHasPassword.value = true;
+	}
+});
+
 const validateForm = (): boolean => {
 	// Reset errors
 	errors.currentPassword = undefined;
@@ -158,20 +177,22 @@ const validateForm = (): boolean => {
 
 	let isValid = true;
 
-	// Validate current password
-	if (!formData.currentPassword) {
+	// Validate current password (only for users with existing password)
+	if (userHasPassword.value && !formData.currentPassword) {
 		errors.currentPassword = t('changePassword.validation.currentRequired');
 		isValid = false;
 	}
 
 	// Validate new password
 	if (!formData.newPassword) {
-		errors.newPassword = t('changePassword.validation.newRequired');
+		errors.newPassword = userHasPassword.value
+			? t('changePassword.validation.newRequired')
+			: t('setPassword.validation.newRequired');
 		isValid = false;
 	} else if (formData.newPassword.length < 8) {
 		errors.newPassword = t('changePassword.validation.minLength');
 		isValid = false;
-	} else if (formData.newPassword === formData.currentPassword) {
+	} else if (userHasPassword.value && formData.newPassword === formData.currentPassword) {
 		errors.newPassword = t('changePassword.validation.sameAsOld');
 		isValid = false;
 	}
@@ -197,12 +218,19 @@ const handleSubmit = async () => {
 	serverError.value = null;
 
 	try {
-		await changePasswordApi(formData.currentPassword, formData.newPassword);
+		await changePasswordApi(
+			userHasPassword.value ? formData.currentPassword : undefined,
+			formData.newPassword
+		);
 
 		// Show success toast
 		toast({
-			title: t('changePassword.successTitle'),
-			description: t('changePassword.successDesc'),
+			title: userHasPassword.value
+				? t('changePassword.successTitle')
+				: t('setPassword.successTitle'),
+			description: userHasPassword.value
+				? t('changePassword.successDesc')
+				: t('setPassword.successDesc'),
 			variant: 'default',
 		});
 
@@ -221,8 +249,12 @@ const handleSubmit = async () => {
 		}
 
 		toast({
-			title: t('changePassword.errorTitle'),
-			description: t('changePassword.errorDesc'),
+			title: userHasPassword.value
+				? t('changePassword.errorTitle')
+				: 'Error al Configurar Contraseña',
+			description: userHasPassword.value
+				? t('changePassword.errorDesc')
+				: 'No se pudo configurar la contraseña. Inténtalo nuevamente.',
 			variant: 'destructive',
 		});
 	} finally {
