@@ -989,3 +989,14 @@ export async function subscribeToNewsletter(email: string): Promise<{
 	const response = await api.post('/newsletter/subscribe', { email });
 	return response.data;
 }
+
+// Password change API function
+export async function changePassword(currentPassword: string, newPassword: string): Promise<{
+	message: string;
+}> {
+	const response = await api.post('/auth/password/change', {
+		currentPassword,
+		newPassword
+	});
+	return response.data;
+}

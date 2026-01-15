@@ -7,6 +7,7 @@ import { GlobalMessageTemplateService } from '../services/globalMessageTemplateS
 import { config } from '../config';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
+import * as bcrypt from 'bcrypt';
 
 // Temporary store for password reset tokens
 const passwordResetTokens = new Map<string, { userId: string; expires: number }>();
@@ -167,6 +168,62 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
 		passwordResetTokens.delete(token);
 
 		res.json({ message: 'Password has been reset successfully.' });
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const changePassword = async (req: Request, res: Response, next: NextFunction) => {
+	// Check if user is authenticated
+	if (!req.isAuthenticated()) {
+		return res.status(401).json({ message: 'No autorizado' });
+	}
+
+	const { currentPassword, newPassword, confirmPassword } = req.body;
+	const user = req.user as User;
+
+	// Validate request body
+	if (!currentPassword || !newPassword || !confirmPassword) {
+		return res.status(400).json({ message: 'Todos los campos son requeridos' });
+	}
+
+	// Validate new password and confirm password match
+	if (newPassword !== confirmPassword) {
+		return res.status(400).json({ message: 'Las contraseñas no coinciden' });
+	}
+
+	// Validate new password is different from current password
+	if (currentPassword === newPassword) {
+		return res.status(400).json({ message: 'La nueva contraseña debe ser diferente a la actual' });
+	}
+
+	// Validate minimum password length
+	if (newPassword.length < 8) {
+		return res.status(400).json({ message: 'La contraseña debe tener al menos 8 caracteres' });
+	}
+
+	const userRepository = AppDataSource.getRepository(User);
+
+	try {
+		// Get fresh user data from database
+		const freshUser = await userRepository.findOne({ where: { id: user.id } });
+
+		if (!freshUser || !freshUser.password) {
+			return res.status(400).json({ message: 'Usuario no encontrado o sin contraseña' });
+		}
+
+		// Verify current password
+		const isCurrentPasswordValid = await bcrypt.compare(currentPassword, freshUser.password);
+
+		if (!isCurrentPasswordValid) {
+			return res.status(400).json({ message: 'La contraseña actual es incorrecta' });
+		}
+
+		// Update password (will be hashed automatically by @BeforeUpdate hook)
+		freshUser.password = newPassword;
+		await userRepository.save(freshUser);
+
+		res.json({ message: 'Tu contraseña ha sido cambiada exitosamente.' });
 	} catch (error) {
 		next(error);
 	}

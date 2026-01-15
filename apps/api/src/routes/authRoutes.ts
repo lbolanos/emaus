@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { passport } from '../services/authService';
+import { isAuthenticated } from '../middleware/authentication';
 import {
 	googleCallback,
 	getAuthStatus,
@@ -8,6 +9,7 @@ import {
 	login,
 	requestPasswordReset,
 	resetPassword,
+	changePassword,
 } from '../controllers/authController';
 
 const router = Router();
@@ -32,5 +34,8 @@ router.post('/logout', logout);
 // Password Reset
 router.post('/password/request', requestPasswordReset);
 router.post('/password/reset', resetPassword);
+
+// Password Change (for authenticated users)
+router.post('/password/change', isAuthenticated, changePassword);
 
 export default router;

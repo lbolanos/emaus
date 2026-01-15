@@ -154,13 +154,40 @@
       "title": "Configuración",
       "messageTemplates": "Plantillas de Mensajes",
       "globalMessageTemplates": "Plantillas Globales",
-      "inventoryItems": "Artículos de Inventario"
+      "inventoryItems": "Artículos de Inventario",
+      "changePassword": "Cambiar Contraseña"
     },
     "telemetry": "Telemetría",
     "logout": "Cerrar Sesión",
     "searchPlaceholder": "Buscar...",
     "selectRetreatFirst": "Por favor selecciona un retiro primero",
     "communities": "Comunidades"
+  },
+  "changePassword": {
+    "title": "Cambiar Contraseña",
+    "currentPassword": "Contraseña Actual",
+    "currentPasswordPlaceholder": "Ingresa tu contraseña actual",
+    "newPassword": "Nueva Contraseña",
+    "newPasswordPlaceholder": "Ingresa tu nueva contraseña",
+    "confirmPassword": "Confirmar Contraseña",
+    "confirmPasswordPlaceholder": "Confirma tu nueva contraseña",
+    "submit": "Cambiar Contraseña",
+    "cancel": "Cancelar",
+    "successTitle": "Contraseña Cambiada",
+    "successDesc": "Tu contraseña ha sido cambiada exitosamente.",
+    "errorTitle": "Error al Cambiar Contraseña",
+    "errorDesc": "No se pudo cambiar la contraseña. Verifica que tu contraseña actual sea correcta.",
+    "validation": {
+      "currentRequired": "La contraseña actual es requerida",
+      "newRequired": "La nueva contraseña es requerida",
+      "confirmRequired": "Confirma tu nueva contraseña",
+      "minLength": "La contraseña debe tener al menos 8 caracteres",
+      "passwordsNotMatch": "Las contraseñas no coinciden",
+      "sameAsOld": "La nueva contraseña debe ser diferente a la actual",
+      "invalidCurrent": "La contraseña actual es incorrecta"
+    },
+    "show": "Mostrar",
+    "hide": "Ocultar"
   },
   "communityTemplates": {
     "title": "Plantillas de Mensajes de la Comunidad",

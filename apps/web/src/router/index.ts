@@ -232,6 +232,11 @@ const router = createRouter({
 					component: GlobalMessageTemplatesView,
 				},
 				{
+					path: 'settings/change-password',
+					name: 'change-password',
+					component: () => import('../views/ChangePasswordView.vue'),
+				},
+				{
 					path: 'retreats/:id/role-management',
 					name: 'role-management',
 					component: RetreatRoleManagementView,
