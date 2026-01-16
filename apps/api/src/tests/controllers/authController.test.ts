@@ -28,6 +28,13 @@ jest.mock('../../services/globalMessageTemplateService', () => ({
 	})),
 }));
 
+// Mock RecaptchaService
+jest.mock('../../services/recaptchaService', () => ({
+	RecaptchaService: jest.fn().mockImplementation(() => ({
+		verifyToken: jest.fn().mockResolvedValue({ valid: true }),
+	})),
+}));
+
 /**
  * Auth Controller Unit Tests
  *
@@ -184,6 +191,7 @@ describe('Auth Controller', () => {
 				body: {
 					email: testUser.email,
 					password: 'password123',
+					recaptchaToken: 'valid-token',
 				},
 				user: testUser,
 			});
@@ -209,6 +217,7 @@ describe('Auth Controller', () => {
 				body: {
 					email: 'wrong@example.com',
 					password: 'wrongpassword',
+					recaptchaToken: 'valid-token',
 				},
 			});
 			const res = createMockResponse();
@@ -233,6 +242,7 @@ describe('Auth Controller', () => {
 				body: {
 					email: testUser.email,
 					password: 'password123',
+					recaptchaToken: 'valid-token',
 				},
 			});
 			const res = createMockResponse();
@@ -348,6 +358,7 @@ describe('Auth Controller', () => {
 			const req = createMockRequest({
 				body: {
 					email: testUser.email,
+					recaptchaToken: 'valid-token',
 				},
 			});
 			const res = createMockResponse();
@@ -365,6 +376,7 @@ describe('Auth Controller', () => {
 			const req = createMockRequest({
 				body: {
 					email: 'nonexistent@example.com',
+					recaptchaToken: 'valid-token',
 				},
 			});
 			const res = createMockResponse();
@@ -382,6 +394,7 @@ describe('Auth Controller', () => {
 			const req = createMockRequest({
 				body: {
 					email: 'error@example.com',
+					recaptchaToken: 'valid-token',
 				},
 			});
 			const res = createMockResponse();
@@ -568,7 +581,9 @@ describe('Auth Controller', () => {
 			await authController.changePassword(req, res, next);
 
 			expect(res.status).toHaveBeenCalledWith(400);
-			expect(res.json).toHaveBeenCalledWith({ message: 'La nueva contraseña debe ser diferente a la actual' });
+			expect(res.json).toHaveBeenCalledWith({
+				message: 'La nueva contraseña debe ser diferente a la actual',
+			});
 		});
 
 		test('should return 400 when new password is too short', async () => {
@@ -587,7 +602,9 @@ describe('Auth Controller', () => {
 			await authController.changePassword(req, res, next);
 
 			expect(res.status).toHaveBeenCalledWith(400);
-			expect(res.json).toHaveBeenCalledWith({ message: 'La contraseña debe tener al menos 8 caracteres' });
+			expect(res.json).toHaveBeenCalledWith({
+				message: 'La contraseña debe tener al menos 8 caracteres',
+			});
 		});
 
 		test('should return 400 when current password is incorrect', async () => {
@@ -759,7 +776,9 @@ describe('Auth Controller', () => {
 			await authController.changePassword(req, res, next);
 
 			expect(res.status).toHaveBeenCalledWith(400);
-			expect(res.json).toHaveBeenCalledWith({ message: 'La contraseña debe tener al menos 8 caracteres' });
+			expect(res.json).toHaveBeenCalledWith({
+				message: 'La contraseña debe tener al menos 8 caracteres',
+			});
 		});
 
 		test('should allow Google user to change password after setting it', async () => {

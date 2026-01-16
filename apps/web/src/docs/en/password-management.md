@@ -35,6 +35,7 @@ If you registered using your Google account, you don't initially have a password
 5. Click **Set Password**
 
 Once you've set up your password, you can sign in using:
+
 - Your Google account (as before)
 - Your email address and the password you set up
 

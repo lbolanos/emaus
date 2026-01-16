@@ -316,7 +316,9 @@ describe('RecaptchaService', () => {
 			const result = await service.verifyToken(validToken);
 
 			expect(result.valid).toBe(false);
-			expect(result.error).toBe('reCAPTCHA verification failed: invalid-input-response, timeout-or-duplicate');
+			expect(result.error).toBe(
+				'reCAPTCHA verification failed: invalid-input-response, timeout-or-duplicate',
+			);
 		});
 	});
 

@@ -37,8 +37,12 @@ export class AddPendingVerificationToMemberState20260112200000 {
 		await queryRunner.query(`ALTER TABLE "community_member_new" RENAME TO "community_member"`);
 
 		// Recreate indexes
-		await queryRunner.query(`CREATE INDEX "idx_community_member_community" ON "community_member" ("communityId")`);
-		await queryRunner.query(`CREATE INDEX "idx_community_member_participant" ON "community_member" ("participantId")`);
+		await queryRunner.query(
+			`CREATE INDEX "idx_community_member_community" ON "community_member" ("communityId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX "idx_community_member_participant" ON "community_member" ("participantId")`,
+		);
 	}
 
 	public async down(queryRunner: QueryRunner): Promise<void> {
@@ -73,7 +77,11 @@ export class AddPendingVerificationToMemberState20260112200000 {
 		await queryRunner.query(`ALTER TABLE "community_member_new" RENAME TO "community_member"`);
 
 		// Recreate indexes
-		await queryRunner.query(`CREATE INDEX "idx_community_member_community" ON "community_member" ("communityId")`);
-		await queryRunner.query(`CREATE INDEX "idx_community_member_participant" ON "community_member" ("participantId")`);
+		await queryRunner.query(
+			`CREATE INDEX "idx_community_member_community" ON "community_member" ("communityId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX "idx_community_member_participant" ON "community_member" ("participantId")`,
+		);
 	}
 }

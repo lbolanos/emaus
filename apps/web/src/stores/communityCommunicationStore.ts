@@ -132,7 +132,9 @@ export const useCommunityCommunicationStore = defineStore('community-communicati
 				params.messageType = options.messageType;
 			}
 
-			const response = await api.get(`/community-communications/community/${communityId}`, { params });
+			const response = await api.get(`/community-communications/community/${communityId}`, {
+				params,
+			});
 			communications.value = response.data.communications || [];
 			total.value = response.data.total || 0;
 			return response.data;

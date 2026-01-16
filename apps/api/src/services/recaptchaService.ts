@@ -9,7 +9,7 @@ interface RecaptchaVerificationResponse {
 	success: boolean;
 	challenge_ts?: string;
 	hostname?: string;
-	'score'?: number;
+	score?: number;
 	'error-codes'?: string[];
 }
 

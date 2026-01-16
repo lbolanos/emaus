@@ -22,9 +22,7 @@ describe('CSRF Middleware - Wildcard Pattern Tests', () => {
 	describe('patternToRegex function', () => {
 		// Access the internal function for testing
 		const patternToRegex = (pattern: string): RegExp => {
-			const regexPattern = pattern
-				.replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-				.replace(/\*/g, '.*');
+			const regexPattern = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
 			return new RegExp(`^${regexPattern}`);
 		};
 
@@ -160,9 +158,7 @@ describe('CSRF Middleware - Wildcard Pattern Tests', () => {
 			const isExcluded = excludedPaths.some((excluded) => {
 				if (excluded.includes('*')) {
 					const patternToRegex = (pattern: string): RegExp => {
-						const regexPattern = pattern
-							.replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-							.replace(/\*/g, '.*');
+						const regexPattern = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
 						return new RegExp(`^${regexPattern}`);
 					};
 					const regex = patternToRegex(excluded);
@@ -181,9 +177,7 @@ describe('CSRF Middleware - Wildcard Pattern Tests', () => {
 			const isExcluded = excludedPaths.some((excluded) => {
 				if (excluded.includes('*')) {
 					const patternToRegex = (pattern: string): RegExp => {
-						const regexPattern = pattern
-							.replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-							.replace(/\*/g, '.*');
+						const regexPattern = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
 						return new RegExp(`^${regexPattern}`);
 					};
 					const regex = patternToRegex(excluded);
@@ -202,9 +196,7 @@ describe('CSRF Middleware - Wildcard Pattern Tests', () => {
 			const isExcluded = excludedPaths.some((excluded) => {
 				if (excluded.includes('*')) {
 					const patternToRegex = (pattern: string): RegExp => {
-						const regexPattern = pattern
-							.replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-							.replace(/\*/g, '.*');
+						const regexPattern = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
 						return new RegExp(`^${regexPattern}`);
 					};
 					const regex = patternToRegex(excluded);
@@ -223,9 +215,7 @@ describe('CSRF Middleware - Wildcard Pattern Tests', () => {
 			const isExcluded = excludedPaths.some((excluded) => {
 				if (excluded.includes('*')) {
 					const patternToRegex = (pattern: string): RegExp => {
-						const regexPattern = pattern
-							.replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-							.replace(/\*/g, '.*');
+						const regexPattern = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
 						return new RegExp(`^${regexPattern}`);
 					};
 					const regex = patternToRegex(excluded);

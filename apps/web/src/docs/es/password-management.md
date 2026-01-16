@@ -35,6 +35,7 @@ Si te registraste usando tu cuenta de Google, inicialmente no tienes una contras
 5. Haz clic en **Configurar Contraseña**
 
 Una vez configurada tu contraseña, podrás iniciar sesión usando:
+
 - Tu cuenta de Google (como antes)
 - Tu correo electrónico y la contraseña que configuraste
 

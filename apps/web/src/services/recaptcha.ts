@@ -62,7 +62,8 @@ function loadRecaptchaScript(): Promise<void> {
  * Check if reCAPTCHA is properly configured
  */
 export function isRecaptchaConfigured(): boolean {
-	const configured = !!RECAPTCHA_SITE_KEY && RECAPTCHA_SITE_KEY !== 'YOUR_RECAPTCHA_V3_SITE_KEY_HERE';
+	const configured =
+		!!RECAPTCHA_SITE_KEY && RECAPTCHA_SITE_KEY !== 'YOUR_RECAPTCHA_V3_SITE_KEY_HERE';
 	return configured;
 }
 

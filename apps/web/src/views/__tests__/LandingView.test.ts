@@ -3,12 +3,7 @@ import { mount, VueWrapper } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 import LandingView from '../LandingView.vue';
-import {
-	createTestWrapper,
-	createMockUser,
-	createMockRetreat,
-	cleanupMocks,
-} from '@/test/utils';
+import { createTestWrapper, createMockUser, createMockRetreat, cleanupMocks } from '@/test/utils';
 
 // Mock axios
 vi.mock('axios', () => ({
@@ -143,12 +138,11 @@ describe('LandingView', () => {
 				},
 				stubs: {
 					'router-view': true,
-					'transition': true,
+					transition: true,
 					'transition-group': true,
 				},
 			},
-		},
-		);
+		});
 
 		await nextTick();
 	});
@@ -193,7 +187,7 @@ describe('LandingView', () => {
 			});
 
 			// Find and click login button
-			const loginButtons = wrapper.findAll('button').filter(btn => {
+			const loginButtons = wrapper.findAll('button').filter((btn) => {
 				const text = btn.text();
 				return text.includes('landing.loginLink') || text.includes('landing.signupLink');
 			});
@@ -203,7 +197,7 @@ describe('LandingView', () => {
 				await nextTick();
 
 				// Wait for async operations
-				await new Promise(resolve => setTimeout(resolve, 50));
+				await new Promise((resolve) => setTimeout(resolve, 50));
 				await nextTick();
 
 				// Should redirect to login page
@@ -239,7 +233,7 @@ describe('LandingView', () => {
 			});
 
 			// Find and click login button
-			const loginButtons = wrapper.findAll('button').filter(btn => {
+			const loginButtons = wrapper.findAll('button').filter((btn) => {
 				const text = btn.text();
 				return text.includes('landing.loginLink') || text.includes('landing.signupLink');
 			});
@@ -249,7 +243,7 @@ describe('LandingView', () => {
 				await nextTick();
 
 				// Wait for async operations
-				await new Promise(resolve => setTimeout(resolve, 100));
+				await new Promise((resolve) => setTimeout(resolve, 100));
 				await nextTick();
 
 				// Should redirect to dashboard with retreat ID
@@ -287,7 +281,7 @@ describe('LandingView', () => {
 			});
 
 			// Find and click login button
-			const loginButtons = wrapper.findAll('button').filter(btn => {
+			const loginButtons = wrapper.findAll('button').filter((btn) => {
 				const text = btn.text();
 				return text.includes('landing.loginLink') || text.includes('landing.signupLink');
 			});
@@ -297,7 +291,7 @@ describe('LandingView', () => {
 				await nextTick();
 
 				// Wait for async operations
-				await new Promise(resolve => setTimeout(resolve, 100));
+				await new Promise((resolve) => setTimeout(resolve, 100));
 				await nextTick();
 
 				// Should redirect to /app
@@ -318,7 +312,7 @@ describe('LandingView', () => {
 			});
 
 			// Find and click login button
-			const loginButtons = wrapper.findAll('button').filter(btn => {
+			const loginButtons = wrapper.findAll('button').filter((btn) => {
 				const text = btn.text();
 				return text.includes('landing.loginLink') || text.includes('landing.signupLink');
 			});
@@ -328,7 +322,7 @@ describe('LandingView', () => {
 				await nextTick();
 
 				// Wait for async operations
-				await new Promise(resolve => setTimeout(resolve, 50));
+				await new Promise((resolve) => setTimeout(resolve, 50));
 				await nextTick();
 
 				// Should have called checkAuthStatus
@@ -339,12 +333,16 @@ describe('LandingView', () => {
 
 	describe('Login Buttons', () => {
 		it('should render login link button', () => {
-			const buttons = wrapper.findAll('button').filter(btn => btn.text().includes('landing.loginLink'));
+			const buttons = wrapper
+				.findAll('button')
+				.filter((btn) => btn.text().includes('landing.loginLink'));
 			expect(buttons.length).toBeGreaterThan(0);
 		});
 
 		it('should render signup button', () => {
-			const buttons = wrapper.findAll('button').filter(btn => btn.text().includes('landing.signupLink'));
+			const buttons = wrapper
+				.findAll('button')
+				.filter((btn) => btn.text().includes('landing.signupLink'));
 			expect(buttons.length).toBeGreaterThan(0);
 		});
 
@@ -352,12 +350,12 @@ describe('LandingView', () => {
 			const buttons = wrapper.findAll('button');
 
 			// Find login-related buttons
-			const loginButtons = buttons.filter(btn => {
+			const loginButtons = buttons.filter((btn) => {
 				const text = btn.text();
 				return text.includes('landing.loginLink') || text.includes('landing.signupLink');
 			});
 
-			loginButtons.forEach(button => {
+			loginButtons.forEach((button) => {
 				// Should be a button element, not a router-link
 				expect(button.element.tagName.toLowerCase()).toBe('button');
 			});

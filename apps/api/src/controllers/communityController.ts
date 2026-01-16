@@ -261,7 +261,9 @@ export class CommunityController {
 		});
 
 		if (!recaptchaResult.valid) {
-			return res.status(400).json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
+			return res
+				.status(400)
+				.json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
 		}
 
 		try {
@@ -308,7 +310,9 @@ export class CommunityController {
 		});
 
 		if (!recaptchaResult.valid) {
-			return res.status(400).json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
+			return res
+				.status(400)
+				.json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
 		}
 
 		const userId = (req.user as any).id;
@@ -344,7 +348,9 @@ export class CommunityController {
 			});
 
 			if (!recaptchaResult.valid) {
-				return res.status(400).json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
+				return res
+					.status(400)
+					.json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
 			}
 
 			// Validate required fields
@@ -367,10 +373,7 @@ export class CommunityController {
 			}
 
 			// Check for duplicate email in this community
-			const existingMember = await communityService.findMemberByEmailAndCommunity(
-				email,
-				id,
-			);
+			const existingMember = await communityService.findMemberByEmailAndCommunity(email, id);
 			if (existingMember) {
 				return res.status(409).json({
 					message: 'Already a member of this community',

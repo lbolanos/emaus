@@ -3,12 +3,7 @@ import { mount, VueWrapper } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 import LoginView from '../LoginView.vue';
-import {
-	createTestWrapper,
-	createMockUser,
-	createMockRetreat,
-	cleanupMocks,
-} from '@/test/utils';
+import { createTestWrapper, createMockUser, createMockRetreat, cleanupMocks } from '@/test/utils';
 
 // Mock axios
 vi.mock('axios', () => ({
@@ -107,12 +102,11 @@ describe('LoginView', () => {
 				},
 				stubs: {
 					'router-view': true,
-					'transition': true,
+					transition: true,
 					'transition-group': true,
 				},
 			},
-		},
-		);
+		});
 
 		await nextTick();
 	});
@@ -238,7 +232,7 @@ describe('LoginView', () => {
 			});
 
 			// Wait for async operations
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 			await nextTick();
 
 			// Verify redirect to dashboard with retreat ID
@@ -279,7 +273,7 @@ describe('LoginView', () => {
 			await nextTick();
 
 			// Wait for async operations
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 			await nextTick();
 
 			// Verify redirect to /app
@@ -315,7 +309,7 @@ describe('LoginView', () => {
 			await nextTick();
 
 			// Login should be attempted
-			await new Promise(resolve => setTimeout(resolve, 50));
+			await new Promise((resolve) => setTimeout(resolve, 50));
 		});
 	});
 
@@ -338,7 +332,7 @@ describe('LoginView', () => {
 			await nextTick();
 
 			// Wait for async operations
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 			await nextTick();
 
 			// Check for error display

@@ -878,7 +878,13 @@ export async function getPublicCommunityMeetings(): Promise<CommunityMeeting[]> 
 // Public join request (no auth required, uses fetch directly)
 export async function publicCommunityJoinRequest(
 	communityId: string,
-	data: { firstName: string; lastName: string; email: string; cellPhone?: string; recaptchaToken?: string },
+	data: {
+		firstName: string;
+		lastName: string;
+		email: string;
+		cellPhone?: string;
+		recaptchaToken?: string;
+	},
 ): Promise<CommunityMember> {
 	const response = await fetch(`/api/communities/${communityId}/join-public`, {
 		method: 'POST',
@@ -921,7 +927,10 @@ export async function getCommunityInvitationStatus(token: string): Promise<any> 
 	return response.data;
 }
 
-export async function acceptCommunityInvitation(token: string, recaptchaToken?: string): Promise<CommunityAdmin> {
+export async function acceptCommunityInvitation(
+	token: string,
+	recaptchaToken?: string,
+): Promise<CommunityAdmin> {
 	const response = await api.post('/communities/invitations/accept', { token, recaptchaToken });
 	return response.data;
 }
@@ -979,7 +988,10 @@ export async function deleteCommunityMessageTemplate(
 }
 
 // Newsletter API functions
-export async function subscribeToNewsletter(email: string, recaptchaToken?: string): Promise<{
+export async function subscribeToNewsletter(
+	email: string,
+	recaptchaToken?: string,
+): Promise<{
 	id: string;
 	email: string;
 	isActive: boolean;
@@ -991,12 +1003,15 @@ export async function subscribeToNewsletter(email: string, recaptchaToken?: stri
 }
 
 // Password change API function
-export async function changePassword(currentPassword: string | undefined, newPassword: string): Promise<{
+export async function changePassword(
+	currentPassword: string | undefined,
+	newPassword: string,
+): Promise<{
 	message: string;
 }> {
 	const response = await api.post('/auth/password/change', {
 		...(currentPassword !== undefined && { currentPassword }),
-		newPassword
+		newPassword,
 	});
 	return response.data;
 }

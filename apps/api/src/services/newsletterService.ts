@@ -4,11 +4,7 @@ import { NewsletterSubscriber } from '../entities/newsletterSubscriber.entity';
 export class NewsletterService {
 	private subscriberRepo = AppDataSource.getRepository(NewsletterSubscriber);
 
-	async subscribeToNewsletter(
-		email: string,
-		firstName?: string,
-		lastName?: string,
-	) {
+	async subscribeToNewsletter(email: string, firstName?: string, lastName?: string) {
 		// Check if email already exists
 		const existing = await this.subscriberRepo.findOne({ where: { email } });
 

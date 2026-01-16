@@ -174,21 +174,24 @@ export class CommunityCommunicationController {
 			const userId = (req.user as any)?.id;
 			const newId = require('crypto').randomUUID();
 
-			await dataSource.query(`
+			await dataSource.query(
+				`
 				INSERT INTO participant_communications (id, participantId, scope, communityId, messageType, recipientContact, messageContent, templateId, templateName, subject, sentBy, sentAt)
 				VALUES (?, ?, 'community', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-			`, [
-				newId,
-				communityMember.participantId,
-				dto.communityId,
-				dto.messageType,
-				dto.recipientContact,
-				dto.messageContent,
-				dto.templateId,
-				templateName,
-				dto.subject,
-				userId
-			]);
+			`,
+				[
+					newId,
+					communityMember.participantId,
+					dto.communityId,
+					dto.messageType,
+					dto.recipientContact,
+					dto.messageContent,
+					dto.templateId,
+					templateName,
+					dto.subject,
+					userId,
+				],
+			);
 
 			// Fetch the complete record with relations (excluding sender to avoid user table issue)
 			const completeCommunication = await this.communicationRepository.findOne({

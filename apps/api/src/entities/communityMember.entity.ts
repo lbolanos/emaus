@@ -37,7 +37,12 @@ export class CommunityMember {
 		type: 'varchar',
 		default: 'active_member',
 	})
-	state!: 'far_from_location' | 'no_answer' | 'another_group' | 'active_member' | 'pending_verification';
+	state!:
+		| 'far_from_location'
+		| 'no_answer'
+		| 'another_group'
+		| 'active_member'
+		| 'pending_verification';
 
 	@OneToMany(() => CommunityAttendance, (attendance) => attendance.member)
 	attendances!: CommunityAttendance[];

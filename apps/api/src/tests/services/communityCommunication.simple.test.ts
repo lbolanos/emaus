@@ -116,7 +116,9 @@ describe('Community Communication Utilities - Simple Tests', () => {
 			subject?: string;
 		}
 
-		const validateCommunicationDTO = (dto: Partial<CreateCommunicationDTO>): { valid: boolean; errors: string[] } => {
+		const validateCommunicationDTO = (
+			dto: Partial<CreateCommunicationDTO>,
+		): { valid: boolean; errors: string[] } => {
 			const errors: string[] = [];
 
 			if (!dto.communityMemberId) errors.push('communityMemberId is required');
@@ -196,13 +198,9 @@ describe('Community Communication Utilities - Simple Tests', () => {
 		});
 
 		it('should validate email format for email messageType', () => {
-			const validEmails = [
-				'test@example.com',
-				'user.name@domain.co.uk',
-				'user+tag@example.org',
-			];
+			const validEmails = ['test@example.com', 'user.name@domain.co.uk', 'user+tag@example.org'];
 
-			validEmails.forEach(email => {
+			validEmails.forEach((email) => {
 				const dto: CreateCommunicationDTO = {
 					communityMemberId: 'member-123',
 					communityId: 'community-456',
@@ -217,14 +215,9 @@ describe('Community Communication Utilities - Simple Tests', () => {
 		});
 
 		it('should validate phone format for whatsapp messageType', () => {
-			const validPhones = [
-				'1234567890',
-				'+1234567890',
-				'+1 234 567 8900',
-				'234-567-8900',
-			];
+			const validPhones = ['1234567890', '+1234567890', '+1 234 567 8900', '234-567-8900'];
 
-			validPhones.forEach(phone => {
+			validPhones.forEach((phone) => {
 				const dto: CreateCommunicationDTO = {
 					communityMemberId: 'member-123',
 					communityId: 'community-456',
@@ -281,21 +274,23 @@ describe('Community Communication Utilities - Simple Tests', () => {
 				{ id: '4', scope: 'retreat', retreatId: 'r2' },
 			];
 
-			const communityCommunications = communications.filter(c => c.scope === 'community');
-			const retreatCommunications = communications.filter(c => c.scope === 'retreat');
+			const communityCommunications = communications.filter((c) => c.scope === 'community');
+			const retreatCommunications = communications.filter((c) => c.scope === 'retreat');
 
 			expect(communityCommunications).toHaveLength(2);
 			expect(retreatCommunications).toHaveLength(2);
-			expect(communityCommunications.every(c => (c as any).communityId)).toBe(true);
-			expect(retreatCommunications.every(c => (c as any).retreatId)).toBe(true);
+			expect(communityCommunications.every((c) => (c as any).communityId)).toBe(true);
+			expect(retreatCommunications.every((c) => (c as any).retreatId)).toBe(true);
 		});
 	});
 
 	describe('Communication Stats Calculation', () => {
-		const calculateStats = (communications: Array<{ messageType: 'whatsapp' | 'email'; participantId: string }>) => {
-			const whatsappCount = communications.filter(c => c.messageType === 'whatsapp').length;
-			const emailCount = communications.filter(c => c.messageType === 'email').length;
-			const uniqueMembersCount = new Set(communications.map(c => c.participantId)).size;
+		const calculateStats = (
+			communications: Array<{ messageType: 'whatsapp' | 'email'; participantId: string }>,
+		) => {
+			const whatsappCount = communications.filter((c) => c.messageType === 'whatsapp').length;
+			const emailCount = communications.filter((c) => c.messageType === 'email').length;
+			const uniqueMembersCount = new Set(communications.map((c) => c.participantId)).size;
 
 			return {
 				totalCommunications: communications.length,

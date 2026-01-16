@@ -26,12 +26,8 @@ router.get('/invitations/status/:token', (req, res) =>
 );
 router.post('/invitations/accept', (req, res) => CommunityController.acceptInvitation(req, res));
 
-router.get('/public', (req, res) =>
-	CommunityController.getPublicCommunities(req, res),
-);
-router.get('/public/meetings', (req, res) =>
-	CommunityController.getPublicMeetings(req, res),
-);
+router.get('/public', (req, res) => CommunityController.getPublicCommunities(req, res));
+router.get('/public/meetings', (req, res) => CommunityController.getPublicMeetings(req, res));
 
 // Public attendance routes (NO AUTH required)
 router.get('/public/attendance/:communityId/:meetingId', (req, res) =>
@@ -42,9 +38,7 @@ router.post('/public/attendance/:communityId/:meetingId', (req, res) =>
 );
 
 // Public join request route (NO AUTH required)
-router.post('/:id/join-public', (req, res) =>
-	CommunityController.publicJoinRequest(req, res),
-);
+router.post('/:id/join-public', (req, res) => CommunityController.publicJoinRequest(req, res));
 
 // All other community routes require authentication
 router.use(isAuthenticated);

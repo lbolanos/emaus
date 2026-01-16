@@ -49,7 +49,9 @@ export class FixParticipantCommunicationsUserFk1699774320000 implements Migratio
 				await queryRunner.query(`DROP TABLE "participant_communications"`);
 
 				// Rename new table to original name
-				await queryRunner.query(`ALTER TABLE "participant_communications_new" RENAME TO "participant_communications"`);
+				await queryRunner.query(
+					`ALTER TABLE "participant_communications_new" RENAME TO "participant_communications"`,
+				);
 			}
 		}
 	}
@@ -85,6 +87,8 @@ export class FixParticipantCommunicationsUserFk1699774320000 implements Migratio
 		`);
 
 		await queryRunner.query(`DROP TABLE "participant_communications"`);
-		await queryRunner.query(`ALTER TABLE "participant_communications_old" RENAME TO "participant_communications"`);
+		await queryRunner.query(
+			`ALTER TABLE "participant_communications_old" RENAME TO "participant_communications"`,
+		);
 	}
 }

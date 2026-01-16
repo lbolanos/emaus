@@ -192,10 +192,7 @@ describe('recaptcha service', () => {
 			const action = 'newsletter_subscribe';
 			await getToken(action);
 
-			expect(mockGrecaptcha.execute).toHaveBeenCalledWith(
-				'real-site-key-abc123',
-				{ action },
-			);
+			expect(mockGrecaptcha.execute).toHaveBeenCalledWith('real-site-key-abc123', { action });
 		});
 
 		it('should return token when execution succeeds', async () => {
@@ -336,8 +333,9 @@ describe('recaptcha service', () => {
 		});
 
 		it('should complete full flow for newsletter subscription', async () => {
-			const { getRecaptchaToken: getToken, RECAPTCHA_ACTIONS: actions } =
-				await import('@/services/recaptcha');
+			const { getRecaptchaToken: getToken, RECAPTCHA_ACTIONS: actions } = await import(
+				'@/services/recaptcha'
+			);
 
 			(window as any).grecaptcha = mockGrecaptcha;
 			mockGrecaptcha.execute.mockResolvedValue('newsletter-token-123');

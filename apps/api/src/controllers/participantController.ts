@@ -59,7 +59,9 @@ export const createParticipant = async (req: Request, res: Response, next: NextF
 		});
 
 		if (!recaptchaResult.valid) {
-			return res.status(400).json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
+			return res
+				.status(400)
+				.json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
 		}
 
 		const newParticipant = await participantService.createParticipant(participantData);

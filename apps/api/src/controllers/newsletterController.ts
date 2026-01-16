@@ -16,7 +16,9 @@ export class NewsletterController {
 			});
 
 			if (!recaptchaResult.valid) {
-				return res.status(400).json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
+				return res
+					.status(400)
+					.json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
 			}
 
 			// Basic email validation
@@ -25,11 +27,7 @@ export class NewsletterController {
 				return res.status(400).json({ message: 'Invalid email format' });
 			}
 
-			const subscriber = await newsletterService.subscribeToNewsletter(
-				email,
-				firstName,
-				lastName,
-			);
+			const subscriber = await newsletterService.subscribeToNewsletter(email, firstName, lastName);
 
 			// Check if this was a new subscription or already subscribed
 			const wasAlreadySubscribed = subscriber.subscribedAt.getTime() < Date.now() - 1000;

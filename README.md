@@ -311,23 +311,22 @@ agregar una flyer para la reunion que pueda salvarse como pdf para que tengan el
 
 agregar un formulario basico para crear un participante de la comunidad asi no tenga retiro asociado.
 
-
 apps/web/src/views/CommunityMeetingFlyerView.vue componentize the flyer to create a list of flyer styles.
 create button the open apps/web/src/components/community/MeetingFormModal.vue and change data for the flyer.
 en el formulario aumentar el width y agrega una pestaña para el flyerTemplate en el que se pueda hacer ver el mensaje final y el listado de variables que se puede agregar haciendo clic.
-adicionar un nuevo flyer style con el siguiente formato:  use apps/web/public/poster.png as background
-the MessageTemplate and ParticipantCommunication now belongs to a retreat. I need new entity to save message templates for community.  also ParticipantCommunication save if was a communication of the retreat or the community.
+adicionar un nuevo flyer style con el siguiente formato: use apps/web/public/poster.png as background
+the MessageTemplate and ParticipantCommunication now belongs to a retreat. I need new entity to save message templates for community. also ParticipantCommunication save if was a communication of the retreat or the community.
 en el dashboard la frecuencia de participacion no esta funcionando corectamente
-al cerrar el dialogo de editar comunidad la interfaz deja de funcionar (frezee when closing edit community).  Try Teleport
+al cerrar el dialogo de editar comunidad la interfaz deja de funcionar (frezee when closing edit community). Try Teleport
 standarize the breadcrumb in community apps/web/src/views/CommunityListView.vue
 in the login put the logo with a link to landingpage
-when login it redirects to landing ...  make dashboard the first page when logged
+when login it redirects to landing ... make dashboard the first page when logged
 cambio de password requiere oontraseña actual. para los usuarios que se registraron por google solo configurar el password.
 Política de Privacidad y terminos y un reCAPTCHA al formulario
 
 ## IN PROGRESS
-Error al copiar la imagen del flyer de la reunión.
 
+Error al copiar la imagen del flyer de la reunión.
 
 apps/web/src/components/layout/Sidebar.vue apps/web/src/components/layout/Header.vue docs_dev/HELP_SYSTEM_GUIDE.md
 necesito que mejores la usabilidad y user experience del sitio. hay temas globales como retiros, casas de retiros, comunidades, Telemetria, Plantillas globales.
@@ -336,6 +335,7 @@ agrega la documenatcion necesaria acerca de esto en apps/web/src/docs
 crear una landing page que muestre los retiros proximos y las comunidades y sus proximas reuniones
 
 ## TODO
+
 al registrar un servidor es posible que ya exista como caminante que debemos hacer en este caso?
 
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
@@ -373,26 +373,25 @@ Notificaciones por correo a los administradores del retiro de eventos como Camin
 que los caminantes no vayan con la persona que lo invito
 no deja enviar correo de invitacion si el usuario existe
 
-
 aumentar el coverage de las pruebas
 verificar que todas la pruebas pasen.
 
 ## comunidades
+
 Las comunidades tienen que ser aceptadas por los administradores de otras comunidades.
 crear una forma en el que los usuarios puedan ver y crear testimonios o mensajes de otros acerca de su experiencia.  
 los usuarios que quieran crear testimonios tienen que tener una comunidad asociada y el testimonio debe ser aceptado por el administrador de la comunidad asociada para poderse publicar.
 
-
 ## landing
+
 stories
 
 una forma de agregar retiros desde mucho antes y que la gente se pueda inscribir sin necesidad de que tenga toda la informacion de la casa de retiro.
 Colocar la fecha de la proxima reunion en Horarios de reuniones. Cuando haga clic en el lugar lance google maps
 Global Presence en español.
-en la seccion the path Agregar la lectura del dia en audio y en texto.  un boton solo visible para el superadmin con el que se suben.  
+en la seccion the path Agregar la lectura del dia en audio y en texto. un boton solo visible para el superadmin con el que se suben.  
 tambien aregar en la seccion de path otro audio y otro texto.
 estos audios y texto se suben a la s3 publica.
-
 
 ## Pepe Toño
 
@@ -415,7 +414,8 @@ This will use Turborepo to run the `dev` script in both `apps/api` and `apps/web
 - The Web app will be available at `http://localhost:5173`.
 
 ## prompts:
-now is working.  tell me a little description of how to solve this problem to remember you next time 
+
+now is working. tell me a little description of how to solve this problem to remember you next time
 Please use the Playwright MCP server to test the following process:
 connect http://localhost:5173
 login with
@@ -537,6 +537,7 @@ https://www.digitalocean.com/
 supabase
 
 ## migration vultr to aws
+
 scp -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105:/var/www/emaus/apps/api/database.sqlite apps/api/database.sqlite 2>&1 && echo "✅ Database copied from AWS"
 
 sudo chown www-data:www-data -R /var/www/emaus
@@ -549,34 +550,33 @@ rsync -avz -e "ssh -i ~/.ssh/emaus-key.pem" \
 --exclude 'node_modules' \
 --exclude 'apps/web/.env' \
  . ubuntu@3.138.49.105:/var/www/emaus/
- 
 
 scp -i ~/.ssh/emaus-key.pem apps/api/database.sqlite ubuntu@3.138.49.105:/var/www/emaus/apps/api/database.sqlite 2>&1 && echo "✅ Database uploaded to AWS"
 
 ## aws
-ssh -i ~/.ssh/emaus-key.pem ubuntu@$(aws ec2 describe-instances --filters "Name=tag:Name,Values=emaus*" "Name=instance-state-name,Values=running" --query "Reservations[0].Instances[0].PublicIpAddress" --output text --region us-east-2 --profile emaus) "cd /var/www/emaus && if [ -f apps/api/.env.example ]; then cp apps/api/.env.example
-   apps/api/.env.production && echo 'Copied .env.example to .env.production'; else echo 'No .env.example found'; fi"
+
+ssh -i ~/.ssh/emaus-key.pem ubuntu@$(aws ec2 describe-instances --filters "Name=tag:Name,Values=emaus\*" "Name=instance-state-name,Values=running" --query "Reservations[0].Instances[0].PublicIpAddress" --output text --region us-east-2 --profile emaus) "cd /var/www/emaus && if [ -f apps/api/.env.example ]; then cp apps/api/.env.example
+apps/api/.env.production && echo 'Copied .env.example to .env.production'; else echo 'No .env.example found'; fi"
 ssh -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105
 
 📋 Next Steps:
-  1. Copy the setup script to the instance:
-     scp -i ~/.ssh/emaus-key.pem deploy/aws/setup-aws.sh ubuntu@3.138.49.105:/home/ubuntu/
-	 scp -i ~/.ssh/emaus-key.pem deploy/aws/deploy-aws.sh ubuntu@3.138.49.105:/home/ubuntu/
 
-  2. SSH into the instance:
-     ssh -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105
+1. Copy the setup script to the instance:
+   scp -i ~/.ssh/emaus-key.pem deploy/aws/setup-aws.sh ubuntu@3.138.49.105:/home/ubuntu/
+   scp -i ~/.ssh/emaus-key.pem deploy/aws/deploy-aws.sh ubuntu@3.138.49.105:/home/ubuntu/
 
-  3. Run the setup script:
-     chmod +x setup-aws.sh && ./setup-aws.sh
+2. SSH into the instance:
+   ssh -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105
 
-  4. Set environment variables and deploy:
-     export DOMAIN_NAME=emaus.cc
-	 export RELEASE_TAG=v0.0.5
-     cd /var/www/emaus/deploy/aws && ./deploy-aws.sh
+3. Run the setup script:
+   chmod +x setup-aws.sh && ./setup-aws.sh
 
+4. Set environment variables and deploy:
+   export DOMAIN_NAME=emaus.cc
+   export RELEASE_TAG=v0.0.5
+   cd /var/www/emaus/deploy/aws && ./deploy-aws.sh
 
 ## que hacer en el proximo retiro
-hablar con mucha gente,  hacer conocer el sistema
-hacer entrevistas a los servidores de como les cambio la vida emaus.  Pedir concentimiento para poner sus datos en la pagina.
 
-
+hablar con mucha gente, hacer conocer el sistema
+hacer entrevistas a los servidores de como les cambio la vida emaus. Pedir concentimiento para poner sus datos en la pagina.

@@ -514,8 +514,8 @@ export class CommunityService {
 			startDate: nextStartDate,
 			endDate: meeting.endDate
 				? new Date(
-					nextStartDate.getTime() + (meeting.endDate.getTime() - meeting.startDate.getTime()),
-				)
+						nextStartDate.getTime() + (meeting.endDate.getTime() - meeting.startDate.getTime()),
+					)
 				: undefined,
 			durationMinutes: meeting.durationMinutes,
 			isAnnouncement: meeting.isAnnouncement,
@@ -583,7 +583,7 @@ export class CommunityService {
 			},
 			relations: ['community'],
 			order: { startDate: 'ASC' },
-			take: 20
+			take: 20,
 		});
 	}
 

@@ -112,15 +112,69 @@ describe('CommunityController - publicJoinRequest Validation', () => {
 	describe('Required field validation logic', () => {
 		test('should identify missing required fields', () => {
 			const testCases = [
-				{ firstName: '', lastName: 'Doe', email: 'test@example.com', cellPhone: '555-1234', missing: ['firstName'] },
-				{ firstName: 'John', lastName: '', email: 'test@example.com', cellPhone: '555-1234', missing: ['lastName'] },
-				{ firstName: 'John', lastName: 'Doe', email: '', cellPhone: '555-1234', missing: ['email'] },
-				{ firstName: 'John', lastName: 'Doe', email: 'test@example.com', cellPhone: '', missing: ['cellPhone'] },
-				{ firstName: '', lastName: '', email: '', cellPhone: '', missing: ['firstName', 'lastName', 'email', 'cellPhone'] },
-				{ firstName: '   ', lastName: 'Doe', email: 'test@example.com', cellPhone: '555-1234', missing: ['firstName'] },
-				{ firstName: 'John', lastName: '   ', email: 'test@example.com', cellPhone: '555-1234', missing: ['lastName'] },
-				{ firstName: 'John', lastName: 'Doe', email: '   ', cellPhone: '555-1234', missing: ['email'] },
-				{ firstName: 'John', lastName: 'Doe', email: 'test@example.com', cellPhone: '   ', missing: ['cellPhone'] },
+				{
+					firstName: '',
+					lastName: 'Doe',
+					email: 'test@example.com',
+					cellPhone: '555-1234',
+					missing: ['firstName'],
+				},
+				{
+					firstName: 'John',
+					lastName: '',
+					email: 'test@example.com',
+					cellPhone: '555-1234',
+					missing: ['lastName'],
+				},
+				{
+					firstName: 'John',
+					lastName: 'Doe',
+					email: '',
+					cellPhone: '555-1234',
+					missing: ['email'],
+				},
+				{
+					firstName: 'John',
+					lastName: 'Doe',
+					email: 'test@example.com',
+					cellPhone: '',
+					missing: ['cellPhone'],
+				},
+				{
+					firstName: '',
+					lastName: '',
+					email: '',
+					cellPhone: '',
+					missing: ['firstName', 'lastName', 'email', 'cellPhone'],
+				},
+				{
+					firstName: '   ',
+					lastName: 'Doe',
+					email: 'test@example.com',
+					cellPhone: '555-1234',
+					missing: ['firstName'],
+				},
+				{
+					firstName: 'John',
+					lastName: '   ',
+					email: 'test@example.com',
+					cellPhone: '555-1234',
+					missing: ['lastName'],
+				},
+				{
+					firstName: 'John',
+					lastName: 'Doe',
+					email: '   ',
+					cellPhone: '555-1234',
+					missing: ['email'],
+				},
+				{
+					firstName: 'John',
+					lastName: 'Doe',
+					email: 'test@example.com',
+					cellPhone: '   ',
+					missing: ['cellPhone'],
+				},
 			];
 
 			testCases.forEach((testCase) => {
@@ -156,9 +210,9 @@ describe('CommunityController - publicJoinRequest Validation', () => {
 			// Check required fields
 			const hasAllRequired = Boolean(
 				request.firstName?.trim() &&
-				request.lastName?.trim() &&
-				request.email?.trim() &&
-				request.cellPhone?.trim()
+					request.lastName?.trim() &&
+					request.email?.trim() &&
+					request.cellPhone?.trim(),
 			);
 
 			expect(hasAllRequired).toBe(true);
@@ -181,9 +235,9 @@ describe('CommunityController - publicJoinRequest Validation', () => {
 			// Check required fields
 			const hasAllRequired = Boolean(
 				request.firstName?.trim() &&
-				request.lastName?.trim() &&
-				request.email?.trim() &&
-				request.cellPhone?.trim()
+					request.lastName?.trim() &&
+					request.email?.trim() &&
+					request.cellPhone?.trim(),
 			);
 
 			expect(hasAllRequired).toBe(true);
@@ -203,9 +257,9 @@ describe('CommunityController - publicJoinRequest Validation', () => {
 			// Check required fields
 			const hasAllRequired = Boolean(
 				request.firstName?.trim() &&
-				request.lastName?.trim() &&
-				request.email?.trim() &&
-				request.cellPhone?.trim()
+					request.lastName?.trim() &&
+					request.email?.trim() &&
+					request.cellPhone?.trim(),
 			);
 
 			expect(hasAllRequired).toBe(true);
@@ -225,9 +279,9 @@ describe('CommunityController - publicJoinRequest Validation', () => {
 			// Check required fields
 			const hasAllRequired = Boolean(
 				request.firstName?.trim() &&
-				request.lastName?.trim() &&
-				request.email?.trim() &&
-				request.cellPhone?.trim()
+					request.lastName?.trim() &&
+					request.email?.trim() &&
+					request.cellPhone?.trim(),
 			);
 
 			expect(hasAllRequired).toBe(true);
@@ -250,9 +304,9 @@ describe('CommunityController - publicJoinRequest Validation', () => {
 			// Check required fields
 			const hasAllRequired = Boolean(
 				request.firstName?.trim() &&
-				request.lastName?.trim() &&
-				request.email?.trim() &&
-				request.cellPhone?.trim()
+					request.lastName?.trim() &&
+					request.email?.trim() &&
+					request.cellPhone?.trim(),
 			);
 
 			expect(hasAllRequired).toBe(true);

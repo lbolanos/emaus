@@ -108,27 +108,31 @@ watch(
 
 ● Checkbox Struggle Summary:
 
-  1. Initial attempt - Used @update:checked="(checked) => toggleFunction(id, checked)" with a function that accepts the boolean state
+1. Initial attempt - Used @update:checked="(checked) => toggleFunction(id, checked)" with a function that accepts the boolean state
+
+
     - Problem: TypeScript errors, wrong pattern for this Checkbox component
-  2. The fix - Changed to @click="toggleFunction(id)" with a simple toggle function that adds/removes from a Set
+
+2. The fix - Changed to @click="toggleFunction(id)" with a simple toggle function that adds/removes from a Set
+
+
     - This is the pattern used elsewhere in the codebase (Step3ServiceInfo.vue, ImportMembersModal.vue)
 
-  Key takeaway: The reka-ui Checkbox component in this project works with @click + simple toggle pattern, not with @update:checked + explicit boolean handling. The checkbox's visual state is controlled by the :checked prop, and clicking just needs to toggle the underlying data.
+Key takeaway: The reka-ui Checkbox component in this project works with @click + simple toggle pattern, not with @update:checked + explicit boolean handling. The checkbox's visual state is controlled by the :checked prop, and clicking just needs to toggle the underlying data.
 
+Modal Freeze Issue
 
-  Modal Freeze Issue
+Problem
 
-  Problem
+When closing the edit community dialog, the interface froze - but only for edit mode, not add new mode.
 
-  When closing the edit community dialog, the interface froze - but only for edit mode, not add new mode.
+Root Cause
 
-  Root Cause
+The issue was caused by the Google Places Autocomplete web component (gmp-place-autocomplete) creating DOM elements (.pac-container) outside the component tree. When using Radix Dialog with Teleport, these elements weren't being properly cleaned up.
 
-  The issue was caused by the Google Places Autocomplete web component (gmp-place-autocomplete) creating DOM elements (.pac-container) outside the component tree. When using Radix Dialog with Teleport, these elements weren't being properly cleaned up.
+Solution
 
-  Solution
-
-  Replace Radix Dialog with a custom div-based modal using <Teleport to="body" v-if="...">:
+Replace Radix Dialog with a custom div-based modal using <Teleport to="body" v-if="...">:
 
   <Teleport to="body" v-if="isFormModalOpen">
     <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
@@ -147,19 +151,19 @@ watch(
     </div>
   </Teleport>
 
-  Key Points
+Key Points
 
-  1. Use v-if on the Teleport - ensures complete unmounting when closed
-  2. Custom modal, not Radix Dialog - when you have third-party web components inside
-  3. Add onBeforeUnmount hook - for cleanup of external DOM elements:
+1. Use v-if on the Teleport - ensures complete unmounting when closed
+2. Custom modal, not Radix Dialog - when you have third-party web components inside
+3. Add onBeforeUnmount hook - for cleanup of external DOM elements:
 
-  onBeforeUnmount(() => {
-    document.querySelectorAll('.pac-container').forEach(el => el.remove());
-  });
+onBeforeUnmount(() => {
+document.querySelectorAll('.pac-container').forEach(el => el.remove());
+});
 
-  When to Use This Pattern
+When to Use This Pattern
 
-  - Use Radix Dialog: For simple forms without third-party web components
-  - Use Custom Modal + Teleport: When using web components that create global DOM elements (like Google Maps, autocomplete, etc.)
+- Use Radix Dialog: For simple forms without third-party web components
+- Use Custom Modal + Teleport: When using web components that create global DOM elements (like Google Maps, autocomplete, etc.)
 
-  This pattern is already used in ParticipantList.vue (bulk message dialog) and BulkEditParticipantsModal.vue.
+This pattern is already used in ParticipantList.vue (bulk message dialog) and BulkEditParticipantsModal.vue.

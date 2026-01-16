@@ -50,7 +50,9 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 	});
 
 	if (!recaptchaResult.valid) {
-		return res.status(400).json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
+		return res
+			.status(400)
+			.json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
 	}
 
 	passport.authenticate('local', async (err: Error, user: User, info: any) => {
@@ -129,7 +131,9 @@ export const requestPasswordReset = async (req: Request, res: Response, next: Ne
 	});
 
 	if (!recaptchaResult.valid) {
-		return res.status(400).json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
+		return res
+			.status(400)
+			.json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
 	}
 
 	const userRepository = AppDataSource.getRepository(User);

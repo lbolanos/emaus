@@ -70,10 +70,10 @@ export const findPublicRetreats = async (dataSource?: DataSource) => {
 	return retreatRepository.find({
 		where: {
 			isPublic: true,
-			startDate: MoreThan(new Date())
+			startDate: MoreThan(new Date()),
 		},
 		relations: ['house'],
-		order: { startDate: 'ASC' }
+		order: { startDate: 'ASC' },
 	});
 };
 

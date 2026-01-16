@@ -341,8 +341,12 @@ export const replaceRetreatVariables = (
 
 	const retreatReplacements = {
 		'retreat.parish': retreatData.parish || '',
-		'retreat.startDate': retreatData.startDate ? formatDate(retreatData.startDate, { format: 'long' }) : '',
-		'retreat.endDate': retreatData.endDate ? formatDate(retreatData.endDate, { format: 'long' }) : '',
+		'retreat.startDate': retreatData.startDate
+			? formatDate(retreatData.startDate, { format: 'long' })
+			: '',
+		'retreat.endDate': retreatData.endDate
+			? formatDate(retreatData.endDate, { format: 'long' })
+			: '',
 		'retreat.openingNotes': retreatData.openingNotes || '',
 		'retreat.closingNotes': retreatData.closingNotes || '',
 		'retreat.thingsToBringNotes': retreatData.thingsToBringNotes || '',
