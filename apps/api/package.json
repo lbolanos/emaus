@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "vite-node --require dotenv/config src/index.ts",
+    "dev": "DOTENV_CONFIG_PATH=./.env vite-node --require dotenv/config src/index.ts",
     "dev:postgres": "DB_TYPE=postgresql pnpm dev",
     "dev:sqlite": "DB_TYPE=sqlite pnpm dev",
     "build": "vite build && tsc -p tsconfig.migrations.json",

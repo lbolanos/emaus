@@ -333,9 +333,9 @@
         </router-link>
         <div class="flex gap-8 text-sm text-stone-400">
           <a href="#" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.about') }}</a>
-          <a href="#" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.privacy') }}</a>
-          <a href="#" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.terms') }}</a>
-          <a href="#" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.contactUs') }}</a>
+          <router-link to="/privacy" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.privacy') }}</router-link>
+          <router-link to="/terms" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.terms') }}</router-link>
+          <a href="mailto:leonardo.bolanos@gmail.com" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.contactUs') }}</a>
         </div>
         <div class="flex gap-4">
           <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
@@ -344,7 +344,7 @@
           <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
             <Facebook :size="20" class="text-stone-400 hover:text-stone-900 transition-colors" />
           </a>
-          <a href="mailto:info@emmaus.org" aria-label="Email">
+          <a href="mailto:leonardo.bolanos@gmail.com" aria-label="Email">
             <Mail :size="20" class="text-stone-400 hover:text-stone-900 transition-colors" />
           </a>
         </div>
@@ -388,10 +388,12 @@ import {
   Mail
 } from 'lucide-vue-next';
 import { getPublicRetreats, getPublicCommunities, getPublicCommunityMeetings, subscribeToNewsletter } from '@/services/api';
+import { formatDate as formatDateUtil } from '@repo/utils';
 import { useToast } from '@repo/ui';
 import { useAuthStore } from '@/stores/authStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useRouter } from 'vue-router';
+import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha';
 import PublicJoinRequestModal from '@/components/community/PublicJoinRequestModal.vue';
 import PublicRetreatFlyerModal from '@/components/PublicRetreatFlyerModal.vue';
 
@@ -466,10 +468,20 @@ const getMapPinPosition = (index: number) => {
   return positions[index % positions.length];
 };
 
-// Format date range for retreat cards
+// Format date range for retreat cards (using shared utility to avoid timezone issues)
 const formatDateRange = (startDate: string, endDate: string) => {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  // Parse dates properly to avoid timezone shifts
+  const parseDate = (dateStr: string) => {
+    const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      const [, year, month, day] = match.map(Number);
+      return new Date(year, month - 1, day);
+    }
+    return new Date(dateStr);
+  };
+
+  const start = parseDate(startDate);
+  const end = parseDate(endDate);
 
   const monthYear = start.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 
@@ -482,14 +494,28 @@ const formatDateRange = (startDate: string, endDate: string) => {
 
 // Format meeting date (day of week)
 const formatMeetingDate = (dateStr: string) => {
-  const date = new Date(dateStr);
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const date = match
+    ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+    : new Date(dateStr);
   return date.toLocaleDateString('en-US', { weekday: 'long' });
 };
 
 // Format meeting time
 const formatMeetingTime = (dateStr: string) => {
-  const date = new Date(dateStr);
-  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const year = Number(match[1]);
+    const month = Number(match[2]) - 1;
+    const day = Number(match[3]);
+    const timeMatch = dateStr.match(/T(\d{2}):(\d{2})/);
+    const date = new Date(year, month, day);
+    if (timeMatch) {
+      date.setHours(Number(timeMatch[1]), Number(timeMatch[2]));
+    }
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  }
+  return new Date(dateStr).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 };
 
 // Fetch data on mount
@@ -531,7 +557,10 @@ const handleSubscribe = async () => {
   subscribeMessage.value = '';
 
   try {
-    const result = await subscribeToNewsletter(emailValue);
+    // Get reCAPTCHA token for bot protection
+    const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.NEWSLETTER_SUBSCRIBE);
+
+    const result = await subscribeToNewsletter(emailValue, recaptchaToken);
 
     if (result.alreadySubscribed) {
       subscribeMessage.value = 'landing.subscribe.alreadySubscribed';

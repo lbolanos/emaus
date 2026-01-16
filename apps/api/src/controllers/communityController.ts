@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { CommunityService } from '../services/communityService';
+import { RecaptchaService } from '../services/recaptchaService';
 import {
 	createCommunitySchema,
 	updateCommunitySchema,
@@ -12,6 +13,7 @@ import {
 } from '@repo/types';
 
 const communityService = new CommunityService();
+const recaptchaService = new RecaptchaService();
 
 export class CommunityController {
 	// --- Community CRUD ---
@@ -251,7 +253,16 @@ export class CommunityController {
 
 	static async recordPublicAttendance(req: Request, res: Response) {
 		const { communityId, meetingId } = req.params;
-		const { memberId, attended } = req.body;
+		const { memberId, attended, recaptchaToken } = req.body;
+
+		// Verify reCAPTCHA token for public attendance recording
+		const recaptchaResult = await recaptchaService.verifyToken(recaptchaToken, {
+			minScore: 0.5,
+		});
+
+		if (!recaptchaResult.valid) {
+			return res.status(400).json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
+		}
 
 		try {
 			await communityService.recordSingleAttendance(communityId, meetingId, memberId, attended);
@@ -289,7 +300,17 @@ export class CommunityController {
 	}
 
 	static async acceptInvitation(req: Request, res: Response) {
-		const { token } = req.body;
+		const { token, recaptchaToken } = req.body;
+
+		// Verify reCAPTCHA token for public invitation acceptance
+		const recaptchaResult = await recaptchaService.verifyToken(recaptchaToken, {
+			minScore: 0.5,
+		});
+
+		if (!recaptchaResult.valid) {
+			return res.status(400).json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
+		}
+
 		const userId = (req.user as any).id;
 		const admin = await communityService.acceptInvitation(token, userId);
 		res.json(admin);
@@ -315,7 +336,16 @@ export class CommunityController {
 	static async publicJoinRequest(req: Request, res: Response) {
 		try {
 			const { id } = req.params;
-			const { firstName, lastName, email, cellPhone } = req.body;
+			const { firstName, lastName, email, cellPhone, recaptchaToken } = req.body;
+
+			// Verify reCAPTCHA token
+			const recaptchaResult = await recaptchaService.verifyToken(recaptchaToken, {
+				minScore: 0.5,
+			});
+
+			if (!recaptchaResult.valid) {
+				return res.status(400).json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
+			}
 
 			// Validate required fields
 			if (!firstName || !lastName || !email || !cellPhone) {

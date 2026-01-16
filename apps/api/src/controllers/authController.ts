@@ -4,6 +4,7 @@ import { AppDataSource } from '../data-source';
 import { User } from '../entities/user.entity';
 import { UserService } from '../services/userService';
 import { GlobalMessageTemplateService } from '../services/globalMessageTemplateService';
+import { RecaptchaService } from '../services/recaptchaService';
 import { config } from '../config';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
@@ -13,6 +14,7 @@ import * as bcrypt from 'bcrypt';
 const passwordResetTokens = new Map<string, { userId: string; expires: number }>();
 const userService = new UserService();
 const globalMessageTemplateService = new GlobalMessageTemplateService();
+const recaptchaService = new RecaptchaService();
 
 export const register = async (req: Request, res: Response, next: NextFunction) => {
 	const { email, password, displayName } = req.body;
@@ -40,6 +42,17 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 };
 
 export const login = async (req: Request, res: Response, next: NextFunction) => {
+	const { recaptchaToken } = req.body;
+
+	// Verify reCAPTCHA token
+	const recaptchaResult = await recaptchaService.verifyToken(recaptchaToken, {
+		minScore: 0.5,
+	});
+
+	if (!recaptchaResult.valid) {
+		return res.status(400).json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
+	}
+
 	passport.authenticate('local', async (err: Error, user: User, info: any) => {
 		if (err) {
 			console.error('Error during login:', err);
@@ -108,7 +121,17 @@ export const logout = (req: Request, res: Response, next: NextFunction) => {
 };
 
 export const requestPasswordReset = async (req: Request, res: Response, next: NextFunction) => {
-	const { email } = req.body;
+	const { email, recaptchaToken } = req.body;
+
+	// Verify reCAPTCHA token
+	const recaptchaResult = await recaptchaService.verifyToken(recaptchaToken, {
+		minScore: 0.5,
+	});
+
+	if (!recaptchaResult.valid) {
+		return res.status(400).json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
+	}
+
 	const userRepository = AppDataSource.getRepository(User);
 
 	try {

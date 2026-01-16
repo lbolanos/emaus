@@ -1540,5 +1540,117 @@
       "invitedBy": "Invitado por",
       "acceptedAt": "Aceptado el"
     }
+  },
+  "privacy": {
+    "title": "Política de Privacidad",
+    "lastUpdated": "Última actualización: {date}",
+    "backToHome": "Volver al inicio",
+    "intro": {
+      "title": "Introducción",
+      "content": "En Retiros Emaús, valoramos tu privacidad y estamos comprometidos a proteger tus datos personales. Esta política de privacidad explica cómo recolectamos, usamos y protegemos tu información cuando utilizas nuestra plataforma y servicios."
+    },
+    "information": {
+      "title": "Información que Recolectamos",
+      "content": "Recolectamos la siguiente información personal para proporcionarte nuestros servicios:",
+      "items": {
+        "personal": "Nombre, apellido, fecha de nacimiento y estado civil",
+        "contact": "Dirección, teléfono, correo electrónico y redes sociales",
+        "demographic": "Información sobre ocupación, sacramentos recibidos y parroquia"
+      }
+    },
+    "use": {
+      "title": "Uso de tu Información",
+      "content": "Utilizamos tu información personal para los siguientes propósitos:",
+      "items": {
+        "registration": "Procesar tu registro en retiros y comunidades de Emaús",
+        "communication": "Comunicarnos contigo sobre retiros, eventos y actualizaciones",
+        "improvement": "Mejorar nuestros servicios y experiencia del usuario"
+      }
+    },
+    "protection": {
+      "title": "Protección de Datos",
+      "content": "Implementamos medidas de seguridad técnicas y organizativas para proteger tus datos personales contra acceso no autorizado, alteración o destrucción. Esto incluye encriptación de datos, controles de acceso y auditorías regulares de seguridad."
+    },
+    "cookies": {
+      "title": "Cookies y Tecnologías Similares",
+      "content": "Utilizamos cookies y tecnologías similares para mejorar tu experiencia, recordar tus preferencias y analizar el tráfico de nuestro sitio. Puedes configurar tu navegador para rechazar cookies, aunque esto puede afectar algunas funcionalidades."
+    },
+    "thirdParties": {
+      "title": "Terceros",
+      "content": "Compartimos tu información con terceros solo en las siguientes circunstancias:",
+      "google": "Google: Utilizamos Google Maps y Google reCAPTCHA. Consulta la política de privacidad de Google.",
+      "recaptcha": "reCAPTCHA: Utilizamos reCAPTCHA v3 de Google para proteger nuestros formularios contra bots y abuso. El servicio analiza el comportamiento del dispositivo para verificar que eres humano."
+    },
+    "rights": {
+      "title": "Tus Derechos",
+      "content": "Tienes derecho a:",
+      "items": {
+        "access": "Solicitar acceso a tus datos personales",
+        "correction": "Solicitar la corrección de datos inexactos",
+        "deletion": "Solicitar la eliminación de tus datos personales",
+        "objection": "Oponerte al procesamiento de tus datos"
+      }
+    },
+    "contact": {
+      "title": "Contáctanos",
+      "content": "Si tienes preguntas sobre esta política de privacidad o cómo manejamos tus datos, por favor contáctanos:",
+      "email": "Correo electrónico"
+    }
+  },
+  "terms": {
+    "title": "Términos y Condiciones",
+    "lastUpdated": "Última actualización: {date}",
+    "backToHome": "Volver al inicio",
+    "intro": {
+      "title": "Introducción",
+      "content": "Bienvenido a Retiros Emaús. Estos términos y condiciones rigen el uso de nuestra plataforma y servicios. Al acceder y utilizar nuestros servicios, aceptas estos términos en su totalidad."
+    },
+    "acceptance": {
+      "title": "Aceptación de los Términos",
+      "content": "Al crear una cuenta y utilizar nuestros servicios, confirmas que has leído, entendido y aceptado estar sujeto a estos términos y condiciones, así como a nuestra política de privacidad."
+    },
+    "responsibilities": {
+      "title": "Responsabilidades del Usuario",
+      "content": "Como usuario de nuestra plataforma, te comprometes a:",
+      "items": {
+        "accurate": "Proporcionar información precisa, veraz y completa durante el registro",
+        "password": "Mantener la confidencialidad de tu contraseña y cuenta",
+        "conduct": "Abstenerse de cualquier conducta que pueda dañar la plataforma o violar las leyes aplicables",
+        "legal": "Cumplir con todas las leyes y regulaciones aplicables al usar nuestros servicios"
+      }
+    },
+    "dataAccuracy": {
+      "title": "Exactitud de los Datos",
+      "content": "Eres responsable de mantener actualizada la información de tu cuenta. La información inexacta puede resultar en la suspensión o terminación de tu cuenta."
+    },
+    "privacy": {
+      "title": "Privacidad",
+      "content": "Tu uso de nuestros servicios también está regido por nuestra Política de Privacidad, que describe cómo recolectamos, usamos y protegemos tus datos personales. Por favor revisa nuestra Política de Privacidad para comprender nuestras prácticas."
+    },
+    "liability": {
+      "title": "Limitación de Responsabilidad",
+      "content": "Retiros Emaús no será responsable por ningún daño indirecto, incidental, especial o consecuente que resulte del uso o la incapacidad de usar nuestros servicios. Esto incluye, pero no se limita, a daños por pérdida de datos, ganancias o oportunidades de negocio."
+    },
+    "termination": {
+      "title": "Terminación",
+      "content": "Nos reservamos el derecho de suspender o terminar tu cuenta en cualquier momento si violas estos términos o por cualquier otra razón a nuestra discreción. También puedes terminar tu cuenta en cualquier momento contactándonos."
+    },
+    "intellectual": {
+      "title": "Propiedad Intelectual",
+      "content": "Todo el contenido, diseño y funcionalidad de nuestra plataforma está protegido por derechos de autor y otras leyes de propiedad intelectual. No puedes reproducir, distribuir o crear trabajos derivados de nuestro contenido sin permiso previo por escrito."
+    },
+    "modifications": {
+      "title": "Modificaciones de los Términos",
+      "content": "Nos reservamos el derecho de modificar estos términos en cualquier momento. Las modificaciones entrarán en vigor tan pronto como se publiquen en la plataforma. Tu uso continuado de los servicios después de dichas modificaciones constituirá la aceptación de los nuevos términos."
+    },
+    "law": {
+      "title": "Ley Aplicable",
+      "content": "Estos términos se regirán e interpretarán de acuerdo con las leyes aplicables en la jurisdicción correspondiente. Cualquier disputa relacionada con estos términos se resolverá en los tribunales competentes."
+    },
+    "contact": {
+      "title": "Contáctanos",
+      "content": "Si tienes preguntas sobre estos términos y condiciones, por favor contáctanos:",
+      "email": "Correo electrónico"
+    }
   }
 }

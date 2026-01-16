@@ -3,6 +3,9 @@ import { InvitationService } from '../services/invitationService';
 import { AppDataSource } from '../data-source';
 import { User } from '../entities/user.entity';
 import { authorizationService } from '../middleware/authorization';
+import { RecaptchaService } from '../services/recaptchaService';
+
+const recaptchaService = new RecaptchaService();
 
 export class InvitationController {
 	private invitationService: InvitationService;
@@ -63,7 +66,18 @@ export class InvitationController {
 	async acceptInvitation(req: Request, res: Response) {
 		try {
 			const { id: userId } = req.params;
-			const { displayName, password, inviterId } = req.body;
+			const { displayName, password, inviterId, recaptchaToken } = req.body;
+
+			// Verify reCAPTCHA token
+			const recaptchaResult = await recaptchaService.verifyToken(recaptchaToken, {
+				minScore: 0.5,
+			});
+
+			if (!recaptchaResult.valid) {
+				return res.status(400).json({
+					error: recaptchaResult.error || 'reCAPTCHA verification failed',
+				});
+			}
 
 			if (!displayName || !password) {
 				return res.status(400).json({

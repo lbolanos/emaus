@@ -1483,5 +1483,117 @@
       "invitedBy": "Invited By",
       "acceptedAt": "Accepted At"
     }
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "lastUpdated": "Last updated: {date}",
+    "backToHome": "Back to Home",
+    "intro": {
+      "title": "Introduction",
+      "content": "At Emmaus Retreats, we value your privacy and are committed to protecting your personal data. This privacy policy explains how we collect, use, and protect your information when you use our platform and services."
+    },
+    "information": {
+      "title": "Information We Collect",
+      "content": "We collect the following personal information to provide you with our services:",
+      "items": {
+        "personal": "Name, last name, date of birth, and marital status",
+        "contact": "Address, phone, email, and social media",
+        "demographic": "Information about occupation, sacraments received, and parish"
+      }
+    },
+    "use": {
+      "title": "Use of Your Information",
+      "content": "We use your personal information for the following purposes:",
+      "items": {
+        "registration": "Process your registration for Emmaus retreats and communities",
+        "communication": "Communicate with you about retreats, events, and updates",
+        "improvement": "Improve our services and user experience"
+      }
+    },
+    "protection": {
+      "title": "Data Protection",
+      "content": "We implement technical and organizational security measures to protect your personal data against unauthorized access, alteration, or destruction. This includes data encryption, access controls, and regular security audits."
+    },
+    "cookies": {
+      "title": "Cookies and Similar Technologies",
+      "content": "We use cookies and similar technologies to enhance your experience, remember your preferences, and analyze site traffic. You can configure your browser to refuse cookies, though this may affect some functionalities."
+    },
+    "thirdParties": {
+      "title": "Third Parties",
+      "content": "We share your information with third parties only in the following circumstances:",
+      "google": "Google: We use Google Maps and Google reCAPTCHA. See Google's privacy policy.",
+      "recaptcha": "reCAPTCHA: We use Google's reCAPTCHA v3 to protect our forms from bots and abuse. The service analyzes device behavior to verify you are human."
+    },
+    "rights": {
+      "title": "Your Rights",
+      "content": "You have the right to:",
+      "items": {
+        "access": "Request access to your personal data",
+        "correction": "Request correction of inaccurate data",
+        "deletion": "Request deletion of your personal data",
+        "objection": "Object to processing of your data"
+      }
+    },
+    "contact": {
+      "title": "Contact Us",
+      "content": "If you have questions about this privacy policy or how we handle your data, please contact us:",
+      "email": "Email"
+    }
+  },
+  "terms": {
+    "title": "Terms and Conditions",
+    "lastUpdated": "Last updated: {date}",
+    "backToHome": "Back to Home",
+    "intro": {
+      "title": "Introduction",
+      "content": "Welcome to Emmaus Retreats. These terms and conditions govern the use of our platform and services. By accessing and using our services, you accept these terms in full."
+    },
+    "acceptance": {
+      "title": "Acceptance of Terms",
+      "content": "By creating an account and using our services, you confirm that you have read, understood, and agree to be bound by these terms and conditions, as well as our privacy policy."
+    },
+    "responsibilities": {
+      "title": "User Responsibilities",
+      "content": "As a user of our platform, you commit to:",
+      "items": {
+        "accurate": "Provide accurate, truthful, and complete information during registration",
+        "password": "Maintain the confidentiality of your password and account",
+        "conduct": "Refrain from any conduct that could harm the platform or violate applicable laws",
+        "legal": "Comply with all laws and regulations applicable when using our services"
+      }
+    },
+    "dataAccuracy": {
+      "title": "Data Accuracy",
+      "content": "You are responsible for keeping your account information up to date. Inaccurate information may result in the suspension or termination of your account."
+    },
+    "privacy": {
+      "title": "Privacy",
+      "content": "Your use of our services is also governed by our Privacy Policy, which describes how we collect, use, and protect your personal data. Please review our Privacy Policy to understand our practices."
+    },
+    "liability": {
+      "title": "Limitation of Liability",
+      "content": "Emmaus Retreats shall not be liable for any indirect, incidental, special, or consequential damages resulting from the use or inability to use our services. This includes, but is not limited to, damages for loss of data, profits, or business opportunities."
+    },
+    "termination": {
+      "title": "Termination",
+      "content": "We reserve the right to suspend or terminate your account at any time if you violate these terms or for any other reason at our discretion. You may also terminate your account at any time by contacting us."
+    },
+    "intellectual": {
+      "title": "Intellectual Property",
+      "content": "All content, design, and functionality of our platform is protected by copyright and other intellectual property laws. You may not reproduce, distribute, or create derivative works of our content without prior written permission."
+    },
+    "modifications": {
+      "title": "Modifications to Terms",
+      "content": "We reserve the right to modify these terms at any time. Modifications will be effective as soon as they are posted on the platform. Your continued use of the services after such modifications constitutes acceptance of the new terms."
+    },
+    "law": {
+      "title": "Governing Law",
+      "content": "These terms shall be governed by and construed in accordance with the laws applicable in the relevant jurisdiction. Any dispute related to these terms will be resolved in the competent courts."
+    },
+    "contact": {
+      "title": "Contact Us",
+      "content": "If you have questions about these terms and conditions, please contact us:",
+      "email": "Email"
+    }
   }
 }

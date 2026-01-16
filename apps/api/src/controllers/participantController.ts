@@ -1,5 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import * as participantService from '../services/participantService';
+import { RecaptchaService } from '../services/recaptchaService';
+
+const recaptchaService = new RecaptchaService();
 
 export const getAllParticipants = async (req: Request, res: Response, next: NextFunction) => {
 	try {
@@ -48,7 +51,18 @@ export const getParticipantById = async (req: Request, res: Response, next: Next
 
 export const createParticipant = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const newParticipant = await participantService.createParticipant(req.body);
+		const { recaptchaToken, ...participantData } = req.body;
+
+		// Verify reCAPTCHA token for public registration
+		const recaptchaResult = await recaptchaService.verifyToken(recaptchaToken, {
+			minScore: 0.5,
+		});
+
+		if (!recaptchaResult.valid) {
+			return res.status(400).json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
+		}
+
+		const newParticipant = await participantService.createParticipant(participantData);
 		res.status(201).json(newParticipant);
 	} catch (error) {
 		if (error instanceof Error) {

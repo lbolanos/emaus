@@ -322,6 +322,8 @@ al cerrar el dialogo de editar comunidad la interfaz deja de funcionar (frezee w
 standarize the breadcrumb in community apps/web/src/views/CommunityListView.vue
 in the login put the logo with a link to landingpage
 when login it redirects to landing ...  make dashboard the first page when logged
+cambio de password requiere oontraseña actual. para los usuarios que se registraron por google solo configurar el password.
+Política de Privacidad y terminos y un reCAPTCHA al formulario
 
 ## IN PROGRESS
 Error al copiar la imagen del flyer de la reunión.
@@ -382,12 +384,10 @@ los usuarios que quieran crear testimonios tienen que tener una comunidad asocia
 
 
 ## landing
-Política de Privacidad y un reCAPTCHA al formulario
 stories
 
 una forma de agregar retiros desde mucho antes y que la gente se pueda inscribir sin necesidad de que tenga toda la informacion de la casa de retiro.
 Colocar la fecha de la proxima reunion en Horarios de reuniones. Cuando haga clic en el lugar lance google maps
-Corregir la fecha del retiro.
 Global Presence en español.
 en la seccion the path Agregar la lectura del dia en audio y en texto.  un boton solo visible para el superadmin con el que se suben.  
 tambien aregar en la seccion de path otro audio y otro texto.
@@ -575,6 +575,8 @@ ssh -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105
      cd /var/www/emaus/deploy/aws && ./deploy-aws.sh
 
 
-
+## que hacer en el proximo retiro
+hablar con mucha gente,  hacer conocer el sistema
+hacer entrevistas a los servidores de como les cambio la vida emaus.  Pedir concentimiento para poner sus datos en la pagina.
 
 

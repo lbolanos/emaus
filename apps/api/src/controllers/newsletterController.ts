@@ -1,12 +1,23 @@
 import { Request, Response, NextFunction } from 'express';
 import { NewsletterService } from '../services/newsletterService';
+import { RecaptchaService } from '../services/recaptchaService';
 
 const newsletterService = new NewsletterService();
+const recaptchaService = new RecaptchaService();
 
 export class NewsletterController {
 	static async subscribe(req: Request, res: Response, next: NextFunction) {
 		try {
-			const { email, firstName, lastName } = req.body;
+			const { email, firstName, lastName, recaptchaToken } = req.body;
+
+			// Verify reCAPTCHA token
+			const recaptchaResult = await recaptchaService.verifyToken(recaptchaToken, {
+				minScore: 0.5,
+			});
+
+			if (!recaptchaResult.valid) {
+				return res.status(400).json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
+			}
 
 			// Basic email validation
 			const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

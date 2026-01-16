@@ -222,6 +222,7 @@
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/services/api';
+import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha';
 import { formatDate } from '@repo/utils';
 
 const route = useRoute();
@@ -284,9 +285,13 @@ const acceptInvitation = async () => {
 
     isSubmitting.value = true;
 
+    // Get reCAPTCHA token for bot protection
+    const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.INVITATION_ACCEPT);
+
     const response = await api.post(`/invitations/${invitationData.value.user.id}/accept`, {
       displayName: formData.value.displayName,
       password: formData.value.password,
+      recaptchaToken,
     });
 
     if (response.data.success) {

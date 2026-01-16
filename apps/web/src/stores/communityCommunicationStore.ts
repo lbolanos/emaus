@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { api } from '@/services/api';
+import { formatDate as formatDateTime } from '@repo/utils';
 
 export interface CommunityCommunication {
 	id: string;
@@ -202,16 +203,9 @@ export const useCommunityCommunicationStore = defineStore('community-communicati
 		return stripped.length > maxLength ? stripped.substring(0, maxLength) + '...' : stripped;
 	};
 
-	// Format date for display
+	// Format date for display (using shared utility)
 	const formatDate = (dateString: string) => {
-		const date = new Date(dateString);
-		return date.toLocaleDateString(undefined, {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit',
-		});
+		return formatDateTime(dateString, { format: 'datetime', locale: undefined });
 	};
 
 	// Get message type label

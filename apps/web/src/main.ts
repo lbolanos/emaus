@@ -6,6 +6,7 @@ import router from './router';
 import i18n from './i18n';
 import { useAuthStore } from './stores/authStore';
 import { initializeCsrfProtection } from './utils/csrf';
+import { installRecaptcha } from './services/recaptcha';
 
 import './assets/main.css';
 
@@ -15,6 +16,9 @@ const pinia = createPinia();
 app.use(pinia);
 app.use(router);
 app.use(i18n);
+
+// Install reCAPTCHA for bot protection on public forms
+installRecaptcha(app);
 
 const authStore = useAuthStore();
 

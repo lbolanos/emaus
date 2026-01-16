@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { participantSchema, Participant } from '@repo/types'
 import { useParticipantStore } from '@/stores/participantStore'
 import { getApiUrl } from '@/config/runtimeConfig'
+import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui'
 import { Button } from '@repo/ui'
@@ -319,7 +320,10 @@ const onSubmit = async () => {
   }
 
   try {
-    await participantStore.createParticipant(result.data)
+    // Get reCAPTCHA token for bot protection
+    const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.PARTICIPANT_REGISTER)
+
+    await participantStore.createParticipant(result.data, recaptchaToken)
     toast({ title: 'Registration Successful' })
     isDialogOpen.value = false
     currentStep.value = 1

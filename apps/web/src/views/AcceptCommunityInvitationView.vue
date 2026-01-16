@@ -289,6 +289,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { getCommunityInvitationStatus, acceptCommunityInvitation } from '@/services/api';
+import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha';
 import { formatDate } from '@repo/utils';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -362,7 +363,10 @@ const acceptInvitation = async () => {
     formError.value = '';
     isSubmitting.value = true;
 
-    await acceptCommunityInvitation(token);
+    // Get reCAPTCHA token for bot protection
+    const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.COMMUNITY_INVITATION_ACCEPT);
+
+    await acceptCommunityInvitation(token, recaptchaToken);
 
     accepted.value = true;
 

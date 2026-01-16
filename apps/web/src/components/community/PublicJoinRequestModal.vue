@@ -3,6 +3,7 @@ import { ref, watch, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '@repo/ui';
 import { publicCommunityJoinRequest } from '@/services/api';
+import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha';
 import {
 	Dialog,
 	DialogContent,
@@ -100,11 +101,15 @@ const handleSubmit = async () => {
 
 	isSubmitting.value = true;
 	try {
+		// Get reCAPTCHA token for bot protection
+		const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.COMMUNITY_JOIN);
+
 		await publicCommunityJoinRequest(props.communityId, {
 			firstName: formData.value.firstName.trim(),
 			lastName: formData.value.lastName.trim(),
 			email: formData.value.email.trim().toLowerCase(),
 			cellPhone: formData.value.cellPhone.trim(),
+			recaptchaToken,
 		});
 
 		toast({

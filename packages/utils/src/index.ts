@@ -93,21 +93,66 @@ export interface RetreatData {
 }
 
 /**
+ * Format date options interface
+ */
+export interface FormatDateOptions {
+	locale?: string;
+	format?: 'short' | 'long' | 'full' | 'datetime';
+}
+
+/**
  * Format date avoiding timezone shifts caused by UTC to local conversion
  * Handles ISO datetime strings (e.g., 2025-12-26T00:00:00.000Z) and YYYY-MM-DD formats
+ *
+ * @param date - Date to format (Date object or ISO string)
+ * @param options - Formatting options
+ * @returns Formatted date string
  */
-export function formatDate(date: Date | string): string {
-	// Handle ISO datetime strings (e.g., 2025-12-26T00:00:00.000Z) or YYYY-MM-DD
+export function formatDate(date: Date | string, options: FormatDateOptions = {}): string {
+	const { locale = 'es-ES', format = 'short' } = options;
+
+	// Extract date parts to avoid timezone shift
+	let dateObj: Date;
 	if (typeof date === 'string') {
 		const match = date.match(/^(\d{4}-\d{2}-\d{2})/);
 		if (match) {
 			const [year, month, day] = match[1].split('-').map(Number);
-			return new Date(year, month - 1, day).toLocaleDateString();
+			dateObj = new Date(year, month - 1, day);
+		} else {
+			const d = new Date(date);
+			dateObj = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 		}
+	} else {
+		dateObj = date;
 	}
-	// For Date objects - use UTC components to avoid timezone shift
-	const d = typeof date === 'string' ? new Date(date) : date;
-	return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()).toLocaleDateString();
+
+	// Format based on format type
+	switch (format) {
+		case 'long':
+			return dateObj.toLocaleDateString(locale, {
+				year: 'numeric',
+				month: 'long',
+				day: 'numeric',
+			});
+		case 'full':
+			return dateObj.toLocaleDateString(locale, {
+				weekday: 'long',
+				year: 'numeric',
+				month: 'long',
+				day: 'numeric',
+			});
+		case 'datetime':
+			return dateObj.toLocaleDateString(locale, {
+				day: '2-digit',
+				month: '2-digit',
+				year: 'numeric',
+				hour: '2-digit',
+				minute: '2-digit',
+			});
+		case 'short':
+		default:
+			return dateObj.toLocaleDateString(locale);
+	}
 }
 
 /**
@@ -296,20 +341,8 @@ export const replaceRetreatVariables = (
 
 	const retreatReplacements = {
 		'retreat.parish': retreatData.parish || '',
-		'retreat.startDate': retreatData.startDate
-			? new Date(retreatData.startDate).toLocaleDateString('es-ES', {
-					year: 'numeric',
-					month: 'long',
-					day: 'numeric',
-				})
-			: '',
-		'retreat.endDate': retreatData.endDate
-			? new Date(retreatData.endDate).toLocaleDateString('es-ES', {
-					year: 'numeric',
-					month: 'long',
-					day: 'numeric',
-				})
-			: '',
+		'retreat.startDate': retreatData.startDate ? formatDate(retreatData.startDate, { format: 'long' }) : '',
+		'retreat.endDate': retreatData.endDate ? formatDate(retreatData.endDate, { format: 'long' }) : '',
 		'retreat.openingNotes': retreatData.openingNotes || '',
 		'retreat.closingNotes': retreatData.closingNotes || '',
 		'retreat.thingsToBringNotes': retreatData.thingsToBringNotes || '',

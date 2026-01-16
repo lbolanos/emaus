@@ -61,10 +61,10 @@ export const useParticipantStore = defineStore('participant', () => {
 		}
 	}
 
-	async function createParticipant(data: CreateParticipant) {
+	async function createParticipant(data: CreateParticipant, recaptchaToken?: string) {
 		try {
 			loading.value = true;
-			const response = await api.post('/participants/new', data);
+			const response = await api.post('/participants/new', { ...data, recaptchaToken });
 			participants.value.push(response.data);
 			toast({
 				title: 'Success',

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { api } from '@/services/api';
+import { formatDate as formatDateTime } from '@repo/utils';
 
 export interface ParticipantCommunication {
 	id: string;
@@ -217,30 +218,9 @@ export const useParticipantCommunicationStore = defineStore('participant-communi
 		return plainText.length > maxLength ? plainText.substring(0, maxLength) + '...' : plainText;
 	};
 
-	// Format date for display
+	// Format date for display (using shared utility)
 	const formatDate = (dateString: string): string => {
-		// Extract date parts to avoid timezone shift
-		let date: Date;
-		const match = dateString.match(/^(\d{4}-\d{2}-\d{2})/);
-		if (match) {
-			const [year, month, day] = match[1].split('-').map(Number);
-			date = new Date(year, month - 1, day);
-		} else {
-			const d = new Date(dateString);
-			date = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-		}
-		// Parse time from original string
-		const timeMatch = dateString.match(/T(\d{2}):(\d{2})/);
-		if (timeMatch) {
-			date.setHours(parseInt(timeMatch[1]), parseInt(timeMatch[2]));
-		}
-		return date.toLocaleDateString('es-ES', {
-			day: '2-digit',
-			month: '2-digit',
-			year: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit',
-		});
+		return formatDateTime(dateString, { format: 'datetime' });
 	};
 
 	// Get message type label

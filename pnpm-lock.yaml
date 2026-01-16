@@ -322,6 +322,9 @@ importers:
       vue-i18n:
         specifier: ^9.13.1
         version: 9.14.5(vue@3.5.22)
+      vue-recaptcha-v3:
+        specifier: ^2.0.1
+        version: 2.0.1(vue@3.5.22)
       vue-router:
         specifier: ^4.3.0
         version: 4.6.3(vue@3.5.22)
@@ -9699,6 +9702,10 @@ packages:
       picomatch: 2.3.1
     dev: true
 
+  /recaptcha-v3@1.11.3:
+    resolution: {integrity: sha512-sEE6J0RzUkS+sKEBpgCD/AqCU0ffrAVOADGjvAx9vcttN+VLK42SWMkj/J/I6vHu3Kew+xcfbBqDVb65N0QGDw==}
+    dev: false
+
   /reflect-metadata@0.2.2:
     resolution: {integrity: sha512-urBwgfrvVP/eAyXx4hluJivBKzuEbSQs9rKWCrCkbSxNv8mxPcUZKeuoF3Uy4mJl3Lwprp6yy5/39VWigZ4K6Q==}
     dev: false
@@ -11260,6 +11267,15 @@ packages:
       '@intlify/core-base': 9.14.5
       '@intlify/shared': 9.14.5
       '@vue/devtools-api': 6.6.4
+      vue: 3.5.22(typescript@5.9.3)
+    dev: false
+
+  /vue-recaptcha-v3@2.0.1(vue@3.5.22):
+    resolution: {integrity: sha512-isEDtOfHU4wWRrZZuxciAELtQmPOeEEdicPNa0f1AOyLPy3sCcBEcpFt+FOcO3RQv5unJ3Yn5NlsWtXv9rXqjg==}
+    peerDependencies:
+      vue: ^3.0.11
+    dependencies:
+      recaptcha-v3: 1.11.3
       vue: 3.5.22(typescript@5.9.3)
     dev: false
 

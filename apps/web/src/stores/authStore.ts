@@ -30,10 +30,10 @@ export const useAuthStore = defineStore('auth', () => {
 	const router = useRouter();
 	const { toast } = useToast();
 
-	async function login(email: string, password: string): Promise<void> {
+	async function login(email: string, password: string, recaptchaToken?: string): Promise<void> {
 		try {
 			loading.value = true;
-			const response = await api.post('/auth/login', { email, password });
+			const response = await api.post('/auth/login', { email, password, recaptchaToken });
 			user.value = response.data;
 			userProfile.value = response.data.profile;
 			isAuthenticated.value = true;
@@ -126,10 +126,10 @@ export const useAuthStore = defineStore('auth', () => {
 		}
 	}
 
-	async function requestPasswordReset(input: RequestPasswordResetInput) {
+	async function requestPasswordReset(input: RequestPasswordResetInput, recaptchaToken?: string) {
 		try {
 			loading.value = true;
-			await api.post('/auth/password/request', input);
+			await api.post('/auth/password/request', { ...input, recaptchaToken });
 			toast({
 				title: 'Success',
 				description: 'If an account with that email exists, a password reset link has been sent.',

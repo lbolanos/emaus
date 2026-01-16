@@ -2,6 +2,7 @@ import { AppDataSource } from '../data-source';
 import { RetreatBed } from '../entities/retreatBed.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { Participant } from '../entities/participant.entity';
+import { formatDate as formatDateUtil } from '@repo/utils';
 
 export const exportBadgesToDocx = async (retreatId: string) => {
 	const {
@@ -41,26 +42,10 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 		.addOrderBy('participant.lastName', 'ASC')
 		.getMany();
 
-	// Format retreat dates
-	const formatDate = (date: Date | string) => {
+	// Format retreat dates using shared utility
+	const formatDate = (date: Date | string): string => {
 		if (!date) return 'Fecha no disponible';
-
-		let dateObj: Date;
-		if (typeof date === 'string') {
-			dateObj = new Date(date);
-		} else {
-			dateObj = date;
-		}
-
-		if (isNaN(dateObj.getTime())) {
-			return 'Fecha inválida';
-		}
-
-		return dateObj.toLocaleDateString('es-ES', {
-			day: '2-digit',
-			month: 'long',
-			year: 'numeric',
-		});
+		return formatDateUtil(date, { format: 'long' });
 	};
 
 	const retreatDates = `${formatDate(retreat.startDate)} - ${formatDate(retreat.endDate)}`;

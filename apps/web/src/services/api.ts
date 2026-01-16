@@ -878,7 +878,7 @@ export async function getPublicCommunityMeetings(): Promise<CommunityMeeting[]> 
 // Public join request (no auth required, uses fetch directly)
 export async function publicCommunityJoinRequest(
 	communityId: string,
-	data: { firstName: string; lastName: string; email: string; cellPhone?: string },
+	data: { firstName: string; lastName: string; email: string; cellPhone?: string; recaptchaToken?: string },
 ): Promise<CommunityMember> {
 	const response = await fetch(`/api/communities/${communityId}/join-public`, {
 		method: 'POST',
@@ -921,8 +921,8 @@ export async function getCommunityInvitationStatus(token: string): Promise<any> 
 	return response.data;
 }
 
-export async function acceptCommunityInvitation(token: string): Promise<CommunityAdmin> {
-	const response = await api.post('/communities/invitations/accept', { token });
+export async function acceptCommunityInvitation(token: string, recaptchaToken?: string): Promise<CommunityAdmin> {
+	const response = await api.post('/communities/invitations/accept', { token, recaptchaToken });
 	return response.data;
 }
 
@@ -979,14 +979,14 @@ export async function deleteCommunityMessageTemplate(
 }
 
 // Newsletter API functions
-export async function subscribeToNewsletter(email: string): Promise<{
+export async function subscribeToNewsletter(email: string, recaptchaToken?: string): Promise<{
 	id: string;
 	email: string;
 	isActive: boolean;
 	subscribedAt: string;
 	alreadySubscribed?: boolean;
 }> {
-	const response = await api.post('/newsletter/subscribe', { email });
+	const response = await api.post('/newsletter/subscribe', { email, recaptchaToken });
 	return response.data;
 }
 

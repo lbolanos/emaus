@@ -92,6 +92,18 @@ const router = createRouter({
 			meta: { requiresAuth: false },
 		},
 		{
+			path: '/privacy',
+			name: 'privacy',
+			component: () => import('../views/PrivacyPolicyView.vue'),
+			meta: { requiresAuth: false },
+		},
+		{
+			path: '/terms',
+			name: 'terms',
+			component: () => import('../views/TermsView.vue'),
+			meta: { requiresAuth: false },
+		},
+		{
 			path: '/app',
 			component: AppLayout,
 			meta: { requiresAuth: true },

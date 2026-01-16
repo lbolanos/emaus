@@ -7,6 +7,7 @@ import { getRepositories } from '../utils/repositoryHelpers';
 import { v4 as uuidv4 } from 'uuid';
 import { In } from 'typeorm';
 import { tableMesaSchema } from '@repo/types';
+import { formatDate as formatDateUtil } from '@repo/utils';
 
 const MAX_WALKERS_PER_TABLE = 7;
 
@@ -385,27 +386,10 @@ export const exportTablesToDocx = async (retreatId: string, dataSource?: DataSou
 	const retreat = await repos.retreat.findOneBy({ id: retreatId });
 	if (!retreat) throw new Error('Retreat not found');
 
-	// Format retreat dates - handle both Date objects and strings
-	const formatDate = (date: Date | string) => {
+	// Format retreat dates using shared utility
+	const formatDate = (date: Date | string): string => {
 		if (!date) return 'Fecha no disponible';
-
-		let dateObj: Date;
-		if (typeof date === 'string') {
-			dateObj = new Date(date);
-		} else {
-			dateObj = date;
-		}
-
-		// Check if date is valid
-		if (isNaN(dateObj.getTime())) {
-			return 'Fecha inválida';
-		}
-
-		return dateObj.toLocaleDateString('es-ES', {
-			day: '2-digit',
-			month: '2-digit',
-			year: 'numeric',
-		});
+		return formatDateUtil(date);
 	};
 
 	const retreatDates = `${formatDate(retreat.startDate)} - ${formatDate(retreat.endDate)}`;

@@ -89,6 +89,7 @@ import { useI18n } from 'vue-i18n';
 import { Search, Check, Users, AlertCircle, Loader2 } from 'lucide-vue-next';
 import { Input } from '@repo/ui';
 import { getApiUrl } from '@/config/runtimeConfig';
+import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha';
 
 const { t: $t } = useI18n();
 const route = useRoute();
@@ -124,10 +125,13 @@ const toggleAttendance = async (member: any) => {
   const newStatus = !member.attended;
 
   try {
+    // Get reCAPTCHA token for bot protection
+    const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.PUBLIC_ATTENDANCE_TOGGLE);
+
     const response = await fetch(attendanceUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ memberId: member.id, attended: newStatus }),
+      body: JSON.stringify({ memberId: member.id, attended: newStatus, recaptchaToken }),
     });
 
     if (!response.ok) {

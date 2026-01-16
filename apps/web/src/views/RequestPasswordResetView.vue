@@ -40,6 +40,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { api } from '@/services/api';
+import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha';
 import { Button } from '@repo/ui';
 import {
   Card,
@@ -59,7 +60,10 @@ const handleRequest = async () => {
   error.value = null;
   message.value = null;
   try {
-    const response = await api.post('/auth/password/request', { email: email.value });
+    // Get reCAPTCHA token for bot protection
+    const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.PASSWORD_RESET_REQUEST);
+
+    const response = await api.post('/auth/password/request', { email: email.value, recaptchaToken });
     message.value = response.data.message;
   } catch (err: any) {
     error.value = err.response?.data?.message || 'An error occurred.';

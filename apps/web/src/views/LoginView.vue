@@ -74,6 +74,7 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 import { useRetreatStore } from '@/stores/retreatStore';
+import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha';
 import { Button } from '@repo/ui';
 import {
   Card,
@@ -99,7 +100,10 @@ const router = useRouter();
 const handleLogin = async () => {
   error.value = null;
   try {
-    await authStore.login(email.value, password.value);
+    // Get reCAPTCHA token for bot protection
+    const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.LOGIN);
+
+    await authStore.login(email.value, password.value, recaptchaToken);
     await retreatStore.fetchRetreats();
     if (retreatStore.mostRecentRetreat) {
       router.push({ name: 'retreat-dashboard', params: { id: retreatStore.mostRecentRetreat.id } });
