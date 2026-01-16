@@ -619,7 +619,9 @@ export class CommunityService {
 				participant: {
 					firstName: member.participant.firstName,
 					lastName: member.participant.lastName,
-					email: member.participant.email,
+					cellPhone: member.participant.cellPhone,
+					homePhone: member.participant.homePhone,
+					workPhone: member.participant.workPhone,
 				},
 				attended: attendance.find((a) => a.memberId === member.id)?.attended || false,
 			})),

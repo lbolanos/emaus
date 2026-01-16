@@ -7,8 +7,13 @@
 
 import type { App } from 'vue';
 
-// Get the site key directly from Vite's environment variables
-const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+/**
+ * Get the reCAPTCHA site key from environment variables
+ * Wrapped in a function to allow testing
+ */
+function getRecaptchaSiteKey(): string {
+	return import.meta.env.VITE_RECAPTCHA_SITE_KEY || '';
+}
 
 // Track if script is loaded
 let scriptLoaded = false;
@@ -36,7 +41,7 @@ function loadRecaptchaScript(): Promise<void> {
 
 		// Create script element
 		const script = document.createElement('script');
-		script.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`;
+		script.src = `https://www.google.com/recaptcha/api.js?render=${getRecaptchaSiteKey()}`;
 		script.async = true;
 		script.defer = true;
 
@@ -63,7 +68,7 @@ function loadRecaptchaScript(): Promise<void> {
  */
 export function isRecaptchaConfigured(): boolean {
 	const configured =
-		!!RECAPTCHA_SITE_KEY && RECAPTCHA_SITE_KEY !== 'YOUR_RECAPTCHA_V3_SITE_KEY_HERE';
+		!!getRecaptchaSiteKey() && getRecaptchaSiteKey() !== 'YOUR_RECAPTCHA_V3_SITE_KEY_HERE';
 	return configured;
 }
 
@@ -103,7 +108,7 @@ export async function getRecaptchaToken(action: string): Promise<string> {
 		}
 
 		// Execute reCAPTCHA
-		const token = await grecaptcha.execute(RECAPTCHA_SITE_KEY, { action });
+		const token = await grecaptcha.execute(getRecaptchaSiteKey(), { action });
 
 		if (!token) {
 			return '';

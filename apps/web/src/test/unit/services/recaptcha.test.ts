@@ -11,17 +11,6 @@ import {
 } from '@/services/recaptcha';
 import type { App } from 'vue';
 
-// Mock import.meta.env
-const mockEnv = {
-	VITE_RECAPTCHA_SITE_KEY: '',
-};
-
-vi.mock('@/services/recaptcha', async (importOriginal) => {
-	const actual = await importOriginal<typeof import('@/services/recaptcha')>();
-	// We'll handle the environment variable mocking in beforeEach
-	return actual;
-});
-
 // Mock window.grecaptcha
 const mockGrecaptcha = {
 	ready: vi.fn((callback: () => void) => callback()),
@@ -44,8 +33,9 @@ describe('recaptcha service', () => {
 	beforeEach(() => {
 		// Reset mocks
 		vi.clearAllMocks();
+		vi.unstubAllEnvs();
 
-		// Reset module state by reimporting
+		// Reset module state by clearing caches
 		vi.resetModules();
 
 		// Mock DOM APIs
@@ -60,29 +50,20 @@ describe('recaptcha service', () => {
 	afterEach(() => {
 		// Clean up
 		delete (window as any).grecaptcha;
+		vi.unstubAllEnvs();
 	});
 
 	describe('isRecaptchaConfigured', () => {
 		it('should return true when VITE_RECAPTCHA_SITE_KEY is set and not placeholder', async () => {
-			// Set a real site key
-			vi.stubGlobal('import.meta', {
-				env: {
-					VITE_RECAPTCHA_SITE_KEY: 'real-site-key-abc123',
-				},
-			});
+			vi.stubEnv('VITE_RECAPTCHA_SITE_KEY', 'real-site-key-abc123');
 
-			// Reimport the module to get fresh values
 			const { isRecaptchaConfigured: checkConfigured } = await import('@/services/recaptcha');
 
 			expect(checkConfigured()).toBe(true);
 		});
 
 		it('should return false when VITE_RECAPTCHA_SITE_KEY is placeholder', async () => {
-			vi.stubGlobal('import.meta', {
-				env: {
-					VITE_RECAPTCHA_SITE_KEY: 'YOUR_RECAPTCHA_V3_SITE_KEY_HERE',
-				},
-			});
+			vi.stubEnv('VITE_RECAPTCHA_SITE_KEY', 'YOUR_RECAPTCHA_V3_SITE_KEY_HERE');
 
 			const { isRecaptchaConfigured: checkConfigured } = await import('@/services/recaptcha');
 
@@ -90,11 +71,7 @@ describe('recaptcha service', () => {
 		});
 
 		it('should return false when VITE_RECAPTCHA_SITE_KEY is empty', async () => {
-			vi.stubGlobal('import.meta', {
-				env: {
-					VITE_RECAPTCHA_SITE_KEY: '',
-				},
-			});
+			vi.stubEnv('VITE_RECAPTCHA_SITE_KEY', '');
 
 			const { isRecaptchaConfigured: checkConfigured } = await import('@/services/recaptcha');
 
@@ -104,11 +81,7 @@ describe('recaptcha service', () => {
 
 	describe('installRecaptcha', () => {
 		it('should preload script when configured', async () => {
-			vi.stubGlobal('import.meta', {
-				env: {
-					VITE_RECAPTCHA_SITE_KEY: 'real-site-key-abc123',
-				},
-			});
+			vi.stubEnv('VITE_RECAPTCHA_SITE_KEY', 'real-site-key-abc123');
 
 			const { installRecaptcha: install } = await import('@/services/recaptcha');
 
@@ -123,11 +96,7 @@ describe('recaptcha service', () => {
 		});
 
 		it('should not throw when not configured', async () => {
-			vi.stubGlobal('import.meta', {
-				env: {
-					VITE_RECAPTCHA_SITE_KEY: '',
-				},
-			});
+			vi.stubEnv('VITE_RECAPTCHA_SITE_KEY', '');
 
 			const { installRecaptcha: install } = await import('@/services/recaptcha');
 
@@ -142,21 +111,11 @@ describe('recaptcha service', () => {
 
 	describe('getRecaptchaToken', () => {
 		beforeEach(() => {
-			// Setup a valid site key
-			vi.stubGlobal('import.meta', {
-				env: {
-					VITE_RECAPTCHA_SITE_KEY: 'real-site-key-abc123',
-				},
-			});
+			vi.stubEnv('VITE_RECAPTCHA_SITE_KEY', 'real-site-key-abc123');
 		});
 
 		it('should return empty string when not configured', async () => {
-			// Set empty site key
-			vi.stubGlobal('import.meta', {
-				env: {
-					VITE_RECAPTCHA_SITE_KEY: '',
-				},
-			});
+			vi.stubEnv('VITE_RECAPTCHA_SITE_KEY', '');
 
 			const { getRecaptchaToken: getToken } = await import('@/services/recaptcha');
 
@@ -258,6 +217,8 @@ describe('recaptcha service', () => {
 				(window as any).grecaptcha = mockGrecaptcha;
 				mockGrecaptcha.execute.mockResolvedValue('ready-token');
 				callback?.();
+				// Trigger the ready callback to simulate grecaptcha being ready
+				readyCallback?.();
 			});
 
 			const tokenPromise = getToken('test_action');
@@ -285,11 +246,7 @@ describe('recaptcha service', () => {
 
 	describe('RECAPTCHA_ACTIONS', () => {
 		beforeEach(() => {
-			vi.stubGlobal('import.meta', {
-				env: {
-					VITE_RECAPTCHA_SITE_KEY: 'real-site-key-abc123',
-				},
-			});
+			vi.stubEnv('VITE_RECAPTCHA_SITE_KEY', 'real-site-key-abc123');
 		});
 
 		it('should have all required action constants', async () => {
@@ -325,11 +282,7 @@ describe('recaptcha service', () => {
 
 	describe('integration scenarios', () => {
 		beforeEach(() => {
-			vi.stubGlobal('import.meta', {
-				env: {
-					VITE_RECAPTCHA_SITE_KEY: 'integration-test-key',
-				},
-			});
+			vi.stubEnv('VITE_RECAPTCHA_SITE_KEY', 'integration-test-key');
 		});
 
 		it('should complete full flow for newsletter subscription', async () => {

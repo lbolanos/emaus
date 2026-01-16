@@ -87,6 +87,25 @@ vi.mock('@repo/ui', () => ({
 	useToast: () => ({ toast: vi.fn() }),
 }));
 
+// Mock reCAPTCHA service
+vi.mock('@/services/recaptcha', () => ({
+	getRecaptchaToken: vi.fn(() => Promise.resolve('mock-recaptcha-token')),
+	RECAPTCHA_ACTIONS: {
+		LOGIN: 'login',
+		NEWSLETTER_SUBSCRIBE: 'newsletter_subscribe',
+		COMMUNITY_JOIN: 'community_join',
+		PUBLIC_CONTACT: 'public_contact',
+		PASSWORD_RESET_REQUEST: 'password_reset_request',
+		PASSWORD_RESET: 'password_reset',
+		PARTICIPANT_REGISTER: 'participant_register',
+		INVITATION_ACCEPT: 'invitation_accept',
+		COMMUNITY_INVITATION_ACCEPT: 'community_invitation_accept',
+		PUBLIC_ATTENDANCE_TOGGLE: 'public_attendance_toggle',
+	},
+	isRecaptchaConfigured: vi.fn(() => true),
+	installRecaptcha: vi.fn(),
+}));
+
 describe('LoginView', () => {
 	let wrapper: VueWrapper<any>;
 	let pinia: any;
@@ -229,6 +248,7 @@ describe('LoginView', () => {
 			expect(api.post).toHaveBeenCalledWith('/auth/login', {
 				email: 'test@example.com',
 				password: 'password',
+				recaptchaToken: 'mock-recaptcha-token',
 			});
 
 			// Wait for async operations

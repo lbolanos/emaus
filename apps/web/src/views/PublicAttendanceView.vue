@@ -56,8 +56,8 @@
             <div class="font-medium truncate">
               {{ member.participant.firstName }} {{ member.participant.lastName }}
             </div>
-            <div class="text-sm text-muted-foreground truncate" v-if="member.participant.email">
-              {{ member.participant.email }}
+            <div class="text-sm text-muted-foreground" v-if="hasPhone(member.participant)">
+              {{ formatPhones(member.participant) }}
             </div>
           </div>
           <button
@@ -112,11 +112,28 @@ const filteredMembers = computed(() => {
   const query = searchQuery.value.toLowerCase();
   return members.value.filter((m) => {
     const name = `${m.participant.firstName} ${m.participant.lastName}`.toLowerCase();
-    return name.includes(query) || m.participant.email?.toLowerCase().includes(query);
+    const phones = [
+      m.participant.cellPhone,
+      m.participant.homePhone,
+      m.participant.workPhone
+    ].filter(Boolean).join(' ').toLowerCase();
+    return name.includes(query) || phones.includes(query);
   });
 });
 
 const presentCount = computed(() => members.value.filter((m) => m.attended).length);
+
+const hasPhone = (participant: any): boolean => {
+  return !!(participant.cellPhone || participant.homePhone || participant.workPhone);
+};
+
+const formatPhones = (participant: any): string => {
+  const phones: string[] = [];
+  if (participant.cellPhone) phones.push(participant.cellPhone);
+  if (participant.homePhone) phones.push(participant.homePhone);
+  if (participant.workPhone) phones.push(participant.workPhone);
+  return phones.join(' / ');
+};
 
 const toggleAttendance = async (member: any) => {
   if (savingStates.value[member.id]) return;
