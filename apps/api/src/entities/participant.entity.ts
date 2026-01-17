@@ -16,6 +16,7 @@ import { Payment } from './payment.entity';
 import { RetreatBed } from './retreatBed.entity';
 import { ParticipantTag } from './participantTag.entity';
 import { DateTransformer } from '../utils/date.transformer';
+import { User } from './user.entity';
 
 @Entity('participants')
 export class Participant {
@@ -218,6 +219,13 @@ export class Participant {
 	lastUpdatedDate!: Date;
 
 	// --- RELACIONES ---
+
+	@Column({ type: 'uuid', nullable: true })
+	userId?: string | null;
+
+	@ManyToOne(() => User, { nullable: true })
+	@JoinColumn({ name: 'userId' })
+	user?: User | null;
 
 	@Column({ type: 'uuid', nullable: true })
 	retreatId?: string | null;

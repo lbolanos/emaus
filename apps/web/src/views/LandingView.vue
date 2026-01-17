@@ -155,7 +155,7 @@
       <div class="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
         <div>
           <span class="text-sage-600 font-semibold tracking-widest uppercase text-xs mb-3 block" :style="{ color: '#8DAA91' }">
-            Global Presence
+            {{ $t('landing.globalPresence') }}
           </span>
           <h2 class="text-4xl font-light text-stone-900 mb-6 leading-tight">{{ $t('landing.findCommunity') }}</h2>
           <p class="text-stone-600 mb-8 leading-relaxed max-w-md">

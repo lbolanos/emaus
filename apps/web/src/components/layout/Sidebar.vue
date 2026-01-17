@@ -363,7 +363,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { ref, computed, nextTick, onMounted, watch } from 'vue';
-import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound } from 'lucide-vue-next';
+import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter, useRoute } from 'vue-router';
 import { Button } from '@repo/ui';
@@ -466,6 +466,40 @@ const menuSections: MenuSection[] = [
         // No permission required - shown to superadmins and community admins
         requiresRetreat: false,
         label: 'sidebar.communities'
+      }
+    ],
+    position: 'top'
+  },
+  {
+    category: 'social',
+    items: [
+      {
+        name: 'my-profile',
+        routeName: 'profile',
+        icon: UserCircle,
+        requiresRetreat: false,
+        label: 'sidebar.myProfile'
+      },
+      {
+        name: 'search-users',
+        routeName: 'search-users',
+        icon: Search,
+        requiresRetreat: false,
+        label: 'sidebar.searchUsers'
+      },
+      {
+        name: 'friends',
+        routeName: 'friends',
+        icon: Heart,
+        requiresRetreat: false,
+        label: 'sidebar.friends'
+      },
+      {
+        name: 'followers',
+        routeName: 'followers',
+        icon: UserPlus,
+        requiresRetreat: false,
+        label: 'sidebar.followers'
       }
     ],
     position: 'top'

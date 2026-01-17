@@ -31,6 +31,7 @@
     "seasonalCalendar": "Calendario Estacional",
     "limitedSpots": "Lugares Limitados",
     "findCommunity": "Encuentra tu Comunidad",
+    "globalPresence": "Presencia Global",
     "communityDesc": "Emaús es más que un fin de semana; es una conexión de por vida. Descubre círculos locales que se reúnen semanalmente para conversación y apoyo cerca de ti.",
     "useMyLocation": "Usar Mi Ubicación",
     "findNearest": "Encuentra los 3 círculos más cercanos automáticamente",
@@ -142,6 +143,7 @@
     "sections": {
       "main": "Principal",
       "community": "Comunidad",
+      "social": "Red Social",
       "people": "Personas",
       "assignments": "Asignaciones",
       "financial": "Financiero",
@@ -161,7 +163,11 @@
     "logout": "Cerrar Sesión",
     "searchPlaceholder": "Buscar...",
     "selectRetreatFirst": "Por favor selecciona un retiro primero",
-    "communities": "Comunidades"
+    "communities": "Comunidades",
+    "myProfile": "Mi Perfil",
+    "searchUsers": "Buscar Usuarios",
+    "friends": "Amigos",
+    "followers": "Seguidores"
   },
   "changePassword": {
     "title": "Cambiar Contraseña",
@@ -1651,6 +1657,205 @@
       "title": "Contáctanos",
       "content": "Si tienes preguntas sobre estos términos y condiciones, por favor contáctanos:",
       "email": "Correo electrónico"
+    }
+  },
+  "social": {
+    "title": "Red Social",
+    "profile": "Perfil",
+    "myProfile": "Mi Perfil",
+    "editProfile": "Editar Perfil",
+    "saveProfile": "Guardar Perfil",
+    "searchUsers": "Buscar Usuarios",
+    "searchUsersDesc": "Busca usuarios por nombre, email o filtros avanzados",
+    "friends": "Amigos",
+    "friendsDesc": "Gestiona tus amigos y solicitudes de amistad",
+    "followers": "Seguidores",
+    "followersDesc": "Gestiona tus seguidores y los usuarios que sigues",
+    "following": "Siguiendo",
+    "settings": "Configuración",
+    "privacy": "Privacidad",
+    "bio": "Biografía",
+    "bioPlaceholder": "Cuéntanos un poco sobre ti...",
+    "location": "Ubicación",
+    "locationPlaceholder": "Ciudad, País",
+    "website": "Sitio Web",
+    "websitePlaceholder": "https://...",
+    "interests": "Intereses",
+    "addInterest": "Agregar",
+    "interestPlaceholder": "Agregar interés",
+    "skills": "Habilidades",
+    "addSkill": "Agregar",
+    "skillPlaceholder": "Agregar habilidad",
+    "privacySettings": "Configuración de Privacidad",
+    "showEmail": "Mostrar email",
+    "showPhone": "Mostrar teléfono",
+    "showRetreats": "Mostrar retiros como servidor",
+    "friendsList": "Lista de Amigos",
+    "pendingRequests": "Solicitudes Pendientes",
+    "sentRequests": "Solicitudes Enviadas",
+    "noFriends": "Aún no tienes amigos. Busca usuarios para conectar.",
+    "noPendingRequests": "No tienes solicitudes pendientes.",
+    "noSentRequests": "No has enviado solicitudes pendientes.",
+    "noFollowers": "Aún no tienes seguidores.",
+    "noFollowing": "Aún no sigues a nadie.",
+    "sendFriendRequest": "Agregar amigo",
+    "acceptFriendRequest": "Aceptar",
+    "rejectFriendRequest": "Rechazar",
+    "removeFriend": "Eliminar",
+    "unfriend": "Eliminar amigo",
+    "follow": "Seguir",
+    "unfollow": "Dejar de seguir",
+    "followingStatus": "Siguiendo",
+    "friendsSince": "Amigos desde",
+    "followingSince": "Siguiendo desde",
+    "followerSince": "Te sigue desde",
+    "serverInfo": "Información como Servidor",
+    "serverRetreats": "Servidor en retiros",
+    "searchPlaceholder": "Buscar por nombre o email...",
+    "search": "Buscar",
+    "searchInitial": "Ingresa un nombre, correo electrónico o usa los filtros para encontrar usuarios",
+    "searching": "Buscando...",
+    "noUsersFound": "No se encontraron usuarios",
+    "viewProfile": "Ver Perfil",
+    "serverBadge": "Servidor",
+    "loadingProfile": "Cargando perfil...",
+    "savingProfile": "Guardando perfil...",
+    "profileUpdated": "Perfil actualizado",
+    "profileUpdatedDesc": "Tu perfil se ha actualizado correctamente",
+    "profileError": "Error al cargar perfil",
+    "profileErrorDesc": "No se pudo cargar el perfil",
+    "noProfileInfo": "Este perfil aún no tiene información completa",
+    "friendRequestSent": "Solicitud enviada",
+    "friendRequestSentDesc": "La solicitud de amistad ha sido enviada",
+    "friendRequestAccepted": "Solicitud aceptada",
+    "friendRequestAcceptedDesc": "Ahora son amigos",
+    "friendRequestRejected": "Solicitud rechazada",
+    "friendRemoved": "Amigo eliminado",
+    "friendRemovedDesc": "Se ha eliminado la amistad",
+    "nowFollowing": "Siguiendo",
+    "nowFollowingDesc": "Ahora sigues a este usuario",
+    "unfollowed": "Dejaste de seguir a este usuario",
+    "confirmRemoveFriend": "¿Estás seguro de que deseas eliminar a este amigo?",
+    "confirmUnfollow": "¿Estás seguro de que deseas dejar de seguir a este usuario?",
+    "mutualFriends": "{count} amigo en común | {count} amigos en común",
+    "onlineStatus": {
+      "online": "En línea",
+      "offline": "Desconectado",
+      "lastActive": "Activo hace {time}"
+    },
+    "avatar": {
+      "upload": "Subir foto",
+      "remove": "Eliminar foto",
+      "uploading": "Subiendo...",
+      "uploadError": "Error al subir",
+      "uploadInfo": "PNG, JPG, GIF o WebP (máx {maxSize}MB)",
+      "fileTooLarge": "El archivo es muy grande. El tamaño máximo es {maxSize}KB",
+      "invalidFileType": "Solo se permiten archivos de imagen",
+      "readError": "Error al leer el archivo"
+    },
+    "tags": {
+      "maxReached": "Has alcanzado el límite de {max} etiquetas",
+      "maxReachedDesc": "No puedes agregar más de {max} etiquetas",
+      "duplicate": "Etiqueta duplicada",
+      "duplicateDesc": "La etiqueta '{tag}' ya existe"
+    },
+    "emptyStates": {
+      "noFriends": {
+        "title": "Aún no tienes amigos",
+        "description": "Busca usuarios para conectar y comenzar a hacer amigos",
+        "action": "Buscar usuarios"
+      },
+      "noFollowers": {
+        "title": "Aún no tienes seguidores",
+        "description": "Cuando alguien te siga, aparecerá aquí",
+        "action": null
+      },
+      "noFollowing": {
+        "title": "Aún no sigues a nadie",
+        "description": "Busca usuarios que te interesen y síguelos",
+        "action": "Buscar usuarios"
+      },
+      "noResults": {
+        "title": "No se encontraron resultados",
+        "description": "Intenta ajustar tu búsqueda o filtros",
+        "action": null
+      },
+      "noActivity": {
+        "title": "Sin actividad reciente",
+        "description": "Tu actividad reciente aparecerá aquí",
+        "action": null
+      },
+      "noPending": {
+        "title": "Sin solicitudes pendientes",
+        "description": "No tienes solicitudes de amistad pendientes",
+        "action": null
+      },
+      "noSent": {
+        "title": "Sin solicitudes enviadas",
+        "description": "No has enviado solicitudes de amistad pendientes",
+        "action": null
+      }
+    },
+    "filters": {
+      "title": "Filtros",
+      "interests": "Intereses",
+      "skills": "Habilidades",
+      "location": "Ubicación",
+      "retreat": "Retiro",
+      "participantType": "Tipo de participante",
+      "clearFilters": "Limpiar filtros",
+      "applyFilters": "Aplicar filtros",
+      "selectInterests": "Selecciona intereses",
+      "selectSkills": "Selecciona habilidades",
+      "separateInterests": "Separa múltiples intereses con comas",
+      "separateSkills": "Separa múltiples habilidades con comas",
+      "locationPlaceholder": "Buscar por ubicación...",
+      "allTypes": "Todos los tipos",
+      "typeWalker": "Caminante",
+      "typeServer": "Servidor"
+    },
+    "sort": {
+      "title": "Ordenar por",
+      "relevance": "Relevancia",
+      "nameAsc": "Nombre (A-Z)",
+      "nameDesc": "Nombre (Z-A)",
+      "location": "Ubicación",
+      "recentActivity": "Actividad reciente"
+    },
+    "characterLimits": {
+      "bio": "{current} de {max} caracteres",
+      "location": "{current} de {max} caracteres",
+      "website": "{current} de {max} caracteres"
+    },
+    "suggestions": {
+      "title": "Personas que quizás conozcas",
+      "reason": {
+        "mutual_friends": "Tienes {count} amigo en común | Tienes {count} amigos en común",
+        "same_retreat": "Participaron en el mismo retiro",
+        "similar_interests": "Intereses similares",
+        "recently_joined": "Se unió recientemente"
+      },
+      "dismiss": "Ocultar sugerencia"
+    },
+    "activity": {
+      "title": "Actividad",
+      "profileUpdated": "actualizó su perfil",
+      "friendRequestSent": "envió una solicitud de amistad",
+      "friendRequestAccepted": "aceptó tu solicitud de amistad",
+      "friendRemoved": "eliminó la amistad",
+      "followed": "comenzó a seguirte",
+      "unfollowed": "dejó de seguirte",
+      "joinedRetreat": "se unió al retiro",
+      "leftRetreat": "salió del retiro"
+    },
+    "tabs": {
+      "friends": "Amigos",
+      "pending": "Pendientes",
+      "sent": "Enviadas",
+      "suggestions": "Sugerencias",
+      "followers": "Seguidores",
+      "following": "Siguiendo",
+      "notFollowingBack": "No te siguen de vuelta"
     }
   }
 }

@@ -1325,6 +1325,113 @@ const createPaymentFromImport = async (
 	}
 };
 
+export const convertWalkerToServer = async (participantId: string): Promise<Participant> => {
+	const participant = await participantRepository.findOne({
+		where: { id: participantId },
+		relations: ['retreat'],
+	});
+
+	if (!participant) {
+		throw new Error('Participant not found');
+	}
+
+	if (participant.type === 'server') {
+		throw new Error('Participant is already a server');
+	}
+
+	// Update type to server
+	participant.type = 'server';
+	participant.lastUpdatedDate = new Date();
+
+	const updated = await participantRepository.save(participant);
+
+	// Create activity if user is linked
+	if (participant.userId) {
+		const { UserActivity } = await import('../entities/userActivity.entity');
+		const activityRepository = AppDataSource.getRepository(UserActivity);
+		await activityRepository.save({
+			userId: participant.userId,
+			activityType: 'became_server',
+			description: 'Se convirtió en servidor',
+			metadata: { participantId, retreatId: participant.retreatId },
+		});
+	}
+
+	return updated;
+};
+
+export const linkUserToParticipant = async (
+	participantId: string,
+	userId: string,
+): Promise<Participant> => {
+	const participant = await participantRepository.findOne({
+		where: { id: participantId },
+	});
+
+	if (!participant) {
+		throw new Error('Participant not found');
+	}
+
+	const { User } = await import('../entities/user.entity');
+	const userRepository = AppDataSource.getRepository(User);
+	const user = await userRepository.findOne({
+		where: { id: userId },
+	});
+
+	if (!user) {
+		throw new Error('User not found');
+	}
+
+	// Update both sides
+	participant.userId = userId;
+	user.participantId = participantId;
+
+	await participantRepository.save(participant);
+	await userRepository.save(user);
+
+	// Create activity if the participant is a server
+	if (participant.type === 'server') {
+		const { UserActivity } = await import('../entities/userActivity.entity');
+		const activityRepository = AppDataSource.getRepository(UserActivity);
+		await activityRepository.save({
+			userId,
+			activityType: 'became_server',
+			description: 'Se vinculó como servidor',
+			metadata: { participantId, retreatId: participant.retreatId },
+		});
+	}
+
+	return participant;
+};
+
+export const unlinkUserFromParticipant = async (participantId: string): Promise<void> => {
+	const participant = await participantRepository.findOne({
+		where: { id: participantId },
+	});
+
+	if (!participant) {
+		throw new Error('Participant not found');
+	}
+
+	if (!participant.userId) {
+		throw new Error('Participant not linked to any user');
+	}
+
+	const { User } = await import('../entities/user.entity');
+	const userRepository = AppDataSource.getRepository(User);
+	const user = await userRepository.findOne({
+		where: { id: participant.userId },
+	});
+
+	if (user) {
+		user.participantId = null;
+		await userRepository.save(user);
+	}
+
+	participant.userId = null;
+	await participantRepository.save(participant);
+};
+
 export const importParticipants = async (retreatId: string, participantsData: any[], user: any) => {
 	let importedCount = 0;
 	let updatedCount = 0;

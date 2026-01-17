@@ -32,6 +32,10 @@ import { ParticipantTag } from '../entities/participantTag.entity';
 import { AuditLog } from '../entities/auditLog.entity';
 // Note: RoleRequest and PermissionOverride excluded due to SQLite incompatibility
 import { Session } from '../entities/session.entity';
+import { UserProfile } from '../entities/userProfile.entity';
+import { Follow } from '../entities/follow.entity';
+import { Friend } from '../entities/friend.entity';
+import { UserActivity } from '../entities/userActivity.entity';
 
 const entities = [
 	Session,
@@ -42,6 +46,10 @@ const entities = [
 	TableMesa,
 	Participant,
 	User,
+	UserProfile,
+	Follow,
+	Friend,
+	UserActivity,
 	Responsability,
 	MessageTemplate,
 	GlobalMessageTemplate,

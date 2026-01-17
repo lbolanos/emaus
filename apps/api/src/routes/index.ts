@@ -25,6 +25,7 @@ import telemetryRoutes from './telemetryRoutes';
 import tagRoutes from './tagRoutes';
 import communityRoutes from './communityRoutes';
 import newsletterRoutes from './newsletterRoutes';
+import userSocialRoutes from './userSocial.routes';
 import { applyCsrfProtectionExcept } from '../middleware/routeCsrf';
 
 const router = Router();
@@ -67,5 +68,6 @@ router.use('/telemetry', telemetryRoutes);
 router.use('/tags', tagRoutes);
 router.use('/communities', communityRoutes);
 router.use('/newsletter', newsletterRoutes);
+router.use('/social', userSocialRoutes);
 
 export default router;

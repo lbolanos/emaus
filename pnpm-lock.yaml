@@ -12,6 +12,9 @@ importers:
         specifier: ^3.58.1
         version: 3.58.1
     devDependencies:
+      baseline-browser-mapping:
+        specifier: ^2.9.15
+        version: 2.9.15
       eslint:
         specifier: ^8.57.0
         version: 8.57.1
@@ -5244,6 +5247,11 @@ packages:
 
   /baseline-browser-mapping@2.8.20:
     resolution: {integrity: sha512-JMWsdF+O8Orq3EMukbUN1QfbLK9mX2CkUmQBcW2T0s8OmdAUL5LLM/6wFwSrqXzlXB13yhyK9gTKS1rIizOduQ==}
+    hasBin: true
+    dev: true
+
+  /baseline-browser-mapping@2.9.15:
+    resolution: {integrity: sha512-kX8h7K2srmDyYnXRIppo4AH/wYgzWVCs+eKr3RusRSQ5PvRYoEFmR/I0PbdTjKFAoKqp5+kbxnNTFO9jOfSVJg==}
     hasBin: true
     dev: true
 

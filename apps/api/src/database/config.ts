@@ -35,6 +35,12 @@ import { CommunityAdmin } from '../entities/communityAdmin.entity';
 import { CommunityAttendance } from '../entities/communityAttendance.entity';
 import { NewsletterSubscriber } from '../entities/newsletterSubscriber.entity';
 
+// Social system entities
+import { UserProfile } from '../entities/userProfile.entity';
+import { Friend } from '../entities/friend.entity';
+import { Follow } from '../entities/follow.entity';
+import { UserActivity } from '../entities/userActivity.entity';
+
 import { Session } from '../entities/session.entity';
 
 export function createDatabaseConfig() {
@@ -82,6 +88,11 @@ export function createDatabaseConfig() {
 		CommunityAttendance,
 		// Newsletter entities
 		NewsletterSubscriber,
+		// Social system entities
+		UserProfile,
+		Friend,
+		Follow,
+		UserActivity,
 		// Temporarily excluding entities with enum issues
 		// PermissionOverride,
 		// RoleRequest,

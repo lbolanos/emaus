@@ -319,6 +319,33 @@ const router = createRouter({
 					component: () => import('../views/CommunityMessageTemplatesView.vue'),
 					props: true,
 				},
+				// Social Routes
+				{
+					path: 'profile',
+					name: 'profile',
+					component: () => import('../views/social/ProfileView.vue'),
+				},
+				{
+					path: 'profile/:id',
+					name: 'public-profile',
+					component: () => import('../views/social/PublicProfileView.vue'),
+					props: true,
+				},
+				{
+					path: 'social/search',
+					name: 'search-users',
+					component: () => import('../views/social/SearchUsersView.vue'),
+				},
+				{
+					path: 'social/friends',
+					name: 'friends',
+					component: () => import('../views/social/FriendsView.vue'),
+				},
+				{
+					path: 'social/followers',
+					name: 'followers',
+					component: () => import('../views/social/FollowersView.vue'),
+				},
 			],
 		},
 	],

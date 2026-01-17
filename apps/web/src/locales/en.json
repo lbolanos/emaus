@@ -34,6 +34,7 @@
     "seasonalCalendar": "Seasonal Calendar",
     "limitedSpots": "Limited Spots",
     "findCommunity": "Find Your Community",
+    "globalPresence": "Global Presence",
     "communityDesc": "Emmaus is more than a weekend; it's a lifelong connection. Discover local circles meeting weekly for conversation and support near you.",
     "useMyLocation": "Use My Location",
     "findNearest": "Find the nearest 3 circles automatically",
@@ -144,6 +145,7 @@
     "sections": {
       "main": "Main",
       "community": "Community",
+      "social": "Social Network",
       "people": "People",
       "assignments": "Assignments",
       "financial": "Financial",
@@ -162,7 +164,11 @@
     "logout": "Logout",
     "searchPlaceholder": "Search...",
     "selectRetreatFirst": "Please select a retreat first",
-    "communities": "Communities"
+    "communities": "Communities",
+    "myProfile": "My Profile",
+    "searchUsers": "Search Users",
+    "friends": "Friends",
+    "followers": "Followers"
   },
   "communityTemplates": {
     "title": "Community Message Templates",

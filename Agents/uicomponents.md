@@ -109,14 +109,10 @@ watch(
 ● Checkbox Struggle Summary:
 
 1. Initial attempt - Used @update:checked="(checked) => toggleFunction(id, checked)" with a function that accepts the boolean state
-
-
-    - Problem: TypeScript errors, wrong pattern for this Checkbox component
+   - Problem: TypeScript errors, wrong pattern for this Checkbox component
 
 2. The fix - Changed to @click="toggleFunction(id)" with a simple toggle function that adds/removes from a Set
-
-
-    - This is the pattern used elsewhere in the codebase (Step3ServiceInfo.vue, ImportMembersModal.vue)
+   - This is the pattern used elsewhere in the codebase (Step3ServiceInfo.vue, ImportMembersModal.vue)
 
 Key takeaway: The reka-ui Checkbox component in this project works with @click + simple toggle pattern, not with @update:checked + explicit boolean handling. The checkbox's visual state is controlled by the :checked prop, and clicking just needs to toggle the underlying data.
 

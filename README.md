@@ -324,9 +324,11 @@ when login it redirects to landing ... make dashboard the first page when logged
 cambio de password requiere oontraseña actual. para los usuarios que se registraron por google solo configurar el password.
 Política de Privacidad y terminos y un reCAPTCHA al formulario
 
+Error al copiar la imagen del flyer de la reunión.
+
 ## IN PROGRESS
 
-Error al copiar la imagen del flyer de la reunión.
+Cuando se registre un servidor y existe como caminante de algun retiro Convertir a un caminante en servidor. Cuando se convierte en servidor otros usuarios pueden buscarlo y ser amigo de otros usuarios y puedes seguirlo como una red social.
 
 apps/web/src/components/layout/Sidebar.vue apps/web/src/components/layout/Header.vue docs_dev/HELP_SYSTEM_GUIDE.md
 necesito que mejores la usabilidad y user experience del sitio. hay temas globales como retiros, casas de retiros, comunidades, Telemetria, Plantillas globales.
@@ -336,7 +338,12 @@ crear una landing page que muestre los retiros proximos y las comunidades y sus 
 
 ## TODO
 
+Que se pueda subir la foto del recuerdo del retiro. Musica que se escucho en el retiro. Esto sirve para que uno vaya al retiro que hizo y recordarlo.
+
+Cuando un usuario se registra y existe como caminante de algun retiro Convertir a un caminante en usuario y que pueda ver el historial de retiros en los que ha participado como servidor y el retiro en el que camino como principal.
 al registrar un servidor es posible que ya exista como caminante que debemos hacer en este caso?
+El registro de charlistas globales. El charlista es un servidor.
+Agregar los charlistas del retiro ya registrados previamente.
 
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
 agregar todas las actividades por servidor
@@ -388,7 +395,7 @@ stories
 
 una forma de agregar retiros desde mucho antes y que la gente se pueda inscribir sin necesidad de que tenga toda la informacion de la casa de retiro.
 Colocar la fecha de la proxima reunion en Horarios de reuniones. Cuando haga clic en el lugar lance google maps
-Global Presence en español.
+
 en la seccion the path Agregar la lectura del dia en audio y en texto. un boton solo visible para el superadmin con el que se suben.  
 tambien aregar en la seccion de path otro audio y otro texto.
 estos audios y texto se suben a la s3 publica.

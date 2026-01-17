@@ -7,12 +7,19 @@ import {
 	BeforeInsert,
 	BeforeUpdate,
 	OneToMany,
+	ManyToOne,
+	JoinColumn,
+	OneToOne,
 } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from './userRole.entity';
 import { UserRetreat } from './userRetreat.entity';
 import { Retreat } from './retreat.entity';
 import { Payment } from './payment.entity';
+import { Participant } from './participant.entity';
+import { UserProfile } from './userProfile.entity';
+import { Friend } from './friend.entity';
+import { Follow } from './follow.entity';
 
 @Entity('users')
 export class User {
@@ -43,6 +50,9 @@ export class User {
 	@Column({ type: 'datetime', nullable: true })
 	invitationExpiresAt?: Date;
 
+	@Column({ type: 'uuid', nullable: true })
+	participantId?: string | null;
+
 	@CreateDateColumn()
 	createdAt!: Date;
 
@@ -63,6 +73,26 @@ export class User {
 
 	@OneToMany(() => Payment, (payment) => payment.recordedByUser)
 	recordedPayments!: Payment[];
+
+	// Social relationships
+	@OneToOne(() => UserProfile, (profile) => profile.user, { cascade: true })
+	profile?: UserProfile;
+
+	@ManyToOne(() => Participant, { nullable: true })
+	@JoinColumn({ name: 'participantId' })
+	participant?: Participant | null;
+
+	@OneToMany(() => Friend, (friend) => friend.user)
+	friends!: Friend[];
+
+	@OneToMany(() => Friend, (friend) => friend.friendOf)
+	friendOf!: Friend[];
+
+	@OneToMany(() => Follow, (follow) => follow.follower)
+	following!: Follow[];
+
+	@OneToMany(() => Follow, (follow) => follow.following)
+	followers!: Follow[];
 
 	@BeforeInsert()
 	@BeforeUpdate()

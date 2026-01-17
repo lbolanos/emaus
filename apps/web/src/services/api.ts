@@ -1021,3 +1021,154 @@ export async function getAuthStatus(): Promise<any> {
 	const response = await api.get('/auth/status');
 	return response.data;
 }
+
+// ==================== SOCIAL SYSTEM API FUNCTIONS ====================
+
+// Profile API functions
+export async function getUserProfile(): Promise<any> {
+	const response = await api.get('/social/profile');
+	return response.data;
+}
+
+export async function updateUserProfile(data: {
+	bio?: string;
+	location?: string;
+	website?: string;
+	showEmail?: boolean;
+	showPhone?: boolean;
+	showRetreats?: boolean;
+	interests?: string[];
+	skills?: string[];
+	avatarUrl?: string;
+}): Promise<any> {
+	const response = await api.put('/social/profile', data);
+	return response.data;
+}
+
+export async function getPublicProfile(userId: string): Promise<any> {
+	const response = await api.get(`/social/profile/${userId}`);
+	return response.data;
+}
+
+export async function searchUsers(
+	query: string,
+	filters?: {
+		interests?: string[];
+		skills?: string[];
+		location?: string;
+		retreatId?: string;
+	},
+): Promise<any[]> {
+	const params = new URLSearchParams();
+	params.append('q', query);
+	if (filters?.interests?.length) {
+		filters.interests.forEach((i) => params.append('interests', i));
+	}
+	if (filters?.skills?.length) {
+		filters.skills.forEach((s) => params.append('skills', s));
+	}
+	if (filters?.location) {
+		params.append('location', filters.location);
+	}
+	if (filters?.retreatId) {
+		params.append('retreatId', filters.retreatId);
+	}
+
+	const response = await api.get(`/social/search?${params.toString()}`);
+	return response.data;
+}
+
+export async function linkUserToParticipant(participantId: string): Promise<any> {
+	const response = await api.post(`/social/link/participant/${participantId}`);
+	return response.data;
+}
+
+export async function unlinkUserFromParticipant(): Promise<void> {
+	const response = await api.delete('/social/link/participant');
+	return response.data;
+}
+
+export async function updateAvatar(avatarUrl: string): Promise<any> {
+	const response = await api.put('/social/profile/avatar', { avatarUrl });
+	return response.data;
+}
+
+export async function removeAvatar(): Promise<any> {
+	const response = await api.delete('/social/profile/avatar');
+	return response.data;
+}
+
+// Friend API functions
+export async function sendFriendRequest(friendId: string): Promise<any> {
+	const response = await api.post('/social/friends/request', { friendId });
+	return response.data;
+}
+
+export async function acceptFriendRequest(requesterId: string): Promise<any> {
+	const response = await api.put('/social/friends/accept', { requesterId });
+	return response.data;
+}
+
+export async function rejectFriendRequest(requesterId: string): Promise<void> {
+	const response = await api.delete('/social/friends/request', {
+		data: { requesterId },
+	});
+	return response.data;
+}
+
+export async function removeFriend(friendId: string): Promise<void> {
+	const response = await api.delete(`/social/friends/${friendId}`);
+	return response.data;
+}
+
+export async function getFriends(): Promise<any[]> {
+	const response = await api.get('/social/friends');
+	return response.data;
+}
+
+export async function getPendingRequests(): Promise<any[]> {
+	const response = await api.get('/social/friends/pending');
+	return response.data;
+}
+
+export async function getSentRequests(): Promise<any[]> {
+	const response = await api.get('/social/friends/sent');
+	return response.data;
+}
+
+// Follow API functions
+export async function followUser(userId: string): Promise<any> {
+	const response = await api.post(`/social/follow/${userId}`);
+	return response.data;
+}
+
+export async function unfollowUser(userId: string): Promise<void> {
+	const response = await api.delete(`/social/follow/${userId}`);
+	return response.data;
+}
+
+export async function getFollowers(): Promise<any[]> {
+	const response = await api.get('/social/followers');
+	return response.data;
+}
+
+export async function getFollowing(): Promise<any[]> {
+	const response = await api.get('/social/following');
+	return response.data;
+}
+
+// Blocking API functions
+export async function blockUser(userId: string): Promise<void> {
+	const response = await api.post(`/social/block/${userId}`);
+	return response.data;
+}
+
+export async function unblockUser(userId: string): Promise<void> {
+	const response = await api.delete(`/social/block/${userId}`);
+	return response.data;
+}
+
+export async function getBlockedUsers(): Promise<any[]> {
+	const response = await api.get('/social/blocked');
+	return response.data;
+}

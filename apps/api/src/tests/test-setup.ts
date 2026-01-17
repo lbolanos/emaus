@@ -38,6 +38,10 @@ import { CommunityMember } from '../entities/communityMember.entity';
 import { CommunityMeeting } from '../entities/communityMeeting.entity';
 import { CommunityAttendance } from '../entities/communityAttendance.entity';
 import { CommunityAdmin } from '../entities/communityAdmin.entity';
+import { UserProfile } from '../entities/userProfile.entity';
+import { Follow } from '../entities/follow.entity';
+import { Friend } from '../entities/friend.entity';
+import { UserActivity } from '../entities/userActivity.entity';
 
 const entities = [
 	Session,
@@ -48,6 +52,10 @@ const entities = [
 	TableMesa,
 	Participant,
 	User,
+	UserProfile,
+	Follow,
+	Friend,
+	UserActivity,
 	Responsability,
 	MessageTemplate,
 	GlobalMessageTemplate,
@@ -236,6 +244,10 @@ export async function clearTestData() {
 		'community_member',
 		'community_admin',
 		'community',
+		'user_activity',
+		'follow',
+		'friend',
+		'user_profile',
 		'payment',
 		'participant_tag',
 		'participant_communication',
