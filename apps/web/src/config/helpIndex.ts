@@ -154,6 +154,27 @@ export const helpIndex: HelpSection[] = [
 			},
 		],
 	},
+	{
+		key: 'social',
+		title: 'Social Features',
+		titleEs: 'Características Sociales',
+		icon: 'mdi-account-circle',
+		routeContext: [
+			'profile',
+			'public-profile',
+			'search-users',
+			'friends',
+			'followers',
+		],
+		topics: [
+			{
+				key: 'social-overview',
+				title: 'Social Features',
+				titleEs: 'Características Sociales',
+				content: 'social.md',
+			},
+		],
+	},
 ];
 
 export function getHelpSectionByKey(key: string): HelpSection | undefined {
