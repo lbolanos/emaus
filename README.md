@@ -326,9 +326,22 @@ Política de Privacidad y terminos y un reCAPTCHA al formulario
 
 Error al copiar la imagen del flyer de la reunión.
 
+## Social Features
+
+The system now includes social networking features for users (servers/converted walkers):
+
+- **User Profiles**: Bio, location, website, interests, skills, and avatar management
+- **Friend System**: Send/accept/reject friend requests, manage friendships
+- **Follow System**: Follow/unfollow users, view followers and following lists
+- **User Blocking**: Block/unblock users
+- **User Search**: Search users by name, interests, skills, location
+- **Avatar Storage**: Base64 or AWS S3 storage with automatic image processing
+
+For detailed API documentation, see [docs_dev/SOCIAL_FEATURES_API.md](./docs_dev/SOCIAL_FEATURES_API.md).
+
 ## IN PROGRESS
 
-Cuando se registre un servidor y existe como caminante de algun retiro Convertir a un caminante en servidor. Cuando se convierte en servidor otros usuarios pueden buscarlo y ser amigo de otros usuarios y puedes seguirlo como una red social.
+Community management and landing page improvements.
 
 apps/web/src/components/layout/Sidebar.vue apps/web/src/components/layout/Header.vue docs_dev/HELP_SYSTEM_GUIDE.md
 necesito que mejores la usabilidad y user experience del sitio. hay temas globales como retiros, casas de retiros, comunidades, Telemetria, Plantillas globales.
