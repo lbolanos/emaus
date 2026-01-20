@@ -346,6 +346,16 @@ const router = createRouter({
 					name: 'followers',
 					component: () => import('../views/social/FollowersView.vue'),
 				},
+				{
+					path: 'testimonials',
+					name: 'testimonials',
+					component: () => import('../views/social/TestimonialsView.vue'),
+				},
+				{
+					path: 'my-retreats',
+					name: 'my-retreats',
+					component: () => import('../views/social/MyRetreatsView.vue'),
+				},
 			],
 		},
 	],

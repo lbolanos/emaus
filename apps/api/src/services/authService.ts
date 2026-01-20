@@ -6,10 +6,12 @@ import { AppDataSource } from '../data-source';
 import { User } from '../entities/user.entity';
 import { UserRole } from '../entities/userRole.entity';
 import { Role } from '../entities/role.entity';
+import { Participant } from '../entities/participant.entity';
 import { getRepositories } from '../utils/repositoryHelpers';
 import { config } from '../config';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcrypt';
+import { createHistoryEntry, autoSetPrimaryRetreat } from './participantHistoryService';
 
 /**
  * Configure passport strategies with a custom DataSource.
@@ -76,6 +78,71 @@ export function configurePassportStrategies(
 								roleId: defaultRole.id,
 							});
 							await repos.userRole.save(userRole);
+						}
+
+						// Check if any existing participants have this email and link them
+						if (userEmail) {
+							try {
+								const participantRepo = dataSource
+									? dataSource.getRepository(Participant)
+									: AppDataSource.getRepository(Participant);
+								const existingParticipants = await participantRepo.find({
+									where: { email: userEmail },
+									relations: ['retreat'],
+								});
+
+								if (existingParticipants.length > 0) {
+									console.warn(
+										`Found ${existingParticipants.length} existing participant(s) for new user ${userEmail}, linking accounts...`,
+									);
+
+									// Link the most recent participant to the user
+									const mostRecentParticipant = existingParticipants.sort(
+										(a, b) => b.registrationDate.getTime() - a.registrationDate.getTime(),
+									)[0];
+
+									newUser.participantId = mostRecentParticipant.id;
+									mostRecentParticipant.userId = newUser.id;
+									await participantRepo.save(mostRecentParticipant);
+									await repos.user.save(newUser);
+
+									// Create history entries for all past participations
+									for (const participant of existingParticipants) {
+										if (participant.retreatId) {
+											try {
+												await createHistoryEntry({
+													userId: newUser.id,
+													participantId: participant.id,
+													retreatId: participant.retreatId,
+													roleInRetreat:
+														participant.type === 'walker'
+															? 'walker'
+															: participant.type === 'server' ||
+																  participant.type === 'partial_server'
+																? 'server'
+																: 'server',
+													isPrimaryRetreat: false,
+												});
+												console.warn(
+													`Created history entry for participant ${participant.id} in retreat ${participant.retreatId}`,
+												);
+											} catch (historyError) {
+												console.error('Error creating history entry:', historyError);
+											}
+										}
+									}
+
+									// Auto-set primary retreat
+									await autoSetPrimaryRetreat(newUser.id);
+
+									console.warn(
+										`Linked new user ${newUser.id} to ${existingParticipants.length} existing participant(s)`,
+									);
+								}
+							} catch (linkError) {
+								console.error('Error linking existing participants to new user:', linkError);
+								// Don't fail user creation if linking fails
+							}
 						}
 
 						return done(null, newUser);

@@ -12,12 +12,13 @@
 
       <form @submit.prevent="handleSubmit" class="space-y-6">
         <Tabs v-model="activeTab" class="w-full">
-          <TabsList class="grid w-full grid-cols-5">
+          <TabsList class="grid w-full grid-cols-6">
             <TabsTrigger value="general">{{ $t('retreatModal.sections.general') }}</TabsTrigger>
             <TabsTrigger value="logistics">{{ $t('retreatModal.sections.logistics') }}</TabsTrigger>
             <TabsTrigger value="financials">{{ $t('retreatModal.sections.financials') }}</TabsTrigger>
             <TabsTrigger value="notes">{{ $t('retreatModal.sections.notes') }}</TabsTrigger>
             <TabsTrigger value="flyer">{{ $t('retreatModal.sections.flyer') }}</TabsTrigger>
+            <TabsTrigger value="memories">Recuerdos</TabsTrigger>
           </TabsList>
 
           <!-- General Tab -->
@@ -510,6 +511,20 @@
               </TabsContent>
             </Tabs>
           </TabsContent>
+
+          <!-- Memories Tab -->
+          <TabsContent value="memories" class="space-y-6 mt-6">
+            <MemoryUploadForm
+              v-if="retreat"
+             	:retreat-id="retreat.id"
+             	:current-photo-url="retreat.memoryPhotoUrl"
+             	:current-music-url="retreat.musicPlaylistUrl"
+             	@saved="handleMemorySaved"
+            />
+            <div v-else class="text-center py-8 text-muted-foreground">
+             	<p>Guarda el retiro primero para poder añadir recuerdos</p>
+            </div>
+          </TabsContent>
         </Tabs>
 
         <DialogFooter>
@@ -619,6 +634,7 @@ import { Loader2 } from 'lucide-vue-next';
 import { useHouseStore } from '@/stores/houseStore';
 import { useToast } from '@repo/ui';
 import type { CreateRetreat, Retreat } from '@repo/types';
+import MemoryUploadForm from '@/components/social/MemoryUploadForm.vue';
 
 interface Props {
   open: boolean;
@@ -1011,6 +1027,22 @@ const copyToClipboard = async (text: string, type: string) => {
       variant: 'destructive',
     });
   }
+};
+
+const handleMemorySaved = (data: { memoryPhotoUrl?: string; musicPlaylistUrl?: string }) => {
+	// Update local retreat data when memory is saved
+	if (props.retreat) {
+		if (data.memoryPhotoUrl) {
+			props.retreat.memoryPhotoUrl = data.memoryPhotoUrl;
+		}
+		if (data.musicPlaylistUrl !== undefined) {
+			props.retreat.musicPlaylistUrl = data.musicPlaylistUrl;
+		}
+	}
+	toast({
+		title: 'Recuerdos guardados',
+		description: 'Los recuerdos del retiro se han actualizado correctamente',
+	});
 };
 
 // Watchers

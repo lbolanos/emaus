@@ -110,7 +110,7 @@ CREATE TABLE "user_retreats" (
   "created_at" datetime NOT NULL DEFAULT (datetime('now')),
   "updated_at" datetime NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY("user_id") REFERENCES "users"("id") ON DELETE CASCADE,
-  FOREIGN KEY("retreat_id") REFERENCES "retreats"("id") ON DELETE CASCADE,
+  FOREIGN KEY("retreat_id") REFERENCES "retreat"("id") ON DELETE CASCADE,
   FOREIGN KEY("role_id") REFERENCES "roles"("id") ON DELETE CASCADE,
   FOREIGN KEY("invited_by") REFERENCES "users"("id") ON DELETE SET NULL
 );
@@ -132,7 +132,7 @@ CREATE TABLE "permission_delegations" (
   "status" varchar NOT NULL DEFAULT 'active',
   FOREIGN KEY("from_user_id") REFERENCES "users"("id") ON DELETE CASCADE,
   FOREIGN KEY("to_user_id") REFERENCES "users"("id") ON DELETE CASCADE,
-  FOREIGN KEY("retreat_id") REFERENCES "retreats"("id") ON DELETE CASCADE,
+  FOREIGN KEY("retreat_id") REFERENCES "retreat"("id") ON DELETE CASCADE,
   FOREIGN KEY("revoked_by") REFERENCES "users"("id") ON DELETE SET NULL
 );
 ```

@@ -58,6 +58,7 @@ vi.mock('@/services/api', () => ({
 	getPublicRetreats: vi.fn(() => Promise.resolve([])),
 	getPublicCommunities: vi.fn(() => Promise.resolve([])),
 	getPublicCommunityMeetings: vi.fn(() => Promise.resolve([])),
+	getLandingTestimonials: vi.fn(() => Promise.resolve([])),
 	subscribeToNewsletter: vi.fn(() => Promise.resolve()),
 }));
 
@@ -130,6 +131,9 @@ describe('LandingView', () => {
 
 		const { getPublicCommunityMeetings } = await import('@/services/api');
 		(getPublicCommunityMeetings as any).mockResolvedValue([]);
+
+		const { getLandingTestimonials } = await import('@/services/api');
+		(getLandingTestimonials as any).mockResolvedValue([]);
 
 		wrapper = createTestWrapper(LandingView, {
 			global: {
@@ -359,6 +363,283 @@ describe('LandingView', () => {
 				// Should be a button element, not a router-link
 				expect(button.element.tagName.toLowerCase()).toBe('button');
 			});
+		});
+	});
+
+	describe('Stories Section', () => {
+		it('should render the stories section with id="stories"', () => {
+			const storiesSection = wrapper.find('#stories');
+			expect(storiesSection.exists()).toBe(true);
+		});
+
+		it('should show empty state when no testimonials are available', async () => {
+			const { getLandingTestimonials } = await import('@/services/api');
+			(getLandingTestimonials as any).mockResolvedValue([]);
+
+			wrapper = createTestWrapper(LandingView, {
+				global: {
+					mocks: {
+						$t: (key: string) => key,
+					},
+				},
+			});
+
+			await nextTick();
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			const storiesSection = wrapper.find('#stories');
+			const emptyState = storiesSection?.text();
+			expect(emptyState).toContain('landing.noStories');
+		});
+
+		it('should display testimonials when available', async () => {
+			const { getLandingTestimonials } = await import('@/services/api');
+
+			const mockTestimonials = [
+				{
+					id: 1,
+					content: 'This was an amazing experience!',
+					createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
+					approvedForLanding: true,
+					user: {
+						displayName: 'John Doe',
+						photo: null,
+					},
+					retreat: {
+						parish: "St. Mary's Parish",
+					},
+				},
+				{
+					id: 2,
+					content: 'Life changing retreat!',
+					createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
+					approvedForLanding: true,
+					user: {
+						displayName: 'Jane Smith',
+						photo: 'https://example.com/avatar.jpg',
+					},
+					retreat: null,
+				},
+			];
+
+			(getLandingTestimonials as any).mockResolvedValue(mockTestimonials);
+
+			wrapper = createTestWrapper(LandingView, {
+				global: {
+					mocks: {
+						$t: (key: string) => key,
+					},
+				},
+			});
+
+			await nextTick();
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			const storiesSection = wrapper.find('#stories');
+			const text = storiesSection?.text() || '';
+			expect(text).toContain('John Doe');
+			expect(text).toContain('Jane Smith');
+		});
+
+		it('should show loading state while fetching testimonials', async () => {
+			const { getLandingTestimonials } = await import('@/services/api');
+
+			// Create a promise that we can control
+			let resolveTestimonials: any;
+			const testimonialPromise = new Promise((resolve) => {
+				resolveTestimonials = resolve;
+			});
+
+			(getLandingTestimonials as any).mockReturnValue(testimonialPromise);
+
+			wrapper = createTestWrapper(LandingView, {
+				global: {
+					mocks: {
+						$t: (key: string) => key,
+					},
+				},
+			});
+
+			await nextTick();
+
+			const storiesSection = wrapper.find('#stories');
+			// Should show loading spinner
+			const spinner = storiesSection?.find('.animate-spin');
+			expect(spinner?.exists()).toBe(true);
+
+			// Resolve the promise
+			resolveTestimonials([]);
+			await nextTick();
+			await new Promise((resolve) => setTimeout(resolve, 50));
+		});
+
+		it('should show login CTA when user is not authenticated', async () => {
+			const { useAuthStore: useAuthStoreImport } = await import('@/stores/authStore');
+			const { getLandingTestimonials } = await import('@/services/api');
+
+			(getLandingTestimonials as any).mockResolvedValue([]);
+
+			const authStore = useAuthStoreImport();
+			authStore.isAuthenticated = false;
+			authStore.user = null;
+
+			wrapper = createTestWrapper(LandingView, {
+				global: {
+					mocks: {
+						$t: (key: string) => key,
+					},
+				},
+			});
+
+			await nextTick();
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			const storiesSection = wrapper.find('#stories');
+			const text = storiesSection?.text() || '';
+			expect(text).toContain('landing.shareYourStory');
+			expect(text).toContain('landing.loginToShare');
+		});
+
+		it('should not show login CTA when user is authenticated', async () => {
+			const { useAuthStore: useAuthStoreImport } = await import('@/stores/authStore');
+			const { getLandingTestimonials } = await import('@/services/api');
+
+			(getLandingTestimonials as any).mockResolvedValue([]);
+
+			// Create a fresh pinia instance for this test
+			const testPinia = createPinia();
+			setActivePinia(testPinia);
+
+			// Get auth store and set authenticated state
+			const authStore = useAuthStoreImport();
+			authStore.isAuthenticated = true;
+			authStore.user = createMockUser();
+
+			// Create wrapper with the test pinia instance that has auth state set
+			wrapper = mount(LandingView, {
+				global: {
+					plugins: [testPinia],
+					mocks: {
+						$t: (key: string) => key,
+					},
+					stubs: {
+						'router-view': true,
+						transition: true,
+						'transition-group': true,
+					},
+				},
+			});
+
+			await nextTick();
+			await new Promise((resolve) => setTimeout(resolve, 150));
+			await nextTick();
+
+			const storiesSection = wrapper.find('#stories');
+			const text = storiesSection?.text() || '';
+
+			// Verify the CTA is NOT present when authenticated
+			expect(text).not.toContain('landing.shareYourStory');
+			expect(text).not.toContain('landing.loginToShare');
+		});
+
+		it('should display user initials when no photo is available', async () => {
+			const { getLandingTestimonials } = await import('@/services/api');
+
+			const mockTestimonials = [
+				{
+					id: 1,
+					content: 'Great experience!',
+					createdAt: new Date().toISOString(),
+					approvedForLanding: true,
+					user: {
+						displayName: 'Maria Garcia',
+						photo: null,
+					},
+					retreat: null,
+				},
+			];
+
+			(getLandingTestimonials as any).mockResolvedValue(mockTestimonials);
+
+			wrapper = createTestWrapper(LandingView, {
+				global: {
+					mocks: {
+						$t: (key: string) => key,
+					},
+				},
+			});
+
+			await nextTick();
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			const storiesSection = wrapper.find('#stories');
+			const text = storiesSection?.text() || '';
+			expect(text).toContain('MG'); // Maria Garcia -> MG
+		});
+
+		it('should display retreat parish when retreat is associated', async () => {
+			const { getLandingTestimonials } = await import('@/services/api');
+
+			const mockTestimonials = [
+				{
+					id: 1,
+					content: 'Great experience!',
+					createdAt: new Date().toISOString(),
+					approvedForLanding: true,
+					user: {
+						displayName: 'Test User',
+						photo: null,
+					},
+					retreat: {
+						parish: 'Holy Cross Church',
+					},
+				},
+			];
+
+			(getLandingTestimonials as any).mockResolvedValue(mockTestimonials);
+
+			wrapper = createTestWrapper(LandingView, {
+				global: {
+					mocks: {
+						$t: (key: string) => key,
+					},
+				},
+			});
+
+			await nextTick();
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			const storiesSection = wrapper.find('#stories');
+			const text = storiesSection?.text() || '';
+			expect(text).toContain('Holy Cross Church');
+		});
+
+		it('should call getLandingTestimonials on mount', async () => {
+			const { getLandingTestimonials } = await import('@/services/api');
+
+			wrapper = createTestWrapper(LandingView, {
+				global: {
+					mocks: {
+						$t: (key: string) => key,
+					},
+				},
+			});
+
+			await nextTick();
+			await new Promise((resolve) => setTimeout(resolve, 50));
+
+			expect(getLandingTestimonials).toHaveBeenCalled();
+		});
+
+		it('should render stories section with correct styling', () => {
+			const storiesSection = wrapper.find('#stories');
+			expect(storiesSection.exists()).toBe(true);
+
+			// Check for section styling classes
+			const sectionElement = storiesSection?.element as HTMLElement;
+			expect(sectionElement?.classList.contains('py-24')).toBe(true);
+			expect(sectionElement?.classList.contains('px-6')).toBe(true);
+			expect(sectionElement?.classList.contains('bg-stone-50')).toBe(true);
 		});
 	});
 });

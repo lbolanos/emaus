@@ -339,9 +339,16 @@ The system now includes social networking features for users (servers/converted 
 
 For detailed API documentation, see [docs_dev/SOCIAL_FEATURES_API.md](./docs_dev/SOCIAL_FEATURES_API.md).
 
+Community management and landing page improvements.
+crear una forma en el que los usuarios puedan ver y crear testimonios o mensajes de otros acerca de su experiencia.
+
 ## IN PROGRESS
 
-Community management and landing page improvements.
+create a migration script just for testing red social. is not for production. create users, retreats, communities, houses, participants, messages, friends, followers, blocks, searches, avatars, and messages.
+Cuando un usuario se registra y existe como caminante de algun retiro convertirlo en usuario y que pueda ver el historial de retiros en los que ha participado como servidor y el retiro en el que camino como principal.
+al registrar un servidor es posible que ya exista como caminante que debemos hacer en este caso?
+El registro de charlistas globales. El charlista es un servidor.
+Agregar los charlistas del retiro ya registrados previamente.
 
 apps/web/src/components/layout/Sidebar.vue apps/web/src/components/layout/Header.vue docs_dev/HELP_SYSTEM_GUIDE.md
 necesito que mejores la usabilidad y user experience del sitio. hay temas globales como retiros, casas de retiros, comunidades, Telemetria, Plantillas globales.
@@ -350,13 +357,6 @@ agrega la documenatcion necesaria acerca de esto en apps/web/src/docs
 crear una landing page que muestre los retiros proximos y las comunidades y sus proximas reuniones
 
 ## TODO
-
-Que se pueda subir la foto del recuerdo del retiro. Musica que se escucho en el retiro. Esto sirve para que uno vaya al retiro que hizo y recordarlo.
-
-Cuando un usuario se registra y existe como caminante de algun retiro Convertir a un caminante en usuario y que pueda ver el historial de retiros en los que ha participado como servidor y el retiro en el que camino como principal.
-al registrar un servidor es posible que ya exista como caminante que debemos hacer en este caso?
-El registro de charlistas globales. El charlista es un servidor.
-Agregar los charlistas del retiro ya registrados previamente.
 
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
 agregar todas las actividades por servidor
@@ -399,7 +399,7 @@ verificar que todas la pruebas pasen.
 ## comunidades
 
 Las comunidades tienen que ser aceptadas por los administradores de otras comunidades.
-crear una forma en el que los usuarios puedan ver y crear testimonios o mensajes de otros acerca de su experiencia.  
+
 los usuarios que quieran crear testimonios tienen que tener una comunidad asociada y el testimonio debe ser aceptado por el administrador de la comunidad asociada para poderse publicar.
 
 ## landing

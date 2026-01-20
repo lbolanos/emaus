@@ -109,7 +109,7 @@ const handleSearch = async () => {
 };
 
 const handleClick = (user: any) => {
-	router.push(`/social/profile/${user.id}`);
+	router.push(`/app/profile/${user.id}`);
 };
 
 const handleAction = async (action: string, data?: unknown) => {
@@ -119,7 +119,7 @@ const handleAction = async (action: string, data?: unknown) => {
 	// Handle friend/follow actions through the parent
 	if (action === 'sendFriendRequest') {
 		// Navigate to user's profile or implement the action
-		router.push(`/social/profile/${userId}`);
+		router.push(`/app/profile/${userId}`);
 	}
 };
 </script>

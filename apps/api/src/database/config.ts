@@ -40,6 +40,8 @@ import { UserProfile } from '../entities/userProfile.entity';
 import { Friend } from '../entities/friend.entity';
 import { Follow } from '../entities/follow.entity';
 import { UserActivity } from '../entities/userActivity.entity';
+import { Testimonial } from '../entities/testimonial.entity';
+import { ParticipantHistory } from '../entities/participantHistory.entity';
 
 import { Session } from '../entities/session.entity';
 
@@ -93,6 +95,8 @@ export function createDatabaseConfig() {
 		Friend,
 		Follow,
 		UserActivity,
+		Testimonial,
+		ParticipantHistory,
 		// Temporarily excluding entities with enum issues
 		// PermissionOverride,
 		// RoleRequest,

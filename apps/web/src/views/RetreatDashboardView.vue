@@ -222,6 +222,86 @@
               </div>
             </CardContent>
           </Card>
+
+          <!-- Memory Section -->
+          <Card v-if="selectedRetreat.memoryPhotoUrl || selectedRetreat.musicPlaylistUrl" class="md:col-span-2">
+            <CardHeader>
+              <CardTitle class="text-lg flex items-center gap-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                Recuerdos del Retiro
+              </CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-4">
+              <!-- Memory Photo -->
+              <div v-if="selectedRetreat.memoryPhotoUrl">
+                <img
+                  :src="selectedRetreat.memoryPhotoUrl"
+                  alt="Foto del recuerdo"
+                  class="w-full h-64 object-cover rounded-lg"
+                />
+              </div>
+
+              <!-- Music Playlist -->
+              <div v-if="selectedRetreat.musicPlaylistUrl">
+                <a
+                  :href="selectedRetreat.musicPlaylistUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-secondary hover:bg-secondary/80 transition-colors"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M9 18V5l12-2v13"></path>
+                    <circle cx="6" cy="18" r="3"></circle>
+                    <circle cx="18" cy="16" r="3"></circle>
+                  </svg>
+                  <span>Escuchar música del retiro</span>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                  </svg>
+                </a>
+              </div>
+
+              <!-- Empty state hint -->
+              <div v-if="!selectedRetreat.memoryPhotoUrl && !selectedRetreat.musicPlaylistUrl" class="text-center py-6 text-muted-foreground">
+                <p class="text-sm">No hay recuerdos añadidos aún</p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
       <div v-else>

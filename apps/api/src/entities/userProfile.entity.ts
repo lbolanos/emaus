@@ -41,6 +41,12 @@ export class UserProfile {
 	@Column({ type: 'varchar', nullable: true })
 	avatarUrl?: string | null;
 
+	@Column({
+		type: 'varchar',
+		default: 'private',
+	})
+	testimonialVisibilityDefault!: 'public' | 'friends' | 'retreat_participants' | 'private';
+
 	@CreateDateColumn()
 	createdAt!: Date;
 

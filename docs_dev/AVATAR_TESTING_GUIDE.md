@@ -6,13 +6,13 @@ This guide documents the testing approach for the avatar storage system, which s
 
 ## Test Files
 
-| Test File | Description | Tests |
-|-----------|-------------|-------|
-| `src/tests/services/imageService.test.ts` | Image processing and conversion | 20 |
-| `src/tests/services/s3Service.test.ts` | AWS S3 operations | 16 |
-| `src/tests/services/avatarStorageService.test.ts` | Storage abstraction layer | 14 |
-| `src/tests/controllers/userProfileController.test.ts` | Avatar API endpoints | 25 |
-| **Total** | | **75** |
+| Test File                                             | Description                     | Tests  |
+| ----------------------------------------------------- | ------------------------------- | ------ |
+| `src/tests/services/imageService.test.ts`             | Image processing and conversion | 20     |
+| `src/tests/services/s3Service.test.ts`                | AWS S3 operations               | 16     |
+| `src/tests/services/avatarStorageService.test.ts`     | Storage abstraction layer       | 14     |
+| `src/tests/controllers/userProfileController.test.ts` | Avatar API endpoints            | 25     |
+| **Total**                                             |                                 | **75** |
 
 ## Running the Tests
 
@@ -43,12 +43,14 @@ const mockResize = jest.fn().mockReturnThis();
 const mockWebp = jest.fn().mockReturnThis();
 const mockToBuffer = jest.fn().mockResolvedValue(Buffer.from('processed-image'));
 
-jest.mock('sharp', () => jest.fn(() => ({
-  metadata: mockMetadata,
-  resize: mockResize,
-  webp: mockWebp,
-  toBuffer: mockToBuffer,
-})));
+jest.mock('sharp', () =>
+	jest.fn(() => ({
+		metadata: mockMetadata,
+		resize: mockResize,
+		webp: mockWebp,
+		toBuffer: mockToBuffer,
+	})),
+);
 ```
 
 ### S3 Service Tests
@@ -65,13 +67,13 @@ process.env.S3_BUCKET_PREFIX = 'avatars/';
 
 // Mock AWS SDK
 jest.mock('@aws-sdk/client-s3', () => {
-  const mockSend = jest.fn().mockResolvedValue({ ETag: '"test-etag"' });
-  return {
-    S3Client: jest.fn().mockImplementation(() => ({ send: mockSend })),
-    PutObjectCommand: jest.fn(),
-    DeleteObjectCommand: jest.fn(),
-    mockSend,
-  };
+	const mockSend = jest.fn().mockResolvedValue({ ETag: '"test-etag"' });
+	return {
+		S3Client: jest.fn().mockImplementation(() => ({ send: mockSend })),
+		PutObjectCommand: jest.fn(),
+		DeleteObjectCommand: jest.fn(),
+		mockSend,
+	};
 });
 ```
 
@@ -82,17 +84,17 @@ The controller tests mock both the storage service and the user profile service:
 ```typescript
 // Mock storage service
 jest.mock('../../services/avatarStorageService', () => ({
-  avatarStorageService: {
-    uploadAvatar: jest.fn(),
-    deleteAvatar: jest.fn(),
-    isS3Storage: jest.fn(),
-  },
+	avatarStorageService: {
+		uploadAvatar: jest.fn(),
+		deleteAvatar: jest.fn(),
+		isS3Storage: jest.fn(),
+	},
 }));
 
 // Mock user profile service
 jest.mock('../../services/userProfileService', () => ({
-  getUserProfile: jest.fn(),
-  updateUserProfile: jest.fn(),
+	getUserProfile: jest.fn(),
+	updateUserProfile: jest.fn(),
 }));
 ```
 
@@ -101,6 +103,7 @@ jest.mock('../../services/userProfileService', () => ({
 ### Image Service Tests (20 tests)
 
 #### Base64 Conversion
+
 - Convert base64 JPEG image to buffer
 - Convert base64 PNG image to buffer
 - Convert base64 GIF image to buffer
@@ -108,6 +111,7 @@ jest.mock('../../services/userProfileService', () => ({
 - Handle invalid base64 format
 
 #### Image Validation
+
 - Validate JPEG images
 - Validate PNG images
 - Validate GIF images
@@ -115,6 +119,7 @@ jest.mock('../../services/userProfileService', () => ({
 - Reject unsupported formats
 
 #### Image Processing
+
 - Process avatar with resize to 512px
 - Process avatar with WebP conversion
 - Process large image (resize to max dimensions)
@@ -125,30 +130,36 @@ jest.mock('../../services/userProfileService', () => ({
 ### S3 Service Tests (16 tests)
 
 #### Upload Operations
+
 - Upload avatar to S3 with correct parameters
 - Return URL and key after successful upload
 - Handle different user IDs
 - Set correct cache control headers
 
 #### Error Handling
+
 - Handle S3 upload errors
 - Handle network errors during upload
 - Handle access denied errors
 
 #### Delete Operations
+
 - Delete avatar from S3 with correct parameters
 - Handle S3 deletion errors
 - Handle access denied during deletion
 
 #### URL Generation
+
 - Generate correct public URL for standard us-east-1 region
 - Include full key path in URL
 
 #### Client Configuration
+
 - Initialize S3Client with correct region
 - Initialize S3Client with correct credentials
 
 #### Integration Scenarios
+
 - Handle complete upload and delete cycle
 - Handle multiple concurrent uploads
 - Handle partial failures in batch operations
@@ -158,17 +169,20 @@ jest.mock('../../services/userProfileService', () => ({
 ### Avatar Storage Service Tests (14 tests)
 
 #### Base64 Mode Tests
+
 - Upload avatar in base64 mode
 - Delete avatar in base64 mode (no-op)
 - Detect base64 avatar URLs
 - Return base64 as-is without processing
 
 #### Storage Detection
+
 - Identify base64 data URL format
 - Identify S3 URL format
 - Handle null/undefined avatar URLs
 
 #### S3 Storage Mode
+
 - Upload avatar to S3
 - Delete S3 avatar
 - Check if using S3 storage
@@ -178,6 +192,7 @@ jest.mock('../../services/userProfileService', () => ({
 ### Controller Tests (25 tests)
 
 #### Avatar Upload
+
 - Upload avatar successfully (authenticated)
 - Reject avatar upload without authentication
 - Validate avatarUrl parameter presence
@@ -185,6 +200,7 @@ jest.mock('../../services/userProfileService', () => ({
 - Handle S3 upload errors
 
 #### Avatar Removal
+
 - Remove avatar successfully (authenticated)
 - Reject avatar removal without authentication
 - Delete S3 avatar when removing
@@ -192,16 +208,19 @@ jest.mock('../../services/userProfileService', () => ({
 - Handle S3 deletion errors
 
 #### Profile Retrieval
+
 - Get my profile (authenticated)
 - Reject profile retrieval without authentication
 - Return user profile with avatar
 
 #### Public Profile
+
 - Get public profile by ID
 - Return 404 for non-existent profile
 - Exclude sensitive information from public profile
 
 #### User Search
+
 - Search users by query
 - Reject search without query parameter
 - Filter by interests
@@ -210,6 +229,7 @@ jest.mock('../../services/userProfileService', () => ({
 - Filter by retreatId
 
 #### Participant Linking
+
 - Link user to participant
 - Reject linking without authentication
 - Unlink user from participant
@@ -230,18 +250,18 @@ const invalidBase64 = 'not-a-base64-image';
 
 ```typescript
 const mockUser = {
-  id: 'user-uuid',
-  displayName: 'John Doe',
-  email: 'john@example.com',
+	id: 'user-uuid',
+	displayName: 'John Doe',
+	email: 'john@example.com',
 };
 
 const mockProfile = {
-  userId: 'user-uuid',
-  displayName: 'John Doe',
-  bio: 'Retreat enthusiast',
-  location: 'Madrid, Spain',
-  interests: ['meditation', 'nature'],
-  avatarUrl: 'data:image/webp;base64,...',
+	userId: 'user-uuid',
+	displayName: 'John Doe',
+	bio: 'Retreat enthusiast',
+	location: 'Madrid, Spain',
+	interests: ['meditation', 'nature'],
+	avatarUrl: 'data:image/webp;base64,...',
 };
 ```
 
@@ -249,10 +269,10 @@ const mockProfile = {
 
 ```typescript
 const s3Config = {
-  region: 'us-east-1',
-  bucketName: 'test-avatars-bucket',
-  prefix: 'avatars/',
-  expectedUrl: 'https://test-avatars-bucket.s3.us-east-1.amazonaws.com/avatars/user-uuid.webp',
+	region: 'us-east-1',
+	bucketName: 'test-avatars-bucket',
+	prefix: 'avatars/',
+	expectedUrl: 'https://test-avatars-bucket.s3.us-east-1.amazonaws.com/avatars/user-uuid.webp',
 };
 ```
 
@@ -264,7 +284,11 @@ Always mock external libraries and services to ensure tests run quickly and reli
 
 ```typescript
 // ✅ GOOD - Mock sharp library
-jest.mock('sharp', () => jest.fn(() => ({ /* ... */ })));
+jest.mock('sharp', () =>
+	jest.fn(() => ({
+		/* ... */
+	})),
+);
 
 // ❌ BAD - Real sharp library (slow, requires system dependencies)
 import sharp from 'sharp';
@@ -290,8 +314,8 @@ Use `beforeEach` to ensure clean state:
 
 ```typescript
 beforeEach(() => {
-  jest.clearAllMocks();
-  mockSend.mockResolvedValue({ ETag: '"test-etag"' });
+	jest.clearAllMocks();
+	mockSend.mockResolvedValue({ ETag: '"test-etag"' });
 });
 ```
 
@@ -301,12 +325,20 @@ Comprehensive tests cover both happy path and edge cases:
 
 ```typescript
 // Success case
-test('should upload avatar successfully', async () => { /* ... */ });
+test('should upload avatar successfully', async () => {
+	/* ... */
+});
 
 // Failure cases
-test('should handle S3 upload errors', async () => { /* ... */ });
-test('should handle network errors', async () => { /* ... */ });
-test('should handle access denied', async () => { /* ... */ });
+test('should handle S3 upload errors', async () => {
+	/* ... */
+});
+test('should handle network errors', async () => {
+	/* ... */
+});
+test('should handle access denied', async () => {
+	/* ... */
+});
 ```
 
 ### 5. Use Descriptive Test Names
@@ -315,10 +347,14 @@ Test names should clearly describe what is being tested:
 
 ```typescript
 // ✅ GOOD
-test('should delete old S3 avatar when uploading new one', async () => { /* ... */ });
+test('should delete old S3 avatar when uploading new one', async () => {
+	/* ... */
+});
 
 // ❌ BAD
-test('test avatar deletion', async () => { /* ... */ });
+test('test avatar deletion', async () => {
+	/* ... */
+});
 ```
 
 ## Continuous Integration
@@ -373,9 +409,9 @@ This occurs when new entities are not registered in test setup. Add entities to 
 import { UserProfile } from '../entities/userProfile.entity';
 
 beforeAll(async () => {
-  dataSource = await createDataSource({
-    entities: [User, UserProfile, /* ... */],
-  });
+	dataSource = await createDataSource({
+		entities: [User, UserProfile /* ... */],
+	});
 });
 ```
 

@@ -2,7 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
 import { Bed } from './bed.entity';
 import { Retreat } from './retreat.entity';
 
-@Entity()
+@Entity('house')
 export class House {
 	@PrimaryGeneratedColumn('uuid')
 	id!: string;
@@ -46,6 +46,6 @@ export class House {
 	@OneToMany(() => Bed, (bed) => bed.house, { cascade: true, onDelete: 'CASCADE' })
 	beds!: Bed[];
 
-	@OneToMany(() => Retreat, (retreat) => retreat.house, { onDelete: 'RESTRICT' })
+	@OneToMany(() => Retreat, 'house', { onDelete: 'RESTRICT' })
 	retreats!: Retreat[];
 }

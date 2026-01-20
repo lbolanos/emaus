@@ -10,10 +10,49 @@ import { rebalanceTablesForRetreat, assignLeaderToTable } from './tableMesaServi
 import { EmailService } from './emailService';
 import { BedQueryUtils } from '../utils/bedQueryUtils';
 import { In, Not, IsNull, ILike, Brackets } from 'typeorm';
+import {
+	createHistoryEntry,
+	autoSetPrimaryRetreat,
+	CreateHistoryData,
+} from './participantHistoryService';
+import { ParticipantHistory } from '../entities/participantHistory.entity';
 
 const participantRepository = AppDataSource.getRepository(Participant);
 const tableMesaRepository = AppDataSource.getRepository(TableMesa);
 const paymentRepository = AppDataSource.getRepository(Payment);
+
+// ==================== PARTICIPANT LOOKUP FUNCTIONS ====================
+
+/**
+ * Find participant by email (searches all retreats)
+ * Returns the most recent participant record for this email
+ */
+export const findParticipantByEmail = async (email: string): Promise<Participant | null> => {
+	return await participantRepository.findOne({
+		where: { email },
+		order: { registrationDate: 'DESC' }, // Most recent first
+	});
+};
+
+/**
+ * Check if a participant exists by email (for server registration flow)
+ * Returns existence status and participant details if found
+ */
+export const checkParticipantExists = async (
+	email: string,
+): Promise<{ exists: boolean; participant?: Participant; message?: string }> => {
+	const existing = await findParticipantByEmail(email);
+
+	if (!existing) {
+		return { exists: false };
+	}
+
+	return {
+		exists: true,
+		participant: existing,
+		message: `Se encontró un registro existente para ${email} (${existing.firstName} ${existing.lastName})`,
+	};
+};
 
 // Create BedQueryUtils instance
 const bedQueryUtils = new BedQueryUtils();
@@ -323,10 +362,128 @@ export const createParticipant = async (
 		const participantRepository = transactionalEntityManager.getRepository(Participant);
 		const retreatRepository = transactionalEntityManager.getRepository(Retreat);
 
-		const existingParticipant = await participantRepository.findOne({
+		// PRIMERO: Buscar si existe Participant con este email (sin filtrar por retreatId)
+		// This implements the new server registration flow where we reuse existing participants
+		const existingParticipantByEmail = await participantRepository.findOne({
+			where: { email: participantData.email },
+			order: { registrationDate: 'DESC' },
+		});
+
+		// SI EXISTE: Actualizar el Participant existente con nueva información del retiro
+		if (existingParticipantByEmail) {
+			// Check if trying to register for the same retreat they're already in
+			if (existingParticipantByEmail.retreatId === participantData.retreatId) {
+				throw new Error('A participant with this email already exists in this retreat.');
+			}
+
+			console.warn(
+				`🔄 Reusing existing participant ${existingParticipantByEmail.email} from retreat ${existingParticipantByEmail.retreatId} for new retreat ${participantData.retreatId}`,
+			);
+
+			// Store old retreat ID for history before updating
+			const oldRetreatId = existingParticipantByEmail.retreatId;
+			const oldType = existingParticipantByEmail.type;
+
+			// Create history entry for the OLD retreat before updating
+			if (existingParticipantByEmail.userId && oldRetreatId) {
+				try {
+					const oldHistoryData: CreateHistoryData = {
+						userId: existingParticipantByEmail.userId,
+						participantId: existingParticipantByEmail.id,
+						retreatId: oldRetreatId,
+						roleInRetreat:
+							oldType === 'walker'
+								? 'walker'
+								: oldType === 'server' || oldType === 'partial_server'
+									? 'server'
+									: 'server',
+						isPrimaryRetreat: false,
+					};
+
+					const historyRepo = transactionalEntityManager.getRepository(ParticipantHistory);
+					// Check if history already exists for old retreat
+					const existingHistory = await historyRepo.findOne({
+						where: {
+							userId: existingParticipantByEmail.userId,
+							retreatId: oldRetreatId,
+							participantId: existingParticipantByEmail.id,
+						},
+					});
+
+					if (!existingHistory) {
+						const oldHistory = historyRepo.create(oldHistoryData);
+						await historyRepo.save(oldHistory);
+						console.warn(
+							`✅ Created history for old retreat ${oldRetreatId} when reusing participant`,
+						);
+					}
+				} catch (historyError) {
+					console.error('Error creating history for old retreat:', historyError);
+				}
+			}
+
+			// Update the existing participant with new retreat information
+			Object.assign(existingParticipantByEmail, {
+				...participantData,
+				retreatId: participantData.retreatId, // Update to new retreat
+				type: participantData.type,
+				lastUpdatedDate: new Date(),
+				// Preserve the original registration date for tracking purposes
+				registrationDate: existingParticipantByEmail.registrationDate,
+			});
+
+			const updatedParticipant = await participantRepository.save(existingParticipantByEmail);
+
+			// Create ParticipantHistory for the NEW retreat
+			if (updatedParticipant.userId && updatedParticipant.retreatId) {
+				try {
+					const historyData: CreateHistoryData = {
+						userId: updatedParticipant.userId,
+						participantId: updatedParticipant.id,
+						retreatId: updatedParticipant.retreatId,
+						roleInRetreat:
+							participantData.type === 'walker'
+								? 'walker'
+								: participantData.type === 'server' || participantData.type === 'partial_server'
+									? 'server'
+									: 'server',
+						isPrimaryRetreat: false,
+					};
+
+					const historyRepo = transactionalEntityManager.getRepository(ParticipantHistory);
+					// Check if history already exists for new retreat
+					const existingHistory = await historyRepo.findOne({
+						where: {
+							userId: updatedParticipant.userId,
+							retreatId: updatedParticipant.retreatId,
+							participantId: updatedParticipant.id,
+						},
+					});
+
+					if (!existingHistory) {
+						const history = historyRepo.create(historyData);
+						await historyRepo.save(history);
+					}
+
+					// Update primary retreat
+					await autoSetPrimaryRetreat(updatedParticipant.userId);
+				} catch (historyError) {
+					console.error('Error creating participant history for new retreat:', historyError);
+				}
+			}
+
+			console.warn(
+				`✅ Successfully updated and reused participant ${updatedParticipant.email} for retreat ${updatedParticipant.retreatId}`,
+			);
+
+			return updatedParticipant;
+		}
+
+		// SI NO EXISTE: Verificar que no exista en el mismo retiro (validación original)
+		const existingInRetreat = await participantRepository.findOne({
 			where: { email: participantData.email, retreatId: participantData.retreatId },
 		});
-		if (existingParticipant) {
+		if (existingInRetreat) {
 			throw new Error('A participant with this email already exists in this retreat.');
 		}
 
@@ -509,6 +666,38 @@ export const createParticipant = async (
 
 		const newParticipant = participantRepository.create(newParticipantData);
 		let savedParticipant: Participant = await participantRepository.save(newParticipant);
+
+		// Create participant history entry if user is linked
+		if (savedParticipant.userId && savedParticipant.retreatId) {
+			try {
+				const historyData: CreateHistoryData = {
+					userId: savedParticipant.userId,
+					participantId: savedParticipant.id,
+					retreatId: savedParticipant.retreatId,
+					roleInRetreat:
+						savedParticipant.type === 'walker'
+							? 'walker'
+							: savedParticipant.type === 'server' || savedParticipant.type === 'partial_server'
+								? 'server'
+								: 'server', // Default for 'waiting' or other types
+					isPrimaryRetreat: false, // Will be auto-set later
+				};
+
+				const historyRepository = transactionalEntityManager.getRepository(ParticipantHistory);
+				const history = historyRepository.create(historyData);
+				await historyRepository.save(history);
+
+				// Auto-set primary retreat for this user
+				await autoSetPrimaryRetreat(savedParticipant.userId);
+
+				console.warn(
+					`✅ Created participant history for user ${savedParticipant.userId} in retreat ${savedParticipant.retreatId}`,
+				);
+			} catch (historyError) {
+				// Log error but don't fail participant creation
+				console.error('Error creating participant history:', historyError);
+			}
+		}
 
 		if (
 			assignRelationships &&
@@ -1388,6 +1577,36 @@ export const linkUserToParticipant = async (
 
 	await participantRepository.save(participant);
 	await userRepository.save(user);
+
+	// Create participant history entry
+	if (participant.retreatId) {
+		try {
+			const historyData: CreateHistoryData = {
+				userId,
+				participantId,
+				retreatId: participant.retreatId,
+				roleInRetreat:
+					participant.type === 'walker'
+						? 'walker'
+						: participant.type === 'server' || participant.type === 'partial_server'
+							? 'server'
+							: 'server',
+				isPrimaryRetreat: false,
+			};
+
+			await createHistoryEntry(historyData);
+
+			// Auto-set primary retreat for this user
+			await autoSetPrimaryRetreat(userId);
+
+			console.warn(
+				`✅ Created participant history for user ${userId} when linking to participant ${participantId}`,
+			);
+		} catch (historyError) {
+			// Log error but don't fail linking
+			console.error('Error creating participant history during link:', historyError);
+		}
+	}
 
 	// Create activity if the participant is a server
 	if (participant.type === 'server') {

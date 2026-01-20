@@ -10,6 +10,7 @@ import type {
 	MemberState,
 	MessageTemplate,
 	Retreat,
+	Participant,
 } from '@repo/types';
 import { setupCsrfInterceptor } from '@/utils/csrf';
 import { telemetryService } from './telemetryService';
@@ -534,7 +535,7 @@ export const getWalkersByRetreat = async (retreatId: string): Promise<any[]> => 
 export const getParticipantsByRetreat = async (
 	retreatId: string,
 	type?: 'walker' | 'server' | 'waiting' | 'partial_server' | undefined,
-): Promise<any[]> => {
+): Promise<Participant[]> => {
 	const params: Record<string, string> = { retreatId };
 	if (type) {
 		params.type = type;
@@ -555,6 +556,21 @@ export const getPotentialMembersFromRetreat = async (
 
 export const getParticipantById = async (participantId: string) => {
 	const response = await api.get(`/participants/${participantId}`);
+	return response.data;
+};
+
+/**
+ * Check if a participant exists by email (for server registration flow)
+ * Returns existence status and participant details if found
+ */
+export const checkParticipantExists = async (
+	email: string,
+): Promise<{
+	exists: boolean;
+	participant?: Participant;
+	message?: string;
+}> => {
+	const response = await api.get(`/participants/check-email/${encodeURIComponent(email)}`);
 	return response.data;
 };
 
@@ -1170,5 +1186,227 @@ export async function unblockUser(userId: string): Promise<void> {
 
 export async function getBlockedUsers(): Promise<any[]> {
 	const response = await api.get('/social/blocked');
+	return response.data;
+}
+
+// ==================== TESTIMONIAL API FUNCTIONS ====================
+
+export async function createTestimonial(data: {
+	content: string;
+	retreatId?: string | null;
+	visibility?: 'public' | 'friends' | 'retreat_participants' | 'private';
+	allowLandingPage?: boolean;
+}): Promise<any> {
+	const response = await api.post('/testimonials', data);
+	return response.data;
+}
+
+export async function getTestimonials(): Promise<any[]> {
+	const response = await api.get('/testimonials');
+	return response.data;
+}
+
+export async function getTestimonialsByRetreat(retreatId: string): Promise<any[]> {
+	const response = await api.get(`/testimonials/retreat/${retreatId}`);
+	return response.data;
+}
+
+export async function getUserTestimonials(userId: string): Promise<any[]> {
+	const response = await api.get(`/testimonials/user/${userId}`);
+	return response.data;
+}
+
+export async function updateTestimonial(
+	id: number,
+	data: {
+		content?: string;
+		visibility?: 'public' | 'friends' | 'retreat_participants' | 'private';
+		allowLandingPage?: boolean;
+	},
+): Promise<any> {
+	const response = await api.put(`/testimonials/${id}`, data);
+	return response.data;
+}
+
+export async function deleteTestimonial(id: number): Promise<void> {
+	await api.delete(`/testimonials/${id}`);
+}
+
+export async function approveTestimonialForLanding(id: number): Promise<any> {
+	const response = await api.put(`/testimonials/${id}/approve-landing`);
+	return response.data;
+}
+
+export async function revokeLandingApproval(id: number): Promise<any> {
+	const response = await api.put(`/testimonials/${id}/revoke-landing`);
+	return response.data;
+}
+
+export async function getLandingTestimonials(): Promise<any[]> {
+	const response = await api.get('/landing/testimonials');
+	return response.data;
+}
+
+export async function getTestimonialDefaultVisibility(): Promise<{
+	testimonialVisibilityDefault: 'public' | 'friends' | 'retreat_participants' | 'private';
+}> {
+	const response = await api.get('/testimonials/settings/default-visibility');
+	return response.data;
+}
+
+export async function setTestimonialDefaultVisibility(
+	visibility: 'public' | 'friends' | 'retreat_participants' | 'private',
+): Promise<{ message: string; testimonialVisibilityDefault: string }> {
+	const response = await api.put('/testimonials/settings/default-visibility', {
+		testimonialVisibilityDefault: visibility,
+	});
+	return response.data;
+}
+
+// Retreat Memory API functions
+export async function uploadRetreatMemoryPhoto(
+	retreatId: string,
+	photoData: string,
+): Promise<{ memoryPhotoUrl: string }> {
+	const response = await api.post(`/retreats/${retreatId}/memory-photo`, { photoData });
+	return response.data;
+}
+
+export async function updateRetreatMemory(
+	retreatId: string,
+	data: { musicPlaylistUrl?: string },
+): Promise<{ musicPlaylistUrl?: string; memoryPhotoUrl?: string }> {
+	const response = await api.put(`/retreats/${retreatId}/memory`, data);
+	return response.data;
+}
+
+export async function getAttendedRetreats(): Promise<Retreat[]> {
+	const response = await api.get('/retreats/attended');
+	return response.data;
+}
+
+// ==================== PARTICIPANT HISTORY API ====================
+
+export type RoleInRetreat = 'walker' | 'server' | 'leader' | 'coordinator' | 'charlista';
+
+export interface ParticipantHistory {
+	id: string;
+	userId: string;
+	participantId: string | null;
+	retreatId: string;
+	roleInRetreat: RoleInRetreat;
+	isPrimaryRetreat: boolean;
+	notes?: string;
+	metadata?: Record<string, any>;
+	createdAt: string;
+	retreat?: {
+		id: string;
+		parish: string;
+		startDate: string;
+		endDate: string;
+		house?: {
+			id: string;
+			name: string;
+		};
+	};
+	participant?: {
+		id: string;
+		firstName: string;
+		lastName: string;
+		type: string;
+	};
+	user?: {
+		id: string;
+		displayName: string;
+		email: string;
+		profile?: {
+			bio?: string;
+			avatarUrl?: string;
+		};
+	};
+}
+
+/**
+ * Get complete retreat history for the authenticated user
+ */
+export async function getUserRetreatHistory(): Promise<ParticipantHistory[]> {
+	const response = await api.get('/history/my-retreats');
+	return response.data;
+}
+
+/**
+ * Get retreat history for the authenticated user filtered by role
+ */
+export async function getUserRetreatHistoryByRole(
+	role: RoleInRetreat,
+): Promise<ParticipantHistory[]> {
+	const response = await api.get(`/history/my-retreats/role/${role}`);
+	return response.data;
+}
+
+/**
+ * Get the authenticated user's primary retreat
+ */
+export async function getPrimaryRetreat(): Promise<ParticipantHistory> {
+	const response = await api.get('/history/my-retreats/primary');
+	return response.data;
+}
+
+/**
+ * Get retreat history for a specific user (admin/coordinator only)
+ */
+export async function getUserRetreatHistoryById(userId: string): Promise<ParticipantHistory[]> {
+	const response = await api.get(`/history/user/${userId}`);
+	return response.data;
+}
+
+/**
+ * Get history for a specific user and retreat
+ */
+export async function getUserHistoryForRetreat(
+	userId: string,
+	retreatId: string,
+): Promise<ParticipantHistory> {
+	const response = await api.get(`/history/user/${userId}/retreat/${retreatId}`);
+	return response.data;
+}
+
+/**
+ * Get all participants (history) for a specific retreat
+ */
+export async function getParticipantsHistoryByRetreat(
+	retreatId: string,
+): Promise<ParticipantHistory[]> {
+	const response = await api.get(`/history/retreat/${retreatId}/participants`);
+	return response.data;
+}
+
+/**
+ * Get all history entries for a specific participant
+ */
+export async function getHistoryByParticipantId(
+	participantId: string,
+): Promise<ParticipantHistory[]> {
+	const response = await api.get(`/history/participant/${participantId}`);
+	return response.data;
+}
+
+/**
+ * Get participants by role for a specific retreat
+ */
+export async function getParticipantsByRole(
+	retreatId: string,
+	role: RoleInRetreat,
+): Promise<ParticipantHistory[]> {
+	const response = await api.get(`/history/retreat/${retreatId}/role/${role}`);
+	return response.data;
+}
+
+/**
+ * Get charlistas (speakers) for a retreat or globally
+ */
+export async function getCharlistas(retreatId?: string): Promise<ParticipantHistory[]> {
+	const params = retreatId ? `?retreatId=${retreatId}` : '';
+	const response = await api.get(`/history/charlistas${params}`);
 	return response.data;
 }

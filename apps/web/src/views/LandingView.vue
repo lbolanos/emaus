@@ -287,6 +287,83 @@
       </div>
     </section>
 
+    <!-- Stories/Testimonials Section -->
+    <section id="stories" class="py-24 px-6 bg-stone-50">
+      <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-16">
+          <span class="text-sage-600 font-semibold tracking-widest uppercase text-xs mb-3 block" :style="{ color: '#8DAA91' }">
+            {{ $t('landing.storiesBadge') }}
+          </span>
+          <h2 class="text-4xl font-light text-stone-900">{{ $t('landing.storiesTitle') }}</h2>
+          <p class="text-stone-600 mt-4 max-w-2xl mx-auto">{{ $t('landing.storiesSubtitle') }}</p>
+        </div>
+
+        <!-- Loading state -->
+        <div v-if="loadingTestimonials" class="flex justify-center py-12">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-sage-600" :style="{ borderColor: '#8DAA91' }"></div>
+        </div>
+
+        <!-- Empty state -->
+        <div v-else-if="testimonials.length === 0" class="text-center py-12 text-stone-500">
+          <p>{{ $t('landing.noStories') }}</p>
+        </div>
+
+        <!-- Testimonials grid -->
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div
+            v-for="testimonial in testimonials"
+            :key="testimonial.id"
+            class="bg-white rounded-2xl p-8 shadow-sm border border-stone-100 hover:shadow-lg transition-shadow"
+          >
+            <!-- Header: User info -->
+            <div class="flex items-center gap-4 mb-4">
+              <div class="w-12 h-12 rounded-full bg-sage-100 flex items-center justify-center text-sage-700 font-semibold overflow-hidden" :style="{ backgroundColor: 'rgba(141, 170, 145, 0.2)', color: '#6B8E6F' }">
+                <img
+                  v-if="testimonial.user?.photo"
+                  :src="testimonial.user.photo"
+                  :alt="`${testimonial.user.displayName} avatar`"
+                  class="w-full h-full object-cover"
+                />
+                <span v-else>{{ getInitials(testimonial.user?.displayName) }}</span>
+              </div>
+              <div>
+                <h4 class="font-semibold text-stone-900">{{ testimonial.user?.displayName }}</h4>
+                <p class="text-xs text-stone-500">{{ formatDate(testimonial.createdAt) }}</p>
+              </div>
+            </div>
+
+            <!-- Content -->
+            <p class="text-stone-700 mb-4 whitespace-pre-wrap">{{ testimonial.content }}</p>
+
+            <!-- Retreat info (if applicable) -->
+            <div v-if="testimonial.retreat" class="flex items-center gap-2 text-xs text-stone-500 mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+              </svg>
+              <span>{{ testimonial.retreat.parish }}</span>
+            </div>
+
+            <!-- Landing indicator -->
+            <div class="flex items-center gap-2 text-xs text-sage-600">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>{{ $t('landing.publishedOnLanding') }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CTA to share your story -->
+        <div v-if="!authStore.isAuthenticated" class="text-center mt-12">
+          <p class="text-stone-600 mb-4">{{ $t('landing.shareYourStory') }}</p>
+          <button @click="handleLoginClick" class="px-6 py-3 rounded-full bg-stone-800 text-white font-medium hover:bg-stone-700 transition-colors">
+            {{ $t('landing.loginToShare') }}
+          </button>
+        </div>
+      </div>
+    </section>
+
     <!-- CTA Footer Wrapper -->
     <section class="py-20 px-6">
       <div class="max-w-7xl mx-auto rounded-[3rem] overflow-hidden relative bg-stone-900 text-white p-12 md:p-24 text-center">
@@ -376,6 +453,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import {
   MapPin,
   Calendar,
@@ -387,7 +465,7 @@ import {
   Facebook,
   Mail
 } from 'lucide-vue-next';
-import { getPublicRetreats, getPublicCommunities, getPublicCommunityMeetings, subscribeToNewsletter } from '@/services/api';
+import { getPublicRetreats, getPublicCommunities, getPublicCommunityMeetings, subscribeToNewsletter, getLandingTestimonials } from '@/services/api';
 import { formatDate as formatDateUtil } from '@repo/utils';
 import { useToast } from '@repo/ui';
 import { useAuthStore } from '@/stores/authStore';
@@ -398,6 +476,7 @@ import PublicJoinRequestModal from '@/components/community/PublicJoinRequestModa
 import PublicRetreatFlyerModal from '@/components/PublicRetreatFlyerModal.vue';
 
 const { toast } = useToast();
+const { t: $t } = useI18n();
 const authStore = useAuthStore();
 const retreatStore = useRetreatStore();
 const router = useRouter();
@@ -428,6 +507,7 @@ const searchQuery = ref('');
 const email = ref('');
 const loadingRetreats = ref(true);
 const loadingMeetings = ref(true);
+const loadingTestimonials = ref(true);
 const subscribing = ref(false);
 const subscribeMessage = ref('');
 const subscribeSuccess = ref(false);
@@ -444,6 +524,7 @@ const selectedRetreat = ref<any>(null);
 const retreats = ref<any[]>([]);
 const communities = ref<any[]>([]);
 const meetings = ref<any[]>([]);
+const testimonials = ref<any[]>([]);
 
 // Pool of retreat images
 const retreatImages = [
@@ -466,6 +547,28 @@ const getMapPinPosition = (index: number) => {
     { top: '20%', left: '80%' }
   ];
   return positions[index % positions.length];
+};
+
+// Get initials for avatar
+const getInitials = (name: string) => {
+  if (!name) return '?';
+  const names = name.trim().split(/\s+/);
+  if (names.length === 1) return names[0].charAt(0).toUpperCase();
+  return (names[0].charAt(0) + names[names.length - 1].charAt(0)).toUpperCase();
+};
+
+// Format testimonial date
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return $t('landing.today');
+  if (diffDays === 1) return $t('landing.yesterday');
+  if (diffDays < 7) return `${diffDays} ${$t('landing.daysAgo')}`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} ${$t('landing.weeksAgo')}`;
+  return `${Math.floor(diffDays / 30)} ${$t('landing.monthsAgo')}`;
 };
 
 // Format date range for retreat cards (using shared utility to avoid timezone issues)
@@ -541,6 +644,20 @@ const fetchData = async () => {
   }
 };
 
+// Fetch landing testimonials
+const fetchTestimonials = async () => {
+  try {
+    loadingTestimonials.value = true;
+    const data = await getLandingTestimonials();
+    testimonials.value = data;
+  } catch (error) {
+    console.error('Failed to fetch landing testimonials:', error);
+    testimonials.value = [];
+  } finally {
+    loadingTestimonials.value = false;
+  }
+};
+
 // Subscribe to newsletter
 const handleSubscribe = async () => {
   const emailValue = email.value.trim();
@@ -607,6 +724,7 @@ const openRetreatFlyer = (retreat: any, event: Event) => {
 onMounted(() => {
   window.addEventListener('scroll', handleScroll);
   fetchData();
+  fetchTestimonials();
 });
 
 onUnmounted(() => {

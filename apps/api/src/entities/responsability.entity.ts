@@ -20,6 +20,7 @@ export enum ResponsabilityType {
 	ORACION = 'oracion',
 	LIMPIEZA = 'limpieza',
 	COCINA = 'cocina',
+	CHARLISTA = 'charlista',
 	OTRO = 'otro',
 }
 

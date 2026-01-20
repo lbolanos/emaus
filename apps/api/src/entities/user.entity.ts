@@ -20,6 +20,7 @@ import { Participant } from './participant.entity';
 import { UserProfile } from './userProfile.entity';
 import { Friend } from './friend.entity';
 import { Follow } from './follow.entity';
+import { ParticipantHistory } from './participantHistory.entity';
 
 @Entity('users')
 export class User {
@@ -93,6 +94,9 @@ export class User {
 
 	@OneToMany(() => Follow, (follow) => follow.following)
 	followers!: Follow[];
+
+	@OneToMany(() => ParticipantHistory, (history) => history.user)
+	retreatHistory!: ParticipantHistory[];
 
 	@BeforeInsert()
 	@BeforeUpdate()

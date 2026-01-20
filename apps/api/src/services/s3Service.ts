@@ -54,6 +54,40 @@ class S3Service {
 		await this.client.send(command);
 	}
 
+	async uploadRetreatMemoryPhoto(
+		retreatId: string,
+		buffer: Buffer,
+		contentType: string,
+	): Promise<UploadResult> {
+		const key = `retreat-memories/${retreatId}.webp`;
+
+		const command = new PutObjectCommand({
+			Bucket: this.bucketName,
+			Key: key,
+			Body: buffer,
+			ContentType: contentType,
+			CacheControl: 'public, max-age=31536000, immutable',
+		});
+
+		await this.client.send(command);
+
+		return {
+			url: this.getPublicUrl(key),
+			key,
+		};
+	}
+
+	async deleteRetreatMemoryPhoto(retreatId: string): Promise<void> {
+		const key = `retreat-memories/${retreatId}.webp`;
+
+		const command = new DeleteObjectCommand({
+			Bucket: this.bucketName,
+			Key: key,
+		});
+
+		await this.client.send(command);
+	}
+
 	private getPublicUrl(key: string): string {
 		// Return S3 public URL format
 		return `https://${this.bucketName}.s3.${config.aws.region}.amazonaws.com/${key}`;

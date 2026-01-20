@@ -55,6 +55,7 @@ Your profile is your public presence in the Emaus community. It includes:
 ### Viewing Public Profiles
 
 Public profiles show information that users have chosen to share, including:
+
 - Display name
 - Bio
 - Location
@@ -73,11 +74,13 @@ Public profiles show information that users have chosen to share, including:
 ### Managing Friend Requests
 
 **Viewing Pending Requests:**
+
 1. Navigate to **Friends**
 2. Click on **Pending** to see received requests
 3. Click **Accept** or **Reject** on each request
 
 **Viewing Sent Requests:**
+
 1. Navigate to **Friends**
 2. Click on **Sent** to see your pending requests
 
@@ -133,6 +136,7 @@ Blocking prevents another user from interacting with you.
 3. Confirm the block
 
 Blocked users cannot:
+
 - Send you friend requests
 - Follow you
 - See your profile or activity

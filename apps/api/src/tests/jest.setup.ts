@@ -36,6 +36,7 @@ import { UserProfile } from '../entities/userProfile.entity';
 import { Follow } from '../entities/follow.entity';
 import { Friend } from '../entities/friend.entity';
 import { UserActivity } from '../entities/userActivity.entity';
+import { Testimonial } from '../entities/testimonial.entity';
 
 const entities = [
 	Session,
@@ -50,6 +51,7 @@ const entities = [
 	Follow,
 	Friend,
 	UserActivity,
+	Testimonial,
 	Responsability,
 	MessageTemplate,
 	GlobalMessageTemplate,

@@ -108,7 +108,19 @@
     "registerNow": "Registrarse Ahora",
     "registerServer": "Registrarse como Servidor",
     "important": "Importante",
-    "viewInMaps": "Ver en Google Maps"
+    "viewInMaps": "Ver en Google Maps",
+    "storiesBadge": "Historias Reales",
+    "storiesTitle": "Historias de los Retiros",
+    "storiesSubtitle": "Lee experiencias auténticas de participantes que han caminado el camino",
+    "noStories": "Aún no hay historias publicadas. ¡Sé el primero en compartir tu experiencia!",
+    "shareYourStory": "¿Participaste en un retiro? Comparte tu experiencia con otros.",
+    "loginToShare": "Inicia sesión para Compartir tu Historia",
+    "publishedOnLanding": "Publicado en landing page",
+    "today": "Hoy",
+    "yesterday": "Ayer",
+    "daysAgo": "días atrás",
+    "weeksAgo": "semanas atrás",
+    "monthsAgo": "meses atrás"
   },
   "sidebar": {
     "walkers": "Caminantes",
@@ -167,7 +179,9 @@
     "myProfile": "Mi Perfil",
     "searchUsers": "Buscar Usuarios",
     "friends": "Amigos",
-    "followers": "Seguidores"
+    "followers": "Seguidores",
+    "testimonials": "Testimonios",
+    "myRetreats": "Mis Retiros"
   },
   "changePassword": {
     "title": "Cambiar Contraseña",

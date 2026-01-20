@@ -113,6 +113,8 @@ export const retreatSchema = z.object({
 		.regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
 		.optional(),
 	flyer_options: flyerOptionsSchema.optional(),
+	memoryPhotoUrl: z.string().url().optional().or(z.literal('')),
+	musicPlaylistUrl: z.string().url().optional().or(z.literal('')),
 });
 export type Retreat = z.infer<typeof retreatSchema>;
 
@@ -392,6 +394,7 @@ export type {
 export * from './message-template';
 export * from './permissions';
 export * from './community';
+export * from './testimonial';
 
 // Payment Schema
 export const paymentSchema = z.object({
@@ -451,3 +454,56 @@ export type {
 	PermissionOverride,
 	CreatePermissionOverride,
 } from './user';
+
+// Participant History Schema
+export const participantHistorySchema = z.object({
+	id: idSchema,
+	userId: idSchema,
+	participantId: idSchema.nullable(),
+	retreatId: idSchema,
+	roleInRetreat: z.enum(['walker', 'server', 'leader', 'coordinator', 'charlista']),
+	isPrimaryRetreat: z.boolean(),
+	notes: z.string().optional(),
+	metadata: z.record(z.any()).optional(),
+	createdAt: z.coerce.date(),
+	// Relations
+	retreat: z
+		.object({
+			id: idSchema,
+			parish: z.string(),
+			startDate: z.coerce.date(),
+			endDate: z.coerce.date(),
+			house: z
+				.object({
+					id: idSchema,
+					name: z.string(),
+				})
+				.optional(),
+		})
+		.optional(),
+	participant: z
+		.object({
+			id: idSchema,
+			firstName: z.string(),
+			lastName: z.string(),
+			type: z.string(),
+		})
+		.optional(),
+	user: z
+		.object({
+			id: idSchema,
+			displayName: z.string(),
+			email: z.string(),
+			profile: z
+				.object({
+					bio: z.string().optional(),
+					avatarUrl: z.string().optional(),
+				})
+				.optional(),
+		})
+		.optional(),
+});
+
+export type ParticipantHistory = z.infer<typeof participantHistorySchema>;
+
+export type RoleInRetreat = 'walker' | 'server' | 'leader' | 'coordinator' | 'charlista';

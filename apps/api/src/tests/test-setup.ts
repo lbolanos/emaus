@@ -42,6 +42,8 @@ import { UserProfile } from '../entities/userProfile.entity';
 import { Follow } from '../entities/follow.entity';
 import { Friend } from '../entities/friend.entity';
 import { UserActivity } from '../entities/userActivity.entity';
+import { Testimonial } from '../entities/testimonial.entity';
+import { ParticipantHistory } from '../entities/participantHistory.entity';
 
 const entities = [
 	Session,
@@ -56,6 +58,8 @@ const entities = [
 	Follow,
 	Friend,
 	UserActivity,
+	Testimonial,
+	ParticipantHistory,
 	Responsability,
 	MessageTemplate,
 	GlobalMessageTemplate,
@@ -245,6 +249,7 @@ export async function clearTestData() {
 		'community_admin',
 		'community',
 		'user_activity',
+		'testimonials',
 		'follow',
 		'friend',
 		'user_profile',

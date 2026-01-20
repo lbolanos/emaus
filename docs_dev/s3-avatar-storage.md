@@ -76,18 +76,14 @@ The IAM user needs these minimum permissions:
 
 ```json
 {
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "s3:PutObject",
-        "s3:DeleteObject",
-        "s3:GetObject"
-      ],
-      "Resource": "arn:aws:s3:::emaus-avatars/*"
-    }
-  ]
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Effect": "Allow",
+			"Action": ["s3:PutObject", "s3:DeleteObject", "s3:GetObject"],
+			"Resource": "arn:aws:s3:::emaus-avatars/*"
+		}
+	]
 }
 ```
 
@@ -111,11 +107,13 @@ export S3_BUCKET_NAME=emaus-avatars
 If you prefer manual configuration:
 
 1. **Create Bucket:**
+
    ```bash
    aws s3api create-bucket --bucket emaus-avatars --region us-east-1
    ```
 
 2. **Enable Public Read:**
+
    ```bash
    aws s3api put-bucket-policy \
      --bucket emaus-avatars \
@@ -168,9 +166,9 @@ When an avatar is uploaded (regardless of storage method):
 ### File Size Impact
 
 | Original Format | Typical Size | After Processing | Reduction |
-|----------------|--------------|------------------|-----------|
-| JPEG (2MB)     | 2,048 KB     | ~50 KB           | 97.5%     |
-| PNG (500KB)    | 500 KB       | ~30 KB           | 94%       |
+| --------------- | ------------ | ---------------- | --------- |
+| JPEG (2MB)      | 2,048 KB     | ~50 KB           | 97.5%     |
+| PNG (500KB)     | 500 KB       | ~30 KB           | 94%       |
 
 ## Service Modules
 
@@ -180,16 +178,16 @@ Validates environment variables and provides typed configuration:
 
 ```typescript
 export const config = {
-  avatar: {
-    storage: 'base64' | 's3',
-  },
-  aws: {
-    region: string,
-    accessKeyId: string,
-    secretAccessKey: string,
-    s3BucketName: string,
-    s3Prefix: string,
-  },
+	avatar: {
+		storage: 'base64' | 's3',
+	},
+	aws: {
+		region: string,
+		accessKeyId: string,
+		secretAccessKey: string,
+		s3BucketName: string,
+		s3Prefix: string,
+	},
 };
 ```
 
@@ -212,6 +210,7 @@ Processes images before storage:
 - `isValidImage(contentType)` - Validate image type
 
 **Constants:**
+
 - Max size: 512px
 - Quality: 85%
 - Max file size: 2MB
@@ -269,6 +268,7 @@ npx ts-node scripts/migrate-avatars-to-s3.ts
 ```
 
 The migration script:
+
 1. Finds all profiles with base64 avatars (`data:image/%`)
 2. Processes each image (resize, WebP conversion)
 3. Uploads to S3
@@ -327,11 +327,11 @@ export AVATAR_STORAGE=base64
 
 ### S3 Pricing (us-east-1)
 
-| Resource | Cost |
-|----------|------|
-| Storage | $0.023/GB/month |
-| PUT requests | $0.0004 per 1,000 |
-| GET requests | $0.0004 per 1,000 |
+| Resource      | Cost                            |
+| ------------- | ------------------------------- |
+| Storage       | $0.023/GB/month                 |
+| PUT requests  | $0.0004 per 1,000               |
+| GET requests  | $0.0004 per 1,000               |
 | Data transfer | First 100GB free, then $0.09/GB |
 
 ### Estimated Costs for 1,000 Users
@@ -349,6 +349,7 @@ export AVATAR_STORAGE=base64
 ### Issue: "AWS credentials not found"
 
 **Solution:** Configure AWS credentials:
+
 ```bash
 aws configure
 # Or set environment variables:
@@ -359,6 +360,7 @@ export AWS_SECRET_ACCESS_KEY=your_secret
 ### Issue: "Invalid base64 image format"
 
 **Solution:** Ensure frontend sends proper base64 format:
+
 ```
 data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...
 ```
@@ -366,6 +368,7 @@ data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...
 ### Issue: "Avatar not displaying after S3 upload"
 
 **Solutions:**
+
 1. Check S3 bucket policy allows public read
 2. Verify CORS configuration
 3. Check that file exists in S3
@@ -374,6 +377,7 @@ data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...
 ### Issue: "Sharp installation fails"
 
 **Solution:** Install sharp dependencies:
+
 ```bash
 pnpm --filter api add sharp
 # If still failing, try:
@@ -383,12 +387,14 @@ pnpm rebuild sharp
 ## Security Considerations
 
 ### Base64 Mode
+
 - ✅ No external dependencies
 - ✅ Works offline
 - ⚠️ Increases database size
 - ⚠️ Slower database backups
 
 ### S3 Mode
+
 - ✅ Smaller database size
 - ✅ Faster database backups
 - ✅ CDN capability with CloudFront

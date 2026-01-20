@@ -100,7 +100,7 @@ const handleAction = async (action: string, data?: unknown) => {
 };
 
 const handleClick = (user: any) => {
-	router.push(`/social/profile/${user.id}`);
+	router.push(`/app/profile/${user.id}`);
 };
 
 const formatFriendDate = (item: any) => {

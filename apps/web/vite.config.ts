@@ -62,11 +62,34 @@ export default defineConfig(({ mode }) => {
 			minify: mode === 'production' ? 'terser' : false,
 			target: 'es2015',
 			chunkSizeWarningLimit: 1000,
-			// Disable manual chunks to avoid memory issues with chunk splitting
-			// rollupOptions: {
-			// 	output: {
-			// 		manualChunks: undefined,
-			// 	},
+			// Optimize memory usage during build
+			rollupOptions: {
+				output: {
+					manualChunks: (id) => {
+						// Vendor chunking to reduce memory pressure
+						if (id.includes('node_modules')) {
+							// Split large vendor libraries
+							if (id.includes('@tiptap')) {
+								return 'vendor-tiptap';
+							}
+							if (id.includes('chart.js') || id.includes('vue-chartjs')) {
+								return 'vendor-charts';
+							}
+							if (id.includes('lucide-vue-next')) {
+								return 'vendor-icons';
+							}
+							return 'vendor';
+						}
+					},
+				},
+				// Reduce memory usage during build
+				treeshake: {
+					moduleSideEffects: true,
+				},
+			},
+			// Reduce parallel processing to avoid memory spikes
+			// commonjsOptions: {
+			// 	transformMixedEsModules: true,
 			// },
 		},
 	};

@@ -111,3 +111,22 @@ export const importParticipants = async (req: Request, res: Response, next: Next
 		next(error);
 	}
 };
+
+/**
+ * Check if a participant exists by email (for server registration flow)
+ * This endpoint allows checking if a participant already exists before registering
+ */
+export const checkParticipantEmail = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { email } = req.params;
+
+		if (!email) {
+			return res.status(400).json({ message: 'Email is required' });
+		}
+
+		const result = await participantService.checkParticipantExists(email);
+		res.json(result);
+	} catch (error) {
+		next(error);
+	}
+};

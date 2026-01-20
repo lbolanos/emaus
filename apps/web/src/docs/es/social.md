@@ -55,6 +55,7 @@ Tu perfil es tu presencia pública en la comunidad de Emaus. Incluye:
 ### Ver Perfiles Públicos
 
 Los perfiles públicos muestran información que los usuarios han elegido compartir, incluyendo:
+
 - Nombre para mostrar
 - Biografía
 - Ubicación
@@ -73,11 +74,13 @@ Los perfiles públicos muestran información que los usuarios han elegido compar
 ### Gestionar Solicitudes de Amistad
 
 **Ver Solicitudes Pendientes:**
+
 1. Navega a **Amigos**
 2. Haz clic en **Pendientes** para ver las solicitudes recibidas
 3. Haz clic en **Aceptar** o **Rechazar** en cada solicitud
 
 **Ver Solicitudes Enviadas:**
+
 1. Navega a **Amigos**
 2. Haz clic en **Enviadas** para ver tus solicitudes pendientes
 
@@ -133,6 +136,7 @@ Bloquear evita que otro usuario interactúe contigo.
 3. Confirma el bloqueo
 
 Los usuarios bloqueados no pueden:
+
 - Enviarte solicitudes de amistad
 - Seguirte
 - Ver tu perfil o actividad

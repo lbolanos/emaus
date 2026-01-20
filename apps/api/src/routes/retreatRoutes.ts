@@ -8,6 +8,9 @@ import {
 	getPublicRetreats,
 	exportRoomLabelsToDocx,
 	exportBadgesToDocx,
+	uploadRetreatMemoryPhoto,
+	updateRetreatMemory,
+	getAttendedRetreats,
 } from '../controllers/retreatController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { validateRequest } from '../middleware/validateRequest';
@@ -29,6 +32,10 @@ router.get('/', requirePermission('retreat:read'), (req: any, res: any, next: an
 router.post('/', validateRequest(createRetreatSchema), (req: any, res: any, next: any) =>
 	createRetreat(req, res, next),
 );
+
+// Get retreats attended by the current user (must be before /:id route)
+router.get('/attended', getAttendedRetreats);
+
 router.get('/:id', requirePermission('retreat:read'), (req: any, res: any, next: any) =>
 	getRetreatById(req, res, next),
 );
@@ -50,5 +57,10 @@ router.post(
 	requirePermission('retreat:read'),
 	(req: any, res: any, next: any) => exportBadgesToDocx(req, res, next),
 );
+
+// Retreat memory routes
+router.post('/:id/memory-photo', uploadRetreatMemoryPhoto);
+
+router.put('/:id/memory', updateRetreatMemory);
 
 export default router;

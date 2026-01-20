@@ -112,7 +112,19 @@
     "registerNow": "Register Now",
     "registerServer": "Register as Server",
     "important": "Important",
-    "viewInMaps": "View in Google Maps"
+    "viewInMaps": "View in Google Maps",
+    "storiesBadge": "Real Stories",
+    "storiesTitle": "Stories from Retreat",
+    "storiesSubtitle": "Read authentic experiences from participants who have walked the path",
+    "noStories": "No stories published yet. Be the first to share your experience!",
+    "shareYourStory": "Participated in a retreat? Share your experience with others.",
+    "loginToShare": "Login to Share Your Story",
+    "publishedOnLanding": "Published on landing page",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "daysAgo": "days ago",
+    "weeksAgo": "weeks ago",
+    "monthsAgo": "months ago"
   },
   "sidebar": {
     "walkers": "Walkers",
@@ -168,7 +180,9 @@
     "myProfile": "My Profile",
     "searchUsers": "Search Users",
     "friends": "Friends",
-    "followers": "Followers"
+    "followers": "Followers",
+    "testimonials": "Testimonials",
+    "myRetreats": "My Retreats"
   },
   "communityTemplates": {
     "title": "Community Message Templates",

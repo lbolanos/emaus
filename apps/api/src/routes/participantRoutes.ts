@@ -6,6 +6,7 @@ import {
 	getParticipantById,
 	importParticipants,
 	updateParticipant,
+	checkParticipantEmail,
 } from '../controllers/participantController';
 import { validateRequest } from '../middleware/validateRequest';
 import { createParticipantSchema, updateParticipantSchema } from '@repo/types';
@@ -18,6 +19,10 @@ const router = Router();
 router.post('/new', validateRequest(createParticipantSchema), createParticipant);
 
 router.use(isAuthenticated);
+
+// Check if participant exists by email (for server registration flow)
+// Must be authenticated to check if a participant exists
+router.get('/check-email/:email', checkParticipantEmail);
 
 router.get('/', requirePermission('participant:list'), getAllParticipants);
 router.get('/:id', requirePermission('participant:read'), getParticipantById);

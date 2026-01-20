@@ -31,7 +31,7 @@ http://localhost:3001/api/social
 
 ```json
 {
-  "message": "Error description in Spanish"
+	"message": "Error description in Spanish"
 }
 ```
 
@@ -47,22 +47,22 @@ Get the authenticated user's complete profile.
 
 ```json
 {
-  "userId": "user-uuid",
-  "displayName": "John Doe",
-  "email": "john@example.com",
-  "phone": "+1234567890",
-  "bio": "Retreat enthusiast",
-  "location": "Madrid, Spain",
-  "website": "https://example.com",
-  "showEmail": false,
-  "showPhone": false,
-  "showRetreats": true,
-  "interests": ["meditation", "nature", "community"],
-  "skills": ["leadership", "organization"],
-  "avatarUrl": "data:image/webp;base64,...",
-  "participantId": "participant-uuid",
-  "createdAt": "2024-01-01T00:00:00Z",
-  "updatedAt": "2024-01-15T00:00:00Z"
+	"userId": "user-uuid",
+	"displayName": "John Doe",
+	"email": "john@example.com",
+	"phone": "+1234567890",
+	"bio": "Retreat enthusiast",
+	"location": "Madrid, Spain",
+	"website": "https://example.com",
+	"showEmail": false,
+	"showPhone": false,
+	"showRetreats": true,
+	"interests": ["meditation", "nature", "community"],
+	"skills": ["leadership", "organization"],
+	"avatarUrl": "data:image/webp;base64,...",
+	"participantId": "participant-uuid",
+	"createdAt": "2024-01-01T00:00:00Z",
+	"updatedAt": "2024-01-15T00:00:00Z"
 }
 ```
 
@@ -78,15 +78,15 @@ Update the authenticated user's profile.
 
 ```json
 {
-  "bio": "Updated bio text",
-  "location": "New location",
-  "website": "https://newwebsite.com",
-  "showEmail": true,
-  "showPhone": false,
-  "showRetreats": true,
-  "interests": ["meditation", "music"],
-  "skills": ["leadership"],
-  "avatarUrl": "data:image/webp;base64,..."
+	"bio": "Updated bio text",
+	"location": "New location",
+	"website": "https://newwebsite.com",
+	"showEmail": true,
+	"showPhone": false,
+	"showRetreats": true,
+	"interests": ["meditation", "music"],
+	"skills": ["leadership"],
+	"avatarUrl": "data:image/webp;base64,..."
 }
 ```
 
@@ -94,18 +94,18 @@ Update the authenticated user's profile.
 
 ```json
 {
-  "userId": "user-uuid",
-  "displayName": "John Doe",
-  "bio": "Updated bio text",
-  "location": "New location",
-  "website": "https://newwebsite.com",
-  "showEmail": true,
-  "showPhone": false,
-  "showRetreats": true,
-  "interests": ["meditation", "music"],
-  "skills": ["leadership"],
-  "avatarUrl": "data:image/webp;base64,...",
-  "updatedAt": "2024-01-15T12:00:00Z"
+	"userId": "user-uuid",
+	"displayName": "John Doe",
+	"bio": "Updated bio text",
+	"location": "New location",
+	"website": "https://newwebsite.com",
+	"showEmail": true,
+	"showPhone": false,
+	"showRetreats": true,
+	"interests": ["meditation", "music"],
+	"skills": ["leadership"],
+	"avatarUrl": "data:image/webp;base64,...",
+	"updatedAt": "2024-01-15T12:00:00Z"
 }
 ```
 
@@ -121,7 +121,7 @@ Update the user's avatar image. Supports both base64 data URLs and S3 URLs depen
 
 ```json
 {
-  "avatarUrl": "data:image/webp;base64,..."
+	"avatarUrl": "data:image/webp;base64,..."
 }
 ```
 
@@ -135,9 +135,9 @@ data:image/webp;base64,UklGRiQAAABXRUJQVlA4...
 
 ```json
 {
-  "userId": "user-uuid",
-  "displayName": "John Doe",
-  "avatarUrl": "data:image/webp;base64,..."
+	"userId": "user-uuid",
+	"displayName": "John Doe",
+	"avatarUrl": "data:image/webp;base64,..."
 }
 ```
 
@@ -145,9 +145,9 @@ data:image/webp;base64,UklGRiQAAABXRUJQVlA4...
 
 ```json
 {
-  "userId": "user-uuid",
-  "displayName": "John Doe",
-  "avatarUrl": "https://emaus-avatars.s3.us-east-1.amazonaws.com/avatars/user-uuid.webp"
+	"userId": "user-uuid",
+	"displayName": "John Doe",
+	"avatarUrl": "https://emaus-avatars.s3.us-east-1.amazonaws.com/avatars/user-uuid.webp"
 }
 ```
 
@@ -170,13 +170,14 @@ Remove the user's avatar image.
 
 ```json
 {
-  "userId": "user-uuid",
-  "displayName": "John Doe",
-  "avatarUrl": null
+	"userId": "user-uuid",
+	"displayName": "John Doe",
+	"avatarUrl": null
 }
 ```
 
 **Behavior:**
+
 - In base64 mode: Removes avatar URL from database
 - In S3 mode: Deletes file from S3 bucket and removes URL from database
 
@@ -196,17 +197,17 @@ Get a public profile of another user.
 
 ```json
 {
-  "userId": "target-user-uuid",
-  "displayName": "Jane Smith",
-  "bio": "Retreat coordinator and guide",
-  "location": "Barcelona, Spain",
-  "website": "https://janesmith.com",
-  "interests": ["spirituality", "meditation", "community building"],
-  "skills": ["facilitation", "conflict resolution"],
-  "avatarUrl": "data:image/webp;base64,...",
-  "showEmail": false,
-  "showPhone": false,
-  "showRetreats": true
+	"userId": "target-user-uuid",
+	"displayName": "Jane Smith",
+	"bio": "Retreat coordinator and guide",
+	"location": "Barcelona, Spain",
+	"website": "https://janesmith.com",
+	"interests": ["spirituality", "meditation", "community building"],
+	"skills": ["facilitation", "conflict resolution"],
+	"avatarUrl": "data:image/webp;base64,...",
+	"showEmail": false,
+	"showPhone": false,
+	"showRetreats": true
 }
 ```
 
@@ -238,25 +239,25 @@ GET /search?q=maria&interests=meditation&location=Madrid
 
 ```json
 {
-  "results": [
-    {
-      "userId": "user-uuid-1",
-      "displayName": "Maria Garcia",
-      "bio": "Yoga instructor and retreat guide",
-      "location": "Madrid, Spain",
-      "interests": ["meditation", "yoga", "wellness"],
-      "avatarUrl": "data:image/webp;base64,..."
-    },
-    {
-      "userId": "user-uuid-2",
-      "displayName": "Maria Rodriguez",
-      "bio": "Community organizer",
-      "location": "Madrid, Spain",
-      "interests": ["meditation", "community"],
-      "avatarUrl": null
-    }
-  ],
-  "total": 2
+	"results": [
+		{
+			"userId": "user-uuid-1",
+			"displayName": "Maria Garcia",
+			"bio": "Yoga instructor and retreat guide",
+			"location": "Madrid, Spain",
+			"interests": ["meditation", "yoga", "wellness"],
+			"avatarUrl": "data:image/webp;base64,..."
+		},
+		{
+			"userId": "user-uuid-2",
+			"displayName": "Maria Rodriguez",
+			"bio": "Community organizer",
+			"location": "Madrid, Spain",
+			"interests": ["meditation", "community"],
+			"avatarUrl": null
+		}
+	],
+	"total": 2
 }
 ```
 
@@ -278,9 +279,9 @@ Link a user account to a participant record (becoming a "server").
 
 ```json
 {
-  "userId": "user-uuid",
-  "participantId": "participant-uuid",
-  "linkedAt": "2024-01-15T00:00:00Z"
+	"userId": "user-uuid",
+	"participantId": "participant-uuid",
+	"linkedAt": "2024-01-15T00:00:00Z"
 }
 ```
 
@@ -296,7 +297,7 @@ Unlink the user from their participant record.
 
 ```json
 {
-  "message": "Vínculo eliminado exitosamente"
+	"message": "Vínculo eliminado exitosamente"
 }
 ```
 
@@ -314,7 +315,7 @@ Send a friend request to another user.
 
 ```json
 {
-  "friendId": "target-user-uuid"
+	"friendId": "target-user-uuid"
 }
 ```
 
@@ -322,11 +323,11 @@ Send a friend request to another user.
 
 ```json
 {
-  "userId": "user-uuid",
-  "friendId": "target-user-uuid",
-  "status": "pending",
-  "initiatedByUser": true,
-  "createdAt": "2024-01-15T00:00:00Z"
+	"userId": "user-uuid",
+	"friendId": "target-user-uuid",
+	"status": "pending",
+	"initiatedByUser": true,
+	"createdAt": "2024-01-15T00:00:00Z"
 }
 ```
 
@@ -348,7 +349,7 @@ Accept a pending friend request.
 
 ```json
 {
-  "requesterId": "requester-user-uuid"
+	"requesterId": "requester-user-uuid"
 }
 ```
 
@@ -356,10 +357,10 @@ Accept a pending friend request.
 
 ```json
 {
-  "userId": "user-uuid",
-  "friendId": "requester-user-uuid",
-  "status": "accepted",
-  "respondedAt": "2024-01-15T12:00:00Z"
+	"userId": "user-uuid",
+	"friendId": "requester-user-uuid",
+	"status": "accepted",
+	"respondedAt": "2024-01-15T12:00:00Z"
 }
 ```
 
@@ -375,7 +376,7 @@ Reject or cancel a friend request.
 
 ```json
 {
-  "requesterId": "requester-user-uuid"
+	"requesterId": "requester-user-uuid"
 }
 ```
 
@@ -383,7 +384,7 @@ Reject or cancel a friend request.
 
 ```json
 {
-  "message": "Solicitud de amistad rechazada"
+	"message": "Solicitud de amistad rechazada"
 }
 ```
 
@@ -403,7 +404,7 @@ Remove an existing friend connection.
 
 ```json
 {
-  "message": "Amistad eliminada"
+	"message": "Amistad eliminada"
 }
 ```
 
@@ -419,27 +420,27 @@ Get the authenticated user's friends list.
 
 ```json
 {
-  "friends": [
-    {
-      "userId": "friend-uuid-1",
-      "displayName": "Jane Smith",
-      "avatarUrl": "data:image/webp;base64,...",
-      "bio": "Retreat coordinator",
-      "location": "Barcelona, Spain",
-      "status": "accepted",
-      "friendsSince": "2024-01-01T00:00:00Z"
-    },
-    {
-      "userId": "friend-uuid-2",
-      "displayName": "Bob Johnson",
-      "avatarUrl": null,
-      "bio": "Spiritual guide",
-      "location": "Valencia, Spain",
-      "status": "accepted",
-      "friendsSince": "2024-01-10T00:00:00Z"
-    }
-  ],
-  "total": 2
+	"friends": [
+		{
+			"userId": "friend-uuid-1",
+			"displayName": "Jane Smith",
+			"avatarUrl": "data:image/webp;base64,...",
+			"bio": "Retreat coordinator",
+			"location": "Barcelona, Spain",
+			"status": "accepted",
+			"friendsSince": "2024-01-01T00:00:00Z"
+		},
+		{
+			"userId": "friend-uuid-2",
+			"displayName": "Bob Johnson",
+			"avatarUrl": null,
+			"bio": "Spiritual guide",
+			"location": "Valencia, Spain",
+			"status": "accepted",
+			"friendsSince": "2024-01-10T00:00:00Z"
+		}
+	],
+	"total": 2
 }
 ```
 
@@ -455,16 +456,16 @@ Get pending friend requests received by the user.
 
 ```json
 {
-  "requests": [
-    {
-      "userId": "requester-uuid",
-      "displayName": "Alice Brown",
-      "avatarUrl": "data:image/webp;base64,...",
-      "bio": "Meditation teacher",
-      "requestedAt": "2024-01-15T00:00:00Z"
-    }
-  ],
-  "total": 1
+	"requests": [
+		{
+			"userId": "requester-uuid",
+			"displayName": "Alice Brown",
+			"avatarUrl": "data:image/webp;base64,...",
+			"bio": "Meditation teacher",
+			"requestedAt": "2024-01-15T00:00:00Z"
+		}
+	],
+	"total": 1
 }
 ```
 
@@ -480,15 +481,15 @@ Get friend requests sent by the user that are still pending.
 
 ```json
 {
-  "requests": [
-    {
-      "userId": "recipient-uuid",
-      "displayName": "Charlie Davis",
-      "avatarUrl": null,
-      "requestedAt": "2024-01-14T00:00:00Z"
-    }
-  ],
-  "total": 1
+	"requests": [
+		{
+			"userId": "recipient-uuid",
+			"displayName": "Charlie Davis",
+			"avatarUrl": null,
+			"requestedAt": "2024-01-14T00:00:00Z"
+		}
+	],
+	"total": 1
 }
 ```
 
@@ -510,10 +511,10 @@ Follow another user.
 
 ```json
 {
-  "id": "follow-uuid",
-  "followerId": "user-uuid",
-  "followingId": "target-user-uuid",
-  "createdAt": "2024-01-15T00:00:00Z"
+	"id": "follow-uuid",
+	"followerId": "user-uuid",
+	"followingId": "target-user-uuid",
+	"createdAt": "2024-01-15T00:00:00Z"
 }
 ```
 
@@ -539,7 +540,7 @@ Unfollow a user.
 
 ```json
 {
-  "message": "Dejaste de seguir a este usuario"
+	"message": "Dejaste de seguir a este usuario"
 }
 ```
 
@@ -555,23 +556,23 @@ Get users who follow the authenticated user.
 
 ```json
 {
-  "followers": [
-    {
-      "userId": "follower-uuid-1",
-      "displayName": "Emma Wilson",
-      "avatarUrl": "data:image/webp;base64,...",
-      "bio": "Wellness coach",
-      "followedAt": "2024-01-10T00:00:00Z"
-    },
-    {
-      "userId": "follower-uuid-2",
-      "displayName": "Frank Miller",
-      "avatarUrl": null,
-      "bio": "Retreat organizer",
-      "followedAt": "2024-01-12T00:00:00Z"
-    }
-  ],
-  "total": 2
+	"followers": [
+		{
+			"userId": "follower-uuid-1",
+			"displayName": "Emma Wilson",
+			"avatarUrl": "data:image/webp;base64,...",
+			"bio": "Wellness coach",
+			"followedAt": "2024-01-10T00:00:00Z"
+		},
+		{
+			"userId": "follower-uuid-2",
+			"displayName": "Frank Miller",
+			"avatarUrl": null,
+			"bio": "Retreat organizer",
+			"followedAt": "2024-01-12T00:00:00Z"
+		}
+	],
+	"total": 2
 }
 ```
 
@@ -587,16 +588,16 @@ Get users that the authenticated user follows.
 
 ```json
 {
-  "following": [
-    {
-      "userId": "following-uuid-1",
-      "displayName": "Grace Lee",
-      "avatarUrl": "data:image/webp;base64,...",
-      "bio": "Meditation instructor",
-      "followingSince": "2024-01-05T00:00:00Z"
-    }
-  ],
-  "total": 1
+	"following": [
+		{
+			"userId": "following-uuid-1",
+			"displayName": "Grace Lee",
+			"avatarUrl": "data:image/webp;base64,...",
+			"bio": "Meditation instructor",
+			"followingSince": "2024-01-05T00:00:00Z"
+		}
+	],
+	"total": 1
 }
 ```
 
@@ -618,11 +619,12 @@ Block another user.
 
 ```json
 {
-  "message": "Usuario bloqueado"
+	"message": "Usuario bloqueado"
 }
 ```
 
 **Side Effects:**
+
 - Removes any existing friend relationship
 - Removes any existing follow relationships (both directions)
 - Prevents future friend requests or follows
@@ -643,7 +645,7 @@ Unblock a previously blocked user.
 
 ```json
 {
-  "message": "Usuario desbloqueado"
+	"message": "Usuario desbloqueado"
 }
 ```
 
@@ -659,15 +661,15 @@ Get list of users blocked by the authenticated user.
 
 ```json
 {
-  "blocked": [
-    {
-      "userId": "blocked-uuid-1",
-      "displayName": "Henry Black",
-      "avatarUrl": null,
-      "blockedAt": "2024-01-15T00:00:00Z"
-    }
-  ],
-  "total": 1
+	"blocked": [
+		{
+			"userId": "blocked-uuid-1",
+			"displayName": "Henry Black",
+			"avatarUrl": null,
+			"blockedAt": "2024-01-15T00:00:00Z"
+		}
+	],
+	"total": 1
 }
 ```
 
@@ -692,12 +694,14 @@ S3_BUCKET_PREFIX=avatars/
 ### Storage Behavior
 
 #### Base64 Mode (Default)
+
 - Avatar stored as base64 data URL in `user_profiles.avatarUrl`
 - No external dependencies
 - Avatar URL format: `data:image/webp;base64,...`
 - Suitable for small deployments with limited users
 
 #### S3 Mode
+
 - Avatar uploaded to S3 as WebP file
 - S3 public URL stored in `user_profiles.avatarUrl`
 - Automatic image processing (resize to 512px, WebP conversion)
@@ -706,6 +710,7 @@ S3_BUCKET_PREFIX=avatars/
 ### Image Processing
 
 When using S3 storage, uploaded images are automatically:
+
 1. Resized to maximum 512x512 pixels (maintaining aspect ratio)
 2. Converted to WebP format at 85% quality
 3. Stored with cache control headers (1 year cache)
@@ -716,21 +721,21 @@ File naming: `avatars/{userId}.webp`
 
 ## Error Messages
 
-| Error | Description |
-|-------|-------------|
-| `Usuario no autenticado` | User not authenticated |
-| `Perfil no encontrado` | Profile not found |
-| `friendId is required` | Missing friend ID parameter |
-| `userId is required` | Missing user ID parameter |
-| `requesterId is required` | Missing requester ID parameter |
-| `avatarUrl es requerido` | Missing avatar URL |
-| `Query parameter "q" is required` | Missing search query |
-| `Solicitud de amistad rechazada` | Friend request rejected |
-| `Amistad eliminada` | Friendship removed |
-| `Dejaste de seguir a este usuario` | User unfollowed |
-| `Usuario bloqueado` | User blocked |
-| `Usuario desbloqueado` | User unblocked |
-| `Vínculo eliminado exitosamente` | Participant link removed |
+| Error                              | Description                    |
+| ---------------------------------- | ------------------------------ |
+| `Usuario no autenticado`           | User not authenticated         |
+| `Perfil no encontrado`             | Profile not found              |
+| `friendId is required`             | Missing friend ID parameter    |
+| `userId is required`               | Missing user ID parameter      |
+| `requesterId is required`          | Missing requester ID parameter |
+| `avatarUrl es requerido`           | Missing avatar URL             |
+| `Query parameter "q" is required`  | Missing search query           |
+| `Solicitud de amistad rechazada`   | Friend request rejected        |
+| `Amistad eliminada`                | Friendship removed             |
+| `Dejaste de seguir a este usuario` | User unfollowed                |
+| `Usuario bloqueado`                | User blocked                   |
+| `Usuario desbloqueado`             | User unblocked                 |
+| `Vínculo eliminado exitosamente`   | Participant link removed       |
 
 ---
 

@@ -13,6 +13,7 @@ import { Button } from '@repo/ui';
 import { Switch } from '@repo/ui';
 import AvatarUpload from '@/components/social/AvatarUpload.vue';
 import UserTagList from '@/components/social/UserTagList.vue';
+import TestimonialsVisibilityConfig from '@/components/social/TestimonialsVisibilityConfig.vue';
 import { Card } from '@repo/ui';
 
 const route = useRoute();
@@ -346,6 +347,9 @@ onMounted(() => {
 					</div>
 				</div>
 			</Card>
+
+			<!-- Testimonials Visibility Settings -->
+			<TestimonialsVisibilityConfig />
 
 			<!-- Save Button -->
 			<div class="flex justify-end gap-3">

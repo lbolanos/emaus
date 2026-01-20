@@ -6,6 +6,12 @@ import {
 	update,
 } from '../services/retreatService';
 import { AuthenticatedRequest } from '../middleware/authorization';
+import { AppDataSource } from '../data-source';
+import { Retreat } from '../entities/retreat.entity';
+import { Participant } from '../entities/participant.entity';
+import { avatarStorageService } from '../services/avatarStorageService';
+import { s3Service } from '../services/s3Service';
+import { imageService } from '../services/imageService';
 
 export const getAllRetreats = async (req: Request, res: Response, next: NextFunction) => {
 	try {
@@ -181,6 +187,89 @@ export const exportBadgesToDocx = async (req: Request, res: Response, next: Next
 		res.send(buffer);
 	} catch (error: any) {
 		console.error('Error exporting badges to DOCX:', error);
+		next(error);
+	}
+};
+
+export const uploadRetreatMemoryPhoto = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id: retreatId } = req.params;
+		const { photoData } = req.body;
+
+		if (!photoData) {
+			return res.status(400).json({ message: 'photoData is required' });
+		}
+
+		const retreat = await findById(retreatId);
+		if (!retreat) {
+			return res.status(404).json({ message: 'Retreat not found' });
+		}
+
+		// Delete old photo if exists
+		if (retreat.memoryPhotoUrl && avatarStorageService.isS3Storage()) {
+			await s3Service.deleteRetreatMemoryPhoto(retreatId);
+		}
+
+		let photoUrl: string;
+		if (avatarStorageService.isS3Storage()) {
+			const buffer = imageService.base64ToBuffer(photoData);
+			const processed = await imageService.processAvatar(buffer, 'image/*');
+			const result = await s3Service.uploadRetreatMemoryPhoto(
+				retreatId,
+				processed.buffer,
+				processed.contentType,
+			);
+			photoUrl = result.url;
+		} else {
+			photoUrl = photoData;
+		}
+
+		const updated = await update(retreatId, { memoryPhotoUrl: photoUrl });
+		res.json({ memoryPhotoUrl: updated?.memoryPhotoUrl });
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const updateRetreatMemory = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id: retreatId } = req.params;
+		const { musicPlaylistUrl } = req.body;
+
+		const retreat = await update(retreatId, { musicPlaylistUrl });
+		if (!retreat) {
+			return res.status(404).json({ message: 'Retreat not found' });
+		}
+
+		res.json({
+			musicPlaylistUrl: retreat.musicPlaylistUrl,
+			memoryPhotoUrl: retreat.memoryPhotoUrl,
+		});
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const getAttendedRetreats = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const userId = (req as any).user?.id;
+		if (!userId) {
+			return res.status(401).json({ message: 'Unauthorized' });
+		}
+
+		const participantRepo = AppDataSource.getRepository(Participant);
+
+		const participants = await participantRepo.find({
+			where: { userId },
+			relations: ['retreat'],
+		});
+
+		const retreats = participants
+			.map((p) => p.retreat)
+			.filter((r): r is Retreat => r !== undefined && r !== null);
+
+		res.json(retreats);
+	} catch (error) {
 		next(error);
 	}
 };

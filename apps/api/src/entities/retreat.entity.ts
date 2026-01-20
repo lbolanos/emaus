@@ -9,8 +9,9 @@ import { UserRetreat } from './userRetreat.entity';
 import { User } from './user.entity';
 import { Payment } from './payment.entity';
 import { Tag } from './tag.entity';
+import { ParticipantHistory } from './participantHistory.entity';
 
-@Entity()
+@Entity('retreat')
 export class Retreat {
 	@PrimaryGeneratedColumn('uuid')
 	id!: string;
@@ -27,12 +28,15 @@ export class Retreat {
 	@Column({ type: 'uuid' })
 	houseId!: string;
 
-	@ManyToOne(() => House, (house) => house.retreats, { onDelete: 'RESTRICT' })
+	@ManyToOne(() => House, 'retreats', { onDelete: 'RESTRICT' })
 	@JoinColumn({ name: 'houseId' })
 	house!: House;
 
 	@OneToMany(() => Participant, (participant) => participant.retreat)
 	participants!: Participant[];
+
+	@OneToMany(() => ParticipantHistory, (history) => history.retreat)
+	history!: ParticipantHistory[];
 
 	@OneToMany(() => Tag, (tag) => tag.retreat)
 	tags!: Tag[];
@@ -106,6 +110,12 @@ export class Retreat {
 
 	@Column({ type: 'simple-json', nullable: true })
 	flyer_options?: Record<string, any>;
+
+	@Column({ type: 'varchar', nullable: true })
+	memoryPhotoUrl?: string;
+
+	@Column({ type: 'varchar', nullable: true })
+	musicPlaylistUrl?: string;
 
 	@OneToMany(() => Payment, (payment) => payment.retreat)
 	payments!: Payment[];

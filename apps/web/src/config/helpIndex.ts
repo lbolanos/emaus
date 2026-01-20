@@ -159,19 +159,28 @@ export const helpIndex: HelpSection[] = [
 		title: 'Social Features',
 		titleEs: 'Características Sociales',
 		icon: 'mdi-account-circle',
-		routeContext: [
-			'profile',
-			'public-profile',
-			'search-users',
-			'friends',
-			'followers',
-		],
+		routeContext: ['profile', 'public-profile', 'search-users', 'friends', 'followers'],
 		topics: [
 			{
 				key: 'social-overview',
 				title: 'Social Features',
 				titleEs: 'Características Sociales',
 				content: 'social.md',
+			},
+		],
+	},
+	{
+		key: 'my-retreats',
+		title: 'My Retreats',
+		titleEs: 'Mis Retiros',
+		icon: 'mdi-clock',
+		routeContext: ['my-retreats'],
+		topics: [
+			{
+				key: 'my-retreats-overview',
+				title: 'My Retreats',
+				titleEs: 'Mis Retiros',
+				content: 'my-retreats.md',
 			},
 		],
 	},

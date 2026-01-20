@@ -363,7 +363,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { ref, computed, nextTick, onMounted, watch } from 'vue';
-import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle } from 'lucide-vue-next';
+import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, Clock } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter, useRoute } from 'vue-router';
 import { Button } from '@repo/ui';
@@ -500,6 +500,20 @@ const menuSections: MenuSection[] = [
         icon: UserPlus,
         requiresRetreat: false,
         label: 'sidebar.followers'
+      },
+      {
+        name: 'testimonials',
+        routeName: 'testimonials',
+        icon: MessageSquare,
+        requiresRetreat: false,
+        label: 'sidebar.testimonials'
+      },
+      {
+        name: 'my-retreats',
+        routeName: 'my-retreats',
+        icon: Clock,
+        requiresRetreat: false,
+        label: 'sidebar.myRetreats'
       }
     ],
     position: 'top'

@@ -132,6 +132,8 @@ vi.mock('lucide-vue-next', () => ({
 	Heart: { template: '<div data-icon="Heart" />' },
 	UserPlus: { template: '<div data-icon="UserPlus" />' },
 	UserCircle: { template: '<div data-icon="UserCircle" />' },
+	MessageSquare: { template: '<div data-icon="MessageSquare" />' },
+	Clock: { template: '<div data-icon="Clock" />' },
 }));
 
 // Mock the composables
