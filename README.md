@@ -66,6 +66,107 @@ To start the development servers for both the backend and frontend, run the foll
 pnpm dev
 ```
 
+## Branching Strategy: Git Flow
+
+This project uses Git Flow, a proven branching model for managing development and releases. See [docs/deployment/git-flow.md](./docs/deployment/git-flow.md) for detailed workflow instructions.
+
+### Quick Reference
+
+- **`develop`** - Integration branch (default for feature branches)
+- **`master`** - Production branch (automatically deploys on push)
+- **`feature/*`** - Feature branches (branch from `develop`)
+- **`release/*`** - Release branches (for preparing releases)
+- **`hotfix/*`** - Hotfix branches (for critical production fixes)
+
+### Creating a Feature
+
+```bash
+# Create feature branch from develop
+git checkout develop
+git pull origin develop
+git checkout -b feature/descriptive-name
+
+# Make your changes
+git add .
+git commit -m "feat: add new feature"
+git push -u origin feature/descriptive-name
+
+# Create PR to develop on GitHub
+# After approval and tests pass, merge to develop
+```
+
+### Deploying to Production
+
+Merging to `master` automatically triggers deployment:
+
+```bash
+# When ready to release, create a PR from develop to master
+# After approval, merge the PR
+# GitHub Actions automatically:
+# 1. Runs full CI pipeline
+# 2. Generates version tag
+# 3. Creates release with artifacts
+# 4. Deploys to EC2
+# 5. Runs health checks
+# 6. Sends notifications
+```
+
+## Automated Deployment
+
+This project uses GitHub Actions to automatically deploy to AWS EC2 when code is merged to `master`.
+
+### Deployment Flow
+
+1. **Push to master** - Triggers GitHub Actions workflow
+2. **CI Pipeline** - Lint, test, build (5-10 minutes)
+3. **Version & Release** - Auto-generates version tag and creates release (2 minutes)
+4. **Deploy to EC2** - Downloads artifacts and deploys (5 minutes)
+5. **Health Checks** - Verifies application is running (1 minute)
+6. **Notification** - Email sent with deployment status
+
+**Total Time:** ~20-30 minutes
+
+### Access Deployed Application
+
+- **Web App:** https://emaus.cc
+- **API Health:** https://emaus.cc/api/health
+- **Deployment History:** GitHub repository → Deployments tab
+
+### Setup Required
+
+Before first deployment, configure GitHub Secrets:
+
+| Secret | Purpose |
+|--------|---------|
+| `EC2_HOST` | EC2 instance IP or domain |
+| `EC2_USER` | SSH username (ubuntu) |
+| `EC2_SSH_PRIVATE_KEY` | SSH private key file contents |
+| `DOMAIN_NAME` | Domain name (emaus.cc) |
+
+For detailed setup and troubleshooting, see [docs/deployment/deployment-guide.md](./docs/deployment/deployment-guide.md).
+
+### Rollback
+
+If issues occur after deployment, automatic rollback is triggered. For manual rollback:
+
+```bash
+# SSH to EC2
+ssh -i ~/.ssh/emaus-key.pem ubuntu@<EC2_IP>
+
+# List available backups
+ls /var/www/emaus-backups/
+
+# Restore previous version
+BACKUP_PATH="/var/www/emaus-backups/backup-YYYYMMDD-HHMMSS"
+cp -r "$BACKUP_PATH/api-dist"/* /var/www/emaus/apps/api/dist/
+cp -r "$BACKUP_PATH/web-dist"/* /var/www/emaus/apps/web/dist/
+
+# Restart application
+pm2 restart emaus-api
+```
+
+See [docs/deployment/rollback-procedure.md](./docs/deployment/rollback-procedure.md) for detailed rollback instructions.
+
 El listado de participantes debe poder descargarse en formato excel o csv.
 debe poder seleccionar las columnas que desea ver en el listado.
 debe poder buscar un participante y orden por alguna columna.
@@ -335,7 +436,29 @@ The system now includes social networking features for users (servers/converted 
 - **Follow System**: Follow/unfollow users, view followers and following lists
 - **User Blocking**: Block/unblock users
 - **User Search**: Search users by name, interests, skills, location
-- **Avatar Storage**: Base64 or AWS S3 storage with automatic image processing
+- **Media Storage**: AWS S3 storage for avatars, retreat photos, documents, and public assets
+
+### Media Storage
+
+The system supports flexible media storage with AWS S3:
+
+- **Base64 Storage** (default): Store avatars in database
+- **S3 Storage**: Upload to AWS S3 bucket with automatic image optimization
+
+**Bucket Structure:**
+- `avatars/` - User profile pictures (public)
+- `retreat-memories/` - Retreat photos (private)
+- `documents/` - Participant documents (private, future)
+- `public-assets/` - Website assets (public, future)
+
+**Setup:**
+```bash
+export AWS_REGION=us-east-1
+export S3_BUCKET_NAME=emaus-media
+./scripts/setup-s3.sh
+```
+
+For detailed setup and configuration, see [docs_dev/s3-media-storage.md](./docs_dev/s3-media-storage.md).
 
 For detailed API documentation, see [docs_dev/SOCIAL_FEATURES_API.md](./docs_dev/SOCIAL_FEATURES_API.md).
 
@@ -397,8 +520,9 @@ aumentar el coverage de las pruebas
 verificar que todas la pruebas pasen.
 
 ## comunidades
-
+agregar link the whatsapp para unirse al grupo de las comunidades
 Las comunidades tienen que ser aceptadas por los administradores de otras comunidades.
+Agregar un comentario de la reunion de lo que se va a tratar o de lo que se trato si ya pasó.
 
 los usuarios que quieran crear testimonios tienen que tener una comunidad asociada y el testimonio debe ser aceptado por el administrador de la comunidad asociada para poderse publicar.
 

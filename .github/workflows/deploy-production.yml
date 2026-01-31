@@ -1,0 +1,275 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+  deployments: write
+  actions: read
+
+jobs:
+  # Step 1: Run CI Pipeline
+  ci:
+    name: Continuous Integration
+    uses: ./.github/workflows/ci.yml
+
+  # Step 2: Generate version tag and create release
+  prepare-release:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    needs: ci
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate semantic version
+        id: version
+        run: |
+          # Get latest tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+
+          # Parse version components
+          MAJOR=$(echo $LATEST_TAG | cut -d. -f1 | sed 's/v//')
+          MINOR=$(echo $LATEST_TAG | cut -d. -f2)
+          PATCH=$(echo $LATEST_TAG | cut -d. -f3)
+
+          # Increment patch version
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="v${MAJOR}.${MINOR}.${NEW_PATCH}"
+
+          echo "New version: $NEW_VERSION"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create and push version tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          VERSION=${{ steps.version.outputs.version }}
+          git tag -a $VERSION -m "Release $VERSION"
+          git push origin $VERSION
+
+          echo "Tagged commit: $(git rev-parse HEAD)"
+
+  # Step 3: Build and create release with artifacts
+  build-release:
+    name: Build and Create Release
+    needs: prepare-release
+    uses: ./.github/workflows/build-release.yml
+    with:
+      version: ${{ needs.prepare-release.outputs.version }}
+    secrets: inherit
+
+  # Step 4: Deploy to EC2
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    needs: [prepare-release, build-release]
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Wait for release artifacts
+        run: |
+          set +e
+          MAX_ATTEMPTS=30
+          ATTEMPT=0
+
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            echo "Checking for release artifacts (attempt $((ATTEMPT + 1))/$MAX_ATTEMPTS)..."
+
+            RELEASE_DATA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ needs.prepare-release.outputs.version }}")
+
+            ASSET_COUNT=$(echo "$RELEASE_DATA" | grep -o '"assets":\[' | wc -l)
+
+            if [ "$ASSET_COUNT" -gt 0 ]; then
+              echo "✅ Release artifacts found!"
+              echo "Release data:"
+              echo "$RELEASE_DATA" | head -50
+              exit 0
+            fi
+
+            ATTEMPT=$((ATTEMPT + 1))
+            if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+              echo "Artifacts not ready yet. Waiting 10 seconds..."
+              sleep 10
+            fi
+          done
+
+          echo "❌ Timed out waiting for release artifacts"
+          exit 1
+
+      - name: Deploy to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.version }}
+          DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
+        run: |
+          # Setup SSH key
+          mkdir -p ~/.ssh
+          echo "$EC2_SSH_PRIVATE_KEY" > ~/.ssh/emaus-key.pem
+          chmod 600 ~/.ssh/emaus-key.pem
+
+          # Add host key to known_hosts
+          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          # Upload deployment script
+          scp -i ~/.ssh/emaus-key.pem \
+            deploy/aws/deploy-from-github-action.sh \
+            $EC2_USER@$EC2_HOST:/tmp/deploy-from-github-action.sh
+
+          # Execute deployment
+          ssh -i ~/.ssh/emaus-key.pem \
+            -o ConnectTimeout=10 \
+            -o StrictHostKeyChecking=accept-new \
+            $EC2_USER@$EC2_HOST \
+            "bash /tmp/deploy-from-github-action.sh" \
+            2>&1 | tee deployment.log
+
+          # Capture exit code
+          DEPLOY_EXIT_CODE=${PIPESTATUS[0]}
+
+          # Save deployment log as artifact
+          mkdir -p artifacts
+          cp deployment.log artifacts/
+
+          exit $DEPLOY_EXIT_CODE
+
+      - name: Run health checks
+        if: success()
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$EC2_SSH_PRIVATE_KEY" > ~/.ssh/emaus-key.pem
+          chmod 600 ~/.ssh/emaus-key.pem
+
+          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          # Upload health check script
+          scp -i ~/.ssh/emaus-key.pem \
+            deploy/aws/health-check.sh \
+            $EC2_USER@$EC2_HOST:/tmp/health-check.sh
+
+          # Execute health checks
+          ssh -i ~/.ssh/emaus-key.pem \
+            $EC2_USER@$EC2_HOST \
+            "bash /tmp/health-check.sh"
+
+      - name: Create deployment event
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.ref,
+              environment: 'production',
+              description: 'Deployment of ${{ needs.prepare-release.outputs.version }}',
+              auto_merge: false,
+              required_contexts: []
+            });
+
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: deployment.data.id,
+              state: 'success',
+              description: 'Deployment successful',
+              environment_url: 'https://${{ secrets.DOMAIN_NAME }}'
+            });
+
+      - name: Send success notification
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const nodemailer = require('nodemailer');
+
+            // Note: Email sending would require additional setup
+            // For now, we'll use GitHub's built-in notification system
+            console.log('✅ Deployment successful: ${{ needs.prepare-release.outputs.version }}');
+            console.log('Commit: ${{ github.sha }}');
+            console.log('Author: ${{ github.actor }}');
+
+      - name: Handle deployment failure
+        if: failure()
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+        run: |
+          echo "❌ Deployment failed. Checking EC2 status..."
+
+          mkdir -p ~/.ssh
+          echo "$EC2_SSH_PRIVATE_KEY" > ~/.ssh/emaus-key.pem
+          chmod 600 ~/.ssh/emaus-key.pem
+
+          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          # Attempt to get diagnostic information
+          ssh -i ~/.ssh/emaus-key.pem \
+            $EC2_USER@$EC2_HOST \
+            "pm2 status; echo '---'; tail -50 /tmp/deployment.log 2>/dev/null || echo 'Deployment log not found'" \
+            2>&1 || echo "Could not retrieve diagnostic info"
+
+      - name: Upload deployment artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-logs
+          path: artifacts/
+          retention-days: 30
+
+  # Step 5: Deployment summary
+  deployment-summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [prepare-release, deploy]
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## 🚀 Production Deployment Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | ${{ needs.prepare-release.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | [\`${{ github.sha }}\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Author | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | ${{ needs.deploy.result == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Timestamp | $(date -u +'%Y-%m-%d %H:%M:%S UTC') |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.deploy.result }}" = "success" ]; then
+            echo "### ✅ Deployment Successful" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The application has been successfully deployed to production." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- **Version:** ${{ needs.prepare-release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Environment:** https://${{ secrets.DOMAIN_NAME }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Release:** [View Release](${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ needs.prepare-release.outputs.version }})" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The deployment encountered an error. Please review the logs and take corrective action." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- **Version:** ${{ needs.prepare-release.outputs.version }}" >> $GITHUB_STEP_STEP_SUMMARY
+            echo "- **Logs:** [View Workflow Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          fi

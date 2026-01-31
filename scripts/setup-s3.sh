@@ -1,15 +1,16 @@
 #!/bin/bash
 
-# S3 Bucket Setup Script for Emaus Avatar Storage
+# S3 Bucket Setup Script for Emaus Media Storage
+# Supports multi-purpose storage: avatars, retreat memories, documents, public assets
 # Usage: ./scripts/setup-s3.sh
 
 set -e
 
 # Configuration
-BUCKET_NAME=${S3_BUCKET_NAME:-emaus-avatars}
+BUCKET_NAME=${S3_BUCKET_NAME:-emaus-media}
 REGION=${AWS_REGION:-us-east-1}
 
-echo "🪣 Setting up S3 bucket for avatar storage..."
+echo "🪣 Setting up S3 bucket for media storage..."
 echo "Bucket: $BUCKET_NAME"
 echo "Region: $REGION"
 
@@ -42,7 +43,9 @@ aws s3api put-bucket-versioning \
     --bucket "$BUCKET_NAME" \
     --versioning-configuration Status=Enabled
 
-# Set bucket policy for public read access
+# Set bucket policy for selective public access
+# Public: avatars and public-assets prefixes
+# Private: documents and retreat-memories prefixes
 echo "Setting bucket policy..."
 aws s3api put-bucket-policy \
     --bucket "$BUCKET_NAME" \
@@ -50,11 +53,18 @@ aws s3api put-bucket-policy \
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "PublicReadGetObject",
+      "Sid": "PublicReadAvatars",
       "Effect": "Allow",
       "Principal": "*",
       "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::'"$BUCKET_NAME"'/*"
+      "Resource": "arn:aws:s3:::'"$BUCKET_NAME"'/avatars/*"
+    },
+    {
+      "Sid": "PublicReadAssets",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::'"$BUCKET_NAME"'/public-assets/*"
     }
   ]
 }'
@@ -94,7 +104,17 @@ echo "✅ S3 bucket setup complete!"
 echo ""
 echo "Bucket URL: https://$BUCKET_NAME.s3.$REGION.amazonaws.com"
 echo ""
+echo "Bucket Structure:"
+echo "  ├── avatars/                 (public read)"
+echo "  ├── retreat-memories/        (private)"
+echo "  ├── documents/               (private)"
+echo "  └── public-assets/           (public read)"
+echo ""
 echo "Add these to your .env file:"
 echo "AWS_REGION=$REGION"
 echo "S3_BUCKET_NAME=$BUCKET_NAME"
+echo "S3_AVATARS_PREFIX=avatars/"
+echo "S3_RETREAT_MEMORIES_PREFIX=retreat-memories/"
+echo "S3_DOCUMENTS_PREFIX=documents/"
+echo "S3_PUBLIC_ASSETS_PREFIX=public-assets/"
 echo "AVATAR_STORAGE=s3"
