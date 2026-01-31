@@ -436,7 +436,29 @@ The system now includes social networking features for users (servers/converted 
 - **Follow System**: Follow/unfollow users, view followers and following lists
 - **User Blocking**: Block/unblock users
 - **User Search**: Search users by name, interests, skills, location
-- **Avatar Storage**: Base64 or AWS S3 storage with automatic image processing
+- **Media Storage**: AWS S3 storage for avatars, retreat photos, documents, and public assets
+
+### Media Storage
+
+The system supports flexible media storage with AWS S3:
+
+- **Base64 Storage** (default): Store avatars in database
+- **S3 Storage**: Upload to AWS S3 bucket with automatic image optimization
+
+**Bucket Structure:**
+- `avatars/` - User profile pictures (public)
+- `retreat-memories/` - Retreat photos (private)
+- `documents/` - Participant documents (private, future)
+- `public-assets/` - Website assets (public, future)
+
+**Setup:**
+```bash
+export AWS_REGION=us-east-1
+export S3_BUCKET_NAME=emaus-media
+./scripts/setup-s3.sh
+```
+
+For detailed setup and configuration, see [docs_dev/s3-media-storage.md](./docs_dev/s3-media-storage.md).
 
 For detailed API documentation, see [docs_dev/SOCIAL_FEATURES_API.md](./docs_dev/SOCIAL_FEATURES_API.md).
 

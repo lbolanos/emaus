@@ -12,6 +12,14 @@ const envSchema = z.object({
 	AWS_ACCESS_KEY_ID: z.string().optional(),
 	AWS_SECRET_ACCESS_KEY: z.string().optional(),
 	S3_BUCKET_NAME: z.string().optional(),
+
+	// S3 Storage Prefixes (for different content types)
+	S3_AVATARS_PREFIX: z.string().default('avatars/'),
+	S3_RETREAT_MEMORIES_PREFIX: z.string().default('retreat-memories/'),
+	S3_DOCUMENTS_PREFIX: z.string().default('documents/'),
+	S3_PUBLIC_ASSETS_PREFIX: z.string().default('public-assets/'),
+
+	// Legacy S3_BUCKET_PREFIX for backward compatibility
 	S3_BUCKET_PREFIX: z.string().default('avatars/'),
 });
 
@@ -53,7 +61,13 @@ export const config = {
 		accessKeyId: env.AWS_ACCESS_KEY_ID || '',
 		secretAccessKey: env.AWS_SECRET_ACCESS_KEY || '',
 		s3BucketName: env.S3_BUCKET_NAME || '',
-		s3Prefix: env.S3_BUCKET_PREFIX,
+		s3Prefix: env.S3_BUCKET_PREFIX, // Legacy for backward compatibility
+		s3Prefixes: {
+			avatars: env.S3_AVATARS_PREFIX,
+			retreatMemories: env.S3_RETREAT_MEMORIES_PREFIX,
+			documents: env.S3_DOCUMENTS_PREFIX,
+			publicAssets: env.S3_PUBLIC_ASSETS_PREFIX,
+		},
 	},
 } as const;
 

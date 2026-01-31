@@ -6,10 +6,23 @@ interface UploadResult {
 	key: string;
 }
 
+// S3 storage prefixes for different content types
+export const S3_PREFIXES = {
+	AVATARS: 'avatars/',
+	RETREAT_MEMORIES: 'retreat-memories/',
+	DOCUMENTS: 'documents/',
+	PUBLIC_ASSETS: 'public-assets/',
+} as const;
+
 class S3Service {
 	private client: S3Client;
 	private bucketName: string;
-	private prefix: string;
+	private prefixes: {
+		avatars: string;
+		retreatMemories: string;
+		documents: string;
+		publicAssets: string;
+	};
 
 	constructor() {
 		this.client = new S3Client({
@@ -20,11 +33,11 @@ class S3Service {
 			},
 		});
 		this.bucketName = config.aws.s3BucketName;
-		this.prefix = config.aws.s3Prefix || 'avatars/';
+		this.prefixes = config.aws.s3Prefixes;
 	}
 
 	async uploadAvatar(userId: string, buffer: Buffer, contentType: string): Promise<UploadResult> {
-		const key = `${this.prefix}${userId}.webp`;
+		const key = `${this.prefixes.avatars}${userId}.webp`;
 
 		const command = new PutObjectCommand({
 			Bucket: this.bucketName,
@@ -44,7 +57,7 @@ class S3Service {
 	}
 
 	async deleteAvatar(userId: string): Promise<void> {
-		const key = `${this.prefix}${userId}.webp`;
+		const key = `${this.prefixes.avatars}${userId}.webp`;
 
 		const command = new DeleteObjectCommand({
 			Bucket: this.bucketName,
@@ -59,7 +72,7 @@ class S3Service {
 		buffer: Buffer,
 		contentType: string,
 	): Promise<UploadResult> {
-		const key = `retreat-memories/${retreatId}.webp`;
+		const key = `${this.prefixes.retreatMemories}${retreatId}.webp`;
 
 		const command = new PutObjectCommand({
 			Bucket: this.bucketName,
@@ -78,7 +91,7 @@ class S3Service {
 	}
 
 	async deleteRetreatMemoryPhoto(retreatId: string): Promise<void> {
-		const key = `retreat-memories/${retreatId}.webp`;
+		const key = `${this.prefixes.retreatMemories}${retreatId}.webp`;
 
 		const command = new DeleteObjectCommand({
 			Bucket: this.bucketName,
@@ -86,6 +99,85 @@ class S3Service {
 		});
 
 		await this.client.send(command);
+	}
+
+	// Document storage methods
+	async uploadDocument(
+		path: string,
+		buffer: Buffer,
+		contentType: string,
+	): Promise<UploadResult> {
+		const key = `${this.prefixes.documents}${path}`;
+
+		const command = new PutObjectCommand({
+			Bucket: this.bucketName,
+			Key: key,
+			Body: buffer,
+			ContentType: contentType,
+		});
+
+		await this.client.send(command);
+
+		return {
+			url: this.getPublicUrl(key),
+			key,
+		};
+	}
+
+	async deleteDocument(path: string): Promise<void> {
+		const key = `${this.prefixes.documents}${path}`;
+
+		const command = new DeleteObjectCommand({
+			Bucket: this.bucketName,
+			Key: key,
+		});
+
+		await this.client.send(command);
+	}
+
+	async getDocumentUrl(path: string): Promise<string> {
+		const key = `${this.prefixes.documents}${path}`;
+		return this.getPublicUrl(key);
+	}
+
+	// Public assets methods
+	async uploadPublicAsset(
+		path: string,
+		buffer: Buffer,
+		contentType: string,
+	): Promise<UploadResult> {
+		const key = `${this.prefixes.publicAssets}${path}`;
+
+		const command = new PutObjectCommand({
+			Bucket: this.bucketName,
+			Key: key,
+			Body: buffer,
+			ContentType: contentType,
+			CacheControl: 'public, max-age=2592000, immutable',
+		});
+
+		await this.client.send(command);
+
+		return {
+			url: this.getPublicUrl(key),
+			key,
+		};
+	}
+
+	async deletePublicAsset(path: string): Promise<void> {
+		const key = `${this.prefixes.publicAssets}${path}`;
+
+		const command = new DeleteObjectCommand({
+			Bucket: this.bucketName,
+			Key: key,
+		});
+
+		await this.client.send(command);
+	}
+
+	getPublicAssetUrl(path: string): string {
+		const key = `${this.prefixes.publicAssets}${path}`;
+		return this.getPublicUrl(key);
 	}
 
 	private getPublicUrl(key: string): string {
