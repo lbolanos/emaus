@@ -4,6 +4,18 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.2.3)'
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.2.3)'
+        required: true
+        type: string
 
 permissions:
   contents: write  # Required for creating releases and uploading assets
@@ -56,8 +68,9 @@ jobs:
     - name: Generate release notes
       id: release_notes
       run: |
+        RELEASE_VERSION=${{ inputs.version || github.ref_name }}
         cat << EOF > release_notes.md
-        ## Release ${{ github.ref_name }}
+        ## Release $RELEASE_VERSION
         
         ### 📦 Build Artifacts
         - \`web-dist.tar.gz\` - Web application distribution
@@ -104,10 +117,11 @@ jobs:
       id: create_release
       uses: softprops/action-gh-release@v1
       with:
-        name: Release ${{ github.ref_name }}
+        name: Release ${{ inputs.version || github.ref_name }}
+        tag_name: ${{ inputs.version || github.ref_name }}
         body_path: release_notes.md
         draft: false
-        prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'rc') }}
+        prerelease: ${{ contains(inputs.version || github.ref_name, 'beta') || contains(inputs.version || github.ref_name, 'alpha') || contains(inputs.version || github.ref_name, 'rc') }}
         files: |
           web-dist.tar.gz
           api-dist.tar.gz
@@ -117,6 +131,7 @@ jobs:
 
     - name: Build Summary
       run: |
+        RELEASE_VERSION=${{ inputs.version || github.ref_name }}
         echo "✅ Build and Release completed successfully!" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## 📦 Released Artifacts" >> $GITHUB_STEP_SUMMARY
@@ -128,13 +143,13 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## 🔗 Release URL" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "https://github.com/${{ github.repository }}/releases/tag/$RELEASE_VERSION" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## 🚀 Deploy Commands" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo '```bash' >> $GITHUB_STEP_SUMMARY
         echo "export GITHUB_REPO=${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
-        echo "export RELEASE_TAG=${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "export RELEASE_TAG=$RELEASE_VERSION" >> $GITHUB_STEP_SUMMARY
         echo "export VITE_API_URL=https://your-api-domain.com/api" >> $GITHUB_STEP_SUMMARY
         echo "export VITE_GOOGLE_MAPS_API_KEY=your-google-maps-key" >> $GITHUB_STEP_SUMMARY
         echo "./release-from-github.sh" >> $GITHUB_STEP_SUMMARY
