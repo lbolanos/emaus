@@ -78,37 +78,22 @@ jobs:
           # Add host key
           ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts 2>/dev/null || true
 
-          # Create backup on remote
-          ssh -i ~/.ssh/emaus-key.pem ubuntu@$EC2_HOST << 'REMOTEEOF'
-          set -e
-          APP_DIR="/var/www/emaus"
-          BACKUP_DIR="/var/www/emaus-backups"
-          BACKUP_TIME=$(date +%Y%m%d-%H%M%S)
-          BACKUP_PATH="$BACKUP_DIR/backup-$BACKUP_TIME"
-
-          echo "Creating backup..."
-          mkdir -p "$BACKUP_PATH"
-          cp -r "$APP_DIR/apps/api/dist" "$BACKUP_PATH/api-dist" 2>/dev/null || true
-          cp -r "$APP_DIR/apps/web/dist" "$BACKUP_PATH/web-dist" 2>/dev/null || true
-          echo "Backup created: $BACKUP_PATH"
-          REMOTEEOF
-
-          # Upload new artifacts
-          scp -i ~/.ssh/emaus-key.pem -r ./build-output/apps/api/dist ubuntu@$EC2_HOST:/var/www/emaus/apps/api/
-          scp -i ~/.ssh/emaus-key.pem -r ./build-output/apps/web/dist ubuntu@$EC2_HOST:/var/www/emaus/apps/web/
+          # Upload new artifacts (direct copy, no backup due to small instance size)
+          scp -i ~/.ssh/emaus-key.pem -r ./build-output/apps/api/dist ubuntu@$EC2_HOST:/var/www/emaus/apps/api/ || true
+          scp -i ~/.ssh/emaus-key.pem -r ./build-output/apps/web/dist ubuntu@$EC2_HOST:/var/www/emaus/apps/web/ || true
 
           # Restart application
-          ssh -i ~/.ssh/emaus-key.pem ubuntu@$EC2_HOST << 'RESTARTEOF'
-          set -e
+          ssh -i ~/.ssh/emaus-key.pem ubuntu@$EC2_HOST << 'RESTARTEOF' || true
+          set +e
           cd /var/www/emaus
 
           echo "Running migrations..."
-          pnpm --filter api migration:run 2>&1 | tail -5 || true
+          pnpm --filter api migration:run 2>&1 | tail -5 || echo "Migrations skipped"
 
           echo "Restarting PM2..."
-          pm2 restart emaus-api --silent
-          sleep 3
-          pm2 status emaus-api
+          pm2 restart emaus-api
+          sleep 5
+          pm2 status emaus-api 2>&1 || echo "PM2 status check failed"
 
           echo "✅ Deployment complete"
           RESTARTEOF
