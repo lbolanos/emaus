@@ -41,9 +41,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build-artifacts
-          path: |
-            apps/api/dist
-            apps/web/dist
+          path: apps
           retention-days: 1
 
   # Step 2: Deploy to EC2
@@ -80,10 +78,10 @@ jobs:
 
           # Upload new artifacts
           echo "Uploading API build..."
-          scp -i ~/.ssh/emaus-key.pem -r ./build-output/apps/api/dist ubuntu@$EC2_HOST:/var/www/emaus/apps/api/
+          scp -i ~/.ssh/emaus-key.pem -r ./build-output/apps/api/dist/ ubuntu@$EC2_HOST:/var/www/emaus/apps/api/dist
 
           echo "Uploading Web build..."
-          scp -i ~/.ssh/emaus-key.pem -r ./build-output/apps/web/dist ubuntu@$EC2_HOST:/var/www/emaus/apps/web/
+          scp -i ~/.ssh/emaus-key.pem -r ./build-output/apps/web/dist/ ubuntu@$EC2_HOST:/var/www/emaus/apps/web/dist
 
           # Deploy and restart application
           ssh -i ~/.ssh/emaus-key.pem ubuntu@$EC2_HOST << 'RESTARTEOF'
