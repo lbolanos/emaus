@@ -78,24 +78,31 @@ jobs:
           # Add host key
           ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts 2>/dev/null || true
 
-          # Upload new artifacts (direct copy, no backup due to small instance size)
-          scp -i ~/.ssh/emaus-key.pem -r ./build-output/apps/api/dist ubuntu@$EC2_HOST:/var/www/emaus/apps/api/ || true
-          scp -i ~/.ssh/emaus-key.pem -r ./build-output/apps/web/dist ubuntu@$EC2_HOST:/var/www/emaus/apps/web/ || true
+          # Upload new artifacts
+          echo "Uploading API build..."
+          scp -i ~/.ssh/emaus-key.pem -r ./build-output/apps/api/dist ubuntu@$EC2_HOST:/var/www/emaus/apps/api/
 
-          # Restart application
-          ssh -i ~/.ssh/emaus-key.pem ubuntu@$EC2_HOST << 'RESTARTEOF' || true
-          set +e
+          echo "Uploading Web build..."
+          scp -i ~/.ssh/emaus-key.pem -r ./build-output/apps/web/dist ubuntu@$EC2_HOST:/var/www/emaus/apps/web/
+
+          # Deploy and restart application
+          ssh -i ~/.ssh/emaus-key.pem ubuntu@$EC2_HOST << 'RESTARTEOF'
+          set -e
           cd /var/www/emaus
+
+          echo "Installing dependencies..."
+          pnpm install --frozen-lockfile 2>&1 | tail -10
 
           echo "Running migrations..."
           pnpm --filter api migration:run 2>&1 | tail -5 || echo "Migrations skipped"
 
           echo "Restarting PM2..."
           pm2 restart emaus-api
-          sleep 5
-          pm2 status emaus-api 2>&1 || echo "PM2 status check failed"
+          sleep 3
 
-          echo "✅ Deployment complete"
+          echo "Checking PM2 status..."
+          pm2 status emaus-api
+
           RESTARTEOF
 
       - name: Run health checks
@@ -105,27 +112,57 @@ jobs:
           EC2_USER: ${{ secrets.EC2_USER }}
           EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
         run: |
+          set -e
+
           mkdir -p ~/.ssh
           echo "$EC2_SSH_PRIVATE_KEY" > ~/.ssh/emaus-key.pem
           chmod 600 ~/.ssh/emaus-key.pem
 
           ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts 2>/dev/null || true
 
-          # Upload health check script
+          echo "Uploading health check script..."
           scp -i ~/.ssh/emaus-key.pem \
             deploy/aws/health-check.sh \
             $EC2_USER@$EC2_HOST:/tmp/health-check.sh
 
-          # Execute health checks
+          echo "Running health checks..."
           ssh -i ~/.ssh/emaus-key.pem \
             $EC2_USER@$EC2_HOST \
             "bash /tmp/health-check.sh"
+
+          echo "Health checks passed! ✅"
+
+      - name: Quick API validation
+        if: success()
+        env:
+          DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
+        run: |
+          echo "Validating API is responding..."
+          sleep 5
+
+          # Try to reach the health endpoint
+          for i in {1..5}; do
+            RESPONSE=$(curl -s -w "\n%{http_code}" https://${DOMAIN_NAME}/api/health || echo -e "\n000")
+            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+
+            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "302" ]; then
+              echo "✅ API is responding (HTTP $HTTP_CODE)"
+              exit 0
+            fi
+
+            echo "Attempt $i: HTTP $HTTP_CODE - retrying..."
+            sleep 2
+          done
+
+          echo "❌ API validation failed"
+          exit 1
 
       - name: Deployment notification
         run: |
           echo "✅ Deployment Successful!"
           echo "Commit: ${{ github.sha }}"
           echo "Author: ${{ github.actor }}"
+          echo "Application: https://${{ secrets.DOMAIN_NAME }}"
 
       - name: Handle deployment failure
         if: failure()
