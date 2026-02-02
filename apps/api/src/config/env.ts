@@ -9,6 +9,8 @@ const envSchema = z.object({
 
 	// AWS S3 Configuration
 	AWS_REGION: z.string().default('us-east-1'),
+	AWS_USE_IAM_ROLE: z.enum(['true', 'false']).default('false'),
+	AWS_ROLE_ARN: z.string().optional(),
 	AWS_ACCESS_KEY_ID: z.string().optional(),
 	AWS_SECRET_ACCESS_KEY: z.string().optional(),
 	S3_BUCKET_NAME: z.string().optional(),
@@ -32,16 +34,27 @@ function validateEnv() {
 		throw new Error(`Environment validation failed:\n${errors}`);
 	}
 
-	// Warn if S3 is configured but missing credentials
+	// Validate S3 configuration
 	if (parsed.data.AVATAR_STORAGE === 's3') {
-		if (
-			!parsed.data.AWS_ACCESS_KEY_ID ||
-			!parsed.data.AWS_SECRET_ACCESS_KEY ||
-			!parsed.data.S3_BUCKET_NAME
-		) {
-			throw new Error(
-				'AVATAR_STORAGE=s3 requires AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and S3_BUCKET_NAME to be set',
-			);
+		const useIAMRole = parsed.data.AWS_USE_IAM_ROLE === 'true';
+		if (!parsed.data.S3_BUCKET_NAME) {
+			throw new Error('AVATAR_STORAGE=s3 requires S3_BUCKET_NAME to be set');
+		}
+
+		if (useIAMRole) {
+			// Production: IAM role-based
+			console.log('✅ Using IAM role for AWS authentication');
+		} else {
+			// Development: credential-based
+			if (
+				!parsed.data.AWS_ACCESS_KEY_ID ||
+				!parsed.data.AWS_SECRET_ACCESS_KEY
+			) {
+				throw new Error(
+					'AVATAR_STORAGE=s3 requires either AWS_USE_IAM_ROLE=true or AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY',
+				);
+			}
+			console.warn('⚠️  Using AWS credentials from environment (dev only)');
 		}
 	}
 
@@ -58,6 +71,8 @@ export const config = {
 	},
 	aws: {
 		region: env.AWS_REGION,
+		useIAMRole: env.AWS_USE_IAM_ROLE === 'true',
+		roleArn: env.AWS_ROLE_ARN,
 		accessKeyId: env.AWS_ACCESS_KEY_ID || '',
 		secretAccessKey: env.AWS_SECRET_ACCESS_KEY || '',
 		s3BucketName: env.S3_BUCKET_NAME || '',

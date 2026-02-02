@@ -29,8 +29,8 @@ export class PerformanceOptimizationService {
 
 	private constructor() {
 		const cacheConfig: CacheConfig = {
-			ttl: 300, // 5 minutes
-			checkperiod: 60, // 1 minute
+			ttl: 60, // Reduced from 300 (5 min) to 60 (1 min) for better security
+			checkperiod: 30, // Check every 30 seconds
 			useClones: false,
 		};
 
@@ -58,8 +58,8 @@ export class PerformanceOptimizationService {
 	private getRetreatCache(retreatId: string): NodeCache {
 		if (!this.retreatCaches.has(retreatId)) {
 			const cacheConfig: CacheConfig = {
-				ttl: 300, // 5 minutes
-				checkperiod: 60, // 1 minute
+				ttl: 60, // Reduced from 300 (5 min) to 60 (1 min) for better security
+				checkperiod: 30, // Check every 30 seconds
 				useClones: false,
 			};
 			this.retreatCaches.set(retreatId, new NodeCache(cacheConfig));

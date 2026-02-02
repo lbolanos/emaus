@@ -272,6 +272,37 @@ export class AuthorizationService {
 		return userPermissions.permissions.includes(permission);
 	}
 
+	/**
+	 * Check permission directly from database (bypass cache)
+	 * Use for critical operations where stale cache is unacceptable
+	 */
+	public async hasPermissionDirect(userId: string, permission: string): Promise<boolean> {
+		// Validate permission format
+		if (!permission || !permission.includes(':')) {
+			return false;
+		}
+
+		const [resource, operation] = permission.split(':');
+		if (!resource || !operation) {
+			return false;
+		}
+
+		const result = await AppDataSource.query(
+			`
+			SELECT COUNT(*) as count
+			FROM user_roles ur
+			JOIN role_permissions rp ON ur.role_id = rp.role_id
+			JOIN permissions p ON rp.permission_id = p.id
+			WHERE ur.user_id = ?
+				AND p.resource = ?
+				AND p.operation = ?
+			`,
+			[userId, resource, operation],
+		);
+
+		return result[0].count > 0;
+	}
+
 	public async hasRole(userId: string, role: string): Promise<boolean> {
 		const userRoles = await this.getUserPermissions(userId);
 		return userRoles.roles.includes(role);
@@ -411,6 +442,13 @@ export class AuthorizationService {
 	): Promise<UserRetreat> {
 		const repos = getRepositories(dataSource);
 
+		// PESSIMISTIC CACHE INVALIDATION: Invalidate BEFORE database change
+		performanceOptimizationService.invalidateUserRetreatCache(userId);
+		performanceOptimizationService.invalidateUserPermissionCache(userId);
+		performanceOptimizationService.invalidateRetreatPermissionCache(retreatId);
+		performanceOptimizationService.invalidateRetreatAccessCache(userId, retreatId);
+		performanceOptimizationService.invalidateUserPermissionsResultCache(userId);
+
 		// Check if assignment already exists
 		const existingAssignment = await repos.userRetreat.findOne({
 			where: {
@@ -426,16 +464,7 @@ export class AuthorizationService {
 			existingAssignment.invitedBy = invitedBy;
 			existingAssignment.invitedAt = new Date();
 			existingAssignment.expiresAt = expiresAt;
-			const result = await repos.userRetreat.save(existingAssignment);
-
-			// Invalidate cache
-			performanceOptimizationService.invalidateUserRetreatCache(userId);
-			performanceOptimizationService.invalidateUserPermissionCache(userId);
-			performanceOptimizationService.invalidateRetreatPermissionCache(retreatId);
-			performanceOptimizationService.invalidateRetreatAccessCache(userId, retreatId);
-			performanceOptimizationService.invalidateUserPermissionsResultCache(userId);
-
-			return result;
+			return await repos.userRetreat.save(existingAssignment);
 		}
 
 		// Create new assignment
@@ -449,16 +478,7 @@ export class AuthorizationService {
 			status: 'active',
 		});
 
-		const result = await repos.userRetreat.save(userRetreat);
-
-		// Invalidate cache
-		performanceOptimizationService.invalidateUserRetreatCache(userId);
-		performanceOptimizationService.invalidateUserPermissionCache(userId);
-		performanceOptimizationService.invalidateRetreatPermissionCache(retreatId);
-		performanceOptimizationService.invalidateRetreatAccessCache(userId, retreatId);
-		performanceOptimizationService.invalidateUserPermissionsResultCache(userId);
-
-		return result;
+		return await repos.userRetreat.save(userRetreat);
 	}
 
 	public async revokeRetreatRole(
@@ -467,6 +487,13 @@ export class AuthorizationService {
 		roleId: number,
 		dataSource?: DataSource,
 	): Promise<boolean> {
+		// PESSIMISTIC CACHE INVALIDATION: Invalidate BEFORE database change
+		performanceOptimizationService.invalidateUserRetreatCache(userId);
+		performanceOptimizationService.invalidateUserPermissionCache(userId);
+		performanceOptimizationService.invalidateRetreatPermissionCache(retreatId);
+		performanceOptimizationService.invalidateRetreatAccessCache(userId, retreatId);
+		performanceOptimizationService.invalidateUserPermissionsResultCache(userId);
+
 		const repos = getRepositories(dataSource);
 		const result = await repos.userRetreat
 			.createQueryBuilder()
@@ -476,15 +503,6 @@ export class AuthorizationService {
 			.andWhere('retreatId = :retreatId', { retreatId })
 			.andWhere('roleId = :roleId', { roleId })
 			.execute();
-
-		// Invalidate cache if any records were affected
-		if ((result.affected || 0) > 0) {
-			performanceOptimizationService.invalidateUserRetreatCache(userId);
-			performanceOptimizationService.invalidateUserPermissionCache(userId);
-			performanceOptimizationService.invalidateRetreatPermissionCache(retreatId);
-			performanceOptimizationService.invalidateRetreatAccessCache(userId, retreatId);
-			performanceOptimizationService.invalidateUserPermissionsResultCache(userId);
-		}
 
 		return (result.affected || 0) > 0;
 	}
@@ -561,6 +579,34 @@ export const requireRole = (role: string): any => {
 		} catch (error) {
 			console.error('Role check error:', error);
 			return res.status(500).json({ message: 'Internal server error' });
+		}
+	};
+};
+
+/**
+ * Require permission with cache bypass for critical operations
+ * Use for high-value operations where stale cache is unacceptable
+ */
+export const requireCriticalPermission = (permission: string): any => {
+	return async (req: any, res: Response, next: NextFunction) => {
+		try {
+			if (!req.user) {
+				return res.status(401).json({ message: 'No autenticado' });
+			}
+
+			const hasPermission = await authorizationService.hasPermissionDirect(
+				req.user.id,
+				permission,
+			);
+
+			if (!hasPermission) {
+				return res.status(403).json({ message: 'No autorizado' });
+			}
+
+			next();
+		} catch (error) {
+			console.error('Critical permission check error:', error);
+			return res.status(500).json({ message: 'Error interno' });
 		}
 	};
 };

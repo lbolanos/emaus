@@ -62,6 +62,12 @@ api.interceptors.response.use(
 			telemetryService.trackApiCallTime(response.config.url || 'unknown', duration, true);
 		}
 
+		// Handle rotated CSRF token
+		const newToken = response.headers['x-csrf-token-new'];
+		if (newToken) {
+			sessionStorage.setItem('csrfToken', newToken);
+		}
+
 		return response;
 	},
 	(error) => {

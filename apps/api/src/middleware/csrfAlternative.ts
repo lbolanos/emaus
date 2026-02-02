@@ -1,8 +1,16 @@
 import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 
-// Almacén de tokens CSRF (en producción usar Redis)
-const csrfTokens = new Map<string, { token: string; expires: number }>();
+/**
+ * Operations that require CSRF token rotation after use
+ */
+const HIGH_VALUE_OPERATIONS = [
+	'/api/auth/password/change',
+	'/api/auth/password/reset',
+	'/api/user-management/users',
+	'/api/retreat-roles',
+	'/api/permission-overrides',
+];
 
 /**
  * Genera un token CSRF seguro
@@ -61,27 +69,31 @@ export function csrfValidationMiddleware(req: Request, res: Response, next: Next
 		});
 	}
 
-	// Validar token
-	if (requestToken !== sessionToken) {
+	// Validar token usando timing-safe comparison
+	try {
+		if (!crypto.timingSafeEqual(Buffer.from(requestToken), Buffer.from(sessionToken))) {
+			return res.status(403).json({
+				message: 'Token CSRF inválido',
+				error: 'CSRF_TOKEN_INVALID',
+			});
+		}
+	} catch (error) {
+		// timingSafeEqual throws if buffer lengths don't match
 		return res.status(403).json({
 			message: 'Token CSRF inválido',
 			error: 'CSRF_TOKEN_INVALID',
 		});
 	}
-	// No regenerar el token después de uso válido para mantener consistencia
-	// req.session.csrfToken = generateCsrfToken();
+
+	// Rotate token for high-value operations
+	const isHighValue = HIGH_VALUE_OPERATIONS.some(path => req.path.startsWith(path));
+	if (isHighValue) {
+		const newToken = generateCsrfToken();
+		req.session.csrfToken = newToken;
+		res.setHeader('X-CSRF-Token-New', newToken);
+	}
 
 	next();
-}
-
-/**
- * Middleware para limpiar tokens expirados
- */
-export function csrfCleanupMiddleware() {
-	const now = Date.now();
-	const expired = Array.from(csrfTokens.entries()).filter(([_, data]) => data.expires < now);
-
-	expired.forEach(([key]) => csrfTokens.delete(key));
 }
 
 /**
@@ -90,5 +102,4 @@ export function csrfCleanupMiddleware() {
 export const csrfMiddleware = {
 	generateToken: csrfTokenMiddleware,
 	validate: csrfValidationMiddleware,
-	cleanup: csrfCleanupMiddleware,
 };

@@ -51,6 +51,15 @@ export class User {
 	@Column({ type: 'datetime', nullable: true })
 	invitationExpiresAt?: Date;
 
+	@Column({ type: 'varchar', nullable: true })
+	passwordResetToken?: string;
+
+	@Column({ type: 'datetime', nullable: true })
+	passwordResetTokenExpiresAt?: Date;
+
+	@Column({ type: 'datetime', nullable: true })
+	passwordResetTokenUsedAt?: Date;
+
 	@Column({ type: 'uuid', nullable: true })
 	participantId?: string | null;
 

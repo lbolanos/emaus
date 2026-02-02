@@ -18,11 +18,11 @@ class AvatarStorageService {
 		const storageType = this.getStorageType();
 
 		if (storageType === 's3') {
-			// Convert base64 to buffer
-			const buffer = imageService.base64ToBuffer(base64Data);
+			// Convert base64 to buffer and extract content type
+			const { buffer, contentType } = imageService.base64ToBuffer(base64Data);
 
 			// Process image (resize, convert to webp)
-			const processed = await imageService.processAvatar(buffer, 'image/*');
+			const processed = await imageService.processAvatar(buffer, contentType);
 
 			// Upload to S3
 			const result = await s3Service.uploadAvatar(userId, processed.buffer, processed.contentType);

@@ -65,6 +65,8 @@ describe('Auth Controller', () => {
 		logout: jest.fn((callback: any) => callback(null)),
 		session: {
 			destroy: jest.fn((callback: any) => callback(null)),
+			regenerate: jest.fn((callback: any) => callback(null)),
+			csrfToken: 'test-csrf-token',
 		},
 		isAuthenticated: () => false,
 		...overrides,
@@ -319,7 +321,7 @@ describe('Auth Controller', () => {
 
 			expect(req.logout).toHaveBeenCalled();
 			expect(req.session.destroy).toHaveBeenCalled();
-			expect(res.clearCookie).toHaveBeenCalledWith('connect.sid');
+			expect(res.clearCookie).toHaveBeenCalledWith('emaus.sid');
 			expect(res.json).toHaveBeenCalledWith({ message: 'Logged out' });
 		});
 
@@ -424,7 +426,7 @@ describe('Auth Controller', () => {
 
 			expect(res.status).toHaveBeenCalledWith(400);
 			expect(res.json).toHaveBeenCalledWith({
-				message: 'Invalid or expired password reset token.',
+				message: 'Token de restablecimiento inválido o expirado.',
 			});
 		});
 
@@ -445,7 +447,7 @@ describe('Auth Controller', () => {
 
 			expect(res.status).toHaveBeenCalledWith(400);
 			expect(res.json).toHaveBeenCalledWith({
-				message: 'Invalid or expired password reset token.',
+				message: 'Token de restablecimiento inválido o expirado.',
 			});
 		});
 	});

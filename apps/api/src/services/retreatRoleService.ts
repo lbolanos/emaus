@@ -5,6 +5,7 @@ import { Role } from '../entities/role.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { authorizationService } from '../middleware/authorization';
 import { AuditService } from './auditService';
+import { performanceOptimizationService } from './performanceOptimizationService';
 import { Request } from 'express';
 import { getRepositories } from '../utils/repositoryHelpers';
 
@@ -257,7 +258,15 @@ export class RetreatRoleService {
 		}
 
 		userRetreat.status = 'active';
-		return userRetreatRepository.save(userRetreat);
+		const result = await userRetreatRepository.save(userRetreat);
+
+		// Invalidate cache to prevent stale permissions
+		performanceOptimizationService.invalidateUserRetreatCache(userId);
+		performanceOptimizationService.invalidateUserPermissionCache(userId);
+		performanceOptimizationService.invalidateRetreatAccessCache(userId, retreatId);
+		performanceOptimizationService.invalidateUserPermissionsResultCache(userId);
+
+		return result;
 	}
 
 	public async rejectRetreatInvitation(
@@ -281,7 +290,17 @@ export class RetreatRoleService {
 			.andWhere('status = :status', { status: 'pending' })
 			.execute();
 
-		return (result.affected || 0) > 0;
+		const success = (result.affected || 0) > 0;
+
+		// Invalidate cache if rejection was successful
+		if (success) {
+			performanceOptimizationService.invalidateUserRetreatCache(userId);
+			performanceOptimizationService.invalidateUserPermissionCache(userId);
+			performanceOptimizationService.invalidateRetreatAccessCache(userId, retreatId);
+			performanceOptimizationService.invalidateUserPermissionsResultCache(userId);
+		}
+
+		return success;
 	}
 }
 

@@ -17,9 +17,11 @@ import { config } from './config';
 import { errorHandler } from './middleware/errorHandler';
 import { MigrationVerifier } from './database/migration-verifier';
 import { roleCleanupService } from './services/roleCleanupService';
+import { passwordResetCleanupService } from './services/passwordResetCleanupService';
 import { PerformanceMiddleware, PerformanceRequest } from './middleware/performanceMiddleware';
 import { performanceOptimizationService } from './services/performanceOptimizationService';
 import { csrfMiddleware } from './middleware/csrfAlternative';
+import { apiLimiter } from './middleware/rateLimiting';
 
 // Extend express-session
 declare module 'express-session' {
@@ -67,14 +69,23 @@ async function main() {
 			contentSecurityPolicy: {
 				directives: {
 					defaultSrc: ["'self'"],
-					styleSrc: ["'self'", "'unsafe-inline'"],
-					scriptSrc: ["'self'", 'https://maps.googleapis.com', "'unsafe-eval'"],
-					imgSrc: ["'self'", 'data:', 'https:'],
-					fontSrc: ["'self'", 'https:'],
+					styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+					scriptSrc: [
+						"'self'",
+						'https://maps.googleapis.com',
+						'https://www.google.com', // reCAPTCHA
+						'https://www.gstatic.com', // reCAPTCHA
+						// REMOVED: "'unsafe-eval'" - not needed for modern Google Maps
+					],
+					imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
+					fontSrc: ["'self'", 'https:', 'data:'],
 					connectSrc,
+					objectSrc: ["'none'"],
+					frameSrc: ['https://www.google.com'], // reCAPTCHA
 				},
 			},
 			crossOriginEmbedderPolicy: false,
+			referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 		}),
 	);
 	app.use(express.json({ limit: '2mb' }));
@@ -93,10 +104,14 @@ async function main() {
 			saveUninitialized: false,
 			cookie: {
 				httpOnly: true,
-				secure: process.env.SECURE_COOKIE === 'true',
-				sameSite: process.env.SECURE_COOKIE === 'true' ? 'none' : 'lax',
+				secure: config.env === 'production', // Always secure in production
+				sameSite: 'strict', // Strongest CSRF protection
 				maxAge: 24 * 60 * 60 * 1000, // 24 hours
+				domain: config.env === 'production' ? config.session.cookieDomain : undefined,
+				path: '/',
 			},
+			name: 'emaus.sid', // Custom session name
+			proxy: config.env === 'production', // Trust proxy in production
 		}),
 	);
 	app.use(passport.initialize());
@@ -129,6 +144,10 @@ async function main() {
 	app.get('/api/csrf-token', (req, res) => {
 		res.json({ csrfToken: req.session.csrfToken });
 	});
+
+	// Apply global API rate limiter
+	app.use('/api', apiLimiter);
+
 	app.use('/api', mainRouter);
 	app.use('/api/tables', tableMesaRoutes);
 
@@ -158,6 +177,7 @@ async function main() {
 	}
 
 	roleCleanupService.startScheduledTasks();
+	passwordResetCleanupService.startScheduledTasks();
 	await performanceOptimizationService.optimizeHeavyQueries();
 
 	// --- 8. Start Server ---

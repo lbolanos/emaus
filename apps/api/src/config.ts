@@ -2,6 +2,7 @@ import 'dotenv/config';
 import crypto from 'crypto';
 
 export const config = {
+	env: process.env.NODE_ENV || 'development',
 	google: {
 		clientId: process.env.GOOGLE_CLIENT_ID || '',
 		clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
@@ -9,6 +10,7 @@ export const config = {
 	},
 	session: {
 		secret: process.env.SESSION_SECRET || crypto.randomBytes(64).toString('hex'),
+		cookieDomain: process.env.COOKIE_DOMAIN,
 	},
 	frontend: {
 		url: process.env.FRONTEND_URL || 'http://localhost:5173',

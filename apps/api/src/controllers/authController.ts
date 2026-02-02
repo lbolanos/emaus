@@ -10,8 +10,6 @@ import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 
-// Temporary store for password reset tokens
-const passwordResetTokens = new Map<string, { userId: string; expires: number }>();
 const userService = new UserService();
 const globalMessageTemplateService = new GlobalMessageTemplateService();
 const recaptchaService = new RecaptchaService();
@@ -64,22 +62,44 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 			console.error('Login failed:', info.message);
 			return res.status(401).json({ message: info.message });
 		}
-		req.logIn(user, async (err) => {
+		req.logIn(user, (err) => {
 			if (err) {
 				console.error('Error during login2:', err);
 				return next(err);
 			}
 
-			try {
-				const userProfile = await userService.getUserProfile(user.id);
-				return res.json({
-					...user,
-					profile: userProfile,
+			// Regenerate session ID after login (prevent session fixation)
+			const oldCsrfToken = req.session.csrfToken;
+			req.session.regenerate(async (err) => {
+				if (err) {
+					console.error('Session regeneration error:', err);
+					return next(err);
+				}
+
+				// Restore CSRF token to new session
+				if (oldCsrfToken) {
+					req.session.csrfToken = oldCsrfToken;
+				}
+
+				// Re-serialize user to new session
+				req.logIn(user, async (loginErr) => {
+					if (loginErr) {
+						console.error('Error re-logging in after session regeneration:', loginErr);
+						return next(loginErr);
+					}
+
+					try {
+						const userProfile = await userService.getUserProfile(user.id);
+						return res.json({
+							...user,
+							profile: userProfile,
+						});
+					} catch (error) {
+						console.error('Error fetching user profile:', error);
+						return res.json(user);
+					}
 				});
-			} catch (error) {
-				console.error('Error fetching user profile:', error);
-				return res.json(user);
-			}
+			});
 		});
 	})(req, res, next);
 };
@@ -116,7 +136,7 @@ export const logout = (req: Request, res: Response, next: NextFunction) => {
 			if (err) {
 				return next(err);
 			}
-			res.clearCookie('connect.sid');
+			res.clearCookie('emaus.sid');
 			res.json({ message: 'Logged out' });
 		});
 	});
@@ -124,6 +144,7 @@ export const logout = (req: Request, res: Response, next: NextFunction) => {
 
 export const requestPasswordReset = async (req: Request, res: Response, next: NextFunction) => {
 	const { email, recaptchaToken } = req.body;
+	const startTime = Date.now();
 
 	// Verify reCAPTCHA token
 	const recaptchaResult = await recaptchaService.verifyToken(recaptchaToken, {
@@ -141,28 +162,35 @@ export const requestPasswordReset = async (req: Request, res: Response, next: Ne
 	try {
 		const user = await userRepository.findOne({ where: { email } });
 
-		if (!user) {
-			// To prevent user enumeration, we send a success response even if the user doesn't exist.
-			return res.json({
-				message:
-					'Si existe un usuario con ese correo, se ha enviado un enlace para restablecer la contraseña.',
-			});
+		if (user) {
+			// Generate cryptographically secure token
+			const plainToken = crypto.randomBytes(32).toString('hex');
+			const hashedToken = crypto.createHash('sha256').update(plainToken).digest('hex');
+
+			// Invalidate any existing tokens
+			user.passwordResetToken = hashedToken;
+			user.passwordResetTokenExpiresAt = new Date(Date.now() + 3600000); // 1 hour
+			user.passwordResetTokenUsedAt = null;
+			await userRepository.save(user);
+
+			const resetUrl = `${config.frontend.url}/reset-password?token=${plainToken}`;
+
+			try {
+				await globalMessageTemplateService.sendPasswordResetEmail(user, resetUrl);
+			} catch (emailError) {
+				console.error('Error sending password reset email:', emailError);
+				// Continue - don't reveal if email failed
+			}
 		}
 
-		const token = crypto.randomBytes(32).toString('hex');
-		passwordResetTokens.set(token, { userId: user.id, expires: Date.now() + 3600000 }); // 1 hour expiry
-
-		// Create the password reset URL
-		const resetUrl = `${config.frontend.url}/reset-password?token=${token}`;
-
-		// Send password reset email using the template service
-		try {
-			await globalMessageTemplateService.sendPasswordResetEmail(user, resetUrl);
-		} catch (emailError) {
-			console.error('Error sending password reset email:', emailError);
-			// Still return success to prevent user enumeration, but log the error
+		// Artificial delay to prevent timing attacks
+		const elapsedTime = Date.now() - startTime;
+		const minResponseTime = 500; // 500ms minimum
+		if (elapsedTime < minResponseTime) {
+			await new Promise(resolve => setTimeout(resolve, minResponseTime - elapsedTime));
 		}
 
+		// Always return same message to prevent user enumeration
 		res.json({
 			message:
 				'Si existe un usuario con ese correo, se ha enviado un enlace para restablecer la contraseña.',
@@ -174,27 +202,38 @@ export const requestPasswordReset = async (req: Request, res: Response, next: Ne
 
 export const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
 	const { token, password } = req.body;
-	const tokenData = passwordResetTokens.get(token);
-
-	if (!tokenData || tokenData.expires < Date.now()) {
-		return res.status(400).json({ message: 'Invalid or expired password reset token.' });
-	}
 
 	const userRepository = AppDataSource.getRepository(User);
 
 	try {
-		const user = await userRepository.findOne({ where: { id: tokenData.userId } });
+		// Hash the provided token
+		const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-		if (!user) {
-			return res.status(400).json({ message: 'Invalid token.' });
+		// Find user with matching unused token
+		const user = await userRepository.findOne({
+			where: {
+				passwordResetToken: hashedToken,
+			},
+		});
+
+		if (!user ||
+			!user.passwordResetTokenExpiresAt ||
+			user.passwordResetTokenExpiresAt < new Date() ||
+			user.passwordResetTokenUsedAt !== null) {
+			return res.status(400).json({
+				message: 'Token de restablecimiento inválido o expirado.',
+			});
 		}
 
+		// Mark token as used
+		user.passwordResetTokenUsedAt = new Date();
+
+		// Update password (will be hashed by @BeforeUpdate hook)
 		user.password = password;
+
 		await userRepository.save(user);
 
-		passwordResetTokens.delete(token);
-
-		res.json({ message: 'Password has been reset successfully.' });
+		res.json({ message: 'La contraseña ha sido restablecida exitosamente.' });
 	} catch (error) {
 		next(error);
 	}
