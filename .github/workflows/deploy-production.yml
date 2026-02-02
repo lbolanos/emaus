@@ -76,12 +76,29 @@ jobs:
           # Add host key
           ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts 2>/dev/null || true
 
+          # List build output structure for debugging
+          echo "Build output structure:"
+          find ./build-output -maxdepth 3 -type d | head -20
+
           # Upload new artifacts
           echo "Uploading API build..."
-          scp -i ~/.ssh/emaus-key.pem -r ./build-output/apps/api/dist/ ubuntu@$EC2_HOST:/var/www/emaus/apps/api/dist
+          if [ -d "./build-output/api/dist" ]; then
+            scp -i ~/.ssh/emaus-key.pem -r ./build-output/api/dist ubuntu@$EC2_HOST:/var/www/emaus/apps/api/
+          elif [ -d "./build-output/apps/api/dist" ]; then
+            scp -i ~/.ssh/emaus-key.pem -r ./build-output/apps/api/dist ubuntu@$EC2_HOST:/var/www/emaus/apps/api/
+          else
+            echo "Warning: API dist not found, looking for alternatives..."
+            find ./build-output -name "index.js" -path "*/api/dist/*"
+          fi
 
           echo "Uploading Web build..."
-          scp -i ~/.ssh/emaus-key.pem -r ./build-output/apps/web/dist/ ubuntu@$EC2_HOST:/var/www/emaus/apps/web/dist
+          if [ -d "./build-output/web/dist" ]; then
+            scp -i ~/.ssh/emaus-key.pem -r ./build-output/web/dist ubuntu@$EC2_HOST:/var/www/emaus/apps/web/
+          elif [ -d "./build-output/apps/web/dist" ]; then
+            scp -i ~/.ssh/emaus-key.pem -r ./build-output/apps/web/dist ubuntu@$EC2_HOST:/var/www/emaus/apps/web/
+          else
+            echo "Warning: Web dist not found"
+          fi
 
           # Deploy and restart application
           ssh -i ~/.ssh/emaus-key.pem ubuntu@$EC2_HOST << 'RESTARTEOF'
