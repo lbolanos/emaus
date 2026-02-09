@@ -1479,7 +1479,7 @@
       "noData": "Sin datos disponibles"
     },
     "attendance": {
-      "present": "Presente",
+      "present": "Presentes",
       "absent": "Ausente",
       "pending": "Pendiente",
       "markAllPresent": "Marcar todos como presentes",
@@ -1498,6 +1498,11 @@
       "noMembersFound": "No se encontraron miembros",
       "notFound": "Comunidad o reunión no encontrada",
       "loadError": "Error al cargar la asistencia",
+      "loading": "Cargando...",
+      "community": "Comunidad",
+      "error": "Error",
+      "results": "resultados",
+      "tryDifferentSearch": "Intenta con otra búsqueda",
       "publicLink": "Enlace público de asistencia",
       "copyPublicLink": "Copiar enlace de asistencia",
       "publicLinkCopied": "Enlace copiado al portapapeles",
