@@ -31,6 +31,13 @@
             <span>{{ members.length }} {{ $t('community.attendance.total') }}</span>
           </div>
         </div>
+        <!-- Join Community Button -->
+        <button
+          @click="openJoinModal"
+          class="mt-4 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-full hover:bg-primary/90 transition-colors"
+        >
+          {{ $t('landing.join') }}
+        </button>
       </div>
 
       <!-- Search -->
@@ -82,6 +89,15 @@
         <p>{{ $t('community.attendance.noMembersFound') }}</p>
       </div>
     </template>
+
+    <!-- Join Community Modal -->
+    <PublicJoinRequestModal
+      :open="isJoinModalOpen"
+      :community-id="communityId"
+      :community-name="communityName"
+      @update:open="isJoinModalOpen = $event"
+      @submitted="isJoinModalOpen = false"
+    />
   </div>
 </template>
 
@@ -89,11 +105,12 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { Search, Check, Users, AlertCircle, Loader2 } from 'lucide-vue-next';
+import { Search, Check, Users, AlertCircle, Loader2, UserPlus } from 'lucide-vue-next';
 import { Input } from '@repo/ui';
 import { getApiUrl } from '@/config/runtimeConfig';
 import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha';
 import { formatMeetingDate } from '@/utils/meetingFlyer';
+import PublicJoinRequestModal from '@/components/community/PublicJoinRequestModal.vue';
 
 const { t: $t } = useI18n();
 const route = useRoute();
@@ -111,6 +128,13 @@ const searchQuery = ref('');
 const savingStates = ref<Record<string, boolean>>({});
 const loading = ref(true);
 const error = ref('');
+
+// Join modal state
+const isJoinModalOpen = ref(false);
+
+const openJoinModal = () => {
+  isJoinModalOpen.value = true;
+};
 
 const filteredMembers = computed(() => {
   if (!searchQuery.value) return members.value;
