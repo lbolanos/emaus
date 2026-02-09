@@ -364,7 +364,8 @@ const validateForm = () => {
   if (!form.value.date) {
     newErrors.date = 'La fecha es requerida';
   } else {
-    const selectedDate = new Date(form.value.date);
+    // Normalize both dates to local midnight for accurate comparison
+    const selectedDate = new Date(form.value.date + 'T00:00:00');
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (selectedDate < today) {

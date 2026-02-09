@@ -37,8 +37,8 @@ export class CommunityMeeting {
 	@Column({ type: 'datetime', nullable: true })
 	endDate?: Date;
 
-	@Column('int')
-	durationMinutes!: number;
+	@Column({ type: 'int', nullable: true })
+	durationMinutes?: number;
 
 	@Column({ type: 'boolean', default: false })
 	isAnnouncement!: boolean;
