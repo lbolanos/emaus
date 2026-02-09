@@ -614,6 +614,7 @@ export class CommunityService {
 			communityName: community.name,
 			meetingId,
 			meetingTitle: meeting.title,
+			meetingStartDate: meeting.startDate,
 			members: members.map((member) => ({
 				id: member.id,
 				participant: {

@@ -18,6 +18,9 @@
       <div class="text-center mb-6">
         <h1 class="text-xl font-bold">{{ communityName }}</h1>
         <p class="text-muted-foreground">{{ meetingTitle }}</p>
+        <p v-if="meetingStartDate" class="text-sm text-muted-foreground mt-1">
+          {{ formatMeetingDate(meetingStartDate) }}
+        </p>
         <div class="flex justify-center gap-4 mt-3 text-sm">
           <div class="flex items-center gap-1">
             <Check class="w-4 h-4 text-green-600" />
@@ -90,6 +93,7 @@ import { Search, Check, Users, AlertCircle, Loader2 } from 'lucide-vue-next';
 import { Input } from '@repo/ui';
 import { getApiUrl } from '@/config/runtimeConfig';
 import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha';
+import { formatMeetingDate } from '@/utils/meetingFlyer';
 
 const { t: $t } = useI18n();
 const route = useRoute();
@@ -102,6 +106,7 @@ const attendanceUrl = `${API_BASE}/communities/public/attendance/${communityId}/
 const members = ref<any[]>([]);
 const communityName = ref('');
 const meetingTitle = ref('');
+const meetingStartDate = ref('');
 const searchQuery = ref('');
 const savingStates = ref<Record<string, boolean>>({});
 const loading = ref(true);
@@ -181,6 +186,7 @@ onMounted(async () => {
     members.value = data.members || [];
     communityName.value = data.communityName || '';
     meetingTitle.value = data.meetingTitle || '';
+    meetingStartDate.value = data.meetingStartDate || '';
   } catch (err) {
     console.error('Failed to load attendance data:', err);
     error.value = $t('community.attendance.loadError');
