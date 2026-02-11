@@ -18,7 +18,7 @@ class PasswordResetCleanupService {
 			{
 				passwordResetToken: null,
 				passwordResetTokenExpiresAt: null,
-			}
+			},
 		);
 
 		const count = result.affected || 0;
@@ -44,7 +44,7 @@ class PasswordResetCleanupService {
 				passwordResetToken: null,
 				passwordResetTokenExpiresAt: null,
 				passwordResetTokenUsedAt: null,
-			}
+			},
 		);
 
 		const count = result.affected || 0;

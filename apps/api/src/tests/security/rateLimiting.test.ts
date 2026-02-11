@@ -325,8 +325,7 @@ describe('Rate Limiting Security', () => {
 	describe('Error Messages', () => {
 		test('should return localized Spanish messages', () => {
 			const messages = {
-				passwordReset:
-					'Demasiadas solicitudes de restablecimiento. Inténtalo en 15 minutos.',
+				passwordReset: 'Demasiadas solicitudes de restablecimiento. Inténtalo en 15 minutos.',
 				emailBased: 'Este correo ha recibido demasiadas solicitudes. Espera 1 hora.',
 				login: 'Demasiados intentos de inicio de sesión. Inténtalo en 15 minutos.',
 				api: 'Demasiadas solicitudes. Reduce la velocidad.',
@@ -347,8 +346,7 @@ describe('Rate Limiting Security', () => {
 			const createError = (type: string): RateLimitError => {
 				const errors: Record<string, RateLimitError> = {
 					passwordReset: {
-						message:
-							'Demasiadas solicitudes de restablecimiento. Inténtalo en 15 minutos.',
+						message: 'Demasiadas solicitudes de restablecimiento. Inténtalo en 15 minutos.',
 						error: 'RATE_LIMIT_EXCEEDED',
 					},
 					email: {

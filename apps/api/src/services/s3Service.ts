@@ -48,7 +48,9 @@ class S3Service {
 		} else {
 			// Development: Use explicit credentials
 			if (!config.aws.accessKeyId || !config.aws.secretAccessKey) {
-				throw new Error('AWS credentials not configured. Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, or use AWS_USE_IAM_ROLE=true');
+				throw new Error(
+					'AWS credentials not configured. Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, or use AWS_USE_IAM_ROLE=true',
+				);
 			}
 
 			this.client = new S3Client({
@@ -140,11 +142,7 @@ class S3Service {
 	}
 
 	// Document storage methods
-	async uploadDocument(
-		path: string,
-		buffer: Buffer,
-		contentType: string,
-	): Promise<UploadResult> {
+	async uploadDocument(path: string, buffer: Buffer, contentType: string): Promise<UploadResult> {
 		const key = `${this.prefixes.documents}${path}`;
 
 		const command = new PutObjectCommand({

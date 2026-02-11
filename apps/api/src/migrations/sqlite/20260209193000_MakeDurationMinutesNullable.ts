@@ -40,10 +40,18 @@ export class MakeDurationMinutesNullable20260209193000 implements MigrationInter
 		await queryRunner.query(`ALTER TABLE "community_meeting_new" RENAME TO "community_meeting"`);
 
 		// Recreate indexes
-		await queryRunner.query(`CREATE INDEX "idx_community_meeting_community" ON "community_meeting" ("communityId")`);
-		await queryRunner.query(`CREATE INDEX "idx_community_meeting_parent" ON "community_meeting" ("parentMeetingId")`);
-		await queryRunner.query(`CREATE INDEX "idx_community_meeting_recurrence" ON "community_meeting" ("communityId", "recurrenceFrequency")`);
-		await queryRunner.query(`CREATE INDEX "idx_community_meeting_instance" ON "community_meeting" ("parentMeetingId", "instanceDate")`);
+		await queryRunner.query(
+			`CREATE INDEX "idx_community_meeting_community" ON "community_meeting" ("communityId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX "idx_community_meeting_parent" ON "community_meeting" ("parentMeetingId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX "idx_community_meeting_recurrence" ON "community_meeting" ("communityId", "recurrenceFrequency")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX "idx_community_meeting_instance" ON "community_meeting" ("parentMeetingId", "instanceDate")`,
+		);
 	}
 
 	public async down(queryRunner: QueryRunner): Promise<void> {
@@ -87,9 +95,17 @@ export class MakeDurationMinutesNullable20260209193000 implements MigrationInter
 		await queryRunner.query(`DROP TABLE "community_meeting"`);
 		await queryRunner.query(`ALTER TABLE "community_meeting_new" RENAME TO "community_meeting"`);
 
-		await queryRunner.query(`CREATE INDEX "idx_community_meeting_community" ON "community_meeting" ("communityId")`);
-		await queryRunner.query(`CREATE INDEX "idx_community_meeting_parent" ON "community_meeting" ("parentMeetingId")`);
-		await queryRunner.query(`CREATE INDEX "idx_community_meeting_recurrence" ON "community_meeting" ("communityId", "recurrenceFrequency")`);
-		await queryRunner.query(`CREATE INDEX "idx_community_meeting_instance" ON "community_meeting" ("parentMeetingId", "instanceDate")`);
+		await queryRunner.query(
+			`CREATE INDEX "idx_community_meeting_community" ON "community_meeting" ("communityId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX "idx_community_meeting_parent" ON "community_meeting" ("parentMeetingId")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX "idx_community_meeting_recurrence" ON "community_meeting" ("communityId", "recurrenceFrequency")`,
+		);
+		await queryRunner.query(
+			`CREATE INDEX "idx_community_meeting_instance" ON "community_meeting" ("parentMeetingId", "instanceDate")`,
+		);
 	}
 }

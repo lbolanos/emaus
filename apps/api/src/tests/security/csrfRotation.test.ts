@@ -110,9 +110,7 @@ describe('CSRF Token Rotation', () => {
 					return { valid: false, headers };
 				}
 
-				if (
-					!crypto.timingSafeEqual(Buffer.from(requestToken), Buffer.from(session.csrfToken))
-				) {
+				if (!crypto.timingSafeEqual(Buffer.from(requestToken), Buffer.from(session.csrfToken))) {
 					return { valid: false, headers };
 				}
 
@@ -184,9 +182,7 @@ describe('CSRF Token Rotation', () => {
 			}
 
 			const extractToken = (req: Request): string | undefined => {
-				return (
-					req.headers['x-csrf-token'] || req.body._csrf || req.query._csrf || undefined
-				);
+				return req.headers['x-csrf-token'] || req.body._csrf || req.query._csrf || undefined;
 			};
 
 			// Header
@@ -195,14 +191,10 @@ describe('CSRF Token Rotation', () => {
 			);
 
 			// Body
-			expect(extractToken({ headers: {}, body: { _csrf: 'token2' }, query: {} })).toBe(
-				'token2',
-			);
+			expect(extractToken({ headers: {}, body: { _csrf: 'token2' }, query: {} })).toBe('token2');
 
 			// Query
-			expect(extractToken({ headers: {}, body: {}, query: { _csrf: 'token3' } })).toBe(
-				'token3',
-			);
+			expect(extractToken({ headers: {}, body: {}, query: { _csrf: 'token3' } })).toBe('token3');
 
 			// Priority: header > body > query
 			expect(

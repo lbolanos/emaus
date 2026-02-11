@@ -239,8 +239,7 @@ describe('Image Magic Byte Validation', () => {
 			]);
 
 			// Valid JPEG must start with FF D8 FF
-			const isValidJpeg =
-				polyglot[0] === 0xff && polyglot[1] === 0xd8 && polyglot[2] === 0xff;
+			const isValidJpeg = polyglot[0] === 0xff && polyglot[1] === 0xd8 && polyglot[2] === 0xff;
 
 			expect(isValidJpeg).toBe(false);
 		});
@@ -248,9 +247,7 @@ describe('Image Magic Byte Validation', () => {
 
 	describe('Content Type Mapping', () => {
 		test('should map content types to formats correctly', () => {
-			const contentTypeToFormat = (
-				contentType: string,
-			): 'jpeg' | 'png' | 'gif' | 'webp' | null => {
+			const contentTypeToFormat = (contentType: string): 'jpeg' | 'png' | 'gif' | 'webp' | null => {
 				const map: Record<string, 'jpeg' | 'png' | 'gif' | 'webp'> = {
 					'image/jpeg': 'jpeg',
 					'image/jpg': 'jpeg',

@@ -86,7 +86,7 @@ export function csrfValidationMiddleware(req: Request, res: Response, next: Next
 	}
 
 	// Rotate token for high-value operations
-	const isHighValue = HIGH_VALUE_OPERATIONS.some(path => req.path.startsWith(path));
+	const isHighValue = HIGH_VALUE_OPERATIONS.some((path) => req.path.startsWith(path));
 	if (isHighValue) {
 		const newToken = generateCsrfToken();
 		req.session.csrfToken = newToken;

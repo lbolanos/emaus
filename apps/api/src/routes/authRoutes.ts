@@ -11,11 +11,7 @@ import {
 	resetPassword,
 	changePassword,
 } from '../controllers/authController';
-import {
-	loginLimiter,
-	passwordResetLimiter,
-	emailBasedLimiter,
-} from '../middleware/rateLimiting';
+import { loginLimiter, passwordResetLimiter, emailBasedLimiter } from '../middleware/rateLimiting';
 
 const router = Router();
 

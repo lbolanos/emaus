@@ -46,10 +46,7 @@ function validateEnv() {
 			console.log('✅ Using IAM role for AWS authentication');
 		} else {
 			// Development: credential-based
-			if (
-				!parsed.data.AWS_ACCESS_KEY_ID ||
-				!parsed.data.AWS_SECRET_ACCESS_KEY
-			) {
+			if (!parsed.data.AWS_ACCESS_KEY_ID || !parsed.data.AWS_SECRET_ACCESS_KEY) {
 				throw new Error(
 					'AVATAR_STORAGE=s3 requires either AWS_USE_IAM_ROLE=true or AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY',
 				);

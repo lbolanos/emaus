@@ -187,7 +187,7 @@ export const requestPasswordReset = async (req: Request, res: Response, next: Ne
 		const elapsedTime = Date.now() - startTime;
 		const minResponseTime = 500; // 500ms minimum
 		if (elapsedTime < minResponseTime) {
-			await new Promise(resolve => setTimeout(resolve, minResponseTime - elapsedTime));
+			await new Promise((resolve) => setTimeout(resolve, minResponseTime - elapsedTime));
 		}
 
 		// Always return same message to prevent user enumeration
@@ -216,10 +216,12 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
 			},
 		});
 
-		if (!user ||
+		if (
+			!user ||
 			!user.passwordResetTokenExpiresAt ||
 			user.passwordResetTokenExpiresAt < new Date() ||
-			user.passwordResetTokenUsedAt !== null) {
+			user.passwordResetTokenUsedAt !== null
+		) {
 			return res.status(400).json({
 				message: 'Token de restablecimiento inválido o expirado.',
 			});

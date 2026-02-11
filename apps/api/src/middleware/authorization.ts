@@ -594,10 +594,7 @@ export const requireCriticalPermission = (permission: string): any => {
 				return res.status(401).json({ message: 'No autenticado' });
 			}
 
-			const hasPermission = await authorizationService.hasPermissionDirect(
-				req.user.id,
-				permission,
-			);
+			const hasPermission = await authorizationService.hasPermissionDirect(req.user.id, permission);
 
 			if (!hasPermission) {
 				return res.status(403).json({ message: 'No autorizado' });
