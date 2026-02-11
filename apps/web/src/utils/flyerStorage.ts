@@ -3,7 +3,7 @@
  */
 
 const FLYER_STYLE_KEY = 'emaus_flyer_style';
-const VALID_STYLES = ['default', 'poster'] as const;
+const VALID_STYLES = ['default', 'poster', 'whatsapp'] as const;
 export type FlyerStyle = (typeof VALID_STYLES)[number];
 
 /**

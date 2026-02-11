@@ -1,67 +1,62 @@
 <template>
 	<div
 		id="printable-area"
-		class="whatsapp-container relative overflow-hidden rounded-2xl shadow-2xl"
+		class="whatsapp-container relative flex p-8 overflow-hidden rounded-2xl shadow-2xl"
 		:style="{ backgroundImage: `url('/poster.png')` }"
 	>
 		<!-- Light overlay -->
 		<div class="absolute inset-0 bg-gradient-to-b from-white/60 via-white/40 to-white/65"></div>
 
-		<main class="relative flex h-[600px] w-[600px] items-center justify-center p-6">
-			<!-- Main Content Card -->
-			<section class="glass-card-wa relative flex w-full max-w-md flex-col items-center justify-center rounded-2xl px-6 py-6 text-center shadow-2xl">
-				<!-- Decorative top accent -->
-				<div class="absolute -top-1 left-1/2 -translate-x-1/2 w-20 h-1 bg-gradient-to-r from-transparent via-emaus-gold to-transparent rounded-full"></div>
+		<!-- Main Content Card - fills entire container -->
+		<section class="glass-card-wa relative flex h-full w-full flex-col items-center justify-center rounded-2xl px-8 py-6 text-center">
+			<!-- Title -->
+			<h1 class="font-serif-title text-3xl sm:text-4xl font-bold tracking-[0.12em] text-emaus-gold-dark leading-tight mb-3">
+				{{ communityName }}
+			</h1>
 
-				<!-- Title -->
-				<h1 class="font-serif-title text-3xl sm:text-4xl font-bold tracking-[0.12em] text-emaus-gold-dark leading-tight mb-3">
-					{{ communityName }}
-				</h1>
+			<!-- Decorative divider -->
+			<div class="flex items-center gap-3 mb-4 w-full max-w-xs">
+				<div class="flex-1 h-px bg-gradient-to-r from-transparent via-gray-400/60 to-transparent"></div>
+				<div class="w-2 h-2 rotate-45 bg-emaus-gold/80"></div>
+				<div class="flex-1 h-px bg-gradient-to-r from-transparent via-gray-400/60 to-transparent"></div>
+			</div>
 
-				<!-- Decorative divider -->
-				<div class="flex items-center gap-3 mb-4 w-full max-w-xs">
-					<div class="flex-1 h-px bg-gradient-to-r from-transparent via-gray-400/60 to-transparent"></div>
-					<div class="w-2 h-2 rotate-45 bg-emaus-gold/80"></div>
-					<div class="flex-1 h-px bg-gradient-to-r from-transparent via-gray-400/60 to-transparent"></div>
-				</div>
-
-				<!-- Date with icon -->
-				<div class="flex items-center gap-2.5 mb-2">
-					<svg class="w-4 h-4 text-emaus-gold-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-					</svg>
-					<p class="text-lg text-gray-900 font-bold capitalize">
-						{{ formattedDateOnly }}
-					</p>
-				</div>
-
-				<!-- Time -->
-				<div class="flex items-center gap-2.5 mb-4">
-					<svg class="w-4 h-4 text-emaus-gold-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-					</svg>
-					<p class="text-base text-gray-800 font-semibold tracking-wide">
-						{{ formattedTime }} hrs.
-					</p>
-				</div>
-
-				<!-- Description -->
-				<p v-if="processedDescription" class="mb-4 text-sm text-gray-700 font-medium leading-relaxed max-w-sm px-2 line-clamp-3">
-					{{ processedDescription }}
+			<!-- Date with icon -->
+			<div class="flex items-center gap-2.5 mb-2">
+				<svg class="w-4 h-4 text-emaus-gold-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+				</svg>
+				<p class="text-lg text-gray-900 font-bold capitalize">
+					{{ formattedDateOnly }}
 				</p>
+			</div>
 
-				<!-- Location with icon -->
-				<div class="flex items-center gap-2.5">
-					<svg class="w-4 h-4 text-emaus-gold-dark flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-					</svg>
-					<p class="text-sm text-gray-800 font-semibold leading-snug text-center">
-						{{ locationMessage }}
-					</p>
-				</div>
-			</section>
-		</main>
+			<!-- Time -->
+			<div class="flex items-center gap-2.5 mb-4">
+				<svg class="w-4 h-4 text-emaus-gold-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+				</svg>
+				<p class="text-base text-gray-800 font-semibold tracking-wide">
+					{{ formattedTime }} hrs.
+				</p>
+			</div>
+
+			<!-- Description -->
+			<p v-if="processedDescription" class="mb-4 text-sm text-gray-700 font-medium leading-relaxed max-w-sm px-2 line-clamp-3">
+				{{ processedDescription }}
+			</p>
+
+			<!-- Location with icon -->
+			<div class="flex items-center gap-2.5">
+				<svg class="w-4 h-4 text-emaus-gold-dark flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+				</svg>
+				<p class="text-sm text-gray-800 font-semibold leading-snug text-center">
+					{{ locationMessage }}
+				</p>
+			</div>
+		</section>
 	</div>
 </template>
 
@@ -118,12 +113,12 @@ const locationMessage = computed(() => {
 .glass-card-wa {
 	background: linear-gradient(
 		135deg,
-		rgba(255, 255, 255, 0.82) 0%,
-		rgba(255, 255, 255, 0.72) 50%,
-		rgba(255, 255, 255, 0.78) 100%
+		rgba(255, 255, 255, 0.85) 0%,
+		rgba(255, 255, 255, 0.78) 50%,
+		rgba(255, 255, 255, 0.82) 100%
 	);
-	backdrop-filter: blur(20px) saturate(180%);
-	-webkit-backdrop-filter: blur(20px) saturate(180%);
+	backdrop-filter: blur(12px) saturate(180%);
+	-webkit-backdrop-filter: blur(12px) saturate(180%);
 	border: 1px solid rgba(255, 255, 255, 0.6);
 	box-shadow:
 		0 8px 32px rgba(0, 0, 0, 0.12),

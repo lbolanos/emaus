@@ -19,12 +19,23 @@
           @click="setFlyerStyle('poster')"
           :class="[
             'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',
-            flyerStyle === 'poster' 
-              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30' 
+            flyerStyle === 'poster'
+              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30'
               : 'text-gray-600 hover:bg-gray-100/80 hover:text-gray-900'
           ]">
           <Image class="w-4 h-4" />
           <span class="hidden sm:inline">Poster</span>
+        </button>
+        <button
+          @click="setFlyerStyle('whatsapp')"
+          :class="[
+            'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+            flyerStyle === 'whatsapp'
+              ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg shadow-green-500/30'
+              : 'text-gray-600 hover:bg-gray-100/80 hover:text-gray-900'
+          ]">
+          <MessageCircle class="w-4 h-4" />
+          <span class="hidden sm:inline">WhatsApp</span>
         </button>
       </div>
 
@@ -74,7 +85,7 @@
     </div>
 
     <!-- Breadcrumb Navigation -->
-    <div class="max-w-[850px] mx-auto px-4 pt-16 sm:pt-4 print:hidden">
+    <div :class="[flyerStyle === 'whatsapp' ? 'max-w-[650px]' : 'max-w-[850px]', 'mx-auto px-4 pt-16 sm:pt-4 print:hidden']">
       <div class="flex items-center text-sm text-gray-600 mb-4">
         <router-link 
           :to="{ name: 'community-meetings', params: { id: route.params.id } }" 
@@ -96,7 +107,7 @@
     </div>
 
     <!-- Flyer Container - Dynamic Component -->
-    <div v-else ref="flyerRef" class="max-w-[850px] mx-auto px-4 pt-20 sm:pt-4 print:max-w-[210mm] print:w-[210mm] print:mx-0 print:px-0 print:pt-0">
+    <div v-else ref="flyerRef" :class="[flyerStyle === 'whatsapp' ? 'max-w-[650px]' : 'max-w-[850px]', 'mx-auto px-4 pt-20 sm:pt-4 print:max-w-[210mm] print:w-[210mm] print:mx-0 print:px-0 print:pt-0']">
       <component
         :is="flyerComponent"
         :meeting="meeting"
@@ -125,10 +136,11 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCommunityStore } from '@/stores/communityStore';
 import { Button } from '@repo/ui';
-import { Printer, Pencil, ArrowLeft, LayoutTemplate, Image, Copy, Check, Loader2, ChevronRight } from 'lucide-vue-next';
+import { Printer, Pencil, ArrowLeft, LayoutTemplate, Image, MessageCircle, Copy, Check, Loader2, ChevronRight } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import DefaultFlyer from '@/components/flyers/DefaultFlyer.vue';
 import PosterFlyer from '@/components/flyers/PosterFlyer.vue';
+import WhatsAppFlyer from '@/components/flyers/WhatsAppFlyer.vue';
 import MeetingFormModal from '@/components/community/MeetingFormModal.vue';
 import { getSavedFlyerStyle, saveFlyerStyle, type FlyerStyle } from '@/utils/flyerStorage';
 import {
@@ -165,7 +177,11 @@ const setFlyerStyle = (style: FlyerStyle) => {
 };
 
 const flyerComponent = computed(() => {
-  return flyerStyle.value === 'poster' ? PosterFlyer : DefaultFlyer;
+  switch (flyerStyle.value) {
+    case 'poster': return PosterFlyer;
+    case 'whatsapp': return WhatsAppFlyer;
+    default: return DefaultFlyer;
+  }
 });
 
 // Format the date for display
