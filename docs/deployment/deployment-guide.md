@@ -5,6 +5,7 @@ This guide explains how the Emaus application is automatically deployed to AWS E
 ## Overview
 
 The deployment system uses GitHub Actions to automatically:
+
 1. Run CI tests (lint, test, build)
 2. Generate a semantic version tag
 3. Create a GitHub release with built artifacts
@@ -13,6 +14,7 @@ The deployment system uses GitHub Actions to automatically:
 6. Send notifications
 
 **Key Points:**
+
 - ✅ Fully automated on every push to `master`
 - ✅ Can only deploy from `master` branch (protected)
 - ✅ Automatic rollback on failure
@@ -127,6 +129,7 @@ When a pull request is merged to `master`, GitHub Actions automatically:
 ### Option 3: Email Notification
 
 Receive email when deployment:
+
 - ✅ Succeeds with version and timestamp
 - ❌ Fails with error details and rollback info
 
@@ -175,10 +178,12 @@ pm2 logs emaus-api --lines 50
 ### On EC2
 
 The following environment variables must be configured in:
+
 - `/var/www/emaus/apps/api/.env.production`
 - `/var/www/emaus/apps/web/.env.production`
 
 **API Variables:**
+
 ```bash
 DB_TYPE=sqlite
 DB_DATABASE=/var/www/emaus/apps/api/database.sqlite
@@ -188,6 +193,7 @@ FRONTEND_URL=https://emaus.cc
 ```
 
 **Web Variables:**
+
 ```bash
 VITE_API_URL=https://emaus.cc/api
 VITE_GOOGLE_MAPS_API_KEY=<your-key>
@@ -197,13 +203,13 @@ VITE_GOOGLE_MAPS_API_KEY=<your-key>
 
 For automatic deployment, configure these in GitHub Secrets:
 
-| Secret | Value | Purpose |
-|--------|-------|---------|
-| `EC2_HOST` | Instance IP or domain | SSH target |
-| `EC2_USER` | `ubuntu` | SSH username |
-| `EC2_SSH_PRIVATE_KEY` | Private key file contents | SSH authentication |
-| `DOMAIN_NAME` | `emaus.cc` | Domain name |
-| `VITE_GOOGLE_MAPS_API_KEY` | Maps API key | Maps functionality |
+| Secret                     | Value                     | Purpose            |
+| -------------------------- | ------------------------- | ------------------ |
+| `EC2_HOST`                 | Instance IP or domain     | SSH target         |
+| `EC2_USER`                 | `ubuntu`                  | SSH username       |
+| `EC2_SSH_PRIVATE_KEY`      | Private key file contents | SSH authentication |
+| `DOMAIN_NAME`              | `emaus.cc`                | Domain name        |
+| `VITE_GOOGLE_MAPS_API_KEY` | Maps API key              | Maps functionality |
 
 ## Troubleshooting
 
@@ -212,6 +218,7 @@ For automatic deployment, configure these in GitHub Secrets:
 **Problem:** Deployment workflow waiting for artifacts that aren't appearing.
 
 **Solution:**
+
 1. Check "Build and Release" workflow completed successfully
 2. Go to repository → Releases → Latest release
 3. Verify artifacts (web-dist.tar.gz, api-dist.tar.gz) are uploaded
@@ -222,6 +229,7 @@ For automatic deployment, configure these in GitHub Secrets:
 **Problem:** Can't connect to EC2 instance.
 
 **Solution:**
+
 1. Verify EC2_HOST secret is correct IP/domain
 2. Check EC2 security group allows SSH from GitHub Actions IPs
 3. Verify SSH key in EC2_SSH_PRIVATE_KEY matches instance key
@@ -232,6 +240,7 @@ For automatic deployment, configure these in GitHub Secrets:
 **Problem:** Deployment completes but health checks fail.
 
 **Solution:**
+
 1. SSH to EC2 and check PM2: `pm2 status`
 2. View API logs: `pm2 logs emaus-api --lines 50`
 3. Check Nginx: `sudo systemctl status nginx`
@@ -243,6 +252,7 @@ For automatic deployment, configure these in GitHub Secrets:
 **Problem:** Deployment succeeded but app returns error.
 
 **Solution:**
+
 1. Check web app logs: `pm2 logs emaus-api`
 2. Verify environment variables: `cat /var/www/emaus/apps/api/.env.production`
 3. Check Nginx configuration: `sudo nginx -t`
@@ -254,6 +264,7 @@ For automatic deployment, configure these in GitHub Secrets:
 **Problem:** Application throws database errors post-deployment.
 
 **Solution:**
+
 1. Check migrations completed: `pm2 logs emaus-api | grep -i migration`
 2. Run migrations manually:
    ```bash
@@ -293,6 +304,7 @@ After deployment:
 See [Rollback Procedure](./rollback-procedure.md) for detailed rollback instructions.
 
 Quick rollback:
+
 ```bash
 # SSH to EC2
 ssh -i ~/.ssh/emaus-key.pem ubuntu@<EC2_IP>
@@ -314,6 +326,7 @@ pm2 restart emaus-api
 ### Application Health
 
 Check application status anytime:
+
 ```bash
 # SSH to EC2
 ssh -i ~/.ssh/emaus-key.pem ubuntu@<EC2_IP>

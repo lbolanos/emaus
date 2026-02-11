@@ -52,6 +52,7 @@ ls -la /var/www/emaus-backups/
 ```
 
 Each backup directory contains:
+
 - `api-dist/` - API distribution files
 - `web-dist/` - Web application files
 
@@ -312,16 +313,19 @@ npm run migration:revert:prod
 After successful rollback:
 
 ### 1. Communicate Status
+
 - Notify team that rollback completed
 - Update status page if public
 - Inform users if applicable
 
 ### 2. Preserve Broken Version
+
 - Keep the broken backup for investigation
 - Don't delete until root cause is identified
 - Copy logs to secure location
 
 ### 3. Investigate Root Cause
+
 ```bash
 # Review broken deployment backup
 cd /var/www/emaus-backups/backup-broken-*/
@@ -335,6 +339,7 @@ git log --oneline -10 master
 ```
 
 ### 4. Create Hotfix
+
 ```bash
 # Create hotfix branch
 git checkout master
@@ -349,6 +354,7 @@ git push -u origin hotfix/fix-issue
 ```
 
 ### 5. Document Incident
+
 - What went wrong
 - How it was discovered
 - How it was fixed
@@ -359,12 +365,14 @@ git push -u origin hotfix/fix-issue
 **Scenario:** New version v1.2.4 deployed but users can't login.
 
 **Timeline:**
+
 1. 14:30 - v1.2.4 deployed to production
 2. 14:35 - User reports login broken
 3. 14:40 - Confirmed: login endpoint returns 500 error
 4. 14:41 - Decide to rollback
 
 **Steps:**
+
 ```bash
 # Step 1: SSH to EC2
 ssh -i ~/.ssh/emaus-key.pem ubuntu@54.88.125.10
@@ -412,6 +420,7 @@ To prevent needing rollbacks:
 ## Contact
 
 For rollback issues or questions:
+
 - **On-call DevOps:** Check Slack #deployments channel
 - **Documentation:** Review this guide and deployment guide
 - **Logs:** GitHub Actions > Actions tab > Workflow run

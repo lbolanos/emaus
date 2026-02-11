@@ -99,7 +99,7 @@ From your local machine:
 
 ```bash
 # Create and push a new release tag
-NEW_TAG=v1.0.1 ./create-release.sh
+NEW_TAG=v1.0.2 ./create-release.sh
 ```
 
 This will build the application and create a GitHub release with the artifacts.

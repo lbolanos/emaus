@@ -7,6 +7,7 @@ This document describes the Git Flow branching strategy used in the Emaus projec
 The repository uses the following branch structure:
 
 ### 1. `master` (Production)
+
 - **Purpose**: Stable, production-ready code
 - **Protections**:
   - Requires at least 1 pull request review before merging
@@ -17,6 +18,7 @@ The repository uses the following branch structure:
 - **Naming**: No variations - always `master`
 
 ### 2. `develop` (Integration)
+
 - **Purpose**: Integration branch for features, next release
 - **Protections**:
   - Requires at least 1 pull request review before merging
@@ -26,6 +28,7 @@ The repository uses the following branch structure:
 - **Naming**: No variations - always `develop`
 
 ### 3. `feature/*` (Feature Branches)
+
 - **Purpose**: Develop individual features
 - **Branch from**: `develop`
 - **Naming**: `feature/descriptive-name`
@@ -34,6 +37,7 @@ The repository uses the following branch structure:
 - **Delete after merge**: Yes, keep repository clean
 
 ### 4. `release/*` (Release Branches)
+
 - **Purpose**: Prepare code for production release
 - **Branch from**: `develop`
 - **Naming**: `release/v1.2.3` (semantic versioning)
@@ -46,6 +50,7 @@ The repository uses the following branch structure:
 - **After merge**: Create a tag on master: `git tag -a v1.2.3 -m "Release v1.2.3"`
 
 ### 5. `hotfix/*` (Hotfix Branches)
+
 - **Purpose**: Fix critical bugs in production
 - **Branch from**: `master`
 - **Naming**: `hotfix/descriptive-name`
@@ -168,6 +173,7 @@ Follow conventional commits for clear, descriptive messages:
 ```
 
 ### Types
+
 - **feat**: A new feature
 - **fix**: A bug fix
 - **docs**: Documentation changes
@@ -178,6 +184,7 @@ Follow conventional commits for clear, descriptive messages:
 - **chore**: Build process, dependencies, tooling
 
 ### Examples
+
 ```
 feat(auth): add JWT refresh token support
 
@@ -193,12 +200,14 @@ refactor(ui): simplify form validation logic
 ### Before Creating a PR
 
 1. **Ensure your branch is up to date**
+
    ```bash
    git fetch origin
    git rebase origin/develop
    ```
 
 2. **Run local checks**
+
    ```bash
    pnpm lint    # Check code style
    pnpm test    # Run test suite
@@ -325,6 +334,7 @@ git push -f origin feature/my-feature
 ## Protected Branch Rules
 
 ### Master Branch
+
 - ✅ Require at least 1 pull request review before merging
 - ✅ Require status checks to pass (lint, test, build)
 - ✅ Require branches to be up to date
@@ -333,6 +343,7 @@ git push -f origin feature/my-feature
 - ✅ Require code owner reviews: Yes (if CODEOWNERS file exists)
 
 ### Develop Branch
+
 - ✅ Require at least 1 pull request review before merging
 - ✅ Require status checks to pass (lint, test, build)
 - ✅ Allow force pushes (team must coordinate)

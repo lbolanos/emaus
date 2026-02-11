@@ -53,12 +53,12 @@ Documents are **private** and require authentication:
 
 ## Supported File Types
 
-| Category          | Allowed Types                | Max Size |
-| ----------------- | ---------------------------- | -------- |
-| Forms/Docs        | PDF, DOCX, XLSX              | 10 MB    |
-| Medical Records   | PDF, JPG, PNG                | 5 MB     |
-| Schedules         | PDF, XLSX                    | 5 MB     |
-| Images            | JPG, PNG, WebP               | 3 MB     |
+| Category        | Allowed Types   | Max Size |
+| --------------- | --------------- | -------- |
+| Forms/Docs      | PDF, DOCX, XLSX | 10 MB    |
+| Medical Records | PDF, JPG, PNG   | 5 MB     |
+| Schedules       | PDF, XLSX       | 5 MB     |
+| Images          | JPG, PNG, WebP  | 3 MB     |
 
 ## API Endpoints (Planned)
 

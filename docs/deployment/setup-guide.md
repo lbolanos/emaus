@@ -84,6 +84,7 @@ If you want email notifications on deployment:
 ### Verify Secrets Are Added
 
 After adding all secrets:
+
 1. Go to Settings → Secrets and variables → Actions
 2. You should see a list of your secrets (values are hidden)
 3. Secrets appear with a green checkmark once saved
@@ -108,6 +109,7 @@ After adding all secrets:
 **Branch name pattern:** `master`
 
 **Protection Settings:**
+
 - ✅ Require a pull request before merging
   - ✅ Require approvals: `1`
   - ✅ Require status checks to pass before merging
@@ -129,6 +131,7 @@ After adding all secrets:
 **Branch name pattern:** `develop`
 
 **Protection Settings:**
+
 - ✅ Require a pull request before merging
   - ✅ Require approvals: `1`
   - ✅ Require status checks to pass before merging
@@ -167,6 +170,7 @@ EOF
 ```
 
 **Expected versions:**
+
 - Node.js: v20.x or later
 - pnpm: Installed
 - PM2: Installed
@@ -262,6 +266,7 @@ git push -u origin feature/test-deployment
    - Build ✅
 
 If all checks pass, proceed. If any fail:
+
 - Review the error logs
 - Fix the issue
 - Push new commit to the same branch
@@ -316,6 +321,7 @@ git push -u origin release/v1.0.0
    - **deployment-summary** - Final status
 
 **Watch for:**
+
 - ✅ All jobs complete with green checkmarks
 - ⏱️ Total time: ~20-30 minutes
 - 📧 Email notification (if configured)
@@ -357,6 +363,7 @@ pm2 logs emaus-api --lines 20
 If you configured SMTP secrets, deployment notifications are already enabled.
 
 To test:
+
 1. Go to Settings → Secrets
 2. Verify all SMTP secrets are present
 3. Trigger another test deployment
@@ -373,6 +380,7 @@ Not yet implemented, but planned for future versions.
 **Error:** `Workflow job returned error: The specified secret is not found`
 
 **Solution:**
+
 1. Go to Settings → Secrets and variables → Actions
 2. Verify all required secrets exist
 3. Check secret names exactly match workflow file
@@ -383,6 +391,7 @@ Not yet implemented, but planned for future versions.
 **Error:** `ssh: Could not resolve hostname`, `Connection refused`, or `Permission denied`
 
 **Solution:**
+
 1. Verify EC2_HOST secret is correct: `aws ec2 describe-instances ... --query "PublicIpAddress"`
 2. Verify EC2 security group allows SSH port 22
 3. Verify EC2_SSH_PRIVATE_KEY contains complete private key
@@ -393,6 +402,7 @@ Not yet implemented, but planned for future versions.
 **Error:** `The operation timed out while waiting for ...`
 
 **Solution:**
+
 1. Check EC2 instance is running: `aws ec2 describe-instances ... --query "State"`
 2. SSH to EC2 and check disk space: `df -h`
 3. Check memory: `free -h`
@@ -404,6 +414,7 @@ Not yet implemented, but planned for future versions.
 **Error:** `Health check failed` after deployment
 
 **Solution:**
+
 1. SSH to EC2: `ssh -i ~/.ssh/emaus-key.pem ubuntu@<EC2_IP>`
 2. Check PM2: `pm2 status`, `pm2 logs emaus-api`
 3. Check API: `curl http://localhost:3001/health`
@@ -416,6 +427,7 @@ Not yet implemented, but planned for future versions.
 **Error:** 500 errors, blank page, or feature broken
 
 **Solution:**
+
 1. Check deployment was successful: GitHub Actions shows all green ✅
 2. Check environment variables on EC2:
    ```bash

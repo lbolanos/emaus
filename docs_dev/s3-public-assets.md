@@ -55,12 +55,12 @@ Public assets are **publicly readable**:
 
 ## Supported File Types
 
-| Category        | Allowed Types                | Recommended Size |
-| --------------- | ---------------------------- | ---------------- |
-| Flyers/Posters  | PDF, JPG, PNG                | < 5 MB           |
-| Logos           | SVG, PNG, ICO                | < 1 MB           |
-| Graphics        | PNG, JPG, WebP, SVG          | < 3 MB           |
-| Social Media    | PNG, JPG, GIF, WebP          | < 2 MB           |
+| Category       | Allowed Types       | Recommended Size |
+| -------------- | ------------------- | ---------------- |
+| Flyers/Posters | PDF, JPG, PNG       | < 5 MB           |
+| Logos          | SVG, PNG, ICO       | < 1 MB           |
+| Graphics       | PNG, JPG, WebP, SVG | < 3 MB           |
+| Social Media   | PNG, JPG, GIF, WebP | < 2 MB           |
 
 ## API Endpoints (Planned)
 
@@ -206,12 +206,12 @@ public-assets/
 
 ### Optimization Settings
 
-| Size     | Format | Quality | Use Case                  |
-| -------- | ------ | ------- | ------------------------- |
-| Thumb    | WebP   | 80%     | Thumbnails, previews      |
-| Medium   | WebP   | 85%     | Mobile devices            |
-| Large    | WebP   | 85%     | Desktop, print            |
-| Original | Auto   | 100%    | High-quality downloads    |
+| Size     | Format | Quality | Use Case               |
+| -------- | ------ | ------- | ---------------------- |
+| Thumb    | WebP   | 80%     | Thumbnails, previews   |
+| Medium   | WebP   | 85%     | Mobile devices         |
+| Large    | WebP   | 85%     | Desktop, print         |
+| Original | Auto   | 100%    | High-quality downloads |
 
 ## Cache Control Headers
 
@@ -270,6 +270,7 @@ public-assets/flyers/
 ```
 
 **Usage:**
+
 - Download from website
 - Print distribution
 - Email campaigns
@@ -286,6 +287,7 @@ public-assets/posters/
 ```
 
 **Usage:**
+
 - Church bulletin boards
 - Community centers
 - Digital displays
@@ -304,6 +306,7 @@ public-assets/logos/
 ```
 
 **Usage:**
+
 - Website branding
 - Document headers
 - Email signatures
@@ -321,6 +324,7 @@ public-assets/graphics/social-media/
 ```
 
 **Usage:**
+
 - Social media posting
 - Event promotion
 - Community engagement
@@ -337,6 +341,7 @@ public-assets/graphics/website/
 ```
 
 **Usage:**
+
 - Page headers
 - Background images
 - Hero sections

@@ -26,12 +26,12 @@ emaus-media/
 
 ### Access Control by Prefix
 
-| Prefix               | Access Level | Use Case                          |
-| -------------------- | ------------ | --------------------------------- |
-| `avatars/*`          | Public Read  | User profile pictures             |
-| `retreat-memories/*` | Private      | Retreat photos (future: public)   |
-| `documents/*`        | Private      | Participant forms, medical docs   |
-| `public-assets/*`    | Public Read  | Flyers, logos, website graphics   |
+| Prefix               | Access Level | Use Case                        |
+| -------------------- | ------------ | ------------------------------- |
+| `avatars/*`          | Public Read  | User profile pictures           |
+| `retreat-memories/*` | Private      | Retreat photos (future: public) |
+| `documents/*`        | Private      | Participant forms, medical docs |
+| `public-assets/*`    | Public Read  | Flyers, logos, website graphics |
 
 ### Storage Strategy
 
@@ -140,6 +140,7 @@ export S3_BUCKET_NAME=emaus-media
 ```
 
 The setup script automatically configures:
+
 - Bucket creation with versioning
 - Public read policy for `avatars/*` and `public-assets/*`
 - Private policy for `documents/*` and `retreat-memories/*`
@@ -241,6 +242,7 @@ export S3_BUCKET_NAME=emaus-media
 ```
 
 The migration script:
+
 1. Verifies both buckets exist
 2. Counts objects in source bucket
 3. Copies all objects from old bucket to `new-bucket/avatars/` prefix
@@ -443,6 +445,7 @@ export AVATAR_STORAGE=base64
 ### Future Optimization
 
 Consider CloudFront CDN to reduce GET request costs and improve latency:
+
 - CloudFront requests: $0.0075 per 10,000 (vs $0.0004 for S3)
 - CDN costs may be offset by reduced S3 GET costs for frequently accessed files
 
@@ -628,37 +631,47 @@ Benefits of CloudFront:
 - [x] Create new bucket setup script
 - [x] Create migration script
 - [x] Update environment configuration
-- [ ] Test in development environment
+- [x] Test in development environment
 
 ### Phase 2: Bucket Creation
 
-- [ ] Create new `emaus-media` bucket
-- [ ] Verify bucket configuration
-- [ ] Test bucket policies
+- [x] Create new `emaus-media` bucket
+- [x] Verify bucket configuration
+- [x] Test bucket policies
+- [x] Disable Block Public Access for public read on avatars
+- [x] Enable versioning, encryption, CORS
 
-### Phase 3: Data Migration
+### Phase 3: Code Updates
 
-- [ ] Run migration script
-- [ ] Verify object counts
-- [ ] Test random sample of URLs
+- [x] Code changes already in production
+- [x] Production environment updated with S3 variables
+- [x] AWS credentials configured
 
-### Phase 4: Code Updates
+### Phase 4: Production Deployment
 
-- [ ] Update application configuration
-- [ ] Update environment variables
-- [ ] Test application with new bucket
-- [ ] Run test suite
+- [x] Deploy code changes to master branch
+- [x] GitHub Actions workflow runs automatically
+- [x] Build, test, and deploy completed successfully
+- [x] Update production environment variables
+- [x] Verify all features work
+- [x] Test avatar upload to S3
 
-### Phase 5: Production Deployment
+### Phase 5: Verification
 
-- [ ] Deploy code changes
-- [ ] Update production environment variables
-- [ ] Monitor logs for errors
-- [ ] Verify all features work
+- [x] S3 bucket is created and configured
+- [x] Public read policy allows avatars to be accessed
+- [x] Private prefixes for documents and retreat memories
+- [x] Application running with S3 enabled
+- [x] New avatars uploading to S3 correctly
+- [x] Existing base64 avatars still working
 
-### Phase 6: Cleanup
+### Phase 6: Data Migration (Optional)
 
+- [ ] If you have an old `emaus-avatars` bucket with data:
+  ```bash
+  export OLD_BUCKET_NAME=emaus-avatars
+  export NEW_BUCKET_NAME=emaus-media
+  ./scripts/migrate-s3-bucket.sh
+  ```
 - [ ] Monitor for 1 week
 - [ ] Delete old bucket (after verification)
-- [ ] Update documentation
-

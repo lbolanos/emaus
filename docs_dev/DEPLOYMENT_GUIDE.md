@@ -2,6 +2,8 @@
 
 Your Emaus Retreat Management System is now **fully production-ready**! Choose the deployment method that fits your workflow.
 
+> **📌 For Production Deployment to AWS EC2 with S3 Storage:** See [Production Deployment Guide](./PRODUCTION_DEPLOYMENT.md) for complete step-by-step instructions including GitHub Actions automation, S3 bucket setup, and S3 storage enablement.
+
 ## 🚀 Deployment Methods
 
 ### Option 1: Pre-built Local Deploy (Recommended for $5 VPS) 🏠

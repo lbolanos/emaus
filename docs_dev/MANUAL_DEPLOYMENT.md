@@ -5,6 +5,7 @@ This guide explains how to deploy manually when GitHub Actions is unavailable.
 ## When to Use Manual Deployment
 
 Use manual deployment when:
+
 - GitHub Actions has an outage (check [githubstatus.com](https://www.githubstatus.com))
 - Workflows are stuck in queue for extended periods
 - You need to deploy urgently and can't wait for CI/CD
@@ -26,15 +27,15 @@ Use manual deployment when:
 
 The `scripts/manual-deploy.sh` script performs these steps:
 
-| Step | Action | Description |
-|------|--------|-------------|
-| 1 | Check SSH key | Verifies SSH key exists and has correct permissions |
-| 2 | Test connection | Confirms SSH connectivity to EC2 |
-| 3 | Build locally | Runs `pnpm build` to create production artifacts |
-| 4 | Upload API | SCPs `apps/api/dist` to EC2 |
-| 5 | Upload Web | SCPs `apps/web/dist` to EC2 |
-| 6 | Remote deploy | Installs deps, runs migrations, restarts PM2 |
-| 7 | Verify | Checks application is responding |
+| Step | Action          | Description                                         |
+| ---- | --------------- | --------------------------------------------------- |
+| 1    | Check SSH key   | Verifies SSH key exists and has correct permissions |
+| 2    | Test connection | Confirms SSH connectivity to EC2                    |
+| 3    | Build locally   | Runs `pnpm build` to create production artifacts    |
+| 4    | Upload API      | SCPs `apps/api/dist` to EC2                         |
+| 5    | Upload Web      | SCPs `apps/web/dist` to EC2                         |
+| 6    | Remote deploy   | Installs deps, runs migrations, restarts PM2        |
+| 7    | Verify          | Checks application is responding                    |
 
 ## Manual Steps (Without Script)
 
@@ -88,13 +89,14 @@ pm2 logs emaus-api --lines 50
 
 The script supports these environment variables:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `EC2_HOST` | `emaus.cc` | EC2 hostname or IP |
-| `EC2_USER` | `ubuntu` | SSH username |
-| `SSH_KEY` | `~/.ssh/emaus-key.pem` | Path to SSH private key |
+| Variable   | Default                | Description             |
+| ---------- | ---------------------- | ----------------------- |
+| `EC2_HOST` | `emaus.cc`             | EC2 hostname or IP      |
+| `EC2_USER` | `ubuntu`               | SSH username            |
+| `SSH_KEY`  | `~/.ssh/emaus-key.pem` | Path to SSH private key |
 
 Example with custom values:
+
 ```bash
 EC2_HOST=123.45.67.89 SSH_KEY=~/.ssh/my-key.pem ./scripts/manual-deploy.sh
 ```
@@ -146,13 +148,17 @@ pnpm --filter api migration:run
 ## Deployment Log - 2026-02-02
 
 ### Issue
+
 GitHub Actions experiencing **partial outage**. Workflows stuck in queue for 15-30 minutes, then jobs cancelled immediately without executing.
 
 ### Resolution
+
 Created manual deployment script (`scripts/manual-deploy.sh`) to bypass GitHub Actions.
 
 ### Changes Deployed
+
 Security remediation commit `da32314`:
+
 - Password reset tokens moved to database (SHA256 hashed)
 - CSRF token rotation on high-value operations
 - Rate limiting on auth endpoints
