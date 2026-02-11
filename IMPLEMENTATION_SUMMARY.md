@@ -15,6 +15,7 @@ January 31, 2026
 #### Environment Configuration (`apps/api/src/config/env.ts`)
 
 **Changes:**
+
 - Added new environment variables for content-type-specific prefixes:
   - `S3_AVATARS_PREFIX` (default: `avatars/`)
   - `S3_RETREAT_MEMORIES_PREFIX` (default: `retreat-memories/`)
@@ -28,6 +29,7 @@ January 31, 2026
 #### Environment Variables (`.env.example`)
 
 **Changes:**
+
 - Updated S3 bucket name from `emaus-avatars` to `emaus-media`
 - Added all new prefix environment variables
 - Added helpful comments explaining each prefix
@@ -37,6 +39,7 @@ January 31, 2026
 #### Production Environment Template (`.env.production.example`)
 
 **New file created** with:
+
 - All production-ready S3 configuration
 - New bucket name and prefix structure
 - Production AWS credentials template
@@ -83,6 +86,7 @@ January 31, 2026
 #### `scripts/setup-s3.sh`
 
 **Changes:**
+
 - Updated bucket name from `emaus-avatars` to `emaus-media`
 - Enhanced bucket policy to support selective public access:
   - `avatars/*` - Public read
@@ -101,6 +105,7 @@ January 31, 2026
 **Purpose:** Migrate data from old bucket to new bucket
 
 **Features:**
+
 - Verifies source and target buckets exist
 - Counts objects before and after migration
 - Copies all objects with proper prefix structure (avatars/ prefix)
@@ -109,6 +114,7 @@ January 31, 2026
 - Handles zero-downtime migration
 
 **Usage:**
+
 ```bash
 export OLD_BUCKET_NAME=emaus-avatars
 export NEW_BUCKET_NAME=emaus-media
@@ -124,6 +130,7 @@ export NEW_BUCKET_NAME=emaus-media
 **Replaces:** `s3-avatar-storage.md`
 
 **Sections:**
+
 - Architecture overview with bucket structure diagram
 - Configuration instructions
 - IAM permissions
@@ -144,6 +151,7 @@ export NEW_BUCKET_NAME=emaus-media
 **Purpose:** Placeholder and planning for document storage
 
 **Sections:**
+
 - Use cases and storage structure
 - Access control strategy
 - Supported file types
@@ -160,6 +168,7 @@ export NEW_BUCKET_NAME=emaus-media
 **Purpose:** Placeholder and planning for public assets management
 
 **Sections:**
+
 - Use cases (flyers, posters, logos, graphics)
 - Storage structure
 - Supported file types
@@ -174,6 +183,7 @@ export NEW_BUCKET_NAME=emaus-media
 #### `README.md` (UPDATED)
 
 **Changes:**
+
 - Added Media Storage section
 - Explained Base64 vs S3 storage options
 - Documented bucket structure
@@ -207,10 +217,10 @@ emaus-media/
 
 ```json
 {
-  "PublicReadAvatars": "s3:GetObject on avatars/*",
-  "PublicReadAssets": "s3:GetObject on public-assets/*",
-  "PrivateDocuments": "No public access to documents/*",
-  "PrivateMemories": "No public access to retreat-memories/*"
+	"PublicReadAvatars": "s3:GetObject on avatars/*",
+	"PublicReadAssets": "s3:GetObject on public-assets/*",
+	"PrivateDocuments": "No public access to documents/*",
+	"PrivateMemories": "No public access to retreat-memories/*"
 }
 ```
 
@@ -234,18 +244,22 @@ emaus-media/
 ## Files Modified
 
 ### Configuration
+
 - ✅ `apps/api/src/config/env.ts`
 - ✅ `apps/api/.env.example`
 - ✅ `apps/api/.env.production.example` (new)
 
 ### Service Layer
+
 - ✅ `apps/api/src/services/s3Service.ts`
 
 ### Scripts
+
 - ✅ `scripts/setup-s3.sh`
 - ✅ `scripts/migrate-s3-bucket.sh` (new)
 
 ### Documentation
+
 - ✅ `README.md`
 - ✅ `docs_dev/s3-media-storage.md` (new)
 - ✅ `docs_dev/s3-document-storage.md` (new)
@@ -351,6 +365,7 @@ All components of the AWS S3 bucket improvement plan have been successfully impl
 8. ✅ Code ready for production deployment
 
 The system is now ready for deployment with:
+
 - Better bucket naming reflecting multi-purpose usage
 - Organized prefix structure for different content types
 - Future-proofed for document storage and public assets

@@ -17,6 +17,7 @@ Fixes #(issue number)
 ## Changes Made
 
 List the specific changes made in this PR:
+
 - Change 1
 - Change 2
 - Change 3
@@ -24,6 +25,7 @@ List the specific changes made in this PR:
 ## Testing
 
 How was this change tested? Please describe the test plan:
+
 - [ ] Unit tests added/updated
 - [ ] Integration tests added/updated
 - [ ] Manual testing completed
@@ -32,6 +34,7 @@ How was this change tested? Please describe the test plan:
 ### Test Coverage
 
 What areas of the application should be tested to verify this change?
+
 - Test case 1
 - Test case 2
 
@@ -86,6 +89,7 @@ If applicable, include screenshots or GIFs of the UI changes:
 ## Performance Impact
 
 Will this PR impact application performance?
+
 - [ ] No impact
 - [ ] Minor improvement
 - [ ] Significant improvement
@@ -94,6 +98,7 @@ Will this PR impact application performance?
 ## Breaking Changes
 
 Does this PR introduce any breaking changes?
+
 - [ ] No breaking changes
 - [ ] Yes, breaking changes (describe below)
 
@@ -104,6 +109,7 @@ If breaking changes were introduced, describe them and any migration path for us
 ## Related Issues
 
 Link to related issues:
+
 - Relates to #(issue number)
 - Depends on #(issue number)
 

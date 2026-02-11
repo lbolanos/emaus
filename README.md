@@ -136,12 +136,12 @@ This project uses GitHub Actions to automatically deploy to AWS EC2 when code is
 
 Before first deployment, configure GitHub Secrets:
 
-| Secret | Purpose |
-|--------|---------|
-| `EC2_HOST` | EC2 instance IP or domain |
-| `EC2_USER` | SSH username (ubuntu) |
+| Secret                | Purpose                       |
+| --------------------- | ----------------------------- |
+| `EC2_HOST`            | EC2 instance IP or domain     |
+| `EC2_USER`            | SSH username (ubuntu)         |
 | `EC2_SSH_PRIVATE_KEY` | SSH private key file contents |
-| `DOMAIN_NAME` | Domain name (emaus.cc) |
+| `DOMAIN_NAME`         | Domain name (emaus.cc)        |
 
 For detailed setup and troubleshooting, see [docs/deployment/deployment-guide.md](./docs/deployment/deployment-guide.md).
 
@@ -446,12 +446,14 @@ The system supports flexible media storage with AWS S3:
 - **S3 Storage**: Upload to AWS S3 bucket with automatic image optimization
 
 **Bucket Structure:**
+
 - `avatars/` - User profile pictures (public)
 - `retreat-memories/` - Retreat photos (private)
 - `documents/` - Participant documents (private, future)
 - `public-assets/` - Website assets (public, future)
 
 **Setup:**
+
 ```bash
 export AWS_REGION=us-east-1
 export S3_BUCKET_NAME=emaus-media
@@ -520,6 +522,7 @@ aumentar el coverage de las pruebas
 verificar que todas la pruebas pasen.
 
 ## comunidades
+
 agregar link the whatsapp para unirse al grupo de las comunidades
 Las comunidades tienen que ser aceptadas por los administradores de otras comunidades.
 Agregar un comentario de la reunion de lo que se va a tratar o de lo que se trato si ya pasó.
@@ -717,7 +720,7 @@ ssh -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105
 
 4. Set environment variables and deploy:
    export DOMAIN_NAME=emaus.cc
-   export RELEASE_TAG=v0.0.5
+   export RELEASE_TAG=v1.0.2
    cd /var/www/emaus/deploy/aws && ./deploy-aws.sh
 
 ## que hacer en el proximo retiro
