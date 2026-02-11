@@ -9,7 +9,10 @@
 
 		<!-- Main Content Card - fills entire container -->
 		<section class="glass-card-wa relative flex h-full w-full flex-col items-center justify-center rounded-2xl px-8 py-6 text-center">
-			<!-- Title -->
+			<!-- Emaús header -->
+			<h2 class="font-serif-title text-5xl font-bold tracking-[0.2em] text-emaus-gold-dark mb-4">EMAÚS</h2>
+
+			<!-- Community name -->
 			<h1 class="font-serif-title text-3xl sm:text-4xl font-bold tracking-[0.12em] text-emaus-gold-dark leading-tight mb-3">
 				{{ communityName }}
 			</h1>
