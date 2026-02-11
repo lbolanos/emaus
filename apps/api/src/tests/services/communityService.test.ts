@@ -155,7 +155,7 @@ describe('Community Service', () => {
 				recurrenceFrequency: 'weekly',
 			});
 
-			const nextInstance = await service.createNextMeetingInstance(meeting.id);
+			const { meeting: nextInstance } = await service.createNextMeetingInstance(meeting.id);
 
 			expect(nextInstance).toBeDefined();
 			expect(nextInstance.parentMeetingId).toBe(meeting.id);
@@ -175,7 +175,7 @@ describe('Community Service', () => {
 				recurrenceFrequency: 'monthly',
 			});
 
-			const nextInstance = await service.createNextMeetingInstance(meeting.id);
+			const { meeting: nextInstance } = await service.createNextMeetingInstance(meeting.id);
 
 			expect(nextInstance).toBeDefined();
 			expect(nextInstance.durationMinutes).toBe(90); // Preserve duration
@@ -194,7 +194,7 @@ describe('Community Service', () => {
 				recurrenceFrequency: 'daily',
 			});
 
-			const nextInstance = await service.createNextMeetingInstance(meeting.id);
+			const { meeting: nextInstance } = await service.createNextMeetingInstance(meeting.id);
 
 			expect(nextInstance).toBeDefined();
 			expect(new Date(nextInstance.startDate).getTime()).toBeGreaterThan(new Date().getTime()); // Should be in future
@@ -214,7 +214,7 @@ describe('Community Service', () => {
 				recurrenceFrequency: 'monthly',
 			});
 
-			const nextInstance = await service.createNextMeetingInstance(meeting.id);
+			const { meeting: nextInstance } = await service.createNextMeetingInstance(meeting.id);
 
 			expect(nextInstance).toBeDefined();
 			// Should successfully create a next instance (may adjust day for shorter months)
@@ -243,7 +243,7 @@ describe('Community Service', () => {
 				recurrenceFrequency: 'weekly',
 			});
 
-			const nextInstance = await service.createNextMeetingInstance(meeting.id);
+			const { meeting: nextInstance } = await service.createNextMeetingInstance(meeting.id);
 
 			expect(nextInstance.durationMinutes).toBe(120);
 		});
@@ -259,7 +259,7 @@ describe('Community Service', () => {
 				recurrenceFrequency: 'weekly',
 			});
 
-			const nextInstance = await service.createNextMeetingInstance(meeting.id);
+			const { meeting: nextInstance } = await service.createNextMeetingInstance(meeting.id);
 
 			expect(nextInstance.parentMeetingId).toBe(meeting.id);
 			expect(nextInstance.id).not.toBe(meeting.id);

@@ -301,11 +301,19 @@ const copyAttendanceLink = (meeting: any) => {
 
 const handleCreateNextInstance = async (meeting: any) => {
   try {
-    await communityStore.createNextMeetingInstance(meeting.id);
-    toast({
-      title: $t('community.meeting.nextInstanceCreated'),
-      description: $t('community.meeting.nextInstanceCreatedDesc'),
-    });
+    const newMeeting = await communityStore.createNextMeetingInstance(meeting.id);
+    if (newMeeting?.isPastDate) {
+      toast({
+        title: $t('community.meeting.nextInstanceCreated'),
+        description: 'La reunión fue creada en una fecha anterior a la actual.',
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: $t('community.meeting.nextInstanceCreated'),
+        description: $t('community.meeting.nextInstanceCreatedDesc'),
+      });
+    }
   } catch (error: any) {
     console.error('Failed to create next instance:', error);
     toast({

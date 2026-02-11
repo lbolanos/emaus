@@ -172,8 +172,8 @@ export class CommunityController {
 		const { id: meetingId } = req.params;
 
 		try {
-			const newMeeting = await communityService.createNextMeetingInstance(meetingId);
-			res.status(201).json(newMeeting);
+			const { meeting, isPastDate } = await communityService.createNextMeetingInstance(meetingId);
+			res.status(201).json({ ...meeting, isPastDate });
 		} catch (error: any) {
 			if (error.message === 'Meeting not found') {
 				return res.status(404).json({ message: 'Meeting not found' });
@@ -183,7 +183,6 @@ export class CommunityController {
 			}
 			if (
 				error.message.includes('Failed to calculate') ||
-				error.message.includes('must be in the future') ||
 				error.message.includes('Maximum number') ||
 				error.message.includes('already exists')
 			) {

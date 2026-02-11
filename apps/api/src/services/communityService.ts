@@ -475,10 +475,8 @@ export class CommunityService {
 			throw new Error('Failed to calculate next occurrence');
 		}
 
-		// 4. Validate next date is in the future
-		if (nextStartDate <= new Date()) {
-			throw new Error('Next occurrence must be in the future');
-		}
+		// 4. Track if next date is in the past (allow but warn)
+		const isPastDate = nextStartDate <= new Date();
 
 		// 5. Check if an instance with this date already exists
 		const existingInstance = await this.meetingRepo.findOne({
@@ -531,7 +529,8 @@ export class CommunityService {
 			instanceDate: nextStartDate,
 		});
 
-		return this.meetingRepo.save(newMeeting);
+		const saved = await this.meetingRepo.save(newMeeting);
+		return { meeting: saved, isPastDate };
 	}
 
 	// --- Attendance Tracking ---

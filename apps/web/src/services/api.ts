@@ -838,7 +838,9 @@ export async function deleteCommunityMeeting(
 	await api.delete(`/communities/meetings/${meetingId}?scope=${scope}`);
 }
 
-export async function createNextMeetingInstance(meetingId: string): Promise<CommunityMeeting> {
+export async function createNextMeetingInstance(
+	meetingId: string,
+): Promise<CommunityMeeting & { isPastDate?: boolean }> {
 	const response = await api.post(`/communities/meetings/${meetingId}/next-instance`);
 	return response.data;
 }
