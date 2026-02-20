@@ -63,18 +63,20 @@ const handleToggle = (value: boolean) => {
 
 ## Component Compatibility Matrix (Updated)
 
-| Component                        | Works with `v-model`? | Works with `:checked`? | Recommended |
-| -------------------------------- | --------------------- | ---------------------- | ----------- |
-| **Switch** (@repo/ui)            | ✅ Yes                | ✅ Yes (Legacy)        | ✅ Yes      |
-| **Input** (@repo/ui)             | ✅ Yes                | ✅ Yes                 | ✅ Yes      |
-| **Select** (@repo/ui)            | ✅ Yes                | ✅ Yes                 | ✅ Yes      |
-| Native `<input type="checkbox">` | N/A                   | ✅ Yes                 | ⚠️ Optional |
+| Component                        | Works with `v-model`? | Works with `:checked`?  | Works with `:model-value`? | Recommended           |
+| -------------------------------- | --------------------- | ----------------------- | -------------------------- | --------------------- |
+| **Switch** (@repo/ui)            | ✅ Yes                | ✅ Yes (Legacy)         | ✅ Yes                     | `v-model`             |
+| **Checkbox** (@repo/ui)          | ✅ Yes                | ❌ No (silently ignored) | ✅ Yes                     | `v-model` or `:model-value` |
+| **Input** (@repo/ui)             | ✅ Yes                | N/A                     | ✅ Yes                     | `v-model`             |
+| **Select** (@repo/ui)            | ✅ Yes                | N/A                     | ✅ Yes                     | `v-model`             |
+| Native `<input type="checkbox">` | N/A                   | ✅ Yes                  | N/A                        | ⚠️ Optional           |
 
 ## @repo/ui Components Status
 
 All core components in `@repo/ui` are now confirmed to work correctly with Vue 3's reactivity system:
 
 - **Switch** - (FIXED) Standard toggle behavior
+- **Checkbox** - (FIXED) Must use `:model-value`, NOT `:checked`
 - **Dialog** - Modal dialogs
 - **Button** - Action buttons
 - **Select** - Dropdown selects
@@ -106,15 +108,55 @@ watch(
 );
 ```
 
-● Checkbox Struggle Summary:
+## ✅ FIXED: Checkbox Component — Correct Prop Is `modelValue`, NOT `checked`
 
-1. Initial attempt - Used @update:checked="(checked) => toggleFunction(id, checked)" with a function that accepts the boolean state
-   - Problem: TypeScript errors, wrong pattern for this Checkbox component
+### Root Cause
 
-2. The fix - Changed to @click="toggleFunction(id)" with a simple toggle function that adds/removes from a Set
-   - This is the pattern used elsewhere in the codebase (Step3ServiceInfo.vue, ImportMembersModal.vue)
+The reka-ui `CheckboxRoot` component uses `modelValue` / `update:modelValue` — **NOT** `checked` / `update:checked`.
 
-Key takeaway: The reka-ui Checkbox component in this project works with @click + simple toggle pattern, not with @update:checked + explicit boolean handling. The checkbox's visual state is controlled by the :checked prop, and clicking just needs to toggle the underlying data.
+When `:checked="true"` is passed to the `<Checkbox>` wrapper:
+1. `checked` is **not** in `CheckboxRootProps`, so it's not captured as a prop
+2. It falls through as an HTML attribute to the underlying `<button>` element
+3. `<button checked="true">` has **zero visual effect** — buttons don't use the `checked` attribute
+4. The checkbox appears permanently unchecked regardless of the bound value
+
+### Correct Usage
+
+```vue
+<!-- ✅ CORRECT: use modelValue -->
+<Checkbox
+  :model-value="isSelected(item.id)"
+  @update:model-value="toggleItem(item.id)"
+/>
+
+<!-- ✅ ALSO CORRECT: v-model shorthand -->
+<Checkbox v-model="someBoolean" />
+```
+
+```vue
+<!-- ❌ WRONG: checked prop is silently ignored -->
+<Checkbox
+  :checked="isSelected(item.id)"
+  @click="toggleItem(item.id)"
+/>
+
+<!-- ❌ WRONG: update:checked event is never emitted -->
+<Checkbox
+  :checked="isSelected(item.id)"
+  @update:checked="handleToggle"
+/>
+```
+
+### Why `:checked` Doesn't Work (Technical Detail)
+
+- `Checkbox.vue` wrapper defines `defineProps<CheckboxRootProps & { class? }>()` — only `modelValue` is recognized
+- `CheckboxRoot.vue` has `defineOptions({ inheritAttrs: false })` and uses `v-bind="$attrs"` on the root `<button>`
+- Unrecognized props like `checked` become HTML attributes on the button, which are meaningless
+- `CheckboxRoot` uses `useVModel(props, 'modelValue', emits)` — only `modelValue` controls the visual state
+
+### Known Issue
+
+Many components across the codebase still use the incorrect `:checked` pattern (FilterDialog, ProfileView, ParticipantList, BadgesView, ExportParticipantsModal, ImportMembersModal, Step3ServiceInfo). These should be migrated to `:model-value` / `@update:model-value`.
 
 Modal Freeze Issue
 

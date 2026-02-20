@@ -482,6 +482,10 @@ agrega la documenatcion necesaria acerca de esto en apps/web/src/docs
 crear una landing page que muestre los retiros proximos y las comunidades y sus proximas reuniones
 
 ## TODO
+porque falta ernesto  y wiliam
+mejorar la pagina de impresion de cuartos color el logo de emaus y ponerla bonita https://emaus.cc/app/rooms    basate en https://emaus.cc/app/walker-badges
+verificar porque sale sin cuarto algunos caminantes en la pagina https://emaus.cc/app/walker-badges  a pesar de que si tienen cuarto
+
 
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
 agregar todas las actividades por servidor
