@@ -268,8 +268,8 @@ const handleClose = () => {
 								:class="{ 'bg-muted/30': isGlobalSelected(template.id) }"
 							>
 								<Checkbox
-									:checked="isGlobalSelected(template.id)"
-									@click="toggleGlobalTemplate(template.id)"
+									:model-value="isGlobalSelected(template.id)"
+									@update:model-value="toggleGlobalTemplate(template.id)"
 									class="mt-1"
 								/>
 								<div class="flex-1 min-w-0">
@@ -340,8 +340,8 @@ const handleClose = () => {
 										:class="{ 'bg-muted/30': isRetreatSelected(template.id) }"
 									>
 										<Checkbox
-											:checked="isRetreatSelected(template.id)"
-											@click="toggleRetreatTemplate(template.id)"
+											:model-value="isRetreatSelected(template.id)"
+											@update:model-value="toggleRetreatTemplate(template.id)"
 											class="mt-1"
 										/>
 										<div class="flex-1 min-w-0">
