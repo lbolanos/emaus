@@ -81,7 +81,17 @@ export const findAllParticipants = async (
 	allRelations.forEach((relation) => {
 		const parts = relation.split('.');
 		if (parts.length === 1) {
-			queryBuilder.leftJoinAndSelect(`participant.${parts[0]}`, parts[0]);
+			if (parts[0] === 'retreatBed') {
+				// Scope retreatBed JOIN to the same retreat as the participant
+				// to avoid picking up stale beds from other retreats
+				queryBuilder.leftJoinAndSelect(
+					'participant.retreatBed',
+					'retreatBed',
+					'retreatBed.retreatId = participant.retreatId',
+				);
+			} else {
+				queryBuilder.leftJoinAndSelect(`participant.${parts[0]}`, parts[0]);
+			}
 		} else {
 			// Handle nested relations like 'tags.tag'
 			queryBuilder.leftJoinAndSelect(`${parts[0]}.${parts[1]}`, parts[1]);
@@ -111,10 +121,53 @@ export const findAllParticipants = async (
 		queryBuilder.setParameter('tagIds', tagIds);
 	}
 
-	return queryBuilder
+	const participants = await queryBuilder
 		.orderBy('participant.lastName', 'ASC')
 		.addOrderBy('participant.firstName', 'ASC')
 		.getMany();
+
+	// Enrich servers who are table leaders (lider/colider1/colider2) but have no tableId.
+	// Their table assignment lives on the tables entity, not on participant.tableId.
+	if (allRelations.includes('tableMesa')) {
+		const serversWithoutTable = participants.filter(
+			(p) => !p.tableMesa && (p.type === 'server' || p.type === 'partial_server'),
+		);
+		if (serversWithoutTable.length > 0) {
+			const serverIds = serversWithoutTable.map((p) => p.id);
+			const leaderTables = await AppDataSource.getRepository(TableMesa)
+				.createQueryBuilder('t')
+				.where('t.retreatId = :retreatId', { retreatId })
+				.andWhere(
+					'(t.liderId IN (:...serverIds) OR t.colider1Id IN (:...serverIds) OR t.colider2Id IN (:...serverIds))',
+					{ serverIds },
+				)
+				.getMany();
+
+			// Build a map: participantId → TableMesa
+			const leaderTableMap = new Map<string, TableMesa>();
+			for (const table of leaderTables) {
+				if (table.liderId && serverIds.includes(table.liderId)) {
+					leaderTableMap.set(table.liderId, table);
+				}
+				if (table.colider1Id && serverIds.includes(table.colider1Id)) {
+					leaderTableMap.set(table.colider1Id, table);
+				}
+				if (table.colider2Id && serverIds.includes(table.colider2Id)) {
+					leaderTableMap.set(table.colider2Id, table);
+				}
+			}
+
+			// Attach table info to participants
+			for (const participant of serversWithoutTable) {
+				const table = leaderTableMap.get(participant.id);
+				if (table) {
+					participant.tableMesa = table;
+				}
+			}
+		}
+	}
+
+	return participants;
 };
 
 export const findParticipantById = async (
@@ -126,10 +179,30 @@ export const findParticipantById = async (
 		relations.push('payments', 'payments.recordedByUser');
 	}
 
-	return participantRepository.findOne({
+	const participant = await participantRepository.findOne({
 		where: { id },
 		relations,
 	});
+
+	// Enrich server leaders who have no tableId but are lider/colider on a table
+	if (
+		participant &&
+		!participant.tableMesa &&
+		(participant.type === 'server' || participant.type === 'partial_server')
+	) {
+		const leaderTable = await AppDataSource.getRepository(TableMesa)
+			.createQueryBuilder('t')
+			.where(
+				'(t.liderId = :pid OR t.colider1Id = :pid OR t.colider2Id = :pid)',
+				{ pid: participant.id },
+			)
+			.getOne();
+		if (leaderTable) {
+			participant.tableMesa = leaderTable;
+		}
+	}
+
+	return participant;
 };
 
 // ==================== BED SCORING SYSTEM ====================
@@ -438,10 +511,6 @@ export const createParticipant = async (
 				throw new Error('A participant with this email already exists in this retreat.');
 			}
 
-			console.warn(
-				`🔄 Reusing existing participant ${existingParticipantByEmail.email} from retreat ${existingParticipantByEmail.retreatId} for new retreat ${participantData.retreatId}`,
-			);
-
 			// Store old retreat ID for history before updating
 			const oldRetreatId = existingParticipantByEmail.retreatId;
 			const oldType = existingParticipantByEmail.type;
@@ -475,14 +544,21 @@ export const createParticipant = async (
 					if (!existingHistory) {
 						const oldHistory = historyRepo.create(oldHistoryData);
 						await historyRepo.save(oldHistory);
-						console.warn(
-							`✅ Created history for old retreat ${oldRetreatId} when reusing participant`,
-						);
 					}
 				} catch (historyError) {
 					console.error('Error creating history for old retreat:', historyError);
 				}
 			}
+
+			// Clear old bed assignment before moving participant to new retreat
+			const retreatBedRepo = transactionalEntityManager.getRepository(RetreatBed);
+			await retreatBedRepo
+				.createQueryBuilder()
+				.update(RetreatBed)
+				.set({ participantId: null })
+				.where('participantId = :pid', { pid: existingParticipantByEmail.id })
+				.andWhere('retreatId = :oldRid', { oldRid: oldRetreatId })
+				.execute();
 
 			// Update the existing participant with new retreat information
 			Object.assign(existingParticipantByEmail, {
@@ -977,7 +1053,11 @@ export const deleteParticipant = async (
 };
 
 const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
-	const userType = participant.tipousuario?.trim();
+	// Excel cells may be numbers, dates, or strings - safely coerce to trimmed string
+	const str = (val: any): string | undefined =>
+		val != null ? String(val).trim() : undefined;
+
+	const userType = str(participant.tipousuario);
 	let mappedType: string;
 
 	if (userType === '3') {
@@ -991,71 +1071,71 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
 	}
 
 	return {
-		id_on_retreat: participant.id?.trim(),
+		id_on_retreat: str(participant.id),
 		type: mappedType,
-		firstName: participant.nombre?.trim() || '',
-		lastName: participant.apellidos?.trim(),
-		nickname: participant.apodo?.trim(),
+		firstName: str(participant.nombre) || '',
+		lastName: str(participant.apellidos),
+		nickname: str(participant.apodo),
 		birthDate: new Date(
-			participant.anio?.trim(),
-			participant.mes?.trim() - 1,
-			participant.dia?.trim(),
+			Number(participant.anio) || 0,
+			(Number(participant.mes) || 1) - 1,
+			Number(participant.dia) || 1,
 		),
-		maritalStatus: participant.estadocivil?.trim(),
-		street: participant.dircalle?.trim(),
-		houseNumber: participant.dirnumero?.trim(),
-		postalCode: participant.dircp?.trim(),
-		neighborhood: participant.dircolonia?.trim(),
-		city: participant.dirmunicipio?.trim(),
-		state: participant.direstado?.trim(),
-		country: participant.dirpais?.trim(),
-		parish: participant.parroquia?.trim(),
-		homePhone: participant.telcasa?.trim(),
-		workPhone: participant.teltrabajo?.trim(),
-		cellPhone: participant.telcelular?.trim(),
-		email: participant.email?.trim() || '',
-		occupation: participant.ocupacion?.trim(),
-		snores: participant.ronca?.trim() === 'S',
-		hasMedication: participant.medicinaespecial?.trim() === 'S',
-		medicationDetails: participant.medicinacual?.trim(),
-		medicationSchedule: participant.medicinahora?.trim(),
-		hasDietaryRestrictions: participant.alimentosrestringidos?.trim() === 'S',
-		dietaryRestrictionsDetails: participant.alimentoscual?.trim(),
+		maritalStatus: str(participant.estadocivil),
+		street: str(participant.dircalle),
+		houseNumber: str(participant.dirnumero),
+		postalCode: str(participant.dircp),
+		neighborhood: str(participant.dircolonia),
+		city: str(participant.dirmunicipio),
+		state: str(participant.direstado),
+		country: str(participant.dirpais),
+		parish: str(participant.parroquia),
+		homePhone: str(participant.telcasa),
+		workPhone: str(participant.teltrabajo),
+		cellPhone: str(participant.telcelular),
+		email: str(participant.email) || '',
+		occupation: str(participant.ocupacion),
+		snores: str(participant.ronca) === 'S',
+		hasMedication: str(participant.medicinaespecial) === 'S',
+		medicationDetails: str(participant.medicinacual),
+		medicationSchedule: str(participant.medicinahora),
+		hasDietaryRestrictions: str(participant.alimentosrestringidos) === 'S',
+		dietaryRestrictionsDetails: str(participant.alimentoscual),
 		sacraments: ['baptism', 'communion', 'confirmation', 'marriage'].filter(
-			(s) => participant[`sacramento${s}`]?.trim() === 'S',
+			(s) => str(participant[`sacramento${s}`]) === 'S',
 		) as any,
-		emergencyContact1Name: participant.emerg1nombre?.trim(),
-		emergencyContact1Relation: participant.emerg1relacion?.trim(),
-		emergencyContact1HomePhone: participant.emerg1telcasa?.trim(),
-		emergencyContact1WorkPhone: participant.emerg1teltrabajo?.trim(),
-		emergencyContact1CellPhone: participant.emerg1telcelular?.trim(),
-		emergencyContact1Email: participant.emerg1email?.trim(),
-		emergencyContact2Name: participant.emerg2nombre?.trim(),
-		emergencyContact2Relation: participant.emerg2relacion?.trim(),
-		emergencyContact2HomePhone: participant.emerg2telcasa?.trim(),
-		emergencyContact2WorkPhone: participant.emerg2teltrabajo?.trim(),
-		emergencyContact2CellPhone: participant.emerg2telcelular?.trim(),
-		emergencyContact2Email: participant.emerg2email?.trim(),
+		emergencyContact1Name: str(participant.emerg1nombre),
+		emergencyContact1Relation: str(participant.emerg1relacion),
+		emergencyContact1HomePhone: str(participant.emerg1telcasa),
+		emergencyContact1WorkPhone: str(participant.emerg1teltrabajo),
+		emergencyContact1CellPhone: str(participant.emerg1telcelular),
+		emergencyContact1Email: str(participant.emerg1email),
+		emergencyContact2Name: str(participant.emerg2nombre),
+		emergencyContact2Relation: str(participant.emerg2relacion),
+		emergencyContact2HomePhone: str(participant.emerg2telcasa),
+		emergencyContact2WorkPhone: str(participant.emerg2teltrabajo),
+		emergencyContact2CellPhone: str(participant.emerg2telcelular),
+		emergencyContact2Email: str(participant.emerg2email),
 		tshirtSize: (() => {
-			const size = participant.camiseta?.trim()?.toUpperCase();
+			const size = str(participant.camiseta)?.toUpperCase();
 			const validSizes = ['S', 'M', 'G', 'X', '2'];
-			return validSizes.includes(size) ? size : null;
+			return validSizes.includes(size!) ? size : null;
 		})(),
-		invitedBy: participant.invitadopor?.trim(),
-		isInvitedByEmausMember: participant.invitadaporemaus?.trim() === 'S' ? true : undefined,
-		inviterHomePhone: participant.invtelcasa?.trim(),
-		inviterWorkPhone: participant.invteltrabajo?.trim(),
-		inviterCellPhone: participant.invtelcelular?.trim(),
-		inviterEmail: participant.invemail?.trim(),
-		pickupLocation: participant.puntoencuentro?.trim(),
-		isScholarship: participant.becado?.trim() === 'S',
-		palancasCoordinator: participant.palancasencargado?.trim(),
-		palancasRequested: participant.palancaspedidas?.trim() === 'S',
-		palancasReceived: participant.palancas?.trim(),
-		palancasNotes: participant.notaspalancas?.trim(),
-		requestsSingleRoom: participant.habitacionindividual?.trim() === 'S',
-		isCancelled: participant.cancelado?.trim() === 'S',
-		notes: participant.notas?.trim(),
+		invitedBy: str(participant.invitadopor),
+		isInvitedByEmausMember: str(participant.invitadaporemaus) === 'S' ? true : undefined,
+		inviterHomePhone: str(participant.invtelcasa),
+		inviterWorkPhone: str(participant.invteltrabajo),
+		inviterCellPhone: str(participant.invtelcelular),
+		inviterEmail: str(participant.invemail),
+		pickupLocation: str(participant.puntoencuentro),
+		isScholarship: str(participant.becado) === 'S',
+		palancasCoordinator: str(participant.palancasencargado),
+		palancasRequested: str(participant.palancaspedidas) === 'S',
+		palancasReceived: str(participant.palancas),
+		palancasNotes: str(participant.notaspalancas),
+		requestsSingleRoom: str(participant.habitacionindividual) === 'S',
+		isCancelled: str(participant.cancelado) === 'S',
+		notes: str(participant.notas),
 	};
 };
 
@@ -1162,12 +1242,9 @@ const createTablesInBatch = async (retreatId: string, tableNames: string[]): Pro
 				}
 			}
 		});
-		console.warn(
-			`📊 Batch creation summary: ${tablesActuallyCreated} actually created out of ${tableNames.length} requested`,
-		);
 		return tablesActuallyCreated;
 	} catch (error: any) {
-		console.error(`❌ Batch table creation failed: ${error.message}`);
+		console.error(`[Import] Batch table creation failed: ${error.message}`);
 		throw error;
 	}
 };
@@ -1800,16 +1877,16 @@ export const importParticipants = async (retreatId: string, participantsData: an
 	// Sort participants so cancelled ones are processed first
 	// This ensures cancelled participants don't interfere with active participant assignments
 	const sortedParticipantsData = participantsData.sort((a, b) => {
-		const aCancelled = a.cancelado?.trim() === 'S';
-		const bCancelled = b.cancelado?.trim() === 'S';
+		const aCancelled = String(a.cancelado ?? '').trim() === 'S';
+		const bCancelled = String(b.cancelado ?? '').trim() === 'S';
 
 		if (aCancelled && !bCancelled) return -1; // a is cancelled, b is not - a comes first
 		if (!aCancelled && bCancelled) return 1; // b is cancelled, a is not - b comes first
 		return 0; // both are the same (both cancelled or both not cancelled)
 	});
 
-	console.warn(
-		`🚀 Starting import process for retreat ${retreatId} with ${sortedParticipantsData.length} participants`,
+	console.log(
+		`[Import] Starting for retreat ${retreatId} with ${sortedParticipantsData.length} participants`,
 	);
 	const initialTableCount = await tableMesaRepository.count({ where: { retreatId } });
 
@@ -1824,9 +1901,6 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 	// Create all needed tables in a single transaction
 	if (tablesToCreate.size > 0) {
-		console.warn(
-			`🏗️ Creating ${tablesToCreate.size} tables in batch: [${Array.from(tablesToCreate).join(', ')}]`,
-		);
 		const actualTablesCreated = await createTablesInBatch(retreatId, Array.from(tablesToCreate));
 		tablesCreated = actualTablesCreated;
 	}
@@ -1850,16 +1924,16 @@ export const importParticipants = async (retreatId: string, participantsData: an
 	}> = [];
 
 	// Second pass: Process participants and collect bed assignments
-	for (const participantRawData of sortedParticipantsData) {
+	const skippedDetails: Array<{ row: number; reason: string; name?: string }> = [];
+
+	for (let idx = 0; idx < sortedParticipantsData.length; idx++) {
+		const participantRawData = sortedParticipantsData[idx];
 		const mappedData = mapToEnglishKeys(participantRawData);
 		const excelAssignments = extractExcelAssignments(participantRawData);
 
-		console.warn(
-			`   - Original type from Excel: ${participantRawData.tipousuario} -> ${mappedData.type} -> ${mappedData.isCancelled ? 'cancelled' : 'active'}`,
-		);
-
 		if (!mappedData.email) {
-			console.warn('Skipping participant due to missing email:', participantRawData);
+			const name = `${String(participantRawData.nombre ?? '').trim()} ${String(participantRawData.apellidos ?? '').trim()}`.trim();
+			skippedDetails.push({ row: idx + 2, reason: 'missing email', name: name || undefined });
 			skippedCount++;
 			continue;
 		}
@@ -1878,9 +1952,6 @@ export const importParticipants = async (retreatId: string, participantsData: an
 					updateData as UpdateParticipant,
 					true,
 				); // skipRebalance = true during import
-				console.warn(
-					`✅ Updated participant: ${updatedParticipant.email} -> Final type: ${updatedParticipant.type} -> Cancelled: ${updatedParticipant.isCancelled}`,
-				);
 				updatedCount++;
 				processedParticipantIds.push(existingParticipant.id);
 				participant = existingParticipant;
@@ -1902,9 +1973,6 @@ export const importParticipants = async (retreatId: string, participantsData: an
 					true, // isImporting = true
 					true, // skipCapacityCheck = true during import
 				);
-				console.warn(
-					`✅ Created new participant: ${newParticipant.email} -> Final type: ${newParticipant.type} -> Cancelled: ${newParticipant.isCancelled}`,
-				);
 				importedCount++;
 				processedParticipantIds.push(newParticipant.id);
 				participant = newParticipant;
@@ -1923,10 +1991,6 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 			// Handle table assignment from Excel 'mesa' field (tables are pre-created in batch)
 			if (excelAssignments.tableName && participant.type === 'walker') {
-				console.warn(
-					`🔍 Processing table assignment for participant ${participant.email} -> table "${excelAssignments.tableName}"`,
-				);
-
 				// Tables are pre-created, just find the existing one
 				const existingTable = await tableMesaRepository.findOne({
 					where: { name: excelAssignments.tableName.toString(), retreatId },
@@ -1934,16 +1998,10 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				});
 
 				if (existingTable) {
-					console.warn(
-						`📋 Found pre-created table: ${existingTable.name} (ID: ${existingTable.id})`,
-					);
 					await participantRepository.update(participant.id, { tableId: existingTable.id });
-					console.warn(
-						`✅ Assigned participant ${participant.email} to table "${excelAssignments.tableName}"`,
-					);
 				} else {
 					console.error(
-						`❌ CRITICAL: Pre-created table "${excelAssignments.tableName}" not found! This should not happen.`,
+						`[Import] Pre-created table "${excelAssignments.tableName}" not found`,
 					);
 				}
 			}
@@ -1954,9 +2012,6 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				participant.type !== 'waiting' &&
 				participant.type !== 'partial_server'
 			) {
-				console.warn(
-					`🛏️ Queueing bed assignment for participant ${participant.email} -> room "${excelAssignments.roomNumber}"`,
-				);
 				bedAssignmentQueue.push({
 					participant: participant,
 					bedNumber: '', // Will be determined by findAvailableBedByRoom
@@ -1969,58 +2024,24 @@ export const importParticipants = async (retreatId: string, participantsData: an
 			if (excelAssignments.leadershipRole && participant.type === 'server') {
 				// Only assign leadership if the participant also has a table assignment
 				if (excelAssignments.tableName) {
-					console.warn(
-						`👑 Queueing leadership assignment for participant ${participant.email} -> role ${excelAssignments.leadershipRole} at table "${excelAssignments.tableName}"`,
-					);
 					leadershipAssignmentQueue.push({
 						participant: participant,
 						tableName: excelAssignments.tableName,
 						leadershipRole: excelAssignments.leadershipRole,
 						participantEmail: participant.email,
 					});
-				} else {
-					console.warn(
-						`⚠️ Cannot assign leadership role to participant ${participant.email}: no table specified (mesa field required for tipousuario ${excelAssignments.tipousuario})`,
-					);
 				}
-			} else if (excelAssignments.leadershipRole && participant.type !== 'server') {
-				console.warn(
-					`⚠️ Cannot assign leadership role to participant ${participant.email}: participant type is '${participant.type}' but leadership roles require 'server' type`,
-				);
 			}
 		} catch (error: any) {
-			console.error(`❌ Failed to import participant ${mappedData.email}: ${error.message}`);
-			console.error(`📋 Error stack trace:`, error.stack);
-			console.error(`🔍 Error details:`, {
-				message: error.message,
-				name: error.name,
-				participantEmail: mappedData.email,
-				retreatId,
-				tablesCreatedSoFar: tablesCreated,
-				step: 'individual participant processing',
-			});
+			console.error(`[Import] Failed participant ${mappedData.email}: ${error.message}`);
+			skippedDetails.push({ row: idx + 2, reason: `error: ${error.message}`, name: mappedData.email });
 			skippedCount++;
 		}
 	}
 
-	// Note: Bed assignments will be processed within the main transaction to ensure consistency
-	// This prevents the issue where assignments made outside the transaction were later cleared
-	console.warn(
-		`🛏️ ${bedAssignmentQueue.length} bed assignments queued for processing in main transaction...`,
-	);
-
 	// Process leadership assignments in batch to prevent duplicate role assignments
-
 	for (const leadershipAssignment of leadershipAssignmentQueue) {
 		const { participant, tableName, leadershipRole, participantEmail } = leadershipAssignment;
-
-		// Skip cancelled participants entirely - double-check participant status before assignment
-		if (participant.isCancelled) {
-			console.warn(
-				`🚫 Skipping leadership assignment for cancelled participant ${participant.email}`,
-			);
-			continue;
-		}
 
 		// Fresh participant lookup to ensure we have the latest cancellation status
 		const freshParticipant = await participantRepository.findOne({
@@ -2028,45 +2049,17 @@ export const importParticipants = async (retreatId: string, participantsData: an
 			select: ['id', 'type', 'isCancelled', 'email', 'firstName', 'lastName'],
 		});
 
-		if (!freshParticipant) {
-			console.warn(
-				`⚠️ Participant ${participantEmail} not found during leadership assignment, skipping...`,
-			);
+		if (!freshParticipant || freshParticipant.isCancelled || freshParticipant.type !== 'server') {
 			continue;
 		}
-
-		if (freshParticipant.isCancelled) {
-			console.warn(
-				`🚫 Skipping leadership assignment for cancelled participant ${freshParticipant.email} (fresh lookup)`,
-			);
-			continue;
-		}
-
-		if (freshParticipant.type !== 'server') {
-			console.warn(
-				`⚠️ Cannot assign leadership role to participant ${freshParticipant.email}: type is '${freshParticipant.type}' but servers only`,
-			);
-			continue;
-		}
-
-		// Update using the fresh participant data
-		const participantForAssignment = freshParticipant;
 
 		// Check if this participant is already assigned to a leadership role in this batch
 		if (assignedLeadershipIds.has(participant.id)) {
-			console.warn(
-				`⚠️ Participant ${participantEmail} is already assigned to a leadership role in this batch, skipping additional assignments...`,
-			);
 			continue;
 		}
 
 		// Check database for existing leadership assignments (from previous imports)
 		const existingLeadership = await checkExistingLeadership(participant.id);
-		if (existingLeadership.isLeader) {
-			console.warn(
-				`🔄 Participant ${participantEmail} is already ${existingLeadership.role} in table "${existingLeadership.tableName}" from previous import. Removing from previous assignment...`,
-			);
-		}
 
 		// Find the pre-created table
 		const existingTable = await tableMesaRepository.findOne({
@@ -2075,10 +2068,6 @@ export const importParticipants = async (retreatId: string, participantsData: an
 		});
 
 		if (existingTable) {
-			console.warn(
-				`📋 Found pre-created table for leadership: ${existingTable.name} (ID: ${existingTable.id})`,
-			);
-
 			// For colider1 role, find available slot (colider1 or colider2)
 			let finalRole = leadershipRole;
 			if (leadershipRole === 'colider1') {
@@ -2087,9 +2076,6 @@ export const importParticipants = async (retreatId: string, participantsData: an
 					assignedLeadershipIds,
 				);
 				if (!availableSlot) {
-					console.warn(
-						`⚠️ Cannot assign colider: No available colider slots in table "${tableName}" for participant ${participantEmail}`,
-					);
 					continue;
 				}
 				finalRole = availableSlot;
@@ -2108,9 +2094,6 @@ export const importParticipants = async (retreatId: string, participantsData: an
 					currentTableState.colider2Id,
 				];
 				if (currentAssignments.includes(participant.id)) {
-					console.warn(
-						`⚠️ Participant ${participantEmail} is already assigned to table "${tableName}" in some capacity, skipping duplicate assignment...`,
-					);
 					continue;
 				}
 			}
@@ -2122,9 +2105,6 @@ export const importParticipants = async (retreatId: string, participantsData: an
 			if (finalRole) {
 				await assignLeaderToTable(existingTable.id, participant.id, finalRole);
 			} else {
-				console.warn(
-					`⚠️ Skipping leadership assignment for participant ${participantEmail}: no valid role (${leadershipRole})`,
-				);
 				continue;
 			}
 
@@ -2142,64 +2122,27 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				];
 				const uniqueAssignments = assignments.filter((id) => id !== null);
 
-				// Check for duplicates
+				// Check for and fix duplicates
 				if (uniqueAssignments.length !== new Set(uniqueAssignments).size) {
-					console.error(
-						`❌ CRITICAL: Duplicate assignment detected in table "${tableName}" after assignment!`,
-					);
-					console.error(
-						`   Assignments: lider=${verificationTableState.liderId}, colider1=${verificationTableState.colider1Id}, colider2=${verificationTableState.colider2Id}`,
-					);
-
-					// Find and remove the duplicate
+					console.error(`[Import] Duplicate assignment in table "${tableName}"`);
 					const duplicates = uniqueAssignments.filter(
 						(id, index) => uniqueAssignments.indexOf(id) !== index,
 					);
 					for (const duplicateId of duplicates) {
-						console.warn(
-							`🔧 Removing duplicate assignment for participant ${duplicateId} from table "${tableName}"`,
-						);
 						if (verificationTableState.colider1Id === duplicateId) {
 							await tableMesaRepository.update(existingTable.id, { colider1Id: undefined });
 						} else if (verificationTableState.colider2Id === duplicateId) {
 							await tableMesaRepository.update(existingTable.id, { colider2Id: undefined });
 						}
 					}
-				} else {
-					if (existingLeadership.isLeader) {
-						console.warn(
-							`✅ Moved participant ${participantEmail} from ${existingLeadership.role} of table "${existingLeadership.tableName}" to ${finalRole} of table "${tableName}"`,
-						);
-					} else {
-						console.warn(
-							`✅ Assigned participant ${participantEmail} as ${finalRole} of table "${tableName}"`,
-						);
-					}
 				}
 			}
 		} else {
-			console.error(
-				`❌ CRITICAL: Pre-created table "${tableName}" not found for leadership assignment!`,
-			);
+			console.error(`[Import] Pre-created table "${tableName}" not found for leadership`);
 		}
 	}
 
 	// Assign beds and tables using the new redesigned system
-	console.warn(
-		`🔄 Starting main transaction for bed/table assignment for ${processedParticipantIds.length} processed participants`,
-	);
-	console.warn(
-		`📊 Pre-transaction table count: ${await tableMesaRepository.count({ where: { retreatId } })}`,
-	);
-
-	// Check participant table assignments before main transaction
-	const participantsWithTableBefore = await participantRepository.count({
-		where: { retreatId, tableId: Not(IsNull()) },
-	});
-	console.warn(
-		`📊 Pre-transaction: ${participantsWithTableBefore} participants have table assignments`,
-	);
-
 	try {
 		await AppDataSource.transaction(async (transactionalEntityManager) => {
 			const transactionalParticipantRepository =
@@ -2230,18 +2173,6 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				return (a.lastName || '').localeCompare(b.lastName || '');
 			});
 
-			console.warn(
-				`📊 Main transaction: found ${participantsToProcess.length} participants to process`,
-			);
-
-			// Count participants with existing Excel assignments
-			const participantsWithExcelAssignments = participantsToProcess.filter((p) => p.tableId);
-			const participantsWithoutExcelAssignments = participantsToProcess.filter((p) => !p.tableId);
-
-			console.warn(
-				`📋 Main transaction: ${participantsWithExcelAssignments.length} participants have Excel table assignments, ${participantsWithoutExcelAssignments.length} need automatic assignments`,
-			);
-
 			// Note: We no longer clear bed assignments here since they are now handled atomically
 			// within the transaction along with all other assignments to ensure consistency
 
@@ -2252,9 +2183,6 @@ export const importParticipants = async (retreatId: string, participantsData: an
 			const importSnoreMap = await buildRoomSnoreStatusMap(transactionalBedRepository, retreatId);
 
 			// First, process Excel bed assignments within the transaction to ensure consistency
-			console.warn(
-				`🛏️ Processing ${bedAssignmentQueue.length} Excel bed assignments within main transaction...`,
-			);
 			for (const bedAssignment of bedAssignmentQueue) {
 				const { participant, roomNumber, participantType } = bedAssignment;
 
@@ -2264,18 +2192,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 					select: ['id', 'type', 'isCancelled', 'email', 'firstName', 'lastName'],
 				});
 
-				if (!freshParticipant) {
-					console.warn(
-						`⚠️ Participant ${participant.email} not found during bed assignment, skipping...`,
-					);
-					continue;
-				}
-
-				// Skip cancelled participants
-				if (freshParticipant.isCancelled) {
-					console.warn(
-						`🚫 Skipping Excel bed assignment for cancelled participant ${freshParticipant.email}`,
-					);
+				if (!freshParticipant || freshParticipant.isCancelled) {
 					continue;
 				}
 
@@ -2289,9 +2206,6 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				if (hasExistingBedAssignment) {
 					const existingBed = await bedQueryUtils.getParticipantBedAssignment(
 						participantForAssignment.id,
-					);
-					console.warn(
-						`⚠️ Participant ${participantForAssignment.email} already has bed assigned (${existingBed?.id}), skipping Excel assignment...`,
 					);
 					if (existingBed) {
 						assignedBedIds.add(existingBed.id);
@@ -2321,18 +2235,10 @@ export const importParticipants = async (retreatId: string, participantsData: an
 						.where('id = :id', { id: bedId })
 						.execute();
 
-					console.warn(
-						`✅ Excel assignment: Assigned participant ${participantForAssignment.email} to bed ${bedId} in room "${roomNumber}"`,
-					);
-
 					// Track bed creation
 					if (wasCreated) {
 						bedsCreated++;
 					}
-				} else {
-					console.warn(
-						`⚠️ No available bed found in room "${roomNumber}" for participant ${participantForAssignment.email} (Excel assignment)`,
-					);
 				}
 			}
 
@@ -2351,10 +2257,6 @@ export const importParticipants = async (retreatId: string, participantsData: an
 					const hasExistingTableAssignment = !!participant.tableId;
 
 					if (hasExistingTableAssignment || hasExistingBedAssignment) {
-						console.warn(
-							`✅ Main transaction: preserving existing assignments for participant ${participant.email} (tableId: ${participant.tableId}, hasBed: ${hasExistingBedAssignment})`,
-						);
-
 						// Track existing bed assignments to prevent conflicts
 						if (hasExistingBedAssignment) {
 							const existingBed = await bedQueryUtils.getParticipantBedAssignment(participant.id);
@@ -2402,30 +2304,9 @@ export const importParticipants = async (retreatId: string, participantsData: an
 			}
 		});
 	} catch (error: any) {
-		console.error(`❌ MAIN TRANSACTION FAILED: ${error.message}`);
-		console.error(`📋 Transaction error stack trace:`, error.stack);
-		console.error(`🔍 Transaction error details:`, {
-			message: error.message,
-			name: error.name,
-			retreatId,
-			tablesCreatedSoFar: tablesCreated,
-			processedParticipantsCount: processedParticipantIds.length,
-			step: 'main bed/table assignment transaction',
-		});
-		throw error; // Re-throw to stop the import process
+		console.error(`[Import] Transaction failed: ${error.message}`);
+		throw error;
 	}
-
-	// Check participant table assignments after main transaction
-	const participantsWithTableAfter = await participantRepository.count({
-		where: { retreatId, tableId: Not(IsNull()) },
-	});
-	console.warn(
-		`📊 Post-transaction: ${participantsWithTableAfter} participants have table assignments`,
-	);
-
-	console.warn(
-		`📊 Post-transaction table count: ${await tableMesaRepository.count({ where: { retreatId } })}`,
-	);
 
 	// Final verification: Check all tables that should exist based on our tracking
 	const finalTableCount = await tableMesaRepository.count({ where: { retreatId } });
@@ -2433,39 +2314,26 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 	if (finalTableCount !== expectedTableCount) {
 		console.error(
-			`❌ CRITICAL ERROR: Table count mismatch! Expected ${expectedTableCount}, found ${finalTableCount}`,
-		);
-		console.error(
-			`   This indicates that ${expectedTableCount - finalTableCount} tables were lost due to transaction rollbacks`,
-		);
-
-		// List all tables to see what's missing
-		const allTables = await tableMesaRepository.find({
-			where: { retreatId },
-			select: ['id', 'name'],
-			order: { name: 'ASC' },
-		});
-		console.warn(
-			`📋 Current tables in database:`,
-			allTables.map((t) => `${t.name} (${t.id})`),
+			`[Import] Table count mismatch: expected ${expectedTableCount}, found ${finalTableCount}`,
 		);
 	}
 
-	// NOTE: Skipping rebalanceTablesForRetreat during import to prevent table deletions
-	// The import process explicitly creates and assigns tables based on Excel data
-	// Calling rebalance would delete tables that were intentionally created during import
-
-	// For debugging purposes, let us know what would have happened:
-	const currentTableCount = await tableMesaRepository.count({ where: { retreatId } });
-
-	console.warn(
-		`🎉 Import process completed: imported=${importedCount}, updated=${updatedCount}, skipped=${skippedCount}, tablesCreated=${tablesCreated}, bedsCreated=${bedsCreated}, paymentsCreated=${paymentsCreated}`,
+	console.log(
+		`[Import] Completed: imported=${importedCount}, updated=${updatedCount}, skipped=${skippedCount}, tables=${tablesCreated}, beds=${bedsCreated}, payments=${paymentsCreated}`,
 	);
+
+	if (skippedDetails.length > 0) {
+		console.log(`[Import] Skipped participants details:`);
+		for (const detail of skippedDetails) {
+			console.log(`  Row ${detail.row}: ${detail.reason}${detail.name ? ` (${detail.name})` : ''}`);
+		}
+	}
 
 	return {
 		importedCount,
 		updatedCount,
 		skippedCount,
+		skippedDetails,
 		tablesCreated,
 		bedsCreated,
 		paymentsCreated,
