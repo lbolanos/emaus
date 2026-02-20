@@ -5,7 +5,7 @@ import { useRetreatStore } from '@/stores/retreatStore';
 import { getWalkersByRetreat, getParticipantsByRetreat, exportBadgesToDocx } from '@/services/api';
 import { Button } from '@repo/ui';
 import { useToast } from '@repo/ui';
-import { Loader2, Printer, MoreVertical, FileDown, Check, Search, X } from 'lucide-vue-next';
+import { Loader2, Printer, MoreVertical, FileDown, Check, Search, X, Minus, Plus } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import type { Participant } from '@repo/types';
 import {
@@ -37,6 +37,12 @@ const typeFilter = ref<string>('all');
 const tableFilter = ref<string>('all');
 const roomFilter = ref<string>('all');
 const isPrinting = ref(false);
+
+// Badge size control
+const badgeScale = ref(1.0);
+const decreaseSize = () => { badgeScale.value = Math.max(0.5, +(badgeScale.value - 0.1).toFixed(1)); };
+const increaseSize = () => { badgeScale.value = Math.min(1.5, +(badgeScale.value + 0.1).toFixed(1)); };
+const badgeGridMinWidth = computed(() => `${Math.round(420 * badgeScale.value)}px`);
 
 const retreatId = computed(() => route.params.id as string || retreatStore.selectedRetreatId);
 
@@ -431,6 +437,26 @@ onMounted(async () => {
       >
         Deseleccionar
       </button>
+
+      <!-- Badge size control -->
+      <div class="size-control">
+        <span class="size-label">{{ $t('badges.badgeSize') }}</span>
+        <button class="size-btn" @click="decreaseSize" :disabled="badgeScale <= 0.5">
+          <Minus class="w-3 h-3" />
+        </button>
+        <input
+          type="range"
+          v-model.number="badgeScale"
+          min="0.5"
+          max="1.5"
+          step="0.1"
+          class="size-slider"
+        />
+        <button class="size-btn" @click="increaseSize" :disabled="badgeScale >= 1.5">
+          <Plus class="w-3 h-3" />
+        </button>
+        <span class="size-value">{{ Math.round(badgeScale * 100) }}%</span>
+      </div>
     </div>
 
     <div v-if="loading" class="text-center py-8">
@@ -442,7 +468,7 @@ onMounted(async () => {
       <p>{{ $t('badges.noParticipantFound') }}</p>
     </div>
 
-    <div v-else class="badges-container">
+    <div v-else class="badges-container" :style="{ gridTemplateColumns: `repeat(auto-fill, minmax(${badgeGridMinWidth}, 1fr))`, '--badge-scale': badgeScale }">
       <div
         v-for="participant in filteredParticipants"
         :key="participant.id"
@@ -536,12 +562,15 @@ onMounted(async () => {
 
 .badge-content {
   padding: 12px 20px 16px;
-  height: 100%;
+  height: calc(100% / var(--badge-scale, 1));
+  width: calc(100% / var(--badge-scale, 1));
   display: grid;
   grid-template-columns: 100px 1fr;
   grid-template-rows: auto 1fr auto;
   gap: 8px 16px;
   position: relative;
+  transform: scale(var(--badge-scale, 1));
+  transform-origin: top left;
 }
 
 /* Header with logo - left side, upper position */
@@ -833,6 +862,62 @@ onMounted(async () => {
   box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.1);
 }
 
+/* Badge size control */
+.size-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.size-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.size-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  color: #374151;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.size-btn:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.size-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.size-slider {
+  width: 80px;
+  height: 4px;
+  accent-color: #e11d48;
+  cursor: pointer;
+}
+
+.size-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  min-width: 36px;
+  text-align: center;
+}
+
 /* Badge checkbox */
 .badge-checkbox {
   position: absolute;
@@ -873,7 +958,7 @@ onMounted(async () => {
 
   .badges-container {
     display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-columns: repeat(auto-fill, minmax(calc(85mm * var(--badge-scale, 1)), 1fr)) !important;
     column-gap: 10mm;
     row-gap: 8mm;
     margin: 0;
@@ -886,11 +971,11 @@ onMounted(async () => {
       0 4px 12px rgba(0, 0, 0, 0.08),
       inset 0 1px 0 rgba(255, 255, 255, 0.8);
     margin-bottom: 0;
-    min-height: 180px;
-    max-width: 85mm;
+    max-width: calc(85mm * var(--badge-scale, 1));
     width: 100%;
     border: 1px solid #e5e7eb;
     aspect-ratio: 1.8 / 1;
+    overflow: hidden;
   }
 
   .badge-content {
@@ -898,6 +983,8 @@ onMounted(async () => {
     gap: 6px 12px;
     grid-template-columns: 80px 1fr;
     grid-template-rows: auto 1fr auto;
+    width: calc(100% / var(--badge-scale, 1));
+    height: calc(100% / var(--badge-scale, 1));
   }
 
   .badge-header {

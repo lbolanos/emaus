@@ -532,7 +532,7 @@
             <div class="text-xs text-muted-foreground">
               <span class="text-red-500">*</span> {{ $t('retreatModal.requiredFields') }}
             </div>
-            <div class="flex space-x-2">
+            <div class="flex items-center space-x-2">
               <Button
                 type="button"
                 variant="outline"
@@ -541,6 +541,16 @@
               >
                 {{ $t('retreatModal.cancel') }}
               </Button>
+              <div v-if="props.mode === 'edit'" class="flex items-center space-x-2 mx-2">
+                <Checkbox
+                  id="refreshBeds"
+                  :checked="refreshBedsFromHouse"
+                  @click="refreshBedsFromHouse = !refreshBedsFromHouse"
+                />
+                <Label for="refreshBeds" class="text-sm cursor-pointer">
+                  {{ $t('retreatModal.refreshBedsFromHouse') }}
+                </Label>
+              </div>
               <Button
                 type="submit"
                 :disabled="isSubmitting || !isFormValid"
@@ -629,7 +639,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Button, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Textarea, RadioGroup, RadioGroupItem, Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Button, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Textarea, RadioGroup, RadioGroupItem, Tabs, TabsContent, TabsList, TabsTrigger, Checkbox } from '@repo/ui';
 import { Loader2 } from 'lucide-vue-next';
 import { useHouseStore } from '@/stores/houseStore';
 import { useToast } from '@repo/ui';
@@ -647,7 +657,7 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void;
   (e: 'submit', data: CreateRetreat): Promise<Retreat | undefined>;
-  (e: 'update', data: Retreat): Promise<void>;
+  (e: 'update', data: Partial<Retreat> & { id: string; _refreshBeds?: boolean }): Promise<void>;
 }>();
 
 const houseStore = useHouseStore();
@@ -655,6 +665,7 @@ const { toast } = useToast();
 
 // State
 const isSubmitting = ref(false);
+const refreshBedsFromHouse = ref(false);
 const showSuccessDialog = ref(false);
 const createdRetreat = ref<Retreat | null>(null);
 const copiedType = ref<string | null>(null);
@@ -932,7 +943,7 @@ const handleSubmit = async () => {
       console.log('RetreatModal - Updating retreat with isPublic:', updateData.isPublic);
       console.log('RetreatModal - Full update data:', updateData);
 
-      await emit('update', { ...props.retreat, ...updateData });
+      await emit('update', { id: props.retreat.id, ...updateData, _refreshBeds: refreshBedsFromHouse.value });
       emit('update:open', false);
     }
   } catch (error: any) {
@@ -1050,6 +1061,7 @@ watch(() => props.open, (newOpen) => {
   if (newOpen) {
     // Reset to first tab when modal opens
     activeTab.value = 'general';
+    refreshBedsFromHouse.value = false;
 
     if (props.mode === 'edit' && props.retreat) {
       // Edit mode - populate        // Initialize with legacy showQrCodes if new fields are undefined

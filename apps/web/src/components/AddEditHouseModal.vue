@@ -23,7 +23,7 @@
       <Progress :model-value="(currentStep / 3) * 100" />
       <form @submit.prevent="handleSubmit" @keydown.enter.prevent="handleEnterKey" class="flex-1 flex flex-col overflow-hidden">
         <!-- Step 1: General Information -->
-        <div v-if="currentStep === 1" class="grid gap-1">
+        <div v-if="currentStep === 1" class="grid gap-1 flex-1 overflow-y-auto min-h-0 pr-1">
           <h3 class="font-semibold text-lg text-center flex items-center justify-center gap-2">
             <span class="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold">1</span>
             Información General
@@ -234,7 +234,7 @@
         </div>
 
         <!-- Step 2: Capacity -->
-        <div v-if="currentStep === 2" class="grid">
+        <div v-if="currentStep === 2" class="grid flex-1 overflow-y-auto min-h-0 pr-1">
           <h3 class="font-semibold text-lg text-center flex items-center justify-center gap-1">
             <span class="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold">2</span>
             Capacidad y Camas
@@ -325,14 +325,14 @@
                   <div v-for="bed in roomBeds" :key="bed.index" class="grid grid-cols-12 gap-2 items-center ml-6 rounded hover:bg-gray-50 transition-colors">
                     <div class="col-span-3">
                       <Input
-                        v-model="bed.bedNumber"
+                        v-model="formData.beds[bed.index].bedNumber"
                         placeholder="#"
                         :class="{ 'border-red-500': formErrors[`beds[${bed.index}].bedNumber`] } + ' h-6 text-[12px]'"
                         @blur="validateBedField(bed.index, 'bedNumber')"
                       />
                     </div>
                     <div class="col-span-3">
-                      <Select v-model="bed.type">
+                      <Select v-model="formData.beds[bed.index].type">
                         <SelectTrigger  class="h-6 text-[12px]">
                           <SelectValue />
                         </SelectTrigger>
@@ -345,7 +345,7 @@
                       </Select>
                     </div>
                     <div class="col-span-3">
-                      <Select v-model="bed.defaultUsage">
+                      <Select v-model="formData.beds[bed.index].defaultUsage">
                         <SelectTrigger  class="h-6 text-[12px]">
                           <SelectValue />
                         </SelectTrigger>
@@ -445,7 +445,7 @@
         </div>
 
         <!-- Step 3: Notes -->
-        <div v-if="currentStep === 3" class="grid gap-4 py-4">
+        <div v-if="currentStep === 3" class="grid gap-4 py-4 flex-1 overflow-y-auto min-h-0 pr-1">
           <h3 class="font-semibold text-lg text-center flex items-center justify-center gap-2">
             <span class="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold">3</span>
             Notas Adicionales
@@ -490,7 +490,7 @@
         </div>
 
         <!-- Enhanced Dialog Footer -->
-        <DialogFooter class="flex justify-between items-center">
+        <DialogFooter class="flex justify-between items-center flex-shrink-0 pt-2 border-t">
           <div class="flex gap-2">
             <Button
               type="button"

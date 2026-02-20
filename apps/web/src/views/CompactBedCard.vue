@@ -16,11 +16,15 @@
     }"
   >
     <!-- Compact Header -->
-    <div class="px-2 py-1 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-t-lg">
+    <div
+      class="px-2 py-1 border-b rounded-t-lg"
+      :class="bedTypeHeaderClass"
+    >
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <BedDouble v-if="bed.type === 'normal'" class="w-3 h-3 text-gray-600 dark:text-gray-400" />
-          <Layers v-else-if="bed.type === 'litera_abajo' || bed.type === 'litera_arriba'" class="w-3 h-3 text-gray-600 dark:text-gray-400" />
+          <BedDouble v-if="bed.type === 'normal'" class="w-3 h-3 text-blue-600 dark:text-blue-400" />
+          <Layers v-else-if="bed.type === 'litera_arriba'" class="w-3 h-3 text-amber-600 dark:text-amber-400" />
+          <Layers v-else-if="bed.type === 'litera_abajo'" class="w-3 h-3 text-teal-600 dark:text-teal-400" />
           <Square v-else class="w-3 h-3 text-gray-600 dark:text-gray-400" />
           <span class="text-xs font-medium text-gray-900 dark:text-white">
             {{ bed.bedNumber }}
@@ -115,6 +119,21 @@ const { t } = useI18n();
 
 const isOver = computed(() => props.isOver);
 const isHighlighted = computed(() => props.highlighted);
+
+const bedTypeHeaderClass = computed(() => {
+  switch (props.bed.type) {
+    case 'normal':
+      return 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800';
+    case 'litera_arriba':
+      return 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800';
+    case 'litera_abajo':
+      return 'bg-teal-50 border-teal-200 dark:bg-teal-900/20 dark:border-teal-800';
+    case 'colchon':
+      return 'bg-gray-100 border-gray-300 dark:bg-gray-800 dark:border-gray-600';
+    default:
+      return 'bg-gray-50 border-gray-200 dark:bg-gray-900 dark:border-gray-700';
+  }
+});
 
 const calculateAge = (birthDate: string | Date): number | null => {
   if (!birthDate) return null;

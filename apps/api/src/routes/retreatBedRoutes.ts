@@ -1,5 +1,10 @@
 import { Router } from 'express';
-import { getRetreatBeds, assignParticipantToBed } from '../controllers/retreatBedController';
+import {
+	getRetreatBeds,
+	assignParticipantToBed,
+	autoAssignBeds,
+	clearBedAssignments,
+} from '../controllers/retreatBedController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
 
@@ -17,6 +22,20 @@ router.put(
 	isAuthenticated,
 	requirePermission('house:update'),
 	assignParticipantToBed,
+);
+router.post(
+	'/retreats/:retreatId/auto-assign-beds',
+	isAuthenticated,
+	requirePermission('house:update'),
+	requireRetreatAccess('retreatId'),
+	autoAssignBeds,
+);
+router.delete(
+	'/retreats/:retreatId/bed-assignments',
+	isAuthenticated,
+	requirePermission('house:update'),
+	requireRetreatAccess('retreatId'),
+	clearBedAssignments,
 );
 
 export default router;

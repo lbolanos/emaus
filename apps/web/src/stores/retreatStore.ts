@@ -135,14 +135,13 @@ export const useRetreatStore = defineStore('retreat', () => {
 	}
 
 	// Add updateRetreat action for EditRetreatModal
-	async function updateRetreat(retreatData: Retreat) {
+	async function updateRetreat(retreatData: Partial<Retreat> & { id: string }, refreshBeds?: boolean) {
 		loading.value = true;
 		try {
-			// Debug logging
-			//console.log('RetreatStore - Updating retreat:', retreatData);
-			//console.log('RetreatStore - isPublic value:', retreatData.isPublic);
-
-			const response = await api.put(`/retreats/${retreatData.id}`, retreatData);
+			const url = refreshBeds
+				? `/retreats/${retreatData.id}?refreshBeds=true`
+				: `/retreats/${retreatData.id}`;
+			const response = await api.put(url, retreatData);
 
 			// Debug logging
 			//console.log('RetreatStore - API response:', response.data);

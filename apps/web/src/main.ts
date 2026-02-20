@@ -7,6 +7,7 @@ import i18n from './i18n';
 import { useAuthStore } from './stores/authStore';
 import { initializeCsrfProtection } from './utils/csrf';
 import { installRecaptcha } from './services/recaptcha';
+import { loadGoogleMaps } from './utils/googleMaps';
 
 import './assets/main.css';
 
@@ -21,6 +22,9 @@ app.use(i18n);
 installRecaptcha(app);
 
 const authStore = useAuthStore();
+
+// Load Google Maps dynamically using runtime config key (supports window.EMAUS_RUNTIME_CONFIG)
+loadGoogleMaps().catch((err) => console.error('[Maps]', err));
 
 // Inicializar protección CSRF después de verificar autenticación
 authStore.checkAuthStatus().then(() => {

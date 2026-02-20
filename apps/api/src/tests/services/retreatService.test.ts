@@ -115,6 +115,7 @@ describe('Retreat Service', () => {
 				{
 					parish: updatedParish,
 				},
+				false,
 				getTestDataSource(),
 			);
 
@@ -128,6 +129,7 @@ describe('Retreat Service', () => {
 				{
 					parish: 'New Name',
 				},
+				false,
 				getTestDataSource(),
 			);
 
@@ -144,6 +146,7 @@ describe('Retreat Service', () => {
 					startDate: newStartDate,
 					endDate: newEndDate,
 				},
+				false,
 				getTestDataSource(),
 			);
 
@@ -164,6 +167,7 @@ describe('Retreat Service', () => {
 					startDate,
 					endDate,
 				},
+				false,
 				getTestDataSource(),
 			);
 

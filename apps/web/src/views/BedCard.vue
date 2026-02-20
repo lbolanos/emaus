@@ -16,11 +16,15 @@
     }"
   >
     <!-- Card Header -->
-    <div class="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-t-lg">
+    <div
+      class="px-3 py-2 border-b rounded-t-lg"
+      :class="bedTypeHeaderClass"
+    >
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <BedDouble v-if="bed.type === 'normal'" class="w-4 h-4 text-gray-600 dark:text-gray-400" />
-          <Layers v-else-if="bed.type === 'litera_abajo' || bed.type === 'litera_arriba'" class="w-4 h-4 text-gray-600 dark:text-gray-400" />
+          <BedDouble v-if="bed.type === 'normal'" class="w-4 h-4 text-blue-600 dark:text-blue-400" />
+          <Layers v-else-if="bed.type === 'litera_arriba'" class="w-4 h-4 text-amber-600 dark:text-amber-400" />
+          <Layers v-else-if="bed.type === 'litera_abajo'" class="w-4 h-4 text-teal-600 dark:text-teal-400" />
           <Square v-else class="w-4 h-4 text-gray-600 dark:text-gray-400" />
           <span class="text-sm font-medium text-gray-900 dark:text-white">
             {{ bed.roomNumber }}-{{ bed.bedNumber }}
@@ -117,10 +121,10 @@
           <span>{{ $t('bedAssignments.floor') }} {{ bed.floor || 0 }}</span>
         </div>
         <div class="flex items-center gap-1">
-          <span v-if="bed.type === 'normal'">{{ $t('bedAssignments.normalBed') }}</span>
-          <span v-else-if="bed.type === 'litera_abajo'">{{ $t('bedAssignments.bottomBunk') }}</span>
-          <span v-else-if="bed.type === 'litera_arriba'">{{ $t('bedAssignments.topBunk') }}</span>
-          <span v-else>{{ $t('bedAssignments.mattress') }}</span>
+          <span v-if="bed.type === 'normal'" class="text-blue-600 dark:text-blue-400 font-medium">{{ $t('bedAssignments.normalBed') }}</span>
+          <span v-else-if="bed.type === 'litera_abajo'" class="text-teal-600 dark:text-teal-400 font-medium">{{ $t('bedAssignments.bottomBunk') }}</span>
+          <span v-else-if="bed.type === 'litera_arriba'" class="text-amber-600 dark:text-amber-400 font-medium">{{ $t('bedAssignments.topBunk') }}</span>
+          <span v-else class="text-gray-500 dark:text-gray-400 font-medium">{{ $t('bedAssignments.mattress') }}</span>
         </div>
       </div>
     </div>
@@ -151,6 +155,21 @@ const { t } = useI18n();
 
 const isOver = computed(() => props.isOver);
 const isHighlighted = computed(() => props.highlighted);
+
+const bedTypeHeaderClass = computed(() => {
+  switch (props.bed.type) {
+    case 'normal':
+      return 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800';
+    case 'litera_arriba':
+      return 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800';
+    case 'litera_abajo':
+      return 'bg-teal-50 border-teal-200 dark:bg-teal-900/20 dark:border-teal-800';
+    case 'colchon':
+      return 'bg-gray-100 border-gray-300 dark:bg-gray-800 dark:border-gray-600';
+    default:
+      return 'bg-gray-50 border-gray-200 dark:bg-gray-900 dark:border-gray-700';
+  }
+});
 
 const calculateAge = (birthDate: string | Date): number | null => {
   if (!birthDate) return null;

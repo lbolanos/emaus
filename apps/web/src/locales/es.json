@@ -1,4 +1,7 @@
 {
+  "delete": {
+    "confirmTitle": "¿Estás seguro?"
+  },
   "login": {
     "title": "Iniciar Sesión",
     "description": "Ingresa tu correo y contraseña para iniciar sesión",
@@ -732,6 +735,7 @@
     "roleInvitationDescription": "Permite enviar invitaciones basadas en roles",
     "showPickupInfo": "Mostrar información de recogida",
     "showPickupInfoDescription": "Controla si se muestran los campos de ubicación de recogida durante el registro",
+    "refreshBedsFromHouse": "Refrescar camas desde la casa",
     "saveChanges": "Guardar Cambios",
     "create": "Crear Retiro",
     "cancel": "Cancelar",
@@ -1009,6 +1013,13 @@
       "servers": "Servidores",
       "snores": "Roncan",
       "nonSnores": "No roncan"
+    },
+    "ageFilter": {
+      "all": "Todas las edades",
+      "under40": "Menores de 40",
+      "40to55": "40 a 55 años",
+      "56to65": "56 a 65 años",
+      "over65": "Mayores de 65"
     },
     "searchResults": "Resultados de búsqueda",
     "bedsFound": "camas encontradas",
@@ -1330,7 +1341,8 @@
     "bunkBed": "Litera Inferior",
     "mattress": "Colchón",
     "noRoomAssigned": "Sin habitación asignada",
-    "noTableAssigned": "Sin mesa asignada"
+    "noTableAssigned": "Sin mesa asignada",
+    "badgeSize": "Tamaño"
   },
   "tags": {
     "selectLabel": "Etiquetas",

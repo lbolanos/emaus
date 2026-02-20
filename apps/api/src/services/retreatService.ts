@@ -82,7 +82,48 @@ export const findById = async (id: string, dataSource?: DataSource) => {
 	return retreatRepository.findOne({ where: { id }, relations: ['house'] });
 };
 
-export const update = async (id: string, retreatData: UpdateRetreat, dataSource?: DataSource) => {
+export const refreshRetreatBedsFromHouse = async (
+	retreatId: string,
+	houseId: string,
+	dataSource?: DataSource,
+) => {
+	const repos = getRepositories(dataSource);
+
+	// 1. Delete all existing retreat beds
+	await repos.retreatBed.delete({ retreat: { id: retreatId } });
+
+	// 2. Fetch house with beds relation
+	const house = await repos.house.findOne({
+		where: { id: houseId },
+		relations: ['beds'],
+	});
+
+	// 3. Create new RetreatBed records from house beds
+	if (house && house.beds) {
+		const retreat = await repos.retreat.findOne({ where: { id: retreatId } });
+		if (retreat) {
+			const newRetreatBeds = house.beds.map((bed) => {
+				return repos.retreatBed.create({
+					id: uuidv4(),
+					roomNumber: bed.roomNumber,
+					bedNumber: bed.bedNumber,
+					floor: bed.floor,
+					type: bed.type,
+					defaultUsage: bed.defaultUsage,
+					retreat,
+				});
+			});
+			await repos.retreatBed.save(newRetreatBeds);
+		}
+	}
+};
+
+export const update = async (
+	id: string,
+	retreatData: UpdateRetreat,
+	refreshBeds?: boolean,
+	dataSource?: DataSource,
+) => {
 	const retreatRepository = getRepository(Retreat, dataSource);
 	const retreat = await retreatRepository.findOne({ where: { id } });
 	if (!retreat) {
@@ -90,6 +131,14 @@ export const update = async (id: string, retreatData: UpdateRetreat, dataSource?
 	}
 	Object.assign(retreat, retreatData);
 	await retreatRepository.save(retreat);
+
+	if (refreshBeds && retreat.houseId) {
+		await refreshRetreatBedsFromHouse(id, retreat.houseId, dataSource);
+		// Re-assign participants to the new beds
+		const { autoAssignBedsForRetreat } = await import('./participantService');
+		await autoAssignBedsForRetreat(id);
+	}
+
 	return retreat;
 };
 

@@ -212,14 +212,10 @@ const handleAddRetreat = async (retreatData: CreateRetreat) => {
   }
 };
 
-const handleEditRetreat = async (retreatData: Retreat) => { // New function for editing
+const handleEditRetreat = async (retreatData: Partial<Retreat> & { id: string; _refreshBeds?: boolean }) => {
   try {
-    // Debug logging
-    console.log('Header - Received update retreat data:', retreatData);
-    console.log('Header - isPublic value:', retreatData.isPublic);
-
-    // Assuming an updateRetreat action exists in retreatStore
-    await retreatStore.updateRetreat(retreatData); // This action needs to be implemented in retreatStore
+    const { _refreshBeds, ...data } = retreatData;
+    await retreatStore.updateRetreat(data as Retreat, _refreshBeds);
     isEditModalOpen.value = false;
   } catch (err) {
     console.error('Failed to update retreat:', err);

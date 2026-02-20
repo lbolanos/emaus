@@ -36,6 +36,9 @@ jobs:
 
       - name: Build application
         run: pnpm build
+        env:
+          VITE_API_URL: https://emaus.cc/api
+          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -65,6 +68,7 @@ jobs:
           EC2_USER: ${{ secrets.EC2_USER }}
           EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
         run: |
           set -e
 
@@ -99,6 +103,23 @@ jobs:
           else
             echo "Warning: Web dist not found"
           fi
+
+          # Generate runtime-config.js with secrets and upload it
+          echo "Generating runtime-config.js..."
+          API_URL="https://${DOMAIN_NAME:-emaus.cc}/api"
+          cat > /tmp/runtime-config.js << RCEOF
+window.EMAUS_RUNTIME_CONFIG = {
+  apiUrl: '${API_URL}',
+  googleMapsApiKey: '${GOOGLE_MAPS_API_KEY}',
+  environment: 'production',
+  isDevelopment: false,
+  isStaging: false,
+  isProduction: true,
+};
+console.log('[CONFIG] Production runtime configuration loaded');
+RCEOF
+          scp -i ~/.ssh/emaus-key.pem /tmp/runtime-config.js ubuntu@$EC2_HOST:/var/www/emaus/apps/web/dist/runtime-config.js
+          echo "runtime-config.js uploaded"
 
           # Deploy and restart application
           ssh -i ~/.ssh/emaus-key.pem ubuntu@$EC2_HOST << 'RESTARTEOF'

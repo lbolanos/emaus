@@ -8,11 +8,9 @@
   </head>
   <body>
     <div id="app"></div>
+    <!-- Runtime config injected by the server at deploy time (sets window.EMAUS_RUNTIME_CONFIG).
+         onerror is intentional: the file only exists in production deployments. -->
+    <script src="/runtime-config.js" onerror="console.info('[CONFIG] runtime-config.js not found, using build-time defaults')"></script>
     <script type="module" src="/src/main.ts"></script>
-    <script
-      async
-      type="text/javascript"
-      src="https://maps.googleapis.com/maps/api/js?key=%VITE_GOOGLE_MAPS_API_KEY%&libraries=places&loading=async" 
-    ></script>
   </body>
 </html>

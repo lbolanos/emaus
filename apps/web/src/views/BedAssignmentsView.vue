@@ -60,6 +60,16 @@
             <option value="snores">{{ $t('bedAssignments.participantFilter.snores') }}</option>
             <option value="nonSnores">{{ $t('bedAssignments.participantFilter.nonSnores') }}</option>
           </select>
+          <select
+            v-model="ageFilter"
+            class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+          >
+            <option value="all">{{ $t('bedAssignments.ageFilter.all') }}</option>
+            <option value="under40">{{ $t('bedAssignments.ageFilter.under40') }}</option>
+            <option value="40to55">{{ $t('bedAssignments.ageFilter.40to55') }}</option>
+            <option value="56to65">{{ $t('bedAssignments.ageFilter.56to65') }}</option>
+            <option value="over65">{{ $t('bedAssignments.ageFilter.over65') }}</option>
+          </select>
           <Button
             @click="clearSearch"
             variant="outline"
@@ -71,12 +81,12 @@
       </div>
 
       <!-- Search Results Summary -->
-      <div v-if="searchQuery || participantFilter !== 'all'" class="mt-3 text-sm text-gray-600 dark:text-gray-400">
+      <div v-if="searchQuery || participantFilter !== 'all' || ageFilter !== 'all'" class="mt-3 text-sm text-gray-600 dark:text-gray-400">
         <span v-if="searchQuery">
           {{ $t('bedAssignments.searchResults') }}: "{{ searchQuery }}" -
           {{ filteredBeds.length }} {{ $t('bedAssignments.bedsFound') }}
         </span>
-        <span v-if="participantFilter !== 'all'">
+        <span v-if="participantFilter !== 'all' || ageFilter !== 'all'">
           {{ $t('bedAssignments.filterApplied') }}: {{ getFilterLabel() }}
         </span>
       </div>
@@ -215,7 +225,7 @@
       </div>
       <div v-else class="mt-8 space-y-8">
         <!-- No search results -->
-        <div v-if="filteredBeds.length === 0 && (searchQuery || participantFilter !== 'all')" class="text-center py-12">
+        <div v-if="filteredBeds.length === 0 && (searchQuery || participantFilter !== 'all' || ageFilter !== 'all')" class="text-center py-12">
           <Search class="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
             {{ $t('bedAssignments.noSearchResults') }}
@@ -375,6 +385,7 @@ const viewMode = ref<'individual' | 'grouped'>('individual');
 const searchQuery = ref('');
 const searchType = ref<'all' | 'participants' | 'beds'>('all');
 const participantFilter = ref<'all' | 'walkers' | 'servers' | 'snores' | 'nonSnores'>('all');
+const ageFilter = ref<'all' | 'under40' | '40to55' | '56to65' | 'over65'>('all');
 
 const calculateAge = (birthDate: string | Date): number | null => {
   if (!birthDate) return null;
@@ -484,6 +495,22 @@ const filteredBeds = computed(() => {
           return bed.participant.snores === false;
         default:
           return true;
+      }
+    });
+  }
+
+  // Apply age filter
+  if (ageFilter.value !== 'all') {
+    filtered = filtered.filter(bed => {
+      if (!bed.participant?.birthDate) return false;
+      const age = calculateAge(bed.participant.birthDate);
+      if (age === null) return false;
+      switch (ageFilter.value) {
+        case 'under40': return age < 40;
+        case '40to55': return age >= 40 && age <= 55;
+        case '56to65': return age >= 56 && age <= 65;
+        case 'over65': return age > 65;
+        default: return true;
       }
     });
   }
@@ -759,6 +786,7 @@ const clearSearch = () => {
   searchQuery.value = '';
   searchType.value = 'all';
   participantFilter.value = 'all';
+  ageFilter.value = 'all';
 };
 
 const shouldHighlightBed = (bed: RetreatBed) => {
@@ -785,13 +813,26 @@ const toggleViewMode = () => {
 };
 
 const getFilterLabel = () => {
-  const labels: Record<string, string> = {
+  const parts: string[] = [];
+  const participantLabels: Record<string, string> = {
     walkers: t('bedAssignments.participantFilter.walkers'),
     servers: t('bedAssignments.participantFilter.servers'),
     snores: t('bedAssignments.participantFilter.snores'),
     nonSnores: t('bedAssignments.participantFilter.nonSnores')
   };
-  return labels[participantFilter.value] || '';
+  if (participantLabels[participantFilter.value]) {
+    parts.push(participantLabels[participantFilter.value]);
+  }
+  const ageLabels: Record<string, string> = {
+    under40: t('bedAssignments.ageFilter.under40'),
+    '40to55': t('bedAssignments.ageFilter.40to55'),
+    '56to65': t('bedAssignments.ageFilter.56to65'),
+    over65: t('bedAssignments.ageFilter.over65')
+  };
+  if (ageLabels[ageFilter.value]) {
+    parts.push(ageLabels[ageFilter.value]);
+  }
+  return parts.join(', ');
 };
 
 watch(() => retreatStore.selectedRetreatId, (newId) => {

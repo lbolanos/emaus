@@ -73,7 +73,8 @@ export const getRetreatByIdPublic = async (req: Request, res: Response, next: Ne
 
 export const updateRetreat = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const retreat = await update(req.params.id, req.body);
+		const refreshBeds = req.query.refreshBeds === 'true';
+		const retreat = await update(req.params.id, req.body, refreshBeds);
 		if (!retreat) {
 			return res.status(404).json({ message: 'Retreat not found' });
 		}

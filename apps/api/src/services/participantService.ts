@@ -132,105 +132,166 @@ export const findParticipantById = async (
 	});
 };
 
+// ==================== BED SCORING SYSTEM ====================
+
+const BED_SCORING_CONFIG = {
+	ageSigmoidMidpoint: 55,
+	ageSigmoidSteepness: 0.15,
+	snoringMatchBonus: 25,
+	snoringMismatchPenalty: -30,
+	floorPenaltyPerLevel: 5,
+	walkerYoungPrefs: { litera_arriba: 100, litera_abajo: 80, normal: 60, colchon: 20 } as Record<string, number>,
+	walkerOldPrefs: { normal: 100, litera_abajo: 85, colchon: 40, litera_arriba: 5 } as Record<string, number>,
+	serverYoungPrefs: { colchon: 100, litera_abajo: 80, litera_arriba: 60, normal: 40 } as Record<string, number>,
+	serverOldPrefs: { litera_abajo: 100, normal: 90, colchon: 50, litera_arriba: 30 } as Record<string, number>,
+};
+
+/**
+ * Sigmoid function returning 0 (young) to 1 (old).
+ * Age 20→0.004, 40→0.09, 50→0.33, 55→0.50, 65→0.88, 80→0.99
+ */
+const computeAgePenaltyFactor = (age: number): number => {
+	return 1 / (1 + Math.exp(-BED_SCORING_CONFIG.ageSigmoidSteepness * (age - BED_SCORING_CONFIG.ageSigmoidMidpoint)));
+};
+
+/** Map from roomNumber → 'snorer' | 'non-snorer' | 'empty' */
+type RoomSnoreStatusMap = Map<string, 'snorer' | 'non-snorer' | 'empty'>;
+
+/**
+ * Build a map of room snoring status for the entire retreat in a single query.
+ */
+const buildRoomSnoreStatusMap = async (
+	retreatBedRepository: any,
+	retreatId: string,
+): Promise<RoomSnoreStatusMap> => {
+	const rows = await retreatBedRepository
+		.createQueryBuilder('bed')
+		.select('bed.roomNumber', 'roomNumber')
+		.addSelect('p.snores', 'snores')
+		.innerJoin('bed.participant', 'p')
+		.where('bed.retreatId = :retreatId', { retreatId })
+		.getRawMany();
+
+	const map: RoomSnoreStatusMap = new Map();
+	for (const row of rows) {
+		const room = row.roomNumber as string;
+		const snores = row.snores;
+		if (!map.has(room)) {
+			map.set(room, snores ? 'snorer' : 'non-snorer');
+		} else {
+			// If room already has a status and a new occupant disagrees, keep existing
+			// (first occupant determines room status)
+		}
+	}
+	return map;
+};
+
+/**
+ * Incrementally update the snore map after assigning a participant to a bed.
+ */
+const updateRoomSnoreStatus = (
+	map: RoomSnoreStatusMap,
+	participant: Participant,
+	bed: RetreatBed,
+): void => {
+	const room = bed.roomNumber;
+	if (!map.has(room)) {
+		map.set(room, participant.snores ? 'snorer' : 'non-snorer');
+	}
+};
+
+/**
+ * Score a single bed for a participant. Higher is better.
+ */
+const scoreBedForParticipant = (
+	participant: Participant,
+	bed: RetreatBed,
+	roomSnoreStatus: RoomSnoreStatusMap,
+): number => {
+	const age = participant.birthDate
+		? new Date().getFullYear() - new Date(participant.birthDate).getFullYear()
+		: 30;
+	const ageFactor = computeAgePenaltyFactor(age);
+
+	// Bed type score: interpolate between young and old preference tables
+	const isWalker = participant.type === 'walker';
+	const youngPrefs = isWalker ? BED_SCORING_CONFIG.walkerYoungPrefs : BED_SCORING_CONFIG.serverYoungPrefs;
+	const oldPrefs = isWalker ? BED_SCORING_CONFIG.walkerOldPrefs : BED_SCORING_CONFIG.serverOldPrefs;
+	const youngScore = youngPrefs[bed.type] ?? 50;
+	const oldScore = oldPrefs[bed.type] ?? 50;
+	const bedTypeScore = youngScore * (1 - ageFactor) + oldScore * ageFactor;
+
+	// Floor score: penalize higher floors more for older participants
+	const floorsAboveGround = Math.max(0, (bed.floor ?? 1) - 1);
+	const floorScore = -floorsAboveGround * BED_SCORING_CONFIG.floorPenaltyPerLevel * ageFactor;
+
+	// Snoring score
+	let snoringScore = 0;
+	const roomStatus = roomSnoreStatus.get(bed.roomNumber);
+	if (roomStatus && participant.snores !== undefined && participant.snores !== null) {
+		const participantIsSnorer = !!participant.snores;
+		const roomIsSnorer = roomStatus === 'snorer';
+		if (participantIsSnorer === roomIsSnorer) {
+			snoringScore = BED_SCORING_CONFIG.snoringMatchBonus;
+		} else {
+			snoringScore = BED_SCORING_CONFIG.snoringMismatchPenalty;
+		}
+	}
+
+	return bedTypeScore + floorScore + snoringScore;
+};
+
 const assignBedToParticipant = async (
 	participant: Participant,
 	excludedBedIds: string[] = [],
 	entityManager?: any,
+	roomSnoreStatusMap?: RoomSnoreStatusMap,
 ): Promise<string | undefined> => {
-	// Don't assign beds to cancelled participants
-	if (participant.isCancelled) {
-		return undefined;
-	}
-
+	if (participant.isCancelled) return undefined;
 	if (!participant.birthDate) return undefined;
 
-	const age = new Date().getFullYear() - new Date(participant.birthDate).getFullYear();
 	const retreatBedRepository = entityManager
 		? entityManager.getRepository(RetreatBed)
 		: AppDataSource.getRepository(RetreatBed);
 
-	// Determine bed usage based on participant type
 	const bedUsage = participant.type === 'walker' ? 'caminante' : 'servidor';
 
-	// Find available beds using a query that respects the current transaction state
-	const availableBedsQuery = retreatBedRepository
+	// Fetch all available beds in one query
+	const availableBeds: RetreatBed[] = await retreatBedRepository
 		.createQueryBuilder('bed')
 		.where('bed.retreatId = :retreatId', { retreatId: participant.retreatId })
 		.andWhere('bed.participantId IS NULL')
 		.andWhere('bed.defaultUsage = :bedUsage', { bedUsage })
 		.andWhere('bed.id NOT IN (:...excludedBedIds)', {
 			excludedBedIds: excludedBedIds.length > 0 ? excludedBedIds : [''],
-		});
+		})
+		.getMany();
 
-	// Apply sorting based on participant type and age
-	if (participant.type === 'walker') {
-		if (age <= 40) {
-			// Younger walkers: prioritize bottom bunk beds first, then top bunk
-			availableBedsQuery
-				.orderBy(
-					"CASE WHEN bed.type = 'litera_abajo' THEN 1 WHEN bed.type = 'litera_arriba' THEN 2 WHEN bed.type = 'normal' THEN 3 ELSE 4 END",
-				)
-				.addOrderBy('bed.floor', 'ASC');
-		} else {
-			// Older walkers: prioritize normal beds on lower floors
-			availableBedsQuery
-				.orderBy(
-					"CASE WHEN bed.type = 'normal' THEN 1 WHEN bed.type = 'litera_abajo' THEN 2 WHEN bed.type = 'litera_arriba' THEN 3 ELSE 4 END",
-				)
-				.addOrderBy('bed.floor', 'ASC');
-		}
-	} else if (participant.type === 'server') {
-		if (age <= 35) {
-			// Younger servers: prioritize mattresses
-			availableBedsQuery.orderBy(
-				"CASE WHEN bed.type = 'colchon' THEN 1 WHEN bed.type = 'litera_abajo' THEN 2 WHEN bed.type = 'litera_arriba' THEN 3 ELSE 4 END",
-			);
-		} else {
-			availableBedsQuery.orderBy(
-				"CASE WHEN bed.type = 'litera_abajo' THEN 1 WHEN bed.type = 'litera_arriba' THEN 2 WHEN bed.type = 'normal' THEN 3 ELSE 4 END",
-			);
+	if (availableBeds.length === 0) return undefined;
+
+	// Build snore map if not provided (single-assignment mode)
+	const snoreMap = roomSnoreStatusMap ?? await buildRoomSnoreStatusMap(retreatBedRepository, participant.retreatId);
+
+	// Score each bed and pick the highest
+	let bestBed: RetreatBed | null = null;
+	let bestScore = -Infinity;
+
+	for (const bed of availableBeds) {
+		const score = scoreBedForParticipant(participant, bed, snoreMap);
+		if (score > bestScore) {
+			bestScore = score;
+			bestBed = bed;
 		}
 	}
 
-	// Try to find beds in rooms with same snoring status first
-	if (participant.snores !== undefined) {
-		const roomsWithSameSnorers = await retreatBedRepository
-			.createQueryBuilder('rb')
-			.select('rb.roomNumber')
-			.innerJoin('rb.participant', 'p')
-			.where('rb.retreatId = :retreatId', { retreatId: participant.retreatId })
-			.andWhere('p.snores = :snores', { snores: participant.snores })
-			.groupBy('rb.roomNumber')
-			.getRawMany();
-
-		const roomNumbers = roomsWithSameSnorers.map((r: any) => r.rb_roomNumber);
-
-		if (roomNumbers.length > 0) {
-			const snorerQuery = availableBedsQuery
-				.clone()
-				.andWhere('bed.roomNumber IN (:...roomNumbers)', { roomNumbers });
-			const bed = await snorerQuery.getOne();
-			if (bed) return bed.id;
-		}
-	}
-
-	// If no snorer-compatible beds found, get any available bed
-	//const allAvailableBeds = await availableBedsQuery.getMany();
-
-	const bed = await availableBedsQuery.getOne();
-
-	// Debug: Check if we're getting the same bed for different participants
-	/*if (bed) {
-  } else {
-  }*/
-
-	return bed?.id;
+	return bestBed?.id;
 };
 
 const assignBedAndTableToParticipant = async (
 	participant: Participant,
 	assignedBedIds: Set<string>,
 	entityManager: any,
+	roomSnoreStatusMap?: RoomSnoreStatusMap,
 ): Promise<{ bedId?: string; tableId?: string }> => {
 	const result: { bedId?: string; tableId?: string } = {};
 
@@ -248,6 +309,7 @@ const assignBedAndTableToParticipant = async (
 			participant,
 			Array.from(assignedBedIds),
 			entityManager,
+			roomSnoreStatusMap,
 		);
 		if (bedId) {
 			result.bedId = bedId;
@@ -1651,6 +1713,81 @@ export const unlinkUserFromParticipant = async (participantId: string): Promise<
 	await participantRepository.save(participant);
 };
 
+export const autoAssignBedsForRetreat = async (
+	retreatId: string,
+): Promise<{ assigned: number; skipped: number }> => {
+	const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
+
+	// Get all participants that are eligible for bed assignment and don't already have one
+	const assignedParticipantIds = await retreatBedRepository
+		.createQueryBuilder('bed')
+		.select('bed.participantId')
+		.where('bed.retreatId = :retreatId', { retreatId })
+		.andWhere('bed.participantId IS NOT NULL')
+		.getRawMany()
+		.then((rows: any[]) => rows.map((r) => r.bed_participantId as string));
+
+	const participants = await participantRepository.find({
+		where: {
+			retreatId,
+			isCancelled: false,
+		},
+	});
+
+	const eligible = participants.filter(
+		(p) =>
+			p.type !== 'waiting' &&
+			p.type !== 'partial_server' &&
+			p.birthDate &&
+			!assignedParticipantIds.includes(p.id),
+	);
+
+	// Sort: oldest first so they get bottom bunks/normal beds first,
+	// then young walkers fill remaining top bunks (which they prefer anyway)
+	const currentYear = new Date().getFullYear();
+	eligible.sort((a, b) => {
+		const ageA = currentYear - new Date(a.birthDate).getFullYear();
+		const ageB = currentYear - new Date(b.birthDate).getFullYear();
+
+		// Primary: oldest first (greedy: let those with strongest preference pick first)
+		if (ageA !== ageB) return ageB - ageA;
+
+		// Secondary: group snorers together
+		const snoreA = a.snores ? 1 : 0;
+		const snoreB = b.snores ? 1 : 0;
+		if (snoreA !== snoreB) return snoreA - snoreB;
+
+		// Tertiary: stable tie-break by lastName
+		return (a.lastName || '').localeCompare(b.lastName || '');
+	});
+
+	// Build snore map once and update incrementally
+	const snoreMap = await buildRoomSnoreStatusMap(retreatBedRepository, retreatId);
+
+	const assignedBedIds: string[] = [];
+	let assigned = 0;
+	let skipped = 0;
+
+	for (const participant of eligible) {
+		const bedId = await assignBedToParticipant(participant, assignedBedIds, undefined, snoreMap);
+		if (bedId) {
+			await retreatBedRepository.update(bedId, { participantId: participant.id });
+			assignedBedIds.push(bedId);
+			assigned++;
+
+			// Update snore map incrementally
+			const assignedBed = await retreatBedRepository.findOne({ where: { id: bedId } });
+			if (assignedBed) {
+				updateRoomSnoreStatus(snoreMap, participant, assignedBed);
+			}
+		} else {
+			skipped++;
+		}
+	}
+
+	return { assigned, skipped };
+};
+
 export const importParticipants = async (retreatId: string, participantsData: any[], user: any) => {
 	let importedCount = 0;
 	let updatedCount = 0;
@@ -2074,6 +2211,25 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				where: { id: In(processedParticipantIds) },
 			});
 
+			// Sort: oldest first so they get bottom bunks/normal beds first,
+			// then young walkers fill remaining top bunks (which they prefer anyway)
+			const currentYear = new Date().getFullYear();
+			participantsToProcess.sort((a, b) => {
+				const ageA = a.birthDate ? currentYear - new Date(a.birthDate).getFullYear() : 999;
+				const ageB = b.birthDate ? currentYear - new Date(b.birthDate).getFullYear() : 999;
+
+				// Primary: oldest first (greedy: let those with strongest preference pick first)
+				if (ageA !== ageB) return ageB - ageA;
+
+				// Secondary: group snorers together
+				const snoreA = a.snores ? 1 : 0;
+				const snoreB = b.snores ? 1 : 0;
+				if (snoreA !== snoreB) return snoreA - snoreB;
+
+				// Tertiary: stable tie-break by lastName
+				return (a.lastName || '').localeCompare(b.lastName || '');
+			});
+
 			console.warn(
 				`📊 Main transaction: found ${participantsToProcess.length} participants to process`,
 			);
@@ -2091,6 +2247,9 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 			// Track assigned beds to prevent duplicate assignments
 			const assignedBedIds = new Set<string>();
+
+			// Build snore map once for scoring-based bed assignment
+			const importSnoreMap = await buildRoomSnoreStatusMap(transactionalBedRepository, retreatId);
 
 			// First, process Excel bed assignments within the transaction to ensure consistency
 			console.warn(
@@ -2211,7 +2370,24 @@ export const importParticipants = async (retreatId: string, participantsData: an
 						participant,
 						assignedBedIds,
 						transactionalEntityManager,
+						importSnoreMap,
 					);
+
+					// Handle bed assignment
+					if (bedId) {
+						await transactionalBedRepository
+							.createQueryBuilder()
+							.update(RetreatBed)
+							.set({ participantId: participant.id })
+							.where('id = :id', { id: bedId })
+							.execute();
+
+						// Update snore map incrementally
+						const assignedBed = await transactionalBedRepository.findOne({ where: { id: bedId } });
+						if (assignedBed) {
+							updateRoomSnoreStatus(importSnoreMap, participant, assignedBed);
+						}
+					}
 
 					// Handle table assignment
 					if (tableId) {

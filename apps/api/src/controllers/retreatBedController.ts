@@ -1,6 +1,7 @@
 import { AppDataSource } from '../data-source';
 import { RetreatBed } from '../entities/retreatBed.entity';
 import { Participant } from '../entities/participant.entity';
+import { autoAssignBedsForRetreat } from '../services/participantService';
 import type { Request, Response, NextFunction } from 'express';
 
 export const getRetreatBeds = async (req: Request, res: Response, next: NextFunction) => {
@@ -104,5 +105,31 @@ export const assignParticipantToBed = async (req: Request, res: Response, next: 
 		}
 
 		res.status(statusCode).json({ message });
+	}
+};
+
+export const autoAssignBeds = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { retreatId } = req.params;
+		const result = await autoAssignBedsForRetreat(retreatId);
+		res.json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const clearBedAssignments = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { retreatId } = req.params;
+		const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
+		await retreatBedRepository
+			.createQueryBuilder()
+			.update(RetreatBed)
+			.set({ participantId: null })
+			.where('retreatId = :retreatId', { retreatId })
+			.execute();
+		res.json({ message: 'Bed assignments cleared' });
+	} catch (error) {
+		next(error);
 	}
 };
