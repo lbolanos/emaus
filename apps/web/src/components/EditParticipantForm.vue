@@ -28,7 +28,7 @@ const getColumnType = (key: string) => {
     const col = props.allColumns.find(c => c.key === key);
     if (col && col.type) return col.type;
     if (key === 'tags') return 'tags';
-    if (key === 'palancasCoordinator' || key === 'pickupLocation') return 'select';
+    if (key === 'type' || key === 'palancasCoordinator' || key === 'pickupLocation') return 'select';
     if (key.startsWith('is') || key.startsWith('has') || key.startsWith('requests') || key === 'arrivesOnOwn' || key === 'snores' || key === 'palancasRequested') return 'boolean';
     if (key.toLowerCase().includes('notes') || key.toLowerCase().includes('details')) return 'textarea';
     if (key.toLowerCase().includes('date')) return 'date';
@@ -331,6 +331,21 @@ const calculateAge = (birthDate: string | Date) => {
           :model-value="localParticipant[key]"
           @update:model-value="(value: boolean) => localParticipant[key] = value"
         />
+        <Select
+          v-if="getColumnType(key) === 'select' && key === 'type'"
+          :model-value="localParticipant[key]"
+          @update:model-value="(value: string) => localParticipant[key] = value"
+        >
+          <SelectTrigger class="w-full">
+            <SelectValue placeholder="Seleccionar tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="walker">Caminante</SelectItem>
+            <SelectItem value="server">Servidor</SelectItem>
+            <SelectItem value="waiting">En espera</SelectItem>
+            <SelectItem value="partial_server">Servidor parcial</SelectItem>
+          </SelectContent>
+        </Select>
         <Select
           v-if="getColumnType(key) === 'select' && key === 'palancasCoordinator'"
           :model-value="localParticipant[key]"

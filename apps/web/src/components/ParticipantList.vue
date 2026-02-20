@@ -627,7 +627,7 @@ const formColumnsToShow = computed(() => {
 const formColumnsToEdit = computed(() => {
     const combined = new Set([...props.columnsToEditInForm, ...visibleColumns.value]);
     const nonEditableSystemKeys = [
-        'id', 'id_on_retreat', 'type', 'email', 'registrationDate',
+        'id', 'id_on_retreat', 'email', 'registrationDate',
         'lastUpdatedDate', 'retreatId', 'tableId'
     ];
     return Array.from(combined).filter(key => !nonEditableSystemKeys.includes(key));
