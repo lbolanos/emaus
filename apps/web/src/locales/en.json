@@ -333,7 +333,17 @@
         "readFile": "Failed to read the file. Please check the file format.",
         "emailRequired": "Email column is required",
         "generic": "An error occurred during import. Please try again."
-      }
+      },
+      "duplicates": {
+        "title": "Duplicate emails detected",
+        "description": "{count} group(s) with same email found. Check the rows you want to keep.",
+        "field": "Field",
+        "rowLabel": "Row {n}",
+        "differs": "Different",
+        "continue": "Continue",
+        "editEmailWarning": "You must edit {count} email(s) highlighted in red before continuing."
+      },
+      "ignoreRoomAssignment": "Ignore room assignment"
     },
     "export": {
       "title": "Export Participants",

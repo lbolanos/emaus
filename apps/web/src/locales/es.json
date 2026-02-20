@@ -376,7 +376,31 @@
       "errorTitle": "Error de importación",
       "errorNoEmail": "No se encontraron correos en el archivo",
       "successTitle": "Éxito",
-      "successDesc": "Participantes importados exitosamente"
+      "successDesc": "Participantes importados exitosamente",
+      "dropZoneText": "Arrastra tu archivo aquí o haz clic para buscar",
+      "supportedFormats": "Archivos Excel (.xlsx, .xls) y CSV (.csv) soportados",
+      "downloadTemplate": "Descargar Plantilla",
+      "confirmImport": "Importar Participantes",
+      "dataPreview": "Vista Previa de Datos",
+      "rowsToImport": "Listo para importar: {count} filas",
+      "processing": "Procesando...",
+      "error": {
+        "invalidFile": "Formato de archivo no válido. Selecciona un archivo .xlsx, .xls o .csv.",
+        "fileTooLarge": "Archivo demasiado grande. El tamaño máximo es 10MB.",
+        "readFile": "No se pudo leer el archivo. Verifica el formato.",
+        "emailRequired": "La columna de correo electrónico es requerida",
+        "generic": "Ocurrió un error durante la importación. Inténtalo de nuevo."
+      },
+      "duplicates": {
+        "title": "Correos electr. duplicados detectados",
+        "description": "Se encontraron {count} grupo(s) con el mismo correo. Marca las filas que deseas conservar.",
+        "field": "Campo",
+        "rowLabel": "Fila {n}",
+        "differs": "Diferente",
+        "continue": "Continuar",
+        "editEmailWarning": "Debes editar {count} correo(s) marcado(s) en rojo antes de continuar."
+      },
+      "ignoreRoomAssignment": "Ignorar asignación de habitación"
     },
     "export": {
       "title": "Exportar Participantes",

@@ -83,13 +83,15 @@ export const useParticipantStore = defineStore('participant', () => {
 		}
 	}
 
-	async function importParticipants(retreatId: string, participantsData: any[]) {
+	async function importParticipants(retreatId: string, participantsData: any[], skipRefresh = false) {
 		try {
 			loading.value = true;
 			const response = await api.post(`/participants/import/${retreatId}`, {
 				participants: participantsData,
 			});
-			await fetchParticipants();
+			if (!skipRefresh) {
+				await fetchParticipants();
+			}
 
 			// Return the response data for further processing
 			return response.data;
