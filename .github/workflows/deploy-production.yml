@@ -107,17 +107,15 @@ jobs:
           # Generate runtime-config.js with secrets and upload it
           echo "Generating runtime-config.js..."
           API_URL="https://${DOMAIN_NAME:-emaus.cc}/api"
-          cat > /tmp/runtime-config.js << RCEOF
-window.EMAUS_RUNTIME_CONFIG = {
-  apiUrl: '${API_URL}',
-  googleMapsApiKey: '${GOOGLE_MAPS_API_KEY}',
-  environment: 'production',
-  isDevelopment: false,
-  isStaging: false,
-  isProduction: true,
-};
-console.log('[CONFIG] Production runtime configuration loaded');
-RCEOF
+          echo 'window.EMAUS_RUNTIME_CONFIG = {' > /tmp/runtime-config.js
+          echo "  apiUrl: '${API_URL}'," >> /tmp/runtime-config.js
+          echo "  googleMapsApiKey: '${GOOGLE_MAPS_API_KEY}'," >> /tmp/runtime-config.js
+          echo "  environment: 'production'," >> /tmp/runtime-config.js
+          echo "  isDevelopment: false," >> /tmp/runtime-config.js
+          echo "  isStaging: false," >> /tmp/runtime-config.js
+          echo "  isProduction: true," >> /tmp/runtime-config.js
+          echo '};' >> /tmp/runtime-config.js
+          echo "console.log('[CONFIG] Production runtime configuration loaded');" >> /tmp/runtime-config.js
           scp -i ~/.ssh/emaus-key.pem /tmp/runtime-config.js ubuntu@$EC2_HOST:/var/www/emaus/apps/web/dist/runtime-config.js
           echo "runtime-config.js uploaded"
 
