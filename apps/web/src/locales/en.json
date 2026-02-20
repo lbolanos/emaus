@@ -974,6 +974,13 @@
       "snores": "Snores",
       "nonSnores": "Non-snores"
     },
+    "ageFilter": {
+      "all": "All Ages",
+      "under40": "Under 40",
+      "40to55": "40 to 55",
+      "56to65": "56 to 65",
+      "over65": "Over 65"
+    },
     "searchResults": "Search Results",
     "bedsFound": "beds found",
     "filterApplied": "Filter Applied",
@@ -1285,7 +1292,8 @@
     "bunkBed": "Bottom Bunk",
     "mattress": "Mattress",
     "noRoomAssigned": "No room assigned",
-    "noTableAssigned": "No table assigned"
+    "noTableAssigned": "No table assigned",
+    "badgeSize": "Size"
   },
   "help": {
     "title": "Help & Documentation",
