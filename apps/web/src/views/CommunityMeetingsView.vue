@@ -191,7 +191,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
@@ -277,6 +277,13 @@ const handleDelete = async () => {
     console.error('Failed to delete meeting:', error);
   }
 };
+
+// Reset meetingToEdit when modal closes so the watcher fires on next edit
+watch(isMeetingModalOpen, (isOpen) => {
+  if (!isOpen) {
+    meetingToEdit.value = null;
+  }
+});
 
 const handleMeetingCreated = () => {
   fetchMeetings();
