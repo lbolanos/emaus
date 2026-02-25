@@ -26,9 +26,11 @@ const authStore = useAuthStore();
 // Load Google Maps dynamically using runtime config key (supports window.EMAUS_RUNTIME_CONFIG)
 loadGoogleMaps().catch((err) => console.error('[Maps]', err));
 
-// Inicializar protección CSRF después de verificar autenticación
-authStore.checkAuthStatus().then(() => {
-	// Inicializar protección CSRF después de establecer sesión
-	initializeCsrfProtection();
-	app.mount('#app');
-});
+// Set up CSRF interceptors immediately (sync setup, async token fetch)
+initializeCsrfProtection();
+
+// Mount app immediately so public pages render without waiting for auth
+app.mount('#app');
+
+// Check auth status in background — router guard handles protected routes
+authStore.checkAuthStatus().catch((err) => console.error('[Auth]', err));
