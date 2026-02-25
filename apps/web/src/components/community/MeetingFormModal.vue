@@ -539,12 +539,13 @@ watch(() => props.meetingToEdit, (meeting) => {
     editingMeeting.value = meeting;
     const startDate = new Date(meeting.startDate);
     const isRecurring = meeting.isRecurrenceTemplate === true;
+    const pad = (n: number) => String(n).padStart(2, '0');
     form.value = {
       title: meeting.title,
       description: meeting.description || '',
       flyerTemplate: meeting.flyerTemplate || '',
-      date: startDate.toISOString().split('T')[0],
-      time: startDate.toTimeString().slice(0, 5),
+      date: `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-${pad(startDate.getDate())}`,
+      time: `${pad(startDate.getHours())}:${pad(startDate.getMinutes())}`,
       durationMinutes: meeting.durationMinutes || 60,
       isAnnouncement: meeting.isAnnouncement === true,
       isRecurring: isRecurring,

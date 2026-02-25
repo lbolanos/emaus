@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { Community } from './community.entity';
 import { CommunityAttendance } from './communityAttendance.entity';
+import { DateTimeTransformer } from '../utils/date.transformer';
 
 @Entity()
 export class CommunityMeeting {
@@ -31,10 +32,10 @@ export class CommunityMeeting {
 	@Column({ type: 'text', nullable: true, name: 'flyer_template' })
 	flyerTemplate?: string;
 
-	@Column('datetime')
+	@Column({ type: 'datetime', transformer: new DateTimeTransformer() })
 	startDate!: Date;
 
-	@Column({ type: 'datetime', nullable: true })
+	@Column({ type: 'datetime', nullable: true, transformer: new DateTimeTransformer() })
 	endDate?: Date;
 
 	@Column({ type: 'int', nullable: true })

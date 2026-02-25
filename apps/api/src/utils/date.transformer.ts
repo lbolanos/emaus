@@ -22,3 +22,26 @@ export class DateTransformer implements ValueTransformer {
 		return new Date(value);
 	}
 }
+
+/**
+ * Transformer for datetime columns in SQLite.
+ * SQLite stores datetime strings without timezone info (e.g. '2026-01-30 02:00:00.000').
+ * Without this transformer, new Date() treats those strings as LOCAL time instead of UTC,
+ * causing dates to shift by the timezone offset on every read.
+ */
+export class DateTimeTransformer implements ValueTransformer {
+	to(value: Date | string | null): string | null {
+		if (!value) return null;
+		if (typeof value === 'string') return value;
+		return value.toISOString();
+	}
+
+	from(value: string | null): Date | null {
+		if (!value) return null;
+		// Ensure SQLite datetime strings are interpreted as UTC
+		if (typeof value === 'string' && !value.endsWith('Z') && !value.includes('+')) {
+			return new Date(value.replace(' ', 'T') + 'Z');
+		}
+		return new Date(value);
+	}
+}
