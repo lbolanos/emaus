@@ -16,6 +16,7 @@ const { t } = useI18n();
 const beds = ref<RetreatBed[]>([]);
 const loading = ref(true);
 const isExporting = ref(false);
+const printSize = ref<'small' | 'medium' | 'large'>('medium');
 
 const retreatId = computed(() => route.params.id as string || retreatStore.selectedRetreatId);
 
@@ -234,7 +235,7 @@ const roomAssignedCount = (roomBeds: RetreatBed[]): number => {
 </script>
 
 <template>
-  <div class="p-4 print-container" :style="colorScheme">
+  <div class="p-4 print-container" :class="`print-size-${printSize}`" :style="colorScheme">
     <!-- Print Header (only visible when printing) -->
     <div class="print-header">
       <div class="print-header-left">
@@ -256,7 +257,16 @@ const roomAssignedCount = (roomBeds: RetreatBed[]): number => {
     <!-- Toolbar (no-print) -->
     <div class="flex justify-between items-center mb-4 no-print">
       <h1 class="text-2xl font-bold">{{ $t('rooms.title') }}</h1>
-      <div class="flex gap-2">
+      <div class="flex gap-2 items-center">
+        <label class="text-sm text-gray-600 mr-1">Tamaño impresión:</label>
+        <select
+          v-model="printSize"
+          class="text-sm border border-gray-300 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="small">Pequeño</option>
+          <option value="medium">Mediano</option>
+          <option value="large">Grande</option>
+        </select>
         <Button @click="handleExportRoomLabels" :disabled="isExporting">
           <Loader2 v-if="isExporting" class="w-4 h-4 mr-2 animate-spin" />
           {{ isExporting ? $t('rooms.exporting') : $t('rooms.exportLabels') }}
@@ -621,10 +631,6 @@ const roomAssignedCount = (roomBeds: RetreatBed[]): number => {
     print-color-adjust: exact !important;
   }
 
-  .floor-title {
-    font-size: 14px !important;
-  }
-
   .floor-line {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
@@ -653,67 +659,169 @@ const roomAssignedCount = (roomBeds: RetreatBed[]): number => {
   }
 
   .room-card-header {
-    padding: 6px 10px !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-  }
-
-  .room-logo {
-    width: 20px !important;
-    height: 30px !important;
   }
 
   .room-number-badge {
-    width: 26px !important;
-    height: 26px !important;
-    font-size: 12px !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-  }
-
-  .room-label {
-    font-size: 11px !important;
   }
 
   .room-bed-count {
-    font-size: 9px !important;
-    padding: 2px 6px !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-  }
-
-  .room-card-body {
-    padding: 4px 8px !important;
-  }
-
-  .bed-row {
-    padding: 4px 4px !important;
-    gap: 6px !important;
   }
 
   .bed-number-badge {
-    width: 20px !important;
-    height: 20px !important;
-    font-size: 10px !important;
-    border-radius: 4px !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-  }
-
-  .bed-participant {
-    font-size: 11px !important;
-  }
-
-  .bed-type {
-    font-size: 9px !important;
-  }
-
-  .bed-type-icon {
-    font-size: 10px !important;
   }
 
   .bed-unassigned {
     opacity: 0.5 !important;
+  }
+
+  /* ===== Print Size: Small ===== */
+  .print-size-small .floor-title {
+    font-size: 14px !important;
+  }
+  .print-size-small .room-card-header {
+    padding: 6px 10px !important;
+  }
+  .print-size-small .room-logo {
+    width: 20px !important;
+    height: 30px !important;
+  }
+  .print-size-small .room-number-badge {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 12px !important;
+  }
+  .print-size-small .room-label {
+    font-size: 11px !important;
+  }
+  .print-size-small .room-bed-count {
+    font-size: 9px !important;
+    padding: 2px 6px !important;
+  }
+  .print-size-small .room-card-body {
+    padding: 4px 8px !important;
+  }
+  .print-size-small .bed-row {
+    padding: 4px 4px !important;
+    gap: 6px !important;
+  }
+  .print-size-small .bed-number-badge {
+    width: 20px !important;
+    height: 20px !important;
+    font-size: 10px !important;
+    border-radius: 4px !important;
+  }
+  .print-size-small .bed-participant {
+    font-size: 11px !important;
+  }
+  .print-size-small .bed-type {
+    font-size: 9px !important;
+  }
+  .print-size-small .bed-type-icon {
+    font-size: 10px !important;
+  }
+
+  /* ===== Print Size: Medium (default) ===== */
+  .print-size-medium .floor-title {
+    font-size: 16px !important;
+  }
+  .print-size-medium .room-card-header {
+    padding: 8px 12px !important;
+  }
+  .print-size-medium .room-logo {
+    width: 24px !important;
+    height: 34px !important;
+  }
+  .print-size-medium .room-number-badge {
+    width: 30px !important;
+    height: 30px !important;
+    font-size: 14px !important;
+  }
+  .print-size-medium .room-label {
+    font-size: 13px !important;
+  }
+  .print-size-medium .room-bed-count {
+    font-size: 11px !important;
+    padding: 3px 8px !important;
+  }
+  .print-size-medium .room-card-body {
+    padding: 6px 10px !important;
+  }
+  .print-size-medium .bed-row {
+    padding: 5px 5px !important;
+    gap: 8px !important;
+  }
+  .print-size-medium .bed-number-badge {
+    width: 24px !important;
+    height: 24px !important;
+    font-size: 12px !important;
+    border-radius: 5px !important;
+  }
+  .print-size-medium .bed-participant {
+    font-size: 13px !important;
+  }
+  .print-size-medium .bed-type {
+    font-size: 11px !important;
+  }
+  .print-size-medium .bed-type-icon {
+    font-size: 12px !important;
+  }
+
+  /* ===== Print Size: Large (1 card per row, ~2 per page) ===== */
+  .print-size-large .rooms-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+  .print-size-large .floor-title {
+    font-size: 20px !important;
+  }
+  .print-size-large .room-card-header {
+    padding: 12px 18px !important;
+  }
+  .print-size-large .room-logo {
+    width: 32px !important;
+    height: 46px !important;
+  }
+  .print-size-large .room-number-badge {
+    width: 40px !important;
+    height: 40px !important;
+    font-size: 18px !important;
+  }
+  .print-size-large .room-label {
+    font-size: 17px !important;
+  }
+  .print-size-large .room-bed-count {
+    font-size: 14px !important;
+    padding: 4px 12px !important;
+  }
+  .print-size-large .room-card-body {
+    padding: 10px 16px !important;
+  }
+  .print-size-large .bed-row {
+    padding: 8px 8px !important;
+    gap: 12px !important;
+  }
+  .print-size-large .bed-number-badge {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 15px !important;
+    border-radius: 7px !important;
+  }
+  .print-size-large .bed-participant {
+    font-size: 17px !important;
+  }
+  .print-size-large .bed-type {
+    font-size: 14px !important;
+  }
+  .print-size-large .bed-type-icon {
+    font-size: 16px !important;
   }
 
   /* Section breaks */

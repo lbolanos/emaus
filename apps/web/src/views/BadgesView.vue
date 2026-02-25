@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { getWalkersByRetreat, getParticipantsByRetreat, exportBadgesToDocx } from '@/services/api';
@@ -37,6 +37,7 @@ const typeFilter = ref<string>('all');
 const tableFilter = ref<string>('all');
 const roomFilter = ref<string>('all');
 const isPrinting = ref(false);
+const doubleSided = ref(false);
 
 // Badge size control
 const badgeScale = ref(1.0);
@@ -178,9 +179,9 @@ const printSelectedBadges = (): void => {
     return;
   }
 
-  // Add hidden class to non-selected badges
-  const badgeItems = document.querySelectorAll('.badge-item');
-  badgeItems.forEach(item => {
+  // Add hidden class to non-selected badge pairs
+  const badgePairs = document.querySelectorAll('.badge-pair');
+  badgePairs.forEach(item => {
     const walkerId = item.getAttribute('data-walker-id');
     if (walkerId && !selectedBadges.value.has(walkerId)) {
       item.classList.add('badge-hidden');
@@ -191,8 +192,47 @@ const printSelectedBadges = (): void => {
   window.print();
 
   // Remove hidden class after print
-  badgeItems.forEach(item => {
+  badgePairs.forEach(item => {
     item.classList.remove('badge-hidden');
+  });
+};
+
+// Print all badges double-sided (for folding)
+const printDoubleSided = () => {
+  doubleSided.value = true;
+  nextTick(() => {
+    window.print();
+    doubleSided.value = false;
+  });
+};
+
+// Print only selected badges double-sided
+const printSelectedDoubleSided = () => {
+  if (selectedBadges.value.size === 0) {
+    toast({
+      title: 'Aviso',
+      description: 'Por favor, selecciona al menos un gafete para imprimir.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  doubleSided.value = true;
+  nextTick(() => {
+    const badgePairs = document.querySelectorAll('.badge-pair');
+    badgePairs.forEach(item => {
+      const walkerId = item.getAttribute('data-walker-id');
+      if (walkerId && !selectedBadges.value.has(walkerId)) {
+        item.classList.add('badge-hidden');
+      }
+    });
+
+    window.print();
+
+    badgePairs.forEach(item => {
+      item.classList.remove('badge-hidden');
+    });
+    doubleSided.value = false;
   });
 };
 
@@ -227,6 +267,10 @@ const retreatTypeLogo = computed(() => {
 
 const getDisplayName = (walker: Participant): string => {
   return walker.nickname || walker.firstName;
+};
+
+const getFullName = (walker: Participant): string => {
+  return `${walker.firstName || ''} ${walker.lastName || ''}`.trim();
 };
 
 const getRoomInfo = (walker: Participant): string => {
@@ -340,6 +384,12 @@ onMounted(async () => {
             {{ $t('badges.printBadges') }}
           </DropdownMenuItem>
 
+          <!-- Print double-sided -->
+          <DropdownMenuItem @click="printDoubleSided">
+            <Printer class="mr-2 h-4 w-4" />
+            Imprimir doble cara
+          </DropdownMenuItem>
+
           <DropdownMenuSeparator v-if="selectedCount > 0" />
 
           <!-- Print selected -->
@@ -350,6 +400,16 @@ onMounted(async () => {
           >
             <Check class="mr-2 h-4 w-4" />
             Imprimir seleccionados ({{ selectedCount }})
+          </DropdownMenuItem>
+
+          <!-- Print selected double-sided -->
+          <DropdownMenuItem
+            v-if="selectedCount > 0"
+            @click="printSelectedDoubleSided"
+            class="text-rose-600"
+          >
+            <Check class="mr-2 h-4 w-4" />
+            Imprimir seleccionados doble cara ({{ selectedCount }})
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -468,42 +528,42 @@ onMounted(async () => {
       <p>{{ $t('badges.noParticipantFound') }}</p>
     </div>
 
-    <div v-else class="badges-container" :style="{ gridTemplateColumns: `repeat(auto-fill, minmax(${badgeGridMinWidth}, 1fr))`, '--badge-scale': badgeScale }">
+    <div v-else class="badges-container" :class="{ 'double-sided-print': doubleSided }" :style="{ gridTemplateColumns: `repeat(auto-fill, minmax(${badgeGridMinWidth}, 1fr))`, '--badge-scale': badgeScale }">
       <div
         v-for="participant in filteredParticipants"
         :key="participant.id"
         :data-walker-id="participant.id"
-        class="badge-item"
-        :class="{ 'selected': isSelected(participant.id) }"
-        @click="toggleSelection(participant.id)"
+        class="badge-pair"
+        :class="{ 'double-sided': doubleSided }"
       >
-        <!-- Checkbox -->
-        <input
-          type="checkbox"
-          :checked="isSelected(participant.id)"
-          @click.stop
-          @change="toggleSelection(participant.id)"
-          class="no-print badge-checkbox"
-        />
-        <div class="badge-content">
-          <!-- Logo on left side -->
-          <div class="badge-header">
-            <img :src="retreatTypeLogo" alt="Logo" class="badge-logo" />
-          </div>
-
-          <!-- Right side content: name and info -->
-          <div class="badge-right">
-            <!-- Name section -->
-            <div class="name-section">
-              <h2 class="walker-name">{{ getDisplayName(participant) }}</h2>
-              <div class="retreat-info">
-                <p v-if="retreatName" class="retreat-name">{{ retreatName }}</p>
-                <span v-if="retreatNumber" class="retreat-number">{{ retreatNumber }}</span>
-              </div>
-              <div class="name-underline"></div>
+        <!-- Front badge -->
+        <div
+          class="badge-item"
+          :class="{ 'selected': isSelected(participant.id) }"
+          @click="toggleSelection(participant.id)"
+        >
+          <input
+            type="checkbox"
+            :checked="isSelected(participant.id)"
+            @click.stop
+            @change="toggleSelection(participant.id)"
+            class="no-print badge-checkbox"
+          />
+          <div class="badge-content">
+            <div class="badge-header">
+              <img :src="retreatTypeLogo" alt="Logo" class="badge-logo" />
             </div>
-
-            <!-- Info section -->
+            <div class="badge-right">
+              <div class="name-section">
+                <h2 class="walker-name">{{ getDisplayName(participant) }}</h2>
+                <p class="walker-fullname">{{ getFullName(participant) }}</p>
+                <div class="retreat-info">
+                  <p v-if="retreatName" class="retreat-name">{{ retreatName }}</p>
+                  <span v-if="retreatNumber" class="retreat-number">{{ retreatNumber }}</span>
+                </div>
+                <div class="name-underline"></div>
+              </div>
+            </div>
             <div class="info-section">
               <div class="info-item">
                 <div class="info-icon">🍽️</div>
@@ -514,11 +574,41 @@ onMounted(async () => {
                 <span class="info-label">{{ getRoomInfo(participant) }}</span>
               </div>
             </div>
+            <div class="badge-footer">
+              <span class="emaus-text">Emaús</span>
+            </div>
           </div>
-
-          <!-- Emaus text at bottom -->
-          <div class="badge-footer">
-            <span class="emaus-text">Emaús</span>
+        </div>
+        <!-- Reverse badge (for double-sided folding) -->
+        <div v-if="doubleSided" class="badge-item badge-reverse">
+          <div class="badge-content">
+            <div class="badge-header">
+              <img :src="retreatTypeLogo" alt="Logo" class="badge-logo" />
+            </div>
+            <div class="badge-right">
+              <div class="name-section">
+                <h2 class="walker-name">{{ getDisplayName(participant) }}</h2>
+                <p class="walker-fullname">{{ getFullName(participant) }}</p>
+                <div class="retreat-info">
+                  <p v-if="retreatName" class="retreat-name">{{ retreatName }}</p>
+                  <span v-if="retreatNumber" class="retreat-number">{{ retreatNumber }}</span>
+                </div>
+                <div class="name-underline"></div>
+              </div>
+            </div>
+            <div class="info-section">
+              <div class="info-item">
+                <div class="info-icon">🍽️</div>
+                <span class="info-label">{{ getTableInfo(participant) }}</span>
+              </div>
+              <div class="info-item">
+                <div class="info-icon">🛏️</div>
+                <span class="info-label">{{ getRoomInfo(participant) }}</span>
+              </div>
+            </div>
+            <div class="badge-footer">
+              <span class="emaus-text">Emaús</span>
+            </div>
           </div>
         </div>
       </div>
@@ -534,6 +624,16 @@ onMounted(async () => {
   grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
   gap: 24px;
   padding: 24px 0;
+}
+
+/* Badge pair wrapper */
+.badge-pair {
+  display: contents;
+}
+
+.badge-pair.double-sided {
+  display: flex;
+  gap: 0;
 }
 
 .badge-item {
@@ -589,15 +689,16 @@ onMounted(async () => {
   object-fit: contain;
 }
 
-/* Right side wrapper - contains name and info */
+/* Right side wrapper - contains name */
 .badge-right {
   grid-column: 2;
   grid-row: 1 / 3;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  gap: 10px;
+  gap: 6px;
   padding-top: 10px;
+  overflow: hidden;
 }
 
 /* Name section - right side, top */
@@ -608,7 +709,7 @@ onMounted(async () => {
 }
 
 .walker-name {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
   background: linear-gradient(135deg, #1e293b 0%, #475569 100%);
   -webkit-background-clip: text;
@@ -618,6 +719,21 @@ onMounted(async () => {
   text-transform: uppercase;
   letter-spacing: 1.5px;
   line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.walker-fullname {
+  font-size: 22px;
+  font-weight: 500;
+  color: #20252d;
+  margin: 2px 0 0;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .retreat-info {
@@ -658,23 +774,26 @@ onMounted(async () => {
   border-radius: 2px;
 }
 
-/* Info section - right side, below name */
+/* Info section - bottom right grid cell */
 .info-section {
+  grid-column: 2;
+  grid-row: 3;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-  gap: 10px;
+  justify-content: flex-end;
+  gap: 4px;
+  padding-bottom: 8px;
 }
 
 .info-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   background: linear-gradient(135deg, #fefefe 0%, #f9fafb 100%);
-  padding: 10px 14px;
-  border-radius: 12px;
+  padding: 4px 8px;
+  border-radius: 8px;
   border: 1px solid rgba(229, 231, 235, 0.8);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
   transition: all 0.2s ease;
 }
 
@@ -684,20 +803,20 @@ onMounted(async () => {
 }
 
 .info-icon {
-  font-size: 18px;
-  width: 32px;
-  height: 32px;
+  font-size: 13px;
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #fef3f2 0%, #fee2e2 100%);
-  border-radius: 9px;
+  border-radius: 6px;
   flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(225, 29, 72, 0.1);
+  box-shadow: 0 1px 4px rgba(225, 29, 72, 0.1);
 }
 
 .info-label {
-  font-size: 16px;
+  font-size: 12px;
   font-weight: 600;
   color: #475569;
   letter-spacing: 0.2px;
@@ -995,8 +1114,9 @@ onMounted(async () => {
   .badge-right {
     grid-column: 2;
     grid-row: 1 / 3;
-    gap: 6px;
+    gap: 4px;
     padding-top: 6px;
+    overflow: hidden;
   }
 
   .badge-logo {
@@ -1006,6 +1126,11 @@ onMounted(async () => {
 
   .walker-name {
     font-size: 16px;
+  }
+
+  .walker-fullname {
+    font-size: 14px;
+    margin: 1px 0 0;
   }
 
   .retreat-name {
@@ -1025,21 +1150,22 @@ onMounted(async () => {
   }
 
   .info-section {
-    gap: 6px;
+    gap: 3px;
+    padding-bottom: 6px;
   }
 
   .info-item {
-    padding: 6px 8px;
+    padding: 3px 6px;
   }
 
   .info-icon {
-    width: 24px;
-    height: 24px;
-    font-size: 14px;
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
   }
 
   .info-label {
-    font-size: 12px;
+    font-size: 9px;
   }
 
   .badge-footer {
@@ -1056,6 +1182,27 @@ onMounted(async () => {
   .footer-dots span {
     opacity: 0.4;
     animation: none;
+  }
+
+  /* Double-sided print styles */
+  .badges-container.double-sided-print {
+    grid-template-columns: 1fr !important;
+  }
+
+  .badge-pair.double-sided {
+    display: flex !important;
+    break-inside: avoid;
+    width: auto;
+  }
+
+  .badge-pair.double-sided .badge-item {
+    flex: none;
+    width: calc(85mm * var(--badge-scale, 1));
+    max-width: calc(85mm * var(--badge-scale, 1)) !important;
+  }
+
+  .badge-pair.double-sided .badge-item + .badge-item {
+    border-left: 2px dashed #ccc;
   }
 
   /* Adjust for badge printing */

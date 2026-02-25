@@ -9,6 +9,49 @@
         </p>
       </div>
       <div class="flex gap-2">
+        <Popover v-model:open="quickAddOpen">
+          <PopoverTrigger as-child>
+            <Button :disabled="!isRetreatCreator" variant="outline">
+              <ShieldPlus class="w-4 h-4 mr-2" />
+              Admin Rápido
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent class="w-80 p-0" align="end">
+            <Command
+              v-model:search-term="quickSearchQuery"
+              :filter-function="(_list: string[], _term: string) => _list"
+            >
+              <CommandInput
+                placeholder="Buscar usuario por nombre o email..."
+              />
+              <CommandList>
+                <CommandEmpty>
+                  {{ quickSearchQuery.length < 2 ? 'Escribe al menos 2 caracteres...' : 'No se encontraron usuarios' }}
+                </CommandEmpty>
+                <CommandGroup v-if="quickSearchResults.length > 0" heading="Usuarios">
+                  <CommandItem
+                    v-for="user in quickSearchResults"
+                    :key="user.id"
+                    :value="user.email"
+                    class="flex items-center gap-3 cursor-pointer"
+                    @select="quickAddAdmin(user)"
+                  >
+                    <Avatar class="h-8 w-8 flex-shrink-0">
+                      <AvatarImage v-if="user.photo" :src="user.photo" />
+                      <AvatarFallback class="text-xs">
+                        {{ getInitials(user.displayName) }}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div class="flex flex-col min-w-0">
+                      <span class="text-sm font-medium truncate">{{ user.displayName }}</span>
+                      <span class="text-xs text-gray-500 truncate">{{ user.email }}</span>
+                    </div>
+                  </CommandItem>
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
         <Button @click="openInviteModal" :disabled="!isRetreatCreator">
           <UserPlus class="w-4 h-4 mr-2" />
           Invitar Usuario
@@ -318,16 +361,18 @@ import {
   Button, Badge, Dialog, DialogContent, DialogHeader, DialogTitle,
   DialogDescription, DialogFooter, Label, Input, Select, SelectTrigger,
   SelectValue, SelectContent, SelectGroup, SelectItem, Textarea, Switch,
-  Avatar, AvatarImage, AvatarFallback
+  Avatar, AvatarImage, AvatarFallback,
+  Popover, PopoverTrigger, PopoverContent,
+  Command, CommandInput, CommandList, CommandGroup, CommandItem, CommandEmpty
 } from '@repo/ui'
 import {
   UserPlus, RefreshCw, UserCheck, Users, Check, X, Clock, Shield,
-  Settings, UserMinus, Plus, Search, Calendar, Mail
+  Settings, UserMinus, Plus, Search, Calendar, Mail, ShieldPlus
 } from 'lucide-vue-next'
 import InviteUsersModal from '@/components/InviteUsersModal.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { useRetreatStore } from '@/stores/retreatStore'
-import api from '@/services/api'
+import api, { searchUsers } from '@/services/api'
 import type {
   RoleRequest,
   UserRetreat,
@@ -374,6 +419,13 @@ const selectedRequest = ref<RoleRequest | null>(null)
 const requestAction = ref<'approve' | 'reject'>('approve')
 const searchQuery = ref('')
 const statusFilter = ref<'all' | 'active' | 'pending'>('all')
+
+// Quick Add Admin state
+const quickAddOpen = ref(false)
+const quickSearchQuery = ref('')
+const quickSearchResults = ref<any[]>([])
+const quickAddLoading = ref(false)
+let quickSearchTimeout: ReturnType<typeof setTimeout> | null = null
 
 // Forms
 
@@ -448,6 +500,60 @@ const openInviteModal = () => {
   showInviteModal.value = true
 }
 
+// Quick Add Admin
+const quickAddAdmin = async (user: any) => {
+  if (quickAddLoading.value) return
+  quickAddLoading.value = true
+
+  try {
+    await api.post(`/retreat-roles/${retreatId.value}/invite`, {
+      email: user.email,
+      roleName: 'admin'
+    })
+
+    toast({
+      title: 'Admin asignado',
+      description: `${user.displayName} ha sido agregado como administrador`
+    })
+
+    quickAddOpen.value = false
+    quickSearchQuery.value = ''
+    quickSearchResults.value = []
+    loadData()
+  } catch (error: any) {
+    toast({
+      title: 'Error',
+      description: error.response?.data?.error || error.response?.data?.message || 'No se pudo asignar el rol de administrador',
+      variant: 'destructive'
+    })
+  } finally {
+    quickAddLoading.value = false
+  }
+}
+
+watch(quickSearchQuery, (query) => {
+  if (quickSearchTimeout) clearTimeout(quickSearchTimeout)
+
+  if (query.length < 2) {
+    quickSearchResults.value = []
+    return
+  }
+
+  quickSearchTimeout = setTimeout(async () => {
+    try {
+      quickSearchResults.value = (await searchUsers(query)).map((r: any) => r.user)
+    } catch {
+      quickSearchResults.value = []
+    }
+  }, 300)
+})
+
+watch(quickAddOpen, (open) => {
+  if (!open) {
+    quickSearchQuery.value = ''
+    quickSearchResults.value = []
+  }
+})
 
 const approveRequest = async (request: RoleRequest) => {
   selectedRequest.value = request

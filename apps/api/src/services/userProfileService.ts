@@ -112,9 +112,10 @@ export const getPublicProfile = async (
 		isFollowing = !!follow;
 	}
 
+	const { password, invitationToken, invitationExpiresAt, passwordResetToken, passwordResetTokenExpiresAt, passwordResetTokenUsedAt, ...safeUser } = user as any;
 	return {
 		user: {
-			...user,
+			...safeUser,
 			email: profile.showEmail ? user.email : undefined,
 		} as User,
 		profile: filteredProfile,
@@ -135,9 +136,17 @@ export const searchUsers = async (
 ): Promise<Array<{ user: User; profile: UserProfile; participant?: Participant }>> => {
 	const { interests, skills, location, retreatId } = filters;
 
-	// Build query for user search
+	// Build query for user search — exclude sensitive fields
 	const queryBuilder = userRepository
 		.createQueryBuilder('user')
+		.select([
+			'user.id',
+			'user.email',
+			'user.displayName',
+			'user.photo',
+			'user.isPending',
+			'user.createdAt',
+		])
 		.leftJoinAndSelect('user.profile', 'profile')
 		.where('user.displayName LIKE :query OR user.email LIKE :query', { query: `%${query}%` });
 
