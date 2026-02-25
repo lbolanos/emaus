@@ -91,7 +91,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 					try {
 						const userProfile = await userService.getUserProfile(user.id);
 						return res.json({
-							...user,
+							...user.toJSON(),
 							profile: userProfile,
 						});
 					} catch (error) {
@@ -113,8 +113,9 @@ export const getAuthStatus = async (req: Request, res: Response) => {
 	if (req.isAuthenticated()) {
 		try {
 			const userProfile = await userService.getUserProfile((req.user as any).id);
+			const safeUser = typeof (req.user as any).toJSON === 'function' ? (req.user as any).toJSON() : req.user;
 			res.json({
-				...req.user,
+				...safeUser,
 				profile: userProfile,
 			});
 		} catch (error) {

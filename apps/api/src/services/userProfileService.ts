@@ -117,7 +117,7 @@ export const getPublicProfile = async (
 		user: {
 			...safeUser,
 			email: profile.showEmail ? user.email : undefined,
-		} as User,
+		},
 		profile: filteredProfile,
 		participant,
 		isFriend,

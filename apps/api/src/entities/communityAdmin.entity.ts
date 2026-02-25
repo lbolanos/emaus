@@ -58,4 +58,12 @@ export class CommunityAdmin {
 
 	@Column({ type: 'datetime', nullable: true })
 	invitationExpiresAt?: Date;
+
+	/**
+	 * Strip sensitive fields when serializing to JSON.
+	 */
+	toJSON() {
+		const { invitationToken, ...safe } = this as any;
+		return safe;
+	}
 }

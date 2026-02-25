@@ -114,4 +114,14 @@ export class User {
 			this.password = await bcrypt.hash(this.password, 10);
 		}
 	}
+
+	/**
+	 * Strip sensitive fields when serializing to JSON.
+	 * This is called automatically by JSON.stringify / res.json(),
+	 * protecting all endpoints that return User data (directly or via relations).
+	 */
+	toJSON() {
+		const { password, googleId, invitationToken, invitationExpiresAt, passwordResetToken, passwordResetTokenExpiresAt, passwordResetTokenUsedAt, ...safe } = this as any;
+		return safe;
+	}
 }

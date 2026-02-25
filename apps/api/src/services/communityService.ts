@@ -825,7 +825,7 @@ export class CommunityService {
 			throw new Error('User not found');
 		}
 
-		const invitationToken = Math.random().toString(36).substring(2, 15);
+		const invitationToken = (await import('crypto')).randomBytes(32).toString('hex');
 		const invitationExpiresAt = new Date();
 		invitationExpiresAt.setDate(invitationExpiresAt.getDate() + 7);
 
