@@ -1,0 +1,28 @@
+# Ruler Configuration File
+# See https://ai.intellectronica.net/ruler for documentation.
+
+default_agents = ["claude"]
+
+[gitignore]
+enabled = true
+
+[skills]
+enabled = true
+
+[agents.claude]
+enabled = true
+output_path = "CLAUDE.md"
+
+# --- MCP Servers ---
+
+[mcp_servers.playwright]
+command = "npx"
+args = ["@playwright/mcp@latest"]
+
+[mcp_servers.sqlite]
+command = "uvx"
+args = ["mcp-server-sqlite", "--db-path", "/home/lbolanos/emaus/apps/api/database.sqlite"]
+
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"
+headers = { CONTEXT7_API_KEY = "ctx7sk-ccd994d5-7e61-4670-85c9-9535dc39e2f3" }

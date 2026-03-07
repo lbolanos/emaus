@@ -25,9 +25,11 @@
     "db:seed": "pnpm --filter api db:seed",
     "render-build": "pnpm install --frozen-lockfile && pnpm --filter api build",
     "render-start": "cd apps/api && pnpm start",
-    "prepare": "husky"
+    "prepare": "husky",
+    "ruler:apply": "ruler apply"
   },
   "devDependencies": {
+    "@intellectronica/ruler": "^0.3.35",
     "baseline-browser-mapping": "^2.9.15",
     "eslint": "^8.57.0",
     "husky": "^9.1.7",

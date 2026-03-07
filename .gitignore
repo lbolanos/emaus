@@ -1,5 +1,11 @@
+.agents/
+.antigravity/
 .gemini/
+.qwen/
 .turbo/
+.factory/
+.agent/
+.windsurf/
 # .github/  # Uncomment if you want GitHub Actions workflows tracked
 .env
 .env.production
@@ -31,3 +37,12 @@ test-results/
 
 # Test backed up files
 **/__tests__.bak/
+
+
+# START Ruler Generated Files
+/.claude/skills
+/.mcp.json
+/.mcp.json.bak
+/CLAUDE.md
+/CLAUDE.md.bak
+# END Ruler Generated Files
