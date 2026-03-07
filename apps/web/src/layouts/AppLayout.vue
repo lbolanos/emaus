@@ -2,6 +2,7 @@
 import { storeToRefs } from 'pinia'
 import Header from '@/components/layout/Header.vue'
 import Sidebar from '@/components/layout/Sidebar.vue'
+import AiChatWidget from '@/components/AiChatWidget.vue'
 import { useUIStore } from '@/stores/ui'
 
 const uiStore = useUIStore()
@@ -20,5 +21,6 @@ const { isSidebarCollapsed } = storeToRefs(uiStore)
         <router-view />
       </main>
     </div>
+    <AiChatWidget />
   </div>
 </template>

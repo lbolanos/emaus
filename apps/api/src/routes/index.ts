@@ -28,6 +28,7 @@ import newsletterRoutes from './newsletterRoutes';
 import userSocialRoutes from './userSocial.routes';
 import testimonialRoutes from './testimonial.routes';
 import participantHistoryRoutes from './participantHistory.routes';
+import aiChatRoutes from './aiChatRoutes';
 import { applyCsrfProtectionExcept } from '../middleware/routeCsrf';
 
 const router = Router();
@@ -74,5 +75,6 @@ router.use('/newsletter', newsletterRoutes);
 router.use('/social', userSocialRoutes);
 router.use(testimonialRoutes);
 router.use(participantHistoryRoutes);
+router.use('/ai-chat', aiChatRoutes);
 
 export default router;

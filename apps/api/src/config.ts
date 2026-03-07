@@ -15,6 +15,17 @@ export const config = {
 	frontend: {
 		url: process.env.FRONTEND_URL || 'http://localhost:5173',
 	},
+	ai: {
+		provider: process.env.AI_PROVIDER || 'google',
+		model: process.env.AI_MODEL || 'gemini-2.0-flash',
+		maxTokens: parseInt(process.env.AI_CHAT_MAX_TOKENS || '1024'),
+		// Provider API keys (set the one matching AI_PROVIDER)
+		googleApiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || '',
+		anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
+		anthropicBaseUrl: process.env.ANTHROPIC_BASE_URL || '',
+		openaiApiKey: process.env.OPENAI_API_KEY || '',
+		openaiBaseUrl: process.env.OPENAI_BASE_URL || '',
+	},
 	migrations: {
 		autoRun: process.env.MIGRATIONS_AUTO_RUN === 'true',
 		warnOnly: process.env.MIGRATIONS_WARN_ONLY === 'true',
