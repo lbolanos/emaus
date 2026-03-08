@@ -5,7 +5,7 @@ import { google } from '@ai-sdk/google';
 import { config } from '../config';
 import { findAllParticipants, findParticipantById } from './participantService';
 import { getRetreatsForUser, findById as findRetreatById } from './retreatService';
-import { findTablesByRetreatId } from './tableMesaService';
+import { findTablesByRetreatId, assignWalkerToTable, unassignWalkerFromTable, assignLeaderToTable, unassignLeaderFromTable, findTableById } from './tableMesaService';
 import { getRetreatInventory, getInventoryAlerts } from './inventoryService';
 import { findAllResponsibilities } from './responsabilityService';
 import { AppDataSource } from '../data-source';
@@ -41,6 +41,13 @@ Tus capacidades:
 - Ver responsabilidades asignadas
 - Consultar estado de palancas (quién las ha recibido y quién no)
 - Consultar asignación de camas y disponibilidad
+- Cambiar participantes de mesa (mover caminante a otra mesa, asignar/quitar líder)
+- Cambiar participantes de cama/habitación (asignar, desasignar, mover a otra cama)
+
+IMPORTANTE para cambios de mesa y cama:
+- Antes de hacer un cambio, confirma con el usuario los datos: nombre del participante, mesa/cama destino.
+- Si el usuario no especifica IDs exactos, usa searchParticipants y getTableAssignments/getRetreatBeds para encontrarlos.
+- Siempre confirma la acción antes de ejecutarla mostrando qué vas a hacer.
 
 Cuando el usuario pregunte por datos de una persona (teléfono, email, dirección, contactos de emergencia, etc.), usa getParticipantDetails para obtener toda la información.
 Si preguntan por un familiar o contacto de emergencia, revisa los campos de contactos de emergencia del participante.`;
@@ -86,8 +93,8 @@ export async function createChatStream(messages: UIMessage[], userId: string, re
 		},
 		tools: {
 			listParticipants: {
-				description: 'Lista participantes de un retiro. Puede filtrar por tipo.',
-				inputSchema: jsonSchema<{ retreatId: string; type?: string }>({
+				description: 'Lista participantes de un retiro. Puede filtrar por tipo. Por defecto excluye cancelados.',
+				inputSchema: jsonSchema<{ retreatId: string; type?: string; includeCancelled?: boolean }>({
 					type: 'object',
 					properties: {
 						retreatId: { type: 'string', description: 'ID del retiro' },
@@ -96,14 +103,19 @@ export async function createChatStream(messages: UIMessage[], userId: string, re
 							enum: ['walker', 'server', 'waiting', 'partial_server'],
 							description: 'Tipo de participante',
 						},
+						includeCancelled: {
+							type: 'boolean',
+							description: 'Incluir participantes cancelados (default: false)',
+						},
 					},
-					required: ['retreatId'],
+				required: ['retreatId'],
 				}),
-				execute: async ({ retreatId, type }) => {
+				execute: async ({ retreatId, type, includeCancelled }) => {
 					await verifyRetreatAccess(userId, retreatId);
 					const participants = await findAllParticipants(
 						retreatId,
 						type as 'walker' | 'server' | 'waiting' | 'partial_server' | undefined,
+						includeCancelled ? undefined : false,
 					);
 					return {
 						count: participants.length,
@@ -111,7 +123,7 @@ export async function createChatStream(messages: UIMessage[], userId: string, re
 							id: p.id,
 							name: `${p.firstName} ${p.lastName}`,
 							type: p.type,
-							status: p.status,
+							isCancelled: p.isCancelled,
 						})),
 					};
 				},
@@ -353,7 +365,7 @@ export async function createChatStream(messages: UIMessage[], userId: string, re
 					const startMMDD = startStr.slice(5); // "MM-DD"
 					const endMMDD = endStr.slice(5);
 					const startYear = parseInt(startStr.slice(0, 4));
-					const participants = await findAllParticipants(retreatId);
+					const participants = await findAllParticipants(retreatId, undefined, false);
 					const birthdays = participants.filter((p) => {
 						if (!p.birthDate) return false;
 						const birthStr = toYMD(p.birthDate);
@@ -400,7 +412,7 @@ export async function createChatStream(messages: UIMessage[], userId: string, re
 				}),
 				execute: async ({ retreatId }) => {
 					await verifyRetreatAccess(userId, retreatId);
-					const walkers = await findAllParticipants(retreatId, 'walker');
+					const walkers = await findAllParticipants(retreatId, 'walker', false);
 					const withPalancas = walkers.filter((p) => p.palancasReceived && p.palancasReceived.trim() !== '');
 					const withoutPalancas = walkers.filter((p) => !p.palancasReceived || p.palancasReceived.trim() === '');
 					const requested = walkers.filter((p) => p.palancasRequested);
@@ -502,6 +514,234 @@ export async function createChatStream(messages: UIMessage[], userId: string, re
 							};
 						}),
 					};
+				},
+			},
+			assignWalkerToTableTool: {
+				description: 'Asigna un caminante a una mesa. Requiere el ID de la mesa y del participante. Usa getTableAssignments para ver mesas disponibles y searchParticipants para encontrar al participante.',
+				inputSchema: jsonSchema<{ tableId: string; participantId: string }>({
+					type: 'object',
+					properties: {
+						tableId: { type: 'string', description: 'ID de la mesa destino' },
+						participantId: { type: 'string', description: 'ID del participante (caminante)' },
+					},
+					required: ['tableId', 'participantId'],
+				}),
+				execute: async ({ tableId, participantId }) => {
+					const table = await findTableById(tableId);
+					if (!table) return { error: 'Mesa no encontrada' };
+					await verifyRetreatAccess(userId, table.retreatId);
+					try {
+						const updated = await assignWalkerToTable(tableId, participantId);
+						return {
+							success: true,
+							message: `Participante asignado a mesa "${updated.name}"`,
+							table: updated.name,
+							walkersCount: updated.walkers?.length ?? 0,
+						};
+					} catch (e: any) {
+						return { error: e.message || 'Error al asignar caminante a mesa' };
+					}
+				},
+			},
+			unassignWalkerFromTableTool: {
+				description: 'Quita un caminante de su mesa actual. Requiere el ID de la mesa y del participante.',
+				inputSchema: jsonSchema<{ tableId: string; participantId: string }>({
+					type: 'object',
+					properties: {
+						tableId: { type: 'string', description: 'ID de la mesa' },
+						participantId: { type: 'string', description: 'ID del participante (caminante)' },
+					},
+					required: ['tableId', 'participantId'],
+				}),
+				execute: async ({ tableId, participantId }) => {
+					const table = await findTableById(tableId);
+					if (!table) return { error: 'Mesa no encontrada' };
+					await verifyRetreatAccess(userId, table.retreatId);
+					try {
+						await unassignWalkerFromTable(tableId, participantId);
+						return { success: true, message: 'Participante removido de la mesa' };
+					} catch (e: any) {
+						return { error: e.message || 'Error al quitar caminante de mesa' };
+					}
+				},
+			},
+			moveWalkerToTable: {
+				description: 'Mueve un caminante de su mesa actual a otra mesa. Primero lo quita de la mesa actual y luego lo asigna a la nueva. Requiere el ID de la mesa actual, mesa destino y del participante.',
+				inputSchema: jsonSchema<{ currentTableId: string; newTableId: string; participantId: string }>({
+					type: 'object',
+					properties: {
+						currentTableId: { type: 'string', description: 'ID de la mesa actual del caminante' },
+						newTableId: { type: 'string', description: 'ID de la mesa destino' },
+						participantId: { type: 'string', description: 'ID del participante (caminante)' },
+					},
+					required: ['currentTableId', 'newTableId', 'participantId'],
+				}),
+				execute: async ({ currentTableId, newTableId, participantId }) => {
+					const currentTable = await findTableById(currentTableId);
+					if (!currentTable) return { error: 'Mesa actual no encontrada' };
+					await verifyRetreatAccess(userId, currentTable.retreatId);
+					try {
+						await unassignWalkerFromTable(currentTableId, participantId);
+						const updated = await assignWalkerToTable(newTableId, participantId);
+						return {
+							success: true,
+							message: `Participante movido a mesa "${updated.name}"`,
+							newTable: updated.name,
+							walkersCount: updated.walkers?.length ?? 0,
+						};
+					} catch (e: any) {
+						return { error: e.message || 'Error al mover caminante de mesa' };
+					}
+				},
+			},
+			assignLeaderToTableTool: {
+				description: 'Asigna un servidor como líder de mesa (lider, colider1 o colider2). Requiere ID de mesa, ID del participante servidor, y el rol.',
+				inputSchema: jsonSchema<{ tableId: string; participantId: string; role: string }>({
+					type: 'object',
+					properties: {
+						tableId: { type: 'string', description: 'ID de la mesa' },
+						participantId: { type: 'string', description: 'ID del participante (servidor)' },
+						role: { type: 'string', enum: ['lider', 'colider1', 'colider2'], description: 'Rol de liderazgo' },
+					},
+					required: ['tableId', 'participantId', 'role'],
+				}),
+				execute: async ({ tableId, participantId, role }) => {
+					const table = await findTableById(tableId);
+					if (!table) return { error: 'Mesa no encontrada' };
+					await verifyRetreatAccess(userId, table.retreatId);
+					try {
+						const updated = await assignLeaderToTable(tableId, participantId, role as 'lider' | 'colider1' | 'colider2');
+						return {
+							success: true,
+							message: `Servidor asignado como ${role} en mesa "${updated.name}"`,
+						};
+					} catch (e: any) {
+						return { error: e.message || 'Error al asignar líder' };
+					}
+				},
+			},
+			unassignLeaderFromTableTool: {
+				description: 'Quita un líder de un rol en una mesa (lider, colider1 o colider2).',
+				inputSchema: jsonSchema<{ tableId: string; role: string }>({
+					type: 'object',
+					properties: {
+						tableId: { type: 'string', description: 'ID de la mesa' },
+						role: { type: 'string', enum: ['lider', 'colider1', 'colider2'], description: 'Rol a desasignar' },
+					},
+					required: ['tableId', 'role'],
+				}),
+				execute: async ({ tableId, role }) => {
+					const table = await findTableById(tableId);
+					if (!table) return { error: 'Mesa no encontrada' };
+					await verifyRetreatAccess(userId, table.retreatId);
+					try {
+						await unassignLeaderFromTable(tableId, role as 'lider' | 'colider1' | 'colider2');
+						return { success: true, message: `Líder removido del rol ${role}` };
+					} catch (e: any) {
+						return { error: e.message || 'Error al quitar líder' };
+					}
+				},
+			},
+			assignParticipantToBed: {
+				description: 'Asigna un participante a una cama específica. Si el participante ya tiene cama, lo mueve automáticamente. Envía null como participantId para desasignar la cama. Usa getRetreatBeds para ver camas disponibles.',
+				inputSchema: jsonSchema<{ bedId: string; participantId: string | null }>({
+					type: 'object',
+					properties: {
+						bedId: { type: 'string', description: 'ID de la cama' },
+						participantId: { type: ['string', 'null'], description: 'ID del participante o null para desasignar' },
+					},
+					required: ['bedId', 'participantId'],
+				}),
+				execute: async ({ bedId, participantId }) => {
+					const bedRepo = AppDataSource.getRepository(RetreatBed);
+					const bed = await bedRepo.findOne({ where: { id: bedId } });
+					if (!bed) return { error: 'Cama no encontrada' };
+					await verifyRetreatAccess(userId, bed.retreatId);
+					try {
+						return await AppDataSource.transaction(async (manager) => {
+							const bedRepo = manager.getRepository(RetreatBed);
+							if (participantId === null) {
+								// Unassign
+								await bedRepo.update(bedId, { participantId: undefined });
+								return { success: true, message: 'Cama desasignada' };
+							}
+							const participantRepo = manager.getRepository(Participant);
+							const participant = await participantRepo.findOne({ where: { id: participantId } });
+							if (!participant) return { error: 'Participante no encontrado' };
+							if (participant.isCancelled) return { error: 'El participante está cancelado' };
+							// Check if participant already has a bed in this retreat
+							const currentBed = await bedRepo.findOne({ where: { retreatId: bed.retreatId, participantId } });
+							if (currentBed && currentBed.id !== bedId) {
+								// Unassign from current bed first
+								await bedRepo.update(currentBed.id, { participantId: undefined });
+							}
+							// Check target bed is free
+							const targetBed = await bedRepo.findOne({ where: { id: bedId } });
+							if (targetBed?.participantId && targetBed.participantId !== participantId) {
+								return { error: `La cama ya está asignada a otro participante` };
+							}
+							await bedRepo.update(bedId, { participantId });
+							const updated = await bedRepo.findOne({ where: { id: bedId }, relations: ['participant'] });
+							return {
+								success: true,
+								message: `${participant.firstName} ${participant.lastName} asignado a cama ${updated?.bedNumber} en habitación ${updated?.roomNumber} (piso ${updated?.floor})`,
+								bed: {
+									room: updated?.roomNumber,
+									bed: updated?.bedNumber,
+									floor: updated?.floor,
+									type: updated?.type,
+								},
+							};
+						});
+					} catch (e: any) {
+						return { error: e.message || 'Error al asignar cama' };
+					}
+				},
+			},
+			moveParticipantToBed: {
+				description: 'Mueve un participante a una cama diferente. Busca su cama actual automáticamente y lo mueve a la nueva. Requiere retreatId para buscar la cama actual.',
+				inputSchema: jsonSchema<{ retreatId: string; participantId: string; newBedId: string }>({
+					type: 'object',
+					properties: {
+						retreatId: { type: 'string', description: 'ID del retiro' },
+						participantId: { type: 'string', description: 'ID del participante' },
+						newBedId: { type: 'string', description: 'ID de la cama destino' },
+					},
+					required: ['retreatId', 'participantId', 'newBedId'],
+				}),
+				execute: async ({ retreatId, participantId, newBedId }) => {
+					await verifyRetreatAccess(userId, retreatId);
+					try {
+						return await AppDataSource.transaction(async (manager) => {
+							const bedRepo = manager.getRepository(RetreatBed);
+							const participantRepo = manager.getRepository(Participant);
+							const participant = await participantRepo.findOne({ where: { id: participantId } });
+							if (!participant) return { error: 'Participante no encontrado' };
+							if (participant.isCancelled) return { error: 'El participante está cancelado' };
+							// Find current bed
+							const currentBed = await bedRepo.findOne({ where: { retreatId, participantId } });
+							// Check target bed
+							const targetBed = await bedRepo.findOne({ where: { id: newBedId } });
+							if (!targetBed) return { error: 'Cama destino no encontrada' };
+							if (targetBed.participantId && targetBed.participantId !== participantId) {
+								return { error: 'La cama destino ya está ocupada' };
+							}
+							// Unassign from current
+							if (currentBed) {
+								await bedRepo.update(currentBed.id, { participantId: undefined });
+							}
+							// Assign to new
+							await bedRepo.update(newBedId, { participantId });
+							return {
+								success: true,
+								message: `${participant.firstName} ${participant.lastName} movido a cama ${targetBed.bedNumber} en habitación ${targetBed.roomNumber} (piso ${targetBed.floor})`,
+								previousBed: currentBed ? { room: currentBed.roomNumber, bed: currentBed.bedNumber, floor: currentBed.floor } : null,
+								newBed: { room: targetBed.roomNumber, bed: targetBed.bedNumber, floor: targetBed.floor, type: targetBed.type },
+							};
+						});
+					} catch (e: any) {
+						return { error: e.message || 'Error al mover participante de cama' };
+					}
 				},
 			},
 		},
