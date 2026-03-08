@@ -104,6 +104,20 @@ jobs:
             echo "Warning: Web dist not found"
           fi
 
+          # Upload package.json files and lockfile so pnpm install picks up new dependencies
+          echo "Syncing package.json and lockfile..."
+          scp -i ~/.ssh/emaus-key.pem ./build-output/api/package.json ubuntu@$EC2_HOST:/var/www/emaus/apps/api/package.json 2>/dev/null || \
+          scp -i ~/.ssh/emaus-key.pem ./build-output/apps/api/package.json ubuntu@$EC2_HOST:/var/www/emaus/apps/api/package.json 2>/dev/null || \
+          echo "Warning: API package.json not found in artifacts"
+          scp -i ~/.ssh/emaus-key.pem ./build-output/web/package.json ubuntu@$EC2_HOST:/var/www/emaus/apps/web/package.json 2>/dev/null || \
+          scp -i ~/.ssh/emaus-key.pem ./build-output/apps/web/package.json ubuntu@$EC2_HOST:/var/www/emaus/apps/web/package.json 2>/dev/null || \
+          echo "Warning: Web package.json not found in artifacts"
+
+          # Upload root package.json and lockfile from checkout
+          scp -i ~/.ssh/emaus-key.pem package.json ubuntu@$EC2_HOST:/var/www/emaus/package.json
+          scp -i ~/.ssh/emaus-key.pem pnpm-lock.yaml ubuntu@$EC2_HOST:/var/www/emaus/pnpm-lock.yaml
+          scp -i ~/.ssh/emaus-key.pem pnpm-workspace.yaml ubuntu@$EC2_HOST:/var/www/emaus/pnpm-workspace.yaml
+
           # Generate runtime-config.js with secrets and upload it
           echo "Generating runtime-config.js..."
           API_URL="https://${DOMAIN_NAME:-emaus.cc}/api"
