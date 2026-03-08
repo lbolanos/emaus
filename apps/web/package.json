@@ -7,6 +7,7 @@
     "build": "NODE_OPTIONS='--max-old-space-size=4096' vue-tsc --noEmit --skipLibCheck && NODE_OPTIONS='--max-old-space-size=4096' vite build --mode production --sourcemap false --minify false",
     "build:vps": "NODE_OPTIONS='--max-old-space-size=4096' vue-tsc --noEmit --skipLibCheck && NODE_OPTIONS='--max-old-space-size=4096' vite build --mode production --sourcemap false --minify false",
     "preview": "vite preview",
+    "tunnel": "~/bin/ngrok http 5173",
     "clean": "rm -rf dist .turbo .vite node_modules/.tmp 2>/dev/null || true",
     "lint": "eslint src --ext .vue,.ts,.js",
     "test": "vitest run --passWithNoTests",

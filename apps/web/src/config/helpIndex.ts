@@ -23,6 +23,21 @@ export const helpIndex: HelpSection[] = [
 		],
 	},
 	{
+		key: 'navigation',
+		title: 'Navigation',
+		titleEs: 'Navegacion',
+		icon: 'mdi-compass',
+		routeContext: [],
+		topics: [
+			{
+				key: 'navigation-architecture',
+				title: 'Navigation Architecture',
+				titleEs: 'Arquitectura de Navegacion',
+				content: 'navigation.md',
+			},
+		],
+	},
+	{
 		key: 'walkers',
 		title: 'Walkers',
 		titleEs: 'Caminantes',

@@ -164,15 +164,19 @@
       "reports": "Reports",
       "services": "Services",
       "administration": "Administration",
-      "settings": "Global Settings"
+      "settings": "Global Settings",
+      "retreat": "Retreat"
     },
     "settings": {
       "title": "Settings",
       "messageTemplates": "Message Templates",
       "globalMessageTemplates": "Global Templates",
-      "inventoryItems": "Inventory Items"
+      "inventoryItems": "Inventory Items",
+      "changePassword": "Change Password"
     },
     "telemetry": "Telemetry",
+    "searchResult": "result",
+    "searchResultPlural": "results",
     "logout": "Logout",
     "searchPlaceholder": "Search...",
     "selectRetreatFirst": "Please select a retreat first",
@@ -835,6 +839,7 @@
     "come": "Come"
   },
   "language": {
+    "label": "Language",
     "english": "English",
     "spanish": "Spanish"
   },

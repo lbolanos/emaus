@@ -122,7 +122,7 @@ const handleSubmit = (e: Event) => {
 </script>
 
 <template>
-	<div v-if="isConfigured" class="fixed bottom-4 right-4 z-50">
+	<div v-if="isConfigured" class="fixed bottom-4 right-2 md:right-4 z-50">
 		<!-- Chat Panel -->
 		<Transition name="chat-panel">
 			<div
@@ -130,10 +130,10 @@ const handleSubmit = (e: Event) => {
 				:class="[
 					'rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800 flex flex-col',
 					isMaximized
-						? 'fixed inset-4 w-auto m-0 z-50'
-						: 'mb-3 w-96',
+						? 'fixed inset-2 md:inset-4 w-auto m-0 z-50'
+						: 'mb-3 w-[calc(100vw-1rem)] md:w-96',
 				]"
-				:style="isMaximized ? undefined : 'height: 480px'"
+				:style="isMaximized ? undefined : 'height: min(480px, 70vh)'"
 			>
 				<!-- Header -->
 				<div

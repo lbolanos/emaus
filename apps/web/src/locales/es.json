@@ -165,7 +165,8 @@
       "reports": "Reportes",
       "services": "Servicios",
       "administration": "Administración",
-      "settings": "Configuración Global"
+      "settings": "Configuración Global",
+      "retreat": "Retiro"
     },
     "settings": {
       "title": "Configuración",
@@ -175,6 +176,8 @@
       "changePassword": "Cambiar Contraseña"
     },
     "telemetry": "Telemetría",
+    "searchResult": "resultado",
+    "searchResultPlural": "resultados",
     "logout": "Cerrar Sesión",
     "searchPlaceholder": "Buscar...",
     "selectRetreatFirst": "Por favor selecciona un retiro primero",
@@ -885,6 +888,7 @@
     "come": "Ven"
   },
   "language": {
+    "label": "Idioma",
     "english": "Inglés",
     "spanish": "Español"
   },
