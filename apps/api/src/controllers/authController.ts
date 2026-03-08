@@ -105,8 +105,25 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 };
 
 export const googleCallback = (req: Request, res: Response) => {
-	// Redirect to /app so the router guard can handle redirecting to the dashboard
-	res.redirect(`${config.frontend.url}/app`);
+	// Build redirect URL from request host, validated against allowlist
+	const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+	const host = req.headers['x-forwarded-host'] || req.headers.host;
+	let redirectBase = config.frontend.url;
+
+	if (host) {
+		const candidate = `${protocol}://${host}`;
+		const isAllowed =
+			host === 'localhost:5173' ||
+			host === '127.0.0.1:5173' ||
+			host.endsWith('.ngrok-free.dev') ||
+			host.endsWith('.ngrok.io') ||
+			candidate === config.frontend.url;
+		if (isAllowed) {
+			redirectBase = candidate;
+		}
+	}
+
+	res.redirect(`${redirectBase}/app`);
 };
 
 export const getAuthStatus = async (req: Request, res: Response) => {

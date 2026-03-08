@@ -476,10 +476,14 @@ El registro de charlistas globales. El charlista es un servidor.
 Agregar los charlistas del retiro ya registrados previamente.
 
 apps/web/src/components/layout/Sidebar.vue apps/web/src/components/layout/Header.vue docs_dev/HELP_SYSTEM_GUIDE.md
+
+
+crear una landing page que muestre los retiros proximos y las comunidades y sus proximas reuniones
+
 necesito que mejores la usabilidad y user experience del sitio. hay temas globales como retiros, casas de retiros, comunidades, Telemetria, Plantillas globales.
 cuando se selecciona retiros se muestra para poder seleccionar el retiro. Pero si selecciona alguna otra no se necesita seleccionar retiro.
 agrega la documenatcion necesaria acerca de esto en apps/web/src/docs
-crear una landing page que muestre los retiros proximos y las comunidades y sus proximas reuniones
+
 
 ## TODO
 porque falta ernesto  y wiliam

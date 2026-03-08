@@ -80,12 +80,14 @@ class RuntimeConfigManager {
 			hostname.includes('-stg.') ||
 			(port && ['3001', '3002', '8081'].includes(port));
 
-		// Localhost/development detection
+		// Localhost/development detection (includes ngrok tunnels)
 		const isLocalhost =
 			hostname === 'localhost' ||
 			hostname === '127.0.0.1' ||
 			hostname.startsWith('192.168.') ||
 			hostname.startsWith('10.') ||
+			hostname.endsWith('.ngrok-free.dev') ||
+			hostname.endsWith('.ngrok.io') ||
 			(port && ['5173', '8080', '3000', '8787'].includes(port));
 
 		// Production detection (default)
@@ -197,6 +199,10 @@ class RuntimeConfigManager {
 	private getDefaultApiUrl(environment: 'development' | 'production' | 'staging'): string {
 		switch (environment) {
 			case 'development':
+				// Use relative path for tunneled access (ngrok), absolute for true localhost
+				if (typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+					return '/api';
+				}
 				return 'http://localhost:3001/api';
 			case 'staging':
 				return 'https://staging.emaus.cc/api';
@@ -216,7 +222,8 @@ class RuntimeConfigManager {
 		}
 
 		try {
-			new URL(config.apiUrl);
+			// Allow relative paths (e.g. '/api' for proxied/tunneled access)
+			new URL(config.apiUrl, window.location.origin);
 		} catch (error) {
 			throw new Error(`[CONFIG] Invalid API URL: ${config.apiUrl}`);
 		}

@@ -60,7 +60,21 @@ async function main() {
 
 	app.use(
 		cors({
-			origin: frontendUrl,
+			origin: (origin, callback) => {
+				// Allow requests with no origin (mobile apps, curl, etc.)
+				if (!origin) return callback(null, true);
+				// Allow configured frontend URL and localhost
+				const allowed = [frontendUrl, 'http://localhost:5173', 'http://localhost:3001'];
+				if (allowed.includes(origin)) {
+					return callback(null, origin);
+				}
+				// Allow ngrok tunnels in development only
+				if (isDevelopment && (origin.endsWith('.ngrok-free.dev') || origin.endsWith('.ngrok.io'))) {
+					return callback(null, origin);
+				}
+				console.warn(`[CORS] Blocked origin: ${origin}`);
+				callback(new Error('Not allowed by CORS'));
+			},
 			credentials: true,
 		}),
 	);

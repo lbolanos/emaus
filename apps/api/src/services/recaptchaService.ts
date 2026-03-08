@@ -55,12 +55,12 @@ export class RecaptchaService {
 	): Promise<{ valid: boolean; error?: string; score?: number }> {
 		const secretKey = this.getSecretKey();
 
-		// Demo keys - skip verification for development
-		if (secretKey === '6Lf_NUssAAAAAJNezAhbH6Ym26f8qA6ac4pGGXAe') {
+		// Skip verification in development environment
+		if (process.env.NODE_ENV !== 'production') {
 			return { valid: true };
 		}
 
-		// If no secret key is configured, allow the request (development mode)
+		// If no secret key is configured, allow the request
 		if (!secretKey || secretKey === 'YOUR_RECAPTCHA_V3_SECRET_KEY_HERE') {
 			return { valid: true };
 		}

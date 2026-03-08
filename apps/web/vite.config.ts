@@ -47,11 +47,20 @@ export default defineConfig(({ mode }) => {
 			},
 		},
 		server: {
+			allowedHosts: true,
 			proxy: {
 				'/api': {
 					target: 'http://localhost:3001',
 					changeOrigin: true,
 					secure: false,
+					configure: (proxy) => {
+						proxy.on('proxyReq', (proxyReq, req) => {
+							const host = req.headers.host;
+							if (host) {
+								proxyReq.setHeader('x-forwarded-host', host);
+							}
+						});
+					},
 				},
 			},
 		},
