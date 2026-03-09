@@ -23,6 +23,7 @@
     "migration:show": "pnpm --filter api migration:show",
     "migration:revert": "pnpm --filter api migration:revert",
     "db:seed": "pnpm --filter api db:seed",
+    "db:studio": "pnpm --filter api db:studio",
     "render-build": "pnpm install --frozen-lockfile && pnpm --filter api build",
     "render-start": "cd apps/api && pnpm start",
     "prepare": "husky",
@@ -31,10 +32,12 @@
     "db:pull": "scp -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105:/var/www/emaus/apps/api/database.sqlite apps/api/database.sqlite 2>&1 && echo '✅ Database copied from AWS'",
     "db:push": "scp -i ~/.ssh/emaus-key.pem apps/api/database.sqlite ubuntu@3.138.49.105:/var/www/emaus/apps/api/database.sqlite 2>&1 && echo '✅ Database uploaded to AWS'",
     "db:backup": "ssh -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105 'bash /var/www/emaus/backup-db.sh'",
+    "prod:restart": "ssh -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105 'pm2 restart emaus-api && pm2 status emaus-api'",
     "tunnel": "bash scripts/tunnel-start.sh",
     "tunnel:setup": "bash scripts/tunnel-setup.sh",
     "tunnel:stop": "bash scripts/tunnel-stop.sh",
-    "kill": "lsof -ti :3001 -ti :5173 2>/dev/null | xargs kill -9 2>/dev/null; echo '✅ Dev processes killed'"
+    "kill": "lsof -ti :3001 -ti :5173 2>/dev/null | xargs kill -9 2>/dev/null; echo '✅ Dev processes killed'",
+    "scripts": "node -e \"const p=require('./package.json');console.log('\\n📦 Root scripts:\\n');Object.entries(p.scripts).forEach(([k,v])=>console.log('  pnpm '+k.padEnd(22)+v));\" && echo '' && for dir in apps/api apps/web; do if [ -f $dir/package.json ]; then echo \"📦 $dir scripts:\"; echo ''; node -e \"const p=require('./$dir/package.json');Object.entries(p.scripts||{}).forEach(([k,v])=>console.log('  pnpm --filter '+p.name+' '+k.padEnd(22)+v))\"; echo ''; fi; done"
   },
   "devDependencies": {
     "@intellectronica/ruler": "^0.3.35",

@@ -386,7 +386,7 @@ export interface MenuSection {
   position: 'top' | 'bottom';
 }
 
-const RETREAT_CATEGORIES = ['main', 'people', 'assignments', 'financial', 'reports', 'services'];
+const RETREAT_CATEGORIES = ['main', 'people', 'assignments', 'financial', 'reports', 'services', 'administration'];
 
 const auth = useAuthStore();
 const authStore = useAuthStore();
@@ -758,15 +758,8 @@ const menuSections: MenuSection[] = [
         requiresRetreat: true,
         label: 'sidebar.settings.messageTemplates'
       },
-      {
-        name: 'change-password',
-        routeName: 'change-password',
-        icon: KeyRound,
-        requiresRetreat: false,
-        label: 'sidebar.settings.changePassword'
-      },
     ],
-    position: 'bottom'
+    position: 'top'
   },
   {
     category: 'settings',
@@ -802,6 +795,13 @@ const menuSections: MenuSection[] = [
         label: 'sidebar.telemetry',
         requiresRetreat: false,
         permission: 'superadmin'
+      },
+      {
+        name: 'change-password',
+        routeName: 'change-password',
+        icon: KeyRound,
+        requiresRetreat: false,
+        label: 'sidebar.settings.changePassword'
       }
     ],
     position: 'bottom'

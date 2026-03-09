@@ -223,6 +223,7 @@ const props = defineProps<Props>();
 
 const emit = defineEmits<{
   close: [];
+  invited: [];
 }>();
 
 const { t } = useI18n();
@@ -347,6 +348,9 @@ const sendInvitations = async () => {
           description: t('inviteUsersModal.success.usersCreatedDesc', { count: data.usersCreated.length }),
         });
       }
+
+      // Notify parent to refresh data
+      emit('invited');
 
       // Reset form after successful submission
       emailsText.value = '';

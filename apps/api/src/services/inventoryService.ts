@@ -5,8 +5,8 @@ import { InventoryTeam } from '../entities/inventoryTeam.entity';
 import { InventoryItem } from '../entities/inventoryItem.entity';
 import { RetreatInventory } from '../entities/retreatInventory.entity';
 import { Retreat } from '../entities/retreat.entity';
-import { Participant } from '../entities/participant.entity';
 import { getRepositories } from '../utils/repositoryHelpers';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { v4 as uuidv4 } from 'uuid';
 
 // Category Services
@@ -347,7 +347,8 @@ export const createDefaultInventoryForRetreat = async (
 	const items = await repos.inventoryItem.find({ where: { isActive: true } });
 
 	// Get initial walker count (will be 0 for new retreats)
-	const walkerCount = await repos.participant.count({
+	const ds = dataSource || AppDataSource;
+	const walkerCount = await ds.getRepository(RetreatParticipant).count({
 		where: {
 			retreatId: retreat.id,
 			type: 'walker',

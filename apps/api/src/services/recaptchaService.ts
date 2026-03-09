@@ -55,13 +55,17 @@ export class RecaptchaService {
 	): Promise<{ valid: boolean; error?: string; score?: number }> {
 		const secretKey = this.getSecretKey();
 
-		// Skip verification in development environment
-		if (process.env.NODE_ENV !== 'production') {
+		// Skip verification in development environment (but not in test)
+		if (process.env.NODE_ENV === 'development') {
 			return { valid: true };
 		}
 
-		// If no secret key is configured, allow the request
-		if (!secretKey || secretKey === 'YOUR_RECAPTCHA_V3_SECRET_KEY_HERE') {
+		// If no secret key is configured or a demo/placeholder key is used, allow the request
+		if (
+			!secretKey ||
+			secretKey === 'YOUR_RECAPTCHA_V3_SECRET_KEY_HERE' ||
+			secretKey.startsWith('6Lf_')
+		) {
 			return { valid: true };
 		}
 

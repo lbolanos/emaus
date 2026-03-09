@@ -61,6 +61,8 @@ describe('Auth Controller', () => {
 		body: {},
 		query: {},
 		user: null,
+		headers: {},
+		protocol: 'http',
 		logIn: jest.fn((user: any, callback: any) => callback(null)),
 		logout: jest.fn((callback: any) => callback(null)),
 		session: {

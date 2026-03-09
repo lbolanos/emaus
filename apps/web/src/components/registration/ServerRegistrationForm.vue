@@ -6,6 +6,7 @@ import { Input } from '@repo/ui';
 import { Label } from '@repo/ui';
 import { useToast } from '@repo/ui';
 import { checkParticipantExists } from '@/services/api';
+import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha';
 import type { Participant } from '@repo/types';
 
 const props = defineProps<{
@@ -54,7 +55,8 @@ async function checkEmail() {
 
 	searching.value = true;
 	try {
-		const response = await checkParticipantExists(email.value);
+		const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.PARTICIPANT_EMAIL_CHECK);
+		const response = await checkParticipantExists(email.value, recaptchaToken);
 
 		if (response.exists && response.firstName) {
 			// Found existing participant - show verification form
@@ -174,12 +176,17 @@ function resetForm() {
 				<p class="text-sm text-muted-foreground">
 					Ingresa tu correo electrónico para verificar si ya tienes un registro en el sistema.
 				</p>
-				<div class="space-y-2">
-					<Label for="email">Correo Electrónico</Label>
+				<div class="flex items-center gap-3 rounded-lg border bg-muted/40 p-4">
+					<div class="shrink-0">
+						<svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+						</svg>
+					</div>
 					<Input
 						id="email"
 						v-model="email"
 						type="email"
+						class="border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 text-base p-0 h-auto"
 						placeholder="tu.correo@ejemplo.com"
 						:disabled="searching"
 						@keyup.enter="checkEmail"
@@ -187,8 +194,14 @@ function resetForm() {
 				</div>
 				<div class="flex gap-2">
 					<Button @click="checkEmail" :disabled="searching || !emailValid" class="flex-1">
-						<span v-if="searching">Buscando...</span>
-						<span v-else>Buscar</span>
+						<svg v-if="searching" class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+						</svg>
+						<svg v-else class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+						</svg>
+						{{ searching ? 'Buscando...' : 'Buscar' }}
 					</Button>
 					<Button variant="outline" @click="cancel">Cancelar</Button>
 				</div>

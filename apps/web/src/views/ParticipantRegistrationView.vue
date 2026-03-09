@@ -596,7 +596,7 @@ onMounted(async () => {
                   id="email-lookup"
                   v-model="emailLookup"
                   type="email"
-                  class="border-0 bg-transparent shadow-none focus-visible:ring-0 text-base p-0 h-auto"
+                  class="border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 text-base p-0 h-auto"
                   :placeholder="$t('serverRegistration.emailLookup.placeholder')"
                   @keyup.enter="handleEmailLookup"
                 />

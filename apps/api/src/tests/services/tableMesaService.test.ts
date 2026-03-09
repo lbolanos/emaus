@@ -2,6 +2,7 @@ import { setupTestDatabase, teardownTestDatabase, clearTestData } from '../test-
 import { TestDataFactory } from '../test-utils/testDataFactory';
 import { TableMesa } from '@/entities/tableMesa.entity';
 import { Participant } from '@/entities/participant.entity';
+import { RetreatParticipant } from '@/entities/retreatParticipant.entity';
 import * as tableMesaService from '@/services/tableMesaService';
 
 /**
@@ -27,10 +28,7 @@ describe('Table Mesa Service', () => {
 				email: 'test@example.com',
 				firstName: 'Test',
 				lastName: 'Participant',
-				type: 'walker',
-				retreatId: testRetreat.id,
-				isCancelled: false,
-				id_on_retreat: 1,
+				retreatId: testRetreat?.id,
 				birthDate: new Date('1990-01-01'),
 				maritalStatus: 'single',
 				street: '123 Test St',
@@ -54,6 +52,24 @@ describe('Table Mesa Service', () => {
 				emergencyContact1CellPhone: '0987654321',
 				...overrides,
 			});
+	};
+
+	// Helper to save a participant AND create a RetreatParticipant record
+	const saveParticipantWithRetreatRole = async (
+		participant: Participant,
+		type: string,
+		isCancelled = false,
+	) => {
+		const saved = await getTestDataSource().getRepository(Participant).save(participant);
+		await getTestDataSource().getRepository(RetreatParticipant).save({
+			participantId: saved.id,
+			retreatId: testRetreat.id,
+			roleInRetreat: type === 'server' ? 'server' : 'walker',
+			type,
+			isCancelled,
+			isPrimaryRetreat: true,
+		});
+		return saved;
 	};
 
 	beforeAll(async () => {
@@ -81,10 +97,8 @@ describe('Table Mesa Service', () => {
 				email: `walker${i}@test.com`,
 				firstName: `Walker${i}`,
 				lastName: `Test${i}`,
-				type: 'walker',
-				id_on_retreat: i + 1,
 			});
-			testWalkers.push(await getTestDataSource().getRepository(Participant).save(walker));
+			testWalkers.push(await saveParticipantWithRetreatRole(walker, 'walker'));
 		}
 
 		// Create test servers
@@ -94,10 +108,8 @@ describe('Table Mesa Service', () => {
 				email: `server${i}@test.com`,
 				firstName: `Server${i}`,
 				lastName: `Test${i}`,
-				type: 'server',
-				id_on_retreat: i + 100,
 			});
-			testServers.push(await getTestDataSource().getRepository(Participant).save(server));
+			testServers.push(await saveParticipantWithRetreatRole(server, 'server'));
 		}
 	});
 
@@ -326,13 +338,8 @@ describe('Table Mesa Service', () => {
 				email: 'cancelled-server@test.com',
 				firstName: 'Cancelled',
 				lastName: 'Server',
-				type: 'server',
-				isCancelled: true,
-				id_on_retreat: 999,
 			});
-			const saved = await TestDataFactory['testDataSource']
-				.getRepository(Participant)
-				.save(cancelledServer);
+			const saved = await saveParticipantWithRetreatRole(cancelledServer, 'server', true);
 
 			await expect(
 				tableMesaService.assignLeaderToTable(
@@ -423,13 +430,8 @@ describe('Table Mesa Service', () => {
 				email: 'cancelled-walker@test.com',
 				firstName: 'Cancelled',
 				lastName: 'Walker',
-				type: 'walker',
-				isCancelled: true,
-				id_on_retreat: 998,
 			});
-			const saved = await TestDataFactory['testDataSource']
-				.getRepository(Participant)
-				.save(cancelledWalker);
+			const saved = await saveParticipantWithRetreatRole(cancelledWalker, 'walker', true);
 
 			await expect(
 				tableMesaService.assignWalkerToTable(testTables[0].id, saved.id, getTestDataSource()),
@@ -455,11 +457,14 @@ describe('Table Mesa Service', () => {
 
 	describe('rebalanceTablesForRetreat', () => {
 		test('should distribute walkers evenly across tables', async () => {
-			// Assign all walkers to first table
+			// Assign all walkers to first table via retreat_participants
+			const rpRepo = getTestDataSource().getRepository(RetreatParticipant);
 			for (const walker of testWalkers) {
-				walker.tableId = testTables[0].id;
+				await rpRepo.update(
+					{ participantId: walker.id, retreatId: testRetreat.id },
+					{ tableId: testTables[0].id },
+				);
 			}
-			await TestDataFactory['testDataSource'].getRepository(Participant).save(testWalkers);
 
 			// Rebalance
 			await tableMesaService.rebalanceTablesForRetreat(testRetreat.id, getTestDataSource());
@@ -478,18 +483,13 @@ describe('Table Mesa Service', () => {
 
 		test('should create new tables if needed', async () => {
 			// Create many walkers (more than 5 tables * 7 max walkers = 35)
-			const manyWalkers: Participant[] = [];
 			for (let i = 0; i < 50; i++) {
 				const walker = createTestParticipant({
 					email: `many-walker-${i}@test.com`,
 					firstName: `Walker${i}`,
 					lastName: 'Many',
-					type: 'walker',
-					id_on_retreat: 1000 + i,
 				});
-				manyWalkers.push(
-					await TestDataFactory['testDataSource'].getRepository(Participant).save(walker),
-				);
+				await saveParticipantWithRetreatRole(walker, 'walker');
 			}
 
 			await tableMesaService.rebalanceTablesForRetreat(testRetreat.id, getTestDataSource());

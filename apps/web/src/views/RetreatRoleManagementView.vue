@@ -236,6 +236,7 @@
       :is-open="showInviteModal"
       :retreat-id="retreatId"
       @close="showInviteModal = false"
+      @invited="loadData"
     />
 
     <!-- Permission Overrides Modal -->
