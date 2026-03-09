@@ -39,6 +39,7 @@ jobs:
         env:
           VITE_API_URL: https://emaus.cc/api
           VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
+          VITE_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_RECAPTCHA_SITE_KEY }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -69,6 +70,7 @@ jobs:
           EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
+          RECAPTCHA_SITE_KEY: ${{ secrets.VITE_RECAPTCHA_SITE_KEY }}
         run: |
           set -e
 
@@ -124,6 +126,7 @@ jobs:
           echo 'window.EMAUS_RUNTIME_CONFIG = {' > /tmp/runtime-config.js
           echo "  apiUrl: '${API_URL}'," >> /tmp/runtime-config.js
           echo "  googleMapsApiKey: '${GOOGLE_MAPS_API_KEY}'," >> /tmp/runtime-config.js
+          echo "  recaptchaSiteKey: '${RECAPTCHA_SITE_KEY}'," >> /tmp/runtime-config.js
           echo "  environment: 'production'," >> /tmp/runtime-config.js
           echo "  isDevelopment: false," >> /tmp/runtime-config.js
           echo "  isStaging: false," >> /tmp/runtime-config.js

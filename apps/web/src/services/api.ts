@@ -579,7 +579,7 @@ export const checkParticipantExists = async (
 	message?: string;
 }> => {
 	const response = await api.get(`/participants/check-email/${encodeURIComponent(email)}`, {
-		params: recaptchaToken ? { recaptchaToken } : undefined,
+		params: recaptchaToken != null ? { recaptchaToken } : undefined,
 	});
 	return response.data;
 };

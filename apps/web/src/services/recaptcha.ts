@@ -6,13 +6,14 @@
  */
 
 import type { App } from 'vue';
+import { getRecaptchaSiteKey as getRuntimeRecaptchaSiteKey } from '@/config/runtimeConfig';
 
 /**
- * Get the reCAPTCHA site key from environment variables
+ * Get the reCAPTCHA site key from runtime config (supports both build-time and runtime injection)
  * Wrapped in a function to allow testing
  */
 function getRecaptchaSiteKey(): string {
-	return import.meta.env.VITE_RECAPTCHA_SITE_KEY || '';
+	return getRuntimeRecaptchaSiteKey() || import.meta.env.VITE_RECAPTCHA_SITE_KEY || '';
 }
 
 // Track if script is loaded
