@@ -209,9 +209,9 @@
               <div v-if="retreatStore.loading" class="text-sm text-gray-400">{{ $t('sidebar.loadingRetreats') }}</div>
               <div v-else-if="retreatStore.retreats.length === 0" class="text-center">
                 <p class="text-sm text-gray-400 mb-2">{{ $t('sidebar.noRetreatsFound') }}</p>
-                <Button @click="isAddModalOpen = true" class="w-full" size="sm">
-                  <Plus class="w-4 h-4" :class="{ 'mr-2': !isMobile }" />
-                  <span v-if="!isMobile">{{ $t('sidebar.addRetreat') }}</span>
+                <Button @click="isAddModalOpen = true" class="w-full" size="sm" :title="$t('sidebar.addRetreat')">
+                  <Plus class="w-4 h-4 mr-2" />
+                  {{ $t('sidebar.addRetreat') }}
                 </Button>
               </div>
               <div v-else class="space-y-2">
@@ -228,20 +228,18 @@
                   </SelectContent>
                 </Select>
                 <div class="flex items-center gap-2">
-                  <Button @click="isAddModalOpen = true" variant="outline" :size="isMobile ? 'icon' : 'sm'" class="border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700" :class="{ 'flex-1': !isMobile }">
-                    <Plus class="w-4 h-4" :class="{ 'mr-1': !isMobile }" />
-                    <span v-if="!isMobile">{{ $t('sidebar.addRetreat') }}</span>
+                  <Button @click="isAddModalOpen = true" variant="outline" size="icon" class="border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700" :title="$t('sidebar.addRetreat')">
+                    <Plus class="w-4 h-4" />
                   </Button>
                   <Button
                     v-if="retreatStore.selectedRetreatId"
                     @click="isEditModalOpen = true"
                     variant="outline"
-                    :size="isMobile ? 'icon' : 'sm'"
+                    size="icon"
                     class="border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700"
-                    :class="{ 'flex-1': !isMobile }"
+                    :title="$t('common.edit')"
                   >
-                    <EditIcon class="w-4 h-4" :class="{ 'mr-1': !isMobile }" />
-                    <span v-if="!isMobile">{{ $t('common.edit') }}</span>
+                    <EditIcon class="w-4 h-4" />
                   </Button>
                 </div>
                 <!-- Permission refresh indicator -->
