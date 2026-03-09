@@ -297,12 +297,13 @@ export class TestDataFactory {
 		overrides: Partial<Participant> = {},
 	): Promise<Participant> {
 		const participantRepository = this.testDataSource.getRepository(Participant);
+		// Virtual fields (type, id_on_retreat, etc.) live in retreat_participants, not participants
+		const { type, id_on_retreat, isCancelled, tableId, family_friend_color, ...safeOverrides } =
+			overrides as any;
 		const defaultParticipant: Partial<Participant> = {
-			id_on_retreat: Math.floor(Math.random() * 1000),
 			firstName: 'Test',
 			lastName: `Participant ${Date.now()}`,
 			email: `participant-${Date.now()}@example.com`,
-			type: 'walker' as any,
 			birthDate: new Date('1990-01-01'),
 			maritalStatus: 'S',
 			street: 'Main St',
@@ -322,10 +323,33 @@ export class TestDataFactory {
 			emergencyContact1Relation: 'Friend',
 			emergencyContact1CellPhone: '0987654321',
 			retreatId,
-			...overrides,
+			...safeOverrides,
 		};
 		const participant = participantRepository.create(defaultParticipant);
-		return await participantRepository.save(participant);
+		const saved = await participantRepository.save(participant);
+
+		// Create a retreat_participants row for the retreat-specific fields
+		const { RetreatParticipant } = await import('@/entities/retreatParticipant.entity');
+		const rpRepo = this.testDataSource.getRepository(RetreatParticipant);
+		const rp = rpRepo.create({
+			participantId: saved.id,
+			retreatId,
+			roleInRetreat: type === 'server' || type === 'partial_server' ? 'server' : 'walker',
+			type: type ?? 'walker',
+			isCancelled: isCancelled ?? false,
+			tableId: tableId ?? null,
+			idOnRetreat: id_on_retreat ?? Math.floor(Math.random() * 1000),
+			familyFriendColor: family_friend_color ?? null,
+			isPrimaryRetreat: false,
+		});
+		await rpRepo.save(rp);
+
+		// Set virtual fields on returned object for caller convenience
+		saved.type = type ?? 'walker';
+		saved.id_on_retreat = rp.idOnRetreat ?? undefined;
+		saved.isCancelled = isCancelled ?? false;
+
+		return saved;
 	}
 	static async createCompleteTestEnvironment(
 		userOverrides: Partial<User> = {},

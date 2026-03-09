@@ -13,9 +13,10 @@ import { In, Not, IsNull, ILike, Brackets } from 'typeorm';
 import {
 	createHistoryEntry,
 	autoSetPrimaryRetreat,
+	syncRetreatFields,
 	CreateHistoryData,
-} from './participantHistoryService';
-import { ParticipantHistory } from '../entities/participantHistory.entity';
+} from './retreatParticipantService';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 
 const participantRepository = AppDataSource.getRepository(Participant);
 const tableMesaRepository = AppDataSource.getRepository(TableMesa);
@@ -40,7 +41,7 @@ export const findParticipantByEmail = async (email: string): Promise<Participant
  */
 export const checkParticipantExists = async (
 	email: string,
-): Promise<{ exists: boolean; participant?: Participant; message?: string }> => {
+): Promise<{ exists: boolean; firstName?: string; lastName?: string; message?: string }> => {
 	const existing = await findParticipantByEmail(email);
 
 	if (!existing) {
@@ -49,9 +50,95 @@ export const checkParticipantExists = async (
 
 	return {
 		exists: true,
-		participant: existing,
+		firstName: existing.firstName,
+		lastName: existing.lastName,
 		message: `Se encontró un registro existente para ${email} (${existing.firstName} ${existing.lastName})`,
 	};
+};
+
+/**
+ * Confirm an existing participant for a retreat without changing their personal data.
+ * Creates a RetreatParticipant row and updates their retreatId.
+ */
+export const confirmExistingParticipant = async (
+	email: string,
+	retreatId: string,
+	type: 'server' | 'partial_server',
+): Promise<{ success: true; firstName: string; lastName: string }> => {
+	const existing = await findParticipantByEmail(email);
+	if (!existing) {
+		throw new Error('Participant not found');
+	}
+
+	return AppDataSource.transaction(async (transactionalEntityManager) => {
+		const participantRepo = transactionalEntityManager.getRepository(Participant);
+		const historyRepo = transactionalEntityManager.getRepository(RetreatParticipant);
+
+		const oldRetreatId = existing.retreatId;
+		const sameRetreat = oldRetreatId === retreatId;
+
+		// If different retreat, save history for the old retreat first
+		if (!sameRetreat && oldRetreatId) {
+			const oldRp = await historyRepo.findOne({
+				where: { participantId: existing.id, retreatId: oldRetreatId },
+			});
+
+			if (!oldRp) {
+				try {
+					const oldHistoryData: CreateHistoryData = {
+						userId: existing.userId || null,
+						participantId: existing.id,
+						retreatId: oldRetreatId,
+						roleInRetreat: 'server',
+						isPrimaryRetreat: false,
+					};
+					const newOldHistory = historyRepo.create(oldHistoryData);
+					await historyRepo.save(newOldHistory);
+				} catch (historyError) {
+					console.error('Error creating history for old retreat:', historyError);
+				}
+			}
+		}
+
+		// Update retreatId only — do NOT overwrite personal data
+		existing.retreatId = retreatId;
+		existing.lastUpdatedDate = new Date();
+		await participantRepo.save(existing);
+
+		// Ensure RetreatParticipant record exists for the new retreat
+		const existingRp = await historyRepo.findOne({
+			where: { participantId: existing.id, retreatId },
+		});
+
+		if (!existingRp) {
+			const rpData: CreateHistoryData = {
+				userId: existing.userId || null,
+				participantId: existing.id,
+				retreatId,
+				roleInRetreat: 'server',
+				isPrimaryRetreat: false,
+				type,
+				isCancelled: false,
+			};
+			const rp = historyRepo.create(rpData);
+			await historyRepo.save(rp);
+		} else {
+			existingRp.type = type;
+			existingRp.isCancelled = false;
+			existingRp.roleInRetreat = 'server';
+			await historyRepo.save(existingRp);
+		}
+
+		if (existing.userId) {
+			await autoSetPrimaryRetreat(existing.userId);
+		}
+
+		console.warn(
+			`✅ Confirmed existing participant ${existing.email} for retreat ${retreatId}`,
+		);
+
+		return { success: true as const, firstName: existing.firstName, lastName: existing.lastName };
+	});
 };
 
 // Create BedQueryUtils instance
@@ -77,36 +164,53 @@ export const findAllParticipants = async (
 
 	const queryBuilder = participantRepository.createQueryBuilder('participant');
 
-	// Apply base relations
-	allRelations.forEach((relation) => {
-		const parts = relation.split('.');
-		if (parts.length === 1) {
-			if (parts[0] === 'retreatBed') {
-				// Scope retreatBed JOIN to the same retreat as the participant
-				// to avoid picking up stale beds from other retreats
-				queryBuilder.leftJoinAndSelect(
-					'participant.retreatBed',
-					'retreatBed',
-					'retreatBed.retreatId = participant.retreatId',
-				);
-			} else {
-				queryBuilder.leftJoinAndSelect(`participant.${parts[0]}`, parts[0]);
-			}
-		} else {
-			// Handle nested relations like 'tags.tag'
-			queryBuilder.leftJoinAndSelect(`${parts[0]}.${parts[1]}`, parts[1]);
-		}
-	});
+	// Join through retreat_participants to find all participants for this retreat,
+	// even if their current participant.retreatId has moved to a different retreat
+	queryBuilder.innerJoin(
+		'retreat_participants',
+		'ph',
+		'ph."participantId" = participant.id AND ph."retreatId" = :phRetreatId',
+		{ phRetreatId: retreatId },
+	);
 
-	// Apply base filters
-	queryBuilder.where('participant.retreatId = :retreatId', { retreatId });
+	// Apply base relations (skip tableMesa — no longer a DB relation on Participant)
+	allRelations
+		.filter((r) => r !== 'tableMesa')
+		.forEach((relation) => {
+			const parts = relation.split('.');
+			if (parts.length === 1) {
+				if (parts[0] === 'retreatBed') {
+					// Scope retreatBed JOIN to the requested retreat (not participant.retreatId)
+					queryBuilder.leftJoinAndSelect(
+						'participant.retreatBed',
+						'retreatBed',
+						'retreatBed.retreatId = :retreatId',
+						{ retreatId },
+					);
+				} else {
+					queryBuilder.leftJoinAndSelect(`participant.${parts[0]}`, parts[0]);
+				}
+			} else if (parts[0] === 'tags' && parts[1] === 'tag') {
+				// Scope tag join to the current retreat so tags from other retreats are excluded
+				queryBuilder.leftJoinAndSelect('tags.tag', 'tag', 'tag.retreatId = :tagRetreatId', {
+					tagRetreatId: retreatId,
+				});
+			} else {
+				// Handle nested relations like 'retreat.house'
+				queryBuilder.leftJoinAndSelect(`${parts[0]}.${parts[1]}`, parts[1]);
+			}
+		});
+
+	// Filter by retreat via the history join (already applied in innerJoin)
+	// Add a WHERE clause to satisfy TypeORM's query structure
+	queryBuilder.where('1 = 1');
 
 	if (type) {
-		queryBuilder.andWhere('participant.type = :type', { type });
+		queryBuilder.andWhere('ph."type" = :type', { type });
 	}
 
 	if (typeof isCancelled === 'boolean') {
-		queryBuilder.andWhere('participant.isCancelled = :isCancelled', { isCancelled });
+		queryBuilder.andWhere('ph."isCancelled" = :isCancelled', { isCancelled });
 	}
 
 	// Apply tag filter if provided
@@ -125,6 +229,39 @@ export const findAllParticipants = async (
 		.orderBy('participant.lastName', 'ASC')
 		.addOrderBy('participant.firstName', 'ASC')
 		.getMany();
+
+	// Overlay retreat-specific fields from retreat_participants
+	if (participants.length > 0) {
+		const historyRepo = AppDataSource.getRepository(RetreatParticipant);
+		const historyRows = await historyRepo.find({
+			where: {
+				retreatId,
+				participantId: In(participants.map((p) => p.id)),
+			},
+			select: [
+				'participantId',
+				'type',
+				'isCancelled',
+				'tableId',
+				'idOnRetreat',
+				'familyFriendColor',
+			],
+		});
+		const historyMap = new Map(
+			historyRows.map((h) => [h.participantId, h]),
+		);
+		for (const p of participants) {
+			const h = historyMap.get(p.id);
+			if (h) {
+				if (h.type != null) p.type = h.type as any;
+				if (h.isCancelled != null) p.isCancelled = h.isCancelled;
+				if (h.tableId !== undefined) p.tableId = h.tableId;
+				if (h.idOnRetreat != null) p.id_on_retreat = h.idOnRetreat;
+				if (h.familyFriendColor !== undefined)
+					p.family_friend_color = h.familyFriendColor ?? undefined;
+			}
+		}
+	}
 
 	// Enrich servers who are table leaders (lider/colider1/colider2) but have no tableId.
 	// Their table assignment lives on the tables entity, not on participant.tableId.
@@ -174,7 +311,7 @@ export const findParticipantById = async (
 	id: string,
 	includePayments: boolean = false,
 ): Promise<Participant | null> => {
-	const relations = ['retreat', 'tableMesa', 'retreatBed', 'tags', 'tags.tag'];
+	const relations = ['retreat', 'retreatBed', 'tags', 'tags.tag'];
 	if (includePayments) {
 		relations.push('payments', 'payments.recordedByUser');
 	}
@@ -184,9 +321,35 @@ export const findParticipantById = async (
 		relations,
 	});
 
+	if (!participant) return null;
+
+	// Filter tags to only include those belonging to the participant's current retreat
+	if (participant.tags && participant.retreatId) {
+		participant.tags = participant.tags.filter(
+			(pt: any) => pt.tag?.retreatId === participant.retreatId,
+		);
+	}
+
+	// Overlay retreat-specific fields from retreat_participants
+	if (participant.retreatId) {
+		const rpRepo = AppDataSource.getRepository(RetreatParticipant);
+		const rp = await rpRepo.findOne({
+			where: { participantId: participant.id, retreatId: participant.retreatId },
+			relations: ['tableMesa'],
+		});
+		if (rp) {
+			if (rp.type != null) participant.type = rp.type as any;
+			if (rp.isCancelled != null) participant.isCancelled = rp.isCancelled;
+			if (rp.tableId !== undefined) participant.tableId = rp.tableId;
+			if (rp.idOnRetreat != null) participant.id_on_retreat = rp.idOnRetreat;
+			if (rp.familyFriendColor !== undefined)
+				participant.family_friend_color = rp.familyFriendColor ?? undefined;
+			if (rp.tableMesa) participant.tableMesa = rp.tableMesa;
+		}
+	}
+
 	// Enrich server leaders who have no tableId but are lider/colider on a table
 	if (
-		participant &&
 		!participant.tableMesa &&
 		(participant.type === 'server' || participant.type === 'partial_server')
 	) {
@@ -196,6 +359,7 @@ export const findParticipantById = async (
 				'(t.liderId = :pid OR t.colider1Id = :pid OR t.colider2Id = :pid)',
 				{ pid: participant.id },
 			)
+			.andWhere('t.retreatId = :retreatId', { retreatId: participant.retreatId })
 			.getOne();
 		if (leaderTable) {
 			participant.tableMesa = leaderTable;
@@ -334,6 +498,7 @@ const assignBedToParticipant = async (
 		.createQueryBuilder('bed')
 		.where('bed.retreatId = :retreatId', { retreatId: participant.retreatId })
 		.andWhere('bed.participantId IS NULL')
+		.andWhere('bed.isActive = :isActive', { isActive: true })
 		.andWhere('bed.defaultUsage = :bedUsage', { bedUsage })
 		.andWhere('bed.id NOT IN (:...excludedBedIds)', {
 			excludedBedIds: excludedBedIds.length > 0 ? excludedBedIds : [''],
@@ -415,16 +580,18 @@ const assignTableToWalker = async (participant: Participant): Promise<string | u
 	let suitableTables = tables;
 
 	if (participant.invitedBy) {
-		const walkersInvitedBySamePerson = await participantRepo.find({
-			where: {
-				retreatId: participant.retreatId,
-				invitedBy: ILike(participant.invitedBy),
-				id: Not(participant.id),
-				tableId: Not(IsNull()),
-			},
-			select: ['tableId'],
-		});
-		const tablesToExclude = walkersInvitedBySamePerson.map((p) => p.tableId).filter(Boolean);
+		// Find other walkers invited by same person who have a table, via retreat_participants join
+		const rpRepo = AppDataSource.getRepository(RetreatParticipant);
+		const rpWithTable = await rpRepo
+			.createQueryBuilder('rp')
+			.innerJoin('rp.participant', 'p')
+			.where('rp."retreatId" = :retreatId', { retreatId: participant.retreatId })
+			.andWhere('LOWER(p."invitedBy") = LOWER(:invitedBy)', { invitedBy: participant.invitedBy })
+			.andWhere('rp."participantId" != :pid', { pid: participant.id })
+			.andWhere('rp."tableId" IS NOT NULL')
+			.select(['rp.tableId'])
+			.getMany();
+		const tablesToExclude = rpWithTable.map((rp) => rp.tableId).filter(Boolean);
 		if (tablesToExclude.length > 0) {
 			suitableTables = tables.filter((t) => !tablesToExclude.includes(t.id));
 		}
@@ -506,109 +673,113 @@ export const createParticipant = async (
 
 		// SI EXISTE: Actualizar el Participant existente con nueva información del retiro
 		if (existingParticipantByEmail) {
-			// Check if trying to register for the same retreat they're already in
-			if (existingParticipantByEmail.retreatId === participantData.retreatId) {
-				throw new Error('A participant with this email already exists in this retreat.');
-			}
+			const sameRetreat = existingParticipantByEmail.retreatId === participantData.retreatId;
 
-			// Store old retreat ID for history before updating
-			const oldRetreatId = existingParticipantByEmail.retreatId;
-			const oldType = existingParticipantByEmail.type;
+			const historyRepo = transactionalEntityManager.getRepository(RetreatParticipant);
 
-			// Create history entry for the OLD retreat before updating
-			if (existingParticipantByEmail.userId && oldRetreatId) {
-				try {
-					const oldHistoryData: CreateHistoryData = {
-						userId: existingParticipantByEmail.userId,
-						participantId: existingParticipantByEmail.id,
-						retreatId: oldRetreatId,
-						roleInRetreat:
-							oldType === 'walker'
-								? 'walker'
-								: oldType === 'server' || oldType === 'partial_server'
-									? 'server'
-									: 'server',
-						isPrimaryRetreat: false,
-					};
+			// If different retreat, save history for the old retreat first
+			if (!sameRetreat) {
+				const oldRetreatId = existingParticipantByEmail.retreatId;
 
-					const historyRepo = transactionalEntityManager.getRepository(ParticipantHistory);
-					// Check if history already exists for old retreat
-					const existingHistory = await historyRepo.findOne({
-						where: {
-							userId: existingParticipantByEmail.userId,
-							retreatId: oldRetreatId,
-							participantId: existingParticipantByEmail.id,
-						},
+				// Load old retreat-specific fields from retreat_participants
+				let oldRp: RetreatParticipant | null = null;
+				if (oldRetreatId) {
+					oldRp = await historyRepo.findOne({
+						where: { participantId: existingParticipantByEmail.id, retreatId: oldRetreatId },
 					});
+				}
+				const oldType = oldRp?.type;
 
-					if (!existingHistory) {
-						const oldHistory = historyRepo.create(oldHistoryData);
-						await historyRepo.save(oldHistory);
+				// Ensure old retreat has a history entry (create if missing)
+				if (oldRetreatId && !oldRp) {
+					try {
+						const oldHistoryData: CreateHistoryData = {
+							userId: existingParticipantByEmail.userId || null,
+							participantId: existingParticipantByEmail.id,
+							retreatId: oldRetreatId,
+							roleInRetreat:
+								oldType === 'walker' || oldType === 'waiting'
+									? 'walker'
+									: oldType === 'server' || oldType === 'partial_server'
+										? 'server'
+										: 'walker',
+							isPrimaryRetreat: false,
+						};
+						const newOldHistory = historyRepo.create(oldHistoryData);
+						await historyRepo.save(newOldHistory);
+					} catch (historyError) {
+						console.error('Error creating history for old retreat:', historyError);
 					}
-				} catch (historyError) {
-					console.error('Error creating history for old retreat:', historyError);
 				}
 			}
 
-			// Clear old bed assignment before moving participant to new retreat
-			const retreatBedRepo = transactionalEntityManager.getRepository(RetreatBed);
-			await retreatBedRepo
-				.createQueryBuilder()
-				.update(RetreatBed)
-				.set({ participantId: null })
-				.where('participantId = :pid', { pid: existingParticipantByEmail.id })
-				.andWhere('retreatId = :oldRid', { oldRid: oldRetreatId })
-				.execute();
-
-			// Update the existing participant with new retreat information
+			// Update the existing participant with new data (personal data + retreat assignment)
+			const { type: newType, isCancelled: newCancelled, tableId: newTableId, id_on_retreat: newIdOnRetreat, family_friend_color: newColor, tableMesa: _tm, retreatBed: _rb, ...personalUpdates } = participantData;
 			Object.assign(existingParticipantByEmail, {
-				...participantData,
-				retreatId: participantData.retreatId, // Update to new retreat
-				type: participantData.type,
+				...personalUpdates,
+				retreatId: participantData.retreatId,
 				lastUpdatedDate: new Date(),
-				// Preserve the original registration date for tracking purposes
 				registrationDate: existingParticipantByEmail.registrationDate,
 			});
 
 			const updatedParticipant = await participantRepository.save(existingParticipantByEmail);
 
-			// Create ParticipantHistory for the NEW retreat
-			if (updatedParticipant.userId && updatedParticipant.retreatId) {
+			// Ensure RetreatParticipant record exists for this retreat
+			if (updatedParticipant.retreatId) {
 				try {
-					const historyData: CreateHistoryData = {
-						userId: updatedParticipant.userId,
+					const rpHistoryData: CreateHistoryData = {
+						userId: updatedParticipant.userId || null,
 						participantId: updatedParticipant.id,
 						retreatId: updatedParticipant.retreatId,
 						roleInRetreat:
-							participantData.type === 'walker'
+							newType === 'walker' || newType === 'waiting'
 								? 'walker'
-								: participantData.type === 'server' || participantData.type === 'partial_server'
+								: newType === 'server' || newType === 'partial_server'
 									? 'server'
-									: 'server',
+									: 'walker',
 						isPrimaryRetreat: false,
+						type: newType,
+						isCancelled: newCancelled ?? false,
+						tableId: newTableId ?? null,
+						idOnRetreat: newIdOnRetreat ?? null,
+						familyFriendColor: newColor || null,
 					};
 
-					const historyRepo = transactionalEntityManager.getRepository(ParticipantHistory);
-					// Check if history already exists for new retreat
-					const existingHistory = await historyRepo.findOne({
+					const rpRepo = transactionalEntityManager.getRepository(RetreatParticipant);
+					const existingRp = await rpRepo.findOne({
 						where: {
-							userId: updatedParticipant.userId,
-							retreatId: updatedParticipant.retreatId,
 							participantId: updatedParticipant.id,
+							retreatId: updatedParticipant.retreatId,
 						},
 					});
 
-					if (!existingHistory) {
-						const history = historyRepo.create(historyData);
-						await historyRepo.save(history);
+					if (!existingRp) {
+						const rp = rpRepo.create(rpHistoryData);
+						await rpRepo.save(rp);
+					} else {
+						// Update existing retreat_participant record with latest data
+						existingRp.type = newType;
+						existingRp.isCancelled = newCancelled ?? false;
+						existingRp.roleInRetreat =
+							newType === 'walker' || newType === 'waiting'
+								? 'walker'
+								: newType === 'server' || newType === 'partial_server'
+									? 'server'
+									: 'walker';
+						await rpRepo.save(existingRp);
 					}
 
-					// Update primary retreat
-					await autoSetPrimaryRetreat(updatedParticipant.userId);
+					if (updatedParticipant.userId) {
+						await autoSetPrimaryRetreat(updatedParticipant.userId);
+					}
 				} catch (historyError) {
-					console.error('Error creating participant history for new retreat:', historyError);
+					console.error('Error creating retreat participant for new retreat:', historyError);
 				}
 			}
+
+			// Set virtual fields for API response
+			updatedParticipant.type = newType as any;
+			updatedParticipant.isCancelled = newCancelled ?? false;
 
 			console.warn(
 				`✅ Successfully updated and reused participant ${updatedParticipant.email} for retreat ${updatedParticipant.retreatId}`,
@@ -682,54 +853,58 @@ export const createParticipant = async (
 
 			if (searchConditions.length > 0) {
 				// Find all existing walkers that match any of the group conditions
+				// Join participants with retreat_participants to get type and color
+				const rpRepo = transactionalEntityManager.getRepository(RetreatParticipant);
 				const findAnyWalkerQb = participantRepository
 					.createQueryBuilder('participant')
-					.where('participant.retreatId = :retreatId')
-					.andWhere('participant.type = :type', { type: 'walker' })
+					.innerJoin(
+						'retreat_participants', 'rp',
+						'rp."participantId" = participant.id AND rp."retreatId" = :retreatId',
+					)
+					.addSelect('rp."familyFriendColor"', 'rpColor')
+					.where('rp."retreatId" = :retreatId')
+					.andWhere('rp."type" = :type', { type: 'walker' })
 					.andWhere(new Brackets((qb) => qb.where(searchConditions.join(' OR '))));
 
-				const existingWalkers = await findAnyWalkerQb.setParameters(parameters).getMany();
+				const existingWalkersRaw = await findAnyWalkerQb.setParameters(parameters).getRawAndEntities();
+				const existingWalkers = existingWalkersRaw.entities;
+				// Overlay familyFriendColor from raw results
+				for (let i = 0; i < existingWalkers.length; i++) {
+					existingWalkers[i].family_friend_color = existingWalkersRaw.raw[i]?.rpColor ?? undefined;
+				}
 
 				// Only assign color if there are 2 or more walkers in the group (including the new one)
 				if (existingWalkers.length >= 1) {
-					// This means we have a group: existing walkers + the new walker being created
-
-					// Check if any existing walker already has a color
 					const existingWalkerWithColor = existingWalkers.find((w) => w.family_friend_color);
 
 					if (existingWalkerWithColor?.family_friend_color) {
-						// Use the same color as existing walker in the group
 						colorToAssign = existingWalkerWithColor.family_friend_color;
 					} else {
-						// Find all used colors in this retreat
-						const usedColorsResult = await participantRepository
-							.createQueryBuilder('p')
-							.select('DISTINCT p.family_friend_color', 'color')
-							.where('p.retreatId = :retreatId', { retreatId: participantData.retreatId })
-							.andWhere('p.family_friend_color IS NOT NULL')
+						// Find all used colors in this retreat from retreat_participants
+						const usedColorsResult = await rpRepo
+							.createQueryBuilder('rp')
+							.select('DISTINCT rp."familyFriendColor"', 'color')
+							.where('rp."retreatId" = :retreatId', { retreatId: participantData.retreatId })
+							.andWhere('rp."familyFriendColor" IS NOT NULL')
 							.getRawMany();
-						const usedColors = usedColorsResult.map((r) => r.color);
+						const usedColors = usedColorsResult.map((r: any) => r.color);
 
-						// Get an available color from the pool
 						const availableColor = COLOR_POOL.find((c) => !usedColors.includes(c));
 						colorToAssign =
 							availableColor || COLOR_POOL[Math.floor(Math.random() * COLOR_POOL.length)];
 
 						if (colorToAssign) {
-							// Update all walkers in the group to use the new color
-							const updateConditions = searchConditions.map((condition) =>
-								condition.replace(/participant\./g, ''),
-							);
-
-							const updateQb = participantRepository
-								.createQueryBuilder()
-								.update(Participant)
-								.set({ family_friend_color: colorToAssign })
-								.where('retreatId = :retreatId')
-								.andWhere('type = :type', { type: 'walker' })
-								.andWhere(new Brackets((qb) => qb.where(updateConditions.join(' OR '))));
-
-							const updateResult = await updateQb.setParameters(parameters).execute();
+							// Update all walkers in the group to use the new color in retreat_participants
+							const walkerIds = existingWalkers.map((w) => w.id);
+							if (walkerIds.length > 0) {
+								await rpRepo
+									.createQueryBuilder()
+									.update(RetreatParticipant)
+									.set({ familyFriendColor: colorToAssign })
+									.where('"retreatId" = :retreatId', { retreatId: participantData.retreatId })
+									.andWhere('"participantId" IN (:...walkerIds)', { walkerIds })
+									.execute();
+							}
 						}
 					}
 				}
@@ -746,7 +921,8 @@ export const createParticipant = async (
 					where: { id: participantData.retreatId },
 				});
 				if (retreat) {
-					const participantCount = await participantRepository.count({
+					const rpRepo = transactionalEntityManager.getRepository(RetreatParticipant);
+					const participantCount = await rpRepo.count({
 						where: {
 							retreatId: participantData.retreatId,
 							type: participantData.type,
@@ -781,19 +957,18 @@ export const createParticipant = async (
 			}
 		}
 
-		const maxIdOnRetreat = await participantRepository
-			.createQueryBuilder('p')
-			.select('MAX(p.id_on_retreat)', 'maxId')
-			.where('p.retreatId = :retreatId', { retreatId: participantData.retreatId })
+		const rpRepoForMax = transactionalEntityManager.getRepository(RetreatParticipant);
+		const maxIdOnRetreat = await rpRepoForMax
+			.createQueryBuilder('rp')
+			.select('MAX(rp."idOnRetreat")', 'maxId')
+			.where('rp."retreatId" = :retreatId', { retreatId: participantData.retreatId })
 			.getRawOne();
 		const id_on_retreat = (maxIdOnRetreat.maxId || 0) + 1;
 
-		const { retreatBed, tableMesa, ...restOfParticipantData } = participantData;
+		const { retreatBed, tableMesa, type, isCancelled, tableId, id_on_retreat: _idOnRetreat, family_friend_color, ...restOfParticipantData } = participantData;
 
 		const newParticipantData = {
 			...restOfParticipantData,
-			family_friend_color: colorToAssign || undefined,
-			id_on_retreat,
 			registrationDate: new Date(),
 			lastUpdatedDate: new Date(),
 		};
@@ -805,31 +980,44 @@ export const createParticipant = async (
 		const newParticipant = participantRepository.create(newParticipantData);
 		let savedParticipant: Participant = await participantRepository.save(newParticipant);
 
-		// Create participant history entry if user is linked
-		if (savedParticipant.userId && savedParticipant.retreatId) {
+		// Set virtual fields for use later in this function
+		savedParticipant.type = participantData.type;
+		savedParticipant.isCancelled = participantData.isCancelled ?? false;
+		savedParticipant.id_on_retreat = id_on_retreat;
+		savedParticipant.family_friend_color = colorToAssign || undefined;
+
+		// Create participant history entry for every participant with a retreat
+		if (savedParticipant.retreatId) {
 			try {
 				const historyData: CreateHistoryData = {
-					userId: savedParticipant.userId,
+					userId: savedParticipant.userId || null,
 					participantId: savedParticipant.id,
 					retreatId: savedParticipant.retreatId,
 					roleInRetreat:
-						savedParticipant.type === 'walker'
+						savedParticipant.type === 'walker' || savedParticipant.type === 'waiting'
 							? 'walker'
 							: savedParticipant.type === 'server' || savedParticipant.type === 'partial_server'
 								? 'server'
-								: 'server', // Default for 'waiting' or other types
+								: 'walker',
 					isPrimaryRetreat: false, // Will be auto-set later
+					type: savedParticipant.type,
+					isCancelled: savedParticipant.isCancelled,
+					tableId: savedParticipant.tableId,
+					idOnRetreat: savedParticipant.id_on_retreat,
+					familyFriendColor: savedParticipant.family_friend_color || null,
 				};
 
-				const historyRepository = transactionalEntityManager.getRepository(ParticipantHistory);
+				const historyRepository = transactionalEntityManager.getRepository(RetreatParticipant);
 				const history = historyRepository.create(historyData);
 				await historyRepository.save(history);
 
-				// Auto-set primary retreat for this user
-				await autoSetPrimaryRetreat(savedParticipant.userId);
+				// Auto-set primary retreat for this user (only if userId exists)
+				if (savedParticipant.userId) {
+					await autoSetPrimaryRetreat(savedParticipant.userId);
+				}
 
 				console.warn(
-					`✅ Created participant history for user ${savedParticipant.userId} in retreat ${savedParticipant.retreatId}`,
+					`✅ Created participant history for participant ${savedParticipant.id} in retreat ${savedParticipant.retreatId}`,
 				);
 			} catch (historyError) {
 				// Log error but don't fail participant creation
@@ -862,19 +1050,15 @@ export const createParticipant = async (
 			}
 
 			if (bedId || tableId) {
-				// Use query builder to ensure individual updates
-				const updates: any = {};
-				// Note: retreatBedId is no longer stored in Participant entity
-				// The relationship is managed through RetreatBed.participantId only
-				if (tableId) updates.tableId = tableId;
-
-				if (Object.keys(updates).length > 0) {
+				// Write tableId to retreat_participants (not participants)
+				if (tableId && savedParticipant.retreatId) {
 					await transactionalEntityManager
-						.createQueryBuilder()
-						.update(Participant)
-						.set(updates)
-						.where('id = :id', { id: savedParticipant.id })
-						.execute();
+						.getRepository(RetreatParticipant)
+						.update(
+							{ participantId: savedParticipant.id, retreatId: savedParticipant.retreatId },
+							{ tableId },
+						);
+					savedParticipant.tableId = tableId;
 				}
 
 				// Refresh the participant to get the updated data
@@ -1010,30 +1194,63 @@ export const updateParticipant = async (
 		return null;
 	}
 
-	const wasCancelled = participant.isCancelled;
-	participantData.lastUpdatedDate = new Date();
-	participantRepository.merge(participant, participantData as any);
+	// Separate retreat-specific fields (written to retreat_participants)
+	const { type, isCancelled, tableId, id_on_retreat, family_friend_color, tableMesa, ...personalData } = participantData;
 
-	// If participant is being marked as cancelled, clear their assignments atomically
-	if (participantData.isCancelled === true && !wasCancelled) {
-		participant.tableId = undefined;
-
-		// Also clear the participant assignment in the RetreatBed table
-		const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
-		await retreatBedRepository
-			.createQueryBuilder()
-			.update(RetreatBed)
-			.set({ participantId: null })
-			.where('participantId = :id', { id: participant.id })
-			.execute();
+	// First, overlay current retreat-specific values from retreat_participants
+	let currentRp: RetreatParticipant | null = null;
+	if (participant.retreatId) {
+		const rpRepo = AppDataSource.getRepository(RetreatParticipant);
+		currentRp = await rpRepo.findOne({
+			where: { participantId: id, retreatId: participant.retreatId },
+		});
 	}
+	const wasCancelled = currentRp?.isCancelled ?? false;
 
+	// Update personal data on participants table
+	personalData.lastUpdatedDate = new Date();
+	participantRepository.merge(participant, personalData as any);
 	const updatedParticipant = await participantRepository.save(participant);
 
-	/*if (updatedParticipant.type === 'walker' && wasCancelled !== updatedParticipant.isCancelled && !skipRebalance) {
-		await rebalanceTablesForRetreat(updatedParticipant.retreatId);
-	} else if (updatedParticipant.type === 'walker' && wasCancelled !== updatedParticipant.isCancelled && skipRebalance) {
-	}*/
+	// Update retreat-specific fields on retreat_participants
+	if (updatedParticipant.retreatId) {
+		const rpUpdates: any = {};
+		if (type !== undefined) rpUpdates.type = type;
+		if (isCancelled !== undefined) rpUpdates.isCancelled = isCancelled;
+		if (tableId !== undefined) rpUpdates.tableId = tableId;
+		if (id_on_retreat !== undefined) rpUpdates.idOnRetreat = id_on_retreat;
+		if (family_friend_color !== undefined) rpUpdates.familyFriendColor = family_friend_color || null;
+
+		// If being cancelled, clear table assignment
+		if (isCancelled === true && !wasCancelled) {
+			rpUpdates.tableId = null;
+
+			// Also clear the participant assignment in the RetreatBed table (scoped to this retreat)
+			const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
+			await retreatBedRepository
+				.createQueryBuilder()
+				.update(RetreatBed)
+				.set({ participantId: null })
+				.where('participantId = :id', { id: updatedParticipant.id })
+				.andWhere('retreatId = :retreatId', { retreatId: updatedParticipant.retreatId })
+				.execute();
+		}
+
+		if (Object.keys(rpUpdates).length > 0) {
+			try {
+				await syncRetreatFields(updatedParticipant.id, updatedParticipant.retreatId, rpUpdates);
+			} catch (err) {
+				console.error('Error syncing retreat fields:', err);
+			}
+		}
+
+		// Set virtual fields on returned object
+		updatedParticipant.type = (type !== undefined ? type : currentRp?.type) as any;
+		updatedParticipant.isCancelled = isCancelled !== undefined ? isCancelled : currentRp?.isCancelled;
+		updatedParticipant.tableId = rpUpdates.tableId !== undefined ? rpUpdates.tableId : (tableId !== undefined ? tableId : currentRp?.tableId);
+		updatedParticipant.id_on_retreat = id_on_retreat !== undefined ? id_on_retreat : (currentRp?.idOnRetreat ?? undefined);
+		updatedParticipant.family_friend_color = family_friend_color !== undefined ? (family_friend_color ?? undefined) : (currentRp?.familyFriendColor ?? undefined);
+	}
 
 	return updatedParticipant;
 };
@@ -1043,12 +1260,16 @@ export const deleteParticipant = async (
 	skipRebalance: boolean = false,
 ): Promise<void> => {
 	const participant = await participantRepository.findOneBy({ id });
-	if (participant) {
-		await participantRepository.update(id, { isCancelled: true, tableId: undefined });
-		/*if (participant.type === 'walker' && !skipRebalance) {
-			await rebalanceTablesForRetreat(participant.retreatId);
-		} else if (participant.type === 'walker' && skipRebalance) {
-		}*/
+	if (participant && participant.retreatId) {
+		// Mark as cancelled in retreat_participants (ground truth)
+		try {
+			await syncRetreatFields(participant.id, participant.retreatId, {
+				isCancelled: true,
+				tableId: null,
+			});
+		} catch (err) {
+			console.error('Error syncing delete to retreat_participants:', err);
+		}
 	}
 };
 
@@ -1252,6 +1473,7 @@ const createTablesInBatch = async (retreatId: string, tableNames: string[]): Pro
 // Helper function to check if participant is already a leader in any table
 const checkExistingLeadership = async (
 	participantId: string,
+	retreatId?: string,
 ): Promise<{
 	isLeader: boolean;
 	role?: 'lider' | 'colider1' | 'colider2';
@@ -1259,9 +1481,12 @@ const checkExistingLeadership = async (
 	tableId?: string;
 }> => {
 	try {
-		// Check all three leadership roles
+		// Check all three leadership roles (scoped to retreat if provided)
+		const leaderWhere: any = { liderId: participantId };
+		if (retreatId) leaderWhere.retreatId = retreatId;
+
 		const leaderTable = await tableMesaRepository.findOne({
-			where: { liderId: participantId },
+			where: leaderWhere,
 			select: ['id', 'name'],
 			relations: ['lider'],
 		});
@@ -1275,8 +1500,11 @@ const checkExistingLeadership = async (
 			};
 		}
 
+		const coliderWhere1: any = { colider1Id: participantId };
+		if (retreatId) coliderWhere1.retreatId = retreatId;
+
 		const colider1Table = await tableMesaRepository.findOne({
-			where: { colider1Id: participantId },
+			where: coliderWhere1,
 			select: ['id', 'name'],
 		});
 
@@ -1289,8 +1517,11 @@ const checkExistingLeadership = async (
 			};
 		}
 
+		const coliderWhere2: any = { colider2Id: participantId };
+		if (retreatId) coliderWhere2.retreatId = retreatId;
+
 		const colider2Table = await tableMesaRepository.findOne({
-			where: { colider2Id: participantId },
+			where: coliderWhere2,
 			select: ['id', 'name'],
 		});
 
@@ -1570,9 +1801,9 @@ const createPaymentFromImport = async (
 			return { paymentCreated: false }; // Skip invalid amounts
 		}
 
-		// Check if payment already exists for this participant
+		// Check if payment already exists for this participant in this retreat
 		const existingPayments = await paymentRepository.find({
-			where: { participantId },
+			where: { participantId, retreatId },
 			relations: ['recordedByUser'],
 		});
 
@@ -1663,15 +1894,34 @@ export const convertWalkerToServer = async (participantId: string): Promise<Part
 		throw new Error('Participant not found');
 	}
 
+	// Load current type from retreat_participants
+	if (participant.retreatId) {
+		const rpRepo = AppDataSource.getRepository(RetreatParticipant);
+		const rp = await rpRepo.findOne({
+			where: { participantId, retreatId: participant.retreatId },
+		});
+		if (rp) participant.type = rp.type as any;
+	}
+
 	if (participant.type === 'server') {
 		throw new Error('Participant is already a server');
 	}
 
-	// Update type to server
+	// Update type to server in retreat_participants (ground truth)
+	if (participant.retreatId) {
+		try {
+			await syncRetreatFields(participant.id, participant.retreatId, {
+				type: 'server',
+			});
+		} catch (err) {
+			console.error('Error syncing type change to retreat_participants:', err);
+		}
+	}
+
 	participant.type = 'server';
 	participant.lastUpdatedDate = new Date();
-
 	const updated = await participantRepository.save(participant);
+	updated.type = 'server'; // Virtual field for response
 
 	// Create activity if user is linked
 	if (participant.userId) {
@@ -1804,12 +2054,24 @@ export const autoAssignBedsForRetreat = async (
 		.getRawMany()
 		.then((rows: any[]) => rows.map((r) => r.bed_participantId as string));
 
-	const participants = await participantRepository.find({
-		where: {
-			retreatId,
-			isCancelled: false,
-		},
+	// Query participants through retreat_participants for retreat-specific fields
+	const rpRepo = AppDataSource.getRepository(RetreatParticipant);
+	const rpRows = await rpRepo.find({
+		where: { retreatId, isCancelled: false },
+		relations: ['participant'],
 	});
+
+	const participants = rpRows
+		.filter((rp) => rp.participant)
+		.map((rp) => {
+			const p = rp.participant!;
+			p.type = rp.type as any;
+			p.isCancelled = rp.isCancelled;
+			p.tableId = rp.tableId;
+			p.id_on_retreat = rp.idOnRetreat ?? undefined;
+			p.family_friend_color = rp.familyFriendColor ?? undefined;
+			return p;
+		});
 
 	const eligible = participants.filter(
 		(p) =>
@@ -1998,7 +2260,15 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				});
 
 				if (existingTable) {
-					await participantRepository.update(participant.id, { tableId: existingTable.id });
+					// Write tableId to retreat_participants (not participants)
+					const rpRepo = AppDataSource.getRepository(RetreatParticipant);
+					await rpRepo
+						.createQueryBuilder()
+						.update(RetreatParticipant)
+						.set({ tableId: existingTable.id })
+						.where('"participantId" = :pid', { pid: participant.id })
+						.andWhere('"retreatId" = :rid', { rid: retreatId })
+						.execute();
 				} else {
 					console.error(
 						`[Import] Pre-created table "${excelAssignments.tableName}" not found`,
@@ -2046,10 +2316,15 @@ export const importParticipants = async (retreatId: string, participantsData: an
 		// Fresh participant lookup to ensure we have the latest cancellation status
 		const freshParticipant = await participantRepository.findOne({
 			where: { id: participant.id },
-			select: ['id', 'type', 'isCancelled', 'email', 'firstName', 'lastName'],
+			select: ['id', 'email', 'firstName', 'lastName'],
 		});
+		if (!freshParticipant) continue;
 
-		if (!freshParticipant || freshParticipant.isCancelled || freshParticipant.type !== 'server') {
+		// Load retreat-specific fields from retreat_participants
+		const freshRp = await AppDataSource.getRepository(RetreatParticipant).findOne({
+			where: { participantId: freshParticipant.id, retreatId },
+		});
+		if (!freshRp || freshRp.isCancelled || freshRp.type !== 'server') {
 			continue;
 		}
 
@@ -2059,7 +2334,7 @@ export const importParticipants = async (retreatId: string, participantsData: an
 		}
 
 		// Check database for existing leadership assignments (from previous imports)
-		const existingLeadership = await checkExistingLeadership(participant.id);
+		const existingLeadership = await checkExistingLeadership(participant.id, retreatId);
 
 		// Find the pre-created table
 		const existingTable = await tableMesaRepository.findOne({
@@ -2189,23 +2464,30 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				// Refresh participant data to get the latest cancellation status (handles duplicate rows in Excel)
 				const freshParticipant = await transactionalParticipantRepository.findOne({
 					where: { id: participant.id },
-					select: ['id', 'type', 'isCancelled', 'email', 'firstName', 'lastName'],
+					select: ['id', 'email', 'firstName', 'lastName'],
 				});
+				if (!freshParticipant) continue;
 
-				if (!freshParticipant || freshParticipant.isCancelled) {
+				// Load retreat-specific fields from retreat_participants
+				const freshBedRp = await transactionalEntityManager.getRepository(RetreatParticipant).findOne({
+					where: { participantId: freshParticipant.id, retreatId },
+				});
+				if (freshBedRp?.isCancelled) {
 					continue;
 				}
 
 				// Use the fresh participant data for all subsequent operations
 				const participantForAssignment = freshParticipant;
 
-				// Check if this participant already has a bed assigned
+				// Check if this participant already has a bed assigned in this retreat
 				const hasExistingBedAssignment = await bedQueryUtils.participantHasBedAssignment(
 					participantForAssignment.id,
+					retreatId,
 				);
 				if (hasExistingBedAssignment) {
 					const existingBed = await bedQueryUtils.getParticipantBedAssignment(
 						participantForAssignment.id,
+						retreatId,
 					);
 					if (existingBed) {
 						assignedBedIds.add(existingBed.id);
@@ -2250,16 +2532,17 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				}
 
 				if (participant.type !== 'waiting' && participant.type !== 'partial_server') {
-					// Check if participant already has bed assignment (from previous import or database)
+					// Check if participant already has bed assignment in this retreat
 					const hasExistingBedAssignment = await bedQueryUtils.participantHasBedAssignment(
 						participant.id,
+						retreatId,
 					);
 					const hasExistingTableAssignment = !!participant.tableId;
 
 					if (hasExistingTableAssignment || hasExistingBedAssignment) {
 						// Track existing bed assignments to prevent conflicts
 						if (hasExistingBedAssignment) {
-							const existingBed = await bedQueryUtils.getParticipantBedAssignment(participant.id);
+							const existingBed = await bedQueryUtils.getParticipantBedAssignment(participant.id, retreatId);
 							if (existingBed) {
 								assignedBedIds.add(existingBed.id);
 							}

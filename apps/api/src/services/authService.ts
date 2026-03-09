@@ -11,7 +11,7 @@ import { getRepositories } from '../utils/repositoryHelpers';
 import { config } from '../config';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcrypt';
-import { createHistoryEntry, autoSetPrimaryRetreat } from './participantHistoryService';
+import { createHistoryEntry, autoSetPrimaryRetreat } from './retreatParticipantService';
 
 /**
  * Configure passport strategies with a custom DataSource.

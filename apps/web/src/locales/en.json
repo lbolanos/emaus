@@ -836,7 +836,9 @@
     "limitedCapacity": "Limited Capacity",
     "dontMissIt": "Don't miss it!",
     "reservationNote": "* To secure your spot: fill out the online form and pay 50% of the cost.",
-    "come": "Come"
+    "come": "Come",
+    "copyImage": "Copy Image",
+    "copied": "Copied!"
   },
   "language": {
     "label": "Language",
@@ -1007,7 +1009,13 @@
     "room": "Room",
     "noBedsInRoom": "No beds in this room",
     "walkerShort": "Walk",
-    "serverShort": "Serv"
+    "serverShort": "Serv",
+    "disableBed": "Disable bed",
+    "enableBed": "Enable bed",
+    "bedDisabled": "Bed Disabled",
+    "bedEnabled": "Bed Enabled",
+    "bedDisabledDesc": "The bed has been disabled and the participant unassigned.",
+    "bedEnabledDesc": "The bed has been enabled."
   },
   "walkerRegistration": {
     "title": "Walker Registration",
@@ -1107,6 +1115,20 @@
       "subtitle": "Join us in service and fellowship. Register now to be a part of the team.",
       "cta": "Register Now"
     },
+    "emailLookup": {
+      "title": "Look up existing registration",
+      "description": "Enter your email to check if you already have a previous registration",
+      "placeholder": "email{'@'}example.com",
+      "search": "Search",
+      "skip": "Register as new",
+      "found": "Hello {name}, your registration will be updated when you submit the form.",
+      "notFound": "No previous registration found. Please fill out the form.",
+      "confirmIdentity": "Is this you?",
+      "confirmMessage": "Hello {name}, by confirming you will be registered for this retreat.",
+      "confirmButton": "Yes, that's me",
+      "denyButton": "No, register as new",
+      "success": "Registration successful! You are now registered for this retreat."
+    },
     "tabs": {
       "personalInfo": "Personal Information",
       "addressInfo": "Address Information",
@@ -1179,7 +1201,8 @@
       },
       "needsWhiteShirt": "Needs white shirt?",
       "needsBlueShirt": "Needs blue shirt?",
-      "needsJacket": "Needs jacket?"
+      "needsJacket": "Needs jacket?",
+      "noSizeNeeded": "Not needed"
     },
     "emergencyContact1": "In case of emergency, contact (1):",
     "emergencyContact2": "In case of emergency, contact (2):"

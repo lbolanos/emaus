@@ -78,6 +78,15 @@ vi.mock('vue-router', () => ({
 
 // Mock Vue i18n
 vi.mock('vue-i18n', () => ({
+	createI18n: vi.fn(() => ({
+		global: {
+			locale: { value: 'es' },
+			availableLocales: ['es', 'en'],
+			t: vi.fn((key: string) => key),
+			mergeLocaleMessage: vi.fn(),
+		},
+		install: vi.fn(),
+	})),
 	useI18n: () => ({
 		locale: { value: 'es' },
 		availableLocales: ['es', 'en'],

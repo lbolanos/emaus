@@ -44,6 +44,7 @@
           @dragleave="onDragLeaveBed"
           @assign="assignParticipant"
           @unassign="unassignParticipant"
+          @toggle="toggleBedActive"
         />
       </div>
 
@@ -76,6 +77,7 @@ const emit = defineEmits<{
   dragleave: [];
   assign: [bedId: string, participantId: string];
   unassign: [bedId: string];
+  toggle: [bedId: string];
 }>();
 
 const { t } = useI18n();
@@ -127,5 +129,9 @@ const assignParticipant = (bedId: string, participantId: string) => {
 
 const unassignParticipant = (bedId: string) => {
   emit('unassign', bedId);
+};
+
+const toggleBedActive = (bedId: string) => {
+  emit('toggle', bedId);
 };
 </script>

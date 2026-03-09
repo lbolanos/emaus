@@ -571,12 +571,31 @@ export const getParticipantById = async (participantId: string) => {
  */
 export const checkParticipantExists = async (
 	email: string,
+	recaptchaToken?: string,
 ): Promise<{
 	exists: boolean;
-	participant?: Participant;
+	firstName?: string;
+	lastName?: string;
 	message?: string;
 }> => {
-	const response = await api.get(`/participants/check-email/${encodeURIComponent(email)}`);
+	const response = await api.get(`/participants/check-email/${encodeURIComponent(email)}`, {
+		params: recaptchaToken ? { recaptchaToken } : undefined,
+	});
+	return response.data;
+};
+
+export const confirmExistingRegistration = async (
+	email: string,
+	retreatId: string,
+	type: string,
+	recaptchaToken: string,
+): Promise<{ success: boolean; firstName: string; lastName: string }> => {
+	const response = await api.post('/participants/confirm-registration', {
+		email,
+		retreatId,
+		type,
+		recaptchaToken,
+	});
 	return response.data;
 };
 
@@ -1293,11 +1312,11 @@ export async function getAttendedRetreats(): Promise<Retreat[]> {
 	return response.data;
 }
 
-// ==================== PARTICIPANT HISTORY API ====================
+// ==================== RETREAT PARTICIPANT API ====================
 
 export type RoleInRetreat = 'walker' | 'server' | 'leader' | 'coordinator' | 'charlista';
 
-export interface ParticipantHistory {
+export interface RetreatParticipant {
 	id: string;
 	userId: string;
 	participantId: string | null;
@@ -1337,7 +1356,7 @@ export interface ParticipantHistory {
 /**
  * Get complete retreat history for the authenticated user
  */
-export async function getUserRetreatHistory(): Promise<ParticipantHistory[]> {
+export async function getUserRetreatHistory(): Promise<RetreatParticipant[]> {
 	const response = await api.get('/history/my-retreats');
 	return response.data;
 }
@@ -1347,7 +1366,7 @@ export async function getUserRetreatHistory(): Promise<ParticipantHistory[]> {
  */
 export async function getUserRetreatHistoryByRole(
 	role: RoleInRetreat,
-): Promise<ParticipantHistory[]> {
+): Promise<RetreatParticipant[]> {
 	const response = await api.get(`/history/my-retreats/role/${role}`);
 	return response.data;
 }
@@ -1355,7 +1374,7 @@ export async function getUserRetreatHistoryByRole(
 /**
  * Get the authenticated user's primary retreat
  */
-export async function getPrimaryRetreat(): Promise<ParticipantHistory> {
+export async function getPrimaryRetreat(): Promise<RetreatParticipant> {
 	const response = await api.get('/history/my-retreats/primary');
 	return response.data;
 }
@@ -1363,7 +1382,7 @@ export async function getPrimaryRetreat(): Promise<ParticipantHistory> {
 /**
  * Get retreat history for a specific user (admin/coordinator only)
  */
-export async function getUserRetreatHistoryById(userId: string): Promise<ParticipantHistory[]> {
+export async function getUserRetreatHistoryById(userId: string): Promise<RetreatParticipant[]> {
 	const response = await api.get(`/history/user/${userId}`);
 	return response.data;
 }
@@ -1374,7 +1393,7 @@ export async function getUserRetreatHistoryById(userId: string): Promise<Partici
 export async function getUserHistoryForRetreat(
 	userId: string,
 	retreatId: string,
-): Promise<ParticipantHistory> {
+): Promise<RetreatParticipant> {
 	const response = await api.get(`/history/user/${userId}/retreat/${retreatId}`);
 	return response.data;
 }
@@ -1384,7 +1403,7 @@ export async function getUserHistoryForRetreat(
  */
 export async function getParticipantsHistoryByRetreat(
 	retreatId: string,
-): Promise<ParticipantHistory[]> {
+): Promise<RetreatParticipant[]> {
 	const response = await api.get(`/history/retreat/${retreatId}/participants`);
 	return response.data;
 }
@@ -1394,7 +1413,7 @@ export async function getParticipantsHistoryByRetreat(
  */
 export async function getHistoryByParticipantId(
 	participantId: string,
-): Promise<ParticipantHistory[]> {
+): Promise<RetreatParticipant[]> {
 	const response = await api.get(`/history/participant/${participantId}`);
 	return response.data;
 }
@@ -1405,7 +1424,7 @@ export async function getHistoryByParticipantId(
 export async function getParticipantsByRole(
 	retreatId: string,
 	role: RoleInRetreat,
-): Promise<ParticipantHistory[]> {
+): Promise<RetreatParticipant[]> {
 	const response = await api.get(`/history/retreat/${retreatId}/role/${role}`);
 	return response.data;
 }
@@ -1413,7 +1432,7 @@ export async function getParticipantsByRole(
 /**
  * Get charlistas (speakers) for a retreat or globally
  */
-export async function getCharlistas(retreatId?: string): Promise<ParticipantHistory[]> {
+export async function getCharlistas(retreatId?: string): Promise<RetreatParticipant[]> {
 	const params = retreatId ? `?retreatId=${retreatId}` : '';
 	const response = await api.get(`/history/charlistas${params}`);
 	return response.data;

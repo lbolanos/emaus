@@ -70,6 +70,12 @@ const getColumnLabel = (key: string) => {
 };
 
 // Smart field type detection (reused from EditParticipantForm)
+const maxBirthDate = computed(() => {
+  const d = new Date()
+  d.setFullYear(d.getFullYear() - 20)
+  return d.toISOString().slice(0, 10)
+})
+
 const getFieldType = (key: string) => {
   if (key === 'type') return 'select';
   if (key === 'tshirtSize') return 'select';
@@ -449,6 +455,8 @@ watch(() => props.isOpen, (newValue) => {
                           :id="field"
                           type="date"
                           v-model="editFields[field]"
+                          :min="field === 'birthDate' ? '1930-01-01' : undefined"
+                          :max="field === 'birthDate' ? maxBirthDate : undefined"
                           class="text-sm"
                         />
 

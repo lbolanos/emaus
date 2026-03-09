@@ -13,7 +13,7 @@ import {
 	updateHistoryEntryController,
 	deleteHistoryEntryController,
 	markPrimaryRetreatController,
-} from '../controllers/participantHistoryController';
+} from '../controllers/retreatParticipantController';
 import { isAuthenticated } from '../middleware/authentication';
 
 const router = Router();

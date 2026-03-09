@@ -1,6 +1,7 @@
 import { AppDataSource } from '../data-source';
 import { RetreatBed } from '../entities/retreatBed.entity';
 import { Participant } from '../entities/participant.entity';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { autoAssignBedsForRetreat } from '../services/participantService';
 import type { Request, Response, NextFunction } from 'express';
 
@@ -46,19 +47,28 @@ export const assignParticipantToBed = async (req: Request, res: Response, next: 
 				throw new Error('Invalid participantId provided');
 			}
 
-			// Check if participant exists and is not cancelled
+			// Check if participant exists
 			const participant = await participantRepo.findOne({ where: { id: participantId } });
 			if (!participant) {
 				throw new Error('Participant not found');
-			}
-			if (participant.isCancelled) {
-				throw new Error('Cannot assign cancelled participant to bed');
 			}
 
 			// Check if bed exists
 			const bed = await bedRepo.findOne({ where: { id: bedId } });
 			if (!bed) {
 				throw new Error('Bed not found');
+			}
+
+			// Check if bed is active
+			if (bed.isActive === false) {
+				throw new Error('Cannot assign participant to a disabled bed');
+			}
+
+			// Check if participant is cancelled (isCancelled lives in retreat_participants)
+			const rpRepo = transactionalEntityManager.getRepository(RetreatParticipant);
+			const rp = await rpRepo.findOne({ where: { participantId, retreatId: bed.retreatId } });
+			if (rp?.isCancelled) {
+				throw new Error('Cannot assign cancelled participant to bed');
 			}
 
 			// Check if participant already has a bed in the same retreat and unassign if necessary
@@ -72,15 +82,6 @@ export const assignParticipantToBed = async (req: Request, res: Response, next: 
 					`✅ Unassigned participant ${participantId} from previous bed ${existingBed.id}`,
 				);
 			}
-
-			// Clear stale bed assignments from other retreats
-			await bedRepo
-				.createQueryBuilder()
-				.update(RetreatBed)
-				.set({ participantId: null })
-				.where('participantId = :participantId', { participantId })
-				.andWhere('retreatId != :retreatId', { retreatId: bed.retreatId })
-				.execute();
 
 			// Check if bed is already assigned to someone else
 			if (bed.participantId && bed.participantId !== participantId) {
@@ -124,6 +125,42 @@ export const autoAssignBeds = async (req: Request, res: Response, next: NextFunc
 		const { retreatId } = req.params;
 		const result = await autoAssignBedsForRetreat(retreatId);
 		res.json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const toggleBedActive = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { bedId } = req.params;
+		const { isActive } = req.body;
+
+		if (typeof isActive !== 'boolean') {
+			res.status(400).json({ message: 'isActive must be a boolean' });
+			return;
+		}
+
+		const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
+		const bed = await retreatBedRepository.findOne({ where: { id: bedId } });
+
+		if (!bed) {
+			res.status(404).json({ message: 'Bed not found' });
+			return;
+		}
+
+		// If disabling and bed has a participant, unassign them
+		if (!isActive && bed.participantId) {
+			await retreatBedRepository.update(bedId, { isActive, participantId: null });
+		} else {
+			await retreatBedRepository.update(bedId, { isActive });
+		}
+
+		const updatedBed = await retreatBedRepository.findOne({
+			where: { id: bedId },
+			relations: ['participant'],
+		});
+
+		res.json(updatedBed);
 	} catch (error) {
 		next(error);
 	}

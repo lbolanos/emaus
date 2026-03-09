@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui'
 import { Input } from '@repo/ui'
 import { Label } from '@repo/ui'
@@ -12,6 +13,13 @@ const formData = defineModel<Record<string, any>>({ required: true })
 
 const hasError = (field: string) => !!props.errors[field]
 const getErrorMessage = (field: string) => props.errors[field]
+
+const maxBirthDate = computed(() => {
+  const d = new Date()
+  d.setFullYear(d.getFullYear() - 20)
+  return d.toISOString().slice(0, 10)
+})
+
 </script>
 
 <template>
@@ -36,7 +44,7 @@ const getErrorMessage = (field: string) => props.errors[field]
         </div>
         <div>
           <Label for="birthDate">{{ $t('serverRegistration.fields.birthDate') }}</Label>
-          <Input id="birthDate" type="date" v-model="formData.birthDate" :class="{ 'border-red-500': hasError('birthDate') }" />
+          <Input id="birthDate" type="date" v-model="formData.birthDate" min="1930-01-01" :max="maxBirthDate" :class="{ 'border-red-500': hasError('birthDate') }" />
           <p v-if="hasError('birthDate')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('birthDate') }}</p>
         </div>
         <div>

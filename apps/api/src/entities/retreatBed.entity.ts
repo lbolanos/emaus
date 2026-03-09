@@ -40,6 +40,9 @@ export class RetreatBed {
 	})
 	defaultUsage!: BedUsage;
 
+	@Column('boolean', { default: true })
+	isActive!: boolean;
+
 	@ManyToOne(() => Retreat, (retreat) => retreat.beds)
 	@JoinColumn({ name: 'retreatId' })
 	retreat!: Retreat;

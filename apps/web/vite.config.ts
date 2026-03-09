@@ -59,6 +59,8 @@ export default defineConfig(({ mode }) => {
 							if (host) {
 								proxyReq.setHeader('x-forwarded-host', host);
 							}
+							// Rewrite origin to localhost so API CORS accepts tunnel/ngrok requests
+							proxyReq.setHeader('origin', 'http://localhost:5173');
 						});
 					},
 				},

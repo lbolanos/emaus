@@ -647,14 +647,6 @@ const menuSections: MenuSection[] = [
         label: 'sidebar.palancas'
       },
       {
-        name: 'rooms',
-        routeName: 'rooms',
-        icon: Building,
-        permission: 'house',
-        requiresRetreat: true,
-        label: 'sidebar.rooms'
-      },
-      {
         name: 'user-type-table',
         routeName: 'user-type-and-table',
         icon: UsersRound,
@@ -723,6 +715,14 @@ const menuSections: MenuSection[] = [
         icon: Pill,
         requiresRetreat: true,
         label: 'sidebar.medicinesReport'
+      },
+      {
+        name: 'rooms',
+        routeName: 'rooms',
+        icon: Building,
+        permission: 'house',
+        requiresRetreat: true,
+        label: 'sidebar.rooms'
       }
     ],
     position: 'top'

@@ -11,6 +11,7 @@ import { findAllResponsibilities } from './responsabilityService';
 import { AppDataSource } from '../data-source';
 import { Payment } from '../entities/payment.entity';
 import { Participant } from '../entities/participant.entity';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { RetreatBed, BedType } from '../entities/retreatBed.entity';
 import { authorizationService } from '../middleware/authorization';
 import { Like } from 'typeorm';
@@ -668,7 +669,10 @@ export async function createChatStream(messages: UIMessage[], userId: string, re
 							const participantRepo = manager.getRepository(Participant);
 							const participant = await participantRepo.findOne({ where: { id: participantId } });
 							if (!participant) return { error: 'Participante no encontrado' };
-							if (participant.isCancelled) return { error: 'El participante está cancelado' };
+							// isCancelled lives in retreat_participants
+							const rpRepo = manager.getRepository(RetreatParticipant);
+							const rpEntry = await rpRepo.findOne({ where: { participantId, retreatId: bed.retreatId } });
+							if (rpEntry?.isCancelled) return { error: 'El participante está cancelado' };
 							// Check if participant already has a bed in this retreat
 							const currentBed = await bedRepo.findOne({ where: { retreatId: bed.retreatId, participantId } });
 							if (currentBed && currentBed.id !== bedId) {
@@ -717,7 +721,10 @@ export async function createChatStream(messages: UIMessage[], userId: string, re
 							const participantRepo = manager.getRepository(Participant);
 							const participant = await participantRepo.findOne({ where: { id: participantId } });
 							if (!participant) return { error: 'Participante no encontrado' };
-							if (participant.isCancelled) return { error: 'El participante está cancelado' };
+							// isCancelled lives in retreat_participants
+							const rpRepo = manager.getRepository(RetreatParticipant);
+							const rpEntry = await rpRepo.findOne({ where: { participantId, retreatId } });
+							if (rpEntry?.isCancelled) return { error: 'El participante está cancelado' };
 							// Find current bed
 							const currentBed = await bedRepo.findOne({ where: { retreatId, participantId } });
 							// Check target bed

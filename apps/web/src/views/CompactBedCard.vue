@@ -12,7 +12,8 @@
       'ring-2 ring-red-500 border-red-500': bed.participant && bed.participant.snores && !isHighlighted,
       'ring-2 ring-yellow-400 border-yellow-400 shadow-md': isHighlighted,
       'opacity-60': bed.type === 'colchon',
-      'border-dashed': !bed.participant && !isHighlighted
+      'border-dashed': !bed.participant && !isHighlighted,
+      'opacity-50 grayscale': bed.isActive === false
     }"
   >
     <!-- Compact Header -->
@@ -30,21 +31,38 @@
             {{ bed.bedNumber }}
           </span>
         </div>
-        <span
-          v-if="bed.defaultUsage"
-          class="px-1 py-0.5 text-xs font-medium rounded"
-          :class="{
-            'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': bed.defaultUsage === 'caminante',
-            'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200': bed.defaultUsage === 'servidor'
-          }"
-        >
-          {{ bed.defaultUsage === 'caminante' ? $t('bedAssignments.walkerShort') : $t('bedAssignments.serverShort') }}
-        </span>
+        <div class="flex items-center gap-1">
+          <button
+            @click.stop="$emit('toggle', bed.id)"
+            class="p-0.5 rounded transition-colors"
+            :class="bed.isActive === false ? 'text-red-500 hover:text-red-700' : 'text-gray-400 hover:text-gray-600'"
+            :title="bed.isActive === false ? $t('bedAssignments.enableBed') : $t('bedAssignments.disableBed')"
+          >
+            <EyeOff v-if="bed.isActive === false" class="w-3 h-3" />
+            <Eye v-else class="w-3 h-3" />
+          </button>
+          <span
+            v-if="bed.defaultUsage"
+            class="px-1 py-0.5 text-xs font-medium rounded"
+            :class="{
+              'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': bed.defaultUsage === 'caminante',
+              'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200': bed.defaultUsage === 'servidor'
+            }"
+          >
+            {{ bed.defaultUsage === 'caminante' ? $t('bedAssignments.walkerShort') : $t('bedAssignments.serverShort') }}
+          </span>
+        </div>
       </div>
     </div>
 
+    <!-- Disabled State -->
+    <div v-if="bed.isActive === false && !bed.participant" class="p-2 min-h-[40px] flex flex-col items-center justify-center text-red-400">
+      <EyeOff class="w-4 h-4 mb-1" />
+      <span class="text-xs">{{ $t('bedAssignments.bedDisabled') }}</span>
+    </div>
+
     <!-- Compact Content -->
-    <div class="p-2 min-h-[60px] flex items-center">
+    <div v-else class="p-2 min-h-[60px] flex items-center">
       <div
         v-if="bed.participant"
         draggable="true"
@@ -98,7 +116,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { BedDouble, Layers, Square, X } from 'lucide-vue-next';
+import { BedDouble, Layers, Square, X, Eye, EyeOff } from 'lucide-vue-next';
 import type { RetreatBed } from '@repo/types';
 
 const props = defineProps<{
@@ -113,6 +131,7 @@ const emit = defineEmits<{
   dragleave: [];
   assign: [bedId: string, participantId: string];
   unassign: [bedId: string];
+  toggle: [bedId: string];
 }>();
 
 const { t } = useI18n();
@@ -148,10 +167,12 @@ const calculateAge = (birthDate: string | Date): number | null => {
 };
 
 const onDrop = (event: DragEvent) => {
+  if (props.bed.isActive === false) return;
   emit('drop', event, props.bed.id);
 };
 
 const onDragOver = (event: DragEvent) => {
+  if (props.bed.isActive === false) return;
   emit('dragover', event, props.bed.id);
 };
 

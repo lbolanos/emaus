@@ -59,12 +59,13 @@ vi.mock('@/services/telemetryService', () => ({
 }));
 
 // Mock the API service
+const mockApiResponse = { data: [] };
 vi.mock('@/services/api', () => ({
 	api: {
-		get: vi.fn(),
-		post: vi.fn(),
-		put: vi.fn(),
-		delete: vi.fn(),
+		get: vi.fn(() => Promise.resolve(mockApiResponse)),
+		post: vi.fn(() => Promise.resolve(mockApiResponse)),
+		put: vi.fn(() => Promise.resolve(mockApiResponse)),
+		delete: vi.fn(() => Promise.resolve(mockApiResponse)),
 	},
 }));
 
@@ -85,15 +86,38 @@ vi.mock('vue-router', () => ({
 	}),
 }));
 
-// Mock @repo/ui components
-vi.mock('@repo/ui', () => ({
-	Button: { template: '<button><slot /></button>' },
-	Tooltip: { template: '<div><slot /></div>' },
-	TooltipContent: { template: '<div><slot /></div>' },
-	TooltipProvider: { template: '<div><slot /></div>' },
-	TooltipTrigger: { template: '<div><slot /></div>' },
-	useToast: () => ({ toast: vi.fn() }),
+// Mock child components
+vi.mock('@/components/RetreatModal.vue', () => ({
+	default: { template: '<div />' },
 }));
+vi.mock('@/components/HelpPanel.vue', () => ({
+	default: { template: '<div />' },
+}));
+vi.mock('@/components/layout/SidebarSection.vue', () => ({
+	default: { template: '<div><slot /></div>' },
+}));
+vi.mock('@/components/layout/SidebarMenuItem.vue', () => ({
+	default: { template: '<div><slot /></div>' },
+}));
+
+// Mock @repo/ui components
+vi.mock('@repo/ui', () => {
+	const s = { template: '<div><slot /></div>' };
+	return {
+		Button: { template: '<button><slot /></button>' },
+		Select: s, SelectContent: s, SelectGroup: s, SelectItem: s,
+		SelectTrigger: s, SelectValue: s,
+		Tooltip: s, TooltipContent: s, TooltipProvider: s, TooltipTrigger: s,
+		DropdownMenu: s, DropdownMenuContent: s, DropdownMenuItem: s,
+		DropdownMenuLabel: s, DropdownMenuSeparator: s,
+		DropdownMenuSub: s, DropdownMenuSubContent: s, DropdownMenuSubTrigger: s,
+		DropdownMenuTrigger: s,
+		Dialog: s, DialogContent: s, DialogDescription: s, DialogFooter: s,
+		DialogHeader: s, DialogTitle: s, DialogTrigger: s,
+		Input: { template: '<input type="text" />' },
+		useToast: () => ({ toast: vi.fn() }),
+	};
+});
 
 // Mock lucide-vue-next icons
 vi.mock('lucide-vue-next', () => ({
@@ -134,6 +158,12 @@ vi.mock('lucide-vue-next', () => ({
 	UserCircle: { template: '<div data-icon="UserCircle" />' },
 	MessageSquare: { template: '<div data-icon="MessageSquare" />' },
 	Clock: { template: '<div data-icon="Clock" />' },
+	Plus: { template: '<div data-icon="Plus" />' },
+	Edit: { template: '<div data-icon="Edit" />' },
+	HelpCircle: { template: '<div data-icon="HelpCircle" />' },
+	Cross: { template: '<div data-icon="Cross" />' },
+	User: { template: '<div data-icon="User" />' },
+	Languages: { template: '<div data-icon="Languages" />' },
 }));
 
 // Mock the composables
@@ -218,13 +248,13 @@ describe('Sidebar Component', () => {
 
 		it('should display Emmaus branding with logo when expanded', () => {
 			// Find the logo header container
-			const headerDiv = wrapper.find('.h-16.flex.items-center.justify-center.relative');
+			const headerDiv = wrapper.find('.h-14.flex.items-center.justify-center.relative');
 			expect(headerDiv.exists()).toBe(true);
 		});
 
 		it('should link logo to landing page', () => {
 			// Find the logo header container (router-link to "/" should be inside)
-			const headerDiv = wrapper.find('.h-16.flex.items-center.justify-center.relative');
+			const headerDiv = wrapper.find('.h-14.flex.items-center.justify-center.relative');
 			expect(headerDiv.exists()).toBe(true);
 		});
 
@@ -269,14 +299,14 @@ describe('Sidebar Component', () => {
 	});
 
 	describe('Search Functionality', () => {
-		it('should render search input when sidebar is expanded', async () => {
+		it('should render search button when sidebar is expanded', async () => {
 			const uiStore = (await import('@/stores/ui')).useUIStore();
 			uiStore.isSidebarCollapsed = false;
 			await nextTick();
 
-			// Search input should be visible when expanded
-			const input = wrapper.find('input[type="text"]');
-			expect(input.exists()).toBe(true);
+			// Search button should be visible; input only appears after clicking it
+			const searchSection = wrapper.find('.flex.justify-center');
+			expect(searchSection.exists()).toBe(true);
 		});
 	});
 
@@ -370,7 +400,7 @@ describe('Sidebar Component', () => {
 
 		it('should show Emmaus branding with logo when expanded', () => {
 			// Find the logo header container
-			const headerDiv = wrapper.find('.h-16.flex.items-center.justify-center.relative');
+			const headerDiv = wrapper.find('.h-14.flex.items-center.justify-center.relative');
 			expect(headerDiv.exists()).toBe(true);
 		});
 	});
@@ -464,11 +494,11 @@ describe('Sidebar Component', () => {
 			});
 
 			// When collapsed, search input should not be visible
-			const input = wrapper.find('input[type="text"]');
+			const input = wrapper.find('input[type="search"]');
 			expect(input.exists()).toBe(false);
 		});
 
-		it('should handle search input when sidebar is expanded', async () => {
+		it('should handle search section when sidebar is expanded', async () => {
 			const { useUIStore: useUIStoreImport } = await import('@/stores/ui');
 			const uiStore = useUIStoreImport();
 			uiStore.isSidebarCollapsed = false;
@@ -482,9 +512,9 @@ describe('Sidebar Component', () => {
 				},
 			});
 
-			// When expanded, search input should be visible
-			const input = wrapper.find('input[type="text"]');
-			expect(input.exists()).toBe(true);
+			// When expanded, search button should be visible (input shows after clicking)
+			const searchSection = wrapper.find('.flex.justify-center');
+			expect(searchSection.exists()).toBe(true);
 		});
 	});
 });

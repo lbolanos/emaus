@@ -56,13 +56,12 @@ async function checkEmail() {
 	try {
 		const response = await checkParticipantExists(email.value);
 
-		if (response.exists && response.participant) {
+		if (response.exists && response.firstName) {
 			// Found existing participant - show verification form
-			existingParticipant.value = response.participant;
-			verifiedData.value.firstName = response.participant.firstName;
-			verifiedData.value.lastName = response.participant.lastName;
-			verifiedData.value.nickname = response.participant.nickname || '';
-			verifiedData.value.cellPhone = response.participant.cellPhone || '';
+			verifiedData.value.firstName = response.firstName;
+			verifiedData.value.lastName = response.lastName || '';
+			verifiedData.value.nickname = '';
+			verifiedData.value.cellPhone = '';
 			showVerificationForm.value = true;
 			showNewRegistrationForm.value = false;
 

@@ -4,6 +4,7 @@ import {
 	assignParticipantToBed,
 	autoAssignBeds,
 	clearBedAssignments,
+	toggleBedActive,
 } from '../controllers/retreatBedController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
@@ -22,6 +23,12 @@ router.put(
 	isAuthenticated,
 	requirePermission('house:update'),
 	assignParticipantToBed,
+);
+router.put(
+	'/retreat-beds/:bedId/toggle-active',
+	isAuthenticated,
+	requirePermission('house:update'),
+	toggleBedActive,
 );
 router.post(
 	'/retreats/:retreatId/auto-assign-beds',

@@ -3,7 +3,7 @@ import { ref, computed } from 'vue';
 
 export type RoleInRetreat = 'walker' | 'server' | 'leader' | 'coordinator' | 'charlista';
 
-export interface ParticipantHistory {
+export interface RetreatParticipant {
 	id: string;
 	userId: string;
 	participantId: string | null;
@@ -41,8 +41,8 @@ export interface ParticipantHistory {
 	};
 }
 
-export const useParticipantHistoryStore = defineStore('participantHistory', () => {
-	const retreatHistory = ref<ParticipantHistory[]>([]);
+export const useRetreatParticipantStore = defineStore('participantHistory', () => {
+	const retreatHistory = ref<RetreatParticipant[]>([]);
 	const loading = ref(false);
 	const error = ref<string | null>(null);
 
@@ -108,7 +108,7 @@ export const useParticipantHistoryStore = defineStore('participantHistory', () =
 			const { useAuthStore } = await import('@/stores/authStore');
 			const authStore = useAuthStore();
 			retreatHistory.value = participants.filter(
-				(p: ParticipantHistory) => p.userId === authStore.user?.id,
+				(p: RetreatParticipant) => p.userId === authStore.user?.id,
 			);
 		} catch (err: any) {
 			error.value = err.message || 'Error al cargar el historial del retiro';

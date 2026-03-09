@@ -43,7 +43,7 @@ import { Follow } from '../entities/follow.entity';
 import { Friend } from '../entities/friend.entity';
 import { UserActivity } from '../entities/userActivity.entity';
 import { Testimonial } from '../entities/testimonial.entity';
-import { ParticipantHistory } from '../entities/participantHistory.entity';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 
 const entities = [
 	Session,
@@ -59,7 +59,7 @@ const entities = [
 	Friend,
 	UserActivity,
 	Testimonial,
-	ParticipantHistory,
+	RetreatParticipant,
 	Responsability,
 	MessageTemplate,
 	GlobalMessageTemplate,
@@ -256,6 +256,7 @@ export async function clearTestData() {
 		'payment',
 		'participant_tag',
 		'participant_communication',
+		'retreat_participants',
 		'participant',
 		'user_retreat',
 		'role_request',

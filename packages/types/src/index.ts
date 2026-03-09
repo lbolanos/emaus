@@ -162,6 +162,7 @@ export const retreatBedSchema = z.object({
 	floor: z.number().int().optional(),
 	type: z.enum(['normal', 'litera_abajo', 'litera_arriba', 'colchon']),
 	defaultUsage: z.enum(['caminante', 'servidor']),
+	isActive: z.boolean().default(true),
 	retreatId: idSchema,
 	participantId: idSchema.nullable().optional(),
 	participant: z.any().nullable().optional(), // Use any to avoid circular reference
@@ -455,8 +456,8 @@ export type {
 	CreatePermissionOverride,
 } from './user';
 
-// Participant History Schema
-export const participantHistorySchema = z.object({
+// Retreat Participant Schema
+export const retreatParticipantSchema = z.object({
 	id: idSchema,
 	userId: idSchema,
 	participantId: idSchema.nullable(),
@@ -504,6 +505,6 @@ export const participantHistorySchema = z.object({
 		.optional(),
 });
 
-export type ParticipantHistory = z.infer<typeof participantHistorySchema>;
+export type RetreatParticipant = z.infer<typeof retreatParticipantSchema>;
 
 export type RoleInRetreat = 'walker' | 'server' | 'leader' | 'coordinator' | 'charlista';

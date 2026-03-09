@@ -113,15 +113,68 @@ export const importParticipants = async (req: Request, res: Response, next: Next
 };
 
 /**
+ * Confirm an existing participant's registration for a retreat (no form needed).
+ * The participant's personal data stays unchanged — only retreatId + RetreatParticipant are set.
+ */
+export const confirmExistingParticipantEmail = async (
+	req: Request,
+	res: Response,
+	next: NextFunction,
+) => {
+	try {
+		const { email, retreatId, type, recaptchaToken } = req.body;
+
+		if (!email || !retreatId) {
+			return res.status(400).json({ message: 'Email and retreatId are required' });
+		}
+
+		// Verify reCAPTCHA token for public access
+		const recaptchaResult = await recaptchaService.verifyToken(recaptchaToken, {
+			minScore: 0.5,
+		});
+
+		if (!recaptchaResult.valid) {
+			return res
+				.status(400)
+				.json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
+		}
+
+		const result = await participantService.confirmExistingParticipant(
+			email,
+			retreatId,
+			type || 'server',
+		);
+		res.json(result);
+	} catch (error) {
+		if (error instanceof Error && error.message === 'Participant not found') {
+			return res.status(404).json({ message: 'Participant not found' });
+		}
+		next(error);
+	}
+};
+
+/**
  * Check if a participant exists by email (for server registration flow)
  * This endpoint allows checking if a participant already exists before registering
  */
 export const checkParticipantEmail = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const { email } = req.params;
+		const { recaptchaToken } = req.query;
 
 		if (!email) {
 			return res.status(400).json({ message: 'Email is required' });
+		}
+
+		// Verify reCAPTCHA token for public access
+		const recaptchaResult = await recaptchaService.verifyToken(recaptchaToken as string, {
+			minScore: 0.5,
+		});
+
+		if (!recaptchaResult.valid) {
+			return res
+				.status(400)
+				.json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
 		}
 
 		const result = await participantService.checkParticipantExists(email);

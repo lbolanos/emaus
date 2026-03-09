@@ -267,6 +267,7 @@
                     @dragleave="onDragLeaveBed"
                     @assign="assignParticipant"
                     @unassign="unassignParticipant"
+                    @toggle="toggleBedActive"
                   />
                 </div>
               </div>
@@ -293,6 +294,7 @@
                     @dragleave="onDragLeaveBed"
                     @assign="assignParticipant"
                     @unassign="unassignParticipant"
+                    @toggle="toggleBedActive"
                   />
                 </div>
               </div>
@@ -471,9 +473,9 @@ const totalParticipants = computed(() => {
   ).length;
 });
 
-const totalBeds = computed(() => beds.value.length);
+const totalBeds = computed(() => beds.value.filter(b => b.isActive !== false).length);
 
-const assignedBeds = computed(() => beds.value.filter(b => b.participantId).length);
+const assignedBeds = computed(() => beds.value.filter(b => b.isActive !== false && b.participantId).length);
 
 // Search and filter computed properties
 const filteredBeds = computed(() => {
@@ -692,6 +694,32 @@ const unassignParticipant = async (bedId: string) => {
     });
   } catch (error: any) {
     const errorMessage = error.response?.data?.message || error.message || t('bedAssignments.unassignmentError');
+    toast({
+      title: t('common.error'),
+      description: errorMessage,
+      variant: 'destructive',
+    });
+  }
+};
+
+const toggleBedActive = async (bedId: string) => {
+  const bed = beds.value.find(b => b.id === bedId);
+  if (!bed) return;
+
+  const newIsActive = bed.isActive === false ? true : false;
+  try {
+    await api.put(`/retreat-beds/${bedId}/toggle-active`, { isActive: newIsActive });
+    await fetchBeds();
+    if (retreatStore.selectedRetreatId) {
+      participantStore.filters.retreatId = retreatStore.selectedRetreatId;
+      await participantStore.fetchParticipants();
+    }
+    toast({
+      title: newIsActive ? t('bedAssignments.bedEnabled') : t('bedAssignments.bedDisabled'),
+      description: newIsActive ? t('bedAssignments.bedEnabledDesc') : t('bedAssignments.bedDisabledDesc'),
+    });
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || error.message;
     toast({
       title: t('common.error'),
       description: errorMessage,

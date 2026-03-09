@@ -176,7 +176,7 @@ if (formData.value.disabilitySupport && !formData.value.hasDisability) {
         <Label>{{ $t('serverRegistration.fields.sacraments.label') }}</Label>
         <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
           <div v-for="sacrament in sacramentOptions" :key="sacrament" class="flex items-center space-x-2">
-            <Checkbox :id="sacrament" :checked="formData.sacraments?.includes(sacrament)" @click="() => updateSacraments(sacrament)" />
+            <Checkbox :id="sacrament" :model-value="formData.sacraments?.includes(sacrament)" @update:model-value="() => updateSacraments(sacrament)" />
             <Label :for="sacrament">{{ $t(`serverRegistration.fields.sacraments.options.${sacrament}`) }}</Label>
           </div>
         </div>

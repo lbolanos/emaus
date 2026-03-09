@@ -23,11 +23,9 @@ export class Participant {
 	@PrimaryGeneratedColumn('uuid')
 	id!: string;
 
-	@Column('int')
-	id_on_retreat!: number; // Corresponde a 'id'
-
-	@Column({ type: 'varchar' })
-	type!: 'walker' | 'server' | 'waiting' | 'partial_server'; // Corresponde a 'tipousuario'
+	// Virtual — populated from retreat_participants at query time
+	id_on_retreat?: number;
+	type?: 'walker' | 'server' | 'waiting' | 'partial_server';
 
 	@Column('varchar')
 	firstName!: string; // Corresponde a 'nombre'
@@ -177,7 +175,7 @@ export class Participant {
 	@Column({ type: 'varchar', nullable: true })
 	inviterEmail?: string; // Corresponde a 'invemail'
 
-	@Column({ type: 'varchar', length: 20, nullable: true })
+	// Virtual — populated from retreat_participants at query time
 	family_friend_color?: string;
 
 	@Column({ type: 'varchar', nullable: true })
@@ -206,8 +204,8 @@ export class Participant {
 	@Column({ type: 'boolean', nullable: true })
 	requestsSingleRoom?: boolean; // Corresponde a 'habitacionindividual'
 
-	@Column({ type: 'boolean', default: false })
-	isCancelled!: boolean; // Corresponde a 'cancelado'
+	// Virtual — populated from retreat_participants at query time
+	isCancelled?: boolean;
 
 	@Column({ type: 'text', nullable: true })
 	notes?: string; // Corresponde a 'notas'
@@ -234,11 +232,8 @@ export class Participant {
 	@JoinColumn({ name: 'retreatId' })
 	retreat?: Retreat | null;
 
-	@Column({ type: 'uuid', nullable: true })
-	tableId?: string | null; // Corresponde a 'mesa'
-
-	@ManyToOne(() => TableMesa, (table) => table.walkers, { nullable: true })
-	@JoinColumn({ name: 'tableId' })
+	// Virtual — populated from retreat_participants at query time
+	tableId?: string | null;
 	tableMesa?: TableMesa;
 
 	@OneToMany(() => Responsability, (responsability) => responsability.participant)

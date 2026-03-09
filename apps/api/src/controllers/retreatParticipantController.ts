@@ -14,7 +14,7 @@ import {
 	getPrimaryRetreat,
 	getParticipantsByRole,
 	getCharlistas,
-} from '../services/participantHistoryService';
+} from '../services/retreatParticipantService';
 
 // ==================== USER RETREAT HISTORY ====================
 

@@ -466,30 +466,29 @@ For detailed API documentation, see [docs_dev/SOCIAL_FEATURES_API.md](./docs_dev
 
 Community management and landing page improvements.
 crear una forma en el que los usuarios puedan ver y crear testimonios o mensajes de otros acerca de su experiencia.
+al registrar un servidor es posible que ya exista como caminante que debemos hacer en este caso?
+apps/web/src/components/layout/Sidebar.vue apps/web/src/components/layout/Header.vue docs_dev/HELP_SYSTEM_GUIDE.md
+necesito que mejores la usabilidad y user experience del sitio. hay temas globales como retiros, casas de retiros, comunidades, Telemetria, Plantillas globales.
+cuando se selecciona retiros se muestra para poder seleccionar el retiro. Pero si selecciona alguna otra no se necesita seleccionar retiro.
+agrega la documenatcion necesaria acerca de esto en apps/web/src/docs
+los tags de los participantes tambien hay que hacerlos por retiro
+mejorar la pagina de impresion de cuartos color el logo de emaus y ponerla bonita https://emaus.cc/app/rooms    basate en https://emaus.cc/app/walker-badges
+verificar porque sale sin cuarto algunos caminantes en la pagina https://emaus.cc/app/walker-badges  a pesar de que si tienen cuarto
+usar la ia para conversar y agregar o quitar base de datos.
 
 ## IN PROGRESS
 
 create a migration script just for testing red social. is not for production. create users, retreats, communities, houses, participants, messages, friends, followers, blocks, searches, avatars, and messages.
 Cuando un usuario se registra y existe como caminante de algun retiro convertirlo en usuario y que pueda ver el historial de retiros en los que ha participado como servidor y el retiro en el que camino como principal.
-al registrar un servidor es posible que ya exista como caminante que debemos hacer en este caso?
 El registro de charlistas globales. El charlista es un servidor.
 Agregar los charlistas del retiro ya registrados previamente.
 
-apps/web/src/components/layout/Sidebar.vue apps/web/src/components/layout/Header.vue docs_dev/HELP_SYSTEM_GUIDE.md
-
-
 crear una landing page que muestre los retiros proximos y las comunidades y sus proximas reuniones
-
-necesito que mejores la usabilidad y user experience del sitio. hay temas globales como retiros, casas de retiros, comunidades, Telemetria, Plantillas globales.
-cuando se selecciona retiros se muestra para poder seleccionar el retiro. Pero si selecciona alguna otra no se necesita seleccionar retiro.
-agrega la documenatcion necesaria acerca de esto en apps/web/src/docs
+aumentar el coverage de las pruebas
+verificar que todas la pruebas pasen.
 
 
 ## TODO
-porque falta ernesto  y wiliam
-mejorar la pagina de impresion de cuartos color el logo de emaus y ponerla bonita https://emaus.cc/app/rooms    basate en https://emaus.cc/app/walker-badges
-verificar porque sale sin cuarto algunos caminantes en la pagina https://emaus.cc/app/walker-badges  a pesar de que si tienen cuarto
-
 
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
 agregar todas las actividades por servidor
@@ -506,16 +505,7 @@ agregar mesa y lider a alimentos y medicinas impresion.
 
 una forma de hacer backup del retiro y luego importar.
 
-usar la ia para conversar y agregar o quitar base de datos.
-
 una forma de asegurar que no se modifique las mesas. lock tables
-
-api.ts:709
-POST http://localhost:3001/api/communities 400 (Bad Request)
-Promise.then
-createCommunity @ api.ts:709
-createCommunity @ communityStore.ts:91
-handleSave @ CommunityListView.vue:429
 
 CommunityListView.vue:439 Failed to save community:
 AxiosError {message: 'Request failed with status code 400', name: 'AxiosError', code: 'ERR_BAD_REQUEST', config: {…}, request: XMLHttpRequest, …}
@@ -526,8 +516,6 @@ Notificaciones por correo a los administradores del retiro de eventos como Camin
 que los caminantes no vayan con la persona que lo invito
 no deja enviar correo de invitacion si el usuario existe
 
-aumentar el coverage de las pruebas
-verificar que todas la pruebas pasen.
 
 ## comunidades
 

@@ -64,9 +64,11 @@ export class BedQueryUtils {
 	/**
 	 * Get bed assignment information for a participant
 	 */
-	async getParticipantBedAssignment(participantId: string): Promise<RetreatBed | null> {
+	async getParticipantBedAssignment(participantId: string, retreatId?: string): Promise<RetreatBed | null> {
+		const where: any = { participantId };
+		if (retreatId) where.retreatId = retreatId;
 		return await this.retreatBedRepository.findOne({
-			where: { participantId },
+			where,
 			relations: ['retreat'],
 		});
 	}
@@ -74,9 +76,11 @@ export class BedQueryUtils {
 	/**
 	 * Check if a participant has a bed assigned
 	 */
-	async participantHasBedAssignment(participantId: string): Promise<boolean> {
+	async participantHasBedAssignment(participantId: string, retreatId?: string): Promise<boolean> {
+		const where: any = { participantId };
+		if (retreatId) where.retreatId = retreatId;
 		const count = await this.retreatBedRepository.count({
-			where: { participantId },
+			where,
 		});
 		return count > 0;
 	}
@@ -84,8 +88,8 @@ export class BedQueryUtils {
 	/**
 	 * Get bed location string for a participant
 	 */
-	async getParticipantBedLocation(participantId: string): Promise<string> {
-		const bed = await this.getParticipantBedAssignment(participantId);
+	async getParticipantBedLocation(participantId: string, retreatId?: string): Promise<string> {
+		const bed = await this.getParticipantBedAssignment(participantId, retreatId);
 		if (!bed) return '';
 		return `Room ${bed.roomNumber}, Bed ${bed.bedNumber}`;
 	}

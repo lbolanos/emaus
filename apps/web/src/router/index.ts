@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import AppLayout from '@/layouts/AppLayout.vue';
+const AppLayout = () => import('@/layouts/AppLayout.vue');
 import WalkersView from '../views/WalkersView.vue';
 import ServersView from '../views/ServersView.vue';
 import PartialServerView from '../views/PartialServerView.vue';

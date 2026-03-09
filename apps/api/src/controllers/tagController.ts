@@ -67,7 +67,8 @@ export const deleteTag = async (req: Request, res: Response, next: NextFunction)
 export const getParticipantTags = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const { participantId } = req.params;
-		const tags = await tagService.getParticipantTags(participantId);
+		const retreatId = req.query.retreatId as string | undefined;
+		const tags = await tagService.getParticipantTags(participantId, undefined, retreatId);
 		res.json(tags);
 	} catch (error: any) {
 		next(error);

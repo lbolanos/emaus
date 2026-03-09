@@ -24,6 +24,12 @@ const getColumnLabel = (key: string) => {
   return col ? col.label : key;
 };
 
+const maxBirthDate = computed(() => {
+  const d = new Date()
+  d.setFullYear(d.getFullYear() - 20)
+  return d.toISOString().slice(0, 10)
+})
+
 const getColumnType = (key: string) => {
     const col = props.allColumns.find(c => c.key === key);
     if (col && col.type) return col.type;
@@ -317,6 +323,8 @@ const calculateAge = (birthDate: string | Date) => {
           type="date"
           :id="key"
           v-model="localParticipant[key]"
+          :min="key === 'birthDate' ? '1930-01-01' : undefined"
+          :max="key === 'birthDate' ? maxBirthDate : undefined"
           class="w-full"
         />
           <Textarea

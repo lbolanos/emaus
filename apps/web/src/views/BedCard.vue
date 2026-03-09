@@ -12,7 +12,8 @@
       'ring-2 ring-red-500 border-red-500': bed.participant && bed.participant.snores && !isHighlighted,
       'ring-2 ring-yellow-400 border-yellow-400 shadow-md': isHighlighted,
       'opacity-60': bed.type === 'colchon',
-      'border-dashed': !bed.participant && !isHighlighted
+      'border-dashed': !bed.participant && !isHighlighted,
+      'opacity-50 grayscale': bed.isActive === false
     }"
   >
     <!-- Card Header -->
@@ -31,6 +32,15 @@
           </span>
         </div>
         <div class="flex items-center gap-1">
+          <button
+            @click.stop="$emit('toggle', bed.id)"
+            class="p-1 rounded transition-colors"
+            :class="bed.isActive === false ? 'text-red-500 hover:text-red-700' : 'text-gray-400 hover:text-gray-600'"
+            :title="bed.isActive === false ? $t('bedAssignments.enableBed') : $t('bedAssignments.disableBed')"
+          >
+            <EyeOff v-if="bed.isActive === false" class="w-4 h-4" />
+            <Eye v-else class="w-4 h-4" />
+          </button>
           <span
             v-if="bed.defaultUsage"
             class="px-2 py-1 text-xs font-medium rounded-full"
@@ -45,8 +55,14 @@
       </div>
     </div>
 
+    <!-- Disabled Overlay -->
+    <div v-if="bed.isActive === false && !bed.participant" class="p-3 flex flex-col items-center justify-center py-6 text-red-400 min-h-[80px]">
+      <EyeOff class="w-8 h-8 mb-2" />
+      <span class="text-sm font-medium">{{ $t('bedAssignments.bedDisabled') }}</span>
+    </div>
+
     <!-- Card Content -->
-    <div class="p-3">
+    <div v-else class="p-3">
       <div
         v-if="bed.participant"
         class="space-y-2"
@@ -134,7 +150,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { BedDouble, Layers, Square, Home, X } from 'lucide-vue-next';
+import { BedDouble, Layers, Square, Home, X, Eye, EyeOff } from 'lucide-vue-next';
 import type { RetreatBed, Participant } from '@repo/types';
 
 const props = defineProps<{
@@ -149,6 +165,7 @@ const emit = defineEmits<{
   dragleave: [];
   assign: [bedId: string, participantId: string];
   unassign: [bedId: string];
+  toggle: [bedId: string];
 }>();
 
 const { t } = useI18n();
@@ -184,10 +201,12 @@ const calculateAge = (birthDate: string | Date): number | null => {
 };
 
 const onDrop = (event: DragEvent) => {
+  if (props.bed.isActive === false) return;
   emit('drop', event, props.bed.id);
 };
 
 const onDragOver = (event: DragEvent) => {
+  if (props.bed.isActive === false) return;
   emit('dragover', event, props.bed.id);
 };
 

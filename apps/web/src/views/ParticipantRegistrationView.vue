@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { computed, ref, watch, reactive, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useToast } from '@repo/ui'
 import { z } from 'zod'
 import { participantSchema, Participant } from '@repo/types'
 import { useParticipantStore } from '@/stores/participantStore'
 import { getApiUrl } from '@/config/runtimeConfig'
 import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha'
+import { checkParticipantExists, confirmExistingRegistration } from '@/services/api'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui'
 import { Button } from '@repo/ui'
+import { Input } from '@repo/ui'
+import { Label } from '@repo/ui'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@repo/ui'
 
 import Step1PersonalInfo from '@/components/registration/Step1PersonalInfo.vue'
@@ -20,6 +24,7 @@ import Step5ServerInfo from '@/components/registration/Step5ServerInfo.vue'
 
 const props = defineProps<{ retreatId: string; type: string }>()
 const participantStore = useParticipantStore()
+const { t } = useI18n()
 const { toast } = useToast()
 
 const validRetreatId = ref(props.retreatId)
@@ -84,6 +89,15 @@ const getInitialFormData = (): Partial<Omit<Participant, 'id'>> & { hasDisabilit
 })
 
 const formData = ref(getInitialFormData())
+
+const isServerType = computed(() => props.type === 'server' || props.type === 'partial_server')
+const showEmailLookup = ref(false)
+const emailLookup = ref('')
+const isSearching = ref(false)
+
+const existingParticipantName = ref('')
+const isConfirming = ref(false)
+const showSuccessScreen = ref(false)
 
 const isDialogOpen = ref(false)
 const currentStep = ref(1)
@@ -286,10 +300,96 @@ const nextStep = () => {
 }
 
 const prevStep = () => {
+  if (currentStep.value === 1 && isServerType.value) {
+    showEmailLookup.value = true
+    return
+  }
   if (currentStep.value > 1) {
     currentStep.value--
   }
 }
+
+const handleEmailLookup = async () => {
+  if (!emailLookup.value || !emailLookup.value.includes('@')) {
+    toast({
+      title: 'Error',
+      description: 'Por favor ingresa un correo electrónico válido.',
+      variant: 'destructive',
+    })
+    return
+  }
+
+  isSearching.value = true
+  try {
+    const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.PARTICIPANT_EMAIL_CHECK)
+    const result = await checkParticipantExists(emailLookup.value, recaptchaToken)
+
+    if (result.exists) {
+      const name = [result.firstName, result.lastName].filter(Boolean).join(' ')
+      existingParticipantName.value = name
+      formData.value.email = emailLookup.value
+      showEmailLookup.value = false
+    } else {
+      formData.value.email = emailLookup.value
+      toast({ title: t('serverRegistration.emailLookup.notFound') })
+      showEmailLookup.value = false
+    }
+  } catch (error) {
+    console.error('Email lookup error:', error)
+    // On error, just proceed with the email pre-filled
+    formData.value.email = emailLookup.value
+    showEmailLookup.value = false
+  } finally {
+    isSearching.value = false
+  }
+}
+
+const skipEmailLookup = () => {
+  showEmailLookup.value = false
+}
+
+const handleConfirmIdentity = async () => {
+  isConfirming.value = true
+  try {
+    const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.PARTICIPANT_REGISTER)
+    await confirmExistingRegistration(
+      emailLookup.value,
+      validRetreatId.value,
+      props.type,
+      recaptchaToken,
+    )
+    // Show success screen briefly before closing
+    showSuccessScreen.value = true
+    setTimeout(() => {
+      showSuccessScreen.value = false
+      existingParticipantName.value = ''
+      isDialogOpen.value = false
+    }, 2500)
+  } catch (error: any) {
+    console.error('Confirm registration error:', error)
+    toast({
+      title: 'Error',
+      description: error.response?.data?.message || 'An unexpected error occurred.',
+      variant: 'destructive',
+    })
+  } finally {
+    isConfirming.value = false
+  }
+}
+
+const handleDenyIdentity = () => {
+  existingParticipantName.value = ''
+  formData.value.email = emailLookup.value
+}
+
+// Reset email lookup when dialog opens for server types
+watch(isDialogOpen, (open) => {
+  if (open && isServerType.value) {
+    showEmailLookup.value = true
+    emailLookup.value = ''
+    existingParticipantName.value = ''
+  }
+})
 
 watch(() => props.retreatId, (newRetreatId) => {
   formData.value.retreatId = newRetreatId
@@ -464,41 +564,157 @@ onMounted(async () => {
               </Button>
             </DialogTrigger>
         <DialogContent class="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{{ $t( props.type === 'walker' ? 'walkerRegistration.title' : 'serverRegistration.title') }}</DialogTitle>
-            <DialogDescription>
-              {{ $t( props.type === 'walker' ? 'walkerRegistration.description' : 'serverRegistration.description') }} ({{ $t('serverRegistration.step', { current: currentStep, total: totalSteps }) }})
-            </DialogDescription>
-          </DialogHeader>
-          <div class="container mx-auto p-4">
-            <Step1PersonalInfo v-show="currentStep === 1" v-model="formData" :errors="formErrors" />
-            <Step2AddressInfo v-show="currentStep === 2" v-model="formData" :errors="formErrors" />
-            <Step3ServiceInfo v-show="currentStep === 3" v-model="formData" :errors="formErrors" />
-            <Step4EmergencyContact v-show="currentStep === 4" v-model="formData" :errors="formErrors" :type="(props.type as 'walker' | 'server')" />
-            <Step5OtherInfo v-show="currentStep === 5 && props.type === 'walker'" v-model="formData" :errors="formErrors" :showPickupInfo="retreatData?.flyer_options?.showPickupInfo ?? true" />
-            <Step5ServerInfo v-show="currentStep === 5 && props.type === 'server'" v-model="formData" :errors="formErrors" />
-
-            <!-- Step 6: Summary -->
-            <div v-show="currentStep === totalSteps">
-              <Card>
-                <CardHeader>
-                  <CardTitle>{{ $t('serverRegistration.summary.title') }}</CardTitle>
-                  <CardDescription>{{ $t('serverRegistration.summary.description') }}</CardDescription>
-                </CardHeader>
-                <CardContent class="space-y-2">
-                  <div v-for="item in summaryData" :key="item.label" class="flex justify-between">
-                    <span class="font-semibold">{{ $t(item.label) }}:</span>
-                    <span>{{ item.value?.includes('common.') ? $t(item.value) : item.value }}</span>
-                  </div>
-                </CardContent>
-              </Card>
+          <!-- Success Screen (shown briefly after confirming) -->
+          <template v-if="showSuccessScreen">
+            <div class="py-12 px-4 flex flex-col items-center justify-center text-center space-y-6">
+              <div class="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center animate-[bounceIn_0.5s_ease-out]">
+                <svg class="w-10 h-10 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div class="space-y-2">
+                <h2 class="text-2xl font-bold text-foreground">{{ $t('serverRegistration.emailLookup.success') }}</h2>
+                <p class="text-muted-foreground">{{ existingParticipantName }}</p>
+              </div>
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" @click="prevStep" v-if="currentStep > 1">{{ $t('common.previous') }}</Button>
-            <Button @click="nextStep" v-if="currentStep < totalSteps">{{ $t('common.next') }}</Button>
-            <Button @click="onSubmit" v-if="currentStep === totalSteps">{{ $t('common.submit') }}</Button>
-          </DialogFooter>
+          </template>
+
+          <!-- Email Lookup Step (for server types) -->
+          <template v-else-if="showEmailLookup">
+            <DialogHeader>
+              <DialogTitle>{{ $t('serverRegistration.emailLookup.title') }}</DialogTitle>
+              <DialogDescription>{{ $t('serverRegistration.emailLookup.description') }}</DialogDescription>
+            </DialogHeader>
+            <div class="px-2 py-6 sm:px-6">
+              <div class="flex items-center gap-3 rounded-lg border bg-muted/40 p-4">
+                <div class="shrink-0">
+                  <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <Input
+                  id="email-lookup"
+                  v-model="emailLookup"
+                  type="email"
+                  class="border-0 bg-transparent shadow-none focus-visible:ring-0 text-base p-0 h-auto"
+                  :placeholder="$t('serverRegistration.emailLookup.placeholder')"
+                  @keyup.enter="handleEmailLookup"
+                />
+              </div>
+            </div>
+            <DialogFooter class="gap-2 sm:gap-0">
+              <Button variant="ghost" @click="skipEmailLookup" :disabled="isSearching" class="text-muted-foreground">
+                {{ $t('serverRegistration.emailLookup.skip') }}
+              </Button>
+              <Button @click="handleEmailLookup" :disabled="isSearching || !emailLookup.includes('@')">
+                <svg v-if="isSearching" class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <svg v-else class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                {{ $t('serverRegistration.emailLookup.search') }}
+              </Button>
+            </DialogFooter>
+          </template>
+
+          <!-- Confirm Identity Screen -->
+          <template v-else-if="existingParticipantName">
+            <div class="py-8 px-4 sm:px-6 flex flex-col items-center text-center space-y-6">
+              <!-- Avatar circle with initials -->
+              <div class="w-24 h-24 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center">
+                <span class="text-3xl font-bold text-primary">
+                  {{ existingParticipantName.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() }}
+                </span>
+              </div>
+
+              <!-- Name and question -->
+              <div class="space-y-2">
+                <h2 class="text-2xl font-bold text-foreground">
+                  {{ $t('serverRegistration.emailLookup.confirmIdentity') }}
+                </h2>
+                <p class="text-lg text-muted-foreground max-w-md">
+                  {{ $t('serverRegistration.emailLookup.confirmMessage', { name: existingParticipantName }) }}
+                </p>
+              </div>
+
+              <!-- Email shown as context -->
+              <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted text-sm text-muted-foreground">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                {{ emailLookup }}
+              </div>
+
+              <!-- Action buttons stacked on mobile, side by side on desktop -->
+              <div class="flex flex-col-reverse sm:flex-row gap-3 w-full sm:w-auto pt-2">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  @click="handleDenyIdentity"
+                  :disabled="isConfirming"
+                  class="sm:min-w-[180px]"
+                >
+                  {{ $t('serverRegistration.emailLookup.denyButton') }}
+                </Button>
+                <Button
+                  size="lg"
+                  @click="handleConfirmIdentity"
+                  :disabled="isConfirming"
+                  class="sm:min-w-[180px]"
+                >
+                  <svg v-if="isConfirming" class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <svg v-else class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  {{ $t('serverRegistration.emailLookup.confirmButton') }}
+                </Button>
+              </div>
+            </div>
+          </template>
+
+          <!-- Regular Form Steps -->
+          <template v-else>
+            <DialogHeader>
+              <DialogTitle>{{ $t( props.type === 'walker' ? 'walkerRegistration.title' : 'serverRegistration.title') }}</DialogTitle>
+              <DialogDescription>
+                {{ $t( props.type === 'walker' ? 'walkerRegistration.description' : 'serverRegistration.description') }} ({{ $t('serverRegistration.step', { current: currentStep, total: totalSteps }) }})
+              </DialogDescription>
+            </DialogHeader>
+            <div class="container mx-auto p-4">
+              <Step1PersonalInfo v-show="currentStep === 1" v-model="formData" :errors="formErrors" />
+              <Step2AddressInfo v-show="currentStep === 2" v-model="formData" :errors="formErrors" />
+              <Step3ServiceInfo v-show="currentStep === 3" v-model="formData" :errors="formErrors" />
+              <Step4EmergencyContact v-show="currentStep === 4" v-model="formData" :errors="formErrors" :type="(props.type as 'walker' | 'server')" />
+              <Step5OtherInfo v-show="currentStep === 5 && props.type === 'walker'" v-model="formData" :errors="formErrors" :showPickupInfo="retreatData?.flyer_options?.showPickupInfo ?? true" />
+              <Step5ServerInfo v-show="currentStep === 5 && props.type === 'server'" v-model="formData" :errors="formErrors" />
+
+              <!-- Step 6: Summary -->
+              <div v-show="currentStep === totalSteps">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{{ $t('serverRegistration.summary.title') }}</CardTitle>
+                    <CardDescription>{{ $t('serverRegistration.summary.description') }}</CardDescription>
+                  </CardHeader>
+                  <CardContent class="space-y-2">
+                    <div v-for="item in summaryData" :key="item.label" class="flex justify-between">
+                      <span class="font-semibold">{{ $t(item.label) }}:</span>
+                      <span>{{ item.value?.includes('Registration.') || item.value?.includes('common.') ? $t(item.value) : item.value }}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" @click="prevStep" v-if="currentStep > 1 || isServerType">{{ $t('common.previous') }}</Button>
+              <Button @click="nextStep" v-if="currentStep < totalSteps">{{ $t('common.next') }}</Button>
+              <Button @click="onSubmit" v-if="currentStep === totalSteps">{{ $t('common.submit') }}</Button>
+            </DialogFooter>
+          </template>
         </DialogContent>
         </Dialog>
       </div>

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { onMounted, onUnmounted, nextTick, ref, watch } from 'vue'
+import { defineAsyncComponent, onMounted, onUnmounted, nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import Sidebar from '@/components/layout/Sidebar.vue'
-import AiChatWidget from '@/components/AiChatWidget.vue'
+const AiChatWidget = defineAsyncComponent(() => import('@/components/AiChatWidget.vue'))
 import { useUIStore } from '@/stores/ui'
 import { Menu } from 'lucide-vue-next'
 
@@ -110,7 +110,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex h-screen bg-gray-100 dark:bg-gray-900">
+  <div class="flex h-dvh bg-gray-100 dark:bg-gray-900">
     <!-- Desktop sidebar -->
     <div class="hidden md:flex">
       <Sidebar />
@@ -178,5 +178,27 @@ onUnmounted(() => {
 <style>
 .mobile-hide-h1 h1 {
   display: none !important;
+}
+
+@media print {
+  /* Remove all layout constraints for printing */
+  .flex.h-dvh {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .flex.h-dvh > .hidden.md\:flex,
+  .flex.h-dvh > button,
+  .flex.h-dvh > .fixed {
+    display: none !important;
+  }
+  .flex.h-dvh > .flex.flex-col.flex-1 {
+    overflow: visible !important;
+  }
+  .flex.h-dvh > .flex.flex-col.flex-1 > main {
+    padding: 0 !important;
+    overflow: visible !important;
+    margin: 0 !important;
+  }
 }
 </style>

@@ -1,22 +1,45 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 py-6 print:p-0 print:bg-white print:min-h-0">
-    <!-- Print Button -->
-    <div class="fixed top-14 left-120 z-50 print:hidden">
-      <Button @click="handlePrint" class="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 transition-all hover:scale-105 hover:shadow-blue-500/50 border border-blue-500/30">
-        <Printer class="w-5 h-5" />
-        <span class="font-semibold">{{ t('retreatFlyer.printButton') }}</span>
-      </Button>
+  <div class="bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 py-6 print:p-0 print:bg-white">
+    <!-- Actions Menu -->
+    <div class="absolute top-2 right-2 z-50 print:hidden">
+      <div class="relative" ref="menuRef">
+        <button
+          @click="showMenu = !showMenu"
+          class="p-2 rounded-full bg-white/80 hover:bg-white shadow-lg border border-gray-200 text-gray-600 hover:text-gray-900 transition-all"
+        >
+          <EllipsisVertical class="w-5 h-5" />
+        </button>
+        <div
+          v-if="showMenu"
+          class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 overflow-hidden"
+        >
+          <button
+            @click="handlePrint(); showMenu = false"
+            class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Printer class="w-4 h-4" />
+            {{ t('retreatFlyer.printButton') }}
+          </button>
+          <button
+            @click="handleCopyToClipboard(); showMenu = false"
+            class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <component :is="copyIcon" class="w-4 h-4" />
+            {{ copyLabel }}
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Flyer Container -->
-    <div class="max-w-[850px] mx-auto px-4 print:max-w-[210mm] print:w-[210mm] print:mx-0 print:px-0">
+    <div class="max-w-[850px] mx-auto px-4 print:max-w-none print:w-full print:mx-0 print:px-0">
       <div
         id="printable-area"
-        class="print-optimized shadow-2xl print:shadow-none rounded-3xl overflow-hidden relative bg-white border border-gray-200"
+        class="print-optimized shadow-2xl print:shadow-none rounded-3xl overflow-hidden print:overflow-visible print:rounded-none relative bg-white border border-gray-200 print:border-none"
         :style="flyerStyles"
       >
         <!-- Header Section -->
-        <header class="relative h-[140px] px-8 py-4 flex flex-row items-center justify-between overflow-hidden print:h-[130px] print:px-6 print:py-3" style="height: 154px;">
+        <header class="print-exact relative h-[140px] px-8 py-4 flex flex-row items-center justify-between overflow-hidden print:h-[130px] print:px-6 print:py-3" style="height: 154px;">
           <!-- Background Image with enhanced overlay -->
           <div class="absolute inset-0 bg-cover bg-center z-0" style="background-image: url('/header_bck.png');">
             <div class="absolute inset-0 bg-gradient-to-r from-blue-900/80 via-blue-800/70 to-blue-900/80"></div>
@@ -41,8 +64,8 @@
           <!-- Main Title -->
           <div class="relative z-10 text-right flex-1 pr-2">
             <p class="text-[17px] text-white/95 font-bold mb-0.5 uppercase tracking-[0.25em] drop-shadow-lg">{{ subtitleTextRefined }}</p>
-            <h1 class="text-[68px] font-bold text-white leading-[0.9] transform -rotate-1 origin-bottom-right pb-1 font-display"
-                style="font-family: 'Miltonian Tattoo', cursive; filter: drop-shadow(5px 5px 10px rgba(0,0,0,0.7)); text-shadow: 4px 4px 8px rgba(0,0,0,0.5);">
+            <h1 id="flyer-title" class="flyer-title text-[68px] font-bold text-white leading-[0.9] transform -rotate-1 origin-bottom-right pb-1"
+                style="font-family: 'Miltonian Tattoo', cursive;">
               {{ titleTextRefined }}
             </h1>
             <p class="text-[13px] text-white/95 italic font-medium tracking-wide mt-4 drop-shadow-lg leading-tight max-w-[420px] ml-auto">"{{ quoteTextRefined }}"</p>
@@ -51,24 +74,24 @@
 
         <!-- Retreat Type Banner -->
         <div class="relative z-20">
-          <div class="bg-blue-900/80 backdrop-blur-sm text-white p-2 shadow-xl border-y border-blue-500/30 print:bg-blue-900/80 print:text-white">
+          <div class="print-exact bg-blue-900/80 backdrop-blur-sm text-white p-2 shadow-xl border-y border-blue-500/30 print:bg-blue-900 print:text-white print:backdrop-blur-none">
             <div class="flex flex-col md:flex-row print:flex-row items-center justify-center gap-2 md:gap-6 print:gap-2 text-center">
               <h3 class="text-xl md:text-2xl font-bold uppercase tracking-widest font-header">{{ catholicRetreatText }}</h3>
               <span class="hidden md:block print:block w-px h-8 bg-blue-500/30"></span>
               <div class="flex items-center gap-3">
-                <span class="text-sm opacity-80 uppercase tracking-wide">{{ emausForText }}</span>
-                <span class="text-xl font-bold uppercase text-yellow-300 tracking-widest border border-yellow-400/60 px-5 py-1 rounded-lg bg-gradient-to-r from-yellow-500/20 to-yellow-400/20 backdrop-blur-sm shadow-inner print:text-yellow-400 print:border-yellow-400">
+                <span class="text-sm opacity-80 uppercase tracking-wide print:opacity-100">{{ emausForText }}</span>
+                <span class="print-exact text-xl font-bold uppercase text-yellow-300 tracking-widest border border-yellow-400/60 px-5 py-1 rounded-lg bg-gradient-to-r from-yellow-500/20 to-yellow-400/20 backdrop-blur-sm shadow-inner print:text-yellow-400 print:border-yellow-400 print:bg-yellow-500/20 print:backdrop-blur-none">
                   {{ retreatTypeText }}
                 </span>
                 <span class="hidden md:block print:block w-[1.5px] h-9 bg-blue-300/40"></span>
-                <p class="text-[20px] font-bold text-white tracking-wide drop-shadow-md">{{ formatDateRange }}</p>
+                <p v-if="formatDateRange" class="text-[20px] font-bold text-white tracking-wide drop-shadow-md">{{ formatDateRange }}</p>
               </div>
             </div>
           </div>
         </div>
 
         <!-- Main Content Area -->
-        <div class="relative p-5 print:p-4"
+        <div class="print-exact relative p-5 print:p-4"
              data-main-content
              :style="{
                backgroundImage: 'url(/jesus2.png)',
@@ -104,7 +127,7 @@
                 <h4 class="font-black text-[15px] uppercase text-gray-500 tracking-[0.15em] mb-1.5">{{ t('retreatFlyer.startTime') }}</h4>
                 <p class="text-[17px] text-blue-700 font-bold mb-0.5">{{ formatDate(startDate) }}</p>
                 <p class="text-[22px] font-black text-gray-900 mt-1">{{ openingTimeDisplay }}</p>
-                <div class="mt-3 backdrop-blur-sm border-l-4 border-red-500 p-3.5 rounded-r-xl shadow-md">
+                <div class="mt-3 backdrop-blur-sm print:backdrop-blur-none border-l-4 border-red-500 p-3.5 rounded-r-xl shadow-md print:bg-red-50">
                   <p class="text-[13px] text-red-700 font-bold flex items-center gap-2.5">
                     <AlertTriangle class="w-5 h-5 flex-shrink-0 animate-pulse" />
                     <span>{{ registrationDeadline }}</span>
@@ -149,8 +172,8 @@
               <div class="flex-1">
                 <h4 class="font-black text-[15px] uppercase text-gray-900 tracking-[0.15em] mb-1.5">{{ t('retreatFlyer.endTime') }}</h4>
                 <p class="text-[17px] text-blue-700 font-bold mb-0.5">{{ formatDate(endDate) }}</p>
-                <p class="font-bold text-gray-100 text-[16px] mb-2">{{ closingLocation }}</p>
-                <p class="text-gray-100 font-bold uppercase text-[12px] flex items-center gap-2 backdrop-blur-sm px-3 py-2 rounded-lg border border-amber-200">
+                <p class="font-bold text-gray-100 print:text-white text-[16px] mb-2">{{ closingLocation }}</p>
+                <p class="text-gray-100 print:text-white font-bold uppercase text-[12px] flex items-center gap-2 backdrop-blur-sm print:backdrop-blur-none px-3 py-2 rounded-lg border border-amber-200">
                   <Users class="w-5 h-5 flex-shrink-0" /> {{ arrivalTimeNoteText }}
                 </p>
               </div>
@@ -160,21 +183,21 @@
           <!-- What to Bring Card - Enhanced -->
           <div class="absolute z-10  p-3 hover:shadow-purple-500/20 transition-all"
                style="top: 700px; left: 59px; width: 677px; max-width: 80%;">
-            <h4 class="font-black text-[13px] uppercase bg-gradient-to-r from-purple-400 via-purple-300 to-purple-400 bg-clip-text text-transparent mb-2 flex items-center gap-2 border-b border-purple-200/50 pb-2 tracking-[0.1em]">
+            <h4 class="font-black text-[13px] uppercase bg-gradient-to-r from-purple-400 via-purple-300 to-purple-400 bg-clip-text text-transparent print:text-white print:bg-none mb-2 flex items-center gap-2 border-b border-purple-200/50 pb-2 tracking-[0.1em]">
               <div class="bg-gradient-to-br from-purple-400 to-purple-600 p-2 rounded-lg shadow">
                 <Backpack class="w-4 h-4 text-white" />
               </div>
               {{ whatToBringText }}
             </h4>
 
-            <ul v-if="thingsToBringItems.length > 0" class="grid grid-cols-4 gap-x-2 gap-y-1.5 text-[11px] text-gray-100">
+            <ul v-if="thingsToBringItems.length > 0" class="grid grid-cols-4 gap-x-2 gap-y-1.5 text-[11px] text-gray-100 print:text-white">
               <li v-for="item in thingsToBringItems" :key="item" class="flex items-center gap-1.5 hover:translate-x-1 transition-transform">
                 <div class="w-1.5 h-1.5 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 shadow-sm flex-shrink-0"></div>
                 <span class="font-medium">{{ item }}</span>
               </li>
             </ul>
 
-            <ul v-else class="grid grid-cols-4 gap-x-2 gap-y-1.5 text-[11px] text-gray-100">
+            <ul v-else class="grid grid-cols-4 gap-x-2 gap-y-1.5 text-[11px] text-gray-100 print:text-white">
               <li class="flex items-center gap-1.5 hover:translate-x-1 transition-transform">
                 <div class="w-1.5 h-1.5 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 shadow-sm"></div>
                 <span class="font-medium">{{ t('retreatFlyer.defaultItems.personalThermos') }}</span>
@@ -226,7 +249,7 @@
                 <MapPin class="w-7 h-7" />
               </div>
               <div class="flex-1">
-                <h4 class="font-black text-[15px] uppercase bg-gradient-to-r from-green-600 via-green-500 to-green-600 bg-clip-text text-transparent tracking-[0.15em] mb-1.5">{{ t('retreatFlyer.location') }}</h4>
+                <h4 class="font-black text-[15px] uppercase bg-gradient-to-r from-green-600 via-green-500 to-green-600 bg-clip-text text-transparent print:text-green-700 print:bg-none tracking-[0.15em] mb-1.5">{{ t('retreatFlyer.location') }}</h4>
                 <p class="text-[18px] font-black text-black leading-tight">{{ retreatLocation }}</p>
                 <p class="text-[12px] text-blue-900 leading-snug mt-1.5 font-medium">{{ retreatAddress }}</p>
               </div>
@@ -256,7 +279,7 @@
         </div>
 
         <!-- Footer - Enhanced -->
-        <footer class="relative h-[100px] flex items-center justify-between px-8 overflow-hidden mt-auto print:h-[100px] print:px-8">
+        <footer class="print-exact relative h-[100px] flex items-center justify-between px-8 overflow-hidden mt-auto print:h-[100px] print:px-8">
           <!-- Footer Background Image -->
           <div class="absolute inset-0 bg-cover bg-center z-0" style="background-image: url('/footer.png');">
             <div class="absolute inset-0 bg-gradient-to-r from-black via-gray-900 to-black opacity-60 print:opacity-90"></div>
@@ -287,12 +310,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 // Ensure this path matches your project structure
 import { useRetreatStore } from '@/stores/retreatStore';
-import { Button } from '@repo/ui';
 import {
   MapPin,
   Clock,
@@ -302,7 +324,10 @@ import {
   Info,
   Phone,
   Printer,
-  AlertTriangle
+  AlertTriangle,
+  EllipsisVertical,
+  Copy,
+  Check
 } from 'lucide-vue-next';
 import QrcodeVue from 'qrcode.vue';
 
@@ -312,7 +337,16 @@ const { t } = useI18n();
 const selectedRetreat = computed(() => retreatStore.selectedRetreat);
 const walkerRegistrationLink = computed(() => retreatStore.walkerRegistrationLink);
 
-// Dynamic data from retreat store
+// Menu state
+const showMenu = ref(false);
+const menuRef = ref<HTMLElement>();
+
+const handleClickOutside = (e: MouseEvent) => {
+  if (menuRef.value && !menuRef.value.contains(e.target as Node)) {
+    showMenu.value = false;
+  }
+};
+
 // Dynamic data from retreat store
 // Cast to any to accept 'house' property which exists at runtime/API but not in stricter Zod schema
 const retreatData = computed(() => (selectedRetreat.value as any) || null);
@@ -689,15 +723,101 @@ const handlePrint = () => {
   window.print();
 };
 
+// Copy flyer as image to clipboard
+const copiedRecently = ref(false);
+const copyIcon = computed(() => copiedRecently.value ? Check : Copy);
+const copyLabel = computed(() => copiedRecently.value ? t('retreatFlyer.copied') : t('retreatFlyer.copyImage'));
+
+const handleCopyToClipboard = async () => {
+  const el = document.getElementById('printable-area');
+  if (!el) return;
+
+  try {
+    const { default: html2canvas } = await import('html2canvas');
+    const canvas = await html2canvas(el, {
+      useCORS: true,
+      scale: 2,
+      backgroundColor: null,
+      logging: false,
+      onclone: (_doc: Document, clonedEl: HTMLElement) => {
+        // Remove rounded corners and shadow for clean capture
+        clonedEl.style.borderRadius = '0';
+        clonedEl.style.boxShadow = 'none';
+        clonedEl.style.border = 'none';
+
+        // Fix backdrop-blur elements: replace with solid backgrounds
+        clonedEl.querySelectorAll<HTMLElement>('[class*="backdrop-blur"]').forEach((node) => {
+          node.style.backdropFilter = 'none';
+          (node.style as any).webkitBackdropFilter = 'none';
+          // Banner with bg-blue-900/80 needs solid background
+          if (node.className.includes('bg-blue-900')) {
+            node.style.backgroundColor = '#1e3a8a'; // solid blue-900
+          }
+          // Yellow badge inside banner
+          if (node.className.includes('from-yellow')) {
+            node.style.backgroundColor = 'rgba(234, 179, 8, 0.2)';
+          }
+        });
+
+        // Fix bg-clip-text elements: make text visible with solid color
+        clonedEl.querySelectorAll<HTMLElement>('[class*="bg-clip-text"]').forEach((node) => {
+          node.style.backgroundClip = 'border-box';
+          node.style.webkitBackgroundClip = 'border-box';
+          node.style.webkitTextFillColor = 'unset';
+          node.style.backgroundImage = 'none';
+          // Determine color from class
+          if (node.className.includes('from-purple')) {
+            node.style.color = '#c084fc'; // purple-400
+          } else if (node.className.includes('from-green')) {
+            node.style.color = '#22c55e'; // green-500
+          }
+        });
+
+        // Ensure the flyer title shadow renders
+        const title = clonedEl.querySelector<HTMLElement>('#flyer-title');
+        if (title) {
+          title.style.filter = 'none';
+          title.style.textShadow = '4px 4px 8px rgba(0,0,0,0.5)';
+        }
+      },
+    });
+
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob })
+        ]);
+        copiedRecently.value = true;
+        setTimeout(() => { copiedRecently.value = false; }, 2000);
+      } catch {
+        // Fallback: download the image
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'flyer.png';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    }, 'image/png');
+  } catch (err) {
+    console.error('Failed to copy flyer to clipboard', err);
+  }
+};
+
 // Load retreat data and calculate initial height
 onMounted(async () => {
   const retreatId = route.params.id as string;
   if (retreatId && !selectedRetreat.value) {
     retreatStore.selectRetreat(retreatId);
   }
-  // Calculate height after component is mounted
   await nextTick();
   calculateContentHeight();
+  document.addEventListener('click', handleClickOutside);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside);
 });
 
 // Watch for changes in QR code visibility
@@ -716,6 +836,18 @@ if (typeof window !== 'undefined') {
 <style>
 /* Global Print Styles */
 @media print {
+  @page {
+    size: A4;
+    margin: 3mm;
+  }
+
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  /* Hide everything except the flyer */
   body * {
     visibility: hidden;
   }
@@ -725,27 +857,28 @@ if (typeof window !== 'undefined') {
     visibility: visible;
   }
 
+  /* position:fixed breaks out of ALL ancestor overflow/scroll containers */
   #printable-area {
-    position: absolute;
+    position: fixed;
     left: 0;
     top: 0;
-    width: 210mm;
-    max-width: 210mm;
+    width: 850px;
+    max-width: none;
     margin: 0;
     padding: 0;
+    overflow: visible;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    overflow: hidden;
+    color-adjust: exact;
+    z-index: 99999;
+    transform: scale(0.91);
+    transform-origin: top left;
   }
 
-  @page {
-    size: A4;
-    margin: 5mm;
-  }
-
-  /* Ensure all absolutely positioned elements stay within bounds */
-  #printable-area .absolute {
-    max-width: 210mm;
+  /* Hide sidebar, nav, and other app chrome */
+  nav, aside, .sidebar, [class*="Sidebar"],
+  .ai-chat-widget, [class*="AiChat"] {
+    display: none !important;
   }
 }
 </style>
@@ -761,9 +894,41 @@ if (typeof window !== 'undefined') {
 
 @media print {
   .print-optimized {
-    width: 210mm !important;
-    max-width: 210mm !important;
+    width: 850px !important;
+    max-width: none !important;
     margin: 0 !important;
+    overflow: visible !important;
+  }
+}
+
+/* Force browsers to print backgrounds and colors */
+.print-exact {
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+  color-adjust: exact !important;
+}
+
+/* Override filters and effects for print */
+@media print {
+  /* Remove CSS filters that break print rendering */
+  #flyer-title {
+    filter: none !important;
+    -webkit-filter: none !important;
+  }
+
+  #printable-area h1,
+  #printable-area .drop-shadow-2xl,
+  #printable-area .drop-shadow-lg,
+  #printable-area .drop-shadow-md {
+    filter: none !important;
+    -webkit-filter: none !important;
+  }
+
+  .print\:bg-none {
+    background-image: none !important;
+    -webkit-background-clip: border-box !important;
+    background-clip: border-box !important;
+    -webkit-text-fill-color: currentColor !important;
   }
 }
 
@@ -775,9 +940,21 @@ if (typeof window !== 'undefined') {
   font-family: 'Oswald', sans-serif;
 }
 
-/* Smooth transitions */
-* {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+.flyer-title {
+  text-shadow: 4px 4px 8px rgba(0,0,0,0.5);
+}
+
+@media screen {
+  .flyer-title {
+    filter: drop-shadow(5px 5px 10px rgba(0,0,0,0.7));
+  }
+}
+
+/* Smooth transitions (disabled during print) */
+@media screen {
+  * {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
 }
 
 /* Enhanced hover effects */

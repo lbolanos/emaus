@@ -23,14 +23,20 @@ export const getAllTags = async (retreatId?: string, dataSource?: DataSource) =>
 /**
  * Get tags for a participant
  */
-export const getParticipantTags = async (participantId: string, dataSource?: DataSource) => {
+export const getParticipantTags = async (
+	participantId: string,
+	dataSource?: DataSource,
+	retreatId?: string,
+) => {
 	const repos = getRepositories(dataSource);
-	const participantTags = await repos.participantTag
+	const qb = repos.participantTag
 		.createQueryBuilder('pt')
 		.leftJoinAndSelect('pt.tag', 'tag')
-		.where('pt.participantId = :participantId', { participantId })
-		.getMany();
-
+		.where('pt.participantId = :participantId', { participantId });
+	if (retreatId) {
+		qb.andWhere('tag.retreatId = :retreatId', { retreatId });
+	}
+	const participantTags = await qb.getMany();
 	return participantTags.map((pt) => pt.tag);
 };
 
@@ -162,6 +168,7 @@ export const checkTableTagConflict = async (
 	existingParticipantIds: string[],
 	newParticipantId: string,
 	dataSource?: DataSource,
+	retreatId?: string,
 ): Promise<{ hasConflict: boolean; conflicts: string[] }> => {
 	const repos = getRepositories(dataSource);
 	if (existingParticipantIds.length === 0) {
@@ -169,22 +176,28 @@ export const checkTableTagConflict = async (
 	}
 
 	// Get tags for the new participant
-	const newParticipantTags = await repos.participantTag
+	const newQb = repos.participantTag
 		.createQueryBuilder('pt')
 		.leftJoinAndSelect('pt.tag', 'tag')
-		.where('pt.participantId = :newParticipantId', { newParticipantId })
-		.getMany();
+		.where('pt.participantId = :newParticipantId', { newParticipantId });
+	if (retreatId) {
+		newQb.andWhere('tag.retreatId = :retreatId', { retreatId });
+	}
+	const newParticipantTags = await newQb.getMany();
 
 	if (newParticipantTags.length === 0) {
 		return { hasConflict: false, conflicts: [] };
 	}
 
 	// Get tags for all existing participants at the table
-	const existingParticipantTags = await repos.participantTag
+	const existingQb = repos.participantTag
 		.createQueryBuilder('pt')
 		.leftJoinAndSelect('pt.tag', 'tag')
-		.where('pt.participantId IN (:...existingParticipantIds)', { existingParticipantIds })
-		.getMany();
+		.where('pt.participantId IN (:...existingParticipantIds)', { existingParticipantIds });
+	if (retreatId) {
+		existingQb.andWhere('tag.retreatId = :retreatId', { retreatId });
+	}
+	const existingParticipantTags = await existingQb.getMany();
 
 	// Extract tag IDs for new participant
 	const newParticipantTagIds = new Set(newParticipantTags.map((pt) => pt.tagId));

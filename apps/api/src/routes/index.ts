@@ -27,7 +27,7 @@ import communityRoutes from './communityRoutes';
 import newsletterRoutes from './newsletterRoutes';
 import userSocialRoutes from './userSocial.routes';
 import testimonialRoutes from './testimonial.routes';
-import participantHistoryRoutes from './participantHistory.routes';
+import participantHistoryRoutes from './retreatParticipant.routes';
 import aiChatRoutes from './aiChatRoutes';
 import { applyCsrfProtectionExcept } from '../middleware/routeCsrf';
 

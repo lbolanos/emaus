@@ -26,7 +26,15 @@
     "render-build": "pnpm install --frozen-lockfile && pnpm --filter api build",
     "render-start": "cd apps/api && pnpm start",
     "prepare": "husky",
-    "ruler:apply": "ruler apply"
+    "ruler:apply": "ruler apply",
+    "db:reset-passwords": "npx tsx scripts/reset-passwords.ts",
+    "db:pull": "scp -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105:/var/www/emaus/apps/api/database.sqlite apps/api/database.sqlite 2>&1 && echo '✅ Database copied from AWS'",
+    "db:push": "scp -i ~/.ssh/emaus-key.pem apps/api/database.sqlite ubuntu@3.138.49.105:/var/www/emaus/apps/api/database.sqlite 2>&1 && echo '✅ Database uploaded to AWS'",
+    "db:backup": "ssh -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105 'bash /var/www/emaus/backup-db.sh'",
+    "tunnel": "bash scripts/tunnel-start.sh",
+    "tunnel:setup": "bash scripts/tunnel-setup.sh",
+    "tunnel:stop": "bash scripts/tunnel-stop.sh",
+    "kill": "lsof -ti :3001 -ti :5173 2>/dev/null | xargs kill -9 2>/dev/null; echo '✅ Dev processes killed'"
   },
   "devDependencies": {
     "@intellectronica/ruler": "^0.3.35",

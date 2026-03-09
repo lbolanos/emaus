@@ -1,18 +1,19 @@
 import { AppDataSource, DataSource } from '../data-source';
-import { ParticipantHistory } from '../entities/participantHistory.entity';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { User } from '../entities/user.entity';
 import { Participant } from '../entities/participant.entity';
 import { Retreat } from '../entities/retreat.entity';
+import { Not } from 'typeorm';
 
 // Repositories - will be initialized in functions
-let participantHistoryRepository: any;
+let retreatParticipantRepository: any;
 let userRepository: any;
 let participantRepository: any;
 let retreatRepository: any;
 
 export const initializeRepositories = (dataSource?: DataSource) => {
 	const ds = dataSource || AppDataSource;
-	participantHistoryRepository = ds.getRepository(ParticipantHistory);
+	retreatParticipantRepository = ds.getRepository(RetreatParticipant);
 	userRepository = ds.getRepository(User);
 	participantRepository = ds.getRepository(Participant);
 	retreatRepository = ds.getRepository(Retreat);
@@ -25,8 +26,16 @@ initializeRepositories();
 
 export type RoleInRetreat = 'walker' | 'server' | 'leader' | 'coordinator' | 'charlista';
 
-export interface CreateHistoryData {
-	userId: string;
+export interface RetreatSnapshotFields {
+	type?: string | null;
+	isCancelled?: boolean;
+	tableId?: string | null;
+	idOnRetreat?: number | null;
+	familyFriendColor?: string | null;
+}
+
+export interface CreateHistoryData extends RetreatSnapshotFields {
+	userId?: string | null;
 	participantId?: string | null;
 	retreatId: string;
 	roleInRetreat: RoleInRetreat;
@@ -35,7 +44,7 @@ export interface CreateHistoryData {
 	metadata?: Record<string, any>;
 }
 
-export interface UpdateHistoryData {
+export interface UpdateHistoryData extends RetreatSnapshotFields {
 	roleInRetreat?: RoleInRetreat;
 	isPrimaryRetreat?: boolean;
 	notes?: string;
@@ -47,8 +56,8 @@ export interface UpdateHistoryData {
 /**
  * Get complete retreat history for a user
  */
-export const getUserRetreatHistory = async (userId: string): Promise<ParticipantHistory[]> => {
-	return await participantHistoryRepository.find({
+export const getUserRetreatHistory = async (userId: string): Promise<RetreatParticipant[]> => {
+	return await retreatParticipantRepository.find({
 		where: { userId },
 		relations: ['retreat', 'retreat.house', 'participant'],
 		order: { createdAt: 'DESC' },
@@ -61,8 +70,8 @@ export const getUserRetreatHistory = async (userId: string): Promise<Participant
 export const getUserRetreatHistoryByRole = async (
 	userId: string,
 	role: RoleInRetreat,
-): Promise<ParticipantHistory[]> => {
-	return await participantHistoryRepository.find({
+): Promise<RetreatParticipant[]> => {
+	return await retreatParticipantRepository.find({
 		where: { userId, roleInRetreat: role },
 		relations: ['retreat', 'retreat.house', 'participant'],
 		order: { createdAt: 'DESC' },
@@ -72,8 +81,8 @@ export const getUserRetreatHistoryByRole = async (
 /**
  * Get a specific history entry by ID
  */
-export const getHistoryById = async (id: string): Promise<ParticipantHistory | null> => {
-	return await participantHistoryRepository.findOne({
+export const getHistoryById = async (id: string): Promise<RetreatParticipant | null> => {
+	return await retreatParticipantRepository.findOne({
 		where: { id },
 		relations: ['retreat', 'retreat.house', 'participant', 'user'],
 	});
@@ -85,8 +94,8 @@ export const getHistoryById = async (id: string): Promise<ParticipantHistory | n
 export const getUserHistoryForRetreat = async (
 	userId: string,
 	retreatId: string,
-): Promise<ParticipantHistory | null> => {
-	return await participantHistoryRepository.findOne({
+): Promise<RetreatParticipant | null> => {
+	return await retreatParticipantRepository.findOne({
 		where: { userId, retreatId },
 		relations: ['retreat', 'retreat.house', 'participant'],
 	});
@@ -97,8 +106,8 @@ export const getUserHistoryForRetreat = async (
  */
 export const getParticipantsByRetreat = async (
 	retreatId: string,
-): Promise<ParticipantHistory[]> => {
-	return await participantHistoryRepository.find({
+): Promise<RetreatParticipant[]> => {
+	return await retreatParticipantRepository.find({
 		where: { retreatId },
 		relations: ['user', 'user.profile', 'participant', 'retreat'],
 		order: { createdAt: 'ASC' },
@@ -110,8 +119,8 @@ export const getParticipantsByRetreat = async (
  */
 export const getHistoryByParticipantId = async (
 	participantId: string,
-): Promise<ParticipantHistory[]> => {
-	return await participantHistoryRepository.find({
+): Promise<RetreatParticipant[]> => {
+	return await retreatParticipantRepository.find({
 		where: { participantId },
 		relations: ['retreat', 'retreat.house', 'user'],
 		order: { createdAt: 'DESC' },
@@ -121,11 +130,18 @@ export const getHistoryByParticipantId = async (
 /**
  * Create a new history entry
  */
-export const createHistoryEntry = async (data: CreateHistoryData): Promise<ParticipantHistory> => {
-	// Validate user exists
-	const user = await userRepository.findOne({ where: { id: data.userId } });
-	if (!user) {
-		throw new Error('Usuario no encontrado');
+export const createHistoryEntry = async (data: CreateHistoryData): Promise<RetreatParticipant> => {
+	// Must have at least one identifier
+	if (!data.userId && !data.participantId) {
+		throw new Error('Se requiere userId o participantId');
+	}
+
+	// Validate user exists (only if userId provided)
+	if (data.userId) {
+		const user = await userRepository.findOne({ where: { id: data.userId } });
+		if (!user) {
+			throw new Error('Usuario no encontrado');
+		}
 	}
 
 	// Validate retreat exists
@@ -144,28 +160,43 @@ export const createHistoryEntry = async (data: CreateHistoryData): Promise<Parti
 		}
 	}
 
-	// Check if history entry already exists for this user and retreat
-	const existing = await participantHistoryRepository.findOne({
-		where: { userId: data.userId, retreatId: data.retreatId },
-	});
-
-	if (existing) {
-		throw new Error('El usuario ya tiene un historial para este retiro');
+	// Check for duplicate: use participantId+retreatId if available, else userId+retreatId
+	if (data.participantId) {
+		const existing = await retreatParticipantRepository.findOne({
+			where: { participantId: data.participantId, retreatId: data.retreatId },
+		});
+		if (existing) {
+			throw new Error('El participante ya tiene un historial para este retiro');
+		}
+	} else if (data.userId) {
+		const existing = await retreatParticipantRepository.findOne({
+			where: { userId: data.userId, retreatId: data.retreatId },
+		});
+		if (existing) {
+			throw new Error('El usuario ya tiene un historial para este retiro');
+		}
 	}
 
-	// If isPrimaryRetreat is true, unset other primary retreats for this user
+	// If isPrimaryRetreat is true, unset other primary retreats for this identity
 	if (data.isPrimaryRetreat) {
-		await participantHistoryRepository.update(
-			{ userId: data.userId, isPrimaryRetreat: true },
-			{ isPrimaryRetreat: false },
-		);
+		if (data.userId) {
+			await retreatParticipantRepository.update(
+				{ userId: data.userId, isPrimaryRetreat: true },
+				{ isPrimaryRetreat: false },
+			);
+		} else if (data.participantId) {
+			await retreatParticipantRepository.update(
+				{ participantId: data.participantId, isPrimaryRetreat: true },
+				{ isPrimaryRetreat: false },
+			);
+		}
 	}
 
-	const history = participantHistoryRepository.create(data);
-	const saved = await participantHistoryRepository.save(history);
+	const history = retreatParticipantRepository.create(data);
+	const saved = await retreatParticipantRepository.save(history);
 
 	// Fetch with relations to return complete data
-	return await participantHistoryRepository.findOne({
+	return await retreatParticipantRepository.findOne({
 		where: { id: saved.id },
 		relations: ['retreat', 'retreat.house', 'participant', 'user'],
 	});
@@ -177,8 +208,8 @@ export const createHistoryEntry = async (data: CreateHistoryData): Promise<Parti
 export const updateHistoryEntry = async (
 	id: string,
 	updates: UpdateHistoryData,
-): Promise<ParticipantHistory> => {
-	const history = await participantHistoryRepository.findOne({ where: { id } });
+): Promise<RetreatParticipant> => {
+	const history = await retreatParticipantRepository.findOne({ where: { id } });
 
 	if (!history) {
 		throw new Error('Historial no encontrado');
@@ -186,7 +217,7 @@ export const updateHistoryEntry = async (
 
 	// If setting isPrimaryRetreat to true, unset other primary retreats for this user
 	if (updates.isPrimaryRetreat === true) {
-		await participantHistoryRepository.update(
+		await retreatParticipantRepository.update(
 			{ userId: history.userId, isPrimaryRetreat: true, id: Not(id) },
 			{ isPrimaryRetreat: false },
 		);
@@ -195,10 +226,10 @@ export const updateHistoryEntry = async (
 	// Apply updates
 	Object.assign(history, updates);
 
-	const saved = await participantHistoryRepository.save(history);
+	const saved = await retreatParticipantRepository.save(history);
 
 	// Fetch with relations to return complete data
-	return await participantHistoryRepository.findOne({
+	return await retreatParticipantRepository.findOne({
 		where: { id: saved.id },
 		relations: ['retreat', 'retreat.house', 'participant', 'user'],
 	});
@@ -208,13 +239,13 @@ export const updateHistoryEntry = async (
  * Delete a history entry
  */
 export const deleteHistoryEntry = async (id: string): Promise<void> => {
-	const history = await participantHistoryRepository.findOne({ where: { id } });
+	const history = await retreatParticipantRepository.findOne({ where: { id } });
 
 	if (!history) {
 		throw new Error('Historial no encontrado');
 	}
 
-	await participantHistoryRepository.remove(history);
+	await retreatParticipantRepository.remove(history);
 };
 
 /**
@@ -223,15 +254,15 @@ export const deleteHistoryEntry = async (id: string): Promise<void> => {
 export const markPrimaryRetreat = async (
 	userId: string,
 	historyId: string,
-): Promise<ParticipantHistory> => {
+): Promise<RetreatParticipant> => {
 	// First unset all primary retreats for this user
-	await participantHistoryRepository.update(
+	await retreatParticipantRepository.update(
 		{ userId, isPrimaryRetreat: true },
 		{ isPrimaryRetreat: false },
 	);
 
 	// Set the new primary retreat
-	const history = await participantHistoryRepository.findOne({
+	const history = await retreatParticipantRepository.findOne({
 		where: { id: historyId, userId },
 	});
 
@@ -240,10 +271,10 @@ export const markPrimaryRetreat = async (
 	}
 
 	history.isPrimaryRetreat = true;
-	const saved = await participantHistoryRepository.save(history);
+	const saved = await retreatParticipantRepository.save(history);
 
 	// Fetch with relations to return complete data
-	return await participantHistoryRepository.findOne({
+	return await retreatParticipantRepository.findOne({
 		where: { id: saved.id },
 		relations: ['retreat', 'retreat.house', 'participant', 'user'],
 	});
@@ -252,8 +283,8 @@ export const markPrimaryRetreat = async (
 /**
  * Get the user's primary retreat
  */
-export const getPrimaryRetreat = async (userId: string): Promise<ParticipantHistory | null> => {
-	return await participantHistoryRepository.findOne({
+export const getPrimaryRetreat = async (userId: string): Promise<RetreatParticipant | null> => {
+	return await retreatParticipantRepository.findOne({
 		where: { userId, isPrimaryRetreat: true },
 		relations: ['retreat', 'retreat.house', 'participant'],
 	});
@@ -265,7 +296,7 @@ export const getPrimaryRetreat = async (userId: string): Promise<ParticipantHist
  */
 export const autoSetPrimaryRetreat = async (userId: string): Promise<void> => {
 	// Get all history entries for the user ordered by date
-	const historyEntries = await participantHistoryRepository.find({
+	const historyEntries = await retreatParticipantRepository.find({
 		where: { userId },
 		relations: ['retreat'],
 		order: { createdAt: 'ASC' },
@@ -276,28 +307,28 @@ export const autoSetPrimaryRetreat = async (userId: string): Promise<void> => {
 	}
 
 	// First, find the first walker retreat (chronologically first)
-	const firstWalkerEntry = historyEntries.find((h) => h.roleInRetreat === 'walker');
+	const firstWalkerEntry = historyEntries.find((h: RetreatParticipant) => h.roleInRetreat === 'walker');
 
 	if (firstWalkerEntry) {
 		// Unset all primary retreats
-		await participantHistoryRepository.update(
+		await retreatParticipantRepository.update(
 			{ userId, isPrimaryRetreat: true },
 			{ isPrimaryRetreat: false },
 		);
 		// Set the first walker retreat as primary
 		firstWalkerEntry.isPrimaryRetreat = true;
-		await participantHistoryRepository.save(firstWalkerEntry);
+		await retreatParticipantRepository.save(firstWalkerEntry);
 	} else {
 		// If no walker retreat exists, set the oldest retreat as primary
 		const oldestEntry = historyEntries[0];
 		// Unset all primary retreats
-		await participantHistoryRepository.update(
+		await retreatParticipantRepository.update(
 			{ userId, isPrimaryRetreat: true },
 			{ isPrimaryRetreat: false },
 		);
 		// Set the oldest retreat as primary
 		oldestEntry.isPrimaryRetreat = true;
-		await participantHistoryRepository.save(oldestEntry);
+		await retreatParticipantRepository.save(oldestEntry);
 	}
 };
 
@@ -307,8 +338,8 @@ export const autoSetPrimaryRetreat = async (userId: string): Promise<void> => {
 export const getParticipantsByRole = async (
 	retreatId: string,
 	role: RoleInRetreat,
-): Promise<ParticipantHistory[]> => {
-	return await participantHistoryRepository.find({
+): Promise<RetreatParticipant[]> => {
+	return await retreatParticipantRepository.find({
 		where: { retreatId, roleInRetreat: role },
 		relations: ['user', 'user.profile', 'participant'],
 		order: { createdAt: 'ASC' },
@@ -318,9 +349,9 @@ export const getParticipantsByRole = async (
 /**
  * Get charlistas (speakers) for a retreat or globally
  */
-export const getCharlistas = async (retreatId?: string): Promise<ParticipantHistory[]> => {
+export const getCharlistas = async (retreatId?: string): Promise<RetreatParticipant[]> => {
 	if (retreatId) {
-		return await participantHistoryRepository.find({
+		return await retreatParticipantRepository.find({
 			where: { retreatId, roleInRetreat: 'charlista' },
 			relations: ['user', 'user.profile', 'retreat'],
 			order: { createdAt: 'ASC' },
@@ -328,12 +359,28 @@ export const getCharlistas = async (retreatId?: string): Promise<ParticipantHist
 	}
 
 	// Get all charlistas globally
-	return await participantHistoryRepository.find({
+	return await retreatParticipantRepository.find({
 		where: { roleInRetreat: 'charlista' },
 		relations: ['user', 'user.profile', 'retreat', 'retreat.house'],
 		order: { createdAt: 'DESC' },
 	});
 };
 
-// TypeORM Not operator is imported differently
-import { Not } from 'typeorm';
+/**
+ * Sync retreat-specific fields to the retreat_participants row for a participant+retreat pair.
+ * Creates no row — only updates if one already exists.
+ */
+export const syncRetreatFields = async (
+	participantId: string,
+	retreatId: string,
+	fields: RetreatSnapshotFields,
+	entityManager?: any,
+): Promise<void> => {
+	const repo = entityManager
+		? entityManager.getRepository(RetreatParticipant)
+		: retreatParticipantRepository;
+	await repo.update({ participantId, retreatId }, fields);
+};
+
+// Backward compatibility alias
+export const syncRetreatFieldsToHistory = syncRetreatFields;

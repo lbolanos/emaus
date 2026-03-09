@@ -3,6 +3,7 @@ import { AppDataSource } from '../data-source';
 import { TableMesa } from '../entities/tableMesa.entity';
 import { Participant } from '../entities/participant.entity';
 import { Retreat } from '../entities/retreat.entity';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { getRepositories } from '../utils/repositoryHelpers';
 import { v4 as uuidv4 } from 'uuid';
 import { In } from 'typeorm';
@@ -19,25 +20,53 @@ export const findTablesByRetreatId = async (retreatId: string, dataSource?: Data
 		.leftJoinAndSelect('table.colider1', 'colider1')
 		.leftJoinAndSelect('table.colider2', 'colider2')
 		.leftJoinAndSelect('table.walkers', 'walkers')
-		.leftJoinAndSelect('walkers.retreatBed', 'retreatBed')
+		.leftJoinAndSelect('walkers.participant', 'wp')
+		.leftJoinAndSelect('wp.retreatBed', 'retreatBed')
 		.where('table.retreatId = :retreatId', { retreatId })
 		.orderBy('table.name', 'ASC')
 		.getMany();
+
+	// Flatten walker RetreatParticipant objects to look like Participant for API compat
+	for (const table of tables) {
+		if (table.walkers) {
+			table.walkers = table.walkers.map((rp: any) => {
+				if (rp.participant) {
+					const p = { ...rp.participant, type: rp.type, isCancelled: rp.isCancelled, tableId: rp.tableId, id_on_retreat: rp.idOnRetreat, family_friend_color: rp.familyFriendColor };
+					return p;
+				}
+				return rp;
+			}) as any;
+		}
+	}
 
 	return tableMesaSchema.array().parse(tables);
 };
 
 export const findTableById = async (id: string, dataSource?: DataSource) => {
 	const repos = getRepositories(dataSource);
-	return repos.tableMesa
+	const table = await repos.tableMesa
 		.createQueryBuilder('table')
 		.leftJoinAndSelect('table.lider', 'lider')
 		.leftJoinAndSelect('table.colider1', 'colider1')
 		.leftJoinAndSelect('table.colider2', 'colider2')
 		.leftJoinAndSelect('table.walkers', 'walkers')
-		.leftJoinAndSelect('walkers.retreatBed', 'retreatBed')
+		.leftJoinAndSelect('walkers.participant', 'wp')
+		.leftJoinAndSelect('wp.retreatBed', 'retreatBed')
 		.where('table.id = :id', { id })
 		.getOne();
+
+	// Flatten walker RetreatParticipant objects to look like Participant for API compat
+	if (table?.walkers) {
+		table.walkers = table.walkers.map((rp: any) => {
+			if (rp.participant) {
+				const p = { ...rp.participant, type: rp.type, isCancelled: rp.isCancelled, tableId: rp.tableId, id_on_retreat: rp.idOnRetreat, family_friend_color: rp.familyFriendColor };
+				return p;
+			}
+			return rp;
+		}) as any;
+	}
+
+	return table;
 };
 
 export const createTable = async (
@@ -93,6 +122,19 @@ export const assignLeaderToTable = async (
 
 	const participant = await repos.participant.findOneBy({ id: participantId });
 	if (!participant) throw new Error('Participant not found');
+
+	// Load retreat-specific fields from retreat_participants (use table's retreatId, not participant's)
+	const ds = dataSource || AppDataSource;
+	if (table.retreatId) {
+		const rp = await ds.getRepository(RetreatParticipant).findOne({
+			where: { participantId, retreatId: table.retreatId },
+		});
+		if (rp) {
+			participant.type = rp.type as any;
+			participant.isCancelled = rp.isCancelled;
+		}
+	}
+
 	if (participant.type !== 'server') throw new Error('Only servers can be assigned as leaders.');
 	if (participant.isCancelled) throw new Error('Cannot assign cancelled participants as leaders.');
 
@@ -104,13 +146,15 @@ export const assignLeaderToTable = async (
 		table.liderId,
 		table.colider1Id,
 		table.colider2Id,
-		...(table.walkers || []).map((w) => w.id),
+		...(table.walkers || []).map((w: any) => w.participantId || w.id),
 	].filter((id) => id && id !== participantId) as string[];
 
 	if (existingParticipantIds.length > 0) {
 		const { hasConflict, conflicts } = await checkTableTagConflict(
 			existingParticipantIds,
 			participantId,
+			undefined,
+			table.retreatId,
 		);
 		if (hasConflict) {
 			throw new Error(
@@ -119,12 +163,12 @@ export const assignLeaderToTable = async (
 		}
 	}
 
-	// Un-assign the participant from any other leader role they might have
+	// Un-assign the participant from any other leader role in the SAME retreat
 	const tablesWithParticipant = await repos.tableMesa.find({
 		where: [
-			{ liderId: participantId },
-			{ colider1Id: participantId },
-			{ colider2Id: participantId },
+			{ liderId: participantId, retreatId: table.retreatId },
+			{ colider1Id: participantId, retreatId: table.retreatId },
+			{ colider2Id: participantId, retreatId: table.retreatId },
 		],
 	});
 	for (const t of tablesWithParticipant) {
@@ -165,13 +209,26 @@ export const assignWalkerToTable = async (
 	dataSource?: DataSource,
 ) => {
 	const repos = getRepositories(dataSource);
+	const ds = dataSource || AppDataSource;
 	const participant = await repos.participant.findOneBy({ id: participantId });
 	if (!participant) throw new Error('Participant not found');
-	if (participant.type !== 'walker') throw new Error('Only walkers can be assigned to a table.');
-	if (participant.isCancelled) throw new Error('Cannot assign cancelled participants to tables.');
 
 	const table = await findTableById(tableId, dataSource);
 	if (!table) throw new Error('Table not found');
+
+	// Load retreat-specific fields from retreat_participants (use table's retreatId)
+	if (table.retreatId) {
+		const rp = await ds.getRepository(RetreatParticipant).findOne({
+			where: { participantId, retreatId: table.retreatId },
+		});
+		if (rp) {
+			participant.type = rp.type as any;
+			participant.isCancelled = rp.isCancelled;
+		}
+	}
+
+	if (participant.type !== 'walker') throw new Error('Only walkers can be assigned to a table.');
+	if (participant.isCancelled) throw new Error('Cannot assign cancelled participants to tables.');
 
 	// Check for tag conflicts with ALL participants at the table
 	const { checkTableTagConflict } = await import('./tagService');
@@ -181,13 +238,15 @@ export const assignWalkerToTable = async (
 		table.liderId,
 		table.colider1Id,
 		table.colider2Id,
-		...(table.walkers || []).map((w) => w.id),
+		...(table.walkers || []).map((w: any) => w.participantId || w.id),
 	].filter(Boolean) as string[];
 
 	if (existingParticipantIds.length > 0) {
 		const { hasConflict, conflicts } = await checkTableTagConflict(
 			existingParticipantIds,
 			participantId,
+			undefined,
+			table.retreatId,
 		);
 		if (hasConflict) {
 			throw new Error(
@@ -196,8 +255,18 @@ export const assignWalkerToTable = async (
 		}
 	}
 
-	participant.tableId = tableId as string | null;
-	await repos.participant.save(participant);
+	// Write tableId to retreat_participants (ground truth, scoped to table's retreat)
+	if (table.retreatId) {
+		try {
+			await ds.getRepository(RetreatParticipant).update(
+				{ participantId, retreatId: table.retreatId },
+				{ tableId },
+			);
+		} catch (err) {
+			console.error('Error syncing tableId to history (assign):', err);
+		}
+	}
+
 	return findTableById(tableId, dataSource);
 };
 
@@ -206,12 +275,22 @@ export const unassignWalkerFromTable = async (
 	participantId: string,
 	dataSource?: DataSource,
 ) => {
-	const repos = getRepositories(dataSource);
-	const participant = await repos.participant.findOneBy({ id: participantId });
-	if (!participant) throw new Error('Participant not found');
+	const table = await findTableById(tableId, dataSource);
+	if (!table) throw new Error('Table not found');
 
-	participant.tableId = null;
-	await repos.participant.save(participant);
+	// Write tableId to retreat_participants (ground truth, scoped to table's retreat)
+	if (table.retreatId) {
+		try {
+			const ds = dataSource || AppDataSource;
+			await ds.getRepository(RetreatParticipant).update(
+				{ participantId, retreatId: table.retreatId },
+				{ tableId: null },
+			);
+		} catch (err) {
+			console.error('Error syncing tableId to history (unassign):', err);
+		}
+	}
+
 	return findTableById(tableId, dataSource);
 };
 
@@ -219,10 +298,25 @@ export const rebalanceTablesForRetreat = async (retreatId: string, dataSource?: 
 	const { getParticipantTags, checkTableTagConflict } = await import('./tagService');
 
 	const repos = getRepositories(dataSource);
-	const walkers = await repos.participant.find({
+	const ds = dataSource || AppDataSource;
+
+	// Query walkers from retreat_participants joined with participants for personal data
+	const rpRepo = ds.getRepository(RetreatParticipant);
+	const walkerRps = await rpRepo.find({
 		where: { retreatId, type: 'walker', isCancelled: false },
-		order: { registrationDate: 'ASC' },
+		relations: ['participant'],
+		order: { createdAt: 'ASC' },
 	});
+	const walkers = walkerRps
+		.filter((rp) => rp.participant)
+		.map((rp) => {
+			const p = rp.participant!;
+			p.type = rp.type as any;
+			p.isCancelled = rp.isCancelled;
+			p.tableId = rp.tableId;
+			return p;
+		});
+
 	const tables = await repos.tableMesa.find({
 		where: { retreatId },
 		order: { name: 'ASC' },
@@ -252,13 +346,19 @@ export const rebalanceTablesForRetreat = async (retreatId: string, dataSource?: 
 		tables.splice(idealTableCount);
 	}
 
-	// Unassign all non-cancelled walkers in a single query
-	await (dataSource || AppDataSource)
-		.createQueryBuilder()
-		.update(Participant)
-		.set({ tableId: null })
-		.where({ retreatId, type: 'walker', isCancelled: false })
-		.execute();
+	// Unassign all non-cancelled walkers in retreat_participants
+	const walkerIds = walkers.map((w) => w.id);
+	if (walkerIds.length > 0) {
+		await ds
+			.createQueryBuilder()
+			.update(RetreatParticipant)
+			.set({ tableId: null })
+			.where('retreatId = :retreatId AND participantId IN (:...walkerIds)', {
+				retreatId,
+				walkerIds,
+			})
+			.execute();
+	}
 
 	// Distribute walkers
 	if (walkers.length === 0 || tables.length === 0) {
@@ -273,7 +373,7 @@ export const rebalanceTablesForRetreat = async (retreatId: string, dataSource?: 
 
 	const participantTags = new Map<string, string[]>();
 	for (const pid of allParticipantIds) {
-		const tags = await getParticipantTags(pid, dataSource);
+		const tags = await getParticipantTags(pid, dataSource, retreatId);
 		if (tags.length > 0) {
 			participantTags.set(
 				pid,
@@ -346,7 +446,16 @@ export const rebalanceTablesForRetreat = async (retreatId: string, dataSource?: 
 		}
 	}
 
-	await repos.participant.save(walkerAssignments);
+	// Write table assignments to retreat_participants (ground truth)
+	const rpRepoForAssign = ds.getRepository(RetreatParticipant);
+	for (const assignment of walkerAssignments) {
+		if (assignment.tableId) {
+			await rpRepoForAssign.update(
+				{ participantId: assignment.id, retreatId },
+				{ tableId: assignment.tableId },
+			);
+		}
+	}
 };
 
 export const exportTablesToDocx = async (retreatId: string, dataSource?: DataSource) => {

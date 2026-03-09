@@ -7,6 +7,7 @@ import {
 	importParticipants,
 	updateParticipant,
 	checkParticipantEmail,
+	confirmExistingParticipantEmail,
 } from '../controllers/participantController';
 import { validateRequest } from '../middleware/validateRequest';
 import { createParticipantSchema, updateParticipantSchema } from '@repo/types';
@@ -18,11 +19,13 @@ const router = Router();
 // Public routes for walker and server registration
 router.post('/new', validateRequest(createParticipantSchema), createParticipant);
 
-router.use(isAuthenticated);
-
-// Check if participant exists by email (for server registration flow)
-// Must be authenticated to check if a participant exists
+// Public check-email with reCAPTCHA protection (for server registration flow)
 router.get('/check-email/:email', checkParticipantEmail);
+
+// Public confirm-registration: auto-register existing participant for a retreat
+router.post('/confirm-registration', confirmExistingParticipantEmail);
+
+router.use(isAuthenticated);
 
 router.get('/', requirePermission('participant:list'), getAllParticipants);
 router.get('/:id', requirePermission('participant:read'), getParticipantById);

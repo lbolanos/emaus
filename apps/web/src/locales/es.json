@@ -885,7 +885,9 @@
     "limitedCapacity": "Cupo Limitado",
     "dontMissIt": "¡No te lo pierdas!",
     "reservationNote": "* Para asegurar lugar: llenar formato en línea y cubrir el 50% del costo.",
-    "come": "Ven"
+    "come": "Ven",
+    "copyImage": "Copiar Imagen",
+    "copied": "¡Copiado!"
   },
   "language": {
     "label": "Idioma",
@@ -1060,7 +1062,13 @@
     "room": "Habitación",
     "noBedsInRoom": "No hay camas en esta habitación",
     "walkerShort": "Cam",
-    "serverShort": "Serv"
+    "serverShort": "Serv",
+    "disableBed": "Deshabilitar cama",
+    "enableBed": "Habilitar cama",
+    "bedDisabled": "Cama Deshabilitada",
+    "bedEnabled": "Cama Habilitada",
+    "bedDisabledDesc": "La cama ha sido deshabilitada y el participante desasignado.",
+    "bedEnabledDesc": "La cama ha sido habilitada."
   },
   "walkerRegistration": {
     "title": "Registro de Caminante",
@@ -1159,6 +1167,20 @@
       "title": "Sirve en el Próximo Retiro",
       "subtitle": "Únete a nosotros en servicio y compañerismo. Regístrate ahora para ser parte del equipo.",
       "cta": "Regístrate Ahora"
+    },
+    "emailLookup": {
+      "title": "Buscar registro existente",
+      "description": "Ingresa tu correo electrónico para verificar si ya tienes un registro previo",
+      "placeholder": "correo{'@'}ejemplo.com",
+      "search": "Buscar",
+      "skip": "Registrarme como nuevo",
+      "found": "Hola {name}, tu registro será actualizado al enviar el formulario.",
+      "notFound": "No se encontró un registro previo. Por favor llena el formulario.",
+      "confirmIdentity": "¿Eres tú?",
+      "confirmMessage": "Hola {name}, al confirmar quedarás registrado(a) para este retiro.",
+      "confirmButton": "Sí, soy yo",
+      "denyButton": "No, registrarme como nuevo",
+      "success": "¡Registro exitoso! Quedaste registrado(a) para este retiro."
     },
     "tabs": {
       "personalInfo": "Información Personal",

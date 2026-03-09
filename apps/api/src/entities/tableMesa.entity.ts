@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { Retreat } from './retreat.entity';
 import { Participant } from './participant.entity';
+import { RetreatParticipant } from './retreatParticipant.entity';
 
 @Entity('tables')
 export class TableMesa {
@@ -46,6 +47,6 @@ export class TableMesa {
 	@Column({ type: 'uuid', nullable: true })
 	colider2Id?: string;
 
-	@OneToMany(() => Participant, (participant) => participant.tableMesa)
-	walkers!: Participant[];
+	@OneToMany(() => RetreatParticipant, (rp) => rp.tableMesa)
+	walkers!: RetreatParticipant[];
 }
