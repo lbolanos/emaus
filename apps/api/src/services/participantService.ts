@@ -187,6 +187,14 @@ export const findAllParticipants = async (
 						'retreatBed.retreatId = :retreatId',
 						{ retreatId },
 					);
+				} else if (parts[0] === 'payments') {
+					// Scope payments JOIN to the requested retreat
+					queryBuilder.leftJoinAndSelect(
+						'participant.payments',
+						'payments',
+						'payments.retreatId = :paymentsRetreatId',
+						{ paymentsRetreatId: retreatId },
+					);
 				} else {
 					queryBuilder.leftJoinAndSelect(`participant.${parts[0]}`, parts[0]);
 				}
