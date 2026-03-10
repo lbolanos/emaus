@@ -42,6 +42,8 @@ import { Follow } from '../entities/follow.entity';
 import { UserActivity } from '../entities/userActivity.entity';
 import { Testimonial } from '../entities/testimonial.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
+import { ServiceTeam } from '../entities/serviceTeam.entity';
+import { ServiceTeamMember } from '../entities/serviceTeamMember.entity';
 
 import { Session } from '../entities/session.entity';
 
@@ -97,6 +99,9 @@ export function createDatabaseConfig() {
 		UserActivity,
 		Testimonial,
 		RetreatParticipant,
+		// Service Teams
+		ServiceTeam,
+		ServiceTeamMember,
 		// Temporarily excluding entities with enum issues
 		// PermissionOverride,
 		// RoleRequest,

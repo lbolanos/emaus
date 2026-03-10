@@ -10,6 +10,7 @@ import { GlobalMessageTemplateService } from './globalMessageTemplateService';
 import { createDefaultResponsibilitiesForRetreat } from './responsabilityService';
 import { createDefaultTablesForRetreat } from './tableMesaService';
 import { createDefaultInventoryForRetreat } from './inventoryService';
+import { createDefaultServiceTeamsForRetreat } from './serviceTeamService';
 import { createDefaultInventoryData } from '../data/inventorySeeder';
 import { authorizationService } from '../middleware/authorization';
 import { ROLES } from '@repo/types';
@@ -192,6 +193,9 @@ export const createRetreat = async (
 
 	// 4. Create default tables
 	await createDefaultTablesForRetreat(newRetreat, dataSource);
+
+	// 4.5. Create default service teams
+	await createDefaultServiceTeamsForRetreat(newRetreat, dataSource);
 
 	// 5. Copy global message templates to this retreat
 	const globalMessageTemplateService = new GlobalMessageTemplateService(dataSource);

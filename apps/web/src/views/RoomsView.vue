@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { api, exportRoomLabelsToDocx } from '@/services/api';
@@ -211,6 +211,12 @@ onMounted(async () => {
     await retreatStore.fetchRetreat(id);
   }
   await fetchBeds();
+});
+
+watch(retreatId, async (newId) => {
+  if (newId) {
+    await fetchBeds();
+  }
 });
 
 const groupedBeds = computed(() => {

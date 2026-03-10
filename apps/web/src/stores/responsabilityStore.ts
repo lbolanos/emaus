@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { useToast } from '@repo/ui';
-import type { Responsability } from '@repo/types';
-import { api } from '@/services/api';
+import type { Responsability, Participant } from '@repo/types';
+import { api, searchSpeakers as searchSpeakersApi, createAndAssignSpeaker as createAndAssignSpeakerApi } from '@/services/api';
 
 export const useResponsabilityStore = defineStore('responsability', () => {
 	const responsibilities = ref<Responsability[]>([]);
@@ -112,6 +112,38 @@ export const useResponsabilityStore = defineStore('responsability', () => {
 		}
 	}
 
+	async function searchSpeakers(query: string, retreatId: string): Promise<Participant[]> {
+		try {
+			return await searchSpeakersApi(query, retreatId);
+		} catch (e: any) {
+			console.error(e);
+			return [];
+		}
+	}
+
+	async function createAndAssignSpeaker(
+		responsabilityId: string,
+		data: { firstName: string; lastName: string; cellPhone?: string; email?: string; retreatId: string },
+	) {
+		try {
+			const updatedResponsability = await createAndAssignSpeakerApi(responsabilityId, data);
+			const index = responsibilities.value.findIndex((c) => c.id === responsabilityId);
+			if (index !== -1) {
+				responsibilities.value[index] = updatedResponsability;
+			}
+			toast({ title: 'Success', description: 'Charlista asignado exitosamente.' });
+			return updatedResponsability;
+		} catch (e: any) {
+			toast({
+				title: 'Error',
+				description: 'Error al crear y asignar charlista.',
+				variant: 'destructive',
+			});
+			console.error(e);
+			return null;
+		}
+	}
+
 	return {
 		responsibilities,
 		loading,
@@ -121,5 +153,7 @@ export const useResponsabilityStore = defineStore('responsability', () => {
 		updateResponsability,
 		deleteResponsability,
 		assignParticipant,
+		searchSpeakers,
+		createAndAssignSpeaker,
 	};
 });

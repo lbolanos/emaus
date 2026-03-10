@@ -7,6 +7,9 @@ import {
 	deleteResponsability as deleteResponsabilityService,
 	assignResponsabilityToParticipant as assignResponsabilityToParticipantService,
 	removeResponsabilityFromParticipant as removeResponsabilityFromParticipantService,
+	exportResponsibilitiesToDocx,
+	searchSpeakers as searchSpeakersService,
+	createAndAssignSpeaker as createAndAssignSpeakerService,
 } from '../services/responsabilityService';
 import { authorizationService } from '../middleware/authorization';
 
@@ -128,6 +131,61 @@ export const removeResponsability = async (req: Request, res: Response, next: Ne
 		}
 		res.status(200).json(responsability);
 	} catch (error) {
+		next(error);
+	}
+};
+
+export const searchSpeakers = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { q, retreatId } = req.query;
+		if (!q || typeof q !== 'string') {
+			return res.status(400).json({ message: 'Search query "q" is required' });
+		}
+		const results = await searchSpeakersService(q, retreatId as string | undefined);
+		res.json(results);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const createAndAssignSpeaker = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id } = req.params;
+		const { firstName, lastName, cellPhone, email, retreatId } = req.body;
+		if (!firstName || !lastName || !retreatId) {
+			return res.status(400).json({ message: 'firstName, lastName, and retreatId are required' });
+		}
+
+		const hasAccess = await checkRetreatAccess(req, retreatId);
+		if (!hasAccess) {
+			return res.status(403).json({ message: 'Forbidden - No access to this retreat' });
+		}
+
+		const result = await createAndAssignSpeakerService(id, { firstName, lastName, cellPhone, email, retreatId });
+		if (!result) {
+			return res.status(404).json({ message: 'Responsibility not found' });
+		}
+		res.status(201).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const exportResponsibilitiesDocx = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { retreatId } = req.params;
+		const hasAccess = await checkRetreatAccess(req, retreatId);
+		if (!hasAccess) {
+			return res.status(403).json({ message: 'Forbidden - No access to this retreat' });
+		}
+		const buffer = await exportResponsibilitiesToDocx(retreatId);
+		res.setHeader(
+			'Content-Type',
+			'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+		);
+		res.setHeader('Content-Disposition', `attachment; filename=responsabilidades-${retreatId}.docx`);
+		res.send(buffer);
+	} catch (error: any) {
 		next(error);
 	}
 };

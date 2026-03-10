@@ -13,3 +13,5 @@ export { Friend } from './friend.entity';
 export { Follow } from './follow.entity';
 export { UserActivity } from './userActivity.entity';
 export { Testimonial, TestimonialVisibility } from './testimonial.entity';
+export { ServiceTeam } from './serviceTeam.entity';
+export { ServiceTeamMember } from './serviceTeamMember.entity';

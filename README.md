@@ -477,9 +477,11 @@ verificar porque sale sin cuarto algunos caminantes en la pagina https://emaus.c
 usar la ia para conversar y agregar o quitar base de datos.
 
 ## IN PROGRESS
+El gafete debe ser de color diferente para servidor y para caminante.
 
 create a migration script just for testing red social. is not for production. create users, retreats, communities, houses, participants, messages, friends, followers, blocks, searches, avatars, and messages.
 Cuando un usuario se registra y existe como caminante de algun retiro convertirlo en usuario y que pueda ver el historial de retiros en los que ha participado como servidor y el retiro en el que camino como principal.
+
 El registro de charlistas globales. El charlista es un servidor.
 Agregar los charlistas del retiro ya registrados previamente.
 

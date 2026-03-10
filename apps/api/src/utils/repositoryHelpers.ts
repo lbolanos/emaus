@@ -21,6 +21,8 @@ import { RetreatInventory } from '../entities/retreatInventory.entity';
 import { GlobalMessageTemplate } from '../entities/globalMessageTemplate.entity';
 import { Tag } from '../entities/tag.entity';
 import { ParticipantTag } from '../entities/participantTag.entity';
+import { ServiceTeam } from '../entities/serviceTeam.entity';
+import { ServiceTeamMember } from '../entities/serviceTeamMember.entity';
 
 /**
  * Get a repository for an entity, optionally using a custom DataSource.
@@ -61,6 +63,8 @@ export function getRepositories(dataSource?: DataSource) {
 		globalMessageTemplate: ds.getRepository(GlobalMessageTemplate),
 		tag: ds.getRepository(Tag),
 		participantTag: ds.getRepository(ParticipantTag),
+		serviceTeam: ds.getRepository(ServiceTeam),
+		serviceTeamMember: ds.getRepository(ServiceTeamMember),
 	};
 }
 
@@ -90,5 +94,7 @@ export function getAllEntities() {
 		GlobalMessageTemplate,
 		Tag,
 		ParticipantTag,
+		ServiceTeam,
+		ServiceTeamMember,
 	];
 }

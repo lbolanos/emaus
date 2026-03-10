@@ -176,6 +176,127 @@ export const exportTablesToDocx = async (retreatId: string): Promise<void> => {
 	window.URL.revokeObjectURL(url);
 };
 
+// Service Teams API functions
+import type { ServiceTeam } from '@repo/types';
+
+export const getServiceTeamsByRetreat = async (retreatId: string): Promise<ServiceTeam[]> => {
+	const response = await api.get(`/service-teams/retreat/${retreatId}`);
+	return response.data;
+};
+
+export const createServiceTeam = async (data: any): Promise<ServiceTeam> => {
+	const response = await api.post('/service-teams', data);
+	return response.data;
+};
+
+export const updateServiceTeam = async (id: string, data: any): Promise<ServiceTeam> => {
+	const response = await api.put(`/service-teams/${id}`, data);
+	return response.data;
+};
+
+export const deleteServiceTeam = async (id: string): Promise<void> => {
+	await api.delete(`/service-teams/${id}`);
+};
+
+export const addServiceTeamMember = async (
+	teamId: string,
+	participantId: string,
+	role?: string,
+	sourceTeamId?: string,
+): Promise<ServiceTeam> => {
+	const response = await api.post(`/service-teams/${teamId}/members`, {
+		participantId,
+		role,
+		sourceTeamId,
+	});
+	return response.data;
+};
+
+export const removeServiceTeamMember = async (
+	teamId: string,
+	participantId: string,
+): Promise<ServiceTeam> => {
+	const response = await api.delete(`/service-teams/${teamId}/members/${participantId}`);
+	return response.data;
+};
+
+export const assignServiceTeamLeader = async (
+	teamId: string,
+	participantId: string,
+	sourceTeamId?: string,
+): Promise<ServiceTeam> => {
+	const response = await api.put(`/service-teams/${teamId}/leader`, {
+		participantId,
+		sourceTeamId,
+	});
+	return response.data;
+};
+
+export const unassignServiceTeamLeader = async (teamId: string): Promise<ServiceTeam> => {
+	const response = await api.delete(`/service-teams/${teamId}/leader`);
+	return response.data;
+};
+
+export const initializeDefaultServiceTeams = async (retreatId: string): Promise<ServiceTeam[]> => {
+	const response = await api.post(`/service-teams/initialize/${retreatId}`);
+	return response.data;
+};
+
+export const exportServiceTeamsToDocx = async (retreatId: string): Promise<void> => {
+	const response = await api.post(
+		`/service-teams/export/${retreatId}`,
+		{},
+		{ responseType: 'blob' },
+	);
+	const url = window.URL.createObjectURL(
+		new Blob([response.data], {
+			type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+		}),
+	);
+	const link = document.createElement('a');
+	link.href = url;
+	link.setAttribute('download', `equipos-servicio-${retreatId}.docx`);
+	document.body.appendChild(link);
+	link.click();
+	link.remove();
+	window.URL.revokeObjectURL(url);
+};
+
+export const exportResponsibilitiesToDocx = async (retreatId: string): Promise<void> => {
+	const response = await api.post(
+		`/responsibilities/export/${retreatId}`,
+		{},
+		{ responseType: 'blob' },
+	);
+	const url = window.URL.createObjectURL(
+		new Blob([response.data], {
+			type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+		}),
+	);
+	const link = document.createElement('a');
+	link.href = url;
+	link.setAttribute('download', `responsabilidades-${retreatId}.docx`);
+	document.body.appendChild(link);
+	link.click();
+	link.remove();
+	window.URL.revokeObjectURL(url);
+};
+
+export const searchSpeakers = async (query: string, retreatId: string) => {
+	const response = await api.get('/responsibilities/search-speakers', {
+		params: { q: query, retreatId },
+	});
+	return response.data;
+};
+
+export const createAndAssignSpeaker = async (
+	responsabilityId: string,
+	data: { firstName: string; lastName: string; cellPhone?: string; email?: string; retreatId: string },
+) => {
+	const response = await api.post(`/responsibilities/${responsabilityId}/create-speaker`, data);
+	return response.data;
+};
+
 export const exportRoomLabelsToDocx = async (retreatId: string): Promise<void> => {
 	const response = await api.post(
 		`/retreats/${retreatId}/export-room-labels`,

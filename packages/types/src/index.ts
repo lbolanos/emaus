@@ -135,6 +135,7 @@ export enum ResponsabilityType {
 	ORACION = 'oracion',
 	LIMPIEZA = 'limpieza',
 	COCINA = 'cocina',
+	CHARLISTA = 'charlista',
 	OTRO = 'otro',
 }
 
@@ -393,6 +394,7 @@ export type {
 } from './user';
 
 export * from './message-template';
+export * from './serviceTeam';
 export * from './permissions';
 export * from './community';
 export * from './testimonial';

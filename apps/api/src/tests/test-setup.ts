@@ -44,6 +44,8 @@ import { Friend } from '../entities/friend.entity';
 import { UserActivity } from '../entities/userActivity.entity';
 import { Testimonial } from '../entities/testimonial.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
+import { ServiceTeam } from '../entities/serviceTeam.entity';
+import { ServiceTeamMember } from '../entities/serviceTeamMember.entity';
 
 const entities = [
 	Session,
@@ -87,6 +89,8 @@ const entities = [
 	CommunityMeeting,
 	CommunityAttendance,
 	CommunityAdmin,
+	ServiceTeam,
+	ServiceTeamMember,
 ];
 
 // Test database configuration - will be created in setupTestDatabase

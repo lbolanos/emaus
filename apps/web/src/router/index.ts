@@ -245,6 +245,12 @@ const router = createRouter({
 					meta: { requiresRetreat: true },
 				},
 				{
+					path: 'service-teams',
+					name: 'service-teams',
+					component: () => import('../views/ServiceTeamsView.vue'),
+					meta: { requiresRetreat: true },
+				},
+				{
 					path: 'retreats/:id/inventory',
 					name: 'inventory',
 					component: InventoryView,

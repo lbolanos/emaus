@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, nextTick } from 'vue';
+import { ref, onMounted, computed, nextTick, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { getWalkersByRetreat, getParticipantsByRetreat, exportBadgesToDocx } from '@/services/api';
@@ -347,6 +347,12 @@ onMounted(async () => {
     await retreatStore.fetchRetreat(id);
   }
   await fetchParticipants();
+});
+
+watch(retreatId, async (newId) => {
+  if (newId) {
+    await fetchParticipants();
+  }
 });
 </script>
 

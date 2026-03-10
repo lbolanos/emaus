@@ -632,6 +632,13 @@ const menuSections: MenuSection[] = [
         label: 'sidebar.responsibilities'
       },
       {
+        name: 'service-teams',
+        routeName: 'service-teams',
+        icon: UsersRound,
+        requiresRetreat: true,
+        label: 'sidebar.serviceTeams'
+      },
+      {
         name: 'inventory',
         routeName: 'inventory',
         icon: Package,
