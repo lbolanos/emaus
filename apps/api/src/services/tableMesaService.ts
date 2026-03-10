@@ -21,7 +21,7 @@ export const findTablesByRetreatId = async (retreatId: string, dataSource?: Data
 		.leftJoinAndSelect('table.colider2', 'colider2')
 		.leftJoinAndSelect('table.walkers', 'walkers')
 		.leftJoinAndSelect('walkers.participant', 'wp')
-		.leftJoinAndSelect('wp.retreatBed', 'retreatBed')
+		.leftJoinAndSelect('wp.retreatBed', 'retreatBed', 'retreatBed.retreatId = :retreatId')
 		.where('table.retreatId = :retreatId', { retreatId })
 		.orderBy('table.name', 'ASC')
 		.getMany();
@@ -51,7 +51,7 @@ export const findTableById = async (id: string, dataSource?: DataSource) => {
 		.leftJoinAndSelect('table.colider2', 'colider2')
 		.leftJoinAndSelect('table.walkers', 'walkers')
 		.leftJoinAndSelect('walkers.participant', 'wp')
-		.leftJoinAndSelect('wp.retreatBed', 'retreatBed')
+		.leftJoinAndSelect('wp.retreatBed', 'retreatBed', 'retreatBed.retreatId = table.retreatId')
 		.where('table.id = :id', { id })
 		.getOne();
 
