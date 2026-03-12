@@ -64,7 +64,7 @@
           <!-- Main Title -->
           <div class="relative z-10 text-right flex-1 pr-2">
             <p class="text-[17px] text-white/95 font-bold mb-0.5 uppercase tracking-[0.25em] drop-shadow-lg">{{ subtitleTextRefined }}</p>
-            <h1 id="flyer-title" class="flyer-title text-[68px] font-bold text-white leading-[0.9] transform -rotate-1 origin-bottom-right pb-1"
+            <h1 id="flyer-title" data-flyer-title class="flyer-title text-[68px] font-bold text-white leading-[0.9] transform -rotate-1 origin-bottom-right pb-1"
                 style="font-family: 'Miltonian Tattoo', cursive;">
               {{ titleTextRefined }}
             </h1>
@@ -75,15 +75,15 @@
         <!-- Retreat Type Banner -->
         <div class="relative z-20">
           <div class="print-exact bg-blue-900/80 backdrop-blur-sm text-white p-2 shadow-xl border-y border-blue-500/30 print:bg-blue-900 print:text-white print:backdrop-blur-none">
-            <div class="flex flex-col md:flex-row print:flex-row items-center justify-center gap-2 md:gap-6 print:gap-2 text-center">
-              <h3 class="text-xl md:text-2xl font-bold uppercase tracking-widest font-header">{{ catholicRetreatText }}</h3>
-              <span class="hidden md:block print:block w-px h-8 bg-blue-500/30"></span>
+            <div data-banner-row class="flex flex-col md:flex-row print:flex-row items-center justify-center gap-2 md:gap-6 print:gap-2 text-center">
+              <h3 data-banner-title class="text-xl md:text-2xl font-bold uppercase tracking-widest font-header">{{ catholicRetreatText }}</h3>
+              <span data-banner-divider class="hidden md:block print:block w-px h-8 bg-blue-500/30"></span>
               <div class="flex items-center gap-3">
                 <span class="text-sm opacity-80 uppercase tracking-wide print:opacity-100">{{ emausForText }}</span>
                 <span class="print-exact text-xl font-bold uppercase text-yellow-300 tracking-widest border border-yellow-400/60 px-5 py-1 rounded-lg bg-gradient-to-r from-yellow-500/20 to-yellow-400/20 backdrop-blur-sm shadow-inner print:text-yellow-400 print:border-yellow-400 print:bg-yellow-500/20 print:backdrop-blur-none">
                   {{ retreatTypeText }}
                 </span>
-                <span class="hidden md:block print:block w-[1.5px] h-9 bg-blue-300/40"></span>
+                <span data-banner-divider class="hidden md:block print:block w-[1.5px] h-9 bg-blue-300/40"></span>
                 <p v-if="formatDateRange" class="text-[20px] font-bold text-white tracking-wide drop-shadow-md">{{ formatDateRange }}</p>
               </div>
             </div>
@@ -183,7 +183,7 @@
               </div>
               <div class="flex-1 min-w-0">
                 <h4 class="font-black text-[15px] uppercase text-white tracking-[0.15em] mb-1.5 drop-shadow-lg">{{ t('retreatFlyer.endTime') }}</h4>
-                <p class="text-[17px] text-yellow-300 font-bold mb-0.5 drop-shadow-lg">{{ formatDate(endDate) }}</p>
+                <p data-end-date class="text-[17px] text-yellow-300 font-bold mb-0.5 drop-shadow-lg">{{ formatDate(endDate) }}</p>
                 <div class="bg-white/60 p-2 rounded-lg mb-2">
                   <p class="font-semibold text-gray-700 text-[12px] leading-tight">{{ closingLocation }}</p>
                 </div>
@@ -304,7 +304,7 @@
           <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-400 z-10"></div>
 
           <div class="relative z-10 flex flex-col justify-center h-full">
-            <h2 class="text-[52px] font-bold text-white leading-none mb-2 font-display drop-shadow-2xl"
+            <h2 data-ven-text class="text-[52px] font-bold text-white leading-none mb-2 font-display drop-shadow-2xl"
                 style="font-family: 'Dancing Script', cursive; text-shadow: 4px 4px 12px rgba(0,0,0,0.6);">
               {{ comeText }}
             </h2>
@@ -770,73 +770,37 @@ const handleCopyToClipboard = async () => {
   if (!el) return;
 
   try {
-    const { default: html2canvas } = await import('html2canvas');
-    const canvas = await html2canvas(el, {
-      useCORS: true,
-      scale: 2,
-      backgroundColor: null,
-      logging: false,
-      onclone: (_doc: Document, clonedEl: HTMLElement) => {
-        // Remove rounded corners and shadow for clean capture
-        clonedEl.style.borderRadius = '0';
-        clonedEl.style.boxShadow = 'none';
-        clonedEl.style.border = 'none';
+    // Ensure custom fonts are fully loaded before rendering
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
+    }
 
-        // Fix backdrop-blur elements: replace with solid backgrounds
-        clonedEl.querySelectorAll<HTMLElement>('[class*="backdrop-blur"]').forEach((node) => {
-          node.style.backdropFilter = 'none';
-          (node.style as any).webkitBackdropFilter = 'none';
-          // Banner with bg-blue-900/80 needs solid background
-          if (node.className.includes('bg-blue-900')) {
-            node.style.backgroundColor = '#1e3a8a'; // solid blue-900
-          }
-          // Yellow badge inside banner
-          if (node.className.includes('from-yellow')) {
-            node.style.backgroundColor = 'rgba(234, 179, 8, 0.2)';
-          }
-        });
-
-        // Fix bg-clip-text elements: make text visible with solid color
-        clonedEl.querySelectorAll<HTMLElement>('[class*="bg-clip-text"]').forEach((node) => {
-          node.style.backgroundClip = 'border-box';
-          node.style.webkitBackgroundClip = 'border-box';
-          node.style.webkitTextFillColor = 'unset';
-          node.style.backgroundImage = 'none';
-          // Determine color from class
-          if (node.className.includes('from-purple')) {
-            node.style.color = '#c084fc'; // purple-400
-          } else if (node.className.includes('from-green')) {
-            node.style.color = '#22c55e'; // green-500
-          }
-        });
-
-        // Ensure the flyer title shadow renders
-        const title = clonedEl.querySelector<HTMLElement>('#flyer-title');
-        if (title) {
-          title.style.filter = 'none';
-          title.style.textShadow = '4px 4px 8px rgba(0,0,0,0.5)';
-        }
-      },
+    const { toPng } = await import('html-to-image');
+    const dataUrl = await toPng(el, {
+      pixelRatio: 2,
+      cacheBust: true,
+      fetchRequestInit: { mode: 'cors' },
     });
 
-    canvas.toBlob(async (blob) => {
-      if (!blob) return;
-      try {
-        await navigator.clipboard.write([
-          new ClipboardItem({ 'image/png': blob })
-        ]);
-        copiedRecently.value = true;
-        setTimeout(() => { copiedRecently.value = false; }, 2000);
-      } catch {
-        // Fallback: download the image
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'flyer.png';
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-    }, 'image/png');
+    // Convert data URL to blob
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob })
+      ]);
+      copiedRecently.value = true;
+      setTimeout(() => { copiedRecently.value = false; }, 2000);
+    } catch {
+      // Fallback: download the image
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'flyer.png';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
   } catch (err) {
     console.error('Failed to copy flyer to clipboard', err);
   }
