@@ -31,9 +31,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { computed, watch } from 'vue';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useTableMesaStore } from '@/stores/tableMesaStore';
+import { useRetreatStore } from '@/stores/retreatStore';
 import { Button } from '@repo/ui';
 import {
   Dialog,
@@ -62,6 +63,7 @@ const emit = defineEmits(['update:open']);
 
 const participantStore = useParticipantStore();
 const tableMesaStore = useTableMesaStore();
+const retreatStore = useRetreatStore();
 
 const availableServers = computed(() => {
   return participantStore.participants.filter(p => p.type === 'server' && !p.isCancelled);
@@ -73,7 +75,8 @@ const handleSelect = async (participantId: string) => {
 };
 
 watch(() => props.open, (isOpen) => {
-  if (isOpen) {
+  if (isOpen && retreatStore.selectedRetreatId) {
+    participantStore.filters.retreatId = retreatStore.selectedRetreatId;
     participantStore.filters.type = 'server';
     participantStore.fetchParticipants();
   }
