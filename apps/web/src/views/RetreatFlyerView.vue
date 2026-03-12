@@ -808,8 +808,9 @@ const handleCopyToClipboard = async () => {
 // Load retreat data and calculate initial height
 onMounted(async () => {
   const retreatId = route.params.id as string;
-  if (retreatId && !selectedRetreat.value) {
-    retreatStore.selectRetreat(retreatId);
+  if (retreatId) {
+    // Always fetch fresh retreat data (includes house with address2, etc.)
+    await retreatStore.fetchRetreat(retreatId);
   }
   await nextTick();
   calculateContentHeight();

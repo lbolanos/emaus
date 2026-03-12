@@ -871,7 +871,8 @@ watch(() => retreatStore.selectedRetreatId, (newId) => {
   }
 }, { immediate: true });
 
-onMounted(() => {
-  retreatStore.selectRetreat(props.id);
+onMounted(async () => {
+  // Always fetch fresh retreat data (includes house with beds, address2, etc.)
+  await retreatStore.fetchRetreat(props.id);
 });
 </script>

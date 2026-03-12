@@ -436,7 +436,8 @@ const loadRetreatData = async (retreatId: string) => {
   error.value = '';
 
   try {
-    retreatStore.selectRetreat(retreatId);
+    // Always fetch fresh retreat data (includes house details, address2, etc.)
+    await retreatStore.fetchRetreat(retreatId);
     participantStore.filters.retreatId = retreatId;
 
     await Promise.all([
