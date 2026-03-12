@@ -271,7 +271,7 @@
               <!-- Google Maps QR Code -->
               <div v-if="googleMapsUrl && showQrCodesLocation" class="flex flex-col items-center gap-2 flex-shrink-0">
                 <div class="p-2.5 bg-white rounded-xl shadow-xl border-2 border-red-200">
-                  <QrcodeVue :value="googleMapsUrl" :size="75" level="L" background="#ffffff" class="rounded-lg" />
+                  <QrcodeVue :value="googleMapsUrl" :size="95" level="M" background="#ffffff" class="rounded-lg" />
                 </div>
                 <span class="text-[11px] text-black font-black uppercase tracking-wider">{{ t('retreatFlyer.locationQR') }}</span>
               </div>
@@ -857,6 +857,9 @@ if (typeof window !== 'undefined') {
   #printable-area,
   #printable-area * {
     visibility: visible;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
   }
 
   /* position:fixed breaks out of ALL ancestor overflow/scroll containers */
@@ -869,11 +872,9 @@ if (typeof window !== 'undefined') {
     margin: 0;
     padding: 0;
     overflow: visible;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-    color-adjust: exact;
     z-index: 99999;
-    transform: scale(0.91);
+    /* Scale to fit A4 width (210mm ≈ 793px) while keeping 850px design */
+    transform: scale(0.933);
     transform-origin: top left;
   }
 
@@ -910,27 +911,51 @@ if (typeof window !== 'undefined') {
   color-adjust: exact !important;
 }
 
-/* Override filters and effects for print */
+/* Print: add text-shadow fallbacks since Chrome print ignores CSS filter: drop-shadow() */
 @media print {
-  /* Remove CSS filters that break print rendering */
-  #flyer-title {
-    filter: none !important;
-    -webkit-filter: none !important;
-  }
-
-  #printable-area h1,
-  #printable-area .drop-shadow-2xl,
-  #printable-area .drop-shadow-lg,
-  #printable-area .drop-shadow-md {
-    filter: none !important;
-    -webkit-filter: none !important;
-  }
-
   .print\:bg-none {
     background-image: none !important;
     -webkit-background-clip: border-box !important;
     background-clip: border-box !important;
     -webkit-text-fill-color: currentColor !important;
+  }
+
+  /* Replicate drop-shadow with text-shadow for print */
+  #printable-area .drop-shadow-2xl {
+    text-shadow: 4px 4px 12px rgba(0,0,0,0.6);
+  }
+  #printable-area .drop-shadow-xl {
+    text-shadow: 3px 3px 8px rgba(0,0,0,0.5);
+  }
+  #printable-area .drop-shadow-lg {
+    text-shadow: 2px 2px 6px rgba(0,0,0,0.5);
+  }
+  #printable-area .drop-shadow-md {
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.4);
+  }
+  #printable-area .drop-shadow-sm {
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+  }
+
+  /* "Ven" cursive — strong shadow */
+  #printable-area .font-display {
+    text-shadow: 4px 4px 12px rgba(0,0,0,0.6);
+  }
+
+  /* "¡NO TE LO PIERDAS!" header */
+  #printable-area .font-header.drop-shadow-xl {
+    text-shadow: 3px 3px 10px rgba(0,0,0,0.6);
+  }
+
+  /* "Esperanza" title — strong shadow matching the screen drop-shadow */
+  #flyer-title {
+    text-shadow: 5px 5px 15px rgba(0,0,0,0.7), 2px 2px 4px rgba(0,0,0,0.5) !important;
+  }
+
+  /* Logo image shadow */
+  #printable-area img.drop-shadow-2xl {
+    text-shadow: none;
+    filter: drop-shadow(3px 3px 6px rgba(0,0,0,0.5)) !important;
   }
 }
 
@@ -943,7 +968,7 @@ if (typeof window !== 'undefined') {
 }
 
 .flyer-title {
-  text-shadow: 4px 4px 8px rgba(0,0,0,0.5);
+  text-shadow: 5px 5px 15px rgba(0,0,0,0.7), 2px 2px 4px rgba(0,0,0,0.5);
 }
 
 @media screen {
