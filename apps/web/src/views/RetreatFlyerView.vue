@@ -685,12 +685,39 @@ const registrationDomain = computed(() => {
 });
 
 const googleMapsUrl = computed(() => {
-  let googleMapsUrlTmp = retreatData.value?.house?.googleMapsUrl;
-  if (googleMapsUrlTmp && googleMapsUrlTmp.trim()) {
-    console.log('Google Maps URL found:', googleMapsUrlTmp);
-    return googleMapsUrlTmp.trim();
+  const raw = retreatData.value?.house?.googleMapsUrl;
+  if (!raw || !raw.trim()) return raw;
+
+  const url = raw.trim();
+
+  // Shorten Google Maps URLs for better QR readability
+  try {
+    const parsed = new URL(url);
+
+    // If it has a CID, use the short form: https://maps.google.com/?cid=XXXXX
+    const cid = parsed.searchParams.get('cid');
+    if (cid) {
+      return `https://maps.google.com/?cid=${cid}`;
+    }
+
+    // If it has a place_id in the path (/place/.../) keep as-is but remove tracking params
+    if (parsed.pathname.includes('/place/')) {
+      parsed.searchParams.delete('g_mp');
+      parsed.searchParams.delete('source');
+      parsed.searchParams.delete('hl');
+      parsed.searchParams.delete('entry');
+      return parsed.toString();
+    }
+
+    // For goo.gl or maps.app.goo.gl short links, already short
+    if (parsed.hostname.includes('goo.gl')) {
+      return url;
+    }
+  } catch {
+    // Not a valid URL, return as-is
   }
-  return googleMapsUrlTmp;
+
+  return url;
 });
 
 const flyerOptions = computed(() => (retreatData.value as any)?.flyer_options);
@@ -775,25 +802,25 @@ const handleCopyToClipboard = async () => {
       await document.fonts.ready;
     }
 
-    const { toPng } = await import('html-to-image');
-    const dataUrl = await toPng(el, {
+    const { toBlob } = await import('html-to-image');
+
+    // Use ClipboardItem with a promise to preserve user activation context
+    // This prevents the "Document is not focused" error on async operations
+    const blobPromise = toBlob(el, {
       pixelRatio: 2,
       cacheBust: true,
       fetchRequestInit: { mode: 'cors' },
-    });
-
-    // Convert data URL to blob
-    const response = await fetch(dataUrl);
-    const blob = await response.blob();
+    }).then(blob => blob || new Blob([], { type: 'image/png' }));
 
     try {
       await navigator.clipboard.write([
-        new ClipboardItem({ 'image/png': blob })
+        new ClipboardItem({ 'image/png': blobPromise })
       ]);
       copiedRecently.value = true;
       setTimeout(() => { copiedRecently.value = false; }, 2000);
     } catch {
       // Fallback: download the image
+      const blob = await blobPromise;
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
