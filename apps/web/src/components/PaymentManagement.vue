@@ -470,14 +470,17 @@ const loadSummary = async () => {
 
 // Lifecycle
 onMounted(async () => {
-	await Promise.all([
-		retreatStore.fetchRetreats(),
-		participantStore.fetchParticipants(),
-	]);
+	await retreatStore.fetchRetreats();
 
-	// Set retreat filter to selected retreat from store, if available
+	// Set retreat filter before fetching participants
 	if (retreatStore.selectedRetreatId) {
+		participantStore.filters.retreatId = retreatStore.selectedRetreatId;
 		filters.value.retreatId = retreatStore.selectedRetreatId;
+	}
+
+	await participantStore.fetchParticipants();
+
+	if (retreatStore.selectedRetreatId) {
 		await paymentStore.fetchPayments(filters.value);
 		loadSummary();
 	} else {
