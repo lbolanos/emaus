@@ -3,6 +3,8 @@ import {
 	getRetreatsForUser,
 	createRetreat as createRetreatService,
 	findById,
+	findBySlug,
+	isSlugAvailable,
 	update,
 } from '../services/retreatService';
 import { AuthenticatedRequest } from '../middleware/authorization';
@@ -65,7 +67,39 @@ export const getRetreatByIdPublic = async (req: Request, res: Response, next: Ne
 			startDate: retreat.startDate,
 			endDate: retreat.endDate,
 			flyer_options: retreat.flyer_options || {},
+			slug: retreat.slug,
 		});
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const getRetreatBySlugPublic = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const retreat = await findBySlug(req.params.slug);
+		if (!retreat) {
+			return res.status(404).json({ message: 'Retreat not found' });
+		}
+		res.json({
+			id: retreat.id,
+			parish: retreat.parish,
+			isPublic: retreat.isPublic,
+			startDate: retreat.startDate,
+			endDate: retreat.endDate,
+			flyer_options: retreat.flyer_options || {},
+			slug: retreat.slug,
+		});
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const checkSlugAvailability = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { slug } = req.params;
+		const excludeId = req.query.excludeId as string | undefined;
+		const available = await isSlugAvailable(slug, excludeId);
+		res.json({ available });
 	} catch (error) {
 		next(error);
 	}
@@ -79,7 +113,10 @@ export const updateRetreat = async (req: Request, res: Response, next: NextFunct
 			return res.status(404).json({ message: 'Retreat not found' });
 		}
 		res.json(retreat);
-	} catch (error) {
+	} catch (error: any) {
+		if (error.statusCode === 409) {
+			return res.status(409).json({ message: error.message });
+		}
 		next(error);
 	}
 };
@@ -113,7 +150,10 @@ export const createRetreat = async (
 		// }
 
 		res.status(201).json(newRetreat);
-	} catch (error) {
+	} catch (error: any) {
+		if (error.statusCode === 409) {
+			return res.status(409).json({ message: error.message });
+		}
 		next(error);
 	}
 };

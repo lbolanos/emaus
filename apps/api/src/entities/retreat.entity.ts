@@ -111,6 +111,9 @@ export class Retreat {
 	@Column({ type: 'simple-json', nullable: true })
 	flyer_options?: Record<string, any>;
 
+	@Column({ type: 'varchar', nullable: true, unique: true })
+	slug?: string;
+
 	@Column({ type: 'varchar', nullable: true })
 	memoryPhotoUrl?: string;
 

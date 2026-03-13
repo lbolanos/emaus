@@ -64,7 +64,7 @@ export const getRetreatsForUser = async (userId: string, dataSource?: DataSource
 	return retreats;
 };
 
-import { In, MoreThan } from 'typeorm';
+import { In, MoreThan, Not } from 'typeorm';
 
 export const findPublicRetreats = async (dataSource?: DataSource) => {
 	const retreatRepository = getRepository(Retreat, dataSource);
@@ -81,6 +81,25 @@ export const findPublicRetreats = async (dataSource?: DataSource) => {
 export const findById = async (id: string, dataSource?: DataSource) => {
 	const retreatRepository = getRepository(Retreat, dataSource);
 	return retreatRepository.findOne({ where: { id }, relations: ['house'] });
+};
+
+export const findBySlug = async (slug: string, dataSource?: DataSource) => {
+	const retreatRepository = getRepository(Retreat, dataSource);
+	return retreatRepository.findOne({ where: { slug }, relations: ['house'] });
+};
+
+export const isSlugAvailable = async (
+	slug: string,
+	excludeRetreatId?: string,
+	dataSource?: DataSource,
+) => {
+	const retreatRepository = getRepository(Retreat, dataSource);
+	const where: any = { slug };
+	if (excludeRetreatId) {
+		where.id = Not(excludeRetreatId);
+	}
+	const existing = await retreatRepository.findOne({ where });
+	return !existing;
 };
 
 export const refreshRetreatBedsFromHouse = async (
@@ -130,6 +149,15 @@ export const update = async (
 	if (!retreat) {
 		return null;
 	}
+
+	// Validate slug uniqueness
+	if (retreatData.slug && retreatData.slug !== retreat.slug) {
+		const available = await isSlugAvailable(retreatData.slug, id, dataSource);
+		if (!available) {
+			throw Object.assign(new Error('Este slug ya está en uso por otro retiro.'), { statusCode: 409 });
+		}
+	}
+
 	Object.assign(retreat, retreatData);
 	await retreatRepository.save(retreat);
 
@@ -151,6 +179,14 @@ export const createRetreat = async (
 
 	// 0. Ensure default inventory data exists
 	await createDefaultInventoryData();
+
+	// Validate slug uniqueness
+	if (retreatData.slug) {
+		const available = await isSlugAvailable(retreatData.slug, undefined, dataSource);
+		if (!available) {
+			throw Object.assign(new Error('Este slug ya está en uso por otro retiro.'), { statusCode: 409 });
+		}
+	}
 
 	// 1. Create and save the retreat
 	const newRetreat = repos.retreat.create({

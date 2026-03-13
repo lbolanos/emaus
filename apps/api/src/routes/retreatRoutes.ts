@@ -5,6 +5,8 @@ import {
 	getRetreatById,
 	updateRetreat,
 	getRetreatByIdPublic,
+	getRetreatBySlugPublic,
+	checkSlugAvailability,
 	getPublicRetreats,
 	exportRoomLabelsToDocx,
 	exportBadgesToDocx,
@@ -21,6 +23,8 @@ const router = Router();
 
 // Public route for retreat validation (used in registration form)
 router.get('/public', getPublicRetreats);
+router.get('/public/slug/:slug', getRetreatBySlugPublic);
+router.get('/public/slug-available/:slug', checkSlugAvailability);
 router.get('/public/:id', getRetreatByIdPublic);
 
 // Authenticated routes
