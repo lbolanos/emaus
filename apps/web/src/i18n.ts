@@ -8,7 +8,7 @@ const getBrowserLocale = () => {
 	if (['en', 'es'].includes(navigatorLocale)) {
 		return navigatorLocale;
 	}
-	return 'en';
+	return 'es';
 };
 
 const getStoredLocale = () => {
@@ -379,7 +379,7 @@ export function createSafeI18n(messages: Record<string, any>) {
 const i18n = createI18n({
 	legacy: false,
 	locale: getStoredLocale() || getBrowserLocale(),
-	fallbackLocale: 'en',
+	fallbackLocale: 'es',
 	messages: {
 		en,
 		es,
