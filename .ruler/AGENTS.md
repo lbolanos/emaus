@@ -241,3 +241,6 @@ pnpm test
 # Tests: 15 passed, 15 total
 # Time: ~2 seconds
 ```
+
+## Chrome tool
+Guarda los screenshots en la carpeta /tmp/chrome
