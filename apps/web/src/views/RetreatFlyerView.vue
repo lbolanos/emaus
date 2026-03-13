@@ -32,14 +32,15 @@
     </div>
 
     <!-- Flyer Container -->
-    <div class="max-w-[850px] mx-auto px-4 print:max-w-none print:w-full print:mx-0 print:px-0">
+    <div ref="flyerWrapperRef" class="mx-auto px-4 print:max-w-none print:w-full print:mx-0 print:px-0" :style="{ maxWidth: '850px', height: isPrinting ? undefined : wrapperHeight }">
       <div
+        ref="printableAreaRef"
         id="printable-area"
         class="print-optimized shadow-2xl print:shadow-none rounded-3xl overflow-hidden print:overflow-visible print:rounded-none relative bg-white border border-gray-200 print:border-none"
-        :style="flyerStyles"
+        :style="[flyerStyles, scaleFactor < 1 && !isPrinting ? { transform: `scale(${scaleFactor})`, transformOrigin: 'top left', width: '850px' } : {}]"
       >
         <!-- Header Section -->
-        <header class="print-exact relative h-[140px] px-8 py-4 flex flex-row items-center justify-between overflow-hidden print:h-[130px] print:px-6 print:py-3" style="height: 154px;">
+        <header class="print-exact relative h-[140px] px-8 py-4 flex flex-row items-center justify-between overflow-hidden print:overflow-visible print:bg-blue-900 print:h-[130px] print:px-6 print:py-3" style="height: 154px;">
           <!-- Background Image with enhanced overlay -->
           <div class="absolute inset-0 bg-cover bg-center z-0" style="background-image: url('/header_bck.png');">
             <div class="absolute inset-0 bg-gradient-to-r from-blue-900/80 via-blue-800/70 to-blue-900/80"></div>
@@ -74,7 +75,7 @@
 
         <!-- Retreat Type Banner -->
         <div class="relative z-20">
-          <div class="print-exact bg-blue-900/80 backdrop-blur-sm text-white p-2 shadow-xl border-y border-blue-500/30 print:bg-blue-900 print:text-white print:backdrop-blur-none">
+          <div data-banner class="print-exact bg-blue-900/80 backdrop-blur-sm text-white p-2 shadow-xl border-y border-blue-500/30 print:bg-blue-900 print:text-white print:backdrop-blur-none">
             <div data-banner-row class="flex flex-col md:flex-row print:flex-row items-center justify-center gap-2 md:gap-6 print:gap-2 text-center">
               <h3 data-banner-title class="text-xl md:text-2xl font-bold uppercase tracking-widest font-header">{{ catholicRetreatText }}</h3>
               <span data-banner-divider class="hidden md:block print:block w-px h-8 bg-blue-500/30"></span>
@@ -289,12 +290,12 @@
                 <QrcodeVue :value="registrationUrl" :size="110" level="L" background="#ffffff" class="rounded-lg" />
               </div>
             </div>
-            <div class="mt-2 text-[11px] text-blue-700 font-black font-mono uppercase tracking-wider bg-white/80 px-3 py-1.5 rounded-lg border border-blue-200/50 shadow-sm">{{ registrationDomain }}</div>
+            <div class="mt-2 text-[9px] text-blue-700 font-black font-mono lowercase tracking-normal bg-white/80 px-2 py-1.5 rounded-lg border border-blue-200/50 shadow-sm break-all leading-tight">{{ registrationDomain }}</div>
           </div>
         </div>
 
         <!-- Footer -->
-        <footer class="print-exact relative h-[120px] flex items-center justify-between px-8 overflow-hidden mt-auto print:h-[110px] print:px-8">
+        <footer class="print-exact relative h-[120px] flex items-center justify-between px-8 overflow-hidden mt-auto print:bg-gray-900 print:h-[110px] print:px-8">
           <!-- Footer Background Image -->
           <div class="absolute inset-0 bg-cover bg-center z-0" style="background-image: url('/footer.png');">
             <div class="absolute inset-0 bg-gradient-to-r from-blue-900/90 via-gray-900/80 to-blue-900/90 print:opacity-90"></div>
@@ -360,6 +361,28 @@ const walkerRegistrationLink = computed(() => retreatStore.walkerRegistrationLin
 // Menu state
 const showMenu = ref(false);
 const menuRef = ref<HTMLElement>();
+const flyerWrapperRef = ref<HTMLElement>();
+const printableAreaRef = ref<HTMLElement>();
+
+// Scale factor for responsive mobile display
+const scaleFactor = ref(1);
+const flyerActualHeight = ref(0);
+let resizeObserver: ResizeObserver | null = null;
+
+const updateScaleFactor = () => {
+  if (!flyerWrapperRef.value) return;
+  const containerWidth = flyerWrapperRef.value.clientWidth;
+  scaleFactor.value = Math.min(containerWidth / 850, 1);
+  // Update tracked height of the printable area
+  if (printableAreaRef.value) {
+    flyerActualHeight.value = printableAreaRef.value.scrollHeight;
+  }
+};
+
+const wrapperHeight = computed(() => {
+  if (scaleFactor.value >= 1 || !flyerActualHeight.value) return undefined;
+  return `${flyerActualHeight.value * scaleFactor.value}px`;
+});
 
 const handleClickOutside = (e: MouseEvent) => {
   if (menuRef.value && !menuRef.value.contains(e.target as Node)) {
@@ -677,8 +700,14 @@ const registrationUrl = computed(() => {
 const registrationDomain = computed(() => {
   const url = registrationUrl.value;
   try {
-    const domain = new URL(url).hostname;
-    return domain.replace('www.', '');
+    const parsed = new URL(url);
+    const domain = parsed.hostname.replace('www.', '');
+    const path = parsed.pathname;
+    // Show domain + path for short slug URLs (e.g. emaus.cc/interlomasiii)
+    if (path && path !== '/' && path.length < 30) {
+      return domain + path;
+    }
+    return domain;
   } catch {
     return 'emaus.cc';
   }
@@ -782,9 +811,16 @@ const flyerStyles = {
   margin: '0 auto',
 };
 
-// Print functionality
+// Print functionality — temporarily remove mobile scale so print CSS takes full control
+const isPrinting = ref(false);
+const onBeforePrint = () => { isPrinting.value = true; };
+const onAfterPrint = () => { isPrinting.value = false; };
 const handlePrint = () => {
-  window.print();
+  isPrinting.value = true;
+  nextTick(() => {
+    window.print();
+    isPrinting.value = false;
+  });
 };
 
 // Copy flyer as image to clipboard
@@ -843,10 +879,30 @@ onMounted(async () => {
   await nextTick();
   calculateContentHeight();
   document.addEventListener('click', handleClickOutside);
+  window.addEventListener('beforeprint', onBeforePrint);
+  window.addEventListener('afterprint', onAfterPrint);
+
+  // Setup ResizeObserver for responsive scaling
+  if (flyerWrapperRef.value) {
+    updateScaleFactor();
+    resizeObserver = new ResizeObserver(() => {
+      updateScaleFactor();
+    });
+    resizeObserver.observe(flyerWrapperRef.value);
+    if (printableAreaRef.value) {
+      resizeObserver.observe(printableAreaRef.value);
+    }
+  }
 });
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);
+  window.removeEventListener('beforeprint', onBeforePrint);
+  window.removeEventListener('afterprint', onAfterPrint);
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
 });
 
 // Watch for changes in QR code visibility
@@ -858,7 +914,10 @@ watch(showQrCodesRegistration, () => {
 
 // Also recalculate when window resizes
 if (typeof window !== 'undefined') {
-  window.addEventListener('resize', calculateContentHeight);
+  window.addEventListener('resize', () => {
+    calculateContentHeight();
+    updateScaleFactor();
+  });
 }
 </script>
 
@@ -901,8 +960,21 @@ if (typeof window !== 'undefined') {
     overflow: visible;
     z-index: 99999;
     /* Scale to fit A4 width (210mm ≈ 793px) while keeping 850px design */
-    transform: scale(0.933);
-    transform-origin: top left;
+    transform: scale(0.933) !important;
+    transform-origin: top left !important;
+    width: 850px !important;
+  }
+
+  /* Force colored backgrounds in print via box-shadow (browsers always print box-shadows
+     even when they strip background-color and background-image) */
+  #printable-area header {
+    box-shadow: inset 0 0 0 9999px #1e3a8a !important; /* blue-900 */
+  }
+  #printable-area [data-banner] {
+    box-shadow: inset 0 0 0 9999px #1e3a8a !important; /* blue-900 */
+  }
+  #printable-area footer {
+    box-shadow: inset 0 0 0 9999px #111827 !important; /* gray-900 */
   }
 
   /* Hide sidebar, nav, and other app chrome */
@@ -910,6 +982,12 @@ if (typeof window !== 'undefined') {
   .ai-chat-widget, [class*="AiChat"] {
     display: none !important;
   }
+}
+
+/* Override AppLayout's mobile-hide-h1 rule that hides all h1 on mobile,
+   which also kills the "Esperanza" title inside the flyer */
+#printable-area h1 {
+  display: block !important;
 }
 </style>
 
