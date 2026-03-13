@@ -53,6 +53,9 @@ export const useRetreatStore = defineStore('retreat', () => {
 	});
 
 	const walkerRegistrationLink = computed(() => {
+		if (selectedRetreat.value?.slug) {
+			return `${window.location.origin}/${selectedRetreat.value.slug}`;
+		}
 		if (selectedRetreatId.value) {
 			return `${window.location.origin}/register/walker/${selectedRetreatId.value}`;
 		}
@@ -60,6 +63,9 @@ export const useRetreatStore = defineStore('retreat', () => {
 	});
 
 	const serverRegistrationLink = computed(() => {
+		if (selectedRetreat.value?.slug) {
+			return `${window.location.origin}/${selectedRetreat.value.slug}/server`;
+		}
 		if (selectedRetreatId.value) {
 			return `${window.location.origin}/register/server/${selectedRetreatId.value}`;
 		}

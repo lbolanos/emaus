@@ -14,7 +14,9 @@ import { Button } from '@repo/ui'
 import { Input } from '@repo/ui'
 import { Label } from '@repo/ui'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@repo/ui'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@repo/ui'
 
+import { storeLocale } from '@/i18n'
 import Step1PersonalInfo from '@/components/registration/Step1PersonalInfo.vue'
 import Step2AddressInfo from '@/components/registration/Step2AddressInfo.vue'
 import Step3ServiceInfo from '@/components/registration/Step3ServiceInfo.vue'
@@ -22,12 +24,17 @@ import Step4EmergencyContact from '@/components/registration/Step4EmergencyConta
 import Step5OtherInfo from '@/components/registration/Step5OtherInfo.vue'
 import Step5ServerInfo from '@/components/registration/Step5ServerInfo.vue'
 
-const props = defineProps<{ retreatId: string; type: string }>()
+const props = defineProps<{ retreatId?: string; slug?: string; type: string }>()
 const participantStore = useParticipantStore()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const { toast } = useToast()
 
-const validRetreatId = ref(props.retreatId)
+const switchLocale = (lang: string) => {
+  locale.value = lang
+  storeLocale(lang)
+}
+
+const validRetreatId = ref(props.retreatId || '')
 const isLoading = ref(true)
 const retreatData = ref<any>(null)
 
@@ -474,15 +481,21 @@ const summaryData = computed(() => {
 // Validate retreat ID on mount
 onMounted(async () => {
   try {
-    // Check if the provided retreatId exists using public endpoint
-    const response = await fetch(`${getApiUrl()}/retreats/public/${props.retreatId}`)
+    let response: Response
+
+    if (props.slug) {
+      response = await fetch(`${getApiUrl()}/retreats/public/slug/${props.slug}`)
+    } else if (props.retreatId) {
+      response = await fetch(`${getApiUrl()}/retreats/public/${props.retreatId}`)
+    } else {
+      throw new Error('No retreat identifier provided')
+    }
 
     if (response.ok) {
       const retreat = await response.json()
       if (retreat && retreat.isPublic) {
         validRetreatId.value = retreat.id
         retreatData.value = retreat
-        console.log('Retreat showPickupInfo:', retreat?.flyer_options?.showPickupInfo)
       } else {
         throw new Error('Retreat not found or not public')
       }
@@ -512,6 +525,27 @@ onMounted(async () => {
     >
     
     <div class="relative z-10 flex flex-col items-center justify-center h-full text-white text-center px-4" >
+      <div class="absolute top-4 right-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button variant="ghost" size="icon" class="text-white hover:bg-white/20 rounded-full">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <circle cx="4" cy="10" r="2" />
+                <circle cx="10" cy="10" r="2" />
+                <circle cx="16" cy="10" r="2" />
+              </svg>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem @click="switchLocale('es')" :class="{ 'font-bold': locale === 'es' }">
+              Espa&#241;ol
+            </DropdownMenuItem>
+            <DropdownMenuItem @click="switchLocale('en')" :class="{ 'font-bold': locale === 'en' }">
+              English
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       <div class="bg-black/20 backdrop-blur-sm rounded-2xl p-8 max-w-2xl mx-auto border border-white/10 shadow-2xl">
         <div class="mb-6">
           <div class="w-20 h-20 mx-auto mb-6 bg-white/10 rounded-full flex items-center justify-center">

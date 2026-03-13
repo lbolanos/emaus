@@ -65,6 +65,20 @@ const router = createRouter({
 			meta: { requiresAuth: false },
 		},
 		{
+			path: '/:slug([a-z0-9]+)',
+			name: 'registration-slug-walker',
+			component: ParticipantRegistrationView,
+			props: (route) => ({ slug: route.params.slug, type: 'walker' }),
+			meta: { requiresAuth: false },
+		},
+		{
+			path: '/:slug([a-z0-9]+)/server',
+			name: 'registration-slug-server',
+			component: ParticipantRegistrationView,
+			props: (route) => ({ slug: route.params.slug, type: 'server' }),
+			meta: { requiresAuth: false },
+		},
+		{
 			path: '/accept-invitation/:token',
 			name: 'accept-invitation',
 			component: AcceptInvitationView,
