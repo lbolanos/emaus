@@ -95,18 +95,34 @@ describe('RetreatStore', () => {
 			expect(store.selectedRetreat).toBeNull();
 		});
 
-		it('should generate walker registration link', () => {
+		it('should generate walker registration link with slug when available', () => {
+			store.retreats = [createMockRetreat({ id: 'retreat-1', slug: 'interlomasiii' })];
+			store.selectRetreat('retreat-1');
+			expect(store.walkerRegistrationLink).toContain('/interlomasiii');
+			expect(store.walkerRegistrationLink).not.toContain('/register/');
+		});
+
+		it('should generate server registration link with slug when available', () => {
+			store.retreats = [createMockRetreat({ id: 'retreat-1', slug: 'interlomasiii' })];
+			store.selectRetreat('retreat-1');
+			expect(store.serverRegistrationLink).toContain('/interlomasiii/server');
+			expect(store.serverRegistrationLink).not.toContain('/register/');
+		});
+
+		it('should fallback to UUID walker link when no slug', () => {
+			store.retreats = [createMockRetreat({ id: 'retreat-1', slug: undefined })];
 			store.selectRetreat('retreat-1');
 			expect(store.walkerRegistrationLink).toContain('/register/walker/retreat-1');
 		});
 
-		it('should return empty string for walker link when no retreat selected', () => {
-			expect(store.walkerRegistrationLink).toBe('');
-		});
-
-		it('should generate server registration link', () => {
+		it('should fallback to UUID server link when no slug', () => {
+			store.retreats = [createMockRetreat({ id: 'retreat-1', slug: undefined })];
 			store.selectRetreat('retreat-1');
 			expect(store.serverRegistrationLink).toContain('/register/server/retreat-1');
+		});
+
+		it('should return empty string for walker link when no retreat selected', () => {
+			expect(store.walkerRegistrationLink).toBe('');
 		});
 
 		it('should return empty string for server link when no retreat selected', () => {
