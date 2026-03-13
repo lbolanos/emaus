@@ -72,6 +72,24 @@
               </div>
 
               <div class="space-y-2">
+                <Label for="slug">
+                  URL corta (slug)
+                </Label>
+                <div class="flex items-center gap-2">
+                  <span class="text-sm text-muted-foreground whitespace-nowrap">emaus.cc/</span>
+                  <Input
+                    id="slug"
+                    v-model="formData.slug"
+                    :class="{ 'border-red-500': !slugAvailable }"
+                    placeholder="ej: interlomasiii"
+                    @input="normalizeSlug"
+                  />
+                </div>
+                <p v-if="!slugAvailable" class="text-xs text-red-500">Este slug ya está en uso. Elige otro.</p>
+                <p v-else class="text-xs text-muted-foreground">Se auto-genera desde parroquia + número. Solo letras minúsculas y números.</p>
+              </div>
+
+              <div class="space-y-2">
                 <Label for="houseId">
                   {{ $t('retreatModal.house') }}
                   <span class="text-red-500">*</span>
@@ -642,6 +660,8 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Button, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Textarea, RadioGroup, RadioGroupItem, Tabs, TabsContent, TabsList, TabsTrigger, Checkbox } from '@repo/ui';
 import { Loader2 } from 'lucide-vue-next';
 import { useHouseStore } from '@/stores/houseStore';
+import { api } from '@/services/api';
+import { getApiUrl } from '@/config/runtimeConfig';
 import { useToast } from '@repo/ui';
 import type { CreateRetreat, Retreat } from '@repo/types';
 import MemoryUploadForm from '@/components/social/MemoryUploadForm.vue';
@@ -724,6 +744,7 @@ const formData = ref({
   serverArrivalTimeFriday: '',
   retreat_type: undefined as 'men' | 'women' | 'couples' | 'effeta' | undefined,
   retreat_number_version: '',
+  slug: '',
   flyer_options: {
     titleOverride: '',
     subtitleOverride: '',
@@ -749,6 +770,49 @@ const formData = ref({
     comeOverride: '',
   },
 });
+
+// Slug helpers
+function generateSlug(parish: string, number: string): string {
+  return (parish + number)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function normalizeSlug() {
+  formData.value.slug = formData.value.slug
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+  checkSlugAvailability();
+}
+
+const slugAvailable = ref(true);
+let slugCheckTimeout: ReturnType<typeof setTimeout> | null = null;
+
+async function checkSlugAvailability() {
+  if (!formData.value.slug) {
+    slugAvailable.value = true;
+    return;
+  }
+  if (slugCheckTimeout) clearTimeout(slugCheckTimeout);
+  slugCheckTimeout = setTimeout(async () => {
+    try {
+      const excludeId = props.mode === 'edit' && props.retreat ? `?excludeId=${props.retreat.id}` : '';
+      const res = await fetch(`${getApiUrl()}/retreats/public/slug-available/${formData.value.slug}${excludeId}`);
+      if (res.ok) {
+        const data = await res.json();
+        slugAvailable.value = data.available;
+      } else {
+        slugAvailable.value = true;
+      }
+    } catch {
+      slugAvailable.value = true;
+    }
+  }, 400);
+}
 
 // Validation errors
 const errors = ref<Record<string, string>>({});
@@ -781,6 +845,7 @@ const isFormValid = computed(() => {
          formData.value.houseId !== '' &&
          formData.value.startDate &&
          formData.value.endDate &&
+         slugAvailable.value &&
          Object.keys(errors.value).length === 0;
 });
 
@@ -936,12 +1001,9 @@ const handleSubmit = async () => {
         serverArrivalTimeFriday: formData.value.serverArrivalTimeFriday || undefined,
         retreat_type: formData.value.retreat_type || undefined,
         retreat_number_version: formData.value.retreat_number_version || undefined,
+        slug: formData.value.slug || undefined,
         flyer_options: formData.value.flyer_options,
       };
-
-      // Debug logging
-      console.log('RetreatModal - Updating retreat with isPublic:', updateData.isPublic);
-      console.log('RetreatModal - Full update data:', updateData);
 
       await emit('update', { id: props.retreat.id, ...updateData, _refreshBeds: refreshBedsFromHouse.value });
       emit('update:open', false);
@@ -982,6 +1044,7 @@ const resetForm = () => {
     serverArrivalTimeFriday: '',
     retreat_type: undefined,
     retreat_number_version: '',
+    slug: '',
     flyer_options: {
         titleOverride: '',
         subtitleOverride: '',
@@ -1088,6 +1151,7 @@ watch(() => props.open, (newOpen) => {
           serverArrivalTimeFriday: props.retreat.serverArrivalTimeFriday || '',
           retreat_type: props.retreat.retreat_type,
           retreat_number_version: props.retreat.retreat_number_version || '',
+          slug: (props.retreat as any).slug || '',
           flyer_options: {
             titleOverride: (props.retreat as any).flyer_options?.titleOverride || '',
             subtitleOverride: (props.retreat as any).flyer_options?.subtitleOverride || '',
@@ -1154,6 +1218,16 @@ watch(() => props.open, (newOpen) => {
     }
     validateDates();
   }
+});
+
+// Auto-generate slug from parish + number when in add mode or when slug is empty
+let lastAutoSlug = '';
+watch([() => formData.value.parish, () => formData.value.retreat_number_version], ([parish, number]) => {
+  const auto = generateSlug(parish || '', number || '');
+  if (!formData.value.slug || formData.value.slug === lastAutoSlug) {
+    formData.value.slug = auto;
+  }
+  lastAutoSlug = auto;
 });
 
 watch(() => formData.value.houseId, async (newHouseId) => {
