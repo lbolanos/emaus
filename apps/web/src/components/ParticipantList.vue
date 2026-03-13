@@ -1121,8 +1121,8 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
 
         <!-- Toolbar de Acciones -->
         <div class="flex flex-col sm:flex-row justify-between items-center gap-2 mb-4 no-print">
-            <div class="flex gap-2 items-center">
-                <div class="relative w-full max-w-sm">
+            <div class="flex gap-2 items-center w-full sm:w-auto">
+                <div class="relative flex-1 sm:flex-none sm:w-64">
                     <Input
                         v-model="searchQuery"
                         :placeholder="$t('common.searchPlaceholder')"
@@ -1303,8 +1303,8 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
             <div v-else-if="!selectedRetreatId" class="text-center text-gray-500 py-8">
                 <p>{{ $t('participants.selectRetreatPrompt') }}</p>
             </div>
-            <div v-else class="border rounded-md">
-            <Table>
+            <div v-else class="border rounded-md overflow-x-auto">
+            <Table class="text-xs sm:text-sm min-w-[600px]">
                 <TableCaption v-if="filteredAndSortedParticipants.length === 0">
                     <div class="py-8 flex flex-col items-center gap-3">
                         <p class="text-gray-500">

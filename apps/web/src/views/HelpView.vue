@@ -13,6 +13,7 @@ const selectedSection = ref<string | null>(null);
 const searchQuery = ref('');
 const contentHtml = ref<string>('');
 const loading = ref(false);
+const isSidebarOpen = ref(false);
 
 // Filter sections based on search
 const filteredSections = computed(() => {
@@ -59,6 +60,7 @@ async function loadContent(sectionKey: string) {
 function selectSection(sectionKey: string) {
 	selectedSection.value = sectionKey;
 	loadContent(sectionKey);
+	isSidebarOpen.value = false;
 }
 
 // Initialize on mount
@@ -79,16 +81,27 @@ watch(locale, () => {
 	<div class="flex flex-col h-full bg-background">
 		<!-- Header -->
 		<div class="border-b bg-card">
-			<div class="container mx-auto px-4 py-6">
+			<div class="container mx-auto px-4 py-6 flex items-center gap-3">
+				<button
+					@click="isSidebarOpen = !isSidebarOpen"
+					class="lg:hidden p-2 rounded-md hover:bg-accent"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+				</button>
 				<h1 class="text-3xl font-bold">{{ $t('help.title') }}</h1>
 			</div>
 		</div>
 
 		<!-- Main Content -->
 		<div class="flex-1 container mx-auto px-4 py-6 overflow-hidden">
-			<div class="flex gap-6 h-full">
+			<div class="flex flex-col lg:flex-row gap-6 h-full">
 				<!-- Sidebar Navigation -->
-				<aside class="w-64 flex-shrink-0 overflow-y-auto border-r pr-4">
+				<aside
+					:class="[
+						'flex-shrink-0 overflow-y-auto lg:border-r lg:pr-4 lg:w-64',
+						isSidebarOpen ? 'block' : 'hidden lg:block'
+					]"
+				>
 					<!-- Search -->
 					<div class="mb-4">
 						<input

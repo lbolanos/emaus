@@ -261,9 +261,9 @@ const roomAssignedCount = (roomBeds: RetreatBed[]): number => {
     </div>
 
     <!-- Toolbar (no-print) -->
-    <div class="flex justify-between items-center mb-4 no-print">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 no-print">
       <h1 class="text-2xl font-bold">{{ $t('rooms.title') }}</h1>
-      <div class="flex gap-2 items-center">
+      <div class="flex flex-wrap gap-2 items-center">
         <label class="text-sm text-gray-600 mr-1">Tamaño impresión:</label>
         <select
           v-model="printSize"
@@ -379,7 +379,7 @@ const roomAssignedCount = (roomBeds: RetreatBed[]): number => {
 /* Rooms grid */
 .rooms-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
   gap: 20px;
 }
 

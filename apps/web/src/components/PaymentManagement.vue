@@ -1,7 +1,7 @@
 <template>
 	<div class="payment-management">
 		<!-- Header -->
-		<div class="flex justify-between items-center mb-6">
+		<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
 			<div>
 				<h2 class="text-2xl font-bold">Gestión de Pagos</h2>
 				<p class="text-gray-600">Registro y seguimiento de pagos de participantes</p>
@@ -14,7 +14,7 @@
 
 		<!-- Filters -->
 		<div class="bg-white p-4 rounded-lg shadow mb-6">
-			<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 				<div>
 					<label class="block text-sm font-medium text-gray-700 mb-1">Retiro</label>
 					<Select v-model="filters.retreatId">
@@ -65,7 +65,7 @@
 		</div>
 
 		<!-- Summary Cards -->
-		<div v-if="summary" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+		<div v-if="summary" class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
 			<div class="bg-white p-4 rounded-lg shadow">
 				<div class="flex items-center">
 					<DollarSign class="w-8 h-8 text-green-600" />

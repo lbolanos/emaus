@@ -1,22 +1,22 @@
 <template>
   <div class="space-y-6">
     <!-- Header -->
-    <div class="flex justify-between items-center">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
       <div>
         <h1 class="text-3xl font-bold">Gestión de Inventario</h1>
         <p class="text-gray-600">Administra los suministros para el retiro</p>
       </div>
-      <div class="flex gap-2">
-        <Button @click="calculateQuantities" :disabled="loading">
-          <Calculator class="w-4 h-4 mr-2" />
-          Calcular Cantidades
+      <div class="flex flex-wrap gap-2">
+        <Button @click="calculateQuantities" :disabled="loading" class="text-xs sm:text-sm">
+          <Calculator class="w-4 h-4 mr-1 sm:mr-2" />
+          Calcular
         </Button>
-        <Button @click="showImportDialog = true" variant="outline">
-          <Upload class="w-4 h-4 mr-2" />
+        <Button @click="showImportDialog = true" variant="outline" class="text-xs sm:text-sm">
+          <Upload class="w-4 h-4 mr-1 sm:mr-2" />
           Importar
         </Button>
-        <Button @click="exportInventory" variant="outline">
-          <Download class="w-4 h-4 mr-2" />
+        <Button @click="exportInventory" variant="outline" class="text-xs sm:text-sm">
+          <Download class="w-4 h-4 mr-1 sm:mr-2" />
           Exportar
         </Button>
       </div>

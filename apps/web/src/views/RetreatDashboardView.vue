@@ -24,7 +24,7 @@
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
               <!-- Walkers Section -->
               <div class="space-y-2">
                 <div class="flex items-center justify-between">
@@ -83,13 +83,13 @@
               </div>
             </div>
 
-            <div class="flex items-center gap-2 mt-4">
-              <Button @click="showInviteModal = true" variant="outline">
-                <Mail class="w-4 h-4 mr-2" />
+            <div class="flex flex-wrap items-center gap-2 mt-4">
+              <Button @click="showInviteModal = true" variant="outline" class="text-xs sm:text-sm">
+                <Mail class="w-4 h-4 mr-1 sm:mr-2" />
                 Invitar Alguien
               </Button>
-              <Button @click="openFlyer" variant="outline">
-                <FileText class="w-4 h-4 mr-2" />
+              <Button @click="openFlyer" variant="outline" class="text-xs sm:text-sm">
+                <FileText class="w-4 h-4 mr-1 sm:mr-2" />
                 Ver Flyer
               </Button>
             </div>

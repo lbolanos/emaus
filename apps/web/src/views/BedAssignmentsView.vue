@@ -15,15 +15,22 @@
           </span>
         </div>
       </div>
-      <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
-        <Button @click="toggleViewMode" variant="outline" class="mr-2">
-          <Layers v-if="viewMode === 'individual'" class="w-4 h-4 mr-2" />
-          <BedDouble v-else class="w-4 h-4 mr-2" />
-          {{ viewMode === 'individual' ? $t('bedAssignments.groupByRoom') : $t('bedAssignments.individualBeds') }}
+      <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none flex flex-wrap gap-2">
+        <Button @click="toggleViewMode" variant="outline" class="text-xs sm:text-sm">
+          <Layers v-if="viewMode === 'individual'" class="w-4 h-4 mr-1 sm:mr-2" />
+          <BedDouble v-else class="w-4 h-4 mr-1 sm:mr-2" />
+          <span class="hidden sm:inline">{{ viewMode === 'individual' ? $t('bedAssignments.groupByRoom') : $t('bedAssignments.individualBeds') }}</span>
+          <span class="sm:hidden">{{ viewMode === 'individual' ? 'Agrupar' : 'Individual' }}</span>
         </Button>
-        <Button @click="isAutoAssignDialogOpen = true" variant="outline">{{ $t('bedAssignments.autoAssign') }}</Button>
-        <Button @click="isClearAssignmentsDialogOpen = true" variant="outline" class="ml-2">{{ $t('bedAssignments.clearAll') }}</Button>
-        <Button @click="exportAssignments" class="ml-2">{{ $t('bedAssignments.export') }}</Button>
+        <Button @click="isAutoAssignDialogOpen = true" variant="outline" class="text-xs sm:text-sm">
+          <span class="hidden sm:inline">{{ $t('bedAssignments.autoAssign') }}</span>
+          <span class="sm:hidden">Auto</span>
+        </Button>
+        <Button @click="isClearAssignmentsDialogOpen = true" variant="outline" class="text-xs sm:text-sm">
+          <span class="hidden sm:inline">{{ $t('bedAssignments.clearAll') }}</span>
+          <span class="sm:hidden">Limpiar</span>
+        </Button>
+        <Button @click="exportAssignments" class="text-xs sm:text-sm">{{ $t('bedAssignments.export') }}</Button>
       </div>
     </div>
 
@@ -41,7 +48,7 @@
             />
           </div>
         </div>
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
           <select
             v-model="searchType"
             class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
