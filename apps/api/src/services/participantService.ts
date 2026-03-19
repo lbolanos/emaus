@@ -1120,13 +1120,18 @@ export const createParticipant = async (
 			// Send notification email to the server who invited the participant
 			if (savedParticipant.invitedBy && retreat) {
 				// Find the server who invited this participant
-				const invitingServer = await transactionalEntityManager.getRepository(Participant).findOne({
-					where: {
-						retreatId: savedParticipant.retreatId,
-						nickname: savedParticipant.invitedBy,
-						type: 'server',
-					},
-				});
+				const invitingServer = await transactionalEntityManager
+					.getRepository(Participant)
+					.createQueryBuilder('participant')
+					.innerJoin(
+						'retreat_participants', 'rp',
+						'rp."participantId" = participant.id AND rp."retreatId" = :retreatId',
+						{ retreatId: savedParticipant.retreatId }
+					)
+					.where('rp."retreatId" = :retreatId', { retreatId: savedParticipant.retreatId })
+					.andWhere('participant.nickname = :nickname', { nickname: savedParticipant.invitedBy })
+					.andWhere('rp."type" = :type', { type: 'server' })
+					.getOne();
 
 				if (invitingServer && invitingServer.email) {
 					// Find notification template for servers - use GENERAL type as fallback
