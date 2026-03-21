@@ -29,6 +29,8 @@
     "prepare": "husky",
     "ruler:apply": "ruler apply",
     "db:reset-passwords": "npx tsx scripts/reset-passwords.ts",
+    "db:reset-password": "bash scripts/reset-password.sh",
+    "db:reset-password:prod": "bash scripts/reset-password.sh --prod",
     "db:pull": "scp -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105:/var/www/emaus/apps/api/database.sqlite apps/api/database.sqlite 2>&1 && echo '✅ Database copied from AWS'",
     "db:push": "scp -i ~/.ssh/emaus-key.pem apps/api/database.sqlite ubuntu@3.138.49.105:/var/www/emaus/apps/api/database.sqlite 2>&1 && echo '✅ Database uploaded to AWS'",
     "db:backup": "ssh -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105 'bash /var/www/emaus/backup-db.sh'",

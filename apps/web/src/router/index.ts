@@ -1,40 +1,50 @@
 import { createRouter, createWebHistory } from 'vue-router';
+
+// All views lazy-loaded to prevent Safari iOS stack overflow from deep module evaluation
 const AppLayout = () => import('@/layouts/AppLayout.vue');
-import WalkersView from '../views/WalkersView.vue';
-import ServersView from '../views/ServersView.vue';
-import PartialServerView from '../views/PartialServerView.vue';
-import CanceledView from '../views/CanceledView.vue';
-import HousesView from '../views/HousesView.vue';
-import PalancasView from '../views/PalancasView.vue';
-import PaymentsView from '../views/PaymentsView.vue';
-import NotesAndMeetingPointsView from '../views/NotesAndMeetingPointsView.vue';
-import RoomsView from '../views/RoomsView.vue';
-import UserTypeAndTableView from '../views/UserTypeAndTableView.vue';
-import FoodView from '../views/FoodView.vue';
-import CancellationAndNotesView from '../views/CancellationAndNotesView.vue';
-import WaitingListView from '../views/WaitingListView.vue';
-import BagsReportView from '../views/BagsReportView.vue';
-import MedicinesReportView from '../views/MedicinesReportView.vue';
-import LoginView from '../views/LoginView.vue';
-import RequestPasswordResetView from '../views/RequestPasswordResetView.vue';
-import ResetPasswordView from '../views/ResetPasswordView.vue';
-import ParticipantRegistrationView from '../views/ParticipantRegistrationView.vue';
-import RetreatDashboardView from '../views/RetreatDashboardView.vue';
-import BedAssignmentsView from '../views/BedAssignmentsView.vue';
-import TablesView from '../views/TablesView.vue';
-import BadgesView from '../views/BadgesView.vue';
-import MessageTemplatesView from '../views/MessageTemplatesView.vue';
-import GlobalMessageTemplatesView from '../views/GlobalMessageTemplatesView.vue';
-import InventoryView from '../views/InventoryView.vue';
-import InventoryItemsView from '../views/InventoryItemsView.vue';
-import RetreatRoleManagementView from '../views/RetreatRoleManagementView.vue';
-import AcceptInvitationView from '../views/AcceptInvitationView.vue';
-import TelemetryDashboardView from '../views/TelemetryDashboardView.vue';
-import RetreatFlyerView from '../views/RetreatFlyerView.vue';
-import HelpView from '../views/HelpView.vue';
+const WalkersView = () => import('../views/WalkersView.vue');
+const ServersView = () => import('../views/ServersView.vue');
+const PartialServerView = () => import('../views/PartialServerView.vue');
+const CanceledView = () => import('../views/CanceledView.vue');
+const HousesView = () => import('../views/HousesView.vue');
+const PalancasView = () => import('../views/PalancasView.vue');
+const PaymentsView = () => import('../views/PaymentsView.vue');
+const NotesAndMeetingPointsView = () => import('../views/NotesAndMeetingPointsView.vue');
+const RoomsView = () => import('../views/RoomsView.vue');
+const UserTypeAndTableView = () => import('../views/UserTypeAndTableView.vue');
+const FoodView = () => import('../views/FoodView.vue');
+const CancellationAndNotesView = () => import('../views/CancellationAndNotesView.vue');
+const WaitingListView = () => import('../views/WaitingListView.vue');
+const BagsReportView = () => import('../views/BagsReportView.vue');
+const MedicinesReportView = () => import('../views/MedicinesReportView.vue');
+const LoginView = () => import('../views/LoginView.vue');
+const RequestPasswordResetView = () => import('../views/RequestPasswordResetView.vue');
+const ResetPasswordView = () => import('../views/ResetPasswordView.vue');
+const ParticipantRegistrationView = () => import('../views/ParticipantRegistrationView.vue');
+const RetreatDashboardView = () => import('../views/RetreatDashboardView.vue');
+const BedAssignmentsView = () => import('../views/BedAssignmentsView.vue');
+const TablesView = () => import('../views/TablesView.vue');
+const BadgesView = () => import('../views/BadgesView.vue');
+const MessageTemplatesView = () => import('../views/MessageTemplatesView.vue');
+const GlobalMessageTemplatesView = () => import('../views/GlobalMessageTemplatesView.vue');
+const InventoryView = () => import('../views/InventoryView.vue');
+const InventoryItemsView = () => import('../views/InventoryItemsView.vue');
+const RetreatRoleManagementView = () => import('../views/RetreatRoleManagementView.vue');
+const AcceptInvitationView = () => import('../views/AcceptInvitationView.vue');
+const TelemetryDashboardView = () => import('../views/TelemetryDashboardView.vue');
+const RetreatFlyerView = () => import('../views/RetreatFlyerView.vue');
+const HelpView = () => import('../views/HelpView.vue');
+const LandingView = () => import('../views/LandingView.vue');
+
 import { useAuthStore } from '@/stores/authStore';
 import { useRetreatStore } from '@/stores/retreatStore';
-import LandingView from '../views/LandingView.vue';
+
+// Debug: log chunk load failures on window for debug overlay
+if (typeof window !== 'undefined') {
+	window.addEventListener('vite:preloadError', (e: any) => {
+		if ((window as any)._L) (window as any)._L('PRELOAD_ERR:' + e.payload?.message);
+	});
+}
 
 const router = createRouter({
 	history: createWebHistory(import.meta.env.BASE_URL),

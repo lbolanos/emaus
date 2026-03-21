@@ -384,20 +384,16 @@ const i18n = createI18n({
 		en,
 		es,
 	},
-	messageCompiler: (message: string) =>
-		safeMessageCompiler(message, {
-			escapeHtml: false, // Set true if you need XSS protection
-			allowHtmlTags: true, // Allow basic HTML tags like <b>, <i>
-			maxDepth: 3, // Max recursion for linked messages
-		}),
 	missing: (locale, key) => {
-		console.warn(`Missing: ${key} (${locale})`);
+		if (import.meta.env.DEV) {
+			console.warn(`Missing: ${key} (${locale})`);
+		}
 		return key;
 	},
-	silentTranslationWarn: process.env.NODE_ENV === 'production',
-	silentFallbackWarn: process.env.NODE_ENV === 'production',
-	missingWarn: process.env.NODE_ENV !== 'production',
-	fallbackWarn: process.env.NODE_ENV !== 'production',
+	silentTranslationWarn: true,
+	silentFallbackWarn: true,
+	missingWarn: false,
+	fallbackWarn: false,
 });
 
 export { storeLocale };

@@ -1,6 +1,8 @@
 <template>
-  <RouterView />
-  <Toaster />
+  <div id="app-root">
+    <RouterView />
+    <Toaster />
+  </div>
 </template>
 
 <script setup lang="ts">

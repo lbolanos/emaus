@@ -55,7 +55,7 @@
     "cta": {
       "title": "Comienza tu viaje hoy.",
       "description": "Suscríbete a nuestro boletín para reflexiones estacionales y acceso anticipado a nuevas fechas de retiros.",
-      "emailPlaceholder": "correo@ejemplo.com",
+      "emailPlaceholder": "correo{'@'}ejemplo.com",
       "subscribe": "Suscribirse"
     },
     "footer": {
@@ -81,7 +81,7 @@
       "lastName": "Apellido",
       "lastNamePlaceholder": "Tu apellido",
       "email": "Correo Electrónico",
-      "emailPlaceholder": "tu@correo.com",
+      "emailPlaceholder": "tu{'@'}correo.com",
       "cellPhone": "Teléfono",
       "cellPhonePlaceholder": "555-1234",
       "optional": "Opcional",

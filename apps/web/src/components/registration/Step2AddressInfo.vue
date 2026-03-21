@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { defineAsyncComponent } from 'vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui'
 import { Input } from '@repo/ui'
 import { Label } from '@repo/ui'
-import CountrySelector from '@/components/form/CountrySelector.vue'
-import StateSelector from '@/components/form/StateSelector.vue'
-import CitySelector from '@/components/form/CitySelector.vue'
+
+// Lazy-load country/state/city selectors — country-state-city is ~8MB of data
+const CountrySelector = defineAsyncComponent(() => import('@/components/form/CountrySelector.vue'))
+const StateSelector = defineAsyncComponent(() => import('@/components/form/StateSelector.vue'))
+const CitySelector = defineAsyncComponent(() => import('@/components/form/CitySelector.vue'))
 
 const props = defineProps<{
   errors: Record<string, string>

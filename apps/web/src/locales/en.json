@@ -56,7 +56,7 @@
     "cta": {
       "title": "Begin your journey today.",
       "description": "Subscribe to our newsletter for seasonal reflections and first access to new retreat dates.",
-      "emailPlaceholder": "email@example.com",
+      "emailPlaceholder": "email{'@'}example.com",
       "subscribe": "Subscribe"
     },
     "footer": {
@@ -82,7 +82,7 @@
       "lastName": "Last Name",
       "lastNamePlaceholder": "Doe",
       "email": "Email",
-      "emailPlaceholder": "john@example.com",
+      "emailPlaceholder": "john{'@'}example.com",
       "cellPhone": "Phone",
       "cellPhonePlaceholder": "555-1234",
       "optional": "Optional",

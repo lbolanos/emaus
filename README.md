@@ -488,12 +488,12 @@ Agregar los charlistas del retiro ya registrados previamente.
 crear una landing page que muestre los retiros proximos y las comunidades y sus proximas reuniones
 aumentar el coverage de las pruebas
 verificar que todas la pruebas pasen.
-
+dinamica imprimir dinamica de los equipos instrucciones de la dinamica
+agregar todas las actividades por servidor
+<
 
 ## TODO
 
-dinamica imprimir dinamica de los equipos instrucciones de la dinamica
-agregar todas las actividades por servidor
 
 Crear un retiro a partir de los datos del anterior retiro. Casa de retiro, inventario, mensajes.
 

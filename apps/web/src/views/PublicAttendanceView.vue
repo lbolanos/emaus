@@ -104,7 +104,7 @@
               :key="member.id"
               class="member-card group relative overflow-hidden bg-white dark:bg-slate-900 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border-2"
               :class="{
-                'border-emerald-500 shadow-emerald-500/10 dark:shadow-emerald-500/20': member.attended,
+                'member-card--attended border-emerald-500 shadow-emerald-500/10 dark:shadow-emerald-500/20': member.attended,
                 'border-transparent hover:border-slate-200 dark:hover:border-slate-700': !member.attended,
                 'opacity-50 cursor-not-allowed': savingStates[member.id]
               }"
@@ -373,7 +373,7 @@ onMounted(async () => {
   }
 }
 
-.member-card:has(.attended) {
+.member-card--attended {
   animation: pulse-glow 2s ease-in-out infinite;
 }
 </style>

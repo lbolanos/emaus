@@ -86,6 +86,21 @@ jobs:
           echo "Build output structure:"
           find ./build-output -maxdepth 3 -type d | head -20
 
+          # Clean old assets before uploading (prevents Permission denied on stale files)
+          echo "Cleaning old web assets on server..."
+          ssh -i ~/.ssh/emaus-key.pem ubuntu@$EC2_HOST << 'CLEANEOF'
+          set -e
+          ASSETS_DIR="/var/www/emaus/apps/web/dist/assets"
+          if [ -d "$ASSETS_DIR" ]; then
+            sudo rm -rf "$ASSETS_DIR"
+            mkdir -p "$ASSETS_DIR"
+            echo "✅ Cleaned assets directory"
+          fi
+          # Ensure correct ownership for deploy user
+          sudo chown -R ubuntu:ubuntu /var/www/emaus/apps/web/dist
+          sudo chown -R ubuntu:ubuntu /var/www/emaus/apps/api/dist 2>/dev/null || true
+          CLEANEOF
+
           # Upload new artifacts
           echo "Uploading API build..."
           if [ -d "./build-output/api/dist" ]; then

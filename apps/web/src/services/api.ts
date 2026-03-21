@@ -13,7 +13,6 @@ import type {
 	Participant,
 } from '@repo/types';
 import { setupCsrfInterceptor } from '@/utils/csrf';
-import { telemetryService } from './telemetryService';
 import { getApiUrl } from '@/config/runtimeConfig';
 
 // Extend axios request config to include metadata
@@ -40,28 +39,9 @@ export const api = axios.create({
 // Apply CSRF interceptor to this axios instance
 setupCsrfInterceptor(api);
 
-// Request interceptor for timing API calls
-api.interceptors.request.use(
-	(config) => {
-		// Add request start time for telemetry
-		config.metadata = { startTime: Date.now() };
-		return config;
-	},
-	(error) => {
-		return Promise.reject(error);
-	},
-);
-
-// Response interceptor for telemetry and error handling
+// Response interceptor for error handling
 api.interceptors.response.use(
 	(response) => {
-		// Track API call performance
-		const startTime = response.config.metadata?.startTime;
-		if (startTime && telemetryService.isTelemetryActive()) {
-			const duration = Date.now() - startTime;
-			telemetryService.trackApiCallTime(response.config.url || 'unknown', duration, true);
-		}
-
 		// Handle rotated CSRF token
 		const newToken = response.headers['x-csrf-token-new'];
 		if (newToken) {
@@ -72,18 +52,6 @@ api.interceptors.response.use(
 	},
 	(error) => {
 		const { toast } = useToast();
-
-		// Track API call performance for failed requests
-		const startTime = error.config?.metadata?.startTime;
-		if (startTime && telemetryService.isTelemetryActive()) {
-			const duration = Date.now() - startTime;
-			telemetryService.trackApiCallTime(error.config?.url || 'unknown', duration, false);
-		}
-
-		// Track errors for telemetry
-		if (telemetryService.isTelemetryActive()) {
-			telemetryService.trackError(error, `API call to ${error.config?.url}`);
-		}
 
 		if (error.response?.status === 401) {
 			// Unauthorized - clear auth state

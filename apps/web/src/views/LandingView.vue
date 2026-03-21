@@ -46,10 +46,38 @@
           <Menu v-else :class="scrolled ? 'text-stone-800' : 'text-white'" :size="24" />
         </button>
       </div>
+
+      <!-- Mobile menu -->
+      <Transition name="mobile-menu">
+        <div v-if="isMenuOpen" class="md:hidden bg-white/95 backdrop-blur-md shadow-lg">
+          <div class="px-6 py-4 space-y-3">
+            <a href="#the-path" class="block text-sm font-medium text-stone-600 hover:text-sage-600 transition-colors py-2" @click="isMenuOpen = false">
+              {{ $t('landing.nav.thePath') }}
+            </a>
+            <a href="#retreats" class="block text-sm font-medium text-stone-600 hover:text-sage-600 transition-colors py-2" @click="isMenuOpen = false">
+              {{ $t('landing.nav.retreats') }}
+            </a>
+            <a href="#community" class="block text-sm font-medium text-stone-600 hover:text-sage-600 transition-colors py-2" @click="isMenuOpen = false">
+              {{ $t('landing.nav.community') }}
+            </a>
+            <a href="#stories" class="block text-sm font-medium text-stone-600 hover:text-sage-600 transition-colors py-2" @click="isMenuOpen = false">
+              {{ $t('landing.nav.stories') }}
+            </a>
+            <div class="pt-3 border-t border-stone-200 space-y-3">
+              <button @click="isMenuOpen = false; handleLoginClick()" class="block w-full text-left text-sm font-medium text-stone-600 py-2">
+                {{ $t('landing.loginLink') }}
+              </button>
+              <button @click="isMenuOpen = false; handleLoginClick()" class="block w-full px-5 py-2.5 rounded-full bg-stone-800 text-white text-sm font-medium text-center hover:bg-stone-700 transition-all">
+                {{ $t('landing.signupLink') }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
     </nav>
 
     <!-- Hero Section -->
-    <section class="relative h-screen flex items-center justify-center overflow-hidden">
+    <section class="relative h-screen flex items-center justify-center overflow-hidden bg-stone-800">
       <div class="absolute inset-0 z-0">
         <img
           src="/landing.png"

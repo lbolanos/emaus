@@ -43,7 +43,7 @@ export default defineConfig(({ mode }) => {
 		resolve: {
 			alias: {
 				'@': path.resolve(__dirname, './src'),
-				'vue-i18n': 'vue-i18n/dist/vue-i18n.runtime.esm-bundler.js',
+				'vue-i18n': 'vue-i18n/dist/vue-i18n.esm-bundler.js',
 			},
 		},
 		server: {
@@ -73,27 +73,22 @@ export default defineConfig(({ mode }) => {
 			minify: mode === 'production' ? 'terser' : false,
 			target: 'es2015',
 			chunkSizeWarningLimit: 1000,
-			// Optimize memory usage during build
 			rollupOptions: {
 				output: {
+					entryFileNames: 'assets/[name]-[hash].js',
 					manualChunks: (id) => {
-						// Vendor chunking to reduce memory pressure
 						if (id.includes('node_modules')) {
-							// Split large vendor libraries
-							if (id.includes('@tiptap')) {
-								return 'vendor-tiptap';
-							}
-							if (id.includes('chart.js') || id.includes('vue-chartjs')) {
-								return 'vendor-charts';
-							}
-							if (id.includes('lucide-vue-next')) {
-								return 'vendor-icons';
-							}
+							if (id.includes('@tiptap')) return 'vendor-tiptap';
+							if (id.includes('chart.js') || id.includes('vue-chartjs')) return 'vendor-charts';
+							if (id.includes('lucide-vue-next')) return 'vendor-icons';
+							if (id.includes('country-state-city')) return 'vendor-geo';
 							return 'vendor';
 						}
+						// Split shared workspace packages to reduce chunk sizes
+						if (id.includes('/packages/ui/')) return 'shared-ui';
+						if (id.includes('/packages/types/')) return 'shared-types';
 					},
 				},
-				// Reduce memory usage during build
 				treeshake: {
 					moduleSideEffects: true,
 				},
