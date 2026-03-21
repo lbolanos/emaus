@@ -10,6 +10,7 @@ interface RegisterUserInput {
 	email: string;
 	password: string;
 	displayName: string;
+	recaptchaToken?: string;
 }
 
 interface RequestPasswordResetInput {
@@ -38,8 +39,6 @@ export const useAuthStore = defineStore('auth', () => {
 			userProfile.value = response.data.profile;
 			isAuthenticated.value = true;
 
-			console.log('[AUTH] Login successful - User profile:', userProfile.value);
-
 			toast({
 				title: 'Success',
 				description: 'Logged in successfully',
@@ -66,17 +65,11 @@ export const useAuthStore = defineStore('auth', () => {
 			loading.value = true;
 			await api.post('/auth/register', data);
 			toast({
-				title: 'Success',
-				description: 'Registration successful. Please log in.',
+				title: 'Registro exitoso',
+				description: 'Tu cuenta ha sido creada. Por favor inicia sesión.',
 			});
-			router.push('/login');
 		} catch (error: any) {
-			toast({
-				title: 'Registration Failed',
-				description:
-					error.response?.data?.message || error.message || 'An unexpected error occurred.',
-				variant: 'destructive',
-			});
+			// No toast here — the component shows inline error
 			throw error.response?.data || error;
 		} finally {
 			loading.value = false;
@@ -177,7 +170,6 @@ export const useAuthStore = defineStore('auth', () => {
 			const response = await api.get('/auth/status');
 			if (response.data && response.data.authenticated !== false) {
 				userProfile.value = response.data.profile;
-				console.log('[AUTH] Profile refreshed - New profile:', userProfile.value);
 			}
 		} catch (error: any) {
 			console.error('Failed to refresh user profile:', error);

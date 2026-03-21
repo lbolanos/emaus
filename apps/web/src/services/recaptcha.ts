@@ -132,6 +132,7 @@ export const RECAPTCHA_ACTIONS = {
 	LOGIN: 'login',
 	PASSWORD_RESET_REQUEST: 'password_reset_request',
 	PASSWORD_RESET: 'password_reset',
+	USER_REGISTER: 'user_register',
 	PARTICIPANT_REGISTER: 'participant_register',
 	INVITATION_ACCEPT: 'invitation_accept',
 	COMMUNITY_INVITATION_ACCEPT: 'community_invitation_accept',

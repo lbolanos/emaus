@@ -69,6 +69,31 @@ export const loginLimiter = rateLimit({
 });
 
 /**
+ * Registration rate limiter (prevent mass account creation)
+ * Stricter than login: IP-only key, lower cap
+ */
+export const registerLimiter = rateLimit({
+	windowMs: 60 * 60 * 1000, // 1 hour
+	max: 5, // Max 5 registration attempts per IP per hour
+	skipSuccessfulRequests: false,
+	message: {
+		message: 'Demasiados intentos de registro. Inténtalo en 1 hora.',
+		error: 'REGISTER_RATE_LIMIT_EXCEEDED',
+	},
+	keyGenerator: (req: Request) => req.ip || 'unknown',
+	handler: (req: Request, res: Response) => {
+		console.warn(`⚠️  Rate limit - Register: IP=${req.ip}`);
+		res.status(429).json({
+			message: 'Demasiados intentos de registro. Por favor, espera.',
+			error: 'REGISTER_RATE_LIMIT_EXCEEDED',
+		});
+	},
+	skip: (req: Request) => {
+		return process.env.NODE_ENV === 'development' && process.env.SKIP_RATE_LIMIT === 'true';
+	},
+});
+
+/**
  * General API rate limiter
  */
 export const apiLimiter = rateLimit({

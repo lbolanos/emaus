@@ -10,7 +10,21 @@
     "loginButton": "Login",
     "forgotPassword": "Forgot your password?",
     "orContinueWith": "Or continue with",
-    "google": "Google"
+    "google": "Google",
+    "registerTitle": "Create Account",
+    "registerDescription": "Enter your details to create an account",
+    "nameLabel": "Name",
+    "confirmPasswordLabel": "Confirm Password",
+    "registerButton": "Create Account",
+    "noAccount": "Don't have an account?",
+    "createAccount": "Create account",
+    "hasAccount": "Already have an account?",
+    "loginLink": "Log in",
+    "passwordMismatch": "Passwords do not match",
+    "passwordTooShort": "Password must be at least 8 characters",
+    "passwordHint": "Minimum 8 characters",
+    "loading": "Loading...",
+    "registerFailed": "Registration failed"
   },
   "landing": {
     "tagline": "A Journey of Faith, Hope & Community",

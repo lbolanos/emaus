@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import passport from 'passport';
 import { AppDataSource } from '../data-source';
 import { User } from '../entities/user.entity';
+import { Role } from '../entities/role.entity';
+import { UserRole } from '../entities/userRole.entity';
 import { UserService } from '../services/userService';
 import { GlobalMessageTemplateService } from '../services/globalMessageTemplateService';
 import { RecaptchaService } from '../services/recaptchaService';
@@ -9,19 +11,51 @@ import { config } from '../config';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
+import { z } from 'zod';
 
 const userService = new UserService();
 const globalMessageTemplateService = new GlobalMessageTemplateService();
 const recaptchaService = new RecaptchaService();
 
+const RegisterSchema = z.object({
+	email: z.string().email().max(254).toLowerCase().trim(),
+	password: z.string().min(8).max(128),
+	displayName: z.string().min(1).max(100).trim(),
+	recaptchaToken: z.string().optional(),
+});
+
 export const register = async (req: Request, res: Response, next: NextFunction) => {
-	const { email, password, displayName } = req.body;
+	const parsed = RegisterSchema.safeParse(req.body);
+	if (!parsed.success) {
+		return res.status(400).json({
+			message: 'Datos de registro inválidos.',
+			errors: parsed.error.flatten().fieldErrors,
+		});
+	}
+
+	const { email, password, displayName, recaptchaToken } = parsed.data;
+
+	// Verify reCAPTCHA token
+	const recaptchaResult = await recaptchaService.verifyToken(recaptchaToken, {
+		minScore: 0.5,
+	});
+
+	if (!recaptchaResult.valid) {
+		return res
+			.status(400)
+			.json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
+	}
+
 	const userRepository = AppDataSource.getRepository(User);
 
 	try {
 		const existingUser = await userRepository.findOne({ where: { email } });
 		if (existingUser) {
-			return res.status(400).json({ message: 'User already exists' });
+			// Artificial delay to prevent timing-based enumeration
+			await new Promise((resolve) => setTimeout(resolve, 300));
+			return res.status(400).json({
+				message: 'No se pudo completar el registro. Verifica los datos ingresados.',
+			});
 		}
 
 		const newUser = userRepository.create({
@@ -33,7 +67,20 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 
 		await userRepository.save(newUser);
 
-		res.status(201).json({ message: 'User created successfully' });
+		// Assign default role (same as Google OAuth flow)
+		const defaultRole = await AppDataSource.getRepository(Role).findOne({
+			where: { name: 'regular' },
+		});
+		if (defaultRole) {
+			const userRoleRepo = AppDataSource.getRepository(UserRole);
+			const userRole = userRoleRepo.create({
+				userId: newUser.id,
+				roleId: defaultRole.id,
+			});
+			await userRoleRepo.save(userRole);
+		}
+
+		res.status(201).json({ message: 'Usuario creado exitosamente.' });
 	} catch (error) {
 		next(error);
 	}

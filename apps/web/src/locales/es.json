@@ -10,7 +10,21 @@
     "loginButton": "Iniciar Sesión",
     "forgotPassword": "¿Olvidaste tu contraseña?",
     "orContinueWith": "O continuar con",
-    "google": "Google"
+    "google": "Google",
+    "registerTitle": "Crear Cuenta",
+    "registerDescription": "Ingresa tus datos para crear una cuenta",
+    "nameLabel": "Nombre",
+    "confirmPasswordLabel": "Confirmar Contraseña",
+    "registerButton": "Crear Cuenta",
+    "noAccount": "¿No tienes cuenta?",
+    "createAccount": "Crear cuenta",
+    "hasAccount": "¿Ya tienes cuenta?",
+    "loginLink": "Iniciar sesión",
+    "passwordMismatch": "Las contraseñas no coinciden",
+    "passwordTooShort": "La contraseña debe tener al menos 8 caracteres",
+    "passwordHint": "Mínimo 8 caracteres",
+    "loading": "Cargando...",
+    "registerFailed": "No se pudo completar el registro"
   },
   "landing": {
     "tagline": "Un Viaje de Fe, Esperanza y Comunidad",

@@ -140,7 +140,7 @@ describe('Auth Controller', () => {
 			await authController.register(req, res, next);
 
 			expect(res.status).toHaveBeenCalledWith(201);
-			expect(res.json).toHaveBeenCalledWith({ message: 'User created successfully' });
+			expect(res.json).toHaveBeenCalledWith({ message: 'Usuario creado exitosamente.' });
 		});
 
 		test('should return 400 when user already exists', async () => {
@@ -157,7 +157,9 @@ describe('Auth Controller', () => {
 			await authController.register(req, res, next);
 
 			expect(res.status).toHaveBeenCalledWith(400);
-			expect(res.json).toHaveBeenCalledWith({ message: 'User already exists' });
+			expect(res.json).toHaveBeenCalledWith({
+				message: 'No se pudo completar el registro. Verifica los datos ingresados.',
+			});
 		});
 
 		test('should call next on database error', async () => {

@@ -92,6 +92,7 @@ vi.mock('@/services/recaptcha', () => ({
 	getRecaptchaToken: vi.fn(() => Promise.resolve('mock-recaptcha-token')),
 	RECAPTCHA_ACTIONS: {
 		LOGIN: 'login',
+		USER_REGISTER: 'user_register',
 		NEWSLETTER_SUBSCRIBE: 'newsletter_subscribe',
 		COMMUNITY_JOIN: 'community_join',
 		PUBLIC_CONTACT: 'public_contact',
@@ -155,7 +156,7 @@ describe('LoginView', () => {
 		it('should render email input field', () => {
 			const emailInput = wrapper.find('input[type="email"]');
 			expect(emailInput.exists()).toBe(true);
-			expect(emailInput.attributes('placeholder')).toBe('user@example.com');
+			expect(emailInput.attributes('placeholder')).toContain('example.com');
 		});
 
 		it('should render password input field', () => {
@@ -370,6 +371,297 @@ describe('LoginView', () => {
 
 			const loginButton = wrapper.findAll('button')[0];
 			expect(loginButton.attributes('disabled')).toBeDefined();
+		});
+	});
+
+	describe('Register Mode Toggle', () => {
+		it('should render "create account" toggle link in login mode', () => {
+			const html = wrapper.html();
+			expect(html).toContain('login.noAccount');
+			expect(html).toContain('login.createAccount');
+		});
+
+		it('should switch to register mode when "create account" is clicked', async () => {
+			// Find the toggle button (outside the card)
+			const toggleBtn = wrapper.find('.mt-4 button');
+			expect(toggleBtn.exists()).toBe(true);
+			await toggleBtn.trigger('click');
+			await nextTick();
+
+			const html = wrapper.html();
+			// Title should now be register
+			expect(html).toContain('login.registerTitle');
+			expect(html).toContain('login.registerDescription');
+			// Should show "already have account" link
+			expect(html).toContain('login.hasAccount');
+			expect(html).toContain('login.loginLink');
+		});
+
+		it('should show name and confirm password fields in register mode', async () => {
+			// Switch to register mode
+			const toggleBtn = wrapper.find('.mt-4 button');
+			await toggleBtn.trigger('click');
+			await nextTick();
+
+			// Name field
+			const nameInput = wrapper.find('input#displayName');
+			expect(nameInput.exists()).toBe(true);
+
+			// Confirm password field
+			const confirmInput = wrapper.find('input#confirmPassword');
+			expect(confirmInput.exists()).toBe(true);
+		});
+
+		it('should hide Google login and forgot password in register mode', async () => {
+			const toggleBtn = wrapper.find('.mt-4 button');
+			await toggleBtn.trigger('click');
+			await nextTick();
+
+			// Google login link should be gone
+			const googleLink = wrapper.find('a[href="http://localhost:3001/api/auth/google"]');
+			expect(googleLink.exists()).toBe(false);
+
+			// Forgot password link should be gone
+			const html = wrapper.html();
+			expect(html).not.toContain('login.forgotPassword');
+		});
+
+		it('should switch back to login mode', async () => {
+			// Go to register mode
+			const toggleBtn = wrapper.find('.mt-4 button');
+			await toggleBtn.trigger('click');
+			await nextTick();
+
+			// Go back to login mode
+			const backBtn = wrapper.find('.mt-4 button');
+			await backBtn.trigger('click');
+			await nextTick();
+
+			const html = wrapper.html();
+			expect(html).toContain('login.title');
+			expect(html).toContain('login.noAccount');
+
+			// Name and confirm password fields should be gone
+			expect(wrapper.find('input#displayName').exists()).toBe(false);
+			expect(wrapper.find('input#confirmPassword').exists()).toBe(false);
+		});
+
+		it('should clear error when toggling mode', async () => {
+			// Trigger a login error first
+			const { api } = await import('@/services/api');
+			(api.post as any).mockRejectedValue({
+				response: { data: { message: 'Invalid credentials' } },
+			});
+			const loginButton = wrapper.findAll('button')[0];
+			await loginButton.trigger('click');
+			await nextTick();
+			await new Promise((resolve) => setTimeout(resolve, 100));
+			await nextTick();
+
+			// Error should be visible
+			expect(wrapper.find('.text-destructive').exists()).toBe(true);
+
+			// Toggle to register mode
+			const toggleBtn = wrapper.find('.mt-4 button');
+			await toggleBtn.trigger('click');
+			await nextTick();
+
+			// Error should be cleared
+			expect(wrapper.find('.text-destructive').exists()).toBe(false);
+		});
+	});
+
+	describe('Register Form', () => {
+		beforeEach(async () => {
+			// Switch to register mode
+			const toggleBtn = wrapper.find('.mt-4 button');
+			await toggleBtn.trigger('click');
+			await nextTick();
+		});
+
+		it('should show password mismatch error when passwords do not match', async () => {
+			wrapper.vm.displayName = 'Test User';
+			wrapper.vm.email = 'test@example.com';
+			wrapper.vm.password = 'password123';
+			wrapper.vm.confirmPassword = 'differentpassword';
+
+			await wrapper.vm.handleRegister();
+			await nextTick();
+
+			const errorDiv = wrapper.find('.text-destructive');
+			expect(errorDiv.exists()).toBe(true);
+			expect(errorDiv.text()).toBe('login.passwordMismatch');
+		});
+
+		it('should not call register API when passwords do not match', async () => {
+			const { api } = await import('@/services/api');
+			(api.post as any).mockClear();
+
+			wrapper.vm.displayName = 'Test User';
+			wrapper.vm.email = 'test@example.com';
+			wrapper.vm.password = 'password123';
+			wrapper.vm.confirmPassword = 'differentpassword';
+
+			await wrapper.vm.handleRegister();
+			await nextTick();
+
+			expect(api.post).not.toHaveBeenCalledWith('/auth/register', expect.anything());
+		});
+
+		it('should call register API with correct data and reCAPTCHA token when passwords match', async () => {
+			const { api } = await import('@/services/api');
+			(api.post as any).mockResolvedValue({ data: { success: true } });
+
+			wrapper.vm.displayName = 'Test User';
+			wrapper.vm.email = 'test@example.com';
+			wrapper.vm.password = 'password123';
+			wrapper.vm.confirmPassword = 'password123';
+
+			await wrapper.vm.handleRegister();
+			await nextTick();
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			expect(api.post).toHaveBeenCalledWith('/auth/register', {
+				email: 'test@example.com',
+				password: 'password123',
+				displayName: 'Test User',
+				recaptchaToken: 'mock-recaptcha-token',
+			});
+		});
+
+		it('should switch back to login mode after successful registration', async () => {
+			const { api } = await import('@/services/api');
+			(api.post as any).mockResolvedValue({ data: { success: true } });
+
+			wrapper.vm.displayName = 'Test User';
+			wrapper.vm.email = 'test@example.com';
+			wrapper.vm.password = 'password123';
+			wrapper.vm.confirmPassword = 'password123';
+
+			await wrapper.vm.handleRegister();
+			await nextTick();
+			await new Promise((resolve) => setTimeout(resolve, 100));
+			await nextTick();
+
+			// Should be back in login mode
+			const html = wrapper.html();
+			expect(html).toContain('login.noAccount');
+		});
+
+		it('should clear password fields after successful registration', async () => {
+			const { api } = await import('@/services/api');
+			(api.post as any).mockResolvedValue({ data: { success: true } });
+
+			wrapper.vm.displayName = 'Test User';
+			wrapper.vm.email = 'test@example.com';
+			wrapper.vm.password = 'password123';
+			wrapper.vm.confirmPassword = 'password123';
+
+			await wrapper.vm.handleRegister();
+			await nextTick();
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			expect(wrapper.vm.password).toBe('');
+			expect(wrapper.vm.confirmPassword).toBe('');
+		});
+
+		it('should display error on registration failure', async () => {
+			const { api } = await import('@/services/api');
+			(api.post as any).mockRejectedValue({
+				response: { data: { message: 'Email already in use' } },
+				message: 'Email already in use',
+			});
+
+			wrapper.vm.displayName = 'Test User';
+			wrapper.vm.email = 'test@example.com';
+			wrapper.vm.password = 'password123';
+			wrapper.vm.confirmPassword = 'password123';
+
+			await wrapper.vm.handleRegister();
+			await nextTick();
+			await new Promise((resolve) => setTimeout(resolve, 100));
+			await nextTick();
+
+			const errorDiv = wrapper.find('.text-destructive');
+			expect(errorDiv.exists()).toBe(true);
+		});
+
+		it('should render register button in register mode', () => {
+			const html = wrapper.html();
+			expect(html).toContain('login.registerButton');
+		});
+
+		it('should show password too short error when password is less than 8 characters', async () => {
+			wrapper.vm.displayName = 'Test User';
+			wrapper.vm.email = 'test@example.com';
+			wrapper.vm.password = 'short';
+			wrapper.vm.confirmPassword = 'short';
+
+			await wrapper.vm.handleRegister();
+			await nextTick();
+
+			const errorDiv = wrapper.find('.text-destructive');
+			expect(errorDiv.exists()).toBe(true);
+			expect(errorDiv.text()).toBe('login.passwordTooShort');
+		});
+
+		it('should not call register API when password is too short', async () => {
+			const { api } = await import('@/services/api');
+			(api.post as any).mockClear();
+
+			wrapper.vm.displayName = 'Test User';
+			wrapper.vm.email = 'test@example.com';
+			wrapper.vm.password = 'short';
+			wrapper.vm.confirmPassword = 'short';
+
+			await wrapper.vm.handleRegister();
+			await nextTick();
+
+			expect(api.post).not.toHaveBeenCalledWith('/auth/register', expect.anything());
+		});
+
+		it('should call getRecaptchaToken with USER_REGISTER action', async () => {
+			const { api } = await import('@/services/api');
+			(api.post as any).mockResolvedValue({ data: { success: true } });
+
+			const { getRecaptchaToken } = await import('@/services/recaptcha');
+
+			wrapper.vm.displayName = 'Test User';
+			wrapper.vm.email = 'test@example.com';
+			wrapper.vm.password = 'password123';
+			wrapper.vm.confirmPassword = 'password123';
+
+			await wrapper.vm.handleRegister();
+			await nextTick();
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			expect(getRecaptchaToken).toHaveBeenCalledWith('user_register');
+		});
+
+		it('should clear displayName after successful registration', async () => {
+			const { api } = await import('@/services/api');
+			(api.post as any).mockResolvedValue({ data: { success: true } });
+
+			wrapper.vm.displayName = 'Test User';
+			wrapper.vm.email = 'test@example.com';
+			wrapper.vm.password = 'password123';
+			wrapper.vm.confirmPassword = 'password123';
+
+			await wrapper.vm.handleRegister();
+			await nextTick();
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			expect(wrapper.vm.displayName).toBe('');
+		});
+
+		it('should show password hint in register mode', () => {
+			const html = wrapper.html();
+			expect(html).toContain('login.passwordHint');
+		});
+
+		it('should have minlength attribute on password input in register mode', () => {
+			const passwordInput = wrapper.find('input#password');
+			expect(passwordInput.attributes('minlength')).toBe('8');
 		});
 	});
 });

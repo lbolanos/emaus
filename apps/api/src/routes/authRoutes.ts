@@ -11,12 +11,12 @@ import {
 	resetPassword,
 	changePassword,
 } from '../controllers/authController';
-import { loginLimiter, passwordResetLimiter, emailBasedLimiter } from '../middleware/rateLimiting';
+import { loginLimiter, registerLimiter, passwordResetLimiter, emailBasedLimiter } from '../middleware/rateLimiting';
 
 const router = Router();
 
 // Local Auth
-router.post('/register', loginLimiter, register);
+router.post('/register', registerLimiter, register);
 router.post('/login', loginLimiter, login);
 
 // Google OAuth
