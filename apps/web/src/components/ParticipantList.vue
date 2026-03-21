@@ -52,7 +52,7 @@ import {
 } from '@repo/ui';
 
 
-import { ArrowUpDown, Trash2, Edit, FileUp, FileDown, Columns, ListFilter, MoreVertical, Plus, X, Printer } from 'lucide-vue-next';
+import { ArrowUpDown, Trash2, Edit, FileUp, FileDown, Columns, ListFilter, MoreVertical, Plus, X, Printer, RefreshCw } from 'lucide-vue-next';
 import { useToast } from '@repo/ui';
 
 // Traducción (simulada, usa tu sistema de i18n)
@@ -563,7 +563,7 @@ const formatCell = (participant: any, colKey: string) => {
         return value ? $t('common.yes') : $t('common.no');
     }
 
-    return value || 'N/A';
+    return value != null && value !== '' ? value : 'N/A';
 };
 
 const getCellContent = (participant: any, colKey: string) => {
@@ -1190,6 +1190,10 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                 </TooltipProvider>
             </div>
             <div class="flex gap-2">
+                <!-- Refresh -->
+                <Button variant="outline" size="icon" :disabled="loading" :title="$t('participants.refresh')" @click="participantStore.fetchParticipants()">
+                    <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" />
+                </Button>
                 <!-- Add Participant -->
                 <Button @click="openRegistrationLink" :disabled="!selectedRetreatId" :title="$t('participants.addParticipant')" size="icon" >
                     <Plus class="h-4 w-4" />

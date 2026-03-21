@@ -24,6 +24,12 @@ router.post(
 	requireRetreatAccess('retreatId'),
 	tableMesaController.rebalanceTables,
 );
+router.post(
+	'/clear-all/:retreatId',
+	requirePermission('table:update'),
+	requireRetreatAccess('retreatId'),
+	tableMesaController.clearAllTables,
+);
 
 router.post(
 	'/export/:retreatId',

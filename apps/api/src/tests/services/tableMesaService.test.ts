@@ -291,11 +291,11 @@ describe('Table Mesa Service', () => {
 
 	describe('assignLeaderToTable', () => {
 		test('should assign lider to table', async () => {
-			const table = await tableMesaService.findTableById(testTables[0].id, getTestDataSource());
 			const updatedTable = await tableMesaService.assignLeaderToTable(
 				testTables[0].id,
 				testServers[0].id,
 				'lider',
+				getTestDataSource(),
 			);
 
 			expect(updatedTable.liderId).toBe(testServers[0].id);
@@ -307,6 +307,7 @@ describe('Table Mesa Service', () => {
 				testTables[0].id,
 				testServers[0].id,
 				'colider1',
+				getTestDataSource(),
 			);
 
 			expect(updatedTable.colider1Id).toBe(testServers[0].id);
@@ -317,6 +318,7 @@ describe('Table Mesa Service', () => {
 				testTables[0].id,
 				testServers[0].id,
 				'colider2',
+				getTestDataSource(),
 			);
 
 			expect(updatedTable.colider2Id).toBe(testServers[0].id);
@@ -351,15 +353,110 @@ describe('Table Mesa Service', () => {
 			).rejects.toThrow('Cannot assign cancelled participants as leaders');
 		});
 
+		test('should NOT remove walkers when assigning a leader to a table', async () => {
+			const ds = getTestDataSource();
+			// First assign walkers to the table
+			await tableMesaService.assignWalkerToTable(testTables[0].id, testWalkers[0].id, ds);
+			await tableMesaService.assignWalkerToTable(testTables[0].id, testWalkers[1].id, ds);
+			await tableMesaService.assignWalkerToTable(testTables[0].id, testWalkers[2].id, ds);
+
+			// Verify walkers are assigned
+			let table = await tableMesaService.findTableById(testTables[0].id, ds);
+			expect(table?.walkers?.length).toBe(3);
+
+			// Now assign a leader
+			const updatedTable = await tableMesaService.assignLeaderToTable(
+				testTables[0].id,
+				testServers[0].id,
+				'lider',
+				ds,
+			);
+
+			// Walkers must still be there
+			expect(updatedTable.walkers?.length).toBe(3);
+			const walkerIds = updatedTable.walkers?.map((w: any) => w.id);
+			expect(walkerIds).toContain(testWalkers[0].id);
+			expect(walkerIds).toContain(testWalkers[1].id);
+			expect(walkerIds).toContain(testWalkers[2].id);
+			// And the leader should be assigned
+			expect(updatedTable.lider?.id).toBe(testServers[0].id);
+		});
+
+		test('should NOT remove walkers when assigning colider to a table with walkers', async () => {
+			const ds = getTestDataSource();
+			// Assign walkers
+			await tableMesaService.assignWalkerToTable(testTables[0].id, testWalkers[0].id, ds);
+			await tableMesaService.assignWalkerToTable(testTables[0].id, testWalkers[1].id, ds);
+
+			// Assign lider first
+			await tableMesaService.assignLeaderToTable(
+				testTables[0].id,
+				testServers[0].id,
+				'lider',
+				ds,
+			);
+
+			// Assign colider1
+			const updatedTable = await tableMesaService.assignLeaderToTable(
+				testTables[0].id,
+				testServers[1].id,
+				'colider1',
+				ds,
+			);
+
+			// Walkers must still be there
+			expect(updatedTable.walkers?.length).toBe(2);
+			expect(updatedTable.lider?.id).toBe(testServers[0].id);
+			expect(updatedTable.colider1?.id).toBe(testServers[1].id);
+		});
+
+		test('should NOT remove walkers when moving a leader between tables', async () => {
+			const ds = getTestDataSource();
+			// Assign walkers to table 0
+			await tableMesaService.assignWalkerToTable(testTables[0].id, testWalkers[0].id, ds);
+			await tableMesaService.assignWalkerToTable(testTables[0].id, testWalkers[1].id, ds);
+
+			// Assign walkers to table 1
+			await tableMesaService.assignWalkerToTable(testTables[1].id, testWalkers[2].id, ds);
+
+			// Assign leader to table 0
+			await tableMesaService.assignLeaderToTable(
+				testTables[0].id,
+				testServers[0].id,
+				'lider',
+				ds,
+			);
+
+			// Move leader from table 0 to table 1
+			const updatedTable1 = await tableMesaService.assignLeaderToTable(
+				testTables[1].id,
+				testServers[0].id,
+				'lider',
+				ds,
+			);
+
+			// Table 1 walkers must still be there
+			expect(updatedTable1.walkers?.length).toBe(1);
+			expect(updatedTable1.walkers?.[0]?.id).toBe(testWalkers[2].id);
+			expect(updatedTable1.lider?.id).toBe(testServers[0].id);
+
+			// Table 0 walkers must still be there too
+			const table0 = await tableMesaService.findTableById(testTables[0].id, ds);
+			expect(table0?.walkers?.length).toBe(2);
+			expect(table0?.lider).toBeFalsy(); // leader was moved away
+		});
+
 		test('should remove participant from previous leader role when assigning new role', async () => {
+			const ds = getTestDataSource();
 			// First assign as lider
-			await tableMesaService.assignLeaderToTable(testTables[0].id, testServers[0].id, 'lider');
+			await tableMesaService.assignLeaderToTable(testTables[0].id, testServers[0].id, 'lider', ds);
 
 			// Then assign same participant as colider1
 			const updatedTable = await tableMesaService.assignLeaderToTable(
 				testTables[0].id,
 				testServers[0].id,
 				'colider1',
+				ds,
 			);
 
 			expect(updatedTable.liderId).toBeNull();
@@ -370,34 +467,37 @@ describe('Table Mesa Service', () => {
 	describe('unassignLeaderFromTable', () => {
 		test('should unassign lider from table', async () => {
 			// First assign a lider
-			await tableMesaService.assignLeaderToTable(testTables[0].id, testServers[0].id, 'lider');
+			await tableMesaService.assignLeaderToTable(testTables[0].id, testServers[0].id, 'lider', getTestDataSource());
 
 			// Then unassign
 			const updatedTable = await tableMesaService.unassignLeaderFromTable(
 				testTables[0].id,
 				'lider',
+				getTestDataSource(),
 			);
 
 			expect(updatedTable.liderId).toBeNull();
 		});
 
 		test('should unassign colider1 from table', async () => {
-			await tableMesaService.assignLeaderToTable(testTables[0].id, testServers[0].id, 'colider1');
+			await tableMesaService.assignLeaderToTable(testTables[0].id, testServers[0].id, 'colider1', getTestDataSource());
 
 			const updatedTable = await tableMesaService.unassignLeaderFromTable(
 				testTables[0].id,
 				'colider1',
+				getTestDataSource(),
 			);
 
 			expect(updatedTable.colider1Id).toBeNull();
 		});
 
 		test('should unassign colider2 from table', async () => {
-			await tableMesaService.assignLeaderToTable(testTables[0].id, testServers[0].id, 'colider2');
+			await tableMesaService.assignLeaderToTable(testTables[0].id, testServers[0].id, 'colider2', getTestDataSource());
 
 			const updatedTable = await tableMesaService.unassignLeaderFromTable(
 				testTables[0].id,
 				'colider2',
+				getTestDataSource(),
 			);
 
 			expect(updatedTable.colider2Id).toBeNull();
@@ -409,6 +509,7 @@ describe('Table Mesa Service', () => {
 			const updatedTable = await tableMesaService.assignWalkerToTable(
 				testTables[0].id,
 				testWalkers[0].id,
+				getTestDataSource(),
 			);
 
 			const assignedWalker = updatedTable.walkers?.find((w) => w.id === testWalkers[0].id);
@@ -442,16 +543,197 @@ describe('Table Mesa Service', () => {
 	describe('unassignWalkerFromTable', () => {
 		test('should unassign walker from table', async () => {
 			// First assign a walker
-			await tableMesaService.assignWalkerToTable(testTables[0].id, testWalkers[0].id);
+			await tableMesaService.assignWalkerToTable(testTables[0].id, testWalkers[0].id, getTestDataSource());
 
 			// Then unassign
 			const updatedTable = await tableMesaService.unassignWalkerFromTable(
 				testTables[0].id,
 				testWalkers[0].id,
+				getTestDataSource(),
 			);
 
 			const unassignedWalker = updatedTable.walkers?.find((w) => w.id === testWalkers[0].id);
 			expect(unassignedWalker).toBeUndefined();
+		});
+	});
+
+	describe('clearAllTablesForRetreat', () => {
+		test('should unassign all walkers from all tables', async () => {
+			const rpRepo = getTestDataSource().getRepository(RetreatParticipant);
+
+			// Assign walkers to tables
+			for (let i = 0; i < testWalkers.length; i++) {
+				const tableIndex = i % testTables.length;
+				await rpRepo.update(
+					{ participantId: testWalkers[i].id, retreatId: testRetreat.id },
+					{ tableId: testTables[tableIndex].id },
+				);
+			}
+
+			// Verify walkers are assigned
+			const assignedBefore = await rpRepo.count({
+				where: { retreatId: testRetreat.id, tableId: testTables[0].id },
+			});
+			expect(assignedBefore).toBeGreaterThan(0);
+
+			// Clear all tables
+			await tableMesaService.clearAllTablesForRetreat(testRetreat.id, getTestDataSource());
+
+			// Verify all walkers are unassigned
+			const tables = await tableMesaService.findTablesByRetreatId(
+				testRetreat.id,
+				getTestDataSource(),
+			);
+			for (const table of tables) {
+				expect(table.walkers?.length || 0).toBe(0);
+			}
+		});
+
+		test('should unassign all leaders from all tables', async () => {
+			const tableMesaRepo = getTestDataSource().getRepository(TableMesa);
+
+			// Assign leaders to tables
+			await tableMesaRepo.update(testTables[0].id, { liderId: testServers[0].id });
+			await tableMesaRepo.update(testTables[1].id, {
+				colider1Id: testServers[1].id,
+				colider2Id: testServers[2].id,
+			});
+
+			// Clear all tables
+			await tableMesaService.clearAllTablesForRetreat(testRetreat.id, getTestDataSource());
+
+			// Verify all leaders are unassigned (findTablesByRetreatId returns Zod-parsed objects)
+			const tables = await tableMesaService.findTablesByRetreatId(
+				testRetreat.id,
+				getTestDataSource(),
+			);
+			for (const table of tables) {
+				expect(table.lider).toBeFalsy();
+				expect(table.colider1).toBeFalsy();
+				expect(table.colider2).toBeFalsy();
+			}
+		});
+
+		test('should clear both walkers and leaders simultaneously', async () => {
+			const rpRepo = getTestDataSource().getRepository(RetreatParticipant);
+			const tableMesaRepo = getTestDataSource().getRepository(TableMesa);
+
+			// Assign walkers
+			for (const walker of testWalkers) {
+				await rpRepo.update(
+					{ participantId: walker.id, retreatId: testRetreat.id },
+					{ tableId: testTables[0].id },
+				);
+			}
+
+			// Assign leaders
+			await tableMesaRepo.update(testTables[0].id, {
+				liderId: testServers[0].id,
+				colider1Id: testServers[1].id,
+			});
+
+			// Clear all
+			await tableMesaService.clearAllTablesForRetreat(testRetreat.id, getTestDataSource());
+
+			// Verify everything is cleared
+			const tables = await tableMesaService.findTablesByRetreatId(
+				testRetreat.id,
+				getTestDataSource(),
+			);
+			for (const table of tables) {
+				expect(table.walkers?.length || 0).toBe(0);
+				expect(table.lider).toBeFalsy();
+				expect(table.colider1).toBeFalsy();
+				expect(table.colider2).toBeFalsy();
+			}
+		});
+
+		test('should not delete tables themselves', async () => {
+			const tableCountBefore = testTables.length;
+
+			await tableMesaService.clearAllTablesForRetreat(testRetreat.id, getTestDataSource());
+
+			const tables = await tableMesaService.findTablesByRetreatId(
+				testRetreat.id,
+				getTestDataSource(),
+			);
+			expect(tables.length).toBe(tableCountBefore);
+		});
+
+		test('should not affect tables in other retreats', async () => {
+			const { Retreat } = await import('@/entities/retreat.entity');
+			const { House } = await import('@/entities/house.entity');
+			const rpRepo = getTestDataSource().getRepository(RetreatParticipant);
+			const tableMesaRepo = getTestDataSource().getRepository(TableMesa);
+
+			// Create a second retreat with its own table and participants
+			const houseRepo = getTestDataSource().getRepository(House);
+			const house = await houseRepo.save(
+				houseRepo.create({
+					name: 'Other House',
+					address1: '456 Other St',
+					city: 'Other City',
+					state: 'OS',
+					zipCode: '54321',
+					country: 'Other Country',
+					capacity: 30,
+				}),
+			);
+
+			const retreatRepo = getTestDataSource().getRepository(Retreat);
+			const otherRetreat = await retreatRepo.save(
+				retreatRepo.create({
+					parish: 'Other Retreat',
+					startDate: new Date(),
+					endDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+					houseId: house.id,
+				}),
+			);
+
+			const otherTable = await tableMesaService.createTable(
+				{ name: 'Other Table', retreatId: otherRetreat.id },
+				getTestDataSource(),
+			);
+
+			// Assign a leader to the other retreat's table
+			const otherServer = createTestParticipant({
+				email: 'other-server@test.com',
+				firstName: 'Other',
+				lastName: 'Server',
+			});
+			const savedServer = await getTestDataSource().getRepository(Participant).save(otherServer);
+			await rpRepo.save({
+				participantId: savedServer.id,
+				retreatId: otherRetreat.id,
+				roleInRetreat: 'server',
+				type: 'server',
+				isCancelled: false,
+				isPrimaryRetreat: true,
+				tableId: otherTable.id,
+			});
+			await tableMesaRepo.update(otherTable.id, { liderId: savedServer.id });
+
+			// Clear the FIRST retreat's tables
+			await tableMesaService.clearAllTablesForRetreat(testRetreat.id, getTestDataSource());
+
+			// Verify the other retreat's table is untouched
+			const otherTables = await tableMesaService.findTablesByRetreatId(
+				otherRetreat.id,
+				getTestDataSource(),
+			);
+			expect(otherTables[0].lider?.id).toBe(savedServer.id);
+
+			const otherRp = await rpRepo.findOne({
+				where: { participantId: savedServer.id, retreatId: otherRetreat.id },
+			});
+			expect(otherRp?.tableId).toBe(otherTable.id);
+		});
+
+		test('should handle empty retreat with no assignments', async () => {
+			// Just clear — should not throw
+			await expect(
+				tableMesaService.clearAllTablesForRetreat(testRetreat.id, getTestDataSource()),
+			).resolves.not.toThrow();
 		});
 	});
 

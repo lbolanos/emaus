@@ -153,7 +153,7 @@ export const assignLeaderToTable = async (
 		const { hasConflict, conflicts } = await checkTableTagConflict(
 			existingParticipantIds,
 			participantId,
-			undefined,
+			dataSource,
 			table.retreatId,
 		);
 		if (hasConflict) {
@@ -178,13 +178,15 @@ export const assignLeaderToTable = async (
 		await repos.tableMesa.save(t);
 	}
 
-	// Refetch the table to get the updated state
-	table = await findTableById(tableId, dataSource);
-	if (!table) throw new Error('Table not found');
+	// Use a plain findOneBy (without loading walkers) to avoid TypeORM
+	// overwriting the walkers relation when saving. findTableById flattens
+	// walkers into plain objects which TypeORM misinterprets on save.
+	const freshTable = await repos.tableMesa.findOneBy({ id: tableId });
+	if (!freshTable) throw new Error('Table not found');
 
 	// Assign to the new role
-	table[`${role}Id`] = participantId;
-	await repos.tableMesa.save(table);
+	freshTable[`${role}Id`] = participantId;
+	await repos.tableMesa.save(freshTable);
 	return findTableById(tableId, dataSource); // Return the table with all relations
 };
 
@@ -245,7 +247,7 @@ export const assignWalkerToTable = async (
 		const { hasConflict, conflicts } = await checkTableTagConflict(
 			existingParticipantIds,
 			participantId,
-			undefined,
+			dataSource,
 			table.retreatId,
 		);
 		if (hasConflict) {
@@ -456,6 +458,27 @@ export const rebalanceTablesForRetreat = async (retreatId: string, dataSource?: 
 			);
 		}
 	}
+};
+
+export const clearAllTablesForRetreat = async (retreatId: string, dataSource?: DataSource) => {
+	const repos = getRepositories(dataSource);
+	const ds = dataSource || AppDataSource;
+
+	// Unassign all walkers: set tableId = null on all RetreatParticipants for this retreat
+	await ds
+		.createQueryBuilder()
+		.update(RetreatParticipant)
+		.set({ tableId: null })
+		.where('retreatId = :retreatId', { retreatId })
+		.execute();
+
+	// Unassign all leaders: set liderId, colider1Id, colider2Id = null on all tables for this retreat
+	await repos.tableMesa
+		.createQueryBuilder()
+		.update(TableMesa)
+		.set({ liderId: null, colider1Id: null, colider2Id: null })
+		.where('retreatId = :retreatId', { retreatId })
+		.execute();
 };
 
 export const exportTablesToDocx = async (retreatId: string, dataSource?: DataSource) => {

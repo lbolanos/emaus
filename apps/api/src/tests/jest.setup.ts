@@ -30,6 +30,7 @@ import { TelemetryDashboard } from '../entities/telemetryDashboard.entity';
 import { Tag } from '../entities/tag.entity';
 import { ParticipantTag } from '../entities/participantTag.entity';
 import { AuditLog } from '../entities/auditLog.entity';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 // Note: RoleRequest and PermissionOverride excluded due to SQLite incompatibility
 import { Session } from '../entities/session.entity';
 import { UserProfile } from '../entities/userProfile.entity';
@@ -74,6 +75,7 @@ const entities = [
 	Tag,
 	ParticipantTag,
 	AuditLog,
+	RetreatParticipant,
 ];
 
 // Test database connection singleton
@@ -125,6 +127,7 @@ export async function clearTestData(dataSource: DataSource): Promise<void> {
 		'payment',
 		'participant_tag',
 		'participant_communication',
+		'retreat_participants',
 		'participant',
 		'retreat_inventory',
 		'retreat_bed',

@@ -6,6 +6,7 @@ import {
 	assignWalkerToTable as assignWalkerToTableApi,
 	unassignLeader as unassignLeaderApi,
 	unassignWalker as unassignWalkerApi,
+	clearAllTables as clearAllTablesApi,
 	api,
 } from '@/services/api';
 import type { TableMesa } from '@repo/types';
@@ -153,6 +154,21 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
 		}
 	};
 
+	const clearAllTables = async (retreatId: string) => {
+		isLoading.value = true;
+		try {
+			await clearAllTablesApi(retreatId);
+			await fetchTables();
+			await participantStore.fetchParticipants();
+		} catch (e: any) {
+			error.value = 'Failed to clear all tables.';
+			toast({ title: 'Error', description: error.value, variant: 'destructive' });
+			console.error(e);
+		} finally {
+			isLoading.value = false;
+		}
+	};
+
 	const createTable = async () => {
 		if (!retreatStore.selectedRetreatId) return;
 		try {
@@ -201,6 +217,7 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
 		assignLeader,
 		assignWalkerToTable,
 		rebalanceTables,
+		clearAllTables,
 		unassignLeader,
 		unassignWalkerFromTable,
 		createTable,

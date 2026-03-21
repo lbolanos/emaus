@@ -143,6 +143,16 @@ export const unassignWalker = async (req: Request, res: Response, next: NextFunc
 	}
 };
 
+export const clearAllTables = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { retreatId } = req.params;
+		await tableMesaService.clearAllTablesForRetreat(retreatId);
+		res.status(200).json({ message: 'All tables cleared successfully' });
+	} catch (error: any) {
+		next(error);
+	}
+};
+
 export const exportTablesToDocx = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const { retreatId } = req.params;

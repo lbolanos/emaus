@@ -9,7 +9,7 @@ import { CreateParticipant, UpdateParticipant } from '@repo/types';
 import { rebalanceTablesForRetreat, assignLeaderToTable } from './tableMesaService';
 import { EmailService } from './emailService';
 import { BedQueryUtils } from '../utils/bedQueryUtils';
-import { In, Not, IsNull, ILike, Brackets } from 'typeorm';
+import { In, Not, IsNull, ILike, Brackets, EntityManager } from 'typeorm';
 import {
 	createHistoryEntry,
 	autoSetPrimaryRetreat,
@@ -21,6 +21,21 @@ import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 const participantRepository = AppDataSource.getRepository(Participant);
 const tableMesaRepository = AppDataSource.getRepository(TableMesa);
 const paymentRepository = AppDataSource.getRepository(Payment);
+
+// ==================== HELPERS ====================
+
+const getNextIdOnRetreat = async (
+	retreatId: string,
+	entityManager?: EntityManager,
+): Promise<number> => {
+	const repo = (entityManager ?? AppDataSource).getRepository(RetreatParticipant);
+	const result = await repo
+		.createQueryBuilder('rp')
+		.select('MAX(rp."idOnRetreat")', 'maxId')
+		.where('rp."retreatId" = :retreatId', { retreatId })
+		.getRawOne();
+	return (result?.maxId || 0) + 1;
+};
 
 // ==================== PARTICIPANT LOOKUP FUNCTIONS ====================
 
@@ -113,6 +128,7 @@ export const confirmExistingParticipant = async (
 		});
 
 		if (!existingRp) {
+			const nextId = await getNextIdOnRetreat(retreatId, transactionalEntityManager);
 			const rpData: CreateHistoryData = {
 				userId: existing.userId || null,
 				participantId: existing.id,
@@ -121,6 +137,7 @@ export const confirmExistingParticipant = async (
 				isPrimaryRetreat: false,
 				type,
 				isCancelled: false,
+				idOnRetreat: nextId,
 			};
 			const rp = historyRepo.create(rpData);
 			await historyRepo.save(rp);
@@ -128,6 +145,9 @@ export const confirmExistingParticipant = async (
 			existingRp.type = type;
 			existingRp.isCancelled = false;
 			existingRp.roleInRetreat = 'server';
+			if (existingRp.idOnRetreat == null) {
+				existingRp.idOnRetreat = await getNextIdOnRetreat(retreatId, transactionalEntityManager);
+			}
 			await historyRepo.save(existingRp);
 		}
 
@@ -755,7 +775,9 @@ export const createParticipant = async (
 						type: newType,
 						isCancelled: newCancelled ?? false,
 						tableId: newTableId ?? null,
-						idOnRetreat: newIdOnRetreat ?? null,
+						idOnRetreat: newIdOnRetreat != null
+							? (typeof newIdOnRetreat === 'string' ? parseInt(newIdOnRetreat, 10) || null : newIdOnRetreat)
+							: await getNextIdOnRetreat(updatedParticipant.retreatId, transactionalEntityManager),
 						familyFriendColor: newColor || null,
 					};
 
@@ -780,6 +802,16 @@ export const createParticipant = async (
 								: newType === 'server' || newType === 'partial_server'
 									? 'server'
 									: 'walker';
+						if (newIdOnRetreat != null) {
+							existingRp.idOnRetreat = typeof newIdOnRetreat === 'string'
+								? parseInt(newIdOnRetreat, 10) || existingRp.idOnRetreat
+								: newIdOnRetreat;
+						} else if (existingRp.idOnRetreat == null) {
+							existingRp.idOnRetreat = await getNextIdOnRetreat(updatedParticipant.retreatId, transactionalEntityManager);
+						}
+						if (newColor !== undefined) {
+							existingRp.familyFriendColor = newColor || null;
+						}
 						await rpRepo.save(existingRp);
 					}
 
@@ -977,13 +1009,7 @@ export const createParticipant = async (
 			}
 		}
 
-		const rpRepoForMax = transactionalEntityManager.getRepository(RetreatParticipant);
-		const maxIdOnRetreat = await rpRepoForMax
-			.createQueryBuilder('rp')
-			.select('MAX(rp."idOnRetreat")', 'maxId')
-			.where('rp."retreatId" = :retreatId', { retreatId: participantData.retreatId })
-			.getRawOne();
-		const id_on_retreat = (maxIdOnRetreat.maxId || 0) + 1;
+		const id_on_retreat = await getNextIdOnRetreat(participantData.retreatId!, transactionalEntityManager);
 
 		const { retreatBed, tableMesa, type, isCancelled, tableId, id_on_retreat: _idOnRetreat, family_friend_color, ...restOfParticipantData } = participantData;
 
@@ -1326,7 +1352,7 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
 	}
 
 	return {
-		id_on_retreat: str(participant.id),
+		id_on_retreat: participant.id != null ? parseInt(String(participant.id).trim(), 10) || undefined : undefined,
 		type: mappedType,
 		firstName: str(participant.nombre) || '',
 		lastName: str(participant.apellidos),

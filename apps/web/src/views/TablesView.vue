@@ -1,4 +1,5 @@
 <template>
+  <TooltipProvider :delay-duration="300">
   <div class="h-full flex flex-col">
     <!-- Sticky Header -->
     <div class="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 sm:p-3 lg:p-4 border-b">
@@ -66,6 +67,10 @@
               <RefreshCw class="mr-2 h-4 w-4" />
               {{ $t('tables.rebalanceWalkers') }}
             </DropdownMenuItem>
+            <DropdownMenuItem @click="isClearAllDialogOpen = true">
+              <UserX class="mr-2 h-4 w-4" />
+              {{ $t('tables.clearAll') }}
+            </DropdownMenuItem>
             <DropdownMenuItem @click="handleCreateTable">
               <Plus class="mr-2 h-4 w-4" />
               {{ $t('tables.addTable') }}
@@ -99,19 +104,23 @@
             class="mt-1 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[40px] max-h-32 overflow-y-auto flex flex-wrap gap-2 transition-colors"
             :class="{ 'border-primary bg-primary/10 border-dashed border-2': isOverUnassignedServer }"
           >
-            <div
+            <ParticipantTooltip
               v-for="server in unassignedServers"
               :key="server.id"
-              draggable="true"
-              @dragstart="startDrag($event, server)"
-              @dragend="handleDragEnd"
-              :data-participant-id="server.id"
-              :data-is-unassigned="true"
-              class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium cursor-grab transition-all"
-              :class="getParticipantHighlightClass(server.id)"
+              :participant="server"
             >
-              {{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
-            </div>
+              <div
+                draggable="true"
+                @dragstart="startDrag($event, server)"
+                @dragend="handleDragEnd"
+                :data-participant-id="server.id"
+                :data-is-unassigned="true"
+                class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium cursor-grab transition-all"
+                :class="getParticipantHighlightClass(server.id)"
+              >
+                {{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
+              </div>
+            </ParticipantTooltip>
           </div>
         </div>
         <!-- Unassigned Walkers -->
@@ -125,19 +134,23 @@
             class="mt-1 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[40px] max-h-32 overflow-y-auto flex flex-wrap gap-2 transition-colors"
             :class="{ 'border-primary bg-primary/10 border-dashed border-2': isOverUnassignedWalker }"
           >
-            <div
+            <ParticipantTooltip
               v-for="walker in unassignedWalkers"
               :key="walker.id"
-              draggable="true"
-              @dragstart="startDrag($event, walker)"
-              @dragend="handleDragEnd"
-              :data-participant-id="walker.id"
-              :data-is-unassigned="true"
-              class="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium cursor-grab transition-all"
-              :class="getParticipantHighlightClass(walker.id)"
+              :participant="walker"
             >
-              {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
-            </div>
+              <div
+                draggable="true"
+                @dragstart="startDrag($event, walker)"
+                @dragend="handleDragEnd"
+                :data-participant-id="walker.id"
+                :data-is-unassigned="true"
+                class="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium cursor-grab transition-all"
+                :class="getParticipantHighlightClass(walker.id)"
+              >
+                {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
+              </div>
+            </ParticipantTooltip>
           </div>
         </div>
       </div>
@@ -171,42 +184,65 @@
     </div>
     </div>
 
-    <!-- Rebalance Confirmation Dialog -->
-    <Dialog :open="isRebalanceDialogOpen" @update:open="isRebalanceDialogOpen = $event">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{{ $t('tables.rebalanceConfirmation.title') }}</DialogTitle>
-          <DialogDescription>{{ $t('tables.rebalanceConfirmation.description') }}</DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
+  </div>
+  </TooltipProvider>
+
+  <!-- Rebalance Confirmation Dialog -->
+  <Teleport to="body" v-if="isRebalanceDialogOpen">
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" @click.self="isRebalanceDialogOpen = false">
+      <div class="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-md w-full">
+        <div class="p-6">
+          <h2 class="text-lg font-semibold">{{ $t('tables.rebalanceConfirmation.title') }}</h2>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">{{ $t('tables.rebalanceConfirmation.description') }}</p>
+        </div>
+        <div class="flex items-center justify-end gap-2 p-6 border-t">
           <Button variant="outline" @click="isRebalanceDialogOpen = false">{{ $t('common.cancel') }}</Button>
           <Button @click="confirmRebalance" :disabled="isRebalancing">
             <Loader2 v-if="isRebalancing" class="w-4 h-4 mr-2 animate-spin" />
-            {{
-              isRebalancing ? $t('tables.rebalanceConfirmation.rebalancing') : $t('tables.rebalanceConfirmation.confirm')
-            }}
+            {{ isRebalancing ? $t('tables.rebalanceConfirmation.rebalancing') : $t('tables.rebalanceConfirmation.confirm') }}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 
-    <!-- Delete Table Confirmation Dialog -->
-    <Dialog :open="isDeleteDialogOpen" @update:open="isDeleteDialogOpen = $event">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{{ $t('tables.deleteTable.title') }}</DialogTitle>
-          <DialogDescription>{{ $t('tables.deleteTable.description') }}</DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
+  <!-- Clear All Tables Confirmation Dialog -->
+  <Teleport to="body" v-if="isClearAllDialogOpen">
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" @click.self="isClearAllDialogOpen = false">
+      <div class="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-md w-full">
+        <div class="p-6">
+          <h2 class="text-lg font-semibold">{{ $t('tables.clearAllConfirmation.title') }}</h2>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">{{ $t('tables.clearAllConfirmation.description') }}</p>
+        </div>
+        <div class="flex items-center justify-end gap-2 p-6 border-t">
+          <Button variant="outline" @click="isClearAllDialogOpen = false">{{ $t('common.cancel') }}</Button>
+          <Button variant="destructive" @click="confirmClearAll" :disabled="isClearingAll">
+            <Loader2 v-if="isClearingAll" class="w-4 h-4 mr-2 animate-spin" />
+            {{ isClearingAll ? $t('tables.clearAllConfirmation.clearing') : $t('tables.clearAllConfirmation.confirm') }}
+          </Button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- Delete Table Confirmation Dialog -->
+  <Teleport to="body" v-if="isDeleteDialogOpen">
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" @click.self="isDeleteDialogOpen = false">
+      <div class="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-md w-full">
+        <div class="p-6">
+          <h2 class="text-lg font-semibold">{{ $t('tables.deleteTable.title') }}</h2>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">{{ $t('tables.deleteTable.description') }}</p>
+        </div>
+        <div class="flex items-center justify-end gap-2 p-6 border-t">
           <Button variant="outline" @click="isDeleteDialogOpen = false">{{ $t('common.cancel') }}</Button>
           <Button variant="destructive" @click="confirmDeleteTable" :disabled="isDeleting">
             <Loader2 v-if="isDeleting" class="w-4 h-4 mr-2 animate-spin" />
             {{ $t('common.delete') }}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  </div>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -215,10 +251,11 @@ import { useTableMesaStore } from '@/stores/tableMesaStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import TableCard from './TableCard.vue';
-import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui';
+import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, TooltipProvider } from '@repo/ui';
+import ParticipantTooltip from '@/components/ParticipantTooltip.vue';
 import { useToast } from '@repo/ui';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@repo/ui';
-import { ChevronLeft, ChevronRight, Download, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw } from 'lucide-vue-next';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@repo/ui';
+import { ChevronLeft, ChevronRight, Download, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw, UserX } from 'lucide-vue-next';
 import type { Participant, TableMesa } from '@repo/types';
 import { useI18n } from 'vue-i18n';
 import { exportTablesToDocx } from '@/services/api';
@@ -238,6 +275,8 @@ const isOverUnassignedWalker = ref(false);
 const isDeleteDialogOpen = ref(false);
 const isDeleting = ref(false);
 const tableToDelete = ref<TableMesa | null>(null);
+const isClearAllDialogOpen = ref(false);
+const isClearingAll = ref(false);
 const isExporting = ref(false);
 const columnCount = ref(localStorage.getItem('tables_column_count') || '3');
 
@@ -495,6 +534,28 @@ const confirmRebalance = async () => {
       });
     } finally {
       isRebalancing.value = false;
+    }
+  }
+};
+
+const confirmClearAll = async () => {
+  if (retreatStore.selectedRetreatId) {
+    isClearingAll.value = true;
+    try {
+      await tableMesaStore.clearAllTables(retreatStore.selectedRetreatId);
+      toast({
+        title: t('tables.clearAllConfirmation.successTitle'),
+        description: t('tables.clearAllConfirmation.successDescription'),
+      });
+    } catch (error) {
+      toast({
+        title: t('tables.clearAllConfirmation.errorTitle'),
+        description: t('tables.clearAllConfirmation.errorDescription'),
+        variant: 'destructive',
+      });
+    } finally {
+      isClearingAll.value = false;
+      isClearAllDialogOpen.value = false;
     }
   }
 };

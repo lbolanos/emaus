@@ -364,6 +364,10 @@ export class Participant {
 		plainObject.hasPayments = this.hasPayments;
 		plainObject.lastPaymentDate = this.lastPaymentDate;
 
+		// Ensure virtual fields from retreat_participants are present
+		if (this.id_on_retreat !== undefined) plainObject.id_on_retreat = this.id_on_retreat;
+		if (this.type !== undefined) plainObject.type = this.type;
+
 		return plainObject;
 	}
 }

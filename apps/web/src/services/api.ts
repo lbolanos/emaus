@@ -114,6 +114,10 @@ export const unassignWalker = async (tableId: string, walkerId: string): Promise
 	return response.data;
 };
 
+export const clearAllTables = async (retreatId: string): Promise<void> => {
+	await api.post(`/tables/clear-all/${retreatId}`);
+};
+
 export const exportTablesToDocx = async (retreatId: string): Promise<void> => {
 	const response = await api.post(
 		`/tables/export/${retreatId}`,

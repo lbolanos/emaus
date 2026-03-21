@@ -476,6 +476,11 @@ mejorar la pagina de impresion de cuartos color el logo de emaus y ponerla bonit
 verificar porque sale sin cuarto algunos caminantes en la pagina https://emaus.cc/app/walker-badges  a pesar de que si tienen cuarto
 usar la ia para conversar y agregar o quitar base de datos.
 
+Los id del retiro estan apareciendo con N/A
+en la asignacion de mesas agregar boton para sacar a todos los participantes de todas las mesas.
+en la asignacion de mesas tanto los servidores como los caminantes al mouse over se debe mostrar los detalles del participante.
+
+
 ## IN PROGRESS
 El gafete debe ser de color diferente para servidor y para caminante.
 
@@ -493,9 +498,6 @@ agregar todas las actividades por servidor
 <
 
 ## TODO
-Los id del retiro estan apareciendo con N/A
-en la asignacion de mesas agregar boton para sacar a todos los participantes de todas las mesas.
-tanto los servidores como los caminantes al mouse over se debe mostrar los detalles del participante.
 
 Cuando se asigna al servidor en una responsabilidad se agregue como lider del equipo de servicio y al revez tambien.
 

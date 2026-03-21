@@ -381,6 +381,7 @@
     "noParticipantsFound": "No se encontraron participantes para este retiro.",
     "noParticipantsMatch": "Ningún participante coincide con los filtros.",
     "addParticipant": "Agregar Participante",
+    "refresh": "Actualizar tabla",
     "selectColumns": "Seleccionar Columnas",
     "delete": {
       "confirmMessage1": "Esta acción no se puede deshacer. Esto eliminará permanentemente a",
@@ -941,6 +942,17 @@
       "successDescription": "Los caminantes han sido rebalanceados exitosamente entre las mesas.",
       "errorTitle": "Fallo el Rebalanceo",
       "errorDescription": "Ocurrió un error al rebalancear los caminantes. Por favor, inténtalo de nuevo."
+    },
+    "clearAll": "Vaciar Todas las Mesas",
+    "clearAllConfirmation": {
+      "title": "Vaciar Todas las Mesas",
+      "description": "¿Estás seguro de que quieres sacar a todos los participantes (caminantes y servidores) de todas las mesas? Esta acción no se puede deshacer.",
+      "confirm": "Vaciar Mesas",
+      "clearing": "Vaciando...",
+      "successTitle": "Mesas Vaciadas",
+      "successDescription": "Todos los participantes han sido removidos de las mesas.",
+      "errorTitle": "Error al Vaciar Mesas",
+      "errorDescription": "Ocurrió un error al vaciar las mesas."
     },
     "addTable": "Agregar Mesa",
     "column": "Columna",

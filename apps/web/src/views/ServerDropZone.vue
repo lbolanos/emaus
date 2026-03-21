@@ -12,17 +12,18 @@
     <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ title }}</h4>
     <div class="mt-2 min-h-[20px]">
       <transition name="list-item" mode="out-in">
-        <div
-          v-if="participant"
-          :key="participant.id"
-          draggable="true"
-          @dragstart.stop="$emit('dragstart', $event, participant)"
-          @dragend.stop="$emit('dragend', $event)"
-          :title="`${participant.firstName} ${participant.lastName}`"
-          class="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-sm font-medium inline-block cursor-grab"
-        >
-          {{ participant.firstName.split(' ')[0] }} {{ participant.lastName.charAt(0) }}.
-        </div>
+        <span v-if="participant" :key="participant.id" class="inline-block">
+          <ParticipantTooltip :participant="participant">
+            <div
+              draggable="true"
+              @dragstart.stop="$emit('dragstart', $event, participant)"
+              @dragend.stop="$emit('dragend', $event)"
+              class="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-sm font-medium inline-block cursor-grab"
+            >
+              {{ participant.firstName.split(' ')[0] }} {{ participant.lastName.charAt(0) }}.
+            </div>
+          </ParticipantTooltip>
+        </span>
         <span v-else :key="`empty-${role}`" class="text-gray-400 text-sm">{{ $t('tables.unassigned') }}</span>
       </transition>
     </div>
@@ -32,6 +33,7 @@
 <script setup lang="ts">
 import type { PropType } from 'vue';
 import type { Participant } from '@repo/types';
+import ParticipantTooltip from '@/components/ParticipantTooltip.vue';
 
 defineProps({
   title: {

@@ -81,21 +81,26 @@
           >
             <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $t('tables.walkers') }} ({{ table.walkers?.length || 0 }})</h4>
             <transition-group v-if="table.walkers && table.walkers.length > 0" tag="div" name="list-item" class="mt-2 flex flex-wrap gap-2 min-h-[34px]">
-              <div
+              <span
                 v-for="walker in table.walkers"
                 :key="`${walker.id}-${searchIndexKey}`"
-                draggable="true"
-                @dragstart="startDragFromTable($event, walker, 'walkers')"
-                @dragend="handleDragEnd"
-                :title="`${$t('tables.tableCard.retreatId')}: ${walker.id_on_retreat || $t('tables.tableCard.notAvailable')}\n${walker.firstName} ${walker.lastName}\n${$t('tables.invitedBy')}: ${walker.invitedBy || $t('common.unknown')}\n${$t('tables.tableCard.bedLocation')}: ${getBedLocation(walker) || $t('tables.tableCard.notAvailable')}`"
-                :style="{ borderColor: walker.family_friend_color }"
-                :data-participant-id="walker.id"
-                :data-table-id="table.id"
-                class="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm font-medium cursor-grab border-2 transition-all"
-                :class="getParticipantHighlightClass(walker)"
+                class="inline-block"
               >
-                {{ walker.id_on_retreat || '?' }} {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
-              </div>
+                <ParticipantTooltip :participant="walker">
+                  <div
+                    draggable="true"
+                    @dragstart="startDragFromTable($event, walker, 'walkers')"
+                    @dragend="handleDragEnd"
+                    :style="{ borderColor: walker.family_friend_color }"
+                    :data-participant-id="walker.id"
+                    :data-table-id="table.id"
+                    class="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm font-medium cursor-grab border-2 transition-all"
+                    :class="getParticipantHighlightClass(walker)"
+                  >
+                    {{ walker.id_on_retreat || '?' }} {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
+                  </div>
+                </ParticipantTooltip>
+              </span>
             </transition-group>
             <span v-else class="text-gray-400 text-sm mt-2 block">{{ $t('tables.unassigned') }}</span>
           </div>
@@ -166,6 +171,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui';
 import { useTableMesaStore } from '@/stores/tableMesaStore';
 import { useI18n } from 'vue-i18n';
 import ServerDropZone from './ServerDropZone.vue';
+import ParticipantTooltip from '@/components/ParticipantTooltip.vue';
 import { useToast } from '@repo/ui';
 import { useDragState } from '@/composables/useDragState';
 

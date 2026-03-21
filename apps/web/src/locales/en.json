@@ -325,6 +325,7 @@
     "noParticipantsFound": "No participants found for this retreat.",
     "noParticipantsMatch": "No participants match your filters.",
     "addParticipant": "Add Participant",
+    "refresh": "Refresh table",
     "selectColumns": "Select columns",
     "delete": {
       "confirmMessage1": "This action cannot be undone. This will permanently delete",
@@ -892,6 +893,17 @@
       "successDescription": "Walkers have been successfully rebalanced across the tables.",
       "errorTitle": "Rebalance Failed",
       "errorDescription": "An error occurred while rebalancing the walkers. Please try again."
+    },
+    "clearAll": "Clear All Tables",
+    "clearAllConfirmation": {
+      "title": "Clear All Tables",
+      "description": "Are you sure you want to remove all participants (walkers and servers) from all tables? This action cannot be undone.",
+      "confirm": "Clear Tables",
+      "clearing": "Clearing...",
+      "successTitle": "Tables Cleared",
+      "successDescription": "All participants have been removed from the tables.",
+      "errorTitle": "Error Clearing Tables",
+      "errorDescription": "An error occurred while clearing the tables."
     },
     "addTable": "Add Table",
     "column": "Column",
