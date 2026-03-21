@@ -32,7 +32,7 @@
     "db:reset-password": "bash scripts/reset-password.sh",
     "db:reset-password:prod": "bash scripts/reset-password.sh --prod",
     "db:pull": "scp -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105:/var/www/emaus/apps/api/database.sqlite apps/api/database.sqlite 2>&1 && echo '✅ Database copied from AWS'",
-    "db:push": "scp -i ~/.ssh/emaus-key.pem apps/api/database.sqlite ubuntu@3.138.49.105:/var/www/emaus/apps/api/database.sqlite 2>&1 && echo '✅ Database uploaded to AWS'",
+    "db:push": "bash -c 'echo \"⚠️  This will OVERWRITE the production database on AWS.\"; read -p \"Are you sure? (y/N): \" confirm; [[ \"$confirm\" == [yY] ]] && scp -i ~/.ssh/emaus-key.pem apps/api/database.sqlite ubuntu@3.138.49.105:/var/www/emaus/apps/api/database.sqlite 2>&1 && echo \"✅ Database uploaded to AWS\" || echo \"❌ Cancelled.\"'",
     "db:backup": "ssh -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105 'bash /var/www/emaus/backup-db.sh'",
     "prod:restart": "ssh -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105 'pm2 restart emaus-api && pm2 status emaus-api'",
     "tunnel": "bash scripts/tunnel-start.sh",
