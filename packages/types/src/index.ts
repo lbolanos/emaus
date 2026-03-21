@@ -116,6 +116,7 @@ export const retreatSchema = z.object({
 	flyer_options: flyerOptionsSchema.optional(),
 	memoryPhotoUrl: z.string().url().optional().or(z.literal('')),
 	musicPlaylistUrl: z.string().url().optional().or(z.literal('')),
+	createdBy: z.string().uuid().optional(),
 });
 export type Retreat = z.infer<typeof retreatSchema>;
 

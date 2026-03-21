@@ -1,9 +1,11 @@
-import { Response, Request } from 'express';
+import { Response } from 'express';
 import { authorizationService, AuthenticatedRequest } from '../middleware/authorization';
 import { retreatRoleService } from '../services/retreatRoleService';
 import { Role } from '../entities/role.entity';
 import { AppDataSource } from '../data-source';
 import { In } from 'typeorm';
+
+const ASSIGNABLE_ROLES = ['admin', 'treasurer', 'logistics', 'communications', 'regular_server'];
 
 export const inviteUserToRetreat = async (req: AuthenticatedRequest, res: Response) => {
 	try {
@@ -17,6 +19,10 @@ export const inviteUserToRetreat = async (req: AuthenticatedRequest, res: Respon
 
 		if (!email || !roleName) {
 			return res.status(400).json({ message: 'Email and role name are required' });
+		}
+
+		if (!ASSIGNABLE_ROLES.includes(roleName)) {
+			return res.status(400).json({ message: 'Invalid role' });
 		}
 
 		const userRetreat = await retreatRoleService.inviteUserToRetreat(
@@ -42,8 +48,17 @@ export const inviteUserToRetreat = async (req: AuthenticatedRequest, res: Respon
 		});
 	} catch (error) {
 		console.error('Error inviting user to retreat:', error);
-		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-		res.status(500).json({ message: 'Internal server error', error: errorMessage });
+		const msg = error instanceof Error ? error.message : '';
+		if (msg === 'User not found') {
+			return res.status(404).json({ message: 'Resource not found' });
+		}
+		if (msg === 'Role not found') {
+			return res.status(400).json({ message: 'Invalid request' });
+		}
+		if (msg.includes('Only retreat creator')) {
+			return res.status(403).json({ message: 'Forbidden' });
+		}
+		res.status(500).json({ message: 'Internal server error' });
 	}
 };
 
@@ -60,8 +75,14 @@ export const removeUserFromRetreat = async (req: AuthenticatedRequest, res: Resp
 		res.json({ message: 'User removed from retreat successfully' });
 	} catch (error) {
 		console.error('Error removing user from retreat:', error);
-		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-		res.status(500).json({ message: 'Internal server error', error: errorMessage });
+		const msg = error instanceof Error ? error.message : '';
+		if (msg === 'User not found') {
+			return res.status(404).json({ message: 'Resource not found' });
+		}
+		if (msg.includes('Only retreat creator')) {
+			return res.status(403).json({ message: 'Forbidden' });
+		}
+		res.status(500).json({ message: 'Internal server error' });
 	}
 };
 
@@ -79,8 +100,7 @@ export const getRetreatUsers = async (req: AuthenticatedRequest, res: Response) 
 		res.json(users);
 	} catch (error) {
 		console.error('Error getting retreat users:', error);
-		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-		res.status(500).json({ message: 'Internal server error', error: errorMessage });
+		res.status(500).json({ message: 'Internal server error' });
 	}
 };
 
@@ -108,8 +128,7 @@ export const getUserRetreats = async (req: AuthenticatedRequest, res: Response) 
 		res.json(retreats);
 	} catch (error) {
 		console.error('Error getting user retreats:', error);
-		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-		res.status(500).json({ message: 'Internal server error', error: errorMessage });
+		res.status(500).json({ message: 'Internal server error' });
 	}
 };
 
@@ -136,8 +155,14 @@ export const approveRetreatInvitation = async (req: AuthenticatedRequest, res: R
 		});
 	} catch (error) {
 		console.error('Error approving retreat invitation:', error);
-		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-		res.status(500).json({ message: 'Internal server error', error: errorMessage });
+		const msg = error instanceof Error ? error.message : '';
+		if (msg === 'User not found' || msg === 'Pending invitation not found') {
+			return res.status(404).json({ message: 'Resource not found' });
+		}
+		if (msg.includes('Only retreat creator')) {
+			return res.status(403).json({ message: 'Forbidden' });
+		}
+		res.status(500).json({ message: 'Internal server error' });
 	}
 };
 
@@ -154,12 +179,18 @@ export const rejectRetreatInvitation = async (req: AuthenticatedRequest, res: Re
 		res.json({ message: 'Invitation rejected successfully' });
 	} catch (error) {
 		console.error('Error rejecting retreat invitation:', error);
-		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-		res.status(500).json({ message: 'Internal server error', error: errorMessage });
+		const msg = error instanceof Error ? error.message : '';
+		if (msg === 'User not found' || msg === 'Pending invitation not found') {
+			return res.status(404).json({ message: 'Resource not found' });
+		}
+		if (msg.includes('Only retreat creator')) {
+			return res.status(403).json({ message: 'Forbidden' });
+		}
+		res.status(500).json({ message: 'Internal server error' });
 	}
 };
 
-export const getAvailableRoles = async (req: Request, res: Response) => {
+export const getAvailableRoles = async (req: AuthenticatedRequest, res: Response) => {
 	try {
 		const roleRepository = AppDataSource.getRepository(Role);
 		const roles = await roleRepository.find({
@@ -172,7 +203,6 @@ export const getAvailableRoles = async (req: Request, res: Response) => {
 		res.json(roles);
 	} catch (error) {
 		console.error('Error getting available roles:', error);
-		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-		res.status(500).json({ message: 'Internal server error', error: errorMessage });
+		res.status(500).json({ message: 'Internal server error' });
 	}
 };

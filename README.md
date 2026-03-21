@@ -493,7 +493,11 @@ agregar todas las actividades por servidor
 <
 
 ## TODO
+Los id del retiro estan apareciendo con N/A
+en la asignacion de mesas agregar boton para sacar a todos los participantes de todas las mesas.
+tanto los servidores como los caminantes al mouse over se debe mostrar los detalles del participante.
 
+Cuando se asigna al servidor en una responsabilidad se agregue como lider del equipo de servicio y al revez tambien.
 
 Crear un retiro a partir de los datos del anterior retiro. Casa de retiro, inventario, mensajes.
 

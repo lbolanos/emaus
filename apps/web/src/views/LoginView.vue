@@ -174,7 +174,7 @@ const handleLogin = async () => {
   error.value = null;
   try {
     const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.LOGIN);
-    await authStore.login(email.value, password.value, recaptchaToken);
+    await authStore.login(email.value.toLowerCase().trim(), password.value, recaptchaToken);
     await retreatStore.fetchRetreats();
     if (retreatStore.mostRecentRetreat) {
       router.push({ name: 'retreat-dashboard', params: { id: retreatStore.mostRecentRetreat.id } });
@@ -199,7 +199,7 @@ const handleRegister = async () => {
   try {
     const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.USER_REGISTER);
     await authStore.register({
-      email: email.value,
+      email: email.value.toLowerCase().trim(),
       password: password.value,
       displayName: displayName.value,
       recaptchaToken,

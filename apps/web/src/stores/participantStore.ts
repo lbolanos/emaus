@@ -46,16 +46,21 @@ export const useParticipantStore = defineStore('participant', () => {
 			console.log('[Store] fetchParticipants - Request Params:', paramsWithPayments);
 			const response = await api.get('/participants', { params: paramsWithPayments });
 			participants.value = response.data;
-		} catch (error: any) {
+		} catch (err: any) {
+			if (err.response?.status === 403) {
+				console.log('Insufficient permissions to list participants');
+				participants.value = [];
+				return;
+			}
 			const errorMessage =
-				error.response?.data?.message || error.message || `Failed to fetch participants`;
+				err.response?.data?.message || err.message || `Failed to fetch participants`;
 			error.value = errorMessage;
 			toast({
 				title: 'Error',
 				description: errorMessage,
 				variant: 'destructive',
 			});
-			throw error;
+			throw err;
 		} finally {
 			loading.value = false;
 		}
@@ -209,6 +214,15 @@ export const useParticipantStore = defineStore('participant', () => {
 		return saved || defaultColumns;
 	}
 
+	function $reset() {
+		participants.value = [];
+		tags.value = [];
+		loading.value = false;
+		loadingTags.value = false;
+		error.value = null;
+		Object.keys(filters).forEach((key) => delete filters[key]);
+	}
+
 	return {
 		participants,
 		tags,
@@ -226,5 +240,6 @@ export const useParticipantStore = defineStore('participant', () => {
 		saveColumnSelection,
 		loadColumnSelection,
 		getColumnSelection,
+		$reset,
 	};
 });

@@ -98,7 +98,7 @@
 
 
       <!-- Inventory Alerts Section -->
-      <div v-if="inventoryAlerts.length > 0" class="mt-4">
+      <div v-if="can.read('retreatInventory') && inventoryAlerts.length > 0" class="mt-4">
         <Card class="border-red-200 bg-red-50">
           <CardHeader>
             <CardTitle class="text-red-800 flex items-center">
@@ -356,8 +356,10 @@ import { Progress } from '@repo/ui';
 import InviteUsersModal from '@/components/InviteUsersModal.vue';
 import { AlertTriangle, Users, UserPlus, Clock, Copy, ExternalLink, QrCode, Loader2, Mail, FileText } from 'lucide-vue-next';
 import { formatDate } from '@repo/utils';
+import { useAuthPermissions } from '@/composables/useAuthPermissions';
 
 const { t } = useI18n();
+const { can } = useAuthPermissions();
 const route = useRoute();
 const router = useRouter();
 const retreatStore = useRetreatStore();
@@ -440,10 +442,11 @@ const loadRetreatData = async (retreatId: string) => {
     await retreatStore.fetchRetreat(retreatId);
     participantStore.filters.retreatId = retreatId;
 
-    await Promise.all([
-      participantStore.fetchParticipants(),
-      inventoryStore.fetchInventoryAlerts(retreatId),
-    ]);
+    const fetches: Promise<any>[] = [participantStore.fetchParticipants()];
+    if (can.read('retreatInventory')) {
+      fetches.push(inventoryStore.fetchInventoryAlerts(retreatId));
+    }
+    await Promise.all(fetches);
   } catch (err) {
     error.value = 'Error al cargar los datos del retiro';
     console.error('Error loading retreat data:', err);

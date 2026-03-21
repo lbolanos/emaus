@@ -61,14 +61,8 @@ api.interceptors.response.use(
 				description: 'Tu sesión ha expirado. Por favor inicia sesión nuevamente.',
 				variant: 'destructive',
 			});
-		} else if (error.response?.status === 403) {
-			// Forbidden - permission denied
-			toast({
-				title: 'Acceso denegado',
-				description: 'No tienes permisos para realizar esta acción.',
-				variant: 'destructive',
-			});
 		}
+		// 403 errors are handled individually by stores/components to avoid toast spam
 
 		return Promise.reject(error);
 	},

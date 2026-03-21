@@ -42,7 +42,7 @@
                 <div class="text-sm font-medium truncate">{{ auth.user.displayName }}</div>
                 <template v-if="isRetreatSection">
                   <div v-if="currentRetreatRole" class="text-xs text-blue-400 truncate">
-                    {{ currentRetreatRole.name }}
+                    {{ roleDisplayName }}
                   </div>
                   <div v-else-if="retreatStore.selectedRetreatId" class="text-xs text-gray-500">
                     No role
@@ -56,7 +56,7 @@
             <DropdownMenuLabel>
               <div>{{ auth.user.displayName }}</div>
               <div v-if="isRetreatSection && currentRetreatRole" class="text-xs font-normal text-muted-foreground">
-                {{ currentRetreatRole.name }}
+                {{ roleDisplayName }}
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
@@ -399,6 +399,21 @@ const { can, currentRetreatRole } = useAuthPermissions();
 const route = useRoute();
 const { isRetreatSection, currentSectionTitle } = useRouteContext();
 const { locale, t } = useI18n();
+
+const ROLE_DISPLAY_NAMES: Record<string, string> = {
+  superadmin: 'Super Administrador',
+  region_admin: 'Admin Regional',
+  regular: 'Usuario',
+  admin: 'Administrador',
+  treasurer: 'Tesorero',
+  logistics: 'Logística',
+  communications: 'Comunicaciones',
+  regular_server: 'Servidor',
+};
+const roleDisplayName = computed(() => {
+  if (!currentRetreatRole.value) return '';
+  return ROLE_DISPLAY_NAMES[currentRetreatRole.value.name] || currentRetreatRole.value.name;
+});
 
 const setLocale = (lang: string) => {
   locale.value = lang;

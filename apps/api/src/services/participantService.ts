@@ -29,10 +29,12 @@ const paymentRepository = AppDataSource.getRepository(Payment);
  * Returns the most recent participant record for this email
  */
 export const findParticipantByEmail = async (email: string): Promise<Participant | null> => {
-	return await participantRepository.findOne({
-		where: { email },
-		order: { registrationDate: 'DESC' }, // Most recent first
-	});
+	const normalizedEmail = email.toLowerCase().trim();
+	return await participantRepository
+		.createQueryBuilder('participant')
+		.where('LOWER(participant.email) = :email', { email: normalizedEmail })
+		.orderBy('participant.registrationDate', 'DESC')
+		.getOne();
 };
 
 /**
@@ -674,10 +676,14 @@ export const createParticipant = async (
 
 		// PRIMERO: Buscar si existe Participant con este email (sin filtrar por retreatId)
 		// This implements the new server registration flow where we reuse existing participants
-		const existingParticipantByEmail = await participantRepository.findOne({
-			where: { email: participantData.email },
-			order: { registrationDate: 'DESC' },
-		});
+		const normalizedEmail = participantData.email?.toLowerCase().trim();
+		const existingParticipantByEmail = normalizedEmail
+			? await participantRepository
+				.createQueryBuilder('participant')
+				.where('LOWER(participant.email) = :email', { email: normalizedEmail })
+				.orderBy('participant.registrationDate', 'DESC')
+				.getOne()
+			: null;
 
 		// SI EXISTE: Actualizar el Participant existente con nueva información del retiro
 		if (existingParticipantByEmail) {
@@ -797,9 +803,15 @@ export const createParticipant = async (
 		}
 
 		// SI NO EXISTE: Verificar que no exista en el mismo retiro (validación original)
-		const existingInRetreat = await participantRepository.findOne({
-			where: { email: participantData.email, retreatId: participantData.retreatId },
-		});
+		const existingInRetreat = normalizedEmail
+			? await participantRepository
+				.createQueryBuilder('participant')
+				.where('LOWER(participant.email) = :email AND participant.retreatId = :retreatId', {
+					email: normalizedEmail,
+					retreatId: participantData.retreatId,
+				})
+				.getOne()
+			: null;
 		if (existingInRetreat) {
 			throw new Error('A participant with this email already exists in this retreat.');
 		}
@@ -2224,9 +2236,14 @@ export const importParticipants = async (retreatId: string, participantsData: an
 
 		let participant: Participant;
 		try {
-			const existingParticipant = await participantRepository.findOne({
-				where: { email: mappedData.email, retreatId },
-			});
+			const importNormalizedEmail = mappedData.email.toLowerCase().trim();
+			const existingParticipant = await participantRepository
+				.createQueryBuilder('participant')
+				.where('LOWER(participant.email) = :email AND participant.retreatId = :retreatId', {
+					email: importNormalizedEmail,
+					retreatId,
+				})
+				.getOne();
 
 			if (existingParticipant) {
 				const { type, ...updateData } = mappedData;

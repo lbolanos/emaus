@@ -9,7 +9,7 @@ import {
 	getAvailableRoles,
 } from '../controllers/retreatRoleController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
-import { requireRetreatAccessOrCreator } from '../middleware/authorization';
+import { requireRetreatAccessOrCreator, requireRetreatCreator } from '../middleware/authorization';
 
 const router = Router();
 
@@ -19,14 +19,14 @@ router.use(isAuthenticated);
 // Invite user to retreat (only retreat creator)
 router.post(
 	'/:retreatId/invite',
-	requireRetreatAccessOrCreator('retreatId'),
+	requireRetreatCreator('retreatId'),
 	(req: any, res: any) => inviteUserToRetreat(req, res),
 );
 
 // Remove user from retreat (only retreat creator)
 router.delete(
 	'/:retreatId/users/:userId',
-	requireRetreatAccessOrCreator('retreatId'),
+	requireRetreatCreator('retreatId'),
 	(req: any, res: any) => removeUserFromRetreat(req, res),
 );
 
@@ -45,14 +45,14 @@ router.get(
 // Approve retreat invitation (only retreat creator)
 router.put(
 	'/:retreatId/invitations/:userId/approve',
-	requireRetreatAccessOrCreator('retreatId'),
+	requireRetreatCreator('retreatId'),
 	(req: any, res: any) => approveRetreatInvitation(req, res),
 );
 
 // Reject retreat invitation (only retreat creator)
 router.put(
 	'/:retreatId/invitations/:userId/reject',
-	requireRetreatAccessOrCreator('retreatId'),
+	requireRetreatCreator('retreatId'),
 	(req: any, res: any) => rejectRetreatInvitation(req, res),
 );
 

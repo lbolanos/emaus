@@ -76,6 +76,69 @@ export const createParticipant = async (req: Request, res: Response, next: NextF
 	}
 };
 
+// Safe fields that a regular_server can update on their own participant record
+const SELF_UPDATE_ALLOWED_FIELDS = [
+	'phone',
+	'emergencyContactName',
+	'emergencyContactPhone',
+	'medicalConditions',
+	'allergies',
+	'specialNeeds',
+	'address',
+	'city',
+	'state',
+	'zipCode',
+	'country',
+	'notes',
+	'disability',
+	'disabilityDetails',
+	'snoring',
+	'snoringIntensity',
+];
+
+export const updateSelfParticipant = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const user = req.user as any;
+		if (!user?.id) {
+			return res.status(401).json({ message: 'User not authenticated' });
+		}
+
+		const { retreatId, ...updateData } = req.body;
+
+		// Find participant linked to this user
+		const participant = await participantService.findAllParticipants(retreatId);
+		const selfParticipant = participant.find((p: any) => p.userId === user.id);
+
+		if (!selfParticipant) {
+			return res.status(404).json({ message: 'No participant record found for your user account' });
+		}
+
+		// Filter to only allowed fields
+		const safeData: Record<string, any> = {};
+		for (const key of SELF_UPDATE_ALLOWED_FIELDS) {
+			if (key in updateData) {
+				safeData[key] = updateData[key];
+			}
+		}
+
+		if (Object.keys(safeData).length === 0) {
+			return res.status(400).json({ message: 'No valid fields to update' });
+		}
+
+		const updatedParticipant = await participantService.updateParticipant(
+			selfParticipant.id,
+			safeData as any,
+		);
+		if (updatedParticipant) {
+			res.json(updatedParticipant);
+		} else {
+			res.status(404).json({ message: 'Participant not found' });
+		}
+	} catch (error) {
+		next(error);
+	}
+};
+
 export const updateParticipant = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const updatedParticipant = await participantService.updateParticipant(req.params.id, req.body);
@@ -139,8 +202,9 @@ export const confirmExistingParticipantEmail = async (
 				.json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
 		}
 
+		const normalizedEmail = email.toLowerCase().trim();
 		const result = await participantService.confirmExistingParticipant(
-			email,
+			normalizedEmail,
 			retreatId,
 			type || 'server',
 		);
@@ -177,7 +241,8 @@ export const checkParticipantEmail = async (req: Request, res: Response, next: N
 				.json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
 		}
 
-		const result = await participantService.checkParticipantExists(email);
+		const normalizedEmail = email.toLowerCase().trim();
+		const result = await participantService.checkParticipantExists(normalizedEmail);
 		res.json(result);
 	} catch (error) {
 		next(error);

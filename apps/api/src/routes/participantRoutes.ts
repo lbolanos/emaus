@@ -6,6 +6,7 @@ import {
 	getParticipantById,
 	importParticipants,
 	updateParticipant,
+	updateSelfParticipant,
 	checkParticipantEmail,
 	confirmExistingParticipantEmail,
 } from '../controllers/participantController';
@@ -35,6 +36,7 @@ router.post(
 	requireRetreatAccess('retreatId'),
 	importParticipants,
 );
+router.put('/self', updateSelfParticipant);
 router.put(
 	'/:id',
 	validateRequest(updateParticipantSchema),

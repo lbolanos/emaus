@@ -137,6 +137,8 @@ export const searchUsers = async (
 	const { interests, skills, location, retreatId } = filters;
 
 	// Build query for user search — exclude sensitive fields
+	// Escape LIKE wildcard characters to prevent injection
+	const escapedQuery = query.replace(/[%_\\]/g, '\\$&');
 	const queryBuilder = userRepository
 		.createQueryBuilder('user')
 		.select([
@@ -148,7 +150,10 @@ export const searchUsers = async (
 			'user.createdAt',
 		])
 		.leftJoinAndSelect('user.profile', 'profile')
-		.where('user.displayName LIKE :query OR user.email LIKE :query', { query: `%${query}%` });
+		.where(
+			"user.displayName LIKE :query ESCAPE '\\' OR user.email LIKE :query ESCAPE '\\'",
+			{ query: `%${escapedQuery}%` },
+		);
 
 	// Apply profile filters
 	if (interests && interests.length > 0) {

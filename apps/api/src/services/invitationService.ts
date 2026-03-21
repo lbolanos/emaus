@@ -62,12 +62,15 @@ export class InvitationService {
 		const usersToInvite = new Map<string, { userId: string; isNew: boolean }>();
 
 		// Separate new users from existing users
-		const emails = invitations.map((inv) => inv.email);
-		const existingUsers = await this.userRepository.find({
-			where: emails.map((email) => ({ email })),
-		});
+		const emails = invitations.map((inv) => inv.email.toLowerCase().trim());
+		const existingUsers = emails.length > 0
+			? await this.userRepository
+				.createQueryBuilder('user')
+				.where('LOWER(user.email) IN (:...emails)', { emails })
+				.getMany()
+			: [];
 
-		const existingUserEmails = new Set(existingUsers.map((u) => u.email));
+		const existingUserEmails = new Set(existingUsers.map((u) => u.email.toLowerCase()));
 		const newEmails = emails.filter((email) => !existingUserEmails.has(email));
 
 		// Create new users in transaction
@@ -80,10 +83,11 @@ export class InvitationService {
 					const expiresAt = new Date();
 					expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiration
 
-					const newUser = transactionalUserRepository.create({
+					const normalizedEmail = email.toLowerCase().trim();
+				const newUser = transactionalUserRepository.create({
 						id: uuidv4(),
-						email,
-						displayName: email.split('@')[0], // Default display name
+						email: normalizedEmail,
+						displayName: normalizedEmail.split('@')[0], // Default display name
 						isPending: true,
 						invitationToken,
 						invitationExpiresAt: expiresAt,
@@ -98,7 +102,7 @@ export class InvitationService {
 
 		// Add all existing users (both pending and active)
 		for (const user of existingUsers) {
-			usersToInvite.set(user.email, { userId: user.id, isNew: false });
+			usersToInvite.set(user.email.toLowerCase().trim(), { userId: user.id, isNew: false });
 		}
 
 		// Send invitation emails and create UserRetreat records
@@ -116,7 +120,8 @@ export class InvitationService {
 		const roleMap = new Map(roles.map((r) => [r.id, r]));
 
 		for (const invitation of invitations) {
-			if (!usersToInvite.has(invitation.email)) {
+			const normalizedInvEmail = invitation.email.toLowerCase().trim();
+			if (!usersToInvite.has(normalizedInvEmail)) {
 				usersInvited.push({
 					success: false,
 					email: invitation.email,
@@ -125,7 +130,7 @@ export class InvitationService {
 				continue;
 			}
 
-			const { userId } = usersToInvite.get(invitation.email)!;
+			const { userId } = usersToInvite.get(normalizedInvEmail)!;
 			const retreat = retreatMap.get(invitation.retreatId);
 			const role = roleMap.get(invitation.roleId);
 

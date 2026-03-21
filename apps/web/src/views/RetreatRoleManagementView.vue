@@ -9,49 +9,10 @@
         </p>
       </div>
       <div class="flex gap-2">
-        <Popover v-model:open="quickAddOpen">
-          <PopoverTrigger as-child>
-            <Button :disabled="!isRetreatCreator" variant="outline">
-              <ShieldPlus class="w-4 h-4 mr-2" />
-              Admin Rápido
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent class="w-80 p-0" align="end">
-            <Command
-              v-model:search-term="quickSearchQuery"
-              :filter-function="(_list: string[], _term: string) => _list"
-            >
-              <CommandInput
-                placeholder="Buscar usuario por nombre o email..."
-              />
-              <CommandList>
-                <CommandEmpty>
-                  {{ quickSearchQuery.length < 2 ? 'Escribe al menos 2 caracteres...' : 'No se encontraron usuarios' }}
-                </CommandEmpty>
-                <CommandGroup v-if="quickSearchResults.length > 0" heading="Usuarios">
-                  <CommandItem
-                    v-for="user in quickSearchResults"
-                    :key="user.id"
-                    :value="user.email"
-                    class="flex items-center gap-3 cursor-pointer"
-                    @select="quickAddAdmin(user)"
-                  >
-                    <Avatar class="h-8 w-8 flex-shrink-0">
-                      <AvatarImage v-if="user.photo" :src="user.photo" />
-                      <AvatarFallback class="text-xs">
-                        {{ getInitials(user.displayName) }}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div class="flex flex-col min-w-0">
-                      <span class="text-sm font-medium truncate">{{ user.displayName }}</span>
-                      <span class="text-xs text-gray-500 truncate">{{ user.email }}</span>
-                    </div>
-                  </CommandItem>
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+        <Button :disabled="!isRetreatCreator" variant="outline" @click="quickAssignOpen = true">
+          <ShieldPlus class="w-4 h-4 mr-2" />
+          Asignación Rápida
+        </Button>
         <Button @click="openInviteModal" :disabled="!isRetreatCreator">
           <UserPlus class="w-4 h-4 mr-2" />
           Invitar Usuario
@@ -350,11 +311,132 @@
         </form>
       </DialogContent>
     </Dialog>
+
+    <!-- Remove User Confirmation Dialog -->
+    <Dialog :open="showRemoveUserModal" @update:open="showRemoveUserModal = $event">
+      <DialogContent class="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Confirmar Eliminación</DialogTitle>
+          <DialogDescription>
+            ¿Estás seguro de que quieres eliminar al usuario
+            <span class="font-semibold">{{ userToRemove?.user.displayName }}</span>
+            de este retiro?
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" @click="showRemoveUserModal = false">
+            Cancelar
+          </Button>
+          <Button variant="destructive" @click="confirmRemoveUser">
+            Eliminar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <!-- Quick Assign Dialog -->
+    <Dialog :open="quickAssignOpen" @update:open="quickAssignOpen = $event">
+      <DialogContent class="sm:max-w-[450px]">
+        <DialogHeader>
+          <DialogTitle>Asignación Rápida de Rol</DialogTitle>
+          <DialogDescription>
+            Busca un usuario y asígnale un rol en este retiro
+          </DialogDescription>
+        </DialogHeader>
+
+        <div class="space-y-4">
+          <!-- Step 1: User search (when no user selected) -->
+          <div v-if="!quickSelectedUser">
+            <Command
+              v-model:search-term="quickSearchQuery"
+              :filter-function="(_list: string[], _term: string) => _list"
+              class="border rounded-lg"
+            >
+              <CommandInput placeholder="Buscar usuario por nombre o email..." />
+              <CommandList class="max-h-[200px]">
+                <CommandEmpty>
+                  {{ quickSearchQuery.length < 2 ? 'Escribe al menos 2 caracteres...' : 'No se encontraron usuarios' }}
+                </CommandEmpty>
+                <CommandGroup v-if="quickSearchResults.length > 0" heading="Usuarios">
+                  <CommandItem
+                    v-for="user in quickSearchResults"
+                    :key="user.id"
+                    :value="user.email"
+                    class="flex items-center gap-3 cursor-pointer"
+                    @select="quickSelectUser(user)"
+                  >
+                    <Avatar class="h-8 w-8 flex-shrink-0">
+                      <AvatarImage v-if="user.photo" :src="user.photo" />
+                      <AvatarFallback class="text-xs">
+                        {{ getInitials(user.displayName) }}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div class="flex flex-col min-w-0">
+                      <span class="text-sm font-medium truncate">{{ user.displayName }}</span>
+                      <span class="text-xs text-gray-500 truncate">{{ user.email }}</span>
+                    </div>
+                  </CommandItem>
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </div>
+
+          <!-- Step 2: Selected user card + role selector -->
+          <div v-else class="space-y-4">
+            <div class="flex items-center gap-3 p-3 border rounded-lg bg-gray-50">
+              <Avatar class="h-10 w-10 flex-shrink-0">
+                <AvatarImage v-if="quickSelectedUser.photo" :src="quickSelectedUser.photo" />
+                <AvatarFallback>
+                  {{ getInitials(quickSelectedUser.displayName) }}
+                </AvatarFallback>
+              </Avatar>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium truncate">{{ quickSelectedUser.displayName }}</p>
+                <p class="text-xs text-gray-500 truncate">{{ quickSelectedUser.email }}</p>
+              </div>
+              <Button size="sm" variant="ghost" @click="quickSelectedUser = null; quickSelectedRole = ''">
+                Cambiar
+              </Button>
+            </div>
+
+            <div>
+              <Label>Rol a asignar</Label>
+              <Select v-model="quickSelectedRole">
+                <SelectTrigger class="mt-1">
+                  <SelectValue placeholder="Seleccionar rol..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem
+                    v-for="role in quickAvailableRoles"
+                    :key="role.name"
+                    :value="role.name"
+                  >
+                    {{ getRoleDisplayName(role.name) }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" @click="quickAssignOpen = false">
+            Cancelar
+          </Button>
+          <Button
+            :disabled="!quickSelectedUser || !quickSelectedRole || quickAddLoading"
+            @click="confirmQuickAssign"
+          >
+            Confirmar Asignación
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from '@repo/ui'
 import {
@@ -363,7 +445,6 @@ import {
   DialogDescription, DialogFooter, Label, Input, Select, SelectTrigger,
   SelectValue, SelectContent, SelectGroup, SelectItem, Textarea, Switch,
   Avatar, AvatarImage, AvatarFallback,
-  Popover, PopoverTrigger, PopoverContent,
   Command, CommandInput, CommandList, CommandGroup, CommandItem, CommandEmpty
 } from '@repo/ui'
 import {
@@ -421,12 +502,24 @@ const requestAction = ref<'approve' | 'reject'>('approve')
 const searchQuery = ref('')
 const statusFilter = ref<'all' | 'active' | 'pending'>('all')
 
-// Quick Add Admin state
-const quickAddOpen = ref(false)
+// Remove User confirmation state
+const showRemoveUserModal = ref(false)
+const userToRemove = ref<RetreatUserAssignment | null>(null)
+
+// Quick Assign state
+const quickAssignOpen = ref(false)
 const quickSearchQuery = ref('')
-const quickSearchResults = ref<any[]>([])
+const quickSearchResults = ref<User[]>([])
 const quickAddLoading = ref(false)
+const quickSelectedUser = ref<User | null>(null)
+const quickSelectedRole = ref('')
+const quickAvailableRoles = ref<{ name: string; description: string }[]>([])
 let quickSearchTimeout: ReturnType<typeof setTimeout> | null = null
+let quickSearchGeneration = 0
+
+onBeforeUnmount(() => {
+  if (quickSearchTimeout) clearTimeout(quickSearchTimeout)
+})
 
 // Forms
 
@@ -449,8 +542,9 @@ const availableOperations = ['create', 'read', 'update', 'delete', 'list']
 
 // Computed
 const isRetreatCreator = computed(() => {
-  // This should be determined by checking if the current user created the retreat
-  return true // Simplified for now
+  const retreat = retreatStore.selectedRetreat
+  if (!retreat || !currentUserId.value) return false
+  return retreat.createdBy === currentUserId.value
 })
 
 const filteredUsers = computed(() => {
@@ -501,30 +595,44 @@ const openInviteModal = () => {
   showInviteModal.value = true
 }
 
-// Quick Add Admin
-const quickAddAdmin = async (user: any) => {
-  if (quickAddLoading.value) return
+// Quick Assign
+const quickSelectUser = (user: User) => {
+  quickSelectedUser.value = user
+  quickSearchQuery.value = ''
+  quickSearchResults.value = []
+}
+
+const fetchQuickRoles = async () => {
+  if (quickAvailableRoles.value.length > 0) return
+  try {
+    const response = await api.get('/retreat-roles/roles')
+    quickAvailableRoles.value = response.data
+  } catch {
+    quickAvailableRoles.value = []
+  }
+}
+
+const confirmQuickAssign = async () => {
+  if (!quickSelectedUser.value || !quickSelectedRole.value || quickAddLoading.value) return
   quickAddLoading.value = true
 
   try {
     await api.post(`/retreat-roles/${retreatId.value}/invite`, {
-      email: user.email,
-      roleName: 'admin'
+      email: quickSelectedUser.value.email,
+      roleName: quickSelectedRole.value
     })
 
     toast({
-      title: 'Admin asignado',
-      description: `${user.displayName} ha sido agregado como administrador`
+      title: 'Rol asignado',
+      description: `${quickSelectedUser.value.displayName} ha sido agregado como ${getRoleDisplayName(quickSelectedRole.value)}`
     })
 
-    quickAddOpen.value = false
-    quickSearchQuery.value = ''
-    quickSearchResults.value = []
+    quickAssignOpen.value = false
     loadData()
   } catch (error: any) {
     toast({
       title: 'Error',
-      description: error.response?.data?.error || error.response?.data?.message || 'No se pudo asignar el rol de administrador',
+      description: error.response?.data?.error || error.response?.data?.message || 'No se pudo asignar el rol',
       variant: 'destructive'
     })
   } finally {
@@ -540,17 +648,29 @@ watch(quickSearchQuery, (query) => {
     return
   }
 
+  quickSearchGeneration++
+  const currentGeneration = quickSearchGeneration
+
   quickSearchTimeout = setTimeout(async () => {
     try {
-      quickSearchResults.value = (await searchUsers(query)).map((r: any) => r.user)
+      const results = (await searchUsers(query)).map((r: any) => r.user)
+      if (currentGeneration === quickSearchGeneration) {
+        quickSearchResults.value = results
+      }
     } catch {
-      quickSearchResults.value = []
+      if (currentGeneration === quickSearchGeneration) {
+        quickSearchResults.value = []
+      }
     }
   }, 300)
 })
 
-watch(quickAddOpen, (open) => {
-  if (!open) {
+watch(quickAssignOpen, (open) => {
+  if (open) {
+    fetchQuickRoles()
+  } else {
+    quickSelectedUser.value = null
+    quickSelectedRole.value = ''
     quickSearchQuery.value = ''
     quickSearchResults.value = []
   }
@@ -643,19 +763,24 @@ const savePermissionOverrides = async () => {
   }
 }
 
-const removeUser = async (assignment: RetreatUserAssignment) => {
-  if (!confirm(`¿Estás seguro de que quieres eliminar al usuario ${assignment.user.displayName} del retiro ID: ${retreatId.value}?`)) {
-    return
-  }
+const removeUser = (assignment: RetreatUserAssignment) => {
+  userToRemove.value = assignment
+  showRemoveUserModal.value = true
+}
+
+const confirmRemoveUser = async () => {
+  if (!userToRemove.value) return
 
   try {
-    await api.delete(`/retreat-roles/${retreatId.value}/users/${assignment.user.id}`)
+    await api.delete(`/retreat-roles/${retreatId.value}/users/${userToRemove.value.user.id}`)
 
     toast({
       title: 'Usuario eliminado',
-      description: `${assignment.user.displayName} ha sido eliminado del retiro`
+      description: `${userToRemove.value.user.displayName} ha sido eliminado del retiro`
     })
 
+    showRemoveUserModal.value = false
+    userToRemove.value = null
     loadData()
   } catch (error) {
     console.error('Error removing user:', error)

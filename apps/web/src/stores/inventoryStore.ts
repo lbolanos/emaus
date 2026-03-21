@@ -224,6 +224,11 @@ export const useInventoryStore = defineStore('inventory', () => {
 			const response = await api.get(`/inventory/retreat/${retreatId}/alerts`);
 			inventoryAlerts.value = response.data;
 		} catch (e: any) {
+			if (e.response?.status === 403) {
+				console.log('Insufficient permissions to fetch inventory alerts');
+				inventoryAlerts.value = [];
+				return;
+			}
 			error.value = 'Failed to fetch inventory alerts.';
 			toast({ title: 'Error', description: error.value, variant: 'destructive' });
 			console.error(e);
@@ -272,6 +277,17 @@ export const useInventoryStore = defineStore('inventory', () => {
 		await Promise.all([fetchCategories(), fetchTeams(), fetchItems()]);
 	}
 
+	function $reset() {
+		categories.value = [];
+		teams.value = [];
+		items.value = [];
+		retreatInventory.value = [];
+		retreatInventoryByCategory.value = {};
+		inventoryAlerts.value = [];
+		loading.value = false;
+		error.value = null;
+	}
+
 	return {
 		// State
 		categories,
@@ -311,5 +327,8 @@ export const useInventoryStore = defineStore('inventory', () => {
 
 		// Initialize
 		initializeInventoryData,
+
+		// Reset
+		$reset,
 	};
 });

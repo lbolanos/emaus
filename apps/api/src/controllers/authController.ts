@@ -48,14 +48,27 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 
 	const userRepository = AppDataSource.getRepository(User);
 
+	const startTime = Date.now();
+	const antiEnumResponse = {
+		message: 'No se pudo completar el registro. Verifica los datos ingresados.',
+	};
+
+	const ensureMinResponseTime = async () => {
+		const elapsed = Date.now() - startTime;
+		const minTime = 500;
+		if (elapsed < minTime) {
+			await new Promise((resolve) => setTimeout(resolve, minTime - elapsed));
+		}
+	};
+
 	try {
-		const existingUser = await userRepository.findOne({ where: { email } });
+		const existingUser = await userRepository
+			.createQueryBuilder('user')
+			.where('LOWER(user.email) = :email', { email })
+			.getOne();
 		if (existingUser) {
-			// Artificial delay to prevent timing-based enumeration
-			await new Promise((resolve) => setTimeout(resolve, 300));
-			return res.status(400).json({
-				message: 'No se pudo completar el registro. Verifica los datos ingresados.',
-			});
+			await ensureMinResponseTime();
+			return res.status(400).json(antiEnumResponse);
 		}
 
 		const newUser = userRepository.create({
@@ -81,7 +94,12 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 		}
 
 		res.status(201).json({ message: 'Usuario creado exitosamente.' });
-	} catch (error) {
+	} catch (error: any) {
+		// Handle race condition: concurrent registration with same email
+		if (error?.message?.includes('UNIQUE') || error?.code === 'SQLITE_CONSTRAINT') {
+			await ensureMinResponseTime();
+			return res.status(400).json(antiEnumResponse);
+		}
 		next(error);
 	}
 };
@@ -208,8 +226,22 @@ export const logout = (req: Request, res: Response, next: NextFunction) => {
 };
 
 export const requestPasswordReset = async (req: Request, res: Response, next: NextFunction) => {
-	const { email, recaptchaToken } = req.body;
+	const { email: rawEmail, recaptchaToken } = req.body;
 	const startTime = Date.now();
+
+	if (!rawEmail || typeof rawEmail !== 'string') {
+		// Still use minimum response time to prevent enumeration
+		const elapsed = Date.now() - startTime;
+		if (elapsed < 500) {
+			await new Promise((resolve) => setTimeout(resolve, 500 - elapsed));
+		}
+		return res.json({
+			message:
+				'Si existe un usuario con ese correo, se ha enviado un enlace para restablecer la contraseña.',
+		});
+	}
+
+	const email = rawEmail.toLowerCase().trim();
 
 	// Verify reCAPTCHA token
 	const recaptchaResult = await recaptchaService.verifyToken(recaptchaToken, {
@@ -225,7 +257,10 @@ export const requestPasswordReset = async (req: Request, res: Response, next: Ne
 	const userRepository = AppDataSource.getRepository(User);
 
 	try {
-		const user = await userRepository.findOne({ where: { email } });
+		const user = await userRepository
+			.createQueryBuilder('user')
+			.where('LOWER(user.email) = :email', { email })
+			.getOne();
 
 		if (user) {
 			// Generate cryptographically secure token
@@ -267,6 +302,12 @@ export const requestPasswordReset = async (req: Request, res: Response, next: Ne
 
 export const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
 	const { token, password } = req.body;
+
+	if (!token || typeof token !== 'string' || !password || typeof password !== 'string') {
+		return res.status(400).json({
+			message: 'Token de restablecimiento inválido o expirado.',
+		});
+	}
 
 	const userRepository = AppDataSource.getRepository(User);
 

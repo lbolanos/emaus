@@ -199,6 +199,7 @@ export class CommunityService {
 		// 1. Create participant with retreatId: null and minimal required fields
 		const participant = this.participantRepo.create({
 			...participantData,
+			email: participantData.email.toLowerCase().trim(),
 			retreatId: null,
 			type: 'walker', // Default type for community members
 			id_on_retreat: 0, // Required field, set to 0 for community members
@@ -817,7 +818,11 @@ export class CommunityService {
 	async inviteAdmin(communityId: string, email: string, invitedBy: string) {
 		// Find user by email
 		const userRepo = AppDataSource.getRepository(User);
-		const user = await userRepo.findOne({ where: { email } });
+		const normalizedEmail = email.toLowerCase().trim();
+		const user = await userRepo
+			.createQueryBuilder('user')
+			.where('LOWER(user.email) = :email', { email: normalizedEmail })
+			.getOne();
 
 		if (!user) {
 			// In a real app, we might create a pending user or send an invitation literal
@@ -903,9 +908,11 @@ export class CommunityService {
 	}
 
 	async findMemberByEmailAndCommunity(email: string, communityId: string) {
-		const participant = await this.participantRepo.findOne({
-			where: { email },
-		});
+		const normalizedEmail = email.toLowerCase().trim();
+		const participant = await this.participantRepo
+			.createQueryBuilder('participant')
+			.where('LOWER(participant.email) = :email', { email: normalizedEmail })
+			.getOne();
 
 		if (!participant) return null;
 
@@ -927,7 +934,7 @@ export class CommunityService {
 		const participant = this.participantRepo.create({
 			firstName: participantData.firstName,
 			lastName: participantData.lastName,
-			email: participantData.email,
+			email: participantData.email.toLowerCase().trim(),
 			cellPhone: participantData.cellPhone || '',
 			retreatId: null,
 			type: 'walker', // Default type for community members

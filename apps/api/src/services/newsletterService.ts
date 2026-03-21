@@ -5,8 +5,12 @@ export class NewsletterService {
 	private subscriberRepo = AppDataSource.getRepository(NewsletterSubscriber);
 
 	async subscribeToNewsletter(email: string, firstName?: string, lastName?: string) {
+		const normalizedEmail = email.toLowerCase().trim();
 		// Check if email already exists
-		const existing = await this.subscriberRepo.findOne({ where: { email } });
+		const existing = await this.subscriberRepo
+			.createQueryBuilder('subscriber')
+			.where('LOWER(subscriber.email) = :email', { email: normalizedEmail })
+			.getOne();
 
 		if (existing) {
 			// If exists but inactive, reactivate
@@ -21,7 +25,7 @@ export class NewsletterService {
 
 		// Create new subscriber
 		const subscriber = this.subscriberRepo.create({
-			email,
+			email: normalizedEmail,
 			firstName,
 			lastName,
 			isActive: true,
@@ -38,7 +42,10 @@ export class NewsletterService {
 	}
 
 	async unsubscribe(email: string) {
-		const subscriber = await this.subscriberRepo.findOne({ where: { email } });
+		const subscriber = await this.subscriberRepo
+			.createQueryBuilder('subscriber')
+			.where('LOWER(subscriber.email) = :email', { email: email.toLowerCase().trim() })
+			.getOne();
 		if (!subscriber) {
 			return null;
 		}

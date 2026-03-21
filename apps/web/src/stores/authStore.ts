@@ -102,6 +102,13 @@ export const useAuthStore = defineStore('auth', () => {
 			isAuthenticated.value = false;
 			user.value = null;
 			userProfile.value = null;
+
+			// Reset data stores to prevent stale data leaking across sessions
+			const { useInventoryStore } = await import('./inventoryStore');
+			const { useParticipantStore } = await import('./participantStore');
+			useInventoryStore().$reset();
+			useParticipantStore().$reset();
+
 			toast({
 				title: 'Success',
 				description: 'Logged out successfully',

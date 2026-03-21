@@ -544,15 +544,8 @@ export const requirePermission = (permission: string): any => {
 			const hasPermission = await authorizationService.hasPermission(req.user.id, permission);
 
 			if (!hasPermission) {
-				const userPermissions = await authorizationService.getUserPermissions(req.user.id);
-				return res.status(403).json({
-					message: 'Forbidden',
-					details: {
-						requiredPermission: permission,
-						userPermissions: userPermissions.permissions,
-						userRoles: userPermissions.roles,
-					},
-				});
+				console.log(`Permission denied: user ${req.user.id} lacks '${permission}'`);
+				return res.status(403).json({ message: 'Forbidden' });
 			}
 
 			next();
@@ -623,16 +616,8 @@ export const requireRetreatAccess = (retreatIdParam: string = 'retreatId'): any 
 			const hasAccess = await authorizationService.hasRetreatAccess(req.user.id, retreatId);
 
 			if (!hasAccess) {
-				const userPermissions = await authorizationService.getUserPermissions(req.user.id);
-				return res.status(403).json({
-					message: 'Forbidden - No retreat access',
-					details: {
-						retreatId,
-						userRetreats: userPermissions.retreats,
-						userPermissions: userPermissions.permissions,
-						userRoles: userPermissions.roles,
-					},
-				});
+				console.log(`Retreat access denied: user ${req.user.id} for retreat ${retreatId}`);
+				return res.status(403).json({ message: 'Forbidden' });
 			}
 
 			next();
@@ -682,9 +667,8 @@ export const requireRetreatCreator = (retreatIdParam: string = 'retreatId'): any
 
 			const isCreator = await authorizationService.isRetreatCreator(req.user.id, retreatId);
 			if (!isCreator) {
-				return res
-					.status(403)
-					.json({ message: 'Forbidden - Only retreat creator can perform this action' });
+				console.log(`Retreat creator check failed: user ${req.user.id} for retreat ${retreatId}`);
+				return res.status(403).json({ message: 'Forbidden' });
 			}
 
 			next();
@@ -771,13 +755,7 @@ export const requireCommunityAccess = (communityIdParam: string = 'id'): any => 
 			});
 
 			if (!adminRecord) {
-				return res.status(403).json({
-					message: 'Forbidden - Not a community admin',
-					details: {
-						communityId,
-						userId: req.user.id,
-					},
-				});
+				return res.status(403).json({ message: 'Forbidden' });
 			}
 
 			// Attach community admin info to request for later use
@@ -826,14 +804,7 @@ export const requireCommunityMeetingAccess = (meetingIdParam: string = 'id'): an
 			});
 
 			if (!adminRecord) {
-				return res.status(403).json({
-					message: 'Forbidden - Not a community admin',
-					details: {
-						meetingId,
-						communityId: meeting.communityId,
-						userId: req.user.id,
-					},
-				});
+				return res.status(403).json({ message: 'Forbidden' });
 			}
 
 			// Attach community admin info to request for later use

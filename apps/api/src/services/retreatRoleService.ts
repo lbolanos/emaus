@@ -36,8 +36,12 @@ export class RetreatRoleService {
 		const repos = getRepositories(dataSource);
 		const ds = dataSource || AppDataSource;
 
-		// Find the user by email
-		const user = await repos.user.findOne({ where: { email: userEmail } });
+		// Find the user by email (normalized)
+		const normalizedEmail = userEmail.toLowerCase().trim();
+		const user = await repos.user
+			.createQueryBuilder('user')
+			.where('LOWER(user.email) = :email', { email: normalizedEmail })
+			.getOne();
 		if (!user) {
 			throw new Error('User not found');
 		}

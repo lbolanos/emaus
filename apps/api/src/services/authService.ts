@@ -42,9 +42,12 @@ export function configurePassportStrategies(
 						}
 
 						// Check if user exists with this email (previously registered locally)
-						const userEmail = profile.emails?.[0].value;
+						const userEmail = profile.emails?.[0].value?.toLowerCase().trim();
 						if (userEmail) {
-							const userByEmail = await repos.user.findOne({ where: { email: userEmail } });
+							const userByEmail = await repos.user
+								.createQueryBuilder('user')
+								.where('LOWER(user.email) = :email', { email: userEmail })
+								.getOne();
 
 							if (userByEmail) {
 								// Link Google account to existing user
@@ -86,10 +89,11 @@ export function configurePassportStrategies(
 								const participantRepo = dataSource
 									? dataSource.getRepository(Participant)
 									: AppDataSource.getRepository(Participant);
-								const existingParticipants = await participantRepo.find({
-									where: { email: userEmail },
-									relations: ['retreat'],
-								});
+								const existingParticipants = await participantRepo
+									.createQueryBuilder('participant')
+									.leftJoinAndSelect('participant.retreat', 'retreat')
+									.where('LOWER(participant.email) = :email', { email: userEmail })
+									.getMany();
 
 								if (existingParticipants.length > 0) {
 									console.warn(
@@ -158,7 +162,12 @@ export function configurePassportStrategies(
 	passportInstance.use(
 		new LocalStrategy({ usernameField: 'email' }, async (email, password, done) => {
 			try {
-				const user = await repos.user.findOne({ where: { email } });
+				const normalizedEmail = email.toLowerCase().trim();
+				// Use case-insensitive query to handle pre-migration data
+				const user = await repos.user
+					.createQueryBuilder('user')
+					.where('LOWER(user.email) = :email', { email: normalizedEmail })
+					.getOne();
 
 				if (!user) {
 					return done(null, false, { message: 'Incorrect email or password.' });
