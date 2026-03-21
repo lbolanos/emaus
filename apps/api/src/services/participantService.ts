@@ -1070,10 +1070,19 @@ export const createParticipant = async (
 				}
 
 				// Refresh the participant to get the updated data
+				// Preserve virtual fields (type, isCancelled, etc.) that aren't DB columns
+				const virtualType = savedParticipant.type;
+				const virtualIsCancelled = savedParticipant.isCancelled;
+				const virtualIdOnRetreat = savedParticipant.id_on_retreat;
+				const virtualFamilyColor = savedParticipant.family_friend_color;
 				savedParticipant =
 					(await transactionalEntityManager.getRepository(Participant).findOne({
 						where: { id: savedParticipant.id },
 					})) || savedParticipant;
+				savedParticipant.type = virtualType;
+				savedParticipant.isCancelled = virtualIsCancelled;
+				savedParticipant.id_on_retreat = virtualIdOnRetreat;
+				savedParticipant.family_friend_color = virtualFamilyColor;
 			}
 		}
 
@@ -2437,10 +2446,23 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				transactionalEntityManager.getRepository(Participant);
 			const transactionalBedRepository = transactionalEntityManager.getRepository(RetreatBed);
 
-			// Get all participants to process to check for existing Excel assignments
-			const participantsToProcess = await transactionalParticipantRepository.find({
-				where: { id: In(processedParticipantIds) },
+			// Get all participants to process, loading virtual fields from retreat_participants
+			const rpRepo = transactionalEntityManager.getRepository(RetreatParticipant);
+			const rpRows = await rpRepo.find({
+				where: { retreatId, participantId: In(processedParticipantIds) },
+				relations: ['participant'],
 			});
+			const participantsToProcess = rpRows
+				.filter((rp) => rp.participant)
+				.map((rp) => {
+					const p = rp.participant!;
+					p.type = rp.type as any;
+					p.isCancelled = rp.isCancelled;
+					p.tableId = rp.tableId;
+					p.id_on_retreat = rp.idOnRetreat ?? undefined;
+					p.family_friend_color = rp.familyFriendColor ?? undefined;
+					return p;
+				});
 
 			// Sort: oldest first so they get bottom bunks/normal beds first,
 			// then young walkers fill remaining top bunks (which they prefer anyway)
