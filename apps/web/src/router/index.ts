@@ -443,10 +443,8 @@ router.beforeEach(async (to, from, next) => {
 	const requiresAuth = to.matched.some((record) => record.meta.requiresAuth !== false);
 	const requiresSuperadmin = to.matched.some((record) => record.meta.requiresSuperadmin);
 
-	// Ensure auth status is checked before any navigation (only if auth might be required)
-	if (requiresAuth && !auth.isAuthenticated) {
-		await auth.checkAuthStatus();
-	}
+	// Note: checkAuthStatus() is called once during app initialization in main.ts
+	// We don't call it here to avoid multiple API calls and hitting rate limits
 
 	if (requiresAuth && !auth.isAuthenticated) {
 		next({ name: 'login' });
