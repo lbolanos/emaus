@@ -15,6 +15,7 @@ import {
 	markPrimaryRetreatController,
 } from '../controllers/retreatParticipantController';
 import { isAuthenticated } from '../middleware/authentication';
+import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
 
 const router = Router();
 
@@ -37,37 +38,70 @@ router.get('/history/my-retreats/primary', getPrimaryRetreatController);
 // ==================== ADMIN/COORDINATOR ENDPOINTS ====================
 
 // Get retreat history for a specific user (admin/coordinator only)
-router.get('/history/user/:userId', getUserRetreatHistoryByIdController);
+router.get(
+	'/history/user/:userId',
+	requirePermission('participant:read'),
+	getUserRetreatHistoryByIdController,
+);
 
 // Get history for a specific user and retreat
-router.get('/history/user/:userId/retreat/:retreatId', getUserHistoryForRetreatController);
+router.get(
+	'/history/user/:userId/retreat/:retreatId',
+	requirePermission('participant:read'),
+	requireRetreatAccess('retreatId'),
+	getUserHistoryForRetreatController,
+);
 
 // Get all participants (history) for a specific retreat
-router.get('/history/retreat/:retreatId/participants', getParticipantsByRetreatController);
+router.get(
+	'/history/retreat/:retreatId/participants',
+	requireRetreatAccess('retreatId'),
+	getParticipantsByRetreatController,
+);
 
 // Get all history entries for a specific participant
-router.get('/history/participant/:participantId', getHistoryByParticipantIdController);
+router.get(
+	'/history/participant/:participantId',
+	requirePermission('participant:read'),
+	getHistoryByParticipantIdController,
+);
 
 // Get participants by role for a specific retreat
-router.get('/history/retreat/:retreatId/role/:role', getParticipantsByRoleController);
+router.get(
+	'/history/retreat/:retreatId/role/:role',
+	requireRetreatAccess('retreatId'),
+	getParticipantsByRoleController,
+);
 
 // ==================== CHARLISTAS ENDPOINTS ====================
 
 // Get charlistas (speakers) for a retreat or globally
-router.get('/history/charlistas', getCharlistasController);
+router.get('/history/charlistas', requirePermission('participant:read'), getCharlistasController);
 
 // ==================== CRUD OPERATIONS (ADMIN ONLY) ====================
 
 // Create a new history entry (admin only)
-router.post('/history', createHistoryEntryController);
+router.post('/history', requirePermission('participant:update'), createHistoryEntryController);
 
 // Update a history entry (admin only)
-router.put('/history/:id', updateHistoryEntryController);
+router.put(
+	'/history/:id',
+	requirePermission('participant:update'),
+	updateHistoryEntryController,
+);
 
 // Delete a history entry (admin only)
-router.delete('/history/:id', deleteHistoryEntryController);
+router.delete(
+	'/history/:id',
+	requirePermission('participant:update'),
+	deleteHistoryEntryController,
+);
 
 // Mark a retreat as the user's primary retreat (admin only)
-router.put('/history/user/:userId/primary/:historyId', markPrimaryRetreatController);
+router.put(
+	'/history/user/:userId/primary/:historyId',
+	requirePermission('participant:update'),
+	markPrimaryRetreatController,
+);
 
 export default router;

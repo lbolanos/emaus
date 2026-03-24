@@ -46,6 +46,8 @@ applyCsrfProtectionExcept(router, [
 	'/communities/*/join-public',
 	'/newsletter/subscribe',
 	'/landing/testimonials',
+	'/participants/new',
+	'/participants/confirm-registration',
 ]);
 
 // Resto de las rutas (con protección CSRF)

@@ -98,13 +98,45 @@ export const registerLimiter = rateLimit({
  */
 export const apiLimiter = rateLimit({
 	windowMs: 1 * 60 * 1000, // 1 minute
-	max: 100, // 100 requests per minute
+	max: 150, // 150 requests per minute (safe now that CSRF tokens are cached)
 	message: {
 		message: 'Demasiadas solicitudes. Reduce la velocidad.',
 		error: 'API_RATE_LIMIT_EXCEEDED',
 	},
 	skip: (req: Request) => {
 		// Skip rate limiting in development if needed
+		return process.env.NODE_ENV === 'development' && process.env.SKIP_RATE_LIMIT === 'true';
+	},
+});
+
+/**
+ * Public participant registration rate limiter
+ */
+export const publicParticipantLimiter = rateLimit({
+	windowMs: 60 * 60 * 1000, // 1 hour
+	max: 10, // Max 10 registrations per IP per hour
+	keyGenerator: (req: Request) => req.ip || 'unknown',
+	message: {
+		message: 'Demasiados registros. Inténtalo en 1 hora.',
+		error: 'PARTICIPANT_RATE_LIMIT_EXCEEDED',
+	},
+	skip: (req: Request) => {
+		return process.env.NODE_ENV === 'development' && process.env.SKIP_RATE_LIMIT === 'true';
+	},
+});
+
+/**
+ * Email check rate limiter (prevent email enumeration)
+ */
+export const emailCheckLimiter = rateLimit({
+	windowMs: 15 * 60 * 1000, // 15 minutes
+	max: 15, // Max 15 checks per IP per 15 min
+	keyGenerator: (req: Request) => req.ip || 'unknown',
+	message: {
+		message: 'Demasiadas consultas. Inténtalo en 15 minutos.',
+		error: 'EMAIL_CHECK_RATE_LIMIT_EXCEEDED',
+	},
+	skip: (req: Request) => {
 		return process.env.NODE_ENV === 'development' && process.env.SKIP_RATE_LIMIT === 'true';
 	},
 });

@@ -222,7 +222,7 @@ export class RoleRequestService {
 		return result.map((item: any) => this.mapToRoleRequest(item));
 	}
 
-	private async getRoleRequestById(requestId: string): Promise<RoleRequest> {
+	public async getRoleRequestById(requestId: string): Promise<RoleRequest> {
 		const result = await AppDataSource.query(
 			`SELECT rr.*, u.displayName as user_name, u.email as user_email,
 			        r.parish as retreat_name

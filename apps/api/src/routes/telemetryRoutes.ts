@@ -3,6 +3,7 @@ import { AppDataSource } from '../data-source';
 import { getTelemetryCollectionService } from '../services/telemetryCollectionService';
 import { getTelemetryAggregationService } from '../services/telemetryAggregationService';
 import { requirePermission } from '../middleware/authorization';
+import { isAuthenticated } from '../middleware/isAuthenticated';
 import { validateRequest, validateQuery, validateBody } from '../middleware/validateRequest';
 import { z } from 'zod';
 
@@ -139,6 +140,20 @@ router.get('/health', async (req, res) => {
 		});
 	}
 });
+
+// All telemetry write/read endpoints require authentication
+router.use(isAuthenticated);
+
+// Prevent userId spoofing: always use the authenticated user's ID
+const enforceAuthenticatedUserId = (req: any, _res: any, next: any) => {
+	if (req.user?.id) {
+		if (req.body && typeof req.body === 'object') {
+			req.body.userId = req.user.id;
+		}
+	}
+	next();
+};
+router.use(enforceAuthenticatedUserId);
 
 // POST /api/telemetry/metrics - Collect a single metric
 router.post('/metrics', validateRequest(collectMetricSchema), async (req, res) => {

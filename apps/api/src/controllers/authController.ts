@@ -309,6 +309,13 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
 		});
 	}
 
+	if (password.length < 8) {
+		return res.status(400).json({ message: 'La contraseña debe tener al menos 8 caracteres' });
+	}
+	if (password.length > 128) {
+		return res.status(400).json({ message: 'La contraseña no puede tener más de 128 caracteres' });
+	}
+
 	const userRepository = AppDataSource.getRepository(User);
 
 	try {
@@ -366,9 +373,12 @@ export const changePassword = async (req: Request, res: Response, next: NextFunc
 		return res.status(400).json({ message: 'Las contraseñas no coinciden' });
 	}
 
-	// Validate minimum password length
+	// Validate password length (bcrypt truncates beyond 72 bytes)
 	if (newPassword.length < 8) {
 		return res.status(400).json({ message: 'La contraseña debe tener al menos 8 caracteres' });
+	}
+	if (newPassword.length > 128) {
+		return res.status(400).json({ message: 'La contraseña no puede tener más de 128 caracteres' });
 	}
 
 	const userRepository = AppDataSource.getRepository(User);

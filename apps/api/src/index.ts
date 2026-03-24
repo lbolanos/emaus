@@ -12,7 +12,6 @@ import { AppDataSource } from './data-source';
 import { Session } from './entities/session.entity';
 import mainRouter from './routes';
 import { passport } from './services/authService';
-import tableMesaRoutes from './routes/tableMesaRoutes';
 import { config } from './config';
 import { errorHandler } from './middleware/errorHandler';
 import { MigrationVerifier } from './database/migration-verifier';
@@ -61,8 +60,13 @@ async function main() {
 	app.use(
 		cors({
 			origin: (origin, callback) => {
-				// Allow requests with no origin (mobile apps, curl, etc.)
-				if (!origin) return callback(null, true);
+				// In production, block requests with no Origin header to prevent
+				// server-side scripts from making cross-origin requests with cookies.
+				// In development, allow for curl/Postman convenience.
+				if (!origin) {
+					if (isDevelopment) return callback(null, true);
+					return callback(null, false);
+				}
 				// Allow configured frontend URL and localhost
 				const allowed = [frontendUrl, 'http://localhost:5173', 'http://localhost:3001'];
 				if (allowed.includes(origin)) {
@@ -159,15 +163,15 @@ async function main() {
 	app.get('/health', (_req, res) => {
 		res.json({ status: 'ok', timestamp: new Date().toISOString(), service: 'emaus-api' });
 	});
+
+	// Apply global API rate limiter (covers csrf-token and all /api routes)
+	app.use('/api', apiLimiter);
+
 	app.get('/api/csrf-token', (req, res) => {
 		res.json({ csrfToken: req.session.csrfToken });
 	});
 
-	// Apply global API rate limiter
-	app.use('/api', apiLimiter);
-
 	app.use('/api', mainRouter);
-	app.use('/api/tables', tableMesaRoutes);
 
 	// --- 5. Static File Serving for Frontend ---
 	const __filename = fileURLToPath(import.meta.url);

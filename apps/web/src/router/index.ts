@@ -436,6 +436,11 @@ const router = createRouter({
 	],
 });
 
+// Re-check auth status at most once every 5 minutes to detect expired sessions
+// without hammering the API on every navigation.
+let lastAuthCheck = 0;
+const AUTH_RECHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
 router.beforeEach(async (to, from, next) => {
 	const auth = useAuthStore();
 
@@ -443,9 +448,11 @@ router.beforeEach(async (to, from, next) => {
 	const requiresAuth = to.matched.some((record) => record.meta.requiresAuth !== false);
 	const requiresSuperadmin = to.matched.some((record) => record.meta.requiresSuperadmin);
 
-	// Ensure auth status is checked before any navigation (only if auth might be required)
-	if (requiresAuth && !auth.isAuthenticated) {
+	// Debounced auth re-check: only call the API if enough time has passed.
+	// Initial check happens in main.ts; this catches expired sessions mid-use.
+	if (requiresAuth && Date.now() - lastAuthCheck > AUTH_RECHECK_INTERVAL) {
 		await auth.checkAuthStatus();
+		lastAuthCheck = Date.now();
 	}
 
 	if (requiresAuth && !auth.isAuthenticated) {
@@ -453,10 +460,14 @@ router.beforeEach(async (to, from, next) => {
 		return;
 	}
 
-	if (requiresSuperadmin && !auth.isAuthenticated) {
-		// Redirect unauthenticated users trying to access telemetry
-		next({ name: 'login' });
-		return;
+	if (requiresSuperadmin) {
+		const isSuperadmin = auth.userProfile?.roles?.some(
+			(r: any) => r.role?.name === 'superadmin',
+		);
+		if (!auth.isAuthenticated || !isSuperadmin) {
+			next({ name: 'login' });
+			return;
+		}
 	}
 
 	if (to.name === 'login' && auth.isAuthenticated) {

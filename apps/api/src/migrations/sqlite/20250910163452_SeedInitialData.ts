@@ -7,6 +7,14 @@ export class SeedInitialData20250910163452 implements MigrationInterface {
 	timestamp = '20250910163452';
 
 	public async up(queryRunner: QueryRunner): Promise<void> {
+		// Guard: refuse to seed with fallback passwords in production
+		if (process.env.NODE_ENV === 'production' && !process.env.SEED_MASTER_USER_PASSWORD) {
+			throw new Error(
+				'SEED_MASTER_USER_PASSWORD must be set in production. ' +
+				'Refusing to seed with default fallback passwords.',
+			);
+		}
+
 		console.log('🌱 Seeding initial data...');
 
 		// Create master user

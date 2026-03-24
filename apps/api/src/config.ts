@@ -1,6 +1,11 @@
 import 'dotenv/config';
 import crypto from 'crypto';
 
+// Fail fast if SESSION_SECRET is missing in production
+if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
+	throw new Error('SESSION_SECRET environment variable is required in production');
+}
+
 export const config = {
 	env: process.env.NODE_ENV || 'development',
 	google: {

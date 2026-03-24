@@ -3,6 +3,7 @@ import { AppDataSource } from '../data-source';
 import { UserManagementMailer } from '../services/userManagementMailer';
 import { User } from '../entities/user.entity';
 import { Retreat } from '../entities/retreat.entity';
+import { authorizationService } from '../middleware/authorization';
 
 const userRepository = AppDataSource.getRepository(User);
 const retreatRepository = AppDataSource.getRepository(Retreat);
@@ -25,7 +26,13 @@ export class UserManagementController {
 				});
 			}
 
-			// Get user details (this would typically come from the database)
+			// Verify user has access to this retreat
+			const hasAccess = await authorizationService.hasRetreatAccess(userId, retreatId);
+			if (!hasAccess) {
+				return res.status(403).json({ error: 'You do not have access to this retreat' });
+			}
+
+			// Get user details
 			const user = await userRepository.findOne({ where: { id: userId } });
 			const retreat = await retreatRepository.findOne({ where: { id: retreatId } });
 
@@ -100,6 +107,12 @@ export class UserManagementController {
 				return res.status(400).json({
 					error: 'Email, retreatId, inviterName, and shareLink are required',
 				});
+			}
+
+			// Verify user has access to this retreat
+			const hasAccess = await authorizationService.hasRetreatAccess(userId, retreatId);
+			if (!hasAccess) {
+				return res.status(403).json({ error: 'You do not have access to this retreat' });
 			}
 
 			// Get user and retreat details

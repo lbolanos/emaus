@@ -107,7 +107,7 @@
           <div class="absolute z-10 overflow-hidden" style="top: -13px; left: 15px; width: 560px; max-width: 70%; max-height: 200px;">
             <div class="p-5 rounded-2xl">
               <p class="text-[18px] text-gray-900 text-center leading-relaxed font-medium" style="font-family: 'Playfair Display', serif;">
-                <span class="font-bold" v-html="encounterDescriptionText.replace(/\n/g, '<br>')"></span>
+                <span class="font-bold" v-html="DOMPurify.sanitize(encounterDescriptionText.replace(/\n/g, '<br>'))"></span>
               </p>
               <div class="mt-3 text-center">
                 <span class="inline-block font-black text-blue-800 text-[26px] px-5 py-2 from-blue-50 to-indigo-50 rounded-xl tracking-wide shadow-lg border-2 border-blue-200" style="font-family: 'Playfair Display', serif;">
@@ -351,6 +351,7 @@ import {
   Mail
 } from 'lucide-vue-next';
 import QrcodeVue from 'qrcode.vue';
+import DOMPurify from 'dompurify';
 
 const route = useRoute();
 const retreatStore = useRetreatStore();
@@ -642,8 +643,7 @@ const paymentInfo = computed(() => {
   // Fix character encoding issues (replace \u001f and other control characters) and replace line feeds with <br>
   // eslint-disable-next-line no-control-regex
   let info = paymentInfoRaw.replace(/\n/g, '<br>').replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
-  console.log('Formatted Payment Info:', info);
-  return info;
+  return DOMPurify.sanitize(info);
 });
 const paymentMethods = computed(() => retreatData.value?.paymentMethods);
 

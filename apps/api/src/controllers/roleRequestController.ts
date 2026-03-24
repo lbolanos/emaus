@@ -102,6 +102,17 @@ export const approveRoleRequest = async (req: AuthenticatedRequest, res: Respons
 			return res.status(401).json({ message: 'Unauthorized' });
 		}
 
+		// Verify the user is the retreat creator (middleware can't check since route only has :requestId)
+		const pendingRequest = await roleRequestService.getRoleRequestById(requestId);
+		if (!pendingRequest) {
+			return res.status(404).json({ message: 'Role request not found' });
+		}
+		const isCreator = await authorizationService.isRetreatCreator(approvedBy, pendingRequest.retreatId);
+		const isSuperadmin = await authorizationService.hasRole(approvedBy, 'superadmin');
+		if (!isCreator && !isSuperadmin) {
+			return res.status(403).json({ message: 'Only retreat creators can approve role requests' });
+		}
+
 		const roleRequest = await roleRequestService.approveRoleRequest(requestId, approvedBy, req);
 		res.json({
 			message: 'Role request approved successfully',
@@ -122,6 +133,17 @@ export const rejectRoleRequest = async (req: AuthenticatedRequest, res: Response
 
 		if (!rejectedBy) {
 			return res.status(401).json({ message: 'Unauthorized' });
+		}
+
+		// Verify the user is the retreat creator (middleware can't check since route only has :requestId)
+		const pendingRequest = await roleRequestService.getRoleRequestById(requestId);
+		if (!pendingRequest) {
+			return res.status(404).json({ message: 'Role request not found' });
+		}
+		const isCreator = await authorizationService.isRetreatCreator(rejectedBy, pendingRequest.retreatId);
+		const isSuperadmin = await authorizationService.hasRole(rejectedBy, 'superadmin');
+		if (!isCreator && !isSuperadmin) {
+			return res.status(403).json({ message: 'Only retreat creators can reject role requests' });
 		}
 
 		const roleRequest = await roleRequestService.rejectRoleRequest(

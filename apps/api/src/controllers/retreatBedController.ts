@@ -3,6 +3,7 @@ import { RetreatBed } from '../entities/retreatBed.entity';
 import { Participant } from '../entities/participant.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { autoAssignBedsForRetreat } from '../services/participantService';
+import { authorizationService } from '../middleware/authorization';
 import type { Request, Response, NextFunction } from 'express';
 
 export const getRetreatBeds = async (req: Request, res: Response, next: NextFunction) => {
@@ -24,6 +25,19 @@ export const assignParticipantToBed = async (req: Request, res: Response, next: 
 	try {
 		const { bedId } = req.params;
 		const { participantId } = req.body; // participantId can be null to unassign
+		const userId = (req as any).user?.id;
+
+		// Verify retreat access via bed lookup
+		const bedCheck = await AppDataSource.getRepository(RetreatBed).findOne({ where: { id: bedId } });
+		if (!bedCheck) {
+			res.status(404).json({ message: 'Bed not found' });
+			return;
+		}
+		const hasAccess = await authorizationService.hasRetreatAccess(userId, bedCheck.retreatId);
+		if (!hasAccess) {
+			res.status(403).json({ message: 'No access to this retreat' });
+			return;
+		}
 
 		// Use TypeORM transaction for atomic operations
 		await AppDataSource.transaction(async (transactionalEntityManager) => {
@@ -134,6 +148,7 @@ export const toggleBedActive = async (req: Request, res: Response, next: NextFun
 	try {
 		const { bedId } = req.params;
 		const { isActive } = req.body;
+		const userId = (req as any).user?.id;
 
 		if (typeof isActive !== 'boolean') {
 			res.status(400).json({ message: 'isActive must be a boolean' });
@@ -145,6 +160,13 @@ export const toggleBedActive = async (req: Request, res: Response, next: NextFun
 
 		if (!bed) {
 			res.status(404).json({ message: 'Bed not found' });
+			return;
+		}
+
+		// Verify retreat access
+		const hasAccess = await authorizationService.hasRetreatAccess(userId, bed.retreatId);
+		if (!hasAccess) {
+			res.status(403).json({ message: 'No access to this retreat' });
 			return;
 		}
 

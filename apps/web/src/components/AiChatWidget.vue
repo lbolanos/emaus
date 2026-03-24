@@ -3,6 +3,7 @@ import { Chat } from '@ai-sdk/vue';
 import { DefaultChatTransport } from 'ai';
 import { ref, nextTick, watch, onMounted } from 'vue';
 import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import { getCsrfToken } from '@/utils/csrf';
 import { getApiUrl } from '@/config/runtimeConfig';
 import { useRetreatStore } from '@/stores/retreatStore';
@@ -110,7 +111,7 @@ const getTextContent = (parts: any[] | undefined): string => {
 const renderMarkdown = (parts: any[] | undefined): string => {
 	const text = getTextContent(parts);
 	if (!text) return '';
-	return marked.parse(text) as string;
+	return DOMPurify.sanitize(marked.parse(text) as string);
 };
 
 const handleSubmit = (e: Event) => {

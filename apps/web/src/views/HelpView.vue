@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import { helpIndex, getHelpSectionByKey } from '@/config/helpIndex';
 import type { HelpSection } from '@/stores/helpStore';
 
@@ -47,7 +48,7 @@ async function loadContent(sectionKey: string) {
 	loading.value = true;
 	try {
 		const content = await import(`@/docs/${locale.value}/${sectionKey}.md?raw`);
-		contentHtml.value = await marked.parse(content.default);
+		contentHtml.value = DOMPurify.sanitize(await marked.parse(content.default));
 	} catch (error) {
 		console.error(`Failed to load help content: ${sectionKey}`, error);
 		contentHtml.value = `<p class="text-destructive">Error loading content</p>`;

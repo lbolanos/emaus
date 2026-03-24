@@ -110,7 +110,11 @@ export class User {
 	@BeforeInsert()
 	@BeforeUpdate()
 	async hashPassword() {
-		if (this.password) {
+		// Guard: only hash if password is set AND not already a bcrypt hash.
+		// Without this check, every userRepository.save() (even for non-password
+		// field updates like passwordResetToken or googleId) would re-hash the
+		// already-hashed password, silently corrupting authentication.
+		if (this.password && !this.password.startsWith('$2b$')) {
 			this.password = await bcrypt.hash(this.password, 10);
 		}
 	}

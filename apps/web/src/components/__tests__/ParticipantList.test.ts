@@ -134,6 +134,7 @@ vi.mock('lucide-vue-next', () => ({
 	Plus: { template: '<span>plus</span>' },
 	X: { template: '<span>x</span>' },
 	Printer: { template: '<span>print</span>' },
+	RefreshCw: { template: '<span>refresh</span>' },
 }));
 
 // Mock child components

@@ -24,12 +24,20 @@ export async function fetchCsrfToken(): Promise<string> {
 	}
 }
 
+// Cache the token for up to 10 minutes to avoid fetching on every mutating request
+let csrfTokenTimestamp = 0;
+const CSRF_TOKEN_TTL = 10 * 60 * 1000; // 10 minutes
+
 /**
- * Obtiene el token CSRF actual o lo obtiene si no existe
+ * Obtiene el token CSRF actual (cached) o lo obtiene si expiró/no existe
  */
 export async function getCsrfToken(): Promise<string> {
-	// Always fetch a fresh token to avoid using stale tokens
-	return await fetchCsrfToken();
+	if (csrfToken && Date.now() - csrfTokenTimestamp < CSRF_TOKEN_TTL) {
+		return csrfToken;
+	}
+	const token = await fetchCsrfToken();
+	csrfTokenTimestamp = Date.now();
+	return token;
 }
 
 /**
@@ -80,13 +88,16 @@ export function setupCsrfInterceptor(axiosInstance: any = axios) {
 			) {
 				console.error('Error de CSRF, obteniendo nuevo token...');
 				csrfToken = null; // Forzar nueva obtención
+				csrfTokenTimestamp = 0;
 
 				// Reintentar la petición automáticamente con nuevo token
 				return fetchCsrfToken()
 					.then(() => {
+						csrfTokenTimestamp = Date.now();
 						const originalRequest = error.config;
 						originalRequest.headers['X-CSRF-Token'] = csrfToken;
-						return axios.request(originalRequest);
+						// Use the same axios instance (with baseURL and credentials)
+						return axiosInstance.request(originalRequest);
 					})
 					.catch((fetchError) => {
 						console.error('No se pudo obtener nuevo token CSRF:', fetchError);

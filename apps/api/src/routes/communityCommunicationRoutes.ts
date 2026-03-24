@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { CommunityCommunicationController } from '../controllers/communityCommunicationController';
 import { isAuthenticated } from '../middleware/authentication';
+import { requireCommunityAccess } from '../middleware/authorization';
 
 const router = Router();
 const controller = new CommunityCommunicationController();
@@ -12,10 +13,18 @@ router.use(isAuthenticated);
 router.get('/member/:memberId', controller.getMemberCommunications);
 
 // Get communications for a specific community
-router.get('/community/:communityId', controller.getCommunityCommunications);
+router.get(
+	'/community/:communityId',
+	requireCommunityAccess('communityId'),
+	controller.getCommunityCommunications,
+);
 
 // Get communication statistics for a community
-router.get('/community/:communityId/stats', controller.getCommunityCommunicationStats);
+router.get(
+	'/community/:communityId/stats',
+	requireCommunityAccess('communityId'),
+	controller.getCommunityCommunicationStats,
+);
 
 // Create a new communication record
 router.post('/', controller.createCommunication);

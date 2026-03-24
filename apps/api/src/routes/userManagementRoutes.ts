@@ -1,8 +1,12 @@
 import { Router } from 'express';
 import { UserManagementController } from '../controllers/userManagementController';
+import { isAuthenticated } from '../middleware/isAuthenticated';
 
 const router = Router();
 const userManagementController = new UserManagementController();
+
+// All user management routes require authentication
+router.use(isAuthenticated);
 
 // Invite user to retreat
 router.post('/invite', userManagementController.inviteUserToRetreat.bind(userManagementController));

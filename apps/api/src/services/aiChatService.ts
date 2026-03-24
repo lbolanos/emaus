@@ -199,9 +199,10 @@ export async function createChatStream(messages: UIMessage[], userId: string, re
 				execute: async ({ participantId }) => {
 					const p = await findParticipantById(participantId, true);
 					if (!p) return { error: 'Participante no encontrado' };
-					if (p.retreatId) {
-						await verifyRetreatAccess(userId, p.retreatId);
+					if (!p.retreatId) {
+						return { error: 'Participante sin retiro asignado, no accesible.' };
 					}
+					await verifyRetreatAccess(userId, p.retreatId);
 					return {
 						id: p.id,
 						name: `${p.firstName} ${p.lastName}`,

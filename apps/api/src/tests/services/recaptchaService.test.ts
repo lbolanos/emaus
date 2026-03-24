@@ -37,13 +37,17 @@ describe('RecaptchaService', () => {
 		const demoSecretKey = '6Lf_NUssAAAAAJNezAhbH6Ym26f8qA6ac4pGGXAe';
 		const validToken = 'valid-recaptcha-token';
 
-		it('should return valid: true when demo keys are used', async () => {
+		it('should call Google API when demo keys are used (no longer auto-bypass)', async () => {
 			process.env.RECAPTCHA_SECRET_KEY = demoSecretKey;
+			mockFetch.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ success: true, score: 0.9 }),
+			} as Response);
 
 			const result = await service.verifyToken(validToken);
 
 			expect(result.valid).toBe(true);
-			expect(mockFetch).not.toHaveBeenCalled();
+			expect(mockFetch).toHaveBeenCalled();
 		});
 
 		it('should return valid: true when no secret key is configured (dev mode)', async () => {
@@ -149,7 +153,7 @@ describe('RecaptchaService', () => {
 			expect(result.error).toBe('reCAPTCHA verification failed: invalid-input-response');
 		});
 
-		it('should handle invalid-input-secret error gracefully (allow request)', async () => {
+		it('should fail closed on invalid-input-secret error (misconfigured key)', async () => {
 			process.env.RECAPTCHA_SECRET_KEY = 'real-secret-key';
 			mockFetch.mockResolvedValueOnce({
 				ok: true,
@@ -161,7 +165,8 @@ describe('RecaptchaService', () => {
 
 			const result = await service.verifyToken(validToken);
 
-			expect(result.valid).toBe(true);
+			expect(result.valid).toBe(false);
+			expect(result.error).toBe('reCAPTCHA configuration error');
 		});
 
 		it('should return valid: false when score is below threshold', async () => {

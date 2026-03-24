@@ -60,12 +60,11 @@ export class RecaptchaService {
 			return { valid: true };
 		}
 
-		// If no secret key is configured or a demo/placeholder key is used, allow the request
-		if (
-			!secretKey ||
-			secretKey === 'YOUR_RECAPTCHA_V3_SECRET_KEY_HERE' ||
-			secretKey.startsWith('6Lf_')
-		) {
+		// If no secret key is configured or a placeholder key is used, skip verification.
+		// IMPORTANT: Do NOT blindly bypass for keys starting with '6Lf_' — that prefix
+		// matches real Google test keys AND could match production keys.
+		if (!secretKey || secretKey === 'YOUR_RECAPTCHA_V3_SECRET_KEY_HERE') {
+			console.warn('⚠️  reCAPTCHA secret key not configured — skipping verification');
 			return { valid: true };
 		}
 
@@ -96,9 +95,10 @@ export class RecaptchaService {
 			if (!data.success) {
 				const errorCodes = data['error-codes'] || [];
 
-				// If the error is about invalid site secret, allow the request (configuration issue)
+				// FAIL CLOSED: a misconfigured secret must be fixed, not silently bypassed
 				if (errorCodes.includes('invalid-input-secret')) {
-					return { valid: true };
+					console.error('reCAPTCHA invalid-input-secret: check RECAPTCHA_SECRET_KEY env var');
+					return { valid: false, error: 'reCAPTCHA configuration error' };
 				}
 
 				return {

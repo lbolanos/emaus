@@ -17,33 +17,33 @@ router.use(isAuthenticated);
 // Set permission overrides for a user in a retreat - only retreat creators
 router.post(
 	'/retreats/:retreatId/users/:userId/overrides',
-	requireRetreatAccessOrCreator,
+	requireRetreatAccessOrCreator('retreatId'),
 	(req: any, res: any) => setPermissionOverrides(req, res),
 );
 
 // Get permission overrides for a user in a retreat
 router.get(
 	'/retreats/:retreatId/users/:userId/overrides',
-	requireRetreatAccessOrCreator,
+	requireRetreatAccessOrCreator('retreatId'),
 	(req: any, res: any) => getPermissionOverrides(req, res),
 );
 
 // Clear permission overrides for a user in a retreat - only retreat creators
 router.delete(
 	'/retreats/:retreatId/users/:userId/overrides',
-	requireRetreatAccessOrCreator,
+	requireRetreatAccessOrCreator('retreatId'),
 	(req: any, res: any) => clearPermissionOverrides(req, res),
 );
 
 // Get all permission overrides for a retreat - only retreat creators
-router.get('/retreats/:retreatId/overrides', requireRetreatAccessOrCreator, (req: any, res: any) =>
+router.get('/retreats/:retreatId/overrides', requireRetreatAccessOrCreator('retreatId'), (req: any, res: any) =>
 	getRetreatPermissionOverrides(req, res),
 );
 
 // Get user's effective permissions with overrides applied
 router.get(
 	'/retreats/:retreatId/users/:userId/effective-permissions',
-	requireRetreatAccessOrCreator,
+	requireRetreatAccessOrCreator('retreatId'),
 	(req: any, res: any) => getUserPermissionsWithOverrides(req, res),
 );
 

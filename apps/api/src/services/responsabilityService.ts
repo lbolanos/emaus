@@ -397,9 +397,10 @@ export const searchSpeakers = async (query: string, retreatId?: string, dataSour
 	);
 	if (retreatId) {
 		qb.orderBy(
-			`CASE WHEN p.retreatId = '${retreatId}' THEN 0 ELSE 1 END`,
+			`CASE WHEN p.retreatId = :orderRetreatId THEN 0 ELSE 1 END`,
 			'ASC',
 		);
+		qb.setParameter('orderRetreatId', retreatId);
 	}
 	qb.addOrderBy('p.firstName', 'ASC');
 	qb.take(20);

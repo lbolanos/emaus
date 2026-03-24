@@ -40,13 +40,13 @@ router.get(
 	(req: any, res: any) => getRetreatRoleRequests(req, res),
 );
 
-// Approve role request (only retreat creator)
-router.put('/requests/:requestId/approve', requireRetreatAccessOrCreator(), (req: any, res: any) =>
+// Approve role request (only retreat creator — auth checked in controller via roleRequest.retreatId)
+router.put('/requests/:requestId/approve', (req: any, res: any) =>
 	approveRoleRequest(req, res),
 );
 
-// Reject role request (only retreat creator)
-router.put('/requests/:requestId/reject', requireRetreatAccessOrCreator(), (req: any, res: any) =>
+// Reject role request (only retreat creator — auth checked in controller via roleRequest.retreatId)
+router.put('/requests/:requestId/reject', (req: any, res: any) =>
 	rejectRoleRequest(req, res),
 );
 

@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import { X, BookOpen } from 'lucide-vue-next';
 import { Button } from '@repo/ui';
 import { useHelpStore } from '@/stores/helpStore';
@@ -41,7 +42,7 @@ async function loadContent(sectionKey: string) {
 	loading.value = true;
 	try {
 		const content = await import(`@/docs/${locale.value}/${sectionKey}.md?raw`);
-		contentHtml.value = await marked.parse(content.default);
+		contentHtml.value = DOMPurify.sanitize(await marked.parse(content.default));
 	} catch (error) {
 		console.error(`Failed to load help content: ${sectionKey}`, error);
 		contentHtml.value = `<p class="text-destructive">${locale.value === 'es' ? 'Error al cargar el contenido' : 'Error loading content'}</p>`;

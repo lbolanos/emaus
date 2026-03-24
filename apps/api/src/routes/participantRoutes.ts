@@ -14,14 +14,15 @@ import { validateRequest } from '../middleware/validateRequest';
 import { createParticipantSchema, updateParticipantSchema } from '@repo/types';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
+import { publicParticipantLimiter, emailCheckLimiter } from '../middleware/rateLimiting';
 
 const router = Router();
 
-// Public routes for walker and server registration
-router.post('/new', validateRequest(createParticipantSchema), createParticipant);
+// Public routes for walker and server registration (with dedicated rate limiters)
+router.post('/new', publicParticipantLimiter, validateRequest(createParticipantSchema), createParticipant);
 
-// Public check-email with reCAPTCHA protection (for server registration flow)
-router.get('/check-email/:email', checkParticipantEmail);
+// Public check-email with reCAPTCHA protection and rate limiting
+router.get('/check-email/:email', emailCheckLimiter, checkParticipantEmail);
 
 // Public confirm-registration: auto-register existing participant for a retreat
 router.post('/confirm-registration', confirmExistingParticipantEmail);
