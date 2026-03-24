@@ -126,6 +126,22 @@ export const publicParticipantLimiter = rateLimit({
 });
 
 /**
+ * Newsletter subscribe/unsubscribe rate limiter (prevent email bombing)
+ */
+export const newsletterLimiter = rateLimit({
+	windowMs: 60 * 60 * 1000, // 1 hour
+	max: 5, // Max 5 requests per IP per hour
+	keyGenerator: (req: Request) => req.ip || 'unknown',
+	message: {
+		message: 'Demasiadas solicitudes de suscripción. Inténtalo en 1 hora.',
+		error: 'NEWSLETTER_RATE_LIMIT_EXCEEDED',
+	},
+	skip: (req: Request) => {
+		return process.env.NODE_ENV === 'development' && process.env.SKIP_RATE_LIMIT === 'true';
+	},
+});
+
+/**
  * Email check rate limiter (prevent email enumeration)
  */
 export const emailCheckLimiter = rateLimit({

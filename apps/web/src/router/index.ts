@@ -297,7 +297,7 @@ const router = createRouter({
 					path: 'settings/global-message-templates',
 					name: 'global-message-templates',
 					component: GlobalMessageTemplatesView,
-					meta: { requiresRetreat: false },
+					meta: { requiresRetreat: false, requiresAdmin: true },
 				},
 				{
 					path: 'settings/change-password',
@@ -310,7 +310,7 @@ const router = createRouter({
 					name: 'role-management',
 					component: RetreatRoleManagementView,
 					props: true,
-					meta: { requiresRetreat: true },
+					meta: { requiresRetreat: true, requiresAdmin: true },
 				},
 				{
 					path: 'telemetry',
@@ -378,7 +378,7 @@ const router = createRouter({
 					name: 'community-admins',
 					component: () => import('../views/CommunityAdminsView.vue'),
 					props: true,
-					meta: { requiresRetreat: false },
+					meta: { requiresRetreat: false, requiresAdmin: true },
 				},
 				{
 					path: 'communities/:id/templates',
@@ -465,6 +465,17 @@ router.beforeEach(async (to, from, next) => {
 			(r: any) => r.role?.name === 'superadmin',
 		);
 		if (!auth.isAuthenticated || !isSuperadmin) {
+			next({ name: 'login' });
+			return;
+		}
+	}
+
+	const requiresAdmin = to.matched.some((record) => record.meta.requiresAdmin);
+	if (requiresAdmin) {
+		const isAdmin = auth.userProfile?.roles?.some((r: any) =>
+			['admin', 'superadmin', 'region_admin'].includes(r.role?.name),
+		);
+		if (!auth.isAuthenticated || !isAdmin) {
 			next({ name: 'login' });
 			return;
 		}

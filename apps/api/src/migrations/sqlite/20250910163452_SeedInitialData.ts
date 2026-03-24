@@ -8,11 +8,22 @@ export class SeedInitialData20250910163452 implements MigrationInterface {
 
 	public async up(queryRunner: QueryRunner): Promise<void> {
 		// Guard: refuse to seed with fallback passwords in production
-		if (process.env.NODE_ENV === 'production' && !process.env.SEED_MASTER_USER_PASSWORD) {
-			throw new Error(
-				'SEED_MASTER_USER_PASSWORD must be set in production. ' +
-				'Refusing to seed with default fallback passwords.',
-			);
+		if (process.env.NODE_ENV === 'production') {
+			const required = [
+				'SEED_MASTER_USER_PASSWORD',
+				'SEED_ADMIN_USER_PASSWORD',
+				'SEED_SERVER_USER_PASSWORD',
+				'SEED_TREASURER_USER_PASSWORD',
+				'SEED_LOGISTICS_USER_PASSWORD',
+				'SEED_OPERATIONS_USER_PASSWORD',
+			];
+			const missing = required.filter((v) => !process.env[v]);
+			if (missing.length > 0) {
+				throw new Error(
+					`Production seed requires env vars: ${missing.join(', ')}. ` +
+					'Refusing to seed with default fallback passwords.',
+				);
+			}
 		}
 
 		console.log('🌱 Seeding initial data...');

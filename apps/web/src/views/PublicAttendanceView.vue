@@ -188,18 +188,16 @@ import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { Search, Check, Users, AlertCircle, Loader2, UserPlus, Calendar, Phone } from 'lucide-vue-next';
 import { Input } from '@repo/ui';
-import { getApiUrl } from '@/config/runtimeConfig';
 import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha';
 import { formatMeetingDate } from '@/utils/meetingFlyer';
 import PublicJoinRequestModal from '@/components/community/PublicJoinRequestModal.vue';
+import { getPublicAttendance, togglePublicAttendance } from '@/services/api';
 
 const { t: $t } = useI18n();
 const route = useRoute();
 const communityId = route.params.communityId as string;
 const meetingId = route.params.meetingId as string;
 
-const API_BASE = getApiUrl();
-const attendanceUrl = `${API_BASE}/communities/public/attendance/${communityId}/${meetingId}`;
 
 const members = ref<any[]>([]);
 const communityName = ref('');
@@ -261,15 +259,11 @@ const toggleAttendance = async (member: any) => {
     // Get reCAPTCHA token for bot protection
     const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.PUBLIC_ATTENDANCE_TOGGLE);
 
-    const response = await fetch(attendanceUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ memberId: member.id, attended: newStatus, recaptchaToken }),
+    await togglePublicAttendance(communityId, meetingId, {
+      memberId: member.id,
+      attended: newStatus,
+      recaptchaToken,
     });
-
-    if (!response.ok) {
-      throw new Error('Failed to save attendance');
-    }
 
     member.attended = newStatus;
   } catch (err) {
@@ -283,24 +277,18 @@ const toggleAttendance = async (member: any) => {
 
 onMounted(async () => {
   try {
-    const res = await fetch(attendanceUrl);
-    if (!res.ok) {
-      if (res.status === 404) {
-        error.value = $t('community.attendance.notFound') || 'Reunión no encontrada';
-      } else {
-        throw new Error('Failed to load attendance');
-      }
-      return;
-    }
-
-    const data = await res.json();
+    const data = await getPublicAttendance(communityId, meetingId);
     members.value = data.members || [];
     communityName.value = data.communityName || '';
     meetingTitle.value = data.meetingTitle || '';
     meetingStartDate.value = data.meetingStartDate || '';
-  } catch (err) {
-    console.error('Failed to load attendance data:', err);
-    error.value = $t('community.attendance.loadError') || 'Error al cargar datos';
+  } catch (err: any) {
+    if (err?.response?.status === 404) {
+      error.value = $t('community.attendance.notFound') || 'Reunión no encontrada';
+    } else {
+      console.error('Failed to load attendance data:', err);
+      error.value = $t('community.attendance.loadError') || 'Error al cargar datos';
+    }
   } finally {
     loading.value = false;
   }

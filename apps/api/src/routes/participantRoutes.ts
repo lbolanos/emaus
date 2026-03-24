@@ -25,7 +25,7 @@ router.post('/new', publicParticipantLimiter, validateRequest(createParticipantS
 router.get('/check-email/:email', emailCheckLimiter, checkParticipantEmail);
 
 // Public confirm-registration: auto-register existing participant for a retreat
-router.post('/confirm-registration', confirmExistingParticipantEmail);
+router.post('/confirm-registration', publicParticipantLimiter, confirmExistingParticipantEmail);
 
 router.use(isAuthenticated);
 

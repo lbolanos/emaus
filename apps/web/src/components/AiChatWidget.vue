@@ -7,6 +7,7 @@ import DOMPurify from 'dompurify';
 import { getCsrfToken } from '@/utils/csrf';
 import { getApiUrl } from '@/config/runtimeConfig';
 import { useRetreatStore } from '@/stores/retreatStore';
+import { getAiChatStatus } from '@/services/api';
 
 const isOpen = ref(false);
 const isMaximized = ref(false);
@@ -88,10 +89,7 @@ const clearChat = () => {
 
 onMounted(async () => {
 	try {
-		const res = await globalThis.fetch(`${getApiUrl()}/ai-chat/status`, {
-			credentials: 'include',
-		});
-		const data = await res.json();
+		const data = await getAiChatStatus();
 		isConfigured.value = data.configured;
 	} catch {
 		isConfigured.value = false;

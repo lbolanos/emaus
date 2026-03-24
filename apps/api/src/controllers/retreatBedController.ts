@@ -27,32 +27,24 @@ export const assignParticipantToBed = async (req: Request, res: Response, next: 
 		const { participantId } = req.body; // participantId can be null to unassign
 		const userId = (req as any).user?.id;
 
-		// Verify retreat access via bed lookup
-		const bedCheck = await AppDataSource.getRepository(RetreatBed).findOne({ where: { id: bedId } });
-		if (!bedCheck) {
-			res.status(404).json({ message: 'Bed not found' });
-			return;
-		}
-		const hasAccess = await authorizationService.hasRetreatAccess(userId, bedCheck.retreatId);
-		if (!hasAccess) {
-			res.status(403).json({ message: 'No access to this retreat' });
-			return;
-		}
-
-		// Use TypeORM transaction for atomic operations
+		// Use TypeORM transaction for atomic operations (auth check inside to prevent TOCTOU)
 		await AppDataSource.transaction(async (transactionalEntityManager) => {
 			const bedRepo = transactionalEntityManager.getRepository(RetreatBed);
 			const participantRepo = transactionalEntityManager.getRepository(Participant);
 
+			// Verify retreat access inside transaction to prevent TOCTOU race
+			const bedCheck = await bedRepo.findOne({ where: { id: bedId } });
+			if (!bedCheck) {
+				throw new Error('Bed not found');
+			}
+			const hasAccess = await authorizationService.hasRetreatAccess(userId, bedCheck.retreatId);
+			if (!hasAccess) {
+				throw new Error('No access to this retreat');
+			}
+
 			// If unassigning
 			if (participantId === null) {
-				const bed = await bedRepo.findOne({ where: { id: bedId } });
-				if (!bed) {
-					throw new Error('Bed not found');
-				}
-
 				await bedRepo.update(bedId, { participantId: null });
-				console.log(`✅ Unassigned participant from bed ${bedId}`);
 				return;
 			}
 
@@ -67,44 +59,33 @@ export const assignParticipantToBed = async (req: Request, res: Response, next: 
 				throw new Error('Participant not found');
 			}
 
-			// Check if bed exists
-			const bed = await bedRepo.findOne({ where: { id: bedId } });
-			if (!bed) {
-				throw new Error('Bed not found');
-			}
-
 			// Check if bed is active
-			if (bed.isActive === false) {
+			if (bedCheck.isActive === false) {
 				throw new Error('Cannot assign participant to a disabled bed');
 			}
 
 			// Check if participant is cancelled (isCancelled lives in retreat_participants)
 			const rpRepo = transactionalEntityManager.getRepository(RetreatParticipant);
-			const rp = await rpRepo.findOne({ where: { participantId, retreatId: bed.retreatId } });
+			const rp = await rpRepo.findOne({ where: { participantId, retreatId: bedCheck.retreatId } });
 			if (rp?.isCancelled) {
 				throw new Error('Cannot assign cancelled participant to bed');
 			}
 
 			// Check if participant already has a bed in the same retreat and unassign if necessary
 			const existingBed = await bedRepo.findOne({
-				where: { participantId, retreatId: bed.retreatId },
+				where: { participantId, retreatId: bedCheck.retreatId },
 			});
 			if (existingBed && existingBed.id !== bedId) {
-				// Unassign participant from their current bed in this retreat
 				await bedRepo.update(existingBed.id, { participantId: null });
-				console.log(
-					`✅ Unassigned participant ${participantId} from previous bed ${existingBed.id}`,
-				);
 			}
 
 			// Check if bed is already assigned to someone else
-			if (bed.participantId && bed.participantId !== participantId) {
+			if (bedCheck.participantId && bedCheck.participantId !== participantId) {
 				throw new Error('Bed is already assigned to another participant');
 			}
 
 			// Perform the assignment
 			await bedRepo.update(bedId, { participantId });
-			console.log(`✅ Assigned participant ${participantId} to bed ${bedId}`);
 		});
 
 		// Return the updated bed
@@ -116,13 +97,13 @@ export const assignParticipantToBed = async (req: Request, res: Response, next: 
 
 		res.json(updatedBed);
 	} catch (error: any) {
-		console.error('❌ Error in assignParticipantToBed:', error.message);
-
 		// Convert errors to appropriate HTTP responses
 		let statusCode = 400;
 		let message = error.message || 'Unknown error occurred';
 
-		if (message.includes('not found')) {
+		if (message.includes('No access')) {
+			statusCode = 403;
+		} else if (message.includes('not found')) {
 			statusCode = 404;
 		} else if (message.includes('already assigned')) {
 			statusCode = 409; // Conflict

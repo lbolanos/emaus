@@ -1524,3 +1524,33 @@ export async function getCharlistas(retreatId?: string): Promise<RetreatParticip
 	const response = await api.get(`/history/charlistas${params}`);
 	return response.data;
 }
+
+// ==================== AI CHAT API ====================
+
+export async function getAiChatStatus(): Promise<{ configured: boolean }> {
+	const response = await api.get('/ai-chat/status');
+	return response.data;
+}
+
+// ==================== PUBLIC ATTENDANCE API ====================
+
+export async function getPublicAttendance(
+	communityId: string,
+	meetingId: string,
+): Promise<{
+	members: any[];
+	communityName: string;
+	meetingTitle: string;
+	meetingStartDate: string;
+}> {
+	const response = await api.get(`/communities/public/attendance/${communityId}/${meetingId}`);
+	return response.data;
+}
+
+export async function togglePublicAttendance(
+	communityId: string,
+	meetingId: string,
+	data: { memberId: string; attended: boolean; recaptchaToken?: string },
+): Promise<void> {
+	await api.post(`/communities/public/attendance/${communityId}/${meetingId}`, data);
+}

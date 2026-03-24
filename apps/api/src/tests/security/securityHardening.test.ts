@@ -1199,3 +1199,241 @@ describe('MEDIUM-P3-8: Retreat bed controller has retreat access check', () => {
 		expect(matches!.length).toBeGreaterThanOrEqual(2);
 	});
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FOURTH-PASS SECURITY HARDENING TESTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── HIGH-P4-1: Rate limiter on /confirm-registration ─────────────────────
+describe('HIGH-P4-1: Rate limiter on /confirm-registration', () => {
+	it('should apply publicParticipantLimiter to confirm-registration route', () => {
+		const routeFile = fs.readFileSync(
+			path.join(__dirname, '../../routes/participantRoutes.ts'),
+			'utf8',
+		);
+		expect(routeFile).toContain('publicParticipantLimiter');
+		// The router.post line for confirm-registration should include the limiter
+		const lines = routeFile.split('\n');
+		const confirmLine = lines.find(
+			(l: string) => l.includes('confirm-registration') && l.includes('router.post'),
+		);
+		expect(confirmLine).toBeDefined();
+		expect(confirmLine).toContain('publicParticipantLimiter');
+	});
+});
+
+// ─── MEDIUM-P4-2: Newsletter routes rate limiter ──────────────────────────
+describe('MEDIUM-P4-2: Newsletter subscribe/unsubscribe rate limiter', () => {
+	it('should export newsletterLimiter from rateLimiting.ts', () => {
+		const rateLimitFile = fs.readFileSync(
+			path.join(__dirname, '../../middleware/rateLimiting.ts'),
+			'utf8',
+		);
+		expect(rateLimitFile).toContain('export const newsletterLimiter');
+	});
+
+	it('should apply newsletterLimiter to subscribe and unsubscribe routes', () => {
+		const routeFile = fs.readFileSync(
+			path.join(__dirname, '../../routes/newsletterRoutes.ts'),
+			'utf8',
+		);
+		expect(routeFile).toContain('newsletterLimiter');
+		const lines = routeFile.split('\n');
+		const subscribeLine = lines.find((l: string) => l.includes('/subscribe'));
+		const unsubscribeLine = lines.find((l: string) => l.includes('/unsubscribe'));
+		expect(subscribeLine).toContain('newsletterLimiter');
+		expect(unsubscribeLine).toContain('newsletterLimiter');
+	});
+});
+
+// ─── MEDIUM-P4-3: verify-smtp requires user:manage permission ─────────────
+describe('MEDIUM-P4-3: verify-smtp requires user:manage permission', () => {
+	it('should import requirePermission in userManagementRoutes', () => {
+		const routeFile = fs.readFileSync(
+			path.join(__dirname, '../../routes/userManagementRoutes.ts'),
+			'utf8',
+		);
+		expect(routeFile).toContain("from '../middleware/authorization'");
+		expect(routeFile).toContain('requirePermission');
+	});
+
+	it('should apply requirePermission to verify-smtp route', () => {
+		const routeFile = fs.readFileSync(
+			path.join(__dirname, '../../routes/userManagementRoutes.ts'),
+			'utf8',
+		);
+		const lines = routeFile.split('\n');
+		const smtpLineIndex = lines.findIndex((l: string) => l.includes('verify-smtp'));
+		expect(smtpLineIndex).toBeGreaterThan(-1);
+		const surroundingLines = lines
+			.slice(Math.max(0, smtpLineIndex - 2), smtpLineIndex + 4)
+			.join('\n');
+		expect(surroundingLines).toContain("requirePermission('user:manage')");
+	});
+});
+
+// ─── MEDIUM-P4-4: TOCTOU fix — auth check inside transaction ──────────────
+describe('MEDIUM-P4-4: Bed assignment auth check inside transaction', () => {
+	it('should perform hasRetreatAccess check inside AppDataSource.transaction', () => {
+		const controllerFile = fs.readFileSync(
+			path.join(__dirname, '../../controllers/retreatBedController.ts'),
+			'utf8',
+		);
+		// Find the transaction block in assignParticipantToBed
+		const txMatch = controllerFile.match(
+			/AppDataSource\.transaction\(async[\s\S]*?hasRetreatAccess/,
+		);
+		expect(txMatch).toBeTruthy();
+	});
+
+	it('should NOT have auth check before the transaction in assignParticipantToBed', () => {
+		const controllerFile = fs.readFileSync(
+			path.join(__dirname, '../../controllers/retreatBedController.ts'),
+			'utf8',
+		);
+		// Extract the function body between "assignParticipantToBed" and the transaction
+		const fnStart = controllerFile.indexOf('assignParticipantToBed');
+		const txStart = controllerFile.indexOf('AppDataSource.transaction', fnStart);
+		const preTransaction = controllerFile.slice(fnStart, txStart);
+		// Should NOT contain hasRetreatAccess before the transaction
+		expect(preTransaction).not.toContain('hasRetreatAccess');
+	});
+
+	it('should not contain emoji console.logs in assignParticipantToBed', () => {
+		const controllerFile = fs.readFileSync(
+			path.join(__dirname, '../../controllers/retreatBedController.ts'),
+			'utf8',
+		);
+		// The assignParticipantToBed function should not have emoji logs
+		const fnStart = controllerFile.indexOf('assignParticipantToBed');
+		const fnEnd = controllerFile.indexOf('export const autoAssignBeds', fnStart);
+		const fnBody = controllerFile.slice(fnStart, fnEnd);
+		expect(fnBody).not.toMatch(/console\.log\(`[✅❌]/);
+	});
+});
+
+// ─── MEDIUM-P4-5: AiChatWidget uses centralized API ──────────────────────
+describe('MEDIUM-P4-5: AiChatWidget uses centralized API for status check', () => {
+	it('should not use globalThis.fetch for /ai-chat/status', () => {
+		const widgetFile = fs.readFileSync(
+			path.join(__dirname, '../../../../web/src/components/AiChatWidget.vue'),
+			'utf8',
+		);
+		expect(widgetFile).not.toContain("globalThis.fetch(`${getApiUrl()}/ai-chat/status`");
+	});
+
+	it('should import getAiChatStatus from api service', () => {
+		const widgetFile = fs.readFileSync(
+			path.join(__dirname, '../../../../web/src/components/AiChatWidget.vue'),
+			'utf8',
+		);
+		expect(widgetFile).toContain('getAiChatStatus');
+	});
+});
+
+// ─── MEDIUM-P4-6: PublicAttendanceView uses centralized API ───────────────
+describe('MEDIUM-P4-6: PublicAttendanceView uses centralized API', () => {
+	it('should not use direct fetch for attendance operations', () => {
+		const viewFile = fs.readFileSync(
+			path.join(__dirname, '../../../../web/src/views/PublicAttendanceView.vue'),
+			'utf8',
+		);
+		expect(viewFile).not.toContain('await fetch(attendanceUrl');
+	});
+
+	it('should import API functions from services/api', () => {
+		const viewFile = fs.readFileSync(
+			path.join(__dirname, '../../../../web/src/views/PublicAttendanceView.vue'),
+			'utf8',
+		);
+		expect(viewFile).toContain('getPublicAttendance');
+		expect(viewFile).toContain('togglePublicAttendance');
+	});
+});
+
+// ─── MEDIUM-P4-7: Admin role guards on frontend routes ────────────────────
+describe('MEDIUM-P4-7: Admin role guards on frontend routes', () => {
+	it('should have requiresAdmin meta on admin-only routes', () => {
+		const routerFile = fs.readFileSync(
+			path.join(__dirname, '../../../../web/src/router/index.ts'),
+			'utf8',
+		);
+		// Check that the requiresAdmin guard logic exists
+		expect(routerFile).toContain('requiresAdmin');
+		expect(routerFile).toContain("record.meta.requiresAdmin");
+	});
+
+	it('should check admin/superadmin roles in beforeEach guard', () => {
+		const routerFile = fs.readFileSync(
+			path.join(__dirname, '../../../../web/src/router/index.ts'),
+			'utf8',
+		);
+		expect(routerFile).toContain("'admin'");
+		expect(routerFile).toContain("'superadmin'");
+		expect(routerFile).toContain("'region_admin'");
+	});
+});
+
+// ─── LOW-P4-8: Extended seed production guard ─────────────────────────────
+describe('LOW-P4-8: Extended seed password production guard', () => {
+	it('should require all seed password env vars in production', () => {
+		const migrationFile = fs.readFileSync(
+			path.join(__dirname, '../../migrations/sqlite/20250910163452_SeedInitialData.ts'),
+			'utf8',
+		);
+		expect(migrationFile).toContain('SEED_MASTER_USER_PASSWORD');
+		expect(migrationFile).toContain('SEED_ADMIN_USER_PASSWORD');
+		expect(migrationFile).toContain('SEED_SERVER_USER_PASSWORD');
+		expect(migrationFile).toContain('SEED_TREASURER_USER_PASSWORD');
+		expect(migrationFile).toContain('SEED_LOGISTICS_USER_PASSWORD');
+		expect(migrationFile).toContain('SEED_OPERATIONS_USER_PASSWORD');
+	});
+
+	it('guard logic should block when any seed password is missing in production', () => {
+		const checkAllSeedPasswords = (
+			nodeEnv: string,
+			passwords: Record<string, string | undefined>,
+		): string[] => {
+			if (nodeEnv !== 'production') return [];
+			const required = [
+				'SEED_MASTER_USER_PASSWORD',
+				'SEED_ADMIN_USER_PASSWORD',
+				'SEED_SERVER_USER_PASSWORD',
+				'SEED_TREASURER_USER_PASSWORD',
+				'SEED_LOGISTICS_USER_PASSWORD',
+				'SEED_OPERATIONS_USER_PASSWORD',
+			];
+			return required.filter((v) => !passwords[v]);
+		};
+
+		// All missing in production — should fail
+		const allMissing = checkAllSeedPasswords('production', {});
+		expect(allMissing.length).toBe(6);
+
+		// One missing — should fail
+		const oneMissing = checkAllSeedPasswords('production', {
+			SEED_MASTER_USER_PASSWORD: 'pass1',
+			SEED_ADMIN_USER_PASSWORD: 'pass2',
+			SEED_SERVER_USER_PASSWORD: 'pass3',
+			SEED_TREASURER_USER_PASSWORD: 'pass4',
+			SEED_LOGISTICS_USER_PASSWORD: 'pass5',
+		});
+		expect(oneMissing.length).toBe(1);
+		expect(oneMissing[0]).toBe('SEED_OPERATIONS_USER_PASSWORD');
+
+		// All provided — should pass
+		const allProvided = checkAllSeedPasswords('production', {
+			SEED_MASTER_USER_PASSWORD: 'p1',
+			SEED_ADMIN_USER_PASSWORD: 'p2',
+			SEED_SERVER_USER_PASSWORD: 'p3',
+			SEED_TREASURER_USER_PASSWORD: 'p4',
+			SEED_LOGISTICS_USER_PASSWORD: 'p5',
+			SEED_OPERATIONS_USER_PASSWORD: 'p6',
+		});
+		expect(allProvided.length).toBe(0);
+
+		// Development — should always pass
+		const devMode = checkAllSeedPasswords('development', {});
+		expect(devMode.length).toBe(0);
+	});
+});
