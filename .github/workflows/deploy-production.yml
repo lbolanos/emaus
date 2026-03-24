@@ -151,6 +151,25 @@ jobs:
           scp -i ~/.ssh/emaus-key.pem /tmp/runtime-config.js ubuntu@$EC2_HOST:/var/www/emaus/apps/web/dist/runtime-config.js
           echo "runtime-config.js uploaded"
 
+          # Snapshot current version for rollback
+          echo "Creating rollback snapshot..."
+          ssh -i ~/.ssh/emaus-key.pem ubuntu@$EC2_HOST << 'SNAPSHOTEOF'
+          set -e
+          PREV_DIR="/var/www/emaus/previous"
+          rm -rf "$PREV_DIR"
+          mkdir -p "$PREV_DIR"
+          cp -r /var/www/emaus/apps/api/dist "$PREV_DIR/api-dist" 2>/dev/null || true
+          cp -r /var/www/emaus/apps/web/dist "$PREV_DIR/web-dist" 2>/dev/null || true
+          cp /var/www/emaus/apps/api/package.json "$PREV_DIR/api-package.json" 2>/dev/null || true
+          cp /var/www/emaus/apps/web/package.json "$PREV_DIR/web-package.json" 2>/dev/null || true
+          cp /var/www/emaus/package.json "$PREV_DIR/root-package.json" 2>/dev/null || true
+          cp /var/www/emaus/pnpm-lock.yaml "$PREV_DIR/pnpm-lock.yaml" 2>/dev/null || true
+          cp /var/www/emaus/pnpm-workspace.yaml "$PREV_DIR/pnpm-workspace.yaml" 2>/dev/null || true
+          git -C /var/www/emaus rev-parse HEAD > "$PREV_DIR/git-commit.txt" 2>/dev/null || true
+          date -u > "$PREV_DIR/snapshot-timestamp.txt"
+          echo "Rollback snapshot saved to $PREV_DIR"
+          SNAPSHOTEOF
+
           # Backup database before deploy
           echo "Creating database backup..."
           ssh -i ~/.ssh/emaus-key.pem ubuntu@$EC2_HOST << 'BACKUPEOF'
