@@ -51,7 +51,7 @@ export const getParticipantById = async (req: Request, res: Response, next: Next
 
 export const createParticipant = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { recaptchaToken, ...participantData } = req.body;
+		const { recaptchaToken, dryRun, ...participantData } = req.body;
 
 		// Verify reCAPTCHA token for public registration
 		const recaptchaResult = await recaptchaService.verifyToken(recaptchaToken, {
@@ -62,6 +62,12 @@ export const createParticipant = async (req: Request, res: Response, next: NextF
 			return res
 				.status(400)
 				.json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
+		}
+
+		// Dry-run mode: validate only, no DB writes
+		if (dryRun === true) {
+			const result = await participantService.validateParticipant(participantData);
+			return res.status(200).json(result);
 		}
 
 		const newParticipant = await participantService.createParticipant(participantData);

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, reactive, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { useToast } from '@repo/ui'
 import { z } from 'zod'
 import { participantSchema, Participant } from '@repo/types'
@@ -26,8 +27,11 @@ import Step5ServerInfo from '@/components/registration/Step5ServerInfo.vue'
 
 const props = defineProps<{ retreatId?: string; slug?: string; type: string }>()
 const participantStore = useParticipantStore()
+const route = useRoute()
 const { t, locale } = useI18n()
 const { toast } = useToast()
+
+const isTestMode = computed(() => route.query.test === 'true')
 
 const switchLocale = (lang: string) => {
   locale.value = lang
@@ -430,6 +434,27 @@ const onSubmit = async () => {
     // Get reCAPTCHA token for bot protection
     const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.PARTICIPANT_REGISTER)
 
+    if (isTestMode.value) {
+      const dryRunResult = await participantStore.createParticipant(result.data, recaptchaToken, true)
+      const warnings = dryRunResult?.warnings?.length
+        ? dryRunResult.warnings.join('\n')
+        : ''
+      if (dryRunResult?.valid) {
+        toast({
+          title: 'Validación exitosa',
+          description: warnings || 'Todos los datos son válidos. No se guardó nada en la base de datos.',
+        })
+      } else {
+        toast({
+          title: 'Validación fallida',
+          description: dryRunResult?.error || 'Error de validación',
+          variant: 'destructive',
+        })
+      }
+      // Keep form open — don't reset
+      return
+    }
+
     await participantStore.createParticipant(result.data, recaptchaToken)
     toast({ title: 'Registration Successful' })
     isDialogOpen.value = false
@@ -519,8 +544,13 @@ onMounted(async () => {
 
 <template>
   <div class="relative h-screen w-full">
+    <!-- Dry-run test mode banner -->
+    <div v-if="isTestMode" class="fixed top-0 left-0 right-0 z-50 bg-yellow-400 text-yellow-900 text-center py-2 px-4 font-bold text-sm shadow-md">
+      MODO PRUEBA — Los envíos no se guardarán en la base de datos
+    </div>
     <div
       class="absolute inset-0 bg-cover bg-center"
+      :class="{ 'pt-10': isTestMode }"
       style="background-image: url('/header_bck.png');"
     >
     
@@ -729,6 +759,9 @@ onMounted(async () => {
 
               <!-- Step 6: Summary -->
               <div v-show="currentStep === totalSteps">
+                <div v-if="isTestMode" class="mb-4 rounded-lg border border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 p-4 text-yellow-800 dark:text-yellow-200 text-sm">
+                  <strong>MODO PRUEBA:</strong> Al enviar, solo se validarán los datos. No se creará ningún registro ni se enviará correo de confirmación.
+                </div>
                 <Card>
                   <CardHeader>
                     <CardTitle>{{ $t('serverRegistration.summary.title') }}</CardTitle>

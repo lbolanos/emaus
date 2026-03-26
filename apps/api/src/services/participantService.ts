@@ -74,6 +74,69 @@ export const checkParticipantExists = async (
 };
 
 /**
+ * Dry-run validation for participant registration.
+ * Runs all checks (email uniqueness, retreat exists/public, capacity) without any DB writes.
+ */
+export const validateParticipant = async (
+	participantData: CreateParticipant,
+): Promise<{ valid: boolean; error?: string; warnings: string[] }> => {
+	const warnings: string[] = [];
+	const retreatRepository = AppDataSource.getRepository(Retreat);
+	const historyRepo = AppDataSource.getRepository(RetreatParticipant);
+
+	// 1. Check retreat exists and is public
+	if (!participantData.retreatId) {
+		return { valid: false, error: 'retreatId es requerido', warnings };
+	}
+	const retreat = await retreatRepository.findOne({ where: { id: participantData.retreatId } });
+	if (!retreat) {
+		return { valid: false, error: 'Retiro no encontrado', warnings };
+	}
+	if (!retreat.isPublic) {
+		return { valid: false, error: 'El retiro no está abierto para registro público', warnings };
+	}
+
+	// 2. Check email uniqueness
+	const normalizedEmail = participantData.email?.toLowerCase().trim();
+	if (normalizedEmail) {
+		const existing = await findParticipantByEmail(normalizedEmail);
+		if (existing) {
+			warnings.push(
+				`Ya existe un participante con este correo: ${existing.firstName} ${existing.lastName}. Se actualizará su registro.`,
+			);
+		}
+	}
+
+	// 3. Check retreat capacity
+	const type = participantData.type;
+	if (type === 'walker' && retreat.max_walkers != null) {
+		const walkerCount = await historyRepo.count({
+			where: { retreatId: retreat.id, type: 'walker', isCancelled: false },
+		});
+		if (walkerCount >= retreat.max_walkers) {
+			warnings.push(
+				`El retiro ha alcanzado su capacidad máxima de caminantes (${retreat.max_walkers}). El participante quedará en lista de espera.`,
+			);
+		}
+	}
+	if ((type === 'server' || type === 'partial_server') && retreat.max_servers != null) {
+		const serverCount = await historyRepo.count({
+			where: [
+				{ retreatId: retreat.id, type: 'server', isCancelled: false },
+				{ retreatId: retreat.id, type: 'partial_server', isCancelled: false },
+			],
+		});
+		if (serverCount >= retreat.max_servers) {
+			warnings.push(
+				`El retiro ha alcanzado su capacidad máxima de servidores (${retreat.max_servers}).`,
+			);
+		}
+	}
+
+	return { valid: true, warnings };
+};
+
+/**
  * Confirm an existing participant for a retreat without changing their personal data.
  * Creates a RetreatParticipant row and updates their retreatId.
  */
