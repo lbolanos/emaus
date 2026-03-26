@@ -34,6 +34,11 @@ import { applyCsrfProtectionExcept } from '../middleware/routeCsrf';
 
 const router = Router();
 
+// Health check (public, no auth/CSRF)
+router.get('/health', (_req, res) => {
+	res.json({ status: 'ok', timestamp: new Date().toISOString(), service: 'emaus-api' });
+});
+
 // Rutas de autenticación (sin CSRF para permitir login/logout)
 router.use('/auth', authRoutes);
 
