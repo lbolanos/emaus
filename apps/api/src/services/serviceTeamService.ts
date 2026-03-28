@@ -6,6 +6,7 @@ import { getRepositories } from '../utils/repositoryHelpers';
 import { v4 as uuidv4 } from 'uuid';
 import { defaultServiceTeams } from '../data/dynamicsTemplates';
 import { formatDate as formatDateUtil } from '@repo/utils';
+import { syncTeamToResponsibility } from './leaderSyncService';
 
 export const findTeamsByRetreatId = async (retreatId: string, dataSource?: DataSource) => {
 	const repos = getRepositories(dataSource);
@@ -94,7 +95,8 @@ export const removeMember = async (
 	// Also unset leader if this participant was the leader
 	const team = await repos.serviceTeam.findOne({ where: { id: teamId } });
 	if (team && team.leaderId === participantId) {
-		await repos.serviceTeam.update(teamId, { leaderId: undefined });
+		await repos.serviceTeam.update(teamId, { leaderId: null as any });
+		await syncTeamToResponsibility(team.teamType, team.retreatId, null, dataSource);
 	}
 
 	await repos.serviceTeamMember.delete({
@@ -116,7 +118,7 @@ export const assignLeader = async (
 	if (sourceTeamId && sourceTeamId !== teamId) {
 		const sourceTeam = await repos.serviceTeam.findOne({ where: { id: sourceTeamId } });
 		if (sourceTeam && sourceTeam.leaderId === participantId) {
-			await repos.serviceTeam.update(sourceTeamId, { leaderId: undefined });
+			await repos.serviceTeam.update(sourceTeamId, { leaderId: null as any });
 		}
 		// Also remove as member from source team
 		await repos.serviceTeamMember.delete({
@@ -127,6 +129,12 @@ export const assignLeader = async (
 
 	// Set as leader
 	await repos.serviceTeam.update(teamId, { leaderId: participantId });
+
+	// Sync to responsibility
+	const team = await repos.serviceTeam.findOne({ where: { id: teamId } });
+	if (team) {
+		await syncTeamToResponsibility(team.teamType, team.retreatId, participantId, dataSource);
+	}
 
 	// Also add as member if not already
 	const existing = await repos.serviceTeamMember.findOne({
@@ -147,7 +155,11 @@ export const assignLeader = async (
 
 export const unassignLeader = async (teamId: string, dataSource?: DataSource) => {
 	const repos = getRepositories(dataSource);
-	await repos.serviceTeam.update(teamId, { leaderId: undefined });
+	const team = await repos.serviceTeam.findOne({ where: { id: teamId } });
+	await repos.serviceTeam.update(teamId, { leaderId: null as any });
+	if (team && team.leaderId) {
+		await syncTeamToResponsibility(team.teamType, team.retreatId, null, dataSource);
+	}
 	return findTeamById(teamId, dataSource);
 };
 

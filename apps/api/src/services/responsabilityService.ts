@@ -6,6 +6,7 @@ import { Participant } from '../entities/participant.entity';
 import { getRepositories } from '../utils/repositoryHelpers';
 import { v4 as uuidv4 } from 'uuid';
 import { formatDate as formatDateUtil } from '@repo/utils';
+import { syncResponsibilityToTeam } from './leaderSyncService';
 
 export const findAllResponsibilities = async (retreatId?: string, dataSource?: DataSource) => {
 	const repos = getRepositories(dataSource);
@@ -76,7 +77,9 @@ export const assignResponsabilityToParticipant = async (
 	if (!responsability || !participant) return null;
 
 	responsability.participant = participant;
-	return repos.responsability.save(responsability);
+	const saved = await repos.responsability.save(responsability);
+	await syncResponsibilityToTeam(responsability.name, responsability.retreatId, participantId, dataSource);
+	return saved;
 };
 
 export const removeResponsabilityFromParticipant = async (
@@ -94,7 +97,9 @@ export const removeResponsabilityFromParticipant = async (
 
 	responsability.participant = undefined;
 	responsability.participantId = undefined;
-	return repos.responsability.save(responsability);
+	const saved = await repos.responsability.save(responsability);
+	await syncResponsibilityToTeam(responsability.name, responsability.retreatId, null, dataSource);
+	return saved;
 };
 
 export const getResponsibilitiesForParticipant = async (
@@ -462,6 +467,7 @@ export const createAndAssignSpeaker = async (
 	responsability.participant = savedParticipant;
 	responsability.participantId = savedParticipant.id;
 	const saved = await repos.responsability.save(responsability);
+	await syncResponsibilityToTeam(responsability.name, responsability.retreatId, savedParticipant.id, dataSource);
 
 	// Re-fetch with relations
 	return repos.responsability.findOne({

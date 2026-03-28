@@ -69,7 +69,7 @@
       <div>
         <h3 class="text-sm font-medium leading-5 text-gray-900 dark:text-white">{{ $t('serviceTeams.serversWithoutTeam') }} ({{ serversWithoutTeam.length }})</h3>
         <div
-          @drop="onDropToUnassigned($event)"
+          @drop.prevent="onDropToUnassigned($event)"
           @dragover.prevent="onDragOverUnassigned($event)"
           @dragenter.prevent
           @dragleave="onDragLeaveUnassigned($event)"
@@ -381,18 +381,24 @@ const onDragLeaveUnassigned = (event: DragEvent) => {
   }
 };
 
-const onDropToUnassigned = (event: DragEvent) => {
+const onDropToUnassigned = async (event: DragEvent) => {
   isOverUnassigned.value = false;
   const participantData = event.dataTransfer?.getData('application/json');
   if (!participantData) return;
 
   const participant = JSON.parse(participantData);
 
-  // Remove from ALL teams this server belongs to
+  // If dragged from a specific team, remove from that team first
+  if (participant.sourceTeamId) {
+    await serviceTeamStore.removeMember(participant.sourceTeamId, participant.id);
+    return;
+  }
+
+  // Otherwise remove from ALL teams this server belongs to
   for (const team of serviceTeamStore.teams) {
     const isMember = team.members?.some(m => m.participantId === participant.id);
     if (isMember) {
-      serviceTeamStore.removeMember(team.id, participant.id);
+      await serviceTeamStore.removeMember(team.id, participant.id);
     }
   }
 };

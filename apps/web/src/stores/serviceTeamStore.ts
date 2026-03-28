@@ -22,6 +22,14 @@ export const useServiceTeamStore = defineStore('serviceTeam', () => {
 	const { toast } = useToast();
 	const retreatStore = useRetreatStore();
 
+	const refreshResponsibilities = async () => {
+		if (!retreatStore.selectedRetreatId) return;
+		// Lazy import to avoid circular dependency
+		const { useResponsabilityStore } = await import('./responsabilityStore');
+		const responsabilityStore = useResponsabilityStore();
+		responsabilityStore.fetchResponsibilities(retreatStore.selectedRetreatId);
+	};
+
 	const fetchTeams = async () => {
 		if (!retreatStore.selectedRetreatId) {
 			teams.value = [];
@@ -135,6 +143,8 @@ export const useServiceTeamStore = defineStore('serviceTeam', () => {
 					}
 				}
 			}
+			// Refresh responsibilities to reflect synced participant
+			refreshResponsibilities();
 		} catch (e: any) {
 			console.error('Failed to assign leader', e);
 			toast({ title: 'Error', description: 'Error al asignar líder', variant: 'destructive' });
@@ -145,6 +155,8 @@ export const useServiceTeamStore = defineStore('serviceTeam', () => {
 		try {
 			const updated = await unassignServiceTeamLeader(teamId);
 			updateTeamInState(updated);
+			// Refresh responsibilities to reflect synced participant removal
+			refreshResponsibilities();
 		} catch (e: any) {
 			console.error('Failed to unassign leader', e);
 			toast({ title: 'Error', description: 'Error al desasignar líder', variant: 'destructive' });

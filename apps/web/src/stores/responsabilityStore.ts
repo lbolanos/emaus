@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { useToast } from '@repo/ui';
 import type { Responsability, Participant } from '@repo/types';
 import { api, searchSpeakers as searchSpeakersApi, createAndAssignSpeaker as createAndAssignSpeakerApi } from '@/services/api';
+import { useServiceTeamStore } from './serviceTeamStore';
 
 export const useResponsabilityStore = defineStore('responsability', () => {
 	const responsibilities = ref<Responsability[]>([]);
@@ -102,6 +103,9 @@ export const useResponsabilityStore = defineStore('responsability', () => {
 				responsibilities.value[index] = updatedResponsability;
 			}
 			toast({ title: 'Success', description: 'Participant assigned successfully.' });
+			// Refresh service teams to reflect synced leader
+			const serviceTeamStore = useServiceTeamStore();
+			serviceTeamStore.fetchTeams();
 		} catch (e: any) {
 			toast({
 				title: 'Error',
@@ -132,6 +136,9 @@ export const useResponsabilityStore = defineStore('responsability', () => {
 				responsibilities.value[index] = updatedResponsability;
 			}
 			toast({ title: 'Success', description: 'Charlista asignado exitosamente.' });
+			// Refresh service teams to reflect synced leader
+			const serviceTeamStore = useServiceTeamStore();
+			serviceTeamStore.fetchTeams();
 			return updatedResponsability;
 		} catch (e: any) {
 			toast({

@@ -72,10 +72,18 @@
                 @dragstart.stop="startDragFromTeam($event, team.leader, 'leader')"
                 @dragend.stop="handleDragEnd"
                 :title="`${team.leader.firstName} ${team.leader.lastName}`"
-                class="px-3 py-1 bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 rounded-full text-sm font-medium inline-block cursor-grab"
+                class="px-3 py-1 bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 rounded-full text-sm font-medium inline-flex items-center gap-1 cursor-grab"
                 :class="getHighlightClass(team.leader)"
               >
                 {{ team.leader.firstName.split(' ')[0] }} {{ team.leader.lastName.charAt(0) }}.
+                <button
+                  @click.stop="onRemoveLeader"
+                  @mousedown.stop
+                  class="ml-0.5 hover:text-amber-950 dark:hover:text-amber-100"
+                  :title="$t('common.delete')"
+                >
+                  <X class="w-3 h-3" />
+                </button>
               </div>
               <span v-else class="text-gray-400 text-sm">{{ $t('tables.unassigned') }}</span>
             </div>
@@ -100,10 +108,18 @@
                 :title="`${member.participant?.firstName} ${member.participant?.lastName}`"
                 :data-participant-id="member.participantId"
                 :data-team-id="team.id"
-                class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium cursor-grab transition-all"
+                class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium cursor-grab transition-all inline-flex items-center gap-0.5"
                 :class="getHighlightClass(member.participant)"
               >
                 {{ member.participant?.firstName?.split(' ')[0] }} {{ member.participant?.lastName?.charAt(0) }}.
+                <button
+                  @click.stop="onRemoveMember(member.participantId)"
+                  @mousedown.stop
+                  class="ml-0.5 hover:text-blue-950 dark:hover:text-blue-100"
+                  :title="$t('common.delete')"
+                >
+                  <X class="w-3 h-3" />
+                </button>
               </div>
             </div>
             <span v-else class="text-gray-400 text-sm mt-2 block">{{ $t('serviceTeams.noMembers') }}</span>
@@ -121,7 +137,7 @@ import type { Participant, ServiceTeam } from '@repo/types';
 import { ServiceTeamType } from '@repo/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui';
 import { Button } from '@repo/ui';
-import { Download, Trash2, FileText } from 'lucide-vue-next';
+import { Download, Trash2, FileText, X } from 'lucide-vue-next';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@repo/ui';
 import { useServiceTeamStore } from '@/stores/serviceTeamStore';
 import { useDragState } from '@/composables/useDragState';
@@ -249,6 +265,14 @@ const onDragOverMembers = (_event: DragEvent) => {
 
 const onDragLeaveMembers = () => {
   isOverMembers.value = false;
+};
+
+const onRemoveLeader = () => {
+  serviceTeamStore.unassignLeader(props.team.id);
+};
+
+const onRemoveMember = (participantId: string) => {
+  serviceTeamStore.removeMember(props.team.id, participantId);
 };
 
 const onDropLeader = (event: DragEvent) => {

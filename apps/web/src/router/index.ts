@@ -433,6 +433,13 @@ const router = createRouter({
 				},
 			],
 		},
+		// Catch stale/bookmarked URLs missing the /app prefix
+		{
+			path: '/retreats/:id/:section',
+			redirect: (to) => ({
+				path: `/app/retreats/${String(to.params.id)}/${String(to.params.section)}`,
+			}),
+		},
 	],
 });
 
