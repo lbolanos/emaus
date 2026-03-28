@@ -27,6 +27,10 @@ export const useParticipantStore = defineStore('participant', () => {
 		}
 	}
 
+	// Dedup: avoid concurrent identical fetches
+	let _pendingFetch: Promise<void> | null = null;
+	let _pendingRetreatId: string | null = null;
+
 	async function fetchParticipants() {
 		if (!filters.retreatId) {
 			const message = 'Retreat ID is required to fetch participants.';
@@ -38,32 +42,48 @@ export const useParticipantStore = defineStore('participant', () => {
 			});
 			return;
 		}
-		try {
-			loading.value = true;
-			error.value = null;
-			// Always include payments to calculate totalPaid
-			const paramsWithPayments = { ...filters, includePayments: true };
-			console.log('[Store] fetchParticipants - Request Params:', paramsWithPayments);
-			const response = await api.get('/participants', { params: paramsWithPayments });
-			participants.value = response.data;
-		} catch (err: any) {
-			if (err.response?.status === 403) {
-				console.log('Insufficient permissions to list participants');
-				participants.value = [];
-				return;
-			}
-			const errorMessage =
-				err.response?.data?.message || err.message || `Failed to fetch participants`;
-			error.value = errorMessage;
-			toast({
-				title: 'Error',
-				description: errorMessage,
-				variant: 'destructive',
-			});
-			throw err;
-		} finally {
-			loading.value = false;
+
+		// If there's already an in-flight request for the same retreatId, reuse it
+		if (_pendingFetch && _pendingRetreatId === filters.retreatId) {
+			return _pendingFetch;
 		}
+
+		const retreatId = filters.retreatId;
+		_pendingRetreatId = retreatId;
+
+		_pendingFetch = (async () => {
+			try {
+				loading.value = true;
+				error.value = null;
+				const paramsWithPayments = { ...filters, includePayments: true };
+				const response = await api.get('/participants', { params: paramsWithPayments });
+				// Only apply result if retreatId hasn't changed while we were fetching
+				if (filters.retreatId === retreatId) {
+					participants.value = response.data;
+				}
+			} catch (err: any) {
+				if (err.response?.status === 403) {
+					console.log('Insufficient permissions to list participants');
+					participants.value = [];
+					return;
+				}
+				const errorMessage =
+					err.response?.data?.message || err.message || `Failed to fetch participants`;
+				error.value = errorMessage;
+				toast({
+					title: 'Error',
+					description: errorMessage,
+					variant: 'destructive',
+				});
+				throw err;
+			} finally {
+				loading.value = false;
+				_pendingFetch = null;
+				_pendingRetreatId = null;
+			}
+		})();
+
+		return _pendingFetch;
 	}
 
 	async function createParticipant(

@@ -79,7 +79,7 @@ export class RetreatRoleService {
 			existingUserRetreat.status = 'active';
 			existingUserRetreat.invitedBy = invitedBy;
 			existingUserRetreat.invitedAt = new Date();
-			existingUserRetreat.expiresAt = expiresAt;
+			existingUserRetreat.expiresAt = expiresAt ?? null;
 			userRetreat = await repos.userRetreat.save(existingUserRetreat);
 
 			// Log role assignment/change

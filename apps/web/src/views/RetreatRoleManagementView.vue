@@ -864,7 +864,7 @@ watch(retreatId, () => {
 // Watch for retreat changes in the store and navigate to new retreat
 watch(() => retreatStore.selectedRetreatId, (newId, oldId) => {
   if (newId && newId !== oldId && newId !== retreatId.value) {
-    router.push(`/retreats/${newId}/role-management`)
+    router.push({ name: 'role-management', params: { id: newId } })
   }
 })
 </script>
