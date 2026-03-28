@@ -151,83 +151,67 @@ describe('Badge Color Differentiation', () => {
 		});
 	});
 
-	describe('Room row colors by participant type', () => {
+	describe('Room row colors by bed defaultUsage', () => {
 		/**
-		 * Extracted from roomService.ts — row background color logic
+		 * Extracted from roomService.ts — row background color based on room usage
 		 */
-		const getRoomRowColor = (participantType: string | undefined, isEvenRow: boolean) => {
-			const hasParticipant = !!participantType;
-			const isServer = participantType === 'server' || participantType === 'partial_server';
-			return !hasParticipant
-				? (isEvenRow ? 'ECFDF5' : 'F8FAFC')
-				: isServer
-					? (isEvenRow ? 'EFF6FF' : 'DBEAFE')
-					: (isEvenRow ? 'FFF1F2' : 'FFE4E6');
+		const getRoomRowColor = (defaultUsage: string, isEvenRow: boolean) => {
+			const isServerRoom = defaultUsage === 'servidor';
+			return isServerRoom
+				? (isEvenRow ? 'EFF6FF' : 'DBEAFE')
+				: (isEvenRow ? 'FFF1F2' : 'FFE4E6');
 		};
 
-		const getRoomTextColor = (participantType: string | undefined) => {
-			const hasParticipant = !!participantType;
-			const isServer = participantType === 'server' || participantType === 'partial_server';
-			return !hasParticipant ? '991B1B' : isServer ? '1E3A8A' : '9F1239';
+		const getRoomTextColor = (defaultUsage: string, hasParticipant: boolean) => {
+			const isServerRoom = defaultUsage === 'servidor';
+			return !hasParticipant ? '991B1B' : isServerRoom ? '1E3A8A' : '9F1239';
 		};
 
-		const getRoomCheckColor = (participantType: string | undefined) => {
-			const isServer = participantType === 'server' || participantType === 'partial_server';
-			return isServer ? '1E40AF' : 'E11D48';
+		const getRoomCheckColor = (defaultUsage: string) => {
+			const isServerRoom = defaultUsage === 'servidor';
+			return isServerRoom ? '1E40AF' : 'E11D48';
 		};
 
-		test('walker even row gets pink background', () => {
-			expect(getRoomRowColor('walker', true)).toBe('FFF1F2');
+		test('caminante even row gets pink background', () => {
+			expect(getRoomRowColor('caminante', true)).toBe('FFF1F2');
 		});
 
-		test('walker odd row gets darker pink background', () => {
-			expect(getRoomRowColor('walker', false)).toBe('FFE4E6');
+		test('caminante odd row gets darker pink background', () => {
+			expect(getRoomRowColor('caminante', false)).toBe('FFE4E6');
 		});
 
-		test('server even row gets light blue background', () => {
-			expect(getRoomRowColor('server', true)).toBe('EFF6FF');
+		test('servidor even row gets light blue background', () => {
+			expect(getRoomRowColor('servidor', true)).toBe('EFF6FF');
 		});
 
-		test('server odd row gets darker blue background', () => {
-			expect(getRoomRowColor('server', false)).toBe('DBEAFE');
+		test('servidor odd row gets darker blue background', () => {
+			expect(getRoomRowColor('servidor', false)).toBe('DBEAFE');
 		});
 
-		test('unassigned even row gets default green tint', () => {
-			expect(getRoomRowColor(undefined, true)).toBe('ECFDF5');
+		test('caminante text color is dark red when assigned', () => {
+			expect(getRoomTextColor('caminante', true)).toBe('9F1239');
 		});
 
-		test('unassigned odd row gets neutral gray', () => {
-			expect(getRoomRowColor(undefined, false)).toBe('F8FAFC');
+		test('servidor text color is dark blue when assigned', () => {
+			expect(getRoomTextColor('servidor', true)).toBe('1E3A8A');
 		});
 
-		test('partial_server gets same blue as server', () => {
-			expect(getRoomRowColor('partial_server', true)).toBe(getRoomRowColor('server', true));
-			expect(getRoomRowColor('partial_server', false)).toBe(getRoomRowColor('server', false));
+		test('unassigned text color is dark red regardless of room type', () => {
+			expect(getRoomTextColor('caminante', false)).toBe('991B1B');
+			expect(getRoomTextColor('servidor', false)).toBe('991B1B');
 		});
 
-		test('walker text color is dark red', () => {
-			expect(getRoomTextColor('walker')).toBe('9F1239');
+		test('caminante checkmark is rose', () => {
+			expect(getRoomCheckColor('caminante')).toBe('E11D48');
 		});
 
-		test('server text color is dark blue', () => {
-			expect(getRoomTextColor('server')).toBe('1E3A8A');
+		test('servidor checkmark is blue', () => {
+			expect(getRoomCheckColor('servidor')).toBe('1E40AF');
 		});
 
-		test('unassigned text color is dark red', () => {
-			expect(getRoomTextColor(undefined)).toBe('991B1B');
-		});
-
-		test('walker checkmark is rose', () => {
-			expect(getRoomCheckColor('walker')).toBe('E11D48');
-		});
-
-		test('server checkmark is blue', () => {
-			expect(getRoomCheckColor('server')).toBe('1E40AF');
-		});
-
-		test('walker and server row colors are distinct', () => {
-			expect(getRoomRowColor('walker', true)).not.toBe(getRoomRowColor('server', true));
-			expect(getRoomRowColor('walker', false)).not.toBe(getRoomRowColor('server', false));
+		test('caminante and servidor row colors are distinct', () => {
+			expect(getRoomRowColor('caminante', true)).not.toBe(getRoomRowColor('servidor', true));
+			expect(getRoomRowColor('caminante', false)).not.toBe(getRoomRowColor('servidor', false));
 		});
 	});
 

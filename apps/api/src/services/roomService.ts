@@ -446,13 +446,11 @@ export const exportRoomLabelsToDocx = async (retreatId: string, dataSource?: Dat
 					const bed = typedRoomBeds[i];
 					const isEvenRow = i % 2 === 0;
 					const isLastRow = i === typedRoomBeds.length - 1;
-					// Color by participant type: walker=rosa, server=azul, unassigned=default
-					const isServer = bed.participant && (bed.participant.type === 'server' || bed.participant.type === 'partial_server');
-					const rowColor = !bed.participant
-						? (isEvenRow ? 'ECFDF5' : 'F8FAFC')
-						: isServer
-							? (isEvenRow ? 'EFF6FF' : 'DBEAFE')
-							: (isEvenRow ? 'FFF1F2' : 'FFE4E6');
+					// Color by room usage: caminante=rosa, servidor=azul
+					const isServerRoom = bed.defaultUsage === 'servidor';
+					const rowColor = isServerRoom
+						? (isEvenRow ? 'EFF6FF' : 'DBEAFE')
+						: (isEvenRow ? 'FFF1F2' : 'FFE4E6');
 
 					const participantName = bed.participant
 						? `${bed.participant.firstName} ${bed.participant.lastName}`
@@ -537,7 +535,7 @@ export const exportRoomLabelsToDocx = async (retreatId: string, dataSource?: Dat
 												bed.participant
 													? new TextRun({
 															text: '✓  ',
-															color: isServer ? '1E40AF' : 'E11D48',
+															color: isServerRoom ? '1E40AF' : 'E11D48',
 															size: 16,
 															bold: true,
 														})
@@ -550,7 +548,7 @@ export const exportRoomLabelsToDocx = async (retreatId: string, dataSource?: Dat
 													text: participantName,
 													bold: !!bed.participant,
 													size: bed.participant ? 18 : 16,
-													color: !bed.participant ? '991B1B' : isServer ? '1E3A8A' : '9F1239',
+													color: !bed.participant ? '991B1B' : isServerRoom ? '1E3A8A' : '9F1239',
 													font: 'Calibri',
 													italics: !bed.participant,
 												}),

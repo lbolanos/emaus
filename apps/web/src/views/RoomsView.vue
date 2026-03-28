@@ -323,8 +323,8 @@ const roomAssignedCount = (roomBeds: RetreatBed[]): number => {
                 class="bed-row"
                 :class="{
                   'bed-unassigned': !bed.participant,
-                  'bed-walker': bed.participant && (bed.participant.type === 'walker' || bed.participant.type === 'waiting'),
-                  'bed-server': bed.participant && (bed.participant.type === 'server' || bed.participant.type === 'partial_server'),
+                  'bed-walker': bed.defaultUsage === 'caminante',
+                  'bed-server': bed.defaultUsage === 'servidor',
                 }"
               >
                 <span class="bed-number-badge">{{ bed.bedNumber }}</span>
