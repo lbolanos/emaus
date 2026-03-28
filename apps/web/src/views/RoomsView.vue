@@ -321,7 +321,11 @@ const roomAssignedCount = (roomBeds: RetreatBed[]): number => {
                 v-for="bed in roomBeds"
                 :key="bed.id"
                 class="bed-row"
-                :class="{ 'bed-unassigned': !bed.participant }"
+                :class="{
+                  'bed-unassigned': !bed.participant,
+                  'bed-walker': bed.participant && (bed.participant.type === 'walker' || bed.participant.type === 'waiting'),
+                  'bed-server': bed.participant && (bed.participant.type === 'server' || bed.participant.type === 'partial_server'),
+                }"
               >
                 <span class="bed-number-badge">{{ bed.bedNumber }}</span>
                 <span class="bed-participant">
@@ -519,6 +523,36 @@ const roomAssignedCount = (roomBeds: RetreatBed[]): number => {
 .bed-type-icon {
   font-size: 14px;
 }
+
+/* Walker bed row (rosa/rojo) */
+.bed-walker {
+  background: #fff1f2;
+  border-left: 3px solid #e11d48;
+}
+
+.bed-walker .bed-number-badge {
+  background: #ffe4e6;
+  color: #be123c;
+}
+
+.bed-walker .bed-participant {
+  color: #9f1239;
+}
+
+/* Server bed row (azul/índigo) */
+.bed-server {
+  background: #eff6ff;
+  border-left: 3px solid #1e40af;
+}
+
+.bed-server .bed-number-badge {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.bed-server .bed-participant {
+  color: #1e3a8a;
+}
 </style>
 
 <style>
@@ -686,6 +720,31 @@ const roomAssignedCount = (roomBeds: RetreatBed[]): number => {
 
   .bed-unassigned {
     opacity: 0.5 !important;
+  }
+
+  /* Walker/server colors for print */
+  .bed-walker {
+    background: #fff1f2 !important;
+    border-left: 3px solid #e11d48 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .bed-walker .bed-number-badge {
+    background: #ffe4e6 !important;
+    color: #be123c !important;
+  }
+
+  .bed-server {
+    background: #eff6ff !important;
+    border-left: 3px solid #1e40af !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .bed-server .bed-number-badge {
+    background: #dbeafe !important;
+    color: #1e40af !important;
   }
 
   /* ===== Print Size: Small ===== */
