@@ -283,6 +283,11 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 				return bedTypeMap[bed.bedType] || bed.bedType || 'Bed';
 			};
 
+			const isServer = participant.type === 'server' || participant.type === 'partial_server';
+			const badgeBorderColor = isServer ? '1E40AF' : 'DC2626';
+			const badgeShadingColor = isServer ? '1E3A5A' : '1E40AF';
+			const badgeEmoji = isServer ? '💙' : '🌹';
+
 			return new TableCell({
 				children: [
 					new DocxTable({
@@ -296,7 +301,7 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 											new Paragraph({
 												children: [
 													new TextRun({
-														text: '🌹',
+														text: badgeEmoji,
 														size: 32,
 													}),
 												],
@@ -356,12 +361,12 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 												spacing: { before: 180, after: 280 },
 											}),
 										],
-										shading: { fill: '1E40AF', type: ShadingType.SOLID },
+										shading: { fill: badgeShadingColor, type: ShadingType.SOLID },
 										borders: {
-											top: { color: 'DC2626', size: 18, style: BorderStyle.SINGLE },
-											bottom: { color: 'DC2626', size: 18, style: BorderStyle.SINGLE },
-											left: { color: 'DC2626', size: 18, style: BorderStyle.SINGLE },
-											right: { color: 'DC2626', size: 18, style: BorderStyle.SINGLE },
+											top: { color: badgeBorderColor, size: 18, style: BorderStyle.SINGLE },
+											bottom: { color: badgeBorderColor, size: 18, style: BorderStyle.SINGLE },
+											left: { color: badgeBorderColor, size: 18, style: BorderStyle.SINGLE },
+											right: { color: badgeBorderColor, size: 18, style: BorderStyle.SINGLE },
 										},
 										margins: { top: 0, bottom: 0, left: 350, right: 350 },
 									}),

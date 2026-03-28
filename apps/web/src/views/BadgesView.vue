@@ -545,7 +545,7 @@ watch(retreatId, async (newId) => {
         <!-- Front badge -->
         <div
           class="badge-item"
-          :class="{ 'selected': isSelected(participant.id) }"
+          :class="{ 'selected': isSelected(participant.id), 'badge-server': participant.type === 'server' || participant.type === 'partial_server' }"
           @click="toggleSelection(participant.id)"
         >
           <input
@@ -586,7 +586,7 @@ watch(retreatId, async (newId) => {
           </div>
         </div>
         <!-- Reverse badge (for double-sided folding) -->
-        <div v-if="doubleSided" class="badge-item badge-reverse">
+        <div v-if="doubleSided" class="badge-item badge-reverse" :class="{ 'badge-server': participant.type === 'server' || participant.type === 'partial_server' }">
           <div class="badge-content">
             <div class="badge-header">
               <img :src="retreatTypeLogo" alt="Logo" class="badge-logo" />
@@ -1081,6 +1081,18 @@ watch(retreatId, async (newId) => {
       inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
   }
 
+  .badge-server .name-underline {
+    background: linear-gradient(90deg, #1e40af 0%, #3b82f6 50%, #1e40af 100%);
+  }
+
+  .badge-server .emaus-text {
+    color: #1e40af;
+  }
+
+  .badge-server .info-icon {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  }
+
   .badges-container {
     display: grid !important;
     grid-template-columns: repeat(auto-fill, minmax(calc(85mm * var(--badge-scale, 1)), 1fr)) !important;
@@ -1216,6 +1228,34 @@ watch(retreatId, async (newId) => {
     margin: 0.8cm;
     size: A4;
   }
+}
+
+/* Server badge color variant (blue/indigo) */
+.badge-server .name-underline {
+  background: linear-gradient(90deg, #1e40af 0%, #3b82f6 50%, #1e40af 100%);
+}
+
+.badge-server .emaus-text {
+  color: #1e40af;
+  text-shadow: 0 1px 2px rgba(30, 64, 175, 0.2);
+}
+
+.badge-server .info-icon {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  box-shadow: 0 1px 4px rgba(30, 64, 175, 0.1);
+}
+
+.badge-server .footer-dots span {
+  background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+}
+
+.badge-server.selected {
+  border: 2px solid #1e40af !important;
+  box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.15) !important;
+}
+
+.badge-server .badge-checkbox {
+  accent-color: #1e40af;
 }
 
 /* Responsive design */

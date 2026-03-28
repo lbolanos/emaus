@@ -479,10 +479,11 @@ usar la ia para conversar y agregar o quitar base de datos.
 Los id del retiro estan apareciendo con N/A
 en la asignacion de mesas agregar boton para sacar a todos los participantes de todas las mesas.
 en la asignacion de mesas tanto los servidores como los caminantes al mouse over se debe mostrar los detalles del participante.
+El gafete debe ser de color diferente para servidor y para caminante.
 
 
 ## IN PROGRESS
-El gafete debe ser de color diferente para servidor y para caminante.
+
 
 create a migration script just for testing red social. is not for production. create users, retreats, communities, houses, participants, messages, friends, followers, blocks, searches, avatars, and messages.
 Cuando un usuario se registra y existe como caminante de algun retiro convertirlo en usuario y que pueda ver el historial de retiros en los que ha participado como servidor y el retiro en el que camino como principal.
