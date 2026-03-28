@@ -2,6 +2,7 @@ import { AppDataSource } from '../data-source';
 import { RetreatBed } from '../entities/retreatBed.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { Participant } from '../entities/participant.entity';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { formatDate as formatDateUtil } from '@repo/utils';
 
 export const exportBadgesToDocx = async (retreatId: string) => {
@@ -41,6 +42,23 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 		.addOrderBy('participant.firstName', 'ASC')
 		.addOrderBy('participant.lastName', 'ASC')
 		.getMany();
+
+	// Enrich participants with their type from retreat_participants
+	const rpRepo = AppDataSource.getRepository(RetreatParticipant);
+	const retreatParticipants = await rpRepo.find({
+		where: { retreatId },
+		select: ['participantId', 'type'],
+	});
+	const typeMap = new Map(
+		retreatParticipants
+			.filter((rp) => rp.participantId)
+			.map((rp) => [rp.participantId!, rp.type]),
+	);
+	for (const bed of bedsWithParticipants) {
+		if (bed.participant) {
+			(bed.participant as any).type = typeMap.get(bed.participant.id) || null;
+		}
+	}
 
 	// Format retreat dates using shared utility
 	const formatDate = (date: Date | string): string => {

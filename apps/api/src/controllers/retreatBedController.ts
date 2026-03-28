@@ -15,6 +15,31 @@ export const getRetreatBeds = async (req: Request, res: Response, next: NextFunc
 			relations: ['participant'],
 			order: { floor: 'ASC', roomNumber: 'ASC', bedNumber: 'ASC' },
 		});
+
+		// Enrich participants with their type from retreat_participants
+		const participantIds = beds
+			.filter((b) => b.participant)
+			.map((b) => b.participant!.id);
+
+		if (participantIds.length > 0) {
+			const rpRepo = AppDataSource.getRepository(RetreatParticipant);
+			const retreatParticipants = await rpRepo.find({
+				where: { retreatId },
+				select: ['participantId', 'type'],
+			});
+			const typeMap = new Map(
+				retreatParticipants
+					.filter((rp) => rp.participantId)
+					.map((rp) => [rp.participantId!, rp.type]),
+			);
+
+			for (const bed of beds) {
+				if (bed.participant) {
+					(bed.participant as any).type = typeMap.get(bed.participant.id) || null;
+				}
+			}
+		}
+
 		res.json(beds);
 	} catch (error) {
 		next(error);

@@ -2,6 +2,7 @@ import { DataSource } from 'typeorm';
 import { AppDataSource } from '../data-source';
 import { RetreatBed } from '../entities/retreatBed.entity';
 import { Retreat } from '../entities/retreat.entity';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { getRepositories } from '../utils/repositoryHelpers';
 import { formatDate as formatDateUtil } from '@repo/utils';
 
@@ -40,6 +41,24 @@ export const exportRoomLabelsToDocx = async (retreatId: string, dataSource?: Dat
 		.addOrderBy('bed.roomNumber', 'ASC')
 		.addOrderBy('bed.bedNumber', 'ASC')
 		.getMany();
+
+	// Enrich participants with their type from retreat_participants
+	const ds = dataSource || AppDataSource;
+	const rpRepo = ds.getRepository(RetreatParticipant);
+	const retreatParticipants = await rpRepo.find({
+		where: { retreatId },
+		select: ['participantId', 'type'],
+	});
+	const typeMap = new Map(
+		retreatParticipants
+			.filter((rp) => rp.participantId)
+			.map((rp) => [rp.participantId!, rp.type]),
+	);
+	for (const bed of beds) {
+		if (bed.participant) {
+			(bed.participant as any).type = typeMap.get(bed.participant.id) || null;
+		}
+	}
 
 	// Format retreat dates using shared utility
 	const formatDate = (date: Date | string): string => {
