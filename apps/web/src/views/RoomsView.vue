@@ -238,6 +238,37 @@ const groupedBeds = computed(() => {
 const roomAssignedCount = (roomBeds: RetreatBed[]): number => {
   return roomBeds.filter(b => b.participant).length;
 };
+
+const roomColorStyle = (roomBeds: RetreatBed[]) => {
+  const usage = roomBeds[0]?.defaultUsage;
+  if (usage === 'caminante') {
+    return {
+      '--rc-primary': '#e11d48',
+      '--rc-primary-dark': '#be123c',
+      '--rc-header-from': '#fff1f2',
+      '--rc-header-via': '#ffe4e6',
+      '--rc-header-to': '#fecdd3',
+      '--rc-border': 'rgba(225, 29, 72, 0.1)',
+      '--rc-label': '#9f1239',
+      '--rc-count-bg': 'rgba(225, 29, 72, 0.1)',
+      '--rc-shadow': 'rgba(225, 29, 72, 0.3)',
+    };
+  }
+  if (usage === 'servidor') {
+    return {
+      '--rc-primary': '#1e40af',
+      '--rc-primary-dark': '#1d4ed8',
+      '--rc-header-from': '#eff6ff',
+      '--rc-header-via': '#dbeafe',
+      '--rc-header-to': '#bfdbfe',
+      '--rc-border': 'rgba(30, 64, 175, 0.1)',
+      '--rc-label': '#1e40af',
+      '--rc-count-bg': 'rgba(30, 64, 175, 0.1)',
+      '--rc-shadow': 'rgba(30, 64, 175, 0.3)',
+    };
+  }
+  return {};
+};
 </script>
 
 <template>
@@ -306,7 +337,7 @@ const roomAssignedCount = (roomBeds: RetreatBed[]): number => {
 
         <!-- Rooms grid -->
         <div class="rooms-grid">
-          <div v-for="(roomBeds, roomNumber) in floorRooms" :key="roomNumber" class="room-card">
+          <div v-for="(roomBeds, roomNumber) in floorRooms" :key="roomNumber" class="room-card" :style="roomColorStyle(roomBeds)">
             <!-- Room card header -->
             <div class="room-card-header">
               <img :src="retreatTypeLogo" alt="Logo" class="room-logo" />
@@ -321,11 +352,7 @@ const roomAssignedCount = (roomBeds: RetreatBed[]): number => {
                 v-for="bed in roomBeds"
                 :key="bed.id"
                 class="bed-row"
-                :class="{
-                  'bed-unassigned': !bed.participant,
-                  'bed-walker': bed.defaultUsage === 'caminante',
-                  'bed-server': bed.defaultUsage === 'servidor',
-                }"
+                :class="{ 'bed-unassigned': !bed.participant }"
               >
                 <span class="bed-number-badge">{{ bed.bedNumber }}</span>
                 <span class="bed-participant">
@@ -524,35 +551,6 @@ const roomAssignedCount = (roomBeds: RetreatBed[]): number => {
   font-size: 14px;
 }
 
-/* Walker bed row (rosa/rojo) */
-.bed-walker {
-  background: #fff1f2;
-  border-left: 3px solid #e11d48;
-}
-
-.bed-walker .bed-number-badge {
-  background: #ffe4e6;
-  color: #be123c;
-}
-
-.bed-walker .bed-participant {
-  color: #9f1239;
-}
-
-/* Server bed row (azul/índigo) */
-.bed-server {
-  background: #eff6ff;
-  border-left: 3px solid #1e40af;
-}
-
-.bed-server .bed-number-badge {
-  background: #dbeafe;
-  color: #1e40af;
-}
-
-.bed-server .bed-participant {
-  color: #1e3a8a;
-}
 </style>
 
 <style>
@@ -722,30 +720,6 @@ const roomAssignedCount = (roomBeds: RetreatBed[]): number => {
     opacity: 0.5 !important;
   }
 
-  /* Walker/server colors for print */
-  .bed-walker {
-    background: #fff1f2 !important;
-    border-left: 3px solid #e11d48 !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  .bed-walker .bed-number-badge {
-    background: #ffe4e6 !important;
-    color: #be123c !important;
-  }
-
-  .bed-server {
-    background: #eff6ff !important;
-    border-left: 3px solid #1e40af !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  .bed-server .bed-number-badge {
-    background: #dbeafe !important;
-    color: #1e40af !important;
-  }
 
   /* ===== Print Size: Small ===== */
   .print-size-small .floor-title {
