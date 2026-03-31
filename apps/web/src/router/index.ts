@@ -38,6 +38,7 @@ const LandingView = () => import('../views/LandingView.vue');
 
 import { useAuthStore } from '@/stores/authStore';
 import { useRetreatStore } from '@/stores/retreatStore';
+import { trackPageView } from '@/services/telemetryService';
 
 // Debug: log chunk load failures on window for debug overlay
 if (typeof window !== 'undefined') {
@@ -518,6 +519,12 @@ router.beforeEach(async (to, from, next) => {
 	}
 
 	next();
+});
+
+// Track page views for telemetry
+router.afterEach((to) => {
+	const pageName = (to.name as string) || to.path;
+	trackPageView(pageName);
 });
 
 export default router;

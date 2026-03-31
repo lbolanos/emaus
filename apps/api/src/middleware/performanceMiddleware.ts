@@ -3,6 +3,8 @@ import { performanceOptimizationService } from '../services/performanceOptimizat
 import { AuthenticatedRequest } from '../middleware/authorization';
 import { influxdbService } from '../services/influxdbService';
 import { TelemetryMetricType, TelemetryMetricUnit } from '../entities/telemetryMetric.entity';
+import { getTelemetryCollectionService } from '../services/telemetryCollectionService';
+import { AppDataSource } from '../data-source';
 
 export interface PerformanceRequest extends AuthenticatedRequest {
 	performance?: {
@@ -28,8 +30,10 @@ export class PerformanceMiddleware {
 				console.warn(`⚠️ Slow request: ${req.method} ${req.path} took ${duration}ms`);
 			}
 
-			// Collect telemetry data
-			void PerformanceMiddleware.collectPerformanceTelemetry(req, res, duration);
+			// Collect telemetry data (skip telemetry routes to avoid recursion)
+			if (!req.path.startsWith('/api/telemetry')) {
+				void PerformanceMiddleware.collectPerformanceTelemetry(req, res, duration);
+			}
 
 			return originalSend.call(this, data);
 		};
@@ -193,8 +197,7 @@ export class PerformanceMiddleware {
 		duration: number,
 	): Promise<void> {
 		try {
-			// Create InfluxDB point for API response time
-			const responseTimeMetric = {
+			const metricData = {
 				metricType: TelemetryMetricType.API_RESPONSE_TIME,
 				unit: TelemetryMetricUnit.MILLISECONDS,
 				value: duration,
@@ -205,41 +208,41 @@ export class PerformanceMiddleware {
 				},
 				metadata: {
 					cached: req.performance?.cached || false,
-					userAgent: req.get('User-Agent'),
-					ip: req.ip || req.connection.remoteAddress,
 				},
 				userId: req.user?.id,
 				retreatId: req.params.retreatId,
 				endpoint: req.path,
 				component: 'api',
-				createdAt: new Date(),
 			};
 
-			await influxdbService.writeMetric(responseTimeMetric as any);
+			// Write to SQLite+InfluxDB via collection service
+			// Sample 10% of normal requests; always record slow (>500ms) and errors
+			const shouldRecord = duration > 500 || res.statusCode >= 400 || Math.random() < 0.1;
+			if (shouldRecord && AppDataSource.isInitialized) {
+				const collectionService = getTelemetryCollectionService(AppDataSource);
+				await collectionService.collectMetric(metricData);
 
-			// Track error rates
-			if (res.statusCode >= 400) {
-				const errorMetric = {
-					metricType: TelemetryMetricType.ERROR_RATE,
-					unit: TelemetryMetricUnit.PERCENTAGE,
-					value: 1, // 1 error
-					tags: {
-						method: req.method,
-						route: req.path,
-						status: res.statusCode.toString(),
-					},
-					metadata: {
-						errorMessage: res.locals.error?.message,
-						errorType: res.locals.error?.name,
-					},
-					userId: req.user?.id,
-					retreatId: req.params.retreatId,
-					endpoint: req.path,
-					component: 'api',
-					createdAt: new Date(),
-				};
-
-				await influxdbService.writeMetric(errorMetric as any);
+				// Track error rates
+				if (res.statusCode >= 400) {
+					await collectionService.collectMetric({
+						metricType: TelemetryMetricType.ERROR_RATE,
+						unit: TelemetryMetricUnit.PERCENTAGE,
+						value: 1,
+						tags: {
+							method: req.method,
+							route: req.path,
+							status: res.statusCode.toString(),
+						},
+						metadata: {
+							errorMessage: res.locals.error?.message,
+							errorType: res.locals.error?.name,
+						},
+						userId: req.user?.id,
+						retreatId: req.params.retreatId,
+						endpoint: req.path,
+						component: 'api',
+					});
+				}
 			}
 
 			// Update performance monitor metrics
@@ -261,7 +264,7 @@ export class PerformanceMiddleware {
 		memoryCheck: any,
 	): Promise<void> {
 		try {
-			const memoryMetric = {
+			const metricData = {
 				metricType: TelemetryMetricType.MEMORY_USAGE,
 				unit: TelemetryMetricUnit.BYTES,
 				value: memoryCheck.heapUsed || 0,
@@ -278,10 +281,15 @@ export class PerformanceMiddleware {
 				userId: req.user?.id,
 				retreatId: req.params.retreatId,
 				component: 'api',
-				createdAt: new Date(),
 			};
 
-			await influxdbService.writeMetric(memoryMetric as any);
+			// Write to both SQLite and InfluxDB via the collection service
+			if (AppDataSource.isInitialized) {
+				const collectionService = getTelemetryCollectionService(AppDataSource);
+				await collectionService.collectMetric(metricData);
+			} else {
+				await influxdbService.writeMetric(metricData as any);
+			}
 		} catch (error) {
 			console.error('Failed to collect memory telemetry:', error);
 			// Don't throw - telemetry failures shouldn't affect the main application

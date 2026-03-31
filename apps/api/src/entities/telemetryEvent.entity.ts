@@ -45,6 +45,7 @@ export enum TelemetryEventType {
 	// Frontend Events
 	PAGE_VIEW = 'page_view',
 	FEATURE_USAGE = 'feature_usage',
+	USER_INTERACTION = 'user_interaction',
 }
 
 export enum TelemetryEventSeverity {

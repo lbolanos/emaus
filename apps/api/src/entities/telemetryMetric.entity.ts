@@ -29,6 +29,8 @@ export enum TelemetryMetricType {
 	SESSION_DURATION = 'session_duration',
 	USER_INTERACTION = 'user_interaction',
 
+	PAGE_LOAD_TIME = 'page_load_time',
+
 	// System Health Metrics
 	AUTHENTICATION_SUCCESS = 'authentication_success',
 	AUTHENTICATION_FAILURE = 'authentication_failure',

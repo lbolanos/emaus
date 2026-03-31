@@ -251,35 +251,35 @@ export class TelemetryAggregationService {
 			// Most visited pages
 			const mostVisitedPagesResult = await this.telemetryEventRepository
 				.createQueryBuilder('event')
-				.select("event.eventData->>'page'", 'page')
+				.select("json_extract(event.eventData, '$.page')", 'page')
 				.addSelect('COUNT(*)', 'views')
 				.where('event.eventType = :type', { type: TelemetryEventType.PAGE_VIEW })
 				.andWhere('event.createdAt BETWEEN :start AND :end', { start: startDate, end: endDate })
-				.groupBy("event.eventData->>'page'")
+				.groupBy("json_extract(event.eventData, '$.page')")
 				.orderBy('views', 'DESC')
 				.limit(10)
 				.getRawMany();
 
 			const mostVisitedPages = mostVisitedPagesResult.map((row) => ({
 				page: row.page || 'unknown',
-				views: parseInt(row.views),
+				views: parseInt(row.views || '0'),
 			}));
 
 			// Most used features
 			const mostUsedFeaturesResult = await this.telemetryEventRepository
 				.createQueryBuilder('event')
-				.select("event.eventData->>'feature'", 'feature')
+				.select("json_extract(event.eventData, '$.feature')", 'feature')
 				.addSelect('COUNT(*)', 'usage')
 				.where('event.eventType = :type', { type: TelemetryEventType.FEATURE_USAGE })
 				.andWhere('event.createdAt BETWEEN :start AND :end', { start: startDate, end: endDate })
-				.groupBy("event.eventData->>'feature'")
+				.groupBy("json_extract(event.eventData, '$.feature')")
 				.orderBy('usage', 'DESC')
 				.limit(10)
 				.getRawMany();
 
 			const mostUsedFeatures = mostUsedFeaturesResult.map((row) => ({
 				feature: row.feature || 'unknown',
-				usage: parseInt(row.usage),
+				usage: parseInt(row.usage || '0'),
 			}));
 
 			return {
@@ -316,7 +316,7 @@ export class TelemetryAggregationService {
 				.createQueryBuilder('event')
 				.select('COUNT(*)', 'count')
 				.where('event.eventType = :type', { type: TelemetryEventType.SECURITY_ALERT })
-				.andWhere("event.eventData->>'reason' = :reason", { reason: 'authentication_failed' })
+				.andWhere("json_extract(event.eventData, '$.reason') = :reason", { reason: 'authentication_failed' })
 				.andWhere('event.createdAt BETWEEN :start AND :end', { start: startDate, end: endDate })
 				.getRawOne();
 

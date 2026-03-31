@@ -5,6 +5,7 @@ import { getTelemetryAggregationService } from '../services/telemetryAggregation
 import { requirePermission } from '../middleware/authorization';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { validateRequest, validateQuery, validateBody } from '../middleware/validateRequest';
+import { TelemetrySession } from '../entities/telemetrySession.entity';
 import { z } from 'zod';
 
 const router = Router();
@@ -14,7 +15,7 @@ const telemetryCollectionService = getTelemetryCollectionService(AppDataSource);
 const telemetryAggregationService = getTelemetryAggregationService(AppDataSource);
 
 // Validation schemas
-const collectMetricSchema = z.object({
+export const collectMetricSchema = z.object({
 	metricType: z.enum([
 		'api_response_time',
 		'database_query_time',
@@ -33,18 +34,24 @@ const collectMetricSchema = z.object({
 		'authentication_failure',
 		'permission_check',
 		'system_error',
+		'page_load_time',
 	]),
 	unit: z.enum(['ms', '%', 'count', 'bytes', 'eps']),
 	value: z.number(),
-	tags: z.record(z.string()).optional(),
-	metadata: z.record(z.any()).optional(),
-	userId: z.string().optional(),
-	retreatId: z.string().optional(),
-	endpoint: z.string().optional(),
-	component: z.string().optional(),
+	tags: z.record(z.string().max(200)).optional(),
+	metadata: z
+		.record(z.unknown())
+		.refine((val) => JSON.stringify(val).length <= 5000, {
+			message: 'metadata must be less than 5KB',
+		})
+		.optional(),
+	userId: z.string().max(100).optional(),
+	retreatId: z.string().max(100).optional(),
+	endpoint: z.string().max(500).optional(),
+	component: z.string().max(100).optional(),
 });
 
-const collectEventSchema = z.object({
+export const collectEventSchema = z.object({
 	eventType: z.enum([
 		'user_login',
 		'user_logout',
@@ -70,20 +77,26 @@ const collectEventSchema = z.object({
 		'report_generated',
 		'data_exported',
 		'data_imported',
+		'page_view',
+		'feature_usage',
+		'user_interaction',
 	]),
 	severity: z.enum(['info', 'warning', 'error', 'critical']),
-	description: z.string(),
-	resourceType: z.string().optional(),
-	resourceId: z.string().optional(),
-	eventData: z.record(z.any()).optional(),
-	oldValues: z.record(z.any()).optional(),
-	newValues: z.record(z.any()).optional(),
-	ipAddress: z.string().optional(),
-	userAgent: z.string().optional(),
-	userId: z.string().optional(),
-	retreatId: z.string().optional(),
-	endpoint: z.string().optional(),
-	component: z.string().optional(),
+	description: z.string().max(500),
+	resourceType: z.string().max(100).optional(),
+	resourceId: z.string().max(100).optional(),
+	eventData: z
+		.record(z.unknown())
+		.refine((val) => JSON.stringify(val).length <= 5000, {
+			message: 'eventData must be less than 5KB',
+		})
+		.optional(),
+	ipAddress: z.string().max(45).optional(),
+	userAgent: z.string().max(500).optional(),
+	userId: z.string().max(100).optional(),
+	retreatId: z.string().max(100).optional(),
+	endpoint: z.string().max(500).optional(),
+	component: z.string().max(100).optional(),
 });
 
 const sessionSchema = z.object({
@@ -169,7 +182,7 @@ router.post('/metrics', validateRequest(collectMetricSchema), async (req, res) =
 // POST /api/telemetry/metrics/batch - Collect multiple metrics
 router.post(
 	'/metrics/batch',
-	validateRequest(z.object({ metrics: z.array(collectMetricSchema) })),
+	validateRequest(z.object({ metrics: z.array(collectMetricSchema).max(50) })),
 	async (req, res) => {
 		try {
 			await telemetryCollectionService.collectMetrics(req.body.metrics);
@@ -195,7 +208,7 @@ router.post('/events', validateRequest(collectEventSchema), async (req, res) => 
 // POST /api/telemetry/events/batch - Collect multiple events
 router.post(
 	'/events/batch',
-	validateRequest(z.object({ events: z.array(collectEventSchema) })),
+	validateRequest(z.object({ events: z.array(collectEventSchema).max(50) })),
 	async (req, res) => {
 		try {
 			await telemetryCollectionService.collectEvents(req.body.events);
@@ -210,7 +223,13 @@ router.post(
 // POST /api/telemetry/sessions - Start a new session
 router.post('/sessions', validateRequest(sessionSchema), async (req, res) => {
 	try {
-		const session = await telemetryCollectionService.startSession(req.body);
+		// Capture IP server-side instead of trusting client
+		const sessionData = {
+			...req.body,
+			ipAddress: req.ip || req.socket?.remoteAddress || 'unknown',
+			userAgent: req.get('User-Agent') || req.body.userAgent,
+		};
+		const session = await telemetryCollectionService.startSession(sessionData);
 		res.status(201).json(session);
 	} catch (error) {
 		console.error('Failed to start session:', error);
@@ -218,9 +237,27 @@ router.post('/sessions', validateRequest(sessionSchema), async (req, res) => {
 	}
 });
 
+// Verify session ownership before allowing updates
+const verifySessionOwnership = async (req: any, res: any, next: any) => {
+	try {
+		const sessionRepo = AppDataSource.getRepository(TelemetrySession);
+		const session = await sessionRepo.findOne({ where: { id: req.params.sessionId } });
+		if (!session) {
+			return res.status(404).json({ message: 'Session not found' });
+		}
+		if (session.userId !== req.user?.id) {
+			return res.status(403).json({ message: 'Forbidden' });
+		}
+		next();
+	} catch (error) {
+		res.status(500).json({ message: 'Failed to verify session ownership' });
+	}
+};
+
 // PUT /api/telemetry/sessions/:sessionId - Update a session
 router.put(
 	'/sessions/:sessionId',
+	verifySessionOwnership,
 	validateRequest(
 		z.object({
 			pageViews: z.number().optional(),
@@ -241,7 +278,7 @@ router.put(
 );
 
 // POST /api/telemetry/sessions/:sessionId/end - End a session
-router.post('/sessions/:sessionId/end', async (req, res) => {
+router.post('/sessions/:sessionId/end', verifySessionOwnership, async (req, res) => {
 	try {
 		await telemetryCollectionService.endSession(req.params.sessionId);
 		res.json({ message: 'Session ended successfully' });
@@ -252,7 +289,7 @@ router.post('/sessions/:sessionId/end', async (req, res) => {
 });
 
 // GET /api/telemetry/metrics/aggregated - Get aggregated metrics
-router.get('/metrics/aggregated', validateQuery(dateRangeSchema), async (req, res) => {
+router.get('/metrics/aggregated', requirePermission('telemetry:read'), validateQuery(dateRangeSchema), async (req, res) => {
 	try {
 		const startDate = new Date(req.query.startDate as string);
 		const endDate = new Date(req.query.endDate as string);

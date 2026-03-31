@@ -1,10 +1,17 @@
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import { DataSource } from 'typeorm';
 import { createDatabaseConfig } from '../database/config';
-import { getTelemetryCollectionService } from '../services/telemetryCollectionService';
-import { getTelemetryAggregationService } from '../services/telemetryAggregationService';
+import {
+	TelemetryCollectionService,
+	getTelemetryCollectionService,
+} from '../services/telemetryCollectionService';
+import {
+	TelemetryAggregationService,
+	getTelemetryAggregationService,
+} from '../services/telemetryAggregationService';
 import { TelemetryMetricType, TelemetryMetricUnit } from '../entities/telemetryMetric.entity';
 import { TelemetryEventType, TelemetryEventSeverity } from '../entities/telemetryEvent.entity';
+import { collectEventSchema, collectMetricSchema } from '../routes/telemetryRoutes';
 
 describe('Telemetry System', () => {
 	let dataSource: DataSource;
@@ -244,6 +251,231 @@ describe('Telemetry System', () => {
 				}),
 			).resolves.not.toThrow();
 		});
+	});
+});
+
+describe('Aggregation with seeded data', () => {
+	let dataSource: DataSource;
+	let collectionService: TelemetryCollectionService;
+	let aggregationService: TelemetryAggregationService;
+
+	beforeAll(async () => {
+		const testConfig = {
+			...createDatabaseConfig(),
+			synchronize: true,
+			dropSchema: true,
+		};
+		dataSource = new DataSource(testConfig);
+		await dataSource.initialize();
+		// Use direct instantiation to avoid singleton issues across test suites
+		collectionService = new TelemetryCollectionService(dataSource);
+		aggregationService = new TelemetryAggregationService(dataSource);
+	});
+
+	afterAll(async () => {
+		if (dataSource.isInitialized) {
+			await dataSource.destroy();
+		}
+	});
+
+	it('should return correct page view counts via json_extract', async () => {
+		// Seed PAGE_VIEW events
+		for (let i = 0; i < 3; i++) {
+			await collectionService.collectEvent({
+				eventType: TelemetryEventType.PAGE_VIEW,
+				severity: TelemetryEventSeverity.INFO,
+				description: 'Page viewed: /home',
+				eventData: { page: '/home', sessionId: 'test' },
+				component: 'test',
+			});
+		}
+		for (let i = 0; i < 2; i++) {
+			await collectionService.collectEvent({
+				eventType: TelemetryEventType.PAGE_VIEW,
+				severity: TelemetryEventSeverity.INFO,
+				description: 'Page viewed: /about',
+				eventData: { page: '/about', sessionId: 'test' },
+				component: 'test',
+			});
+		}
+
+		const startDate = new Date(Date.now() - 60 * 60 * 1000);
+		const endDate = new Date(Date.now() + 60 * 1000);
+		const metrics = await aggregationService.getUserBehaviorMetrics(startDate, endDate);
+
+		expect(metrics.totalPageViews).toBe(5);
+		expect(metrics.mostVisitedPages.length).toBeGreaterThanOrEqual(2);
+		expect(metrics.mostVisitedPages[0].page).toBe('/home');
+		expect(metrics.mostVisitedPages[0].views).toBe(3);
+		expect(metrics.mostVisitedPages[1].page).toBe('/about');
+		expect(metrics.mostVisitedPages[1].views).toBe(2);
+	});
+
+	it('should return correct feature usage counts via json_extract', async () => {
+		// Seed FEATURE_USAGE events
+		for (let i = 0; i < 4; i++) {
+			await collectionService.collectEvent({
+				eventType: TelemetryEventType.FEATURE_USAGE,
+				severity: TelemetryEventSeverity.INFO,
+				description: 'Feature used: dashboard',
+				eventData: { feature: 'dashboard', action: 'view' },
+				component: 'test',
+			});
+		}
+		for (let i = 0; i < 2; i++) {
+			await collectionService.collectEvent({
+				eventType: TelemetryEventType.FEATURE_USAGE,
+				severity: TelemetryEventSeverity.INFO,
+				description: 'Feature used: reports',
+				eventData: { feature: 'reports', action: 'export' },
+				component: 'test',
+			});
+		}
+
+		const startDate = new Date(Date.now() - 60 * 60 * 1000);
+		const endDate = new Date(Date.now() + 60 * 1000);
+		const metrics = await aggregationService.getUserBehaviorMetrics(startDate, endDate);
+
+		expect(metrics.mostUsedFeatures.length).toBeGreaterThanOrEqual(2);
+		expect(metrics.mostUsedFeatures[0].feature).toBe('dashboard');
+		expect(metrics.mostUsedFeatures[0].usage).toBe(4);
+		expect(metrics.mostUsedFeatures[1].feature).toBe('reports');
+		expect(metrics.mostUsedFeatures[1].usage).toBe(2);
+	});
+
+	it('should return correct auth metrics with json_extract on reason field', async () => {
+		// Seed USER_LOGIN events (successful logins)
+		for (let i = 0; i < 5; i++) {
+			await collectionService.collectEvent({
+				eventType: TelemetryEventType.USER_LOGIN,
+				severity: TelemetryEventSeverity.INFO,
+				description: 'User logged in',
+				component: 'test',
+			});
+		}
+		// Seed SECURITY_ALERT events with authentication_failed reason
+		for (let i = 0; i < 2; i++) {
+			await collectionService.collectEvent({
+				eventType: TelemetryEventType.SECURITY_ALERT,
+				severity: TelemetryEventSeverity.WARNING,
+				description: 'Authentication failed',
+				eventData: { reason: 'authentication_failed' },
+				component: 'test',
+			});
+		}
+
+		const startDate = new Date(Date.now() - 60 * 60 * 1000);
+		const endDate = new Date(Date.now() + 60 * 1000);
+		const metrics = await aggregationService.getSystemHealthMetrics(startDate, endDate);
+
+		// 5 success out of 7 total = ~71.4%
+		expect(metrics.authenticationSuccessRate).toBeCloseTo((5 / 7) * 100, 0);
+	});
+});
+
+describe('Edge cases', () => {
+	let dataSource: DataSource;
+	let aggregationService: TelemetryAggregationService;
+
+	beforeAll(async () => {
+		const testConfig = {
+			...createDatabaseConfig(),
+			synchronize: true,
+			dropSchema: true,
+		};
+		dataSource = new DataSource(testConfig);
+		await dataSource.initialize();
+		aggregationService = new TelemetryAggregationService(dataSource);
+	});
+
+	afterAll(async () => {
+		if (dataSource.isInitialized) {
+			await dataSource.destroy();
+		}
+	});
+
+	it('should handle empty date ranges gracefully', async () => {
+		const farFuture = new Date('2099-01-01');
+		const farFuture2 = new Date('2099-01-02');
+		const metrics = await aggregationService.getUserBehaviorMetrics(farFuture, farFuture2);
+
+		expect(metrics.totalPageViews).toBe(0);
+		expect(metrics.mostVisitedPages).toEqual([]);
+		expect(metrics.mostUsedFeatures).toEqual([]);
+	});
+
+	it('should return default values for all aggregation methods with no data', async () => {
+		const start = new Date('2099-01-01');
+		const end = new Date('2099-01-02');
+
+		const perf = await aggregationService.getAggregatedMetrics(start, end);
+		expect(perf.totalRequests).toBe(0);
+		expect(perf.averageResponseTime).toBe(0);
+		expect(perf.errorRate).toBe(0);
+
+		const biz = await aggregationService.getBusinessMetrics(start, end);
+		expect(biz.participantRegistrations).toBe(0);
+		expect(biz.paymentSuccessRate).toBe(0);
+
+		const sys = await aggregationService.getSystemHealthMetrics(start, end);
+		expect(sys.systemErrors).toBe(0);
+		expect(sys.authenticationSuccessRate).toBe(100); // default when no attempts
+	});
+});
+
+describe('Zod validation schemas', () => {
+	it('should accept page_view as a valid event type', () => {
+		const result = collectEventSchema.safeParse({
+			eventType: 'page_view',
+			severity: 'info',
+			description: 'test page view',
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it('should accept feature_usage as a valid event type', () => {
+		const result = collectEventSchema.safeParse({
+			eventType: 'feature_usage',
+			severity: 'info',
+			description: 'test feature usage',
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it('should accept user_interaction as a valid event type', () => {
+		const result = collectEventSchema.safeParse({
+			eventType: 'user_interaction',
+			severity: 'info',
+			description: 'test user interaction',
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it('should reject invalid event types', () => {
+		const result = collectEventSchema.safeParse({
+			eventType: 'nonexistent_type',
+			severity: 'info',
+			description: 'test invalid',
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it('should accept page_load_time as a valid metric type', () => {
+		const result = collectMetricSchema.safeParse({
+			metricType: 'page_load_time',
+			unit: 'ms',
+			value: 1500,
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it('should reject invalid metric types', () => {
+		const result = collectMetricSchema.safeParse({
+			metricType: 'nonexistent_metric',
+			unit: 'ms',
+			value: 100,
+		});
+		expect(result.success).toBe(false);
 	});
 });
 

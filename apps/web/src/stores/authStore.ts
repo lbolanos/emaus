@@ -4,6 +4,7 @@ import type { User, UserProfile } from '@repo/types';
 import { api } from '../services/api';
 import { useRouter } from 'vue-router';
 import { useToast } from '@repo/ui';
+import { telemetryService } from '../services/telemetryService';
 
 // Auth input types
 interface RegisterUserInput {
@@ -38,6 +39,11 @@ export const useAuthStore = defineStore('auth', () => {
 			user.value = response.data;
 			userProfile.value = response.data.profile;
 			isAuthenticated.value = true;
+
+			// Initialize telemetry session
+			if (response.data.id) {
+				telemetryService.initialize(response.data.id).catch(() => {});
+			}
 
 			toast({
 				title: 'Success',
@@ -83,6 +89,11 @@ export const useAuthStore = defineStore('auth', () => {
 				user.value = response.data;
 				userProfile.value = response.data.profile;
 				isAuthenticated.value = true;
+
+				// Initialize telemetry if not already active (e.g. page refresh)
+				if (!telemetryService.isTelemetryActive() && response.data.id) {
+					telemetryService.initialize(response.data.id).catch(() => {});
+				}
 			} else {
 				user.value = null;
 				userProfile.value = null;
@@ -98,6 +109,8 @@ export const useAuthStore = defineStore('auth', () => {
 	async function logout() {
 		try {
 			loading.value = true;
+			// End telemetry session before logout
+			await telemetryService.endSession().catch(() => {});
 			await api.post('/auth/logout');
 			isAuthenticated.value = false;
 			user.value = null;

@@ -32,11 +32,6 @@
             <RefreshCw class="w-4 h-4 mr-2" />
             Actualizar
           </Button>
-          <!-- Grafana Link -->
-          <Button @click="openGrafana" variant="outline" size="sm">
-            <BarChart3 class="w-4 h-4 mr-2" />
-            Ver en Grafana
-          </Button>
         </div>
       </div>
 
@@ -49,14 +44,10 @@
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="flex items-center gap-2">
               <div :class="`w-3 h-3 rounded-full ${healthStatus.database ? 'bg-green-500' : 'bg-red-500'}`"></div>
               <span class="text-sm">Base de Datos: {{ healthStatus.database ? 'Conectada' : 'Error' }}</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <div :class="`w-3 h-3 rounded-full ${healthStatus.influxdb ? 'bg-green-500' : 'bg-red-500'}`"></div>
-              <span class="text-sm">InfluxDB: {{ healthStatus.influxdb ? 'Conectado' : 'Error' }}</span>
             </div>
             <div class="flex items-center gap-2">
               <span class="text-sm text-gray-600">Última actualización: {{ lastUpdated }}</span>
@@ -224,10 +215,6 @@
               <Trash2 class="w-4 h-4 mr-2" />
               Limpiar Datos Antiguos
             </Button>
-            <Button @click="exportMetrics" variant="outline" size="sm">
-              <Download class="w-4 h-4 mr-2" />
-              Exportar Métricas
-            </Button>
             <Button @click="testTelemetry" variant="outline" size="sm">
               <TestTube class="w-4 h-4 mr-2" />
               Probar Telemetría
@@ -244,14 +231,12 @@ import { ref, onMounted, onUnmounted } from 'vue';
 import { Button } from '@repo/ui';
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui';
 import { Progress } from '@repo/ui';
-import { Badge } from '@repo/ui';
 import { useToast } from '@repo/ui';
 import {
   Loader2,
   Activity,
   Calendar,
   RefreshCw,
-  BarChart3,
   Heart,
   Cpu,
   TrendingUp,
@@ -259,7 +244,6 @@ import {
   Shield,
   Settings,
   Trash2,
-  Download,
   TestTube,
 } from 'lucide-vue-next';
 import {
@@ -281,7 +265,6 @@ const selectedRange = ref('24h');
 // Health status
 const healthStatus = ref({
   database: false,
-  influxdb: false,
 });
 
 // Metrics data
@@ -404,12 +387,6 @@ const formatDuration = (seconds: number): string => {
   return `${Math.round(seconds / 3600)}h`;
 };
 
-// Open Grafana dashboard
-const openGrafana = () => {
-  const grafanaUrl = process.env.VITE_GRAFANA_URL || 'http://localhost:3000';
-  window.open(grafanaUrl, '_blank');
-};
-
 // Clean up old data
 const cleanupOldData = async () => {
   try {
@@ -429,15 +406,7 @@ const cleanupOldData = async () => {
   }
 };
 
-// Export metrics (placeholder)
-const exportMetrics = () => {
-  toast({
-    title: 'Exportar Métricas',
-    description: 'Función de exportación próximamente disponible',
-  });
-};
-
-// Test telemetry (placeholder)
+// Test telemetry
 const testTelemetry = async () => {
   try {
     if (telemetryService.isTelemetryActive()) {

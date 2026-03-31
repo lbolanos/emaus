@@ -68,9 +68,12 @@ class TelemetryService {
 		}
 	}
 
-	// Generate a unique session ID
+	// Generate a unique session ID using cryptographically secure random
 	private generateSessionId(): string {
-		return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+		if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+			return `session_${crypto.randomUUID()}`;
+		}
+		return `session_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 	}
 
 	// Get browser information
@@ -111,7 +114,7 @@ class TelemetryService {
 		return { name: browserName, version: browserVersion, os, device };
 	}
 
-	// Start a telemetry session
+	// Start a telemetry session (IP is captured server-side, not sent from client)
 	private async startSession(): Promise<void> {
 		if (!this.userId || !this.sessionId) return;
 
@@ -119,7 +122,6 @@ class TelemetryService {
 			const sessionData: TelemetrySessionData = {
 				sessionId: this.sessionId,
 				userId: this.userId,
-				ipAddress: await this.getClientIP(),
 				userAgent: navigator.userAgent,
 				referrer: document.referrer,
 				browserInfo: this.getBrowserInfo(),
@@ -131,19 +133,6 @@ class TelemetryService {
 			await api.post('/telemetry/sessions', sessionData);
 		} catch (error) {
 			console.warn('Failed to start telemetry session:', error);
-		}
-	}
-
-	// Get client IP (simplified - in production you might want a more reliable method)
-	private async getClientIP(): Promise<string> {
-		try {
-			// Try to get IP from a public service (fallback)
-			const response = await fetch('https://api.ipify.org?format=json');
-			const data = await response.json();
-			return data.ip;
-		} catch {
-			// If external service fails, return a placeholder
-			return 'unknown';
 		}
 	}
 
@@ -183,8 +172,6 @@ class TelemetryService {
 				...data,
 				userId: this.userId,
 				component: data.component || 'frontend',
-				ipAddress: data.ipAddress || (await this.getClientIP()),
-				userAgent: data.userAgent || navigator.userAgent,
 			});
 		} catch (error) {
 			console.warn('Failed to track event:', error);
@@ -262,15 +249,15 @@ class TelemetryService {
 		});
 	}
 
-	// Track errors
+	// Track errors (no stack traces or PII sent to server)
 	async trackError(error: Error, context?: string): Promise<void> {
+		if (!this.isActive) return;
 		await this.trackEvent({
 			eventType: 'system_error',
 			severity: 'error',
-			description: error.message,
+			description: error.name || 'Error',
 			eventData: {
 				errorName: error.name,
-				stack: error.stack,
 				context,
 			},
 			component: 'frontend',
@@ -299,19 +286,11 @@ class TelemetryService {
 		if (!this.isActive) return;
 
 		try {
-			// Pre-fetch IP addresses for events that need them
-			const ipPromises = events.map((event) =>
-				event.ipAddress ? Promise.resolve(event.ipAddress) : this.getClientIP(),
-			);
-			const ipAddresses = await Promise.all(ipPromises);
-
 			await api.post('/telemetry/events/batch', {
-				events: events.map((event, index) => ({
+				events: events.map((event) => ({
 					...event,
 					userId: this.userId,
 					component: event.component || 'frontend',
-					ipAddress: ipAddresses[index],
-					userAgent: event.userAgent || navigator.userAgent,
 				})),
 			});
 		} catch (error) {
