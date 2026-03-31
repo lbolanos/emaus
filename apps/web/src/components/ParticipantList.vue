@@ -4,6 +4,10 @@ import { storeToRefs } from 'pinia';
 import { useRoute } from 'vue-router';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useRetreatStore } from '@/stores/retreatStore';
+import { getPalanqueroOptions, sendEmailViaBackend, getSmtpConfig } from '@/services/api';
+import { useMessageTemplateStore } from '@/stores/messageTemplateStore';
+import { convertHtmlToEmail, replaceAllVariables } from '@/utils/message';
+import type { ParticipantData, RetreatData } from '@/utils/message';
 import MessageDialog from './MessageDialog.vue';
 import BulkEditParticipantsModal from './BulkEditParticipantsModal.vue';
 import { useI18n } from 'vue-i18n';
@@ -52,7 +56,7 @@ import {
 } from '@repo/ui';
 
 
-import { ArrowUpDown, Trash2, Edit, FileUp, FileDown, Columns, ListFilter, MoreVertical, Plus, X, Printer, RefreshCw } from 'lucide-vue-next';
+import { ArrowUpDown, Trash2, Edit, FileUp, FileDown, Columns, ListFilter, MoreVertical, Plus, X, Printer, RefreshCw, Search, Users, MessageSquare, RotateCcw } from 'lucide-vue-next';
 import { useToast } from '@repo/ui';
 
 // Traducción (simulada, usa tu sistema de i18n)
@@ -86,6 +90,18 @@ const { participants: allParticipants, loading, error } = storeToRefs(participan
 const retreatStore = useRetreatStore();
 const { selectedRetreatId, serverRegistrationLink, walkerRegistrationLink } = storeToRefs(retreatStore);
 const { tags } = storeToRefs(participantStore);
+const messageTemplateStore = useMessageTemplateStore();
+const { templates: allMessageTemplates } = storeToRefs(messageTemplateStore);
+
+const palanqueroDisplayMap = ref<Record<string, string>>({});
+
+// Bulk email computed properties
+const participantsWithEmail = computed(() =>
+    bulkMessageParticipants.value.filter((p: any) => p.email && p.email.trim() !== '')
+);
+const participantsWithoutEmail = computed(() =>
+    bulkMessageParticipants.value.filter((p: any) => !p.email || p.email.trim() === '')
+);
 
 const participants = computed(() => {
     if (props.type === undefined) {
@@ -110,6 +126,17 @@ const isMessageDialogOpen = ref(false);
 const messageParticipant = ref<any>(null);
 const isBulkMessageDialogOpen = ref(false);
 const bulkMessageParticipants = ref<any[]>([]);
+
+// Bulk email sending state
+const bulkEmailTemplate = ref('');
+const bulkEmailMessage = ref('');
+const bulkEmailSubject = ref('');
+const bulkEmailSending = ref(false);
+const bulkEmailProgress = ref(0);
+const bulkEmailTotal = ref(0);
+const bulkEmailResults = ref<{ success: number; failed: number; errors: string[] }>({ success: 0, failed: 0, errors: [] });
+const bulkEmailPhase = ref<'compose' | 'sending' | 'results'>('compose');
+const smtpConfigured = ref(false);
 const isBulkEditDialogOpen = ref(false);
 const bulkEditParticipants = ref<any[]>([]);
 
@@ -352,6 +379,12 @@ const allColumns = ref([
     { key: 'retreatBed.roomNumber', label: 'rooms.roomNumber' },
 ]);
 
+const longTextColumns = new Set([
+    'notes', 'palancasNotes', 'medicationDetails',
+    'dietaryRestrictionsDetails', 'disabilitySupport', 'medicationSchedule',
+    'pickupLocation'
+]);
+
 // Initialize visible columns from store or props
 const visibleColumns = ref<string[]>([]);
 
@@ -385,12 +418,22 @@ const toggleColumn = (key: string) => {
         visibleColumns.value.push(key);
     }
 };
-// Watch for retreat changes to fetch tags
-watch(selectedRetreatId, (newId) => {
+// Watch for retreat changes to fetch tags and palanquero options
+watch(selectedRetreatId, async (newId) => {
     if (newId) {
         participantStore.fetchTags(newId);
+        try {
+            const options = await getPalanqueroOptions(newId);
+            const map: Record<string, string> = {};
+            for (const opt of options) {
+                map[opt.value] = opt.label;
+            }
+            palanqueroDisplayMap.value = map;
+        } catch (e) {
+            console.error('Error loading palanquero options:', e);
+        }
     }
-});
+}, { immediate: true });
 
 // --- COMPUTED: PARTICIPANTES FILTRADOS Y ORDENADOS ---
 const filteredAndSortedParticipants = computed(() => {
@@ -612,6 +655,14 @@ const getCellContent = (participant: any, colKey: string) => {
         };
     }
 
+    if (colKey === 'palancasCoordinator' && value) {
+        return {
+            value: palanqueroDisplayMap.value[value] || value,
+            hasBirthday: false,
+            hasPaymentStatus: false
+        };
+    }
+
     return {
         value: formatCell(participant, colKey),
         hasBirthday: false,
@@ -673,6 +724,18 @@ const confirmDelete = async () => {
     participantToDelete.value = null;
 };
 
+const reactivateParticipant = async (participant: any) => {
+    try {
+        await participantStore.updateParticipant(participant.id, { ...participant, isCancelled: false });
+        toast({
+            title: $t('participants.reactivate.successTitle'),
+            description: `${participant.firstName} ${participant.lastName} ${$t('participants.reactivate.successDesc')}`,
+        });
+    } catch (error) {
+        // toast already shown by store
+    }
+};
+
 const openEditDialog = (participant: any) => {
     participantToEdit.value = participant;
     isEditDialogOpen.value = true;
@@ -683,12 +746,36 @@ const openMessageDialog = (participant: any) => {
     isMessageDialogOpen.value = true;
 };
 
-const bulkMessageSelected = () => {
+const bulkMessageSelected = async () => {
     const selectedIds = Array.from(selectedParticipants.value);
     const selectedData = filteredAndSortedParticipants.value.filter((p: any) =>
         selectedIds.includes(p.id)
     );
     bulkMessageParticipants.value = selectedData;
+
+    // Reset state
+    bulkEmailPhase.value = 'compose';
+    bulkEmailTemplate.value = '';
+    bulkEmailMessage.value = '';
+    bulkEmailSubject.value = '';
+    bulkEmailProgress.value = 0;
+    bulkEmailTotal.value = 0;
+    bulkEmailResults.value = { success: 0, failed: 0, errors: [] };
+    bulkEmailSending.value = false;
+
+    // Check SMTP config
+    try {
+        const config = await getSmtpConfig();
+        smtpConfigured.value = config?.configured ?? false;
+    } catch {
+        smtpConfigured.value = false;
+    }
+
+    // Load templates
+    if (selectedRetreatId.value) {
+        messageTemplateStore.fetchTemplates(selectedRetreatId.value);
+    }
+
     isBulkMessageDialogOpen.value = true;
 };
 
@@ -832,25 +919,84 @@ const confirmBulkDelete = async () => {
     }
 };
 
-const sendBulkMessage = async () => {
-    try {
-        // Mock implementation - in real app this would call messaging API
-        const messageCount = bulkMessageParticipants.value.length;
+const onBulkTemplateSelect = (templateId: string) => {
+    bulkEmailTemplate.value = templateId;
+    const template = allMessageTemplates.value.find((t: any) => t.id === templateId);
+    if (template) {
+        bulkEmailMessage.value = template.message || '';
+        bulkEmailSubject.value = template.name || 'Mensaje';
+    }
+};
 
-        toast({
-            title: $t('participants.bulkMessage.successTitle'),
-            description: $t('participants.bulkMessage.successDesc', { count: messageCount }),
-        });
-
-        isBulkMessageDialogOpen.value = false;
-        selectedParticipants.value.clear();
-    } catch (error) {
+const sendBulkEmail = async () => {
+    if (!smtpConfigured.value) {
         toast({
             title: $t('participants.bulkMessage.errorTitle'),
-            description: $t('participants.bulkMessage.errorDesc'),
+            description: $t('participants.bulkMessage.smtpNotConfigured'),
             variant: 'destructive',
         });
+        return;
     }
+
+    const recipients = participantsWithEmail.value;
+    if (recipients.length === 0) {
+        toast({
+            title: $t('participants.bulkMessage.errorTitle'),
+            description: $t('participants.bulkMessage.noEmailRecipients'),
+            variant: 'destructive',
+        });
+        return;
+    }
+
+    bulkEmailPhase.value = 'sending';
+    bulkEmailSending.value = true;
+    bulkEmailTotal.value = recipients.length;
+    bulkEmailProgress.value = 0;
+    bulkEmailResults.value = { success: 0, failed: 0, errors: [] };
+
+    const retreatData = retreatStore.selectedRetreat as RetreatData;
+
+    for (const participant of recipients) {
+        try {
+            const participantData = participant as unknown as ParticipantData;
+            const personalizedHtml = replaceAllVariables(
+                bulkEmailMessage.value,
+                participantData,
+                retreatData
+            );
+            const emailHtml = convertHtmlToEmail(personalizedHtml, { format: 'enhanced' });
+            const textContent = personalizedHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+            const subject = replaceAllVariables(
+                bulkEmailSubject.value,
+                participantData,
+                retreatData
+            ).replace(/<[^>]*>/g, '');
+
+            await sendEmailViaBackend({
+                to: participant.email,
+                subject,
+                html: emailHtml,
+                text: textContent,
+                participantId: participant.id,
+                retreatId: selectedRetreatId.value!,
+                templateId: bulkEmailTemplate.value || undefined,
+                templateName: allMessageTemplates.value.find(
+                    (t: any) => t.id === bulkEmailTemplate.value
+                )?.name,
+            });
+
+            bulkEmailResults.value.success++;
+        } catch (err: any) {
+            bulkEmailResults.value.failed++;
+            const name = `${participant.firstName} ${participant.lastName}`;
+            const msg = err?.response?.data?.message || err?.message || 'Error desconocido';
+            bulkEmailResults.value.errors.push(`${name}: ${msg}`);
+        }
+        bulkEmailProgress.value++;
+    }
+
+    bulkEmailSending.value = false;
+    bulkEmailPhase.value = 'results';
 };
 
 const handleBulkEditSave = async (updatedParticipants: any[]) => {
@@ -1120,18 +1266,19 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
         <!-- End of Print Header -->
 
         <!-- Toolbar de Acciones -->
-        <div class="flex flex-col sm:flex-row justify-between items-center gap-2 mb-4 no-print">
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-3 mb-4 no-print">
             <div class="flex gap-2 items-center w-full sm:w-auto">
-                <div class="relative flex-1 sm:flex-none sm:w-64">
+                <div class="relative flex-1 sm:flex-none sm:w-72">
+                    <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                     <Input
                         v-model="searchQuery"
                         :placeholder="$t('common.searchPlaceholder')"
-                        class="pr-8"
+                        class="pl-9 pr-8"
                     />
                     <button
                         v-if="searchQuery"
                         @click="searchQuery = ''"
-                        class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                     >
                         <X class="h-4 w-4" />
                     </button>
@@ -1139,17 +1286,17 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger as-child>
-                            <Button 
-                                variant="outline" 
-                                size="icon" 
+                            <Button
+                                variant="outline"
+                                size="icon"
                                 @click="isFilterDialogOpen = true"
-                                :class="{ 'border-blue-500 bg-blue-50': activeDynamicFiltersCount > 0 }"
-                                class="relative"
+                                :class="{ 'border-blue-500 bg-blue-50 text-blue-600': activeDynamicFiltersCount > 0 }"
+                                class="relative shrink-0"
                             >
                                 <ListFilter class="h-4 w-4" />
-                                <span 
-                                    v-if="activeDynamicFiltersCount > 0" 
-                                    class="absolute -top-1 -right-1 w-4 h-4 bg-blue-600 text-white text-[10px] rounded-full flex items-center justify-center font-bold"
+                                <span
+                                    v-if="activeDynamicFiltersCount > 0"
+                                    class="absolute -top-1.5 -right-1.5 w-4 h-4 bg-blue-600 text-white text-[10px] rounded-full flex items-center justify-center font-bold shadow-sm"
                                 >
                                     {{ activeDynamicFiltersCount }}
                                 </span>
@@ -1163,45 +1310,74 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
             </div>
 
             <!-- Selection Status Bar -->
-            <div v-if="selectedCount > 0" class="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-md">
-                <span class="text-sm text-blue-700 font-medium">
-                    {{ $t('participants.selectedCount', { count: selectedCount }) }}
+            <div v-if="selectedCount > 0" class="flex items-center gap-1.5 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg shadow-sm">
+                <span class="text-sm text-blue-700 font-semibold">
+                    {{ selectedCount }}
                 </span>
-                <Button variant="ghost" size="sm" @click="selectedParticipants.clear()" class="text-blue-600 hover:text-blue-800">
-                    {{ $t('participants.clearSelection') }}
-                </Button>
+                <span class="text-sm text-blue-600">{{ $t('participants.selectedCount', { count: selectedCount }) }}</span>
+                <div class="flex items-center gap-0.5 ml-2 border-l border-blue-200 pl-2">
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger as-child>
+                                <Button variant="ghost" size="icon" class="h-7 w-7 text-blue-600 hover:text-blue-800 hover:bg-blue-100" @click="bulkMessageSelected">
+                                    <MessageSquare class="h-3.5 w-3.5" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>{{ $t('participants.bulkActions.sendMessage') }}</TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger as-child>
+                                <Button variant="ghost" size="icon" class="h-7 w-7 text-blue-600 hover:text-blue-800 hover:bg-blue-100" @click="bulkEditSelected">
+                                    <Edit class="h-3.5 w-3.5" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>{{ $t('participants.bulkActions.editSelected') }}</TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger as-child>
+                                <Button variant="ghost" size="icon" class="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50" @click="bulkDeleteSelected">
+                                    <Trash2 class="h-3.5 w-3.5" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>{{ $t('participants.bulkActions.deleteSelected') }}</TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                </div>
+                <button @click="selectedParticipants.clear()" class="ml-1 text-blue-400 hover:text-blue-700 transition-colors">
+                    <X class="h-4 w-4" />
+                </button>
+            </div>
+            <div class="flex gap-1.5">
+                <!-- Refresh -->
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger as-child>
-                            <Button variant="ghost" size="icon" class="text-blue-600">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
+                            <Button variant="outline" size="icon" :disabled="loading" @click="participantStore.fetchParticipants()" class="shrink-0">
+                                <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" />
                             </Button>
                         </TooltipTrigger>
-                        <TooltipContent>
-                            <div class="text-xs space-y-1">
-                                <div><kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Ctrl+A</kbd> {{ $t('participants.selectAll') }}</div>
-                                <div><kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Esc</kbd> {{ $t('participants.clearSelection') }}</div>
-                                <div><kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Del</kbd> {{ $t('participants.deleteSelected') }}</div>
-                            </div>
-                        </TooltipContent>
+                        <TooltipContent>{{ $t('participants.refresh') }}</TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
-            </div>
-            <div class="flex gap-2">
-                <!-- Refresh -->
-                <Button variant="outline" size="icon" :disabled="loading" :title="$t('participants.refresh')" @click="participantStore.fetchParticipants()">
-                    <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading }" />
-                </Button>
                 <!-- Add Participant -->
-                <Button @click="openRegistrationLink" :disabled="!selectedRetreatId" :title="$t('participants.addParticipant')" size="icon" >
-                    <Plus class="h-4 w-4" />
-                </Button>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger as-child>
+                            <Button @click="openRegistrationLink" :disabled="!selectedRetreatId" size="icon" class="shrink-0">
+                                <Plus class="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{{ $t('participants.addParticipant') }}</TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
                 <!-- Three dots menu with all actions -->
                 <DropdownMenu>
                     <DropdownMenuTrigger as-child>
-                        <Button variant="outline" size="icon">
+                        <Button variant="outline" size="icon" class="shrink-0">
                             <MoreVertical class="h-4 w-4" />
                         </Button>
                     </DropdownMenuTrigger>
@@ -1275,84 +1451,87 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
         </div>
 
         <!-- Active Filters Chips -->
-        <div v-if="activeFiltersList.length > 0" class="flex flex-wrap items-center gap-2 mb-4 no-print">
-            <span class="text-sm text-gray-500 font-medium mr-1">{{ $t('common.filters.title') }}:</span>
-            <div 
-                v-for="filter in activeFiltersList" 
+        <div v-if="activeFiltersList.length > 0" class="flex flex-wrap items-center gap-1.5 mb-3 no-print">
+            <ListFilter class="h-3.5 w-3.5 text-gray-400 mr-0.5" />
+            <div
+                v-for="filter in activeFiltersList"
                 :key="`${filter.type}-${filter.key}`"
-                class="flex items-center gap-1 bg-gray-100 border px-2 py-1 rounded-full text-xs"
+                class="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md text-xs text-blue-700"
             >
-                <span class="text-gray-500">{{ filter.label }}:</span>
+                <span class="text-blue-500">{{ filter.label }}:</span>
                 <span class="font-medium">{{ filter.value }}</span>
-                <button 
+                <button
                     @click="removeFilter(filter.key, filter.type)"
-                    class="ml-1 hover:text-red-500 transition-colors"
+                    class="ml-0.5 text-blue-400 hover:text-red-500 transition-colors"
                 >
                     <X class="h-3 w-3" />
                 </button>
             </div>
-            <Button 
-                variant="ghost" 
-                size="sm" 
+            <button
                 @click="clearAllFilters"
-                class="text-xs h-7 px-2 text-gray-500 hover:text-red-600"
+                class="text-xs text-gray-400 hover:text-red-500 transition-colors ml-1"
             >
                 {{ $t('common.filters.clearAll') }}
-            </Button>
+            </button>
         </div>
 
         <!-- Mensajes de estado y Tabla -->
-        <div v-if="loading">{{ $t('participants.loading') }}</div>
-            <div v-else-if="error" class="text-red-500">{{ error }}</div>
-            <div v-else-if="!selectedRetreatId" class="text-center text-gray-500 py-8">
+        <div v-if="loading" class="flex items-center justify-center py-16 text-gray-400">
+            <RefreshCw class="h-5 w-5 animate-spin mr-2" />
+            <span>{{ $t('participants.loading') }}</span>
+        </div>
+            <div v-else-if="error" class="rounded-lg border border-red-200 bg-red-50 p-4 text-red-600 text-sm">{{ error }}</div>
+            <div v-else-if="!selectedRetreatId" class="text-center text-gray-400 py-16 space-y-2">
+                <Users class="h-10 w-10 mx-auto text-gray-300" />
                 <p>{{ $t('participants.selectRetreatPrompt') }}</p>
             </div>
-            <div v-else class="border rounded-md overflow-x-auto">
+            <div v-else class="border rounded-lg overflow-x-auto shadow-sm">
             <Table class="text-xs sm:text-sm min-w-[600px]">
                 <TableCaption v-if="filteredAndSortedParticipants.length === 0">
-                    <div class="py-8 flex flex-col items-center gap-3">
-                        <p class="text-gray-500">
+                    <div class="py-12 flex flex-col items-center gap-3">
+                        <Users class="h-10 w-10 text-gray-300" />
+                        <p class="text-gray-500 text-sm">
                             {{ activeFiltersList.length > 0 ? $t('participants.noParticipantsMatch') : $t('participants.noParticipantsFound') }}
                         </p>
-                        <Button 
-                            v-if="activeFiltersList.length > 0" 
-                            variant="outline" 
-                            size="sm" 
+                        <Button
+                            v-if="activeFiltersList.length > 0"
+                            variant="outline"
+                            size="sm"
                             @click="clearAllFilters"
                         >
                             {{ $t('common.filters.clearAll') }}
                         </Button>
                     </div>
                 </TableCaption>
-                <TableHeader>
-                    <TableRow>
+                <TableHeader class="sticky top-0 z-10">
+                    <TableRow class="bg-gray-50/95 backdrop-blur-sm border-b-2 border-gray-200">
                         <!-- Bulk Selection Column -->
-                        <TableHead class="w-12 no-print">
+                        <TableHead class="w-10 no-print">
                             <input
                                 type="checkbox"
                                 :checked="isAllSelected"
                                 :indeterminate="isSomeSelected"
                                 @change="toggleAllParticipantsSelection"
-                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-3.5 w-3.5"
                             />
                         </TableHead>
                         <!-- Data Columns -->
-                        <TableHead v-for="colKey in visibleColumns" :key="colKey" @click="handleSort(colKey)" class="cursor-pointer">
+                        <TableHead v-for="colKey in visibleColumns" :key="colKey" @click="handleSort(colKey)" class="cursor-pointer select-none text-xs font-semibold text-gray-600 uppercase tracking-wide hover:text-gray-900 transition-colors whitespace-nowrap">
                            {{ $t(allColumns.find(c => c.key === colKey)?.label || '') }}
-                           <ArrowUpDown v-if="sortKey === colKey" class="inline-block ml-2 h-4 w-4" />
+                           <ArrowUpDown v-if="sortKey === colKey" class="inline-block ml-1 h-3 w-3 text-blue-500" />
                         </TableHead>
-                        <TableHead class="no-print">{{ $t('participants.actions') }}</TableHead>
+                        <TableHead class="no-print text-xs font-semibold text-gray-600 uppercase tracking-wide">{{ $t('participants.actions') }}</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    <TableRow v-for="participant in filteredAndSortedParticipants" :key="participant.id" :class="[participant.family_friend_color ? 'border-l-4' : '', hasBirthdayDuringRetreat(participant) ? 'bg-yellow-50' : '', selectedParticipants.has(String(participant.id)) ? 'bg-blue-50 hover:bg-blue-100' : 'hover:bg-gray-50']" :style="participant.family_friend_color ? { borderLeftColor: participant.family_friend_color } : {}" class="participant-row transition-colors duration-150">
+                    <TableRow v-for="(participant, idx) in filteredAndSortedParticipants" :key="participant.id" :class="[participant.family_friend_color ? 'border-l-4' : '', hasBirthdayDuringRetreat(participant) ? 'bg-amber-50/60' : '', selectedParticipants.has(String(participant.id)) ? 'bg-blue-50/80 hover:bg-blue-100/80' : (idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'), 'hover:bg-gray-100/70']" :style="participant.family_friend_color ? { borderLeftColor: participant.family_friend_color } : {}" class="participant-row transition-colors duration-100 group">
                         <!-- Bulk Selection Column -->
-                        <TableCell class="w-12 no-print">
+                        <TableCell class="w-10 no-print">
                             <input
                                 type="checkbox"
                                 :checked="selectedParticipants.has(String(participant.id))"
                                 @change="toggleParticipantSelection(participant.id)"
-                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-3.5 w-3.5"
                             />
                         </TableCell>
                         <!-- Data Columns -->
@@ -1368,6 +1547,22 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                                 <span v-if="!getNestedProperty(participant, colKey) || getNestedProperty(participant, colKey)?.length === 0">
                                     N/A
                                 </span>
+                            </div>
+                            <!-- Long text columns with truncation + tooltip -->
+                            <div v-else-if="longTextColumns.has(colKey)" class="max-w-[200px]">
+                                <TooltipProvider v-if="getCellContent(participant, colKey).value && getCellContent(participant, colKey).value !== 'N/A'">
+                                    <Tooltip>
+                                        <TooltipTrigger as-child>
+                                            <span class="block truncate cursor-help">
+                                                {{ getCellContent(participant, colKey).value }}
+                                            </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" class="max-w-[400px] whitespace-pre-wrap">
+                                            {{ getCellContent(participant, colKey).value }}
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                                <span v-else>{{ getCellContent(participant, colKey).value }}</span>
                             </div>
                             <!-- Default cell rendering for other columns -->
                             <div v-else class="flex items-center gap-1">
@@ -1391,39 +1586,39 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                             </div>
                         </TableCell>
                         <TableCell class="no-print">
-                            <div class="flex -space-x-3">
+                            <div class="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger as-child>
-                                            <Button variant="ghost" size="icon" @click="openEditDialog(participant)"><Edit class="h-4 w-4" /></Button>
+                                            <Button variant="ghost" size="icon" class="h-7 w-7 text-gray-500 hover:text-blue-600 hover:bg-blue-50" @click="openEditDialog(participant)"><Edit class="h-3.5 w-3.5" /></Button>
                                         </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>{{ $t('participants.editParticipant') }}</p>
-                                        </TooltipContent>
+                                        <TooltipContent>{{ $t('participants.editParticipant') }}</TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger as-child>
-                                            <Button variant="ghost" size="icon" @click="openMessageDialog(participant)">
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-                                                </svg>
+                                            <Button variant="ghost" size="icon" class="h-7 w-7 text-gray-500 hover:text-green-600 hover:bg-green-50" @click="openMessageDialog(participant)">
+                                                <MessageSquare class="h-3.5 w-3.5" />
                                             </Button>
                                         </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>{{ $t('participants.sendMessage') }}</p>
-                                        </TooltipContent>
+                                        <TooltipContent>{{ $t('participants.sendMessage') }}</TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>
-                                <TooltipProvider>
+                                <TooltipProvider v-if="props.isCancelled">
                                     <Tooltip>
                                         <TooltipTrigger as-child>
-                                            <Button variant="ghost" size="icon" class="text-red-500 hover:text-red-700" @click="openDeleteDialog(participant)"><Trash2 class="h-4 w-4" /></Button>
+                                            <Button variant="ghost" size="icon" class="h-7 w-7 text-green-600 hover:text-green-800 hover:bg-green-50" @click="reactivateParticipant(participant)"><RotateCcw class="h-3.5 w-3.5" /></Button>
                                         </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>{{ $t('participants.deleteParticipant') }}</p>
-                                        </TooltipContent>
+                                        <TooltipContent>{{ $t('participants.reactivate.button') }}</TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                                <TooltipProvider v-if="!props.isCancelled">
+                                    <Tooltip>
+                                        <TooltipTrigger as-child>
+                                            <Button variant="ghost" size="icon" class="h-7 w-7 text-gray-400 hover:text-red-600 hover:bg-red-50" @click="openDeleteDialog(participant)"><Trash2 class="h-3.5 w-3.5" /></Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>{{ $t('participants.deleteParticipant') }}</TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>
                             </div>
@@ -1431,9 +1626,13 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                     </TableRow>
                 </TableBody>
                 <TableFooter>
-                  <TableRow>
-                    <TableCell :colspan="visibleColumns.length + 2" class="text-right font-bold">
-                      {{ $t('common.total') }}: {{ filteredAndSortedParticipants.length }}
+                  <TableRow class="bg-gray-50/80">
+                    <TableCell :colspan="visibleColumns.length + 2" class="text-right">
+                      <span class="text-xs text-gray-500">{{ $t('common.total') }}:</span>
+                      <span class="ml-1 text-sm font-bold text-gray-700">{{ filteredAndSortedParticipants.length }}</span>
+                      <span v-if="searchQuery || activeFiltersList.length > 0" class="ml-1 text-xs text-gray-400">
+                        / {{ participants.length }}
+                      </span>
                     </TableCell>
                   </TableRow>
                 </TableFooter>
@@ -1462,7 +1661,7 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
         <Dialog v-model:open="isEditDialogOpen">
             <DialogContent class="max-w-4xl">
                 <DialogHeader>
-                    <DialogTitle>Edit Participant</DialogTitle>
+                    <DialogTitle>{{ formColumnsToShow.includes('palancasCoordinator') ? 'Palancas' : 'Editar Participante' }}</DialogTitle>
                 </DialogHeader>
                 <EditParticipantForm
                     v-if="participantToEdit"
@@ -1544,11 +1743,11 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
             :participant="messageParticipant"
         />
 
-        <!-- Bulk Message Dialog -->
+        <!-- Bulk Email Dialog -->
         <Teleport to="body" v-if="isBulkMessageDialogOpen">
             <div
                 class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-                @click.self="isBulkMessageDialogOpen = false"
+                @click.self="!bulkEmailSending && (isBulkMessageDialogOpen = false)"
             >
                 <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
                     <!-- Header -->
@@ -1557,69 +1756,151 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                             <h2 class="text-xl font-semibold">{{ $t('participants.bulkMessage.title') }}</h2>
                             <p class="text-gray-600 mt-1">{{ $t('participants.bulkMessage.description', { count: bulkMessageParticipants.length }) }}</p>
                         </div>
-                        <Button variant="ghost" size="icon" @click="isBulkMessageDialogOpen = false">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
+                        <Button v-if="!bulkEmailSending" variant="ghost" size="icon" @click="isBulkMessageDialogOpen = false">
+                            <X class="w-5 h-5" />
                         </Button>
                     </div>
 
-                    <!-- Body -->
-                    <div class="p-6 overflow-y-auto max-h-[60vh]">
-                        <div class="space-y-4">
-                            <!-- Participants List -->
-                            <div class="max-h-40 overflow-y-auto border rounded-md p-2">
-                                <div class="text-sm font-medium mb-2">{{ $t('participants.bulkMessage.participants') }}:</div>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
-                                    <div v-for="participant in bulkMessageParticipants" :key="participant.id"
-                                         class="flex items-center gap-1">
-                                        <span class="font-medium">{{ participant.firstName }} {{ participant.lastName }}</span>
-                                        <span v-if="participant.cellPhone" class="text-gray-500">({{ participant.cellPhone }})</span>
-                                    </div>
+                    <!-- Phase: Compose -->
+                    <template v-if="bulkEmailPhase === 'compose'">
+                        <div class="p-6 overflow-y-auto max-h-[60vh]">
+                            <div class="space-y-4">
+                                <!-- SMTP Warning -->
+                                <div v-if="!smtpConfigured" class="bg-yellow-50 border border-yellow-200 rounded-md p-3 text-sm text-yellow-800">
+                                    {{ $t('participants.bulkMessage.smtpNotConfigured') }}
                                 </div>
-                            </div>
 
-                            <!-- Message Form -->
-                            <div class="space-y-3">
+                                <!-- Participants with email -->
                                 <div>
-                                    <label class="text-sm font-medium">{{ $t('participants.bulkMessage.method') }}:</label>
-                                    <div class="flex gap-2 mt-1">
-                                        <Button variant="outline" size="sm">{{ $t('participants.bulkMessage.whatsapp') }}</Button>
-                                        <Button variant="outline" size="sm">{{ $t('participants.bulkMessage.email') }}</Button>
+                                    <div class="text-sm font-medium mb-2">
+                                        {{ $t('participants.bulkMessage.participantsWithEmail', { count: participantsWithEmail.length }) }}
+                                    </div>
+                                    <div class="max-h-32 overflow-y-auto border rounded-md p-2">
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
+                                            <div v-for="participant in participantsWithEmail" :key="participant.id"
+                                                 class="flex items-center gap-1">
+                                                <span class="font-medium">{{ participant.firstName }} {{ participant.lastName }}</span>
+                                                <span class="text-gray-500 truncate">({{ participant.email }})</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
+                                <!-- Participants without email warning -->
+                                <div v-if="participantsWithoutEmail.length > 0" class="bg-orange-50 border border-orange-200 rounded-md p-3">
+                                    <div class="text-sm font-medium text-orange-800 mb-1">
+                                        {{ $t('participants.bulkMessage.participantsWithoutEmail', { count: participantsWithoutEmail.length }) }}
+                                    </div>
+                                    <div class="text-xs text-orange-700">
+                                        {{ $t('participants.bulkMessage.noEmailWarning') }}
+                                    </div>
+                                    <div class="mt-1 text-xs text-orange-600">
+                                        <span v-for="(p, i) in participantsWithoutEmail" :key="p.id">
+                                            {{ p.firstName }} {{ p.lastName }}<span v-if="i < participantsWithoutEmail.length - 1">, </span>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Template selector -->
                                 <div>
                                     <label class="text-sm font-medium">{{ $t('participants.bulkMessage.template') }}:</label>
-                                    <select class="w-full mt-1 p-2 border rounded-md text-sm">
-                                        <option>{{ $t('participants.bulkMessage.templates.generalReminder') }}</option>
-                                        <option>{{ $t('participants.bulkMessage.templates.paymentInfo') }}</option>
-                                        <option>{{ $t('participants.bulkMessage.templates.confirmation') }}</option>
-                                        <option>{{ $t('participants.bulkMessage.templates.custom') }}</option>
+                                    <select
+                                        class="w-full mt-1 p-2 border rounded-md text-sm"
+                                        :value="bulkEmailTemplate"
+                                        @change="onBulkTemplateSelect(($event.target as HTMLSelectElement).value)"
+                                    >
+                                        <option value="">{{ $t('participants.bulkMessage.selectTemplate') }}</option>
+                                        <option v-for="template in allMessageTemplates" :key="template.id" :value="template.id">
+                                            {{ template.name }}
+                                        </option>
                                     </select>
                                 </div>
 
+                                <!-- Subject -->
+                                <div>
+                                    <label class="text-sm font-medium">{{ $t('participants.bulkMessage.subject') }}:</label>
+                                    <input
+                                        v-model="bulkEmailSubject"
+                                        type="text"
+                                        class="w-full mt-1 p-2 border rounded-md text-sm"
+                                        :placeholder="$t('participants.bulkMessage.subjectPlaceholder')"
+                                    />
+                                </div>
+
+                                <!-- Message -->
                                 <div>
                                     <label class="text-sm font-medium">{{ $t('participants.bulkMessage.message') }}:</label>
                                     <textarea
-                                        class="w-full mt-1 p-2 border rounded-md text-sm"
-                                        rows="4"
+                                        v-model="bulkEmailMessage"
+                                        class="w-full mt-1 p-2 border rounded-md text-sm font-mono"
+                                        rows="6"
                                         :placeholder="$t('participants.bulkMessage.messagePlaceholder')"
                                     ></textarea>
+                                    <p class="text-xs text-gray-500 mt-1">{{ $t('participants.bulkMessage.variablesNote') }}</p>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Footer -->
-                    <div class="flex items-center justify-end gap-2 p-6 border-t bg-gray-50">
-                        <Button variant="outline" @click="isBulkMessageDialogOpen = false">
-                            {{ $t('common.actions.cancel') }}
-                        </Button>
-                        <Button @click="sendBulkMessage">
-                            {{ $t('participants.bulkMessage.sendButton', { count: bulkMessageParticipants.length }) }}
-                        </Button>
-                    </div>
+                        <!-- Footer: Compose -->
+                        <div class="flex items-center justify-end gap-2 p-6 border-t bg-gray-50">
+                            <Button variant="outline" @click="isBulkMessageDialogOpen = false">
+                                {{ $t('common.actions.cancel') }}
+                            </Button>
+                            <Button
+                                @click="sendBulkEmail"
+                                :disabled="!smtpConfigured || participantsWithEmail.length === 0 || !bulkEmailMessage.trim()"
+                            >
+                                {{ $t('participants.bulkMessage.sendButton', { count: participantsWithEmail.length }) }}
+                            </Button>
+                        </div>
+                    </template>
+
+                    <!-- Phase: Sending -->
+                    <template v-else-if="bulkEmailPhase === 'sending'">
+                        <div class="p-6 flex flex-col items-center justify-center min-h-[200px] space-y-4">
+                            <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+                            <p class="text-lg font-medium">
+                                {{ $t('participants.bulkMessage.sending', { progress: bulkEmailProgress, total: bulkEmailTotal }) }}
+                            </p>
+                            <div class="w-full max-w-md bg-gray-200 rounded-full h-2.5">
+                                <div
+                                    class="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                                    :style="{ width: `${(bulkEmailProgress / bulkEmailTotal) * 100}%` }"
+                                ></div>
+                            </div>
+                            <p class="text-sm text-gray-500">
+                                {{ bulkEmailResults.success }} ok, {{ bulkEmailResults.failed }} {{ $t('participants.bulkMessage.failedCount', { count: bulkEmailResults.failed }).toLowerCase() }}
+                            </p>
+                        </div>
+                    </template>
+
+                    <!-- Phase: Results -->
+                    <template v-else-if="bulkEmailPhase === 'results'">
+                        <div class="p-6 space-y-4">
+                            <h3 class="text-lg font-semibold">{{ $t('participants.bulkMessage.resultsTitle') }}</h3>
+
+                            <div v-if="bulkEmailResults.success > 0" class="bg-green-50 border border-green-200 rounded-md p-3 text-sm text-green-800">
+                                {{ $t('participants.bulkMessage.successCount', { count: bulkEmailResults.success }) }}
+                            </div>
+
+                            <div v-if="bulkEmailResults.failed > 0" class="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-800">
+                                <div class="font-medium mb-1">{{ $t('participants.bulkMessage.failedCount', { count: bulkEmailResults.failed }) }}</div>
+                                <details>
+                                    <summary class="cursor-pointer text-xs underline">{{ $t('participants.bulkMessage.errorDetails') }}</summary>
+                                    <ul class="mt-2 space-y-1 text-xs">
+                                        <li v-for="(err, i) in bulkEmailResults.errors" :key="i">{{ err }}</li>
+                                    </ul>
+                                </details>
+                            </div>
+                        </div>
+
+                        <!-- Footer: Results -->
+                        <div class="flex items-center justify-end gap-2 p-6 border-t bg-gray-50">
+                            <Button @click="isBulkMessageDialogOpen = false; selectedParticipants.clear()">
+                                {{ $t('participants.bulkMessage.close') }}
+                            </Button>
+                        </div>
+                    </template>
                 </div>
             </div>
         </Teleport>

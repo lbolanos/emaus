@@ -328,10 +328,15 @@
     "refresh": "Refresh table",
     "selectColumns": "Select columns",
     "delete": {
-      "confirmMessage1": "This action cannot be undone. This will permanently delete",
-      "confirmMessage2": "from the retreat.",
-      "SuccessTitle": "Deletion Successful",
-      "SuccessDesc": "The participant was successfully deleted."
+      "confirmMessage1": "This will cancel the participation of",
+      "confirmMessage2": "in this retreat. Their table and bed assignments will be released. The participant can be reactivated later.",
+      "SuccessTitle": "Participant Canceled",
+      "SuccessDesc": "The participant was successfully canceled from the retreat."
+    },
+    "reactivate": {
+      "button": "Reactivate participant",
+      "successTitle": "Participant Reactivated",
+      "successDesc": "was successfully reactivated in the retreat."
     },
     "import": {
       "title": "Import Participants",
@@ -522,26 +527,32 @@
       "deleteSelected": "Delete Selected"
     },
     "bulkMessage": {
-      "title": "Send Message to Selected Participants",
-      "description": "Send message to {count} selected participants",
+      "title": "Bulk Email Send",
+      "description": "Send email to {count} selected participants",
       "participants": "Participants",
-      "method": "Send Method",
-      "whatsapp": "WhatsApp",
-      "email": "Email",
-      "template": "Template",
+      "participantsWithEmail": "{count} with email address",
+      "participantsWithoutEmail": "{count} without email address",
+      "noEmailWarning": "The following participants do not have an email address and will not receive the message:",
+      "noEmailRecipients": "None of the selected participants have an email address.",
+      "smtpNotConfigured": "Email server is not configured. Configure SMTP in system settings.",
+      "template": "Message Template",
+      "selectTemplate": "Select a template...",
+      "subject": "Subject",
+      "subjectPlaceholder": "Email subject...",
       "message": "Message",
-      "messagePlaceholder": "Type your message here...",
-      "templates": {
-        "generalReminder": "General Reminder",
-        "paymentInfo": "Payment Information",
-        "confirmation": "Attendance Confirmation",
-        "custom": "Custom Message"
-      },
-      "sendButton": "Send Message ({count})",
-      "successTitle": "Message Sent",
-      "successDesc": "Message was sent to {count} participants successfully.",
-      "errorTitle": "Error Sending Message",
-      "errorDesc": "Could not send messages. Please try again."
+      "messagePlaceholder": "Type your message here or select a template...",
+      "variablesNote": "Variables like {'{{'}firstName{'}}'}, {'{{'}lastName{'}}'}  will be automatically replaced for each participant.",
+      "sendButton": "Send to {count} participants",
+      "sending": "Sending {progress} of {total}...",
+      "resultsTitle": "Send Results",
+      "successCount": "{count} emails sent successfully",
+      "failedCount": "{count} emails failed",
+      "errorDetails": "Error details",
+      "successTitle": "Send completed",
+      "successDesc": "{count} emails sent successfully.",
+      "errorTitle": "Error sending emails",
+      "errorDesc": "Could not send emails. Please try again.",
+      "close": "Close"
     },
     "bulkEdit": {
       "title": "Edit Participants in Bulk",
@@ -634,6 +645,10 @@
     "isPublicDescription": "Allows anyone to access the registration form",
     "roleInvitationEnabled": "Role invitations enabled",
     "roleInvitationDescription": "Allows sending invitations for specific roles",
+    "notificationSettings": "Email notifications on walker registration",
+    "notificationSettingsDescription": "Configure which emails are sent when a new walker registers",
+    "notifyParticipant": "Send welcome email to walker",
+    "notifyInviter": "Notify inviting server",
     "costPlaceholder": "$0.00",
     "openingNotesPlaceholder": "Notes for retreat opening...",
     "closingNotesPlaceholder": "Notes for retreat closing...",
@@ -795,7 +810,11 @@
         "footer": "Footer",
         "json": "JSON"
       }
-    }
+    },
+    "notificationSettings": "Email notifications on walker registration",
+    "notificationSettingsDescription": "Configure which emails are sent when a new walker registers",
+    "notifyParticipant": "Send welcome email to walker",
+    "notifyInviter": "Notify inviting server"
   },
   "retreatDashboard": {
     "title": "Retreat Dashboard",
@@ -1378,7 +1397,8 @@
     "more": "more",
     "loading": "Loading...",
     "error": "Error",
-    "create": "Create"
+    "create": "Create",
+    "save": "Save"
   },
   "badges": {
     "title": "Badges",

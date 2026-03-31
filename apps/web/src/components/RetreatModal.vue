@@ -264,6 +264,43 @@
                 </RadioGroup>
               </div>
 
+              <!-- Email notification settings -->
+              <div class="p-4 border rounded-lg md:col-span-2">
+                <div class="space-y-1 mb-3">
+                  <Label class="font-medium">{{ $t('retreatModal.notificationSettings') }}</Label>
+                  <p class="text-xs text-muted-foreground">{{ $t('retreatModal.notificationSettingsDescription') }}</p>
+                </div>
+                <div class="flex flex-wrap gap-4">
+                  <div class="flex items-center space-x-2">
+                    <Checkbox
+                      id="notifyParticipant"
+                      :model-value="formData.notifyParticipant"
+                      @update:model-value="formData.notifyParticipant = $event"
+                      :disabled="isSubmitting"
+                    />
+                    <Label for="notifyParticipant">{{ $t('retreatModal.notifyParticipant') }}</Label>
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <Checkbox
+                      id="notifyInviter"
+                      :model-value="formData.notifyInviter"
+                      @update:model-value="formData.notifyInviter = $event"
+                      :disabled="isSubmitting"
+                    />
+                    <Label for="notifyInviter">{{ $t('retreatModal.notifyInviter') }}</Label>
+                  </div>
+                  <div v-for="n in [1, 2, 3]" :key="n" class="flex items-center space-x-2">
+                    <Checkbox
+                      :id="`notifyPalanquero-${n}`"
+                      :model-value="formData.notifyPalanqueros.includes(n)"
+                      @update:model-value="togglePalanquero(n)"
+                      :disabled="isSubmitting"
+                    />
+                    <Label :for="`notifyPalanquero-${n}`">Palanquero {{ n }}</Label>
+                  </div>
+                </div>
+              </div>
+
               <div class="p-4 border rounded-lg">
                 <div class="space-y-1">
                   <Label class="font-medium">{{ $t('retreatModal.showPickupInfo') }}</Label>
@@ -740,6 +777,9 @@ const formData = ref({
   max_servers: undefined as number | undefined,
   isPublic: false,
   roleInvitationEnabled: true,
+  notifyParticipant: true,
+  notifyInviter: true,
+  notifyPalanqueros: [] as number[],
   walkerArrivalTime: '',
   serverArrivalTimeFriday: '',
   retreat_type: undefined as 'men' | 'women' | 'couples' | 'effeta' | undefined,
@@ -960,6 +1000,17 @@ const validateForm = () => {
   return Object.keys(errors.value).length === 0;
 };
 
+const togglePalanquero = (n: number) => {
+  const arr = formData.value.notifyPalanqueros;
+  const idx = arr.indexOf(n);
+  if (idx >= 0) {
+    arr.splice(idx, 1);
+  } else {
+    arr.push(n);
+    arr.sort();
+  }
+};
+
 const handleSubmit = async () => {
   if (!validateForm()) {
     toast({
@@ -986,6 +1037,9 @@ const handleSubmit = async () => {
         houseId: formData.value.houseId,
         isPublic: formData.value.isPublic,
         roleInvitationEnabled: formData.value.roleInvitationEnabled,
+        notifyParticipant: formData.value.notifyParticipant,
+        notifyInviter: formData.value.notifyInviter,
+        notifyPalanqueros: formData.value.notifyPalanqueros.length > 0 ? formData.value.notifyPalanqueros : undefined,
         startDate: new Date(formData.value.startDate),
         endDate: new Date(formData.value.endDate),
         openingNotes: formData.value.openingNotes,
@@ -1040,6 +1094,9 @@ const resetForm = () => {
     max_servers: undefined,
     isPublic: false,
     roleInvitationEnabled: true,
+    notifyParticipant: true,
+    notifyInviter: true,
+    notifyPalanqueros: [],
     walkerArrivalTime: '',
     serverArrivalTimeFriday: '',
     retreat_type: undefined,
@@ -1147,6 +1204,9 @@ watch(() => props.open, (newOpen) => {
           max_servers: props.retreat.max_servers,
           isPublic: props.retreat.isPublic,
           roleInvitationEnabled: props.retreat.roleInvitationEnabled,
+          notifyParticipant: (props.retreat as any).notifyParticipant ?? true,
+          notifyInviter: (props.retreat as any).notifyInviter ?? true,
+          notifyPalanqueros: (props.retreat as any).notifyPalanqueros ?? [],
           walkerArrivalTime: props.retreat.walkerArrivalTime || '',
           serverArrivalTimeFriday: props.retreat.serverArrivalTimeFriday || '',
           retreat_type: props.retreat.retreat_type,

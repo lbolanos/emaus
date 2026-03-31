@@ -480,9 +480,13 @@ Los id del retiro estan apareciendo con N/A
 en la asignacion de mesas agregar boton para sacar a todos los participantes de todas las mesas.
 en la asignacion de mesas tanto los servidores como los caminantes al mouse over se debe mostrar los detalles del participante.
 El gafete debe ser de color diferente para servidor y para caminante.
+cuando llegue un nuevo caminante enviar correo a palanquero1 o 2 o 3 configurable
+al ediar el participante asignar palanquero si existe servidor asigando a palanquero x en las responsabilidades mostrar el nombre
 
 
 ## IN PROGRESS
+en la pagina palancas un boton para que se puedan ver los servidores
+
 
 
 create a migration script just for testing red social. is not for production. create users, retreats, communities, houses, participants, messages, friends, followers, blocks, searches, avatars, and messages.

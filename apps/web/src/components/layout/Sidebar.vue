@@ -232,7 +232,7 @@
                     <Plus class="w-4 h-4" />
                   </Button>
                   <Button
-                    v-if="retreatStore.selectedRetreatId"
+                    v-if="retreatStore.selectedRetreatId && can.update('retreat')"
                     @click="isEditModalOpen = true"
                     variant="outline"
                     size="icon"
@@ -395,7 +395,7 @@ const retreatStore = useRetreatStore();
 const communityStore = useCommunityStore();
 const uiStore = useUIStore();
 const { isSidebarCollapsed, isMobile } = storeToRefs(uiStore);
-const { can, currentRetreatRole } = useAuthPermissions();
+const { can, currentRetreatRole, retreatOnlyPermissions } = useAuthPermissions();
 const route = useRoute();
 const { isRetreatSection, currentSectionTitle } = useRouteContext();
 const { locale, t } = useI18n();
@@ -650,6 +650,7 @@ const menuSections: MenuSection[] = [
         name: 'service-teams',
         routeName: 'service-teams',
         icon: UsersRound,
+        permission: 'responsability',
         requiresRetreat: true,
         label: 'sidebar.serviceTeams'
       },
@@ -665,6 +666,7 @@ const menuSections: MenuSection[] = [
         name: 'palancas',
         routeName: 'palancas',
         icon: HandHeart,
+        permission: 'participant',
         requiresRetreat: true,
         label: 'sidebar.palancas'
       },
@@ -672,6 +674,7 @@ const menuSections: MenuSection[] = [
         name: 'user-type-table',
         routeName: 'user-type-and-table',
         icon: UsersRound,
+        permission: 'table',
         requiresRetreat: true,
         label: 'sidebar.userTypeAndTable'
       },
@@ -679,6 +682,7 @@ const menuSections: MenuSection[] = [
         name: 'bed-assignments',
         routeName: 'bed-assignments',
         icon: Bed,
+        permission: 'house',
         requiresRetreat: true,
         label: 'sidebar.bedAssignments'
       }
@@ -848,8 +852,14 @@ const filteredMenuSections = computed(() => {
       }
 
       if (item.permission && item.permission !== 'superadmin' && item.name !== 'role-management' && item.name !== 'communities') {
-        const hasPermission = can.read(item.permission);
-        if (!hasPermission) return false;
+        if (item.requiresRetreat && retreatStore.selectedRetreatId) {
+          // For retreat items, check only retreat role permissions (not global)
+          const hasPermission = retreatOnlyPermissions.value.includes(`${item.permission}:read`);
+          if (!hasPermission) return false;
+        } else {
+          const hasPermission = can.read(item.permission);
+          if (!hasPermission) return false;
+        }
       }
 
       if (searchQuery.value.trim()) {

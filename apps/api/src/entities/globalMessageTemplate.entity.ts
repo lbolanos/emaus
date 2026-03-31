@@ -23,6 +23,7 @@ export enum GlobalMessageTemplateType {
 	PASSWORD_RESET = 'PASSWORD_RESET',
 	RETREAT_SHARED_NOTIFICATION = 'RETREAT_SHARED_NOTIFICATION',
 	BIRTHDAY_MESSAGE = 'BIRTHDAY_MESSAGE',
+	PALANQUERO_NEW_WALKER = 'PALANQUERO_NEW_WALKER',
 
 	// System-wide templates with SYS_ prefix
 	SYS_PASSWORD_RESET = 'SYS_PASSWORD_RESET',
@@ -63,6 +64,7 @@ export class GlobalMessageTemplate implements IGlobalMessageTemplate {
 		| 'PASSWORD_RESET'
 		| 'RETREAT_SHARED_NOTIFICATION'
 		| 'BIRTHDAY_MESSAGE'
+		| 'PALANQUERO_NEW_WALKER'
 		// System-wide templates with SYS_ prefix
 		| 'SYS_PASSWORD_RESET'
 		| 'SYS_USER_INVITATION'

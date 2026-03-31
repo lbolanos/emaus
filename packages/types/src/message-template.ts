@@ -17,6 +17,7 @@ export const messageTemplateTypes = z.enum([
 	'PASSWORD_RESET',
 	'RETREAT_SHARED_NOTIFICATION',
 	'BIRTHDAY_MESSAGE',
+	'PALANQUERO_NEW_WALKER',
 	// System-wide templates with SYS_ prefix
 	'SYS_PASSWORD_RESET',
 	'SYS_USER_INVITATION',

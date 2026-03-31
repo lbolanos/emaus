@@ -17,12 +17,24 @@ import {
 	CreateHistoryData,
 } from './retreatParticipantService';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
+import { Responsability } from '../entities/responsability.entity';
+import { ParticipantCommunication } from '../entities/participantCommunication.entity';
 
 const participantRepository = AppDataSource.getRepository(Participant);
 const tableMesaRepository = AppDataSource.getRepository(TableMesa);
 const paymentRepository = AppDataSource.getRepository(Payment);
 
 // ==================== HELPERS ====================
+
+const escapeHtml = (str: string | null | undefined): string => {
+	if (!str) return '';
+	return str
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#039;');
+};
 
 const getNextIdOnRetreat = async (
 	retreatId: string,
@@ -1203,32 +1215,72 @@ export const createParticipant = async (
 			}
 
 			const emailService = new EmailService();
-			const templateType = savedParticipant.type === 'walker' ? 'WALKER_WELCOME' : 'SERVER_WELCOME';
+			const commRepo = transactionalEntityManager.getRepository(ParticipantCommunication);
 
-			// Find the welcome template for this retreat
-			const welcomeTemplate = await transactionalEntityManager
-				.getRepository(MessageTemplate)
-				.findOne({
-					where: {
+			const logCommunication = async (opts: {
+				participantId: string;
+				retreatId: string;
+				recipientContact: string;
+				subject: string;
+				messageContent: string;
+				templateId?: string;
+				templateName?: string;
+			}) => {
+				try {
+					await commRepo.save(commRepo.create({
+						participantId: opts.participantId,
+						scope: 'retreat' as const,
+						retreatId: opts.retreatId,
+						messageType: 'email' as const,
+						recipientContact: opts.recipientContact,
+						messageContent: opts.messageContent,
+						templateId: opts.templateId,
+						templateName: opts.templateName,
+						subject: opts.subject,
+						sentBy: null as any,
+					}));
+				} catch (logErr) {
+					console.error('Error logging communication:', logErr);
+				}
+			};
+
+			// Send welcome email to participant (configurable)
+			if (retreat.notifyParticipant !== false) {
+				const templateType = savedParticipant.type === 'walker' ? 'WALKER_WELCOME' : 'SERVER_WELCOME';
+
+				const welcomeTemplate = await transactionalEntityManager
+					.getRepository(MessageTemplate)
+					.findOne({
+						where: {
+							retreatId: savedParticipant.retreatId,
+							type: templateType,
+						},
+					});
+
+				if (welcomeTemplate && savedParticipant.email) {
+					await emailService.sendEmailWithTemplate(
+						savedParticipant.email,
+						welcomeTemplate.id,
+						savedParticipant.retreatId,
+						{
+							participant: savedParticipant,
+							retreat: retreat,
+						},
+					);
+					await logCommunication({
+						participantId: savedParticipant.id,
 						retreatId: savedParticipant.retreatId,
-						type: templateType,
-					},
-				});
-
-			if (welcomeTemplate && savedParticipant.email) {
-				await emailService.sendEmailWithTemplate(
-					savedParticipant.email,
-					welcomeTemplate.id,
-					savedParticipant.retreatId,
-					{
-						participant: savedParticipant,
-						retreat: retreat,
-					},
-				);
+						recipientContact: savedParticipant.email,
+						subject: `Bienvenida ${savedParticipant.type === 'walker' ? 'Caminante' : 'Servidor'}`,
+						messageContent: welcomeTemplate.message,
+						templateId: welcomeTemplate.id,
+						templateName: welcomeTemplate.name,
+					});
+				}
 			}
 
-			// Send notification email to the server who invited the participant
-			if (savedParticipant.invitedBy && retreat) {
+			// Send notification email to the server who invited the participant (configurable)
+			if (retreat.notifyInviter !== false && savedParticipant.invitedBy && retreat) {
 				// Find the server who invited this participant
 				const invitingServer = await transactionalEntityManager
 					.getRepository(Participant)
@@ -1254,6 +1306,8 @@ export const createParticipant = async (
 							},
 						});
 
+					const inviterSubject = `Nuevo participante invitado: ${savedParticipant.firstName} ${savedParticipant.lastName}`;
+
 					if (notificationTemplate) {
 						await emailService.sendEmailWithTemplate(
 							invitingServer.email,
@@ -1265,36 +1319,128 @@ export const createParticipant = async (
 								invitingServer: invitingServer,
 							},
 						);
-						console.warn(
-							`Notification email sent to server ${invitingServer.nickname} for new participant ${savedParticipant.firstName} ${savedParticipant.lastName}`,
-						);
+						await logCommunication({
+							participantId: savedParticipant.id,
+							retreatId: savedParticipant.retreatId,
+							recipientContact: invitingServer.email,
+							subject: inviterSubject,
+							messageContent: notificationTemplate.message,
+							templateId: notificationTemplate.id,
+							templateName: notificationTemplate.name,
+						});
 					} else {
-						// If no template exists, send a simple notification
-						await emailService.sendParticipantEmail({
-							to: invitingServer.email,
-							subject: `Nuevo participante invitado: ${savedParticipant.firstName} ${savedParticipant.lastName}`,
-							participant: savedParticipant,
-							retreat: retreat,
-							messageContent: `
-								<h2>¡Hola ${invitingServer.firstName}!</h2>
-								<p>Te informamos que <strong>${savedParticipant.firstName} ${savedParticipant.lastName}</strong> se ha registrado exitosamente en el retiro.</p>
+						const fallbackContent = `
+								<h2>¡Hola ${escapeHtml(invitingServer.firstName)}!</h2>
+								<p>Te informamos que <strong>${escapeHtml(savedParticipant.firstName)} ${escapeHtml(savedParticipant.lastName)}</strong> se ha registrado exitosamente en el retiro.</p>
 								<p><strong>Detalles del participante:</strong></p>
 								<ul>
-									<li>Nombre: ${savedParticipant.firstName} ${savedParticipant.lastName}</li>
+									<li>Nombre: ${escapeHtml(savedParticipant.firstName)} ${escapeHtml(savedParticipant.lastName)}</li>
 									<li>Tipo: ${savedParticipant.type === 'walker' ? 'Caminante' : 'Servidor'}</li>
-									<li>Email: ${savedParticipant.email || 'No proporcionado'}</li>
-									<li>Teléfono: ${savedParticipant.cellPhone || 'No proporcionado'}</li>
+									<li>Email: ${escapeHtml(savedParticipant.email) || 'No proporcionado'}</li>
+									<li>Teléfono: ${escapeHtml(savedParticipant.cellPhone) || 'No proporcionado'}</li>
 								</ul>
 								<p>Gracias por invitar a nuevos participantes al retiro.</p>
-							`,
+							`;
+						await emailService.sendParticipantEmail({
+							to: invitingServer.email,
+							subject: inviterSubject,
+							participant: savedParticipant,
+							retreat: retreat,
+							messageContent: fallbackContent,
 						});
-						console.warn(
-							`Simple notification email sent to server ${invitingServer.nickname} for new participant ${savedParticipant.firstName} ${savedParticipant.lastName}`,
-						);
+						await logCommunication({
+							participantId: savedParticipant.id,
+							retreatId: savedParticipant.retreatId,
+							recipientContact: invitingServer.email,
+							subject: inviterSubject,
+							messageContent: fallbackContent,
+						});
 					}
+					console.warn(
+						`Notification email sent to server ${invitingServer.nickname} for new participant ${savedParticipant.firstName} ${savedParticipant.lastName}`,
+					);
 				} else {
 					console.warn(
 						`Could not find server with nickname '${savedParticipant.invitedBy}' to send notification`,
+					);
+				}
+			}
+
+			// Send notification to configured palanqueros (only for walkers)
+			if (savedParticipant.type === 'walker' && retreat.notifyPalanqueros?.length) {
+				const palanqueroNames = retreat.notifyPalanqueros.map((n: number) => `Palanquero ${n}`);
+
+				const palanqueroResponsibilities = await transactionalEntityManager
+					.getRepository(Responsability)
+					.createQueryBuilder('r')
+					.leftJoinAndSelect('r.participant', 'participant')
+					.where('r.retreatId = :retreatId', { retreatId: retreat.id })
+					.andWhere('r.name IN (:...names)', { names: palanqueroNames })
+					.andWhere('r.participantId IS NOT NULL')
+					.getMany();
+
+				for (const resp of palanqueroResponsibilities) {
+					if (!resp.participant?.email) continue;
+
+					const palanqueroTemplate = await transactionalEntityManager
+						.getRepository(MessageTemplate)
+						.findOne({
+							where: {
+								retreatId: retreat.id,
+								type: 'PALANQUERO_NEW_WALKER',
+							},
+						});
+
+					const palanqueroSubject = `Nuevo caminante registrado: ${savedParticipant.firstName} ${savedParticipant.lastName}`;
+
+					if (palanqueroTemplate) {
+						await emailService.sendEmailWithTemplate(
+							resp.participant.email,
+							palanqueroTemplate.id,
+							retreat.id,
+							{
+								participant: savedParticipant,
+								retreat: retreat,
+							},
+						);
+						await logCommunication({
+							participantId: savedParticipant.id,
+							retreatId: retreat.id,
+							recipientContact: resp.participant.email,
+							subject: palanqueroSubject,
+							messageContent: palanqueroTemplate.message,
+							templateId: palanqueroTemplate.id,
+							templateName: palanqueroTemplate.name,
+						});
+					} else {
+						const fallbackContent = `
+								<h2>¡Hola ${escapeHtml(resp.participant.firstName)}!</h2>
+								<p>Un nuevo caminante se ha registrado en el retiro.</p>
+								<p><strong>Detalles del caminante:</strong></p>
+								<ul>
+									<li>Nombre: ${escapeHtml(savedParticipant.firstName)} ${escapeHtml(savedParticipant.lastName)}</li>
+									<li>Email: ${escapeHtml(savedParticipant.email) || 'No proporcionado'}</li>
+									<li>Teléfono: ${escapeHtml(savedParticipant.cellPhone) || 'No proporcionado'}</li>
+									<li>Invitado por: ${escapeHtml(savedParticipant.invitedBy) || 'No especificado'}</li>
+								</ul>
+							`;
+						await emailService.sendParticipantEmail({
+							to: resp.participant.email,
+							subject: palanqueroSubject,
+							participant: savedParticipant,
+							retreat: retreat,
+							messageContent: fallbackContent,
+						});
+						await logCommunication({
+							participantId: savedParticipant.id,
+							retreatId: retreat.id,
+							recipientContact: resp.participant.email,
+							subject: palanqueroSubject,
+							messageContent: fallbackContent,
+						});
+					}
+					console.warn(
+						`Palanquero notification sent to ${resp.participant.email} (${resp.name}) for new walker ${savedParticipant.firstName} ${savedParticipant.lastName}`,
 					);
 				}
 			}
@@ -1318,7 +1464,13 @@ export const updateParticipant = async (
 	}
 
 	// Separate retreat-specific fields (written to retreat_participants)
-	const { type, isCancelled, tableId, id_on_retreat, family_friend_color, tableMesa, ...personalData } = participantData;
+	// Also strip relation objects and read-only fields that TypeORM would try to cascade
+	const {
+		type, isCancelled, tableId, id_on_retreat, family_friend_color, tableMesa,
+		retreatBed, tags, payments, responsibilities, retreat, user, participantTags,
+		id: _id,
+		...personalData
+	} = participantData as any;
 
 	// First, overlay current retreat-specific values from retreat_participants
 	let currentRp: RetreatParticipant | null = null;
@@ -1332,7 +1484,7 @@ export const updateParticipant = async (
 
 	// Update personal data on participants table
 	personalData.lastUpdatedDate = new Date();
-	participantRepository.merge(participant, personalData as any);
+	participantRepository.merge(participant, personalData);
 	const updatedParticipant = await participantRepository.save(participant);
 
 	// Update retreat-specific fields on retreat_participants
@@ -1368,7 +1520,7 @@ export const updateParticipant = async (
 		}
 
 		// Set virtual fields on returned object
-		updatedParticipant.type = (type !== undefined ? type : currentRp?.type) as any;
+		updatedParticipant.type = type !== undefined ? type : currentRp?.type;
 		updatedParticipant.isCancelled = isCancelled !== undefined ? isCancelled : currentRp?.isCancelled;
 		updatedParticipant.tableId = rpUpdates.tableId !== undefined ? rpUpdates.tableId : (tableId !== undefined ? tableId : currentRp?.tableId);
 		updatedParticipant.id_on_retreat = id_on_retreat !== undefined ? id_on_retreat : (currentRp?.idOnRetreat ?? undefined);
@@ -1392,6 +1544,20 @@ export const deleteParticipant = async (
 			});
 		} catch (err) {
 			console.error('Error syncing delete to retreat_participants:', err);
+		}
+
+		// Clear bed assignment
+		try {
+			const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
+			await retreatBedRepository
+				.createQueryBuilder()
+				.update(RetreatBed)
+				.set({ participantId: null })
+				.where('participantId = :id', { id: participant.id })
+				.andWhere('retreatId = :retreatId', { retreatId: participant.retreatId })
+				.execute();
+		} catch (err) {
+			console.error('Error clearing bed assignment on delete:', err);
 		}
 	}
 };

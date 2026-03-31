@@ -359,4 +359,5 @@ export class RetreatResponsabilityController {
 			res.status(500).json({ message: 'Error al obtener resumen de responsabilidades' });
 		}
 	}
+
 }

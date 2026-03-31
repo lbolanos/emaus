@@ -116,6 +116,9 @@ export const retreatSchema = z.object({
 	flyer_options: flyerOptionsSchema.optional(),
 	memoryPhotoUrl: z.string().url().optional().or(z.literal('')),
 	musicPlaylistUrl: z.string().url().optional().or(z.literal('')),
+	notifyParticipant: z.boolean().default(true),
+	notifyInviter: z.boolean().default(true),
+	notifyPalanqueros: z.array(z.number().int().min(1).max(3)).transform(arr => [...new Set(arr)]).optional(),
 	createdBy: z.string().uuid().optional(),
 });
 export type Retreat = z.infer<typeof retreatSchema>;
@@ -302,10 +305,6 @@ export const participantSchema = z.object({
 	inviterWorkPhone: z.string().optional(),
 	inviterCellPhone: z.string().optional(),
 	inviterEmail: z.string().optional(),
-	/*preprocess(
-		(val) => (val === '' || val === null ? undefined : val),
-		z.string().email().optional(),
-	),*/
 	family_friend_color: z.string().nullable().optional(),
 	pickupLocation: z.string().optional(),
 	arrivesOnOwn: z.preprocess((val) => (val === null ? undefined : val), z.boolean().optional()),
@@ -327,6 +326,7 @@ export const createParticipantSchema = z.object({
 });
 export type CreateParticipant = z.infer<typeof createParticipantSchema.shape.body>;
 
+
 export const TableSchema = z.object({
 	id: z.string().uuid(),
 	name: z.string(),
@@ -334,9 +334,21 @@ export const TableSchema = z.object({
 });
 export const createTableSchema = TableSchema.omit({ id: true });
 
-// PUT /participants/:id
+// PUT /participants/:id — lenient: accepts nulls from DB/form, coerces to undefined
 export const updateParticipantSchema = z.object({
-	body: participantSchema.partial(),
+	body: z.preprocess(
+		(val) => {
+			if (val && typeof val === 'object') {
+				const cleaned: Record<string, unknown> = {};
+				for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
+					cleaned[k] = v === null || v === '' ? undefined : v;
+				}
+				return cleaned;
+			}
+			return val;
+		},
+		participantSchema.partial(),
+	),
 	params: z.object({ id: idSchema }),
 });
 export type UpdateParticipant = z.infer<typeof updateParticipantSchema.shape.body>;

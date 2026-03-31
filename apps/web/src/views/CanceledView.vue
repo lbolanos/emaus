@@ -9,7 +9,7 @@ const serverFormEditColumns = serverTableColumns.filter(c => !nonEditableColumns
 
 <template>
   <ParticipantList
-    :is-canceled=true
+    :is-cancelled="true"
     :columns-to-show-in-table="serverTableColumns"
     :columns-to-show-in-form="serverFormShowColumns"
     :columns-to-edit-in-form="serverFormEditColumns"

@@ -88,6 +88,19 @@ export function useAuthPermissions() {
 		return [...new Set([...globalPermissions, ...retreatPermissions])];
 	});
 
+	// Get only the retreat role permissions (without global permissions mixed in)
+	const retreatOnlyPermissions = computed(() => {
+		if (!authStore.userProfile || !retreatStore.selectedRetreatId) return [];
+
+		const retreatRole = authStore.userProfile.roles.find((roleDetail) =>
+			roleDetail.retreats.some((retreat) => retreat.retreatId === retreatStore.selectedRetreatId),
+		);
+
+		if (!retreatRole?.globalPermissions) return [];
+
+		return retreatRole.globalPermissions.map((p) => `${p.resource}:${p.operation}`);
+	});
+
 	// Basic permission checking - use retreat-specific permissions
 	const hasPerm = (permission: Permission) => {
 		return hasPermission(retreatSpecificPermissions.value, permission);
@@ -199,6 +212,7 @@ export function useAuthPermissions() {
 		// Raw permissions
 		userPermissions,
 		retreatSpecificPermissions,
+		retreatOnlyPermissions,
 
 		// Permission checking functions
 		hasPermission: hasPerm,

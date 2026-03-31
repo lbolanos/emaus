@@ -255,6 +255,13 @@ export const searchSpeakers = async (query: string, retreatId: string) => {
 	return response.data;
 };
 
+export const getPalanqueroOptions = async (retreatId: string): Promise<{ value: string; label: string }[]> => {
+	const response = await api.get('/responsibilities/palanquero-options', {
+		params: { retreatId },
+	});
+	return response.data;
+};
+
 export const createAndAssignSpeaker = async (
 	responsabilityId: string,
 	data: { firstName: string; lastName: string; cellPhone?: string; email?: string; retreatId: string },

@@ -129,6 +129,7 @@ export class GlobalMessageTemplateService {
 			name: globalTemplate.name,
 			type: globalTemplate.type,
 			message: globalTemplate.message,
+			scope: 'retreat',
 			retreatId,
 		});
 

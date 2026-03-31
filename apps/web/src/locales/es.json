@@ -384,10 +384,15 @@
     "refresh": "Actualizar tabla",
     "selectColumns": "Seleccionar Columnas",
     "delete": {
-      "confirmMessage1": "Esta acción no se puede deshacer. Esto eliminará permanentemente a",
-      "confirmMessage2": "del retiro.",
-      "SuccessTitle": "Eliminación Exitosa",
-      "SuccessDesc": "El participante fue eliminado exitosamente."
+      "confirmMessage1": "Se cancelará la participación de",
+      "confirmMessage2": "en este retiro. Se liberarán su mesa y cama asignadas. El participante podrá ser reactivado después.",
+      "SuccessTitle": "Participante Cancelado",
+      "SuccessDesc": "El participante fue cancelado del retiro exitosamente."
+    },
+    "reactivate": {
+      "button": "Reactivar participante",
+      "successTitle": "Participante Reactivado",
+      "successDesc": "fue reactivado en el retiro exitosamente."
     },
     "import": {
       "title": "Importar Participantes",
@@ -570,26 +575,32 @@
       "deleteSelected": "Eliminar Seleccionados"
     },
     "bulkMessage": {
-      "title": "Enviar Mensaje a Participantes Seleccionados",
-      "description": "Enviar mensaje a {count} participantes seleccionados",
+      "title": "Enviar Email Masivo",
+      "description": "Enviar email a {count} participantes seleccionados",
       "participants": "Participantes",
-      "method": "Método de envío",
-      "whatsapp": "WhatsApp",
-      "email": "Email",
-      "template": "Plantilla",
+      "participantsWithEmail": "{count} con correo electrónico",
+      "participantsWithoutEmail": "{count} sin correo electrónico",
+      "noEmailWarning": "Los siguientes participantes no tienen correo electrónico y no recibirán el mensaje:",
+      "noEmailRecipients": "Ninguno de los participantes seleccionados tiene correo electrónico.",
+      "smtpNotConfigured": "El servidor de correo no está configurado. Configure SMTP en la configuración del sistema.",
+      "template": "Plantilla de Mensaje",
+      "selectTemplate": "Selecciona una plantilla...",
+      "subject": "Asunto",
+      "subjectPlaceholder": "Asunto del correo...",
       "message": "Mensaje",
-      "messagePlaceholder": "Escribe tu mensaje aquí...",
-      "templates": {
-        "generalReminder": "Recordatorio general",
-        "paymentInfo": "Información de pago",
-        "confirmation": "Confirmación de asistencia",
-        "custom": "Mensaje personalizado"
-      },
-      "sendButton": "Enviar Mensaje ({count})",
-      "successTitle": "Mensaje enviado",
-      "successDesc": "Se envió el mensaje a {count} participantes exitosamente.",
-      "errorTitle": "Error al enviar mensaje",
-      "errorDesc": "No se pudieron enviar los mensajes. Intente nuevamente."
+      "messagePlaceholder": "Escribe tu mensaje aquí o selecciona una plantilla...",
+      "variablesNote": "Las variables como {'{{'}firstName{'}}'}, {'{{'}lastName{'}}'}  se reemplazarán automáticamente para cada participante.",
+      "sendButton": "Enviar a {count} participantes",
+      "sending": "Enviando {progress} de {total}...",
+      "resultsTitle": "Resultados del envío",
+      "successCount": "{count} emails enviados exitosamente",
+      "failedCount": "{count} emails fallidos",
+      "errorDetails": "Detalles de errores",
+      "successTitle": "Envío completado",
+      "successDesc": "Se enviaron {count} emails exitosamente.",
+      "errorTitle": "Error al enviar emails",
+      "errorDesc": "No se pudieron enviar los emails. Intente nuevamente.",
+      "close": "Cerrar"
     },
     "bulkEdit": {
       "title": "Editar Participantes en Lote",
@@ -682,6 +693,10 @@
     "isPublicDescription": "Permite que cualquier persona acceda al formulario de registro",
     "roleInvitationEnabled": "Invitaciones de roles habilitadas",
     "roleInvitationDescription": "Permite enviar invitaciones para roles específicos",
+    "notificationSettings": "Notificaciones por correo al registrar caminante",
+    "notificationSettingsDescription": "Configura qué correos se envían cuando se registra un nuevo caminante",
+    "notifyParticipant": "Enviar bienvenida al caminante",
+    "notifyInviter": "Notificar al servidor que invitó",
     "costPlaceholder": "$0.00",
     "openingNotesPlaceholder": "Notas para la apertura del retiro...",
     "closingNotesPlaceholder": "Notas para la cierre del retiro...",
@@ -844,7 +859,11 @@
         "footer": "Pie de Página",
         "json": "JSON"
       }
-    }
+    },
+    "notificationSettings": "Notificaciones por correo al registrar caminante",
+    "notificationSettingsDescription": "Configura qué correos se envían cuando se registra un nuevo caminante",
+    "notifyParticipant": "Enviar bienvenida al caminante",
+    "notifyInviter": "Notificar al servidor que invitó"
   },
   "retreatDashboard": {
     "title": "Dashboard del Retiro",
@@ -1438,7 +1457,8 @@
     "loading": "Cargando...",
     "error": "Error",
     "confirm": "Confirmar",
-    "create": "Crear"
+    "create": "Crear",
+    "save": "Guardar"
   },
   "badges": {
     "title": "Gafetes",

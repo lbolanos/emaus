@@ -120,6 +120,15 @@ export class Retreat {
 	@Column({ type: 'varchar', nullable: true })
 	musicPlaylistUrl?: string;
 
+	@Column({ type: 'boolean', default: true })
+	notifyParticipant!: boolean;
+
+	@Column({ type: 'boolean', default: true })
+	notifyInviter!: boolean;
+
+	@Column({ type: 'simple-json', nullable: true })
+	notifyPalanqueros?: number[];
+
 	@OneToMany(() => Payment, (payment) => payment.retreat)
 	payments!: Payment[];
 }

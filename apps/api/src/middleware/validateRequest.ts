@@ -3,31 +3,36 @@ import { AnyZodObject, ZodError } from 'zod';
 
 export const validateRequest =
 	(schema: AnyZodObject) => (req: Request, res: Response, next: NextFunction) => {
-		try {
-			// First try parsing req.body directly (most common case for POST/PUT/PATCH)
-			schema.parse(req.body);
-			next();
-		} catch (bodyError) {
-			if (bodyError instanceof ZodError) {
-				// If body parse fails, try the wrapped {body, query, params} format
-				try {
-					schema.parse({
-						body: req.body,
-						query: req.query,
-						params: req.params,
-					});
-					next();
-				} catch (wrappedError) {
-					// Return the body error since it's the most useful for callers
-					return res.status(400).json({
-						message: 'Validation error',
-						errors: bodyError.errors,
-					});
-				}
-			} else {
-				next(bodyError);
-			}
+		// Try the wrapped {body, query, params} format first (standard for schemas with body/params)
+		const wrappedResult = schema.safeParse({
+			body: req.body,
+			query: req.query,
+			params: req.params,
+		});
+
+		if (wrappedResult.success) {
+			return next();
 		}
+
+		// Fall back to parsing req.body directly (simple body-only schemas)
+		const bodyResult = schema.safeParse(req.body);
+
+		if (bodyResult.success) {
+			return next();
+		}
+
+		// Both failed — return the more useful error.
+		// If the wrapped error has field-level issues inside body (e.g. body.firstName),
+		// that's more useful than "body is required".
+		const wrappedErrors = wrappedResult.error.errors;
+		const hasDeepBodyErrors = wrappedErrors.some(
+			(e) => e.path.length > 1 && e.path[0] === 'body',
+		);
+
+		return res.status(400).json({
+			message: 'Validation error',
+			errors: hasDeepBodyErrors ? wrappedErrors : bodyResult.error.errors,
+		});
 	};
 
 // Specialized validators for specific use cases

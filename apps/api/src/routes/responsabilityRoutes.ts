@@ -10,6 +10,7 @@ import {
 	exportResponsibilitiesDocx,
 	searchSpeakers,
 	createAndAssignSpeaker,
+	getPalanqueroOptions,
 } from '../controllers/responsabilityController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
@@ -20,6 +21,7 @@ router.use(isAuthenticated);
 
 router.post('/export/:retreatId', requirePermission('responsability:list'), exportResponsibilitiesDocx);
 router.get('/search-speakers', requirePermission('responsability:list'), searchSpeakers);
+router.get('/palanquero-options', requirePermission('participant:read'), getPalanqueroOptions);
 router.get('/', requirePermission('responsability:list'), getAllResponsibilities);
 router.get('/:id', requirePermission('responsability:read'), getResponsabilityById);
 router.post('/', requirePermission('responsability:create'), createResponsability);

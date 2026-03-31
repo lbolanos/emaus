@@ -9,6 +9,7 @@ import { EmailService, ParticipantEmailData } from '../services/emailService';
 class CreateCommunicationDTO {
 	participantId!: string;
 	retreatId!: string;
+	communityId?: string;
 	messageType!: 'whatsapp' | 'email';
 	recipientContact!: string;
 	messageContent!: string;
@@ -145,7 +146,9 @@ export class ParticipantCommunicationController {
 			// Create communication record
 			const communication = this.communicationRepository.create({
 				participantId: dto.participantId,
+				scope: dto.communityId ? 'community' : 'retreat',
 				retreatId: dto.retreatId,
+				communityId: dto.communityId,
 				messageType: dto.messageType as MessageType,
 				recipientContact: dto.recipientContact,
 				messageContent: dto.messageContent,
@@ -266,7 +269,7 @@ export class ParticipantCommunicationController {
 	// Send email via backend SMTP
 	sendEmailViaBackend = async (req: Request, res: Response) => {
 		try {
-			const { to, subject, html, text, participantId, retreatId, templateId, templateName } =
+			const { to, subject, html, text, participantId, retreatId, communityId, templateId, templateName } =
 				req.body;
 
 			// Validate required fields
@@ -305,7 +308,9 @@ export class ParticipantCommunicationController {
 			// Create communication record
 			const communication = this.communicationRepository.create({
 				participantId,
+				scope: communityId ? 'community' : 'retreat',
 				retreatId,
+				communityId,
 				messageType: 'email',
 				recipientContact: to,
 				messageContent: html,

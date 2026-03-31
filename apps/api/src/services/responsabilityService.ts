@@ -19,6 +19,17 @@ export const findAllResponsibilities = async (retreatId?: string, dataSource?: D
 	);
 };
 
+export const findPalanqueroAssignments = async (retreatId: string, dataSource?: DataSource) => {
+	const repos = getRepositories(dataSource);
+	return repos.responsability
+		.createQueryBuilder('r')
+		.leftJoin('r.participant', 'p')
+		.select(['r.id', 'r.name', 'r.participantId', 'p.id', 'p.firstName', 'p.lastName'])
+		.where('r.retreatId = :retreatId', { retreatId })
+		.andWhere('r.name IN (:...names)', { names: ['Palanquero 1', 'Palanquero 2', 'Palanquero 3'] })
+		.getMany();
+};
+
 export const findResponsabilityById = async (id: string, dataSource?: DataSource) => {
 	const repos = getRepositories(dataSource);
 	return repos.responsability.findOne({

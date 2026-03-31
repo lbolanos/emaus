@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import {
 	findAllResponsibilities,
+	findPalanqueroAssignments,
 	findResponsabilityById,
 	createResponsability as createResponsabilityService,
 	updateResponsability as updateResponsabilityService,
@@ -166,6 +167,39 @@ export const createAndAssignSpeaker = async (req: Request, res: Response, next: 
 			return res.status(404).json({ message: 'Responsibility not found' });
 		}
 		res.status(201).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export const getPalanqueroOptions = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { retreatId } = req.query;
+		if (!retreatId || typeof retreatId !== 'string') {
+			return res.status(400).json({ message: 'retreatId is required' });
+		}
+		if (!UUID_RE.test(retreatId)) {
+			return res.status(400).json({ message: 'Invalid retreat ID' });
+		}
+
+		const hasAccess = await checkRetreatAccess(req, retreatId);
+		if (!hasAccess) {
+			return res.status(403).json({ message: 'Forbidden - No access to this retreat' });
+		}
+
+		const palanqueros = await findPalanqueroAssignments(retreatId);
+		const palanqueroNames = ['Palanquero 1', 'Palanquero 2', 'Palanquero 3'];
+		const options = palanqueroNames.map(name => {
+			const resp = palanqueros.find(r => r.name === name);
+			const serverName = resp?.participant
+				? `${resp.participant.firstName} ${resp.participant.lastName}`
+				: null;
+			return { value: name, label: serverName ? `${name} (${serverName})` : name };
+		});
+
+		res.json(options);
 	} catch (error) {
 		next(error);
 	}
