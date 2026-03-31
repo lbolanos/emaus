@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import * as participantService from '../services/participantService';
 import { RecaptchaService } from '../services/recaptchaService';
+import { participantSchema } from '@repo/types';
+import { z } from 'zod';
 
 const recaptchaService = new RecaptchaService();
 
@@ -64,13 +66,30 @@ export const createParticipant = async (req: Request, res: Response, next: NextF
 				.json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
 		}
 
+		// Validate request body with Zod schema
+		// For non-walker types, emergency contact fields are optional
+		let bodySchema = participantSchema.omit({ id: true, lastUpdatedDate: true, registrationDate: true });
+		if (participantData.type && participantData.type !== 'walker') {
+			bodySchema = bodySchema.extend({
+				emergencyContact1Name: z.string().optional(),
+				emergencyContact1Relation: z.string().optional(),
+				emergencyContact1CellPhone: z.string().optional(),
+			});
+		}
+		const zodResult = bodySchema.safeParse(participantData);
+		if (!zodResult.success) {
+			const errors = zodResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`);
+			return res.status(400).json({ message: 'Validation failed', errors });
+		}
+		const validatedData = zodResult.data;
+
 		// Dry-run mode: validate only, no DB writes
 		if (dryRun === true) {
-			const result = await participantService.validateParticipant(participantData);
+			const result = await participantService.validateParticipant(validatedData);
 			return res.status(200).json(result);
 		}
 
-		const newParticipant = await participantService.createParticipant(participantData);
+		const newParticipant = await participantService.createParticipant(validatedData);
 		res.status(201).json(newParticipant);
 	} catch (error) {
 		if (error instanceof Error) {

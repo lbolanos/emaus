@@ -82,6 +82,40 @@ const createMockRes = () => {
 
 const mockNext: NextFunction = jest.fn();
 
+// Valid participant data that passes Zod schema validation
+const validWalkerBody = {
+	recaptchaToken: 'valid-token',
+	type: 'walker' as const,
+	firstName: 'María',
+	lastName: 'García',
+	nickname: 'Mari',
+	birthDate: '1990-05-15',
+	maritalStatus: 'S' as const,
+	street: 'Calle Principal',
+	houseNumber: '123',
+	postalCode: '06600',
+	neighborhood: 'Condesa',
+	city: 'Ciudad de México',
+	state: 'CDMX',
+	country: 'MX',
+	cellPhone: '5551234567',
+	email: 'test@example.com',
+	occupation: 'Ingeniera',
+	snores: false,
+	hasMedication: false,
+	hasDietaryRestrictions: false,
+	sacraments: ['baptism' as const],
+	emergencyContact1Name: 'Juan García',
+	emergencyContact1Relation: 'Padre',
+	emergencyContact1CellPhone: '5559876543',
+	retreatId: '00000000-0000-0000-0000-000000000001',
+};
+
+const validServerBody = {
+	...validWalkerBody,
+	type: 'server' as const,
+};
+
 describe('Dry-Run Mode - createParticipant controller', () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
@@ -96,14 +130,7 @@ describe('Dry-Run Mode - createParticipant controller', () => {
 			});
 
 			const req = createMockReq({
-				body: {
-					recaptchaToken: 'valid-token',
-					dryRun: true,
-					email: 'test@example.com',
-					firstName: 'María',
-					retreatId: 'retreat-1',
-					type: 'walker',
-				},
+				body: { ...validWalkerBody, dryRun: true },
 			});
 			const res = createMockRes();
 
@@ -128,13 +155,7 @@ describe('Dry-Run Mode - createParticipant controller', () => {
 			});
 
 			const req = createMockReq({
-				body: {
-					recaptchaToken: 'valid-token',
-					dryRun: true,
-					email: 'existing@example.com',
-					retreatId: 'retreat-1',
-					type: 'walker',
-				},
+				body: { ...validWalkerBody, dryRun: true, email: 'existing@example.com' },
 			});
 			const res = createMockRes();
 
@@ -156,13 +177,7 @@ describe('Dry-Run Mode - createParticipant controller', () => {
 			});
 
 			const req = createMockReq({
-				body: {
-					recaptchaToken: 'valid-token',
-					dryRun: true,
-					email: 'test@example.com',
-					retreatId: 'nonexistent-retreat',
-					type: 'walker',
-				},
+				body: { ...validWalkerBody, dryRun: true, retreatId: '00000000-0000-0000-0000-999999999999' },
 			});
 			const res = createMockRes();
 
@@ -184,13 +199,7 @@ describe('Dry-Run Mode - createParticipant controller', () => {
 			});
 
 			const req = createMockReq({
-				body: {
-					recaptchaToken: 'valid-token',
-					dryRun: true,
-					email: 'test@example.com',
-					retreatId: 'retreat-1',
-					type: 'walker',
-				},
+				body: { ...validWalkerBody, dryRun: true },
 			});
 			const res = createMockRes();
 
@@ -205,13 +214,7 @@ describe('Dry-Run Mode - createParticipant controller', () => {
 			mockVerifyToken.mockResolvedValue({ valid: false, error: 'Bot detected' });
 
 			const req = createMockReq({
-				body: {
-					recaptchaToken: 'bad-token',
-					dryRun: true,
-					email: 'test@example.com',
-					retreatId: 'retreat-1',
-					type: 'walker',
-				},
+				body: { ...validWalkerBody, recaptchaToken: 'bad-token', dryRun: true },
 			});
 			const res = createMockRes();
 
@@ -228,28 +231,20 @@ describe('Dry-Run Mode - createParticipant controller', () => {
 			mockValidateParticipant.mockResolvedValue({ valid: true, warnings: [] });
 
 			const req = createMockReq({
-				body: {
-					recaptchaToken: 'valid-token',
-					dryRun: true,
-					email: 'test@example.com',
-					firstName: 'Test',
-					lastName: 'User',
-					retreatId: 'retreat-1',
-					type: 'walker',
-				},
+				body: { ...validWalkerBody, dryRun: true },
 			});
 			const res = createMockRes();
 
 			await createParticipant(req, res, mockNext);
 
-			// validateParticipant should receive clean participant data (no recaptchaToken, no dryRun)
-			expect(mockValidateParticipant).toHaveBeenCalledWith({
-				email: 'test@example.com',
-				firstName: 'Test',
-				lastName: 'User',
-				retreatId: 'retreat-1',
-				type: 'walker',
-			});
+			// validateParticipant should receive clean, Zod-validated participant data (no recaptchaToken, no dryRun)
+			const calledWith = mockValidateParticipant.mock.calls[0][0];
+			expect(calledWith.email).toBe(validWalkerBody.email);
+			expect(calledWith.firstName).toBe(validWalkerBody.firstName);
+			expect(calledWith.lastName).toBe(validWalkerBody.lastName);
+			expect(calledWith.type).toBe(validWalkerBody.type);
+			expect(calledWith).not.toHaveProperty('recaptchaToken');
+			expect(calledWith).not.toHaveProperty('dryRun');
 		});
 
 		it('should call next when validateParticipant throws', async () => {
@@ -258,13 +253,7 @@ describe('Dry-Run Mode - createParticipant controller', () => {
 			mockValidateParticipant.mockRejectedValue(error);
 
 			const req = createMockReq({
-				body: {
-					recaptchaToken: 'valid-token',
-					dryRun: true,
-					email: 'test@example.com',
-					retreatId: 'retreat-1',
-					type: 'walker',
-				},
+				body: { ...validWalkerBody, dryRun: true },
 			});
 			const res = createMockRes();
 
@@ -281,13 +270,7 @@ describe('Dry-Run Mode - createParticipant controller', () => {
 			mockCreateParticipant.mockResolvedValue(newParticipant);
 
 			const req = createMockReq({
-				body: {
-					recaptchaToken: 'valid-token',
-					email: 'new@example.com',
-					firstName: 'María',
-					retreatId: 'retreat-1',
-					type: 'server',
-				},
+				body: { ...validServerBody, email: 'new@example.com' },
 			});
 			const res = createMockRes();
 
@@ -304,14 +287,7 @@ describe('Dry-Run Mode - createParticipant controller', () => {
 			mockCreateParticipant.mockResolvedValue(newParticipant);
 
 			const req = createMockReq({
-				body: {
-					recaptchaToken: 'valid-token',
-					dryRun: false,
-					email: 'another@example.com',
-					firstName: 'Carlos',
-					retreatId: 'retreat-1',
-					type: 'walker',
-				},
+				body: { ...validWalkerBody, dryRun: false, email: 'another@example.com' },
 			});
 			const res = createMockRes();
 
@@ -327,14 +303,7 @@ describe('Dry-Run Mode - createParticipant controller', () => {
 			mockCreateParticipant.mockResolvedValue(newParticipant);
 
 			const req = createMockReq({
-				body: {
-					recaptchaToken: 'valid-token',
-					dryRun: 'true', // string, not boolean
-					email: 'string@example.com',
-					firstName: 'Prueba',
-					retreatId: 'retreat-1',
-					type: 'walker',
-				},
+				body: { ...validWalkerBody, dryRun: 'true', email: 'string@example.com' },
 			});
 			const res = createMockRes();
 

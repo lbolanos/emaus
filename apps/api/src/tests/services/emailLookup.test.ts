@@ -86,6 +86,32 @@ const createMockRes = () => {
 
 const mockNext: NextFunction = jest.fn();
 
+// Valid participant data that passes Zod schema validation
+const validServerBody = {
+	recaptchaToken: 'valid-token',
+	type: 'server' as const,
+	firstName: 'María',
+	lastName: 'García',
+	nickname: 'Mari',
+	birthDate: '1990-05-15',
+	maritalStatus: 'S' as const,
+	street: 'Calle Principal',
+	houseNumber: '123',
+	postalCode: '06600',
+	neighborhood: 'Condesa',
+	city: 'Ciudad de México',
+	state: 'CDMX',
+	country: 'MX',
+	cellPhone: '5551234567',
+	email: 'test@example.com',
+	occupation: 'Ingeniera',
+	snores: false,
+	hasMedication: false,
+	hasDietaryRestrictions: false,
+	sacraments: ['baptism' as const],
+	retreatId: '00000000-0000-0000-0000-000000000001',
+};
+
 describe('Email Lookup Feature - Server Registration', () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
@@ -198,13 +224,7 @@ describe('Email Lookup Feature - Server Registration', () => {
 			mockCreateParticipant.mockResolvedValue(newParticipant);
 
 			const req = createMockReq({
-				body: {
-					recaptchaToken: 'valid-token',
-					email: 'new@example.com',
-					firstName: 'María',
-					retreatId: 'retreat-1',
-					type: 'server',
-				},
+				body: { ...validServerBody, email: 'new@example.com' },
 			});
 			const res = createMockRes();
 
@@ -225,13 +245,7 @@ describe('Email Lookup Feature - Server Registration', () => {
 			mockCreateParticipant.mockResolvedValue(updatedParticipant);
 
 			const req = createMockReq({
-				body: {
-					recaptchaToken: 'valid-token',
-					email: 'existing@example.com',
-					firstName: 'Juan Updated',
-					retreatId: 'retreat-1',
-					type: 'server',
-				},
+				body: { ...validServerBody, email: 'existing@example.com', firstName: 'Juan Updated' },
 			});
 			const res = createMockRes();
 

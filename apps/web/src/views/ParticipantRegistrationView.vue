@@ -120,7 +120,7 @@ const formErrors = reactive<Record<string, string>>({})
 const step1Schema = z.object({
   firstName: z.string().min(1, 'First Name is required'),
   lastName: z.string().min(1, 'Last Name is required'),
-  nickname: z.string().optional(),
+  nickname: z.string().min(1, 'Nickname is required'),
   birthDate: z.string().min(1, 'Birth Date is required'),
   maritalStatus: z.enum(['S', 'C', 'D', 'V', 'O']),
   parish: z.string().optional(),
@@ -128,7 +128,7 @@ const step1Schema = z.object({
   workPhone: z.string().optional(),
   cellPhone: z.string().optional(),
   email: z.string().email('Invalid email address').min(1, 'Email is required'),
-  occupation: z.string().optional(),
+  occupation: z.string().min(1, 'Occupation is required'),
 }).refine(data => data.cellPhone || data.workPhone || data.homePhone, {
   message: 'At least one phone number (Cell, Work, or Home) is required.',
   path: ['phoneNumbers'],
@@ -411,17 +411,39 @@ const onSubmit = async () => {
   for (const key in formErrors) {
     delete formErrors[key]
   }
-  // The server will set registrationDate and lastUpdatedDate, so we omit them from client-side validation.
-  const validationSchema = participantSchema.omit({ id: true, registrationDate: true, lastUpdatedDate: true });
-  const result = validationSchema.safeParse(formData.value)
-  if (!result.success) {
+
+  // Re-validate ALL steps to catch fields cleared after initial step validation
+  for (let step = 1; step <= totalSteps.value - 1; step++) {
+    if (!validateStep(step)) {
+      currentStep.value = step
+      toast({
+        title: 'Validation Error',
+        description: `Please correct the errors in step ${step}.`,
+        variant: 'destructive',
+      })
+      return
+    }
+  }
+
+  // For servers, make emergency contact fields optional in the final schema
+  const baseSchema = participantSchema.omit({ id: true, registrationDate: true, lastUpdatedDate: true });
+  const finalSchema = props.type !== 'walker'
+    ? baseSchema.extend({
+        emergencyContact1Name: z.string().optional(),
+        emergencyContact1Relation: z.string().optional(),
+        emergencyContact1CellPhone: z.string().optional(),
+      })
+    : baseSchema;
+
+  const zodResult = finalSchema.safeParse(formData.value)
+  if (!zodResult.success) {
     const errors: string[] = []
-    result.error.errors.forEach((e: any) => {
+    zodResult.error.errors.forEach((e: any) => {
       const path = e.path.join('.')
       formErrors[path] = e.message
       errors.push(`${path} - ${e.message}`)
     })
-    console.error('Validation Error:', result.error.errors)
+    console.error('Validation Error:', zodResult.error.errors)
     toast({
       title: 'Validation Error',
       description: 'Please review all steps and correct any errors.',
@@ -429,6 +451,7 @@ const onSubmit = async () => {
     })
     return
   }
+  const result = { data: zodResult.data as Omit<Participant, 'id' | 'registrationDate' | 'lastUpdatedDate'> }
 
   try {
     // Get reCAPTCHA token for bot protection
