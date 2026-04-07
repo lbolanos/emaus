@@ -54,3 +54,5 @@ apps/api/database.sqlite.bak
 
 # Build info
 apps/web/tsconfig.app.tsbuildinfo
+
+database.sqlite.*
