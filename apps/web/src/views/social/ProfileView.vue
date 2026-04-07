@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
 	getUserProfile,
@@ -8,18 +7,29 @@ import {
 	updateAvatar,
 	removeAvatar,
 } from '@/services/api';
+import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@repo/ui';
 import { Button } from '@repo/ui';
 import { Switch } from '@repo/ui';
+import { Card } from '@repo/ui';
 import AvatarUpload from '@/components/social/AvatarUpload.vue';
 import UserTagList from '@/components/social/UserTagList.vue';
 import TestimonialsVisibilityConfig from '@/components/social/TestimonialsVisibilityConfig.vue';
-import { Card } from '@repo/ui';
+import {
+	User as UserIcon,
+	Sparkles,
+	Shield,
+	MapPin,
+	Globe,
+	Mail,
+	CheckCircle2,
+	AlertCircle,
+	Loader2,
+} from 'lucide-vue-next';
 
-const route = useRoute();
-const router = useRouter();
 const { t } = useI18n();
 const { toast } = useToast();
+const authStore = useAuthStore();
 
 const profile = ref({
 	bio: '',
@@ -34,6 +44,7 @@ const profile = ref({
 });
 
 const userDisplayName = ref('');
+const userEmail = computed(() => authStore.user?.email || '');
 const loading = ref(true);
 const saving = ref(false);
 const hasChanges = ref(false);
@@ -44,29 +55,31 @@ const MAX_BIO_LENGTH = 500;
 const MAX_LOCATION_LENGTH = 100;
 const MAX_WEBSITE_LENGTH = 500;
 
-// Character count computed
-const bioCount = computed(() => `${profile.value.bio.length} de ${MAX_BIO_LENGTH}`);
-const locationCount = computed(() => `${profile.value.location.length} de ${MAX_LOCATION_LENGTH}`);
-const websiteCount = computed(() => `${profile.value.website.length} de ${MAX_WEBSITE_LENGTH}`);
-
-// Save status dot color
-const saveStatusDot = computed(() => {
-	switch (saveStatus.value) {
-		case 'unchanged':
-			return 'bg-gray-400';
-		case 'unsaved':
-			return 'bg-yellow-400';
-		case 'saved':
-			return 'bg-green-500';
-	}
-});
+const bioCount = computed(() =>
+	t('social.characterLimits.bio', {
+		current: profile.value.bio.length,
+		max: MAX_BIO_LENGTH,
+	}),
+);
+const locationCount = computed(() =>
+	t('social.characterLimits.location', {
+		current: profile.value.location.length,
+		max: MAX_LOCATION_LENGTH,
+	}),
+);
+const websiteCount = computed(() =>
+	t('social.characterLimits.website', {
+		current: profile.value.website.length,
+		max: MAX_WEBSITE_LENGTH,
+	}),
+);
 
 const loadProfile = async () => {
 	try {
 		loading.value = true;
 		const data = await getUserProfile();
 		if (data) {
-			userDisplayName.value = data.user?.displayName || '';
+			userDisplayName.value = data.user?.displayName || authStore.user?.displayName || '';
 			profile.value = {
 				bio: data.bio || '',
 				location: data.location || '',
@@ -78,6 +91,8 @@ const loadProfile = async () => {
 				skills: data.skills || [],
 				avatarUrl: data.avatarUrl || undefined,
 			};
+			hasChanges.value = false;
+			saveStatus.value = 'unchanged';
 		}
 	} catch (error: any) {
 		toast({
@@ -91,6 +106,7 @@ const loadProfile = async () => {
 };
 
 const saveProfile = async () => {
+	if (!hasChanges.value || saving.value) return;
 	try {
 		saving.value = true;
 		await updateUserProfile(profile.value);
@@ -100,12 +116,11 @@ const saveProfile = async () => {
 			title: t('social.profileUpdated'),
 			description: t('social.profileUpdatedDesc'),
 		});
-		// Reset to unchanged after a short delay
 		setTimeout(() => {
 			if (saveStatus.value === 'saved') {
 				saveStatus.value = 'unchanged';
 			}
-		}, 2000);
+		}, 2500);
 	} catch (error: any) {
 		toast({
 			title: t('social.profileError'),
@@ -114,6 +129,13 @@ const saveProfile = async () => {
 		});
 	} finally {
 		saving.value = false;
+	}
+};
+
+const discardChanges = () => {
+	if (!hasChanges.value) return;
+	if (window.confirm(t('social.confirmDiscardChanges'))) {
+		loadProfile();
 	}
 };
 
@@ -182,167 +204,290 @@ const markAsUnsaved = () => {
 	saveStatus.value = 'unsaved';
 };
 
-// Watch for changes
 const updateField = () => {
 	markAsUnsaved();
 };
 
+// Keyboard shortcut: Ctrl/Cmd+S
+const handleKeydown = (e: KeyboardEvent) => {
+	if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+		e.preventDefault();
+		if (hasChanges.value) saveProfile();
+	}
+};
+
+// Warn user before leaving with unsaved changes
+const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+	if (hasChanges.value) {
+		e.preventDefault();
+		e.returnValue = '';
+	}
+};
+
 onMounted(() => {
 	loadProfile();
+	window.addEventListener('keydown', handleKeydown);
+	window.addEventListener('beforeunload', handleBeforeUnload);
+});
+
+onBeforeUnmount(() => {
+	window.removeEventListener('keydown', handleKeydown);
+	window.removeEventListener('beforeunload', handleBeforeUnload);
 });
 </script>
 
 <template>
-	<div class="container mx-auto px-4 py-8 max-w-4xl">
-		<!-- Header with Save Status -->
-		<div class="flex items-center justify-between mb-6">
-			<div>
-				<h1 class="text-3xl font-bold">{{ t('social.myProfile') }}</h1>
-				<p class="text-sm text-muted-foreground mt-1">
-					{{ t('social.editProfile') }}
-				</p>
-			</div>
-			<div v-if="hasChanges" class="flex items-center gap-2">
-				<span :class="`w-2 h-2 rounded-full ${saveStatusDot}`"></span>
-				<span class="text-sm text-muted-foreground">
-					{{
-						saveStatus === 'saved'
-							? t('common.confirm')
-							: t('common.actions.show')
-					}}
-				</span>
-			</div>
+	<div class="container mx-auto px-4 py-6 md:py-8 max-w-4xl pb-28">
+		<!-- Page Header -->
+		<div class="mb-6">
+			<h1 class="text-2xl md:text-3xl font-bold tracking-tight">
+				{{ t('social.myProfile') }}
+			</h1>
+			<p class="text-sm text-muted-foreground mt-1">
+				{{ t('social.editProfile') }}
+			</p>
 		</div>
 
 		<!-- Loading State -->
-		<div v-if="loading" class="flex justify-center py-12">
-			<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+		<div v-if="loading" class="flex flex-col items-center justify-center py-20 gap-3">
+			<Loader2 class="h-10 w-10 animate-spin text-primary" />
+			<p class="text-sm text-muted-foreground">{{ t('social.loadingProfile') }}</p>
 		</div>
 
 		<!-- Profile Form -->
 		<div v-else class="space-y-6">
-			<!-- Avatar Section -->
+			<!-- Hero Card: Avatar + Identity -->
+			<Card class="overflow-hidden">
+				<div class="relative">
+					<!-- Decorative gradient header -->
+					<div
+						class="h-24 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/5"
+					></div>
+					<div class="px-6 pb-6 -mt-12">
+						<div
+							class="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-6"
+						>
+							<AvatarUpload
+								:current-avatar="profile.avatarUrl"
+								:display-name="userDisplayName"
+								size="xl"
+								editable
+								:max-size="2048"
+								@upload="handleAvatarUpload"
+								@remove="handleAvatarRemove"
+							/>
+							<div class="flex-1 min-w-0 sm:pb-2">
+								<h2 class="text-xl md:text-2xl font-semibold truncate">
+									{{ userDisplayName || '—' }}
+								</h2>
+								<div
+									class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 mt-1 text-sm text-muted-foreground"
+								>
+									<span
+										v-if="userEmail"
+										class="inline-flex items-center gap-1.5 truncate"
+									>
+										<Mail class="h-4 w-4 shrink-0" />
+										<span class="truncate">{{ userEmail }}</span>
+									</span>
+									<span
+										v-if="profile.location"
+										class="inline-flex items-center gap-1.5 truncate"
+									>
+										<MapPin class="h-4 w-4 shrink-0" />
+										<span class="truncate">{{ profile.location }}</span>
+									</span>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</Card>
+
+			<!-- Basic Info Section -->
 			<Card class="p-6">
-				<div class="flex flex-col items-center">
-					<AvatarUpload
-						:current-avatar="profile.avatarUrl"
-						:display-name="userDisplayName"
-						size="xl"
+				<div class="flex items-start gap-3 mb-5">
+					<div
+						class="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"
+					>
+						<UserIcon class="h-5 w-5" />
+					</div>
+					<div>
+						<h3 class="font-semibold text-base">{{ t('social.basicInfoTitle') }}</h3>
+						<p class="text-xs text-muted-foreground mt-0.5">
+							{{ t('social.basicInfoDesc') }}
+						</p>
+					</div>
+				</div>
+
+				<div class="space-y-5">
+					<!-- Bio -->
+					<div class="space-y-1.5">
+						<div class="flex items-center justify-between">
+							<label for="bio-field" class="text-sm font-medium">
+								{{ t('social.bio') }}
+							</label>
+							<span class="text-xs text-muted-foreground tabular-nums">
+								{{ bioCount }}
+							</span>
+						</div>
+						<textarea
+							id="bio-field"
+							v-model="profile.bio"
+							rows="4"
+							class="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary resize-none text-sm"
+							:placeholder="t('social.bioPlaceholder')"
+							:maxlength="MAX_BIO_LENGTH"
+							@input="updateField"
+						></textarea>
+					</div>
+
+					<!-- Location + Website on same row on desktop -->
+					<div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+						<div class="space-y-1.5">
+							<div class="flex items-center justify-between">
+								<label for="location-field" class="text-sm font-medium inline-flex items-center gap-1.5">
+									<MapPin class="h-3.5 w-3.5" />
+									{{ t('social.location') }}
+								</label>
+								<span class="text-xs text-muted-foreground tabular-nums">
+									{{ locationCount }}
+								</span>
+							</div>
+							<input
+								id="location-field"
+								v-model="profile.location"
+								type="text"
+								class="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+								:placeholder="t('social.locationPlaceholder')"
+								:maxlength="MAX_LOCATION_LENGTH"
+								@input="updateField"
+							/>
+						</div>
+
+						<div class="space-y-1.5">
+							<div class="flex items-center justify-between">
+								<label for="website-field" class="text-sm font-medium inline-flex items-center gap-1.5">
+									<Globe class="h-3.5 w-3.5" />
+									{{ t('social.website') }}
+								</label>
+								<span class="text-xs text-muted-foreground tabular-nums">
+									{{ websiteCount }}
+								</span>
+							</div>
+							<input
+								id="website-field"
+								v-model="profile.website"
+								type="url"
+								class="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+								:placeholder="t('social.websitePlaceholder')"
+								:maxlength="MAX_WEBSITE_LENGTH"
+								@input="updateField"
+							/>
+						</div>
+					</div>
+				</div>
+			</Card>
+
+			<!-- Interests & Skills Section -->
+			<Card class="p-6">
+				<div class="flex items-start gap-3 mb-5">
+					<div
+						class="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"
+					>
+						<Sparkles class="h-5 w-5" />
+					</div>
+					<div>
+						<h3 class="font-semibold text-base">{{ t('social.tagsTitle') }}</h3>
+						<p class="text-xs text-muted-foreground mt-0.5">
+							{{ t('social.tagsDesc') }}
+						</p>
+					</div>
+				</div>
+
+				<div class="space-y-6">
+					<UserTagList
+						:tags="profile.interests"
 						editable
-						:max-size="2048"
-						@upload="handleAvatarUpload"
-						@remove="handleAvatarRemove"
+						variant="interests"
+						:max-tags="20"
+						:add="handleAddInterest"
+						:remove="handleRemoveInterest"
+					/>
+					<div class="border-t border-border"></div>
+					<UserTagList
+						:tags="profile.skills"
+						editable
+						variant="skills"
+						:max-tags="20"
+						:add="handleAddSkill"
+						:remove="handleRemoveSkill"
 					/>
 				</div>
 			</Card>
 
-			<!-- Bio Section -->
+			<!-- Privacy Section -->
 			<Card class="p-6">
-				<div class="space-y-2">
-					<div class="flex items-center justify-between">
-						<label class="text-sm font-medium">{{ t('social.bio') }}</label>
-						<span class="text-xs text-muted-foreground">{{ bioCount }}</span>
+				<div class="flex items-start gap-3 mb-5">
+					<div
+						class="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"
+					>
+						<Shield class="h-5 w-5" />
 					</div>
-					<textarea
-						v-model="profile.bio"
-						rows="4"
-						class="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-						:placeholder="t('social.bioPlaceholder')"
-						:maxlength="MAX_BIO_LENGTH"
-						@input="updateField"
-					></textarea>
-				</div>
-			</Card>
-
-			<!-- Location Section -->
-			<Card class="p-6">
-				<div class="space-y-2">
-					<div class="flex items-center justify-between">
-						<label class="text-sm font-medium">{{ t('social.location') }}</label>
-						<span class="text-xs text-muted-foreground">{{ locationCount }}</span>
+					<div>
+						<h3 class="font-semibold text-base">{{ t('social.privacySettings') }}</h3>
+						<p class="text-xs text-muted-foreground mt-0.5">
+							{{ t('social.privacyDesc') }}
+						</p>
 					</div>
-					<input
-						v-model="profile.location"
-						type="text"
-						class="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-						:placeholder="t('social.locationPlaceholder')"
-						:maxlength="MAX_LOCATION_LENGTH"
-						@input="updateField"
-					/>
 				</div>
-			</Card>
 
-			<!-- Website Section -->
-			<Card class="p-6">
-				<div class="space-y-2">
-					<div class="flex items-center justify-between">
-						<label class="text-sm font-medium">{{ t('social.website') }}</label>
-						<span class="text-xs text-muted-foreground">{{ websiteCount }}</span>
-					</div>
-					<input
-						v-model="profile.website"
-						type="url"
-						class="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-						:placeholder="t('social.websitePlaceholder')"
-						:maxlength="MAX_WEBSITE_LENGTH"
-						@input="updateField"
-					/>
-				</div>
-			</Card>
-
-			<!-- Interests Section -->
-			<Card class="p-6">
-				<UserTagList
-					:tags="profile.interests"
-					editable
-					variant="interests"
-					:max-tags="20"
-					:add="handleAddInterest"
-					:remove="handleRemoveInterest"
-				/>
-			</Card>
-
-			<!-- Skills Section -->
-			<Card class="p-6">
-				<UserTagList
-					:tags="profile.skills"
-					editable
-					variant="skills"
-					:max-tags="20"
-					:add="handleAddSkill"
-					:remove="handleRemoveSkill"
-				/>
-			</Card>
-
-			<!-- Privacy Settings -->
-			<Card class="p-6">
-				<h3 class="font-medium mb-4">{{ t('social.privacySettings') }}</h3>
-
-				<div class="space-y-4">
-					<div class="flex items-center justify-between">
-						<label class="text-sm" for="show-email">{{ t('social.showEmail') }}</label>
+				<div class="divide-y divide-border">
+					<div class="flex items-center justify-between gap-4 py-4 first:pt-0">
+						<div class="flex-1 min-w-0">
+							<label for="show-email" class="text-sm font-medium block">
+								{{ t('social.showEmail') }}
+							</label>
+							<p class="text-xs text-muted-foreground mt-0.5">
+								{{ t('social.showEmailDesc') }}
+							</p>
+						</div>
 						<Switch
 							id="show-email"
-							:checked="profile.showEmail"
-							@update:checked="(val: boolean) => { profile.showEmail = val; updateField(); }"
+							:model-value="profile.showEmail"
+							@update:model-value="(val: boolean) => { profile.showEmail = val; updateField(); }"
 						/>
 					</div>
 
-					<div class="flex items-center justify-between">
-						<label class="text-sm" for="show-phone">{{ t('social.showPhone') }}</label>
+					<div class="flex items-center justify-between gap-4 py-4">
+						<div class="flex-1 min-w-0">
+							<label for="show-phone" class="text-sm font-medium block">
+								{{ t('social.showPhone') }}
+							</label>
+							<p class="text-xs text-muted-foreground mt-0.5">
+								{{ t('social.showPhoneDesc') }}
+							</p>
+						</div>
 						<Switch
 							id="show-phone"
-							:checked="profile.showPhone"
-							@update:checked="(val: boolean) => { profile.showPhone = val; updateField(); }"
+							:model-value="profile.showPhone"
+							@update:model-value="(val: boolean) => { profile.showPhone = val; updateField(); }"
 						/>
 					</div>
 
-					<div class="flex items-center justify-between">
-						<label class="text-sm" for="show-retreats">{{ t('social.showRetreats') }}</label>
+					<div class="flex items-center justify-between gap-4 py-4 last:pb-0">
+						<div class="flex-1 min-w-0">
+							<label for="show-retreats" class="text-sm font-medium block">
+								{{ t('social.showRetreats') }}
+							</label>
+							<p class="text-xs text-muted-foreground mt-0.5">
+								{{ t('social.showRetreatsDesc') }}
+							</p>
+						</div>
 						<Switch
 							id="show-retreats"
-							:checked="profile.showRetreats"
-							@update:checked="(val: boolean) => { profile.showRetreats = val; updateField(); }"
+							:model-value="profile.showRetreats"
+							@update:model-value="(val: boolean) => { profile.showRetreats = val; updateField(); }"
 						/>
 					</div>
 				</div>
@@ -350,23 +495,60 @@ onMounted(() => {
 
 			<!-- Testimonials Visibility Settings -->
 			<TestimonialsVisibilityConfig />
-
-			<!-- Save Button -->
-			<div class="flex justify-end gap-3">
-				<Button
-					v-if="hasChanges"
-					variant="outline"
-					@click="loadProfile"
-				>
-					{{ t('common.actions.cancel') }}
-				</Button>
-				<Button
-					@click="saveProfile"
-					:disabled="saving || !hasChanges"
-				>
-					{{ saving ? t('social.savingProfile') : t('social.saveProfile') }}
-				</Button>
-			</div>
 		</div>
+
+		<!-- Sticky Save Bar -->
+		<Transition
+			enter-active-class="transition ease-out duration-200"
+			enter-from-class="translate-y-full opacity-0"
+			enter-to-class="translate-y-0 opacity-100"
+			leave-active-class="transition ease-in duration-150"
+			leave-from-class="translate-y-0 opacity-100"
+			leave-to-class="translate-y-full opacity-0"
+		>
+			<div
+				v-if="hasChanges || saveStatus === 'saved'"
+				class="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-lg"
+			>
+				<div
+					class="container mx-auto max-w-4xl px-4 py-3 flex items-center justify-between gap-3"
+				>
+					<div class="flex items-center gap-2 text-sm min-w-0">
+						<template v-if="saveStatus === 'saved'">
+							<CheckCircle2 class="h-4 w-4 text-green-600 shrink-0" />
+							<span class="text-green-700 dark:text-green-400 truncate">
+								{{ t('social.savedLabel') }}
+							</span>
+						</template>
+						<template v-else>
+							<AlertCircle class="h-4 w-4 text-amber-500 shrink-0" />
+							<span class="text-muted-foreground truncate">
+								{{ t('social.unsavedChangesLabel') }}
+							</span>
+						</template>
+					</div>
+					<div class="flex items-center gap-2 shrink-0">
+						<Button
+							v-if="hasChanges"
+							variant="ghost"
+							size="sm"
+							@click="discardChanges"
+							:disabled="saving"
+						>
+							{{ t('social.discardChanges') }}
+						</Button>
+						<Button
+							v-if="hasChanges"
+							size="sm"
+							@click="saveProfile"
+							:disabled="saving"
+						>
+							<Loader2 v-if="saving" class="h-4 w-4 animate-spin mr-1.5" />
+							{{ saving ? t('social.savingProfile') : t('social.saveProfile') }}
+						</Button>
+					</div>
+				</div>
+			</div>
+		</Transition>
 	</div>
 </template>

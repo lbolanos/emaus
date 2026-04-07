@@ -172,7 +172,7 @@
     "sections": {
       "main": "Main",
       "community": "Community",
-      "social": "Social Network",
+      "social": "Emmaus Family",
       "people": "People",
       "assignments": "Assignments",
       "financial": "Financial",
@@ -197,8 +197,8 @@
     "selectRetreatFirst": "Please select a retreat first",
     "communities": "Communities",
     "myProfile": "My Profile",
-    "searchUsers": "Search Users",
-    "friends": "Friends",
+    "searchUsers": "Find Members",
+    "friends": "Brothers & Sisters",
     "followers": "Followers",
     "testimonials": "Testimonials",
     "myRetreats": "My Retreats"

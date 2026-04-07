@@ -230,7 +230,7 @@ const initials = computed(() => {
 const visibilityLabel = computed(() => {
 	const labels: Record<string, string> = {
 		public: 'Público',
-		friends: 'Amigos',
+		friends: 'Hermanos',
 		retreat_participants: 'Participantes',
 		private: 'Privado',
 	};

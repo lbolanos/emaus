@@ -53,7 +53,7 @@
 				>
 					<option value="private">Privado - Solo yo</option>
 					<option value="retreat_participants">Participantes del retiro</option>
-					<option value="friends">Amigos</option>
+					<option value="friends">Hermanos conectados</option>
 					<option value="public">Público - Todos</option>
 				</select>
 				<p class="text-xs text-muted-foreground">
@@ -173,7 +173,7 @@ const visibilityDescription = computed(() => {
 	const descriptions: Record<TestimonialVisibility, string> = {
 		private: 'Solo tú podrás ver este testimonio',
 		retreat_participants: 'Solo quienes participaron del mismo retiro podrán verlo',
-		friends: 'Solo tus amigos aceptados podrán verlo',
+		friends: 'Solo tus hermanos conectados podrán verlo',
 		public: 'Cualquier usuario de la plataforma podrá verlo',
 	};
 	return descriptions[formData.value.visibility];

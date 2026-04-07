@@ -13,7 +13,7 @@
 		>
 			<option value="private">Privado - Solo yo</option>
 			<option value="retreat_participants">Participantes del retiro</option>
-			<option value="friends">Amigos</option>
+			<option value="friends">Hermanos conectados</option>
 			<option value="public">Público - Todos</option>
 		</select>
 

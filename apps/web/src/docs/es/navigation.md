@@ -19,7 +19,7 @@ Estas secciones dependen de un retiro seleccionado. El selector de retiro aparec
 Estas secciones no dependen de un retiro especifico. El selector de retiro se oculta y en su lugar se muestra el titulo de la seccion actual.
 
 - **Comunidad**: Comunidades, miembros, reuniones, administradores, plantillas
-- **Red Social**: Perfil, buscar usuarios, amigos, seguidores, testimonios, mis retiros
+- **Familia Emaús**: Perfil, buscar hermanos, hermanos, seguidores, testimonios, mis retiros
 - **Configuracion Global**: Casas, telemetria, plantillas globales, articulos de inventario, cambiar contrasena, ayuda
 
 ## Comportamiento del Selector de Retiro
