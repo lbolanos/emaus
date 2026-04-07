@@ -99,6 +99,10 @@ vi.mock('lucide-vue-next', () => ({
 	RefreshCw: { name: 'RefreshCw', template: '<svg></svg>' },
 	MessageCircle: { name: 'MessageCircle', template: '<svg></svg>' },
 	ShoppingBag: { name: 'ShoppingBag', template: '<svg></svg>' },
+	Search: { name: 'Search', template: '<svg></svg>' },
+	Users: { name: 'Users', template: '<svg></svg>' },
+	MessageSquare: { name: 'MessageSquare', template: '<svg></svg>' },
+	RotateCcw: { name: 'RotateCcw', template: '<svg></svg>' },
 }));
 
 // Mock exceljs

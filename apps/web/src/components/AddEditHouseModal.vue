@@ -106,7 +106,7 @@
 
           <!-- Read-only fields that get auto-filled -->
           <div class="bg-gray-50 p-3 rounded-lg">
-            <p class="text-sm text-gray-600 mb-2 font-medium">Estos campos se autocompletan al seleccionar una dirección:</p>
+            <p class="text-sm text-gray-600 mb-2 font-medium">Estos campos se autocompletan al seleccionar una dirección (puedes editarlos manualmente):</p>
             <div class="grid grid-cols-2 gap-4">
               <div class="grid grid-cols-4 items-center gap-2">
                 <Label for="city" class="text-right text-sm">Ciudad</Label>
@@ -115,7 +115,6 @@
                     id="city"
                     v-model="formData.city"
                     placeholder="Ciudad"
-                    readonly
                     class="bg-white text-gray-700"
                     :class="{ 'border-red-500': formErrors.city }"
                     aria-describedby="city-error"
@@ -133,7 +132,6 @@
                     id="state"
                     v-model="formData.state"
                     placeholder="Estado"
-                    readonly
                     class="bg-white text-gray-700"
                     :class="{ 'border-red-500': formErrors.state }"
                     aria-describedby="state-error"
@@ -151,7 +149,6 @@
                     id="zipCode"
                     v-model="formData.zipCode"
                     placeholder="Código Postal"
-                    readonly
                     class="bg-white text-gray-700"
                     :class="{ 'border-red-500': formErrors.zipCode }"
                     aria-describedby="zipCode-error"
@@ -169,7 +166,6 @@
                     id="country"
                     v-model="formData.country"
                     placeholder="País"
-                    readonly
                     class="bg-white text-gray-700"
                     :class="{ 'border-red-500': formErrors.country }"
                     aria-describedby="country-error"
@@ -592,7 +588,7 @@ const step1Schema = z.object({
   address2: z.string().optional(),
   city: z.string().min(1, 'City is required'),
   state: z.string().min(1, 'State is required'),
-  zipCode: z.string().min(1, 'Zip Code is required'),
+  zipCode: z.string().optional(),
   country: z.string().min(1, 'Country is required'),
   googleMapsUrl: z.string().url('Must be a valid URL').min(1, 'Google Maps URL is required'),
   latitude: z.number().nullable(),
@@ -713,7 +709,7 @@ const validateField = (fieldName: string) => {
     address2: z.string().optional(),
     city: z.string().min(1, 'City is required'),
     state: z.string().min(1, 'State is required'),
-    zipCode: z.string().min(1, 'Zip Code is required'),
+    zipCode: z.string().optional(),
     country: z.string().min(1, 'Country is required'),
     googleMapsUrl: z.string().url('Must be a valid URL').min(1, 'Google Maps URL is required'),
     latitude: z.number().nullable(),

@@ -135,6 +135,10 @@ vi.mock('lucide-vue-next', () => ({
 	X: { template: '<span>x</span>' },
 	Printer: { template: '<span>print</span>' },
 	RefreshCw: { template: '<span>refresh</span>' },
+	Search: { template: '<span>search</span>' },
+	Users: { template: '<span>users</span>' },
+	MessageSquare: { template: '<span>message</span>' },
+	RotateCcw: { template: '<span>rotate</span>' },
 }));
 
 // Mock child components

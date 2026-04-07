@@ -180,6 +180,8 @@ vi.mock('@/composables/useAuthPermissions', () => ({
 		isSuperadmin: vi.fn(() => false),
 		isAdmin: vi.fn(() => true),
 		hasRole: vi.fn(() => true),
+		currentRetreatRole: { value: null },
+		retreatOnlyPermissions: { value: [] },
 	}),
 }));
 

@@ -44,6 +44,7 @@ vi.mock('@/services/telemetryService', () => ({
 		isTelemetryActive: vi.fn(() => false),
 		trackApiCallTime: vi.fn(),
 		trackError: vi.fn(),
+		initialize: vi.fn(() => Promise.resolve()),
 	},
 }));
 
