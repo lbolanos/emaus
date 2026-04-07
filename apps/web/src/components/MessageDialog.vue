@@ -196,6 +196,31 @@
               </Button>
             </div>
 
+            <!-- Warning: variables without data -->
+            <div
+              v-if="emptyVariables.length > 0"
+              class="rounded-md border border-amber-300 bg-amber-50 text-amber-900 p-3 text-sm"
+            >
+              <div class="flex items-start gap-2">
+                <span class="text-base leading-none" aria-hidden="true">⚠️</span>
+                <div class="flex-1">
+                  <div class="font-medium">
+                    Este mensaje contiene variables sin datos que aparecerán vacías al enviarse:
+                  </div>
+                  <div class="mt-1 flex flex-wrap gap-1">
+                    <code
+                      v-for="v in emptyVariables"
+                      :key="v"
+                      class="rounded bg-amber-100 border border-amber-300 px-1.5 py-0.5 text-xs font-mono"
+                    >{{ '{' + v + '}' }}</code>
+                  </div>
+                  <div class="mt-1 text-xs text-amber-700">
+                    Revisa los datos del caminante o del retiro antes de enviar si quieres completarlas.
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Tabs for Edit and Preview -->
             <Tabs v-model="activeTab" class="w-full">
               <TabsList class="grid w-full grid-cols-2">
@@ -307,6 +332,8 @@ import { useRetreatStore } from '@/stores/retreatStore';
 import { useCommunityStore } from '@/stores/communityStore';
 import { useMessageTemplateStore } from '@/stores/messageTemplateStore';
 import { useCommunityMessageTemplateStore } from '@/stores/communityMessageTemplateStore';
+import { useResponsabilityStore } from '@/stores/responsabilityStore';
+import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { useToast } from '@repo/ui';
 import {
 	Dialog,
@@ -331,7 +358,7 @@ import {
 	TabsList,
 	TabsTrigger,
 } from '@repo/ui';
-import { convertHtmlToWhatsApp, convertHtmlToEmail, replaceAllVariables, ParticipantData, RetreatData } from '@/utils/message';
+import { convertHtmlToWhatsApp, convertHtmlToEmail, replaceAllVariables, findEmptyVariables, ParticipantData, RetreatData } from '@/utils/message';
 import { useParticipantCommunicationStore, type ParticipantCommunication } from '@/stores/participantCommunicationStore';
 import { useCommunityCommunicationStore, type CommunityCommunication } from '@/stores/communityCommunicationStore';
 import { getSmtpConfig, sendEmailViaBackend, sendCommunityEmailViaBackend } from '@/services/api';
@@ -369,6 +396,8 @@ const retreatStore = useRetreatStore();
 const communityStore = useCommunityStore();
 const messageTemplateStore = useMessageTemplateStore();
 const communityMessageTemplateStore = useCommunityMessageTemplateStore();
+const responsabilityStore = useResponsabilityStore();
+const { can } = useAuthPermissions();
 const participantCommunicationStore = useParticipantCommunicationStore();
 const communityCommunicationStore = useCommunityCommunicationStore();
 
@@ -403,6 +432,7 @@ const showValidationErrors = ref(false);
 const historyComponentLoading = ref(false);
 const historyMessageCount = ref(0);
 const isUserEditing = ref(false);
+const emptyVariables = ref<string[]>([]);
 let ariaHiddenObserver: MutationObserver | null = null;
 
 // Computed properties
@@ -464,7 +494,7 @@ const contactOptions = computed(() => {
 		for (const field of phoneFields) {
 			const value = (participantData as any)[field.key];
 			if (value && !usedValues.has(value)) {
-				options.push({ value, label: field.label, description: field.desc });
+				options.push({ value, key: field.key, label: field.label, description: field.desc });
 				usedValues.add(value);
 			}
 		}
@@ -481,13 +511,48 @@ const contactOptions = computed(() => {
 		for (const field of emailFields) {
 			const value = (participantData as any)[field.key];
 			if (value && !usedValues.has(value)) {
-				options.push({ value, label: field.label, description: field.desc });
+				options.push({ value, key: field.key, label: field.label, description: field.desc });
 				usedValues.add(value);
 			}
 		}
 	}
 
 	return options;
+});
+
+// Returns the original field key (e.g. 'cellPhone', 'emergencyContact1CellPhone')
+// for the contact currently selected in the form. Used to resolve generic
+// {participant.emergencyContact*} variables to EC1 or EC2.
+const selectedContactKey = computed<string | undefined>(() => {
+	if (!selectedContact.value) return undefined;
+	const match = contactOptions.value.find((o: any) => o.value === selectedContact.value);
+	return match?.key;
+});
+
+// Builds a participant object enriched with the resolved palanquero data,
+// looking up the Responsability whose name matches participant.palancasCoordinator.
+const enrichedParticipantData = computed(() => {
+	if (!props.participant) return null;
+	const base: any = 'participant' in props.participant && props.participant.participant
+		? props.participant.participant
+		: props.participant;
+
+	if (!base?.palancasCoordinator) return base;
+
+	const responsibility = (responsabilityStore.responsibilities || []).find(
+		(r: any) => r.name === base.palancasCoordinator,
+	);
+	const palanqueroParticipant = responsibility?.participant;
+	if (!palanqueroParticipant) return base;
+
+	return {
+		...base,
+		palanquero: {
+			name: `${palanqueroParticipant.firstName ?? ''} ${palanqueroParticipant.lastName ?? ''}`.trim(),
+			email: palanqueroParticipant.email,
+			cellPhone: palanqueroParticipant.cellPhone,
+		},
+	};
 });
 
 // Template filtering
@@ -525,13 +590,8 @@ const updateMessagePreview = () => {
 	const template = allMessageTemplates.value.find((t: any) => t.id === selectedTemplate.value);
 	if (!template) return;
 
-	// Get participant data
-	let participantData: ParticipantData;
-	if ('participant' in props.participant && props.participant.participant) {
-		participantData = props.participant.participant as ParticipantData;
-	} else {
-		participantData = props.participant as ParticipantData;
-	}
+	// Get participant data (enriched with palanquero when available)
+	const participantData = (enrichedParticipantData.value ?? props.participant) as ParticipantData;
 
 	// Get retreat/community data for variables
 	const contextData = props.context === 'retreat'
@@ -543,7 +603,21 @@ const updateMessagePreview = () => {
 				endDate: new Date().toISOString(),
 		  };
 
-	let message = replaceAllVariables(template.message, participantData, contextData);
+	// Detect known variables present in the template whose resolved value is
+	// empty, so the user can see them before sending.
+	emptyVariables.value = findEmptyVariables(
+		template.message,
+		participantData,
+		contextData,
+		selectedContactKey.value,
+	);
+
+	let message = replaceAllVariables(
+		template.message,
+		participantData,
+		contextData,
+		selectedContactKey.value,
+	);
 	messagePreview.value = message;
 
 	// Update editable message based on send method
@@ -1053,12 +1127,18 @@ watch(() => props.open, (newValue: boolean) => {
 		activeTab.value = 'edit';
 		showHistory.value = false;
 		isUserEditing.value = false;
+		emptyVariables.value = [];
 
 		// Load templates based on context
 		if (props.context === 'community' && props.communityId) {
 			communityMessageTemplateStore.fetchTemplates(props.communityId);
 		} else if (props.context === 'retreat' && props.retreatId) {
 			messageTemplateStore.fetchTemplates(props.retreatId);
+			// Load responsibilities to resolve {participant.palanquero*} variables.
+			// Skip when the user lacks permission to avoid a 403.
+			if (can.list('responsability')) {
+				responsabilityStore.fetchResponsibilities(props.retreatId, { silent: true });
+			}
 		}
 
 		checkEmailServerConfig();
@@ -1123,6 +1203,27 @@ watch(sendMethod, (newValue: 'whatsapp' | 'email') => {
 watch([editedMessage, sendMethod, selectedContact], () => {
 	autoSaveMessage();
 }, { deep: true });
+
+// Re-render the preview when the selected contact changes so that
+// {participant.emergencyContact*} variables resolve to the chosen contact.
+watch(selectedContact, () => {
+	if (selectedTemplate.value && !isUserEditing.value) {
+		updateMessagePreview();
+	}
+});
+
+// Re-render the preview when responsibilities finish loading so that
+// {participant.palanquero*} variables get filled in (the fetch is async
+// and may complete after the template was already selected).
+watch(
+	() => responsabilityStore.responsibilities,
+	() => {
+		if (selectedTemplate.value && !isUserEditing.value) {
+			updateMessagePreview();
+		}
+	},
+	{ deep: true },
+);
 
 onUnmounted(() => {
 	cleanupDrafts();

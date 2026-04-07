@@ -36,17 +36,13 @@ const expandedRows = ref<Set<string>>(new Set());
 const sortField = ref<'name' | 'type'>('name');
 const sortDirection = ref<'asc' | 'desc'>('asc');
 
-// Format members for modal
+// Format members for modal — forward the full member so all template
+// variables (emergency contacts, etc.) resolve in the preview.
 const formattedMembers = computed(() => {
 	return members.value.map((member: any) => ({
-		id: member.id,
+		...member,
 		name: `${member.firstName} ${member.lastName}`,
 		type: 'COMMUNITY',
-		firstName: member.firstName,
-		lastName: member.lastName,
-		nickname: member.nickname || '',
-		cellPhone: member.cellPhone || '',
-		email: member.email || '',
 	}));
 });
 

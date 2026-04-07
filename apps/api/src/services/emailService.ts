@@ -2,11 +2,13 @@ import { AppDataSource } from '../data-source';
 import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { Participant } from '../entities/participant.entity';
 import { Retreat } from '../entities/retreat.entity';
+import { Responsability } from '../entities/responsability.entity';
 import * as nodemailer from 'nodemailer';
 import { replaceAllVariables, convertHtmlToEmail } from '@repo/utils';
 
 const retreatRepository = AppDataSource.getRepository(Retreat);
 const messageTemplateRepository = AppDataSource.getRepository(MessageTemplate);
+const responsabilityRepository = AppDataSource.getRepository(Responsability);
 
 export interface EmailData {
 	to: string;
@@ -187,7 +189,7 @@ export class EmailService {
 				throw new Error('Plantilla no encontrada');
 			}
 
-			const processedMessage = this.processTemplate(template.message, data);
+			const processedMessage = await this.processTemplate(template.message, data);
 
 			// Use enhanced email formatting with convertHtmlToEmail
 			const enhancedHtml = convertHtmlToEmail(processedMessage, {
@@ -207,7 +209,37 @@ export class EmailService {
 		}
 	}
 
-	private processTemplate(template: string, data: Record<string, any>): string {
-		return replaceAllVariables(template, data.participant, data.retreat).replace(/\n/g, '<br>');
+	private async processTemplate(template: string, data: Record<string, any>): Promise<string> {
+		const enrichedParticipant = await this.enrichParticipantWithPalanquero(
+			data.participant,
+			data.retreat,
+		);
+		return replaceAllVariables(template, enrichedParticipant, data.retreat).replace(/\n/g, '<br>');
+	}
+
+	// Resolves the caminante's palanquero by looking up the Responsability
+	// whose name matches participant.palancasCoordinator (e.g. "Palanquero 1")
+	// and attaching the assigned participant's contact info under .palanquero.
+	private async enrichParticipantWithPalanquero(
+		participant: any,
+		retreat: any,
+	): Promise<any> {
+		if (!participant?.palancasCoordinator || !retreat?.id) return participant;
+		const responsibility = await responsabilityRepository
+			.createQueryBuilder('r')
+			.leftJoinAndSelect('r.participant', 'participant')
+			.where('r.retreatId = :retreatId', { retreatId: retreat.id })
+			.andWhere('r.name = :name', { name: participant.palancasCoordinator })
+			.getOne();
+		const palanqueroParticipant = responsibility?.participant;
+		if (!palanqueroParticipant) return participant;
+		return {
+			...participant,
+			palanquero: {
+				name: `${palanqueroParticipant.firstName ?? ''} ${palanqueroParticipant.lastName ?? ''}`.trim(),
+				email: palanqueroParticipant.email,
+				cellPhone: palanqueroParticipant.cellPhone,
+			},
+		};
 	}
 }

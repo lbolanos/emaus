@@ -625,6 +625,7 @@ export {
 	replaceAllVariables,
 	replaceParticipantVariables,
 	replaceRetreatVariables,
+	findEmptyVariables,
 	convertHtmlToEmail,
 	detectEmailClient,
 } from '@repo/utils';

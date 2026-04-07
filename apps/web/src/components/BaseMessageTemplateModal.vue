@@ -560,6 +560,15 @@ const participantVariables = computed(() => [
   { key: 'type', label: t ? t('participants.fields.type') : 'Tipo' },
   { key: 'cellPhone', label: t ? t('participants.fields.cellPhone') : 'Teléfono' },
   { key: 'email', label: t ? t('participants.fields.email') : 'Email' },
+  { key: 'emergencyContactName', label: 'Contacto de Emergencia (Nombre)' },
+  { key: 'emergencyContactRelation', label: 'Contacto de Emergencia (Relación)' },
+  { key: 'emergencyContactCellPhone', label: 'Contacto de Emergencia (Móvil)' },
+  { key: 'emergencyContactHomePhone', label: 'Contacto de Emergencia (Casa)' },
+  { key: 'emergencyContactWorkPhone', label: 'Contacto de Emergencia (Trabajo)' },
+  { key: 'emergencyContactEmail', label: 'Contacto de Emergencia (Email)' },
+  { key: 'palanqueroName', label: 'Palanquero del Caminante (Nombre)' },
+  { key: 'palanqueroEmail', label: 'Palanquero del Caminante (Email)' },
+  { key: 'palanqueroCellPhone', label: 'Palanquero del Caminante (Móvil)' },
 ]);
 
 const retreatVariables = computed(() => [

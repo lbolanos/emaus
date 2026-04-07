@@ -69,6 +69,7 @@ export interface ParticipantData {
 	lastUpdatedDate?: string;
 	tableMesa?: { name: string };
 	retreatBed?: { roomNumber: string; bedNumber: string };
+	palanquero?: { name?: string; email?: string; cellPhone?: string };
 }
 
 /**
@@ -156,15 +157,11 @@ export function formatDate(date: Date | string, options: FormatDateOptions = {})
 }
 
 /**
- * Replaces all participant variables in a message template with actual participant data
- * Uses mock data if participant is undefined or null
+ * Default mock participant data used as a fallback for preview/editor when
+ * no real participant is available. Exported for reuse in tests.
  */
-export const replaceParticipantVariables = (
-	message: string,
-	participant: ParticipantData | null | undefined,
-): string => {
-	// Use mock data if participant is undefined or null
-	const mockParticipant: ParticipantData = {
+const getMockParticipant = (): ParticipantData => {
+	return {
 		firstName: 'Juan',
 		lastName: 'Pérez',
 		nickname: 'Juancho',
@@ -216,7 +213,12 @@ export const replaceParticipantVariables = (
 		paymentDate: '2024-01-15',
 		paymentAmount: 1500,
 		isScholarship: false,
-		palancasCoordinator: 'Ana Rodríguez',
+		palancasCoordinator: 'Palanquero 1',
+		palanquero: {
+			name: 'Ana Rodríguez',
+			email: 'ana.rodriguez@email.com',
+			cellPhone: '555-101-2020',
+		},
 		palancasRequested: true,
 		palancasReceived: '3 de 5',
 		palancasNotes: 'Necesita palancas de apoyo emocional',
@@ -228,11 +230,42 @@ export const replaceParticipantVariables = (
 		tableMesa: { name: '01' },
 		retreatBed: { roomNumber: '101', bedNumber: '1' },
 	};
+};
 
-	// Use actual participant data if available, otherwise use mock data
-	const participantData = participant || mockParticipant;
+/**
+ * Builds the participant variable replacement map from real data (no mock
+ * fallback). Used by replaceParticipantVariables and findEmptyVariables.
+ */
+const buildParticipantReplacements = (
+	participantData: ParticipantData,
+	selectedContactKey?: string,
+): Record<string, string> => {
+	// Determine which emergency contact to use for the generic
+	// {participant.emergencyContact*} variables. The selection is based on
+	// the contact key chosen in the message sending form. If the chosen key
+	// references emergency contact 2, use EC2; otherwise default to EC1.
+	const useEmergencyContact2 =
+		!!selectedContactKey && selectedContactKey.startsWith('emergencyContact2');
+	const ecName = useEmergencyContact2
+		? participantData.emergencyContact2Name
+		: participantData.emergencyContact1Name;
+	const ecRelation = useEmergencyContact2
+		? participantData.emergencyContact2Relation
+		: participantData.emergencyContact1Relation;
+	const ecHomePhone = useEmergencyContact2
+		? participantData.emergencyContact2HomePhone
+		: participantData.emergencyContact1HomePhone;
+	const ecWorkPhone = useEmergencyContact2
+		? participantData.emergencyContact2WorkPhone
+		: participantData.emergencyContact1WorkPhone;
+	const ecCellPhone = useEmergencyContact2
+		? participantData.emergencyContact2CellPhone
+		: participantData.emergencyContact1CellPhone;
+	const ecEmail = useEmergencyContact2
+		? participantData.emergencyContact2Email
+		: participantData.emergencyContact1Email;
 
-	const participantReplacements = {
+	return {
 		'participant.firstName': participantData.firstName || '',
 		'participant.lastName': participantData.lastName || '',
 		'participant.nickname': participantData.nickname || '',
@@ -273,6 +306,14 @@ export const replaceParticipantVariables = (
 		'participant.emergencyContact2WorkPhone': participantData.emergencyContact2WorkPhone || '',
 		'participant.emergencyContact2CellPhone': participantData.emergencyContact2CellPhone || '',
 		'participant.emergencyContact2Email': participantData.emergencyContact2Email || '',
+		// Generic emergency contact variables — resolve to EC1 or EC2
+		// based on the contact selected in the message sending form.
+		'participant.emergencyContactName': ecName || '',
+		'participant.emergencyContactRelation': ecRelation || '',
+		'participant.emergencyContactHomePhone': ecHomePhone || '',
+		'participant.emergencyContactWorkPhone': ecWorkPhone || '',
+		'participant.emergencyContactCellPhone': ecCellPhone || '',
+		'participant.emergencyContactEmail': ecEmail || '',
 		'participant.tshirtSize': participantData.tshirtSize || '',
 		'participant.invitedBy': participantData.invitedBy || '',
 		'participant.isInvitedByEmausMember': participantData.isInvitedByEmausMember ? 'Sí' : 'No',
@@ -287,6 +328,9 @@ export const replaceParticipantVariables = (
 		'participant.paymentAmount': participantData.paymentAmount?.toString() || '',
 		'participant.isScholarship': participantData.isScholarship ? 'Sí' : 'No',
 		'participant.palancasCoordinator': participantData.palancasCoordinator || '',
+		'participant.palanqueroName': participantData.palanquero?.name || '',
+		'participant.palanqueroEmail': participantData.palanquero?.email || '',
+		'participant.palanqueroCellPhone': participantData.palanquero?.cellPhone || '',
 		'participant.palancasRequested': participantData.palancasRequested ? 'Sí' : 'No',
 		'participant.palancasReceived': participantData.palancasReceived || '',
 		'participant.palancasNotes': participantData.palancasNotes || '',
@@ -299,8 +343,20 @@ export const replaceParticipantVariables = (
 		'participant.roomNumber': participantData.retreatBed?.roomNumber || '',
 		'participant.bedNumber': participantData.retreatBed?.bedNumber || '',
 	};
+};
 
-	// Apply all participant variable replacements
+/**
+ * Replaces all participant variables in a message template with actual participant data
+ * Uses mock data if participant is undefined or null
+ */
+export const replaceParticipantVariables = (
+	message: string,
+	participant: ParticipantData | null | undefined,
+	selectedContactKey?: string,
+): string => {
+	const participantData = participant || getMockParticipant();
+	const participantReplacements = buildParticipantReplacements(participantData, selectedContactKey);
+
 	let processedMessage = message;
 	Object.entries(participantReplacements).forEach(([key, value]) => {
 		processedMessage = processedMessage.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
@@ -309,16 +365,8 @@ export const replaceParticipantVariables = (
 	return processedMessage;
 };
 
-/**
- * Replaces all retreat variables in a message template with actual retreat data
- * Uses mock data if retreat is undefined or null
- */
-export const replaceRetreatVariables = (
-	message: string,
-	retreat: RetreatData | null | undefined,
-): string => {
-	// Mock retreat data for when retreat is undefined or null
-	const mockRetreat: RetreatData = {
+const getMockRetreat = (): RetreatData => {
+	return {
 		parish: 'Parroquia San José',
 		startDate: '2024-03-15',
 		endDate: '2024-03-17',
@@ -335,11 +383,10 @@ export const replaceRetreatVariables = (
 		retreat_type: 'men',
 		retreat_number_version: 'I',
 	};
+};
 
-	// Use mock data if retreat is undefined or null
-	const retreatData = retreat || mockRetreat;
-
-	const retreatReplacements = {
+const buildRetreatReplacements = (retreatData: RetreatData): Record<string, string> => {
+	return {
 		'retreat.parish': retreatData.parish || '',
 		'retreat.startDate': retreatData.startDate
 			? formatDate(retreatData.startDate, { format: 'long' })
@@ -360,14 +407,66 @@ export const replaceRetreatVariables = (
 		'retreat.type': retreatData.retreat_type || '',
 		'retreat.number': retreatData.retreat_number_version || '',
 	};
+};
 
-	// Apply all retreat variable replacements
+/**
+ * Replaces all retreat variables in a message template with actual retreat data
+ * Uses mock data if retreat is undefined or null
+ */
+export const replaceRetreatVariables = (
+	message: string,
+	retreat: RetreatData | null | undefined,
+): string => {
+	const retreatData = retreat || getMockRetreat();
+	const retreatReplacements = buildRetreatReplacements(retreatData);
+
 	let processedMessage = message;
 	Object.entries(retreatReplacements).forEach(([key, value]) => {
 		processedMessage = processedMessage.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
 	});
 
 	return processedMessage;
+};
+
+/**
+ * Finds all known template variables in a message whose resolved value is
+ * an empty string. Unlike replaceAllVariables, this function does NOT fall
+ * back to mock data — if participant/retreat is null, all known variables
+ * present in the message are reported as empty.
+ *
+ * Unknown placeholders (e.g. {custom_message}, {user.name}) are ignored.
+ */
+export const findEmptyVariables = (
+	message: string,
+	participant: ParticipantData | null | undefined,
+	retreat: RetreatData | null | undefined,
+	selectedContactKey?: string,
+): string[] => {
+	const participantReplacements = buildParticipantReplacements(
+		participant ?? ({} as ParticipantData),
+		selectedContactKey,
+	);
+	const retreatReplacements = buildRetreatReplacements(retreat ?? ({} as RetreatData));
+	const combined: Record<string, string> = {
+		...participantReplacements,
+		...retreatReplacements,
+	};
+
+	// Extract all unique placeholders from the message.
+	const placeholderRegex = /\{([^{}\s]+)\}/g;
+	const found = new Set<string>();
+	let match: RegExpExecArray | null;
+	while ((match = placeholderRegex.exec(message)) !== null) {
+		found.add(match[1]);
+	}
+
+	const empty: string[] = [];
+	for (const key of found) {
+		if (key in combined && combined[key] === '') {
+			empty.push(key);
+		}
+	}
+	return empty.sort();
 };
 
 /**
@@ -378,11 +477,12 @@ export const replaceAllVariables = (
 	message: string,
 	participant: ParticipantData | null | undefined,
 	retreat: RetreatData | null | undefined,
+	selectedContactKey?: string,
 ): string => {
 	let processedMessage = message;
 
 	// Replace participant variables
-	processedMessage = replaceParticipantVariables(processedMessage, participant);
+	processedMessage = replaceParticipantVariables(processedMessage, participant, selectedContactKey);
 
 	// Replace retreat variables
 	processedMessage = replaceRetreatVariables(processedMessage, retreat);

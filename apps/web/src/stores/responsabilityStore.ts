@@ -11,7 +11,7 @@ export const useResponsabilityStore = defineStore('responsability', () => {
 	const error = ref<string | null>(null);
 	const { toast } = useToast();
 
-	async function fetchResponsibilities(retreatId: string) {
+	async function fetchResponsibilities(retreatId: string, options: { silent?: boolean } = {}) {
 		loading.value = true;
 		error.value = null;
 		try {
@@ -19,8 +19,10 @@ export const useResponsabilityStore = defineStore('responsability', () => {
 			responsibilities.value = response.data;
 		} catch (e: any) {
 			error.value = 'Failed to fetch responsibilities.';
-			toast({ title: 'Error', description: error.value, variant: 'destructive' });
-			console.error(e);
+			if (!options.silent) {
+				toast({ title: 'Error', description: error.value, variant: 'destructive' });
+				console.error(e);
+			}
 		} finally {
 			loading.value = false;
 		}

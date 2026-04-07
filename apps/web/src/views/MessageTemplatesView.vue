@@ -3,6 +3,8 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useMessageTemplateStore } from '../stores/messageTemplateStore';
 import { useParticipantStore } from '../stores/participantStore';
 import { useRetreatStore } from '../stores/retreatStore';
+import { useResponsabilityStore } from '../stores/responsabilityStore';
+import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { storeToRefs } from 'pinia';
 import { Button } from '@repo/ui';
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui';
@@ -21,6 +23,8 @@ const { templates, loading, error } = storeToRefs(store);
 const participantStore = useParticipantStore();
 const { participants } = storeToRefs(participantStore);
 const retreatStore = useRetreatStore();
+const responsabilityStore = useResponsabilityStore();
+const { can } = useAuthPermissions();
 
 const isDialogOpen = ref(false);
 const currentTemplate = ref<Partial<MessageTemplate> | null>(null);
@@ -32,18 +36,37 @@ const expandedRows = ref<Set<string>>(new Set());
 const sortField = ref<'name' | 'type'>('name');
 const sortDirection = ref<'asc' | 'desc'>('asc');
 
-// Format participants for modal
+// Format participants for modal — forward the full participant so all
+// template variables (emergency contacts, palancas, etc.) resolve, and
+// attach the resolved palanquero (looked up via palancasCoordinator).
+// Falls back to example data so the preview always shows something.
+const PLACEHOLDER_PALANQUERO = {
+  name: 'Ana Rodríguez (ejemplo)',
+  email: 'ana.rodriguez@ejemplo.com',
+  cellPhone: '555-101-2020',
+};
 const formattedParticipants = computed(() => {
-  return participants.value.map(participant => ({
-    id: participant.id,
-    name: `${participant.firstName} ${participant.lastName}`,
-    type: participant.type || 'WALKER',
-    firstName: participant.firstName,
-    lastName: participant.lastName,
-    nickname: participant.nickname || '',
-    cellPhone: participant.cellPhone || '',
-    email: participant.email || '',
-  }));
+  const responsibilities = responsabilityStore.responsibilities || [];
+  return participants.value.map(participant => {
+    let palanquero: { name: string; email?: string; cellPhone?: string } | undefined;
+    if (participant.palancasCoordinator) {
+      const r = responsibilities.find((r: any) => r.name === participant.palancasCoordinator);
+      const p = r?.participant;
+      if (p) {
+        palanquero = {
+          name: `${p.firstName ?? ''} ${p.lastName ?? ''}`.trim(),
+          email: p.email,
+          cellPhone: p.cellPhone,
+        };
+      }
+    }
+    return {
+      ...participant,
+      name: `${participant.firstName} ${participant.lastName}`,
+      type: participant.type || 'WALKER',
+      palanquero: palanquero ?? PLACEHOLDER_PALANQUERO,
+    };
+  });
 });
 
 // Enhanced table computed properties
@@ -135,6 +158,11 @@ onMounted(async () => {
     // Fetch participants for the selected retreat
     participantStore.filters.retreatId = retreatStore.selectedRetreatId;
     await participantStore.fetchParticipants();
+    // Best-effort: only used to enrich {participant.palanquero*} variables in
+    // the preview. Skip when the user lacks permission to avoid a 403.
+    if (can.list('responsability')) {
+      await responsabilityStore.fetchResponsibilities(retreatStore.selectedRetreatId, { silent: true });
+    }
   }
 });
 
@@ -144,6 +172,9 @@ watch(() => retreatStore.selectedRetreatId, async (newRetreatId) => {
     participantStore.filters.retreatId = newRetreatId;
     await participantStore.fetchParticipants();
     await store.fetchTemplates(newRetreatId);
+    if (can.list('responsability')) {
+      await responsabilityStore.fetchResponsibilities(newRetreatId, { silent: true });
+    }
   } else {
     // Clear participants and templates if no retreat is selected
     participants.value = [];
