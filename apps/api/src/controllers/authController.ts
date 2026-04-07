@@ -4,6 +4,8 @@ import { AppDataSource } from '../data-source';
 import { User } from '../entities/user.entity';
 import { Role } from '../entities/role.entity';
 import { UserRole } from '../entities/userRole.entity';
+import { Participant } from '../entities/participant.entity';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { UserService } from '../services/userService';
 import { GlobalMessageTemplateService } from '../services/globalMessageTemplateService';
 import { RecaptchaService } from '../services/recaptchaService';
@@ -91,6 +93,45 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 				roleId: defaultRole.id,
 			});
 			await userRoleRepo.save(userRole);
+		}
+
+		// Link any existing participant records that share this email so the
+		// user immediately sees their retreat history after registering.
+		try {
+			const participantRepo = AppDataSource.getRepository(Participant);
+			const existingParticipants = await participantRepo
+				.createQueryBuilder('participant')
+				.where('LOWER(participant.email) = :email', { email })
+				.getMany();
+
+			if (existingParticipants.length > 0) {
+				const mostRecent = existingParticipants.sort(
+					(a, b) => b.registrationDate.getTime() - a.registrationDate.getTime(),
+				)[0];
+				newUser.participantId = mostRecent.id;
+				await userRepository.save(newUser);
+
+				for (const p of existingParticipants) {
+					if (!p.userId) {
+						p.userId = newUser.id;
+						await participantRepo.save(p);
+					}
+				}
+
+				// Also stamp userId on any retreat_participants rows linked to
+				// these participants so /history/my-retreats picks them up.
+				await AppDataSource.getRepository(RetreatParticipant)
+					.createQueryBuilder()
+					.update(RetreatParticipant)
+					.set({ userId: newUser.id })
+					.where('userId IS NULL AND participantId IN (:...ids)', {
+						ids: existingParticipants.map((p) => p.id),
+					})
+					.execute();
+			}
+		} catch (linkError) {
+			console.error('Error linking existing participants on register:', linkError);
+			// Do not fail registration if linking fails.
 		}
 
 		res.status(201).json({ message: 'Usuario creado exitosamente.' });

@@ -17,6 +17,7 @@ import {
 	CreateHistoryData,
 } from './retreatParticipantService';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
+import { User } from '../entities/user.entity';
 import { Responsability } from '../entities/responsability.entity';
 import { ParticipantCommunication } from '../entities/participantCommunication.entity';
 
@@ -1115,8 +1116,33 @@ export const createParticipant = async (
 			newParticipantData.nickname = newParticipantData.firstName;
 		}
 
+		// Auto-link to a user account if the participant's email matches one.
+		// This ensures `/retreats/attended` and `/history/my-retreats` immediately
+		// surface the retreat for the owning user.
+		if (!(newParticipantData as any).userId && normalizedEmail) {
+			const userRepo = transactionalEntityManager.getRepository(User);
+			const matchingUser = await userRepo
+				.createQueryBuilder('user')
+				.where('LOWER(user.email) = :email', { email: normalizedEmail })
+				.getOne();
+			if (matchingUser) {
+				(newParticipantData as any).userId = matchingUser.id;
+			}
+		}
+
 		const newParticipant = participantRepository.create(newParticipantData);
 		let savedParticipant: Participant = await participantRepository.save(newParticipant);
+
+		// Reciprocal link: if the matched user has no participantId yet, set it.
+		if (savedParticipant.userId) {
+			const userRepo = transactionalEntityManager.getRepository(User);
+			await userRepo
+				.createQueryBuilder()
+				.update(User)
+				.set({ participantId: savedParticipant.id })
+				.where('id = :id AND participantId IS NULL', { id: savedParticipant.userId })
+				.execute();
+		}
 
 		// Set virtual fields for use later in this function
 		savedParticipant.type = participantData.type;

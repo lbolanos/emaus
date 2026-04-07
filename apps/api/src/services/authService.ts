@@ -7,6 +7,7 @@ import { User } from '../entities/user.entity';
 import { UserRole } from '../entities/userRole.entity';
 import { Role } from '../entities/role.entity';
 import { Participant } from '../entities/participant.entity';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { getRepositories } from '../utils/repositoryHelpers';
 import { config } from '../config';
 import { v4 as uuidv4 } from 'uuid';
@@ -106,9 +107,30 @@ export function configurePassportStrategies(
 									)[0];
 
 									newUser.participantId = mostRecentParticipant.id;
-									mostRecentParticipant.userId = newUser.id;
-									await participantRepo.save(mostRecentParticipant);
 									await repos.user.save(newUser);
+
+									// Stamp userId on ALL matching participants so every retreat
+									// they appear in surfaces under this account.
+									for (const p of existingParticipants) {
+										if (!p.userId) {
+											p.userId = newUser.id;
+											await participantRepo.save(p);
+										}
+									}
+
+									// Also stamp userId on any retreat_participants rows linked to
+									// these participants so /history/my-retreats picks them up.
+									const rpRepoLink = dataSource
+										? dataSource.getRepository(RetreatParticipant)
+										: AppDataSource.getRepository(RetreatParticipant);
+									await rpRepoLink
+										.createQueryBuilder()
+										.update(RetreatParticipant)
+										.set({ userId: newUser.id })
+										.where('userId IS NULL AND participantId IN (:...ids)', {
+											ids: existingParticipants.map((p) => p.id),
+										})
+										.execute();
 
 									// Create history entries for all past participations
 									for (const participant of existingParticipants) {

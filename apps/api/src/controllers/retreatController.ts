@@ -11,6 +11,7 @@ import { AuthenticatedRequest } from '../middleware/authorization';
 import { AppDataSource } from '../data-source';
 import { Retreat } from '../entities/retreat.entity';
 import { Participant } from '../entities/participant.entity';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { avatarStorageService } from '../services/avatarStorageService';
 import { s3Service } from '../services/s3Service';
 import { imageService } from '../services/imageService';
@@ -299,17 +300,30 @@ export const getAttendedRetreats = async (req: Request, res: Response, next: Nex
 		}
 
 		const participantRepo = AppDataSource.getRepository(Participant);
+		const retreatParticipantRepo = AppDataSource.getRepository(RetreatParticipant);
 
+		// Source 1: legacy/per-retreat participants table linked by userId
 		const participants = await participantRepo.find({
 			where: { userId },
 			relations: ['retreat'],
 		});
 
-		const retreats = participants
-			.map((p) => p.retreat)
-			.filter((r): r is Retreat => r !== undefined && r !== null);
+		// Source 2: retreat_participants junction (a single participant may
+		// attend multiple retreats via this table)
+		const retreatParticipations = await retreatParticipantRepo.find({
+			where: { userId },
+			relations: ['retreat'],
+		});
 
-		res.json(retreats);
+		const retreatsById = new Map<string, Retreat>();
+		for (const p of participants) {
+			if (p.retreat) retreatsById.set(p.retreat.id, p.retreat);
+		}
+		for (const rp of retreatParticipations) {
+			if (rp.retreat) retreatsById.set(rp.retreat.id, rp.retreat);
+		}
+
+		res.json(Array.from(retreatsById.values()));
 	} catch (error) {
 		next(error);
 	}
