@@ -483,11 +483,15 @@ El gafete debe ser de color diferente para servidor y para caminante.
 cuando llegue un nuevo caminante enviar correo a palanquero1 o 2 o 3 configurable
 al ediar el participante asignar palanquero si existe servidor asigando a palanquero x en las responsabilidades mostrar el nombre
 
+agregar contacto emergencia a variables de mensajes y cuando se envie un mensaje al participante se mire cual se escogio en el formulario de envio de mensajes.  agregar tambien nombre del palanquero a la lista de variables.
+tambien agregar invitador en la lista de envio de mensajes.
+si alguna variable esta vacia dejar constancia visible cuando se este enviando el mensaje.
+numero de mensajes enviados como columna en la lista de participantes.
+
 
 ## IN PROGRESS
-en la pagina palancas un boton para que se puedan ver los servidores
 
-
+en enviar mensaje se congela la interfaz no deja cancelar.
 
 create a migration script just for testing red social. is not for production. create users, retreats, communities, houses, participants, messages, friends, followers, blocks, searches, avatars, and messages.
 Cuando un usuario se registra y existe como caminante de algun retiro convertirlo en usuario y que pueda ver el historial de retiros en los que ha participado como servidor y el retiro en el que camino como principal.
@@ -500,7 +504,7 @@ aumentar el coverage de las pruebas
 verificar que todas la pruebas pasen.
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
 agregar todas las actividades por servidor
-<
+
 
 ## TODO
 
