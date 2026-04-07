@@ -523,7 +523,8 @@
       "retreatId": "ID Retiro",
       "tableId": "ID Mesa",
       "tags": "Etiquetas",
-      "retreatBedId": "ID Cuarto"
+      "retreatBedId": "ID Cuarto",
+      "messageCount": "Mensajes Enviados"
     },
     "filters": {
       "title": "Filtros Avanzados",

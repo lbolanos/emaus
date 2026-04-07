@@ -248,6 +248,9 @@ export class Participant {
 	@OneToOne(() => RetreatBed, (retreatBed) => retreatBed.participant)
 	retreatBed?: RetreatBed | null;
 
+	// Virtual — populated by findAllParticipants from participant_communications count
+	messageCount?: number;
+
 	// --- PROPERTIES COMPUTADAS ---
 
 	/**
@@ -367,6 +370,7 @@ export class Participant {
 		// Ensure virtual fields from retreat_participants are present
 		if (this.id_on_retreat !== undefined) plainObject.id_on_retreat = this.id_on_retreat;
 		if (this.type !== undefined) plainObject.type = this.type;
+		if (this.messageCount !== undefined) plainObject.messageCount = this.messageCount;
 
 		return plainObject;
 	}

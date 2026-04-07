@@ -123,6 +123,8 @@ const maxBirthDate = computed(() => {
   return d.toISOString().slice(0, 10)
 })
 
+const READ_ONLY_COMPUTED_FIELDS = ['totalPaid', 'paymentStatus', 'lastPaymentDate'];
+
 const getColumnType = (key: string) => {
     const col = props.allColumns.find(c => c.key === key);
     if (col && col.type) return col.type;
@@ -544,7 +546,7 @@ const calculateAge = (birthDate: string | Date) => {
             ]"
           >
             <Label v-if="getColumnType(key) !== 'tags'" :for="key" class="text-xs font-medium text-gray-500">{{ getColumnLabel(key) }}</Label>
-            <template v-if="columnsToEdit.includes(key)">
+            <template v-if="columnsToEdit.includes(key) && !READ_ONLY_COMPUTED_FIELDS.includes(key)">
               <Input
                 v-if="getColumnType(key) === 'text'"
                 :id="key"
@@ -631,7 +633,12 @@ const calculateAge = (birthDate: string | Date) => {
             </template>
             <!-- Read-only field display -->
             <div v-else class="flex items-center min-h-[36px] px-3 py-1.5 bg-gray-50 rounded-md border border-gray-100 text-sm text-gray-600">
-              {{ getColumnType(key) === 'date' ? formatDateForDisplay(participant[key]) : (getColumnType(key) === 'boolean' ? (participant[key] ? 'S\u00ed' : 'No') : (participant[key] || '\u2014')) }}
+              <template v-if="key === 'totalPaid'">
+                {{ new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(participant[key]) || 0) }}
+              </template>
+              <template v-else>
+                {{ getColumnType(key) === 'date' ? formatDateForDisplay(participant[key]) : (getColumnType(key) === 'boolean' ? (participant[key] ? 'S\u00ed' : 'No') : (participant[key] || '\u2014')) }}
+              </template>
             </div>
           </div>
         </div>

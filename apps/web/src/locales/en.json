@@ -475,7 +475,8 @@
       "retreatId": "Retreat ID",
       "tableId": "Table ID",
       "tags": "Tags",
-      "retreatBedId": "Bed ID"
+      "retreatBedId": "Bed ID",
+      "messageCount": "Messages Sent"
     },
     "filters": {
       "title": "Advanced Filters",

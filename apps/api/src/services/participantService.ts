@@ -366,6 +366,23 @@ export const findAllParticipants = async (
 					p.family_friend_color = h.familyFriendColor ?? undefined;
 			}
 		}
+
+		// Attach message count per participant for this retreat
+		const communicationRepo = AppDataSource.getRepository(ParticipantCommunication);
+		const messageCounts = await communicationRepo
+			.createQueryBuilder('pc')
+			.select('pc.participantId', 'participantId')
+			.addSelect('COUNT(pc.id)', 'count')
+			.where('pc.retreatId = :retreatId', { retreatId })
+			.andWhere('pc.participantId IN (:...ids)', { ids: participants.map((p) => p.id) })
+			.groupBy('pc.participantId')
+			.getRawMany<{ participantId: string; count: string | number }>();
+		const messageCountMap = new Map<string, number>(
+			messageCounts.map((row) => [row.participantId, Number(row.count) || 0]),
+		);
+		for (const p of participants) {
+			p.messageCount = messageCountMap.get(p.id) ?? 0;
+		}
 	}
 
 	// Enrich servers who are table leaders (lider/colider1/colider2) but have no tableId.

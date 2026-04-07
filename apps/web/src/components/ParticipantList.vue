@@ -377,6 +377,7 @@ const allColumns = ref([
     { key: 'tableId', label: 'participants.fields.tableId' },
     { key: 'tags', label: 'participants.fields.tags' },
     { key: 'retreatBed.roomNumber', label: 'rooms.roomNumber' },
+    { key: 'messageCount', label: 'participants.fields.messageCount' },
 ]);
 
 const longTextColumns = new Set([
