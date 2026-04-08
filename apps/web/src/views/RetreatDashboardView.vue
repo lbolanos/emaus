@@ -433,7 +433,11 @@ const openFlyer = () => {
 };
 
 
+let loadedRetreatId: string | null = null;
+
 const loadRetreatData = async (retreatId: string) => {
+  if (loadedRetreatId === retreatId) return;
+  loadedRetreatId = retreatId;
   isLoading.value = true;
   error.value = '';
 
@@ -450,6 +454,7 @@ const loadRetreatData = async (retreatId: string) => {
   } catch (err) {
     error.value = 'Error al cargar los datos del retiro';
     console.error('Error loading retreat data:', err);
+    loadedRetreatId = null;
   } finally {
     isLoading.value = false;
   }
@@ -465,9 +470,9 @@ watch(
   { immediate: true }
 );
 
-// Also watch for selectedRetreat changes from the store
+// Also watch for selectedRetreat changes from the store (e.g., picking a retreat from the sidebar)
 watch(
-  () => selectedRetreat.value?.id,
+  () => retreatStore.selectedRetreatId,
   (newRetreatId, oldRetreatId) => {
     if (newRetreatId && newRetreatId !== oldRetreatId) {
       loadRetreatData(newRetreatId);
