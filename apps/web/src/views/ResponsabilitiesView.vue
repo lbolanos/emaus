@@ -267,6 +267,12 @@
                 <span class="font-medium">{{ participant.firstName }} {{ participant.lastName }}</span>
                 <span class="text-sm text-gray-500">{{ participant.email }}</span>
                 <span class="text-sm text-gray-500">{{ participant.cellPhone }}</span>
+                <span
+                  v-if="getExistingAssignments(participant.id).length > 0"
+                  class="text-xs text-amber-600 dark:text-amber-400 mt-1"
+                >
+                  Ya asignado a: {{ getExistingAssignments(participant.id).join(', ') }}
+                </span>
               </div>
               <Button variant="outline" size="sm">{{ $t('responsibilities.assign') }}</Button>
             </div>
@@ -541,9 +547,13 @@ const filteredResponsibilities = computed(() => {
 });
 
 const availableParticipants = computed(() => {
-  const assignedIds = new Set(responsibilities.value.map(c => c.participantId).filter(Boolean));
-  return (participants.value || []).filter(p => p.type === 'server' && !p.isCancelled && !assignedIds.has(p.id));
+  return (participants.value || []).filter(p => p.type === 'server' && !p.isCancelled);
 });
+
+const getExistingAssignments = (participantId: string) =>
+  responsibilities.value
+    .filter(r => r.participantId === participantId && r.id !== selectedResponsability.value?.id)
+    .map(r => r.name);
 
 const filteredParticipants = computed(() => {
   if (!serverSearchTerm.value.trim()) {
