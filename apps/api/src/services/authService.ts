@@ -101,6 +101,35 @@ export function configurePassportStrategies(
 										`Found ${existingParticipants.length} existing participant(s) for new user ${userEmail}, linking accounts...`,
 									);
 
+									// Overlay virtual `type` from retreat_participants so the
+									// roleInRetreat below doesn't always default to 'server'.
+									// `Participant.type` is not a DB column — source of truth
+									// lives in retreat_participants.
+									const rpRepoType = dataSource
+										? dataSource.getRepository(RetreatParticipant)
+										: AppDataSource.getRepository(RetreatParticipant);
+									const rpRowsForType = await rpRepoType.find({
+										where: existingParticipants
+											.filter((p) => p.retreatId)
+											.map((p) => ({
+												participantId: p.id,
+												retreatId: p.retreatId!,
+											})),
+										select: ['participantId', 'retreatId', 'type'],
+									});
+									const typeByKey = new Map<string, string>();
+									for (const row of rpRowsForType) {
+										if (row.type) {
+											typeByKey.set(`${row.participantId}:${row.retreatId}`, row.type);
+										}
+									}
+									for (const p of existingParticipants) {
+										if (p.retreatId) {
+											const t = typeByKey.get(`${p.id}:${p.retreatId}`);
+											if (t) p.type = t as Participant['type'];
+										}
+									}
+
 									// Link the most recent participant to the user
 									const mostRecentParticipant = existingParticipants.sort(
 										(a, b) => b.registrationDate.getTime() - a.registrationDate.getTime(),

@@ -1257,6 +1257,27 @@ export const createParticipant = async (
 				return savedParticipant;
 			}
 
+			// Source of truth for `type`: read it from retreat_participants.
+			// The virtual `savedParticipant.type` can be undefined if the caller
+			// didn't pass it or if the reload block above stripped it, causing the
+			// email selection ternary to default to 'SERVER_WELCOME' for walkers.
+			let resolvedType: Participant['type'] = savedParticipant.type;
+			if (savedParticipant.retreatId) {
+				const rpForType = await transactionalEntityManager
+					.getRepository(RetreatParticipant)
+					.findOne({
+						where: {
+							participantId: savedParticipant.id,
+							retreatId: savedParticipant.retreatId,
+						},
+						select: ['type'],
+					});
+				if (rpForType?.type) {
+					resolvedType = rpForType.type as Participant['type'];
+					savedParticipant.type = resolvedType;
+				}
+			}
+
 			const emailService = new EmailService();
 			const commRepo = transactionalEntityManager.getRepository(ParticipantCommunication);
 
@@ -1289,7 +1310,7 @@ export const createParticipant = async (
 
 			// Send welcome email to participant (configurable)
 			if (retreat.notifyParticipant !== false) {
-				const templateType = savedParticipant.type === 'walker' ? 'WALKER_WELCOME' : 'SERVER_WELCOME';
+				const templateType = resolvedType === 'walker' ? 'WALKER_WELCOME' : 'SERVER_WELCOME';
 
 				const welcomeTemplate = await transactionalEntityManager
 					.getRepository(MessageTemplate)
@@ -1314,7 +1335,7 @@ export const createParticipant = async (
 						participantId: savedParticipant.id,
 						retreatId: savedParticipant.retreatId,
 						recipientContact: savedParticipant.email,
-						subject: `Bienvenida ${savedParticipant.type === 'walker' ? 'Caminante' : 'Servidor'}`,
+						subject: `Bienvenida ${resolvedType === 'walker' ? 'Caminante' : 'Servidor'}`,
 						messageContent: welcomeTemplate.message,
 						templateId: welcomeTemplate.id,
 						templateName: welcomeTemplate.name,
@@ -1378,7 +1399,7 @@ export const createParticipant = async (
 								<p><strong>Detalles del participante:</strong></p>
 								<ul>
 									<li>Nombre: ${escapeHtml(savedParticipant.firstName)} ${escapeHtml(savedParticipant.lastName)}</li>
-									<li>Tipo: ${savedParticipant.type === 'walker' ? 'Caminante' : 'Servidor'}</li>
+									<li>Tipo: ${resolvedType === 'walker' ? 'Caminante' : 'Servidor'}</li>
 									<li>Email: ${escapeHtml(savedParticipant.email) || 'No proporcionado'}</li>
 									<li>Teléfono: ${escapeHtml(savedParticipant.cellPhone) || 'No proporcionado'}</li>
 								</ul>
@@ -1410,7 +1431,7 @@ export const createParticipant = async (
 			}
 
 			// Send notification to configured palanqueros (only for walkers)
-			if (savedParticipant.type === 'walker' && retreat.notifyPalanqueros?.length) {
+			if (resolvedType === 'walker' && retreat.notifyPalanqueros?.length) {
 				const palanqueroNames = retreat.notifyPalanqueros.map((n: number) => `Palanquero ${n}`);
 
 				const palanqueroResponsibilities = await transactionalEntityManager
@@ -2282,6 +2303,20 @@ export const linkUserToParticipant = async (
 		throw new Error('Participant not found');
 	}
 
+	// Overlay virtual `type` from retreat_participants (source of truth).
+	// `participant.type` is NOT a DB column on Participant, so `findOne`
+	// returns it as undefined and the ternaries below would default to 'server'.
+	if (participant.retreatId) {
+		const rpRepo = AppDataSource.getRepository(RetreatParticipant);
+		const rp = await rpRepo.findOne({
+			where: { participantId: participant.id, retreatId: participant.retreatId },
+			select: ['type'],
+		});
+		if (rp?.type) {
+			participant.type = rp.type as Participant['type'];
+		}
+	}
+
 	const { User } = await import('../entities/user.entity');
 	const userRepository = AppDataSource.getRepository(User);
 	const user = await userRepository.findOne({
@@ -2553,7 +2588,23 @@ export const importParticipants = async (retreatId: string, participantsData: an
 				); // skipRebalance = true during import
 				updatedCount++;
 				processedParticipantIds.push(existingParticipant.id);
-				participant = existingParticipant;
+				// Use updatedParticipant (which has the virtual `type` overlaid from
+				// retreat_participants via updateParticipant) instead of the raw
+				// existingParticipant from the query builder — the latter has
+				// `type === undefined` because it's not a DB column on Participant.
+				participant = updatedParticipant ?? existingParticipant;
+				if (participant.type == null && existingParticipant.retreatId) {
+					const rpType = await AppDataSource.getRepository(RetreatParticipant).findOne({
+						where: {
+							participantId: existingParticipant.id,
+							retreatId: existingParticipant.retreatId,
+						},
+						select: ['type'],
+					});
+					if (rpType?.type) {
+						participant.type = rpType.type as Participant['type'];
+					}
+				}
 
 				// Create payment record if payment data exists in import
 				const paymentResult = await createPaymentFromImport(
