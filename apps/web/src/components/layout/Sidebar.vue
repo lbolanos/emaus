@@ -835,24 +835,26 @@ const menuSections: MenuSection[] = [
 ];
 
 const filteredMenuSections = computed(() => {
+  const isSuperadmin = auth.userProfile?.roles?.some(role => role.role.name === 'superadmin') ?? false;
   return menuSections.map(section => {
     const filteredItems = section.items.filter(item => {
       if (item.requiresRetreat && !retreatStore.selectedRetreatId) return false;
-      if (item.permission === 'superadmin' && !auth.userProfile?.roles?.some(role => role.role.name === 'superadmin')) return false;
+      if (item.permission === 'superadmin' && !isSuperadmin) return false;
 
       if (item.name === 'communities') {
-        const isSuperadmin = auth.userProfile?.roles?.some(role => role.role.name === 'superadmin');
         const hasCommunities = communityStore.communities.length > 0;
         if (!isSuperadmin && !hasCommunities) return false;
       }
 
       if (item.name === 'role-management') {
         const hasUserManage = can.manage('user');
-        if (!hasUserManage) return false;
+        if (!isSuperadmin && !hasUserManage) return false;
       }
 
       if (item.permission && item.permission !== 'superadmin' && item.name !== 'role-management' && item.name !== 'communities') {
-        if (item.requiresRetreat && retreatStore.selectedRetreatId) {
+        if (isSuperadmin) {
+          // superadmin siempre ve todos los menús
+        } else if (item.requiresRetreat && retreatStore.selectedRetreatId) {
           // For retreat items, check only retreat role permissions (not global)
           const hasPermission = retreatOnlyPermissions.value.includes(`${item.permission}:read`);
           if (!hasPermission) return false;
