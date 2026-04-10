@@ -310,6 +310,68 @@ vi.mock('@repo/ui', () => ({
 		name: 'Toast',
 		template: '<div><slot /></div>',
 	},
+	Badge: {
+		name: 'Badge',
+		template: '<span><slot /></span>',
+		props: ['variant'],
+	},
+	Progress: {
+		name: 'Progress',
+		template: '<div class="progress"></div>',
+		props: ['value', 'class'],
+	},
+	Card: {
+		name: 'Card',
+		template: '<div class="card"><slot /></div>',
+		props: ['class'],
+	},
+	CardHeader: {
+		name: 'CardHeader',
+		template: '<div><slot /></div>',
+		props: ['class'],
+	},
+	CardTitle: {
+		name: 'CardTitle',
+		template: '<h3><slot /></h3>',
+		props: ['class'],
+	},
+	CardDescription: {
+		name: 'CardDescription',
+		template: '<p><slot /></p>',
+	},
+	CardContent: {
+		name: 'CardContent',
+		template: '<div><slot /></div>',
+		props: ['class'],
+	},
+	CardFooter: {
+		name: 'CardFooter',
+		template: '<div><slot /></div>',
+	},
+	Label: {
+		name: 'Label',
+		template: '<label><slot /></label>',
+	},
+	Select: {
+		name: 'Select',
+		template: '<div><slot /></div>',
+	},
+	SelectContent: {
+		name: 'SelectContent',
+		template: '<div><slot /></div>',
+	},
+	SelectItem: {
+		name: 'SelectItem',
+		template: '<div><slot /></div>',
+	},
+	SelectTrigger: {
+		name: 'SelectTrigger',
+		template: '<div><slot /></div>',
+	},
+	SelectValue: {
+		name: 'SelectValue',
+		template: '<div><slot /></div>',
+	},
 	useToast: () => ({
 		toast: vi.fn(),
 	}),
@@ -354,6 +416,18 @@ vi.mock('lucide-vue-next', () => ({
 	AlertTriangle: { name: 'AlertTriangle', template: '<svg></svg>' },
 	CheckCircle: { name: 'CheckCircle', template: '<svg></svg>' },
 	MessageSquare: { name: 'MessageSquare', template: '<svg></svg>' },
+	BookOpen: { name: 'BookOpen', template: '<svg></svg>' },
+	CalendarDays: { name: 'CalendarDays', template: '<svg></svg>' },
+	Camera: { name: 'Camera', template: '<svg></svg>' },
+	Clock: { name: 'Clock', template: '<svg></svg>' },
+	Copy: { name: 'Copy', template: '<svg></svg>' },
+	ExternalLink: { name: 'ExternalLink', template: '<svg></svg>' },
+	FileText: { name: 'FileText', template: '<svg></svg>' },
+	Link: { name: 'Link', template: '<svg></svg>' },
+	Mail: { name: 'Mail', template: '<svg></svg>' },
+	Music: { name: 'Music', template: '<svg></svg>' },
+	QrCode: { name: 'QrCode', template: '<svg></svg>' },
+	UserPlus: { name: 'UserPlus', template: '<svg></svg>' },
 }));
 
 // Mock axios
