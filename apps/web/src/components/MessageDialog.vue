@@ -1,5 +1,5 @@
 <template>
-  <Dialog v-model:open="isOpen" @keydown.esc="handleEscape" @keydown.ctrl.s.prevent="sendMessage" @keydown.ctrl.enter.prevent="sendMessage">
+  <Dialog v-model:open="isOpen" @keydown.ctrl.s.prevent="sendMessage" @keydown.ctrl.enter.prevent="sendMessage">
     <DialogContent :class="showHistory ? 'max-w-5xl' : 'max-w-2xl'" class="focus:outline-none">
       <DialogHeader>
         <div class="flex items-center justify-between">
@@ -326,7 +326,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount, onUnmounted, markRaw } from 'vue';
+import { ref, computed, watch, onUnmounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useCommunityStore } from '@/stores/communityStore';
@@ -433,7 +433,6 @@ const historyComponentLoading = ref(false);
 const historyMessageCount = ref(0);
 const isUserEditing = ref(false);
 const emptyVariables = ref<string[]>([]);
-let ariaHiddenObserver: MutationObserver | null = null;
 
 // Computed properties
 const contextId = computed(() => props.context === 'retreat' ? props.retreatId : props.communityId);
@@ -634,14 +633,6 @@ const updateMessagePreview = () => {
 };
 
 // Functions
-const handleEscape = () => {
-	if (showHistory.value) {
-		showHistory.value = false;
-	} else {
-		closeDialog();
-	}
-};
-
 const copyToClipboard = async () => {
 	if (!editedMessage.value) return;
 
@@ -998,53 +989,8 @@ const sendMessage = async () => {
 	}
 };
 
-const setupAriaHiddenObserver = () => {
-	if (ariaHiddenObserver) {
-		ariaHiddenObserver.disconnect();
-	}
-
-	ariaHiddenObserver = new MutationObserver((mutations) => {
-		mutations.forEach((mutation) => {
-			if (mutation.type === 'attributes' && mutation.attributeName === 'aria-hidden') {
-				const target = mutation.target as HTMLElement;
-
-				if (target.classList.contains('max-w-2xl') ||
-						target.closest('.fixed')?.classList.contains('max-w-2xl') ||
-						(target.getAttribute('role') === 'dialog' || target.closest('[role="dialog"]'))) {
-
-					const activeElement = document.activeElement;
-					if (activeElement && target.contains(activeElement)) {
-						target.removeAttribute('aria-hidden');
-					}
-				}
-			}
-		});
-	});
-
-	ariaHiddenObserver.observe(document.body, {
-		attributes: true,
-		attributeFilter: ['aria-hidden'],
-		subtree: true
-	});
-
-	const dialogElements = document.querySelectorAll('.max-w-2xl, [role="dialog"]');
-	dialogElements.forEach((element) => {
-		const activeElement = document.activeElement;
-		if (activeElement && element.contains(activeElement) && element.getAttribute('aria-hidden') === 'true') {
-			element.removeAttribute('aria-hidden');
-		}
-	});
-};
-
-const cleanupAriaHiddenObserver = () => {
-	if (ariaHiddenObserver) {
-		ariaHiddenObserver.disconnect();
-		ariaHiddenObserver = null;
-	}
-};
 
 const closeDialog = () => {
-	cleanupAriaHiddenObserver();
 	isOpen.value = false;
 };
 
@@ -1142,7 +1088,6 @@ watch(() => props.open, (newValue: boolean) => {
 		}
 
 		checkEmailServerConfig();
-		setupAriaHiddenObserver();
 		loadMessageCount();
 
 		setTimeout(() => {
@@ -1151,6 +1096,11 @@ watch(() => props.open, (newValue: boolean) => {
 				focusedElement.blur();
 			}
 		}, 50);
+	} else {
+		// Cleanup on close: reset transient state so radix-vue can
+		// properly remove its overlay and restore the DOM.
+		isSending.value = false;
+		showValidationErrors.value = false;
 	}
 });
 
@@ -1227,10 +1177,6 @@ watch(
 
 onUnmounted(() => {
 	cleanupDrafts();
-});
-
-onBeforeUnmount(() => {
-	cleanupAriaHiddenObserver();
 });
 </script>
 
