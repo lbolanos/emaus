@@ -870,16 +870,24 @@ const getFilterLabel = () => {
   return parts.join(', ');
 };
 
-watch(() => retreatStore.selectedRetreatId, (newId) => {
-  if (newId) {
+// Use props.id (route param) as the single source of truth to avoid
+// ping-pong loops when selectedRetreatId differs from the URL.
+onMounted(async () => {
+  await retreatStore.fetchRetreat(props.id);
+  fetchBeds();
+  participantStore.filters.retreatId = props.id;
+  participantStore.fetchParticipants();
+});
+
+watch(() => retreatStore.selectedRetreatId, (newId, oldId) => {
+  if (newId && newId !== oldId && newId !== props.id) {
+    // User picked a different retreat from the sidebar — let the router handle it
+    return;
+  }
+  if (newId && newId !== oldId) {
     fetchBeds();
     participantStore.filters.retreatId = newId;
     participantStore.fetchParticipants();
   }
-}, { immediate: true });
-
-onMounted(async () => {
-  // Always fetch fresh retreat data (includes house with beds, address2, etc.)
-  await retreatStore.fetchRetreat(props.id);
 });
 </script>

@@ -586,21 +586,14 @@ const getCardClass = (resp: Responsability) => {
     : 'border-l-4 border-l-amber-500 bg-amber-50/30 dark:bg-amber-950/10';
 };
 
-onMounted(() => {
-  if (selectedRetreatId.value) {
-    responsabilityStore.fetchResponsibilities(selectedRetreatId.value);
-    participantStore.filters.retreatId = selectedRetreatId.value;
-    participantStore.fetchParticipants();
-  }
-});
-
+// Single watcher with immediate:true replaces the duplicate onMounted + watch.
 watch(selectedRetreatId, (newRetreatId) => {
   if (newRetreatId) {
     responsabilityStore.fetchResponsibilities(newRetreatId);
     participantStore.filters.retreatId = newRetreatId;
     participantStore.fetchParticipants();
   }
-});
+}, { immediate: true });
 
 const openAddEditModal = (responsability: Responsability | null) => {
   editingResponsability.value = responsability;

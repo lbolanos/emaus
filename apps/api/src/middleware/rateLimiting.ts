@@ -98,7 +98,7 @@ export const registerLimiter = rateLimit({
  */
 export const apiLimiter = rateLimit({
 	windowMs: 1 * 60 * 1000, // 1 minute
-	max: 150, // 150 requests per minute (safe now that CSRF tokens are cached)
+	max: 300, // 300 requests per minute per IP
 	message: {
 		message: 'Demasiadas solicitudes. Reduce la velocidad.',
 		error: 'API_RATE_LIMIT_EXCEEDED',

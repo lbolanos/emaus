@@ -99,7 +99,15 @@ export const useAuthStore = defineStore('auth', () => {
 				userProfile.value = null;
 				isAuthenticated.value = false;
 			}
-		} catch (error) {
+		} catch (error: any) {
+			// Don't reset auth state on rate-limit or network errors —
+			// treat them as "unknown" rather than "not authenticated",
+			// so the router guard doesn't redirect to login in a loop.
+			const status = error?.response?.status;
+			if (status === 429 || !error?.response) {
+				console.warn('[Auth] checkAuthStatus failed (rate-limit or network), keeping current state');
+				return;
+			}
 			user.value = null;
 			userProfile.value = null;
 			isAuthenticated.value = false;

@@ -539,18 +539,20 @@ watch(
   { immediate: true }
 );
 
+// When the user picks a different retreat from the sidebar, navigate to it
+// instead of loading data directly — this avoids a reactive ping-pong loop
+// between route.params.id and selectedRetreatId.
 watch(
   () => retreatStore.selectedRetreatId,
   (newRetreatId, oldRetreatId) => {
-    if (newRetreatId && newRetreatId !== oldRetreatId) {
-      loadRetreatData(newRetreatId);
+    if (newRetreatId && newRetreatId !== oldRetreatId && newRetreatId !== route.params.id) {
+      router.replace({ name: 'retreat-dashboard', params: { id: newRetreatId } });
     }
   }
 );
 
-onMounted(async () => {
-  if (retreatStore.selectedRetreatId) {
-    await loadRetreatData(retreatStore.selectedRetreatId);
-  }
-});
+// NOTE: Do NOT add an onMounted that calls loadRetreatData here.
+// The immediate watcher on route.params.id already handles the initial load.
+// Adding one caused a ping-pong loop between two retreat IDs when
+// selectedRetreatId (from localStorage) differed from route.params.id.
 </script>

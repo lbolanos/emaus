@@ -609,7 +609,7 @@ const handlePrintTables = () => {
   window.print();
 };
 
-// Watch for retreat changes to fetch participants
+// Single watcher handles both initial load and retreat changes
 watch(
   () => [retreatStore.selectedRetreatId, retreatStore.retreats] as const,
   ([newRetreatId, retreats]) => {
@@ -617,16 +617,11 @@ watch(
       participantStore.filters.retreatId = newRetreatId;
       participantStore.filters.isCancelled = false;
       participantStore.fetchParticipants();
+      tableMesaStore.fetchTables();
     }
   },
   { immediate: true }
 );
-
-onMounted(() => {
-  if (retreatStore.selectedRetreatId) {
-    tableMesaStore.fetchTables();
-  }
-});
 </script>
 
 <style>

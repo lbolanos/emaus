@@ -459,6 +459,7 @@ const handlePrint = () => {
   window.print();
 };
 
+// Single watcher handles both initial load and retreat changes
 watch(
   () => [retreatStore.selectedRetreatId, retreatStore.retreats] as const,
   ([newRetreatId, retreats]) => {
@@ -466,16 +467,11 @@ watch(
       participantStore.filters.retreatId = newRetreatId;
       participantStore.filters.isCancelled = false;
       participantStore.fetchParticipants();
+      serviceTeamStore.fetchTeams();
     }
   },
   { immediate: true }
 );
-
-onMounted(() => {
-  if (retreatStore.selectedRetreatId) {
-    serviceTeamStore.fetchTeams();
-  }
-});
 </script>
 
 <style>
