@@ -541,7 +541,12 @@ const availableResources = Object.values([
 const availableOperations = ['create', 'read', 'update', 'delete', 'list']
 
 // Computed
+const isSuperadmin = computed(() =>
+  authStore.userProfile?.roles?.some(role => role.role.name === 'superadmin') ?? false
+)
+
 const isRetreatCreator = computed(() => {
+  if (isSuperadmin.value) return true
   const retreat = retreatStore.selectedRetreat
   if (!retreat || !currentUserId.value) return false
   return retreat.createdBy === currentUserId.value

@@ -49,9 +49,10 @@ export const getRetreatRoleRequests = async (req: AuthenticatedRequest, res: Res
 			return res.status(401).json({ message: 'Unauthorized' });
 		}
 
-		// Only retreat creators can view role requests
+		// Only retreat creators or superadmins can view role requests
 		const isCreator = await authorizationService.isRetreatCreator(userId, retreatId);
-		if (!isCreator) {
+		const isSuperadmin = await authorizationService.hasRole(userId, 'superadmin');
+		if (!isCreator && !isSuperadmin) {
 			return res.status(403).json({ message: 'Only retreat creators can view role requests' });
 		}
 

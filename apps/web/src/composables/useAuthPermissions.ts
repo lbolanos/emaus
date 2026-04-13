@@ -196,6 +196,12 @@ export function useAuthPermissions() {
 	const currentRetreatRole = computed(() => {
 		if (!authStore.userProfile || !retreatStore.selectedRetreatId) return null;
 
+		// Superadmin always has a role
+		const superadminRole = authStore.userProfile.roles.find(
+			(roleDetail) => roleDetail.role.name === 'superadmin',
+		);
+		if (superadminRole) return superadminRole.role;
+
 		const retreatRole = authStore.userProfile.roles.find((roleDetail) =>
 			roleDetail.retreats.some((retreat) => retreat.retreatId === retreatStore.selectedRetreatId),
 		);

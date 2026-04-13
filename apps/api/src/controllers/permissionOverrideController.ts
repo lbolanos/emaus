@@ -15,9 +15,10 @@ export const setPermissionOverrides = async (req: AuthenticatedRequest, res: Res
 			return res.status(401).json({ message: 'Unauthorized' });
 		}
 
-		// Only retreat creators can set permission overrides
+		// Only retreat creators or superadmins can set permission overrides
 		const isCreator = await authorizationService.isRetreatCreator(setBy, retreatId);
-		if (!isCreator) {
+		const isSuperadmin = await authorizationService.hasRole(setBy, 'superadmin');
+		if (!isCreator && !isSuperadmin) {
 			return res
 				.status(403)
 				.json({ message: 'Only retreat creators can set permission overrides' });
@@ -61,10 +62,11 @@ export const getPermissionOverrides = async (req: AuthenticatedRequest, res: Res
 			return res.status(401).json({ message: 'Unauthorized' });
 		}
 
-		// Users can view their own overrides, retreat creators can view all
+		// Users can view their own overrides, retreat creators or superadmins can view all
 		if (userId !== requestUserId) {
 			const isCreator = await authorizationService.isRetreatCreator(requestUserId, retreatId);
-			if (!isCreator) {
+			const isSuperadmin = await authorizationService.hasRole(requestUserId, 'superadmin');
+			if (!isCreator && !isSuperadmin) {
 				return res.status(403).json({ message: 'Forbidden' });
 			}
 		}
@@ -87,9 +89,10 @@ export const clearPermissionOverrides = async (req: AuthenticatedRequest, res: R
 			return res.status(401).json({ message: 'Unauthorized' });
 		}
 
-		// Only retreat creators can clear permission overrides
+		// Only retreat creators or superadmins can clear permission overrides
 		const isCreator = await authorizationService.isRetreatCreator(clearedBy, retreatId);
-		if (!isCreator) {
+		const isSuperadmin = await authorizationService.hasRole(clearedBy, 'superadmin');
+		if (!isCreator && !isSuperadmin) {
 			return res
 				.status(403)
 				.json({ message: 'Only retreat creators can clear permission overrides' });
@@ -113,9 +116,10 @@ export const getRetreatPermissionOverrides = async (req: AuthenticatedRequest, r
 			return res.status(401).json({ message: 'Unauthorized' });
 		}
 
-		// Only retreat creators can view all retreat permission overrides
+		// Only retreat creators or superadmins can view all retreat permission overrides
 		const isCreator = await authorizationService.isRetreatCreator(userId, retreatId);
-		if (!isCreator) {
+		const isSuperadmin = await authorizationService.hasRole(userId, 'superadmin');
+		if (!isCreator && !isSuperadmin) {
 			return res.status(403).json({ message: 'Forbidden' });
 		}
 
@@ -137,10 +141,11 @@ export const getUserPermissionsWithOverrides = async (req: AuthenticatedRequest,
 			return res.status(401).json({ message: 'Unauthorized' });
 		}
 
-		// Users can view their own effective permissions, retreat creators can view others
+		// Users can view their own effective permissions, retreat creators or superadmins can view others
 		if (userId !== requestUserId) {
 			const isCreator = await authorizationService.isRetreatCreator(requestUserId, retreatId);
-			if (!isCreator) {
+			const isSuperadmin = await authorizationService.hasRole(requestUserId, 'superadmin');
+			if (!isCreator && !isSuperadmin) {
 				return res.status(403).json({ message: 'Forbidden' });
 			}
 		}

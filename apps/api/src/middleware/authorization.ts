@@ -666,7 +666,8 @@ export const requireRetreatCreator = (retreatIdParam: string = 'retreatId'): any
 			}
 
 			const isCreator = await authorizationService.isRetreatCreator(req.user.id, retreatId);
-			if (!isCreator) {
+			const isSuperadmin = await authorizationService.hasRole(req.user.id, 'superadmin');
+			if (!isCreator && !isSuperadmin) {
 				console.log(`Retreat creator check failed: user ${req.user.id} for retreat ${retreatId}`);
 				return res.status(403).json({ message: 'Forbidden' });
 			}

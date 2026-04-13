@@ -54,7 +54,8 @@ export class RetreatRoleService {
 
 		// Check if the inviter has permission to invite users to this retreat
 		const isCreator = await authorizationService.isRetreatCreator(invitedBy, retreatId);
-		if (!isCreator) {
+		const isSuperadmin = await authorizationService.hasRole(invitedBy, 'superadmin');
+		if (!isCreator && !isSuperadmin) {
 			throw new Error('Only retreat creator can invite users');
 		}
 
@@ -140,7 +141,8 @@ export class RetreatRoleService {
 
 		// Check if the remover has permission
 		const isCreator = await authorizationService.isRetreatCreator(removedBy, retreatId);
-		if (!isCreator) {
+		const isSuperadmin = await authorizationService.hasRole(removedBy, 'superadmin');
+		if (!isCreator && !isSuperadmin) {
 			throw new Error('Only retreat creator can remove users');
 		}
 
@@ -244,7 +246,8 @@ export class RetreatRoleService {
 	): Promise<UserRetreat> {
 		// Check if approver has permission
 		const isCreator = await authorizationService.isRetreatCreator(approvedBy, retreatId);
-		if (!isCreator) {
+		const isSuperadmin = await authorizationService.hasRole(approvedBy, 'superadmin');
+		if (!isCreator && !isSuperadmin) {
 			throw new Error('Only retreat creator can approve invitations');
 		}
 
@@ -280,7 +283,8 @@ export class RetreatRoleService {
 	): Promise<boolean> {
 		// Check if rejector has permission
 		const isCreator = await authorizationService.isRetreatCreator(rejectedBy, retreatId);
-		if (!isCreator) {
+		const isSuperadmin = await authorizationService.hasRole(rejectedBy, 'superadmin');
+		if (!isCreator && !isSuperadmin) {
 			throw new Error('Only retreat creator can reject invitations');
 		}
 
