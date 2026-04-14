@@ -123,7 +123,7 @@
             </div>
           </CardHeader>
           <CardContent>
-            <div class="text-3xl font-bold">{{ partialServersCount }}</div>
+            <div class="text-3xl font-bold">{{ angelitosCount }}</div>
             <p class="text-xs text-muted-foreground mt-2">{{ $t('retreatDashboard.partialServersDescription') }}</p>
           </CardContent>
         </Card>
@@ -442,7 +442,7 @@ const error = ref('');
 const walkersCount = computed(() => (participants.value || []).filter(p => p.type === 'walker' && !p.isCancelled).length);
 const serversCount = computed(() => (participants.value || []).filter(p => p.type === 'server' && !p.isCancelled).length);
 const waitingCount = computed(() => (participants.value || []).filter(p => p.type === 'waiting' && !p.isCancelled).length);
-const partialServersCount = computed(() => (participants.value || []).filter(p => p.type === 'partial_server' && !p.isCancelled).length);
+const angelitosCount = computed(() => (participants.value || []).filter(p => p.type === 'partial_server' && !p.isCancelled).length);
 
 const daysUntilRetreat = computed(() => {
   if (!selectedRetreat.value?.startDate) return null;

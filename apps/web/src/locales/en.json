@@ -143,7 +143,7 @@
   "sidebar": {
     "walkers": "Walkers",
     "servers": "Servers",
-    "partialServers": "Partial Servers",
+    "partialServers": "Angelitos",
     "palancas": "Palancas",
     "payments": "Payments",
     "tables": "Tables",
@@ -820,12 +820,12 @@
   },
   "retreatDashboard": {
     "title": "Retreat Dashboard",
-    "partialServersDescription": "Participants who help partially",
+    "partialServersDescription": "Participants who assist as angelitos",
     "selectedRetreat": "Selected Retreat",
     "walkersCount": "# Walkers",
     "serversCount": "# Servers",
     "waitingCount": "# Waiting",
-    "partialServersCount": "# Partial Servers",
+    "partialServersCount": "# Angelitos",
     "walkerRegistrationLink": "Public Walker Registration Link",
     "serverRegistrationLink": "Public Server Registration Link",
     "noRetreatSelected": "No retreat selected. Please select or add a retreat.",
@@ -1802,5 +1802,9 @@
     "noInstructions": "This team has no configured instructions.",
     "searchTeamPlaceholder": "Search team or service...",
     "searchServerPlaceholder": "Search server..."
+  },
+  "versionBanner": {
+    "message": "New version available",
+    "update": "Update"
   }
 }

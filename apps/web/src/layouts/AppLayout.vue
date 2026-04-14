@@ -5,13 +5,16 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import Sidebar from '@/components/layout/Sidebar.vue'
 const AiChatWidget = defineAsyncComponent(() => import('@/components/AiChatWidget.vue'))
+const UpdateBanner = defineAsyncComponent(() => import('@/components/UpdateBanner.vue'))
 import { useUIStore } from '@/stores/ui'
+import { useVersionStore } from '@/stores/versionStore'
 import { Menu } from 'lucide-vue-next'
 
 const route = useRoute()
 const { t } = useI18n()
 const uiStore = useUIStore()
 const { isSidebarCollapsed, isMobile, isMobileMenuOpen, pageTitle } = storeToRefs(uiStore)
+const versionStore = useVersionStore()
 
 const mainRef = ref<HTMLElement>()
 
@@ -19,7 +22,7 @@ const mainRef = ref<HTMLElement>()
 const routeTitleMap: Record<string, string> = {
   'walkers': 'sidebar.walkers',
   'servers': 'sidebar.servers',
-  'partial-servers': 'sidebar.partialServers',
+  'angelitos': 'sidebar.partialServers',
   'waiting-list': 'sidebar.waitingList',
   'canceled': 'sidebar.canceled',
   'food': 'sidebar.food',
@@ -100,12 +103,14 @@ onMounted(() => {
   document.addEventListener('touchend', handleTouchEnd, { passive: true })
   mainRef.value?.addEventListener('scroll', handleScroll, { passive: true })
   updatePageTitle()
+  versionStore.startPolling()
 })
 
 onUnmounted(() => {
   document.removeEventListener('touchstart', handleTouchStart)
   document.removeEventListener('touchend', handleTouchEnd)
   mainRef.value?.removeEventListener('scroll', handleScroll)
+  versionStore.stopPolling()
 })
 </script>
 
@@ -148,6 +153,7 @@ onUnmounted(() => {
 
     <!-- Main content -->
     <div class="flex flex-col flex-1 overflow-hidden">
+      <UpdateBanner />
       <main ref="mainRef" class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-2 md:p-4" :class="{ 'pt-14': isMobile, 'mobile-hide-h1': isMobile }">
         <router-view />
       </main>

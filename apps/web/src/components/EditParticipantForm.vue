@@ -588,7 +588,7 @@ const calculateAge = (birthDate: string | Date) => {
                   <SelectItem value="walker">Caminante</SelectItem>
                   <SelectItem value="server">Servidor</SelectItem>
                   <SelectItem value="waiting">En espera</SelectItem>
-                  <SelectItem value="partial_server">Servidor parcial</SelectItem>
+                  <SelectItem value="partial_server">Angelito</SelectItem>
                 </SelectContent>
               </Select>
               <Select

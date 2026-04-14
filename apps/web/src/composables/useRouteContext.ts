@@ -9,7 +9,7 @@ const routeSectionMap: Record<string, string> = {
 	// People
 	walkers: 'sidebar.sections.people',
 	servers: 'sidebar.sections.people',
-	'partial-servers': 'sidebar.sections.people',
+	angelitos: 'sidebar.sections.people',
 	'waiting-list': 'sidebar.sections.people',
 	canceled: 'sidebar.sections.people',
 	// Assignments

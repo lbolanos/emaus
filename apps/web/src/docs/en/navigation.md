@@ -8,7 +8,7 @@ The system is divided into two types of sections:
 These sections depend on a selected retreat. The retreat selector appears in the header so you can choose which retreat to work with.
 
 - **Main**: Retreat dashboard, flyer
-- **People**: Walkers, servers, partial servers, waiting list, canceled
+- **People**: Walkers, servers, angelitos, waiting list, canceled
 - **Assignments**: Tables, rooms, user type and table, bed assignments, responsibilities
 - **Financial**: Payments
 - **Reports**: Bags report, medicines report, badges

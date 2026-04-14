@@ -603,8 +603,8 @@ const menuSections: MenuSection[] = [
         label: 'sidebar.servers'
       },
       {
-        name: 'partial-servers',
-        routeName: 'partial-servers',
+        name: 'angelitos',
+        routeName: 'angelitos',
         icon: Users,
         permission: 'participant',
         requiresRetreat: true,

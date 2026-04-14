@@ -4,7 +4,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 const AppLayout = () => import('@/layouts/AppLayout.vue');
 const WalkersView = () => import('../views/WalkersView.vue');
 const ServersView = () => import('../views/ServersView.vue');
-const PartialServerView = () => import('../views/PartialServerView.vue');
+const AngelitosView = () => import('../views/AngelitosView.vue');
 const CanceledView = () => import('../views/CanceledView.vue');
 const HousesView = () => import('../views/HousesView.vue');
 const PalancasView = () => import('../views/PalancasView.vue');
@@ -39,11 +39,21 @@ const LandingView = () => import('../views/LandingView.vue');
 import { useAuthStore } from '@/stores/authStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { trackPageView } from '@/services/telemetryService';
+import { shouldReloadForChunkError, isChunkLoadError } from '@/utils/chunkErrorRecovery';
 
-// Debug: log chunk load failures on window for debug overlay
+// Handle chunk preload failures (stale cache after deployment).
+// Uses window.location.reload() because the current URL is already the destination.
 if (typeof window !== 'undefined') {
-	window.addEventListener('vite:preloadError', (e: any) => {
-		if ((window as any)._L) (window as any)._L('PRELOAD_ERR:' + e.payload?.message);
+	interface VitePreloadErrorEvent extends Event {
+		payload?: Error;
+	}
+	window.addEventListener('vite:preloadError', (event: Event) => {
+		const payload = (event as VitePreloadErrorEvent).payload;
+		if ((window as any)._L) (window as any)._L('PRELOAD_ERR:' + payload?.message);
+		event.preventDefault();
+		if (shouldReloadForChunkError()) {
+			window.location.reload();
+		}
 	});
 }
 
@@ -152,9 +162,9 @@ const router = createRouter({
 					meta: { requiresRetreat: true },
 				},
 				{
-					path: 'partial-servers',
-					name: 'partial-servers',
-					component: PartialServerView,
+					path: 'angelitos',
+					name: 'angelitos',
+					component: AngelitosView,
 					meta: { requiresRetreat: true },
 				},
 				{
@@ -442,6 +452,17 @@ const router = createRouter({
 			}),
 		},
 	],
+});
+
+// Handle chunk load failures that bypass vite:preloadError (e.g., direct navigation errors).
+// Uses window.location.href (not reload) to navigate to the intended destination with fresh index.html.
+router.onError((error, to) => {
+	if (isChunkLoadError(error)) {
+		const destination = to?.fullPath ?? '/';
+		if (shouldReloadForChunkError()) {
+			window.location.href = destination;
+		}
+	}
 });
 
 // Re-check auth status at most once every 5 minutes to detect expired sessions

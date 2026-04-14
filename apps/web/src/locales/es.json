@@ -869,12 +869,12 @@
   },
   "retreatDashboard": {
     "title": "Dashboard del Retiro",
-    "partialServersDescription": "Participantes que ayudan parcialmente",
+    "partialServersDescription": "Participantes que asisten como angelitos",
     "selectedRetreat": "Retiro Seleccionado",
     "walkersCount": "# Caminantes",
     "serversCount": "# Servidores",
     "waitingCount": "# en Espera",
-    "partialServersCount": "# Servidores Parciales",
+    "partialServersCount": "# Angelitos",
     "walkerRegistrationLink": "Enlace Público de Registro de Caminante",
     "serverRegistrationLink": "Enlace Público de Registro de Servidor",
     "noRetreatSelected": "No hay retiro seleccionado. Por favor, selecciona o agrega un retiro.",
@@ -2086,5 +2086,9 @@
     "noInstructions": "Este equipo no tiene instrucciones configuradas.",
     "searchTeamPlaceholder": "Buscar equipo o servicio...",
     "searchServerPlaceholder": "Buscar servidor..."
+  },
+  "versionBanner": {
+    "message": "Nueva versión disponible",
+    "update": "Actualizar"
   }
 }

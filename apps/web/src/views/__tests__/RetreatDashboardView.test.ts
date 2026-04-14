@@ -215,7 +215,7 @@ describe('RetreatDashboardView', () => {
 			wrapper.unmount();
 		});
 
-		it('shows partial servers count', async () => {
+		it('shows angelitos count', async () => {
 			const { wrapper } = await mountDashboard();
 			expect(wrapper.text()).toContain('2');
 			wrapper.unmount();
