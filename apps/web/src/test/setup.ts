@@ -405,6 +405,7 @@ vi.mock('lucide-vue-next', () => ({
 	Briefcase: { name: 'Briefcase', template: '<svg></svg>' },
 	Search: { name: 'Search', template: '<svg></svg>' },
 	X: { name: 'X', template: '<svg></svg>' },
+	RefreshCw: { name: 'RefreshCw', template: '<svg></svg>' },
 	ArrowRight: { name: 'ArrowRight', template: '<svg></svg>' },
 	ChevronDown: { name: 'ChevronDown', template: '<svg></svg>' },
 	Lock: { name: 'Lock', template: '<svg></svg>' },

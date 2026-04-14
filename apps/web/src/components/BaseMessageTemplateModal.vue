@@ -408,6 +408,7 @@ import { useRetreatStore } from '@/stores/retreatStore';
 import RichTextEditor from './RichTextEditor.vue';
 import { messageTemplateTypes } from '@repo/types';
 import { convertHtmlToWhatsApp, convertHtmlToEmail, detectEmailClient, copyRichTextToClipboard, testEmojiConversion, beautifyHtml, replaceAllVariables, ParticipantData, RetreatData } from '@/utils/message';
+import { sanitizeHtml, sanitizeEmailHtml } from '@/utils/sanitize';
 
 interface Props {
   open: boolean;
@@ -688,7 +689,7 @@ const previewMessage = computed(() => {
     message = message.replace(new RegExp(key, 'g'), value);
   });
 
-  return message;
+  return sanitizeHtml(message);
 });
 
 const getTypeLabel = (type: string) => {
@@ -822,11 +823,12 @@ const generateEmailPreview = () => {
   const message = formData.value.message;
   if (!message) return;
 
-  // Convert HTML to email format
-  emailPreviewHtml.value = convertHtmlToEmail(message, {
+  // Convert HTML to email format, then sanitize to prevent stored XSS in previews.
+  // Uses sanitizeHtml which allows inline styles needed by email templates.
+  emailPreviewHtml.value = sanitizeEmailHtml(convertHtmlToEmail(message, {
     format: emailFormat.value,
     skipTemplate: false
-  });
+  }));
 };
 
 const downloadHtmlFile = () => {

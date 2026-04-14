@@ -359,6 +359,7 @@ import {
 	TabsTrigger,
 } from '@repo/ui';
 import { convertHtmlToWhatsApp, convertHtmlToEmail, replaceAllVariables, findEmptyVariables, ParticipantData, RetreatData } from '@/utils/message';
+import { sanitizeEmailHtml } from '@/utils/sanitize';
 import { useParticipantCommunicationStore, type ParticipantCommunication } from '@/stores/participantCommunicationStore';
 import { useCommunityCommunicationStore, type CommunityCommunication } from '@/stores/communityCommunicationStore';
 import { getSmtpConfig, sendEmailViaBackend, sendCommunityEmailViaBackend } from '@/services/api';
@@ -625,10 +626,10 @@ const updateMessagePreview = () => {
 		editedMessage.value = convertHtmlToWhatsApp(message);
 	} else {
 		editedMessage.value = convertHtmlToEmail(message, { format: 'enhanced', skipTemplate: false });
-		emailPreviewHtml.value = convertHtmlToEmail(message, {
+		emailPreviewHtml.value = sanitizeEmailHtml(convertHtmlToEmail(message, {
 			format: 'enhanced',
 			skipTemplate: false
-		});
+		}));
 	}
 };
 
@@ -1140,10 +1141,10 @@ watch(sendMethod, (newValue: 'whatsapp' | 'email') => {
 			emailPreviewHtml.value = '';
 		} else {
 			editedMessage.value = convertHtmlToEmail(messagePreview.value, participantData);
-			emailPreviewHtml.value = convertHtmlToEmail(messagePreview.value, {
+			emailPreviewHtml.value = sanitizeEmailHtml(convertHtmlToEmail(messagePreview.value, {
 				format: 'enhanced',
 				skipTemplate: true
-			});
+			}));
 		}
 	}
 

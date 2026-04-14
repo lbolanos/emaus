@@ -2,6 +2,8 @@ import { defineConfig, loadEnv } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import dts from 'vite-plugin-dts';
 import path from 'path';
+import { execSync } from 'child_process';
+import { writeFileSync } from 'fs';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -17,9 +19,22 @@ export default defineConfig(({ mode }) => {
 				: '.env.production';
 
 	console.log(`[VITE] Loading environment from: ${envFile}`);
-	console.log(`[VITE] Environment variables:`, env);
+	// Log only VITE_-prefixed keys (public, safe to expose) — never log full env
+	const publicEnv = Object.fromEntries(Object.entries(env).filter(([k]) => k.startsWith('VITE_')));
+	console.log(`[VITE] Public environment variables:`, publicEnv);
+
+	// Resolve git hash for version tracking; fallback to base36 timestamp in CI without git
+	let gitHash = 'dev';
+	try {
+		gitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
+	} catch {
+		gitHash = Date.now().toString(36);
+	}
 
 	return {
+		define: {
+			__APP_VERSION__: JSON.stringify(gitHash),
+		},
 		plugins: [
 			vue({
 				template: {
@@ -39,6 +54,28 @@ export default defineConfig(({ mode }) => {
 						}),
 					]
 				: []),
+			// Write version.json to dist after all assets are written
+			{
+				name: 'generate-version-json',
+				apply: 'build' as const,
+				writeBundle(options) {
+					try {
+						const outDir = options.dir ?? path.resolve(__dirname, 'dist');
+						console.log('[version] writing to', outDir);
+						writeFileSync(
+							path.join(outDir, 'version.json'),
+							JSON.stringify(
+								{ version: gitHash, buildAt: new Date().toISOString() },
+								null,
+								2,
+							),
+						);
+						console.log('[version] version.json written ok');
+					} catch (e) {
+						console.error('[version] ERROR writing version.json:', e);
+					}
+				},
+			},
 		],
 		resolve: {
 			alias: {

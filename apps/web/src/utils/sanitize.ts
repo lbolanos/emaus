@@ -151,3 +151,19 @@ export function configureDOMPurify(): void {
 
 // Inicializar configuración adicional
 configureDOMPurify();
+
+/**
+ * Sanitiza HTML de email permitiendo estilos inline (necesarios para templates de email).
+ * Bloquea scripts, event handlers y URLs javascript: pero preserva style attributes y tags.
+ * Usar solo para preview de templates de email — para contenido general usar sanitizeHtml().
+ */
+export function sanitizeEmailHtml(html: string): string {
+	if (!html) return '';
+	try {
+		// DOMPurify default config: allows style attrs/tags, blocks scripts and event handlers
+		return DOMPurify.sanitize(html, { FORCE_BODY: true });
+	} catch (error) {
+		console.error('Error sanitizing email HTML:', error);
+		return '';
+	}
+}
