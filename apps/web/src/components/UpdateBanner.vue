@@ -41,8 +41,8 @@ function reload() {
 <style scoped>
 .banner-enter-active,
 .banner-leave-active {
-  transition: max-height 0.2s ease, opacity 0.2s ease;
-  max-height: 60px;
+  transition: max-height 0.3s ease, opacity 0.2s ease;
+  max-height: 200px;
   overflow: hidden;
 }
 .banner-enter-from,

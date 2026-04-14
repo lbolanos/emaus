@@ -29,7 +29,8 @@ export function shouldReloadForChunkError(): boolean {
 	return true;
 }
 
-export function isChunkLoadError(error: Error): boolean {
+export function isChunkLoadError(error: unknown): boolean {
+	if (!(error instanceof Error)) return false;
 	return (
 		error.message?.includes('Failed to fetch dynamically imported module') ||
 		error.message?.includes('Importing a module script failed') ||

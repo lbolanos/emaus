@@ -25,10 +25,14 @@ describe('versionStore', () => {
 		it('starts with dismissed false', () => {
 			expect(store.dismissed).toBe(false);
 		});
+
+		it('starts with detectedVersion null', () => {
+			expect(store.detectedVersion).toBeNull();
+		});
 	});
 
 	describe('checkVersion (via startPolling)', () => {
-		it('sets updateAvailable when server version differs', async () => {
+		it('sets updateAvailable and detectedVersion when server version differs', async () => {
 			const fetchMock = vi.fn().mockResolvedValue({
 				ok: true,
 				json: () => Promise.resolve({ version: 'new-deploy-hash' }),
@@ -36,10 +40,10 @@ describe('versionStore', () => {
 			vi.stubGlobal('fetch', fetchMock);
 
 			store.startPolling();
-			// Flush only microtasks (promises), not timers
 			await vi.advanceTimersByTimeAsync(0);
 
 			expect(store.updateAvailable).toBe(true);
+			expect(store.detectedVersion).toBe('new-deploy-hash');
 			expect(fetchMock).toHaveBeenCalledWith(
 				expect.stringMatching(/^\/version\.json\?_=\d+$/),
 				{ cache: 'no-store' },
@@ -103,13 +107,32 @@ describe('versionStore', () => {
 			await vi.advanceTimersByTimeAsync(0);
 			expect(fetchMock).toHaveBeenCalledTimes(1);
 
-			// Advance 5 minutes
 			await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
 			expect(fetchMock).toHaveBeenCalledTimes(2);
 
-			// Advance another 5 minutes
 			await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
 			expect(fetchMock).toHaveBeenCalledTimes(3);
+		});
+	});
+
+	describe('startPolling guard', () => {
+		it('does not create duplicate intervals when called twice', async () => {
+			const fetchMock = vi.fn().mockResolvedValue({
+				ok: true,
+				json: () => Promise.resolve({ version: 'test-version' }),
+			});
+			vi.stubGlobal('fetch', fetchMock);
+
+			store.startPolling();
+			store.startPolling(); // second call should be a no-op
+			await vi.advanceTimersByTimeAsync(0);
+
+			// Only 1 initial check (not 2)
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+
+			// After 5 min, still only 1 additional (not 2)
+			await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+			expect(fetchMock).toHaveBeenCalledTimes(2);
 		});
 	});
 
@@ -128,7 +151,6 @@ describe('versionStore', () => {
 			store.stopPolling();
 			await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
 
-			// No additional calls after stopping
 			expect(fetchMock).toHaveBeenCalledTimes(1);
 		});
 	});
@@ -142,19 +164,24 @@ describe('versionStore', () => {
 	});
 
 	describe('reloadForUpdate', () => {
-		it('stores server version in sessionStorage before reload', async () => {
-			const fetchMock = vi.fn().mockResolvedValue({
+		it('stores detected version in sessionStorage before reload', async () => {
+			const reloadMock = vi.fn();
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
 				ok: true,
 				json: () => Promise.resolve({ version: 'new-deploy-hash' }),
-			});
-			vi.stubGlobal('fetch', fetchMock);
-			const reloadMock = vi.fn();
+			}));
 			Object.defineProperty(window, 'location', {
 				value: { ...window.location, reload: reloadMock },
 				writable: true,
+				configurable: true,
 			});
 
-			await store.reloadForUpdate();
+			// Trigger version detection first
+			store.startPolling();
+			await vi.advanceTimersByTimeAsync(0);
+			expect(store.detectedVersion).toBe('new-deploy-hash');
+
+			store.reloadForUpdate();
 
 			expect(sessionStorage.getItem('version_update_skipped')).toBe('new-deploy-hash');
 			expect(reloadMock).toHaveBeenCalled();
@@ -203,7 +230,6 @@ describe('versionStore', () => {
 			await vi.advanceTimersByTimeAsync(0);
 			const callsAfterStart = fetchMock.mock.calls.length;
 
-			// Simulate tab becoming visible
 			Object.defineProperty(document, 'hidden', { value: false, writable: true });
 			document.dispatchEvent(new Event('visibilitychange'));
 			await vi.advanceTimersByTimeAsync(0);
@@ -222,7 +248,6 @@ describe('versionStore', () => {
 			await vi.advanceTimersByTimeAsync(0);
 			const callsAfterStart = fetchMock.mock.calls.length;
 
-			// Simulate tab becoming hidden
 			Object.defineProperty(document, 'hidden', { value: true, writable: true });
 			document.dispatchEvent(new Event('visibilitychange'));
 			await vi.advanceTimersByTimeAsync(0);

@@ -69,6 +69,15 @@ describe('sanitize utilities', () => {
 			const result = sanitizeHtml(html);
 			expect(result).not.toContain('onerror');
 		});
+
+		it('strips onerror attribute from img tags', () => {
+			// DOMPurify strips event handler attributes regardless of src content
+			const html = '<img src="x.png" onerror="alert(1)" onload="alert(2)">';
+			const result = sanitizeHtml(html);
+			expect(result).not.toContain('onerror');
+			expect(result).not.toContain('onload');
+			expect(result).not.toContain('alert');
+		});
 	});
 
 	describe('sanitizeText', () => {
@@ -149,8 +158,12 @@ describe('sanitize utilities', () => {
 			expect(sanitizeAttribute('')).toBe('');
 		});
 
-		it('strips quotes and angle brackets', () => {
-			expect(sanitizeAttribute('a"b\'c<d>e&f')).toBe('abcdef');
+		it('HTML-encodes dangerous characters instead of stripping', () => {
+			expect(sanitizeAttribute('a"b\'c<d>e&f')).toBe('a&quot;b&#39;c&lt;d&gt;e&amp;f');
+		});
+
+		it('preserves ampersands in content like AT&T', () => {
+			expect(sanitizeAttribute('AT&T')).toBe('AT&amp;T');
 		});
 
 		it('collapses whitespace', () => {

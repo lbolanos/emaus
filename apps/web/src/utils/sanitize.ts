@@ -40,7 +40,6 @@ const DOMPURIFY_CONFIG = {
 	ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'src', 'alt', 'width', 'height', 'class', 'id'],
 	FORCE_BODY: true,
 	ADD_ATTR: ['target'],
-	ADD_DATA_URI_TAGS: ['img'],
 };
 
 /**
@@ -68,8 +67,10 @@ export function sanitizeText(text: string): string {
 	if (!text) return '';
 
 	try {
-		// Eliminar todas las etiquetas HTML
-		return text.replace(/<[^>]*>/g, '');
+		// Step 1: DOMPurify neutralizes dangerous content (scripts, event handlers)
+		// Step 2: regex strips remaining safe tags to get plain text
+		const safe = DOMPurify.sanitize(text, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+		return safe.replace(/<[^>]*>/g, '');
 	} catch (error) {
 		console.error('Error sanitizing text:', error);
 		return '';
@@ -126,9 +127,13 @@ export function sanitizeAttribute(value: string): string {
 	if (!value) return '';
 
 	try {
-		// Eliminar comillas y caracteres peligrosos
+		// HTML-encode dangerous characters instead of stripping them
 		return value
-			.replace(/["'<>&]/g, '')
+			.replace(/&/g, '&amp;')
+			.replace(/"/g, '&quot;')
+			.replace(/'/g, '&#39;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
 			.replace(/\s+/g, ' ')
 			.trim();
 	} catch (error) {

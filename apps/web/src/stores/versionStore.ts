@@ -7,6 +7,7 @@ const SKIPPED_VERSION_KEY = 'version_update_skipped';
 export const useVersionStore = defineStore('version', () => {
 	const updateAvailable = ref(false);
 	const dismissed = ref(false);
+	const detectedVersion = ref<string | null>(null);
 
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -23,6 +24,7 @@ export const useVersionStore = defineStore('version', () => {
 				} catch {
 					// sessionStorage unavailable — continue showing
 				}
+				detectedVersion.value = data.version;
 				updateAvailable.value = true;
 			}
 		} catch {
@@ -37,6 +39,7 @@ export const useVersionStore = defineStore('version', () => {
 	}
 
 	function startPolling() {
+		if (pollTimer !== null) return; // already running
 		checkVersion();
 		pollTimer = setInterval(checkVersion, POLL_INTERVAL_MS);
 		document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -54,15 +57,11 @@ export const useVersionStore = defineStore('version', () => {
 		dismissed.value = true;
 	}
 
-	/** Mark current server version as seen before reloading */
-	async function reloadForUpdate() {
+	/** Mark detected server version as seen before reloading */
+	function reloadForUpdate() {
 		try {
-			const response = await fetch(`/version.json?_=${Date.now()}`, { cache: 'no-store' });
-			if (response.ok) {
-				const data: { version?: string } = await response.json();
-				if (data.version) {
-					sessionStorage.setItem(SKIPPED_VERSION_KEY, data.version);
-				}
+			if (detectedVersion.value) {
+				sessionStorage.setItem(SKIPPED_VERSION_KEY, detectedVersion.value);
 			}
 		} catch {
 			// best-effort
@@ -73,6 +72,7 @@ export const useVersionStore = defineStore('version', () => {
 	return {
 		updateAvailable,
 		dismissed,
+		detectedVersion,
 		startPolling,
 		stopPolling,
 		dismiss,

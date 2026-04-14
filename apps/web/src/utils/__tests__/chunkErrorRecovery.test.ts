@@ -126,5 +126,12 @@ describe('chunkErrorRecovery', () => {
 			expect(isChunkLoadError(new Error('Cannot read properties of null'))).toBe(false);
 			expect(isChunkLoadError(new TypeError('undefined is not a function'))).toBe(false);
 		});
+
+		it('returns false for null/undefined/string (non-Error values)', () => {
+			expect(isChunkLoadError(null)).toBe(false);
+			expect(isChunkLoadError(undefined)).toBe(false);
+			expect(isChunkLoadError('Failed to fetch dynamically imported module')).toBe(false);
+			expect(isChunkLoadError(42)).toBe(false);
+		});
 	});
 });

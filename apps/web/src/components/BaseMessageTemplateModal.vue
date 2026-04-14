@@ -700,9 +700,7 @@ const getTypeLabel = (type: string) => {
 watch(
   () => props.template,
   (template, oldTemplate) => {
-    console.log('Template watcher triggered:', { template, oldTemplate });
     if (template) {
-      console.log('Setting form data from template');
       detectAndSetEmailFormat(); // Auto-detect email format when template changes
       formData.value = {
         name: (template as any).name || '',
@@ -711,7 +709,6 @@ watch(
         isActive: (template as any).isActive ?? true,
       };
     } else {
-      console.log('Resetting form data - no template');
       formData.value = {
         name: '',
         type: '',
@@ -784,22 +781,14 @@ const exportToWhatsApp = () => {
   const encodedMessage = encodeURIComponent(whatsappMessage);
   const whatsappUrl = `https://api.whatsapp.com/send?text=${encodedMessage}`;
 
-  console.log('WhatsApp URL:', whatsappUrl);
-  console.log('WhatsApp text:', whatsappMessage);
-
   // Try different approaches in order of preference
   const tryOpenUrl = (url: string, fallback?: () => void) => {
     try {
       const newWindow = window.open(url, '_blank', 'width=800,height=600');
       if (newWindow) {
         // Check if the window was blocked
-        setTimeout(() => {
-          if (newWindow.closed || newWindow.document.readyState === 'complete') {
-            console.log('WhatsApp window opened successfully');
-          }
-        }, 1000);
+        // window opened
       } else {
-        console.log('Popup blocked, trying fallback');
         fallback?.();
       }
     } catch (error) {
@@ -875,22 +864,17 @@ const exportToEmail = async () => {
   // Create mailto URL with shorter content
   const emailUrl = `mailto:?subject=${subject}&body=${body}`;
 
-  console.log('Attempting to open email client with URL (length:', emailUrl.length, 'characters)');
-
-
   // Copy HTML to clipboard
   try {
     await copyRichTextToClipboard(emailHtml);
-    console.log('HTML copied to clipboard');
-  } catch (e) {
-    console.log('Failed to copy to clipboard:', e);
+  } catch {
+    // clipboard copy is best-effort
   }
 
   // Open email client first
   const emailWindow = window.open(emailUrl, '_self');
 
   if (emailWindow) {
-    console.log('Email client opened successfully');
     // Show user instructions after a short delay
     setTimeout(() => {
       showEmailInstructions();
@@ -904,12 +888,10 @@ const exportToEmail = async () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      console.log('Link click method attempted');
       setTimeout(() => {
         showEmailInstructions();
       }, 1500);
-    } catch (e) {
-      console.log('Link click method failed:', e);
+    } catch {
       // Final fallback
       window.location.href = emailUrl;
       setTimeout(() => {
@@ -920,27 +902,13 @@ const exportToEmail = async () => {
 };
 
 const handleCopyRichTextToClipboard = async () => {
-  //console.log('🚀 handleCopyRichTextToClipboard called!');
   const message = formData.value.message;
-  if (!message) {
-    console.log('❌ No message content to copy');
-    return;
-  }
+  if (!message) return;
 
   try {
-    console.log('📋 Starting clipboard copy with message length:', message.length);
-
-    // Call the imported utility function
-    const result = await copyRichTextToClipboard(message);
-    console.log('📋 Clipboard result:', result);
-
-    if (result.success) {
-      console.log('✅ Clipboard copy successful:', result.format);
-    } else {
-      console.error('❌ Clipboard copy failed:', result.message);
-    }
-  } catch (error) {
-    console.error('❌ Error in handleCopyRichTextToClipboard:', error);
+    await copyRichTextToClipboard(message);
+  } catch {
+    // clipboard copy is best-effort
   }
 };
 
@@ -991,9 +959,6 @@ const handleSubmit = async () => {
   if (!isFormValid.value) return;
 
   loading.value = true;
-
-  // Debug: Log the form data being submitted
-  console.log('Submitting form data:', JSON.stringify(formData.value, null, 2));
 
   try {
     if (props.isGlobal) {

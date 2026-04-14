@@ -491,7 +491,7 @@ router.beforeEach(async (to, from, next) => {
 
 	if (requiresSuperadmin) {
 		const isSuperadmin = auth.userProfile?.roles?.some(
-			(r: any) => r.role?.name === 'superadmin',
+			(r: { role?: { name?: string } }) => r.role?.name === 'superadmin',
 		);
 		if (!auth.isAuthenticated || !isSuperadmin) {
 			next({ name: 'login' });
@@ -501,8 +501,8 @@ router.beforeEach(async (to, from, next) => {
 
 	const requiresAdmin = to.matched.some((record) => record.meta.requiresAdmin);
 	if (requiresAdmin) {
-		const isAdmin = auth.userProfile?.roles?.some((r: any) =>
-			['admin', 'superadmin', 'region_admin'].includes(r.role?.name),
+		const isAdmin = auth.userProfile?.roles?.some((r: { role?: { name?: string } }) =>
+			['admin', 'superadmin', 'region_admin'].includes(r.role?.name ?? ''),
 		);
 		if (!auth.isAuthenticated || !isAdmin) {
 			next({ name: 'login' });
