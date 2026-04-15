@@ -30,6 +30,8 @@ import userSocialRoutes from './userSocial.routes';
 import testimonialRoutes from './testimonial.routes';
 import participantHistoryRoutes from './retreatParticipant.routes';
 import aiChatRoutes from './aiChatRoutes';
+import ttsRoutes from './ttsRoutes';
+import visionAssignmentRoutes from './visionAssignmentRoutes';
 import { applyCsrfProtectionExcept } from '../middleware/routeCsrf';
 
 const router = Router();
@@ -85,5 +87,7 @@ router.use('/social', userSocialRoutes);
 router.use(testimonialRoutes);
 router.use(participantHistoryRoutes);
 router.use('/ai-chat', aiChatRoutes);
+router.use('/tts', ttsRoutes);
+router.use('/vision-assignment', visionAssignmentRoutes);
 
 export default router;

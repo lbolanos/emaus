@@ -1031,6 +1031,89 @@
       "familyFriendConflict": "No se puede agregar al caminante. Ya existe un caminante con el mismo color de familia/amigo en esta mesa.",
       "tagConflict": "Conflicto de etiquetas",
       "tagConflictDescription": "Ya existe un participante en esta mesa con la(s) etiqueta(s): {tags}"
+    },
+    "printLotteryCards": "Tarjetas de los Caminantes",
+    "lotteryCards": {
+      "title": "Tarjetas de los Caminantes",
+      "description": "Imprime y recorta las tarjetas de cada caminante para la asignación de mesas.",
+      "print": "Imprimir",
+      "noWalkers": "No hay caminantes registrados para este retiro."
+    },
+    "photoAssignment": "Asignar por Foto (IA)",
+    "tapUnassign": "Quitar de mesa",
+    "photoAssign": {
+      "title": "Asignación por Foto",
+      "description": "Toma una foto de las tarjetas de los caminantes y la IA asignará los caminantes a las mesas.",
+      "uploadLabel": "Arrastra una foto o haz clic para seleccionar",
+      "uploadHint": "JPG, PNG o WebP",
+      "analyze": "Analizar Foto",
+      "analyzing": "Analizando foto...",
+      "apply": "Aplicar Asignaciones",
+      "applying": "Aplicando...",
+      "results": "Resultados del Análisis",
+      "walker": "Caminante",
+      "table": "Mesa",
+      "include": "Incluir",
+      "status": "Estado",
+      "success": "Asignado",
+      "error": "Error",
+      "notFound": "ID no encontrado",
+      "tableFull": "Mesa llena",
+      "unreadable": "Tarjetas Ilegibles",
+      "noResults": "No se encontraron asignaciones en la foto.",
+      "aiNotes": "Notas del análisis",
+      "applied": "Asignaciones aplicadas",
+      "appliedDesc": "{count} caminantes asignados exitosamente.",
+      "analyzeError": "Error al analizar la foto",
+      "applyError": "Error al aplicar las asignaciones",
+      "changePhoto": "Cambiar foto",
+      "tableTitle": "Asignar por Foto",
+      "tableDescription": "Toma una foto de los papelitos de esta mesa. La IA leerá los IDs y asignará los caminantes.",
+      "walkersFound": "caminantes encontrados"
+    },
+    "help": {
+      "menuItem": "Ayuda",
+      "title": "Guía de Mesas del Retiro",
+      "santisimo": {
+        "title": "Asignación de Mesas en el Santísimo",
+        "description": "Uno de los momentos más hermosos del retiro: ante la presencia de Jesús en el Santísimo Sacramento, el Espíritu Santo guía la asignación de cada caminante a su mesa. Nadie llega a una mesa por casualidad. Así se registra en la app:",
+        "step1Title": "Prepara las tarjetas de cada caminante",
+        "step1Desc": "Ve al menú ⋮ → \"Tarjetas de los Caminantes\". Imprime y recorta una tarjeta por caminante — llevan su ID y nombre. Dóblalas y tenlas listas.",
+        "step2Title": "La asignación ante el Santísimo",
+        "step2Desc": "Con oración y en la presencia del Santísimo, se van sacando las tarjetas y colocándolas en grupos — uno por mesa. El Espíritu Santo conduce cada asignación.",
+        "step3Title": "Fotografía el grupo de tarjetas de cada mesa",
+        "step3Desc": "Una vez terminada la asignación, en la tarjeta de cada mesa toca el botón 📷. Toma una foto del grupo de tarjetas de esa mesa.",
+        "step4Title": "Confirma y registra en la app",
+        "step4Desc": "La IA lee los IDs y propone las asignaciones. Revísalas y toca \"Aplicar\" — en segundos todo queda registrado."
+      },
+      "methods": {
+        "title": "Formas de Asignar Caminantes",
+        "dragDrop": {
+          "title": "Arrastrar y soltar (escritorio)",
+          "desc": "Arrastra un caminante desde la sección superior hacia el área de caminantes de una mesa. Para servidores, arrástralos al rol correspondiente (Líder, Co-Líder)."
+        },
+        "tap": {
+          "title": "Toque para asignar (celular)",
+          "desc": "Toca un caminante o servidor para seleccionarlo (aparece resaltado), luego toca el área de destino en la mesa. Para quitar, toca al participante ya asignado y usa el botón \"Quitar de mesa\"."
+        },
+        "photo": {
+          "title": "Foto con IA (nuevo)",
+          "desc": "Toca el botón 📷 en cualquier mesa, sube una foto de las tarjetas de los caminantes, y la IA identifica los IDs y asigna automáticamente."
+        },
+        "chatbot": {
+          "title": "Decirle a Jessy (chatbot IA)",
+          "desc": "Abre el chatbot Jessy y dile por mensaje quién va en qué mesa. Por ejemplo: \"Pon al caminante 12 en la mesa 3\". Jessy entiende lenguaje natural y hace la asignación directamente."
+        }
+      },
+      "colors": {
+        "title": "¿Qué significan los colores?",
+        "desc": "El borde de color en cada tarjeta indica que ese caminante comparte un vínculo familiar o de amistad con otros del mismo color. La app impide que dos personas del mismo color queden en la misma mesa, para que todos tengan la oportunidad de hacer nuevas amistades.",
+        "noColor": "Sin color: el caminante no tiene vínculos registrados."
+      },
+      "unassign": {
+        "title": "Quitar un participante de una mesa",
+        "desc": "En celular: toca al participante ya asignado → aparece el botón rojo \"Quitar de mesa\" en la parte inferior. En escritorio: arrastra al participante de vuelta a la sección de no asignados."
+      }
     }
   },
   "bedAssignments": {

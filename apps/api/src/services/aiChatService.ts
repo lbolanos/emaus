@@ -14,7 +14,7 @@ import { Participant } from '../entities/participant.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { RetreatBed, BedType } from '../entities/retreatBed.entity';
 import { authorizationService } from '../middleware/authorization';
-import { Like } from 'typeorm';
+import { Like, In } from 'typeorm';
 
 async function verifyRetreatAccess(userId: string, retreatId: string): Promise<void> {
 	const hasAccess = await authorizationService.hasRetreatAccess(userId, retreatId);
@@ -34,6 +34,7 @@ Responde siempre en español. Sé concisa y útil.
 
 Tus capacidades:
 - Buscar participantes por nombre y ver sus detalles completos (teléfono, dirección, contactos de emergencia, etc.)
+- Buscar participantes por su número de retiro (idOnRetreat) — cuando el usuario menciona números sueltos como "29, 26 y 30", casi siempre se refiere al idOnRetreat, NO al ID interno. Usa findByIdOnRetreat para resolverlos.
 - Listar participantes de un retiro por tipo (caminantes, servidores, en espera)
 - Ver detalles de retiros disponibles
 - Consultar pagos y resumen financiero de un retiro
@@ -48,7 +49,18 @@ Tus capacidades:
 IMPORTANTE para cambios de mesa y cama:
 - Antes de hacer un cambio, confirma con el usuario los datos: nombre del participante, mesa/cama destino.
 - Si el usuario no especifica IDs exactos, usa searchParticipants y getTableAssignments/getRetreatBeds para encontrarlos.
+- Cuando el usuario mencione números como "agrega 29 26 y 30 a mesa 3", esos números son idOnRetreat (número de retiro del participante). Usa findByIdOnRetreat para obtener sus IDs internos antes de asignarlos.
 - Siempre confirma la acción antes de ejecutarla mostrando qué vas a hacer.
+
+IMPORTANTE — Reconocimiento de voz (STT):
+El usuario puede enviar mensajes por voz. El reconocimiento de voz a veces CONCATENA números separados en uno solo. Por ejemplo:
+- El usuario dice "dos, treinta y cinco y treinta" pero llega como "235 y 30" o "23530" o "235 30".
+- El usuario dice "veintinueve, veintiséis y treinta" pero llega como "292630" o "2926 30".
+Cuando recibas un número largo que NO corresponda a un idOnRetreat válido, intenta SEPARARLO en números más pequeños que sí existan como idOnRetreat. Los idOnRetreat típicamente son de 1 a 3 dígitos (1-999). Por ejemplo:
+- "235" → prueba si existe 235, si no, prueba 2+35, 23+5
+- "292630" → prueba 29+26+30
+- "23530" → prueba 2+35+30, 23+5+30, 235+30
+Usa listParticipants o searchParticipants para verificar cuáles idOnRetreat existen en el retiro actual y elegir la separación correcta.
 
 Cuando el usuario pregunte por datos de una persona (teléfono, email, dirección, contactos de emergencia, etc.), usa getParticipantDetails para obtener toda la información.
 Si preguntan por un familiar o contacto de emergencia, revisa los campos de contactos de emergencia del participante.`;
@@ -58,7 +70,7 @@ Si preguntan por un familiar o contacto de emergencia, revisa los campos de cont
 	return prompt;
 }
 
-function getModel() {
+export function getModel() {
 	const { provider, model } = config.ai;
 	switch (provider) {
 		case 'anthropic':
@@ -75,6 +87,28 @@ function getModel() {
 			}).chat(model);
 		default:
 			throw new Error(`Unknown AI provider: ${provider}`);
+	}
+}
+
+/** Vision model — supports google (Gemini) and anthropic providers. */
+export function getVisionModel() {
+	const { visionProvider, visionModel } = config.ai;
+	console.log(`[Vision] Using model: ${visionModel} via ${visionProvider}`);
+	switch (visionProvider) {
+		case 'google':
+			return google(visionModel);
+		case 'anthropic':
+			return createAnthropic({
+				apiKey: config.ai.anthropicApiKey,
+				baseURL: config.ai.anthropicBaseUrl || undefined,
+			})(visionModel);
+		case 'openai':
+			return createOpenAI({
+				apiKey: config.ai.openaiApiKey,
+				baseURL: config.ai.openaiBaseUrl || undefined,
+			}).chat(visionModel);
+		default:
+			return google(visionModel);
 	}
 }
 
@@ -122,6 +156,7 @@ export async function createChatStream(messages: UIMessage[], userId: string, re
 						count: participants.length,
 						participants: participants.map((p) => ({
 							id: p.id,
+							idOnRetreat: p.id_on_retreat ?? null,
 							name: `${p.firstName} ${p.lastName}`,
 							type: p.type,
 							isCancelled: p.isCancelled,
@@ -149,17 +184,68 @@ export async function createChatStream(messages: UIMessage[], userId: string, re
 						],
 						relations: ['payments', 'retreat'],
 					});
+					const rpRepo = AppDataSource.getRepository(RetreatParticipant);
+					const rpRows = participants.length > 0 ? await rpRepo.find({
+						where: { retreatId, participantId: In(participants.map((p) => p.id)) },
+						select: ['participantId', 'idOnRetreat', 'type'],
+					}) : [];
+					const rpMap = new Map(rpRows.map((r) => [r.participantId, r]));
 					return {
 						count: participants.length,
-						participants: participants.map((p) => ({
-							id: p.id,
-							name: `${p.firstName} ${p.lastName}`,
-							type: p.type,
-							phone: p.cellPhone,
-							email: p.email,
-							totalPaid: p.totalPaid,
-							paymentStatus: p.paymentStatus,
-						})),
+						participants: participants.map((p) => {
+							const rp = rpMap.get(p.id);
+							return {
+								id: p.id,
+								idOnRetreat: rp?.idOnRetreat ?? null,
+								name: `${p.firstName} ${p.lastName}`,
+								type: rp?.type ?? p.type,
+								phone: p.cellPhone,
+								email: p.email,
+								totalPaid: p.totalPaid,
+								paymentStatus: p.paymentStatus,
+							};
+						}),
+					};
+				},
+			},
+			findByIdOnRetreat: {
+				description: 'Busca participantes por su número de retiro (idOnRetreat). Los usuarios frecuentemente se refieren a los participantes por este número. Acepta uno o varios números.',
+				inputSchema: jsonSchema<{ retreatId: string; ids: number[] }>({
+					type: 'object',
+					properties: {
+						retreatId: { type: 'string', description: 'ID del retiro' },
+						ids: { type: 'array', items: { type: 'number' }, description: 'Números de retiro (idOnRetreat) a buscar' },
+					},
+					required: ['retreatId', 'ids'],
+				}),
+				execute: async ({ retreatId, ids }) => {
+					await verifyRetreatAccess(userId, retreatId);
+					const rpRepo = AppDataSource.getRepository(RetreatParticipant);
+					const rpRows = await rpRepo.find({
+						where: ids.map((id) => ({ retreatId, idOnRetreat: id })),
+						select: ['participantId', 'idOnRetreat', 'type', 'isCancelled'],
+					});
+					if (rpRows.length === 0) {
+						return { count: 0, participants: [], notFound: ids };
+					}
+					const participantRepo = AppDataSource.getRepository(Participant);
+					const participants = await participantRepo.find({
+						where: { id: In(rpRows.map((r) => r.participantId)) },
+					});
+					const rpMap = new Map(rpRows.map((r) => [r.participantId, r]));
+					return {
+						count: participants.length,
+						participants: participants.map((p) => {
+							const rp = rpMap.get(p.id);
+							return {
+								id: p.id,
+								idOnRetreat: rp?.idOnRetreat ?? null,
+								name: `${p.firstName} ${p.lastName}`,
+								type: rp?.type ?? p.type,
+								isCancelled: rp?.isCancelled ?? false,
+							};
+						}),
+						notFound: ids.filter((id) => !rpRows.some((r) => r.idOnRetreat === id)),
 					};
 				},
 			},

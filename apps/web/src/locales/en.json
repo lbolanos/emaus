@@ -978,6 +978,89 @@
     },
     "errors": {
       "familyFriendConflict": "Cannot add walker. Another walker with the same family/friend color is already at this table."
+    },
+    "printLotteryCards": "Walker Cards",
+    "lotteryCards": {
+      "title": "Walker Cards",
+      "description": "Print and cut a card for each walker for the table assignment.",
+      "print": "Print",
+      "noWalkers": "No walkers registered for this retreat."
+    },
+    "photoAssignment": "Assign by Photo (AI)",
+    "tapUnassign": "Remove from table",
+    "photoAssign": {
+      "title": "Photo Assignment",
+      "description": "Take a photo of the walker cards and AI will assign walkers to tables.",
+      "uploadLabel": "Drag a photo or click to select",
+      "uploadHint": "JPG, PNG or WebP",
+      "analyze": "Analyze Photo",
+      "analyzing": "Analyzing photo...",
+      "apply": "Apply Assignments",
+      "applying": "Applying...",
+      "results": "Analysis Results",
+      "walker": "Walker",
+      "table": "Table",
+      "include": "Include",
+      "status": "Status",
+      "success": "Assigned",
+      "error": "Error",
+      "notFound": "ID not found",
+      "tableFull": "Table full",
+      "unreadable": "Unreadable Cards",
+      "noResults": "No assignments found in the photo.",
+      "aiNotes": "Analysis notes",
+      "applied": "Assignments applied",
+      "appliedDesc": "{count} walkers assigned successfully.",
+      "analyzeError": "Error analyzing photo",
+      "applyError": "Error applying assignments",
+      "changePhoto": "Change photo",
+      "tableTitle": "Assign by Photo",
+      "tableDescription": "Take a photo of the slips for this table. AI will read the IDs and assign walkers.",
+      "walkersFound": "walkers found"
+    },
+    "help": {
+      "menuItem": "Help",
+      "title": "Help — Retreat Tables",
+      "santisimo": {
+        "title": "Table Assignment before the Blessed Sacrament",
+        "description": "One of the most beautiful moments of the retreat: in the presence of Jesus in the Blessed Sacrament, the Holy Spirit guides the assignment of each walker to their table. No one arrives at a table by chance. Here's how to record it in the app:",
+        "step1Title": "Prepare each walker's card",
+        "step1Desc": "Go to menu ⋮ → \"Walker Cards\". Print and cut one card per walker — they include the ID and name. Fold them and have them ready.",
+        "step2Title": "The assignment before the Blessed Sacrament",
+        "step2Desc": "With prayer and in the presence of the Blessed Sacrament, cards are drawn and placed in groups — one group per table. The Holy Spirit guides each assignment.",
+        "step3Title": "Photograph each table's group of cards",
+        "step3Desc": "Once the assignment is complete, tap the 📷 button on each table card in the app. Take a photo of that table's group of cards.",
+        "step4Title": "Review and record in the app",
+        "step4Desc": "AI reads the IDs and proposes the assignments. Review them and tap \"Apply\" — everything is recorded in seconds."
+      },
+      "methods": {
+        "title": "Ways to Assign Walkers",
+        "dragDrop": {
+          "title": "Drag and drop (desktop)",
+          "desc": "Drag a walker from the top section to a table's walker area. For servers, drag them to the corresponding role (Leader, Co-Leader)."
+        },
+        "tap": {
+          "title": "Tap to assign (mobile)",
+          "desc": "Tap a walker or server to select them (highlighted), then tap the destination area on a table. To remove, tap an assigned participant and use the \"Remove from table\" button."
+        },
+        "photo": {
+          "title": "Photo with AI (new)",
+          "desc": "Tap the 📷 button on any table, upload a photo of the walker cards, and AI identifies the IDs and assigns automatically."
+        },
+        "chatbot": {
+          "title": "Tell Jessy (AI chatbot)",
+          "desc": "Open the Jessy chatbot and tell it who goes to which table in natural language. For example: \"Put walker 12 at table 3\". Jessy understands natural language and makes the assignment directly."
+        }
+      },
+      "colors": {
+        "title": "What do the colors mean?",
+        "desc": "The colored border on each card indicates that walker shares a family or friendship bond with others of the same color. The app prevents two people of the same color from being placed at the same table, so everyone has the chance to make new friends.",
+        "noColor": "No color: the walker has no registered bonds."
+      },
+      "unassign": {
+        "title": "Remove a participant from a table",
+        "desc": "On mobile: tap the assigned participant → a red \"Remove from table\" button appears at the bottom. On desktop: drag the participant back to the unassigned section."
+      }
     }
   },
   "bedAssignments": {

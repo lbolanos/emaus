@@ -23,6 +23,9 @@ export const config = {
 	ai: {
 		provider: process.env.AI_PROVIDER || 'google',
 		model: process.env.AI_MODEL || 'gemini-2.0-flash',
+		// Vision model
+		visionProvider: process.env.AI_VISION_PROVIDER || 'google',
+		visionModel: process.env.AI_VISION_MODEL || 'gemini-2.0-flash',
 		maxTokens: parseInt(process.env.AI_CHAT_MAX_TOKENS || '1024'),
 		// Provider API keys (set the one matching AI_PROVIDER)
 		googleApiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || '',

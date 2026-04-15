@@ -17,6 +17,14 @@
             <Eye class="w-4 h-4" />
           </Button>
           <Button
+            variant="outline"
+            size="icon"
+            @click="isPhotoDialogOpen = true"
+            :title="$t('tables.photoAssign.tableTitle')"
+          >
+            <Camera class="w-4 h-4" />
+          </Button>
+          <Button
             variant="destructive"
             size="icon"
             @click="confirmDelete"
@@ -32,18 +40,23 @@
       <CardContent class="flex-grow">
         <div class="space-y-4">
           <!-- Server Drop Zones -->
-          <div class="flex gap-2">
+          <div class="flex flex-wrap gap-2">
             <ServerDropZone
               :title="$t('tables.leader')"
               :participant="table.lider"
               role="lider"
               :is-over="isOverServer && dragOverRole === 'lider'"
               :is-invalid="isDropInvalid && dragOverRole === 'lider'"
+              :is-tap-target="!table.lider && tappedParticipant?.type === 'server'"
+              :table-id="table.id"
               @drop="onDrop($event, 'lider')"
               @dragover="onDragOver($event, 'server', 'lider')"
               @dragleave="onDragLeave('server')"
               @dragstart="startDragFromTable"
               @dragend="handleDragEnd"
+              @touchstart.passive="tapTouchStart"
+              @touchend="tapZone($event, () => onTapAssign('lider'))"
+              @click="tapZoneClick(() => onTapAssign('lider'))"
             />
             <ServerDropZone
               :title="$t('tables.coLeader1')"
@@ -51,11 +64,16 @@
               role="colider1"
               :is-over="isOverServer && dragOverRole === 'colider1'"
               :is-invalid="isDropInvalid && dragOverRole === 'colider1'"
+              :is-tap-target="!table.colider1 && tappedParticipant?.type === 'server'"
+              :table-id="table.id"
               @drop="onDrop($event, 'colider1')"
               @dragover="onDragOver($event, 'server', 'colider1')"
               @dragleave="onDragLeave('server')"
               @dragstart="startDragFromTable"
               @dragend="handleDragEnd"
+              @touchstart.passive="tapTouchStart"
+              @touchend="tapZone($event, () => onTapAssign('colider1'))"
+              @click="tapZoneClick(() => onTapAssign('colider1'))"
             />
             <ServerDropZone
               :title="$t('tables.coLeader2')"
@@ -63,11 +81,16 @@
               role="colider2"
               :is-over="isOverServer && dragOverRole === 'colider2'"
               :is-invalid="isDropInvalid && dragOverRole === 'colider2'"
+              :is-tap-target="!table.colider2 && tappedParticipant?.type === 'server'"
+              :table-id="table.id"
               @drop="onDrop($event, 'colider2')"
               @dragover="onDragOver($event, 'server', 'colider2')"
               @dragleave="onDragLeave('server')"
               @dragstart="startDragFromTable"
               @dragend="handleDragEnd"
+              @touchstart.passive="tapTouchStart"
+              @touchend="tapZone($event, () => onTapAssign('colider2'))"
+              @click="tapZoneClick(() => onTapAssign('colider2'))"
             />
           </div>
 
@@ -76,8 +99,11 @@
             @drop="onDrop($event, 'walkers')"
             @dragover.prevent="onDragOver($event, 'walker')"
             @dragleave.prevent="onDragLeave('walker')"
+            @touchstart.passive="tapTouchStart"
+            @touchend="tapZone($event, () => onTapAssign('walkers'))"
+            @click="tapZoneClick(() => onTapAssign('walkers'))"
             class="p-2 border-2 border-dashed rounded-md transition-colors min-h-[100px]"
-            :class="{ 'border-primary bg-primary/10': isOverWalker }"
+            :class="{ 'border-primary bg-primary/10': isOverWalker, 'border-green-400 bg-green-50 dark:bg-green-900/20': tappedParticipant?.type === 'walker' }"
           >
             <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $t('tables.walkers') }} ({{ table.walkers?.length || 0 }})</h4>
             <transition-group v-if="table.walkers && table.walkers.length > 0" tag="div" name="list-item" class="mt-2 flex flex-wrap gap-2 min-h-[34px]">
@@ -85,6 +111,9 @@
                 v-for="walker in table.walkers"
                 :key="`${walker.id}-${searchIndexKey}`"
                 class="inline-block"
+                @touchstart.passive="tapTouchStart"
+                @touchend.stop="tapTouchEnd($event, walker, table.id, 'walkers')"
+                @click.stop
               >
                 <ParticipantTooltip :participant="walker">
                   <div
@@ -94,10 +123,10 @@
                     :style="{ borderColor: walker.family_friend_color }"
                     :data-participant-id="walker.id"
                     :data-table-id="table.id"
-                    class="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm font-medium cursor-grab border-2 transition-all"
-                    :class="getParticipantHighlightClass(walker)"
+                    class="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm font-medium cursor-pointer border-2 transition-all"
+                    :class="[getParticipantHighlightClass(walker), { 'ring-2 ring-green-500 ring-offset-1 scale-110': isTapSelected(walker.id) }]"
                   >
-                    {{ walker.id_on_retreat || '?' }} {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
+                    <span class="font-bold px-1 rounded" :style="walker.family_friend_color ? { backgroundColor: walker.family_friend_color, color: '#000' } : {}">{{ walker.id_on_retreat || '?' }}</span> {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
                   </div>
                 </ParticipantTooltip>
               </span>
@@ -147,6 +176,13 @@
         </Table>
       </DialogContent>
     </Dialog>
+
+    <PhotoAssignmentDialog
+      :open="isPhotoDialogOpen"
+      :table="table"
+      @update:open="isPhotoDialogOpen = $event"
+      @assigned="$emit('refresh')"
+    />
   </div>
 </template>
 
@@ -174,10 +210,12 @@ import ServerDropZone from './ServerDropZone.vue';
 import ParticipantTooltip from '@/components/ParticipantTooltip.vue';
 import { useToast } from '@repo/ui';
 import { useDragState } from '@/composables/useDragState';
+import { useTapAssign } from '@/composables/useTapAssign';
 
 import { Button } from '@repo/ui';
-import { Trash2, Eye } from 'lucide-vue-next';
+import { Trash2, Eye, Camera } from 'lucide-vue-next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@repo/ui';
+import PhotoAssignmentDialog from '@/components/PhotoAssignmentDialog.vue';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@repo/ui';
 
 const props = defineProps({
@@ -191,18 +229,22 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['delete']);
+const emit = defineEmits(['delete', 'refresh']);
 
 const { t } = useI18n();
 const tableMesaStore = useTableMesaStore();
 const { toast } = useToast();
 const { draggedParticipantType, startDrag: startDragState, endDrag } = useDragState();
+const { tappedParticipant, onTouchStart: tapTouchStart, onTouchEnd: tapTouchEnd, onTapZone: tapZone, onZoneClick: tapZoneClick, isSelected: isTapSelected, clearSelection: clearTap } = useTapAssign();
+
+
 
 const isOverServer = ref(false);
 const isOverWalker = ref(false);
 const dragOverRole = ref<'lider' | 'colider1' | 'colider2' | null>(null);
 const isDropInvalid = ref(false);
 const isDialogOpen = ref(false);
+const isPhotoDialogOpen = ref(false);
 
 // Force re-render when search index changes
 const searchIndexKey = ref(0);
@@ -341,6 +383,7 @@ const handleDragEnd = () => {
 };
 
 const onDrop = (event: DragEvent, role: 'lider' | 'colider1' | 'colider2' | 'walkers') => {
+
   // Prevent drop if table is not saved yet
   if (!props.table.id) return;
 
@@ -462,6 +505,32 @@ const onDragLeave = (type: 'server' | 'walker') => {
     isDropInvalid.value = false;
   } else {
     isOverWalker.value = false;
+  }
+};
+
+const onTapAssign = (role: 'lider' | 'colider1' | 'colider2' | 'walkers') => {
+
+  if (!tappedParticipant.value || !props.table.id) return;
+
+  const participant = tappedParticipant.value;
+
+  if (role === 'walkers' && participant.type === 'walker') {
+    // Check family/friend color conflicts
+    if (participant.family_friend_color) {
+      const hasConflict = props.table.walkers?.some(
+        (w) => w.family_friend_color === participant.family_friend_color
+      );
+      if (hasConflict) {
+        toast({ title: t('tables.errors.familyFriendConflict'), variant: 'destructive' });
+        clearTap();
+        return;
+      }
+    }
+    tableMesaStore.assignWalkerToTable(props.table.id, participant.id, (participant as any).sourceTableId);
+    clearTap();
+  } else if (role !== 'walkers' && participant.type === 'server') {
+    tableMesaStore.assignLeader(props.table.id, participant.id, role, (participant as any).sourceTableId, (participant as any).sourceRole);
+    clearTap();
   }
 };
 

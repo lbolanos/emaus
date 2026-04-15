@@ -2,21 +2,21 @@
   <TooltipProvider :delay-duration="300">
   <div class="h-full flex flex-col">
     <!-- Sticky Header -->
-    <div class="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 sm:p-3 lg:p-4 border-b">
+    <div class="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-1.5 sm:p-3 lg:p-4 border-b">
       <div class="sm:flex sm:items-center sm:justify-between gap-4">
-        <div class="sm:flex-auto">
+        <div class="hidden sm:block sm:flex-auto">
           <h1 class="text-[20px] font-bold leading-6 text-gray-900 dark:text-white">{{ $t('tables.title') }}</h1>
           <p class="mt-2 text-[10px] text-gray-700 dark:text-gray-300">{{ $t('tables.description') }}</p>
         </div>
 
         <!-- Search and Actions -->
-        <div class="flex items-center gap-2 mt-4 sm:mt-0">
+        <div class="flex items-center gap-2">
           <!-- Search Bar -->
-          <div class="relative flex items-center">
+          <div class="relative flex items-center flex-1 sm:flex-none">
             <Input
               v-model="searchQuery"
               :placeholder="$t('common.searchPlaceholder')"
-              class="w-64 pr-20"
+              class="w-full sm:w-64 pr-20"
             />
             <div v-if="totalMatches > 0" class="absolute right-1 flex items-center bg-background rounded-md border">
               <span class="text-xs px-2">{{ currentMatchIndex + 1 }} / {{ totalMatches }}</span>
@@ -41,17 +41,17 @@
             </div>
           </div>
 
-          <!-- Column Selector -->
-          <Select v-model="columnCount">
-            <SelectTrigger class="w-[140px]">
-              <LayoutGrid class="h-4 w-4 mr-2" />
-              <SelectValue :placeholder="$t('tables.columns')" />
+          <!-- Column Selector (hidden on mobile) -->
+          <Select v-model="columnCount" class="hidden sm:inline-flex">
+            <SelectTrigger class="w-[70px]">
+              <LayoutGrid class="h-4 w-4 mr-1" />
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1">1 {{ $t('tables.column') }}</SelectItem>
-              <SelectItem value="2">2 {{ $t('tables.columns') }}</SelectItem>
-              <SelectItem value="3">3 {{ $t('tables.columns') }}</SelectItem>
-              <SelectItem value="4">4 {{ $t('tables.columns') }}</SelectItem>
+              <SelectItem value="1">1</SelectItem>
+              <SelectItem value="2">2</SelectItem>
+              <SelectItem value="3">3</SelectItem>
+              <SelectItem value="4">4</SelectItem>
             </SelectContent>
           </Select>
 
@@ -84,6 +84,15 @@
               <Printer class="mr-2 h-4 w-4" />
               {{ $t('tables.printTables') }}
             </DropdownMenuItem>
+            <DropdownMenuItem @click="isLotteryCardsOpen = true">
+              <Scissors class="mr-2 h-4 w-4" />
+              {{ $t('tables.printLotteryCards') }}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem @click="isHelpOpen = true">
+              <HelpCircle class="mr-2 h-4 w-4" />
+              {{ $t('tables.help.menuItem') }}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         </div>
@@ -91,8 +100,32 @@
     </div>
 
     <!-- Sticky Unassigned Areas -->
-    <div class="sticky top-[80px] z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-2 sm:px-3 lg:px-4 py-2 border-b">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="sm:sticky sm:top-[80px] z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-2 sm:px-3 lg:px-4 py-2 border-b">
+
+      <!-- Mobile: tab buttons (hidden on md+) -->
+      <div class="flex gap-1 mb-2 md:hidden">
+        <button
+          @click="unassignedTab = 'server'"
+          class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+          :class="unassignedTab === 'server'
+            ? 'bg-blue-600 text-white'
+            : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800'"
+        >
+          {{ $t('tables.unassignedServers') }} ({{ unassignedServers.length }})
+        </button>
+        <button
+          @click="unassignedTab = 'walker'"
+          class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+          :class="unassignedTab === 'walker'
+            ? 'bg-green-600 text-white'
+            : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800'"
+        >
+          {{ $t('tables.unassignedWalkers') }} ({{ unassignedWalkers.length }})
+        </button>
+      </div>
+
+      <!-- Desktop: side-by-side grid (hidden on mobile) -->
+      <div class="hidden md:grid md:grid-cols-2 gap-4">
         <!-- Unassigned Servers -->
         <div>
           <h3 class="text-sm font-medium leading-5 text-gray-900 dark:text-white">{{ $t('tables.unassignedServers') }}</h3>
@@ -111,12 +144,14 @@
             >
               <div
                 draggable="true"
+                @touchstart.passive="tapTouchStart"
+                @touchend="tapTouchEnd($event, server)"
                 @dragstart="startDrag($event, server)"
                 @dragend="handleDragEnd"
                 :data-participant-id="server.id"
                 :data-is-unassigned="true"
-                class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium cursor-grab transition-all"
-                :class="getParticipantHighlightClass(server.id)"
+                class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium cursor-pointer transition-all"
+                :class="[getParticipantHighlightClass(server.id), { 'ring-2 ring-blue-500 ring-offset-1 scale-110': isTapSelected(server.id) }]"
               >
                 {{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
               </div>
@@ -141,16 +176,52 @@
             >
               <div
                 draggable="true"
+                @touchstart.passive="tapTouchStart"
+                @touchend="tapTouchEnd($event, walker)"
                 @dragstart="startDrag($event, walker)"
                 @dragend="handleDragEnd"
                 :data-participant-id="walker.id"
                 :data-is-unassigned="true"
-                class="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium cursor-grab transition-all"
-                :class="getParticipantHighlightClass(walker.id)"
+                class="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium cursor-pointer transition-all"
+                :class="[getParticipantHighlightClass(walker.id), { 'ring-2 ring-green-500 ring-offset-1 scale-110': isTapSelected(walker.id) }]"
               >
-                {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
+                <span class="font-bold px-1 rounded" :style="walker.family_friend_color ? { backgroundColor: walker.family_friend_color, color: '#000' } : {}">{{ walker.id_on_retreat || '' }}</span> {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
               </div>
             </ParticipantTooltip>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile: tabbed content (hidden on md+) - NO tooltip wrapper, touch handlers on outer span -->
+      <div class="md:hidden">
+        <!-- Unassigned Servers -->
+        <div v-show="unassignedTab === 'server'">
+          <div class="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[40px] max-h-24 overflow-y-auto flex flex-wrap gap-2">
+            <span
+              v-for="server in unassignedServers"
+              :key="server.id"
+              @touchstart.passive="tapTouchStart"
+              @touchend="tapTouchEnd($event, server)"
+              class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium cursor-pointer transition-all select-none"
+              :class="{ 'ring-2 ring-blue-500 ring-offset-1 scale-110': isTapSelected(server.id) }"
+            >
+              {{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
+            </span>
+          </div>
+        </div>
+        <!-- Unassigned Walkers -->
+        <div v-show="unassignedTab === 'walker'">
+          <div class="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[40px] max-h-24 overflow-y-auto flex flex-wrap gap-2">
+            <span
+              v-for="walker in unassignedWalkers"
+              :key="walker.id"
+              @touchstart.passive="tapTouchStart"
+              @touchend="tapTouchEnd($event, walker)"
+              class="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium cursor-pointer transition-all select-none"
+              :class="{ 'ring-2 ring-green-500 ring-offset-1 scale-110': isTapSelected(walker.id) }"
+            >
+              <span class="font-bold px-1 rounded" :style="walker.family_friend_color ? { backgroundColor: walker.family_friend_color, color: '#000' } : {}">{{ walker.id_on_retreat || '' }}</span> {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
+            </span>
           </div>
         </div>
       </div>
@@ -168,7 +239,7 @@
       <div v-else-if="tableMesaStore.tables.length === 0" class="mt-8 text-center">
         <p>{{ $t('tables.noTablesFound') }}</p>
       </div>
-      <div v-else class="mt-8 grid gap-6 card-container" :class="gridColumnsClass">
+      <div v-else class="mt-4 sm:mt-8 grid gap-4 sm:gap-6 card-container" :class="gridColumnsClass">
         <TableCard
           v-for="table in tableMesaStore.tables"
           :key="table.id"
@@ -176,6 +247,7 @@
           :search-query="searchQuery"
           class="table-card"
           @delete="handleDeleteTable"
+          @refresh="tableMesaStore.fetchTables()"
         />
       </div>
     </div>
@@ -243,23 +315,52 @@
       </div>
     </div>
   </Teleport>
+
+  <!-- Lottery Cards Dialog -->
+  <LotteryCardsDialog
+    v-if="isLotteryCardsOpen"
+    :open="isLotteryCardsOpen"
+    :walkers="allWalkers"
+    @close="isLotteryCardsOpen = false"
+  />
+
+  <TablesHelpDialog :open="isHelpOpen" @update:open="isHelpOpen = $event" />
+
+  <!-- Floating unassign button — shown when an assigned participant is tap-selected -->
+  <Teleport to="body">
+    <div
+      v-if="tappedParticipant && (tappedParticipant as any).sourceTableId"
+      class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex gap-2 shadow-lg"
+    >
+      <Button size="sm" variant="destructive" @click="onTapUnassign">
+        <X class="w-4 h-4 mr-1" />
+        {{ $t('tables.tapUnassign') }}
+      </Button>
+      <Button size="sm" variant="outline" @click="clearTap">
+        {{ $t('common.cancel') }}
+      </Button>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, computed, ref, watch } from 'vue';
+import { nextTick, onMounted, onUnmounted, computed, ref, watch } from 'vue';
 import { useTableMesaStore } from '@/stores/tableMesaStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import TableCard from './TableCard.vue';
 import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, TooltipProvider } from '@repo/ui';
 import ParticipantTooltip from '@/components/ParticipantTooltip.vue';
+import LotteryCardsDialog from '@/components/LotteryCardsDialog.vue';
+import TablesHelpDialog from '@/components/TablesHelpDialog.vue';
 import { useToast } from '@repo/ui';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@repo/ui';
-import { ChevronLeft, ChevronRight, Download, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw, UserX } from 'lucide-vue-next';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@repo/ui';
+import { ChevronLeft, ChevronRight, Download, HelpCircle, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw, Scissors, UserX, X } from 'lucide-vue-next';
 import type { Participant, TableMesa } from '@repo/types';
 import { useI18n } from 'vue-i18n';
 import { exportTablesToDocx } from '@/services/api';
 import { useDragState } from '@/composables/useDragState';
+import { useTapAssign } from '@/composables/useTapAssign';
 
 const tableMesaStore = useTableMesaStore();
 const retreatStore = useRetreatStore();
@@ -267,6 +368,20 @@ const participantStore = useParticipantStore();
 const { toast } = useToast();
 const { t } = useI18n();
 const { draggedParticipantType, startDrag: startDragState, endDrag } = useDragState();
+const { tappedParticipant, onTouchStart: tapTouchStart, onTouchEnd: tapTouchEnd, clearSelection: clearTap, isSelected: isTapSelected } = useTapAssign();
+
+const onTapUnassign = () => {
+	if (!tappedParticipant.value) return;
+	const p = tappedParticipant.value as any;
+	if (!p.sourceTableId) { clearTap(); return; }
+	const isServer = p.type === 'server' || ['lider', 'colider1', 'colider2'].includes(p.sourceRole);
+	if (isServer && p.sourceRole) {
+		tableMesaStore.unassignLeader(p.sourceTableId, p.sourceRole);
+	} else if (!isServer) {
+		tableMesaStore.unassignWalkerFromTable(p.sourceTableId, p.id);
+	}
+	clearTap();
+};
 
 const isRebalancing = ref(false);
 const isRebalanceDialogOpen = ref(false);
@@ -278,6 +393,9 @@ const tableToDelete = ref<TableMesa | null>(null);
 const isClearAllDialogOpen = ref(false);
 const isClearingAll = ref(false);
 const isExporting = ref(false);
+const isLotteryCardsOpen = ref(false);
+const isHelpOpen = ref(false);
+const unassignedTab = ref<'server' | 'walker'>('walker');
 const columnCount = ref(localStorage.getItem('tables_column_count') || '3');
 
 // Persist column count to local storage
@@ -448,12 +566,16 @@ const unassignedWalkers = computed(() => {
   );
 });
 
+const allWalkers = computed(() => {
+  return (participantStore.participants || []).filter(p => p.type === 'walker' && !p.isCancelled);
+});
+
 const startDrag = (event: DragEvent, participant: Participant) => {
+
   if (event.dataTransfer) {
     event.dataTransfer.dropEffect = 'move';
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('application/json', JSON.stringify(participant));
-    // Only start drag state for valid types (walker or server)
     if (participant.type === 'walker' || participant.type === 'server') {
       startDragState(participant.type);
     }
@@ -461,6 +583,7 @@ const startDrag = (event: DragEvent, participant: Participant) => {
 };
 
 const handleDragEnd = () => {
+
   endDrag();
   isOverUnassignedServer.value = false;
   isOverUnassignedWalker.value = false;
@@ -608,6 +731,7 @@ const handleExportTables = async () => {
 const handlePrintTables = () => {
   window.print();
 };
+
 
 // Single watcher handles both initial load and retreat changes
 watch(

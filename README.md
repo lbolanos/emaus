@@ -487,7 +487,7 @@ agregar contacto emergencia a variables de mensajes y cuando se envie un mensaje
 tambien agregar invitador en la lista de envio de mensajes.
 si alguna variable esta vacia dejar constancia visible cuando se este enviando el mensaje.
 numero de mensajes enviados como columna en la lista de participantes.
-
+Cuando se asigna al servidor en una responsabilidad se agregue como lider del equipo de servicio y al revez tambien.
 
 ## IN PROGRESS
 
@@ -508,7 +508,13 @@ agregar todas las actividades por servidor
 
 ## TODO
 
-Cuando se asigna al servidor en una responsabilidad se agregue como lider del equipo de servicio y al revez tambien.
+problemas para adicionar una sola habitacion cuando ya esta creado.
+guardar el sector de las habitaciones que se guardan con masivo
+cuando ya esta el retiro por empezar modificar las camas para servidores.  es decir si sobraron camas de caminantes modificar que puedan ser para servidores sin modificar la estructura de la casa de retiro.  solamente para el retiro en curso.
+al crear un retiro las horas de llegada por defecto x:00.  Colocar unas notas por defecto
+una forma de agregar la direccion de la iglesia donde se hace la misa de clausura.
+cuando editor el retiro el flyer en el lugar aparece el nombre de la parroquia
+
 
 Crear un retiro a partir de los datos del anterior retiro. Casa de retiro, inventario, mensajes.
 

@@ -352,7 +352,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useToast } from '@repo/ui';
@@ -872,11 +872,18 @@ const getFilterLabel = () => {
 
 // Use props.id (route param) as the single source of truth to avoid
 // ping-pong loops when selectedRetreatId differs from the URL.
+const onJessyBedMutation = () => fetchBeds();
+
 onMounted(async () => {
   await retreatStore.fetchRetreat(props.id);
   fetchBeds();
   participantStore.filters.retreatId = props.id;
   participantStore.fetchParticipants();
+  window.addEventListener('jessy:beds-changed', onJessyBedMutation);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('jessy:beds-changed', onJessyBedMutation);
 });
 
 watch(() => retreatStore.selectedRetreatId, (newId, oldId) => {

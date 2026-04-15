@@ -46,6 +46,7 @@ import { ServiceTeam } from '../entities/serviceTeam.entity';
 import { ServiceTeamMember } from '../entities/serviceTeamMember.entity';
 
 import { Session } from '../entities/session.entity';
+import { ChatConversation } from '../entities/chatConversation.entity';
 
 export function createDatabaseConfig() {
 	const dbType = process.env.DB_TYPE || 'sqlite';
@@ -102,6 +103,8 @@ export function createDatabaseConfig() {
 		// Service Teams
 		ServiceTeam,
 		ServiceTeamMember,
+		// Chat
+		ChatConversation,
 		// Temporarily excluding entities with enum issues
 		// PermissionOverride,
 		// RoleRequest,

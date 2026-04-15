@@ -142,6 +142,55 @@ export const exportTablesToDocx = async (retreatId: string): Promise<void> => {
 	window.URL.revokeObjectURL(url);
 };
 
+// Vision Assignment API functions
+export interface AssignmentProposal {
+	idOnRetreat: number;
+	participantId: string | null;
+	participantName: string | null;
+	tableName: string;
+	tableId: string | null;
+	valid: boolean;
+	error?: string;
+}
+
+export interface AnalysisResult {
+	proposals: AssignmentProposal[];
+	unreadable: Array<{ description: string; possibleId?: number }>;
+	notes: string;
+}
+
+export interface ExecutionResult {
+	idOnRetreat: number;
+	participantName: string;
+	tableName: string;
+	success: boolean;
+	error?: string;
+}
+
+export const analyzeLotteryPhoto = async (
+	retreatId: string,
+	imageBase64: string,
+	contentType: string,
+): Promise<AnalysisResult> => {
+	const response = await api.post('/vision-assignment/analyze', {
+		imageBase64,
+		contentType,
+		retreatId,
+	});
+	return response.data;
+};
+
+export const executeLotteryAssignments = async (
+	retreatId: string,
+	assignments: Array<{ participantId: string; tableId: string; idOnRetreat: number; participantName: string; tableName: string }>,
+): Promise<{ results: ExecutionResult[] }> => {
+	const response = await api.post('/vision-assignment/execute', {
+		retreatId,
+		assignments,
+	});
+	return response.data;
+};
+
 // Service Teams API functions
 import type { ServiceTeam } from '@repo/types';
 
@@ -1539,6 +1588,51 @@ export async function getAiChatStatus(): Promise<{ configured: boolean }> {
 	return response.data;
 }
 
+export async function saveChatConversation(data: {
+	id?: string;
+	messages: any[];
+	retreatId?: string;
+	title?: string;
+}): Promise<{ id: string }> {
+	const response = await api.post('/ai-chat/conversations', data);
+	return response.data;
+}
+
+export async function getChatConversations(): Promise<
+	{ id: string; title: string | null; retreatId: string | null; createdAt: string; updatedAt: string }[]
+> {
+	const response = await api.get('/ai-chat/conversations');
+	return response.data;
+}
+
+export async function getChatConversation(id: string): Promise<{
+	id: string;
+	title: string | null;
+	retreatId: string | null;
+	messages: any[];
+	createdAt: string;
+	updatedAt: string;
+}> {
+	const response = await api.get(`/ai-chat/conversations/${id}`);
+	return response.data;
+}
+
+export async function deleteChatConversation(id: string): Promise<void> {
+	await api.delete(`/ai-chat/conversations/${id}`);
+}
+
+// ==================== TTS API ====================
+
+export async function ttsSpeak(text: string, voice?: string): Promise<Blob> {
+	const response = await api.post('/tts/speak', { text, voice }, { responseType: 'blob' });
+	return response.data;
+}
+
+export async function ttsVoices(): Promise<{ id: string; name: string; locale: string; gender: string }[]> {
+	const response = await api.get('/tts/voices');
+	return response.data;
+}
+
 // ==================== PUBLIC ATTENDANCE API ====================
 
 export async function getPublicAttendance(
@@ -1561,3 +1655,25 @@ export async function togglePublicAttendance(
 ): Promise<void> {
 	await api.post(`/communities/public/attendance/${communityId}/${meetingId}`, data);
 }
+
+export const analyzeTablePhoto = async (retreatId: string, tableId: string, imageBase64: string, contentType: string) => {
+	const response = await api.post('/vision-assignment/analyze-table', { retreatId, tableId, imageBase64, contentType });
+	return response.data as {
+		proposals: Array<{
+			idOnRetreat: number;
+			participantId: string | null;
+			participantName: string | null;
+			tableName: string;
+			tableId: string | null;
+			valid: boolean;
+			error?: string;
+		}>;
+		unreadable: Array<{ description: string }>;
+		notes: string;
+	};
+};
+
+export const executeTableAssignments = async (retreatId: string, assignments: Array<{ participantId: string; tableId: string; idOnRetreat: number; participantName: string; tableName: string }>) => {
+	const response = await api.post('/vision-assignment/execute', { retreatId, assignments });
+	return response.data as { results: Array<{ idOnRetreat: number; participantName: string; tableName: string; success: boolean; error?: string }> };
+};
