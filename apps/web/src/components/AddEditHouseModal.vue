@@ -301,7 +301,7 @@
 
             <ScrollArea ref="bedScrollArea" class="h-[380px] w-full rounded-md border p-4">
               <!-- Group beds by floor -->
-              <div v-for="(floorBeds, floorNum) in groupedBeds" :key="floorNum" class="mb-4">
+              <div v-for="[floorNum, floorBeds] in groupedBeds" :key="floorNum" class="mb-4">
                 <div class="flex items-center gap-2 mb-3 pb-2 border-b">
                   <div class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
                     {{ floorNum }}
@@ -311,14 +311,20 @@
                 </div>
 
                 <!-- Group beds by room within floor -->
-                <div v-for="(roomBeds, roomNum) in groupBedsByRoom(floorBeds)" :key="roomNum" class="ml-4" :data-room="roomNum">
+                <div v-for="[roomNum, roomBeds] in groupBedsByRoom(floorBeds)" :key="roomNum" class="ml-4" :data-room="roomNum" :data-bed-section="`${floorNum}-${roomNum}`">
                   <div class="flex items-center gap-2">
                     <DoorOpen class="w-4 h-4 text-gray-500" />
                     <span class="text-sm font-medium text-gray-700">Habitación {{ roomNum }}</span>
                     <Badge variant="outline" class="text-[10px]">{{ roomBeds.length }} cama(s)</Badge>
                   </div>
 
-                  <div v-for="bed in roomBeds" :key="bed.index" class="grid grid-cols-12 gap-2 items-center ml-6 rounded hover:bg-gray-50 transition-colors">
+                  <div
+                    v-for="bed in roomBeds"
+                    :key="bed.index"
+                    class="grid grid-cols-12 gap-2 items-center ml-6 rounded transition-colors cursor-pointer"
+                    :class="selectedBedIndex === bed.index ? 'bg-blue-100 ring-1 ring-blue-400' : 'hover:bg-gray-50'"
+                    @click="selectBed(bed.index)"
+                  >
                     <div class="col-span-3">
                       <Input
                         v-model="formData.beds[bed.index].bedNumber"
@@ -380,6 +386,7 @@
             <div class="flex items-center">
               <Info class="w-4 h-4 mr-2 text-blue-600" />
               <span class="text-[10px] text-blue-800 font-medium">Configurar próxima cama:</span>
+              <span v-if="selectedBedIndex !== null" class="text-[10px] text-blue-600 ml-2">(Contexto: Piso {{ nextBedData.floor }}, Hab. {{ nextBedData.roomNumber }})</span>
             </div>
             <div class="grid grid-cols-5 gap-2 items-center">
               <div>
@@ -605,6 +612,7 @@ const step2Schema = z.object({
     floor: z.number().int().optional(),
     type: z.string().min(1, 'Type is required'),
     defaultUsage: z.string().min(1, 'Usage is required'),
+    floorLabel: z.string().optional(),
   })).min(1, 'At least one bed is required'),
 });
 
@@ -632,6 +640,9 @@ const nextBedData = reactive({
   type: 'normal' as 'normal' | 'litera_abajo' | 'litera_arriba' | 'colchon',
   defaultUsage: 'caminante' as 'caminante' | 'servidor'
 });
+
+// Track which bed is selected as context for next bed operations
+const selectedBedIndex = ref<number | null>(null);
 
 // Function to update next bed data based on current beds
 const updateNextBedData = () => {
@@ -674,7 +685,18 @@ const updateNextBedData = () => {
 
 // Watch for changes in beds and update next bed data
 watch(() => formData.value.beds, () => {
-  updateNextBedData();
+  if (selectedBedIndex.value !== null) {
+    // If the selected bed was deleted, clear selection and fall back
+    if (selectedBedIndex.value >= formData.value.beds.length) {
+      selectedBedIndex.value = null;
+      updateNextBedData();
+    } else {
+      // Re-run selectBed to refresh nextBedData for the current context
+      selectBed(selectedBedIndex.value);
+    }
+  } else {
+    updateNextBedData();
+  }
 }, { deep: true, immediate: true });
 
 // Computed property for display
@@ -780,13 +802,29 @@ const validateStep = (step: number) => {
 
 const scrollToBedListBottom = async () => {
   await nextTick();
-  // The ref `bedScrollArea` gives us access to the component instance.
-  // The scrollable element is a child of the component's root element.
   const scrollAreaElement = bedScrollArea.value?.$el as HTMLElement | undefined;
   if (scrollAreaElement) {
     const viewport = scrollAreaElement.querySelector<HTMLElement>('[data-reka-scroll-area-viewport]');
     if (viewport) viewport.scrollTop = viewport.scrollHeight;
   }
+};
+
+const scrollToRoom = async (floor: number, room: string) => {
+  await nextTick();
+  const scrollAreaElement = bedScrollArea.value?.$el as HTMLElement | undefined;
+  if (scrollAreaElement) {
+    const viewport = scrollAreaElement.querySelector<HTMLElement>('[data-reka-scroll-area-viewport]');
+    if (viewport) {
+      const roomEl = viewport.querySelector<HTMLElement>(`[data-bed-section="${floor}-${room}"]`);
+      if (roomEl) {
+        const roomRect = roomEl.getBoundingClientRect();
+        const viewportRect = viewport.getBoundingClientRect();
+        viewport.scrollTop = viewport.scrollTop + (roomRect.top - viewportRect.top) - 8;
+        return;
+      }
+    }
+  }
+  scrollToBedListBottom();
 };
 const incrementAlphanumeric = (value: string): string => {
   if (!value) return '1';
@@ -875,6 +913,45 @@ const findLastBedInLogicalOrder = (beds: Bed[]) => {
   return lastBed;
 };
 
+const selectBed = (index: number) => {
+  // Toggle: clicking the same bed deselects
+  if (selectedBedIndex.value === index) {
+    selectedBedIndex.value = null;
+    updateNextBedData();
+    return;
+  }
+
+  const bed = formData.value.beds[index];
+  if (!bed) return;
+
+  selectedBedIndex.value = index;
+
+  const floor = bed.floor || 1;
+  const room = bed.roomNumber || '1';
+
+  // Find the highest bed number in this specific room on this floor
+  const bedsInSameRoom = formData.value.beds.filter(
+    (b: Bed) => (b.floor || 1) === floor && (b.roomNumber || '1') === room
+  );
+
+  const sortedBeds = [...bedsInSameRoom].sort((a: Bed, b: Bed) => {
+    const aNum = parseInt(a.bedNumber.replace(/\D/g, ''));
+    const bNum = parseInt(b.bedNumber.replace(/\D/g, ''));
+    if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+    return a.bedNumber.localeCompare(b.bedNumber);
+  });
+
+  const lastBedInRoom = sortedBeds[sortedBeds.length - 1];
+  const newBedNumber = incrementAlphanumeric(lastBedInRoom.bedNumber)
+    || (parseInt(lastBedInRoom.bedNumber) + 1).toString();
+
+  nextBedData.floor = floor;
+  nextBedData.roomNumber = room;
+  nextBedData.bedNumber = newBedNumber;
+  nextBedData.type = bed.type || 'normal';
+  nextBedData.defaultUsage = bed.defaultUsage || 'caminante';
+};
+
 const addBed = () => {
   const newBed = {
     roomNumber: nextBedData.roomNumber,
@@ -884,13 +961,13 @@ const addBed = () => {
     defaultUsage: nextBedData.defaultUsage,
   };
 
-  // Use Vue.set or spread to ensure reactivity
   formData.value.beds = [...formData.value.beds, newBed];
   hasUnsavedChanges.value = true;
 
-  // Small delay to ensure DOM update before scrolling
+  const targetFloor = newBed.floor;
+  const targetRoom = newBed.roomNumber;
   setTimeout(() => {
-    scrollToBedListBottom();
+    scrollToRoom(targetFloor, targetRoom);
   }, 50);
 
 };
@@ -898,24 +975,36 @@ const addBed = () => {
 const addNewRoom = () => {
   const beds = formData.value.beds;
   if (beds.length > 0) {
-    // Find the current room number and increment it
-    const currentRoomNumber = nextBedData.roomNumber;
-    const newRoomNumber = incrementAlphanumeric(currentRoomNumber);
+    const currentFloor = nextBedData.floor || 1;
+
+    // Collect all existing room numbers on this floor
+    const existingRooms = new Set(
+      beds
+        .filter((b: Bed) => (b.floor || 1) === currentFloor)
+        .map((b: Bed) => b.roomNumber || '1')
+    );
+
+    // Find the next room number that doesn't exist on this floor
+    let candidateRoom = incrementAlphanumeric(nextBedData.roomNumber);
+    let maxAttempts = 100;
+    while (existingRooms.has(candidateRoom) && maxAttempts > 0) {
+      candidateRoom = incrementAlphanumeric(candidateRoom);
+      maxAttempts--;
+    }
 
     const newBed = {
-      roomNumber: newRoomNumber,
-      floor: nextBedData.floor, // Keep same floor as configured in next bed
-      bedNumber: '1', // Start with bed 1 in new room
-      type: nextBedData.type, // Use type from next bed configuration
-      defaultUsage: nextBedData.defaultUsage, // Use usage from next bed configuration
+      roomNumber: candidateRoom,
+      floor: currentFloor,
+      bedNumber: '1',
+      type: nextBedData.type,
+      defaultUsage: nextBedData.defaultUsage,
     };
 
     formData.value.beds = [...formData.value.beds, newBed];
+    selectedBedIndex.value = null;
     scrollToBedListBottom();
   } else {
-    // If no beds exist, just add a blank one (same as addBed)
     addBed();
-    // addBed() will call scrollToBedListBottom()
   }
 };
 
@@ -925,43 +1014,52 @@ const addNewFloor = () => {
     const newFloor = (nextBedData.floor || 1) + 1;
 
     const newBed = {
-      roomNumber: '1', // Reset room number for the new floor
+      roomNumber: '1',
       floor: newFloor,
-      bedNumber: '1', // Start with bed 1 on new floor
-      type: nextBedData.type, // Use type from next bed configuration
-      defaultUsage: nextBedData.defaultUsage, // Use usage from next bed configuration
+      bedNumber: '1',
+      type: nextBedData.type,
+      defaultUsage: nextBedData.defaultUsage,
     };
 
     formData.value.beds = [...formData.value.beds, newBed];
+    selectedBedIndex.value = null;
     scrollToBedListBottom();
   } else {
-    // If no beds exist, just add a blank one
     addBed();
   }
 };
 
-const groupedBeds = computed(() => {
-  const groups: { [key: number]: (Bed & { index: number })[] } = {};
+const alphanumericCompare = (a: string, b: string): number => {
+  const aNum = parseInt(a, 10);
+  const bNum = parseInt(b, 10);
+  if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+  return a.localeCompare(b);
+};
+
+const groupedBeds = computed((): [number, (Bed & { index: number })[]][] => {
+  const groups: Map<number, (Bed & { index: number })[]> = new Map();
   formData.value.beds.forEach((bed: any, index: number) => {
     const floor = bed.floor || 1;
-    if (!groups[floor]) {
-      groups[floor] = [];
-    }
-    groups[floor].push({ ...bed, index });
+    if (!groups.has(floor)) groups.set(floor, []);
+    groups.get(floor)!.push({ ...bed, index });
   });
-  return groups;
+  return [...groups.entries()].sort(([a], [b]) => a - b);
 });
 
-const groupBedsByRoom = (floorBeds: (Bed & { index: number })[]) => {
-  const rooms: { [key: string]: (Bed & { index: number })[] } = {};
+const groupBedsByRoom = (floorBeds: (Bed & { index: number })[]): [string, (Bed & { index: number })[]][] => {
+  const rooms: Map<string, (Bed & { index: number })[]> = new Map();
   floorBeds.forEach(bed => {
     const roomNum = bed.roomNumber || '1';
-    if (!rooms[roomNum]) {
-      rooms[roomNum] = [];
-    }
-    rooms[roomNum].push(bed);
+    if (!rooms.has(roomNum)) rooms.set(roomNum, []);
+    rooms.get(roomNum)!.push(bed);
   });
-  return rooms;
+  // Sort rooms alphanumerically, and beds within each room by bed number
+  return [...rooms.entries()]
+    .sort(([a], [b]) => alphanumericCompare(a, b))
+    .map(([roomNum, beds]) => [
+      roomNum,
+      [...beds].sort((a, b) => alphanumericCompare(a.bedNumber, b.bedNumber)),
+    ]);
 };
 
 const confirmDeleteBed = async (index: number) => {
