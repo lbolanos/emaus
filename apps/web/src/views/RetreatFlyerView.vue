@@ -119,7 +119,7 @@
 
           <!-- Start Time Card -->
           <div class="absolute z-10 p-5 rounded-2xl overflow-hidden"
-               style="top: 172px; left: 15px; width: 490px; max-width: 60%; max-height: 200px;">
+               style="top: 172px; left: 15px; width: 360px; max-width: 36%; max-height: 200px;">
             <div class="flex gap-4 items-start group">
               <div class="bg-gradient-to-br from-blue-500 to-blue-700 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0">
                 <Clock class="w-5 h-5" />
@@ -128,9 +128,8 @@
                 <h4 class="font-black text-[15px] uppercase text-blue-700 tracking-[0.15em] mb-1.5 drop-shadow-lg">{{ t('retreatFlyer.startTime') }}</h4>
                 <p class="text-[17px] text-blue-700 font-bold mb-0.5">{{ formatDate(startDate) }}</p>
                 <p class="text-[22px] font-black text-gray-900 mt-1">{{ openingTimeDisplay }}</p>
-                <div class="mt-3 backdrop-blur-sm print:backdrop-blur-none border-l-4 border-red-500 p-3.5 rounded-r-xl shadow-md print:bg-red-50">
-                  <p class="text-[13px] text-red-700 font-bold flex items-center gap-2.5">
-                    <AlertTriangle class="w-5 h-5 flex-shrink-0 animate-pulse" />
+                <div class="mt-3 backdrop-blur-sm print:backdrop-blur-none border-l-4 border-blue-500 p-3.5 rounded-r-xl shadow-md print:bg-blue-50">
+                  <p class="text-[13px] text-blue-700 font-bold flex items-center gap-2.5">
                     <span class="text-[14px] leading-tight">{{ registrationDeadline }}</span>
                   </p>
                 </div>
@@ -281,7 +280,7 @@
 
           <!-- Registration QR Code Card -->
           <div v-if="showQrCodesRegistration" class="absolute z-10 p-5 text-center overflow-hidden"
-               style="top: 2px; right: 21px; width: 200px; max-width: 25%; max-height: 300px;">
+               style="top: 2px; right: 21px; width: 220px; max-width: 27%; max-height: 300px;">
             <h3 class="text-[22px] font-black text-blue-700 uppercase mb-2 tracking-[0.15em] drop-shadow-sm">{{ registerText }}</h3>
             <p class="text-[11px] text-gray-600 mb-4 font-bold leading-tight">{{ scanToRegisterText }}</p>
 
