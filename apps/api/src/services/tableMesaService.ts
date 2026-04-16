@@ -86,7 +86,7 @@ export const createDefaultTablesForRetreat = async (retreat: Retreat, dataSource
 	for (let i = 1; i <= 5; i++) {
 		const newTable = repos.tableMesa.create({
 			id: uuidv4(),
-			name: `Table ${i}`,
+			name: `Mesa ${i}`,
 			retreatId: retreat.id,
 		});
 		await repos.tableMesa.save(newTable);
@@ -331,7 +331,7 @@ export const rebalanceTablesForRetreat = async (retreatId: string, dataSource?: 
 
 	if (tableCount < idealTableCount) {
 		for (let i = tableCount + 1; i <= idealTableCount; i++) {
-			const newTable = await createTable({ name: `Table ${i}`, retreatId }, dataSource);
+			const newTable = await createTable({ name: `Mesa ${i}`, retreatId }, dataSource);
 			tables.push(newTable);
 		}
 	} else if (tableCount > idealTableCount && tableCount > 5) {

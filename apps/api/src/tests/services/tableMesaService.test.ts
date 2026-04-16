@@ -239,11 +239,11 @@ describe('Table Mesa Service', () => {
 			expect(tables).toHaveLength(5);
 
 			const tableNames = tables.map((t) => t.name);
-			expect(tableNames).toContain('Table 1');
-			expect(tableNames).toContain('Table 2');
-			expect(tableNames).toContain('Table 3');
-			expect(tableNames).toContain('Table 4');
-			expect(tableNames).toContain('Table 5');
+			expect(tableNames).toContain('Mesa 1');
+			expect(tableNames).toContain('Mesa 2');
+			expect(tableNames).toContain('Mesa 3');
+			expect(tableNames).toContain('Mesa 4');
+			expect(tableNames).toContain('Mesa 5');
 		});
 	});
 
