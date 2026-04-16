@@ -8,8 +8,11 @@ import { google } from '@ai-sdk/google';
 import { z } from 'zod';
 import fs from 'fs';
 
-// Set the key before google() reads it
-process.env.GOOGLE_GENERATIVE_AI_API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY || 'AIzaSyBRM9hVtIFUDE27xXWEP1RQoBCyE_lP0Ag';
+// Requires GOOGLE_GENERATIVE_AI_API_KEY in .env
+if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+	console.error('Error: GOOGLE_GENERATIVE_AI_API_KEY is not set. Add it to your .env file.');
+	process.exit(1);
+}
 
 const TablePhotoSchema = z.object({
 	foundIds: z.array(z.number()).describe('Todos los números enteros que puedas leer en la imagen, sin filtrar'),
@@ -30,9 +33,8 @@ INSTRUCCIONES ESTRICTAS:
 const EXPECTED = [26, 28, 29, 31, 33, 35];
 
 const MODELS = [
-	'gemini-2.0-flash',
-	'gemini-2.0-flash-lite',
-	'gemini-1.5-flash',
+	'gemini-2.5-flash',
+	'gemini-2.5-pro',
 ];
 
 async function testModel(modelId: string, imageBuffer: Buffer) {
