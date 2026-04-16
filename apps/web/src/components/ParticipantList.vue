@@ -12,6 +12,7 @@ import MessageDialog from './MessageDialog.vue';
 import BulkEditParticipantsModal from './BulkEditParticipantsModal.vue';
 import { useI18n } from 'vue-i18n';
 import ExcelJS from 'exceljs';
+import { createLocaleComparator } from '@/utils/sort';
 
 // Importa los componentes de UI necesarios
 import { Button } from '@repo/ui';
@@ -499,12 +500,18 @@ const filteredAndSortedParticipants = computed(() => {
 
     // 3. Ordenar
     if (sortKey.value) {
+        const compare = createLocaleComparator('es', sortOrder.value);
+        const key = sortKey.value;
         result.sort((a, b) => {
-            const valA = getNestedProperty(a, sortKey.value);
-            const valB = getNestedProperty(b, sortKey.value);
-            if (valA < valB) return sortOrder.value === 'asc' ? -1 : 1;
-            if (valA > valB) return sortOrder.value === 'asc' ? 1 : -1;
-            return 0;
+            let valA = getNestedProperty(a, key);
+            let valB = getNestedProperty(b, key);
+
+            // Ordenar palancasCoordinator por su label mostrado, no por el id crudo
+            if (key === 'palancasCoordinator') {
+                valA = valA ? (palanqueroDisplayMap.value[valA] || valA) : valA;
+                valB = valB ? (palanqueroDisplayMap.value[valB] || valB) : valB;
+            }
+            return compare(valA, valB);
         });
     }
 

@@ -14,6 +14,7 @@ import { useI18n } from 'vue-i18n';
 import type { MessageTemplate } from '@repo/types';
 import BaseMessageTemplateModal from '@/components/BaseMessageTemplateModal.vue';
 import CommunityTemplateImportModal from '@/components/CommunityTemplateImportModal.vue';
+import { createLocaleComparator } from '@/utils/sort';
 
 const props = defineProps<{
 	id: string;
@@ -66,29 +67,26 @@ const filteredAndSortedTemplates = computed(() => {
 	}
 
 	// Apply sorting
+	const compare = createLocaleComparator('es', sortDirection.value);
 	filtered.sort((a, b) => {
 		let aValue: string;
 		let bValue: string;
 
 		switch (sortField.value) {
 			case 'name':
-				aValue = a.name.toLowerCase();
-				bValue = b.name.toLowerCase();
+				aValue = a.name;
+				bValue = b.name;
 				break;
 			case 'type':
-				aValue = t(`messageTemplates.types.${a.type}`).toLowerCase();
-				bValue = t(`messageTemplates.types.${b.type}`).toLowerCase();
+				aValue = t(`messageTemplates.types.${a.type}`);
+				bValue = t(`messageTemplates.types.${b.type}`);
 				break;
 			default:
-				aValue = a.name.toLowerCase();
-				bValue = b.name.toLowerCase();
+				aValue = a.name;
+				bValue = b.name;
 		}
 
-		if (sortDirection.value === 'asc') {
-			return aValue > bValue ? 1 : -1;
-		} else {
-			return aValue < bValue ? 1 : -1;
-		}
+		return compare(aValue, bValue);
 	});
 
 	return filtered;
