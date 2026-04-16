@@ -339,15 +339,22 @@ const someFilteredSelected = computed(() => {
 const selectedCount = computed(() => selectedIds.value.length);
 
 // Methods
+const parseLocalDate = (dateStr: string): Date => {
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match
+    ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+    : new Date(dateStr);
+};
+
 const formatDateRange = (start: any, end: any) => {
   if (!start) return '';
-  const startDate = new Date(start).toLocaleDateString('es-ES', {
+  const startDate = parseLocalDate(String(start)).toLocaleDateString('es-ES', {
     day: 'numeric',
     month: 'short',
     year: 'numeric'
   });
   if (!end) return startDate;
-  const endDate = new Date(end).toLocaleDateString('es-ES', {
+  const endDate = parseLocalDate(String(end)).toLocaleDateString('es-ES', {
     day: 'numeric',
     month: 'short',
     year: 'numeric'

@@ -400,7 +400,13 @@ const ageFilter = ref<'all' | 'under40' | '40to55' | '56to65' | 'over65'>('all')
 
 const calculateAge = (birthDate: string | Date): number | null => {
   if (!birthDate) return null;
-  const dob = new Date(birthDate);
+  let dob: Date;
+  if (typeof birthDate === 'string') {
+    const match = birthDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    dob = match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : new Date(birthDate);
+  } else {
+    dob = birthDate;
+  }
   const today = new Date();
   let age = today.getFullYear() - dob.getFullYear();
   const m = today.getMonth() - dob.getMonth();

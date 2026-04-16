@@ -528,9 +528,14 @@ const hasBirthdayDuringRetreat = (participant: any) => {
     const birthDateStr = participant.birthDate;
     const [birthYear, birthMonth, birthDay] = birthDateStr.split('T')[0].split('-').map(Number);
 
-    // Parsear fechas del retiro
-    const retreatStart = new Date(currentRetreat.startDate);
-    const retreatEnd = new Date(currentRetreat.endDate);
+    // Parsear fechas del retiro evitando desplazamiento de zona horaria
+    const parseLocalDate = (s: string | Date) => {
+        if (s instanceof Date) return s;
+        const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(s);
+    };
+    const retreatStart = parseLocalDate(currentRetreat.startDate);
+    const retreatEnd = parseLocalDate(currentRetreat.endDate);
 
     // Verificar cada día del retiro
     const currentDate = new Date(retreatStart);
