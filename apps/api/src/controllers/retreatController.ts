@@ -6,6 +6,7 @@ import {
 	findBySlug,
 	isSlugAvailable,
 	update,
+	refreshRetreatBedsFromHouse,
 } from '../services/retreatService';
 import { AuthenticatedRequest } from '../middleware/authorization';
 import { AppDataSource } from '../data-source';
@@ -324,6 +325,25 @@ export const getAttendedRetreats = async (req: Request, res: Response, next: Nex
 		}
 
 		res.json(Array.from(retreatsById.values()));
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const refreshRetreatBeds = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id } = req.params;
+		const retreat = await findById(id);
+		if (!retreat) {
+			return res.status(404).json({ message: 'Retreat not found' });
+		}
+		if (!retreat.houseId) {
+			return res.status(400).json({ message: 'Retreat has no house assigned' });
+		}
+		await refreshRetreatBedsFromHouse(id, retreat.houseId);
+		const { autoAssignBedsForRetreat } = await import('../services/participantService');
+		await autoAssignBedsForRetreat(id);
+		res.json({ message: 'Retreat beds refreshed successfully' });
 	} catch (error) {
 		next(error);
 	}

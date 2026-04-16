@@ -301,17 +301,37 @@
 
             <ScrollArea ref="bedScrollArea" class="h-[380px] w-full rounded-md border p-4">
               <!-- Group beds by floor -->
-              <div v-for="[floorNum, floorBeds] in groupedBeds" :key="floorNum" class="mb-4">
+              <div v-for="[sectorKey, floorBeds] in groupedBeds" :key="sectorKey" class="mb-4">
                 <div class="flex items-center gap-2 mb-3 pb-2 border-b">
-                  <div class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
-                    {{ floorNum }}
+                  <div class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center flex-shrink-0">
+                    {{ sectorKey.split('||')[0] }}
                   </div>
-                  <h4 class="font-semibold text-sm">Piso {{ floorNum }}</h4>
-                  <Badge variant="outline" class="ml-auto">{{ floorBeds.length }} cama(s)</Badge>
+                  <!-- Inline sector label edit -->
+                  <template v-if="editingSectorKey === sectorKey">
+                    <Input
+                      v-model="sectorLabelDraft"
+                      placeholder="Nombre del sector..."
+                      class="h-6 text-xs flex-1"
+                      @keydown.enter="saveSectorLabel"
+                      @keydown.esc="editingSectorKey = null"
+                    />
+                    <Button type="button" variant="ghost" size="sm" class="h-6 w-6 p-0" @click="saveSectorLabel"><Check class="w-3 h-3 text-green-600" /></Button>
+                    <Button type="button" variant="ghost" size="sm" class="h-6 w-6 p-0" @click="editingSectorKey = null"><X class="w-3 h-3 text-red-500" /></Button>
+                  </template>
+                  <template v-else>
+                    <h4 class="font-semibold text-sm">
+                      Piso {{ sectorKey.split('||')[0] }}
+                      <span v-if="sectorKey.split('||')[1]" class="font-normal text-muted-foreground"> — {{ sectorKey.split('||')[1] }}</span>
+                    </h4>
+                    <Button type="button" variant="ghost" size="sm" class="h-5 w-5 p-0 text-muted-foreground hover:text-foreground" @click="startEditSectorLabel(sectorKey)">
+                      <Pencil class="w-3 h-3" />
+                    </Button>
+                  </template>
+                  <Badge variant="outline" class="ml-auto flex-shrink-0">{{ floorBeds.length }} cama(s)</Badge>
                 </div>
 
                 <!-- Group beds by room within floor -->
-                <div v-for="[roomNum, roomBeds] in groupBedsByRoom(floorBeds)" :key="roomNum" class="ml-4" :data-room="roomNum" :data-bed-section="`${floorNum}-${roomNum}`">
+                <div v-for="[roomNum, roomBeds] in groupBedsByRoom(floorBeds)" :key="roomNum" class="ml-4" :data-room="roomNum" :data-bed-section="`${sectorKey}-${roomNum}`">
                   <div class="flex items-center gap-2">
                     <DoorOpen class="w-4 h-4 text-gray-500" />
                     <span class="text-sm font-medium text-gray-700">Habitación {{ roomNum }}</span>
@@ -388,7 +408,7 @@
               <span class="text-[10px] text-blue-800 font-medium">Configurar próxima cama:</span>
               <span v-if="selectedBedIndex !== null" class="text-[10px] text-blue-600 ml-2">(Contexto: Piso {{ nextBedData.floor }}, Hab. {{ nextBedData.roomNumber }})</span>
             </div>
-            <div class="grid grid-cols-5 gap-2 items-center">
+            <div class="grid grid-cols-6 gap-2 items-center">
               <div>
                 <Label class=" text-[10px] text-blue-700">Piso</Label>
                 <Input v-model.number="nextBedData.floor" type="number" min="1" class="h-6 text-[10px]" />
@@ -426,6 +446,10 @@
                     <SelectItem value="servidor">Servidor</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <Label class="text-[10px] text-blue-700">Sector</Label>
+                <Input v-model="nextBedData.floorLabel" placeholder="Opcional" class="h-6 text-[10px]" />
               </div>
             </div>
           </div>
@@ -545,7 +569,7 @@
 <script setup lang="ts">
 import { ref, watch, computed, nextTick, reactive } from 'vue';
 import { Button, Progress, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, ScrollArea, useToast, Card, Badge, Alert, AlertDescription } from '@repo/ui';
-import { Trash2, Search, AlertCircle, MapPin, Loader2, ExternalLink, Bed as BedIcon, Settings, Upload, Plus, DoorOpen, Info, FileText, RotateCcw, ArrowLeft, ArrowRight, Save } from 'lucide-vue-next';
+import { Trash2, Search, AlertCircle, MapPin, Loader2, ExternalLink, Bed as BedIcon, Settings, Upload, Plus, DoorOpen, Info, FileText, RotateCcw, ArrowLeft, ArrowRight, Save, Pencil, Check, X } from 'lucide-vue-next';
 import type { House, Bed } from '@repo/types';
 import { z } from 'zod';
 import BulkOperationsModal from './BulkOperationsModal.vue';
@@ -612,7 +636,7 @@ const step2Schema = z.object({
     floor: z.number().int().optional(),
     type: z.string().min(1, 'Type is required'),
     defaultUsage: z.string().min(1, 'Usage is required'),
-    floorLabel: z.string().optional(),
+    floorLabel: z.string().nullable().optional(),
   })).min(1, 'At least one bed is required'),
 });
 
@@ -638,8 +662,13 @@ const nextBedData = reactive({
   floor: 1 as number,
   bedNumber: '1',
   type: 'normal' as 'normal' | 'litera_abajo' | 'litera_arriba' | 'colchon',
-  defaultUsage: 'caminante' as 'caminante' | 'servidor'
+  defaultUsage: 'caminante' as 'caminante' | 'servidor',
+  floorLabel: '' as string,
 });
+
+// Sector label inline editing
+const editingSectorKey = ref<string | null>(null);
+const sectorLabelDraft = ref('');
 
 // Track which bed is selected as context for next bed operations
 const selectedBedIndex = ref<number | null>(null);
@@ -680,6 +709,7 @@ const updateNextBedData = () => {
   nextBedData.bedNumber = newBedNumber;
   nextBedData.type = logicalLastBed.type || 'normal';
   nextBedData.defaultUsage = logicalLastBed.defaultUsage || 'caminante';
+  nextBedData.floorLabel = (logicalLastBed as any).floorLabel || '';
 
 };
 
@@ -950,16 +980,18 @@ const selectBed = (index: number) => {
   nextBedData.bedNumber = newBedNumber;
   nextBedData.type = bed.type || 'normal';
   nextBedData.defaultUsage = bed.defaultUsage || 'caminante';
+  nextBedData.floorLabel = (bed as any).floorLabel || '';
 };
 
 const addBed = () => {
-  const newBed = {
+  const newBed: any = {
     roomNumber: nextBedData.roomNumber,
     floor: nextBedData.floor,
     bedNumber: nextBedData.bedNumber,
     type: nextBedData.type,
     defaultUsage: nextBedData.defaultUsage,
   };
+  if (nextBedData.floorLabel) newBed.floorLabel = nextBedData.floorLabel;
 
   formData.value.beds = [...formData.value.beds, newBed];
   hasUnsavedChanges.value = true;
@@ -1036,14 +1068,20 @@ const alphanumericCompare = (a: string, b: string): number => {
   return a.localeCompare(b);
 };
 
-const groupedBeds = computed((): [number, (Bed & { index: number })[]][] => {
-  const groups: Map<number, (Bed & { index: number })[]> = new Map();
+const groupedBeds = computed((): [string, (Bed & { index: number })[]][] => {
+  const groups: Map<string, (Bed & { index: number })[]> = new Map();
   formData.value.beds.forEach((bed: any, index: number) => {
     const floor = bed.floor || 1;
-    if (!groups.has(floor)) groups.set(floor, []);
-    groups.get(floor)!.push({ ...bed, index });
+    const label = bed.floorLabel || '';
+    const key = `${floor}||${label}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push({ ...bed, index });
   });
-  return [...groups.entries()].sort(([a], [b]) => a - b);
+  return [...groups.entries()].sort(([a], [b]) => {
+    const [af, al = ''] = a.split('||');
+    const [bf, bl = ''] = b.split('||');
+    return Number(af) - Number(bf) || al.localeCompare(bl);
+  });
 });
 
 const groupBedsByRoom = (floorBeds: (Bed & { index: number })[]): [string, (Bed & { index: number })[]][] => {
@@ -1060,6 +1098,24 @@ const groupBedsByRoom = (floorBeds: (Bed & { index: number })[]): [string, (Bed 
       roomNum,
       [...beds].sort((a, b) => alphanumericCompare(a.bedNumber, b.bedNumber)),
     ]);
+};
+
+const startEditSectorLabel = (sectorKey: string) => {
+  editingSectorKey.value = sectorKey;
+  sectorLabelDraft.value = sectorKey.split('||')[1] || '';
+};
+
+const saveSectorLabel = () => {
+  if (editingSectorKey.value === null) return;
+  const [floorNum, oldLabel = ''] = editingSectorKey.value.split('||');
+  const newLabel = sectorLabelDraft.value.trim();
+  formData.value.beds.forEach((bed: any) => {
+    if ((bed.floor || 1) === Number(floorNum) && (bed.floorLabel || '') === oldLabel) {
+      bed.floorLabel = newLabel || undefined;
+    }
+  });
+  editingSectorKey.value = null;
+  hasUnsavedChanges.value = true;
 };
 
 const confirmDeleteBed = async (index: number) => {

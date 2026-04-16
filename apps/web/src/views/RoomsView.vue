@@ -2,7 +2,7 @@
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useRetreatStore } from '@/stores/retreatStore';
-import { api, exportRoomLabelsToDocx } from '@/services/api';
+import { api, exportRoomLabelsToDocx, refreshRetreatBedsFromHouse } from '@/services/api';
 import { Button } from '@repo/ui';
 import { useToast } from '@repo/ui';
 import { Loader2 } from 'lucide-vue-next';
@@ -16,6 +16,7 @@ const { t } = useI18n();
 const beds = ref<RetreatBed[]>([]);
 const loading = ref(true);
 const isExporting = ref(false);
+const isRefreshingBeds = ref(false);
 const printSize = ref<'small' | 'medium' | 'large'>('medium');
 
 const retreatId = computed(() => route.params.id as string || retreatStore.selectedRetreatId);
@@ -172,6 +173,28 @@ const fetchBeds = async () => {
   }
 };
 
+const handleRefreshBeds = async () => {
+  if (!retreatId.value) return;
+  isRefreshingBeds.value = true;
+  try {
+    await refreshRetreatBedsFromHouse(retreatId.value);
+    await fetchBeds();
+    toast({
+      title: 'Camas actualizadas',
+      description: 'Las habitaciones del retiro se sincronizaron con la casa.',
+    });
+  } catch (error) {
+    console.error('Error refreshing beds:', error);
+    toast({
+      title: t('common.error'),
+      description: 'No se pudieron actualizar las camas del retiro.',
+      variant: 'destructive',
+    });
+  } finally {
+    isRefreshingBeds.value = false;
+  }
+};
+
 const printContent = () => {
   window.print();
 };
@@ -220,24 +243,37 @@ watch(retreatId, async (newId) => {
 });
 
 const groupedBeds = computed(() => {
-  return beds.value.reduce((acc, bed) => {
-    const floor = bed.floor ?? 'Sin piso';
+  const raw: Record<string, Record<string, RetreatBed[]>> = {};
+
+  beds.value.forEach(bed => {
+    const floor = bed.floor ?? 0;
+    const label = (bed as any).floorLabel || '';
+    const key = `${floor}||${label}`;
     const roomNumber = bed.roomNumber;
 
-    if (!acc[floor]) {
-      acc[floor] = {};
-    }
-    if (!acc[floor][roomNumber]) {
-      acc[floor][roomNumber] = [];
-    }
-    acc[floor][roomNumber].push(bed);
-    return acc;
-  }, {} as Record<string | number, Record<string, RetreatBed[]>>);
+    if (!raw[key]) raw[key] = {};
+    if (!raw[key][roomNumber]) raw[key][roomNumber] = [];
+    raw[key][roomNumber].push(bed);
+  });
+
+  // Sort by floor number asc, then label asc
+  const sorted: Record<string, Record<string, RetreatBed[]>> = {};
+  Object.keys(raw)
+    .sort((a, b) => {
+      const [aFloor, aLabel = ''] = a.split('||');
+      const [bFloor, bLabel = ''] = b.split('||');
+      const floorDiff = Number(aFloor) - Number(bFloor);
+      return floorDiff !== 0 ? floorDiff : aLabel.localeCompare(bLabel);
+    })
+    .forEach(key => { sorted[key] = raw[key]; });
+
+  return sorted;
 });
 
 const roomAssignedCount = (roomBeds: RetreatBed[]): number => {
   return roomBeds.filter(b => b.participant).length;
 };
+
 
 const roomColorStyle = (roomBeds: RetreatBed[]) => {
   const usage = roomBeds[0]?.defaultUsage;
@@ -304,6 +340,10 @@ const roomColorStyle = (roomBeds: RetreatBed[]) => {
           <option value="medium">Mediano</option>
           <option value="large">Grande</option>
         </select>
+        <Button @click="handleRefreshBeds" :disabled="isRefreshingBeds" variant="outline">
+          <Loader2 v-if="isRefreshingBeds" class="w-4 h-4 mr-2 animate-spin" />
+          {{ isRefreshingBeds ? 'Actualizando...' : 'Actualizar camas desde casa' }}
+        </Button>
         <Button @click="handleExportRoomLabels" :disabled="isExporting">
           <Loader2 v-if="isExporting" class="w-4 h-4 mr-2 animate-spin" />
           {{ isExporting ? $t('rooms.exporting') : $t('rooms.exportLabels') }}
@@ -327,11 +367,14 @@ const roomColorStyle = (roomBeds: RetreatBed[]) => {
 
     <!-- Room cards -->
     <div v-else>
-      <div v-for="(floorRooms, floor) in groupedBeds" :key="floor" class="mb-8 print-section">
+      <div v-for="(floorRooms, sectorKey) in groupedBeds" :key="sectorKey" class="mb-8 print-section">
         <!-- Floor header -->
         <div class="floor-header">
           <div class="floor-accent"></div>
-          <h2 class="floor-title">{{ $t('rooms.floor') }} {{ floor }}</h2>
+          <h2 class="floor-title">
+            {{ $t('rooms.floor') }} {{ String(sectorKey).split('||')[0] }}
+            <span v-if="String(sectorKey).split('||')[1]" class="floor-label-text"> - {{ String(sectorKey).split('||')[1] }}</span>
+          </h2>
           <div class="floor-line"></div>
         </div>
 
@@ -398,6 +441,12 @@ const roomColorStyle = (roomBeds: RetreatBed[]) => {
   font-weight: 700;
   color: #1e293b;
   white-space: nowrap;
+}
+
+.floor-label-text {
+  font-weight: 500;
+  color: #64748b;
+  font-size: 0.85em;
 }
 
 .floor-line {

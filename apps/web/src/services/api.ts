@@ -319,6 +319,10 @@ export const createAndAssignSpeaker = async (
 	return response.data;
 };
 
+export const refreshRetreatBedsFromHouse = async (retreatId: string): Promise<void> => {
+	await api.post(`/retreats/${retreatId}/refresh-beds`, {});
+};
+
 export const exportRoomLabelsToDocx = async (retreatId: string): Promise<void> => {
 	const response = await api.post(
 		`/retreats/${retreatId}/export-room-labels`,

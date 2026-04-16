@@ -41,6 +41,9 @@ export class Bed {
 	})
 	defaultUsage!: BedUsage;
 
+	@Column({ type: 'varchar', nullable: true })
+	floorLabel?: string;
+
 	@ManyToOne(() => House, (house) => house.beds, { onDelete: 'CASCADE' })
 	house!: House;
 }

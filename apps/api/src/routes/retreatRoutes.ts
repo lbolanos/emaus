@@ -13,6 +13,7 @@ import {
 	uploadRetreatMemoryPhoto,
 	updateRetreatMemory,
 	getAttendedRetreats,
+	refreshRetreatBeds,
 } from '../controllers/retreatController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { validateRequest } from '../middleware/validateRequest';
@@ -66,5 +67,11 @@ router.post(
 router.post('/:id/memory-photo', requireRetreatAccess('id'), uploadRetreatMemoryPhoto);
 
 router.put('/:id/memory', requireRetreatAccess('id'), updateRetreatMemory);
+
+router.post(
+	'/:id/refresh-beds',
+	requirePermission('retreat:update'),
+	(req: any, res: any, next: any) => refreshRetreatBeds(req, res, next),
+);
 
 export default router;

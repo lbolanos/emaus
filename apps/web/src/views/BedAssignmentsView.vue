@@ -253,7 +253,8 @@
               <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
                 <div class="flex items-center justify-between">
                   <h2 class="text-xl font-bold text-gray-900 dark:text-white">
-                    {{ floor === '0' ? $t('bedAssignments.unassignedFloor') : `${$t('bedAssignments.floor')} ${floor}` }}
+                    {{ floor.split('||')[0] === '0' ? $t('bedAssignments.unassignedFloor') : `${$t('bedAssignments.floor')} ${floor.split('||')[0]}` }}
+                    <span v-if="floor.split('||')[1]" class="text-muted-foreground font-normal text-base"> — {{ floor.split('||')[1] }}</span>
                   </h2>
                   <div class="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
                     <span>{{ groupedFilteredBeds[floor].length }} {{ $t('bedAssignments.beds') }}</span>
@@ -286,7 +287,8 @@
             <div v-for="floor in sortedFilteredFloors" :key="floor" class="space-y-6">
               <div v-if="Object.keys(groupedFilteredBedsByRoomAndFloor[floor] || {}).length > 0">
                 <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">
-                  {{ floor === '0' ? $t('bedAssignments.unassignedFloor') : `${$t('bedAssignments.floor')} ${floor}` }}
+                  {{ floor.split('||')[0] === '0' ? $t('bedAssignments.unassignedFloor') : `${$t('bedAssignments.floor')} ${floor.split('||')[0]}` }}
+                  <span v-if="floor.split('||')[1]" class="text-muted-foreground font-normal text-base"> — {{ floor.split('||')[1] }}</span>
                 </h2>
                 <div class="space-y-6">
                   <RoomCard
@@ -566,33 +568,34 @@ const filteredBeds = computed(() => {
 const groupedFilteredBeds = computed(() => {
   return filteredBeds.value.reduce((acc, bed) => {
     const floor = bed.floor || 0;
-    if (!acc[floor]) {
-      acc[floor] = [];
-    }
-    acc[floor].push(bed);
+    const label = (bed as any).floorLabel || '';
+    const key = `${floor}||${label}`;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(bed);
     return acc;
   }, {} as Record<string, RetreatBed[]>);
 });
 
 const sortedFilteredFloors = computed(() => {
-  return Object.keys(groupedFilteredBeds.value).sort((a, b) => Number(a) - Number(b));
+  return Object.keys(groupedFilteredBeds.value).sort((a, b) => {
+    const [af, al = ''] = a.split('||');
+    const [bf, bl = ''] = b.split('||');
+    return Number(af) - Number(bf) || al.localeCompare(bl);
+  });
 });
 
 // Room grouping computed properties
 const groupedFilteredBedsByRoomAndFloor = computed(() => {
   return filteredBeds.value.reduce((acc, bed) => {
     const floor = bed.floor || 0;
+    const label = (bed as any).floorLabel || '';
+    const key = `${floor}||${label}`;
     const roomNumber = bed.roomNumber;
 
-    if (!acc[floor]) {
-      acc[floor] = {};
-    }
+    if (!acc[key]) acc[key] = {};
+    if (!acc[key][roomNumber]) acc[key][roomNumber] = [];
 
-    if (!acc[floor][roomNumber]) {
-      acc[floor][roomNumber] = [];
-    }
-
-    acc[floor][roomNumber].push(bed);
+    acc[key][roomNumber].push(bed);
     return acc;
   }, {} as Record<string, Record<string, RetreatBed[]>>);
 });

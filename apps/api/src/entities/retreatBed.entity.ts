@@ -40,6 +40,9 @@ export class RetreatBed {
 	})
 	defaultUsage!: BedUsage;
 
+	@Column({ type: 'varchar', nullable: true })
+	floorLabel?: string;
+
 	@Column('boolean', { default: true })
 	isActive!: boolean;
 

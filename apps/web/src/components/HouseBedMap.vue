@@ -28,8 +28,8 @@
       <!-- Controls Bar -->
       <div class="flex flex-wrap items-center gap-3 p-3 bg-gray-50 rounded-lg border flex-shrink-0">
         <!-- Search -->
-        <div class="flex items-center gap-2 min-w-[200px]">
-          <Label class="text-sm font-medium whitespace-nowrap">Buscar:</Label>
+        <div class="flex items-center gap-2 flex-1 min-w-[160px]">
+          <Label class="text-sm font-medium whitespace-nowrap hidden sm:block">Buscar:</Label>
           <div class="relative flex-1">
             <Search class="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
@@ -40,50 +40,82 @@
           </div>
         </div>
 
-        <!-- Filters -->
-        <div class="flex items-center gap-2">
-          <Label class="text-sm font-medium">Piso:</Label>
-          <Select v-model="selectedFloor">
-            <SelectTrigger class="w-32 h-9">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem v-for="floor in availableFloors" :key="floor" :value="floor.toString()">
-                Piso {{ floor }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <!-- Mobile filter toggle -->
+        <Button
+          variant="outline"
+          size="sm"
+          class="sm:hidden h-9 relative"
+          @click="showFilters = !showFilters"
+        >
+          <Search class="w-4 h-4 mr-1" />
+          Filtros
+          <span
+            v-if="activeFilterCount > 0"
+            class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center"
+          >{{ activeFilterCount }}</span>
+        </Button>
 
-        <div class="flex items-center gap-2">
-          <Label class="text-sm font-medium">Tipo:</Label>
-          <Select v-model="selectedBedType">
-            <SelectTrigger class="w-32 h-9">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="normal">Normal</SelectItem>
-              <SelectItem value="litera_abajo">Litera Inferior</SelectItem>
+        <!-- Filters — always visible on sm+, collapsible on mobile -->
+        <div :class="['flex flex-wrap items-center gap-3', showFilters ? 'flex' : 'hidden sm:flex', 'w-full sm:w-auto']">
+          <div class="flex items-center gap-2">
+            <Label class="text-sm font-medium">Piso:</Label>
+            <Select v-model="selectedFloor">
+              <SelectTrigger class="w-32 h-9">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem v-for="floor in availableFloors" :key="floor" :value="floor.toString()">
+                  Piso {{ floor }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <Label class="text-sm font-medium">Tipo:</Label>
+            <Select v-model="selectedBedType">
+              <SelectTrigger class="w-32 h-9">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="normal">Normal</SelectItem>
+                <SelectItem value="litera_abajo">Litera Inferior</SelectItem>
                 <SelectItem value="litera_arriba">Litera Superior</SelectItem>
-              <SelectItem value="colchon">Colchón</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+                <SelectItem value="colchon">Colchón</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div class="flex items-center gap-2">
-          <Label class="text-sm font-medium">Uso:</Label>
-          <Select v-model="selectedUsage">
-            <SelectTrigger class="w-32 h-9">
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="caminante">Caminante</SelectItem>
-              <SelectItem value="servidor">Servidor</SelectItem>
-            </SelectContent>
-          </Select>
+          <div class="flex items-center gap-2">
+            <Label class="text-sm font-medium">Uso:</Label>
+            <Select v-model="selectedUsage">
+              <SelectTrigger class="w-32 h-9">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="caminante">Caminante</SelectItem>
+                <SelectItem value="servidor">Servidor</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div v-if="availableSectors.length > 0" class="flex items-center gap-2">
+            <Label class="text-sm font-medium">Sector:</Label>
+            <Select v-model="selectedSector">
+              <SelectTrigger class="w-36 h-9">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem v-for="sector in availableSectors" :key="sector" :value="sector">
+                  {{ sector }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <!-- Action Buttons -->
@@ -110,12 +142,18 @@
             <RotateCw class="w-4 h-4" />
           </Button>
 
-          <!-- Quick Actions -->
+          <!-- Save -->
+          <Button v-if="hasUnsavedChanges" variant="default" size="sm" @click="handleSave" :disabled="isSaving" class="flex items-center gap-1 h-9">
+            <Loader2 v-if="isSaving" class="w-4 h-4 animate-spin" />
+            <Save v-else class="w-4 h-4" />
+            Guardar
+          </Button>
+
+          <!-- Combined Actions Menu -->
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" class="h-9">
-                <Zap class="w-4 h-4 mr-1" />
-                Acciones
+              <Button variant="outline" size="sm" class="h-9 w-9 p-0">
+                <MoreVertical class="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -136,46 +174,21 @@
                 <Edit class="w-4 h-4 mr-2" />
                 Cambiar tipo
               </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <!-- Save -->
-          <Button v-if="hasUnsavedChanges" variant="default" size="sm" @click="handleSave" :disabled="isSaving" class="flex items-center gap-1 h-9">
-            <Loader2 v-if="isSaving" class="w-4 h-4 animate-spin" />
-            <Save v-else class="w-4 h-4" />
-            Guardar
-          </Button>
-
-          <!-- Toggle Legend -->
-          <Button
-            :variant="showLegend ? 'outline' : 'default'"
-            size="sm"
-            @click="showLegend = !showLegend"
-            class="h-9 transition-colors"
-            :title="showLegend ? 'Ocultar leyenda' : 'Mostrar leyenda'"
-          >
-            <EyeOff v-if="showLegend" class="w-4 h-4" />
-            <Eye v-else class="w-4 h-4" />
-          </Button>
-
-          <!-- Export/Print -->
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" class="h-9">
-                <Download class="w-4 h-4 mr-1" />
-                Exportar
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+              <DropdownMenuSeparator />
+              <DropdownMenuItem @click="showLegend = !showLegend">
+                <EyeOff v-if="showLegend" class="w-4 h-4 mr-2" />
+                <Eye v-else class="w-4 h-4 mr-2" />
+                {{ showLegend ? 'Ocultar leyenda' : 'Mostrar leyenda' }}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem @click="exportMap">
                 <FileText class="w-4 h-4 mr-2" />
-                JSON
+                Exportar JSON
               </DropdownMenuItem>
               <DropdownMenuItem @click="exportToCSV">
                 <FileSpreadsheet class="w-4 h-4 mr-2" />
-                CSV
+                Exportar CSV
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
               <DropdownMenuItem @click="printMap">
                 <Printer class="w-4 h-4 mr-2" />
                 Imprimir
@@ -183,14 +196,6 @@
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </div>
-
-      <!-- Keyboard Shortcuts Help -->
-      <div v-if="showLegend" class="text-xs text-gray-500 px-3 py-1 bg-blue-50 rounded-lg flex-shrink-0">
-        Atajos: <kbd class="px-1 py-0.5 bg-white rounded border">Ctrl+Z</kbd> Deshacer |
-        <kbd class="px-1 py-0.5 bg-white rounded border">Ctrl+Y</kbd> Rehacer |
-        <kbd class="px-1 py-0.5 bg-white rounded border">Delete</kbd> Eliminar seleccionada |
-        <kbd class="px-1 py-0.5 bg-white rounded border">Esc</kbd> Deseleccionar
       </div>
 
       <!-- Legend & Stats -->
@@ -242,6 +247,14 @@
         </div>
       </div>
 
+      <!-- Keyboard Shortcuts (inside legend) -->
+      <div v-if="showLegend" class="text-xs text-gray-500 px-3 py-2 bg-gray-50 rounded-lg flex-shrink-0">
+        Atajos: <kbd class="px-1 py-0.5 bg-white rounded border">Ctrl+Z</kbd> Deshacer |
+        <kbd class="px-1 py-0.5 bg-white rounded border">Ctrl+Y</kbd> Rehacer |
+        <kbd class="px-1 py-0.5 bg-white rounded border">Delete</kbd> Eliminar seleccionada |
+        <kbd class="px-1 py-0.5 bg-white rounded border">Esc</kbd> Deseleccionar
+      </div>
+
       <!-- Main Content -->
       <div class="flex-1 overflow-hidden flex flex-col min-h-0">
         <div class="flex-1 w-full overflow-y-auto scrollbar-thin p-6">
@@ -254,25 +267,25 @@
                   <div class="text-xs text-gray-600">Total Camas</div>
                 </div>
               </Card>
-              <Card class="p-3 hover:shadow-md transition-shadow">
+              <Card class="p-3">
                 <div class="text-center">
                   <div class="text-2xl font-bold text-green-600">{{ totalFloors }}</div>
                   <div class="text-xs text-gray-600">Pisos</div>
                 </div>
               </Card>
-              <Card class="p-3 hover:shadow-md transition-shadow">
+              <Card class="p-3">
                 <div class="text-center">
                   <div class="text-2xl font-bold text-orange-600">{{ totalRooms }}</div>
                   <div class="text-xs text-gray-600">Habitaciones</div>
                 </div>
               </Card>
-              <Card class="p-3 hover:shadow-md transition-shadow">
+              <Card class="p-3">
                 <div class="text-center">
                   <div class="text-2xl font-bold text-purple-600">{{ filteredBeds.length }}</div>
                   <div class="text-xs text-gray-600">Filtradas</div>
                 </div>
               </Card>
-              <Card class="p-3 hover:shadow-md transition-shadow">
+              <Card class="p-3">
                 <div class="text-center">
                   <div class="text-2xl font-bold text-red-600">{{ selectedBeds.length }}</div>
                   <div class="text-xs text-gray-600">Seleccionadas</div>
@@ -281,14 +294,43 @@
             </div>
 
             <!-- Floor Sections -->
-            <div v-for="(floorBeds, floorNum) in groupedFilteredBeds" :key="floorNum" class="mb-8">
+            <div v-for="(floorBeds, sectorKey) in groupedFilteredBeds" :key="sectorKey" class="mb-8">
               <!-- Floor Header -->
               <div class="flex items-center gap-3 mb-4 pb-2 border-b-2 border-gray-200">
                 <div class="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-foreground font-bold text-lg">
-                  {{ floorNum }}
+                  {{ parseSectorKey(String(sectorKey)).floor }}
                 </div>
-                <h3 class="text-xl font-bold">Piso {{ floorNum }}</h3>
-                <Badge variant="outline" class="ml-auto">{{ floorBeds.length }} cama(s)</Badge>
+                <div class="flex items-center gap-2 flex-1">
+                  <h3 class="text-xl font-bold whitespace-nowrap">
+                    Piso {{ parseSectorKey(String(sectorKey)).floor }}
+                    <span v-if="parseSectorKey(String(sectorKey)).label" class="font-normal text-gray-500 text-lg"> - {{ parseSectorKey(String(sectorKey)).label }}</span>
+                  </h3>
+                </div>
+                <div class="ml-auto flex items-center gap-2">
+                  <Badge variant="outline">{{ floorBeds.length }} cama(s)</Badge>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" class="h-7 w-7 p-0">
+                        <MoreVertical class="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem @click="startEditFloorLabel(parseSectorKey(String(sectorKey)).floor, parseSectorKey(String(sectorKey)).label)">
+                        <Pencil class="w-4 h-4 mr-2" />
+                        Editar sector
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem @click="selectAllBedsInRoom(floorBeds)">
+                        <CheckSquare class="w-4 h-4 mr-2" />
+                        Seleccionar todo el sector
+                      </DropdownMenuItem>
+                      <DropdownMenuItem @click="addBedToRoom(parseSectorKey(String(sectorKey)).floor, getNextRoomInFloor(parseSectorKey(String(sectorKey)).floor, parseSectorKey(String(sectorKey)).label), parseSectorKey(String(sectorKey)).label)">
+                        <Plus class="w-4 h-4 mr-2" />
+                        Agregar habitación
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
 
               <!-- Room Grid for this Floor -->
@@ -311,13 +353,17 @@
                             <CheckSquare class="w-4 h-4 mr-2" />
                             Seleccionar todas
                           </DropdownMenuItem>
-                          <DropdownMenuItem @click="addBedToRoom(floorNum, String(roomNum))">
+                          <DropdownMenuItem @click="addBedToRoom(parseSectorKey(String(sectorKey)).floor, String(roomNum), parseSectorKey(String(sectorKey)).label)">
                             <Plus class="w-4 h-4 mr-2" />
                             Agregar cama
                           </DropdownMenuItem>
-                          <DropdownMenuItem @click="duplicateRoom(floorNum, String(roomNum))">
+                          <DropdownMenuItem @click="duplicateRoom(parseSectorKey(String(sectorKey)).floor, String(roomNum))">
                             <Copy class="w-4 h-4 mr-2" />
                             Duplicar habitación
+                          </DropdownMenuItem>
+                          <DropdownMenuItem @click="openChangeSector(parseSectorKey(String(sectorKey)).floor, String(roomNum), parseSectorKey(String(sectorKey)).label)">
+                            <Tag class="w-4 h-4 mr-2" />
+                            Cambiar sector
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -325,8 +371,8 @@
                   </div>
 
                   <!-- Beds in Room -->
-                  <div class="p-4">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div class="p-2 sm:p-4">
+                    <div class="grid grid-cols-2 sm:grid-cols-2 gap-2 sm:gap-3">
                       <div
                         v-for="bed in roomBeds"
                         :key="bed.id || `${bed.roomNumber}-${bed.bedNumber}`"
@@ -335,7 +381,7 @@
                       >
                         <div
                           :class="[
-                            'p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md hover:scale-105 relative',
+                            'p-2 sm:p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md hover:scale-105 relative',
                             getBedColorClasses(bed.type, bed.defaultUsage, bed),
                             selectedBeds.includes(bed) ? 'ring-2 ring-blue-500 ring-offset-2 scale-105 shadow-lg' : '',
                             hoveredBed === bed ? 'z-10' : ''
@@ -349,9 +395,7 @@
                           @keydown.delete.stop="quickDeleteBed(bed)"
                         >
                           <!-- Modified Indicator -->
-                          <div v-if="isBedModified(bed)" class="absolute top-1 right-1 z-20">
-                            <div class="w-2 h-2 bg-orange-500 rounded-full animate-pulse" title="Con cambios pendientes"></div>
-                          </div>
+                          <div v-if="isBedModified(bed)" class="absolute top-0 left-0 right-0 h-1 bg-orange-400 rounded-t-lg z-20" title="Con cambios pendientes"></div>
 
                           <!-- Selection Checkbox -->
                           <div class="absolute top-1 left-1 z-20">
@@ -365,11 +409,11 @@
 
                           <!-- Bed Content -->
                           <div class="flex flex-col items-center text-center">
-                            <div class="font-bold text-sm mb-1">Cama {{ bed.bedNumber }}</div>
-                            <div class="text-xs opacity-75">{{ getBedTypeLabel(bed.type) }}</div>
-                            <div class="text-xs mt-1">
+                            <div class="font-bold text-xs sm:text-sm mb-0.5 sm:mb-1">Cama {{ bed.bedNumber }}</div>
+                            <div class="text-[10px] sm:text-xs opacity-75 leading-tight">{{ getBedTypeLabel(bed.type) }}</div>
+                            <div class="mt-0.5 sm:mt-1">
                               <div
-                                class="px-2 py-1 rounded text-xs font-medium"
+                                class="px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-medium"
                                 :class="bed.defaultUsage === 'caminante'
                                   ? 'bg-blue-100 text-blue-800 border border-blue-200'
                                   : 'bg-orange-100 text-orange-800 border border-orange-200'"
@@ -379,104 +423,60 @@
                             </div>
                           </div>
 
-                          <!-- Three Dot Menu Button -->
-                          <div class="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                            <button
-                              type="button"
-                              class="h-6 w-6 p-0 hover:bg-gray-100 rounded flex items-center justify-center bg-white"
-                              @click.prevent.stop="openBedDropdown(bed, $event)"
-                              title="Más opciones"
-                              data-dropdown-button
-                            >
-                              <MoreVertical class="w-3 h-3" />
-                            </button>
-
-                            <!-- Dropdown positioned right here -->
-                            <div
-                              v-if="showCustomDropdown && dropdownBed?.id === bed.id || (!dropdownBed?.id && !bed.id && dropdownBed?.roomNumber === bed.roomNumber && dropdownBed?.bedNumber === bed.bedNumber)"
-                              class="absolute top-6 right-0 bg-white border border-gray-200 rounded-md shadow-lg py-1 min-w-48 z-[60]"
-                              @click.stop
-                            >
-                              <!-- Edit Bed -->
-                              <button
-                                class="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 flex items-center"
-                                @click.stop="handleDropdownAction('edit', bed)"
-                              >
-                                <Edit class="w-4 h-4 mr-2" />
-                                Editar cama
-                              </button>
-
-                              <!-- Change Type -->
-                              <button
-                                class="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 flex items-center"
-                                @click.stop="handleDropdownAction('changeType', bed, 'normal')"
-                              >
-                                <div class="w-3 h-3 rounded bg-green-500 mr-2"></div>
-                                Normal
-                              </button>
-                              <button
-                                class="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 flex items-center"
-                                @click.stop="handleDropdownAction('changeType', bed, 'litera_abajo')"
-                              >
-                                <div class="w-3 h-3 rounded bg-yellow-500 mr-2"></div>
-                                Litera Inferior
-                              </button>
-                              <button
-                                class="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 flex items-center"
-                                @click.stop="handleDropdownAction('changeType', bed, 'litera_arriba')"
-                              >
-                                <div class="w-3 h-3 rounded bg-orange-500 mr-2"></div>
-                                Litera Superior
-                              </button>
-                              <button
-                                class="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 flex items-center"
-                                @click.stop="handleDropdownAction('changeType', bed, 'colchon')"
-                              >
-                                <div class="w-3 h-3 rounded bg-purple-500 mr-2"></div>
-                                Colchón
-                              </button>
-
-                              <!-- Change Usage -->
-                              <button
-                                class="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 flex items-center"
-                                @click.stop="handleDropdownAction('changeUsage', bed, 'caminante')"
-                              >
-                                <div class="w-3 h-3 rounded-full bg-blue-100 border-2 border-blue-500 mr-2"></div>
-                                Caminante
-                              </button>
-                              <button
-                                class="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 flex items-center"
-                                @click.stop="handleDropdownAction('changeUsage', bed, 'servidor')"
-                              >
-                                <div class="w-3 h-3 rounded-full bg-orange-100 border-2 border-orange-500 mr-2"></div>
-                                Servidor
-                              </button>
-
-                              <hr class="my-1 border-gray-200" />
-
-                              <!-- Duplicate -->
-                              <button
-                                class="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 flex items-center"
-                                @click.stop="handleDropdownAction('duplicate', bed)"
-                              >
-                                <Copy class="w-4 h-4 mr-2" />
-                                Duplicar
-                              </button>
-
-                              <!-- Delete -->
-                              <button
-                                class="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 flex items-center text-red-600"
-                                @click.stop="handleDropdownAction('delete', bed)"
-                              >
-                                <Trash2 class="w-4 h-4 mr-2" />
-                                Eliminar
-                              </button>
-                            </div>
-                          </div>
-
-                          <!-- Drag Handle -->
-                          <div class="absolute bottom-1 right-1 opacity-0 group-hover:opacity-50 transition-opacity">
-                            <GripVertical class="w-3 h-3 text-gray-400 cursor-move" />
+                          <!-- Bed Actions Menu -->
+                          <div class="absolute top-1 right-1 z-50" @click.stop>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  class="h-6 w-6 p-0 hover:bg-white/80 rounded flex items-center justify-center"
+                                  title="Más opciones"
+                                >
+                                  <MoreVertical class="w-3 h-3" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" class="min-w-44">
+                                <DropdownMenuItem @click.stop="editBed(bed)">
+                                  <Edit class="w-4 h-4 mr-2" />
+                                  Editar cama
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem @click.stop="changeBedTypeInline(bed, 'normal')">
+                                  <div class="w-3 h-3 rounded bg-green-500 mr-2 flex-shrink-0"></div>
+                                  Normal
+                                </DropdownMenuItem>
+                                <DropdownMenuItem @click.stop="changeBedTypeInline(bed, 'litera_abajo')">
+                                  <div class="w-3 h-3 rounded bg-yellow-500 mr-2 flex-shrink-0"></div>
+                                  Litera Inferior
+                                </DropdownMenuItem>
+                                <DropdownMenuItem @click.stop="changeBedTypeInline(bed, 'litera_arriba')">
+                                  <div class="w-3 h-3 rounded bg-orange-500 mr-2 flex-shrink-0"></div>
+                                  Litera Superior
+                                </DropdownMenuItem>
+                                <DropdownMenuItem @click.stop="changeBedTypeInline(bed, 'colchon')">
+                                  <div class="w-3 h-3 rounded bg-purple-500 mr-2 flex-shrink-0"></div>
+                                  Colchón
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem @click.stop="changeBedUsageInline(bed, 'caminante')">
+                                  <div class="w-3 h-3 rounded-full bg-blue-100 border-2 border-blue-500 mr-2 flex-shrink-0"></div>
+                                  Caminante
+                                </DropdownMenuItem>
+                                <DropdownMenuItem @click.stop="changeBedUsageInline(bed, 'servidor')">
+                                  <div class="w-3 h-3 rounded-full bg-orange-100 border-2 border-orange-500 mr-2 flex-shrink-0"></div>
+                                  Servidor
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem @click.stop="duplicateBed(bed)">
+                                  <Copy class="w-4 h-4 mr-2" />
+                                  Duplicar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem @click.stop="quickDeleteBed(bed)" class="text-red-600 focus:text-red-600">
+                                  <Trash2 class="w-4 h-4 mr-2" />
+                                  Eliminar
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </div>
 
@@ -492,7 +492,7 @@
 
                     <!-- Add Bed Button -->
                     <div class="mt-3">
-                      <Button variant="dashed" size="sm" class="w-full h-8" @click="addBedToRoom(floorNum, String(roomNum))">
+                      <Button variant="dashed" size="sm" class="w-full h-8" @click="addBedToRoom(parseSectorKey(String(sectorKey)).floor, String(roomNum), parseSectorKey(String(sectorKey)).label)">
                         <Plus class="w-4 h-4 mr-1" />
                         Agregar Cama
                       </Button>
@@ -503,9 +503,9 @@
 
               <!-- Add Room Button -->
               <div class="mt-4">
-                <Button variant="outline" @click="addRoomToFloor(floorNum)" class="w-full">
+                <Button variant="outline" @click="addBedToRoom(parseSectorKey(String(sectorKey)).floor, getNextRoomInFloor(parseSectorKey(String(sectorKey)).floor, parseSectorKey(String(sectorKey)).label), parseSectorKey(String(sectorKey)).label)" class="w-full">
                   <Plus class="w-4 h-4 mr-1" />
-                  Agregar Habitación al Piso {{ floorNum }}
+                  Agregar Habitación al Piso {{ parseSectorKey(String(sectorKey)).floor }}
                 </Button>
               </div>
             </div>
@@ -796,7 +796,16 @@
         </div>
         <div>
           <Label class="text-sm font-medium">Habitación:</Label>
-          <Input v-model="bulkMoveRoom" placeholder="Número de habitación" class="mt-2" />
+          <Select v-model="bulkMoveRoom" class="mt-2">
+            <SelectTrigger class="mt-2">
+              <SelectValue placeholder="Selecciona habitación" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="room in availableRoomsForFloor" :key="room" :value="room">
+                Habitación {{ room }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -812,6 +821,110 @@
   </Dialog>
 
   
+  <!-- Change Room Sector Dialog -->
+  <Dialog :open="showChangeSectorDialog" @update:open="showChangeSectorDialog = $event">
+    <DialogContent class="sm:max-w-[420px]">
+      <DialogHeader>
+        <DialogTitle>Cambiar sector — Habitación {{ changeSectorRoom }}</DialogTitle>
+        <DialogDescription>
+          Selecciona un sector existente o escribe uno nuevo. Déjalo vacío para quitar el sector.
+        </DialogDescription>
+      </DialogHeader>
+      <div class="py-4 space-y-4">
+        <!-- Existing sectors -->
+        <div v-if="sectorsOnCurrentFloor.length > 0">
+          <p class="text-xs font-medium text-muted-foreground mb-2">Sectores en este piso</p>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="sector in sectorsOnCurrentFloor"
+              :key="sector"
+              type="button"
+              :class="[
+                'px-3 py-1 rounded-full text-sm border transition-colors',
+                changeSectorDraft === sector
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-muted hover:bg-muted/80 border-border'
+              ]"
+              @click="changeSectorDraft = changeSectorDraft === sector ? '' : sector"
+            >
+              {{ sector }}
+            </button>
+          </div>
+        </div>
+        <!-- New sector input -->
+        <div>
+          <p class="text-xs font-medium text-muted-foreground mb-2">
+            {{ sectorsOnCurrentFloor.length > 0 ? 'O escribe un sector nuevo' : 'Nombre del sector' }}
+          </p>
+          <Input
+            v-model="changeSectorDraft"
+            placeholder="Ej: Ala Norte, Sector B..."
+            @keydown.enter="saveRoomSector"
+          />
+        </div>
+      </div>
+      <div class="flex justify-end gap-2">
+        <Button variant="outline" @click="showChangeSectorDialog = false">Cancelar</Button>
+        <Button @click="saveRoomSector">Mover habitación</Button>
+      </div>
+    </DialogContent>
+  </Dialog>
+
+  <!-- Floor Label Edit Dialog -->
+  <Dialog :open="showFloorLabelDialog" @update:open="showFloorLabelDialog = $event">
+    <DialogContent class="sm:max-w-[400px]">
+      <DialogHeader>
+        <DialogTitle>Sector del Piso {{ editingFloorLabel }}</DialogTitle>
+        <DialogDescription>
+          Escribe el nombre del sector para identificar este grupo de camas (ej: "Ala Norte", "Sector B").
+        </DialogDescription>
+      </DialogHeader>
+      <div class="py-4">
+        <Input
+          v-model="floorLabelDraft"
+          placeholder="Ej: Planta Baja, Ala Norte..."
+          @keydown.enter="saveFloorLabel"
+        />
+      </div>
+      <div class="flex justify-end gap-2">
+        <Button variant="outline" @click="showFloorLabelDialog = false">Cancelar</Button>
+        <Button @click="saveFloorLabel">Guardar sector</Button>
+      </div>
+    </DialogContent>
+  </Dialog>
+
+  <!-- Delete Confirmation Dialog -->
+  <Dialog :open="showDeleteConfirmDialog" @update:open="showDeleteConfirmDialog = $event">
+    <DialogContent class="sm:max-w-[400px]">
+      <DialogHeader>
+        <DialogTitle>Eliminar camas</DialogTitle>
+        <DialogDescription>
+          ¿Estás seguro que quieres eliminar {{ selectedBeds.length }} cama(s)? Esta acción no se puede deshacer.
+        </DialogDescription>
+      </DialogHeader>
+      <div class="flex justify-end gap-2 mt-4">
+        <Button variant="outline" @click="showDeleteConfirmDialog = false">Cancelar</Button>
+        <Button variant="destructive" @click="confirmBulkDelete">Eliminar</Button>
+      </div>
+    </DialogContent>
+  </Dialog>
+
+  <!-- Close Without Saving Dialog -->
+  <Dialog :open="showCloseConfirmDialog" @update:open="showCloseConfirmDialog = $event">
+    <DialogContent class="sm:max-w-[400px]">
+      <DialogHeader>
+        <DialogTitle>Cambios sin guardar</DialogTitle>
+        <DialogDescription>
+          Tienes cambios sin guardar. ¿Estás seguro que quieres cerrar? Se perderán todos los cambios.
+        </DialogDescription>
+      </DialogHeader>
+      <div class="flex justify-end gap-2 mt-4">
+        <Button variant="outline" @click="showCloseConfirmDialog = false">Seguir editando</Button>
+        <Button variant="destructive" @click="confirmClose">Cerrar sin guardar</Button>
+      </div>
+    </DialogContent>
+  </Dialog>
+
   <!-- Bulk Add Modal -->
   <Dialog :open="showBulkAddModal" @update:open="showBulkAddModal = $event">
     <DialogContent class="sm:max-w-[500px]">
@@ -922,10 +1035,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, reactive, nextTick, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Card, Badge, Input, useToast, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@repo/ui';
-import { AlertCircle, Loader2, Save, Search, RotateCcw, RotateCw, Zap, CheckSquare, Square, FileText, FileSpreadsheet, MoreVertical, Copy, Users, Move, GripVertical, Eye, EyeOff } from 'lucide-vue-next';
-import { Building, Download, Printer, DoorOpen, Bed, Plus, Edit, Trash2, X } from 'lucide-vue-next';
+import { AlertCircle, Loader2, Save, Search, RotateCcw, RotateCw, CheckSquare, Square, FileText, FileSpreadsheet, MoreVertical, Copy, Users, Move, Eye, EyeOff, Pencil } from 'lucide-vue-next';
+import { Building, Download, Printer, DoorOpen, Bed, Plus, Edit, Trash2, X, Tag } from 'lucide-vue-next';
 import type { House, Bed as BedType } from '@repo/types';
 
 const props = defineProps({
@@ -948,6 +1061,7 @@ const searchQuery = ref<string>('');
 const selectedFloor = ref<string>('all');
 const selectedBedType = ref<string>('all');
 const selectedUsage = ref<string>('all');
+const selectedSector = ref<string>('all');
 
 // Selection state
 const selectedBeds = ref<(BedType & { id?: string })[]>([]);
@@ -1059,11 +1173,33 @@ const bulkAddData = ref({
 
 // UI state with localStorage persistence
 const showLegend = ref(localStorage.getItem('houseBedMap_showLegend') !== 'false');
+const showFilters = ref(false);
 
-// Custom dropdown menu state
-const showCustomDropdown = ref(false);
-const dropdownBed = ref<(BedType & { id?: string }) | null>(null);
-const dropdownPosition = ref({ x: 0, y: 0 });
+const activeFilterCount = computed(() => {
+  let count = 0;
+  if (selectedFloor.value !== 'all') count++;
+  if (selectedBedType.value !== 'all') count++;
+  if (selectedUsage.value !== 'all') count++;
+  if (selectedSector.value !== 'all') count++;
+  if (searchQuery.value) count++;
+  return count;
+});
+
+// Confirmation dialogs
+const showDeleteConfirmDialog = ref(false);
+const showCloseConfirmDialog = ref(false);
+
+// Floor label editing
+const editingFloorLabel = ref<number | null>(null);
+const floorLabelDraft = ref('');
+const floorLabelOriginal = ref('');
+const showFloorLabelDialog = ref(false);
+
+// Room sector change
+const showChangeSectorDialog = ref(false);
+const changeSectorFloor = ref<number>(1);
+const changeSectorRoom = ref<string>('');
+const changeSectorDraft = ref('');
 
 // Helper function to generate a UUID v4
 const generateUUID = () => {
@@ -1083,6 +1219,27 @@ const availableFloors = computed(() => {
   return floors.sort((a, b) => a - b);
 });
 
+const availableSectors = computed(() => {
+  if (!localHouse.value?.beds) return [];
+  const labels = new Set<string>();
+  localHouse.value.beds.forEach(bed => {
+    const lbl = (bed as any).floorLabel || '';
+    if (lbl) labels.add(lbl);
+  });
+  return [...labels].sort((a, b) => a.localeCompare(b));
+});
+
+const availableRoomsForFloor = computed(() => {
+  if (!localHouse.value?.beds || !bulkMoveFloor.value) return [];
+  const floor = Number(bulkMoveFloor.value);
+  const rooms = new Set(
+    localHouse.value.beds
+      .filter(b => (b.floor || 1) === floor)
+      .map(b => b.roomNumber)
+  );
+  return [...rooms].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+});
+
 const filteredBeds = computed(() => {
   if (!localHouse.value?.beds) return [];
 
@@ -1090,27 +1247,126 @@ const filteredBeds = computed(() => {
     const floorMatch = selectedFloor.value === 'all' || (bed.floor || 1).toString() === selectedFloor.value;
     const typeMatch = selectedBedType.value === 'all' || bed.type === selectedBedType.value;
     const usageMatch = selectedUsage.value === 'all' || bed.defaultUsage === selectedUsage.value;
+    const sectorMatch = selectedSector.value === 'all' || ((bed as any).floorLabel || '') === selectedSector.value;
     const searchMatch = !searchQuery.value ||
       bed.roomNumber.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
       bed.bedNumber.toLowerCase().includes(searchQuery.value.toLowerCase());
 
-    return floorMatch && typeMatch && usageMatch && searchMatch;
+    return floorMatch && typeMatch && usageMatch && sectorMatch && searchMatch;
   });
 });
 
+const parseSectorKey = (key: string): { floor: number; label: string } => {
+  const idx = key.indexOf('||');
+  return { floor: Number(key.slice(0, idx)), label: key.slice(idx + 2) };
+};
+
 const groupedFilteredBeds = computed(() => {
-  const groups: { [key: number]: (BedType & { id?: string })[] } = {};
+  const groups: { [key: string]: (BedType & { id?: string })[] } = {};
 
   filteredBeds.value.forEach(bed => {
     const floor = bed.floor || 1;
-    if (!groups[floor]) {
-      groups[floor] = [];
-    }
-    groups[floor].push(bed);
+    const label = (bed as any).floorLabel || '';
+    const key = `${floor}||${label}`;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(bed);
   });
 
-  return groups;
+  // Sort by floor number asc, then label asc
+  const sorted: { [key: string]: (BedType & { id?: string })[] } = {};
+  Object.keys(groups)
+    .sort((a, b) => {
+      const pa = parseSectorKey(a);
+      const pb = parseSectorKey(b);
+      if (pa.floor !== pb.floor) return pa.floor - pb.floor;
+      return pa.label.localeCompare(pb.label);
+    })
+    .forEach(key => { sorted[key] = groups[key]; });
+
+  return sorted;
 });
+
+const startEditFloorLabel = (floorNum: number, currentLabel: string) => {
+  editingFloorLabel.value = floorNum;
+  floorLabelOriginal.value = currentLabel;
+  floorLabelDraft.value = currentLabel;
+  showFloorLabelDialog.value = true;
+};
+
+const saveFloorLabel = () => {
+  if (!localHouse.value?.beds || editingFloorLabel.value === null) return;
+  const floor = editingFloorLabel.value;
+  const oldLabel = floorLabelDraft.value !== undefined ? floorLabelDraft.value : '';
+  // Save the label only to beds that belong to this specific sector
+  // We identify the sector by the label stored before editing started
+  // (stored in floorLabelDraftOriginal via the dialog open)
+  localHouse.value.beds.forEach(bed => {
+    if ((bed.floor || 1) === floor && ((bed as any).floorLabel || '') === (floorLabelOriginal.value)) {
+      (bed as any).floorLabel = floorLabelDraft.value || undefined;
+    }
+  });
+  editingFloorLabel.value = null;
+  showFloorLabelDialog.value = false;
+  checkForChanges();
+};
+
+const sectorsOnCurrentFloor = computed(() => {
+  if (!localHouse.value?.beds) return [];
+  const labels = new Set<string>();
+  localHouse.value.beds.forEach(bed => {
+    if ((bed.floor || 1) === changeSectorFloor.value) {
+      const lbl = (bed as any).floorLabel || '';
+      if (lbl) labels.add(lbl);
+    }
+  });
+  return [...labels].sort((a, b) => a.localeCompare(b));
+});
+
+const openChangeSector = (floor: number, room: string, currentLabel: string) => {
+  changeSectorFloor.value = floor;
+  changeSectorRoom.value = room;
+  changeSectorDraft.value = currentLabel;
+  showChangeSectorDialog.value = true;
+};
+
+const saveRoomSector = () => {
+  if (!localHouse.value?.beds) return;
+  const newLabel = changeSectorDraft.value.trim() || undefined;
+  localHouse.value.beds.forEach(bed => {
+    if ((bed.floor || 1) === changeSectorFloor.value && String(bed.roomNumber) === changeSectorRoom.value) {
+      (bed as any).floorLabel = newLabel;
+    }
+  });
+  showChangeSectorDialog.value = false;
+  checkForChanges();
+  toast({
+    title: 'Sector actualizado',
+    description: newLabel
+      ? `Habitación ${changeSectorRoom.value} movida al sector "${newLabel}"`
+      : `Habitación ${changeSectorRoom.value} sin sector asignado`,
+  });
+};
+
+const getNextRoomInFloor = (floorNum: number, sectorLabel?: string): string => {
+  const roomsInFloor = (localHouse.value?.beds ?? [])
+    .filter(b => {
+      const floorMatch = (b.floor || 1) === floorNum;
+      const labelMatch = sectorLabel !== undefined ? ((b as any).floorLabel || '') === sectorLabel : true;
+      return floorMatch && labelMatch;
+    })
+    .map(b => b.roomNumber);
+  const roomNums = [...new Set(roomsInFloor)].sort(alphanumericCompare);
+  const last = roomNums[roomNums.length - 1] || '0';
+  const match = last.match(/^([A-Za-z]*)(\d+)$/);
+  if (match) {
+    return match[1] + (parseInt(match[2], 10) + 1);
+  }
+  return String(parseInt(last, 10) + 1 || 1);
+};
+
+const getFloorLabelByNumber = (floorNum: number): string | undefined => {
+  return localHouse.value?.beds?.find(b => (b.floor || 1) === floorNum && b.floorLabel)?.floorLabel ?? undefined;
+};
 
 const totalBeds = computed(() => localHouse.value?.beds?.length || 0);
 const totalFloors = computed(() => availableFloors.value.length);
@@ -1212,14 +1468,10 @@ const handleKeydown = (e: KeyboardEvent) => {
   // Only handle keys when the modal is open
   if (!props.open) return;
 
-  // Escape: Close custom dropdown first, then deselect all
+  // Escape: Deselect all
   if (e.key === 'Escape') {
     e.preventDefault();
-    if (showCustomDropdown.value) {
-      closeCustomDropdown();
-    } else {
-      deselectAllBeds();
-    }
+    deselectAllBeds();
     return;
   }
 
@@ -1312,12 +1564,11 @@ const getBedColorClass = (type: string) => {
 // Bulk operations
 const bulkDeleteBeds = () => {
   if (selectedBeds.value.length === 0) return;
+  showDeleteConfirmDialog.value = true;
+};
 
-  const confirmed = window.confirm(
-    `¿Estás seguro que quieres eliminar ${selectedBeds.value.length} cama(s)? Esta acción no se puede deshacer.`
-  );
-
-  if (!confirmed) return;
+const confirmBulkDelete = () => {
+  showDeleteConfirmDialog.value = false;
 
   if (localHouse.value && localHouse.value.beds) {
     selectedBeds.value.forEach(bedToDelete => {
@@ -1522,9 +1773,10 @@ const quickDeleteBed = (bed: BedType & { id?: string }) => {
 const exportToCSV = () => {
   if (!localHouse.value?.beds) return;
 
-  const headers = ['Piso', 'Habitación', 'Cama', 'Tipo', 'Uso'];
+  const headers = ['Piso', 'Sector', 'Habitación', 'Cama', 'Tipo', 'Uso'];
   const rows = localHouse.value.beds.map(bed => [
     bed.floor || 1,
+    (bed as any).floorLabel || '',
     bed.roomNumber,
     bed.bedNumber,
     getBedTypeLabel(bed.type),
@@ -1545,102 +1797,6 @@ const exportToCSV = () => {
   URL.revokeObjectURL(url);
 };
 
-// Custom dropdown functions
-const openBedDropdown = (bed: BedType & { id?: string }, event: MouseEvent) => {
-  console.log('openBedDropdown called', bed);
-  event.stopPropagation();
-  event.preventDefault();
-
-  // Close any existing dropdown first
-  closeCustomDropdown();
-
-  dropdownBed.value = bed;
-  showCustomDropdown.value = true;
-
-  // Add escape key listener and click outside listener for closing
-  document.addEventListener('keydown', handleEscapeKey);
-  setTimeout(() => {
-    document.addEventListener('click', handleClickOutside);
-  }, 100);
-};
-
-const handleClickOutside = (event: MouseEvent) => {
-  const target = event.target as HTMLElement;
-  // Check if click is outside any bed dropdown
-  if (!target.closest('.group')) {
-    closeCustomDropdown();
-  }
-};
-
-
-const handleDropdownAction = (action: string, bed: BedType & { id?: string }, value?: any) => {
-  console.log('handleDropdownAction called:', action, bed, value);
-
-  // Use nextTick to ensure the dropdown is closed before triggering the action
-  closeCustomDropdown();
-
-  // Execute the action in the next tick to avoid immediate dialog closure
-  nextTick(() => {
-    switch (action) {
-      case 'edit':
-        editBed(bed);
-        break;
-      case 'changeType':
-        if (value) {
-          changeBedTypeInline(bed, value as 'normal' | 'litera_abajo' | 'litera_arriba' | 'colchon');
-        }
-        break;
-      case 'changeUsage':
-        if (value) {
-          changeBedUsageInline(bed, value as 'caminante' | 'servidor');
-        }
-        break;
-      case 'duplicate':
-        duplicateBed(bed);
-        break;
-      case 'delete':
-        quickDeleteBed(bed);
-        break;
-    }
-  });
-};
-
-const handleEscapeKey = (event: KeyboardEvent) => {
-  if (event.key === 'Escape' && showCustomDropdown.value) {
-    closeCustomDropdown();
-  }
-};
-
-const closeDropdownOutside = (event: MouseEvent) => {
-  const target = event.target as HTMLElement;
-
-  // Find the dropdown element
-  const dropdownElement = document.querySelector('[data-dropdown-menu]');
-  const buttonElement = document.querySelector('[data-dropdown-button]');
-
-  // Check if the click is inside the dropdown or on the button
-  const isInsideDropdown = dropdownElement && dropdownElement.contains(target);
-  const isOnButton = buttonElement && buttonElement.contains(target);
-
-  if (!isInsideDropdown && !isOnButton) {
-    closeCustomDropdown();
-  }
-};
-
-const closeCustomDropdown = () => {
-  console.log('closeCustomDropdown called');
-  showCustomDropdown.value = false;
-  dropdownBed.value = null;
-  document.removeEventListener('keydown', handleEscapeKey);
-  document.removeEventListener('click', handleClickOutside);
-};
-
-
-// Watch for debugging
-watch(showCustomDropdown, (newValue) => {
-  console.log('showCustomDropdown changed to:', newValue);
-});
-
 // Lifecycle hooks
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown);
@@ -1648,18 +1804,20 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleKeydown);
-  document.removeEventListener('click', closeDropdownOutside);
-  closeCustomDropdown();
 });
 
 const handleOpenChange = (open: boolean) => {
   if (!open && hasUnsavedChanges.value) {
-    const confirmed = window.confirm(
-      'Tienes cambios sin guardar. ¿Estás seguro que quieres cerrar? Se perderán todos los cambios.'
-    );
-    if (!confirmed) return;
+    showCloseConfirmDialog.value = true;
+    return;
   }
   emit('update:open', open);
+};
+
+const confirmClose = () => {
+  showCloseConfirmDialog.value = false;
+  hasUnsavedChanges.value = false;
+  emit('update:open', false);
 };
 
 const handleSave = async () => {
@@ -1766,6 +1924,9 @@ const getBedTypeLabel = (type: string) => {
   return labels[type as keyof typeof labels] || type;
 };
 
+const alphanumericCompare = (a: string, b: string) =>
+  a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+
 const groupBedsByRoom = (floorBeds: (BedType & { id?: string })[]) => {
   const rooms: { [key: string]: (BedType & { id?: string })[] } = {};
   floorBeds.forEach(bed => {
@@ -1775,7 +1936,14 @@ const groupBedsByRoom = (floorBeds: (BedType & { id?: string })[]) => {
     }
     rooms[roomNum].push(bed);
   });
-  return rooms;
+  // Sort rooms alphanumerically, then sort beds within each room by bedNumber
+  const sorted: { [key: string]: (BedType & { id?: string })[] } = {};
+  Object.keys(rooms)
+    .sort(alphanumericCompare)
+    .forEach(key => {
+      sorted[key] = rooms[key].sort((a, b) => alphanumericCompare(a.bedNumber, b.bedNumber));
+    });
+  return sorted;
 };
 
 const editBed = (bed: BedType & { id?: string }) => {
@@ -1882,7 +2050,7 @@ const executeBulkAdd = () => {
   closeBulkAddModal();
 };
 
-const addBedToRoom = (floor: number, room: string) => {
+const addBedToRoom = (floor: number, room: string, sectorLabel?: string) => {
   // Convert to regular array to avoid Proxy issues
   const bedsArray = localHouse.value?.beds ? [...localHouse.value.beds] : [];
 
@@ -1917,7 +2085,7 @@ const addBedToRoom = (floor: number, room: string) => {
     lastBedUsage = lastBed.defaultUsage || 'caminante';
   }
 
-  const newBed = {
+  const newBed: any = {
     id: generateUUID(),
     floor: Number(floor),
     roomNumber: String(room),
@@ -1925,6 +2093,7 @@ const addBedToRoom = (floor: number, room: string) => {
     type: lastBedType,
     defaultUsage: lastBedUsage
   };
+  if (sectorLabel) newBed.floorLabel = sectorLabel;
 
   // Add to localHouse
   if (localHouse.value) {
@@ -1964,7 +2133,7 @@ const addRoomToFloor = (floor: number) => {
     }
 
     // Create a new bed for the room
-    const newBed = {
+    const newBed: any = {
       id: generateUUID(),
       floor: Number(floor),
       roomNumber: roomNum,
@@ -2012,7 +2181,88 @@ const exportMap = () => {
 };
 
 const printMap = () => {
-  window.print();
+  const house = localHouse.value;
+  if (!house) return;
+
+  const bedTypeLabel = (type: string) => ({
+    normal: 'Normal', litera_abajo: 'Litera Inf.', litera_arriba: 'Litera Sup.', colchon: 'Colchón'
+  }[type] || type);
+
+  const bedBg = (type: string) => ({
+    normal: '#dcfce7', litera_abajo: '#fef9c3', litera_arriba: '#fed7aa', colchon: '#ede9fe'
+  }[type] || '#f3f4f6');
+
+  // Build grouped content
+  const floors: Record<number, Record<string, typeof house.beds>> = {};
+  (house.beds ?? []).forEach(bed => {
+    const f = bed.floor || 1;
+    const r = bed.roomNumber || '1';
+    if (!floors[f]) floors[f] = {};
+    if (!floors[f][r]) floors[f][r] = [];
+    floors[f][r].push(bed);
+  });
+
+  const sortedFloors = Object.keys(floors).map(Number).sort((a, b) => a - b);
+
+  let body = `<h1 style="font-size:18px;margin-bottom:16px">${house.name}</h1>
+  <div style="margin-bottom:20px;padding:10px;border:1px solid #e5e7eb;border-radius:6px;font-size:11px">
+    <strong style="display:block;margin-bottom:6px">Leyenda:</strong>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">
+      <span><span style="display:inline-block;width:10px;height:10px;background:#22c55e;border-radius:2px;margin-right:3px"></span>Normal</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#eab308;border-radius:2px;margin-right:3px"></span>Litera Inferior</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#f97316;border-radius:2px;margin-right:3px"></span>Litera Superior</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#a855f7;border-radius:2px;margin-right:3px"></span>Colchón</span>
+      <span style="margin-left:10px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#dbeafe;border:2px solid #3b82f6;margin-right:3px"></span>Caminante (C)</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ffedd5;border:2px solid #f97316;margin-right:3px"></span>Servidor (S)</span>
+    </div>
+  </div>`;
+
+  for (const floorNum of sortedFloors) {
+    const rooms = floors[floorNum];
+    const allBeds = Object.values(rooms).flat();
+    const label = allBeds.find(b => b?.floorLabel)?.floorLabel ?? '';
+    body += `<div style="margin-bottom:24px">
+      <h2 style="font-size:14px;font-weight:bold;border-bottom:2px solid #374151;padding-bottom:4px;margin-bottom:12px">
+        Piso ${floorNum}${label ? ` — ${label}` : ''}
+      </h2>
+      <div style="display:flex;flex-wrap:wrap;gap:12px">`;
+
+    const sortedRooms = Object.keys(rooms).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    for (const roomNum of sortedRooms) {
+      const roomBeds = (rooms[roomNum] ?? []).sort((a, b) =>
+        a.bedNumber.localeCompare(b.bedNumber, undefined, { numeric: true }));
+      body += `<div style="border:1px solid #d1d5db;border-radius:6px;overflow:hidden;min-width:130px">
+        <div style="background:#f3f4f6;padding:4px 8px;font-size:11px;font-weight:600;border-bottom:1px solid #d1d5db">
+          Hab. ${roomNum}
+        </div>
+        <div style="padding:6px;display:flex;flex-direction:column;gap:4px">`;
+      for (const bed of roomBeds) {
+        body += `<div style="background:${bedBg(bed.type)};border-radius:4px;padding:4px 6px;font-size:10px">
+          <span style="font-weight:600">Cama ${bed.bedNumber}</span>
+          <span style="color:#6b7280;margin-left:4px">${bedTypeLabel(bed.type)}</span>
+          <span style="float:right;color:${bed.defaultUsage === 'caminante' ? '#1d4ed8' : '#c2410c'};font-weight:600">
+            ${bed.defaultUsage === 'caminante' ? 'C' : 'S'}
+          </span>
+        </div>`;
+      }
+      body += `</div></div>`;
+    }
+    body += `</div></div>`;
+  }
+
+  const win = window.open('', '_blank', 'width=900,height=700');
+  if (!win) return;
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="utf-8">
+    <title>Mapa de Camas - ${house.name}</title>
+    <style>
+      body { font-family: sans-serif; font-size: 12px; color: #111; padding: 20px; margin: 0; }
+      @media print { body { padding: 10px; } }
+    </style>
+  </head><body>${body}</body></html>`);
+  win.document.close();
+  win.focus();
+  win.print();
 };
 
 // Watch for house changes
@@ -2029,6 +2279,7 @@ watch(() => props.house, (newHouse) => {
   selectedFloor.value = 'all';
   selectedBedType.value = 'all';
   selectedUsage.value = 'all';
+  selectedSector.value = 'all';
   selectedBeds.value = [];
   searchQuery.value = '';
 }, { immediate: true });

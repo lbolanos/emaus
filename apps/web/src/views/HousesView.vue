@@ -1,10 +1,10 @@
 <template>
   <div class="p-4">
     <div class="flex justify-between items-center mb-4">
-      <h1 class="text-2xl font-bold">Houses</h1>
+      <h1 class="text-2xl font-bold">Casas</h1>
       <div class="flex items-center space-x-2">
-        <Input v-model="searchQuery" placeholder="Search..." class="max-w-sm" />
-        <Button @click="openAddModal">Add House</Button>
+        <Input v-model="searchQuery" placeholder="Buscar..." class="max-w-sm" />
+        <Button @click="openAddModal">Agregar Casa</Button>
       </div>
     </div>
 

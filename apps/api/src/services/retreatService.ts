@@ -130,6 +130,7 @@ export const refreshRetreatBedsFromHouse = async (
 					floor: bed.floor,
 					type: bed.type,
 					defaultUsage: bed.defaultUsage,
+					floorLabel: bed.floorLabel,
 					retreat,
 				});
 			});
@@ -256,6 +257,7 @@ export const createRetreat = async (
 					floor: bed.floor,
 					type: bed.type,
 					defaultUsage: bed.defaultUsage,
+					floorLabel: bed.floorLabel,
 					retreat: newRetreat,
 				});
 			});

@@ -154,31 +154,31 @@
                     />
                   </div>
                   <div>
-                    <Label class="text-xs">Etiqueta</Label>
+                    <Label class="text-xs">Sector</Label>
                     <Input
                       v-model="floor.label"
-                      placeholder="Ej: Planta Baja"
+                      placeholder="Ej: Ala Norte"
                       class="mt-1 h-8 text-sm"
                     />
                   </div>
                   <div>
                     <Label class="text-xs">Hab. inicio</Label>
                     <Input
-                      v-model.number="floor.roomStart"
-                      type="number"
-                      min="1"
+                      v-model="floor.roomStart"
+                      type="text"
+                      placeholder="Ej: 1 o A30"
                       class="mt-1 h-8 text-sm"
                     />
-                    <span v-if="floor.roomStart > floor.roomEnd" class="text-xs text-red-500">
-                      Inicio > Fin
+                    <span v-if="!isValidRange(floor.roomStart, floor.roomEnd)" class="text-xs text-red-500">
+                      Rango inválido
                     </span>
                   </div>
                   <div>
                     <Label class="text-xs">Hab. fin</Label>
                     <Input
-                      v-model.number="floor.roomEnd"
-                      type="number"
-                      min="1"
+                      v-model="floor.roomEnd"
+                      type="text"
+                      placeholder="Ej: 10 o A40"
                       class="mt-1 h-8 text-sm"
                     />
                   </div>
@@ -238,18 +238,18 @@
                 <div>
                   <Label class="text-xs">Hab. Desde</Label>
                   <Input
-                    v-model.number="override.roomStart"
-                    type="number"
-                    min="1"
+                    v-model="override.roomStart"
+                    type="text"
+                    placeholder="Ej: 1 o A30"
                     class="mt-1 h-8 text-sm"
                   />
                 </div>
                 <div>
                   <Label class="text-xs">Hab. Hasta</Label>
                   <Input
-                    v-model.number="override.roomEnd"
-                    type="number"
-                    min="1"
+                    v-model="override.roomEnd"
+                    type="text"
+                    placeholder="Ej: 10 o A40"
                     class="mt-1 h-8 text-sm"
                   />
                 </div>
@@ -446,17 +446,69 @@ interface FloorConfig {
   id: string;
   floorNumber: number;
   label: string;
-  roomStart: number;
-  roomEnd: number;
+  roomStart: string;
+  roomEnd: string;
   defaultUsage: UsageType;
 }
 
 interface UsageOverride {
   id: string;
-  roomStart: number;
-  roomEnd: number;
+  roomStart: string;
+  roomEnd: string;
   usage: UsageType;
   floorFilter: string; // 'all' or stringified floor number
+}
+
+// Parse room identifier like "A30" into { prefix: "A", num: 30 }
+function parseRoomId(value: string): { prefix: string; num: number } | null {
+  const str = String(value).trim();
+  const match = str.match(/^([A-Za-z]*)(\d+)$/);
+  if (!match) return null;
+  return { prefix: match[1], num: parseInt(match[2], 10) };
+}
+
+// Generate room numbers from start to end (e.g., "A30" to "A40" → ["A30","A31",...,"A40"])
+function generateRoomRange(start: string, end: string): string[] {
+  const s = parseRoomId(start);
+  const e = parseRoomId(end);
+  if (!s || !e) return [];
+  if (s.prefix !== e.prefix) return [];
+  if (s.num > e.num) return [];
+  const rooms: string[] = [];
+  for (let i = s.num; i <= e.num; i++) {
+    rooms.push(`${s.prefix}${i}`);
+  }
+  return rooms;
+}
+
+// Check if a room number falls within a range
+function roomInRange(roomNumber: string, rangeStart: string, rangeEnd: string): boolean {
+  const r = parseRoomId(roomNumber);
+  const s = parseRoomId(rangeStart);
+  const e = parseRoomId(rangeEnd);
+  if (!r || !s || !e) return false;
+  if (r.prefix !== s.prefix) return false;
+  return r.num >= s.num && r.num <= e.num;
+}
+
+// Check if two ranges overlap
+function rangesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
+  const as = parseRoomId(aStart);
+  const ae = parseRoomId(aEnd);
+  const bs = parseRoomId(bStart);
+  const be = parseRoomId(bEnd);
+  if (!as || !ae || !bs || !be) return false;
+  if (as.prefix !== bs.prefix) return false;
+  return as.num <= be.num && bs.num <= ae.num;
+}
+
+// Validate that a range is valid (same prefix, start <= end)
+function isValidRange(start: string, end: string): boolean {
+  const s = parseRoomId(start);
+  const e = parseRoomId(end);
+  if (!s || !e) return false;
+  if (s.prefix !== e.prefix) return false;
+  return s.num <= e.num;
 }
 
 interface SavedPreset {
@@ -465,6 +517,23 @@ interface SavedPreset {
   bedTemplate: { type: BedType }[];
   floors: Omit<FloorConfig, 'id'>[];
   usageOverrides: Omit<UsageOverride, 'id'>[];
+}
+
+// Backwards compatibility: convert old numeric presets to string format
+function migratePreset(preset: SavedPreset): SavedPreset {
+  return {
+    ...preset,
+    floors: preset.floors.map(f => ({
+      ...f,
+      roomStart: String(f.roomStart),
+      roomEnd: String(f.roomEnd),
+    })),
+    usageOverrides: preset.usageOverrides.map(o => ({
+      ...o,
+      roomStart: String(o.roomStart),
+      roomEnd: String(o.roomEnd),
+    })),
+  };
 }
 
 const PRESETS_STORAGE_KEY = 'bulk-operations-presets';
@@ -515,13 +584,13 @@ const floors = ref<FloorConfig[]>([]);
 function addFloor() {
   const nextFloorNum = floors.value.length > 0
     ? Math.max(...floors.value.map(f => f.floorNumber)) + 1
-    : 0;
+    : 1;
   floors.value.push({
     id: uid(),
     floorNumber: nextFloorNum,
     label: '',
-    roomStart: 1,
-    roomEnd: 10,
+    roomStart: '1',
+    roomEnd: '10',
     defaultUsage: 'caminante',
   });
 }
@@ -542,7 +611,7 @@ const overlappingFloors = computed(() => {
     for (let i = 0; i < configs.length; i++) {
       for (let j = i + 1; j < configs.length; j++) {
         const a = configs[i], b = configs[j];
-        if (a.roomStart <= b.roomEnd && b.roomStart <= a.roomEnd) {
+        if (rangesOverlap(a.roomStart, a.roomEnd, b.roomStart, b.roomEnd)) {
           overlaps.push(`Piso ${floorNum}: habitaciones ${a.roomStart}-${a.roomEnd} y ${b.roomStart}-${b.roomEnd} se solapan`);
         }
       }
@@ -561,8 +630,8 @@ const usageOverrides = ref<UsageOverride[]>([]);
 function addOverride() {
   usageOverrides.value.push({
     id: uid(),
-    roomStart: 1,
-    roomEnd: 1,
+    roomStart: '1',
+    roomEnd: '1',
     usage: 'servidor',
     floorFilter: 'all',
   });
@@ -582,11 +651,11 @@ const generateUUID = (): string => {
 };
 
 // --- Determine effective usage for a room on a floor ---
-function getEffectiveUsage(roomNumber: number, floorNumber: number, floorDefaultUsage: UsageType): UsageType {
+function getEffectiveUsage(roomNumber: string, floorNumber: number, floorDefaultUsage: UsageType): UsageType {
   let usage = floorDefaultUsage;
   // Apply overrides in order (later overrides win)
   for (const ov of usageOverrides.value) {
-    if (roomNumber >= ov.roomStart && roomNumber <= ov.roomEnd) {
+    if (roomInRange(roomNumber, ov.roomStart, ov.roomEnd)) {
       if (ov.floorFilter === 'all' || Number(ov.floorFilter) === floorNumber) {
         usage = ov.usage;
       }
@@ -602,20 +671,21 @@ const previewBeds = computed(() => {
   const beds: any[] = [];
 
   for (const floor of floors.value) {
-    if (floor.roomStart > floor.roomEnd) continue;
-    for (let room = floor.roomStart; room <= floor.roomEnd; room++) {
-      const usage = getEffectiveUsage(room, floor.floorNumber, floor.defaultUsage);
+    const rooms = generateRoomRange(floor.roomStart, floor.roomEnd);
+    for (const roomNumber of rooms) {
+      const usage = getEffectiveUsage(roomNumber, floor.floorNumber, floor.defaultUsage);
       for (let i = 0; i < bedTemplate.value.length; i++) {
         const tpl = bedTemplate.value[i];
         beds.push({
           id: generateUUID(),
           floor: floor.floorNumber,
-          roomNumber: String(room),
+          roomNumber,
           bedNumber: String(i + 1),
           type: tpl.type,
           typeLabel: typeLabels[tpl.type] || tpl.type,
           defaultUsage: usage,
           usageLabel: usageLabels[usage] || usage,
+          floorLabel: floor.label || undefined,
         });
       }
     }
@@ -668,7 +738,7 @@ const newPresetName = ref('');
 function loadPresetsFromStorage() {
   try {
     const raw = localStorage.getItem(PRESETS_STORAGE_KEY);
-    if (raw) savedPresets.value = JSON.parse(raw);
+    if (raw) savedPresets.value = (JSON.parse(raw) as SavedPreset[]).map(migratePreset);
   } catch { /* ignore corrupt data */ }
 }
 
@@ -724,7 +794,7 @@ const isValid = computed(() => {
   if (floors.value.length === 0) return false;
   if (overlappingFloors.value.length > 0) return false;
   for (const f of floors.value) {
-    if (f.roomStart > f.roomEnd) return false;
+    if (!isValidRange(f.roomStart, f.roomEnd)) return false;
   }
   return previewBeds.value.length > 0;
 });

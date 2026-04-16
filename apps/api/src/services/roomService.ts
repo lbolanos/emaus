@@ -226,19 +226,21 @@ export const exportRoomLabelsToDocx = async (retreatId: string, dataSource?: Dat
 		}),
 	);
 
-	// Group beds by floor and room
+	// Group beds by floor+label and room
 	const groupedBeds = beds.reduce(
 		(acc, bed) => {
 			const floor = bed.floor !== undefined && bed.floor !== null ? String(bed.floor) : 'PB';
+			const label = (bed as any).floorLabel || '';
+			const key = `${floor}||${label}`;
 			const roomNumber = bed.roomNumber;
 
-			if (!acc[floor]) {
-				acc[floor] = {};
+			if (!acc[key]) {
+				acc[key] = {};
 			}
-			if (!acc[floor][roomNumber]) {
-				acc[floor][roomNumber] = [];
+			if (!acc[key][roomNumber]) {
+				acc[key][roomNumber] = [];
 			}
-			acc[floor][roomNumber].push(bed);
+			acc[key][roomNumber].push(bed);
 			return acc;
 		},
 		{} as Record<string, Record<string, any[]>>,
@@ -246,8 +248,13 @@ export const exportRoomLabelsToDocx = async (retreatId: string, dataSource?: Dat
 
 	// Generate labels for each room in two columns
 	let floorCount = 0;
-	for (const [floor, rooms] of Object.entries(groupedBeds)) {
+	for (const [sectorKey, rooms] of Object.entries(groupedBeds)) {
 		floorCount++;
+
+		// Parse composite key into floor number and optional label
+		const [floorNum, sectorLabel = ''] = sectorKey.split('||');
+		const floorTitle = floorNum === 'PB' ? 'PLANTA BAJA' : `PISO ${floorNum}`;
+		const fullFloorTitle = sectorLabel ? `${floorTitle} — ${sectorLabel.toUpperCase()}` : floorTitle;
 
 		// Enhanced floor title with badge style
 		const floorBadge = new DocxTable({
@@ -263,7 +270,7 @@ export const exportRoomLabelsToDocx = async (retreatId: string, dataSource?: Dat
 											size: 24,
 										}),
 										new TextRun({
-											text: floor === 'PB' ? 'PLANTA BAJA' : `PISO ${floor}`,
+											text: fullFloorTitle,
 											bold: true,
 											size: 26,
 											color: '1E40AF',
