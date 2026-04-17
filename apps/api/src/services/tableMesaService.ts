@@ -509,10 +509,29 @@ export const exportTablesToDocx = async (retreatId: string, dataSource?: DataSou
 		.leftJoinAndSelect('table.colider1', 'colider1')
 		.leftJoinAndSelect('table.colider2', 'colider2')
 		.leftJoinAndSelect('table.walkers', 'walkers')
-		.leftJoinAndSelect('walkers.retreatBed', 'retreatBed')
+		.leftJoinAndSelect('walkers.participant', 'wp')
 		.where('table.retreatId = :retreatId', { retreatId })
 		.orderBy('table.name', 'ASC')
 		.getMany();
+
+	// Flatten walker RetreatParticipant objects to look like Participant for downstream usage
+	for (const t of tables) {
+		if (t.walkers) {
+			t.walkers = t.walkers.map((rp: any) => {
+				if (rp.participant) {
+					return {
+						...rp.participant,
+						type: rp.type,
+						isCancelled: rp.isCancelled,
+						tableId: rp.tableId,
+						id_on_retreat: rp.idOnRetreat,
+						family_friend_color: rp.familyFriendColor,
+					};
+				}
+				return rp;
+			}) as any;
+		}
+	}
 
 	// Get retreat information
 	const retreat = await repos.retreat.findOneBy({ id: retreatId });

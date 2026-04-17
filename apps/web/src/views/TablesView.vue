@@ -1,6 +1,6 @@
 <template>
   <TooltipProvider :delay-duration="300">
-  <div class="h-full flex flex-col">
+  <div class="h-full flex flex-col tables-view-root">
     <!-- Sticky Header -->
     <div class="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-1.5 sm:p-3 lg:p-4 border-b">
       <div class="sm:flex sm:items-center sm:justify-between gap-4">
@@ -728,8 +728,209 @@ const handleExportTables = async () => {
   }
 };
 
+const escapeHtml = (unsafe: unknown): string => {
+  if (unsafe === null || unsafe === undefined) return '';
+  return String(unsafe)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
+const formatPhones = (p: any): string => {
+  const parts: string[] = [];
+  if (p.cellPhone) parts.push(`📱 ${escapeHtml(p.cellPhone)}`);
+  if (p.homePhone) parts.push(`🏠 ${escapeHtml(p.homePhone)}`);
+  if (p.workPhone) parts.push(`🏢 ${escapeHtml(p.workPhone)}`);
+  return parts.join('<br>');
+};
+
+const formatMedication = (p: any): string => {
+  if (!p.hasMedication) return '—';
+  const bits: string[] = [];
+  if (p.medicationDetails) bits.push(`💊 ${escapeHtml(p.medicationDetails)}`);
+  if (p.medicationSchedule) bits.push(`⏰ ${escapeHtml(p.medicationSchedule)}`);
+  return bits.length ? bits.join('<br>') : '✅ Sí';
+};
+
+const formatFood = (p: any): string => {
+  if (!p.hasDietaryRestrictions) return '—';
+  return `⚠️ ${escapeHtml(p.dietaryRestrictionsDetails || 'Con restricciones')}`;
+};
+
+const formatDisability = (p: any): string => {
+  if (!p.disabilitySupport) return '—';
+  return `♿ ${escapeHtml(p.disabilitySupport)}`;
+};
+
+const formatEmergency = (p: any): string => {
+  if (!p.emergencyContact1Name) return '—';
+  const rel = p.emergencyContact1Relation ? `${escapeHtml(p.emergencyContact1Relation)}` : '';
+  const phone = p.emergencyContact1CellPhone ? `📞 ${escapeHtml(p.emergencyContact1CellPhone)}` : '';
+  return `🆘 ${escapeHtml(p.emergencyContact1Name)}${rel ? `<br>${rel}` : ''}${phone ? `<br>${phone}` : ''}`;
+};
+
+const renderLeadersTable = (table: any): string => {
+  const leaders: Array<{ role: string; p: any }> = [];
+  if (table.lider) leaders.push({ role: t('tables.roles.lider'), p: table.lider });
+  if (table.colider1) leaders.push({ role: t('tables.roles.colider1'), p: table.colider1 });
+  if (table.colider2) leaders.push({ role: t('tables.roles.colider2'), p: table.colider2 });
+  if (leaders.length === 0) return '';
+
+  const rows = leaders
+    .map(({ role, p }) => {
+      const name = `${escapeHtml(p.firstName || '')} ${escapeHtml(p.lastName || '')}`.trim();
+      const email = p.email ? escapeHtml(p.email) : '—';
+      return `<tr>
+        <td class="cell-role">${escapeHtml(role)}</td>
+        <td class="cell-name">${name}</td>
+        <td>${formatPhones(p) || '—'}</td>
+        <td>${email}</td>
+      </tr>`;
+    })
+    .join('');
+
+  return `<table class="leaders-table">
+    <thead>
+      <tr>
+        <th>Rol</th>
+        <th>Nombre</th>
+        <th>Teléfonos</th>
+        <th>Email</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+};
+
+const renderWalkersTable = (table: any): string => {
+  const walkers = table.walkers || [];
+  if (walkers.length === 0) return `<p class="tc-empty">—</p>`;
+
+  const rows = walkers
+    .map((w: any) => {
+      const idOnRetreat = w.id_on_retreat ?? w.idOnRetreat ?? '';
+      const color = w.family_friend_color || w.familyFriendColor || '';
+      const idBadge = idOnRetreat
+        ? `<span class="w-id" style="${color ? `background-color:${escapeHtml(color)};color:#000;` : ''}">${escapeHtml(idOnRetreat)}</span>`
+        : '';
+      const name = `${escapeHtml(w.firstName || '')} ${escapeHtml(w.lastName || '')}`.trim();
+      return `<tr>
+        <td class="cell-id">${idBadge}</td>
+        <td class="cell-name">${name}</td>
+        <td>${formatPhones(w) || '—'}</td>
+        <td class="${w.hasMedication ? 'flag-med' : ''}">${formatMedication(w)}</td>
+        <td class="${w.hasDietaryRestrictions ? 'flag-food' : ''}">${formatFood(w)}</td>
+        <td class="${w.disabilitySupport ? 'flag-dis' : ''}">${formatDisability(w)}</td>
+        <td class="cell-emergency">${formatEmergency(w)}</td>
+      </tr>`;
+    })
+    .join('');
+
+  return `<table class="walkers-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Nombre</th>
+        <th>Teléfonos</th>
+        <th>Medicamentos</th>
+        <th>Alimentación</th>
+        <th>Apoyos</th>
+        <th>Contacto emergencia</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+};
+
+const buildPrintHtml = (): string => {
+  const tables = tableMesaStore.tables || [];
+  if (tables.length === 0) {
+    return `<p>${escapeHtml(t('tables.noTablesFound'))}</p>`;
+  }
+
+  return tables
+    .map((table: any) => {
+      const count = (table.walkers || []).length;
+      return `<section class="table-card">
+        <header class="tc-head">
+          <h2>${escapeHtml(table.name)}</h2>
+          <span class="tc-count">${count} / 7 caminantes</span>
+        </header>
+        ${renderLeadersTable(table)}
+        <h3 class="walkers-title">Caminantes</h3>
+        ${renderWalkersTable(table)}
+      </section>`;
+    })
+    .join('');
+};
+
 const handlePrintTables = () => {
-  window.print();
+  const body = buildPrintHtml();
+  const win = window.open('', '_blank', 'width=1024,height=768');
+  if (!win) {
+    toast({
+      title: t('common.error'),
+      description: 'El navegador bloqueó la ventana emergente. Permite pop-ups para imprimir.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  const title = escapeHtml(t('tables.title'));
+  const retreatLabel = retreatStore.retreats.find((r) => r.id === retreatStore.selectedRetreatId);
+  const retreatName = retreatLabel ? escapeHtml(retreatLabel.parish || '') : '';
+
+  const css = [
+    '@page { size: A4 landscape; margin: 0.8cm; }',
+    '* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    "html, body { margin: 0; padding: 0; background: #fff; color: #111; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }",
+    'body { padding: 10px; font-size: 10px; }',
+    'h1 { font-size: 16px; margin: 0 0 4px; }',
+    '.header { margin-bottom: 8px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }',
+    '.table-card { border: 1px solid #cbd5e0; border-radius: 4px; padding: 8px; margin-bottom: 10px; break-inside: avoid-page; page-break-inside: avoid; }',
+    '.tc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0; }',
+    '.tc-head h2 { font-size: 14px; margin: 0; color: #2b6cb0; }',
+    '.tc-count { font-size: 10px; color: #4a5568; }',
+    '.walkers-title { font-size: 11px; margin: 8px 0 4px; color: #2d3748; }',
+    '.tc-empty { font-size: 10px; color: #a0aec0; font-style: italic; }',
+    'table { width: 100%; border-collapse: collapse; font-size: 9px; }',
+    'th, td { border: 1px solid #e2e8f0; padding: 3px 4px; vertical-align: top; text-align: left; }',
+    'thead th { background: #edf2f7; color: #2d3748; font-weight: bold; font-size: 9px; }',
+    '.leaders-table thead th { background: #bee3f8; }',
+    '.walkers-table thead th { background: #c6f6d5; }',
+    '.cell-role { font-weight: bold; color: #2b6cb0; white-space: nowrap; }',
+    '.cell-name { font-weight: bold; }',
+    '.cell-id { text-align: center; }',
+    '.cell-emergency { color: #b91c1c; }',
+    '.flag-med { color: #744210; font-weight: bold; }',
+    '.flag-food { color: #c53030; font-weight: bold; }',
+    '.flag-dis { color: #b7791f; font-weight: bold; }',
+    '.w-id { display: inline-block; min-width: 22px; text-align: center; padding: 1px 4px; border-radius: 3px; font-weight: bold; background: #edf2f7; }',
+    'tr { break-inside: avoid; page-break-inside: avoid; }',
+    '@media print { body { padding: 0; } }',
+  ].join(' ');
+
+  const inlineScript =
+    'window.addEventListener("load",function(){setTimeout(function(){window.focus();window.print();},100);});';
+
+  const scriptOpen = '<' + 'script>';
+  const scriptClose = '<' + '/script>';
+
+  const html =
+    '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">' +
+    `<title>${title}</title>` +
+    `<style>${css}</style>` +
+    '</head><body>' +
+    `<div class="header"><h1>${title}${retreatName ? ` — ${retreatName}` : ''}</h1></div>` +
+    body +
+    scriptOpen + inlineScript + scriptClose +
+    '</body></html>';
+
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
 };
 
 
@@ -750,7 +951,23 @@ watch(
 
 <style>
 @media print {
-  /* Hide everything except print container */
+  /* Ensure ancestors don't clip or constrain the printable content */
+  html, body, #app-root {
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+
+  /* Remove height/scroll constraints from TablesView wrappers */
+  .tables-view-root,
+  .tables-view-root > .flex-1 {
+    display: block !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Hide everything, then show only the print container */
   body * {
     visibility: hidden;
   }
