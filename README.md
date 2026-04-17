@@ -508,12 +508,12 @@ agregar todas las actividades por servidor
 
 ## TODO
 
-problemas para adicionar una sola habitacion cuando ya esta creado.
-guardar el sector de las habitaciones que se guardan con masivo
+cuando estoy creando o editando la casa de retiro y agrego las habitaciones me da problemas para adicionar una sola habitacion cuando ya esta creado. cuando selecciono una cama deberia cambiar el Configurar próxima cama:  asi si le doy nueva cama crea la siguiente de esa habitacion y nueva habitacion la siguiente de ese piso que no este creada
+cuando en operaciones masivas agrego la etiqueta no se si se guarda .  guardar el sector de las habitaciones que se guardan con masivo y mostrarlo en el mapa de habitaciones.
 cuando ya esta el retiro por empezar modificar las camas para servidores.  es decir si sobraron camas de caminantes modificar que puedan ser para servidores sin modificar la estructura de la casa de retiro.  solamente para el retiro en curso.
-al crear un retiro las horas de llegada por defecto x:00.  Colocar unas notas por defecto
+cuando estoy creando un retiro:  colocar la hora de llegada por defecto en punto x:00.  placeholder de notas por defecto
 una forma de agregar la direccion de la iglesia donde se hace la misa de clausura.
-cuando editor el retiro el flyer en el lugar aparece el nombre de la parroquia
+cuando edito el retiro y voy a ver el flyer , en el lugar, aparece el nombre de la parroquia.  tengo que refrescar la pagina para que aparezca bien
 
 
 Crear un retiro a partir de los datos del anterior retiro. Casa de retiro, inventario, mensajes.

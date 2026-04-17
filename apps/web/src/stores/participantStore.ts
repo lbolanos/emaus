@@ -244,7 +244,8 @@ export const useParticipantStore = defineStore('participant', () => {
 
 	function getColumnSelection(viewName: string, defaultColumns: string[]): string[] {
 		const saved = loadColumnSelection(viewName);
-		return saved || defaultColumns;
+		if (Array.isArray(saved) && saved.length > 0) return saved;
+		return defaultColumns;
 	}
 
 	function $reset() {

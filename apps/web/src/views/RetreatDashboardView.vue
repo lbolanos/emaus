@@ -129,6 +129,156 @@
         </Card>
       </div>
 
+      <!-- Assignment Stats Grid -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Total Participants -->
+        <Card class="overflow-hidden group hover:shadow-lg transition-all duration-300">
+          <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle class="text-sm font-medium text-muted-foreground">
+              {{ $t('retreatDashboard.totalParticipants') }}
+            </CardTitle>
+            <div class="rounded-full p-2 bg-indigo-500/10 text-indigo-600 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+              <Users class="h-4 w-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div class="text-3xl font-bold">{{ totalParticipantsCount }}</div>
+          </CardContent>
+        </Card>
+
+        <!-- Assigned Beds -->
+        <Card class="overflow-hidden group hover:shadow-lg transition-all duration-300 cursor-pointer" @click="goToBedAssignments">
+          <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle class="text-sm font-medium text-muted-foreground">
+              {{ $t('retreatDashboard.assignedBeds') }}
+            </CardTitle>
+            <div class="rounded-full p-2 bg-teal-500/10 text-teal-600 group-hover:bg-teal-500 group-hover:text-white transition-colors">
+              <BedDouble class="h-4 w-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div class="text-3xl font-bold">{{ assignedBedsCount }} / {{ totalBedsCount }}</div>
+            <Progress v-if="totalBedsCount" :value="bedsPercentage" class="h-1.5 mt-2" />
+          </CardContent>
+        </Card>
+
+        <!-- Unassigned Participants -->
+        <Card class="overflow-hidden group hover:shadow-lg transition-all duration-300 cursor-pointer" @click="goToBedAssignments">
+          <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle class="text-sm font-medium text-muted-foreground">
+              {{ $t('retreatDashboard.unassignedParticipants') }}
+            </CardTitle>
+            <div class="rounded-full p-2 bg-orange-500/10 text-orange-600 group-hover:bg-orange-500 group-hover:text-white transition-colors">
+              <UserMinus class="h-4 w-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div class="text-3xl font-bold">{{ unassignedParticipantsCount }}</div>
+          </CardContent>
+        </Card>
+
+        <!-- Floors Used -->
+        <Card class="overflow-hidden group hover:shadow-lg transition-all duration-300">
+          <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle class="text-sm font-medium text-muted-foreground">
+              {{ $t('retreatDashboard.floorsUsed') }}
+            </CardTitle>
+            <div class="rounded-full p-2 bg-pink-500/10 text-pink-600 group-hover:bg-pink-500 group-hover:text-white transition-colors">
+              <Layers class="h-4 w-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div class="text-3xl font-bold">{{ floorsUsedCount }}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <!-- Table Assignments Stats -->
+      <Card class="group hover:shadow-md transition-all duration-300 cursor-pointer" @click="goToTableAssignments">
+        <CardHeader class="pb-3">
+          <CardTitle class="text-lg flex items-center gap-2">
+            <LayoutGrid class="w-5 h-5 text-primary" />
+            {{ $t('retreatDashboard.tableAssignments') }}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-muted-foreground">{{ $t('retreatDashboard.tablesCount') }}</p>
+              <p class="text-2xl font-bold mt-1">{{ tables.length }}</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-muted-foreground">{{ $t('retreatDashboard.leadersAssigned') }}</p>
+              <p class="text-2xl font-bold mt-1">{{ leadersAssignedCount }} / {{ tables.length * 3 }}</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-muted-foreground">{{ $t('retreatDashboard.walkersInTables') }}</p>
+              <p class="text-2xl font-bold mt-1">{{ walkersInTablesCount }} / {{ walkersCount }}</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-muted-foreground">{{ $t('retreatDashboard.walkersWithoutTable') }}</p>
+              <p class="text-2xl font-bold mt-1">{{ walkersWithoutTableCount }}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <!-- Responsibilities -->
+      <Card class="group hover:shadow-md transition-all duration-300 cursor-pointer" @click="goToResponsibilities">
+        <CardHeader class="pb-3">
+          <CardTitle class="text-lg flex items-center gap-2">
+            <ClipboardList class="w-5 h-5 text-primary" />
+            {{ $t('retreatDashboard.responsibilities') }}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-muted-foreground">{{ $t('retreatDashboard.totalResponsibilities') }}</p>
+              <p class="text-2xl font-bold mt-1">{{ totalResponsibilitiesCount }}</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-muted-foreground">{{ $t('retreatDashboard.assignedResponsibilities') }}</p>
+              <p class="text-2xl font-bold mt-1">{{ totalResponsibilitiesCount - unassignedResponsibilitiesCount }} / {{ totalResponsibilitiesCount }}</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-muted-foreground">{{ $t('retreatDashboard.unassignedResponsibilities') }}</p>
+              <p class="text-2xl font-bold mt-1" :class="unassignedResponsibilitiesCount > 0 ? 'text-amber-600' : ''">{{ unassignedResponsibilitiesCount }}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <!-- Palancas -->
+      <Card class="group hover:shadow-md transition-all duration-300 cursor-pointer" @click="goToPalancas">
+        <CardHeader class="pb-3">
+          <CardTitle class="text-lg flex items-center gap-2">
+            <Heart class="w-5 h-5 text-primary" />
+            {{ $t('retreatDashboard.palancas') }}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-muted-foreground">{{ $t('retreatDashboard.totalWalkers') }}</p>
+              <p class="text-2xl font-bold mt-1">{{ activeWalkers.length }}</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-muted-foreground">{{ $t('retreatDashboard.palancasRequested') }}</p>
+              <p class="text-2xl font-bold mt-1">{{ walkersWithPalancasRequestedCount }}</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-muted-foreground">{{ $t('retreatDashboard.palancasReceived') }}</p>
+              <p class="text-2xl font-bold mt-1 text-green-600">{{ walkersWithPalancasReceivedCount }}</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-muted-foreground">{{ $t('retreatDashboard.walkersWithoutPalancas') }}</p>
+              <p class="text-2xl font-bold mt-1" :class="walkersWithoutPalancasCount > 0 ? 'text-amber-600' : ''">{{ walkersWithoutPalancasCount }}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <!-- Registration Links -->
       <Card>
         <CardHeader>
@@ -373,6 +523,10 @@ import { useRoute, useRouter } from 'vue-router';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useInventoryStore } from '@/stores/inventoryStore';
+import { useTableMesaStore } from '@/stores/tableMesaStore';
+import { useResponsabilityStore } from '@/stores/responsabilityStore';
+import { api } from '@/services/api';
+import type { RetreatBed } from '@repo/types';
 import { Button } from '@repo/ui';
 import {
   Dialog,
@@ -401,7 +555,10 @@ import { Progress } from '@repo/ui';
 import InviteUsersModal from '@/components/InviteUsersModal.vue';
 import {
   AlertTriangle,
+  BedDouble,
   BookOpen,
+  ClipboardList,
+  Heart,
   CalendarDays,
   Camera,
   Clock,
@@ -409,12 +566,15 @@ import {
   DollarSign,
   ExternalLink,
   FileText,
+  Layers,
+  LayoutGrid,
   Link,
   Loader2,
   Mail,
   Music,
   Package,
   QrCode,
+  UserMinus,
   UserPlus,
   Users,
 } from 'lucide-vue-next';
@@ -432,6 +592,12 @@ const participantStore = useParticipantStore();
 const { participants } = storeToRefs(participantStore);
 const inventoryStore = useInventoryStore();
 const { inventoryAlerts } = storeToRefs(inventoryStore);
+const tableMesaStore = useTableMesaStore();
+const { tables } = storeToRefs(tableMesaStore);
+const responsabilityStore = useResponsabilityStore();
+const { responsibilities } = storeToRefs(responsabilityStore);
+
+const beds = ref<RetreatBed[]>([]);
 
 const isQrCodeVisible = ref(false);
 const qrCodeUrl = ref('');
@@ -474,6 +640,78 @@ const getCapacityStatus = (current: number, max: number | undefined) => {
 const walkersStatus = computed(() => getCapacityStatus(walkersCount.value, selectedRetreat.value?.max_walkers));
 const serversStatus = computed(() => getCapacityStatus(serversCount.value, selectedRetreat.value?.max_servers));
 
+const totalParticipantsCount = computed(() =>
+  (participants.value || []).filter(p => !p.isCancelled && p.type !== 'waiting').length
+);
+
+const activeBeds = computed(() => beds.value.filter(b => b.isActive !== false));
+const totalBedsCount = computed(() => activeBeds.value.length);
+const assignedBedsCount = computed(() => activeBeds.value.filter(b => b.participantId).length);
+const bedsPercentage = computed(() => totalBedsCount.value ? (assignedBedsCount.value / totalBedsCount.value) * 100 : 0);
+
+const unassignedParticipantsCount = computed(() => {
+  const assignedIds = new Set(beds.value.map(b => b.participantId).filter(Boolean));
+  return (participants.value || []).filter(p =>
+    !assignedIds.has(p.id) && !p.isCancelled && p.type !== 'waiting'
+  ).length;
+});
+
+const floorsUsedCount = computed(() => {
+  const floors = new Set<number>();
+  for (const b of activeBeds.value) {
+    if (b.participantId) floors.add(b.floor || 0);
+  }
+  return floors.size;
+});
+
+const leadersAssignedCount = computed(() =>
+  (tables.value || []).reduce((acc, t) => acc + (t.lider ? 1 : 0) + (t.colider1 ? 1 : 0) + (t.colider2 ? 1 : 0), 0)
+);
+const walkersInTablesCount = computed(() =>
+  (tables.value || []).reduce((acc, t) => acc + (t.walkers?.length || 0), 0)
+);
+const walkersWithoutTableCount = computed(() => Math.max(walkersCount.value - walkersInTablesCount.value, 0));
+
+const totalResponsibilitiesCount = computed(() => (responsibilities.value || []).length);
+const unassignedResponsibilitiesCount = computed(() =>
+  (responsibilities.value || []).filter(r => !r.participantId).length
+);
+
+const activeWalkers = computed(() =>
+  (participants.value || []).filter(p => p.type === 'walker' && !p.isCancelled)
+);
+const walkersWithPalancasRequestedCount = computed(() =>
+  activeWalkers.value.filter((p: any) => p.palancasRequested === true).length
+);
+const walkersWithPalancasReceivedCount = computed(() =>
+  activeWalkers.value.filter((p: any) => !!p.palancasReceived && String(p.palancasReceived).trim() !== '').length
+);
+const walkersWithoutPalancasCount = computed(() =>
+  activeWalkers.value.filter((p: any) =>
+    !p.palancasRequested && (!p.palancasReceived || String(p.palancasReceived).trim() === '')
+  ).length
+);
+
+const goToBedAssignments = () => {
+  if (selectedRetreat.value?.id) {
+    router.push({ name: 'bed-assignments', params: { id: selectedRetreat.value.id } });
+  }
+};
+
+const goToTableAssignments = () => {
+  router.push({ name: 'tables' });
+};
+
+const goToResponsibilities = () => {
+  if (selectedRetreat.value?.id) {
+    router.push({ name: 'responsibilities', params: { id: selectedRetreat.value.id } });
+  }
+};
+
+const goToPalancas = () => {
+  router.push({ name: 'palancas' });
+};
+
 const copyLink = async (link: string) => {
   try {
     await navigator.clipboard.writeText(link);
@@ -503,6 +741,16 @@ const openFlyer = () => {
   }
 };
 
+const fetchBeds = async (retreatId: string) => {
+  try {
+    const response = await api.get(`/retreats/${retreatId}/beds`);
+    beds.value = response.data;
+  } catch (err) {
+    console.error('Error fetching beds:', err);
+    beds.value = [];
+  }
+};
+
 let loadedRetreatId: string | null = null;
 
 const loadRetreatData = async (retreatId: string) => {
@@ -515,7 +763,12 @@ const loadRetreatData = async (retreatId: string) => {
     await retreatStore.fetchRetreat(retreatId);
     participantStore.filters.retreatId = retreatId;
 
-    const fetches: Promise<any>[] = [participantStore.fetchParticipants()];
+    const fetches: Promise<any>[] = [
+      participantStore.fetchParticipants(),
+      tableMesaStore.fetchTables(),
+      fetchBeds(retreatId),
+      responsabilityStore.fetchResponsibilities(retreatId, { silent: true }),
+    ];
     if (can.read('retreatInventory')) {
       fetches.push(inventoryStore.fetchInventoryAlerts(retreatId));
     }

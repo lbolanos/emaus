@@ -50,9 +50,12 @@ test-results/
 .playwright-mcp/
 
 # Database backups
-apps/api/database.sqlite.bak
+database.sqlite.bak
 
 # Build info
 apps/web/tsconfig.app.tsbuildinfo
 
 database.sqlite.*
+database.backup.*.sqlite
+database.*.sqlite
+backups/database.*.sqlite.gz

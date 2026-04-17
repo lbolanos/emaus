@@ -1,7 +1,9 @@
 <template>
   <Tooltip>
     <TooltipTrigger as-child>
-      <slot />
+      <span class="inline-block">
+        <slot />
+      </span>
     </TooltipTrigger>
     <TooltipContent side="top" class="max-w-xs">
       <div class="text-xs space-y-0.5">

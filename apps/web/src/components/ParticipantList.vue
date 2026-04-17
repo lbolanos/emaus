@@ -1231,14 +1231,18 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
         text-align: center !important;
     }
 
-    /* Remove border from table wrapper */
-    .border.rounded-md {
+    /* Remove border and overflow from table wrapper (covers rounded-md/rounded-lg variants) */
+    .border.rounded-md,
+    .border.rounded-lg {
         border: none !important;
+        overflow: visible !important;
+        box-shadow: none !important;
     }
 
     /* Table styling */
     table {
         width: 100% !important;
+        min-width: 0 !important;
         border-collapse: collapse !important;
         table-layout: auto !important;
         margin: 0 !important;
@@ -1249,10 +1253,21 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
         padding: 4px 8px !important;
         font-size: 8pt !important;
         text-align: left !important;
+        vertical-align: top !important;
     }
 
     thead {
         display: table-header-group !important;
+    }
+
+    /* Un-truncate long-text cells so full content prints */
+    td .truncate,
+    td [class*="max-w-"] {
+        overflow: visible !important;
+        white-space: normal !important;
+        text-overflow: clip !important;
+        max-width: none !important;
+        word-break: break-word !important;
     }
 
     /* Avoid page breaks inside rows */

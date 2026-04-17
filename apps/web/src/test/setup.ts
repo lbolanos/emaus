@@ -429,6 +429,13 @@ vi.mock('lucide-vue-next', () => ({
 	Music: { name: 'Music', template: '<svg></svg>' },
 	QrCode: { name: 'QrCode', template: '<svg></svg>' },
 	UserPlus: { name: 'UserPlus', template: '<svg></svg>' },
+	BedDouble: { name: 'BedDouble', template: '<svg></svg>' },
+	ClipboardList: { name: 'ClipboardList', template: '<svg></svg>' },
+	Heart: { name: 'Heart', template: '<svg></svg>' },
+	Layers: { name: 'Layers', template: '<svg></svg>' },
+	LayoutGrid: { name: 'LayoutGrid', template: '<svg></svg>' },
+	UserMinus: { name: 'UserMinus', template: '<svg></svg>' },
+	Printer: { name: 'Printer', template: '<svg></svg>' },
 }));
 
 // Mock axios
