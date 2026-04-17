@@ -39,12 +39,15 @@
           :bed="bed"
           :is-over="isOverBed === bed.id"
           :highlighted="shouldHighlightBed(bed)"
+          :has-selection="hasSelection"
+          :incompatible="incompatibleBedIds?.has(bed.id)"
           @drop="onDropToBed"
           @dragover="onDragOverBed"
           @dragleave="onDragLeaveBed"
           @assign="assignParticipant"
           @unassign="unassignParticipant"
           @toggle="toggleBedActive"
+          @tap="onBedTap"
         />
       </div>
 
@@ -69,6 +72,8 @@ const props = defineProps<{
   beds: RetreatBed[];
   isOverBed?: string | null;
   searchQuery?: string;
+  hasSelection?: boolean;
+  incompatibleBedIds?: Set<string>;
 }>();
 
 const emit = defineEmits<{
@@ -78,6 +83,7 @@ const emit = defineEmits<{
   assign: [bedId: string, participantId: string];
   unassign: [bedId: string];
   toggle: [bedId: string];
+  tap: [bedId: string];
 }>();
 
 const { t } = useI18n();
@@ -133,5 +139,9 @@ const unassignParticipant = (bedId: string) => {
 
 const toggleBedActive = (bedId: string) => {
   emit('toggle', bedId);
+};
+
+const onBedTap = (bedId: string) => {
+  emit('tap', bedId);
 };
 </script>

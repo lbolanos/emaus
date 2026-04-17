@@ -856,7 +856,25 @@
     "onWaitingList": "On waiting list",
     "noMemoriesYet": "No memories added yet",
     "inviteSomeone": "Invite Someone",
-    "viewFlyer": "View Flyer"
+    "viewFlyer": "View Flyer",
+    "totalParticipants": "Total Participants",
+    "assignedBeds": "Assigned Beds",
+    "unassignedParticipants": "Unassigned Participants",
+    "floorsUsed": "Floors Used",
+    "tableAssignments": "Table Assignments",
+    "tablesCount": "Tables",
+    "leadersAssigned": "Leaders Assigned",
+    "walkersInTables": "Walkers in Tables",
+    "walkersWithoutTable": "Walkers Without Table",
+    "responsibilities": "Responsibilities",
+    "totalResponsibilities": "Total",
+    "assignedResponsibilities": "Assigned",
+    "unassignedResponsibilities": "Unassigned",
+    "palancas": "Palancas",
+    "totalWalkers": "Walkers",
+    "palancasRequested": "Requested",
+    "palancasReceived": "Received",
+    "walkersWithoutPalancas": "Without Palancas"
   },
   "retreatFlyer": {
     "printButton": "Print Flyer",
@@ -1163,7 +1181,22 @@
     "bedDisabled": "Bed Disabled",
     "bedEnabled": "Bed Enabled",
     "bedDisabledDesc": "The bed has been disabled and the participant unassigned.",
-    "bedEnabledDesc": "The bed has been enabled."
+    "bedEnabledDesc": "The bed has been enabled.",
+    "tapToAssign": "Tap an empty bed to assign",
+    "selected": "Selected",
+    "cancelSelection": "Cancel",
+    "sortBy": "Sort by",
+    "sort": {
+      "idOnRetreat": "ID on Retreat",
+      "name": "Name",
+      "age": "Age",
+      "snores": "Snores"
+    },
+    "searchParticipant": "Search participant...",
+    "undo": "Undo",
+    "undoError": "Could not undo the assignment",
+    "participant": "Participant",
+    "select": "Select"
   },
   "walkerRegistration": {
     "title": "Walker Registration",

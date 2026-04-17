@@ -905,7 +905,25 @@
     "onWaitingList": "En lista de espera",
     "noMemoriesYet": "No hay recuerdos añadidos aún",
     "inviteSomeone": "Invitar Alguien",
-    "viewFlyer": "Ver Flyer"
+    "viewFlyer": "Ver Flyer",
+    "totalParticipants": "Total de Participantes",
+    "assignedBeds": "Camas Asignadas",
+    "unassignedParticipants": "Participantes Sin Asignar",
+    "floorsUsed": "Pisos Utilizados",
+    "tableAssignments": "Asignación de Mesas",
+    "tablesCount": "Mesas",
+    "leadersAssigned": "Líderes Asignados",
+    "walkersInTables": "Caminantes en Mesas",
+    "walkersWithoutTable": "Caminantes Sin Mesa",
+    "responsibilities": "Responsabilidades",
+    "totalResponsibilities": "Total",
+    "assignedResponsibilities": "Asignadas",
+    "unassignedResponsibilities": "Sin Asignar",
+    "palancas": "Palancas",
+    "totalWalkers": "Caminantes",
+    "palancasRequested": "Solicitadas",
+    "palancasReceived": "Recibidas",
+    "walkersWithoutPalancas": "Sin Palancas"
   },
   "retreatFlyer": {
     "printButton": "Imprimir Flyer",
@@ -1186,7 +1204,7 @@
       "beds": "Camas"
     },
     "participantFilter": {
-      "all": "Todos los participantes",
+      "all": "Todos",
       "walkers": "Caminantes",
       "servers": "Servidores",
       "snores": "Roncan",
@@ -1216,7 +1234,22 @@
     "bedDisabled": "Cama Deshabilitada",
     "bedEnabled": "Cama Habilitada",
     "bedDisabledDesc": "La cama ha sido deshabilitada y el participante desasignado.",
-    "bedEnabledDesc": "La cama ha sido habilitada."
+    "bedEnabledDesc": "La cama ha sido habilitada.",
+    "tapToAssign": "Toca una cama libre para asignar",
+    "selected": "Seleccionado",
+    "cancelSelection": "Cancelar",
+    "sortBy": "Ordenar por",
+    "sort": {
+      "idOnRetreat": "ID en Retiro",
+      "name": "Nombre",
+      "age": "Edad",
+      "snores": "Ronca"
+    },
+    "searchParticipant": "Buscar participante...",
+    "undo": "Deshacer",
+    "undoError": "No se pudo deshacer la asignación",
+    "participant": "Participante",
+    "select": "Seleccionar"
   },
   "walkerRegistration": {
     "title": "Registro de Caminante",

@@ -4,6 +4,7 @@
     @dragover.prevent="onDragOver"
     @dragenter.prevent
     @dragleave="onDragLeave"
+    @click="onCardClick"
     class="relative bg-white dark:bg-gray-800 rounded-lg border-2 transition-all duration-200 hover:shadow-md"
     :class="{
       'border-primary bg-primary/5 shadow-sm': isOver,
@@ -13,7 +14,9 @@
       'ring-2 ring-yellow-400 border-yellow-400 shadow-md': isHighlighted,
       'opacity-60': bed.type === 'colchon',
       'border-dashed': !bed.participant && !isHighlighted,
-      'opacity-50 grayscale': bed.isActive === false
+      'opacity-50 grayscale': bed.isActive === false,
+      'ring-2 ring-primary ring-offset-1 cursor-pointer animate-pulse': hasSelection && !bed.participant && bed.isActive !== false && !incompatible,
+      'opacity-40 saturate-0': hasSelection && incompatible && !bed.participant
     }"
   >
     <!-- Compact Header -->
@@ -123,6 +126,8 @@ const props = defineProps<{
   bed: RetreatBed;
   isOver?: boolean;
   highlighted?: boolean;
+  hasSelection?: boolean;
+  incompatible?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -132,7 +137,17 @@ const emit = defineEmits<{
   assign: [bedId: string, participantId: string];
   unassign: [bedId: string];
   toggle: [bedId: string];
+  tap: [bedId: string];
 }>();
+
+const onCardClick = (event: MouseEvent) => {
+  if (!props.hasSelection) return;
+  if (props.bed.isActive === false) return;
+  if (props.bed.participant) return;
+  const target = event.target as HTMLElement;
+  if (target.closest('button')) return;
+  emit('tap', props.bed.id);
+};
 
 const { t } = useI18n();
 

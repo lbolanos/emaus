@@ -1,65 +1,295 @@
 <template>
-  <div class="p-4 sm:p-6 lg:p-8">
-    <div class="sm:flex sm:items-center sm:justify-between">
-      <div class="sm:flex-auto">
-        <h1 class="text-2xl font-bold leading-6 text-gray-900 dark:text-white">{{ $t('bedAssignments.title') }}</h1>
-        <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ $t('bedAssignments.description') }}</p>
-        <div class="mt-2 flex items-center gap-4 text-sm">
-          <span class="flex items-center">
-            <span class="w-3 h-3 bg-red-500 rounded-full mr-2"></span>
-            {{ $t('bedAssignments.snores') }}
-          </span>
-          <span class="flex items-center">
-            <span class="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-            {{ $t('bedAssignments.doesNotSnore') }}
-          </span>
+  <div>
+    <!-- Sticky Top: Header + Search + Unassigned -->
+    <div class="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+      <!-- Progress bar -->
+      <div class="h-1 bg-gray-200 dark:bg-gray-700 overflow-hidden">
+        <div
+          class="h-full transition-all duration-300"
+          :class="progressColor"
+          :style="{ width: progressPct + '%' }"
+        ></div>
+      </div>
+      <!-- Desktop header row (hidden on mobile) -->
+      <div class="hidden sm:block px-2 sm:px-4 lg:px-6 pt-2 sm:pt-3">
+        <div class="flex items-center justify-between gap-2">
+          <div class="min-w-0 flex-1">
+            <h1 class="text-base sm:text-xl font-bold text-gray-900 dark:text-white truncate">{{ $t('bedAssignments.title') }}</h1>
+            <div class="mt-1 flex items-center gap-3 text-xs">
+              <span class="flex items-center"><span class="w-2 h-2 bg-red-500 rounded-full mr-1"></span>{{ $t('bedAssignments.snores') }}</span>
+              <span class="flex items-center"><span class="w-2 h-2 bg-green-500 rounded-full mr-1"></span>{{ $t('bedAssignments.doesNotSnore') }}</span>
+              <span class="text-gray-500 dark:text-gray-400">{{ assignedBeds }}/{{ totalBeds }} {{ $t('bedAssignments.beds') }} · {{ unassignedWalkers.length + unassignedServers.length }} {{ $t('bedAssignments.unassignedParticipants').toLowerCase() }}</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-1 flex-shrink-0">
+            <Button @click="toggleViewMode" variant="outline" size="sm" class="h-8 px-2 text-xs">
+              <Layers v-if="viewMode === 'individual'" class="w-3.5 h-3.5 mr-1" />
+              <BedDouble v-else class="w-3.5 h-3.5 mr-1" />
+              <span>{{ viewMode === 'individual' ? $t('bedAssignments.groupByRoom') : $t('bedAssignments.individualBeds') }}</span>
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger as-child>
+                <Button variant="outline" size="sm" class="h-8 w-8 p-0">
+                  <MoreVertical class="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    {{ $t('bedAssignments.sortBy') }}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuLabel>{{ $t('bedAssignments.sortBy') }}</DropdownMenuLabel>
+                    <DropdownMenuRadioGroup v-model="unassignedSort">
+                      <DropdownMenuRadioItem value="idOnRetreat">{{ $t('bedAssignments.sort.idOnRetreat') }}</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="name">{{ $t('bedAssignments.sort.name') }}</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="age">{{ $t('bedAssignments.sort.age') }}</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="snores">{{ $t('bedAssignments.sort.snores') }}</DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem @click="isAutoAssignDialogOpen = true">
+                  {{ $t('bedAssignments.autoAssign') }}
+                </DropdownMenuItem>
+                <DropdownMenuItem @click="exportAssignments">
+                  {{ $t('bedAssignments.export') }}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem @click="isClearAssignmentsDialogOpen = true" class="text-red-600">
+                  {{ $t('bedAssignments.clearAll') }}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
-      <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none flex flex-wrap gap-2">
-        <Button @click="toggleViewMode" variant="outline" class="text-xs sm:text-sm">
-          <Layers v-if="viewMode === 'individual'" class="w-4 h-4 mr-1 sm:mr-2" />
-          <BedDouble v-else class="w-4 h-4 mr-1 sm:mr-2" />
-          <span class="hidden sm:inline">{{ viewMode === 'individual' ? $t('bedAssignments.groupByRoom') : $t('bedAssignments.individualBeds') }}</span>
-          <span class="sm:hidden">{{ viewMode === 'individual' ? 'Agrupar' : 'Individual' }}</span>
-        </Button>
-        <Button @click="isAutoAssignDialogOpen = true" variant="outline" class="text-xs sm:text-sm">
-          <span class="hidden sm:inline">{{ $t('bedAssignments.autoAssign') }}</span>
-          <span class="sm:hidden">Auto</span>
-        </Button>
-        <Button @click="isClearAssignmentsDialogOpen = true" variant="outline" class="text-xs sm:text-sm">
-          <span class="hidden sm:inline">{{ $t('bedAssignments.clearAll') }}</span>
-          <span class="sm:hidden">Limpiar</span>
-        </Button>
-        <Button @click="exportAssignments" class="text-xs sm:text-sm">{{ $t('bedAssignments.export') }}</Button>
-      </div>
-    </div>
 
-    <!-- Search and Filters -->
-    <div class="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-      <div class="flex flex-col sm:flex-row gap-4">
-        <div class="flex-1">
-          <div class="relative">
-            <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+      <!-- Sticky Unassigned Panel -->
+      <div class="px-2 sm:px-4 lg:px-6 py-1.5 sm:pb-2 sm:pt-0">
+        <!-- Participant search (above unassigned lists) -->
+        <div class="mb-1 relative">
+          <Search class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 w-3 h-3" />
+          <input
+            v-model="unassignedSearch"
+            type="text"
+            :placeholder="$t('bedAssignments.searchParticipant')"
+            class="w-full pl-7 pr-6 py-1 text-xs sm:text-sm border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-primary dark:bg-gray-700 dark:text-white"
+          />
+          <button
+            v-if="unassignedSearch"
+            @click="unassignedSearch = ''"
+            class="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          >
+            <X class="w-3 h-3" />
+          </button>
+        </div>
+        <!-- Mobile: compact row with tabs + actions (single line) -->
+        <div class="flex items-center gap-1 mb-1 md:hidden">
+          <button
+            @click="unassignedTab = 'server'"
+            class="flex-1 min-w-0 px-2 py-1 rounded-full text-xs font-medium transition-colors truncate"
+            :class="unassignedTab === 'server'
+              ? 'bg-blue-600 text-white'
+              : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'"
+          >
+            {{ $t('bedAssignments.servers') }} ({{ unassignedServers.length }})
+          </button>
+          <button
+            @click="unassignedTab = 'walker'"
+            class="flex-1 min-w-0 px-2 py-1 rounded-full text-xs font-medium transition-colors truncate"
+            :class="unassignedTab === 'walker'
+              ? 'bg-green-600 text-white'
+              : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'"
+          >
+            {{ $t('bedAssignments.walkers') }} ({{ unassignedWalkers.length }})
+          </button>
+          <Button @click="toggleViewMode" variant="outline" size="sm" class="h-7 w-7 p-0 flex-shrink-0">
+            <Layers v-if="viewMode === 'individual'" class="w-3.5 h-3.5" />
+            <BedDouble v-else class="w-3.5 h-3.5" />
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <Button variant="outline" size="sm" class="h-7 w-7 p-0 flex-shrink-0">
+                <MoreVertical class="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>{{ $t('bedAssignments.sortBy') }}</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuLabel>{{ $t('bedAssignments.sortBy') }}</DropdownMenuLabel>
+                  <DropdownMenuRadioGroup v-model="unassignedSort">
+                    <DropdownMenuRadioItem value="idOnRetreat">{{ $t('bedAssignments.sort.idOnRetreat') }}</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="name">{{ $t('bedAssignments.sort.name') }}</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="age">{{ $t('bedAssignments.sort.age') }}</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="snores">{{ $t('bedAssignments.sort.snores') }}</DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem @click="isAutoAssignDialogOpen = true">{{ $t('bedAssignments.autoAssign') }}</DropdownMenuItem>
+              <DropdownMenuItem @click="exportAssignments">{{ $t('bedAssignments.export') }}</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem @click="isClearAssignmentsDialogOpen = true" class="text-red-600">{{ $t('bedAssignments.clearAll') }}</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <!-- Desktop: side-by-side lists (hidden on mobile) -->
+        <div class="hidden md:block">
+        <div class="grid md:grid-cols-2 gap-2">
+          <!-- Servers -->
+          <div>
+            <h3 class="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 truncate">{{ $t('bedAssignments.servers') }} ({{ unassignedServers.length }})</h3>
+            <div
+              @drop="onDropToUnassigned($event, 'server')"
+              @dragover.prevent="onDragOverUnassigned($event, 'server')"
+              @dragenter.prevent
+              @dragleave="isOverUnassignedServer = false"
+              class="p-1.5 bg-gray-50 dark:bg-gray-800 rounded border min-h-[40px] max-h-28 overflow-y-auto flex flex-wrap gap-1 transition-colors"
+              :class="{ 'border-primary bg-primary/10 border-dashed border-2': isOverUnassignedServer }"
+            >
+              <span
+                v-for="server in unassignedServers"
+                :key="server.id"
+                draggable="true"
+                @dragstart="startDrag($event, server)"
+                @touchstart.passive="tapTouchStart($event); onPillPressStart(server)"
+                @touchend="tapTouchEnd($event, server); onPillPressEnd()"
+                @touchcancel="onPillPressCancel"
+                @mousedown="onPillPressStart(server)"
+                @mouseup="onPillPressEnd"
+                @mouseleave="onPillPressCancel"
+                @click="onPillClickWithLongPress(server, $event)"
+                :title="`${server.firstName} ${server.lastName} (${calculateAge(server.birthDate)})`"
+                :style="{ borderColor: server.family_friend_color || 'transparent' }"
+                class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium cursor-pointer border-2 flex items-center gap-1 select-none transition-all"
+                :class="{ 'ring-2 ring-blue-500 ring-offset-1 scale-105': isTapSelected(server.id) }"
+              >
+                <span class="w-1.5 h-1.5 rounded-full" :class="server.snores ? 'bg-red-500' : 'bg-green-500'"></span>
+                {{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
+                <span class="text-[10px] opacity-75">{{ calculateAge(server.birthDate) }}</span>
+              </span>
+              <span v-if="unassignedServers.length === 0" class="text-gray-500 text-xs italic w-full text-center py-2">
+                {{ $t('bedAssignments.allServersAssigned') }}
+              </span>
+            </div>
+          </div>
+          <!-- Walkers -->
+          <div>
+            <h3 class="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 truncate">{{ $t('bedAssignments.walkers') }} ({{ unassignedWalkers.length }})</h3>
+            <div
+              @drop="onDropToUnassigned($event, 'walker')"
+              @dragover.prevent="onDragOverUnassigned($event, 'walker')"
+              @dragenter.prevent
+              @dragleave="isOverUnassignedWalker = false"
+              class="p-1.5 bg-gray-50 dark:bg-gray-800 rounded border min-h-[40px] max-h-28 overflow-y-auto flex flex-wrap gap-1 transition-colors"
+              :class="{ 'border-primary bg-primary/10 border-dashed border-2': isOverUnassignedWalker }"
+            >
+              <span
+                v-for="walker in unassignedWalkers"
+                :key="walker.id"
+                draggable="true"
+                @dragstart="startDrag($event, walker)"
+                @touchstart.passive="tapTouchStart($event); onPillPressStart(walker)"
+                @touchend="tapTouchEnd($event, walker); onPillPressEnd()"
+                @touchcancel="onPillPressCancel"
+                @mousedown="onPillPressStart(walker)"
+                @mouseup="onPillPressEnd"
+                @mouseleave="onPillPressCancel"
+                @click="onPillClickWithLongPress(walker, $event)"
+                :title="`${walker.firstName} ${walker.lastName} (${calculateAge(walker.birthDate)})`"
+                :style="{ borderColor: walker.family_friend_color || 'transparent' }"
+                class="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium cursor-pointer border-2 flex items-center gap-1 select-none transition-all"
+                :class="{ 'ring-2 ring-green-500 ring-offset-1 scale-105': isTapSelected(walker.id) }"
+              >
+                <span class="w-1.5 h-1.5 rounded-full" :class="walker.snores ? 'bg-red-500' : 'bg-green-500'"></span>
+                {{ walker.id_on_retreat || '?' }} {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
+                <span class="text-[10px] opacity-75">{{ calculateAge(walker.birthDate) }}</span>
+              </span>
+              <span v-if="unassignedWalkers.length === 0" class="text-gray-500 text-xs italic w-full text-center py-2">
+                {{ $t('bedAssignments.allWalkersAssigned') }}
+              </span>
+            </div>
+          </div>
+        </div>
+        </div>
+
+        <!-- Mobile: tab content (hidden on md+) -->
+        <div class="md:hidden">
+          <div v-show="unassignedTab === 'server'">
+            <div class="p-1.5 bg-gray-50 dark:bg-gray-800 rounded border min-h-[40px] max-h-32 overflow-y-auto flex flex-wrap gap-1">
+              <span
+                v-for="server in unassignedServers"
+                :key="server.id"
+                @touchstart.passive="tapTouchStart($event); onPillPressStart(server)"
+                @touchend="tapTouchEnd($event, server); onPillPressEnd()"
+                @touchcancel="onPillPressCancel"
+                @mousedown="onPillPressStart(server)"
+                @mouseup="onPillPressEnd"
+                @mouseleave="onPillPressCancel"
+                @click="onPillClickWithLongPress(server, $event)"
+                :style="{ borderColor: server.family_friend_color || 'transparent' }"
+                class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium cursor-pointer border-2 flex items-center gap-1 select-none transition-all"
+                :class="{ 'ring-2 ring-blue-500 ring-offset-1 scale-105': isTapSelected(server.id) }"
+              >
+                <span class="w-1.5 h-1.5 rounded-full" :class="server.snores ? 'bg-red-500' : 'bg-green-500'"></span>
+                {{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
+                <span class="text-[10px] opacity-75">{{ calculateAge(server.birthDate) }}</span>
+              </span>
+              <span v-if="unassignedServers.length === 0" class="text-gray-500 text-xs italic w-full text-center py-2">
+                {{ $t('bedAssignments.allServersAssigned') }}
+              </span>
+            </div>
+          </div>
+          <div v-show="unassignedTab === 'walker'">
+            <div class="p-1.5 bg-gray-50 dark:bg-gray-800 rounded border min-h-[40px] max-h-32 overflow-y-auto flex flex-wrap gap-1">
+              <span
+                v-for="walker in unassignedWalkers"
+                :key="walker.id"
+                @touchstart.passive="tapTouchStart($event); onPillPressStart(walker)"
+                @touchend="tapTouchEnd($event, walker); onPillPressEnd()"
+                @touchcancel="onPillPressCancel"
+                @mousedown="onPillPressStart(walker)"
+                @mouseup="onPillPressEnd"
+                @mouseleave="onPillPressCancel"
+                @click="onPillClickWithLongPress(walker, $event)"
+                :style="{ borderColor: walker.family_friend_color || 'transparent' }"
+                class="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium cursor-pointer border-2 flex items-center gap-1 select-none transition-all"
+                :class="{ 'ring-2 ring-green-500 ring-offset-1 scale-105': isTapSelected(walker.id) }"
+              >
+                <span class="w-1.5 h-1.5 rounded-full" :class="walker.snores ? 'bg-red-500' : 'bg-green-500'"></span>
+                {{ walker.id_on_retreat || '?' }} {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
+                <span class="text-[10px] opacity-75">{{ calculateAge(walker.birthDate) }}</span>
+              </span>
+              <span v-if="unassignedWalkers.length === 0" class="text-gray-500 text-xs italic w-full text-center py-2">
+                {{ $t('bedAssignments.allWalkersAssigned') }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Beds search (below unassigned lists) -->
+        <div class="mt-1 flex items-center gap-1">
+          <div class="relative flex-1 min-w-0">
+            <BedDouble class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 w-3 h-3" />
             <input
               v-model="searchQuery"
               type="text"
               :placeholder="$t('bedAssignments.searchPlaceholder')"
-              class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              class="w-full pl-7 pr-6 py-1 text-xs sm:text-sm border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-primary dark:bg-gray-700 dark:text-white"
             />
+            <button
+              v-if="searchQuery"
+              @click="searchQuery = ''"
+              class="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X class="w-3 h-3" />
+            </button>
           </div>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <select
-            v-model="searchType"
-            class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-          >
-            <option value="all">{{ $t('bedAssignments.searchType.all') }}</option>
-            <option value="participants">{{ $t('bedAssignments.searchType.participants') }}</option>
-            <option value="beds">{{ $t('bedAssignments.searchType.beds') }}</option>
-          </select>
           <select
             v-model="participantFilter"
-            class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+            class="px-2 py-1 text-xs sm:text-sm border border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-primary dark:bg-gray-700 dark:text-white max-w-[110px] sm:max-w-[140px]"
           >
             <option value="all">{{ $t('bedAssignments.participantFilter.all') }}</option>
             <option value="walkers">{{ $t('bedAssignments.participantFilter.walkers') }}</option>
@@ -67,156 +297,26 @@
             <option value="snores">{{ $t('bedAssignments.participantFilter.snores') }}</option>
             <option value="nonSnores">{{ $t('bedAssignments.participantFilter.nonSnores') }}</option>
           </select>
-          <select
-            v-model="ageFilter"
-            class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-          >
-            <option value="all">{{ $t('bedAssignments.ageFilter.all') }}</option>
-            <option value="under40">{{ $t('bedAssignments.ageFilter.under40') }}</option>
-            <option value="40to55">{{ $t('bedAssignments.ageFilter.40to55') }}</option>
-            <option value="56to65">{{ $t('bedAssignments.ageFilter.56to65') }}</option>
-            <option value="over65">{{ $t('bedAssignments.ageFilter.over65') }}</option>
-          </select>
-          <Button
-            @click="clearSearch"
-            variant="outline"
-            class="px-3 py-2"
-          >
-            <X class="w-4 h-4" />
-          </Button>
         </div>
       </div>
 
-      <!-- Search Results Summary -->
-      <div v-if="searchQuery || participantFilter !== 'all' || ageFilter !== 'all'" class="mt-3 text-sm text-gray-600 dark:text-gray-400">
-        <span v-if="searchQuery">
-          {{ $t('bedAssignments.searchResults') }}: "{{ searchQuery }}" -
-          {{ filteredBeds.length }} {{ $t('bedAssignments.bedsFound') }}
-        </span>
-        <span v-if="participantFilter !== 'all' || ageFilter !== 'all'">
-          {{ $t('bedAssignments.filterApplied') }}: {{ getFilterLabel() }}
-        </span>
-      </div>
-    </div>
-
-    <!-- Statistics Cards -->
-    <div class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-        <div class="flex items-center">
-          <div class="flex-shrink-0 bg-blue-500 rounded-md p-3">
-            <Users class="h-6 w-6 text-white" />
-          </div>
-          <div class="ml-5 w-0 flex-1">
-            <dl>
-              <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">{{ $t('bedAssignments.totalParticipants') }}</dt>
-              <dd class="text-lg font-medium text-gray-900 dark:text-white">{{ totalParticipants }}</dd>
-            </dl>
-          </div>
-        </div>
-      </div>
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-        <div class="flex items-center">
-          <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
-            <BedDouble class="h-6 w-6 text-white" />
-          </div>
-          <div class="ml-5 w-0 flex-1">
-            <dl>
-              <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">{{ $t('bedAssignments.assignedBeds') }}</dt>
-              <dd class="text-lg font-medium text-gray-900 dark:text-white">{{ assignedBeds }} / {{ totalBeds }}</dd>
-            </dl>
-          </div>
-        </div>
-      </div>
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-        <div class="flex items-center">
-          <div class="flex-shrink-0 bg-yellow-500 rounded-md p-3">
-            <UserX class="h-6 w-6 text-white" />
-          </div>
-          <div class="ml-5 w-0 flex-1">
-            <dl>
-              <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">{{ $t('bedAssignments.unassignedParticipants') }}</dt>
-              <dd class="text-lg font-medium text-gray-900 dark:text-white">{{ unassignedWalkers.length + unassignedServers.length }}</dd>
-            </dl>
-          </div>
-        </div>
-      </div>
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-        <div class="flex items-center">
-          <div class="flex-shrink-0 bg-purple-500 rounded-md p-3">
-            <Home class="h-6 w-6 text-white" />
-          </div>
-          <div class="ml-5 w-0 flex-1">
-            <dl>
-              <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">{{ $t('bedAssignments.floorsUsed') }}</dt>
-              <dd class="text-lg font-medium text-gray-900 dark:text-white">{{ sortedFloors.length }}</dd>
-            </dl>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Unassigned Participants Areas -->
-    <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-      <!-- Unassigned Servers -->
-      <div>
-        <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('bedAssignments.unassignedServers') }}</h3>
-        <div
-          @drop="onDropToUnassigned($event, 'server')"
-          @dragover.prevent="onDragOverUnassigned($event, 'server')"
-          @dragenter.prevent
-          @dragleave="isOverUnassignedServer = false"
-          class="mt-2 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[20px] max-h-60 overflow-y-auto flex flex-wrap gap-2 transition-colors"
-          :class="{ 'border-primary bg-primary/10 border-dashed border-2': isOverUnassignedServer }"
+      <!-- Floor navigation chips -->
+      <div v-if="sortedFilteredFloors.length > 1" class="px-2 sm:px-4 lg:px-6 pb-1.5 flex gap-1 overflow-x-auto scrollbar-none">
+        <button
+          v-for="floor in sortedFilteredFloors"
+          :key="floor"
+          @click="scrollToFloor(floor)"
+          class="flex-shrink-0 px-2 py-0.5 text-[11px] rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap"
         >
-          <div
-            v-for="server in unassignedServers"
-            :key="server.id"
-            draggable="true"
-            @dragstart="startDrag($event, server)"
-            :title="`${server.firstName} ${server.lastName}\n${$t('bedAssignments.age')}: ${calculateAge(server.birthDate)}\n${$t('bedAssignments.snores')}: ${server.snores ? $t('common.yes') : $t('common.no')}`"
-            :style="{ borderColor: server.family_friend_color || '#ccc' }"
-            class="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-sm font-medium cursor-grab border-2 flex items-center gap-2"
-          >
-            <span class="w-2 h-2 rounded-full" :class="server.snores ? 'bg-red-500' : 'bg-green-500'"></span>
-            {{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
-            <span class="text-xs opacity-75">({{ calculateAge(server.birthDate) }})</span>
-          </div>
-          <div v-if="unassignedServers.length === 0" class="text-gray-500 text-sm italic w-full text-center py-4">
-            {{ $t('bedAssignments.allServersAssigned') }}
-          </div>
-        </div>
-      </div>
-      <!-- Unassigned Walkers -->
-      <div>
-        <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white">{{ $t('bedAssignments.unassignedWalkers') }}</h3>
-        <div
-          @drop="onDropToUnassigned($event, 'walker')"
-          @dragover.prevent="onDragOverUnassigned($event, 'walker')"
-          @dragenter.prevent
-          @dragleave="isOverUnassignedWalker = false"
-          class="mt-2 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[20px] max-h-60 overflow-y-auto flex flex-wrap gap-2 transition-colors"
-          :class="{ 'border-primary bg-primary/10 border-dashed border-2': isOverUnassignedWalker }"
-        >
-          <div
-            v-for="walker in unassignedWalkers"
-            :key="walker.id"
-            draggable="true"
-            @dragstart="startDrag($event, walker)"
-            :title="`${walker.firstName} ${walker.lastName}\n${$t('bedAssignments.age')}: ${calculateAge(walker.birthDate)}\n${$t('bedAssignments.snores')}: ${walker.snores ? $t('common.yes') : $t('common.no')}\n${$t('bedAssignments.idOnRetreat')}: ${walker.id_on_retreat || 'N/A'}`"
-            :style="{ borderColor: walker.family_friend_color || '#ccc' }"
-            class="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm font-medium cursor-grab border-2 flex items-center gap-2"
-          >
-            <span class="w-2 h-2 rounded-full" :class="walker.snores ? 'bg-red-500' : 'bg-green-500'"></span>
-            {{ walker.id_on_retreat || '?' }} {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
-            <span class="text-xs opacity-75">({{ calculateAge(walker.birthDate) }})</span>
-          </div>
-          <div v-if="unassignedWalkers.length === 0" class="text-gray-500 text-sm italic w-full text-center py-4">
-            {{ $t('bedAssignments.allWalkersAssigned') }}
-          </div>
-        </div>
+          {{ floor.split('||')[0] === '0' ? $t('bedAssignments.unassignedFloor') : `${$t('bedAssignments.floor')} ${floor.split('||')[0]}` }}
+          <span v-if="floor.split('||')[1]" class="opacity-70">· {{ floor.split('||')[1] }}</span>
+          <span class="ml-1 opacity-70">{{ groupedFilteredBeds[floor]?.filter(b => b.participant).length || 0 }}/{{ groupedFilteredBeds[floor]?.length || 0 }}</span>
+        </button>
       </div>
     </div>
 
+    <!-- Beds area (page-level scroll; content pasa bajo el sticky con efecto glass) -->
+    <div class="px-2 sm:px-4 lg:px-6 py-3 pb-24 md:pb-6">
     <!-- Beds by Floor -->
     <div v-if="retreatStore.selectedRetreatId">
       <div v-if="loading" class="mt-8 text-center">
@@ -249,7 +349,7 @@
         <div v-else>
           <!-- Individual bed view -->
           <div v-if="viewMode === 'individual'">
-            <div v-for="floor in sortedFilteredFloors" :key="floor" class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+            <div v-for="floor in sortedFilteredFloors" :key="floor" :id="`floor-${floor}`" class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden scroll-mt-44 sm:scroll-mt-48">
               <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
                 <div class="flex items-center justify-between">
                   <h2 class="text-xl font-bold text-gray-900 dark:text-white">
@@ -270,12 +370,15 @@
                     :bed="bed"
                     :is-over="isOverBed === bed.id"
                     :highlighted="shouldHighlightBed(bed)"
+                    :has-selection="!!tappedParticipant"
+                    :incompatible="incompatibleBedIds.has(bed.id)"
                     @drop="onDropToBed"
                     @dragover="onDragOverBed"
                     @dragleave="onDragLeaveBed"
                     @assign="assignParticipant"
                     @unassign="unassignParticipant"
                     @toggle="toggleBedActive"
+                    @tap="onBedTap"
                   />
                 </div>
               </div>
@@ -284,7 +387,7 @@
 
           <!-- Grouped room view -->
           <div v-else>
-            <div v-for="floor in sortedFilteredFloors" :key="floor" class="space-y-6">
+            <div v-for="floor in sortedFilteredFloors" :key="floor" :id="`floor-${floor}`" class="space-y-6 scroll-mt-44 sm:scroll-mt-48">
               <div v-if="Object.keys(groupedFilteredBedsByRoomAndFloor[floor] || {}).length > 0">
                 <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">
                   {{ floor.split('||')[0] === '0' ? $t('bedAssignments.unassignedFloor') : `${$t('bedAssignments.floor')} ${floor.split('||')[0]}` }}
@@ -298,12 +401,15 @@
                     :beds="roomBeds"
                     :is-over-bed="isOverBed"
                     :search-query="searchQuery"
+                    :has-selection="!!tappedParticipant"
+                    :incompatible-bed-ids="incompatibleBedIds"
                     @drop="onDropToBed"
                     @dragover="onDragOverBed"
                     @dragleave="onDragLeaveBed"
                     @assign="assignParticipant"
                     @unassign="unassignParticipant"
                     @toggle="toggleBedActive"
+                    @tap="onBedTap"
                   />
                 </div>
               </div>
@@ -316,6 +422,123 @@
       <Home class="w-12 h-12 text-gray-400 mx-auto mb-4" />
       <p class="text-gray-600">{{ $t('participants.selectRetreatPrompt') }}</p>
     </div>
+    </div>
+    <!-- end scrollable beds area -->
+
+    <!-- Long-press preview dialog -->
+    <Dialog :open="!!previewParticipant" @update:open="(v: boolean) => { if (!v) closePreview() }">
+      <DialogContent class="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>
+            {{ previewParticipant?.firstName }} {{ previewParticipant?.lastName }}
+          </DialogTitle>
+        </DialogHeader>
+        <div v-if="previewParticipant" class="space-y-2 text-sm">
+          <div class="flex items-center gap-2">
+            <span
+              class="inline-block w-2.5 h-2.5 rounded-full"
+              :class="previewParticipant.snores ? 'bg-red-500' : 'bg-green-500'"
+            ></span>
+            <span>{{ previewParticipant.snores ? $t('bedAssignments.snores') : $t('bedAssignments.doesNotSnore') }}</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <div class="text-gray-500">{{ $t('bedAssignments.age') }}</div>
+              <div class="font-medium">{{ calculateAge(previewParticipant.birthDate) }} {{ $t('bedAssignments.yearsOld') }}</div>
+            </div>
+            <div v-if="previewParticipant.id_on_retreat">
+              <div class="text-gray-500">{{ $t('bedAssignments.idOnRetreat') }}</div>
+              <div class="font-medium">#{{ previewParticipant.id_on_retreat }}</div>
+            </div>
+            <div v-if="(previewParticipant as any).type">
+              <div class="text-gray-500">Tipo</div>
+              <div class="font-medium capitalize">{{ (previewParticipant as any).type }}</div>
+            </div>
+            <div v-if="(previewParticipant as any).family_friend_color">
+              <div class="text-gray-500">Familia</div>
+              <div class="flex items-center gap-1 font-medium">
+                <span class="w-3 h-3 rounded" :style="{ background: (previewParticipant as any).family_friend_color }"></span>
+                <span class="text-[10px]">{{ (previewParticipant as any).family_friend_color }}</span>
+              </div>
+            </div>
+          </div>
+          <div v-if="(previewParticipant as any).requestsSingleRoom" class="text-xs bg-yellow-50 dark:bg-yellow-900/30 rounded p-2">
+            ⚠️ Solicita cuarto individual
+          </div>
+          <div v-if="(previewParticipant as any).hasMedication || (previewParticipant as any).medicationDetails" class="text-xs bg-blue-50 dark:bg-blue-900/30 rounded p-2">
+            💊 Toma medicación<span v-if="(previewParticipant as any).medicationDetails">: {{ (previewParticipant as any).medicationDetails }}</span>
+          </div>
+          <div v-if="(previewParticipant as any).hasDietaryRestrictions" class="text-xs bg-orange-50 dark:bg-orange-900/30 rounded p-2">
+            🍽️ Restricciones alimentarias<span v-if="(previewParticipant as any).dietaryRestrictionsDetails">: {{ (previewParticipant as any).dietaryRestrictionsDetails }}</span>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" @click="closePreview">{{ $t('common.close') || 'Cerrar' }}</Button>
+          <Button
+            v-if="previewParticipant"
+            @click="tappedParticipant = { ...previewParticipant } as any; closePreview()"
+          >
+            {{ $t('bedAssignments.select') || 'Seleccionar' }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <!-- Floating Undo banner -->
+    <Transition
+      enter-active-class="transition ease-out duration-150"
+      enter-from-class="translate-y-4 opacity-0"
+      enter-to-class="translate-y-0 opacity-100"
+      leave-active-class="transition ease-in duration-100"
+      leave-from-class="translate-y-0 opacity-100"
+      leave-to-class="translate-y-4 opacity-0"
+    >
+      <div
+        v-if="undoState && !tappedParticipant"
+        class="fixed inset-x-2 bottom-2 sm:inset-x-auto sm:left-4 sm:bottom-4 sm:max-w-sm z-50 bg-gray-900 text-white rounded-lg shadow-xl p-3 flex items-center gap-3"
+      >
+        <div class="flex-1 min-w-0 text-sm">
+          <span class="font-medium truncate">{{ undoState.participantName }}</span>
+          <span class="opacity-75"> → {{ undoState.bedLabel }}</span>
+        </div>
+        <button
+          @click="performUndo"
+          class="flex-shrink-0 px-3 py-1 rounded-md bg-white/10 hover:bg-white/20 text-sm font-semibold transition-colors"
+        >
+          {{ $t('bedAssignments.undo') }}
+        </button>
+      </div>
+    </Transition>
+
+    <!-- Floating selection banner (mobile priority) -->
+    <Transition
+      enter-active-class="transition ease-out duration-150"
+      enter-from-class="translate-y-4 opacity-0"
+      enter-to-class="translate-y-0 opacity-100"
+      leave-active-class="transition ease-in duration-100"
+      leave-from-class="translate-y-0 opacity-100"
+      leave-to-class="translate-y-4 opacity-0"
+    >
+      <div
+        v-if="tappedParticipant"
+        class="fixed inset-x-2 bottom-2 sm:inset-x-auto sm:right-4 sm:bottom-4 sm:max-w-sm z-50 bg-primary text-primary-foreground rounded-lg shadow-xl p-3 flex items-center gap-2"
+      >
+        <div class="flex-1 min-w-0">
+          <div class="text-[10px] uppercase opacity-80 font-semibold">{{ $t('bedAssignments.selected') }}</div>
+          <div class="text-sm font-medium truncate">
+            {{ tappedParticipant.firstName }} {{ tappedParticipant.lastName }}
+          </div>
+          <div class="text-[11px] opacity-90">{{ $t('bedAssignments.tapToAssign') }}</div>
+        </div>
+        <button
+          @click="clearTap"
+          class="flex-shrink-0 p-1.5 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors"
+          :title="$t('bedAssignments.cancelSelection')"
+        >
+          <X class="w-4 h-4" />
+        </button>
+      </div>
+    </Transition>
 
     <!-- Auto-Assign Confirmation Dialog -->
     <Dialog :open="isAutoAssignDialogOpen" @update:open="isAutoAssignDialogOpen = $event">
@@ -361,10 +584,19 @@ import { useToast } from '@repo/ui';
 import { api } from '@/services/api';
 import { Button } from '@repo/ui';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@repo/ui';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@repo/ui';
 import { Loader2 } from 'lucide-vue-next';
-import { Users, BedDouble, UserX, Home, Search, X, Layers } from 'lucide-vue-next';
+import { BedDouble, Home, Search, X, Layers, MoreVertical } from 'lucide-vue-next';
 import type { RetreatBed, Participant } from '@repo/types';
 import { useI18n } from 'vue-i18n';
+import { useTapAssign } from '@/composables/useTapAssign';
+import {
+  sortUnassigned as sortUnassignedUtil,
+  filterUnassignedBySearch as filterUnassignedBySearchUtil,
+  computeIncompatibleBedIds as computeIncompatibleBedIdsUtil,
+  getProgressColor as getProgressColorUtil,
+  type UnassignedSort,
+} from '@/utils/bedAssignmentUtils';
 import BedCard from './BedCard.vue';
 import RoomCard from './RoomCard.vue';
 
@@ -373,6 +605,14 @@ const retreatStore = useRetreatStore();
 const participantStore = useParticipantStore();
 const { toast } = useToast();
 const { t } = useI18n();
+
+const {
+  tappedParticipant,
+  onTouchStart: tapTouchStart,
+  onTouchEnd: tapTouchEnd,
+  isSelected: isTapSelected,
+  clearSelection: clearTap,
+} = useTapAssign();
 
 const beds = ref<RetreatBed[]>([]);
 const loading = ref(false);
@@ -391,6 +631,165 @@ const isOverBed = ref<string | null>(null);
 
 // View mode state
 const viewMode = ref<'individual' | 'grouped'>('individual');
+
+// Mobile tab state for unassigned panel
+const unassignedTab = ref<'server' | 'walker'>('walker');
+
+// Quick search for unassigned pills
+const unassignedSearch = ref('');
+
+// Scroll progress bar
+const progressPct = ref(0);
+// Use scroll progress for width; use primary color by default.
+// Could switch to occupancy-based color via `getProgressColorUtil(progressPct.value)`.
+const progressColor = computed(() => 'bg-primary');
+// Silence unused import warning (kept for future toggle to occupancy-colored bar)
+void getProgressColorUtil;
+
+let scrollEl: HTMLElement | Window | null = null;
+const computeScrollProgress = () => {
+  if (!scrollEl) return;
+  let scrollTop: number, max: number;
+  if (scrollEl === window) {
+    scrollTop = window.scrollY;
+    max = document.documentElement.scrollHeight - window.innerHeight;
+  } else {
+    const el = scrollEl as HTMLElement;
+    scrollTop = el.scrollTop;
+    max = el.scrollHeight - el.clientHeight;
+  }
+  progressPct.value = max > 0 ? Math.min(100, Math.round((scrollTop / max) * 100)) : 0;
+};
+
+// Scroll to a floor heading
+const scrollToFloor = (floor: string) => {
+  const el = document.getElementById(`floor-${floor}`);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+// Undo last assignment
+type UndoState = {
+  bedId: string;
+  prevParticipantId: string | null;
+  participantName: string;
+  bedLabel: string;
+};
+const undoState = ref<UndoState | null>(null);
+let undoTimer: number | null = null;
+
+const scheduleUndoClear = () => {
+  if (undoTimer !== null) window.clearTimeout(undoTimer);
+  undoTimer = window.setTimeout(() => {
+    undoState.value = null;
+    undoTimer = null;
+  }, 6000);
+};
+
+const performUndo = async () => {
+  if (!undoState.value) return;
+  const { bedId, prevParticipantId } = undoState.value;
+  undoState.value = null;
+  if (undoTimer !== null) { window.clearTimeout(undoTimer); undoTimer = null; }
+  try {
+    if (prevParticipantId) {
+      await api.put(`/retreat-beds/${bedId}/assign`, { participantId: prevParticipantId });
+    } else {
+      await api.put(`/retreat-beds/${bedId}/assign`, { participantId: null });
+    }
+    await fetchBeds(true);
+    if (retreatStore.selectedRetreatId) {
+      participantStore.filters.retreatId = retreatStore.selectedRetreatId;
+      await participantStore.fetchParticipants();
+    }
+  } catch (err: any) {
+    toast({
+      title: t('common.error'),
+      description: err.response?.data?.message || err.message || t('bedAssignments.undoError'),
+      variant: 'destructive',
+    });
+  }
+};
+
+// Compatibility: set of bed ids considered incompatible for tappedParticipant
+// Rule: an empty bed is incompatible if any other participant in the same room
+// has opposite snoring status from the tapped participant.
+const incompatibleBedIds = computed<Set<string>>(() =>
+  computeIncompatibleBedIdsUtil(
+    beds.value,
+    tappedParticipant.value
+      ? { id: tappedParticipant.value.id, snores: (tappedParticipant.value as any).snores }
+      : null,
+  ),
+);
+
+const filterUnassignedBySearch = (list: any[]) =>
+  filterUnassignedBySearchUtil(list, unassignedSearch.value);
+
+// Sort order for unassigned lists
+const unassignedSort = ref<UnassignedSort>(
+  (localStorage.getItem('bedAssignments_unassignedSort') as UnassignedSort) || 'age'
+);
+watch(unassignedSort, (v) => localStorage.setItem('bedAssignments_unassignedSort', v));
+
+const sortUnassigned = (list: any[]) => sortUnassignedUtil(list, unassignedSort.value);
+
+// Pill click handler (desktop/DevTools fallback; real mobile uses touchend)
+let lastTapTs = 0;
+const onPillClick = (participant: Participant) => {
+  if (Date.now() - lastTapTs < 500) return;
+  lastTapTs = Date.now();
+  if (tappedParticipant.value?.id === participant.id) {
+    clearTap();
+    return;
+  }
+  tappedParticipant.value = { ...participant } as any;
+};
+
+// Long-press preview popover
+const previewParticipant = ref<Participant | null>(null);
+let longPressTimer: number | null = null;
+let longPressTriggered = false;
+
+const onPillPressStart = (participant: Participant) => {
+  longPressTriggered = false;
+  if (longPressTimer !== null) window.clearTimeout(longPressTimer);
+  longPressTimer = window.setTimeout(() => {
+    longPressTriggered = true;
+    previewParticipant.value = participant;
+    try { navigator.vibrate?.(40); } catch { /* vibration unsupported */ }
+  }, 550);
+};
+
+const onPillPressEnd = () => {
+  if (longPressTimer !== null) { window.clearTimeout(longPressTimer); longPressTimer = null; }
+};
+
+const onPillPressCancel = () => {
+  if (longPressTimer !== null) { window.clearTimeout(longPressTimer); longPressTimer = null; }
+};
+
+// Intercept click/touchend to block assign-tap if long-press already fired
+const onPillClickWithLongPress = (participant: Participant, event: MouseEvent) => {
+  if (longPressTriggered) {
+    longPressTriggered = false;
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+  onPillClick(participant);
+};
+
+const closePreview = () => {
+  previewParticipant.value = null;
+};
+
+// Tap assign to a bed: if a participant is tapped, assign it to the tapped bed
+const onBedTap = async (bedId: string) => {
+  if (!tappedParticipant.value) return;
+  const participantId = tappedParticipant.value.id;
+  clearTap();
+  await assignParticipant(bedId, participantId);
+};
 
 // Search states
 const searchQuery = ref('');
@@ -416,15 +815,17 @@ const calculateAge = (birthDate: string | Date): number | null => {
   return age;
 };
 
-const fetchBeds = async () => {
+const fetchBeds = async (silent = false) => {
   if (!retreatStore.selectedRetreatId) return;
-  loading.value = true;
+  // Only show loader on initial load; subsequent refetches update in place
+  // so that the DOM doesn't unmount and scroll position stays put.
+  if (!silent && beds.value.length === 0) loading.value = true;
   error.value = null;
   try {
     const response = await api.get(`/retreats/${retreatStore.selectedRetreatId}/beds`);
     beds.value = response.data;
-  } catch (error: any) {
-    const errorMessage = error.response?.data?.message || error.message || t('bedAssignments.fetchBedsError');
+  } catch (err: any) {
+    const errorMessage = err.response?.data?.message || err.message || t('bedAssignments.fetchBedsError');
     error.value = errorMessage;
     toast({
       title: t('common.error'),
@@ -457,7 +858,6 @@ const unassignedParticipants = computed(() => {
   const allParticipants = participantStore.participants || [];
   const filteredParticipants = allParticipants.filter(p =>
     !assignedIds.has(p.id) &&
-    p.retreatId === retreatStore.selectedRetreatId &&
     !p.isCancelled &&
     p.type !== 'waiting'
   );
@@ -465,24 +865,17 @@ const unassignedParticipants = computed(() => {
   return filteredParticipants;
 });
 
-const unassignedWalkers = computed(() => {
-  const walkers = unassignedParticipants.value
-    .filter((p: any) => p.type === 'walker')
-    .sort((a: any, b: any) => new Date(a.birthDate).getTime() - new Date(b.birthDate).getTime());
-  return walkers;
-});
+const unassignedWalkers = computed(() =>
+  sortUnassigned(filterUnassignedBySearch(unassignedParticipants.value.filter((p: any) => p.type === 'walker')))
+);
 
-const unassignedServers = computed(() => {
-  const servers = unassignedParticipants.value
-    .filter((p: any) => p.type === 'server')
-    .sort((a: any, b: any) => new Date(a.birthDate).getTime() - new Date(b.birthDate).getTime());
-  return servers;
-});
+const unassignedServers = computed(() =>
+  sortUnassigned(filterUnassignedBySearch(unassignedParticipants.value.filter((p: any) => p.type === 'server')))
+);
 
 // Statistics
 const totalParticipants = computed(() => {
   return (participantStore.participants || []).filter(p =>
-    p.retreatId === retreatStore.selectedRetreatId &&
     !p.isCancelled &&
     p.type !== 'waiting'
   ).length;
@@ -673,18 +1066,24 @@ const onDropToBed = async (event: DragEvent, bedId: string) => {
 };
 
 const assignParticipant = async (bedId: string, participantId: string) => {
+  const prevBed = beds.value.find(b => b.id === bedId);
+  const prevParticipantId = prevBed?.participantId ?? null;
+  const participant = (participantStore.participants || []).find((p: any) => p.id === participantId);
+  const bedLabel = prevBed ? `${prevBed.roomNumber}-${prevBed.bedNumber}` : '';
+  const participantName = participant
+    ? `${participant.firstName} ${participant.lastName}`.trim()
+    : t('bedAssignments.participant') || 'Participante';
   try {
     await api.put(`/retreat-beds/${bedId}/assign`, { participantId });
     // Refresh data
-    await fetchBeds();
+    await fetchBeds(true);
     if (retreatStore.selectedRetreatId) {
       participantStore.filters.retreatId = retreatStore.selectedRetreatId;
       await participantStore.fetchParticipants();
     }
-    toast({
-      title: t('bedAssignments.assignmentSuccess'),
-      description: t('bedAssignments.assignmentSuccessDesc'),
-    });
+    // Show undo banner
+    undoState.value = { bedId, prevParticipantId, participantName, bedLabel };
+    scheduleUndoClear();
   } catch (error: any) {
     const errorMessage = error.response?.data?.message || error.message || t('bedAssignments.assignmentError');
     toast({
@@ -699,15 +1098,11 @@ const unassignParticipant = async (bedId: string) => {
   try {
     await api.put(`/retreat-beds/${bedId}/assign`, { participantId: null });
     // Refresh data
-    await fetchBeds();
+    await fetchBeds(true);
     if (retreatStore.selectedRetreatId) {
       participantStore.filters.retreatId = retreatStore.selectedRetreatId;
       await participantStore.fetchParticipants();
     }
-    toast({
-      title: t('bedAssignments.unassignmentSuccess'),
-      description: t('bedAssignments.unassignmentSuccessDesc'),
-    });
   } catch (error: any) {
     const errorMessage = error.response?.data?.message || error.message || t('bedAssignments.unassignmentError');
     toast({
@@ -725,7 +1120,7 @@ const toggleBedActive = async (bedId: string) => {
   const newIsActive = bed.isActive === false ? true : false;
   try {
     await api.put(`/retreat-beds/${bedId}/toggle-active`, { isActive: newIsActive });
-    await fetchBeds();
+    await fetchBeds(true);
     if (retreatStore.selectedRetreatId) {
       participantStore.filters.retreatId = retreatStore.selectedRetreatId;
       await participantStore.fetchParticipants();
@@ -889,10 +1284,19 @@ onMounted(async () => {
   participantStore.filters.retreatId = props.id;
   participantStore.fetchParticipants();
   window.addEventListener('jessy:beds-changed', onJessyBedMutation);
+  // Attach scroll listener for progress bar
+  scrollEl = document.querySelector('main') || window;
+  (scrollEl as any).addEventListener('scroll', computeScrollProgress, { passive: true });
+  computeScrollProgress();
 });
 
 onUnmounted(() => {
   window.removeEventListener('jessy:beds-changed', onJessyBedMutation);
+  clearTap();
+  if (scrollEl) {
+    (scrollEl as any).removeEventListener('scroll', computeScrollProgress);
+    scrollEl = null;
+  }
 });
 
 watch(() => retreatStore.selectedRetreatId, (newId, oldId) => {
