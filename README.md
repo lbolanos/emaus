@@ -492,6 +492,12 @@ Cuando se asigna al servidor en una responsabilidad se agregue como lider del eq
 ## IN PROGRESS
 
 en enviar mensaje se congela la interfaz no deja cancelar.
+las impresiones de badges no doble cara deben ser solo caminantes porque van para las bolsas que se entregan a los caminantes
+una forma de recepccion pueda saber que caminantes hacen falta
+minuto a minutos
+horarios de santisimo
+
+
 
 create a migration script just for testing red social. is not for production. create users, retreats, communities, houses, participants, messages, friends, followers, blocks, searches, avatars, and messages.
 Cuando un usuario se registra y existe como caminante de algun retiro convertirlo en usuario y que pueda ver el historial de retiros en los que ha participado como servidor y el retiro en el que camino como principal.
