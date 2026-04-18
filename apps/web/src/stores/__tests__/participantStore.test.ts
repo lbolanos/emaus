@@ -461,7 +461,8 @@ describe('ParticipantStore', () => {
 
 			store.saveColumnSelection(viewName, columns);
 
-			expect(store.getColumnSelection(viewName, ['default'])).toEqual(columns);
+			// Use a default already in `columns` so the merge logic doesn't append.
+			expect(store.getColumnSelection(viewName, ['firstName'])).toEqual(columns);
 		});
 
 		it('should get default columns when no selection exists', () => {
@@ -479,7 +480,8 @@ describe('ParticipantStore', () => {
 
 			store.saveColumnSelection(viewName, savedColumns);
 
-			const result = store.getColumnSelection(viewName, ['default']);
+			// Defaults already in saved → merge is a no-op.
+			const result = store.getColumnSelection(viewName, ['firstName', 'lastName']);
 
 			expect(result).toEqual(savedColumns);
 		});
@@ -491,8 +493,18 @@ describe('ParticipantStore', () => {
 			store.saveColumnSelection('walkers', walkersColumns);
 			store.saveColumnSelection('servers', serversColumns);
 
-			expect(store.getColumnSelection('walkers', ['default'])).toEqual(walkersColumns);
-			expect(store.getColumnSelection('servers', ['default'])).toEqual(serversColumns);
+			expect(store.getColumnSelection('walkers', ['firstName'])).toEqual(walkersColumns);
+			expect(store.getColumnSelection('servers', ['firstName'])).toEqual(serversColumns);
+		});
+
+		it('should merge missing default columns into saved selection', () => {
+			const viewName = 'walkers';
+			store.saveColumnSelection(viewName, ['firstName', 'lastName']);
+
+			// 'email' is in defaults but not in saved → it should be appended.
+			const result = store.getColumnSelection(viewName, ['firstName', 'email']);
+
+			expect(result).toEqual(['firstName', 'lastName', 'email']);
 		});
 
 		it('should persist column selections to localStorage', () => {

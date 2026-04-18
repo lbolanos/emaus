@@ -386,9 +386,24 @@ export const findAllParticipants = async (
 		}
 	}
 
-	// Enrich servers who are table leaders (lider/colider1/colider2) but have no tableId.
-	// Their table assignment lives on the tables entity, not on participant.tableId.
+	// Enrich participants with their TableMesa object based on tableId from retreat_participants.
 	if (allRelations.includes('tableMesa')) {
+		// 1. Fetch TableMesa for all participants that have a tableId (walkers and others)
+		const participantsWithTableId = participants.filter((p) => p.tableId && !p.tableMesa);
+		if (participantsWithTableId.length > 0) {
+			const tableIds = [...new Set(participantsWithTableId.map((p) => p.tableId!))];
+			const tables = await AppDataSource.getRepository(TableMesa).findByIds(tableIds);
+			const tableMap = new Map(tables.map((t) => [t.id, t]));
+			for (const participant of participantsWithTableId) {
+				const table = tableMap.get(participant.tableId!);
+				if (table) {
+					participant.tableMesa = table;
+				}
+			}
+		}
+
+		// 2. Enrich servers who are table leaders (lider/colider1/colider2) but have no tableId.
+		//    Their table assignment lives on the tables entity, not on participant.tableId.
 		const serversWithoutTable = participants.filter(
 			(p) => !p.tableMesa && (p.type === 'server' || p.type === 'partial_server'),
 		);

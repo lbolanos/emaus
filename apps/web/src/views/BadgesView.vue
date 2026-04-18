@@ -127,12 +127,20 @@ const filteredParticipants = computed(() => {
     }
   }
 
-  // Apply name filter (existing logic)
+  // Apply name filter (matches nickname, first name, last name, or table number)
   if (nameFilter.value.trim()) {
     const filter = nameFilter.value.toLowerCase();
     results = results.filter(p => {
-      const name = getDisplayName(p).toLowerCase();
-      return name.includes(filter);
+      const nickname = (p.nickname || '').toLowerCase();
+      const firstName = (p.firstName || '').toLowerCase();
+      const lastName = (p.lastName || '').toLowerCase();
+      const tableName = (p.tableMesa?.name || '').toLowerCase();
+      return (
+        nickname.includes(filter) ||
+        firstName.includes(filter) ||
+        lastName.includes(filter) ||
+        tableName.includes(filter)
+      );
     });
   }
 
@@ -201,8 +209,12 @@ const printSelectedBadges = (): void => {
 const printDoubleSided = () => {
   doubleSided.value = true;
   nextTick(() => {
+    const cleanup = () => {
+      doubleSided.value = false;
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
     window.print();
-    doubleSided.value = false;
   });
 };
 
@@ -227,12 +239,15 @@ const printSelectedDoubleSided = () => {
       }
     });
 
+    const cleanup = () => {
+      badgePairs.forEach(item => {
+        item.classList.remove('badge-hidden');
+      });
+      doubleSided.value = false;
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
     window.print();
-
-    badgePairs.forEach(item => {
-      item.classList.remove('badge-hidden');
-    });
-    doubleSided.value = false;
   });
 };
 
@@ -287,7 +302,7 @@ const getRoomInfo = (walker: Participant): string => {
 
 const getTableInfo = (walker: Participant): string => {
   if (!walker.tableMesa) return t('badges.noTableAssigned');
-  return `${t('badges.table')} ${walker.tableMesa.name}`;
+  return walker.tableMesa.name;
 };
 
 const fetchParticipants = async () => {
@@ -428,7 +443,7 @@ watch(retreatId, async (newId) => {
         <input
           v-model="nameFilter"
           type="text"
-          placeholder="Filtrar por nombre..."
+          placeholder="Filtrar por nombre, apellido o mesa..."
           class="filter-input"
         />
         <X
@@ -488,6 +503,9 @@ watch(retreatId, async (newId) => {
 
       <span class="badge-count">
         {{ filteredParticipants.length }} de {{ participants.length }} gafetes
+      </span>
+      <span v-if="selectedCount > 0" class="selected-count">
+        {{ selectedCount }} seleccionado{{ selectedCount === 1 ? '' : 's' }}
       </span>
       <button
         v-if="nameFilter || typeFilter !== 'all' || tableFilter !== 'all' || roomFilter !== 'all' || selectedCount > 0"
@@ -715,7 +733,7 @@ watch(retreatId, async (newId) => {
 }
 
 .walker-name {
-  font-size: 24px;
+  font-size: 34px;
   font-weight: 800;
   background: linear-gradient(135deg, #1e293b 0%, #475569 100%);
   -webkit-background-clip: text;
@@ -731,7 +749,7 @@ watch(retreatId, async (newId) => {
 }
 
 .walker-fullname {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 500;
   color: #20252d;
   margin: 2px 0 0;
@@ -947,6 +965,16 @@ watch(retreatId, async (newId) => {
   font-weight: 500;
 }
 
+.selected-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e11d48;
+  background: rgba(225, 29, 72, 0.1);
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(225, 29, 72, 0.2);
+}
+
 .filter-btn {
   padding: 8px 16px;
   border: 1px solid #e5e7eb;
@@ -1060,7 +1088,9 @@ watch(retreatId, async (newId) => {
   box-shadow: 0 0 0 4px rgba(225, 29, 72, 0.15) !important;
 }
 
-.badge-hidden {
+.badge-hidden,
+.badge-pair.badge-hidden,
+.badge-pair.double-sided.badge-hidden {
   display: none !important;
 }
 
@@ -1143,11 +1173,14 @@ watch(retreatId, async (newId) => {
   }
 
   .walker-name {
-    font-size: 16px;
+    font-size: 32px;
+    -webkit-text-fill-color: #1e293b !important;
+    background: none !important;
+    color: #1e293b !important;
   }
 
   .walker-fullname {
-    font-size: 14px;
+    font-size: 22px;
     margin: 1px 0 0;
   }
 
