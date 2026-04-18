@@ -84,6 +84,10 @@
               <Printer class="mr-2 h-4 w-4" />
               {{ $t('tables.printTables') }}
             </DropdownMenuItem>
+            <DropdownMenuItem @click="handlePrintTablesSimple">
+              <Printer class="mr-2 h-4 w-4" />
+              {{ $t('tables.printTablesSimple') }}
+            </DropdownMenuItem>
             <DropdownMenuItem @click="isLotteryCardsOpen = true">
               <Scissors class="mr-2 h-4 w-4" />
               {{ $t('tables.printLotteryCards') }}
@@ -361,6 +365,7 @@ import { useI18n } from 'vue-i18n';
 import { exportTablesToDocx } from '@/services/api';
 import { useDragState } from '@/composables/useDragState';
 import { useTapAssign } from '@/composables/useTapAssign';
+import { buildSimplePrintHtml } from '@/utils/tablesPrint';
 
 const tableMesaStore = useTableMesaStore();
 const retreatStore = useRetreatStore();
@@ -925,6 +930,72 @@ const handlePrintTables = () => {
     '</head><body>' +
     `<div class="header"><h1>${title}${retreatName ? ` — ${retreatName}` : ''}</h1></div>` +
     body +
+    scriptOpen + inlineScript + scriptClose +
+    '</body></html>';
+
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+};
+
+const handlePrintTablesSimple = () => {
+  const body = buildSimplePrintHtml((tableMesaStore.tables || []) as any, {
+    lider: t('tables.roles.lider'),
+    colider1: t('tables.roles.colider1'),
+    colider2: t('tables.roles.colider2'),
+    noTablesFound: t('tables.noTablesFound'),
+    servidores: 'Servidores',
+    caminantes: 'Caminantes',
+  });
+  const win = window.open('', '_blank', 'width=1024,height=768');
+  if (!win) {
+    toast({
+      title: t('common.error'),
+      description: 'El navegador bloqueó la ventana emergente. Permite pop-ups para imprimir.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  const title = escapeHtml(t('tables.title'));
+  const retreatLabel = retreatStore.retreats.find((r) => r.id === retreatStore.selectedRetreatId);
+  const retreatName = retreatLabel ? escapeHtml(retreatLabel.parish || '') : '';
+
+  const css = [
+    '@page { size: A4 portrait; margin: 1cm; }',
+    '* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    "html, body { margin: 0; padding: 0; background: #fff; color: #111; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }",
+    'body { padding: 10px; font-size: 11px; }',
+    'h1 { font-size: 16px; margin: 0 0 4px; }',
+    '.header { margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }',
+    '.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }',
+    '.table-card { border: 1px solid #cbd5e0; border-radius: 4px; padding: 8px; break-inside: avoid-page; page-break-inside: avoid; }',
+    '.tc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; padding-bottom: 3px; border-bottom: 1px solid #e2e8f0; }',
+    '.tc-head h2 { font-size: 13px; margin: 0; color: #2b6cb0; }',
+    '.tc-count { font-size: 10px; color: #4a5568; }',
+    'h3 { font-size: 11px; margin: 6px 0 2px; color: #2d3748; }',
+    'ul { list-style: none; margin: 0; padding: 0; }',
+    'ul.leaders li { font-size: 11px; padding: 1px 0; }',
+    'ul.walkers li { font-size: 11px; padding: 1px 0; }',
+    '.role { font-weight: bold; color: #2b6cb0; }',
+    '.tc-empty { font-size: 10px; color: #a0aec0; font-style: italic; margin: 0; }',
+    '.w-id { display: inline-block; min-width: 20px; text-align: center; padding: 0 4px; border-radius: 3px; font-weight: bold; background: #edf2f7; font-size: 10px; }',
+    '@media print { body { padding: 0; } }',
+  ].join(' ');
+
+  const inlineScript =
+    'window.addEventListener("load",function(){setTimeout(function(){window.focus();window.print();},100);});';
+
+  const scriptOpen = '<' + 'script>';
+  const scriptClose = '<' + '/script>';
+
+  const html =
+    '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">' +
+    `<title>${title}</title>` +
+    `<style>${css}</style>` +
+    '</head><body>' +
+    `<div class="header"><h1>${title}${retreatName ? ` — ${retreatName}` : ''}</h1></div>` +
+    `<div class="grid">${body}</div>` +
     scriptOpen + inlineScript + scriptClose +
     '</body></html>';
 
