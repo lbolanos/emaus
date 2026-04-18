@@ -874,7 +874,8 @@
     "totalWalkers": "Walkers",
     "palancasRequested": "Requested",
     "palancasReceived": "Received",
-    "walkersWithoutPalancas": "Without Palancas"
+    "walkersWithoutPalancas": "Without Palancas",
+    "totalPalancasReceived": "Total Palancas"
   },
   "retreatFlyer": {
     "printButton": "Print Flyer",

@@ -258,7 +258,7 @@
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div>
               <p class="text-xs uppercase tracking-wider text-muted-foreground">{{ $t('retreatDashboard.totalWalkers') }}</p>
               <p class="text-2xl font-bold mt-1">{{ activeWalkers.length }}</p>
@@ -270,6 +270,10 @@
             <div>
               <p class="text-xs uppercase tracking-wider text-muted-foreground">{{ $t('retreatDashboard.palancasReceived') }}</p>
               <p class="text-2xl font-bold mt-1 text-green-600">{{ walkersWithPalancasReceivedCount }}</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-muted-foreground">{{ $t('retreatDashboard.totalPalancasReceived') }}</p>
+              <p class="text-2xl font-bold mt-1 text-green-700">{{ totalPalancasReceivedCount }}</p>
             </div>
             <div>
               <p class="text-xs uppercase tracking-wider text-muted-foreground">{{ $t('retreatDashboard.walkersWithoutPalancas') }}</p>
@@ -686,9 +690,17 @@ const walkersWithPalancasRequestedCount = computed(() =>
 const walkersWithPalancasReceivedCount = computed(() =>
   activeWalkers.value.filter((p: any) => !!p.palancasReceived && String(p.palancasReceived).trim() !== '').length
 );
+const totalPalancasReceivedCount = computed(() =>
+  activeWalkers.value.reduce((acc: number, p: any) => {
+    const raw = p.palancasReceived;
+    if (raw === null || raw === undefined) return acc;
+    const n = parseInt(String(raw).trim(), 10);
+    return acc + (Number.isFinite(n) ? n : 0);
+  }, 0)
+);
 const walkersWithoutPalancasCount = computed(() =>
   activeWalkers.value.filter((p: any) =>
-    !p.palancasRequested && (!p.palancasReceived || String(p.palancasReceived).trim() === '')
+    !p.palancasReceived || String(p.palancasReceived).trim() === ''
   ).length
 );
 
