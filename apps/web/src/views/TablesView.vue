@@ -88,6 +88,14 @@
               <Printer class="mr-2 h-4 w-4" />
               {{ $t('tables.printTablesSimple') }}
             </DropdownMenuItem>
+            <DropdownMenuItem @click="handlePrintTablesContacts">
+              <Printer class="mr-2 h-4 w-4" />
+              {{ $t('tables.printTablesContacts') }}
+            </DropdownMenuItem>
+            <DropdownMenuItem @click="handlePrintTablesContactsPerParticipant">
+              <Printer class="mr-2 h-4 w-4" />
+              {{ $t('tables.printTablesContactsPerParticipant') }}
+            </DropdownMenuItem>
             <DropdownMenuItem @click="isLotteryCardsOpen = true">
               <Scissors class="mr-2 h-4 w-4" />
               {{ $t('tables.printLotteryCards') }}
@@ -365,7 +373,11 @@ import { useI18n } from 'vue-i18n';
 import { exportTablesToDocx } from '@/services/api';
 import { useDragState } from '@/composables/useDragState';
 import { useTapAssign } from '@/composables/useTapAssign';
-import { buildSimplePrintHtml } from '@/utils/tablesPrint';
+import {
+  buildSimplePrintHtml,
+  buildContactsPrintHtml,
+  buildContactsPerParticipantPrintHtml,
+} from '@/utils/tablesPrint';
 
 const tableMesaStore = useTableMesaStore();
 const retreatStore = useRetreatStore();
@@ -996,6 +1008,147 @@ const handlePrintTablesSimple = () => {
     '</head><body>' +
     `<div class="header"><h1>${title}${retreatName ? ` — ${retreatName}` : ''}</h1></div>` +
     `<div class="grid">${body}</div>` +
+    scriptOpen + inlineScript + scriptClose +
+    '</body></html>';
+
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+};
+
+
+const contactsLabels = () => ({
+  lider: t('tables.roles.lider'),
+  colider1: t('tables.roles.colider1'),
+  colider2: t('tables.roles.colider2'),
+  caminante: 'Caminante',
+  noTablesFound: t('tables.noTablesFound'),
+  role: 'Rol',
+  name: 'Nombre',
+  phones: 'Teléfonos',
+  email: 'Email',
+  walkerCountSuffix: ' / 7 caminantes',
+});
+
+const handlePrintTablesContacts = () => {
+  const tables = (tableMesaStore.tables || []) as any;
+  const body = buildContactsPrintHtml(tables, contactsLabels());
+
+  const win = window.open('', '_blank', 'width=1024,height=768');
+  if (!win) {
+    toast({
+      title: t('common.error'),
+      description: 'El navegador bloqueó la ventana emergente. Permite pop-ups para imprimir.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  const title = escapeHtml(t('tables.printTablesContacts'));
+  const retreatLabel = retreatStore.retreats.find((r) => r.id === retreatStore.selectedRetreatId);
+  const retreatName = retreatLabel ? escapeHtml(retreatLabel.parish || '') : '';
+
+  const css = [
+    '@page { size: A4 portrait; margin: 0.8cm; }',
+    '* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    "html, body { margin: 0; padding: 0; background: #fff; color: #111; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }",
+    'body { padding: 10px; font-size: 10px; }',
+    'h1 { font-size: 16px; margin: 0 0 4px; }',
+    '.header { margin-bottom: 8px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }',
+    '.table-card { border: 1px solid #cbd5e0; border-radius: 4px; padding: 8px; margin-bottom: 10px; break-inside: avoid-page; page-break-inside: avoid; }',
+    '.tc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0; }',
+    '.tc-head h2 { font-size: 14px; margin: 0; color: #2b6cb0; }',
+    '.tc-count { font-size: 10px; color: #4a5568; }',
+    '.tc-empty { font-size: 10px; color: #a0aec0; font-style: italic; }',
+    'table.contacts-table { width: 100%; border-collapse: collapse; font-size: 10px; }',
+    'th, td { border: 1px solid #e2e8f0; padding: 4px 5px; vertical-align: top; text-align: left; }',
+    'thead th { background: #edf2f7; color: #2d3748; font-weight: bold; font-size: 10px; }',
+    '.row-leader { background: #ebf8ff; }',
+    '.cell-role { font-weight: bold; color: #2b6cb0; white-space: nowrap; }',
+    '.cell-name { font-weight: bold; }',
+    '.cell-email { word-break: break-all; }',
+    'tr { break-inside: avoid; page-break-inside: avoid; }',
+    '@media print { body { padding: 0; } }',
+  ].join(' ');
+
+  const inlineScript =
+    'window.addEventListener("load",function(){setTimeout(function(){window.focus();window.print();},100);});';
+
+  const scriptOpen = '<' + 'script>';
+  const scriptClose = '<' + '/script>';
+
+  const html =
+    '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">' +
+    `<title>${title}</title>` +
+    `<style>${css}</style>` +
+    '</head><body>' +
+    `<div class="header"><h1>${title}${retreatName ? ` — ${retreatName}` : ''}</h1></div>` +
+    body +
+    scriptOpen + inlineScript + scriptClose +
+    '</body></html>';
+
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+};
+
+
+const handlePrintTablesContactsPerParticipant = () => {
+  const tables = (tableMesaStore.tables || []) as any;
+  const body = buildContactsPerParticipantPrintHtml(tables, {
+    ...contactsLabels(),
+    forLabel: 'Para:',
+    mesaLabel: 'Mesa:',
+    intro: 'Contactos de tu mesa:',
+  });
+
+  const win = window.open('', '_blank', 'width=1024,height=768');
+  if (!win) {
+    toast({
+      title: t('common.error'),
+      description: 'El navegador bloqueó la ventana emergente. Permite pop-ups para imprimir.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  const title = escapeHtml(t('tables.printTablesContactsPerParticipant'));
+
+  const css = [
+    '@page { size: A4 portrait; margin: 0.8cm; }',
+    '* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    "html, body { margin: 0; padding: 0; background: #fff; color: #111; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }",
+    'body { padding: 8px; font-size: 10px; }',
+    '.sheets-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }',
+    '.contact-sheet { border: 1px dashed #94a3b8; border-radius: 4px; padding: 10px 12px; break-inside: avoid-page; page-break-inside: avoid; }',
+    '.cs-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; border-bottom: 1.5px solid #2b6cb0; padding-bottom: 4px; margin-bottom: 6px; }',
+    '.cs-label { font-size: 9px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; display: block; }',
+    '.cs-name { font-size: 14px; font-weight: bold; color: #1a202c; }',
+    '.cs-mesa { text-align: right; }',
+    '.cs-mesa-name { font-size: 12px; font-weight: bold; color: #2b6cb0; }',
+    '.cs-intro { font-size: 10px; color: #4a5568; margin: 0 0 4px; }',
+    'table.roster-table { width: 100%; border-collapse: collapse; font-size: 9px; }',
+    'th, td { border: 1px solid #cbd5e0; padding: 3px 5px; vertical-align: top; text-align: left; }',
+    'thead th { background: #edf2f7; color: #2d3748; font-weight: bold; font-size: 9px; }',
+    '.row-leader { background: #ebf8ff; }',
+    '.cell-role { font-weight: bold; color: #2b6cb0; white-space: nowrap; }',
+    '.cell-name { font-weight: bold; }',
+    '.cell-email { word-break: break-all; }',
+    'tr { break-inside: avoid; page-break-inside: avoid; }',
+  ].join(' ');
+
+  const inlineScript =
+    'window.addEventListener("load",function(){setTimeout(function(){window.focus();window.print();},100);});';
+
+  const scriptOpen = '<' + 'script>';
+  const scriptClose = '<' + '/script>';
+
+  const html =
+    '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">' +
+    `<title>${title}</title>` +
+    `<style>${css}</style>` +
+    '</head><body>' +
+    body +
     scriptOpen + inlineScript + scriptClose +
     '</body></html>';
 

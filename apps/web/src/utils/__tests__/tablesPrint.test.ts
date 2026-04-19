@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
+	buildContactsPerParticipantPrintHtml,
+	buildContactsPrintHtml,
 	buildSimplePrintHtml,
 	escapeHtml,
+	formatPhones,
+	type ContactsLabels,
+	type PerParticipantLabels,
 	type PrintLabels,
 	type PrintTable,
 } from '../tablesPrint';
@@ -196,5 +201,319 @@ describe('buildSimplePrintHtml', () => {
 		);
 		expect(html).toContain('<h2>Mesa A</h2>');
 		expect(html).toContain('<h2>Mesa B</h2>');
+	});
+});
+
+const contactsLabels: ContactsLabels = {
+	lider: 'Líder',
+	colider1: 'Colíder 1',
+	colider2: 'Colíder 2',
+	caminante: 'Caminante',
+	noTablesFound: 'No hay mesas',
+	role: 'Rol',
+	name: 'Nombre',
+	phones: 'Teléfonos',
+	email: 'Email',
+	walkerCountSuffix: ' / 7 caminantes',
+};
+
+const perParticipantLabels: PerParticipantLabels = {
+	...contactsLabels,
+	forLabel: 'Para:',
+	mesaLabel: 'Mesa:',
+	intro: 'Contactos de tu mesa:',
+};
+
+describe('formatPhones', () => {
+	it('returns empty string when no phones', () => {
+		expect(formatPhones({})).toBe('');
+	});
+
+	it('joins cell, home, and work phones with line breaks', () => {
+		const html = formatPhones({
+			cellPhone: '5551111',
+			homePhone: '5552222',
+			workPhone: '5553333',
+		});
+		expect(html).toContain('📱 5551111');
+		expect(html).toContain('🏠 5552222');
+		expect(html).toContain('🏢 5553333');
+		expect(html.split('<br>')).toHaveLength(3);
+	});
+
+	it('omits missing phones', () => {
+		const html = formatPhones({ cellPhone: '5551111' });
+		expect(html).toBe('📱 5551111');
+	});
+
+	it('escapes HTML in phone values', () => {
+		const html = formatPhones({ cellPhone: '<evil>' });
+		expect(html).toContain('&lt;evil&gt;');
+		expect(html).not.toContain('<evil>');
+	});
+});
+
+describe('buildContactsPrintHtml', () => {
+	it('returns noTablesFound message when empty', () => {
+		expect(buildContactsPrintHtml([], contactsLabels)).toBe('<p>No hay mesas</p>');
+	});
+
+	it('returns noTablesFound when passed null-ish', () => {
+		expect(
+			buildContactsPrintHtml(undefined as unknown as PrintTable[], contactsLabels),
+		).toBe('<p>No hay mesas</p>');
+	});
+
+	it('renders an empty-state row for a mesa without members', () => {
+		const html = buildContactsPrintHtml([{ name: 'Mesa 1' }], contactsLabels);
+		expect(html).toContain('<h2>Mesa 1</h2>');
+		expect(html).toContain('0 / 7 caminantes');
+		expect(html).toContain('<p class="tc-empty">—</p>');
+	});
+
+	it('renders a roster table with leaders and walkers in order', () => {
+		const html = buildContactsPrintHtml(
+			[
+				{
+					name: 'Mesa 2',
+					lider: {
+						firstName: 'Ana',
+						lastName: 'P',
+						cellPhone: '5551111',
+						email: 'ana@example.com',
+					},
+					walkers: [
+						{
+							firstName: 'Juan',
+							lastName: 'L',
+							cellPhone: '5552222',
+							email: 'juan@example.com',
+						},
+					],
+				},
+			],
+			contactsLabels,
+		);
+		expect(html).toContain('<th>Rol</th>');
+		expect(html).toContain('<th>Teléfonos</th>');
+		expect(html).toContain('Líder');
+		expect(html).toContain('Ana P');
+		expect(html).toContain('📱 5551111');
+		expect(html).toContain('ana@example.com');
+		expect(html).toContain('Caminante');
+		expect(html).toContain('Juan L');
+		expect(html).toContain('juan@example.com');
+		// Leader row should come before walker row
+		expect(html.indexOf('Ana P')).toBeLessThan(html.indexOf('Juan L'));
+	});
+
+	it('marks leader rows with the row-leader class', () => {
+		const html = buildContactsPrintHtml(
+			[
+				{
+					name: 'Mesa 3',
+					lider: { firstName: 'Ana', lastName: 'P' },
+					walkers: [{ firstName: 'Juan', lastName: 'L' }],
+				},
+			],
+			contactsLabels,
+		);
+		const leaderMatches = html.match(/class="row-leader"/g) || [];
+		expect(leaderMatches.length).toBe(1);
+	});
+
+	it('shows em-dash when phones or email are missing', () => {
+		const html = buildContactsPrintHtml(
+			[
+				{
+					name: 'Mesa 4',
+					walkers: [{ firstName: 'Pedro', lastName: 'R' }],
+				},
+			],
+			contactsLabels,
+		);
+		// Two em-dashes — one for phones, one for email
+		const dashCount = (html.match(/>—</g) || []).length;
+		expect(dashCount).toBeGreaterThanOrEqual(2);
+	});
+
+	it('escapes HTML in names, emails, and table name', () => {
+		const html = buildContactsPrintHtml(
+			[
+				{
+					name: '<Mesa>',
+					lider: {
+						firstName: '<Ev>',
+						lastName: '&Co',
+						email: '"><script>alert(1)</script>',
+					},
+				},
+			],
+			contactsLabels,
+		);
+		expect(html).not.toContain('<script>alert(1)');
+		expect(html).toContain('&lt;Mesa&gt;');
+		expect(html).toContain('&lt;Ev&gt; &amp;Co');
+	});
+
+	it('renders all three leader roles when present', () => {
+		const html = buildContactsPrintHtml(
+			[
+				{
+					name: 'Mesa 5',
+					lider: { firstName: 'A', lastName: 'A' },
+					colider1: { firstName: 'B', lastName: 'B' },
+					colider2: { firstName: 'C', lastName: 'C' },
+				},
+			],
+			contactsLabels,
+		);
+		expect(html).toContain('Líder');
+		expect(html).toContain('Colíder 1');
+		expect(html).toContain('Colíder 2');
+	});
+});
+
+describe('buildContactsPerParticipantPrintHtml', () => {
+	it('returns noTablesFound when empty', () => {
+		expect(buildContactsPerParticipantPrintHtml([], perParticipantLabels)).toBe(
+			'<p>No hay mesas</p>',
+		);
+	});
+
+	it('returns noTablesFound when all tables have no members', () => {
+		expect(
+			buildContactsPerParticipantPrintHtml(
+				[{ name: 'Mesa vacía' }, { name: 'Otra vacía' }],
+				perParticipantLabels,
+			),
+		).toBe('<p>No hay mesas</p>');
+	});
+
+	it('generates one sheet per member of the table', () => {
+		const html = buildContactsPerParticipantPrintHtml(
+			[
+				{
+					name: 'Mesa 1',
+					lider: { firstName: 'Ana', lastName: 'P' },
+					walkers: [
+						{ firstName: 'Juan', lastName: 'L' },
+						{ firstName: 'Pedro', lastName: 'R' },
+					],
+				},
+			],
+			perParticipantLabels,
+		);
+		const sheetCount = (html.match(/class="contact-sheet"/g) || []).length;
+		expect(sheetCount).toBe(3);
+	});
+
+	it('each sheet lists all members of the mesa in the roster', () => {
+		const html = buildContactsPerParticipantPrintHtml(
+			[
+				{
+					name: 'Mesa 1',
+					lider: { firstName: 'Ana', lastName: 'P', cellPhone: '5551111' },
+					walkers: [{ firstName: 'Juan', lastName: 'L', cellPhone: '5552222' }],
+				},
+			],
+			perParticipantLabels,
+		);
+		// Each name appears in roster on both sheets (2x) plus as the recipient header on their own sheet (1x) = 3
+		expect((html.match(/Ana P/g) || []).length).toBe(3);
+		expect((html.match(/Juan L/g) || []).length).toBe(3);
+	});
+
+	it('addresses each sheet to its recipient with "Para:" header', () => {
+		const html = buildContactsPerParticipantPrintHtml(
+			[
+				{
+					name: 'Mesa 1',
+					lider: { firstName: 'Ana', lastName: 'P' },
+					walkers: [{ firstName: 'Juan', lastName: 'L' }],
+				},
+			],
+			perParticipantLabels,
+		);
+		// The "Para:" label is wrapped in a cs-label span; recipient name follows in cs-name.
+		// We should see each member's name rendered as a recipient name (class cs-name).
+		const recipientMatches = html.match(/class="cs-name">[^<]+</g) || [];
+		const recipientNames = recipientMatches.map((m) => m.replace(/class="cs-name">|</g, ''));
+		expect(recipientNames).toContain('Ana P');
+		expect(recipientNames).toContain('Juan L');
+	});
+
+	it('includes the mesa name in each sheet header', () => {
+		const html = buildContactsPerParticipantPrintHtml(
+			[
+				{
+					name: 'Mesa Única',
+					lider: { firstName: 'Ana', lastName: 'P' },
+					walkers: [{ firstName: 'Juan', lastName: 'L' }],
+				},
+			],
+			perParticipantLabels,
+		);
+		expect((html.match(/Mesa Única/g) || []).length).toBe(2);
+	});
+
+	it('generates sheets across multiple mesas', () => {
+		const html = buildContactsPerParticipantPrintHtml(
+			[
+				{
+					name: 'Mesa A',
+					lider: { firstName: 'Ana', lastName: 'P' },
+					walkers: [{ firstName: 'Juan', lastName: 'L' }],
+				},
+				{
+					name: 'Mesa B',
+					lider: { firstName: 'Beto', lastName: 'M' },
+				},
+			],
+			perParticipantLabels,
+		);
+		const sheetCount = (html.match(/class="contact-sheet"/g) || []).length;
+		expect(sheetCount).toBe(3); // 2 from Mesa A + 1 from Mesa B
+		expect(html).toContain('Mesa A');
+		expect(html).toContain('Mesa B');
+	});
+
+	it('skips tables with no members', () => {
+		const html = buildContactsPerParticipantPrintHtml(
+			[
+				{ name: 'Mesa vacía' },
+				{
+					name: 'Mesa llena',
+					lider: { firstName: 'Ana', lastName: 'P' },
+				},
+			],
+			perParticipantLabels,
+		);
+		const sheetCount = (html.match(/class="contact-sheet"/g) || []).length;
+		expect(sheetCount).toBe(1);
+		expect(html).not.toContain('Mesa vacía');
+	});
+
+	it('wraps output in a sheets-grid container for print layout', () => {
+		const html = buildContactsPerParticipantPrintHtml(
+			[{ name: 'Mesa 1', lider: { firstName: 'Ana', lastName: 'P' } }],
+			perParticipantLabels,
+		);
+		expect(html).toContain('class="sheets-grid"');
+	});
+
+	it('escapes HTML in recipient name and mesa name', () => {
+		const html = buildContactsPerParticipantPrintHtml(
+			[
+				{
+					name: '<Mesa>',
+					lider: { firstName: '<Ev>', lastName: '&Co' },
+				},
+			],
+			perParticipantLabels,
+		);
+		expect(html).not.toContain('<Mesa>');
+		expect(html).toContain('&lt;Mesa&gt;');
+		expect(html).toContain('&lt;Ev&gt; &amp;Co');
 	});
 });
