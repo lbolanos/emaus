@@ -365,7 +365,7 @@ import { useI18n } from 'vue-i18n';
 import { storeLocale } from '@/i18n';
 import SidebarMenuItem from '@/components/layout/SidebarMenuItem.vue';
 
-type PermissionType = 'retreat' | 'participant' | 'table' | 'house' | 'user' | 'retreatInventory' | 'inventoryItem' | 'payment' | 'responsability' | 'messageTemplate' | 'superadmin';
+type PermissionType = 'retreat' | 'participant' | 'table' | 'house' | 'user' | 'retreatInventory' | 'inventoryItem' | 'payment' | 'responsability' | 'messageTemplate' | 'santisimo' | 'superadmin';
 
 export interface MenuItem {
   name: string;
@@ -653,6 +653,14 @@ const menuSections: MenuSection[] = [
         permission: 'responsability',
         requiresRetreat: true,
         label: 'sidebar.serviceTeams'
+      },
+      {
+        name: 'santisimo',
+        routeName: 'santisimo',
+        icon: Cross,
+        permission: 'santisimo',
+        requiresRetreat: true,
+        label: 'sidebar.santisimo'
       },
       {
         name: 'inventory',
@@ -1093,7 +1101,8 @@ const getRouteWithParams = (item: MenuItem) => {
     'bed-assignments',
     'responsibilities',
     'inventory',
-    'role-management'
+    'role-management',
+    'santisimo'
   ];
   if (item.routeName && routesRequiringId.includes(item.routeName)) {
     if (!retreatStore.selectedRetreatId) return null;

@@ -998,6 +998,10 @@
     "errors": {
       "familyFriendConflict": "Cannot add walker. Another walker with the same family/friend color is already at this table."
     },
+    "printTables": "Print Tables",
+    "printTablesSimple": "Print Tables (Simple)",
+    "printTablesContacts": "Print Contacts (Phone/Email)",
+    "printTablesContactsPerParticipant": "Print Contacts (Sheet for Each Participant)",
     "printLotteryCards": "Walker Cards",
     "lotteryCards": {
       "title": "Walker Cards",

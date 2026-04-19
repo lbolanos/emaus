@@ -35,6 +35,8 @@ const TelemetryDashboardView = () => import('../views/TelemetryDashboardView.vue
 const RetreatFlyerView = () => import('../views/RetreatFlyerView.vue');
 const HelpView = () => import('../views/HelpView.vue');
 const LandingView = () => import('../views/LandingView.vue');
+const SantisimoAdminView = () => import('../views/SantisimoAdminView.vue');
+const PublicSantisimoView = () => import('../views/PublicSantisimoView.vue');
 
 import { useAuthStore } from '@/stores/authStore';
 import { useRetreatStore } from '@/stores/retreatStore';
@@ -117,6 +119,13 @@ const router = createRouter({
 			path: '/public/attendance/:communityId/:meetingId',
 			name: 'public-attendance',
 			component: () => import('../views/PublicAttendanceView.vue'),
+			props: true,
+			meta: { requiresAuth: false },
+		},
+		{
+			path: '/santisimo/:slug',
+			name: 'public-santisimo',
+			component: PublicSantisimoView,
 			props: true,
 			meta: { requiresAuth: false },
 		},
@@ -289,6 +298,13 @@ const router = createRouter({
 					path: 'retreats/:id/inventory',
 					name: 'inventory',
 					component: InventoryView,
+					props: true,
+					meta: { requiresRetreat: true },
+				},
+				{
+					path: 'retreats/:id/santisimo',
+					name: 'santisimo',
+					component: SantisimoAdminView,
 					props: true,
 					meta: { requiresRetreat: true },
 				},

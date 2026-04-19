@@ -121,6 +121,7 @@ export const retreatSchema = z.object({
 	notifyInviter: z.boolean().default(true),
 	notifyPalanqueros: z.array(z.number().int().min(1).max(3)).transform(arr => [...new Set(arr)]).optional(),
 	createdBy: z.string().uuid().optional(),
+	santisimoEnabled: z.boolean().default(false).optional(),
 });
 export type Retreat = z.infer<typeof retreatSchema>;
 
@@ -414,6 +415,7 @@ export * from './serviceTeam';
 export * from './permissions';
 export * from './community';
 export * from './testimonial';
+export * from './santisimo';
 
 // Payment Schema
 export const paymentSchema = z.object({

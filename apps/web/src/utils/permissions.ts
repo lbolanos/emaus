@@ -14,6 +14,7 @@ export const RESOURCES = {
 	responsability: [...DEFAULT_OPERATIONS] as const,
 	retreatInventory: [...DEFAULT_OPERATIONS] as const,
 	messageTemplate: [...DEFAULT_OPERATIONS] as const,
+	santisimo: ['read', 'manage'] as const,
 } as const;
 
 export type ResourceType = keyof typeof RESOURCES;

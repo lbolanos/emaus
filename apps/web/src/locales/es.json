@@ -1052,6 +1052,8 @@
       "tagConflictDescription": "Ya existe un participante en esta mesa con la(s) etiqueta(s): {tags}"
     },
     "printTablesSimple": "Imprimir Mesas (Simple)",
+    "printTablesContacts": "Imprimir Contactos (Teléfono/Email)",
+    "printTablesContactsPerParticipant": "Imprimir Contactos (Hoja para Cada Participante)",
     "printLotteryCards": "Tarjetas de los Caminantes",
     "lotteryCards": {
       "title": "Tarjetas de los Caminantes",

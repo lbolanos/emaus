@@ -1681,3 +1681,142 @@ export const executeTableAssignments = async (retreatId: string, assignments: Ar
 	const response = await api.post('/vision-assignment/execute', { retreatId, assignments });
 	return response.data as { results: Array<{ idOnRetreat: number; participantName: string; tableName: string; success: boolean; error?: string }> };
 };
+
+// ==================== SANTISIMO API ====================
+
+export interface SantisimoSlotWithSignups {
+	id: string;
+	retreatId: string;
+	startTime: string;
+	endTime: string;
+	capacity: number;
+	isDisabled: boolean;
+	intention: string | null;
+	notes: string | null;
+	signedUpCount: number;
+	signups: Array<{
+		id: string;
+		slotId: string;
+		name: string;
+		phone: string | null;
+		email: string | null;
+		userId: string | null;
+		createdAt: string;
+	}>;
+}
+
+export interface PublicSantisimoSlot {
+	id: string;
+	startTime: string;
+	endTime: string;
+	capacity: number;
+	isDisabled: boolean;
+	intention: string | null;
+	signedUpCount: number;
+	signups: Array<{ firstName: string }>;
+}
+
+export interface PublicSantisimoSchedule {
+	retreat: {
+		id: string;
+		parish: string;
+		startDate: string;
+		endDate: string;
+		slug?: string;
+	};
+	slots: PublicSantisimoSlot[];
+}
+
+export const santisimoApi = {
+	// Admin
+	async listSlots(retreatId: string): Promise<SantisimoSlotWithSignups[]> {
+		const r = await api.get(`/santisimo/retreats/${retreatId}/slots`);
+		return r.data;
+	},
+	async createSlot(
+		retreatId: string,
+		data: {
+			startTime: string;
+			endTime: string;
+			capacity?: number;
+			isDisabled?: boolean;
+			intention?: string | null;
+			notes?: string | null;
+		},
+	): Promise<SantisimoSlotWithSignups> {
+		const r = await api.post(`/santisimo/retreats/${retreatId}/slots`, data);
+		return r.data;
+	},
+	async generateSlots(
+		retreatId: string,
+		data: {
+			startDateTime: string;
+			endDateTime: string;
+			slotMinutes?: number;
+			capacity?: number;
+			clearExisting?: boolean;
+		},
+	): Promise<SantisimoSlotWithSignups[]> {
+		const r = await api.post(`/santisimo/retreats/${retreatId}/slots/generate`, data);
+		return r.data;
+	},
+	async updateSlot(
+		id: string,
+		data: Partial<{
+			startTime: string;
+			endTime: string;
+			capacity: number;
+			isDisabled: boolean;
+			intention: string | null;
+			notes: string | null;
+		}>,
+	): Promise<SantisimoSlotWithSignups> {
+		const r = await api.patch(`/santisimo/slots/${id}`, data);
+		return r.data;
+	},
+	async deleteSlot(id: string): Promise<void> {
+		await api.delete(`/santisimo/slots/${id}`);
+	},
+	async listSignups(slotId: string) {
+		const r = await api.get(`/santisimo/slots/${slotId}/signups`);
+		return r.data as SantisimoSlotWithSignups['signups'];
+	},
+	async adminCreateSignup(
+		retreatId: string,
+		data: {
+			slotId: string;
+			name: string;
+			phone?: string | null;
+			email?: string | null;
+			userId?: string | null;
+		},
+	) {
+		const r = await api.post(`/santisimo/retreats/${retreatId}/signups`, data);
+		return r.data;
+	},
+	async deleteSignup(id: string): Promise<void> {
+		await api.delete(`/santisimo/signups/${id}`);
+	},
+
+	// Public (no CSRF token required, but endpoint is whitelisted)
+	async publicGetSchedule(slug: string): Promise<PublicSantisimoSchedule> {
+		const r = await api.get(`/santisimo/public/${slug}`);
+		return r.data;
+	},
+	async publicSignUp(
+		slug: string,
+		data: {
+			slotIds: string[];
+			name: string;
+			phone?: string;
+			email?: string;
+			recaptchaToken?: string;
+		},
+	): Promise<{ signups: Array<{ id: string; slotId: string; cancelToken: string | null }> }> {
+		const r = await api.post(`/santisimo/public/${slug}/signups`, data);
+		return r.data;
+	},
+	async publicCancel(token: string): Promise<void> {
+		await api.delete(`/santisimo/public/signups/${token}`);
+	},
+};
