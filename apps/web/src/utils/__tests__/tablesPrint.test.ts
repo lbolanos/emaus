@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	buildContactsPerParticipantPrintHtml,
 	buildContactsPrintHtml,
+	buildContactsVerificationPrintHtml,
 	buildSimplePrintHtml,
 	escapeHtml,
 	formatPhones,
@@ -9,6 +10,8 @@ import {
 	type PerParticipantLabels,
 	type PrintLabels,
 	type PrintTable,
+	type VerificationLabels,
+	type VerificationWalker,
 } from '../tablesPrint';
 
 const labels: PrintLabels = {
@@ -515,5 +518,157 @@ describe('buildContactsPerParticipantPrintHtml', () => {
 		expect(html).not.toContain('<Mesa>');
 		expect(html).toContain('&lt;Mesa&gt;');
 		expect(html).toContain('&lt;Ev&gt; &amp;Co');
+	});
+});
+
+const verificationLabels: VerificationLabels = {
+	title: 'Verifica tus datos',
+	instructions: 'Revisa y corrige si es necesario.',
+	nameLabel: 'Nombre',
+	cellPhoneLabel: 'Celular',
+	homePhoneLabel: 'Casa',
+	workPhoneLabel: 'Trabajo',
+	emailLabel: 'Correo',
+	mesaLabel: 'Mesa:',
+	correctionsLabel: 'Correcciones:',
+	noWalkersFound: 'No hay caminantes',
+	notProvided: '—',
+};
+
+describe('buildContactsVerificationPrintHtml', () => {
+	it('returns noWalkersFound when empty', () => {
+		expect(buildContactsVerificationPrintHtml([], verificationLabels)).toBe(
+			'<p>No hay caminantes</p>',
+		);
+	});
+
+	it('returns noWalkersFound when passed null-ish', () => {
+		expect(
+			buildContactsVerificationPrintHtml(
+				undefined as unknown as VerificationWalker[],
+				verificationLabels,
+			),
+		).toBe('<p>No hay caminantes</p>');
+	});
+
+	it('generates one verify-card per walker', () => {
+		const html = buildContactsVerificationPrintHtml(
+			[
+				{ firstName: 'Ana', lastName: 'P' },
+				{ firstName: 'Beto', lastName: 'M' },
+				{ firstName: 'Carlos', lastName: 'R' },
+			],
+			verificationLabels,
+		);
+		const cardCount = (html.match(/class="verify-card"/g) || []).length;
+		expect(cardCount).toBe(3);
+	});
+
+	it('wraps cards in a verify-grid container', () => {
+		const html = buildContactsVerificationPrintHtml(
+			[{ firstName: 'Ana', lastName: 'P' }],
+			verificationLabels,
+		);
+		expect(html).toContain('class="verify-grid"');
+	});
+
+	it('shows each phone and email when provided', () => {
+		const html = buildContactsVerificationPrintHtml(
+			[
+				{
+					firstName: 'Ana',
+					lastName: 'P',
+					cellPhone: '5551111',
+					homePhone: '5552222',
+					workPhone: '5553333',
+					email: 'ana@example.com',
+				},
+			],
+			verificationLabels,
+		);
+		expect(html).toContain('5551111');
+		expect(html).toContain('5552222');
+		expect(html).toContain('5553333');
+		expect(html).toContain('ana@example.com');
+		expect(html).toContain('Celular');
+		expect(html).toContain('Correo');
+	});
+
+	it('shows notProvided placeholder for missing phones/email', () => {
+		const html = buildContactsVerificationPrintHtml(
+			[{ firstName: 'Ana', lastName: 'P' }],
+			verificationLabels,
+		);
+		// Four placeholders: cell, home, work, email
+		const dashCount = (html.match(/>—</g) || []).length;
+		expect(dashCount).toBeGreaterThanOrEqual(4);
+	});
+
+	it('shows id_on_retreat badge with family color when present', () => {
+		const html = buildContactsVerificationPrintHtml(
+			[
+				{
+					firstName: 'Ana',
+					lastName: 'P',
+					id_on_retreat: 7,
+					family_friend_color: '#ff0000',
+				},
+			],
+			verificationLabels,
+		);
+		expect(html).toContain('class="vc-id"');
+		expect(html).toContain('background-color:#ff0000');
+		expect(html).toContain('>7</span>');
+	});
+
+	it('omits id badge when id_on_retreat is missing', () => {
+		const html = buildContactsVerificationPrintHtml(
+			[{ firstName: 'Ana', lastName: 'P' }],
+			verificationLabels,
+		);
+		expect(html).not.toContain('class="vc-id"');
+	});
+
+	it('includes table name header when tableMesaName provided', () => {
+		const html = buildContactsVerificationPrintHtml(
+			[{ firstName: 'Ana', lastName: 'P', tableMesaName: 'Mesa 3' }],
+			verificationLabels,
+		);
+		expect(html).toContain('Mesa 3');
+		expect(html).toContain('vc-mesa');
+	});
+
+	it('omits table-name block when tableMesaName is missing', () => {
+		const html = buildContactsVerificationPrintHtml(
+			[{ firstName: 'Ana', lastName: 'P' }],
+			verificationLabels,
+		);
+		expect(html).not.toContain('vc-mesa');
+	});
+
+	it('includes corrections area with label', () => {
+		const html = buildContactsVerificationPrintHtml(
+			[{ firstName: 'Ana', lastName: 'P' }],
+			verificationLabels,
+		);
+		expect(html).toContain('vc-corrections');
+		expect(html).toContain('Correcciones:');
+	});
+
+	it('escapes HTML in names, emails, and table name', () => {
+		const html = buildContactsVerificationPrintHtml(
+			[
+				{
+					firstName: '<Ev>',
+					lastName: '&Co',
+					email: '"><script>alert(1)</script>',
+					tableMesaName: '<Mesa>',
+				},
+			],
+			verificationLabels,
+		);
+		expect(html).not.toContain('<script>alert(1)');
+		expect(html).toContain('&lt;Ev&gt; &amp;Co');
+		expect(html).toContain('&lt;Mesa&gt;');
 	});
 });

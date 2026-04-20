@@ -1055,6 +1055,20 @@
     "printTablesSimple": "Imprimir Mesas (Simple)",
     "printTablesContacts": "Imprimir Contactos (Teléfono/Email)",
     "printTablesContactsPerParticipant": "Imprimir Contactos (Hoja para Cada Participante)",
+    "printWalkerContactsVerification": "Verificación de Datos (Caminantes)",
+    "printMenu": "Imprimir",
+    "verification": {
+      "title": "Verifica tus datos",
+      "instructions": "Revisa que tu teléfono y correo sean correctos. Si hay algún error, escríbelo en el espacio de correcciones y entrega esta hoja al coordinador.",
+      "name": "Nombre",
+      "cellPhone": "Celular",
+      "homePhone": "Teléfono de casa",
+      "workPhone": "Teléfono de trabajo",
+      "email": "Correo electrónico",
+      "mesa": "Mesa:",
+      "corrections": "Correcciones:",
+      "noWalkers": "No hay caminantes para este retiro."
+    },
     "printLotteryCards": "Tarjetas de los Caminantes",
     "lotteryCards": {
       "title": "Tarjetas de los Caminantes",

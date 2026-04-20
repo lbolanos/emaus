@@ -54,6 +54,20 @@ export interface ContactsLabels {
 	walkerCountSuffix: string;
 }
 
+export interface VerificationLabels {
+	title: string;
+	instructions: string;
+	nameLabel: string;
+	cellPhoneLabel: string;
+	homePhoneLabel: string;
+	workPhoneLabel: string;
+	emailLabel: string;
+	mesaLabel: string;
+	correctionsLabel: string;
+	noWalkersFound: string;
+	notProvided: string;
+}
+
 export interface PerParticipantLabels extends ContactsLabels {
 	forLabel: string;
 	mesaLabel: string;
@@ -173,6 +187,58 @@ export const buildContactsPerParticipantPrintHtml = (
 
 	if (sheets.length === 0) return `<p>${escapeHtml(labels.noTablesFound)}</p>`;
 	return `<div class="sheets-grid">${sheets.join('')}</div>`;
+};
+
+export interface VerificationWalker extends PrintParticipant {
+	tableMesaName?: string | null;
+}
+
+export const buildContactsVerificationPrintHtml = (
+	walkers: VerificationWalker[],
+	labels: VerificationLabels,
+): string => {
+	if (!walkers || walkers.length === 0) {
+		return `<p>${escapeHtml(labels.noWalkersFound)}</p>`;
+	}
+
+	const cards = walkers.map((w) => {
+		const name = fullName(w) || '—';
+		const idOnRetreat = w.id_on_retreat ?? w.idOnRetreat ?? '';
+		const color = w.family_friend_color || w.familyFriendColor || '';
+		const idBadge =
+			idOnRetreat !== '' && idOnRetreat !== null && idOnRetreat !== undefined
+				? `<span class="vc-id" style="${color ? `background-color:${escapeHtml(color)};color:#000;` : ''}">${escapeHtml(idOnRetreat)}</span>`
+				: '';
+		const mesa = w.tableMesaName
+			? `<div class="vc-mesa"><span class="vc-label">${escapeHtml(labels.mesaLabel)}</span> ${escapeHtml(w.tableMesaName)}</div>`
+			: '';
+		const cell = w.cellPhone ? escapeHtml(w.cellPhone) : labels.notProvided;
+		const home = w.homePhone ? escapeHtml(w.homePhone) : labels.notProvided;
+		const work = w.workPhone ? escapeHtml(w.workPhone) : labels.notProvided;
+		const email = w.email ? escapeHtml(w.email) : labels.notProvided;
+
+		return `<section class="verify-card">
+      <header class="vc-head">
+        <h2>${escapeHtml(labels.title)}</h2>
+        ${mesa}
+      </header>
+      <p class="vc-instructions">${escapeHtml(labels.instructions)}</p>
+      <dl class="vc-data">
+        <dt>${escapeHtml(labels.nameLabel)}</dt>
+        <dd class="vc-name">${idBadge}${idBadge ? ' ' : ''}${name}</dd>
+        <dt>${escapeHtml(labels.cellPhoneLabel)}</dt><dd>${cell}</dd>
+        <dt>${escapeHtml(labels.homePhoneLabel)}</dt><dd>${home}</dd>
+        <dt>${escapeHtml(labels.workPhoneLabel)}</dt><dd>${work}</dd>
+        <dt>${escapeHtml(labels.emailLabel)}</dt><dd class="vc-email">${email}</dd>
+      </dl>
+      <div class="vc-corrections">
+        <span class="vc-label">${escapeHtml(labels.correctionsLabel)}</span>
+        <div class="vc-correction-lines"></div>
+      </div>
+    </section>`;
+	});
+
+	return `<div class="verify-grid">${cards.join('')}</div>`;
 };
 
 export const buildSimplePrintHtml = (tables: PrintTable[], labels: PrintLabels): string => {

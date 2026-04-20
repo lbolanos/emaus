@@ -1003,6 +1003,20 @@
     "printTablesSimple": "Print Tables (Simple)",
     "printTablesContacts": "Print Contacts (Phone/Email)",
     "printTablesContactsPerParticipant": "Print Contacts (Sheet for Each Participant)",
+    "printWalkerContactsVerification": "Contact Data Verification (Walkers)",
+    "printMenu": "Print",
+    "verification": {
+      "title": "Verify your data",
+      "instructions": "Please check that your phone and email are correct. If something is wrong, write it in the corrections area and return this sheet to the coordinator.",
+      "name": "Name",
+      "cellPhone": "Cell phone",
+      "homePhone": "Home phone",
+      "workPhone": "Work phone",
+      "email": "Email",
+      "mesa": "Table:",
+      "corrections": "Corrections:",
+      "noWalkers": "No walkers for this retreat."
+    },
     "printLotteryCards": "Walker Cards",
     "lotteryCards": {
       "title": "Walker Cards",

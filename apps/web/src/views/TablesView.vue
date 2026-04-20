@@ -75,31 +75,44 @@
               <Plus class="mr-2 h-4 w-4" />
               {{ $t('tables.addTable') }}
             </DropdownMenuItem>
-            <DropdownMenuItem @click="handleExportTables" :disabled="isExporting">
-              <Download v-if="!isExporting" class="mr-2 h-4 w-4" />
-              <Loader2 v-else class="mr-2 h-4 w-4 animate-spin" />
-              {{ isExporting ? $t('tables.exporting') : $t('tables.exportDocx') }}
-            </DropdownMenuItem>
-            <DropdownMenuItem @click="handlePrintTables">
-              <Printer class="mr-2 h-4 w-4" />
-              {{ $t('tables.printTables') }}
-            </DropdownMenuItem>
-            <DropdownMenuItem @click="handlePrintTablesSimple">
-              <Printer class="mr-2 h-4 w-4" />
-              {{ $t('tables.printTablesSimple') }}
-            </DropdownMenuItem>
-            <DropdownMenuItem @click="handlePrintTablesContacts">
-              <Printer class="mr-2 h-4 w-4" />
-              {{ $t('tables.printTablesContacts') }}
-            </DropdownMenuItem>
-            <DropdownMenuItem @click="handlePrintTablesContactsPerParticipant">
-              <Printer class="mr-2 h-4 w-4" />
-              {{ $t('tables.printTablesContactsPerParticipant') }}
-            </DropdownMenuItem>
-            <DropdownMenuItem @click="isLotteryCardsOpen = true">
-              <Scissors class="mr-2 h-4 w-4" />
-              {{ $t('tables.printLotteryCards') }}
-            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Printer class="mr-2 h-4 w-4" />
+                {{ $t('tables.printMenu') }}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuItem @click="handleExportTables" :disabled="isExporting">
+                  <Download v-if="!isExporting" class="mr-2 h-4 w-4" />
+                  <Loader2 v-else class="mr-2 h-4 w-4 animate-spin" />
+                  {{ isExporting ? $t('tables.exporting') : $t('tables.exportDocx') }}
+                </DropdownMenuItem>
+                <DropdownMenuItem @click="handlePrintTables">
+                  <Printer class="mr-2 h-4 w-4" />
+                  {{ $t('tables.printTables') }}
+                </DropdownMenuItem>
+                <DropdownMenuItem @click="handlePrintTablesSimple">
+                  <Printer class="mr-2 h-4 w-4" />
+                  {{ $t('tables.printTablesSimple') }}
+                </DropdownMenuItem>
+                <DropdownMenuItem @click="handlePrintTablesContacts">
+                  <Printer class="mr-2 h-4 w-4" />
+                  {{ $t('tables.printTablesContacts') }}
+                </DropdownMenuItem>
+                <DropdownMenuItem @click="handlePrintTablesContactsPerParticipant">
+                  <Printer class="mr-2 h-4 w-4" />
+                  {{ $t('tables.printTablesContactsPerParticipant') }}
+                </DropdownMenuItem>
+                <DropdownMenuItem @click="handlePrintWalkerContactsVerification">
+                  <Printer class="mr-2 h-4 w-4" />
+                  {{ $t('tables.printWalkerContactsVerification') }}
+                </DropdownMenuItem>
+                <DropdownMenuItem @click="isLotteryCardsOpen = true">
+                  <Scissors class="mr-2 h-4 w-4" />
+                  {{ $t('tables.printLotteryCards') }}
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <DropdownMenuSeparator />
             <DropdownMenuItem @click="isHelpOpen = true">
               <HelpCircle class="mr-2 h-4 w-4" />
@@ -366,7 +379,7 @@ import ParticipantTooltip from '@/components/ParticipantTooltip.vue';
 import LotteryCardsDialog from '@/components/LotteryCardsDialog.vue';
 import TablesHelpDialog from '@/components/TablesHelpDialog.vue';
 import { useToast } from '@repo/ui';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@repo/ui';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@repo/ui';
 import { ChevronLeft, ChevronRight, Download, HelpCircle, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw, Scissors, UserX, X } from 'lucide-vue-next';
 import type { Participant, TableMesa } from '@repo/types';
 import { useI18n } from 'vue-i18n';
@@ -377,6 +390,8 @@ import {
   buildSimplePrintHtml,
   buildContactsPrintHtml,
   buildContactsPerParticipantPrintHtml,
+  buildContactsVerificationPrintHtml,
+  type VerificationWalker,
 } from '@/utils/tablesPrint';
 
 const tableMesaStore = useTableMesaStore();
@@ -1135,6 +1150,103 @@ const handlePrintTablesContactsPerParticipant = () => {
     '.cell-name { font-weight: bold; }',
     '.cell-email { word-break: break-all; }',
     'tr { break-inside: avoid; page-break-inside: avoid; }',
+  ].join(' ');
+
+  const inlineScript =
+    'window.addEventListener("load",function(){setTimeout(function(){window.focus();window.print();},100);});';
+
+  const scriptOpen = '<' + 'script>';
+  const scriptClose = '<' + '/script>';
+
+  const html =
+    '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">' +
+    `<title>${title}</title>` +
+    `<style>${css}</style>` +
+    '</head><body>' +
+    body +
+    scriptOpen + inlineScript + scriptClose +
+    '</body></html>';
+
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+};
+
+const handlePrintWalkerContactsVerification = () => {
+  const walkerToTable = new Map<string, string>();
+  (tableMesaStore.tables || []).forEach((table: any) => {
+    (table.walkers || []).forEach((w: any) => {
+      walkerToTable.set(w.id, table.name);
+    });
+  });
+
+  const walkers: VerificationWalker[] = (participantStore.participants || [])
+    .filter((p: any) => p.type === 'walker' && !p.isCancelled)
+    .map((p: any) => ({
+      firstName: p.firstName,
+      lastName: p.lastName,
+      id_on_retreat: p.id_on_retreat ?? p.idOnRetreat,
+      family_friend_color: p.family_friend_color ?? p.familyFriendColor,
+      cellPhone: p.cellPhone,
+      homePhone: p.homePhone,
+      workPhone: p.workPhone,
+      email: p.email,
+      tableMesaName: walkerToTable.get(p.id) || null,
+    }))
+    .sort((a, b) => {
+      const aId = Number(a.id_on_retreat ?? 0);
+      const bId = Number(b.id_on_retreat ?? 0);
+      if (aId !== bId) return aId - bId;
+      return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+    });
+
+  const body = buildContactsVerificationPrintHtml(walkers, {
+    title: t('tables.verification.title'),
+    instructions: t('tables.verification.instructions'),
+    nameLabel: t('tables.verification.name'),
+    cellPhoneLabel: t('tables.verification.cellPhone'),
+    homePhoneLabel: t('tables.verification.homePhone'),
+    workPhoneLabel: t('tables.verification.workPhone'),
+    emailLabel: t('tables.verification.email'),
+    mesaLabel: t('tables.verification.mesa'),
+    correctionsLabel: t('tables.verification.corrections'),
+    noWalkersFound: t('tables.verification.noWalkers'),
+    notProvided: '—',
+  });
+
+  const win = window.open('', '_blank', 'width=1024,height=768');
+  if (!win) {
+    toast({
+      title: t('common.error'),
+      description: 'El navegador bloqueó la ventana emergente. Permite pop-ups para imprimir.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  const title = escapeHtml(t('tables.printWalkerContactsVerification'));
+
+  const css = [
+    '@page { size: A4 portrait; margin: 0.8cm; }',
+    '* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    "html, body { margin: 0; padding: 0; background: #fff; color: #111; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }",
+    'body { padding: 8px; font-size: 11px; }',
+    '.verify-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }',
+    '.verify-card { border: 1px dashed #94a3b8; border-radius: 4px; padding: 10px 12px; break-inside: avoid-page; page-break-inside: avoid; }',
+    '.vc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; border-bottom: 1.5px solid #2b6cb0; padding-bottom: 4px; margin-bottom: 6px; }',
+    '.vc-head h2 { font-size: 13px; margin: 0; color: #2b6cb0; }',
+    '.vc-mesa { font-size: 10px; color: #4a5568; text-align: right; }',
+    '.vc-label { font-weight: bold; color: #4a5568; }',
+    '.vc-instructions { font-size: 10px; color: #4a5568; margin: 0 0 6px; font-style: italic; }',
+    '.vc-data { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; font-size: 11px; }',
+    '.vc-data dt { font-weight: bold; color: #4a5568; }',
+    '.vc-data dd { margin: 0; word-break: break-word; }',
+    '.vc-data dd.vc-email { word-break: break-all; }',
+    '.vc-name { font-weight: bold; color: #1a202c; font-size: 13px; }',
+    '.vc-id { display: inline-block; min-width: 22px; text-align: center; padding: 1px 5px; border-radius: 3px; font-weight: bold; background: #edf2f7; font-size: 10px; }',
+    '.vc-corrections { margin-top: 8px; border-top: 1px dotted #cbd5e0; padding-top: 6px; }',
+    '.vc-correction-lines { height: 28px; background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 13px, #cbd5e0 13px, #cbd5e0 14px); margin-top: 4px; }',
+    '@media print { body { padding: 0; } }',
   ].join(' ');
 
   const inlineScript =
