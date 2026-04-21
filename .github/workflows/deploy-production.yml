@@ -90,15 +90,18 @@ jobs:
           echo "Cleaning old web assets on server..."
           ssh -i ~/.ssh/emaus-key.pem ubuntu@$LIGHTSAIL_HOST << 'CLEANEOF'
           set -e
+          # Ensure dist dirs exist and deploy user owns them (fresh Lightsail
+          # host has /var/www/emaus/apps/*/dist owned by www-data, blocking
+          # non-sudo mkdir/rm below).
+          sudo mkdir -p /var/www/emaus/apps/web/dist /var/www/emaus/apps/api/dist
+          sudo chown -R ubuntu:ubuntu /var/www/emaus/apps/web/dist /var/www/emaus/apps/api/dist
+
           ASSETS_DIR="/var/www/emaus/apps/web/dist/assets"
           if [ -d "$ASSETS_DIR" ]; then
-            sudo rm -rf "$ASSETS_DIR"
+            rm -rf "$ASSETS_DIR"
             mkdir -p "$ASSETS_DIR"
             echo "✅ Cleaned assets directory"
           fi
-          # Ensure correct ownership for deploy user
-          sudo chown -R ubuntu:ubuntu /var/www/emaus/apps/web/dist
-          sudo chown -R ubuntu:ubuntu /var/www/emaus/apps/api/dist 2>/dev/null || true
           CLEANEOF
 
           # Upload new artifacts
