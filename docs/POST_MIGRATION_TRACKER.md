@@ -26,15 +26,26 @@ migración a AWS Lightsail (2026-04-21 cutover).
   - [ ] Probar OAuth Google
   - [ ] Probar drag-and-drop de mesas/camas (Vue reactividad)
 
-- [ ] **Cuando tengas 2 min** — Push master + tag v1.0.3 a GitHub
-  - Valida pipeline `build-release.yml`
-  - Ya 17 commits ahead de origin
+- [x] **2026-04-21** — ~~Push master~~ ✓ hecho. Primer intento falló
+  (`deploy-production.yml` run #73) porque los secrets `EC2_*` aún
+  apuntaban al EC2 viejo (`stopped`). Fixed en commit `ff93a89`:
+  - Renombrados secrets: `EC2_HOST/USER/SSH_PRIVATE_KEY` →
+    `LIGHTSAIL_HOST/USER/SSH_PRIVATE_KEY` (valores nuevos apuntan a
+    `18.116.102.104` + `~/.ssh/lightsail-emaus.pem`)
+  - Workflow actualizado para usar los nuevos nombres
+  - Viejos secrets EC2_* eliminados del repo
+  - Ver [`LIGHTSAIL_MIGRATION_NOTES.md`](./LIGHTSAIL_MIGRATION_NOTES.md) §10
+
+- [ ] **Cuando tengas 2 min** — Push + tag v1.0.3 a GitHub (próximo deploy)
+  - Valida pipeline `build-release.yml` y que `deploy-production.yml`
+    ahora pasa de punta a punta
   - Comandos:
     ```bash
     cd /home/lbolanos/emaus
     git push origin master
     git tag v1.0.3 HEAD -m "Release v1.0.3 - lightsail migration + /api/retreats/active"
     git push origin v1.0.3
+    gh run watch --repo lbolanos/emaus
     ```
 
 ## 🟡 Medio — próximas 2 semanas

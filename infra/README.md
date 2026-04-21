@@ -26,12 +26,18 @@ Cloudflare zone: `76f81f5e48b75a90923775f24880309f` (`emaus.cc`).
                     │     └─ 2xx/3xx/4xx → passthrough
                     │
                     ▼
-         Lightsail "emaus-prod"  (us-east-2a)
+         Lightsail "emaus-prod"  (us-east-2a, 18.116.102.104)
            ├── nginx + LE cert (DNS-01 via Cloudflare)
            ├── pm2 → node dist/index.js
            └── /var/www/emaus/apps/api/database.sqlite
 
-  EventBridge Scheduler (default)
+  git push master ─► GitHub Actions "Deploy to Production"
+                        ├── build: lint + test:field-mapping + pnpm build
+                        └── deploy: SSH (LIGHTSAIL_SSH_PRIVATE_KEY) to
+                                    LIGHTSAIL_HOST, scp dist, backup DB,
+                                    pnpm install, migrations, pm2 restart
+
+  EventBridge Scheduler (default) — currently DISABLED
     ├── emaus-ec2-scheduler-stop   cron(0 23 ? * MON-FRI *)  tz: America/Mexico_City
     └── emaus-ec2-scheduler-start  cron(0  7 ? * MON-FRI *)  tz: America/Mexico_City
          │
@@ -40,6 +46,11 @@ Cloudflare zone: `76f81f5e48b75a90923775f24880309f` (`emaus.cc`).
          ├── HTTPS GET https://emaus.cc/api/retreats/active  (stop only)
          └── boto3.client('lightsail').{stop,start}_instance(name=emaus-prod)
 ```
+
+Lambda + schedules quedan provisionadas pero **deshabilitadas** —
+Lightsail cobra igual parado o corriendo, por lo que el auto-stop no
+ahorra dinero. Se dejan como código para reactivar si se vuelve a EC2
+con precio por hora.
 
 The Lambda fail-safes on any retreat-check error (timeout, 4xx, 5xx, invalid
 JSON) by **skipping the stop** — the instance only stops when the endpoint
@@ -238,10 +249,39 @@ Total managed-by-Terraform cost: **$7/mo**.
 See [`docs/AWS_COST_GUIDE.md`](../docs/AWS_COST_GUIDE.md) for the full
 pre/post-migration breakdown.
 
+## GitHub Actions — deploy automation
+
+Push a `master` dispara `.github/workflows/deploy-production.yml` que
+construye, sube al host Lightsail por SSH, hace backup de DB, instala
+deps y reinicia PM2. Los secrets requeridos en el repo
+(`lbolanos/emaus` → Settings → Secrets and variables → Actions):
+
+| Secret | Valor | Notas |
+|---|---|---|
+| `LIGHTSAIL_HOST` | `18.116.102.104` | IP estática del bundle |
+| `LIGHTSAIL_USER` | `ubuntu` | default blueprint Ubuntu 22.04 |
+| `LIGHTSAIL_SSH_PRIVATE_KEY` | contenido del `.pem` | llave default de Lightsail `us-east-2` |
+| `DOMAIN_NAME` | `emaus.cc` | usado para health check post-deploy |
+| `VITE_GOOGLE_MAPS_API_KEY` | (secret) | inyectado en `runtime-config.js` |
+| `VITE_RECAPTCHA_SITE_KEY` | (secret) | inyectado en `runtime-config.js` |
+
+Para actualizar los secrets desde terminal (con `gh` autenticado con
+fine-grained token que tenga `Secrets: Read and write`):
+
+```bash
+gh secret set LIGHTSAIL_HOST --repo lbolanos/emaus --body "<ip>"
+gh secret set LIGHTSAIL_SSH_PRIVATE_KEY --repo lbolanos/emaus < ~/.ssh/lightsail-emaus.pem
+```
+
+Los secrets viejos `EC2_HOST` / `EC2_USER` / `EC2_SSH_PRIVATE_KEY` fueron
+eliminados el 2026-04-21 durante el fix post-migración (ver
+[`docs/LIGHTSAIL_MIGRATION_NOTES.md`](../docs/LIGHTSAIL_MIGRATION_NOTES.md) §10).
+
 ## Related
 
 - [`/deploy/lightsail/`](../deploy/lightsail/) — host bootstrap, cert, deploy scripts
 - [`/deploy/aws/`](../deploy/aws/) — upstream scripts (still used; Lightsail reuses setup-aws.sh)
+- [`/.github/workflows/deploy-production.yml`](../.github/workflows/deploy-production.yml) — CI/CD deploy pipeline
 - [`/docs/AWS_COST_GUIDE.md`](../docs/AWS_COST_GUIDE.md) — cost breakdown and monitoring
 - API route: `apps/api/src/routes/retreatRoutes.ts` → `GET /api/retreats/active`
 

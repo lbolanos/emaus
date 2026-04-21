@@ -174,6 +174,45 @@ Vue i18n (modo completo con compilador runtime) y algunas libs usan
 **Nota**: el CSP de la API (Express) ya lo incluía. Pero nginx lo
 reescribe, así que tiene que estar en ambos lados.
 
+### 10. GitHub Actions workflow seguía apuntando al EC2 viejo
+
+Tras el cutover DNS, el primer `git push origin master` disparó
+`deploy-production.yml` que falló en el step "Deploy to EC2" con timeout
+SSH. Causa: el workflow usaba los secrets `EC2_HOST` (`3.138.49.105`, ya
+`stopped`), `EC2_USER`, `EC2_SSH_PRIVATE_KEY` — ninguno actualizado como
+parte de la migración.
+
+**Fix** (commit `ff93a89`): renombrados en el workflow y en el repo:
+
+| Antes | Después | Valor |
+|---|---|---|
+| `EC2_HOST` | `LIGHTSAIL_HOST` | `18.116.102.104` |
+| `EC2_USER` | `LIGHTSAIL_USER` | `ubuntu` |
+| `EC2_SSH_PRIVATE_KEY` | `LIGHTSAIL_SSH_PRIVATE_KEY` | contenido de `~/.ssh/lightsail-emaus.pem` |
+
+Comandos usados (requieren `gh auth login` con token fine-grained con
+scope `Secrets: Read and write` en el repo):
+
+```bash
+gh secret set LIGHTSAIL_HOST --repo lbolanos/emaus --body "18.116.102.104"
+gh secret set LIGHTSAIL_USER --repo lbolanos/emaus --body "ubuntu"
+gh secret set LIGHTSAIL_SSH_PRIVATE_KEY --repo lbolanos/emaus \
+  < ~/.ssh/lightsail-emaus.pem
+
+gh secret delete EC2_HOST --repo lbolanos/emaus
+gh secret delete EC2_USER --repo lbolanos/emaus
+gh secret delete EC2_SSH_PRIVATE_KEY --repo lbolanos/emaus
+```
+
+**Lección**: secrets externos al repo (GitHub, Cloudflare, AWS) deben
+auditarse y migrarse como parte del plan, no post-hoc. Checklist para
+futuras migraciones de host:
+
+- [ ] GitHub secrets referenciados por workflows
+- [ ] Webhooks con IP hardcoded (Stripe, SES bounce handlers, etc.)
+- [ ] Tokens de monitoreo (Datadog, New Relic, UptimeRobot)
+- [ ] Registros A/AAAA hardcoded en clientes móviles o apps externas
+
 ## Runbook — operaciones comunes
 
 ### Ver logs del API
@@ -255,6 +294,30 @@ EOF
 
 **Importante**: tras opción B, regenerar `runtime-config.js` (si no existe) y
 purgar cache de Cloudflare para `emaus.cc/runtime-config.js`.
+
+**Opción C — push a master (GitHub Actions)**:
+```bash
+git push origin master
+# Dispara deploy-production.yml automáticamente:
+#  - build (lint + tests + pnpm build)
+#  - deploy: scp dist + package.json + lockfile a Lightsail,
+#    genera runtime-config.js desde secrets, snapshot /previous,
+#    backup DB a /var/backups/emaus/*.gz, pnpm install, migraciones,
+#    pm2 restart emaus-api
+#  - verify: GET https://emaus.cc/api/health
+```
+
+Requiere los secrets `LIGHTSAIL_HOST`, `LIGHTSAIL_USER`,
+`LIGHTSAIL_SSH_PRIVATE_KEY`, `DOMAIN_NAME`, `VITE_GOOGLE_MAPS_API_KEY`,
+`VITE_RECAPTCHA_SITE_KEY`. Ver `.github/workflows/deploy-production.yml`.
+
+Monitor: `gh run watch --repo lbolanos/emaus` o
+<https://github.com/lbolanos/emaus/actions>.
+
+**Pendiente**: el tarball de release (`build-release.yml`) aún no empaca
+binarios nativos `.node`. Mientras no se arregle (ver §7 de pendientes en
+`infra/README.md`), usa Opción C (GitHub Actions construye el tarball
+fresco cada deploy, los `.node` ya existen en el host).
 
 ### Rollback de emergencia a la EC2 vieja
 
