@@ -1175,7 +1175,8 @@
       "walkers": "Walkers",
       "servers": "Servers",
       "snores": "Snores",
-      "nonSnores": "Non-snores"
+      "nonSnores": "Non-snores",
+      "free": "Free"
     },
     "ageFilter": {
       "all": "All Ages",

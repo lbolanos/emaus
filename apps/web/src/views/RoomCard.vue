@@ -79,7 +79,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   drop: [event: DragEvent, bedId: string];
   dragover: [event: DragEvent, bedId: string];
-  dragleave: [];
+  dragleave: [event: DragEvent, bedId: string];
   assign: [bedId: string, participantId: string];
   unassign: [bedId: string];
   toggle: [bedId: string];
@@ -125,8 +125,8 @@ const onDragOverBed = (event: DragEvent, bedId: string) => {
   emit('dragover', event, bedId);
 };
 
-const onDragLeaveBed = () => {
-  emit('dragleave');
+const onDragLeaveBed = (event: DragEvent, bedId: string) => {
+  emit('dragleave', event, bedId);
 };
 
 const assignParticipant = (bedId: string, participantId: string) => {

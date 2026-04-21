@@ -1,8 +1,9 @@
 <template>
   <TooltipProvider :delay-duration="300">
-  <div class="h-full flex flex-col tables-view-root">
-    <!-- Sticky Header -->
-    <div class="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-1.5 sm:p-3 lg:p-4 border-b">
+  <div class="tables-view-root">
+    <!-- Sticky Top: Header + Unassigned (single glass panel) -->
+    <div class="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+    <div class="p-1.5 sm:p-3 lg:p-4">
       <div class="sm:flex sm:items-center sm:justify-between gap-4">
         <div class="hidden sm:block sm:flex-auto">
           <h1 class="text-[20px] font-bold leading-6 text-gray-900 dark:text-white">{{ $t('tables.title') }}</h1>
@@ -124,8 +125,8 @@
       </div>
     </div>
 
-    <!-- Sticky Unassigned Areas -->
-    <div class="sm:sticky sm:top-[80px] z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-2 sm:px-3 lg:px-4 py-2 border-b">
+    <!-- Unassigned Areas (inside same glass panel) -->
+    <div class="px-2 sm:px-3 lg:px-4 py-2">
 
       <!-- Mobile: tab buttons (hidden on md+) -->
       <div class="flex gap-1 mb-2 md:hidden">
@@ -251,9 +252,10 @@
         </div>
       </div>
     </div>
+    </div>
 
     <!-- Scrollable Content -->
-    <div class="flex-1 overflow-y-auto p-2 sm:p-3 lg:p-4">
+    <div class="p-2 sm:p-3 lg:p-4">
     <div v-if="retreatStore.selectedRetreatId" class="print-container">
       <div v-if="tableMesaStore.isLoading" class="mt-8 text-center">
         <p>{{ $t('participants.loading') }}</p>
@@ -658,11 +660,12 @@ const onDropToUnassigned = (event: DragEvent, type: 'server' | 'walker') => {
   const participant = JSON.parse(participantData);
 
   // Only proceed if the participant was dragged from a table
-  if (!participant.sourceTableId) return;
+  if (!participant.sourceTableId || !participant.sourceRole) return;
 
-  if (type === 'server' && participant.type === 'server' && participant.sourceRole && participant.sourceRole !== 'walkers') {
+  // Use sourceRole as authority (participant.type may be missing on leaders loaded via table relations)
+  if (type === 'server' && participant.sourceRole !== 'walkers') {
     tableMesaStore.unassignLeader(participant.sourceTableId, participant.sourceRole);
-  } else if (type === 'walker' && participant.type === 'walker' && participant.sourceRole === 'walkers') {
+  } else if (type === 'walker' && participant.sourceRole === 'walkers') {
     tableMesaStore.unassignWalkerFromTable(participant.sourceTableId, participant.id);
   }
 };

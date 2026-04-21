@@ -70,6 +70,8 @@
         v-if="bed.participant"
         draggable="true"
         @dragstart="startDrag"
+        @dragend="onDragEnd"
+        @dblclick.stop="$emit('unassign', bed.id)"
         :title="`${bed.participant.firstName} ${bed.participant.lastName}\n${$t('bedAssignments.age')}: ${calculateAge(bed.participant.birthDate)}\n${$t('bedAssignments.snores')}: ${bed.participant.snores ? $t('common.yes') : $t('common.no')}\n${$t('bedAssignments.idOnRetreat')}: ${bed.participant.id_on_retreat || 'N/A'}`"
         :style="{ borderColor: bed.participant.family_friend_color || '#ccc' }"
         class="w-full p-1 rounded border cursor-grab transition-all duration-200 hover:shadow-sm"
@@ -121,6 +123,7 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { BedDouble, Layers, Square, X, Eye, EyeOff } from 'lucide-vue-next';
 import type { RetreatBed } from '@repo/types';
+import { useDragState } from '@/composables/useDragState';
 
 const props = defineProps<{
   bed: RetreatBed;
@@ -133,7 +136,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   drop: [event: DragEvent, bedId: string];
   dragover: [event: DragEvent, bedId: string];
-  dragleave: [];
+  dragleave: [event: DragEvent, bedId: string];
   assign: [bedId: string, participantId: string];
   unassign: [bedId: string];
   toggle: [bedId: string];
@@ -150,6 +153,7 @@ const onCardClick = (event: MouseEvent) => {
 };
 
 const { t } = useI18n();
+const { startDrag: startDragState, endDrag } = useDragState();
 
 const isOver = computed(() => props.isOver);
 const isHighlighted = computed(() => props.highlighted);
@@ -191,8 +195,8 @@ const onDragOver = (event: DragEvent) => {
   emit('dragover', event, props.bed.id);
 };
 
-const onDragLeave = () => {
-  emit('dragleave');
+const onDragLeave = (event: DragEvent) => {
+  emit('dragleave', event, props.bed.id);
 };
 
 const startDrag = (event: DragEvent) => {
@@ -203,6 +207,13 @@ const startDrag = (event: DragEvent) => {
       ...props.bed.participant,
       sourceBedId: props.bed.id
     }));
+    if (props.bed.participant.type === 'walker' || props.bed.participant.type === 'server') {
+      startDragState(props.bed.participant.type);
+    }
   }
+};
+
+const onDragEnd = () => {
+  endDrag();
 };
 </script>

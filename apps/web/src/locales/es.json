@@ -1227,7 +1227,8 @@
       "walkers": "Caminantes",
       "servers": "Servidores",
       "snores": "Roncan",
-      "nonSnores": "No roncan"
+      "nonSnores": "No roncan",
+      "free": "Libres"
     },
     "ageFilter": {
       "all": "Todas las edades",

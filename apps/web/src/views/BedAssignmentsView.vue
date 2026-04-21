@@ -145,8 +145,8 @@
               @drop="onDropToUnassigned($event, 'server')"
               @dragover.prevent="onDragOverUnassigned($event, 'server')"
               @dragenter.prevent
-              @dragleave="isOverUnassignedServer = false"
-              class="p-1.5 bg-gray-50 dark:bg-gray-800 rounded border min-h-[40px] max-h-28 overflow-y-auto flex flex-wrap gap-1 transition-colors"
+              @dragleave="onDragLeaveUnassigned($event, 'server')"
+              class="p-1.5 bg-gray-50 dark:bg-gray-800 rounded border min-h-[40px] max-h-28 overflow-y-auto flex flex-wrap items-start gap-1 transition-colors"
               :class="{ 'border-primary bg-primary/10 border-dashed border-2': isOverUnassignedServer }"
             >
               <span
@@ -154,21 +154,16 @@
                 :key="server.id"
                 draggable="true"
                 @dragstart="startDrag($event, server)"
+                @dragend="handleDragEnd"
                 @touchstart.passive="tapTouchStart($event); onPillPressStart(server)"
                 @touchend="tapTouchEnd($event, server); onPillPressEnd()"
                 @touchcancel="onPillPressCancel"
-                @mousedown="onPillPressStart(server)"
-                @mouseup="onPillPressEnd"
-                @mouseleave="onPillPressCancel"
                 @click="onPillClickWithLongPress(server, $event)"
                 :title="`${server.firstName} ${server.lastName} (${calculateAge(server.birthDate)})`"
-                :style="{ borderColor: server.family_friend_color || 'transparent' }"
-                class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium cursor-pointer border-2 flex items-center gap-1 select-none transition-all"
-                :class="{ 'ring-2 ring-blue-500 ring-offset-1 scale-105': isTapSelected(server.id) }"
+                class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium cursor-pointer transition-all"
+                :class="{ 'ring-2 ring-blue-500 ring-offset-1 scale-110': isTapSelected(server.id) }"
               >
-                <span class="w-1.5 h-1.5 rounded-full" :class="server.snores ? 'bg-red-500' : 'bg-green-500'"></span>
-                {{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
-                <span class="text-[10px] opacity-75">{{ calculateAge(server.birthDate) }}</span>
+                <span class="inline-block w-1.5 h-1.5 rounded-full align-middle mr-1" :class="server.snores ? 'bg-red-500' : 'bg-green-500'"></span>{{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
               </span>
               <span v-if="unassignedServers.length === 0" class="text-gray-500 text-xs italic w-full text-center py-2">
                 {{ $t('bedAssignments.allServersAssigned') }}
@@ -182,8 +177,8 @@
               @drop="onDropToUnassigned($event, 'walker')"
               @dragover.prevent="onDragOverUnassigned($event, 'walker')"
               @dragenter.prevent
-              @dragleave="isOverUnassignedWalker = false"
-              class="p-1.5 bg-gray-50 dark:bg-gray-800 rounded border min-h-[40px] max-h-28 overflow-y-auto flex flex-wrap gap-1 transition-colors"
+              @dragleave="onDragLeaveUnassigned($event, 'walker')"
+              class="p-1.5 bg-gray-50 dark:bg-gray-800 rounded border min-h-[40px] max-h-28 overflow-y-auto flex flex-wrap items-start gap-1 transition-colors"
               :class="{ 'border-primary bg-primary/10 border-dashed border-2': isOverUnassignedWalker }"
             >
               <span
@@ -191,21 +186,16 @@
                 :key="walker.id"
                 draggable="true"
                 @dragstart="startDrag($event, walker)"
+                @dragend="handleDragEnd"
                 @touchstart.passive="tapTouchStart($event); onPillPressStart(walker)"
                 @touchend="tapTouchEnd($event, walker); onPillPressEnd()"
                 @touchcancel="onPillPressCancel"
-                @mousedown="onPillPressStart(walker)"
-                @mouseup="onPillPressEnd"
-                @mouseleave="onPillPressCancel"
                 @click="onPillClickWithLongPress(walker, $event)"
                 :title="`${walker.firstName} ${walker.lastName} (${calculateAge(walker.birthDate)})`"
-                :style="{ borderColor: walker.family_friend_color || 'transparent' }"
-                class="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium cursor-pointer border-2 flex items-center gap-1 select-none transition-all"
-                :class="{ 'ring-2 ring-green-500 ring-offset-1 scale-105': isTapSelected(walker.id) }"
+                class="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium cursor-pointer transition-all"
+                :class="{ 'ring-2 ring-green-500 ring-offset-1 scale-110': isTapSelected(walker.id) }"
               >
-                <span class="w-1.5 h-1.5 rounded-full" :class="walker.snores ? 'bg-red-500' : 'bg-green-500'"></span>
-                {{ walker.id_on_retreat || '?' }} {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
-                <span class="text-[10px] opacity-75">{{ calculateAge(walker.birthDate) }}</span>
+                <span class="inline-block w-1.5 h-1.5 rounded-full align-middle mr-1" :class="walker.snores ? 'bg-red-500' : 'bg-green-500'"></span><span class="font-bold px-1 rounded" :style="walker.family_friend_color ? { backgroundColor: walker.family_friend_color, color: '#000' } : {}">{{ walker.id_on_retreat || '' }}</span> {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
               </span>
               <span v-if="unassignedWalkers.length === 0" class="text-gray-500 text-xs italic w-full text-center py-2">
                 {{ $t('bedAssignments.allWalkersAssigned') }}
@@ -218,24 +208,18 @@
         <!-- Mobile: tab content (hidden on md+) -->
         <div class="md:hidden">
           <div v-show="unassignedTab === 'server'">
-            <div class="p-1.5 bg-gray-50 dark:bg-gray-800 rounded border min-h-[40px] max-h-32 overflow-y-auto flex flex-wrap gap-1">
+            <div class="p-1.5 bg-gray-50 dark:bg-gray-800 rounded border min-h-[40px] max-h-32 overflow-y-auto flex flex-wrap items-start gap-1">
               <span
                 v-for="server in unassignedServers"
                 :key="server.id"
                 @touchstart.passive="tapTouchStart($event); onPillPressStart(server)"
                 @touchend="tapTouchEnd($event, server); onPillPressEnd()"
                 @touchcancel="onPillPressCancel"
-                @mousedown="onPillPressStart(server)"
-                @mouseup="onPillPressEnd"
-                @mouseleave="onPillPressCancel"
                 @click="onPillClickWithLongPress(server, $event)"
-                :style="{ borderColor: server.family_friend_color || 'transparent' }"
-                class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium cursor-pointer border-2 flex items-center gap-1 select-none transition-all"
-                :class="{ 'ring-2 ring-blue-500 ring-offset-1 scale-105': isTapSelected(server.id) }"
+                class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium cursor-pointer transition-all"
+                :class="{ 'ring-2 ring-blue-500 ring-offset-1 scale-110': isTapSelected(server.id) }"
               >
-                <span class="w-1.5 h-1.5 rounded-full" :class="server.snores ? 'bg-red-500' : 'bg-green-500'"></span>
-                {{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
-                <span class="text-[10px] opacity-75">{{ calculateAge(server.birthDate) }}</span>
+                <span class="inline-block w-1.5 h-1.5 rounded-full align-middle mr-1" :class="server.snores ? 'bg-red-500' : 'bg-green-500'"></span>{{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
               </span>
               <span v-if="unassignedServers.length === 0" class="text-gray-500 text-xs italic w-full text-center py-2">
                 {{ $t('bedAssignments.allServersAssigned') }}
@@ -243,24 +227,18 @@
             </div>
           </div>
           <div v-show="unassignedTab === 'walker'">
-            <div class="p-1.5 bg-gray-50 dark:bg-gray-800 rounded border min-h-[40px] max-h-32 overflow-y-auto flex flex-wrap gap-1">
+            <div class="p-1.5 bg-gray-50 dark:bg-gray-800 rounded border min-h-[40px] max-h-32 overflow-y-auto flex flex-wrap items-start gap-1">
               <span
                 v-for="walker in unassignedWalkers"
                 :key="walker.id"
                 @touchstart.passive="tapTouchStart($event); onPillPressStart(walker)"
                 @touchend="tapTouchEnd($event, walker); onPillPressEnd()"
                 @touchcancel="onPillPressCancel"
-                @mousedown="onPillPressStart(walker)"
-                @mouseup="onPillPressEnd"
-                @mouseleave="onPillPressCancel"
                 @click="onPillClickWithLongPress(walker, $event)"
-                :style="{ borderColor: walker.family_friend_color || 'transparent' }"
-                class="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium cursor-pointer border-2 flex items-center gap-1 select-none transition-all"
-                :class="{ 'ring-2 ring-green-500 ring-offset-1 scale-105': isTapSelected(walker.id) }"
+                class="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium cursor-pointer transition-all"
+                :class="{ 'ring-2 ring-green-500 ring-offset-1 scale-110': isTapSelected(walker.id) }"
               >
-                <span class="w-1.5 h-1.5 rounded-full" :class="walker.snores ? 'bg-red-500' : 'bg-green-500'"></span>
-                {{ walker.id_on_retreat || '?' }} {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
-                <span class="text-[10px] opacity-75">{{ calculateAge(walker.birthDate) }}</span>
+                <span class="inline-block w-1.5 h-1.5 rounded-full align-middle mr-1" :class="walker.snores ? 'bg-red-500' : 'bg-green-500'"></span><span class="font-bold px-1 rounded" :style="walker.family_friend_color ? { backgroundColor: walker.family_friend_color, color: '#000' } : {}">{{ walker.id_on_retreat || '' }}</span> {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
               </span>
               <span v-if="unassignedWalkers.length === 0" class="text-gray-500 text-xs italic w-full text-center py-2">
                 {{ $t('bedAssignments.allWalkersAssigned') }}
@@ -296,6 +274,7 @@
             <option value="servers">{{ $t('bedAssignments.participantFilter.servers') }}</option>
             <option value="snores">{{ $t('bedAssignments.participantFilter.snores') }}</option>
             <option value="nonSnores">{{ $t('bedAssignments.participantFilter.nonSnores') }}</option>
+            <option value="free">{{ $t('bedAssignments.participantFilter.free') }}</option>
           </select>
         </div>
       </div>
@@ -590,6 +569,7 @@ import { BedDouble, Home, Search, X, Layers, MoreVertical } from 'lucide-vue-nex
 import type { RetreatBed, Participant } from '@repo/types';
 import { useI18n } from 'vue-i18n';
 import { useTapAssign } from '@/composables/useTapAssign';
+import { useDragState } from '@/composables/useDragState';
 import {
   sortUnassigned as sortUnassignedUtil,
   filterUnassignedBySearch as filterUnassignedBySearchUtil,
@@ -613,6 +593,8 @@ const {
   isSelected: isTapSelected,
   clearSelection: clearTap,
 } = useTapAssign();
+
+const { draggedParticipantType, startDrag: startDragState, endDrag } = useDragState();
 
 const beds = ref<RetreatBed[]>([]);
 const loading = ref(false);
@@ -794,7 +776,7 @@ const onBedTap = async (bedId: string) => {
 // Search states
 const searchQuery = ref('');
 const searchType = ref<'all' | 'participants' | 'beds'>('all');
-const participantFilter = ref<'all' | 'walkers' | 'servers' | 'snores' | 'nonSnores'>('all');
+const participantFilter = ref<'all' | 'walkers' | 'servers' | 'snores' | 'nonSnores' | 'free'>('all');
 const ageFilter = ref<'all' | 'under40' | '40to55' | '56to65' | 'over65'>('all');
 
 const calculateAge = (birthDate: string | Date): number | null => {
@@ -892,6 +874,9 @@ const filteredBeds = computed(() => {
   // Apply participant filter
   if (participantFilter.value !== 'all') {
     filtered = filtered.filter(bed => {
+      if (participantFilter.value === 'free') {
+        return !bed.participant && bed.isActive !== false;
+      }
       if (!bed.participant) return false;
 
       switch (participantFilter.value) {
@@ -1001,6 +986,9 @@ const groupedFilteredBedsByRoomAndFloor = computed(() => {
 
 // Drag and drop functions
 const startDrag = (event: DragEvent, participant: Participant) => {
+  // Cancel long-press preview timer: on Mac the native drag takes >550ms to fire,
+  // and the preview dialog would otherwise pop up and block the drag.
+  onPillPressCancel();
   if (event.dataTransfer) {
     event.dataTransfer.dropEffect = 'move';
     event.dataTransfer.effectAllowed = 'move';
@@ -1008,19 +996,37 @@ const startDrag = (event: DragEvent, participant: Participant) => {
       ...participant,
       sourceBedId: beds.value.find(b => b.participantId === participant.id)?.id
     }));
+    if (participant.type === 'walker' || participant.type === 'server') {
+      startDragState(participant.type);
+    }
   }
 };
 
-const onDragOverUnassigned = (event: DragEvent, participantType: 'server' | 'walker') => {
-  const participantData = event.dataTransfer?.getData('application/json');
-  if (!participantData) return;
+const handleDragEnd = () => {
+  endDrag();
+  isOverUnassignedServer.value = false;
+  isOverUnassignedWalker.value = false;
+  isOverBed.value = null;
+};
 
-  const participant = JSON.parse(participantData);
-
-  if (participantType === 'server' && participant.type === 'server') {
+const onDragOverUnassigned = (_event: DragEvent, participantType: 'server' | 'walker') => {
+  // dataTransfer.getData() is blocked in dragover events (Safari strict).
+  // Read the reactive draggedParticipantType instead.
+  if (!draggedParticipantType.value) return;
+  if (participantType === 'server' && draggedParticipantType.value === 'server') {
     isOverUnassignedServer.value = true;
-  } else if (participantType === 'walker' && participant.type === 'walker') {
+  } else if (participantType === 'walker' && draggedParticipantType.value === 'walker') {
     isOverUnassignedWalker.value = true;
+  }
+};
+
+const onDragLeaveUnassigned = (event: DragEvent, participantType: 'server' | 'walker') => {
+  // Only clear highlight if pointer truly left the zone, not when it entered a child.
+  const target = event.currentTarget as HTMLElement;
+  const relatedTarget = event.relatedTarget as HTMLElement | null;
+  if (!relatedTarget || !target.contains(relatedTarget)) {
+    if (participantType === 'server') isOverUnassignedServer.value = false;
+    else isOverUnassignedWalker.value = false;
   }
 };
 
@@ -1047,8 +1053,14 @@ const onDragOverBed = (event: DragEvent, bedId: string) => {
   isOverBed.value = bedId;
 };
 
-const onDragLeaveBed = () => {
-  isOverBed.value = null;
+const onDragLeaveBed = (event: DragEvent, bedId: string) => {
+  // Avoid flicker when the pointer moves over a child element of the bed card.
+  const target = event.currentTarget as HTMLElement | null;
+  const relatedTarget = event.relatedTarget as HTMLElement | null;
+  if (target && relatedTarget && target.contains(relatedTarget)) return;
+  if (isOverBed.value === bedId) {
+    isOverBed.value = null;
+  }
 };
 
 const onDropToBed = async (event: DragEvent, bedId: string) => {
@@ -1257,7 +1269,8 @@ const getFilterLabel = () => {
     walkers: t('bedAssignments.participantFilter.walkers'),
     servers: t('bedAssignments.participantFilter.servers'),
     snores: t('bedAssignments.participantFilter.snores'),
-    nonSnores: t('bedAssignments.participantFilter.nonSnores')
+    nonSnores: t('bedAssignments.participantFilter.nonSnores'),
+    free: t('bedAssignments.participantFilter.free')
   };
   if (participantLabels[participantFilter.value]) {
     parts.push(participantLabels[participantFilter.value]);

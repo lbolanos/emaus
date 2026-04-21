@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useTapAssign } from '../useTapAssign';
 
 // Helper to build a fake TouchEvent; happy-dom supports it well enough for our needs.
-const makeTouchEvent = (type: string): TouchEvent => {
-	const e = new Event(type) as any;
+const makeTouchEvent = (type: string, cancelable = true): TouchEvent => {
+	const e = new Event(type, { cancelable }) as any;
 	// stopPropagation is used by onTouchEnd — make sure it exists as a noop.
 	e.stopPropagation = () => {};
 	return e as TouchEvent;
@@ -98,5 +98,32 @@ describe('useTapAssign', () => {
 		a.onTouchStart(makeTouchEvent('touchstart'));
 		a.onTouchEnd(makeTouchEvent('touchend'), makeParticipant('1'));
 		expect(b.tappedParticipant.value?.id).toBe('1');
+	});
+
+	it('onTouchEnd calls preventDefault when tap is processed (suppresses synthetic click)', () => {
+		const { onTouchStart, onTouchEnd } = useTapAssign();
+		onTouchStart(makeTouchEvent('touchstart'));
+		const e = makeTouchEvent('touchend');
+		onTouchEnd(e, makeParticipant('1'));
+		// Mobile browsers fire a synthetic click ~300ms after touchend; calling
+		// preventDefault in the handler is the standard way to suppress it.
+		// Without this, the @click handler would immediately toggle the selection off.
+		expect(e.defaultPrevented).toBe(true);
+	});
+
+	it('onTouchEnd does NOT preventDefault when the tap window elapsed (lets click fallback run)', () => {
+		const { onTouchStart, onTouchEnd } = useTapAssign();
+		onTouchStart(makeTouchEvent('touchstart'));
+		// Age the touchStartTime past the 800ms window by spying on Date.now.
+		const realNow = Date.now;
+		const origin = realNow();
+		(Date as any).now = () => origin + 2000;
+		try {
+			const e = makeTouchEvent('touchend');
+			onTouchEnd(e, makeParticipant('1'));
+			expect(e.defaultPrevented).toBe(false);
+		} finally {
+			(Date as any).now = realNow;
+		}
 	});
 });

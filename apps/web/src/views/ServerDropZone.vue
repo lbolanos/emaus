@@ -26,6 +26,7 @@
               draggable="true"
               @dragstart.stop="$emit('dragstart', $event, participant)"
               @dragend.stop="$emit('dragend', $event)"
+              @dblclick.stop="$emit('unassign')"
               class="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-sm font-medium inline-block cursor-pointer transition-all"
               :class="{ 'ring-2 ring-blue-500 ring-offset-1 scale-110': participant && isSelected(participant.id) }"
             >
@@ -78,5 +79,5 @@ defineProps({
 
 const { onTouchStart, onTouchEnd, isSelected } = useTapAssign();
 
-defineEmits(['drop', 'dragover', 'dragleave', 'dragstart', 'dragend']);
+defineEmits(['drop', 'dragover', 'dragleave', 'dragstart', 'dragend', 'unassign']);
 </script>
