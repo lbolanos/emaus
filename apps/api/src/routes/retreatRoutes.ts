@@ -8,6 +8,7 @@ import {
 	getRetreatBySlugPublic,
 	checkSlugAvailability,
 	getPublicRetreats,
+	getActiveRetreats,
 	exportRoomLabelsToDocx,
 	exportBadgesToDocx,
 	uploadRetreatMemoryPhoto,
@@ -27,6 +28,10 @@ router.get('/public', getPublicRetreats);
 router.get('/public/slug/:slug', getRetreatBySlugPublic);
 router.get('/public/slug-available/:slug', checkSlugAvailability);
 router.get('/public/:id', getRetreatByIdPublic);
+
+// Public route used by the AWS Lambda auto-stop scheduler to know whether
+// a retreat is currently running (±1 day buffer) and the instance must stay up.
+router.get('/active', getActiveRetreats);
 
 // Authenticated routes
 router.use(isAuthenticated);

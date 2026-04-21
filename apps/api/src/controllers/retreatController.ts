@@ -55,6 +55,16 @@ export const getPublicRetreats = async (req: Request, res: Response, next: NextF
 	}
 };
 
+export const getActiveRetreats = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { findActiveRetreats } = await import('../services/retreatService');
+		const retreats = await findActiveRetreats();
+		res.json({ active: retreats.length > 0, retreats });
+	} catch (error) {
+		next(error);
+	}
+};
+
 export const getRetreatByIdPublic = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const retreat = await findById(req.params.id);

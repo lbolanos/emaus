@@ -496,7 +496,10 @@ las impresiones de badges no doble cara deben ser solo caminantes porque van par
 una forma de recepccion pueda saber que caminantes hacen falta
 minuto a minutos
 horarios de santisimo
-
+no se ve la mesa en algunos usuarios en reporte de bolsas
+un check en reporte de bolsas que se realizo la bolsa
+agregar lectura de mesa y pago a perfil comunicaciones
+imprimir datos de la mesa con telefono y correo
 
 
 create a migration script just for testing red social. is not for production. create users, retreats, communities, houses, participants, messages, friends, followers, blocks, searches, avatars, and messages.
@@ -513,7 +516,7 @@ agregar todas las actividades por servidor
 
 
 ## TODO
-
+si no esta al 100% los gafetes recorta esto le paso a pepe toño mac
 cuando estoy creando o editando la casa de retiro y agrego las habitaciones me da problemas para adicionar una sola habitacion cuando ya esta creado. cuando selecciono una cama deberia cambiar el Configurar próxima cama:  asi si le doy nueva cama crea la siguiente de esa habitacion y nueva habitacion la siguiente de ese piso que no este creada
 cuando en operaciones masivas agrego la etiqueta no se si se guarda .  guardar el sector de las habitaciones que se guardan con masivo y mostrarlo en el mapa de habitaciones.
 cuando ya esta el retiro por empezar modificar las camas para servidores.  es decir si sobraron camas de caminantes modificar que puedan ser para servidores sin modificar la estructura de la casa de retiro.  solamente para el retiro en curso.
