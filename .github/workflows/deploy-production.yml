@@ -90,11 +90,16 @@ jobs:
           echo "Cleaning old web assets on server..."
           ssh -i ~/.ssh/emaus-key.pem ubuntu@$LIGHTSAIL_HOST << 'CLEANEOF'
           set -e
-          # Ensure dist dirs exist and deploy user owns them (fresh Lightsail
-          # host has /var/www/emaus/apps/*/dist owned by www-data, blocking
-          # non-sudo mkdir/rm below).
+          # Fresh Lightsail host has /var/www/emaus owned by www-data
+          # (setup-aws.sh default). Give ubuntu write access to the top-level
+          # + dist dirs + root config files we scp into. File mode stays 644,
+          # so nginx (www-data) can still read everything.
           sudo mkdir -p /var/www/emaus/apps/web/dist /var/www/emaus/apps/api/dist
+          sudo chown ubuntu:ubuntu /var/www/emaus
           sudo chown -R ubuntu:ubuntu /var/www/emaus/apps/web/dist /var/www/emaus/apps/api/dist
+          for f in package.json pnpm-lock.yaml pnpm-workspace.yaml; do
+            [ -e "/var/www/emaus/$f" ] && sudo chown ubuntu:ubuntu "/var/www/emaus/$f" || true
+          done
 
           ASSETS_DIR="/var/www/emaus/apps/web/dist/assets"
           if [ -d "$ASSETS_DIR" ]; then
