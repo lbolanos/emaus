@@ -213,6 +213,46 @@ futuras migraciones de host:
 - [ ] Tokens de monitoreo (Datadog, New Relic, UptimeRobot)
 - [ ] Registros A/AAAA hardcoded en clientes móviles o apps externas
 
+### 11. Proceso huérfano ocupando `:3001` tras deploys manuales
+
+Tras el primer deploy manual al Lightsail (2026-04-21 06:23), el proceso
+`node dist/index.js` (PID 9460, UID root) quedó corriendo fuera de
+supervisión de PM2: escuchaba en `*:3001` y servía todo el tráfico.
+PM2 por su lado intentaba levantar su propio `emaus-api` cada ~10s y
+crashaba con:
+
+```
+Error: listen EADDRINUSE: address already in use :::3001
+```
+
+Los usuarios no veían nada raro (el huérfano servía bien), pero:
+
+- PM2 acumulaba restarts sin tregua (6313 en ~17 h)
+- `pm2 restart emaus-api` no tenía efecto — el código nuevo nunca corría
+- El próximo deploy (manual o por CI) reproduciría el mismo problema
+
+**Diagnóstico**:
+```bash
+ssh ubuntu@<lightsail-ip>
+sudo ss -tlnp | grep 3001    # qué PID tiene el puerto
+sudo pm2 jlist               # qué PID cree PM2 que supervisa
+# Si no coinciden → proceso huérfano
+```
+
+**Fix** (2026-04-21 22:52):
+```bash
+# Matar huérfano; PM2 levanta el nuevo automáticamente en <10s
+sudo kill -TERM <pid-huérfano>
+sleep 8
+sudo pm2 status emaus-api    # esperar status=online, uptime corto
+```
+
+**Prevención**: deploys siempre vía `pm2 restart emaus-api`
+(nunca `node dist/index.js &` ni `nohup`). El workflow
+`deploy-production.yml` ya hace lo correcto. Si hace falta un hotfix
+manual urgente, validar después con `sudo ss -tlnp | grep 3001` que el
+PID coincida con el de `pm2 jlist`.
+
 ## Runbook — operaciones comunes
 
 ### Ver logs del API
