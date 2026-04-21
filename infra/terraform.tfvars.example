@@ -1,0 +1,19 @@
+region            = "us-east-2"
+aws_profile       = "emaus"
+instance_name     = "emaus-prod"
+retreat_check_url = "https://emaus.cc/api/retreats/active"
+timezone          = "America/Mexico_City"
+stop_cron         = "cron(0 23 ? * MON-FRI *)"
+start_cron        = "cron(0 7 ? * MON-FRI *)"
+
+# Lightsail
+lightsail_availability_zone = "us-east-2a"
+lightsail_bundle_id         = "micro_3_0"
+lightsail_blueprint_id      = "ubuntu_22_04"
+s3_media_bucket             = "emaus-media"
+
+# Cloudflare
+cloudflare_account_id = "CHANGE_ME"            # dashboard.cloudflare.com, right sidebar
+cloudflare_zone_id    = "76f81f5e48b75a90923775f24880309f"
+cloudflare_api_token  = "CHANGE_ME"            # create with: Workers Scripts:Edit, Workers Routes:Edit, Zone:DNS:Read
+domain                = "emaus.cc"
