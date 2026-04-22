@@ -27,6 +27,15 @@
             <component :is="copyIcon" class="w-4 h-4" />
             {{ copyLabel }}
           </button>
+          <button
+            @click="handleDownloadPdf(); showMenu = false"
+            :disabled="isDownloadingPdf"
+            class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <Loader2 v-if="isDownloadingPdf" class="w-4 h-4 animate-spin" />
+            <FileDown v-else class="w-4 h-4" />
+            {{ isDownloadingPdf ? t('retreatFlyer.exportingPdf') : t('retreatFlyer.exportPdf') }}
+          </button>
         </div>
       </div>
     </div>
@@ -347,7 +356,9 @@ import {
   EllipsisVertical,
   Copy,
   Check,
-  Mail
+  Mail,
+  FileDown,
+  Loader2
 } from 'lucide-vue-next';
 import QrcodeVue from 'qrcode.vue';
 import DOMPurify from 'dompurify';
@@ -865,6 +876,79 @@ const handleCopyToClipboard = async () => {
     }
   } catch (err) {
     console.error('Failed to copy flyer to clipboard', err);
+  }
+};
+
+// Export flyer as PDF (client-side: html-to-image + jsPDF)
+const isDownloadingPdf = ref(false);
+
+const handleDownloadPdf = async () => {
+  const el = document.getElementById('printable-area');
+  if (!el) return;
+  isDownloadingPdf.value = true;
+  try {
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
+    }
+
+    const { toPng } = await import('html-to-image');
+    const { default: jsPDF } = await import('jspdf');
+
+    const dataUrl = await toPng(el, {
+      pixelRatio: 2,
+      cacheBust: true,
+      fetchRequestInit: { mode: 'cors' },
+    });
+
+    const img = new Image();
+    img.src = dataUrl;
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('Failed to decode flyer image'));
+    });
+
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageWidthMm = pdf.internal.pageSize.getWidth();
+    const pageHeightMm = pdf.internal.pageSize.getHeight();
+    const ratio = img.height / img.width;
+    const targetWidthMm = pageWidthMm;
+    const targetHeightMm = targetWidthMm * ratio;
+
+    if (targetHeightMm <= pageHeightMm) {
+      pdf.addImage(dataUrl, 'PNG', 0, 0, targetWidthMm, targetHeightMm);
+    } else {
+      // Multi-page: slice the image vertically so each page fills A4 height
+      const pageHeightPx = Math.floor((pageHeightMm / targetWidthMm) * img.width);
+      let yPx = 0;
+      let firstPage = true;
+      while (yPx < img.height) {
+        const sliceHeightPx = Math.min(pageHeightPx, img.height - yPx);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = sliceHeightPx;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Canvas 2D context unavailable');
+        ctx.drawImage(img, 0, -yPx);
+        const sliceDataUrl = canvas.toDataURL('image/png');
+        const sliceHeightMm = (sliceHeightPx / img.width) * targetWidthMm;
+        if (!firstPage) pdf.addPage();
+        pdf.addImage(sliceDataUrl, 'PNG', 0, 0, targetWidthMm, sliceHeightMm);
+        firstPage = false;
+        yPx += sliceHeightPx;
+      }
+    }
+
+    const parishSlug = (retreatParish.value || 'retiro').toString();
+    const numberSlug = retreatNumber.value ? `-${retreatNumber.value}` : '';
+    const filename = `flyer-${parishSlug}${numberSlug}.pdf`
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9.-]/g, '');
+    pdf.save(filename);
+  } catch (err) {
+    console.error('Failed to export flyer as PDF', err);
+  } finally {
+    isDownloadingPdf.value = false;
   }
 };
 

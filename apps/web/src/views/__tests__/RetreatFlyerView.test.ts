@@ -93,6 +93,7 @@ vi.mock('lucide-vue-next', () => ({
 	Copy: { name: 'Copy', template: '<svg></svg>' },
 	Check: { name: 'Check', template: '<svg></svg>' },
 	Mail: { name: 'Mail', template: '<svg></svg>' },
+	FileDown: { name: 'FileDown', template: '<svg></svg>' },
 }));
 
 import RetreatFlyerView from '../RetreatFlyerView.vue';
