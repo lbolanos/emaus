@@ -5,14 +5,19 @@ migración a AWS Lightsail (2026-04-21 cutover).
 
 ## 🔴 Urgente — esta semana
 
-- [ ] **2026-04-25 (vie)** — Terminar EC2 `i-011986d465e7c8f53` y liberar EIP
-  - Ahorro: ~$6.25/mes en legacy
+- [x] **2026-04-21** — ~~EIP liberada~~ ✓ `eipalloc-0c926bec959d0098a` (3.138.49.105)
+  released. Ahorra ~$3.60/mes que AWS cobra por EIP en instancia stopped. Rollback
+  sigue viable — se obtendría un EIP nuevo (IP distinta) y se apuntaría Cloudflare.
+- [x] **2026-04-21** — ~~Cloudflare edge security~~ ✓ Bot Fight Mode + rate limit
+  en `/api/auth/*` + Web Analytics. Documentado en
+  [`CLOUDFLARE_SECURITY.md`](./CLOUDFLARE_SECURITY.md). Aplicado por API, luego
+  importado al state de Terraform — `terraform plan` devuelve No changes.
+- [ ] **2026-04-25 (vie)** — Terminar EC2 `i-011986d465e7c8f53`
+  - Ahorro restante: ~$0.80/mes (EBS root 8 GB)
   - Solo si Lightsail siguió estable lunes-viernes
-  - Comandos:
+  - Comando:
     ```bash
     aws ec2 terminate-instances --instance-ids i-011986d465e7c8f53 \
-      --region us-east-2 --profile emaus
-    aws ec2 release-address --allocation-id eipalloc-0c926bec959d0098a \
       --region us-east-2 --profile emaus
     ```
   - Verificar: `aws ec2 describe-instances --instance-ids i-011986d465e7c8f53 --region us-east-2 --profile emaus --query 'Reservations[].Instances[].State.Name'` → `terminated`
