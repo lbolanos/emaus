@@ -196,6 +196,9 @@ DB_DATABASE=/var/www/emaus/apps/api/database.sqlite
 NODE_ENV=production
 PORT=3001
 FRONTEND_URL=https://emaus.cc
+# IANA timezone used for calendar-absolute comparisons (e.g. whether a
+# retreat is past). Default if unset: America/Mexico_City.
+APP_TIMEZONE=America/Mexico_City
 ```
 
 **Web Variables:**
