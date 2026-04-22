@@ -129,19 +129,23 @@ jobs:
             echo "Warning: Web dist not found"
           fi
 
-          # Upload package.json files and lockfile so pnpm install picks up new dependencies
-          echo "Syncing package.json and lockfile..."
-          scp -i ~/.ssh/lightsail-emaus.pem ./build-output/api/package.json ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/api/package.json 2>/dev/null || \
-          scp -i ~/.ssh/lightsail-emaus.pem ./build-output/apps/api/package.json ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/api/package.json 2>/dev/null || \
-          echo "Warning: API package.json not found in artifacts"
-          scp -i ~/.ssh/lightsail-emaus.pem ./build-output/web/package.json ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/package.json 2>/dev/null || \
-          scp -i ~/.ssh/lightsail-emaus.pem ./build-output/apps/web/package.json ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/package.json 2>/dev/null || \
-          echo "Warning: Web package.json not found in artifacts"
-
-          # Upload root package.json and lockfile from checkout
+          # Upload package.json files and lockfile so pnpm install picks up new deps.
+          # Source them from the runner's checkout (always current) rather than the
+          # build artifact, which historically didn't package them and left the
+          # server with stale per-app manifests while the root lockfile advanced —
+          # tripping ERR_PNPM_OUTDATED_LOCKFILE on frozen-lockfile installs.
+          echo "Syncing package.json files and lockfile from checkout..."
+          scp -i ~/.ssh/lightsail-emaus.pem apps/api/package.json ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/api/package.json
+          scp -i ~/.ssh/lightsail-emaus.pem apps/web/package.json ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/package.json
           scp -i ~/.ssh/lightsail-emaus.pem package.json ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/package.json
           scp -i ~/.ssh/lightsail-emaus.pem pnpm-lock.yaml ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/pnpm-lock.yaml
           scp -i ~/.ssh/lightsail-emaus.pem pnpm-workspace.yaml ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/pnpm-workspace.yaml
+          # Workspace packages too, so workspace:* deps resolve after install.
+          for pkg in packages/*/; do
+            [ -f "$pkg/package.json" ] || continue
+            ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@$LIGHTSAIL_HOST "mkdir -p /var/www/emaus/$pkg"
+            scp -i ~/.ssh/lightsail-emaus.pem "$pkg/package.json" "ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/$pkg/package.json"
+          done
 
           # Generate runtime-config.js with secrets and upload it
           echo "Generating runtime-config.js..."
