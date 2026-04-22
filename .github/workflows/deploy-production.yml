@@ -203,11 +203,21 @@ jobs:
 
           # Deploy, restart, and validate application
           ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@$LIGHTSAIL_HOST << 'RESTARTEOF'
-          set -e
+          set -eo pipefail
           cd /var/www/emaus
 
+          # pnpm install --frozen-lockfile may need to rewrite files inside
+          # node_modules (e.g. `.modules.yaml`). If any file there is owned
+          # by root (from a prior sudo operation or initial bootstrap),
+          # pnpm aborts with EACCES and the remaining heredoc silently dies,
+          # leaving the stale API running. Chown defensively.
+          echo "Chowning workspace dirs for pnpm..."
+          sudo chown -R ubuntu:ubuntu /var/www/emaus/node_modules 2>/dev/null || true
+          sudo chown -R ubuntu:ubuntu /var/www/emaus/apps/*/node_modules 2>/dev/null || true
+          sudo chown -R ubuntu:ubuntu /var/www/emaus/packages/*/node_modules 2>/dev/null || true
+
           echo "Installing dependencies..."
-          pnpm install --frozen-lockfile 2>&1 | tail -10
+          pnpm install --frozen-lockfile 2>&1 | tail -20
 
           echo "Running migrations..."
           pnpm --filter api migration:run 2>&1 | tail -5 || echo "Migrations skipped"
