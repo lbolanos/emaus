@@ -1,3 +1,10 @@
+> ⚠️ **OBSOLETO (pre-2026-04-21)** — Hacía referencia a **AWS EC2**. El
+> procedimiento sigue siendo válido contra Lightsail si actualizas las
+> variables (`SSH_KEY=~/.ssh/lightsail-emaus.pem`, `HOST=emaus.cc`). Ver
+> [`infra/README.md`](../infra/README.md).
+
+---
+
 # Manual Deployment Guide
 
 This guide explains how to deploy manually when GitHub Actions is unavailable.

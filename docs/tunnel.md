@@ -1,17 +1,17 @@
 # SSH Tunnel for Local Development
 
-Expose your local dev servers to the internet via the AWS EC2 server, replacing ngrok.
+Expose your local dev servers to the internet via the AWS Lightsail server, replacing ngrok.
 
 ## How It Works
 
 ```
-Phone/Browser                 AWS EC2 (emaus.cc)              Your Machine (WSL)
+Phone/Browser                 Lightsail (emaus.cc)             Your Machine (WSL)
 ─────────────────           ──────────────────────           ──────────────────
 http://emaus.cc:8080  ───►  SSH reverse tunnel :8080  ───►  Vite (localhost:5173)
 http://emaus.cc:8081  ───►  SSH reverse tunnel :8081  ───►  API  (localhost:3001)
 ```
 
-An SSH reverse tunnel binds ports on the remote server and forwards traffic back to your local machine through the SSH connection. The EC2 server acts as a public relay — it doesn't run any app code, it just pipes bytes between the internet and your localhost.
+An SSH reverse tunnel binds ports on the remote server and forwards traffic back to your local machine through the SSH connection. The Lightsail server acts as a public relay — it doesn't run any app code, it just pipes bytes between the internet and your localhost.
 
 ## Quick Start
 
@@ -38,20 +38,22 @@ pnpm tunnel:stop
 | `pnpm tunnel:stop` | `scripts/tunnel-stop.sh` | Stop all running tunnels |
 | `pnpm tunnel:setup` | `scripts/tunnel-setup.sh` | One-time server config (GatewayPorts + UFW) |
 
+Override defaults with env vars: `HOST=other.host USER=ubuntu KEY=~/.ssh/other.pem pnpm tunnel`.
+
 ## Prerequisites
 
-- SSH key at `~/.ssh/emaus-key.pem`
+- SSH key at `~/.ssh/lightsail-emaus.pem`
 - Dev servers running (`pnpm dev`)
-- AWS Security Group `emaus-sg` must allow inbound TCP on ports 8080 and 8081 (already configured)
+- Lightsail instance port rules must allow inbound TCP on ports 8080 and 8081 (see `infra/lightsail.tf`)
 - UFW on the server must allow ports 8080 and 8081 (run `pnpm tunnel:setup` once)
 
 ## Server Details
 
-- **Host**: `3.138.49.105` (emaus.cc)
+- **Host**: `18.116.102.104` (Lightsail static IP — **no usar `emaus.cc`** porque Cloudflare proxy bloquea el puerto 22)
 - **User**: `ubuntu`
-- **Key**: `~/.ssh/emaus-key.pem`
+- **Key**: `~/.ssh/lightsail-emaus.pem`
 - **Region**: us-east-2
-- **Security Group**: sg-0dc2e8cadc178e670 (`emaus-sg`)
+- **Instance**: `emaus-prod` (bundle `micro_3_0`)
 
 ## How the Vite Proxy Handles It
 
@@ -81,10 +83,10 @@ The tunnel script uses it automatically when available, otherwise falls back to 
 
 ### Check if tunnel is running
 ```bash
-pgrep -f "ssh.*3.138.49.105"
+pgrep -f "ssh.*18.116.102.104"
 ```
 
 ### Check remote ports
 ```bash
-ssh -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105 "ss -tlnp | grep -E '808[01]'"
+ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104 "ss -tlnp | grep -E '808[01]'"
 ```

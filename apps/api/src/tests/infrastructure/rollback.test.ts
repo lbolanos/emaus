@@ -106,7 +106,7 @@ describe('Production Rollback Mechanism', () => {
 
 		it('should check for SSH key existence', () => {
 			expect(rollbackScript).toContain('SSH_KEY=');
-			expect(rollbackScript).toContain('emaus-key.pem');
+			expect(rollbackScript).toContain('lightsail-emaus.pem');
 			expect(rollbackScript).toMatch(/if \[.*-f.*SSH_KEY/);
 		});
 

@@ -110,9 +110,5 @@
     "better-auth",
     "next-devtools",
     "chrome-devtools"
-  ],
-  "statusLine": {
-    "type": "command",
-    "command": "~/emaus/scripts/statusline.sh"
-  }
+  ]
 }

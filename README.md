@@ -136,12 +136,12 @@ This project uses GitHub Actions to automatically deploy to AWS EC2 when code is
 
 Before first deployment, configure GitHub Secrets:
 
-| Secret                | Purpose                       |
-| --------------------- | ----------------------------- |
-| `EC2_HOST`            | EC2 instance IP or domain     |
-| `EC2_USER`            | SSH username (ubuntu)         |
-| `EC2_SSH_PRIVATE_KEY` | SSH private key file contents |
-| `DOMAIN_NAME`         | Domain name (emaus.cc)        |
+| Secret                       | Purpose                         |
+| ---------------------------- | ------------------------------- |
+| `LIGHTSAIL_HOST`             | Lightsail static IP or domain   |
+| `LIGHTSAIL_USER`             | SSH username (ubuntu)           |
+| `LIGHTSAIL_SSH_PRIVATE_KEY`  | SSH private key file contents   |
+| `DOMAIN_NAME`                | Domain name (emaus.cc)          |
 
 For detailed setup and troubleshooting, see [docs/deployment/deployment-guide.md](./docs/deployment/deployment-guide.md).
 
@@ -150,8 +150,8 @@ For detailed setup and troubleshooting, see [docs/deployment/deployment-guide.md
 If issues occur after deployment, automatic rollback is triggered. For manual rollback:
 
 ```bash
-# SSH to EC2
-ssh -i ~/.ssh/emaus-key.pem ubuntu@<EC2_IP>
+# SSH to Lightsail (puerto 22 bloqueado por Cloudflare proxy — usar IP directa)
+ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104
 
 # List available backups
 ls /var/www/emaus-backups/
@@ -711,45 +711,29 @@ https://www.hostinger.com/
 https://www.digitalocean.com/
 supabase
 
-## migration vultr to aws
+## Producción (AWS Lightsail)
 
-scp -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105:/var/www/emaus/apps/api/database.sqlite apps/api/database.sqlite 2>&1 && echo "✅ Database copied from AWS"
+Ver [`docs/MIGRATION_RETROSPECTIVE.md`](./docs/MIGRATION_RETROSPECTIVE.md) y
+[`infra/README.md`](./infra/README.md) para la arquitectura actual.
 
-sudo chown www-data:www-data -R /var/www/emaus
-sudo chown ubuntu:ubuntu -R /var/www/emaus
-rsync -avz -e "ssh -i ~/.ssh/emaus-key.pem" \
---exclude '.git' \
---exclude '.turbo' \
---exclude 'apps/api/database.sqlite' \
---exclude 'apps/api/.env' \
---exclude 'node_modules' \
---exclude 'apps/web/.env' \
- . ubuntu@3.138.49.105:/var/www/emaus/
+Operaciones comunes:
 
-scp -i ~/.ssh/emaus-key.pem apps/api/database.sqlite ubuntu@3.138.49.105:/var/www/emaus/apps/api/database.sqlite 2>&1 && echo "✅ Database uploaded to AWS"
+```bash
+# SSH al host (Cloudflare bloquea puerto 22 — usar IP directa)
+ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104
 
-## aws
+# Deploy (automático vía GitHub Actions al push a master)
+git push origin master
 
-ssh -i ~/.ssh/emaus-key.pem ubuntu@$(aws ec2 describe-instances --filters "Name=tag:Name,Values=emaus\*" "Name=instance-state-name,Values=running" --query "Reservations[0].Instances[0].PublicIpAddress" --output text --region us-east-2 --profile emaus) "cd /var/www/emaus && if [ -f apps/api/.env.example ]; then cp apps/api/.env.example
-apps/api/.env.production && echo 'Copied .env.example to .env.production'; else echo 'No .env.example found'; fi"
-ssh -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105
+# Hotfix manual
+bash deploy/lightsail/deploy-lightsail.sh
 
-📋 Next Steps:
-
-1. Copy the setup script to the instance:
-   scp -i ~/.ssh/emaus-key.pem deploy/aws/setup-aws.sh ubuntu@3.138.49.105:/home/ubuntu/
-   scp -i ~/.ssh/emaus-key.pem deploy/aws/deploy-aws.sh ubuntu@3.138.49.105:/home/ubuntu/
-
-2. SSH into the instance:
-   ssh -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105
-
-3. Run the setup script:
-   chmod +x setup-aws.sh && ./setup-aws.sh
-
-4. Set environment variables and deploy:
-   export DOMAIN_NAME=emaus.cc
-   export RELEASE_TAG=v1.0.2
-   cd /var/www/emaus/deploy/aws && ./deploy-aws.sh
+# DB utilities (ver package.json)
+pnpm db:pull     # bajar DB de prod a local
+pnpm db:push     # subir DB local a prod (peligroso)
+pnpm db:backup   # backup remoto
+pnpm prod:restart
+```
 
 ## que hacer en el proximo retiro
 

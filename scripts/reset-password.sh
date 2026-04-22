@@ -16,9 +16,10 @@
 set -e
 
 # SSH config (same as manual-deploy.sh)
-EC2_HOST="${EC2_HOST:-emaus.cc}"
+# Cloudflare proxy blocks port 22, so SSH must use the Lightsail direct IP
+EC2_HOST="${EC2_HOST:-18.116.102.104}"
 EC2_USER="${EC2_USER:-ubuntu}"
-SSH_KEY="${SSH_KEY:-$HOME/.ssh/emaus-key.pem}"
+SSH_KEY="${SSH_KEY:-$HOME/.ssh/lightsail-emaus.pem}"
 
 # Local DB path
 LOCAL_DB="$(dirname "$0")/../apps/api/database.sqlite"

@@ -76,8 +76,8 @@ async function main() {
 				if (isDevelopment && (origin.endsWith('.ngrok-free.dev') || origin.endsWith('.ngrok.io'))) {
 					return callback(null, origin);
 				}
-				// Allow SSH tunnel in development only (emaus.cc domain or EC2 IP)
-				if (isDevelopment && (origin.startsWith('http://emaus.cc:') || origin.startsWith('http://3.138.49.105:'))) {
+				// Allow SSH tunnel in development only (emaus.cc domain)
+				if (isDevelopment && origin.startsWith('http://emaus.cc:')) {
 					return callback(null, origin);
 				}
 				console.warn(`[CORS] Blocked origin: ${origin}`);

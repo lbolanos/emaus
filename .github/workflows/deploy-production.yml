@@ -76,8 +76,8 @@ jobs:
 
           # Setup SSH key
           mkdir -p ~/.ssh
-          echo "$LIGHTSAIL_SSH_PRIVATE_KEY" > ~/.ssh/emaus-key.pem
-          chmod 600 ~/.ssh/emaus-key.pem
+          echo "$LIGHTSAIL_SSH_PRIVATE_KEY" > ~/.ssh/lightsail-emaus.pem
+          chmod 600 ~/.ssh/lightsail-emaus.pem
 
           # Add host key
           ssh-keyscan -H $LIGHTSAIL_HOST >> ~/.ssh/known_hosts 2>/dev/null || true
@@ -88,7 +88,7 @@ jobs:
 
           # Clean old assets before uploading (prevents Permission denied on stale files)
           echo "Cleaning old web assets on server..."
-          ssh -i ~/.ssh/emaus-key.pem ubuntu@$LIGHTSAIL_HOST << 'CLEANEOF'
+          ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@$LIGHTSAIL_HOST << 'CLEANEOF'
           set -e
           # Fresh Lightsail host has /var/www/emaus owned by www-data
           # (setup-aws.sh default). Give ubuntu write access to the top-level
@@ -112,9 +112,9 @@ jobs:
           # Upload new artifacts
           echo "Uploading API build..."
           if [ -d "./build-output/api/dist" ]; then
-            scp -i ~/.ssh/emaus-key.pem -r ./build-output/api/dist ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/api/
+            scp -i ~/.ssh/lightsail-emaus.pem -r ./build-output/api/dist ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/api/
           elif [ -d "./build-output/apps/api/dist" ]; then
-            scp -i ~/.ssh/emaus-key.pem -r ./build-output/apps/api/dist ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/api/
+            scp -i ~/.ssh/lightsail-emaus.pem -r ./build-output/apps/api/dist ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/api/
           else
             echo "Warning: API dist not found, looking for alternatives..."
             find ./build-output -name "index.js" -path "*/api/dist/*"
@@ -122,26 +122,26 @@ jobs:
 
           echo "Uploading Web build..."
           if [ -d "./build-output/web/dist" ]; then
-            scp -i ~/.ssh/emaus-key.pem -r ./build-output/web/dist ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/
+            scp -i ~/.ssh/lightsail-emaus.pem -r ./build-output/web/dist ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/
           elif [ -d "./build-output/apps/web/dist" ]; then
-            scp -i ~/.ssh/emaus-key.pem -r ./build-output/apps/web/dist ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/
+            scp -i ~/.ssh/lightsail-emaus.pem -r ./build-output/apps/web/dist ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/
           else
             echo "Warning: Web dist not found"
           fi
 
           # Upload package.json files and lockfile so pnpm install picks up new dependencies
           echo "Syncing package.json and lockfile..."
-          scp -i ~/.ssh/emaus-key.pem ./build-output/api/package.json ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/api/package.json 2>/dev/null || \
-          scp -i ~/.ssh/emaus-key.pem ./build-output/apps/api/package.json ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/api/package.json 2>/dev/null || \
+          scp -i ~/.ssh/lightsail-emaus.pem ./build-output/api/package.json ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/api/package.json 2>/dev/null || \
+          scp -i ~/.ssh/lightsail-emaus.pem ./build-output/apps/api/package.json ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/api/package.json 2>/dev/null || \
           echo "Warning: API package.json not found in artifacts"
-          scp -i ~/.ssh/emaus-key.pem ./build-output/web/package.json ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/package.json 2>/dev/null || \
-          scp -i ~/.ssh/emaus-key.pem ./build-output/apps/web/package.json ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/package.json 2>/dev/null || \
+          scp -i ~/.ssh/lightsail-emaus.pem ./build-output/web/package.json ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/package.json 2>/dev/null || \
+          scp -i ~/.ssh/lightsail-emaus.pem ./build-output/apps/web/package.json ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/package.json 2>/dev/null || \
           echo "Warning: Web package.json not found in artifacts"
 
           # Upload root package.json and lockfile from checkout
-          scp -i ~/.ssh/emaus-key.pem package.json ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/package.json
-          scp -i ~/.ssh/emaus-key.pem pnpm-lock.yaml ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/pnpm-lock.yaml
-          scp -i ~/.ssh/emaus-key.pem pnpm-workspace.yaml ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/pnpm-workspace.yaml
+          scp -i ~/.ssh/lightsail-emaus.pem package.json ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/package.json
+          scp -i ~/.ssh/lightsail-emaus.pem pnpm-lock.yaml ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/pnpm-lock.yaml
+          scp -i ~/.ssh/lightsail-emaus.pem pnpm-workspace.yaml ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/pnpm-workspace.yaml
 
           # Generate runtime-config.js with secrets and upload it
           echo "Generating runtime-config.js..."
@@ -156,12 +156,12 @@ jobs:
           echo "  isProduction: true," >> /tmp/runtime-config.js
           echo '};' >> /tmp/runtime-config.js
           echo "console.log('[CONFIG] Production runtime configuration loaded');" >> /tmp/runtime-config.js
-          scp -i ~/.ssh/emaus-key.pem /tmp/runtime-config.js ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/dist/runtime-config.js
+          scp -i ~/.ssh/lightsail-emaus.pem /tmp/runtime-config.js ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/dist/runtime-config.js
           echo "runtime-config.js uploaded"
 
           # Snapshot current version for rollback
           echo "Creating rollback snapshot..."
-          ssh -i ~/.ssh/emaus-key.pem ubuntu@$LIGHTSAIL_HOST << 'SNAPSHOTEOF'
+          ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@$LIGHTSAIL_HOST << 'SNAPSHOTEOF'
           set -e
           PREV_DIR="/var/www/emaus/previous"
           rm -rf "$PREV_DIR"
@@ -180,7 +180,7 @@ jobs:
 
           # Backup database before deploy
           echo "Creating database backup..."
-          ssh -i ~/.ssh/emaus-key.pem ubuntu@$LIGHTSAIL_HOST << 'BACKUPEOF'
+          ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@$LIGHTSAIL_HOST << 'BACKUPEOF'
           set -e
           DB_PATH="/var/www/emaus/apps/api/database.sqlite"
           BACKUP_DIR="/var/backups/emaus"
@@ -202,7 +202,7 @@ jobs:
           BACKUPEOF
 
           # Deploy and restart application
-          ssh -i ~/.ssh/emaus-key.pem ubuntu@$LIGHTSAIL_HOST << 'RESTARTEOF'
+          ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@$LIGHTSAIL_HOST << 'RESTARTEOF'
           set -e
           cd /var/www/emaus
 
@@ -285,13 +285,13 @@ jobs:
           echo "❌ Deployment failed. Checking Lightsail status..."
 
           mkdir -p ~/.ssh
-          echo "$LIGHTSAIL_SSH_PRIVATE_KEY" > ~/.ssh/emaus-key.pem
-          chmod 600 ~/.ssh/emaus-key.pem
+          echo "$LIGHTSAIL_SSH_PRIVATE_KEY" > ~/.ssh/lightsail-emaus.pem
+          chmod 600 ~/.ssh/lightsail-emaus.pem
 
           ssh-keyscan -H $LIGHTSAIL_HOST >> ~/.ssh/known_hosts 2>/dev/null || true
 
           # Attempt to get diagnostic information
-          ssh -i ~/.ssh/emaus-key.pem \
+          ssh -i ~/.ssh/lightsail-emaus.pem \
             $LIGHTSAIL_USER@$LIGHTSAIL_HOST \
             "pm2 status; echo '---'; tail -50 /tmp/deployment.log 2>/dev/null || echo 'Deployment log not found'" \
             2>&1 || echo "Could not retrieve diagnostic info"

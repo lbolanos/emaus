@@ -2,7 +2,7 @@
 # Stop all running SSH tunnel processes for emaus
 set -euo pipefail
 
-HOST="3.138.49.105"
+HOST="${HOST:-18.116.102.104}"
 KILLED=0
 
 # Kill autossh processes

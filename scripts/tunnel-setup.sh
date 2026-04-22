@@ -3,9 +3,10 @@
 # Ensures GatewayPorts is enabled and ports are accessible
 set -euo pipefail
 
-HOST="3.138.49.105"
-USER="ubuntu"
-KEY="$HOME/.ssh/emaus-key.pem"
+# Cloudflare proxy blocks port 22, so SSH must use the Lightsail direct IP
+HOST="${HOST:-18.116.102.104}"
+USER="${USER:-ubuntu}"
+KEY="${KEY:-$HOME/.ssh/lightsail-emaus.pem}"
 
 echo "==> Configuring SSH tunnel on $HOST..."
 

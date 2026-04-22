@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Start SSH reverse tunnel: expose local dev servers via EC2
+# Start SSH reverse tunnel: expose local dev servers via Lightsail
 #   local:5173 → remote:8080 (web)
 #   local:3001 → remote:8081 (API)
 set -euo pipefail
 
-HOST="3.138.49.105"
-USER="ubuntu"
-KEY="$HOME/.ssh/emaus-key.pem"
+# Cloudflare proxy blocks port 22, so SSH must use the Lightsail direct IP
+HOST="${HOST:-18.116.102.104}"
+USER="${USER:-ubuntu}"
+KEY="${KEY:-$HOME/.ssh/lightsail-emaus.pem}"
 REMOTE_WEB_PORT=8080
 REMOTE_API_PORT=8081
 LOCAL_WEB_PORT=5173
