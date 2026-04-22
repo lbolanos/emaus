@@ -96,10 +96,26 @@ jobs:
           # so nginx (www-data) can still read everything.
           sudo mkdir -p /var/www/emaus/apps/web/dist /var/www/emaus/apps/api/dist
           sudo chown ubuntu:ubuntu /var/www/emaus
+          sudo chown ubuntu:ubuntu /var/www/emaus/apps /var/www/emaus/apps/web /var/www/emaus/apps/api 2>/dev/null || true
           sudo chown -R ubuntu:ubuntu /var/www/emaus/apps/web/dist /var/www/emaus/apps/api/dist
-          for f in package.json pnpm-lock.yaml pnpm-workspace.yaml; do
-            [ -e "/var/www/emaus/$f" ] && sudo chown ubuntu:ubuntu "/var/www/emaus/$f" || true
+          # Per-app and per-package manifests (scp targets from the runner checkout).
+          for p in \
+            /var/www/emaus/apps/api/package.json \
+            /var/www/emaus/apps/web/package.json \
+            /var/www/emaus/package.json \
+            /var/www/emaus/pnpm-lock.yaml \
+            /var/www/emaus/pnpm-workspace.yaml; do
+            [ -e "$p" ] && sudo chown ubuntu:ubuntu "$p" || true
           done
+          # Workspace packages dir (packages/*/package.json gets scp'd during deploy).
+          if [ -d /var/www/emaus/packages ]; then
+            sudo chown ubuntu:ubuntu /var/www/emaus/packages 2>/dev/null || true
+            for d in /var/www/emaus/packages/*/; do
+              [ -d "$d" ] || continue
+              sudo chown ubuntu:ubuntu "$d" 2>/dev/null || true
+              [ -e "$d/package.json" ] && sudo chown ubuntu:ubuntu "$d/package.json" || true
+            done
+          fi
 
           ASSETS_DIR="/var/www/emaus/apps/web/dist/assets"
           if [ -d "$ASSETS_DIR" ]; then
