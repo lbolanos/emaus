@@ -212,6 +212,30 @@ jobs:
           echo "Running migrations..."
           pnpm --filter api migration:run 2>&1 | tail -5 || echo "Migrations skipped"
 
+          # Orphan :3001 guard — see LIGHTSAIL_MIGRATION_NOTES.md §11.
+          # If a non-PM2 process is holding :3001, pm2 restart crash-loops on
+          # EADDRINUSE while the orphan keeps serving stale code (healthcheck
+          # still returns 200, so the failure is silent). Kill it so PM2 can
+          # bind the port and run the freshly-deployed dist.
+          ORPHAN_PID=$(sudo ss -tlnp 2>/dev/null | awk '/LISTEN/ && /:3001 / {if (match($0, /pid=[0-9]+/)) print substr($0, RSTART+4, RLENGTH-4); exit}')
+          if [ -n "$ORPHAN_PID" ]; then
+            if pm2 jlist 2>/dev/null | grep -q "\"pid\":$ORPHAN_PID"; then
+              echo "✓ :3001 held by PM2-managed PID $ORPHAN_PID"
+            else
+              echo "⚠ :3001 held by orphan PID $ORPHAN_PID — terminating before pm2 restart"
+              sudo kill -TERM "$ORPHAN_PID" || true
+              for _ in 1 2 3 4 5 6 7 8; do
+                sleep 1
+                sudo kill -0 "$ORPHAN_PID" 2>/dev/null || break
+              done
+              if sudo kill -0 "$ORPHAN_PID" 2>/dev/null; then
+                echo "Orphan did not exit on SIGTERM, escalating to SIGKILL"
+                sudo kill -KILL "$ORPHAN_PID" || true
+                sleep 2
+              fi
+            fi
+          fi
+
           echo "Restarting PM2..."
           pm2 restart emaus-api
           sleep 3
