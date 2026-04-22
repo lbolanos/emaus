@@ -201,7 +201,7 @@ jobs:
           fi
           BACKUPEOF
 
-          # Deploy and restart application
+          # Deploy, restart, and validate application
           ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@$LIGHTSAIL_HOST << 'RESTARTEOF'
           set -e
           cd /var/www/emaus
@@ -219,54 +219,38 @@ jobs:
           echo "Checking PM2 status..."
           pm2 status emaus-api
 
+          # Health check from inside the box (Cloudflare Bot Fight Mode
+          # blocks curl from GitHub Actions runner IPs as bots, so we
+          # validate via localhost instead).
+          echo "Validating API via localhost..."
+          for i in 1 2 3 4 5; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/api/health || echo 000)
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ API is healthy (HTTP 200)"
+              exit 0
+            fi
+            echo "Attempt $i: HTTP $HTTP_CODE - retrying in 3s..."
+            sleep 3
+          done
+
+          echo "❌ API did not respond with 200 after 5 attempts"
+          pm2 logs emaus-api --lines 30 --nostream || true
+          exit 1
           RESTARTEOF
 
-      - name: Verify deployment
+      - name: Public URL smoke test (non-fatal)
         if: success()
         run: |
-          echo "✅ Deployment completed successfully!"
-          echo "Verifying API is accessible..."
-          sleep 10
-
-          # Check API health via HTTP
-          for i in {1..5}; do
-            if curl -sf https://emaus.cc/api/health > /dev/null || \
-               curl -sf https://emaus.cc/ > /dev/null; then
-              echo "✅ Application verified online"
-              exit 0
-            fi
-            if [ $i -lt 5 ]; then
-              echo "Waiting for application to fully start ($i/5)..."
-              sleep 5
-            fi
-          done
-
-          echo "⚠️  Note: Application may need additional time to fully initialize"
-
-      - name: Quick API validation
-        if: success()
-        env:
-          DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
-        run: |
-          echo "Validating API is responding..."
-          sleep 5
-
-          # Try to reach the health endpoint
-          for i in {1..5}; do
-            RESPONSE=$(curl -s -w "\n%{http_code}" https://${DOMAIN_NAME}/api/health || echo -e "\n000")
-            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-
-            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "302" ]; then
-              echo "✅ API is responding (HTTP $HTTP_CODE)"
-              exit 0
-            fi
-
-            echo "Attempt $i: HTTP $HTTP_CODE - retrying..."
-            sleep 2
-          done
-
-          echo "❌ API validation failed"
-          exit 1
+          # Cloudflare Bot Fight Mode may 403 this from GitHub Actions IPs;
+          # treated as informational. The real health check runs on-box
+          # during the deploy SSH session above.
+          echo "Smoke-testing public URL..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -A "Mozilla/5.0 (compatible; GitHubActions-SmokeTest)" https://emaus.cc/api/health || echo 000)
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Public endpoint reachable (HTTP 200)"
+          else
+            echo "ℹ️  Public endpoint returned HTTP $HTTP_CODE (likely Cloudflare bot challenge; on-box health already verified)"
+          fi
 
       - name: Deployment notification
         run: |
