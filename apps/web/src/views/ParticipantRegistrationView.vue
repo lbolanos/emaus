@@ -102,6 +102,7 @@ const getInitialFormData = (): Partial<Omit<Participant, 'id'>> & { hasDisabilit
 const formData = ref(getInitialFormData())
 
 const isServerType = computed(() => props.type === 'server' || props.type === 'partial_server')
+const isRegistrationClosed = computed(() => Boolean(retreatData.value?.isRegistrationClosed))
 const showEmailLookup = ref(false)
 const emailLookup = ref('')
 const isSearching = ref(false)
@@ -620,7 +621,16 @@ onMounted(async () => {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div class="bg-black/20 backdrop-blur-sm rounded-2xl p-8 max-w-2xl mx-auto border border-white/10 shadow-2xl">
+      <div v-if="isRegistrationClosed" class="bg-black/20 backdrop-blur-sm rounded-2xl p-8 max-w-2xl mx-auto border border-white/10 shadow-2xl">
+        <div class="w-20 h-20 mx-auto mb-6 bg-white/10 rounded-full flex items-center justify-center">
+          <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        <h1 class="text-3xl md:text-4xl font-bold mb-4">{{ $t('serverRegistration.retreatClosed.title') }}</h1>
+        <p class="text-lg md:text-xl opacity-90">{{ $t('serverRegistration.retreatClosed.description') }}</p>
+      </div>
+      <div v-else class="bg-black/20 backdrop-blur-sm rounded-2xl p-8 max-w-2xl mx-auto border border-white/10 shadow-2xl">
         <div class="mb-6">
           <div class="w-20 h-20 mx-auto mb-6 bg-white/10 rounded-full flex items-center justify-center">
             <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

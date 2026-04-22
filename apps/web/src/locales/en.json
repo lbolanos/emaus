@@ -880,6 +880,8 @@
   },
   "retreatFlyer": {
     "printButton": "Print Flyer",
+    "exportPdf": "Export PDF",
+    "exportingPdf": "Generating PDF...",
     "location": "Location:",
     "locationQR": "Location",
     "startTime": "START:",
@@ -1309,6 +1311,10 @@
     "emergencyContact2": "In case of emergency, contact (2):"
   },
   "serverRegistration": {
+    "retreatClosed": {
+      "title": "This retreat has ended",
+      "description": "Public registration is closed because the retreat date has passed."
+    },
     "title": "Server Registration",
     "description": "Please fill out the form below to register as a server for the retreat.",
     "step": "Step {current} of {total}",

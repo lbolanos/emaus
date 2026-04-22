@@ -929,6 +929,8 @@
   },
   "retreatFlyer": {
     "printButton": "Imprimir Flyer",
+    "exportPdf": "Exportar PDF",
+    "exportingPdf": "Generando PDF...",
     "catholicRetreat": "Retiro Católico",
     "emausFor": "Emaús para",
     "weekendOfHope": "un fin de semana de",
@@ -1368,6 +1370,10 @@
       "title": "Sirve en el Próximo Retiro",
       "subtitle": "Únete a nosotros en servicio y compañerismo. Regístrate ahora para ser parte del equipo.",
       "cta": "Regístrate Ahora"
+    },
+    "retreatClosed": {
+      "title": "Este retiro ya terminó",
+      "description": "El registro público está cerrado porque la fecha del retiro ya pasó."
     },
     "emailLookup": {
       "title": "Buscar registro existente",
