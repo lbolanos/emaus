@@ -223,7 +223,13 @@ jobs:
 
           # Deploy, restart, and validate application
           ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@$LIGHTSAIL_HOST << 'RESTARTEOF'
-          set -eo pipefail
+          # `set -eo pipefail` was tempting to catch silent pnpm failures,
+          # but with this heredoc it tripped on subshell pipes (pm2 jlist |
+          # grep -q, curl || echo 000) and made the step exit 1 even after
+          # the healthcheck printed "API is healthy". The pnpm failure mode
+          # it tried to catch is now prevented by the chown block below, so
+          # stick with plain `set -e`.
+          set -e
           cd /var/www/emaus
 
           # pnpm install --frozen-lockfile may need to rewrite files inside
