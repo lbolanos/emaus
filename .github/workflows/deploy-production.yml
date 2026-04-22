@@ -267,6 +267,15 @@ jobs:
           fi
 
           echo "Restarting PM2..."
+          # After the orphan kill above, the PM2 daemon may have been the root-
+          # owned one from the old bootstrap, leaving its unix sockets owned by
+          # someone other than ubuntu. pm2 complains and exits non-zero:
+          #   [PM2][ERROR] Permission denied, to give access to current user:
+          #   $ sudo chown ubuntu:ubuntu /home/ubuntu/.pm2/rpc.sock ...
+          # Do that chown up-front to keep the step green.
+          if [ -d "$HOME/.pm2" ]; then
+            sudo chown -R ubuntu:ubuntu "$HOME/.pm2" 2>/dev/null || true
+          fi
           pm2 restart emaus-api
           sleep 3
 
