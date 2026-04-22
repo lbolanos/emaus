@@ -78,7 +78,7 @@
                 style="font-family: 'Miltonian Tattoo', cursive;">
               {{ titleTextRefined }}
             </h1>
-            <p class="text-[13px] text-white/95 italic font-medium tracking-wide mt-4 drop-shadow-lg leading-tight max-w-[420px] ml-auto">"{{ quoteTextRefined }}"</p>
+            <p class="text-[13px] text-white/95 italic font-medium tracking-wide mt-10 drop-shadow-lg leading-tight max-w-[420px] ml-auto">"{{ quoteTextRefined }}"</p>
           </div>
         </header>
 
