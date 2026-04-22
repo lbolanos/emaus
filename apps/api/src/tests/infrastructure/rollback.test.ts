@@ -63,7 +63,7 @@ describe('Production Rollback Mechanism', () => {
 		it('should place snapshot BEFORE database backup and deploy', () => {
 			const snapshotIndex = workflowContent.indexOf('Snapshot current version for rollback');
 			const backupIndex = workflowContent.indexOf('Backup database before deploy');
-			const restartIndex = workflowContent.indexOf('Deploy and restart application');
+			const restartIndex = workflowContent.indexOf('Deploy, restart, and validate application');
 
 			expect(snapshotIndex).toBeGreaterThan(-1);
 			expect(backupIndex).toBeGreaterThan(snapshotIndex);
