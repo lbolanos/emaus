@@ -50,6 +50,41 @@ const getNextIdOnRetreat = async (
 	return (result?.maxId || 0) + 1;
 };
 
+type RegisteredGroup = 'walker' | 'server';
+
+const typeToGroup = (type?: string | null): RegisteredGroup | undefined => {
+	if (type === 'walker' || type === 'waiting') return 'walker';
+	if (type === 'server' || type === 'partial_server') return 'server';
+	return undefined;
+};
+
+const alreadyRegisteredMessageFor = (group?: RegisteredGroup): string => {
+	if (group === 'walker') return 'Este correo ya está registrado en este retiro como caminante.';
+	if (group === 'server') return 'Este correo ya está registrado en este retiro como servidor.';
+	return 'Este correo ya está registrado en este retiro.';
+};
+
+/**
+ * Throw a 409-mapped error if the participant already has an active
+ * RetreatParticipant row for the target retreat.
+ */
+const assertNotDoubleRegisteredInRetreat = async (
+	manager: EntityManager,
+	participantId: string,
+	retreatId: string,
+): Promise<void> => {
+	const rp = await manager.getRepository(RetreatParticipant).findOne({
+		where: { participantId, retreatId, isCancelled: false },
+		select: ['id', 'type'],
+	});
+	if (!rp) return;
+	const group = typeToGroup(rp.type);
+	const message = alreadyRegisteredMessageFor(group);
+	const err = new Error(message) as Error & { code?: string };
+	err.code = 'ALREADY_REGISTERED_IN_RETREAT';
+	throw err;
+};
+
 // ==================== PARTICIPANT LOOKUP FUNCTIONS ====================
 
 /**
@@ -66,23 +101,61 @@ export const findParticipantByEmail = async (email: string): Promise<Participant
 };
 
 /**
- * Check if a participant exists by email (for server registration flow)
- * Returns existence status and participant details if found
+ * Check if a participant exists by email (for server registration flow).
+ * When `retreatId` is provided, also reports whether the participant is
+ * currently (non-cancelled) registered in that specific retreat.
  */
 export const checkParticipantExists = async (
 	email: string,
-): Promise<{ exists: boolean; firstName?: string; lastName?: string; message?: string }> => {
+	retreatId?: string,
+): Promise<{
+	exists: boolean;
+	firstName?: string;
+	lastName?: string;
+	message?: string;
+	registeredInRetreat?: boolean;
+	registeredType?: 'walker' | 'server' | 'waiting' | 'partial_server';
+	registeredGroup?: RegisteredGroup;
+	alreadyRegisteredMessage?: string;
+}> => {
 	const existing = await findParticipantByEmail(email);
 
 	if (!existing) {
 		return { exists: false };
 	}
 
-	return {
+	const base = {
 		exists: true,
 		firstName: existing.firstName,
 		lastName: existing.lastName,
 		message: `Se encontró un registro existente para ${email} (${existing.firstName} ${existing.lastName})`,
+	};
+
+	if (!retreatId) return base;
+
+	const rpRepo = AppDataSource.getRepository(RetreatParticipant);
+	const rp = await rpRepo.findOne({
+		where: { participantId: existing.id, retreatId, isCancelled: false },
+		select: ['id', 'type'],
+	});
+
+	if (!rp) {
+		return { ...base, registeredInRetreat: false };
+	}
+
+	const registeredType = (rp.type ?? undefined) as
+		| 'walker'
+		| 'server'
+		| 'waiting'
+		| 'partial_server'
+		| undefined;
+	const registeredGroup = typeToGroup(rp.type);
+	return {
+		...base,
+		registeredInRetreat: true,
+		registeredType,
+		registeredGroup,
+		alreadyRegisteredMessage: alreadyRegisteredMessageFor(registeredGroup),
 	};
 };
 
@@ -166,6 +239,12 @@ export const confirmExistingParticipant = async (
 	return AppDataSource.transaction(async (transactionalEntityManager) => {
 		const participantRepo = transactionalEntityManager.getRepository(Participant);
 		const historyRepo = transactionalEntityManager.getRepository(RetreatParticipant);
+
+		await assertNotDoubleRegisteredInRetreat(
+			transactionalEntityManager,
+			existing.id,
+			retreatId,
+		);
 
 		const oldRetreatId = existing.retreatId;
 		const sameRetreat = oldRetreatId === retreatId;
@@ -818,6 +897,14 @@ export const createParticipant = async (
 			const sameRetreat = existingParticipantByEmail.retreatId === participantData.retreatId;
 
 			const historyRepo = transactionalEntityManager.getRepository(RetreatParticipant);
+
+			if (participantData.retreatId) {
+				await assertNotDoubleRegisteredInRetreat(
+					transactionalEntityManager,
+					existingParticipantByEmail.id,
+					participantData.retreatId,
+				);
+			}
 
 			// If different retreat, save history for the old retreat first
 			if (!sameRetreat) {

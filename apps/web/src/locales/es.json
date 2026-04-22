@@ -1381,7 +1381,10 @@
       "confirmMessage": "Hola {name}, al confirmar quedarás registrado(a) para este retiro.",
       "confirmButton": "Sí, soy yo",
       "denyButton": "No, registrarme como nuevo",
-      "success": "¡Registro exitoso! Quedaste registrado(a) para este retiro."
+      "success": "¡Registro exitoso! Quedaste registrado(a) para este retiro.",
+      "alreadyRegistered": "Este correo ya está registrado en este retiro.",
+      "alreadyRegisteredAsWalker": "Este correo ya está registrado en este retiro como caminante.",
+      "alreadyRegisteredAsServer": "Este correo ya está registrado en este retiro como servidor."
     },
     "tabs": {
       "personalInfo": "Información Personal",

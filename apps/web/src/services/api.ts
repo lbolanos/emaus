@@ -719,14 +719,22 @@ export const getParticipantById = async (participantId: string) => {
 export const checkParticipantExists = async (
 	email: string,
 	recaptchaToken?: string,
+	retreatId?: string,
 ): Promise<{
 	exists: boolean;
 	firstName?: string;
 	lastName?: string;
 	message?: string;
+	registeredInRetreat?: boolean;
+	registeredType?: 'walker' | 'server' | 'waiting' | 'partial_server';
+	registeredGroup?: 'walker' | 'server';
+	alreadyRegisteredMessage?: string;
 }> => {
+	const params: Record<string, string> = {};
+	if (recaptchaToken != null) params.recaptchaToken = recaptchaToken;
+	if (retreatId) params.retreatId = retreatId;
 	const response = await api.get(`/participants/check-email/${encodeURIComponent(email)}`, {
-		params: recaptchaToken != null ? { recaptchaToken } : undefined,
+		params: Object.keys(params).length > 0 ? params : undefined,
 	});
 	return response.data;
 };

@@ -93,7 +93,8 @@ export const createParticipant = async (req: Request, res: Response, next: NextF
 		res.status(201).json(newParticipant);
 	} catch (error) {
 		if (error instanceof Error) {
-			if (error.message.includes('already exists')) {
+			const code = (error as Error & { code?: string }).code;
+			if (code === 'ALREADY_REGISTERED_IN_RETREAT' || error.message.includes('already exists')) {
 				return res.status(409).json({ message: error.message });
 			}
 		}
@@ -235,8 +236,14 @@ export const confirmExistingParticipantEmail = async (
 		);
 		res.json(result);
 	} catch (error) {
-		if (error instanceof Error && error.message === 'Participant not found') {
-			return res.status(404).json({ message: 'Participant not found' });
+		if (error instanceof Error) {
+			if (error.message === 'Participant not found') {
+				return res.status(404).json({ message: 'Participant not found' });
+			}
+			const code = (error as Error & { code?: string }).code;
+			if (code === 'ALREADY_REGISTERED_IN_RETREAT') {
+				return res.status(409).json({ message: error.message });
+			}
 		}
 		next(error);
 	}
@@ -249,7 +256,7 @@ export const confirmExistingParticipantEmail = async (
 export const checkParticipantEmail = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const { email } = req.params;
-		const { recaptchaToken } = req.query;
+		const { recaptchaToken, retreatId } = req.query;
 
 		if (!email) {
 			return res.status(400).json({ message: 'Email is required' });
@@ -266,8 +273,12 @@ export const checkParticipantEmail = async (req: Request, res: Response, next: N
 				.json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
 		}
 
+		const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+		const retreatIdParam =
+			typeof retreatId === 'string' && uuidRegex.test(retreatId) ? retreatId : undefined;
+
 		const normalizedEmail = email.toLowerCase().trim();
-		const result = await participantService.checkParticipantExists(normalizedEmail);
+		const result = await participantService.checkParticipantExists(normalizedEmail, retreatIdParam);
 		res.json(result);
 	} catch (error) {
 		next(error);

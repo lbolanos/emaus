@@ -333,7 +333,26 @@ const handleEmailLookup = async () => {
   isSearching.value = true
   try {
     const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.PARTICIPANT_EMAIL_CHECK)
-    const result = await checkParticipantExists(emailLookup.value, recaptchaToken)
+    const result = await checkParticipantExists(
+      emailLookup.value,
+      recaptchaToken,
+      validRetreatId.value || undefined,
+    )
+
+    if (result.registeredInRetreat) {
+      const fallback =
+        result.registeredGroup === 'walker'
+          ? t('serverRegistration.emailLookup.alreadyRegisteredAsWalker')
+          : result.registeredGroup === 'server'
+            ? t('serverRegistration.emailLookup.alreadyRegisteredAsServer')
+            : t('serverRegistration.emailLookup.alreadyRegistered')
+      toast({
+        title: 'Error',
+        description: result.alreadyRegisteredMessage || fallback,
+        variant: 'destructive',
+      })
+      return
+    }
 
     if (result.exists) {
       const name = [result.firstName, result.lastName].filter(Boolean).join(' ')
@@ -488,7 +507,9 @@ const onSubmit = async () => {
     if (error.response && error.response.status === 409) {
       toast({
         title: 'Registration Failed',
-        description: 'A participant with this email already exists in this retreat.',
+        description:
+          error.response?.data?.message ||
+          t('serverRegistration.emailLookup.alreadyRegistered'),
         variant: 'destructive',
       })
     } else {

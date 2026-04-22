@@ -1329,7 +1329,10 @@
       "confirmMessage": "Hello {name}, by confirming you will be registered for this retreat.",
       "confirmButton": "Yes, that's me",
       "denyButton": "No, register as new",
-      "success": "Registration successful! You are now registered for this retreat."
+      "success": "Registration successful! You are now registered for this retreat.",
+      "alreadyRegistered": "This email is already registered for this retreat.",
+      "alreadyRegisteredAsWalker": "This email is already registered for this retreat as a walker.",
+      "alreadyRegisteredAsServer": "This email is already registered for this retreat as a server."
     },
     "tabs": {
       "personalInfo": "Personal Information",

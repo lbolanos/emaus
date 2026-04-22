@@ -175,7 +175,7 @@ describe('Email Lookup Feature - Server Registration', () => {
 
 			await checkParticipantEmail(req, res, mockNext);
 
-			expect(mockCheckParticipantExists).toHaveBeenCalledWith('juan@example.com');
+			expect(mockCheckParticipantExists).toHaveBeenCalledWith('juan@example.com', undefined);
 			const responseData = (res.json as jest.Mock).mock.calls[0][0];
 			expect(responseData.exists).toBe(true);
 			expect(responseData.firstName).toBe('Juan');
