@@ -185,7 +185,7 @@
 
           <!-- End Time Card -->
           <div class="absolute z-10 p-5 overflow-hidden"
-               style="top: 500px; left: 15px; width: 460px; max-width: 55%; max-height: 200px;">
+               style="top: 500px; left: 15px; width: 330px; max-width: 38%; max-height: 200px;">
             <div class="flex gap-4 items-start group">
               <div class="bg-gradient-to-br from-blue-500 to-blue-700 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0">
                 <Calendar class="w-5 h-5" />
@@ -303,7 +303,7 @@
         </div>
 
         <!-- Footer -->
-        <footer class="print-exact relative h-[120px] flex items-center justify-between px-8 overflow-hidden mt-auto print:bg-gray-900 print:h-[110px] print:px-8">
+        <footer class="print-exact relative min-h-[120px] flex items-center justify-between gap-6 px-8 py-3 overflow-hidden mt-auto print:bg-gray-900 print:min-h-[110px] print:px-8">
           <!-- Footer Background Image -->
           <div class="absolute inset-0 bg-cover bg-center z-0" style="background-image: url('/footer.png');">
             <div class="absolute inset-0 bg-gradient-to-r from-blue-900/90 via-gray-900/80 to-blue-900/90 print:opacity-90"></div>
@@ -322,12 +322,12 @@
             </div>
           </div>
 
-          <div class="relative z-10 max-w-md text-right flex flex-col justify-center h-full">
-            <h3 class="text-[32px] font-black text-white uppercase tracking-[0.25em] mb-2 font-header drop-shadow-xl"
+          <div class="relative z-10 max-w-md text-right flex flex-col justify-center h-full min-w-0">
+            <h3 class="text-[28px] font-black text-white uppercase tracking-[0.2em] mb-2 font-header drop-shadow-xl"
                 style="text-shadow: 2px 2px 8px rgba(0,0,0,0.5);">
               {{ dontMissItText }}
             </h3>
-            <p class="text-[12px] text-gray-100 leading-tight max-w-[240px] ml-auto drop-shadow-md font-semibold">
+            <p class="text-[12px] text-gray-100 leading-tight max-w-[260px] ml-auto drop-shadow-md font-semibold">
               {{ reservationNoteText }}
             </p>
           </div>
