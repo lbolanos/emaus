@@ -69,3 +69,4 @@ infra/lambda_src.zip
 
 # Exception: Cloudflare Worker source (needed in repo, not an artifact)
 !infra/workers/*.js
+.claude/scheduled_tasks.lock
