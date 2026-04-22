@@ -41,17 +41,14 @@ migración a AWS Lightsail (2026-04-21 cutover).
   - Viejos secrets EC2_* eliminados del repo
   - Ver [`LIGHTSAIL_MIGRATION_NOTES.md`](./LIGHTSAIL_MIGRATION_NOTES.md) §10
 
-- [ ] **Cuando tengas 2 min** — Push + tag v1.0.3 a GitHub (próximo deploy)
-  - Valida pipeline `build-release.yml` y que `deploy-production.yml`
-    ahora pasa de punta a punta
-  - Comandos:
-    ```bash
-    cd /home/lbolanos/emaus
-    git push origin master
-    git tag v1.0.3 HEAD -m "Release v1.0.3 - lightsail migration + /api/retreats/active"
-    git push origin v1.0.3
-    gh run watch --repo lbolanos/emaus
-    ```
+- [x] **2026-04-22** — ~~Push + tag v1.0.3~~ ✓ release publicado. En el camino
+  se arreglaron 2 bugs del pipeline post-migración:
+  - `jspdf` era phantom dep (no en `package.json`) → CI fallaba con TS2307.
+    Agregada en commit `99a7811`.
+  - Cloudflare Bot Fight Mode 403ea a curl desde GitHub Actions runners →
+    `Quick API validation` siempre fallaba. Movida la validación al SSH
+    deploy block (`curl http://localhost:3001/api/health`) en commit `c1fe7e0`.
+  - Release: https://github.com/lbolanos/emaus/releases/tag/v1.0.3
 
 ## 🟡 Medio — próximas 2 semanas
 
@@ -77,6 +74,9 @@ migración a AWS Lightsail (2026-04-21 cutover).
   - Ver [`LIGHTSAIL_MIGRATION_NOTES.md`](./LIGHTSAIL_MIGRATION_NOTES.md) §8
   - Copiar el bloque `cat > apps/web/dist/runtime-config.js << EOF` de
     `deploy/aws/deploy-aws.sh` (líneas ~350-420) al wrapper de Lightsail
+  - Nota: El workflow de GitHub Actions (`deploy-production.yml`) ya lo
+    genera inline en cada deploy; esto es solo para el hotfix manual
+    `deploy/lightsail/deploy-lightsail.sh`.
 
 ## 🟢 Bajo — cuando haya tiempo
 
