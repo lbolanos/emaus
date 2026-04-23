@@ -253,6 +253,161 @@ sudo pm2 status emaus-api    # esperar status=online, uptime corto
 manual urgente, validar después con `sudo ss -tlnp | grep 3001` que el
 PID coincida con el de `pm2 jlist`.
 
+---
+
+### 12. `EACCES: permission denied` en `node_modules/.modules.yaml` durante pnpm install
+
+**Contexto**: `deploy-production.yml` corre `pnpm install --frozen-lockfile`
+dentro de una sesión SSH. Si algún archivo en `node_modules` estaba
+bajo ownership `root` (del bootstrap manual inicial), pnpm abortaba con
+`EACCES: permission denied, unlink '/var/www/emaus/node_modules/.modules.yaml'`.
+Con `set -e` en el heredoc el resto del script fallaba silenciosamente:
+la API seguía corriendo con el código viejo sin ningún error visible.
+
+**Síntoma en GitHub Actions**: el step "Deploy to Lightsail" terminaba verde
+(porque el heredoc salía 0) pero la app no reflejaba los cambios nuevos.
+
+**Fix** (commit `55d6802`): chown defensivo antes de `pnpm install`:
+```bash
+sudo chown -R ubuntu:ubuntu /var/www/emaus/node_modules 2>/dev/null || true
+sudo chown -R ubuntu:ubuntu /var/www/emaus/apps/*/node_modules 2>/dev/null || true
+sudo chown -R ubuntu:ubuntu /var/www/emaus/packages/*/node_modules 2>/dev/null || true
+```
+
+---
+
+### 13. `ERR_PNPM_OUTDATED_LOCKFILE` — manifests de app desactualizados en el servidor
+
+**Contexto**: el artefacto de build que sube el CI nunca incluía los
+`apps/api/package.json` ni `apps/web/package.json`. El servidor tenía los
+manifests del deploy anterior, pero el `pnpm-lock.yaml` avanzaba con cada
+commit. En el primer deploy que añadía una dependencia nueva, `pnpm install
+--frozen-lockfile` abortaba con:
+
+```
+ERR_PNPM_OUTDATED_LOCKFILE  Cannot install with --frozen-lockfile because pnpm-lock.yaml is not up to date with ...
+```
+
+**Fix** (commit `687acdc`): subir los manifests directamente desde el
+checkout del runner (siempre frescos), no desde el artefacto de build:
+```bash
+scp apps/api/package.json   ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/api/package.json
+scp apps/web/package.json   ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/package.json
+scp package.json            ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/package.json
+scp pnpm-lock.yaml          ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/pnpm-lock.yaml
+scp pnpm-workspace.yaml     ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/pnpm-workspace.yaml
+```
+
+---
+
+### 14. `scp: dest open "...apps/api/package.json": Permission denied`
+
+**Contexto**: los archivos `apps/*/package.json` existían en el servidor bajo
+ownership `root` (creados por el bootstrap inicial con sudo). Los nuevos `scp`
+del fix §13 fallaban al intentar sobrescribirlos.
+
+**Fix** (commit `a505849`): chown explícito de todos los targets del scp
+dentro del bloque CLEANEOF, antes de los uploads:
+```bash
+for p in \
+  /var/www/emaus/apps/api/package.json \
+  /var/www/emaus/apps/web/package.json \
+  /var/www/emaus/package.json \
+  /var/www/emaus/pnpm-lock.yaml \
+  /var/www/emaus/pnpm-workspace.yaml; do
+  [ -e "$p" ] && sudo chown ubuntu:ubuntu "$p" || true
+done
+```
+
+---
+
+### 15. `PM2 Permission denied` — sockets de PM2 bajo ownership `root`
+
+**Contexto**: después de matar el proceso huérfano (§11), el daemon de PM2
+que había levantado el bootstrap original seguía corriendo como `root`. Al
+intentar `pm2 restart emaus-api` como `ubuntu`, PM2 fallaba con:
+
+```
+[PM2][ERROR] Permission denied, to give access to current user:
+$ sudo chown ubuntu:ubuntu /home/ubuntu/.pm2/rpc.sock /home/ubuntu/.pm2/pub.sock
+```
+
+El step de deploy terminaba con exit 1 aunque el error era sólo de permisos
+y la app en realidad arrancaba correctamente.
+
+**Fix** (commit `9b67db7`): chown del directorio `.pm2` antes de cualquier
+comando pm2:
+```bash
+if [ -d "$HOME/.pm2" ]; then
+  sudo chown -R ubuntu:ubuntu "$HOME/.pm2" 2>/dev/null || true
+fi
+pm2 restart emaus-api
+```
+
+---
+
+### 16. Deploy step — exit code 1 justo después de `✅ API is healthy (HTTP 200)`
+
+**Contexto**: el step "Deploy to Lightsail" terminaba con exit 1
+consistentemente, 50–80 ms después de imprimir el mensaje de éxito del
+healthcheck. La app funcionaba correctamente en producción, pero GitHub
+Actions marcaba el run como `failure` y ejecutaba el step de rollback.
+
+**Causa**: el healthcheck original usaba `exit 0` dentro de un `for` loop
+en el shell heredoc de SSH:
+
+```bash
+# PROBLEMÁTICO
+for i in 1 2 3 4 5; do
+  HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/api/health || echo 000)
+  if [ "$HTTP_CODE" = "200" ]; then
+    echo "✅ API is healthy (HTTP 200)"
+    exit 0          # ← sale del shell remoto a mitad del heredoc
+  fi
+  ...
+done
+```
+
+Cuando `exit 0` corre en el shell remoto, la conexión SSH se cierra antes
+de que el cliente local haya terminado de escribir todo el contenido del
+heredoc al pipe. El cliente SSH recibe SIGPIPE y puede devolver exit 1 al
+runner aunque el remote exit code fue 0.
+
+Adicionalmente `pm2 status emaus-api` (informativo) podía retornar non-zero
+con `set -e` activo si PM2 reportaba el proceso en estado `errored`
+justo después de un restart.
+
+**Fix** (commit `9c2b466`): usar un flag en lugar de `exit 0` dentro del loop,
+y agregar `|| true` a `pm2 status`:
+
+```bash
+# CORRECTO
+pm2 status emaus-api || true
+
+HEALTHY=0
+for i in 1 2 3 4 5; do
+  HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/api/health 2>/dev/null || echo 000)
+  if [ "$HTTP_CODE" = "200" ]; then
+    echo "✅ API is healthy (HTTP 200)"
+    HEALTHY=1
+    break
+  fi
+  echo "Attempt $i: HTTP $HTTP_CODE - retrying in 3s..."
+  sleep 3
+done
+if [ "$HEALTHY" != "1" ]; then
+  echo "❌ API did not respond with 200 after 5 attempts"
+  pm2 logs emaus-api --lines 30 --nostream || true
+  exit 1
+fi
+# Heredoc cae al final → exit 0 natural
+```
+
+**Regla general**: nunca usar `exit 0` dentro de loops en heredocs SSH.
+Usar siempre un flag + `break` y dejar caer el script al final.
+
+---
+
 ## Runbook — operaciones comunes
 
 ### Ver logs del API
