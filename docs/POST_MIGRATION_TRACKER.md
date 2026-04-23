@@ -12,15 +12,10 @@ migración a AWS Lightsail (2026-04-21 cutover).
   en `/api/auth/*` + Web Analytics. Documentado en
   [`CLOUDFLARE_SECURITY.md`](./CLOUDFLARE_SECURITY.md). Aplicado por API, luego
   importado al state de Terraform — `terraform plan` devuelve No changes.
-- [ ] **2026-04-25 (vie)** — Terminar EC2 `i-011986d465e7c8f53`
-  - Ahorro restante: ~$0.80/mes (EBS root 8 GB)
-  - Solo si Lightsail siguió estable lunes-viernes
-  - Comando:
-    ```bash
-    aws ec2 terminate-instances --instance-ids i-011986d465e7c8f53 \
-      --region us-east-2 --profile emaus
-    ```
-  - Verificar: `aws ec2 describe-instances --instance-ids i-011986d465e7c8f53 --region us-east-2 --profile emaus --query 'Reservations[].Instances[].State.Name'` → `terminated`
+- [x] **2026-04-23** — ~~Terminar EC2 `i-011986d465e7c8f53`~~ ✓ `terminated`
+  - AMI final creada antes de terminar: `ami-0c18c9efa72c48e1f`
+    (`emaus-backup-20260423-0106-pre-terminate`) — estado `available`
+  - Ahorro: ~$0.80/mes (EBS root 8 GB ya liberado)
 
 - [ ] **2026-04-22 (hoy+1)** — Validación manual completa en producción
   - [ ] Login con cuenta real
@@ -141,6 +136,6 @@ cualquier valor >$8 amerita investigación.
 | 2026-04-12 | Lanzada EC2 `t3a.micro` `i-011986d465e7c8f53` |
 | 2026-04-20 | Cloudflare zone activado; Terraform módulo creado; Lightsail provisionada |
 | 2026-04-21 | DNS cutover a Lightsail; EC2 viejo `stopped`; app funcional |
-| **2026-04-25** | **🎯 Target: terminate EC2 viejo + release EIP** |
+| 2026-04-23 | EC2 `i-011986d465e7c8f53` terminado; AMI final `ami-0c18c9efa72c48e1f` |
 | 2026-07-12 | Fin del AWS Free Plan de 6 meses (no afecta — créditos ya agotados) |
 | 2026-07-20 | Expira cert Let's Encrypt (renovación automática vía DNS-01) |
