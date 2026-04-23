@@ -37,6 +37,7 @@ const HelpView = () => import('../views/HelpView.vue');
 const LandingView = () => import('../views/LandingView.vue');
 const SantisimoAdminView = () => import('../views/SantisimoAdminView.vue');
 const PublicSantisimoView = () => import('../views/PublicSantisimoView.vue');
+const RecepcionView = () => import('../views/RecepcionView.vue');
 
 import { useAuthStore } from '@/stores/authStore';
 import { useRetreatStore } from '@/stores/retreatStore';
@@ -278,6 +279,13 @@ const router = createRouter({
 					path: 'retreats/:id/bed-assignments',
 					name: 'bed-assignments',
 					component: BedAssignmentsView,
+					props: true,
+					meta: { requiresRetreat: true },
+				},
+				{
+					path: 'retreats/:id/reception',
+					name: 'reception',
+					component: RecepcionView,
 					props: true,
 					meta: { requiresRetreat: true },
 				},

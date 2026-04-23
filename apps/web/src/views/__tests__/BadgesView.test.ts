@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { nextTick } from 'vue';
@@ -120,7 +120,7 @@ function createParticipant(overrides: any = {}) {
 	};
 }
 
-async function mountBadges(participants: any[] = []) {
+async function mountBadges(participants: any[] = [], attachToBody = false) {
 	const pinia = createPinia();
 	setActivePinia(pinia);
 
@@ -135,14 +135,19 @@ async function mountBadges(participants: any[] = []) {
 
 	getParticipantsByRetreatMock.mockResolvedValue(participants);
 
-	const wrapper = mount(BadgesView, {
+	const mountOptions: any = {
 		global: {
 			plugins: [pinia],
 			mocks: {
 				$t: (key: string) => key,
 			},
 		},
-	});
+	};
+	if (attachToBody) {
+		mountOptions.attachTo = document.body;
+	}
+
+	const wrapper = mount(BadgesView, mountOptions);
 
 	await flushPromises();
 	await nextTick();
@@ -272,6 +277,100 @@ describe('BadgesView', () => {
 			// This guards against regressions where a less-specific selector
 			// is overridden by `.badge-pair.double-sided { display: flex !important }`.
 			expect(html).toBeTruthy();
+		});
+	});
+
+	describe('printWalkersForBag', () => {
+		let printSpy: ReturnType<typeof vi.spyOn>;
+
+		const mixedParticipants = [
+			createParticipant({ id: 'w1', type: 'walker', firstName: 'Walker1' }),
+			createParticipant({ id: 'w2', type: 'walker', firstName: 'Walker2' }),
+			createParticipant({ id: 's1', type: 'server', firstName: 'Server1' }),
+			createParticipant({ id: 'ps1', type: 'partial_server', firstName: 'Angelito1' }),
+		];
+
+		beforeEach(() => {
+			printSpy = vi.spyOn(window, 'print').mockImplementation(() => {});
+		});
+
+		afterEach(() => {
+			printSpy.mockRestore();
+		});
+
+		function findBagMenuItem(wrapper: any) {
+			return wrapper
+				.findAllComponents({ name: 'DropdownMenuItem' })
+				.find((c: any) => c.text().includes('Imprimir caminantes para bolsa'));
+		}
+
+		it('calls window.print()', async () => {
+			const wrapper = await mountBadges(mixedParticipants, true);
+			const item = findBagMenuItem(wrapper);
+			expect(item).toBeTruthy();
+			await item.trigger('click');
+			expect(printSpy).toHaveBeenCalledOnce();
+			wrapper.unmount();
+		});
+
+		it('hides server and partial_server badge-pairs', async () => {
+			const wrapper = await mountBadges(mixedParticipants, true);
+			await findBagMenuItem(wrapper).trigger('click');
+
+			expect(wrapper.find('[data-walker-id="s1"]').classes()).toContain('badge-hidden');
+			expect(wrapper.find('[data-walker-id="ps1"]').classes()).toContain('badge-hidden');
+			wrapper.unmount();
+		});
+
+		it('does not hide walker badge-pairs', async () => {
+			const wrapper = await mountBadges(mixedParticipants, true);
+			await findBagMenuItem(wrapper).trigger('click');
+
+			expect(wrapper.find('[data-walker-id="w1"]').classes()).not.toContain('badge-hidden');
+			expect(wrapper.find('[data-walker-id="w2"]').classes()).not.toContain('badge-hidden');
+			wrapper.unmount();
+		});
+
+		it('removes badge-hidden from all pairs after afterprint event', async () => {
+			const wrapper = await mountBadges(mixedParticipants, true);
+			await findBagMenuItem(wrapper).trigger('click');
+
+			expect(wrapper.find('[data-walker-id="s1"]').classes()).toContain('badge-hidden');
+
+			window.dispatchEvent(new Event('afterprint'));
+			await nextTick();
+
+			expect(wrapper.find('[data-walker-id="s1"]').classes()).not.toContain('badge-hidden');
+			expect(wrapper.find('[data-walker-id="ps1"]').classes()).not.toContain('badge-hidden');
+			wrapper.unmount();
+		});
+
+		it('works when all participants are walkers — nothing is hidden', async () => {
+			const allWalkers = [
+				createParticipant({ id: 'w1', type: 'walker' }),
+				createParticipant({ id: 'w2', type: 'walker' }),
+			];
+			const wrapper = await mountBadges(allWalkers, true);
+			await findBagMenuItem(wrapper).trigger('click');
+
+			expect(printSpy).toHaveBeenCalledOnce();
+			expect(wrapper.find('[data-walker-id="w1"]').classes()).not.toContain('badge-hidden');
+			expect(wrapper.find('[data-walker-id="w2"]').classes()).not.toContain('badge-hidden');
+			wrapper.unmount();
+		});
+
+		it('works when all participants are servers — all are hidden', async () => {
+			const allServers = [
+				createParticipant({ id: 's1', type: 'server' }),
+				createParticipant({ id: 's2', type: 'server' }),
+			];
+			const wrapper = await mountBadges(allServers, true);
+			await findBagMenuItem(wrapper).trigger('click');
+
+			expect(printSpy).toHaveBeenCalledOnce();
+			expect(wrapper.find('[data-walker-id="s1"]').classes()).toContain('badge-hidden');
+			expect(wrapper.find('[data-walker-id="s2"]').classes()).toContain('badge-hidden');
+			wrapper.unmount();
 		});
 	});
 });

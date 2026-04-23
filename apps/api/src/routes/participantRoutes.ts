@@ -9,6 +9,8 @@ import {
 	updateSelfParticipant,
 	checkParticipantEmail,
 	confirmExistingParticipantEmail,
+	checkInParticipant,
+	getReceptionStats,
 } from '../controllers/participantController';
 import { validateRequest } from '../middleware/validateRequest';
 import { createParticipantSchema, updateParticipantSchema } from '@repo/types';
@@ -37,7 +39,9 @@ router.post(
 	requireRetreatAccess('retreatId'),
 	importParticipants,
 );
+router.get('/reception/:retreatId', requirePermission('participant:list'), getReceptionStats);
 router.put('/self', updateSelfParticipant);
+router.put('/:id/checkin', requirePermission('participant:update'), checkInParticipant);
 router.put(
 	'/:id',
 	validateRequest(updateParticipantSchema),

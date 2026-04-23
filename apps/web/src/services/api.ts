@@ -809,6 +809,17 @@ export const getParticipantById = async (participantId: string) => {
   return response.data;
 };
 
+export async function updateBagMade(
+  retreatId: string,
+  participantId: string,
+  bagMade: boolean,
+): Promise<void> {
+  await api.patch(
+    `/history/retreat/${retreatId}/participant/${participantId}/bag-made`,
+    { bagMade },
+  );
+}
+
 /**
  * Check if a participant exists by email (for server registration flow)
  * Returns existence status and participant details if found
@@ -2098,3 +2109,38 @@ export const santisimoApi = {
     await api.delete(`/santisimo/public/signups/${token}`);
   },
 };
+
+// ── Recepción ──────────────────────────────────────────────────────────────
+
+export interface ReceptionParticipant {
+  retreatParticipantId: string;
+  participantId: string | null;
+  idOnRetreat: number | null;
+  firstName: string;
+  lastName: string;
+  cellPhone: string;
+  checkedIn: boolean;
+  checkedInAt: string | null;
+}
+
+export interface ReceptionStats {
+  total: number;
+  arrived: number;
+  pending: number;
+  pendingList: ReceptionParticipant[];
+  arrivedList: ReceptionParticipant[];
+}
+
+export async function getReceptionStats(retreatId: string): Promise<ReceptionStats> {
+  const r = await api.get(`/participants/reception/${retreatId}`);
+  return r.data;
+}
+
+export async function checkInParticipant(
+  participantId: string,
+  retreatId: string,
+  checkedIn: boolean,
+): Promise<{ checkedIn: boolean; checkedInAt: string | null }> {
+  const r = await api.put(`/participants/${participantId}/checkin`, { retreatId, checkedIn });
+  return r.data;
+}

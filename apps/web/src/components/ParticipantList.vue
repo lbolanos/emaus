@@ -1391,6 +1391,8 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                         <TooltipContent>{{ $t('participants.refresh') }}</TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
+                <!-- Extra actions slot (e.g. reception button from WalkersView) -->
+                <slot name="extra-actions" />
                 <!-- Add Participant -->
                 <TooltipProvider>
                     <Tooltip>

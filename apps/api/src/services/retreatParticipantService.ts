@@ -32,6 +32,7 @@ export interface RetreatSnapshotFields {
 	tableId?: string | null;
 	idOnRetreat?: number | null;
 	familyFriendColor?: string | null;
+	bagMade?: boolean;
 }
 
 export interface CreateHistoryData extends RetreatSnapshotFields {

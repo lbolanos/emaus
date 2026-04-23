@@ -218,6 +218,27 @@ const printDoubleSided = () => {
   });
 };
 
+// Print only walkers (for bag)
+const printWalkersForBag = () => {
+  const badgePairs = document.querySelectorAll('.badge-pair');
+  const hidden: Element[] = [];
+  badgePairs.forEach(item => {
+    const walkerId = item.getAttribute('data-walker-id');
+    const participant = participants.value.find(p => p.id === walkerId);
+    if (!participant || participant.type !== 'walker') {
+      item.classList.add('badge-hidden');
+      hidden.push(item);
+    }
+  });
+
+  const cleanup = () => {
+    hidden.forEach(item => item.classList.remove('badge-hidden'));
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+  window.print();
+};
+
 // Print only selected badges double-sided
 const printSelectedDoubleSided = () => {
   if (selectedBadges.value.size === 0) {
@@ -409,6 +430,12 @@ watch(retreatId, async (newId) => {
           <DropdownMenuItem @click="printDoubleSided">
             <Printer class="mr-2 h-4 w-4" />
             Imprimir doble cara
+          </DropdownMenuItem>
+
+          <!-- Print walkers for bag -->
+          <DropdownMenuItem @click="printWalkersForBag">
+            <Printer class="mr-2 h-4 w-4" />
+            Imprimir caminantes para bolsa
           </DropdownMenuItem>
 
           <DropdownMenuSeparator v-if="selectedCount > 0" />

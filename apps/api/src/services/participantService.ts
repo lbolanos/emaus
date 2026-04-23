@@ -564,6 +564,7 @@ export const findAllParticipants = async (
         "tableId",
         "idOnRetreat",
         "familyFriendColor",
+        "bagMade",
       ],
     });
     const historyMap = new Map(historyRows.map((h) => [h.participantId, h]));
@@ -576,6 +577,7 @@ export const findAllParticipants = async (
         if (h.idOnRetreat != null) p.id_on_retreat = h.idOnRetreat;
         if (h.familyFriendColor !== undefined)
           p.family_friend_color = h.familyFriendColor ?? undefined;
+        p.bagMade = h.bagMade ?? false;
       }
     }
 
@@ -3599,4 +3601,62 @@ export const importParticipants = async (
     bedsCreated,
     paymentsCreated,
   };
+};
+
+export const setParticipantCheckIn = async (
+  participantId: string,
+  retreatId: string,
+  checkedIn: boolean,
+): Promise<{ checkedIn: boolean; checkedInAt: Date | null }> => {
+  const rpRepo = AppDataSource.getRepository(RetreatParticipant);
+  const rp = await rpRepo.findOne({ where: { participantId, retreatId } });
+  if (!rp) {
+    const err = new Error("Participant not found in retreat");
+    (err as any).status = 404;
+    throw err;
+  }
+  rp.checkedIn = checkedIn;
+  rp.checkedInAt = checkedIn ? new Date() : null;
+  await rpRepo.save(rp);
+  return { checkedIn: rp.checkedIn, checkedInAt: rp.checkedInAt ?? null };
+};
+
+export const getReceptionStats = async (retreatId: string) => {
+  const rpRepo = AppDataSource.getRepository(RetreatParticipant);
+
+  const walkers = await rpRepo.find({
+    where: { retreatId, isCancelled: false, type: "walker" },
+    relations: ["participant"],
+    order: { idOnRetreat: "ASC" },
+  });
+
+  const total = walkers.length;
+  const arrived = walkers.filter((rp) => rp.checkedIn).length;
+  const pending = walkers.filter((rp) => !rp.checkedIn);
+
+  const pendingList = pending.map((rp) => ({
+    retreatParticipantId: rp.id,
+    participantId: rp.participantId,
+    idOnRetreat: rp.idOnRetreat,
+    firstName: rp.participant?.firstName ?? "",
+    lastName: rp.participant?.lastName ?? "",
+    cellPhone: rp.participant?.cellPhone ?? "",
+    checkedIn: false,
+    checkedInAt: null,
+  }));
+
+  const arrivedList = walkers
+    .filter((rp) => rp.checkedIn)
+    .map((rp) => ({
+      retreatParticipantId: rp.id,
+      participantId: rp.participantId,
+      idOnRetreat: rp.idOnRetreat,
+      firstName: rp.participant?.firstName ?? "",
+      lastName: rp.participant?.lastName ?? "",
+      cellPhone: rp.participant?.cellPhone ?? "",
+      checkedIn: true,
+      checkedInAt: rp.checkedInAt ?? null,
+    }));
+
+  return { total, arrived, pending: total - arrived, pendingList, arrivedList };
 };

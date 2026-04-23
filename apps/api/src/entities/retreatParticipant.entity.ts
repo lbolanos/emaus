@@ -72,4 +72,13 @@ export class RetreatParticipant {
 
 	@Column({ type: 'varchar', length: 20, nullable: true })
 	familyFriendColor?: string | null;
+
+	@Column({ type: 'boolean', default: false })
+	checkedIn!: boolean;
+
+	@Column({ type: 'datetime', nullable: true })
+	checkedInAt?: Date | null;
+
+	@Column({ type: 'boolean', default: false })
+	bagMade!: boolean;
 }

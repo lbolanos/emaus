@@ -24,7 +24,12 @@
           >
             <component :is="item.icon" class="w-5 h-5 flex-shrink-0 transition-colors duration-200" :class="{ 'mr-3': !isCollapsedView, 'text-blue-400 group-hover:text-blue-300': isActive, 'text-gray-400 group-hover:text-gray-200': !isActive }" />
             <span v-if="!isCollapsedView" class="truncate transition-colors duration-200" :class="{ 'text-white': isActive, 'text-gray-300 group-hover:text-gray-200': !isActive }">{{ $t(item.label) }}</span>
-            <span v-if="!isCollapsedView && isFocused" class="ml-auto transition-opacity duration-200 opacity-70 group-hover:opacity-100">
+            <span
+              v-if="!isCollapsedView && badge"
+              class="ml-auto shrink-0 rounded-full text-white text-xs font-bold leading-none flex items-center justify-center"
+              :class="[badgeColor, badge > 99 ? 'px-1.5 h-5' : 'w-5 h-5']"
+            >{{ badge > 99 ? '99+' : badge }}</span>
+            <span v-else-if="!isCollapsedView && isFocused" class="ml-auto transition-opacity duration-200 opacity-70 group-hover:opacity-100">
               <ArrowRight class="w-4 h-4" />
             </span>
           </a>
@@ -89,6 +94,8 @@ defineProps<{
   isFocused: boolean;
   globalIndex: number;
   routeWithParams: any;
+  badge?: number | null;
+  badgeColor?: string;
 }>();
 
 defineEmits<{

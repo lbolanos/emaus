@@ -488,18 +488,19 @@ tambien agregar invitador en la lista de envio de mensajes.
 si alguna variable esta vacia dejar constancia visible cuando se este enviando el mensaje.
 numero de mensajes enviados como columna en la lista de participantes.
 Cuando se asigna al servidor en una responsabilidad se agregue como lider del equipo de servicio y al revez tambien.
+agregar lectura de mesa y pago a perfil comunicaciones
+imprimir datos de la mesa con telefono y correo
+en enviar mensaje se congela la interfaz no deja cancelar.
+
+las impresiones de badges crear una impresion de solo caminantes para la bolsa
+una forma de recepccion pueda saber que caminantes hacen falta
+un check en reporte de bolsas que se realizo la bolsa
 
 ## IN PROGRESS
 
-en enviar mensaje se congela la interfaz no deja cancelar.
-las impresiones de badges no doble cara deben ser solo caminantes porque van para las bolsas que se entregan a los caminantes
-una forma de recepccion pueda saber que caminantes hacen falta
 minuto a minutos
 horarios de santisimo
 no se ve la mesa en algunos usuarios en reporte de bolsas
-un check en reporte de bolsas que se realizo la bolsa
-agregar lectura de mesa y pago a perfil comunicaciones
-imprimir datos de la mesa con telefono y correo
 
 
 create a migration script just for testing red social. is not for production. create users, retreats, communities, houses, participants, messages, friends, followers, blocks, searches, avatars, and messages.
@@ -513,11 +514,11 @@ aumentar el coverage de las pruebas
 verificar que todas la pruebas pasen.
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
 agregar todas las actividades por servidor
-
+cuando estoy creando o editando la casa de retiro y agrego las habitaciones me da problemas para adicionar una sola habitacion cuando ya esta creado. cuando selecciono una cama deberia cambiar el Configurar próxima cama:  asi si le doy nueva cama crea la siguiente de esa habitacion y nueva habitacion la siguiente de ese piso que no este creada
 
 ## TODO
-si no esta al 100% los gafetes recorta esto le paso a pepe toño mac
-cuando estoy creando o editando la casa de retiro y agrego las habitaciones me da problemas para adicionar una sola habitacion cuando ya esta creado. cuando selecciono una cama deberia cambiar el Configurar próxima cama:  asi si le doy nueva cama crea la siguiente de esa habitacion y nueva habitacion la siguiente de ese piso que no este creada
+si no esta al 100% los gafetes al cambiar de pagina recorta el gafete que queda en medio esto le paso a pepe toño mac
+
 cuando en operaciones masivas agrego la etiqueta no se si se guarda .  guardar el sector de las habitaciones que se guardan con masivo y mostrarlo en el mapa de habitaciones.
 cuando ya esta el retiro por empezar modificar las camas para servidores.  es decir si sobraron camas de caminantes modificar que puedan ser para servidores sin modificar la estructura de la casa de retiro.  solamente para el retiro en curso.
 cuando estoy creando un retiro:  colocar la hora de llegada por defecto en punto x:00.  placeholder de notas por defecto

@@ -323,6 +323,42 @@ export const confirmExistingParticipantEmail = async (
   }
 };
 
+export const checkInParticipant = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id } = req.params;
+    const { retreatId, checkedIn } = req.body;
+    if (!retreatId) {
+      return res.status(400).json({ message: "retreatId is required" });
+    }
+    const result = await participantService.setParticipantCheckIn(
+      id,
+      retreatId,
+      checkedIn === true || checkedIn === "true",
+    );
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getReceptionStats = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { retreatId } = req.params;
+    const stats = await participantService.getReceptionStats(retreatId);
+    res.json(stats);
+  } catch (error) {
+    next(error);
+  }
+};
+
 /**
  * Check if a participant exists by email (for server registration flow)
  * This endpoint allows checking if a participant already exists before registering

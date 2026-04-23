@@ -13,6 +13,7 @@ import {
 	updateHistoryEntryController,
 	deleteHistoryEntryController,
 	markPrimaryRetreatController,
+	updateBagMadeController,
 } from '../controllers/retreatParticipantController';
 import { isAuthenticated } from '../middleware/authentication';
 import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
@@ -102,6 +103,13 @@ router.put(
 	'/history/user/:userId/primary/:historyId',
 	requirePermission('participant:update'),
 	markPrimaryRetreatController,
+);
+
+// Update bagMade flag for a participant in a retreat
+router.patch(
+	'/history/retreat/:retreatId/participant/:participantId/bag-made',
+	requirePermission('participant:update'),
+	updateBagMadeController,
 );
 
 export default router;
