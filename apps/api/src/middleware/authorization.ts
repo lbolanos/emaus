@@ -601,14 +601,18 @@ export const requireCriticalPermission = (permission: string): any => {
 	};
 };
 
-export const requireRetreatAccess = (retreatIdParam: string = 'retreatId'): any => {
+export const requireRetreatAccess = (
+	retreatIdParam: string = 'retreatId',
+	source: 'params' | 'body' = 'params',
+): any => {
 	return async (req: any, res: Response, next: NextFunction) => {
 		try {
 			if (!req.user) {
 				return res.status(401).json({ message: 'Unauthorized' });
 			}
 
-			const retreatId = req.params[retreatIdParam];
+			const retreatId =
+				source === 'body' ? req.body?.[retreatIdParam] : req.params[retreatIdParam];
 			if (!retreatId) {
 				return res.status(400).json({ message: 'Retreat ID is required' });
 			}

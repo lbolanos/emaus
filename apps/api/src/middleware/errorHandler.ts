@@ -28,8 +28,10 @@ export const errorHandler = (err: Error, req: Request, res: Response, next: Next
 	console.error('---------------------');
 	console.error('An unexpected error occurred:');
 	console.error(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
-	console.error('Error:', err);
-	console.error('Error stack:', err.stack);
+	console.error('Error:', err.message);
+	if (process.env.NODE_ENV !== 'production') {
+		console.error('Error stack:', err.stack);
+	}
 	console.error('---------------------');
 
 	if (res.headersSent) {

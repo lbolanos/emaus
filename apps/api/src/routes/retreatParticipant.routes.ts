@@ -109,6 +109,7 @@ router.put(
 router.patch(
 	'/history/retreat/:retreatId/participant/:participantId/bag-made',
 	requirePermission('participant:update'),
+	requireRetreatAccess('retreatId'),
 	updateBagMadeController,
 );
 

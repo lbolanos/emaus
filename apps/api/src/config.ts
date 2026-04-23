@@ -6,6 +6,17 @@ if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
 	throw new Error('SESSION_SECRET environment variable is required in production');
 }
 
+// Fail fast if seeding is enabled in production without explicit master-user credentials
+if (
+	process.env.NODE_ENV === 'production' &&
+	process.env.SEED_AUTO_RUN === 'true' &&
+	(!process.env.SEED_MASTER_USER_EMAIL || !process.env.SEED_MASTER_USER_PASSWORD)
+) {
+	throw new Error(
+		'SEED_MASTER_USER_EMAIL and SEED_MASTER_USER_PASSWORD are required when SEED_AUTO_RUN=true in production',
+	);
+}
+
 export const config = {
 	env: process.env.NODE_ENV || 'development',
 	google: {

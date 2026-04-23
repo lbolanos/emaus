@@ -76,7 +76,7 @@
                       <p class="text-2xl font-bold text-stone-900 mt-1">{{ formatCost(retreat.cost) }}</p>
                     </div>
                     <div v-if="retreat.paymentInfo" class="flex-1 ml-4 text-xs text-stone-600">
-                      <span v-html="retreat.paymentInfo.replace(/\n/g, '<br>')"></span>
+                      <span v-html="sanitizedPaymentInfo"></span>
                     </div>
                   </div>
                   <p v-if="retreat.paymentMethods" class="text-xs text-stone-600 mt-2">
@@ -176,6 +176,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import DOMPurify from 'dompurify';
 import {
   Calendar,
   Clock,
@@ -227,6 +228,12 @@ defineEmits<{
 }>();
 
 const { t } = useI18n();
+
+const sanitizedPaymentInfo = computed(() => {
+  const raw = props.retreat?.paymentInfo;
+  if (!raw) return '';
+  return DOMPurify.sanitize(raw.replace(/\n/g, '<br>'));
+});
 
 const retreatTypeLogo = computed(() => {
   if (!props.retreat) return '/crossRoseButtT.png';
