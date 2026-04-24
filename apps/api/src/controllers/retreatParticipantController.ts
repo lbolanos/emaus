@@ -16,6 +16,7 @@ import {
 	getCharlistas,
 	syncRetreatFields,
 } from '../services/retreatParticipantService';
+import { emitReceptionBagMade } from '../realtime';
 
 // ==================== USER RETREAT HISTORY ====================
 
@@ -312,6 +313,7 @@ export const updateBagMadeController = async (req: Request, res: Response): Prom
 			return;
 		}
 		await syncRetreatFields(participantId, retreatId, { bagMade });
+		emitReceptionBagMade({ retreatId, participantId, bagMade });
 		res.json({ ok: true });
 	} catch (error: any) {
 		res.status(500).json({ message: error.message });

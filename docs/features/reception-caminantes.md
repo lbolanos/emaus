@@ -25,7 +25,7 @@ Funcionalidad para registrar la llegada de caminantes el día del retiro y visua
 - **Lista de pendientes**: caminantes que aún no han llegado, con búsqueda + clear por nombre o número
 - **Check-in con un clic**: botón "Llegó" por fila. Si el registro no tiene `participantId` muestra badge ámbar "Sin vínculo" en lugar del botón
 - **Lista de llegados** (colapsable): muestra hora de llegada, búsqueda propia y botón "Deshacer"
-- **Auto-refresh cada 30 s**: múltiples recepcionistas pueden usarla simultáneamente
+- **Tiempo real vía WebSocket**: múltiples recepcionistas ven los check-ins de los demás en <1 s sin recargar. Ver [websockets-realtime.md](./websockets-realtime.md)
 
 ### Dashboard del retiro
 - Card "Recepción de Caminantes" con Total / Llegaron / Faltan + barra de progreso. Clickeable → navega a la vista de recepción

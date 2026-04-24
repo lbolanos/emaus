@@ -94,7 +94,7 @@ const searchArrivedQuery = ref('')
 const processingIds = ref<Set<string>>(new Set())
 const showArrived = ref(false)
 
-let pollInterval: ReturnType<typeof setInterval> | null = null
+let unsubscribeRealtime: (() => void) | null = null
 
 async function fetchStats() {
   if (!retreatId.value) return
@@ -173,12 +173,17 @@ onMounted(async () => {
     await retreatStore.fetchRetreat(retreatId.value)
   }
   await fetchStats()
-  pollInterval = setInterval(fetchStats, 30_000)
+  if (retreatId.value) {
+    unsubscribeRealtime = receptionStore.subscribeRealtime(retreatId.value, {
+      onCheckin: () => { fetchStats() },
+      onBagMade: () => { fetchStats() },
+    })
+  }
   clockInterval = setInterval(() => { now.value = new Date() }, 30_000)
 })
 
 onUnmounted(() => {
-  if (pollInterval) clearInterval(pollInterval)
+  if (unsubscribeRealtime) unsubscribeRealtime()
   if (clockInterval) clearInterval(clockInterval)
 })
 </script>

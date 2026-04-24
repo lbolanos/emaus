@@ -23,6 +23,7 @@ import { RetreatParticipant } from "../entities/retreatParticipant.entity";
 import { User } from "../entities/user.entity";
 import { Responsability } from "../entities/responsability.entity";
 import { ParticipantCommunication } from "../entities/participantCommunication.entity";
+import { emitReceptionCheckin } from "../realtime";
 
 const participantRepository = AppDataSource.getRepository(Participant);
 const tableMesaRepository = AppDataSource.getRepository(TableMesa);
@@ -3618,6 +3619,12 @@ export const setParticipantCheckIn = async (
   rp.checkedIn = checkedIn;
   rp.checkedInAt = checkedIn ? new Date() : null;
   await rpRepo.save(rp);
+  emitReceptionCheckin({
+    retreatId,
+    participantId,
+    checkedIn: rp.checkedIn,
+    checkedInAt: rp.checkedInAt ? rp.checkedInAt.toISOString() : null,
+  });
   return { checkedIn: rp.checkedIn, checkedInAt: rp.checkedInAt ?? null };
 };
 

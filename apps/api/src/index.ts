@@ -4,9 +4,12 @@ import 'express-async-errors';
 import cors from 'cors';
 import session from 'express-session';
 import helmet from 'helmet';
+import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { TypeormStore } from 'connect-typeorm';
+
+import { initRealtime } from './realtime';
 
 import { AppDataSource } from './data-source';
 import { Session } from './entities/session.entity';
@@ -114,28 +117,27 @@ async function main() {
 
 	// --- 3. Session and Auth Middleware (AFTER DB connection) ---
 	const sessionRepository = AppDataSource.getRepository(Session);
-	app.use(
-		session({
-			store: new TypeormStore({
-				cleanupLimit: 2,
-				limitSubquery: false,
-				ttl: 86400, // 1 day
-			}).connect(sessionRepository),
-			secret: config.session.secret,
-			resave: false,
-			saveUninitialized: false,
-			cookie: {
-				httpOnly: true,
-				secure: config.env === 'production', // Always secure in production
-				sameSite: 'strict', // Strongest CSRF protection
-				maxAge: 24 * 60 * 60 * 1000, // 24 hours
-				domain: config.env === 'production' ? config.session.cookieDomain : undefined,
-				path: '/',
-			},
-			name: 'emaus.sid', // Custom session name
-			proxy: config.env === 'production', // Trust proxy in production
-		}),
-	);
+	const sessionMiddleware = session({
+		store: new TypeormStore({
+			cleanupLimit: 2,
+			limitSubquery: false,
+			ttl: 86400, // 1 day
+		}).connect(sessionRepository),
+		secret: config.session.secret,
+		resave: false,
+		saveUninitialized: false,
+		cookie: {
+			httpOnly: true,
+			secure: config.env === 'production', // Always secure in production
+			sameSite: 'strict', // Strongest CSRF protection
+			maxAge: 24 * 60 * 60 * 1000, // 24 hours
+			domain: config.env === 'production' ? config.session.cookieDomain : undefined,
+			path: '/',
+		},
+		name: 'emaus.sid', // Custom session name
+		proxy: config.env === 'production', // Trust proxy in production
+	});
+	app.use(sessionMiddleware);
 	app.use(passport.initialize());
 	app.use(passport.session());
 
@@ -203,7 +205,9 @@ async function main() {
 	await performanceOptimizationService.optimizeHeavyQueries();
 
 	// --- 8. Start Server ---
-	app.listen(port, () => {
+	const httpServer = http.createServer(app);
+	initRealtime(httpServer, sessionMiddleware);
+	httpServer.listen(port, () => {
 		console.log(`✅ Server is running on http://localhost:${port}`);
 	});
 }
