@@ -248,6 +248,25 @@ jobs:
           echo "Running migrations..."
           pnpm --filter api migration:run 2>&1 | tail -5 || echo "Migrations skipped"
 
+          # Dual-daemon guard — see 2026-04-23 incident. A second PM2 daemon
+          # (usually in /root/.pm2 from a past `sudo pm2 start`) competes with
+          # the ubuntu daemon for :3001 and produces "Server is running" →
+          # crash-in-1s loops that are invisible to jlist-based orphan checks.
+          # Fail the deploy early with a clear recovery hint instead of letting
+          # it produce a seemingly-healthy-but-flapping API.
+          DAEMON_COUNT=$(ps -eo cmd 2>/dev/null | grep "PM2 v.*God Daemon" | grep -v grep | wc -l)
+          if [ "${DAEMON_COUNT:-0}" -gt 1 ]; then
+            echo "❌ $DAEMON_COUNT PM2 daemons running — dual-daemon conflict will crash emaus-api on restart."
+            ps -eo pid,user,cmd | grep "PM2 v.*God Daemon" | grep -v grep || true
+            echo "Fix: 'sudo pm2 delete all && sudo pm2 kill' on host, then re-run."
+            exit 1
+          fi
+          if sudo test -d /root/.pm2; then
+            echo "❌ /root/.pm2 exists — prior 'sudo pm2' left a root-owned daemon artifact that will resurrect on next boot."
+            echo "Fix: 'sudo pm2 delete all && sudo pm2 kill && sudo rm -rf /root/.pm2' on host, then re-run."
+            exit 1
+          fi
+
           # Orphan :3001 guard — see LIGHTSAIL_MIGRATION_NOTES.md §11.
           # If a non-PM2 process is holding :3001, pm2 restart crash-loops on
           # EADDRINUSE while the orphan keeps serving stale code (healthcheck
