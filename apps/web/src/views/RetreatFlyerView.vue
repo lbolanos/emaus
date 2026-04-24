@@ -988,6 +988,15 @@ onUnmounted(() => {
   }
 });
 
+// Reload retreat data when the :id param changes (sidebar retreat switch)
+watch(() => route.params.id, async (newId, oldId) => {
+  if (newId && newId !== oldId) {
+    await retreatStore.fetchRetreat(newId as string);
+    await nextTick();
+    calculateContentHeight();
+  }
+});
+
 // Watch for changes in QR code visibility
 watch(showQrCodesRegistration, () => {
   nextTick(() => {

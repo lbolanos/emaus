@@ -504,6 +504,15 @@ watch(
   async (newId, oldId) => {
     if (newId && newId !== oldId) {
       await authStore.refreshUserProfile();
+      // If we're on a retreat-scoped route, swap the :id param so the view
+      // reloads for the newly selected retreat instead of showing stale data.
+      if (route.meta?.requiresRetreat && route.params.id && route.params.id !== newId) {
+        router.replace({
+          name: route.name as string,
+          params: { ...route.params, id: newId },
+          query: route.query,
+        }).catch(() => {});
+      }
     }
     if (newId) {
       // Load participants so sidebar badges populate immediately on retreat switch

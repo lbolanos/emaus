@@ -1323,4 +1323,14 @@ watch(() => retreatStore.selectedRetreatId, (newId, oldId) => {
     participantStore.fetchParticipants();
   }
 });
+
+// Reload when the :id route param changes (sidebar triggers router.replace)
+watch(() => props.id, async (newId, oldId) => {
+  if (newId && newId !== oldId) {
+    await retreatStore.fetchRetreat(newId);
+    fetchBeds();
+    participantStore.filters.retreatId = newId;
+    participantStore.fetchParticipants();
+  }
+});
 </script>
