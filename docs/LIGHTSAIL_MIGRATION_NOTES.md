@@ -408,6 +408,86 @@ Usar siempre un flag + `break` y dejar caer el script al final.
 
 ---
 
+### 17. Recurrencia del huérfano `:3001` — deploys fallidos dejan zombie fuera de PM2
+
+**Contexto** (2026-04-23): el issue §11 volvió a aparecer, esta vez con
+~24h de duración antes de ser detectado. El usuario reportó "hice una
+prueba de correo y no llegó" — la API parecía sana (nginx 200, curl
+/api/health ok) pero en realidad había dos `node dist/index.js`:
+
+1. **Huérfano PID 320910** — levantado en algún deploy fallido de
+   2026-04-22 noche, corriendo como `root`, bind a `*:3001`, sirviendo
+   todo el tráfico real (incluyendo los perf metrics que salían en
+   `api-out.log` cada 5 min).
+2. **PM2-managed emaus-api** — crashloop perpetuo con EADDRINUSE cada
+   ~10s desde `2026-04-23T00:00:07` hasta `23:38` (killed manually).
+
+El PM2 dashboard mostraba `status=online` porque el nuevo proceso
+arrancaba, pero moría en ~6 s al no poder bindear. `pm2 logs` mostraba
+puros `EADDRINUSE` pero nadie lo miraba.
+
+**Por qué pasó sin supervisión humana entre 23:08 y 23:36**: el ciclo
+ya existía desde 00:00 UTC; el user solo lo notó a las 23:30 cuando su
+test de correo nunca salió (el endpoint cayó al huérfano, que no tenía
+las credenciales SES actualizadas del último deploy).
+
+**Causa raíz**: los 3 deploys fallidos del 2026-04-22 noche (runs
+`24806107477`, `24806921518`, `24807457013`) — todos relacionados a
+fixes incrementales de permisos/pipefail en el heredoc SSH. Cuando el
+deploy falla después de haber arrancado un `node dist/index.js` pero
+antes de que PM2 tome control, queda un proceso fuera del ámbito del
+God Daemon de PM2 (`/home/ubuntu/.pm2/pm2.pid` no lo conoce). Los
+deploys posteriores exitosos levantan su propio process → EADDRINUSE
+eternal.
+
+**Cómo detectarlo**:
+```bash
+ssh ubuntu@18.116.102.104 \
+  "echo '== port owner =='; sudo ss -tlnp | grep 3001; \
+   echo '== pm2 owner  =='; pm2 jlist | \
+     python3 -c \"import json,sys; d=json.load(sys.stdin); \
+     print([(p['name'], p['pid']) for p in d])\""
+# Si el PID de ss:3001 NO está en la lista de PM2 → huérfano.
+```
+
+También: buscar en `/home/ubuntu/.pm2/pm2.log` una secuencia sostenida
+de `exited with code [1] via signal [SIGINT]` cada ~10 s — firma
+inequívoca del crashloop.
+
+**Fix manual**:
+```bash
+sudo kill -TERM <pid-huerfano>         # solo el huérfano, no el de PM2
+sleep 8
+sudo pm2 status emaus-api              # debe pasar a online con uptime <1m
+curl -sf http://localhost:3001/api/health   # confirma que responde
+```
+
+**Prevención — pendiente de implementar** (§17-fix):
+agregar al deploy workflow, antes de `pm2 restart emaus-api`, un guard
+que mate cualquier PID en `:3001` que no esté bajo gestión de PM2:
+
+```bash
+PORT_PID=$(sudo ss -tlnp 'sport = :3001' | awk -F'pid=' 'NR>1{split($2,a,","); print a[1]}')
+PM2_PID=$(pm2 jlist | python3 -c "import json,sys; \
+  d=json.load(sys.stdin); p=[x for x in d if x['name']=='emaus-api']; \
+  print(p[0]['pid'] if p else '')")
+if [ -n "$PORT_PID" ] && [ "$PORT_PID" != "$PM2_PID" ]; then
+  echo "⚠️  Orphan on :3001 (pid $PORT_PID, PM2 has $PM2_PID) — killing"
+  sudo kill -TERM "$PORT_PID" || true
+  sleep 3
+fi
+pm2 restart emaus-api
+```
+
+**Issue secundario visto al investigar**: el daemon PM2 corre como
+`root` (systemd `pm2-root.service`) pero apunta a `/home/ubuntu/.pm2/`
+(patrón híbrido mal generado en el bootstrap). El child `node
+dist/index.js` hereda UID=root — la app NO debería correr como root.
+Fix separado: regenerar `pm2 startup systemd -u ubuntu --hp /home/ubuntu`
+y volver a hacer `pm2 save` bajo el usuario `ubuntu`.
+
+---
+
 ## Runbook — operaciones comunes
 
 ### Ver logs del API
