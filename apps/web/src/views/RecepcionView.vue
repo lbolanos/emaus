@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useRetreatStore } from '@/stores/retreatStore'
@@ -164,22 +164,40 @@ function formatTime(iso: string | null): string {
 
 // ── Lifecycle ──────────────────────────────────────────────────────────────
 
-onMounted(async () => {
-  if (!selectedRetreat.value && retreatId.value) {
-    await retreatStore.fetchRetreat(retreatId.value)
-  }
-  // If the retreat is loaded but walkerArrivalTime is missing, force a full fetch
-  if (selectedRetreat.value && !selectedRetreat.value.walkerArrivalTime) {
-    await retreatStore.fetchRetreat(retreatId.value)
+async function loadForRetreat(id: string) {
+  if (!id) return
+  loading.value = true
+  // Reset visible state so stale data from the previous retreat does not flash
+  total.value = 0
+  arrived.value = 0
+  pending.value = 0
+  pendingList.value = []
+  arrivedList.value = []
+
+  if (!selectedRetreat.value || selectedRetreat.value.id !== id || !selectedRetreat.value.walkerArrivalTime) {
+    await retreatStore.fetchRetreat(id)
   }
   await fetchStats()
-  if (retreatId.value) {
-    unsubscribeRealtime = receptionStore.subscribeRealtime(retreatId.value, {
-      onCheckin: () => { fetchStats() },
-      onBagMade: () => { fetchStats() },
-    })
+
+  if (unsubscribeRealtime) {
+    unsubscribeRealtime()
+    unsubscribeRealtime = null
   }
+  unsubscribeRealtime = receptionStore.subscribeRealtime(id, {
+    onCheckin: () => { fetchStats() },
+    onBagMade: () => { fetchStats() },
+  })
+}
+
+onMounted(async () => {
+  await loadForRetreat(retreatId.value)
   clockInterval = setInterval(() => { now.value = new Date() }, 30_000)
+})
+
+watch(retreatId, async (id, prev) => {
+  if (id && id !== prev) {
+    await loadForRetreat(id)
+  }
 })
 
 onUnmounted(() => {

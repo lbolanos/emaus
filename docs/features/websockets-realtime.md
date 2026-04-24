@@ -80,24 +80,32 @@ Todos los eventos se emiten al room `retreat:{retreatId}:reception`.
 ## Uso en el cliente
 
 ```ts
-// apps/web/src/views/RecepcionView.vue
+// apps/web/src/views/RecepcionView.vue (resumido)
 import { useReceptionStore } from '@/stores/receptionStore'
 
 const receptionStore = useReceptionStore()
 let unsubscribe: (() => void) | null = null
 
-onMounted(async () => {
+async function loadForRetreat(id: string) {
+  if (!id) return
+  // Resetear estado para no mostrar datos del retiro anterior
+  total.value = 0; pendingList.value = []; arrivedList.value = []
   await fetchStats() // hidratación inicial
-  unsubscribe = receptionStore.subscribeRealtime(retreatId.value, {
+
+  // Al cambiar de retiro: desuscribir el anterior y suscribir al nuevo
+  if (unsubscribe) { unsubscribe(); unsubscribe = null }
+  unsubscribe = receptionStore.subscribeRealtime(id, {
     onCheckin: () => fetchStats(),
     onBagMade: () => fetchStats(),
   })
-})
+}
 
-onUnmounted(() => {
-  unsubscribe?.()
-})
+onMounted(() => loadForRetreat(retreatId.value))
+watch(retreatId, (id, prev) => { if (id && id !== prev) loadForRetreat(id) })
+onUnmounted(() => unsubscribe?.())
 ```
+
+**Clave — cambio de retiro sin desmontar**: el `watch(retreatId)` maneja el caso en que el usuario cambia de retiro desde el sidebar sin que el componente se desmonte. Sin ese watcher la vista seguiría recibiendo eventos del retiro anterior (o ninguno si el sid ya no tiene acceso). El store además filtra eventos por `retreatId` internamente como defensa secundaria.
 
 `subscribeRealtime` se encarga de:
 - Obtener (o crear) el socket singleton con `getSocket()`.
@@ -177,7 +185,8 @@ Cuando se extienda al "minuto a minuto" del retiro:
 
 ## Tests
 
-- **Unitarios**: `apps/api/src/tests/services/realtime.simple.test.ts` — cubre naming de rooms, no-op cuando no hay init, y routing a rooms correctos (socket.io mockeado).
+- **Backend** (`apps/api/src/tests/services/realtime.simple.test.ts`, 7): naming de rooms, no-op cuando no hay init, routing a rooms correctos (socket.io mockeado).
+- **Frontend** (`apps/web/src/stores/__tests__/receptionStore.test.ts`, 9): subscribe/unsubscribe, filtrado por `retreatId`, cambio de retiro sin contaminar handlers del anterior.
 - **Integración manual**:
   1. `pnpm dev`
   2. Login en dos navegadores distintos en el mismo retiro.
