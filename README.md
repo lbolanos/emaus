@@ -517,6 +517,18 @@ agregar todas las actividades por servidor
 cuando estoy creando o editando la casa de retiro y agrego las habitaciones me da problemas para adicionar una sola habitacion cuando ya esta creado. cuando selecciono una cama deberia cambiar el Configurar próxima cama:  asi si le doy nueva cama crea la siguiente de esa habitacion y nueva habitacion la siguiente de ese piso que no este creada
 
 ## TODO
+en el historial de mensaje al dar clic al mensaje por verlo completo lahora del mesaje esta en utc
+acepto aviso de privacidad. liga para la acuerdo de privacidad. en el correo final tambien agregar un enlace para que puedas borrar tus datos de la plataforma
+un listado real de responsabilidades
+registro tambien de angelitos acrodarese que no pagan.  los angelitos no van ni a mesa no deben mostrar ni camas.
+una forma en bubbles cursor encima da mas informacion pero aveces no funciona entonces colocar una forma segura de sabes mas detalles
+orden correcto en la mesas 1 no debe estar a lado de 10 
+horario de comida si soy servidor y estoy en mesa no puedo ir a santisimo.  los angelitos tienen que ocupar los slots de santisimo en horarios de comida.
+imnuto a minuto enlazar con responsabiidades para que sepa cuando es la charla de ...
+planta baja planta alta en vez de numeros se enreda con piso 1
+verificar que el orden en las camas
+template de minuto a minuto
+quema de pecados imposicion de ceniza y lavado de mano es lo mismo hoja de pecados
 si no esta al 100% los gafetes al cambiar de pagina recorta el gafete que queda en medio esto le paso a pepe toño mac
 
 cuando en operaciones masivas agrego la etiqueta no se si se guarda .  guardar el sector de las habitaciones que se guardan con masivo y mostrarlo en el mapa de habitaciones.
