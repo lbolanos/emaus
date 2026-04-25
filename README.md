@@ -490,6 +490,11 @@ numero de mensajes enviados como columna en la lista de participantes.
 Cuando se asigna al servidor en una responsabilidad se agregue como lider del equipo de servicio y al revez tambien.
 
 ## IN PROGRESS
+Ordenar por id_on_retreat en las mesas
+el ordenar esta dejando 1 al lado de 10, 11
+verificar el comportamiento de borrar mesas.  8 mesas y se borran 7 que debe pasar
+
+lista de caminantes al dar clic en row debe seleccionar
 
 en enviar mensaje se congela la interfaz no deja cancelar.
 
