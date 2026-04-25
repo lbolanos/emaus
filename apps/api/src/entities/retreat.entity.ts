@@ -129,6 +129,9 @@ export class Retreat {
 	@Column({ type: 'simple-json', nullable: true })
 	notifyPalanqueros?: number[];
 
+	@Column({ type: 'boolean', default: false })
+	santisimoEnabled!: boolean;
+
 	@OneToMany(() => Payment, (payment) => payment.retreat)
 	payments!: Payment[];
 }

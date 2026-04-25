@@ -1,3 +1,10 @@
+> ⚠️ **OBSOLETO (pre-2026-04-21)** — Procedimiento de rollback para **AWS
+> EC2**. El host actual es **Lightsail**; usar `pnpm prod:rollback` o el
+> snapshot en `/var/www/emaus/previous/`. Ver
+> [`docs/MIGRATION_RETROSPECTIVE.md`](../MIGRATION_RETROSPECTIVE.md).
+
+---
+
 # Rollback Procedure
 
 This guide explains how to rollback a deployment if issues are discovered after the new version is deployed to production.

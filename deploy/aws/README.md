@@ -1,5 +1,18 @@
 # AWS Deployment Scripts for Emaus
 
+> ⚠️ **LEGACY (pre-2026-04-21)** — Este directorio contiene los scripts de
+> bootstrap y deploy para **AWS EC2**, que ya no es el host de producción.
+>
+> **Host actual**: AWS Lightsail (`emaus-prod`, `emaus.cc`). Scripts
+> vigentes en [`deploy/lightsail/`](../lightsail/). La instancia EC2
+> (`i-011986d465e7c8f53`) permanece `stopped` hasta 2026-04-25 para rollback
+> de emergencia y luego se termina.
+>
+> Conservar este directorio como referencia histórica hasta completar el
+> decomisionado. Ver [`docs/MIGRATION_RETROSPECTIVE.md`](../../docs/MIGRATION_RETROSPECTIVE.md).
+
+---
+
 This directory contains automated scripts for deploying the Emaus retreat logistics management system to AWS EC2 instances running Ubuntu 24.04 LTS.
 
 ## Prerequisites

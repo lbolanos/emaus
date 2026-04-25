@@ -1,3 +1,9 @@
+> ⚠️ **OBSOLETO (pre-2026-04-21)** — Checklist para **AWS EC2**. Migrado a
+> **AWS Lightsail**. Ver [`docs/POST_MIGRATION_TRACKER.md`](../docs/POST_MIGRATION_TRACKER.md)
+> para la checklist vigente.
+
+---
+
 # Production Deployment Checklist
 
 Quick reference for deploying Emaus to production.

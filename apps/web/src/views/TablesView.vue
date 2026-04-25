@@ -1,8 +1,9 @@
 <template>
   <TooltipProvider :delay-duration="300">
-  <div class="h-full flex flex-col tables-view-root">
-    <!-- Sticky Header -->
-    <div class="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-1.5 sm:p-3 lg:p-4 border-b">
+  <div class="tables-view-root">
+    <!-- Sticky Top: Header + Unassigned (single glass panel) -->
+    <div class="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+    <div class="p-1.5 sm:p-3 lg:p-4">
       <div class="sm:flex sm:items-center sm:justify-between gap-4">
         <div class="hidden sm:block sm:flex-auto">
           <h1 class="text-[20px] font-bold leading-6 text-gray-900 dark:text-white">{{ $t('tables.title') }}</h1>
@@ -75,19 +76,44 @@
               <Plus class="mr-2 h-4 w-4" />
               {{ $t('tables.addTable') }}
             </DropdownMenuItem>
-            <DropdownMenuItem @click="handleExportTables" :disabled="isExporting">
-              <Download v-if="!isExporting" class="mr-2 h-4 w-4" />
-              <Loader2 v-else class="mr-2 h-4 w-4 animate-spin" />
-              {{ isExporting ? $t('tables.exporting') : $t('tables.exportDocx') }}
-            </DropdownMenuItem>
-            <DropdownMenuItem @click="handlePrintTables">
-              <Printer class="mr-2 h-4 w-4" />
-              {{ $t('tables.printTables') }}
-            </DropdownMenuItem>
-            <DropdownMenuItem @click="isLotteryCardsOpen = true">
-              <Scissors class="mr-2 h-4 w-4" />
-              {{ $t('tables.printLotteryCards') }}
-            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Printer class="mr-2 h-4 w-4" />
+                {{ $t('tables.printMenu') }}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuItem @click="handleExportTables" :disabled="isExporting">
+                  <Download v-if="!isExporting" class="mr-2 h-4 w-4" />
+                  <Loader2 v-else class="mr-2 h-4 w-4 animate-spin" />
+                  {{ isExporting ? $t('tables.exporting') : $t('tables.exportDocx') }}
+                </DropdownMenuItem>
+                <DropdownMenuItem @click="handlePrintTables">
+                  <Printer class="mr-2 h-4 w-4" />
+                  {{ $t('tables.printTables') }}
+                </DropdownMenuItem>
+                <DropdownMenuItem @click="handlePrintTablesSimple">
+                  <Printer class="mr-2 h-4 w-4" />
+                  {{ $t('tables.printTablesSimple') }}
+                </DropdownMenuItem>
+                <DropdownMenuItem @click="handlePrintTablesContacts">
+                  <Printer class="mr-2 h-4 w-4" />
+                  {{ $t('tables.printTablesContacts') }}
+                </DropdownMenuItem>
+                <DropdownMenuItem @click="handlePrintTablesContactsPerParticipant">
+                  <Printer class="mr-2 h-4 w-4" />
+                  {{ $t('tables.printTablesContactsPerParticipant') }}
+                </DropdownMenuItem>
+                <DropdownMenuItem @click="handlePrintWalkerContactsVerification">
+                  <Printer class="mr-2 h-4 w-4" />
+                  {{ $t('tables.printWalkerContactsVerification') }}
+                </DropdownMenuItem>
+                <DropdownMenuItem @click="isLotteryCardsOpen = true">
+                  <Scissors class="mr-2 h-4 w-4" />
+                  {{ $t('tables.printLotteryCards') }}
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <DropdownMenuSeparator />
             <DropdownMenuItem @click="isHelpOpen = true">
               <HelpCircle class="mr-2 h-4 w-4" />
@@ -99,8 +125,8 @@
       </div>
     </div>
 
-    <!-- Sticky Unassigned Areas -->
-    <div class="sm:sticky sm:top-[80px] z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-2 sm:px-3 lg:px-4 py-2 border-b">
+    <!-- Unassigned Areas (inside same glass panel) -->
+    <div class="px-2 sm:px-3 lg:px-4 py-2">
 
       <!-- Mobile: tab buttons (hidden on md+) -->
       <div class="flex gap-1 mb-2 md:hidden">
@@ -226,9 +252,10 @@
         </div>
       </div>
     </div>
+    </div>
 
     <!-- Scrollable Content -->
-    <div class="flex-1 overflow-y-auto p-2 sm:p-3 lg:p-4">
+    <div class="p-2 sm:p-3 lg:p-4">
     <div v-if="retreatStore.selectedRetreatId" class="print-container">
       <div v-if="tableMesaStore.isLoading" class="mt-8 text-center">
         <p>{{ $t('participants.loading') }}</p>
@@ -354,13 +381,20 @@ import ParticipantTooltip from '@/components/ParticipantTooltip.vue';
 import LotteryCardsDialog from '@/components/LotteryCardsDialog.vue';
 import TablesHelpDialog from '@/components/TablesHelpDialog.vue';
 import { useToast } from '@repo/ui';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@repo/ui';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@repo/ui';
 import { ChevronLeft, ChevronRight, Download, HelpCircle, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw, Scissors, UserX, X } from 'lucide-vue-next';
 import type { Participant, TableMesa } from '@repo/types';
 import { useI18n } from 'vue-i18n';
 import { exportTablesToDocx } from '@/services/api';
 import { useDragState } from '@/composables/useDragState';
 import { useTapAssign } from '@/composables/useTapAssign';
+import {
+  buildSimplePrintHtml,
+  buildContactsPrintHtml,
+  buildContactsPerParticipantPrintHtml,
+  buildContactsVerificationPrintHtml,
+  type VerificationWalker,
+} from '@/utils/tablesPrint';
 
 const tableMesaStore = useTableMesaStore();
 const retreatStore = useRetreatStore();
@@ -626,11 +660,12 @@ const onDropToUnassigned = (event: DragEvent, type: 'server' | 'walker') => {
   const participant = JSON.parse(participantData);
 
   // Only proceed if the participant was dragged from a table
-  if (!participant.sourceTableId) return;
+  if (!participant.sourceTableId || !participant.sourceRole) return;
 
-  if (type === 'server' && participant.type === 'server' && participant.sourceRole && participant.sourceRole !== 'walkers') {
+  // Use sourceRole as authority (participant.type may be missing on leaders loaded via table relations)
+  if (type === 'server' && participant.sourceRole !== 'walkers') {
     tableMesaStore.unassignLeader(participant.sourceTableId, participant.sourceRole);
-  } else if (type === 'walker' && participant.type === 'walker' && participant.sourceRole === 'walkers') {
+  } else if (type === 'walker' && participant.sourceRole === 'walkers') {
     tableMesaStore.unassignWalkerFromTable(participant.sourceTableId, participant.id);
   }
 };
@@ -924,6 +959,310 @@ const handlePrintTables = () => {
     `<style>${css}</style>` +
     '</head><body>' +
     `<div class="header"><h1>${title}${retreatName ? ` — ${retreatName}` : ''}</h1></div>` +
+    body +
+    scriptOpen + inlineScript + scriptClose +
+    '</body></html>';
+
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+};
+
+const handlePrintTablesSimple = () => {
+  const body = buildSimplePrintHtml((tableMesaStore.tables || []) as any, {
+    lider: t('tables.roles.lider'),
+    colider1: t('tables.roles.colider1'),
+    colider2: t('tables.roles.colider2'),
+    noTablesFound: t('tables.noTablesFound'),
+    servidores: 'Servidores',
+    caminantes: 'Caminantes',
+  });
+  const win = window.open('', '_blank', 'width=1024,height=768');
+  if (!win) {
+    toast({
+      title: t('common.error'),
+      description: 'El navegador bloqueó la ventana emergente. Permite pop-ups para imprimir.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  const title = escapeHtml(t('tables.title'));
+  const retreatLabel = retreatStore.retreats.find((r) => r.id === retreatStore.selectedRetreatId);
+  const retreatName = retreatLabel ? escapeHtml(retreatLabel.parish || '') : '';
+
+  const css = [
+    '@page { size: A4 portrait; margin: 1cm; }',
+    '* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    "html, body { margin: 0; padding: 0; background: #fff; color: #111; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }",
+    'body { padding: 10px; font-size: 11px; }',
+    'h1 { font-size: 16px; margin: 0 0 4px; }',
+    '.header { margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }',
+    '.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }',
+    '.table-card { border: 1px solid #cbd5e0; border-radius: 4px; padding: 8px; break-inside: avoid-page; page-break-inside: avoid; }',
+    '.tc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; padding-bottom: 3px; border-bottom: 1px solid #e2e8f0; }',
+    '.tc-head h2 { font-size: 13px; margin: 0; color: #2b6cb0; }',
+    '.tc-count { font-size: 10px; color: #4a5568; }',
+    'h3 { font-size: 11px; margin: 6px 0 2px; color: #2d3748; }',
+    'ul { list-style: none; margin: 0; padding: 0; }',
+    'ul.leaders li { font-size: 11px; padding: 1px 0; }',
+    'ul.walkers li { font-size: 11px; padding: 1px 0; }',
+    '.role { font-weight: bold; color: #2b6cb0; }',
+    '.tc-empty { font-size: 10px; color: #a0aec0; font-style: italic; margin: 0; }',
+    '.w-id { display: inline-block; min-width: 20px; text-align: center; padding: 0 4px; border-radius: 3px; font-weight: bold; background: #edf2f7; font-size: 10px; }',
+    '@media print { body { padding: 0; } }',
+  ].join(' ');
+
+  const inlineScript =
+    'window.addEventListener("load",function(){setTimeout(function(){window.focus();window.print();},100);});';
+
+  const scriptOpen = '<' + 'script>';
+  const scriptClose = '<' + '/script>';
+
+  const html =
+    '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">' +
+    `<title>${title}</title>` +
+    `<style>${css}</style>` +
+    '</head><body>' +
+    `<div class="header"><h1>${title}${retreatName ? ` — ${retreatName}` : ''}</h1></div>` +
+    `<div class="grid">${body}</div>` +
+    scriptOpen + inlineScript + scriptClose +
+    '</body></html>';
+
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+};
+
+
+const contactsLabels = () => ({
+  lider: t('tables.roles.lider'),
+  colider1: t('tables.roles.colider1'),
+  colider2: t('tables.roles.colider2'),
+  caminante: 'Caminante',
+  noTablesFound: t('tables.noTablesFound'),
+  role: 'Rol',
+  name: 'Nombre',
+  phones: 'Teléfonos',
+  email: 'Email',
+  walkerCountSuffix: ' / 7 caminantes',
+});
+
+const handlePrintTablesContacts = () => {
+  const tables = (tableMesaStore.tables || []) as any;
+  const body = buildContactsPrintHtml(tables, contactsLabels());
+
+  const win = window.open('', '_blank', 'width=1024,height=768');
+  if (!win) {
+    toast({
+      title: t('common.error'),
+      description: 'El navegador bloqueó la ventana emergente. Permite pop-ups para imprimir.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  const title = escapeHtml(t('tables.printTablesContacts'));
+  const retreatLabel = retreatStore.retreats.find((r) => r.id === retreatStore.selectedRetreatId);
+  const retreatName = retreatLabel ? escapeHtml(retreatLabel.parish || '') : '';
+
+  const css = [
+    '@page { size: A4 portrait; margin: 0.8cm; }',
+    '* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    "html, body { margin: 0; padding: 0; background: #fff; color: #111; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }",
+    'body { padding: 10px; font-size: 10px; }',
+    'h1 { font-size: 16px; margin: 0 0 4px; }',
+    '.header { margin-bottom: 8px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }',
+    '.table-card { border: 1px solid #cbd5e0; border-radius: 4px; padding: 8px; margin-bottom: 10px; break-inside: avoid-page; page-break-inside: avoid; }',
+    '.tc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0; }',
+    '.tc-head h2 { font-size: 14px; margin: 0; color: #2b6cb0; }',
+    '.tc-count { font-size: 10px; color: #4a5568; }',
+    '.tc-empty { font-size: 10px; color: #a0aec0; font-style: italic; }',
+    'table.contacts-table { width: 100%; border-collapse: collapse; font-size: 10px; }',
+    'th, td { border: 1px solid #e2e8f0; padding: 4px 5px; vertical-align: top; text-align: left; }',
+    'thead th { background: #edf2f7; color: #2d3748; font-weight: bold; font-size: 10px; }',
+    '.row-leader { background: #ebf8ff; }',
+    '.cell-role { font-weight: bold; color: #2b6cb0; white-space: nowrap; }',
+    '.cell-name { font-weight: bold; }',
+    '.cell-email { word-break: break-all; }',
+    'tr { break-inside: avoid; page-break-inside: avoid; }',
+    '@media print { body { padding: 0; } }',
+  ].join(' ');
+
+  const inlineScript =
+    'window.addEventListener("load",function(){setTimeout(function(){window.focus();window.print();},100);});';
+
+  const scriptOpen = '<' + 'script>';
+  const scriptClose = '<' + '/script>';
+
+  const html =
+    '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">' +
+    `<title>${title}</title>` +
+    `<style>${css}</style>` +
+    '</head><body>' +
+    `<div class="header"><h1>${title}${retreatName ? ` — ${retreatName}` : ''}</h1></div>` +
+    body +
+    scriptOpen + inlineScript + scriptClose +
+    '</body></html>';
+
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+};
+
+
+const handlePrintTablesContactsPerParticipant = () => {
+  const tables = (tableMesaStore.tables || []) as any;
+  const body = buildContactsPerParticipantPrintHtml(tables, {
+    ...contactsLabels(),
+    forLabel: 'Para:',
+    mesaLabel: 'Mesa:',
+    intro: 'Contactos de tu mesa:',
+  });
+
+  const win = window.open('', '_blank', 'width=1024,height=768');
+  if (!win) {
+    toast({
+      title: t('common.error'),
+      description: 'El navegador bloqueó la ventana emergente. Permite pop-ups para imprimir.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  const title = escapeHtml(t('tables.printTablesContactsPerParticipant'));
+
+  const css = [
+    '@page { size: A4 portrait; margin: 0.8cm; }',
+    '* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    "html, body { margin: 0; padding: 0; background: #fff; color: #111; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }",
+    'body { padding: 8px; font-size: 10px; }',
+    '.sheets-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }',
+    '.contact-sheet { border: 1px dashed #94a3b8; border-radius: 4px; padding: 10px 12px; break-inside: avoid-page; page-break-inside: avoid; }',
+    '.cs-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; border-bottom: 1.5px solid #2b6cb0; padding-bottom: 4px; margin-bottom: 6px; }',
+    '.cs-label { font-size: 9px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; display: block; }',
+    '.cs-name { font-size: 14px; font-weight: bold; color: #1a202c; }',
+    '.cs-mesa { text-align: right; }',
+    '.cs-mesa-name { font-size: 12px; font-weight: bold; color: #2b6cb0; }',
+    '.cs-intro { font-size: 10px; color: #4a5568; margin: 0 0 4px; }',
+    'table.roster-table { width: 100%; border-collapse: collapse; font-size: 9px; }',
+    'th, td { border: 1px solid #cbd5e0; padding: 3px 5px; vertical-align: top; text-align: left; }',
+    'thead th { background: #edf2f7; color: #2d3748; font-weight: bold; font-size: 9px; }',
+    '.row-leader { background: #ebf8ff; }',
+    '.cell-role { font-weight: bold; color: #2b6cb0; white-space: nowrap; }',
+    '.cell-name { font-weight: bold; }',
+    '.cell-email { word-break: break-all; }',
+    'tr { break-inside: avoid; page-break-inside: avoid; }',
+  ].join(' ');
+
+  const inlineScript =
+    'window.addEventListener("load",function(){setTimeout(function(){window.focus();window.print();},100);});';
+
+  const scriptOpen = '<' + 'script>';
+  const scriptClose = '<' + '/script>';
+
+  const html =
+    '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">' +
+    `<title>${title}</title>` +
+    `<style>${css}</style>` +
+    '</head><body>' +
+    body +
+    scriptOpen + inlineScript + scriptClose +
+    '</body></html>';
+
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+};
+
+const handlePrintWalkerContactsVerification = () => {
+  const walkerToTable = new Map<string, string>();
+  (tableMesaStore.tables || []).forEach((table: any) => {
+    (table.walkers || []).forEach((w: any) => {
+      walkerToTable.set(w.id, table.name);
+    });
+  });
+
+  const walkers: VerificationWalker[] = (participantStore.participants || [])
+    .filter((p: any) => p.type === 'walker' && !p.isCancelled)
+    .map((p: any) => ({
+      firstName: p.firstName,
+      lastName: p.lastName,
+      id_on_retreat: p.id_on_retreat ?? p.idOnRetreat,
+      family_friend_color: p.family_friend_color ?? p.familyFriendColor,
+      cellPhone: p.cellPhone,
+      homePhone: p.homePhone,
+      workPhone: p.workPhone,
+      email: p.email,
+      tableMesaName: walkerToTable.get(p.id) || null,
+    }))
+    .sort((a, b) => {
+      const aId = Number(a.id_on_retreat ?? 0);
+      const bId = Number(b.id_on_retreat ?? 0);
+      if (aId !== bId) return aId - bId;
+      return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+    });
+
+  const body = buildContactsVerificationPrintHtml(walkers, {
+    title: t('tables.verification.title'),
+    instructions: t('tables.verification.instructions'),
+    nameLabel: t('tables.verification.name'),
+    cellPhoneLabel: t('tables.verification.cellPhone'),
+    homePhoneLabel: t('tables.verification.homePhone'),
+    workPhoneLabel: t('tables.verification.workPhone'),
+    emailLabel: t('tables.verification.email'),
+    mesaLabel: t('tables.verification.mesa'),
+    correctionsLabel: t('tables.verification.corrections'),
+    noWalkersFound: t('tables.verification.noWalkers'),
+    notProvided: '—',
+  });
+
+  const win = window.open('', '_blank', 'width=1024,height=768');
+  if (!win) {
+    toast({
+      title: t('common.error'),
+      description: 'El navegador bloqueó la ventana emergente. Permite pop-ups para imprimir.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  const title = escapeHtml(t('tables.printWalkerContactsVerification'));
+
+  const css = [
+    '@page { size: A4 portrait; margin: 0.8cm; }',
+    '* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+    "html, body { margin: 0; padding: 0; background: #fff; color: #111; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }",
+    'body { padding: 8px; font-size: 11px; }',
+    '.verify-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }',
+    '.verify-card { border: 1px dashed #94a3b8; border-radius: 4px; padding: 10px 12px; break-inside: avoid-page; page-break-inside: avoid; }',
+    '.vc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; border-bottom: 1.5px solid #2b6cb0; padding-bottom: 4px; margin-bottom: 6px; }',
+    '.vc-head h2 { font-size: 13px; margin: 0; color: #2b6cb0; }',
+    '.vc-mesa { font-size: 10px; color: #4a5568; text-align: right; }',
+    '.vc-label { font-weight: bold; color: #4a5568; }',
+    '.vc-instructions { font-size: 10px; color: #4a5568; margin: 0 0 6px; font-style: italic; }',
+    '.vc-data { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; font-size: 11px; }',
+    '.vc-data dt { font-weight: bold; color: #4a5568; }',
+    '.vc-data dd { margin: 0; word-break: break-word; }',
+    '.vc-data dd.vc-email { word-break: break-all; }',
+    '.vc-name { font-weight: bold; color: #1a202c; font-size: 13px; }',
+    '.vc-id { display: inline-block; min-width: 22px; text-align: center; padding: 1px 5px; border-radius: 3px; font-weight: bold; background: #edf2f7; font-size: 10px; }',
+    '.vc-corrections { margin-top: 8px; border-top: 1px dotted #cbd5e0; padding-top: 6px; }',
+    '.vc-correction-lines { height: 28px; background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 13px, #cbd5e0 13px, #cbd5e0 14px); margin-top: 4px; }',
+    '@media print { body { padding: 0; } }',
+  ].join(' ');
+
+  const inlineScript =
+    'window.addEventListener("load",function(){setTimeout(function(){window.focus();window.print();},100);});';
+
+  const scriptOpen = '<' + 'script>';
+  const scriptClose = '<' + '/script>';
+
+  const html =
+    '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">' +
+    `<title>${title}</title>` +
+    `<style>${css}</style>` +
+    '</head><body>' +
     body +
     scriptOpen + inlineScript + scriptClose +
     '</body></html>';

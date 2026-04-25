@@ -47,6 +47,8 @@ import { ServiceTeamMember } from '../entities/serviceTeamMember.entity';
 
 import { Session } from '../entities/session.entity';
 import { ChatConversation } from '../entities/chatConversation.entity';
+import { SantisimoSlot } from '../entities/santisimoSlot.entity';
+import { SantisimoSignup } from '../entities/santisimoSignup.entity';
 
 export function createDatabaseConfig() {
 	const dbType = process.env.DB_TYPE || 'sqlite';
@@ -105,6 +107,9 @@ export function createDatabaseConfig() {
 		ServiceTeamMember,
 		// Chat
 		ChatConversation,
+		// Santisimo
+		SantisimoSlot,
+		SantisimoSignup,
 		// Temporarily excluding entities with enum issues
 		// PermissionOverride,
 		// RoleRequest,

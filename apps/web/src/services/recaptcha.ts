@@ -138,4 +138,5 @@ export const RECAPTCHA_ACTIONS = {
 	COMMUNITY_INVITATION_ACCEPT: 'community_invitation_accept',
 	PUBLIC_ATTENDANCE_TOGGLE: 'public_attendance_toggle',
 	PARTICIPANT_EMAIL_CHECK: 'participant_email_check',
+	SANTISIMO_SIGNUP: 'santisimo_signup',
 } as const;

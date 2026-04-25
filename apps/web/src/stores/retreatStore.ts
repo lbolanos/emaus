@@ -81,8 +81,10 @@ export const useRetreatStore = defineStore('retreat', () => {
 		try {
 			const response = await api.get('/retreats');
 			retreats.value = response.data;
-			if (mostRecentRetreat.value && !selectedRetreatId.value) {
-				// Only select if nothing is selected
+			const storedIsValid =
+				selectedRetreatId.value &&
+				retreats.value.some((r) => r.id === selectedRetreatId.value);
+			if (!storedIsValid && mostRecentRetreat.value) {
 				selectRetreat(mostRecentRetreat.value.id);
 			}
 		} catch (err: any) {

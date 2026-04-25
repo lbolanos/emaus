@@ -3,6 +3,7 @@ import { RetreatBed } from '../entities/retreatBed.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { Participant } from '../entities/participant.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
+import { TableMesa } from '../entities/tableMesa.entity';
 import { formatDate as formatDateUtil } from '@repo/utils';
 
 export const exportBadgesToDocx = async (retreatId: string) => {
@@ -34,7 +35,6 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 	const bedsWithParticipants = await retreatBedRepository
 		.createQueryBuilder('bed')
 		.leftJoinAndSelect('bed.participant', 'participant')
-		.leftJoinAndSelect('participant.tableMesa', 'tableMesa')
 		.where('bed.retreatId = :retreatId', { retreatId })
 		.andWhere('bed.participant IS NOT NULL')
 		.orderBy('bed.floor', 'ASC')
@@ -43,20 +43,67 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 		.addOrderBy('participant.lastName', 'ASC')
 		.getMany();
 
-	// Enrich participants with their type from retreat_participants
+	// Enrich participants with their type and tableId from retreat_participants
 	const rpRepo = AppDataSource.getRepository(RetreatParticipant);
 	const retreatParticipants = await rpRepo.find({
 		where: { retreatId },
-		select: ['participantId', 'type'],
+		select: ['participantId', 'type', 'tableId'],
 	});
-	const typeMap = new Map(
+	const rpMap = new Map(
 		retreatParticipants
 			.filter((rp) => rp.participantId)
-			.map((rp) => [rp.participantId!, rp.type]),
+			.map((rp) => [rp.participantId!, rp]),
 	);
 	for (const bed of bedsWithParticipants) {
 		if (bed.participant) {
-			(bed.participant as any).type = typeMap.get(bed.participant.id) || null;
+			const rp = rpMap.get(bed.participant.id);
+			(bed.participant as any).type = rp?.type || null;
+			(bed.participant as any).tableId = rp?.tableId || null;
+		}
+	}
+
+	// Enrich participants with their TableMesa object
+	const tableMesaRepo = AppDataSource.getRepository(TableMesa);
+
+	// 1. Fetch TableMesa for participants that have a tableId
+	const participantsWithTableId = bedsWithParticipants
+		.filter((bed) => bed.participant && (bed.participant as any).tableId)
+		.map((bed) => bed.participant!);
+	if (participantsWithTableId.length > 0) {
+		const tableIds = [...new Set(participantsWithTableId.map((p) => (p as any).tableId))];
+		const tables = await tableMesaRepo.findByIds(tableIds);
+		const tableMap = new Map(tables.map((t) => [t.id, t]));
+		for (const participant of participantsWithTableId) {
+			const table = tableMap.get((participant as any).tableId);
+			if (table) {
+				(participant as any).tableMesa = table;
+			}
+		}
+	}
+
+	// 2. Enrich servers who are table leaders but have no tableId
+	const serversWithoutTable = bedsWithParticipants
+		.filter((bed) => {
+			const p = bed.participant;
+			return p && !(p as any).tableMesa && ((p as any).type === 'server' || (p as any).type === 'partial_server');
+		})
+		.map((bed) => bed.participant!);
+	if (serversWithoutTable.length > 0) {
+		const serverIds = serversWithoutTable.map((p) => p.id);
+		const leaderTables = await tableMesaRepo
+			.createQueryBuilder('t')
+			.where('t.retreatId = :retreatId', { retreatId })
+			.andWhere(
+				'(t.liderId IN (:...serverIds) OR t.colider1Id IN (:...serverIds) OR t.colider2Id IN (:...serverIds))',
+				{ serverIds },
+			)
+			.getMany();
+		for (const table of leaderTables) {
+			for (const p of serversWithoutTable) {
+				if (p.id === table.liderId || p.id === table.colider1Id || p.id === table.colider2Id) {
+					(p as any).tableMesa = table;
+				}
+			}
 		}
 	}
 
@@ -289,7 +336,7 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 
 			const getTableInfo = (): string => {
 				if (!participant.tableMesa) return 'No table assigned';
-				return `Mesa ${participant.tableMesa.name}`;
+				return participant.tableMesa.name;
 			};
 
 			const getBedType = (): string => {

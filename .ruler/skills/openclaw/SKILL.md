@@ -13,7 +13,7 @@ OpenClaw es una plataforma de agente AI que corre como daemon en un servidor. Ge
 
 ### SSH
 ```bash
-ssh -i ~/.ssh/emaus-key.pem ubuntu@emaus.cc
+ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104
 ```
 
 ### Inicializar entorno Node (REQUERIDO antes de usar npx)
@@ -24,7 +24,7 @@ export NVM_DIR="$HOME/.nvm"
 
 Sin esto, `npx openclaw` no se encuentra. Incluir en cada comando SSH remoto:
 ```bash
-ssh -i ~/.ssh/emaus-key.pem ubuntu@emaus.cc 'export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; npx openclaw channels status --probe'
+ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104 'export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; npx openclaw channels status --probe'
 ```
 
 ## Arquitectura

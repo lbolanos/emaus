@@ -27,6 +27,15 @@
             <component :is="copyIcon" class="w-4 h-4" />
             {{ copyLabel }}
           </button>
+          <button
+            @click="handleDownloadPdf(); showMenu = false"
+            :disabled="isDownloadingPdf"
+            class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <Loader2 v-if="isDownloadingPdf" class="w-4 h-4 animate-spin" />
+            <FileDown v-else class="w-4 h-4" />
+            {{ isDownloadingPdf ? t('retreatFlyer.exportingPdf') : t('retreatFlyer.exportPdf') }}
+          </button>
         </div>
       </div>
     </div>
@@ -69,7 +78,7 @@
                 style="font-family: 'Miltonian Tattoo', cursive;">
               {{ titleTextRefined }}
             </h1>
-            <p class="text-[13px] text-white/95 italic font-medium tracking-wide mt-4 drop-shadow-lg leading-tight max-w-[420px] ml-auto">"{{ quoteTextRefined }}"</p>
+            <p class="text-[13px] text-white/95 italic font-medium tracking-wide mt-10 drop-shadow-lg leading-tight max-w-[420px] ml-auto">"{{ quoteTextRefined }}"</p>
           </div>
         </header>
 
@@ -176,7 +185,7 @@
 
           <!-- End Time Card -->
           <div class="absolute z-10 p-5 overflow-hidden"
-               style="top: 500px; left: 15px; width: 460px; max-width: 55%; max-height: 200px;">
+               style="top: 500px; left: 15px; width: 330px; max-width: 38%; max-height: 200px;">
             <div class="flex gap-4 items-start group">
               <div class="bg-gradient-to-br from-blue-500 to-blue-700 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0">
                 <Calendar class="w-5 h-5" />
@@ -294,7 +303,7 @@
         </div>
 
         <!-- Footer -->
-        <footer class="print-exact relative h-[120px] flex items-center justify-between px-8 overflow-hidden mt-auto print:bg-gray-900 print:h-[110px] print:px-8">
+        <footer class="print-exact relative min-h-[120px] flex items-center justify-between gap-6 px-8 py-3 overflow-hidden mt-auto print:bg-gray-900 print:min-h-[110px] print:px-8">
           <!-- Footer Background Image -->
           <div class="absolute inset-0 bg-cover bg-center z-0" style="background-image: url('/footer.png');">
             <div class="absolute inset-0 bg-gradient-to-r from-blue-900/90 via-gray-900/80 to-blue-900/90 print:opacity-90"></div>
@@ -313,12 +322,12 @@
             </div>
           </div>
 
-          <div class="relative z-10 max-w-md text-right flex flex-col justify-center h-full">
-            <h3 class="text-[32px] font-black text-white uppercase tracking-[0.25em] mb-2 font-header drop-shadow-xl"
+          <div class="relative z-10 max-w-md text-right flex flex-col justify-center h-full min-w-0">
+            <h3 class="text-[28px] font-black text-white uppercase tracking-[0.2em] mb-2 font-header drop-shadow-xl"
                 style="text-shadow: 2px 2px 8px rgba(0,0,0,0.5);">
               {{ dontMissItText }}
             </h3>
-            <p class="text-[12px] text-gray-100 leading-tight max-w-[240px] ml-auto drop-shadow-md font-semibold">
+            <p class="text-[12px] text-gray-100 leading-tight max-w-[260px] ml-auto drop-shadow-md font-semibold">
               {{ reservationNoteText }}
             </p>
           </div>
@@ -347,7 +356,9 @@ import {
   EllipsisVertical,
   Copy,
   Check,
-  Mail
+  Mail,
+  FileDown,
+  Loader2
 } from 'lucide-vue-next';
 import QrcodeVue from 'qrcode.vue';
 import DOMPurify from 'dompurify';
@@ -868,6 +879,79 @@ const handleCopyToClipboard = async () => {
   }
 };
 
+// Export flyer as PDF (client-side: html-to-image + jsPDF)
+const isDownloadingPdf = ref(false);
+
+const handleDownloadPdf = async () => {
+  const el = document.getElementById('printable-area');
+  if (!el) return;
+  isDownloadingPdf.value = true;
+  try {
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
+    }
+
+    const { toPng } = await import('html-to-image');
+    const { default: jsPDF } = await import('jspdf');
+
+    const dataUrl = await toPng(el, {
+      pixelRatio: 2,
+      cacheBust: true,
+      fetchRequestInit: { mode: 'cors' },
+    });
+
+    const img = new Image();
+    img.src = dataUrl;
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('Failed to decode flyer image'));
+    });
+
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageWidthMm = pdf.internal.pageSize.getWidth();
+    const pageHeightMm = pdf.internal.pageSize.getHeight();
+    const ratio = img.height / img.width;
+    const targetWidthMm = pageWidthMm;
+    const targetHeightMm = targetWidthMm * ratio;
+
+    if (targetHeightMm <= pageHeightMm) {
+      pdf.addImage(dataUrl, 'PNG', 0, 0, targetWidthMm, targetHeightMm);
+    } else {
+      // Multi-page: slice the image vertically so each page fills A4 height
+      const pageHeightPx = Math.floor((pageHeightMm / targetWidthMm) * img.width);
+      let yPx = 0;
+      let firstPage = true;
+      while (yPx < img.height) {
+        const sliceHeightPx = Math.min(pageHeightPx, img.height - yPx);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = sliceHeightPx;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Canvas 2D context unavailable');
+        ctx.drawImage(img, 0, -yPx);
+        const sliceDataUrl = canvas.toDataURL('image/png');
+        const sliceHeightMm = (sliceHeightPx / img.width) * targetWidthMm;
+        if (!firstPage) pdf.addPage();
+        pdf.addImage(sliceDataUrl, 'PNG', 0, 0, targetWidthMm, sliceHeightMm);
+        firstPage = false;
+        yPx += sliceHeightPx;
+      }
+    }
+
+    const parishSlug = (retreatParish.value || 'retiro').toString();
+    const numberSlug = retreatNumber.value ? `-${retreatNumber.value}` : '';
+    const filename = `flyer-${parishSlug}${numberSlug}.pdf`
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9.-]/g, '');
+    pdf.save(filename);
+  } catch (err) {
+    console.error('Failed to export flyer as PDF', err);
+  } finally {
+    isDownloadingPdf.value = false;
+  }
+};
+
 // Load retreat data and calculate initial height
 onMounted(async () => {
   const retreatId = route.params.id as string;
@@ -901,6 +985,15 @@ onUnmounted(() => {
   if (resizeObserver) {
     resizeObserver.disconnect();
     resizeObserver = null;
+  }
+});
+
+// Reload retreat data when the :id param changes (sidebar retreat switch)
+watch(() => route.params.id, async (newId, oldId) => {
+  if (newId && newId !== oldId) {
+    await retreatStore.fetchRetreat(newId as string);
+    await nextTick();
+    calculateContentHeight();
   }
 });
 

@@ -1,20 +1,41 @@
 <template>
 	<div class="payment-management">
 		<!-- Header -->
-		<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+		<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 no-print">
 			<div>
 				<h2 class="text-2xl font-bold">Gestión de Pagos</h2>
 				<p class="text-gray-600">Registro y seguimiento de pagos de participantes</p>
 			</div>
-			<Button @click="openAddPaymentModal" class="bg-blue-600 hover:bg-blue-700">
-				<Plus class="w-4 h-4 mr-2" />
-				Agregar Pago
-			</Button>
+			<div class="flex gap-2">
+				<Button @click="printReport" variant="outline">
+					<Printer class="w-4 h-4 mr-2" />
+					Imprimir
+				</Button>
+				<Button @click="openAddPaymentModal" class="bg-blue-600 hover:bg-blue-700">
+					<Plus class="w-4 h-4 mr-2" />
+					Agregar Pago
+				</Button>
+			</div>
+		</div>
+
+		<!-- Print header (only visible when printing) -->
+		<div class="print-only mb-4">
+			<h1 class="text-2xl font-bold">Reporte de Pagos</h1>
+			<p v-if="selectedRetreatLabel" class="text-sm">{{ selectedRetreatLabel }}</p>
+			<p class="text-sm text-gray-600">Generado: {{ formatDate(new Date()) }}</p>
 		</div>
 
 		<!-- Filters -->
-		<div class="bg-white p-4 rounded-lg shadow mb-6">
+		<div class="bg-white p-4 rounded-lg shadow mb-6 no-print">
 			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+				<div class="sm:col-span-2 lg:col-span-4">
+					<label class="block text-sm font-medium text-gray-700 mb-1">Buscar por nombre</label>
+					<Input
+						v-model="filters.search"
+						type="text"
+						placeholder="Nombre, apellido o apodo del participante"
+					/>
+				</div>
 				<div>
 					<label class="block text-sm font-medium text-gray-700 mb-1">Retiro</label>
 					<Select v-model="filters.retreatId">
@@ -119,7 +140,7 @@
 							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Método</th>
 							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Referencia</th>
 							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registrado por</th>
-							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider no-print">Acciones</th>
 						</tr>
 					</thead>
 					<tbody class="bg-white divide-y divide-gray-200">
@@ -149,7 +170,7 @@
 							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
 								{{ payment.recordedByUser?.displayName }}
 							</td>
-							<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+							<td class="px-6 py-4 whitespace-nowrap text-sm font-medium no-print">
 								<div class="flex gap-2">
 									<Button @click="editPayment(payment)" variant="outline" size="sm">
 										<Pencil class="w-4 h-4" />
@@ -164,6 +185,11 @@
 							<td colspan="7" class="px-6 py-4 text-center text-gray-500">
 								No se encontraron pagos
 							</td>
+						</tr>
+						<tr v-if="filteredPayments.length > 0" class="print-only font-semibold bg-gray-50">
+							<td colspan="2" class="px-6 py-3 text-sm">Total</td>
+							<td class="px-6 py-3 text-sm text-green-700">${{ formatCurrency(printTotal) }}</td>
+							<td colspan="4"></td>
 						</tr>
 					</tbody>
 				</table>
@@ -289,6 +315,7 @@ import {
 	UserCheck,
 	Pencil,
 	Trash2,
+	Printer,
 } from 'lucide-vue-next';
 import type { Payment, CreatePayment, UpdatePayment } from '@repo/types';
 import { formatDate } from '@repo/utils';
@@ -310,6 +337,7 @@ const filters = ref({
 	paymentMethod: '',
 	startDate: '',
 	endDate: '',
+	search: '',
 });
 
 const paymentForm = ref({
@@ -344,8 +372,38 @@ const filteredPayments = computed(() => {
 		payments = payments.filter(p => new Date(p.paymentDate) <= new Date(filters.value.endDate));
 	}
 
+	if (filters.value.search) {
+		const q = filters.value.search.trim().toLowerCase();
+		if (q) {
+			payments = payments.filter(p => {
+				const first = (p.participant?.firstName || '').toLowerCase();
+				const last = (p.participant?.lastName || '').toLowerCase();
+				const nick = (p.participant?.nickname || '').toLowerCase();
+				return (
+					first.includes(q) ||
+					last.includes(q) ||
+					nick.includes(q) ||
+					`${first} ${last}`.includes(q)
+				);
+			});
+		}
+	}
+
 	return payments;
 });
+
+const printTotal = computed(() =>
+	filteredPayments.value.reduce((sum, p) => sum + Number(p.amount || 0), 0),
+);
+
+const selectedRetreatLabel = computed(() => {
+	const r = retreats.value.find((x: any) => x.id === filters.value.retreatId);
+	return r ? `${r.parish} - ${formatDate(r.startDate)}` : '';
+});
+
+const printReport = () => {
+	window.print();
+};
 
 // Methods
 const formatCurrency = (amount: number) => {
@@ -454,6 +512,7 @@ const clearFilters = () => {
 		paymentMethod: '',
 		startDate: '',
 		endDate: '',
+		search: '',
 	};
 	paymentStore.fetchPayments();
 };
@@ -495,3 +554,36 @@ watch(() => filters.value.retreatId, () => {
 	}
 });
 </script>
+
+<style scoped>
+.print-only {
+	display: none;
+}
+
+@media print {
+	.no-print {
+		display: none !important;
+	}
+	.print-only {
+		display: block;
+	}
+	tr.print-only {
+		display: table-row;
+	}
+	.payment-management {
+		background: white;
+	}
+	.shadow,
+	.rounded-lg {
+		box-shadow: none !important;
+		border-radius: 0 !important;
+	}
+	table {
+		font-size: 11px;
+	}
+	th,
+	td {
+		padding: 4px 8px !important;
+	}
+}
+</style>

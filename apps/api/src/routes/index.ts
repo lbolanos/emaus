@@ -32,6 +32,7 @@ import participantHistoryRoutes from './retreatParticipant.routes';
 import aiChatRoutes from './aiChatRoutes';
 import ttsRoutes from './ttsRoutes';
 import visionAssignmentRoutes from './visionAssignmentRoutes';
+import santisimoRoutes from './santisimoRoutes';
 import { applyCsrfProtectionExcept } from '../middleware/routeCsrf';
 
 const router = Router();
@@ -55,6 +56,7 @@ applyCsrfProtectionExcept(router, [
 	'/landing/testimonials',
 	'/participants/new',
 	'/participants/confirm-registration',
+	'/santisimo/public',
 ]);
 
 // Resto de las rutas (con protección CSRF)
@@ -89,5 +91,6 @@ router.use(participantHistoryRoutes);
 router.use('/ai-chat', aiChatRoutes);
 router.use('/tts', ttsRoutes);
 router.use('/vision-assignment', visionAssignmentRoutes);
+router.use('/santisimo', santisimoRoutes);
 
 export default router;

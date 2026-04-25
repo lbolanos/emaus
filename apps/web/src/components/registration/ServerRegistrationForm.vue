@@ -56,7 +56,28 @@ async function checkEmail() {
 	searching.value = true;
 	try {
 		const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.PARTICIPANT_EMAIL_CHECK);
-		const response = await checkParticipantExists(email.value, recaptchaToken);
+		const response = await checkParticipantExists(
+			email.value,
+			recaptchaToken,
+			props.retreatId || undefined,
+		);
+
+		if (response.registeredInRetreat) {
+			const fallback =
+				response.registeredGroup === 'walker'
+					? 'Este correo ya está registrado en este retiro como caminante.'
+					: response.registeredGroup === 'server'
+						? 'Este correo ya está registrado en este retiro como servidor.'
+						: 'Este correo ya está registrado en este retiro.';
+			toast({
+				title: 'Ya registrado',
+				description: response.alreadyRegisteredMessage || fallback,
+				variant: 'destructive',
+			});
+			showVerificationForm.value = false;
+			showNewRegistrationForm.value = false;
+			return;
+		}
 
 		if (response.exists && response.firstName) {
 			// Found existing participant - show verification form

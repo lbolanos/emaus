@@ -167,6 +167,7 @@
     "bedAssignments": "Bed Assignments",
     "responsibilities": "Responsibilities",
     "serviceTeams": "Service Teams",
+    "santisimo": "Chapel Watch",
     "inventory": "Inventory",
     "roleManagement": "Role Management",
     "sections": {
@@ -874,10 +875,13 @@
     "totalWalkers": "Walkers",
     "palancasRequested": "Requested",
     "palancasReceived": "Received",
-    "walkersWithoutPalancas": "Without Palancas"
+    "walkersWithoutPalancas": "Without Palancas",
+    "totalPalancasReceived": "Total Palancas"
   },
   "retreatFlyer": {
     "printButton": "Print Flyer",
+    "exportPdf": "Export PDF",
+    "exportingPdf": "Generating PDF...",
     "location": "Location:",
     "locationQR": "Location",
     "startTime": "START:",
@@ -996,6 +1000,24 @@
     },
     "errors": {
       "familyFriendConflict": "Cannot add walker. Another walker with the same family/friend color is already at this table."
+    },
+    "printTables": "Print Tables",
+    "printTablesSimple": "Print Tables (Simple)",
+    "printTablesContacts": "Print Contacts (Phone/Email)",
+    "printTablesContactsPerParticipant": "Print Contacts (Sheet for Each Participant)",
+    "printWalkerContactsVerification": "Contact Data Verification (Walkers)",
+    "printMenu": "Print",
+    "verification": {
+      "title": "Verify your data",
+      "instructions": "Please check that your phone and email are correct. If something is wrong, write it in the corrections area and return this sheet to the coordinator.",
+      "name": "Name",
+      "cellPhone": "Cell phone",
+      "homePhone": "Home phone",
+      "workPhone": "Work phone",
+      "email": "Email",
+      "mesa": "Table:",
+      "corrections": "Corrections:",
+      "noWalkers": "No walkers for this retreat."
     },
     "printLotteryCards": "Walker Cards",
     "lotteryCards": {
@@ -1155,7 +1177,8 @@
       "walkers": "Walkers",
       "servers": "Servers",
       "snores": "Snores",
-      "nonSnores": "Non-snores"
+      "nonSnores": "Non-snores",
+      "free": "Free"
     },
     "ageFilter": {
       "all": "All Ages",
@@ -1288,6 +1311,10 @@
     "emergencyContact2": "In case of emergency, contact (2):"
   },
   "serverRegistration": {
+    "retreatClosed": {
+      "title": "This retreat has ended",
+      "description": "Public registration is closed because the retreat date has passed."
+    },
     "title": "Server Registration",
     "description": "Please fill out the form below to register as a server for the retreat.",
     "step": "Step {current} of {total}",
@@ -1308,7 +1335,10 @@
       "confirmMessage": "Hello {name}, by confirming you will be registered for this retreat.",
       "confirmButton": "Yes, that's me",
       "denyButton": "No, register as new",
-      "success": "Registration successful! You are now registered for this retreat."
+      "success": "Registration successful! You are now registered for this retreat.",
+      "alreadyRegistered": "This email is already registered for this retreat.",
+      "alreadyRegisteredAsWalker": "This email is already registered for this retreat as a walker.",
+      "alreadyRegisteredAsServer": "This email is already registered for this retreat as a server."
     },
     "tabs": {
       "personalInfo": "Personal Information",
@@ -1922,5 +1952,54 @@
   "versionBanner": {
     "message": "New version available",
     "update": "Update"
+  },
+  "santisimo": {
+    "title": "Chapel Watch Schedule",
+    "subtitle": "Organize Eucharistic adoration hours and accept public sign-ups.",
+    "enable": "Enable public sign-up",
+    "copyPublicLink": "Copy public link",
+    "linkCopied": "Link copied",
+    "print": "Print",
+    "generate": "Generate slots",
+    "generateHint": "Automatically creates slots between two dates. Existing slots at the same hour are preserved.",
+    "startDateTime": "Start",
+    "endDateTime": "End",
+    "slotMinutes": "Slot length (min)",
+    "capacity": "Capacity per slot",
+    "clearExisting": "Remove existing slots before generating",
+    "clearExistingHelp": "Deletes ALL current slots and sign-ups for the retreat before creating the new ones. Use only if you want to start from scratch. If left unchecked, new slots are added and existing ones are not duplicated.",
+    "generated": "Slots generated",
+    "noSlots": "No slots yet. Use 'Generate slots' to create them.",
+    "noSlotsPublic": "No slots available yet.",
+    "addName": "Add a name",
+    "name": "Name",
+    "phone": "Phone",
+    "email": "Email",
+    "disableSlot": "Not required",
+    "enableSlot": "Require",
+    "notRequired": "Not required this hour",
+    "full": "Full",
+    "empty": "free",
+    "confirmRemove": "Remove this sign-up?",
+    "confirmDeleteSlot": "Delete this slot and all its sign-ups?",
+    "publicHeading": "Chapel Watch Schedule",
+    "signupHeading": "Sign me up",
+    "signupHint": "Pick the hours you can accompany the Blessed Sacrament. Only the name is required.",
+    "signUpButton": "Sign up",
+    "signupAgain": "Sign up another person",
+    "selectAtLeastOne": "Select at least one slot.",
+    "successTitle": "Sign-up registered!",
+    "successBody": "Keep these links in case you need to cancel later.",
+    "submitFailure": "Sign-up could not be completed.",
+    "cancelSuccess": "Your sign-up was canceled.",
+    "cancelFailure": "Could not cancel (it may have already been canceled).",
+    "retreatNotFound": "Retreat not found or public sign-up is not enabled.",
+    "pickServer": "Server",
+    "angelito": "Free name",
+    "searchServer": "Find server",
+    "searchServerPlaceholder": "Type a name to filter...",
+    "noServerMatch": "No match. Switch to Free name to enter a custom name.",
+    "selectedServer": "Selected server",
+    "angelitoHint": "Free-form name for someone not in the system"
   }
 }

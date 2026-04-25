@@ -35,6 +35,7 @@ const routeTitleMap: Record<string, string> = {
   'bags-report': 'sidebar.bagsReport',
   'medicines-report': 'sidebar.medicinesReport',
   'retreat-dashboard': 'sidebar.retreatDashboard',
+  'reception': 'sidebar.reception',
 }
 
 const updatePageTitle = async () => {

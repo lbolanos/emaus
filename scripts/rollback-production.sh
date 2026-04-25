@@ -5,8 +5,9 @@ set -euo pipefail
 # Restores the previous deployment from /var/www/emaus/previous/
 # Usage: pnpm prod:rollback
 
-SSH_KEY="$HOME/.ssh/emaus-key.pem"
-SSH_HOST="ubuntu@emaus.cc"
+SSH_KEY="${SSH_KEY:-$HOME/.ssh/lightsail-emaus.pem}"
+# Cloudflare proxy blocks port 22, so SSH must use the Lightsail direct IP
+SSH_HOST="${SSH_HOST:-ubuntu@18.116.102.104}"
 SSH_CMD="ssh -i $SSH_KEY $SSH_HOST"
 PREV_DIR="/var/www/emaus/previous"
 APP_DIR="/var/www/emaus"

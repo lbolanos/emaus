@@ -59,3 +59,14 @@ database.sqlite.*
 database.backup.*.sqlite
 database.*.sqlite
 backups/database.*.sqlite.gz
+
+# Terraform (infra/)
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*
+infra/terraform.tfvars
+infra/lambda_src.zip
+
+# Exception: Cloudflare Worker source (needed in repo, not an artifact)
+!infra/workers/*.js
+.claude/scheduled_tasks.lock

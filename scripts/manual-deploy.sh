@@ -4,8 +4,8 @@
 # Use this when GitHub Actions is unavailable or experiencing outages
 #
 # Prerequisites:
-#   - SSH key configured (~/.ssh/emaus-key.pem)
-#   - EC2_HOST environment variable set (or edit below)
+#   - SSH key configured (~/.ssh/lightsail-emaus.pem)
+#   - HOST environment variable set (or edit below; defaults to emaus.cc)
 #   - Local build passes (pnpm build)
 #
 # Usage:
@@ -18,9 +18,10 @@
 set -e  # Exit on any error
 
 # Configuration - edit these or set as environment variables
-EC2_HOST="${EC2_HOST:-emaus.cc}"
+# Cloudflare proxy blocks port 22, so SSH must use the Lightsail direct IP
+EC2_HOST="${EC2_HOST:-18.116.102.104}"
 EC2_USER="${EC2_USER:-ubuntu}"
-SSH_KEY="${SSH_KEY:-$HOME/.ssh/emaus-key.pem}"
+SSH_KEY="${SSH_KEY:-$HOME/.ssh/lightsail-emaus.pem}"
 REMOTE_PATH="/var/www/emaus"
 
 # Colors for output

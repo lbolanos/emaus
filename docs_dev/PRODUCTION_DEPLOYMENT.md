@@ -1,3 +1,8 @@
+> ⚠️ **OBSOLETO (pre-2026-04-21)** — Describe deploy a **AWS EC2**. Migrado a
+> **AWS Lightsail**. Ver [`docs/MIGRATION_RETROSPECTIVE.md`](../docs/MIGRATION_RETROSPECTIVE.md).
+
+---
+
 # Production Deployment Guide
 
 Complete guide to deploying the Emaus Retreat Management System to production with automated GitHub Actions CI/CD pipeline and AWS S3 integration.

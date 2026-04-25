@@ -158,6 +158,7 @@
                 :is-focused="isItemFocused(item)"
                 :global-index="getGlobalItemIndex(item)"
                 :route-with-params="getRouteWithParams(item)"
+                :badge="itemBadge(item.name)" :badge-color="itemBadgeColor(item.name)"
                 @mouseenter="setFocusedIndex(item)"
                 @focus="setFocusedIndex(item)"
               />
@@ -269,6 +270,7 @@
                       :is-focused="isItemFocused(item)"
                       :global-index="getGlobalItemIndex(item)"
                       :route-with-params="getRouteWithParams(item)"
+                      :badge="itemBadge(item.name)" :badge-color="itemBadgeColor(item.name)"
                       @mouseenter="setFocusedIndex(item)"
                       @focus="setFocusedIndex(item)"
                     />
@@ -296,6 +298,7 @@
                 :is-focused="isItemFocused(item)"
                 :global-index="getGlobalItemIndex(item)"
                 :route-with-params="getRouteWithParams(item)"
+                :badge="itemBadge(item.name)" :badge-color="itemBadgeColor(item.name)"
                 @mouseenter="setFocusedIndex(item)"
                 @focus="setFocusedIndex(item)"
               />
@@ -326,8 +329,9 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { ref, computed, nextTick, onMounted, watch } from 'vue';
-import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, Clock, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages } from 'lucide-vue-next';
+import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, Clock, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages, DoorOpen } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
+import { useReceptionStore } from '@/stores/receptionStore';
 import { useRouter, useRoute } from 'vue-router';
 import { Button } from '@repo/ui';
 import {
@@ -352,6 +356,7 @@ import {
   DropdownMenuTrigger,
 } from '@repo/ui';
 import { useRetreatStore } from '@/stores/retreatStore';
+import { useParticipantStore } from '@/stores/participantStore';
 import { useUIStore } from '@/stores/ui';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { useCommunityStore } from '@/stores/communityStore';
@@ -365,7 +370,7 @@ import { useI18n } from 'vue-i18n';
 import { storeLocale } from '@/i18n';
 import SidebarMenuItem from '@/components/layout/SidebarMenuItem.vue';
 
-type PermissionType = 'retreat' | 'participant' | 'table' | 'house' | 'user' | 'retreatInventory' | 'inventoryItem' | 'payment' | 'responsability' | 'messageTemplate' | 'superadmin';
+type PermissionType = 'retreat' | 'participant' | 'table' | 'house' | 'user' | 'retreatInventory' | 'inventoryItem' | 'payment' | 'responsability' | 'messageTemplate' | 'santisimo' | 'superadmin';
 
 export interface MenuItem {
   name: string;
@@ -394,11 +399,41 @@ const router = useRouter();
 const retreatStore = useRetreatStore();
 const communityStore = useCommunityStore();
 const uiStore = useUIStore();
+const receptionStore = useReceptionStore();
+const participantStore = useParticipantStore();
+const { participants } = storeToRefs(participantStore);
 const { isSidebarCollapsed, isMobile } = storeToRefs(uiStore);
 const { can, currentRetreatRole, retreatOnlyPermissions } = useAuthPermissions();
 const route = useRoute();
 const { isRetreatSection, currentSectionTitle } = useRouteContext();
 const { locale, t } = useI18n();
+
+const participantCounts = computed(() => {
+  const ps = participants.value || [];
+  return {
+    walkers:   ps.filter(p => p.type === 'walker'         && !p.isCancelled).length,
+    servers:   ps.filter(p => p.type === 'server'         && !p.isCancelled).length,
+    angelitos: ps.filter(p => p.type === 'partial_server' && !p.isCancelled).length,
+    waiting:   ps.filter(p => p.type === 'waiting'        && !p.isCancelled).length,
+    canceled:  ps.filter(p => p.isCancelled).length,
+  };
+});
+
+const ITEM_BADGE: Record<string, { color: string; count: () => number | null }> = {
+  walkers:      { color: 'bg-blue-500',   count: () => participantCounts.value.walkers   || null },
+  servers:      { color: 'bg-green-600',  count: () => participantCounts.value.servers   || null },
+  angelitos:    { color: 'bg-purple-500', count: () => participantCounts.value.angelitos || null },
+  'waiting-list': { color: 'bg-amber-500', count: () => participantCounts.value.waiting  || null },
+  canceled:     { color: 'bg-red-500',    count: () => participantCounts.value.canceled  || null },
+  reception:    { color: 'bg-amber-500',  count: () => receptionStore.pendingCount       || null },
+};
+
+function itemBadge(name: string): number | null {
+  return ITEM_BADGE[name]?.count() ?? null;
+}
+function itemBadgeColor(name: string): string {
+  return ITEM_BADGE[name]?.color ?? 'bg-gray-500';
+}
 
 const ROLE_DISPLAY_NAMES: Record<string, string> = {
   superadmin: 'Super Administrador',
@@ -463,14 +498,38 @@ watch(() => route.fullPath, () => {
   if (isMobile.value) uiStore.closeMobileMenu();
 });
 
-// Watch retreat selection to refresh permissions (moved from Header)
+// Watch retreat selection to refresh permissions and reception stats
 watch(
   () => retreatStore.selectedRetreatId,
   async (newId, oldId) => {
     if (newId && newId !== oldId) {
       await authStore.refreshUserProfile();
+      // If we're on a retreat-scoped route, swap the :id param so the view
+      // reloads for the newly selected retreat instead of showing stale data.
+      if (route.meta?.requiresRetreat && route.params.id && route.params.id !== newId) {
+        router.replace({
+          name: route.name as string,
+          params: { ...route.params, id: newId },
+          query: route.query,
+        }).catch(() => {});
+      }
+    }
+    if (newId) {
+      // Load participants so sidebar badges populate immediately on retreat switch
+      participantStore.filters.retreatId = newId;
+      participantStore.fetchParticipants().catch(() => {});
+
+      // Load reception pending count
+      try {
+        const { getReceptionStats } = await import('@/services/api');
+        const stats = await getReceptionStats(newId);
+        receptionStore.setPending(stats.pending);
+      } catch {
+        // non-critical
+      }
     }
   },
+  { immediate: true },
 );
 
 // Load collapsed state from localStorage
@@ -623,6 +682,14 @@ const menuSections: MenuSection[] = [
         icon: Ban,
         requiresRetreat: true,
         label: 'sidebar.canceled'
+      },
+      {
+        name: 'reception',
+        routeName: 'reception',
+        icon: DoorOpen,
+        permission: 'participant',
+        requiresRetreat: true,
+        label: 'sidebar.reception'
       }
     ],
     position: 'top'
@@ -653,6 +720,14 @@ const menuSections: MenuSection[] = [
         permission: 'responsability',
         requiresRetreat: true,
         label: 'sidebar.serviceTeams'
+      },
+      {
+        name: 'santisimo',
+        routeName: 'santisimo',
+        icon: Cross,
+        permission: 'santisimo',
+        requiresRetreat: true,
+        label: 'sidebar.santisimo'
       },
       {
         name: 'inventory',
@@ -1054,7 +1129,8 @@ const activateCurrentItem = () => {
       'bed-assignments',
       'responsibilities',
       'inventory',
-      'role-management'
+      'role-management',
+      'reception'
     ];
     const params = routesRequiringId.includes(focusedMenuItem.value.routeName)
       ? { id: retreatStore.selectedRetreatId }
@@ -1093,7 +1169,9 @@ const getRouteWithParams = (item: MenuItem) => {
     'bed-assignments',
     'responsibilities',
     'inventory',
-    'role-management'
+    'role-management',
+    'santisimo',
+    'reception'
   ];
   if (item.routeName && routesRequiringId.includes(item.routeName)) {
     if (!retreatStore.selectedRetreatId) return null;

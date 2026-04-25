@@ -136,12 +136,12 @@ This project uses GitHub Actions to automatically deploy to AWS EC2 when code is
 
 Before first deployment, configure GitHub Secrets:
 
-| Secret                | Purpose                       |
-| --------------------- | ----------------------------- |
-| `EC2_HOST`            | EC2 instance IP or domain     |
-| `EC2_USER`            | SSH username (ubuntu)         |
-| `EC2_SSH_PRIVATE_KEY` | SSH private key file contents |
-| `DOMAIN_NAME`         | Domain name (emaus.cc)        |
+| Secret                       | Purpose                         |
+| ---------------------------- | ------------------------------- |
+| `LIGHTSAIL_HOST`             | Lightsail static IP or domain   |
+| `LIGHTSAIL_USER`             | SSH username (ubuntu)           |
+| `LIGHTSAIL_SSH_PRIVATE_KEY`  | SSH private key file contents   |
+| `DOMAIN_NAME`                | Domain name (emaus.cc)          |
 
 For detailed setup and troubleshooting, see [docs/deployment/deployment-guide.md](./docs/deployment/deployment-guide.md).
 
@@ -150,8 +150,8 @@ For detailed setup and troubleshooting, see [docs/deployment/deployment-guide.md
 If issues occur after deployment, automatic rollback is triggered. For manual rollback:
 
 ```bash
-# SSH to EC2
-ssh -i ~/.ssh/emaus-key.pem ubuntu@<EC2_IP>
+# SSH to Lightsail (puerto 22 bloqueado por Cloudflare proxy — usar IP directa)
+ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104
 
 # List available backups
 ls /var/www/emaus-backups/
@@ -488,6 +488,13 @@ tambien agregar invitador en la lista de envio de mensajes.
 si alguna variable esta vacia dejar constancia visible cuando se este enviando el mensaje.
 numero de mensajes enviados como columna en la lista de participantes.
 Cuando se asigna al servidor en una responsabilidad se agregue como lider del equipo de servicio y al revez tambien.
+agregar lectura de mesa y pago a perfil comunicaciones
+imprimir datos de la mesa con telefono y correo
+en enviar mensaje se congela la interfaz no deja cancelar.
+
+las impresiones de badges crear una impresion de solo caminantes para la bolsa
+una forma de recepccion pueda saber que caminantes hacen falta
+un check en reporte de bolsas que se realizo la bolsa
 
 ## IN PROGRESS
 Ordenar por id_on_retreat en las mesas
@@ -496,7 +503,10 @@ verificar el comportamiento de borrar mesas.  8 mesas y se borran 7 que debe pas
 
 lista de caminantes al dar clic en row debe seleccionar
 
-en enviar mensaje se congela la interfaz no deja cancelar.
+minuto a minutos
+horarios de santisimo
+no se ve la mesa en algunos usuarios en reporte de bolsas
+
 
 create a migration script just for testing red social. is not for production. create users, retreats, communities, houses, participants, messages, friends, followers, blocks, searches, avatars, and messages.
 Cuando un usuario se registra y existe como caminante de algun retiro convertirlo en usuario y que pueda ver el historial de retiros en los que ha participado como servidor y el retiro en el que camino como principal.
@@ -509,11 +519,23 @@ aumentar el coverage de las pruebas
 verificar que todas la pruebas pasen.
 dinamica imprimir dinamica de los equipos instrucciones de la dinamica
 agregar todas las actividades por servidor
-
+cuando estoy creando o editando la casa de retiro y agrego las habitaciones me da problemas para adicionar una sola habitacion cuando ya esta creado. cuando selecciono una cama deberia cambiar el Configurar próxima cama:  asi si le doy nueva cama crea la siguiente de esa habitacion y nueva habitacion la siguiente de ese piso que no este creada
 
 ## TODO
+en el historial de mensaje al dar clic al mensaje por verlo completo lahora del mesaje esta en utc
+acepto aviso de privacidad. liga para la acuerdo de privacidad. en el correo final tambien agregar un enlace para que puedas borrar tus datos de la plataforma
+un listado real de responsabilidades
+registro tambien de angelitos acrodarese que no pagan.  los angelitos no van ni a mesa no deben mostrar ni camas.
+una forma en bubbles cursor encima da mas informacion pero aveces no funciona entonces colocar una forma segura de sabes mas detalles
+orden correcto en la mesas 1 no debe estar a lado de 10 
+horario de comida si soy servidor y estoy en mesa no puedo ir a santisimo.  los angelitos tienen que ocupar los slots de santisimo en horarios de comida.
+imnuto a minuto enlazar con responsabiidades para que sepa cuando es la charla de ...
+planta baja planta alta en vez de numeros se enreda con piso 1
+verificar que el orden en las camas
+template de minuto a minuto
+quema de pecados imposicion de ceniza y lavado de mano es lo mismo hoja de pecados
+si no esta al 100% los gafetes al cambiar de pagina recorta el gafete que queda en medio esto le paso a pepe toño mac
 
-cuando estoy creando o editando la casa de retiro y agrego las habitaciones me da problemas para adicionar una sola habitacion cuando ya esta creado. cuando selecciono una cama deberia cambiar el Configurar próxima cama:  asi si le doy nueva cama crea la siguiente de esa habitacion y nueva habitacion la siguiente de ese piso que no este creada
 cuando en operaciones masivas agrego la etiqueta no se si se guarda .  guardar el sector de las habitaciones que se guardan con masivo y mostrarlo en el mapa de habitaciones.
 cuando ya esta el retiro por empezar modificar las camas para servidores.  es decir si sobraron camas de caminantes modificar que puedan ser para servidores sin modificar la estructura de la casa de retiro.  solamente para el retiro en curso.
 cuando estoy creando un retiro:  colocar la hora de llegada por defecto en punto x:00.  placeholder de notas por defecto
@@ -707,45 +729,29 @@ https://www.hostinger.com/
 https://www.digitalocean.com/
 supabase
 
-## migration vultr to aws
+## Producción (AWS Lightsail)
 
-scp -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105:/var/www/emaus/apps/api/database.sqlite apps/api/database.sqlite 2>&1 && echo "✅ Database copied from AWS"
+Ver [`docs/MIGRATION_RETROSPECTIVE.md`](./docs/MIGRATION_RETROSPECTIVE.md) y
+[`infra/README.md`](./infra/README.md) para la arquitectura actual.
 
-sudo chown www-data:www-data -R /var/www/emaus
-sudo chown ubuntu:ubuntu -R /var/www/emaus
-rsync -avz -e "ssh -i ~/.ssh/emaus-key.pem" \
---exclude '.git' \
---exclude '.turbo' \
---exclude 'apps/api/database.sqlite' \
---exclude 'apps/api/.env' \
---exclude 'node_modules' \
---exclude 'apps/web/.env' \
- . ubuntu@3.138.49.105:/var/www/emaus/
+Operaciones comunes:
 
-scp -i ~/.ssh/emaus-key.pem apps/api/database.sqlite ubuntu@3.138.49.105:/var/www/emaus/apps/api/database.sqlite 2>&1 && echo "✅ Database uploaded to AWS"
+```bash
+# SSH al host (Cloudflare bloquea puerto 22 — usar IP directa)
+ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104
 
-## aws
+# Deploy (automático vía GitHub Actions al push a master)
+git push origin master
 
-ssh -i ~/.ssh/emaus-key.pem ubuntu@$(aws ec2 describe-instances --filters "Name=tag:Name,Values=emaus\*" "Name=instance-state-name,Values=running" --query "Reservations[0].Instances[0].PublicIpAddress" --output text --region us-east-2 --profile emaus) "cd /var/www/emaus && if [ -f apps/api/.env.example ]; then cp apps/api/.env.example
-apps/api/.env.production && echo 'Copied .env.example to .env.production'; else echo 'No .env.example found'; fi"
-ssh -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105
+# Hotfix manual
+bash deploy/lightsail/deploy-lightsail.sh
 
-📋 Next Steps:
-
-1. Copy the setup script to the instance:
-   scp -i ~/.ssh/emaus-key.pem deploy/aws/setup-aws.sh ubuntu@3.138.49.105:/home/ubuntu/
-   scp -i ~/.ssh/emaus-key.pem deploy/aws/deploy-aws.sh ubuntu@3.138.49.105:/home/ubuntu/
-
-2. SSH into the instance:
-   ssh -i ~/.ssh/emaus-key.pem ubuntu@3.138.49.105
-
-3. Run the setup script:
-   chmod +x setup-aws.sh && ./setup-aws.sh
-
-4. Set environment variables and deploy:
-   export DOMAIN_NAME=emaus.cc
-   export RELEASE_TAG=v1.0.2
-   cd /var/www/emaus/deploy/aws && ./deploy-aws.sh
+# DB utilities (ver package.json)
+pnpm db:pull     # bajar DB de prod a local
+pnpm db:push     # subir DB local a prod (peligroso)
+pnpm db:backup   # backup remoto
+pnpm prod:restart
+```
 
 ## que hacer en el proximo retiro
 

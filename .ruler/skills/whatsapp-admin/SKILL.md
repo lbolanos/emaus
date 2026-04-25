@@ -62,7 +62,7 @@ La regla de "no responder" se maneja en SOUL.md.
 - Fallbacks: anthropic/claude-sonnet-4-6, nvidia/kimi-k2.5
 
 ### Servidor
-- SSH: `ssh -i ~/.ssh/emaus-key.pem ubuntu@emaus.cc`
+- SSH: `ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104`
 - OpenClaw CLI: requiere `export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"` antes de usar `npx openclaw`
 
 ## Troubleshooting

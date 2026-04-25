@@ -3,7 +3,7 @@ set -e
 
 # Setup daily database backup cron job on the production server
 # Usage: ssh into server and run this script, or run remotely:
-#   ssh -i ~/.ssh/emaus-key.pem ubuntu@emaus.cc 'bash -s' < scripts/setup-backup-cron.sh
+#   ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104 'bash -s' < scripts/setup-backup-cron.sh
 
 BACKUP_SCRIPT="/var/www/emaus/backup-db.sh"
 CRON_LOG="/var/log/emaus-backup.log"

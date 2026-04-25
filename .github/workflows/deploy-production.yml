@@ -48,9 +48,9 @@ jobs:
           path: apps
           retention-days: 1
 
-  # Step 2: Deploy to EC2
+  # Step 2: Deploy to Lightsail
   deploy:
-    name: Deploy to EC2
+    name: Deploy to Lightsail
     runs-on: ubuntu-latest
     needs: build
     steps:
@@ -63,11 +63,11 @@ jobs:
           name: build-artifacts
           path: ./build-output
 
-      - name: Deploy to EC2
+      - name: Deploy to Lightsail
         env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ secrets.EC2_USER }}
-          EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          LIGHTSAIL_USER: ${{ secrets.LIGHTSAIL_USER }}
+          LIGHTSAIL_SSH_PRIVATE_KEY: ${{ secrets.LIGHTSAIL_SSH_PRIVATE_KEY }}
           DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
           RECAPTCHA_SITE_KEY: ${{ secrets.VITE_RECAPTCHA_SITE_KEY }}
@@ -76,11 +76,11 @@ jobs:
 
           # Setup SSH key
           mkdir -p ~/.ssh
-          echo "$EC2_SSH_PRIVATE_KEY" > ~/.ssh/emaus-key.pem
-          chmod 600 ~/.ssh/emaus-key.pem
+          echo "$LIGHTSAIL_SSH_PRIVATE_KEY" > ~/.ssh/lightsail-emaus.pem
+          chmod 600 ~/.ssh/lightsail-emaus.pem
 
           # Add host key
-          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan -H $LIGHTSAIL_HOST >> ~/.ssh/known_hosts 2>/dev/null || true
 
           # List build output structure for debugging
           echo "Build output structure:"
@@ -88,25 +88,49 @@ jobs:
 
           # Clean old assets before uploading (prevents Permission denied on stale files)
           echo "Cleaning old web assets on server..."
-          ssh -i ~/.ssh/emaus-key.pem ubuntu@$EC2_HOST << 'CLEANEOF'
+          ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@$LIGHTSAIL_HOST << 'CLEANEOF'
           set -e
+          # Fresh Lightsail host has /var/www/emaus owned by www-data
+          # (setup-aws.sh default). Give ubuntu write access to the top-level
+          # + dist dirs + root config files we scp into. File mode stays 644,
+          # so nginx (www-data) can still read everything.
+          sudo mkdir -p /var/www/emaus/apps/web/dist /var/www/emaus/apps/api/dist
+          sudo chown ubuntu:ubuntu /var/www/emaus
+          sudo chown ubuntu:ubuntu /var/www/emaus/apps /var/www/emaus/apps/web /var/www/emaus/apps/api 2>/dev/null || true
+          sudo chown -R ubuntu:ubuntu /var/www/emaus/apps/web/dist /var/www/emaus/apps/api/dist
+          # Per-app and per-package manifests (scp targets from the runner checkout).
+          for p in \
+            /var/www/emaus/apps/api/package.json \
+            /var/www/emaus/apps/web/package.json \
+            /var/www/emaus/package.json \
+            /var/www/emaus/pnpm-lock.yaml \
+            /var/www/emaus/pnpm-workspace.yaml; do
+            [ -e "$p" ] && sudo chown ubuntu:ubuntu "$p" || true
+          done
+          # Workspace packages dir (packages/*/package.json gets scp'd during deploy).
+          if [ -d /var/www/emaus/packages ]; then
+            sudo chown ubuntu:ubuntu /var/www/emaus/packages 2>/dev/null || true
+            for d in /var/www/emaus/packages/*/; do
+              [ -d "$d" ] || continue
+              sudo chown ubuntu:ubuntu "$d" 2>/dev/null || true
+              [ -e "$d/package.json" ] && sudo chown ubuntu:ubuntu "$d/package.json" || true
+            done
+          fi
+
           ASSETS_DIR="/var/www/emaus/apps/web/dist/assets"
           if [ -d "$ASSETS_DIR" ]; then
-            sudo rm -rf "$ASSETS_DIR"
+            rm -rf "$ASSETS_DIR"
             mkdir -p "$ASSETS_DIR"
             echo "✅ Cleaned assets directory"
           fi
-          # Ensure correct ownership for deploy user
-          sudo chown -R ubuntu:ubuntu /var/www/emaus/apps/web/dist
-          sudo chown -R ubuntu:ubuntu /var/www/emaus/apps/api/dist 2>/dev/null || true
           CLEANEOF
 
           # Upload new artifacts
           echo "Uploading API build..."
           if [ -d "./build-output/api/dist" ]; then
-            scp -i ~/.ssh/emaus-key.pem -r ./build-output/api/dist ubuntu@$EC2_HOST:/var/www/emaus/apps/api/
+            scp -i ~/.ssh/lightsail-emaus.pem -r ./build-output/api/dist ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/api/
           elif [ -d "./build-output/apps/api/dist" ]; then
-            scp -i ~/.ssh/emaus-key.pem -r ./build-output/apps/api/dist ubuntu@$EC2_HOST:/var/www/emaus/apps/api/
+            scp -i ~/.ssh/lightsail-emaus.pem -r ./build-output/apps/api/dist ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/api/
           else
             echo "Warning: API dist not found, looking for alternatives..."
             find ./build-output -name "index.js" -path "*/api/dist/*"
@@ -114,26 +138,30 @@ jobs:
 
           echo "Uploading Web build..."
           if [ -d "./build-output/web/dist" ]; then
-            scp -i ~/.ssh/emaus-key.pem -r ./build-output/web/dist ubuntu@$EC2_HOST:/var/www/emaus/apps/web/
+            scp -i ~/.ssh/lightsail-emaus.pem -r ./build-output/web/dist ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/
           elif [ -d "./build-output/apps/web/dist" ]; then
-            scp -i ~/.ssh/emaus-key.pem -r ./build-output/apps/web/dist ubuntu@$EC2_HOST:/var/www/emaus/apps/web/
+            scp -i ~/.ssh/lightsail-emaus.pem -r ./build-output/apps/web/dist ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/
           else
             echo "Warning: Web dist not found"
           fi
 
-          # Upload package.json files and lockfile so pnpm install picks up new dependencies
-          echo "Syncing package.json and lockfile..."
-          scp -i ~/.ssh/emaus-key.pem ./build-output/api/package.json ubuntu@$EC2_HOST:/var/www/emaus/apps/api/package.json 2>/dev/null || \
-          scp -i ~/.ssh/emaus-key.pem ./build-output/apps/api/package.json ubuntu@$EC2_HOST:/var/www/emaus/apps/api/package.json 2>/dev/null || \
-          echo "Warning: API package.json not found in artifacts"
-          scp -i ~/.ssh/emaus-key.pem ./build-output/web/package.json ubuntu@$EC2_HOST:/var/www/emaus/apps/web/package.json 2>/dev/null || \
-          scp -i ~/.ssh/emaus-key.pem ./build-output/apps/web/package.json ubuntu@$EC2_HOST:/var/www/emaus/apps/web/package.json 2>/dev/null || \
-          echo "Warning: Web package.json not found in artifacts"
-
-          # Upload root package.json and lockfile from checkout
-          scp -i ~/.ssh/emaus-key.pem package.json ubuntu@$EC2_HOST:/var/www/emaus/package.json
-          scp -i ~/.ssh/emaus-key.pem pnpm-lock.yaml ubuntu@$EC2_HOST:/var/www/emaus/pnpm-lock.yaml
-          scp -i ~/.ssh/emaus-key.pem pnpm-workspace.yaml ubuntu@$EC2_HOST:/var/www/emaus/pnpm-workspace.yaml
+          # Upload package.json files and lockfile so pnpm install picks up new deps.
+          # Source them from the runner's checkout (always current) rather than the
+          # build artifact, which historically didn't package them and left the
+          # server with stale per-app manifests while the root lockfile advanced —
+          # tripping ERR_PNPM_OUTDATED_LOCKFILE on frozen-lockfile installs.
+          echo "Syncing package.json files and lockfile from checkout..."
+          scp -i ~/.ssh/lightsail-emaus.pem apps/api/package.json ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/api/package.json
+          scp -i ~/.ssh/lightsail-emaus.pem apps/web/package.json ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/package.json
+          scp -i ~/.ssh/lightsail-emaus.pem package.json ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/package.json
+          scp -i ~/.ssh/lightsail-emaus.pem pnpm-lock.yaml ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/pnpm-lock.yaml
+          scp -i ~/.ssh/lightsail-emaus.pem pnpm-workspace.yaml ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/pnpm-workspace.yaml
+          # Workspace packages too, so workspace:* deps resolve after install.
+          for pkg in packages/*/; do
+            [ -f "$pkg/package.json" ] || continue
+            ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@$LIGHTSAIL_HOST "mkdir -p /var/www/emaus/$pkg"
+            scp -i ~/.ssh/lightsail-emaus.pem "$pkg/package.json" "ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/$pkg/package.json"
+          done
 
           # Generate runtime-config.js with secrets and upload it
           echo "Generating runtime-config.js..."
@@ -148,12 +176,12 @@ jobs:
           echo "  isProduction: true," >> /tmp/runtime-config.js
           echo '};' >> /tmp/runtime-config.js
           echo "console.log('[CONFIG] Production runtime configuration loaded');" >> /tmp/runtime-config.js
-          scp -i ~/.ssh/emaus-key.pem /tmp/runtime-config.js ubuntu@$EC2_HOST:/var/www/emaus/apps/web/dist/runtime-config.js
+          scp -i ~/.ssh/lightsail-emaus.pem /tmp/runtime-config.js ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/dist/runtime-config.js
           echo "runtime-config.js uploaded"
 
           # Snapshot current version for rollback
           echo "Creating rollback snapshot..."
-          ssh -i ~/.ssh/emaus-key.pem ubuntu@$EC2_HOST << 'SNAPSHOTEOF'
+          ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@$LIGHTSAIL_HOST << 'SNAPSHOTEOF'
           set -e
           PREV_DIR="/var/www/emaus/previous"
           rm -rf "$PREV_DIR"
@@ -172,7 +200,7 @@ jobs:
 
           # Backup database before deploy
           echo "Creating database backup..."
-          ssh -i ~/.ssh/emaus-key.pem ubuntu@$EC2_HOST << 'BACKUPEOF'
+          ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@$LIGHTSAIL_HOST << 'BACKUPEOF'
           set -e
           DB_PATH="/var/www/emaus/apps/api/database.sqlite"
           BACKUP_DIR="/var/backups/emaus"
@@ -193,72 +221,131 @@ jobs:
           fi
           BACKUPEOF
 
-          # Deploy and restart application
-          ssh -i ~/.ssh/emaus-key.pem ubuntu@$EC2_HOST << 'RESTARTEOF'
+          # Deploy, restart, and validate application
+          ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@$LIGHTSAIL_HOST << 'RESTARTEOF'
+          # `set -eo pipefail` was tempting to catch silent pnpm failures,
+          # but with this heredoc it tripped on subshell pipes (pm2 jlist |
+          # grep -q, curl || echo 000) and made the step exit 1 even after
+          # the healthcheck printed "API is healthy". The pnpm failure mode
+          # it tried to catch is now prevented by the chown block below, so
+          # stick with plain `set -e`.
           set -e
           cd /var/www/emaus
 
+          # pnpm install --frozen-lockfile may need to rewrite files inside
+          # node_modules (e.g. `.modules.yaml`). If any file there is owned
+          # by root (from a prior sudo operation or initial bootstrap),
+          # pnpm aborts with EACCES and the remaining heredoc silently dies,
+          # leaving the stale API running. Chown defensively.
+          echo "Chowning workspace dirs for pnpm..."
+          sudo chown -R ubuntu:ubuntu /var/www/emaus/node_modules 2>/dev/null || true
+          sudo chown -R ubuntu:ubuntu /var/www/emaus/apps/*/node_modules 2>/dev/null || true
+          sudo chown -R ubuntu:ubuntu /var/www/emaus/packages/*/node_modules 2>/dev/null || true
+
           echo "Installing dependencies..."
-          pnpm install --frozen-lockfile 2>&1 | tail -10
+          pnpm install --frozen-lockfile 2>&1 | tail -20
 
           echo "Running migrations..."
           pnpm --filter api migration:run 2>&1 | tail -5 || echo "Migrations skipped"
 
+          # Dual-daemon guard — see 2026-04-23 incident. A second PM2 daemon
+          # (usually in /root/.pm2 from a past `sudo pm2 start`) competes with
+          # the ubuntu daemon for :3001 and produces "Server is running" →
+          # crash-in-1s loops that are invisible to jlist-based orphan checks.
+          # Fail the deploy early with a clear recovery hint instead of letting
+          # it produce a seemingly-healthy-but-flapping API.
+          DAEMON_COUNT=$(ps -eo cmd 2>/dev/null | grep "PM2 v.*God Daemon" | grep -v grep | wc -l)
+          if [ "${DAEMON_COUNT:-0}" -gt 1 ]; then
+            echo "❌ $DAEMON_COUNT PM2 daemons running — dual-daemon conflict will crash emaus-api on restart."
+            ps -eo pid,user,cmd | grep "PM2 v.*God Daemon" | grep -v grep || true
+            echo "Fix: 'sudo pm2 delete all && sudo pm2 kill' on host, then re-run."
+            exit 1
+          fi
+          if sudo test -d /root/.pm2; then
+            echo "❌ /root/.pm2 exists — prior 'sudo pm2' left a root-owned daemon artifact that will resurrect on next boot."
+            echo "Fix: 'sudo pm2 delete all && sudo pm2 kill && sudo rm -rf /root/.pm2' on host, then re-run."
+            exit 1
+          fi
+
+          # Orphan :3001 guard — see LIGHTSAIL_MIGRATION_NOTES.md §11.
+          # If a non-PM2 process is holding :3001, pm2 restart crash-loops on
+          # EADDRINUSE while the orphan keeps serving stale code (healthcheck
+          # still returns 200, so the failure is silent). Kill it so PM2 can
+          # bind the port and run the freshly-deployed dist.
+          ORPHAN_PID=$(sudo ss -tlnp 2>/dev/null | awk '/LISTEN/ && /:3001 / {if (match($0, /pid=[0-9]+/)) print substr($0, RSTART+4, RLENGTH-4); exit}')
+          if [ -n "$ORPHAN_PID" ]; then
+            if pm2 jlist 2>/dev/null | grep -q "\"pid\":$ORPHAN_PID"; then
+              echo "✓ :3001 held by PM2-managed PID $ORPHAN_PID"
+            else
+              echo "⚠ :3001 held by orphan PID $ORPHAN_PID — terminating before pm2 restart"
+              sudo kill -TERM "$ORPHAN_PID" || true
+              for _ in 1 2 3 4 5 6 7 8; do
+                sleep 1
+                sudo kill -0 "$ORPHAN_PID" 2>/dev/null || break
+              done
+              if sudo kill -0 "$ORPHAN_PID" 2>/dev/null; then
+                echo "Orphan did not exit on SIGTERM, escalating to SIGKILL"
+                sudo kill -KILL "$ORPHAN_PID" || true
+                sleep 2
+              fi
+            fi
+          fi
+
           echo "Restarting PM2..."
+          # After the orphan kill above, the PM2 daemon may have been the root-
+          # owned one from the old bootstrap, leaving its unix sockets owned by
+          # someone other than ubuntu. pm2 complains and exits non-zero:
+          #   [PM2][ERROR] Permission denied, to give access to current user:
+          #   $ sudo chown ubuntu:ubuntu /home/ubuntu/.pm2/rpc.sock ...
+          # Do that chown up-front to keep the step green.
+          if [ -d "$HOME/.pm2" ]; then
+            sudo chown -R ubuntu:ubuntu "$HOME/.pm2" 2>/dev/null || true
+          fi
           pm2 restart emaus-api
           sleep 3
 
           echo "Checking PM2 status..."
-          pm2 status emaus-api
+          pm2 status emaus-api || true
 
+          # Health check from inside the box (Cloudflare Bot Fight Mode
+          # blocks curl from GitHub Actions runner IPs as bots, so we
+          # validate via localhost instead).
+          # NOTE: use a flag variable instead of `exit 0` inside the loop —
+          # `exit` inside a for loop in an SSH heredoc can cause the local
+          # SSH client to receive SIGPIPE (heredoc pipe still open) and exit
+          # non-zero even though the remote exited 0 cleanly.
+          echo "Validating API via localhost..."
+          HEALTHY=0
+          for i in 1 2 3 4 5; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/api/health 2>/dev/null || echo 000)
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ API is healthy (HTTP 200)"
+              HEALTHY=1
+              break
+            fi
+            echo "Attempt $i: HTTP $HTTP_CODE - retrying in 3s..."
+            sleep 3
+          done
+          if [ "$HEALTHY" != "1" ]; then
+            echo "❌ API did not respond with 200 after 5 attempts"
+            pm2 logs emaus-api --lines 30 --nostream || true
+            exit 1
+          fi
           RESTARTEOF
 
-      - name: Verify deployment
+      - name: Public URL smoke test (non-fatal)
         if: success()
         run: |
-          echo "✅ Deployment completed successfully!"
-          echo "Verifying API is accessible..."
-          sleep 10
-
-          # Check API health via HTTP
-          for i in {1..5}; do
-            if curl -sf https://emaus.cc/api/health > /dev/null || \
-               curl -sf https://emaus.cc/ > /dev/null; then
-              echo "✅ Application verified online"
-              exit 0
-            fi
-            if [ $i -lt 5 ]; then
-              echo "Waiting for application to fully start ($i/5)..."
-              sleep 5
-            fi
-          done
-
-          echo "⚠️  Note: Application may need additional time to fully initialize"
-
-      - name: Quick API validation
-        if: success()
-        env:
-          DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
-        run: |
-          echo "Validating API is responding..."
-          sleep 5
-
-          # Try to reach the health endpoint
-          for i in {1..5}; do
-            RESPONSE=$(curl -s -w "\n%{http_code}" https://${DOMAIN_NAME}/api/health || echo -e "\n000")
-            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-
-            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "302" ]; then
-              echo "✅ API is responding (HTTP $HTTP_CODE)"
-              exit 0
-            fi
-
-            echo "Attempt $i: HTTP $HTTP_CODE - retrying..."
-            sleep 2
-          done
-
-          echo "❌ API validation failed"
-          exit 1
+          # Cloudflare Bot Fight Mode may 403 this from GitHub Actions IPs;
+          # treated as informational. The real health check runs on-box
+          # during the deploy SSH session above.
+          echo "Smoke-testing public URL..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -A "Mozilla/5.0 (compatible; GitHubActions-SmokeTest)" https://emaus.cc/api/health || echo 000)
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Public endpoint reachable (HTTP 200)"
+          else
+            echo "ℹ️  Public endpoint returned HTTP $HTTP_CODE (likely Cloudflare bot challenge; on-box health already verified)"
+          fi
 
       - name: Deployment notification
         run: |
@@ -270,21 +357,21 @@ jobs:
       - name: Handle deployment failure
         if: failure()
         env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ secrets.EC2_USER }}
-          EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          LIGHTSAIL_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          LIGHTSAIL_USER: ${{ secrets.LIGHTSAIL_USER }}
+          LIGHTSAIL_SSH_PRIVATE_KEY: ${{ secrets.LIGHTSAIL_SSH_PRIVATE_KEY }}
         run: |
-          echo "❌ Deployment failed. Checking EC2 status..."
+          echo "❌ Deployment failed. Checking Lightsail status..."
 
           mkdir -p ~/.ssh
-          echo "$EC2_SSH_PRIVATE_KEY" > ~/.ssh/emaus-key.pem
-          chmod 600 ~/.ssh/emaus-key.pem
+          echo "$LIGHTSAIL_SSH_PRIVATE_KEY" > ~/.ssh/lightsail-emaus.pem
+          chmod 600 ~/.ssh/lightsail-emaus.pem
 
-          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan -H $LIGHTSAIL_HOST >> ~/.ssh/known_hosts 2>/dev/null || true
 
           # Attempt to get diagnostic information
-          ssh -i ~/.ssh/emaus-key.pem \
-            $EC2_USER@$EC2_HOST \
+          ssh -i ~/.ssh/lightsail-emaus.pem \
+            $LIGHTSAIL_USER@$LIGHTSAIL_HOST \
             "pm2 status; echo '---'; tail -50 /tmp/deployment.log 2>/dev/null || echo 'Deployment log not found'" \
             2>&1 || echo "Could not retrieve diagnostic info"
 

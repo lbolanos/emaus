@@ -265,7 +265,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useInventoryStore } from '@/stores/inventoryStore';
 import { useToast } from '@repo/ui';
@@ -304,7 +304,7 @@ const route = useRoute();
 const inventoryStore = useInventoryStore();
 const { toast } = useToast();
 
-const retreatId = route.params.id as string;
+const retreatId = computed(() => route.params.id as string);
 const showImportDialog = ref(false);
 const showEditDialog = ref(false);
 const showAllAlerts = ref(false);
@@ -350,20 +350,25 @@ onMounted(async () => {
   await loadInventoryData();
 });
 
+watch(retreatId, async (id, prev) => {
+  if (id && id !== prev) await loadInventoryData();
+});
+
 async function loadInventoryData() {
+  if (!retreatId.value) return;
   await Promise.all([
-    inventoryStore.fetchRetreatInventoryByCategory(retreatId),
-    inventoryStore.fetchInventoryAlerts(retreatId),
+    inventoryStore.fetchRetreatInventoryByCategory(retreatId.value),
+    inventoryStore.fetchInventoryAlerts(retreatId.value),
   ]);
 }
 
 async function calculateQuantities() {
-  await inventoryStore.calculateRequiredQuantities(retreatId);
+  await inventoryStore.calculateRequiredQuantities(retreatId.value);
   await loadInventoryData();
 }
 
 async function updateInventory(item: any) {
-  await inventoryStore.updateRetreatInventory(retreatId, item.inventoryItemId, {
+  await inventoryStore.updateRetreatInventory(retreatId.value, item.inventoryItemId, {
     currentQuantity: item.currentQuantity,
     notes: item.notes,
   });
@@ -378,7 +383,7 @@ function openEditDialog(item: any) {
 async function saveEdit() {
   if (!editingItem.value) return;
   
-  await inventoryStore.updateRetreatInventory(retreatId, editingItem.value.inventoryItemId, {
+  await inventoryStore.updateRetreatInventory(retreatId.value, editingItem.value.inventoryItemId, {
     currentQuantity: editingItem.value.currentQuantity,
     notes: editingItem.value.notes,
   });
@@ -390,7 +395,7 @@ async function saveEdit() {
 
 async function exportInventory() {
   try {
-    const data = await inventoryStore.exportInventory(retreatId);
+    const data = await inventoryStore.exportInventory(retreatId.value);
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Inventario');
 
@@ -420,7 +425,7 @@ async function exportInventory() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `inventario_retiro_${retreatId}.xlsx`;
+    a.download = `inventario_retiro_${retreatId.value}.xlsx`;
     a.click();
     window.URL.revokeObjectURL(url);
 
@@ -464,7 +469,7 @@ async function handleFileUpload(event: Event) {
       }
     });
 
-    const results = await inventoryStore.importInventory(retreatId, jsonData);
+    const results = await inventoryStore.importInventory(retreatId.value, jsonData);
     importResults.value = results;
     
     if (results.errors.length === 0) {

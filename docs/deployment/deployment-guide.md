@@ -1,3 +1,9 @@
+> ⚠️ **OBSOLETO (pre-2026-04-21)** — Describe deploy a **AWS EC2**. Migrado a
+> **AWS Lightsail**. Ver [`docs/MIGRATION_RETROSPECTIVE.md`](../MIGRATION_RETROSPECTIVE.md)
+> e [`infra/README.md`](../../infra/README.md). Conservado como referencia histórica.
+
+---
+
 # Automated Deployment Guide
 
 This guide explains how the Emaus application is automatically deployed to AWS EC2 when code is pushed to the `master` branch.
@@ -190,6 +196,9 @@ DB_DATABASE=/var/www/emaus/apps/api/database.sqlite
 NODE_ENV=production
 PORT=3001
 FRONTEND_URL=https://emaus.cc
+# IANA timezone used for calendar-absolute comparisons (e.g. whether a
+# retreat is past). Default if unset: America/Mexico_City.
+APP_TIMEZONE=America/Mexico_City
 ```
 
 **Web Variables:**

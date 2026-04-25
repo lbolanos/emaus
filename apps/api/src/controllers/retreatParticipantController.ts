@@ -14,7 +14,9 @@ import {
 	getPrimaryRetreat,
 	getParticipantsByRole,
 	getCharlistas,
+	syncRetreatFields,
 } from '../services/retreatParticipantService';
+import { emitReceptionBagMade } from '../realtime';
 
 // ==================== USER RETREAT HISTORY ====================
 
@@ -294,6 +296,25 @@ export const markPrimaryRetreatController = async (req: Request, res: Response):
 		const { userId, historyId } = req.params;
 		const history = await markPrimaryRetreat(userId, historyId);
 		res.json(history);
+	} catch (error: any) {
+		res.status(500).json({ message: error.message });
+	}
+};
+
+/**
+ * Update the bagMade flag for a participant in a retreat
+ */
+export const updateBagMadeController = async (req: Request, res: Response): Promise<void> => {
+	try {
+		const { participantId, retreatId } = req.params;
+		const { bagMade } = req.body;
+		if (typeof bagMade !== 'boolean') {
+			res.status(400).json({ message: 'bagMade debe ser un booleano' });
+			return;
+		}
+		await syncRetreatFields(participantId, retreatId, { bagMade });
+		emitReceptionBagMade({ retreatId, participantId, bagMade });
+		res.json({ ok: true });
 	} catch (error: any) {
 		res.status(500).json({ message: error.message });
 	}

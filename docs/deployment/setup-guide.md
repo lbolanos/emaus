@@ -1,5 +1,18 @@
 # Git Flow + Deployment Setup Guide
 
+> ⚠️ **OBSOLETO (pre-2026-04-21)** — Este documento describe el setup para
+> **AWS EC2** que ya no está en uso. La infraestructura migró a **AWS
+> Lightsail** el 2026-04-21.
+>
+> Referencias actualizadas:
+> - Arquitectura: [`infra/README.md`](../../infra/README.md)
+> - Migración: [`docs/MIGRATION_RETROSPECTIVE.md`](../MIGRATION_RETROSPECTIVE.md)
+> - Issues durante migración: [`docs/LIGHTSAIL_MIGRATION_NOTES.md`](../LIGHTSAIL_MIGRATION_NOTES.md)
+>
+> Se conserva sólo como referencia histórica.
+
+---
+
 This guide walks you through the final setup steps needed to enable automated deployment to AWS EC2.
 
 ## Prerequisites

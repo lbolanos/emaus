@@ -1,513 +1,622 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { mount, VueWrapper } from '@vue/test-utils';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { nextTick } from 'vue';
 import { cleanupMocks } from '@/test/utils';
 
-// Mock axios
+// ── Global mocks ────────────────────────────────────────────────────────────
+
 vi.mock('axios', () => ({
-	create: vi.fn(() => ({
-		get: vi.fn(),
-		post: vi.fn(),
-		put: vi.fn(),
-		delete: vi.fn(),
-		interceptors: {
-			request: { use: vi.fn() },
-			response: { use: vi.fn() },
-		},
-	})),
-	defaults: { baseURL: '', withCredentials: false },
-	get: vi.fn(),
-	post: vi.fn(),
-	put: vi.fn(),
-	delete: vi.fn(),
+  create: vi.fn(() => ({
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+    interceptors: {
+      request: { use: vi.fn() },
+      response: { use: vi.fn() },
+    },
+  })),
+  defaults: { baseURL: '', withCredentials: false },
 }));
 
-// Mock CSRF utility
 vi.mock('@/utils/csrf', () => ({
-	setupCsrfInterceptor: vi.fn(),
-	getCsrfToken: vi.fn(async () => 'mock-csrf-token'),
+  setupCsrfInterceptor: vi.fn(),
+  getCsrfToken: vi.fn(async () => 'mock-csrf-token'),
 }));
 
-// Mock runtime config
 vi.mock('@/config/runtimeConfig', () => ({
-	getApiUrl: vi.fn(() => 'http://localhost:3001/api'),
+  getApiUrl: vi.fn(() => 'http://localhost:3001/api'),
 }));
 
-// Mock telemetry service
 vi.mock('@/services/telemetryService', () => ({
-	telemetryService: {
-		isTelemetryActive: vi.fn(() => false),
-		trackApiCallTime: vi.fn(),
-		trackError: vi.fn(),
-	},
+  telemetryService: {
+    isTelemetryActive: vi.fn(() => false),
+    trackApiCallTime: vi.fn(),
+    trackError: vi.fn(),
+  },
 }));
 
-// Mock the API service
+const mockUpdateBagMade = vi.fn().mockResolvedValue(undefined);
 vi.mock('@/services/api', () => ({
-	api: {
-		get: vi.fn(),
-		post: vi.fn(),
-		put: vi.fn(),
-		delete: vi.fn(),
-	},
+  api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+  updateBagMade: (...args: any[]) => mockUpdateBagMade(...args),
 }));
 
-// Mock vue-router
-vi.mock('vue-router', () => ({
-	useRouter: () => ({
-		push: vi.fn(),
-		replace: vi.fn(),
-		resolve: vi.fn(() => ({ href: '/test-route' })),
-	}),
-	useRoute: () => ({
-		name: 'bags-report',
-		params: {},
-		path: '/app/bags-report',
-	}),
-}));
+vi.mock('lucide-vue-next', () => {
+  const icon = (name: string) => ({ name, template: `<svg data-icon="${name}"></svg>` });
+  return {
+    Droplets: icon('droplets'), Shirt: icon('shirt'), Smartphone: icon('smartphone'),
+    Gift: icon('gift'), Mail: icon('mail'), ChevronDown: icon('chevron-down'),
+    ChevronUp: icon('chevron-up'), Printer: icon('printer'), Package: icon('package'),
+    Search: icon('search'), X: icon('x'), CheckCircle2: icon('check-circle-2'),
+    Circle: icon('circle'), ListFilter: icon('list-filter'),
+  };
+});
 
-// Mock vue-i18n
-vi.mock('vue-i18n', () => ({
-	useI18n: () => ({
-		t: (key: string) => key,
-		locale: { value: 'es' },
-	}),
-	createI18n: vi.fn(),
-}));
-
-// Mock lucide-vue-next icons
-vi.mock('lucide-vue-next', () => ({
-	Droplets: { name: 'Droplets', template: '<svg data-icon="droplets"></svg>' },
-	Shirt: { name: 'Shirt', template: '<svg data-icon="shirt"></svg>' },
-	Smartphone: { name: 'Smartphone', template: '<svg data-icon="smartphone"></svg>' },
-	Gift: { name: 'Gift', template: '<svg data-icon="gift"></svg>' },
-	Mail: { name: 'Mail', template: '<svg data-icon="mail"></svg>' },
-	ChevronDown: { name: 'ChevronDown', template: '<svg data-icon="chevron-down"></svg>' },
-	ChevronUp: { name: 'ChevronUp', template: '<svg data-icon="chevron-up"></svg>' },
-	Printer: { name: 'Printer', template: '<svg data-icon="printer"></svg>' },
-	ArrowUpDown: { name: 'ArrowUpDown', template: '<svg></svg>' },
-	Trash2: { name: 'Trash2', template: '<svg></svg>' },
-	Edit: { name: 'Edit', template: '<svg></svg>' },
-	FileUp: { name: 'FileUp', template: '<svg></svg>' },
-	FileDown: { name: 'FileDown', template: '<svg></svg>' },
-	Columns: { name: 'Columns', template: '<svg></svg>' },
-	ListFilter: { name: 'ListFilter', template: '<svg></svg>' },
-	MoreVertical: { name: 'MoreVertical', template: '<svg></svg>' },
-	Plus: { name: 'Plus', template: '<svg></svg>' },
-	X: { name: 'X', template: '<svg></svg>' },
-	RefreshCw: { name: 'RefreshCw', template: '<svg></svg>' },
-	MessageCircle: { name: 'MessageCircle', template: '<svg></svg>' },
-	ShoppingBag: { name: 'ShoppingBag', template: '<svg></svg>' },
-	Search: { name: 'Search', template: '<svg></svg>' },
-	Users: { name: 'Users', template: '<svg></svg>' },
-	MessageSquare: { name: 'MessageSquare', template: '<svg></svg>' },
-	RotateCcw: { name: 'RotateCcw', template: '<svg></svg>' },
-}));
-
-// Mock exceljs
-vi.mock('exceljs', () => ({
-	default: { Workbook: vi.fn() },
-}));
-
-// Mock @repo/ui components
 vi.mock('@repo/ui', () => ({
-	Button: { name: 'Button', template: '<button><slot /></button>' },
-	Input: { name: 'Input', template: '<input />' },
-	Checkbox: {
-		name: 'Checkbox',
-		template: '<button role="checkbox" :aria-checked="modelValue" @click="$emit(\'update:modelValue\', !modelValue)"><slot /></button>',
-		props: ['modelValue'],
-		emits: ['update:modelValue'],
-	},
-	Table: { name: 'Table', template: '<table><slot /></table>' },
-	TableBody: { name: 'TableBody', template: '<tbody><slot /></tbody>' },
-	TableCell: { name: 'TableCell', template: '<td><slot /></td>' },
-	TableHead: { name: 'TableHead', template: '<thead><slot /></thead>' },
-	TableHeader: { name: 'TableHeader', template: '<th><slot /></th>' },
-	TableRow: { name: 'TableRow', template: '<tr><slot /></tr>' },
-	TableCaption: { name: 'TableCaption', template: '<caption><slot /></caption>' },
-	TableFooter: { name: 'TableFooter', template: '<tfoot><slot /></tfoot>' },
-	Dialog: { name: 'Dialog', template: '<div><slot /></div>' },
-	DialogContent: { name: 'DialogContent', template: '<div><slot /></div>' },
-	DialogDescription: { name: 'DialogDescription', template: '<div><slot /></div>' },
-	DialogFooter: { name: 'DialogFooter', template: '<div><slot /></div>' },
-	DialogHeader: { name: 'DialogHeader', template: '<div><slot /></div>' },
-	DialogTitle: { name: 'DialogTitle', template: '<div><slot /></div>' },
-	Tooltip: { name: 'Tooltip', template: '<div><slot /></div>' },
-	TooltipContent: { name: 'TooltipContent', template: '<div><slot /></div>' },
-	TooltipProvider: { name: 'TooltipProvider', template: '<div><slot /></div>' },
-	TooltipTrigger: { name: 'TooltipTrigger', template: '<div><slot /></div>' },
-	DropdownMenu: { name: 'DropdownMenu', template: '<div><slot /></div>' },
-	DropdownMenuContent: { name: 'DropdownMenuContent', template: '<div><slot /></div>' },
-	DropdownMenuItem: { name: 'DropdownMenuItem', template: '<div><slot /></div>' },
-	DropdownMenuTrigger: { name: 'DropdownMenuTrigger', template: '<div><slot /></div>' },
-	DropdownMenuLabel: { name: 'DropdownMenuLabel', template: '<div><slot /></div>' },
-	DropdownMenuSeparator: { name: 'DropdownMenuSeparator', template: '<div />' },
-	useToast: () => ({ toast: vi.fn() }),
+  Checkbox: {
+    name: 'Checkbox',
+    template: '<button role="checkbox" :aria-checked="String(modelValue)" @click="$emit(\'update:modelValue\', !modelValue)" />',
+    props: ['modelValue'],
+    emits: ['update:modelValue'],
+  },
+  Input: {
+    name: 'Input',
+    template: '<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+    props: ['modelValue'],
+    emits: ['update:modelValue'],
+  },
+  Progress: {
+    name: 'Progress',
+    template: '<div role="progressbar" :data-value="modelValue" />',
+    props: ['modelValue'],
+  },
+  Button: { name: 'Button', template: '<button><slot /></button>' },
+  Badge:  { name: 'Badge',  template: '<span><slot /></span>' },
+  useToast: () => ({ toast: vi.fn() }),
 }));
 
-// Mock child components
-vi.mock('@/components/ColumnSelector.vue', () => ({
-	default: { name: 'ColumnSelector', template: '<div />' },
-}));
-vi.mock('@/components/EditParticipantForm.vue', () => ({
-	default: { name: 'EditParticipantForm', template: '<div />' },
-}));
-vi.mock('@/components/FilterDialog.vue', () => ({
-	default: { name: 'FilterDialog', template: '<div />' },
-}));
-vi.mock('@/components/ImportParticipantsModal.vue', () => ({
-	default: { name: 'ImportParticipantsModal', template: '<div />' },
-}));
-vi.mock('@/components/ExportParticipantsModal.vue', () => ({
-	default: { name: 'ExportParticipantsModal', template: '<div />' },
-}));
-vi.mock('@/components/MessageDialog.vue', () => ({
-	default: { name: 'MessageDialog', template: '<div />' },
-}));
-vi.mock('@/components/BulkEditParticipantsModal.vue', () => ({
-	default: { name: 'BulkEditParticipantsModal', template: '<div />' },
-}));
-vi.mock('@/components/TagBadge.vue', () => ({
-	default: { name: 'TagBadge', template: '<span />' },
-}));
+// ── Helpers ─────────────────────────────────────────────────────────────────
 
 import BagsReportView from '../BagsReportView.vue';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 
-function createWalker(overrides: any = {}) {
-	return {
-		id: `walker-${Math.random().toString(36).slice(2, 8)}`,
-		firstName: 'Test',
-		lastName: 'Walker',
-		type: 'walker',
-		tshirtSize: 'M',
-		tableMesa: null,
-		id_on_retreat: 1,
-		...overrides,
-	};
+const RETREAT_ID = 'retreat-abc-123';
+const CHECKLIST_KEY = `bags-checklist-v1:${RETREAT_ID}`;
+
+function makeWalker(overrides: Record<string, any> = {}) {
+  const rand = Math.random().toString(36).slice(2, 8);
+  return {
+    id: `w-${rand}`,
+    firstName: 'Ana',
+    lastName: 'García',
+    type: 'walker',
+    tshirtSize: 'M',
+    tableMesa: { name: 'Mesa 1' },
+    id_on_retreat: 1,
+    bagMade: false,
+    ...overrides,
+  };
 }
 
-function mountBagsReport(participants: any[] = []) {
-	const pinia = createPinia();
-	setActivePinia(pinia);
+function mountView(walkers: any[] = []) {
+  const pinia = createPinia();
+  setActivePinia(pinia);
 
-	const retreatStore = useRetreatStore(pinia);
-	retreatStore.retreats = [
-		{
-			id: 'retreat-1',
-			name: 'Test Retreat',
-			startDate: '2026-04-17',
-			endDate: '2026-04-19',
-		} as any,
-	];
-	retreatStore.selectedRetreatId = 'retreat-1';
+  const retreatStore = useRetreatStore(pinia);
+  retreatStore.retreats = [{ id: RETREAT_ID, name: 'Retiro Test' } as any];
+  retreatStore.selectedRetreatId = RETREAT_ID;
+  retreatStore.fetchRetreats = vi.fn().mockResolvedValue([]);
 
-	const participantStore = useParticipantStore(pinia);
-	participantStore.participants = participants;
-	participantStore.fetchParticipants = vi.fn().mockResolvedValue(participants);
+  const participantStore = useParticipantStore(pinia);
+  participantStore.participants = walkers;
+  participantStore.fetchParticipants = vi.fn().mockResolvedValue(walkers);
 
-	return mount(BagsReportView, {
-		global: {
-			plugins: [pinia],
-			stubs: {
-				teleport: { template: '<div><slot /></div>' },
-			},
-		},
-	});
+  return mount(BagsReportView, {
+    global: {
+      plugins: [pinia],
+      stubs: { teleport: { template: '<div><slot /></div>' } },
+    },
+  });
 }
+
+// ── Tests ────────────────────────────────────────────────────────────────────
 
 describe('BagsReportView', () => {
-	afterEach(() => {
-		cleanupMocks();
-	});
+  beforeEach(() => {
+    localStorage.clear();
+    mockUpdateBagMade.mockResolvedValue(undefined);
+  });
 
-	describe('Checklist rendering', () => {
-		it('renders the checklist header', () => {
-			const wrapper = mountBagsReport();
-			expect(wrapper.text()).toContain('Checklist para las bolsas');
-		});
+  afterEach(() => {
+    cleanupMocks();
+  });
 
-		it('renders all 5 checklist items', () => {
-			const wrapper = mountBagsReport();
-			expect(wrapper.text()).toContain('Agua bendita');
-			expect(wrapper.text()).toContain('Playera');
-			expect(wrapper.text()).toContain('Celulares');
-			expect(wrapper.text()).toContain('Palancas');
-			expect(wrapper.text()).toContain('Invitación para otro retiro');
-		});
+  // ── Checklist ────────────────────────────────────────────────────────────
 
-		it('shows progress as 0/5 initially', () => {
-			const wrapper = mountBagsReport();
-			expect(wrapper.text()).toContain('0/5');
-		});
+  describe('checklist – rendering', () => {
+    it('renders the checklist card with all 5 items', () => {
+      const w = mountView();
+      expect(w.text()).toContain('Checklist de contenido');
+      expect(w.text()).toContain('Agua bendita');
+      expect(w.text()).toContain('Playera');
+      expect(w.text()).toContain('Celulares');
+      expect(w.text()).toContain('Palancas');
+      expect(w.text()).toContain('Invitación para otro retiro');
+    });
 
-		it('shows 0% progress initially', () => {
-			const wrapper = mountBagsReport();
-			expect(wrapper.text()).toContain('0%');
-		});
-	});
+    it('shows 0/5 and 0% progress initially', () => {
+      const w = mountView();
+      expect(w.text()).toContain('0/5');
+      expect(w.text()).toContain('0%');
+    });
+  });
 
-	describe('Checklist interaction', () => {
-		it('toggles a checklist item when checkbox is clicked', async () => {
-			const wrapper = mountBagsReport();
-			const checkboxes = wrapper.findAll('[role="checkbox"]');
-			expect(checkboxes.length).toBe(5);
+  describe('checklist – interaction', () => {
+    it('marks an item checked on click and updates counter', async () => {
+      const w = mountView();
+      await flushPromises(); // wait for onMounted to set currentRetreatId
+      const checkboxes = w.findAll('[role="checkbox"]');
+      await checkboxes[0].trigger('click');
+      await nextTick();
+      expect(w.text()).toContain('1/5');
+    });
 
-			// Click the first checkbox
-			await checkboxes[0].trigger('click');
-			await nextTick();
+    it('unchecks a previously checked item', async () => {
+      const w = mountView();
+      await flushPromises();
+      const cb = w.findAll('[role="checkbox"]')[0];
+      await cb.trigger('click');
+      await nextTick();
+      await cb.trigger('click');
+      await nextTick();
+      expect(w.text()).toContain('0/5');
+    });
 
-			expect(wrapper.text()).toContain('1/5');
-		});
+    it('collapses to compact chip when all 5 items are checked', async () => {
+      const w = mountView();
+      await flushPromises();
+      for (const cb of w.findAll('[role="checkbox"]')) {
+        await cb.trigger('click');
+        await nextTick();
+      }
+      // Auto-collapse fires: checklist hides and shows the compact chip
+      expect(w.text()).toContain('Contenido listo');
+      expect(w.text()).not.toContain('Agua bendita');
+    });
+  });
 
-		it('updates progress percentage when items are checked', async () => {
-			const wrapper = mountBagsReport();
-			const checkboxes = wrapper.findAll('[role="checkbox"]');
+  describe('checklist – collapse / expand', () => {
+    it('hides items when header is clicked', async () => {
+      const w = mountView();
+      await flushPromises();
+      await w.find('.cursor-pointer.select-none').trigger('click');
+      await nextTick();
+      expect(w.text()).not.toContain('Agua bendita');
+    });
 
-			// Check 2 items
-			await checkboxes[0].trigger('click');
-			await checkboxes[1].trigger('click');
-			await nextTick();
+    it('shows items again on second click', async () => {
+      const w = mountView();
+      await flushPromises();
+      const header = w.find('.cursor-pointer.select-none');
+      await header.trigger('click');
+      await nextTick();
+      await header.trigger('click');
+      await nextTick();
+      expect(w.text()).toContain('Agua bendita');
+    });
+  });
 
-			expect(wrapper.text()).toContain('2/5');
-			expect(wrapper.text()).toContain('40%');
-		});
+  describe('checklist – auto-collapse and compact chip', () => {
+    it('collapses automatically when all items are checked', async () => {
+      const w = mountView();
+      await flushPromises();
+      for (const cb of w.findAll('[role="checkbox"]')) {
+        await cb.trigger('click');
+        await nextTick();
+      }
+      expect(w.text()).not.toContain('Agua bendita');
+      expect(w.text()).toContain('Contenido listo');
+    });
 
-		it('applies strikethrough class to checked items', async () => {
-			const wrapper = mountBagsReport();
-			const checkboxes = wrapper.findAll('[role="checkbox"]');
+    it('expands checklist again when compact chip is clicked', async () => {
+      const w = mountView();
+      await flushPromises();
+      for (const cb of w.findAll('[role="checkbox"]')) {
+        await cb.trigger('click');
+        await nextTick();
+      }
+      const chip = w.find('button.rounded-full');
+      await chip.trigger('click');
+      await nextTick();
+      expect(w.text()).toContain('Agua bendita');
+    });
+  });
 
-			await checkboxes[0].trigger('click');
-			await nextTick();
+  describe('checklist – localStorage persistence', () => {
+    it('persists checked state to localStorage', async () => {
+      const w = mountView();
+      await flushPromises();
+      await w.findAll('[role="checkbox"]')[0].trigger('click');
+      await nextTick();
+      const stored = JSON.parse(localStorage.getItem(CHECKLIST_KEY) ?? '[]');
+      expect(stored).toContain('agua');
+    });
 
-			const labels = wrapper.findAll('label');
-			const firstLabel = labels[0];
-			expect(firstLabel.classes()).toContain('bg-green-50');
-		});
+    it('restores checked state from localStorage on mount', async () => {
+      localStorage.setItem(CHECKLIST_KEY, JSON.stringify(['agua', 'playera']));
+      const w = mountView();
+      await nextTick();
+      expect(w.text()).toContain('2/5');
+    });
 
-		it('unchecks a previously checked item', async () => {
-			const wrapper = mountBagsReport();
-			const checkboxes = wrapper.findAll('[role="checkbox"]');
+    it('uses a per-retreat key so different retreats are independent', async () => {
+      localStorage.setItem('bags-checklist-v1:retreat-A', JSON.stringify(['agua']));
 
-			// Check then uncheck
-			await checkboxes[0].trigger('click');
-			await nextTick();
-			expect(wrapper.text()).toContain('1/5');
+      const pinia = createPinia();
+      setActivePinia(pinia);
+      const retreatStore = useRetreatStore(pinia);
+      retreatStore.retreats = [{ id: 'retreat-B', name: 'Retiro B' } as any];
+      retreatStore.selectedRetreatId = 'retreat-B';
+      retreatStore.fetchRetreats = vi.fn().mockResolvedValue([]);
+      const participantStore = useParticipantStore(pinia);
+      participantStore.participants = [];
+      participantStore.fetchParticipants = vi.fn().mockResolvedValue([]);
 
-			await checkboxes[0].trigger('click');
-			await nextTick();
-			expect(wrapper.text()).toContain('0/5');
-		});
+      const w = mount(BagsReportView, {
+        global: { plugins: [pinia], stubs: { teleport: { template: '<div><slot /></div>' } } },
+      });
+      await nextTick();
+      expect(w.text()).toContain('0/5');
+    });
+  });
 
-		it('shows 100% when all items are checked', async () => {
-			const wrapper = mountBagsReport();
-			const checkboxes = wrapper.findAll('[role="checkbox"]');
+  // ── Progress hero ────────────────────────────────────────────────────────
 
-			for (const cb of checkboxes) {
-				await cb.trigger('click');
-			}
-			await nextTick();
+  describe('progress hero', () => {
+    it('progress bar reflects completion ratio', () => {
+      const walkers = [
+        makeWalker({ bagMade: true,  id_on_retreat: 1 }),
+        makeWalker({ bagMade: false, id_on_retreat: 2 }),
+      ];
+      const w = mountView(walkers);
+      const bar = w.find('[role="progressbar"]');
+      expect(bar.exists()).toBe(true);
+      expect(bar.attributes('data-value')).toBe('50');
+    });
 
-			expect(wrapper.text()).toContain('5/5');
-			expect(wrapper.text()).toContain('100%');
-		});
-	});
+    it('shows 100% progress when all bags are done', () => {
+      const walkers = [
+        makeWalker({ bagMade: true, id_on_retreat: 1 }),
+        makeWalker({ bagMade: true, id_on_retreat: 2 }),
+      ];
+      const w = mountView(walkers);
+      expect(w.find('[role="progressbar"]').attributes('data-value')).toBe('100');
+    });
 
-	describe('Collapse/expand', () => {
-		it('hides checklist items when header is clicked', async () => {
-			const wrapper = mountBagsReport();
-			expect(wrapper.text()).toContain('Agua bendita');
+    it('shows 0% when no bags are done', () => {
+      const w = mountView([makeWalker({ bagMade: false, id_on_retreat: 1 })]);
+      expect(w.find('[role="progressbar"]').attributes('data-value')).toBe('0');
+    });
+  });
 
-			// Click the header area to collapse
-			const header = wrapper.find('.cursor-pointer');
-			await header.trigger('click');
-			await nextTick();
+  // ── Size summary ─────────────────────────────────────────────────────────
 
-			expect(wrapper.text()).not.toContain('Agua bendita');
-		});
+  describe('size summary', () => {
+    it('shows correct display label for each size code', () => {
+      const w = mountView([
+        makeWalker({ tshirtSize: 'S', id_on_retreat: 1 }),
+        makeWalker({ tshirtSize: 'G', id_on_retreat: 2 }),
+        makeWalker({ tshirtSize: 'X', id_on_retreat: 3 }),
+        makeWalker({ tshirtSize: '2', id_on_retreat: 4 }),
+      ]);
+      expect(w.text()).toContain('L');
+      expect(w.text()).toContain('XL');
+      expect(w.text()).toContain('XXL');
+    });
 
-		it('shows checklist items again when header is clicked twice', async () => {
-			const wrapper = mountBagsReport();
-			const header = wrapper.find('.cursor-pointer');
+    it('groups participants with missing size under "Sin talla"', () => {
+      const w = mountView([
+        makeWalker({ tshirtSize: null, id_on_retreat: 1 }),
+        makeWalker({ tshirtSize: '',   id_on_retreat: 2 }),
+      ]);
+      expect(w.text()).toContain('Sin talla');
+    });
 
-			await header.trigger('click');
-			await nextTick();
-			expect(wrapper.text()).not.toContain('Agua bendita');
+    it('excludes servers from walker count', () => {
+      const w = mountView([
+        makeWalker({ tshirtSize: 'M', id_on_retreat: 1 }),
+        { ...makeWalker({ tshirtSize: 'G' }), type: 'server' },
+      ]);
+      // totalWalkers should be 1 (only the walker, not the server)
+      const hero = w.find('[role="progressbar"]');
+      expect(hero.exists()).toBe(true);
+      expect(w.text()).toContain('1'); // total appears in stats
+      expect(w.text()).not.toContain('L'); // G→L from server excluded
+    });
 
-			await header.trigger('click');
-			await nextTick();
-			expect(wrapper.text()).toContain('Agua bendita');
-		});
-	});
+    it('hides size section when there are no walkers', () => {
+      const w = mountView([]);
+      // When no walkers, sizeSummary is empty → no size badges rendered
+      expect(w.text()).not.toContain('Sin talla');
+      expect(w.text()).not.toContain('XXL');
+    });
+  });
 
-	describe('T-shirt size summary', () => {
-		it('shows size summary cards when participants have sizes', () => {
-			const participants = [
-				createWalker({ tshirtSize: 'M', id_on_retreat: 1 }),
-				createWalker({ tshirtSize: 'M', id_on_retreat: 2 }),
-				createWalker({ tshirtSize: 'G', id_on_retreat: 3 }),
-				createWalker({ tshirtSize: 'X', id_on_retreat: 4 }),
-			];
-			const wrapper = mountBagsReport(participants);
+  // ── Search ───────────────────────────────────────────────────────────────
 
-			// Should show size labels
-			expect(wrapper.text()).toContain('M');
-			expect(wrapper.text()).toContain('L'); // G maps to L
-			expect(wrapper.text()).toContain('XL'); // X maps to XL
-		});
+  describe('search', () => {
+    it('filters rows by first name', async () => {
+      const w = mountView([
+        makeWalker({ firstName: 'María',  id_on_retreat: 1 }),
+        makeWalker({ firstName: 'Carlos', id_on_retreat: 2 }),
+      ]);
+      await nextTick();
+      await w.find('input').setValue('maría');
+      await nextTick();
+      expect(w.text()).toContain('María');
+      expect(w.text()).not.toContain('Carlos');
+    });
 
-		it('shows correct count per size', () => {
-			const participants = [
-				createWalker({ tshirtSize: 'M', id_on_retreat: 1 }),
-				createWalker({ tshirtSize: 'M', id_on_retreat: 2 }),
-				createWalker({ tshirtSize: 'M', id_on_retreat: 3 }),
-				createWalker({ tshirtSize: 'G', id_on_retreat: 4 }),
-			];
-			const wrapper = mountBagsReport(participants);
+    it('filters rows by mesa name', async () => {
+      const w = mountView([
+        makeWalker({ tableMesa: { name: 'Mesa Roja' }, id_on_retreat: 1 }),
+        makeWalker({ tableMesa: { name: 'Mesa Azul' }, id_on_retreat: 2 }),
+      ]);
+      await nextTick();
+      await w.find('input').setValue('roja');
+      await nextTick();
+      expect(w.text()).toContain('Mesa Roja');
+      expect(w.text()).not.toContain('Mesa Azul');
+    });
 
-			// Find the size summary section - M should have count 3
-			const sizeCards = wrapper.findAll('.rounded-xl');
-			const cardTexts = sizeCards.map(c => c.text());
+    it('filters rows by id_on_retreat number', async () => {
+      const w = mountView([
+        makeWalker({ firstName: 'Ana',  id_on_retreat: 42 }),
+        makeWalker({ firstName: 'Luis', id_on_retreat: 7  }),
+      ]);
+      await nextTick();
+      await w.find('input').setValue('42');
+      await nextTick();
+      expect(w.text()).toContain('Ana');
+      expect(w.text()).not.toContain('Luis');
+    });
 
-			// At least one card should contain "3" (for M size)
-			expect(cardTexts.some(t => t.includes('3'))).toBe(true);
-		});
+    it('is case-insensitive', async () => {
+      const w = mountView([makeWalker({ firstName: 'ROSA', id_on_retreat: 1 })]);
+      await nextTick();
+      await w.find('input').setValue('rosa');
+      await nextTick();
+      expect(w.text()).toContain('ROSA');
+    });
 
-		it('shows total walker count', () => {
-			const participants = [
-				createWalker({ id_on_retreat: 1 }),
-				createWalker({ id_on_retreat: 2 }),
-				createWalker({ id_on_retreat: 3 }),
-			];
-			const wrapper = mountBagsReport(participants);
+    it('shows empty-state message when no results match', async () => {
+      const w = mountView([makeWalker({ id_on_retreat: 1 })]);
+      await nextTick();
+      await w.find('input').setValue('zzznotexists');
+      await nextTick();
+      expect(w.text()).toContain('Sin resultados para tu búsqueda');
+    });
 
-			// Total card should show 3
-			const totalCard = wrapper.find('.bg-indigo-600');
-			expect(totalCard.exists()).toBe(true);
-			expect(totalCard.text()).toContain('3');
-		});
+    it('clears search when X button is clicked', async () => {
+      const w = mountView([makeWalker({ firstName: 'Sofía', id_on_retreat: 1 })]);
+      await nextTick();
+      await w.find('input').setValue('zzznotexists');
+      await nextTick();
+      const clearBtn = w.find('button[class*="absolute"][class*="right"]');
+      await clearBtn.trigger('click');
+      await nextTick();
+      expect(w.text()).toContain('Sofía');
+    });
+  });
 
-		it('shows "Sin talla" card for participants without size', () => {
-			const participants = [
-				createWalker({ tshirtSize: 'M', id_on_retreat: 1 }),
-				createWalker({ tshirtSize: null, id_on_retreat: 2 }),
-				createWalker({ tshirtSize: '', id_on_retreat: 3 }),
-			];
-			const wrapper = mountBagsReport(participants);
+  // ── Filter tabs ──────────────────────────────────────────────────────────
 
-			expect(wrapper.text()).toContain('Sin talla');
-		});
+  describe('filter tabs', () => {
+    it('shows all walkers on default "Todos" tab', () => {
+      const w = mountView([
+        makeWalker({ bagMade: true,  id_on_retreat: 1 }),
+        makeWalker({ bagMade: false, id_on_retreat: 2 }),
+      ]);
+      expect(w.findAll('tbody tr').length).toBe(2);
+    });
 
-		it('does not show size summary when no participants', () => {
-			const wrapper = mountBagsReport([]);
-			const totalCard = wrapper.find('.bg-indigo-600');
-			expect(totalCard.exists()).toBe(false);
-		});
+    it('filters to only pending when "Pendientes" tab is active', async () => {
+      const w = mountView([
+        makeWalker({ firstName: 'Hecha',     bagMade: true,  id_on_retreat: 1 }),
+        makeWalker({ firstName: 'Pendiente', bagMade: false, id_on_retreat: 2 }),
+      ]);
+      await nextTick();
+      const tabs = w.findAll('.bg-gray-100 button');
+      await tabs[1].trigger('click');
+      await nextTick();
+      expect(w.text()).toContain('Pendiente');
+      expect(w.text()).not.toContain('Hecha');
+    });
 
-		it('handles XXL size correctly', () => {
-			const participants = [
-				createWalker({ tshirtSize: '2', id_on_retreat: 1 }),
-			];
-			const wrapper = mountBagsReport(participants);
-			expect(wrapper.text()).toContain('XXL');
-		});
+    it('filters to only done when "Realizadas" tab is active', async () => {
+      const w = mountView([
+        makeWalker({ firstName: 'Hecha',    bagMade: true,  id_on_retreat: 1 }),
+        makeWalker({ firstName: 'SinBolsa', bagMade: false, id_on_retreat: 2 }),
+      ]);
+      await nextTick();
+      // Find button containing "Realizadas" text
+      const realizadasBtn = w.findAll('button').find(b => b.text().includes('Realizadas'))
+      expect(realizadasBtn).toBeDefined()
+      await realizadasBtn!.trigger('click');
+      await nextTick();
+      expect(w.text()).toContain('Hecha');
+      expect(w.text()).not.toContain('SinBolsa');
+    });
 
-		it('excludes non-walker participants from summary', () => {
-			const participants = [
-				createWalker({ tshirtSize: 'M', id_on_retreat: 1 }),
-				{ ...createWalker({ tshirtSize: 'G', id_on_retreat: 2 }), type: 'server' },
-			];
-			const wrapper = mountBagsReport(participants);
+    it('shows correct counts on each tab badge', () => {
+      const w = mountView([
+        makeWalker({ bagMade: true,  id_on_retreat: 1 }),
+        makeWalker({ bagMade: true,  id_on_retreat: 2 }),
+        makeWalker({ bagMade: false, id_on_retreat: 3 }),
+      ]);
+      const tabText = w.find('.bg-gray-100').text();
+      expect(tabText).toContain('3'); // Todos
+      expect(tabText).toContain('2'); // Realizadas
+      expect(tabText).toContain('1'); // Pendientes
+    });
+  });
 
-			const totalCard = wrapper.find('.bg-indigo-600');
-			expect(totalCard.text()).toContain('1');
-		});
-	});
+  // ── BagMade toggle ───────────────────────────────────────────────────────
 
-	describe('Print functionality', () => {
-		it('calls window.print when print button is clicked', async () => {
-			const printSpy = vi.spyOn(window, 'print').mockImplementation(() => {});
-			const wrapper = mountBagsReport();
+  describe('bagMade toggle', () => {
+    // The toggle button has title "Marcar como realizada" or "Desmarcar"
+    const getBagBtn = (w: ReturnType<typeof mountView>) =>
+      w.find('button[title*="eali"]') // matches "realizada" and "Desmarcar" (title="Desmarcar")
+      || w.findAll('button').at(-1)!;   // fallback: last button in component
 
-			const printButton = wrapper.find('[title="Imprimir"]');
-			expect(printButton.exists()).toBe(true);
+    it('calls updateBagMade with correct args on click', async () => {
+      const walker = makeWalker({ bagMade: false, id_on_retreat: 1 });
+      const w = mountView([walker]);
+      await flushPromises();
+      await w.find('button[title="Marcar como realizada"]').trigger('click');
+      await nextTick();
+      expect(mockUpdateBagMade).toHaveBeenCalledWith(RETREAT_ID, walker.id, true);
+    });
 
-			await printButton.trigger('click');
-			expect(printSpy).toHaveBeenCalled();
+    it('toggles from true to false', async () => {
+      const walker = makeWalker({ bagMade: true, id_on_retreat: 1 });
+      const w = mountView([walker]);
+      await flushPromises();
+      await w.find('button[title="Desmarcar"]').trigger('click');
+      await nextTick();
+      expect(mockUpdateBagMade).toHaveBeenCalledWith(RETREAT_ID, walker.id, false);
+    });
 
-			printSpy.mockRestore();
-		});
-	});
+    it('applies green row style when bagMade is true', () => {
+      const w = mountView([makeWalker({ bagMade: true, id_on_retreat: 1 })]);
+      expect(w.find('tbody tr').classes().join(' ')).toMatch(/green/);
+    });
 
-	describe('ParticipantList integration', () => {
-		it('renders ParticipantList component', () => {
-			const wrapper = mountBagsReport();
-			const participantList = wrapper.findComponent({ name: 'ParticipantList' });
-			expect(participantList.exists()).toBe(true);
-		});
+    it('reverts optimistic update when API call fails', async () => {
+      mockUpdateBagMade.mockRejectedValueOnce(new Error('Network error'));
+      const walker = makeWalker({ bagMade: false, id_on_retreat: 1 });
+      const w = mountView([walker]);
+      await flushPromises();
+      await w.find('button[title="Marcar como realizada"]').trigger('click');
+      await flushPromises();
+      expect(w.find('tbody tr').classes().join(' ')).not.toMatch(/bg-green/);
+    });
 
-		it('passes walker type to ParticipantList', () => {
-			const wrapper = mountBagsReport();
-			const participantList = wrapper.findComponent({ name: 'ParticipantList' });
-			expect(participantList.props('type')).toBe('walker');
-		});
+    it('does not call API twice when clicking while in-flight', async () => {
+      let resolve!: () => void;
+      mockUpdateBagMade.mockReturnValueOnce(new Promise(r => { resolve = r; }));
 
-		it('passes correct columns to ParticipantList', () => {
-			const wrapper = mountBagsReport();
-			const participantList = wrapper.findComponent({ name: 'ParticipantList' });
-			const expectedColumns = ['id_on_retreat', 'firstName', 'lastName', 'tableMesa.name', 'tshirtSize'];
-			expect(participantList.props('columnsToShowInTable')).toEqual(expectedColumns);
-		});
-	});
+      const walker = makeWalker({ bagMade: false, id_on_retreat: 1 });
+      const w = mountView([walker]);
+      await flushPromises();
 
-	describe('Data loading', () => {
-		it('fetches retreats if none loaded', async () => {
-			const pinia = createPinia();
-			setActivePinia(pinia);
+      const btn = w.find('button[title="Marcar como realizada"]');
+      await btn.trigger('click');
+      await btn.trigger('click');
+      await nextTick();
 
-			const retreatStore = useRetreatStore(pinia);
-			retreatStore.retreats = [];
-			retreatStore.fetchRetreats = vi.fn().mockResolvedValue([]);
+      expect(mockUpdateBagMade).toHaveBeenCalledTimes(1);
+      resolve();
+    });
+  });
 
-			const participantStore = useParticipantStore(pinia);
-			participantStore.fetchParticipants = vi.fn().mockResolvedValue([]);
+  // ── Empty state ──────────────────────────────────────────────────────────
 
-			mount(BagsReportView, {
-				global: {
-					plugins: [pinia],
-					stubs: { teleport: { template: '<div><slot /></div>' } },
-				},
-			});
+  describe('empty state', () => {
+    it('shows filter message when no walkers exist', () => {
+      expect(mountView([]).text()).toContain('No hay caminantes en este filtro');
+    });
 
-			await nextTick();
-			expect(retreatStore.fetchRetreats).toHaveBeenCalled();
-		});
+    it('shows search message when query yields no results', async () => {
+      const w = mountView([makeWalker({ id_on_retreat: 1 })]);
+      await nextTick();
+      await w.find('input').setValue('zzznomatch');
+      await nextTick();
+      expect(w.text()).toContain('Sin resultados para tu búsqueda');
+    });
 
-		it('fetches participants when retreat is selected', async () => {
-			const pinia = createPinia();
-			setActivePinia(pinia);
+    it('shows "Limpiar filtros" link when there is an active search', async () => {
+      const w = mountView([makeWalker({ id_on_retreat: 1 })]);
+      await nextTick();
+      await w.find('input').setValue('zzznomatch');
+      await nextTick();
+      expect(w.text()).toContain('Limpiar filtros');
+    });
+  });
 
-			const retreatStore = useRetreatStore(pinia);
-			retreatStore.retreats = [{ id: 'r1', name: 'Test' } as any];
-			retreatStore.selectedRetreatId = 'r1';
-			retreatStore.fetchRetreats = vi.fn();
+  // ── Table footer ─────────────────────────────────────────────────────────
 
-			const participantStore = useParticipantStore(pinia);
-			participantStore.fetchParticipants = vi.fn().mockResolvedValue([]);
+  describe('table footer', () => {
+    it('shows total count when all rows are visible', () => {
+      const w = mountView([makeWalker({ id_on_retreat: 1 }), makeWalker({ id_on_retreat: 2 })]);
+      // "Mostrando 2  caminantes" — template has whitespace between the number and word
+      expect(w.text()).toMatch(/Mostrando\s+2\s+caminantes/);
+    });
 
-			mount(BagsReportView, {
-				global: {
-					plugins: [pinia],
-					stubs: { teleport: { template: '<div><slot /></div>' } },
-				},
-			});
+    it('shows filtered count with "de N" when search is active', async () => {
+      const w = mountView([
+        makeWalker({ firstName: 'Ana',   id_on_retreat: 1 }),
+        makeWalker({ firstName: 'Pedro', id_on_retreat: 2 }),
+      ]);
+      await nextTick();
+      await w.find('input').setValue('ana');
+      await nextTick();
+      expect(w.text()).toContain('de 2');
+    });
+  });
 
-			await nextTick();
-			await nextTick();
-			expect(participantStore.fetchParticipants).toHaveBeenCalled();
-		});
-	});
+  // ── Print ────────────────────────────────────────────────────────────────
+
+  describe('print', () => {
+    it('calls window.print when print button is clicked', async () => {
+      const spy = vi.spyOn(window, 'print').mockImplementation(() => {});
+      const w = mountView();
+      await w.find('[title="Imprimir reporte"]').trigger('click');
+      expect(spy).toHaveBeenCalled();
+      spy.mockRestore();
+    });
+  });
+
+  // ── Data loading ─────────────────────────────────────────────────────────
+
+  describe('data loading', () => {
+    it('calls fetchRetreats when store is empty', async () => {
+      const pinia = createPinia();
+      setActivePinia(pinia);
+      const retreatStore = useRetreatStore(pinia);
+      retreatStore.retreats = [];
+      retreatStore.fetchRetreats = vi.fn().mockResolvedValue([]);
+      const participantStore = useParticipantStore(pinia);
+      participantStore.fetchParticipants = vi.fn().mockResolvedValue([]);
+
+      mount(BagsReportView, {
+        global: { plugins: [pinia], stubs: { teleport: { template: '<div><slot /></div>' } } },
+      });
+      await nextTick();
+      expect(retreatStore.fetchRetreats).toHaveBeenCalled();
+    });
+
+    it('sets retreatId filter and calls fetchParticipants on mount', async () => {
+      const pinia = createPinia();
+      setActivePinia(pinia);
+      const retreatStore = useRetreatStore(pinia);
+      retreatStore.retreats = [{ id: 'r-xyz', name: 'Test' } as any];
+      retreatStore.selectedRetreatId = 'r-xyz';
+      retreatStore.fetchRetreats = vi.fn();
+      const participantStore = useParticipantStore(pinia);
+      participantStore.fetchParticipants = vi.fn().mockResolvedValue([]);
+
+      mount(BagsReportView, {
+        global: { plugins: [pinia], stubs: { teleport: { template: '<div><slot /></div>' } } },
+      });
+      await nextTick();
+      await nextTick();
+      expect(participantStore.fetchParticipants).toHaveBeenCalled();
+      expect(participantStore.filters.retreatId).toBe('r-xyz');
+    });
+  });
 });

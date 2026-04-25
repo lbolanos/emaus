@@ -164,6 +164,7 @@ vi.mock('lucide-vue-next', () => ({
 	Cross: { template: '<div data-icon="Cross" />' },
 	User: { template: '<div data-icon="User" />' },
 	Languages: { template: '<div data-icon="Languages" />' },
+	DoorOpen: { template: '<div data-icon="DoorOpen" />' },
 }));
 
 // Mock the composables

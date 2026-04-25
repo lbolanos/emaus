@@ -244,7 +244,22 @@ export const useParticipantStore = defineStore('participant', () => {
 
 	function getColumnSelection(viewName: string, defaultColumns: string[]): string[] {
 		const saved = loadColumnSelection(viewName);
-		if (Array.isArray(saved) && saved.length > 0) return saved;
+		if (Array.isArray(saved) && saved.length > 0) {
+			// Merge: keep saved order/visibility, append any new default columns
+			// that weren't in the saved selection (e.g. added after the user last saved).
+			const missing = defaultColumns.filter((c) => !saved.includes(c));
+			if (missing.length > 0) {
+				const merged = [...saved, ...missing];
+				columnSelections[viewName] = merged;
+				try {
+					localStorage.setItem(`participant-columns-${viewName}`, JSON.stringify(merged));
+				} catch (error) {
+					console.warn('Failed to persist merged column selection:', error);
+				}
+				return merged;
+			}
+			return saved;
+		}
 		return defaultColumns;
 	}
 

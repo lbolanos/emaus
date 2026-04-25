@@ -23,6 +23,10 @@ export function useTapAssign() {
 	const onTouchEnd = (e: TouchEvent, participant: Participant, sourceTableId?: string, sourceRole?: string) => {
 		if (Date.now() - touchStartTime > PILL_TAP_MAX_MS || didScroll) return;
 
+		// Suppress the synthetic click that mobile browsers fire ~300ms after touchend.
+		// Without this, any @click handler on the pill immediately undoes the selection
+		// we just set (e.g., BedAssignmentsView's onPillClickWithLongPress).
+		if (e.cancelable) e.preventDefault();
 		e.stopPropagation();
 
 		if (tappedParticipant.value?.id === participant.id) {

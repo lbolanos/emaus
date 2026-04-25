@@ -54,6 +54,7 @@
               @dragleave="onDragLeave('server')"
               @dragstart="startDragFromTable"
               @dragend="handleDragEnd"
+              @unassign="table.id && tableMesaStore.unassignLeader(table.id, 'lider')"
               @touchstart.passive="tapTouchStart"
               @touchend="tapZone($event, () => onTapAssign('lider'))"
               @click="tapZoneClick(() => onTapAssign('lider'))"
@@ -71,6 +72,7 @@
               @dragleave="onDragLeave('server')"
               @dragstart="startDragFromTable"
               @dragend="handleDragEnd"
+              @unassign="table.id && tableMesaStore.unassignLeader(table.id, 'colider1')"
               @touchstart.passive="tapTouchStart"
               @touchend="tapZone($event, () => onTapAssign('colider1'))"
               @click="tapZoneClick(() => onTapAssign('colider1'))"
@@ -88,6 +90,7 @@
               @dragleave="onDragLeave('server')"
               @dragstart="startDragFromTable"
               @dragend="handleDragEnd"
+              @unassign="table.id && tableMesaStore.unassignLeader(table.id, 'colider2')"
               @touchstart.passive="tapTouchStart"
               @touchend="tapZone($event, () => onTapAssign('colider2'))"
               @click="tapZoneClick(() => onTapAssign('colider2'))"
@@ -120,6 +123,7 @@
                     draggable="true"
                     @dragstart="startDragFromTable($event, walker, 'walkers')"
                     @dragend="handleDragEnd"
+                    @dblclick.stop="table.id && tableMesaStore.unassignWalkerFromTable(table.id, walker.id)"
                     :style="{ borderColor: walker.family_friend_color }"
                     :data-participant-id="walker.id"
                     :data-table-id="table.id"
@@ -437,7 +441,17 @@ const onDrop = (event: DragEvent, role: 'lider' | 'colider1' | 'colider2' | 'wal
     }
   }
 
-  if (role === 'walkers' && participant.type === 'walker') {
+  // Use sourceRole as authority when dragged from a table (participant.type may be
+  // missing on leaders loaded via table relations). Fallback to participant.type for
+  // participants from the unassigned list.
+  const isWalker = participant.sourceRole
+    ? participant.sourceRole === 'walkers'
+    : participant.type === 'walker';
+  const isServer = participant.sourceRole
+    ? participant.sourceRole !== 'walkers'
+    : participant.type === 'server';
+
+  if (role === 'walkers' && isWalker) {
     // Check family/friend color conflicts (walker-walker)
     if (participant.family_friend_color) {
       const hasConflict = props.table.walkers?.some(
@@ -453,7 +467,7 @@ const onDrop = (event: DragEvent, role: 'lider' | 'colider1' | 'colider2' | 'wal
     }
 
     tableMesaStore.assignWalkerToTable(props.table.id, participant.id, participant.sourceTableId);
-  } else if (role !== 'walkers' && participant.type === 'server') {
+  } else if (role !== 'walkers' && isServer) {
     tableMesaStore.assignLeader(props.table.id, participant.id, role, participant.sourceTableId, participant.sourceRole as 'lider' | 'colider1' | 'colider2' | undefined);
   }
 };
@@ -513,8 +527,11 @@ const onTapAssign = (role: 'lider' | 'colider1' | 'colider2' | 'walkers') => {
   if (!tappedParticipant.value || !props.table.id) return;
 
   const participant = tappedParticipant.value;
+  const sourceRole = (participant as any).sourceRole as 'lider' | 'colider1' | 'colider2' | 'walkers' | undefined;
+  const isWalker = sourceRole ? sourceRole === 'walkers' : participant.type === 'walker';
+  const isServer = sourceRole ? sourceRole !== 'walkers' : participant.type === 'server';
 
-  if (role === 'walkers' && participant.type === 'walker') {
+  if (role === 'walkers' && isWalker) {
     // Check family/friend color conflicts
     if (participant.family_friend_color) {
       const hasConflict = props.table.walkers?.some(
@@ -528,8 +545,8 @@ const onTapAssign = (role: 'lider' | 'colider1' | 'colider2' | 'walkers') => {
     }
     tableMesaStore.assignWalkerToTable(props.table.id, participant.id, (participant as any).sourceTableId);
     clearTap();
-  } else if (role !== 'walkers' && participant.type === 'server') {
-    tableMesaStore.assignLeader(props.table.id, participant.id, role, (participant as any).sourceTableId, (participant as any).sourceRole);
+  } else if (role !== 'walkers' && isServer) {
+    tableMesaStore.assignLeader(props.table.id, participant.id, role, (participant as any).sourceTableId, sourceRole as 'lider' | 'colider1' | 'colider2' | undefined);
     clearTap();
   }
 };

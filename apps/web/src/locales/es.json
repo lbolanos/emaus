@@ -143,6 +143,8 @@
     "walkers": "Caminantes",
     "servers": "Servidores",
     "partialServers": "Angelitos",
+    "reception": "Recepción",
+    "goToReception": "Ir a Recepción",
     "partial_servers": "Angelitos",
     "waitings": "Lista de Espera",
     "palancas": "Palancas",
@@ -168,6 +170,7 @@
     "bedAssignments": "Asignación de Camas",
     "responsibilities": "Responsabilidades",
     "serviceTeams": "Equipos de Servicio",
+    "santisimo": "Guardias de la Capilla",
     "inventory": "Inventario",
     "roleManagement": "Gestión de Roles",
     "sections": {
@@ -867,6 +870,25 @@
     "notifyParticipant": "Enviar bienvenida al caminante",
     "notifyInviter": "Notificar al servidor que invitó"
   },
+  "reception": {
+    "title": "Recepción de Caminantes",
+    "total": "Total",
+    "arrived": "Llegaron",
+    "pending": "Faltan",
+    "progressLabel": "Progreso de llegadas",
+    "searchPlaceholder": "Buscar por nombre o número...",
+    "clearSearch": "Limpiar búsqueda",
+    "pendingSection": "Pendientes de llegar",
+    "allArrived": "¡Todos han llegado!",
+    "arrivedButton": "Llegó",
+    "arrivedSection": "Ver llegados",
+    "undoButton": "Deshacer",
+    "undoTitle": "Deshacer llegada",
+    "markedArrived": "{name} marcado como llegado",
+    "updateError": "Error al actualizar",
+    "expectedArrival": "Hora esperada de llegada",
+    "goToReception": "Ir a Recepción"
+  },
   "retreatDashboard": {
     "title": "Dashboard del Retiro",
     "partialServersDescription": "Participantes que asisten como angelitos",
@@ -923,10 +945,13 @@
     "totalWalkers": "Caminantes",
     "palancasRequested": "Solicitadas",
     "palancasReceived": "Recibidas",
-    "walkersWithoutPalancas": "Sin Palancas"
+    "walkersWithoutPalancas": "Sin Palancas",
+    "totalPalancasReceived": "Total Palancas"
   },
   "retreatFlyer": {
     "printButton": "Imprimir Flyer",
+    "exportPdf": "Exportar PDF",
+    "exportingPdf": "Generando PDF...",
     "catholicRetreat": "Retiro Católico",
     "emausFor": "Emaús para",
     "weekendOfHope": "un fin de semana de",
@@ -1049,6 +1074,23 @@
       "familyFriendConflict": "No se puede agregar al caminante. Ya existe un caminante con el mismo color de familia/amigo en esta mesa.",
       "tagConflict": "Conflicto de etiquetas",
       "tagConflictDescription": "Ya existe un participante en esta mesa con la(s) etiqueta(s): {tags}"
+    },
+    "printTablesSimple": "Imprimir Mesas (Simple)",
+    "printTablesContacts": "Imprimir Contactos (Teléfono/Email)",
+    "printTablesContactsPerParticipant": "Imprimir Contactos (Hoja para Cada Participante)",
+    "printWalkerContactsVerification": "Verificación de Datos (Caminantes)",
+    "printMenu": "Imprimir",
+    "verification": {
+      "title": "Verifica tus datos",
+      "instructions": "Revisa que tu teléfono y correo sean correctos. Si hay algún error, escríbelo en el espacio de correcciones y entrega esta hoja al coordinador.",
+      "name": "Nombre",
+      "cellPhone": "Celular",
+      "homePhone": "Teléfono de casa",
+      "workPhone": "Teléfono de trabajo",
+      "email": "Correo electrónico",
+      "mesa": "Mesa:",
+      "corrections": "Correcciones:",
+      "noWalkers": "No hay caminantes para este retiro."
     },
     "printLotteryCards": "Tarjetas de los Caminantes",
     "lotteryCards": {
@@ -1208,7 +1250,8 @@
       "walkers": "Caminantes",
       "servers": "Servidores",
       "snores": "Roncan",
-      "nonSnores": "No roncan"
+      "nonSnores": "No roncan",
+      "free": "Libres"
     },
     "ageFilter": {
       "all": "Todas las edades",
@@ -1349,6 +1392,10 @@
       "subtitle": "Únete a nosotros en servicio y compañerismo. Regístrate ahora para ser parte del equipo.",
       "cta": "Regístrate Ahora"
     },
+    "retreatClosed": {
+      "title": "Este retiro ya terminó",
+      "description": "El registro público está cerrado porque la fecha del retiro ya pasó."
+    },
     "emailLookup": {
       "title": "Buscar registro existente",
       "description": "Ingresa tu correo electrónico para verificar si ya tienes un registro previo",
@@ -1361,7 +1408,10 @@
       "confirmMessage": "Hola {name}, al confirmar quedarás registrado(a) para este retiro.",
       "confirmButton": "Sí, soy yo",
       "denyButton": "No, registrarme como nuevo",
-      "success": "¡Registro exitoso! Quedaste registrado(a) para este retiro."
+      "success": "¡Registro exitoso! Quedaste registrado(a) para este retiro.",
+      "alreadyRegistered": "Este correo ya está registrado en este retiro.",
+      "alreadyRegisteredAsWalker": "Este correo ya está registrado en este retiro como caminante.",
+      "alreadyRegisteredAsServer": "Este correo ya está registrado en este retiro como servidor."
     },
     "tabs": {
       "personalInfo": "Información Personal",
@@ -2206,5 +2256,54 @@
   "versionBanner": {
     "message": "Nueva versión disponible",
     "update": "Actualizar"
+  },
+  "santisimo": {
+    "title": "Horario de Guardias de la Capilla",
+    "subtitle": "Organiza los horarios de adoración al Santísimo y recibe inscripciones públicas.",
+    "enable": "Activar inscripciones públicas",
+    "copyPublicLink": "Copiar enlace público",
+    "linkCopied": "Enlace copiado",
+    "print": "Imprimir",
+    "generate": "Generar horarios",
+    "generateHint": "Crea automáticamente slots entre dos fechas. Los slots ya existentes en las mismas horas no se duplicarán.",
+    "startDateTime": "Inicio",
+    "endDateTime": "Fin",
+    "slotMinutes": "Duración del slot (min)",
+    "capacity": "Capacidad por slot",
+    "clearExisting": "Eliminar horarios existentes antes de generar",
+    "clearExistingHelp": "Borra TODOS los horarios e inscripciones actuales del retiro antes de crear los nuevos. Úsalo solo si quieres empezar desde cero. Si lo dejas sin marcar, se añadirán horarios nuevos y los ya existentes no se duplicarán.",
+    "generated": "Horarios generados",
+    "noSlots": "Aún no hay horarios. Usa 'Generar horarios' para crearlos.",
+    "noSlotsPublic": "Aún no hay horarios disponibles.",
+    "addName": "Anotar nombre",
+    "name": "Nombre",
+    "phone": "Teléfono",
+    "email": "Correo",
+    "disableSlot": "No se requiere",
+    "enableSlot": "Requerir",
+    "notRequired": "No se requiere esta hora",
+    "full": "Lleno",
+    "empty": "libre",
+    "confirmRemove": "¿Quitar esta inscripción?",
+    "confirmDeleteSlot": "¿Eliminar este horario y todas sus inscripciones?",
+    "publicHeading": "Horario de Guardias de la Capilla",
+    "signupHeading": "Inscribirme",
+    "signupHint": "Selecciona los horarios en los que puedes acompañar al Santísimo. Sólo el nombre es obligatorio.",
+    "signUpButton": "Inscribirme",
+    "signupAgain": "Inscribir a otra persona",
+    "selectAtLeastOne": "Selecciona al menos un horario.",
+    "successTitle": "¡Inscripción registrada!",
+    "successBody": "Guarda estos enlaces por si necesitas cancelar tu inscripción más adelante.",
+    "submitFailure": "No se pudo completar la inscripción.",
+    "cancelSuccess": "Tu inscripción fue cancelada.",
+    "cancelFailure": "No se pudo cancelar (quizás ya fue cancelada).",
+    "retreatNotFound": "No se encontró este retiro o la inscripción pública no está activada.",
+    "pickServer": "Servidor",
+    "angelito": "Angelito",
+    "searchServer": "Buscar servidor",
+    "searchServerPlaceholder": "Escribe un nombre para filtrar...",
+    "noServerMatch": "Sin coincidencias. Cambia a Angelito para anotar un nombre libre.",
+    "selectedServer": "Servidor seleccionado",
+    "angelitoHint": "Nombre libre de alguien que no está en el sistema"
   }
 }

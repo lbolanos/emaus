@@ -1,0 +1,7 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+lambda_src.zip
+crash.log
+crash.*.log

@@ -63,7 +63,7 @@ describe('Production Rollback Mechanism', () => {
 		it('should place snapshot BEFORE database backup and deploy', () => {
 			const snapshotIndex = workflowContent.indexOf('Snapshot current version for rollback');
 			const backupIndex = workflowContent.indexOf('Backup database before deploy');
-			const restartIndex = workflowContent.indexOf('Deploy and restart application');
+			const restartIndex = workflowContent.indexOf('Deploy, restart, and validate application');
 
 			expect(snapshotIndex).toBeGreaterThan(-1);
 			expect(backupIndex).toBeGreaterThan(snapshotIndex);
@@ -106,7 +106,7 @@ describe('Production Rollback Mechanism', () => {
 
 		it('should check for SSH key existence', () => {
 			expect(rollbackScript).toContain('SSH_KEY=');
-			expect(rollbackScript).toContain('emaus-key.pem');
+			expect(rollbackScript).toContain('lightsail-emaus.pem');
 			expect(rollbackScript).toMatch(/if \[.*-f.*SSH_KEY/);
 		});
 

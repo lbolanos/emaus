@@ -121,6 +121,7 @@ export const retreatSchema = z.object({
 	notifyInviter: z.boolean().default(true),
 	notifyPalanqueros: z.array(z.number().int().min(1).max(3)).transform(arr => [...new Set(arr)]).optional(),
 	createdBy: z.string().uuid().optional(),
+	santisimoEnabled: z.boolean().default(false).optional(),
 });
 export type Retreat = z.infer<typeof retreatSchema>;
 
@@ -337,6 +338,7 @@ export const TableSchema = z.object({
 export const createTableSchema = TableSchema.omit({ id: true });
 
 // PUT /participants/:id — lenient: accepts nulls from DB/form, coerces to undefined
+// Omit fields that must not be changed via the general update endpoint (retreat scoping + internal IDs).
 export const updateParticipantSchema = z.object({
 	body: z.preprocess(
 		(val) => {
@@ -349,21 +351,21 @@ export const updateParticipantSchema = z.object({
 			}
 			return val;
 		},
-		participantSchema.partial(),
+		participantSchema.omit({ retreatId: true, id_on_retreat: true }).partial(),
 	),
 	params: z.object({ id: idSchema }),
 });
 export type UpdateParticipant = z.infer<typeof updateParticipantSchema.shape.body>;
 
-// POST /retreats
+// POST /retreats — createdBy is assigned server-side from the authenticated user, never from the body.
 export const createRetreatSchema = z.object({
-	body: retreatSchema.omit({ id: true }),
+	body: retreatSchema.omit({ id: true, createdBy: true }),
 });
 export type CreateRetreat = z.infer<typeof createRetreatSchema.shape.body>;
 
-// PUT /retreats/:id
+// PUT /retreats/:id — createdBy must not be reassignable via an update request.
 export const updateRetreatSchema = z.object({
-	body: retreatSchema.omit({ id: true }).partial(),
+	body: retreatSchema.omit({ id: true, createdBy: true }).partial(),
 	params: z.object({ id: idSchema }),
 });
 export type UpdateRetreat = z.infer<typeof updateRetreatSchema.shape.body>;
@@ -414,6 +416,7 @@ export * from './serviceTeam';
 export * from './permissions';
 export * from './community';
 export * from './testimonial';
+export * from './santisimo';
 
 // Payment Schema
 export const paymentSchema = z.object({

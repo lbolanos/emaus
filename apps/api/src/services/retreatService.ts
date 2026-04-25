@@ -78,6 +78,29 @@ export const findPublicRetreats = async (dataSource?: DataSource) => {
 	});
 };
 
+export const findActiveRetreats = async (dataSource?: DataSource) => {
+	const retreatRepository = getRepository(Retreat, dataSource);
+	const today = new Date();
+	const bufferStart = new Date(today);
+	bufferStart.setDate(bufferStart.getDate() + 1);
+	const bufferEnd = new Date(today);
+	bufferEnd.setDate(bufferEnd.getDate() - 1);
+	const toIsoDate = (d: Date) => d.toISOString().slice(0, 10);
+
+	return retreatRepository
+		.createQueryBuilder('retreat')
+		.select([
+			'retreat.id',
+			'retreat.parish',
+			'retreat.startDate',
+			'retreat.endDate',
+		])
+		.where('retreat.startDate <= :bufferStart', { bufferStart: toIsoDate(bufferStart) })
+		.andWhere('retreat.endDate >= :bufferEnd', { bufferEnd: toIsoDate(bufferEnd) })
+		.orderBy('retreat.startDate', 'ASC')
+		.getMany();
+};
+
 export const findById = async (id: string, dataSource?: DataSource) => {
 	const retreatRepository = getRepository(Retreat, dataSource);
 	return retreatRepository.findOne({ where: { id }, relations: ['house'] });
