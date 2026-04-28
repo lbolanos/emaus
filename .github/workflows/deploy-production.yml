@@ -156,6 +156,10 @@ jobs:
           scp -i ~/.ssh/lightsail-emaus.pem package.json ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/package.json
           scp -i ~/.ssh/lightsail-emaus.pem pnpm-lock.yaml ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/pnpm-lock.yaml
           scp -i ~/.ssh/lightsail-emaus.pem pnpm-workspace.yaml ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/pnpm-workspace.yaml
+          # ecosystem.config.js carries kill_timeout + max_memory_restart that
+          # work in tandem with the API's graceful shutdown handler. Sync it on
+          # every deploy so changes here propagate without manual SSH edits.
+          scp -i ~/.ssh/lightsail-emaus.pem ecosystem.config.js ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/ecosystem.config.js
           # Workspace packages too, so workspace:* deps resolve after install.
           for pkg in packages/*/; do
             [ -f "$pkg/package.json" ] || continue
@@ -301,7 +305,12 @@ jobs:
           if [ -d "$HOME/.pm2" ]; then
             sudo chown -R ubuntu:ubuntu "$HOME/.pm2" 2>/dev/null || true
           fi
-          pm2 restart emaus-api
+          # Use startOrReload (not just restart) so new ecosystem.config.js
+          # values (kill_timeout, max_memory_restart) actually take effect.
+          # `restart emaus-api` keeps the cached PM2 config and ignores file
+          # changes; `startOrReload <file>` re-reads the config every time.
+          pm2 startOrReload /var/www/emaus/ecosystem.config.js --update-env
+          pm2 save
           sleep 3
 
           echo "Checking PM2 status..."
