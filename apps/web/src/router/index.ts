@@ -36,8 +36,13 @@ const RetreatFlyerView = () => import('../views/RetreatFlyerView.vue');
 const HelpView = () => import('../views/HelpView.vue');
 const LandingView = () => import('../views/LandingView.vue');
 const SantisimoAdminView = () => import('../views/SantisimoAdminView.vue');
+const MinuteByMinuteView = () => import('../views/MinuteByMinuteView.vue');
+const MyScheduleView = () => import('../views/MyScheduleView.vue');
+const ScheduleTemplateView = () => import('../views/ScheduleTemplateView.vue');
+const AssignResponsiblesView = () => import('../views/AssignResponsiblesView.vue');
 const PublicSantisimoView = () => import('../views/PublicSantisimoView.vue');
 const RecepcionView = () => import('../views/RecepcionView.vue');
+const RetreatShirtTypesView = () => import('../views/RetreatShirtTypesView.vue');
 
 import { useAuthStore } from '@/stores/authStore';
 import { useRetreatStore } from '@/stores/retreatStore';
@@ -140,6 +145,13 @@ const router = createRouter({
 			path: '/privacy',
 			name: 'privacy',
 			component: () => import('../views/PrivacyPolicyView.vue'),
+			meta: { requiresAuth: false },
+		},
+		{
+			path: '/eliminar-datos/:token',
+			name: 'data-delete',
+			component: () => import('../views/DataDeleteRequestView.vue'),
+			props: true,
 			meta: { requiresAuth: false },
 		},
 		{
@@ -323,9 +335,41 @@ const router = createRouter({
 					meta: { requiresRetreat: false },
 				},
 				{
+					path: 'retreats/:id/minuto-a-minuto',
+					name: 'minuto-a-minuto',
+					component: MinuteByMinuteView,
+					props: true,
+					meta: { requiresRetreat: true },
+				},
+				{
+					path: 'retreats/:id/asignar-responsables',
+					name: 'asignar-responsables',
+					component: AssignResponsiblesView,
+					props: true,
+					meta: { requiresRetreat: true },
+				},
+				{
+					path: 'my-schedule',
+					name: 'my-schedule',
+					component: MyScheduleView,
+					meta: { requiresRetreat: true },
+				},
+				{
+					path: 'settings/schedule-template',
+					name: 'schedule-template',
+					component: ScheduleTemplateView,
+					meta: { requiresRetreat: false },
+				},
+				{
 					path: 'settings/message-templates',
 					name: 'message-templates',
 					component: MessageTemplatesView,
+					meta: { requiresRetreat: true },
+				},
+				{
+					path: 'settings/shirt-types',
+					name: 'retreat-shirt-types',
+					component: RetreatShirtTypesView,
 					meta: { requiresRetreat: true },
 				},
 				{

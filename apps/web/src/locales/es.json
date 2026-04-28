@@ -179,6 +179,7 @@
       "social": "Familia Emaús",
       "people": "Personas",
       "assignments": "Asignaciones",
+      "logistics": "Logística",
       "financial": "Financiero",
       "reports": "Reportes",
       "services": "Servicios",
@@ -1308,6 +1309,8 @@
       "otherInfo": "Otra Información"
     },
     "fields": {
+      "acceptedPrivacyNotice": "Acepto el aviso de privacidad y el tratamiento de mis datos personales.",
+      "privacyLinkText": "Leer aviso de privacidad",
       "firstName": "Nombre",
       "lastName": "Apellido",
       "nickname": "Apodo",
@@ -1424,7 +1427,13 @@
       "title": "Resumen de Registro",
       "description": "Por favor, revise su información antes de enviarla."
     },
+    "draft": {
+      "restoredTitle": "Borrador restaurado",
+      "restoredDesc": "Continuamos donde lo dejaste. Cierra y vuelve a abrir si quieres empezar de cero."
+    },
     "fields": {
+      "acceptedPrivacyNotice": "Acepto el aviso de privacidad y el tratamiento de mis datos personales.",
+      "privacyLinkText": "Leer aviso de privacidad",
       "firstName": "Nombre",
       "lastName": "Apellidos",
       "nickname": "Apodo",
@@ -1489,7 +1498,13 @@
       "needsBlueShirtPlaceholder": "Seleccione talla o no necesita",
       "needsJacket": "Talla de chaqueta",
       "needsJacketPlaceholder": "Seleccione talla o no necesita",
-      "noSizeNeeded": "No necesita"
+      "noSizeNeeded": "No necesita",
+      "shirtSizePlaceholder": "Seleccione talla o no necesita",
+      "noShirtsConfigured": "Este retiro no tiene tipos de playera configurados.",
+      "shirtsAskTitle": "¿Necesitas alguna playera o chamarra?",
+      "shirtsAskHint": "Si ya tienes las tuyas de retiros anteriores, déjalas en \"No necesita\".",
+      "isAngelito": "Registrar como angelito",
+      "isAngelitoHint": "Apoyo parcial: no se asigna a mesa ni cama, y no requiere pago."
     },
     "emergencyContact1": "En caso de emergencia contactar a (1):",
     "emergencyContact2": "En caso de emergencia contactar a (2):"
@@ -1552,7 +1567,9 @@
     "allItems": "Todos",
     "createSpeaker": "Crear y Asignar",
     "viewDocs": "Ver Documentación",
-    "downloadDocs": "Descargar Documentos"
+    "downloadDocs": "Descargar Documentos",
+    "generatePdf": "Imprimir / Guardar como PDF",
+    "noDocumentation": "Sin documentación disponible"
   },
   "inviteUsersModal": {
     "title": "Invitar Alguien",
@@ -1898,6 +1915,20 @@
       "invitedBy": "Invitado por",
       "acceptedAt": "Aceptado el"
     }
+  },
+  "dataDelete": {
+    "title": "Eliminar mis datos personales",
+    "loading": "Cargando información...",
+    "description": "Al confirmar, todos tus datos personales serán eliminados de nuestra plataforma. Esta acción no se puede deshacer.",
+    "participantInfo": "Información registrada:",
+    "confirmButton": "Sí, eliminar mis datos",
+    "cancelButton": "Cancelar",
+    "successTitle": "Datos eliminados",
+    "successMessage": "Tus datos personales han sido eliminados de nuestra plataforma.",
+    "errorTitle": "Error",
+    "errorNotFound": "El enlace no es válido o ya fue utilizado.",
+    "errorGeneric": "Ocurrió un error al procesar tu solicitud. Intenta más tarde.",
+    "backToHome": "Volver al inicio"
   },
   "privacy": {
     "title": "Política de Privacidad",

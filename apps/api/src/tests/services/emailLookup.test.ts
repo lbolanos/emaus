@@ -467,6 +467,7 @@ describe("Email Lookup Feature - Server Registration", () => {
         "juan@example.com",
         "retreat-1",
         "server",
+        undefined,
       );
       expect(res.json).toHaveBeenCalledWith({
         success: true,

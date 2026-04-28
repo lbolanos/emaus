@@ -176,6 +176,7 @@
       "social": "Emmaus Family",
       "people": "People",
       "assignments": "Assignments",
+      "logistics": "Logistics",
       "financial": "Financial",
       "reports": "Reports",
       "services": "Services",
@@ -1235,6 +1236,8 @@
       "otherInfo": "Other Information"
     },
     "fields": {
+      "acceptedPrivacyNotice": "I accept the privacy notice and the processing of my personal data.",
+      "privacyLinkText": "Read privacy notice",
       "firstName": "First Name",
       "lastName": "Last Name",
       "nickname": "Nickname",
@@ -1351,7 +1354,13 @@
       "title": "Registration Summary",
       "description": "Please review your information before submitting."
     },
+    "draft": {
+      "restoredTitle": "Draft restored",
+      "restoredDesc": "We picked up where you left off. Close and reopen to start fresh."
+    },
     "fields": {
+      "acceptedPrivacyNotice": "I accept the privacy notice and the processing of my personal data.",
+      "privacyLinkText": "Read privacy notice",
       "firstName": "First Name",
       "lastName": "Last Name",
       "nickname": "Nickname",
@@ -1413,7 +1422,13 @@
       "needsWhiteShirt": "Needs white shirt?",
       "needsBlueShirt": "Needs blue shirt?",
       "needsJacket": "Needs jacket?",
-      "noSizeNeeded": "Not needed"
+      "noSizeNeeded": "Not needed",
+      "shirtSizePlaceholder": "Select size or not needed",
+      "noShirtsConfigured": "This retreat has no shirt types configured.",
+      "shirtsAskTitle": "Do you need any shirt or jacket?",
+      "shirtsAskHint": "If you already have yours from past retreats, leave \"Not needed\".",
+      "isAngelito": "Register as angelito",
+      "isAngelitoHint": "Partial support: not assigned to table or bed, and no payment required."
     },
     "emergencyContact1": "In case of emergency, contact (1):",
     "emergencyContact2": "In case of emergency, contact (2):"
@@ -1476,7 +1491,9 @@
     "allItems": "All",
     "createSpeaker": "Create & Assign",
     "viewDocs": "View Documentation",
-    "downloadDocs": "Download Documents"
+    "downloadDocs": "Download Documents",
+    "generatePdf": "Print / Save as PDF",
+    "noDocumentation": "No documentation available"
   },
   "inviteUsersModal": {
     "title": "Invite Someone",
@@ -1805,6 +1822,20 @@
       "invitedBy": "Invited By",
       "acceptedAt": "Accepted At"
     }
+  },
+  "dataDelete": {
+    "title": "Delete my personal data",
+    "loading": "Loading information...",
+    "description": "By confirming, all your personal data will be removed from our platform. This action cannot be undone.",
+    "participantInfo": "Registered information:",
+    "confirmButton": "Yes, delete my data",
+    "cancelButton": "Cancel",
+    "successTitle": "Data deleted",
+    "successMessage": "Your personal data has been removed from our platform.",
+    "errorTitle": "Error",
+    "errorNotFound": "This link is invalid or has already been used.",
+    "errorGeneric": "An error occurred while processing your request. Please try again later.",
+    "backToHome": "Back to home"
   },
   "privacy": {
     "title": "Privacy Policy",

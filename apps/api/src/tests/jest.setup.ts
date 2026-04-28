@@ -38,6 +38,8 @@ import { Follow } from '../entities/follow.entity';
 import { Friend } from '../entities/friend.entity';
 import { UserActivity } from '../entities/userActivity.entity';
 import { Testimonial } from '../entities/testimonial.entity';
+import { RetreatShirtType } from '../entities/retreatShirtType.entity';
+import { ParticipantShirtSize } from '../entities/participantShirtSize.entity';
 
 const entities = [
 	Session,
@@ -76,6 +78,8 @@ const entities = [
 	ParticipantTag,
 	AuditLog,
 	RetreatParticipant,
+	RetreatShirtType,
+	ParticipantShirtSize,
 ];
 
 // Test database connection singleton
@@ -124,6 +128,8 @@ export async function clearTestData(dataSource: DataSource): Promise<void> {
 
 	// Clear all tables in correct order (respecting foreign keys)
 	const tablesToClear = [
+		'participant_shirt_size',
+		'retreat_shirt_type',
 		'payment',
 		'participant_tag',
 		'participant_communication',

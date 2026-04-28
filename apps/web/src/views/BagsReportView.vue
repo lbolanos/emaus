@@ -84,20 +84,24 @@ const walkers = computed(() =>
 )
 
 // ── Stats ─────────────────────────────────────────────────────
-const sizeLabels: Record<string, string> = { S: 'S', M: 'M', G: 'L', X: 'XL', '2': 'XXL' }
-const sizeOrder = ['S', 'M', 'G', 'X', '2']
+// Sizes are no longer mapped to international labels — show raw codes as configured per retreat.
+const FALLBACK_ORDER = ['XS', 'S', 'M', 'G', 'L', 'X', 'XL', '2', 'XXL']
 
 const sizeSummary = computed(() => {
   const counts: Record<string, number> = {}
   let noSize = 0
   for (const p of walkers.value) {
     const size = (p as any).tshirtSize
-    if (size && sizeLabels[size]) counts[size] = (counts[size] || 0) + 1
+    if (size) counts[size] = (counts[size] || 0) + 1
     else noSize++
   }
-  const result = sizeOrder
-    .filter(s => counts[s])
-    .map(s => ({ key: s, label: sizeLabels[s], count: counts[s] }))
+  // Order by FALLBACK_ORDER first, then any unknown sizes alphabetically.
+  const seen = Object.keys(counts)
+  const ordered = [
+    ...FALLBACK_ORDER.filter((s) => seen.includes(s)),
+    ...seen.filter((s) => !FALLBACK_ORDER.includes(s)).sort(),
+  ]
+  const result = ordered.map((s) => ({ key: s, label: s, count: counts[s] }))
   if (noSize > 0) result.push({ key: 'none', label: 'Sin talla', count: noSize })
   return result
 })
@@ -448,7 +452,7 @@ onMounted(async () => {
                     ? 'bg-green-100 text-green-700'
                     : 'bg-indigo-100 text-indigo-700'"
                 >
-                  {{ sizeLabels[participant.tshirtSize] ?? participant.tshirtSize }}
+                  {{ participant.tshirtSize }}
                 </span>
                 <span v-else class="text-gray-300 text-xs">—</span>
               </td>

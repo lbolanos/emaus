@@ -1,5 +1,8 @@
+import crypto from "crypto";
 import { AppDataSource } from "../data-source";
 import { Participant } from "../entities/participant.entity";
+import { ParticipantShirtSize } from "../entities/participantShirtSize.entity";
+import { RetreatShirtType } from "../entities/retreatShirtType.entity";
 import { Retreat } from "../entities/retreat.entity";
 import { TableMesa } from "../entities/tableMesa.entity";
 import { RetreatBed, BedUsage, BedType } from "../entities/retreatBed.entity";
@@ -338,6 +341,7 @@ export const confirmExistingParticipant = async (
   email: string,
   retreatId: string,
   type: "server" | "partial_server",
+  shirtSizes?: { shirtTypeId: string; size: string }[],
 ): Promise<{ success: true; firstName: string; lastName: string }> => {
   const existing = await findParticipantByEmail(email);
   if (!existing) {
@@ -393,6 +397,10 @@ export const confirmExistingParticipant = async (
     // Update retreatId only — do NOT overwrite personal data
     existing.retreatId = retreatId;
     existing.lastUpdatedDate = new Date();
+    // Angelitos (partial_server) nunca pagan — forzar beca
+    if (type === "partial_server") {
+      existing.isScholarship = true;
+    }
     await participantRepo.save(existing);
 
     // Ensure RetreatParticipant record exists for the new retreat
@@ -432,6 +440,54 @@ export const confirmExistingParticipant = async (
 
     if (existing.userId) {
       await autoSetPrimaryRetreat(existing.userId);
+    }
+
+    // Replace shirt sizes for this retreat (scope: only the shirtTypes belonging to this retreat)
+    if (Array.isArray(shirtSizes)) {
+      const shirtRepo =
+        transactionalEntityManager.getRepository(ParticipantShirtSize);
+      const typeRepo =
+        transactionalEntityManager.getRepository(RetreatShirtType);
+
+      const validSizes = shirtSizes.filter(
+        (s) => s && s.shirtTypeId && s.size && s.size !== "null",
+      );
+
+      // Validate each requested size against the type's availableSizes
+      for (const s of validSizes) {
+        const type = await typeRepo.findOne({ where: { id: s.shirtTypeId } });
+        if (!type || type.retreatId !== retreatId) {
+          throw new Error(`Invalid shirt type ${s.shirtTypeId} for retreat ${retreatId}`);
+        }
+        if (
+          type.availableSizes &&
+          type.availableSizes.length > 0 &&
+          !type.availableSizes.includes(s.size)
+        ) {
+          throw new Error(
+            `Size "${s.size}" is not available for shirt type "${type.name}"`,
+          );
+        }
+      }
+
+      // Delete existing rows for this participant whose shirtType belongs to this retreat
+      await transactionalEntityManager.query(
+        `DELETE FROM participant_shirt_size
+         WHERE participantId = ?
+         AND shirtTypeId IN (SELECT id FROM retreat_shirt_type WHERE retreatId = ?)`,
+        [existing.id, retreatId],
+      );
+
+      if (validSizes.length > 0) {
+        const rows = validSizes.map((s) =>
+          shirtRepo.create({
+            participantId: existing.id,
+            shirtTypeId: s.shirtTypeId,
+            size: s.size,
+          }),
+        );
+        await shirtRepo.save(rows);
+      }
     }
 
     console.warn(
@@ -1077,6 +1133,12 @@ export const createParticipant = async (
     "#FD79A8",
   ];
 
+  // Los angelitos (partial_server) nunca pagan: forzar beca en todos los orígenes
+  // (registro público, import Excel, alta por admin).
+  if (participantData.type === "partial_server") {
+    participantData.isScholarship = true;
+  }
+
   return AppDataSource.transaction(async (transactionalEntityManager) => {
     const participantRepository =
       transactionalEntityManager.getRepository(Participant);
@@ -1171,12 +1233,22 @@ export const createParticipant = async (
         retreatBed: _rb,
         ...personalUpdates
       } = participantData;
+      const { acceptedPrivacyNotice: existingConsent, ...personalUpdatesNoConsent } =
+        personalUpdates as any;
       Object.assign(existingParticipantByEmail, {
-        ...personalUpdates,
+        ...personalUpdatesNoConsent,
         retreatId: participantData.retreatId,
         lastUpdatedDate: new Date(),
         registrationDate: existingParticipantByEmail.registrationDate,
       });
+      if (existingConsent === true && !existingParticipantByEmail.acceptedPrivacyNoticeAt) {
+        existingParticipantByEmail.acceptedPrivacyNoticeAt = new Date();
+      }
+      if (!existingParticipantByEmail.dataDeleteToken) {
+        existingParticipantByEmail.dataDeleteToken = crypto
+          .randomBytes(24)
+          .toString("hex");
+      }
 
       const updatedParticipant = await participantRepository.save(
         existingParticipantByEmail,
@@ -1498,11 +1570,16 @@ export const createParticipant = async (
       ...restOfParticipantData
     } = participantData;
 
-    const newParticipantData = {
-      ...restOfParticipantData,
+    const { acceptedPrivacyNotice, ...restWithoutConsent } = restOfParticipantData as any;
+    const newParticipantData: any = {
+      ...restWithoutConsent,
       registrationDate: new Date(),
       lastUpdatedDate: new Date(),
+      dataDeleteToken: crypto.randomBytes(24).toString("hex"),
     };
+    if (acceptedPrivacyNotice === true) {
+      newParticipantData.acceptedPrivacyNoticeAt = new Date();
+    }
 
     if (!newParticipantData.nickname) {
       newParticipantData.nickname = newParticipantData.firstName;
@@ -1511,20 +1588,64 @@ export const createParticipant = async (
     // Auto-link to a user account if the participant's email matches one.
     // This ensures `/retreats/attended` and `/history/my-retreats` immediately
     // surface the retreat for the owning user.
-    if (!(newParticipantData as any).userId && normalizedEmail) {
+    if (!(newParticipantData).userId && normalizedEmail) {
       const userRepo = transactionalEntityManager.getRepository(User);
       const matchingUser = await userRepo
         .createQueryBuilder("user")
         .where("LOWER(user.email) = :email", { email: normalizedEmail })
         .getOne();
       if (matchingUser) {
-        (newParticipantData as any).userId = matchingUser.id;
+        (newParticipantData).userId = matchingUser.id;
       }
     }
+
+    // Extract shirt sizes (not part of Participant entity)
+    const shirtSizesInput: { shirtTypeId: string; size: string }[] | undefined =
+      (participantData as any).shirtSizes;
 
     const newParticipant = participantRepository.create(newParticipantData);
     let savedParticipant: Participant =
       await participantRepository.save(newParticipant);
+
+    // Persist shirt sizes if provided
+    if (Array.isArray(shirtSizesInput) && shirtSizesInput.length > 0) {
+      const shirtRepo =
+        transactionalEntityManager.getRepository(ParticipantShirtSize);
+      const typeRepo =
+        transactionalEntityManager.getRepository(RetreatShirtType);
+
+      const validSizes = shirtSizesInput.filter(
+        (s) => s && s.shirtTypeId && s.size && s.size !== "null",
+      );
+
+      // Validate each requested size against the type's availableSizes
+      for (const s of validSizes) {
+        const type = await typeRepo.findOne({ where: { id: s.shirtTypeId } });
+        if (!type) {
+          throw new Error(`Invalid shirt type ${s.shirtTypeId}`);
+        }
+        if (
+          type.availableSizes &&
+          type.availableSizes.length > 0 &&
+          !type.availableSizes.includes(s.size)
+        ) {
+          throw new Error(
+            `Size "${s.size}" is not available for shirt type "${type.name}"`,
+          );
+        }
+      }
+
+      const rows = validSizes.map((s) =>
+        shirtRepo.create({
+          participantId: savedParticipant.id,
+          shirtTypeId: s.shirtTypeId,
+          size: s.size,
+        }),
+      );
+      if (rows.length > 0) {
+        await shirtRepo.save(rows);
+      }
+    }
 
     // Reciprocal link: if the matched user has no participantId yet, set it.
     if (savedParticipant.userId) {
@@ -1749,6 +1870,44 @@ export const createParticipant = async (
             templateId: welcomeTemplate.id,
             templateName: welcomeTemplate.name,
           });
+        }
+
+        // Send privacy / data-deletion info as a separate email
+        const privacyTemplate = await transactionalEntityManager
+          .getRepository(MessageTemplate)
+          .findOne({
+            where: {
+              retreatId: savedParticipant.retreatId,
+              type: "PRIVACY_DATA_DELETE" as any,
+            },
+          });
+
+        if (privacyTemplate && savedParticipant.email) {
+          try {
+            await emailService.sendEmailWithTemplate(
+              savedParticipant.email,
+              privacyTemplate.id,
+              savedParticipant.retreatId,
+              {
+                participant: savedParticipant,
+                retreat: retreat,
+              },
+            );
+            await logCommunication({
+              participantId: savedParticipant.id,
+              retreatId: savedParticipant.retreatId,
+              recipientContact: savedParticipant.email,
+              subject: privacyTemplate.name || "Aviso de privacidad",
+              messageContent: privacyTemplate.message,
+              templateId: privacyTemplate.id,
+              templateName: privacyTemplate.name,
+            });
+          } catch (privacyErr) {
+            console.error(
+              "Error sending PRIVACY_DATA_DELETE email:",
+              privacyErr,
+            );
+          }
         }
       }
 
@@ -2146,9 +2305,10 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
     emergencyContact2CellPhone: str(participant.emerg2telcelular),
     emergencyContact2Email: str(participant.emerg2email),
     tshirtSize: (() => {
+      // Sizes are configured per retreat (S/M/G/X/2 in MX, S/M/L/XL/XXL in CO, etc).
+      // Trust whatever the legacy import provides; trim and uppercase for normalization.
       const size = str(participant.camiseta)?.toUpperCase();
-      const validSizes = ["S", "M", "G", "X", "2"];
-      return validSizes.includes(size!) ? size : null;
+      return size && size.length > 0 ? size : null;
     })(),
     invitedBy: str(participant.invitadopor),
     isInvitedByEmausMember:
@@ -3666,4 +3826,83 @@ export const getReceptionStats = async (retreatId: string) => {
     }));
 
   return { total, arrived, pending: total - arrived, pendingList, arrivedList };
+};
+
+export const findParticipantByDeleteToken = async (
+  token: string,
+): Promise<{
+  firstName: string;
+  lastName: string;
+  email: string;
+  retreatName: string | null;
+} | null> => {
+  const repo = AppDataSource.getRepository(Participant);
+  const p = await repo.findOne({
+    where: { dataDeleteToken: token },
+    relations: ["retreat"],
+  });
+  if (!p || p.dataDeletedAt) return null;
+  return {
+    firstName: p.firstName,
+    lastName: p.lastName,
+    email: p.email,
+    retreatName: p.retreat?.parish ?? null,
+  };
+};
+
+export const anonymizeParticipantByToken = async (
+  token: string,
+): Promise<boolean> => {
+  return AppDataSource.transaction(async (em) => {
+    const repo = em.getRepository(Participant);
+    const p = await repo.findOne({ where: { dataDeleteToken: token } });
+    if (!p || p.dataDeletedAt) return false;
+
+    const anonEmail = `deleted-${p.id}@local`;
+    p.firstName = "(eliminado)";
+    p.lastName = "";
+    p.nickname = "";
+    p.email = anonEmail;
+    p.cellPhone = "";
+    p.homePhone = null as any;
+    p.workPhone = null as any;
+    p.street = "";
+    p.houseNumber = "";
+    p.postalCode = "";
+    p.neighborhood = "";
+    p.city = "";
+    p.state = "";
+    p.parish = null as any;
+    p.occupation = "";
+    p.medicationDetails = null as any;
+    p.medicationSchedule = null as any;
+    p.dietaryRestrictionsDetails = null as any;
+    p.disabilitySupport = null;
+    p.emergencyContact1Name = "";
+    p.emergencyContact1Relation = "";
+    p.emergencyContact1HomePhone = null as any;
+    p.emergencyContact1WorkPhone = null as any;
+    p.emergencyContact1CellPhone = "";
+    p.emergencyContact1Email = null as any;
+    p.emergencyContact2Name = null as any;
+    p.emergencyContact2Relation = null as any;
+    p.emergencyContact2HomePhone = null as any;
+    p.emergencyContact2WorkPhone = null as any;
+    p.emergencyContact2CellPhone = null as any;
+    p.emergencyContact2Email = null as any;
+    p.invitedBy = null as any;
+    p.inviterHomePhone = null as any;
+    p.inviterWorkPhone = null as any;
+    p.inviterCellPhone = null as any;
+    p.inviterEmail = null as any;
+    p.notes = null as any;
+    p.palancasNotes = null as any;
+    p.palancasReceived = null as any;
+    p.dataDeleteToken = null;
+    p.dataDeletedAt = new Date();
+    p.lastUpdatedDate = new Date();
+
+    await repo.save(p);
+    return true;
+  });
 };

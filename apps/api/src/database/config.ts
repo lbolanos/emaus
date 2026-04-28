@@ -49,6 +49,13 @@ import { Session } from '../entities/session.entity';
 import { ChatConversation } from '../entities/chatConversation.entity';
 import { SantisimoSlot } from '../entities/santisimoSlot.entity';
 import { SantisimoSignup } from '../entities/santisimoSignup.entity';
+import { ScheduleTemplate } from '../entities/scheduleTemplate.entity';
+import { ScheduleTemplateSet } from '../entities/scheduleTemplateSet.entity';
+import { ResponsabilityAttachment } from '../entities/responsabilityAttachment.entity';
+import { RetreatScheduleItem } from '../entities/retreatScheduleItem.entity';
+import { RetreatScheduleItemResponsable } from '../entities/retreatScheduleItemResponsable.entity';
+import { RetreatShirtType } from '../entities/retreatShirtType.entity';
+import { ParticipantShirtSize } from '../entities/participantShirtSize.entity';
 
 export function createDatabaseConfig() {
 	const dbType = process.env.DB_TYPE || 'sqlite';
@@ -110,6 +117,15 @@ export function createDatabaseConfig() {
 		// Santisimo
 		SantisimoSlot,
 		SantisimoSignup,
+		// Minuto a Minuto
+		ScheduleTemplateSet,
+		ScheduleTemplate,
+		ResponsabilityAttachment,
+		RetreatScheduleItem,
+		RetreatScheduleItemResponsable,
+		// Shirt types per retreat
+		RetreatShirtType,
+		ParticipantShirtSize,
 		// Temporarily excluding entities with enum issues
 		// PermissionOverride,
 		// RoleRequest,

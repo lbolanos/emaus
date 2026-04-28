@@ -129,6 +129,46 @@ describe('Message variable replacement', () => {
 		});
 	});
 
+	describe('Data-delete URL variable', () => {
+		const ORIGINAL_FRONTEND = process.env.FRONTEND_URL;
+		const ORIGINAL_PUBLIC = process.env.PUBLIC_WEB_URL;
+
+		afterEach(() => {
+			process.env.FRONTEND_URL = ORIGINAL_FRONTEND;
+			process.env.PUBLIC_WEB_URL = ORIGINAL_PUBLIC;
+		});
+
+		it('builds the public delete URL from the participant token', () => {
+			process.env.PUBLIC_WEB_URL = 'https://emaus.example.com';
+			const participant = buildParticipant({ dataDeleteToken: 'abc123' });
+			const result = replaceParticipantVariables(
+				'Eliminar: {participant.dataDeleteUrl}',
+				participant,
+			);
+			expect(result).toBe('Eliminar: https://emaus.example.com/eliminar-datos/abc123');
+		});
+
+		it('falls back to FRONTEND_URL when PUBLIC_WEB_URL is not set', () => {
+			delete process.env.PUBLIC_WEB_URL;
+			process.env.FRONTEND_URL = 'https://legacy.example.com';
+			const participant = buildParticipant({ dataDeleteToken: 'tok-xyz' });
+			const result = replaceParticipantVariables(
+				'{participant.dataDeleteUrl}',
+				participant,
+			);
+			expect(result).toBe('https://legacy.example.com/eliminar-datos/tok-xyz');
+		});
+
+		it('emits an empty string when the participant has no delete token', () => {
+			const participant = buildParticipant({ dataDeleteToken: null });
+			const result = replaceParticipantVariables(
+				'[{participant.dataDeleteUrl}]',
+				participant,
+			);
+			expect(result).toBe('[]');
+		});
+	});
+
 	describe('replaceAllVariables', () => {
 		const retreat: RetreatData = {
 			parish: 'San José',

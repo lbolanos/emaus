@@ -13,6 +13,10 @@ import {
 	createAndAssignSpeaker as createAndAssignSpeakerService,
 } from '../services/responsabilityService';
 import { authorizationService } from '../middleware/authorization';
+import {
+	charlaDocumentation,
+	responsibilityDocumentation,
+} from '../data/charlaDocumentation';
 
 // Helper function to check retreat access
 const checkRetreatAccess = async (req: Request, retreatId: string): Promise<boolean> => {
@@ -200,6 +204,36 @@ export const getPalanqueroOptions = async (req: Request, res: Response, next: Ne
 		});
 
 		res.json(options);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const getDocumentation = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { name } = req.query;
+		if (!name || typeof name !== 'string') {
+			return res.status(400).json({ message: 'name is required' });
+		}
+		const markdown = charlaDocumentation[name] ?? responsibilityDocumentation[name] ?? null;
+		if (!markdown) {
+			return res.status(404).json({ message: 'Documentation not found', name });
+		}
+		res.json({ name, markdown });
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const listDocumentationKeys = async (
+	_req: Request,
+	res: Response,
+	next: NextFunction,
+) => {
+	try {
+		const charlas = Object.keys(charlaDocumentation);
+		const responsibilities = Object.keys(responsibilityDocumentation);
+		res.json({ charlas, responsibilities });
 	} catch (error) {
 		next(error);
 	}

@@ -33,6 +33,10 @@ import aiChatRoutes from './aiChatRoutes';
 import ttsRoutes from './ttsRoutes';
 import visionAssignmentRoutes from './visionAssignmentRoutes';
 import santisimoRoutes from './santisimoRoutes';
+import scheduleTemplateRoutes from './scheduleTemplateRoutes';
+import responsabilityAttachmentRoutes from './responsabilityAttachmentRoutes';
+import retreatScheduleRoutes from './retreatScheduleRoutes';
+import shirtTypeRoutes from './shirtTypeRoutes';
 import { applyCsrfProtectionExcept } from '../middleware/routeCsrf';
 
 const router = Router();
@@ -92,5 +96,9 @@ router.use('/ai-chat', aiChatRoutes);
 router.use('/tts', ttsRoutes);
 router.use('/vision-assignment', visionAssignmentRoutes);
 router.use('/santisimo', santisimoRoutes);
+router.use('/schedule-templates', scheduleTemplateRoutes);
+router.use('/responsability-attachments', responsabilityAttachmentRoutes);
+router.use('/schedule', retreatScheduleRoutes);
+router.use(shirtTypeRoutes);
 
 export default router;

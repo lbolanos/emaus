@@ -20,6 +20,8 @@ import {
 	canManageInventory,
 	canManageTables,
 	canManagePayments,
+	canManageSchedule,
+	canManageScheduleTemplate,
 } from '@/utils/permissions';
 
 /**
@@ -154,6 +156,8 @@ export function useAuthPermissions() {
 		inventory: computed(() => canManageInventory(retreatSpecificPermissions.value)),
 		tables: computed(() => canManageTables(retreatSpecificPermissions.value)),
 		payments: computed(() => canManagePayments(retreatSpecificPermissions.value)),
+		schedule: computed(() => canManageSchedule(retreatSpecificPermissions.value)),
+		scheduleTemplate: computed(() => canManageScheduleTemplate(userPermissions.value)),
 	};
 
 	// Get user roles

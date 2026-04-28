@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo
 import { Button } from '@repo/ui'
 import { Input } from '@repo/ui'
 import { Label } from '@repo/ui'
+import { Checkbox } from '@repo/ui'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@repo/ui'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@repo/ui'
 
@@ -24,6 +25,7 @@ import Step3ServiceInfo from '@/components/registration/Step3ServiceInfo.vue'
 import Step4EmergencyContact from '@/components/registration/Step4EmergencyContact.vue'
 import Step5OtherInfo from '@/components/registration/Step5OtherInfo.vue'
 import Step5ServerInfo from '@/components/registration/Step5ServerInfo.vue'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui'
 
 const props = defineProps<{ retreatId?: string; slug?: string; type: string }>()
 const participantStore = useParticipantStore()
@@ -42,10 +44,12 @@ const validRetreatId = ref(props.retreatId || '')
 const isLoading = ref(true)
 const retreatData = ref<any>(null)
 
-const getInitialFormData = (): Partial<Omit<Participant, 'id'>> & { hasDisability?: boolean } => ({
+const getInitialFormData = (): Partial<Omit<Participant, 'id'>> & { hasDisability?: boolean; isAngelito?: boolean } => ({
   retreatId: validRetreatId.value,
   type: props.type as 'walker' | 'server' | 'waiting' | 'partial_server',
-  sacraments: [],
+  sacraments: (props.type === 'server' || props.type === 'partial_server')
+    ? ['baptism', 'communion', 'confirmation']
+    : [],
   firstName: '',
   registrationDate: undefined,
   lastName: '',
@@ -97,6 +101,8 @@ const getInitialFormData = (): Partial<Omit<Participant, 'id'>> & { hasDisabilit
   inviterEmail: undefined,
   pickupLocation: '',
   arrivesOnOwn: true,
+  isAngelito: false,
+  acceptedPrivacyNotice: false,
 })
 
 const formData = ref(getInitialFormData())
@@ -110,10 +116,31 @@ const isSearching = ref(false)
 const existingParticipantName = ref('')
 const isConfirming = ref(false)
 const showSuccessScreen = ref(false)
+const lookupShirtSizes = ref<Record<string, string>>({})
+
+const lookupVisibleShirtTypes = computed(() => {
+  const types = retreatData.value?.shirtTypes || []
+  return [...types]
+    .filter((t: any) => t.optionalForServers)
+    .sort((a: any, b: any) => a.sortOrder - b.sortOrder)
+})
 
 const isDialogOpen = ref(false)
 const currentStep = ref(1)
 const totalSteps = computed(() => 6)
+const completedSteps = ref(new Set<number>())
+
+const stepLabels = computed(() => [
+  t('serverRegistration.tabs.personalInfo'),
+  t('serverRegistration.tabs.addressInfo'),
+  t('serverRegistration.tabs.serviceInfo'),
+  t('serverRegistration.tabs.emergencyContact'),
+  props.type === 'walker' ? t('walkerRegistration.tabs.otherInfo') : t('serverRegistration.tabs.serverInfo'),
+  t('serverRegistration.summary.title'),
+])
+const progressPercent = computed(() => Math.round(((currentStep.value - 1) / (totalSteps.value - 1)) * 100))
+
+const draftKey = computed(() => `registration-draft:${props.type}:${validRetreatId.value || props.retreatId || props.slug || 'unknown'}`)
 
 const formErrors = reactive<Record<string, string>>({})
 
@@ -130,6 +157,9 @@ const step1Schema = z.object({
   cellPhone: z.string().optional(),
   email: z.string().email('Invalid email address').min(1, 'Email is required'),
   occupation: z.string().min(1, 'Occupation is required'),
+  acceptedPrivacyNotice: z.literal(true, {
+    errorMap: () => ({ message: 'Debes aceptar el aviso de privacidad' }),
+  }),
 }).refine(data => data.cellPhone || data.workPhone || data.homePhone, {
   message: 'At least one phone number (Cell, Work, or Home) is required.',
   path: ['phoneNumbers'],
@@ -145,6 +175,10 @@ const step2Schema = z.object({
   country: z.string().min(1, 'Country is required'),
 })
 
+const sacramentsField = isServerType.value
+  ? z.array(z.enum(['baptism', 'communion', 'confirmation', 'marriage', 'none'])).optional()
+  : z.array(z.enum(['baptism', 'communion', 'confirmation', 'marriage', 'none'])).min(1, 'At least one sacrament must be selected')
+
 const step3Schema = z.object({
   snores: z.boolean({ required_error: 'This field is required' }),
   hasMedication: z.boolean({ required_error: 'This field is required' }),
@@ -154,7 +188,7 @@ const step3Schema = z.object({
   dietaryRestrictionsDetails: z.string().optional(),
   hasDisability: z.boolean().optional(),
   disabilitySupport: z.string().optional(),
-  sacraments: z.array(z.enum(['baptism', 'communion', 'confirmation', 'marriage', 'none'])).min(1, 'At least one sacrament must be selected'),
+  sacraments: sacramentsField,
 }).refine((data) => {
   if (data.hasMedication && (!data.medicationDetails || data.medicationDetails.trim() === '')) {
     return false
@@ -234,7 +268,7 @@ const step4WalkerSchema = z.object({
 })
 
 const step5WalkerSchema = z.object({
-  tshirtSize: z.enum(['S', 'M', 'G', 'X', '2'], { required_error: 'T-shirt size is required' }),
+  tshirtSize: z.string({ required_error: 'T-shirt size is required' }).min(1, 'T-shirt size is required'),
   invitedBy: z.string().optional(),
   isInvitedByEmausMember: z.boolean().optional(),
   inviterHomePhone: z.string().optional(),
@@ -249,9 +283,9 @@ const step5WalkerSchema = z.object({
 })
 
 const step5ServerSchema = z.object({
-  needsWhiteShirt: z.enum(['S', 'M', 'G', 'X', '2', 'null']).nullable().optional(),
-  needsBlueShirt: z.enum(['S', 'M', 'G', 'X', '2', 'null']).nullable().optional(),
-  needsJacket: z.enum(['S', 'M', 'G', 'X', '2', 'null']).nullable().optional()
+  shirtSizes: z
+    .array(z.object({ shirtTypeId: z.string(), size: z.string().min(1) }))
+    .optional(),
 })
 
 const stepSchemas = computed(() => {
@@ -305,6 +339,7 @@ watch(formData, (newValue, oldValue) => {
 
 const nextStep = () => {
   if (validateStep(currentStep.value)) {
+    completedSteps.value.add(currentStep.value)
     if (currentStep.value < totalSteps.value) {
       currentStep.value++
     }
@@ -320,6 +355,53 @@ const prevStep = () => {
     currentStep.value--
   }
 }
+
+const goToStep = (step: number) => {
+  if (step === currentStep.value) return
+  if (step < currentStep.value || completedSteps.value.has(step - 1)) {
+    currentStep.value = step
+  }
+}
+
+// Auto-save draft to localStorage
+const SENSITIVE_KEYS_TO_SKIP = new Set(['acceptedPrivacyNotice'])
+function saveDraft() {
+  if (!isDialogOpen.value) return
+  try {
+    const data = { ...formData.value }
+    for (const k of SENSITIVE_KEYS_TO_SKIP) delete (data as any)[k]
+    localStorage.setItem(draftKey.value, JSON.stringify({ data, step: currentStep.value, savedAt: Date.now() }))
+  } catch {
+    // localStorage may be full or disabled
+  }
+}
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(draftKey.value)
+    if (!raw) return false
+    const parsed = JSON.parse(raw)
+    if (!parsed || !parsed.data) return false
+    // Discard drafts older than 7 days
+    if (parsed.savedAt && Date.now() - parsed.savedAt > 7 * 24 * 60 * 60 * 1000) {
+      localStorage.removeItem(draftKey.value)
+      return false
+    }
+    formData.value = { ...formData.value, ...parsed.data, retreatId: validRetreatId.value }
+    return true
+  } catch {
+    return false
+  }
+}
+function clearDraft() {
+  try {
+    localStorage.removeItem(draftKey.value)
+  } catch {
+    // localStorage may be disabled (private browsing, quota, etc.) — safe to ignore.
+  }
+}
+
+watch(formData, saveDraft, { deep: true })
+watch(currentStep, saveDraft)
 
 const handleEmailLookup = async () => {
   if (!emailLookup.value || !emailLookup.value.includes('@')) {
@@ -383,14 +465,23 @@ const handleConfirmIdentity = async () => {
   isConfirming.value = true
   try {
     const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.PARTICIPANT_REGISTER)
+    const effectiveType =
+      props.type === 'server' && (formData.value as any).isAngelito
+        ? 'partial_server'
+        : props.type
+    const shirtSizes = Object.entries(lookupShirtSizes.value)
+      .filter(([, size]) => size && size !== 'null')
+      .map(([shirtTypeId, size]) => ({ shirtTypeId, size }))
     await confirmExistingRegistration(
       emailLookup.value,
       validRetreatId.value,
-      props.type,
+      effectiveType,
       recaptchaToken,
+      shirtSizes,
     )
     // Show success screen briefly before closing
     showSuccessScreen.value = true
+    clearDraft()
     setTimeout(() => {
       showSuccessScreen.value = false
       existingParticipantName.value = ''
@@ -419,6 +510,16 @@ watch(isDialogOpen, (open) => {
     showEmailLookup.value = true
     emailLookup.value = ''
     existingParticipantName.value = ''
+    lookupShirtSizes.value = {}
+  }
+  if (open) {
+    // Restore draft when dialog opens
+    if (loadDraft()) {
+      toast({
+        title: t('serverRegistration.draft.restoredTitle'),
+        description: t('serverRegistration.draft.restoredDesc'),
+      })
+    }
   }
 })
 
@@ -443,6 +544,17 @@ const onSubmit = async () => {
       })
       return
     }
+  }
+
+  // Step 1 validation just enforced literal true on acceptedPrivacyNotice.
+  // Stamp the acceptance timestamp and re-affirm the boolean so the route validator (and audit log) get a consistent body.
+  formData.value.acceptedPrivacyNotice = true
+  ;(formData.value as any).acceptedPrivacyNoticeAt = new Date().toISOString()
+
+  // If server marked as angelito, register as partial_server with scholarship (no bed/table/pago)
+  if (props.type === 'server' && (formData.value as any).isAngelito) {
+    formData.value.type = 'partial_server'
+    formData.value.isScholarship = true
   }
 
   // For servers, make emergency contact fields optional in the final schema
@@ -500,6 +612,8 @@ const onSubmit = async () => {
 
     await participantStore.createParticipant(result.data, recaptchaToken)
     toast({ title: 'Registration Successful' })
+    clearDraft()
+    completedSteps.value.clear()
     isDialogOpen.value = false
     currentStep.value = 1
     formData.value = getInitialFormData()
@@ -638,6 +752,7 @@ onMounted(async () => {
             </svg>
           </div>
           <h1 class="text-4xl md:text-5xl font-bold mb-4">{{ $t( props.type === 'walker' ? 'walkerRegistration.landing.title' : 'serverRegistration.landing.title') }}</h1>
+          <p v-if="retreatData?.parish" class="text-2xl md:text-3xl font-semibold mb-3 text-yellow-200">{{ retreatData.parish }}</p>
           <p class="text-lg md:text-xl mb-6 opacity-90">{{ $t( props.type === 'walker' ? 'walkerRegistration.landing.subtitle' : 'serverRegistration.landing.subtitle') }}</p>
         </div>
 
@@ -681,7 +796,7 @@ onMounted(async () => {
                 </span>
               </Button>
             </DialogTrigger>
-        <DialogContent class="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto">
+        <DialogContent class="sm:max-w-[680px] md:max-w-[760px] max-h-[92vh] overflow-y-auto">
           <!-- Success Screen (shown briefly after confirming) -->
           <template v-if="showSuccessScreen">
             <div class="py-12 px-4 flex flex-col items-center justify-center text-center space-y-6">
@@ -765,6 +880,57 @@ onMounted(async () => {
                 {{ emailLookup }}
               </div>
 
+              <!-- Angelito toggle for server email-lookup flow -->
+              <button
+                v-if="props.type === 'server'"
+                type="button"
+                class="w-full max-w-md flex items-start gap-3 rounded-lg border p-3 text-left transition-all"
+                :class="formData.isAngelito
+                  ? 'border-purple-400 bg-purple-100 dark:border-purple-600 dark:bg-purple-950'
+                  : 'border-purple-200 bg-purple-50 hover:bg-purple-100/70 dark:border-purple-800 dark:bg-purple-950/50'"
+                @click="formData.isAngelito = !formData.isAngelito"
+              >
+                <div
+                  class="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 mt-0.5 transition-colors"
+                  :class="formData.isAngelito
+                    ? 'border-purple-600 bg-purple-600 text-white'
+                    : 'border-purple-300 bg-white dark:bg-purple-950'"
+                >
+                  <svg v-if="formData.isAngelito" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <div class="space-y-0.5 flex-1">
+                  <div class="font-medium text-sm">{{ $t('serverRegistration.fields.isAngelito') }}</div>
+                  <p class="text-xs text-muted-foreground">{{ $t('serverRegistration.fields.isAngelitoHint') }}</p>
+                </div>
+              </button>
+
+              <!-- Shirt size selectors in lookup confirm flow -->
+              <div v-if="props.type === 'server' && lookupVisibleShirtTypes.length > 0" class="w-full max-w-md text-left space-y-3 border-t pt-4">
+                <p class="text-sm font-medium">{{ $t('serverRegistration.fields.shirtsAskTitle') }}</p>
+                <p class="text-xs text-muted-foreground">{{ $t('serverRegistration.fields.shirtsAskHint') }}</p>
+                <div v-for="t in lookupVisibleShirtTypes" :key="t.id">
+                  <Label :for="`lookup-shirt-${t.id}`">{{ t.name }}</Label>
+                  <Select
+                    :model-value="lookupShirtSizes[t.id] ?? 'null'"
+                    @update:model-value="(v: any) => (lookupShirtSizes[t.id] = v)"
+                  >
+                    <SelectTrigger :id="`lookup-shirt-${t.id}`">
+                      <SelectValue :placeholder="$t('serverRegistration.fields.shirtSizePlaceholder')" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="null">{{ $t('serverRegistration.fields.noSizeNeeded') }}</SelectItem>
+                      <SelectItem
+                        v-for="s in (t.availableSizes && t.availableSizes.length > 0 ? t.availableSizes : ['S','M','G','X','2'])"
+                        :key="s"
+                        :value="s"
+                      >{{ s }}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <!-- Action buttons stacked on mobile, side by side on desktop -->
               <div class="flex flex-col-reverse sm:flex-row gap-3 w-full sm:w-auto pt-2">
                 <Button
@@ -797,43 +963,109 @@ onMounted(async () => {
 
           <!-- Regular Form Steps -->
           <template v-else>
-            <DialogHeader>
-              <DialogTitle>{{ $t( props.type === 'walker' ? 'walkerRegistration.title' : 'serverRegistration.title') }}</DialogTitle>
-              <DialogDescription>
-                {{ $t( props.type === 'walker' ? 'walkerRegistration.description' : 'serverRegistration.description') }} ({{ $t('serverRegistration.step', { current: currentStep, total: totalSteps }) }})
-              </DialogDescription>
-            </DialogHeader>
-            <div class="container mx-auto p-4">
-              <Step1PersonalInfo v-show="currentStep === 1" v-model="formData" :errors="formErrors" />
-              <Step2AddressInfo v-show="currentStep === 2" v-model="formData" :errors="formErrors" />
-              <Step3ServiceInfo v-show="currentStep === 3" v-model="formData" :errors="formErrors" />
-              <Step4EmergencyContact v-show="currentStep === 4" v-model="formData" :errors="formErrors" :type="(props.type as 'walker' | 'server')" />
-              <Step5OtherInfo v-show="currentStep === 5 && props.type === 'walker'" v-model="formData" :errors="formErrors" :showPickupInfo="retreatData?.flyer_options?.showPickupInfo ?? true" />
-              <Step5ServerInfo v-show="currentStep === 5 && props.type === 'server'" v-model="formData" :errors="formErrors" />
-
-              <!-- Step 6: Summary -->
-              <div v-show="currentStep === totalSteps">
-                <div v-if="isTestMode" class="mb-4 rounded-lg border border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 p-4 text-yellow-800 dark:text-yellow-200 text-sm">
-                  <strong>MODO PRUEBA:</strong> Al enviar, solo se validarán los datos. No se creará ningún registro ni se enviará correo de confirmación.
+            <DialogHeader class="space-y-3">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex-1 min-w-0">
+                  <DialogTitle class="flex flex-wrap items-center gap-2 text-lg">
+                    {{ $t( props.type === 'walker' ? 'walkerRegistration.title' : 'serverRegistration.title') }}
+                    <span v-if="retreatData?.parish" class="rounded-full bg-primary/10 text-primary text-xs font-semibold px-2.5 py-0.5">{{ retreatData.parish }}</span>
+                  </DialogTitle>
+                  <DialogDescription class="mt-1">
+                    {{ stepLabels[currentStep - 1] }}
+                  </DialogDescription>
                 </div>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{{ $t('serverRegistration.summary.title') }}</CardTitle>
-                    <CardDescription>{{ $t('serverRegistration.summary.description') }}</CardDescription>
-                  </CardHeader>
-                  <CardContent class="space-y-2">
-                    <div v-for="item in summaryData" :key="item.label" class="flex justify-between">
-                      <span class="font-semibold">{{ $t(item.label) }}:</span>
-                      <span>{{ item.value?.includes('Registration.') || item.value?.includes('common.') ? $t(item.value) : item.value }}</span>
-                    </div>
-                  </CardContent>
-                </Card>
+                <span class="shrink-0 rounded-full border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                  {{ currentStep }} / {{ totalSteps }}
+                </span>
               </div>
+
+              <!-- Progress bar -->
+              <div class="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                <div class="h-full bg-primary transition-all duration-300 ease-out" :style="{ width: progressPercent + '%' }" />
+              </div>
+
+              <!-- Step indicator dots (clickable for completed steps) -->
+              <div class="flex items-center justify-between gap-1 px-1">
+                <button
+                  v-for="(label, idx) in stepLabels"
+                  :key="idx"
+                  type="button"
+                  class="group flex flex-col items-center gap-1 flex-1 min-w-0 cursor-pointer disabled:cursor-not-allowed"
+                  :disabled="!(idx + 1 === currentStep || idx + 1 < currentStep || completedSteps.has(idx))"
+                  @click="goToStep(idx + 1)"
+                >
+                  <div
+                    class="flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-semibold transition-colors"
+                    :class="[
+                      currentStep === idx + 1
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : completedSteps.has(idx + 1) || idx + 1 < currentStep
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-muted-foreground/30 bg-background text-muted-foreground',
+                    ]"
+                  >
+                    <svg v-if="(completedSteps.has(idx + 1) || idx + 1 < currentStep) && currentStep !== idx + 1" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span v-else>{{ idx + 1 }}</span>
+                  </div>
+                  <span class="hidden sm:block text-[10px] truncate w-full text-center" :class="currentStep === idx + 1 ? 'text-foreground font-medium' : 'text-muted-foreground'">
+                    {{ label }}
+                  </span>
+                </button>
+              </div>
+            </DialogHeader>
+
+            <div class="px-1 sm:px-2 py-4">
+              <transition name="step-fade" mode="out-in">
+                <div :key="currentStep">
+                  <Step1PersonalInfo v-if="currentStep === 1" v-model="formData" :errors="formErrors" />
+                  <Step2AddressInfo v-else-if="currentStep === 2" v-model="formData" :errors="formErrors" />
+                  <Step3ServiceInfo v-else-if="currentStep === 3" v-model="formData" :errors="formErrors" :type="(props.type as 'walker' | 'server' | 'partial_server' | 'waiting')" />
+                  <Step4EmergencyContact v-else-if="currentStep === 4" v-model="formData" :errors="formErrors" :type="(props.type as 'walker' | 'server')" />
+                  <Step5OtherInfo v-else-if="currentStep === 5 && props.type === 'walker'" v-model="formData" :errors="formErrors" :showPickupInfo="retreatData?.flyer_options?.showPickupInfo ?? true" :shirt-types="retreatData?.shirtTypes" />
+                  <Step5ServerInfo v-else-if="currentStep === 5 && props.type === 'server'" v-model="formData" :errors="formErrors" :shirt-types="retreatData?.shirtTypes" />
+
+                  <!-- Step 6: Summary -->
+                  <div v-else-if="currentStep === totalSteps">
+                    <div v-if="isTestMode" class="mb-4 rounded-lg border border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 p-4 text-yellow-800 dark:text-yellow-200 text-sm">
+                      <strong>MODO PRUEBA:</strong> Al enviar, solo se validarán los datos. No se creará ningún registro ni se enviará correo de confirmación.
+                    </div>
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>{{ $t('serverRegistration.summary.title') }}</CardTitle>
+                        <CardDescription>{{ $t('serverRegistration.summary.description') }}</CardDescription>
+                      </CardHeader>
+                      <CardContent class="space-y-2">
+                        <div v-for="item in summaryData" :key="item.label" class="flex flex-wrap gap-2 justify-between border-b pb-1.5 last:border-0">
+                          <span class="font-medium text-muted-foreground text-sm">{{ $t(item.label) }}</span>
+                          <span class="text-sm">{{ item.value?.includes('Registration.') || item.value?.includes('common.') ? $t(item.value) : item.value }}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </transition>
             </div>
-            <DialogFooter>
-              <Button variant="outline" @click="prevStep" v-if="currentStep > 1 || isServerType">{{ $t('common.previous') }}</Button>
-              <Button @click="nextStep" v-if="currentStep < totalSteps">{{ $t('common.next') }}</Button>
-              <Button @click="onSubmit" v-if="currentStep === totalSteps">{{ $t('common.submit') }}</Button>
+            <DialogFooter class="gap-2 sm:gap-0">
+              <Button variant="outline" @click="prevStep" v-if="currentStep > 1 || isServerType">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                {{ $t('common.previous') }}
+              </Button>
+              <Button @click="nextStep" v-if="currentStep < totalSteps">
+                {{ $t('common.next') }}
+                <svg class="w-4 h-4 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </Button>
+              <Button @click="onSubmit" v-if="currentStep === totalSteps" class="bg-green-600 hover:bg-green-700">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                {{ $t('common.submit') }}
+              </Button>
             </DialogFooter>
           </template>
         </DialogContent>
@@ -844,3 +1076,18 @@ onMounted(async () => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.step-fade-enter-active,
+.step-fade-leave-active {
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+.step-fade-enter-from {
+  opacity: 0;
+  transform: translateX(8px);
+}
+.step-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-8px);
+}
+</style>

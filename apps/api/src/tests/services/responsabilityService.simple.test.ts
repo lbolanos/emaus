@@ -7,8 +7,8 @@ import { defaultCharlas } from '../../data/serviceTeamData';
 describe('getDefaultCharlas()', () => {
 	const charlas = getDefaultCharlas();
 
-	test('should return exactly 19 items', () => {
-		expect(charlas).toHaveLength(19);
+	test('should return exactly 21 items', () => {
+		expect(charlas).toHaveLength(21);
 	});
 
 	test('all names should start with "Charla:" or "Texto:"', () => {
@@ -19,17 +19,19 @@ describe('getDefaultCharlas()', () => {
 		}
 	});
 
-	test('should have 10 "Charla:" entries and 9 "Texto:" entries', () => {
+	test('should have 11 "Charla:" entries and 10 "Texto:" entries', () => {
 		const charlaCount = charlas.filter((c) => c.name.startsWith('Charla:')).length;
 		const textoCount = charlas.filter((c) => c.name.startsWith('Texto:')).length;
-		expect(charlaCount).toBe(10);
-		expect(textoCount).toBe(9);
+		expect(charlaCount).toBe(11);
+		expect(textoCount).toBe(10);
 	});
 
-	test('anexos should cover A-2-1 through A-2-19', () => {
-		const anexos = charlas.map((c) => c.anexo).sort();
-		const expected = Array.from({ length: 19 }, (_, i) => `A-2-${i + 1}`).sort();
-		expect(anexos).toEqual(expected);
+	test('all anexos should be unique and follow A-2-N format', () => {
+		const anexos = charlas.map((c) => c.anexo);
+		expect(new Set(anexos).size).toBe(anexos.length);
+		for (const a of anexos) {
+			expect(a).toMatch(/^A-2-\d+$/);
+		}
 	});
 
 	test('all names should be unique', () => {

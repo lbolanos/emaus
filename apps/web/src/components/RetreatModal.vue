@@ -1,6 +1,6 @@
 <template>
   <Dialog :open="open" @update:open="handleClose">
-    <DialogContent class="max-w-4xl max-h-[90vh] overflow-y-auto">
+    <DialogContent class="max-w-6xl max-h-[90vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle class="text-xl">
           {{ props.mode === 'add' ? $t('retreatModal.addTitle') : $t('retreatModal.editTitle') }}
@@ -12,9 +12,10 @@
 
       <form @submit.prevent="handleSubmit" class="space-y-6">
         <Tabs v-model="activeTab" class="w-full">
-          <TabsList class="grid w-full grid-cols-6">
+          <TabsList class="grid w-full grid-cols-7">
             <TabsTrigger value="general">{{ $t('retreatModal.sections.general') }}</TabsTrigger>
             <TabsTrigger value="logistics">{{ $t('retreatModal.sections.logistics') }}</TabsTrigger>
+            <TabsTrigger value="settings">Ajustes</TabsTrigger>
             <TabsTrigger value="financials">{{ $t('retreatModal.sections.financials') }}</TabsTrigger>
             <TabsTrigger value="notes">{{ $t('retreatModal.sections.notes') }}</TabsTrigger>
             <TabsTrigger value="flyer">{{ $t('retreatModal.sections.flyer') }}</TabsTrigger>
@@ -89,28 +90,49 @@
                 <p v-else class="text-xs text-muted-foreground">Se auto-genera desde parroquia + número. Solo letras minúsculas y números.</p>
               </div>
 
-              <div class="space-y-2">
-                <Label for="houseId">
+            </div>
+
+            <!-- Casa + regeneración de camas -->
+            <div class="p-4 border rounded-lg space-y-3">
+              <div class="space-y-1">
+                <Label for="houseId" class="font-medium">
                   {{ $t('retreatModal.house') }}
                   <span class="text-red-500">*</span>
                 </Label>
-                <Select v-model="formData.houseId">
-                  <SelectTrigger id="houseId" :class="{ 'border-red-500': errors.houseId }">
-                    <SelectValue :placeholder="$t('retreatModal.selectHouse')" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem v-for="house in availableHouses" :key="house.id" :value="house.id">
-                        <div class="flex flex-col">
-                          <span class="font-medium">{{ house.name }}</span>
-                          <span class="text-xs text-muted-foreground">{{ house.city }}, {{ house.state }}</span>
-                        </div>
-                      </SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-                <p v-if="errors.houseId" class="text-sm text-red-500">{{ errors.houseId }}</p>
+                <p class="text-xs text-muted-foreground">
+                  Selecciona la casa de retiro donde se llevará a cabo.
+                </p>
               </div>
+              <Select v-model="formData.houseId">
+                <SelectTrigger id="houseId" :class="{ 'border-red-500': errors.houseId }">
+                  <SelectValue :placeholder="$t('retreatModal.selectHouse')" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem v-for="house in availableHouses" :key="house.id" :value="house.id">
+                      <div class="flex flex-col">
+                        <span class="font-medium">{{ house.name }}</span>
+                        <span class="text-xs text-muted-foreground">{{ house.city }}, {{ house.state }}</span>
+                      </div>
+                    </SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <p v-if="errors.houseId" class="text-sm text-red-500">{{ errors.houseId }}</p>
+              <div v-if="props.mode === 'edit'" class="flex items-center space-x-2 pt-1">
+                <Checkbox
+                  id="refreshBeds"
+                  :model-value="refreshBedsFromHouse"
+                  @update:model-value="refreshBedsFromHouse = $event"
+                  :disabled="isSubmitting"
+                />
+                <Label for="refreshBeds" class="text-sm cursor-pointer">
+                  {{ $t('retreatModal.refreshBedsFromHouse') }}
+                </Label>
+              </div>
+              <p v-if="props.mode === 'edit'" class="text-xs text-muted-foreground">
+                Al activarlo, al guardar se regenerarán las camas del retiro desde la configuración actual de la casa.
+              </p>
             </div>
 
             <!-- Dates -->
@@ -228,7 +250,70 @@
               </div>
             </div>
 
-            <!-- Public & Roles Settings -->
+            <!-- Minuto a Minuto template -->
+            <div
+              v-if="scheduleTemplateSets.length"
+              class="p-4 border rounded-lg space-y-3"
+            >
+              <div class="space-y-1">
+                <Label class="font-medium">Template Minuto a Minuto</Label>
+                <p class="text-xs text-muted-foreground">
+                  <template v-if="props.mode === 'add'">
+                    Al crear el retiro se clonará la agenda del template elegido. Podrás ajustarla después en la vista "Minuto a Minuto".
+                  </template>
+                  <template v-else>
+                    Elige un template y pulsa "Importar ahora" para generar la agenda desde cero en este retiro. Si ya había agenda, la sobrescribirá.
+                  </template>
+                </p>
+              </div>
+              <select
+                v-model="selectedScheduleTemplateSetId"
+                class="w-full border rounded px-2 py-2 text-sm"
+                :disabled="isSubmitting || isMaterializing"
+              >
+                <option
+                  v-for="s in scheduleTemplateSets"
+                  :key="s.id"
+                  :value="s.id"
+                >
+                  {{ s.name }}{{ s.isDefault ? ' ★' : '' }}
+                </option>
+              </select>
+              <p
+                v-if="selectedScheduleTemplateSet?.description"
+                class="text-xs text-muted-foreground"
+              >
+                {{ selectedScheduleTemplateSet.description }}
+              </p>
+              <div v-if="props.mode === 'add'" class="flex items-center space-x-2">
+                <Checkbox
+                  id="materializeOnCreate"
+                  :model-value="materializeOnCreate"
+                  @update:model-value="materializeOnCreate = $event"
+                  :disabled="isSubmitting"
+                />
+                <Label for="materializeOnCreate" class="text-sm cursor-pointer">
+                  Importar la agenda al crear el retiro
+                </Label>
+              </div>
+              <div v-else-if="props.retreat" class="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  @click="handleMaterializeNow"
+                  :disabled="isSubmitting || isMaterializing || !selectedScheduleTemplateSetId"
+                >
+                  <Loader2 v-if="isMaterializing" class="w-4 h-4 mr-2 animate-spin" />
+                  Importar ahora (sobrescribe)
+                </Button>
+              </div>
+            </div>
+
+          </TabsContent>
+
+          <!-- Settings Tab (visibilidad, roles, notificaciones, pickup) -->
+          <TabsContent value="settings" class="space-y-6 mt-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="p-4 border rounded-lg">
                 <div class="space-y-1">
@@ -596,16 +681,6 @@
               >
                 {{ $t('retreatModal.cancel') }}
               </Button>
-              <div v-if="props.mode === 'edit'" class="flex items-center space-x-2 mx-2">
-                <Checkbox
-                  id="refreshBeds"
-                  :checked="refreshBedsFromHouse"
-                  @click="refreshBedsFromHouse = !refreshBedsFromHouse"
-                />
-                <Label for="refreshBeds" class="text-sm cursor-pointer">
-                  {{ $t('retreatModal.refreshBedsFromHouse') }}
-                </Label>
-              </div>
               <Button
                 type="submit"
                 :disabled="isSubmitting || !isFormValid"
@@ -697,7 +772,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Button, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Textarea, RadioGroup, RadioGroupItem, Tabs, TabsContent, TabsList, TabsTrigger, Checkbox } from '@repo/ui';
 import { Loader2 } from 'lucide-vue-next';
 import { useHouseStore } from '@/stores/houseStore';
-import { api } from '@/services/api';
+import { api, scheduleTemplateApi, retreatScheduleApi, type ScheduleTemplateSetDTO } from '@/services/api';
 import { getApiUrl } from '@/config/runtimeConfig';
 import { useToast } from '@repo/ui';
 import type { CreateRetreat, Retreat } from '@repo/types';
@@ -727,6 +802,63 @@ const showSuccessDialog = ref(false);
 const createdRetreat = ref<Retreat | null>(null);
 const copiedType = ref<string | null>(null);
 const activeTab = ref('general');
+
+// Minuto-a-minuto template
+const scheduleTemplateSets = ref<ScheduleTemplateSetDTO[]>([]);
+const selectedScheduleTemplateSetId = ref<string>('');
+const materializeOnCreate = ref(true);
+const isMaterializing = ref(false);
+
+async function handleMaterializeNow() {
+	if (!props.retreat || !selectedScheduleTemplateSetId.value) return;
+	if (
+		!confirm(
+			`Esto reemplazará la agenda actual del retiro con "${selectedScheduleTemplateSet.value?.name}". ¿Continuar?`,
+		)
+	) {
+		return;
+	}
+	isMaterializing.value = true;
+	try {
+		const baseDate = new Date(props.retreat.startDate).toISOString().slice(0, 10);
+		await retreatScheduleApi.materialize(
+			props.retreat.id,
+			baseDate,
+			selectedScheduleTemplateSetId.value,
+			true,
+		);
+		toast({
+			title: 'Agenda importada',
+			description: `Minuto a minuto regenerado desde "${selectedScheduleTemplateSet.value?.name}"`,
+		});
+	} catch (err: any) {
+		toast({
+			title: 'Error al importar la agenda',
+			description: err?.response?.data?.message || err?.message || 'No se pudo importar el template.',
+			variant: 'destructive',
+		});
+	} finally {
+		isMaterializing.value = false;
+	}
+}
+
+const selectedScheduleTemplateSet = computed(
+	() => scheduleTemplateSets.value.find((s) => s.id === selectedScheduleTemplateSetId.value) ?? null,
+);
+
+async function loadScheduleTemplateSets() {
+	try {
+		scheduleTemplateSets.value = await scheduleTemplateApi.listSets();
+		if (!selectedScheduleTemplateSetId.value && scheduleTemplateSets.value.length) {
+			const def =
+				scheduleTemplateSets.value.find((s) => s.isDefault) ?? scheduleTemplateSets.value[0];
+			selectedScheduleTemplateSetId.value = def.id;
+		}
+	} catch {
+		// user may lack scheduleTemplate:read permission — silently skip
+		scheduleTemplateSets.value = [];
+	}
+}
 
 // JSON Editor for flyer_options
 const flyerOptionsJsonError = ref<string | null>(null);
@@ -1028,6 +1160,30 @@ const handleSubmit = async () => {
       const retreat = await emit('submit', { ...formData.value });
       if (retreat) {
         createdRetreat.value = retreat;
+
+        // Auto-materialize minuto a minuto if template selected
+        if (materializeOnCreate.value && selectedScheduleTemplateSetId.value) {
+          try {
+            const baseDate = new Date(retreat.startDate).toISOString().slice(0, 10);
+            await retreatScheduleApi.materialize(
+              retreat.id,
+              baseDate,
+              selectedScheduleTemplateSetId.value,
+              false,
+            );
+            toast({
+              title: 'Agenda importada',
+              description: `Minuto a minuto generado desde "${selectedScheduleTemplateSet.value?.name}"`,
+            });
+          } catch (err: any) {
+            toast({
+              title: 'Retiro creado, pero la agenda no se importó',
+              description: err?.response?.data?.message || err?.message || 'Puedes importarla manualmente en la vista Minuto a Minuto.',
+              variant: 'destructive',
+            });
+          }
+        }
+
         showSuccessDialog.value = true;
         resetForm();
       }
@@ -1182,6 +1338,7 @@ watch(() => props.open, (newOpen) => {
     // Reset to first tab when modal opens
     activeTab.value = 'general';
     refreshBedsFromHouse.value = false;
+    void loadScheduleTemplateSets();
 
     if (props.mode === 'edit' && props.retreat) {
       // Edit mode - populate        // Initialize with legacy showQrCodes if new fields are undefined

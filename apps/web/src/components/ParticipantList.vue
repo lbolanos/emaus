@@ -249,9 +249,9 @@ const activeFiltersList = computed(() => {
             if (typeof value === 'boolean') {
                 displayValue = value ? $t('common.yes') : $t('common.no');
             }
-            // Handle tshirtSize filter
+            // tshirtSize: show raw code as configured per retreat (no i18n mapping).
             else if (key === 'tshirtSize') {
-                displayValue = $t(`walkerRegistration.fields.tshirtSize.options.${value}`);
+                displayValue = String(value);
             }
             // Handle paymentStatus filter
             else if (key === 'paymentStatus') {

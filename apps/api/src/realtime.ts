@@ -66,6 +66,30 @@ export function initRealtime(httpServer: HttpServer, sessionMiddleware: RequestH
 				void socket.leave(receptionRoom(retreatId));
 			}
 		});
+
+		socket.on('schedule:subscribe', async (retreatId: unknown, ack?: (ok: boolean) => void) => {
+			if (typeof retreatId !== 'string' || !retreatId) {
+				ack?.(false);
+				return;
+			}
+			try {
+				const ok = await authorizationService.hasRetreatAccess(user.id, retreatId);
+				if (!ok) {
+					ack?.(false);
+					return;
+				}
+				await socket.join(scheduleRoom(retreatId));
+				ack?.(true);
+			} catch {
+				ack?.(false);
+			}
+		});
+
+		socket.on('schedule:unsubscribe', (retreatId: unknown) => {
+			if (typeof retreatId === 'string' && retreatId) {
+				void socket.leave(scheduleRoom(retreatId));
+			}
+		});
 	});
 
 	return io;
@@ -98,4 +122,71 @@ export function emitReceptionCheckin(payload: ReceptionCheckinPayload): void {
 
 export function emitReceptionBagMade(payload: ReceptionBagMadePayload): void {
 	io?.to(receptionRoom(payload.retreatId)).emit('reception:bag-made', payload);
+}
+
+// --- Schedule (Minuto a Minuto) ---
+
+export function scheduleRoom(retreatId: string): string {
+	return `retreat:${retreatId}:schedule`;
+}
+
+export type ScheduleItemStartedPayload = {
+	retreatId: string;
+	itemId: string;
+	actualStartTime: string;
+};
+
+export type ScheduleItemCompletedPayload = {
+	retreatId: string;
+	itemId: string;
+	actualEndTime: string;
+};
+
+export type ScheduleUpcomingPayload = {
+	retreatId: string;
+	itemId: string;
+	name: string;
+	startTime: string;
+	minutesUntil: number;
+	targetParticipantIds: string[];
+};
+
+export type ScheduleUpdatedPayload = {
+	retreatId: string;
+	itemId: string;
+};
+
+export type ScheduleBellPayload = {
+	retreatId: string;
+	message?: string;
+};
+
+export type ScheduleDelayPayload = {
+	retreatId: string;
+	itemId: string;
+	minutesDelta: number;
+};
+
+export function emitScheduleItemStarted(payload: ScheduleItemStartedPayload): void {
+	io?.to(scheduleRoom(payload.retreatId)).emit('schedule:item-started', payload);
+}
+
+export function emitScheduleItemCompleted(payload: ScheduleItemCompletedPayload): void {
+	io?.to(scheduleRoom(payload.retreatId)).emit('schedule:item-completed', payload);
+}
+
+export function emitScheduleUpcoming(payload: ScheduleUpcomingPayload): void {
+	io?.to(scheduleRoom(payload.retreatId)).emit('schedule:upcoming', payload);
+}
+
+export function emitScheduleUpdated(payload: ScheduleUpdatedPayload): void {
+	io?.to(scheduleRoom(payload.retreatId)).emit('schedule:updated', payload);
+}
+
+export function emitScheduleBell(payload: ScheduleBellPayload): void {
+	io?.to(scheduleRoom(payload.retreatId)).emit('schedule:bell', payload);
+}
+
+export function emitScheduleDelay(payload: ScheduleDelayPayload): void {
+	io?.to(scheduleRoom(payload.retreatId)).emit('schedule:delay', payload);
 }

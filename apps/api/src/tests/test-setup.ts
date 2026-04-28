@@ -46,6 +46,15 @@ import { Testimonial } from '../entities/testimonial.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { ServiceTeam } from '../entities/serviceTeam.entity';
 import { ServiceTeamMember } from '../entities/serviceTeamMember.entity';
+import { RetreatShirtType } from '../entities/retreatShirtType.entity';
+import { ParticipantShirtSize } from '../entities/participantShirtSize.entity';
+import { ScheduleTemplate } from '../entities/scheduleTemplate.entity';
+import { ScheduleTemplateSet } from '../entities/scheduleTemplateSet.entity';
+import { ResponsabilityAttachment } from '../entities/responsabilityAttachment.entity';
+import { RetreatScheduleItem } from '../entities/retreatScheduleItem.entity';
+import { RetreatScheduleItemResponsable } from '../entities/retreatScheduleItemResponsable.entity';
+import { SantisimoSlot } from '../entities/santisimoSlot.entity';
+import { SantisimoSignup } from '../entities/santisimoSignup.entity';
 
 const entities = [
 	Session,
@@ -91,6 +100,15 @@ const entities = [
 	CommunityAdmin,
 	ServiceTeam,
 	ServiceTeamMember,
+	RetreatShirtType,
+	ParticipantShirtSize,
+	ScheduleTemplate,
+	ScheduleTemplateSet,
+	ResponsabilityAttachment,
+	RetreatScheduleItem,
+	RetreatScheduleItemResponsable,
+	SantisimoSlot,
+	SantisimoSignup,
 ];
 
 // Test database configuration - will be created in setupTestDatabase

@@ -13,7 +13,7 @@ const RESPONSIBILITY_TEAM_TYPE_MAP: Record<string, ServiceTeamType> = {
 	'Transporte': ServiceTeamType.TRANSPORTE,
 	'Salón': ServiceTeamType.SALON,
 	'Cuartos': ServiceTeamType.CUARTOS,
-	'Oración': ServiceTeamType.ORACION,
+	'Oración de Intercesión': ServiceTeamType.ORACION,
 	'Continua': ServiceTeamType.CONTINUA,
 	'Palanquero 1': ServiceTeamType.PALANCAS,
 	'Palanquero 2': ServiceTeamType.PALANCAS,
@@ -31,7 +31,7 @@ const TEAM_TYPE_RESPONSIBILITY_MAP: Record<string, string> = {
 	[ServiceTeamType.TRANSPORTE]: 'Transporte',
 	[ServiceTeamType.SALON]: 'Salón',
 	[ServiceTeamType.CUARTOS]: 'Cuartos',
-	[ServiceTeamType.ORACION]: 'Oración',
+	[ServiceTeamType.ORACION]: 'Oración de Intercesión',
 	[ServiceTeamType.CONTINUA]: 'Continua',
 	[ServiceTeamType.PALANCAS]: 'Palanquero 1',
 };

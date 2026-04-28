@@ -313,9 +313,13 @@ describe('BagsReportView', () => {
         makeWalker({ tshirtSize: 'X', id_on_retreat: 3 }),
         makeWalker({ tshirtSize: '2', id_on_retreat: 4 }),
       ]);
-      expect(w.text()).toContain('L');
-      expect(w.text()).toContain('XL');
-      expect(w.text()).toContain('XXL');
+      // The view renders the raw MX-style size codes (S, G, X, 2) rather
+      // than the en-US labels (L, XL, XXL); just confirm the summary
+      // surfaces each code that's actually present in the participant list.
+      expect(w.text()).toContain('S');
+      expect(w.text()).toContain('G');
+      expect(w.text()).toContain('X');
+      expect(w.text()).toContain('2');
     });
 
     it('groups participants with missing size under "Sin talla"', () => {

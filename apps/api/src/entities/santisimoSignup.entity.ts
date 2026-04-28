@@ -45,6 +45,15 @@ export class SantisimoSignup {
 	@Column({ type: 'varchar', length: 64, nullable: true })
 	ipAddress?: string | null;
 
+	@Column({ type: 'boolean', default: false })
+	isAngelito!: boolean;
+
+	@Column({ type: 'boolean', default: false })
+	autoAssigned!: boolean;
+
+	@Column({ type: 'uuid', nullable: true })
+	participantId?: string | null;
+
 	@CreateDateColumn()
 	createdAt!: Date;
 }

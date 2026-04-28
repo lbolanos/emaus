@@ -370,7 +370,7 @@ import { useI18n } from 'vue-i18n';
 import { storeLocale } from '@/i18n';
 import SidebarMenuItem from '@/components/layout/SidebarMenuItem.vue';
 
-type PermissionType = 'retreat' | 'participant' | 'table' | 'house' | 'user' | 'retreatInventory' | 'inventoryItem' | 'payment' | 'responsability' | 'messageTemplate' | 'santisimo' | 'superadmin';
+type PermissionType = 'retreat' | 'participant' | 'table' | 'house' | 'user' | 'retreatInventory' | 'inventoryItem' | 'payment' | 'responsability' | 'messageTemplate' | 'santisimo' | 'schedule' | 'scheduleTemplate' | 'superadmin';
 
 export interface MenuItem {
   name: string;
@@ -391,7 +391,7 @@ export interface MenuSection {
   position: 'top' | 'bottom';
 }
 
-const RETREAT_CATEGORIES = ['main', 'people', 'assignments', 'financial', 'reports', 'services', 'administration'];
+const RETREAT_CATEGORIES = ['main', 'people', 'assignments', 'logistics', 'financial', 'reports', 'services', 'administration'];
 
 const auth = useAuthStore();
 const authStore = useAuthStore();
@@ -722,22 +722,6 @@ const menuSections: MenuSection[] = [
         label: 'sidebar.serviceTeams'
       },
       {
-        name: 'santisimo',
-        routeName: 'santisimo',
-        icon: Cross,
-        permission: 'santisimo',
-        requiresRetreat: true,
-        label: 'sidebar.santisimo'
-      },
-      {
-        name: 'inventory',
-        routeName: 'inventory',
-        icon: Package,
-        permission: 'retreatInventory',
-        requiresRetreat: true,
-        label: 'sidebar.inventory'
-      },
-      {
         name: 'palancas',
         routeName: 'palancas',
         icon: HandHeart,
@@ -760,6 +744,44 @@ const menuSections: MenuSection[] = [
         permission: 'house',
         requiresRetreat: true,
         label: 'sidebar.bedAssignments'
+      }
+    ],
+    position: 'top'
+  },
+  {
+    category: 'logistics',
+    items: [
+      {
+        name: 'santisimo',
+        routeName: 'santisimo',
+        icon: Cross,
+        permission: 'santisimo',
+        requiresRetreat: true,
+        label: 'sidebar.santisimo'
+      },
+      {
+        name: 'minuto-a-minuto',
+        routeName: 'minuto-a-minuto',
+        icon: Clock,
+        permission: 'schedule',
+        requiresRetreat: true,
+        label: 'Minuto a Minuto'
+      },
+      {
+        name: 'my-schedule',
+        routeName: 'my-schedule',
+        icon: Clock,
+        permission: 'schedule',
+        requiresRetreat: true,
+        label: 'Mi agenda'
+      },
+      {
+        name: 'inventory',
+        routeName: 'inventory',
+        icon: Package,
+        permission: 'retreatInventory',
+        requiresRetreat: true,
+        label: 'sidebar.inventory'
       }
     ],
     position: 'top'
@@ -824,13 +846,7 @@ const menuSections: MenuSection[] = [
         permission: 'house',
         requiresRetreat: true,
         label: 'sidebar.rooms'
-      }
-    ],
-    position: 'top'
-  },
-  {
-    category: 'services',
-    items: [
+      },
       {
         name: 'food',
         routeName: 'food',
@@ -859,6 +875,13 @@ const menuSections: MenuSection[] = [
         requiresRetreat: true,
         label: 'sidebar.settings.messageTemplates'
       },
+      {
+        name: 'retreat-shirt-types',
+        routeName: 'retreat-shirt-types',
+        icon: Settings,
+        requiresRetreat: true,
+        label: 'Tipos de playera'
+      },
     ],
     position: 'top'
   },
@@ -880,6 +903,14 @@ const menuSections: MenuSection[] = [
         permission: 'inventoryItem',
         requiresRetreat: false,
         label: 'sidebar.settings.inventoryItems'
+      },
+      {
+        name: 'schedule-template',
+        routeName: 'schedule-template',
+        icon: Clock,
+        permission: 'scheduleTemplate',
+        requiresRetreat: false,
+        label: 'Template Minuto a Minuto'
       },
       {
         name: 'houses',
@@ -1171,7 +1202,8 @@ const getRouteWithParams = (item: MenuItem) => {
     'inventory',
     'role-management',
     'santisimo',
-    'reception'
+    'reception',
+    'minuto-a-minuto'
   ];
   if (item.routeName && routesRequiringId.includes(item.routeName)) {
     if (!retreatStore.selectedRetreatId) return null;

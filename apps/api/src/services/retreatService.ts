@@ -9,9 +9,11 @@ import { getRepository, getRepositories } from '../utils/repositoryHelpers';
 import { GlobalMessageTemplateService } from './globalMessageTemplateService';
 import { createDefaultResponsibilitiesForRetreat } from './responsabilityService';
 import { createDefaultTablesForRetreat } from './tableMesaService';
+import { seedDefaultShirtTypes } from './shirtTypeService';
 import { createDefaultInventoryForRetreat } from './inventoryService';
 import { createDefaultServiceTeamsForRetreat } from './serviceTeamService';
 import { createDefaultInventoryData } from '../data/inventorySeeder';
+import { createDefaultScheduleTemplate } from '../data/scheduleTemplateSeeder';
 import { authorizationService } from '../middleware/authorization';
 import { ROLES } from '@repo/types';
 import type { CreateRetreat, UpdateRetreat } from '@repo/types';
@@ -201,8 +203,9 @@ export const createRetreat = async (
 ) => {
 	const repos = getRepositories(dataSource);
 
-	// 0. Ensure default inventory data exists
+	// 0. Ensure default inventory + schedule template data exist
 	await createDefaultInventoryData();
+	await createDefaultScheduleTemplate();
 
 	// Validate slug uniqueness
 	if (retreatData.slug) {
@@ -263,6 +266,9 @@ export const createRetreat = async (
 
 	// 6. Create default inventory
 	await createDefaultInventoryForRetreat(newRetreat, dataSource);
+
+	// 6.5. Seed default Mexican-style shirt types
+	await seedDefaultShirtTypes(newRetreat.id);
 
 	// 7. Create retreat beds from house beds
 	if (retreatData.houseId) {

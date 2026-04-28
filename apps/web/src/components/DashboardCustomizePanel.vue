@@ -20,6 +20,8 @@ const LABELS: Record<SectionKey, string> = {
   bagsReport: 'Reporte de bolsas',
   additionalInfo: 'Información adicional',
   inventoryAlerts: 'Alertas de inventario',
+  minutoAMinuto: 'Minuto a Minuto',
+  santisimo: 'Santísimo + angelitos',
 };
 
 // Drag-to-reorder state

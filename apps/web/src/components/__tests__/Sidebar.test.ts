@@ -83,6 +83,9 @@ vi.mock('vue-router', () => ({
 		name: 'walkers',
 		params: { id: 'test-retreat-id' },
 		path: '/walkers/test-retreat-id',
+		meta: {},
+		query: {},
+		fullPath: '/walkers/test-retreat-id',
 	}),
 }));
 
@@ -518,6 +521,114 @@ describe('Sidebar Component', () => {
 			// When expanded, search button should be visible (input shows after clicking)
 			const searchSection = wrapper.find('.flex.justify-center');
 			expect(searchSection.exists()).toBe(true);
+		});
+	});
+
+	describe('Menu Section Reorganization', () => {
+		let superWrapper: VueWrapper<any>;
+
+		// Helper: read computed from <script setup> internal state
+		const getSetupState = (w: VueWrapper<any>) => (w.vm as any).$.setupState;
+
+		const getSections = (w: VueWrapper<any>): any[] => {
+			const state = getSetupState(w);
+			const raw = state?.filteredMenuSections;
+			// Computed refs expose .value; plain values are used directly
+			return Array.isArray(raw) ? raw : raw?.value ?? [];
+		};
+
+		const getTopRetreat = (w: VueWrapper<any>): any[] => {
+			const state = getSetupState(w);
+			const raw = state?.topRetreatSections;
+			return Array.isArray(raw) ? raw : raw?.value ?? [];
+		};
+
+		beforeEach(async () => {
+			// Create a fresh pinia and populate it with a superadmin user + retreat
+			// BEFORE passing it to createTestWrapper so the component mounts with full data
+			const testPinia = createPinia();
+			setActivePinia(testPinia);
+
+			const { useAuthStore: useAuthStoreImport } = await import('@/stores/authStore');
+			const authStore = useAuthStoreImport();
+			const saUser = {
+				id: 'sa-id',
+				email: 'sa@test.com',
+				firstName: 'Super',
+				lastName: 'Admin',
+				displayName: 'Super Admin',
+				roles: [{ id: 'role-sa', role: { name: 'superadmin' }, retreats: [], globalPermissions: [] }],
+				isActive: true,
+				emailVerified: true,
+				permissions: [],
+			};
+			authStore.user = saUser as any;
+			authStore.userProfile = saUser as any;
+			authStore.isAuthenticated = true;
+			// Prevent the retreat-switch watch from resetting the profile
+			authStore.refreshUserProfile = vi.fn().mockResolvedValue(undefined) as any;
+
+			const { useRetreatStore: useRetreatStoreImport } = await import('@/stores/retreatStore');
+			const retreatStore = useRetreatStoreImport();
+			retreatStore.selectRetreat('test-retreat-id');
+
+			// Pass the pre-populated pinia so the component sees the superadmin user
+			superWrapper = createTestWrapper(Sidebar, {
+				pinia: testPinia,
+				global: { mocks: { $t: (key: string) => key } },
+			});
+			await nextTick();
+		});
+
+		afterEach(() => {
+			superWrapper?.unmount();
+		});
+
+		it('logistics section contains santisimo, minuto-a-minuto, my-schedule and inventory', () => {
+			const sections = getSections(superWrapper);
+			const logistics = sections.find((s: any) => s.category === 'logistics');
+			expect(logistics).toBeDefined();
+			const names: string[] = logistics?.items.map((i: any) => i.name) ?? [];
+			expect(names).toContain('santisimo');
+			expect(names).toContain('minuto-a-minuto');
+			expect(names).toContain('my-schedule');
+			expect(names).toContain('inventory');
+		});
+
+		it('assignments section does not contain logistics items', () => {
+			const sections = getSections(superWrapper);
+			const assignments = sections.find((s: any) => s.category === 'assignments');
+			const names: string[] = assignments?.items.map((i: any) => i.name) ?? [];
+			expect(names).not.toContain('santisimo');
+			expect(names).not.toContain('minuto-a-minuto');
+			expect(names).not.toContain('my-schedule');
+			expect(names).not.toContain('inventory');
+		});
+
+		it('assignments section retains tables, responsibilities, service-teams, palancas, user-type-table, bed-assignments', () => {
+			const sections = getSections(superWrapper);
+			const assignments = sections.find((s: any) => s.category === 'assignments');
+			const names: string[] = assignments?.items.map((i: any) => i.name) ?? [];
+			expect(names).toContain('tables');
+			expect(names).toContain('responsibilities');
+			expect(names).toContain('service-teams');
+			expect(names).toContain('palancas');
+			expect(names).toContain('user-type-table');
+			expect(names).toContain('bed-assignments');
+		});
+
+		it('food is in reports section, not services', () => {
+			const sections = getSections(superWrapper);
+			const reports = sections.find((s: any) => s.category === 'reports');
+			const services = sections.find((s: any) => s.category === 'services');
+			expect(reports?.items.map((i: any) => i.name)).toContain('food');
+			expect(services).toBeUndefined();
+		});
+
+		it('logistics is treated as a retreat section (appears in topRetreatSections)', () => {
+			const topRetreat = getTopRetreat(superWrapper);
+			const logistics = topRetreat.find((s: any) => s.category === 'logistics');
+			expect(logistics).toBeDefined();
 		});
 	});
 });

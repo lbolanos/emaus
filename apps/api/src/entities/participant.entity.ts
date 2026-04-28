@@ -146,7 +146,7 @@ export class Participant {
 	emergencyContact2Email?: string; // Corresponde a 'emerg2email'
 
 	@Column({ type: 'varchar', nullable: true })
-	tshirtSize?: 'S' | 'M' | 'G' | 'X' | '2'; // Corresponde a 'camiseta'
+	tshirtSize?: string; // Talla del caminante. Tamaños configurables por retiro vía retreat_shirt_type.availableSizes.
 
 	@Column({ type: 'varchar', nullable: true })
 	needsWhiteShirt?: string | null;
@@ -216,6 +216,15 @@ export class Participant {
 
 	@UpdateDateColumn({ type: 'datetime' })
 	lastUpdatedDate!: Date;
+
+	@Column({ type: 'datetime', nullable: true })
+	acceptedPrivacyNoticeAt?: Date | null;
+
+	@Column({ type: 'varchar', length: 64, nullable: true })
+	dataDeleteToken?: string | null;
+
+	@Column({ type: 'datetime', nullable: true })
+	dataDeletedAt?: Date | null;
 
 	// --- RELACIONES ---
 
