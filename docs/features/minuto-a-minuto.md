@@ -21,13 +21,22 @@ Agenda en tiempo real de un retiro Emaús. Reemplaza la hoja de cálculo "minuto
 - **Indicador "AHORA"**: línea horizontal rosa que separa pasado y futuro del día calendario actual; se actualiza cada 60 s sin recargar.
 - **Item activo destacado**: fondo verde tenue + punto pulse + acciones siempre visibles (`✓ Completar · −5 · +5`).
 - **Acciones en hover** para items pending: `▶` Iniciar (verde), `−5` `+5` para ajustar al vuelo. Items completed quedan tachados/grises.
+- **Tap-targets en mobile** (refactor 2026-04-29): los botones `−5` `+5` antes estaban ocultos en móvil (`hidden sm:inline-flex`) — el coordinador tenía que abrir el modal de edición para cada ajuste de tiempo. Ahora se renderizan también en móvil como botones cuadrados de 32 px (`h-8 w-8`, cumple WCAG 2.5.5) y `active:bg-gray-200` para feedback táctil. En desktop se conserva el padding compacto (`sm:p-1`).
 - **Día header con fecha y resumen**: `Día 1 — vie, 17 abr — 5/47 completados`. Si hay un item activo: `5/47 · ▶ Charla: De la Rosa`.
 - **Type badges colorizados**: charla=azul, comida=verde, dinámica=naranja, misa=amarillo, oración=rojo, logística=gris, etc.
 - **Toggle de agrupación 📅 Día / 🎤 Responsabilidad**, persistido por usuario (localStorage).
 - **Búsqueda sticky**: filtra por hora, nombre, responsabilidad, palanquita y nombre del participante asignado. Enter avanza, Esc limpia.
-- **Header de acciones colapsable**:
-  - Visibles: `+ Nueva actividad` · `🔔 Campana` · (`Importar desde template` solo si la agenda está vacía).
-  - En menú `⋮ Más acciones`: `🔗 Re-vincular responsabilidades` · `👥 Apoyos / sobreescribir` · `✨ Auto-asignar angelitos` · `📥 Importar desde template (sobrescribe)`.
+- **Header de acciones consolidado** (refactor 2026-04-29 — antes 6 botones, ahora 2):
+  - Visibles: `+ Nueva actividad` · (`Importar desde template` solo si la agenda está vacía) · `⋮ Más acciones`.
+  - Menú `⋮ Más acciones` (visible para TODOS los roles, items de manage filtrados con `v-if`):
+    - **Frecuente**: `🔔 Tocar campana` · `🖨 Imprimir` · `📦 Descargar guiones (zip)` · `📺 Copiar link de pantalla pública` · `❓ Ayuda` (manual con 8 secciones explicativas).
+    - **Manage**: `🔗 Re-vincular responsabilidades` · `👥 Apoyos / sobreescribir` · `✨ Auto-asignar angelitos` · `📥 Importar desde template (sobrescribe)`.
+
+- **Layout container**: `max-w-5xl mx-auto` (1024px) — antes el MaM se estiraba a todo el ancho disponible y dejaba demasiado espacio en la derecha.
+
+- **Descripción del template visible por fila**: cada item muestra el `description` del `schedule_template` correspondiente como línea inferior con prefijo 📝, truncada a 1 línea con `line-clamp-1`. Click en la línea expande/colapsa la descripción completa. Read-only desde el retiro — para editarla hay que ir al `Template Minuto a Minuto`. Inyectado al list time vía `populateTemplateAttachments` que también hace JOIN al `schedule_template` por `scheduleTemplateId`.
+
+- **Tiempo relativo compacto**: bajo la duración (`text-[9px]`), siempre oculto en print (`print:hidden` + `.print-mam .relative-time`) — la hora absoluta a la izquierda basta en papel.
 - Click en cualquier fila abre el modal de edición (responsable principal + N apoyos + nombre/hora/duración/notas/descripción + sección **📎 Documentos del template** read-only).
 - Indicador `● conectado (WS)` arriba.
 
@@ -53,9 +62,22 @@ Cada **Responsabilidad canónica** (`Comedor`, `Charla: De la Rosa`, `Logística
 
 **Seeder al boot**: `apps/api/src/data/responsabilityAttachmentSeeder.ts` carga los 47 guiones canónicos del manual oficial Emaús desde `apps/api/src/data/charlaDocumentation.ts` como markdown. Idempotente: si ya existe attachment para un rol, no lo toca.
 
+**Versioning de markdown** (📜): cada `updateMarkdown` snapshota el estado anterior en `responsability_attachment_history` ANTES de aplicar el cambio (solo si content o title cambian — description-only no contamina el historial). En el dialog, click `📜` abre un panel con todas las versiones (timestamp + tamaño + preview) y botón "Restaurar" (con confirm). Restaurar también snapshota lo actual antes de cambiar, así "deshacer la restauración" siempre está disponible. Solo markdowns se versionan; archivos binarios viven inmutables en S3.
+
 ### Vista del servidor
 
 `Mi agenda` — solo muestra los items donde el participante actual aparece como responsable principal o como apoyo. Recibe toast `🎯 Te toca en N min` 10/5/0 minutos antes. Cada item con documentos muestra chips de descarga directa.
+
+### Vista pública big-screen (📺)
+
+URL: `/mam/<slug>` — auth-less, diseñada para proyectar en el salón durante el retiro o para que servidores sin cuenta la abran en su celular vía QR.
+
+- Muestra el item AHORA en grande (banner verde con pulse), próximos 5 items, día actual con fecha legible y reloj.
+- Auto-refresh cada 30s (no usa WebSocket — un poll cubre el caso de proyectar de fondo y evita reconexiones).
+- Día activo se calcula del lado cliente: el día cuyo rango `[primer item, último item]` contiene `now`. Fallback: próximo día futuro si el retiro aún no empezó, último día si ya terminó.
+- Item AHORA: prioriza `status === 'active'` (lo que el coordinador marcó); fallback al item cuyo slot temporal contiene `now`.
+- Solo expone retiros con `isPublic=true`. El payload **excluye PII**: no manda emails, teléfonos, IDs de participante, `notes`, `palanquitaNotes`, `description` de la responsabilidad. Solo manda nombre + horario + responsabilidad-name.
+- En la vista del MaM autenticada, botón "📺 Pantalla pública" (visible cuando el retiro tiene slug + isPublic) copia el link al clipboard.
 
 ### Templates globales
 
@@ -165,12 +187,21 @@ DELETE /api/schedule/items/:id
 POST   /api/schedule/items/:id/start
 POST   /api/schedule/items/:id/complete
 POST   /api/schedule/items/:id/shift                    ← {minutesDelta, propagate}
+POST   /api/schedule/retreats/:retreatId/days/:day/shift ← {minutesDelta} bulk shift de día completo
+POST   /api/schedule/retreats/:retreatId/days/:day/reorder ← {itemIds[]} drag-to-reorder dentro del día
+
+GET    /api/schedule/public/mam/:slug                   ← AUTH-LESS para vista big-screen
+GET    /api/schedule/retreats/:retreatId/bundle.zip     ← stream ZIP con todos los guiones del retiro
+GET    /api/responsability-attachments/counts           ← {[name]: count} agrupado SQL
 
 GET    /api/responsability-attachments/by-name/:name/attachments
 POST   /api/responsability-attachments/by-name/:name/attachments         ← upload archivo (15MB body limit)
 POST   /api/responsability-attachments/by-name/:name/attachments/markdown ← crea texto MD
 PATCH  /api/responsability-attachments/attachments/:id
-PATCH  /api/responsability-attachments/attachments/:id/markdown          ← edita texto MD
+PATCH  /api/responsability-attachments/attachments/:id/markdown          ← edita texto MD (snapshota historia antes)
+GET    /api/responsability-attachments/attachments/:id/history           ← lista versiones (newest first, sólo preview 200ch)
+GET    /api/responsability-attachments/attachments/:id/history/:historyId ← versión completa (read-only, para preview UI)
+POST   /api/responsability-attachments/attachments/:id/restore/:historyId ← restaura versión
 DELETE /api/responsability-attachments/attachments/:id
 ```
 
@@ -194,12 +225,19 @@ Sala: `retreat:${retreatId}:schedule`. Cliente envía `schedule:subscribe` con e
 ### Lógica clave
 
 - **`resolveSantisimoConflicts(retreatId)`** (`apps/api/src/services/retreatScheduleService.ts`)
-  Marca `santisimo_slot.mealWindow=true` para los slots que solapan items con `blocksSantisimoAttendance=true`. Llama a `autoAssignAngelitos` para los slots flaggeados.
+  Tres pasos en orden:
+  1. Marca `santisimo_slot.mealWindow=true` para los slots que solapan items con `blocksSantisimoAttendance=true`.
+  2. Llama a `removeResponsableConflicts(retreatId, slots)` (privado): elimina cualquier signup cuyo participante sea responsable principal **o apoyo** de un item cuyo time-window overlap el slot — caso típico: charlista inscrito a Santísimo durante su propia charla. Construye `Map<participantId, [{start,end}]>` desde items+apoyos del retiro y cruza con signups.
+  3. Llama a `autoAssignAngelitos` para los slots flaggeados.
+  Return: `{mealSlots, angelitosAssigned, unresolvedSlots, responsableConflicts}` (el último es count de signups eliminados por la regla #2).
 
 - **`autoAssignAngelitos(retreatId, slotIds?)`**
   1. Pool de candidatos: `retreat_participants.type='partial_server' AND participantId IS NOT NULL` (filtrado por retiro).
   2. Excluye los actualmente sentados a una mesa: `retreat_participants.tableId IS NOT NULL`.
   3. Para cada slot meal-window: borra `signups` cuyos `participantId` están en mesa, luego rellena hasta `capacity` con angelitos del pool, marcando `autoAssigned=true, isAngelito=true`.
+
+- **`reorderDay(retreatId, day, orderedItemIds)`**
+  Reordena items de un día con drag&drop preservando los slots de tiempo (las tuplas `(startTime, endTime, durationMinutes)` ya en uso ese día). Lo que cambia es el mapeo `item → slot`: items[0] ordenados por startTime ascending → primer id de la lista, etc. Valida set-equality; rechaza ids fuera del día, duplicados, count distinto. Actualiza `orderInDay = i`. Endpoint: `POST /api/schedule/retreats/:id/days/:day/reorder` body `{itemIds:string[]}`. Permiso `schedule:manage`. Llama a `resolveSantisimoConflicts` post-reorder.
 
 - **`materializeFromTemplate(retreatId, baseDate, clearExisting, templateSetId?)`**
   Clona los `schedule_template` items del set en `retreat_schedule_item` calculando:
@@ -207,10 +245,28 @@ Sala: `retreat:${retreatId}:schedule`. Cliente envía `schedule:subscribe` con e
   startTime = baseDate + (defaultDay-1) días @ defaultStartTime (HH:MM, default 09:00)
   endTime   = startTime + defaultDurationMinutes
   ```
-  **Antes** de construir el respIndex, invoca `ensureCharlaResponsibilitiesFromTemplateSet` para que los items de tipo `charla`/`testimonio` puedan vincularse a sus Responsabilidades en el mismo paso. Después llama a `resolveSantisimoConflicts` para precomputar conflictos. Con `clearExisting=true` borra los items previos del retiro.
+  **Antes** de construir el respIndex, invoca `ensureCharlaResponsibilitiesFromTemplateSet` para que los items de tipo `charla`/`testimonio` puedan vincularse a sus Responsabilidades en el mismo paso. Después llama, en orden:
+  1. `autoGenerateSantisimoSlotsFromItems(retreatId, items)` — auto-crea los `santisimo_slot` (60 min, capacidad 1) cubriendo `min(startTime) → max(endTime)` de los items materializados con `type='santisimo'`. Es idempotente: el índice único `(retreatId, startTime)` + try/catch `SQLITE_CONSTRAINT` saltan los slots ya existentes y preservan inscripciones previas (no usa `clearExisting`).
+  2. `resolveSantisimoConflicts` para precomputar `mealWindow` y auto-asignar angelitos sobre los slots recién creados.
+
+  Con `clearExisting=true` borra los items previos del retiro pero **no** borra `santisimo_slot` ni signups (la regeneración cae sobre los slots ya existentes vía índice único).
 
 - **`addMissingTemplateItems(retreatId, baseDate, templateSetId?)`**
-  Inserta sólo los items del template que el retiro aún no tiene materializados. Detecta duplicados por `scheduleTemplateId` y por `(day, name)`. Invoca `ensureCharlaResponsibilitiesFromTemplateSet` igual que `materializeFromTemplate`. Útil para propagar nuevos items del template a retiros que ya materializaron sin clobber. Returns `{added, skipped, total}`.
+  Inserta sólo los items del template que el retiro aún no tiene materializados. Detecta duplicados por `scheduleTemplateId` y por `(day, name)`. Invoca `ensureCharlaResponsibilitiesFromTemplateSet` igual que `materializeFromTemplate`. Si añade al menos un item, también dispara `autoGenerateSantisimoSlotsFromItems` + `resolveSantisimoConflicts` sobre el conjunto completo del retiro — así, agregar un item nuevo de tipo `santisimo` al template propaga los slots a los retiros existentes sin pasos extra. Returns `{added, skipped, total}`.
+
+### Horario del Santísimo: auto-generación + UX
+
+**Generación automática.** Los `santisimo_slot` (slots de inscripción de servidores y angelitos al Santísimo) se crean automáticamente al materializar el template. Duración fija **60 min por slot, capacidad 1**, cubriendo el rango `min/max` de los items con `type='santisimo'` en el template materializado. Para los template sets actuales:
+- `Emaús — Colombia / STA_CLARA`: cubre la vigilia de la noche del día 1 (00:00 → 06:10 = **6 slots**), derivado de los items "Explicación de Adoración al Santísimo" + "Vigilia y Adoración al Santísimo (turnos)".
+- `Emaús — México / POLANCO`: cubre del día 1 16:00 al día 3 13:41 (~46 slots), derivado de "Exposición del Santísimo", "Exponer al Santísimo (overnight)" y "Traslado del Santísimo y Catequesis".
+
+El coordinador no necesita pulsar el botón **"Generar"** para retiros estándar; sigue disponible en `/santisimo` para casos custom (rangos puntuales, slot length distinto, etc.) y es idempotente: no duplica slots ni borra signups a menos que se marque "Eliminar horarios existentes".
+
+**UI: ventanas de comida en color ámbar.** En `SantisimoAdminView.vue`, los slots con `mealWindow=true` (overlap con un item `blocksSantisimoAttendance=true`) se renderizan con fondo `bg-amber-50` + border lateral `border-amber-400` y un badge "Comida — sólo servidores fuera de mesa". Al abrir el dialog de inscripción sobre un slot ámbar, el buscador de servidores oculta automáticamente a quien tenga `tableId` asignada (los servidores en mesa están comiendo y no pueden cubrir el Santísimo en ese momento). El backend `autoAssignAngelitos` ya pre-asigna angelitos disponibles a esos slots; el coordinador solo tiene que llenar los huecos restantes.
+
+**Botón "Ayuda".** En el toolbar de `/santisimo` un botón ⓘ abre un dialog que explica el flujo completo: auto-generación, semántica del color ámbar, generación manual y filtro de servidores en signup.
+
+**Filtro de tableId en `/participants`.** El endpoint ya devuelve `tableId` para `type=server` (vía `findAllParticipants` en `participantService.ts:621`); el frontend lo usa para filtrar la lista en signup dialogs sobre slots ámbar.
 
 - **`ensureCharlaResponsibilitiesFromTemplateSet(retreatId, templateSetId?, dataSource?)`** (en `responsabilityService.ts`)
   Crea las Responsabilidades de tipo `CHARLISTA` que el TemplateSet escogido requiere y que aún no existen en el retiro. Filtra `ScheduleTemplate` con `type IN ('charla','testimonio')` y `responsabilityName` definido; compara contra Responsabilidades del retiro por nombre normalizado (lowercase + trim) — misma lógica que `relinkResponsibilities` — y crea las faltantes. Si el `responsabilityName` matchea el catálogo de `getDefaultCharlas()`, la Responsabilidad se crea con `description = anexo` (ej. 'A-2-1'). Idempotente. Returns `{created, alreadyExisting}`.
@@ -220,6 +276,16 @@ Sala: `retreat:${retreatId}:schedule`. Cliente envía `schedule:subscribe` con e
 
 - **`dashboardStats(retreatId)`**
   Devuelve un objeto agregado para el card del dashboard: currentItem, nextItem, conteos por estado, retraso acumulado del día, cobertura de Santísimo, pool de angelitos.
+
+- **`streamRetreatBundle(retreatId, output)`** (`apps/api/src/services/retreatScheduleService.ts`)
+  Genera y streamea un ZIP con todos los guiones del retiro a la `Writable` que el caller pasa (típicamente `res`). Estructura: `<rol-slug>/<filename>` por attachment, `README.md` top-level con el índice. Tres branches por attachment:
+  1. **Markdown** → archivo `.md` directo desde `attachment.content`.
+  2. **S3 file** (`storageKey != null`) → `s3Service.getObjectStream(storageKey)` y pipe al archive como **binario real**. Timeout 15s per-archivo. Si falla → fallback a `<filename>.url.txt` con la URL pública + nota explicativa, y se acumula en `failedS3Keys[]` para reportarlo en el README.
+  3. **Inline base64** (`storageUrl: data:...`) → decode + append como buffer.
+  El bundle es portable offline (real binarios, no pointers). Endpoint: `GET /api/schedule/retreats/:id/bundle.zip` (auth + `schedule:read` + retreat access). Botón "📦 Descargar guiones" en el header del MaM.
+
+- **`attachmentHistoryCleanupService`** (`apps/api/src/services/attachmentHistoryCleanupService.ts`)
+  Cron diario `15 3 * * *` (03:15 UTC). Mantiene las últimas **20 versiones por `attachmentId`** en la tabla `responsability_attachment_history`; elimina el resto. SQL: `GROUP BY attachmentId HAVING COUNT(*) > 20` → drop oldest `(total - 20)` por overflow. Wire en `index.ts` junto a otros cleanup services. Política coincide con la UI (panel de historia muestra 20).
 
 ### Live-only gating del dashboard
 
@@ -249,7 +315,19 @@ Pure-logic tests (sin TypeORM ni DB):
 | `apps/api/src/tests/services/responsabilityService.simple.test.ts`     | —      | —     | mismos 21 items vía `getDefaultCharlas()` |
 | `apps/api/src/tests/services/responsabilityService.ensureCharlas.simple.test.ts` | 1 | 8 | `ensureCharlaResponsibilitiesFromTemplateSet`: defaults solo crean operativas, charlas se crean al materializar, anexo en description, idempotencia, sets distintos, ignora isActive=false, no duplica con homónimas |
 | `apps/api/src/tests/services/retreatScheduleService.materializeWithCharlas.test.ts` | 1 | 3 | integración end-to-end (DB real): materialize crea charlas + vincula items en un paso; idempotencia; addMissingTemplateItems mismo comportamiento |
+| `apps/api/src/tests/services/santisimoMaterializeAutogen.test.ts` | 1 | 6 | integración end-to-end (DB real) de la auto-generación de SantisimoSlots al materializar el template: rango cubierto, idempotencia (slot+signup preservados), auto-asignación de angelitos a mealWindow, exclusión de servidores en mesa, no-op sin items santisimo, propagación vía addMissingTemplateItems |
+| `apps/web/src/views/__tests__/SantisimoAdminView.help.test.ts` | 1 | 3 | Vitest: el botón "Ayuda" del toolbar abre/cierra el dialog y renderiza las 4 secciones (auto, mealWindow, manual, signup) |
 | `apps/api/src/tests/services/responsabilityAttachment.simple.test.ts`  | 5      | 23    | validación mime/tamaño (PDF/DOC/img + rechazo .exe), límite 10MB con S3 / 1MB sin S3, max 5 por rol, MD ≤ 200KB, slugFileName/slugResponsability, idempotencia del seeder, **JOIN por nombre canónico (live reference)** + case-sensitive + trim, UTF-8 multi-byte sizing |
+| `apps/api/src/tests/services/santisimoResponsableConflict.simple.test.ts` | 1 | 7 | mirror puro de `removeResponsableConflicts`: responsable principal, apoyo, no-overlap, sin participantId, touching boundaries, multi-slot/item, anti-double-count cuando responsable+apoyo del mismo item |
+| `apps/api/src/tests/services/scheduleReorderDay.simple.test.ts`         | 1      | 8     | mirror puro de `reorderDay`: preservación de slots `(startTime/endTime/duration)`, swap básico, no-op, validación de count/ids/duplicates, derivación de slots por sorted startTime, durationMinutes per-slot |
+| `apps/api/src/tests/services/bundleS3Streaming.simple.test.ts`          | 1      | 7     | mirror puro del routing per-attachment del bundle: markdown → `.md`, S3 success → binary stream, S3 fail → `.url.txt` fallback (acumula en `failedS3Keys`), inline base64 sin call S3, count, folder identity por responsability |
+| `apps/api/src/tests/services/attachmentHistoryCleanup.simple.test.ts`   | 1      | 7     | mirror puro de la retención: no-op bajo/igual a MAX (20), drop oldest beyond MAX, robusto a input order, isolation per-attachmentId, empty input, extreme 100→20 |
+| `apps/api/src/tests/services/attachmentVersionPreview.simple.test.ts`   | 1      | 6     | mirror puro de `getMarkdownVersion` read-only: return shape, missing attachment/history, **cross-attachment refusal** (no leak), no mutation, full content (no truncate) |
+| `apps/web/tests/e2e/mam-public-view.spec.ts` (Playwright)               | 1      | 5     | E2E auth-less: vista `/mam/:slug` no redirect a login, error claro 404, header structure, smoke del toast UI, ausencia de coordinator-only buttons |
+| `apps/web/tests/e2e/auth-gate.spec.ts` (Playwright)                     | 1      | 5     | E2E auth gate: `/app/*` redirect a login, `/mam/:slug` y `/santisimo/:slug` y `/` no requieren auth |
+| `apps/api/src/tests/services/templateDescriptionPopulate.simple.test.ts` | 1      | 8     | mirror del JOIN `populateTemplateAttachments` que inyecta description del schedule_template: presencia/ausencia, null description, missing template, mix custom+template items, dedup de templateIds, empty input, preserve fields |
+| `apps/web/src/components/__tests__/MamHelpDialog.test.ts`                | 1      | 8     | smoke del manual MaM: open/close, 8 secciones (qué es, durante retiro, drag, más acciones, pantalla pública, docs, atajos, tips), controles ▶ ✓ ±5 📎, items de menú "Más acciones", atajos Ctrl+P / ESC |
+| `apps/web/src/components/__tests__/ScheduleTemplateHelpDialog.test.ts`   | 1      | 8     | smoke del manual del editor de templates: open/close, 6 secciones, ambos templates por nombre (México/Colombia), funciones de docs (subir/markdown/imprimir/versiones/restaurar), warnings sobre delete y rename |
 | `apps/web/src/stores/__tests__/dashboardSettingsStore.test.ts`          | 8      | 29    | toggle/move/persist/load + merge legacy sectionOrder + new keys (minutoAMinuto, santisimo) |
 
 Correr todo:
@@ -319,11 +397,13 @@ El catálogo de referencia (`getDefaultCharlas()`, anexos A-2-1 a A-2-23 con gap
 
 **Cada responsabilidad canónica tiene documentación** en `apps/api/src/data/charlaDocumentation.ts`:
 - `charlaDocumentation` (21 entries) — guía paso a paso para cada charla/texto.
-- `responsibilityDocumentation` (27 entries) — descripción del rol con tabla `# | Descripción | Cuándo | Dónde` para cada uno.
+- `responsibilityDocumentation` (29 entries) — descripción del rol con tabla `# | Descripción | Cuándo | Dónde` para cada uno. Incluye `Moderador` y `Diario` re-exportados desde `apps/api/src/data/serviceTeamData.ts` (single source of truth para esos dos, pues también los consume la migración `CreateServiceTeams`).
+
+`Moderador` y `Diario` también están en `CANONICAL_RESPONSABILITIES` en `retreatScheduleController.ts` para que aparezcan en el dropdown del editor de templates (junto con los otros 27 roles operativos).
 
 Tests `serviceTeamData.simple.test.ts` enforcan cobertura completa: si añades una nueva responsabilidad y olvidas documentarla, el test grita.
 
-**`responsabilityAttachmentSeeder.ts`** — al boot consume `charlaDocumentation` + `responsibilityDocumentation` y crea attachments markdown vinculados al nombre canónico de cada rol. Idempotente: skipea si ya existe attachment para ese nombre. Cubre **47 entries** (21 charlas/textos + 26 roles operativos).
+**`responsabilityAttachmentSeeder.ts`** — al boot consume `charlaDocumentation` + `responsibilityDocumentation` y crea attachments markdown vinculados al nombre canónico de cada rol. Idempotente: skipea si ya existe attachment para ese nombre. Cubre **49 entries** (21 charlas/textos + 28 roles operativos incluyendo Moderador/Diario).
 
 #### CLI
 
@@ -402,6 +482,39 @@ AWS_USE_IAM_ROLE=true
 (o `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` de un IAM user dedicado con `s3:GetObject/PutObject/DeleteObject` sobre `emaus-media/public-assets/*`).
 
 `pm2 restart emaus-api` después de editar. Nginx ya tiene `client_max_body_size 100M` — no requiere cambios.
+
+### Help dialogs (manuales in-app, 2026-04-29)
+
+Dos componentes Vue independientes con copy en español que documentan los flujos para usuarios finales:
+
+**`apps/web/src/components/MamHelpDialog.vue`** — disparado desde el menú `⋮ Más acciones → ❓ Ayuda` en `MinuteByMinuteView`. Modal de 8 secciones:
+1. Qué es el MaM
+2. Controles por fila durante el retiro (▶ ✓ ±5 📎 click-to-edit)
+3. Reordenar items con drag & drop
+4. Menú "⋮ Más acciones" (todos los items)
+5. Pantalla pública (`/mam/<slug>`, WS sync)
+6. Documentos por responsabilidad (escope global, 📎 dialog, 📜 versiones)
+7. Atajos de teclado (Ctrl+P, /, ESC, Enter)
+8. Tips operativos (descripción truncada, cascade de fechas, etc.)
+
+**`apps/web/src/components/ScheduleTemplateHelpDialog.vue`** — disparado desde el botón `❓ Ayuda` en el header del `ScheduleTemplateView`. Modal de 6 secciones:
+1. Qué es un Template
+2. Templates incluidos (Polanco México ★, Sta Clara Colombia)
+3. Editar items (click fila, 📎 docs, 🗑 delete)
+4. Editar documentos (markdown, PDF, imprimir, versiones, restore)
+5. Workflow recomendado (5 pasos)
+6. Cuidados (delete template rompe retiros, rename rol rompe JOIN, after-midnight items)
+
+Visibles para TODOS los roles (lectura). El copy se mantiene como literal HTML/text en el componente (no i18n) — Spanish-only por diseño.
+
+### Editor de Templates: ancho dinámico
+
+`ResponsabilityAttachmentsDialog` (compartido entre MaM y Template editor) ajusta su ancho según contexto:
+- Lista de attachments (default): `max-w-3xl` (768px)
+- **Markdown editor abierto: `95vw`** (casi full-screen) — para que textarea + preview side-by-side aprovechen toda la pantalla. Antes era `max-w-6xl` (1152px) pero quedaba pequeño en monitores anchos.
+- Preview de versión histórica (popup secundario): `max-w-5xl` (1024px).
+
+Implementación: `:class="mdEditor.open ? 'sm:!max-w-[95vw] w-[95vw]' : 'max-w-3xl'"` con `transition-[max-width] duration-200`. El `!important` en `sm:` es necesario para sobreescribir el `max-w-lg` default del `DialogContent` shadcn.
 
 ### Bugs conocidos / limitaciones
 

@@ -184,6 +184,19 @@ export const update = async (
 		}
 	}
 
+	// Capture old startDate BEFORE we mutate `retreat` so we can shift the
+	// schedule items by the delta below. SQLite returns dates as strings;
+	// Postgres returns Date objects — normalise to a timestamp for the diff.
+	const toMs = (v: Date | string | null | undefined): number | null => {
+		if (!v) return null;
+		const d = v instanceof Date ? v : new Date(v);
+		const t = d.getTime();
+		return Number.isFinite(t) ? t : null;
+	};
+	const oldStartMs = toMs(retreat.startDate);
+	const newStartRaw = (retreatData as { startDate?: Date | string | null }).startDate;
+	const newStartMs = newStartRaw !== undefined ? toMs(newStartRaw) : null;
+
 	Object.assign(retreat, retreatData);
 	await retreatRepository.save(retreat);
 
@@ -192,6 +205,29 @@ export const update = async (
 		// Re-assign participants to the new beds
 		const { autoAssignBedsForRetreat } = await import('./participantService');
 		await autoAssignBedsForRetreat(id);
+	}
+
+	// Cascade startDate change to schedule items: keep the same time-of-day
+	// for each item (e.g. 9:00 AM stays 9:00 AM) but shift the calendar day
+	// by the delta. Without this, changing the retreat from Apr-17 to Apr-28
+	// leaves all items frozen at Apr-17, which is what users hit during
+	// the San Judas E2E sim (Bug J).
+	if (
+		oldStartMs !== null &&
+		newStartMs !== null &&
+		oldStartMs !== newStartMs &&
+		newStartRaw !== undefined
+	) {
+		const minutesDelta = Math.round((newStartMs - oldStartMs) / 60000);
+		if (minutesDelta !== 0) {
+			try {
+				const { retreatScheduleService } = await import('./retreatScheduleService');
+				await retreatScheduleService.shiftAllItems(id, minutesDelta);
+			} catch (err) {
+				// Don't fail the retreat update if schedule shift fails — log and continue.
+				console.warn(`[retreatService.update] schedule shift failed for ${id}:`, err);
+			}
+		}
 	}
 
 	return retreat;

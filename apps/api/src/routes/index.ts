@@ -61,6 +61,7 @@ applyCsrfProtectionExcept(router, [
 	'/participants/new',
 	'/participants/confirm-registration',
 	'/santisimo/public',
+	'/schedule/public',
 ]);
 
 // Resto de las rutas (con protección CSRF)

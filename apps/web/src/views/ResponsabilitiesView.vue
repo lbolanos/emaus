@@ -139,6 +139,19 @@
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Button
+              variant="ghost"
+              size="icon"
+              class="h-7 w-7 text-emerald-600 hover:text-emerald-800 relative"
+              :title="$t('responsibilities.openAttachments')"
+              @click="openAttachments(resp)"
+            >
+              <Paperclip class="h-3.5 w-3.5" />
+              <span
+                v-if="(attachmentCounts[resp.name] ?? 0) > 0"
+                class="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-600 text-white text-[9px] font-semibold leading-none"
+              >{{ attachmentCounts[resp.name] }}</span>
+            </Button>
             <Button variant="ghost" size="icon" class="h-7 w-7" @click="openAddEditModal(resp)">
               <Edit class="h-3.5 w-3.5" />
             </Button>
@@ -203,6 +216,16 @@
         </div>
       </div>
     </div>
+
+    <!-- Attachments dialog (managed by responsability name, shared across retreats) -->
+    <ResponsabilityAttachmentsDialog
+      v-if="attachmentsTarget"
+      :open="isAttachmentsDialogOpen"
+      :responsability-name="attachmentsTarget.responsabilityName"
+      :context-label="attachmentsTarget.contextLabel"
+      :can-manage="canManage.scheduleTemplate.value"
+      @update:open="onAttachmentsDialog"
+    />
 
     <!-- Add/Edit Modal -->
     <Dialog :open="isAddEditModalOpen" @update:open="isAddEditModalOpen = $event">
@@ -417,7 +440,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useResponsabilityStore } from '@/stores/responsabilityStore';
@@ -426,15 +449,19 @@ import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, Select
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@repo/ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@repo/ui';
 import { Label } from '@repo/ui';
-import { ChevronLeft, Download, Edit, FileText, LayoutGrid, Loader2, MoreVertical, Plus, Printer, Trash2, UserPlus, X } from 'lucide-vue-next';
+import { ChevronLeft, Download, Edit, FileText, LayoutGrid, Loader2, MoreVertical, Paperclip, Plus, Printer, Trash2, UserPlus, X } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import {
   exportResponsibilitiesToDocx,
   getResponsibilityDocumentation,
   listResponsibilityDocumentationKeys,
+  responsabilityAttachmentApi,
 } from '@/services/api';
 import { renderMarkdown } from '@/composables/useMarkdown';
 import { ResponsabilityType } from '@repo/types';
+import ResponsabilityAttachmentsDialog from '@/components/ResponsabilityAttachmentsDialog.vue';
+import { useAuthPermissions } from '@/composables/useAuthPermissions';
+import { getSocket } from '@/services/realtime';
 import type { Responsability, Participant } from '@repo/types';
 
 const retreatStore = useRetreatStore();
@@ -605,6 +632,64 @@ watch(selectedRetreatId, (newRetreatId) => {
   }
 }, { immediate: true });
 
+// --- Attachments (Documentos por Responsabilidad) ---
+const { canManage } = useAuthPermissions();
+const attachmentCounts = ref<Record<string, number>>({});
+const isAttachmentsDialogOpen = ref(false);
+const attachmentsTarget = ref<{ responsabilityName: string; contextLabel: string } | null>(null);
+
+async function refreshAttachmentCounts() {
+  try {
+    attachmentCounts.value = await responsabilityAttachmentApi.counts();
+  } catch (err) {
+    console.warn('No se pudieron cargar los contadores de attachments', err);
+  }
+}
+
+function openAttachments(resp: Responsability) {
+  attachmentsTarget.value = { responsabilityName: resp.name, contextLabel: resp.name };
+  isAttachmentsDialogOpen.value = true;
+}
+
+function onAttachmentsDialog(v: boolean) {
+  isAttachmentsDialogOpen.value = v;
+  if (!v) {
+    attachmentsTarget.value = null;
+    // Refresh counts after the dialog closes — may have created/deleted/updated.
+    void refreshAttachmentCounts();
+  }
+}
+
+let detachWS: (() => void) | null = null;
+function attachWSListener() {
+  const socket = getSocket();
+  // Subscribe to a dummy retreat-scoped channel so we join SCHEDULE_GLOBAL_ROOM
+  // and receive attachment-changed broadcasts. If the user has no retreat
+  // selected (rare), we still listen — the event has the responsabilityName
+  // we need to update counts.
+  const onChanged = (e: { responsabilityName: string; action: 'created' | 'updated' | 'deleted' }) => {
+    if (e.action === 'created' || e.action === 'deleted') {
+      // count changed — do a fresh fetch (cheaper than maintaining delta)
+      void refreshAttachmentCounts();
+    }
+    // 'updated' doesn't change count, skip
+  };
+  socket.on('schedule:attachment-changed', onChanged);
+  // Also need to be in the global room — piggyback on schedule:subscribe with
+  // the current retreat. If no retreat, just listen passively (the event will
+  // still arrive only if some other client emits within the global room — but
+  // since we never join the room, we won't receive). Best-effort.
+  if (selectedRetreatId.value) {
+    socket.emit('schedule:subscribe', selectedRetreatId.value, () => {});
+  }
+  detachWS = () => {
+    socket.off('schedule:attachment-changed', onChanged);
+    if (selectedRetreatId.value) {
+      socket.emit('schedule:unsubscribe', selectedRetreatId.value);
+    }
+  };
+}
+
 onMounted(async () => {
   try {
     const { charlas, responsibilities: respKeys } = await listResponsibilityDocumentationKeys();
@@ -612,6 +697,12 @@ onMounted(async () => {
   } catch (err) {
     console.warn('Could not load documentation keys', err);
   }
+  await refreshAttachmentCounts();
+  attachWSListener();
+});
+
+onUnmounted(() => {
+  detachWS?.();
 });
 
 const hasDocumentation = (resp: Responsability): boolean => {

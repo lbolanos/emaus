@@ -2168,6 +2168,25 @@ export const updateParticipant = async (
         .execute();
     }
 
+    // Si pasa a ser angelito (partial_server) se libera de mesa y de cama:
+    // su rol es cubrir el Santísimo durante las comidas, así que no debe
+    // ocupar plaza de comida ni cama (no duerme en la casa de retiro).
+    // Idempotente: aunque ya fuera partial_server, vuelve a limpiar.
+    if (type === "partial_server") {
+      rpUpdates.tableId = null;
+
+      const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
+      await retreatBedRepository
+        .createQueryBuilder()
+        .update(RetreatBed)
+        .set({ participantId: null })
+        .where("participantId = :id", { id: updatedParticipant.id })
+        .andWhere("retreatId = :retreatId", {
+          retreatId: updatedParticipant.retreatId,
+        })
+        .execute();
+    }
+
     if (Object.keys(rpUpdates).length > 0) {
       try {
         await syncRetreatFields(

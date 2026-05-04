@@ -141,6 +141,10 @@ export const RetreatScheduleItemSchema = z.object({
 		.optional(),
 	// Heredados del template (read-only desde la perspectiva del retiro).
 	attachments: z.array(ResponsabilityAttachmentSchema).optional(),
+	// Descripción de la actividad copiada del schedule_template via JOIN al
+	// listar. Read-only desde el retiro — para editarla hay que ir al template
+	// global. Útil para mostrar al coordinador el "qué/por qué" de la actividad.
+	templateDescription: z.string().nullable().optional(),
 });
 export type RetreatScheduleItem = z.infer<typeof RetreatScheduleItemSchema>;
 
@@ -175,6 +179,26 @@ export const ShiftScheduleSchema = z.object({
 		propagate: z.boolean().default(true).optional(),
 	}),
 	params: z.object({ id: idSchema }),
+});
+
+export const ShiftDaySchema = z.object({
+	body: z.object({
+		minutesDelta: z.number().int(),
+	}),
+	params: z.object({
+		retreatId: idSchema,
+		day: z.coerce.number().int().min(1).max(7),
+	}),
+});
+
+export const ReorderDaySchema = z.object({
+	body: z.object({
+		itemIds: z.array(idSchema).min(1),
+	}),
+	params: z.object({
+		retreatId: idSchema,
+		day: z.coerce.number().int().min(1).max(7),
+	}),
 });
 
 // --- Realtime event payloads ---

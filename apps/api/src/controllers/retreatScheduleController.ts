@@ -92,6 +92,90 @@ export const shiftItem = async (req: Request, res: Response) => {
 	}
 };
 
+export const downloadRetreatBundle = async (req: Request, res: Response) => {
+	const { retreatId } = req.params;
+	if (!(await checkRetreatAccess(req, retreatId))) {
+		return res.status(403).json({ message: 'Forbidden' });
+	}
+	try {
+		// Stream the zip directly to the response. archiver pushes data as soon
+		// as it's available; the client gets the file progressively.
+		res.setHeader('Content-Type', 'application/zip');
+		// Filename will be set after streamRetreatBundle resolves; meanwhile,
+		// give the browser a sensible default.
+		res.setHeader(
+			'Content-Disposition',
+			`attachment; filename="MaM_bundle.zip"`,
+		);
+		const result = await retreatScheduleService.streamRetreatBundle(retreatId, res);
+		// Streaming already finalized the archive; the response is closed.
+		// Logging only, no further writes.
+		console.log(
+			`[retreat-bundle] ${retreatId}: ${result.itemCount} items, ${result.attachmentCount} attachments → ${result.fileName}`,
+		);
+	} catch (err) {
+		// If headers are already sent (mid-stream), we can't change to JSON.
+		if (!res.headersSent) {
+			mapError(res, err);
+		} else {
+			res.end();
+		}
+	}
+};
+
+export const publicGetSchedule = async (req: Request, res: Response) => {
+	try {
+		const { slug } = req.params;
+		const data = await retreatScheduleService.getPublicSchedule(slug);
+		if (!data) return res.status(404).json({ message: 'Retreat not found' });
+		// Soft cache: clients poll every 30s anyway, but a short Cache-Control
+		// helps when many phones in the salon refresh at the same time.
+		res.set('Cache-Control', 'public, max-age=10');
+		res.json(data);
+	} catch (err) {
+		mapError(res, err);
+	}
+};
+
+export const shiftDay = async (req: Request, res: Response) => {
+	const { retreatId } = req.params;
+	const day = Number(req.params.day);
+	if (!(await checkRetreatAccess(req, retreatId))) {
+		return res.status(403).json({ message: 'Forbidden' });
+	}
+	try {
+		const items = await retreatScheduleService.shiftDay(
+			retreatId,
+			day,
+			req.body.minutesDelta,
+		);
+		res.json(items);
+	} catch (err) {
+		mapError(res, err);
+	}
+};
+
+export const reorderDay = async (req: Request, res: Response) => {
+	const { retreatId } = req.params;
+	const day = Number(req.params.day);
+	if (!(await checkRetreatAccess(req, retreatId))) {
+		return res.status(403).json({ message: 'Forbidden' });
+	}
+	try {
+		const items = await retreatScheduleService.reorderDay(
+			retreatId,
+			day,
+			req.body.itemIds,
+		);
+		res.json(items);
+	} catch (err) {
+		if (err instanceof Error && err.message.startsWith('reorder mismatch')) {
+			return res.status(400).json({ message: err.message });
+		}
+		mapError(res, err);
+	}
+};
+
 export const materialize = async (req: Request, res: Response) => {
 	const { retreatId } = req.params;
 	if (!(await checkRetreatAccess(req, retreatId))) {
@@ -214,6 +298,8 @@ const CANONICAL_RESPONSABILITIES = [
 	'Resumen del día',
 	'Recepción',
 	'Reglamento de la Casa',
+	'Moderador',
+	'Diario',
 ];
 
 export const canonicalResponsabilities = async (_req: Request, res: Response) => {

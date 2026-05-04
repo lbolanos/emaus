@@ -21,93 +21,98 @@ import { requirePermission, requireRetreatAccess } from '../middleware/authoriza
 const router = Router();
 
 // ==================== AUTHENTICATED ROUTES ====================
-
-// All routes require authentication
-router.use(isAuthenticated);
+// IMPORTANT: this router is mounted in `mainRouter` WITHOUT a path prefix
+// (`router.use(participantHistoryRoutes)`), so any blanket
+// `router.use(middleware)` here applies to EVERY request flowing through
+// mainRouter — even ones meant for sibling routers registered later (e.g.
+// `/schedule/public/...`). Attach `isAuthenticated` per-route instead.
 
 // ==================== USER RETREAT HISTORY ====================
 
-// Get complete retreat history for the authenticated user
-router.get('/history/my-retreats', getUserRetreatHistoryController);
-
-// Get retreat history for the authenticated user filtered by role
-router.get('/history/my-retreats/role/:role', getUserRetreatHistoryByRoleController);
-
-// Get the authenticated user's primary retreat
-router.get('/history/my-retreats/primary', getPrimaryRetreatController);
+router.get('/history/my-retreats', isAuthenticated, getUserRetreatHistoryController);
+router.get(
+	'/history/my-retreats/role/:role',
+	isAuthenticated,
+	getUserRetreatHistoryByRoleController,
+);
+router.get('/history/my-retreats/primary', isAuthenticated, getPrimaryRetreatController);
 
 // ==================== ADMIN/COORDINATOR ENDPOINTS ====================
 
-// Get retreat history for a specific user (admin/coordinator only)
 router.get(
 	'/history/user/:userId',
+	isAuthenticated,
 	requirePermission('participant:read'),
 	getUserRetreatHistoryByIdController,
 );
 
-// Get history for a specific user and retreat
 router.get(
 	'/history/user/:userId/retreat/:retreatId',
+	isAuthenticated,
 	requirePermission('participant:read'),
 	requireRetreatAccess('retreatId'),
 	getUserHistoryForRetreatController,
 );
 
-// Get all participants (history) for a specific retreat
 router.get(
 	'/history/retreat/:retreatId/participants',
+	isAuthenticated,
 	requireRetreatAccess('retreatId'),
 	getParticipantsByRetreatController,
 );
 
-// Get all history entries for a specific participant
 router.get(
 	'/history/participant/:participantId',
+	isAuthenticated,
 	requirePermission('participant:read'),
 	getHistoryByParticipantIdController,
 );
 
-// Get participants by role for a specific retreat
 router.get(
 	'/history/retreat/:retreatId/role/:role',
+	isAuthenticated,
 	requireRetreatAccess('retreatId'),
 	getParticipantsByRoleController,
 );
 
 // ==================== CHARLISTAS ENDPOINTS ====================
 
-// Get charlistas (speakers) for a retreat or globally
-router.get('/history/charlistas', requirePermission('participant:read'), getCharlistasController);
+router.get(
+	'/history/charlistas',
+	isAuthenticated,
+	requirePermission('participant:read'),
+	getCharlistasController,
+);
 
 // ==================== CRUD OPERATIONS (ADMIN ONLY) ====================
 
-// Create a new history entry (admin only)
-router.post('/history', requirePermission('participant:update'), createHistoryEntryController);
-
-// Update a history entry (admin only)
+router.post(
+	'/history',
+	isAuthenticated,
+	requirePermission('participant:update'),
+	createHistoryEntryController,
+);
 router.put(
 	'/history/:id',
+	isAuthenticated,
 	requirePermission('participant:update'),
 	updateHistoryEntryController,
 );
-
-// Delete a history entry (admin only)
 router.delete(
 	'/history/:id',
+	isAuthenticated,
 	requirePermission('participant:update'),
 	deleteHistoryEntryController,
 );
-
-// Mark a retreat as the user's primary retreat (admin only)
 router.put(
 	'/history/user/:userId/primary/:historyId',
+	isAuthenticated,
 	requirePermission('participant:update'),
 	markPrimaryRetreatController,
 );
-
-// Update bagMade flag for a participant in a retreat
 router.patch(
 	'/history/retreat/:retreatId/participant/:participantId/bag-made',
+	isAuthenticated,
 	requirePermission('participant:update'),
 	requireRetreatAccess('retreatId'),
 	updateBagMadeController,

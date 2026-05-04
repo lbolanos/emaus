@@ -88,6 +88,20 @@
                 </div>
                 <p v-if="!slugAvailable" class="text-xs text-red-500">Este slug ya está en uso. Elige otro.</p>
                 <p v-else class="text-xs text-muted-foreground">Se auto-genera desde parroquia + número. Solo letras minúsculas y números.</p>
+                <div
+                  v-if="slugAvailable && slugSeemsMismatched"
+                  class="mt-2 p-2 rounded-md bg-amber-50 border border-amber-300 text-amber-900 text-xs flex items-start gap-2"
+                >
+                  <span class="text-base leading-none">⚠️</span>
+                  <div class="flex-1">
+                    <p>El slug <code class="font-mono">{{ formData.slug }}</code> no parece coincidir con la parroquia <code class="font-mono">{{ formData.parish }}</code>. Probablemente quedó del retiro anterior al duplicar. ¿Regenerar?</p>
+                    <button
+                      type="button"
+                      class="mt-1 text-amber-700 underline hover:text-amber-800 font-medium"
+                      @click="regenerateSlugFromParish"
+                    >Regenerar slug desde parroquia</button>
+                  </div>
+                </div>
               </div>
 
             </div>
@@ -146,7 +160,7 @@
                   id="startDate"
                   type="date"
                   v-model="startDate"
-                  :min="minDate"
+                  :min="props.mode === 'add' ? minDate : undefined"
                   :class="{ 'border-red-500': errors.startDate }"
                   required
                 />
@@ -162,7 +176,7 @@
                   id="endDate"
                   type="date"
                   v-model="endDate"
-                  :min="startDate || minDate"
+                  :min="props.mode === 'add' ? (startDate || minDate) : undefined"
                   :class="{ 'border-red-500': errors.endDate }"
                   required
                 />
@@ -330,6 +344,13 @@
                     <Label for="isPublic-no">{{ $t('common.no') }}</Label>
                   </div>
                 </RadioGroup>
+                <div
+                  v-if="formData.isPublic"
+                  class="mt-3 p-2 rounded-md bg-amber-50 border border-amber-300 text-amber-900 text-xs flex gap-2"
+                >
+                  <span class="text-base leading-none">⚠️</span>
+                  <span>{{ $t('retreatModal.isPublicWarning') }}</span>
+                </div>
               </div>
 
               <div class="p-4 border rounded-lg">
@@ -961,6 +982,40 @@ function normalizeSlug() {
   checkSlugAvailability();
 }
 
+/**
+ * Heuristic: when duplicating a retreat the parish name is updated but the
+ * slug is often forgotten \u2014 leaving the new retreat exposed at the OLD slug
+ * (e.g. "San Judas Tadeo" served at /mam/interlomasiii). Flag this so the
+ * coordinator notices BEFORE sharing the URL with caminantes.
+ *
+ * Mismatch = slug doesn't contain ANY normalized token of length \u22654 from
+ * the parish name. Length \u22654 avoids false positives on short words like
+ * "san", "del", "la". Length 3 was tried but produced too many warnings.
+ */
+const slugSeemsMismatched = computed<boolean>(() => {
+  const parish = formData.value.parish;
+  const slug = formData.value.slug;
+  if (!parish || !slug || slug.length < 4) return false;
+  const norm = (s: string) =>
+    s
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9 ]/g, ' ');
+  const slugN = norm(slug).replace(/\s+/g, '');
+  const tokens = norm(parish).split(/\s+/).filter((t) => t.length >= 4);
+  if (!tokens.length) return false;
+  return !tokens.some((t) => slugN.includes(t));
+});
+
+function regenerateSlugFromParish() {
+  formData.value.slug = generateSlug(
+    formData.value.parish,
+    formData.value.retreat_number_version || '',
+  );
+  checkSlugAvailability();
+}
+
 const slugAvailable = ref(true);
 let slugCheckTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -1095,7 +1150,13 @@ const validateDates = () => {
     errors.value.endDate = 'End date must be after start date';
   }
 
-  if (start && startDateObj < minDateObj) {
+  // Past start date is only an error in ADD mode. In EDIT mode the retreat
+  // already exists with whatever date — the coordinator may legitimately need
+  // to fix the slug, notes, or close-out details on a retreat that already
+  // happened. Refusing to save would force them to either downgrade the
+  // record or talk to a developer. Saving with the original past date is a
+  // no-op for date semantics; what matters is letting other fields persist.
+  if (start && startDateObj < minDateObj && props.mode !== 'edit') {
     errors.value.startDate = 'Start date cannot be in the past';
   }
 };

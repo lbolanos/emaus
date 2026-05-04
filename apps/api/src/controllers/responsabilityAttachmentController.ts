@@ -33,6 +33,15 @@ export const listAttachments = async (req: Request, res: Response) => {
 	}
 };
 
+export const attachmentCounts = async (_req: Request, res: Response) => {
+	try {
+		const counts = await responsabilityAttachmentService.countsByName();
+		res.json(counts);
+	} catch (err) {
+		mapError(res, err);
+	}
+};
+
 export const createAttachment = async (req: Request, res: Response) => {
 	try {
 		const userId = (req.user as any)?.id ?? null;
@@ -94,9 +103,73 @@ export const createMarkdownAttachment = async (req: Request, res: Response) => {
 
 export const updateMarkdownAttachment = async (req: Request, res: Response) => {
 	try {
+		const userId = (req.user as any)?.id ?? null;
 		const att = await responsabilityAttachmentService.updateMarkdown(
 			req.params.attachmentId,
 			req.body ?? {},
+			userId,
+		);
+		res.json(att);
+	} catch (err) {
+		mapError(res, err);
+	}
+};
+
+export const listMarkdownHistory = async (req: Request, res: Response) => {
+	try {
+		const versions = await responsabilityAttachmentService.listMarkdownHistory(
+			req.params.attachmentId,
+		);
+		res.json(
+			versions.map((v) => ({
+				id: v.id,
+				attachmentId: v.attachmentId,
+				title: v.title,
+				// Don't ship full content in the list; the UI fetches just the
+				// preview metadata. To restore, the user picks a version → we
+				// return the full content via restore endpoint.
+				preview: v.content.slice(0, 200),
+				sizeBytes: v.sizeBytes,
+				description: v.description,
+				savedAt: v.savedAt,
+				savedById: v.savedById,
+			})),
+		);
+	} catch (err) {
+		mapError(res, err);
+	}
+};
+
+export const getMarkdownVersion = async (req: Request, res: Response) => {
+	try {
+		const v = await responsabilityAttachmentService.getMarkdownVersion(
+			req.params.attachmentId,
+			req.params.historyId,
+		);
+		// Full content — used by the preview dialog. Permission already
+		// gated at route level (`scheduleTemplate:read`).
+		res.json({
+			id: v.id,
+			attachmentId: v.attachmentId,
+			title: v.title,
+			content: v.content,
+			sizeBytes: v.sizeBytes,
+			description: v.description,
+			savedAt: v.savedAt,
+			savedById: v.savedById,
+		});
+	} catch (err) {
+		mapError(res, err);
+	}
+};
+
+export const restoreMarkdownVersion = async (req: Request, res: Response) => {
+	try {
+		const userId = (req.user as any)?.id ?? null;
+		const att = await responsabilityAttachmentService.restoreMarkdownVersion(
+			req.params.attachmentId,
+			req.params.historyId,
+			userId,
 		);
 		res.json(att);
 	} catch (err) {

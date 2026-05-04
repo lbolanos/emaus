@@ -2025,6 +2025,7 @@ export interface SantisimoSlotWithSignups {
   isDisabled: boolean;
   intention: string | null;
   notes: string | null;
+  mealWindow: boolean;
   signedUpCount: number;
   signups: Array<{
     id: string;
@@ -2392,6 +2393,56 @@ export const responsabilityAttachmentApi = {
   async remove(attachmentId: string): Promise<void> {
     await api.delete(`/responsability-attachments/attachments/${attachmentId}`);
   },
+  async counts(): Promise<Record<string, number>> {
+    const r = await api.get(`/responsability-attachments/counts`);
+    return r.data;
+  },
+  async listHistory(
+    attachmentId: string,
+  ): Promise<
+    Array<{
+      id: string;
+      attachmentId: string;
+      title: string;
+      preview: string;
+      sizeBytes: number;
+      description: string | null;
+      savedAt: string;
+      savedById: string | null;
+    }>
+  > {
+    const r = await api.get(
+      `/responsability-attachments/attachments/${attachmentId}/history`,
+    );
+    return r.data;
+  },
+  async restoreVersion(
+    attachmentId: string,
+    historyId: string,
+  ): Promise<ResponsabilityAttachmentDTO> {
+    const r = await api.post(
+      `/responsability-attachments/attachments/${attachmentId}/restore/${historyId}`,
+    );
+    return r.data;
+  },
+  async getVersion(
+    attachmentId: string,
+    historyId: string,
+  ): Promise<{
+    id: string;
+    attachmentId: string;
+    title: string;
+    content: string;
+    sizeBytes: number;
+    description: string | null;
+    savedAt: string;
+    savedById: string | null;
+  }> {
+    const r = await api.get(
+      `/responsability-attachments/attachments/${attachmentId}/history/${historyId}`,
+    );
+    return r.data;
+  },
 };
 
 export const retreatScheduleApi = {
@@ -2430,6 +2481,47 @@ export const retreatScheduleApi = {
     propagate = true,
   ): Promise<RetreatScheduleItemDTO[]> {
     const r = await api.post(`/schedule/items/${id}/shift`, { minutesDelta, propagate });
+    return r.data;
+  },
+  async shiftDay(
+    retreatId: string,
+    day: number,
+    minutesDelta: number,
+  ): Promise<RetreatScheduleItemDTO[]> {
+    const r = await api.post(`/schedule/retreats/${retreatId}/days/${day}/shift`, {
+      minutesDelta,
+    });
+    return r.data;
+  },
+  async reorderDay(
+    retreatId: string,
+    day: number,
+    itemIds: string[],
+  ): Promise<RetreatScheduleItemDTO[]> {
+    const r = await api.post(`/schedule/retreats/${retreatId}/days/${day}/reorder`, {
+      itemIds,
+    });
+    return r.data;
+  },
+  async publicGetMam(slug: string): Promise<{
+    retreat: { id: string; parish: string; startDate: string; endDate: string };
+    items: Array<{
+      id: string;
+      day: number;
+      startTime: string;
+      endTime: string;
+      durationMinutes: number;
+      name: string;
+      type: string;
+      status: 'pending' | 'active' | 'completed' | 'delayed' | 'skipped';
+      location: string | null;
+      responsabilityName: string | null;
+    }>;
+  }> {
+    // Plain axios request without auth interceptors — this is the only
+    // public endpoint in retreatScheduleApi. We still go through the shared
+    // `api` instance to keep base URL handling consistent.
+    const r = await api.get(`/schedule/public/mam/${encodeURIComponent(slug)}`);
     return r.data;
   },
   async materialize(

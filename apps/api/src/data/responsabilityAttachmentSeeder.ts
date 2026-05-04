@@ -19,7 +19,7 @@ const MAX_CONTENT_LENGTH = 200 * 1024; // mismo límite que el service
  *   no crea otro (no sobrescribe ediciones del usuario).
  * - Pensado para correr en cada boot — solo carga lo que falta.
  */
-export async function seedResponsabilityAttachmentsFromDescriptions(): Promise<{
+export async function seedCanonicalResponsabilityAttachments(): Promise<{
 	created: number;
 	skipped: number;
 }> {

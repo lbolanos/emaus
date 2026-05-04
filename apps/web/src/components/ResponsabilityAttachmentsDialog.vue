@@ -1,6 +1,15 @@
 <template>
   <Dialog :open="open" @update:open="(v: boolean) => $emit('update:open', v)">
-    <DialogContent class="max-w-3xl max-h-[90vh] overflow-y-auto">
+    <!-- Width is dynamic: while the markdown editor is open the dialog
+         expands a 95vw (casi full-screen, con un margen mínimo) para que
+         textarea + preview side-by-side aprovechen toda la pantalla;
+         default lista view se queda compacto a max-w-3xl. -->
+    <DialogContent
+      class="max-h-[95vh] overflow-y-auto transition-[max-width] duration-200"
+      :class="mdEditor.open
+        ? 'sm:!max-w-[95vw] w-[95vw]'
+        : 'max-w-3xl'"
+    >
       <DialogHeader>
         <DialogTitle>📎 Documentos · {{ responsabilityName }}</DialogTitle>
         <p v-if="contextLabel" class="text-sm text-gray-500">{{ contextLabel }}</p>
@@ -100,6 +109,60 @@
           </div>
         </div>
 
+        <!-- Panel de historial de un markdown -->
+        <div
+          v-if="historyPanel.open"
+          class="border rounded-lg p-3 space-y-3 bg-amber-50/40"
+        >
+          <div class="flex items-center justify-between">
+            <div class="font-semibold text-sm">📜 Versiones de "{{ historyPanel.title }}"</div>
+            <Button variant="outline" size="sm" @click="closeHistoryPanel">Cerrar</Button>
+          </div>
+          <div v-if="historyPanel.loading" class="text-xs text-gray-500 italic">
+            Cargando versiones…
+          </div>
+          <div v-else-if="!historyPanel.versions.length" class="text-xs text-gray-500 italic">
+            No hay versiones anteriores. La primera vez que editas este texto se
+            crea un snapshot automáticamente, y desde entonces podrás restaurar.
+          </div>
+          <ul v-else class="divide-y border rounded bg-white">
+            <li
+              v-for="v in historyPanel.versions"
+              :key="v.id"
+              class="flex items-start gap-3 p-2"
+            >
+              <div class="flex-1 min-w-0">
+                <div class="text-xs text-gray-700 font-medium">
+                  {{ fmtSavedAt(v.savedAt) }} · {{ humanSize(v.sizeBytes) }}
+                </div>
+                <div class="text-xs text-gray-500 truncate" :title="v.preview">
+                  {{ v.preview || '(vacío)' }}
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                class="text-xs"
+                :disabled="versionPreview.loadingId === v.id"
+                @click="openVersionPreview(v.id)"
+                title="Ver el contenido de esta versión sin restaurar"
+              >
+                {{ versionPreview.loadingId === v.id ? 'Cargando…' : '👁 Ver' }}
+              </Button>
+              <Button
+                v-if="canManage"
+                variant="outline"
+                size="sm"
+                class="text-xs"
+                :disabled="historyPanel.restoring === v.id"
+                @click="onRestoreVersion(v.id)"
+              >
+                {{ historyPanel.restoring === v.id ? 'Restaurando…' : 'Restaurar' }}
+              </Button>
+            </li>
+          </ul>
+        </div>
+
         <!-- Lista de documentos -->
         <div v-if="loading && !items.length" class="text-gray-500 text-sm">Cargando…</div>
         <div v-else-if="!items.length" class="text-gray-500 text-sm py-4 text-center">
@@ -147,6 +210,14 @@
                 <template v-else>
                   <button
                     type="button"
+                    @click="printMarkdown(att)"
+                    class="text-blue-700 hover:text-blue-900 px-2 py-1 text-xs border border-blue-200 rounded hover:bg-blue-50"
+                    title="Imprimir o guardar como PDF (abre vista previa)"
+                  >
+                    🖨 Imprimir
+                  </button>
+                  <button
+                    type="button"
                     @click="downloadMd(att)"
                     class="text-gray-700 hover:text-gray-900 px-2 py-1 text-xs border border-gray-200 rounded hover:bg-gray-50"
                     title="Descargar como .md"
@@ -157,13 +228,22 @@
                     type="button"
                     @click="downloadPdf(att)"
                     class="text-rose-600 hover:text-rose-800 px-2 py-1 text-xs border border-rose-200 rounded hover:bg-rose-50"
-                    title="Descargar como PDF"
+                    title="Descargar como PDF (jsPDF)"
                   >
                     ⬇ PDF
                   </button>
                 </template>
               </div>
               <div class="flex items-center gap-1">
+                <button
+                  v-if="att.kind === 'markdown'"
+                  type="button"
+                  @click="openHistoryPanel(att)"
+                  class="text-gray-500 hover:text-gray-800 px-2 py-1 text-xs"
+                  title="Ver versiones anteriores"
+                >
+                  📜
+                </button>
                 <button
                   v-if="canManage && att.kind === 'markdown'"
                   type="button"
@@ -190,6 +270,34 @@
 
       <DialogFooter>
         <Button variant="outline" @click="$emit('update:open', false)">Cerrar</Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  <!-- Preview secundario de una versión histórica (read-only) -->
+  <Dialog
+    :open="versionPreview.open"
+    @update:open="(v: boolean) => { if (!v) closeVersionPreview() }"
+  >
+    <DialogContent class="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>👁 Vista previa · {{ versionPreview.title }}</DialogTitle>
+        <p class="text-sm text-gray-500">
+          Versión guardada el {{ versionPreview.savedAt ? fmtSavedAt(versionPreview.savedAt) : '—' }}.
+          Este contenido es de sólo lectura — para reemplazar el actual, cierra y usa "Restaurar".
+        </p>
+      </DialogHeader>
+      <div class="border rounded-lg p-4 bg-gray-50 prose prose-sm max-w-none overflow-y-auto" style="max-height: 60vh">
+        <div v-if="versionPreview.loadingContent" class="text-gray-500 italic">
+          Cargando contenido…
+        </div>
+        <div v-else-if="versionPreview.error" class="text-red-600 text-sm">
+          {{ versionPreview.error }}
+        </div>
+        <div v-else v-html="versionPreview.html"></div>
+      </div>
+      <DialogFooter>
+        <Button variant="outline" @click="closeVersionPreview">Cerrar</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>
@@ -248,6 +356,68 @@ const mdEditor = reactive({
   content: '',
 });
 
+interface HistoryVersion {
+  id: string;
+  attachmentId: string;
+  title: string;
+  preview: string;
+  sizeBytes: number;
+  description: string | null;
+  savedAt: string;
+  savedById: string | null;
+}
+
+const historyPanel = reactive({
+  open: false,
+  loading: false,
+  attachmentId: '' as string | null,
+  title: '',
+  versions: [] as HistoryVersion[],
+  restoring: '' as string | null,
+});
+
+// Preview-only modal: renders the chosen version's markdown without mutating
+// the current attachment. The history list shows a 200-char preview, but to
+// decide whether to restore the user often needs the full thing rendered.
+const versionPreview = reactive({
+  open: false,
+  loadingId: '' as string | null,
+  loadingContent: false,
+  title: '',
+  savedAt: '' as string | null,
+  html: '',
+  error: '' as string | null,
+});
+
+async function openVersionPreview(historyId: string) {
+  if (!historyPanel.attachmentId) return;
+  versionPreview.loadingId = historyId;
+  versionPreview.error = null;
+  try {
+    const v = await responsabilityAttachmentApi.getVersion(
+      historyPanel.attachmentId,
+      historyId,
+    );
+    versionPreview.title = v.title || historyPanel.title || '';
+    versionPreview.savedAt = v.savedAt;
+    versionPreview.html = marked.parse(v.content || '', { async: false }) as string;
+    versionPreview.open = true;
+  } catch (err: any) {
+    versionPreview.error = err?.response?.data?.message || err?.message || 'Error';
+    versionPreview.open = true; // open anyway so user sees the error
+  } finally {
+    versionPreview.loadingId = null;
+  }
+}
+
+function closeVersionPreview() {
+  versionPreview.open = false;
+  versionPreview.html = '';
+  versionPreview.savedAt = null;
+  versionPreview.title = '';
+  versionPreview.error = null;
+}
+
 const mdPreviewHtml = computed<string>(() => {
   try {
     return marked.parse(mdEditor.content || '', { async: false }) as string;
@@ -286,6 +456,67 @@ function humanSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function fmtSavedAt(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+async function openHistoryPanel(att: ResponsabilityAttachmentDTO) {
+  historyPanel.open = true;
+  historyPanel.loading = true;
+  historyPanel.attachmentId = att.id;
+  historyPanel.title = (att.fileName || '').replace(/\.md$/i, '');
+  historyPanel.versions = [];
+  try {
+    historyPanel.versions = await responsabilityAttachmentApi.listHistory(att.id);
+  } catch (err: any) {
+    toast({
+      title: 'Error',
+      description: err?.message ?? 'No se pudo cargar el historial',
+      variant: 'destructive',
+    });
+  } finally {
+    historyPanel.loading = false;
+  }
+}
+
+function closeHistoryPanel() {
+  historyPanel.open = false;
+  historyPanel.attachmentId = null;
+  historyPanel.title = '';
+  historyPanel.versions = [];
+  historyPanel.restoring = null;
+}
+
+async function onRestoreVersion(historyId: string) {
+  if (!historyPanel.attachmentId) return;
+  if (!confirm('¿Restaurar esta versión? La versión actual se guardará en el historial antes de cambiar.')) {
+    return;
+  }
+  historyPanel.restoring = historyId;
+  try {
+    const restored = await responsabilityAttachmentApi.restoreVersion(
+      historyPanel.attachmentId,
+      historyId,
+    );
+    const idx = items.value.findIndex((a) => a.id === restored.id);
+    if (idx >= 0) items.value[idx] = restored;
+    // Reload history so the just-snapshotted "current" appears at the top.
+    historyPanel.versions = await responsabilityAttachmentApi.listHistory(restored.id);
+    emit('changed');
+    toast({ title: 'Versión restaurada' });
+  } catch (err: any) {
+    toast({
+      title: 'Error',
+      description: err?.message ?? 'No se pudo restaurar',
+      variant: 'destructive',
+    });
+  } finally {
+    historyPanel.restoring = null;
+  }
 }
 
 function iconFor(att: ResponsabilityAttachmentDTO): string {
@@ -451,6 +682,62 @@ function downloadMd(att: ResponsabilityAttachmentDTO) {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Print a single markdown attachment.
+ *
+ * Opens a fresh window with the rendered markdown and a small print
+ * stylesheet (A4-friendly, 11pt body, table borders), then triggers
+ * `window.print()`. The user can save as PDF or send to printer from
+ * the native dialog. Closes the popup after the dialog is dismissed.
+ *
+ * Why a new window (vs in-page `@media print`): the MaM page already has
+ * its own print rules that hide the dialog. A child window gives the
+ * markdown its own clean print context and avoids any interaction with
+ * the parent's @media print sheet.
+ */
+function printMarkdown(att: ResponsabilityAttachmentDTO) {
+  const title = (att.fileName || 'Guion').replace(/\.md$/i, '');
+  const html = marked.parse(att.content ?? '', { async: false }) as string;
+  const win = window.open('', '_blank', 'width=900,height=1100');
+  if (!win) {
+    toast({
+      title: 'Bloqueado por el navegador',
+      description: 'Permite ventanas emergentes para imprimir el guion.',
+      variant: 'destructive',
+    });
+    return;
+  }
+  win.document.write(`<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8" />
+<title>${title}</title>
+<style>
+  @page { margin: 16mm; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11pt; line-height: 1.45; color: #1a1a1a; max-width: 700px; margin: 0 auto; padding: 8mm; }
+  h1 { font-size: 18pt; border-bottom: 2px solid #333; padding-bottom: 4pt; margin-top: 0; }
+  h2 { font-size: 14pt; margin-top: 16pt; color: #2c3e50; }
+  h3 { font-size: 12pt; margin-top: 12pt; }
+  table { border-collapse: collapse; width: 100%; margin: 8pt 0; font-size: 10pt; }
+  th, td { border: 1px solid #999; padding: 4pt 6pt; text-align: left; vertical-align: top; }
+  th { background: #f0f0f0; font-weight: 600; }
+  ul, ol { padding-left: 20pt; }
+  li { margin: 2pt 0; }
+  blockquote { border-left: 3px solid #ccc; padding-left: 8pt; color: #555; margin-left: 0; }
+  code { background: #f4f4f4; padding: 1pt 3pt; border-radius: 2pt; font-size: 10pt; }
+  hr { border: none; border-top: 1px solid #ccc; margin: 12pt 0; }
+  @media print {
+    body { max-width: none; padding: 0; }
+    h1 { page-break-after: avoid; }
+    h2, h3 { page-break-after: avoid; }
+    tr { page-break-inside: avoid; }
+  }
+</style></head><body>
+<h1>${title}</h1>
+${html}
+<script>window.addEventListener('load', () => { setTimeout(() => { window.print(); }, 100); window.addEventListener('afterprint', () => window.close()); });</` + `script>
+</body></html>`);
+  win.document.close();
 }
 
 function downloadPdf(att: ResponsabilityAttachmentDTO) {

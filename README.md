@@ -502,6 +502,12 @@ minuto a minutos
 horarios de santisimo
 no se ve la mesa en algunos usuarios en reporte de bolsas
 
+mam poder imprimir el documento de cada item.
+la distribucion no es la mejor ...  esta muy ancho y deja mucho espacio a la derecha
+
+agrega al menu de acciones ayuda en la que muestres un manual de como se usa el mam
+
+
 en agregar pago al seleccionar el participante  que se vea que tiene beca o no
 definir el pago como real o pago de beca para que se vea en los listados que pago todo pero en el detalle se pueda ver que tiene beca de tanto.
 

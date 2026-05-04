@@ -1033,14 +1033,27 @@ describe('HIGH-P3-4: Retreat participant routes have authorization middleware', 
 		);
 		const lines = routeFile.split('\n');
 
-		// POST /history should require permission
-		const postLine = lines.find((l: string) => l.includes("router.post('/history'"));
-		expect(postLine).toContain('requirePermission');
+		// POST /history should require permission. Routes can be single-line
+		// or multi-line so we search for the path literal `'/history',` (with
+		// trailing comma — distinguishes it from `'/history/...'` longer paths)
+		// or single-line `router.post('/history'`, then assert the ±6 line
+		// neighborhood mentions both `router.post` and `requirePermission`.
+		const postIdx = lines.findIndex(
+			(l: string) =>
+				l.includes("router.post('/history'") ||
+				/^\s*'\/history',\s*$/.test(l),
+		);
+		expect(postIdx).toBeGreaterThan(-1);
+		const surroundingPost = lines.slice(Math.max(0, postIdx - 3), postIdx + 6).join('\n');
+		expect(surroundingPost).toContain('router.post');
+		expect(surroundingPost).toContain('requirePermission');
 
 		// PUT /history/:id should require permission — check surrounding lines
+		// Window widened to ±4 to accommodate multi-line route definitions:
+		// `router.put(` / args line per line / handler / closing `);`.
 		const historyIdLine = lines.findIndex((l: string) => l.includes("'/history/:id'"));
 		expect(historyIdLine).toBeGreaterThan(-1);
-		const surroundingPut = lines.slice(Math.max(0, historyIdLine - 2), historyIdLine + 2).join('\n');
+		const surroundingPut = lines.slice(Math.max(0, historyIdLine - 2), historyIdLine + 5).join('\n');
 		expect(surroundingPut).toContain('requirePermission');
 	});
 

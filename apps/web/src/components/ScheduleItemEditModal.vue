@@ -63,6 +63,50 @@
           Bloquea asistencia al Santísimo (comida/dinámica en mesa)
         </label>
 
+        <!-- Estado y horarios reales (backfill / corrección) -->
+        <div v-if="mode === 'edit'" class="p-3 border rounded-lg space-y-3 bg-amber-50/40">
+          <div>
+            <Label class="font-medium">Estado y horarios reales</Label>
+            <p class="text-xs text-muted-foreground">
+              Para registrar el minuto a minuto después del retiro o corregir un click accidental.
+              Si marcás <code>completed</code> sin tocar las horas reales, se copian de las planeadas.
+            </p>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="space-y-1">
+              <Label>Estado</Label>
+              <select v-model="form.status" class="w-full border rounded px-2 py-2 text-sm">
+                <option v-for="s in STATUSES" :key="s" :value="s">{{ s }}</option>
+              </select>
+            </div>
+            <div class="space-y-1">
+              <Label>Inicio real</Label>
+              <Input type="datetime-local" v-model="form.actualStartTimeLocal" />
+            </div>
+            <div class="space-y-1">
+              <Label>Fin real</Label>
+              <Input type="datetime-local" v-model="form.actualEndTimeLocal" />
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2 text-xs">
+            <button
+              type="button"
+              class="text-blue-600 hover:underline"
+              @click="copyPlannedToActual"
+            >
+              Copiar planeadas → reales
+            </button>
+            <span class="text-gray-300">·</span>
+            <button
+              type="button"
+              class="text-blue-600 hover:underline"
+              @click="clearActuals"
+            >
+              Limpiar reales
+            </button>
+          </div>
+        </div>
+
         <!-- Responsable principal -->
         <div class="p-3 border rounded-lg space-y-2">
           <Label class="font-medium">Responsable principal</Label>
@@ -220,6 +264,9 @@ const TYPES = [
   'otro',
 ];
 
+const STATUSES = ['pending', 'active', 'completed', 'delayed', 'skipped'] as const;
+type ItemStatus = (typeof STATUSES)[number];
+
 interface Props {
   open: boolean;
   mode: 'add' | 'edit';
@@ -251,6 +298,9 @@ export type SubmitPayload = {
   blocksSantisimoAttendance: boolean;
   responsabilityId?: string | null;
   responsableParticipantIds: string[];
+  status?: ItemStatus;
+  actualStartTime?: string | null;
+  actualEndTime?: string | null;
 };
 
 const apoyoToAdd = ref('');
@@ -272,6 +322,9 @@ function emptyForm() {
     blocksSantisimoAttendance: false,
     responsabilityId: null as string | null,
     responsableParticipantIds: [] as string[],
+    status: 'pending' as ItemStatus,
+    actualStartTimeLocal: '',
+    actualEndTimeLocal: '',
   };
 }
 
@@ -303,6 +356,9 @@ watch(
         blocksSantisimoAttendance: !!it.blocksSantisimoAttendance,
         responsabilityId: it.responsabilityId ?? null,
         responsableParticipantIds: (it.responsables ?? []).map((r) => r.participantId),
+        status: (it.status ?? 'pending') as ItemStatus,
+        actualStartTimeLocal: toLocalInput(it.actualStartTime),
+        actualEndTimeLocal: toLocalInput(it.actualEndTime),
       };
     } else {
       form.value = emptyForm();
@@ -337,8 +393,37 @@ function removeApoyo(id: string) {
   );
 }
 
+function localToIso(local: string): string | null {
+  if (!local) return null;
+  const d = new Date(local);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+function copyPlannedToActual() {
+  form.value.actualStartTimeLocal = form.value.startTimeLocal;
+  // Calculate planned end = startTime + durationMinutes
+  if (form.value.startTimeLocal && form.value.durationMinutes > 0) {
+    const start = new Date(form.value.startTimeLocal);
+    if (!Number.isNaN(start.getTime())) {
+      const end = new Date(start.getTime() + form.value.durationMinutes * 60_000);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      form.value.actualEndTimeLocal =
+        `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}` +
+        `T${pad(end.getHours())}:${pad(end.getMinutes())}`;
+    }
+  }
+}
+
+function clearActuals() {
+  form.value.actualStartTimeLocal = '';
+  form.value.actualEndTimeLocal = '';
+}
+
 function onSubmit() {
-  emit('submit', {
+  // For edit mode: include status + actuals so coordinator can backfill / correct.
+  // For add mode: omit them so the API uses its defaults (status=pending, actuals=null).
+  const isEdit = props.mode === 'edit';
+  const payload: SubmitPayload = {
     name: form.value.name,
     type: form.value.type,
     day: form.value.day,
@@ -353,7 +438,13 @@ function onSubmit() {
     blocksSantisimoAttendance: form.value.blocksSantisimoAttendance,
     responsabilityId: form.value.responsabilityId,
     responsableParticipantIds: form.value.responsableParticipantIds,
-  });
+  };
+  if (isEdit) {
+    payload.status = form.value.status;
+    payload.actualStartTime = localToIso(form.value.actualStartTimeLocal);
+    payload.actualEndTime = localToIso(form.value.actualEndTimeLocal);
+  }
+  emit('submit', payload);
 }
 
 function onDelete() {

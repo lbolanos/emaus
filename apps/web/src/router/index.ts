@@ -41,6 +41,7 @@ const MyScheduleView = () => import('../views/MyScheduleView.vue');
 const ScheduleTemplateView = () => import('../views/ScheduleTemplateView.vue');
 const AssignResponsiblesView = () => import('../views/AssignResponsiblesView.vue');
 const PublicSantisimoView = () => import('../views/PublicSantisimoView.vue');
+const PublicMinuteByMinuteView = () => import('../views/PublicMinuteByMinuteView.vue');
 const RecepcionView = () => import('../views/RecepcionView.vue');
 const RetreatShirtTypesView = () => import('../views/RetreatShirtTypesView.vue');
 
@@ -132,6 +133,16 @@ const router = createRouter({
 			path: '/santisimo/:slug',
 			name: 'public-santisimo',
 			component: PublicSantisimoView,
+			props: true,
+			meta: { requiresAuth: false },
+		},
+		{
+			// Big-screen public view of the minuto a minuto for projecting in
+			// the salon during a retreat. Auth-less; only retreats with
+			// `isPublic=true` are exposed by the backend.
+			path: '/mam/:slug',
+			name: 'public-mam',
+			component: PublicMinuteByMinuteView,
 			props: true,
 			meta: { requiresAuth: false },
 		},
@@ -540,6 +551,20 @@ const AUTH_RECHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 router.beforeEach(async (to, from, next) => {
 	const auth = useAuthStore();
+
+	// URL → store sync for retreat-scoped routes.
+	// Without this, opening a bookmark/shared link to /app/retreats/<id>/<section>
+	// while localStorage holds a different `selectedRetreatId` causes the
+	// Sidebar's `immediate: true` watcher to router.replace() back to the
+	// stored id, silently overriding the URL the user explicitly opened.
+	// Treat the URL as source of truth so the store follows.
+	const requiresRetreat = to.matched.some((record) => record.meta?.requiresRetreat);
+	if (requiresRetreat && typeof to.params.id === 'string' && to.params.id) {
+		const retreatStore = useRetreatStore();
+		if (retreatStore.selectedRetreatId !== to.params.id) {
+			retreatStore.selectRetreat(to.params.id);
+		}
+	}
 
 	// Check if route explicitly doesn't require auth
 	const requiresAuth = to.matched.some((record) => record.meta.requiresAuth !== false);

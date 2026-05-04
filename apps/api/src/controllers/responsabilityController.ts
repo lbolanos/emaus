@@ -17,6 +17,7 @@ import {
 	charlaDocumentation,
 	responsibilityDocumentation,
 } from '../data/charlaDocumentation';
+import { responsabilityAttachmentService } from '../services/responsabilityAttachmentService';
 
 // Helper function to check retreat access
 const checkRetreatAccess = async (req: Request, retreatId: string): Promise<boolean> => {
@@ -209,13 +210,34 @@ export const getPalanqueroOptions = async (req: Request, res: Response, next: Ne
 	}
 };
 
+/**
+ * Legacy endpoint proxy: returns the markdown documentation for a given
+ * responsability name. Source of truth has moved from the in-memory
+ * `charlaDocumentation` / `responsibilityDocumentation` dictionaries to
+ * the `responsability_attachment` table (markdown rows seeded from the
+ * same dictionaries at boot, then editable by coordinators).
+ *
+ * Resolution order:
+ *   1. First markdown attachment for that name (db, editable, current).
+ *   2. Static dictionary (fallback for environments where the seeder
+ *      hasn't run, or for names that exist only in the dict).
+ *   3. 404.
+ *
+ * The fallback keeps the system working during migration windows and
+ * preserves the contract for any frontend still wired to this endpoint.
+ */
 export const getDocumentation = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const { name } = req.query;
 		if (!name || typeof name !== 'string') {
 			return res.status(400).json({ message: 'name is required' });
 		}
-		const markdown = charlaDocumentation[name] ?? responsibilityDocumentation[name] ?? null;
+		const att = await responsabilityAttachmentService.getFirstMarkdownByName(name);
+		const markdown =
+			att?.content ??
+			charlaDocumentation[name] ??
+			responsibilityDocumentation[name] ??
+			null;
 		if (!markdown) {
 			return res.status(404).json({ message: 'Documentation not found', name });
 		}
@@ -225,14 +247,37 @@ export const getDocumentation = async (req: Request, res: Response, next: NextFu
 	}
 };
 
+/**
+ * Legacy endpoint proxy: returns the list of names that have markdown
+ * documentation, split into `charlas` (those listed in
+ * `charlaDocumentation`) and `responsibilities` (the rest). Coordinator-
+ * created markdowns that don't match either dictionary land in
+ * `responsibilities` (e.g. "Diario", "Moderador").
+ */
 export const listDocumentationKeys = async (
 	_req: Request,
 	res: Response,
 	next: NextFunction,
 ) => {
 	try {
-		const charlas = Object.keys(charlaDocumentation);
-		const responsibilities = Object.keys(responsibilityDocumentation);
+		const attachmentNames = await responsabilityAttachmentService.listMarkdownNames();
+		// Union of attachment names ∪ legacy dict keys, then categorize.
+		const all = new Set<string>([
+			...attachmentNames,
+			...Object.keys(charlaDocumentation),
+			...Object.keys(responsibilityDocumentation),
+		]);
+		const charlas: string[] = [];
+		const responsibilities: string[] = [];
+		for (const name of all) {
+			if (charlaDocumentation[name] !== undefined) {
+				charlas.push(name);
+			} else {
+				responsibilities.push(name);
+			}
+		}
+		charlas.sort();
+		responsibilities.sort();
 		res.json({ charlas, responsibilities });
 	} catch (error) {
 		next(error);

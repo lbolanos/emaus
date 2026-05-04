@@ -3,10 +3,15 @@ import { RetreatScheduleItem, ScheduleItemStatus } from '../entities/retreatSche
 import { RetreatScheduleItemResponsable } from '../entities/retreatScheduleItemResponsable.entity';
 import { ScheduleTemplate } from '../entities/scheduleTemplate.entity';
 import { responsabilityAttachmentService } from './responsabilityAttachmentService';
+import { ResponsabilityAttachment } from '../entities/responsabilityAttachment.entity';
 import { SantisimoSlot } from '../entities/santisimoSlot.entity';
 import { SantisimoSignup } from '../entities/santisimoSignup.entity';
 import { Participant } from '../entities/participant.entity';
 import { Responsability } from '../entities/responsability.entity';
+import { Retreat } from '../entities/retreat.entity';
+import archiver from 'archiver';
+import type { Readable, Writable } from 'stream';
+import { s3Service } from './s3Service';
 import { ensureCharlaResponsibilitiesFromTemplateSet } from './responsabilityService';
 import {
 	emitScheduleItemCompleted,
@@ -50,19 +55,36 @@ export class RetreatScheduleService {
 	private async populateTemplateAttachments<T extends RetreatScheduleItem>(
 		items: T[],
 	): Promise<T[]> {
+		// Attachments by responsability name
 		const names = items
 			.map((i) => i.responsability?.name)
 			.filter((n): n is string => !!n && n.trim().length > 0);
-		if (!names.length) {
-			items.forEach((i) => {
-				(i as any).attachments = [];
+		const byName = names.length
+			? await responsabilityAttachmentService.listForNames(names)
+			: new Map();
+
+		// Template descriptions: read-only, copied at query time so the UI
+		// can show the original guidance from the template (e.g. "Eucaristía
+		// privada del equipo para encomendar el retiro al Señor antes de la
+		// llegada de los caminantes") without storing duplicates per retreat.
+		const templateIds = Array.from(
+			new Set(items.map((i) => i.scheduleTemplateId).filter((x): x is string => !!x)),
+		);
+		const descriptionByTemplateId = new Map<string, string | null>();
+		if (templateIds.length) {
+			const templates = await this.templateRepo.find({
+				where: { id: In(templateIds) },
+				select: ['id', 'description'],
 			});
-			return items;
+			templates.forEach((t) => descriptionByTemplateId.set(t.id, t.description ?? null));
 		}
-		const byName = await responsabilityAttachmentService.listForNames(names);
+
 		items.forEach((i) => {
 			const n = i.responsability?.name?.trim();
 			(i as any).attachments = n ? (byName.get(n) ?? []) : [];
+			(i as any).templateDescription = i.scheduleTemplateId
+				? descriptionByTemplateId.get(i.scheduleTemplateId) ?? null
+				: null;
 		});
 		return items;
 	}
@@ -328,6 +350,273 @@ export class RetreatScheduleService {
 	}
 
 	/**
+	 * Stream a ZIP of all attachments associated with the retreat's items.
+	 *
+	 * For each item with `responsabilityId`, fetch its attachments via the
+	 * canonical name JOIN. Markdowns become `.md` files (`<rol>/<title>.md`),
+	 * binary files are streamed as-is from S3 or decoded from data URL.
+	 *
+	 * Use case: coordinator quiere imprimir o leer offline todos los guiones
+	 * antes del retiro. Streaming evita cargar todo en memoria — los archivos
+	 * se escriben al output según se van resolviendo.
+	 *
+	 * Returns the zip "name" suggestion (without extension) so the controller
+	 * can set `Content-Disposition`.
+	 */
+	async streamRetreatBundle(
+		retreatId: string,
+		output: Writable,
+	): Promise<{ fileName: string; itemCount: number; attachmentCount: number }> {
+		const retreatRepo = AppDataSource.getRepository(Retreat);
+		const retreat = await retreatRepo.findOne({ where: { id: retreatId } });
+		if (!retreat) throw new ScheduleNotFoundError('retreat not found');
+
+		const items = await this.itemRepo.find({
+			where: { retreatId },
+			relations: ['responsability'],
+			order: { day: 'ASC', startTime: 'ASC' },
+		});
+
+		// Collect unique responsability names to avoid duplicates (the same
+		// guion can be referenced by multiple items in the same day).
+		const seen = new Set<string>();
+		const respNames: string[] = [];
+		for (const it of items) {
+			const name = it.responsability?.name;
+			if (name && !seen.has(name)) {
+				seen.add(name);
+				respNames.push(name);
+			}
+		}
+
+		const byName = new Map<string, ResponsabilityAttachment[]>();
+		// Resolve all attachments per name (parallel — service.list is small
+		// and the canonical-name set is bounded by the template, not by retreat
+		// size, so concurrency is safe).
+		await Promise.all(
+			respNames.map(async (name) => {
+				const list = await responsabilityAttachmentService.list(name);
+				if (list.length) byName.set(name, list);
+			}),
+		);
+
+		// File-name slug: ASCII-safe, preserves spaces with underscore for
+		// readability, drops other punctuation. Cross-platform safe.
+		const slug = (s: string): string =>
+			s
+				.normalize('NFKD')
+				.replace(/[̀-ͯ]/g, '') // drop combining marks
+				.replace(/[^\w\s-]/g, '')
+				.replace(/\s+/g, '_')
+				.slice(0, 80) || 'doc';
+
+		const archive = archiver('zip', { zlib: { level: 9 } });
+		archive.pipe(output);
+
+		// Helper: append S3 attachment as a real binary stream. Returns false
+		// if the fetch failed (caller falls back to `.url.txt`). Per-archive
+		// timeout prevents one slow object from stalling the bundle.
+		const appendS3Stream = async (
+			storageKey: string,
+			fileName: string,
+			folder: string,
+		): Promise<boolean> => {
+			try {
+				const stream: Readable = await Promise.race([
+					s3Service.getObjectStream(storageKey),
+					new Promise<never>((_, reject) =>
+						setTimeout(() => reject(new Error('s3 fetch timeout')), 15_000),
+					),
+				]);
+				archive.append(stream, { name: `${folder}/${fileName}` });
+				// Wait for archiver to consume the stream before moving on so a
+				// failure surfaces here, not silently mid-zip.
+				await new Promise<void>((resolve, reject) => {
+					stream.on('end', () => resolve());
+					stream.on('error', reject);
+				});
+				return true;
+			} catch (err) {
+				console.warn(
+					`[retreat-bundle] S3 stream failed for key=${storageKey}: ${
+						err instanceof Error ? err.message : String(err)
+					}. Falling back to .url.txt`,
+				);
+				return false;
+			}
+		};
+
+		let attachmentCount = 0;
+		const failedS3Keys: string[] = [];
+		for (const [name, atts] of byName) {
+			const folder = slug(name);
+			for (const att of atts) {
+				attachmentCount++;
+				if (att.kind === 'markdown') {
+					const fname = `${slug(att.fileName.replace(/\.md$/i, ''))}.md`;
+					archive.append(att.content ?? '', {
+						name: `${folder}/${fname}`,
+					});
+				} else if (att.storageKey) {
+					// S3 file: stream the binary directly into the archive so the
+					// downloaded ZIP is usable offline. Fall back to a `.url.txt`
+					// pointer if the S3 fetch fails (timeout, auth, missing).
+					const ok = await appendS3Stream(
+						att.storageKey,
+						slug(att.fileName),
+						folder,
+					);
+					if (!ok) {
+						failedS3Keys.push(att.storageKey);
+						archive.append(
+							`${att.fileName}\nURL: ${att.storageUrl}\n(El archivo no pudo descargarse de S3 al generar el bundle. Abre la URL para acceder al original.)\n`,
+							{ name: `${folder}/${slug(att.fileName)}.url.txt` },
+						);
+					}
+				} else if (att.storageUrl?.startsWith('data:')) {
+					// Inline base64 — decode and include as the original binary.
+					const match = /^data:([^;]+);base64,(.+)$/.exec(att.storageUrl);
+					if (match) {
+						const buffer = Buffer.from(match[2], 'base64');
+						archive.append(buffer, { name: `${folder}/${slug(att.fileName)}` });
+					}
+				}
+			}
+		}
+
+		// Top-level README.md as table of contents.
+		const readmeLines: string[] = [
+			`# Guiones del retiro: ${retreat.parish}`,
+			'',
+			`Generado: ${new Date().toISOString()}`,
+			`Items: ${items.length}, Responsabilidades con guiones: ${byName.size}, Attachments: ${attachmentCount}`,
+		];
+		if (failedS3Keys.length) {
+			readmeLines.push(
+				'',
+				`⚠️  ${failedS3Keys.length} archivo(s) S3 no se pudieron descargar — ver \`.url.txt\` correspondientes.`,
+			);
+		}
+		readmeLines.push('', '## Carpetas', '', ...Array.from(byName.keys()).map((n) => `- ${n}/`));
+		archive.append(readmeLines.join('\n'), { name: 'README.md' });
+
+		await archive.finalize();
+
+		const fileName = `MaM_${slug(retreat.parish)}_${retreat.startDate.toString().slice(0, 10)}.zip`;
+		return { fileName, itemCount: items.length, attachmentCount };
+	}
+
+	/**
+	 * Public big-screen view of the schedule for a retreat identified by slug.
+	 *
+	 * No auth required — but the retreat MUST have `isPublic=true`. Returns
+	 * a slim shape (no notes, no PII like emails/phones) suitable for
+	 * projecting in the salon during the retreat. Used by `/mam/:slug`.
+	 *
+	 * Returns null if no matching public retreat — controller maps to 404.
+	 */
+	async getPublicSchedule(
+		slug: string,
+	): Promise<{
+		retreat: { id: string; parish: string; startDate: string; endDate: string };
+		items: Array<{
+			id: string;
+			day: number;
+			startTime: string;
+			endTime: string;
+			durationMinutes: number;
+			name: string;
+			type: string;
+			status: 'pending' | 'active' | 'completed' | 'delayed' | 'skipped';
+			location: string | null;
+			responsabilityName: string | null;
+		}>;
+	} | null> {
+		const repo = AppDataSource.getRepository(Retreat);
+		const retreat = await repo.findOne({ where: { slug } });
+		if (!retreat || !retreat.isPublic) return null;
+
+		const items = await this.itemRepo.find({
+			where: { retreatId: retreat.id },
+			relations: ['responsability'],
+			order: { day: 'ASC', startTime: 'ASC' },
+		});
+
+		// Defensive ISO conversion: SQLite returns date columns as strings,
+		// Postgres as Date instances. Wrap with `new Date(x).toISOString()`
+		// to work uniformly across both drivers.
+		const toIso = (v: Date | string): string =>
+			v instanceof Date ? v.toISOString() : new Date(v).toISOString();
+
+		return {
+			retreat: {
+				id: retreat.id,
+				parish: retreat.parish,
+				startDate: toIso(retreat.startDate),
+				endDate: toIso(retreat.endDate),
+			},
+			items: items.map((it) => ({
+				id: it.id,
+				day: it.day,
+				startTime: toIso(it.startTime),
+				endTime: toIso(it.endTime),
+				durationMinutes: it.durationMinutes,
+				name: it.name,
+				type: it.type,
+				status: it.status,
+				location: it.location ?? null,
+				// Only the responsability NAME — no participant info, no
+				// description, no notes.
+				responsabilityName: it.responsability?.name ?? null,
+			})),
+		};
+	}
+
+	/**
+	 * Compute the absolute startTime/endTime for a template item given the
+	 * retreat's first-day date and the template's day offset / HH:MM.
+	 *
+	 * The fix here addresses a TZ-shift bug: when the controller parses
+	 * `baseDate` from JSON (`new Date("2026-04-26")` → UTC midnight) and we
+	 * then call `getDate()` / `setDate()` / `setHours()` (which use
+	 * server-local time), a non-UTC server interprets the UTC midnight as
+	 * "previous day at 6 PM local" and Day 1 lands on the wrong calendar
+	 * date. Treat the input as a calendar date (Y/M/D) by reading its UTC
+	 * components, then construct the result in server-local time so HH:MM
+	 * still means HH:MM where the server runs (matching coordinator intent).
+	 *
+	 * On UTC servers (prod) this is a no-op; in non-UTC dev environments it
+	 * stops the day-1 shift seen during simulation.
+	 */
+	private computeItemDateRange(
+		baseDate: Date,
+		day: number,
+		defaultStartTime: string | null | undefined,
+		durationMinutes: number,
+	): { startTime: Date; endTime: Date } {
+		let h = 9;
+		let m = 0;
+		if (defaultStartTime) {
+			const parts = defaultStartTime.split(':');
+			h = parseInt(parts[0] ?? '9', 10);
+			m = parseInt(parts[1] ?? '0', 10);
+		}
+		const yyyy = baseDate.getUTCFullYear();
+		const mm = baseDate.getUTCMonth();
+		const dd = baseDate.getUTCDate();
+		// "After-midnight" items (e.g. Polanco's Vigilia at 00:10 on Día 1)
+		// are part of the previous logical day's evening flow. Their
+		// `defaultDay` stays the same (so the UI groups them under Día N),
+		// but on the CALENDAR they're early morning of N+1 — without this
+		// shift they sort BEFORE the rest of Día N's items by startTime
+		// (e.g. 00:10 < 15:00). Threshold: < 06:00 is treated as next-morning.
+		const dayOffset = h < 6 ? day : day - 1;
+		const startTime = new Date(yyyy, mm, dd + dayOffset, h, m, 0, 0);
+		const endTime = new Date(startTime.getTime() + durationMinutes * 60_000);
+		return { startTime, endTime };
+	}
+
+	/**
 	 * Clone the global template into this retreat. baseDate = first day of retreat.
 	 * `defaultDay` (1..n) is mapped to baseDate + (day-1); `defaultStartTime` (HH:MM) is applied.
 	 */
@@ -359,17 +648,13 @@ export class RetreatScheduleService {
 		const created: RetreatScheduleItem[] = [];
 		for (const t of templates) {
 			const day = t.defaultDay ?? 1;
-			const itemDate = new Date(baseDate);
-			itemDate.setDate(itemDate.getDate() + (day - 1));
-			let [h, m] = [9, 0];
-			if (t.defaultStartTime) {
-				const parts = t.defaultStartTime.split(':');
-				h = parseInt(parts[0] ?? '9', 10);
-				m = parseInt(parts[1] ?? '0', 10);
-			}
-			itemDate.setHours(h, m, 0, 0);
 			const duration = t.defaultDurationMinutes ?? 15;
-			const endTime = new Date(itemDate.getTime() + duration * 60000);
+			const { startTime, endTime } = this.computeItemDateRange(
+				baseDate,
+				day,
+				t.defaultStartTime,
+				duration,
+			);
 
 			const responsabilityId = t.responsabilityName
 				? respIndex.get(t.responsabilityName.toLowerCase().trim()) ?? null
@@ -381,7 +666,7 @@ export class RetreatScheduleService {
 				name: t.name,
 				type: t.type,
 				day,
-				startTime: itemDate,
+				startTime,
 				endTime,
 				durationMinutes: duration,
 				orderInDay: t.defaultOrder,
@@ -396,6 +681,7 @@ export class RetreatScheduleService {
 			created.push(await this.itemRepo.save(entity));
 		}
 
+		await this.autoGenerateSantisimoSlotsFromItems(retreatId, created);
 		await this.resolveSantisimoConflicts(retreatId);
 		return this.listForRetreat(retreatId);
 	}
@@ -442,17 +728,13 @@ export class RetreatScheduleService {
 				continue;
 			}
 			const day = t.defaultDay ?? 1;
-			const itemDate = new Date(baseDate);
-			itemDate.setDate(itemDate.getDate() + (day - 1));
-			let [h, m] = [9, 0];
-			if (t.defaultStartTime) {
-				const parts = t.defaultStartTime.split(':');
-				h = parseInt(parts[0] ?? '9', 10);
-				m = parseInt(parts[1] ?? '0', 10);
-			}
-			itemDate.setHours(h, m, 0, 0);
 			const duration = t.defaultDurationMinutes ?? 15;
-			const endTime = new Date(itemDate.getTime() + duration * 60000);
+			const { startTime, endTime } = this.computeItemDateRange(
+				baseDate,
+				day,
+				t.defaultStartTime,
+				duration,
+			);
 			const responsabilityId = t.responsabilityName
 				? respIndex.get(t.responsabilityName.toLowerCase().trim()) ?? null
 				: null;
@@ -463,7 +745,7 @@ export class RetreatScheduleService {
 				name: t.name,
 				type: t.type,
 				day,
-				startTime: itemDate,
+				startTime,
 				endTime,
 				durationMinutes: duration,
 				orderInDay: t.defaultOrder,
@@ -477,6 +759,12 @@ export class RetreatScheduleService {
 			});
 			await this.itemRepo.save(entity);
 			added++;
+		}
+
+		if (added > 0) {
+			const all = await this.itemRepo.find({ where: { retreatId } });
+			await this.autoGenerateSantisimoSlotsFromItems(retreatId, all);
+			await this.resolveSantisimoConflicts(retreatId);
 		}
 
 		return { added, skipped, total: templates.length };
@@ -506,6 +794,125 @@ export class RetreatScheduleService {
 			actualEndTime: now.toISOString(),
 		});
 		return this.get(id);
+	}
+
+	/**
+	 * Shift every item of a given day in a retreat by `minutesDelta`.
+	 *
+	 * Used by the coordinator UI when the entire day runs ±N minutes off
+	 * (e.g. service starts late, dynamic ran longer than planned). All items
+	 * shift by the same amount in a single transaction; statuses are NOT
+	 * touched — this is a reschedule, not a delay-cascade like
+	 * `shiftDownstream`.
+	 */
+	async shiftDay(
+		retreatId: string,
+		day: number,
+		minutesDelta: number,
+	): Promise<RetreatScheduleItem[]> {
+		const items = await this.itemRepo.find({
+			where: { retreatId, day },
+		});
+		if (!items.length) return [];
+		await AppDataSource.transaction(async (manager) => {
+			const repo = manager.getRepository(RetreatScheduleItem);
+			for (const x of items) {
+				await repo.update(x.id, {
+					startTime: new Date(x.startTime.getTime() + minutesDelta * 60000),
+					endTime: new Date(x.endTime.getTime() + minutesDelta * 60000),
+				});
+			}
+		});
+		await this.resolveSantisimoConflicts(retreatId);
+		return this.listForRetreat(retreatId);
+	}
+
+	/**
+	 * Shift ALL items of a retreat by the same delta. Used when the retreat's
+	 * `startDate` changes — items move with it, preserving time-of-day and
+	 * day numbering. SQLite stores datetime as strings; defensive parsing
+	 * handles both Date and string inputs.
+	 */
+	async shiftAllItems(
+		retreatId: string,
+		minutesDelta: number,
+	): Promise<RetreatScheduleItem[]> {
+		if (minutesDelta === 0) return this.listForRetreat(retreatId);
+		const items = await this.itemRepo.find({ where: { retreatId } });
+		if (!items.length) return [];
+		const toMs = (v: Date | string): number => {
+			const d = v instanceof Date ? v : new Date(v);
+			return d.getTime();
+		};
+		await AppDataSource.transaction(async (manager) => {
+			const repo = manager.getRepository(RetreatScheduleItem);
+			for (const x of items) {
+				await repo.update(x.id, {
+					startTime: new Date(toMs(x.startTime) + minutesDelta * 60000),
+					endTime: new Date(toMs(x.endTime) + minutesDelta * 60000),
+				});
+			}
+		});
+		await this.resolveSantisimoConflicts(retreatId);
+		return this.listForRetreat(retreatId);
+	}
+
+	/**
+	 * Reorder items within a single day. Keeps the same time slots (startTime/endTime
+	 * pairs already in use that day) but reassigns which item occupies which slot
+	 * according to the user's drag-and-drop order.
+	 *
+	 * `orderedItemIds` must contain exactly the IDs of the items already on that
+	 * `(retreatId, day)`, no more, no less. Out-of-set or missing IDs raise an error.
+	 *
+	 * Concretely: items[0] (originally earliest) gets the time slot of the first
+	 * id in `orderedItemIds`, items[1] the second, etc.
+	 */
+	async reorderDay(
+		retreatId: string,
+		day: number,
+		orderedItemIds: string[],
+	): Promise<RetreatScheduleItem[]> {
+		const dayItems = await this.itemRepo.find({ where: { retreatId, day } });
+		if (!dayItems.length) return [];
+
+		// Validate: same set of ids
+		const dayIds = new Set(dayItems.map((x) => x.id));
+		if (orderedItemIds.length !== dayItems.length) {
+			throw new Error(
+				`reorder mismatch: day has ${dayItems.length} items, received ${orderedItemIds.length}`,
+			);
+		}
+		for (const id of orderedItemIds) {
+			if (!dayIds.has(id)) {
+				throw new Error(`reorder mismatch: id ${id} is not in day ${day}`);
+			}
+		}
+		if (new Set(orderedItemIds).size !== orderedItemIds.length) {
+			throw new Error('reorder mismatch: duplicate ids');
+		}
+
+		// Canonical slots = current items sorted by startTime ascending.
+		const slots = [...dayItems].sort(
+			(a, b) => a.startTime.getTime() - b.startTime.getTime(),
+		);
+
+		await AppDataSource.transaction(async (manager) => {
+			const repo = manager.getRepository(RetreatScheduleItem);
+			for (let i = 0; i < orderedItemIds.length; i++) {
+				const slot = slots[i];
+				await repo.update(orderedItemIds[i], {
+					startTime: slot.startTime,
+					endTime: slot.endTime,
+					durationMinutes: slot.durationMinutes,
+					orderInDay: i,
+				});
+			}
+		});
+
+		emitScheduleUpdated({ retreatId, itemId: orderedItemIds[0] });
+		await this.resolveSantisimoConflicts(retreatId);
+		return this.listForRetreat(retreatId);
 	}
 
 	/**
@@ -549,8 +956,65 @@ export class RetreatScheduleService {
 	}
 
 	/**
+	 * Si el template materializado tiene items de tipo 'santisimo', genera los
+	 * SantisimoSlot cubriendo de min(startTime) a max(endTime) de esos items
+	 * (el "horario completo" del santísimo según el template). Slots de 60 min,
+	 * capacidad 1. Idempotente: el índice único (retreatId,startTime) +
+	 * try/catch SQLITE_CONSTRAINT preserva los signups previos. La lógica se
+	 * inlinea aquí (no se delega a santisimoService) para reutilizar
+	 * `this.slotRepo`, cuya bind a AppDataSource respeta el rewire de testing.
+	 */
+	private async autoGenerateSantisimoSlotsFromItems(
+		retreatId: string,
+		items: RetreatScheduleItem[],
+	): Promise<void> {
+		const santisimoItems = items.filter((it) => it.type === 'santisimo');
+		if (!santisimoItems.length) return;
+
+		const toMs = (v: Date | string): number =>
+			(v instanceof Date ? v : new Date(v)).getTime();
+
+		let startMs = toMs(santisimoItems[0].startTime);
+		let endMs = toMs(santisimoItems[0].endTime);
+		for (const it of santisimoItems) {
+			const s = toMs(it.startTime);
+			const e = toMs(it.endTime);
+			if (s < startMs) startMs = s;
+			if (e > endMs) endMs = e;
+		}
+		if (endMs <= startMs) return;
+
+		const slotMinutes = 60;
+		for (let cursor = startMs; cursor < endMs; cursor += slotMinutes * 60_000) {
+			const next = cursor + slotMinutes * 60_000;
+			const slotEnd = next > endMs ? endMs : next;
+			const slot = this.slotRepo.create({
+				retreatId,
+				startTime: new Date(cursor),
+				endTime: new Date(slotEnd),
+				capacity: 1,
+				isDisabled: false,
+			});
+			try {
+				await this.slotRepo.save(slot);
+			} catch (err: any) {
+				if (err?.code === 'SQLITE_CONSTRAINT' || /UNIQUE/i.test(err?.message || '')) {
+					continue;
+				}
+				throw err;
+			}
+		}
+	}
+
+	/**
 	 * Mark santisimo slots that overlap a "blocking" item window (comida/dinamica with
 	 * blocksSantisimoAttendance=true) and auto-fill them with angelitos if available.
+	 *
+	 * Also detects "responsable conflicts": a signup whose participant is the responsable
+	 * (or apoyo) of any schedule item whose time window overlaps the santísimo slot.
+	 * Example: charlista signed up to cover Santísimo at 17:00 but they're giving a charla
+	 * 16:30–17:30 — they cannot physically be in two places. Such signups are removed and
+	 * the slot's `mealSlots` count plus per-slot list track the consequence.
 	 */
 	async resolveSantisimoConflicts(
 		retreatId: string,
@@ -558,6 +1022,7 @@ export class RetreatScheduleService {
 		mealSlots: number;
 		angelitosAssigned: number;
 		unresolvedSlots: string[];
+		responsableConflicts: number;
 	}> {
 		const blockers = await this.itemRepo.find({
 			where: { retreatId, blocksSantisimoAttendance: true },
@@ -580,8 +1045,15 @@ export class RetreatScheduleService {
 			if (nextValue) mealSlotIds.push(slot.id);
 		}
 
+		const responsableConflicts = await this.removeResponsableConflicts(retreatId, slots);
+
 		if (!mealSlotIds.length) {
-			return { mealSlots: 0, angelitosAssigned: 0, unresolvedSlots: [] };
+			return {
+				mealSlots: 0,
+				angelitosAssigned: 0,
+				unresolvedSlots: [],
+				responsableConflicts,
+			};
 		}
 
 		const assigned = await this.autoAssignAngelitos(retreatId, mealSlotIds);
@@ -589,7 +1061,62 @@ export class RetreatScheduleService {
 			mealSlots: mealSlotIds.length,
 			angelitosAssigned: assigned.assigned,
 			unresolvedSlots: assigned.unresolved,
+			responsableConflicts,
 		};
+	}
+
+	/**
+	 * Detect signups whose participant is the main responsable (or listed in apoyos)
+	 * of an item whose time window overlaps the slot. Such signups are unfeasible
+	 * (the participant has a competing duty) and are removed.
+	 *
+	 * Returns the count of removed signups so the caller can surface the number to
+	 * the coordinator (e.g. "removí 3 inscripciones por conflicto con responsabilidades").
+	 */
+	private async removeResponsableConflicts(
+		retreatId: string,
+		slots: SantisimoSlot[],
+	): Promise<number> {
+		if (!slots.length) return 0;
+
+		const items = await this.itemRepo.find({
+			where: { retreatId },
+			relations: ['responsability', 'responsables'],
+		});
+		if (!items.length) return 0;
+
+		// Build map: participantId → array of {start, end} time-windows where they have a duty.
+		const dutyByParticipant = new Map<string, Array<{ start: Date; end: Date }>>();
+		const addDuty = (pid: string | null | undefined, start: Date, end: Date) => {
+			if (!pid) return;
+			const list = dutyByParticipant.get(pid) ?? [];
+			list.push({ start, end });
+			dutyByParticipant.set(pid, list);
+		};
+
+		for (const it of items) {
+			addDuty(it.responsability?.participantId ?? null, it.startTime, it.endTime);
+			for (const apoyo of it.responsables ?? []) {
+				addDuty(apoyo.participantId ?? null, it.startTime, it.endTime);
+			}
+		}
+
+		let removed = 0;
+		for (const slot of slots) {
+			for (const sig of slot.signups ?? []) {
+				if (!sig.participantId) continue;
+				const duties = dutyByParticipant.get(sig.participantId);
+				if (!duties) continue;
+				const conflicts = duties.some(
+					(d) => d.start < slot.endTime && d.end > slot.startTime,
+				);
+				if (conflicts) {
+					await this.signupRepo.delete(sig.id);
+					removed++;
+				}
+			}
+		}
+		return removed;
 	}
 
 	/**
@@ -650,25 +1177,48 @@ export class RetreatScheduleService {
 		const pool = allP.filter((p) => !inTableIds.has(p.id));
 		if (!pool.length && !mealSlots.length) return { assigned: 0, unresolved: [] };
 
+		// Limpia auto-asignaciones previas en TODOS los slots mealWindow para
+		// rebalancear desde cero — sin esto, slots ya llenos con un mismo
+		// angelito sobreviven (need=0) y nunca se redistribuyen. Sólo borra los
+		// signups con autoAssigned=true; las inscripciones manuales (signups del
+		// admin con o sin participantId) se preservan. También limpia signups de
+		// servidores que ahora están en mesa (no pueden cubrir durante la comida).
+		for (const slot of mealSlots) {
+			for (const sig of slot.signups ?? []) {
+				const isStaleAuto = sig.autoAssigned === true;
+				const isInTableNow = !!sig.participantId && inTableIds.has(sig.participantId);
+				if (isStaleAuto || isInTableNow) {
+					await this.signupRepo.delete(sig.id);
+				}
+			}
+		}
+
+		// Ahora cuenta los signups NO-borrados (manuales del admin) por angelito.
+		// Sirve como peso inicial para que la distribución no apile más sobre
+		// alguien que ya tiene asignaciones manuales.
+		const usedCount = new Map<string, number>();
+		for (const p of pool) usedCount.set(p.id, 0);
+		for (const slot of mealSlots) {
+			const remaining = await this.signupRepo.find({ where: { slotId: slot.id } });
+			for (const sig of remaining) {
+				if (sig.participantId && usedCount.has(sig.participantId)) {
+					usedCount.set(sig.participantId, (usedCount.get(sig.participantId) ?? 0) + 1);
+				}
+			}
+		}
+
 		let assigned = 0;
 		const unresolved: string[] = [];
 
 		for (const slot of mealSlots) {
-			const current = slot.signups ?? [];
-			// Remove signups of in-table servidores (they can't cover during meal)
-			for (const sig of current) {
-				if (sig.participantId && inTableIds.has(sig.participantId)) {
-					await this.signupRepo.delete(sig.id);
-				}
-			}
-
 			const refreshed = await this.signupRepo.find({ where: { slotId: slot.id } });
 			const need = Math.max(0, slot.capacity - refreshed.length);
 			if (need === 0) continue;
 
-			const candidates = pool.filter(
-				(p) => !refreshed.some((s) => s.participantId === p.id),
-			);
+			const taken = new Set(refreshed.map((s) => s.participantId).filter(Boolean) as string[]);
+			const candidates = pool
+				.filter((p) => !taken.has(p.id))
+				.sort((a, b) => (usedCount.get(a.id) ?? 0) - (usedCount.get(b.id) ?? 0));
 
 			if (!candidates.length) {
 				unresolved.push(slot.id);
@@ -690,6 +1240,7 @@ export class RetreatScheduleService {
 					autoAssigned: true,
 				});
 				await this.signupRepo.save(row);
+				usedCount.set(p.id, (usedCount.get(p.id) ?? 0) + 1);
 				assigned++;
 			}
 			if (need > candidates.length) unresolved.push(slot.id);

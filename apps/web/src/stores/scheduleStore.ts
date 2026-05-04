@@ -34,6 +34,12 @@ export type ScheduleDelayEvent = {
   itemId: string;
   minutesDelta: number;
 };
+export type ScheduleAttachmentChangedEvent = {
+  responsabilityName: string;
+  action: "created" | "updated" | "deleted";
+  attachmentId: string;
+  kind: "file" | "markdown";
+};
 
 type Handlers = {
   onStarted?: (e: ScheduleItemStartedEvent) => void;
@@ -42,6 +48,7 @@ type Handlers = {
   onUpdated?: (e: ScheduleUpdatedEvent) => void;
   onBell?: (e: ScheduleBellEvent) => void;
   onDelay?: (e: ScheduleDelayEvent) => void;
+  onAttachmentChanged?: (e: ScheduleAttachmentChangedEvent) => void;
 };
 
 export const useScheduleStore = defineStore("schedule", () => {
@@ -106,6 +113,14 @@ export const useScheduleStore = defineStore("schedule", () => {
   async function shift(id: string, minutesDelta: number, propagate = true) {
     const updated = await retreatScheduleApi.shift(id, minutesDelta, propagate);
     // reload whole list for the retreat since many items changed
+    if (updated[0]) await loadForRetreat(updated[0].retreatId);
+  }
+  async function shiftDay(retreatId: string, day: number, minutesDelta: number) {
+    const updated = await retreatScheduleApi.shiftDay(retreatId, day, minutesDelta);
+    if (updated[0]) await loadForRetreat(updated[0].retreatId);
+  }
+  async function reorderDay(retreatId: string, day: number, itemIds: string[]) {
+    const updated = await retreatScheduleApi.reorderDay(retreatId, day, itemIds);
     if (updated[0]) await loadForRetreat(updated[0].retreatId);
   }
   async function updateItem(id: string, data: Partial<RetreatScheduleItemDTO>) {
@@ -187,6 +202,16 @@ export const useScheduleStore = defineStore("schedule", () => {
       if (e.retreatId !== subscribedRetreatId) return;
       handlers.onDelay?.(e);
     };
+    const onAttachmentChanged = (e: ScheduleAttachmentChangedEvent) => {
+      // Global event: every MaM client receives it (attachments are keyed
+      // by canonical responsability name, not retreatId). Refresh the full
+      // schedule so `attachments[]` repopulates via the JOIN-by-name. Cost
+      // is one GET per attachment edit, which is rare.
+      if (subscribedRetreatId) {
+        void loadForRetreat(subscribedRetreatId);
+      }
+      handlers.onAttachmentChanged?.(e);
+    };
 
     socket.on("schedule:item-started", onStarted);
     socket.on("schedule:item-completed", onCompleted);
@@ -194,6 +219,7 @@ export const useScheduleStore = defineStore("schedule", () => {
     socket.on("schedule:updated", onUpdated);
     socket.on("schedule:bell", onBell);
     socket.on("schedule:delay", onDelay);
+    socket.on("schedule:attachment-changed", onAttachmentChanged);
 
     return function unsubscribe() {
       socket.emit("schedule:unsubscribe", retreatId);
@@ -204,6 +230,7 @@ export const useScheduleStore = defineStore("schedule", () => {
       socket.off("schedule:updated", onUpdated);
       socket.off("schedule:bell", onBell);
       socket.off("schedule:delay", onDelay);
+      socket.off("schedule:attachment-changed", onAttachmentChanged);
       connected.value = false;
       subscribedRetreatId = null;
     };
@@ -223,6 +250,8 @@ export const useScheduleStore = defineStore("schedule", () => {
     start,
     complete,
     shift,
+    shiftDay,
+    reorderDay,
     updateItem,
     createItem,
     removeItem,

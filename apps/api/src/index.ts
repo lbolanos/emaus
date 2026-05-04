@@ -12,7 +12,7 @@ import { TypeormStore } from 'connect-typeorm';
 import { initRealtime, emitScheduleUpcoming } from './realtime';
 import { retreatScheduleService } from './services/retreatScheduleService';
 import { createDefaultScheduleTemplate } from './data/scheduleTemplateSeeder';
-import { seedResponsabilityAttachmentsFromDescriptions } from './data/responsabilityAttachmentSeeder';
+import { seedCanonicalResponsabilityAttachments } from './data/responsabilityAttachmentSeeder';
 
 import { AppDataSource } from './data-source';
 import { Session } from './entities/session.entity';
@@ -22,6 +22,7 @@ import { config } from './config';
 import { errorHandler } from './middleware/errorHandler';
 import { MigrationVerifier } from './database/migration-verifier';
 import { roleCleanupService } from './services/roleCleanupService';
+import { attachmentHistoryCleanupService } from './services/attachmentHistoryCleanupService';
 import { passwordResetCleanupService } from './services/passwordResetCleanupService';
 import { PerformanceMiddleware, PerformanceRequest } from './middleware/performanceMiddleware';
 import { performanceOptimizationService } from './services/performanceOptimizationService';
@@ -205,6 +206,7 @@ async function main() {
 
 	roleCleanupService.startScheduledTasks();
 	passwordResetCleanupService.startScheduledTasks();
+	attachmentHistoryCleanupService.startScheduledTasks();
 	await performanceOptimizationService.optimizeHeavyQueries();
 
 	// Ensure minuto-a-minuto default templates exist (idempotent by name).
@@ -217,7 +219,7 @@ async function main() {
 	// Importa los guiones de las charlas/roles (description → markdown attachment).
 	// Idempotente: solo crea si no existe ya un attachment para ese nombre.
 	try {
-		const r = await seedResponsabilityAttachmentsFromDescriptions();
+		const r = await seedCanonicalResponsabilityAttachments();
 		if (r.created > 0) {
 			console.log(
 				`[responsabilityAttachmentSeeder] ${r.created} guion(es) importados, ${r.skipped} ya existentes`,

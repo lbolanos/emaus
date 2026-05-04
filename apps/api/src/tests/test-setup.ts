@@ -165,6 +165,11 @@ export async function setupTestDatabase() {
 			if (typeof target === 'string') {
 				const metadata = testDataSource.entityMetadatas.find((m: any) => m.name === target);
 				if (metadata) return metadata;
+				// Fallback: match by table name so raw .from('table_name', alias) calls work.
+				const byTableName = testDataSource.entityMetadatas.find(
+					(m: any) => m.tableName === target || m.tablePath === target,
+				);
+				if (byTableName) return byTableName;
 			}
 			// Try to find by target function
 			if (typeof target === 'function') {
@@ -220,6 +225,11 @@ export async function setupTestDatabase() {
 			if (typeof target === 'string') {
 				const metadata = testDataSource.entityMetadatas.find((m: any) => m.name === target);
 				if (metadata) return metadata;
+				// Fallback: match by table name so raw .from('table_name', alias) calls work.
+				const byTableName = testDataSource.entityMetadatas.find(
+					(m: any) => m.tableName === target || m.tablePath === target,
+				);
+				if (byTableName) return byTableName;
 			}
 			// Try to find by target function
 			if (typeof target === 'function') {

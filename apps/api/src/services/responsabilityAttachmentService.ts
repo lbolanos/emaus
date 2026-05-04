@@ -2,8 +2,10 @@ import { randomUUID } from 'crypto';
 import { In } from 'typeorm';
 import { AppDataSource } from '../data-source';
 import { ResponsabilityAttachment } from '../entities/responsabilityAttachment.entity';
+import { ResponsabilityAttachmentHistory } from '../entities/responsabilityAttachmentHistory.entity';
 import { s3Service } from './s3Service';
 import { avatarStorageService } from './avatarStorageService';
+import { emitScheduleAttachmentChanged } from '../realtime';
 
 export class AttachmentValidationError extends Error {}
 export class AttachmentNotFoundError extends Error {}
@@ -79,6 +81,64 @@ class ResponsabilityAttachmentService {
 	// resolves the repo against whatever AppDataSource currently is.
 	private get repo() {
 		return AppDataSource.getRepository(ResponsabilityAttachment);
+	}
+
+	/**
+	 * Returns a map { responsabilityName → count } for ALL attachments,
+	 * grouped server-side. Used by views that need a 📎 N badge per role
+	 * without doing N+1 GETs (e.g. ResponsabilitiesView).
+	 *
+	 * The query stays cheap because the table is small (one row per
+	 * uploaded file/markdown across all retreats — typically <500 rows
+	 * total across the whole system).
+	 */
+	async countsByName(): Promise<Record<string, number>> {
+		const rows = await this.repo
+			.createQueryBuilder('a')
+			.select('a.responsabilityName', 'name')
+			.addSelect('COUNT(*)', 'count')
+			.groupBy('a.responsabilityName')
+			.getRawMany();
+		const out: Record<string, number> = {};
+		for (const r of rows) {
+			out[r.name] = Number(r.count);
+		}
+		return out;
+	}
+
+	/**
+	 * Returns the first markdown attachment for a given responsability name,
+	 * or null if none exists. "First" follows the same ordering used in
+	 * `list()` (sortOrder ASC, then createdAt ASC) so it stays consistent
+	 * with how the dialog presents them.
+	 *
+	 * Used by the legacy `/api/responsibilities/documentation?name=…` proxy
+	 * so existing frontends keep working while the source of truth moves
+	 * from `data/charlaDocumentation.ts` to the attachments table.
+	 */
+	async getFirstMarkdownByName(
+		responsabilityName: string,
+	): Promise<ResponsabilityAttachment | null> {
+		const name = normalizeName(responsabilityName);
+		if (!name) return null;
+		return this.repo.findOne({
+			where: { responsabilityName: name, kind: 'markdown' },
+			order: { sortOrder: 'ASC', createdAt: 'ASC' },
+		});
+	}
+
+	/**
+	 * Returns the distinct list of responsability names that have at least
+	 * one markdown attachment. Used by the legacy
+	 * `/api/responsibilities/documentation/keys` proxy to populate UI hints.
+	 */
+	async listMarkdownNames(): Promise<string[]> {
+		const rows = await this.repo
+			.createQueryBuilder('a')
+			.select('DISTINCT a.responsabilityName', 'name')
+			.where('a.kind = :kind', { kind: 'markdown' })
+			.getRawMany();
+		return rows.map((r) => r.name).filter((n: string) => !!n);
 	}
 
 	async list(responsabilityName: string): Promise<ResponsabilityAttachment[]> {
@@ -195,7 +255,14 @@ class ResponsabilityAttachmentService {
 			sortOrder: next,
 			uploadedById: userId ?? null,
 		});
-		return this.repo.save(entity);
+		const saved = await this.repo.save(entity);
+		emitScheduleAttachmentChanged({
+			responsabilityName: name,
+			action: 'created',
+			attachmentId: saved.id,
+			kind: 'file',
+		});
+		return saved;
 	}
 
 	async createMarkdown(
@@ -239,7 +306,14 @@ class ResponsabilityAttachmentService {
 			sortOrder: next,
 			uploadedById: userId ?? null,
 		});
-		return this.repo.save(entity);
+		const saved = await this.repo.save(entity);
+		emitScheduleAttachmentChanged({
+			responsabilityName: name,
+			action: 'created',
+			attachmentId: saved.id,
+			kind: 'markdown',
+		});
+		return saved;
 	}
 
 	async update(
@@ -250,18 +324,66 @@ class ResponsabilityAttachmentService {
 		if (!existing) throw new AttachmentNotFoundError('attachment not found');
 		if (patch.description !== undefined) existing.description = patch.description;
 		if (patch.sortOrder !== undefined) existing.sortOrder = patch.sortOrder;
-		return this.repo.save(existing);
+		const saved = await this.repo.save(existing);
+		emitScheduleAttachmentChanged({
+			responsabilityName: saved.responsabilityName,
+			action: 'updated',
+			attachmentId: saved.id,
+			kind: saved.kind,
+		});
+		return saved;
+	}
+
+	private get historyRepo() {
+		return AppDataSource.getRepository(ResponsabilityAttachmentHistory);
+	}
+
+	/**
+	 * Snapshot del estado actual de un markdown attachment a la tabla de
+	 * historia ANTES de aplicar un cambio. El coordinador puede restaurar
+	 * cualquiera de estas versiones desde el dialog si edita por error.
+	 *
+	 * Llamado desde `updateMarkdown` y `restoreMarkdownVersion`.
+	 */
+	private async snapshotToHistory(
+		att: ResponsabilityAttachment,
+		userId?: string | null,
+	): Promise<void> {
+		if (att.kind !== 'markdown' || att.content == null) return;
+		const title = (att.fileName ?? 'Documento').replace(/\.md$/i, '');
+		const entry = this.historyRepo.create({
+			attachmentId: att.id,
+			title,
+			content: att.content,
+			description: att.description ?? null,
+			sizeBytes: att.sizeBytes,
+			savedById: userId ?? null,
+		});
+		await this.historyRepo.save(entry);
 	}
 
 	async updateMarkdown(
 		attachmentId: string,
 		patch: { title?: string; content?: string; description?: string | null },
+		userId?: string | null,
 	): Promise<ResponsabilityAttachment> {
 		const existing = await this.repo.findOne({ where: { id: attachmentId } });
 		if (!existing) throw new AttachmentNotFoundError('attachment not found');
 		if (existing.kind !== 'markdown') {
 			throw new AttachmentValidationError('Este attachment no es markdown');
 		}
+
+		// Snapshot the CURRENT state before patching, so a failed edit can
+		// always be rolled back. Skip if patch is a no-op (no content/title
+		// change) — only metadata edits don't need a history entry.
+		const willChangeContent =
+			(patch.content !== undefined && patch.content !== existing.content) ||
+			(patch.title !== undefined &&
+				`${patch.title.replace(/\.md$/i, '')}.md` !== existing.fileName);
+		if (willChangeContent) {
+			await this.snapshotToHistory(existing, userId);
+		}
+
 		if (patch.title !== undefined) {
 			const title = patch.title.slice(0, 200).trim() || 'Documento';
 			existing.fileName = title.endsWith('.md') ? title : `${title}.md`;
@@ -276,7 +398,85 @@ class ResponsabilityAttachmentService {
 			existing.storageUrl = `data:text/markdown;charset=utf-8;base64,${Buffer.from(patch.content, 'utf-8').toString('base64')}`;
 		}
 		if (patch.description !== undefined) existing.description = patch.description;
-		return this.repo.save(existing);
+		const saved = await this.repo.save(existing);
+		emitScheduleAttachmentChanged({
+			responsabilityName: saved.responsabilityName,
+			action: 'updated',
+			attachmentId: saved.id,
+			kind: saved.kind,
+		});
+		return saved;
+	}
+
+	/**
+	 * Devuelve el historial de versiones de un markdown, más reciente primero.
+	 */
+	async listMarkdownHistory(
+		attachmentId: string,
+	): Promise<ResponsabilityAttachmentHistory[]> {
+		const att = await this.repo.findOne({ where: { id: attachmentId } });
+		if (!att) throw new AttachmentNotFoundError('attachment not found');
+		return this.historyRepo.find({
+			where: { attachmentId },
+			order: { savedAt: 'DESC' },
+		});
+	}
+
+	/**
+	 * Devuelve UNA entrada del historial con su `content` completo. Usado
+	 * por la vista de preview ("Ir a esta versión") antes de decidir si
+	 * restaurar. Read-only: no muta nada.
+	 */
+	async getMarkdownVersion(
+		attachmentId: string,
+		historyId: string,
+	): Promise<ResponsabilityAttachmentHistory> {
+		const att = await this.repo.findOne({ where: { id: attachmentId } });
+		if (!att) throw new AttachmentNotFoundError('attachment not found');
+		const version = await this.historyRepo.findOne({
+			where: { id: historyId, attachmentId },
+		});
+		if (!version) throw new AttachmentNotFoundError('history entry not found');
+		return version;
+	}
+
+	/**
+	 * Restaura una versión histórica como la versión actual del attachment.
+	 * Snapshota el estado actual antes de restaurar (así "deshacer la
+	 * restauración" también está disponible en el historial).
+	 */
+	async restoreMarkdownVersion(
+		attachmentId: string,
+		historyId: string,
+		userId?: string | null,
+	): Promise<ResponsabilityAttachment> {
+		const att = await this.repo.findOne({ where: { id: attachmentId } });
+		if (!att) throw new AttachmentNotFoundError('attachment not found');
+		if (att.kind !== 'markdown') {
+			throw new AttachmentValidationError('Este attachment no es markdown');
+		}
+		const version = await this.historyRepo.findOne({
+			where: { id: historyId, attachmentId },
+		});
+		if (!version) throw new AttachmentNotFoundError('history entry not found');
+
+		// Snapshot current → history, then apply the version.
+		await this.snapshotToHistory(att, userId);
+
+		const fileName = version.title.endsWith('.md') ? version.title : `${version.title}.md`;
+		att.fileName = fileName;
+		att.content = version.content;
+		att.sizeBytes = version.sizeBytes;
+		att.description = version.description ?? null;
+		att.storageUrl = `data:text/markdown;charset=utf-8;base64,${Buffer.from(version.content, 'utf-8').toString('base64')}`;
+		const saved = await this.repo.save(att);
+		emitScheduleAttachmentChanged({
+			responsabilityName: saved.responsabilityName,
+			action: 'updated',
+			attachmentId: saved.id,
+			kind: 'markdown',
+		});
+		return saved;
 	}
 
 	async delete(attachmentId: string): Promise<void> {
@@ -290,6 +490,12 @@ class ResponsabilityAttachmentService {
 			}
 		}
 		await this.repo.delete(attachmentId);
+		emitScheduleAttachmentChanged({
+			responsabilityName: existing.responsabilityName,
+			action: 'deleted',
+			attachmentId: existing.id,
+			kind: existing.kind,
+		});
 	}
 }
 

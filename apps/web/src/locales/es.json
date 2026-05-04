@@ -751,6 +751,7 @@
     "maxServersPlaceholder": "Número máximo de servidores",
     "isPublic": "Retiro Público",
     "isPublicDescription": "Permite que cualquiera se registre en este retiro",
+    "isPublicWarning": "Al activar, la pantalla pública del Minuto a Minuto (URL /mam/<slug>) será accesible sin login. Los nombres y ubicaciones de cada item quedarán visibles para cualquiera con el enlace. No incluyas información sensible en estos campos.",
     "roleInvitationEnabled": "Invitaciones por Rol",
     "roleInvitationDescription": "Permite enviar invitaciones basadas en roles",
     "saveChanges": "Guardar Cambios",
@@ -795,6 +796,7 @@
     "maxServersPlaceholder": "Número máximo de servidores",
     "isPublic": "Retiro Público",
     "isPublicDescription": "Permite que cualquiera se registre en este retiro",
+    "isPublicWarning": "Al activar, la pantalla pública del Minuto a Minuto (URL /mam/<slug>) será accesible sin login. Los nombres y ubicaciones de cada item quedarán visibles para cualquiera con el enlace. No incluyas información sensible en estos campos.",
     "roleInvitationEnabled": "Invitaciones por Rol",
     "roleInvitationDescription": "Permite enviar invitaciones basadas en roles",
     "showPickupInfo": "Mostrar información de recogida",
@@ -1569,7 +1571,8 @@
     "viewDocs": "Ver Documentación",
     "downloadDocs": "Descargar Documentos",
     "generatePdf": "Imprimir / Guardar como PDF",
-    "noDocumentation": "Sin documentación disponible"
+    "noDocumentation": "Sin documentación disponible",
+    "openAttachments": "Documentos de la responsabilidad"
   },
   "inviteUsersModal": {
     "title": "Invitar Alguien",
@@ -2335,6 +2338,24 @@
     "searchServerPlaceholder": "Escribe un nombre para filtrar...",
     "noServerMatch": "Sin coincidencias. Cambia a Angelito para anotar un nombre libre.",
     "selectedServer": "Servidor seleccionado",
-    "angelitoHint": "Nombre libre de alguien que no está en el sistema"
+    "angelitoHint": "Nombre libre de alguien que no está en el sistema",
+    "mealWindowLabel": "Comida — sólo servidores fuera de mesa",
+    "mealWindowHint": "En este horario los servidores en mesa están comiendo. Asignar sólo angelitos o servidores sin mesa.",
+    "help": "Ayuda",
+    "helpTitle": "Cómo funciona el horario del Santísimo",
+    "helpIntro": "Resumen rápido del flujo de inscripciones y de los códigos de color.",
+    "helpAutoTitle": "Generación automática",
+    "helpAutoBody": "Cuando coordinación materializa el minuto-a-minuto del retiro, los horarios del Santísimo se crean automáticamente cubriendo el rango de los items de tipo 'santísimo' del template. No es necesario tocar el botón \"Generar\" para los retiros estándar.",
+    "helpMealTitle": "Horarios bloqueados (color ámbar)",
+    "helpMealBody": "Los slots en color ámbar se solapan con comidas o dinámicas que bloquean la asistencia (los servidores en mesa están comiendo). Sólo se asignan ahí angelitos (servidores sin mesa) o nombres libres.",
+    "helpManualTitle": "Generar manualmente",
+    "helpManualBody": "El botón \"Generar\" sigue disponible para crear slots con un rango/duración personalizados. Es idempotente: no duplica slots ni borra inscripciones existentes a menos que marques \"Eliminar horarios existentes\".",
+    "helpSignupTitle": "Inscripciones",
+    "helpSignupBody": "En slots ámbar, el buscador de servidores oculta a quien tenga mesa asignada. Los angelitos disponibles se pre-asignan automáticamente al materializar el template.",
+    "moreActions": "Más acciones",
+    "autoAssign": "Auto-asignar angelitos",
+    "autoAssignHint": "Recalcula ventanas de comida y reparte angelitos disponibles entre los slots bloqueados.",
+    "autoAssignDone": "Auto-asignación completada",
+    "autoAssignSummary": "{meal} ventanas de comida · {assigned} angelitos asignados · {pending} slots sin cubrir"
   }
 }

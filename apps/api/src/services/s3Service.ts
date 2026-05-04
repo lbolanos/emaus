@@ -1,4 +1,10 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import {
+	S3Client,
+	PutObjectCommand,
+	DeleteObjectCommand,
+	GetObjectCommand,
+} from '@aws-sdk/client-s3';
+import type { Readable } from 'stream';
 import { config } from '../config/env';
 
 interface UploadResult {
@@ -174,6 +180,31 @@ class S3Service {
 	async getDocumentUrl(path: string): Promise<string> {
 		const key = `${this.prefixes.documents}${path}`;
 		return this.getPublicUrl(key);
+	}
+
+	/**
+	 * Fetch an object from S3 by its full key (including any prefix).
+	 * Returns a Node.js `Readable` stream — caller is responsible for piping
+	 * it. Throws on network/auth errors. Used by `streamRetreatBundle` to
+	 * inline S3 attachments into a downloadable ZIP.
+	 *
+	 * Note: takes a FULL key (caller decides the prefix). This differs from
+	 * `uploadDocument` which prepends `prefixes.documents`. Reason: storageKey
+	 * is what we already saved to DB at upload time; we don't re-derive it.
+	 */
+	async getObjectStream(key: string): Promise<Readable> {
+		const command = new GetObjectCommand({
+			Bucket: this.bucketName,
+			Key: key,
+		});
+		const response = await this.ensureClient().send(command);
+		if (!response.Body) {
+			throw new Error(`S3 GetObject returned empty body for key: ${key}`);
+		}
+		// In Node.js the AWS SDK v3 returns the body as a Readable stream.
+		// We cast accordingly — the SDK types this as a union of
+		// Readable | Blob | ReadableStream depending on the runtime.
+		return response.Body as Readable;
 	}
 
 	// Public assets methods

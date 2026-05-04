@@ -2,6 +2,8 @@
 // This file contains documentation for charlas and responsibilities
 // Content has been formatted as Markdown for proper rendering
 
+import { moderadorDescription, diarioDescription } from './serviceTeamData.js';
+
 export const charlaDocumentation: Record<string, string> = {
   "Charla: De la Rosa": `# Anexo A-2-1
 
@@ -1630,4 +1632,13 @@ Presenta a los caminantes las **reglas operativas** de la casa de retiro: horari
 | 5 | Estar disponible para resolver dudas sobre el funcionamiento de la casa | Todo el retiro | |
 
 **Estilo**: claro, breve, sin tono autoritario. Es información práctica, no disciplinaria.`,
+
+  // Re-exported from serviceTeamData.ts so this file is the authoritative
+  // catalog for `responsibilityDocumentation` lookups (e.g. legacy
+  // /api/responsibilities/documentation endpoint, attachment seeders).
+  // Both names are also seeded as Responsability rows by the
+  // CreateServiceTeams migration; here we expose them alongside the rest.
+  "Moderador": moderadorDescription,
+
+  "Diario": diarioDescription,
 };

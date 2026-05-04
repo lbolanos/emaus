@@ -1,9 +1,12 @@
 <template>
-  <div class="space-y-6">
+  <!-- max-w-5xl centra el contenido en pantallas grandes. Antes era 4xl (896px)
+       pero al añadir la descripción del template (texto largo bajo el nombre)
+       se necesita un poco más de ancho para que el contenido respire. -->
+  <div class="space-y-6 print-mam max-w-5xl mx-auto">
     <div class="space-y-3">
       <div class="min-w-0">
-        <h1 class="text-2xl sm:text-3xl font-bold whitespace-nowrap">Minuto a Minuto</h1>
-        <p class="text-gray-600 text-sm sm:text-base">
+        <h1 class="text-xl sm:text-3xl font-bold whitespace-nowrap">Minuto a Minuto</h1>
+        <p class="hidden sm:block text-gray-600 text-sm sm:text-base">
           Agenda del retiro en tiempo real. Las notificaciones se envían automáticamente a los
           responsables.
         </p>
@@ -12,15 +15,18 @@
           <span v-else class="text-gray-400">● sin conexión realtime</span>
         </div>
       </div>
-      <div v-if="canManage.schedule.value" class="flex flex-wrap gap-2 items-center">
-        <Button variant="outline" size="sm" @click="onAddItem">+ Nueva actividad</Button>
-        <Button variant="outline" size="sm" @click="onRingBell">🔔 Campana</Button>
+      <div class="flex flex-wrap gap-2 items-center print-hide">
+        <Button v-if="canManage.schedule.value" variant="outline" size="sm" @click="onAddItem">+ Nueva actividad</Button>
         <Button
+          v-if="canManage.schedule.value && !store.items.length"
           variant="outline"
           size="sm"
-          v-if="!store.items.length"
           @click="onMaterialize"
         >Importar desde template</Button>
+        <!-- Single "⋮ Más acciones" menu — visible to ALL roles (not just manage),
+             since reading actions like Print, Download bundle and Public screen
+             link should be available to viewers too. Items are gated per-action
+             below by the same canManage check that applied before. -->
         <div class="relative" @click.stop>
           <Button
             variant="outline"
@@ -32,33 +38,75 @@
           <div
             v-if="moreActionsOpen"
             role="menu"
-            class="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1 text-sm"
+            class="absolute right-0 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1 text-sm"
           >
+            <!-- Acciones de uso frecuente durante el retiro -->
+            <button
+              v-if="canManage.schedule.value"
+              type="button"
+              role="menuitem"
+              class="w-full text-left px-3 py-2 hover:bg-gray-50"
+              @click="closeMore(); onRingBell()"
+            >🔔 Tocar campana</button>
             <button
               type="button"
               role="menuitem"
               class="w-full text-left px-3 py-2 hover:bg-gray-50"
-              @click="closeMore(); onRelinkResponsibilities()"
-            >🔗 Re-vincular responsabilidades</button>
+              @click="closeMore(); onPrint()"
+              title="Imprimir o guardar como PDF (Ctrl/Cmd+P)"
+            >🖨 Imprimir</button>
             <button
               type="button"
               role="menuitem"
               class="w-full text-left px-3 py-2 hover:bg-gray-50"
-              @click="closeMore(); goAssignResponsables()"
-            >👥 Apoyos / sobreescribir</button>
+              @click="closeMore(); onDownloadBundle()"
+              title="Descargar todos los guiones del retiro como .zip"
+            >📦 Descargar guiones (zip)</button>
             <button
+              v-if="publicMamUrl"
               type="button"
               role="menuitem"
               class="w-full text-left px-3 py-2 hover:bg-gray-50"
-              @click="closeMore(); onResolveSantisimo()"
-            >✨ Auto-asignar angelitos</button>
+              @click="closeMore(); onCopyPublicLink()"
+              :title="'Vista big-screen pública (auth-less): ' + publicMamUrl"
+            >📺 Copiar link de pantalla pública</button>
             <div class="border-t border-gray-100 my-1"></div>
             <button
               type="button"
               role="menuitem"
-              class="w-full text-left px-3 py-2 hover:bg-gray-50 text-amber-700"
-              @click="closeMore(); onMaterialize()"
-            >📥 Importar desde template (sobrescribe)</button>
+              class="w-full text-left px-3 py-2 hover:bg-gray-50"
+              @click="closeMore(); helpOpen = true"
+              title="Cómo usar el Minuto a Minuto"
+            >❓ Ayuda</button>
+            <!-- Acciones de gestión (manage) -->
+            <template v-if="canManage.schedule.value">
+              <div class="border-t border-gray-100 my-1"></div>
+              <button
+                type="button"
+                role="menuitem"
+                class="w-full text-left px-3 py-2 hover:bg-gray-50"
+                @click="closeMore(); onRelinkResponsibilities()"
+              >🔗 Re-vincular responsabilidades</button>
+              <button
+                type="button"
+                role="menuitem"
+                class="w-full text-left px-3 py-2 hover:bg-gray-50"
+                @click="closeMore(); goAssignResponsables()"
+              >👥 Apoyos / sobreescribir</button>
+              <button
+                type="button"
+                role="menuitem"
+                class="w-full text-left px-3 py-2 hover:bg-gray-50"
+                @click="closeMore(); onResolveSantisimo()"
+              >✨ Auto-asignar angelitos</button>
+              <div class="border-t border-gray-100 my-1"></div>
+              <button
+                type="button"
+                role="menuitem"
+                class="w-full text-left px-3 py-2 hover:bg-gray-50 text-amber-700"
+                @click="closeMore(); onMaterialize()"
+              >📥 Importar desde template (sobrescribe)</button>
+            </template>
           </div>
         </div>
       </div>
@@ -126,7 +174,7 @@
         <div v-else>
           <div v-for="[groupKey, items] in groupedItems" :key="groupKey" class="mb-8">
             <!-- Day / Responsibility header con resumen -->
-            <div class="flex items-baseline gap-3 mb-2 pb-1 border-b border-gray-200">
+            <div class="flex flex-wrap items-baseline gap-2 sm:gap-3 mb-2 pb-1 border-b border-gray-200">
               <h2 class="text-lg font-semibold">
                 <span v-if="groupBy === 'day'">
                   Día {{ groupKey }}
@@ -137,6 +185,15 @@
               <span class="text-xs text-gray-500">
                 {{ groupSummary(items) }}
               </span>
+              <button
+                v-if="groupBy === 'day' && canManage.schedule.value"
+                type="button"
+                class="ml-auto text-xs text-blue-600 hover:underline"
+                :title="'Mover todos los items del Día ' + groupKey + ' por ±N minutos'"
+                @click="onShiftDay(Number(groupKey))"
+              >
+                ⏱ Mover día
+              </button>
             </div>
             <!-- Compact rows -->
             <div class="border border-gray-200 rounded-lg overflow-hidden bg-white">
@@ -159,13 +216,24 @@
                     rowCompactClass(item),
                     canManage.schedule.value ? 'cursor-pointer' : '',
                     highlightedItemId === item.id ? 'ring-2 ring-blue-500 ring-inset bg-blue-50' : '',
+                    dragOverItemId === item.id ? 'ring-2 ring-purple-500 ring-inset bg-purple-50' : '',
+                    draggingItemId === item.id ? 'opacity-50' : '',
                   ]"
+                  :draggable="canManage.schedule.value && groupBy === 'day'"
+                  @dragstart="onDragStart($event, item, Number(groupKey))"
+                  @dragover.prevent="onDragOver($event, item, Number(groupKey))"
+                  @dragleave="onDragLeave(item)"
+                  @drop="onDrop($event, item, items, Number(groupKey))"
+                  @dragend="onDragEnd()"
                   @click="canManage.schedule.value && onEditItem(item)"
                 >
-                  <!-- Hora + duración -->
+                  <!-- Hora + duración + tiempo relativo (compacto bajo la hora).
+                       relative-time se oculta en print (la hora absoluta basta
+                       en papel). -->
                   <div class="flex flex-col items-start w-20 sm:w-24 shrink-0">
                     <div class="text-sm font-mono font-semibold leading-tight">{{ fmtTime(item.startTime) }}</div>
-                    <div class="text-[10px] text-gray-400 leading-tight">{{ item.durationMinutes }}m · {{ relativeTime(item) }}</div>
+                    <div class="text-[10px] text-gray-400 leading-tight">{{ item.durationMinutes }}m</div>
+                    <div class="text-[9px] text-gray-400 leading-tight print:hidden relative-time">{{ relativeTime(item) }}</div>
                   </div>
 
                   <!-- Status icon (solo si no es pending) -->
@@ -184,25 +252,29 @@
                         class="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700 leading-tight"
                       >D{{ item.day }}</span>
                       <span class="font-medium truncate" :class="item.status === 'completed' ? 'text-gray-400 line-through' : ''">{{ item.name }}</span>
+                      <!-- Type badge: oculta en mobile (ya transmitido por el color de la fila) -->
                       <span
-                        class="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-medium leading-tight"
+                        class="hidden sm:inline-flex items-center px-1.5 py-0 rounded text-[10px] font-medium leading-tight"
                         :class="typeBadgeClass(item.type)"
                       >{{ item.type }}</span>
                       <span v-if="item.blocksSantisimoAttendance" class="text-amber-600 text-xs" title="Bloquea Santísimo">🚫</span>
                     </div>
-                    <div class="flex items-center gap-3 text-xs mt-0.5 text-gray-600 flex-wrap">
-                      <span v-if="responsabilityName(item.responsabilityId)" class="text-blue-700 truncate">
+                    <div class="flex items-center gap-2 sm:gap-3 text-xs mt-0.5 text-gray-600 flex-wrap">
+                      <!-- Responsable principal: visible siempre — info crítica -->
+                      <span v-if="responsabilityName(item.responsabilityId)" class="text-blue-700 truncate min-w-0">
                         🎤 {{ responsabilityName(item.responsabilityId) }}<span
                           v-if="responsableParticipantName(item.responsabilityId)"
                           class="font-semibold"
                         > · {{ responsableParticipantName(item.responsabilityId) }}</span>
                         <span v-else class="text-amber-600 italic"> · sin asignar</span>
                       </span>
-                      <span v-if="item.responsables?.length" class="text-gray-500 truncate">
+                      <!-- Apoyos: solo desktop -->
+                      <span v-if="item.responsables?.length" class="hidden sm:inline text-gray-500 truncate">
                         👤
                         <span v-for="(r, i) in item.responsables" :key="r.id || i">{{ r.participant?.nickname || r.participant?.firstName || '—' }}<template v-if="i < (item.responsables?.length ?? 0) - 1">, </template></span>
                       </span>
-                      <span v-if="item.palanquitaNotes" class="text-gray-400 truncate">🎵 {{ item.palanquitaNotes }}</span>
+                      <!-- Palanquita: solo desktop -->
+                      <span v-if="item.palanquitaNotes" class="hidden sm:inline text-gray-400 truncate">🎵 {{ item.palanquitaNotes }}</span>
                       <button
                         v-if="item.attachments?.length"
                         type="button"
@@ -211,13 +283,27 @@
                         @click.stop="onShowAttachments(item)"
                       >📎 {{ item.attachments.length }}</button>
                     </div>
+                    <!-- Descripción del template: contexto del "qué/por qué"
+                         de la actividad. Colapsable por click en el chevron;
+                         siempre visible en print. -->
+                    <div
+                      v-if="item.templateDescription"
+                      class="text-xs text-gray-600 mt-1 leading-snug template-description"
+                      :class="expandedDescriptions.has(item.id) ? '' : 'line-clamp-1'"
+                      @click.stop="toggleDescription(item.id)"
+                      :title="expandedDescriptions.has(item.id) ? 'Click para colapsar' : 'Click para ver descripción completa'"
+                    >
+                      <span class="text-gray-400 mr-1">📝</span>{{ item.templateDescription }}
+                    </div>
                   </div>
 
-                  <!-- Acciones: visibles solo en hover para items pending; siempre para active -->
+                  <!-- Acciones: en mobile siempre visibles (no hay hover); en desktop solo en hover para pending. -->
                   <div
                     v-if="canManage.schedule.value"
-                    class="flex items-center gap-0.5 shrink-0 transition-opacity"
-                    :class="item.status === 'active' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'"
+                    class="flex items-center gap-0.5 shrink-0 ml-auto transition-opacity"
+                    :class="item.status === 'active'
+                      ? 'opacity-100'
+                      : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100'"
                     @click.stop
                   >
                     <button
@@ -234,19 +320,23 @@
                       title="Completar"
                       @click="onComplete(item.id)"
                     >✓</button>
+                    <!-- Shift buttons: visibles en mobile y desktop.
+                         En mobile son tap-targets de 32px (h-8 w-8) para
+                         cumplir WCAG 2.5.5 sin abrir el modal de edición. -->
                     <button
                       type="button"
-                      class="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 text-xs"
+                      class="inline-flex items-center justify-center h-8 w-8 sm:h-auto sm:w-auto sm:p-1 rounded text-gray-500 hover:text-gray-700 active:bg-gray-200 hover:bg-gray-100 text-xs font-mono"
                       title="Adelantar 5 minutos"
                       @click="onShift(item.id, -5)"
                     >−5</button>
                     <button
                       type="button"
-                      class="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 text-xs"
+                      class="inline-flex items-center justify-center h-8 w-8 sm:h-auto sm:w-auto sm:p-1 rounded text-gray-500 hover:text-gray-700 active:bg-gray-200 hover:bg-gray-100 text-xs font-mono"
                       title="Atrasar 5 minutos"
                       @click="onShift(item.id, 5)"
                     >+5</button>
                   </div>
+
                 </div>
               </template>
             </div>
@@ -275,6 +365,8 @@
       :can-manage="false"
       @update:open="(v: boolean) => onAttachmentsDialog(v)"
     />
+
+    <MamHelpDialog :open="helpOpen" @update:open="(v: boolean) => helpOpen = v" />
 
     <Dialog :open="materializeOpen" @update:open="materializeOpen = $event">
       <DialogContent>
@@ -336,6 +428,7 @@ import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { useResponsabilityStore } from '@/stores/responsabilityStore';
 import ScheduleItemEditModal, { type SubmitPayload as ItemSubmitPayload } from '@/components/ScheduleItemEditModal.vue';
 import ResponsabilityAttachmentsDialog from '@/components/ResponsabilityAttachmentsDialog.vue';
+import MamHelpDialog from '@/components/MamHelpDialog.vue';
 import { api, retreatScheduleApi, type RetreatScheduleItemDTO } from '@/services/api';
 import type { Participant, Responsability } from '@repo/types';
 
@@ -565,6 +658,183 @@ async function onSubmitItem(payload: ItemSubmitPayload) {
   }
 }
 
+// ── Drag-to-reorder ───────────────────────────────────────────────────────────
+//
+// HTML5 native drag-and-drop. Active only when grouping by day and the user
+// has `schedule:manage`. Dropping rotates the time slots within the day —
+// see backend `reorderDay` for semantics: time windows stay fixed, only the
+// item-to-slot mapping changes.
+type AnyItem = { id: string; day: number; status?: string };
+const draggingItemId = ref<string | null>(null);
+const dragOverItemId = ref<string | null>(null);
+let draggingFromDay: number | null = null;
+
+// Descriptions are truncated by default; click toggles per-item expansion.
+// Reactive Set: a plain Set inside ref isn't deeply reactive in Vue (Set.has
+// changes don't trigger re-render), so we keep an array of ids and expose a
+// computed Set wrapper. Reading via `.has` works because the computed
+// recomputes when the array reactivity fires.
+const expandedDescriptionIds = ref<string[]>([]);
+const expandedDescriptions = computed(() => new Set(expandedDescriptionIds.value));
+function toggleDescription(itemId: string) {
+  const idx = expandedDescriptionIds.value.indexOf(itemId);
+  if (idx === -1) expandedDescriptionIds.value.push(itemId);
+  else expandedDescriptionIds.value.splice(idx, 1);
+}
+
+function onDragStart(e: DragEvent, item: AnyItem, day: number) {
+  if (!canManage.schedule.value || groupBy.value !== 'day') {
+    e.preventDefault();
+    return;
+  }
+  draggingItemId.value = item.id;
+  draggingFromDay = day;
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move';
+    // Setting any payload helps Firefox actually fire `drop` events.
+    e.dataTransfer.setData('text/plain', item.id);
+  }
+}
+
+function onDragOver(e: DragEvent, item: AnyItem, day: number) {
+  if (!draggingItemId.value || day !== draggingFromDay) return;
+  if (item.id === draggingItemId.value) return;
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+  dragOverItemId.value = item.id;
+}
+
+function onDragLeave(item: AnyItem) {
+  if (dragOverItemId.value === item.id) dragOverItemId.value = null;
+}
+
+function onDragEnd() {
+  draggingItemId.value = null;
+  dragOverItemId.value = null;
+  draggingFromDay = null;
+}
+
+async function onDrop(e: DragEvent, target: AnyItem, items: AnyItem[], day: number) {
+  e.preventDefault();
+  const sourceId = draggingItemId.value;
+  draggingItemId.value = null;
+  dragOverItemId.value = null;
+  const fromDay = draggingFromDay;
+  draggingFromDay = null;
+
+  if (!sourceId || sourceId === target.id) return;
+  if (fromDay !== day) {
+    toast({ title: 'Mover entre días no soportado', variant: 'destructive' });
+    return;
+  }
+  if (!retreatId.value) return;
+
+  // Build the new order: remove source, insert it at the target's position.
+  const ids = items.map((x) => x.id);
+  const fromIdx = ids.indexOf(sourceId);
+  const toIdx = ids.indexOf(target.id);
+  if (fromIdx === -1 || toIdx === -1) return;
+  const newOrder = [...ids];
+  newOrder.splice(fromIdx, 1);
+  newOrder.splice(toIdx, 0, sourceId);
+  if (newOrder.every((id, i) => id === ids[i])) return;
+
+  try {
+    await store.reorderDay(retreatId.value, day, newOrder);
+    toast({ title: 'Orden actualizado' });
+  } catch (err: any) {
+    toast({
+      title: 'No se pudo reordenar',
+      description: err?.response?.data?.message || err?.message,
+      variant: 'destructive',
+    });
+  }
+}
+
+async function onShiftDay(day: number) {
+  if (!retreatId.value) return;
+  const raw = window.prompt(
+    `Mover todos los items del Día ${day} por N minutos (positivo = más tarde, negativo = más temprano):`,
+    '15',
+  );
+  if (raw === null) return;
+  const minutesDelta = parseInt(raw, 10);
+  if (!Number.isFinite(minutesDelta) || minutesDelta === 0) {
+    toast({ title: 'Cantidad inválida', variant: 'destructive' });
+    return;
+  }
+  if (Math.abs(minutesDelta) > 720) {
+    if (!confirm(`Vas a mover todo el Día ${day} por ${minutesDelta} minutos (${(minutesDelta / 60).toFixed(1)}h). ¿Confirmás?`)) {
+      return;
+    }
+  }
+  try {
+    await store.shiftDay(retreatId.value, day, minutesDelta);
+    toast({
+      title: `Día ${day} desplazado`,
+      description: `${minutesDelta > 0 ? '+' : ''}${minutesDelta} min aplicado a todos los items.`,
+    });
+  } catch (err: any) {
+    toast({
+      title: 'Error al mover día',
+      description: err?.response?.data?.message || err?.message,
+      variant: 'destructive',
+    });
+  }
+}
+
+/**
+ * Public big-screen URL for projecting the MaM in the salon. Resolves to
+ * `/mam/<slug>` when the retreat has both isPublic + slug. The route is
+ * auth-less; the API only exposes data for retreats where isPublic=true.
+ */
+const publicMamUrl = computed<string | null>(() => {
+  const r = retreatStore.selectedRetreat;
+  if (!r || !r.slug || !r.isPublic) return null;
+  if (typeof window === 'undefined') return null;
+  return `${window.location.origin}/mam/${r.slug}`;
+});
+
+async function onCopyPublicLink() {
+  const url = publicMamUrl.value;
+  if (!url) return;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast({
+      title: 'Link copiado',
+      description: 'Pégalo en el navegador del proyector / smart TV.',
+    });
+  } catch {
+    // Fallback: open in new tab so they can copy from the URL bar
+    window.open(url, '_blank');
+  }
+}
+
+/**
+ * Trigger a browser download of /retreats/:id/bundle.zip. Server streams,
+ * client just opens the URL in a hidden anchor — credentials carry via the
+ * existing session cookie (same-origin).
+ */
+function onDownloadBundle() {
+  if (!retreatId.value) return;
+  const url = `/api/schedule/retreats/${retreatId.value}/bundle.zip`;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+function onPrint() {
+  // Cierra cualquier menú abierto y dispara el diálogo nativo de impresión.
+  // El stylesheet `@media print` (al final de este componente) oculta sidebar,
+  // header de app, y acciones de fila; expande todos los días en formato A4.
+  closeMore();
+  // Pequeño delay para que el menú se cierre antes de imprimir
+  // (algunos browsers capturan el menú abierto como overlay).
+  setTimeout(() => window.print(), 50);
+}
+
 async function onDeleteItem(id: string) {
   try {
     await store.removeItem(id);
@@ -595,6 +865,7 @@ let nowTicker: ReturnType<typeof setInterval> | null = null;
 
 // Menú "Más acciones" del header.
 const moreActionsOpen = ref(false);
+const helpOpen = ref(false);
 function closeMore() { moreActionsOpen.value = false; }
 
 // Cierra el menú al hacer click fuera.
@@ -674,7 +945,14 @@ function relativeTime(item: any): string {
   const absMin = Math.round(Math.abs(diff) / 60000);
   if (item.status === 'completed') return 'completado';
   if (item.status === 'active') return 'en curso';
-  if (now.value > end) return absMin < 60 ? `hace ${absMin}m` : `hace ${Math.round(absMin / 60)}h`;
+  if (now.value > end) {
+    // Past: <1h → minutes, <1d → hours, ≥1d → days. Without the day branch
+    // an item from a retreat that ended 12 days ago showed "hace 288h"
+    // instead of "hace 12d" (Bug I).
+    if (absMin < 60) return `hace ${absMin}m`;
+    if (absMin < 60 * 24) return `hace ${Math.round(absMin / 60)}h`;
+    return `hace ${Math.round(absMin / (60 * 24))}d`;
+  }
   if (absMin === 0) return 'ahora';
   if (now.value >= start && now.value <= end) return 'ahora'; // dentro del slot pero no marcado activo
   if (absMin < 60) return `en ${absMin}m`;
@@ -846,3 +1124,115 @@ onUnmounted(() => {
 });
 watch(retreatId, (id) => setup(id));
 </script>
+
+<style>
+/* Print stylesheet — activado solo cuando el usuario hace Ctrl/Cmd+P o
+   click en "🖨 Imprimir". Convierte la vista MaM en un layout limpio
+   formateado para A4 / carta:
+   - Oculta sidebar, header de app, navegación, acciones de fila
+   - Expande TODOS los items del día (sin scroll)
+   - Tipografía legible en papel, tablas con líneas finas
+   - Fuerza saltos de página entre días para que cada uno empiece arriba */
+@media print {
+  /* Oculta lo que no aporta en papel */
+  body > div > .flex.h-dvh > div:first-child, /* sidebar desktop */
+  body > div > .flex.h-dvh > button,           /* hamburger mobile */
+  body > div > .flex.h-dvh > .fixed,           /* mobile title bar */
+  .print-mam .sticky,                           /* search bar y card sticky */
+  .print-mam button[aria-haspopup="menu"],     /* "⋮ Más acciones" */
+  .print-mam .group .opacity-0,                 /* acciones hover-only */
+  .print-mam button[title*="minutos"],          /* −5 / +5 buttons */
+  .print-mam button[title*="Iniciar"],
+  .print-mam button[title*="Completar"],
+  .print-mam .print-hide,                       /* header buttons row (explicit class — earlier .flex.flex-wrap.gap-2.items-center selector accidentally matched item name wrapper too because Tailwind class order is irrelevant in CSS) */
+  .print-mam .relative-time {                   /* "en 5h 30m" / "hace 11d" — irrelevant on paper, the absolute time is already shown */
+    display: none !important;
+  }
+
+  /* Layout limpio sin chrome */
+  body, html {
+    background: white !important;
+    color: black !important;
+    font-size: 10pt;
+  }
+
+  .print-mam {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Cabecera del día = título prominente que rompe página */
+  .print-mam h2 {
+    page-break-before: always;
+    page-break-after: avoid;
+    font-size: 14pt !important;
+    font-weight: 700;
+    border-bottom: 2px solid #333 !important;
+    padding-bottom: 4pt;
+    margin-top: 0 !important;
+    margin-bottom: 8pt !important;
+  }
+  .print-mam .mb-8:first-of-type h2 {
+    page-break-before: auto;  /* primer día no rompe página */
+  }
+
+  /* Items: tabla compacta */
+  .print-mam .group {
+    border: none !important;
+    border-bottom: 1px solid #ddd !important;
+    padding: 4pt 0 !important;
+    page-break-inside: avoid;
+  }
+  /* Quita backgrounds de status que no se ven bien en papel */
+  .print-mam .bg-green-50,
+  .print-mam .bg-amber-50,
+  .print-mam .bg-gray-50 {
+    background: white !important;
+  }
+  /* Las líneas "AHORA" no aplican en papel — son contexto en vivo */
+  .print-mam .bg-rose-50 {
+    display: none !important;
+  }
+
+  /* Hora en negrita */
+  .print-mam .font-mono {
+    font-weight: 600;
+    font-size: 10pt !important;
+  }
+
+  /* Mostrar TODA la metadata en papel — los detalles importan */
+  .print-mam .hidden {
+    display: inline-flex !important;
+  }
+
+  /* Forzar que el responsable y los apoyos no se trunquen */
+  .print-mam .truncate {
+    overflow: visible !important;
+    white-space: normal !important;
+    text-overflow: clip !important;
+  }
+
+  /* Cards sin shadow */
+  .print-mam [class*="shadow"],
+  .print-mam [class*="border"] {
+    box-shadow: none !important;
+  }
+
+  /* No imprimir el indicador de WS connected */
+  .print-mam .text-green-600,
+  .print-mam .text-gray-400 {
+    /* dejar visible — útil, no es ruido */
+  }
+
+  /* No imprimir AiChatWidget ni UpdateBanner */
+  body :global(.ai-chat-widget),
+  body :global(.update-banner) {
+    display: none !important;
+  }
+
+  @page {
+    margin: 12mm;
+    size: auto;
+  }
+}
+</style>

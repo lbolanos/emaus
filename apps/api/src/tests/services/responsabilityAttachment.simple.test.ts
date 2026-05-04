@@ -489,3 +489,59 @@ describe('markdown size calculation', () => {
 		expect(r.ok).toBe(true);
 	});
 });
+
+describe('countsByName — agrupa attachments por responsability name', () => {
+	function countsByName(attachments: Pick<Attachment, 'responsabilityName'>[]): Record<string, number> {
+		const out: Record<string, number> = {};
+		for (const a of attachments) {
+			out[a.responsabilityName] = (out[a.responsabilityName] ?? 0) + 1;
+		}
+		return out;
+	}
+
+	it('cuenta correctamente cuando hay 1 attachment por responsability', () => {
+		const counts = countsByName([
+			{ responsabilityName: 'Comedor' },
+			{ responsabilityName: 'Campanero' },
+		]);
+		expect(counts).toEqual({ Comedor: 1, Campanero: 1 });
+	});
+
+	it('agrupa múltiples attachments del mismo responsability', () => {
+		const counts = countsByName([
+			{ responsabilityName: 'Comedor' },
+			{ responsabilityName: 'Comedor' },
+			{ responsabilityName: 'Comedor' },
+		]);
+		expect(counts).toEqual({ Comedor: 3 });
+	});
+
+	it('responsability sin attachments NO aparece en el output (no hay key)', () => {
+		const counts = countsByName([{ responsabilityName: 'Comedor' }]);
+		expect(counts.Cocina).toBeUndefined();
+		expect(counts['No existe']).toBeUndefined();
+	});
+
+	it('mantiene case-sensitivity (Comedor ≠ comedor)', () => {
+		const counts = countsByName([
+			{ responsabilityName: 'Comedor' },
+			{ responsabilityName: 'comedor' },
+		]);
+		expect(counts.Comedor).toBe(1);
+		expect(counts.comedor).toBe(1);
+	});
+
+	it('empty input → empty record', () => {
+		expect(countsByName([])).toEqual({});
+	});
+
+	it('preserva acentos y unicode en nombres', () => {
+		const counts = countsByName([
+			{ responsabilityName: 'Acólito' },
+			{ responsabilityName: 'Música' },
+			{ responsabilityName: 'Acólito' },
+		]);
+		expect(counts['Acólito']).toBe(2);
+		expect(counts['Música']).toBe(1);
+	});
+});

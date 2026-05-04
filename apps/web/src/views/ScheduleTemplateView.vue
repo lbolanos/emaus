@@ -8,17 +8,22 @@
           Plantillas maestras. Cada retiro elige una al importar su agenda.
         </p>
       </div>
-      <Button
-        v-if="canManage.scheduleTemplate.value"
-        @click="openCreate"
-        :disabled="!selectedSetId"
-        class="shrink-0 flex items-center gap-2 self-start"
-      >
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-        </svg>
-        Nueva actividad
-      </Button>
+      <div class="flex items-center gap-2 shrink-0 self-start">
+        <Button variant="outline" size="sm" @click="helpOpen = true" class="flex items-center gap-1" title="Cómo usar el editor de templates">
+          <span>❓</span> Ayuda
+        </Button>
+        <Button
+          v-if="canManage.scheduleTemplate.value"
+          @click="openCreate"
+          :disabled="!selectedSetId"
+          class="flex items-center gap-2"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          Nueva actividad
+        </Button>
+      </div>
     </div>
 
     <!-- Template selector toolbar -->
@@ -464,6 +469,9 @@
       @update:open="(v: boolean) => onAttachmentsDialog(v)"
       @changed="load"
     />
+
+    <!-- Help dialog -->
+    <ScheduleTemplateHelpDialog :open="helpOpen" @update:open="(v: boolean) => helpOpen = v" />
   </div>
 </template>
 
@@ -488,6 +496,7 @@ import {
 } from '@/services/api';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import ResponsabilityAttachmentsDialog from '@/components/ResponsabilityAttachmentsDialog.vue';
+import ScheduleTemplateHelpDialog from '@/components/ScheduleTemplateHelpDialog.vue';
 
 const { canManage } = useAuthPermissions();
 
@@ -532,6 +541,7 @@ const sets = ref<ScheduleTemplateSetDTO[]>([]);
 const selectedSetId = ref<string>('');
 const loading = ref(false);
 const dialogOpen = ref(false);
+const helpOpen = ref(false);
 const createSetDialogOpen = ref(false);
 const editing = ref<ScheduleTemplateDTO | null>(null);
 const newSetForm = ref({ name: '', description: '' });
