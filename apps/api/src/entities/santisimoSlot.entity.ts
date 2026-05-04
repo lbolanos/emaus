@@ -43,6 +43,9 @@ export class SantisimoSlot {
 	@Column({ type: 'text', nullable: true })
 	notes?: string | null;
 
+	@Column({ type: 'boolean', default: false })
+	mealWindow!: boolean;
+
 	@OneToMany(() => SantisimoSignup, (signup) => signup.slot)
 	signups?: SantisimoSignup[];
 

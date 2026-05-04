@@ -344,6 +344,28 @@ export const getPalanqueroOptions = async (
   return response.data;
 };
 
+export const getResponsibilityDocumentation = async (
+  name: string,
+): Promise<{ name: string; markdown: string } | null> => {
+  try {
+    const response = await api.get("/responsibilities/documentation", {
+      params: { name },
+    });
+    return response.data;
+  } catch (err: any) {
+    if (err?.response?.status === 404) return null;
+    throw err;
+  }
+};
+
+export const listResponsibilityDocumentationKeys = async (): Promise<{
+  charlas: string[];
+  responsibilities: string[];
+}> => {
+  const response = await api.get("/responsibilities/documentation/keys");
+  return response.data;
+};
+
 export const createAndAssignSpeaker = async (
   responsabilityId: string,
   data: {
@@ -855,13 +877,39 @@ export const confirmExistingRegistration = async (
   retreatId: string,
   type: string,
   recaptchaToken: string,
+  shirtSizes?: { shirtTypeId: string; size: string }[],
 ): Promise<{ success: boolean; firstName: string; lastName: string }> => {
   const response = await api.post("/participants/confirm-registration", {
     email,
     retreatId,
     type,
     recaptchaToken,
+    shirtSizes,
   });
+  return response.data;
+};
+
+// Public self-service data deletion (GDPR/LFPDPPP)
+export const getParticipantByDeleteToken = async (
+  token: string,
+): Promise<{
+  firstName: string;
+  lastName: string;
+  email: string;
+  retreatName: string | null;
+}> => {
+  const response = await api.get(
+    `/participants/delete-data/${encodeURIComponent(token)}`,
+  );
+  return response.data;
+};
+
+export const deleteParticipantByDeleteToken = async (
+  token: string,
+): Promise<{ success: boolean }> => {
+  const response = await api.post(
+    `/participants/delete-data/${encodeURIComponent(token)}`,
+  );
   return response.data;
 };
 
@@ -1977,6 +2025,7 @@ export interface SantisimoSlotWithSignups {
   isDisabled: boolean;
   intention: string | null;
   notes: string | null;
+  mealWindow: boolean;
   signedUpCount: number;
   signups: Array<{
     id: string;
@@ -2144,3 +2193,478 @@ export async function checkInParticipant(
   const r = await api.put(`/participants/${participantId}/checkin`, { retreatId, checkedIn });
   return r.data;
 }
+
+// ---------- Minuto a Minuto (schedule) ----------
+
+export interface ScheduleTemplateSetDTO {
+  id: string;
+  name: string;
+  description?: string | null;
+  sourceTag?: string | null;
+  isActive: boolean;
+  isDefault: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ResponsabilityAttachmentDTO {
+  id: string;
+  responsabilityName: string;
+  kind: "file" | "markdown";
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  storageUrl: string;
+  content?: string | null;
+  description?: string | null;
+  sortOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ScheduleTemplateDTO {
+  id: string;
+  templateSetId?: string | null;
+  name: string;
+  description?: string | null;
+  type: string;
+  defaultDurationMinutes: number;
+  defaultOrder: number;
+  defaultDay: number;
+  defaultStartTime?: string | null;
+  requiresResponsable: boolean;
+  allowedResponsibilityTypes?: string | null;
+  responsabilityName?: string | null;
+  musicTrackUrl?: string | null;
+  palanquitaNotes?: string | null;
+  planBNotes?: string | null;
+  blocksSantisimoAttendance: boolean;
+  locationHint?: string | null;
+  isActive: boolean;
+  attachments?: ResponsabilityAttachmentDTO[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RetreatScheduleItemDTO {
+  id: string;
+  retreatId: string;
+  scheduleTemplateId?: string | null;
+  name: string;
+  type: string;
+  day: number;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  orderInDay: number;
+  status: "pending" | "active" | "completed" | "delayed" | "skipped";
+  responsabilityId?: string | null;
+  location?: string | null;
+  notes?: string | null;
+  musicTrackUrl?: string | null;
+  palanquitaNotes?: string | null;
+  planBNotes?: string | null;
+  blocksSantisimoAttendance: boolean;
+  actualStartTime?: string | null;
+  actualEndTime?: string | null;
+  responsables?: Array<{
+    id?: string;
+    participantId: string;
+    role?: string | null;
+    participant?: { id: string; firstName: string; lastName: string; nickname: string };
+  }>;
+  attachments?: ResponsabilityAttachmentDTO[];
+}
+
+export const scheduleTemplateApi = {
+  async list(setId?: string): Promise<ScheduleTemplateDTO[]> {
+    const r = await api.get("/schedule-templates", {
+      params: setId ? { setId } : {},
+    });
+    return r.data;
+  },
+  // --- Template sets ---
+  async listSets(): Promise<ScheduleTemplateSetDTO[]> {
+    const r = await api.get("/schedule-templates/sets");
+    return r.data;
+  },
+  async createSet(data: Partial<ScheduleTemplateSetDTO>): Promise<ScheduleTemplateSetDTO> {
+    const r = await api.post("/schedule-templates/sets", data);
+    return r.data;
+  },
+  async updateSet(
+    id: string,
+    data: Partial<ScheduleTemplateSetDTO>,
+  ): Promise<ScheduleTemplateSetDTO> {
+    const r = await api.patch(`/schedule-templates/sets/${id}`, data);
+    return r.data;
+  },
+  async removeSet(id: string): Promise<void> {
+    await api.delete(`/schedule-templates/sets/${id}`);
+  },
+  async get(id: string): Promise<ScheduleTemplateDTO> {
+    const r = await api.get(`/schedule-templates/${id}`);
+    return r.data;
+  },
+  async create(data: Partial<ScheduleTemplateDTO>): Promise<ScheduleTemplateDTO> {
+    const r = await api.post("/schedule-templates", data);
+    return r.data;
+  },
+  async update(
+    id: string,
+    data: Partial<ScheduleTemplateDTO>,
+  ): Promise<ScheduleTemplateDTO> {
+    const r = await api.patch(`/schedule-templates/${id}`, data);
+    return r.data;
+  },
+  async remove(id: string): Promise<void> {
+    await api.delete(`/schedule-templates/${id}`);
+  },
+};
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error ?? new Error("FileReader error"));
+    reader.readAsDataURL(file);
+  });
+}
+
+// Attachments vinculados a una Responsabilidad por nombre canónico.
+// El nombre se URL-encode al consultar.
+export const responsabilityAttachmentApi = {
+  async list(responsabilityName: string): Promise<ResponsabilityAttachmentDTO[]> {
+    const r = await api.get(
+      `/responsability-attachments/by-name/${encodeURIComponent(responsabilityName)}/attachments`,
+    );
+    return r.data;
+  },
+  async upload(
+    responsabilityName: string,
+    file: File,
+    description?: string | null,
+  ): Promise<ResponsabilityAttachmentDTO> {
+    if (file.size > 10 * 1024 * 1024) {
+      throw new Error("El archivo excede 10MB.");
+    }
+    const dataUrl = await fileToDataUrl(file);
+    const r = await api.post(
+      `/responsability-attachments/by-name/${encodeURIComponent(responsabilityName)}/attachments`,
+      {
+        dataUrl,
+        fileName: file.name,
+        mimeType: file.type || "application/octet-stream",
+        description: description ?? null,
+      },
+    );
+    return r.data;
+  },
+  async createMarkdown(
+    responsabilityName: string,
+    payload: { title: string; content: string; description?: string | null },
+  ): Promise<ResponsabilityAttachmentDTO> {
+    const r = await api.post(
+      `/responsability-attachments/by-name/${encodeURIComponent(responsabilityName)}/attachments/markdown`,
+      payload,
+    );
+    return r.data;
+  },
+  async update(
+    attachmentId: string,
+    patch: { description?: string | null; sortOrder?: number },
+  ): Promise<ResponsabilityAttachmentDTO> {
+    const r = await api.patch(
+      `/responsability-attachments/attachments/${attachmentId}`,
+      patch,
+    );
+    return r.data;
+  },
+  async updateMarkdown(
+    attachmentId: string,
+    patch: { title?: string; content?: string; description?: string | null },
+  ): Promise<ResponsabilityAttachmentDTO> {
+    const r = await api.patch(
+      `/responsability-attachments/attachments/${attachmentId}/markdown`,
+      patch,
+    );
+    return r.data;
+  },
+  async remove(attachmentId: string): Promise<void> {
+    await api.delete(`/responsability-attachments/attachments/${attachmentId}`);
+  },
+  async counts(): Promise<Record<string, number>> {
+    const r = await api.get(`/responsability-attachments/counts`);
+    return r.data;
+  },
+  async listHistory(
+    attachmentId: string,
+  ): Promise<
+    Array<{
+      id: string;
+      attachmentId: string;
+      title: string;
+      preview: string;
+      sizeBytes: number;
+      description: string | null;
+      savedAt: string;
+      savedById: string | null;
+    }>
+  > {
+    const r = await api.get(
+      `/responsability-attachments/attachments/${attachmentId}/history`,
+    );
+    return r.data;
+  },
+  async restoreVersion(
+    attachmentId: string,
+    historyId: string,
+  ): Promise<ResponsabilityAttachmentDTO> {
+    const r = await api.post(
+      `/responsability-attachments/attachments/${attachmentId}/restore/${historyId}`,
+    );
+    return r.data;
+  },
+  async getVersion(
+    attachmentId: string,
+    historyId: string,
+  ): Promise<{
+    id: string;
+    attachmentId: string;
+    title: string;
+    content: string;
+    sizeBytes: number;
+    description: string | null;
+    savedAt: string;
+    savedById: string | null;
+  }> {
+    const r = await api.get(
+      `/responsability-attachments/attachments/${attachmentId}/history/${historyId}`,
+    );
+    return r.data;
+  },
+};
+
+export const retreatScheduleApi = {
+  async list(retreatId: string): Promise<RetreatScheduleItemDTO[]> {
+    const r = await api.get(`/schedule/retreats/${retreatId}/items`);
+    return r.data;
+  },
+  async create(
+    retreatId: string,
+    data: Partial<RetreatScheduleItemDTO> & { responsableParticipantIds?: string[] },
+  ): Promise<RetreatScheduleItemDTO> {
+    const r = await api.post(`/schedule/retreats/${retreatId}/items`, data);
+    return r.data;
+  },
+  async update(
+    id: string,
+    data: Partial<RetreatScheduleItemDTO> & { responsableParticipantIds?: string[] },
+  ): Promise<RetreatScheduleItemDTO> {
+    const r = await api.patch(`/schedule/items/${id}`, data);
+    return r.data;
+  },
+  async remove(id: string): Promise<void> {
+    await api.delete(`/schedule/items/${id}`);
+  },
+  async start(id: string): Promise<RetreatScheduleItemDTO> {
+    const r = await api.post(`/schedule/items/${id}/start`);
+    return r.data;
+  },
+  async complete(id: string): Promise<RetreatScheduleItemDTO> {
+    const r = await api.post(`/schedule/items/${id}/complete`);
+    return r.data;
+  },
+  async shift(
+    id: string,
+    minutesDelta: number,
+    propagate = true,
+  ): Promise<RetreatScheduleItemDTO[]> {
+    const r = await api.post(`/schedule/items/${id}/shift`, { minutesDelta, propagate });
+    return r.data;
+  },
+  async shiftDay(
+    retreatId: string,
+    day: number,
+    minutesDelta: number,
+  ): Promise<RetreatScheduleItemDTO[]> {
+    const r = await api.post(`/schedule/retreats/${retreatId}/days/${day}/shift`, {
+      minutesDelta,
+    });
+    return r.data;
+  },
+  async reorderDay(
+    retreatId: string,
+    day: number,
+    itemIds: string[],
+  ): Promise<RetreatScheduleItemDTO[]> {
+    const r = await api.post(`/schedule/retreats/${retreatId}/days/${day}/reorder`, {
+      itemIds,
+    });
+    return r.data;
+  },
+  async publicGetMam(slug: string): Promise<{
+    retreat: { id: string; parish: string; startDate: string; endDate: string };
+    items: Array<{
+      id: string;
+      day: number;
+      startTime: string;
+      endTime: string;
+      durationMinutes: number;
+      name: string;
+      type: string;
+      status: 'pending' | 'active' | 'completed' | 'delayed' | 'skipped';
+      location: string | null;
+      responsabilityName: string | null;
+    }>;
+  }> {
+    // Plain axios request without auth interceptors — this is the only
+    // public endpoint in retreatScheduleApi. We still go through the shared
+    // `api` instance to keep base URL handling consistent.
+    const r = await api.get(`/schedule/public/mam/${encodeURIComponent(slug)}`);
+    return r.data;
+  },
+  async materialize(
+    retreatId: string,
+    baseDate: string,
+    templateSetId?: string,
+    clearExisting = false,
+  ): Promise<RetreatScheduleItemDTO[]> {
+    const r = await api.post(`/schedule/retreats/${retreatId}/materialize`, {
+      baseDate,
+      templateSetId,
+      clearExisting,
+    });
+    return r.data;
+  },
+  async resolveSantisimo(
+    retreatId: string,
+  ): Promise<{ mealSlots: number; angelitosAssigned: number; unresolvedSlots: string[] }> {
+    const r = await api.post(`/schedule/retreats/${retreatId}/resolve-santisimo`);
+    return r.data;
+  },
+  async ringBell(retreatId: string, message?: string): Promise<void> {
+    await api.post(`/schedule/retreats/${retreatId}/bell`, { message });
+  },
+  async dashboardStats(retreatId: string): Promise<ScheduleDashboardStats> {
+    const r = await api.get(`/schedule/retreats/${retreatId}/dashboard`);
+    return r.data;
+  },
+  async suggestResponsables(retreatId: string): Promise<ResponsableSuggestion[]> {
+    const r = await api.get(`/schedule/retreats/${retreatId}/suggest-responsables`);
+    return r.data;
+  },
+  async bulkAssignResponsables(
+    retreatId: string,
+    assignments: BulkAssignment[],
+  ): Promise<{ updated: number; skipped: number }> {
+    const r = await api.post(
+      `/schedule/retreats/${retreatId}/bulk-assign-responsables`,
+      { assignments },
+    );
+    return r.data;
+  },
+  async relinkResponsibilities(
+    retreatId: string,
+    force = false,
+  ): Promise<{ linked: number; alreadyLinked: number; noTemplate: number; noMatch: number }> {
+    const r = await api.post(
+      `/schedule/retreats/${retreatId}/relink-responsibilities${force ? '?force=true' : ''}`,
+    );
+    return r.data;
+  },
+  async canonicalResponsabilities(): Promise<{ fixed: string[]; charlas: string[] }> {
+    const r = await api.get('/schedule/canonical-responsabilities');
+    return r.data;
+  },
+};
+
+export interface ResponsableSuggestion {
+  itemId: string;
+  responsabilityId: string | null;
+  confidence: 'high' | 'medium' | 'low' | 'none';
+  reason: string;
+}
+
+export interface BulkAssignment {
+  itemId: string;
+  responsabilityId?: string | null;
+  responsableParticipantIds?: string[];
+}
+
+export interface ScheduleDashboardStats {
+  currentItem: {
+    id: string;
+    name: string;
+    type: string;
+    startTime: string;
+    endTime: string;
+    actualStartTime: string | null;
+    durationMinutes: number;
+    responsabilityId: string | null;
+    responsabilityName: string | null;
+  } | null;
+  nextItem: {
+    id: string;
+    name: string;
+    type: string;
+    startTime: string;
+    minutesUntil: number;
+    responsabilityName: string | null;
+  } | null;
+  today: { completed: number; total: number };
+  items: {
+    total: number;
+    completed: number;
+    active: number;
+    pending: number;
+    delayed: number;
+    requiresResponsable: number;
+    missingResponsable: number;
+  };
+  delayMinutes: number;
+  santisimo: {
+    totalSlots: number;
+    coveredSlots: number;
+    mealWindowSlots: number;
+    unresolvedMealSlots: number;
+  };
+  angelitos: { total: number; available: number; inTable: number };
+}
+
+// --- Retreat Shirt Types ---
+export type ShirtTypeDTO = {
+  id: string;
+  retreatId: string;
+  name: string;
+  color?: string | null;
+  requiredForWalkers: boolean;
+  optionalForServers: boolean;
+  sortOrder: number;
+  availableSizes?: string[] | null;
+};
+
+export const listShirtTypes = async (retreatId: string): Promise<ShirtTypeDTO[]> => {
+  const r = await api.get(`/retreats/${retreatId}/shirt-types`);
+  return r.data;
+};
+
+export const createShirtType = async (
+  retreatId: string,
+  data: Partial<ShirtTypeDTO>,
+): Promise<ShirtTypeDTO> => {
+  const r = await api.post(`/retreats/${retreatId}/shirt-types`, data);
+  return r.data;
+};
+
+export const updateShirtType = async (
+  id: string,
+  data: Partial<ShirtTypeDTO>,
+): Promise<ShirtTypeDTO> => {
+  const r = await api.patch(`/shirt-types/${id}`, data);
+  return r.data;
+};
+
+export const deleteShirtType = async (id: string): Promise<void> => {
+  await api.delete(`/shirt-types/${id}`);
+};

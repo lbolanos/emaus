@@ -11,6 +11,8 @@ import {
 	confirmExistingParticipantEmail,
 	checkInParticipant,
 	getReceptionStats,
+	getParticipantByDeleteToken,
+	deleteParticipantByDeleteToken,
 } from '../controllers/participantController';
 import { validateRequest } from '../middleware/validateRequest';
 import { createParticipantSchema, updateParticipantSchema } from '@repo/types';
@@ -28,6 +30,10 @@ router.get('/check-email/:email', emailCheckLimiter, checkParticipantEmail);
 
 // Public confirm-registration: auto-register existing participant for a retreat
 router.post('/confirm-registration', publicParticipantLimiter, confirmExistingParticipantEmail);
+
+// Public self-service data deletion (LFPDPPP/GDPR) — token-based, rate-limited
+router.get('/delete-data/:token', publicParticipantLimiter, getParticipantByDeleteToken);
+router.post('/delete-data/:token', publicParticipantLimiter, deleteParticipantByDeleteToken);
 
 router.use(isAuthenticated);
 

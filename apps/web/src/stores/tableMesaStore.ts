@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import {
 	getTablesByRetreat,
 	assignLeaderToTable,
@@ -205,8 +205,8 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
 		}
 	};
 
-	retreatStore.$subscribe((_, state) => {
-		fetchTables();
+	watch(() => retreatStore.selectedRetreatId, (id) => {
+		if (id) fetchTables();
 	});
 
 	return {

@@ -1,8 +1,9 @@
-import { DataSource, Like } from 'typeorm';
+import { DataSource, Like, In } from 'typeorm';
 import { AppDataSource } from '../data-source';
 import { Responsability, ResponsabilityType } from '../entities/responsability.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { Participant } from '../entities/participant.entity';
+import { ScheduleTemplate } from '../entities/scheduleTemplate.entity';
 import { getRepositories } from '../utils/repositoryHelpers';
 import { v4 as uuidv4 } from 'uuid';
 import { formatDate as formatDateUtil } from '@repo/utils';
@@ -348,11 +349,18 @@ export const createDefaultResponsibilitiesForRetreat = async (
 		'Comedor',
 		'Salón',
 		'Cuartos',
-		'Oración',
+		'Oración de Intercesión',
 		'Palanquitas',
-		'Santísmo',
+		'Santísimo',
 		'Campanero',
 		'Continua',
+		'Biblias',
+		'Explicación Rosario y entrega',
+		'Bolsas',
+		'Resumen del día',
+		'Recepción',
+		'Reglamento de la Casa',
+		'Despedida',
 	];
 
 	const responsibilities = defaultResponsibilities.map((name) =>
@@ -364,20 +372,10 @@ export const createDefaultResponsibilitiesForRetreat = async (
 		}),
 	);
 
-	// Add default charlas/dinámicas
-	const defaultCharlas = getDefaultCharlas();
-	const charlaEntities = defaultCharlas.map((charla) =>
-		repos.responsability.create({
-			id: uuidv4(),
-			name: charla.name,
-			description: charla.anexo,
-			responsabilityType: ResponsabilityType.CHARLISTA,
-			retreatId: retreat.id,
-			retreat,
-		}),
-	);
-
-	return repos.responsability.save([...responsibilities, ...charlaEntities]);
+	// Las charlas/textos NO se crean aquí: se generan al materializar el
+	// minuto-a-minuto en `ensureCharlaResponsibilitiesFromTemplateSet`,
+	// derivadas del TemplateSet escogido (Sta. Clara, Polanco, etc.).
+	return repos.responsability.save(responsibilities);
 };
 
 export const getDefaultCharlas = () => [
@@ -390,17 +388,93 @@ export const getDefaultCharlas = () => [
 	{ name: 'Charla: Sanación de los Recuerdos (Sanando Heridas)', anexo: 'A-2-7' },
 	{ name: 'Charla: Conociendo a Dios a través de la Familia y Amigos', anexo: 'A-2-8' },
 	{ name: 'Charla: Amando a Dios a través del Servicio', anexo: 'A-2-9' },
-	{ name: 'Texto: Reflexión sobre Lucas 24, 13-35', anexo: 'A-2-10' },
-	{ name: 'Texto: Historia de los Retiros de Emaús', anexo: 'A-2-11' },
 	{ name: 'Texto: Explicación del Lema "Jesucristo Ha Resucitado"', anexo: 'A-2-12' },
 	{ name: 'Texto: Explicación de la Confidencialidad', anexo: 'A-2-13' },
 	{ name: 'Texto: Explicación de La Palanca', anexo: 'A-2-14' },
 	{ name: 'Texto: Explicación del Ágape', anexo: 'A-2-15' },
-	{ name: 'Texto: Dinámica Examen de Conciencia', anexo: 'A-2-16' },
+	{ name: 'Texto: Quema de Pecados', anexo: 'A-2-16' },
 	{ name: 'Charla: De la Confianza', anexo: 'A-2-17' },
 	{ name: 'Texto: Dinámica de la Pared', anexo: 'A-2-18' },
 	{ name: 'Texto: Lavado de Manos', anexo: 'A-2-19' },
+	{ name: 'Texto: Carta de Jesús', anexo: 'A-2-20' },
+	{ name: 'Texto: Oración al Espíritu Santo', anexo: 'A-2-21' },
+	{ name: 'Charla: Conocerte a Ti Mismo', anexo: 'A-2-22' },
+	{ name: 'Texto: Dinámica de Sanación', anexo: 'A-2-23' },
 ];
+
+/**
+ * Crea las Responsabilidades de tipo CHARLISTA que el TemplateSet escogido
+ * requiere y que aún no existen en el retiro. Idempotente.
+ *
+ * Filtra ScheduleTemplate con `type IN ('charla','testimonio')` y
+ * `responsabilityName` definido. Compara contra Responsabilidades del retiro
+ * por nombre normalizado (lowercase + trim) — misma lógica que el
+ * `relinkResponsibilities` de RetreatScheduleService — y crea las faltantes.
+ *
+ * Si el `responsabilityName` matchea el catálogo de `getDefaultCharlas()`,
+ * la Responsabilidad se crea con `description = anexo` (ej. 'A-2-1').
+ */
+export const ensureCharlaResponsibilitiesFromTemplateSet = async (
+	retreatId: string,
+	templateSetId?: string,
+	dataSource?: DataSource,
+): Promise<{ created: number; alreadyExisting: number }> => {
+	const ds = dataSource || AppDataSource;
+	const templateRepo = ds.getRepository(ScheduleTemplate);
+	const repos = getRepositories(dataSource);
+
+	const where: any = {
+		isActive: true,
+		type: In(['charla', 'testimonio']),
+	};
+	if (templateSetId) where.templateSetId = templateSetId;
+	const templates = await templateRepo.find({ where });
+
+	// Dedupe por nombre normalizado dentro del propio set (varios items pueden
+	// compartir responsabilityName).
+	const wantedByNorm = new Map<string, string>();
+	for (const t of templates) {
+		const name = t.responsabilityName?.trim();
+		if (!name) continue;
+		wantedByNorm.set(name.toLowerCase(), name);
+	}
+
+	if (wantedByNorm.size === 0) {
+		return { created: 0, alreadyExisting: 0 };
+	}
+
+	const existing = await repos.responsability.find({ where: { retreatId } });
+	const existingNorm = new Set(existing.map((r) => r.name.toLowerCase().trim()));
+
+	const anexoByNorm = new Map(
+		getDefaultCharlas().map((c) => [c.name.toLowerCase().trim(), c.anexo] as const),
+	);
+
+	const toCreate: Responsability[] = [];
+	let alreadyExisting = 0;
+	for (const [norm, name] of wantedByNorm.entries()) {
+		if (existingNorm.has(norm)) {
+			alreadyExisting++;
+			continue;
+		}
+		const anexo = anexoByNorm.get(norm) ?? null;
+		toCreate.push(
+			repos.responsability.create({
+				id: uuidv4(),
+				name,
+				description: anexo,
+				responsabilityType: ResponsabilityType.CHARLISTA,
+				retreatId,
+			}),
+		);
+	}
+
+	if (toCreate.length) {
+		await repos.responsability.save(toCreate);
+	}
+
+	return { created: toCreate.length, alreadyExisting };
+};
 
 export const searchSpeakers = async (query: string, retreatId?: string, dataSource?: DataSource) => {
 	const repos = getRepositories(dataSource);

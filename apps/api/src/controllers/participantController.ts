@@ -274,7 +274,7 @@ export const confirmExistingParticipantEmail = async (
   next: NextFunction,
 ) => {
   try {
-    const { email, retreatId, type, recaptchaToken } = req.body;
+    const { email, retreatId, type, recaptchaToken, shirtSizes } = req.body;
 
     if (!email || !retreatId) {
       return res
@@ -300,6 +300,7 @@ export const confirmExistingParticipantEmail = async (
       normalizedEmail,
       retreatId,
       type || "server",
+      Array.isArray(shirtSizes) ? shirtSizes : undefined,
     );
     res.json(result);
   } catch (error) {
@@ -405,6 +406,45 @@ export const checkParticipantEmail = async (
       retreatIdParam,
     );
     res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const isValidDeleteToken = (t: unknown): t is string =>
+  typeof t === "string" && /^[a-f0-9]{48}$/i.test(t);
+
+export const getParticipantByDeleteToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { token } = req.params;
+    if (!isValidDeleteToken(token)) {
+      return res.status(404).json({ message: "Token no válido" });
+    }
+    const info = await participantService.findParticipantByDeleteToken(token);
+    if (!info) return res.status(404).json({ message: "Token no válido" });
+    res.json(info);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteParticipantByDeleteToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { token } = req.params;
+    if (!isValidDeleteToken(token)) {
+      return res.status(404).json({ message: "Token no válido" });
+    }
+    const ok = await participantService.anonymizeParticipantByToken(token);
+    if (!ok) return res.status(404).json({ message: "Token no válido" });
+    res.json({ success: true });
   } catch (error) {
     next(error);
   }

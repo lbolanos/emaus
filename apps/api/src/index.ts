@@ -9,7 +9,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { TypeormStore } from 'connect-typeorm';
 
-import { initRealtime } from './realtime';
+import { initRealtime, emitScheduleUpcoming } from './realtime';
+import { retreatScheduleService } from './services/retreatScheduleService';
+import { createDefaultScheduleTemplate } from './data/scheduleTemplateSeeder';
+import { seedCanonicalResponsabilityAttachments } from './data/responsabilityAttachmentSeeder';
 
 import { AppDataSource } from './data-source';
 import { Session } from './entities/session.entity';
@@ -19,6 +22,7 @@ import { config } from './config';
 import { errorHandler } from './middleware/errorHandler';
 import { MigrationVerifier } from './database/migration-verifier';
 import { roleCleanupService } from './services/roleCleanupService';
+import { attachmentHistoryCleanupService } from './services/attachmentHistoryCleanupService';
 import { passwordResetCleanupService } from './services/passwordResetCleanupService';
 import { PerformanceMiddleware, PerformanceRequest } from './middleware/performanceMiddleware';
 import { performanceOptimizationService } from './services/performanceOptimizationService';
@@ -202,7 +206,28 @@ async function main() {
 
 	roleCleanupService.startScheduledTasks();
 	passwordResetCleanupService.startScheduledTasks();
+	attachmentHistoryCleanupService.startScheduledTasks();
 	await performanceOptimizationService.optimizeHeavyQueries();
+
+	// Ensure minuto-a-minuto default templates exist (idempotent by name).
+	try {
+		await createDefaultScheduleTemplate();
+	} catch (err) {
+		console.warn('[scheduleTemplateSeeder] bootstrap error', err);
+	}
+
+	// Importa los guiones de las charlas/roles (description → markdown attachment).
+	// Idempotente: solo crea si no existe ya un attachment para ese nombre.
+	try {
+		const r = await seedCanonicalResponsabilityAttachments();
+		if (r.created > 0) {
+			console.log(
+				`[responsabilityAttachmentSeeder] ${r.created} guion(es) importados, ${r.skipped} ya existentes`,
+			);
+		}
+	} catch (err) {
+		console.warn('[responsabilityAttachmentSeeder] bootstrap error', err);
+	}
 
 	// --- 8. Start Server ---
 	const httpServer = http.createServer(app);
@@ -210,6 +235,74 @@ async function main() {
 	httpServer.listen(port, () => {
 		console.log(`✅ Server is running on http://localhost:${port}`);
 	});
+
+	// Minuto-a-minuto "upcoming" broadcaster: every 60s, look for items
+	// scheduled to start within the next 10 minutes and notify responsables.
+	const ONE_MINUTE = 60_000;
+	const alreadyNotified = new Map<string, Set<number>>();
+	const upcomingTimer = setInterval(async () => {
+		try {
+			const upcoming = await retreatScheduleService.listUpcoming(10);
+			for (const item of upcoming) {
+				const minutesUntil = Math.max(
+					0,
+					Math.round((item.startTime.getTime() - Date.now()) / 60000),
+				);
+				// Fire once per threshold (10, 5, 0) per item
+				const threshold =
+					minutesUntil <= 0 ? 0 : minutesUntil <= 5 ? 5 : minutesUntil <= 10 ? 10 : null;
+				if (threshold === null) continue;
+				const seen = alreadyNotified.get(item.id) ?? new Set<number>();
+				if (seen.has(threshold)) continue;
+				seen.add(threshold);
+				alreadyNotified.set(item.id, seen);
+				emitScheduleUpcoming({
+					retreatId: item.retreatId,
+					itemId: item.id,
+					name: item.name,
+					startTime: item.startTime.toISOString(),
+					minutesUntil,
+					targetParticipantIds: item.targetParticipantIds,
+				});
+			}
+			// Evict entries older than 30 minutes to keep the map bounded
+			if (alreadyNotified.size > 5000) alreadyNotified.clear();
+		} catch (err) {
+			console.warn('[schedule:upcoming] tick error', err);
+		}
+	}, ONE_MINUTE);
+
+	// Graceful shutdown: close :3001 before exiting so PM2's next child can
+	// bind it. Without this, PM2 SIGINT-then-SIGKILLs the old process while
+	// httpServer keeps the port LISTEN; the next child crashes with EADDRINUSE
+	// in a loop until manual intervention. See LIGHTSAIL_MIGRATION_NOTES.md §17.
+	let shuttingDown = false;
+	const gracefulShutdown = (signal: string) => {
+		if (shuttingDown) return;
+		shuttingDown = true;
+		console.log(`📥 ${signal} received — shutting down`);
+		clearInterval(upcomingTimer);
+
+		// Watchdog: if close() hangs (eg. open WS connections), force-exit so
+		// PM2 can rebind. 8s leaves headroom under PM2's kill_timeout=10000.
+		const forceExit = setTimeout(() => {
+			console.warn('⚠ shutdown timed out (8s), forcing exit');
+			process.exit(1);
+		}, 8000);
+		forceExit.unref();
+
+		httpServer.close((err) => {
+			if (err) console.error('httpServer.close error:', err);
+			AppDataSource.destroy()
+				.catch((e) => console.error('AppDataSource.destroy error:', e))
+				.finally(() => {
+					console.log('✓ Shutdown complete');
+					process.exit(0);
+				});
+		});
+	};
+	process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+	process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 }
 
 main().catch((err) => {

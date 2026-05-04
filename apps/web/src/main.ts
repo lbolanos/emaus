@@ -27,8 +27,33 @@ if ((window as any).__EMAUS_BOOTED) {
 
 		const authStore = useAuthStore();
 
+		// Global handler for uncaught errors in component setup/render. The
+		// blank-page-after-login bug was caused by `useRoute()` injection
+		// failing on first paint when navigation hadn't yet committed; a
+		// component setup throws → Vue silently leaves the page blank. Below
+		// we (a) await router.isReady() before mounting (root cause fix) and
+		// (b) keep this handler as a defensive log + auto-reload safety net
+		// for any *other* setup error that surfaces in production.
+		app.config.errorHandler = (err, _instance, info) => {
+			console.error('[Vue errorHandler]', info, err);
+			const w = window as any;
+			if (!w.__EMAUS_BOOT_RECOVERED && info === 'setup function') {
+				w.__EMAUS_BOOT_RECOVERED = true;
+				console.warn('[Vue errorHandler] setup-function error during first paint, forcing reload');
+				setTimeout(() => window.location.reload(), 50);
+			}
+		};
+
 		loadGoogleMaps().catch((err) => console.error('[Maps]', err));
 		initializeCsrfProtection();
+
+		// Wait for the router to resolve the initial navigation before
+		// mounting. Without this, components that call `useRoute()` at
+		// `<script setup>` top-level (e.g. AppLayout, RetreatDashboardView)
+		// race with the router's first `push/replace` and the inject of
+		// `Symbol(route location)` returns undefined → setup throws →
+		// blank page until manual reload.
+		await router.isReady();
 
 		app.mount('#app');
 

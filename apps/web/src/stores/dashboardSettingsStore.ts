@@ -11,7 +11,9 @@ export type SectionKey =
   | 'palancas'
   | 'registrationLinks'
   | 'additionalInfo'
-  | 'inventoryAlerts';
+  | 'inventoryAlerts'
+  | 'minutoAMinuto'
+  | 'santisimo';
 
 type SectionRecord = Record<SectionKey, boolean>;
 
@@ -30,6 +32,8 @@ const ALL_VISIBLE: SectionRecord = {
   registrationLinks: true,
   additionalInfo: true,
   inventoryAlerts: true,
+  minutoAMinuto: true,
+  santisimo: true,
 };
 
 const ALL_EXPANDED: SectionRecord = {
@@ -43,15 +47,19 @@ const ALL_EXPANDED: SectionRecord = {
   registrationLinks: false,
   additionalInfo: false,
   inventoryAlerts: false,
+  minutoAMinuto: false,
+  santisimo: false,
 };
 
 export const DEFAULT_ORDER: SectionKey[] = [
   'registrationLinks',
+  'minutoAMinuto',
   'primaryStats',
   'responsibilities',
   'tableAssignments',
   'assignmentStats',
   'reception',
+  'santisimo',
   'palancas',
   'bagsReport',
   'additionalInfo',
@@ -73,7 +81,16 @@ function loadOrderFromStorage(key: string, defaults: SectionKey[]): SectionKey[]
     const raw = localStorage.getItem(key);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        // Merge: keep user's saved order, append any new sections that were
+        // added to DEFAULT_ORDER after the user's last save so new cards
+        // become discoverable in "Personalizar dashboard".
+        const stored = parsed.filter((k: unknown): k is SectionKey =>
+          (defaults as readonly string[]).includes(k as string),
+        );
+        const missing = defaults.filter((k) => !stored.includes(k));
+        return [...stored, ...missing];
+      }
     }
   } catch (_e) {
     // ignore parse/storage errors

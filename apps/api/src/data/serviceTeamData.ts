@@ -11,16 +11,18 @@ export const defaultCharlas = [
 	{ name: 'Charla: Sanación de los Recuerdos (Sanando Heridas)', anexo: 'A-2-7' },
 	{ name: 'Charla: Conociendo a Dios a través de la Familia y Amigos', anexo: 'A-2-8' },
 	{ name: 'Charla: Amando a Dios a través del Servicio', anexo: 'A-2-9' },
-	{ name: 'Texto: Reflexión sobre Lucas 24, 13-35', anexo: 'A-2-10' },
-	{ name: 'Texto: Historia de los Retiros de Emaús', anexo: 'A-2-11' },
 	{ name: 'Texto: Explicación del Lema "Jesucristo Ha Resucitado"', anexo: 'A-2-12' },
 	{ name: 'Texto: Explicación de la Confidencialidad', anexo: 'A-2-13' },
 	{ name: 'Texto: Explicación de La Palanca', anexo: 'A-2-14' },
 	{ name: 'Texto: Explicación del Ágape', anexo: 'A-2-15' },
-	{ name: 'Texto: Dinámica Examen de Conciencia', anexo: 'A-2-16' },
+	{ name: 'Texto: Quema de Pecados', anexo: 'A-2-16' },
 	{ name: 'Charla: De la Confianza', anexo: 'A-2-17' },
 	{ name: 'Texto: Dinámica de la Pared', anexo: 'A-2-18' },
 	{ name: 'Texto: Lavado de Manos', anexo: 'A-2-19' },
+	{ name: 'Texto: Carta de Jesús', anexo: 'A-2-20' },
+	{ name: 'Texto: Oración al Espíritu Santo', anexo: 'A-2-21' },
+	{ name: 'Charla: Conocerte a Ti Mismo', anexo: 'A-2-22' },
+	{ name: 'Texto: Dinámica de Sanación', anexo: 'A-2-23' },
 ];
 
 export const moderadorDescription = `# Anexo A-4-4

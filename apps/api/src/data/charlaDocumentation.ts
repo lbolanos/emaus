@@ -2,8 +2,10 @@
 // This file contains documentation for charlas and responsibilities
 // Content has been formatted as Markdown for proper rendering
 
+import { moderadorDescription, diarioDescription } from './serviceTeamData.js';
+
 export const charlaDocumentation: Record<string, string> = {
-  "Charla: \"De la Rosa\"": `# Anexo A-2-1
+  "Charla: De la Rosa": `# Anexo A-2-1
 
 ## Charla de la Rosa
 
@@ -714,46 +716,6 @@ El servicio cristiano puede exigir un precio muy a...
 
 *[... contenido continúa en el manual oficial ...]*`,
 
-  "Texto: Reflexi\u00f3n sobre Lucas 24, 13-35": `# Anexo A-2-10
-
-## Reflexión de la Lectura de El Camino de Emaús Referido a Nuestra Realidad Actual
-
-1. Ellos iban caminando y en ese caminar vamos todos por este mundo.
-
-2. Ellos iban entristecidos y apesumbrados. Nosotros también en nuestro caminar vamos muchas veces desmotivados, desanimados, pesimistas y apesumbrados por las circunstancias, por los problemas personales y financieros, pero más que todo y sin saberlo, por la falta de Jesús en nuestro corazón.
-
-3. Ese que andaba con Cleofás eres tú, somos cada uno de nosotros, caminando juntos y compartiendo nuestras preocupaciones, nuestros problemas materiales y espirituales.
-
-4. Posteriormente aparece un caminante y se genera una interacción con los dos peregrinos. Asimismo, a nosotros se nos presenta Jesús quien siempre ha estado a nuestro lado.
-
-5. Él hizo un ademán de seguir adelante, pero ellos le forzaron a quedarse diciéndoles "Quédate con nosotros porque atardece y el día ya ha declinado". Y entró para quedarse con ellos.
-
-6. …Y cuando tomó el pan y lo partió, los discípulos lo reconocieron. Asimismo, nosotros también encontramos al Señor en la oración, en la Eucaristía… y en este retiro… y cuando lo buscamos y lo encontramos, nos damos cuenta que Él siempre ha estado allí, que nunca se ha ido de nuestro lado.
-
-7. Sin embargo, Jesús no quiere limitar nuestra libertad, nuestro libre albedrío y nos deja libre de aceptar la mano que nos ofrece… y nosotros aceptarla.
-
-8. Te invitamos pues a que en este fin de semana, aceptes la mano que el Señor te tiende y que siempre te ha tendido.
-
-9. …Si haces esto tu corazón arderá de gozo el domingo así como a los peregrinos a Emaús…
-
-10. …Y así recibirás el mismo pan que el Señor le dio a sus discípulos, y al igual que ellos, tu gozoso podrás salir a repartirlo a los tuyos y al mundo… y dar testimonio también que
-
-**¡Jesucristo Ha Resucitado!**`,
-
-  "Texto: Historia de los Retiros de Ema\u00fas": `# Anexo A-2-11
-
-## Historia de los Retiros de Emaús
-
-El primer Retiro de Emaús tuvo lugar en la Arquidiócesis de Miami en la Casa de Retiros de los Dominicos en 1978. Se desarrolló y fue conducido por un equipo de mujeres laicas de la Iglesia de San Luis en Miami. El Padre David Russell, quien era en aquellos momentos el párroco, vio la necesidad y concibió un retiro parroquial que permitiera a las mujeres laicas conducir un ministerio para mujeres laicas. Después de mucha oración, el equipo decidió que el retiro se basaría en la lectura del Santo Evangelio según Lucas 24:13-35 que versa sobre los acontecimientos en el camino a Emaús.
-
-A inicios del año 1985 varios hombres de la Iglesia Católica de San Luis conjuntamente con el Fraile Jim Fetcher, discutían que sería tipo de retiro sería bueno para los hombres. Estimaron que los hombres necesitaban un ministerio que llegara al corazón de la Parroquia y sacara de allí aquellos hombres que "iban a la Iglesia" pero que "no estaban comprometidos". Pensaron que si de alguna manera se lograba que estos hombres contemplaran su relación con Jesucristo y dejaran que el Espíritu Santo actuara en sus vidas, ellos podrían y apreciarían de hecho la Fe Católica mucho más.
-
-Las mujeres de la Parroquia tenían un gran retiro que había comenzado varios años antes que se llamaba Emaús. Los hombres consideraron este retiro y decidieron que contenía todos los elementos que necesitaban con sólo algunos cambios. Se formó el equipo y el primer Emaús para Hombres se llevó a cabo en la Casa de Retiros de los Dominicos. Los resultados del fin de semana fueron los mismos que son y han sido durante cada fin de semana desde entonces, impactantes.
-
-Eventualmente, uno de los participantes de un fin de semana anterior llamó para decir que les gustaría tener el mismo retiro en la Iglesia Católica de San Brendan. Un equipo de hombres de San Luis fue a San Brendan y se celebró el primer fin de semana Emaús para Hombres "fuera de San Luis". Después fue la Iglesia Católica San John Neumann y después otra y otra más. Actualmente los retiros de Emaús se han esparcido a diferentes parroquias, ciudades y países de América y el mundo.
-
-`,
-
   "Texto: Explicaci\u00f3n del Lema \"Jesucristo Ha Resucitado\"": `# Anexo A-2-12
 
 ## Historia del Lema de Emaús
@@ -846,7 +808,7 @@ Contando con la ayuda de la gracia de Dios, al pedir con la fuerza de la oració
 
 - Y le pedimos al Señor, que al tomar estos alimentos, como en el camino de Emaús nos ayude a reconocerlo en cada uno de nosotros.`,
 
-  "Texto: Din\u00e1mica Examen de Conciencia": `# Anexo A-2-16
+  "Texto: Quema de Pecados": `# Anexo A-2-16
 
 ## Examen de Conciencia
 
@@ -1072,6 +1034,104 @@ Jesús siempre ha estado aquí siempre muy cerca de ti y en el camino de Emaús 
 **Coro:**
 
 *Con esta canción nos despedimos para entrar nuevamente con:*`,
+
+  "Charla: Conocerte a Ti Mismo": `# Anexo A-2-22
+
+## Charla: Conocer a Dios a Través de Conocerte a Ti Mismo
+
+**Día 1 — Primera charla del retiro (Testimonio 1).** Rompe el hielo y abre los corazones de los caminantes. El charlista comparte su testimonio personal vinculando autoconocimiento con encuentro con Dios.
+
+### Estructura sugerida
+
+1. **Saludo y oración inicial** al Espíritu Santo (~2 min).
+2. **Testimonio personal**: una historia concreta de cómo el charlista llegó a conocerse a sí mismo y, en ese proceso, a Dios. Hablar desde la experiencia, sin teorizar.
+3. **Mensaje central**: no podemos amar a Dios si no nos conocemos a nosotros mismos primero. Reconocer nuestras heridas, miedos y dones es el inicio del camino espiritual.
+4. **Invitación**: a los caminantes a abrirse durante el retiro, escribir en el cuaderno y dejar que Dios trabaje.
+5. **Cierre con oración** (~1 min).
+
+### Recomendaciones
+
+- Duración: 45 min. Vestir cómodo y de modo sencillo.
+- Hablar en primera persona; usar pausas para dar espacio a la reflexión.
+- Música sugerida: *Hoy Necesito* (Celinés).
+- No leer la charla — usar puntos guía pero hablar al corazón.`,
+
+  "Texto: Oración al Espíritu Santo": `# Anexo A-2-21
+
+## Texto: Oración al Espíritu Santo
+
+**Antes de cada charla, durante todo el retiro.** Esta breve oración invoca al Espíritu Santo para que abra los corazones de los caminantes y unja al charlista. Se entrega como tarjeta o se proyecta antes de iniciar.
+
+### Texto recomendado
+
+> Ven, Espíritu Santo, ven por María.
+> Ven a iluminar nuestras mentes, a encender nuestros corazones,
+> a fortalecer nuestra voluntad para escuchar Tu Palabra.
+> Concédenos abrir el corazón a esta charla
+> y dejarnos transformar por Tu amor.
+> En el nombre del Padre, del Hijo y del Espíritu Santo. Amén.
+
+### Cómo se usa
+
+- 1 minuto antes de cada charla, todos de pie.
+- La dice un servidor designado (puede rotar entre charlistas, líderes de mesa o el equipo de Oración de Intercesión).
+- Se invita a los caminantes a hacerla suya, no solo a escucharla.
+- En la primera ocurrencia (Día 1, post Cena) se explica brevemente por qué oramos antes de cada charla.`,
+
+  "Texto: Carta de Jesús": `# Anexo A-2-20
+
+## Texto: Dinámica de la Carta de Jesús
+
+**Día 3 (domingo) — actividad central del último día.** Cada caminante escribe una carta personal a Jesús (o como si Jesús se la escribiera a él/ella, según la variante) reconociendo lo recibido en el retiro.
+
+### Materiales
+
+- Hoja en blanco para cada caminante (con esquina decorativa o membrete).
+- Lápiz o bolígrafo.
+- Música instrumental suave de fondo.
+- Sobre opcional para guardarla.
+
+### Desarrollo (~30-40 min)
+
+1. **Introducción** (5 min): el guía explica que el caminante va a escribir una carta sincera donde reconoce lo que ha vivido, agradece y se compromete con lo que Jesús le mostró.
+2. **Variante 1**: el caminante escribe a Jesús lo que siente.
+3. **Variante 2** (Polanco): se pide al caminante que escriba la carta como si Jesús se la estuviera dirigiendo a él/ella, contándole el amor que le tiene.
+4. **Tiempo de escritura silenciosa** (~25 min) — el equipo está en oración de intercesión.
+5. **Cierre**: cada caminante guarda su carta para llevársela. No se lee en público.
+
+**Variante adicional**: se invita a escribir también una carta a personas en reclusorios o en situación difícil, como gesto de servicio inmediato.`,
+
+  "Texto: Dinámica de Sanación": `# Anexo A-2-23
+
+## Texto: Dinámica de Sanación de Recuerdos (3 voces)
+
+**Día 2 sábado, después de la charla de Sanación de Recuerdos.** Es una meditación guiada dirigida por **3 voces** (3 servidores con voz pausada y experiencia espiritual) que acompañan a los caminantes con los ojos cerrados.
+
+### Equipo
+
+- **Voz 1**: introduce el espacio sagrado y guía a los caminantes a la presencia de Jesús.
+- **Voz 2**: invita a recordar heridas concretas (familia, pareja, infancia, traiciones) y a presentárselas a Jesús.
+- **Voz 3**: pide a Jesús que sane cada herida con un gesto concreto (tocar el lugar dolido, abrazar al niño que fuimos, perdonar a quien nos lastimó).
+
+### Materiales y ambiente
+
+- Capilla o salón con luz tenue.
+- Música instrumental sacra de fondo (sin letra).
+- Cada caminante con ojos cerrados, en silencio absoluto.
+- Sacerdotes presentes para acompañar al final.
+
+### Desarrollo (~15 min)
+
+1. **Voz 1** (3 min): "Cierra los ojos. Imagina que Jesús está aquí, mirándote con ternura..."
+2. **Voz 2** (5 min): guía a recordar una herida y la presenta al Señor.
+3. **Voz 3** (5 min): guía la oración de sanación, palabra por palabra, con pausas largas.
+4. **Cierre** (2 min): silencio + invitación a abrir los ojos.
+
+### Notas
+
+- Es una de las dinámicas más intensas del retiro emocionalmente. El equipo de Oración de Intercesión debe estar orando todo el tiempo.
+- Es **distinta** de la Charla de Sanación: la charla la da una persona, esta dinámica la guían 3.
+- No hay puente con la siguiente actividad — se da tiempo a procesar antes del siguiente bloque.`,
 };
 
 export const responsibilityDocumentation: Record<string, string> = {
@@ -1228,7 +1288,7 @@ Además, se encargará de los movimientos que sean necesarios de mobiliarios, si
 | 13 | Organizar todas las habitaciones el último día y observar si se les quedó algo a alguien, entregarlo a los organizadores | Domingo en la Tarde | Todas las habitaciones, caminantes y servidores |
 | 14 | Mantener los baños y áreas comunes limpios y secos | Todo el Retiro | Baños y Áreas Comunes |`,
 
-  "Oración": `## Equipo de Intercesión — Anexo A-5-12
+  "Oración de Intercesión": `## Equipo de Intercesión — Anexo A-5-12
 
 El Santísimo expuesto durante el desarrollo del Retiro tiene un valor incalculable, el cual garantiza la presencia de Jesús vivo en medio del Retiro, para que derrame su gracia en cada uno de los participantes: Caminantes y Servidores.
 
@@ -1274,7 +1334,7 @@ Este Equipo será el encargado de recopilar todas las Palancas que se distribuir
 | 12 | Alistar Papel y lápiz para actividad dinámica "Quema de los Pecados". | Antes de dinámica el sábado en la noche | Salón de Conferencias |
 | 13 | Distribución de camisetas en las camas de los caminantes de acuerdo a su talla, junto con los botones y palancas del día domingo en la tarde. | Domingo al medio día durante el almuerzo | Habitaciones Caminantes |`,
 
-  "Santísmo": `## Equipo de Intercesión — Anexo A-5-12
+  "Santísimo": `## Equipo de Intercesión — Anexo A-5-12
 
 El Santísimo expuesto durante el desarrollo del Retiro tiene un valor incalculable, el cual garantiza la presencia de Jesús vivo en medio del Retiro, para que derrame su gracia en cada uno de los participantes: Caminantes y Servidores.
 
@@ -1347,4 +1407,238 @@ La preparación previa al inicio del Retiro de un Menú de comidas y meriendas, 
 | 12 | Organizar utensilios en su respectivo lugar después de cada comida | Después de cada comida | Cocina |
 | 13 | Apartar comidas para servidores en el Santísimo | Antes de cada comida | Cocina |
 | 14 | Preparar merienda para sacerdotes de confesión | Sábado en la noche | Comedor Servidores |`,
+
+  "Palanquero 1": `## Equipo Palanquero — Líder principal de palanca
+
+El **Palanquero 1** es el líder del equipo de palancas. Coordina la búsqueda, recopilación, distribución y entrega de las palancas espirituales (cartas, regalos, mensajes de oración) que los familiares, amigos y servidores envían para los caminantes.
+
+| # | Descripción | Cuándo | Dónde |
+|---|-------------|--------|-------|
+| 1 | Coordinar al equipo de palanqueros (Palanquero 2 y 3) | Pre-retiro | |
+| 2 | Procurar palancas de familiares de los caminantes (cartas, fotos, recuerdos) | 2 semanas antes | Parroquia / WhatsApp |
+| 3 | Procurar palancas de servidores y de la comunidad | 2 semanas antes | Parroquia |
+| 4 | Clasificar y rotular las palancas por caminante | Días antes | Oficina de palancas |
+| 5 | Preparar las palancas en sobres dirigidos | Días antes | Oficina de palancas |
+| 6 | Coordinar la entrega de palancas durante el retiro | Sábado tarde-noche | Salón / cuartos |
+| 7 | Asegurar que cada caminante reciba sus palancas a tiempo | Durante el retiro | |`,
+
+  "Palanquero 2": `## Equipo Palanquero — Apoyo y distribución
+
+El **Palanquero 2** apoya al Palanquero 1 en la recopilación y especialmente en la **distribución** de las palancas. Suele encargarse de la logística del Sábado en la noche.
+
+| # | Descripción | Cuándo | Dónde |
+|---|-------------|--------|-------|
+| 1 | Apoyar a Palanquero 1 en la recopilación pre-retiro | Pre-retiro | |
+| 2 | Verificar que cada caminante tenga al menos una palanca | Días antes | Oficina de palancas |
+| 3 | Distribuir el primer grupo de palancas en cuartos | Viernes en la noche | Habitaciones de caminantes |
+| 4 | Distribuir el segundo grupo de palancas | Sábado al medio día | Habitaciones |
+| 5 | Distribuir el tercer grupo (palancas familiares) | Sábado en la noche | Habitaciones |`,
+
+  "Palanquero 3": `## Equipo Palanquero — Apoyo y entregas finales
+
+El **Palanquero 3** apoya en la entrega del último día y en el cierre logístico de palancas (camisetas, pines, agua bendita).
+
+| # | Descripción | Cuándo | Dónde |
+|---|-------------|--------|-------|
+| 1 | Apoyar al equipo en la recopilación pre-retiro | Pre-retiro | |
+| 2 | Preparar el material final (camisetas, pines, calcomanías) | Día 3 mañana | Oficina de palancas |
+| 3 | Distribuir camisetas en camas según talla | Día 3 medio día | Habitaciones |
+| 4 | Apoyar la entrega de palancas en el salón antes de la misa de cierre | Día 3 tarde | Salón |
+| 5 | Recoger sobres y materiales sobrantes al final | Domingo cierre | Oficina de palancas |`,
+
+  "Inventario": `## Equipo de Inventario — Anexo A-5-x
+
+Lleva el control físico de todos los materiales del retiro: biblias, rosarios, cuadernos, lápices, palancas, materiales de dinámicas, decoración, etc.
+
+| # | Descripción | Cuándo | Dónde |
+|---|-------------|--------|-------|
+| 1 | Levantar inventario inicial de materiales en bodega | 1 mes antes | Bodega parroquia |
+| 2 | Calcular ratio caminantes/items (biblias, kits, etc.) | 2 semanas antes | |
+| 3 | Coordinar con Compras lo que falte adquirir | 2 semanas antes | |
+| 4 | Etiquetar y organizar materiales por equipo (palanquitas, biblias, dinámicas) | 1 semana antes | Bodega |
+| 5 | Hacer entrega controlada a cada equipo el viernes | Viernes pre-retiro | Casa de retiro |
+| 6 | Inventario final post-retiro y guardar lo sobrante | Domingo cierre | Bodega |
+| 7 | Reportar pérdidas o faltantes al coordinador | Post-retiro | |`,
+
+  "Tesorero": `## Tesorero del Retiro
+
+Lleva la contabilidad del retiro: ingresos por inscripciones, becas (angelitos), gastos de comida, materiales, transporte y donaciones.
+
+| # | Descripción | Cuándo | Dónde |
+|---|-------------|--------|-------|
+| 1 | Recibir inscripciones de caminantes | Antes del retiro | Parroquia |
+| 2 | Gestionar becas para caminantes con dificultad económica | Antes del retiro | |
+| 3 | Mantener caja chica para imprevistos durante el retiro | Durante el retiro | |
+| 4 | Registrar todos los gastos con ticket / factura | Durante el retiro | |
+| 5 | Pagar a la casa de retiro y proveedores | Domingo cierre | |
+| 6 | Hacer balance final y reporte al coordinador | Post-retiro | |
+| 7 | Conservar respaldos por al menos 1 año | Post-retiro | |`,
+
+  "Sacerdotes": `## Sacerdotes del Retiro
+
+Acompañan espiritualmente el retiro presidiendo las misas, dando algunas charlas (Sacramentos), confesando, ungiendo, bendiciendo materiales y dirigiendo la exposición y reserva del Santísimo.
+
+| # | Descripción | Cuándo | Dónde |
+|---|-------------|--------|-------|
+| 1 | Misa de servidores | Día 1 tarde | Capilla |
+| 2 | Exposición del Santísimo | Día 1 tarde, antes de llegada | Capilla |
+| 3 | Bendición de Biblias | Día 1 noche | Capilla |
+| 4 | Charla: Amando a Dios a través de los Sacramentos | Día 2 medio día | Salón |
+| 5 | Aplicación de Cenizas tras Quema de Pecados | Día 2 noche | Salón / capilla |
+| 6 | Confesiones | Día 2 noche | Capilla / salones |
+| 7 | Misa nocturna del sábado | Día 2 noche | Capilla |
+| 8 | Reserva del Santísimo antes de Misa de Cierre | Día 3 mediodía | Capilla |
+| 9 | Misa de Cierre | Día 3 tarde | Parroquia |`,
+
+  "Mantelitos": `## Equipo de Mantelitos
+
+Prepara la **Dinámica de Mantelitos** del Día 3 (domingo) en el desayuno: mensajes personales bajo cada mantel para los caminantes.
+
+| # | Descripción | Cuándo | Dónde |
+|---|-------------|--------|-------|
+| 1 | Recopilar o redactar mensajes personales para cada caminante | Pre-retiro o Día 2 noche | |
+| 2 | Imprimir los mensajes en formato mantel (papel decorativo) | Día 2 noche | Oficina |
+| 3 | Coordinar con Comedor para asegurar que el desayuno se sirva sobre los mantelitos | Día 3 al amanecer | Comedor |
+| 4 | Indicar a los caminantes que no volteen el mantel hasta que se les indique | Inicio del desayuno | Comedor |
+| 5 | Guiar la dinámica: caminantes voltean el mantel, leen su mensaje, comparten | Durante desayuno Día 3 | Comedor |`,
+
+  "Transporte": `## Equipo de Transporte
+
+Coordina el traslado de los caminantes desde la parroquia a la casa de retiro y viceversa, así como otros traslados durante el retiro.
+
+| # | Descripción | Cuándo | Dónde |
+|---|-------------|--------|-------|
+| 1 | Reservar vehículos / autobuses según número de caminantes | 2 semanas antes | |
+| 2 | Coordinar puntos de encuentro y horarios | 1 semana antes | |
+| 3 | Llevar aguas, listas y aviso "no celular" | Día 1 tarde | Parroquia |
+| 4 | Transporte de caminantes parroquia → casa de retiro | Día 1 tarde | |
+| 5 | Traslado del grupo al lugar de oración (sábado) | Día 2 tarde | |
+| 6 | Transporte caminantes casa de retiro → parroquia | Día 3 tarde | |
+| 7 | Recoger material e instrumentos al cierre | Día 3 cierre | |`,
+
+  "Campanero": `## Campanero
+
+Marca las transiciones del retiro tocando la campana en momentos clave para llamar a los caminantes a comedor, capilla, salón o transporte. Es la "voz" del cronograma.
+
+| # | Descripción | Cuándo | Dónde |
+|---|-------------|--------|-------|
+| 1 | Tener la campana lista y a la mano todo el retiro | Durante el retiro | Junto al coordinador |
+| 2 | Conocer los horarios de transición (consultar Minuto a Minuto) | Pre-retiro | |
+| 3 | Tocar campana de inicio del retiro | Día 1 18:30 | Salón |
+| 4 | Tocar campana antes de cada comida | 3-4 veces por día | Casa de retiro |
+| 5 | Tocar campana antes de cada charla | Día 2 mañana/tarde | |
+| 6 | Tocar campana antes de la misa nocturna | Día 2 noche | |
+| 7 | Tocar campana para abordar transporte hacia parroquia | Día 3 tarde | |
+
+**Estilo del toque**: 3 toques cortos seguidos de un toque largo. Pausa, repetir si no se llamó la atención.`,
+
+  "Continua": `## Servidor Continua — Lector del Camino de Emaús
+
+Lee las **5 secciones del Camino de Emaús** (Lc 24,13-35) que se distribuyen a lo largo del retiro como hilo conductor narrativo.
+
+| # | Descripción | Cuándo | Dónde |
+|---|-------------|--------|-------|
+| 1 | Estudiar el pasaje completo de Lc 24,13-35 | Pre-retiro | |
+| 2 | Conocer las 5 divisiones y sus matices teológicos | Pre-retiro | |
+| 3 | Lectura completa del Camino de Emaús (introducción) | Día 1 noche | Salón |
+| 4 | **Primera Lectura** (Lc 24,13-18) — caminante desanimado | Día 1 noche | Salón |
+| 5 | **Segunda Lectura** (Lc 24,19-24) — desconfianza y silencio se rompe | Día 2 mañana | Capilla |
+| 6 | **Tercera Lectura** (Lc 24,25-27) — Cristo explica las Escrituras | Día 2 mañana | Salón |
+| 7 | **Cuarta Lectura** (Lc 24,28-32) — Cristo se queda con ellos | Día 2 tarde | Salón |
+| 8 | **Quinta Lectura** (Lc 24,33-35) — caminantes regresan a anunciar | Día 3 mañana | Salón |
+| 9 | **Sexta lectura** (Lc 24,13-35 íntegra de cierre) | Día 3 tarde | Salón |
+
+**Estilo**: voz pausada, mirada que abarque a todos. No leer corrido — pausar al final de cada versículo clave para que el mensaje aterrice.`,
+
+  "Biblias": `## Equipo de Biblias
+
+Adquiere, prepara, bendice y entrega las **Biblias personales** a cada caminante el Día 1 en la noche.
+
+| # | Descripción | Cuándo | Dónde |
+|---|-------------|--------|-------|
+| 1 | Adquirir biblias (cantidad = caminantes + 5 de reserva) | 3 semanas antes | Librería católica |
+| 2 | Sellar/marcar biblias con dedicatoria del retiro | 2 semanas antes | Oficina parroquia |
+| 3 | Preparar la presentación: explicación + canción + ambiente | Día 1 mañana | Capilla |
+| 4 | Llevar biblias a la capilla para bendición | Día 1 23:00 | Capilla |
+| 5 | Coordinar con Sacerdotes la bendición | Día 1 23:00 | Capilla |
+| 6 | Entregar biblia personal a cada caminante | Día 1 23:00-23:30 | Capilla |
+| 7 | Anotar en cada biblia el nombre del caminante | Antes de la entrega | |`,
+
+  "Explicación Rosario y entrega": `## Explicación del Rosario y entrega
+
+Adquiere y entrega rosarios a cada caminante (típicamente Día 3) y guía la explicación de su uso.
+
+| # | Descripción | Cuándo | Dónde |
+|---|-------------|--------|-------|
+| 1 | Adquirir rosarios (cantidad = caminantes + reserva) | 2 semanas antes | Librería católica |
+| 2 | Coordinar con Palanquitas si se distribuyen junto a otras palancas | 1 semana antes | |
+| 3 | Preparar la explicación de cómo rezar el rosario | Pre-retiro | |
+| 4 | Entregar rosarios a cada caminante | Día 3 mañana | Salón |
+| 5 | Guiar la explicación breve de los misterios | Día 3 mañana | Salón |
+| 6 | Apoyar en el rezo del rosario durante el retiro (mañana, tarde, noche) | Durante retiro | Capilla del Santísimo |`,
+
+  "Bolsas": `## Equipo de Bolsas / Kits de Salida
+
+Prepara y entrega las **bolsas de salida** del Día 3: contienen recuerdos, palancas finales, camiseta, calcomanías, agua bendita, etc. También coordina la **devolución de celulares/relojes/medicinas** y la despedida final.
+
+| # | Descripción | Cuándo | Dónde |
+|---|-------------|--------|-------|
+| 1 | Adquirir bolsas (con logo o decoradas) | 2 semanas antes | |
+| 2 | Coordinar contenido con Palanquitas e Inventario | 1 semana antes | |
+| 3 | Empacar cada bolsa con: rosario, biblia (ya entregada), camiseta, pin, agua bendita, recuerdo del retiro | Día 3 mañana | Oficina |
+| 4 | Asegurar que cada caminante tenga su bolsa con su nombre | Día 3 mediodía | Oficina |
+| 5 | Distribuir bolsas a las camas de caminantes durante la comida | Día 3 13:00 | Habitaciones |
+| 6 | Preparar la devolución de celulares/relojes en sobres rotulados | Día 3 15:00 | Oficina |
+| 7 | Coordinar con Recepción el listado de pertenencias por caminante | Día 3 15:00 | |
+| 8 | Entregar pertenencias a cada caminante al llegar a parroquia | Día 3 18:30 | Parroquia |
+| 9 | Acompañar el momento de entrega final y el cierre del retiro | Día 3 tarde | Salón / Parroquia |`,
+
+  "Resumen del día": `## Servidor Resumen del Día
+
+Da un resumen breve de lo vivido el día anterior, conectándolo con lo que viene. Suele hacerlo el coordinador o un servidor con visión de conjunto.
+
+| # | Descripción | Cuándo | Dónde |
+|---|-------------|--------|-------|
+| 1 | Tomar nota de hitos, momentos fuertes y reacciones del día anterior | Día 1 y 2 noche | Reunión de servidores |
+| 2 | Preparar 5-7 minutos de resumen con tono pastoral, no informativo | Mañana | |
+| 3 | **Resumen Día 2** (sábado mañana): repasar Día 1 y abrir el sábado | Día 2 09:30 | Salón |
+| 4 | **Resumen Día 3** (domingo mañana): repasar Día 2 y enmarcar el cierre | Día 3 11:00 | Salón |
+| 5 | No revelar momentos íntimos de caminantes específicos — siempre genérico | Durante resumen | |`,
+
+  "Recepción": `## Equipo de Recepción
+
+Recibe a los caminantes a su llegada a la casa de retiro: registro, custodia de celulares/relojes/medicinas, asignación de cuartos.
+
+| # | Descripción | Cuándo | Dónde |
+|---|-------------|--------|-------|
+| 1 | Setup de mesas de recepción (listas, etiquetas, recipientes) | Día 1 14:40 | Entrada casa |
+| 2 | Recibir a cada caminante por nombre con sonrisa | Día 1 17:00 | Entrada |
+| 3 | Tomar celulares, relojes y dispositivos electrónicos en sobre rotulado | Día 1 17:00 | Mesa recepción |
+| 4 | Identificar maletas y entregar al equipo de Cuartos | Día 1 17:00 | Recepción |
+| 5 | Recoger medicinas con instrucciones; entregar al sacerdote o farmacéutico designado | Día 1 17:00 | Recepción |
+| 6 | Indicar a cada caminante su cuarto y mesa asignada | Día 1 17:00-17:50 | Recepción |
+| 7 | Devolver al equipo de Despedida los celulares/relojes para entrega final | Día 3 mañana | Recepción |`,
+
+  "Reglamento de la Casa": `## Servidor Reglamento de la Casa
+
+Presenta a los caminantes las **reglas operativas** de la casa de retiro: horarios, áreas, baños, dormitorios, normas básicas de convivencia.
+
+| # | Descripción | Cuándo | Dónde |
+|---|-------------|--------|-------|
+| 1 | Conocer al detalle las reglas de la casa de retiro | Pre-retiro | Visita previa |
+| 2 | Preparar el reglamento por escrito (puntos clave, máximo 1 página) | Pre-retiro | |
+| 3 | Presentar el reglamento el Día 1 noche, después de la bienvenida | Día 1 18:55 | Salón |
+| 4 | Cubrir: horarios, dormitorios, baños comunes, áreas privadas, ruido | Durante presentación | |
+| 5 | Estar disponible para resolver dudas sobre el funcionamiento de la casa | Todo el retiro | |
+
+**Estilo**: claro, breve, sin tono autoritario. Es información práctica, no disciplinaria.`,
+
+  // Re-exported from serviceTeamData.ts so this file is the authoritative
+  // catalog for `responsibilityDocumentation` lookups (e.g. legacy
+  // /api/responsibilities/documentation endpoint, attachment seeders).
+  // Both names are also seeded as Responsability rows by the
+  // CreateServiceTeams migration; here we expose them alongside the rest.
+  "Moderador": moderadorDescription,
+
+  "Diario": diarioDescription,
 };

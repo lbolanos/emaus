@@ -15,6 +15,9 @@ export const RESOURCES = {
 	retreatInventory: [...DEFAULT_OPERATIONS] as const,
 	messageTemplate: [...DEFAULT_OPERATIONS] as const,
 	santisimo: ['read', 'manage'] as const,
+	schedule: ['read', 'manage'] as const,
+	scheduleTemplate: ['read', 'manage'] as const,
+	shirtType: ['read', 'manage'] as const,
 } as const;
 
 export type ResourceType = keyof typeof RESOURCES;
@@ -117,6 +120,14 @@ export function canManageTables(userPermissions: string[] | undefined): boolean 
 
 export function canManagePayments(userPermissions: string[] | undefined): boolean {
 	return hasAnyPermission(userPermissions, ['payment:create', 'payment:update']);
+}
+
+export function canManageSchedule(userPermissions: string[] | undefined): boolean {
+	return hasPermission(userPermissions, 'schedule:manage');
+}
+
+export function canManageScheduleTemplate(userPermissions: string[] | undefined): boolean {
+	return hasPermission(userPermissions, 'scheduleTemplate:manage');
 }
 
 // Vue composable for permission checking

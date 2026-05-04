@@ -78,7 +78,8 @@ const maxBirthDate = computed(() => {
 
 const getFieldType = (key: string) => {
   if (key === 'type') return 'select';
-  if (key === 'tshirtSize') return 'select';
+  // tshirtSize is per-retreat free-text — admin enters whatever code their retreat uses (G, L, XL...).
+  if (key === 'tshirtSize') return 'text';
   if (key === 'tableMesa.name') return 'text';
   if (key.startsWith('is') || key.startsWith('has') || key.startsWith('requests') || key === 'arrivesOnOwn' || key === 'snores' || key === 'palancasRequested') return 'boolean';
   if (key.toLowerCase().includes('notes') || key.toLowerCase().includes('details')) return 'textarea';
@@ -94,15 +95,6 @@ const getSelectOptions = (key: string) => {
       return [
         { value: 'walker', label: $t('participants.types.walker') },
         { value: 'server', label: $t('participants.types.server') }
-      ];
-    case 'tshirtSize':
-      return [
-        { value: 'XS', label: 'XS' },
-        { value: 'S', label: 'S' },
-        { value: 'M', label: 'M' },
-        { value: 'L', label: 'L' },
-        { value: 'XL', label: 'XL' },
-        { value: 'XXL', label: 'XXL' }
       ];
     default:
       return [];

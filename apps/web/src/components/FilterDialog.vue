@@ -54,7 +54,8 @@ const filterDefinitions = {
     { key: 'disabilitySupport', type: 'text' },
   ],
   logistics: [
-    { key: 'tshirtSize', type: 'select', options: ['S', 'M', 'G', 'X', '2'] },
+    // Free-text filter: sizes vary per retreat (S/M/G/X/2 in MX, S/M/L/XL/XXL in CO, etc).
+    { key: 'tshirtSize', type: 'text' },
     { key: 'arrivesOnOwn', type: 'boolean' },
     { key: 'requestsSingleRoom', type: 'boolean' },
     { key: 'maritalStatus', type: 'select', options: ['single', 'married', 'separated_divorced', 'widowed', 'other'] },
@@ -193,10 +194,8 @@ const getSelectOptions = (filter: any) => {
       { value: 'other', label: t('participants.filters.options.maritalStatus.other') },
     ];
   }
-  return filter.options.map((opt: string) => ({
-    value: opt,
-    label: t(`walkerRegistration.fields.tshirtSize.options.${opt}`),
-  }));
+  // Generic fallback: show raw codes (no i18n mapping). Sizes are configured per retreat.
+  return filter.options.map((opt: string) => ({ value: opt, label: opt }));
 };
 
 const getTextPlaceholder = (key: string) => {

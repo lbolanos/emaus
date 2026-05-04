@@ -110,17 +110,17 @@
         >
           <!-- Action buttons top-right -->
           <div class="absolute top-2 right-2 flex gap-1">
-            <Button v-if="resp.description && resp.description.length > 20" variant="ghost" size="icon" class="h-7 w-7 text-blue-500 hover:text-blue-700" @click="openDocModal(resp)" :title="$t('responsibilities.viewDocs')">
+            <Button v-if="hasDocumentation(resp)" variant="ghost" size="icon" class="h-7 w-7 text-blue-500 hover:text-blue-700" @click="openDocModal(resp)" :title="$t('responsibilities.viewDocs')">
               <FileText class="h-3.5 w-3.5" />
             </Button>
-            <template v-if="getDocFiles(resp.name).length === 1">
+            <template v-if="getDocFiles(resp.name).length === 1 && !documentationKeys.has(resp.name)">
               <a :href="getDocFileUrl(getDocFiles(resp.name)[0])" target="_blank" :title="getDocFiles(resp.name)[0]">
                 <Button variant="ghost" size="icon" class="h-7 w-7 text-green-600 hover:text-green-800">
                   <Download class="h-3.5 w-3.5" />
                 </Button>
               </a>
             </template>
-            <DropdownMenu v-else-if="getDocFiles(resp.name).length > 1">
+            <DropdownMenu v-else-if="getDocFiles(resp.name).length > 0 || documentationKeys.has(resp.name)">
               <DropdownMenuTrigger as-child>
                 <Button variant="ghost" size="icon" class="h-7 w-7 text-green-600 hover:text-green-800" :title="$t('responsibilities.downloadDocs')">
                   <Download class="h-3.5 w-3.5" />
@@ -133,8 +133,25 @@
                     {{ file }}
                   </a>
                 </DropdownMenuItem>
+                <DropdownMenuItem v-if="documentationKeys.has(resp.name)" @click="openAndPrintDoc(resp)">
+                  <Printer class="h-3.5 w-3.5 mr-2" />
+                  {{ $t('responsibilities.generatePdf') || 'Imprimir / Guardar como PDF' }}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Button
+              variant="ghost"
+              size="icon"
+              class="h-7 w-7 text-emerald-600 hover:text-emerald-800 relative"
+              :title="$t('responsibilities.openAttachments')"
+              @click="openAttachments(resp)"
+            >
+              <Paperclip class="h-3.5 w-3.5" />
+              <span
+                v-if="(attachmentCounts[resp.name] ?? 0) > 0"
+                class="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-600 text-white text-[9px] font-semibold leading-none"
+              >{{ attachmentCounts[resp.name] }}</span>
+            </Button>
             <Button variant="ghost" size="icon" class="h-7 w-7" @click="openAddEditModal(resp)">
               <Edit class="h-3.5 w-3.5" />
             </Button>
@@ -199,6 +216,16 @@
         </div>
       </div>
     </div>
+
+    <!-- Attachments dialog (managed by responsability name, shared across retreats) -->
+    <ResponsabilityAttachmentsDialog
+      v-if="attachmentsTarget"
+      :open="isAttachmentsDialogOpen"
+      :responsability-name="attachmentsTarget.responsabilityName"
+      :context-label="attachmentsTarget.contextLabel"
+      :can-manage="canManage.scheduleTemplate.value"
+      @update:open="onAttachmentsDialog"
+    />
 
     <!-- Add/Edit Modal -->
     <Dialog :open="isAddEditModalOpen" @update:open="isAddEditModalOpen = $event">
@@ -293,7 +320,13 @@
             {{ $t('responsibilities.charla') }} — {{ $t('responsibilities.viewDocs') }}
           </DialogDescription>
         </DialogHeader>
-        <div class="mt-2 overflow-y-auto max-h-[60vh] prose dark:prose-invert max-w-none text-sm p-4 bg-gray-50 dark:bg-gray-900 rounded" v-html="renderMarkdown(docResponsability?.description || '')" />
+        <div v-if="docLoading" class="flex items-center justify-center py-8">
+          <Loader2 class="h-6 w-6 animate-spin text-gray-400" />
+        </div>
+        <div v-else-if="docMarkdown" class="mt-2 overflow-y-auto max-h-[60vh] prose dark:prose-invert max-w-none text-sm p-4 bg-gray-50 dark:bg-gray-900 rounded" v-html="renderMarkdown(docMarkdown)" />
+        <div v-else class="text-center text-gray-500 py-8">
+          {{ $t('responsibilities.noDocumentation') || 'Sin documentación disponible' }}
+        </div>
         <DialogFooter class="flex-wrap gap-2">
           <template v-if="docResponsability && getDocFiles(docResponsability.name).length > 0">
             <a v-for="file in getDocFiles(docResponsability.name)" :key="file" :href="getDocFileUrl(file)" target="_blank">
@@ -303,7 +336,7 @@
               </Button>
             </a>
           </template>
-          <Button variant="outline" @click="handlePrintDoc">
+          <Button v-if="docMarkdown" variant="outline" @click="handlePrintDoc">
             <Printer class="h-4 w-4 mr-2" />
             {{ $t('responsibilities.print') }}
           </Button>
@@ -407,7 +440,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useResponsabilityStore } from '@/stores/responsabilityStore';
@@ -416,11 +449,19 @@ import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, Select
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@repo/ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@repo/ui';
 import { Label } from '@repo/ui';
-import { ChevronLeft, Download, Edit, FileText, LayoutGrid, Loader2, MoreVertical, Plus, Printer, Trash2, UserPlus, X } from 'lucide-vue-next';
+import { ChevronLeft, Download, Edit, FileText, LayoutGrid, Loader2, MoreVertical, Paperclip, Plus, Printer, Trash2, UserPlus, X } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
-import { exportResponsibilitiesToDocx } from '@/services/api';
+import {
+  exportResponsibilitiesToDocx,
+  getResponsibilityDocumentation,
+  listResponsibilityDocumentationKeys,
+  responsabilityAttachmentApi,
+} from '@/services/api';
 import { renderMarkdown } from '@/composables/useMarkdown';
 import { ResponsabilityType } from '@repo/types';
+import ResponsabilityAttachmentsDialog from '@/components/ResponsabilityAttachmentsDialog.vue';
+import { useAuthPermissions } from '@/composables/useAuthPermissions';
+import { getSocket } from '@/services/realtime';
 import type { Responsability, Participant } from '@repo/types';
 
 const retreatStore = useRetreatStore();
@@ -437,6 +478,9 @@ const isAssignModalOpen = ref(false);
 const isSpeakerModalOpen = ref(false);
 const isDocModalOpen = ref(false);
 const docResponsability = ref<Responsability | null>(null);
+const docMarkdown = ref<string>('');
+const docLoading = ref(false);
+const documentationKeys = ref<Set<string>>(new Set());
 const editingResponsability = ref<Responsability | null>(null);
 const responsabilityToDelete = ref<Responsability | null>(null);
 const selectedResponsability = ref<Responsability | null>(null);
@@ -460,32 +504,25 @@ let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
 // Mapping of responsibility names to downloadable document files in /docs/dinamicas/
 const responsibilityDocFiles: Record<string, string[]> = {
-	'Santísmo': ['03 Guardia Santísimo.xlsx'],
+	'Santísimo': ['03 Guardia Santísimo.xlsx'],
 	'Texto: Explicación de la Confidencialidad': ['03 Sobre la Confidencialidad.pdf'],
 	'Charla: De la Rosa': ['04 La Rosa.pdf'],
 	'Texto: Explicación de La Palanca': ['05 Palancas.pdf'],
 	'Palanquero 1': ['05 Palancas.pdf'],
 	'Palanquero 2': ['05 Palancas.pdf'],
 	'Palanquero 3': ['05 Palancas.pdf'],
-	'Oración por Intercesión en Mesa': ['07 Dinamica 1 Oracion Peticion v2.pdf', 'Dinámica de Oración de Intercesión. Sabado..docx'],
-	'Charla: Sanación de los Recuerdos (Sanando Heridas)': ['08 Dinamica Sanacion De Recuerdos Hombres.pdf', 'Introducción a la Dinámica de Sanación.docx'],
-	'Sanación de los Recuerdos': ['08 Dinamica Sanacion De Recuerdos Hombres.pdf', 'Introducción a la Dinámica de Sanación.docx'],
-	'Texto: Dinámica Examen de Conciencia': ['09 Explicacion de la Hoja de Pecados.pdf', '09 Explicacion de la Hoja de Pecados (Una Nueva Voz Despues de Sanacion de Recuerdos).pdf'],
-	'Examen de Conciencia / Quema de Pecados': ['09 Explicacion de la Hoja de Pecados.pdf', '09 Explicacion de la Hoja de Pecados (Una Nueva Voz Despues de Sanacion de Recuerdos).pdf', 'Letreros Dinamicas - Cenizas,Lavado,Bendicion.pdf'],
+	'Oración de Intercesión': ['07 Dinamica 1 Oracion Peticion v2.pdf', '12 Dinamica 2 Oracion en grupo.pdf', 'Dinámica de Oración de Intercesión. Sabado..docx'],
+	'Charla: Sanación de Recuerdos': ['08 Dinamica Sanacion De Recuerdos Hombres.pdf', 'Introducción a la Dinámica de Sanación.docx'],
+	'Texto: Dinámica de Sanación': ['08 Dinamica Sanacion De Recuerdos Hombres.pdf', 'Introducción a la Dinámica de Sanación.docx'],
+	'Texto: Quema de Pecados': ['09 Explicacion de la Hoja de Pecados.pdf', '09 Explicacion de la Hoja de Pecados (Una Nueva Voz Despues de Sanacion de Recuerdos).pdf', 'Letreros Dinamicas - Cenizas,Lavado,Bendicion.pdf'],
 	'Sacerdotes': ['10 Confesiones Instrucciones a Sacerdotes.pdf'],
 	'Texto: Dinámica de la Pared': ['10 Dinamicas Pared Lavado Palancas.pdf'],
-	'Dinámica de la Pared': ['10 Dinamicas Pared Lavado Palancas.pdf'],
-	'Charla: De la Confianza': ['10 Dinamicas Pared Lavado Palancas.pdf'],
+	'Charla: Confianza': ['10 Dinamicas Pared Lavado Palancas.pdf'],
 	'Texto: Lavado de Manos': ['10 Dinamicas Pared Lavado Palancas.pdf', 'Letreros Dinamicas - Cenizas,Lavado,Bendicion.pdf'],
-	'Dinámica del Perdón / Clausura': ['13 Dinamica del Perdon.pdf'],
-	'Texto: Historia de los Retiros de Emaús': ['Historia del Retitro de Emaus.pdf'],
-	'Líder de Mesa (Primero de Mesa)': ['Instrucciones para lideres de mesa.pdf'],
-	'Colíder de Mesa (Segundo de Mesa)': ['Instrucciones para lideres de mesa.pdf'],
 	'Texto: Explicación del Lema "Jesucristo Ha Resucitado"': ['Jesucristo Ha Resucitado v2015_1Cor15_12-20.pdf'],
-	'Reglas del Retiro': ['REGLAS PARA EL RETIRO.pdf'],
-	'Carta a Jesús': ['11 Carta a Jesús.pdf'],
-	'Oración': ['12 Dinamica 2 Oracion en grupo.pdf'],
-	'Diario': ['05.B Diario.pdf'],
+	'Reglamento de la Casa': ['REGLAS PARA EL RETIRO.pdf'],
+	'Texto: Dinámica de la Carta a Jesús': ['11 Carta a Jesús.pdf'],
+	'Texto: Explicación Cuadernitos': ['05.B Diario.pdf'],
 };
 
 const getDocFiles = (name: string): string[] => {
@@ -595,6 +632,84 @@ watch(selectedRetreatId, (newRetreatId) => {
   }
 }, { immediate: true });
 
+// --- Attachments (Documentos por Responsabilidad) ---
+const { canManage } = useAuthPermissions();
+const attachmentCounts = ref<Record<string, number>>({});
+const isAttachmentsDialogOpen = ref(false);
+const attachmentsTarget = ref<{ responsabilityName: string; contextLabel: string } | null>(null);
+
+async function refreshAttachmentCounts() {
+  try {
+    attachmentCounts.value = await responsabilityAttachmentApi.counts();
+  } catch (err) {
+    console.warn('No se pudieron cargar los contadores de attachments', err);
+  }
+}
+
+function openAttachments(resp: Responsability) {
+  attachmentsTarget.value = { responsabilityName: resp.name, contextLabel: resp.name };
+  isAttachmentsDialogOpen.value = true;
+}
+
+function onAttachmentsDialog(v: boolean) {
+  isAttachmentsDialogOpen.value = v;
+  if (!v) {
+    attachmentsTarget.value = null;
+    // Refresh counts after the dialog closes — may have created/deleted/updated.
+    void refreshAttachmentCounts();
+  }
+}
+
+let detachWS: (() => void) | null = null;
+function attachWSListener() {
+  const socket = getSocket();
+  // Subscribe to a dummy retreat-scoped channel so we join SCHEDULE_GLOBAL_ROOM
+  // and receive attachment-changed broadcasts. If the user has no retreat
+  // selected (rare), we still listen — the event has the responsabilityName
+  // we need to update counts.
+  const onChanged = (e: { responsabilityName: string; action: 'created' | 'updated' | 'deleted' }) => {
+    if (e.action === 'created' || e.action === 'deleted') {
+      // count changed — do a fresh fetch (cheaper than maintaining delta)
+      void refreshAttachmentCounts();
+    }
+    // 'updated' doesn't change count, skip
+  };
+  socket.on('schedule:attachment-changed', onChanged);
+  // Also need to be in the global room — piggyback on schedule:subscribe with
+  // the current retreat. If no retreat, just listen passively (the event will
+  // still arrive only if some other client emits within the global room — but
+  // since we never join the room, we won't receive). Best-effort.
+  if (selectedRetreatId.value) {
+    socket.emit('schedule:subscribe', selectedRetreatId.value, () => {});
+  }
+  detachWS = () => {
+    socket.off('schedule:attachment-changed', onChanged);
+    if (selectedRetreatId.value) {
+      socket.emit('schedule:unsubscribe', selectedRetreatId.value);
+    }
+  };
+}
+
+onMounted(async () => {
+  try {
+    const { charlas, responsibilities: respKeys } = await listResponsibilityDocumentationKeys();
+    documentationKeys.value = new Set([...charlas, ...respKeys]);
+  } catch (err) {
+    console.warn('Could not load documentation keys', err);
+  }
+  await refreshAttachmentCounts();
+  attachWSListener();
+});
+
+onUnmounted(() => {
+  detachWS?.();
+});
+
+const hasDocumentation = (resp: Responsability): boolean => {
+  if (resp.description && resp.description.length > 20) return true;
+  return documentationKeys.value.has(resp.name);
+};
+
 const openAddEditModal = (responsability: Responsability | null) => {
   editingResponsability.value = responsability;
   responsabilityName.value = responsability ? responsability.name : '';
@@ -692,15 +807,52 @@ const unassignParticipant = async (responsabilityId: string) => {
   await responsabilityStore.assignParticipant(responsabilityId, null);
 };
 
-const openDocModal = (resp: Responsability) => {
+const openDocModal = async (resp: Responsability) => {
   docResponsability.value = resp;
+  docMarkdown.value = '';
   isDocModalOpen.value = true;
+
+  // Use local description if it has substantial content; otherwise fetch from API
+  const hasLocalDesc = resp.description && resp.description.length > 20;
+  if (hasLocalDesc) {
+    docMarkdown.value = resp.description!;
+    return;
+  }
+
+  if (documentationKeys.value.has(resp.name)) {
+    docLoading.value = true;
+    try {
+      const result = await getResponsibilityDocumentation(resp.name);
+      if (result?.markdown) docMarkdown.value = result.markdown;
+    } catch (err) {
+      console.error('Could not fetch documentation', err);
+    } finally {
+      docLoading.value = false;
+    }
+  }
+};
+
+const openAndPrintDoc = async (resp: Responsability) => {
+  docResponsability.value = resp;
+  docMarkdown.value = '';
+  if (resp.description && resp.description.length > 20) {
+    docMarkdown.value = resp.description;
+  } else if (documentationKeys.value.has(resp.name)) {
+    try {
+      const result = await getResponsibilityDocumentation(resp.name);
+      if (result?.markdown) docMarkdown.value = result.markdown;
+    } catch (err) {
+      console.error('Could not fetch documentation', err);
+      return;
+    }
+  }
+  if (docMarkdown.value) handlePrintDoc();
 };
 
 const handlePrintDoc = () => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
-  const rendered = renderMarkdown(docResponsability.value?.description || '');
+  const rendered = renderMarkdown(docMarkdown.value || '');
   printWindow.document.write(`<!DOCTYPE html>
 <html><head><title>${docResponsability.value?.name || 'Documento'}</title>
 <style>

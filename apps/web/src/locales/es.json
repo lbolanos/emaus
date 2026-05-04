@@ -179,6 +179,7 @@
       "social": "Familia Emaús",
       "people": "Personas",
       "assignments": "Asignaciones",
+      "logistics": "Logística",
       "financial": "Financiero",
       "reports": "Reportes",
       "services": "Servicios",
@@ -750,6 +751,7 @@
     "maxServersPlaceholder": "Número máximo de servidores",
     "isPublic": "Retiro Público",
     "isPublicDescription": "Permite que cualquiera se registre en este retiro",
+    "isPublicWarning": "Al activar, la pantalla pública del Minuto a Minuto (URL /mam/<slug>) será accesible sin login. Los nombres y ubicaciones de cada item quedarán visibles para cualquiera con el enlace. No incluyas información sensible en estos campos.",
     "roleInvitationEnabled": "Invitaciones por Rol",
     "roleInvitationDescription": "Permite enviar invitaciones basadas en roles",
     "saveChanges": "Guardar Cambios",
@@ -794,6 +796,7 @@
     "maxServersPlaceholder": "Número máximo de servidores",
     "isPublic": "Retiro Público",
     "isPublicDescription": "Permite que cualquiera se registre en este retiro",
+    "isPublicWarning": "Al activar, la pantalla pública del Minuto a Minuto (URL /mam/<slug>) será accesible sin login. Los nombres y ubicaciones de cada item quedarán visibles para cualquiera con el enlace. No incluyas información sensible en estos campos.",
     "roleInvitationEnabled": "Invitaciones por Rol",
     "roleInvitationDescription": "Permite enviar invitaciones basadas en roles",
     "showPickupInfo": "Mostrar información de recogida",
@@ -1308,6 +1311,8 @@
       "otherInfo": "Otra Información"
     },
     "fields": {
+      "acceptedPrivacyNotice": "Acepto el aviso de privacidad y el tratamiento de mis datos personales.",
+      "privacyLinkText": "Leer aviso de privacidad",
       "firstName": "Nombre",
       "lastName": "Apellido",
       "nickname": "Apodo",
@@ -1424,7 +1429,13 @@
       "title": "Resumen de Registro",
       "description": "Por favor, revise su información antes de enviarla."
     },
+    "draft": {
+      "restoredTitle": "Borrador restaurado",
+      "restoredDesc": "Continuamos donde lo dejaste. Cierra y vuelve a abrir si quieres empezar de cero."
+    },
     "fields": {
+      "acceptedPrivacyNotice": "Acepto el aviso de privacidad y el tratamiento de mis datos personales.",
+      "privacyLinkText": "Leer aviso de privacidad",
       "firstName": "Nombre",
       "lastName": "Apellidos",
       "nickname": "Apodo",
@@ -1489,7 +1500,13 @@
       "needsBlueShirtPlaceholder": "Seleccione talla o no necesita",
       "needsJacket": "Talla de chaqueta",
       "needsJacketPlaceholder": "Seleccione talla o no necesita",
-      "noSizeNeeded": "No necesita"
+      "noSizeNeeded": "No necesita",
+      "shirtSizePlaceholder": "Seleccione talla o no necesita",
+      "noShirtsConfigured": "Este retiro no tiene tipos de playera configurados.",
+      "shirtsAskTitle": "¿Necesitas alguna playera o chamarra?",
+      "shirtsAskHint": "Si ya tienes las tuyas de retiros anteriores, déjalas en \"No necesita\".",
+      "isAngelito": "Registrar como angelito",
+      "isAngelitoHint": "Apoyo parcial: no se asigna a mesa ni cama, y no requiere pago."
     },
     "emergencyContact1": "En caso de emergencia contactar a (1):",
     "emergencyContact2": "En caso de emergencia contactar a (2):"
@@ -1552,7 +1569,10 @@
     "allItems": "Todos",
     "createSpeaker": "Crear y Asignar",
     "viewDocs": "Ver Documentación",
-    "downloadDocs": "Descargar Documentos"
+    "downloadDocs": "Descargar Documentos",
+    "generatePdf": "Imprimir / Guardar como PDF",
+    "noDocumentation": "Sin documentación disponible",
+    "openAttachments": "Documentos de la responsabilidad"
   },
   "inviteUsersModal": {
     "title": "Invitar Alguien",
@@ -1898,6 +1918,20 @@
       "invitedBy": "Invitado por",
       "acceptedAt": "Aceptado el"
     }
+  },
+  "dataDelete": {
+    "title": "Eliminar mis datos personales",
+    "loading": "Cargando información...",
+    "description": "Al confirmar, todos tus datos personales serán eliminados de nuestra plataforma. Esta acción no se puede deshacer.",
+    "participantInfo": "Información registrada:",
+    "confirmButton": "Sí, eliminar mis datos",
+    "cancelButton": "Cancelar",
+    "successTitle": "Datos eliminados",
+    "successMessage": "Tus datos personales han sido eliminados de nuestra plataforma.",
+    "errorTitle": "Error",
+    "errorNotFound": "El enlace no es válido o ya fue utilizado.",
+    "errorGeneric": "Ocurrió un error al procesar tu solicitud. Intenta más tarde.",
+    "backToHome": "Volver al inicio"
   },
   "privacy": {
     "title": "Política de Privacidad",
@@ -2304,6 +2338,24 @@
     "searchServerPlaceholder": "Escribe un nombre para filtrar...",
     "noServerMatch": "Sin coincidencias. Cambia a Angelito para anotar un nombre libre.",
     "selectedServer": "Servidor seleccionado",
-    "angelitoHint": "Nombre libre de alguien que no está en el sistema"
+    "angelitoHint": "Nombre libre de alguien que no está en el sistema",
+    "mealWindowLabel": "Comida — sólo servidores fuera de mesa",
+    "mealWindowHint": "En este horario los servidores en mesa están comiendo. Asignar sólo angelitos o servidores sin mesa.",
+    "help": "Ayuda",
+    "helpTitle": "Cómo funciona el horario del Santísimo",
+    "helpIntro": "Resumen rápido del flujo de inscripciones y de los códigos de color.",
+    "helpAutoTitle": "Generación automática",
+    "helpAutoBody": "Cuando coordinación materializa el minuto-a-minuto del retiro, los horarios del Santísimo se crean automáticamente cubriendo el rango de los items de tipo 'santísimo' del template. No es necesario tocar el botón \"Generar\" para los retiros estándar.",
+    "helpMealTitle": "Horarios bloqueados (color ámbar)",
+    "helpMealBody": "Los slots en color ámbar se solapan con comidas o dinámicas que bloquean la asistencia (los servidores en mesa están comiendo). Sólo se asignan ahí angelitos (servidores sin mesa) o nombres libres.",
+    "helpManualTitle": "Generar manualmente",
+    "helpManualBody": "El botón \"Generar\" sigue disponible para crear slots con un rango/duración personalizados. Es idempotente: no duplica slots ni borra inscripciones existentes a menos que marques \"Eliminar horarios existentes\".",
+    "helpSignupTitle": "Inscripciones",
+    "helpSignupBody": "En slots ámbar, el buscador de servidores oculta a quien tenga mesa asignada. Los angelitos disponibles se pre-asignan automáticamente al materializar el template.",
+    "moreActions": "Más acciones",
+    "autoAssign": "Auto-asignar angelitos",
+    "autoAssignHint": "Recalcula ventanas de comida y reparte angelitos disponibles entre los slots bloqueados.",
+    "autoAssignDone": "Auto-asignación completada",
+    "autoAssignSummary": "{meal} ventanas de comida · {assigned} angelitos asignados · {pending} slots sin cubrir"
   }
 }

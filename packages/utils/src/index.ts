@@ -70,6 +70,7 @@ export interface ParticipantData {
 	tableMesa?: { name: string };
 	retreatBed?: { roomNumber: string; bedNumber: string };
 	palanquero?: { name?: string; email?: string; cellPhone?: string };
+	dataDeleteToken?: string | null;
 }
 
 /**
@@ -112,7 +113,21 @@ export interface FormatDateOptions {
 export function formatDate(date: Date | string, options: FormatDateOptions = {}): string {
 	const { locale = 'es-ES', format = 'short' } = options;
 
-	// Extract date parts to avoid timezone shift
+	// For datetime format we need the actual instant (with time) converted to the
+	// user's local timezone — do NOT strip to UTC date parts, that would lose the hour.
+	if (format === 'datetime') {
+		const dateObj = typeof date === 'string' ? new Date(date) : date;
+		return dateObj.toLocaleString(locale, {
+			day: '2-digit',
+			month: '2-digit',
+			year: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit',
+		});
+	}
+
+	// For date-only formats, extract date parts to avoid timezone shifts
+	// (e.g. a birth date stored as 2025-12-26T00:00:00.000Z should not become Dec 25 in UTC-6)
 	let dateObj: Date;
 	if (typeof date === 'string') {
 		const match = date.match(/^(\d{4}-\d{2}-\d{2})/);
@@ -127,7 +142,6 @@ export function formatDate(date: Date | string, options: FormatDateOptions = {})
 		dateObj = date;
 	}
 
-	// Format based on format type
 	switch (format) {
 		case 'long':
 			return dateObj.toLocaleDateString(locale, {
@@ -141,14 +155,6 @@ export function formatDate(date: Date | string, options: FormatDateOptions = {})
 				year: 'numeric',
 				month: 'long',
 				day: 'numeric',
-			});
-		case 'datetime':
-			return dateObj.toLocaleDateString(locale, {
-				day: '2-digit',
-				month: '2-digit',
-				year: 'numeric',
-				hour: '2-digit',
-				minute: '2-digit',
 			});
 		case 'short':
 		default:
@@ -342,7 +348,23 @@ const buildParticipantReplacements = (
 		'participant.table': participantData.tableMesa?.name || '',
 		'participant.roomNumber': participantData.retreatBed?.roomNumber || '',
 		'participant.bedNumber': participantData.retreatBed?.bedNumber || '',
+		'participant.dataDeleteUrl': participantData.dataDeleteToken
+			? `${getPublicWebUrl()}/eliminar-datos/${participantData.dataDeleteToken}`
+			: '',
 	};
+};
+
+declare const process: { env: Record<string, string | undefined> } | undefined;
+
+const getPublicWebUrl = (): string => {
+	if (typeof process !== 'undefined' && process?.env) {
+		return (
+			process.env.PUBLIC_WEB_URL ||
+			process.env.FRONTEND_URL ||
+			'http://localhost:5173'
+		);
+	}
+	return 'http://localhost:5173';
 };
 
 /**

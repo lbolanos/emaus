@@ -32,44 +32,38 @@ const landingLimiter = rateLimit({
 router.get('/landing/testimonials', landingLimiter, getLandingTestimonialsController);
 
 // ==================== AUTHENTICATED ROUTES ====================
-
-// All other routes require authentication
-router.use(isAuthenticated);
+// IMPORTANT: this router is mounted in `mainRouter` WITHOUT a path prefix
+// (`router.use(testimonialRoutes)`), so any blanket `router.use(middleware)`
+// here applies to EVERY request flowing through mainRouter — even ones meant
+// for sibling routers registered later (e.g. `/schedule/public/...`). To
+// avoid that side effect, attach `isAuthenticated` per-route instead of via
+// `router.use(isAuthenticated)`.
 
 // ==================== TESTIMONIAL CRUD ====================
 
-// Create testimonial
-router.post('/testimonials', createTestimonialController);
-
-// Get feed of testimonials (filtered by visibility)
-router.get('/testimonials', getTestimonialsController);
-
-// Get testimonials by retreat
-router.get('/testimonials/retreat/:retreatId', getTestimonialsByRetreatController);
-
-// Get testimonials by user
-router.get('/testimonials/user/:userId', getUserTestimonialsController);
-
-// Update testimonial
-router.put('/testimonials/:id', updateTestimonialController);
-
-// Delete testimonial
-router.delete('/testimonials/:id', deleteTestimonialController);
+router.post('/testimonials', isAuthenticated, createTestimonialController);
+router.get('/testimonials', isAuthenticated, getTestimonialsController);
+router.get('/testimonials/retreat/:retreatId', isAuthenticated, getTestimonialsByRetreatController);
+router.get('/testimonials/user/:userId', isAuthenticated, getUserTestimonialsController);
+router.put('/testimonials/:id', isAuthenticated, updateTestimonialController);
+router.delete('/testimonials/:id', isAuthenticated, deleteTestimonialController);
 
 // ==================== LANDING PAGE APPROVAL (SUPERADMIN) ====================
 
-// Approve testimonial for landing page
-router.put('/testimonials/:id/approve-landing', approveForLandingController);
-
-// Revoke landing page approval
-router.put('/testimonials/:id/revoke-landing', revokeLandingApprovalController);
+router.put('/testimonials/:id/approve-landing', isAuthenticated, approveForLandingController);
+router.put('/testimonials/:id/revoke-landing', isAuthenticated, revokeLandingApprovalController);
 
 // ==================== USER PREFERENCES ====================
 
-// Get default visibility setting
-router.get('/testimonials/settings/default-visibility', getDefaultVisibilityController);
-
-// Set default visibility setting
-router.put('/testimonials/settings/default-visibility', setDefaultVisibilityController);
+router.get(
+	'/testimonials/settings/default-visibility',
+	isAuthenticated,
+	getDefaultVisibilityController,
+);
+router.put(
+	'/testimonials/settings/default-visibility',
+	isAuthenticated,
+	setDefaultVisibilityController,
+);
 
 export default router;

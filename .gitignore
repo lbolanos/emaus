@@ -27,6 +27,8 @@ dist/
 *.config.js
 *.config.d.ts
 *.config.d.ts.map
+# PM2 ecosystem config is hand-written, not generated
+!ecosystem.config.js
 
 # Test coverage and artifacts
 coverage/

@@ -503,14 +503,125 @@
         </div>
       </div>
 
+      <!-- Minuto a Minuto -->
+      <Card
+        id="ds-section-minutoAMinuto"
+        v-if="dashSettings.visible.minutoAMinuto && (scheduleStats !== null || loadingSchedule)"
+        :style="{ order: dashSettings.sectionOrder.indexOf('minutoAMinuto') }"
+        class="group hover:shadow-md transition-all duration-300"
+        :class="{ 'cursor-pointer': !dashSettings.collapsed.minutoAMinuto && isRetreatLive, 'opacity-70': !isRetreatLive }"
+        @click="!dashSettings.collapsed.minutoAMinuto && isRetreatLive && goToMinutoAMinuto()"
+      >
+        <CardHeader
+          class="pb-3 cursor-pointer select-none"
+          @click.stop="dashSettings.toggleCollapsed('minutoAMinuto')"
+        >
+          <CardTitle class="text-lg flex items-center justify-between">
+            <span class="flex items-center gap-2">
+              <Clock class="w-5 h-5 text-primary" />
+              Minuto a Minuto
+            </span>
+            <ChevronDown class="w-4 h-4 text-muted-foreground transition-transform duration-200" :class="{ '-rotate-90': dashSettings.collapsed.minutoAMinuto || !isRetreatLive }" />
+          </CardTitle>
+          <p v-if="!isRetreatLive" class="text-xs text-muted-foreground italic mt-1">
+            ⏳ {{ liveBadgeMessage }}
+          </p>
+        </CardHeader>
+        <div v-show="!dashSettings.collapsed.minutoAMinuto && isRetreatLive">
+          <CardContent>
+            <template v-if="loadingSchedule">
+              <div class="animate-pulse space-y-3">
+                <div class="h-12 bg-muted rounded"></div>
+                <div class="grid grid-cols-3 gap-4">
+                  <div v-for="i in 3" :key="i" class="h-10 bg-muted rounded"></div>
+                </div>
+              </div>
+            </template>
+            <template v-else-if="scheduleStats">
+              <div v-if="!scheduleStats.items.total" class="text-sm text-muted-foreground py-2">
+                Aún no se ha importado la agenda. Ve a Minuto a Minuto e importa desde un template.
+              </div>
+              <template v-else>
+                <!-- Current / Next -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                  <div
+                    class="p-3 rounded-lg border"
+                    :class="scheduleStats.currentItem ? 'bg-green-50 border-green-300 dark:bg-green-900/20' : 'bg-muted/30'"
+                  >
+                    <p class="text-xs uppercase tracking-wider text-muted-foreground mb-1">Ahora</p>
+                    <template v-if="scheduleStats.currentItem">
+                      <p class="font-semibold">▶ {{ scheduleStats.currentItem.name }}</p>
+                      <p class="text-xs text-muted-foreground mt-0.5">
+                        {{ fmtTime(scheduleStats.currentItem.startTime) }} · {{ scheduleStats.currentItem.durationMinutes }}m
+                        <span v-if="scheduleStats.currentItem.responsabilityName"> · 🎤 {{ scheduleStats.currentItem.responsabilityName }}</span>
+                      </p>
+                    </template>
+                    <p v-else class="text-sm text-muted-foreground">— Nada activo —</p>
+                  </div>
+                  <div class="p-3 rounded-lg border bg-muted/30">
+                    <p class="text-xs uppercase tracking-wider text-muted-foreground mb-1">Siguiente</p>
+                    <template v-if="scheduleStats.nextItem">
+                      <p class="font-semibold">{{ scheduleStats.nextItem.name }}</p>
+                      <p class="text-xs text-muted-foreground mt-0.5">
+                        en {{ scheduleStats.nextItem.minutesUntil }} min · {{ fmtTime(scheduleStats.nextItem.startTime) }}
+                        <span v-if="scheduleStats.nextItem.responsabilityName"> · 🎤 {{ scheduleStats.nextItem.responsabilityName }}</span>
+                      </p>
+                    </template>
+                    <p v-else class="text-sm text-muted-foreground">— Sin pendientes —</p>
+                  </div>
+                </div>
+
+                <!-- Stats grid -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
+                  <div>
+                    <p class="text-xs uppercase tracking-wider text-muted-foreground">Hoy</p>
+                    <p class="text-2xl font-bold mt-1">{{ scheduleStats.today.completed }} / {{ scheduleStats.today.total }}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs uppercase tracking-wider text-muted-foreground">Total agenda</p>
+                    <p class="text-2xl font-bold mt-1">{{ scheduleStats.items.completed }} / {{ scheduleStats.items.total }}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs uppercase tracking-wider text-muted-foreground">Sin responsable</p>
+                    <p
+                      class="text-2xl font-bold mt-1"
+                      :class="scheduleStats.items.missingResponsable > 0 ? 'text-amber-600' : 'text-muted-foreground'"
+                    >
+                      {{ scheduleStats.items.missingResponsable }}
+                    </p>
+                  </div>
+                  <div>
+                    <p class="text-xs uppercase tracking-wider text-muted-foreground">Retraso del día</p>
+                    <p
+                      class="text-2xl font-bold mt-1"
+                      :class="scheduleStats.delayMinutes > 0 ? 'text-red-600' : 'text-muted-foreground'"
+                    >
+                      +{{ scheduleStats.delayMinutes }}m
+                    </p>
+                  </div>
+                </div>
+
+                <div class="space-y-1">
+                  <div class="flex justify-between text-xs text-muted-foreground">
+                    <span>Avance del día</span>
+                    <span>{{ todayProgressPercent }}%</span>
+                  </div>
+                  <Progress :value="todayProgressPercent" class="h-2" />
+                </div>
+              </template>
+            </template>
+          </CardContent>
+        </div>
+      </Card>
+
       <!-- 5. Reception Card -->
       <Card
         id="ds-section-reception"
         v-if="dashSettings.visible.reception && (receptionStats !== null || loadingReception)"
         :style="{ order: dashSettings.sectionOrder.indexOf('reception') }"
         class="group hover:shadow-md transition-all duration-300"
-        :class="{ 'cursor-pointer': !dashSettings.collapsed.reception }"
-        @click="!dashSettings.collapsed.reception && goToReception()"
+        :class="{ 'cursor-pointer': !dashSettings.collapsed.reception && isRetreatLive, 'opacity-70': !isRetreatLive }"
+        @click="!dashSettings.collapsed.reception && isRetreatLive && goToReception()"
       >
         <CardHeader
           class="pb-3 cursor-pointer select-none"
@@ -521,10 +632,13 @@
               <DoorOpen class="w-5 h-5 text-primary" />
               Recepción de Caminantes
             </span>
-            <ChevronDown class="w-4 h-4 text-muted-foreground transition-transform duration-200" :class="{ '-rotate-90': dashSettings.collapsed.reception }" />
+            <ChevronDown class="w-4 h-4 text-muted-foreground transition-transform duration-200" :class="{ '-rotate-90': dashSettings.collapsed.reception || !isRetreatLive }" />
           </CardTitle>
+          <p v-if="!isRetreatLive" class="text-xs text-muted-foreground italic mt-1">
+            ⏳ {{ liveBadgeMessage }}
+          </p>
         </CardHeader>
-        <div v-show="!dashSettings.collapsed.reception">
+        <div v-show="!dashSettings.collapsed.reception && isRetreatLive">
           <CardContent>
             <template v-if="loadingReception">
               <div class="animate-pulse grid grid-cols-3 gap-4 mb-3">
@@ -562,6 +676,85 @@
                 </div>
                 <Progress :value="receptionPercent" class="h-2" />
               </div>
+            </template>
+          </CardContent>
+        </div>
+      </Card>
+
+      <!-- Santísimo + angelitos -->
+      <Card
+        id="ds-section-santisimo"
+        v-if="dashSettings.visible.santisimo && (scheduleStats !== null || loadingSchedule)"
+        :style="{ order: dashSettings.sectionOrder.indexOf('santisimo') }"
+        class="group hover:shadow-md transition-all duration-300"
+        :class="{ 'cursor-pointer': !dashSettings.collapsed.santisimo && isRetreatLive, 'opacity-70': !isRetreatLive }"
+        @click="!dashSettings.collapsed.santisimo && isRetreatLive && goToSantisimo()"
+      >
+        <CardHeader
+          class="pb-3 cursor-pointer select-none"
+          @click.stop="dashSettings.toggleCollapsed('santisimo')"
+        >
+          <CardTitle class="text-lg flex items-center justify-between">
+            <span class="flex items-center gap-2">
+              <Cross class="w-5 h-5 text-primary" />
+              Santísimo + angelitos
+            </span>
+            <ChevronDown class="w-4 h-4 text-muted-foreground transition-transform duration-200" :class="{ '-rotate-90': dashSettings.collapsed.santisimo || !isRetreatLive }" />
+          </CardTitle>
+          <p v-if="!isRetreatLive" class="text-xs text-muted-foreground italic mt-1">
+            ⏳ {{ liveBadgeMessage }}
+          </p>
+        </CardHeader>
+        <div v-show="!dashSettings.collapsed.santisimo && isRetreatLive">
+          <CardContent>
+            <template v-if="loadingSchedule">
+              <div class="animate-pulse grid grid-cols-3 gap-4">
+                <div v-for="i in 3" :key="i" class="h-12 bg-muted rounded"></div>
+              </div>
+            </template>
+            <template v-else-if="scheduleStats">
+              <div v-if="!scheduleStats.santisimo.totalSlots && !scheduleStats.angelitos.total" class="text-sm text-muted-foreground py-2">
+                Sin slots de Santísimo configurados ni angelitos en este retiro.
+              </div>
+              <template v-else>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
+                  <div>
+                    <p class="text-xs uppercase tracking-wider text-muted-foreground">Slots cubiertos</p>
+                    <p class="text-2xl font-bold mt-1">
+                      {{ scheduleStats.santisimo.coveredSlots }} / {{ scheduleStats.santisimo.totalSlots }}
+                    </p>
+                  </div>
+                  <div>
+                    <p class="text-xs uppercase tracking-wider text-muted-foreground">En horario de comida</p>
+                    <p class="text-2xl font-bold mt-1">{{ scheduleStats.santisimo.mealWindowSlots }}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs uppercase tracking-wider text-muted-foreground">Sin cubrir (comida)</p>
+                    <p
+                      class="text-2xl font-bold mt-1"
+                      :class="scheduleStats.santisimo.unresolvedMealSlots > 0 ? 'text-amber-600' : 'text-muted-foreground'"
+                    >
+                      {{ scheduleStats.santisimo.unresolvedMealSlots }}
+                    </p>
+                  </div>
+                  <div>
+                    <p class="text-xs uppercase tracking-wider text-muted-foreground">Angelitos</p>
+                    <p class="text-2xl font-bold mt-1">
+                      {{ scheduleStats.angelitos.available }} / {{ scheduleStats.angelitos.total }}
+                    </p>
+                    <p v-if="scheduleStats.angelitos.inTable > 0" class="text-xs text-muted-foreground">
+                      {{ scheduleStats.angelitos.inTable }} en mesa (no disponibles)
+                    </p>
+                  </div>
+                </div>
+                <div class="space-y-1">
+                  <div class="flex justify-between text-xs text-muted-foreground">
+                    <span>Cobertura</span>
+                    <span>{{ santisimoCoveragePercent }}%</span>
+                  </div>
+                  <Progress :value="santisimoCoveragePercent" class="h-2" />
+                </div>
+              </template>
             </template>
           </CardContent>
         </div>
@@ -630,8 +823,8 @@
         v-if="dashSettings.visible.bagsReport && (activeWalkers.length > 0 || loadingParticipants)"
         :style="{ order: dashSettings.sectionOrder.indexOf('bagsReport') }"
         class="group hover:shadow-md transition-all duration-300"
-        :class="{ 'cursor-pointer': !dashSettings.collapsed.bagsReport }"
-        @click="!dashSettings.collapsed.bagsReport && goToBagsReport()"
+        :class="{ 'cursor-pointer': !dashSettings.collapsed.bagsReport && isRetreatLive, 'opacity-70': !isRetreatLive }"
+        @click="!dashSettings.collapsed.bagsReport && isRetreatLive && goToBagsReport()"
       >
         <CardHeader
           class="pb-3 cursor-pointer select-none"
@@ -642,10 +835,13 @@
               <ShoppingBag class="w-5 h-5 text-primary" />
               Reporte de Bolsas
             </span>
-            <ChevronDown class="w-4 h-4 text-muted-foreground transition-transform duration-200" :class="{ '-rotate-90': dashSettings.collapsed.bagsReport }" />
+            <ChevronDown class="w-4 h-4 text-muted-foreground transition-transform duration-200" :class="{ '-rotate-90': dashSettings.collapsed.bagsReport || !isRetreatLive }" />
           </CardTitle>
+          <p v-if="!isRetreatLive" class="text-xs text-muted-foreground italic mt-1">
+            ⏳ {{ liveBadgeMessage }}
+          </p>
         </CardHeader>
-        <div v-show="!dashSettings.collapsed.bagsReport">
+        <div v-show="!dashSettings.collapsed.bagsReport && isRetreatLive">
           <CardContent>
             <template v-if="loadingParticipants">
               <div class="animate-pulse grid grid-cols-3 gap-4 mb-3">
@@ -879,7 +1075,13 @@ import { useInventoryStore } from '@/stores/inventoryStore';
 import { useTableMesaStore } from '@/stores/tableMesaStore';
 import { useResponsabilityStore } from '@/stores/responsabilityStore';
 import { useDashboardSettingsStore } from '@/stores/dashboardSettingsStore';
-import { api, getReceptionStats, type ReceptionStats } from '@/services/api';
+import {
+	api,
+	getReceptionStats,
+	retreatScheduleApi,
+	type ReceptionStats,
+	type ScheduleDashboardStats,
+} from '@/services/api';
 import type { RetreatBed } from '@repo/types';
 import { Button } from '@repo/ui';
 import {
@@ -915,6 +1117,7 @@ import {
   BookOpen,
   ChevronDown,
   ClipboardList,
+  Cross,
   Heart,
   CalendarDays,
   Camera,
@@ -962,6 +1165,7 @@ const dashSettings = useDashboardSettingsStore();
 
 const beds = ref<RetreatBed[]>([]);
 const receptionStats = ref<ReceptionStats | null>(null);
+const scheduleStats = ref<ScheduleDashboardStats | null>(null);
 
 const isQrCodeVisible = ref(false);
 const qrCodeUrl = ref('');
@@ -977,6 +1181,7 @@ const loadingBeds = ref(false);
 const loadingResponsibilities = ref(false);
 const loadingReception = ref(false);
 const loadingInventory = ref(false);
+const loadingSchedule = ref(false);
 
 const isAnyLoading = computed(() =>
   loadingParticipants.value ||
@@ -984,7 +1189,8 @@ const isAnyLoading = computed(() =>
   loadingBeds.value ||
   loadingResponsibilities.value ||
   loadingReception.value ||
-  loadingInventory.value
+  loadingInventory.value ||
+  loadingSchedule.value
 );
 
 // Last updated
@@ -1039,6 +1245,29 @@ const walkersCount = computed(() => (participants.value || []).filter(p => p.typ
 const serversCount = computed(() => (participants.value || []).filter(p => p.type === 'server' && !p.isCancelled).length);
 const waitingCount = computed(() => (participants.value || []).filter(p => p.type === 'waiting' && !p.isCancelled).length);
 const angelitosCount = computed(() => (participants.value || []).filter(p => p.type === 'partial_server' && !p.isCancelled).length);
+
+const isRetreatLive = computed(() => {
+  const r = selectedRetreat.value;
+  if (!r?.startDate || !r?.endDate) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(r.startDate);
+  start.setHours(0, 0, 0, 0);
+  // 1 día de gracia antes (preparación final del viernes)
+  start.setDate(start.getDate() - 1);
+  const end = new Date(r.endDate);
+  end.setHours(23, 59, 59, 999);
+  return today >= start && today <= end;
+});
+
+const liveBadgeMessage = computed(() => {
+  const d = daysUntilRetreat.value;
+  if (d === null) return 'Aplica durante los días del retiro';
+  if (d > 1) return `Aplica durante los días del retiro · faltan ${d} días`;
+  if (d === 1) return 'Aplica durante los días del retiro · falta 1 día';
+  if (d === 0) return 'Aplica hoy mismo';
+  return `El retiro terminó hace ${Math.abs(d)} días`;
+});
 
 const daysUntilRetreat = computed(() => {
   if (!selectedRetreat.value?.startDate) return null;
@@ -1171,6 +1400,32 @@ const goToResponsibilities = () => {
 
 const goToPalancas = () => router.push({ name: 'palancas' });
 
+const goToMinutoAMinuto = () => {
+  if (selectedRetreat.value?.id) {
+    router.push({ name: 'minuto-a-minuto', params: { id: selectedRetreat.value.id } });
+  }
+};
+
+const goToSantisimo = () => {
+  if (selectedRetreat.value?.id) {
+    router.push({ name: 'santisimo', params: { id: selectedRetreat.value.id } });
+  }
+};
+
+const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+const todayProgressPercent = computed(() => {
+  const t = scheduleStats.value?.today;
+  if (!t || !t.total) return 0;
+  return Math.round((t.completed / t.total) * 100);
+});
+
+const santisimoCoveragePercent = computed(() => {
+  const s = scheduleStats.value?.santisimo;
+  if (!s || !s.totalSlots) return 0;
+  return Math.round((s.coveredSlots / s.totalSlots) * 100);
+});
+
 const copyLink = async (link: string) => {
   try {
     await navigator.clipboard.writeText(link);
@@ -1210,6 +1465,14 @@ const fetchReception = async (retreatId: string) => {
   }
 };
 
+const fetchSchedule = async (retreatId: string) => {
+  try {
+    scheduleStats.value = await retreatScheduleApi.dashboardStats(retreatId);
+  } catch {
+    scheduleStats.value = null;
+  }
+};
+
 let loadedRetreatId: string | null = null;
 
 const loadRetreatData = async (retreatId: string, showFullSpinner = true) => {
@@ -1224,6 +1487,7 @@ const loadRetreatData = async (retreatId: string, showFullSpinner = true) => {
   loadingBeds.value = true;
   loadingResponsibilities.value = true;
   loadingReception.value = true;
+  loadingSchedule.value = true;
   if (can.read('retreatInventory')) loadingInventory.value = true;
 
   try {
@@ -1237,6 +1501,7 @@ const loadRetreatData = async (retreatId: string, showFullSpinner = true) => {
       fetchBeds(retreatId).finally(() => { loadingBeds.value = false; }),
       responsabilityStore.fetchResponsibilities(retreatId, { silent: true }).finally(() => { loadingResponsibilities.value = false; }),
       fetchReception(retreatId).finally(() => { loadingReception.value = false; }),
+      fetchSchedule(retreatId).finally(() => { loadingSchedule.value = false; }),
     ];
     if (can.read('retreatInventory')) {
       fetches.push(inventoryStore.fetchInventoryAlerts(retreatId).finally(() => { loadingInventory.value = false; }));
@@ -1252,6 +1517,7 @@ const loadRetreatData = async (retreatId: string, showFullSpinner = true) => {
     loadingBeds.value = false;
     loadingResponsibilities.value = false;
     loadingReception.value = false;
+    loadingSchedule.value = false;
     loadingInventory.value = false;
   } finally {
     isLoading.value = false;

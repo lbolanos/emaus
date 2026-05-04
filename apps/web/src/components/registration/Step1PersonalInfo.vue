@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui'
 import { Input } from '@repo/ui'
 import { Label } from '@repo/ui'
@@ -19,6 +20,9 @@ const maxBirthDate = computed(() => {
   d.setFullYear(d.getFullYear() - 20)
   return d.toISOString().slice(0, 10)
 })
+
+const router = useRouter()
+const privacyUrl = router.resolve({ name: 'privacy' }).href
 
 </script>
 
@@ -94,6 +98,32 @@ const maxBirthDate = computed(() => {
           <Input id="occupation" v-model="formData.occupation" :class="{ 'border-red-500': hasError('occupation') }" />
           <p v-if="hasError('occupation')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('occupation') }}</p>
         </div>
+      </div>
+      <div class="pt-4 mt-4 border-t">
+        <button
+          type="button"
+          class="w-full flex items-start gap-3 rounded-lg border p-3 text-left transition-all"
+          :class="formData.acceptedPrivacyNotice
+            ? 'border-primary bg-primary/5'
+            : (hasError('acceptedPrivacyNotice') ? 'border-red-500 bg-red-50 dark:bg-red-950/30' : 'border-input bg-background hover:bg-accent/50')"
+          @click="formData.acceptedPrivacyNotice = !formData.acceptedPrivacyNotice"
+        >
+          <div
+            class="flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 mt-0.5 transition-colors"
+            :class="formData.acceptedPrivacyNotice ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/40 bg-background'"
+          >
+            <svg v-if="formData.acceptedPrivacyNotice" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <span class="text-sm leading-snug">
+            {{ $t('serverRegistration.fields.acceptedPrivacyNotice') }}
+            <a :href="privacyUrl" target="_blank" rel="noopener" class="underline text-primary ml-1" @click.stop>
+              {{ $t('serverRegistration.fields.privacyLinkText') }}
+            </a>
+          </span>
+        </button>
+        <p v-if="hasError('acceptedPrivacyNotice')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('acceptedPrivacyNotice') }}</p>
       </div>
     </CardContent>
   </Card>

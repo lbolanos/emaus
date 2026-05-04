@@ -194,7 +194,7 @@ describe('Leader Sync Service', () => {
 		it('should clear responsibility participant when unassigning service team leader', async () => {
 			const ds = getDS();
 			const server = await createServer({ firstName: 'Rosa', lastName: 'Martinez' });
-			const resp = await createResponsibility('Oración');
+			const resp = await createResponsibility('Oración de Intercesión');
 			const team = await createServiceTeam('Intercesión / Oración', ServiceTeamType.ORACION);
 
 			// Assign leader

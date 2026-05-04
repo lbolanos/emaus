@@ -76,9 +76,9 @@ describe('Service Team Data Integrity', () => {
 		});
 	});
 
-	describe('Default Charlas (19 total)', () => {
-		test('should have exactly 19 charlas', () => {
-			expect(defaultCharlas).toHaveLength(19);
+	describe('Default Charlas (21 total)', () => {
+		test('should have exactly 21 charlas', () => {
+			expect(defaultCharlas).toHaveLength(21);
 		});
 
 		test('should have unique names', () => {
@@ -86,10 +86,12 @@ describe('Service Team Data Integrity', () => {
 			expect(new Set(names).size).toBe(names.length);
 		});
 
-		test('should have correct anexo references A-2-1 through A-2-19', () => {
-			const anexos = defaultCharlas.map((c) => c.anexo).sort();
-			const expected = Array.from({ length: 19 }, (_, i) => `A-2-${i + 1}`).sort();
-			expect(anexos).toEqual(expected);
+		test('all anexos should be unique and follow A-2-N format', () => {
+			const anexos = defaultCharlas.map((c) => c.anexo);
+			expect(new Set(anexos).size).toBe(anexos.length);
+			for (const a of anexos) {
+				expect(a).toMatch(/^A-2-\d+$/);
+			}
 		});
 
 		test('should all start with "Charla:" or "Texto:"', () => {
@@ -100,18 +102,18 @@ describe('Service Team Data Integrity', () => {
 			}
 		});
 
-		test('should have 10 Charla entries and 9 Texto entries', () => {
+		test('should have 11 Charla entries and 10 Texto entries', () => {
 			const charlas = defaultCharlas.filter((c) => c.name.startsWith('Charla:'));
 			const textos = defaultCharlas.filter((c) => c.name.startsWith('Texto:'));
-			expect(charlas).toHaveLength(10);
-			expect(textos).toHaveLength(9);
+			expect(charlas).toHaveLength(11);
+			expect(textos).toHaveLength(10);
 		});
 	});
 
 	describe('Charla Documentation', () => {
-		test('should have 19 documented charlas', () => {
+		test('should have all 21 documented charlas/textos (matches getDefaultCharlas count)', () => {
 			const keys = Object.keys(charlaDocumentation);
-			expect(keys).toHaveLength(19);
+			expect(keys).toHaveLength(21);
 		});
 
 		test('each charla doc should reference its anexo number', () => {
@@ -133,6 +135,27 @@ describe('Service Team Data Integrity', () => {
 		test('should have at least one documented responsibility', () => {
 			const keys = Object.keys(responsibilityDocumentation);
 			expect(keys.length).toBeGreaterThan(0);
+		});
+
+		test('every canonical fixed responsibility should have documentation', () => {
+			const CANONICAL_FIXED = [
+				'Palanquero 1', 'Palanquero 2', 'Palanquero 3', 'Logistica', 'Inventario',
+				'Tesorero', 'Sacerdotes', 'Mantelitos', 'Snacks', 'Compras', 'Transporte',
+				'Música', 'Comedor', 'Salón', 'Cuartos', 'Oración de Intercesión', 'Palanquitas',
+				'Santísimo', 'Campanero', 'Continua', 'Biblias', 'Explicación Rosario y entrega', 'Bolsas',
+				'Resumen del día', 'Recepción', 'Reglamento de la Casa',
+			];
+			const documented = new Set(Object.keys(responsibilityDocumentation));
+			const missing = CANONICAL_FIXED.filter((r) => !documented.has(r));
+			if (missing.length) console.log('Responsabilidades sin documentación:', missing);
+			expect(missing).toEqual([]);
+		});
+
+		test('every charla/texto in defaultCharlas should have documentation', () => {
+			const documented = new Set(Object.keys(charlaDocumentation));
+			const missing = defaultCharlas.filter((c) => !documented.has(c.name));
+			if (missing.length) console.log('Charlas sin documentación:', missing.map((c) => c.name));
+			expect(missing).toEqual([]);
 		});
 
 		test('each responsibility doc should have substantial content', () => {

@@ -17,15 +17,56 @@
             {{ t('santisimo.enable') }}
           </label>
         </div>
-        <Button variant="outline" size="sm" @click="copyPublicLink" :disabled="!canCopyLink">
-          <Link2 class="w-4 h-4 mr-1" />{{ t('santisimo.copyPublicLink') }}
-        </Button>
-        <Button variant="outline" size="sm" @click="printView">
-          <Printer class="w-4 h-4 mr-1" />{{ t('santisimo.print') }}
-        </Button>
         <Button size="sm" @click="openGenerate">
           <Plus class="w-4 h-4 mr-1" />{{ t('santisimo.generate') }}
         </Button>
+        <div class="relative" @click.stop>
+          <Button
+            variant="outline"
+            size="sm"
+            @click="moreActionsOpen = !moreActionsOpen"
+            :aria-expanded="moreActionsOpen"
+            aria-haspopup="menu"
+            data-testid="santisimo-actions-button"
+          >⋮ {{ t('santisimo.moreActions') }}</Button>
+          <div
+            v-if="moreActionsOpen"
+            role="menu"
+            class="absolute right-0 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1 text-sm"
+            data-testid="santisimo-actions-menu"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              class="w-full text-left px-3 py-2 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="!canCopyLink"
+              @click="closeMore(); copyPublicLink()"
+            >🔗 {{ t('santisimo.copyPublicLink') }}</button>
+            <button
+              type="button"
+              role="menuitem"
+              class="w-full text-left px-3 py-2 hover:bg-gray-50"
+              @click="closeMore(); printView()"
+            >🖨 {{ t('santisimo.print') }}</button>
+            <div class="border-t border-gray-100 my-1"></div>
+            <button
+              type="button"
+              role="menuitem"
+              class="w-full text-left px-3 py-2 hover:bg-gray-50"
+              @click="closeMore(); doAutoAssignAngelitos()"
+              :title="t('santisimo.autoAssignHint')"
+              data-testid="santisimo-auto-assign-button"
+            >✨ {{ t('santisimo.autoAssign') }}</button>
+            <div class="border-t border-gray-100 my-1"></div>
+            <button
+              type="button"
+              role="menuitem"
+              class="w-full text-left px-3 py-2 hover:bg-gray-50"
+              @click="closeMore(); helpOpen = true"
+              data-testid="santisimo-help-button"
+            >❓ {{ t('santisimo.help') }}</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -49,7 +90,10 @@
           v-for="slot in col.slots"
           :key="slot.id"
           class="border-t px-2 py-1 text-sm"
-          :class="slot.isDisabled ? 'bg-gray-100 text-gray-500' : ''"
+          :class="[
+            slot.isDisabled ? 'bg-gray-100 text-gray-500' : '',
+            slot.mealWindow && !slot.isDisabled ? 'bg-amber-50 border-l-4 border-amber-400' : '',
+          ]"
         >
           <div class="flex items-center justify-between gap-2">
             <div class="font-mono">{{ formatSlotRange(slot.startTime, slot.endTime) }}</div>
@@ -74,6 +118,12 @@
             {{ t('santisimo.notRequired') }}
           </div>
           <div v-else>
+            <div
+              v-if="slot.mealWindow"
+              class="text-[10px] uppercase tracking-wide text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded inline-block mb-1"
+            >
+              {{ t('santisimo.mealWindowLabel') }}
+            </div>
             <div v-if="slot.intention" class="text-xs text-gray-500">{{ slot.intention }}</div>
             <ul class="mt-1 space-y-0.5">
               <li v-for="signup in slot.signups" :key="signup.id" class="flex items-center justify-between">
@@ -168,6 +218,12 @@
           <template v-if="signupMode === 'server'">
             <div>
               <label class="text-sm">{{ t('santisimo.searchServer') }}</label>
+              <p
+                v-if="signupSlot?.mealWindow"
+                class="text-xs text-amber-700 mt-1 mb-1"
+              >
+                {{ t('santisimo.mealWindowHint') }}
+              </p>
               <Input v-model="serverSearch" :placeholder="t('santisimo.searchServerPlaceholder')" />
               <div v-if="serversLoading" class="text-xs text-gray-500 mt-1">{{ t('common.loading') }}</div>
               <ul
@@ -219,6 +275,40 @@
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <!-- Help dialog -->
+    <Dialog v-model:open="helpOpen">
+      <DialogContent data-testid="santisimo-help-dialog">
+        <DialogHeader>
+          <DialogTitle>{{ t('santisimo.helpTitle') }}</DialogTitle>
+          <DialogDescription>{{ t('santisimo.helpIntro') }}</DialogDescription>
+        </DialogHeader>
+        <div class="space-y-3 text-sm">
+          <section>
+            <h3 class="font-semibold mb-1">{{ t('santisimo.helpAutoTitle') }}</h3>
+            <p class="text-gray-600">{{ t('santisimo.helpAutoBody') }}</p>
+          </section>
+          <section>
+            <h3 class="font-semibold mb-1 flex items-center gap-2">
+              <span class="inline-block w-3 h-3 rounded bg-amber-200 border border-amber-400"></span>
+              {{ t('santisimo.helpMealTitle') }}
+            </h3>
+            <p class="text-gray-600">{{ t('santisimo.helpMealBody') }}</p>
+          </section>
+          <section>
+            <h3 class="font-semibold mb-1">{{ t('santisimo.helpManualTitle') }}</h3>
+            <p class="text-gray-600">{{ t('santisimo.helpManualBody') }}</p>
+          </section>
+          <section>
+            <h3 class="font-semibold mb-1">{{ t('santisimo.helpSignupTitle') }}</h3>
+            <p class="text-gray-600">{{ t('santisimo.helpSignupBody') }}</p>
+          </section>
+        </div>
+        <DialogFooter>
+          <Button @click="helpOpen = false">{{ t('common.close') }}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
@@ -237,11 +327,11 @@ import {
   DialogTitle,
   useToast,
 } from '@repo/ui';
-import { Link2, Plus, Printer } from 'lucide-vue-next';
+import { HelpCircle, Link2, Plus, Printer } from 'lucide-vue-next';
 import { useRoute } from 'vue-router';
 import { useSantisimoStore } from '@/stores/santisimoStore';
 import { useRetreatStore } from '@/stores/retreatStore';
-import { api, type SantisimoSlotWithSignups } from '@/services/api';
+import { api, retreatScheduleApi, type SantisimoSlotWithSignups } from '@/services/api';
 
 interface ServerOption {
   id: string; // participant id
@@ -250,6 +340,7 @@ interface ServerOption {
   lastName: string;
   cellPhone?: string | null;
   email?: string | null;
+  tableId?: string | null;
 }
 
 const { t } = useI18n();
@@ -306,6 +397,42 @@ function formatSlotRange(start: string | Date, end: string | Date): string {
     return mm === 0 ? `${hh} ${ampm}` : `${hh}:${mm.toString().padStart(2, '0')} ${ampm}`;
   };
   return `${fmt(s)} – ${fmt(e)}`;
+}
+
+// -- Help dialog --
+const helpOpen = ref(false);
+
+// -- Actions menu --
+const moreActionsOpen = ref(false);
+function closeMore() {
+  moreActionsOpen.value = false;
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('click', () => {
+    if (moreActionsOpen.value) moreActionsOpen.value = false;
+  });
+}
+
+async function doAutoAssignAngelitos() {
+  if (!retreatId.value) return;
+  try {
+    const result = await retreatScheduleApi.resolveSantisimo(retreatId.value);
+    await santisimoStore.fetchSlots(retreatId.value);
+    toast({
+      title: t('santisimo.autoAssignDone'),
+      description: t('santisimo.autoAssignSummary', {
+        meal: result.mealSlots,
+        assigned: result.angelitosAssigned,
+        pending: result.unresolvedSlots.length,
+      }),
+    });
+  } catch (e: any) {
+    toast({
+      title: t('common.error'),
+      description: e?.response?.data?.message || e?.message,
+      variant: 'destructive',
+    });
+  }
 }
 
 // -- Generate dialog --
@@ -408,6 +535,7 @@ async function loadServers() {
         lastName: p.lastName ?? '',
         cellPhone: p.cellPhone ?? null,
         email: p.email ?? null,
+        tableId: p.tableId ?? null,
       }))
       .sort((a, b) =>
         `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es'),
@@ -427,8 +555,12 @@ async function loadServers() {
 
 const filteredServers = computed(() => {
   const q = serverSearch.value.trim().toLowerCase();
-  if (!q) return servers.value.slice(0, 30);
-  return servers.value
+  // Cuando el slot abierto es mealWindow (los servidores en mesa están comiendo)
+  // ocultamos a quien tiene mesa asignada — sólo se inscriben servidores libres.
+  const excludeInTable = !!signupSlot.value?.mealWindow;
+  let pool = excludeInTable ? servers.value.filter((s) => !s.tableId) : servers.value;
+  if (!q) return pool.slice(0, 30);
+  return pool
     .filter((s) => `${s.firstName} ${s.lastName}`.toLowerCase().includes(q))
     .slice(0, 30);
 });

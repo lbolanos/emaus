@@ -297,11 +297,19 @@ export const participantSchema = z.object({
 	),
 	tshirtSize: z.preprocess(
 		(val) => (val === '' || val === null ? undefined : val),
-		z.enum(['S', 'M', 'G', 'X', '2']).optional(),
+		z.string().optional(),
 	),
 	needsWhiteShirt: z.enum(['S', 'M', 'G', 'X', '2', 'null']).nullable().optional(),
 	needsBlueShirt: z.enum(['S', 'M', 'G', 'X', '2', 'null']).nullable().optional(),
 	needsJacket: z.enum(['S', 'M', 'G', 'X', '2', 'null']).nullable().optional(),
+	shirtSizes: z
+		.array(
+			z.object({
+				shirtTypeId: z.string(),
+				size: z.string().min(1),
+			}),
+		)
+		.optional(),
 	invitedBy: z.string().optional(),
 	isInvitedByEmausMember: z.boolean().nullable().optional(),
 	inviterHomePhone: z.string().optional(),
@@ -316,6 +324,8 @@ export const participantSchema = z.object({
 	tableMesa: tableMesaSchema.nullable().optional(),
 	retreatBed: retreatBedSchema.nullable().optional(),
 	tags: z.array(participantTagSchema).optional(),
+	acceptedPrivacyNotice: z.boolean().optional(),
+	acceptedPrivacyNoticeAt: z.coerce.date().nullable().optional(),
 });
 export type Participant = z.infer<typeof participantSchema>;
 
@@ -324,8 +334,42 @@ export type Participant = z.infer<typeof participantSchema>;
 // --- API Request Schemas ---
 
 // POST /participants/new
+// Emergency contacts are required only for walkers; the controller enforces this per-type.
+// Here we relax them so server/partial_server registrations pass route-level validation.
 export const createParticipantSchema = z.object({
-	body: participantSchema.omit({ id: true, lastUpdatedDate: true, registrationDate: true }),
+	body: participantSchema
+		.omit({ id: true, lastUpdatedDate: true, registrationDate: true })
+		.extend({
+			emergencyContact1Name: z.string().optional(),
+			emergencyContact1Relation: z.string().optional(),
+			emergencyContact1CellPhone: z.string().optional(),
+		})
+		.refine((d) => d.acceptedPrivacyNotice === true, {
+			message: 'Debes aceptar el aviso de privacidad',
+			path: ['acceptedPrivacyNotice'],
+		})
+		.refine(
+			(d) =>
+				d.type !== 'walker' ||
+				(typeof d.emergencyContact1Name === 'string' && d.emergencyContact1Name.length > 0),
+			{ message: 'Emergency contact 1 name is required', path: ['emergencyContact1Name'] },
+		)
+		.refine(
+			(d) =>
+				d.type !== 'walker' ||
+				(typeof d.emergencyContact1Relation === 'string' && d.emergencyContact1Relation.length > 0),
+			{ message: 'Emergency contact 1 relation is required', path: ['emergencyContact1Relation'] },
+		)
+		.refine(
+			(d) =>
+				d.type !== 'walker' ||
+				(typeof d.emergencyContact1CellPhone === 'string' &&
+					d.emergencyContact1CellPhone.length > 0),
+			{
+				message: 'Emergency contact 1 cell phone is required',
+				path: ['emergencyContact1CellPhone'],
+			},
+		),
 });
 export type CreateParticipant = z.infer<typeof createParticipantSchema.shape.body>;
 
@@ -417,6 +461,7 @@ export * from './permissions';
 export * from './community';
 export * from './testimonial';
 export * from './santisimo';
+export * from './schedule';
 
 // Payment Schema
 export const paymentSchema = z.object({
@@ -529,3 +574,16 @@ export const retreatParticipantSchema = z.object({
 export type RetreatParticipant = z.infer<typeof retreatParticipantSchema>;
 
 export type RoleInRetreat = 'walker' | 'server' | 'leader' | 'coordinator' | 'charlista';
+
+export const retreatShirtTypeSchema = z.object({
+	id: idSchema,
+	retreatId: idSchema,
+	name: z.string(),
+	color: z.string().nullable().optional(),
+	requiredForWalkers: z.boolean(),
+	optionalForServers: z.boolean(),
+	sortOrder: z.number(),
+	availableSizes: z.array(z.string()).nullable().optional(),
+});
+export type RetreatShirtType = z.infer<typeof retreatShirtTypeSchema>;
+

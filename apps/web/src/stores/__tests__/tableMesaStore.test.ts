@@ -417,4 +417,62 @@ describe('TableMesaStore', () => {
 			await store.unassignWalkerFromTable('table-1', 'walker-1');
 		});
 	});
+
+	// ─── Reactive watch vs $subscribe (bug fix 2026-04-25) ──────────────────
+	// Bug: using retreatStore.$subscribe fired on EVERY state mutation (isLoading,
+	// data, etc.) causing an infinite loop of fetchTables() calls that exhausted
+	// the API rate-limiter (429 on all endpoints including /auth/status).
+	// Fix: changed to watch(() => retreatStore.selectedRetreatId, ...).
+
+	describe('reactive: solo dispara fetchTables al cambiar selectedRetreatId', () => {
+		it('llama fetchTables cuando selectedRetreatId cambia a un nuevo valor', async () => {
+			const { getTablesByRetreat } = await import('@/services/api');
+			(getTablesByRetreat as any).mockResolvedValue([]);
+			const callsBefore = (getTablesByRetreat as any).mock.calls.length;
+
+			retreatStore.selectRetreat('otro-retiro-id');
+			// Pinia watch es sincrónico en tests con nextTick
+			await new Promise((r) => setTimeout(r, 0));
+
+			expect((getTablesByRetreat as any).mock.calls.length).toBeGreaterThan(callsBefore);
+		});
+
+		it('NO llama fetchTables cuando muta otro campo de retreatStore', async () => {
+			const { getTablesByRetreat } = await import('@/services/api');
+			(getTablesByRetreat as any).mockResolvedValue([]);
+			const callsBefore = (getTablesByRetreat as any).mock.calls.length;
+
+			// Mutar un campo que no es selectedRetreatId
+			retreatStore.isLoading = true;
+			retreatStore.isLoading = false;
+			await new Promise((r) => setTimeout(r, 0));
+
+			// El número de llamadas no debe aumentar
+			expect((getTablesByRetreat as any).mock.calls.length).toBe(callsBefore);
+		});
+
+		it('NO llama fetchTables cuando selectedRetreatId se asigna al mismo valor', async () => {
+			const { getTablesByRetreat } = await import('@/services/api');
+			(getTablesByRetreat as any).mockResolvedValue([]);
+			const callsBefore = (getTablesByRetreat as any).mock.calls.length;
+
+			// Mismo valor — watch con { immediate: false } no dispara
+			retreatStore.selectRetreat('test-retreat-id');
+			await new Promise((r) => setTimeout(r, 0));
+
+			expect((getTablesByRetreat as any).mock.calls.length).toBe(callsBefore);
+		});
+
+		it('NO llama fetchTables cuando selectedRetreatId queda null', async () => {
+			const { getTablesByRetreat } = await import('@/services/api');
+			(getTablesByRetreat as any).mockResolvedValue([]);
+			const callsBefore = (getTablesByRetreat as any).mock.calls.length;
+
+			retreatStore.selectRetreat(null);
+			await new Promise((r) => setTimeout(r, 0));
+
+			// watch con `if (id) fetchTables()` no ejecuta fetch para null
+			expect((getTablesByRetreat as any).mock.calls.length).toBe(callsBefore);
+		});
+	});
 });

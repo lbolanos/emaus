@@ -176,6 +176,7 @@
       "social": "Emmaus Family",
       "people": "People",
       "assignments": "Assignments",
+      "logistics": "Logistics",
       "financial": "Financial",
       "reports": "Reports",
       "services": "Services",
@@ -700,6 +701,7 @@
     "maxServersPlaceholder": "Maximum number of servers",
     "isPublic": "Public Retreat",
     "isPublicDescription": "Allow anyone to register for this retreat",
+    "isPublicWarning": "When enabled, the public Minute-by-Minute screen (URL /mam/<slug>) is accessible without login. Item names and locations are visible to anyone with the link. Do not include sensitive information in those fields.",
     "roleInvitationEnabled": "Role-based Invitations",
     "roleInvitationDescription": "Allow sending role-based invitations",
     "saveChanges": "Save Changes",
@@ -754,6 +756,7 @@
     "maxServersPlaceholder": "Maximum number of servers",
     "isPublic": "Public Retreat",
     "isPublicDescription": "Allow anyone to register for this retreat",
+    "isPublicWarning": "When enabled, the public Minute-by-Minute screen (URL /mam/<slug>) is accessible without login. Item names and locations are visible to anyone with the link. Do not include sensitive information in those fields.",
     "roleInvitationEnabled": "Role-based Invitations",
     "roleInvitationDescription": "Allow sending role-based invitations",
     "showPickupInfo": "Show pickup information",
@@ -1235,6 +1238,8 @@
       "otherInfo": "Other Information"
     },
     "fields": {
+      "acceptedPrivacyNotice": "I accept the privacy notice and the processing of my personal data.",
+      "privacyLinkText": "Read privacy notice",
       "firstName": "First Name",
       "lastName": "Last Name",
       "nickname": "Nickname",
@@ -1351,7 +1356,13 @@
       "title": "Registration Summary",
       "description": "Please review your information before submitting."
     },
+    "draft": {
+      "restoredTitle": "Draft restored",
+      "restoredDesc": "We picked up where you left off. Close and reopen to start fresh."
+    },
     "fields": {
+      "acceptedPrivacyNotice": "I accept the privacy notice and the processing of my personal data.",
+      "privacyLinkText": "Read privacy notice",
       "firstName": "First Name",
       "lastName": "Last Name",
       "nickname": "Nickname",
@@ -1413,7 +1424,13 @@
       "needsWhiteShirt": "Needs white shirt?",
       "needsBlueShirt": "Needs blue shirt?",
       "needsJacket": "Needs jacket?",
-      "noSizeNeeded": "Not needed"
+      "noSizeNeeded": "Not needed",
+      "shirtSizePlaceholder": "Select size or not needed",
+      "noShirtsConfigured": "This retreat has no shirt types configured.",
+      "shirtsAskTitle": "Do you need any shirt or jacket?",
+      "shirtsAskHint": "If you already have yours from past retreats, leave \"Not needed\".",
+      "isAngelito": "Register as angelito",
+      "isAngelitoHint": "Partial support: not assigned to table or bed, and no payment required."
     },
     "emergencyContact1": "In case of emergency, contact (1):",
     "emergencyContact2": "In case of emergency, contact (2):"
@@ -1476,7 +1493,10 @@
     "allItems": "All",
     "createSpeaker": "Create & Assign",
     "viewDocs": "View Documentation",
-    "downloadDocs": "Download Documents"
+    "downloadDocs": "Download Documents",
+    "generatePdf": "Print / Save as PDF",
+    "noDocumentation": "No documentation available",
+    "openAttachments": "Responsibility documents"
   },
   "inviteUsersModal": {
     "title": "Invite Someone",
@@ -1806,6 +1826,20 @@
       "acceptedAt": "Accepted At"
     }
   },
+  "dataDelete": {
+    "title": "Delete my personal data",
+    "loading": "Loading information...",
+    "description": "By confirming, all your personal data will be removed from our platform. This action cannot be undone.",
+    "participantInfo": "Registered information:",
+    "confirmButton": "Yes, delete my data",
+    "cancelButton": "Cancel",
+    "successTitle": "Data deleted",
+    "successMessage": "Your personal data has been removed from our platform.",
+    "errorTitle": "Error",
+    "errorNotFound": "This link is invalid or has already been used.",
+    "errorGeneric": "An error occurred while processing your request. Please try again later.",
+    "backToHome": "Back to home"
+  },
   "privacy": {
     "title": "Privacy Policy",
     "lastUpdated": "Last updated: {date}",
@@ -2000,6 +2034,24 @@
     "searchServerPlaceholder": "Type a name to filter...",
     "noServerMatch": "No match. Switch to Free name to enter a custom name.",
     "selectedServer": "Selected server",
-    "angelitoHint": "Free-form name for someone not in the system"
+    "angelitoHint": "Free-form name for someone not in the system",
+    "mealWindowLabel": "Meal window — only off-table servers",
+    "mealWindowHint": "Servers seated at a table are eating during this window. Assign only free-name angelitos or servers without a table.",
+    "help": "Help",
+    "helpTitle": "How the Chapel Watch schedule works",
+    "helpIntro": "Quick summary of the sign-up flow and color codes.",
+    "helpAutoTitle": "Auto-generation",
+    "helpAutoBody": "When the retreat's minute-by-minute schedule is materialized, Chapel Watch slots are created automatically covering the span of 'santísimo'-type template items. You don't need to use the \"Generate\" button for standard retreats.",
+    "helpMealTitle": "Blocked windows (amber)",
+    "helpMealBody": "Amber slots overlap with meals or dynamics that block attendance (table servers are eating). Only off-table servers (angelitos) or free names can sign up there.",
+    "helpManualTitle": "Generate manually",
+    "helpManualBody": "The \"Generate\" button is still available to create slots with a custom range/duration. It is idempotent: it won't duplicate slots or delete existing sign-ups unless you check \"Remove existing slots\".",
+    "helpSignupTitle": "Sign-ups",
+    "helpSignupBody": "On amber slots, the server search hides anyone seated at a table. Available angelitos are auto-assigned when the template is materialized.",
+    "moreActions": "More actions",
+    "autoAssign": "Auto-assign angelitos",
+    "autoAssignHint": "Recomputes meal windows and distributes available angelitos across blocked slots.",
+    "autoAssignDone": "Auto-assignment complete",
+    "autoAssignSummary": "{meal} meal windows · {assigned} angelitos assigned · {pending} slots unfilled"
   }
 }

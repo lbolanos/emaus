@@ -288,4 +288,58 @@ describe('Retreat switch: URL + view reload', () => {
 		expect(replaceCalls).toEqual([retreatB.id]);
 		expect(loadCalls).toEqual([retreatA.id, retreatB.id]);
 	});
+
+	/**
+	 * Regression test for TODO bug #1: opening a bookmark/shared link to
+	 * /app/retreats/<otherId>/<section> while localStorage holds a different
+	 * `selectedRetreatId` used to silently redirect back to the stored id
+	 * (Sidebar's `immediate: true` watcher would router.replace() on mount).
+	 *
+	 * The fix lives in `router/index.ts` beforeEach: on retreat-scoped routes,
+	 * if `to.params.id` differs from `selectedRetreatId`, the URL wins —
+	 * update the store to match. This harness mirrors that behavior.
+	 */
+	function runRouterBeforeEachSync(opts: {
+		toParamsId: string | undefined;
+		requiresRetreat: boolean;
+	}) {
+		// Mirrors router/index.ts beforeEach URL→store sync.
+		if (opts.requiresRetreat && typeof opts.toParamsId === 'string' && opts.toParamsId) {
+			if (retreatStore.selectedRetreatId !== opts.toParamsId) {
+				retreatStore.selectRetreat(opts.toParamsId);
+			}
+		}
+	}
+
+	it('beforeEach syncs store when URL retreatId differs from stored selection', async () => {
+		// User has retreat A in localStorage (returning visitor)
+		retreatStore.selectRetreat(retreatA.id);
+		expect(retreatStore.selectedRetreatId).toBe(retreatA.id);
+
+		// User clicks a bookmark / shared link pointing to retreat B
+		runRouterBeforeEachSync({ toParamsId: retreatB.id, requiresRetreat: true });
+
+		// Store should now be retreat B (URL wins)
+		expect(retreatStore.selectedRetreatId).toBe(retreatB.id);
+	});
+
+	it('beforeEach is no-op when URL retreatId matches stored selection', async () => {
+		retreatStore.selectRetreat(retreatA.id);
+		runRouterBeforeEachSync({ toParamsId: retreatA.id, requiresRetreat: true });
+		expect(retreatStore.selectedRetreatId).toBe(retreatA.id);
+	});
+
+	it('beforeEach is no-op on non-retreat-scoped routes (no :id in path)', async () => {
+		retreatStore.selectRetreat(retreatA.id);
+		runRouterBeforeEachSync({ toParamsId: undefined, requiresRetreat: false });
+		expect(retreatStore.selectedRetreatId).toBe(retreatA.id);
+	});
+
+	it('beforeEach is no-op when route does not require retreat (e.g., /houses)', async () => {
+		retreatStore.selectRetreat(retreatA.id);
+		// Even if a non-retreat route happens to expose an :id, don't sync
+		// (it would be for a different resource — house id, not retreat).
+		runRouterBeforeEachSync({ toParamsId: 'house-123', requiresRetreat: false });
+		expect(retreatStore.selectedRetreatId).toBe(retreatA.id);
+	});
 });

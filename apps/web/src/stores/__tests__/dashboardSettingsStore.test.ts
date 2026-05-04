@@ -226,4 +226,94 @@ describe('dashboardSettingsStore', () => {
       expect(store.sectionOrder).toEqual(DEFAULT_ORDER);
     });
   });
+
+  // ─── Merge legacy sectionOrder con keys nuevas ──────────────────────────────
+  // Cubre el bug: si un usuario guardó sectionOrder antes de añadir secciones
+  // nuevas (Minuto a Minuto, Santísimo+angelitos), las nuevas keys nunca
+  // aparecían en "Personalizar dashboard". El merge debe appendearlas.
+
+  describe('merge de sectionOrder con keys nuevas en DEFAULT_ORDER', () => {
+    it('appendea secciones nuevas al final del orden guardado', () => {
+      // Simula un orden viejo (sin las dos secciones añadidas en V2)
+      const legacy = DEFAULT_ORDER.filter(
+        (k) => k !== 'minutoAMinuto' && k !== 'santisimo',
+      );
+      localStorage.setItem('dashboard:section-order', JSON.stringify(legacy));
+
+      const store = makeStore();
+      // Las legacy aparecen en su posición original
+      expect(store.sectionOrder.slice(0, legacy.length)).toEqual(legacy);
+      // Las nuevas se appendean
+      expect(store.sectionOrder).toContain('minutoAMinuto');
+      expect(store.sectionOrder).toContain('santisimo');
+      expect(store.sectionOrder).toHaveLength(DEFAULT_ORDER.length);
+    });
+
+    it('preserva el orden personalizado del usuario', () => {
+      const custom = [
+        'palancas',
+        'reception',
+        'primaryStats',
+      ] as const;
+      localStorage.setItem('dashboard:section-order', JSON.stringify(custom));
+
+      const store = makeStore();
+      // Las primeras 3 mantienen el orden custom
+      expect(store.sectionOrder.slice(0, 3)).toEqual(custom);
+    });
+
+    it('descarta keys obsoletas que ya no existen en DEFAULT_ORDER', () => {
+      // 'oldRemovedKey' fue eliminada en una versión posterior del esquema
+      const stale = ['palancas', 'oldRemovedKey', 'reception'];
+      localStorage.setItem('dashboard:section-order', JSON.stringify(stale));
+
+      const store = makeStore();
+      expect(store.sectionOrder).not.toContain('oldRemovedKey');
+      // Las válidas se conservan
+      expect(store.sectionOrder).toContain('palancas');
+      expect(store.sectionOrder).toContain('reception');
+    });
+
+    it('expone las dos secciones nuevas en DEFAULT_ORDER', () => {
+      // Guardia contra regresiones: si alguien quita una key del default,
+      // este test grita.
+      expect(DEFAULT_ORDER).toContain('minutoAMinuto');
+      expect(DEFAULT_ORDER).toContain('santisimo');
+    });
+  });
+
+  // ─── Visibilidad y colapso para keys recién añadidas ────────────────────────
+
+  describe('keys nuevas (minutoAMinuto, santisimo)', () => {
+    it('están visibles por defecto', () => {
+      const store = makeStore();
+      expect(store.visible.minutoAMinuto).toBe(true);
+      expect(store.visible.santisimo).toBe(true);
+    });
+
+    it('no están colapsadas por defecto', () => {
+      const store = makeStore();
+      expect(store.collapsed.minutoAMinuto).toBe(false);
+      expect(store.collapsed.santisimo).toBe(false);
+    });
+
+    it('reciben default cuando localStorage solo tiene keys legacy', () => {
+      const allTrueLegacy = {
+        primaryStats: false,
+        palancas: false,
+      };
+      localStorage.setItem(
+        'dashboard:visible-sections',
+        JSON.stringify(allTrueLegacy),
+      );
+
+      const store = makeStore();
+      // Las legacy persisten su valor stored
+      expect(store.visible.primaryStats).toBe(false);
+      expect(store.visible.palancas).toBe(false);
+      // Las nuevas reciben el default (true) gracias al spread con ALL_VISIBLE
+      expect(store.visible.minutoAMinuto).toBe(true);
+      expect(store.visible.santisimo).toBe(true);
+    });
+  });
 });

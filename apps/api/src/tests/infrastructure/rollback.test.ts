@@ -219,7 +219,17 @@ describe('Production Rollback Mechanism', () => {
 
 		it('should use the same PM2 process name', () => {
 			const pm2Name = 'emaus-api';
-			expect(workflowContent).toContain(`pm2 restart ${pm2Name}`);
+			// The deploy workflow may use either `pm2 restart <name>` or the
+			// ecosystem-config-aware `pm2 startOrReload ecosystem.config.js`
+			// (which re-reads kill_timeout / max_memory_restart on every deploy).
+			// Both target the same process; test accepts either.
+			const workflowUsesEcosystem = /pm2\s+(start|startOrReload|reload)\s+\S*ecosystem\.config\.js/.test(
+				workflowContent,
+			);
+			const workflowUsesRestart = workflowContent.includes(`pm2 restart ${pm2Name}`);
+			expect(workflowUsesEcosystem || workflowUsesRestart).toBe(true);
+			// The rollback script should keep using the explicit restart-by-name
+			// form so that a rollback doesn't need ecosystem.config.js to exist.
 			expect(rollbackScript).toContain(`pm2 restart ${pm2Name}`);
 		});
 

@@ -38,6 +38,7 @@ export class MessageTemplate implements IMessageTemplate {
 		| 'PASSWORD_RESET'
 		| 'RETREAT_SHARED_NOTIFICATION'
 		| 'BIRTHDAY_MESSAGE'
+		| 'PRIVACY_DATA_DELETE'
 		// System templates (should not be used in retreat-specific templates)
 		| 'SYS_PASSWORD_RESET'
 		| 'SYS_USER_INVITATION'

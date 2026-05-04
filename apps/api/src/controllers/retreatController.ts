@@ -9,6 +9,7 @@ import {
   refreshRetreatBedsFromHouse,
 } from "../services/retreatService";
 import { isRetreatPast } from "../services/participantService";
+import { listShirtTypes } from "../services/shirtTypeService";
 import { AuthenticatedRequest } from "../middleware/authorization";
 import { AppDataSource } from "../data-source";
 import { Retreat } from "../entities/retreat.entity";
@@ -92,6 +93,7 @@ export const getRetreatByIdPublic = async (
     if (!retreat) {
       return res.status(404).json({ message: "Retreat not found" });
     }
+    const shirtTypes = await listShirtTypes(retreat.id);
     // Return all flyer data needed for registration form
     res.json({
       id: retreat.id,
@@ -102,6 +104,7 @@ export const getRetreatByIdPublic = async (
       isRegistrationClosed: isRetreatPast(retreat.endDate),
       flyer_options: retreat.flyer_options || {},
       slug: retreat.slug,
+      shirtTypes,
     });
   } catch (error) {
     next(error);
@@ -118,6 +121,7 @@ export const getRetreatBySlugPublic = async (
     if (!retreat) {
       return res.status(404).json({ message: "Retreat not found" });
     }
+    const shirtTypes = await listShirtTypes(retreat.id);
     res.json({
       id: retreat.id,
       parish: retreat.parish,
@@ -127,6 +131,7 @@ export const getRetreatBySlugPublic = async (
       isRegistrationClosed: isRetreatPast(retreat.endDate),
       flyer_options: retreat.flyer_options || {},
       slug: retreat.slug,
+      shirtTypes,
     });
   } catch (error) {
     next(error);

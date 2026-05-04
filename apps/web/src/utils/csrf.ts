@@ -116,27 +116,23 @@ export function initializeCsrfProtection() {
 	setupCsrfInterceptor(axios);
 
 	// Primero establecer sesión con una petición simple, luego obtener CSRF token
-	const initializeSessionAndCsrf = async () => {
+	const initializeSessionAndCsrf = async (attempt = 0) => {
+		const MAX_ATTEMPTS = 5;
+		if (attempt >= MAX_ATTEMPTS) return;
 		try {
-			// Hacer una petición simple para establecer sesión
 			await axios.get('/auth/status', { withCredentials: true });
-
-			// Ahora obtener el token CSRF
 			await fetchCsrfToken();
 		} catch (error) {
-			// El endpoint /auth/status ahora es público, pero puede devolver no autenticado
-			// Eso está bien, solo necesitamos establecer la sesión y obtener el token CSRF
 			console.warn('Auth status check failed, proceeding with CSRF token fetch:', error);
-
-			// Intentar obtener el token CSRF de todos modos
 			try {
 				await fetchCsrfToken();
 			} catch (csrfError) {
 				console.error('Error obteniendo token CSRF:', csrfError);
-				// Reintentar después de un breve retraso
+				// Exponential backoff: 2s, 4s, 8s, 16s
+				const delay = Math.min(2000 * Math.pow(2, attempt), 30_000);
 				setTimeout(() => {
-					initializeSessionAndCsrf().catch(console.error);
-				}, 1000);
+					initializeSessionAndCsrf(attempt + 1).catch(console.error);
+				}, delay);
 			}
 		}
 	};

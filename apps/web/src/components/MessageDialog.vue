@@ -323,6 +323,58 @@
       </DialogFooter>
     </DialogContent>
   </Dialog>
+
+  <!-- View Full Message Dialog -->
+  <Dialog :open="!!viewingMessage" @update:open="(v: boolean) => { if (!v) viewingMessage = null; }">
+    <DialogContent class="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle class="flex items-center gap-2">
+          <span>{{ viewingMessage?.messageType === 'whatsapp' ? '📱' : '📧' }}</span>
+          <span>{{ viewingMessage?.messageType === 'whatsapp' ? 'WhatsApp' : 'Email' }}</span>
+          <Badge v-if="viewingMessage?.templateName" variant="secondary" class="ml-2">
+            {{ viewingMessage.templateName }}
+          </Badge>
+        </DialogTitle>
+        <DialogDescription>
+          Detalle completo del mensaje enviado
+        </DialogDescription>
+      </DialogHeader>
+      <div v-if="viewingMessage" class="space-y-4">
+        <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+          <span class="font-medium text-muted-foreground">Enviado:</span>
+          <span>{{ formatFullDate(viewingMessage.sentAt) }}</span>
+          <span class="font-medium text-muted-foreground">Destinatario:</span>
+          <span>{{ viewingMessage.recipientContact }}</span>
+          <template v-if="viewingMessage.sender?.email">
+            <span class="font-medium text-muted-foreground">Enviado por:</span>
+            <span>{{ viewingMessage.sender.email }}</span>
+          </template>
+          <template v-if="viewingMessage.subject">
+            <span class="font-medium text-muted-foreground">Asunto:</span>
+            <span>{{ viewingMessage.subject }}</span>
+          </template>
+        </div>
+        <div class="space-y-2">
+          <Label class="text-sm font-medium">Contenido</Label>
+          <div
+            v-if="viewingMessage.messageType === 'email'"
+            class="border rounded-lg p-4 bg-muted/30 max-h-96 overflow-y-auto prose prose-sm max-w-none"
+            v-html="sanitizeEmailHtml(viewingMessage.messageContent)"
+          ></div>
+          <div
+            v-else
+            class="border rounded-lg p-4 bg-muted/30 max-h-96 overflow-y-auto text-sm whitespace-pre-wrap"
+          >{{ viewingMessage.messageContent }}</div>
+        </div>
+      </div>
+      <DialogFooter>
+        <Button variant="outline" @click="handleCopyMessage(viewingMessage!)" :disabled="!viewingMessage">
+          Copiar
+        </Button>
+        <Button @click="viewingMessage = null">Cerrar</Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>
 
 <script setup lang="ts">
@@ -999,8 +1051,22 @@ const toggleHistory = () => {
 	showHistory.value = !showHistory.value;
 };
 
+const viewingMessage = ref<ParticipantCommunication | CommunityCommunication | null>(null);
+
 const handleMessageClick = (message: ParticipantCommunication | CommunityCommunication) => {
-	// Future: implement message reuse
+	viewingMessage.value = message;
+};
+
+const formatFullDate = (iso: string) => {
+	const d = new Date(iso);
+	return d.toLocaleString('es-ES', {
+		weekday: 'long',
+		day: '2-digit',
+		month: 'long',
+		year: 'numeric',
+		hour: '2-digit',
+		minute: '2-digit',
+	});
 };
 
 const handleCopyMessage = async (message: ParticipantCommunication | CommunityCommunication) => {

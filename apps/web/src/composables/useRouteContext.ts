@@ -65,7 +65,7 @@ export function useRouteContext() {
 	const { t } = useI18n();
 
 	const isRetreatSection = computed(() => {
-		return route.meta.requiresRetreat === true;
+		return route.meta?.requiresRetreat === true;
 	});
 
 	const currentSectionTitle = computed(() => {
