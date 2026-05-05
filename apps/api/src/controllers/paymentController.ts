@@ -24,8 +24,15 @@ export class PaymentController {
 	// Create a new payment
 	async createPayment(req: Request, res: Response) {
 		try {
-			const { participantId, amount, paymentDate, paymentMethod, referenceNumber, notes } =
-				req.body;
+			const {
+				participantId,
+				amount,
+				paymentDate,
+				paymentMethod,
+				referenceNumber,
+				notes,
+				retreatId: bodyRetreatId,
+			} = req.body;
 			const userId = (req.user as any).id;
 
 			if (!userId) {
@@ -46,10 +53,22 @@ export class PaymentController {
 				return res.status(404).json({ message: 'Participante no encontrado' });
 			}
 
+			// retreatId from request body wins over participant.retreatId (the
+			// "primary" retreat) so payments register against the active retreat
+			// in the sidebar, not against whichever retreat happens to be marked
+			// as primary on the participant.
+			const effectiveRetreatId =
+				(typeof bodyRetreatId === 'string' && bodyRetreatId) || participant.retreatId;
+			if (!effectiveRetreatId) {
+				return res.status(400).json({
+					message: 'No se pudo determinar el retiro al que pertenece el pago',
+				});
+			}
+
 			// Create payment
 			const payment = paymentRepository.create({
 				participantId,
-				retreatId: participant.retreatId,
+				retreatId: effectiveRetreatId,
 				amount,
 				paymentDate: new Date(paymentDate),
 				paymentMethod,

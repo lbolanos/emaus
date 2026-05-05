@@ -228,6 +228,10 @@ export const participantSchema = z.object({
 	lastUpdatedDate: z.coerce.date(),
 	isCancelled: z.boolean().optional(),
 	isScholarship: z.boolean().optional(),
+	scholarshipAmount: z.preprocess(
+		(val) => (val === '' || val === null || val === undefined ? null : Number(val)),
+		z.number().nonnegative().nullable().optional(),
+	),
 	palancasCoordinator: z.preprocess(
 		(val) => (val === '' || val === null ? undefined : val),
 		z.string().optional(),

@@ -27,27 +27,14 @@
 
 		<!-- Filters -->
 		<div class="bg-white p-4 rounded-lg shadow mb-6 no-print">
-			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-				<div class="sm:col-span-2 lg:col-span-4">
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+				<div class="sm:col-span-2 lg:col-span-3">
 					<label class="block text-sm font-medium text-gray-700 mb-1">Buscar por nombre</label>
 					<Input
 						v-model="filters.search"
 						type="text"
 						placeholder="Nombre, apellido o apodo del participante"
 					/>
-				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">Retiro</label>
-					<Select v-model="filters.retreatId">
-						<SelectTrigger>
-							<SelectValue placeholder="Seleccionar retiro" />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem v-for="retreat in retreats" :key="retreat.id" :value="retreat.id">
-								{{ retreat.parish }} - {{ formatDate(retreat.startDate) }}
-							</SelectItem>
-						</SelectContent>
-					</Select>
 				</div>
 				<div>
 					<label class="block text-sm font-medium text-gray-700 mb-1">Método de Pago</label>
@@ -252,13 +239,26 @@
 							<Textarea v-model="paymentForm.notes" rows="3" />
 						</div>
 					</div>
-					<div class="mt-6 flex justify-end gap-2">
-						<Button type="button" variant="outline" @click="closePaymentModal">
-							Cancelar
+					<div class="mt-6 flex flex-col-reverse sm:flex-row sm:justify-between gap-2">
+						<Button
+							v-if="!editingPayment"
+							type="button"
+							variant="outline"
+							class="text-blue-700 border-blue-300 hover:bg-blue-50"
+							:disabled="!paymentForm.participantId || paymentStore.loading || markingScholarship"
+							@click="markAsScholarship"
+						>
+							🎓 Marcar como Becado
 						</Button>
-						<Button type="submit" :disabled="paymentStore.loading">
-							{{ editingPayment ? 'Actualizar' : 'Guardar' }}
-						</Button>
+						<div v-else></div>
+						<div class="flex justify-end gap-2">
+							<Button type="button" variant="outline" @click="closePaymentModal">
+								Cancelar
+							</Button>
+							<Button type="submit" :disabled="paymentStore.loading">
+								{{ editingPayment ? 'Actualizar' : 'Guardar' }}
+							</Button>
+						</div>
 					</div>
 				</form>
 			</DialogContent>
@@ -331,13 +331,19 @@ const showDeleteDialog = ref(false);
 const editingPayment = ref<Payment | null>(null);
 const deletingPayment = ref<Payment | null>(null);
 const summary = ref<any>(null);
+const markingScholarship = ref(false);
 
 const filters = ref({
-	retreatId: '',
 	paymentMethod: '',
 	startDate: '',
 	endDate: '',
 	search: '',
+});
+
+const activeRetreatId = computed(() => retreatStore.selectedRetreatId || '');
+const buildFetchFilters = () => ({
+	...filters.value,
+	retreatId: activeRetreatId.value,
 });
 
 const paymentForm = ref({
@@ -356,8 +362,8 @@ const participants = computed(() => participantStore.participants);
 const filteredPayments = computed(() => {
 	let payments = paymentStore.payments;
 
-	if (filters.value.retreatId) {
-		payments = payments.filter(p => p.retreatId === filters.value.retreatId);
+	if (activeRetreatId.value) {
+		payments = payments.filter(p => p.retreatId === activeRetreatId.value);
 	}
 
 	if (filters.value.paymentMethod) {
@@ -397,7 +403,7 @@ const printTotal = computed(() =>
 );
 
 const selectedRetreatLabel = computed(() => {
-	const r = retreats.value.find((x: any) => x.id === filters.value.retreatId);
+	const r = retreats.value.find((x: any) => x.id === activeRetreatId.value);
 	return r ? `${r.parish} - ${formatDate(r.startDate)}` : '';
 });
 
@@ -468,6 +474,9 @@ const savePayment = async () => {
 			...paymentForm.value,
 			amount: parseFloat(paymentForm.value.amount),
 			paymentDate: new Date(paymentForm.value.paymentDate),
+			// Bind payment to the retreat selected in the sidebar, not the
+			// participant's primary retreat.
+			retreatId: activeRetreatId.value,
 		};
 
 		if (editingPayment.value) {
@@ -480,6 +489,35 @@ const savePayment = async () => {
 		loadSummary();
 	} catch (error) {
 		console.error('Error saving payment:', error);
+	}
+};
+
+const markAsScholarship = async () => {
+	const participantId = paymentForm.value.participantId;
+	if (!participantId) return;
+
+	const participant = participants.value.find((p: any) => p.id === participantId);
+	const name = participant
+		? `${participant.firstName} ${participant.lastName}`.trim()
+		: 'este participante';
+
+	if (!window.confirm(`¿Marcar a ${name} como becado? No se registrará un pago parcial.`)) {
+		return;
+	}
+
+	try {
+		markingScholarship.value = true;
+		await participantStore.updateParticipant(participantId, {
+			isScholarship: true,
+			contextRetreatId: activeRetreatId.value,
+		} as any);
+		closePaymentModal();
+		await participantStore.fetchParticipants();
+		loadSummary();
+	} catch (error) {
+		console.error('Error marking participant as scholarship:', error);
+	} finally {
+		markingScholarship.value = false;
 	}
 };
 
@@ -502,28 +540,29 @@ const confirmDelete = async () => {
 };
 
 const applyFilters = async () => {
-	await paymentStore.fetchPayments(filters.value);
+	await paymentStore.fetchPayments(buildFetchFilters());
 	loadSummary();
 };
 
 const clearFilters = () => {
 	filters.value = {
-		retreatId: '',
 		paymentMethod: '',
 		startDate: '',
 		endDate: '',
 		search: '',
 	};
-	paymentStore.fetchPayments();
+	paymentStore.fetchPayments(buildFetchFilters());
 };
 
 const loadSummary = async () => {
-	if (filters.value.retreatId) {
+	if (activeRetreatId.value) {
 		try {
-			summary.value = await paymentStore.getPaymentSummary(filters.value.retreatId);
+			summary.value = await paymentStore.getPaymentSummary(activeRetreatId.value);
 		} catch (error) {
 			console.error('Error loading summary:', error);
 		}
+	} else {
+		summary.value = null;
 	}
 };
 
@@ -531,26 +570,30 @@ const loadSummary = async () => {
 onMounted(async () => {
 	await retreatStore.fetchRetreats();
 
-	// Set retreat filter before fetching participants
 	if (retreatStore.selectedRetreatId) {
 		participantStore.filters.retreatId = retreatStore.selectedRetreatId;
-		filters.value.retreatId = retreatStore.selectedRetreatId;
 	}
 
 	await participantStore.fetchParticipants();
 
-	if (retreatStore.selectedRetreatId) {
-		await paymentStore.fetchPayments(filters.value);
+	if (activeRetreatId.value) {
+		await paymentStore.fetchPayments(buildFetchFilters());
 		loadSummary();
 	} else {
 		await paymentStore.fetchPayments();
 	}
 });
 
-// Watch for retreat filter changes
-watch(() => filters.value.retreatId, () => {
-	if (filters.value.retreatId) {
+// Watch for sidebar retreat selection changes
+watch(() => retreatStore.selectedRetreatId, async (newId) => {
+	participantStore.filters.retreatId = newId || '';
+	await participantStore.fetchParticipants();
+	if (newId) {
+		await paymentStore.fetchPayments(buildFetchFilters());
 		loadSummary();
+	} else {
+		summary.value = null;
+		await paymentStore.fetchPayments();
 	}
 });
 </script>

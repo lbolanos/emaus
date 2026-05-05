@@ -515,6 +515,7 @@
       "totalPaid": "Total Pagado",
       "paymentStatus": "Estado de Pago",
       "isScholarship": "Beca?",
+      "scholarshipAmount": "Monto Becado",
       "palancasCoordinator": "Coord. Palancas",
       "palancasRequested": "Pal. Solicitadas",
       "palancasReceived": "Pal. Recibidas",
@@ -547,7 +548,8 @@
           "paid": "Pagado",
           "partial": "Parcial",
           "unpaid": "No pagado",
-          "overpaid": "Sobrepagado"
+          "overpaid": "Sobrepagado",
+          "scholarship": "Becado"
         },
         "maritalStatus": {
           "single": "Soltero/a",

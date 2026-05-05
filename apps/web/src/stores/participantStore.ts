@@ -164,8 +164,15 @@ export const useParticipantStore = defineStore('participant', () => {
 
 			await api.put(`/participants/${id}`, data);
 
-			// Fetch the updated participant data including tags
-			const response = await api.get(`/participants/${id}`);
+			// Fetch the updated participant data including tags. Pass the
+			// active retreat (from the data sent in or from filters) so the
+			// overlay loads from the right retreat_participants row when the
+			// participant attends multiple retreats.
+			const refetchRetreatId =
+				(data as any)?.contextRetreatId || filters.retreatId;
+			const response = await api.get(`/participants/${id}`, {
+				params: refetchRetreatId ? { retreatId: refetchRetreatId } : undefined,
+			});
 
 			const index = participants.value.findIndex((p) => p.id === id);
 			if (index !== -1) {

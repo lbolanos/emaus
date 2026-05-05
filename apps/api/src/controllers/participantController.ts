@@ -3,8 +3,48 @@ import * as participantService from "../services/participantService";
 import { RecaptchaService } from "../services/recaptchaService";
 import { participantSchema } from "@repo/types";
 import { z } from "zod";
+import { authorizationService } from "../middleware/authorization";
 
 const recaptchaService = new RecaptchaService();
+
+/**
+ * Returns true when the request user can read participant.scholarshipAmount.
+ * Permission: participant:viewScholarshipAmount (granted to admin and treasurer).
+ * If the request has no authenticated user, access is denied.
+ */
+async function canViewScholarshipAmount(req: Request): Promise<boolean> {
+	const userId = (req as any).user?.id;
+	if (!userId) return false;
+	try {
+		return await authorizationService.hasPermission(
+			userId,
+			"participant:viewScholarshipAmount",
+		);
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Strip scholarshipAmount from a participant payload (or array) before sending
+ * it to a client that lacks viewScholarshipAmount permission.
+ * Mutates plain objects; for entity instances calls toJSON() first.
+ */
+function stripScholarshipAmount<T>(data: T): T {
+	if (data == null) return data;
+	if (Array.isArray(data)) {
+		return data.map((item) => stripScholarshipAmount(item)) as any;
+	}
+	if (typeof data === "object") {
+		const obj: any =
+			typeof (data as any).toJSON === "function" ? (data as any).toJSON() : { ...data };
+		if ("scholarshipAmount" in obj) {
+			delete obj.scholarshipAmount;
+		}
+		return obj;
+	}
+	return data;
+}
 
 export const getAllParticipants = async (
   req: Request,
@@ -38,7 +78,8 @@ export const getAllParticipants = async (
       includePayments === "true", // Include payment details when requested
       parsedTagIds,
     );
-    res.json(participants);
+    const canSee = await canViewScholarshipAmount(req);
+    res.json(canSee ? participants : stripScholarshipAmount(participants));
   } catch (error) {
     next(error);
   }
@@ -50,13 +91,15 @@ export const getParticipantById = async (
   next: NextFunction,
 ) => {
   try {
-    const { includePayments } = req.query;
+    const { includePayments, retreatId } = req.query;
     const participant = await participantService.findParticipantById(
       req.params.id,
       includePayments === "true",
+      typeof retreatId === "string" ? retreatId : undefined,
     );
     if (participant) {
-      res.json(participant);
+      const canSee = await canViewScholarshipAmount(req);
+      res.json(canSee ? participant : stripScholarshipAmount(participant));
     } else {
       res.status(404).json({ message: "Participant not found" });
     }
@@ -215,16 +258,32 @@ export const updateParticipant = async (
   next: NextFunction,
 ) => {
   try {
+    const body = { ...req.body };
+    const canSee = await canViewScholarshipAmount(req);
+    if (!canSee && "scholarshipAmount" in body) {
+      // User cannot read or write the field. Drop silently to avoid leaking
+      // existence; alternative is 403 — chose strip-and-continue to match
+      // how other gated fields are handled in this controller.
+      delete body.scholarshipAmount;
+    }
     const updatedParticipant = await participantService.updateParticipant(
       req.params.id,
-      req.body,
+      body,
     );
     if (updatedParticipant) {
-      res.json(updatedParticipant);
+      res.json(canSee ? updatedParticipant : stripScholarshipAmount(updatedParticipant));
     } else {
       res.status(404).json({ message: "Participant not found" });
     }
   } catch (error) {
+    if (
+      error instanceof Error &&
+      (error as Error & { code?: string }).code === "SCHOLARSHIP_EXCEEDS_COST"
+    ) {
+      return res
+        .status(400)
+        .json({ message: error.message, code: "SCHOLARSHIP_EXCEEDS_COST" });
+    }
     next(error);
   }
 };

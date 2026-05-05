@@ -622,6 +622,23 @@ export const findAllParticipants = async (
         "idOnRetreat",
         "familyFriendColor",
         "bagMade",
+        "isScholarship",
+        "scholarshipAmount",
+        "palancasCoordinator",
+        "palancasRequested",
+        "palancasReceived",
+        "palancasNotes",
+        "invitedBy",
+        "isInvitedByEmausMember",
+        "inviterHomePhone",
+        "inviterWorkPhone",
+        "inviterCellPhone",
+        "inviterEmail",
+        "pickupLocation",
+        "arrivesOnOwn",
+        "requestsSingleRoom",
+        "notes",
+        "createdAt",
       ],
     });
     const historyMap = new Map(historyRows.map((h) => [h.participantId, h]));
@@ -635,6 +652,38 @@ export const findAllParticipants = async (
         if (h.familyFriendColor !== undefined)
           p.family_friend_color = h.familyFriendColor ?? undefined;
         p.bagMade = h.bagMade ?? false;
+        p.isScholarship = h.isScholarship ?? false;
+        if (h.scholarshipAmount !== undefined)
+          p.scholarshipAmount = h.scholarshipAmount;
+        if (h.palancasCoordinator !== undefined)
+          p.palancasCoordinator = h.palancasCoordinator;
+        if (h.palancasRequested !== undefined)
+          p.palancasRequested = h.palancasRequested;
+        if (h.palancasReceived !== undefined)
+          p.palancasReceived = h.palancasReceived;
+        if (h.palancasNotes !== undefined) p.palancasNotes = h.palancasNotes;
+        if (h.invitedBy !== undefined) p.invitedBy = h.invitedBy;
+        if (h.isInvitedByEmausMember !== undefined)
+          p.isInvitedByEmausMember = h.isInvitedByEmausMember;
+        if (h.inviterHomePhone !== undefined)
+          p.inviterHomePhone = h.inviterHomePhone;
+        if (h.inviterWorkPhone !== undefined)
+          p.inviterWorkPhone = h.inviterWorkPhone;
+        if (h.inviterCellPhone !== undefined)
+          p.inviterCellPhone = h.inviterCellPhone;
+        if (h.inviterEmail !== undefined) p.inviterEmail = h.inviterEmail;
+        if (h.pickupLocation !== undefined)
+          p.pickupLocation = h.pickupLocation;
+        if (h.arrivesOnOwn !== undefined) p.arrivesOnOwn = h.arrivesOnOwn;
+        if (h.requestsSingleRoom !== undefined)
+          p.requestsSingleRoom = h.requestsSingleRoom;
+        // notes: per-retreat note (the rp row owns this; participants.notes
+        // is legacy and can be empty for newly registered participants).
+        if (h.notes !== undefined && h.notes !== null) p.notes = h.notes;
+        // registrationDate per-retreat = rp.createdAt (the inscription
+        // date for THIS retreat). The participants.registrationDate is
+        // the participant's first-ever registration in the system.
+        if (h.createdAt) p.registrationDate = h.createdAt;
       }
     }
 
@@ -728,6 +777,7 @@ export const findAllParticipants = async (
 export const findParticipantById = async (
   id: string,
   includePayments: boolean = false,
+  contextRetreatId?: string,
 ): Promise<Participant | null> => {
   const relations = ["retreat", "retreatBed", "tags", "tags.tag"];
   if (includePayments) {
@@ -741,20 +791,26 @@ export const findParticipantById = async (
 
   if (!participant) return null;
 
-  // Filter tags to only include those belonging to the participant's current retreat
-  if (participant.tags && participant.retreatId) {
+  // The retreat we hydrate FROM. When the caller (sidebar) provides a
+  // retreatId, prefer it — otherwise fall back to the participant's primary
+  // retreat. This matters when one Participant attends multiple retreats
+  // with different per-retreat values.
+  const overlayRetreatId = contextRetreatId || participant.retreatId;
+
+  // Filter tags to only include those belonging to the active retreat
+  if (participant.tags && overlayRetreatId) {
     participant.tags = participant.tags.filter(
-      (pt: any) => pt.tag?.retreatId === participant.retreatId,
+      (pt: any) => pt.tag?.retreatId === overlayRetreatId,
     );
   }
 
   // Overlay retreat-specific fields from retreat_participants
-  if (participant.retreatId) {
+  if (overlayRetreatId) {
     const rpRepo = AppDataSource.getRepository(RetreatParticipant);
     const rp = await rpRepo.findOne({
       where: {
         participantId: participant.id,
-        retreatId: participant.retreatId,
+        retreatId: overlayRetreatId,
       },
       relations: ["tableMesa"],
     });
@@ -766,6 +822,65 @@ export const findParticipantById = async (
       if (rp.familyFriendColor !== undefined)
         participant.family_friend_color = rp.familyFriendColor ?? undefined;
       if (rp.tableMesa) participant.tableMesa = rp.tableMesa;
+      participant.bagMade = rp.bagMade ?? false;
+      participant.isScholarship = rp.isScholarship ?? false;
+      if (rp.scholarshipAmount !== undefined)
+        participant.scholarshipAmount = rp.scholarshipAmount;
+      if (rp.palancasCoordinator !== undefined)
+        participant.palancasCoordinator = rp.palancasCoordinator;
+      if (rp.palancasRequested !== undefined)
+        participant.palancasRequested = rp.palancasRequested;
+      if (rp.palancasReceived !== undefined)
+        participant.palancasReceived = rp.palancasReceived;
+      if (rp.palancasNotes !== undefined)
+        participant.palancasNotes = rp.palancasNotes;
+      if (rp.invitedBy !== undefined) participant.invitedBy = rp.invitedBy;
+      if (rp.isInvitedByEmausMember !== undefined)
+        participant.isInvitedByEmausMember = rp.isInvitedByEmausMember;
+      if (rp.inviterHomePhone !== undefined)
+        participant.inviterHomePhone = rp.inviterHomePhone;
+      if (rp.inviterWorkPhone !== undefined)
+        participant.inviterWorkPhone = rp.inviterWorkPhone;
+      if (rp.inviterCellPhone !== undefined)
+        participant.inviterCellPhone = rp.inviterCellPhone;
+      if (rp.inviterEmail !== undefined)
+        participant.inviterEmail = rp.inviterEmail;
+      if (rp.pickupLocation !== undefined)
+        participant.pickupLocation = rp.pickupLocation;
+      if (rp.arrivesOnOwn !== undefined)
+        participant.arrivesOnOwn = rp.arrivesOnOwn;
+      if (rp.requestsSingleRoom !== undefined)
+        participant.requestsSingleRoom = rp.requestsSingleRoom;
+      if (rp.notes !== undefined && rp.notes !== null)
+        participant.notes = rp.notes;
+      if (rp.createdAt) participant.registrationDate = rp.createdAt;
+    } else {
+      // Caller asked for a specific retreat where this participant is NOT
+      // registered. Clear legacy per-retreat columns so we don't leak data
+      // from another retreat (or from the global "primary" participants row).
+      participant.type = undefined;
+      participant.isCancelled = undefined;
+      participant.tableId = undefined;
+      participant.id_on_retreat = undefined;
+      participant.family_friend_color = undefined;
+      participant.tableMesa = undefined as any;
+      participant.bagMade = undefined as any;
+      participant.isScholarship = undefined as any;
+      participant.scholarshipAmount = null;
+      participant.palancasCoordinator = null;
+      participant.palancasRequested = null;
+      participant.palancasReceived = null;
+      participant.palancasNotes = null;
+      participant.invitedBy = null;
+      participant.isInvitedByEmausMember = null;
+      participant.inviterHomePhone = null;
+      participant.inviterWorkPhone = null;
+      participant.inviterCellPhone = null;
+      participant.inviterEmail = null;
+      participant.pickupLocation = null;
+      participant.arrivesOnOwn = null;
+      participant.requestsSingleRoom = null;
+      participant.notes = null;
     }
   }
 
@@ -781,7 +896,7 @@ export const findParticipantById = async (
         { pid: participant.id },
       )
       .andWhere("t.retreatId = :retreatId", {
-        retreatId: participant.retreatId,
+        retreatId: overlayRetreatId,
       })
       .getOne();
     if (leaderTable) {
@@ -1577,6 +1692,26 @@ export const createParticipant = async (
       lastUpdatedDate: new Date(),
       dataDeleteToken: crypto.randomBytes(24).toString("hex"),
     };
+
+    // The participants table marks emergency-contact and a few other fields as
+    // NOT NULL, but Zod relaxes them to optional for non-walker registrations
+    // (see participantController.ts). Default to empty string so the INSERT
+    // doesn't blow up on legacy NOT NULL columns.
+    if (type !== "walker") {
+      const NOT_NULL_TEXT_FIELDS = [
+        "emergencyContact1Name",
+        "emergencyContact1Relation",
+        "emergencyContact1CellPhone",
+      ];
+      for (const field of NOT_NULL_TEXT_FIELDS) {
+        if (
+          newParticipantData[field] === undefined ||
+          newParticipantData[field] === null
+        ) {
+          newParticipantData[field] = "";
+        }
+      }
+    }
     if (acceptedPrivacyNotice === true) {
       newParticipantData.acceptedPrivacyNoticeAt = new Date();
     }
@@ -1687,6 +1822,29 @@ export const createParticipant = async (
           tableId: savedParticipant.tableId,
           idOnRetreat: savedParticipant.id_on_retreat,
           familyFriendColor: savedParticipant.family_friend_color || null,
+          // Per-retreat fields copied from registration payload — these used
+          // to live on `participants` only; now they're per-inscription.
+          isScholarship: !!participantData.isScholarship,
+          scholarshipAmount:
+            participantData.scholarshipAmount === null ||
+            participantData.scholarshipAmount === undefined
+              ? null
+              : Number(participantData.scholarshipAmount),
+          palancasCoordinator: participantData.palancasCoordinator || null,
+          palancasRequested: participantData.palancasRequested ?? null,
+          palancasReceived: participantData.palancasReceived || null,
+          palancasNotes: participantData.palancasNotes || null,
+          invitedBy: participantData.invitedBy || null,
+          isInvitedByEmausMember:
+            participantData.isInvitedByEmausMember ?? null,
+          inviterHomePhone: participantData.inviterHomePhone || null,
+          inviterWorkPhone: participantData.inviterWorkPhone || null,
+          inviterCellPhone: participantData.inviterCellPhone || null,
+          inviterEmail: participantData.inviterEmail || null,
+          pickupLocation: participantData.pickupLocation || null,
+          arrivesOnOwn: participantData.arrivesOnOwn ?? null,
+          requestsSingleRoom: participantData.requestsSingleRoom ?? null,
+          notes: (participantData as any).notes || null,
         };
 
         const historyRepository =
@@ -2114,6 +2272,22 @@ export const updateParticipant = async (
     tableId,
     id_on_retreat,
     family_friend_color,
+    isScholarship,
+    scholarshipAmount,
+    palancasCoordinator,
+    palancasRequested,
+    palancasReceived,
+    palancasNotes,
+    invitedBy,
+    isInvitedByEmausMember,
+    inviterHomePhone,
+    inviterWorkPhone,
+    inviterCellPhone,
+    inviterEmail,
+    pickupLocation,
+    arrivesOnOwn,
+    requestsSingleRoom,
+    notes,
     tableMesa,
     retreatBed,
     tags,
@@ -2123,18 +2297,58 @@ export const updateParticipant = async (
     user,
     participantTags,
     id: _id,
+    // contextRetreatId: optional. When the caller provides this it identifies
+    // the retreat-participation row to update (e.g. the sidebar's selected
+    // retreat). Without it, we fall back to participants.retreatId, which is
+    // the participant's "primary" retreat — wrong when the participant
+    // attends multiple retreats and the user is editing a non-primary one.
+    contextRetreatId,
     ...personalData
   } = participantData as any;
 
+  // Resolve which retreat_participants row to update.
+  const effectiveRetreatId: string | null =
+    (typeof contextRetreatId === 'string' && contextRetreatId) ||
+    participant.retreatId ||
+    null;
+
   // First, overlay current retreat-specific values from retreat_participants
   let currentRp: RetreatParticipant | null = null;
-  if (participant.retreatId) {
+  if (effectiveRetreatId) {
     const rpRepo = AppDataSource.getRepository(RetreatParticipant);
     currentRp = await rpRepo.findOne({
-      where: { participantId: id, retreatId: participant.retreatId },
+      where: { participantId: id, retreatId: effectiveRetreatId },
     });
   }
   const wasCancelled = currentRp?.isCancelled ?? false;
+
+  // Validate scholarshipAmount does not exceed the retreat cost. Refuses
+  // accidental over-allocations from the UI/API. retreat.cost is a free-form
+  // string; parse with the same helper paymentStatus uses.
+  if (
+    effectiveRetreatId &&
+    scholarshipAmount !== undefined &&
+    scholarshipAmount !== null &&
+    scholarshipAmount !== ""
+  ) {
+    const retreatRepo = AppDataSource.getRepository(Retreat);
+    const retreatRow = await retreatRepo.findOne({
+      where: { id: effectiveRetreatId },
+      select: ["id", "cost"],
+    });
+    if (retreatRow?.cost) {
+      const expected =
+        parseFloat(retreatRow.cost.replace(/[^0-9.-]/g, "")) || 0;
+      const proposed = Number(scholarshipAmount);
+      if (Number.isFinite(proposed) && expected > 0 && proposed > expected) {
+        const err = new Error(
+          `El monto de beca (${proposed}) no puede superar el costo del retiro (${expected}).`,
+        );
+        (err as any).code = "SCHOLARSHIP_EXCEEDS_COST";
+        throw err;
+      }
+    }
+  }
 
   // Update personal data on participants table
   personalData.lastUpdatedDate = new Date();
@@ -2142,7 +2356,7 @@ export const updateParticipant = async (
   const updatedParticipant = await participantRepository.save(participant);
 
   // Update retreat-specific fields on retreat_participants
-  if (updatedParticipant.retreatId) {
+  if (effectiveRetreatId) {
     const rpUpdates: any = {};
     if (type !== undefined) rpUpdates.type = type;
     if (isCancelled !== undefined) rpUpdates.isCancelled = isCancelled;
@@ -2150,6 +2364,46 @@ export const updateParticipant = async (
     if (id_on_retreat !== undefined) rpUpdates.idOnRetreat = id_on_retreat;
     if (family_friend_color !== undefined)
       rpUpdates.familyFriendColor = family_friend_color || null;
+    if (isScholarship !== undefined)
+      rpUpdates.isScholarship = !!isScholarship;
+    if (scholarshipAmount !== undefined)
+      rpUpdates.scholarshipAmount =
+        scholarshipAmount === null || scholarshipAmount === ""
+          ? null
+          : Number(scholarshipAmount);
+    // Data hygiene: turning scholarship off clears the amount so a later
+    // re-enable doesn't accidentally inherit a stale value.
+    if (isScholarship === false && scholarshipAmount === undefined) {
+      rpUpdates.scholarshipAmount = null;
+    }
+    // Palancas
+    if (palancasCoordinator !== undefined)
+      rpUpdates.palancasCoordinator = palancasCoordinator || null;
+    if (palancasRequested !== undefined)
+      rpUpdates.palancasRequested = palancasRequested;
+    if (palancasReceived !== undefined)
+      rpUpdates.palancasReceived = palancasReceived || null;
+    if (palancasNotes !== undefined)
+      rpUpdates.palancasNotes = palancasNotes || null;
+    // Inviter
+    if (invitedBy !== undefined) rpUpdates.invitedBy = invitedBy || null;
+    if (isInvitedByEmausMember !== undefined)
+      rpUpdates.isInvitedByEmausMember = isInvitedByEmausMember;
+    if (inviterHomePhone !== undefined)
+      rpUpdates.inviterHomePhone = inviterHomePhone || null;
+    if (inviterWorkPhone !== undefined)
+      rpUpdates.inviterWorkPhone = inviterWorkPhone || null;
+    if (inviterCellPhone !== undefined)
+      rpUpdates.inviterCellPhone = inviterCellPhone || null;
+    if (inviterEmail !== undefined)
+      rpUpdates.inviterEmail = inviterEmail || null;
+    // Logistics
+    if (pickupLocation !== undefined)
+      rpUpdates.pickupLocation = pickupLocation || null;
+    if (arrivesOnOwn !== undefined) rpUpdates.arrivesOnOwn = arrivesOnOwn;
+    if (requestsSingleRoom !== undefined)
+      rpUpdates.requestsSingleRoom = requestsSingleRoom;
+    if (notes !== undefined) rpUpdates.notes = notes || null;
 
     // If being cancelled, clear table assignment
     if (isCancelled === true && !wasCancelled) {
@@ -2163,7 +2417,7 @@ export const updateParticipant = async (
         .set({ participantId: null })
         .where("participantId = :id", { id: updatedParticipant.id })
         .andWhere("retreatId = :retreatId", {
-          retreatId: updatedParticipant.retreatId,
+          retreatId: effectiveRetreatId,
         })
         .execute();
     }
@@ -2182,7 +2436,7 @@ export const updateParticipant = async (
         .set({ participantId: null })
         .where("participantId = :id", { id: updatedParticipant.id })
         .andWhere("retreatId = :retreatId", {
-          retreatId: updatedParticipant.retreatId,
+          retreatId: effectiveRetreatId,
         })
         .execute();
     }
@@ -2191,7 +2445,7 @@ export const updateParticipant = async (
       try {
         await syncRetreatFields(
           updatedParticipant.id,
-          updatedParticipant.retreatId,
+          effectiveRetreatId,
           rpUpdates,
         );
       } catch (err) {
@@ -2217,6 +2471,73 @@ export const updateParticipant = async (
       family_friend_color !== undefined
         ? (family_friend_color ?? undefined)
         : (currentRp?.familyFriendColor ?? undefined);
+    updatedParticipant.isScholarship =
+      isScholarship !== undefined
+        ? !!isScholarship
+        : (currentRp?.isScholarship ?? false);
+    updatedParticipant.scholarshipAmount =
+      scholarshipAmount !== undefined
+        ? scholarshipAmount === null || scholarshipAmount === ""
+          ? null
+          : Number(scholarshipAmount)
+        : (currentRp?.scholarshipAmount ?? null);
+    // Set virtual fields for palancas/inviter/logistics
+    updatedParticipant.palancasCoordinator =
+      palancasCoordinator !== undefined
+        ? palancasCoordinator || null
+        : (currentRp?.palancasCoordinator ?? null);
+    updatedParticipant.palancasRequested =
+      palancasRequested !== undefined
+        ? palancasRequested
+        : (currentRp?.palancasRequested ?? null);
+    updatedParticipant.palancasReceived =
+      palancasReceived !== undefined
+        ? palancasReceived || null
+        : (currentRp?.palancasReceived ?? null);
+    updatedParticipant.palancasNotes =
+      palancasNotes !== undefined
+        ? palancasNotes || null
+        : (currentRp?.palancasNotes ?? null);
+    updatedParticipant.invitedBy =
+      invitedBy !== undefined
+        ? invitedBy || null
+        : (currentRp?.invitedBy ?? null);
+    updatedParticipant.isInvitedByEmausMember =
+      isInvitedByEmausMember !== undefined
+        ? isInvitedByEmausMember
+        : (currentRp?.isInvitedByEmausMember ?? null);
+    updatedParticipant.inviterHomePhone =
+      inviterHomePhone !== undefined
+        ? inviterHomePhone || null
+        : (currentRp?.inviterHomePhone ?? null);
+    updatedParticipant.inviterWorkPhone =
+      inviterWorkPhone !== undefined
+        ? inviterWorkPhone || null
+        : (currentRp?.inviterWorkPhone ?? null);
+    updatedParticipant.inviterCellPhone =
+      inviterCellPhone !== undefined
+        ? inviterCellPhone || null
+        : (currentRp?.inviterCellPhone ?? null);
+    updatedParticipant.inviterEmail =
+      inviterEmail !== undefined
+        ? inviterEmail || null
+        : (currentRp?.inviterEmail ?? null);
+    updatedParticipant.pickupLocation =
+      pickupLocation !== undefined
+        ? pickupLocation || null
+        : (currentRp?.pickupLocation ?? null);
+    updatedParticipant.arrivesOnOwn =
+      arrivesOnOwn !== undefined
+        ? arrivesOnOwn
+        : (currentRp?.arrivesOnOwn ?? null);
+    updatedParticipant.requestsSingleRoom =
+      requestsSingleRoom !== undefined
+        ? requestsSingleRoom
+        : (currentRp?.requestsSingleRoom ?? null);
+    updatedParticipant.notes =
+      notes !== undefined
+        ? notes || null
+        : (currentRp?.notes ?? null);
   }
 
   return updatedParticipant;

@@ -157,52 +157,63 @@ export class Participant {
 	@Column({ type: 'varchar', nullable: true })
 	needsJacket?: string | null;
 
+	// Source of truth lives in retreat_participants; this column is a legacy
+	// fallback. Reads go through the overlay in participantService; writes go
+	// through updateParticipant which targets retreat_participants. TypeORM
+	// will keep this column in sync during create flows.
 	@Column({ type: 'varchar', nullable: true })
-	invitedBy?: string; // Corresponde a 'invitadopor'
+	invitedBy?: string | null;
 
 	@Column({ type: 'boolean', nullable: true })
-	isInvitedByEmausMember?: boolean | null; // Corresponde a 'invitadaporemaus'
+	isInvitedByEmausMember?: boolean | null;
 
 	@Column({ type: 'varchar', nullable: true })
-	inviterHomePhone?: string; // Corresponde a 'invtelcasa'
+	inviterHomePhone?: string | null;
 
 	@Column({ type: 'varchar', nullable: true })
-	inviterWorkPhone?: string; // Corresponde a 'invteltrabajo'
+	inviterWorkPhone?: string | null;
 
 	@Column({ type: 'varchar', nullable: true })
-	inviterCellPhone?: string; // Corresponde a 'invtelcelular'
+	inviterCellPhone?: string | null;
 
 	@Column({ type: 'varchar', nullable: true })
-	inviterEmail?: string; // Corresponde a 'invemail'
+	inviterEmail?: string | null;
 
 	// Virtual — populated from retreat_participants at query time
 	family_friend_color?: string;
 
 	@Column({ type: 'varchar', nullable: true })
-	pickupLocation?: string; // Corresponde a 'puntoencuentro'
+	pickupLocation?: string | null;
 
 	@Column({ type: 'boolean', nullable: true })
-	arrivesOnOwn?: boolean;
+	arrivesOnOwn?: boolean | null;
 
 	// --- CAMPOS AGREGADOS ---
 
-	@Column({ type: 'boolean', default: false })
-	isScholarship!: boolean; // Corresponde a 'becado'
+	// Virtual — populated from retreat_participants at query time. The
+	// underlying column on `participants` is kept for backward compatibility
+	// but is no longer the source of truth.
+	isScholarship?: boolean;
 
+	// Virtual — populated from retreat_participants at query time.
+	scholarshipAmount?: number | null;
+
+	// Source of truth lives in retreat_participants; legacy column kept for
+	// backward compatibility (overlay reads from retreat_participants).
 	@Column({ type: 'varchar', nullable: true })
-	palancasCoordinator?: string; // Corresponde a 'palancasencargado'
+	palancasCoordinator?: string | null;
 
 	@Column({ type: 'boolean', nullable: true })
-	palancasRequested?: boolean; // Corresponde a 'palancaspedidas'
+	palancasRequested?: boolean | null;
 
 	@Column({ type: 'text', nullable: true })
-	palancasReceived?: string; // Corresponde a 'palancas'
+	palancasReceived?: string | null;
 
 	@Column({ type: 'text', nullable: true })
-	palancasNotes?: string; // Corresponde a 'notaspalancas'
+	palancasNotes?: string | null;
 
 	@Column({ type: 'boolean', nullable: true })
-	requestsSingleRoom?: boolean; // Corresponde a 'habitacionindividual'
+	requestsSingleRoom?: boolean | null;
 
 	// Virtual — populated from retreat_participants at query time
 	isCancelled?: boolean;
@@ -319,12 +330,25 @@ export class Participant {
 	 * 'unpaid': Sin pagos
 	 * 'overpaid': Pagado de más
 	 */
-	get paymentStatus(): 'paid' | 'partial' | 'unpaid' | 'overpaid' {
+	get paymentStatus(): 'paid' | 'partial' | 'unpaid' | 'overpaid' | 'scholarship' {
 		const total = this.totalPaid;
 
-		// Si el participante es becado, consideramos que está pagado
+		// Parsear el costo del retiro (puede ser un string con formato de moneda)
+		let expectedAmount = 0;
+		if (this.retreat?.cost) {
+			const costString = this.retreat.cost.replace(/[^0-9.-]/g, '');
+			expectedAmount = parseFloat(costString) || 0;
+		}
+
+		// 'overpaid' tiene prioridad sobre 'scholarship': si un becado pagó
+		// más del costo del retiro, es información relevante que debe verse.
+		if (expectedAmount > 0 && total > expectedAmount) {
+			return 'overpaid';
+		}
+
+		// Para el resto de los casos, becado domina al estado de pago.
 		if (this.isScholarship) {
-			return 'paid';
+			return 'scholarship';
 		}
 
 		// Si no tiene retiro asociado, no hay pago esperado
@@ -332,17 +356,8 @@ export class Participant {
 			return 'unpaid';
 		}
 
-		// Parsear el costo del retiro (puede ser un string con formato de moneda)
-		let expectedAmount = 0;
-		if (this.retreat?.cost) {
-			// Eliminar símbolos de moneda y convertir a número
-			const costString = this.retreat.cost.replace(/[^0-9.-]/g, '');
-			expectedAmount = parseFloat(costString) || 0;
-		}
-
 		if (total === 0) return 'unpaid';
 		if (total < expectedAmount) return 'partial';
-		if (total > expectedAmount) return 'overpaid';
 		return 'paid';
 	}
 

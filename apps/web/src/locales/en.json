@@ -465,6 +465,7 @@
       "totalPaid": "Total Paid",
       "paymentStatus": "Payment Status",
       "isScholarship": "Scholarship?",
+      "scholarshipAmount": "Scholarship Amount",
       "palancasCoordinator": "Palancas Coord.",
       "palancasRequested": "Palancas Requested",
       "palancasReceived": "Palancas Received",
@@ -497,7 +498,8 @@
           "paid": "Paid",
           "partial": "Partial",
           "unpaid": "Unpaid",
-          "overpaid": "Overpaid"
+          "overpaid": "Overpaid",
+          "scholarship": "Scholarship"
         },
         "maritalStatus": {
           "single": "Single",

@@ -72,7 +72,7 @@ const fieldGroups: { key: string; label: string; icon: string; keys: string[] }[
   { key: 'inviter', label: 'Invitador', icon: 'users', keys: ['invitedBy', 'isInvitedByEmausMember', 'inviterHomePhone', 'inviterWorkPhone', 'inviterCellPhone', 'inviterEmail'] },
   { key: 'emergency', label: 'Emergencia', icon: 'heart', keys: ['emergencyContact1Name', 'emergencyContact1Relation', 'emergencyContact1HomePhone', 'emergencyContact1WorkPhone', 'emergencyContact1CellPhone', 'emergencyContact1Email', 'emergencyContact2Name', 'emergencyContact2Relation', 'emergencyContact2HomePhone', 'emergencyContact2WorkPhone', 'emergencyContact2CellPhone', 'emergencyContact2Email'] },
   { key: 'logistics', label: 'Log\u00edstica', icon: 'briefcase', keys: ['pickupLocation', 'arrivesOnOwn', 'requestsSingleRoom', 'retreatBed.roomNumber', 'tableMesa.name', 'tableId'] },
-  { key: 'financial', label: 'Financiero', icon: 'fileText', keys: ['totalPaid', 'lastPaymentDate', 'paymentStatus', 'isScholarship'] },
+  { key: 'financial', label: 'Financiero', icon: 'fileText', keys: ['totalPaid', 'lastPaymentDate', 'paymentStatus', 'isScholarship', 'scholarshipAmount'] },
   { key: 'palancas', label: 'Palancas', icon: 'clipboardList', keys: ['palancasCoordinator', 'palancasRequested', 'palancasReceived', 'palancasNotes'] },
   { key: 'admin', label: 'Administraci\u00f3n', icon: 'fileText', keys: ['isCancelled', 'notes', 'registrationDate', 'lastUpdatedDate', 'retreatId'] },
 ];
@@ -129,6 +129,7 @@ const getColumnType = (key: string) => {
     const col = props.allColumns.find(c => c.key === key);
     if (col && col.type) return col.type;
     if (key === 'tags') return 'tags';
+    if (key === 'scholarshipAmount') return 'number';
     if (key === 'type' || key === 'palancasCoordinator' || key === 'pickupLocation') return 'select';
     if (key.startsWith('is') || key.startsWith('has') || key.startsWith('requests') || key === 'arrivesOnOwn' || key === 'snores' || key === 'palancasRequested') return 'boolean';
     if (key.toLowerCase().includes('notes') || key.toLowerCase().includes('details')) return 'textarea';
@@ -551,6 +552,15 @@ const calculateAge = (birthDate: string | Date) => {
                 v-if="getColumnType(key) === 'text'"
                 :id="key"
                 v-model="localParticipant[key]"
+                class="w-full"
+              />
+              <Input
+                v-if="getColumnType(key) === 'number'"
+                type="number"
+                :id="key"
+                v-model="localParticipant[key]"
+                step="0.01"
+                min="0"
                 class="w-full"
               />
               <Input

@@ -40,6 +40,13 @@ jest.mock("../../database/config", () => ({
     isInitialized: true,
     transaction: jest.fn(),
   },
+  // data-source.ts calls createDatabaseConfig() at module load — return any
+  // shape that the mocked DataSource constructor will accept.
+  createDatabaseConfig: jest.fn().mockReturnValue({
+    type: "sqlite",
+    database: ":memory:",
+    entities: [],
+  }),
 }));
 
 // Mock recaptchaService

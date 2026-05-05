@@ -244,3 +244,6 @@ pnpm test
 
 ## Chrome tool
 Guarda los screenshots en la carpeta /tmp/chrome
+
+
+Trata de crear un solo archivo de migración.  Dime cuando requieras restaurar el backup de la base de datos.

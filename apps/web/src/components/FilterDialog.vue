@@ -63,7 +63,7 @@ const filterDefinitions = {
     { key: 'retreatBed.roomNumber', type: 'select', options: ['unassigned'], dynamic: true },
   ],
   financial: [
-    { key: 'paymentStatus', type: 'select', options: ['paid', 'partial', 'unpaid', 'overpaid'] },
+    { key: 'paymentStatus', type: 'select', options: ['paid', 'partial', 'unpaid', 'overpaid', 'scholarship'] },
     { key: 'isScholarship', type: 'boolean' },
   ],
   contact: [
@@ -183,6 +183,7 @@ const getSelectOptions = (filter: any) => {
       { value: 'partial', label: t('participants.filters.options.paymentStatus.partial') },
       { value: 'unpaid', label: t('participants.filters.options.paymentStatus.unpaid') },
       { value: 'overpaid', label: t('participants.filters.options.paymentStatus.overpaid') },
+      { value: 'scholarship', label: t('participants.filters.options.paymentStatus.scholarship') },
     ];
   }
   if (filter.key === 'maritalStatus') {

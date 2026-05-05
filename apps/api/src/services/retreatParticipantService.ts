@@ -33,6 +33,27 @@ export interface RetreatSnapshotFields {
 	idOnRetreat?: number | null;
 	familyFriendColor?: string | null;
 	bagMade?: boolean;
+	// Scholarship
+	isScholarship?: boolean;
+	scholarshipAmount?: number | null;
+	// Palancas
+	palancasCoordinator?: string | null;
+	palancasRequested?: boolean | null;
+	palancasReceived?: string | null;
+	palancasNotes?: string | null;
+	// Inviter
+	invitedBy?: string | null;
+	isInvitedByEmausMember?: boolean | null;
+	inviterHomePhone?: string | null;
+	inviterWorkPhone?: string | null;
+	inviterCellPhone?: string | null;
+	inviterEmail?: string | null;
+	// Logistics
+	pickupLocation?: string | null;
+	arrivesOnOwn?: boolean | null;
+	requestsSingleRoom?: boolean | null;
+	// Per-retreat administrative notes (the rp.notes column already exists)
+	notes?: string | null;
 }
 
 export interface CreateHistoryData extends RetreatSnapshotFields {

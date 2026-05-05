@@ -267,7 +267,7 @@ describe('ParticipantStore', () => {
 			await store.updateParticipant('1', { firstName: 'Jane' });
 
 			expect(mockApi.put).toHaveBeenCalledWith('/participants/1', { firstName: 'Jane' });
-			expect(mockApi.get).toHaveBeenCalledWith('/participants/1');
+			expect(mockApi.get).toHaveBeenCalledWith('/participants/1', { params: undefined });
 			expect(store.participants[0]).toEqual(updatedParticipant);
 			expect(store.loading).toBe(false);
 		});

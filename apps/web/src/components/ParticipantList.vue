@@ -6,6 +6,7 @@ import { useParticipantStore } from '@/stores/participantStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { getPalanqueroOptions, sendEmailViaBackend, getSmtpConfig } from '@/services/api';
 import { useMessageTemplateStore } from '@/stores/messageTemplateStore';
+import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { convertHtmlToEmail, replaceAllVariables } from '@/utils/message';
 import type { ParticipantData, RetreatData } from '@/utils/message';
 import MessageDialog from './MessageDialog.vue';
@@ -310,7 +311,12 @@ const clearAllFilters = () => {
 
 
 // --- DEFINICIÓN Y VISIBILIDAD DE COLUMNAS ---
-const allColumns = ref([
+const { hasPermission } = useAuthPermissions();
+const canViewScholarshipAmount = computed(() =>
+    hasPermission('participant:viewScholarshipAmount' as any),
+);
+
+const baseColumns = ref([
     { key: 'id_on_retreat', label: 'participants.fields.id' },
     { key: 'type', label: 'participants.fields.type' },
     { key: 'firstName', label: 'participants.fields.firstName' },
@@ -365,6 +371,7 @@ const allColumns = ref([
     { key: 'totalPaid', label: 'participants.fields.totalPaid' },
     { key: 'paymentStatus', label: 'participants.fields.paymentStatus' },
     { key: 'isScholarship', label: 'participants.fields.isScholarship' },
+    { key: 'scholarshipAmount', label: 'participants.fields.scholarshipAmount' },
     { key: 'palancasCoordinator', label: 'participants.fields.palancasCoordinator' },
     { key: 'palancasRequested', label: 'participants.fields.palancasRequested' },
     { key: 'palancasReceived', label: 'participants.fields.palancasReceived' },
@@ -380,6 +387,14 @@ const allColumns = ref([
     { key: 'retreatBed.roomNumber', label: 'rooms.roomNumber' },
     { key: 'messageCount', label: 'participants.fields.messageCount' },
 ]);
+
+// Filter columns the current user is not allowed to see (e.g. scholarshipAmount).
+const allColumns = computed(() => {
+    return baseColumns.value.filter((c) => {
+        if (c.key === 'scholarshipAmount') return canViewScholarshipAmount.value;
+        return true;
+    });
+});
 
 const longTextColumns = new Set([
     'notes', 'palancasNotes', 'medicationDetails',
@@ -602,6 +617,18 @@ const formatCell = (participant: any, colKey: string) => {
         }).format(totalPaid);
     }
 
+    // Scholarship amount — gated currency field for treasurer/admin.
+    if (colKey === 'scholarshipAmount') {
+        const raw = participant.scholarshipAmount;
+        if (raw === null || raw === undefined || raw === '') return 'N/A';
+        const amount = Number(raw);
+        if (!Number.isFinite(amount)) return 'N/A';
+        return new Intl.NumberFormat('es-MX', {
+            style: 'currency',
+            currency: 'MXN'
+        }).format(amount);
+    }
+
     // Handle paymentStatus field - use computed property from API
     if (colKey === 'paymentStatus') {
         const status = participant.paymentStatus || 'unpaid';
@@ -609,7 +636,8 @@ const formatCell = (participant: any, colKey: string) => {
             'paid': 'Pagado',
             'partial': 'Parcial',
             'unpaid': 'No pagado',
-            'overpaid': 'Sobre-pagado'
+            'overpaid': 'Sobre-pagado',
+            'scholarship': 'Becado'
         };
         return statusMap[status] || status;
     }
@@ -739,7 +767,13 @@ const confirmDelete = async () => {
 
 const reactivateParticipant = async (participant: any) => {
     try {
-        await participantStore.updateParticipant(participant.id, { ...participant, isCancelled: false });
+        // Pass contextRetreatId so the per-retreat row for the active retreat
+        // is updated, not the participant's "primary" retreat.
+        await participantStore.updateParticipant(participant.id, {
+            ...participant,
+            isCancelled: false,
+            contextRetreatId: selectedRetreatId.value,
+        });
         toast({
             title: $t('participants.reactivate.successTitle'),
             description: `${participant.firstName} ${participant.lastName} ${$t('participants.reactivate.successDesc')}`,
@@ -802,7 +836,10 @@ const bulkEditSelected = () => {
 };
 
 const handleUpdateParticipant = async (updatedParticipant: any) => {
-    await participantStore.updateParticipant(updatedParticipant.id, updatedParticipant);
+    await participantStore.updateParticipant(updatedParticipant.id, {
+        ...updatedParticipant,
+        contextRetreatId: selectedRetreatId.value,
+    });
     toast({
         title: $t('participants.update.successTitle'),
         description: $t('participants.update.successDesc'),
@@ -1016,7 +1053,10 @@ const handleBulkEditSave = async (updatedParticipants: any[]) => {
     try {
         // Update participants in parallel
         const updatePromises = updatedParticipants.map(participant =>
-            participantStore.updateParticipant(participant.id, participant)
+            participantStore.updateParticipant(participant.id, {
+                ...participant,
+                contextRetreatId: selectedRetreatId.value,
+            })
         );
         await Promise.all(updatePromises);
 
@@ -1605,13 +1645,15 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                                         'text-green-600': getCellContent(participant, colKey).paymentStatus === 'paid',
                                         'text-yellow-600': getCellContent(participant, colKey).paymentStatus === 'partial',
                                         'text-red-600': getCellContent(participant, colKey).paymentStatus === 'unpaid',
-                                        'text-purple-600': getCellContent(participant, colKey).paymentStatus === 'overpaid'
+                                        'text-purple-600': getCellContent(participant, colKey).paymentStatus === 'overpaid',
+                                        'text-blue-600': getCellContent(participant, colKey).paymentStatus === 'scholarship'
                                       }"
                                       :title="`Estado: ${getCellContent(participant, colKey).paymentStatus}`">
                                     <span v-if="getCellContent(participant, colKey).paymentStatus === 'paid'">✅</span>
                                     <span v-else-if="getCellContent(participant, colKey).paymentStatus === 'partial'">⚠️</span>
                                     <span v-else-if="getCellContent(participant, colKey).paymentStatus === 'unpaid'">❌</span>
                                     <span v-else-if="getCellContent(participant, colKey).paymentStatus === 'overpaid'">💰</span>
+                                    <span v-else-if="getCellContent(participant, colKey).paymentStatus === 'scholarship'">🎓</span>
                                 </span>
                             </div>
                         </TableCell>

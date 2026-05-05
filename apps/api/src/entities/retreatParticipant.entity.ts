@@ -81,4 +81,55 @@ export class RetreatParticipant {
 
 	@Column({ type: 'boolean', default: false })
 	bagMade!: boolean;
+
+	@Column({ type: 'boolean', default: false })
+	isScholarship!: boolean;
+
+	@Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+	scholarshipAmount?: number | null;
+
+	// ---- Palancas (per-retreat) ----
+
+	@Column({ type: 'varchar', nullable: true })
+	palancasCoordinator?: string | null;
+
+	@Column({ type: 'boolean', nullable: true })
+	palancasRequested?: boolean | null;
+
+	@Column({ type: 'text', nullable: true })
+	palancasReceived?: string | null;
+
+	@Column({ type: 'text', nullable: true })
+	palancasNotes?: string | null;
+
+	// ---- Inviter (per-retreat) ----
+
+	@Column({ type: 'varchar', nullable: true })
+	invitedBy?: string | null;
+
+	@Column({ type: 'boolean', nullable: true })
+	isInvitedByEmausMember?: boolean | null;
+
+	@Column({ type: 'varchar', nullable: true })
+	inviterHomePhone?: string | null;
+
+	@Column({ type: 'varchar', nullable: true })
+	inviterWorkPhone?: string | null;
+
+	@Column({ type: 'varchar', nullable: true })
+	inviterCellPhone?: string | null;
+
+	@Column({ type: 'varchar', nullable: true })
+	inviterEmail?: string | null;
+
+	// ---- Logistics (per-retreat) ----
+
+	@Column({ type: 'varchar', nullable: true })
+	pickupLocation?: string | null;
+
+	@Column({ type: 'boolean', nullable: true })
+	arrivesOnOwn?: boolean | null;
+
+	@Column({ type: 'boolean', nullable: true })
+	requestsSingleRoom?: boolean | null;
 }

@@ -286,6 +286,29 @@ Procedimiento documentado en `docs/testing/minuto-a-minuto-simulation.md`. Probl
 - [ ] **`storageUrl` data URL inline** todavía se incluye en el list endpoint (solo `content` se excluye). Para markdown sin S3, `storageUrl` es un base64 grande. Considerar serializar como referencia y servirlo via endpoint dedicado `/attachments/:id/download` cuando no hay S3.
 - [ ] **Tests de descripción larga seedeada en retreats**: `responsabilityAttachmentSeeder` ahora lee de `charlaDocumentation` directamente. Pero si en algún retiro alguien editó la `description` para customizar, esa edición NO se preserva. Decidir: ¿priorizar custom de DB sobre archivo TS, o documentar como limitación?
 
+### Per-retiro / participants legacy (post refactor 2026-05-04)
+
+Tras la migración `20260504120000_MovePerRetreatFieldsToRetreatParticipants` y los 11 fixes asociados, varias columnas en `participants` están dual-written (escritas tanto a `participants` como a `retreat_participants`). Ver detalle en `docs/features/scholarship-payment-status.md` y `docs/features/scholarship-payment-todo.md`.
+
+- [ ] **Soltar columnas legacy de `participants`** (12 columnas duplicadas):
+  `palancasCoordinator`, `palancasRequested`, `palancasReceived`, `palancasNotes`, `invitedBy`, `isInvitedByEmausMember`, `inviterHomePhone`, `inviterWorkPhone`, `inviterCellPhone`, `inviterEmail`, `pickupLocation`, `arrivesOnOwn`, `requestsSingleRoom`, `notes`. Plan en 3 fases:
+  1. Quitar `@Column` decorators del entity `Participant` (stop dual-write).
+  2. Auditar lecturas directas (e.g., `assignTableToWalker` ~línea 1159 hace `LOWER(p."invitedBy")` directo — cambiar a JOIN con `retreat_participants`).
+  3. Migración `ALTER TABLE participants DROP COLUMN ...` (SQLite ≥3.35; cuidado si se migra a Postgres).
+  - ⚠️ No iniciar hasta tener producción estable corriendo el modelo per-retiro durante 1-2 retiros completos sin bugs reportados.
+- [ ] **`emergencyContact1Name/Relation/CellPhone` NOT NULL** en `participants`, pero Zod los hace `optional()` para servidores. Fix actual (2026-05-04) defaultea a `""`. Considerar migrarlas a `nullable: true` para distinguir "no proporcionó" vs "string vacía" en reportes.
+- [ ] **`payment:read` permission** lo tienen `admin`, `treasurer`, `logistics`, `communications`. Validar con product owner si `logistics`/`communications` deben ver `totalPaid` o no. Considerar agrupar en `participant:readFinancial` (englobaría `totalPaid`, `paymentStatus`, `paymentRemaining`, `scholarshipAmount`).
+- [ ] **Campos borderline** (`snores`, `hasMedication`, `medicationDetails`, `medicationSchedule`, `hasDietaryRestrictions`, `dietaryRestrictionsDetails`, `disabilitySupport`, `maritalStatus`, `occupation`, `sacraments`): viven en `participants` pero pueden cambiar entre retiros (años de diferencia). Decisión pendiente: mantener globales (default), snapshot per-retiro, o ambos. Recomendado dejar como está hasta caso real.
+- [ ] **500 post-commit en server registration**: el caso `emergencyContact` está corregido pero validar otros caminos de error post-commit (notificación a inviter, palanqueros, welcome email).
+- [ ] **UNIQUE constraint** en `retreat_participants(participantId, retreatId)` — verificar si existe; agregar si no, para evitar duplicados de inscripción.
+- [ ] **UX**: el botón "Marcar como Becado" debería capturar el monto en el mismo paso (hoy son 2 acciones).
+- [ ] **UX**: filtro chip "Becado" en `ParticipantList`, resumen "X becados, $Y total" en `PaymentManagement`, mostrar `paymentRemaining` para no-becados.
+- [ ] **Auditoría**: registrar en `audit_log` cada cambio de `isScholarship` y `scholarshipAmount` (campos financieros sensibles).
+- [ ] **Reporte financiero por retiro** (export Excel) que incluya becados y montos.
+- [ ] **Tests de integración con BD** para overlay per-retiro (bloqueado por setup de DB tests pre-existente — ver `CLAUDE.md`).
+- [ ] **Test** de la validación `scholarshipAmount > retreat.cost` en `paymentStatus.test.ts`.
+- [ ] Documentar `participant:viewScholarshipAmount` en el seed de roles (`20250910163337_CreateSchema.ts`).
+
 ## 📦 Cleanup
 
 - [x] ~~**Borrar `seedResponsabilityAttachmentsFromDescriptions` legacy**~~ ✅ Resuelto 2026-04-28.
