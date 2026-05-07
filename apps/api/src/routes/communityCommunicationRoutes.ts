@@ -29,6 +29,9 @@ router.get(
 // Create a new communication record
 router.post('/', controller.createCommunication);
 
+// Send email via backend SMTP for a community member
+router.post('/email/send', controller.sendEmailViaBackend);
+
 // Delete a communication record
 router.delete('/:id', controller.deleteCommunication);
 

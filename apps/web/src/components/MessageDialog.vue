@@ -157,7 +157,7 @@
             </div>
             <Select v-model="selectedTemplate" :disabled="templatesLoading">
               <SelectTrigger>
-                <SelectValue :placeholder="templatesLoading ? 'Cargando plantillas...' : 'Selecciona una plantilla'" />
+                <SelectValue :placeholder="templatesLoading ? 'Cargando plantillas...' : (relevantTemplates.length ? 'Selecciona una plantilla (opcional)' : 'Sin plantilla — escribe abajo')" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="template in relevantTemplates" :key="template.id" :value="template.id">
@@ -171,10 +171,22 @@
                 </SelectItem>
               </SelectContent>
             </Select>
+            <p
+              v-if="!templatesLoading && !relevantTemplates.length"
+              class="text-xs text-muted-foreground"
+            >
+              No hay plantillas
+              <template v-if="props.context === 'community'"> para esta comunidad</template>.
+              Puedes escribir un mensaje directo abajo<template v-if="props.context === 'community' && props.communityId">, o
+                <router-link
+                  :to="`/app/communities/${props.communityId}/templates`"
+                  class="underline text-primary"
+                >importar plantillas</router-link></template>.
+            </p>
           </div>
 
           <!-- Message Editing -->
-          <div v-if="selectedTemplate" class="space-y-2">
+          <div class="space-y-2">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
                 <Label class="text-sm font-medium">Editar Mensaje</Label>
@@ -312,7 +324,7 @@
         </Button>
         <Button
           @click="sendMessage"
-          :disabled="!selectedContact || !selectedTemplate || isSending"
+          :disabled="!selectedContact || !editedMessage.trim() || isSending"
           title="Enviar mensaje (Ctrl+S o Ctrl+Enter)"
         >
           <span v-if="isSending" class="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
@@ -633,9 +645,11 @@ const relevantTemplates = computed(() => {
 
 // Message preview
 const updateMessagePreview = () => {
+	// No template selected: keep whatever the user has typed (do not reset).
 	if (!selectedTemplate.value || !props.participant) {
 		messagePreview.value = '';
-		editedMessage.value = '';
+		emptyVariables.value = [];
+		emailPreviewHtml.value = '';
 		return;
 	}
 
@@ -810,10 +824,6 @@ const validateMessage = () => {
 		errors.push('Selecciona un contacto');
 	}
 
-	if (!selectedTemplate.value) {
-		errors.push('Selecciona una plantilla');
-	}
-
 	if (!editedMessage.value.trim()) {
 		errors.push('El mensaje no puede estar vacío');
 	}
@@ -882,7 +892,7 @@ const saveCommunicationToHistory = async (): Promise<void> => {
 				messageType: sendMethod.value,
 				recipientContact: selectedContact.value!,
 				messageContent: editedMessage.value,
-				templateId: selectedTemplate.value,
+				templateId: selectedTemplate.value || undefined,
 				templateName: template?.name,
 				subject: sendMethod.value === 'email' ? `Mensaje para ${displayName.value}` : undefined
 			});
@@ -893,7 +903,7 @@ const saveCommunicationToHistory = async (): Promise<void> => {
 				messageType: sendMethod.value,
 				recipientContact: selectedContact.value!,
 				messageContent: editedMessage.value,
-				templateId: selectedTemplate.value,
+				templateId: selectedTemplate.value || undefined,
 				templateName: template?.name,
 				subject: sendMethod.value === 'email' ? `Mensaje para ${displayName.value}` : undefined
 			});
@@ -909,7 +919,7 @@ const saveCommunicationToHistory = async (): Promise<void> => {
 };
 
 const sendMessage = async () => {
-	if (!selectedContact.value || !selectedTemplate.value || !props.participant) return;
+	if (!selectedContact.value || !editedMessage.value.trim() || !props.participant) return;
 
 	const validationErrors = validateMessage();
 	if (validationErrors.length > 0) {
@@ -1005,7 +1015,7 @@ const sendMessage = async () => {
 						text: textContent,
 						communityMemberId: recipientId.value,
 						communityId: props.communityId!,
-						templateId: selectedTemplate.value,
+						templateId: selectedTemplate.value || undefined,
 						templateName: allMessageTemplates.value.find((t: any) => t.id === selectedTemplate.value)?.name
 					});
 				} else {
@@ -1016,7 +1026,7 @@ const sendMessage = async () => {
 						text: textContent,
 						participantId: (participantData as any).id,
 						retreatId: props.retreatId!,
-						templateId: selectedTemplate.value,
+						templateId: selectedTemplate.value || undefined,
 						templateName: allMessageTemplates.value.find((t: any) => t.id === selectedTemplate.value)?.name
 					});
 				}
