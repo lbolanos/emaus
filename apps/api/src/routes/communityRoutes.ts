@@ -4,9 +4,11 @@ import { isAuthenticated } from '../middleware/isAuthenticated';
 import { validateRequest } from '../middleware/validateRequest';
 import {
 	requirePermission,
+	requireRole,
 	requireCommunityAccess,
 	requireCommunityMeetingAccess,
 } from '../middleware/authorization';
+import { publicCommunityRegisterLimiter } from '../middleware/rateLimiting';
 import {
 	createCommunitySchema,
 	updateCommunitySchema,
@@ -16,6 +18,8 @@ import {
 	updateMemberStateSchema,
 	recordAttendanceSchema,
 	inviteCommunityAdminSchema,
+	publicRegisterCommunitySchema,
+	rejectCommunitySchema,
 } from '@repo/types';
 
 const router = Router();
@@ -37,11 +41,33 @@ router.post('/public/attendance/:communityId/:meetingId', (req, res) =>
 	CommunityController.recordPublicAttendance(req, res),
 );
 
+// Public community registration (NO AUTH required) — pending superadmin approval
+router.post(
+	'/public/register',
+	publicCommunityRegisterLimiter,
+	validateRequest(publicRegisterCommunitySchema),
+	(req, res) => CommunityController.publicRegisterCommunity(req, res),
+);
+
 // Public join request route (NO AUTH required)
 router.post('/:id/join-public', (req, res) => CommunityController.publicJoinRequest(req, res));
 
 // All other community routes require authentication
 router.use(isAuthenticated);
+
+// Superadmin moderation routes for public community registrations
+router.get('/pending', requireRole('superadmin'), (req, res) =>
+	CommunityController.listPendingCommunities(req, res),
+);
+router.post('/:id/approve', requireRole('superadmin'), (req, res) =>
+	CommunityController.approveCommunity(req, res),
+);
+router.post(
+	'/:id/reject',
+	requireRole('superadmin'),
+	validateRequest(rejectCommunitySchema),
+	(req, res) => CommunityController.rejectCommunity(req, res),
+);
 
 // Communities CRUD
 // Get communities - any authenticated user can get their own communities (service filters by admin status)

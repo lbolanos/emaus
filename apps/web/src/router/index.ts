@@ -153,6 +153,12 @@ const router = createRouter({
 			meta: { requiresAuth: false },
 		},
 		{
+			path: '/registrar-comunidad',
+			name: 'register-community',
+			component: () => import('../views/RegisterCommunityView.vue'),
+			meta: { requiresAuth: false },
+		},
+		{
 			path: '/privacy',
 			name: 'privacy',
 			component: () => import('../views/PrivacyPolicyView.vue'),
@@ -427,6 +433,12 @@ const router = createRouter({
 					name: 'communities',
 					component: () => import('../views/CommunityListView.vue'),
 					meta: { requiresRetreat: false },
+				},
+				{
+					path: 'communities/pending',
+					name: 'pending-communities',
+					component: () => import('../views/PendingCommunitiesView.vue'),
+					meta: { requiresRetreat: false, requiresSuperadmin: true },
 				},
 				{
 					path: 'communities/:id',

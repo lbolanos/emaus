@@ -393,4 +393,74 @@ export class CommunityController {
 			});
 		}
 	}
+
+	// --- Public Community Registration ---
+
+	static async publicRegisterCommunity(req: Request, res: Response) {
+		try {
+			const { recaptchaToken, ...data } = req.body;
+
+			const recaptchaResult = await recaptchaService.verifyToken(recaptchaToken, {
+				minScore: 0.5,
+			});
+
+			if (!recaptchaResult.valid) {
+				return res
+					.status(400)
+					.json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
+			}
+
+			const community = await communityService.publicRegisterCommunity(data);
+
+			// No exponemos toda la entidad: solo confirmación.
+			res.status(201).json({
+				id: community.id,
+				status: community.status,
+				message: 'Tu comunidad fue registrada. Un administrador la revisará antes de publicarla.',
+			});
+		} catch (error: any) {
+			console.error('Error registering community publicly:', error);
+			res.status(500).json({
+				message: error.message || 'Failed to register community',
+			});
+		}
+	}
+
+	static async listPendingCommunities(_req: Request, res: Response) {
+		try {
+			const communities = await communityService.listPendingCommunities();
+			res.json(communities);
+		} catch (error: any) {
+			res.status(500).json({ message: error.message || 'Failed to list pending communities' });
+		}
+	}
+
+	static async approveCommunity(req: Request, res: Response) {
+		try {
+			const { id } = req.params;
+			const userId = (req.user as any).id;
+			const community = await communityService.approveCommunity(id, userId);
+			res.json(community);
+		} catch (error: any) {
+			if (error.message === 'Community not found') {
+				return res.status(404).json({ message: error.message });
+			}
+			res.status(500).json({ message: error.message || 'Failed to approve community' });
+		}
+	}
+
+	static async rejectCommunity(req: Request, res: Response) {
+		try {
+			const { id } = req.params;
+			const { rejectionReason } = req.body || {};
+			const userId = (req.user as any).id;
+			const community = await communityService.rejectCommunity(id, userId, rejectionReason);
+			res.json(community);
+		} catch (error: any) {
+			if (error.message === 'Community not found') {
+				return res.status(404).json({ message: error.message });
+			}
+			res.status(500).json({ message: error.message || 'Failed to reject community' });
+		}
+	}
 }

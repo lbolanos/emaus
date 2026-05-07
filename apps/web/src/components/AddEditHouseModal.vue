@@ -573,6 +573,7 @@ import { Trash2, Search, AlertCircle, MapPin, Loader2, ExternalLink, Bed as BedI
 import type { House, Bed } from '@repo/types';
 import { z } from 'zod';
 import BulkOperationsModal from './BulkOperationsModal.vue';
+import { loadGoogleMaps } from '@/utils/googleMaps';
 
 const props = defineProps({
   open: Boolean,
@@ -1273,22 +1274,33 @@ const isEditing = computed(() => !!props.house);
 const autocompleteField = ref<any>(null);
 const mapContainer = ref<HTMLElement | null>(null);
 let map: google.maps.Map | null = null;
-let marker: google.maps.Marker | null = null;
+let marker: google.maps.marker.AdvancedMarkerElement | null = null;
 
 const initMap = async (lat: number, lng: number) => {
   if (mapContainer.value) {
     mapLoading.value = true;
     try {
+      // Asegurar que google.maps esté completamente listo (importante en Safari/WebKit
+      // donde script.onload se dispara antes de que los constructores estén disponibles).
+      await loadGoogleMaps();
+      const [{ Map }, { AdvancedMarkerElement }] = await Promise.all([
+        google.maps.importLibrary('maps') as Promise<google.maps.MapsLibrary>,
+        google.maps.importLibrary('marker') as Promise<google.maps.MarkerLibrary>,
+      ]);
       const center = { lat, lng };
       if (!map) {
-        map = new google.maps.Map(mapContainer.value, { center, zoom: 15 });
+        map = new Map(mapContainer.value, {
+          center,
+          zoom: 15,
+          mapId: 'EMAUS_HOUSE_MAP', // requerido por AdvancedMarkerElement
+        });
       } else {
         map.setCenter(center);
       }
       if (!marker) {
-        marker = new google.maps.Marker({ position: center, map: map });
+        marker = new AdvancedMarkerElement({ position: center, map });
       } else {
-        marker.setPosition(center);
+        marker.position = center;
       }
     } catch (error) {
       toast({

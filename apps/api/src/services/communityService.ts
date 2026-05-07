@@ -5,6 +5,7 @@ import { CommunityMeeting } from '../entities/communityMeeting.entity';
 import { CommunityAdmin } from '../entities/communityAdmin.entity';
 import { CommunityAttendance } from '../entities/communityAttendance.entity';
 import { User } from '../entities/user.entity';
+import { UserRole } from '../entities/userRole.entity';
 import { Participant } from '../entities/participant.entity';
 import { MemberState } from '@repo/types';
 import { In, MoreThanOrEqual } from 'typeorm';
@@ -41,15 +42,31 @@ export class CommunityService {
 	}
 
 	async getCommunities(userId: string) {
-		// Get communities where the user is an admin or owner
-		const adminRecords = await this.adminRepo.find({
-			where: { userId, status: 'active' },
-			relations: ['community'],
-		});
+		// Superadmin ve TODAS las comunidades activas. Query directa al repo de
+		// UserRole para evitar la dependencia con authorizationService (singleton
+		// con cache que rompe los tests aislados con AppDataSource swap).
+		const isSuperadmin =
+			(await AppDataSource.getRepository(UserRole)
+				.createQueryBuilder('ur')
+				.leftJoin('ur.role', 'role')
+				.where('ur.userId = :userId', { userId })
+				.andWhere('role.name = :name', { name: 'superadmin' })
+				.getCount()) > 0;
 
-		const communities = adminRecords
-			.map((record) => record.community)
-			.filter((community) => community && community.id);
+		let communities: Community[];
+		if (isSuperadmin) {
+			communities = await this.communityRepo.find({
+				where: { status: 'active' },
+			});
+		} else {
+			const adminRecords = await this.adminRepo.find({
+				where: { userId, status: 'active' },
+				relations: ['community'],
+			});
+			communities = adminRecords
+				.map((record) => record.community)
+				.filter((community) => community && community.id);
+		}
 
 		// Add member count to each community
 		const communitiesWithCounts = await Promise.all(
@@ -563,10 +580,158 @@ export class CommunityService {
 	}
 
 	async getPublicCommunities() {
-		// Return basic info for all communities for the map
+		// Return basic info for active communities (for the public map)
 		return this.communityRepo.find({
+			where: { status: 'active' },
 			select: ['id', 'name', 'city', 'state', 'latitude', 'longitude'],
 		});
+	}
+
+	async publicRegisterCommunity(data: {
+		name: string;
+		description?: string;
+		address1: string;
+		address2?: string;
+		city: string;
+		state: string;
+		zipCode: string;
+		country: string;
+		latitude: number;
+		longitude: number;
+		googleMapsUrl?: string;
+		parish?: string;
+		diocese?: string;
+		website?: string;
+		facebookUrl?: string;
+		instagramUrl?: string;
+		contactName: string;
+		contactEmail: string;
+		contactPhone?: string;
+		defaultMeetingDayOfWeek?: string;
+		defaultMeetingInterval?: number;
+		defaultMeetingTime?: string;
+		defaultMeetingDurationMinutes?: number;
+		defaultMeetingDescription?: string;
+	}) {
+		const community = this.communityRepo.create({
+			...data,
+			createdBy: null,
+			status: 'pending',
+			submittedAt: new Date(),
+		});
+		return this.communityRepo.save(community);
+	}
+
+	private getNextDayOfWeekDate(dayOfWeek: string, time: string): Date {
+		const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+		const targetDay = days.indexOf(dayOfWeek.toLowerCase());
+		if (targetDay < 0) return new Date();
+
+		const [hours, minutes] = time.split(':').map(Number);
+		const now = new Date();
+		const result = new Date(now);
+		result.setHours(hours, minutes, 0, 0);
+
+		const currentDay = result.getDay();
+		let diff = targetDay - currentDay;
+		if (diff < 0 || (diff === 0 && result <= now)) {
+			diff += 7;
+		}
+		result.setDate(result.getDate() + diff);
+		return result;
+	}
+
+	private async createDefaultMeetingForCommunity(community: Community) {
+		if (
+			!community.defaultMeetingDayOfWeek ||
+			!community.defaultMeetingTime ||
+			!community.defaultMeetingInterval
+		) {
+			return null;
+		}
+
+		const startDate = this.getNextDayOfWeekDate(
+			community.defaultMeetingDayOfWeek,
+			community.defaultMeetingTime,
+		);
+
+		const durationMinutes = community.defaultMeetingDurationMinutes ?? 90;
+
+		const meeting = this.meetingRepo.create({
+			communityId: community.id,
+			title: `Reunión ${community.name}`,
+			description: community.defaultMeetingDescription ?? undefined,
+			startDate,
+			durationMinutes,
+			isAnnouncement: false,
+			recurrenceFrequency: 'weekly',
+			recurrenceInterval: community.defaultMeetingInterval,
+			recurrenceDayOfWeek: community.defaultMeetingDayOfWeek,
+			isRecurrenceTemplate: true,
+		});
+
+		return this.meetingRepo.save(meeting);
+	}
+
+	async listPendingCommunities() {
+		return this.communityRepo.find({
+			where: { status: 'pending' },
+			order: { submittedAt: 'DESC' },
+		});
+	}
+
+	async approveCommunity(id: string, approverId: string) {
+		const community = await this.communityRepo.findOne({ where: { id } });
+		if (!community) throw new Error('Community not found');
+		if (community.status === 'active') return community;
+
+		const wasPending = community.status === 'pending';
+
+		community.status = 'active';
+		community.approvedAt = new Date();
+		community.approvedBy = approverId;
+		community.rejectionReason = undefined;
+		const saved = await this.communityRepo.save(community);
+
+		if (wasPending) {
+			// Asignar al aprobador como owner para que pueda gestionarla
+			// (invitar al responsable como admin después).
+			const existingAdmin = await this.adminRepo.findOne({
+				where: { communityId: saved.id, userId: approverId },
+			});
+			if (!existingAdmin) {
+				const admin = this.adminRepo.create({
+					communityId: saved.id,
+					userId: approverId,
+					role: 'owner',
+					status: 'active',
+					acceptedAt: new Date(),
+				});
+				await this.adminRepo.save(admin);
+			}
+
+			// Crear la reunión recurrente por defecto solo la primera vez que se aprueba
+			// y si la comunidad capturó el horario al registrarse.
+			const existingMeeting = await this.meetingRepo.findOne({
+				where: { communityId: saved.id, isRecurrenceTemplate: true },
+			});
+			if (!existingMeeting) {
+				await this.createDefaultMeetingForCommunity(saved);
+			}
+		}
+
+		return saved;
+	}
+
+	async rejectCommunity(id: string, approverId: string, reason?: string) {
+		const community = await this.communityRepo.findOne({ where: { id } });
+		if (!community) throw new Error('Community not found');
+
+		community.status = 'rejected';
+		community.approvedAt = new Date();
+		community.approvedBy = approverId;
+		community.rejectionReason = reason;
+		return this.communityRepo.save(community);
 	}
 
 	async getPublicMeetings() {

@@ -577,6 +577,14 @@ const menuSections: MenuSection[] = [
         icon: UsersRound,
         requiresRetreat: false,
         label: 'sidebar.communities'
+      },
+      {
+        name: 'pending-communities',
+        routeName: 'pending-communities',
+        icon: UsersRound,
+        requiresRetreat: false,
+        permission: 'superadmin',
+        label: 'sidebar.pendingCommunities'
       }
     ],
     position: 'top'

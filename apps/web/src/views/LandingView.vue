@@ -186,9 +186,17 @@
             {{ $t('landing.globalPresence') }}
           </span>
           <h2 class="text-4xl font-light text-stone-900 mb-6 leading-tight">{{ $t('landing.findCommunity') }}</h2>
-          <p class="text-stone-600 mb-8 leading-relaxed max-w-md">
+          <p class="text-stone-600 mb-6 leading-relaxed max-w-md">
             {{ $t('landing.communityDesc') }}
           </p>
+
+          <router-link
+            to="/registrar-comunidad"
+            class="inline-flex items-center gap-2 px-5 py-3 mb-8 rounded-full bg-stone-800 text-white text-sm font-medium hover:bg-stone-700 transition-all"
+          >
+            <MapPin :size="16" />
+            {{ $t('landing.registerCommunityCta') }}
+          </router-link>
 
           <div class="space-y-4">
             <div class="p-4 rounded-xl bg-white shadow-sm border border-stone-100 flex items-center gap-4">

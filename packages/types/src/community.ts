@@ -23,6 +23,10 @@ export const ParticipationFrequencyEnum = z.enum([
 ]);
 export type ParticipationFrequency = z.infer<typeof ParticipationFrequencyEnum>;
 
+// Community status enum
+export const CommunityStatusEnum = z.enum(['pending', 'active', 'rejected']);
+export type CommunityStatus = z.infer<typeof CommunityStatusEnum>;
+
 // Community schema
 export const communitySchema = z.object({
 	id: z.string().uuid(),
@@ -37,7 +41,25 @@ export const communitySchema = z.object({
 	latitude: z.number().optional(),
 	longitude: z.number().optional(),
 	googleMapsUrl: z.string().optional(),
-	createdBy: z.string().uuid(),
+	createdBy: z.string().uuid().nullable().optional(),
+	status: CommunityStatusEnum.default('active'),
+	parish: z.string().optional().nullable(),
+	diocese: z.string().optional().nullable(),
+	website: z.string().optional().nullable(),
+	facebookUrl: z.string().optional().nullable(),
+	instagramUrl: z.string().optional().nullable(),
+	contactName: z.string().optional().nullable(),
+	contactEmail: z.string().optional().nullable(),
+	contactPhone: z.string().optional().nullable(),
+	submittedAt: z.coerce.date().optional().nullable(),
+	approvedAt: z.coerce.date().optional().nullable(),
+	approvedBy: z.string().uuid().optional().nullable(),
+	rejectionReason: z.string().optional().nullable(),
+	defaultMeetingDayOfWeek: z.string().optional().nullable(),
+	defaultMeetingInterval: z.number().int().positive().optional().nullable(),
+	defaultMeetingTime: z.string().optional().nullable(),
+	defaultMeetingDurationMinutes: z.number().int().positive().optional().nullable(),
+	defaultMeetingDescription: z.string().optional().nullable(),
 	createdAt: z.coerce.date(),
 	updatedAt: z.coerce.date(),
 	// Calculated fields
@@ -46,6 +68,17 @@ export const communitySchema = z.object({
 	stats: z.any().optional(),
 });
 export type Community = z.infer<typeof communitySchema>;
+
+export const DayOfWeekEnum = z.enum([
+	'monday',
+	'tuesday',
+	'wednesday',
+	'thursday',
+	'friday',
+	'saturday',
+	'sunday',
+]);
+export type DayOfWeek = z.infer<typeof DayOfWeekEnum>;
 
 // CommunityMember schema
 export const communityMemberSchema = z.object({
@@ -213,5 +246,60 @@ export const publicJoinRequestSchema = z.object({
 	}),
 	params: z.object({
 		id: z.string().uuid(),
+	}),
+});
+
+const optionalUrl = z
+	.string()
+	.trim()
+	.url()
+	.optional()
+	.or(z.literal('').transform(() => undefined));
+
+export const publicRegisterCommunitySchema = z.object({
+	body: z.object({
+		name: z.string().trim().min(1).max(200),
+		description: z.string().trim().max(2000).optional(),
+		address1: z.string().trim().min(1).max(255),
+		address2: z.string().trim().max(255).optional(),
+		city: z.string().trim().min(1).max(255),
+		state: z.string().trim().min(1).max(255),
+		zipCode: z.string().trim().min(1).max(20),
+		country: z.string().trim().min(1).max(255),
+		latitude: z.number().min(-90).max(90),
+		longitude: z.number().min(-180).max(180),
+		googleMapsUrl: optionalUrl,
+		parish: z.string().trim().max(255).optional(),
+		diocese: z.string().trim().max(255).optional(),
+		website: optionalUrl,
+		facebookUrl: optionalUrl,
+		instagramUrl: optionalUrl,
+		contactName: z.string().trim().min(1).max(255),
+		contactEmail: z.string().trim().toLowerCase().email(),
+		contactPhone: z.string().trim().max(50).optional(),
+		// Horario por defecto (opcional). Si se llenan, al aprobar se crea una reunión recurrente.
+		defaultMeetingDayOfWeek: DayOfWeekEnum.optional(),
+		defaultMeetingInterval: z.number().int().min(1).max(12).optional(),
+		defaultMeetingTime: z
+			.string()
+			.regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Hora inválida (formato HH:mm)')
+			.optional(),
+		defaultMeetingDurationMinutes: z.number().int().min(15).max(600).optional(),
+		defaultMeetingDescription: z.string().trim().max(1000).optional(),
+		recaptchaToken: z.string().min(1),
+	}),
+});
+export type PublicRegisterCommunityInput = z.infer<
+	typeof publicRegisterCommunitySchema
+>['body'];
+
+export const approveCommunitySchema = z.object({
+	params: z.object({ id: z.string().uuid() }),
+});
+
+export const rejectCommunitySchema = z.object({
+	params: z.object({ id: z.string().uuid() }),
+	body: z.object({
+		rejectionReason: z.string().trim().max(2000).optional(),
 	}),
 });

@@ -126,6 +126,29 @@ export const publicParticipantLimiter = rateLimit({
 });
 
 /**
+ * Public community registration rate limiter (prevent spam communities)
+ */
+export const publicCommunityRegisterLimiter = rateLimit({
+	windowMs: 60 * 60 * 1000, // 1 hour
+	max: 3, // Max 3 registrations per IP per hour
+	keyGenerator: (req: Request) => req.ip || 'unknown',
+	message: {
+		message: 'Demasiados registros de comunidad. Inténtalo en 1 hora.',
+		error: 'COMMUNITY_REGISTER_RATE_LIMIT_EXCEEDED',
+	},
+	handler: (req: Request, res: Response) => {
+		console.warn(`⚠️  Rate limit - Community register: IP=${req.ip}`);
+		res.status(429).json({
+			message: 'Demasiados registros de comunidad. Inténtalo en 1 hora.',
+			error: 'COMMUNITY_REGISTER_RATE_LIMIT_EXCEEDED',
+		});
+	},
+	skip: (req: Request) => {
+		return process.env.NODE_ENV === 'development' && process.env.SKIP_RATE_LIMIT === 'true';
+	},
+});
+
+/**
  * Newsletter subscribe/unsubscribe rate limiter (prevent email bombing)
  */
 export const newsletterLimiter = rateLimit({

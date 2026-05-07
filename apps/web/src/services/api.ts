@@ -1334,6 +1334,78 @@ export async function publicCommunityJoinRequest(
   return response.json();
 }
 
+export interface PublicRegisterCommunityInput {
+  name: string;
+  description?: string;
+  address1: string;
+  address2?: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+  googleMapsUrl?: string;
+  parish?: string;
+  diocese?: string;
+  website?: string;
+  facebookUrl?: string;
+  instagramUrl?: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone?: string;
+  defaultMeetingDayOfWeek?: string;
+  defaultMeetingInterval?: number;
+  defaultMeetingTime?: string;
+  defaultMeetingDurationMinutes?: number;
+  defaultMeetingDescription?: string;
+  recaptchaToken: string;
+}
+
+// Public community registration (no auth required, uses fetch directly)
+export async function publicRegisterCommunity(
+  data: PublicRegisterCommunityInput,
+): Promise<{ id: string; status: string; message: string }> {
+  const response = await fetch(`/api/communities/public/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    let errorMessage = "Failed to register community";
+    try {
+      const error = await response.json();
+      errorMessage = error.message || errorMessage;
+    } catch {
+      errorMessage = `Server error: ${response.status} ${response.statusText}`;
+    }
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+}
+
+export async function listPendingCommunities(): Promise<Community[]> {
+  const response = await api.get(`/communities/pending`);
+  return response.data;
+}
+
+export async function approveCommunity(id: string): Promise<Community> {
+  const response = await api.post(`/communities/${id}/approve`);
+  return response.data;
+}
+
+export async function rejectCommunity(
+  id: string,
+  rejectionReason?: string,
+): Promise<Community> {
+  const response = await api.post(`/communities/${id}/reject`, {
+    rejectionReason,
+  });
+  return response.data;
+}
+
 export async function getCommunityAdmins(
   communityId: string,
 ): Promise<CommunityAdmin[]> {
