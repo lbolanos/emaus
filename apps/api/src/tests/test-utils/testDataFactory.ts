@@ -479,13 +479,18 @@ export class TestDataFactory {
 	}
 
 	/**
-	 * Create a global message template
+	 * Create a global message template.
+	 *
+	 * Default `name` includes a UUID suffix because `Date.now()` collides
+	 * when several templates are created in the same millisecond — that
+	 * tripped UNIQUE on `global_message_templates.name`.
 	 */
 	static async createGlobalMessageTemplate(overrides: any = {}): Promise<any> {
 		const { GlobalMessageTemplate } = await import('@/entities/globalMessageTemplate.entity');
+		const { v4: uuidv4 } = await import('uuid');
 		const templateRepository = this.testDataSource.getRepository(GlobalMessageTemplate);
 		const template = templateRepository.create({
-			name: `Test Template ${Date.now()}`,
+			name: `Test Template ${Date.now()}-${uuidv4().slice(0, 8)}`,
 			type: 'TEST_TEMPLATE',
 			message: '<h1>Test Subject</h1><p>Hello {user.displayName}, this is a test.</p>',
 			isActive: true,
