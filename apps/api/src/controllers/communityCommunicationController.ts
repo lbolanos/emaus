@@ -3,8 +3,10 @@ import { AppDataSource } from '../data-source';
 import { ParticipantCommunication, MessageType } from '../entities/participantCommunication.entity';
 import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { CommunityMember } from '../entities/communityMember.entity';
+import { CommunityAdmin } from '../entities/communityAdmin.entity';
 import { DeepPartial } from 'typeorm';
 import { EmailService } from '../services/emailService';
+import { authorizationService } from '../middleware/authorization';
 
 interface CreateCommunicationDTO {
 	communityMemberId: string;
@@ -15,6 +17,25 @@ interface CreateCommunicationDTO {
 	templateId?: string;
 	templateName?: string;
 	subject?: string;
+}
+
+// Returns true when the caller is a superadmin OR an active admin of
+// `communityId`. Use to gate every endpoint in this controller — without
+// this check, any authenticated user could read, create or send messages
+// scoped to any community, since the only middleware on these routes is
+// `isAuthenticated`.
+async function callerHasCommunityAccess(req: Request, communityId: string): Promise<boolean> {
+	const userId = (req.user as any)?.id;
+	if (!userId || !communityId) {
+		return false;
+	}
+	if (await authorizationService.hasRole(userId, 'superadmin')) {
+		return true;
+	}
+	const adminRecord = await AppDataSource.getRepository(CommunityAdmin).findOne({
+		where: { communityId, userId, status: 'active' },
+	});
+	return !!adminRecord;
 }
 
 export class CommunityCommunicationController {
@@ -39,6 +60,18 @@ export class CommunityCommunicationController {
 				return res.status(404).json({
 					error: 'Miembro de comunidad no encontrado',
 				});
+			}
+
+			// Authorize against the member's community — fall back to the query
+			// param when present (it must match the member's community).
+			const memberCommunityId = (communityMember as any).communityId;
+			if (communityId && communityId !== memberCommunityId) {
+				return res.status(400).json({
+					error: 'communityId no corresponde al miembro',
+				});
+			}
+			if (!(await callerHasCommunityAccess(req, memberCommunityId))) {
+				return res.status(403).json({ error: 'Forbidden' });
 			}
 
 			const where: any = {
@@ -141,6 +174,11 @@ export class CommunityCommunicationController {
 				});
 			}
 
+			// Caller must be admin of the target community.
+			if (!(await callerHasCommunityAccess(req, dto.communityId))) {
+				return res.status(403).json({ error: 'Forbidden' });
+			}
+
 			// Verify community member exists and get participant info
 			const communityMember = await this.communityMemberRepository.findOne({
 				where: { id: dto.communityMemberId },
@@ -153,11 +191,22 @@ export class CommunityCommunicationController {
 				});
 			}
 
-			// If templateId is provided, verify it exists and get template name
-			let templateName = dto.templateName;
-			if (dto.templateId) {
+			// Member must belong to the community in the DTO (defense in depth).
+			if ((communityMember as any).communityId !== dto.communityId) {
+				return res.status(400).json({
+					error: 'El miembro no pertenece a la comunidad indicada',
+				});
+			}
+
+			// Normalize templateId/templateName: an empty string from the
+			// frontend would violate the FK on the raw INSERT below, so coerce
+			// any falsy value to null (= "direct message, no template").
+			const templateId = dto.templateId ? dto.templateId : null;
+			let templateName = dto.templateName ? dto.templateName : null;
+
+			if (templateId) {
 				const template = await this.templateRepository.findOne({
-					where: { id: dto.templateId },
+					where: { id: templateId },
 				});
 
 				if (!template) {
@@ -186,7 +235,7 @@ export class CommunityCommunicationController {
 					dto.messageType,
 					dto.recipientContact,
 					dto.messageContent,
-					dto.templateId,
+					templateId,
 					templateName,
 					dto.subject,
 					userId,
@@ -295,6 +344,16 @@ export class CommunityCommunicationController {
 				});
 			}
 
+			// Only an admin of the communication's community (or a superadmin)
+			// may delete it.
+			if (
+				communication.scope !== 'community' ||
+				!communication.communityId ||
+				!(await callerHasCommunityAccess(req, communication.communityId))
+			) {
+				return res.status(403).json({ error: 'Forbidden' });
+			}
+
 			await this.communicationRepository.remove(communication);
 
 			res.json({
@@ -322,6 +381,13 @@ export class CommunityCommunicationController {
 				});
 			}
 
+			// Critical: verify caller is admin of the community before using
+			// the SMTP server to send mail. Without this, any authenticated
+			// user could send emails as Emaus to arbitrary recipients.
+			if (!(await callerHasCommunityAccess(req, communityId))) {
+				return res.status(403).json({ error: 'Forbidden' });
+			}
+
 			// Verify community member exists
 			const communityMember = await this.communityMemberRepository.findOne({
 				where: { id: communityMemberId },
@@ -331,6 +397,13 @@ export class CommunityCommunicationController {
 			if (!communityMember) {
 				return res.status(404).json({
 					error: 'Miembro de comunidad no encontrado',
+				});
+			}
+
+			// Member must belong to the community claimed in the body.
+			if ((communityMember as any).communityId !== communityId) {
+				return res.status(400).json({
+					error: 'El miembro no pertenece a la comunidad indicada',
 				});
 			}
 

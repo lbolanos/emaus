@@ -743,12 +743,21 @@ export const requireCommunityAccess = (communityIdParam: string = 'id'): any => 
 				return res.status(401).json({ message: 'Unauthorized' });
 			}
 
-			const { CommunityAdmin } = await import('../entities/communityAdmin.entity');
 			const communityId = req.params[communityIdParam];
 
 			if (!communityId) {
 				return res.status(400).json({ message: 'Community ID is required' });
 			}
+
+			// Superadmins bypass community-admin checks (mirrors `getCommunities`
+			// in communityService.ts where superadmins see every community).
+			const isSuperadmin = await authorizationService.hasRole(req.user.id, 'superadmin');
+			if (isSuperadmin) {
+				req.communityAdmin = null;
+				return next();
+			}
+
+			const { CommunityAdmin } = await import('../entities/communityAdmin.entity');
 
 			// Check if user is an active admin of this community
 			const adminRecord = await AppDataSource.getRepository(CommunityAdmin).findOne({
@@ -782,7 +791,6 @@ export const requireCommunityMeetingAccess = (meetingIdParam: string = 'id'): an
 				return res.status(401).json({ message: 'Unauthorized' });
 			}
 
-			const { CommunityAdmin } = await import('../entities/communityAdmin.entity');
 			const { CommunityMeeting } = await import('../entities/communityMeeting.entity');
 			const meetingId = req.params[meetingIdParam];
 
@@ -798,6 +806,16 @@ export const requireCommunityMeetingAccess = (meetingIdParam: string = 'id'): an
 			if (!meeting) {
 				return res.status(404).json({ message: 'Meeting not found' });
 			}
+
+			// Superadmins bypass community-admin checks.
+			const isSuperadmin = await authorizationService.hasRole(req.user.id, 'superadmin');
+			if (isSuperadmin) {
+				req.communityAdmin = null;
+				next();
+				return;
+			}
+
+			const { CommunityAdmin } = await import('../entities/communityAdmin.entity');
 
 			// Check if user is an active admin of this meeting's community
 			const adminRecord = await AppDataSource.getRepository(CommunityAdmin).findOne({

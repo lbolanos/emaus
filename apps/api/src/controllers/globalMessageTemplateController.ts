@@ -3,6 +3,21 @@ import { GlobalMessageTemplateService } from '../services/globalMessageTemplateS
 import { CommunityAdmin } from '../entities/communityAdmin.entity';
 import { AppDataSource } from '../data-source';
 import { MessageTemplate } from '../entities/messageTemplate.entity';
+import { authorizationService } from '../middleware/authorization';
+
+// Returns true when the user is a superadmin OR an active admin of the
+// community. Mirrors the bypass in `requireCommunityAccess` so superadmins
+// can copy templates into any community even if they don't have a
+// `community_admin` row.
+async function isCommunityAdminOrSuperadmin(userId: string, communityId: string): Promise<boolean> {
+	if (await authorizationService.hasRole(userId, 'superadmin')) {
+		return true;
+	}
+	const adminRecord = await AppDataSource.getRepository(CommunityAdmin).findOne({
+		where: { communityId, userId, status: 'active' },
+	});
+	return !!adminRecord;
+}
 
 export class GlobalMessageTemplateController {
 	private globalMessageTemplateService: GlobalMessageTemplateService;
@@ -169,20 +184,12 @@ export class GlobalMessageTemplateController {
 			const { id: globalTemplateId } = req.params;
 			const { communityId } = req.body;
 
-			// Check community admin access
+			// Check community admin access (or superadmin bypass)
 			if (!req.user) {
 				return res.status(401).json({ error: 'Unauthorized' });
 			}
 
-			const adminRecord = await AppDataSource.getRepository(CommunityAdmin).findOne({
-				where: {
-					communityId,
-					userId: (req.user as any).id,
-					status: 'active',
-				},
-			});
-
-			if (!adminRecord) {
+			if (!(await isCommunityAdminOrSuperadmin((req.user as any).id, communityId))) {
 				return res.status(403).json({
 					error: 'Forbidden - Not a community admin',
 				});
@@ -215,20 +222,12 @@ export class GlobalMessageTemplateController {
 		try {
 			const { communityId } = req.params;
 
-			// Check community admin access
+			// Check community admin access (or superadmin bypass)
 			if (!req.user) {
 				return res.status(401).json({ error: 'Unauthorized' });
 			}
 
-			const adminRecord = await AppDataSource.getRepository(CommunityAdmin).findOne({
-				where: {
-					communityId,
-					userId: (req.user as any).id,
-					status: 'active',
-				},
-			});
-
-			if (!adminRecord) {
+			if (!(await isCommunityAdminOrSuperadmin((req.user as any).id, communityId))) {
 				return res.status(403).json({
 					error: 'Forbidden - Not a community admin',
 				});
@@ -254,20 +253,12 @@ export class GlobalMessageTemplateController {
 			const { id: retreatTemplateId } = req.params;
 			const { communityId } = req.body;
 
-			// Check community admin access
+			// Check community admin access (or superadmin bypass)
 			if (!req.user) {
 				return res.status(401).json({ error: 'Unauthorized' });
 			}
 
-			const adminRecord = await AppDataSource.getRepository(CommunityAdmin).findOne({
-				where: {
-					communityId,
-					userId: (req.user as any).id,
-					status: 'active',
-				},
-			});
-
-			if (!adminRecord) {
+			if (!(await isCommunityAdminOrSuperadmin((req.user as any).id, communityId))) {
 				return res.status(403).json({
 					error: 'Forbidden - Not a community admin',
 				});

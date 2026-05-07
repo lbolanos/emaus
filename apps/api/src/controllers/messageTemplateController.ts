@@ -27,6 +27,11 @@ const checkCommunityAccess = async (req: Request, communityId: string): Promise<
 	if (!userId) {
 		return false;
 	}
+	// Superadmins bypass the active-admin requirement (consistent with the
+	// `requireCommunityAccess` middleware and `getCommunities` service).
+	if (await authorizationService.hasRole(userId, 'superadmin')) {
+		return true;
+	}
 	// Check if user is an active admin of this community
 	const adminRecord = await AppDataSource.getRepository(CommunityAdmin).findOne({
 		where: {

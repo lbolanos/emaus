@@ -5,6 +5,7 @@ import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { Participant } from '../entities/participant.entity';
 import { DeepPartial } from 'typeorm';
 import { EmailService, ParticipantEmailData } from '../services/emailService';
+import { authorizationService } from '../middleware/authorization';
 
 class CreateCommunicationDTO {
 	participantId!: string;
@@ -18,6 +19,19 @@ class CreateCommunicationDTO {
 	subject?: string;
 }
 
+// Returns true when the caller is a superadmin OR has access to the
+// retreat (admin/coordinator). Use to gate every retreat-scoped endpoint
+// in this controller — `requirePermission('participant:update')` is a
+// global permission and does NOT restrict to the user's own retreats,
+// which is too coarse for write/SMTP endpoints.
+async function callerHasRetreatAccess(req: Request, retreatId: string): Promise<boolean> {
+	const userId = (req.user as any)?.id;
+	if (!userId || !retreatId) {
+		return false;
+	}
+	return authorizationService.hasRetreatAccess(userId, retreatId);
+}
+
 export class ParticipantCommunicationController {
 	private communicationRepository = AppDataSource.getRepository(ParticipantCommunication);
 	private templateRepository = AppDataSource.getRepository(MessageTemplate);
@@ -29,6 +43,26 @@ export class ParticipantCommunicationController {
 		try {
 			const { participantId } = req.params;
 			const { retreatId, limit = 50, offset = 0 } = req.query;
+
+			// Authorization: caller must have access to the retreat. We
+			// accept the retreat from `?retreatId=` (frontend always sends
+			// it) and fall back to the participant's stored retreatId.
+			let effectiveRetreatId = retreatId as string | undefined;
+			if (!effectiveRetreatId) {
+				const p = await this.participantRepository.findOne({
+					where: { id: participantId },
+				});
+				if (!p) {
+					return res.status(404).json({ error: 'Participante no encontrado' });
+				}
+				effectiveRetreatId = (p as any).retreatId ?? undefined;
+			}
+			if (!effectiveRetreatId) {
+				return res.status(400).json({ error: 'retreatId requerido' });
+			}
+			if (!(await callerHasRetreatAccess(req, effectiveRetreatId))) {
+				return res.status(403).json({ error: 'Forbidden' });
+			}
 
 			const where: any = { participantId };
 			if (retreatId) {
@@ -116,6 +150,14 @@ export class ParticipantCommunicationController {
 				});
 			}
 
+			// Authorization: caller must have access to the target retreat.
+			// `participant:update` is global; it doesn't bind the user to
+			// their own retreats. Without this check, any user with the
+			// permission could create records in retreats they don't own.
+			if (!(await callerHasRetreatAccess(req, dto.retreatId))) {
+				return res.status(403).json({ error: 'Forbidden' });
+			}
+
 			// Verify participant exists
 			const participant = await this.participantRepository.findOne({
 				where: { id: dto.participantId },
@@ -127,8 +169,18 @@ export class ParticipantCommunicationController {
 				});
 			}
 
-			// If templateId is provided, verify it exists and get template name
-			let templateName = dto.templateName;
+			// Defense in depth: participant must belong to the claimed
+			// retreat (when its retreatId is populated).
+			const participantRetreatId = (participant as any).retreatId;
+			if (participantRetreatId && participantRetreatId !== dto.retreatId) {
+				return res.status(400).json({
+					error: 'El participante no pertenece al retiro indicado',
+				});
+			}
+
+			// Normalize templateId to avoid empty-string FK violations.
+			dto.templateId = dto.templateId || undefined;
+			let templateName = dto.templateName || undefined;
 			if (dto.templateId) {
 				const template = await this.templateRepository.findOne({
 					where: { id: dto.templateId },
@@ -253,6 +305,15 @@ export class ParticipantCommunicationController {
 				});
 			}
 
+			// Authorization: caller must have access to the retreat the
+			// communication belongs to.
+			if (
+				!communication.retreatId ||
+				!(await callerHasRetreatAccess(req, communication.retreatId))
+			) {
+				return res.status(403).json({ error: 'Forbidden' });
+			}
+
 			await this.communicationRepository.remove(communication);
 
 			res.json({
@@ -280,6 +341,14 @@ export class ParticipantCommunicationController {
 				});
 			}
 
+			// Critical: caller must own the retreat before we use the SMTP
+			// server in their name. Without this check, any user with
+			// `participant:update` (a global permission) could send mail
+			// from Emaus to any address.
+			if (!(await callerHasRetreatAccess(req, retreatId))) {
+				return res.status(403).json({ error: 'Forbidden' });
+			}
+
 			// Verify participant exists
 			const participant = await this.participantRepository.findOne({
 				where: { id: participantId },
@@ -288,6 +357,14 @@ export class ParticipantCommunicationController {
 			if (!participant) {
 				return res.status(404).json({
 					error: 'Participante no encontrado',
+				});
+			}
+
+			// Defense in depth: participant must belong to the retreat.
+			const participantRetreatId = (participant as any).retreatId;
+			if (participantRetreatId && participantRetreatId !== retreatId) {
+				return res.status(400).json({
+					error: 'El participante no pertenece al retiro indicado',
 				});
 			}
 
