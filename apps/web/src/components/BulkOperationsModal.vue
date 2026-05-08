@@ -340,6 +340,10 @@
                   <span class="font-semibold ml-1">{{ stats.serverBeds }}</span>
                 </div>
               </div>
+              <div v-if="stats.sectors.length > 0" class="flex items-center gap-2 mt-2 flex-wrap">
+                <span class="text-xs text-muted-foreground">Sectores:</span>
+                <Badge v-for="s in stats.sectors" :key="s" variant="outline" class="text-xs">{{ s }}</Badge>
+              </div>
             </div>
 
             <div
@@ -393,6 +397,9 @@
                       >
                         <div class="font-medium">Cama {{ bed.bedNumber }}</div>
                         <div class="text-gray-500">{{ bed.typeLabel }}</div>
+                        <Badge v-if="bed.floorLabel" variant="outline" class="text-[10px] mt-1">
+                          {{ bed.floorLabel }}
+                        </Badge>
                       </div>
                     </div>
                   </div>
@@ -721,11 +728,13 @@ function getFloorLabel(floorNumber: number): string {
 const stats = computed(() => {
   const beds = previewBeds.value;
   const roomSet = new Set(beds.map(b => `${b.floor}-${b.roomNumber}`));
+  const sectorSet = new Set(beds.map(b => b.floorLabel).filter((l): l is string => !!l));
   return {
     totalBeds: beds.length,
     totalRooms: roomSet.size,
     walkerBeds: beds.filter(b => b.defaultUsage === 'caminante').length,
     serverBeds: beds.filter(b => b.defaultUsage === 'servidor').length,
+    sectors: [...sectorSet].sort((a, b) => a.localeCompare(b)),
   };
 });
 

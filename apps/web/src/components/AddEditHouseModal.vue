@@ -369,8 +369,10 @@
                   <template v-else>
                     <h4 class="font-semibold text-sm">
                       {{ floorDisplay(sectorKey.split('||')[0], formData.floorLabels) }}
-                      <span v-if="sectorKey.split('||')[1]" class="font-normal text-muted-foreground"> — {{ sectorKey.split('||')[1] }}</span>
                     </h4>
+                    <Badge v-if="sectorKey.split('||')[1]" variant="outline" class="text-xs">
+                      {{ sectorKey.split('||')[1] }}
+                    </Badge>
                     <Button type="button" variant="ghost" size="sm" class="h-5 w-5 p-0 text-muted-foreground hover:text-foreground" @click="startEditSectorLabel(sectorKey)">
                       <Pencil class="w-3 h-3" />
                     </Button>
@@ -1294,9 +1296,19 @@ const handleBulkOperationsSubmit = (newBeds: any[]) => {
   showBulkOperations.value = false;
 
   const totalAdded = uniqueNewBeds.length + duplicates.length;
-  const successMessage = duplicates.length > 0
+  const allAdded = [...uniqueNewBeds, ...duplicates.map((d: any) => d.new)];
+  const bySector = allAdded.reduce((acc: Record<string, number>, b: any) => {
+    const key = b.floorLabel || '(sin sector)';
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  const sectorDetail = Object.entries(bySector)
+    .map(([sector, n]) => `${n} en "${sector}"`)
+    .join(', ');
+  const baseMsg = duplicates.length > 0
     ? `Se agregaron ${totalAdded} camas (${duplicates.length} reemplazaron camas existentes)`
-    : `Se agregaron ${totalAdded} camas exitosamente`;
+    : `Se agregaron ${totalAdded} camas`;
+  const successMessage = `${baseMsg}: ${sectorDetail}`;
 
   toast({
     title: 'Camas generadas',

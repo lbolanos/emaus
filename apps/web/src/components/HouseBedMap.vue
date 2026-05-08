@@ -303,8 +303,10 @@
                 <div class="flex items-center gap-2 flex-1">
                   <h3 class="text-xl font-bold whitespace-nowrap">
                     {{ floorDisplay(parseSectorKey(String(sectorKey)).floor, (props.house as any)?.floorLabels) }}
-                    <span v-if="parseSectorKey(String(sectorKey)).label" class="font-normal text-gray-500 text-lg"> - {{ parseSectorKey(String(sectorKey)).label }}</span>
                   </h3>
+                  <Badge v-if="parseSectorKey(String(sectorKey)).label" variant="outline" class="text-sm">
+                    {{ parseSectorKey(String(sectorKey)).label }}
+                  </Badge>
                 </div>
                 <div class="ml-auto flex items-center gap-2">
                   <Badge variant="outline">{{ floorBeds.length }} cama(s)</Badge>
