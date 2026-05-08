@@ -545,6 +545,9 @@ en el historial de mensaje al dar clic al mensaje por verlo completo lahora del 
 registro tambien de angelitos acrodarese que no pagan.  los angelitos no van ni a mesa no deben mostrar ni camas.
 
 ## TODO
+ordenar los caminantes en recpecion
+agregar el horario de servicio de los angelitos.
+
 un listado real de responsabilidades
 una forma en bubbles cursor encima da mas informacion pero aveces no funciona entonces colocar una forma segura de sabes mas detalles
 orden correcto en la mesas 1 no debe estar a lado de 10 

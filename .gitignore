@@ -75,3 +75,4 @@ infra/lambda_src.zip
 .claude/scheduled_tasks.lock
 
 .DS_Store
+tmp/chrome/

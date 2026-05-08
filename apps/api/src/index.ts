@@ -23,6 +23,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { MigrationVerifier } from './database/migration-verifier';
 import { roleCleanupService } from './services/roleCleanupService';
 import { attachmentHistoryCleanupService } from './services/attachmentHistoryCleanupService';
+import { santisimoReminderService } from './services/santisimoReminderService';
 import { passwordResetCleanupService } from './services/passwordResetCleanupService';
 import { PerformanceMiddleware, PerformanceRequest } from './middleware/performanceMiddleware';
 import { performanceOptimizationService } from './services/performanceOptimizationService';
@@ -207,6 +208,7 @@ async function main() {
 	roleCleanupService.startScheduledTasks();
 	passwordResetCleanupService.startScheduledTasks();
 	attachmentHistoryCleanupService.startScheduledTasks();
+	santisimoReminderService.startScheduledTasks();
 	await performanceOptimizationService.optimizeHeavyQueries();
 
 	// Ensure minuto-a-minuto default templates exist (idempotent by name).

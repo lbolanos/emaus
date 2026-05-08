@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui'
 import { Label } from '@repo/ui'
 import { Checkbox } from '@repo/ui'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui'
+import AngelitoAvailabilityEditor from '@/components/AngelitoAvailabilityEditor.vue'
 
 type ShirtType = {
   id: string
@@ -18,6 +19,8 @@ type ShirtType = {
 const props = defineProps<{
   errors: Record<string, string>
   shirtTypes?: ShirtType[]
+  retreatStartDate?: string | null
+  retreatEndDate?: string | null
 }>()
 
 const formData = defineModel<Record<string, any>>({ required: true })
@@ -85,6 +88,31 @@ function getSize(typeId: string): string {
           <p class="text-xs text-muted-foreground">{{ $t('serverRegistration.fields.isAngelitoHint') }}</p>
         </div>
       </button>
+
+      <div
+        v-if="formData.isAngelito"
+        class="rounded-lg border border-purple-200 bg-purple-50/40 dark:border-purple-800 dark:bg-purple-950/20 p-3 space-y-2"
+      >
+        <div>
+          <Label class="block text-sm font-medium">
+            {{ $t('serverRegistration.fields.angelitoAvailability.title') }}
+          </Label>
+          <p class="text-xs text-muted-foreground mt-0.5">
+            {{ $t('serverRegistration.fields.angelitoAvailability.hint') }}
+          </p>
+        </div>
+        <AngelitoAvailabilityEditor
+          v-model="formData.availability"
+          :min-date="props.retreatStartDate"
+          :max-date="props.retreatEndDate"
+        />
+        <p
+          v-if="props.errors.availability"
+          class="text-xs text-red-500"
+        >
+          {{ props.errors.availability }}
+        </p>
+      </div>
 
       <div v-if="visibleTypes.length === 0" class="text-sm text-muted-foreground">
         {{ $t('serverRegistration.fields.noShirtsConfigured') }}

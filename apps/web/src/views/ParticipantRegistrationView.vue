@@ -25,6 +25,7 @@ import Step3ServiceInfo from '@/components/registration/Step3ServiceInfo.vue'
 import Step4EmergencyContact from '@/components/registration/Step4EmergencyContact.vue'
 import Step5OtherInfo from '@/components/registration/Step5OtherInfo.vue'
 import Step5ServerInfo from '@/components/registration/Step5ServerInfo.vue'
+import AngelitoAvailabilityEditor from '@/components/AngelitoAvailabilityEditor.vue'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui'
 
 const props = defineProps<{ retreatId?: string; slug?: string; type: string }>()
@@ -44,7 +45,7 @@ const validRetreatId = ref(props.retreatId || '')
 const isLoading = ref(true)
 const retreatData = ref<any>(null)
 
-const getInitialFormData = (): Partial<Omit<Participant, 'id'>> & { hasDisability?: boolean; isAngelito?: boolean } => ({
+const getInitialFormData = (): Partial<Omit<Participant, 'id'>> & { hasDisability?: boolean; isAngelito?: boolean; availability?: Array<{ startTime: string; endTime: string }> } => ({
   retreatId: validRetreatId.value,
   type: props.type as 'walker' | 'server' | 'waiting' | 'partial_server',
   sacraments: (props.type === 'server' || props.type === 'partial_server')
@@ -102,6 +103,7 @@ const getInitialFormData = (): Partial<Omit<Participant, 'id'>> & { hasDisabilit
   pickupLocation: '',
   arrivesOnOwn: true,
   isAngelito: false,
+  availability: [],
   acceptedPrivacyNotice: false,
 })
 
@@ -441,6 +443,9 @@ const handleEmailLookup = async () => {
       const name = [result.firstName, result.lastName].filter(Boolean).join(' ')
       existingParticipantName.value = name
       formData.value.email = emailLookup.value
+      // Por defecto NO marcar como angelito al entrar al flujo de confirmación
+      ;(formData.value as any).isAngelito = false
+      ;(formData.value as any).availability = []
       showEmailLookup.value = false
     } else {
       formData.value.email = emailLookup.value
@@ -472,12 +477,41 @@ const handleConfirmIdentity = async () => {
     const shirtSizes = Object.entries(lookupShirtSizes.value)
       .filter(([, size]) => size && size !== 'null')
       .map(([shirtTypeId, size]) => ({ shirtTypeId, size }))
+    // Si marcó angelito, validar disponibilidad y enviarla al backend
+    let availability: Array<{ startTime: string; endTime: string }> | undefined
+    if ((formData.value as any).isAngelito) {
+      const blocks = ((formData.value as any).availability ?? []) as Array<{ startTime: string; endTime: string }>
+      if (!Array.isArray(blocks) || blocks.length === 0) {
+        toast({
+          title: 'Error',
+          description: t('serverRegistration.fields.angelitoAvailability.required'),
+          variant: 'destructive',
+        })
+        isConfirming.value = false
+        return
+      }
+      for (const b of blocks) {
+        const s = new Date(b.startTime)
+        const e = new Date(b.endTime)
+        if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime()) || e <= s) {
+          toast({
+            title: 'Error',
+            description: t('serverRegistration.fields.angelitoAvailability.invalidRange'),
+            variant: 'destructive',
+          })
+          isConfirming.value = false
+          return
+        }
+      }
+      availability = blocks
+    }
     await confirmExistingRegistration(
       emailLookup.value,
       validRetreatId.value,
       effectiveType,
       recaptchaToken,
       shirtSizes,
+      availability,
     )
     // Show success screen briefly before closing
     showSuccessScreen.value = true
@@ -555,6 +589,33 @@ const onSubmit = async () => {
   if (props.type === 'server' && (formData.value as any).isAngelito) {
     formData.value.type = 'partial_server'
     formData.value.isScholarship = true
+
+    // Validar disponibilidad: al menos un bloque, sin rangos invertidos
+    const blocks = ((formData.value as any).availability ?? []) as Array<{ startTime: string; endTime: string }>
+    if (!Array.isArray(blocks) || blocks.length === 0) {
+      formErrors.availability = t('serverRegistration.fields.angelitoAvailability.required')
+      currentStep.value = 5
+      toast({
+        title: 'Validation Error',
+        description: t('serverRegistration.fields.angelitoAvailability.required'),
+        variant: 'destructive',
+      })
+      return
+    }
+    for (const b of blocks) {
+      const s = new Date(b.startTime)
+      const e = new Date(b.endTime)
+      if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime()) || e <= s) {
+        formErrors.availability = t('serverRegistration.fields.angelitoAvailability.invalidRange')
+        currentStep.value = 5
+        toast({
+          title: 'Validation Error',
+          description: t('serverRegistration.fields.angelitoAvailability.invalidRange'),
+          variant: 'destructive',
+        })
+        return
+      }
+    }
   }
 
   // For servers, make emergency contact fields optional in the final schema
@@ -584,6 +645,11 @@ const onSubmit = async () => {
     return
   }
   const result = { data: zodResult.data as Omit<Participant, 'id' | 'registrationDate' | 'lastUpdatedDate'> }
+
+  // Adjuntar disponibilidad cuando es angelito (fuera del schema base de Participant)
+  if ((formData.value as any).isAngelito && Array.isArray((formData.value as any).availability)) {
+    ;(result.data as any).availability = (formData.value as any).availability
+  }
 
   try {
     // Get reCAPTCHA token for bot protection
@@ -796,7 +862,7 @@ onMounted(async () => {
                 </span>
               </Button>
             </DialogTrigger>
-        <DialogContent class="sm:max-w-[680px] md:max-w-[760px] max-h-[92vh] overflow-y-auto">
+        <DialogContent class="sm:max-w-[680px] md:max-w-[760px] max-h-[92vh] flex flex-col overflow-hidden p-4 sm:p-6">
           <!-- Success Screen (shown briefly after confirming) -->
           <template v-if="showSuccessScreen">
             <div class="py-12 px-4 flex flex-col items-center justify-center text-center space-y-6">
@@ -854,9 +920,9 @@ onMounted(async () => {
 
           <!-- Confirm Identity Screen -->
           <template v-else-if="existingParticipantName">
-            <div class="py-8 px-4 sm:px-6 flex flex-col items-center text-center space-y-6">
+            <div class="flex-1 overflow-y-auto overflow-x-hidden min-h-0 py-6 px-4 sm:px-6 flex flex-col items-center text-center space-y-6">
               <!-- Avatar circle with initials -->
-              <div class="w-24 h-24 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center">
+              <div class="w-24 h-24 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center shrink-0">
                 <span class="text-3xl font-bold text-primary">
                   {{ existingParticipantName.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() }}
                 </span>
@@ -906,6 +972,26 @@ onMounted(async () => {
                 </div>
               </button>
 
+              <!-- Editor de disponibilidad cuando se marca como angelito -->
+              <div
+                v-if="props.type === 'server' && formData.isAngelito"
+                class="w-full text-left rounded-lg border border-purple-200 bg-purple-50/40 dark:border-purple-800 dark:bg-purple-950/20 p-3 space-y-2"
+              >
+                <div>
+                  <Label class="block text-sm font-medium">
+                    {{ $t('serverRegistration.fields.angelitoAvailability.title') }}
+                  </Label>
+                  <p class="text-xs text-muted-foreground mt-0.5">
+                    {{ $t('serverRegistration.fields.angelitoAvailability.hint') }}
+                  </p>
+                </div>
+                <AngelitoAvailabilityEditor
+                  v-model="formData.availability"
+                  :min-date="retreatData?.startDate"
+                  :max-date="retreatData?.endDate"
+                />
+              </div>
+
               <!-- Shirt size selectors in lookup confirm flow -->
               <div v-if="props.type === 'server' && lookupVisibleShirtTypes.length > 0" class="w-full max-w-md text-left space-y-3 border-t pt-4">
                 <p class="text-sm font-medium">{{ $t('serverRegistration.fields.shirtsAskTitle') }}</p>
@@ -930,40 +1016,40 @@ onMounted(async () => {
                   </Select>
                 </div>
               </div>
+            </div>
 
-              <!-- Action buttons stacked on mobile, side by side on desktop -->
-              <div class="flex flex-col-reverse sm:flex-row gap-3 w-full sm:w-auto pt-2">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  @click="handleDenyIdentity"
-                  :disabled="isConfirming"
-                  class="sm:min-w-[180px]"
-                >
-                  {{ $t('serverRegistration.emailLookup.denyButton') }}
-                </Button>
-                <Button
-                  size="lg"
-                  @click="handleConfirmIdentity"
-                  :disabled="isConfirming"
-                  class="sm:min-w-[180px]"
-                >
-                  <svg v-if="isConfirming" class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <svg v-else class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                  {{ $t('serverRegistration.emailLookup.confirmButton') }}
-                </Button>
-              </div>
+            <!-- Footer fijo: botones siempre visibles aunque el contenido scrollee -->
+            <div class="shrink-0 border-t pt-4 px-4 sm:px-6 flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+              <Button
+                variant="outline"
+                size="lg"
+                @click="handleDenyIdentity"
+                :disabled="isConfirming"
+                class="sm:min-w-[180px]"
+              >
+                {{ $t('serverRegistration.emailLookup.denyButton') }}
+              </Button>
+              <Button
+                size="lg"
+                @click="handleConfirmIdentity"
+                :disabled="isConfirming"
+                class="sm:min-w-[180px]"
+              >
+                <svg v-if="isConfirming" class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <svg v-else class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                {{ $t('serverRegistration.emailLookup.confirmButton') }}
+              </Button>
             </div>
           </template>
 
           <!-- Regular Form Steps -->
           <template v-else>
-            <DialogHeader class="space-y-3">
+            <DialogHeader class="space-y-3 shrink-0">
               <div class="flex items-start justify-between gap-3">
                 <div class="flex-1 min-w-0">
                   <DialogTitle class="flex flex-wrap items-center gap-2 text-lg">
@@ -1016,7 +1102,7 @@ onMounted(async () => {
               </div>
             </DialogHeader>
 
-            <div class="px-1 sm:px-2 py-4">
+            <div class="flex-1 overflow-y-auto overflow-x-hidden min-h-0 px-1 sm:px-2 py-4">
               <transition name="step-fade" mode="out-in">
                 <div :key="currentStep">
                   <Step1PersonalInfo v-if="currentStep === 1" v-model="formData" :errors="formErrors" />
@@ -1024,7 +1110,7 @@ onMounted(async () => {
                   <Step3ServiceInfo v-else-if="currentStep === 3" v-model="formData" :errors="formErrors" :type="(props.type as 'walker' | 'server' | 'partial_server' | 'waiting')" />
                   <Step4EmergencyContact v-else-if="currentStep === 4" v-model="formData" :errors="formErrors" :type="(props.type as 'walker' | 'server')" />
                   <Step5OtherInfo v-else-if="currentStep === 5 && props.type === 'walker'" v-model="formData" :errors="formErrors" :showPickupInfo="retreatData?.flyer_options?.showPickupInfo ?? true" :shirt-types="retreatData?.shirtTypes" />
-                  <Step5ServerInfo v-else-if="currentStep === 5 && props.type === 'server'" v-model="formData" :errors="formErrors" :shirt-types="retreatData?.shirtTypes" />
+                  <Step5ServerInfo v-else-if="currentStep === 5 && props.type === 'server'" v-model="formData" :errors="formErrors" :shirt-types="retreatData?.shirtTypes" :retreat-start-date="retreatData?.startDate" :retreat-end-date="retreatData?.endDate" />
 
                   <!-- Step 6: Summary -->
                   <div v-else-if="currentStep === totalSteps">
@@ -1047,7 +1133,7 @@ onMounted(async () => {
                 </div>
               </transition>
             </div>
-            <DialogFooter class="gap-2 sm:gap-0">
+            <DialogFooter class="gap-2 sm:gap-0 shrink-0 border-t pt-4">
               <Button variant="outline" @click="prevStep" v-if="currentStep > 1 || isServerType">
                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />

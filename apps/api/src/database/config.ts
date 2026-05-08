@@ -49,6 +49,7 @@ import { Session } from '../entities/session.entity';
 import { ChatConversation } from '../entities/chatConversation.entity';
 import { SantisimoSlot } from '../entities/santisimoSlot.entity';
 import { SantisimoSignup } from '../entities/santisimoSignup.entity';
+import { ParticipantAvailability } from '../entities/participantAvailability.entity';
 import { ScheduleTemplate } from '../entities/scheduleTemplate.entity';
 import { ScheduleTemplateSet } from '../entities/scheduleTemplateSet.entity';
 import { ResponsabilityAttachment } from '../entities/responsabilityAttachment.entity';
@@ -118,6 +119,7 @@ export function createDatabaseConfig() {
 		// Santisimo
 		SantisimoSlot,
 		SantisimoSignup,
+		ParticipantAvailability,
 		// Minuto a Minuto
 		ScheduleTemplateSet,
 		ScheduleTemplate,

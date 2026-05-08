@@ -3,7 +3,12 @@ import type { ToastProps } from '.';
 import { computed, ref } from 'vue';
 
 const TOAST_LIMIT = 1;
-const TOAST_REMOVE_DELAY = 1000000;
+// Tiempo (ms) que el toast permanece visible antes de auto-cerrarse.
+const TOAST_DEFAULT_DURATION = 5000;
+// Delay desde el cierre visual hasta la eliminación del state (suficiente
+// para la animación de salida; antes era 1_000_000ms ≈ 16 min, lo que
+// dejaba toasts "fantasma" bloqueando los nuevos por TOAST_LIMIT = 1).
+const TOAST_REMOVE_DELAY = 1000;
 
 export type StringOrVNode = string | VNode | (() => VNode);
 
@@ -138,6 +143,7 @@ function toast(props: Toast) {
 	dispatch({
 		type: actionTypes.ADD_TOAST,
 		toast: {
+			duration: TOAST_DEFAULT_DURATION,
 			...props,
 			id,
 			open: true,

@@ -2,8 +2,11 @@
 import { ref, watch, computed } from 'vue';
 import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch, Textarea } from '@repo/ui';
 import TagSelector from './TagSelector.vue';
-import { getParticipantTags, assignTagToParticipant, removeTagFromParticipant, getPalanqueroOptions as fetchPalanqueroOptions } from '@/services/api';
+import AngelitoAvailabilityEditor from './AngelitoAvailabilityEditor.vue';
+import { getParticipantTags, assignTagToParticipant, removeTagFromParticipant, getPalanqueroOptions as fetchPalanqueroOptions, santisimoApi } from '@/services/api';
+import { useI18n } from 'vue-i18n';
 import { useToast } from '@repo/ui';
+import { useRetreatStore } from '@/stores/retreatStore';
 import type { Tag } from '@repo/types';
 import { ChevronDown, ChevronUp, User, Phone, Users, Heart, ClipboardList, MapPin, Briefcase, FileText, Shield, Tag as TagIcon } from 'lucide-vue-next';
 
@@ -17,9 +20,39 @@ const props = defineProps<{
 const emit = defineEmits(['save', 'cancel']);
 
 const { toast } = useToast();
+const { t } = useI18n();
 const localParticipant = ref<any>({});
 const selectedTags = ref<Tag[]>([]);
 const showContactDetails = ref(false);
+const availabilityBlocks = ref<Array<{ id?: string; startTime: string; endTime: string }>>([]);
+
+const isAngelito = computed(() => localParticipant.value?.type === 'partial_server');
+
+const retreatStore = useRetreatStore();
+const participantRetreat = computed(() => {
+  const rid = props.participant?.retreatId;
+  if (!rid) return null;
+  return retreatStore.retreats.find((r: any) => r.id === rid) ?? null;
+});
+
+async function loadAvailability() {
+  const retreatId = props.participant?.retreatId;
+  const participantId = props.participant?.id;
+  if (!retreatId || !participantId) {
+    availabilityBlocks.value = [];
+    return;
+  }
+  try {
+    const rows = await santisimoApi.getParticipantAvailability(retreatId, participantId);
+    availabilityBlocks.value = rows.map((r) => ({
+      id: r.id,
+      startTime: r.startTime,
+      endTime: r.endTime,
+    }));
+  } catch (e) {
+    availabilityBlocks.value = [];
+  }
+}
 
 const isPalancasView = computed(() => props.columnsToShow.includes('palancasCoordinator'));
 
@@ -230,6 +263,8 @@ watch(() => props.participant, (newVal) => {
 
   // Load tags for the participant
   loadParticipantTags();
+  // Load angelito availability (only meaningful when type=partial_server)
+  loadAvailability();
 }, { immediate: true, deep: true });
 
 watch(() => props.participant?.retreatId, async (retreatId) => {
@@ -285,6 +320,27 @@ const handleSave = async () => {
 
   // Save participant data first
   emit('save', participantToSave);
+
+  // Persistir disponibilidad si es angelito (no bloquea el save principal en error)
+  if (
+    participantToSave.type === 'partial_server' &&
+    props.participant?.retreatId &&
+    props.participant?.id
+  ) {
+    try {
+      await santisimoApi.setParticipantAvailability(
+        props.participant.retreatId,
+        props.participant.id,
+        availabilityBlocks.value.map((b) => ({ startTime: b.startTime, endTime: b.endTime })),
+      );
+    } catch (e: any) {
+      toast({
+        title: t('santisimo.angelitoAvailabilitySaveError'),
+        description: e?.response?.data?.message || e?.message,
+        variant: 'destructive',
+      });
+    }
+  }
 
   // Handle tag updates separately
   try {
@@ -652,6 +708,28 @@ const calculateAge = (birthDate: string | Date) => {
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- Disponibilidad de angelito -->
+      <div
+        v-if="isAngelito"
+        class="rounded-lg border border-purple-200 bg-purple-50/40 dark:border-purple-800 dark:bg-purple-950/20 p-3 space-y-2"
+      >
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <Label class="text-sm font-medium">
+              {{ t('santisimo.angelitoAvailabilityTitle') }}
+            </Label>
+            <p class="text-xs text-gray-500 mt-0.5">
+              {{ t('serverRegistration.fields.angelitoAvailability.hint') }}
+            </p>
+          </div>
+        </div>
+        <AngelitoAvailabilityEditor
+          v-model="availabilityBlocks"
+          :min-date="participantRetreat?.startDate ?? null"
+          :max-date="participantRetreat?.endDate ?? null"
+        />
       </div>
     </div>
 

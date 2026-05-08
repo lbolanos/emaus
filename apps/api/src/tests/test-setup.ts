@@ -55,6 +55,7 @@ import { RetreatScheduleItem } from '../entities/retreatScheduleItem.entity';
 import { RetreatScheduleItemResponsable } from '../entities/retreatScheduleItemResponsable.entity';
 import { SantisimoSlot } from '../entities/santisimoSlot.entity';
 import { SantisimoSignup } from '../entities/santisimoSignup.entity';
+import { ParticipantAvailability } from '../entities/participantAvailability.entity';
 
 const entities = [
 	Session,
@@ -109,6 +110,7 @@ const entities = [
 	RetreatScheduleItemResponsable,
 	SantisimoSlot,
 	SantisimoSignup,
+	ParticipantAvailability,
 ];
 
 // Test database configuration - will be created in setupTestDatabase

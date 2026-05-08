@@ -4,6 +4,7 @@ import { RecaptchaService } from "../services/recaptchaService";
 import { participantSchema } from "@repo/types";
 import { z } from "zod";
 import { authorizationService } from "../middleware/authorization";
+import { participantAvailabilityService } from "../services/participantAvailabilityService";
 
 const recaptchaService = new RecaptchaService();
 
@@ -114,7 +115,7 @@ export const createParticipant = async (
   next: NextFunction,
 ) => {
   try {
-    const { recaptchaToken, dryRun, ...participantData } = req.body;
+    const { recaptchaToken, dryRun, availability, ...participantData } = req.body;
 
     // Verify reCAPTCHA token for public registration
     const recaptchaResult = await recaptchaService.verifyToken(recaptchaToken, {
@@ -161,6 +162,27 @@ export const createParticipant = async (
 
     const newParticipant =
       await participantService.createParticipant(validatedData);
+
+    // Si el participante es angelito (partial_server) y se enviaron bloques de
+    // disponibilidad, persistirlos. Errores aquí no rompen el registro principal.
+    if (
+      newParticipant?.id &&
+      validatedData.retreatId &&
+      validatedData.type === "partial_server" &&
+      Array.isArray(availability) &&
+      availability.length > 0
+    ) {
+      try {
+        await participantAvailabilityService.replaceAll(
+          validatedData.retreatId,
+          newParticipant.id,
+          availability,
+        );
+      } catch (availErr) {
+        console.error("Failed to persist angelito availability:", availErr);
+      }
+    }
+
     res.status(201).json(newParticipant);
   } catch (error) {
     if (error instanceof Error) {
@@ -333,7 +355,7 @@ export const confirmExistingParticipantEmail = async (
   next: NextFunction,
 ) => {
   try {
-    const { email, retreatId, type, recaptchaToken, shirtSizes } = req.body;
+    const { email, retreatId, type, recaptchaToken, shirtSizes, availability } = req.body;
 
     if (!email || !retreatId) {
       return res
@@ -361,6 +383,34 @@ export const confirmExistingParticipantEmail = async (
       type || "server",
       Array.isArray(shirtSizes) ? shirtSizes : undefined,
     );
+
+    // Persistir disponibilidad si confirmó como angelito
+    if (
+      type === "partial_server" &&
+      Array.isArray(availability) &&
+      availability.length > 0 &&
+      (result as any)?.success
+    ) {
+      try {
+        // Resolver participantId por email
+        const participant = await participantService.findParticipantByEmail(
+          normalizedEmail,
+        );
+        if (participant?.id) {
+          await participantAvailabilityService.replaceAll(
+            retreatId,
+            participant.id,
+            availability,
+          );
+        }
+      } catch (availErr) {
+        console.error(
+          "Failed to persist angelito availability on confirm:",
+          availErr,
+        );
+      }
+    }
+
     res.json(result);
   } catch (error) {
     if (error instanceof Error) {
