@@ -66,7 +66,7 @@
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem v-for="floor in availableFloors" :key="floor" :value="floor.toString()">
-                  Piso {{ floor }}
+                  {{ floorDisplay(floor, (props.house as any)?.floorLabels) }}
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -302,7 +302,7 @@
                 </div>
                 <div class="flex items-center gap-2 flex-1">
                   <h3 class="text-xl font-bold whitespace-nowrap">
-                    Piso {{ parseSectorKey(String(sectorKey)).floor }}
+                    {{ floorDisplay(parseSectorKey(String(sectorKey)).floor, (props.house as any)?.floorLabels) }}
                     <span v-if="parseSectorKey(String(sectorKey)).label" class="font-normal text-gray-500 text-lg"> - {{ parseSectorKey(String(sectorKey)).label }}</span>
                   </h3>
                 </div>
@@ -485,7 +485,7 @@
                           v-if="hoveredBed === bed"
                           class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap z-50"
                         >
-                          Piso {{ bed.floor || 1 }} • {{ getBedTypeLabel(bed.type) }} • {{ bed.defaultUsage === 'caminante' ? 'Caminante' : 'Servidor' }}
+                          {{ floorDisplay(bed.floor || 1, (props.house as any)?.floorLabels) }} • {{ getBedTypeLabel(bed.type) }} • {{ bed.defaultUsage === 'caminante' ? 'Caminante' : 'Servidor' }}
                         </div>
                       </div>
                     </div>
@@ -505,7 +505,7 @@
               <div class="mt-4">
                 <Button variant="outline" @click="addBedToRoom(parseSectorKey(String(sectorKey)).floor, getNextRoomInFloor(parseSectorKey(String(sectorKey)).floor, parseSectorKey(String(sectorKey)).label), parseSectorKey(String(sectorKey)).label)" class="w-full">
                   <Plus class="w-4 h-4 mr-1" />
-                  Agregar Habitación al Piso {{ parseSectorKey(String(sectorKey)).floor }}
+                  Agregar Habitación al {{ floorDisplay(parseSectorKey(String(sectorKey)).floor, (props.house as any)?.floorLabels) }}
                 </Button>
               </div>
             </div>
@@ -537,7 +537,7 @@
               {{ selectedBeds.length === 1 ? 'Detalles de Cama' : `${selectedBeds.length} camas seleccionadas` }}
             </h4>
             <div v-if="selectedBeds.length === 1 && selectedBed" class="text-sm text-gray-600">
-              Habitación {{ selectedBed.roomNumber }}, Cama {{ selectedBed.bedNumber }}, Piso {{ selectedBed.floor || 1 }}
+              Habitación {{ selectedBed.roomNumber }}, Cama {{ selectedBed.bedNumber }}, {{ floorDisplay(selectedBed.floor || 1, (props.house as any)?.floorLabels) }}
             </div>
           </div>
           <div class="flex gap-2">
@@ -789,7 +789,7 @@
             </SelectTrigger>
             <SelectContent>
               <SelectItem v-for="floor in availableFloors" :key="floor" :value="floor.toString()">
-                Piso {{ floor }}
+                {{ floorDisplay(floor, (props.house as any)?.floorLabels) }}
               </SelectItem>
             </SelectContent>
           </Select>
@@ -874,7 +874,7 @@
   <Dialog :open="showFloorLabelDialog" @update:open="showFloorLabelDialog = $event">
     <DialogContent class="sm:max-w-[400px]">
       <DialogHeader>
-        <DialogTitle>Sector del Piso {{ editingFloorLabel }}</DialogTitle>
+        <DialogTitle>Sector del {{ floorDisplay(editingFloorLabel, (props.house as any)?.floorLabels) }}</DialogTitle>
         <DialogDescription>
           Escribe el nombre del sector para identificar este grupo de camas (ej: "Ala Norte", "Sector B").
         </DialogDescription>
@@ -1036,6 +1036,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
+import { floorDisplay } from '@/composables/useFloorLabel';
 import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Card, Badge, Input, useToast, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@repo/ui';
 import { AlertCircle, Loader2, Save, Search, RotateCcw, RotateCw, CheckSquare, Square, FileText, FileSpreadsheet, MoreVertical, Copy, Users, Move, Eye, EyeOff, Pencil } from 'lucide-vue-next';
 import { Building, Download, Printer, DoorOpen, Bed, Plus, Edit, Trash2, X, Tag } from 'lucide-vue-next';
@@ -2223,7 +2224,7 @@ const printMap = () => {
     const label = allBeds.find(b => b?.floorLabel)?.floorLabel ?? '';
     body += `<div style="margin-bottom:24px">
       <h2 style="font-size:14px;font-weight:bold;border-bottom:2px solid #374151;padding-bottom:4px;margin-bottom:12px">
-        Piso ${floorNum}${label ? ` — ${label}` : ''}
+        ${floorDisplay(floorNum, (house as any)?.floorLabels)}${label ? ` — ${label}` : ''}
       </h2>
       <div style="display:flex;flex-wrap:wrap;gap:12px">`;
 

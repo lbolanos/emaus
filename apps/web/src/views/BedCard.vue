@@ -139,7 +139,7 @@
       <div class="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
         <div class="flex items-center gap-1">
           <Home class="w-3 h-3" />
-          <span>{{ $t('bedAssignments.floor') }} {{ bed.floor || 0 }}</span>
+          <span>{{ floorDisplay(bed.floor || 0, props.floorLabels) }}</span>
         </div>
         <div class="flex items-center gap-1">
           <span v-if="bed.type === 'normal'" class="text-blue-600 dark:text-blue-400 font-medium">{{ $t('bedAssignments.normalBed') }}</span>
@@ -158,6 +158,7 @@ import { useI18n } from 'vue-i18n';
 import { BedDouble, Layers, Square, Home, X, Eye, EyeOff } from 'lucide-vue-next';
 import type { RetreatBed, Participant } from '@repo/types';
 import { useDragState } from '@/composables/useDragState';
+import { floorDisplay } from '@/composables/useFloorLabel';
 
 const props = defineProps<{
   bed: RetreatBed;
@@ -165,6 +166,7 @@ const props = defineProps<{
   highlighted?: boolean;
   hasSelection?: boolean;
   incompatible?: boolean;
+  floorLabels?: Record<string, string>;
 }>();
 
 const emit = defineEmits<{

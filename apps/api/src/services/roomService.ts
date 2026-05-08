@@ -31,8 +31,10 @@ export const exportRoomLabelsToDocx = async (retreatId: string, dataSource?: Dat
 	const repos = getRepositories(dataSource);
 
 	// Get retreat beds with participant information
-	const retreat = await repos.retreat.findOneBy({ id: retreatId });
+	const retreat = await repos.retreat.findOne({ where: { id: retreatId }, relations: ['house'] });
 	if (!retreat) throw new Error('Retreat not found');
+
+	const houseFloorLabels: Record<string, string> = (retreat.house as any)?.floorLabels || {};
 
 	const bedsRaw = await repos.retreatBed
 		.createQueryBuilder('bed')
@@ -253,7 +255,12 @@ export const exportRoomLabelsToDocx = async (retreatId: string, dataSource?: Dat
 
 		// Parse composite key into floor number and optional label
 		const [floorNum, sectorLabel = ''] = sectorKey.split('||');
-		const floorTitle = floorNum === 'PB' ? 'PLANTA BAJA' : `PISO ${floorNum}`;
+		const customLabel = houseFloorLabels[floorNum];
+		const floorTitle = customLabel
+			? customLabel.toUpperCase()
+			: floorNum === 'PB'
+				? 'PLANTA BAJA'
+				: `PISO ${floorNum}`;
 		const fullFloorTitle = sectorLabel ? `${floorTitle} — ${sectorLabel.toUpperCase()}` : floorTitle;
 
 		// Enhanced floor title with badge style

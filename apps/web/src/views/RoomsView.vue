@@ -3,6 +3,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { api, exportRoomLabelsToDocx, refreshRetreatBedsFromHouse } from '@/services/api';
+import { floorDisplay } from '@/composables/useFloorLabel';
 import { Button } from '@repo/ui';
 import { useToast } from '@repo/ui';
 import { Loader2 } from 'lucide-vue-next';
@@ -372,7 +373,7 @@ const roomColorStyle = (roomBeds: RetreatBed[]) => {
         <div class="floor-header">
           <div class="floor-accent"></div>
           <h2 class="floor-title">
-            {{ $t('rooms.floor') }} {{ String(sectorKey).split('||')[0] }}
+            {{ floorDisplay(String(sectorKey).split('||')[0], (retreatData?.house as any)?.floorLabels) }}
             <span v-if="String(sectorKey).split('||')[1]" class="floor-label-text"> - {{ String(sectorKey).split('||')[1] }}</span>
           </h2>
           <div class="floor-line"></div>

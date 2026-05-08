@@ -332,7 +332,7 @@
               <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
                 <div class="flex items-center justify-between">
                   <h2 class="text-xl font-bold text-gray-900 dark:text-white">
-                    {{ floor.split('||')[0] === '0' ? $t('bedAssignments.unassignedFloor') : `${$t('bedAssignments.floor')} ${floor.split('||')[0]}` }}
+                    {{ floor.split('||')[0] === '0' ? $t('bedAssignments.unassignedFloor') : floorDisplay(floor.split('||')[0], houseFloorLabels) }}
                     <span v-if="floor.split('||')[1]" class="text-muted-foreground font-normal text-base"> — {{ floor.split('||')[1] }}</span>
                   </h2>
                   <div class="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
@@ -347,6 +347,7 @@
                     v-for="bed in groupedFilteredBeds[floor]"
                     :key="bed.id"
                     :bed="bed"
+                    :floor-labels="houseFloorLabels"
                     :is-over="isOverBed === bed.id"
                     :highlighted="shouldHighlightBed(bed)"
                     :has-selection="!!tappedParticipant"
@@ -557,6 +558,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { floorDisplay } from '@/composables/useFloorLabel';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useToast } from '@repo/ui';
@@ -625,6 +627,10 @@ const progressPct = ref(0);
 // Use scroll progress for width; use primary color by default.
 // Could switch to occupancy-based color via `getProgressColorUtil(progressPct.value)`.
 const progressColor = computed(() => 'bg-primary');
+
+const houseFloorLabels = computed<Record<string, string> | undefined>(() => {
+  return (retreatStore.selectedRetreat as any)?.house?.floorLabels || undefined;
+});
 // Silence unused import warning (kept for future toggle to occupancy-colored bar)
 void getProgressColorUtil;
 

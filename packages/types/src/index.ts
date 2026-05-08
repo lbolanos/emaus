@@ -32,6 +32,7 @@ export const houseSchema = z.object({
 	googleMapsUrl: z.string().url().optional(),
 	notes: z.string().optional(),
 	timezone: z.string().min(1).default('America/Mexico_City'),
+	floorLabels: z.record(z.string(), z.string()).optional(),
 	beds: z.array(bedSchema).optional(),
 });
 export type House = z.infer<typeof houseSchema>;

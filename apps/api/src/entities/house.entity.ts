@@ -46,6 +46,9 @@ export class House {
 	@Column('text', { nullable: true })
 	notes?: string;
 
+	@Column({ type: 'simple-json', nullable: true })
+	floorLabels?: Record<string, string>;
+
 	@OneToMany(() => Bed, (bed) => bed.house, { cascade: true, onDelete: 'CASCADE' })
 	beds!: Bed[];
 

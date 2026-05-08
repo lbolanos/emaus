@@ -282,6 +282,30 @@
             </Card>
           </div>
 
+          <!-- Floor labels configuration -->
+          <div v-if="uniqueFloors.length > 0" class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mt-2 mb-2">
+            <div class="flex items-start gap-2 mb-2">
+              <Info class="w-4 h-4 text-emerald-700 mt-0.5 flex-shrink-0" />
+              <div>
+                <p class="text-xs font-medium text-emerald-900">Nombres de pisos</p>
+                <p class="text-[10px] text-emerald-700">
+                  Personaliza el nombre que se muestra en lugar de "Piso 1", "Piso 2", etc. (ej. "Planta Baja", "Planta Alta", "Azotea").
+                  Si dejas un campo vacío se usará el nombre por defecto.
+                </p>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+              <div v-for="floor in uniqueFloors" :key="floor" class="flex items-center gap-2">
+                <Label class="text-[10px] text-emerald-800 whitespace-nowrap">Piso {{ floor }}</Label>
+                <Input
+                  v-model="formData.floorLabels[String(floor)]"
+                  :placeholder="floor === 1 ? 'Planta Baja' : floor === 2 ? 'Planta Alta' : `Piso ${floor}`"
+                  class="h-7 text-xs"
+                />
+              </div>
+            </div>
+          </div>
+
           <!-- Quick Actions -->
           <div class="flex justify-between items-center mb-4">
             <h3 class="font-semibold text-base flex items-center gap-2">
@@ -344,7 +368,7 @@
                   </template>
                   <template v-else>
                     <h4 class="font-semibold text-sm">
-                      Piso {{ sectorKey.split('||')[0] }}
+                      {{ floorDisplay(sectorKey.split('||')[0], formData.floorLabels) }}
                       <span v-if="sectorKey.split('||')[1]" class="font-normal text-muted-foreground"> — {{ sectorKey.split('||')[1] }}</span>
                     </h4>
                     <Button type="button" variant="ghost" size="sm" class="h-5 w-5 p-0 text-muted-foreground hover:text-foreground" @click="startEditSectorLabel(sectorKey)">
@@ -430,7 +454,7 @@
             <div class="flex items-center">
               <Info class="w-4 h-4 mr-2 text-blue-600" />
               <span class="text-[10px] text-blue-800 font-medium">Configurar próxima cama:</span>
-              <span v-if="selectedBedIndex !== null" class="text-[10px] text-blue-600 ml-2">(Contexto: Piso {{ nextBedData.floor }}, Hab. {{ nextBedData.roomNumber }})</span>
+              <span v-if="selectedBedIndex !== null" class="text-[10px] text-blue-600 ml-2">(Contexto: {{ floorDisplay(nextBedData.floor, formData.floorLabels) }}, Hab. {{ nextBedData.roomNumber }})</span>
             </div>
             <div class="grid grid-cols-6 gap-2 items-center">
               <div>
@@ -599,6 +623,7 @@ import { z } from 'zod';
 import BulkOperationsModal from './BulkOperationsModal.vue';
 import { loadGoogleMaps } from '@/utils/googleMaps';
 import { getTimezoneFromCoords } from '@/services/api';
+import { floorDisplay } from '@/composables/useFloorLabel';
 
 const COMMON_TIMEZONES = [
   'America/Mexico_City',
@@ -659,6 +684,9 @@ const getInitialFormData = () => ({
   latitude: props.house?.latitude || null,
   longitude: props.house?.longitude || null,
   beds: props.house?.beds ? JSON.parse(JSON.stringify(props.house.beds)) : [],
+  floorLabels: (props.house as any)?.floorLabels
+    ? { ...((props.house as any).floorLabels as Record<string, string>) }
+    : ({} as Record<string, string>),
 });
 
 const formData = ref(getInitialFormData());
@@ -703,6 +731,15 @@ const step2Schema = z.object({
 
 const step3Schema = z.object({
   notes: z.string().optional(),
+});
+
+const uniqueFloors = computed(() => {
+  const set = new Set<number>();
+  for (const bed of formData.value.beds) {
+    const f = (bed as any)?.floor;
+    if (typeof f === 'number' && Number.isFinite(f)) set.add(f);
+  }
+  return Array.from(set).sort((a, b) => a - b);
 });
 
 const totalCapacity = computed(() => formData.value.beds.length);
@@ -808,7 +845,7 @@ const nextBedInfo = computed(() => {
     ...nextBedData,
     typeLabel: typeLabels[nextBedData.type] || nextBedData.type,
     usageLabel: usageLabels[nextBedData.defaultUsage] || nextBedData.defaultUsage,
-    display: `Piso ${nextBedData.floor}, Habitación ${nextBedData.roomNumber}, Cama ${nextBedData.bedNumber} (${typeLabels[nextBedData.type] || nextBedData.type}, ${usageLabels[nextBedData.defaultUsage] || nextBedData.defaultUsage})`
+    display: `${floorDisplay(nextBedData.floor, formData.value.floorLabels)}, Habitación ${nextBedData.roomNumber}, Cama ${nextBedData.bedNumber} (${typeLabels[nextBedData.type] || nextBedData.type}, ${usageLabels[nextBedData.defaultUsage] || nextBedData.defaultUsage})`
   };
 });
 
@@ -1229,7 +1266,7 @@ const handleBulkOperationsSubmit = (newBeds: any[]) => {
     const confirmed = window.confirm(
       `⚠️ Se encontraron ${duplicateCount} cama(s) que ya existen:\n\n` +
       duplicates.map(d =>
-        `- Piso ${d.new.floor}, Habitación ${d.new.roomNumber}, Cama ${d.new.bedNumber}`
+        `- ${floorDisplay(d.new.floor, formData.value.floorLabels)}, Habitación ${d.new.roomNumber}, Cama ${d.new.bedNumber}`
       ).join('\n') +
       `\n\n¿Desea continuar de todas formas? Las camas duplicadas reemplazarán a las existentes.`
     );
