@@ -60,7 +60,8 @@ apps/web/tsconfig.app.tsbuildinfo
 database.sqlite.*
 database.backup.*.sqlite
 database.*.sqlite
-backups/database.*.sqlite.gz
+backups/
+
 
 # Terraform (infra/)
 infra/.terraform/
