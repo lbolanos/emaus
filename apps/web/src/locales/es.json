@@ -905,7 +905,11 @@
     "markedArrived": "{name} marcado como llegado",
     "updateError": "Error al actualizar",
     "expectedArrival": "Hora esperada de llegada",
-    "goToReception": "Ir a Recepción"
+    "goToReception": "Ir a Recepción",
+    "sortBy": "Ordenar por",
+    "sortByLastName": "Apellido",
+    "sortByFirstName": "Nombre",
+    "sortByIdOnRetreat": "Número"
   },
   "retreatDashboard": {
     "title": "Dashboard del Retiro",

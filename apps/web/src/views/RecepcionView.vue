@@ -94,6 +94,32 @@ const searchArrivedQuery = ref('')
 const processingIds = ref<Set<string>>(new Set())
 const showArrived = ref(false)
 
+type SortBy = 'lastName' | 'firstName' | 'idOnRetreat'
+const SORT_STORAGE_KEY = 'reception.sortBy'
+const sortBy = ref<SortBy>(
+  (typeof localStorage !== 'undefined' && (localStorage.getItem(SORT_STORAGE_KEY) as SortBy)) || 'lastName',
+)
+watch(sortBy, (v) => {
+  try { localStorage.setItem(SORT_STORAGE_KEY, v) } catch { /* ignore */ }
+})
+
+const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true })
+
+function sortParticipants(list: ReceptionParticipant[]): ReceptionParticipant[] {
+  const copy = [...list]
+  if (sortBy.value === 'idOnRetreat') {
+    return copy.sort((a, b) => (a.idOnRetreat ?? Infinity) - (b.idOnRetreat ?? Infinity))
+  }
+  if (sortBy.value === 'firstName') {
+    return copy.sort((a, b) =>
+      collator.compare(a.firstName, b.firstName) || collator.compare(a.lastName, b.lastName),
+    )
+  }
+  return copy.sort((a, b) =>
+    collator.compare(a.lastName, b.lastName) || collator.compare(a.firstName, b.firstName),
+  )
+}
+
 let unsubscribeRealtime: (() => void) | null = null
 
 async function fetchStats() {
@@ -144,12 +170,14 @@ function matchesQuery(p: ReceptionParticipant, q: string): boolean {
 
 const filteredPending = computed(() => {
   const q = searchQuery.value.toLowerCase().trim()
-  return q ? pendingList.value.filter(p => matchesQuery(p, q)) : pendingList.value
+  const base = q ? pendingList.value.filter(p => matchesQuery(p, q)) : pendingList.value
+  return sortParticipants(base)
 })
 
 const filteredArrived = computed(() => {
   const q = searchArrivedQuery.value.toLowerCase().trim()
-  return q ? arrivedList.value.filter(p => matchesQuery(p, q)) : arrivedList.value
+  const base = q ? arrivedList.value.filter(p => matchesQuery(p, q)) : arrivedList.value
+  return sortParticipants(base)
 })
 
 const progressPercent = computed(() =>
@@ -265,23 +293,35 @@ onUnmounted(() => {
     </div>
 
     <template v-else>
-      <!-- Search pending -->
-      <div class="relative">
-        <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <input
-          v-model="searchQuery"
-          type="text"
-          :placeholder="t('reception.searchPlaceholder')"
-          class="w-full pl-9 pr-9 py-2 border rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-        <button
-          v-if="searchQuery"
-          class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-          @click="searchQuery = ''"
-          :aria-label="t('reception.clearSearch')"
+      <!-- Search + sort pending -->
+      <div class="flex items-center gap-2">
+        <div class="relative flex-1">
+          <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            v-model="searchQuery"
+            type="text"
+            :placeholder="t('reception.searchPlaceholder')"
+            class="w-full pl-9 pr-9 py-2 border rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <button
+            v-if="searchQuery"
+            class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            @click="searchQuery = ''"
+            :aria-label="t('reception.clearSearch')"
+          >
+            <X class="w-4 h-4" />
+          </button>
+        </div>
+        <select
+          v-model="sortBy"
+          :title="t('reception.sortBy')"
+          :aria-label="t('reception.sortBy')"
+          class="py-2 px-2 border rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring shrink-0"
         >
-          <X class="w-4 h-4" />
-        </button>
+          <option value="lastName">{{ t('reception.sortByLastName') }}</option>
+          <option value="firstName">{{ t('reception.sortByFirstName') }}</option>
+          <option value="idOnRetreat">{{ t('reception.sortByIdOnRetreat') }}</option>
+        </select>
       </div>
 
       <!-- Pending list -->
