@@ -19,6 +19,13 @@ export const messageTemplateTypes = z.enum([
 	'BIRTHDAY_MESSAGE',
 	'PALANQUERO_NEW_WALKER',
 	'PRIVACY_DATA_DELETE',
+	// Walker follow-up sequence (post-retreat)
+	'WALKER_FOLLOWUP_WEEK_1',
+	'WALKER_FOLLOWUP_MONTH_1',
+	'WALKER_FOLLOWUP_MONTH_3',
+	'WALKER_FOLLOWUP_MONTH_6',
+	'WALKER_FOLLOWUP_YEAR_1',
+	'WALKER_REUNION_INVITATION',
 	// System-wide templates with SYS_ prefix
 	'SYS_PASSWORD_RESET',
 	'SYS_USER_INVITATION',

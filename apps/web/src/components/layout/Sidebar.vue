@@ -773,7 +773,7 @@ const menuSections: MenuSection[] = [
         icon: Clock,
         permission: 'schedule',
         requiresRetreat: true,
-        label: 'Minuto a Minuto'
+        label: 'sidebar.minuteByMinute'
       },
       {
         name: 'my-schedule',
@@ -781,7 +781,7 @@ const menuSections: MenuSection[] = [
         icon: Clock,
         permission: 'schedule',
         requiresRetreat: true,
-        label: 'Mi agenda'
+        label: 'sidebar.mySchedule'
       },
       {
         name: 'inventory',
@@ -888,7 +888,7 @@ const menuSections: MenuSection[] = [
         routeName: 'retreat-shirt-types',
         icon: Settings,
         requiresRetreat: true,
-        label: 'Tipos de playera'
+        label: 'sidebar.shirtTypes'
       },
     ],
     position: 'top'
@@ -918,7 +918,7 @@ const menuSections: MenuSection[] = [
         icon: Clock,
         permission: 'scheduleTemplate',
         requiresRetreat: false,
-        label: 'Template Minuto a Minuto'
+        label: 'sidebar.scheduleTemplate'
       },
       {
         name: 'houses',

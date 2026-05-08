@@ -208,7 +208,11 @@
     "friends": "Hermanos",
     "followers": "Seguidores",
     "testimonials": "Testimonios",
-    "myRetreats": "Mis Retiros"
+    "myRetreats": "Mis Retiros",
+    "minuteByMinute": "Minuto a Minuto",
+    "shirtTypes": "Tipos de playera",
+    "mySchedule": "Mi agenda",
+    "scheduleTemplate": "Template Minuto a Minuto"
   },
   "changePassword": {
     "title": "Cambiar Contraseña",
@@ -364,6 +368,13 @@
       "RETREAT_SHARED_NOTIFICATION": "Notificación de Retiro Compartido",
       "BIRTHDAY_MESSAGE": "Mensaje de Cumpleaños",
       "PALANQUERO_NEW_WALKER": "Notificación Palanquero - Nuevo Caminante",
+      "PRIVACY_DATA_DELETE": "Eliminación de Datos (Privacidad)",
+      "WALKER_FOLLOWUP_WEEK_1": "Seguimiento Caminante - 1 Semana",
+      "WALKER_FOLLOWUP_MONTH_1": "Seguimiento Caminante - 1 Mes",
+      "WALKER_FOLLOWUP_MONTH_3": "Seguimiento Caminante - 3 Meses",
+      "WALKER_FOLLOWUP_MONTH_6": "Seguimiento Caminante - 6 Meses",
+      "WALKER_FOLLOWUP_YEAR_1": "Seguimiento Caminante - 1 Año",
+      "WALKER_REUNION_INVITATION": "Invitación a Reunión de Comunidad",
       "SYS_REGISTRATION_CONFIRMATION": "Confirmación de Registro (Sistema)",
       "SYS_ACCOUNT_LOCKED": "Cuenta Bloqueada (Sistema)",
       "SYS_ACCOUNT_UNLOCKED": "Cuenta Desbloqueada (Sistema)",

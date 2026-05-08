@@ -205,7 +205,11 @@
     "friends": "Brothers & Sisters",
     "followers": "Followers",
     "testimonials": "Testimonials",
-    "myRetreats": "My Retreats"
+    "myRetreats": "My Retreats",
+    "minuteByMinute": "Minute by Minute",
+    "shirtTypes": "Shirt Types",
+    "mySchedule": "My Schedule",
+    "scheduleTemplate": "Minute by Minute Template"
   },
   "communityTemplates": {
     "title": "Community Message Templates",
@@ -307,6 +311,13 @@
       "RETREAT_SHARED_NOTIFICATION": "Retreat Shared Notification",
       "BIRTHDAY_MESSAGE": "Birthday Message",
       "PALANQUERO_NEW_WALKER": "Palanquero Notification - New Walker",
+      "PRIVACY_DATA_DELETE": "Privacy Data Deletion",
+      "WALKER_FOLLOWUP_WEEK_1": "Walker Follow-up - 1 Week",
+      "WALKER_FOLLOWUP_MONTH_1": "Walker Follow-up - 1 Month",
+      "WALKER_FOLLOWUP_MONTH_3": "Walker Follow-up - 3 Months",
+      "WALKER_FOLLOWUP_MONTH_6": "Walker Follow-up - 6 Months",
+      "WALKER_FOLLOWUP_YEAR_1": "Walker Follow-up - 1 Year",
+      "WALKER_REUNION_INVITATION": "Community Meeting Invitation",
       "SYS_REGISTRATION_CONFIRMATION": "Registration Confirmation (System)",
       "SYS_ACCOUNT_LOCKED": "Account Locked (System)",
       "SYS_ACCOUNT_UNLOCKED": "Account Unlocked (System)",
