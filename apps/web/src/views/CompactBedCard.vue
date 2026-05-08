@@ -59,13 +59,13 @@
     </div>
 
     <!-- Disabled State -->
-    <div v-if="bed.isActive === false && !bed.participant" class="p-2 min-h-[40px] flex flex-col items-center justify-center text-red-400">
-      <EyeOff class="w-4 h-4 mb-1" />
+    <div v-if="bed.isActive === false && !bed.participant" class="p-2 flex items-center justify-center gap-1 text-red-400">
+      <EyeOff class="w-3 h-3" />
       <span class="text-xs">{{ $t('bedAssignments.bedDisabled') }}</span>
     </div>
 
     <!-- Compact Content -->
-    <div v-else class="p-2 min-h-[60px] flex items-center">
+    <div v-else class="p-2 flex items-center">
       <div
         v-if="bed.participant"
         draggable="true"
@@ -108,10 +108,10 @@
       <!-- Empty State -->
       <div
         v-else
-        class="w-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 min-h-[40px] border border-dashed border-gray-300 dark:border-gray-600 rounded transition-colors"
+        class="w-full flex items-center justify-center gap-1 p-1 text-gray-400 dark:text-gray-500 border border-dashed border-gray-300 dark:border-gray-600 rounded transition-colors"
         :class="{ 'border-primary bg-primary/5': isOver }"
       >
-        <BedDouble class="w-4 h-4 mb-1" />
+        <BedDouble class="w-3 h-3" />
         <span class="text-xs">{{ $t('bedAssignments.emptyBed') }}</span>
       </div>
     </div>
