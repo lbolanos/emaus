@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { In } from 'typeorm';
 import { tableMesaSchema } from '@repo/types';
 import { formatDate as formatDateUtil } from '@repo/utils';
+import { sortByName as sortByTableName } from '../utils/naturalSort';
 
 const MAX_WALKERS_PER_TABLE = 7;
 
@@ -23,11 +24,12 @@ export const findTablesByRetreatId = async (retreatId: string, dataSource?: Data
 		.leftJoinAndSelect('walkers.participant', 'wp')
 		.leftJoinAndSelect('wp.retreatBed', 'retreatBed', 'retreatBed.retreatId = :retreatId')
 		.where('table.retreatId = :retreatId', { retreatId })
-		.orderBy('table.name', 'ASC')
 		.getMany();
 
+	const orderedTables = sortByTableName(tables);
+
 	// Flatten walker RetreatParticipant objects to look like Participant for API compat
-	for (const table of tables) {
+	for (const table of orderedTables) {
 		if (table.walkers) {
 			table.walkers = table.walkers.map((rp: any) => {
 				if (rp.participant) {
@@ -39,7 +41,7 @@ export const findTablesByRetreatId = async (retreatId: string, dataSource?: Data
 		}
 	}
 
-	return tableMesaSchema.array().parse(tables);
+	return tableMesaSchema.array().parse(orderedTables);
 };
 
 export const findTableById = async (id: string, dataSource?: DataSource) => {
@@ -319,10 +321,8 @@ export const rebalanceTablesForRetreat = async (retreatId: string, dataSource?: 
 			return p;
 		});
 
-	const tables = await repos.tableMesa.find({
-		where: { retreatId },
-		order: { name: 'ASC' },
-	});
+	const tablesRaw = await repos.tableMesa.find({ where: { retreatId } });
+	const tables = sortByTableName(tablesRaw);
 
 	const walkerCount = walkers.length;
 	const tableCount = tables.length;
@@ -503,7 +503,7 @@ export const exportTablesToDocx = async (retreatId: string, dataSource?: DataSou
 	const repos = getRepositories(dataSource);
 
 	// Get all tables with their participants
-	const tables = await repos.tableMesa
+	const tablesRaw = await repos.tableMesa
 		.createQueryBuilder('table')
 		.leftJoinAndSelect('table.lider', 'lider')
 		.leftJoinAndSelect('table.colider1', 'colider1')
@@ -511,8 +511,9 @@ export const exportTablesToDocx = async (retreatId: string, dataSource?: DataSou
 		.leftJoinAndSelect('table.walkers', 'walkers')
 		.leftJoinAndSelect('walkers.participant', 'wp')
 		.where('table.retreatId = :retreatId', { retreatId })
-		.orderBy('table.name', 'ASC')
 		.getMany();
+
+	const tables = sortByTableName(tablesRaw);
 
 	// Flatten walker RetreatParticipant objects to look like Participant for downstream usage
 	for (const t of tables) {

@@ -139,6 +139,31 @@ describe('Table Mesa Service', () => {
 			}
 		});
 
+		test('should order tables numerically when names contain numbers > 9', async () => {
+			// Insert in non-numeric order to expose lexicographic bugs ("Mesa 10" < "Mesa 2").
+			for (const i of [11, 7, 10, 6, 9, 8]) {
+				await tableMesaService.createTable(
+					{ name: `Mesa ${i}`, retreatId: testRetreat.id },
+					getTestDataSource(),
+				);
+			}
+
+			const tables = await tableMesaService.findTablesByRetreatId(
+				testRetreat.id,
+				getTestDataSource(),
+			);
+			const mesaNames = tables.map((t) => t.name).filter((n) => n.startsWith('Mesa '));
+
+			expect(mesaNames).toEqual([
+				'Mesa 6',
+				'Mesa 7',
+				'Mesa 8',
+				'Mesa 9',
+				'Mesa 10',
+				'Mesa 11',
+			]);
+		});
+
 		test('should return empty array for non-existent retreat', async () => {
 			const tables = await tableMesaService.findTablesByRetreatId(
 				'non-existent-id',

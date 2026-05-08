@@ -4,6 +4,7 @@ import { RetreatBed } from '../entities/retreatBed.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { getRepositories } from '../utils/repositoryHelpers';
+import { sortRetreatBedsNaturally } from '../utils/naturalSort';
 import { formatDate as formatDateUtil } from '@repo/utils';
 
 export const exportRoomLabelsToDocx = async (retreatId: string, dataSource?: DataSource) => {
@@ -33,14 +34,13 @@ export const exportRoomLabelsToDocx = async (retreatId: string, dataSource?: Dat
 	const retreat = await repos.retreat.findOneBy({ id: retreatId });
 	if (!retreat) throw new Error('Retreat not found');
 
-	const beds = await repos.retreatBed
+	const bedsRaw = await repos.retreatBed
 		.createQueryBuilder('bed')
 		.leftJoinAndSelect('bed.participant', 'participant')
 		.where('bed.retreatId = :retreatId', { retreatId })
-		.orderBy('bed.floor', 'ASC')
-		.addOrderBy('bed.roomNumber', 'ASC')
-		.addOrderBy('bed.bedNumber', 'ASC')
 		.getMany();
+
+	const beds = sortRetreatBedsNaturally(bedsRaw);
 
 	// Enrich participants with their type from retreat_participants
 	const ds = dataSource || AppDataSource;

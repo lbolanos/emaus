@@ -4,17 +4,18 @@ import { Participant } from '../entities/participant.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { autoAssignBedsForRetreat } from '../services/participantService';
 import { authorizationService } from '../middleware/authorization';
+import { sortRetreatBedsNaturally } from '../utils/naturalSort';
 import type { Request, Response, NextFunction } from 'express';
 
 export const getRetreatBeds = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const { retreatId } = req.params;
 		const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
-		const beds = await retreatBedRepository.find({
+		const bedsRaw = await retreatBedRepository.find({
 			where: { retreatId: retreatId },
 			relations: ['participant'],
-			order: { floor: 'ASC', roomNumber: 'ASC', bedNumber: 'ASC' },
 		});
+		const beds = sortRetreatBedsNaturally(bedsRaw);
 
 		// Enrich participants with their type from retreat_participants
 		const participantIds = beds

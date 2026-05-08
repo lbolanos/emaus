@@ -8,6 +8,7 @@ import { useToast } from '@repo/ui';
 import { Loader2, Printer, MoreVertical, FileDown, Check, Search, X, Minus, Plus } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import type { Participant } from '@repo/types';
+import { createLocaleComparator } from '@/utils/sort';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,6 +63,9 @@ const retreatNumber = computed(() => {
   return retreatData.value?.retreat_number_version || '';
 });
 
+// Comparador locale-aware con orden numérico ("Mesa 2" antes que "Mesa 10").
+const naturalCompare = createLocaleComparator('es', 'asc');
+
 // Get unique table names from participants for dropdown
 const availableTables = computed(() => {
   const tables = new Set<string>();
@@ -70,15 +74,7 @@ const availableTables = computed(() => {
       tables.add(p.tableMesa.name);
     }
   });
-  return Array.from(tables).sort((a, b) => {
-    // Try to sort numerically if tables are numbered
-    const numA = parseInt(a);
-    const numB = parseInt(b);
-    if (!isNaN(numA) && !isNaN(numB)) {
-      return numA - numB;
-    }
-    return a.localeCompare(b);
-  });
+  return Array.from(tables).sort(naturalCompare);
 });
 
 // Get unique room numbers from participants for dropdown
@@ -89,15 +85,7 @@ const availableRooms = computed(() => {
       rooms.add(p.retreatBed.roomNumber);
     }
   });
-  return Array.from(rooms).sort((a, b) => {
-    // Try to sort numerically
-    const numA = parseInt(a);
-    const numB = parseInt(b);
-    if (!isNaN(numA) && !isNaN(numB)) {
-      return numA - numB;
-    }
-    return a.localeCompare(b);
-  });
+  return Array.from(rooms).sort(naturalCompare);
 });
 
 // Filtered participants with multi-filter logic
