@@ -59,8 +59,8 @@
     </div>
 
     <!-- Disabled Overlay -->
-    <div v-if="bed.isActive === false && !bed.participant" class="p-3 flex flex-col items-center justify-center py-6 text-red-400 min-h-[80px]">
-      <EyeOff class="w-8 h-8 mb-2" />
+    <div v-if="bed.isActive === false && !bed.participant" class="p-3 flex flex-col items-center justify-center py-3 text-red-400">
+      <EyeOff class="w-5 h-5 mb-1" />
       <span class="text-sm font-medium">{{ $t('bedAssignments.bedDisabled') }}</span>
     </div>
 
@@ -125,12 +125,11 @@
       <!-- Empty State -->
       <div
         v-else
-        class="flex flex-col items-center justify-center py-6 text-gray-400 dark:text-gray-500 min-h-[80px] border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg transition-colors"
+        class="flex flex-col items-center justify-center py-3 text-gray-400 dark:text-gray-500 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg transition-colors h-full"
         :class="{ 'border-primary bg-primary/5': isOver }"
       >
-        <BedDouble class="w-8 h-8 mb-2" />
-        <span class="text-sm">{{ $t('bedAssignments.emptyBed') }}</span>
-        <span class="text-xs mt-1">{{ $t('bedAssignments.dragParticipant') }}</span>
+        <BedDouble class="w-5 h-5 mb-1" />
+        <span class="text-xs">{{ $t('bedAssignments.emptyBed') }}</span>
       </div>
     </div>
 
