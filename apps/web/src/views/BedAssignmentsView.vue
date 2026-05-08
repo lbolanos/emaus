@@ -287,7 +287,7 @@
           @click="scrollToFloor(floor)"
           class="flex-shrink-0 px-2 py-0.5 text-[11px] rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors whitespace-nowrap"
         >
-          {{ floor.split('||')[0] === '0' ? $t('bedAssignments.unassignedFloor') : `${$t('bedAssignments.floor')} ${floor.split('||')[0]}` }}
+          {{ floor.split('||')[0] === '0' ? $t('bedAssignments.unassignedFloor') : floorDisplay(floor.split('||')[0], houseFloorLabels) }}
           <span v-if="floor.split('||')[1]" class="opacity-70">· {{ floor.split('||')[1] }}</span>
           <span class="ml-1 opacity-70">{{ groupedFilteredBeds[floor]?.filter(b => b.participant).length || 0 }}/{{ groupedFilteredBeds[floor]?.length || 0 }}</span>
         </button>
@@ -370,7 +370,7 @@
             <div v-for="floor in sortedFilteredFloors" :key="floor" :id="`floor-${floor}`" class="space-y-6 scroll-mt-44 sm:scroll-mt-48">
               <div v-if="Object.keys(groupedFilteredBedsByRoomAndFloor[floor] || {}).length > 0">
                 <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">
-                  {{ floor.split('||')[0] === '0' ? $t('bedAssignments.unassignedFloor') : `${$t('bedAssignments.floor')} ${floor.split('||')[0]}` }}
+                  {{ floor.split('||')[0] === '0' ? $t('bedAssignments.unassignedFloor') : floorDisplay(floor.split('||')[0], houseFloorLabels) }}
                   <span v-if="floor.split('||')[1]" class="text-muted-foreground font-normal text-base"> — {{ floor.split('||')[1] }}</span>
                 </h2>
                 <div class="space-y-6">
