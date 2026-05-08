@@ -17,6 +17,14 @@ contexto).
 - En un retiro, cuando se quiere mandar algo libre sin pasar por la
   pantalla de plantillas.
 
+> **Nota**: para comunidades nuevas, la migration
+> `ImportGlobalTemplatesToCommunities20260507260000` (post-deploy) ya
+> auto-importa las 22 plantillas globales no-SYS (incluidas las 6 de
+> seguimiento de caminante — ver
+> [`walker-followup-templates.md`](./walker-followup-templates.md)).
+> Aún así el modo "sin plantilla" sigue siendo útil para casos
+> uno-a-uno.
+
 ## Cambios funcionales
 
 | Estado | Editor visible | Botón Enviar | Variables |
