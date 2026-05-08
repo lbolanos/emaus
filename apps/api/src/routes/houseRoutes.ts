@@ -5,6 +5,7 @@ import {
 	createHouse,
 	updateHouse,
 	deleteHouse,
+	getTimezoneFromCoords,
 } from '../controllers/houseController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { validateRequest } from '../middleware/validateRequest';
@@ -16,6 +17,11 @@ const router = Router();
 router.use(isAuthenticated);
 
 router.get('/', requirePermission('house:list'), getHouses);
+router.get(
+	'/timezone-from-coords',
+	requirePermission('house:read'),
+	getTimezoneFromCoords,
+);
 router.get('/:id', requirePermission('house:read'), getHouseById);
 router.post(
 	'/',

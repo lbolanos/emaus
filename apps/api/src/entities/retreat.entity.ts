@@ -132,6 +132,9 @@ export class Retreat {
 	@Column({ type: 'boolean', default: false })
 	santisimoEnabled!: boolean;
 
+	@Column({ type: 'varchar', length: 64, nullable: true })
+	timezone?: string | null;
+
 	@OneToMany(() => Payment, (payment) => payment.retreat)
 	payments!: Payment[];
 }

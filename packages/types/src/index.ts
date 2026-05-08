@@ -31,6 +31,7 @@ export const houseSchema = z.object({
 	longitude: z.number().optional(),
 	googleMapsUrl: z.string().url().optional(),
 	notes: z.string().optional(),
+	timezone: z.string().min(1).default('America/Mexico_City'),
 	beds: z.array(bedSchema).optional(),
 });
 export type House = z.infer<typeof houseSchema>;
@@ -122,6 +123,7 @@ export const retreatSchema = z.object({
 	notifyPalanqueros: z.array(z.number().int().min(1).max(3)).transform(arr => [...new Set(arr)]).optional(),
 	createdBy: z.string().uuid().optional(),
 	santisimoEnabled: z.boolean().default(false).optional(),
+	timezone: z.string().nullable().optional(),
 });
 export type Retreat = z.infer<typeof retreatSchema>;
 
@@ -466,6 +468,7 @@ export * from './community';
 export * from './testimonial';
 export * from './santisimo';
 export * from './schedule';
+export * from './availability';
 
 // Payment Schema
 export const paymentSchema = z.object({

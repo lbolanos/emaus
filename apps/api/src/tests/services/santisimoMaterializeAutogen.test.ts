@@ -89,6 +89,320 @@ describe('RetreatScheduleService.materializeFromTemplate — auto-generación de
 		expect(last - first).toBe(6 * 60 * 60 * 1000);
 	});
 
+	test('regenerateSantisimoSlotsFromSchedule descarta items santísimo viejos con timestamps incorrectos (caso San Agustín)', async () => {
+		const ds = getDS();
+		const tplRepo = ds.getRepository(ScheduleTemplate);
+		const itemRepo = ds.getRepository(RetreatScheduleItem);
+		const slotRepo = ds.getRepository(SantisimoSlot);
+
+		// Aseguro que la casa del retiro esté en CDMX.
+		const houseRepo = ds.getRepository((await import('@/entities/house.entity')).House);
+		const retreatRepo = ds.getRepository((await import('@/entities/retreat.entity')).Retreat);
+		const retreatRow = await retreatRepo.findOne({
+			where: { id: testRetreat.id },
+			relations: ['house'],
+		});
+		await houseRepo.update(retreatRow!.house.id, { timezone: 'America/Mexico_City' });
+		// `startDate` se actualiza con SQL directo para evitar el shift de
+		// timezone que TypeORM aplica al guardar Date → columna 'date' en SQLite.
+		await ds.query(
+			`UPDATE retreat SET startDate = '2026-06-05', timezone = NULL WHERE id = ?`,
+			[testRetreat.id],
+		);
+
+		// Template santísimo: Exposición a las 16:00 hora local del retiro.
+		const tpl = await tplRepo.save(
+			tplRepo.create({
+				templateSetId: setId,
+				name: 'Exposición del Santísimo',
+				type: 'santisimo',
+				defaultDay: 1,
+				defaultOrder: 40,
+				defaultStartTime: '16:00',
+				defaultDurationMinutes: 60,
+				isActive: true,
+			}),
+		);
+
+		// Materializo correctamente (ya con timezone): item queda a 22:00 UTC = 16:00 CDMX.
+		await service.materializeFromTemplate(testRetreat.id, new Date('2026-06-05'), false, setId);
+
+		const itemsAfterMaterialize = await itemRepo.find({
+			where: { retreatId: testRetreat.id, type: 'santisimo' },
+		});
+		expect(itemsAfterMaterialize).toHaveLength(1);
+		expect(new Date(itemsAfterMaterialize[0].startTime).toISOString())
+			.toBe('2026-06-05T22:00:00.000Z');
+
+		// Simulo el bug pre-fix: insertar manualmente un item santísimo "viejo"
+		// con startTime 16:00 UTC (= 10:00 AM en CDMX, exactamente lo que vio
+		// el usuario en San Agustín).
+		await itemRepo.save(
+			itemRepo.create({
+				retreatId: testRetreat.id,
+				scheduleTemplateId: tpl.id,
+				name: 'Exposición del Santísimo',
+				type: 'santisimo',
+				day: 1,
+				startTime: new Date('2026-06-05T16:00:00.000Z'),
+				endTime: new Date('2026-06-05T17:00:00.000Z'),
+				durationMinutes: 60,
+				orderInDay: 40,
+				status: 'pending',
+				blocksSantisimoAttendance: false,
+			}),
+		);
+
+		const allItems = await itemRepo.find({ where: { retreatId: testRetreat.id, type: 'santisimo' } });
+		expect(allItems).toHaveLength(2);
+
+		// Inserto slots viejos directamente (simula el estado real de San Agustín:
+		// slots existentes apuntando a 16:00 UTC = 10:00 AM CDMX).
+		await slotRepo.delete({ retreatId: testRetreat.id });
+		await slotRepo.save([
+			slotRepo.create({
+				retreatId: testRetreat.id,
+				startTime: new Date('2026-06-05T16:00:00.000Z'),
+				endTime: new Date('2026-06-05T17:00:00.000Z'),
+				capacity: 1,
+				isDisabled: false,
+			}),
+			slotRepo.create({
+				retreatId: testRetreat.id,
+				startTime: new Date('2026-06-05T17:00:00.000Z'),
+				endTime: new Date('2026-06-05T18:00:00.000Z'),
+				capacity: 1,
+				isDisabled: false,
+			}),
+		]);
+		const slotsBefore = await slotRepo.find({ where: { retreatId: testRetreat.id }, order: { startTime: 'ASC' } });
+		expect(new Date(slotsBefore[0].startTime).toISOString()).toBe('2026-06-05T16:00:00.000Z');
+
+		// Llamo al botón "Borrar todo y regenerar".
+		const result = await service.regenerateSantisimoSlotsFromSchedule(testRetreat.id);
+
+		// Verifico:
+		// 1. El item santísimo VIEJO fue eliminado, solo queda el correcto del template.
+		const itemsAfter = await itemRepo.find({
+			where: { retreatId: testRetreat.id, type: 'santisimo' },
+			order: { startTime: 'ASC' },
+		});
+		expect(itemsAfter).toHaveLength(1);
+		expect(new Date(itemsAfter[0].startTime).toISOString())
+			.toBe('2026-06-05T22:00:00.000Z');
+
+		// 2. Los slots regenerados arrancan en 22:00 UTC (= 16:00 CDMX), NO en 16:00 UTC.
+		const slotsAfter = await slotRepo.find({
+			where: { retreatId: testRetreat.id },
+			order: { startTime: 'ASC' },
+		});
+		expect(slotsAfter.length).toBeGreaterThan(0);
+		expect(new Date(slotsAfter[0].startTime).toISOString())
+			.toBe('2026-06-05T22:00:00.000Z');
+
+		// 3. Conteos del summary del UI.
+		expect(result.replacedItems).toBe(1);
+		expect(result.created).toBe(slotsAfter.length);
+	});
+
+	test('regenerateSantisimoSlotsFromSchedule deduplica items con el mismo scheduleTemplateId (caso comidas duplicadas)', async () => {
+		const ds = getDS();
+		const tplRepo = ds.getRepository(ScheduleTemplate);
+		const itemRepo = ds.getRepository(RetreatScheduleItem);
+		const slotRepo = ds.getRepository(SantisimoSlot);
+
+		const houseRepo = ds.getRepository((await import('@/entities/house.entity')).House);
+		const retreatRepo = ds.getRepository((await import('@/entities/retreat.entity')).Retreat);
+		const retreatRow = await retreatRepo.findOne({
+			where: { id: testRetreat.id },
+			relations: ['house'],
+		});
+		await houseRepo.update(retreatRow!.house.id, { timezone: 'America/Mexico_City' });
+		await ds.query(
+			`UPDATE retreat SET startDate = '2026-06-05', timezone = NULL WHERE id = ?`,
+			[testRetreat.id],
+		);
+
+		// Template: santísimo + comida bloqueante.
+		const tplSantisimo = await tplRepo.save(
+			tplRepo.create({
+				templateSetId: setId,
+				name: 'Exposición del Santísimo',
+				type: 'santisimo',
+				defaultDay: 1,
+				defaultStartTime: '16:00',
+				defaultDurationMinutes: 60,
+				isActive: true,
+			}),
+		);
+		const tplComida = await tplRepo.save(
+			tplRepo.create({
+				templateSetId: setId,
+				name: 'Desayuno',
+				type: 'comida',
+				defaultDay: 2,
+				defaultStartTime: '08:20',
+				defaultDurationMinutes: 50,
+				blocksSantisimoAttendance: true,
+				isActive: true,
+			}),
+		);
+
+		// Materializo correctamente (CDMX): comida queda a 14:20 UTC = 08:20 local.
+		await service.materializeFromTemplate(testRetreat.id, new Date('2026-06-05'), false, setId);
+
+		// Inserto el duplicado VIEJO de la comida (bug pre-fix): 08:20 UTC = 02:20 AM CDMX.
+		// Espero 1ms entre inserts para garantizar que createdAt sea distinto y el
+		// "más reciente" (el correcto) gane.
+		await new Promise((r) => setTimeout(r, 5));
+		await itemRepo.save(
+			itemRepo.create({
+				retreatId: testRetreat.id,
+				scheduleTemplateId: tplComida.id,
+				name: 'Desayuno',
+				type: 'comida',
+				day: 2,
+				startTime: new Date('2026-06-06T08:20:00.000Z'), // viejo
+				endTime: new Date('2026-06-06T09:10:00.000Z'),
+				durationMinutes: 50,
+				orderInDay: 1,
+				status: 'pending',
+				blocksSantisimoAttendance: true,
+			}),
+		);
+
+		// Ordeno: el correcto debería ser el más reciente. Re-guardo el correcto
+		// para que su createdAt > el viejo.
+		const correctItem = await itemRepo.findOne({
+			where: {
+				retreatId: testRetreat.id,
+				scheduleTemplateId: tplComida.id,
+				startTime: new Date('2026-06-06T14:20:00.000Z'),
+			},
+		});
+		expect(correctItem).not.toBeNull();
+		await new Promise((r) => setTimeout(r, 5));
+		// Forzar createdAt mayor con una nueva inserción del item correcto.
+		await itemRepo.delete(correctItem!.id);
+		await itemRepo.save(
+			itemRepo.create({
+				retreatId: testRetreat.id,
+				scheduleTemplateId: tplComida.id,
+				name: 'Desayuno',
+				type: 'comida',
+				day: 2,
+				startTime: new Date('2026-06-06T14:20:00.000Z'), // correcto
+				endTime: new Date('2026-06-06T15:10:00.000Z'),
+				durationMinutes: 50,
+				orderInDay: 1,
+				status: 'pending',
+				blocksSantisimoAttendance: true,
+			}),
+		);
+
+		const dupesBefore = await itemRepo.find({
+			where: { retreatId: testRetreat.id, scheduleTemplateId: tplComida.id },
+		});
+		expect(dupesBefore).toHaveLength(2);
+
+		const result = await service.regenerateSantisimoSlotsFromSchedule(testRetreat.id);
+
+		// Re-materializa todo el template → los duplicados desaparecen y queda
+		// 1 solo item de comida con el timestamp correcto (14:20 UTC = 8:20 CDMX).
+		const comidaItemsAfter = await itemRepo.find({
+			where: { retreatId: testRetreat.id, scheduleTemplateId: tplComida.id },
+		});
+		expect(comidaItemsAfter).toHaveLength(1);
+		expect(new Date(comidaItemsAfter[0].startTime).toISOString())
+			.toBe('2026-06-06T14:20:00.000Z');
+
+		// Se eliminaron AL MENOS los 2 items duplicados de comida + 1 santísimo
+		// (los del template existentes antes del regenerate).
+		expect(result.removedTemplateItems).toBeGreaterThanOrEqual(2);
+	});
+
+	test('regenerateSantisimoSlotsFromSchedule preserva items manuales (sin scheduleTemplateId)', async () => {
+		const ds = getDS();
+		const tplRepo = ds.getRepository(ScheduleTemplate);
+		const itemRepo = ds.getRepository(RetreatScheduleItem);
+
+		const houseRepo = ds.getRepository((await import('@/entities/house.entity')).House);
+		const retreatRepo = ds.getRepository((await import('@/entities/retreat.entity')).Retreat);
+		const retreatRow = await retreatRepo.findOne({
+			where: { id: testRetreat.id },
+			relations: ['house'],
+		});
+		await houseRepo.update(retreatRow!.house.id, { timezone: 'America/Mexico_City' });
+		await ds.query(
+			`UPDATE retreat SET startDate = '2026-06-05', timezone = NULL WHERE id = ?`,
+			[testRetreat.id],
+		);
+
+		// Template normal: 1 santísimo + 1 charla.
+		await tplRepo.save([
+			tplRepo.create({
+				templateSetId: setId,
+				name: 'Exposición del Santísimo',
+				type: 'santisimo',
+				defaultDay: 1,
+				defaultStartTime: '16:00',
+				defaultDurationMinutes: 60,
+				isActive: true,
+			}),
+			tplRepo.create({
+				templateSetId: setId,
+				name: 'Charla original',
+				type: 'charla',
+				defaultDay: 1,
+				defaultStartTime: '20:00',
+				defaultDurationMinutes: 45,
+				isActive: true,
+			}),
+		]);
+
+		await service.materializeFromTemplate(testRetreat.id, new Date('2026-06-05'), false, setId);
+
+		// El admin agrega un item manual extra (sin templateId).
+		const manualItem = await itemRepo.save(
+			itemRepo.create({
+				retreatId: testRetreat.id,
+				scheduleTemplateId: null,
+				name: 'Anuncio del coordinador',
+				type: 'logistica',
+				day: 1,
+				startTime: new Date('2026-06-05T20:30:00.000Z'),
+				endTime: new Date('2026-06-05T20:35:00.000Z'),
+				durationMinutes: 5,
+				orderInDay: 999,
+				status: 'pending',
+				blocksSantisimoAttendance: false,
+			}),
+		);
+		expect(manualItem.id).toBeDefined();
+
+		// Verifica estado pre-regenerate: 2 items del template + 1 manual.
+		const allBefore = await itemRepo.find({ where: { retreatId: testRetreat.id } });
+		expect(allBefore).toHaveLength(3);
+
+		await service.regenerateSantisimoSlotsFromSchedule(testRetreat.id);
+
+		// El item manual sigue presente con sus campos intactos.
+		const manualAfter = await itemRepo.findOne({ where: { id: manualItem.id } });
+		expect(manualAfter).not.toBeNull();
+		expect(manualAfter!.name).toBe('Anuncio del coordinador');
+		expect(manualAfter!.scheduleTemplateId).toBeNull();
+		expect(new Date(manualAfter!.startTime).toISOString())
+			.toBe('2026-06-05T20:30:00.000Z');
+
+		// Y los items del template fueron re-materializados (mismas 2, no duplicados).
+		const templateItemsAfter = await itemRepo
+			.createQueryBuilder('it')
+			.where('it.retreatId = :retreatId', { retreatId: testRetreat.id })
+			.andWhere('it.scheduleTemplateId IS NOT NULL')
+			.getMany();
+		expect(templateItemsAfter).toHaveLength(2);
+	});
+
 	test('idempotente: re-materializar no duplica slots ni borra signups previos', async () => {
 		const ds = getDS();
 		const tplRepo = ds.getRepository(ScheduleTemplate);

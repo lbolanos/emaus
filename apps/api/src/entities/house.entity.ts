@@ -28,6 +28,9 @@ export class House {
 	@Column('varchar')
 	country!: string;
 
+	@Column('varchar', { length: 64, default: 'America/Mexico_City' })
+	timezone!: string;
+
 	@Column('integer')
 	capacity!: number;
 

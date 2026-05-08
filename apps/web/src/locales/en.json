@@ -1445,7 +1445,18 @@
       "shirtsAskTitle": "Do you need any shirt or jacket?",
       "shirtsAskHint": "If you already have yours from past retreats, leave \"Not needed\".",
       "isAngelito": "Register as angelito",
-      "isAngelitoHint": "Partial support: not assigned to table or bed, and no payment required."
+      "isAngelitoHint": "Partial support: not assigned to table or bed, and no payment required.",
+      "angelitoAvailability": {
+        "title": "Service availability",
+        "hint": "Tell us the time windows when you will be serving",
+        "addBlock": "Add time window",
+        "start": "From",
+        "end": "Until",
+        "empty": "No time windows added yet.",
+        "required": "Please add at least one time window",
+        "invalidRange": "End time must be greater than start time",
+        "overlap": "This block overlaps with another"
+      }
     },
     "emergencyContact1": "In case of emergency, contact (1):",
     "emergencyContact2": "In case of emergency, contact (2):"
@@ -1599,6 +1610,30 @@
     "error": "Error",
     "create": "Create",
     "save": "Save"
+  },
+  "angelitos": {
+    "availabilityStatus": {
+      "title": "Availability",
+      "summary": "{configured} of {total} angelitos with availability configured",
+      "missing": "{n} angelito(s) without availability",
+      "missingHint": "Without availability, these angelitos fall through the legacy rule: they appear as available for all meal slots.",
+      "allConfigured": "All angelitos have availability configured.",
+      "scheduledSlots": "Assigned slots",
+      "noScheduledSlots": "No slots",
+      "openEditor": "Configure",
+      "editEditor": "Edit",
+      "assignedSlots": "Assigned Santísimo slots",
+      "noAssignedSlots": "No slots assigned yet.",
+      "mealWindowBadge": "Meal",
+      "savingAvailability": "Saving...",
+      "availability": "Availability",
+      "columnName": "Name",
+      "columnBlocks": "Availability",
+      "columnSlots": "Slots",
+      "saveAvailability": "Save availability",
+      "angelitoAvailabilitySaved": "Availability saved successfully.",
+      "angelitoAvailabilitySaveError": "Error saving availability."
+    }
   },
   "badges": {
     "title": "Badges",
@@ -2048,6 +2083,18 @@
     "searchServer": "Find server",
     "searchServerPlaceholder": "Type a name to filter...",
     "noServerMatch": "No match. Switch to Free name to enter a custom name.",
+    "noAvailability": "No availability set",
+    "availabilityLabel": "Availability",
+    "eligibleByAvailability": "Showing only angelitos available for this slot.",
+    "showingAllServers": "Showing everyone (no time filter).",
+    "candidatesCount": "{n} server(s) in list",
+    "removeFilter": "Remove filter",
+    "applyFilter": "Apply filter",
+    "angelitoCoverage": "{n} angelito(s) available",
+    "angelitoCoverageHint": "Angelitos whose availability blocks cover this slot",
+    "angelitoAvailabilityTitle": "Angelito availability",
+    "angelitoAvailabilitySaved": "Availability saved.",
+    "angelitoAvailabilitySaveError": "Could not save availability.",
     "selectedServer": "Selected server",
     "angelitoHint": "Free-form name for someone not in the system",
     "mealWindowLabel": "Meal window — only off-table servers",
@@ -2067,6 +2114,11 @@
     "autoAssign": "Auto-assign angelitos",
     "autoAssignHint": "Recomputes meal windows and distributes available angelitos across blocked slots.",
     "autoAssignDone": "Auto-assignment complete",
-    "autoAssignSummary": "{meal} meal windows · {assigned} angelitos assigned · {pending} slots unfilled"
+    "autoAssignSummary": "{meal} meal windows · {assigned} angelitos assigned · {pending} slots unfilled",
+    "regenerateFromSchedule": "Delete all & regenerate",
+    "regenerateFromScheduleHint": "Deletes ALL Santísimo slots and signups, re-materializes the schedule from the template with the retreat's current timezone and regenerates the slots.",
+    "regenerateFromScheduleConfirm": "This will delete ALL Santísimo slots (with their signups) and re-materialize the schedule from the template. Manually edited template-linked items WILL BE LOST. Items created by hand (no template) are preserved. Continue?",
+    "regenerateFromScheduleDone": "Slots regenerated",
+    "regenerateFromScheduleSummary": "{removed} template items removed · {replaced} items re-materialized · {deleted} slots deleted · {created} slots created"
   }
 }

@@ -65,6 +65,15 @@
               @click="closeMore(); helpOpen = true"
               data-testid="santisimo-help-button"
             >❓ {{ t('santisimo.help') }}</button>
+            <div class="border-t border-gray-100 my-1"></div>
+            <button
+              type="button"
+              role="menuitem"
+              class="w-full text-left px-3 py-2 hover:bg-red-50 text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              @click="closeMore(); doRegenerateFromSchedule()"
+              :title="t('santisimo.regenerateFromScheduleHint')"
+              data-testid="santisimo-regenerate-button"
+            >🗑 {{ t('santisimo.regenerateFromSchedule') }}</button>
           </div>
         </div>
       </div>
@@ -120,9 +129,21 @@
           <div v-else>
             <div
               v-if="slot.mealWindow"
-              class="text-[10px] uppercase tracking-wide text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded inline-block mb-1"
+              class="flex flex-wrap items-center gap-1 mb-1"
             >
-              {{ t('santisimo.mealWindowLabel') }}
+              <span class="text-[10px] uppercase tracking-wide text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                {{ t('santisimo.mealWindowLabel') }}
+              </span>
+              <span
+                v-if="slot.id in angelitoCoverage"
+                class="text-[10px] tracking-wide px-1.5 py-0.5 rounded inline-flex items-center gap-1"
+                :class="(angelitoCoverage[slot.id] ?? 0) > 0
+                  ? 'text-green-700 bg-green-100'
+                  : 'text-red-700 bg-red-100'"
+                :title="t('santisimo.angelitoCoverageHint', { n: angelitoCoverage[slot.id] })"
+              >
+                {{ t('santisimo.angelitoCoverage', { n: angelitoCoverage[slot.id] ?? 0 }) }}
+              </span>
             </div>
             <div v-if="slot.intention" class="text-xs text-gray-500">{{ slot.intention }}</div>
             <ul class="mt-1 space-y-0.5">
@@ -220,10 +241,39 @@
               <label class="text-sm">{{ t('santisimo.searchServer') }}</label>
               <p
                 v-if="signupSlot?.mealWindow"
-                class="text-xs text-amber-700 mt-1 mb-1"
+                class="text-xs text-amber-700 mt-1 mb-2"
               >
                 {{ t('santisimo.mealWindowHint') }}
               </p>
+              <div
+                v-if="signupSlot?.mealWindow"
+                class="mt-2 mb-2 flex items-center justify-between gap-2 rounded-md border bg-blue-50 dark:bg-blue-950/30 px-3 py-2"
+              >
+                <div class="flex items-center gap-2 min-w-0">
+                  <component
+                    :is="filterByAvailability ? Filter : FilterX"
+                    class="h-4 w-4 shrink-0"
+                    :class="filterByAvailability ? 'text-blue-700' : 'text-gray-500'"
+                  />
+                  <div class="min-w-0">
+                    <div class="text-xs font-medium" :class="filterByAvailability ? 'text-blue-900 dark:text-blue-100' : 'text-gray-700 dark:text-gray-200'">
+                      {{ filterByAvailability ? t('santisimo.eligibleByAvailability') : t('santisimo.showingAllServers') }}
+                    </div>
+                    <div v-if="!serversLoading" class="text-[10px] text-muted-foreground mt-0.5">
+                      {{ t('santisimo.candidatesCount', { n: servers.length }) }}
+                    </div>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  class="shrink-0 h-7 text-xs"
+                  @click="toggleAvailabilityFilter"
+                >
+                  {{ filterByAvailability ? t('santisimo.removeFilter') : t('santisimo.applyFilter') }}
+                </Button>
+              </div>
               <Input v-model="serverSearch" :placeholder="t('santisimo.searchServerPlaceholder')" />
               <div v-if="serversLoading" class="text-xs text-gray-500 mt-1">{{ t('common.loading') }}</div>
               <ul
@@ -233,19 +283,33 @@
                 <li
                   v-for="srv in filteredServers"
                   :key="srv.id"
-                  class="px-3 py-2 cursor-pointer hover:bg-blue-50 flex items-center justify-between"
+                  class="px-3 py-2 cursor-pointer hover:bg-blue-50 flex items-center justify-between gap-2"
                   :class="selectedServerId === srv.id ? 'bg-blue-100' : ''"
                   @click="pickServer(srv)"
                 >
-                  <div>
-                    <div class="text-sm font-medium">{{ srv.firstName }} {{ srv.lastName }}</div>
-                    <div class="text-xs text-gray-500">{{ srv.cellPhone || '—' }}</div>
+                  <div class="min-w-0 flex-1">
+                    <div class="text-sm font-medium flex items-center gap-1.5">
+                      <span class="truncate">{{ srv.firstName }} {{ srv.lastName }}</span>
+                      <span
+                        v-if="srv.type === 'partial_server'"
+                        class="shrink-0 inline-flex items-center rounded-full bg-purple-100 text-purple-800 text-[10px] px-1.5 py-0.5 font-medium"
+                      >{{ t('santisimo.angelito') }}</span>
+                    </div>
+                    <div class="text-xs text-gray-500 truncate">
+                      <span v-if="srv.type === 'partial_server' && srv.availability?.length">
+                        {{ formatAvailabilityShort(srv.availability) }}
+                      </span>
+                      <span v-else>{{ srv.cellPhone || '—' }}</span>
+                    </div>
                   </div>
-                  <span v-if="selectedServerId === srv.id" class="text-xs text-blue-700">✓</span>
+                  <span v-if="selectedServerId === srv.id" class="text-xs text-blue-700 shrink-0">✓</span>
                 </li>
               </ul>
               <div v-else-if="serverSearch.trim()" class="text-xs text-gray-500 mt-1">
                 {{ t('santisimo.noServerMatch') }}
+              </div>
+              <div v-else-if="!serversLoading && filteredServers.length === 0" class="text-xs text-gray-500 mt-1">
+                {{ t('santisimo.noAvailability') }}
               </div>
             </div>
           </template>
@@ -327,11 +391,11 @@ import {
   DialogTitle,
   useToast,
 } from '@repo/ui';
-import { HelpCircle, Link2, Plus, Printer } from 'lucide-vue-next';
+import { HelpCircle, Link2, Plus, Printer, Filter, FilterX } from 'lucide-vue-next';
 import { useRoute } from 'vue-router';
 import { useSantisimoStore } from '@/stores/santisimoStore';
 import { useRetreatStore } from '@/stores/retreatStore';
-import { api, retreatScheduleApi, type SantisimoSlotWithSignups } from '@/services/api';
+import { api, retreatScheduleApi, santisimoApi, type SantisimoSlotWithSignups } from '@/services/api';
 
 interface ServerOption {
   id: string; // participant id
@@ -341,6 +405,8 @@ interface ServerOption {
   cellPhone?: string | null;
   email?: string | null;
   tableId?: string | null;
+  type?: 'server' | 'partial_server';
+  availability?: Array<{ id: string; startTime: string; endTime: string }>;
 }
 
 const { t } = useI18n();
@@ -435,6 +501,35 @@ async function doAutoAssignAngelitos() {
   }
 }
 
+async function doRegenerateFromSchedule() {
+  if (!retreatId.value) return;
+  if (
+    !window.confirm(
+      t('santisimo.regenerateFromScheduleConfirm'),
+    )
+  ) {
+    return;
+  }
+  try {
+    const result = await santisimoStore.regenerateFromSchedule(retreatId.value);
+    toast({
+      title: t('santisimo.regenerateFromScheduleDone'),
+      description: t('santisimo.regenerateFromScheduleSummary', {
+        deleted: result.deleted,
+        created: result.created,
+        replaced: result.replacedItems,
+        removed: result.removedTemplateItems,
+      }),
+    });
+  } catch (e: any) {
+    toast({
+      title: t('common.error'),
+      description: e?.response?.data?.message || e?.message,
+      variant: 'destructive',
+    });
+  }
+}
+
 // -- Generate dialog --
 const generateOpen = ref(false);
 const genForm = ref({
@@ -517,25 +612,43 @@ const selectedServerId = ref<string | null>(null);
 
 const servers = ref<ServerOption[]>([]);
 const serversLoading = ref(false);
+const filterByAvailability = ref(true);
+const angelitoCoverage = ref<Record<string, number>>({});
 
-async function loadServers() {
+async function loadAngelitoCoverage() {
   if (!retreatId.value) return;
-  if (servers.value.length > 0) return;
+  try {
+    angelitoCoverage.value = await santisimoApi.getMealWindowAngelitoCoverage(retreatId.value);
+  } catch {
+    angelitoCoverage.value = {};
+  }
+}
+
+function toggleAvailabilityFilter() {
+  filterByAvailability.value = !filterByAvailability.value;
+  if (signupSlot.value) {
+    loadServers(signupSlot.value.id);
+  }
+}
+
+async function loadServers(slotId?: string) {
+  if (!retreatId.value || !slotId) return;
   serversLoading.value = true;
   try {
-    const r = await api.get('/participants', {
-      params: { retreatId: retreatId.value, type: 'server' },
+    const list = await santisimoApi.listEligibleServersForSlot(retreatId.value, slotId, {
+      ignoreAvailability: !filterByAvailability.value,
     });
-    servers.value = (r.data as any[])
-      .filter((p) => !p.isCancelled)
+    servers.value = list
       .map((p) => ({
         id: p.id,
-        userId: p.userId ?? null,
+        userId: null,
         firstName: p.firstName ?? '',
         lastName: p.lastName ?? '',
         cellPhone: p.cellPhone ?? null,
         email: p.email ?? null,
-        tableId: p.tableId ?? null,
+        tableId: null,
+        type: p.type,
+        availability: p.availability,
       }))
       .sort((a, b) =>
         `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, 'es'),
@@ -555,15 +668,26 @@ async function loadServers() {
 
 const filteredServers = computed(() => {
   const q = serverSearch.value.trim().toLowerCase();
-  // Cuando el slot abierto es mealWindow (los servidores en mesa están comiendo)
-  // ocultamos a quien tiene mesa asignada — sólo se inscriben servidores libres.
-  const excludeInTable = !!signupSlot.value?.mealWindow;
-  let pool = excludeInTable ? servers.value.filter((s) => !s.tableId) : servers.value;
-  if (!q) return pool.slice(0, 30);
-  return pool
+  if (!q) return servers.value.slice(0, 30);
+  return servers.value
     .filter((s) => `${s.firstName} ${s.lastName}`.toLowerCase().includes(q))
     .slice(0, 30);
 });
+
+function formatAvailabilityShort(blocks?: Array<{ startTime: string; endTime: string }>): string {
+  if (!blocks || blocks.length === 0) return '';
+  const fmt = (s: string) => {
+    const d = new Date(s);
+    return d.toLocaleString('es-MX', {
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+  return blocks
+    .map((b) => `${fmt(b.startTime)} → ${fmt(b.endTime)}`)
+    .join(' · ');
+}
 
 function openSignupForm(slot: SantisimoSlotWithSignups) {
   signupSlot.value = slot;
@@ -571,8 +695,12 @@ function openSignupForm(slot: SantisimoSlotWithSignups) {
   signupMode.value = 'server';
   serverSearch.value = '';
   selectedServerId.value = null;
+  // Filtrar por defecto cuando es slot de comida (mealWindow). En slots
+  // normales no aplica filtro de horario, así que el toggle no se renderiza.
+  filterByAvailability.value = !!slot.mealWindow;
   signupOpen.value = true;
-  loadServers();
+  servers.value = [];
+  loadServers(slot.id);
 }
 
 function switchMode(mode: SignupMode) {
@@ -658,7 +786,10 @@ function printView() {
 watch(
   () => retreatId.value,
   async (id) => {
-    if (id) await santisimoStore.fetchSlots(id);
+    if (id) {
+      await santisimoStore.fetchSlots(id);
+      await loadAngelitoCoverage();
+    }
   },
   { immediate: false },
 );
@@ -669,6 +800,7 @@ onMounted(async () => {
   }
   if (retreatId.value) {
     await santisimoStore.fetchSlots(retreatId.value);
+    await loadAngelitoCoverage();
   }
 });
 </script>

@@ -1,32 +1,32 @@
 /**
- * computeItemDateRange — pure-logic tests for the TZ-shift fix in
- * `materializeFromTemplate` and `addMissingTemplateItems`.
+ * computeItemDateRange — pure-logic tests for the TZ-aware materialization
+ * used by `materializeFromTemplate` and `addMissingTemplateItems`.
  *
- * The bug:
- *   - Controller does `new Date(req.body.baseDate)` where body has
- *     "2026-04-26" → parsed as 2026-04-26T00:00:00Z (UTC midnight).
- *   - Old code used `.getDate()` (server-local) on that Date, which
- *     returns the previous day in any UTC- timezone.
- *   - Then `.setHours(h, m)` (also server-local) further compounded.
- *   - Net effect: Day 1 items landed on the wrong calendar date in
- *     non-UTC dev environments. (Prod runs UTC so it didn't manifest
- *     there — but it surfaced during local simulation.)
+ * Historia del bug:
+ *   - Versión 1: usaba `setHours()` server-local → off-by-one de día en
+ *     dev no-UTC (corregido leyendo componentes UTC de baseDate).
+ *   - Versión 2: usaba `new Date(yyyy, mm, dd, h, m)` server-local → con
+ *     server UTC y cliente America/Mexico_City, '16:00 local' se almacenaba
+ *     como 16:00Z y el navegador lo mostraba como 10:00 AM. Reportado en
+ *     el retiro de San Agustín (Santísimo).
  *
- * The fix:
- *   - Read baseDate's UTC year/month/day components.
- *   - Construct the result via `new Date(yyyy, mm, dd + offset, h, m)`
- *     which is server-local — so HH:MM still means "HH:MM in the place
- *     where the server runs", matching coordinator intent.
- *
- * We can't easily exercise this across all timezones in jest, so the
- * tests cover the math + invariants that should hold regardless of TZ.
+ * Fix actual:
+ *   - `defaultStartTime` ('16:00') es la hora LOCAL DEL RETIRO.
+ *   - `computeItemDateRange` recibe la timezone IANA del retiro
+ *     (resuelta como retreat.timezone ?? house.timezone ?? default).
+ *   - `makeDateInTimezone(...)` (en utils/date.transformer.ts) convierte
+ *     componentes calendario en esa zona al instante UTC equivalente,
+ *     manejando DST automáticamente vía Intl.DateTimeFormat.
  */
+
+import { makeDateInTimezone } from '../../utils/date.transformer';
 
 function computeItemDateRange(
 	baseDate: Date,
 	day: number,
 	defaultStartTime: string | null | undefined,
 	durationMinutes: number,
+	timezone: string,
 ): { startTime: Date; endTime: Date } {
 	let h = 9;
 	let m = 0;
@@ -38,149 +38,158 @@ function computeItemDateRange(
 	const yyyy = baseDate.getUTCFullYear();
 	const mm = baseDate.getUTCMonth();
 	const dd = baseDate.getUTCDate();
-	// "After-midnight" items (h < 6) belong to the previous day's evening
-	// flow but on the calendar happen the next morning — see Bug K.
 	const dayOffset = h < 6 ? day : day - 1;
-	const startTime = new Date(yyyy, mm, dd + dayOffset, h, m, 0, 0);
+	const startTime = makeDateInTimezone(yyyy, mm, dd + dayOffset, h, m, timezone);
 	const endTime = new Date(startTime.getTime() + durationMinutes * 60_000);
 	return { startTime, endTime };
 }
 
-describe('computeItemDateRange — TZ-safe materialization', () => {
-	const baseDate = new Date('2026-04-26T00:00:00.000Z'); // UTC midnight
-
-	it('Day 1 matches baseDate calendar day (no off-by-one)', () => {
-		const { startTime } = computeItemDateRange(baseDate, 1, '09:00', 30);
-		// Local components must reflect April 26, regardless of server TZ
-		expect(startTime.getFullYear()).toBe(2026);
-		expect(startTime.getMonth()).toBe(3); // April (0-indexed)
-		expect(startTime.getDate()).toBe(26);
-		expect(startTime.getHours()).toBe(9);
-		expect(startTime.getMinutes()).toBe(0);
+describe('makeDateInTimezone — direct helper', () => {
+	it('America/Mexico_City: 2026-04-26 16:00 → 2026-04-26T22:00:00Z (CST, no DST since 2022)', () => {
+		const d = makeDateInTimezone(2026, 3, 26, 16, 0, 'America/Mexico_City');
+		expect(d.toISOString()).toBe('2026-04-26T22:00:00.000Z');
 	});
 
-	it('Day 2 → April 27', () => {
-		const { startTime } = computeItemDateRange(baseDate, 2, '07:30', 60);
-		expect(startTime.getDate()).toBe(27);
-		expect(startTime.getHours()).toBe(7);
-		expect(startTime.getMinutes()).toBe(30);
+	it('America/Mexico_City: julio 2026 (verano) sigue UTC-6 (México eliminó DST en 2022)', () => {
+		const d = makeDateInTimezone(2026, 6, 26, 16, 0, 'America/Mexico_City');
+		expect(d.toISOString()).toBe('2026-07-26T22:00:00.000Z');
 	});
 
-	it('Day 3 → April 28', () => {
-		const { startTime } = computeItemDateRange(baseDate, 3, '20:15', 45);
-		expect(startTime.getDate()).toBe(28);
-		expect(startTime.getHours()).toBe(20);
-		expect(startTime.getMinutes()).toBe(15);
+	it('America/Bogota: 2026-04-26 16:00 → 2026-04-26T21:00:00Z (Colombia siempre UTC-5)', () => {
+		const d = makeDateInTimezone(2026, 3, 26, 16, 0, 'America/Bogota');
+		expect(d.toISOString()).toBe('2026-04-26T21:00:00.000Z');
 	});
 
-	it('cross-month boundary: baseDate=April 30, Day 3 → May 2', () => {
+	it('America/Bogota: julio sigue UTC-5 (no DST)', () => {
+		const d = makeDateInTimezone(2026, 6, 26, 16, 0, 'America/Bogota');
+		expect(d.toISOString()).toBe('2026-07-26T21:00:00.000Z');
+	});
+
+	it('Europe/Madrid invierno (CET, UTC+1): 2026-01-15 16:00 → 15:00:00Z', () => {
+		const d = makeDateInTimezone(2026, 0, 15, 16, 0, 'Europe/Madrid');
+		expect(d.toISOString()).toBe('2026-01-15T15:00:00.000Z');
+	});
+
+	it('Europe/Madrid verano (CEST, UTC+2): 2026-07-15 16:00 → 14:00:00Z', () => {
+		const d = makeDateInTimezone(2026, 6, 15, 16, 0, 'Europe/Madrid');
+		expect(d.toISOString()).toBe('2026-07-15T14:00:00.000Z');
+	});
+
+	it('UTC: identidad — 2026-04-26 16:00 → 16:00:00Z', () => {
+		const d = makeDateInTimezone(2026, 3, 26, 16, 0, 'UTC');
+		expect(d.toISOString()).toBe('2026-04-26T16:00:00.000Z');
+	});
+});
+
+describe('computeItemDateRange — TZ-aware materialization', () => {
+	const baseDate = new Date('2026-04-26T00:00:00.000Z');
+	const MX = 'America/Mexico_City';
+	const CO = 'America/Bogota';
+
+	it('Día 1 a 16:00 en CDMX → 22:00 UTC, calendario 26-abr', () => {
+		const { startTime } = computeItemDateRange(baseDate, 1, '16:00', 60, MX);
+		expect(startTime.toISOString()).toBe('2026-04-26T22:00:00.000Z');
+	});
+
+	it('Día 1 a 16:00 en Bogotá → 21:00 UTC, calendario 26-abr', () => {
+		const { startTime } = computeItemDateRange(baseDate, 1, '16:00', 60, CO);
+		expect(startTime.toISOString()).toBe('2026-04-26T21:00:00.000Z');
+	});
+
+	it('Día 2 a 07:30 CDMX → 27-abr 13:30Z', () => {
+		const { startTime } = computeItemDateRange(baseDate, 2, '07:30', 60, MX);
+		expect(startTime.toISOString()).toBe('2026-04-27T13:30:00.000Z');
+	});
+
+	it('Día 3 a 20:15 CDMX → 28-abr 02:15Z (siguiente día UTC)', () => {
+		const { startTime } = computeItemDateRange(baseDate, 3, '20:15', 45, MX);
+		expect(startTime.toISOString()).toBe('2026-04-29T02:15:00.000Z');
+	});
+
+	it('cross-month: baseDate 30-abr, Día 3 a 08:00 CDMX → 02-may 14:00Z', () => {
 		const lateApril = new Date('2026-04-30T00:00:00.000Z');
-		const { startTime } = computeItemDateRange(lateApril, 3, '08:00', 30);
-		expect(startTime.getMonth()).toBe(4); // May
-		expect(startTime.getDate()).toBe(2);
+		const { startTime } = computeItemDateRange(lateApril, 3, '08:00', 30, MX);
+		expect(startTime.toISOString()).toBe('2026-05-02T14:00:00.000Z');
 	});
 
-	it('cross-year boundary: baseDate=Dec 30 2025, Day 4 → Jan 2 2026', () => {
+	it('cross-year: baseDate 30-dic-2025, Día 4 a 09:00 CDMX → 02-ene-2026 15:00Z', () => {
 		const dec30 = new Date('2025-12-30T00:00:00.000Z');
-		const { startTime } = computeItemDateRange(dec30, 4, '09:00', 30);
-		expect(startTime.getFullYear()).toBe(2026);
-		expect(startTime.getMonth()).toBe(0); // January
-		expect(startTime.getDate()).toBe(2);
+		const { startTime } = computeItemDateRange(dec30, 4, '09:00', 30, MX);
+		expect(startTime.toISOString()).toBe('2026-01-02T15:00:00.000Z');
 	});
 
-	it('endTime = startTime + durationMinutes (preserved)', () => {
-		const { startTime, endTime } = computeItemDateRange(baseDate, 1, '09:00', 75);
+	it('endTime = startTime + durationMinutes', () => {
+		const { startTime, endTime } = computeItemDateRange(baseDate, 1, '09:00', 75, MX);
 		expect(endTime.getTime() - startTime.getTime()).toBe(75 * 60_000);
 	});
 
-	it('falls back to 09:00 when defaultStartTime is null', () => {
-		const { startTime } = computeItemDateRange(baseDate, 1, null, 30);
-		expect(startTime.getHours()).toBe(9);
-		expect(startTime.getMinutes()).toBe(0);
+	it('default 09:00 cuando defaultStartTime es null', () => {
+		const { startTime } = computeItemDateRange(baseDate, 1, null, 30, MX);
+		expect(startTime.toISOString()).toBe('2026-04-26T15:00:00.000Z');
 	});
 
-	it('falls back to 09:00 when defaultStartTime is undefined', () => {
-		const { startTime } = computeItemDateRange(baseDate, 1, undefined, 30);
-		expect(startTime.getHours()).toBe(9);
+	it('default 09:00 cuando defaultStartTime es undefined', () => {
+		const { startTime } = computeItemDateRange(baseDate, 1, undefined, 30, MX);
+		expect(startTime.toISOString()).toBe('2026-04-26T15:00:00.000Z');
 	});
 
-	it('parses "07:05" preserving leading zero in minutes', () => {
-		const { startTime } = computeItemDateRange(baseDate, 1, '07:05', 15);
-		expect(startTime.getHours()).toBe(7);
-		expect(startTime.getMinutes()).toBe(5);
+	it('parsea "07:05" preservando el cero a la izquierda en minutos', () => {
+		const { startTime } = computeItemDateRange(baseDate, 1, '07:05', 15, MX);
+		expect(startTime.toISOString()).toBe('2026-04-26T13:05:00.000Z');
 	});
 
-	it('a baseDate parsed from a YYYY-MM-DD string lands on the same calendar day', () => {
-		// Simulates controller: new Date(req.body.baseDate) where body is "2026-04-26"
+	it('baseDate parsed from "YYYY-MM-DD" string lands on the same calendar day', () => {
 		const fromString = new Date('2026-04-26');
-		const { startTime } = computeItemDateRange(fromString, 1, '09:00', 30);
-		// Even though `fromString` is UTC midnight, our fix reads getUTCDate=26,
-		// so Day 1 is April 26 in local time.
-		expect(startTime.getDate()).toBe(26);
-		expect(startTime.getMonth()).toBe(3);
+		const { startTime } = computeItemDateRange(fromString, 1, '09:00', 30, MX);
+		expect(startTime.toISOString()).toBe('2026-04-26T15:00:00.000Z');
 	});
 
-	it('two adjacent days end up exactly 24h apart at the same HH:MM', () => {
-		const d1 = computeItemDateRange(baseDate, 1, '09:00', 30).startTime;
-		const d2 = computeItemDateRange(baseDate, 2, '09:00', 30).startTime;
-		// Note: across DST transitions this could fail, but our test dates
-		// don't cross DST in MX/CO timezones. Safe assertion.
-		const diffHours = (d2.getTime() - d1.getTime()) / 3_600_000;
-		expect(diffHours).toBeGreaterThanOrEqual(23);
-		expect(diffHours).toBeLessThanOrEqual(25);
+	it('dos días consecutivos a las mismas HH:MM están exactamente a 24h en CDMX (sin DST)', () => {
+		const d1 = computeItemDateRange(baseDate, 1, '09:00', 30, MX).startTime;
+		const d2 = computeItemDateRange(baseDate, 2, '09:00', 30, MX).startTime;
+		expect(d2.getTime() - d1.getTime()).toBe(24 * 60 * 60 * 1000);
 	});
 
-	// Bug K: Polanco template has items on Día 1 with startTime '00:00' and
-	// '00:10' (Vigilia / Explicación de Adoración). They're after-midnight
-	// of Día 1, so they belong to Día 1's logical evening flow but on the
-	// CALENDAR they happen the next morning. Without the dayOffset shift
-	// they sort BEFORE the rest of Día 1 (e.g. 00:00 < 15:00) and appear
-	// at the start of the day, which is the bug the user reported.
-	describe('Bug K — after-midnight items shift to next calendar day', () => {
-		it('Día 1 at 00:10 → calendar day 27 (next morning of base 26)', () => {
-			const { startTime } = computeItemDateRange(baseDate, 1, '00:10', 360);
-			expect(startTime.getDate()).toBe(27);
-			expect(startTime.getHours()).toBe(0);
-			expect(startTime.getMinutes()).toBe(10);
+	// Bug K — after-midnight (h<6) shifts day forward
+	describe('Bug K — items madrugada saltan al siguiente día calendario', () => {
+		it('Día 1 a 00:10 CDMX → 27-abr 06:10Z', () => {
+			const { startTime } = computeItemDateRange(baseDate, 1, '00:10', 360, MX);
+			expect(startTime.toISOString()).toBe('2026-04-27T06:10:00.000Z');
 		});
 
-		it('Día 1 at 23:50 stays on calendar day 26 (still evening)', () => {
-			const { startTime } = computeItemDateRange(baseDate, 1, '23:50', 10);
-			expect(startTime.getDate()).toBe(26);
-			expect(startTime.getHours()).toBe(23);
+		it('Día 1 a 23:50 CDMX → 27-abr 05:50Z (sigue siendo noche del 26 local)', () => {
+			const { startTime } = computeItemDateRange(baseDate, 1, '23:50', 10, MX);
+			expect(startTime.toISOString()).toBe('2026-04-27T05:50:00.000Z');
 		});
 
-		it('Día 1 at 05:59 still treated as next-morning (boundary)', () => {
-			const { startTime } = computeItemDateRange(baseDate, 1, '05:59', 1);
-			expect(startTime.getDate()).toBe(27);
+		it('Día 1 a 05:59 sigue tratado como next-morning (boundary)', () => {
+			const { startTime } = computeItemDateRange(baseDate, 1, '05:59', 1, MX);
+			expect(startTime.toISOString()).toBe('2026-04-27T11:59:00.000Z');
 		});
 
-		it('Día 1 at 06:00 stays on calendar day 26 (boundary, normal day)', () => {
-			const { startTime } = computeItemDateRange(baseDate, 1, '06:00', 30);
-			expect(startTime.getDate()).toBe(26);
+		it('Día 1 a 06:00 se queda en el mismo día calendario (boundary normal)', () => {
+			const { startTime } = computeItemDateRange(baseDate, 1, '06:00', 30, MX);
+			expect(startTime.toISOString()).toBe('2026-04-26T12:00:00.000Z');
 		});
 
-		it('chronological sort respects evening-then-night order on Día 1', () => {
-			// Items: 22:00 evening → 23:50 evening → 00:00 next morning →
-			// 00:10 next morning. After fix, sorted by startTime they should be
-			// in the same order (not 00:00, 00:10, 22:00, 23:50 like before).
-			const evening1 = computeItemDateRange(baseDate, 1, '22:00', 30).startTime;
-			const evening2 = computeItemDateRange(baseDate, 1, '23:50', 10).startTime;
-			const night1 = computeItemDateRange(baseDate, 1, '00:00', 10).startTime;
-			const night2 = computeItemDateRange(baseDate, 1, '00:10', 360).startTime;
+		it('orden cronológico respetado: 22:00 → 23:50 → 00:00 → 00:10 (Día 1)', () => {
+			const evening1 = computeItemDateRange(baseDate, 1, '22:00', 30, MX).startTime;
+			const evening2 = computeItemDateRange(baseDate, 1, '23:50', 10, MX).startTime;
+			const night1 = computeItemDateRange(baseDate, 1, '00:00', 10, MX).startTime;
+			const night2 = computeItemDateRange(baseDate, 1, '00:10', 360, MX).startTime;
 			expect(evening1.getTime()).toBeLessThan(evening2.getTime());
 			expect(evening2.getTime()).toBeLessThan(night1.getTime());
 			expect(night1.getTime()).toBeLessThan(night2.getTime());
 		});
 
-		it('Día 2 at 06:00 lands on calendar day 27 (no shift, normal day-2 morning)', () => {
-			const { startTime } = computeItemDateRange(baseDate, 2, '06:00', 30);
-			expect(startTime.getDate()).toBe(27);
+		it('Día 2 a 06:00 → 27-abr 12:00Z', () => {
+			const { startTime } = computeItemDateRange(baseDate, 2, '06:00', 30, MX);
+			expect(startTime.toISOString()).toBe('2026-04-27T12:00:00.000Z');
 		});
 
-		it('Día 2 at 00:30 lands on calendar day 28 (Día 2 evening flow into next morning)', () => {
-			const { startTime } = computeItemDateRange(baseDate, 2, '00:30', 60);
-			expect(startTime.getDate()).toBe(28);
+		it('Día 2 a 00:30 → 28-abr 06:30Z (madrugada del Día 2 → calendario 28)', () => {
+			const { startTime } = computeItemDateRange(baseDate, 2, '00:30', 60, MX);
+			expect(startTime.toISOString()).toBe('2026-04-28T06:30:00.000Z');
 		});
 	});
 });

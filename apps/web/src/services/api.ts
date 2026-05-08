@@ -878,6 +878,7 @@ export const confirmExistingRegistration = async (
   type: string,
   recaptchaToken: string,
   shirtSizes?: { shirtTypeId: string; size: string }[],
+  availability?: { startTime: string; endTime: string }[],
 ): Promise<{ success: boolean; firstName: string; lastName: string }> => {
   const response = await api.post("/participants/confirm-registration", {
     email,
@@ -885,6 +886,7 @@ export const confirmExistingRegistration = async (
     type,
     recaptchaToken,
     shirtSizes,
+    availability,
   });
   return response.data;
 };
@@ -2168,6 +2170,24 @@ export const santisimoApi = {
     );
     return r.data;
   },
+  /**
+   * Acción destructiva: borra TODOS los slots e inscripciones del Santísimo,
+   * re-materializa los items con type='santisimo' desde el template usando
+   * la timezone actual del retiro, y regenera los slots desde esos items
+   * frescos. Útil tras cambiar la timezone o el template.
+   */
+  async regenerateFromSchedule(retreatId: string): Promise<{
+    deleted: number;
+    created: number;
+    replacedItems: number;
+    removedTemplateItems: number;
+    slots: SantisimoSlotWithSignups[];
+  }> {
+    const r = await api.post(
+      `/santisimo/retreats/${retreatId}/slots/regenerate-from-schedule`,
+    );
+    return r.data;
+  },
   async updateSlot(
     id: string,
     data: Partial<{
@@ -2204,6 +2224,68 @@ export const santisimoApi = {
   },
   async deleteSignup(id: string): Promise<void> {
     await api.delete(`/santisimo/signups/${id}`);
+  },
+
+  // Angelito availability per retreat
+  async getParticipantAvailability(
+    retreatId: string,
+    participantId: string,
+  ): Promise<Array<{ id: string; startTime: string; endTime: string }>> {
+    const r = await api.get(
+      `/santisimo/retreats/${retreatId}/participants/${participantId}/availability`,
+    );
+    return r.data;
+  },
+  async setParticipantAvailability(
+    retreatId: string,
+    participantId: string,
+    blocks: Array<{ startTime: string; endTime: string }>,
+  ): Promise<Array<{ id: string; startTime: string; endTime: string }>> {
+    const r = await api.put(
+      `/santisimo/retreats/${retreatId}/participants/${participantId}/availability`,
+      { blocks },
+    );
+    return r.data;
+  },
+  // Slots de Santísimo asignados a un participante en un retiro
+  async getParticipantAssignedSlots(retreatId: string, participantId: string): Promise<{
+    signupId: string;
+    slotId: string;
+    startTime: string;
+    endTime: string;
+    mealWindow: boolean;
+    autoAssigned: boolean;
+  }[]> {
+    const r = await api.get(`/santisimo/retreats/${retreatId}/participants/${participantId}/assigned-slots`);
+    return r.data;
+  },
+  async getMealWindowAngelitoCoverage(retreatId: string): Promise<Record<string, number>> {
+    const r = await api.get(
+      `/santisimo/retreats/${retreatId}/mealwindow-coverage`,
+    );
+    return r.data;
+  },
+  async listEligibleServersForSlot(
+    retreatId: string,
+    slotId: string,
+    options?: { ignoreAvailability?: boolean },
+  ): Promise<
+    Array<{
+      id: string;
+      firstName: string;
+      lastName: string;
+      nickname?: string;
+      cellPhone?: string | null;
+      email?: string | null;
+      type: 'server' | 'partial_server';
+      availability?: Array<{ id: string; startTime: string; endTime: string }>;
+    }>
+  > {
+    const r = await api.get(
+      `/santisimo/retreats/${retreatId}/slots/${slotId}/eligible-servers`,
+      { params: options?.ignoreAvailability ? { ignoreAvailability: 'true' } : {} },
+    );
+    return r.data;
   },
 
   // Public (no CSRF token required, but endpoint is whitelisted)
@@ -2739,4 +2821,19 @@ export const updateShirtType = async (
 
 export const deleteShirtType = async (id: string): Promise<void> => {
   await api.delete(`/shirt-types/${id}`);
+};
+
+/**
+ * Infiere la timezone IANA correspondiente a unas coordenadas (lat, lon).
+ * El backend usa tz-lookup. Devuelve null si no se puede inferir
+ * (coordenadas inválidas o mar abierto). El caller decide el fallback.
+ */
+export const getTimezoneFromCoords = async (
+  lat: number,
+  lon: number,
+): Promise<string | null> => {
+  const r = await api.get("/houses/timezone-from-coords", {
+    params: { lat, lon },
+  });
+  return r.data?.timezone ?? null;
 };

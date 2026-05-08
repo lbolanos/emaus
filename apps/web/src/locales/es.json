@@ -1521,7 +1521,18 @@
       "shirtsAskTitle": "¿Necesitas alguna playera o chamarra?",
       "shirtsAskHint": "Si ya tienes las tuyas de retiros anteriores, déjalas en \"No necesita\".",
       "isAngelito": "Registrar como angelito",
-      "isAngelitoHint": "Apoyo parcial: no se asigna a mesa ni cama, y no requiere pago."
+      "isAngelitoHint": "Apoyo parcial: no se asigna a mesa ni cama, y no requiere pago.",
+      "angelitoAvailability": {
+        "title": "Disponibilidad de servicio",
+        "hint": "Indica los horarios en los que prestarás tu servicio",
+        "addBlock": "Agregar horario",
+        "start": "Desde",
+        "end": "Hasta",
+        "empty": "Aún no agregas horarios.",
+        "required": "Debes indicar al menos un horario",
+        "invalidRange": "La hora final debe ser mayor que la inicial",
+        "overlap": "Este bloque se solapa con otro"
+      }
     },
     "emergencyContact1": "En caso de emergencia contactar a (1):",
     "emergencyContact2": "En caso de emergencia contactar a (2):"
@@ -1679,6 +1690,30 @@
     "confirm": "Confirmar",
     "create": "Crear",
     "save": "Guardar"
+  },
+  "angelitos": {
+    "availabilityStatus": {
+      "title": "Disponibilidad horaria",
+      "summary": "{configured} de {total} angelitos con horario configurado",
+      "missing": "{n} angelito(s) sin horario configurado",
+      "missingHint": "Sin horario, estos angelitos pasan por la regla legacy: aparecen como disponibles para todos los slots de comida.",
+      "allConfigured": "Todos los angelitos tienen horario configurado.",
+      "scheduledSlots": "Slots asignados",
+      "noScheduledSlots": "Sin slots",
+      "openEditor": "Configurar",
+      "editEditor": "Editar",
+      "assignedSlots": "Slots de Santísimo asignados",
+      "noAssignedSlots": "No hay slots asignados todavía.",
+      "mealWindowBadge": "Comida",
+      "savingAvailability": "Guardando...",
+      "availability": "Disponibilidad",
+      "columnName": "Nombre",
+      "columnBlocks": "Horarios",
+      "columnSlots": "Slots",
+      "saveAvailability": "Guardar disponibilidad",
+      "angelitoAvailabilitySaved": "Disponibilidad guardada correctamente.",
+      "angelitoAvailabilitySaveError": "Error al guardar la disponibilidad."
+    }
   },
   "badges": {
     "title": "Gafetes",
@@ -2352,6 +2387,18 @@
     "searchServer": "Buscar servidor",
     "searchServerPlaceholder": "Escribe un nombre para filtrar...",
     "noServerMatch": "Sin coincidencias. Cambia a Angelito para anotar un nombre libre.",
+    "noAvailability": "Sin horario configurado",
+    "availabilityLabel": "Disponibilidad",
+    "eligibleByAvailability": "Mostrando solo angelitos disponibles para este horario.",
+    "showingAllServers": "Mostrando todos (sin filtro de horario).",
+    "candidatesCount": "{n} servidor(es) en la lista",
+    "removeFilter": "Quitar filtro",
+    "applyFilter": "Aplicar filtro",
+    "angelitoCoverage": "{n} angelito(s) disponible(s)",
+    "angelitoCoverageHint": "Angelitos cuyos bloques de disponibilidad cubren este horario",
+    "angelitoAvailabilityTitle": "Disponibilidad del angelito",
+    "angelitoAvailabilitySaved": "Disponibilidad guardada.",
+    "angelitoAvailabilitySaveError": "No se pudo guardar la disponibilidad.",
     "selectedServer": "Servidor seleccionado",
     "angelitoHint": "Nombre libre de alguien que no está en el sistema",
     "mealWindowLabel": "Comida — sólo servidores fuera de mesa",
@@ -2371,6 +2418,11 @@
     "autoAssign": "Auto-asignar angelitos",
     "autoAssignHint": "Recalcula ventanas de comida y reparte angelitos disponibles entre los slots bloqueados.",
     "autoAssignDone": "Auto-asignación completada",
-    "autoAssignSummary": "{meal} ventanas de comida · {assigned} angelitos asignados · {pending} slots sin cubrir"
+    "autoAssignSummary": "{meal} ventanas de comida · {assigned} angelitos asignados · {pending} slots sin cubrir",
+    "regenerateFromSchedule": "Borrar todo y regenerar",
+    "regenerateFromScheduleHint": "Borra TODOS los slots e inscripciones del Santísimo, re-materializa el Minuto a Minuto desde el template con la timezone actual del retiro y regenera los slots.",
+    "regenerateFromScheduleConfirm": "Esto borrará TODOS los slots del Santísimo (con sus inscripciones) y re-materializará el Minuto a Minuto desde el template. Items editados manualmente que vengan del template SE PIERDEN. Items creados a mano (sin template) se conservan. ¿Continuar?",
+    "regenerateFromScheduleDone": "Slots regenerados",
+    "regenerateFromScheduleSummary": "{removed} items del template eliminados · {replaced} items re-materializados · {deleted} slots borrados · {created} slots creados"
   }
 }

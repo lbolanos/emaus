@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as houseService from '../services/houseService';
+import { inferTimezoneFromCoords } from '../utils/date.transformer';
 
 export const getHouses = async (req: Request, res: Response, next: NextFunction) => {
 	try {
@@ -41,6 +42,26 @@ export const updateHouse = async (req: Request, res: Response, next: NextFunctio
 			res.status(404).json({ message: 'House not found' });
 		}
 	} catch (error: any) {
+		next(error);
+	}
+};
+
+/**
+ * Devuelve la timezone IANA inferida a partir de coordenadas.
+ * Si no se puede inferir (coords fuera de rango, mar abierto), responde con
+ * `{ timezone: null }` y el cliente debe caer al default.
+ */
+export const getTimezoneFromCoords = async (
+	req: Request,
+	res: Response,
+	next: NextFunction,
+) => {
+	try {
+		const lat = parseFloat(String(req.query.lat ?? ''));
+		const lon = parseFloat(String(req.query.lon ?? ''));
+		const timezone = await inferTimezoneFromCoords(lat, lon);
+		res.json({ timezone });
+	} catch (error) {
 		next(error);
 	}
 };

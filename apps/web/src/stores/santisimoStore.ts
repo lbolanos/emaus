@@ -41,6 +41,27 @@ export const useSantisimoStore = defineStore('santisimo', () => {
 		}
 	};
 
+	const regenerateFromSchedule = async (retreatId: string) => {
+		loading.value = true;
+		error.value = null;
+		try {
+			const result = await santisimoApi.regenerateFromSchedule(retreatId);
+			slots.value = result.slots;
+			return {
+				deleted: result.deleted,
+				created: result.created,
+				replacedItems: result.replacedItems,
+				removedTemplateItems: result.removedTemplateItems,
+			};
+		} catch (e: any) {
+			error.value =
+				e?.response?.data?.message || e?.message || 'Failed to regenerate';
+			throw e;
+		} finally {
+			loading.value = false;
+		}
+	};
+
 	const updateSlot = async (
 		id: string,
 		data: Partial<{
@@ -82,6 +103,7 @@ export const useSantisimoStore = defineStore('santisimo', () => {
 		error,
 		fetchSlots,
 		generateSlots,
+		regenerateFromSchedule,
 		updateSlot,
 		deleteSlot,
 		adminCreateSignup,

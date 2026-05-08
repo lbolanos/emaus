@@ -147,6 +147,29 @@
               <p v-if="props.mode === 'edit'" class="text-xs text-muted-foreground">
                 Al activarlo, al guardar se regenerarán las camas del retiro desde la configuración actual de la casa.
               </p>
+
+              <!-- Timezone (override opcional) -->
+              <div class="space-y-1 pt-2 border-t">
+                <Label for="retreatTimezone" class="font-medium text-sm">Zona horaria del retiro</Label>
+                <p class="text-xs text-muted-foreground">
+                  Por defecto se usa la zona horaria de la casa.
+                  <span v-if="selectedHouseTimezone" class="font-medium">Casa: {{ selectedHouseTimezone }}.</span>
+                  Cambia solo si este retiro será en otra zona.
+                </p>
+                <Select :model-value="formData.timezone ?? '__inherit__'" @update:model-value="onTimezoneSelect">
+                  <SelectTrigger id="retreatTimezone" class="text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__inherit__">
+                      Heredar de la casa{{ selectedHouseTimezone ? ` (${selectedHouseTimezone})` : '' }}
+                    </SelectItem>
+                    <SelectItem v-for="tz in retreatTimezoneOptions" :key="tz" :value="tz">
+                      {{ tz }}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <!-- Dates -->
@@ -919,6 +942,7 @@ const formData = ref({
   startDate: new Date(),
   endDate: new Date(),
   houseId: '',
+  timezone: null as string | null,
   openingNotes: '',
   closingNotes: '',
   thingsToBringNotes: '',
@@ -1054,6 +1078,45 @@ const minDate = computed(() => {
 const availableHouses = computed(() => {
   return houseStore.houses;
 });
+
+const selectedHouseTimezone = computed<string | null>(() => {
+  const h = availableHouses.value.find((house: any) => house.id === formData.value.houseId);
+  return (h as any)?.timezone ?? null;
+});
+
+const RETREAT_TIMEZONE_OPTIONS = [
+  'America/Mexico_City',
+  'America/Tijuana',
+  'America/Cancun',
+  'America/Bogota',
+  'America/Lima',
+  'America/Santiago',
+  'America/Guayaquil',
+  'America/Caracas',
+  'America/Argentina/Buenos_Aires',
+  'America/Sao_Paulo',
+  'America/Costa_Rica',
+  'America/Guatemala',
+  'America/Panama',
+  'America/Asuncion',
+  'America/Montevideo',
+  'America/La_Paz',
+  'America/Havana',
+  'America/Santo_Domingo',
+  'America/Puerto_Rico',
+  'Europe/Madrid',
+  'UTC',
+];
+
+const retreatTimezoneOptions = computed(() => {
+  const set = new Set<string>(RETREAT_TIMEZONE_OPTIONS);
+  if (formData.value.timezone) set.add(formData.value.timezone);
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+});
+
+function onTimezoneSelect(value: string) {
+  formData.value.timezone = value === '__inherit__' ? null : value;
+}
 
 const houseCapacity = computed(() => {
   const selectedHouse = availableHouses.value.find(house => house.id === formData.value.houseId);
@@ -1252,6 +1315,7 @@ const handleSubmit = async () => {
       const updateData = {
         parish: formData.value.parish,
         houseId: formData.value.houseId,
+        timezone: formData.value.timezone,
         isPublic: formData.value.isPublic,
         roleInvitationEnabled: formData.value.roleInvitationEnabled,
         notifyParticipant: formData.value.notifyParticipant,
@@ -1300,6 +1364,7 @@ const resetForm = () => {
     startDate: today,
     endDate: tomorrow,
     houseId: '',
+    timezone: null as string | null,
     openingNotes: '',
     closingNotes: '',
     thingsToBringNotes: '',
@@ -1411,6 +1476,7 @@ watch(() => props.open, (newOpen) => {
           startDate: props.retreat.startDate ? new Date(props.retreat.startDate) : new Date(),
           endDate: props.retreat.endDate ? new Date(props.retreat.endDate) : new Date(),
           houseId: props.retreat.houseId,
+          timezone: (props.retreat as any).timezone ?? null,
           openingNotes: props.retreat.openingNotes || '',
           closingNotes: props.retreat.closingNotes || '',
           thingsToBringNotes: props.retreat.thingsToBringNotes || '',

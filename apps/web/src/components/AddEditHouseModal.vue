@@ -176,6 +176,30 @@
                   </p>
                 </div>
               </div>
+              <div class="grid grid-cols-4 items-center gap-2 col-span-2">
+                <Label for="timezone" class="text-right text-sm flex items-center gap-1 justify-end">
+                  <Globe2 class="w-3 h-3" />
+                  Zona horaria
+                </Label>
+                <div class="col-span-3">
+                  <div class="flex gap-2 items-center">
+                    <Select v-model="formData.timezone">
+                      <SelectTrigger class="bg-white text-gray-700 h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem v-for="tz in timezoneOptions" :key="tz" :value="tz">
+                          {{ tz }}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Loader2 v-if="timezoneInferring" class="w-3 h-3 animate-spin text-gray-400" />
+                  </div>
+                  <p class="text-gray-500 text-[10px] mt-1">
+                    Determina las horas del Santísimo y del Minuto a Minuto. Se autocompleta desde la ubicación.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -569,11 +593,36 @@
 <script setup lang="ts">
 import { ref, watch, computed, nextTick, reactive } from 'vue';
 import { Button, Progress, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, ScrollArea, useToast, Card, Badge, Alert, AlertDescription } from '@repo/ui';
-import { Trash2, Search, AlertCircle, MapPin, Loader2, ExternalLink, Bed as BedIcon, Settings, Upload, Plus, DoorOpen, Info, FileText, RotateCcw, ArrowLeft, ArrowRight, Save, Pencil, Check, X } from 'lucide-vue-next';
+import { Trash2, Search, AlertCircle, MapPin, Loader2, ExternalLink, Bed as BedIcon, Settings, Upload, Plus, DoorOpen, Info, FileText, RotateCcw, ArrowLeft, ArrowRight, Save, Pencil, Check, X, Globe2 } from 'lucide-vue-next';
 import type { House, Bed } from '@repo/types';
 import { z } from 'zod';
 import BulkOperationsModal from './BulkOperationsModal.vue';
 import { loadGoogleMaps } from '@/utils/googleMaps';
+import { getTimezoneFromCoords } from '@/services/api';
+
+const COMMON_TIMEZONES = [
+  'America/Mexico_City',
+  'America/Tijuana',
+  'America/Cancun',
+  'America/Bogota',
+  'America/Lima',
+  'America/Santiago',
+  'America/Guayaquil',
+  'America/Caracas',
+  'America/Argentina/Buenos_Aires',
+  'America/Sao_Paulo',
+  'America/Costa_Rica',
+  'America/Guatemala',
+  'America/Panama',
+  'America/Asuncion',
+  'America/Montevideo',
+  'America/La_Paz',
+  'America/Havana',
+  'America/Santo_Domingo',
+  'America/Puerto_Rico',
+  'Europe/Madrid',
+  'UTC',
+];
 
 const props = defineProps({
   open: Boolean,
@@ -604,6 +653,7 @@ const getInitialFormData = () => ({
   state: props.house?.state || '',
   zipCode: props.house?.zipCode || '',
   country: props.house?.country || '',
+  timezone: props.house?.timezone || 'America/Mexico_City',
   googleMapsUrl: props.house?.googleMapsUrl || '',
   notes: props.house?.notes || '',
   latitude: props.house?.latitude || null,
@@ -613,6 +663,16 @@ const getInitialFormData = () => ({
 
 const formData = ref(getInitialFormData());
 const formErrors = reactive<Record<string, string>>({});
+const timezoneInferring = ref(false);
+
+// La lista del select incluye siempre la zona actual para que aparezca
+// seleccionada aun si tz-lookup devuelve algo fuera del catálogo común
+// (por ejemplo America/Mazatlan).
+const timezoneOptions = computed(() => {
+  const set = new Set<string>(COMMON_TIMEZONES);
+  if (formData.value.timezone) set.add(formData.value.timezone);
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+});
 
 const step1Schema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -1387,6 +1447,27 @@ watch([() => formData.value.latitude, currentStep], async ([newLat, newStep]) =>
     initMap(newLat, formData.value.longitude);
   }
 }, { deep: true, immediate: true });
+
+// Inferir timezone desde lat/lon cuando cambian las coordenadas. tz-lookup
+// es muy preciso para tierra firme; si falla (mar, polos), conservamos el
+// valor previo. El usuario siempre puede sobrescribir en el select.
+watch(
+  [() => formData.value.latitude, () => formData.value.longitude],
+  async ([lat, lon]) => {
+    if (typeof lat !== 'number' || typeof lon !== 'number') return;
+    timezoneInferring.value = true;
+    try {
+      const inferred = await getTimezoneFromCoords(lat, lon);
+      if (inferred && inferred !== formData.value.timezone) {
+        formData.value.timezone = inferred;
+      }
+    } catch {
+      // Silencioso — el usuario puede ajustar manualmente.
+    } finally {
+      timezoneInferring.value = false;
+    }
+  },
+);
 
 // Function to compare two objects deeply
 const deepEqual = (obj1: any, obj2: any): boolean => {

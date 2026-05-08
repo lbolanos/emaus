@@ -6,6 +6,7 @@ import {
 	SantisimoNotFoundError,
 	SantisimoPastError,
 } from '../services/santisimoService';
+import { retreatScheduleService } from '../services/retreatScheduleService';
 import { authorizationService } from '../middleware/authorization';
 import RecaptchaService from '../services/recaptchaService';
 import { AppDataSource } from '../data-source';
@@ -88,6 +89,28 @@ export const generateSlots = async (req: Request, res: Response) => {
 	}
 };
 
+/**
+ * Acción destructiva: borra todos los slots del Santísimo del retiro
+ * (con sus inscripciones) y los regenera desde los items materializados
+ * con type='santisimo'. Útil tras cambiar la timezone del retiro o editar
+ * el template y querer empezar de cero.
+ */
+export const regenerateFromSchedule = async (req: Request, res: Response) => {
+	const { retreatId } = req.params;
+	if (!(await checkRetreatAccess(req, retreatId))) {
+		return res.status(403).json({ message: 'Forbidden' });
+	}
+	try {
+		const result = await retreatScheduleService.regenerateSantisimoSlotsFromSchedule(
+			retreatId,
+		);
+		const slots = await santisimoService.listSlotsForRetreat(retreatId);
+		res.status(200).json({ ...result, slots });
+	} catch (err) {
+		mapError(res, err);
+	}
+};
+
 export const listSignupsForSlot = async (req: Request, res: Response) => {
 	const slot = await santisimoService.getSlot(req.params.id);
 	if (!slot) return res.status(404).json({ message: 'Slot not found' });
@@ -124,6 +147,29 @@ export const deleteSignup = async (req: Request, res: Response) => {
 	}
 	await santisimoService.deleteSignup(id);
 	res.status(204).send();
+};
+
+export const getParticipantAssignedSlots = async (req: Request, res: Response) => {
+	const { retreatId, participantId } = req.params;
+	if (!(await checkRetreatAccess(req, retreatId))) {
+		return res.status(403).json({ message: 'Forbidden' });
+	}
+	const signups = await AppDataSource.getRepository(SantisimoSignup).find({
+		where: { participantId },
+		relations: ['slot'],
+	});
+	const filtered = signups.filter((s) => s.slot?.retreatId === retreatId);
+	const result = filtered
+		.sort((a, b) => new Date(a.slot!.startTime).getTime() - new Date(b.slot!.startTime).getTime())
+		.map((s) => ({
+			signupId: s.id,
+			slotId: s.slotId,
+			startTime: s.slot!.startTime,
+			endTime: s.slot!.endTime,
+			mealWindow: s.slot!.mealWindow,
+			autoAssigned: s.autoAssigned,
+		}));
+	res.json(result);
 };
 
 // -- Public handlers --

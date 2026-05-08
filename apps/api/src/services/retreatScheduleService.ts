@@ -7,8 +7,10 @@ import { ResponsabilityAttachment } from '../entities/responsabilityAttachment.e
 import { SantisimoSlot } from '../entities/santisimoSlot.entity';
 import { SantisimoSignup } from '../entities/santisimoSignup.entity';
 import { Participant } from '../entities/participant.entity';
+import { participantAvailabilityService } from './participantAvailabilityService';
 import { Responsability } from '../entities/responsability.entity';
 import { Retreat } from '../entities/retreat.entity';
+import { makeDateInTimezone } from '../utils/date.transformer';
 import archiver from 'archiver';
 import type { Readable, Writable } from 'stream';
 import { s3Service } from './s3Service';
@@ -574,25 +576,28 @@ export class RetreatScheduleService {
 
 	/**
 	 * Compute the absolute startTime/endTime for a template item given the
-	 * retreat's first-day date and the template's day offset / HH:MM.
+	 * retreat's first-day date, the template's day offset / HH:MM, and the
+	 * retreat's IANA timezone (e.g. 'America/Mexico_City', 'America/Bogota').
 	 *
-	 * The fix here addresses a TZ-shift bug: when the controller parses
-	 * `baseDate` from JSON (`new Date("2026-04-26")` → UTC midnight) and we
-	 * then call `getDate()` / `setDate()` / `setHours()` (which use
-	 * server-local time), a non-UTC server interprets the UTC midnight as
-	 * "previous day at 6 PM local" and Day 1 lands on the wrong calendar
-	 * date. Treat the input as a calendar date (Y/M/D) by reading its UTC
-	 * components, then construct the result in server-local time so HH:MM
-	 * still means HH:MM where the server runs (matching coordinator intent).
+	 * `defaultStartTime` ('16:00') is the COORDINATOR's intent expressed in
+	 * the retreat's local time — independent of the server's timezone. We
+	 * read UTC components from `baseDate` (which is parsed from the JSON
+	 * "YYYY-MM-DD" string as UTC midnight) to get the calendar day, then
+	 * use `makeDateInTimezone` to anchor the resulting instant to the given
+	 * IANA zone (DST-aware via Intl).
 	 *
-	 * On UTC servers (prod) this is a no-op; in non-UTC dev environments it
-	 * stops the day-1 shift seen during simulation.
+	 * Bug history: a previous version used `new Date(yyyy, mm, dd, h, m)`
+	 * which interprets HH:MM as server-local. With server in UTC and
+	 * client in America/Mexico_City, '16:00' was stored as 16:00Z and
+	 * rendered as 10:00 AM in the browser — exactly the symptom users
+	 * reported on the Santísimo schedule.
 	 */
 	private computeItemDateRange(
 		baseDate: Date,
 		day: number,
 		defaultStartTime: string | null | undefined,
 		durationMinutes: number,
+		timezone: string,
 	): { startTime: Date; endTime: Date } {
 		let h = 9;
 		let m = 0;
@@ -611,9 +616,26 @@ export class RetreatScheduleService {
 		// shift they sort BEFORE the rest of Día N's items by startTime
 		// (e.g. 00:10 < 15:00). Threshold: < 06:00 is treated as next-morning.
 		const dayOffset = h < 6 ? day : day - 1;
-		const startTime = new Date(yyyy, mm, dd + dayOffset, h, m, 0, 0);
+		const startTime = makeDateInTimezone(yyyy, mm, dd + dayOffset, h, m, timezone);
 		const endTime = new Date(startTime.getTime() + durationMinutes * 60_000);
 		return { startTime, endTime };
+	}
+
+	/**
+	 * Resuelve la timezone efectiva para un retiro:
+	 *   retreat.timezone ?? retreat.house.timezone ?? 'America/Mexico_City'
+	 */
+	private async resolveRetreatTimezone(retreatId: string): Promise<string> {
+		const retreatRepo = AppDataSource.getRepository(Retreat);
+		const retreat = await retreatRepo.findOne({
+			where: { id: retreatId },
+			relations: ['house'],
+		});
+		return (
+			retreat?.timezone ||
+			retreat?.house?.timezone ||
+			'America/Mexico_City'
+		);
 	}
 
 	/**
@@ -636,6 +658,13 @@ export class RetreatScheduleService {
 
 		if (clearExisting) {
 			await this.itemRepo.delete({ retreatId });
+			// NO borramos `santisimo_slot` aquí: las inscripciones públicas
+			// (`santisimo_signup`) caerían por CASCADE y perderíamos data del
+			// usuario. Los slots viejos que ya no coincidan con los nuevos
+			// timestamps quedan huérfanos pero visibles para el admin, que
+			// los puede limpiar desde la UI. Caso típico: tras cambiar la
+			// timezone del retiro y re-materializar, aparecen ambos sets
+			// de slots y el admin elige cuáles conservar.
 		}
 
 		// Crea las Responsabilidades de charlas/testimonios del set escogido que
@@ -644,6 +673,7 @@ export class RetreatScheduleService {
 		await ensureCharlaResponsibilitiesFromTemplateSet(retreatId, templateSetId);
 
 		const respIndex = await this.buildResponsabilityNameIndex(retreatId);
+		const timezone = await this.resolveRetreatTimezone(retreatId);
 
 		const created: RetreatScheduleItem[] = [];
 		for (const t of templates) {
@@ -654,6 +684,7 @@ export class RetreatScheduleService {
 				day,
 				t.defaultStartTime,
 				duration,
+				timezone,
 			);
 
 			const responsabilityId = t.responsabilityName
@@ -715,6 +746,7 @@ export class RetreatScheduleService {
 		await ensureCharlaResponsibilitiesFromTemplateSet(retreatId, templateSetId);
 
 		const respIndex = await this.buildResponsabilityNameIndex(retreatId);
+		const timezone = await this.resolveRetreatTimezone(retreatId);
 
 		let added = 0;
 		let skipped = 0;
@@ -734,6 +766,7 @@ export class RetreatScheduleService {
 				day,
 				t.defaultStartTime,
 				duration,
+				timezone,
 			);
 			const responsabilityId = t.responsabilityName
 				? respIndex.get(t.responsabilityName.toLowerCase().trim()) ?? null
@@ -964,6 +997,118 @@ export class RetreatScheduleService {
 	 * inlinea aquí (no se delega a santisimoService) para reutilizar
 	 * `this.slotRepo`, cuya bind a AppDataSource respeta el rewire de testing.
 	 */
+	/**
+	 * Borrar TODOS los slots del Santísimo del retiro (con sus inscripciones por
+	 * CASCADE), re-materializar TODO el schedule del retiro desde el template
+	 * usando la timezone actual, y regenerar los slots desde los items frescos.
+	 *
+	 * Acción destructiva expuesta como botón en la UI: úsese cuando los slots
+	 * o items quedaron descoordinados por cambio de timezone, doble-materialización
+	 * (items duplicados con timestamps incorrectos) o edición del template.
+	 *
+	 * Comportamiento:
+	 *   - Borra TODOS los items con `scheduleTemplateId IS NOT NULL` (vienen del
+	 *     template, así que su versión "correcta" se rehace desde el template).
+	 *   - Items SIN templateId (creados manualmente por el admin) se preservan.
+	 *   - Re-materializa todo el set con la timezone resuelta del retiro.
+	 *   - Borra todos los slots del Santísimo y regenera desde los items
+	 *     santísimo recién materializados.
+	 *   - Corre `resolveSantisimoConflicts` para marcar mealWindows.
+	 *
+	 * Resolución del template: usa el `templateSetId` mayoritario entre los
+	 * items existentes con templateId. Si el retiro nunca fue materializado
+	 * desde un template, cae al `isDefault` set. Si tampoco hay default,
+	 * solo regenera slots desde items santísimo existentes (modo legacy).
+	 *
+	 * Devuelve `{ deleted, created, replacedItems, removedTemplateItems }`.
+	 */
+	async regenerateSantisimoSlotsFromSchedule(retreatId: string): Promise<{
+		deleted: number;
+		created: number;
+		replacedItems: number;
+		removedTemplateItems: number;
+	}> {
+		const retreatRepo = AppDataSource.getRepository(Retreat);
+		const templateSetRepo = AppDataSource.getRepository(
+			(await import('../entities/scheduleTemplateSet.entity')).ScheduleTemplateSet,
+		);
+
+		const retreat = await retreatRepo.findOne({
+			where: { id: retreatId },
+			relations: ['house'],
+		});
+		if (!retreat) {
+			throw new ScheduleNotFoundError(`Retreat ${retreatId} not found`);
+		}
+		// `retreat.startDate` puede venir como Date o como string YYYY-MM-DD
+		// (SQLite). Normalizar a un Date que represente UTC midnight de ese
+		// día calendario, sin shifts por hora local del servidor.
+		const startRaw = retreat.startDate as Date | string;
+		const startStr =
+			typeof startRaw === 'string' ? startRaw.slice(0, 10) : startRaw.toISOString().slice(0, 10);
+		const baseDate = new Date(`${startStr}T00:00:00.000Z`);
+		const timezone =
+			retreat.timezone || retreat.house?.timezone || 'America/Mexico_City';
+
+		// Resolver templateSetId: mayoritario entre items existentes con link a template.
+		const linkedItems = await this.itemRepo
+			.createQueryBuilder('it')
+			.leftJoin('it.scheduleTemplate', 'tpl')
+			.select(['tpl.templateSetId AS setId'])
+			.where('it.retreatId = :retreatId', { retreatId })
+			.andWhere('it.scheduleTemplateId IS NOT NULL')
+			.getRawMany<{ setId: string | null }>();
+		const counts: Record<string, number> = {};
+		for (const row of linkedItems) {
+			if (row.setId) counts[row.setId] = (counts[row.setId] ?? 0) + 1;
+		}
+		let templateSetId: string | null =
+			Object.entries(counts).sort(([, a], [, b]) => b - a)[0]?.[0] ?? null;
+		if (!templateSetId) {
+			const def = await templateSetRepo.findOne({ where: { isDefault: true } });
+			templateSetId = def?.id ?? null;
+		}
+
+		// Borrar TODOS los items con templateId (incluye duplicados y los
+		// pre-fix con timestamps incorrectos). Preserva items manuales sin
+		// templateId.
+		const removeRes = await this.itemRepo
+			.createQueryBuilder()
+			.delete()
+			.from(RetreatScheduleItem)
+			.where('retreatId = :retreatId AND scheduleTemplateId IS NOT NULL', { retreatId })
+			.execute();
+		const removedTemplateItems = removeRes.affected ?? 0;
+
+		// Re-materializar TODO el template (no solo santísimo). Esto regenera
+		// items con timestamps correctos en la timezone resuelta y elimina la
+		// duplicación que se hubiera acumulado.
+		let replacedItems = 0;
+		if (templateSetId) {
+			const created = await this.materializeFromTemplate(
+				retreatId,
+				baseDate,
+				false,
+				templateSetId,
+			);
+			replacedItems = created.length;
+		}
+
+		// Borrar TODOS los slots (con signups por CASCADE) y regenerar.
+		// `materializeFromTemplate` ya intentó generar slots, pero corrió
+		// contra slots viejos potencialmente — los borramos y regeneramos
+		// limpios desde los items frescos.
+		const before = await this.slotRepo.count({ where: { retreatId } });
+		await this.slotRepo.delete({ retreatId });
+
+		const itemsAfter = await this.itemRepo.find({ where: { retreatId } });
+		await this.autoGenerateSantisimoSlotsFromItems(retreatId, itemsAfter);
+		await this.resolveSantisimoConflicts(retreatId);
+
+		const after = await this.slotRepo.count({ where: { retreatId } });
+		return { deleted: before, created: after, replacedItems, removedTemplateItems };
+	}
+
 	private async autoGenerateSantisimoSlotsFromItems(
 		retreatId: string,
 		items: RetreatScheduleItem[],
@@ -1177,6 +1322,26 @@ export class RetreatScheduleService {
 		const pool = allP.filter((p) => !inTableIds.has(p.id));
 		if (!pool.length && !mealSlots.length) return { assigned: 0, unresolved: [] };
 
+		// Carga bloques de disponibilidad para todo el pool (una sola query).
+		// Política: si un angelito NO registró bloques, se considera disponible
+		// (comportamiento legacy compatible con angelitos previos a esta feature).
+		// Si tiene ≥1 bloque, sólo es elegible para slots cubiertos por algún bloque.
+		const availabilityMap = await participantAvailabilityService.getByParticipants(
+			retreatId,
+			pool.map((p) => p.id),
+		);
+		const isAvailable = (participantId: string, slot: SantisimoSlot): boolean => {
+			const blocks = availabilityMap.get(participantId);
+			if (!blocks || blocks.length === 0) return true; // legacy: opt-in
+			const slotStart = new Date(slot.startTime).getTime();
+			const slotEnd = new Date(slot.endTime).getTime();
+			return blocks.some(
+				(b) =>
+					new Date(b.startTime).getTime() <= slotStart &&
+					new Date(b.endTime).getTime() >= slotEnd,
+			);
+		};
+
 		// Limpia auto-asignaciones previas en TODOS los slots mealWindow para
 		// rebalancear desde cero — sin esto, slots ya llenos con un mismo
 		// angelito sobreviven (need=0) y nunca se redistribuyen. Sólo borra los
@@ -1209,6 +1374,7 @@ export class RetreatScheduleService {
 
 		let assigned = 0;
 		const unresolved: string[] = [];
+		const newAssignmentsByParticipant = new Map<string, SantisimoSlot[]>();
 
 		for (const slot of mealSlots) {
 			const refreshed = await this.signupRepo.find({ where: { slotId: slot.id } });
@@ -1218,6 +1384,7 @@ export class RetreatScheduleService {
 			const taken = new Set(refreshed.map((s) => s.participantId).filter(Boolean) as string[]);
 			const candidates = pool
 				.filter((p) => !taken.has(p.id))
+				.filter((p) => isAvailable(p.id, slot))
 				.sort((a, b) => (usedCount.get(a.id) ?? 0) - (usedCount.get(b.id) ?? 0));
 
 			if (!candidates.length) {
@@ -1242,11 +1409,85 @@ export class RetreatScheduleService {
 				await this.signupRepo.save(row);
 				usedCount.set(p.id, (usedCount.get(p.id) ?? 0) + 1);
 				assigned++;
+				const pidAssigned = newAssignmentsByParticipant.get(p.id) ?? [];
+				pidAssigned.push(slot);
+				newAssignmentsByParticipant.set(p.id, pidAssigned);
 			}
 			if (need > candidates.length) unresolved.push(slot.id);
 		}
 
+		// Notificar por correo a los angelitos asignados en esta ejecución.
+		// Fire-and-forget: errores de email no rompen la auto-asignación.
+		this.notifyAngelitosOfNewAssignments(retreatId, pool, newAssignmentsByParticipant).catch(
+			(err) => console.error('Failed to notify angelitos of new assignments:', err),
+		);
+
 		return { assigned, unresolved };
+	}
+
+	/**
+	 * Envía email a cada angelito con la lista de slots que se le asignaron en
+	 * esta ejecución. Best-effort: si SMTP no está configurado o falla, se loguea
+	 * sin propagar — la auto-asignación principal no debe romperse por email.
+	 */
+	private async notifyAngelitosOfNewAssignments(
+		retreatId: string,
+		pool: Participant[],
+		assignments: Map<string, SantisimoSlot[]>,
+	): Promise<void> {
+		if (assignments.size === 0) return;
+		const { EmailService } = await import('./emailService');
+		const emailService = new EmailService();
+		if (!(emailService as any).isSmtpConfigured?.()) {
+			console.log('[autoAssignAngelitos] SMTP no configurado — saltando notificaciones.');
+			return;
+		}
+
+		const retreat = await this.participantRepo.manager
+			.getRepository(Retreat)
+			.findOne({ where: { id: retreatId } });
+		const retreatLabel = retreat ? `${retreat.parish}` : 'el retiro';
+
+		const formatSlot = (s: SantisimoSlot) => {
+			const start = new Date(s.startTime);
+			const end = new Date(s.endTime);
+			const fmt = (d: Date) =>
+				d.toLocaleString('es-MX', {
+					weekday: 'long',
+					day: '2-digit',
+					month: 'long',
+					hour: '2-digit',
+					minute: '2-digit',
+				});
+			return `${fmt(start)} → ${end.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`;
+		};
+
+		for (const [pid, slots] of assignments.entries()) {
+			const p = pool.find((x) => x.id === pid);
+			if (!p?.email) continue; // sin email no podemos avisar
+			const orderedSlots = [...slots].sort(
+				(a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+			);
+			const items = orderedSlots.map((s) => `<li>${formatSlot(s)}</li>`).join('');
+			const html = `
+				<p>Hola ${p.firstName},</p>
+				<p>Te asignamos los siguientes horarios de Guardia de la Capilla en <strong>${retreatLabel}</strong>:</p>
+				<ul>${items}</ul>
+				<p>Si no puedes cubrir alguno, por favor avísale a coordinación lo antes posible.</p>
+				<p>¡Gracias por tu servicio! 🙏</p>
+			`;
+			const text = orderedSlots.map((s) => `- ${formatSlot(s)}`).join('\n');
+			try {
+				await emailService.sendEmail({
+					to: p.email,
+					subject: `Guardia de la Capilla — ${retreatLabel}`,
+					html,
+					text: `Hola ${p.firstName},\n\nTe asignamos los siguientes horarios:\n${text}\n\n¡Gracias por tu servicio!`,
+				});
+			} catch (err) {
+				console.error(`Email a ${p.email} falló:`, err);
+			}
+		}
 	}
 
 	/**
