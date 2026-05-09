@@ -581,6 +581,10 @@ const retreatVariables = computed(() => [
   { key: 'thingsToBringNotes', label: t ? t('messageTemplates.dialog.variables.retreatThingsToBringNotes') : 'Cosas para traer' },
   { key: 'fecha_limite_palanca', label: 'Fecha límite de palanca' },
   { key: 'next_meeting_date', label: 'Próxima reunión' },
+  { key: 'closingChurchName', label: 'Iglesia de clausura — nombre' },
+  { key: 'closingChurchAddress', label: 'Iglesia de clausura — dirección' },
+  { key: 'closingChurchMapsUrl', label: 'Iglesia de clausura — link Google Maps' },
+  { key: 'closingChurchWazeUrl', label: 'Iglesia de clausura — link Waze' },
 ]);
 
 const userVariables = computed(() => [

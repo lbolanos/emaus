@@ -12,12 +12,13 @@
 
       <form @submit.prevent="handleSubmit" class="space-y-6">
         <Tabs v-model="activeTab" class="w-full">
-          <TabsList class="grid w-full grid-cols-7">
+          <TabsList class="grid w-full grid-cols-8">
             <TabsTrigger value="general">{{ $t('retreatModal.sections.general') }}</TabsTrigger>
             <TabsTrigger value="logistics">{{ $t('retreatModal.sections.logistics') }}</TabsTrigger>
             <TabsTrigger value="settings">Ajustes</TabsTrigger>
             <TabsTrigger value="financials">{{ $t('retreatModal.sections.financials') }}</TabsTrigger>
             <TabsTrigger value="notes">{{ $t('retreatModal.sections.notes') }}</TabsTrigger>
+            <TabsTrigger value="closing">Clausura</TabsTrigger>
             <TabsTrigger value="flyer">{{ $t('retreatModal.sections.flyer') }}</TabsTrigger>
             <TabsTrigger value="memories">Recuerdos</TabsTrigger>
           </TabsList>
@@ -525,6 +526,78 @@
             </div>
           </TabsContent>
 
+          <!-- Closing Mass Tab -->
+          <TabsContent value="closing" class="space-y-6 mt-6">
+            <div class="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+              Captura la iglesia donde se celebra la <strong>Misa de Clausura</strong>. La dirección
+              se mostrará en el dashboard del retiro y estará disponible como variables en las plantillas
+              de mensajes para invitar a familiares
+              (<code>{{ '{retreat.closingChurchName}' }}</code>,
+              <code>{{ '{retreat.closingChurchAddress}' }}</code>,
+              <code>{{ '{retreat.closingChurchMapsUrl}' }}</code>,
+              <code>{{ '{retreat.closingChurchWazeUrl}' }}</code>).
+            </div>
+
+            <div class="space-y-2">
+              <Label for="closingChurchName">Nombre de la iglesia</Label>
+              <Input
+                id="closingChurchName"
+                v-model="formData.closingChurchName"
+                placeholder="Ej: Parroquia San Judas Tadeo"
+              />
+            </div>
+
+            <div class="space-y-2">
+              <Label for="closingChurchAddress">Dirección</Label>
+              <div class="relative">
+                <gmp-place-autocomplete
+                  v-if="closingChurchAddressEditing"
+                  ref="closingChurchAutocompleteField"
+                  class="w-full"
+                  placeholder="Buscar iglesia o dirección..."
+                  :requested-fields="['displayName', 'addressComponents', 'location']"
+                  :value="formData.closingChurchAddress"
+                />
+                <Input
+                  v-else
+                  id="closingChurchAddress"
+                  :model-value="formData.closingChurchAddress"
+                  placeholder="Click para buscar la dirección"
+                  readonly
+                  class="cursor-pointer"
+                  @click="closingChurchAddressEditing = true"
+                />
+              </div>
+              <p v-if="formData.closingChurchLatitude != null && formData.closingChurchLongitude != null" class="text-xs text-muted-foreground">
+                Coordenadas: {{ formData.closingChurchLatitude.toFixed(6) }}, {{ formData.closingChurchLongitude.toFixed(6) }}
+              </p>
+              <p v-else class="text-xs text-muted-foreground">
+                Selecciona un resultado del autocompletado para guardar las coordenadas (necesarias para abrir Maps/Waze).
+              </p>
+            </div>
+
+            <div
+              v-if="formData.closingChurchLatitude != null && formData.closingChurchLongitude != null"
+              class="space-y-2 rounded-md border bg-muted/20 p-3"
+            >
+              <Label class="text-sm font-medium">Vista previa de URLs (se usarán en plantillas)</Label>
+              <div class="space-y-2 text-xs">
+                <div class="flex items-center gap-2">
+                  <span class="font-medium w-12 shrink-0">Maps:</span>
+                  <code class="truncate flex-1 rounded bg-background px-1 py-0.5">{{ closingChurchMapsUrlPreview }}</code>
+                  <Button type="button" variant="outline" size="sm" @click="copyClosingChurchUrl('maps')">Copiar</Button>
+                  <Button type="button" variant="outline" size="sm" @click="openClosingChurchUrl('maps')">Abrir</Button>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="font-medium w-12 shrink-0">Waze:</span>
+                  <code class="truncate flex-1 rounded bg-background px-1 py-0.5">{{ closingChurchWazeUrlPreview }}</code>
+                  <Button type="button" variant="outline" size="sm" @click="copyClosingChurchUrl('waze')">Copiar</Button>
+                  <Button type="button" variant="outline" size="sm" @click="openClosingChurchUrl('waze')">Abrir</Button>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
           <!-- Flyer Tab -->
           <TabsContent value="flyer" class="space-y-6 mt-6">
             <Tabs default-value="settings" class="w-full">
@@ -812,7 +885,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Button, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Textarea, RadioGroup, RadioGroupItem, Tabs, TabsContent, TabsList, TabsTrigger, Checkbox } from '@repo/ui';
 import { Loader2 } from 'lucide-vue-next';
 import { useHouseStore } from '@/stores/houseStore';
@@ -820,6 +893,8 @@ import { api, scheduleTemplateApi, retreatScheduleApi, type ScheduleTemplateSetD
 import { getApiUrl } from '@/config/runtimeConfig';
 import { useToast } from '@repo/ui';
 import type { CreateRetreat, Retreat } from '@repo/types';
+import { buildClosingChurchMapsUrl, buildClosingChurchWazeUrl } from '@repo/utils';
+import { loadGoogleMaps } from '@/utils/googleMaps';
 import MemoryUploadForm from '@/components/social/MemoryUploadForm.vue';
 
 interface Props {
@@ -962,6 +1037,10 @@ const formData = ref({
   retreat_type: undefined as 'men' | 'women' | 'couples' | 'effeta' | undefined,
   retreat_number_version: '',
   slug: '',
+  closingChurchName: '' as string | null,
+  closingChurchAddress: '' as string | null,
+  closingChurchLatitude: null as number | null,
+  closingChurchLongitude: null as number | null,
   flyer_options: {
     titleOverride: '',
     subtitleOverride: '',
@@ -1338,6 +1417,10 @@ const handleSubmit = async () => {
         retreat_number_version: formData.value.retreat_number_version || undefined,
         slug: formData.value.slug || undefined,
         flyer_options: formData.value.flyer_options,
+        closingChurchName: formData.value.closingChurchName || null,
+        closingChurchAddress: formData.value.closingChurchAddress || null,
+        closingChurchLatitude: formData.value.closingChurchLatitude,
+        closingChurchLongitude: formData.value.closingChurchLongitude,
       };
 
       await emit('update', { id: props.retreat.id, ...updateData, _refreshBeds: refreshBedsFromHouse.value });
@@ -1384,6 +1467,10 @@ const resetForm = () => {
     retreat_type: undefined,
     retreat_number_version: '',
     slug: '',
+    closingChurchName: '' as string | null,
+    closingChurchAddress: '' as string | null,
+    closingChurchLatitude: null as number | null,
+    closingChurchLongitude: null as number | null,
     flyer_options: {
         titleOverride: '',
         subtitleOverride: '',
@@ -1442,6 +1529,105 @@ const copyToClipboard = async (text: string, type: string) => {
   }
 };
 
+// Closing church Google Places autocomplete -------------------------------
+const closingChurchAddressEditing = ref(false);
+const closingChurchAutocompleteField = ref<any>(null);
+
+const closingChurchMapsUrlPreview = computed(() =>
+  buildClosingChurchMapsUrl(
+    formData.value.closingChurchLatitude,
+    formData.value.closingChurchLongitude,
+  ),
+);
+
+const closingChurchWazeUrlPreview = computed(() =>
+  buildClosingChurchWazeUrl(
+    formData.value.closingChurchLatitude,
+    formData.value.closingChurchLongitude,
+  ),
+);
+
+const handleClosingPlaceChange = async ({ placePrediction }: any) => {
+  if (!placePrediction) return;
+  try {
+    const place = placePrediction.toPlace();
+    await place.fetchFields({ fields: ['displayName', 'addressComponents', 'location'] });
+
+    if (place.displayName && !formData.value.closingChurchName) {
+      formData.value.closingChurchName = place.displayName;
+    }
+    if (place.addressComponents) {
+      const parts: { [key: string]: string } = {};
+      place.addressComponents.forEach((c: any) => {
+        const type = c.types[0];
+        parts[type] = c.longText;
+      });
+      const street = `${parts.route || ''} ${parts.street_number || ''}`.trim();
+      const sublocality = parts.sublocality_level_1 || '';
+      const locality = parts.locality || '';
+      const adminArea = parts.administrative_area_level_1 || '';
+      const country = parts.country || '';
+      formData.value.closingChurchAddress = [street, sublocality, locality, adminArea, country]
+        .filter(Boolean)
+        .join(', ');
+    }
+    if (place.location) {
+      formData.value.closingChurchLatitude = place.location.lat();
+      formData.value.closingChurchLongitude = place.location.lng();
+    }
+    closingChurchAddressEditing.value = false;
+  } catch (err) {
+    console.error('Error resolviendo iglesia de clausura:', err);
+  }
+};
+
+watch(closingChurchAutocompleteField, (newField, oldField) => {
+  if (oldField) oldField.removeEventListener('gmp-select', handleClosingPlaceChange);
+  if (newField) newField.addEventListener('gmp-select', handleClosingPlaceChange);
+});
+
+watch(closingChurchAddressEditing, async (editing) => {
+  if (editing) {
+    // Lazy-load Google Maps script al activar el autocomplete (no se carga
+    // si el usuario nunca abre la tab Clausura).
+    try {
+      await loadGoogleMaps();
+    } catch (err) {
+      console.warn('No se pudo cargar Google Maps:', err);
+    }
+    await nextTick();
+    if (closingChurchAutocompleteField.value && formData.value.closingChurchAddress) {
+      closingChurchAutocompleteField.value.value = formData.value.closingChurchAddress;
+    }
+  }
+});
+
+// Pre-cargar Google Maps cuando el usuario abre la tab Clausura por primera
+// vez (mejora UX: el primer click en el input queda casi instantáneo).
+watch(activeTab, (tab) => {
+  if (tab === 'closing') {
+    void loadGoogleMaps().catch(() => undefined);
+  }
+});
+
+async function copyClosingChurchUrl(kind: 'maps' | 'waze') {
+  const url =
+    kind === 'maps' ? closingChurchMapsUrlPreview.value : closingChurchWazeUrlPreview.value;
+  if (!url) return;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast({ title: 'URL copiada', description: url });
+  } catch {
+    toast({ title: 'No se pudo copiar', description: url, variant: 'destructive' });
+  }
+}
+
+function openClosingChurchUrl(kind: 'maps' | 'waze') {
+  const url =
+    kind === 'maps' ? closingChurchMapsUrlPreview.value : closingChurchWazeUrlPreview.value;
+  if (url) window.open(url, '_blank', 'noopener,noreferrer');
+}
+
 const handleMemorySaved = (data: { memoryPhotoUrl?: string; musicPlaylistUrl?: string }) => {
 	// Update local retreat data when memory is saved
 	if (props.retreat) {
@@ -1464,6 +1650,7 @@ watch(() => props.open, (newOpen) => {
     // Reset to first tab when modal opens
     activeTab.value = 'general';
     refreshBedsFromHouse.value = false;
+    closingChurchAddressEditing.value = false;
     void loadScheduleTemplateSets();
 
     if (props.mode === 'edit' && props.retreat) {
@@ -1496,6 +1683,10 @@ watch(() => props.open, (newOpen) => {
           retreat_type: props.retreat.retreat_type,
           retreat_number_version: props.retreat.retreat_number_version || '',
           slug: (props.retreat as any).slug || '',
+          closingChurchName: (props.retreat as any).closingChurchName || '',
+          closingChurchAddress: (props.retreat as any).closingChurchAddress || '',
+          closingChurchLatitude: (props.retreat as any).closingChurchLatitude ?? null,
+          closingChurchLongitude: (props.retreat as any).closingChurchLongitude ?? null,
           flyer_options: {
             titleOverride: (props.retreat as any).flyer_options?.titleOverride || '',
             subtitleOverride: (props.retreat as any).flyer_options?.subtitleOverride || '',

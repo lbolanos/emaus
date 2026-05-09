@@ -125,6 +125,10 @@ export const retreatSchema = z.object({
 	createdBy: z.string().uuid().optional(),
 	santisimoEnabled: z.boolean().default(false).optional(),
 	timezone: z.string().nullable().optional(),
+	closingChurchName: z.string().nullable().optional(),
+	closingChurchAddress: z.string().nullable().optional(),
+	closingChurchLatitude: z.number().nullable().optional(),
+	closingChurchLongitude: z.number().nullable().optional(),
 });
 export type Retreat = z.infer<typeof retreatSchema>;
 

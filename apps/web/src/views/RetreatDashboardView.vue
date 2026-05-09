@@ -924,6 +924,53 @@
             </CardContent>
           </Card>
 
+          <!-- Closing Mass Church -->
+          <Card
+            v-if="(selectedRetreat as any).closingChurchName || (selectedRetreat as any).closingChurchAddress"
+            class="group hover:shadow-md transition-all duration-300"
+          >
+            <CardHeader class="pb-3">
+              <CardTitle class="text-lg flex items-center gap-2">
+                <Church class="w-4 h-4 text-primary" />
+                Misa de Clausura
+              </CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-3">
+              <div v-if="(selectedRetreat as any).closingChurchName">
+                <p class="text-sm font-medium">{{ (selectedRetreat as any).closingChurchName }}</p>
+              </div>
+              <div v-if="(selectedRetreat as any).closingChurchAddress" class="flex items-start gap-2">
+                <MapPin class="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0" />
+                <p class="text-sm text-muted-foreground leading-relaxed">{{ (selectedRetreat as any).closingChurchAddress }}</p>
+              </div>
+              <div
+                v-if="(selectedRetreat as any).closingChurchLatitude != null && (selectedRetreat as any).closingChurchLongitude != null"
+                class="flex flex-wrap gap-2 pt-1"
+              >
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  class="gap-1.5"
+                  @click="openClosingChurchMap"
+                >
+                  <Navigation class="w-3.5 h-3.5" />
+                  Abrir mapa
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  class="gap-1.5"
+                  @click="openClosingChurchWaze"
+                >
+                  <ExternalLink class="w-3.5 h-3.5" />
+                  Abrir en Waze
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           <!-- Things to Bring -->
           <Card v-if="selectedRetreat.thingsToBringNotes" class="group hover:shadow-md transition-all duration-300">
             <CardHeader class="pb-3">
@@ -1116,6 +1163,7 @@ import {
   BedDouble,
   BookOpen,
   ChevronDown,
+  Church,
   ClipboardList,
   Cross,
   Heart,
@@ -1133,7 +1181,9 @@ import {
   Link,
   Loader2,
   Mail,
+  MapPin,
   Music,
+  Navigation,
   Package,
   QrCode,
   RefreshCw,
@@ -1143,7 +1193,8 @@ import {
   UserPlus,
   Users,
 } from 'lucide-vue-next';
-import { formatDate } from '@repo/utils';
+import { formatDate, buildClosingChurchWazeUrl } from '@repo/utils';
+import { openLocation } from '@/utils/openLocation';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
 
 const { t } = useI18n();
@@ -1374,6 +1425,20 @@ const receptionPercent = computed(() =>
     ? Math.round((receptionStats.value.arrived / receptionStats.value.total) * 100)
     : 0
 );
+
+// Closing mass — abrir mapa con detección de plataforma o Waze directo.
+const openClosingChurchMap = () => {
+  const r = selectedRetreat.value as any;
+  if (r?.closingChurchLatitude != null && r?.closingChurchLongitude != null) {
+    openLocation(r.closingChurchLatitude, r.closingChurchLongitude);
+  }
+};
+
+const openClosingChurchWaze = () => {
+  const r = selectedRetreat.value as any;
+  const url = buildClosingChurchWazeUrl(r?.closingChurchLatitude, r?.closingChurchLongitude);
+  if (url) window.open(url, '_blank', 'noopener,noreferrer');
+};
 
 // Navigation helpers
 const goToBagsReport = () => router.push({ name: 'bags-report' });

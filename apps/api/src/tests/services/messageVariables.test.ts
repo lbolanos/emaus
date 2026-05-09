@@ -289,4 +289,62 @@ describe('Message variable replacement', () => {
 			expect(result).toEqual(['participant.palanqueroName']);
 		});
 	});
+
+	describe('Closing church variables', () => {
+		const baseRetreat: RetreatData = {
+			parish: 'San José',
+			startDate: '2026-05-01',
+			endDate: '2026-05-03',
+			closingChurchName: 'Parroquia San Judas Tadeo',
+			closingChurchAddress: 'Av. Insurgentes Sur 1234, CDMX',
+			closingChurchLatitude: 19.3776,
+			closingChurchLongitude: -99.1726,
+		};
+
+		it('exposes closingChurchName and closingChurchAddress as text variables', () => {
+			const template = '{retreat.closingChurchName} en {retreat.closingChurchAddress}';
+			const result = replaceAllVariables(template, buildParticipant(), baseRetreat);
+			expect(result).toBe('Parroquia San Judas Tadeo en Av. Insurgentes Sur 1234, CDMX');
+		});
+
+		it('builds the universal Google Maps URL from lat/lng', () => {
+			const template = '{retreat.closingChurchMapsUrl}';
+			const result = replaceAllVariables(template, buildParticipant(), baseRetreat);
+			expect(result).toBe('https://www.google.com/maps/search/?api=1&query=19.3776,-99.1726');
+		});
+
+		it('builds the Waze URL from lat/lng', () => {
+			const template = '{retreat.closingChurchWazeUrl}';
+			const result = replaceAllVariables(template, buildParticipant(), baseRetreat);
+			expect(result).toBe('https://waze.com/ul?ll=19.3776,-99.1726&navigate=yes');
+		});
+
+		it('returns empty strings for the URL variables when lat/lng are null', () => {
+			const r: RetreatData = {
+				...baseRetreat,
+				closingChurchLatitude: null,
+				closingChurchLongitude: null,
+			};
+			const template = 'Maps: [{retreat.closingChurchMapsUrl}], Waze: [{retreat.closingChurchWazeUrl}]';
+			const result = replaceAllVariables(template, buildParticipant(), r);
+			expect(result).toBe('Maps: [], Waze: []');
+		});
+
+		it('flags closing church variables as empty when retreat has no church data', () => {
+			const template =
+				'{retreat.closingChurchName} {retreat.closingChurchAddress} {retreat.closingChurchMapsUrl} {retreat.closingChurchWazeUrl}';
+			const r: RetreatData = {
+				parish: 'San José',
+				startDate: '2026-05-01',
+				endDate: '2026-05-03',
+			};
+			const result = findEmptyVariables(template, buildParticipant(), r);
+			expect(result).toEqual([
+				'retreat.closingChurchAddress',
+				'retreat.closingChurchMapsUrl',
+				'retreat.closingChurchName',
+				'retreat.closingChurchWazeUrl',
+			]);
+		});
+	});
 });

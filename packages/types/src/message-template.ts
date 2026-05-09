@@ -26,6 +26,9 @@ export const messageTemplateTypes = z.enum([
 	'WALKER_FOLLOWUP_MONTH_6',
 	'WALKER_FOLLOWUP_YEAR_1',
 	'WALKER_REUNION_INVITATION',
+	// Family invitation to closing mass
+	'FAMILY_CLOSING_INVITATION_WHATSAPP',
+	'FAMILY_CLOSING_INVITATION_EMAIL',
 	// System-wide templates with SYS_ prefix
 	'SYS_PASSWORD_RESET',
 	'SYS_USER_INVITATION',

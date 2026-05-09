@@ -135,6 +135,18 @@ export class Retreat {
 	@Column({ type: 'varchar', length: 64, nullable: true })
 	timezone?: string | null;
 
+	@Column({ type: 'varchar', length: 255, nullable: true })
+	closingChurchName?: string | null;
+
+	@Column({ type: 'text', nullable: true })
+	closingChurchAddress?: string | null;
+
+	@Column({ type: 'real', nullable: true })
+	closingChurchLatitude?: number | null;
+
+	@Column({ type: 'real', nullable: true })
+	closingChurchLongitude?: number | null;
+
 	@OneToMany(() => Payment, (payment) => payment.retreat)
 	payments!: Payment[];
 }

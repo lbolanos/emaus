@@ -92,7 +92,35 @@ export interface RetreatData {
 	serverArrivalTimeFriday?: string;
 	retreat_type?: string;
 	retreat_number_version?: string;
+	closingChurchName?: string | null;
+	closingChurchAddress?: string | null;
+	closingChurchLatitude?: number | null;
+	closingChurchLongitude?: number | null;
 }
+
+/**
+ * URL universal de Google Maps construida desde lat/lng. Funciona en
+ * cualquier app de escaneo, cliente de email o WhatsApp; en mobile abre la
+ * app de mapas instalada (Google Maps / Apple Maps), en desktop abre la web.
+ * Devuelve cadena vacía si faltan coordenadas, para no romper plantillas.
+ */
+export const buildClosingChurchMapsUrl = (
+	lat?: number | null,
+	lng?: number | null,
+): string =>
+	lat != null && lng != null
+		? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+		: '';
+
+/**
+ * URL universal de Waze construida desde lat/lng. Abre la app si está
+ * instalada, sino la web.
+ */
+export const buildClosingChurchWazeUrl = (
+	lat?: number | null,
+	lng?: number | null,
+): string =>
+	lat != null && lng != null ? `https://waze.com/ul?ll=${lat},${lng}&navigate=yes` : '';
 
 /**
  * Format date options interface
@@ -404,6 +432,10 @@ const getMockRetreat = (): RetreatData => {
 		serverArrivalTimeFriday: '16:00',
 		retreat_type: 'men',
 		retreat_number_version: 'I',
+		closingChurchName: 'Parroquia San Judas Tadeo',
+		closingChurchAddress: 'Av. Insurgentes Sur 1234, Del Valle, CDMX',
+		closingChurchLatitude: 19.3776,
+		closingChurchLongitude: -99.1726,
 	};
 };
 
@@ -428,6 +460,16 @@ const buildRetreatReplacements = (retreatData: RetreatData): Record<string, stri
 		'retreat.serverArrivalTimeFriday': retreatData.serverArrivalTimeFriday || '',
 		'retreat.type': retreatData.retreat_type || '',
 		'retreat.number': retreatData.retreat_number_version || '',
+		'retreat.closingChurchName': retreatData.closingChurchName || '',
+		'retreat.closingChurchAddress': retreatData.closingChurchAddress || '',
+		'retreat.closingChurchMapsUrl': buildClosingChurchMapsUrl(
+			retreatData.closingChurchLatitude,
+			retreatData.closingChurchLongitude,
+		),
+		'retreat.closingChurchWazeUrl': buildClosingChurchWazeUrl(
+			retreatData.closingChurchLatitude,
+			retreatData.closingChurchLongitude,
+		),
 	};
 };
 
