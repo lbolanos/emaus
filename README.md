@@ -541,34 +541,39 @@ acepto aviso de privacidad. liga para la acuerdo de privacidad. en el correo fin
 
 en el historial de mensaje al dar clic al mensaje por verlo completo lahora del mesaje esta en utc
 
-
-registro tambien de angelitos acrodarese que no pagan.  los angelitos no van ni a mesa no deben mostrar ni camas.
-
-## TODO
-ordenar los caminantes en recpecion
 agregar el horario de servicio de los angelitos.
-
-un listado real de responsabilidades
-una forma en bubbles cursor encima da mas informacion pero aveces no funciona entonces colocar una forma segura de sabes mas detalles
-orden correcto en la mesas 1 no debe estar a lado de 10 
-
-responsable de enviar los caminantes los caminantes primero jovenes ultimo viejos
-responsable de acomodar los caminantes y de sentar primero a los viejos 
-responsable de asignar los padres a los caminantes y recibirlos y bienvenida emaus
+registro tambien de angelitos acrodarese que no pagan.  los angelitos no van ni a mesa no deben mostrar ni camas.
+ordenar los caminantes en recpecion
 
 
 en la casa de retiro eliminar 25 y 26 que no existen san cayetano
 planta baja planta alta en vez de numeros se enreda con piso 1
+cuando en operaciones masivas agrego la etiqueta no se si se guarda .  guardar el sector de las habitaciones que se guardan con masivo y mostrarlo en el mapa de habitaciones.
 
-verificar que el orden en las camas
-quema de pecados imposicion de ceniza y lavado de mano es lo mismo hoja de pecados
 si no esta al 100% los gafetes al cambiar de pagina recorta el gafete que queda en medio esto le paso a pepe toño mac
 
-cuando en operaciones masivas agrego la etiqueta no se si se guarda .  guardar el sector de las habitaciones que se guardan con masivo y mostrarlo en el mapa de habitaciones.
+una forma de agregar la direccion de la iglesia donde se hace la misa de clausura.  guarda la direccion para mostrar en un mensaje que debes crear en la plantilla para invitar a los familiares.  tambien la url generica para que pueda abrir cualquier aplicacion como waze o maps
+
+un listado real de responsabilidades
+en inventario agregar una columna de numero de articulos a comprar req-actual
+## TODO
+Si los horarios de los angelitos empatan en horario de comida entonces se debe cobrar una suma.
+
+in inventario cuando borro un elemento desde los tres puntos la interfaz web se congela.  lo mismo pasa al ver historial de cambios.
+crear un reporte de camisetas que solicitaron los servidores y angelitos y tallas para llevar a la reunion de preparacion semanal.
+
+por agregar foto del inventario y que vaya registrando.  o tambien por audio en el bot.
+
+
+una forma en bubbles cursor encima da mas informacion pero aveces no funciona entonces colocar una forma segura de sabes mas detalles
+orden correcto en la mesas 1 no debe estar a lado de 10 
+
+verificar que el orden en las camas
+
 cuando ya esta el retiro por empezar modificar las camas para servidores.  es decir si sobraron camas de caminantes modificar que puedan ser para servidores sin modificar la estructura de la casa de retiro.  solamente para el retiro en curso.
 cuando estoy creando un retiro:  colocar la hora de llegada por defecto en punto x:00.  placeholder de notas por defecto
-una forma de agregar la direccion de la iglesia donde se hace la misa de clausura.
-cuando edito el retiro y voy a ver el flyer , en el lugar, aparece el nombre de la parroquia.  tengo que refrescar la pagina para que aparezca bien
+
+cuando edito el retiro y voy a ver el flyer , en el lugar, πaparece el nombre de la parroquia.  tengo que refrescar la pagina para que aparezca bien
 
 
 Crear un retiro a partir de los datos del anterior retiro. Casa de retiro, inventario, mensajes.
