@@ -4,7 +4,7 @@ import { storeToRefs } from 'pinia';
 import { useRoute } from 'vue-router';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useRetreatStore } from '@/stores/retreatStore';
-import { getPalanqueroOptions, sendEmailViaBackend, getSmtpConfig } from '@/services/api';
+import { getPalanqueroOptions, sendEmailViaBackend, getSmtpConfig, listShirtTypes, getParticipantById } from '@/services/api';
 import { useMessageTemplateStore } from '@/stores/messageTemplateStore';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { convertHtmlToEmail, replaceAllVariables } from '@/utils/message';
@@ -123,6 +123,7 @@ const isDeleteDialogOpen = ref(false);
 const participantToDelete = ref<any>(null);
 const isEditDialogOpen = ref(false);
 const participantToEdit = ref<any>(null);
+const editShirtTypes = ref<any[]>([]);
 const isFilterDialogOpen = ref(false);
 const isMessageDialogOpen = ref(false);
 const messageParticipant = ref<any>(null);
@@ -783,9 +784,30 @@ const reactivateParticipant = async (participant: any) => {
     }
 };
 
-const openEditDialog = (participant: any) => {
+const openEditDialog = async (participant: any) => {
     participantToEdit.value = participant;
     isEditDialogOpen.value = true;
+    // Solo cargar shirt types y tallas para servidores, no para caminantes
+    if (props.type !== 'walker') {
+        const retreatId = participant?.retreatId || selectedRetreatId.value;
+        if (retreatId) {
+            try {
+                const [fullParticipant, shirtTypes] = await Promise.all([
+                    getParticipantById(participant.id, retreatId),
+                    listShirtTypes(retreatId),
+                ]);
+                // Merge para preservar datos del list y agregar shirtSizes del full fetch
+                participantToEdit.value = { ...participant, shirtSizes: fullParticipant.shirtSizes ?? [] };
+                editShirtTypes.value = shirtTypes;
+            } catch {
+                editShirtTypes.value = [];
+            }
+        } else {
+            editShirtTypes.value = [];
+        }
+    } else {
+        editShirtTypes.value = [];
+    }
 };
 
 const openMessageDialog = (participant: any) => {
@@ -1741,6 +1763,7 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                     :all-columns="allColumns.map(c => ({ ...c, label: $t(c.label) }))"
                     :columns-to-show="formColumnsToShow"
                     :columns-to-edit="formColumnsToEdit"
+                    :shirt-types="editShirtTypes"
                     @save="handleUpdateParticipant"
                     @cancel="isEditDialogOpen = false"
                 />

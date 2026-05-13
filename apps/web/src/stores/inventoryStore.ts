@@ -164,6 +164,11 @@ export const useInventoryStore = defineStore('inventory', () => {
 		data: {
 			currentQuantity?: number;
 			notes?: string;
+			boxLabel?: string | null;
+			status?: 'pending' | 'packed' | 'onsite' | 'consumed' | 'returned';
+			ratioOverride?: number | null;
+			requiredQtyOverride?: number | null;
+			isExcluded?: boolean;
 		},
 	) {
 		try {
@@ -188,28 +193,202 @@ export const useInventoryStore = defineStore('inventory', () => {
 				}
 			}
 
-			toast({ title: 'Success', description: 'Inventory updated successfully.' });
+			// Auto-save silencioso (sin toast). El error sí se muestra.
 		} catch (e: any) {
-			toast({ title: 'Error', description: 'Failed to update inventory.', variant: 'destructive' });
+			toast({
+				title: 'Error',
+				description:
+					e?.response?.data?.message || 'No se pudo guardar el cambio en inventario.',
+				variant: 'destructive',
+			});
 			console.error(e);
+			throw e;
 		}
 	}
 
-	async function calculateRequiredQuantities(retreatId: string) {
+	async function removeItemFromRetreat(retreatId: string, itemId: string) {
+		try {
+			await api.delete(`/inventory/retreat/${retreatId}/items/${itemId}`);
+		} catch (e: any) {
+			if (e?.response?.status === 404) {
+				await api.delete(`/inventory/retreat/${retreatId}/${itemId}`);
+			} else {
+				throw e;
+			}
+		}
+		await fetchRetreatInventoryByCategory(retreatId);
+	}
+
+	async function bulkRemoveItemsFromRetreat(retreatId: string, itemIds: string[]) {
+		// Intenta el endpoint bulk primero. Si falla (404 cuando el server
+		// no tiene la ruta registrada, o conflicto con `:itemId`), cae a
+		// DELETE individuales en paralelo.
+		try {
+			const { data } = await api.post(
+				`/inventory/retreat/${retreatId}/items/bulk-delete`,
+				{ itemIds },
+			);
+			await fetchRetreatInventoryByCategory(retreatId);
+			return data as { removed: number };
+		} catch (e: any) {
+			if (e?.response?.status === 404) {
+				let removed = 0;
+				for (const id of itemIds) {
+					try {
+						await api.delete(`/inventory/retreat/${retreatId}/items/${id}`);
+						removed++;
+					} catch {
+						// fallback al endpoint sin "items/" por si tampoco existe
+						try {
+							await api.delete(`/inventory/retreat/${retreatId}/${id}`);
+							removed++;
+						} catch {
+							/* ignore */
+						}
+					}
+				}
+				await fetchRetreatInventoryByCategory(retreatId);
+				return { removed };
+			}
+			throw e;
+		}
+	}
+
+	async function addItemToRetreat(
+		retreatId: string,
+		itemId: string,
+		overrides?: { ratioOverride?: number | null; requiredQtyOverride?: number | null },
+	) {
+		let data: any;
+		const body = overrides && (overrides.ratioOverride != null || overrides.requiredQtyOverride != null)
+			? overrides
+			: undefined;
+		try {
+			const r = await api.post(`/inventory/retreat/${retreatId}/items/${itemId}`, body);
+			data = r.data;
+		} catch (e: any) {
+			if (e?.response?.status === 404) {
+				const r = await api.post(`/inventory/retreat/${retreatId}/${itemId}`, body);
+				data = r.data;
+			} else {
+				throw e;
+			}
+		}
+		await fetchRetreatInventoryByCategory(retreatId);
+		return data;
+	}
+
+	async function addCustomItemToRetreat(
+		retreatId: string,
+		payload: {
+			customName: string;
+			customUnit?: string;
+			customCategoryId?: string | null;
+			requiredQuantity?: number;
+			notes?: string;
+			ratioOverride?: number | null;
+			requiredQtyOverride?: number | null;
+		},
+	) {
+		const { data } = await api.post(`/inventory/retreat/${retreatId}/custom-item`, payload);
+		await fetchRetreatInventoryByCategory(retreatId);
+		return data;
+	}
+
+	async function syncShirtItems(retreatId: string) {
+		const { data } = await api.post(`/inventory/retreat/${retreatId}/sync-shirts`);
+		await fetchRetreatInventoryByCategory(retreatId);
+		return data as { created: number; updated: number; removed: number; skipped: number };
+	}
+
+	async function syncFromCatalog(retreatId: string) {
+		const { data } = await api.post(`/inventory/retreat/${retreatId}/sync-catalog`);
+		await fetchRetreatInventoryByCategory(retreatId);
+		return data as { added: number };
+	}
+
+	async function fetchAvailableItemsForRetreat(retreatId: string) {
+		const { data } = await api.get(`/inventory/retreat/${retreatId}/available`);
+		return data as Array<{
+			id: string;
+			name: string;
+			description: string;
+			categoryName: string;
+			teamName: string;
+			unit: string;
+			ratio: number;
+		}>;
+	}
+
+	async function updateInventoryItem(
+		itemId: string,
+		patch: {
+			name?: string;
+			description?: string;
+			ratio?: number;
+			requiredQuantity?: number | null;
+			unit?: string;
+			categoryId?: string;
+			teamId?: string;
+		},
+		retreatId?: string,
+	) {
+		const { data } = await api.put(`/inventory/items/${itemId}`, patch);
+		if (retreatId) await fetchRetreatInventoryByCategory(retreatId);
+		return data;
+	}
+
+	async function bulkUpdateRetreatInventory(
+		retreatId: string,
+		itemIds: string[],
+		patch: {
+			boxLabel?: string | null;
+			status?: 'pending' | 'packed' | 'onsite' | 'consumed' | 'returned';
+			notes?: string;
+		},
+	) {
+		const { data } = await api.patch(`/inventory/retreat/${retreatId}/bulk`, {
+			itemIds,
+			...patch,
+		});
+		await fetchRetreatInventoryByCategory(retreatId);
+		return data as { updated: number; notFound: number };
+	}
+
+	async function fetchInventoryHistory(retreatId: string, params: { itemId?: string; limit?: number } = {}) {
+		const { data } = await api.get(`/inventory/retreat/${retreatId}/history`, { params });
+		return data as Array<{
+			id: string;
+			inventoryItemId: string;
+			itemName: string;
+			field: string;
+			oldValue: string | null;
+			newValue: string | null;
+			userId: string | null;
+			createdAt: string;
+		}>;
+	}
+
+	async function calculateRequiredQuantities(
+		retreatId: string,
+		calcBase: 'actual' | 'expected' = 'actual',
+	) {
 		try {
 			const { data: updatedInventories } = await api.post(
 				`/inventory/retreat/${retreatId}/calculate`,
+				{ calcBase },
 			);
 			retreatInventory.value = updatedInventories;
 
 			// Refresh category view
 			await fetchRetreatInventoryByCategory(retreatId);
 
-			toast({ title: 'Success', description: 'Required quantities calculated successfully.' });
+			const baseLabel = calcBase === 'expected' ? 'caminantes esperados' : 'caminantes inscritos';
+			toast({ title: 'Cantidades recalculadas', description: `Base: ${baseLabel}.` });
 		} catch (e: any) {
 			toast({
 				title: 'Error',
-				description: 'Failed to calculate required quantities.',
+				description: e?.response?.data?.message || 'No se pudo recalcular.',
 				variant: 'destructive',
 			});
 			console.error(e);
@@ -316,6 +495,16 @@ export const useInventoryStore = defineStore('inventory', () => {
 		fetchRetreatInventory,
 		fetchRetreatInventoryByCategory,
 		updateRetreatInventory,
+		bulkUpdateRetreatInventory,
+		fetchInventoryHistory,
+		removeItemFromRetreat,
+		bulkRemoveItemsFromRetreat,
+		addItemToRetreat,
+		addCustomItemToRetreat,
+		syncShirtItems,
+		syncFromCatalog,
+		fetchAvailableItemsForRetreat,
+		updateInventoryItem,
 		calculateRequiredQuantities,
 
 		// Alerts

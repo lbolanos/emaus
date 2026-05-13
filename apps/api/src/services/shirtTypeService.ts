@@ -3,6 +3,20 @@ import { RetreatShirtType } from '../entities/retreatShirtType.entity';
 
 const repo = () => AppDataSource.getRepository(RetreatShirtType);
 
+/**
+ * Sincroniza el inventario del retiro con los tipos de playera actuales.
+ * Lazy import para evitar ciclos entre shirtTypeService ↔ inventoryService.
+ * Si la sincronización falla, log warning y continúa (no rompe la op CRUD).
+ */
+const syncInventoryShirts = async (retreatId: string): Promise<void> => {
+	try {
+		const inv = await import('./inventoryService');
+		await inv.syncShirtItemsForRetreat(retreatId);
+	} catch (e) {
+		console.warn('[shirtTypeService] no se pudo sincronizar inventario:', e);
+	}
+};
+
 export const MEXICAN_DEFAULT_SIZES = ['S', 'M', 'G', 'X', '2'];
 
 export type ShirtTypeInput = {
@@ -40,7 +54,9 @@ export const createShirtType = async (retreatId: string, data: ShirtTypeInput) =
 		sortOrder: data.sortOrder ?? 0,
 		availableSizes: normalizeSizes(data.availableSizes),
 	});
-	return repo().save(entity);
+	const saved = await repo().save(entity);
+	await syncInventoryShirts(retreatId);
+	return saved;
 };
 
 export const updateShirtType = async (id: string, data: Partial<ShirtTypeInput>) => {
@@ -60,11 +76,15 @@ export const updateShirtType = async (id: string, data: Partial<ShirtTypeInput>)
 	if (Object.keys(updates).length > 0) {
 		await repo().update({ id }, updates);
 	}
-	return repo().findOne({ where: { id } });
+	const updated = await repo().findOne({ where: { id } });
+	if (updated) await syncInventoryShirts(updated.retreatId);
+	return updated;
 };
 
 export const deleteShirtType = async (id: string) => {
+	const target = await repo().findOne({ where: { id } });
 	const result = await repo().delete({ id });
+	if (target) await syncInventoryShirts(target.retreatId);
 	return (result.affected ?? 0) > 0;
 };
 

@@ -488,6 +488,20 @@ export const confirmExistingParticipant = async (
         );
         await shirtRepo.save(rows);
       }
+
+      // Recalcular requiredQuantity en inventario para los shirts de este retiro
+      await transactionalEntityManager.query(
+        `UPDATE retreat_inventory
+         SET requiredQuantity = (
+           SELECT COUNT(*) FROM participant_shirt_size pss
+           INNER JOIN retreat_participants rp ON rp.participantId = pss.participantId
+             AND rp.retreatId = retreat_inventory.retreatId AND rp.isCancelled = 0
+           WHERE pss.shirtTypeId = retreat_inventory.retreatShirtTypeId
+             AND pss.size = retreat_inventory.shirtSize
+         ), updatedAt = datetime('now')
+         WHERE retreatId = ? AND retreatShirtTypeId IS NOT NULL`,
+        [retreatId],
+      );
     }
 
     console.warn(
@@ -902,6 +916,18 @@ export const findParticipantById = async (
     if (leaderTable) {
       participant.tableMesa = leaderTable;
     }
+  }
+
+  // Incluir tallas de playera del retiro actual
+  if (overlayRetreatId) {
+    const shirtSizesRows: { shirtTypeId: string; size: string }[] = await AppDataSource.query(
+      `SELECT pss.shirtTypeId, pss.size
+       FROM participant_shirt_size pss
+       INNER JOIN retreat_shirt_type rst ON rst.id = pss.shirtTypeId
+       WHERE pss.participantId = ? AND rst.retreatId = ?`,
+      [participant.id, overlayRetreatId],
+    );
+    (participant as any).shirtSizes = shirtSizesRows;
   }
 
   return participant;
@@ -1779,6 +1805,22 @@ export const createParticipant = async (
       );
       if (rows.length > 0) {
         await shirtRepo.save(rows);
+
+        // Recalcular requiredQuantity en inventario para los shirts de este retiro
+        if (participantData.retreatId) {
+          await transactionalEntityManager.query(
+            `UPDATE retreat_inventory
+             SET requiredQuantity = (
+               SELECT COUNT(*) FROM participant_shirt_size pss
+               INNER JOIN retreat_participants rp ON rp.participantId = pss.participantId
+                 AND rp.retreatId = retreat_inventory.retreatId AND rp.isCancelled = 0
+               WHERE pss.shirtTypeId = retreat_inventory.retreatShirtTypeId
+                 AND pss.size = retreat_inventory.shirtSize
+             ), updatedAt = datetime('now')
+             WHERE retreatId = ? AND retreatShirtTypeId IS NOT NULL`,
+            [participantData.retreatId],
+          );
+        }
       }
     }
 
@@ -2303,6 +2345,7 @@ export const updateParticipant = async (
     // the participant's "primary" retreat — wrong when the participant
     // attends multiple retreats and the user is editing a non-primary one.
     contextRetreatId,
+    shirtSizes,
     ...personalData
   } = participantData as any;
 
@@ -2538,6 +2581,45 @@ export const updateParticipant = async (
       notes !== undefined
         ? notes || null
         : (currentRp?.notes ?? null);
+  }
+
+  // Actualizar tallas de playera (participant_shirt_size) si se envían
+  if (Array.isArray(shirtSizes) && effectiveRetreatId) {
+    const shirtRepo = AppDataSource.getRepository(ParticipantShirtSize);
+    const typeRepo = AppDataSource.getRepository(RetreatShirtType);
+    const validSizes = (shirtSizes as { shirtTypeId: string; size: string }[]).filter(
+      (s) => s && s.shirtTypeId && s.size && s.size !== 'null',
+    );
+    // Validar que los tipos pertenezcan al retiro
+    for (const s of validSizes) {
+      const type = await typeRepo.findOne({ where: { id: s.shirtTypeId } });
+      if (!type || type.retreatId !== effectiveRetreatId) continue;
+    }
+    // Eliminar entradas anteriores del retiro
+    await AppDataSource.query(
+      `DELETE FROM participant_shirt_size WHERE participantId = ?
+       AND shirtTypeId IN (SELECT id FROM retreat_shirt_type WHERE retreatId = ?)`,
+      [updatedParticipant.id, effectiveRetreatId],
+    );
+    if (validSizes.length > 0) {
+      const rows = validSizes.map((s) =>
+        shirtRepo.create({ participantId: updatedParticipant.id, shirtTypeId: s.shirtTypeId, size: s.size }),
+      );
+      await shirtRepo.save(rows);
+    }
+    // Recalcular requiredQuantity en inventario
+    await AppDataSource.query(
+      `UPDATE retreat_inventory
+       SET requiredQuantity = (
+         SELECT COUNT(*) FROM participant_shirt_size pss
+         INNER JOIN retreat_participants rp ON rp.participantId = pss.participantId
+           AND rp.retreatId = retreat_inventory.retreatId AND rp.isCancelled = 0
+         WHERE pss.shirtTypeId = retreat_inventory.retreatShirtTypeId
+           AND pss.size = retreat_inventory.shirtSize
+       ), updatedAt = datetime('now')
+       WHERE retreatId = ? AND retreatShirtTypeId IS NOT NULL`,
+      [effectiveRetreatId],
+    );
   }
 
   return updatedParticipant;

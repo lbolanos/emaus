@@ -10,11 +10,17 @@ import { useRetreatStore } from '@/stores/retreatStore';
 import type { Tag } from '@repo/types';
 import { ChevronDown, ChevronUp, User, Phone, Users, Heart, ClipboardList, MapPin, Briefcase, FileText, Shield, Tag as TagIcon } from 'lucide-vue-next';
 
+type ShirtType = {
+  id: string; name: string; color?: string | null; requiredForWalkers: boolean;
+  optionalForServers: boolean; sortOrder: number; availableSizes?: string[] | null;
+}
+
 const props = defineProps<{
   participant: any;
   columnsToShow: string[];
   columnsToEdit: string[];
   allColumns: { key: string; label: string; type?: string }[];
+  shirtTypes?: ShirtType[];
 }>();
 
 const emit = defineEmits(['save', 'cancel']);
@@ -25,6 +31,12 @@ const localParticipant = ref<any>({});
 const selectedTags = ref<Tag[]>([]);
 const showContactDetails = ref(false);
 const availabilityBlocks = ref<Array<{ id?: string; startTime: string; endTime: string }>>([]);
+const shirtSizesByType = ref<Record<string, string>>({});
+const activeTab = ref<'datos' | 'camisetas'>('datos');
+
+const selectedShirtCount = computed(() =>
+  Object.values(shirtSizesByType.value).filter(v => v && v !== 'null').length
+);
 
 const isAngelito = computed(() => localParticipant.value?.type === 'partial_server');
 
@@ -261,6 +273,15 @@ watch(() => props.participant, (newVal) => {
 
   localParticipant.value = formattedData;
 
+  // Inicializar tallas de playera desde participant_shirt_size (si vienen en el participante)
+  const sizesMap: Record<string, string> = {};
+  const existingSizes: Array<{ shirtTypeId: string; size: string }> = newVal?.shirtSizes ?? [];
+  for (const s of existingSizes) {
+    sizesMap[s.shirtTypeId] = s.size;
+  }
+  shirtSizesByType.value = sizesMap;
+  activeTab.value = 'datos';
+
   // Load tags for the participant
   loadParticipantTags();
   // Load angelito availability (only meaningful when type=partial_server)
@@ -316,6 +337,13 @@ const handleSave = async () => {
         participantToSave[key] = participantToSave[key].toISOString();
       }
     }
+  }
+
+  // Incluir tallas de playera si hay shirt types configurados
+  if (props.shirtTypes && props.shirtTypes.length > 0) {
+    participantToSave.shirtSizes = Object.entries(shirtSizesByType.value)
+      .filter(([, size]) => size && size !== 'null')
+      .map(([shirtTypeId, size]) => ({ shirtTypeId, size }));
   }
 
   // Save participant data first
@@ -397,7 +425,24 @@ const calculateAge = (birthDate: string | Date) => {
 <template>
   <!-- ==================== PALANCAS-SPECIFIC LAYOUT ==================== -->
   <template v-if="isPalancasView">
-    <div class="space-y-5 max-h-[70vh] overflow-y-auto pr-1">
+
+    <!-- Tab bar (solo cuando hay tipos de camiseta configurados) -->
+    <div v-if="shirtTypes && shirtTypes.length > 0" class="flex gap-1 border-b border-gray-200 mb-4">
+      <button
+        :class="['flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors rounded-t-md', activeTab === 'datos' ? 'border-purple-600 text-purple-700 bg-purple-50/60' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50']"
+        @click="activeTab = 'datos'"
+      >Datos</button>
+      <button
+        :class="['flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors rounded-t-md', activeTab === 'camisetas' ? 'border-purple-600 text-purple-700 bg-purple-50/60' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50']"
+        @click="activeTab = 'camisetas'"
+      >
+        Camisetas
+        <span v-if="selectedShirtCount > 0" :class="['text-xs font-semibold px-1.5 py-0.5 rounded-full', activeTab === 'camisetas' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-600']">{{ selectedShirtCount }}</span>
+      </button>
+    </div>
+
+    <!-- Tab: Datos -->
+    <div v-show="activeTab === 'datos'" class="space-y-5 max-h-[70vh] overflow-y-auto pr-1">
 
       <!-- Participant Summary Card -->
       <div class="rounded-xl border border-gray-200 bg-gradient-to-r from-purple-50 to-white overflow-hidden">
@@ -555,6 +600,31 @@ const calculateAge = (birthDate: string | Date) => {
           </div>
         </div>
       </div>
+    </div><!-- /Tab datos palancas -->
+
+    <!-- Tab: Camisetas (palancas) -->
+    <div v-if="shirtTypes && shirtTypes.length > 0" v-show="activeTab === 'camisetas'" class="space-y-3 py-2 max-h-[65vh] overflow-y-auto pr-1">
+      <div v-for="t in [...shirtTypes].sort((a, b) => a.sortOrder - b.sortOrder)" :key="t.id"
+           class="flex items-center justify-between gap-4 py-3 px-1 border-b border-gray-100 last:border-0">
+        <div class="flex flex-col min-w-0">
+          <span class="text-sm font-medium text-gray-800">{{ t.name }}</span>
+          <span v-if="shirtSizesByType[t.id] && shirtSizesByType[t.id] !== 'null'"
+                class="text-xs text-purple-600 font-semibold mt-0.5">Talla {{ shirtSizesByType[t.id] }}</span>
+          <span v-else class="text-xs text-gray-400 mt-0.5">Sin seleccionar</span>
+        </div>
+        <Select
+          :model-value="shirtSizesByType[t.id] ?? 'null'"
+          @update:model-value="(v: any) => (shirtSizesByType[t.id] = v)"
+        >
+          <SelectTrigger class="w-28 shrink-0">
+            <SelectValue placeholder="Sin talla" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="null">Sin talla</SelectItem>
+            <SelectItem v-for="s in (t.availableSizes?.length ? t.availableSizes : ['S','M','G','X','2'])" :key="s" :value="s">{{ s }}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
     </div>
 
     <!-- Actions -->
@@ -566,7 +636,24 @@ const calculateAge = (birthDate: string | Date) => {
 
   <!-- ==================== GENERIC FORM LAYOUT (non-palancas views) ==================== -->
   <template v-else>
-    <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+
+    <!-- Tab bar (solo cuando hay tipos de camiseta configurados) -->
+    <div v-if="shirtTypes && shirtTypes.length > 0" class="flex gap-1 border-b border-gray-200 mb-4">
+      <button
+        :class="['flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors rounded-t-md', activeTab === 'datos' ? 'border-purple-600 text-purple-700 bg-purple-50/60' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50']"
+        @click="activeTab = 'datos'"
+      >Datos</button>
+      <button
+        :class="['flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors rounded-t-md', activeTab === 'camisetas' ? 'border-purple-600 text-purple-700 bg-purple-50/60' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50']"
+        @click="activeTab = 'camisetas'"
+      >
+        Camisetas
+        <span v-if="selectedShirtCount > 0" :class="['text-xs font-semibold px-1.5 py-0.5 rounded-full', activeTab === 'camisetas' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-600']">{{ selectedShirtCount }}</span>
+      </button>
+    </div>
+
+    <!-- Tab: Datos -->
+    <div v-show="activeTab === 'datos'" class="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
 
       <!-- Participant Header -->
       <div class="flex items-center gap-3 pb-3 border-b border-gray-100">
@@ -730,6 +817,31 @@ const calculateAge = (birthDate: string | Date) => {
           :min-date="participantRetreat?.startDate ?? null"
           :max-date="participantRetreat?.endDate ?? null"
         />
+      </div>
+    </div><!-- /Tab datos genérico -->
+
+    <!-- Tab: Camisetas (genérico) -->
+    <div v-if="shirtTypes && shirtTypes.length > 0" v-show="activeTab === 'camisetas'" class="space-y-2 py-2 max-h-[65vh] overflow-y-auto pr-1">
+      <div v-for="t in [...shirtTypes].sort((a, b) => a.sortOrder - b.sortOrder)" :key="t.id"
+           class="flex items-center justify-between gap-4 py-3 px-1 border-b border-gray-100 last:border-0">
+        <div class="flex flex-col min-w-0">
+          <span class="text-sm font-medium text-gray-800">{{ t.name }}</span>
+          <span v-if="shirtSizesByType[t.id] && shirtSizesByType[t.id] !== 'null'"
+                class="text-xs text-purple-600 font-semibold mt-0.5">Talla {{ shirtSizesByType[t.id] }}</span>
+          <span v-else class="text-xs text-gray-400 mt-0.5">Sin seleccionar</span>
+        </div>
+        <Select
+          :model-value="shirtSizesByType[t.id] ?? 'null'"
+          @update:model-value="(v: any) => (shirtSizesByType[t.id] = v)"
+        >
+          <SelectTrigger class="w-28 shrink-0">
+            <SelectValue placeholder="Sin talla" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="null">Sin talla</SelectItem>
+            <SelectItem v-for="s in (t.availableSizes?.length ? t.availableSizes : ['S','M','G','X','2'])" :key="s" :value="s">{{ s }}</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
     </div>
 

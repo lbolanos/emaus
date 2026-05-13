@@ -651,6 +651,17 @@ const onSubmit = async () => {
     ;(result.data as any).availability = (formData.value as any).availability
   }
 
+  // Para walkers: convertir tshirtSize al shirtType correspondiente en participant_shirt_size.
+  // El tipo del walker es el marcado requiredForWalkers, o el primero por sortOrder.
+  if (props.type === 'walker' && (result.data as any).tshirtSize) {
+    const allTypes: any[] = retreatData.value?.shirtTypes || []
+    const walkerType = allTypes.find((t: any) => t.requiredForWalkers) ||
+      [...allTypes].sort((a: any, b: any) => a.sortOrder - b.sortOrder)[0]
+    if (walkerType) {
+      ;(result.data as any).shirtSizes = [{ shirtTypeId: walkerType.id, size: (result.data as any).tshirtSize }]
+    }
+  }
+
   try {
     // Get reCAPTCHA token for bot protection
     const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.PARTICIPANT_REGISTER)

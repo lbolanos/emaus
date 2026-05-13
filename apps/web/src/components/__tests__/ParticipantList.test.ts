@@ -214,6 +214,36 @@ vi.mock('exceljs', () => ({
 	})),
 }));
 
+// Extended mock (includes shirt-size API functions needed for new tests).
+// This override preserves all original exports and adds listShirtTypes / getParticipantById.
+vi.mock('@/services/api', () => {
+	const mockApiGet = vi.fn(() => Promise.resolve({ data: [] }));
+	const mockApiPost = vi.fn(() => Promise.resolve({ data: {} }));
+	const mockApiPut = vi.fn(() => Promise.resolve({ data: {} }));
+	const mockApiDelete = vi.fn(() => Promise.resolve({ data: {} }));
+	const mockListShirtTypes = vi.fn(() => Promise.resolve([]));
+	const mockGetParticipantById = vi.fn(() => Promise.resolve({ shirtSizes: [] }));
+
+	return {
+		api: {
+			get: mockApiGet,
+			post: mockApiPost,
+			put: mockApiPut,
+			delete: mockApiDelete,
+		},
+		mockApiGet,
+		mockApiPost,
+		mockApiPut,
+		mockApiDelete,
+		listShirtTypes: mockListShirtTypes,
+		getParticipantById: mockGetParticipantById,
+		// Other functions the component might import
+		getPalanqueroOptions: vi.fn(() => Promise.resolve([])),
+		sendEmailViaBackend: vi.fn(() => Promise.resolve({})),
+		getSmtpConfig: vi.fn(() => Promise.resolve({})),
+	};
+});
+
 describe('ParticipantList Component', () => {
 	let wrapper: VueWrapper<any>;
 	let pinia: any;
@@ -733,6 +763,132 @@ describe('ParticipantList Component', () => {
 			expect(newWrapper.exists()).toBe(true);
 
 			newWrapper.unmount();
+		});
+	});
+
+	describe('openEditDialog – shirt types', () => {
+		// Helper to mount ParticipantList with the correct pinia context AND pass props properly.
+		// createTestWrapper ignores options.props so we need to use mount directly.
+		function mountWithType(type: string | undefined) {
+			const { mount: vtuMount } = require('@vue/test-utils');
+			return vtuMount(ParticipantList, {
+				props: { type },
+				global: {
+					plugins: [pinia],
+					stubs: {
+						'router-link': true, 'router-view': true, transition: true,
+						'transition-group': true, teleport: true, suspense: true,
+						ColumnSelector: { template: '<div />' },
+						EditParticipantForm: { template: '<div />' },
+						FilterDialog: { template: '<div />' },
+						ImportParticipantsModal: { template: '<div />' },
+						ExportParticipantsModal: { template: '<div />' },
+						TagBadge: { template: '<span />' },
+						MessageDialog: { template: '<div />' },
+						BulkEditParticipantsModal: { template: '<div />' },
+					},
+					mocks: { $t: (key: string) => key },
+				},
+			});
+		}
+
+		beforeEach(async () => {
+			// Reset api mock call history before each test
+			const apiModule = await import('@/services/api');
+			vi.mocked(apiModule.listShirtTypes).mockClear();
+			vi.mocked(apiModule.listShirtTypes).mockResolvedValue([]);
+			vi.mocked(apiModule.getParticipantById).mockClear();
+			vi.mocked(apiModule.getParticipantById).mockResolvedValue({ shirtSizes: [] } as any);
+		});
+
+		it('calls listShirtTypes and getParticipantById for server list', async () => {
+			const apiModule = await import('@/services/api');
+			const mockShirtTypes = [
+				{ id: 'type-1', name: 'Blanca', sortOrder: 1, availableSizes: ['M', 'L'],
+				  requiredForWalkers: false, optionalForServers: true },
+			];
+			vi.mocked(apiModule.listShirtTypes).mockResolvedValue(mockShirtTypes as any);
+			vi.mocked(apiModule.getParticipantById).mockResolvedValue({
+				id: '3', shirtSizes: [{ shirtTypeId: 'type-1', size: 'M' }],
+			} as any);
+
+			const serverWrapper = mountWithType('server');
+			await nextTick();
+
+			// Clear any calls from mount initialization
+			vi.mocked(apiModule.listShirtTypes).mockClear();
+			vi.mocked(apiModule.getParticipantById).mockClear();
+
+			const participant = createMockParticipant({ id: '3', type: 'server' });
+			(participant as any).retreatId = 'test-retreat-id';
+
+			await serverWrapper.vm.openEditDialog(participant);
+			await nextTick();
+
+			expect(vi.mocked(apiModule.getParticipantById)).toHaveBeenCalledWith('3', 'test-retreat-id');
+			expect(vi.mocked(apiModule.listShirtTypes)).toHaveBeenCalledWith('test-retreat-id');
+
+			serverWrapper.unmount();
+		});
+
+		it('does NOT call listShirtTypes for walker list', async () => {
+			const apiModule = await import('@/services/api');
+
+			const walkerWrapper = mountWithType('walker');
+			await nextTick();
+
+			// Clear any calls from mount initialization
+			vi.mocked(apiModule.listShirtTypes).mockClear();
+
+			const participant = createMockParticipant({ id: '1', type: 'walker' });
+			(participant as any).retreatId = 'test-retreat-id';
+
+			await walkerWrapper.vm.openEditDialog(participant);
+			await nextTick();
+
+			expect(vi.mocked(apiModule.listShirtTypes)).not.toHaveBeenCalled();
+
+			walkerWrapper.unmount();
+		});
+
+		it('sets editShirtTypes to empty array for walker list', async () => {
+			const walkerWrapper = mountWithType('walker');
+			await nextTick();
+
+			const participant = createMockParticipant({ id: '1', type: 'walker' });
+			(participant as any).retreatId = 'test-retreat-id';
+
+			await walkerWrapper.vm.openEditDialog(participant);
+			await nextTick();
+
+			expect(walkerWrapper.vm.editShirtTypes).toEqual([]);
+
+			walkerWrapper.unmount();
+		});
+
+		it('merges shirtSizes from full participant fetch into participantToEdit', async () => {
+			const apiModule = await import('@/services/api');
+			const expectedShirtSizes = [{ shirtTypeId: 'type-1', size: 'M' }];
+			vi.mocked(apiModule.listShirtTypes).mockResolvedValue([
+				{ id: 'type-1', name: 'Blanca', sortOrder: 1, availableSizes: ['M'],
+				  requiredForWalkers: false, optionalForServers: true },
+			] as any);
+			vi.mocked(apiModule.getParticipantById).mockResolvedValue({
+				id: '3', firstName: 'Bob', shirtSizes: expectedShirtSizes,
+			} as any);
+
+			const serverWrapper = mountWithType('server');
+			await nextTick();
+
+			const participant = createMockParticipant({ id: '3', type: 'server' });
+			(participant as any).retreatId = 'test-retreat-id';
+
+			await serverWrapper.vm.openEditDialog(participant);
+			await nextTick();
+
+			expect(serverWrapper.vm.participantToEdit.shirtSizes).toEqual(expectedShirtSizes);
+
+			serverWrapper.unmount();
 		});
 	});
 });

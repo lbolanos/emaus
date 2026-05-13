@@ -826,8 +826,10 @@ export const getPotentialMembersFromRetreat = async (
   return response.data;
 };
 
-export const getParticipantById = async (participantId: string) => {
-  const response = await api.get(`/participants/${participantId}`);
+export const getParticipantById = async (participantId: string, retreatId?: string) => {
+  const response = await api.get(`/participants/${participantId}`, {
+    params: retreatId ? { retreatId } : undefined,
+  });
   return response.data;
 };
 

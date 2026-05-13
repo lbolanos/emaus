@@ -18,6 +18,7 @@ import { InventoryCategory } from '../entities/inventoryCategory.entity';
 import { InventoryTeam } from '../entities/inventoryTeam.entity';
 import { InventoryItem } from '../entities/inventoryItem.entity';
 import { RetreatInventory } from '../entities/retreatInventory.entity';
+import { RetreatInventoryHistory } from '../entities/retreatInventoryHistory.entity';
 import { GlobalMessageTemplate } from '../entities/globalMessageTemplate.entity';
 import { Tag } from '../entities/tag.entity';
 import { ParticipantTag } from '../entities/participantTag.entity';
@@ -60,6 +61,7 @@ export function getRepositories(dataSource?: DataSource) {
 		inventoryTeam: ds.getRepository(InventoryTeam),
 		inventoryItem: ds.getRepository(InventoryItem),
 		retreatInventory: ds.getRepository(RetreatInventory),
+		retreatInventoryHistory: ds.getRepository(RetreatInventoryHistory),
 		globalMessageTemplate: ds.getRepository(GlobalMessageTemplate),
 		tag: ds.getRepository(Tag),
 		participantTag: ds.getRepository(ParticipantTag),
@@ -91,6 +93,7 @@ export function getAllEntities() {
 		InventoryTeam,
 		InventoryItem,
 		RetreatInventory,
+		RetreatInventoryHistory,
 		GlobalMessageTemplate,
 		Tag,
 		ParticipantTag,

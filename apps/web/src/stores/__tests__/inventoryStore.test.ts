@@ -275,13 +275,17 @@ describe('InventoryStore', () => {
 			const error = new Error('Update failed');
 			mockApi.put.mockRejectedValue(error);
 
-			await store.updateRetreatInventory('retreat-1', 'item-1', { quantity: 15 });
+			// El store re-lanza el error para que el llamador pueda reaccionar
+			await expect(
+				store.updateRetreatInventory('retreat-1', 'item-1', { quantity: 15 }),
+			).rejects.toThrow();
 
-			expect(toastSpy).toHaveBeenCalledWith({
-				title: 'Error',
-				description: 'Failed to update inventory.',
-				variant: 'destructive',
-			});
+			expect(toastSpy).toHaveBeenCalledWith(
+				expect.objectContaining({
+					title: 'Error',
+					variant: 'destructive',
+				}),
+			);
 		});
 	});
 
@@ -292,9 +296,24 @@ describe('InventoryStore', () => {
 
 			await store.calculateRequiredQuantities('retreat-1');
 
-			expect(mockApi.post).toHaveBeenCalledWith('/inventory/retreat/retreat-1/calculate');
+			expect(mockApi.post).toHaveBeenCalledWith(
+				'/inventory/retreat/retreat-1/calculate',
+				{ calcBase: 'actual' },
+			);
 			// Should refresh data after calculation
 			expect(mockApi.get).toHaveBeenCalled();
+		});
+
+		it('should pass calcBase=expected when specified', async () => {
+			mockApi.post.mockResolvedValue({});
+			mockApi.get.mockResolvedValue({ data: [] });
+
+			await store.calculateRequiredQuantities('retreat-1', 'expected');
+
+			expect(mockApi.post).toHaveBeenCalledWith(
+				'/inventory/retreat/retreat-1/calculate',
+				{ calcBase: 'expected' },
+			);
 		});
 	});
 

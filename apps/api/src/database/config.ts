@@ -12,6 +12,7 @@ import { InventoryCategory } from '../entities/inventoryCategory.entity';
 import { InventoryTeam } from '../entities/inventoryTeam.entity';
 import { InventoryItem } from '../entities/inventoryItem.entity';
 import { RetreatInventory } from '../entities/retreatInventory.entity';
+import { RetreatInventoryHistory } from '../entities/retreatInventoryHistory.entity';
 import { Role } from '../entities/role.entity';
 import { UserRole } from '../entities/userRole.entity';
 import { RolePermission } from '../entities/rolePermission.entity';
@@ -78,6 +79,7 @@ export function createDatabaseConfig() {
 		InventoryTeam,
 		InventoryItem,
 		RetreatInventory,
+		RetreatInventoryHistory,
 		Role,
 		UserRole,
 		RolePermission,
