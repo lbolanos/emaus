@@ -212,6 +212,100 @@ const response = await fetch('/api/endpoint', {
 
 **Benefits**: Built-in CSRF protection, error handling, authentication, and consistent configuration. Add new functions to `/apps/web/src/services/api.ts`.
 
+## reka-ui Dialog/DropdownMenu — UI congelada (bug recurrente)
+
+Bug conocido del port de Radix (reka-ui, expuesto vía `@repo/ui`): cuando un `DropdownMenu` cierra y un `Dialog` (`AlertDialog`, `Sheet`, `Drawer`) abre en el mismo tick, Radix deja `pointer-events: none` en `<body>` para prevenir clicks fantasma. El dialog hereda el body bloqueado y **toda la app deja de responder** hasta recargar.
+
+Síntomas típicos: "se congela la UI al cerrar el menú", "el dialog abre pero ningún botón funciona", "tengo que recargar la página".
+
+### Tres reglas obligatorias
+
+**Regla 1 — `<DropdownMenuItem>` que abre un Dialog reka-ui DEBE usar `@select="deferOpen(...)"`**
+
+```vue
+<!-- ❌ MAL -->
+<DropdownMenuItem @click="showXDialog = true">…</DropdownMenuItem>
+<DropdownMenuItem @click="abrirDialog">…</DropdownMenuItem>
+
+<!-- ✅ BIEN -->
+<DropdownMenuItem @select="deferOpen(() => showXDialog = true)">…</DropdownMenuItem>
+<DropdownMenuItem @select="deferOpen(abrirDialog)">…</DropdownMenuItem>
+```
+
+Helper estándar (ver `apps/web/src/views/InventoryView.vue` `deferOpen()`):
+
+```ts
+function deferOpen(fn: () => void) {
+  setTimeout(() => {
+    fn();
+    setTimeout(restoreBodyOverflow, 50);
+  }, 80);
+}
+```
+
+> **Excepción**: si el "dialog" es un `<Teleport>` custom (no un `Dialog` de reka-ui), no se necesita `deferOpen`. La mayoría de "modales" del repo son Teleports custom — la regla solo aplica a reka-ui nativo (`Dialog`, `AlertDialog`, `Sheet`, `Drawer`, `Popover` modal).
+
+**Regla 2 — `restoreBodyOverflow()` DEBE limpiar `body.style.pointerEvents`**
+
+`pointer-events: none` en `<body>` es **el síntoma real**. Limpiar `overflow` y `data-scroll-locked` no alcanza.
+
+```ts
+function restoreBodyOverflow() {
+  if (document.querySelectorAll('[role="dialog"][data-state="open"]').length > 0) return;
+  if (document.querySelectorAll('[role="menu"][data-state="open"]').length > 0) return;
+  if (document.body.style.overflow === 'hidden') document.body.style.overflow = '';
+  if (document.body.style.paddingRight) document.body.style.paddingRight = '';
+  if (document.body.style.pointerEvents === 'none') document.body.style.pointerEvents = ''; // ← CRÍTICO
+  document.body.removeAttribute('data-scroll-locked');
+}
+```
+
+**Regla 3 — `confirmX()` DEBE cerrar el dialog ANTES del `await` pesado**
+
+Nunca dejes el dialog abierto durante un reload (`store.fetch...`, `loadXData()`, `Promise.all([...fetch])`). El usuario percibe "congelamiento" porque el dialog se queda 1-3s antes de cerrar.
+
+```ts
+// ❌ MAL: dialog abierto durante el reload
+async function confirmDelete() {
+  try {
+    await store.removeItem(id);     // dispara reload pesado adentro
+    toast({ title: 'OK' });
+  } finally {
+    showDeleteDialog.value = false; // ← solo cierra después
+  }
+}
+
+// ✅ BIEN: cerrar primero, capturar contexto en variables locales
+async function confirmDelete() {
+  const ctx = deleteContext.value;
+  showDeleteDialog.value = false;
+  deleteContext.value = null;
+  try {
+    await store.removeItem(ctx.id);
+    toast({ title: 'OK' });
+  } catch (e) {
+    toast({ title: 'Error', variant: 'destructive' });
+  }
+}
+```
+
+### Auditar antes de cualquier PR que toque menús o dialogs
+
+```bash
+# Patrón 1 — DropdownMenuItem sin defer
+grep -rn 'DropdownMenuItem @click' apps/web/src/
+
+# Patrón 2 — restoreBodyOverflow sin pointerEvents
+grep -rn 'restoreBodyOverflow\|data-scroll-locked' apps/web/src/
+
+# Patrón 3 — confirm que cierra en finally tras await
+grep -rn -B 8 '} finally {' apps/web/src/views/ | grep -B 6 'Dialog.value = false'
+```
+
+### Casos donde ya tropezamos
+
+- **2026-05-14** — `InventoryView.vue`: los menús "Historial de cambios" y "Quitar del retiro" congelaban la UI. Causa: `@click` sin defer en historial, `confirmDelete` cerrando dialog en `finally` tras recargar todo el inventario, y `restoreBodyOverflow` que no limpiaba `pointerEvents`. Fix aplicado a `confirmDelete`, `confirmBulkBox`, `confirmBulkStatus`, `confirmOverride` y al saneador del body.
+
 ## Testing System
 
 ### Available Tests

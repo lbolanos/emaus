@@ -52,7 +52,7 @@
             <DropdownMenuItem @click="syncGlobalCatalog" class="gap-2">
               <RefreshCw class="w-4 h-4" /> Recargar desde catálogo global
             </DropdownMenuItem>
-            <DropdownMenuItem @click="openHistoryDialog" class="gap-2">
+            <DropdownMenuItem @select="deferOpen(openHistoryDialog)" class="gap-2">
               <History class="w-4 h-4" /> Historial de cambios
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -1262,6 +1262,7 @@ function restoreBodyOverflow() {
   if (document.querySelectorAll('[role="menu"][data-state="open"]').length > 0) return;
   if (document.body.style.overflow === 'hidden') document.body.style.overflow = '';
   if (document.body.style.paddingRight) document.body.style.paddingRight = '';
+  if (document.body.style.pointerEvents === 'none') document.body.style.pointerEvents = '';
   document.body.removeAttribute('data-scroll-locked');
 }
 
@@ -1860,6 +1861,8 @@ async function confirmBulkBox() {
     showBulkBoxDialog.value = false;
     return;
   }
+  showBulkBoxDialog.value = false;
+  clearSelection();
   try {
     const r = await inventoryStore.bulkUpdateRetreatInventory(retreatId.value, ids, {
       boxLabel: bulkBoxValue.value.trim() || null,
@@ -1871,9 +1874,6 @@ async function confirmBulkBox() {
       description: e?.response?.data?.message || 'No se pudo actualizar la caja.',
       variant: 'destructive',
     });
-  } finally {
-    showBulkBoxDialog.value = false;
-    clearSelection();
   }
 }
 
@@ -1888,13 +1888,16 @@ async function confirmBulkStatus() {
     showBulkStatusDialog.value = false;
     return;
   }
+  const statusValue = bulkStatusValue.value;
+  showBulkStatusDialog.value = false;
+  clearSelection();
   try {
     const r = await inventoryStore.bulkUpdateRetreatInventory(retreatId.value, ids, {
-      status: bulkStatusValue.value,
+      status: statusValue,
     });
     toast({
       title: 'Estado actualizado',
-      description: `${r.updated} items pasaron a "${STATUS_LABELS[bulkStatusValue.value]}".`,
+      description: `${r.updated} items pasaron a "${STATUS_LABELS[statusValue]}".`,
     });
   } catch (e: any) {
     toast({
@@ -1902,9 +1905,6 @@ async function confirmBulkStatus() {
       description: e?.response?.data?.message || 'No se pudo cambiar el estado.',
       variant: 'destructive',
     });
-  } finally {
-    showBulkStatusDialog.value = false;
-    clearSelection();
   }
 }
 
@@ -2243,15 +2243,14 @@ async function confirmOverride() {
       ? Number(overrideForm.value.requiredQtyOverride) : null,
     isExcluded: overrideForm.value.isExcluded,
   };
+  showOverrideDialog.value = false;
+  overrideItem.value = null;
   try {
     await inventoryStore.updateRetreatInventory(retreatId.value, itemId, payload);
     await loadInventoryData();
     toast({ title: 'Configuración guardada' });
   } catch (e: any) {
     toast({ title: 'Error', description: e?.response?.data?.message || 'No se pudo guardar.', variant: 'destructive' });
-  } finally {
-    showOverrideDialog.value = false;
-    overrideItem.value = null;
   }
 }
 
@@ -2272,15 +2271,18 @@ function askBulkRemove() {
 }
 
 async function confirmDelete() {
+  const ctx = deleteContext.value;
+  showDeleteDialog.value = false;
+  deleteContext.value = { bulk: false };
   try {
-    if (deleteContext.value.bulk) {
+    if (ctx.bulk) {
       const ids = selectedInventoryItemIds();
       const r = await inventoryStore.bulkRemoveItemsFromRetreat(retreatId.value, ids);
       toast({ title: 'Items quitados', description: `${r.removed} item(s) del retiro.` });
       clearSelection();
-    } else if (deleteContext.value.itemId) {
-      await inventoryStore.removeItemFromRetreat(retreatId.value, deleteContext.value.itemId);
-      toast({ title: 'Item quitado', description: deleteContext.value.name });
+    } else if (ctx.itemId) {
+      await inventoryStore.removeItemFromRetreat(retreatId.value, ctx.itemId);
+      toast({ title: 'Item quitado', description: ctx.name });
     }
   } catch (e: any) {
     toast({
@@ -2288,9 +2290,6 @@ async function confirmDelete() {
       description: e?.response?.data?.message || 'No se pudo quitar el item.',
       variant: 'destructive',
     });
-  } finally {
-    showDeleteDialog.value = false;
-    deleteContext.value = { bulk: false };
   }
 }
 
