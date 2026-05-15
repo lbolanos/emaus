@@ -104,64 +104,6 @@ The system uses TypeORM with SQLite. Key entities include:
 - Table (with leader assignments)
 - Various assignment and tracking entities
 
-## Community Search (Landing Page)
-
-### Cómo funciona
-
-La sección "Encuentra tu Comunidad" en `LandingView.vue` permite a los visitantes públicos filtrar y ordenar comunidades Emaús activas sin autenticación.
-
-**Fuente de datos:**
-- `GET /api/communities/public` — devuelve `{ id, name, city, state, latitude, longitude }` de comunidades con `status: 'active'`.
-- `GET /api/communities/public/meetings` — devuelve próximas 20 reuniones (30 días) con la comunidad embebida.
-
-### Computed properties clave
-
-```ts
-// Filtra por texto (name/city/state) y ordena por distancia cuando hay ubicación
-const filteredCommunities = computed(() => { ... });
-
-// Filtra meetings a las comunidades que salen en filteredCommunities,
-// y los reordena para que sigan el mismo orden por cercanía/búsqueda
-const filteredMeetings = computed(() => { ... });
-```
-
-`filteredCommunities` se basa en dos piezas de estado:
-- `searchQuery: ref('')` — texto del input de búsqueda (v-model reactivo)
-- `userLocation: ref<{lat,lng}|null>(null)` — coordenadas del navegador
-
-`filteredMeetings` reusa el orden de `filteredCommunities` mediante un `Map<communityId, index>`: las reuniones de las comunidades más cercanas (o más relevantes en búsqueda) aparecen primero en la tabla "Horarios de Reuniones".
-
-### Geolocalización
-
-Al montar el componente, `detectLocationSilently()` llama a `navigator.geolocation.getCurrentPosition()` de forma silenciosa — si el usuario ya concedió el permiso antes, las comunidades y reuniones se ordenan por cercanía automáticamente. Si se deniega, no se muestra ningún error.
-
-El botón "Usar Mi Ubicación" llama a `useMyLocation()`, que hace lo mismo pero sí muestra error con toast si falla.
-
-La distancia se calcula con **Haversine** en la función `haversineDistance(lat1,lon1,lat2,lon2): number` (resultado en km).
-
-### Comportamiento del mapa
-
-- Pines: `filteredCommunities.slice(0, 4)` — máximo 4 pines en posiciones fijas decorativas.
-- Tarjeta "Círculo Más Cercano": muestra `filteredCommunities[0]` con ciudad, estado, y distancia en km/m.
-- Sin resultados: muestra estado vacío con botón "Limpiar filtros" → `clearFilters()`.
-
-### Archivos clave
-
-| Archivo | Propósito |
-|---------|-----------|
-| `apps/web/src/views/LandingView.vue` | Lógica: `filteredCommunities`, `filteredMeetings`, `haversineDistance`, `useMyLocation`, `detectLocationSilently`, `clearFilters` |
-| `apps/web/src/views/__tests__/LandingView.test.ts` | Bloque `describe('Community Search')` — 30+ tests |
-| `apps/api/src/services/communityService.ts` | `getPublicCommunities()`, `getPublicMeetings()` |
-| `apps/api/src/routes/communityRoutes.ts` | `GET /communities/public`, `GET /communities/public/meetings` |
-
-### Tests
-
-```bash
-pnpm --filter web test src/views/__tests__/LandingView.test.ts
-```
-
-Cubre: carga de datos, filtrado por nombre/ciudad/estado (case-insensitive), estado vacío, botón Limpiar, contador de resultados, geolocalización automática silenciosa, ordenamiento por distancia, distancia en tarjeta, ordenamiento de la tabla de reuniones por cercanía.
-
 ## Authentication and Authorization
 
 ### User Roles and Permissions
@@ -372,6 +314,52 @@ const svc = new (MyService as any)();
 
 Con ESM + path aliases (`@/`), `jest.requireMock('@/middleware/authorization')` puede no retornar el mismo objeto que el import del módulo testado. Por eso los tests de integration **no testean el 403** — solo testean el happy-path de la lógica de negocio. La autorización se cubre en tests de middleware independientes.
 
+## Infraestructura y acceso remoto
+
+### SSH al servidor de producción
+
+El dominio `emaus.cc` está detrás de Cloudflare (proxy), por lo que el puerto 22 **no es accesible** vía el dominio. Siempre usar la IP directa de Lightsail:
+
+```bash
+ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104
+```
+
+- Llave: `~/.ssh/lightsail-emaus.pem`
+- Usuario: `ubuntu`
+- IP: `18.116.102.104`
+- DB en prod: `/var/www/emaus/apps/api/database.sqlite`
+- Backups locales: `/var/backups/emaus/`
+- Logs de backup: `/var/log/emaus-backup.log`
+
+### AWS CLI
+
+El perfil `emaus` apunta a la cuenta `585853725478` (cuenta de producción de Emaús):
+
+```bash
+aws <comando> --profile emaus
+# Verificar identidad:
+aws sts get-caller-identity --profile emaus
+# Ver backups en S3:
+aws s3 ls s3://emaus-media/backups/database/ --human-readable --profile emaus | tail -10
+```
+
+Bucket S3: `emaus-media` — prefijos relevantes:
+- `backups/database/` — backups automáticos de SQLite (retención 90 días)
+- `avatars/`, `retreat-memories/`, `public-assets/`, `documents/` — media de la app
+
+### Backups de base de datos
+
+Script: `/var/www/emaus/backup-db.sh`
+Cron: diario a las **3:00 AM** (hora del servidor)
+
+```bash
+# Ejecutar backup manual
+ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104 "bash /var/www/emaus/backup-db.sh"
+
+# Ver backups en S3
+aws s3 ls s3://emaus-media/backups/database/ --human-readable --profile emaus | tail -10
+```
+
 ## Chrome tool
 Guarda los screenshots en la carpeta /tmp/chrome
 
@@ -420,3 +408,6 @@ const maxLocal = `${c.y}-${pad(c.m)}-${pad(c.d)}T23:59`;
 
 ### Casos donde ya tropezamos
 - 2026-05-08 — Editor de disponibilidad de angelitos: el default del bloque arrancaba el día anterior al inicio del retiro porque `defaultStart()` hacía `new Date(retreat.startDate).setHours(8)` sobre un Date que era medianoche UTC del primer día.
+
+El sistema esta usando @intellectronica/ruler
+
