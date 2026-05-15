@@ -104,6 +104,64 @@ The system uses TypeORM with SQLite. Key entities include:
 - Table (with leader assignments)
 - Various assignment and tracking entities
 
+## Community Search (Landing Page)
+
+### Cómo funciona
+
+La sección "Encuentra tu Comunidad" en `LandingView.vue` permite a los visitantes públicos filtrar y ordenar comunidades Emaús activas sin autenticación.
+
+**Fuente de datos:**
+- `GET /api/communities/public` — devuelve `{ id, name, city, state, latitude, longitude }` de comunidades con `status: 'active'`.
+- `GET /api/communities/public/meetings` — devuelve próximas 20 reuniones (30 días) con la comunidad embebida.
+
+### Computed properties clave
+
+```ts
+// Filtra por texto (name/city/state) y ordena por distancia cuando hay ubicación
+const filteredCommunities = computed(() => { ... });
+
+// Filtra meetings a las comunidades que salen en filteredCommunities,
+// y los reordena para que sigan el mismo orden por cercanía/búsqueda
+const filteredMeetings = computed(() => { ... });
+```
+
+`filteredCommunities` se basa en dos piezas de estado:
+- `searchQuery: ref('')` — texto del input de búsqueda (v-model reactivo)
+- `userLocation: ref<{lat,lng}|null>(null)` — coordenadas del navegador
+
+`filteredMeetings` reusa el orden de `filteredCommunities` mediante un `Map<communityId, index>`: las reuniones de las comunidades más cercanas (o más relevantes en búsqueda) aparecen primero en la tabla "Horarios de Reuniones".
+
+### Geolocalización
+
+Al montar el componente, `detectLocationSilently()` llama a `navigator.geolocation.getCurrentPosition()` de forma silenciosa — si el usuario ya concedió el permiso antes, las comunidades y reuniones se ordenan por cercanía automáticamente. Si se deniega, no se muestra ningún error.
+
+El botón "Usar Mi Ubicación" llama a `useMyLocation()`, que hace lo mismo pero sí muestra error con toast si falla.
+
+La distancia se calcula con **Haversine** en la función `haversineDistance(lat1,lon1,lat2,lon2): number` (resultado en km).
+
+### Comportamiento del mapa
+
+- Pines: `filteredCommunities.slice(0, 4)` — máximo 4 pines en posiciones fijas decorativas.
+- Tarjeta "Círculo Más Cercano": muestra `filteredCommunities[0]` con ciudad, estado, y distancia en km/m.
+- Sin resultados: muestra estado vacío con botón "Limpiar filtros" → `clearFilters()`.
+
+### Archivos clave
+
+| Archivo | Propósito |
+|---------|-----------|
+| `apps/web/src/views/LandingView.vue` | Lógica: `filteredCommunities`, `filteredMeetings`, `haversineDistance`, `useMyLocation`, `detectLocationSilently`, `clearFilters` |
+| `apps/web/src/views/__tests__/LandingView.test.ts` | Bloque `describe('Community Search')` — 30+ tests |
+| `apps/api/src/services/communityService.ts` | `getPublicCommunities()`, `getPublicMeetings()` |
+| `apps/api/src/routes/communityRoutes.ts` | `GET /communities/public`, `GET /communities/public/meetings` |
+
+### Tests
+
+```bash
+pnpm --filter web test src/views/__tests__/LandingView.test.ts
+```
+
+Cubre: carga de datos, filtrado por nombre/ciudad/estado (case-insensitive), estado vacío, botón Limpiar, contador de resultados, geolocalización automática silenciosa, ordenamiento por distancia, distancia en tarjeta, ordenamiento de la tabla de reuniones por cercanía.
+
 ## Authentication and Authorization
 
 ### User Roles and Permissions
@@ -212,99 +270,22 @@ const response = await fetch('/api/endpoint', {
 
 **Benefits**: Built-in CSRF protection, error handling, authentication, and consistent configuration. Add new functions to `/apps/web/src/services/api.ts`.
 
-## reka-ui Dialog/DropdownMenu — UI congelada (bug recurrente)
+## Troubleshooting
 
-Bug conocido del port de Radix (reka-ui, expuesto vía `@repo/ui`): cuando un `DropdownMenu` cierra y un `Dialog` (`AlertDialog`, `Sheet`, `Drawer`) abre en el mismo tick, Radix deja `pointer-events: none` en `<body>` para prevenir clicks fantasma. El dialog hereda el body bloqueado y **toda la app deja de responder** hasta recargar.
+Cuando un usuario reporta bugs ("se congela la UI", "página en blanco en iPhone", "fechas saltan un día", "migration borró data", "checkbox no marca", "test falla con ReferenceError", etc.) → cargar el skill **`troubleshooting`** (`.ruler/skills/troubleshooting/SKILL.md`). Es el índice maestro de bugs recurrentes con síntoma → causa → fix, incluyendo:
 
-Síntomas típicos: "se congela la UI al cerrar el menú", "el dialog abre pero ningún botón funciona", "tengo que recargar la página".
+- reka-ui Dialog/DropdownMenu congela la UI (`@click` sin `deferOpen`, `confirmX` cerrando dialog en `finally`, `restoreBodyOverflow` sin `pointerEvents`)
+- Safari iOS blank page (stack overflow por static imports, vue-i18n `@`, chunks gigantes)
+- Timezone CDMX salta un día (ISO UTC tratada como hora local)
+- Checkbox reka-ui ignora `:checked` (usar `:model-value`)
+- `Set`/`Map` en `ref` no reactivos
+- SQLite recreate-table borra data en tablas hijas (FK cascade dentro de transacción TypeORM)
+- Tap-to-assign móvil/DevTools (necesita `@touchend` + `@click`)
+- Tests Jest mock factory con ESM (`ReferenceError: Cannot access before initialization`)
+- Tests 403 con ESM + path aliases
+- Tests Vue con `defineModel` (sobrescribir mocks globales de `@repo/ui`)
 
-### Tres reglas obligatorias
-
-**Regla 1 — `<DropdownMenuItem>` que abre un Dialog reka-ui DEBE usar `@select="deferOpen(...)"`**
-
-```vue
-<!-- ❌ MAL -->
-<DropdownMenuItem @click="showXDialog = true">…</DropdownMenuItem>
-<DropdownMenuItem @click="abrirDialog">…</DropdownMenuItem>
-
-<!-- ✅ BIEN -->
-<DropdownMenuItem @select="deferOpen(() => showXDialog = true)">…</DropdownMenuItem>
-<DropdownMenuItem @select="deferOpen(abrirDialog)">…</DropdownMenuItem>
-```
-
-Helper estándar (ver `apps/web/src/views/InventoryView.vue` `deferOpen()`):
-
-```ts
-function deferOpen(fn: () => void) {
-  setTimeout(() => {
-    fn();
-    setTimeout(restoreBodyOverflow, 50);
-  }, 80);
-}
-```
-
-> **Excepción**: si el "dialog" es un `<Teleport>` custom (no un `Dialog` de reka-ui), no se necesita `deferOpen`. La mayoría de "modales" del repo son Teleports custom — la regla solo aplica a reka-ui nativo (`Dialog`, `AlertDialog`, `Sheet`, `Drawer`, `Popover` modal).
-
-**Regla 2 — `restoreBodyOverflow()` DEBE limpiar `body.style.pointerEvents`**
-
-`pointer-events: none` en `<body>` es **el síntoma real**. Limpiar `overflow` y `data-scroll-locked` no alcanza.
-
-```ts
-function restoreBodyOverflow() {
-  if (document.querySelectorAll('[role="dialog"][data-state="open"]').length > 0) return;
-  if (document.querySelectorAll('[role="menu"][data-state="open"]').length > 0) return;
-  if (document.body.style.overflow === 'hidden') document.body.style.overflow = '';
-  if (document.body.style.paddingRight) document.body.style.paddingRight = '';
-  if (document.body.style.pointerEvents === 'none') document.body.style.pointerEvents = ''; // ← CRÍTICO
-  document.body.removeAttribute('data-scroll-locked');
-}
-```
-
-**Regla 3 — `confirmX()` DEBE cerrar el dialog ANTES del `await` pesado**
-
-Nunca dejes el dialog abierto durante un reload (`store.fetch...`, `loadXData()`, `Promise.all([...fetch])`). El usuario percibe "congelamiento" porque el dialog se queda 1-3s antes de cerrar.
-
-```ts
-// ❌ MAL: dialog abierto durante el reload
-async function confirmDelete() {
-  try {
-    await store.removeItem(id);     // dispara reload pesado adentro
-    toast({ title: 'OK' });
-  } finally {
-    showDeleteDialog.value = false; // ← solo cierra después
-  }
-}
-
-// ✅ BIEN: cerrar primero, capturar contexto en variables locales
-async function confirmDelete() {
-  const ctx = deleteContext.value;
-  showDeleteDialog.value = false;
-  deleteContext.value = null;
-  try {
-    await store.removeItem(ctx.id);
-    toast({ title: 'OK' });
-  } catch (e) {
-    toast({ title: 'Error', variant: 'destructive' });
-  }
-}
-```
-
-### Auditar antes de cualquier PR que toque menús o dialogs
-
-```bash
-# Patrón 1 — DropdownMenuItem sin defer
-grep -rn 'DropdownMenuItem @click' apps/web/src/
-
-# Patrón 2 — restoreBodyOverflow sin pointerEvents
-grep -rn 'restoreBodyOverflow\|data-scroll-locked' apps/web/src/
-
-# Patrón 3 — confirm que cierra en finally tras await
-grep -rn -B 8 '} finally {' apps/web/src/views/ | grep -B 6 'Dialog.value = false'
-```
-
-### Casos donde ya tropezamos
-
-- **2026-05-14** — `InventoryView.vue`: los menús "Historial de cambios" y "Quitar del retiro" congelaban la UI. Causa: `@click` sin defer en historial, `confirmDelete` cerrando dialog en `finally` tras recargar todo el inventario, y `restoreBodyOverflow` que no limpiaba `pointerEvents`. Fix aplicado a `confirmDelete`, `confirmBulkBox`, `confirmBulkStatus`, `confirmOverride` y al saneador del body.
+Cada bug está documentado con código antes/después, comandos `grep` para auditar el repo, y referencia al skill específico si existe (`safari-ios-compatibility`, `sqlite-migrations`, `timezone-handling`).
 
 ## Testing System
 
