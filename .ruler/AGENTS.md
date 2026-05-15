@@ -267,6 +267,10 @@ pnpm --filter web test
 pnpm --filter web test src/components/__tests__/AngelitoAvailabilityEditor.test.ts
 ```
 
+### Probar end-to-end en un git worktree
+
+Si estás en `.claude/worktrees/<branch>/` y necesitás levantar `pnpm dev` para probar con Playwright o Chrome DevTools, los puertos default (`:3001`, `:5173`) suelen estar tomados por el dev del main. Cargar el skill **`worktree-testing`** — explica el setup de puertos paralelos (`:3002`, `:5174`), DB SQLite copiada del main (no compartir), CORS/proxy override, y trae scripts ejecutables `start-worktree-dev.sh` / `stop-worktree-dev.sh`.
+
 ### Tests para componentes con `defineModel`
 
 Los mocks globales de `@repo/ui` en `apps/web/src/test/setup.ts` exponen Input/Button/Tooltip básicos pero **no incluyen todos los atributos HTML** (ej. `min`/`max` en `Input`). Si tu componente los usa, sobrescribe el mock localmente en el test:
