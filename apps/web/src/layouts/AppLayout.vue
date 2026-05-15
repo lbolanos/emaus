@@ -33,6 +33,7 @@ const routeTitleMap: Record<string, string> = {
   'user-type-and-table': 'sidebar.userTypeAndTable',
   'payments': 'sidebar.payments',
   'bags-report': 'sidebar.bagsReport',
+  'shirts-report': 'sidebar.shirtsReport',
   'medicines-report': 'sidebar.medicinesReport',
   'retreat-dashboard': 'sidebar.retreatDashboard',
   'reception': 'sidebar.reception',

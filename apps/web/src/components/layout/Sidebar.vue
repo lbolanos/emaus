@@ -329,7 +329,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { ref, computed, nextTick, onMounted, watch } from 'vue';
-import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, Clock, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages, DoorOpen } from 'lucide-vue-next';
+import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, Shirt, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, Clock, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages, DoorOpen } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useReceptionStore } from '@/stores/receptionStore';
 import { useRouter, useRoute } from 'vue-router';
@@ -831,6 +831,13 @@ const menuSections: MenuSection[] = [
         icon: ShoppingBag,
         requiresRetreat: true,
         label: 'sidebar.bagsReport'
+      },
+      {
+        name: 'shirts-report',
+        routeName: 'shirts-report',
+        icon: Shirt,
+        requiresRetreat: true,
+        label: 'sidebar.shirtsReport'
       },
       {
         name: 'walker-badges',

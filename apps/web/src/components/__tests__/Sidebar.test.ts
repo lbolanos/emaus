@@ -142,6 +142,7 @@ vi.mock('lucide-vue-next', () => ({
 	UserCheck: { template: '<div data-icon="UserCheck" />' },
 	ShoppingBag: { template: '<div data-icon="ShoppingBag" />' },
 	Pill: { template: '<div data-icon="Pill" />' },
+	Shirt: { template: '<div data-icon="Shirt" />' },
 	UserCog: { template: '<div data-icon="UserCog" />' },
 	Table: { template: '<div data-icon="Table" />' },
 	Settings: { template: '<div data-icon="Settings" />' },
