@@ -63,6 +63,15 @@ export class User {
 	@Column({ type: 'uuid', nullable: true })
 	participantId?: string | null;
 
+	@Column({ type: 'boolean', default: false })
+	emailVerified!: boolean;
+
+	@Column({ type: 'varchar', nullable: true })
+	emailVerificationToken?: string | null;
+
+	@Column({ type: 'datetime', nullable: true })
+	emailVerificationExpiresAt?: Date | null;
+
 	@CreateDateColumn()
 	createdAt!: Date;
 
@@ -125,7 +134,7 @@ export class User {
 	 * protecting all endpoints that return User data (directly or via relations).
 	 */
 	toJSON() {
-		const { password, googleId, invitationToken, invitationExpiresAt, passwordResetToken, passwordResetTokenExpiresAt, passwordResetTokenUsedAt, ...safe } = this as any;
+		const { password, googleId, invitationToken, invitationExpiresAt, passwordResetToken, passwordResetTokenExpiresAt, passwordResetTokenUsedAt, emailVerificationToken, emailVerificationExpiresAt, ...safe } = this as any;
 		return safe;
 	}
 }
