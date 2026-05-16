@@ -35,6 +35,7 @@ const formData = ref({
 	lastName: '',
 	email: '',
 	cellPhone: '',
+	consent: false,
 });
 
 const formErrors = ref<Record<string, string>>({});
@@ -55,6 +56,7 @@ const resetForm = () => {
 		lastName: '',
 		email: '',
 		cellPhone: '',
+		consent: false,
 	};
 	formErrors.value = {};
 };
@@ -84,6 +86,10 @@ const validateForm = (): boolean => {
 		formErrors.value.cellPhone = t('landing.joinRequest.validation.cellPhone');
 	} else if (!/^[+]?[\d\s()-]+$/.test(formData.value.cellPhone.trim())) {
 		formErrors.value.cellPhone = t('landing.joinRequest.validation.invalidCellPhone');
+	}
+
+	if (!formData.value.consent) {
+		formErrors.value.consent = t('landing.joinRequest.validation.consent');
 	}
 
 	return Object.keys(formErrors.value).length === 0;
@@ -238,6 +244,25 @@ const handleClose = () => {
 					/>
 					<p v-if="formErrors.cellPhone" class="text-sm text-destructive">
 						{{ formErrors.cellPhone }}
+					</p>
+				</div>
+
+				<!-- Consentimiento de datos (LFPDPPP / GDPR) -->
+				<div class="pt-2">
+					<label class="flex items-start gap-2 cursor-pointer text-sm">
+						<input
+							type="checkbox"
+							v-model="formData.consent"
+							class="mt-1 shrink-0 cursor-pointer"
+							:disabled="isSubmitting"
+							:aria-invalid="!!formErrors.consent"
+						/>
+						<span class="text-stone-600">
+							{{ t('landing.joinRequest.consentLabel') }}
+						</span>
+					</label>
+					<p v-if="formErrors.consent" class="text-sm text-destructive mt-1">
+						{{ formErrors.consent }}
 					</p>
 				</div>
 			</div>

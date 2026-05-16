@@ -180,7 +180,7 @@
 
     <!-- Interactive Map Section -->
     <section id="community" class="py-24 bg-stone-50 overflow-hidden relative">
-      <div class="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+      <div class="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
         <div>
           <span class="text-sage-600 font-semibold tracking-widest uppercase text-xs mb-3 block" :style="{ color: '#8DAA91' }">
             {{ $t('landing.globalPresence') }}
@@ -199,61 +199,105 @@
           </router-link>
 
           <div class="space-y-4">
-            <div class="p-4 rounded-xl bg-white shadow-sm border border-stone-100 flex items-center gap-4">
-              <div class="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center text-stone-500">
-                <MapPin :size="20" />
+            <button
+              @click="useMyLocation"
+              :disabled="isGeolocating"
+              :aria-pressed="!!userLocation"
+              :aria-busy="isGeolocating"
+              class="w-full p-4 rounded-xl bg-white shadow-sm border flex items-center gap-4 hover:shadow-md transition-all text-left disabled:opacity-60"
+              :class="[
+                userLocation ? 'border-sage-300 bg-sage-50/40' : '',
+                geolocationDenied && !userLocation ? 'border-amber-300 bg-amber-50/40' : 'border-stone-100',
+              ]"
+            >
+              <div
+                class="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
+                :class="geolocationDenied && !userLocation ? 'bg-amber-100 text-amber-700' : 'bg-stone-100 text-stone-500'"
+                :style="userLocation ? { backgroundColor: 'rgba(141,170,145,0.15)' } : {}"
+              >
+                <Loader2 v-if="isGeolocating" :size="20" class="animate-spin" :style="{ color: '#8DAA91' }" />
+                <MapPin v-else :size="20" :style="userLocation ? { color: '#8DAA91' } : {}" />
               </div>
               <div>
                 <h4 class="font-medium">{{ $t('landing.useMyLocation') }}</h4>
-                <p class="text-xs text-stone-400">{{ $t('landing.findNearest') }}</p>
+                <p class="text-xs" :class="geolocationDenied && !userLocation ? 'text-amber-700' : 'text-stone-400'">
+                  <template v-if="userLocation">{{ $t('landing.usingLocation') }}</template>
+                  <template v-else-if="geolocationDenied">{{ $t('landing.geoDenied') }}</template>
+                  <template v-else>{{ $t('landing.findNearest') }}</template>
+                </p>
               </div>
-            </div>
-            <div class="relative">
+            </button>
+            <div class="relative" role="search">
+              <label for="community-search" class="sr-only">{{ $t('landing.searchPlaceholder') }}</label>
               <input
+                id="community-search"
                 v-model="searchQuery"
-                type="text"
+                type="search"
                 :placeholder="$t('landing.searchPlaceholder')"
-                class="w-full px-6 py-4 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-sage-200 transition-all"
+                :aria-label="$t('landing.searchPlaceholder')"
+                autocomplete="off"
+                class="w-full px-6 py-4 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 transition-all"
               />
-              <button class="absolute right-2 top-2 bottom-2 px-4 bg-stone-800 text-white rounded-lg text-sm font-medium">
+              <button
+                v-if="searchQuery || userLocation"
+                @click="clearFilters"
+                class="absolute right-2 top-2 bottom-2 px-4 bg-stone-200 text-stone-700 rounded-lg text-sm font-medium hover:bg-stone-300 transition-colors flex items-center gap-1"
+              >
+                <X :size="14" />
+                {{ $t('landing.clearSearch') }}
+              </button>
+              <button
+                v-else
+                class="absolute right-2 top-2 bottom-2 px-4 bg-stone-800 text-white rounded-lg text-sm font-medium"
+              >
                 {{ $t('landing.search') }}
               </button>
             </div>
+            <p v-if="searchQuery || userLocation" class="text-sm text-stone-500" aria-live="polite" role="status">
+              {{ $t('landing.communitiesFound', { count: filteredCommunities.length }, filteredCommunities.length) }}
+            </p>
           </div>
         </div>
 
         <div class="relative">
-          <div class="aspect-square bg-white rounded-3xl shadow-2xl overflow-hidden border-8 border-white relative group">
-            <!-- Mock Map UI -->
-            <div class="absolute inset-0 bg-[#e5e7eb] opacity-40"></div>
-            <svg class="absolute inset-0 w-full h-full text-stone-300" viewBox="0 0 800 800">
-              <path d="M100,200 Q400,100 700,300 T500,600 T100,200" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="8 8" />
-            </svg>
+          <div class="aspect-square bg-white rounded-3xl shadow-2xl overflow-hidden border-8 border-white relative">
+            <!-- Mapa real (lazy-loaded) -->
+            <CommunityMap
+              :communities="filteredCommunities"
+              :user-location="userLocation"
+              @select-community="onSelectCommunity"
+            />
 
-            <!-- Pulse Map Pins -->
-            <button
-              v-for="(community, i) in communities.slice(0, 4)"
-              :key="community.id"
-              @click="openJoinModal(community.id, community.name)"
-              class="absolute flex items-center justify-center cursor-pointer hover:scale-125 transition-transform"
-              :style="getMapPinPosition(i)"
-              :title="community.name"
+            <!-- Estado vacío al buscar sin resultados -->
+            <div
+              v-if="filteredCommunities.length === 0 && (searchQuery || userLocation)"
+              class="absolute inset-0 flex flex-col items-center justify-center text-stone-400 z-[1000] bg-white/95"
             >
-              <div class="absolute w-12 h-12 bg-sage-500/20 rounded-full animate-ping" :style="{ backgroundColor: 'rgba(141, 170, 145, 0.2)' }"></div>
-              <div class="relative w-4 h-4 bg-sage-600 rounded-full border-2 border-white shadow-lg" :style="{ backgroundColor: '#8DAA91' }"></div>
-            </button>
+              <MapPin :size="40" class="mb-2 opacity-30" />
+              <p class="text-sm">{{ $t('landing.noCommunitiesFound') }}</p>
+              <button @click="clearFilters" class="mt-2 text-xs underline hover:text-stone-600 transition-colors">
+                {{ $t('landing.clearFilters') }}
+              </button>
+            </div>
 
-            <div class="absolute bottom-6 left-6 right-6 p-4 bg-white/90 backdrop-blur rounded-xl shadow-lg transform transition-all group-hover:-translate-y-2.5">
-              <div class="flex justify-between items-center">
-                <div>
+            <div
+              v-if="nearestCommunityCard"
+              class="absolute bottom-4 left-4 right-4 p-3 bg-white/95 backdrop-blur rounded-xl shadow-lg z-[1000] pointer-events-auto"
+            >
+              <div class="flex justify-between items-center gap-3">
+                <div class="min-w-0">
                   <p class="text-[10px] font-bold text-sage-600 uppercase tracking-widest" :style="{ color: '#8DAA91' }">
                     {{ $t('landing.nearestCircle') }}
                   </p>
-                  <p class="font-medium">{{ communities[0]?.name || 'Loading...' }}</p>
+                  <p class="font-medium truncate">{{ nearestCommunityCard.name }}</p>
+                  <p v-if="nearestCommunityCard.city" class="text-xs text-stone-400 truncate">{{ nearestCommunityCard.city }}{{ nearestCommunityCard.state ? ', ' + nearestCommunityCard.state : '' }}</p>
+                  <p v-if="getDistanceFromUser(nearestCommunityCard)" class="text-xs font-semibold mt-0.5" :style="{ color: '#8DAA91' }">
+                    {{ getDistanceFromUser(nearestCommunityCard) }}
+                  </p>
                 </div>
                 <button
-                  @click="openJoinModal(communities[0]?.id || '', communities[0]?.name || 'Community')"
-                  class="px-3 py-1.5 bg-stone-800 text-white text-xs rounded-lg hover:bg-stone-700 transition-colors"
+                  @click="openDetailFor(nearestCommunityCard)"
+                  class="px-3 py-1.5 bg-stone-800 text-white text-xs rounded-lg hover:bg-stone-700 transition-colors shrink-0"
                 >
                   {{ $t('landing.join') }}
                 </button>
@@ -276,50 +320,84 @@
           <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-sage-600" :style="{ borderColor: '#8DAA91' }"></div>
         </div>
 
-        <div v-else-if="meetings.length === 0" class="text-center py-12 text-stone-500">
+        <div v-else-if="filteredMeetings.length === 0" class="text-center py-12 text-stone-500">
           {{ $t('landing.noUpcomingMeetings') }}
         </div>
 
-        <div v-else class="overflow-hidden border border-stone-100 rounded-2xl shadow-sm">
-          <table class="w-full text-left">
-            <thead class="bg-stone-50 border-b border-stone-100">
-              <tr>
-                <th class="px-8 py-5 text-sm font-semibold text-stone-500 uppercase tracking-wider">{{ $t('landing.tableHeaders.community') }}</th>
-                <th class="px-8 py-5 text-sm font-semibold text-stone-500 uppercase tracking-wider">{{ $t('landing.tableHeaders.schedule') }}</th>
-                <th class="px-8 py-5 text-sm font-semibold text-stone-500 uppercase tracking-wider">{{ $t('landing.tableHeaders.venue') }}</th>
-                <th class="px-8 py-5"></th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-stone-100">
-              <tr v-for="meeting in meetings" :key="meeting.id" class="hover:bg-sage-50/30 transition-colors">
-                <td class="px-8 py-6">
-                  <div class="font-medium text-stone-900">{{ meeting.community?.name || meeting.community?.city || $t('landing.notAvailable') }}</div>
-                </td>
-                <td class="px-8 py-6">
-                  <div class="flex items-center gap-2 text-stone-600 text-sm">
-                    <Calendar :size="14" class="text-stone-300" />
-                    <span>{{ formatMeetingDate(meeting.startDate) }}</span>
-                    <span class="mx-1 text-stone-300">•</span>
-                    <Clock :size="14" class="text-stone-300" />
-                    <span>{{ formatMeetingTime(meeting.startDate) }}</span>
-                  </div>
-                </td>
-                <td class="px-8 py-6">
-                  <div class="text-sm text-stone-500">{{ meeting.community?.address || meeting.community?.city || $t('landing.toBeDetermined') }}</div>
-                </td>
-                <td class="px-8 py-6 text-right">
-                  <button
-                    @click="openJoinModal(meeting.community?.id || '', meeting.community?.name || meeting.community?.city || $t('landing.community'))"
-                    class="text-xs font-bold uppercase tracking-widest hover:text-sage-700 transition-colors"
-                    :style="{ color: '#8DAA91' }"
-                  >
-                    {{ $t('landing.inquire') }}
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <template v-else>
+          <p
+            v-if="filteredCommunities.length > MEETINGS_LIMIT"
+            class="text-center text-sm text-stone-500 mb-4"
+            aria-live="polite"
+          >
+            {{ $t('landing.showingXofY', { shown: MEETINGS_LIMIT, total: filteredCommunities.length }, filteredCommunities.length) }}
+          </p>
+
+          <div class="overflow-hidden border border-stone-100 rounded-2xl shadow-sm">
+            <div class="max-h-[600px] overflow-y-auto">
+            <table class="w-full text-left">
+              <thead class="bg-stone-50 border-b border-stone-100 sticky top-0 z-10">
+                <tr>
+                  <th class="px-8 py-5 text-sm font-semibold text-stone-500 uppercase tracking-wider">{{ $t('landing.tableHeaders.community') }}</th>
+                  <th class="px-8 py-5 text-sm font-semibold text-stone-500 uppercase tracking-wider">{{ $t('landing.tableHeaders.schedule') }}</th>
+                  <th class="px-8 py-5 text-sm font-semibold text-stone-500 uppercase tracking-wider">{{ $t('landing.tableHeaders.venue') }}</th>
+                  <th class="px-8 py-5"></th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-stone-100">
+                <tr v-for="meeting in filteredMeetings" :key="meeting.id" class="hover:bg-sage-50/30 transition-colors">
+                  <td class="px-8 py-6">
+                    <div class="font-medium text-stone-900">{{ meeting.community?.name || meeting.community?.city || $t('landing.notAvailable') }}</div>
+                    <div v-if="getDistanceFromUser(meeting.community)" class="text-xs mt-0.5" :style="{ color: '#8DAA91' }">
+                      {{ getDistanceFromUser(meeting.community) }}
+                    </div>
+                    <div
+                      v-else-if="!meeting.community?.latitude || !meeting.community?.longitude"
+                      class="text-xs mt-0.5 text-stone-400 italic"
+                      :title="$t('landing.noLocationDesc')"
+                    >
+                      {{ $t('landing.noLocation') }}
+                    </div>
+                  </td>
+                  <td class="px-8 py-6">
+                    <div v-if="meeting.isDefault" class="text-stone-600 text-sm">
+                      <div v-if="meeting.defaultDayOfWeek || meeting.defaultTime" class="flex items-center gap-2">
+                        <Calendar :size="14" class="text-stone-300" />
+                        <span>{{ meeting.defaultDayOfWeek ? $t(`landing.detail.days.${meeting.defaultDayOfWeek}`) : '' }}</span>
+                        <template v-if="meeting.defaultTime">
+                          <span class="mx-1 text-stone-300">•</span>
+                          <Clock :size="14" class="text-stone-300" />
+                          <span>{{ meeting.defaultTime }}</span>
+                        </template>
+                      </div>
+                      <div v-else class="text-stone-400 italic text-xs">{{ $t('landing.noScheduleYet') }}</div>
+                    </div>
+                    <div v-else class="flex items-center gap-2 text-stone-600 text-sm">
+                      <Calendar :size="14" class="text-stone-300" />
+                      <span>{{ formatMeetingDate(meeting.startDate) }}</span>
+                      <span class="mx-1 text-stone-300">•</span>
+                      <Clock :size="14" class="text-stone-300" />
+                      <span>{{ formatMeetingTime(meeting.startDate) }}</span>
+                    </div>
+                  </td>
+                  <td class="px-8 py-6">
+                    <div class="text-sm text-stone-500">{{ meeting.community?.city || $t('landing.toBeDetermined') }}{{ meeting.community?.state ? ', ' + meeting.community.state : '' }}</div>
+                  </td>
+                  <td class="px-8 py-6 text-right">
+                    <button
+                      @click="meeting.community && openDetailFor(meeting.community)"
+                      class="text-xs font-bold uppercase tracking-widest hover:text-sage-700 transition-colors"
+                      :style="{ color: '#8DAA91' }"
+                    >
+                      {{ $t('landing.inquire') }}
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          </div>
+        </template>
       </div>
     </section>
 
@@ -467,6 +545,15 @@
       </p>
     </footer>
 
+    <!-- Community Detail Modal (paso intermedio antes de Unirse) -->
+    <CommunityDetailModal
+      :open="isDetailModalOpen"
+      :community="detailCommunity"
+      :distance="getDistanceFromUser(detailCommunity)"
+      @update:open="isDetailModalOpen = $event"
+      @join="onDetailJoin"
+    />
+
     <!-- Public Join Request Modal -->
     <PublicJoinRequestModal
       v-if="selectedCommunity"
@@ -488,7 +575,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, defineAsyncComponent, onMounted, onUnmounted } from 'vue';
+import { refDebounced } from '@vueuse/core';
+
+const CommunityMap = defineAsyncComponent(() => import('@/components/landing/CommunityMap.vue'));
 import { useI18n } from 'vue-i18n';
 import {
   MapPin,
@@ -499,7 +589,8 @@ import {
   X,
   Instagram,
   Facebook,
-  Mail
+  Mail,
+  Loader2
 } from 'lucide-vue-next';
 import { getPublicRetreats, getPublicCommunities, getPublicCommunityMeetings, subscribeToNewsletter, getLandingTestimonials } from '@/services/api';
 import { formatDate as formatDateUtil } from '@repo/utils';
@@ -510,6 +601,8 @@ import { useRouter } from 'vue-router';
 import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha';
 import PublicJoinRequestModal from '@/components/community/PublicJoinRequestModal.vue';
 import PublicRetreatFlyerModal from '@/components/PublicRetreatFlyerModal.vue';
+
+const CommunityDetailModal = defineAsyncComponent(() => import('@/components/landing/CommunityDetailModal.vue'));
 
 const { toast } = useToast();
 const { t: $t } = useI18n();
@@ -540,6 +633,10 @@ const handleLoginClick = async () => {
 const isMenuOpen = ref(false);
 const scrolled = ref(false);
 const searchQuery = ref('');
+const debouncedSearchQuery = refDebounced(searchQuery, 200);
+const isGeolocating = ref(false);
+const userLocation = ref<{ lat: number; lng: number } | null>(null);
+const geolocationDenied = ref(false);
 const email = ref('');
 const loadingRetreats = ref(true);
 const loadingMeetings = ref(true);
@@ -551,6 +648,10 @@ const subscribeSuccess = ref(false);
 // Join modal state
 const isJoinModalOpen = ref(false);
 const selectedCommunity = ref<{ id: string; name: string } | null>(null);
+
+// Detail modal state
+const isDetailModalOpen = ref(false);
+const detailCommunity = ref<any>(null);
 
 // Retreat flyer modal state
 const isRetreatFlyerOpen = ref(false);
@@ -574,15 +675,130 @@ const getRetreatImage = (index: number) => {
   return retreatImages[index % retreatImages.length];
 };
 
-// Map pin positions for demo (distributed across the map)
-const getMapPinPosition = (index: number) => {
-  const positions = [
-    { top: '30%', left: '40%' },
-    { top: '55%', left: '70%' },
-    { top: '45%', left: '20%' },
-    { top: '20%', left: '80%' }
-  ];
-  return positions[index % positions.length];
+const openDetailFor = (community: any) => {
+  detailCommunity.value = community;
+  isDetailModalOpen.value = true;
+};
+
+const onSelectCommunity = (id: string) => {
+  const c = communities.value.find((x: any) => x.id === id);
+  if (c) openDetailFor(c);
+};
+
+const onDetailJoin = (id: string, name: string) => {
+  isDetailModalOpen.value = false;
+  openJoinModal(id, name);
+};
+
+// Haversine distance in km between two coordinates
+const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+const getDistanceFromUser = (community: any): string | null => {
+  if (!userLocation.value || !community?.latitude || !community?.longitude) return null;
+  const dist = haversineDistance(userLocation.value.lat, userLocation.value.lng, community.latitude, community.longitude);
+  return dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`;
+};
+
+// Card "Círculo Más Cercano" debe mostrar la primera comunidad con coordenadas válidas
+// (puede diferir del filteredCommunities[0] si la primera no tiene lat/lng)
+const nearestCommunityCard = computed(() => {
+  return filteredCommunities.value.find((c: any) => c.latitude && c.longitude) || filteredCommunities.value[0];
+});
+
+const filteredCommunities = computed(() => {
+  let result = communities.value;
+  const q = debouncedSearchQuery.value.trim().toLowerCase();
+  if (q) {
+    result = result.filter((c: any) =>
+      c.name?.toLowerCase().includes(q) ||
+      c.city?.toLowerCase().includes(q) ||
+      c.state?.toLowerCase().includes(q) ||
+      c.zipCode?.toLowerCase().includes(q) ||
+      c.parish?.toLowerCase().includes(q)
+    );
+  }
+  if (userLocation.value) {
+    const loc = userLocation.value;
+    result = [...result].sort((a: any, b: any) => {
+      if (!a.latitude || !a.longitude) return 1;
+      if (!b.latitude || !b.longitude) return -1;
+      return haversineDistance(loc.lat, loc.lng, a.latitude, a.longitude) -
+             haversineDistance(loc.lat, loc.lng, b.latitude, b.longitude);
+    });
+  }
+  return result;
+});
+
+// Una fila por cada comunidad filtrada (hasta 20). Si la comunidad tiene un meeting
+// próximo lo usa; si no, sintetiza una fila con su defaultMeeting (día/hora recurrente).
+const MEETINGS_LIMIT = 20;
+
+const filteredMeetings = computed(() => {
+  // Index: el próximo meeting de cada comunidad
+  const nextMeetingByCommunity = new Map<string, any>();
+  for (const m of meetings.value) {
+    const cid = m.community?.id;
+    if (!cid) continue;
+    const existing = nextMeetingByCommunity.get(cid);
+    if (!existing || new Date(m.startDate).getTime() < new Date(existing.startDate).getTime()) {
+      nextMeetingByCommunity.set(cid, m);
+    }
+  }
+
+  return filteredCommunities.value
+    .slice(0, MEETINGS_LIMIT)
+    .map((c: any) => {
+      const real = nextMeetingByCommunity.get(c.id);
+      if (real) return real;
+      // Sintetizar fila a partir del default meeting de la comunidad
+      return {
+        id: `default-${c.id}`,
+        isDefault: true,
+        community: c,
+        defaultDayOfWeek: c.defaultMeetingDayOfWeek,
+        defaultTime: c.defaultMeetingTime,
+      };
+    });
+});
+
+const useMyLocation = () => {
+  if (!navigator.geolocation) {
+    geolocationDenied.value = true;
+    toast({ title: $t('landing.locationNotSupported'), variant: 'destructive' });
+    return;
+  }
+  isGeolocating.value = true;
+  geolocationDenied.value = false;
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      userLocation.value = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      searchQuery.value = '';
+      isGeolocating.value = false;
+      geolocationDenied.value = false;
+    },
+    (err) => {
+      isGeolocating.value = false;
+      // err.code === 1 (PERMISSION_DENIED) → mostrar estado persistente
+      if (err && err.code === 1) {
+        geolocationDenied.value = true;
+      }
+      toast({ title: $t('landing.locationError'), variant: 'destructive' });
+    }
+  );
+};
+
+const clearFilters = () => {
+  searchQuery.value = '';
+  userLocation.value = null;
 };
 
 // Get initials for avatar
@@ -657,27 +873,43 @@ const formatMeetingTime = (dateStr: string) => {
   return new Date(dateStr).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 };
 
-// Fetch data on mount
+// Fetch data on mount — usamos allSettled para que un fallo en un endpoint
+// no rompa los otros, y mostramos toast solo si TODOS los datos críticos fallan
 const fetchData = async () => {
-  try {
-    loadingRetreats.value = true;
-    loadingMeetings.value = true;
+  loadingRetreats.value = true;
+  loadingMeetings.value = true;
 
-    const [retreatsData, communitiesData, meetingsData] = await Promise.all([
-      getPublicRetreats(),
-      getPublicCommunities(),
-      getPublicCommunityMeetings()
-    ]);
+  const [retreatsResult, communitiesResult, meetingsResult] = await Promise.allSettled([
+    getPublicRetreats(),
+    getPublicCommunities(),
+    getPublicCommunityMeetings(),
+  ]);
 
-    retreats.value = retreatsData;
-    communities.value = communitiesData;
-    meetings.value = meetingsData;
-  } catch (error) {
-    console.error('Failed to fetch landing page data:', error);
-  } finally {
-    loadingRetreats.value = false;
-    loadingMeetings.value = false;
+  if (retreatsResult.status === 'fulfilled') {
+    retreats.value = retreatsResult.value;
+  } else {
+    console.error('Failed to fetch retreats:', retreatsResult.reason);
   }
+
+  if (communitiesResult.status === 'fulfilled') {
+    communities.value = communitiesResult.value;
+  } else {
+    console.error('Failed to fetch communities:', communitiesResult.reason);
+    toast({
+      title: $t('landing.fetchError'),
+      description: $t('landing.fetchErrorDesc'),
+      variant: 'destructive',
+    });
+  }
+
+  if (meetingsResult.status === 'fulfilled') {
+    meetings.value = meetingsResult.value;
+  } else {
+    console.error('Failed to fetch meetings:', meetingsResult.reason);
+  }
+
+  loadingRetreats.value = false;
+  loadingMeetings.value = false;
 };
 
 // Fetch landing testimonials
@@ -756,11 +988,26 @@ const openRetreatFlyer = (retreat: any, event: Event) => {
   isRetreatFlyerOpen.value = true;
 };
 
+// Detección silenciosa de ubicación al cargar (sin error si se deniega)
+const detectLocationSilently = () => {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      userLocation.value = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    },
+    (err) => {
+      // Silencioso — guardamos el estado por si el usuario hace click después
+      if (err && err.code === 1) geolocationDenied.value = true;
+    }
+  );
+};
+
 // Lifecycle
 onMounted(() => {
   window.addEventListener('scroll', handleScroll);
   fetchData();
   fetchTestimonials();
+  detectLocationSilently();
 });
 
 onUnmounted(() => {
