@@ -557,6 +557,7 @@ una forma de agregar la direccion de la iglesia donde se hace la misa de clausur
 un listado real de responsabilidades
 en inventario agregar una columna de numero de articulos a comprar req-actual
 ## TODO
+la busqueda de comunidad en el landing no esta funcionando correctamente
 Si los horarios de los angelitos empatan en horario de comida entonces se debe cobrar una suma.
 
 in inventario cuando borro un elemento desde los tres puntos la interfaz web se congela.  lo mismo pasa al ver historial de cambios.

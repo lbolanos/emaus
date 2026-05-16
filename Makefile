@@ -5,12 +5,14 @@ ZAI_MODEL    := $(shell grep -oP '(?<=AI_MODEL=)\S+' $(ENV_FILE) 2>/dev/null)
 ZAI_API_KEY  ?= $(shell grep -oP '(?<=ANTHROPIC_API_KEY=)\S+' $(ENV_FILE) 2>/dev/null)
 
 .PHONY: help dev build build-lowmem build-prod build-vps lint format clean clean-all \
-        test test-api test-web test-field-mapping test-watch test-coverage \
+        test test-api test-web test-field-mapping test-vm test-watch test-coverage \
         migration-run migration-create migration-show migration-revert \
-        db-seed db-studio db-reset-passwords db-pull db-push db-backup \
+        db-seed db-studio db-reset-passwords db-reset-password db-reset-password-prod \
+        db-pull db-push db-backup \
         prod-restart prod-rollback \
+        render-build render-start \
         tunnel tunnel-setup tunnel-stop kill \
-        test-zai
+        test-zai ruler-apply scripts
 
 ## help: Show this help message
 help:
@@ -82,6 +84,10 @@ test-web:
 test-field-mapping:
 	pnpm test:field-mapping
 
+## test-vm: Run API tests with experimental VM modules (ESM support)
+test-vm:
+	pnpm test:vm
+
 ## test-watch: Run tests in watch mode
 test-watch:
 	pnpm test:watch
@@ -122,6 +128,14 @@ db-studio:
 db-reset-passwords:
 	pnpm db:reset-passwords
 
+## db-reset-password: Reset password for a single user (local)
+db-reset-password:
+	pnpm db:reset-password
+
+## db-reset-password-prod: Reset password for a single user (production)
+db-reset-password-prod:
+	pnpm db:reset-password:prod
+
 ## db-pull: Download production database to local
 db-pull:
 	pnpm db:pull
@@ -144,6 +158,16 @@ prod-restart:
 prod-rollback:
 	pnpm prod:rollback
 
+## ── Render deployment ────────────────────────────────────────────────────────
+
+## render-build: Build command for Render deployment
+render-build:
+	pnpm render-build
+
+## render-start: Start command for Render deployment
+render-start:
+	pnpm render-start
+
 ## ── Tunnel ───────────────────────────────────────────────────────────────────
 
 ## tunnel: Start SSH tunnel
@@ -157,6 +181,18 @@ tunnel-setup:
 ## tunnel-stop: Stop SSH tunnel
 tunnel-stop:
 	pnpm tunnel:stop
+
+## ── Ruler ────────────────────────────────────────────────────────────────────
+
+## ruler-apply: Regenerate CLAUDE.md and other assistant configs from .ruler/
+ruler-apply:
+	pnpm ruler:apply
+
+## ── Meta ─────────────────────────────────────────────────────────────────────
+
+## scripts: List all available pnpm scripts (root, api, web)
+scripts:
+	pnpm scripts
 
 ## ── AI / ZAI ─────────────────────────────────────────────────────────────────
 

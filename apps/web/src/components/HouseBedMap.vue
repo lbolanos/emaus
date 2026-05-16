@@ -166,11 +166,11 @@
                 Deseleccionar todas
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem @click="bulkDeleteBeds" :disabled="selectedBeds.length === 0">
+              <DropdownMenuItem @select="deferOpen(bulkDeleteBeds)" :disabled="selectedBeds.length === 0">
                 <Trash2 class="w-4 h-4 mr-2" />
                 Eliminar seleccionadas
               </DropdownMenuItem>
-              <DropdownMenuItem @click="bulkChangeType" :disabled="selectedBeds.length === 0">
+              <DropdownMenuItem @select="deferOpen(bulkChangeType)" :disabled="selectedBeds.length === 0">
                 <Edit class="w-4 h-4 mr-2" />
                 Cambiar tipo
               </DropdownMenuItem>
@@ -317,7 +317,7 @@
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem @click="startEditFloorLabel(parseSectorKey(String(sectorKey)).floor, parseSectorKey(String(sectorKey)).label)">
+                      <DropdownMenuItem @select="deferOpen(() => startEditFloorLabel(parseSectorKey(String(sectorKey)).floor, parseSectorKey(String(sectorKey)).label))">
                         <Pencil class="w-4 h-4 mr-2" />
                         Editar sector
                       </DropdownMenuItem>
@@ -363,7 +363,7 @@
                             <Copy class="w-4 h-4 mr-2" />
                             Duplicar habitación
                           </DropdownMenuItem>
-                          <DropdownMenuItem @click="openChangeSector(parseSectorKey(String(sectorKey)).floor, String(roomNum), parseSectorKey(String(sectorKey)).label)">
+                          <DropdownMenuItem @select="deferOpen(() => openChangeSector(parseSectorKey(String(sectorKey)).floor, String(roomNum), parseSectorKey(String(sectorKey)).label))">
                             <Tag class="w-4 h-4 mr-2" />
                             Cambiar sector
                           </DropdownMenuItem>
@@ -1039,6 +1039,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { floorDisplay } from '@/composables/useFloorLabel';
+import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Card, Badge, Input, useToast, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@repo/ui';
 import { AlertCircle, Loader2, Save, Search, RotateCcw, RotateCw, CheckSquare, Square, FileText, FileSpreadsheet, MoreVertical, Copy, Users, Move, Eye, EyeOff, Pencil } from 'lucide-vue-next';
 import { Building, Download, Printer, DoorOpen, Bed, Plus, Edit, Trash2, X, Tag } from 'lucide-vue-next';
@@ -1058,6 +1059,7 @@ const emit = defineEmits<{
 }>();
 
 const { toast } = useToast();
+const { deferOpen } = useRekaDialogFix();
 
 // Search and filter
 const searchQuery = ref<string>('');

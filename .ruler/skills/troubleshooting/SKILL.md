@@ -30,24 +30,24 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 
 **Causa**: reka-ui (port de Radix) inyecta `pointer-events: none` en `<body>` por unos ms al cerrar un overlay. Si un Dialog abre en ese mismo tick, hereda el body bloqueado.
 
-**Tres reglas obligatorias**:
+**Solución estándar** — usar el composable `useRekaDialogFix` (`apps/web/src/composables/useRekaDialogFix.ts`). Encapsula las tres reglas y registra polling automático cada 500ms para auto-reparar estado huérfano:
+
+```ts
+import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
+
+const { deferOpen } = useRekaDialogFix();
+// Polling + cleanup en unmount registrados automáticamente.
+```
 
 ```vue
 <!-- Regla 1: usar @select + deferOpen, NO @click -->
 <DropdownMenuItem @select="deferOpen(() => showXDialog = true)">…</DropdownMenuItem>
+
+<!-- Para handlers que ya hacen trabajo sin args, basta pasar la referencia -->
+<DropdownMenuItem @select="deferOpen(openHistoryDialog)">…</DropdownMenuItem>
 ```
 
 ```ts
-// Regla 2: restoreBodyOverflow DEBE limpiar pointerEvents
-function restoreBodyOverflow() {
-  if (document.querySelectorAll('[role="dialog"][data-state="open"]').length > 0) return;
-  if (document.querySelectorAll('[role="menu"][data-state="open"]').length > 0) return;
-  if (document.body.style.overflow === 'hidden') document.body.style.overflow = '';
-  if (document.body.style.paddingRight) document.body.style.paddingRight = '';
-  if (document.body.style.pointerEvents === 'none') document.body.style.pointerEvents = ''; // ← crítico
-  document.body.removeAttribute('data-scroll-locked');
-}
-
 // Regla 3: confirm/save cierra el dialog ANTES del await pesado
 async function confirmX() {
   const ctx = xContext.value;
@@ -58,16 +58,30 @@ async function confirmX() {
 }
 ```
 
+> **Regla 2** está implementada DENTRO del composable: `restoreBodyOverflow` limpia `overflow`, `paddingRight`, `pointerEvents` y `data-scroll-locked`. No reimplementes saneadores locales — siempre usa el composable.
+
+**Opt-out de polling** (e.g. en tests): `useRekaDialogFix({ poll: false })`.
+
 **Excepción**: si el "dialog" es `<Teleport>` custom (no reka-ui), no aplica. La mayoría de modales del repo son Teleports.
 
 **Auditar el repo**:
 ```bash
+# Patrón A — DropdownMenuItem sin defer que abre Dialog reka-ui
 grep -rn 'DropdownMenuItem @click' apps/web/src/ | grep -v 'deferOpen'
+
+# Patrón B — confirm cerrando Dialog en finally tras await
 grep -rn -B 8 '} finally {' apps/web/src/views/ | grep -B 6 'Dialog.value = false'
+
+# ¿Vista usa el composable ya?
+grep -l 'useRekaDialogFix' apps/web/src/
 ```
 
-**Casos**: 2026-05-14 en `apps/web/src/views/InventoryView.vue` — historial y delete congelaban UI.
-**Detalle**: `CLAUDE.md` sección "reka-ui Dialog/DropdownMenu — UI congelada".
+**Casos** (todos resueltos vía el composable):
+- 2026-05-14 — `InventoryView.vue`: historial y delete congelaban UI.
+- 2026-05-14 — `HouseBedMap.vue`: bulkDeleteBeds, bulkChangeType, startEditFloorLabel, openChangeSector.
+- 2026-05-14 — `BedAssignmentsView.vue`: isAutoAssignDialogOpen, isClearAssignmentsDialogOpen.
+
+**Tests del composable**: `apps/web/src/composables/__tests__/useRekaDialogFix.test.ts` (9 tests). Nota: happy-dom tiene un quirk donde `style.foo = ''` envenena la propiedad para reasignaciones posteriores en el mismo describe — los tests usan spies sobre `setInterval`/`removeAttribute` en lugar de leer back styles para evitarlo.
 
 ---
 

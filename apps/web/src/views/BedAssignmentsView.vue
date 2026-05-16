@@ -49,14 +49,14 @@
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem @click="isAutoAssignDialogOpen = true">
+                <DropdownMenuItem @select="deferOpen(() => isAutoAssignDialogOpen = true)">
                   {{ $t('bedAssignments.autoAssign') }}
                 </DropdownMenuItem>
                 <DropdownMenuItem @click="exportAssignments">
                   {{ $t('bedAssignments.export') }}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem @click="isClearAssignmentsDialogOpen = true" class="text-red-600">
+                <DropdownMenuItem @select="deferOpen(() => isClearAssignmentsDialogOpen = true)" class="text-red-600">
                   {{ $t('bedAssignments.clearAll') }}
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -128,10 +128,10 @@
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
               <DropdownMenuSeparator />
-              <DropdownMenuItem @click="isAutoAssignDialogOpen = true">{{ $t('bedAssignments.autoAssign') }}</DropdownMenuItem>
+              <DropdownMenuItem @select="deferOpen(() => isAutoAssignDialogOpen = true)">{{ $t('bedAssignments.autoAssign') }}</DropdownMenuItem>
               <DropdownMenuItem @click="exportAssignments">{{ $t('bedAssignments.export') }}</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem @click="isClearAssignmentsDialogOpen = true" class="text-red-600">{{ $t('bedAssignments.clearAll') }}</DropdownMenuItem>
+              <DropdownMenuItem @select="deferOpen(() => isClearAssignmentsDialogOpen = true)" class="text-red-600">{{ $t('bedAssignments.clearAll') }}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -572,6 +572,7 @@ import type { RetreatBed, Participant } from '@repo/types';
 import { useI18n } from 'vue-i18n';
 import { useTapAssign } from '@/composables/useTapAssign';
 import { useDragState } from '@/composables/useDragState';
+import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 import {
   sortUnassigned as sortUnassignedUtil,
   filterUnassignedBySearch as filterUnassignedBySearchUtil,
@@ -586,6 +587,7 @@ const props = defineProps<{ id: string }>();
 const retreatStore = useRetreatStore();
 const participantStore = useParticipantStore();
 const { toast } = useToast();
+const { deferOpen } = useRekaDialogFix();
 const { t } = useI18n();
 
 const {

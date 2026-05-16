@@ -37,7 +37,7 @@
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" class="w-56">
-            <DropdownMenuItem @click="showCopyDialog = true" class="gap-2">
+            <DropdownMenuItem @select="deferOpen(() => showCopyDialog = true)" class="gap-2">
               <Copy class="w-4 h-4" /> Copiar de retiro anterior
             </DropdownMenuItem>
             <DropdownMenuItem @click="openPackingList" class="gap-2">
@@ -56,7 +56,7 @@
               <History class="w-4 h-4" /> Historial de cambios
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem @click="showImportDialog = true" class="gap-2">
+            <DropdownMenuItem @select="deferOpen(() => showImportDialog = true)" class="gap-2">
               <Upload class="w-4 h-4" /> Importar Excel
             </DropdownMenuItem>
             <DropdownMenuItem @click="exportInventory" class="gap-2">
@@ -1153,7 +1153,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useInventoryStore } from '@/stores/inventoryStore';
 import { useRetreatStore } from '@/stores/retreatStore';
@@ -1210,6 +1210,7 @@ import {
 import InventoryHelpDialog from '@/components/InventoryHelpDialog.vue';
 import ExcelJS from 'exceljs';
 import { api } from '@/services/api';
+import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 
 type Status = 'pending' | 'packed' | 'onsite' | 'consumed' | 'returned';
 
@@ -1239,32 +1240,7 @@ const STATUS_BADGE: Record<Status, string> = {
   returned: 'bg-gray-100 text-gray-700 border-gray-300',
 };
 
-/**
- * Abre un Dialog tras dejar que el DropdownMenu se cierre limpiamente.
- * Sin esto, reka-ui mantiene un scroll-lock huérfano y bloquea la UI
- * después de cerrar el Dialog. El timeout corto es suficiente para
- * dejar que el menú complete su transición.
- */
-function deferOpen(fn: () => void) {
-  setTimeout(() => {
-    fn();
-    // Por si reka-ui dejó body con overflow:hidden, restauramos.
-    setTimeout(restoreBodyOverflow, 50);
-  }, 80);
-}
-
-/**
- * Garantiza que `body` no quede con overflow:hidden ni clases de
- * scroll-lock tras cerrar dialogs anidados (bug conocido reka-ui).
- */
-function restoreBodyOverflow() {
-  if (document.querySelectorAll('[role="dialog"][data-state="open"]').length > 0) return;
-  if (document.querySelectorAll('[role="menu"][data-state="open"]').length > 0) return;
-  if (document.body.style.overflow === 'hidden') document.body.style.overflow = '';
-  if (document.body.style.paddingRight) document.body.style.paddingRight = '';
-  if (document.body.style.pointerEvents === 'none') document.body.style.pointerEvents = '';
-  document.body.removeAttribute('data-scroll-locked');
-}
+const { deferOpen, restoreBodyOverflow } = useRekaDialogFix();
 
 function statusEmoji(s: Status) {
   return STATUS_EMOJI[s] || '⏳';
@@ -1594,37 +1570,10 @@ const someFilteredSelected = computed(
     filteredItems.value.some((it) => selectedItemIds.value.has(it.id)),
 );
 
-// Polling continuo para auto-reparar scroll-lock huérfano de reka-ui.
-// Si no hay dialogs/menús abiertos pero body sigue bloqueado, lo
-// liberamos. Cuesta ~0.1ms cada 500ms.
-let bodyOverflowInterval: ReturnType<typeof setInterval> | null = null;
-
 onMounted(async () => {
   await loadInventoryData();
   await loadCopySourceRetreats();
-  bodyOverflowInterval = setInterval(restoreBodyOverflow, 500);
 });
-
-onUnmounted(() => {
-  if (bodyOverflowInterval) clearInterval(bodyOverflowInterval);
-  // Por si el componente se desmonta con scroll-lock activo.
-  document.body.style.overflow = '';
-  document.body.style.paddingRight = '';
-  document.body.removeAttribute('data-scroll-locked');
-});
-
-// Watch dialogs cerrándose para restaurar body overflow.
-// Multi-tick para vencer la animación de cierre de reka-ui.
-watch(
-  [showDeleteDialog, showEditItemDialog, showAddItemDialog, showCopyDialog, showBulkBoxDialog, showBulkStatusDialog, showHistoryDialog],
-  (vals) => {
-    if (vals.every((v) => !v)) {
-      setTimeout(restoreBodyOverflow, 100);
-      setTimeout(restoreBodyOverflow, 300);
-      setTimeout(restoreBodyOverflow, 600);
-    }
-  },
-);
 
 watch(retreatId, async (id, prev) => {
   if (id && id !== prev) {
