@@ -212,6 +212,23 @@ const response = await fetch('/api/endpoint', {
 
 **Benefits**: Built-in CSRF protection, error handling, authentication, and consistent configuration. Add new functions to `/apps/web/src/services/api.ts`.
 
+## Troubleshooting
+
+Cuando un usuario reporta bugs ("se congela la UI", "página en blanco en iPhone", "fechas saltan un día", "migration borró data", "checkbox no marca", "test falla con ReferenceError", etc.) → cargar el skill **`troubleshooting`** (`.ruler/skills/troubleshooting/SKILL.md`). Es el índice maestro de bugs recurrentes con síntoma → causa → fix, incluyendo:
+
+- reka-ui Dialog/DropdownMenu congela la UI (`@click` sin `deferOpen`, `confirmX` cerrando dialog en `finally`, `restoreBodyOverflow` sin `pointerEvents`)
+- Safari iOS blank page (stack overflow por static imports, vue-i18n `@`, chunks gigantes)
+- Timezone CDMX salta un día (ISO UTC tratada como hora local)
+- Checkbox reka-ui ignora `:checked` (usar `:model-value`)
+- `Set`/`Map` en `ref` no reactivos
+- SQLite recreate-table borra data en tablas hijas (FK cascade dentro de transacción TypeORM)
+- Tap-to-assign móvil/DevTools (necesita `@touchend` + `@click`)
+- Tests Jest mock factory con ESM (`ReferenceError: Cannot access before initialization`)
+- Tests 403 con ESM + path aliases
+- Tests Vue con `defineModel` (sobrescribir mocks globales de `@repo/ui`)
+
+Cada bug está documentado con código antes/después, comandos `grep` para auditar el repo, y referencia al skill específico si existe (`safari-ios-compatibility`, `sqlite-migrations`, `timezone-handling`).
+
 ## Testing System
 
 ### Available Tests
@@ -249,6 +266,10 @@ pnpm --filter web test
 # Un archivo específico (frontend)
 pnpm --filter web test src/components/__tests__/AngelitoAvailabilityEditor.test.ts
 ```
+
+### Probar end-to-end en un git worktree
+
+Si estás en `.claude/worktrees/<branch>/` y necesitás levantar `pnpm dev` para probar con Playwright o Chrome DevTools, los puertos default (`:3001`, `:5173`) suelen estar tomados por el dev del main. Cargar el skill **`worktree-testing`** — explica el setup de puertos paralelos (`:3002`, `:5174`), DB SQLite copiada del main (no compartir), CORS/proxy override, y trae scripts ejecutables `start-worktree-dev.sh` / `stop-worktree-dev.sh`.
 
 ### Tests para componentes con `defineModel`
 
@@ -296,6 +317,52 @@ const svc = new (MyService as any)();
 ### Tests de autorización 403 en integration tests
 
 Con ESM + path aliases (`@/`), `jest.requireMock('@/middleware/authorization')` puede no retornar el mismo objeto que el import del módulo testado. Por eso los tests de integration **no testean el 403** — solo testean el happy-path de la lógica de negocio. La autorización se cubre en tests de middleware independientes.
+
+## Infraestructura y acceso remoto
+
+### SSH al servidor de producción
+
+El dominio `emaus.cc` está detrás de Cloudflare (proxy), por lo que el puerto 22 **no es accesible** vía el dominio. Siempre usar la IP directa de Lightsail:
+
+```bash
+ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104
+```
+
+- Llave: `~/.ssh/lightsail-emaus.pem`
+- Usuario: `ubuntu`
+- IP: `18.116.102.104`
+- DB en prod: `/var/www/emaus/apps/api/database.sqlite`
+- Backups locales: `/var/backups/emaus/`
+- Logs de backup: `/var/log/emaus-backup.log`
+
+### AWS CLI
+
+El perfil `emaus` apunta a la cuenta `585853725478` (cuenta de producción de Emaús):
+
+```bash
+aws <comando> --profile emaus
+# Verificar identidad:
+aws sts get-caller-identity --profile emaus
+# Ver backups en S3:
+aws s3 ls s3://emaus-media/backups/database/ --human-readable --profile emaus | tail -10
+```
+
+Bucket S3: `emaus-media` — prefijos relevantes:
+- `backups/database/` — backups automáticos de SQLite (retención 90 días)
+- `avatars/`, `retreat-memories/`, `public-assets/`, `documents/` — media de la app
+
+### Backups de base de datos
+
+Script: `/var/www/emaus/backup-db.sh`
+Cron: diario a las **3:00 AM** (hora del servidor)
+
+```bash
+# Ejecutar backup manual
+ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104 "bash /var/www/emaus/backup-db.sh"
+
+# Ver backups en S3
+aws s3 ls s3://emaus-media/backups/database/ --human-readable --profile emaus | tail -10
+```
 
 ## Chrome tool
 Guarda los screenshots en la carpeta /tmp/chrome
@@ -345,3 +412,6 @@ const maxLocal = `${c.y}-${pad(c.m)}-${pad(c.d)}T23:59`;
 
 ### Casos donde ya tropezamos
 - 2026-05-08 — Editor de disponibilidad de angelitos: el default del bloque arrancaba el día anterior al inicio del retiro porque `defaultStart()` hacía `new Date(retreat.startDate).setHours(8)` sobre un Date que era medianoche UTC del primer día.
+
+El sistema esta usando @intellectronica/ruler
+

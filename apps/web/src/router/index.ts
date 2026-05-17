@@ -17,6 +17,7 @@ const CancellationAndNotesView = () => import('../views/CancellationAndNotesView
 const WaitingListView = () => import('../views/WaitingListView.vue');
 const BagsReportView = () => import('../views/BagsReportView.vue');
 const MedicinesReportView = () => import('../views/MedicinesReportView.vue');
+const ShirtsReportView = () => import('../views/ShirtsReportView.vue');
 const LoginView = () => import('../views/LoginView.vue');
 const RequestPasswordResetView = () => import('../views/RequestPasswordResetView.vue');
 const ResetPasswordView = () => import('../views/ResetPasswordView.vue');
@@ -270,6 +271,12 @@ const router = createRouter({
 					path: 'bags-report',
 					name: 'bags-report',
 					component: BagsReportView,
+					meta: { requiresRetreat: true },
+				},
+				{
+					path: 'shirts-report',
+					name: 'shirts-report',
+					component: ShirtsReportView,
 					meta: { requiresRetreat: true },
 				},
 				{

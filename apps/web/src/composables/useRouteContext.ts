@@ -22,6 +22,7 @@ const routeSectionMap: Record<string, string> = {
 	payments: 'sidebar.sections.financial',
 	// Reports
 	'bags-report': 'sidebar.sections.reports',
+	'shirts-report': 'sidebar.sections.reports',
 	'medicines-report': 'sidebar.sections.reports',
 	'walker-badges': 'sidebar.sections.reports',
 	// Services

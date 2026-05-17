@@ -340,6 +340,41 @@ export const participantSchema = z.object({
 });
 export type Participant = z.infer<typeof participantSchema>;
 
+// --- Shirt Report (servidores + angelitos) ---
+
+export const shirtReportShirtSchema = z.object({
+	shirtTypeId: z.string(),
+	shirtTypeName: z.string(),
+	color: z.string().nullable(),
+	sortOrder: z.number(),
+	size: z.string(),
+});
+export type ShirtReportShirt = z.infer<typeof shirtReportShirtSchema>;
+
+export const shirtReportParticipantSchema = z.object({
+	participantId: z.string(),
+	firstName: z.string(),
+	lastName: z.string(),
+	idOnRetreat: z.number().nullable(),
+	type: z.enum(['server', 'partial_server']),
+	shirts: z.array(shirtReportShirtSchema),
+});
+export type ShirtReportParticipant = z.infer<typeof shirtReportParticipantSchema>;
+
+export const shirtReportShirtTypeSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	color: z.string().nullable(),
+	sortOrder: z.number(),
+});
+export type ShirtReportShirtType = z.infer<typeof shirtReportShirtTypeSchema>;
+
+export const shirtReportResponseSchema = z.object({
+	shirtTypes: z.array(shirtReportShirtTypeSchema),
+	participants: z.array(shirtReportParticipantSchema),
+});
+export type ShirtReportResponse = z.infer<typeof shirtReportResponseSchema>;
+
 // Remove duplicate declaration - already defined above
 
 // --- API Request Schemas ---

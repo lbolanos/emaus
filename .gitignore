@@ -11,6 +11,8 @@
 .env.production
 .env.development
 .env.staging
+.env.local
+**/.env.local
 dist/
 gha-creds-*.json
 node_modules/
