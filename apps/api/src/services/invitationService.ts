@@ -285,12 +285,18 @@ export class InvitationService {
 				}
 			}
 
-			// Update user (password will be hashed automatically by User entity)
+			// Update user (password will be hashed automatically by User entity).
+			// Accepting an invitation via the emailed link proves the user owns the
+			// inbox — mark emailVerified=true so they bypass the verification banner
+			// and the acceptCommunityInvitation guard.
 			user.displayName = displayName;
 			user.password = password;
 			user.isPending = false;
 			user.invitationToken = undefined;
 			user.invitationExpiresAt = undefined;
+			user.emailVerified = true;
+			user.emailVerificationToken = null;
+			user.emailVerificationExpiresAt = null;
 
 			await this.userRepository.save(user);
 		}

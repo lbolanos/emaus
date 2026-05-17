@@ -51,9 +51,15 @@ export function configurePassportStrategies(
 								.getOne();
 
 							if (userByEmail) {
-								// Link Google account to existing user
+								// Link Google account to existing user.
+								// Google attests the email is owned by the user — flip emailVerified
+								// to true and clear any pending verification token so the banner /
+								// acceptInvitation guard treat them as verified.
 								userByEmail.googleId = profile.id;
 								userByEmail.photo = profile.photos?.[0].value || userByEmail.photo;
+								userByEmail.emailVerified = true;
+								userByEmail.emailVerificationToken = null;
+								userByEmail.emailVerificationExpiresAt = null;
 								// Update display name if Google provides one and current one is different
 								if (profile.displayName && profile.displayName !== userByEmail.displayName) {
 									userByEmail.displayName = profile.displayName;
@@ -63,13 +69,15 @@ export function configurePassportStrategies(
 							}
 						}
 
-						// Create new user if neither Google ID nor email exists
+						// Create new user if neither Google ID nor email exists.
+						// Google has already verified the email, so we trust it as verified.
 						const newUser = repos.user.create({
 							id: uuidv4(),
 							googleId: profile.id,
 							displayName: profile.displayName,
 							email: userEmail || '',
 							photo: profile.photos?.[0].value,
+							emailVerified: true,
 						});
 
 						await repos.user.save(newUser);
