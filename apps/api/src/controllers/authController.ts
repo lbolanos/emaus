@@ -7,6 +7,7 @@ import { UserRole } from '../entities/userRole.entity';
 import { Participant } from '../entities/participant.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { UserService } from '../services/userService';
+import { CommunityService } from '../services/communityService';
 import { GlobalMessageTemplateService } from '../services/globalMessageTemplateService';
 import { RecaptchaService } from '../services/recaptchaService';
 import { config } from '../config';
@@ -73,14 +74,52 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 			return res.status(400).json(antiEnumResponse);
 		}
 
+		// Generate an email verification token. This stays plaintext in the DB
+		// (no hash) because the surface is narrow: only the user with access to
+		// the email inbox can present the token, and we expire it in 48h.
+		const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+		const emailVerificationExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+
 		const newUser = userRepository.create({
 			id: uuidv4(),
 			email,
 			password,
 			displayName,
+			emailVerified: false,
+			emailVerificationToken,
+			emailVerificationExpiresAt,
 		});
 
 		await userRepository.save(newUser);
+
+		// Fire-and-forget email with verification link. Failure here does NOT
+		// block registration — user can request a resend later.
+		try {
+			const { EmailService } = await import('../services/emailService');
+			const emailService = new EmailService();
+			if (emailService.isSmtpConfigured()) {
+				const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+				const verifyUrl = `${frontendUrl}/verify-email?token=${emailVerificationToken}`;
+				const escape = (s: string) =>
+					s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+				await emailService.sendEmail({
+					to: email,
+					subject: 'Verifica tu correo — Retiros Emaús',
+					html: `
+						<div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:24px;">
+							<h2 style="color:#1c1917;margin-bottom:8px;">Hola ${escape(displayName)}</h2>
+							<p style="color:#57534e;margin:0 0 16px;">Confirma tu correo para activar tu cuenta en Retiros Emaús.</p>
+							<div style="text-align:center;margin:24px 0;">
+								<a href="${verifyUrl}" style="display:inline-block;padding:12px 32px;background:#1c1917;color:white;text-decoration:none;border-radius:8px;font-weight:500;">Verificar correo</a>
+							</div>
+							<p style="color:#a8a29e;margin:8px 0 0;font-size:12px;">Este link expira en 48 horas. Si no creaste esta cuenta, ignora este correo.</p>
+						</div>
+					`.trim(),
+				});
+			}
+		} catch (emailErr) {
+			console.error('[register] verification email failed:', emailErr);
+		}
 
 		// Assign default role (same as Google OAuth flow)
 		const defaultRole = await AppDataSource.getRepository(Role).findOne({
@@ -132,6 +171,16 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 		} catch (linkError) {
 			console.error('Error linking existing participants on register:', linkError);
 			// Do not fail registration if linking fails.
+		}
+
+		// Auto-vincular al líder con sus comunidades si su email coincide con
+		// el `contactEmail` de alguna comunidad registrada (flujo híbrido).
+		try {
+			const communityService = new CommunityService();
+			await communityService.linkUserToContactCommunities(newUser);
+		} catch (linkError) {
+			console.error('Error linking user to contact communities on register:', linkError);
+			// No fallar el registro si el link falla.
 		}
 
 		res.status(201).json({ message: 'Usuario creado exitosamente.' });
@@ -465,6 +514,128 @@ export const changePassword = async (req: Request, res: Response, next: NextFunc
 			: 'Tu contraseña ha sido configurada exitosamente.';
 
 		res.json({ message: successMessage });
+	} catch (error) {
+		next(error);
+	}
+};
+
+/**
+ * Re-sends the email-verification link to the user with the given email.
+ *
+ * SECURITY: always returns the same generic 200 response (regardless of whether
+ * the email exists or is already verified) to avoid email enumeration. Rate
+ * limited at the middleware layer by lowercased email.
+ *
+ * Side effects: regenerates the verification token + extends TTL 48h. The
+ * previous token is invalidated (so an attacker who phished the old token
+ * cannot use it after a legitimate user requests a resend).
+ */
+export const resendVerification = async (
+	req: Request,
+	res: Response,
+	next: NextFunction,
+) => {
+	const startTime = Date.now();
+	const genericResponse = {
+		message:
+			'Si la cuenta existe y no está verificada, te enviamos un nuevo correo de verificación.',
+	};
+
+	const ensureMinResponseTime = async () => {
+		const elapsed = Date.now() - startTime;
+		if (elapsed < 500) {
+			await new Promise((resolve) => setTimeout(resolve, 500 - elapsed));
+		}
+	};
+
+	const rawEmail = req.body?.email;
+	if (!rawEmail || typeof rawEmail !== 'string') {
+		await ensureMinResponseTime();
+		return res.json(genericResponse);
+	}
+	const email = rawEmail.toLowerCase().trim();
+
+	const userRepository = AppDataSource.getRepository(User);
+	try {
+		const user = await userRepository
+			.createQueryBuilder('user')
+			.where('LOWER(user.email) = :email', { email })
+			.getOne();
+
+		if (user && !user.emailVerified) {
+			user.emailVerificationToken = crypto.randomBytes(32).toString('hex');
+			user.emailVerificationExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+			await userRepository.save(user);
+
+			try {
+				const { EmailService } = await import('../services/emailService');
+				const emailService = new EmailService();
+				if (emailService.isSmtpConfigured()) {
+					const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+					const verifyUrl = `${frontendUrl}/verify-email?token=${user.emailVerificationToken}`;
+					const escape = (s: string) =>
+						s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+					await emailService.sendEmail({
+						to: user.email,
+						subject: 'Verifica tu correo — Retiros Emaús',
+						html: `
+							<div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:24px;">
+								<h2 style="color:#1c1917;margin-bottom:8px;">Hola ${escape(user.displayName)}</h2>
+								<p style="color:#57534e;margin:0 0 16px;">Solicitaste un nuevo enlace de verificación. Confirma tu correo para activar tu cuenta.</p>
+								<div style="text-align:center;margin:24px 0;">
+									<a href="${verifyUrl}" style="display:inline-block;padding:12px 32px;background:#1c1917;color:white;text-decoration:none;border-radius:8px;font-weight:500;">Verificar correo</a>
+								</div>
+								<p style="color:#a8a29e;margin:8px 0 0;font-size:12px;">Este link expira en 48 horas. Si no fuiste tú, ignora este correo: el link anterior queda inutilizado.</p>
+							</div>
+						`.trim(),
+					});
+				}
+			} catch (emailErr) {
+				console.error('[resendVerification] email failed:', emailErr);
+				// fall through to generic response
+			}
+		}
+
+		await ensureMinResponseTime();
+		return res.json(genericResponse);
+	} catch (error) {
+		next(error);
+	}
+};
+
+/**
+ * Verifies a user's email address using the token emitted at registration.
+ *
+ * SECURITY: token is single-use (cleared on success), 48h TTL, plaintext in
+ * DB (narrow surface: only the email inbox owner can present it). On success
+ * sets `emailVerified=true` and nullifies the token.
+ *
+ * Always returns a generic message on failure to avoid leaking whether a
+ * given token existed.
+ */
+export const verifyEmail = async (req: Request, res: Response, next: NextFunction) => {
+	const token = req.body?.token || req.query?.token;
+	if (!token || typeof token !== 'string' || token.length < 32) {
+		return res.status(400).json({ message: 'Token de verificación inválido o expirado.' });
+	}
+
+	const userRepository = AppDataSource.getRepository(User);
+	try {
+		const user = await userRepository.findOne({ where: { emailVerificationToken: token } });
+		if (
+			!user ||
+			!user.emailVerificationExpiresAt ||
+			user.emailVerificationExpiresAt.getTime() < Date.now()
+		) {
+			return res.status(400).json({ message: 'Token de verificación inválido o expirado.' });
+		}
+
+		user.emailVerified = true;
+		user.emailVerificationToken = null;
+		user.emailVerificationExpiresAt = null;
+		await userRepository.save(user);
+
+		res.json({ message: 'Correo verificado correctamente.' });
 	} catch (error) {
 		next(error);
 	}

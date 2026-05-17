@@ -10,8 +10,16 @@ import {
 	requestPasswordReset,
 	resetPassword,
 	changePassword,
+	verifyEmail,
+	resendVerification,
 } from '../controllers/authController';
-import { loginLimiter, registerLimiter, passwordResetLimiter, emailBasedLimiter } from '../middleware/rateLimiting';
+import {
+	loginLimiter,
+	registerLimiter,
+	passwordResetLimiter,
+	emailBasedLimiter,
+	resendVerificationLimiter,
+} from '../middleware/rateLimiting';
 
 const router = Router();
 
@@ -38,5 +46,10 @@ router.post('/password/reset', passwordResetLimiter, resetPassword);
 
 // Password Change (for authenticated users)
 router.post('/password/change', isAuthenticated, changePassword);
+
+// Email Verification (defense-in-depth against Vuln 2 registration-as-contact)
+router.post('/verify-email', verifyEmail);
+router.get('/verify-email', verifyEmail);
+router.post('/resend-verification', resendVerificationLimiter, resendVerification);
 
 export default router;

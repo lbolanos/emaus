@@ -396,6 +396,53 @@ describe('AcceptCommunityInvitationView Component', () => {
 		});
 	});
 
+	describe('Vuln 2 hardening — error code branches', () => {
+		it('shows email-verification CTA when accept returns 403 EMAIL_NOT_VERIFIED', async () => {
+			wrapper.vm.loading = false;
+			wrapper.vm.error = '';
+			wrapper.vm.invitationData = {
+				valid: true,
+				community: { id: 'c1', name: 'Comm 1' },
+				user: { id: 'u1', email: 'me@test.local' },
+			};
+			wrapper.vm.emailVerifiedError = true;
+			await nextTick();
+
+			expect(wrapper.text()).toContain('Verifica tu correo primero');
+			const resendBtn = wrapper
+				.findAll('button')
+				.find((b: any) => b.text().includes('Reenviar correo de verificación'));
+			expect(resendBtn).toBeDefined();
+		});
+
+		it('shows expired CTA when accept returns 410 INVITATION_EXPIRED', async () => {
+			wrapper.vm.loading = false;
+			wrapper.vm.error = '';
+			wrapper.vm.expiredError = true;
+			await nextTick();
+
+			expect(wrapper.text()).toContain('Esta invitación ha expirado');
+		});
+
+		it('has resendVerification method exposed', () => {
+			expect(typeof wrapper.vm.resendVerification).toBe('function');
+		});
+
+		it('email-verified state hides the regular invitation form', async () => {
+			wrapper.vm.loading = false;
+			wrapper.vm.error = '';
+			wrapper.vm.invitationData = {
+				valid: true,
+				community: { id: 'c1', name: 'Comm 1' },
+				user: { id: 'u1', email: 'me@test.local' },
+			};
+			wrapper.vm.emailVerifiedError = true;
+			await nextTick();
+
+			expect(wrapper.find('.invitation-info-section').exists()).toBe(false);
+		});
+	});
+
 	describe('Helper Functions Exist', () => {
 		it('should have goToLogin method', () => {
 			expect(typeof wrapper.vm.goToLogin).toBe('function');

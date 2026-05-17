@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n'
 import Sidebar from '@/components/layout/Sidebar.vue'
 const AiChatWidget = defineAsyncComponent(() => import('@/components/AiChatWidget.vue'))
 const UpdateBanner = defineAsyncComponent(() => import('@/components/UpdateBanner.vue'))
+const EmailVerificationBanner = defineAsyncComponent(() => import('@/components/EmailVerificationBanner.vue'))
 import { useUIStore } from '@/stores/ui'
 import { useVersionStore } from '@/stores/versionStore'
 import { Menu } from 'lucide-vue-next'
@@ -155,6 +156,7 @@ onUnmounted(() => {
     <!-- Main content -->
     <div class="flex flex-col flex-1 overflow-hidden">
       <UpdateBanner />
+      <EmailVerificationBanner />
       <main ref="mainRef" class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-2 md:p-4" :class="{ 'pt-14': isMobile, 'mobile-hide-h1': isMobile }">
         <router-view />
       </main>

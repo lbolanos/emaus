@@ -189,6 +189,81 @@ describe('Auth Controller', () => {
 			await authController.register(req2, res2, next);
 			expect(res2.status).toHaveBeenCalledWith(400);
 		});
+
+		test('auto-vincula al líder con su comunidad si email matchea contactEmail', async () => {
+			// Crear comunidad pending con contactEmail = email del futuro user
+			const ds = getTestDataSource();
+			const communityRepo = ds.getRepository(
+				require('../../entities/community.entity').Community,
+			);
+			const adminRepo = ds.getRepository(
+				require('../../entities/communityAdmin.entity').CommunityAdmin,
+			);
+			const community = await communityRepo.save(
+				communityRepo.create({
+					name: 'Hook Test Community',
+					address1: '1 Test',
+					city: 'CDMX',
+					state: 'CDMX',
+					zipCode: '00000',
+					country: 'México',
+					contactEmail: 'leader-hook@test.com',
+					status: 'pending',
+				}),
+			);
+
+			const req = createMockRequest({
+				body: {
+					email: 'leader-hook@test.com',
+					password: 'password123',
+					displayName: 'Hook Leader',
+				},
+			});
+			const res = createMockResponse();
+			await authController.register(req, res, mockNext);
+
+			expect(res.status).toHaveBeenCalledWith(201);
+
+			// Buscar el user recién creado
+			const userRepo = ds.getRepository(require('../../entities/user.entity').User);
+			const newUser = await userRepo.findOne({ where: { email: 'leader-hook@test.com' } });
+			expect(newUser).toBeTruthy();
+
+			// SECURITY (Vuln 2 fix): el admin se crea como pending+token, no active.
+			// El verdadero líder debe aceptar vía email al contactEmail original.
+			const admin = await adminRepo.findOne({
+				where: { communityId: community.id, userId: newUser!.id },
+			});
+			expect(admin).toBeTruthy();
+			expect(admin!.status).toBe('pending');
+			expect(admin!.invitationToken).toBeTruthy();
+			expect(admin!.acceptedAt).toBeFalsy();
+			// Rol propuesto: owner (no hay otro)
+			expect(admin!.role).toBe('owner');
+		});
+
+		test('NO vincula si el email NO matchea con ninguna comunidad', async () => {
+			const req = createMockRequest({
+				body: {
+					email: 'no-match@example.com',
+					password: 'password123',
+					displayName: 'No Match User',
+				},
+			});
+			const res = createMockResponse();
+			await authController.register(req, res, mockNext);
+
+			expect(res.status).toHaveBeenCalledWith(201);
+
+			const ds = getTestDataSource();
+			const adminRepo = ds.getRepository(
+				require('../../entities/communityAdmin.entity').CommunityAdmin,
+			);
+			const userRepo = ds.getRepository(require('../../entities/user.entity').User);
+			const newUser = await userRepo.findOne({ where: { email: 'no-match@example.com' } });
+			const admins = await adminRepo.find({ where: { userId: newUser!.id } });
+			expect(admins.length).toBe(0);
+		});
 	});
 
 	describe('login', () => {
@@ -854,6 +929,165 @@ describe('Auth Controller', () => {
 
 			expect(changeRes.status).toHaveBeenCalledWith(400);
 			expect(changeRes.json).toHaveBeenCalledWith({ message: 'La contraseña actual es requerida' });
+		});
+	});
+
+	describe('verifyEmail (Vuln 2 hardening)', () => {
+		const seedUserWithToken = async (overrides: Partial<User> = {}) => {
+			const repo = getTestDataSource().getRepository(User);
+			const uniqueId = Date.now() + Math.random().toString(36).substring(7);
+			const user = repo.create({
+				id: uuidv4(),
+				email: `verify_${uniqueId}@example.com`,
+				displayName: 'Verify Test',
+				password: 'password123',
+				emailVerified: false,
+				emailVerificationToken: 'a'.repeat(64),
+				emailVerificationExpiresAt: new Date(Date.now() + 48 * 3600 * 1000),
+				...overrides,
+			});
+			return repo.save(user);
+		};
+
+		test('rejects with 400 when token is missing or too short', async () => {
+			const req = createMockRequest({ body: { token: 'short' } });
+			const res = createMockResponse();
+			await authController.verifyEmail(req, res, mockNext);
+			expect(res.status).toHaveBeenCalledWith(400);
+			expect(res.json).toHaveBeenCalledWith({
+				message: 'Token de verificación inválido o expirado.',
+			});
+		});
+
+		test('rejects with 400 when token is unknown', async () => {
+			const req = createMockRequest({ body: { token: 'b'.repeat(64) } });
+			const res = createMockResponse();
+			await authController.verifyEmail(req, res, mockNext);
+			expect(res.status).toHaveBeenCalledWith(400);
+			expect(res.json).toHaveBeenCalledWith({
+				message: 'Token de verificación inválido o expirado.',
+			});
+		});
+
+		test('rejects with 400 when token is expired', async () => {
+			const user = await seedUserWithToken({
+				emailVerificationExpiresAt: new Date(Date.now() - 60_000),
+			});
+			const req = createMockRequest({ body: { token: user.emailVerificationToken } });
+			const res = createMockResponse();
+			await authController.verifyEmail(req, res, mockNext);
+			expect(res.status).toHaveBeenCalledWith(400);
+
+			// Verify the user is still unverified
+			const repo = getTestDataSource().getRepository(User);
+			const fresh = await repo.findOne({ where: { id: user.id } });
+			expect(fresh!.emailVerified).toBe(false);
+			expect(fresh!.emailVerificationToken).toBe(user.emailVerificationToken);
+		});
+
+		test('on success marks emailVerified=true and clears the token (single-use)', async () => {
+			const user = await seedUserWithToken();
+			const token = user.emailVerificationToken!;
+			const req = createMockRequest({ body: { token } });
+			const res = createMockResponse();
+			await authController.verifyEmail(req, res, mockNext);
+			expect(res.json).toHaveBeenCalledWith({ message: 'Correo verificado correctamente.' });
+
+			const repo = getTestDataSource().getRepository(User);
+			const fresh = await repo.findOne({ where: { id: user.id } });
+			expect(fresh!.emailVerified).toBe(true);
+			expect(fresh!.emailVerificationToken).toBeNull();
+			expect(fresh!.emailVerificationExpiresAt).toBeNull();
+
+			// Second use of same token must fail (replay protection)
+			const replayReq = createMockRequest({ body: { token } });
+			const replayRes = createMockResponse();
+			await authController.verifyEmail(replayReq, replayRes, mockNext);
+			expect(replayRes.status).toHaveBeenCalledWith(400);
+		});
+
+		test('also accepts token from query string (GET-style link)', async () => {
+			const user = await seedUserWithToken();
+			const req = createMockRequest({ query: { token: user.emailVerificationToken } });
+			const res = createMockResponse();
+			await authController.verifyEmail(req, res, mockNext);
+			expect(res.json).toHaveBeenCalledWith({ message: 'Correo verificado correctamente.' });
+		});
+	});
+
+	describe('resendVerification', () => {
+		const genericMessage =
+			'Si la cuenta existe y no está verificada, te enviamos un nuevo correo de verificación.';
+
+		test('returns generic 200 when email is missing (anti-enum)', async () => {
+			const req = createMockRequest({ body: {} });
+			const res = createMockResponse();
+			await authController.resendVerification(req, res, mockNext);
+			expect(res.json).toHaveBeenCalledWith({ message: genericMessage });
+		});
+
+		test('returns generic 200 when email is unknown (anti-enum)', async () => {
+			const req = createMockRequest({ body: { email: 'ghost@nowhere.test' } });
+			const res = createMockResponse();
+			await authController.resendVerification(req, res, mockNext);
+			expect(res.json).toHaveBeenCalledWith({ message: genericMessage });
+		});
+
+		test('returns generic 200 when user is already verified (no leak)', async () => {
+			const repo = getTestDataSource().getRepository(User);
+			const uniqueId = Date.now() + Math.random().toString(36).substring(7);
+			const verified = repo.create({
+				id: uuidv4(),
+				email: `already_${uniqueId}@example.com`,
+				displayName: 'Already Verified',
+				password: 'password123',
+				emailVerified: true,
+				emailVerificationToken: null,
+			});
+			await repo.save(verified);
+
+			const before = await repo.findOne({ where: { id: verified.id } });
+			expect(before!.emailVerificationToken).toBeNull();
+
+			const req = createMockRequest({ body: { email: verified.email } });
+			const res = createMockResponse();
+			await authController.resendVerification(req, res, mockNext);
+			expect(res.json).toHaveBeenCalledWith({ message: genericMessage });
+
+			// Token should NOT have been regenerated for an already-verified user.
+			const after = await repo.findOne({ where: { id: verified.id } });
+			expect(after!.emailVerificationToken).toBeNull();
+		});
+
+		test('regenerates token + extends TTL for unverified user', async () => {
+			const repo = getTestDataSource().getRepository(User);
+			const uniqueId = Date.now() + Math.random().toString(36).substring(7);
+			const oldToken = 'a'.repeat(64);
+			const oldExpiry = new Date(Date.now() + 1000);
+			const user = repo.create({
+				id: uuidv4(),
+				email: `unverified_${uniqueId}@example.com`,
+				displayName: 'Unverified',
+				password: 'password123',
+				emailVerified: false,
+				emailVerificationToken: oldToken,
+				emailVerificationExpiresAt: oldExpiry,
+			});
+			await repo.save(user);
+
+			const req = createMockRequest({ body: { email: user.email } });
+			const res = createMockResponse();
+			await authController.resendVerification(req, res, mockNext);
+			expect(res.json).toHaveBeenCalledWith({ message: genericMessage });
+
+			const fresh = await repo.findOne({ where: { id: user.id } });
+			expect(fresh!.emailVerificationToken).toBeTruthy();
+			expect(fresh!.emailVerificationToken).not.toBe(oldToken);
+			expect(fresh!.emailVerificationExpiresAt!.getTime()).toBeGreaterThan(oldExpiry.getTime());
+			// New TTL roughly 48h
+			const ttlMs = fresh!.emailVerificationExpiresAt!.getTime() - Date.now();
+			expect(ttlMs).toBeGreaterThan(47 * 3600 * 1000);
+			expect(ttlMs).toBeLessThan(49 * 3600 * 1000);
 		});
 	});
 });

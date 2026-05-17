@@ -34,6 +34,54 @@
         <p>Por favor, espera un momento...</p>
       </div>
 
+      <!-- Email-not-verified state (403 EMAIL_NOT_VERIFIED from /invitations/accept) -->
+      <div v-else-if="emailVerifiedError" class="error-section">
+        <div class="info-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 4H20C21.1 4 22 4.9 22 6V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V6C2 4.9 2.9 4 4 4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="22,6 12,13 2,6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h2>Verifica tu correo primero</h2>
+        <p class="invitation-description">
+          Antes de aceptar la invitación a <strong>{{ invitationData?.community?.name }}</strong>,
+          confirma tu correo electrónico. Te enviamos un mensaje con un enlace de verificación;
+          si no lo encuentras, podemos reenviarlo.
+        </p>
+        <div v-if="resendMessage" class="alert" :class="resendError ? 'alert-error' : 'alert-success'">
+          {{ resendMessage }}
+        </div>
+        <div class="action-buttons">
+          <button class="btn btn-primary btn-large" @click="resendVerification" :disabled="resending">
+            <div v-if="resending" class="btn-spinner"></div>
+            <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 4H20C21.1 4 22 4.9 22 6V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V6C2 4.9 2.9 4 4 4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <polyline points="22,6 12,13 2,6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            {{ resending ? 'Enviando…' : 'Reenviar correo de verificación' }}
+          </button>
+          <button class="btn btn-secondary btn-large" @click="goToDashboard">
+            Ir al panel
+          </button>
+        </div>
+      </div>
+
+      <!-- Invitation-expired state (410 INVITATION_EXPIRED from /invitations/accept) -->
+      <div v-else-if="expiredError" class="error-section">
+        <div class="error-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+            <polyline points="12,6 12,12 16,14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h2>Esta invitación ha expirado</h2>
+        <p class="invitation-description">
+          El enlace para aceptar la invitación caducó. Pide a un coordinador de la comunidad
+          que te envíe una nueva invitación.
+        </p>
+        <button class="btn btn-primary" @click="goToDashboard">Ir al panel</button>
+      </div>
+
       <!-- Error State -->
       <div v-else-if="error" class="error-section">
         <div class="error-icon">
@@ -292,6 +340,7 @@ import { getCommunityInvitationStatus, acceptCommunityInvitation } from '@/servi
 import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha';
 import { formatDate } from '@repo/utils';
 import { useAuthStore } from '@/stores/authStore';
+import { api } from '@/services/api';
 
 const route = useRoute();
 const router = useRouter();
@@ -303,6 +352,15 @@ const invitationData = ref<any>(null);
 const isSubmitting = ref(false);
 const formError = ref('');
 const accepted = ref(false);
+
+// Vuln 2 hardening UI states — when /invitations/accept returns specific codes:
+//  - 403 EMAIL_NOT_VERIFIED → show the email-verification CTA
+//  - 410 INVITATION_EXPIRED → show "expired, ask coordinator" CTA
+const emailVerifiedError = ref(false);
+const expiredError = ref(false);
+const resending = ref(false);
+const resendMessage = ref('');
+const resendError = ref(false);
 
 const token = route.params.token as string;
 
@@ -375,13 +433,42 @@ const acceptInvitation = async () => {
       goToCommunity();
     }, 2000);
   } catch (err: any) {
-    formError.value = 'Error al aceptar la invitación';
     console.error('Error accepting community invitation:', err);
-    if (err.response?.data?.message) {
-      formError.value = err.response.data.message;
+    const status = err?.response?.status;
+    const errorCode = err?.response?.data?.error;
+    // Vuln 2 hardening: surface the typed error states so the user gets a
+    // concrete next step, not a generic "Error al aceptar la invitación".
+    if (status === 403 && errorCode === 'EMAIL_NOT_VERIFIED') {
+      emailVerifiedError.value = true;
+      return;
     }
+    if (status === 410 && errorCode === 'INVITATION_EXPIRED') {
+      expiredError.value = true;
+      return;
+    }
+    formError.value = err?.response?.data?.message || 'Error al aceptar la invitación';
   } finally {
     isSubmitting.value = false;
+  }
+};
+
+const resendVerification = async () => {
+  if (!authStore.user?.email || resending.value) return;
+  resending.value = true;
+  resendError.value = false;
+  resendMessage.value = '';
+  try {
+    const res = await api.post('/auth/resend-verification', { email: authStore.user.email });
+    resendMessage.value =
+      res.data?.message ||
+      'Si la cuenta existe, te enviamos un nuevo correo de verificación.';
+  } catch (err: any) {
+    // Endpoint is anti-enum so non-200 is unusual; still show a friendly message.
+    resendError.value = true;
+    resendMessage.value =
+      err?.response?.data?.message || 'No pudimos reenviar el correo. Inténtalo más tarde.';
+  } finally {
+    resending.value = false;
   }
 };
 
@@ -656,6 +743,12 @@ onMounted(() => {
   background: #fef2f2;
   color: #dc2626;
   border: 1px solid #fecaca;
+}
+
+.alert-success {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
 }
 
 /* Action buttons container */
