@@ -783,6 +783,49 @@ export const requireCommunityAccess = (communityIdParam: string = 'id'): any => 
 	};
 };
 
+// SECURITY: requireCommunityOwner — solo permite a owner (o superadmin) ejecutar
+// operaciones destructivas o de gestión de admins. Un admin invitado NO pasa.
+// Usado para: editar/eliminar community, eliminar miembros, invitar/revocar admins.
+export const requireCommunityOwner = (communityIdParam: string = 'id'): any => {
+	return async (req: any, res: Response, next: NextFunction) => {
+		try {
+			if (!req.user) {
+				return res.status(401).json({ message: 'Unauthorized' });
+			}
+			const communityId = req.params[communityIdParam];
+			if (!communityId) {
+				return res.status(400).json({ message: 'Community ID is required' });
+			}
+
+			const isSuperadmin = await authorizationService.hasRole(req.user.id, 'superadmin');
+			if (isSuperadmin) {
+				req.communityAdmin = null;
+				return next();
+			}
+
+			const { CommunityAdmin } = await import('../entities/communityAdmin.entity');
+			const adminRecord = await AppDataSource.getRepository(CommunityAdmin).findOne({
+				where: {
+					communityId,
+					userId: req.user.id,
+					status: 'active',
+					role: 'owner',
+				},
+			});
+
+			if (!adminRecord) {
+				return res.status(403).json({ message: 'Forbidden — owner role required' });
+			}
+
+			req.communityAdmin = adminRecord;
+			next();
+		} catch (error) {
+			console.error('Community owner check error:', error);
+			return res.status(500).json({ message: 'Internal server error' });
+		}
+	};
+};
+
 // Community meeting authorization middleware - looks up community from meeting ID
 export const requireCommunityMeetingAccess = (meetingIdParam: string = 'id'): any => {
 	return async (req: any, res: Response, next: NextFunction) => {

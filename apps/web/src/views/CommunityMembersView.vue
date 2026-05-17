@@ -128,6 +128,33 @@
         </DropdownMenu>
       </div>
 
+      <!-- Pending verifications banner: visible solo cuando hay solicitudes pendientes -->
+      <div
+        v-if="pendingCount > 0 && stateFilter !== 'pending_verification'"
+        class="flex items-center justify-between gap-3 p-4 rounded-xl border-2 border-yellow-300 bg-yellow-50"
+        role="status"
+        aria-live="polite"
+      >
+        <div class="flex items-center gap-3">
+          <div class="shrink-0 w-10 h-10 rounded-full bg-yellow-200 text-yellow-900 flex items-center justify-center font-bold">
+            {{ pendingCount }}
+          </div>
+          <div>
+            <p class="font-medium text-yellow-900">
+              {{ pendingCount === 1 ? '1 solicitud pendiente de revisión' : `${pendingCount} solicitudes pendientes de revisión` }}
+            </p>
+            <p class="text-xs text-yellow-800">Hay personas esperando que apruebes o rechaces su unión a la comunidad.</p>
+          </div>
+        </div>
+        <Button
+          size="sm"
+          class="bg-yellow-600 hover:bg-yellow-700 text-white shrink-0"
+          @click="stateFilter = 'pending_verification'"
+        >
+          Revisar
+        </Button>
+      </div>
+
       <!-- Filter Presets -->
       <div class="flex items-center gap-2" role="group" aria-label="Filtros rápidos de miembros">
         <span class="text-sm text-muted-foreground">Filtros rápidos:</span>
@@ -197,6 +224,18 @@
         >
           Pendientes
         </Button>
+      </div>
+
+      <!-- Banner: viewer es admin no-owner, datos trimmed -->
+      <div
+        v-if="hasTrimmedData"
+        class="flex items-start gap-3 p-3 rounded-lg border border-stone-200 bg-stone-50 text-sm"
+        role="status"
+      >
+        <Info :size="18" class="text-stone-400 shrink-0 mt-0.5" />
+        <p class="text-stone-600">
+          Estás viendo la lista como <strong>admin</strong>. Algunos campos (dirección, fecha de nacimiento, información médica, contactos de emergencia) solo son visibles para el <strong>owner</strong> de la comunidad.
+        </p>
       </div>
 
       <!-- Live region for filter results -->
@@ -306,8 +345,8 @@
                     </TooltipContent>
                   </Tooltip>
 
-                  <!-- Remove Button -->
-                  <Tooltip>
+                  <!-- Remove Button — owner-only (admin no-owner no puede eliminar miembros) -->
+                  <Tooltip v-if="communityStore.isOwnerOrSuperadmin">
                     <TooltipTrigger as-child>
                       <Button variant="ghost" size="icon" @click="confirmRemove(member)" class="text-destructive">
                         <UserMinus class="w-4 h-4" />
@@ -392,7 +431,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
-import { Loader2, UserPlus, UserMinus, Search, ChevronRight, ChevronUp, ChevronDown, Download, FileText, History, MessageSquare, Settings2, Eye, EyeOff, Check } from 'lucide-vue-next';
+import { Loader2, UserPlus, UserMinus, Search, ChevronRight, ChevronUp, ChevronDown, Download, FileText, History, MessageSquare, Settings2, Eye, EyeOff, Check, Info } from 'lucide-vue-next';
 import {
   Button, Input, Card, Badge,
   Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
@@ -487,6 +526,17 @@ onMounted(async () => {
 const fetchMembers = async () => {
   await communityStore.fetchMembers(props.id);
 };
+
+// Conteo de miembros pendientes de verificación (para el banner amarillo)
+const pendingCount = computed(() =>
+  members.value.filter((m: any) => m.state === 'pending_verification').length
+);
+
+// SECURITY: detectar si el response viene trimmed (admin no-owner).
+// El backend marca participant._trimmed=true cuando aplicó el filtro de PII.
+const hasTrimmedData = computed(() =>
+  members.value.some((m: any) => m.participant?._trimmed === true)
+);
 
 const filteredMembers = computed(() => {
   let filtered = members.value.filter(member => {

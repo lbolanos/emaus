@@ -16,7 +16,8 @@
             <span>{{ $t('community.admin.admins') }}</span>
           </div>
         </div>
-        <Button @click="isInviteModalOpen = true">
+        <!-- SECURITY: solo owner/superadmin pueden invitar admins -->
+        <Button v-if="communityStore.isOwnerOrSuperadmin" @click="isInviteModalOpen = true">
           <UserPlus class="w-4 h-4 mr-2" />
           {{ $t('community.admin.invite') }}
         </Button>
@@ -87,7 +88,8 @@
                     <Button variant="ghost" size="icon" @click="copyInviteLink(invitation)">
                       <Copy class="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" class="text-destructive" @click="confirmRevoke(invitation)">
+                    <!-- SECURITY: revocar admins es owner-only -->
+                    <Button v-if="communityStore.isOwnerOrSuperadmin" variant="ghost" size="icon" class="text-destructive" @click="confirmRevoke(invitation)">
                       <Trash2 class="w-4 h-4" />
                     </Button>
                   </div>

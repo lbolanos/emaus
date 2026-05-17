@@ -55,4 +55,14 @@ export class CommunityMember {
 
 	@UpdateDateColumn()
 	updatedAt!: Date;
+
+	// Auditoría de cambios de estado (G5)
+	@Column({ type: 'varchar', length: 36, nullable: true })
+	verifiedBy?: string | null;
+
+	@Column({ type: 'datetime', nullable: true })
+	verifiedAt?: Date | null;
+
+	@Column({ type: 'varchar', length: 50, nullable: true })
+	previousState?: string | null;
 }

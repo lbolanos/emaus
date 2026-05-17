@@ -1109,6 +1109,22 @@ export async function getCommunities(): Promise<Community[]> {
   return response.data;
 }
 
+// G4: Comunidades donde el user actual es miembro activo, con próximas reuniones
+export async function getMyCommunities(): Promise<Array<{
+  community: Community;
+  memberId: string;
+  joinedAt: string;
+  upcomingMeetings: Array<{ id: string; title: string; startDate: string; description?: string }>;
+}>> {
+  const response = await api.get("/communities/my");
+  return response.data;
+}
+
+// G3: Disparar notificación manual a miembros sobre una reunión
+export async function notifyMeetingMembers(communityId: string, meetingId: string): Promise<void> {
+  await api.post(`/communities/${communityId}/meetings/${meetingId}/notify`);
+}
+
 export async function getCommunityById(id: string): Promise<Community> {
   const response = await api.get(`/communities/${id}`);
   return response.data;

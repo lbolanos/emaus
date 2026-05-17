@@ -532,7 +532,16 @@ export const useCommunityStore = defineStore('community', () => {
 
 	const canUndo = computed(() => actionHistory.value.length > 0);
 
+	// SECURITY: helpers para que las views oculten acciones owner-only.
+	// El backend incluye `viewerRole` en GET /:id; aquí lo exponemos como computed.
+	const viewerRole = computed(() => (currentCommunity.value as any)?.viewerRole as 'superadmin' | 'owner' | 'admin' | null | undefined);
+	const isOwnerOrSuperadmin = computed(
+		() => viewerRole.value === 'owner' || viewerRole.value === 'superadmin',
+	);
+
 	return {
+		viewerRole,
+		isOwnerOrSuperadmin,
 		communities,
 		currentCommunity,
 		members,

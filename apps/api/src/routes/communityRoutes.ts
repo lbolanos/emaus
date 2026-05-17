@@ -6,9 +6,10 @@ import {
 	requirePermission,
 	requireRole,
 	requireCommunityAccess,
+	requireCommunityOwner,
 	requireCommunityMeetingAccess,
 } from '../middleware/authorization';
-import { publicCommunityRegisterLimiter } from '../middleware/rateLimiting';
+import { publicCommunityRegisterLimiter, meetingNotifyLimiter } from '../middleware/rateLimiting';
 import {
 	createCommunitySchema,
 	updateCommunitySchema,
@@ -55,6 +56,9 @@ router.post('/:id/join-public', (req, res) => CommunityController.publicJoinRequ
 // All other community routes require authentication
 router.use(isAuthenticated);
 
+// G4: Vista del miembro — comunidades del usuario actual con próximas reuniones
+router.get('/my', (req, res) => CommunityController.getMyCommunities(req, res));
+
 // Superadmin moderation routes for public community registrations
 router.get('/pending', requireRole('superadmin'), (req, res) =>
 	CommunityController.listPendingCommunities(req, res),
@@ -81,7 +85,8 @@ router.post(
 router.get('/:id', requireCommunityAccess(), (req, res) =>
 	CommunityController.getCommunityById(req, res),
 );
-router.put('/:id', requireCommunityAccess(), validateRequest(updateCommunitySchema), (req, res) =>
+// SECURITY: editar metadata de la community es owner-only
+router.put('/:id', requireCommunityOwner(), validateRequest(updateCommunitySchema), (req, res) =>
 	CommunityController.updateCommunity(req, res),
 );
 router.delete('/:id', requirePermission('community:delete'), (req, res) =>
@@ -113,7 +118,8 @@ router.put(
 	validateRequest(updateMemberStateSchema),
 	(req, res) => CommunityController.updateMemberState(req, res),
 );
-router.delete('/:id/members/:memberId', requireCommunityAccess(), (req, res) =>
+// SECURITY: remover miembros es owner-only (destructivo)
+router.delete('/:id/members/:memberId', requireCommunityOwner(), (req, res) =>
 	CommunityController.removeMember(req, res),
 );
 router.patch('/:id/members/:memberId/notes', requireCommunityAccess(), (req, res) =>
@@ -146,6 +152,18 @@ router.post('/meetings/:id/next-instance', requireCommunityMeetingAccess(), (req
 	CommunityController.createNextMeetingInstance(req, res),
 );
 
+// G3: Re-disparar notificación a miembros sobre una reunión (botón "Notificar").
+// SECURITY: usar requireCommunityMeetingAccess para que la autorización se resuelva
+// contra la comunidad REAL del meeting, no contra el :id del URL — evita IDOR
+// cross-tenant donde un admin de comunidad A podría disparar emails a comunidad B
+// usando un meetingId de B.
+router.post(
+	'/:id/meetings/:meetingId/notify',
+	meetingNotifyLimiter,
+	requireCommunityMeetingAccess('meetingId'),
+	(req, res) => CommunityController.notifyMembersOfMeeting(req, res),
+);
+
 // Attendance
 router.get('/:id/meetings/:meetingId/attendance', requireCommunityAccess(), (req, res) =>
 	CommunityController.getAttendance(req, res),
@@ -169,13 +187,14 @@ router.get('/:id/dashboard', requireCommunityAccess(), (req, res) =>
 router.get('/:id/admins', requireCommunityAccess(), (req, res) =>
 	CommunityController.getAdmins(req, res),
 );
+// SECURITY: gestión de admins es owner-only — un admin no puede invitar más admins
 router.post(
 	'/:id/admins/invite',
-	requireCommunityAccess(),
+	requireCommunityOwner(),
 	validateRequest(inviteCommunityAdminSchema),
 	(req, res) => CommunityController.inviteAdmin(req, res),
 );
-router.delete('/:id/admins/:userId', requireCommunityAccess(), (req, res) =>
+router.delete('/:id/admins/:userId', requireCommunityOwner(), (req, res) =>
 	CommunityController.revokeAdmin(req, res),
 );
 

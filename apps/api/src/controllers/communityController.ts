@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { CommunityService } from '../services/communityService';
 import { RecaptchaService } from '../services/recaptchaService';
+import { authorizationService } from '../middleware/authorization';
+import { communityAuditService, CommunityAuditAction } from '../services/communityAuditService';
 import {
 	createCommunitySchema,
 	updateCommunitySchema,
@@ -36,18 +38,48 @@ export class CommunityController {
 		if (!community) {
 			return res.status(404).json({ message: 'Community not found' });
 		}
-		res.json(community);
+		// SECURITY: incluir el rol del viewer en el response para que el frontend
+		// pueda ocultar acciones owner-only (editar community, eliminar miembros,
+		// gestionar admins). Owner/superadmin ven todo; admin solo lo permitido.
+		const user = req.user as any;
+		const isSuperadmin = user?.id
+			? await authorizationService.hasRole(user.id, 'superadmin')
+			: false;
+		const viewerRole = user?.id
+			? await communityService.getViewerRoleForCommunity(user.id, id, isSuperadmin)
+			: null;
+		res.json({ ...community, viewerRole });
 	}
 
 	static async updateCommunity(req: Request, res: Response) {
 		const { id } = req.params;
 		const community = await communityService.updateCommunity(id, req.body);
+		// Audit log (fire-and-forget)
+		void communityAuditService.log({
+			action: CommunityAuditAction.UPDATE,
+			resourceType: 'community',
+			resourceId: id,
+			communityId: id,
+			actorUserId: (req.user as any)?.id,
+			metadata: { changedFields: Object.keys(req.body || {}) },
+			ipAddress: req.ip,
+			userAgent: req.get('user-agent'),
+		});
 		res.json(community);
 	}
 
 	static async deleteCommunity(req: Request, res: Response) {
 		const { id } = req.params;
 		await communityService.deleteCommunity(id);
+		void communityAuditService.log({
+			action: CommunityAuditAction.DELETE,
+			resourceType: 'community',
+			resourceId: id,
+			communityId: id,
+			actorUserId: (req.user as any)?.id,
+			ipAddress: req.ip,
+			userAgent: req.get('user-agent'),
+		});
 		res.status(204).send();
 	}
 
@@ -56,7 +88,17 @@ export class CommunityController {
 	static async getMembers(req: Request, res: Response) {
 		const { id } = req.params;
 		const { state } = req.query;
-		const members = await communityService.getMembers(id, state as any);
+		const user = req.user as any;
+		// SECURITY (P2): trimming según el rol del viewer.
+		// Admin no-owner solo ve campos básicos del participant.
+		const isSuperadmin = user?.id
+			? await authorizationService.hasRole(user.id, 'superadmin')
+			: false;
+		const members = await communityService.getMembersForViewer(
+			id,
+			{ userId: user?.id, isSuperadmin },
+			state as any,
+		);
 		res.json(members);
 	}
 
@@ -92,15 +134,35 @@ export class CommunityController {
 	}
 
 	static async updateMemberState(req: Request, res: Response) {
-		const { memberId } = req.params;
+		const { id: communityId, memberId } = req.params;
 		const { state } = req.body;
-		const member = await communityService.updateMemberState(memberId, state);
+		const actorUserId = (req.user as any)?.id;
+		const member = await communityService.updateMemberState(memberId, state, actorUserId);
+		void communityAuditService.log({
+			action: CommunityAuditAction.MEMBER_STATE_CHANGE,
+			resourceType: 'community_member',
+			resourceId: memberId,
+			communityId,
+			actorUserId,
+			metadata: { newState: state, previousState: (member as any)?.previousState },
+			ipAddress: req.ip,
+			userAgent: req.get('user-agent'),
+		});
 		res.json(member);
 	}
 
 	static async removeMember(req: Request, res: Response) {
-		const { memberId } = req.params;
+		const { id: communityId, memberId } = req.params;
 		await communityService.removeMember(memberId);
+		void communityAuditService.log({
+			action: CommunityAuditAction.MEMBER_REMOVE,
+			resourceType: 'community_member',
+			resourceId: memberId,
+			communityId,
+			actorUserId: (req.user as any)?.id,
+			ipAddress: req.ip,
+			userAgent: req.get('user-agent'),
+		});
 		res.status(204).send();
 	}
 
@@ -167,6 +229,30 @@ export class CommunityController {
 	}
 
 	// --- Recurrence Instance Management ---
+
+	static async getMyCommunities(req: Request, res: Response) {
+		try {
+			const userId = (req.user as any)?.id;
+			if (!userId) return res.status(401).json({ message: 'Not authenticated' });
+			const data = await communityService.getMyCommunitiesWithMeetings(userId);
+			res.json(data);
+		} catch (error: any) {
+			res.status(500).json({ message: error.message || 'Failed to fetch communities' });
+		}
+	}
+
+	static async notifyMembersOfMeeting(req: Request, res: Response) {
+		const { id: communityId, meetingId } = req.params;
+		try {
+			// Pasar expectedCommunityId al service para defense-in-depth (cross-tenant block)
+			communityService.notifyMembersOfMeeting(meetingId, communityId).catch((err) => {
+				console.error('[notifyMembersOfMeeting controller]', err);
+			});
+			res.status(202).json({ message: 'Notification queued' });
+		} catch (error: any) {
+			res.status(500).json({ message: error.message || 'Failed to queue notification' });
+		}
+	}
 
 	static async createNextMeetingInstance(req: Request, res: Response) {
 		const { id: meetingId } = req.params;
@@ -291,6 +377,16 @@ export class CommunityController {
 		const { email } = req.body;
 		const userId = (req.user as any).id;
 		const invitation = await communityService.inviteAdmin(id, email, userId);
+		void communityAuditService.log({
+			action: CommunityAuditAction.ADMIN_INVITE,
+			resourceType: 'community_admin',
+			resourceId: (invitation as any)?.id,
+			communityId: id,
+			actorUserId: userId,
+			metadata: { invitedEmail: email },
+			ipAddress: req.ip,
+			userAgent: req.get('user-agent'),
+		});
 		res.status(201).json(invitation);
 	}
 
@@ -315,8 +411,26 @@ export class CommunityController {
 		}
 
 		const userId = (req.user as any).id;
-		const admin = await communityService.acceptInvitation(token, userId);
-		res.json(admin);
+		try {
+			const admin = await communityService.acceptInvitation(token, userId);
+			res.json(admin);
+		} catch (err: any) {
+			// Translate service-level codes to HTTP responses.
+			// 403 EMAIL_NOT_VERIFIED, 410 INVITATION_EXPIRED, 400 generic.
+			if (err?.code === 'EMAIL_NOT_VERIFIED') {
+				return res.status(403).json({
+					message: 'Debes verificar tu correo antes de aceptar invitaciones.',
+					error: 'EMAIL_NOT_VERIFIED',
+				});
+			}
+			if (err?.code === 'INVITATION_EXPIRED') {
+				return res.status(410).json({
+					message: 'Esta invitación ha expirado. Solicita una nueva.',
+					error: 'INVITATION_EXPIRED',
+				});
+			}
+			return res.status(400).json({ message: err?.message || 'Invalid invitation' });
+		}
 	}
 
 	static async getInvitationStatus(req: Request, res: Response) {
@@ -331,6 +445,15 @@ export class CommunityController {
 	static async revokeAdmin(req: Request, res: Response) {
 		const { id, userId } = req.params;
 		await communityService.revokeAdmin(id, userId);
+		void communityAuditService.log({
+			action: CommunityAuditAction.ADMIN_REVOKE,
+			resourceType: 'community_admin',
+			resourceId: userId,
+			communityId: id,
+			actorUserId: (req.user as any)?.id,
+			ipAddress: req.ip,
+			userAgent: req.get('user-agent'),
+		});
 		res.status(204).send();
 	}
 
@@ -379,14 +502,21 @@ export class CommunityController {
 				});
 			}
 
-			const member = await communityService.createPublicJoinRequest(id, {
-				firstName,
-				lastName,
-				email,
-				cellPhone,
-			});
-
-			res.status(201).json(member);
+			try {
+				const member = await communityService.createPublicJoinRequest(id, {
+					firstName,
+					lastName,
+					email,
+					cellPhone,
+				});
+				return res.status(201).json(member);
+			} catch (err: any) {
+				// Race condition o duplicado detectado dentro de la transacción
+				if (err?.code === 'ALREADY_MEMBER') {
+					return res.status(409).json({ message: 'Already a member of this community' });
+				}
+				throw err;
+			}
 		} catch (error: any) {
 			res.status(500).json({
 				message: error.message || 'Failed to submit join request',

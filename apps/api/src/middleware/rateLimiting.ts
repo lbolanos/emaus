@@ -149,6 +149,65 @@ export const publicCommunityRegisterLimiter = rateLimit({
 });
 
 /**
+ * Limiter for resend-verification: prevents email-flood by replaying registration.
+ * Keyed by email (lowercased) so an attacker can't bypass by rotating IPs.
+ */
+export const resendVerificationLimiter = rateLimit({
+	windowMs: 60 * 60 * 1000, // 1 hour
+	max: 3, // 3 resends per email per hour
+	keyGenerator: (req: Request) => {
+		const email = ((req.body?.email as string) || '').toLowerCase().trim();
+		return `resend-verify:${email || req.ip || 'unknown'}`;
+	},
+	message: {
+		message: 'Demasiados intentos de reenvío. Espera 1 hora.',
+		error: 'RESEND_VERIFICATION_RATE_LIMIT_EXCEEDED',
+	},
+	handler: (req: Request, res: Response) => {
+		console.warn(`⚠️  Rate limit - Resend verification: email=${req.body?.email}`);
+		res.status(429).json({
+			message: 'Demasiados intentos de reenvío. Espera 1 hora.',
+			error: 'RESEND_VERIFICATION_RATE_LIMIT_EXCEEDED',
+		});
+	},
+	skip: (req: Request) => {
+		return process.env.NODE_ENV === 'development' && process.env.SKIP_RATE_LIMIT === 'true';
+	},
+});
+
+/**
+ * Limiter para el endpoint de notificación de reunión (G3).
+ * Previene que un admin malicioso (o un script abusando una sesión válida) dispare
+ * spam-emails masivos a los miembros de su comunidad. Key por user+meetingId para
+ * que distintos meetings tengan cuotas independientes.
+ */
+export const meetingNotifyLimiter = rateLimit({
+	windowMs: 60 * 60 * 1000, // 1 hora
+	max: 5, // Máx 5 notificaciones del MISMO meeting por user por hora
+	keyGenerator: (req: Request) => {
+		const userId = (req as any).user?.id || 'anonymous';
+		const meetingId = req.params.meetingId || 'unknown';
+		return `notify:${userId}:${meetingId}`;
+	},
+	message: {
+		message: 'Demasiadas notificaciones para esta reunión. Espera 1 hora.',
+		error: 'NOTIFY_RATE_LIMIT_EXCEEDED',
+	},
+	handler: (req: Request, res: Response) => {
+		console.warn(
+			`⚠️  Rate limit - Notify: user=${(req as any).user?.id} meeting=${req.params.meetingId}`,
+		);
+		res.status(429).json({
+			message: 'Demasiadas notificaciones para esta reunión. Espera 1 hora.',
+			error: 'NOTIFY_RATE_LIMIT_EXCEEDED',
+		});
+	},
+	skip: (req: Request) => {
+		return process.env.NODE_ENV === 'development' && process.env.SKIP_RATE_LIMIT === 'true';
+	},
+});
+
+/**
  * Newsletter subscribe/unsubscribe rate limiter (prevent email bombing)
  */
 export const newsletterLimiter = rateLimit({

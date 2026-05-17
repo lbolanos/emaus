@@ -36,14 +36,26 @@
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem @click="openEditModal(community)">
+                <!-- SECURITY: editar y eliminar son owner-only (con bypass superadmin) -->
+                <DropdownMenuItem
+                  v-if="canManage(community)"
+                  @click="openEditModal(community)"
+                >
                   <Edit class="w-4 h-4 mr-2" />
                   {{ $t('community.editCommunity') }}
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem @click="confirmDelete(community)" class="text-destructive focus:text-destructive">
+                <DropdownMenuSeparator v-if="canManage(community)" />
+                <DropdownMenuItem
+                  v-if="canManage(community)"
+                  @click="confirmDelete(community)"
+                  class="text-destructive focus:text-destructive"
+                >
                   <Trash2 class="w-4 h-4 mr-2" />
                   {{ $t('community.deleteCommunity') }}
+                </DropdownMenuItem>
+                <!-- Si el viewer es admin no-owner, mostrar mensaje breve -->
+                <DropdownMenuItem v-if="!canManage(community)" disabled>
+                  <span class="text-xs text-muted-foreground">Solo lectura (admin)</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -279,6 +291,12 @@ const isFormModalOpen = ref(false);
 const isDeleteDialogOpen = ref(false);
 const isSaving = ref(false);
 const editingCommunity = ref<any>(null);
+
+// SECURITY: solo owner/superadmin pueden editar/eliminar una community.
+// El backend bloquea con 403 también; esto solo oculta los botones en UI.
+const canManage = (community: any): boolean => {
+  return community?.viewerRole === 'owner' || community?.viewerRole === 'superadmin';
+};
 const communityToDelete = ref<any>(null);
 const address1_is_editing = ref(true);
 const autocompleteField = ref<any>(null);

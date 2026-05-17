@@ -26,6 +26,41 @@
     "loading": "Cargando...",
     "registerFailed": "No se pudo completar el registro"
   },
+  "emailVerify": {
+    "title": "Verificación de correo",
+    "checking": "Verificando tu correo…",
+    "successHint": "Ya puedes usar tu cuenta sin restricciones. Si fuiste invitado a una comunidad, ahora podrás aceptar la invitación.",
+    "goLogin": "Ir a iniciar sesión",
+    "invalidOrExpired": "Token de verificación inválido o expirado.",
+    "errorHint": "El link pudo haber expirado o ya fue usado. Solicita un nuevo correo de verificación.",
+    "emailLabel": "Correo electrónico",
+    "emailPlaceholder": "tu{'@'}correo.com",
+    "resend": "Reenviar correo de verificación",
+    "resending": "Enviando…",
+    "backToLogin": "Volver al inicio de sesión",
+    "successDefault": "Correo verificado correctamente.",
+    "errorDefault": "No se pudo verificar tu correo.",
+    "resendGeneric": "Si la cuenta existe, te enviamos un nuevo correo.",
+    "banner": {
+      "message": "Verifica tu correo electrónico para activar todas las funciones de tu cuenta.",
+      "resend": "Reenviar correo",
+      "sending": "Enviando…",
+      "sent": "Correo enviado",
+      "close": "Cerrar"
+    }
+  },
+  "myCommunities": {
+    "title": "Mis Comunidades",
+    "subtitle": "Comunidades donde eres miembro y próximas reuniones",
+    "emptyTitle": "Aún no perteneces a ninguna comunidad",
+    "emptyDesc": "Encuentra una comunidad Emaús cerca de ti.",
+    "findCommunity": "Encontrar comunidad",
+    "errorLoading": "Hubo un error cargando tus comunidades. Intenta recargar la página.",
+    "member": "Miembro",
+    "upcoming": "Próximas reuniones",
+    "confirm": "Confirmar",
+    "noMeetings": "Sin reuniones programadas."
+  },
   "landing": {
     "tagline": "Un Viaje de Fe, Esperanza y Comunidad",
     "emmaus": "Emaús",
@@ -55,10 +90,41 @@
     "findNearest": "Encuentra los 3 círculos más cercanos automáticamente",
     "searchPlaceholder": "Buscar por ciudad o código postal...",
     "search": "Buscar",
+    "clearSearch": "Limpiar",
+    "noCommunitiesFound": "No se encontraron comunidades",
+    "clearFilters": "Limpiar filtros",
+    "locationError": "No se pudo obtener tu ubicación",
+    "locationNotSupported": "Tu navegador no soporta geolocalización",
+    "fetchError": "Error al cargar comunidades",
+    "fetchErrorDesc": "No pudimos conectar con el servidor. Intenta recargar la página.",
+    "communitiesFound": "no hay comunidades | 1 comunidad encontrada | {count} comunidades encontradas",
+    "showingXofY": "Mostrando {shown} de 1 comunidad | Mostrando {shown} de {total} comunidades",
+    "usingLocation": "Ordenadas por tu ubicación",
+    "detail": {
+      "parish": "Parroquia",
+      "diocese": "Diócesis",
+      "weeklyMeeting": "Reunión semanal",
+      "address": "Dirección",
+      "website": "Sitio web",
+      "days": {
+        "monday": "Lunes",
+        "tuesday": "Martes",
+        "wednesday": "Miércoles",
+        "thursday": "Jueves",
+        "friday": "Viernes",
+        "saturday": "Sábado",
+        "sunday": "Domingo"
+      }
+    },
     "nearestCircle": "Círculo Más Cercano",
     "join": "Unirse",
     "communityMeetings": "Horarios de Reuniones",
     "noUpcomingMeetings": "No hay reuniones programadas en este momento.",
+    "noScheduleYet": "Horario por confirmar",
+    "noLocation": "Sin ubicación en mapa",
+    "noLocationDesc": "Esta comunidad aún no tiene coordenadas registradas",
+    "mapLoading": "Cargando mapa…",
+    "geoDenied": "Acceso a ubicación bloqueado en tu navegador",
     "tableHeaders": {
       "community": "Comunidad",
       "schedule": "Horario",
@@ -111,6 +177,7 @@
       "alreadyMember": "Ya eres miembro de esta comunidad.",
       "validationError": "Error de validación",
       "validationErrorDesc": "Por favor corrige los errores e intenta de nuevo.",
+      "consentLabel": "Acepto que mis datos personales (nombre, correo y teléfono) sean compartidos con los coordinadores de esta comunidad para procesar mi solicitud.",
       "validation": {
         "firstName": "El nombre es requerido",
         "firstNameMin": "El nombre debe tener al menos 2 caracteres",
@@ -120,6 +187,7 @@
         "invalidEmail": "Correo electrónico inválido",
         "cellPhone": "El teléfono es requerido",
         "invalidCellPhone": "Teléfono inválido",
+        "consent": "Debes aceptar el uso de tus datos para continuar",
         "messageTooLong": "El mensaje no puede exceder 500 caracteres"
       }
     },
@@ -202,6 +270,7 @@
     "searchPlaceholder": "Buscar...",
     "selectRetreatFirst": "Por favor selecciona un retiro primero",
     "communities": "Comunidades",
+    "myCommunities": "Mis Comunidades",
     "pendingCommunities": "Comunidades pendientes",
     "myProfile": "Mi Perfil",
     "searchUsers": "Buscar Hermanos",

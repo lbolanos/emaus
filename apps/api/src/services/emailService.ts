@@ -158,7 +158,7 @@ export class EmailService {
 		};
 	}
 
-	private isSmtpConfigured(): boolean {
+	isSmtpConfigured(): boolean {
 		return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 	}
 

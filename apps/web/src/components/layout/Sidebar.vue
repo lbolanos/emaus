@@ -572,6 +572,13 @@ const menuSections: MenuSection[] = [
     category: 'community',
     items: [
       {
+        name: 'my-communities',
+        routeName: 'my-communities',
+        icon: UsersRound,
+        requiresRetreat: false,
+        label: 'sidebar.myCommunities'
+      },
+      {
         name: 'communities',
         routeName: 'communities',
         icon: UsersRound,

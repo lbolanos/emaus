@@ -20,6 +20,7 @@ const MedicinesReportView = () => import('../views/MedicinesReportView.vue');
 const LoginView = () => import('../views/LoginView.vue');
 const RequestPasswordResetView = () => import('../views/RequestPasswordResetView.vue');
 const ResetPasswordView = () => import('../views/ResetPasswordView.vue');
+const VerifyEmailView = () => import('../views/VerifyEmailView.vue');
 const ParticipantRegistrationView = () => import('../views/ParticipantRegistrationView.vue');
 const RetreatDashboardView = () => import('../views/RetreatDashboardView.vue');
 const BedAssignmentsView = () => import('../views/BedAssignmentsView.vue');
@@ -85,6 +86,12 @@ const router = createRouter({
 			path: '/reset-password',
 			name: 'reset-password',
 			component: ResetPasswordView,
+			meta: { requiresAuth: false },
+		},
+		{
+			path: '/verify-email',
+			name: 'verify-email',
+			component: VerifyEmailView,
 			meta: { requiresAuth: false },
 		},
 		{
@@ -439,6 +446,12 @@ const router = createRouter({
 					name: 'pending-communities',
 					component: () => import('../views/PendingCommunitiesView.vue'),
 					meta: { requiresRetreat: false, requiresSuperadmin: true },
+				},
+				{
+					path: 'my-communities',
+					name: 'my-communities',
+					component: () => import('../views/MyCommunitiesView.vue'),
+					meta: { requiresRetreat: false },
 				},
 				{
 					path: 'communities/:id',

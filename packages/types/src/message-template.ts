@@ -29,6 +29,11 @@ export const messageTemplateTypes = z.enum([
 	// Family invitation to closing mass
 	'FAMILY_CLOSING_INVITATION_WHATSAPP',
 	'FAMILY_CLOSING_INVITATION_EMAIL',
+	// Community lifecycle notifications (consumed by communityService.renderTemplate)
+	'COMMUNITY_MEETING_INVITATION',
+	'COMMUNITY_MEMBER_APPROVED',
+	'COMMUNITY_JOIN_REQUEST_ADMIN',
+	'COMMUNITY_LINK_REQUEST_CONFIRM',
 	// System-wide templates with SYS_ prefix
 	'SYS_PASSWORD_RESET',
 	'SYS_USER_INVITATION',

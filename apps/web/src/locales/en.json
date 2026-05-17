@@ -26,6 +26,41 @@
     "loading": "Loading...",
     "registerFailed": "Registration failed"
   },
+  "emailVerify": {
+    "title": "Email verification",
+    "checking": "Verifying your email…",
+    "successHint": "You can now use your account without restrictions. If you were invited to a community, you can now accept the invitation.",
+    "goLogin": "Go to login",
+    "invalidOrExpired": "Invalid or expired verification token.",
+    "errorHint": "The link may have expired or already been used. Request a new verification email.",
+    "emailLabel": "Email",
+    "emailPlaceholder": "you{'@'}email.com",
+    "resend": "Resend verification email",
+    "resending": "Sending…",
+    "backToLogin": "Back to login",
+    "successDefault": "Email verified successfully.",
+    "errorDefault": "We couldn't verify your email.",
+    "resendGeneric": "If the account exists, we sent a new email.",
+    "banner": {
+      "message": "Verify your email address to unlock all account features.",
+      "resend": "Resend email",
+      "sending": "Sending…",
+      "sent": "Email sent",
+      "close": "Close"
+    }
+  },
+  "myCommunities": {
+    "title": "My Communities",
+    "subtitle": "Communities where you are a member and upcoming meetings",
+    "emptyTitle": "You don't belong to any community yet",
+    "emptyDesc": "Find an Emmaus community near you.",
+    "findCommunity": "Find community",
+    "errorLoading": "There was an error loading your communities. Try refreshing the page.",
+    "member": "Member",
+    "upcoming": "Upcoming meetings",
+    "confirm": "Confirm",
+    "noMeetings": "No scheduled meetings."
+  },
   "landing": {
     "tagline": "A Journey of Faith, Hope & Community",
     "emmaus": "Emmaus",
@@ -55,10 +90,41 @@
     "findNearest": "Find the nearest 3 circles automatically",
     "searchPlaceholder": "Search by city or zip code...",
     "search": "Search",
+    "clearSearch": "Clear",
+    "noCommunitiesFound": "No communities found",
+    "clearFilters": "Clear filters",
+    "locationError": "Could not get your location",
+    "locationNotSupported": "Your browser does not support geolocation",
+    "fetchError": "Failed to load communities",
+    "fetchErrorDesc": "We couldn't reach the server. Try refreshing the page.",
+    "communitiesFound": "no communities | 1 community found | {count} communities found",
+    "showingXofY": "Showing {shown} of 1 community | Showing {shown} of {total} communities",
+    "usingLocation": "Sorted by your location",
+    "detail": {
+      "parish": "Parish",
+      "diocese": "Diocese",
+      "weeklyMeeting": "Weekly meeting",
+      "address": "Address",
+      "website": "Website",
+      "days": {
+        "monday": "Monday",
+        "tuesday": "Tuesday",
+        "wednesday": "Wednesday",
+        "thursday": "Thursday",
+        "friday": "Friday",
+        "saturday": "Saturday",
+        "sunday": "Sunday"
+      }
+    },
     "nearestCircle": "Nearest Circle",
     "join": "Join",
     "communityMeetings": "Community Meeting Times",
     "noUpcomingMeetings": "No upcoming meetings scheduled at this time.",
+    "noScheduleYet": "Schedule to be confirmed",
+    "noLocation": "Not on map",
+    "noLocationDesc": "This community has no coordinates yet",
+    "mapLoading": "Loading map…",
+    "geoDenied": "Location access blocked in your browser",
     "tableHeaders": {
       "community": "Community",
       "schedule": "Schedule",
@@ -112,6 +178,7 @@
       "validationError": "Validation Error",
       "validationErrorDesc": "Please correct the errors in the form.",
       "alreadyMember": "You are already a member of this community.",
+      "consentLabel": "I agree to share my personal data (name, email, phone) with the community coordinators to process my request.",
       "validation": {
         "firstName": "First name is required",
         "firstNameMin": "First name must be at least 2 characters",
@@ -121,6 +188,7 @@
         "invalidEmail": "Please enter a valid email address",
         "cellPhone": "Phone is required",
         "invalidCellPhone": "Please enter a valid phone number",
+        "consent": "You must accept the use of your data to continue",
         "messageTooLong": "Message must be less than 500 characters"
       }
     },
@@ -199,6 +267,7 @@
     "searchPlaceholder": "Search...",
     "selectRetreatFirst": "Please select a retreat first",
     "communities": "Communities",
+    "myCommunities": "My Communities",
     "pendingCommunities": "Pending communities",
     "myProfile": "My Profile",
     "searchUsers": "Find Members",
