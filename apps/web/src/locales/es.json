@@ -331,6 +331,10 @@
     "deleteConfirm": "¿Estás seguro de que deseas eliminar esta plantilla?",
     "create": "Crear Plantilla",
     "edit": "Editar Plantilla",
+    "globalBadge": "Global",
+    "globalHint": "Plantilla heredada del sistema. Personalízala para tu comunidad sin afectar a otras.",
+    "override": "Personalizar",
+    "overrideHint": "Crea una copia editable de esta plantilla para tu comunidad",
     "table": {
       "name": "Nombre",
       "type": "Tipo",
@@ -452,7 +456,13 @@
       "SYS_ROLE_APPROVED": "Rol Aprobado (Sistema)",
       "SYS_ROLE_REJECTED": "Rol Rechazado (Sistema)",
       "SYS_ROLE_REQUESTED": "Solicitud de Rol (Sistema)",
-      "SYS_EMAIL_VERIFICATION": "Verificación de Correo (Sistema)"
+      "SYS_EMAIL_VERIFICATION": "Verificación de Correo (Sistema)",
+      "FAMILY_CLOSING_INVITATION_WHATSAPP": "Invitación Familia a Clausura (WhatsApp)",
+      "FAMILY_CLOSING_INVITATION_EMAIL": "Invitación Familia a Clausura (Email)",
+      "COMMUNITY_MEETING_INVITATION": "Invitación a Reunión de Comunidad",
+      "COMMUNITY_MEMBER_APPROVED": "Bienvenida al Aprobar Miembro",
+      "COMMUNITY_JOIN_REQUEST_ADMIN": "Solicitud de Unión (a Admins)",
+      "COMMUNITY_LINK_REQUEST_CONFIRM": "Confirmar Acceso a Comunidad"
     }
   },
   "participants": {

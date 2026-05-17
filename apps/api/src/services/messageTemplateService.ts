@@ -9,8 +9,25 @@ export class MessageTemplateService {
 		return this.messageTemplateRepository.find({ where: { retreatId, scope: 'retreat' } });
 	}
 
+	/**
+	 * Returns templates the community owner can see:
+	 *  - community-specific (communityId = :cid)
+	 *  - global fallbacks (communityId IS NULL) so the owner knows what text is
+	 *    being sent by default and can override.
+	 *
+	 * Owners only have write access on community-specific rows; the controller
+	 * blocks edit/delete on globals.
+	 */
 	async findByCommunity(communityId: string): Promise<MessageTemplate[]> {
-		return this.messageTemplateRepository.find({ where: { communityId, scope: 'community' } });
+		return this.messageTemplateRepository
+			.createQueryBuilder('t')
+			.where('t.scope = :scope', { scope: 'community' })
+			.andWhere('(t.communityId = :cid OR t.communityId IS NULL)', { cid: communityId })
+			// community-specific first, then globals, so the same `type` shows
+			// the override above the inherited row.
+			.orderBy('CASE WHEN t.communityId IS NULL THEN 1 ELSE 0 END', 'ASC')
+			.addOrderBy('t.name', 'ASC')
+			.getMany();
 	}
 
 	async findByCommunityAndType(communityId: string, type: string): Promise<MessageTemplate | null> {

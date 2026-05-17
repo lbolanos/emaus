@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@repo/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui';
 import { Badge } from '@repo/ui';
-import { Search, ChevronUp, ChevronDown, Download, ChevronRight } from 'lucide-vue-next';
+import { Search, ChevronUp, ChevronDown, Download, ChevronRight, Globe, Copy } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import type { MessageTemplate } from '@repo/types';
 import BaseMessageTemplateModal from '@/components/BaseMessageTemplateModal.vue';
@@ -137,14 +137,38 @@ const openNewDialog = () => {
 	isDialogOpen.value = true;
 };
 
+// A row is a global fallback (inherited) when communityId is null/undefined.
+// Owners cannot edit/delete these — they can only "override" by creating a
+// community-specific copy via openOverrideDialog.
+const isGlobalTemplate = (template: MessageTemplate): boolean => {
+	return !template.communityId;
+};
+
 const openEditDialog = (template: MessageTemplate) => {
+	if (isGlobalTemplate(template)) return; // safety: edit not allowed on globals
 	currentTemplate.value = { ...template };
 	isDialogOpen.value = true;
 };
 
-const handleDelete = async (id: string) => {
+// Pre-fills the modal with the global template's content but scoped to this
+// community so saving creates a NEW community-specific row that overrides the
+// global on subsequent renderTemplate() lookups.
+const openOverrideDialog = (template: MessageTemplate) => {
+	currentTemplate.value = {
+		// Strip id/timestamps so the modal treats it as "new"
+		name: template.name,
+		type: template.type,
+		message: template.message,
+		scope: 'community',
+		communityId: props.id,
+	};
+	isDialogOpen.value = true;
+};
+
+const handleDelete = async (template: MessageTemplate) => {
+	if (isGlobalTemplate(template)) return; // safety: cannot delete globals
 	if (confirm(t('messageTemplates.deleteConfirm'))) {
-		await store.deleteTemplate(props.id, id);
+		await store.deleteTemplate(props.id, template.id);
 	}
 };
 
@@ -269,7 +293,20 @@ const handleImportComplete = () => {
 										class="hover:bg-muted/30 transition-colors"
 										:class="{ 'bg-muted/20': expandedRows.has(template.id) }"
 									>
-										<TableCell class="font-medium">{{ template.name }}</TableCell>
+										<TableCell class="font-medium">
+											<div class="flex items-center gap-2">
+												<span>{{ template.name }}</span>
+												<Badge
+													v-if="isGlobalTemplate(template)"
+													variant="outline"
+													class="text-xs gap-1 border-amber-300 text-amber-700 bg-amber-50"
+													:title="t('communityTemplates.globalHint')"
+												>
+													<Globe class="w-3 h-3" />
+													{{ t('communityTemplates.globalBadge') }}
+												</Badge>
+											</div>
+										</TableCell>
 										<TableCell>
 											<Badge variant="secondary" class="text-xs">
 												{{ t(`messageTemplates.types.${template.type}`) }}
@@ -309,28 +346,44 @@ const handleImportComplete = () => {
 										</TableCell>
 										<TableCell class="text-right">
 											<div class="flex items-center justify-end gap-1">
+												<!-- Override CTA only on global rows: clones content into a new
+												     community-specific row. The global itself stays untouched. -->
 												<Button
-													variant="ghost"
+													v-if="isGlobalTemplate(template)"
+													variant="outline"
 													size="sm"
-													@click="openEditDialog(template)"
-													class="h-8 w-8 p-0"
-													:title="t('common.edit')"
+													@click="openOverrideDialog(template)"
+													class="h-8 gap-1 text-xs"
+													:title="t('communityTemplates.overrideHint')"
 												>
-													<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-													</svg>
+													<Copy class="w-3.5 h-3.5" />
+													{{ t('communityTemplates.override') }}
 												</Button>
-												<Button
-													variant="ghost"
-													size="sm"
-													class="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
-													@click="handleDelete(template.id)"
-													:title="t('common.delete')"
-												>
-													<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-													</svg>
-												</Button>
+												<!-- Edit + delete only on community-specific rows -->
+												<template v-else>
+													<Button
+														variant="ghost"
+														size="sm"
+														@click="openEditDialog(template)"
+														class="h-8 w-8 p-0"
+														:title="t('common.edit')"
+													>
+														<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+															<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+														</svg>
+													</Button>
+													<Button
+														variant="ghost"
+														size="sm"
+														class="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
+														@click="handleDelete(template)"
+														:title="t('common.delete')"
+													>
+														<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+															<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+														</svg>
+													</Button>
+												</template>
 											</div>
 										</TableCell>
 									</TableRow>

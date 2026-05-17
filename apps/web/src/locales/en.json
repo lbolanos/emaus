@@ -289,6 +289,10 @@
     "deleteConfirm": "Are you sure you want to delete this template?",
     "create": "Create Template",
     "edit": "Edit Template",
+    "globalBadge": "Global",
+    "globalHint": "System-inherited template. Customize for your community without affecting others.",
+    "override": "Customize",
+    "overrideHint": "Create an editable copy of this template for your community",
     "table": {
       "name": "Name",
       "type": "Type",
@@ -395,7 +399,13 @@
       "SYS_ROLE_APPROVED": "Role Approved (System)",
       "SYS_ROLE_REJECTED": "Role Rejected (System)",
       "SYS_ROLE_REQUESTED": "Role Requested (System)",
-      "SYS_EMAIL_VERIFICATION": "Email Verification (System)"
+      "SYS_EMAIL_VERIFICATION": "Email Verification (System)",
+      "FAMILY_CLOSING_INVITATION_WHATSAPP": "Family Closing Mass Invitation (WhatsApp)",
+      "FAMILY_CLOSING_INVITATION_EMAIL": "Family Closing Mass Invitation (Email)",
+      "COMMUNITY_MEETING_INVITATION": "Community Meeting Invitation",
+      "COMMUNITY_MEMBER_APPROVED": "Welcome on Member Approval",
+      "COMMUNITY_JOIN_REQUEST_ADMIN": "Join Request (to Admins)",
+      "COMMUNITY_LINK_REQUEST_CONFIRM": "Confirm Community Access"
     }
   },
   "participants": {
