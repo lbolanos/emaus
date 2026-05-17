@@ -408,6 +408,8 @@ vi.mock('lucide-vue-next', () => ({
 	RefreshCw: { name: 'RefreshCw', template: '<svg></svg>' },
 	ArrowRight: { name: 'ArrowRight', template: '<svg></svg>' },
 	ChevronDown: { name: 'ChevronDown', template: '<svg></svg>' },
+	ChevronUp: { name: 'ChevronUp', template: '<svg></svg>' },
+	ChevronRight: { name: 'ChevronRight', template: '<svg></svg>' },
 	Lock: { name: 'Lock', template: '<svg></svg>' },
 	CreditCard: { name: 'CreditCard', template: '<svg></svg>' },
 	FileUp: { name: 'FileUp', template: '<svg></svg>' },

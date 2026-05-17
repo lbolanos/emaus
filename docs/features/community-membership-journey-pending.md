@@ -11,6 +11,11 @@
 > tests del endpoint verifyEmail, endpoint resend-verification + rate limit,
 > VerifyEmailView.vue + ruta, EmailVerificationBanner.vue en AppLayout.
 > Ver "Cambios sesión 3" abajo.
+>
+> **Update 2026-05-16 (sesión 4):** Item 6 (UI templates por community) cerrado:
+> backfill emailVerified, password reset + Google re-login flips, vista de
+> templates con globales heredadas + botón Personalizar, scope-filtered types,
+> entrypoints en 3 vistas más, tests y docs. Ver "Cambios sesión 4" abajo.
 
 ---
 
@@ -102,10 +107,8 @@
 - `packages/types/src/message-template.ts` — 4 enum values nuevos
 
 ### Tareas pendientes para retomar
-- **UI de templates por community**: BD soporta `communityId` específico pero no hay UI.
-- **Backfill de usuarios existentes**: todos los users existentes tienen `emailVerified=0`.
-  Si en el futuro algún flow requiere `emailVerified` para algo más que `acceptInvitation`,
-  considerar un grace period o backfill manual.
+- ~~**UI de templates por community**~~ ✅ cerrado en sesión 4
+- ~~**Backfill de usuarios existentes**~~ ✅ cerrado en sesión 4 (migration `20260516400000`)
 
 ---
 
@@ -434,3 +437,81 @@ Si tienes 1 día más para invertir, en este orden:
 4. Si queda tiempo: **#4 emailVerified** (4-6 h) — defense-in-depth para futuros features
 
 Si solo tienes 1-2 horas: solo commits + docs + revisar que tests siguen verdes en CI.
+
+---
+
+## Cambios sesión 4 (2026-05-16 noche-2)
+
+Cierre del item 6 (UI templates por community) + housekeeping del flujo emailVerified.
+
+### ✅ Backfill emailVerified
+- Migration `20260516400000_BackfillEmailVerifiedForLegacyUsers`: marca
+  `emailVerified=1` para todo user sin token de verificación pendiente. Cubre
+  los 32 usuarios pre-existentes (13 Google + 19 locales). Idempotente.
+
+### ✅ Más caminos que flipan emailVerified
+- `authController.resetPassword`: consumir el link de reset prueba control del
+  inbox → seteamos `emailVerified=true` y limpiamos tokens.
+- `authService.GoogleStrategy` rama `userByGoogleId`: defense-in-depth para
+  legacy users; al re-loguearse via Google se promueven si están en false.
+- Refactor: verify callback de Google extraído como `resolveGoogleUser`
+  exportada, testeable directamente. 4 tests nuevos cubren las tres ramas
+  (new user, link to local, re-login flip) + no-spurious-write.
+
+### ✅ UI de templates con globales visibles + override
+- `messageTemplateService.findByCommunity` ahora retorna especificas + globales
+  (`communityId IS NULL`), ordenando especificas primero.
+- `CommunityMessageTemplatesView` muestra badge "Global" en heredadas + botón
+  "Personalizar" que crea community-specific copy. Edit/Delete sólo en
+  especificas. Controller ya bloquea writes en globales por construcción.
+- `BaseMessageTemplateModal` acepta `scope='community'` y filtra el dropdown
+  a 6 tipos relevantes (4 COMMUNITY_* + GENERAL + BIRTHDAY_MESSAGE).
+- i18n: traducciones para los 4 tipos COMMUNITY_* + claves
+  `communityTemplates.globalBadge` / `globalHint` / `override` / `overrideHint`.
+- Entrypoints adicionales: dropdown en `CommunityListView`, botón en
+  `CommunityAdminsView` y `CommunityMembersView`.
+
+### ✅ Tests + docs nuevos
+- API:
+  - `messageTemplateService.test.ts` (5 tests): includes globals,
+    specifics-first ordering, no cross-community, excludes retreat scope,
+    empty case.
+  - `authService.test.ts` (+4 tests): `resolveGoogleUser` branches.
+- Web:
+  - `CommunityMessageTemplatesView.test.ts` (13 tests): isGlobalTemplate,
+    openOverrideDialog, openEditDialog (incl. no-op en globales),
+    handleDelete (no-op en globales), badge rendering, fetch on mount.
+- Docs:
+  - `community-membership-journey.md` § 15 "Gestión de plantillas (UI)" con
+    flujo completo, seguridad, entrypoints, mapa de tests.
+  - Esta sección.
+
+### ✅ Type fix detectado
+- `UserSchema` (packages/types/src/base.ts) ahora incluye `emailVerified`
+  opcional para que `vue-tsc` no se queje en `EmailVerificationBanner`.
+
+### Files clave sesión 4
+**Migrations:** `20260516400000_BackfillEmailVerifiedForLegacyUsers`
+
+**Backend:** `services/authService.ts` (`resolveGoogleUser` exportado),
+`controllers/authController.ts` (resetPassword flip),
+`services/messageTemplateService.ts` (findByCommunity con globals).
+
+**Frontend:** `views/CommunityMessageTemplatesView.vue` (badge + Override),
+`components/BaseMessageTemplateModal.vue` (prop scope),
+`views/CommunityListView.vue` / `CommunityAdminsView.vue` /
+`CommunityMembersView.vue` (entrypoints), `locales/{es,en}.json`,
+`packages/types/src/base.ts`.
+
+**Tests:** `messageTemplateService.test.ts` (nuevo), `authService.test.ts`
+(extendido), `CommunityMessageTemplatesView.test.ts` (nuevo).
+
+### Tareas pendientes (residuales — backlog)
+- **#5** Email con razón de rechazo (#11 original, excluido por usuario explícitamente)
+- **#9** UX cuando SMTP no está configurado: hoy register/resend devuelven 200
+  pero ningún correo sale, sin señal al user
+- **#10** Cambio de email del user no resetea `emailVerified` (no hay flow hoy
+  pero documentarlo antes de implementarlo)
+- **#11** Endpoint `GET /me` para refrescar status sin re-login completo
+
+Nada de esto bloquea producción.

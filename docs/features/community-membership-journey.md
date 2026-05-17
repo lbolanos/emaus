@@ -404,7 +404,7 @@ Acciones registradas hoy por el controller. Cualquier nueva acción crítica deb
 
 Previene abuso interno de un admin malicioso dentro de su propia comunidad.
 
-### G6 — Plantillas semilla en BD
+### G6 — Plantillas en BD + UI de personalización ✅ cerrado
 
 Migration `20260516100000_SeedCommunityMessageTemplates` agrega 4 plantillas en `message_templates` con `scope='community'` y `communityId=NULL`:
 - `COMMUNITY_MEETING_INVITATION`
@@ -412,7 +412,9 @@ Migration `20260516100000_SeedCommunityMessageTemplates` agrega 4 plantillas en 
 - `COMMUNITY_JOIN_REQUEST_ADMIN`
 - `COMMUNITY_LINK_REQUEST_CONFIRM`
 
-Listas para que el service migre del HTML inline a `replaceAllVariables(template.message, vars)`. **No se hizo la migración del service** — los emails siguen viviendo inline. La deuda está acotada y documentada.
+`communityService.renderTemplate(type, communityId, vars)` consume estas plantillas, prefiriendo la específica de la community sobre la global, con escape HTML anti-XSS y fallback al HTML inline si la plantilla no existe. Los cuatro notify methods (`notifyJoinRequest`, `notifyMemberStateChange`, `notifyMembersOfMeeting`, `notifyContactEmailOfLinkRequest`) usan este helper.
+
+Ver sección 15 para la UI de gestión.
 
 ### Frontend respeta `_trimmed` y `viewerRole`
 
@@ -588,4 +590,73 @@ Si algo sale mal y hay que revertir:
 1. **Código:** `git revert` los commits relacionados.
 2. **Migration G5:** SQLite no soporta `DROP COLUMN` directamente. Tampoco hace falta — las columnas nulas no afectan el comportamiento previo. Si se necesita realmente borrarlas, hacer recreate-table siguiendo el patrón del proyecto.
 3. **Backup:** existe en `apps/api/database.sqlite.backup-G5-20260515-*` por si hay pérdida de datos (no debería — la migration es aditiva).
+
+---
+
+## 15. Gestión de plantillas (UI)
+
+Cierra el ciclo G6: el owner ya tiene UI para inspeccionar y personalizar las plantillas que `renderTemplate` envía a sus miembros.
+
+### Estructura de datos
+
+`message_templates` con `scope='community'` puede tener `communityId` en dos estados:
+
+- **`communityId IS NULL`** → plantilla **global** (heredada por todas las comunidades). Las 4 seedeadas por la migration nacen así. Solo un superadmin podría editar globales (no se expone hoy).
+- **`communityId = :cid`** → plantilla **específica** de esa community. La crea el owner cuando quiere texto distinto al global. `renderTemplate` la elige por sobre la global cuando coincide `type`.
+
+### Vista
+
+`apps/web/src/views/CommunityMessageTemplatesView.vue` — ruta `/app/communities/:id/templates`.
+
+Lista mezclada de específicas + globales. Cada fila marca su origen:
+
+| Origen | Badge | Acciones |
+|--------|-------|----------|
+| Community-specific | (ninguno) | Editar, Eliminar |
+| Global (heredada) | `Globe` ámbar "Global" | "Personalizar" (clona como específica) |
+
+### Flujo "Personalizar" (override)
+
+1. Owner ve fila global → click **Personalizar**.
+2. Abre `BaseMessageTemplateModal` pre-relleno con el contenido global, pero `scope: 'community'` y `communityId: props.id`.
+3. Al guardar, el modal hace `POST /api/message-templates/community/:cid` → backend crea fila NUEVA (no toca la global).
+4. En la siguiente render, `renderTemplate` ve la específica primero y la usa. La global sigue sirviendo a las demás communities.
+
+### Backend — qué garantiza la seguridad
+
+- `messageTemplateRoutes.ts` rutea `/community/:communityId/*` al controller.
+- `messageTemplateController.createCommunityMessageTemplate` toma SOLO `{name, type, message}` del body — `communityId` y `scope` se fuerzan desde la ruta y el service. **Un cliente no puede crear globales** vía este endpoint, ni cross-tenant.
+- `update` / `delete` validan `template.communityId === communityId` del param. Por construcción, intentar tocar una global devuelve 400 ("does not belong to this community").
+
+### Tipos disponibles en el modal
+
+Cuando `scope="community"`, el dropdown filtra `messageTemplateTypes` a 6 valores relevantes:
+- `COMMUNITY_MEETING_INVITATION`
+- `COMMUNITY_MEMBER_APPROVED`
+- `COMMUNITY_JOIN_REQUEST_ADMIN`
+- `COMMUNITY_LINK_REQUEST_CONFIRM`
+- `GENERAL`
+- `BIRTHDAY_MESSAGE`
+
+Tipos retreat-only como `WALKER_WELCOME` quedan fuera — `renderTemplate` no los consumiría aunque existieran.
+
+### Entrypoints
+
+Se llega a la vista desde:
+
+| Vista | Cómo |
+|-------|------|
+| `CommunityDashboardView` | Botón "Plantillas" |
+| `CommunityListView` | Dropdown de cada card → "Plantillas" |
+| `CommunityAdminsView` | Header → botón outline "Plantillas" |
+| `CommunityMembersView` | Header → botón outline "Plantillas" |
+| `MessageDialog` (en composición de mensajes) | Link rápido al panel de plantillas |
+
+### Tests
+
+| Archivo | Cobertura |
+|---------|-----------|
+| `apps/api/src/tests/services/messageTemplateService.test.ts` | 5 tests: incluye globals, ordering specifics-first, no cross-community, excluye retreat-scoped, empty case |
+| `apps/api/src/tests/services/communityService.test.ts` | 4 tests del consumidor `renderTemplate`: override BD vs inline, XSS escaping, fallback, specific-over-global |
+| `apps/web/src/views/__tests__/CommunityMessageTemplatesView.test.ts` | 13 tests: `isGlobalTemplate`, `openOverrideDialog`, `openEditDialog` (incl. no-op en globales), `handleDelete` (no-op en globales), badge rendering, fetch on mount |
 
