@@ -813,6 +813,15 @@ export const getParticipantsByRetreat = async (
   return response.data;
 };
 
+import type { ShirtReportResponse } from "@repo/types";
+
+export const getShirtReport = async (
+  retreatId: string,
+): Promise<ShirtReportResponse> => {
+  const response = await api.get(`/retreats/${retreatId}/shirt-report`);
+  return response.data;
+};
+
 export const getPotentialMembersFromRetreat = async (
   communityId: string,
   retreatId: string,
