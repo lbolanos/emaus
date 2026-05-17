@@ -3,7 +3,7 @@ import { TestDataFactory } from '../test-utils/testDataFactory';
 import { User } from '@/entities/user.entity';
 import { UserRole } from '@/entities/userRole.entity';
 import { Role } from '@/entities/role.entity';
-import { passport, configurePassportStrategies } from '@/services/authService';
+import { passport, configurePassportStrategies, resolveGoogleUser } from '@/services/authService';
 import * as bcrypt from 'bcrypt';
 
 // Helper to get testDataSource - defined at module level for all tests to use
@@ -327,5 +327,125 @@ describe('Auth Service - User Lookup', () => {
 				done();
 			})({ body: { email: 'pending@example.com', password: 'password123' } });
 		});
+	});
+});
+
+describe('Auth Service - resolveGoogleUser (emailVerified semantics)', () => {
+	beforeAll(async () => {
+		await setupTestDatabase();
+		// Ensure 'regular' role exists for the new-user branch
+		const roleRepo = TestDataFactory['testDataSource'].getRepository(Role);
+		const exists = await roleRepo.findOne({ where: { name: 'regular' } });
+		if (!exists) {
+			await roleRepo.save(roleRepo.create({ name: 'regular', description: 'Regular user role' }));
+		}
+	});
+
+	afterAll(async () => {
+		await teardownTestDatabase();
+	});
+
+	beforeEach(async () => {
+		await clearTestData();
+		const roleRepo = TestDataFactory['testDataSource'].getRepository(Role);
+		const exists = await roleRepo.findOne({ where: { name: 'regular' } });
+		if (!exists) {
+			await roleRepo.save(roleRepo.create({ name: 'regular', description: 'Regular user role' }));
+		}
+	});
+
+	const makeProfile = (overrides: Partial<{ id: string; email: string; displayName: string }> = {}) => ({
+		id: overrides.id ?? 'google-test-id-123',
+		displayName: overrides.displayName ?? 'Google Test User',
+		emails: [{ value: overrides.email ?? 'google-new@example.com' }],
+		photos: [{ value: 'https://example.com/photo.jpg' }],
+	});
+
+	test('new user is born with emailVerified=true', async () => {
+		const ds = TestDataFactory['testDataSource'];
+		const user = await resolveGoogleUser(ds, makeProfile({ email: 'fresh@example.com' }));
+
+		expect(user.emailVerified).toBe(true);
+		expect(user.googleId).toBe('google-test-id-123');
+		expect(user.email).toBe('fresh@example.com');
+
+		// Persisted with the same flag
+		const persisted = await ds.getRepository(User).findOne({ where: { id: user.id } });
+		expect(persisted!.emailVerified).toBe(true);
+	});
+
+	test('existing local user (no googleId, emailVerified=false) gets linked + flipped on first Google sign-in', async () => {
+		const ds = TestDataFactory['testDataSource'];
+		const userRepo = ds.getRepository(User);
+
+		const local = userRepo.create({
+			id: `local-${Date.now()}`,
+			email: 'preexisting@example.com',
+			displayName: 'Preexisting Local',
+			password: 'password123',
+			emailVerified: false,
+			emailVerificationToken: 'pendingToken12345678901234567890aa',
+			emailVerificationExpiresAt: new Date(Date.now() + 48 * 3600 * 1000),
+		});
+		await userRepo.save(local);
+
+		const linked = await resolveGoogleUser(
+			ds,
+			makeProfile({ id: 'g-link-1', email: 'preexisting@example.com' }),
+		);
+
+		expect(linked.id).toBe(local.id);
+		expect(linked.googleId).toBe('g-link-1');
+		expect(linked.emailVerified).toBe(true);
+		expect(linked.emailVerificationToken).toBeNull();
+		expect(linked.emailVerificationExpiresAt).toBeNull();
+	});
+
+	test('existing googleId user with emailVerified=false gets flipped on re-login (defense-in-depth)', async () => {
+		const ds = TestDataFactory['testDataSource'];
+		const userRepo = ds.getRepository(User);
+
+		const legacy = userRepo.create({
+			id: `legacy-google-${Date.now()}`,
+			email: 'legacy-google@example.com',
+			displayName: 'Legacy Google User',
+			googleId: 'g-legacy-1',
+			emailVerified: false, // simulates a user created before the backfill
+		});
+		await userRepo.save(legacy);
+
+		const reLoggedIn = await resolveGoogleUser(
+			ds,
+			makeProfile({ id: 'g-legacy-1', email: 'legacy-google@example.com' }),
+		);
+
+		expect(reLoggedIn.id).toBe(legacy.id);
+		expect(reLoggedIn.emailVerified).toBe(true);
+	});
+
+	test('existing googleId user with emailVerified=true stays untouched (no spurious writes)', async () => {
+		const ds = TestDataFactory['testDataSource'];
+		const userRepo = ds.getRepository(User);
+
+		const verified = userRepo.create({
+			id: `verified-google-${Date.now()}`,
+			email: 'verified-google@example.com',
+			displayName: 'Verified Google User',
+			googleId: 'g-verified-1',
+			emailVerified: true,
+		});
+		await userRepo.save(verified);
+		const beforeUpdatedAt = verified.updatedAt;
+
+		const result = await resolveGoogleUser(
+			ds,
+			makeProfile({ id: 'g-verified-1', email: 'verified-google@example.com' }),
+		);
+
+		expect(result.id).toBe(verified.id);
+		expect(result.emailVerified).toBe(true);
+		// updatedAt should not have advanced — no save() was invoked
+		const fresh = await userRepo.findOne({ where: { id: verified.id } });
+		expect(fresh!.updatedAt.getTime()).toBe(beforeUpdatedAt.getTime());
 	});
 });

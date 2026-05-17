@@ -436,6 +436,14 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
 		// Update password (will be hashed by @BeforeUpdate hook)
 		user.password = password;
 
+		// Consuming a password-reset link from the user's inbox proves they own
+		// the email address. Mark them as verified and clear any stale token so
+		// the EmailVerificationBanner disappears and acceptCommunityInvitation
+		// stops rejecting them with EMAIL_NOT_VERIFIED.
+		user.emailVerified = true;
+		user.emailVerificationToken = null;
+		user.emailVerificationExpiresAt = null;
+
 		await userRepository.save(user);
 
 		res.json({ message: 'La contraseña ha sido restablecida exitosamente.' });
