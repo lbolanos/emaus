@@ -421,6 +421,10 @@ interface Props {
     [key: string]: any;
   } | null;
   isGlobal?: boolean;
+  // When 'community' the type dropdown is filtered to types that renderTemplate
+  // actually consumes (plus a generic GENERAL bucket). When omitted, all enum
+  // values are listed (legacy behavior for retreat-scoped templates).
+  scope?: 'retreat' | 'community';
   participants?: Array<{
     id: string;
     name: string;
@@ -471,6 +475,17 @@ const formData = ref({
   isActive: true, // This will be conditionally included/excluded based on template type
 });
 
+// Types renderTemplate consumes for community-scoped flows (communityService).
+// Other enum values like WALKER_WELCOME don't apply to a community.
+const COMMUNITY_RELEVANT_TYPES = [
+  'COMMUNITY_MEETING_INVITATION',
+  'COMMUNITY_MEMBER_APPROVED',
+  'COMMUNITY_JOIN_REQUEST_ADMIN',
+  'COMMUNITY_LINK_REQUEST_CONFIRM',
+  'GENERAL',
+  'BIRTHDAY_MESSAGE',
+] as const;
+
 // Available types based on template type
 const availableTypes = computed(() => {
   if (props.isGlobal) {
@@ -490,9 +505,11 @@ const availableTypes = computed(() => {
       'RETREAT_SHARED_NOTIFICATION',
       'BIRTHDAY_MESSAGE',
     ];
-  } else {
-    return messageTemplateTypes.options;
   }
+  if (props.scope === 'community') {
+    return [...COMMUNITY_RELEVANT_TYPES];
+  }
+  return messageTemplateTypes.options;
 });
 
 // Type labels based on template type

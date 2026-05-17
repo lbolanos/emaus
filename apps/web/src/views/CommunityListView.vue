@@ -36,6 +36,17 @@
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <!-- Plantillas: accesible para cualquier admin (owner o no) — read on globals, write on specifics -->
+                <DropdownMenuItem as-child>
+                  <router-link
+                    :to="{ name: 'community-templates', params: { id: community.id } }"
+                    class="flex items-center w-full"
+                  >
+                    <FileText class="w-4 h-4 mr-2" />
+                    {{ $t('communityTemplates.title') }}
+                  </router-link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <!-- SECURITY: editar y eliminar son owner-only (con bypass superadmin) -->
                 <DropdownMenuItem
                   v-if="canManage(community)"
@@ -268,7 +279,7 @@
 import { ref, onMounted, onBeforeUnmount, computed, watch, nextTick } from 'vue';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
-import { Plus, Users, MoreHorizontal, Edit, Trash2, ChevronRight, Loader2, Search, ExternalLink } from 'lucide-vue-next';
+import { Plus, Users, MoreHorizontal, Edit, Trash2, ChevronRight, Loader2, Search, ExternalLink, FileText } from 'lucide-vue-next';
 import {
   Button, Card, CardHeader, CardTitle, CardDescription, CardFooter,
   Label, Input, Textarea,

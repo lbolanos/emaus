@@ -21,7 +21,15 @@
             <span>{{ $t('community.membersLabel') }}</span>
           </div>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 flex-wrap">
+          <Button variant="outline" as-child>
+            <router-link
+              :to="{ name: 'community-templates', params: { id: currentCommunity.id } }"
+            >
+              <FileText class="w-4 h-4 mr-2" />
+              {{ $t('communityTemplates.title') }}
+            </router-link>
+          </Button>
           <Button variant="outline" @click="exportMembers">
             <Download class="w-4 h-4 mr-2" />
             {{ $t('community.members.export') }}

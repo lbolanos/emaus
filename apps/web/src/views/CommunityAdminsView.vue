@@ -16,11 +16,21 @@
             <span>{{ $t('community.admin.admins') }}</span>
           </div>
         </div>
-        <!-- SECURITY: solo owner/superadmin pueden invitar admins -->
-        <Button v-if="communityStore.isOwnerOrSuperadmin" @click="isInviteModalOpen = true">
-          <UserPlus class="w-4 h-4 mr-2" />
-          {{ $t('community.admin.invite') }}
-        </Button>
+        <div class="flex items-center gap-2">
+          <Button variant="outline" as-child>
+            <router-link
+              :to="{ name: 'community-templates', params: { id: currentCommunity.id } }"
+            >
+              <FileText class="w-4 h-4 mr-2" />
+              {{ $t('communityTemplates.title') }}
+            </router-link>
+          </Button>
+          <!-- SECURITY: solo owner/superadmin pueden invitar admins -->
+          <Button v-if="communityStore.isOwnerOrSuperadmin" @click="isInviteModalOpen = true">
+            <UserPlus class="w-4 h-4 mr-2" />
+            {{ $t('community.admin.invite') }}
+          </Button>
+        </div>
       </div>
 
       <div class="grid gap-6">
@@ -208,7 +218,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
-import { Loader2, UserPlus, UserX, Copy, Trash2, ChevronRight } from 'lucide-vue-next';
+import { Loader2, UserPlus, UserX, Copy, Trash2, ChevronRight, FileText } from 'lucide-vue-next';
 import {
   Button, Card, CardHeader, CardTitle, Badge,
   Table, TableHeader, TableRow, TableHead, TableBody, TableCell,

@@ -433,6 +433,7 @@ const handleImportComplete = () => {
 			v-model:open="isDialogOpen"
 			:template="currentTemplate"
 			:is-global="false"
+			scope="community"
 			:participants="formattedMembers"
 			@saved="handleTemplateSaved"
 		/>
