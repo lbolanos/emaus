@@ -858,6 +858,7 @@ export const getParticipantNextMeeting = async (
   participantId: string,
   communityId?: string,
 ): Promise<{
+  meetingId: string | null;
   nextMeetingDate: string | null;
   formattedDate: string | null;
   title: string | null;

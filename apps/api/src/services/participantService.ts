@@ -819,6 +819,7 @@ export const findNextMeetingForParticipant = async (
   communityId?: string,
   allowedCommunityIds?: string[],
 ): Promise<{
+  meetingId: string | null;
   nextMeetingDate: string | null;
   formattedDate: string | null;
   title: string | null;
@@ -828,17 +829,20 @@ export const findNextMeetingForParticipant = async (
   const memberRepo = AppDataSource.getRepository(CommunityMember);
   const meetingRepo = AppDataSource.getRepository(CommunityMeeting);
 
+  const emptyResult = {
+    meetingId: null,
+    nextMeetingDate: null,
+    formattedDate: null,
+    title: null,
+    communityId: null,
+    communityName: null,
+  };
+
   // Caller-scoped allowlist (non-superadmin / non-community-admin paths).
   // Empty array means the caller administers no community → return empty
   // result without hitting the DB.
   if (allowedCommunityIds && allowedCommunityIds.length === 0) {
-    return {
-      nextMeetingDate: null,
-      formattedDate: null,
-      title: null,
-      communityId: null,
-      communityName: null,
-    };
+    return emptyResult;
   }
 
   const memberWhere: any = {
@@ -857,13 +861,7 @@ export const findNextMeetingForParticipant = async (
   });
 
   if (memberships.length === 0) {
-    return {
-      nextMeetingDate: null,
-      formattedDate: null,
-      title: null,
-      communityId: null,
-      communityName: null,
-    };
+    return emptyResult;
   }
 
   const communityIds = memberships.map((m) => m.communityId);
@@ -878,13 +876,7 @@ export const findNextMeetingForParticipant = async (
     .getOne();
 
   if (!nextMeeting) {
-    return {
-      nextMeetingDate: null,
-      formattedDate: null,
-      title: null,
-      communityId: null,
-      communityName: null,
-    };
+    return emptyResult;
   }
 
   const formatted = new Date(nextMeeting.startDate).toLocaleString("es-MX", {
@@ -893,6 +885,7 @@ export const findNextMeetingForParticipant = async (
   });
 
   return {
+    meetingId: nextMeeting.id,
     nextMeetingDate: new Date(nextMeeting.startDate).toISOString(),
     formattedDate: formatted,
     title: nextMeeting.title ?? null,

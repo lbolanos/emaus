@@ -44,6 +44,7 @@ describe('findNextMeetingForParticipant', () => {
 		const result = await findNextMeetingForParticipant(participant.id);
 
 		expect(result).toEqual({
+			meetingId: null,
 			nextMeetingDate: null,
 			formattedDate: null,
 			title: null,
@@ -87,6 +88,7 @@ describe('findNextMeetingForParticipant', () => {
 		expect(result.title).toBe('Reunión mensual');
 		expect(result.communityId).toBe(community.id);
 		expect(result.communityName).toBe('Buen Despacho');
+		expect(result.meetingId).toBeTruthy(); // permite construir attendanceLink en el frontend
 		expect(result.formattedDate).toBeTruthy();
 		// Formatted should be a human-readable Spanish date string
 		expect(result.formattedDate).toMatch(/\d{4}/); // contains the year

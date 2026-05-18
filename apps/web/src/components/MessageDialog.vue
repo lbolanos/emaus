@@ -510,10 +510,12 @@ const isUserEditing = ref(false);
 const emptyVariables = ref<string[]>([]);
 const pendingTemplateId = ref<string | null>(null);
 const hasSavedSendMethodPref = ref(false);
-// Cache the next community meeting for the current recipient. Used to fill
-// `{retreat.next_meeting_date}` in templates like POST_RETREAT_MESSAGE.
-// Null = not loaded yet; empty string = no upcoming meeting found.
+// Cache the next community meeting for the current recipient. Usado para
+// resolver `{retreat.next_meeting_date}` y `{community.meetingTitle/Date/
+// attendanceLink}` cuando el contexto es community. Null = not loaded yet.
 const nextMeetingFormatted = ref<string | null>(null);
+const nextMeetingTitle = ref<string | null>(null);
+const nextMeetingId = ref<string | null>(null);
 
 // Computed properties
 const contextId = computed(() => props.context === 'retreat' ? props.retreatId : props.communityId);
@@ -709,10 +711,23 @@ const updateMessagePreview = () => {
 	const retreatData: RetreatData | null = baseRetreatData
 		? { ...baseRetreatData, nextMeetingDate: nextMeetingFormatted.value || '' }
 		: null;
+	// Cuando context=community, también poblamos los datos de la próxima
+	// reunión (title/date/attendanceLink) para que plantillas como
+	// COMMUNITY_MEETING_INVITATION resuelvan los placeholders en vez de
+	// dispararlo como "variable vacía".
+	const buildAttendanceLink = (): string => {
+		const cid = currentCommunity.value?.id;
+		const mid = nextMeetingId.value;
+		if (!cid || !mid) return '';
+		return `${window.location.origin}/public/attendance/${cid}/${mid}`;
+	};
 	const communityData: CommunityData | undefined = isCommunityCtx
 		? {
 				name: currentCommunity.value?.name || '',
 				parish: currentCommunity.value?.name || '',
+				meetingTitle: nextMeetingTitle.value || '',
+				meetingDate: nextMeetingFormatted.value || '',
+				attendanceLink: buildAttendanceLink(),
 		  }
 		: undefined;
 
@@ -1238,6 +1253,8 @@ const saveTemplatePref = (templateId: string) => {
 const loadNextMeeting = async () => {
 	if (!props.participant) {
 		nextMeetingFormatted.value = '';
+		nextMeetingTitle.value = '';
+		nextMeetingId.value = '';
 		return;
 	}
 	// Resolve the underlying participantId regardless of community/retreat ctx.
@@ -1247,6 +1264,8 @@ const loadNextMeeting = async () => {
 	const pid = (participantData as any).id;
 	if (!pid) {
 		nextMeetingFormatted.value = '';
+		nextMeetingTitle.value = '';
+		nextMeetingId.value = '';
 		return;
 	}
 	try {
@@ -1259,9 +1278,13 @@ const loadNextMeeting = async () => {
 			props.context === 'community' && props.communityId ? props.communityId : undefined;
 		const result = await getParticipantNextMeeting(pid, scopedCommunityId);
 		nextMeetingFormatted.value = result?.formattedDate || '';
+		nextMeetingTitle.value = result?.title || '';
+		nextMeetingId.value = result?.meetingId || '';
 	} catch {
-		// Silent fail — placeholder will resolve to empty.
+		// Silent fail — placeholders resolverán a empty.
 		nextMeetingFormatted.value = '';
+		nextMeetingTitle.value = '';
+		nextMeetingId.value = '';
 	}
 	// Re-render preview if a template was already selected so the new date
 	// shows up immediately.
@@ -1309,6 +1332,8 @@ watch(() => props.open, (newValue: boolean) => {
 		isUserEditing.value = false;
 		emptyVariables.value = [];
 		nextMeetingFormatted.value = null;
+		nextMeetingTitle.value = null;
+		nextMeetingId.value = null;
 		loadNextMeeting();
 
 		// Load templates based on context
