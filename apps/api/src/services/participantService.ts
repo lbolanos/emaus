@@ -28,6 +28,7 @@ import { Responsability } from "../entities/responsability.entity";
 import { ParticipantCommunication } from "../entities/participantCommunication.entity";
 import { CommunityMember } from "../entities/communityMember.entity";
 import { CommunityMeeting } from "../entities/communityMeeting.entity";
+import { calculateNextOccurrence } from "../utils/recurrenceUtils";
 import { emitReceptionCheckin } from "../realtime";
 
 const participantRepository = AppDataSource.getRepository(Participant);
@@ -866,7 +867,8 @@ export const findNextMeetingForParticipant = async (
 
   const communityIds = memberships.map((m) => m.communityId);
 
-  const nextMeeting = await meetingRepo
+  // 1) Buscar primero una INSTANCIA real (no template) próxima.
+  let nextMeeting = await meetingRepo
     .createQueryBuilder("m")
     .leftJoinAndSelect("m.community", "c")
     .where("m.communityId IN (:...cids)", { cids: communityIds })
@@ -875,18 +877,65 @@ export const findNextMeetingForParticipant = async (
     .orderBy("m.startDate", "ASC")
     .getOne();
 
+  let computedStartDate: Date | null = null;
+
+  // 2) Fallback: si no hay instancia, buscar template recurrente y calcular
+  //    la próxima ocurrencia en vuelo. Muchas comunidades solo guardan el
+  //    template y no materializan instancias hasta que el usuario las edita.
+  if (!nextMeeting) {
+    const recurringTemplate = await meetingRepo
+      .createQueryBuilder("m")
+      .leftJoinAndSelect("m.community", "c")
+      .where("m.communityId IN (:...cids)", { cids: communityIds })
+      .andWhere("m.isRecurrenceTemplate = 1")
+      .andWhere("m.recurrenceFrequency IS NOT NULL")
+      .orderBy("m.startDate", "ASC")
+      .getOne();
+
+    if (recurringTemplate) {
+      // Iterar calculateNextOccurrence hasta llegar al futuro. La función
+      // devuelve la siguiente ocurrencia desde su parámetro currentStartDate
+      // — si el template arrancó hace meses, la primera devolución sigue
+      // siendo pasada y hay que volver a llamar con esa fecha. Cap a 520
+      // iteraciones (10 años de weekly) para evitar loops infinitos por
+      // configuraciones degeneradas.
+      let cursor: Date = new Date(recurringTemplate.startDate);
+      const now = new Date();
+      let safety = 520;
+      while (cursor.getTime() < now.getTime() && safety-- > 0) {
+        const next = calculateNextOccurrence(
+          cursor,
+          recurringTemplate.recurrenceFrequency,
+          recurringTemplate.recurrenceInterval,
+          recurringTemplate.recurrenceDayOfWeek ?? null,
+          recurringTemplate.recurrenceDayOfMonth ?? null,
+        );
+        if (!next) {
+          cursor = null as any;
+          break;
+        }
+        cursor = next;
+      }
+      if (cursor && cursor.getTime() >= now.getTime()) {
+        nextMeeting = recurringTemplate;
+        computedStartDate = cursor;
+      }
+    }
+  }
+
   if (!nextMeeting) {
     return emptyResult;
   }
 
-  const formatted = new Date(nextMeeting.startDate).toLocaleString("es-MX", {
+  const startDate = computedStartDate ?? new Date(nextMeeting.startDate);
+  const formatted = startDate.toLocaleString("es-MX", {
     dateStyle: "full",
     timeStyle: "short",
   });
 
   return {
     meetingId: nextMeeting.id,
-    nextMeetingDate: new Date(nextMeeting.startDate).toISOString(),
+    nextMeetingDate: startDate.toISOString(),
     formattedDate: formatted,
     title: nextMeeting.title ?? null,
     communityId: nextMeeting.communityId,

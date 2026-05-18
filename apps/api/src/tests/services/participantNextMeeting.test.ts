@@ -126,20 +126,22 @@ describe('findNextMeetingForParticipant', () => {
 		expect(result.communityName).toBe('Comunidad B');
 	});
 
-	it('excludes recurrence template rows (only real instances count)', async () => {
+	it('prefiere INSTANCIA real sobre template recurrente cuando ambos existen', async () => {
 		const community = await TestDataFactory.createTestCommunity(user.id);
 		await TestDataFactory.createTestCommunityMember(community.id, participant.id);
 
 		const inOneWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 		const inTwoWeeks = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
 
-		// Recurrence template earlier → should be skipped
+		// Recurrence template earlier → debe ser SALTADO porque hay instancia real
 		await TestDataFactory.createTestCommunityMeeting(community.id, {
 			title: 'Template recurrente',
 			startDate: inOneWeek,
 			isRecurrenceTemplate: true,
+			recurrenceFrequency: 'weekly',
+			recurrenceInterval: 1,
 		});
-		// Real instance later → should be returned
+		// Real instance later → debe ser elegida
 		await TestDataFactory.createTestCommunityMeeting(community.id, {
 			title: 'Reunión real',
 			startDate: inTwoWeeks,
@@ -149,6 +151,37 @@ describe('findNextMeetingForParticipant', () => {
 		const result = await findNextMeetingForParticipant(participant.id);
 
 		expect(result.title).toBe('Reunión real');
+	});
+
+	it('fallback: usa template recurrente calculando próxima ocurrencia cuando no hay instancia', async () => {
+		// Caso real reportado: comunidad solo tiene template recurrente, sin
+		// instancias materializadas. Antes devolvía null y disparaba el
+		// warning de "variables sin datos" para {community.meetingDate}.
+		const community = await TestDataFactory.createTestCommunity(user.id, {
+			name: 'Con solo template',
+		});
+		await TestDataFactory.createTestCommunityMember(community.id, participant.id);
+
+		// Template recurrente que empezó hace 2 semanas, weekly cada miércoles
+		const startDate = new Date();
+		startDate.setDate(startDate.getDate() - 14);
+		await TestDataFactory.createTestCommunityMeeting(community.id, {
+			title: 'Reunión semanal',
+			startDate,
+			isRecurrenceTemplate: true,
+			recurrenceFrequency: 'weekly',
+			recurrenceInterval: 1,
+			recurrenceDayOfWeek: 'wednesday',
+		});
+
+		const result = await findNextMeetingForParticipant(participant.id);
+
+		expect(result.title).toBe('Reunión semanal');
+		expect(result.meetingId).toBeTruthy(); // el template id
+		expect(result.nextMeetingDate).toBeTruthy();
+		// La próxima ocurrencia calculada debe ser futura
+		expect(new Date(result.nextMeetingDate!).getTime()).toBeGreaterThan(Date.now());
+		expect(result.communityName).toBe('Con solo template');
 	});
 
 	it('excludes members in declined states (no_answer, another_group)', async () => {

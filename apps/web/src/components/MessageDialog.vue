@@ -209,6 +209,30 @@
               </Button>
             </div>
 
+            <!-- Banner: borrador restaurado con opción de descartar -->
+            <div
+              v-if="draftRestored"
+              class="rounded-md border border-blue-300 bg-blue-50 text-blue-900 p-3 text-sm flex items-start gap-2"
+            >
+              <span class="text-base leading-none" aria-hidden="true">📝</span>
+              <div class="flex-1">
+                <div class="font-medium">Se restauró un borrador previo</div>
+                <div class="mt-1 text-xs text-blue-700">
+                  Si lo guardaste cuando el sistema aún no resolvía variables como
+                  <code class="font-mono">{community.meetingDate}</code>, puedes descartarlo
+                  para regenerar el mensaje con los datos actuales.
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                @click="discardDraftAndRegenerate"
+                class="shrink-0"
+              >
+                Descartar y regenerar
+              </Button>
+            </div>
+
             <!-- Warning: variables without data -->
             <div
               v-if="emptyVariables.length > 0"
@@ -508,6 +532,11 @@ const historyComponentLoading = ref(false);
 const historyMessageCount = ref(0);
 const isUserEditing = ref(false);
 const emptyVariables = ref<string[]>([]);
+// Banner que avisa al usuario cuando se restauró un borrador previo de
+// localStorage. Útil cuando el draft fue guardado con código viejo que no
+// resolvía variables como {community.meetingDate} — el user puede
+// descartar y regenerar el mensaje con la lógica actual.
+const draftRestored = ref(false);
 const pendingTemplateId = ref<string | null>(null);
 const hasSavedSendMethodPref = ref(false);
 // Cache the next community meeting for the current recipient. Usado para
@@ -841,6 +870,7 @@ const loadDraft = () => {
 					selectedContact.value = draft.selectedContact;
 				}
 
+				draftRestored.value = true;
 				toast({
 					title: 'Borrador recuperado',
 					description: 'Se ha restaurado un borrador guardado previamente.',
@@ -850,6 +880,24 @@ const loadDraft = () => {
 			// Silently fail on draft load errors
 		}
 	}
+};
+
+/**
+ * Descarta el draft guardado en localStorage y regenera el mensaje desde
+ * la plantilla con la lógica actual. Útil cuando el draft fue guardado con
+ * código viejo que no resolvía algunas variables.
+ */
+const discardDraftAndRegenerate = () => {
+	clearDraft();
+	draftRestored.value = false;
+	isUserEditing.value = false;
+	if (selectedTemplate.value) {
+		updateMessagePreview();
+	}
+	toast({
+		title: 'Borrador descartado',
+		description: 'El mensaje fue regenerado desde la plantilla actual.',
+	});
 };
 
 const checkEmailServerConfig = async (retryCount = 0) => {
@@ -1331,6 +1379,7 @@ watch(() => props.open, (newValue: boolean) => {
 		showHistory.value = false;
 		isUserEditing.value = false;
 		emptyVariables.value = [];
+		draftRestored.value = false;
 		nextMeetingFormatted.value = null;
 		nextMeetingTitle.value = null;
 		nextMeetingId.value = null;
@@ -1366,6 +1415,9 @@ watch(() => props.open, (newValue: boolean) => {
 });
 
 watch(selectedTemplate, (newValue: string) => {
+	// Reset banner antes de evaluar el nuevo draft — cada par
+	// (recipient, template) tiene su propio storage key.
+	draftRestored.value = false;
 	updateMessagePreview();
 
 	if (newValue && sendMethod.value === 'email') {
