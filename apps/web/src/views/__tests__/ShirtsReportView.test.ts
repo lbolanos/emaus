@@ -214,8 +214,8 @@ describe('ShirtsReportView', () => {
       });
       await flushPromises();
       const headers = w.findAll('thead th').map((th) => th.text());
-      // # | Nombre | Tipo | Playera | Chamarra | ✓
-      expect(headers).toEqual(['#', 'Nombre', 'Tipo', 'Playera', 'Chamarra', '✓']);
+      // # | Nombre | Playera | Chamarra | ✓
+      expect(headers).toEqual(['#', 'Nombre', 'Playera', 'Chamarra', '✓']);
     });
 
     it('muestra la talla en la columna correcta y "—" cuando no pidió ese tipo', async () => {
@@ -228,12 +228,12 @@ describe('ShirtsReportView', () => {
       await flushPromises();
 
       const cells = w.findAll('tbody tr:first-child td').map((td) => td.text().trim());
-      // # | Nombre | Tipo | Playera | Chamarra | ✓
-      expect(cells[3]).toBe('—');
-      expect(cells[4]).toBe('G');
+      // # | Nombre | Playera | Chamarra | ✓
+      expect(cells[2]).toBe('—');
+      expect(cells[3]).toBe('G');
     });
 
-    it('muestra badge "Servidor" para type=server', async () => {
+    it('no renderiza badge de tipo en las filas (todos son servidores en la práctica)', async () => {
       const w = mountView({
         shirtTypes: [PLAYERA_TYPE],
         participants: [
@@ -241,18 +241,6 @@ describe('ShirtsReportView', () => {
             firstName: 'Mario',
             shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'M')],
           }),
-        ],
-      });
-      await flushPromises();
-      const row = w.find('tbody tr');
-      expect(row.text()).toContain('Servidor');
-      expect(row.text()).not.toContain('Angelito');
-    });
-
-    it('muestra badge "Angelito" para type=partial_server', async () => {
-      const w = mountView({
-        shirtTypes: [PLAYERA_TYPE],
-        participants: [
           makeAngelito({
             firstName: 'Lupe',
             shirts: [makeShirt(PLAYERA_TYPE.id, 'Playera', 'S')],
@@ -260,8 +248,11 @@ describe('ShirtsReportView', () => {
         ],
       });
       await flushPromises();
-      const row = w.find('tbody tr');
-      expect(row.text()).toContain('Angelito');
+      // Ninguna fila debe contener las palabras Servidor / Angelito (el badge fue removido).
+      // Los contadores SERVIDORES/ANGELITOS siguen en el header, no en filas.
+      const rowsText = w.findAll('tbody tr').map((r) => r.text()).join(' ');
+      expect(rowsText).not.toContain('Servidor');
+      expect(rowsText).not.toContain('Angelito');
     });
 
     it('renderiza idOnRetreat o "—" cuando es null', async () => {

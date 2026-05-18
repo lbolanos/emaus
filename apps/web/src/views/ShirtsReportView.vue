@@ -51,16 +51,6 @@ function getSize(participant: ShirtReportParticipant, shirtTypeId: string): stri
   return participant.shirts.find((s) => s.shirtTypeId === shirtTypeId)?.size ?? ''
 }
 
-function typeBadgeClass(type: 'server' | 'partial_server'): string {
-  return type === 'partial_server'
-    ? 'bg-pink-100 text-pink-700'
-    : 'bg-blue-100 text-blue-700'
-}
-
-function typeLabel(type: 'server' | 'partial_server'): string {
-  return type === 'partial_server' ? 'Angelito' : 'Servidor'
-}
-
 onMounted(async () => {
   if (retreatStore.retreats.length === 0) await retreatStore.fetchRetreats()
   const retreatId =
@@ -179,7 +169,6 @@ onMounted(async () => {
             <tr class="bg-gray-50/80 border-b border-gray-200 text-left">
               <th class="px-3 py-2.5 w-10 text-xs font-semibold text-gray-500 uppercase tracking-wide">#</th>
               <th class="px-3 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Nombre</th>
-              <th class="px-3 py-2.5 w-20 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tipo</th>
               <th
                 v-for="t in sortedShirtTypes"
                 :key="t.id"
@@ -187,7 +176,7 @@ onMounted(async () => {
               >
                 {{ t.name }}
               </th>
-              <th class="px-3 py-2.5 w-12 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              <th class="print-only px-3 py-2.5 w-12 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 ✓
               </th>
             </tr>
@@ -206,14 +195,6 @@ onMounted(async () => {
                   {{ participant.firstName }} {{ participant.lastName }}
                 </span>
               </td>
-              <td class="px-3 py-2.5">
-                <span
-                  class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wide"
-                  :class="typeBadgeClass(participant.type)"
-                >
-                  {{ typeLabel(participant.type) }}
-                </span>
-              </td>
               <td
                 v-for="t in sortedShirtTypes"
                 :key="t.id"
@@ -227,13 +208,13 @@ onMounted(async () => {
                 </span>
                 <span v-else class="text-gray-300 text-xs">—</span>
               </td>
-              <td class="px-3 py-2.5 text-center">
+              <td class="print-only px-3 py-2.5 text-center">
                 <span class="inline-block w-5 h-5 border-2 border-gray-300 rounded" />
               </td>
             </tr>
 
             <tr v-if="filteredParticipants.length === 0">
-              <td :colspan="3 + sortedShirtTypes.length + 1" class="px-4 py-12 text-center">
+              <td :colspan="2 + sortedShirtTypes.length" class="px-4 py-12 text-center">
                 <div class="flex flex-col items-center gap-2 text-gray-400">
                   <Search class="w-8 h-8 opacity-40" />
                   <p class="text-sm font-medium">Sin resultados para tu búsqueda.</p>
@@ -270,9 +251,17 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* Print-only: hidden on screen, visible (table-cell/inline) only during print. */
+.print-only {
+  display: none;
+}
+
 @media print {
   .no-print {
     display: none !important;
+  }
+  .print-only {
+    display: table-cell !important;
   }
   .shirt-report-table {
     font-size: 11px;
