@@ -21,6 +21,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "el test falla con ReferenceError" / "Cannot access X before initialization" (backend Jest) | [#8 Jest mock factory con ESM](#8-jest-mock-factory-con-esm-experimental) |
 | "el test 403 no se dispara", "el mock de authorization no se usa" | [#9 Tests 403 con ESM + path aliases](#9-tests-de-autorización-403-con-esm--path-aliases) |
 | "el test Vue rompe porque Input no tiene min/max" / "defineModel" | [#10 Tests Vue con defineModel](#10-tests-vue-con-componentes-definemodel) |
+| "el botón no navega", "click al Button no me lleva a la página", "as=router-link no funciona" | [#11 Button con `as` string ignora componentes Vue](#11-button-con-as-string-ignora-componentes-vue-router-link) |
 
 ---
 
@@ -312,6 +313,56 @@ vi.mock('@repo/ui', () => ({
 **No uses cast TS dentro de templates** — Vue compila el template y rechaza `as HTMLInputElement` en strings. Pasá el valor crudo del evento.
 
 **Detalle**: `CLAUDE.md` sección "Tests para componentes con `defineModel`".
+
+---
+
+## 11. Button con `as` string ignora componentes Vue (router-link)
+
+**Síntoma**: un `<Button as="router-link" to="/x">` renderiza visualmente correcto pero el click no navega a ninguna parte. Tampoco hay error en consola.
+
+**Causa**: `@repo/ui/Button` envuelve a `Primitive` de `radix-vue`. El prop `as` espera un **nombre de tag HTML** (`button`, `a`, `div`) o un **componente importado**. Cuando recibe un string como `"router-link"` o `"RouterLink"`, lo trata como custom element HTML, no como componente Vue → el browser renderiza un `<router-link>` literal y no hace nada al click.
+
+**Fix** — usar el patrón `as-child` de Radix (el `Button` aplica sus clases al child y delega comportamiento):
+
+```vue
+<!-- ❌ MAL — no navega -->
+<Button as="router-link" to="/login">
+  Ir al login
+</Button>
+
+<!-- ✅ BIEN — patrón as-child -->
+<Button as-child>
+  <router-link to="/login">Ir al login</router-link>
+</Button>
+```
+
+**Alternativa equivalente** — pasar el componente importado a `:as` (no string):
+
+```vue
+<script setup>
+import { RouterLink } from 'vue-router';
+</script>
+<Button :as="RouterLink" to="/login">Ir al login</Button>
+```
+
+**Auditar el repo**:
+```bash
+# Cualquier as= con string que NO sea HTML tag estándar
+grep -rEn 'as="[a-z-]+"' apps/web/src/ | grep -v 'as="\(button\|a\|div\|span\|form\|label\|input\|select\|ul\|li\|nav\|section\|article\|h[1-6]\|p\|img\|table\)"'
+
+# Específicamente router-link / RouterLink
+grep -rEn 'as="(router-link|RouterLink|Router-Link)"' apps/web/src/
+
+# as= con PascalCase (suele ser un componente Vue, no un HTML tag)
+grep -rEn 'as="[A-Z][a-zA-Z]+"' apps/web/src/
+```
+
+**Aplica al mismo patrón en**: cualquier componente de `@repo/ui` basado en `Primitive` de radix-vue/reka-ui (Button, Badge, Card, etc.). El mismo bug ocurriría con `<Badge as="router-link">`.
+
+**Casos**:
+- 2026-05-17 `apps/web/src/views/VerifyEmailView.vue:19` — el botón "Ir al login" tras verificar email no navegaba. Fix con `as-child` + computed `continueTarget`/`continueLabel` para enviar al user autenticado a `/app` en lugar de `/login`.
+
+**Detalle**: docs de radix-vue sobre [`Primitive` y `as-child`](https://www.radix-vue.com/utilities/primitive).
 
 ---
 

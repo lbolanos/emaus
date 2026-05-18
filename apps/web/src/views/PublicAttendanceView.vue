@@ -96,59 +96,133 @@
           </div>
         </div>
 
-        <!-- Members List -->
-        <div class="space-y-3">
-          <TransitionGroup name="list">
-            <div
-              v-for="member in filteredMembers"
-              :key="member.id"
-              class="member-card group relative overflow-hidden bg-white dark:bg-slate-900 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border-2"
-              :class="{
-                'member-card--attended border-emerald-500 shadow-emerald-500/10 dark:shadow-emerald-500/20': member.attended,
-                'border-transparent hover:border-slate-200 dark:hover:border-slate-700': !member.attended,
-                'opacity-50 cursor-not-allowed': savingStates[member.id]
-              }"
-              @click="toggleAttendance(member)"
-            >
-              <!-- Animated background for attended members -->
-              <div v-if="member.attended" class="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-teal-500/5"></div>
-
-              <div class="relative flex items-center gap-4 p-4">
-                <!-- Avatar with Initials -->
-                <div class="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center text-white font-semibold text-lg transition-all"
-                  :class="member.attended
-                    ? 'bg-gradient-to-br from-emerald-500 to-teal-500 shadow-lg shadow-emerald-500/30'
-                    : 'bg-gradient-to-br from-slate-400 to-slate-500 dark:from-slate-600 dark:to-slate-700'"
-                >
-                  {{ getInitials(member.participant.firstName, member.participant.lastName) }}
-                </div>
-
-                <!-- Member Info -->
-                <div class="flex-1 min-w-0">
-                  <div class="font-semibold text-slate-900 dark:text-white truncate text-base">
-                    {{ member.participant.firstName }} {{ member.participant.lastName }}
-                  </div>
-                  <div v-if="hasPhone(member.participant)" class="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
-                    <Phone class="w-3.5 h-3.5" />
-                    <span class="truncate">{{ formatPhones(member.participant) }}</span>
-                  </div>
-                </div>
-
-                <!-- Status Button -->
-                <div class="flex-shrink-0">
-                  <button class="w-14 h-14 rounded-xl flex items-center justify-center transition-all duration-300"
-                    :class="member.attended
-                      ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 group-hover:bg-slate-200 dark:group-hover:bg-slate-700'"
-                  >
-                    <Loader2 v-if="savingStates[member.id]" class="w-6 h-6 animate-spin" />
-                    <Check v-else-if="member.attended" class="w-6 h-6" stroke-width="3" />
-                    <div v-else class="w-4 h-4 rounded-full border-3 border-current"></div>
-                  </button>
-                </div>
+        <!-- Members Groups -->
+        <div class="space-y-6">
+          <!-- Active Members -->
+          <div v-if="activeMembers.length > 0">
+            <div class="flex items-baseline justify-between mb-3 px-1">
+              <div>
+                <h2 class="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">
+                  {{ $t('community.attendance.groupActive') }}
+                </h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  {{ $t('community.attendance.groupActiveHint') }}
+                </p>
               </div>
+              <span class="text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-1 rounded-full">
+                {{ activeMembers.length }}
+              </span>
             </div>
-          </TransitionGroup>
+            <div class="space-y-3">
+              <TransitionGroup name="list">
+                <div
+                  v-for="member in activeMembers"
+                  :key="member.id"
+                  class="member-card group relative overflow-hidden bg-white dark:bg-slate-900 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border-2"
+                  :class="{
+                    'member-card--attended border-emerald-500 shadow-emerald-500/10 dark:shadow-emerald-500/20': member.attended,
+                    'border-transparent hover:border-slate-200 dark:hover:border-slate-700': !member.attended,
+                    'opacity-50 cursor-not-allowed': savingStates[member.id]
+                  }"
+                  @click="toggleAttendance(member)"
+                >
+                  <div v-if="member.attended" class="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-teal-500/5"></div>
+                  <div class="relative flex items-center gap-4 p-4">
+                    <div class="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center text-white font-semibold text-lg transition-all"
+                      :class="member.attended
+                        ? 'bg-gradient-to-br from-emerald-500 to-teal-500 shadow-lg shadow-emerald-500/30'
+                        : 'bg-gradient-to-br from-slate-400 to-slate-500 dark:from-slate-600 dark:to-slate-700'"
+                    >
+                      {{ getInitials(member.participant.firstName, member.participant.lastName) }}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="font-semibold text-slate-900 dark:text-white truncate text-base">
+                        {{ member.participant.firstName }} {{ member.participant.lastName }}
+                      </div>
+                      <div v-if="hasPhone(member.participant)" class="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
+                        <Phone class="w-3.5 h-3.5" />
+                        <span class="truncate">{{ formatPhones(member.participant) }}</span>
+                      </div>
+                    </div>
+                    <div class="flex-shrink-0">
+                      <button class="w-14 h-14 rounded-xl flex items-center justify-center transition-all duration-300"
+                        :class="member.attended
+                          ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 group-hover:bg-slate-200 dark:group-hover:bg-slate-700'"
+                      >
+                        <Loader2 v-if="savingStates[member.id]" class="w-6 h-6 animate-spin" />
+                        <Check v-else-if="member.attended" class="w-6 h-6" stroke-width="3" />
+                        <div v-else class="w-4 h-4 rounded-full border-3 border-current"></div>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </TransitionGroup>
+            </div>
+          </div>
+
+          <!-- Pending Members (follow-up needed) -->
+          <div v-if="pendingMembers.length > 0">
+            <div class="flex items-baseline justify-between mb-3 px-1">
+              <div>
+                <h2 class="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-widest">
+                  {{ $t('community.attendance.groupPending') }}
+                </h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  {{ $t('community.attendance.groupPendingHint') }}
+                </p>
+              </div>
+              <span class="text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-2 py-1 rounded-full">
+                {{ pendingMembers.length }}
+              </span>
+            </div>
+            <div class="space-y-3">
+              <TransitionGroup name="list">
+                <div
+                  v-for="member in pendingMembers"
+                  :key="member.id"
+                  class="member-card group relative overflow-hidden bg-white dark:bg-slate-900 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border-2"
+                  :class="{
+                    'member-card--attended border-emerald-500 shadow-emerald-500/10 dark:shadow-emerald-500/20': member.attended,
+                    'border-amber-200 dark:border-amber-900/40 hover:border-amber-300 dark:hover:border-amber-800': !member.attended,
+                    'opacity-50 cursor-not-allowed': savingStates[member.id]
+                  }"
+                  @click="toggleAttendance(member)"
+                >
+                  <div v-if="member.attended" class="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-teal-500/5"></div>
+                  <div class="relative flex items-center gap-4 p-4">
+                    <div class="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center text-white font-semibold text-lg transition-all"
+                      :class="member.attended
+                        ? 'bg-gradient-to-br from-emerald-500 to-teal-500 shadow-lg shadow-emerald-500/30'
+                        : 'bg-gradient-to-br from-amber-400 to-amber-500'"
+                    >
+                      {{ getInitials(member.participant.firstName, member.participant.lastName) }}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="font-semibold text-slate-900 dark:text-white truncate text-base">
+                        {{ member.participant.firstName }} {{ member.participant.lastName }}
+                      </div>
+                      <div v-if="hasPhone(member.participant)" class="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
+                        <Phone class="w-3.5 h-3.5" />
+                        <span class="truncate">{{ formatPhones(member.participant) }}</span>
+                      </div>
+                    </div>
+                    <div class="flex-shrink-0">
+                      <button class="w-14 h-14 rounded-xl flex items-center justify-center transition-all duration-300"
+                        :class="member.attended
+                          ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
+                          : 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 group-hover:bg-amber-100 dark:group-hover:bg-amber-900/40'"
+                      >
+                        <Loader2 v-if="savingStates[member.id]" class="w-6 h-6 animate-spin" />
+                        <Check v-else-if="member.attended" class="w-6 h-6" stroke-width="3" />
+                        <div v-else class="w-4 h-4 rounded-full border-3 border-current"></div>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </TransitionGroup>
+            </div>
+          </div>
         </div>
 
         <!-- Empty State -->
@@ -236,6 +310,9 @@ const filteredMembers = computed(() => {
 });
 
 const presentCount = computed(() => members.value.filter((m) => m.attended).length);
+
+const activeMembers = computed(() => filteredMembers.value.filter((m) => m.state === 'active_member'));
+const pendingMembers = computed(() => filteredMembers.value.filter((m) => m.state === 'pending_verification'));
 
 const hasPhone = (participant: any): boolean => {
   return !!(participant.cellPhone || participant.homePhone || participant.workPhone);

@@ -31,6 +31,7 @@
     "checking": "Verifying your email…",
     "successHint": "You can now use your account without restrictions. If you were invited to a community, you can now accept the invitation.",
     "goLogin": "Go to login",
+    "goApp": "Continue to the app",
     "invalidOrExpired": "Invalid or expired verification token.",
     "errorHint": "The link may have expired or already been used. Request a new verification email.",
     "emailLabel": "Email",
@@ -1896,7 +1897,11 @@
       "publicLink": "Public attendance link",
       "copyPublicLink": "Copy attendance link",
       "publicLinkCopied": "Link copied to clipboard",
-      "publicLinkWarning": "Anyone with this link can record attendance"
+      "publicLinkWarning": "Anyone with this link can record attendance",
+      "groupActive": "Active",
+      "groupActiveHint": "Confirmed participants",
+      "groupPending": "To contact",
+      "groupPendingHint": "Not yet confirmed — invite to the next meeting"
     },
     "templates": {
       "title": "Message Templates",

@@ -31,6 +31,7 @@
     "checking": "Verificando tu correo…",
     "successHint": "Ya puedes usar tu cuenta sin restricciones. Si fuiste invitado a una comunidad, ahora podrás aceptar la invitación.",
     "goLogin": "Ir a iniciar sesión",
+    "goApp": "Continuar a la aplicación",
     "invalidOrExpired": "Token de verificación inválido o expirado.",
     "errorHint": "El link pudo haber expirado o ya fue usado. Solicita un nuevo correo de verificación.",
     "emailLabel": "Correo electrónico",
@@ -1993,7 +1994,11 @@
       "publicLink": "Enlace público de asistencia",
       "copyPublicLink": "Copiar enlace de asistencia",
       "publicLinkCopied": "Enlace copiado al portapapeles",
-      "publicLinkWarning": "Cualquier persona con este enlace puede registrar asistencia"
+      "publicLinkWarning": "Cualquier persona con este enlace puede registrar asistencia",
+      "groupActive": "Activos",
+      "groupActiveHint": "Confirmados como participantes",
+      "groupPending": "Por contactar",
+      "groupPendingHint": "Aún no confirmados — invitar a la próxima reunión"
     },
     "templates": {
       "title": "Plantillas de Mensajes",

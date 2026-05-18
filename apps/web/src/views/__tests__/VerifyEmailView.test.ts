@@ -81,7 +81,9 @@ describe('VerifyEmailView', () => {
 		mockApi.post.mockResolvedValueOnce({ data: { message: 'Correo verificado correctamente.' } });
 
 		const wrapper = mount(VerifyEmailView, {
-			global: { stubs: { 'router-link': true } },
+			global: {
+				stubs: { 'router-link': { template: '<a :href="to"><slot /></a>', props: ['to'] } },
+			},
 		});
 		await flushPromises();
 
@@ -90,7 +92,7 @@ describe('VerifyEmailView', () => {
 		});
 		// Backend message renders as-is (not i18n)
 		expect(wrapper.text()).toContain('Correo verificado correctamente');
-		// Button text is i18n key in the mocked setup
+		// Sin pinia user activo, el continueLabel cae a goLogin (anonymous path)
 		expect(wrapper.text()).toContain('emailVerify.goLogin');
 	});
 

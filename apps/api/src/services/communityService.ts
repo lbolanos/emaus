@@ -544,9 +544,11 @@ export class CommunityService {
 			order: { startDate: 'DESC' },
 		});
 
-		// Get all members for this community (active members only)
+		// Roster para conteo de asistencia: matching el filtro del endpoint público
+		// (active + pending). El conteo "X de Y asistieron" debe usar la misma base que
+		// el roster que ve el coordinador en el papel/UI de asistencia.
 		const allMembers = await this.memberRepo.find({
-			where: { communityId, state: 'active_member' },
+			where: { communityId, state: In(['active_member', 'pending_verification']) },
 		});
 
 		// Add attendance counts to each meeting
@@ -991,13 +993,14 @@ export class CommunityService {
 			return null;
 		}
 
-		// Get members with their participants. SECURITY: solo active_member en endpoint
-		// público — no debe exponer PII de gente que ya no participa (pending, no_answer,
-		// another_group, far_from_location). Las asistencias previas registradas para
-		// miembros que cambiaron de estado se mantienen en attendance, pero el roster
-		// público de la asistencia solo muestra a quienes están activos al momento.
+		// Roster del retiro: incluye a todos los miembros que pueden asistir,
+		// incluyendo los que aún no fueron contactados (pending_verification).
+		// `state` es un MARCADOR DE SEGUIMIENTO, no de permiso para asistir:
+		//   - active_member: confirmado asistiendo, no requiere follow-up.
+		//   - pending_verification: aún no contactado / por invitar.
+		//   - no_answer / another_group / far_from_location: explícitamente declinaron — fuera del roster.
 		const members = await this.memberRepo.find({
-			where: { communityId, state: 'active_member' },
+			where: { communityId, state: In(['active_member', 'pending_verification']) },
 			relations: ['participant'],
 			order: { joinedAt: 'ASC' },
 		});
@@ -1016,6 +1019,7 @@ export class CommunityService {
 			meetingStartDate: meeting.startDate,
 			members: members.map((member) => ({
 				id: member.id,
+				state: member.state,
 				participant: {
 					firstName: member.participant.firstName,
 					lastName: member.participant.lastName,
@@ -1872,23 +1876,67 @@ export class CommunityService {
 			.andWhere('c.status = :cs', { cs: 'active' })
 			.getMany();
 
-		// Para cada comunidad, próximas 3 reuniones reales (no plantillas)
+		// Para cada comunidad, próximas 3 reuniones (mezcla físicas + templates
+		// expandidas a su próxima ocurrencia computada).
+		const now = new Date();
 		const result = [];
 		for (const m of members) {
-			const upcoming = await this.meetingRepo
+			const physical = await this.meetingRepo
 				.createQueryBuilder('meeting')
 				.where('meeting.communityId = :cid', { cid: m.community.id })
 				.andWhere('meeting.startDate >= datetime("now")')
 				.andWhere('(meeting.isRecurrenceTemplate IS NULL OR meeting.isRecurrenceTemplate = 0)')
 				.orderBy('meeting.startDate', 'ASC')
-				.limit(3)
 				.getMany();
+
+			const templates = await this.meetingRepo
+				.createQueryBuilder('meeting')
+				.where('meeting.communityId = :cid', { cid: m.community.id })
+				.andWhere('meeting.isRecurrenceTemplate = 1')
+				.andWhere('meeting.recurrenceFrequency IS NOT NULL')
+				.getMany();
+
+			// Computar próxima ocurrencia de cada template (skip si quedó en el pasado).
+			const virtualInstances = templates
+				.map((t) => {
+					// Si el template tiene startDate >= now, usá ese como próxima ocurrencia.
+					// Si está en el pasado, computá hacia adelante hasta encontrar una futura.
+					let candidate = new Date(t.startDate);
+					let safety = 365; // máx 1 año de saltos
+					while (candidate < now && safety-- > 0) {
+						const next = calculateNextOccurrence(
+							candidate,
+							(t.recurrenceFrequency || null) as 'daily' | 'weekly' | 'monthly' | null,
+							t.recurrenceInterval ?? 1,
+							t.recurrenceDayOfWeek ?? null,
+							t.recurrenceDayOfMonth ?? null,
+						);
+						if (!next) break;
+						candidate = next;
+					}
+					if (candidate < now) return null;
+					return {
+						id: t.id,
+						title: t.title,
+						description: t.description,
+						startDate: candidate.toISOString(),
+						endDate: null,
+						isRecurrenceTemplate: true,
+						isVirtualInstance: true,
+						recurrenceFrequency: t.recurrenceFrequency,
+					};
+				})
+				.filter(Boolean);
+
+			const merged = [...physical, ...(virtualInstances as any[])].sort(
+				(a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime(),
+			);
 
 			result.push({
 				community: m.community,
 				memberId: m.id,
 				joinedAt: m.joinedAt,
-				upcomingMeetings: upcoming,
+				upcomingMeetings: merged.slice(0, 3),
 			});
 		}
 		return result;
@@ -1918,12 +1966,14 @@ export class CommunityService {
 		const emailService = new EmailService();
 		if (!emailService.isSmtpConfigured()) return;
 
-		// Miembros activos con email
+		// Miembros que pueden asistir + tienen email. Incluye pending_verification:
+		// el correo de invitación a la reunión también sirve para reactivarlos.
+		// Excluye no_answer/another_group/far_from_location (ya declinaron).
 		const members = await this.memberRepo
 			.createQueryBuilder('m')
 			.innerJoinAndSelect('m.participant', 'p')
 			.where('m.communityId = :cid', { cid: community.id })
-			.andWhere('m.state = :state', { state: 'active_member' })
+			.andWhere('m.state IN (:...states)', { states: ['active_member', 'pending_verification'] })
 			.andWhere('p.email IS NOT NULL AND p.email != \'\'')
 			.getMany();
 

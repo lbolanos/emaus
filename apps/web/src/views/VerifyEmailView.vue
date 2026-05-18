@@ -16,8 +16,10 @@
           <p class="text-sm text-muted-foreground text-center">
             {{ t('emailVerify.successHint') }}
           </p>
-          <Button as="router-link" to="/login" class="w-full">
-            {{ t('emailVerify.goLogin') }}
+          <Button as-child class="w-full">
+            <router-link :to="continueTarget">
+              {{ continueLabel }}
+            </router-link>
           </Button>
         </div>
 
@@ -57,7 +59,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { api } from '@/services/api';
@@ -71,6 +73,11 @@ const route = useRoute();
 const authStore = useAuthStore();
 const state = ref<State>('loading');
 const message = ref<string | null>(null);
+
+const continueTarget = computed(() => (authStore.user ? '/app' : '/login'));
+const continueLabel = computed(() =>
+  authStore.user ? t('emailVerify.goApp') : t('emailVerify.goLogin'),
+);
 
 const resendEmail = ref('');
 const resending = ref(false);

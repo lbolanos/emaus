@@ -570,8 +570,10 @@ describe('Community Service', () => {
 			expect(data.members.every((m: any) => 'attended' in m)).toBe(true);
 		});
 
-		it('SECURITY: solo expone miembros con state=active_member (no pending/no_answer/etc)', async () => {
-			// Crear 4 miembros con distintos estados
+		it('incluye active_member + pending_verification, excluye declinados explícitos', async () => {
+			// state es marcador de follow-up del coordinador, NO permiso de asistir.
+			// active + pending → en roster (pending = "por contactar").
+			// no_answer / another_group / far_from_location → fuera (declinaron explícitamente).
 			const pActive1 = await TestDataFactory.createTestParticipant(testRetreat.id);
 			const pActive2 = await TestDataFactory.createTestParticipant(testRetreat.id);
 			const pPending = await TestDataFactory.createTestParticipant(testRetreat.id);
@@ -590,7 +592,6 @@ describe('Community Service', () => {
 			const m3 = await service.addMember(testCommunity.id, pPending.id);
 			const m4 = await service.addMember(testCommunity.id, pAnotherGroup.id);
 
-			// Cambiar estados (omitir notify para evitar emails en este test)
 			await service.updateMemberState(m3.id, 'pending_verification', testUser.id);
 			await service.updateMemberState(m4.id, 'another_group', testUser.id);
 
@@ -602,13 +603,14 @@ describe('Community Service', () => {
 
 			const data = await service.getPublicAttendanceData(testCommunity.id, meeting.id);
 
-			// Solo los 2 active_member deben aparecer
-			expect(data!.members.length).toBe(2);
+			// 2 active + 1 pending = 3. Otro (another_group) queda fuera.
+			expect(data!.members.length).toBe(3);
 			const firstNames = data!.members.map((m: any) => m.participant.firstName).sort();
-			expect(firstNames).toEqual(['Active', 'Active']);
-			// Pending y Other NO deben aparecer
-			expect(data!.members.find((m: any) => m.participant.firstName === 'Pending')).toBeUndefined();
+			expect(firstNames).toEqual(['Active', 'Active', 'Pending']);
 			expect(data!.members.find((m: any) => m.participant.firstName === 'Other')).toBeUndefined();
+			// El roster expone el state para que la UI pueda agrupar visualmente
+			const states = data!.members.map((m: any) => m.state).sort();
+			expect(states).toEqual(['active_member', 'active_member', 'pending_verification']);
 		});
 	});
 
@@ -1309,21 +1311,27 @@ describe('Community Service', () => {
 			expect(getSent().length).toBe(0);
 		});
 
-		it('omite miembros sin email o con estado distinto a active_member', async () => {
+		it('envía a active_member + pending_verification, omite declinados y miembros sin email', async () => {
+			// `state` es marcador de follow-up: pending también recibe el email
+			// (sirve para reactivarlos). Declinados (another_group/no_answer/etc) NO.
 			const pActive = await TestDataFactory.createTestParticipant(testRetreat.id);
 			const pNoEmail = await TestDataFactory.createTestParticipant(testRetreat.id);
 			const pPending = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const pAnother = await TestDataFactory.createTestParticipant(testRetreat.id);
 			const partRepo = AppDataSource.getRepository(
 				require('@/entities/participant.entity').Participant,
 			);
 			await partRepo.update(pActive.id, { email: 'active@test.com' });
 			await partRepo.update(pNoEmail.id, { email: '' });
 			await partRepo.update(pPending.id, { email: 'pending@test.com' });
+			await partRepo.update(pAnother.id, { email: 'another@test.com' });
 
 			await service.addMember(testCommunity.id, pActive.id);
 			await service.addMember(testCommunity.id, pNoEmail.id);
 			const memberPending = await service.addMember(testCommunity.id, pPending.id);
+			const memberAnother = await service.addMember(testCommunity.id, pAnother.id);
 			await service.updateMemberState(memberPending.id, 'pending_verification', testUser.id);
+			await service.updateMemberState(memberAnother.id, 'another_group', testUser.id);
 			(globalThis as any).__sentEmails = []; // limpiar previos
 
 			await service.createMeeting(testCommunity.id, {
@@ -1335,8 +1343,9 @@ describe('Community Service', () => {
 
 			const sent = getSent();
 			expect(sent.find((e) => e.to === 'active@test.com')).toBeTruthy();
+			expect(sent.find((e) => e.to === 'pending@test.com')).toBeTruthy();
 			expect(sent.find((e) => e.to === '')).toBeUndefined();
-			expect(sent.find((e) => e.to === 'pending@test.com')).toBeUndefined();
+			expect(sent.find((e) => e.to === 'another@test.com')).toBeUndefined();
 		});
 	});
 
