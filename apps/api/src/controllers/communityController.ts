@@ -173,6 +173,85 @@ export class CommunityController {
 		res.json(member);
 	}
 
+	/**
+	 * Actualiza el "overlay" de perfil de un miembro de comunidad
+	 * (nombre/apellido/email/teléfono per-community). NO toca el Participant
+	 * global.
+	 *
+	 * SECURITY (owner-only): el middleware en la ruta es
+	 * `requireCommunityOwner`, no `requireCommunityAccess`. Un co-admin
+	 * podría rerutear notificaciones cambiando `overlay.email = attacker`
+	 * — restringimos a owner (o superadmin) para reducir blast radius.
+	 *
+	 * Validaciones:
+	 *  - `validateRequest(updateMemberProfileSchema)` ya validó max-lengths
+	 *    y formato de email.
+	 *  - El service verifica que el `:memberId` pertenezca a `:id` (cross-
+	 *    tenant guard) y rechaza colisión de email scoped a la misma
+	 *    comunidad (DB constraint + check de aplicación).
+	 *  - Audit log se emite solo cuando hay cambios efectivos (no en
+	 *    no-ops); incluye hash truncado del nuevo email para correlación
+	 *    sin duplicar PII.
+	 */
+	static async updateMemberProfile(req: Request, res: Response) {
+		const { id: communityId, memberId } = req.params;
+		const { firstName, lastName, email, cellPhone } = req.body || {};
+		try {
+			const { member, changedFields } = await communityService.updateMemberProfile(
+				communityId,
+				memberId,
+				{ firstName, lastName, email, cellPhone },
+			);
+
+			// Audit log: solo cuando el overlay REALMENTE cambió (no en
+			// no-ops como re-enviar el mismo nombre). `changedFields` viene
+			// del service que compara el valor anterior vs nuevo.
+			if (changedFields.length > 0) {
+				// Si cambia el email, incluimos un hash corto para correlación
+				// (detectar si el mismo email se setea en varios miembros sin
+				// duplicar PII en la audit log).
+				let emailHash: string | undefined;
+				if (changedFields.includes('email') && typeof email === 'string' && email) {
+					const { createHash } = await import('crypto');
+					emailHash = createHash('sha256')
+						.update(email.trim().toLowerCase())
+						.digest('hex')
+						.slice(0, 12);
+				}
+				void communityAuditService.log({
+					action: CommunityAuditAction.MEMBER_PROFILE_UPDATE,
+					resourceType: 'community_member',
+					resourceId: memberId,
+					communityId,
+					actorUserId: (req.user as any)?.id,
+					metadata: {
+						changedFields,
+						overlay: true,
+						...(emailHash ? { newEmailHash: emailHash } : {}),
+					},
+					ipAddress: req.ip,
+					userAgent: req.get('user-agent'),
+				});
+			}
+
+			res.json(member);
+		} catch (err: any) {
+			if (err?.message === 'Member not found in this community') {
+				return res.status(404).json({ message: err.message });
+			}
+			if (err?.message === 'firstName cannot be empty') {
+				return res.status(400).json({ message: err.message });
+			}
+			if (err?.message === 'EMAIL_DUPLICATE_IN_COMMUNITY') {
+				return res.status(409).json({
+					code: 'EMAIL_DUPLICATE_IN_COMMUNITY',
+					message: 'Ya existe otro miembro de esta comunidad con ese correo.',
+				});
+			}
+			throw err;
+		}
+	}
+
 	static async getMemberTimeline(req: Request, res: Response) {
 		const { memberId } = req.params;
 		try {

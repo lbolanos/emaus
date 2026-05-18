@@ -1076,6 +1076,56 @@ describe('Community Service', () => {
 			expect(p.emergencyContact1CellPhone).toBeUndefined();
 		});
 
+		it('admin non-owner recibe el overlay top-level (no solo participant trimmed)', async () => {
+			// Setup: admin non-owner + miembro con overlay
+			const adminUser = await TestDataFactory.createTestUser({
+				email: 'overlay-admin@test.com',
+			});
+			const community = await TestDataFactory.createTestCommunity(testUser.id);
+			const adminRepo = AppDataSource.getRepository(CommunityAdmin);
+			await adminRepo.save(
+				adminRepo.create({
+					communityId: community.id,
+					userId: adminUser.id,
+					role: 'admin',
+					status: 'active',
+					acceptedAt: new Date(),
+				}),
+			);
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const partRepo = AppDataSource.getRepository(
+				require('@/entities/participant.entity').Participant,
+			);
+			await partRepo.update(p.id, {
+				firstName: 'JosephReal',
+				lastName: 'PerezReal',
+				email: 'real@test.com',
+			});
+			const member = await service.addMember(community.id, p.id);
+			// Owner pone overlay (esta editar requiere owner — usamos testUser que es owner)
+			await service.updateMemberProfile(community.id, member.id, {
+				firstName: 'JuanOverlay',
+				lastName: 'PerezOverlay',
+				email: 'overlay@test.com',
+			});
+
+			// Admin non-owner pide lista
+			const members = await service.getMembersForViewer(community.id, {
+				userId: adminUser.id,
+				isSuperadmin: false,
+			});
+
+			expect(members.length).toBe(1);
+			const m = members[0] as any;
+			// El overlay viene top-level — frontend usa resolveMemberProfile
+			expect(m.firstName).toBe('JuanOverlay');
+			expect(m.lastName).toBe('PerezOverlay');
+			expect(m.email).toBe('overlay@test.com');
+			// participant trimmed sigue presente como fallback
+			expect(m.participant._trimmed).toBe(true);
+			expect(m.participant.firstName).toBe('JosephReal');
+		});
+
 		it('getViewerRoleForCommunity retorna superadmin sin tocar BD si isSuperadmin=true', async () => {
 			const role = await service.getViewerRoleForCommunity('any-cid', 'any-uid', true);
 			expect(role).toBe('superadmin');
@@ -1427,6 +1477,59 @@ describe('Community Service', () => {
 			expect(email.html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
 			// El raw script NO debe estar presente
 			expect(email.html).not.toContain('<script>alert(1)</script>');
+		});
+
+		it('regression: placeholder spoofing — un firstName con forma de placeholder NO debe re-interpretarse', async () => {
+			// SECURITY: previo a este fix, renderTemplate hacía dos pasadas
+			// secuenciales (mustache → canónica). Un participante con
+			// `firstName = '{community.name}'` veía su nombre reemplazado por
+			// el nombre real de la comunidad en el output:
+			//   "Hola {{firstName}} en {community.name}"
+			//   → primera pasada: "Hola {community.name} en {community.name}"
+			//   → segunda pasada (BUG): "Hola <nombre real> en <nombre real>"
+			//
+			// El fix usa un único regex combinado que matchea contra el
+			// template original. Cada placeholder se reemplaza una sola vez
+			// y los valores nunca se procesan como template.
+			const { MessageTemplate } = require('@/entities/messageTemplate.entity');
+			const tplRepo = AppDataSource.getRepository(MessageTemplate);
+			// Borrar cualquier plantilla COMMUNITY_MEMBER_APPROVED previa para
+			// que mi template gane sin ambigüedad de orden.
+			await tplRepo.delete({ type: 'COMMUNITY_MEMBER_APPROVED' });
+			await tplRepo.save(
+				tplRepo.create({
+					name: 'Test double-pass regression',
+					type: 'COMMUNITY_MEMBER_APPROVED',
+					scope: 'community',
+					message: 'Hola {{firstName}} en {community.name}',
+				} as any),
+			);
+
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const partRepo = AppDataSource.getRepository(
+				require('@/entities/participant.entity').Participant,
+			);
+			// firstName tiene contenido que parece placeholder canónico
+			await partRepo.update(p.id, {
+				email: 'doublepass@test.com',
+				firstName: '{community.name}',
+			});
+			const member = await service.addMember(testCommunity.id, p.id);
+			await service.updateMemberState(member.id, 'pending_verification', testUser.id);
+			(globalThis as any).__sentEmails = [];
+			await service.updateMemberState(member.id, 'active_member', testUser.id);
+			await new Promise((r) => setTimeout(r, 50));
+
+			const email = getSent().find((e: any) => e.to === 'doublepass@test.com');
+			expect(email).toBeTruthy();
+			// Resultado correcto: el firstName aparece LITERAL donde estaba
+			// `{{firstName}}`, y el nombre real de la comunidad aparece
+			// donde estaba `{community.name}`.
+			expect(email.html).toContain(`en ${testCommunity.name}`);
+			expect(email.html).toContain('Hola {community.name} en');
+			// Y el firstName NO se debe duplicar como nombre de comunidad.
+			const nameOccurrences = (email.html.match(new RegExp(testCommunity.name, 'g')) || []).length;
+			expect(nameOccurrences).toBe(1);
 		});
 
 		it('cae al HTML inline cuando NO existe plantilla en BD', async () => {
@@ -1964,6 +2067,384 @@ describe('Community Service', () => {
 			const expectedMax = after + 48 * 60 * 60 * 1000 + 1000;
 			expect(ttl).toBeGreaterThanOrEqual(expectedMin);
 			expect(ttl).toBeLessThanOrEqual(expectedMax);
+		});
+	});
+
+	describe('updateMemberProfile — overlay de perfil por-comunidad', () => {
+		it('persiste overlay en community_member.* SIN tocar el Participant', async () => {
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const partRepo = AppDataSource.getRepository(
+				require('@/entities/participant.entity').Participant,
+			);
+			await partRepo.update(p.id, {
+				firstName: 'Joseph',
+				lastName: 'Perez',
+				email: 'joseph@example.com',
+				cellPhone: '5550000000',
+			});
+			const member = await service.addMember(testCommunity.id, p.id);
+
+			const updated = await service.updateMemberProfile(testCommunity.id, member.id, {
+				firstName: 'Juan Carlos',
+				lastName: 'Pérez',
+				email: 'juancarlos@example.com',
+				cellPhone: '5551234567',
+			});
+
+			// Overlay vive en community_member
+			expect((updated.member as any)?.firstName).toBe('Juan Carlos');
+			expect((updated.member as any)?.lastName).toBe('Pérez');
+			expect((updated.member as any)?.email).toBe('juancarlos@example.com');
+			expect((updated.member as any)?.cellPhone).toBe('5551234567');
+
+			// Participant NO se tocó
+			const reloadedParticipant = await partRepo.findOne({ where: { id: p.id } });
+			expect(reloadedParticipant?.firstName).toBe('Joseph');
+			expect(reloadedParticipant?.lastName).toBe('Perez');
+			expect(reloadedParticipant?.email).toBe('joseph@example.com');
+			expect(reloadedParticipant?.cellPhone).toBe('5550000000');
+		});
+
+		it('trims whitespace on all fields', async () => {
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const member = await service.addMember(testCommunity.id, p.id);
+
+			const updated = await service.updateMemberProfile(testCommunity.id, member.id, {
+				firstName: '  Juan  ',
+				lastName: '  Pérez  ',
+				email: '  juan@example.com  ',
+				cellPhone: '  5551234567  ',
+			});
+
+			expect((updated.member as any)?.firstName).toBe('Juan');
+			expect((updated.member as any)?.lastName).toBe('Pérez');
+			expect((updated.member as any)?.email).toBe('juan@example.com');
+			expect((updated.member as any)?.cellPhone).toBe('5551234567');
+		});
+
+		it('empty-string fields se persisten como NULL (limpia overlay)', async () => {
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const member = await service.addMember(testCommunity.id, p.id);
+
+			// Primero setea overlay
+			await service.updateMemberProfile(testCommunity.id, member.id, {
+				lastName: 'Pérez',
+				cellPhone: '5550000000',
+				email: 'overlay@example.com',
+			});
+
+			// Luego "limpia" con strings vacíos
+			const updated = await service.updateMemberProfile(testCommunity.id, member.id, {
+				lastName: '',
+				cellPhone: '',
+				email: '',
+			});
+
+			expect((updated.member as any)?.lastName).toBeNull();
+			expect((updated.member as any)?.cellPhone).toBeNull();
+			expect((updated.member as any)?.email).toBeNull();
+		});
+
+		it('partial update: solo toca los campos provistos', async () => {
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const member = await service.addMember(testCommunity.id, p.id);
+
+			// Setear overlay completo
+			await service.updateMemberProfile(testCommunity.id, member.id, {
+				firstName: 'Juan',
+				lastName: 'Pérez',
+				email: 'juan@example.com',
+				cellPhone: '5550000000',
+			});
+
+			// Tocar solo lastName — los demás overlays se mantienen
+			const updated = await service.updateMemberProfile(testCommunity.id, member.id, {
+				lastName: 'González',
+			});
+
+			expect((updated.member as any)?.firstName).toBe('Juan');
+			expect((updated.member as any)?.lastName).toBe('González');
+			expect((updated.member as any)?.email).toBe('juan@example.com');
+			expect((updated.member as any)?.cellPhone).toBe('5550000000');
+		});
+
+		it('SECURITY: throws cross-tenant cuando memberId no pertenece a communityId', async () => {
+			const otherCommunity = await TestDataFactory.createTestCommunity(testUser.id, {
+				name: 'Otra comunidad',
+			});
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const memberInOther = await service.addMember(otherCommunity.id, p.id);
+
+			await expect(
+				service.updateMemberProfile(testCommunity.id, memberInOther.id, {
+					lastName: 'HackedSurname',
+				}),
+			).rejects.toThrow('Member not found in this community');
+		});
+
+		it('rejects empty firstName explícitamente', async () => {
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const member = await service.addMember(testCommunity.id, p.id);
+
+			await expect(
+				service.updateMemberProfile(testCommunity.id, member.id, {
+					firstName: '   ',
+				}),
+			).rejects.toThrow('firstName cannot be empty');
+		});
+
+		it('no-op cuando no se provee ningún campo', async () => {
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const partRepo = AppDataSource.getRepository(
+				require('@/entities/participant.entity').Participant,
+			);
+			await partRepo.update(p.id, { firstName: 'Juan', lastName: 'Pérez' });
+			const member = await service.addMember(testCommunity.id, p.id);
+
+			const updated = await service.updateMemberProfile(testCommunity.id, member.id, {});
+
+			expect(updated.member?.participant?.firstName).toBe('Juan');
+			expect(updated.member?.participant?.lastName).toBe('Pérez');
+			expect((updated.member as any)?.firstName).toBeFalsy();
+			expect((updated.member as any)?.lastName).toBeFalsy();
+		});
+
+		it('SECURITY: editar email NO afecta participant.email (anti account-takeover)', async () => {
+			// Participant con user vinculado — antes esto era el vector de takeover
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const partRepo = AppDataSource.getRepository(
+				require('@/entities/participant.entity').Participant,
+			);
+			await partRepo.update(p.id, {
+				email: 'real-user@example.com',
+				userId: testUser.id,
+			});
+			const member = await service.addMember(testCommunity.id, p.id);
+
+			// Admin "malicioso" cambia el email del overlay
+			const updated = await service.updateMemberProfile(testCommunity.id, member.id, {
+				email: 'attacker@example.com',
+			});
+
+			// El overlay se guardó — eso es OK porque NO afecta auto-link
+			expect((updated.member as any)?.email).toBe('attacker@example.com');
+
+			// El Participant queda INTACTO — auto-link en signup sigue funcionando con el email original
+			const reloadedParticipant = await partRepo.findOne({ where: { id: p.id } });
+			expect(reloadedParticipant?.email).toBe('real-user@example.com');
+		});
+
+		it('SECURITY: rechaza colisión de email dentro de la misma comunidad', async () => {
+			// Miembro A con email overlay
+			const pA = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const memberA = await service.addMember(testCommunity.id, pA.id);
+			await service.updateMemberProfile(testCommunity.id, memberA.id, {
+				email: 'taken@example.com',
+			});
+
+			// Miembro B intenta usar el mismo email (case-insensitive)
+			const pB = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const memberB = await service.addMember(testCommunity.id, pB.id);
+
+			await expect(
+				service.updateMemberProfile(testCommunity.id, memberB.id, {
+					email: 'TAKEN@example.com',
+				}),
+			).rejects.toThrow('EMAIL_DUPLICATE_IN_COMMUNITY');
+		});
+
+		it('permite mismo email en COMUNIDADES DISTINTAS (overlay es per-community)', async () => {
+			const otherCommunity = await TestDataFactory.createTestCommunity(testUser.id, {
+				name: 'Comunidad B',
+			});
+			const pA = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const memberA = await service.addMember(testCommunity.id, pA.id);
+			await service.updateMemberProfile(testCommunity.id, memberA.id, {
+				email: 'shared@example.com',
+			});
+
+			const pB = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const memberB = await service.addMember(otherCommunity.id, pB.id);
+
+			// Mismo email pero en Comunidad B — debería pasar
+			const updated = await service.updateMemberProfile(otherCommunity.id, memberB.id, {
+				email: 'shared@example.com',
+			});
+
+			expect((updated.member as any)?.email).toBe('shared@example.com');
+		});
+
+		it('detecta colisión contra el participant.email heredado (overlay null) de otro miembro', async () => {
+			// Miembro A sin overlay (su email efectivo es participant.email)
+			const pA = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const partRepo = AppDataSource.getRepository(
+				require('@/entities/participant.entity').Participant,
+			);
+			await partRepo.update(pA.id, { email: 'shared@example.com' });
+			await service.addMember(testCommunity.id, pA.id);
+
+			// Miembro B intenta poner overlay con el mismo email
+			const pB = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const memberB = await service.addMember(testCommunity.id, pB.id);
+
+			await expect(
+				service.updateMemberProfile(testCommunity.id, memberB.id, {
+					email: 'shared@example.com',
+				}),
+			).rejects.toThrow('EMAIL_DUPLICATE_IN_COMMUNITY');
+		});
+
+		it('SECURITY: el partial unique index dispara EMAIL_DUPLICATE_IN_COMMUNITY si la race condition salta el check', async () => {
+			// Defense in depth: simulamos la race condition insertando directamente
+			// otro miembro con email overlay para evitar el check del service y
+			// disparar el unique index a nivel DB.
+			const pA = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const memberA = await service.addMember(testCommunity.id, pA.id);
+			const memberRepo = AppDataSource.getRepository(
+				require('@/entities/communityMember.entity').CommunityMember,
+			);
+			await memberRepo.update(memberA.id, { email: 'taken@example.com' });
+
+			const pB = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const memberB = await service.addMember(testCommunity.id, pB.id);
+
+			// El service rechaza con EMAIL_DUPLICATE_IN_COMMUNITY (puede venir del
+			// check de aplicación o del constraint de DB — ambos son válidos como
+			// defense in depth).
+			await expect(
+				service.updateMemberProfile(testCommunity.id, memberB.id, {
+					email: 'taken@example.com',
+				}),
+			).rejects.toThrow('EMAIL_DUPLICATE_IN_COMMUNITY');
+		});
+
+		it('no reporta colisión cuando el email es el mismo del miembro (no cambia)', async () => {
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const member = await service.addMember(testCommunity.id, p.id);
+			await service.updateMemberProfile(testCommunity.id, member.id, {
+				email: 'me@example.com',
+			});
+
+			// Re-enviar el mismo email (con distinto case) NO debe fallar
+			const updated = await service.updateMemberProfile(testCommunity.id, member.id, {
+				email: 'ME@example.com',
+				lastName: 'Pérez',
+			});
+
+			expect((updated.member as any)?.lastName).toBe('Pérez');
+			// El email se actualiza al nuevo case, pero sin error de colisión
+			expect((updated.member as any)?.email?.toLowerCase()).toBe('me@example.com');
+		});
+	});
+
+	describe('bulkAddMembers — overlay cuando el input difiere del Participant existente', () => {
+		it('guarda overlay cuando el Participant existente tiene nombre/email distinto al input', async () => {
+			// Crear un Participant "Joseph Perez" con email joe@x.com
+			const partRepo = AppDataSource.getRepository(
+				require('@/entities/participant.entity').Participant,
+			);
+			const existing = await TestDataFactory.createTestParticipant(testRetreat.id);
+			await partRepo.update(existing.id, {
+				firstName: 'Joseph',
+				lastName: 'Perez',
+				email: 'joe@example.com',
+				cellPhone: '5550000000',
+			});
+
+			// El bot agrega "Juan Pérez" con el mismo email (dedupe debería hit)
+			const result = await service.bulkAddMembers(testCommunity.id, [
+				{
+					firstName: 'Juan',
+					lastName: 'Pérez García',
+					email: 'joe@example.com',
+					cellPhone: '5551111111',
+				},
+			]);
+
+			expect(result.linked).toHaveLength(1);
+			expect(result.added).toHaveLength(0);
+
+			// Verificar overlay en el nuevo member
+			const memberId = result.linked[0].memberId;
+			const memberRepo = AppDataSource.getRepository(
+				require('@/entities/communityMember.entity').CommunityMember,
+			);
+			const member = await memberRepo.findOne({
+				where: { id: memberId },
+				relations: ['participant'],
+			});
+			expect((member as any)?.firstName).toBe('Juan');
+			expect((member as any)?.lastName).toBe('Pérez García');
+			expect((member as any)?.cellPhone).toBe('5551111111');
+			// Email es igual (joe@) → no se persiste como overlay
+			expect((member as any)?.email).toBeFalsy();
+
+			// El Participant subyacente queda intacto
+			const reloaded = await partRepo.findOne({ where: { id: existing.id } });
+			expect(reloaded?.firstName).toBe('Joseph');
+			expect(reloaded?.lastName).toBe('Perez');
+			expect(reloaded?.email).toBe('joe@example.com');
+		});
+
+		it('NO guarda overlay cuando los datos son idénticos al Participant existente', async () => {
+			const partRepo = AppDataSource.getRepository(
+				require('@/entities/participant.entity').Participant,
+			);
+			const existing = await TestDataFactory.createTestParticipant(testRetreat.id);
+			await partRepo.update(existing.id, {
+				firstName: 'Juan',
+				lastName: 'Pérez',
+				email: 'juan@example.com',
+				cellPhone: '5550000000',
+			});
+
+			const result = await service.bulkAddMembers(testCommunity.id, [
+				{
+					firstName: 'Juan',
+					lastName: 'Pérez',
+					email: 'juan@example.com',
+					cellPhone: '5550000000',
+				},
+			]);
+
+			expect(result.linked).toHaveLength(1);
+			const memberId = result.linked[0].memberId;
+			const memberRepo = AppDataSource.getRepository(
+				require('@/entities/communityMember.entity').CommunityMember,
+			);
+			const member = await memberRepo.findOne({ where: { id: memberId } });
+			expect((member as any)?.firstName).toBeFalsy();
+			expect((member as any)?.lastName).toBeFalsy();
+			expect((member as any)?.email).toBeFalsy();
+			expect((member as any)?.cellPhone).toBeFalsy();
+		});
+
+		it('cuando crea Participant nuevo (no hit), NO setea overlay', async () => {
+			const result = await service.bulkAddMembers(testCommunity.id, [
+				{
+					firstName: 'NuevoMiembro',
+					lastName: 'NuevoApellido',
+					email: 'nuevo@example.com',
+					cellPhone: '5559999999',
+				},
+			]);
+
+			expect(result.added).toHaveLength(1);
+			expect(result.linked).toHaveLength(0);
+
+			const memberId = result.added[0].memberId;
+			const memberRepo = AppDataSource.getRepository(
+				require('@/entities/communityMember.entity').CommunityMember,
+			);
+			const member = await memberRepo.findOne({
+				where: { id: memberId },
+				relations: ['participant'],
+			});
+			// Sin overlay — los datos viven en participant
+			expect((member as any)?.firstName).toBeFalsy();
+			expect((member as any)?.lastName).toBeFalsy();
+			expect(member?.participant?.firstName).toBe('NuevoMiembro');
+			expect(member?.participant?.lastName).toBe('NuevoApellido');
 		});
 	});
 });

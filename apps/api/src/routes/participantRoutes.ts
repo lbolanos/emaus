@@ -4,6 +4,7 @@ import {
 	deleteParticipant,
 	getAllParticipants,
 	getParticipantById,
+	getParticipantNextMeeting,
 	importParticipants,
 	updateParticipant,
 	updateSelfParticipant,
@@ -39,6 +40,11 @@ router.use(isAuthenticated);
 
 router.get('/', requirePermission('participant:list'), getAllParticipants);
 router.get('/:id', requirePermission('participant:read'), getParticipantById);
+router.get(
+	'/:id/next-meeting',
+	requirePermission('participant:read'),
+	getParticipantNextMeeting,
+);
 router.post(
 	'/import/:retreatId',
 	requirePermission('participant:create'),

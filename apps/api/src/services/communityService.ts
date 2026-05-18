@@ -12,6 +12,11 @@ import { In, MoreThanOrEqual } from 'typeorm';
 import { calculateNextOccurrence } from '../utils/recurrenceUtils';
 import { EmailService } from './emailService';
 import { MessageTemplate } from '../entities/messageTemplate.entity';
+// renderTemplate (línea ~39) usa single-pass regex local en vez de los
+// helpers de `@repo/utils` para prevenir placeholder-spoofing. Pero el
+// resto del service sí usa `resolveMemberProfile` para resolver el overlay
+// per-community sobre el Participant subyacente.
+import { resolveMemberProfile } from '@repo/utils';
 
 export class CommunityService {
 	private communityRepo = AppDataSource.getRepository(Community);
@@ -27,13 +32,29 @@ export class CommunityService {
 	}
 
 	/**
-	 * Renderiza una plantilla de `message_templates` interpolando `{{var}}`.
+	 * Renderiza una plantilla de `message_templates` para emails de comunidad.
 	 * Prefiere la plantilla específica de la community; si no existe, usa la
 	 * global (`communityId IS NULL`). Devuelve `null` si no hay plantilla — el
 	 * caller debe caer al HTML inline (fallback de seguridad).
 	 *
-	 * SECURITY: todas las variables se pasan por `escapeHtml` antes de
-	 * interpolarse para prevenir XSS en clientes de correo que renderizan HTML.
+	 * Soporta dos sintaxis de placeholders para retro-compatibilidad:
+	 *   1. `{{var}}` (mustache) — usado por las plantillas seed originales y
+	 *      por overrides de comunidad creados antes de la migration de
+	 *      normalización (20260518173857).
+	 *   2. `{participant.firstName}` / `{community.name}` ... (canónica) —
+	 *      sintaxis estándar del sistema que el variable picker del editor
+	 *      conoce y expone al usuario.
+	 *
+	 * SECURITY:
+	 *  - Todas las variables se pasan por `escapeHtml` antes de interpolarse
+	 *    para prevenir XSS en clientes de correo que renderizan HTML.
+	 *  - **Single-pass replacement**. La implementación anterior hacía dos
+	 *    pasadas secuenciales (mustache, después canónica), lo que permitía
+	 *    placeholder-spoofing: un participante con `firstName = '{community.name}'`
+	 *    veía su nombre reemplazado por el nombre real de la comunidad en
+	 *    el output. Ahora un único regex global matchea ambos formatos y
+	 *    sustituye con valores pre-escapados; los outputs de un placeholder
+	 *    NO se re-procesan.
 	 */
 	private async renderTemplate(
 		type: string,
@@ -49,11 +70,44 @@ export class CommunityService {
 				.orderBy('CASE WHEN t.communityId IS NULL THEN 1 ELSE 0 END', 'ASC')
 				.getOne();
 			if (!template) return null;
-			let out = template.message;
+
+			const safeVars: Record<string, string> = {};
 			for (const [k, v] of Object.entries(vars)) {
-				const safe = escapeHtml(v == null ? '' : String(v));
-				out = out.split(`{{${k}}}`).join(safe);
+				safeVars[k] = escapeHtml(v == null ? '' : String(v));
 			}
+
+			// Mapeo de flat vars → canonical keys ({scope.var}). Cada
+			// `safeVars[X]` ya está escapado, así que la sustitución es segura.
+			const canonical: Record<string, string> = {
+				'participant.firstName': safeVars.firstName ?? '',
+				'community.name': safeVars.communityName ?? '',
+				'community.meetingTitle': safeVars.meetingTitle ?? '',
+				'community.meetingDate': safeVars.meetingDate ?? '',
+				'community.attendanceLink': safeVars.attendanceLink ?? '',
+				'community.requesterName': safeVars.requesterName ?? '',
+				'community.requesterEmail': safeVars.requesterEmail ?? '',
+				'community.requesterPhone': safeVars.requesterPhone ?? '',
+				'community.userEmail': safeVars.userEmail ?? '',
+				'community.acceptUrl': safeVars.acceptUrl ?? '',
+			};
+
+			// Single-pass regex: matchea `{{key}}` o `{scope.key}`. La función
+			// de reemplazo opera sobre el match del template original (NUNCA
+			// sobre el output previo), eliminando el vector de placeholder
+			// spoofing donde un valor de usuario simulaba un placeholder.
+			const combinedRegex = /\{\{([\w]+)\}\}|\{([\w]+\.[\w]+)\}/g;
+			const out = template.message.replace(combinedRegex, (match, mustacheKey, canonicalKey) => {
+				if (mustacheKey && Object.prototype.hasOwnProperty.call(safeVars, mustacheKey)) {
+					return safeVars[mustacheKey];
+				}
+				if (canonicalKey && Object.prototype.hasOwnProperty.call(canonical, canonicalKey)) {
+					return canonical[canonicalKey];
+				}
+				// Placeholder desconocido — preservar literal (más informativo
+				// para depurar plantillas mal escritas que devolver vacío).
+				return match;
+			});
+
 			return out;
 		} catch (err) {
 			console.error(`[renderTemplate] type=${type} failed:`, err);
@@ -489,6 +543,143 @@ export class CommunityService {
 			where: { id: memberId },
 			relations: ['participant', 'community'],
 		});
+	}
+
+	/**
+	 * Actualiza el "overlay" de perfil de un miembro de comunidad: nombre,
+	 * apellido, email y teléfono per-community. **NO toca el Participant
+	 * global** — los cambios viven solo en `community_member.*`. Caso de uso
+	 * típico: corregir datos de miembros creados por el bot/import en bulk;
+	 * permitir alias/nicknames por comunidad.
+	 *
+	 * Resolución de lectura: `resolveMemberProfile(member)` en `@repo/utils`
+	 * devuelve `member.X ?? participant.X` para mantener retro-compat.
+	 *
+	 * SECURITY:
+	 *  - El caller (controller) DEBE validar via `requireCommunityAccess` que
+	 *    el user es admin de `communityId`.
+	 *  - Este método valida que el `memberId` pertenezca a `communityId`
+	 *    (evita cross-tenant edit).
+	 *  - **No hay riesgo de account takeover**: cambiar el overlay email NO
+	 *    afecta `participants.email`, así que no participa en el auto-link
+	 *    via `authService.linkParticipantToExistingUser`. Por eso ya no
+	 *    necesitamos el guard `EMAIL_LOCKED_USER_LINKED` que existía cuando
+	 *    el endpoint editaba `participants` directamente.
+	 *  - **Duplicate prevention (scoped a la comunidad)**: rechaza si otro
+	 *    miembro de **la misma comunidad** ya usa ese email (overlay o
+	 *    participant). Email duplicado en otras comunidades es OK — el
+	 *    overlay es per-community.
+	 *
+	 * Empty-string semantics: `''` en cualquier campo se interpreta como
+	 * "limpiar overlay" y se persiste como `null`, no como string vacío.
+	 * Así el helper de fallback puede volver a leer el participant.
+	 */
+	async updateMemberProfile(
+		communityId: string,
+		memberId: string,
+		profile: {
+			firstName?: string;
+			lastName?: string;
+			email?: string;
+			cellPhone?: string;
+		},
+	) {
+		const member = await this.memberRepo.findOne({
+			where: { id: memberId, communityId },
+			relations: ['participant'],
+		});
+		if (!member) {
+			throw new Error('Member not found in this community');
+		}
+
+		// Build overlay updates. Empty-string → null (limpia overlay).
+		const overlayUpdates: Partial<CommunityMember> = {};
+
+		if (typeof profile.firstName === 'string') {
+			const trimmed = profile.firstName.trim();
+			if (!trimmed) throw new Error('firstName cannot be empty');
+			overlayUpdates.firstName = trimmed;
+		}
+		if (typeof profile.lastName === 'string') {
+			const trimmed = profile.lastName.trim();
+			overlayUpdates.lastName = trimmed === '' ? null : trimmed;
+		}
+		if (typeof profile.cellPhone === 'string') {
+			const trimmed = profile.cellPhone.trim();
+			overlayUpdates.cellPhone = trimmed === '' ? null : trimmed;
+		}
+		if (typeof profile.email === 'string') {
+			const newEmail = profile.email.trim();
+			if (newEmail.length > 0) {
+				// Resolver el email actual efectivo (overlay o participant) para
+				// saber si está cambiando.
+				const currentEmail =
+					(member.email ?? member.participant?.email ?? '').trim().toLowerCase();
+				const changingEmail = newEmail.toLowerCase() !== currentEmail;
+
+				if (changingEmail) {
+					// Colisión: otro miembro de la MISMA comunidad ya usa este
+					// email (overlay propio o participant heredado).
+					const collision = await this.memberRepo
+						.createQueryBuilder('cm')
+						.leftJoin('cm.participant', 'p')
+						.where('cm.communityId = :cid', { cid: communityId })
+						.andWhere('cm.id != :mid', { mid: memberId })
+						.andWhere(
+							'(LOWER(cm.email) = :email OR (cm.email IS NULL AND LOWER(p.email) = :email))',
+							{ email: newEmail.toLowerCase() },
+						)
+						.getOne();
+					if (collision) {
+						throw new Error('EMAIL_DUPLICATE_IN_COMMUNITY');
+					}
+				}
+			}
+			overlayUpdates.email = newEmail === '' ? null : newEmail;
+		}
+
+		// Detectar si los valores ya estaban iguales al overlay actual —
+		// evita audit log spurious de no-op (security review feedback).
+		const changedFields: string[] = [];
+		for (const [key, value] of Object.entries(overlayUpdates)) {
+			if ((member as any)[key] !== value) {
+				changedFields.push(key);
+			}
+		}
+
+		if (changedFields.length === 0) {
+			return {
+				member: await this.memberRepo.findOne({
+					where: { id: memberId },
+					relations: ['participant', 'community'],
+				}),
+				changedFields,
+			};
+		}
+
+		try {
+			await this.memberRepo.update(memberId, overlayUpdates);
+		} catch (err: any) {
+			// El partial unique index `uq_community_member_overlay_email`
+			// puede dispararse en una race condition entre el check de
+			// colisión (arriba) y este UPDATE. SQLite reporta SQLITE_CONSTRAINT
+			// con código 19; el mensaje contiene "UNIQUE constraint failed".
+			if (
+				typeof err?.message === 'string' &&
+				err.message.toUpperCase().includes('UNIQUE')
+			) {
+				throw new Error('EMAIL_DUPLICATE_IN_COMMUNITY');
+			}
+			throw err;
+		}
+
+		return {
+			member: await this.memberRepo.findOne({
+				where: { id: memberId },
+				relations: ['participant', 'community'],
+			}),
+			changedFields,
+		};
 	}
 
 	async getMemberTimeline(memberId: string) {
@@ -1022,18 +1213,22 @@ export class CommunityService {
 			meetingId,
 			meetingTitle: meeting.title,
 			meetingStartDate: meeting.startDate,
-			members: members.map((member) => ({
-				id: member.id,
-				state: member.state,
-				participant: {
-					firstName: member.participant.firstName,
-					lastName: member.participant.lastName,
-					cellPhone: member.participant.cellPhone,
-					homePhone: member.participant.homePhone,
-					workPhone: member.participant.workPhone,
-				},
-				attended: attendance.find((a) => a.memberId === member.id)?.attended || false,
-			})),
+			members: members.map((member) => {
+				const profile = resolveMemberProfile(member);
+				return {
+					id: member.id,
+					state: member.state,
+					participant: {
+						firstName: profile.firstName,
+						lastName: profile.lastName,
+						cellPhone: profile.cellPhone,
+						// homePhone/workPhone no tienen overlay — siguen del participant
+						homePhone: member.participant.homePhone,
+						workPhone: member.participant.workPhone,
+					},
+					attended: attendance.find((a) => a.memberId === member.id)?.attended || false,
+				};
+			}),
 		};
 	}
 
@@ -1092,19 +1287,23 @@ export class CommunityService {
 			if (attendee.memberId) {
 				matches = members.filter((m) => m.id === attendee.memberId);
 			} else if (attendee.email) {
+				// Match contra overlay OR participant email (overlay > participant
+				// es el perfil efectivo).
 				const e = attendee.email.toLowerCase().trim();
-				matches = members.filter(
-					(m) => m.participant?.email?.toLowerCase().trim() === e,
-				);
+				matches = members.filter((m) => {
+					const eff = resolveMemberProfile(m).email.toLowerCase().trim();
+					return eff === e;
+				});
 			} else if (attendee.cellPhone) {
 				const suffix = normPhone(attendee.cellPhone).slice(-10);
 				if (suffix.length < 7) {
 					notFound.push({ query: attendee, reason: 'phone_too_short' });
 					continue;
 				}
-				matches = members.filter(
-					(m) => normPhone(m.participant?.cellPhone || '').endsWith(suffix),
-				);
+				matches = members.filter((m) => {
+					const eff = resolveMemberProfile(m).cellPhone;
+					return normPhone(eff).endsWith(suffix);
+				});
 			} else if (attendee.name) {
 				const tokens = normalize(attendee.name).split(/\s+/).filter(Boolean);
 				if (tokens.length === 0) {
@@ -1112,9 +1311,7 @@ export class CommunityService {
 					continue;
 				}
 				matches = members.filter((m) => {
-					const full = normalize(
-						`${m.participant?.firstName || ''} ${m.participant?.lastName || ''}`,
-					);
+					const full = normalize(resolveMemberProfile(m).fullName);
 					return tokens.every((t) => full.includes(t));
 				});
 			} else {
@@ -1132,7 +1329,7 @@ export class CommunityService {
 					query: attendee,
 					matches: matches.map((m) => ({
 						memberId: m.id,
-						name: `${m.participant?.firstName || ''} ${m.participant?.lastName || ''}`.trim(),
+						name: resolveMemberProfile(m).fullName,
 					})),
 				});
 				continue;
@@ -1142,7 +1339,7 @@ export class CommunityService {
 			await this.recordSingleAttendance(communityId, meetingId, member.id, attended);
 			marked.push({
 				memberId: member.id,
-				name: `${member.participant?.firstName || ''} ${member.participant?.lastName || ''}`.trim(),
+				name: resolveMemberProfile(member).fullName,
 			});
 		}
 
@@ -1584,10 +1781,38 @@ export class CommunityService {
 					}
 
 					const newMember = await this.addMember(communityId, existingParticipant.id, state);
+
+					// Overlay: si el input difiere del Participant existente,
+					// guardar como overlay per-community. Resuelve el bug donde
+					// "Juan" capturado por el bot quedaba sobrescrito por
+					// "Joseph" del Participant. Solo se persiste lo que difiere.
+					const overlay: Partial<CommunityMember> = {};
+					if (firstName && firstName !== (existingParticipant.firstName || '')) {
+						overlay.firstName = firstName;
+					}
+					if (lastName && lastName !== (existingParticipant.lastName || '')) {
+						overlay.lastName = lastName;
+					}
+					if (
+						email &&
+						email.toLowerCase() !== (existingParticipant.email || '').toLowerCase()
+					) {
+						overlay.email = email;
+					}
+					// Para teléfono comparamos crudo; la dedupe de findParticipantByEmailOrPhone
+					// ya hace match por sufijo, pero el coordinador puede haber tipeado el
+					// formato con espacios distintos — preservar el input solo si difiere.
+					if (cellPhone && cellPhone !== (existingParticipant.cellPhone || '')) {
+						overlay.cellPhone = cellPhone;
+					}
+					if (Object.keys(overlay).length > 0) {
+						await this.memberRepo.update(newMember.id, overlay);
+					}
+
 					linked.push({
 						name: displayName,
-						email: existingParticipant.email || undefined,
-						cellPhone: existingParticipant.cellPhone || undefined,
+						email: overlay.email ?? existingParticipant.email ?? undefined,
+						cellPhone: overlay.cellPhone ?? existingParticipant.cellPhone ?? undefined,
 						memberId: newMember.id,
 					});
 				} else {
@@ -2062,12 +2287,17 @@ export class CommunityService {
 	): Promise<void> {
 		const participant = member.participant;
 		const community = member.community;
-		if (!participant?.email || !community) return;
+		// Resolver el perfil efectivo (overlay > participant). El miembro
+		// puede tener un nombre/email distinto al Participant en esta
+		// comunidad — usar el del overlay para personalizar el email.
+		const profile = resolveMemberProfile(member);
+		const recipientEmail = profile.email;
+		if (!recipientEmail || !community) return;
 
 		const emailService = new EmailService();
 		if (!emailService.isSmtpConfigured()) return;
 
-		const recipientName = participant.firstName || '';
+		const recipientName = profile.firstName;
 		let subject: string;
 		let bodyHtml: string;
 
@@ -2125,7 +2355,7 @@ export class CommunityService {
 
 		try {
 			await emailService.sendEmail({
-				to: participant.email,
+				to: recipientEmail,
 				subject,
 				html: bodyHtml,
 			});
@@ -2242,15 +2472,19 @@ export class CommunityService {
 		const emailService = new EmailService();
 		if (!emailService.isSmtpConfigured()) return;
 
-		// Miembros que pueden asistir + tienen email. Incluye pending_verification:
+		// Miembros que pueden asistir. Incluye pending_verification:
 		// el correo de invitación a la reunión también sirve para reactivarlos.
 		// Excluye no_answer/another_group/far_from_location (ya declinaron).
+		// Filtramos por email NO null (sea en overlay o en participant) en SQL,
+		// y por estado activo. El resolveMemberProfile en JS hace el coalesce final.
 		const members = await this.memberRepo
 			.createQueryBuilder('m')
 			.innerJoinAndSelect('m.participant', 'p')
 			.where('m.communityId = :cid', { cid: community.id })
 			.andWhere('m.state IN (:...states)', { states: ['active_member', 'pending_verification'] })
-			.andWhere('p.email IS NOT NULL AND p.email != \'\'')
+			.andWhere(
+				'((m.email IS NOT NULL AND m.email != \'\') OR (p.email IS NOT NULL AND p.email != \'\'))',
+			)
 			.getMany();
 
 		if (members.length === 0) return;
@@ -2265,11 +2499,12 @@ export class CommunityService {
 		const subject = `Próxima reunión de ${community.name}`;
 
 		for (const member of members) {
-			const p = member.participant;
-			if (!p?.email) continue;
+			// Resolver perfil efectivo (overlay > participant) para personalizar el email.
+			const profile = resolveMemberProfile(member);
+			if (!profile.email) continue;
 
 			const tplBody = await this.renderTemplate('COMMUNITY_MEETING_INVITATION', community.id, {
-				firstName: p.firstName || '',
+				firstName: profile.firstName,
 				communityName: community.name,
 				meetingTitle: meeting.title || 'Reunión',
 				meetingDate,
@@ -2279,7 +2514,7 @@ export class CommunityService {
 				? this.wrapTemplateHtml(tplBody)
 				: `
 				<div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:24px;">
-					<h2 style="color:#1c1917;margin-bottom:8px;">Hola ${escapeHtml(p.firstName || '')}</h2>
+					<h2 style="color:#1c1917;margin-bottom:8px;">Hola ${escapeHtml(profile.firstName)}</h2>
 					<p style="color:#57534e;margin:0 0 16px;">Hay una nueva reunión programada en <strong>${escapeHtml(community.name)}</strong>:</p>
 					<div style="background:#fafaf9;border:1px solid #e7e5e4;border-radius:12px;padding:20px;margin-bottom:24px;">
 						<p style="margin:0 0 6px;font-weight:600;font-size:18px;">${escapeHtml(meeting.title || 'Reunión')}</p>
@@ -2294,9 +2529,9 @@ export class CommunityService {
 			`.trim();
 
 			try {
-				await emailService.sendEmail({ to: p.email, subject, html });
+				await emailService.sendEmail({ to: profile.email, subject, html });
 			} catch (err) {
-				console.error(`[notifyMembersOfMeeting] Failed to email ${p.email}:`, err);
+				console.error(`[notifyMembersOfMeeting] Failed to email ${profile.email}:`, err);
 			}
 		}
 	}

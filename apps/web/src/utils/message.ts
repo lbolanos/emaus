@@ -620,11 +620,12 @@ export const beautifyHtml = (html: string): string => {
  * Interface for participant data structure
  */
 // Import shared interfaces and functions from @repo/utils
-export type { ParticipantData, RetreatData } from '@repo/utils';
+export type { ParticipantData, RetreatData, CommunityData } from '@repo/utils';
 export {
 	replaceAllVariables,
 	replaceParticipantVariables,
 	replaceRetreatVariables,
+	replaceCommunityVariables,
 	findEmptyVariables,
 	convertHtmlToEmail,
 	detectEmailClient,

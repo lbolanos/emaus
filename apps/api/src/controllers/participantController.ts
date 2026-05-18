@@ -109,6 +109,99 @@ export const getParticipantById = async (
   }
 };
 
+/**
+ * Returns the earliest upcoming community meeting for this participant.
+ *
+ * - Con `?communityId=X` → restringe a esa comunidad (caso real al enviar
+ *   un mensaje desde el contexto de una comunidad específica).
+ * - Sin query param → busca entre todas las comunidades del participante
+ *   y devuelve la más temprana (fallback para retreat-context).
+ *
+ * SECURITY (IDOR fix): el `participant:read` permission base no implica
+ * acceso cross-tenant a comunidades. Por eso:
+ *   - Si viene `communityId`, validamos que el caller sea admin activo de
+ *     esa comunidad (o superadmin). Si no → 403. Esto evita el oráculo de
+ *     membership cross-tenant.
+ *   - Si NO viene `communityId`, restringimos el lookup interno a las
+ *     comunidades donde el caller es admin (superadmins pasan sin filtro).
+ *     Evita leak de `communityName`/`title` de comunidades inaccesibles.
+ *
+ * Usado por MessageDialog/BaseMessageTemplateModal para resolver
+ * `{retreat.next_meeting_date}` en plantillas post-retiro.
+ */
+export const getParticipantNextMeeting = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const communityIdRaw = req.query.communityId;
+    const communityId =
+      typeof communityIdRaw === "string" && communityIdRaw.trim().length > 0
+        ? communityIdRaw.trim()
+        : undefined;
+
+    const isSuperadmin = await authorizationService.hasRole(userId, "superadmin");
+
+    if (communityId) {
+      // Path A: caller explicitly scoped to a community. Verify access.
+      if (!isSuperadmin) {
+        const { CommunityAdmin } = await import(
+          "../entities/communityAdmin.entity"
+        );
+        const { AppDataSource } = await import("../data-source");
+        const adminRecord = await AppDataSource.getRepository(
+          CommunityAdmin,
+        ).findOne({
+          where: { communityId, userId, status: "active" },
+        });
+        if (!adminRecord) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+      }
+      const result = await participantService.findNextMeetingForParticipant(
+        req.params.id,
+        communityId,
+      );
+      return res.json(result);
+    }
+
+    // Path B: no scope provided. Limit the service to communities where the
+    // caller administers (superadmin bypasses). Returning the earliest meeting
+    // across every community the participant belongs to would leak memberships.
+    if (isSuperadmin) {
+      const result = await participantService.findNextMeetingForParticipant(
+        req.params.id,
+      );
+      return res.json(result);
+    }
+
+    const { CommunityAdmin } = await import(
+      "../entities/communityAdmin.entity"
+    );
+    const { AppDataSource } = await import("../data-source");
+    const adminRecords = await AppDataSource.getRepository(CommunityAdmin).find({
+      where: { userId, status: "active" },
+      select: ["communityId"],
+    });
+    const allowedCommunityIds = adminRecords.map((r) => r.communityId);
+
+    const result = await participantService.findNextMeetingForParticipant(
+      req.params.id,
+      undefined,
+      allowedCommunityIds,
+    );
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const createParticipant = async (
   req: Request,
   res: Response,

@@ -70,10 +70,10 @@
         >
           <div class="flex-1 min-w-0">
             <div class="font-medium truncate">
-              {{ member.participant.firstName }} {{ member.participant.lastName }}
+              {{ resolveMemberProfile(member).fullName }}
             </div>
-            <div class="text-sm text-muted-foreground truncate" v-if="member.participant.email">
-              {{ member.participant.email }}
+            <div class="text-sm text-muted-foreground truncate" v-if="resolveMemberProfile(member).email">
+              {{ resolveMemberProfile(member).email }}
             </div>
             <div class="flex items-center gap-2 mt-1">
               <Badge :variant="getFrequencyBadgeVariant(member.lastMeetingsFrequency)">
@@ -111,7 +111,7 @@ import { storeToRefs } from 'pinia';
 import { ChevronRight, Check, Users, Search, Loader2 } from 'lucide-vue-next';
 import { Button, Card, Badge, Input } from '@repo/ui';
 import { useToast } from '@repo/ui';
-import { formatDate } from '@repo/utils';
+import { formatDate, resolveMemberProfile } from '@repo/utils';
 
 const { t: $t } = useI18n();
 
@@ -137,8 +137,9 @@ const filteredMembers = computed(() => {
   if (!searchQuery.value) return membersWithAttendance.value;
   const query = searchQuery.value.toLowerCase().trim();
   return membersWithAttendance.value.filter(member => {
-    const fullName = `${member.participant.firstName} ${member.participant.lastName}`.toLowerCase();
-    return fullName.includes(query) || (member.participant.email && member.participant.email.toLowerCase().includes(query));
+    const profile = resolveMemberProfile(member);
+    const fullName = profile.fullName.toLowerCase();
+    return fullName.includes(query) || (profile.email && profile.email.toLowerCase().includes(query));
   });
 });
 
@@ -206,7 +207,7 @@ const toggleAttendance = async (member: any) => {
     // Show subtle feedback
     if (newStatus) {
       toast({
-        title: `${member.participant.firstName} marcado como presente`,
+        title: `${resolveMemberProfile(member).firstName} marcado como presente`,
         duration: 1500,
       });
     }

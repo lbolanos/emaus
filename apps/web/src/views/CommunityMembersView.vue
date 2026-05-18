@@ -290,10 +290,10 @@
             <TableRow v-for="member in filteredMembers" :key="member.id" class="hover:bg-muted/50">
               <TableCell v-if="visibleColumns.name" class="font-medium py-2">
                 <div class="flex items-center gap-2">
-                  <span>{{ member.participant?.firstName }} {{ member.participant?.lastName }}</span>
+                  <span>{{ resolveMemberProfile(member).fullName }}</span>
                 </div>
               </TableCell>
-              <TableCell v-if="visibleColumns.email" class="py-2">{{ member.participant?.email }}</TableCell>
+              <TableCell v-if="visibleColumns.email" class="py-2">{{ resolveMemberProfile(member).email }}</TableCell>
               <TableCell v-if="visibleColumns.state" class="py-2">
                 <Select
                   :model-value="member.state"
@@ -353,6 +353,18 @@
                     </TooltipContent>
                   </Tooltip>
 
+                  <!-- Edit Profile Button — owner-only (un co-admin podría rerutear notificaciones cambiando overlay.email) -->
+                  <Tooltip v-if="communityStore.isOwnerOrSuperadmin">
+                    <TooltipTrigger as-child>
+                      <Button variant="ghost" size="icon" @click="openEditDialog(member)">
+                        <Pencil class="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Editar datos</p>
+                    </TooltipContent>
+                  </Tooltip>
+
                   <!-- Remove Button — owner-only (admin no-owner no puede eliminar miembros) -->
                   <Tooltip v-if="communityStore.isOwnerOrSuperadmin">
                     <TooltipTrigger as-child>
@@ -389,7 +401,7 @@
         <DialogHeader>
           <DialogTitle>{{ $t('delete.confirmTitle') }}</DialogTitle>
           <DialogDescription>
-            Are you sure you want to remove {{ memberToRemove?.participant.firstName }} from the community?
+            Are you sure you want to remove {{ memberToRemove ? resolveMemberProfile(memberToRemove).firstName : '' }} from the community?
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -424,6 +436,14 @@
       :participant="messageParticipant"
     />
 
+    <!-- Edit Member Profile Dialog -->
+    <EditCommunityMemberDialog
+      v-if="currentCommunity && editMember"
+      v-model:open="isEditDialogOpen"
+      :member="editMember"
+      :community-id="currentCommunity.id"
+    />
+
     <CreateMemberModal
       v-if="currentCommunity"
       v-model:open="isCreateModalOpen"
@@ -439,7 +459,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
-import { Loader2, UserPlus, UserMinus, Search, ChevronRight, ChevronUp, ChevronDown, Download, FileText, History, MessageSquare, Settings2, Eye, EyeOff, Check, Info } from 'lucide-vue-next';
+import { Loader2, UserPlus, UserMinus, Pencil, Search, ChevronRight, ChevronUp, ChevronDown, Download, FileText, History, MessageSquare, Settings2, Eye, EyeOff, Check, Info } from 'lucide-vue-next';
 import {
   Button, Input, Card, Badge,
   Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
@@ -449,12 +469,14 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator
 } from '@repo/ui';
 import { useToast } from '@repo/ui';
+import { resolveMemberProfile } from '@repo/utils';
 import ImportMembersModal from '@/components/community/ImportMembersModal.vue';
 import CreateMemberModal from '@/components/community/CreateMemberModal.vue';
 import SkeletonCard from '@/components/community/SkeletonCard.vue';
 import MemberNotesDialog from '@/components/community/MemberNotesDialog.vue';
 import MemberTimelineDialog from '@/components/community/MemberTimelineDialog.vue';
 import MessageDialog from '@/components/MessageDialog.vue';
+import EditCommunityMemberDialog from '@/components/EditCommunityMemberDialog.vue';
 import { MemberStateEnum, type MemberState } from '@repo/types';
 
 const { t: $t } = useI18n();
@@ -486,6 +508,15 @@ const timelineLoading = ref(false);
 // Message dialog state
 const messageParticipant = ref<any>(null);
 const isMessageDialogOpen = ref(false);
+
+// Edit member profile dialog state. Útil para corregir nombre/apellido/email
+// /teléfono de miembros creados por el bot o importados con datos faltantes.
+const editMember = ref<any>(null);
+const isEditDialogOpen = ref(false);
+const openEditDialog = (member: any) => {
+  editMember.value = member;
+  isEditDialogOpen.value = true;
+};
 
 // Column visibility state with localStorage
 const STORAGE_KEY = 'community-members-columns';
@@ -551,9 +582,14 @@ const filteredMembers = computed(() => {
     // Safety check for participant data
     if (!member.participant) return false;
 
-    const fullName = `${member.participant.firstName} ${member.participant.lastName}`.toLowerCase();
-    const matchesSearch = fullName.includes(searchQuery.value.toLowerCase()) ||
-                         member.participant.email?.toLowerCase().includes(searchQuery.value.toLowerCase());
+    // Buscar contra el perfil efectivo (overlay > participant) en vez de
+    // solo participant — un override en cm.firstName ahora también matchea.
+    const profile = resolveMemberProfile(member);
+    const fullName = profile.fullName.toLowerCase();
+    const queryLower = searchQuery.value.toLowerCase();
+    const matchesSearch =
+      fullName.includes(queryLower) ||
+      profile.email.toLowerCase().includes(queryLower);
     const matchesState = stateFilter.value === 'all' || member.state === stateFilter.value;
     return matchesSearch && matchesState;
   });
@@ -564,13 +600,13 @@ const filteredMembers = computed(() => {
 
     switch (sortColumn.value) {
       case 'name': {
-        const aName = `${a.participant?.firstName} ${a.participant?.lastName}`.toLowerCase();
-        const bName = `${b.participant?.firstName} ${b.participant?.lastName}`.toLowerCase();
+        const aName = resolveMemberProfile(a).fullName.toLowerCase();
+        const bName = resolveMemberProfile(b).fullName.toLowerCase();
         compareValue = aName.localeCompare(bName);
         break;
       }
       case 'email':
-        compareValue = (a.participant?.email || '').localeCompare(b.participant?.email || '');
+        compareValue = resolveMemberProfile(a).email.localeCompare(resolveMemberProfile(b).email);
         break;
       case 'state':
         compareValue = a.state.localeCompare(b.state);

@@ -65,4 +65,21 @@ export class CommunityMember {
 
 	@Column({ type: 'varchar', length: 50, nullable: true })
 	previousState?: string | null;
+
+	// Overlay de perfil por-comunidad. NULL = usar el Participant subyacente
+	// como fuente. Cuando un community admin edita el nombre/contacto de un
+	// miembro, el cambio queda aquí, no en `participants` (evita pisar la
+	// identidad global del Participant y el vector de account takeover).
+	// Resolución vía helper `resolveMemberProfile(member)` en `@repo/utils`.
+	@Column({ type: 'varchar', length: 100, nullable: true })
+	firstName?: string | null;
+
+	@Column({ type: 'varchar', length: 100, nullable: true })
+	lastName?: string | null;
+
+	@Column({ type: 'varchar', length: 254, nullable: true })
+	email?: string | null;
+
+	@Column({ type: 'varchar', length: 30, nullable: true })
+	cellPhone?: string | null;
 }

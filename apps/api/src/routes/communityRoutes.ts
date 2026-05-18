@@ -17,6 +17,7 @@ import {
 	updateCommunityMeetingSchema,
 	importMembersSchema,
 	updateMemberStateSchema,
+	updateMemberProfileSchema,
 	recordAttendanceSchema,
 	inviteCommunityAdminSchema,
 	publicRegisterCommunitySchema,
@@ -124,6 +125,18 @@ router.delete('/:id/members/:memberId', requireCommunityOwner(), (req, res) =>
 );
 router.patch('/:id/members/:memberId/notes', requireCommunityAccess(), (req, res) =>
 	CommunityController.updateMemberNotes(req, res),
+);
+// SECURITY: edición de perfil overlay es owner-only.
+// Aunque el cambio NO toca `participants` (no es account takeover),
+// un co-admin malicioso podría setear `overlay.email = attacker@x.com` en
+// un miembro y rerutear todas las notificaciones de la comunidad hacia él.
+// Restringir a owner reduce el blast radius — el owner es responsable de
+// invitar/revocar admins y por construcción se asume más confiable.
+router.patch(
+	'/:id/members/:memberId/profile',
+	requireCommunityOwner(),
+	validateRequest(updateMemberProfileSchema),
+	(req, res) => CommunityController.updateMemberProfile(req, res),
 );
 router.get('/:id/members/:memberId/timeline', requireCommunityAccess(), (req, res) =>
 	CommunityController.getMemberTimeline(req, res),

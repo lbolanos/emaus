@@ -489,6 +489,32 @@ export const useCommunityStore = defineStore('community', () => {
 		}
 	};
 
+	const updateMemberProfile = async (
+		communityId: string,
+		memberId: string,
+		profile: { firstName?: string; lastName?: string; email?: string; cellPhone?: string },
+	) => {
+		loading.value = true;
+		error.value = null;
+		try {
+			const updated = await api.updateMemberProfile(communityId, memberId, profile);
+			const index = members.value.findIndex((m) => m.id === memberId);
+			if (index !== -1) {
+				members.value[index] = {
+					...members.value[index],
+					...updated,
+					participant: updated.participant || members.value[index].participant,
+				};
+			}
+			return members.value[index];
+		} catch (err: any) {
+			error.value = err.message || 'Failed to update member profile';
+			throw err;
+		} finally {
+			loading.value = false;
+		}
+	};
+
 	const fetchMemberTimeline = async (communityId: string, memberId: string) => {
 		loading.value = true;
 		error.value = null;
@@ -567,6 +593,7 @@ export const useCommunityStore = defineStore('community', () => {
 		updateMemberState,
 		removeMember,
 		updateMemberNotes,
+		updateMemberProfile,
 		fetchMemberTimeline,
 		fetchMeetings,
 		createMeeting,

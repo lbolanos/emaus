@@ -26,6 +26,8 @@ import { RetreatParticipant } from "../entities/retreatParticipant.entity";
 import { User } from "../entities/user.entity";
 import { Responsability } from "../entities/responsability.entity";
 import { ParticipantCommunication } from "../entities/participantCommunication.entity";
+import { CommunityMember } from "../entities/communityMember.entity";
+import { CommunityMeeting } from "../entities/communityMeeting.entity";
 import { emitReceptionCheckin } from "../realtime";
 
 const participantRepository = AppDataSource.getRepository(Participant);
@@ -786,6 +788,117 @@ export const findAllParticipants = async (
   }
 
   return participants;
+};
+
+/**
+ * Returns the earliest upcoming `CommunityMeeting` for a participant.
+ *
+ * - Cuando `communityId` viene **definido**: restringe la búsqueda a esa
+ *   comunidad y exige que el participante sea miembro ahí (estados
+ *   `active_member` o `pending_verification`). Este es el caso de uso
+ *   real cuando se envía un mensaje desde el contexto de una comunidad
+ *   específica: queremos la próxima reunión **de esa** comunidad, no la
+ *   más temprana entre todas las comunidades del participante.
+ *
+ * - Cuando `communityId` es `undefined`: busca entre **todas** las
+ *   comunidades donde el participante es miembro activo o pendiente y
+ *   devuelve la reunión más temprana. Fallback para contextos de retreat
+ *   donde no hay un community específico (mejor algo que nada).
+ *
+ * - `allowedCommunityIds` (opcional): cuando viene, intersecta con el
+ *   set de comunidades consideradas. Lo usa el controller para asegurar
+ *   que un user sin acceso global solo reciba datos de comunidades
+ *   donde él/ella es admin. Si se pasa vacío, no se devuelve nada.
+ *
+ * Skips recurrence templates (solo cuentan instancias reales). Devuelve
+ * nulls cuando no hay memberships válidos o no hay reuniones próximas —
+ * el placeholder resuelve a string vacío en ese caso.
+ */
+export const findNextMeetingForParticipant = async (
+  participantId: string,
+  communityId?: string,
+  allowedCommunityIds?: string[],
+): Promise<{
+  nextMeetingDate: string | null;
+  formattedDate: string | null;
+  title: string | null;
+  communityId: string | null;
+  communityName: string | null;
+}> => {
+  const memberRepo = AppDataSource.getRepository(CommunityMember);
+  const meetingRepo = AppDataSource.getRepository(CommunityMeeting);
+
+  // Caller-scoped allowlist (non-superadmin / non-community-admin paths).
+  // Empty array means the caller administers no community → return empty
+  // result without hitting the DB.
+  if (allowedCommunityIds && allowedCommunityIds.length === 0) {
+    return {
+      nextMeetingDate: null,
+      formattedDate: null,
+      title: null,
+      communityId: null,
+      communityName: null,
+    };
+  }
+
+  const memberWhere: any = {
+    participantId,
+    state: In(["active_member", "pending_verification"]),
+  };
+  if (communityId) {
+    memberWhere.communityId = communityId;
+  } else if (allowedCommunityIds) {
+    memberWhere.communityId = In(allowedCommunityIds);
+  }
+
+  const memberships = await memberRepo.find({
+    where: memberWhere,
+    select: ["communityId"],
+  });
+
+  if (memberships.length === 0) {
+    return {
+      nextMeetingDate: null,
+      formattedDate: null,
+      title: null,
+      communityId: null,
+      communityName: null,
+    };
+  }
+
+  const communityIds = memberships.map((m) => m.communityId);
+
+  const nextMeeting = await meetingRepo
+    .createQueryBuilder("m")
+    .leftJoinAndSelect("m.community", "c")
+    .where("m.communityId IN (:...cids)", { cids: communityIds })
+    .andWhere('m.startDate >= datetime("now")')
+    .andWhere("(m.isRecurrenceTemplate = 0 OR m.isRecurrenceTemplate IS NULL)")
+    .orderBy("m.startDate", "ASC")
+    .getOne();
+
+  if (!nextMeeting) {
+    return {
+      nextMeetingDate: null,
+      formattedDate: null,
+      title: null,
+      communityId: null,
+      communityName: null,
+    };
+  }
+
+  const formatted = new Date(nextMeeting.startDate).toLocaleString("es-MX", {
+    dateStyle: "full",
+    timeStyle: "short",
+  });
+
+  return {
+    nextMeetingDate: new Date(nextMeeting.startDate).toISOString(),
+    formattedDate: formatted,
+    title: nextMeeting.title ?? null,
+    communityId: nextMeeting.communityId,
+    communityName: (nextMeeting as any).community?.name ?? null,
+  };
 };
 
 export const findParticipantById = async (

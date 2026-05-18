@@ -133,11 +133,11 @@
                         ? 'bg-gradient-to-br from-emerald-500 to-teal-500 shadow-lg shadow-emerald-500/30'
                         : 'bg-gradient-to-br from-slate-400 to-slate-500 dark:from-slate-600 dark:to-slate-700'"
                     >
-                      {{ getInitials(member.participant.firstName, member.participant.lastName) }}
+                      {{ getInitials(resolveMemberProfile(member).firstName, resolveMemberProfile(member).lastName) }}
                     </div>
                     <div class="flex-1 min-w-0">
                       <div class="font-semibold text-slate-900 dark:text-white truncate text-base">
-                        {{ member.participant.firstName }} {{ member.participant.lastName }}
+                        {{ resolveMemberProfile(member).fullName }}
                       </div>
                       <div v-if="hasPhone(member.participant)" class="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
                         <Phone class="w-3.5 h-3.5" />
@@ -196,11 +196,11 @@
                         ? 'bg-gradient-to-br from-emerald-500 to-teal-500 shadow-lg shadow-emerald-500/30'
                         : 'bg-gradient-to-br from-amber-400 to-amber-500'"
                     >
-                      {{ getInitials(member.participant.firstName, member.participant.lastName) }}
+                      {{ getInitials(resolveMemberProfile(member).firstName, resolveMemberProfile(member).lastName) }}
                     </div>
                     <div class="flex-1 min-w-0">
                       <div class="font-semibold text-slate-900 dark:text-white truncate text-base">
-                        {{ member.participant.firstName }} {{ member.participant.lastName }}
+                        {{ resolveMemberProfile(member).fullName }}
                       </div>
                       <div v-if="hasPhone(member.participant)" class="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
                         <Phone class="w-3.5 h-3.5" />
@@ -262,6 +262,7 @@ import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { Search, Check, Users, AlertCircle, Loader2, UserPlus, Calendar, Phone } from 'lucide-vue-next';
 import { Input } from '@repo/ui';
+import { resolveMemberProfile } from '@repo/utils';
 import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha';
 import { formatMeetingDate } from '@/utils/meetingFlyer';
 import PublicJoinRequestModal from '@/components/community/PublicJoinRequestModal.vue';
@@ -299,11 +300,13 @@ const filteredMembers = computed(() => {
   if (!searchQuery.value) return members.value;
   const query = searchQuery.value.toLowerCase();
   return members.value.filter((m) => {
-    const name = `${m.participant.firstName} ${m.participant.lastName}`.toLowerCase();
+    // Búsqueda contra el perfil efectivo (overlay > participant).
+    const profile = resolveMemberProfile(m);
+    const name = profile.fullName.toLowerCase();
     const phones = [
-      m.participant.cellPhone,
-      m.participant.homePhone,
-      m.participant.workPhone
+      profile.cellPhone,
+      m.participant?.homePhone,
+      m.participant?.workPhone,
     ].filter(Boolean).join(' ').toLowerCase();
     return name.includes(query) || phones.includes(query);
   });

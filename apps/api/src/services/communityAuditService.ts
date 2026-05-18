@@ -15,6 +15,7 @@ export const CommunityAuditAction = {
 	ADMIN_ACCEPT_TOKEN: 'community.admin.accept_token',
 	MEMBER_REMOVE: 'community.member.remove',
 	MEMBER_STATE_CHANGE: 'community.member.state_change',
+	MEMBER_PROFILE_UPDATE: 'community.member.profile_update',
 	LINK_REQUEST_CREATED: 'community.link.request_created',
 } as const;
 

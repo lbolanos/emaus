@@ -842,6 +842,34 @@ export const getParticipantById = async (participantId: string, retreatId?: stri
   return response.data;
 };
 
+/**
+ * Returns the earliest upcoming community meeting for this participant.
+ *
+ * - Con `communityId` → restringe a esa comunidad (caso normal cuando se
+ *   envía un mensaje desde el contexto de una comunidad específica).
+ * - Sin `communityId` → busca entre todas las comunidades del participante
+ *   y devuelve la más temprana (fallback para retreat-context).
+ *
+ * Usado por MessageDialog para resolver `{retreat.next_meeting_date}` en
+ * plantillas post-retiro. Devuelve nulls cuando no hay membership válida
+ * o no hay reuniones próximas.
+ */
+export const getParticipantNextMeeting = async (
+  participantId: string,
+  communityId?: string,
+): Promise<{
+  nextMeetingDate: string | null;
+  formattedDate: string | null;
+  title: string | null;
+  communityId: string | null;
+  communityName: string | null;
+}> => {
+  const response = await api.get(`/participants/${participantId}/next-meeting`, {
+    params: communityId ? { communityId } : undefined,
+  });
+  return response.data;
+};
+
 export async function updateBagMade(
   retreatId: string,
   participantId: string,
@@ -1487,6 +1515,29 @@ export async function updateMemberNotes(
     {
       notes,
     },
+  );
+  return response.data;
+}
+
+/**
+ * Edita el perfil básico (firstName/lastName/email/cellPhone) del
+ * Participant subyacente de un miembro de comunidad. Útil para corregir
+ * datos incompletos de miembros creados por el bot/import en bulk sin
+ * necesidad de permiso `participant:update` global.
+ */
+export async function updateMemberProfile(
+  communityId: string,
+  memberId: string,
+  profile: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    cellPhone?: string;
+  },
+): Promise<CommunityMember> {
+  const response = await api.patch(
+    `/communities/${communityId}/members/${memberId}/profile`,
+    profile,
   );
   return response.data;
 }

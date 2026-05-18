@@ -89,6 +89,12 @@ export const communityMemberSchema = z.object({
 	joinedAt: z.coerce.date(),
 	updatedAt: z.coerce.date(),
 	notes: z.string().nullable().optional(),
+	// Profile overlay (NULL → fallback al Participant subyacente). Resolución
+	// vía `resolveMemberProfile(member)` en @repo/utils.
+	firstName: z.string().nullable().optional(),
+	lastName: z.string().nullable().optional(),
+	email: z.string().nullable().optional(),
+	cellPhone: z.string().nullable().optional(),
 	// Join relations (not always present)
 	participant: z.any().optional(),
 	// Calculated fields
@@ -215,6 +221,46 @@ export const updateMemberStateSchema = z.object({
 	body: z.object({
 		state: MemberStateEnum,
 	}),
+	params: z.object({
+		id: z.string().uuid(),
+		memberId: z.string().uuid(),
+	}),
+});
+
+/**
+ * Schema para PATCH /communities/:id/members/:memberId/profile.
+ * Solo permite tocar 4 campos overlay del CommunityMember. Todos optional
+ * para soportar partial updates. Límites de longitud para evitar abuse
+ * (blob storage, DoS).
+ *
+ * **Asimetría intencional** entre `firstName` y los demás campos:
+ *  - `firstName`: `min(1)` — no se permite empty string. Razón: la UI
+ *    siempre muestra `fullName` (`firstName + lastName`) para identificar
+ *    al miembro; si `firstName` queda vacío, el miembro pierde identidad
+ *    visual. El service también valida con `'firstName cannot be empty'`.
+ *  - `lastName`, `email`, `cellPhone`: empty string permitido. El service
+ *    lo interpreta como "limpiar overlay" → persiste como `null` y el
+ *    helper `resolveMemberProfile` vuelve a leer el Participant subyacente.
+ *    Útil para revertir un override accidental.
+ */
+export const updateMemberProfileSchema = z.object({
+	body: z
+		.object({
+			firstName: z.string().trim().min(1).max(100).optional(),
+			lastName: z.string().trim().max(100).optional(),
+			email: z
+				.string()
+				.trim()
+				.max(254)
+				.refine((v) => v === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), {
+					message: 'Invalid email format',
+				})
+				.optional(),
+			cellPhone: z.string().trim().max(30).optional(),
+		})
+		.refine((data) => Object.keys(data).length > 0, {
+			message: 'At least one field must be provided',
+		}),
 	params: z.object({
 		id: z.string().uuid(),
 		memberId: z.string().uuid(),

@@ -281,9 +281,9 @@
                       <SelectItem value="all">{{ t ? t('messageTemplates.dialog.categoryAll') : 'Todas las categorías' }}</SelectItem>
                       <SelectItem value="mostUsed">{{ t ? t('messageTemplates.dialog.mostUsed') : 'Más usadas' }}</SelectItem>
                       <SelectItem value="participant">{{ t ? t('messageTemplates.dialog.categories.participant') : 'Participante' }}</SelectItem>
-                      <SelectItem value="retreat">{{ t ? t('messageTemplates.dialog.categories.retreat') : 'Retiro' }}</SelectItem>
-                      <SelectItem value="user">{{ t ? t('messageTemplates.dialog.categories.user') : 'Usuario' }}</SelectItem>
-                      <SelectItem value="custom">{{ t ? t('messageTemplates.dialog.categories.custom') : 'Personalizadas' }}</SelectItem>
+                      <SelectItem :value="isCommunityScope ? 'community' : 'retreat'">{{ isCommunityScope ? 'Comunidad' : (t ? t('messageTemplates.dialog.categories.retreat') : 'Retiro') }}</SelectItem>
+                      <SelectItem value="system">Sistema (server-only)</SelectItem>
+                      <SelectItem value="custom">Placeholder editable</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -335,7 +335,17 @@
                       <h4 class="font-medium text-sm text-foreground sticky top-0 bg-background py-1 z-10">
                         {{ category.title }}
                         <Badge variant="secondary" class="ml-2">{{ category.variables.length }}</Badge>
+                        <Badge
+                          v-if="(category as any).serverOnly"
+                          variant="outline"
+                          class="ml-1 text-[10px] uppercase tracking-wide"
+                          title="Estas variables solo resuelven en correos automáticos del sistema"
+                        >Server-only</Badge>
                       </h4>
+                      <p
+                        v-if="(category as any).description"
+                        class="text-xs text-muted-foreground -mt-1 leading-relaxed"
+                      >{{ (category as any).description }}</p>
 
                       <div class="grid grid-cols-1 gap-1">
                         <div
@@ -408,6 +418,7 @@ import { useRetreatStore } from '@/stores/retreatStore';
 import RichTextEditor from './RichTextEditor.vue';
 import { messageTemplateTypes } from '@repo/types';
 import { convertHtmlToWhatsApp, convertHtmlToEmail, detectEmailClient, copyRichTextToClipboard, testEmojiConversion, beautifyHtml, replaceAllVariables, ParticipantData, RetreatData } from '@/utils/message';
+import { getParticipantNextMeeting } from '@/services/api';
 import { sanitizeHtml, sanitizeEmailHtml } from '@/utils/sanitize';
 
 interface Props {
@@ -467,6 +478,11 @@ const showEmailPreview = ref(false);
 const emailPreviewHtml = ref('');
 const richTextEditorRef = ref<InstanceType<typeof RichTextEditor> | null>(null);
 const selectedParticipant = ref('');
+// Next community meeting pre-resolved for the participant currently shown
+// in the preview. Mirrors MessageDialog.loadNextMeeting so the editor
+// preview matches the actual send output for {retreat.next_meeting_date}.
+// `null` = not loaded; empty string = no meeting (use mock fallback).
+const previewNextMeetingDate = ref<string | null>(null);
 
 const formData = ref({
   name: '',
@@ -574,7 +590,6 @@ const participantVariables = computed(() => [
   { key: 'nickname', label: t ? t('participants.fields.nickname') : 'Apodo' },
   { key: 'firstName', label: t ? t('participants.fields.firstName') : 'Nombre' },
   { key: 'lastName', label: t ? t('participants.fields.lastName') : 'Apellido' },
-  { key: 'hora_llegada', label: 'Hora de llegada' },
   { key: 'type', label: t ? t('participants.fields.type') : 'Tipo' },
   { key: 'cellPhone', label: t ? t('participants.fields.cellPhone') : 'Teléfono' },
   { key: 'email', label: t ? t('participants.fields.email') : 'Email' },
@@ -596,23 +611,61 @@ const retreatVariables = computed(() => [
   { key: 'cost', label: t ? t('messageTemplates.dialog.variables.retreatCost') : 'Costo' },
   { key: 'paymentInfo', label: t ? t('messageTemplates.dialog.variables.retreatPaymentInfo') : 'Información de pago' },
   { key: 'thingsToBringNotes', label: t ? t('messageTemplates.dialog.variables.retreatThingsToBringNotes') : 'Cosas para traer' },
-  { key: 'fecha_limite_palanca', label: 'Fecha límite de palanca' },
-  { key: 'next_meeting_date', label: 'Próxima reunión' },
+  { key: 'next_meeting_date', label: 'Próxima reunión (auto)' },
   { key: 'closingChurchName', label: 'Iglesia de clausura — nombre' },
   { key: 'closingChurchAddress', label: 'Iglesia de clausura — dirección' },
   { key: 'closingChurchMapsUrl', label: 'Iglesia de clausura — link Google Maps' },
   { key: 'closingChurchWazeUrl', label: 'Iglesia de clausura — link Waze' },
 ]);
 
+// Variables del scope `user` y de invitaciones/resets. Sólo se reemplazan
+// en correos automáticos que el servidor emite vía `userManagementMailer`
+// (USER_INVITATION, RETREAT_SHARED_NOTIFICATION, PASSWORD_RESET, etc.).
+// NO resuelven en el MessageDialog regular — quedan literales si se usan ahí.
 const userVariables = computed(() => [
-  { key: 'name', label: t ? t('messageTemplates.dialog.categories.user') : 'Nombre de usuario' },
+  { key: 'name', label: 'Nombre del usuario destinatario' },
+  { key: 'displayName', label: 'Nombre completo del usuario' },
+  { key: 'email', label: 'Correo del usuario' },
 ]);
 
+// Variables auxiliares para flujos del sistema (invitar usuario, reset
+// password, compartir retiro). Mismo caveat que userVariables: server-only.
+const systemFlowVariables = computed(() => [
+  { key: 'inviterName', label: 'Nombre de quien invita' },
+  { key: 'shareLink', label: 'Enlace para compartir / invitar' },
+  { key: 'invitationUrl', label: 'URL de invitación (alias de shareLink)' },
+  { key: 'resetToken', label: 'Token de reset de contraseña' },
+  { key: 'role.name', label: 'Nombre del rol' },
+]);
+
+// Variables disponibles cuando la plantilla es de scope 'community' (emails de
+// invitación a reunión, bienvenida, notificaciones a admins, etc.). Sólo se
+// muestran si el editor está en modo community para no contaminar el picker
+// de las plantillas retreat-scoped.
+const communityVariables = computed(() => [
+  { key: 'name', label: 'Nombre de la comunidad' },
+  { key: 'meetingTitle', label: 'Título de la reunión' },
+  { key: 'meetingDate', label: 'Fecha/hora de la reunión' },
+  { key: 'attendanceLink', label: 'Enlace para confirmar asistencia' },
+  { key: 'requesterName', label: 'Nombre del solicitante (unión a comunidad)' },
+  { key: 'requesterEmail', label: 'Email del solicitante' },
+  { key: 'requesterPhone', label: 'Teléfono del solicitante' },
+  { key: 'userEmail', label: 'Email del usuario (link request)' },
+  { key: 'acceptUrl', label: 'URL para aceptar acceso' },
+]);
+
+const isCommunityScope = computed(
+  () =>
+    props.scope === 'community' ||
+    (props.template as any)?.scope === 'community' ||
+    String((props.template as any)?.type || '').startsWith('COMMUNITY_'),
+);
+
+// Placeholder de "rellena aquí" para la plantilla GENERAL. NO es variable:
+// el usuario tipea sobre él al editar el mensaje en MessageDialog. Lo
+// mantenemos en el picker como recordatorio visual del patrón.
 const customVariables = computed(() => [
-  { key: 'custom_message', label: 'Mensaje personalizado' },
-  { key: 'inviterName', label: 'Nombre del invitador' },
-  { key: 'shareLink', label: 'Enlace para compartir' },
-  { key: 'resetToken', label: 'Token de restablecimiento' },
+  { key: 'custom_message', label: 'Mensaje personalizado (rellena tú)' },
 ]);
 
 const mostUsedVariables = computed(() => [
@@ -623,44 +676,86 @@ const mostUsedVariables = computed(() => [
   { value: '{retreat.cost}', label: t ? t('messageTemplates.dialog.variables.retreatCost') : 'Costo' },
 ]);
 
-const variableCategories = computed(() => [
-  {
-    id: 'participant',
-    title: t ? t('messageTemplates.dialog.categories.participant') : 'Participante',
-    variables: participantVariables.value.map(v => ({
-      value: `{participant.${v.key}}`,
-      label: v.label,
-      category: 'participant'
-    }))
-  },
-  {
-    id: 'retreat',
-    title: t ? t('messageTemplates.dialog.categories.retreat') : 'Retiro',
-    variables: retreatVariables.value.map(v => ({
-      value: `{retreat.${v.key}}`,
-      label: v.label,
-      category: 'retreat'
-    }))
-  },
-  {
-    id: 'user',
-    title: t ? t('messageTemplates.dialog.categories.user') : 'Usuario',
-    variables: userVariables.value.map(v => ({
-      value: `{user.${v.key}}`,
-      label: v.label,
-      category: 'user'
-    }))
-  },
-  {
+type VariableCategory = {
+  id: string;
+  title: string;
+  description?: string;
+  serverOnly?: boolean;
+  variables: Array<{ value: string; label: string; category: string }>;
+};
+
+const variableCategories = computed<VariableCategory[]>(() => {
+  const categories: VariableCategory[] = [
+    {
+      id: 'participant',
+      title: t ? t('messageTemplates.dialog.categories.participant') : 'Participante',
+      variables: participantVariables.value.map(v => ({
+        value: `{participant.${v.key}}`,
+        label: v.label,
+        category: 'participant'
+      }))
+    },
+  ];
+
+  if (isCommunityScope.value) {
+    categories.push({
+      id: 'community',
+      title: 'Comunidad',
+      variables: communityVariables.value.map(v => ({
+        value: `{community.${v.key}}`,
+        label: v.label,
+        category: 'community',
+      })),
+    });
+  } else {
+    categories.push({
+      id: 'retreat',
+      title: t ? t('messageTemplates.dialog.categories.retreat') : 'Retiro',
+      variables: retreatVariables.value.map(v => ({
+        value: `{retreat.${v.key}}`,
+        label: v.label,
+        category: 'retreat'
+      }))
+    });
+  }
+
+  // Sistema: variables que solo resuelven en correos automáticos
+  // emitidos por el servidor (userManagementMailer). En el MessageDialog
+  // regular quedan como texto literal.
+  categories.push({
+    id: 'system',
+    title: 'Sistema',
+    description:
+      'Solo se reemplazan en correos automáticos del sistema (invitar usuario, reset de contraseña, compartir retiro). En envíos manuales quedan literales.',
+    serverOnly: true,
+    variables: [
+      ...userVariables.value.map(v => ({
+        value: `{user.${v.key}}`,
+        label: v.label,
+        category: 'system',
+      })),
+      ...systemFlowVariables.value.map(v => ({
+        value: `{${v.key}}`,
+        label: v.label,
+        category: 'system',
+      })),
+    ],
+  });
+
+  categories.push({
     id: 'custom',
-    title: t ? t('messageTemplates.dialog.categories.custom') : 'Personalizadas',
+    title: 'Placeholder editable',
+    description:
+      'No es variable: es un marcador que tú reemplazas escribiendo tu propio texto antes de enviar.',
     variables: customVariables.value.map(v => ({
       value: `{${v.key}}`,
       label: v.label,
       category: 'custom'
     }))
-  }
-]);
+  });
+
+  return categories;
+});
 
 const filteredCategories = computed(() => {
   if (!searchQuery.value && (selectedCategory.value === 'all')) {
@@ -694,24 +789,83 @@ const selectedParticipantData = computed(() => {
 const previewMessage = computed(() => {
     let message = formData.value.message;
 
-  // Replace participant variables
-  message = replaceAllVariables(message, selectedParticipantData.value as ParticipantData, retreatStore.selectedRetreat as RetreatData);  
+  // Build retreat data with the resolved next_meeting_date for this
+  // participant (fetched from the API). Falls back to the mock value
+  // from getMockRetreat() if no participant is selected or no upcoming
+  // meeting was found.
+  const baseRetreat = retreatStore.selectedRetreat as RetreatData | null;
+  const retreatData: RetreatData | null = baseRetreat
+    ? {
+        ...baseRetreat,
+        nextMeetingDate:
+          previewNextMeetingDate.value && previewNextMeetingDate.value !== ''
+            ? previewNextMeetingDate.value
+            : baseRetreat.nextMeetingDate,
+      }
+    : baseRetreat;
 
-  // Handle custom variables that aren't covered by the utility functions
+  // For community-scoped templates we pass `null` as community so
+  // replaceCommunityVariables falls back to mock data and the preview
+  // shows realistic placeholder values for {community.X}.
+  message = replaceAllVariables(
+    message,
+    selectedParticipantData.value as ParticipantData,
+    retreatData,
+    undefined,
+    isCommunityScope.value ? null : undefined,
+  );
+
+  // Mock values for system/server-only placeholders so the preview shows
+  // realistic content even though these don't resolve in MessageDialog.
   const customReplacements = {
     '{user.name}': 'María González',
+    '{user.displayName}': 'María González',
+    '{user.email}': 'maria.gonzalez@example.com',
+    '{user.nickname}': 'María',
     '{custom_message}': 'Este es un mensaje personalizado',
     '{inviterName}': 'Carlos López',
     '{shareLink}': 'https://ejemplo.com/invitacion',
+    '{invitationUrl}': 'https://ejemplo.com/invitacion',
     '{resetToken}': 'https://ejemplo.com/reset-password',
+    '{role.name}': 'coordinator',
+    '{role}': 'coordinator',
   };
 
   Object.entries(customReplacements).forEach(([key, value]) => {
-    message = message.replace(new RegExp(key, 'g'), value);
+    message = message.replace(new RegExp(key.replace(/[{}.]/g, '\\$&'), 'g'), value);
   });
 
   return sanitizeHtml(message);
 });
+
+// Fetch the participant's next community meeting whenever the previewed
+// participant changes. Same endpoint MessageDialog uses, so editor preview
+// matches actual send output.
+//
+// Para templates community-scoped editados desde una comunidad específica,
+// restringe la consulta a esa comunidad (mismo comportamiento que
+// MessageDialog cuando context='community'). Sin communityId disponible
+// el endpoint busca en todas las comunidades del participante.
+watch(
+  selectedParticipant,
+  async (participantId) => {
+    if (!participantId) {
+      previewNextMeetingDate.value = null;
+      return;
+    }
+    try {
+      const tplCommunityId =
+        isCommunityScope.value
+          ? (props.template as any)?.communityId || undefined
+          : undefined;
+      const result = await getParticipantNextMeeting(participantId, tplCommunityId);
+      previewNextMeetingDate.value = result?.formattedDate || '';
+    } catch {
+      previewNextMeetingDate.value = '';
+    }
+  },
+  { immediate: false },
+);
 
 const getTypeLabel = (type: string) => {
   return typeLabels.value[type] || type;

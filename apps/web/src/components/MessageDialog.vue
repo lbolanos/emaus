@@ -1,10 +1,10 @@
 <template>
   <Dialog v-model:open="isOpen" @keydown.ctrl.s.prevent="sendMessage" @keydown.ctrl.enter.prevent="sendMessage">
     <DialogContent :class="showHistory ? 'max-w-5xl' : 'max-w-2xl'" class="focus:outline-none">
-      <DialogHeader>
-        <div class="flex items-center justify-between">
-          <div>
-            <DialogTitle>Enviar Mensaje a {{ displayName }}</DialogTitle>
+      <DialogHeader class="pr-10">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0 flex-1">
+            <DialogTitle class="truncate">Enviar Mensaje a {{ displayName }}</DialogTitle>
             <DialogDescription>
               Selecciona el método de envío y la plantilla de mensaje
             </DialogDescription>
@@ -13,6 +13,7 @@
             variant="outline"
             size="sm"
             @click="toggleHistory"
+            class="shrink-0"
             :class="{ 'bg-primary text-primary-foreground': showHistory }"
             :disabled="!canShowHistory"
             :title="!canShowHistory ? 'Selecciona un destinatario' : 'Ver historial de mensajes (Ctrl+H)'"
@@ -21,7 +22,7 @@
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
-            Historial
+            <span class="hidden sm:inline">Historial</span>
             <Badge v-if="historyMessageCount > 0" variant="secondary" class="ml-2 text-xs">
               {{ historyMessageCount }}
             </Badge>
@@ -422,11 +423,17 @@ import {
 	TabsList,
 	TabsTrigger,
 } from '@repo/ui';
-import { convertHtmlToWhatsApp, convertHtmlToEmail, replaceAllVariables, findEmptyVariables, ParticipantData, RetreatData } from '@/utils/message';
+import { convertHtmlToWhatsApp, convertHtmlToEmail, replaceAllVariables, findEmptyVariables, ParticipantData, RetreatData, CommunityData } from '@/utils/message';
+import { resolveMemberProfile } from '@repo/utils';
 import { sanitizeEmailHtml } from '@/utils/sanitize';
 import { useParticipantCommunicationStore, type ParticipantCommunication } from '@/stores/participantCommunicationStore';
 import { useCommunityCommunicationStore, type CommunityCommunication } from '@/stores/communityCommunicationStore';
-import { getSmtpConfig, sendEmailViaBackend, sendCommunityEmailViaBackend } from '@/services/api';
+import {
+	getSmtpConfig,
+	sendEmailViaBackend,
+	sendCommunityEmailViaBackend,
+	getParticipantNextMeeting,
+} from '@/services/api';
 import ParticipantMessageHistory from './ParticipantMessageHistory.vue';
 import CommunityMessageHistory from './CommunityMessageHistory.vue';
 import type { Participant, CommunityMember } from '@repo/types';
@@ -435,6 +442,9 @@ import type { Participant, CommunityMember } from '@repo/types';
 const DRAFT_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 2000;
+const SEND_METHOD_PREF_KEY = 'emaus.messageDialog.sendMethod';
+const EMAIL_SEND_METHOD_PREF_KEY = 'emaus.messageDialog.emailSendMethod';
+const TEMPLATE_PREF_KEY_PREFIX = 'emaus.messageDialog.lastTemplate';
 
 interface Props {
 	open: boolean;
@@ -498,6 +508,12 @@ const historyComponentLoading = ref(false);
 const historyMessageCount = ref(0);
 const isUserEditing = ref(false);
 const emptyVariables = ref<string[]>([]);
+const pendingTemplateId = ref<string | null>(null);
+const hasSavedSendMethodPref = ref(false);
+// Cache the next community meeting for the current recipient. Used to fill
+// `{retreat.next_meeting_date}` in templates like POST_RETREAT_MESSAGE.
+// Null = not loaded yet; empty string = no upcoming meeting found.
+const nextMeetingFormatted = ref<string | null>(null);
 
 // Computed properties
 const contextId = computed(() => props.context === 'retreat' ? props.retreatId : props.communityId);
@@ -517,8 +533,9 @@ const displayName = computed(() => {
 	if (!props.participant) return '';
 	const p = props.participant;
 	if ('participant' in p && p.participant) {
-		// CommunityMember with participant relation
-		return `${p.participant.firstName} ${p.participant.lastName}`;
+		// CommunityMember with participant relation — usar overlay si existe.
+		// Per-community alias > nombre del Participant global.
+		return resolveMemberProfile(p as any).fullName;
 	}
 	// Participant or CommunityMember without relation
 	if ('firstName' in p) {
@@ -656,33 +673,65 @@ const updateMessagePreview = () => {
 	const template = allMessageTemplates.value.find((t: any) => t.id === selectedTemplate.value);
 	if (!template) return;
 
-	// Get participant data (enriched with palanquero when available)
-	const participantData = (enrichedParticipantData.value ?? props.participant) as ParticipantData;
+	// Get participant data (enriched with palanquero when available).
+	// Cuando el contexto es 'community' y el destinatario tiene overlay
+	// per-community (firstName/lastName/email/cellPhone en community_member),
+	// el overlay gana sobre el Participant: el placeholder
+	// {participant.firstName} debe resolver al overlay si existe.
+	const isCommunityCtx = props.context === 'community';
+	let participantData = (enrichedParticipantData.value ?? props.participant) as ParticipantData;
+	if (isCommunityCtx && props.participant && 'participant' in props.participant) {
+		const overlay = resolveMemberProfile(props.participant as any);
+		participantData = {
+			...participantData,
+			firstName: overlay.firstName || participantData.firstName,
+			lastName: overlay.lastName || participantData.lastName,
+			email: overlay.email || participantData.email,
+			cellPhone: overlay.cellPhone || participantData.cellPhone,
+		};
+	}
 
-	// Get retreat/community data for variables
-	const contextData = props.context === 'retreat'
-		? (selectedRetreat.value as RetreatData)
-		: {
-				name: currentCommunity.value?.name || '',
+	// Build context-specific data. For retreat: pass the retreat into the
+	// retreat slot and leave community undefined (placeholders stay literal).
+	// For community: pass a partial RetreatData mirror (so legacy
+	// {retreat.name} keeps resolving) AND a CommunityData payload so the new
+	// canonical {community.X} placeholders get filled.
+	const baseRetreatData: RetreatData | null = isCommunityCtx
+		? {
 				parish: currentCommunity.value?.name || '',
 				startDate: new Date().toISOString(),
 				endDate: new Date().toISOString(),
-		  };
+		  }
+		: (selectedRetreat.value as RetreatData);
+	// Inject the pre-resolved next community meeting date (fetched on
+	// dialog open). Empty string when the participant has no upcoming
+	// community meetings — the placeholder still resolves cleanly.
+	const retreatData: RetreatData | null = baseRetreatData
+		? { ...baseRetreatData, nextMeetingDate: nextMeetingFormatted.value || '' }
+		: null;
+	const communityData: CommunityData | undefined = isCommunityCtx
+		? {
+				name: currentCommunity.value?.name || '',
+				parish: currentCommunity.value?.name || '',
+		  }
+		: undefined;
 
 	// Detect known variables present in the template whose resolved value is
 	// empty, so the user can see them before sending.
 	emptyVariables.value = findEmptyVariables(
 		template.message,
 		participantData,
-		contextData,
+		retreatData,
 		selectedContactKey.value,
+		communityData,
 	);
 
 	let message = replaceAllVariables(
 		template.message,
 		participantData,
-		contextData,
+		retreatData,
 		selectedContactKey.value,
+		communityData,
 	);
 	messagePreview.value = message;
 
@@ -763,10 +812,19 @@ const loadDraft = () => {
 			const draftAge = new Date().getTime() - new Date(draft.timestamp).getTime();
 			if (draftAge < DRAFT_EXPIRY_MS) {
 				isUserEditing.value = true; // Don't overwrite user's restored draft
-				editedMessage.value = draft.message;
-				if (draft.sendMethod) sendMethod.value = draft.sendMethod;
-				if (draft.emailSendMethod) emailSendMethod.value = draft.emailSendMethod;
-				if (draft.selectedContact) selectedContact.value = draft.selectedContact;
+				editedMessage.value = typeof draft.message === 'string' ? draft.message : '';
+				// SECURITY: validar enums antes de asignar — un attacker con acceso
+				// a localStorage del navegador podría tamperar el draft con valores
+				// arbitrarios y romper la lógica condicional.
+				if (draft.sendMethod === 'whatsapp' || draft.sendMethod === 'email') {
+					sendMethod.value = draft.sendMethod;
+				}
+				if (draft.emailSendMethod === 'user' || draft.emailSendMethod === 'backend') {
+					emailSendMethod.value = draft.emailSendMethod;
+				}
+				if (typeof draft.selectedContact === 'string') {
+					selectedContact.value = draft.selectedContact;
+				}
 
 				toast({
 					title: 'Borrador recuperado',
@@ -784,7 +842,12 @@ const checkEmailServerConfig = async (retryCount = 0) => {
 		const config = await getSmtpConfig();
 		emailServerConfigStatus.value = config;
 
-		if (config.configured && sendMethod.value === 'whatsapp' && props.open) {
+		if (
+			config.configured &&
+			sendMethod.value === 'whatsapp' &&
+			props.open &&
+			!hasSavedSendMethodPref.value
+		) {
 			sendMethod.value = 'email';
 			emailSendMethod.value = 'backend';
 			if (props.participant) {
@@ -1125,25 +1188,119 @@ const loadMessageCount = async () => {
 	}
 };
 
+// Persisted preferences (send method + last template per context)
+const getTemplatePrefKey = () => {
+	if (!contextId.value) return null;
+	return `${TEMPLATE_PREF_KEY_PREFIX}.${props.context}.${contextId.value}`;
+};
+
+const loadDialogPrefs = (): {
+	sendMethod?: 'whatsapp' | 'email';
+	emailSendMethod?: 'user' | 'backend';
+	templateId?: string;
+} => {
+	const prefs: { sendMethod?: 'whatsapp' | 'email'; emailSendMethod?: 'user' | 'backend'; templateId?: string } = {};
+	try {
+		const sm = localStorage.getItem(SEND_METHOD_PREF_KEY);
+		if (sm === 'whatsapp' || sm === 'email') prefs.sendMethod = sm;
+		const esm = localStorage.getItem(EMAIL_SEND_METHOD_PREF_KEY);
+		if (esm === 'user' || esm === 'backend') prefs.emailSendMethod = esm;
+		const tplKey = getTemplatePrefKey();
+		if (tplKey) {
+			const tid = localStorage.getItem(tplKey);
+			if (tid) prefs.templateId = tid;
+		}
+	} catch {
+		// localStorage may be unavailable (private mode, etc.)
+	}
+	return prefs;
+};
+
+const saveSendMethodPref = () => {
+	try {
+		localStorage.setItem(SEND_METHOD_PREF_KEY, sendMethod.value);
+		localStorage.setItem(EMAIL_SEND_METHOD_PREF_KEY, emailSendMethod.value);
+	} catch {
+		// ignore
+	}
+};
+
+const saveTemplatePref = (templateId: string) => {
+	const tplKey = getTemplatePrefKey();
+	if (!tplKey || !templateId) return;
+	try {
+		localStorage.setItem(tplKey, templateId);
+	} catch {
+		// ignore
+	}
+};
+
+const loadNextMeeting = async () => {
+	if (!props.participant) {
+		nextMeetingFormatted.value = '';
+		return;
+	}
+	// Resolve the underlying participantId regardless of community/retreat ctx.
+	const participantData = 'participant' in props.participant && props.participant.participant
+		? props.participant.participant
+		: props.participant;
+	const pid = (participantData as any).id;
+	if (!pid) {
+		nextMeetingFormatted.value = '';
+		return;
+	}
+	try {
+		// When sending FROM a community context, scope the lookup to that
+		// community — el usuario quiere "la próxima reunión DE esta
+		// comunidad", no la más temprana entre todas las comunidades del
+		// participante (que pueden ser varias). En retreat context no
+		// tenemos communityId, así que se busca en todas (fallback).
+		const scopedCommunityId =
+			props.context === 'community' && props.communityId ? props.communityId : undefined;
+		const result = await getParticipantNextMeeting(pid, scopedCommunityId);
+		nextMeetingFormatted.value = result?.formattedDate || '';
+	} catch {
+		// Silent fail — placeholder will resolve to empty.
+		nextMeetingFormatted.value = '';
+	}
+	// Re-render preview if a template was already selected so the new date
+	// shows up immediately.
+	if (selectedTemplate.value && !isUserEditing.value) {
+		updateMessagePreview();
+	}
+};
+
 // Watchers
 watch(() => props.open, (newValue: boolean) => {
 	if (newValue && props.participant) {
-		if (emailServerConfigStatus.value.configured) {
+		const prefs = loadDialogPrefs();
+		hasSavedSendMethodPref.value = !!prefs.sendMethod;
+
+		// sendMethod: prefer saved → else SMTP-configured email → else whatsapp
+		if (prefs.sendMethod) {
+			sendMethod.value = prefs.sendMethod;
+		} else if (emailServerConfigStatus.value.configured) {
 			sendMethod.value = 'email';
-			emailSendMethod.value = 'backend';
-			const participantData = 'participant' in props.participant && props.participant.participant
-				? props.participant.participant
-				: props.participant;
-			selectedContact.value = (participantData as any).email || (participantData as any).cellPhone || undefined;
 		} else {
 			sendMethod.value = 'whatsapp';
-			const participantData = 'participant' in props.participant && props.participant.participant
-				? props.participant.participant
-				: props.participant;
-			selectedContact.value = (participantData as any).cellPhone || (participantData as any).email || undefined;
 		}
 
+		// emailSendMethod: prefer saved → else 'backend' if SMTP configured
+		if (prefs.emailSendMethod) {
+			emailSendMethod.value = prefs.emailSendMethod;
+		} else if (emailServerConfigStatus.value.configured) {
+			emailSendMethod.value = 'backend';
+		}
+
+		const participantData = 'participant' in props.participant && props.participant.participant
+			? props.participant.participant
+			: props.participant;
+		selectedContact.value = sendMethod.value === 'whatsapp'
+			? (participantData as any).cellPhone || (participantData as any).email || undefined
+			: (participantData as any).email || (participantData as any).cellPhone || undefined;
+
 		selectedTemplate.value = '';
+		pendingTemplateId.value = prefs.templateId || null;
 		messagePreview.value = '';
 		editedMessage.value = '';
 		emailPreviewHtml.value = '';
@@ -1151,6 +1308,8 @@ watch(() => props.open, (newValue: boolean) => {
 		showHistory.value = false;
 		isUserEditing.value = false;
 		emptyVariables.value = [];
+		nextMeetingFormatted.value = null;
+		loadNextMeeting();
 
 		// Load templates based on context
 		if (props.context === 'community' && props.communityId) {
@@ -1230,6 +1389,37 @@ watch(sendMethod, (newValue: 'whatsapp' | 'email') => {
 watch([editedMessage, sendMethod, selectedContact], () => {
 	autoSaveMessage();
 }, { deep: true });
+
+// Persist send method preference whenever the user changes it (while dialog is open).
+watch([sendMethod, emailSendMethod], () => {
+	if (!props.open) return;
+	saveSendMethodPref();
+	hasSavedSendMethodPref.value = true;
+});
+
+// Persist selected template per context (only when user/restore actually picked one).
+watch(selectedTemplate, (newValue: string) => {
+	if (!props.open || !newValue) return;
+	saveTemplatePref(newValue);
+});
+
+// Apply a previously remembered template once the templates list finishes loading.
+watch(
+	[allMessageTemplates, templatesLoading],
+	([templates, loading]) => {
+		if (!props.open) return;
+		if (loading) return;
+		if (!pendingTemplateId.value) return;
+		const list = templates || [];
+		if (list.length === 0) return;
+		const exists = list.some((t: any) => t.id === pendingTemplateId.value);
+		if (exists) {
+			selectedTemplate.value = pendingTemplateId.value!;
+		}
+		pendingTemplateId.value = null;
+	},
+	{ immediate: false },
+);
 
 // Re-render the preview when the selected contact changes so that
 // {participant.emergencyContact*} variables resolve to the chosen contact.

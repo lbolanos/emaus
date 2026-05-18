@@ -1,3 +1,4 @@
+import { resolveMemberProfile } from '@repo/utils';
 import { streamText, convertToModelMessages, UIMessage, jsonSchema, stepCountIs } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
@@ -956,25 +957,35 @@ export async function createChatStream(
 					await verifyCommunityAdminAccess(userId, cId);
 					const q = query.trim().toLowerCase();
 					const memberRepo = AppDataSource.getRepository(CommunityMember);
+					// Buscar contra overlay (cm.X) Y participant (p.X) — el efectivo
+					// es overlay > participant, así que cualquier match cuenta.
 					const members = await memberRepo
 						.createQueryBuilder('m')
 						.innerJoinAndSelect('m.participant', 'p')
 						.where('m.communityId = :cId', { cId })
 						.andWhere(
-							'(LOWER(p.firstName) LIKE :q OR LOWER(p.lastName) LIKE :q OR LOWER(p.email) LIKE :q OR p.cellPhone LIKE :qPhone)',
+							`(
+								LOWER(p.firstName) LIKE :q OR LOWER(p.lastName) LIKE :q OR
+								LOWER(p.email) LIKE :q OR p.cellPhone LIKE :qPhone OR
+								LOWER(m.firstName) LIKE :q OR LOWER(m.lastName) LIKE :q OR
+								LOWER(m.email) LIKE :q OR m.cellPhone LIKE :qPhone
+							)`,
 							{ q: `%${q}%`, qPhone: `%${query.trim()}%` },
 						)
 						.getMany();
 
 					return {
 						count: members.length,
-						members: members.map((m) => ({
-							memberId: m.id,
-							name: `${m.participant.firstName} ${m.participant.lastName}`,
-							email: m.participant.email,
-							cellPhone: m.participant.cellPhone,
-							state: m.state,
-						})),
+						members: members.map((m) => {
+							const profile = resolveMemberProfile(m);
+							return {
+								memberId: m.id,
+								name: profile.fullName,
+								email: profile.email,
+								cellPhone: profile.cellPhone,
+								state: m.state,
+							};
+						}),
 					};
 				},
 			},

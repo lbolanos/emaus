@@ -146,6 +146,8 @@ Sistema TypeORM contra SQLite. Comandos: `migration:generate`, `migration:run`, 
 | Bug reportado por el usuario (UI congelada, página blanca, fechas saltan, checkbox no marca, test falla, etc.) | `troubleshooting` (índice maestro síntoma → causa → fix) |
 | Tocar fechas, horas, defaults de pickers, filtros por rango, `datetime-local`, helpers `makeDateInTimezone`/`calendarDateOnly` | `timezone-handling` |
 | Crear o modificar archivo en `apps/api/src/migrations/sqlite/` | `sqlite-migrations` |
+| Agregar/modificar variables `{scope.var}` en plantillas, debugear variable que queda literal, o crear nuevo scope de reemplazo | `template-variables` |
+| Tocar lectura/escritura de `CommunityMember` (display, búsqueda, mensajes, attendance, edición de perfil), nombre/email que no coincide entre comunidad y retiro, o nuevo endpoint que mute `community_member.*` | `community-overlay` |
 | Reporte de blank page en iPhone/iPad o `Maximum call stack size exceeded` | `safari-ios-compatibility` |
 | Trabajar con archivos `.vue`, Pinia, Vue Router, Vite | `vue-best-practices`, `vue-pinia-best-practices` |
 | Hardening de API, CORS, CSRF, rate limit, OWASP | `security-best-practices` |

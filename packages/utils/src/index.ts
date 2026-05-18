@@ -4,6 +4,60 @@
  */
 
 /**
+ * Shape mínima requerida por `resolveMemberProfile`. Acepta tanto un
+ * `CommunityMember` completo (con `participant` cargado) como un objeto
+ * literal con los campos overlay y la relación participant opcional.
+ */
+export interface MemberOverlayLike {
+	firstName?: string | null;
+	lastName?: string | null;
+	email?: string | null;
+	cellPhone?: string | null;
+	participant?: {
+		firstName?: string | null;
+		lastName?: string | null;
+		email?: string | null;
+		cellPhone?: string | null;
+	} | null;
+}
+
+/**
+ * Resuelve el perfil efectivo de un `CommunityMember` aplicando el overlay
+ * por-comunidad si está set, sino haciendo fallback al `Participant` global.
+ *
+ * Regla de overlay:
+ *  - `null` o `undefined` o `''` → usar el valor del participant.
+ *  - Cualquier otro string → ese gana sobre el participant.
+ *
+ * Devuelve siempre strings (vacíos si ambos lados son null). Incluye
+ * `fullName` precomputado para display.
+ *
+ * Convención del proyecto: empty-string en overlay equivale a "limpiar"
+ * — el caller (service `updateMemberProfile`) debe convertir `''` a `null`
+ * antes de persistir para no quedarse con strings vacíos en la DB.
+ */
+export function resolveMemberProfile(m: MemberOverlayLike): {
+	firstName: string;
+	lastName: string;
+	email: string;
+	cellPhone: string;
+	fullName: string;
+} {
+	const p = m.participant ?? {};
+	const pick = (a: string | null | undefined, b: string | null | undefined): string =>
+		a != null && a !== '' ? a : b ?? '';
+	const firstName = pick(m.firstName, p.firstName);
+	const lastName = pick(m.lastName, p.lastName);
+	return {
+		firstName,
+		lastName,
+		email: pick(m.email, p.email),
+		cellPhone: pick(m.cellPhone, p.cellPhone),
+		fullName: `${firstName} ${lastName}`.trim(),
+	};
+}
+
+/**
  * Interface for participant data structure
  */
 export interface ParticipantData {
@@ -74,6 +128,25 @@ export interface ParticipantData {
 }
 
 /**
+ * Variables specific to community-scoped templates (community emails,
+ * meeting invitations, join-request notifications, etc.). These templates
+ * are seeded as "Global" rows in message_templates and are rendered both
+ * server-side (CommunityService) and in the UI editor preview.
+ */
+export interface CommunityData {
+	name?: string;
+	parish?: string;
+	meetingTitle?: string;
+	meetingDate?: string;
+	attendanceLink?: string;
+	requesterName?: string;
+	requesterEmail?: string;
+	requesterPhone?: string;
+	userEmail?: string;
+	acceptUrl?: string;
+}
+
+/**
  * Interface for retreat data structure
  */
 export interface RetreatData {
@@ -96,6 +169,13 @@ export interface RetreatData {
 	closingChurchAddress?: string | null;
 	closingChurchLatitude?: number | null;
 	closingChurchLongitude?: number | null;
+	/**
+	 * Próxima reunión de comunidad pre-resuelta por el caller (típicamente
+	 * MessageDialog vía `GET /api/participants/:id/next-meeting`). String
+	 * humano-legible en español ("lunes, 1 de junio de 2026, 19:00") o vacío
+	 * si el participante no tiene reuniones próximas en sus comunidades.
+	 */
+	nextMeetingDate?: string;
 }
 
 /**
@@ -436,6 +516,7 @@ const getMockRetreat = (): RetreatData => {
 		closingChurchAddress: 'Av. Insurgentes Sur 1234, Del Valle, CDMX',
 		closingChurchLatitude: 19.3776,
 		closingChurchLongitude: -99.1726,
+		nextMeetingDate: 'lunes, 1 de junio de 2026, 19:00',
 	};
 };
 
@@ -470,6 +551,7 @@ const buildRetreatReplacements = (retreatData: RetreatData): Record<string, stri
 			retreatData.closingChurchLatitude,
 			retreatData.closingChurchLongitude,
 		),
+		'retreat.next_meeting_date': retreatData.nextMeetingDate || '',
 	};
 };
 
@@ -493,6 +575,54 @@ export const replaceRetreatVariables = (
 };
 
 /**
+ * Default mock community data used as a fallback when previewing community
+ * templates without real data.
+ */
+const getMockCommunity = (): CommunityData => ({
+	name: 'Comunidad Emaús Demo',
+	parish: 'Parroquia San José',
+	meetingTitle: 'Reunión mensual',
+	meetingDate: '15/06/2026 19:00',
+	attendanceLink: 'https://emaus.example/asistencia/123',
+	requesterName: 'María García',
+	requesterEmail: 'maria.garcia@example.com',
+	requesterPhone: '555-111-2222',
+	userEmail: 'usuario@example.com',
+	acceptUrl: 'https://emaus.example/aceptar/abc',
+});
+
+const buildCommunityReplacements = (data: CommunityData): Record<string, string> => ({
+	'community.name': data.name || '',
+	'community.parish': data.parish || '',
+	'community.meetingTitle': data.meetingTitle || '',
+	'community.meetingDate': data.meetingDate || '',
+	'community.attendanceLink': data.attendanceLink || '',
+	'community.requesterName': data.requesterName || '',
+	'community.requesterEmail': data.requesterEmail || '',
+	'community.requesterPhone': data.requesterPhone || '',
+	'community.userEmail': data.userEmail || '',
+	'community.acceptUrl': data.acceptUrl || '',
+});
+
+/**
+ * Replaces community-scoped variables in a message template. Falls back to
+ * mock data when `community` is null/undefined so the UI preview shows
+ * placeholder values.
+ */
+export const replaceCommunityVariables = (
+	message: string,
+	community: CommunityData | null | undefined,
+): string => {
+	const data = community || getMockCommunity();
+	const replacements = buildCommunityReplacements(data);
+	let out = message;
+	for (const [k, v] of Object.entries(replacements)) {
+		out = out.replace(new RegExp(`\\{${k}\\}`, 'g'), v);
+	}
+	return out;
+};
+
+/**
  * Finds all known template variables in a message whose resolved value is
  * an empty string. Unlike replaceAllVariables, this function does NOT fall
  * back to mock data — if participant/retreat is null, all known variables
@@ -505,15 +635,18 @@ export const findEmptyVariables = (
 	participant: ParticipantData | null | undefined,
 	retreat: RetreatData | null | undefined,
 	selectedContactKey?: string,
+	community?: CommunityData | null,
 ): string[] => {
 	const participantReplacements = buildParticipantReplacements(
 		participant ?? ({} as ParticipantData),
 		selectedContactKey,
 	);
 	const retreatReplacements = buildRetreatReplacements(retreat ?? ({} as RetreatData));
+	const communityReplacements = buildCommunityReplacements(community ?? ({} as CommunityData));
 	const combined: Record<string, string> = {
 		...participantReplacements,
 		...retreatReplacements,
+		...communityReplacements,
 	};
 
 	// Extract all unique placeholders from the message.
@@ -542,6 +675,7 @@ export const replaceAllVariables = (
 	participant: ParticipantData | null | undefined,
 	retreat: RetreatData | null | undefined,
 	selectedContactKey?: string,
+	community?: CommunityData | null,
 ): string => {
 	let processedMessage = message;
 
@@ -550,6 +684,13 @@ export const replaceAllVariables = (
 
 	// Replace retreat variables
 	processedMessage = replaceRetreatVariables(processedMessage, retreat);
+
+	// Replace community variables when provided. We do NOT fall back to mock
+	// data here because most retreat-scoped callers don't deal with community
+	// context — the {community.*} placeholders simply stay unresolved.
+	if (community !== undefined) {
+		processedMessage = replaceCommunityVariables(processedMessage, community);
+	}
 
 	return processedMessage;
 };
