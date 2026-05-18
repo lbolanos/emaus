@@ -12,6 +12,9 @@ export class ChatConversation {
 	@Column('varchar', { nullable: true })
 	retreatId?: string | null;
 
+	@Column('varchar', { nullable: true })
+	communityId?: string | null;
+
 	@Column('text')
 	messages!: string;
 

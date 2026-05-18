@@ -1982,6 +1982,7 @@ export async function saveChatConversation(data: {
   id?: string;
   messages: any[];
   retreatId?: string;
+  communityId?: string;
   title?: string;
 }): Promise<{ id: string }> {
   const response = await api.post("/ai-chat/conversations", data);
@@ -1993,6 +1994,7 @@ export async function getChatConversations(): Promise<
     id: string;
     title: string | null;
     retreatId: string | null;
+    communityId: string | null;
     createdAt: string;
     updatedAt: string;
   }[]

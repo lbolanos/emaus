@@ -35,6 +35,7 @@ interface SaveRequest {
 	id?: string;
 	messages: any[];
 	retreatId?: string;
+	communityId?: string;
 	title?: string;
 }
 
@@ -52,16 +53,18 @@ interface ConversationRow {
 	userId: string;
 	title: string | null;
 	retreatId: string | null;
+	communityId: string | null;
 	messages: string;
 	createdAt: Date;
 	updatedAt: Date;
 }
 
 function buildListResponse(rows: ConversationRow[]) {
-	return rows.map(({ id, title, retreatId, createdAt, updatedAt }) => ({
+	return rows.map(({ id, title, retreatId, communityId, createdAt, updatedAt }) => ({
 		id,
 		title,
 		retreatId,
+		communityId,
 		createdAt,
 		updatedAt,
 	}));
@@ -216,6 +219,23 @@ describe('Chat Conversation - Pure Logic Tests', () => {
 			});
 			expect(result.valid).toBe(true);
 		});
+
+		test('should accept request with optional communityId', () => {
+			const result = validateSaveRequest({
+				messages: [{ role: 'user' }],
+				communityId: 'community-1',
+			});
+			expect(result.valid).toBe(true);
+		});
+
+		test('should accept request with both retreatId and communityId', () => {
+			const result = validateSaveRequest({
+				messages: [{ role: 'user' }],
+				retreatId: 'retreat-1',
+				communityId: 'community-1',
+			});
+			expect(result.valid).toBe(true);
+		});
 	});
 
 	describe('buildListResponse', () => {
@@ -225,6 +245,7 @@ describe('Chat Conversation - Pure Logic Tests', () => {
 				userId: 'user-1',
 				title: 'Primera conversación',
 				retreatId: 'retreat-1',
+				communityId: null,
 				messages: '[]',
 				createdAt: new Date('2026-04-14T10:00:00Z'),
 				updatedAt: new Date('2026-04-14T11:00:00Z'),
@@ -234,34 +255,53 @@ describe('Chat Conversation - Pure Logic Tests', () => {
 				userId: 'user-1',
 				title: null,
 				retreatId: null,
+				communityId: null,
 				messages: '[{"role":"user"}]',
 				createdAt: new Date('2026-04-13T10:00:00Z'),
 				updatedAt: new Date('2026-04-13T10:00:00Z'),
+			},
+			{
+				id: 'conv-3',
+				userId: 'user-1',
+				title: 'Conversación de comunidad',
+				retreatId: null,
+				communityId: 'community-1',
+				messages: '[]',
+				createdAt: new Date('2026-04-12T10:00:00Z'),
+				updatedAt: new Date('2026-04-12T10:00:00Z'),
 			},
 		];
 
 		test('should exclude messages and userId from list', () => {
 			const list = buildListResponse(rows);
-			expect(list).toHaveLength(2);
+			expect(list).toHaveLength(3);
 			expect(list[0]).not.toHaveProperty('messages');
 			expect(list[0]).not.toHaveProperty('userId');
 		});
 
-		test('should include id, title, retreatId, dates', () => {
+		test('should include id, title, retreatId, communityId, dates', () => {
 			const list = buildListResponse(rows);
 			expect(list[0]).toEqual({
 				id: 'conv-1',
 				title: 'Primera conversación',
 				retreatId: 'retreat-1',
+				communityId: null,
 				createdAt: new Date('2026-04-14T10:00:00Z'),
 				updatedAt: new Date('2026-04-14T11:00:00Z'),
 			});
 		});
 
-		test('should handle null title and retreatId', () => {
+		test('should handle null title, retreatId and communityId', () => {
 			const list = buildListResponse(rows);
 			expect(list[1].title).toBeNull();
 			expect(list[1].retreatId).toBeNull();
+			expect(list[1].communityId).toBeNull();
+		});
+
+		test('should include communityId when present', () => {
+			const list = buildListResponse(rows);
+			expect(list[2].communityId).toBe('community-1');
+			expect(list[2].retreatId).toBeNull();
 		});
 
 		test('should return empty array for empty input', () => {
@@ -276,6 +316,7 @@ describe('Chat Conversation - Pure Logic Tests', () => {
 				userId: 'user-1',
 				title: 'Test',
 				retreatId: 'retreat-1',
+				communityId: null,
 				messages: JSON.stringify([
 					{ role: 'user', parts: [{ type: 'text', text: 'Hola' }] },
 					{ role: 'assistant', parts: [{ type: 'text', text: 'Hola!' }] },
@@ -289,12 +330,13 @@ describe('Chat Conversation - Pure Logic Tests', () => {
 			expect(detail.messages[0].role).toBe('user');
 		});
 
-		test('should keep other properties', () => {
+		test('should keep other properties including communityId', () => {
 			const row: ConversationRow = {
 				id: 'conv-1',
 				userId: 'user-1',
 				title: 'Test',
 				retreatId: 'retreat-1',
+				communityId: 'community-1',
 				messages: '[]',
 				createdAt: new Date('2026-04-14T10:00:00Z'),
 				updatedAt: new Date('2026-04-14T10:00:00Z'),
@@ -303,6 +345,7 @@ describe('Chat Conversation - Pure Logic Tests', () => {
 			expect(detail.id).toBe('conv-1');
 			expect(detail.title).toBe('Test');
 			expect(detail.retreatId).toBe('retreat-1');
+			expect(detail.communityId).toBe('community-1');
 		});
 
 		test('should handle empty messages', () => {
@@ -311,6 +354,7 @@ describe('Chat Conversation - Pure Logic Tests', () => {
 				userId: 'user-1',
 				title: null,
 				retreatId: null,
+				communityId: null,
 				messages: '[]',
 				createdAt: new Date(),
 				updatedAt: new Date(),

@@ -5,7 +5,7 @@ import { ChatConversation } from '../entities/chatConversation.entity';
 
 export const streamChat = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { messages, retreatId } = req.body;
+		const { messages, retreatId, communityId } = req.body;
 		if (!messages?.length) {
 			return res.status(400).json({ message: 'Messages required' });
 		}
@@ -14,7 +14,7 @@ export const streamChat = async (req: Request, res: Response, next: NextFunction
 		}
 
 		const userId = (req as any).user?.id;
-		const result = await createChatStream(messages, userId, retreatId);
+		const result = await createChatStream(messages, userId, retreatId, communityId);
 
 		result.pipeUIMessageStreamToResponse(res);
 	} catch (error) {
@@ -33,7 +33,7 @@ export const chatStatus = async (_req: Request, res: Response) => {
 export const saveConversation = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const userId = (req as any).user?.id;
-		const { id, messages, retreatId, title } = req.body;
+		const { id, messages, retreatId, communityId, title } = req.body;
 		if (!messages?.length) {
 			return res.status(400).json({ message: 'Messages required' });
 		}
@@ -47,6 +47,7 @@ export const saveConversation = async (req: Request, res: Response, next: NextFu
 			}
 			existing.messages = JSON.stringify(messages);
 			existing.retreatId = retreatId ?? null;
+			existing.communityId = communityId ?? null;
 			existing.title = title ?? existing.title;
 			await repo.save(existing);
 			return res.json({ id: existing.id });
@@ -56,6 +57,7 @@ export const saveConversation = async (req: Request, res: Response, next: NextFu
 			userId,
 			messages: JSON.stringify(messages),
 			retreatId: retreatId ?? null,
+			communityId: communityId ?? null,
 			title: title ?? null,
 		});
 		await repo.save(conversation);
@@ -71,7 +73,7 @@ export const getConversations = async (req: Request, res: Response, next: NextFu
 		const repo = AppDataSource.getRepository(ChatConversation);
 		const conversations = await repo.find({
 			where: { userId },
-			select: ['id', 'title', 'retreatId', 'createdAt', 'updatedAt'],
+			select: ['id', 'title', 'retreatId', 'communityId', 'createdAt', 'updatedAt'],
 			order: { updatedAt: 'DESC' },
 			take: 50,
 		});

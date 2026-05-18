@@ -315,7 +315,11 @@ export class CommunityService {
 		}));
 	}
 
-	async addMember(communityId: string, participantId: string) {
+	async addMember(
+		communityId: string,
+		participantId: string,
+		state: MemberState = 'active_member',
+	) {
 		const existing = await this.memberRepo.findOne({
 			where: { communityId, participantId },
 		});
@@ -331,7 +335,7 @@ export class CommunityService {
 		const member = this.memberRepo.create({
 			communityId,
 			participantId,
-			state: 'active_member',
+			state,
 		});
 
 		return this.memberRepo.save(member);
@@ -366,6 +370,7 @@ export class CommunityService {
 			email: string;
 			cellPhone: string;
 		},
+		state: MemberState = 'active_member',
 	) {
 		// 1. Create participant with retreatId: null and minimal required fields
 		const participant = this.participantRepo.create({
@@ -404,7 +409,7 @@ export class CommunityService {
 		const member = this.memberRepo.create({
 			communityId,
 			participantId: savedParticipant.id,
-			state: 'active_member',
+			state,
 		});
 
 		const savedMember = await this.memberRepo.save(member);
@@ -1032,6 +1037,118 @@ export class CommunityService {
 		};
 	}
 
+	/**
+	 * Registra asistencia para múltiples miembros en una reunión a partir de una
+	 * lista de identificadores flexibles (memberId / email / cellPhone / name).
+	 *
+	 * - Hace `upsert` por (meetingId, memberId): no borra ni pisa marcas previas.
+	 *   Llamadas sucesivas son acumulativas.
+	 * - Resuelve cada attendee solo entre miembros de `communityId` (no busca en
+	 *   la BD global): evita marcar a alguien que no pertenece a la comunidad.
+	 * - Reporta `marked`, `notFound` (sin match), `ambiguous` (varios matches)
+	 *   para que el caller (típicamente el bot) pida desambiguación.
+	 */
+	async bulkRecordAttendance(
+		communityId: string,
+		meetingId: string,
+		attendees: Array<{
+			memberId?: string;
+			name?: string;
+			email?: string;
+			cellPhone?: string;
+		}>,
+		attended: boolean = true,
+	): Promise<{
+		marked: Array<{ memberId: string; name: string }>;
+		notFound: Array<{ query: any; reason: string }>;
+		ambiguous: Array<{ query: any; matches: Array<{ memberId: string; name: string }> }>;
+	}> {
+		// Pre-cargar todos los miembros de la comunidad con sus participants una sola
+		// vez para resolver matches en memoria. Más rápido y permite búsqueda flexible
+		// por nombre completo (que SQL puro hace torpe).
+		const members = await this.memberRepo.find({
+			where: { communityId },
+			relations: ['participant'],
+		});
+
+		const normalize = (s: string) =>
+			s
+				.toLowerCase()
+				.trim()
+				.normalize('NFD')
+				.replace(/[̀-ͯ]/g, '');
+		const normPhone = (s: string) => s.replace(/[\s()\-+]/g, '');
+
+		const marked: Array<{ memberId: string; name: string }> = [];
+		const notFound: Array<{ query: any; reason: string }> = [];
+		const ambiguous: Array<{
+			query: any;
+			matches: Array<{ memberId: string; name: string }>;
+		}> = [];
+
+		for (const attendee of attendees) {
+			let matches = members;
+
+			if (attendee.memberId) {
+				matches = members.filter((m) => m.id === attendee.memberId);
+			} else if (attendee.email) {
+				const e = attendee.email.toLowerCase().trim();
+				matches = members.filter(
+					(m) => m.participant?.email?.toLowerCase().trim() === e,
+				);
+			} else if (attendee.cellPhone) {
+				const suffix = normPhone(attendee.cellPhone).slice(-10);
+				if (suffix.length < 7) {
+					notFound.push({ query: attendee, reason: 'phone_too_short' });
+					continue;
+				}
+				matches = members.filter(
+					(m) => normPhone(m.participant?.cellPhone || '').endsWith(suffix),
+				);
+			} else if (attendee.name) {
+				const tokens = normalize(attendee.name).split(/\s+/).filter(Boolean);
+				if (tokens.length === 0) {
+					notFound.push({ query: attendee, reason: 'empty_name' });
+					continue;
+				}
+				matches = members.filter((m) => {
+					const full = normalize(
+						`${m.participant?.firstName || ''} ${m.participant?.lastName || ''}`,
+					);
+					return tokens.every((t) => full.includes(t));
+				});
+			} else {
+				notFound.push({ query: attendee, reason: 'no_identifier' });
+				continue;
+			}
+
+			if (matches.length === 0) {
+				notFound.push({ query: attendee, reason: 'not_a_member' });
+				continue;
+			}
+
+			if (matches.length > 1) {
+				ambiguous.push({
+					query: attendee,
+					matches: matches.map((m) => ({
+						memberId: m.id,
+						name: `${m.participant?.firstName || ''} ${m.participant?.lastName || ''}`.trim(),
+					})),
+				});
+				continue;
+			}
+
+			const member = matches[0];
+			await this.recordSingleAttendance(communityId, meetingId, member.id, attended);
+			marked.push({
+				memberId: member.id,
+				name: `${member.participant?.firstName || ''} ${member.participant?.lastName || ''}`.trim(),
+			});
+		}
+
+		return { marked, notFound, ambiguous };
+	}
+
 	async recordSingleAttendance(
 		communityId: string,
 		meetingId: string,
@@ -1351,6 +1468,165 @@ export class CommunityService {
 		return await this.memberRepo.findOne({
 			where: { communityId, participantId: participant.id },
 		});
+	}
+
+	/**
+	 * Busca un Participant existente en la BD global por email o teléfono. Útil para
+	 * deduplicar al agregar miembros a una comunidad sin duplicar identidades.
+	 *
+	 * - Email: comparación case-insensitive sobre el valor trimmed.
+	 * - Teléfono: comparación best-effort — se quitan espacios, paréntesis, guiones
+	 *   y signo `+` de ambos lados antes de comparar (un número guardado como
+	 *   `+52 55 1234 5678` matchea con `5512345678`).
+	 *
+	 * Si `email` coincide, gana sobre `phone`. Si solo se pasa phone, busca por phone.
+	 */
+	async findParticipantByEmailOrPhone(
+		email?: string | null,
+		phone?: string | null,
+	): Promise<Participant | null> {
+		const normalizedEmail = email?.toLowerCase().trim();
+		const normalizedPhone = phone?.replace(/[\s()\-+]/g, '');
+
+		if (normalizedEmail) {
+			const byEmail = await this.participantRepo
+				.createQueryBuilder('participant')
+				.where('LOWER(participant.email) = :email', { email: normalizedEmail })
+				.getOne();
+			if (byEmail) return byEmail;
+		}
+
+		if (normalizedPhone && normalizedPhone.length >= 7) {
+			// Match best-effort por sufijo: comparamos los últimos 10 dígitos del
+			// número normalizado. Eso permite que `+52 55 8765 4321` y `5587654321`
+			// se consideren la misma persona (el +52 internacional se ignora).
+			const suffix = normalizedPhone.slice(-10);
+			const byPhone = await this.participantRepo
+				.createQueryBuilder('participant')
+				.where(
+					"REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(participant.cellPhone, ' ', ''), '(', ''), ')', ''), '-', ''), '+', '') LIKE :phone",
+					{ phone: `%${suffix}` },
+				)
+				.getOne();
+			if (byPhone) return byPhone;
+		}
+
+		return null;
+	}
+
+	/**
+	 * Agrega múltiples miembros a una comunidad a partir de una lista parseada.
+	 * Lógica por entrada:
+	 *   - Validar nombre (firstName + lastName) y al menos email O teléfono. Si falta → `rejected`.
+	 *   - Buscar Participant existente por email o teléfono (`findParticipantByEmailOrPhone`).
+	 *   - Si existe y ya es miembro de esta comunidad → `skipped` (motivo: already_member).
+	 *   - Si existe y NO es miembro → `addMember` (vincula sin duplicar Participant) → `linked`.
+	 *   - Si no existe → `createCommunityMember` → `added`.
+	 *
+	 * Trata duplicados DENTRO del mismo lote (si la primera entrada crea/vincula,
+	 * la segunda con el mismo email/phone caerá en `skipped` por el lookup).
+	 */
+	async bulkAddMembers(
+		communityId: string,
+		entries: Array<{
+			firstName?: string;
+			lastName?: string;
+			email?: string;
+			cellPhone?: string;
+			notes?: string;
+		}>,
+		state: MemberState = 'pending_verification',
+	): Promise<{
+		added: Array<{ name: string; email?: string; cellPhone?: string; memberId: string }>;
+		linked: Array<{ name: string; email?: string; cellPhone?: string; memberId: string }>;
+		skipped: Array<{ name: string; reason: string }>;
+		rejected: Array<{ rawInput: any; missingFields: string[]; reason: string }>;
+	}> {
+		const added: any[] = [];
+		const linked: any[] = [];
+		const skipped: any[] = [];
+		const rejected: any[] = [];
+
+		for (const entry of entries) {
+			const firstName = entry.firstName?.trim() || '';
+			const lastName = entry.lastName?.trim() || '';
+			const email = entry.email?.trim() || '';
+			const cellPhone = entry.cellPhone?.trim() || '';
+
+			const missing: string[] = [];
+			if (!firstName) missing.push('firstName');
+			if (!lastName) missing.push('lastName');
+			if (!email && !cellPhone) missing.push('email_or_cellPhone');
+
+			if (missing.length > 0) {
+				rejected.push({
+					rawInput: entry,
+					missingFields: missing,
+					reason: 'missing_required_fields',
+				});
+				continue;
+			}
+
+			const displayName = `${firstName} ${lastName}`.trim();
+
+			try {
+				const existingParticipant = await this.findParticipantByEmailOrPhone(email, cellPhone);
+
+				if (existingParticipant) {
+					// ¿Ya es miembro de esta comunidad?
+					const existingMember = await this.memberRepo.findOne({
+						where: { communityId, participantId: existingParticipant.id },
+					});
+
+					if (existingMember) {
+						skipped.push({ name: displayName, reason: 'already_member' });
+						continue;
+					}
+
+					const newMember = await this.addMember(communityId, existingParticipant.id, state);
+					linked.push({
+						name: displayName,
+						email: existingParticipant.email || undefined,
+						cellPhone: existingParticipant.cellPhone || undefined,
+						memberId: newMember.id,
+					});
+				} else {
+					// Si solo tenemos teléfono, generamos un email placeholder determinístico
+					// basado en el teléfono normalizado. Eso permite que un re-add posterior
+					// (mismo teléfono, con o sin email) deduplique vía el lookup por phone.
+					const normalizedPhoneForPlaceholder = cellPhone.replace(/[\s()\-+]/g, '');
+					const effectiveEmail =
+						email ||
+						`phone-${normalizedPhoneForPlaceholder}@placeholder.local`;
+					const created = await this.createCommunityMember(
+						communityId,
+						{
+							firstName,
+							lastName,
+							email: effectiveEmail,
+							cellPhone: cellPhone || '',
+						},
+						state,
+					);
+					if (created) {
+						added.push({
+							name: displayName,
+							email: created.participant?.email || undefined,
+							cellPhone: created.participant?.cellPhone || undefined,
+							memberId: created.id,
+						});
+					}
+				}
+			} catch (err: any) {
+				rejected.push({
+					rawInput: entry,
+					missingFields: [],
+					reason: err?.message || 'error',
+				});
+			}
+		}
+
+		return { added, linked, skipped, rejected };
 	}
 
 	async createPublicJoinRequest(

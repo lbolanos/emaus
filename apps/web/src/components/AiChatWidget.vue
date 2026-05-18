@@ -8,6 +8,7 @@ import { getCsrfToken } from '@/utils/csrf';
 import { getApiUrl } from '@/config/runtimeConfig';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useTableMesaStore } from '@/stores/tableMesaStore';
+import { useCommunityStore } from '@/stores/communityStore';
 import { getAiChatStatus, saveChatConversation, getChatConversations, getChatConversation, deleteChatConversation } from '@/services/api';
 import { useSpeechRecognition } from '@/composables/useSpeechRecognition';
 import { useSpeechSynthesis } from '@/composables/useSpeechSynthesis';
@@ -19,6 +20,7 @@ const input = ref('');
 const messagesContainer = ref<HTMLElement | null>(null);
 const retreatStore = useRetreatStore();
 const tableMesaStore = useTableMesaStore();
+const communityStore = useCommunityStore();
 const conversationId = ref<string | null>(null);
 const conversationList = ref<{ id: string; title: string | null; updatedAt: string }[]>([]);
 const showHistory = ref(false);
@@ -64,6 +66,9 @@ const chat = new Chat({
 			get retreatId() {
 				return retreatStore.selectedRetreatId;
 			},
+			get communityId() {
+				return communityStore.currentCommunity?.id ?? undefined;
+			},
 		},
 	}),
 });
@@ -91,6 +96,7 @@ function scheduleSave() {
 				id: conversationId.value ?? undefined,
 				messages: filtered,
 				retreatId: retreatStore.selectedRetreatId ?? undefined,
+				communityId: communityStore.currentCommunity?.id ?? undefined,
 				title,
 			});
 			conversationId.value = result.id;
@@ -506,6 +512,8 @@ function filterMessagesForStorage(msgs: any[]): any[] {
 							<li>Responsabilidades</li>
 							<li>Estado de palancas</li>
 							<li>Camas y disponibilidad</li>
+							<li>Agregar miembros a una comunidad desde una lista</li>
+							<li>Registrar asistencia a reuniones de la comunidad</li>
 						</ul>
 						<p class="text-gray-400 dark:text-gray-500 text-xs italic mt-2">
 							Escribe o usa el micr&oacute;fono para comenzar...

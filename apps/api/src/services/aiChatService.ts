@@ -15,6 +15,12 @@ import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { RetreatBed, BedType } from '../entities/retreatBed.entity';
 import { authorizationService } from '../middleware/authorization';
 import { Like, In } from 'typeorm';
+import { CommunityAdmin } from '../entities/communityAdmin.entity';
+import { CommunityMember } from '../entities/communityMember.entity';
+import { Community } from '../entities/community.entity';
+import { CommunityMeeting } from '../entities/communityMeeting.entity';
+import { UserRole } from '../entities/userRole.entity';
+import { CommunityService } from './communityService';
 
 async function verifyRetreatAccess(userId: string, retreatId: string): Promise<void> {
 	const hasAccess = await authorizationService.hasRetreatAccess(userId, retreatId);
@@ -23,7 +29,30 @@ async function verifyRetreatAccess(userId: string, retreatId: string): Promise<v
 	}
 }
 
-function buildSystemPrompt(retreatId?: string) {
+/**
+ * Verifica que el usuario sea admin activo (owner o admin) de la comunidad, o
+ * superadmin del sistema. Lanza error si no. Reusable para tools que mutan
+ * datos de comunidad.
+ */
+async function verifyCommunityAdminAccess(userId: string, communityId: string): Promise<void> {
+	const isSuperadmin =
+		(await AppDataSource.getRepository(UserRole)
+			.createQueryBuilder('ur')
+			.leftJoin('ur.role', 'role')
+			.where('ur.userId = :userId', { userId })
+			.andWhere('role.name = :name', { name: 'superadmin' })
+			.getCount()) > 0;
+	if (isSuperadmin) return;
+
+	const admin = await AppDataSource.getRepository(CommunityAdmin).findOne({
+		where: { userId, communityId, status: 'active' },
+	});
+	if (!admin) {
+		throw new Error('No tienes acceso a esta comunidad como administrador.');
+	}
+}
+
+function buildSystemPrompt(retreatId?: string, communityId?: string) {
 	const now = new Date();
 	const dateStr = now.toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Mexico_City' });
 	const timeStr = now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Mexico_City' });
@@ -45,6 +74,25 @@ Tus capacidades:
 - Consultar asignación de camas y disponibilidad
 - Cambiar participantes de mesa (mover caminante a otra mesa, asignar/quitar líder)
 - Cambiar participantes de cama/habitación (asignar, desasignar, mover a otra cama)
+- Agregar miembros a una comunidad en lote a partir de una lista de nombres con teléfono o correo (addCommunityMembersBulk)
+- Listar las comunidades donde el usuario es administrador (getMyAdminCommunities)
+- Buscar un miembro existente en una comunidad por nombre o correo (findCommunityMember)
+- Listar las reuniones de una comunidad (pasadas y próximas) para identificar a cuál registrar asistencia (listCommunityMeetings)
+- Registrar asistencia de varios miembros a una reunión de la comunidad (recordMeetingAttendance)
+
+IMPORTANTE para agregar miembros de comunidad:
+- Si NO hay communityId en el contexto y el usuario pide agregar miembros, llama PRIMERO a getMyAdminCommunities y pídele al usuario que indique en cuál de esas comunidades agregarlos. Nunca asumas la comunidad.
+- Antes de ejecutar addCommunityMembersBulk, MUESTRA al usuario la lista parseada (nombre + datos detectados) y pide confirmación explícita.
+- Cada miembro requiere nombre + (correo O teléfono). Si falta algo, el resultado vendrá en \`rejected\` con \`missingFields\`. En ese caso, pregúntale al usuario los datos faltantes mencionando cada nombre por separado (ej: "de Juan Pérez no me diste teléfono ni correo, ¿me los pasas?"). Cuando el usuario responda, vuelve a llamar addCommunityMembersBulk SOLO con esas entradas completadas.
+- El estado por defecto al agregar es \`pending_verification\` (para que el coordinador haga seguimiento). Si el usuario dice "agrégalos como confirmados/activos/verificados", pasa \`state: 'active_member'\`. Si dice "pendientes/por contactar/por verificar", pasa \`state: 'pending_verification'\`.
+- Tras ejecutar, resume al usuario en bullets: cuántos quedaron agregados (nuevos), vinculados (Participants existentes en BD que se vincularon a la comunidad), omitidos (ya eran miembros) y rechazados.
+
+IMPORTANTE para registrar asistencia a una reunión:
+- Si el usuario dice "anota que llegaron X, Y, Z" o "marca asistencia de…", usa recordMeetingAttendance.
+- Si NO se especifica la reunión, llama PRIMERO a listCommunityMeetings y muéstrale las reuniones recientes (pasadas y próximas) para que el usuario elija. Default razonable: la reunión más reciente que ya inició y aún no terminó, o la próxima si no hay una en curso.
+- Cada attendee se puede pasar por memberId, email, cellPhone, o nombre completo. El bot debe extraer del mensaje del usuario los identificadores que tenga (ej. "Juan Pérez llegó y María maria@x.com también" → [{name: 'Juan Pérez'}, {name: 'María', email: 'maria@x.com'}]).
+- Tras ejecutar, resume en bullets: marcados (con nombre), no encontrados (no son miembros — sugiere usar addCommunityMembersBulk si el usuario quiere agregarlos), ambiguos (varios miembros matchean — pregunta cuál es).
+- Para attendees ambiguos, MUESTRA al usuario las opciones (con email/teléfono para diferenciar) y pídele que elija; cuando responda, vuelve a llamar recordMeetingAttendance con memberId explícito.
 
 IMPORTANTE para cambios de mesa y cama:
 - Antes de hacer un cambio, confirma con el usuario los datos: nombre del participante, mesa/cama destino.
@@ -66,6 +114,9 @@ Cuando el usuario pregunte por datos de una persona (teléfono, email, direcció
 Si preguntan por un familiar o contacto de emergencia, revisa los campos de contactos de emergencia del participante.`;
 	if (retreatId) {
 		prompt += `\n\nEl usuario tiene seleccionado el retiro con ID: ${retreatId}. Usa este ID como valor por defecto en las herramientas que requieran retreatId, a menos que el usuario indique otro retiro.`;
+	}
+	if (communityId) {
+		prompt += `\n\nEl usuario tiene seleccionada la comunidad con ID: ${communityId}. Usa este ID como valor por defecto en las herramientas que requieran communityId, a menos que el usuario indique otra comunidad.`;
 	}
 	return prompt;
 }
@@ -112,11 +163,16 @@ export function getVisionModel() {
 	}
 }
 
-export async function createChatStream(messages: UIMessage[], userId: string, retreatId?: string) {
+export async function createChatStream(
+	messages: UIMessage[],
+	userId: string,
+	retreatId?: string,
+	communityId?: string,
+) {
 	const modelMessages = await convertToModelMessages(messages);
 	return streamText({
 		model: getModel(),
-		system: buildSystemPrompt(retreatId),
+		system: buildSystemPrompt(retreatId, communityId),
 		messages: modelMessages,
 		maxOutputTokens: config.ai.maxTokens,
 		stopWhen: stepCountIs(5),
@@ -836,6 +892,301 @@ export async function createChatStream(messages: UIMessage[], userId: string, re
 					} catch (e: any) {
 						return { error: e.message || 'Error al mover participante de cama' };
 					}
+				},
+			},
+			getMyAdminCommunities: {
+				description: 'Lista las comunidades en las que el usuario actual es administrador activo. Útil cuando el usuario quiere agregar miembros pero no hay communityId en el contexto.',
+				inputSchema: jsonSchema<Record<string, never>>({
+					type: 'object',
+					properties: {},
+				}),
+				execute: async () => {
+					const adminRecords = await AppDataSource.getRepository(CommunityAdmin)
+						.createQueryBuilder('admin')
+						.innerJoinAndSelect('admin.community', 'community')
+						.where('admin.userId = :userId', { userId })
+						.andWhere('admin.status = :status', { status: 'active' })
+						.andWhere('community.status = :cstatus', { cstatus: 'active' })
+						.getMany();
+
+					// Si es superadmin, también incluir todas las comunidades activas
+					const isSuperadmin =
+						(await AppDataSource.getRepository(UserRole)
+							.createQueryBuilder('ur')
+							.leftJoin('ur.role', 'role')
+							.where('ur.userId = :userId', { userId })
+							.andWhere('role.name = :name', { name: 'superadmin' })
+							.getCount()) > 0;
+
+					let communities = adminRecords.map((a) => ({
+						id: a.communityId,
+						name: a.community.name,
+						role: a.role,
+					}));
+
+					if (isSuperadmin) {
+						const all = await AppDataSource.getRepository(Community).find({
+							where: { status: 'active' },
+						});
+						const knownIds = new Set(communities.map((c) => c.id));
+						for (const c of all) {
+							if (!knownIds.has(c.id)) {
+								communities.push({ id: c.id, name: c.name, role: 'superadmin' as any });
+							}
+						}
+					}
+
+					return {
+						count: communities.length,
+						communities,
+					};
+				},
+			},
+			findCommunityMember: {
+				description: 'Busca un miembro de una comunidad por nombre o correo. Útil antes de agregar para confirmar si la persona ya existe.',
+				inputSchema: jsonSchema<{ communityId: string; query: string }>({
+					type: 'object',
+					properties: {
+						communityId: { type: 'string', description: 'ID de la comunidad' },
+						query: { type: 'string', description: 'Nombre, apellido o correo' },
+					},
+					required: ['communityId', 'query'],
+				}),
+				execute: async ({ communityId: cId, query }) => {
+					await verifyCommunityAdminAccess(userId, cId);
+					const q = query.trim().toLowerCase();
+					const memberRepo = AppDataSource.getRepository(CommunityMember);
+					const members = await memberRepo
+						.createQueryBuilder('m')
+						.innerJoinAndSelect('m.participant', 'p')
+						.where('m.communityId = :cId', { cId })
+						.andWhere(
+							'(LOWER(p.firstName) LIKE :q OR LOWER(p.lastName) LIKE :q OR LOWER(p.email) LIKE :q OR p.cellPhone LIKE :qPhone)',
+							{ q: `%${q}%`, qPhone: `%${query.trim()}%` },
+						)
+						.getMany();
+
+					return {
+						count: members.length,
+						members: members.map((m) => ({
+							memberId: m.id,
+							name: `${m.participant.firstName} ${m.participant.lastName}`,
+							email: m.participant.email,
+							cellPhone: m.participant.cellPhone,
+							state: m.state,
+						})),
+					};
+				},
+			},
+			addCommunityMembersBulk: {
+				description:
+					'Agrega múltiples miembros a una comunidad a partir de una lista. Cada miembro requiere firstName + lastName + (email O cellPhone). Reusa Participants existentes en la BD si coincide email o teléfono. Reporta agregados, vinculados, omitidos (ya miembros) y rechazados (datos faltantes).',
+				inputSchema: jsonSchema<{
+					communityId: string;
+					members: Array<{
+						firstName?: string;
+						lastName?: string;
+						email?: string;
+						cellPhone?: string;
+						notes?: string;
+					}>;
+					state?: 'pending_verification' | 'active_member';
+				}>({
+					type: 'object',
+					properties: {
+						communityId: { type: 'string', description: 'ID de la comunidad destino' },
+						members: {
+							type: 'array',
+							description: 'Lista de miembros a agregar',
+							items: {
+								type: 'object',
+								properties: {
+									firstName: { type: 'string' },
+									lastName: { type: 'string' },
+									email: { type: 'string' },
+									cellPhone: { type: 'string' },
+									notes: { type: 'string' },
+								},
+							},
+						},
+						state: {
+							type: 'string',
+							enum: ['pending_verification', 'active_member'],
+							description: 'Estado inicial. Default pending_verification.',
+						},
+					},
+					required: ['communityId', 'members'],
+				}),
+				execute: async ({ communityId: cId, members, state }) => {
+					try {
+						await verifyCommunityAdminAccess(userId, cId);
+					} catch (e: any) {
+						return { error: e.message || 'Sin acceso' };
+					}
+
+					if (!Array.isArray(members) || members.length === 0) {
+						return { error: 'Lista de miembros vacía' };
+					}
+
+					const service = new CommunityService();
+					const result = await service.bulkAddMembers(
+						cId,
+						members,
+						state || 'pending_verification',
+					);
+
+					return {
+						success: true,
+						summary: {
+							added: result.added.length,
+							linked: result.linked.length,
+							skipped: result.skipped.length,
+							rejected: result.rejected.length,
+						},
+						added: result.added,
+						linked: result.linked,
+						skipped: result.skipped,
+						rejected: result.rejected,
+						stateApplied: state || 'pending_verification',
+					};
+				},
+			},
+			listCommunityMeetings: {
+				description:
+					'Lista reuniones de una comunidad (pasadas y próximas). Útil para que el usuario identifique a qué reunión registrar asistencia. Ordena por fecha descendente.',
+				inputSchema: jsonSchema<{
+					communityId: string;
+					limit?: number;
+					onlyUpcoming?: boolean;
+				}>({
+					type: 'object',
+					properties: {
+						communityId: { type: 'string' },
+						limit: {
+							type: 'number',
+							description: 'Máximo de resultados (default 10)',
+						},
+						onlyUpcoming: {
+							type: 'boolean',
+							description: 'Si es true, solo retorna reuniones futuras. Default false (incluye pasadas).',
+						},
+					},
+					required: ['communityId'],
+				}),
+				execute: async ({ communityId: cId, limit, onlyUpcoming }) => {
+					try {
+						await verifyCommunityAdminAccess(userId, cId);
+					} catch (e: any) {
+						return { error: e.message || 'Sin acceso' };
+					}
+					const meetingRepo = AppDataSource.getRepository(CommunityMeeting);
+					const qb = meetingRepo
+						.createQueryBuilder('m')
+						.where('m.communityId = :cId', { cId })
+						.andWhere('(m.isRecurrenceTemplate IS NULL OR m.isRecurrenceTemplate = 0)')
+						.andWhere('(m.isAnnouncement IS NULL OR m.isAnnouncement = 0)')
+						.orderBy('m.startDate', 'DESC')
+						.limit(limit || 10);
+					if (onlyUpcoming) {
+						qb.andWhere('m.startDate >= datetime("now")');
+					}
+					const meetings = await qb.getMany();
+					return {
+						count: meetings.length,
+						meetings: meetings.map((m) => ({
+							id: m.id,
+							title: m.title,
+							startDate: m.startDate,
+							endDate: m.endDate,
+							isPast: m.startDate < new Date(),
+						})),
+					};
+				},
+			},
+			recordMeetingAttendance: {
+				description:
+					'Registra asistencia de varios miembros a una reunión de comunidad. Cada attendee puede identificarse por memberId, email, cellPhone o nombre completo. Hace upsert (acumulativo, no borra marcas previas).',
+				inputSchema: jsonSchema<{
+					communityId: string;
+					meetingId: string;
+					attendees: Array<{
+						memberId?: string;
+						name?: string;
+						email?: string;
+						cellPhone?: string;
+					}>;
+					attended?: boolean;
+				}>({
+					type: 'object',
+					properties: {
+						communityId: { type: 'string', description: 'ID de la comunidad' },
+						meetingId: {
+							type: 'string',
+							description:
+								'ID de la reunión. Si no lo tienes, usa listCommunityMeetings y pregúntale al usuario cuál.',
+						},
+						attendees: {
+							type: 'array',
+							description:
+								'Lista de asistentes. Cada uno debe traer al menos uno de: memberId, email, cellPhone, name.',
+							items: {
+								type: 'object',
+								properties: {
+									memberId: { type: 'string' },
+									name: { type: 'string', description: 'Nombre completo (firstName + lastName)' },
+									email: { type: 'string' },
+									cellPhone: { type: 'string' },
+								},
+							},
+						},
+						attended: {
+							type: 'boolean',
+							description:
+								'Si los marca como asistentes (true) o como ausentes (false). Default true.',
+						},
+					},
+					required: ['communityId', 'meetingId', 'attendees'],
+				}),
+				execute: async ({ communityId: cId, meetingId, attendees, attended }) => {
+					try {
+						await verifyCommunityAdminAccess(userId, cId);
+					} catch (e: any) {
+						return { error: e.message || 'Sin acceso' };
+					}
+
+					if (!Array.isArray(attendees) || attendees.length === 0) {
+						return { error: 'Lista de asistentes vacía' };
+					}
+
+					// Verificar que la reunión pertenece a la comunidad (defense-in-depth).
+					const meeting = await AppDataSource.getRepository(CommunityMeeting).findOne({
+						where: { id: meetingId, communityId: cId },
+					});
+					if (!meeting) {
+						return { error: 'La reunión no existe o no pertenece a esta comunidad' };
+					}
+
+					const service = new CommunityService();
+					const result = await service.bulkRecordAttendance(
+						cId,
+						meetingId,
+						attendees,
+						attended ?? true,
+					);
+
+					return {
+						success: true,
+						meeting: { id: meeting.id, title: meeting.title, startDate: meeting.startDate },
+						summary: {
+							marked: result.marked.length,
+							notFound: result.notFound.length,
+							ambiguous: result.ambiguous.length,
+						},
+						marked: result.marked,
+						notFound: result.notFound,
+						ambiguous: result.ambiguous,
+						attendedApplied: attended ?? true,
+					};
 				},
 			},
 		},
