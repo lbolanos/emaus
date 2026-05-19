@@ -59,6 +59,25 @@ Reglas:
 - Middlewares: `requirePermission`, `requireRole`, `requireRetreatAccess`, `requireRetreatRole`.
 - Cache de permisos vía `performanceOptimizationService` (`node-cache`).
 
+### Build & runtime de producción (CRITICAL)
+
+- `pnpm --filter api build` usa **Vite** y emite un bundle **ESM** (`file:///…`).
+  Node lo carga como módulo ESM puro — `require` NO existe como global.
+- En dev (`ts-node` / Jest) sí existe `require` por compatibilidad CJS, lo que
+  enmascara bugs hasta que llegan a producción.
+- **Reglas duras**:
+  - `require('mod').xxx` está **prohibido** en `apps/api/src/**.ts`. Hay una
+    regla ESLint (`no-restricted-syntax`) que bloquea el commit.
+  - Usar `import { x } from 'y'` al top del archivo. Para lazy:
+    `const mod = await import('y')`.
+  - Si necesitas algo de `node:crypto`, prefiere `import { randomUUID } from 'crypto'`
+    sobre cualquier librería externa de uuid — más rápido y zero-dep.
+- Incidente histórico 2026-05-19: `require('crypto').randomUUID()` en
+  `createCommunication` → endpoint tiraba `ReferenceError: require is not defined`
+  en cada POST → nginx devolvía 503 por upstream caído. Tests Jest no lo
+  detectaron porque corren en contexto CJS. Mitigación: ESLint rule arriba +
+  smoke test del bundle de prod en CI (pendiente).
+
 ### Punto de entrada
 `apps/api/src/index.ts` → `main()` async:
 1. `AppDataSource.initialize()`

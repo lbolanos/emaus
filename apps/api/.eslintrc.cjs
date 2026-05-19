@@ -18,5 +18,21 @@ module.exports = {
     "@typescript-eslint/restrict-template-expressions": "off",
     "@typescript-eslint/no-var-requires": "off",
     "prefer-const": "off",
+    // El build de producción es ESM (Vite emite `file:///`), donde
+    // `require()` no existe como global → ReferenceError en runtime.
+    // En dev pasa desapercibido porque ts-node corre en CJS. Esta regla
+    // bloquea el commit antes de que llegue a prod. Si necesitas CJS
+    // (interop con un módulo legacy), usa `import { x } from 'y'` con
+    // `esModuleInterop`, o `const x = await import('y')` para lazy.
+    // Bug histórico que evitamos con esto: `require('crypto').randomUUID()`
+    // en createCommunication → 503 en prod 2026-05-19.
+    "no-restricted-syntax": [
+      "error",
+      {
+        selector: "CallExpression[callee.name='require']",
+        message:
+          "No uses require() — el bundle de prod es ESM y revienta con 'require is not defined'. Usa `import` al top, o `await import()` para lazy.",
+      },
+    ],
   },
 };
