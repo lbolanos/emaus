@@ -405,6 +405,96 @@ describe('MessageDialog Component', () => {
 
 			expect(wrapper.text()).toContain('Carlos Lopez');
 		});
+
+		// Bug fix 2026-05-18: corregir teléfono en `community_member` (overlay) NO
+		// se reflejaba en el dropdown del MessageDialog porque `contactOptions`
+		// leía `participant.cellPhone` (Participant global) en vez del overlay.
+		it('contactOptions uses overlay cellPhone over participant cellPhone', async () => {
+			const member = {
+				id: 'member-1',
+				cellPhone: '5559999999', // overlay (nuevo número correcto)
+				email: 'overlay@test.com',
+				participant: {
+					firstName: 'Ana',
+					lastName: 'Gomez',
+					email: 'old@test.com',
+					cellPhone: '5550000000', // viejo número del Participant
+				},
+			};
+
+			const wrapper = mountDialog({
+				context: 'community',
+				communityId: 'community-1',
+				retreatId: '',
+				participant: member,
+			});
+			await nextTick();
+			const vm = wrapper.vm as any;
+			vm.sendMethod = 'whatsapp';
+			await nextTick();
+
+			const values = vm.contactOptions.map((o: any) => o.value);
+			expect(values).toContain('5559999999');
+			expect(values).not.toContain('5550000000');
+		});
+
+		it('selectedContact uses overlay cellPhone after sendMethod switch (regression 2026-05-19)', async () => {
+			const member = {
+				id: 'member-1',
+				cellPhone: '5559999999', // overlay correcto
+				participant: {
+					firstName: 'Ana',
+					lastName: 'Gomez',
+					email: 'old@test.com',
+					cellPhone: '5550000000', // viejo
+				},
+			};
+
+			const wrapper = mountDialog({
+				context: 'community',
+				communityId: 'community-1',
+				retreatId: '',
+				participant: member,
+			});
+			await nextTick();
+			const vm = wrapper.vm as any;
+
+			// Forzar el switch a whatsapp para disparar el watch(sendMethod)
+			vm.sendMethod = 'email';
+			await nextTick();
+			vm.sendMethod = 'whatsapp';
+			await nextTick();
+
+			expect(vm.selectedContact).toBe('5559999999');
+		});
+
+		it('falls back to participant cellPhone when no overlay', async () => {
+			const member = {
+				id: 'member-2',
+				cellPhone: null,
+				email: null,
+				participant: {
+					firstName: 'Ana',
+					lastName: 'Gomez',
+					email: 'plain@test.com',
+					cellPhone: '5551234567',
+				},
+			};
+
+			const wrapper = mountDialog({
+				context: 'community',
+				communityId: 'community-1',
+				retreatId: '',
+				participant: member,
+			});
+			await nextTick();
+			const vm = wrapper.vm as any;
+			vm.sendMethod = 'whatsapp';
+			await nextTick();
+
+			const values = vm.contactOptions.map((o: any) => o.value);
+			expect(values).toContain('5551234567');
+		});
 	});
 
 	describe('History panel', () => {

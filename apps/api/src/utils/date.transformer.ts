@@ -63,8 +63,13 @@ let tzLookupFn: TzLookupFn | null = null;
 async function loadTzLookup(): Promise<TzLookupFn | null> {
 	if (tzLookupFn) return tzLookupFn;
 	try {
-		const mod = (await import('tz-lookup' as any)) as { default?: TzLookupFn } & TzLookupFn;
-		tzLookupFn = (typeof mod === 'function' ? mod : mod.default) ?? null;
+		// `tz-lookup` es CommonJS — bajo NodeNext el shape puede ser la función
+		// directamente o `{ default: fn }`. Usamos `any` aquí para evitar que el
+		// tsc del bundle migrations (NodeNext + strict) infiera `never`.
+		const mod: any = await import('tz-lookup' as any);
+		const fn: TzLookupFn | null =
+			typeof mod === 'function' ? (mod as TzLookupFn) : (mod?.default ?? null);
+		tzLookupFn = fn;
 		return tzLookupFn;
 	} catch {
 		return null;

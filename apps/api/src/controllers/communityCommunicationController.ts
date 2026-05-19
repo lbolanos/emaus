@@ -218,9 +218,13 @@ export class CommunityCommunicationController {
 				templateName = template.name;
 			}
 
-			// Create communication record using raw query to avoid TypeORM relation issues
+			// Create communication record using raw query to avoid TypeORM relation issues.
+			// IMPORTANT: el driver `sqlite3` lanza "SQLITE_RANGE: column index out of range"
+			// si algún binding viene undefined. Forzamos `?? null` en todos los opcionales
+			// para evitar 500s cuando el frontend no manda `subject` (WhatsApp) o cuando
+			// `req.user` no tiene id por algún motivo.
 			const dataSource = AppDataSource;
-			const userId = (req.user as any)?.id;
+			const userId = (req.user as any)?.id ?? null;
 			const newId = require('crypto').randomUUID();
 
 			await dataSource.query(
@@ -235,9 +239,9 @@ export class CommunityCommunicationController {
 					dto.messageType,
 					dto.recipientContact,
 					dto.messageContent,
-					templateId,
-					templateName,
-					dto.subject,
+					templateId ?? null,
+					templateName ?? null,
+					dto.subject ?? null,
 					userId,
 				],
 			);
@@ -256,9 +260,26 @@ export class CommunityCommunicationController {
 
 			res.status(201).json(response);
 		} catch (error) {
-			console.error('Error creating communication:', error);
+			// Loguear con detalle: incluir mensaje + stack + payload mínimo redactado
+			// para poder diagnosticar 500s en producción sin filtrar contenido del mensaje.
+			const err = error as any;
+			console.error('[communityCommunication.create] failed:', {
+				message: err?.message,
+				code: err?.code,
+				stack: err?.stack?.split('\n').slice(0, 3).join('\n'),
+				dto: {
+					communityMemberId: req.body?.communityMemberId,
+					communityId: req.body?.communityId,
+					messageType: req.body?.messageType,
+					hasTemplate: !!req.body?.templateId,
+					hasSubject: !!req.body?.subject,
+				},
+			});
 			res.status(500).json({
 				error: 'Error al crear el registro de comunicación',
+				// Devolver el mensaje específico cuando NO sea producción para
+				// que el toast del frontend pueda decir "Tabla X no existe", etc.
+				details: process.env.NODE_ENV !== 'production' ? err?.message : undefined,
 			});
 		}
 	};

@@ -450,6 +450,7 @@ import {
 import { convertHtmlToWhatsApp, convertHtmlToEmail, replaceAllVariables, findEmptyVariables, ParticipantData, RetreatData, CommunityData } from '@/utils/message';
 import { resolveMemberProfile } from '@repo/utils';
 import { sanitizeEmailHtml } from '@/utils/sanitize';
+import { sanitizePhoneForWhatsapp } from '@/utils/phone';
 import { useParticipantCommunicationStore, type ParticipantCommunication } from '@/stores/participantCommunicationStore';
 import { useCommunityCommunicationStore, type CommunityCommunication } from '@/stores/communityCommunicationStore';
 import {
@@ -583,8 +584,20 @@ const contactOptions = computed(() => {
 	const options = [];
 	const usedValues = new Set();
 
-	// Get contact data from participant relation if available
-	const participantData = 'participant' in p && p.participant ? p.participant : p;
+	// Get contact data from participant relation if available.
+	// Cuando `context === 'community'`, aplicar overlay per-community: si el
+	// coordinador editó `cellPhone`/`email` del miembro en `community_member`,
+	// esos valores ganan sobre los del Participant global. Sin esto, después de
+	// corregir un número erróneo el dropdown seguiría mostrando el viejo.
+	let participantData: any = 'participant' in p && p.participant ? p.participant : p;
+	if (props.context === 'community' && 'participant' in p) {
+		const overlay = resolveMemberProfile(p as any);
+		participantData = {
+			...participantData,
+			cellPhone: overlay.cellPhone || participantData.cellPhone,
+			email: overlay.email || participantData.email,
+		};
+	}
 
 	if (sendMethod.value === 'whatsapp') {
 		// Phone options
@@ -643,11 +656,29 @@ const selectedContactKey = computed<string | undefined>(() => {
 
 // Builds a participant object enriched with the resolved palanquero data,
 // looking up the Responsability whose name matches participant.palancasCoordinator.
+// Cuando `context === 'community'`, aplica overlay per-community ANTES de
+// enriquecer: el `cellPhone`/`email`/`firstName`/`lastName` del `community_member`
+// gana sobre el Participant global. Esto asegura que el link de WhatsApp y la
+// dirección de email usen el dato corregido por el coordinador, no el viejo
+// del Participant.
 const enrichedParticipantData = computed(() => {
 	if (!props.participant) return null;
-	const base: any = 'participant' in props.participant && props.participant.participant
+	const raw: any = 'participant' in props.participant && props.participant.participant
 		? props.participant.participant
 		: props.participant;
+
+	// Aplicar overlay si estamos en contexto community.
+	let base: any = raw;
+	if (props.context === 'community' && 'participant' in props.participant) {
+		const overlay = resolveMemberProfile(props.participant as any);
+		base = {
+			...raw,
+			firstName: overlay.firstName || raw.firstName,
+			lastName: overlay.lastName || raw.lastName,
+			email: overlay.email || raw.email,
+			cellPhone: overlay.cellPhone || raw.cellPhone,
+		};
+	}
 
 	if (!base?.palancasCoordinator) return base;
 
@@ -867,7 +898,17 @@ const loadDraft = () => {
 					emailSendMethod.value = draft.emailSendMethod;
 				}
 				if (typeof draft.selectedContact === 'string') {
-					selectedContact.value = draft.selectedContact;
+					// Validar que el contacto restaurado aún sea válido para el
+					// participante actual. Si el coordinador corrigió el cellPhone/
+					// email después de guardar el draft, el valor viejo NO debe
+					// restaurarse — eso causaba que el link de WhatsApp fuera al
+					// número viejo aunque el dropdown mostrara el nuevo.
+					const validValues = contactOptions.value.map((o: any) => o.value);
+					if (validValues.includes(draft.selectedContact)) {
+						selectedContact.value = draft.selectedContact;
+					}
+					// Si NO es válido, dejamos el valor que el watcher inicial puso
+					// con el overlay aplicado.
 				}
 
 				draftRestored.value = true;
@@ -914,10 +955,20 @@ const checkEmailServerConfig = async (retryCount = 0) => {
 			sendMethod.value = 'email';
 			emailSendMethod.value = 'backend';
 			if (props.participant) {
-				const participantData = 'participant' in props.participant && props.participant.participant
+				let participantData: any = 'participant' in props.participant && props.participant.participant
 					? props.participant.participant
 					: props.participant;
-				selectedContact.value = (participantData as any).email || (participantData as any).cellPhone || undefined;
+				// Aplicar overlay per-community para que el cambio de email/teléfono
+				// en `community_member` gane sobre el Participant global.
+				if (props.context === 'community' && 'participant' in props.participant) {
+					const overlay = resolveMemberProfile(props.participant as any);
+					participantData = {
+						...participantData,
+						email: overlay.email || participantData.email,
+						cellPhone: overlay.cellPhone || participantData.cellPhone,
+					};
+				}
+				selectedContact.value = participantData.email || participantData.cellPhone || undefined;
 			}
 		}
 	} catch (error) {
@@ -1034,11 +1085,20 @@ const saveCommunicationToHistory = async (): Promise<void> => {
 				subject: sendMethod.value === 'email' ? `Mensaje para ${displayName.value}` : undefined
 			});
 		}
-	} catch (historyError) {
-		// Don't block sending if history save fails
+	} catch (historyError: any) {
+		// Don't block sending if history save fails. Surface el error real para
+		// diagnosticar en producción: en dev viene `details` con el mensaje SQL;
+		// en prod cae al texto genérico.
+		console.error('[saveCommunicationToHistory] failed:', historyError);
+		const backendMsg =
+			historyError?.response?.data?.details ||
+			historyError?.response?.data?.error ||
+			historyError?.message;
 		toast({
 			title: 'Advertencia',
-			description: 'El mensaje se envió pero no se pudo guardar en el historial.',
+			description: backendMsg
+				? `El mensaje se envió pero no se pudo guardar en el historial: ${backendMsg}`
+				: 'El mensaje se envió pero no se pudo guardar en el historial.',
 			variant: 'warning',
 		});
 	}
@@ -1072,7 +1132,10 @@ const sendMessage = async () => {
 			});
 
 			const encodedMessage = encodeURIComponent(messageToSend);
-			const whatsappUrl = `https://api.whatsapp.com/send?phone=${selectedContact.value}&text=${encodedMessage}`;
+			// WhatsApp acepta SOLO dígitos en el query `phone=`; cualquier "+",
+			// espacio, guión o paréntesis rompe el deep link. Strip via helper.
+			const phoneOnly = sanitizePhoneForWhatsapp(selectedContact.value);
+			const whatsappUrl = `https://api.whatsapp.com/send?phone=${phoneOnly}&text=${encodedMessage}`;
 
 			const tryOpenUrl = (url: string, fallback?: () => void) => {
 				try {
@@ -1363,9 +1426,10 @@ watch(() => props.open, (newValue: boolean) => {
 			emailSendMethod.value = 'backend';
 		}
 
-		const participantData = 'participant' in props.participant && props.participant.participant
-			? props.participant.participant
-			: props.participant;
+		// Usar enrichedParticipantData para que aplique overlay community (si
+		// existe): si el coord corrigió cellPhone/email en community_member, ese
+		// gana sobre el Participant global.
+		const participantData = (enrichedParticipantData.value ?? props.participant) as any;
 		selectedContact.value = sendMethod.value === 'whatsapp'
 			? (participantData as any).cellPhone || (participantData as any).email || undefined
 			: (participantData as any).email || (participantData as any).cellPhone || undefined;
@@ -1434,9 +1498,9 @@ watch(selectedTemplate, (newValue: string) => {
 watch(sendMethod, (newValue: 'whatsapp' | 'email') => {
 	if (!props.participant) return;
 
-	const participantData = 'participant' in props.participant && props.participant.participant
-		? props.participant.participant
-		: props.participant;
+	// `enrichedParticipantData` ya aplica overlay community → el cellPhone
+	// corregido por el coordinador gana sobre el del Participant global.
+	const participantData = (enrichedParticipantData.value ?? props.participant) as any;
 
 	if (newValue === 'whatsapp') {
 		selectedContact.value = (participantData as any).cellPhone ||

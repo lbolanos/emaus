@@ -17,6 +17,17 @@ import { MessageTemplate } from '../entities/messageTemplate.entity';
 // resto del service sí usa `resolveMemberProfile` para resolver el overlay
 // per-community sobre el Participant subyacente.
 import { resolveMemberProfile } from '@repo/utils';
+import { inferTimezoneFromCoords } from '../utils/date.transformer';
+
+/**
+ * Devuelve la IANA timezone donde la community vive. Fallback a CDMX si la
+ * community no tiene `timezone` persistida (típicamente porque no se han
+ * capturado coordenadas todavía). Sync: el lookup async de coords pasó por
+ * create/update; las funciones de render deben ser baratas.
+ */
+export const getCommunityTimezone = (community: { timezone?: string | null } | null | undefined): string => {
+	return community?.timezone || 'America/Mexico_City';
+};
 
 export class CommunityService {
 	private communityRepo = AppDataSource.getRepository(Community);
@@ -136,8 +147,16 @@ export class CommunityService {
 	// --- Community CRUD ---
 
 	async createCommunity(data: Partial<Community>, userId: string) {
+		// Inferir timezone desde lat/lon si vienen pero no se pasó timezone
+		// explícita. Falla silenciosa: si tz-lookup no resuelve, queda NULL
+		// y el helper cae a CDMX.
+		let timezone = data.timezone ?? null;
+		if (!timezone && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+			timezone = await inferTimezoneFromCoords(data.latitude, data.longitude);
+		}
 		const community = this.communityRepo.create({
 			...data,
+			timezone: timezone ?? null,
 			createdBy: userId,
 		});
 		const savedCommunity = await this.communityRepo.save(community);
@@ -218,7 +237,17 @@ export class CommunityService {
 	}
 
 	async updateCommunity(id: string, data: Partial<Community>) {
-		await this.communityRepo.update(id, data);
+		// Si las coordenadas cambian (y no se está pasando timezone explícita),
+		// recalcular timezone. Caso típico: el admin pega un Google Maps URL
+		// nuevo y la community se mudó de zona.
+		const patch: Partial<Community> = { ...data };
+		const coordsChanged =
+			typeof patch.latitude === 'number' && typeof patch.longitude === 'number';
+		if (patch.timezone === undefined && coordsChanged) {
+			const inferred = await inferTimezoneFromCoords(patch.latitude, patch.longitude);
+			if (inferred) patch.timezone = inferred;
+		}
+		await this.communityRepo.update(id, patch);
 		return this.getCommunityById(id);
 	}
 
@@ -239,6 +268,25 @@ export class CommunityService {
 			relations: ['participant'],
 		});
 
+		// Last message sent (community scope) per participant — para que el
+		// frontend pueda ordenar por "último contacto" sin un round-trip extra.
+		// Usamos query agregada en vez de join lateral para evitar fan-out con
+		// la tabla de attendance.
+		const lastMessageRows: { participantId: string; lastSentAt: string }[] =
+			await AppDataSource.query(
+				`SELECT participantId, MAX(sentAt) as lastSentAt
+				 FROM participant_communications
+				 WHERE scope = 'community' AND communityId = ?
+				 GROUP BY participantId`,
+				[communityId],
+			);
+		const lastMessageByParticipant: Record<string, string> = {};
+		for (const row of lastMessageRows) {
+			if (row.participantId && row.lastSentAt) {
+				lastMessageByParticipant[row.participantId] = row.lastSentAt;
+			}
+		}
+
 		// Calculate attendance rate for each member
 		// Get all past meetings for this community (with startDate for filtering)
 		const pastMeetings = await this.meetingRepo.find({
@@ -253,6 +301,7 @@ export class CommunityService {
 					...m,
 					lastMeetingsAttendanceRate: 0,
 					lastMeetingsFrequency: 'none' as const,
+					lastMessageSentAt: lastMessageByParticipant[m.participantId] || null,
 				}))
 				.sort((a, b) => b.joinedAt.getTime() - a.joinedAt.getTime());
 		}
@@ -303,6 +352,7 @@ export class CommunityService {
 				...member,
 				lastMeetingsAttendanceRate: rate,
 				lastMeetingsFrequency: frequency,
+				lastMessageSentAt: lastMessageByParticipant[member.participantId] || null,
 			};
 		});
 
@@ -1194,7 +1244,9 @@ export class CommunityService {
 		// `state` es un MARCADOR DE SEGUIMIENTO, no de permiso para asistir:
 		//   - active_member: confirmado asistiendo, no requiere follow-up.
 		//   - pending_verification: aún no contactado / por invitar.
-		//   - no_answer / another_group / far_from_location: explícitamente declinaron — fuera del roster.
+		// Todos los demás estados (no_answer, another_group, far_from_location,
+		// wrong_contact_info, no_time, paused, not_interested, do_not_contact)
+		// son declinaciones explícitas o canales rotos — fuera del roster.
 		const members = await this.memberRepo.find({
 			where: { communityId, state: In(['active_member', 'pending_verification']) },
 			relations: ['participant'],
@@ -2276,7 +2328,10 @@ export class CommunityService {
 	 * G2 del community membership journey: notifica al solicitante cuando su
 	 * estado cambia desde `pending_verification` a otro estado.
 	 *  - active_member → email de bienvenida con datos de próxima reunión
-	 *  - no_answer / another_group / far_from_location → email cordial de seguimiento
+	 *  - no_answer / another_group / far_from_location / no_time / not_interested
+	 *    → email cordial de seguimiento (informativo, no agresivo)
+	 *  - wrong_contact_info / do_not_contact / paused → NO enviar email
+	 *    (canal roto, lista negra, o pausa interna no debe notificarse)
 	 *
 	 * Fire-and-forget: errores se loguean pero no rompen el flujo de updateMemberState.
 	 */
@@ -2293,6 +2348,11 @@ export class CommunityService {
 		const profile = resolveMemberProfile(member);
 		const recipientEmail = profile.email;
 		if (!recipientEmail || !community) return;
+
+		// Estados donde el canal está roto o el contacto está explícitamente
+		// vetado: no mandamos email aunque haya recipientEmail (puede estar mal).
+		const SILENT_STATES = new Set(['wrong_contact_info', 'do_not_contact', 'paused']);
+		if (SILENT_STATES.has(newState)) return;
 
 		const emailService = new EmailService();
 		if (!emailService.isSmtpConfigured()) return;
@@ -2316,7 +2376,7 @@ export class CommunityService {
 				<div style="background:#fafaf9;border:1px solid #e7e5e4;border-radius:12px;padding:16px;margin:16px 0;">
 					<p style="margin:0 0 4px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#8DAA91;">Próxima reunión</p>
 					<p style="margin:0;font-weight:500;">${escapeHtml(nextMeeting.title || 'Reunión')}</p>
-					<p style="margin:4px 0 0;color:#78716c;font-size:13px;">${escapeHtml(new Date(nextMeeting.startDate).toLocaleString('es-MX', { dateStyle: 'full', timeStyle: 'short', timeZone: 'America/Mexico_City' }))}</p>
+					<p style="margin:4px 0 0;color:#78716c;font-size:13px;">${escapeHtml(new Date(nextMeeting.startDate).toLocaleString('es-MX', { dateStyle: 'full', timeStyle: 'short', timeZone: getCommunityTimezone(community) }))}</p>
 				</div>`
 				: '';
 
@@ -2494,7 +2554,7 @@ export class CommunityService {
 		const meetingDate = new Date(meeting.startDate).toLocaleString('es-MX', {
 			dateStyle: 'full',
 			timeStyle: 'short',
-			timeZone: 'America/Mexico_City',
+			timeZone: getCommunityTimezone(community),
 		});
 
 		const subject = `Próxima reunión de ${community.name}`;

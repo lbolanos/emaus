@@ -928,14 +928,16 @@ export const findNextMeetingForParticipant = async (
   }
 
   const startDate = computedStartDate ?? new Date(nextMeeting.startDate);
-  // CommunityMeeting no tiene timezone column todavía; usar la default del
-  // proyecto (consistente con `House.timezone`). Sin este `timeZone:` el
-  // servidor en Lightsail (UTC) renderiza "1:45 a.m." en vez de "7:45 p.m."
-  // para una reunión guardada como 19:00 hora local.
+  // Usar el timezone IANA de la community (inferido desde lat/lon al crear/
+  // editar la community via `inferTimezoneFromCoords`). Fallback a CDMX si la
+  // community no lo tiene seteado todavía. Sin esto, en el server Lightsail
+  // (UTC) un meeting a las 19:00 hora local rendereaba como "1:45 a.m." UTC.
+  const communityTz =
+    (nextMeeting as any).community?.timezone || "America/Mexico_City";
   const formatted = startDate.toLocaleString("es-MX", {
     dateStyle: "full",
     timeStyle: "short",
-    timeZone: "America/Mexico_City",
+    timeZone: communityTz,
   });
 
   return {

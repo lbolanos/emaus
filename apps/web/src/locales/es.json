@@ -1880,7 +1880,12 @@
       "far_from_location": "Vive Lejos",
       "no_answer": "Sin Respuesta",
       "another_group": "Otro Grupo",
-      "pending_verification": "Pendiente Acc."
+      "pending_verification": "Pendiente Acc.",
+      "wrong_contact_info": "Datos Errados",
+      "no_time": "Sin Tiempo",
+      "paused": "En Pausa",
+      "not_interested": "No Interesado",
+      "do_not_contact": "No Contactar"
     },
     "members": {
       "title": "Miembros",

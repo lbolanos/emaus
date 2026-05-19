@@ -1,12 +1,24 @@
 import { z } from 'zod';
 
-// Member state enum
+// Member state enum.
+//
+// El `state` es marker de seguimiento del coordinador, NO de permiso para
+// asistir. Para roster/asistencia/notificaciones se filtran los estados
+// "activos" (active_member + pending_verification); todos los demás se
+// consideran declinaciones (explícitas o por canal roto) y se excluyen de
+// notificaciones masivas. Ver `.ruler/skills/community-state-semantics`.
 export const MemberStateEnum = z.enum([
 	'far_from_location', // Se mudó o tiene problemas de ubicación
 	'no_answer', // No responde a comunicaciones
 	'another_group', // Se unió a otro grupo
 	'active_member', // Miembro activo
 	'pending_verification', // Pendiente de verificación por administrador
+	// Nuevos (2026-05-19):
+	'wrong_contact_info', // Correo/teléfono inválido — no se puede contactar hasta que se corrija
+	'no_time', // No tiene tiempo en este momento — declinación blanda, puerta abierta
+	'paused', // Pausa temporal (viaje, enfermedad, luto) — re-evaluar luego
+	'not_interested', // No interesado — definitivo distinto de no_answer
+	'do_not_contact', // Lista negra explícita — no contactar bajo ninguna circunstancia
 ]);
 export type MemberState = z.infer<typeof MemberStateEnum>;
 
@@ -100,6 +112,10 @@ export const communityMemberSchema = z.object({
 	// Calculated fields
 	lastMeetingsAttendanceRate: z.number().optional(),
 	lastMeetingsFrequency: ParticipationFrequencyEnum.optional(),
+	// ISO timestamp del último `participant_communications` scope=community
+	// para este (communityId, participantId). NULL si nunca recibió mensaje
+	// en esta comunidad. Lo usa el frontend para ordenar por "último contacto".
+	lastMessageSentAt: z.string().nullable().optional(),
 });
 export type CommunityMember = z.infer<typeof communityMemberSchema>;
 

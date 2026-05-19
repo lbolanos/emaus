@@ -80,6 +80,19 @@
           </SelectContent>
         </Select>
 
+        <!-- Reiniciar marcas locales "ya contactado". Solo visible cuando hay marcas. -->
+        <Tooltip v-if="contactedMarks.count.value > 0">
+          <TooltipTrigger as-child>
+            <Button variant="outline" size="sm" @click="showClearMarksConfirm = true" class="gap-1.5">
+              <RotateCcw class="w-3.5 h-3.5" />
+              <span class="text-xs">Reiniciar marcas ({{ contactedMarks.count.value }})</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Borrar todas las marcas "ya contactado" de este navegador</p>
+          </TooltipContent>
+        </Tooltip>
+
         <!-- Column Settings Dropdown -->
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
@@ -122,6 +135,14 @@
                   <Check v-if="visibleColumns.attendance" class="w-3 h-3" />
                 </div>
                 <span>Asistencia</span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem @click="visibleColumns.lastMessage = !visibleColumns.lastMessage">
+              <div class="flex items-center gap-2">
+                <div class="w-4 h-4 border rounded flex items-center justify-center">
+                  <Check v-if="visibleColumns.lastMessage" class="w-3 h-3" />
+                </div>
+                <span>Último mensaje</span>
               </div>
             </DropdownMenuItem>
             <DropdownMenuItem @click="visibleColumns.actions = !visibleColumns.actions">
@@ -283,6 +304,13 @@
                   <ChevronDown v-if="sortColumn === 'attendance' && sortDirection === 'desc'" class="w-3.5 h-3.5" />
                 </button>
               </TableHead>
+              <TableHead v-if="visibleColumns.lastMessage">
+                <button @click="sortBy('lastMessage')" class="flex items-center gap-1 hover:text-primary transition-colors">
+                  Último mensaje
+                  <ChevronUp v-if="sortColumn === 'lastMessage' && sortDirection === 'asc'" class="w-3.5 h-3.5" />
+                  <ChevronDown v-if="sortColumn === 'lastMessage' && sortDirection === 'desc'" class="w-3.5 h-3.5" />
+                </button>
+              </TableHead>
               <TableHead v-if="visibleColumns.actions">{{ $t('participants.actions') }}</TableHead>
             </TableRow>
           </TableHeader>
@@ -315,8 +343,33 @@
                   ({{ Math.round(member.lastMeetingsAttendanceRate || 0) }}%)
                 </Badge>
               </TableCell>
+              <TableCell v-if="visibleColumns.lastMessage" class="py-2 text-xs text-muted-foreground whitespace-nowrap">
+                {{ formatLastMessage(member.lastMessageSentAt) }}
+              </TableCell>
               <TableCell v-if="visibleColumns.actions">
                 <div class="flex items-center -space-x-3">
+                  <!-- "Ya contacté" toggle — solo localStorage, sin backend -->
+                  <Tooltip>
+                    <TooltipTrigger as-child>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        :class="contactedMarks.isMarked(member.id) ? 'text-green-600' : 'text-muted-foreground/60'"
+                        @click="contactedMarks.toggle(member.id)"
+                      >
+                        <CheckCircle2 v-if="contactedMarks.isMarked(member.id)" class="w-4 h-4" />
+                        <Circle v-else class="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p v-if="contactedMarks.isMarked(member.id)">
+                        Marcado como contactado<br/>
+                        <span class="text-xs opacity-75">{{ formatMarkedRelative(contactedMarks.getMarkedAt(member.id)) }} — click para desmarcar</span>
+                      </p>
+                      <p v-else>Marcar como contactado<br/><span class="text-xs opacity-75">(solo en este navegador)</span></p>
+                    </TooltipContent>
+                  </Tooltip>
+
                   <!-- Notes Button -->
                   <Tooltip>
                     <TooltipTrigger as-child>
@@ -413,6 +466,24 @@
       </DialogContent>
     </Dialog>
 
+    <!-- Confirmar reiniciar marcas locales "ya contactado" -->
+    <Dialog :open="showClearMarksConfirm" @update:open="showClearMarksConfirm = $event">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Reiniciar marcas</DialogTitle>
+          <DialogDescription>
+            Esto borrará las {{ contactedMarks.count.value }} marca(s) "ya contactado" guardadas
+            en este navegador para esta comunidad. Las marcas son locales (no se sincronizan
+            entre dispositivos) y se usan típicamente al empezar una nueva ronda de seguimiento.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" @click="showClearMarksConfirm = false">{{ $t('common.actions.cancel') }}</Button>
+          <Button variant="destructive" @click="confirmClearMarks">Reiniciar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
     <!-- Notes Dialog -->
     <MemberNotesDialog
       v-model:open="isNotesDialogOpen"
@@ -459,7 +530,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
-import { Loader2, UserPlus, UserMinus, Pencil, Search, ChevronRight, ChevronUp, ChevronDown, Download, FileText, History, MessageSquare, Settings2, Eye, EyeOff, Check, Info } from 'lucide-vue-next';
+import { Loader2, UserPlus, UserMinus, Pencil, Search, ChevronRight, ChevronUp, ChevronDown, Download, FileText, History, MessageSquare, Settings2, Eye, EyeOff, Check, Info, CheckCircle2, Circle, RotateCcw } from 'lucide-vue-next';
 import {
   Button, Input, Card, Badge,
   Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
@@ -478,6 +549,7 @@ import MemberTimelineDialog from '@/components/community/MemberTimelineDialog.vu
 import MessageDialog from '@/components/MessageDialog.vue';
 import EditCommunityMemberDialog from '@/components/EditCommunityMemberDialog.vue';
 import { MemberStateEnum, type MemberState } from '@repo/types';
+import { useContactedMarks } from '@/composables/useContactedMarks';
 
 const { t: $t } = useI18n();
 
@@ -488,6 +560,35 @@ const props = defineProps<{
 const communityStore = useCommunityStore();
 const { currentCommunity, members, loadingCommunity } = storeToRefs(communityStore);
 const { toast } = useToast();
+
+// Marcas locales "ya contacté" persistidas en localStorage por comunidad.
+// El coordinador las usa durante una sesión de follow-up; se borran con el
+// botón "Reiniciar marcas" cuando empieza una nueva ronda.
+const communityIdRef = computed(() => props.id);
+const contactedMarks = useContactedMarks(communityIdRef);
+const showClearMarksConfirm = ref(false);
+
+const formatMarkedRelative = (iso: string | undefined): string => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const diffMs = Date.now() - d.getTime();
+  const min = Math.floor(diffMs / 60000);
+  if (min < 1) return 'ahora';
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `hace ${h} h`;
+  const days = Math.floor(h / 24);
+  return `hace ${days} d`;
+};
+
+const confirmClearMarks = () => {
+  contactedMarks.clear();
+  showClearMarksConfirm.value = false;
+  toast({
+    title: 'Marcas reiniciadas',
+    description: 'Las marcas "ya contactado" se borraron de este navegador.',
+  });
+};
 
 const searchQuery = ref('');
 const stateFilter = ref('all');
@@ -526,6 +627,7 @@ interface ColumnVisibility {
   email: boolean;
   state: boolean;
   attendance: boolean;
+  lastMessage: boolean;
   actions: boolean;
 }
 
@@ -534,11 +636,17 @@ const defaultColumns: ColumnVisibility = {
   email: false, // Hidden by default
   state: true,
   attendance: true,
+  lastMessage: true,
   actions: true,
 };
 
+// Merge con defaults para que un user con preferencia vieja (sin `lastMessage`)
+// herede el default true en vez de quedar con la columna oculta para siempre.
 const visibleColumns = ref<ColumnVisibility>(
-  JSON.parse(localStorage.getItem(STORAGE_KEY) || JSON.stringify(defaultColumns))
+  {
+    ...defaultColumns,
+    ...JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'),
+  }
 );
 
 // Watch for changes and save to localStorage
@@ -552,8 +660,35 @@ const visibleColumnCount = computed(() => {
 });
 
 // Sort state
-const sortColumn = ref<'name' | 'email' | 'state' | 'attendance'>('attendance');
+const sortColumn = ref<'name' | 'email' | 'state' | 'attendance' | 'lastMessage'>('attendance');
 const sortDirection = ref<'asc' | 'desc'>('desc');
+
+/**
+ * Formatea `lastMessageSentAt` (ISO string) como texto relativo en español:
+ *   - <1 min  → "ahora"
+ *   - <1 h    → "hace 23 min"
+ *   - <1 día  → "hace 5 h"
+ *   - <7 días → "hace 3 d"
+ *   - <30 días → "hace 2 sem"
+ *   - sino    → fecha corta (dd/mm/yy)
+ * Para null/undefined devuelve "—".
+ */
+const formatLastMessage = (iso: string | null | undefined): string => {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
+  const diffMs = Date.now() - date.getTime();
+  const min = Math.floor(diffMs / 60000);
+  if (min < 1) return 'ahora';
+  if (min < 60) return `hace ${min} min`;
+  const hours = Math.floor(min / 60);
+  if (hours < 24) return `hace ${hours} h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `hace ${days} d`;
+  const weeks = Math.floor(days / 7);
+  if (days < 30) return `hace ${weeks} sem`;
+  return date.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' });
+};
 
 const states = Object.values(MemberStateEnum.enum);
 
@@ -614,6 +749,14 @@ const filteredMembers = computed(() => {
       case 'attendance':
         compareValue = (a.lastMeetingsAttendanceRate || 0) - (b.lastMeetingsAttendanceRate || 0);
         break;
+      case 'lastMessage': {
+        // null/undefined ordenan al final cuando es desc (los que nunca recibieron
+        // mensaje no deben taparlos los más recientes); para asc va al inicio.
+        const aMs = a.lastMessageSentAt ? new Date(a.lastMessageSentAt).getTime() : 0;
+        const bMs = b.lastMessageSentAt ? new Date(b.lastMessageSentAt).getTime() : 0;
+        compareValue = aMs - bMs;
+        break;
+      }
     }
 
     return sortDirection.value === 'asc' ? compareValue : -compareValue;
@@ -622,7 +765,7 @@ const filteredMembers = computed(() => {
   return filtered;
 });
 
-const sortBy = (column: 'name' | 'email' | 'state' | 'attendance') => {
+const sortBy = (column: 'name' | 'email' | 'state' | 'attendance' | 'lastMessage') => {
   if (sortColumn.value === column) {
     // Toggle direction if clicking the same column
     sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
@@ -669,11 +812,19 @@ const getFrequencyVariant = (frequency: string | undefined): any => {
 
 const getStateBorderClass = (state: string): string => {
   switch (state) {
+    // Activos / en seguimiento
     case 'active_member': return 'border-green-500';
     case 'pending_verification': return 'border-yellow-500';
-    case 'far_from_location': return 'border-blue-500';
+    case 'paused': return 'border-amber-500';
+    // Canal/contacto roto
+    case 'wrong_contact_info': return 'border-orange-500';
     case 'no_answer': return 'border-red-500';
+    // Declinaciones / bajas
+    case 'no_time': return 'border-cyan-500';
+    case 'far_from_location': return 'border-blue-500';
     case 'another_group': return 'border-purple-500';
+    case 'not_interested': return 'border-rose-500';
+    case 'do_not_contact': return 'border-zinc-700';
     default: return 'border-gray-500';
   }
 };

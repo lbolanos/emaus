@@ -1783,7 +1783,12 @@
       "far_from_location": "Far from Location",
       "no_answer": "No Answer",
       "another_group": "Another Group",
-      "pending_verification": "Pending Acc."
+      "pending_verification": "Pending Acc.",
+      "wrong_contact_info": "Wrong Contact",
+      "no_time": "No Time",
+      "paused": "Paused",
+      "not_interested": "Not Interested",
+      "do_not_contact": "Do Not Contact"
     },
     "members": {
       "title": "Members",

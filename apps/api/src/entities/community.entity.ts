@@ -53,6 +53,14 @@ export class Community {
 	@Column({ type: 'varchar', nullable: true })
 	googleMapsUrl?: string;
 
+	/**
+	 * IANA timezone (ej. 'America/Mexico_City'). Se infiere desde lat/lon en
+	 * create/update via `inferTimezoneFromCoords`. Fallback de runtime cuando
+	 * está NULL: 'America/Mexico_City'. Usar `getCommunityTimezone(c)` helper.
+	 */
+	@Column({ type: 'varchar', length: 64, nullable: true })
+	timezone?: string | null;
+
 	@Column({ type: 'uuid', nullable: true })
 	createdBy?: string | null;
 
