@@ -335,9 +335,14 @@ export class CommunityController {
 
 	static async createNextMeetingInstance(req: Request, res: Response) {
 		const { id: meetingId } = req.params;
+		// Default: notificar a miembros. ?notify=false suprime el email (caller que quiere
+		// crear instancia silenciosa, e.g. backfill o testing).
+		const notify = req.query.notify !== 'false';
 
 		try {
-			const { meeting, isPastDate } = await communityService.createNextMeetingInstance(meetingId);
+			const { meeting, isPastDate } = await communityService.createNextMeetingInstance(meetingId, {
+				notify,
+			});
 			res.status(201).json({ ...meeting, isPastDate });
 		} catch (error: any) {
 			if (error.message === 'Meeting not found') {

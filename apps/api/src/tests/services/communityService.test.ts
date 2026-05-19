@@ -7,6 +7,7 @@ import { CommunityService } from '@/services/communityService';
 import { MemberStateEnum } from '@repo/types';
 import { AppDataSource } from '@/data-source';
 import { CommunityAdmin } from '@/entities/communityAdmin.entity';
+import { CommunityMeeting } from '@/entities/communityMeeting.entity';
 
 // Mock EmailService antes de cargar el servicio. Factory sin referencias externas
 // (regla del proyecto con ESM experimental — ver test-setup.ts).
@@ -280,6 +281,437 @@ describe('Community Service', () => {
 
 			expect(nextInstance.parentMeetingId).toBe(meeting.id);
 			expect(nextInstance.id).not.toBe(meeting.id);
+		});
+
+		it('should send notification email to active members on instance creation (with feature flag ON)', async () => {
+			(globalThis as any).__sentEmails = [];
+			// Activar el feature flag para este test: el comportamiento "envía email
+			// al crear instancia" solo aplica cuando MEETING_EMAIL_NOTIFICATIONS_ENABLED=true.
+			const prevFlag = process.env.MEETING_EMAIL_NOTIFICATIONS_ENABLED;
+			process.env.MEETING_EMAIL_NOTIFICATIONS_ENABLED = 'true';
+
+			try {
+				const p = await TestDataFactory.createTestParticipant(testRetreat.id, {
+					email: 'recipient@example.com',
+				});
+				await TestDataFactory.createTestCommunityMember(testCommunity.id, p.id, {
+					state: 'active_member',
+				});
+
+				const baseDate = new Date();
+				baseDate.setDate(baseDate.getDate() + 7);
+				const meeting = await service.createMeeting(testCommunity.id, {
+					title: 'Weekly Notif Test',
+					startDate: baseDate,
+					durationMinutes: 60,
+					recurrenceFrequency: 'weekly',
+				});
+
+				// Reset emails después del createMeeting (que no envía porque es template)
+				(globalThis as any).__sentEmails = [];
+
+				await service.createNextMeetingInstance(meeting.id);
+
+				// Esperar al fire-and-forget
+				await new Promise((r) => setTimeout(r, 50));
+
+				const sent = (globalThis as any).__sentEmails || [];
+				expect(sent.length).toBe(1);
+				expect(sent[0].to).toBe('recipient@example.com');
+			} finally {
+				if (prevFlag === undefined) delete process.env.MEETING_EMAIL_NOTIFICATIONS_ENABLED;
+				else process.env.MEETING_EMAIL_NOTIFICATIONS_ENABLED = prevFlag;
+			}
+		});
+
+		it('should skip notification when feature flag is OFF (default)', async () => {
+			// Feature flag pausado: createNextMeetingInstance NO envía email aunque el
+			// caller no pase notify=false. Es el estado de prod actual.
+			delete process.env.MEETING_EMAIL_NOTIFICATIONS_ENABLED;
+			(globalThis as any).__sentEmails = [];
+
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				email: 'no-email@example.com',
+			});
+			await TestDataFactory.createTestCommunityMember(testCommunity.id, p.id, {
+				state: 'active_member',
+			});
+
+			const baseDate = new Date();
+			baseDate.setDate(baseDate.getDate() + 7);
+			const meeting = await service.createMeeting(testCommunity.id, {
+				title: 'Flag Off Test',
+				startDate: baseDate,
+				durationMinutes: 60,
+				recurrenceFrequency: 'weekly',
+			});
+
+			(globalThis as any).__sentEmails = [];
+			await service.createNextMeetingInstance(meeting.id);
+			await new Promise((r) => setTimeout(r, 50));
+
+			expect(((globalThis as any).__sentEmails || []).length).toBe(0);
+		});
+
+		it('should skip notification when notify=false is passed (even if flag is ON)', async () => {
+			const prevFlag = process.env.MEETING_EMAIL_NOTIFICATIONS_ENABLED;
+			process.env.MEETING_EMAIL_NOTIFICATIONS_ENABLED = 'true';
+
+			try {
+				(globalThis as any).__sentEmails = [];
+
+				const p = await TestDataFactory.createTestParticipant(testRetreat.id, {
+					email: 'silent@example.com',
+				});
+				await TestDataFactory.createTestCommunityMember(testCommunity.id, p.id, {
+					state: 'active_member',
+				});
+
+				const baseDate = new Date();
+				baseDate.setDate(baseDate.getDate() + 7);
+				const meeting = await service.createMeeting(testCommunity.id, {
+					title: 'Silent Test',
+					startDate: baseDate,
+					durationMinutes: 60,
+					recurrenceFrequency: 'weekly',
+				});
+
+				(globalThis as any).__sentEmails = [];
+				await service.createNextMeetingInstance(meeting.id, { notify: false });
+				await new Promise((r) => setTimeout(r, 50));
+
+				const sent = (globalThis as any).__sentEmails || [];
+				expect(sent.length).toBe(0);
+			} finally {
+				if (prevFlag === undefined) delete process.env.MEETING_EMAIL_NOTIFICATIONS_ENABLED;
+				else process.env.MEETING_EMAIL_NOTIFICATIONS_ENABLED = prevFlag;
+			}
+		});
+
+		it('respects recurrenceEndDate as a hard ceiling', async () => {
+			const baseDate = new Date();
+			baseDate.setDate(baseDate.getDate() + 7); // Next week
+			const endDate = new Date();
+			endDate.setDate(endDate.getDate() + 10); // Solo 10 días: 1 instancia +14d ya pasa.
+
+			const meeting = await service.createMeeting(testCommunity.id, {
+				title: 'Bounded Series',
+				startDate: baseDate,
+				durationMinutes: 60,
+				recurrenceFrequency: 'weekly',
+				recurrenceEndDate: endDate,
+			});
+
+			// La próxima ocurrencia (baseDate + 7d = +14d desde hoy) excede endDate.
+			await expect(
+				service.createNextMeetingInstance(meeting.id, { notify: false }),
+			).rejects.toThrow(/Recurrence end date/);
+		});
+
+		it('propagates parentMeetingId to root template across chained creates', async () => {
+			const baseDate = new Date();
+			baseDate.setDate(baseDate.getDate() + 7);
+			const root = await service.createMeeting(testCommunity.id, {
+				title: 'Root series',
+				startDate: baseDate,
+				durationMinutes: 60,
+				recurrenceFrequency: 'weekly',
+			});
+
+			const { meeting: i1 } = await service.createNextMeetingInstance(root.id, {
+				notify: false,
+			});
+			const { meeting: i2 } = await service.createNextMeetingInstance(i1.id, {
+				notify: false,
+			});
+
+			// Ambas instancias deben apuntar al root, no formar cadena.
+			expect(i1.parentMeetingId).toBe(root.id);
+			expect(i2.parentMeetingId).toBe(root.id);
+		});
+	});
+
+	describe('updateMeeting with scope', () => {
+		const futureDate = (daysFromNow: number) => {
+			const d = new Date();
+			d.setDate(d.getDate() + daysFromNow);
+			return d;
+		};
+
+		const pastDate = (daysAgo: number) => {
+			const d = new Date();
+			d.setDate(d.getDate() - daysAgo);
+			return d;
+		};
+
+		it('scope=this updates only the target instance', async () => {
+			const template = await service.createMeeting(testCommunity.id, {
+				title: 'Series A',
+				startDate: futureDate(7),
+				durationMinutes: 60,
+				recurrenceFrequency: 'weekly',
+			});
+			const { meeting: instance } = await service.createNextMeetingInstance(template.id, {
+				notify: false,
+			});
+
+			await service.updateMeeting(instance.id, { title: 'Modified' }, 'this');
+
+			const reloadedTemplate = await service.getMeetingById(template.id);
+			const reloadedInstance = await service.getMeetingById(instance.id);
+
+			expect(reloadedInstance?.title).toBe('Modified');
+			expect(reloadedTemplate?.title).toBe('Series A');
+		});
+
+		it('scope=all updates root template + propagates non-date fields to all instances', async () => {
+			const template = await service.createMeeting(testCommunity.id, {
+				title: 'Original Title',
+				startDate: futureDate(7),
+				durationMinutes: 60,
+				recurrenceFrequency: 'weekly',
+			});
+			const { meeting: instance } = await service.createNextMeetingInstance(template.id, {
+				notify: false,
+			});
+
+			await service.updateMeeting(
+				template.id,
+				{ title: 'New Title', durationMinutes: 90 },
+				'all',
+			);
+
+			const reloadedTemplate = await service.getMeetingById(template.id);
+			const reloadedInstance = await service.getMeetingById(instance.id);
+
+			expect(reloadedTemplate?.title).toBe('New Title');
+			expect(reloadedTemplate?.durationMinutes).toBe(90);
+			expect(reloadedInstance?.title).toBe('New Title');
+			expect(reloadedInstance?.durationMinutes).toBe(90);
+		});
+
+		it('scope=all does NOT propagate startDate (instances keep their original times)', async () => {
+			const template = await service.createMeeting(testCommunity.id, {
+				title: 'Stable Schedule',
+				startDate: futureDate(7),
+				durationMinutes: 60,
+				recurrenceFrequency: 'weekly',
+			});
+			const { meeting: instance } = await service.createNextMeetingInstance(template.id, {
+				notify: false,
+			});
+			const originalInstanceDate = new Date(instance.startDate).getTime();
+
+			const newTime = futureDate(30);
+			await service.updateMeeting(template.id, { startDate: newTime }, 'all');
+
+			const reloadedInstance = await service.getMeetingById(instance.id);
+			expect(new Date(reloadedInstance!.startDate).getTime()).toBe(originalInstanceDate);
+		});
+
+		it('scope=all_future propagates non-date fields only to instances at/after cutoff', async () => {
+			// Crear template + 1 instancia futura
+			const template = await service.createMeeting(testCommunity.id, {
+				title: 'Old Title',
+				startDate: futureDate(7),
+				durationMinutes: 60,
+				recurrenceFrequency: 'weekly',
+			});
+			const { meeting: instance } = await service.createNextMeetingInstance(template.id, {
+				notify: false,
+			});
+
+			// Inyectar una instancia "pasada" directamente con queryBuilder para simular historial
+			const pastInstance = await AppDataSource.getRepository(CommunityMeeting).save({
+				communityId: testCommunity.id,
+				title: 'Old Title',
+				startDate: pastDate(14),
+				durationMinutes: 60,
+				parentMeetingId: template.id,
+				isRecurrenceTemplate: true,
+			} as any);
+
+			// Llamar update desde el template con scope=all_future
+			await service.updateMeeting(template.id, { title: 'Refreshed' }, 'all_future');
+
+			const reloadedFuture = await service.getMeetingById(instance.id);
+			const reloadedPast = await service.getMeetingById((pastInstance as any).id);
+			const reloadedTemplate = await service.getMeetingById(template.id);
+
+			expect(reloadedTemplate?.title).toBe('Refreshed');
+			expect(reloadedFuture?.title).toBe('Refreshed');
+			expect(reloadedPast?.title).toBe('Old Title');
+		});
+	});
+
+	describe('deleteMeeting with scope', () => {
+		const futureDate = (daysFromNow: number) => {
+			const d = new Date();
+			d.setDate(d.getDate() + daysFromNow);
+			return d;
+		};
+
+		it('scope=this deletes only the target instance', async () => {
+			const template = await service.createMeeting(testCommunity.id, {
+				title: 'Series B',
+				startDate: futureDate(7),
+				durationMinutes: 60,
+				recurrenceFrequency: 'weekly',
+			});
+			const { meeting: instance } = await service.createNextMeetingInstance(template.id, {
+				notify: false,
+			});
+
+			await service.deleteMeeting(instance.id, 'this');
+
+			const reloadedTemplate = await service.getMeetingById(template.id);
+			const reloadedInstance = await service.getMeetingById(instance.id);
+
+			expect(reloadedTemplate).toBeDefined();
+			expect(reloadedInstance).toBeNull();
+		});
+
+		it('scope=all deletes template + all instances', async () => {
+			const template = await service.createMeeting(testCommunity.id, {
+				title: 'Series C',
+				startDate: futureDate(7),
+				durationMinutes: 60,
+				recurrenceFrequency: 'weekly',
+			});
+			const { meeting: instance1 } = await service.createNextMeetingInstance(template.id, {
+				notify: false,
+			});
+			const { meeting: instance2 } = await service.createNextMeetingInstance(instance1.id, {
+				notify: false,
+			});
+
+			await service.deleteMeeting(template.id, 'all');
+
+			expect(await service.getMeetingById(template.id)).toBeNull();
+			expect(await service.getMeetingById(instance1.id)).toBeNull();
+			expect(await service.getMeetingById(instance2.id)).toBeNull();
+		});
+
+		it('scope=all_future deletes current+future, keeps past, severs recurrence', async () => {
+			const template = await service.createMeeting(testCommunity.id, {
+				title: 'Series D',
+				startDate: futureDate(7),
+				durationMinutes: 60,
+				recurrenceFrequency: 'weekly',
+			});
+
+			// Inyectar instancia pasada
+			const pastInstance = await AppDataSource.getRepository(CommunityMeeting).save({
+				communityId: testCommunity.id,
+				title: 'Past Instance',
+				startDate: (() => {
+					const d = new Date();
+					d.setDate(d.getDate() - 14);
+					return d;
+				})(),
+				durationMinutes: 60,
+				parentMeetingId: template.id,
+				isRecurrenceTemplate: true,
+			} as any);
+
+			const { meeting: futureInstance } = await service.createNextMeetingInstance(template.id, {
+				notify: false,
+			});
+
+			// Borrar desde la futureInstance con scope=all_future
+			await service.deleteMeeting(futureInstance.id, 'all_future');
+
+			const reloadedPast = await service.getMeetingById((pastInstance as any).id);
+			const reloadedFuture = await service.getMeetingById(futureInstance.id);
+			const reloadedTemplate = await service.getMeetingById(template.id);
+
+			// Past survives
+			expect(reloadedPast).toBeDefined();
+			expect(reloadedPast!.id).toBe((pastInstance as any).id);
+			// Future is gone
+			expect(reloadedFuture).toBeNull();
+			// Template still exists but recurrence severed
+			expect(reloadedTemplate).toBeDefined();
+			expect(reloadedTemplate!.recurrenceFrequency).toBeNull();
+			expect(reloadedTemplate!.isRecurrenceTemplate).toBe(false);
+		});
+	});
+
+	describe('exceptionType=cancelled handling', () => {
+		const futureDate = (daysFromNow: number) => {
+			const d = new Date();
+			d.setDate(d.getDate() + daysFromNow);
+			return d;
+		};
+
+		it('cancelled instance is excluded from getMeetings listing', async () => {
+			const m1 = await service.createMeeting(testCommunity.id, {
+				title: 'Alive',
+				startDate: futureDate(7),
+				durationMinutes: 60,
+			});
+			const m2 = await service.createMeeting(testCommunity.id, {
+				title: 'Cancelled',
+				startDate: futureDate(14),
+				durationMinutes: 60,
+			});
+
+			// Marcar m2 como cancelled
+			await AppDataSource.getRepository(CommunityMeeting).update(m2.id, {
+				exceptionType: 'cancelled',
+			});
+
+			const meetings = await service.getMeetings(testCommunity.id);
+			const titles = meetings.map((m) => m.title);
+			expect(titles).toContain('Alive');
+			expect(titles).not.toContain('Cancelled');
+		});
+
+		it('getPublicAttendanceData returns null for cancelled meeting', async () => {
+			const meeting = await service.createMeeting(testCommunity.id, {
+				title: 'Cancelled Public',
+				startDate: futureDate(7),
+				durationMinutes: 60,
+			});
+			await AppDataSource.getRepository(CommunityMeeting).update(meeting.id, {
+				exceptionType: 'cancelled',
+			});
+
+			const data = await service.getPublicAttendanceData(testCommunity.id, meeting.id);
+			expect(data).toBeNull();
+		});
+
+		it('notifyMembersOfMeeting does NOT send for cancelled meeting', async () => {
+			(globalThis as any).__sentEmails = [];
+
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id, {
+				email: 'will-not-receive@example.com',
+			});
+			await TestDataFactory.createTestCommunityMember(testCommunity.id, p.id, {
+				state: 'active_member',
+			});
+
+			const meeting = await service.createMeeting(testCommunity.id, {
+				title: 'About to be cancelled',
+				startDate: futureDate(7),
+				durationMinutes: 60,
+			});
+
+			// Pausa por fire-and-forget de createMeeting + reset por defensa. Con el
+			// feature flag OFF el createMeeting no envía nada; con ON sí — el reset
+			// nos aísla en ambos casos.
+			await new Promise((r) => setTimeout(r, 50));
+			(globalThis as any).__sentEmails = [];
+
+			await AppDataSource.getRepository(CommunityMeeting).update(meeting.id, {
+				exceptionType: 'cancelled',
+			});
+
+			await service.notifyMembersOfMeeting(meeting.id);
+			await new Promise((r) => setTimeout(r, 30));
+
+			const sent = (globalThis as any).__sentEmails || [];
+			expect(sent.length).toBe(0);
 		});
 	});
 
@@ -1258,6 +1690,18 @@ describe('Community Service', () => {
 
 	describe('notifyMembersOfMeeting (G3)', () => {
 		const getSent = () => ((globalThis as any).__sentEmails as any[]) || [];
+		let prevFlag: string | undefined;
+		beforeAll(() => {
+			// Esta suite valida el comportamiento "createMeeting envía email" y otras
+			// rutas que dependen del feature flag. Activamos explícitamente para no
+			// acoplar al default global.
+			prevFlag = process.env.MEETING_EMAIL_NOTIFICATIONS_ENABLED;
+			process.env.MEETING_EMAIL_NOTIFICATIONS_ENABLED = 'true';
+		});
+		afterAll(() => {
+			if (prevFlag === undefined) delete process.env.MEETING_EMAIL_NOTIFICATIONS_ENABLED;
+			else process.env.MEETING_EMAIL_NOTIFICATIONS_ENABLED = prevFlag;
+		});
 		beforeEach(() => {
 			(globalThis as any).__sentEmails = [];
 		});
@@ -1403,6 +1847,17 @@ describe('Community Service', () => {
 
 	describe('renderTemplate — DB-driven email bodies', () => {
 		const getSent = () => ((globalThis as any).__sentEmails as any[]) || [];
+		let prevFlag: string | undefined;
+		beforeAll(() => {
+			// Estos tests validan el render de la plantilla cuando createMeeting
+			// dispara el correo. Activamos el feature flag para esta suite.
+			prevFlag = process.env.MEETING_EMAIL_NOTIFICATIONS_ENABLED;
+			process.env.MEETING_EMAIL_NOTIFICATIONS_ENABLED = 'true';
+		});
+		afterAll(() => {
+			if (prevFlag === undefined) delete process.env.MEETING_EMAIL_NOTIFICATIONS_ENABLED;
+			else process.env.MEETING_EMAIL_NOTIFICATIONS_ENABLED = prevFlag;
+		});
 		beforeEach(() => {
 			(globalThis as any).__sentEmails = [];
 		});

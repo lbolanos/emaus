@@ -57,6 +57,11 @@ export class CommunityMeeting {
 	@Column({ type: 'int', nullable: true })
 	recurrenceDayOfMonth?: number | null;
 
+	// Fecha tope hasta la cual el cron sigue generando instancias. NULL = sin
+	// fecha límite (aplica el safety net de 52 instancias del servicio).
+	@Column({ type: 'date', nullable: true })
+	recurrenceEndDate?: Date | null;
+
 	// Instance management
 	@Column({ type: 'uuid', nullable: true })
 	parentMeetingId?: string | null;

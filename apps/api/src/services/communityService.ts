@@ -8,7 +8,7 @@ import { User } from '../entities/user.entity';
 import { UserRole } from '../entities/userRole.entity';
 import { Participant } from '../entities/participant.entity';
 import { MemberState } from '@repo/types';
-import { In, MoreThanOrEqual } from 'typeorm';
+import { In, MoreThanOrEqual, Not } from 'typeorm';
 import { calculateNextOccurrence } from '../utils/recurrenceUtils';
 import { EmailService } from './emailService';
 import { MessageTemplate } from '../entities/messageTemplate.entity';
@@ -28,6 +28,22 @@ import { inferTimezoneFromCoords } from '../utils/date.transformer';
 export const getCommunityTimezone = (community: { timezone?: string | null } | null | undefined): string => {
 	return community?.timezone || 'America/Mexico_City';
 };
+
+/**
+ * Feature flag temporal — el envío automático de invitaciones de reunión está
+ * apagado por default. El usuario lo pausó hasta que se valide el tono / cadencia
+ * con los coordinadores. Reactivar seteando la env var
+ * `MEETING_EMAIL_NOTIFICATIONS_ENABLED=true` (o cambiando el default a `true`
+ * cuando se confirme).
+ *
+ * NOTA: solo afecta los DISPAROS AUTOMÁTICOS desde `createMeeting`,
+ * `createNextMeetingInstance` y el cron `meetingInstanceGeneratorService`. El
+ * endpoint manual `POST /communities/:id/meetings/:meetingId/notify` que el
+ * coordinador dispara explícitamente desde la UI **sigue funcionando** sin
+ * importar este flag — es decisión consciente del coordinador.
+ */
+export const isMeetingEmailNotificationsEnabled = (): boolean =>
+	process.env.MEETING_EMAIL_NOTIFICATIONS_ENABLED === 'true';
 
 export class CommunityService {
 	private communityRepo = AppDataSource.getRepository(Community);
@@ -298,11 +314,13 @@ export class CommunityService {
 		}
 
 		// Calculate attendance rate for each member
-		// Get all past meetings for this community (with startDate for filtering)
-		const pastMeetings = await this.meetingRepo.find({
+		// Get all past meetings for this community (with startDate for filtering).
+		// Excluir instancias canceladas: no deben contar contra la tasa de asistencia.
+		const pastMeetingsRaw = await this.meetingRepo.find({
 			where: { communityId },
-			select: ['id', 'startDate'],
+			select: ['id', 'startDate', 'exceptionType'],
 		});
+		const pastMeetings = pastMeetingsRaw.filter((m) => m.exceptionType !== 'cancelled');
 
 		// Only calculate if there are meetings
 		if (pastMeetings.length === 0) {
@@ -759,11 +777,13 @@ export class CommunityService {
 			order: { recordedAt: 'DESC' },
 		});
 
-		// Get all meetings for this community to build timeline
-		const meetings = await this.meetingRepo.find({
+		// Get all meetings for this community to build timeline. Excluir canceladas:
+		// no deben aparecer en el timeline del miembro como reuniones que faltaron.
+		const meetingsRaw = await this.meetingRepo.find({
 			where: { communityId: member.communityId },
 			order: { startDate: 'DESC' },
 		});
+		const meetings = meetingsRaw.filter((m) => m.exceptionType !== 'cancelled');
 
 		return {
 			member,
@@ -785,7 +805,9 @@ export class CommunityService {
 		// G3: notificar a miembros si NO es una plantilla de recurrencia.
 		// Las plantillas son schedules abstractos; las instancias específicas son las que importan.
 		// Fire-and-forget: errores no rompen la creación.
-		if (!saved.isRecurrenceTemplate) {
+		// Feature flag (ver `isMeetingEmailNotificationsEnabled` arriba): apagado por
+		// default. El coordinador puede notificar manualmente desde la UI.
+		if (!saved.isRecurrenceTemplate && isMeetingEmailNotificationsEnabled()) {
 			this.notifyMembersOfMeeting(saved.id).catch((err) => {
 				console.error('[communityService] notifyMembersOfMeeting failed:', err);
 			});
@@ -795,10 +817,13 @@ export class CommunityService {
 	}
 
 	async getMeetings(communityId: string) {
-		const meetings = await this.meetingRepo.find({
+		// Excluir instancias canceladas del listado. exceptionType='cancelled' marca
+		// ocurrencias que el coordinador anuló sin borrar (preserva attendance histórica).
+		const meetingsRaw = await this.meetingRepo.find({
 			where: { communityId },
 			order: { startDate: 'DESC' },
 		});
+		const meetings = meetingsRaw.filter((m) => m.exceptionType !== 'cancelled');
 
 		// Roster para conteo de asistencia: matching el filtro del endpoint público
 		// (active + pending). El conteo "X de Y asistieron" debe usar la misma base que
@@ -839,6 +864,23 @@ export class CommunityService {
 		return this.meetingRepo.findOne({ where: { id } });
 	}
 
+	/**
+	 * Campos que se propagan a instancias materializadas cuando se edita el template
+	 * con scope 'all' o 'all_future'. Excluye startDate/endDate/recurrence*: cambiar
+	 * la hora de una instancia ya materializada requiere recálculo y rompería
+	 * asistencias capturadas. Para cambiar el horario de la serie, el coordinador
+	 * debe borrar las futuras y dejar que el cron las regenere con el nuevo schedule.
+	 */
+	private pickPropagableFields(data: Partial<CommunityMeeting>): Partial<CommunityMeeting> {
+		const out: Partial<CommunityMeeting> = {};
+		if (data.title !== undefined) out.title = data.title;
+		if (data.description !== undefined) out.description = data.description;
+		if (data.durationMinutes !== undefined) out.durationMinutes = data.durationMinutes;
+		if (data.flyerTemplate !== undefined) out.flyerTemplate = data.flyerTemplate;
+		if (data.isAnnouncement !== undefined) out.isAnnouncement = data.isAnnouncement;
+		return out;
+	}
+
 	async updateMeeting(
 		id: string,
 		data: Partial<CommunityMeeting>,
@@ -862,17 +904,44 @@ export class CommunityService {
 			return this.getMeetingById(id);
 		}
 
-		// For recurrence templates with scope 'all' or 'all_future'
+		// Resolver el template raíz de la serie. Una instancia generada tiene
+		// parentMeetingId apuntando al meeting padre; si la actual no lo tiene, ella
+		// misma es la raíz. Operar contra el rootId garantiza que cambios desde
+		// cualquier instancia se apliquen al schedule de la serie.
+		const rootId = meeting.parentMeetingId ?? meeting.id;
+		const propagable = this.pickPropagableFields(data);
+		const propagableEntries = Object.keys(propagable).length > 0;
+
 		if (scope === 'all') {
-			// Update the template - instances are generated on-the-fly
-			await this.meetingRepo.update(id, data);
+			// Actualizar template raíz (rige futuras generaciones) Y propagar non-date
+			// fields a TODAS las instancias materializadas (pasadas y futuras).
+			await this.meetingRepo.update(rootId, data);
+			if (propagableEntries) {
+				await this.meetingRepo
+					.createQueryBuilder()
+					.update()
+					.set(propagable)
+					.where('parentMeetingId = :rootId', { rootId })
+					.execute();
+			}
 			return this.getMeetingById(id);
 		}
 
 		if (scope === 'all_future') {
-			// For 'all_future', we update the template which affects all future occurrences
-			// Past instances that were already created as exceptions are not affected
-			await this.meetingRepo.update(id, data);
+			// "Esta y futuras": actualizar template raíz (afecta el schedule generado por
+			// el cron a partir de aquí) y propagar non-date fields SOLO a instancias con
+			// startDate >= esta ocurrencia. Pasadas conservan sus datos originales.
+			const cutoff = meeting.startDate;
+			await this.meetingRepo.update(rootId, data);
+			if (propagableEntries) {
+				await this.meetingRepo
+					.createQueryBuilder()
+					.update()
+					.set(propagable)
+					.where('(id = :rootId OR parentMeetingId = :rootId)', { rootId })
+					.andWhere('startDate >= :cutoff', { cutoff })
+					.execute();
+			}
 			return this.getMeetingById(id);
 		}
 
@@ -893,32 +962,57 @@ export class CommunityService {
 			return;
 		}
 
+		const rootId = meeting.parentMeetingId ?? meeting.id;
+
 		// For recurrence templates
 		if (scope === 'all') {
-			// Delete all instances and the template
-			await this.attendanceRepo.delete({ meetingId: id });
-			await this.meetingRepo.delete({ parentMeetingId: id });
-			await this.meetingRepo.delete(id);
+			// Borrar template raíz + todas las instancias materializadas (pasadas y futuras).
+			const instances = await this.meetingRepo.find({
+				where: { parentMeetingId: rootId },
+				select: ['id'],
+			});
+			const allIds = [rootId, ...instances.map((i) => i.id)];
+			await this.attendanceRepo.delete({ meetingId: In(allIds) });
+			await this.meetingRepo.delete(allIds);
 			return;
 		}
 
 		if (scope === 'all_future') {
-			// Remove recurrence to stop future occurrences
-			// Keep the meeting as a one-time event
-			await this.meetingRepo.update(id, {
-				recurrenceFrequency: null,
-				recurrenceInterval: null,
-				recurrenceDayOfWeek: null,
-				recurrenceDayOfMonth: null,
-				isRecurrenceTemplate: false,
-			});
+			// "Esta y futuras": borrar instancias con startDate >= esta ocurrencia + cortar
+			// recurrencia del template raíz para que el cron no genere más. Las pasadas se
+			// conservan con su attendance histórica intacta.
+			const cutoff = meeting.startDate;
+			const futureInstances = await this.meetingRepo
+				.createQueryBuilder('m')
+				.where('(m.id = :rootId OR m.parentMeetingId = :rootId)', { rootId })
+				.andWhere('m.startDate >= :cutoff', { cutoff })
+				.getMany();
+
+			const futureIds = futureInstances.map((m) => m.id);
+			if (futureIds.length > 0) {
+				await this.attendanceRepo.delete({ meetingId: In(futureIds) });
+				await this.meetingRepo.delete(futureIds);
+			}
+
+			// Si el template raíz no fue borrado (porque está en el pasado), cortarle la
+			// recurrencia. Si fue borrado, no hay nada que cortar.
+			const rootStillExists = await this.meetingRepo.findOne({ where: { id: rootId } });
+			if (rootStillExists) {
+				await this.meetingRepo.update(rootId, {
+					recurrenceFrequency: null,
+					recurrenceInterval: null,
+					recurrenceDayOfWeek: null,
+					recurrenceDayOfMonth: null,
+					isRecurrenceTemplate: false,
+				});
+			}
 			return;
 		}
 	}
 
 	// --- Recurrence Instance Management ---
 
-	async createNextMeetingInstance(meetingId: string) {
+	async createNextMeetingInstance(meetingId: string, options?: { notify?: boolean }) {
 		// 1. Fetch the meeting
 		const meeting = await this.getMeetingById(meetingId);
 
@@ -944,14 +1038,27 @@ export class CommunityService {
 			throw new Error('Failed to calculate next occurrence');
 		}
 
+		// Si la serie tiene fecha tope, no generar instancias más allá.
+		if (meeting.recurrenceEndDate) {
+			const endDate = new Date(meeting.recurrenceEndDate);
+			if (nextStartDate > endDate) {
+				throw new Error('Recurrence end date reached');
+			}
+		}
+
 		// 4. Track if next date is in the past (allow but warn)
 		const isPastDate = nextStartDate <= new Date();
 
-		// 5. Check if an instance with this date already exists
+		// Resolver el template raíz para que TODAS las instancias de la serie
+		// apunten al mismo parent. Antes de este cambio había chains (instance →
+		// instance → instance), lo que complicaba queries de scope.
+		const rootId = meeting.parentMeetingId ?? meeting.id;
+
+		// 5. Check if an instance with this date already exists (anywhere en la serie)
 		const existingInstance = await this.meetingRepo.findOne({
 			where: {
 				communityId: meeting.communityId,
-				parentMeetingId: meetingId,
+				parentMeetingId: rootId,
 				startDate: nextStartDate,
 			},
 		});
@@ -960,11 +1067,11 @@ export class CommunityService {
 			throw new Error('A meeting instance for this date already exists');
 		}
 
-		// 6. Check for maximum instances (optional safety limit)
+		// 6. Check for maximum instances (optional safety limit) — contra la serie completa.
 		const existingInstances = await this.meetingRepo.count({
 			where: {
 				communityId: meeting.communityId,
-				parentMeetingId: meetingId,
+				parentMeetingId: rootId,
 			},
 		});
 
@@ -991,14 +1098,31 @@ export class CommunityService {
 			recurrenceInterval: meeting.recurrenceInterval,
 			recurrenceDayOfWeek: meeting.recurrenceDayOfWeek,
 			recurrenceDayOfMonth: meeting.recurrenceDayOfMonth,
+			recurrenceEndDate: meeting.recurrenceEndDate,
 			flyerTemplate: meeting.flyerTemplate,
 			isRecurrenceTemplate: true,
-			// Link to parent
-			parentMeetingId: meetingId,
+			// Link to root parent (no chains)
+			parentMeetingId: rootId,
 			instanceDate: nextStartDate,
 		});
 
 		const saved = await this.meetingRepo.save(newMeeting);
+
+		// Notificar a los miembros sobre la nueva instancia (default true). Bug histórico:
+		// la generación bajo demanda nunca disparaba el correo, así que los miembros se
+		// enteraban solo de la primera reunión de la serie. El caller puede pasar
+		// notify:false para suprimir (e.g. backfill silencioso).
+		// Fire-and-forget: errores de SMTP no rompen la creación de la instancia.
+		// Feature flag (ver `isMeetingEmailNotificationsEnabled` arriba): apagado por
+		// default. Aplica también a este path. El coordinador puede notificar a mano.
+		const shouldNotify =
+			options?.notify !== false && !isPastDate && isMeetingEmailNotificationsEnabled();
+		if (shouldNotify) {
+			this.notifyMembersOfMeeting(saved.id).catch((err) => {
+				console.error('[communityService] notifyMembersOfMeeting (instance) failed:', err);
+			});
+		}
+
 		return { meeting: saved, isPastDate };
 	}
 
@@ -1223,11 +1347,12 @@ export class CommunityService {
 	}
 
 	async getPublicMeetings() {
-		// Return upcoming public meetings (next 30 days)
+		// Return upcoming public meetings (next 30 days). Excluir canceladas para no
+		// publicar ocurrencias que el coordinador anuló.
 		const now = new Date();
 		const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-		return this.meetingRepo.find({
+		const raw = await this.meetingRepo.find({
 			where: {
 				startDate: MoreThanOrEqual(now),
 				isAnnouncement: false,
@@ -1238,6 +1363,7 @@ export class CommunityService {
 			order: { startDate: 'ASC' },
 			take: 20,
 		});
+		return raw.filter((m) => m.exceptionType !== 'cancelled');
 	}
 
 	async getPublicAttendanceData(communityId: string, meetingId: string) {
@@ -1246,6 +1372,12 @@ export class CommunityService {
 		const meeting = await this.meetingRepo.findOne({ where: { id: meetingId, communityId } });
 
 		if (!community || !meeting) {
+			return null;
+		}
+
+		// Si la ocurrencia fue cancelada, no exponer el flujo público de asistencia.
+		// Caller mapea null → 404.
+		if (meeting.exceptionType === 'cancelled') {
 			return null;
 		}
 
@@ -1272,6 +1404,9 @@ export class CommunityService {
 		return {
 			communityId,
 			communityName: community.name,
+			// TZ de la comunidad para que la vista pública renderice la fecha en hora
+			// local correcta (e.g. 19:00 MX en lugar de 01:00 UTC al día siguiente).
+			communityTimezone: getCommunityTimezone(community),
 			meetingId,
 			meetingTitle: meeting.title,
 			meetingStartDate: meeting.startDate,
@@ -1461,11 +1596,12 @@ export class CommunityService {
 			{} as Record<string, number>,
 		);
 
-		// 3. Meeting Counts
-		const allMeetings = await this.meetingRepo.find({
+		// 3. Meeting Counts. Excluir canceladas: no contribuyen a stats ni a "10 últimas".
+		const allMeetingsRaw = await this.meetingRepo.find({
 			where: { communityId, isAnnouncement: false },
 			order: { startDate: 'DESC' },
 		});
+		const allMeetings = allMeetingsRaw.filter((m) => m.exceptionType !== 'cancelled');
 
 		const pastMeetings = allMeetings.filter((m) => m.startDate <= now);
 		const upcomingMeetings = allMeetings.filter((m) => m.startDate > now);
@@ -2377,7 +2513,10 @@ export class CommunityService {
 				.createQueryBuilder('m')
 				.where('m.communityId = :cid', { cid: community.id })
 				.andWhere('m.startDate >= datetime("now")')
-				.andWhere('m.isRecurrenceTemplate = 0 OR m.isRecurrenceTemplate IS NULL')
+				.andWhere('(m.isRecurrenceTemplate = 0 OR m.isRecurrenceTemplate IS NULL)')
+				.andWhere('(m.exceptionType IS NULL OR m.exceptionType != :cancelled)', {
+					cancelled: 'cancelled',
+				})
 				.orderBy('m.startDate', 'ASC')
 				.getOne();
 
@@ -2462,6 +2601,9 @@ export class CommunityService {
 				.where('meeting.communityId = :cid', { cid: m.community.id })
 				.andWhere('meeting.startDate >= datetime("now")')
 				.andWhere('(meeting.isRecurrenceTemplate IS NULL OR meeting.isRecurrenceTemplate = 0)')
+				.andWhere('(meeting.exceptionType IS NULL OR meeting.exceptionType != :cancelled)', {
+					cancelled: 'cancelled',
+				})
 				.orderBy('meeting.startDate', 'ASC')
 				.getMany();
 
@@ -2529,6 +2671,9 @@ export class CommunityService {
 	async notifyMembersOfMeeting(meetingId: string, expectedCommunityId?: string): Promise<void> {
 		const meeting = await this.meetingRepo.findOne({ where: { id: meetingId } });
 		if (!meeting) return;
+		// No notificar si la ocurrencia fue cancelada — el correo mentiría sobre algo
+		// que ya no va a pasar.
+		if (meeting.exceptionType === 'cancelled') return;
 		// Defense-in-depth: si el caller pasó el communityId esperado, validar que
 		// el meeting realmente pertenece. Cierra cross-tenant aunque el middleware falle.
 		if (expectedCommunityId && meeting.communityId !== expectedCommunityId) {

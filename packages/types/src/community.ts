@@ -72,6 +72,8 @@ export const communitySchema = z.object({
 	defaultMeetingTime: z.string().optional().nullable(),
 	defaultMeetingDurationMinutes: z.number().int().positive().optional().nullable(),
 	defaultMeetingDescription: z.string().optional().nullable(),
+	// IANA TZ inferido de lat/lon o seteado a mano. NULL = fallback en consumidores.
+	timezone: z.string().optional().nullable(),
 	createdAt: z.coerce.date(),
 	updatedAt: z.coerce.date(),
 	// Calculated fields
@@ -135,6 +137,7 @@ export const communityMeetingSchema = z.object({
 	recurrenceInterval: z.number().int().positive().nullable(),
 	recurrenceDayOfWeek: z.string().nullable(),
 	recurrenceDayOfMonth: z.number().int().positive().max(31).nullable(),
+	recurrenceEndDate: z.coerce.date().nullable().optional(),
 	isRecurrenceTemplate: z.boolean().default(false),
 	parentMeetingId: z.string().uuid().nullable(),
 	instanceDate: z.coerce.date().nullable(),
@@ -209,6 +212,7 @@ export const createCommunityMeetingSchema = z.object({
 		recurrenceInterval: z.number().int().positive().optional(),
 		recurrenceDayOfWeek: z.string().optional(),
 		recurrenceDayOfMonth: z.number().int().positive().max(31).nullable().optional(),
+		recurrenceEndDate: z.coerce.date().nullable().optional(),
 	}),
 	params: z.object({
 		id: z.string().uuid(),
