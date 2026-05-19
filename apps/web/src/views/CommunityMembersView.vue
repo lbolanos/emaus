@@ -541,6 +541,7 @@ import {
 } from '@repo/ui';
 import { useToast } from '@repo/ui';
 import { resolveMemberProfile } from '@repo/utils';
+import { sanitizePhoneForWhatsapp } from '@/utils/phone';
 import ImportMembersModal from '@/components/community/ImportMembersModal.vue';
 import CreateMemberModal from '@/components/community/CreateMemberModal.vue';
 import SkeletonCard from '@/components/community/SkeletonCard.vue';
@@ -722,9 +723,23 @@ const filteredMembers = computed(() => {
     const profile = resolveMemberProfile(member);
     const fullName = profile.fullName.toLowerCase();
     const queryLower = searchQuery.value.toLowerCase();
-    const matchesSearch =
+    // Match texto (nombre/email).
+    let matchesSearch =
       fullName.includes(queryLower) ||
-      profile.email.toLowerCase().includes(queryLower);
+      profile.email.toLowerCase().includes(queryLower) ||
+      (profile.cellPhone || '').toLowerCase().includes(queryLower);
+    // Match teléfono normalizado: si el query tiene dígitos, comparar contra
+    // el cellPhone strippeado a solo dígitos. Permite encontrar "5559999999"
+    // tipeando "+52 55-5999-9999" o "(55) 5999 9999" — y viceversa.
+    if (!matchesSearch) {
+      const queryDigits = sanitizePhoneForWhatsapp(searchQuery.value);
+      if (queryDigits.length >= 3) {
+        const phoneDigits = sanitizePhoneForWhatsapp(profile.cellPhone || '');
+        if (phoneDigits && phoneDigits.includes(queryDigits)) {
+          matchesSearch = true;
+        }
+      }
+    }
     const matchesState = stateFilter.value === 'all' || member.state === stateFilter.value;
     return matchesSearch && matchesState;
   });

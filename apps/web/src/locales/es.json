@@ -1897,7 +1897,7 @@
       "remove": "Eliminar miembros",
       "confirmBulkRemove": "¿Eliminar {count} miembros de la comunidad?",
       "confirmBulkChange": "¿Cambiar estado de {count} miembros a '{state}'?",
-      "searchPlaceholder": "Buscar miembros...",
+      "searchPlaceholder": "Buscar por nombre, correo o teléfono...",
       "filterByState": "Filtrar por estado",
       "allStates": "Todos los estados",
       "export": "Exportar",

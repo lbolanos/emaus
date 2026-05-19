@@ -1800,7 +1800,7 @@
       "remove": "Remove Members",
       "confirmBulkRemove": "Remove {count} members from community?",
       "confirmBulkChange": "Change state of {count} members to '{state}'?",
-      "searchPlaceholder": "Search members...",
+      "searchPlaceholder": "Search by name, email or phone...",
       "filterByState": "Filter by state",
       "allStates": "All States",
       "export": "Export",
