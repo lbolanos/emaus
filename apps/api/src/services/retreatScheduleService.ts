@@ -1445,8 +1445,10 @@ export class RetreatScheduleService {
 
 		const retreat = await this.participantRepo.manager
 			.getRepository(Retreat)
-			.findOne({ where: { id: retreatId } });
+			.findOne({ where: { id: retreatId }, relations: ['house'] });
 		const retreatLabel = retreat ? `${retreat.parish}` : 'el retiro';
+		// Sin tz explícito, el server en UTC formatea fechas de slots con offset.
+		const tz = retreat?.timezone || (retreat as any)?.house?.timezone || 'America/Mexico_City';
 
 		const formatSlot = (s: SantisimoSlot) => {
 			const start = new Date(s.startTime);
@@ -1458,8 +1460,9 @@ export class RetreatScheduleService {
 					month: 'long',
 					hour: '2-digit',
 					minute: '2-digit',
+					timeZone: tz,
 				});
-			return `${fmt(start)} → ${end.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`;
+			return `${fmt(start)} → ${end.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', timeZone: tz })}`;
 		};
 
 		for (const [pid, slots] of assignments.entries()) {

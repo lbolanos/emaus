@@ -107,7 +107,7 @@ export class EmailService {
 						<p style="color: #666;">Si recibes este correo, significa que la configuración SMTP está funcionando correctamente.</p>
 						<hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
 						<p style="color: #999; font-size: 12px; text-align: center;">
-							Enviado desde el sistema Emaus - ${new Date().toLocaleString('es-ES')}
+							Enviado desde el sistema Emaus - ${new Date().toLocaleString('es-ES', { timeZone: 'America/Mexico_City' })}
 						</p>
 					</div>
 				</body>

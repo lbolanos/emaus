@@ -117,6 +117,7 @@ export const exportBadgesToDocx = async (retreatId: string) => {
 	const generationTime = new Date().toLocaleString('es-ES', {
 		dateStyle: 'full',
 		timeStyle: 'short',
+		timeZone: 'America/Mexico_City',
 	});
 
 	const children: any[] = [];

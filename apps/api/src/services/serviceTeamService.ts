@@ -213,7 +213,7 @@ export const exportTeamsToDocx = async (retreatId: string, dataSource?: DataSour
 	};
 
 	const retreatDates = `${formatDate(retreat.startDate)} - ${formatDate(retreat.endDate)}`;
-	const generationTime = new Date().toLocaleString('es-ES');
+	const generationTime = new Date().toLocaleString('es-ES', { timeZone: 'America/Mexico_City' });
 
 	const children: ParagraphType[] = [];
 

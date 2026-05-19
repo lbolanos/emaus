@@ -2316,7 +2316,7 @@ export class CommunityService {
 				<div style="background:#fafaf9;border:1px solid #e7e5e4;border-radius:12px;padding:16px;margin:16px 0;">
 					<p style="margin:0 0 4px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#8DAA91;">Próxima reunión</p>
 					<p style="margin:0;font-weight:500;">${escapeHtml(nextMeeting.title || 'Reunión')}</p>
-					<p style="margin:4px 0 0;color:#78716c;font-size:13px;">${escapeHtml(new Date(nextMeeting.startDate).toLocaleString('es-MX', { dateStyle: 'full', timeStyle: 'short' }))}</p>
+					<p style="margin:4px 0 0;color:#78716c;font-size:13px;">${escapeHtml(new Date(nextMeeting.startDate).toLocaleString('es-MX', { dateStyle: 'full', timeStyle: 'short', timeZone: 'America/Mexico_City' }))}</p>
 				</div>`
 				: '';
 
@@ -2494,6 +2494,7 @@ export class CommunityService {
 		const meetingDate = new Date(meeting.startDate).toLocaleString('es-MX', {
 			dateStyle: 'full',
 			timeStyle: 'short',
+			timeZone: 'America/Mexico_City',
 		});
 
 		const subject = `Próxima reunión de ${community.name}`;

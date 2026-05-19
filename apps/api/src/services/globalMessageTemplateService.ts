@@ -462,7 +462,7 @@ export class GlobalMessageTemplateService {
 			},
 			roleName,
 			retreatName,
-			requestDate: new Date().toLocaleString('es-ES'),
+			requestDate: new Date().toLocaleString('es-ES', { timeZone: 'America/Mexico_City' }),
 		});
 	}
 
@@ -481,7 +481,7 @@ export class GlobalMessageTemplateService {
 			},
 			roleName,
 			retreatName,
-			approvalDate: new Date().toLocaleString('es-ES'),
+			approvalDate: new Date().toLocaleString('es-ES', { timeZone: 'America/Mexico_City' }),
 		});
 	}
 

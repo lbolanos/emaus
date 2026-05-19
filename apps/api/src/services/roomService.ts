@@ -72,6 +72,7 @@ export const exportRoomLabelsToDocx = async (retreatId: string, dataSource?: Dat
 	const generationTime = new Date().toLocaleString('es-ES', {
 		dateStyle: 'full',
 		timeStyle: 'short',
+		timeZone: 'America/Mexico_City',
 	});
 
 	const children: ParagraphType[] = [];
