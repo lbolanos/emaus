@@ -65,6 +65,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { formatDateInCommunityTimezone } from '@repo/utils';
 
 const props = defineProps<{
 	meeting: any;
@@ -77,20 +78,18 @@ const props = defineProps<{
 
 const formattedDateOnly = computed(() => {
 	if (!props.meeting?.startDate) return '';
-	const d = new Date(props.meeting.startDate);
-	return d.toLocaleDateString('es-ES', {
-		weekday: 'long',
-		day: 'numeric',
-		month: 'long',
-	});
+	// Usar TZ de la comunidad para que el flyer refleje la hora local correcta.
+	return formatDateInCommunityTimezone(props.meeting.startDate, props.community, {
+		locale: 'es-ES',
+		dateStyle: 'full',
+	}).replace(/,?\s*\d{4}.*$/, ''); // strip trailing year (formato "lunes, 15 de junio de 2026" → "lunes, 15 de junio")
 });
 
 const formattedTime = computed(() => {
 	if (!props.meeting?.startDate) return '';
-	const d = new Date(props.meeting.startDate);
-	return d.toLocaleTimeString('es-ES', {
-		hour: '2-digit',
-		minute: '2-digit',
+	return formatDateInCommunityTimezone(props.meeting.startDate, props.community, {
+		locale: 'es-ES',
+		preset: 'time',
 	});
 });
 

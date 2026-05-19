@@ -23,18 +23,54 @@
         </Button>
       </div>
 
+      <!-- Filter bar: tabs + search -->
+      <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+        <Tabs v-model="activeTab" class="w-full sm:w-auto">
+          <TabsList>
+            <TabsTrigger value="upcoming">
+              {{ $t('community.meeting.filters.upcoming') }}
+              <span class="ml-1.5 text-xs text-muted-foreground">({{ counts.upcoming }})</span>
+            </TabsTrigger>
+            <TabsTrigger value="past">
+              {{ $t('community.meeting.filters.past') }}
+              <span class="ml-1.5 text-xs text-muted-foreground">({{ counts.past }})</span>
+            </TabsTrigger>
+            <TabsTrigger value="all">
+              {{ $t('community.meeting.filters.all') }}
+              <span class="ml-1.5 text-xs text-muted-foreground">({{ counts.all }})</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <div class="relative w-full sm:w-64">
+          <Search class="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
+          <Input
+            v-model="searchQuery"
+            type="search"
+            :placeholder="$t('community.meeting.searchPlaceholder')"
+            class="pl-9"
+          />
+        </div>
+      </div>
+
       <div class="grid gap-4">
-        <Card v-for="meeting in meetings" :key="meeting.id" :class="{ 'border-l-4 border-l-blue-500': meeting.isAnnouncement }">
+        <Card v-for="meeting in filteredMeetings" :key="meeting.id" :class="{ 'border-l-4 border-l-blue-500': meeting.isAnnouncement, 'opacity-75': isPastMeeting(meeting) }">
           <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
             <div class="flex-1">
               <div class="flex items-center gap-2 flex-wrap">
                 <Badge v-if="meeting.isAnnouncement" variant="secondary">
                   {{ $t('community.meeting.isAnnouncement') }}
                 </Badge>
-                <Badge v-if="meeting.isRecurrenceTemplate" variant="outline" class="flex items-center gap-1">
-                  <RefreshCw class="w-3 h-3" />
-                  {{ getRecurrenceBadge(meeting) }}
-                </Badge>
+                <Tooltip v-if="meeting.isRecurrenceTemplate">
+                  <TooltipTrigger as-child>
+                    <Badge variant="outline" class="flex items-center gap-1 cursor-help">
+                      <RefreshCw class="w-3 h-3" />
+                      {{ getRecurrenceBadge(meeting) }}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p class="text-xs">{{ getSeriesTooltip(meeting) }}</p>
+                  </TooltipContent>
+                </Tooltip>
                 <CardTitle class="text-xl">{{ meeting.title }}</CardTitle>
               </div>
               <CardDescription class="flex items-center gap-4 mt-1">
@@ -130,10 +166,18 @@
           </CardHeader>
         </Card>
 
-        <div v-if="meetings.length === 0" class="text-center py-12 border rounded-lg bg-muted/50 text-muted-foreground">
+        <div v-if="filteredMeetings.length === 0" class="text-center py-12 border rounded-lg bg-muted/50 text-muted-foreground">
           <Calendar class="w-12 h-12 mx-auto mb-4 opacity-50" />
-          <p class="text-lg font-medium mb-1">{{ $t('community.meeting.noMeetingsFound') }}</p>
-          <p class="text-sm">Crea tu primera reunión o anuncio para comenzar</p>
+          <p class="text-lg font-medium mb-1">
+            {{ meetings.length === 0
+              ? $t('community.meeting.noMeetingsFound')
+              : $t('community.meeting.noMeetingsMatch') }}
+          </p>
+          <p class="text-sm">
+            {{ meetings.length === 0
+              ? 'Crea tu primera reunión o anuncio para comenzar'
+              : $t('community.meeting.tryAnotherFilter') }}
+          </p>
         </div>
       </div>
     </template>
@@ -186,23 +230,43 @@
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <Dialog :open="!!pastEditConfirm" @update:open="(v: boolean) => !v && (pastEditConfirm = null)">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{{ $t('community.meeting.editPastTitle') }}</DialogTitle>
+          <DialogDescription>
+            {{ $t('community.meeting.editPastBody') }}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" @click="pastEditConfirm = null">{{ $t('common.cancel') }}</Button>
+          <Button @click="proceedEditPast">
+            {{ $t('community.meeting.editAnyway') }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </div>
   </TooltipProvider>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRoute, useRouter } from 'vue-router';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
-import { Loader2, CalendarPlus, Calendar, Clock, CheckSquare, ChevronRight, Pencil, Trash2, RefreshCw, Share, FileText, UserCheck, UserX } from 'lucide-vue-next';
+import { Loader2, CalendarPlus, Calendar, Clock, CheckSquare, ChevronRight, Pencil, Trash2, RefreshCw, Share, FileText, UserCheck, UserX, Search } from 'lucide-vue-next';
 import {
   Button, Card, CardHeader, CardTitle, CardDescription, Badge,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
-  RadioGroup, RadioGroupItem, Label, useToast
+  RadioGroup, RadioGroupItem, Label, useToast,
+  Tabs, TabsList, TabsTrigger, Input,
 } from '@repo/ui';
 import MeetingFormModal from '@/components/community/MeetingFormModal.vue';
+import { formatDateInCommunityTimezone } from '@repo/utils';
 
 const { t: $t } = useI18n();
 const { toast } = useToast();
@@ -219,6 +283,62 @@ const meetingToEdit = ref<any>(null);
 const meetingToDelete = ref<any>(null);
 const deleteScope = ref<'this' | 'all'>('this');
 
+const route = useRoute();
+const router = useRouter();
+
+type MeetingFilter = 'upcoming' | 'past' | 'all';
+const VALID_FILTERS: readonly MeetingFilter[] = ['upcoming', 'past', 'all'] as const;
+const initialFilter = (route.query.filter as MeetingFilter | undefined) ?? 'upcoming';
+const activeTab = ref<MeetingFilter>(
+  VALID_FILTERS.includes(initialFilter) ? initialFilter : 'upcoming',
+);
+const searchQuery = ref('');
+
+// Sincronizar filtro con URL para que el back/forward y el deep-link preserven la vista.
+watch(activeTab, (value) => {
+  router.replace({ query: { ...route.query, filter: value === 'upcoming' ? undefined : value } });
+});
+
+const isPastMeeting = (meeting: any) => {
+  if (!meeting?.startDate) return false;
+  return new Date(meeting.startDate).getTime() < Date.now();
+};
+
+const counts = computed(() => {
+  const all = meetings.value.length;
+  const past = meetings.value.filter(isPastMeeting).length;
+  return { all, upcoming: all - past, past };
+});
+
+const filteredMeetings = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase();
+  let base = meetings.value;
+  if (activeTab.value === 'upcoming') {
+    base = base.filter((m) => !isPastMeeting(m));
+  } else if (activeTab.value === 'past') {
+    base = base.filter(isPastMeeting);
+  }
+  if (q) {
+    base = base.filter((m) => {
+      const title = (m.title || '').toLowerCase();
+      const description = (m.description || '').toLowerCase();
+      return title.includes(q) || description.includes(q);
+    });
+  }
+  // Próximas ascendentes (la más cercana primero); pasadas descendentes; todas descendentes.
+  const sorted = [...base];
+  if (activeTab.value === 'upcoming') {
+    sorted.sort(
+      (a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime(),
+    );
+  } else {
+    sorted.sort(
+      (a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime(),
+    );
+  }
+  return sorted;
+});
+
 onMounted(async () => {
   await communityStore.fetchCommunity(props.id);
   await fetchMeetings();
@@ -229,14 +349,45 @@ const fetchMeetings = async () => {
 };
 
 const formatDateTime = (date: string | Date) => {
-  return new Date(date).toLocaleString('es-ES', {
-    weekday: 'short',
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
+  // Render en el timezone de la comunidad para que el coordinador vea la hora
+  // local independientemente del TZ de su navegador.
+  return formatDateInCommunityTimezone(date, currentCommunity.value, {
+    locale: 'es-ES',
+    dateStyle: 'medium',
+    timeStyle: 'short',
   });
+};
+
+/**
+ * Devuelve un tooltip describiendo la posición de esta meeting en su serie.
+ * - Template raíz: "Serie iniciada el X (N reuniones generadas)".
+ * - Instancia: "Ocurrencia N de N (serie iniciada el X)".
+ *
+ * Las "hermanas" se calculan localmente sobre `meetings` ya cargadas; si la serie
+ * fue truncada por filtros en la API, el conteo puede subestimar — es informativo,
+ * no contractual.
+ */
+const getSeriesTooltip = (meeting: any): string => {
+  const rootId = meeting.parentMeetingId ?? meeting.id;
+  const siblings = meetings.value
+    .filter((m) => m.id === rootId || m.parentMeetingId === rootId)
+    .sort(
+      (a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime(),
+    );
+  const idx = siblings.findIndex((m) => m.id === meeting.id);
+  const total = siblings.length;
+  const seriesStart = siblings[0]?.startDate;
+  const seriesStartStr = seriesStart
+    ? formatDateInCommunityTimezone(seriesStart, currentCommunity.value, {
+        locale: 'es-ES',
+        dateStyle: 'medium',
+      })
+    : '';
+
+  if (!meeting.parentMeetingId) {
+    return `Serie iniciada el ${seriesStartStr} · ${total} reunión${total === 1 ? '' : 'es'} en el listado`;
+  }
+  return `Ocurrencia ${idx + 1} de ${total} · serie iniciada el ${seriesStartStr}`;
 };
 
 const getRecurrenceBadge = (meeting: any) => {
@@ -257,8 +408,24 @@ const openCreateModal = () => {
   isMeetingModalOpen.value = true;
 };
 
+const pastEditConfirm = ref<any>(null);
+
 const openEditModal = (meeting: any) => {
+  // Si la reunión ya pasó, pedir confirmación antes de abrir el modal.
+  // Evita ediciones accidentales sobre historial (e.g. cambiar la hora de algo
+  // que ya ocurrió, lo que dejaría inconsistente la asistencia ya registrada).
+  if (isPastMeeting(meeting)) {
+    pastEditConfirm.value = meeting;
+    return;
+  }
   meetingToEdit.value = meeting;
+  isMeetingModalOpen.value = true;
+};
+
+const proceedEditPast = () => {
+  if (!pastEditConfirm.value) return;
+  meetingToEdit.value = pastEditConfirm.value;
+  pastEditConfirm.value = null;
   isMeetingModalOpen.value = true;
 };
 

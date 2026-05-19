@@ -1945,6 +1945,8 @@
         "weeks": "semanas",
         "dayOfWeek": "Día de la semana",
         "dayOfMonth": "Día del mes",
+        "endDate": "Repetir hasta (opcional)",
+        "endDateHelp": "Dejar vacío para repetir sin fecha límite (hasta 52 ocurrencias).",
         "updateScope": {
           "title": "Actualizar repeticiones",
           "this": "Solo esta reunión",
@@ -1956,7 +1958,18 @@
       "nextInstanceCreated": "Siguiente reunión creada",
       "nextInstanceCreatedDesc": "La próxima reunión de la serie ha sido creada.",
       "nextInstanceError": "Error al crear siguiente reunión",
-      "instanceAlreadyExists": "Ya existe una reunión para esta fecha"
+      "instanceAlreadyExists": "Ya existe una reunión para esta fecha",
+      "filters": {
+        "upcoming": "Próximas",
+        "past": "Pasadas",
+        "all": "Todas"
+      },
+      "searchPlaceholder": "Buscar por título o descripción",
+      "noMeetingsMatch": "Ninguna reunión coincide con el filtro",
+      "tryAnotherFilter": "Cambia el filtro o limpia la búsqueda para ver más reuniones.",
+      "editPastTitle": "Esta reunión ya pasó",
+      "editPastBody": "Editar una reunión histórica puede crear inconsistencias con las asistencias ya registradas. ¿Quieres continuar?",
+      "editAnyway": "Editar de todas formas"
     },
     "stats": {
       "totalMembers": "Total de Miembros",

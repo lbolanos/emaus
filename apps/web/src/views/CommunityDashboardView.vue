@@ -326,6 +326,7 @@ import { Pie } from 'vue-chartjs';
 import { Chart as ChartJS, Title, Tooltip, Legend, ArcElement, CategoryScale } from 'chart.js';
 import { useI18n } from 'vue-i18n';
 import MeetingFormModal from '@/components/community/MeetingFormModal.vue';
+import { formatDateInCommunityTimezone } from '@repo/utils';
 
 ChartJS.register(Title, Tooltip, Legend, ArcElement, CategoryScale);
 
@@ -390,17 +391,14 @@ const navigateToAttendance = (meetingId?: string) => {
   }
 };
 
-// Format meeting date
-const formatMeetingDate = (dateString: string) => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString(undefined, { 
-    weekday: 'short',
-    month: 'short', 
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
+// Format meeting date — usa el timezone de la comunidad para que el dashboard
+// muestre la hora local de la reunión, no la del browser del coordinador.
+const formatMeetingDate = (dateString: string) =>
+  formatDateInCommunityTimezone(dateString, currentCommunity.value, {
+    locale: 'es-MX',
+    dateStyle: 'medium',
+    timeStyle: 'short',
   });
-};
 
 // Check if chart has data
 const hasChartData = (chartData: any) => {
@@ -427,15 +425,37 @@ const pieOptions = {
   }
 };
 
+// Mapeo explícito state → color hex. Hex aproximados a las clases
+// Tailwind 500/700 que usa `getStateBorderClass` en CommunityMembersView,
+// para que el dashboard y la tabla muestren cromática consistente. Cada
+// estado tiene su color único (no se reciclan, como pasaba con el array
+// posicional anterior que solo definía 5 colores para 10 estados).
+const STATE_COLORS: Record<string, string> = {
+  // Activos / en seguimiento
+  active_member: '#10b981',           // emerald-500
+  pending_verification: '#eab308',     // yellow-500
+  paused: '#f59e0b',                   // amber-500
+  // Canal/contacto roto
+  wrong_contact_info: '#f97316',       // orange-500
+  no_answer: '#ef4444',                // red-500
+  // Declinaciones
+  no_time: '#06b6d4',                  // cyan-500
+  far_from_location: '#3b82f6',        // blue-500
+  another_group: '#a855f7',            // purple-500
+  not_interested: '#f43f5e',           // rose-500
+  do_not_contact: '#3f3f46',           // zinc-700
+};
+const FALLBACK_COLOR = '#94a3b8'; // slate-400 para estados no mapeados
+
 const statusChartData = computed(() => {
   if (!stats.value?.memberStateDistribution) return null;
-  
+
   const data = stats.value.memberStateDistribution;
   return {
     labels: data.map((d: any) => t(`community.memberStates.${d.state}`)),
     datasets: [
       {
-        backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#6366f1', '#8b5cf6'],
+        backgroundColor: data.map((d: any) => STATE_COLORS[d.state] ?? FALLBACK_COLOR),
         borderWidth: 0,
         hoverOffset: 8,
         data: data.map((d: any) => d.count)

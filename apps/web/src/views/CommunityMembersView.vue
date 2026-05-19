@@ -497,6 +497,7 @@
       :member="timelineMember"
       :timeline-data="timelineData"
       :loading="timelineLoading"
+      :community="currentCommunity"
     />
 
     <!-- Message Dialog -->

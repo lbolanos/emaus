@@ -73,11 +73,17 @@ export function formatDuration(minutes: number): string {
 }
 
 /**
- * Formats date to Spanish long format with time
+ * Formats date to Spanish long format with time. Si se pasa la comunidad, el
+ * formateo respeta su IANA timezone (importante para el flyer: la hora del
+ * meeting es local al lugar físico, no al browser del coordinador).
  * Example: "viernes, 15 de enero de 2026, 5:00 PM"
  */
-export function formatMeetingDate(date: Date | string): string {
+export function formatMeetingDate(
+	date: Date | string,
+	community?: { timezone?: string | null } | null,
+): string {
 	const d = typeof date === 'string' ? new Date(date) : date;
+	const timeZone = community?.timezone || 'America/Mexico_City';
 	return d.toLocaleString('es-ES', {
 		weekday: 'long',
 		year: 'numeric',
@@ -85,18 +91,24 @@ export function formatMeetingDate(date: Date | string): string {
 		day: 'numeric',
 		hour: '2-digit',
 		minute: '2-digit',
+		timeZone,
 	});
 }
 
 /**
- * Formats just the time portion
+ * Formats just the time portion. Si se pasa la comunidad, usa su IANA timezone.
  * Example: "5:00 PM"
  */
-export function formatMeetingTime(date: Date | string): string {
+export function formatMeetingTime(
+	date: Date | string,
+	community?: { timezone?: string | null } | null,
+): string {
 	const d = typeof date === 'string' ? new Date(date) : date;
+	const timeZone = community?.timezone || 'America/Mexico_City';
 	return d.toLocaleTimeString('es-ES', {
 		hour: '2-digit',
 		minute: '2-digit',
+		timeZone,
 	});
 }
 

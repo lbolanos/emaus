@@ -210,6 +210,72 @@ export interface FormatDateOptions {
 	format?: 'short' | 'long' | 'full' | 'datetime';
 }
 
+/** TZ por defecto cuando una comunidad/house no tiene el campo seteado. */
+export const DEFAULT_TIMEZONE = 'America/Mexico_City';
+
+/**
+ * Resuelve el IANA timezone de una comunidad. Espejo del helper homónimo en el
+ * backend (`apps/api/src/services/communityService.ts:28`).
+ */
+export const getCommunityTimezone = (
+	community: { timezone?: string | null } | null | undefined,
+): string => community?.timezone || DEFAULT_TIMEZONE;
+
+export interface FormatInTimezoneOptions {
+	/** Locale para `Intl.DateTimeFormat`. Default `'es-MX'`. */
+	locale?: string;
+	/**
+	 * Preset rápido. Si se pasan `dateStyle`/`timeStyle` directamente, se ignora.
+	 * - 'datetime-short': `dd/mm/yy hh:mm` (default)
+	 * - 'datetime-long': `lunes, 15 de junio de 2026, 19:00`
+	 * - 'date-long': `lunes, 15 de junio de 2026`
+	 * - 'date-short': `15/06/26`
+	 * - 'time': `19:00`
+	 */
+	preset?: 'datetime-short' | 'datetime-long' | 'date-long' | 'date-short' | 'time';
+	dateStyle?: 'full' | 'long' | 'medium' | 'short';
+	timeStyle?: 'full' | 'long' | 'medium' | 'short';
+}
+
+/**
+ * Formatea una fecha (Date u ISO string) usando el timezone de una comunidad.
+ *
+ * Centraliza el patrón `new Date(x).toLocaleString('es-MX', { timeZone, ... })`
+ * para que todas las vistas comunitarias rendericen la misma hora local
+ * independientemente del TZ del navegador del coordinador. Sin esto, un
+ * coordinador en EU veía una hora distinta a la que vieron los miembros en MX.
+ */
+export function formatDateInCommunityTimezone(
+	date: Date | string | null | undefined,
+	community: { timezone?: string | null } | null | undefined,
+	options: FormatInTimezoneOptions = {},
+): string {
+	if (!date) return '';
+	const d = typeof date === 'string' ? new Date(date) : date;
+	if (isNaN(d.getTime())) return '';
+
+	const tz = getCommunityTimezone(community);
+	const locale = options.locale ?? 'es-MX';
+
+	const presetMap: Record<NonNullable<FormatInTimezoneOptions['preset']>, Intl.DateTimeFormatOptions> = {
+		'datetime-short': { dateStyle: 'short', timeStyle: 'short' },
+		'datetime-long': { dateStyle: 'full', timeStyle: 'short' },
+		'date-long': { dateStyle: 'full' },
+		'date-short': { dateStyle: 'short' },
+		time: { timeStyle: 'short' },
+	};
+
+	const presetOpts = options.preset ? presetMap[options.preset] : presetMap['datetime-short'];
+	const dateStyle = options.dateStyle ?? presetOpts.dateStyle;
+	const timeStyle = options.timeStyle ?? presetOpts.timeStyle;
+
+	const opts: Intl.DateTimeFormatOptions = { timeZone: tz };
+	if (dateStyle) opts.dateStyle = dateStyle;
+	if (timeStyle) opts.timeStyle = timeStyle;
+
+	return d.toLocaleString(locale, opts);
+}
+
 /**
  * Format date avoiding timezone shifts caused by UTC to local conversion
  * Handles ISO datetime strings (e.g., 2025-12-26T00:00:00.000Z) and YYYY-MM-DD formats

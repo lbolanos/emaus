@@ -1848,6 +1848,8 @@
         "weeks": "weeks",
         "dayOfWeek": "Day of week",
         "dayOfMonth": "Day of month",
+        "endDate": "Repeat until (optional)",
+        "endDateHelp": "Leave blank to repeat indefinitely (up to 52 occurrences).",
         "updateScope": {
           "title": "Update repetitions",
           "this": "Only this meeting",
@@ -1859,7 +1861,18 @@
       "nextInstanceCreated": "Next meeting created",
       "nextInstanceCreatedDesc": "The next meeting in the series has been created.",
       "nextInstanceError": "Error creating next meeting",
-      "instanceAlreadyExists": "A meeting for this date already exists"
+      "instanceAlreadyExists": "A meeting for this date already exists",
+      "filters": {
+        "upcoming": "Upcoming",
+        "past": "Past",
+        "all": "All"
+      },
+      "searchPlaceholder": "Search by title or description",
+      "noMeetingsMatch": "No meeting matches the filter",
+      "tryAnotherFilter": "Change the filter or clear the search to see more meetings.",
+      "editPastTitle": "This meeting already happened",
+      "editPastBody": "Editing a historical meeting may create inconsistencies with attendance already recorded. Do you want to continue?",
+      "editAnyway": "Edit anyway"
     },
     "stats": {
       "totalMembers": "Total Members",

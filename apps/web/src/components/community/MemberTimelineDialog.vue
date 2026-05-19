@@ -94,6 +94,8 @@ interface Props {
 	} | null;
 	timelineData?: TimelineData | null;
 	loading?: boolean;
+	/** Comunidad opcional para renderizar fechas en su timezone IANA. */
+	community?: { timezone?: string | null } | null;
 }
 
 interface Emits {
@@ -106,15 +108,17 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<Emits>();
 
-// Format date for display
+// Format date for display — usa TZ de la comunidad si se pasó.
 const formatDate = (dateString: string | Date) => {
 	const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+	const timeZone = props.community?.timezone || 'America/Mexico_City';
 	return new Intl.DateTimeFormat('es-ES', {
 		day: '2-digit',
 		month: 'short',
 		year: 'numeric',
 		hour: '2-digit',
 		minute: '2-digit',
+		timeZone,
 	}).format(date);
 };
 

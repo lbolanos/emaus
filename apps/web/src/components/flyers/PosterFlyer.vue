@@ -102,6 +102,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import QrcodeVue from 'qrcode.vue';
+import { formatDateInCommunityTimezone } from '@repo/utils';
 
 const props = defineProps<{
 	meeting: any;
@@ -114,20 +115,17 @@ const props = defineProps<{
 
 const formattedDateOnly = computed(() => {
 	if (!props.meeting?.startDate) return '';
-	const d = new Date(props.meeting.startDate);
-	return d.toLocaleDateString('es-ES', {
-		weekday: 'long',
-		day: 'numeric',
-		month: 'long',
-	});
+	return formatDateInCommunityTimezone(props.meeting.startDate, props.community, {
+		locale: 'es-ES',
+		dateStyle: 'full',
+	}).replace(/,?\s*\d{4}.*$/, '');
 });
 
 const formattedTime = computed(() => {
 	if (!props.meeting?.startDate) return '';
-	const d = new Date(props.meeting.startDate);
-	return d.toLocaleTimeString('es-ES', {
-		hour: '2-digit',
-		minute: '2-digit',
+	return formatDateInCommunityTimezone(props.meeting.startDate, props.community, {
+		locale: 'es-ES',
+		preset: 'time',
 	});
 });
 

@@ -1,6 +1,6 @@
 <template>
   <Dialog :open="open" @update:open="handleClose">
-    <DialogContent class="sm:max-w-[800px] max-h-[90vh] overflow-hidden flex flex-col">
+    <DialogContent class="sm:max-w-[800px] max-h-[95vh] sm:max-h-[90vh] w-[100vw] sm:w-auto rounded-none sm:rounded-lg overflow-hidden flex flex-col p-4 sm:p-6">
       <DialogHeader>
         <DialogTitle>
           {{ editingMeeting ? $t('community.meeting.editMeeting') : $t('community.meeting.addMeeting') }}
@@ -33,11 +33,17 @@
         </div>
 
         <!-- Tabs -->
-        <Tabs default-value="general" class="flex-1 flex flex-col">
-          <TabsList class="grid w-full grid-cols-4">
+        <Tabs default-value="general" class="flex-1 flex flex-col min-h-0">
+          <TabsList class="grid w-full grid-cols-4 text-xs sm:text-sm">
             <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="datetime">Fecha y Hora</TabsTrigger>
-            <TabsTrigger value="recurrence" :disabled="form.isAnnouncement">Repetición</TabsTrigger>
+            <TabsTrigger value="datetime" class="px-1 sm:px-3">
+              <span class="hidden sm:inline">Fecha y Hora</span>
+              <span class="sm:hidden">Fecha</span>
+            </TabsTrigger>
+            <TabsTrigger value="recurrence" :disabled="form.isAnnouncement" class="px-1 sm:px-3">
+              <span class="hidden sm:inline">Repetición</span>
+              <span class="sm:hidden">Repite</span>
+            </TabsTrigger>
             <TabsTrigger value="flyer">Flyer</TabsTrigger>
           </TabsList>
 
@@ -128,11 +134,13 @@
               v-else
               :is-recurring="form.isRecurring"
               :recurrence="form.recurrence"
+              :start-date="form.date"
               @update:is-recurring="form.isRecurring = $event"
               @update:frequency="form.recurrence.frequency = $event"
               @update:interval="form.recurrence.interval = $event"
               @update:day-of-week="form.recurrence.dayOfWeek = $event"
               @update:day-of-month="form.recurrence.dayOfMonth = $event"
+              @update:end-date="form.recurrence.endDate = $event"
             />
           </TabsContent>
 
@@ -271,6 +279,7 @@ const form = ref({
     interval: 1,
     dayOfWeek: '',
     dayOfMonth: null as number | null,
+    endDate: null as string | null,
   }
 });
 
@@ -363,8 +372,9 @@ const validateForm = () => {
 
   if (!form.value.date) {
     newErrors.date = 'La fecha es requerida';
-  } else {
-    // Normalize both dates to local midnight for accurate comparison
+  } else if (!editingMeeting.value) {
+    // Solo validar "no antes de hoy" al CREAR. Al editar (especialmente una pasada),
+    // permitimos cualquier fecha — el usuario ya confirmó explícitamente la edición.
     const selectedDate = new Date(form.value.date + 'T00:00:00');
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -442,6 +452,10 @@ const handleSubmit = async () => {
       data.recurrenceDayOfMonth = form.value.recurrence.frequency === 'monthly'
         ? form.value.recurrence.dayOfMonth
         : undefined;
+      // Fecha tope opcional. Empty string ('' del date input vacío) → null.
+      data.recurrenceEndDate = form.value.recurrence.endDate
+        ? form.value.recurrence.endDate
+        : null;
     }
     // Don't include recurrence fields if not recurring (they'll be undefined)
 
@@ -520,6 +534,7 @@ const resetForm = () => {
       interval: 1,
       dayOfWeek: '',
       dayOfMonth: null,
+      endDate: null,
     }
   };
   errors.value = {};
@@ -554,6 +569,9 @@ watch(() => props.meetingToEdit, (meeting) => {
         interval: meeting.recurrenceInterval || 1,
         dayOfWeek: meeting.recurrenceDayOfWeek || '',
         dayOfMonth: meeting.recurrenceDayOfMonth || null,
+        endDate: meeting.recurrenceEndDate
+          ? new Date(meeting.recurrenceEndDate).toISOString().slice(0, 10)
+          : null,
       }
     };
   } else {

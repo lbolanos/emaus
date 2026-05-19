@@ -73,6 +73,20 @@
         />
       </div>
 
+      <!-- End Date (optional) -->
+      <div class="space-y-2">
+        <Label>{{ $t('community.meeting.recurrence.endDate') }}</Label>
+        <Input
+          type="date"
+          :model-value="recurrence.endDate ?? ''"
+          @update:model-value="$emit('update:endDate', $event ? String($event) : null)"
+          :min="recurrenceEndDateMin"
+        />
+        <p class="text-xs text-muted-foreground">
+          {{ $t('community.meeting.recurrence.endDateHelp') }}
+        </p>
+      </div>
+
       <!-- Preview -->
       <div class="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
         <p class="text-sm text-blue-800 dark:text-blue-200">
@@ -103,11 +117,14 @@ interface RecurrenceData {
   interval: number;
   dayOfWeek: string;
   dayOfMonth: number | null;
+  endDate?: string | null;
 }
 
 const props = defineProps<{
   isRecurring: boolean;
   recurrence: RecurrenceData;
+  /** Fecha de inicio de la reunión (YYYY-MM-DD) usada como mínimo para endDate. */
+  startDate?: string;
 }>();
 
 defineEmits<{
@@ -116,24 +133,42 @@ defineEmits<{
   'update:interval': [value: number];
   'update:dayOfWeek': [value: string];
   'update:dayOfMonth': [value: number | null];
+  'update:endDate': [value: string | null];
 }>();
 
+const recurrenceEndDateMin = computed(() => {
+  // endDate no puede ser anterior a la fecha de inicio. Si no hay startDate aún,
+  // usar hoy.
+  if (props.startDate) return props.startDate;
+  return new Date().toISOString().slice(0, 10);
+});
+
 const recurrenceDescription = computed(() => {
-  const { frequency, interval, dayOfWeek, dayOfMonth } = props.recurrence;
+  const { frequency, interval, dayOfWeek, dayOfMonth, endDate } = props.recurrence;
+  let base = '';
 
   switch (frequency) {
     case 'daily':
-      return 'Esta reunión se repetirá diariamente';
+      base = 'Esta reunión se repetirá diariamente';
+      break;
     case 'weekly': {
       const dayLabel = weekDays.find((d) => d.value === dayOfWeek)?.label || '';
-      return interval === 1
-        ? `Esta reunión se repetirá cada semana el ${dayLabel}`
-        : `Esta reunión se repetirá cada ${interval} semanas el ${dayLabel}`;
+      base =
+        interval === 1
+          ? `Esta reunión se repetirá cada semana el ${dayLabel}`
+          : `Esta reunión se repetirá cada ${interval} semanas el ${dayLabel}`;
+      break;
     }
     case 'monthly':
-      return `Esta reunión se repetirá cada mes el día ${dayOfMonth}`;
+      base = `Esta reunión se repetirá cada mes el día ${dayOfMonth}`;
+      break;
     default:
       return '';
   }
+
+  if (endDate) {
+    return `${base} hasta el ${endDate}`;
+  }
+  return base;
 });
 </script>

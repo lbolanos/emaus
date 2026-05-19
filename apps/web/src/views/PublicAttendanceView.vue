@@ -41,7 +41,7 @@
               <!-- Date with icon -->
               <div v-if="meetingStartDate" class="inline-flex items-center gap-2 text-sm text-slate-500 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-4 py-2 rounded-full">
                 <Calendar class="w-4 h-4" />
-                <span>{{ formatMeetingDate(meetingStartDate) }}</span>
+                <span>{{ formatMeetingDate(meetingStartDate, communityTimezoneRef) }}</span>
               </div>
             </div>
 
@@ -278,6 +278,13 @@ const members = ref<any[]>([]);
 const communityName = ref('');
 const meetingTitle = ref('');
 const meetingStartDate = ref('');
+// Timezone IANA de la comunidad. Lo usamos para renderizar la fecha en hora
+// local correcta — sin esto, la fecha del meeting (almacenada en UTC) sale en
+// el TZ del browser del visitante público, que puede no coincidir con el lugar.
+const communityTimezone = ref<string | null>(null);
+const communityTimezoneRef = computed(() =>
+  communityTimezone.value ? { timezone: communityTimezone.value } : null,
+);
 const searchQuery = ref('');
 const savingStates = ref<Record<string, boolean>>({});
 const loading = ref(true);
@@ -362,6 +369,7 @@ onMounted(async () => {
     communityName.value = data.communityName || '';
     meetingTitle.value = data.meetingTitle || '';
     meetingStartDate.value = data.meetingStartDate || '';
+    communityTimezone.value = (data as any).communityTimezone || null;
   } catch (err: any) {
     if (err?.response?.status === 404) {
       error.value = $t('community.attendance.notFound') || 'Reunión no encontrada';

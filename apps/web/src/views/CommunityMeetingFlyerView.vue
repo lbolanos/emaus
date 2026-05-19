@@ -184,10 +184,10 @@ const flyerComponent = computed(() => {
   }
 });
 
-// Format the date for display
+// Format the date for display — pass community para respetar su TZ.
 const formattedDate = computed(() => {
   if (!meeting.value?.startDate) return '';
-  return formatMeetingDate(meeting.value.startDate);
+  return formatMeetingDate(meeting.value.startDate, community.value);
 });
 
 // Format the duration for display
@@ -213,7 +213,7 @@ const processedDescription = computed(() => {
 
   const flyerData: MeetingFlyerData = {
     fecha: formattedDate.value,
-    hora: formatMeetingTime(meeting.value.startDate),
+    hora: formatMeetingTime(meeting.value.startDate, community.value),
     nombre: meeting.value.title || '',
     descripcion: meeting.value.description || '',
     duracion: formattedDuration.value,
