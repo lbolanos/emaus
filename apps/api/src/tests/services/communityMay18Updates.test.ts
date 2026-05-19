@@ -95,8 +95,14 @@ describe('Community Service — 2026-05-18 updates', () => {
 
 			const members = await service.getMembers(testCommunity.id);
 			expect(members[0].lastMessageSentAt).toBeTruthy();
-			// MAX() retorna la fecha más reciente, en formato SQLite
+			// MAX() retorna la fecha más reciente.
 			expect(String(members[0].lastMessageSentAt)).toContain('2026-05-15');
+			// Regression: el valor DEBE ser ISO UTC con sufijo 'Z'. Sin esto,
+			// `new Date(...)` en el navegador interpreta el string como local
+			// time y los "hace N min" salen corridos por la diff de TZ del cliente.
+			expect(String(members[0].lastMessageSentAt)).toMatch(/Z$/);
+			// new Date(...) debe parsearlo a un timestamp UTC consistente.
+			expect(Number.isNaN(new Date(members[0].lastMessageSentAt as string).getTime())).toBe(false);
 		});
 
 		it('ignora mensajes de otra comunidad y de scope retreat', async () => {

@@ -283,7 +283,17 @@ export class CommunityService {
 		const lastMessageByParticipant: Record<string, string> = {};
 		for (const row of lastMessageRows) {
 			if (row.participantId && row.lastSentAt) {
-				lastMessageByParticipant[row.participantId] = row.lastSentAt;
+				// SQLite devuelve 'YYYY-MM-DD HH:MM:SS' SIN sufijo TZ. Los datos
+				// son UTC (CreateDateColumn usa CURRENT_TIMESTAMP) pero el string
+				// no lo dice. Si lo enviamos así, `new Date(...)` en el navegador
+				// lo trata como LOCAL → la marca "hace X" sale corrida por la
+				// diferencia de TZ del cliente. Normalizar a ISO UTC explícito.
+				const raw = row.lastSentAt;
+				const isoUtc =
+					raw.endsWith('Z') || raw.includes('+')
+						? raw
+						: raw.replace(' ', 'T') + 'Z';
+				lastMessageByParticipant[row.participantId] = isoUtc;
 			}
 		}
 
