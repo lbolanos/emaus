@@ -1,4 +1,5 @@
 import { AppDataSource } from '../data-source';
+import { randomUUID } from 'crypto';
 import { User } from '../entities/user.entity';
 import { Role } from '../entities/role.entity';
 import { UserRetreat } from '../entities/userRetreat.entity';
@@ -327,7 +328,7 @@ export class PermissionInheritanceService {
 		expiresAt.setHours(expiresAt.getHours() + delegationDuration);
 
 		// Create delegation record
-		const delegationId = require('uuid').v4();
+		const delegationId = randomUUID();
 
 		await AppDataSource.query(
 			`

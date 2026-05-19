@@ -1,4 +1,5 @@
 import { AppDataSource } from '../data-source';
+import { randomUUID } from 'crypto';
 import { AuditService } from './auditService';
 import { Request } from 'express';
 
@@ -62,7 +63,7 @@ export class PermissionOverrideService {
 			description: reason,
 		};
 
-		const overrideId = require('uuid').v4();
+		const overrideId = randomUUID();
 		const permissions = overrides.map(
 			(o) => `${o.resource}:${o.operation} (${o.granted ? 'granted' : 'denied'})`,
 		);
@@ -151,7 +152,7 @@ export class PermissionOverrideService {
 			description: 'Cleared all permission overrides',
 		};
 
-		const overrideId = require('uuid').v4();
+		const overrideId = randomUUID();
 
 		// Get current overrides before clearing for logging
 		const currentOverrides = await this.getPermissionOverrides(userId, retreatId);
@@ -210,7 +211,7 @@ export class PermissionOverrideService {
 		reason?: string,
 	): Promise<void> {
 		try {
-			const logId = require('uuid').v4();
+			const logId = randomUUID();
 			await AppDataSource.query(
 				`INSERT INTO permission_override_logs (
 					id, user_id, retreat_id, overrides, set_by, reason, created_at

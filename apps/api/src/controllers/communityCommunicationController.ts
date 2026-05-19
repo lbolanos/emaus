@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { randomUUID } from 'crypto';
 import { AppDataSource } from '../data-source';
 import { ParticipantCommunication, MessageType } from '../entities/participantCommunication.entity';
 import { MessageTemplate } from '../entities/messageTemplate.entity';
@@ -225,7 +226,10 @@ export class CommunityCommunicationController {
 			// `req.user` no tiene id por algún motivo.
 			const dataSource = AppDataSource;
 			const userId = (req.user as any)?.id ?? null;
-			const newId = require('crypto').randomUUID();
+			// `import { randomUUID } from 'crypto'` (top of file). Antes era
+			// `require('crypto')` que falla en build ESM de Vite (`require is
+			// not defined` en runtime de producción).
+			const newId = randomUUID();
 
 			await dataSource.query(
 				`

@@ -1,4 +1,5 @@
 import { AppDataSource } from '../data-source';
+import { randomUUID } from 'crypto';
 import { User } from '../entities/user.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { Role } from '../entities/role.entity';
@@ -62,7 +63,7 @@ export class RoleRequestService {
 		// This would need to be implemented in authorization service
 		// For now, we'll create the request
 
-		const requestId = require('uuid').v4();
+		const requestId = randomUUID();
 		const now = new Date();
 
 		await AppDataSource.query(
