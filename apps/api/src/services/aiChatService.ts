@@ -116,14 +116,21 @@ Cuando recibas una IMAGEN, asume que es una lista escrita a mano (o impresa) con
 
 3. IDENTIFICA la reunión: pregúntale al usuario "¿a qué reunión corresponde? (ej. la de ayer, la del [fecha])". Cuando responda, llama listCommunityMeetings (puedes pedir más resultados con limit) y elige la coincidente. **IMPORTANTE: usa el campo 'startDateLocal' (formato legible en la timezone de la comunidad), NO el campo 'startDate' UTC, para comparar contra "ayer", "hoy", "la de hace 2 semanas" — el campo 'currentTimeLocal' del response te da la hora local actual de referencia.** Si la reunión es serie recurrente ('isRecurring'=true) y solo hay un 'isRecurrenceTemplate', ese template REPRESENTA la primera ocurrencia real, úsalo. Si hay ambigüedad o no encuentras una clara, pídele que confirme con la fecha exacta o el título.
 
-4. CONSTRUYE EL PREVIEW sin mutar nada todavía. Para cada fila extraída sigue ESTA cascada de búsqueda; solo pasa al siguiente paso si el actual devolvió count=0:
-   - **a) Por teléfono**: llama findCommunityMember(communityId, "<teléfono normalizado a 10 dígitos>"). El más fiable porque el OCR de números casi nunca falla.
-   - **b) Por nombre completo**: si la fila tiene nombre, llama findCommunityMember(communityId, "<nombre completo>").
-   - **c) Por apellido(s) solo**: separa el nombre del apellido y llama con SOLO los apellidos (ej. de "Hector Bolaños" prueba "Bolaños"; de "Maria Esther Lopez" prueba "Lopez"). Útil cuando el primer nombre escrito en la lista (apodo) difiere del registrado.
-   - **d) Por primer nombre solo**: como último recurso, prueba con el primer nombre solo (ej. "Hector"). Solo usa este match si hay 1-2 resultados; si hay muchos miembros con el mismo primer nombre, repórtalo como ambiguo y pídele al usuario que elija.
+4. CONSTRUYE EL PREVIEW sin mutar nada todavía. Por cada fila enumerada en el paso 1, sigue esta cascada con **EARLY EXIT estricto**: en cuanto un paso devuelva count >= 1 con isPartialMatch=false, **DETÉN la cascada para esa fila** — NO ejecutes los pasos siguientes. Si ejecutas más de un lookup por fila, el preview se confunde y mezcla resultados.
+
+   Cascada por fila:
+   - **a) Por teléfono** (si la fila tiene teléfono): findCommunityMember(communityId, "<últimos 10 dígitos>"). Si count >= 1 y isPartialMatch=false → **resuelto, ALTO**. Esa fila usa el primer member del array. NO llames más lookups para esta fila.
+   - **b) Por nombre completo** (solo si (a) devolvió count=0 o no había teléfono): findCommunityMember(communityId, "<nombre completo extraído>"). Si count >= 1 y isPartialMatch=false → resuelto, ALTO.
+   - **c) Por apellido(s) solo** (solo si (b) devolvió count=0): separa apellido del nombre y prueba con SOLO los apellidos (ej. "Hector Bolaños" → "Bolaños"; "Maria Esther Lopez" → "Lopez"). Útil cuando el primer nombre en la lista (apodo) difiere del registrado.
+   - **d) Por primer nombre solo** (solo si (c) devolvió count=0): último recurso. Solo úsalo si hay 1-2 resultados; si hay muchos miembros con ese primer nombre, márcalo como ambiguo y pídele al usuario que elija.
    - Si después de a/b/c/d sigue count=0 → se creará nuevo (pending_verification) usando teléfono + nombre extraídos.
-   - Si en algún paso findCommunityMember devuelve **isPartialMatch=true**, son matches "cercanos" (apellido o nombre solo coincide). Trátalos como candidatos y muéstralos en el preview para que el usuario confirme. NO los des por buenos automáticamente.
-   - Si hay múltiples matches exactos → ambiguo, pídele que elija.
+
+   Tratamiento de matches parciales (isPartialMatch=true): NO los des por buenos automáticamente. Si en algún paso solo encuentras matches parciales, sigue al siguiente paso de la cascada — pero guarda esos candidatos para mostrarlos en el preview como sugerencias para que el usuario confirme.
+
+   Si hay múltiples matches exactos en un solo paso → ambiguo, pídele que elija.
+
+   **El conteo de líneas del preview debe ser EXACTAMENTE igual al número de filas enumeradas en el paso 1** (no más, no menos). No metas la misma fila en dos líneas distintas.
+
    No llames addCommunityMembersBulk ni recordMeetingAttendance en este paso.
 
 5. MUESTRA al usuario el preview consolidado, **pensado para lectura en voz alta** (Jessy se puede escuchar). Usa frases completas y evita siglas pegadas; los teléfonos preséntalos con espacios cada 2-4 dígitos para que el TTS los pronuncie como números agrupados, no dígito por dígito. Estructura:
