@@ -1,5 +1,5 @@
 import { resolveMemberProfile } from '@repo/utils';
-import { streamText, convertToModelMessages, UIMessage, jsonSchema, stepCountIs } from 'ai';
+import { streamText, convertToModelMessages, UIMessage, ModelMessage, jsonSchema, stepCountIs } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { google } from '@ai-sdk/google';
@@ -7,7 +7,12 @@ import { config } from '../config';
 import { findAllParticipants, findParticipantById } from './participantService';
 import { getRetreatsForUser, findById as findRetreatById } from './retreatService';
 import { findTablesByRetreatId, assignWalkerToTable, unassignWalkerFromTable, assignLeaderToTable, unassignLeaderFromTable, findTableById } from './tableMesaService';
-import { getRetreatInventory, getInventoryAlerts } from './inventoryService';
+import {
+	getRetreatInventory,
+	getInventoryAlerts,
+	updateRetreatInventory,
+	addCustomItemToRetreat,
+} from './inventoryService';
 import { findAllResponsibilities } from './responsabilityService';
 import { AppDataSource } from '../data-source';
 import { Payment } from '../entities/payment.entity';
@@ -80,6 +85,8 @@ Tus capacidades:
 - Buscar un miembro existente en una comunidad por nombre o correo (findCommunityMember)
 - Listar las reuniones de una comunidad (pasadas y próximas) para identificar a cuál registrar asistencia (listCommunityMeetings)
 - Registrar asistencia de varios miembros a una reunión de la comunidad (recordMeetingAttendance)
+- Procesar fotos de listas de asistencia: extraer los nombres, identificar miembros existentes, agregar los nuevos en lote (pending_verification) y marcar asistencia
+- Registrar inventario desde foto o audio: extraer items y cantidades, actualizar el inventario del retiro (set o incremento), crear items ad-hoc cuando no existen
 
 IMPORTANTE para agregar miembros de comunidad:
 - Si NO hay communityId en el contexto y el usuario pide agregar miembros, llama PRIMERO a getMyAdminCommunities y pídele al usuario que indique en cuál de esas comunidades agregarlos. Nunca asumas la comunidad.
@@ -94,6 +101,96 @@ IMPORTANTE para registrar asistencia a una reunión:
 - Cada attendee se puede pasar por memberId, email, cellPhone, o nombre completo. El bot debe extraer del mensaje del usuario los identificadores que tenga (ej. "Juan Pérez llegó y María maria@x.com también" → [{name: 'Juan Pérez'}, {name: 'María', email: 'maria@x.com'}]).
 - Tras ejecutar, resume en bullets: marcados (con nombre), no encontrados (no son miembros — sugiere usar addCommunityMembersBulk si el usuario quiere agregarlos), ambiguos (varios miembros matchean — pregunta cuál es).
 - Para attendees ambiguos, MUESTRA al usuario las opciones (con email/teléfono para diferenciar) y pídele que elija; cuando responda, vuelve a llamar recordMeetingAttendance con memberId explícito.
+
+IMPORTANTE — Foto de lista de asistencia:
+Cuando recibas una IMAGEN, asume que es una lista escrita a mano (o impresa) con nombres de asistentes a una reunión de comunidad. Sigue este flujo SIN saltarte pasos:
+
+1. EXTRAE todos los nombres visibles en la foto, tal cual aparecen. Si algún nombre está parcialmente ilegible, márcalo con [?] al final (ej: "Juan Per[?]"). NO inventes nombres ni completes letras que no veas con claridad.
+   - **IGNORA ENCABEZADOS DE TABLA**: si la hoja tiene columnas con título (ej. "Nombre", "Teléfono", "Apellido", "Hora", "#"), NO los trates como nombres. Empieza desde la primera fila con datos reales.
+   - **EMPAREJAMIENTO NOMBRE↔TELÉFONO**: si la hoja tiene columnas, lee cada FILA horizontalmente. El teléfono de la fila 3 va con el nombre de la fila 3, etc. Cuando una fila tiene solo nombre (sin teléfono) o solo teléfono (sin nombre), reportarla así explícitamente — NO emparejar con la fila siguiente.
+   - **Si los datos están rotados** (foto tomada lateralmente), oriéntalos mentalmente antes de leer; los números 1, 2, 3… al inicio de cada fila te ayudan a determinar el orden correcto.
+
+2. IDENTIFICA la comunidad:
+   - Si hay communityId en el contexto, úsala.
+   - Si NO, llama getMyAdminCommunities y pídele al usuario que elija explícitamente. NUNCA asumas la comunidad sin confirmación.
+
+3. IDENTIFICA la reunión: pregúntale al usuario "¿a qué reunión corresponde? (ej. la de ayer, la del [fecha])". Cuando responda, llama listCommunityMeetings (puedes pedir más resultados con limit) y elige la coincidente. **IMPORTANTE: usa el campo 'startDateLocal' (formato legible en la timezone de la comunidad), NO el campo 'startDate' UTC, para comparar contra "ayer", "hoy", "la de hace 2 semanas" — el campo 'currentTimeLocal' del response te da la hora local actual de referencia.** Si la reunión es serie recurrente ('isRecurring'=true) y solo hay un 'isRecurrenceTemplate', ese template REPRESENTA la primera ocurrencia real, úsalo. Si hay ambigüedad o no encuentras una clara, pídele que confirme con la fecha exacta o el título.
+
+4. CONSTRUYE EL PREVIEW sin mutar nada todavía. Para cada fila extraída sigue ESTA cascada de búsqueda; solo pasa al siguiente paso si el actual devolvió count=0:
+   - **a) Por teléfono**: llama findCommunityMember(communityId, "<teléfono normalizado a 10 dígitos>"). El más fiable porque el OCR de números casi nunca falla.
+   - **b) Por nombre completo**: si la fila tiene nombre, llama findCommunityMember(communityId, "<nombre completo>").
+   - **c) Por apellido(s) solo**: separa el nombre del apellido y llama con SOLO los apellidos (ej. de "Hector Bolaños" prueba "Bolaños"; de "Maria Esther Lopez" prueba "Lopez"). Útil cuando el primer nombre escrito en la lista (apodo) difiere del registrado.
+   - **d) Por primer nombre solo**: como último recurso, prueba con el primer nombre solo (ej. "Hector"). Solo usa este match si hay 1-2 resultados; si hay muchos miembros con el mismo primer nombre, repórtalo como ambiguo y pídele al usuario que elija.
+   - Si después de a/b/c/d sigue count=0 → se creará nuevo (pending_verification) usando teléfono + nombre extraídos.
+   - Si en algún paso findCommunityMember devuelve **isPartialMatch=true**, son matches "cercanos" (apellido o nombre solo coincide). Trátalos como candidatos y muéstralos en el preview para que el usuario confirme. NO los des por buenos automáticamente.
+   - Si hay múltiples matches exactos → ambiguo, pídele que elija.
+   No llames addCommunityMembersBulk ni recordMeetingAttendance en este paso.
+
+5. MUESTRA al usuario el preview consolidado, **pensado para lectura en voz alta** (Jessy se puede escuchar). Usa frases completas y evita siglas pegadas; los teléfonos preséntalos con espacios cada 2-4 dígitos para que el TTS los pronuncie como números agrupados, no dígito por dígito. Estructura:
+   - "Leí N filas de la foto."
+   - "Reunión: [título, fecha local]."
+   - "Marcaré asistencia de M miembros existentes:" seguido de bullets con "nombre — teléfono".
+   - "Crearé K nuevos como pendientes de verificación:" seguido de bullets con "nombre — teléfono".
+   - Si hay ambiguos: "Estos nombres requieren tu elección:" con las opciones disponibles.
+   - Cierre: "¿Confirmas? Di o escribe 'sí' para aplicar, o indícame correcciones."
+   El coordinador puede activar el botón de altavoz para escuchar este resumen; si nota un nombre mal leído, te lo corrige por chat o por voz antes de confirmar.
+
+6. Al recibir confirmación explícita ("sí", "confirmo", "ok", "dale", "adelante"):
+   a. Llama addCommunityMembersBulk con los nuevos en estado pending_verification. Cada entrada DEBE traer cellPhone (la llave de matching más fiable); firstName/lastName son los extraídos de la foto. En el campo notes pon "Agregado desde foto de asistencia — verificar ortografía del nombre" (el teléfono es confiable, el nombre puede tener error de OCR).
+   b. Llama recordMeetingAttendance con TODOS los confirmados. **Identifícalos preferentemente por cellPhone** (no por nombre — la tool ya hace match por últimos 10 dígitos). Solo usa memberId si lo tienes (de matches existentes), o name como último recurso si la fila no tiene teléfono.
+   c. Reporta resumen final hablable: "Marqué X asistencias y creé Y miembros nuevos pendientes de verificación. Z quedaron ambiguos sin resolver."
+
+7. Si el usuario rechaza ("no", "cancela") o pide cambios, NO ejecutes nada y espera instrucciones.
+
+IMPORTANTE — Foto o audio de inventario:
+Cuando recibas una IMAGEN o un MENSAJE DE VOZ que describe items y cantidades de inventario (ej. foto de caja con productos, audio "llegaron 5 jabones y 3 detergentes"), sigue este flujo:
+
+1. **DESCRIBE PRIMERO TODO LO QUE VES, item por item, ANTES de matchear nada**. En la imagen, **enumera CADA artículo distinto** que aparezca como una línea separada con su cantidad, unidad observada y características distintivas (marca, color, tipo). Ejemplo: "veo: 1 bolígrafo Bic blanco con franja azul, 1 bolígrafo metálico plateado con clip, 1 marcatextos lila Office Depot, 1 caja de clips, 5 hojas carta".
+
+   Reglas estrictas:
+   - **Cada producto con marca/color/modelo distintos = UNA línea propia**. NO los agrupes aunque "sean del mismo tipo" (ej. "1 Bic azul" + "1 pluma metálica plateada" + "1 marcador Sharpie" = **3 líneas**, NO una línea "3 útiles de escritura").
+   - Solo agrupa cuando son **unidades IDÉNTICAS del mismo producto** (ej. 5 Bic azules iguales = "Plumas Bic azules: 5").
+   - Productos diferentes de la misma categoría (4 plumas de marcas/colores distintos) = **4 líneas distintas**, NO "Plumas: 4".
+   - En duda, **separa**. Es preferible tener más items granulares que perder información.
+
+   Esta descripción inicial es tu "memoria de trabajo": después de hacerla, NO añadas ni quites items en pasos posteriores sin avisarle al usuario.
+
+   Para audio: lista igualmente todo lo que escuchaste como bullets antes de matchear.
+
+   Si la cantidad de algún item es ilegible o no se entiende, márcalo con [?] y pídele aclaración al usuario antes de seguir al paso 4.
+
+2. DETECTA EL INTENT DE LA CANTIDAD (snapshot vs incremento) — crítico para no romper el conteo:
+   - **Foto** = snapshot por default. La foto representa "esto es lo que hay AHORA": mode='set'.
+   - **Audio con verbos de agregar** ("llegan/llegaron", "agrega/añade", "compré", "trajeron", "X más"): mode='increment'.
+   - **Audio con verbos de estado** ("hay/tengo/son/quedan", "pon/marca/ahora son"): mode='set'.
+   - Cuando dudes, asume **set** y dilo explícitamente en el preview para que el usuario corrija si se equivoca.
+
+3. IDENTIFICA EL RETIRO: si hay retreatId en el contexto, úsalo. Si no, llama getRetreats y pide al usuario que elija.
+
+4. CONSTRUYE EL PREVIEW sin mutar nada todavía. Para cada artículo individual extraído del paso 1:
+   - **SIEMPRE llama findInventoryItem(retreatId, "<nombre del artículo>")** para buscar en el inventario actual del retiro algo parecido. Prueba con el nombre tal cual lo leíste; si no hay match, prueba variantes (sin el adjetivo de color, solo el sustantivo: "Bolígrafo azul" → reintenta con "Bolígrafo").
+   - **MUESTRA el resultado al usuario** sin tomar decisión automática:
+     - Si hay match exacto → propónlo como candidato indicando su nombre en el catálogo, currentQuantity actual y unidad.
+     - Si hay matches parciales (isPartialMatch=true) → muéstralos todos como sugerencias.
+     - Si no hay match → propón crearlo como ad-hoc.
+   - **NO agrupes automáticamente artículos distintos bajo un mismo item del catálogo**. Si la foto tiene 4 productos distintos (Bic blanco, metálico plateado, pluma azul, marcatextos lila) y los 4 matchean contra un único item genérico del catálogo (ej. "Marcadores y Plumas"), preséntalos en el preview como **4 líneas distintas**, cada una con su propio match propuesto. El usuario decide en el paso 5 si los unifica (sumar todos al mismo retreatInventoryId) o los separa (crear ad-hoc específicos).
+
+5. MUESTRA al usuario un preview hablable. El conteo N debe coincidir EXACTAMENTE con los artículos que enumeraste en el paso 1:
+   - "Leí N artículos en total de la foto/audio." (mismo N que tu enumeración inicial)
+   - **Para cada artículo, una línea distinta** con el match propuesto:
+     - Con match único específico: "<artículo>: ¿match con <nombre del catálogo> (actualmente <currentQuantity> <unit>)?  → propongo <mode> a <quantity>" — el usuario confirma o pide ad-hoc.
+     - Con match genérico/parcial: "<artículo>: ¿lo cuento bajo <nombre del catálogo> (actualmente <currentQuantity>)? o ¿lo creo como ad-hoc independiente?"
+     - Sin match: "<artículo>: no encontré nada parecido en el inventario. Lo crearé como '<nombre específico>' con <quantity> <unit>."
+   - **Si varios artículos distintos matchean al mismo item del catálogo** (caso común con nombres genéricos como "Marcadores y Plumas"), pregunta explícitamente al usuario: "Detecté 4 artículos diferentes que podrían contar como 'Marcadores y Plumas'. ¿Los sumo todos a ese item (4 unidades) o creo 4 ad-hoc separados con sus nombres específicos?". NO decidas tú.
+   - Si algún artículo de tu lista inicial quedó pendiente (ambiguo, ilegible), llévalo a una sección "Pendientes de aclarar" antes del cierre — NO lo omitas silenciosamente.
+   - Cierre: "¿Confirmas las acciones de arriba? Di o escribe 'sí' para aplicar, o indícame cambios."
+
+6. Al recibir confirmación:
+   a. Para cada existente con match → llama updateInventoryQuantity(retreatId, retreatInventoryId, quantity, mode, notes='Cargado desde foto'|'Reportado por voz').
+   b. Para cada nuevo ad-hoc → llama addCustomInventoryItem(retreatId, customName, currentQuantity, customUnit?).
+   c. Reporta resumen hablable: "Actualicé X items y agregué Y nuevos al inventario del retiro."
+
+7. Si el usuario rechaza ("no", "cancela"), no ejecutes nada y espera instrucciones.
 
 IMPORTANTE para cambios de mesa y cama:
 - Antes de hacer un cambio, confirma con el usuario los datos: nombre del participante, mesa/cama destino.
@@ -124,6 +221,7 @@ Si preguntan por un familiar o contacto de emergencia, revisa los campos de cont
 
 export function getModel() {
 	const { provider, model } = config.ai;
+	console.log(`[AI Chat] Using model: ${model} via ${provider}`);
 	switch (provider) {
 		case 'anthropic':
 			return createAnthropic({
@@ -164,19 +262,80 @@ export function getVisionModel() {
 	}
 }
 
+/**
+ * AI SDK v6 rejects data: URLs in FileUIPart (validateDownloadUrl requires http/https).
+ * For inline uploads (images pasted/attached from the widget) we decode the data URL to a
+ * Buffer and build a ModelMessage manually. Everything else uses convertToModelMessages.
+ */
+async function buildModelMessages(uiMessages: UIMessage[]): Promise<ModelMessage[]> {
+	const out: ModelMessage[] = [];
+	for (const m of uiMessages) {
+		const hasDataUrl = (m.parts || []).some(
+			(p: any) =>
+				p?.type === 'file' && typeof p.url === 'string' && p.url.startsWith('data:'),
+		);
+		if (!hasDataUrl) {
+			const converted = await convertToModelMessages([m]);
+			out.push(...converted);
+			continue;
+		}
+		const content: any[] = [];
+		for (const part of m.parts || []) {
+			const p: any = part;
+			if (p.type === 'text') {
+				if (typeof p.text === 'string' && p.text.length > 0) {
+					content.push({ type: 'text', text: p.text });
+				}
+			} else if (p.type === 'file' && typeof p.url === 'string') {
+				const match = p.url.match(/^data:([^;]+);base64,(.+)$/);
+				if (!match) continue;
+				const mediaType = match[1];
+				const buf = Buffer.from(match[2], 'base64');
+				if (mediaType.startsWith('image/')) {
+					content.push({ type: 'image', image: buf, mediaType });
+				} else {
+					content.push({ type: 'file', data: buf, mediaType });
+				}
+			}
+		}
+		if (content.length > 0) {
+			out.push({ role: m.role as any, content });
+		}
+	}
+	return out;
+}
+
 export async function createChatStream(
 	messages: UIMessage[],
 	userId: string,
 	retreatId?: string,
 	communityId?: string,
 ) {
-	const modelMessages = await convertToModelMessages(messages);
+	const modelMessages = await buildModelMessages(messages);
+	// Si algún mensaje trae una imagen, conmutar al modelo de visión.
+	// El chat default (config.ai.model) puede no ser multimodal (p.ej. glm-4.7
+	// text-only vía z.ai); el modelo de visión (config.ai.visionModel, p.ej.
+	// gemini-2.5-flash) sí procesa imágenes y también soporta tool calls.
+	const hasImage = modelMessages.some(
+		(m) =>
+			Array.isArray((m as any).content) &&
+			(m as any).content.some((c: any) => c?.type === 'image'),
+	);
+	console.log(
+		`[AI Chat] Request received — userId=${userId}, retreatId=${retreatId ?? 'none'}, communityId=${communityId ?? 'none'}, messages=${messages.length}, hasImage=${hasImage}`,
+	);
+	if (hasImage) {
+		console.log(
+			`[AI Chat] Image detected — switching from chat model (${config.ai.provider}/${config.ai.model}) to vision model (${config.ai.visionProvider}/${config.ai.visionModel})`,
+		);
+	}
+	const activeModel = hasImage ? getVisionModel() : getModel();
 	return streamText({
-		model: getModel(),
+		model: activeModel,
 		system: buildSystemPrompt(retreatId, communityId),
 		messages: modelMessages,
 		maxOutputTokens: config.ai.maxTokens,
-		stopWhen: stepCountIs(5),
+		stopWhen: stepCountIs(8),
 		onError: ({ error }) => {
 			console.error('[AI Chat] streamText error:', error);
 		},
@@ -471,6 +630,176 @@ export async function createChatStream(
 				execute: async ({ retreatId }) => {
 					await verifyRetreatAccess(userId, retreatId);
 					return getInventoryAlerts(retreatId);
+				},
+			},
+			findInventoryItem: {
+				description:
+					'Busca un item del inventario del retiro por nombre con matching fuzzy (normaliza acentos, tokeniza). Devuelve el id (retreatInventoryId) que necesitas para updateInventoryQuantity. Cada resultado trae name, currentQuantity, requiredQuantity y unit. Si hay matches parciales (apellido o subcadena sola), isPartialMatch=true.',
+				inputSchema: jsonSchema<{ retreatId: string; query: string }>({
+					type: 'object',
+					properties: {
+						retreatId: { type: 'string', description: 'ID del retiro' },
+						query: { type: 'string', description: 'Nombre del item a buscar (ej. "jabón", "platos", "agua")' },
+					},
+					required: ['retreatId', 'query'],
+				}),
+				execute: async ({ retreatId, query }) => {
+					await verifyRetreatAccess(userId, retreatId);
+					const items = await getRetreatInventory(retreatId);
+					const normalize = (s: string) =>
+						s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+					const qNorm = normalize(query.trim());
+					const tokens = qNorm.split(/\s+/).filter((t) => t.length >= 2);
+					if (tokens.length === 0) return { count: 0, items: [], isPartialMatch: false };
+
+					const scored = items
+						.map((it: any) => {
+							const name = it.inventoryItem?.name ?? it.customName ?? '';
+							const haystack = normalize(name);
+							const hits = tokens.filter((t) => haystack.includes(t)).length;
+							const score = hits / tokens.length;
+							return { it, name, score };
+						})
+						.filter((r) => r.score > 0);
+					const exact = scored.filter((r) => r.score === 1);
+					const partial = scored
+						.filter((r) => r.score >= 0.5 && r.score < 1)
+						.sort((a, b) => b.score - a.score);
+					const results = exact.length > 0 ? exact : partial;
+					return {
+						count: results.length,
+						isPartialMatch: exact.length === 0 && partial.length > 0,
+						items: results.slice(0, 10).map((r: any) => ({
+							retreatInventoryId: r.it.id,
+							inventoryItemId: r.it.inventoryItemId ?? null,
+							name: r.name,
+							unit: r.it.inventoryItem?.unit ?? r.it.customUnit ?? 'piezas',
+							currentQuantity: r.it.currentQuantity,
+							requiredQuantity: r.it.requiredQuantity,
+							isSufficient: r.it.isSufficient,
+							isCustom: !r.it.inventoryItemId,
+							matchScore: Math.round(r.score * 100) / 100,
+						})),
+					};
+				},
+			},
+			updateInventoryQuantity: {
+				description:
+					'Actualiza la cantidad actual (currentQuantity) de un item del inventario del retiro. Soporta dos modos: "set" (sobrescribe con la cantidad indicada — típico de foto: "tengo 5 jabones") e "increment" (suma delta al actual — típico de audio: "llegan 3 jabones más"). Registra historial automáticamente.',
+				inputSchema: jsonSchema<{
+					retreatId: string;
+					retreatInventoryId: string;
+					quantity: number;
+					mode: 'set' | 'increment';
+					notes?: string;
+				}>({
+					type: 'object',
+					properties: {
+						retreatId: { type: 'string', description: 'ID del retiro' },
+						retreatInventoryId: {
+							type: 'string',
+							description: 'ID del item en el retreat_inventory (obtenido de findInventoryItem o getInventory)',
+						},
+						quantity: {
+							type: 'number',
+							description: 'Cantidad (entero o decimal). Con mode=set es el nuevo total. Con mode=increment es el delta a sumar (puede ser negativo para restar).',
+						},
+						mode: {
+							type: 'string',
+							enum: ['set', 'increment'],
+							description: 'set = sobrescribir total; increment = sumar al actual',
+						},
+						notes: {
+							type: 'string',
+							description: 'Nota opcional (ej. "Cargado desde foto", "Reportado por voz")',
+						},
+					},
+					required: ['retreatId', 'retreatInventoryId', 'quantity', 'mode'],
+				}),
+				execute: async ({ retreatId, retreatInventoryId, quantity, mode, notes }) => {
+					await verifyRetreatAccess(userId, retreatId);
+					if (!Number.isFinite(quantity)) return { error: 'quantity debe ser un número' };
+
+					let newQty = quantity;
+					let previousQty: number | undefined;
+					if (mode === 'increment') {
+						const items = await getRetreatInventory(retreatId);
+						const current = items.find((i: any) => i.id === retreatInventoryId);
+						if (!current) return { error: 'Item del retiro no encontrado' };
+						previousQty = Number(current.currentQuantity ?? 0);
+						newQty = previousQty + quantity;
+						if (newQty < 0) return { error: `El incremento ${quantity} dejaría la cantidad en ${newQty}; debe ser >= 0` };
+					}
+
+					try {
+						const updated = await updateRetreatInventory(
+							retreatId,
+							retreatInventoryId,
+							{
+								currentQuantity: newQty,
+								...(notes ? { notes } : {}),
+							},
+							undefined,
+							userId,
+						);
+						if (!updated) return { error: 'Item del retiro no encontrado' };
+						return {
+							success: true,
+							retreatInventoryId,
+							previousQuantity: previousQty ?? null,
+							newQuantity: updated.currentQuantity,
+							requiredQuantity: updated.requiredQuantity,
+							isSufficient: updated.isSufficient,
+							mode,
+						};
+					} catch (e: any) {
+						return { error: e?.message || 'Error al actualizar inventario' };
+					}
+				},
+			},
+			addCustomInventoryItem: {
+				description:
+					'Agrega un item ad-hoc al inventario del retiro (no toca el catálogo global). Útil cuando el coordinador menciona un item que no estaba en la lista del retiro. Devuelve el retreatInventoryId para usos posteriores.',
+				inputSchema: jsonSchema<{
+					retreatId: string;
+					customName: string;
+					currentQuantity: number;
+					customUnit?: string;
+					requiredQuantity?: number;
+					notes?: string;
+				}>({
+					type: 'object',
+					properties: {
+						retreatId: { type: 'string', description: 'ID del retiro' },
+						customName: { type: 'string', description: 'Nombre del item (ej. "Detectores de humo")' },
+						currentQuantity: { type: 'number', description: 'Cantidad actual (>= 0)' },
+						customUnit: { type: 'string', description: 'Unidad (default "piezas")' },
+						requiredQuantity: { type: 'number', description: 'Cantidad requerida (default 0)' },
+						notes: { type: 'string', description: 'Nota opcional' },
+					},
+					required: ['retreatId', 'customName', 'currentQuantity'],
+				}),
+				execute: async ({ retreatId, customName, currentQuantity, customUnit, requiredQuantity, notes }) => {
+					await verifyRetreatAccess(userId, retreatId);
+					if (!Number.isFinite(currentQuantity) || currentQuantity < 0) {
+						return { error: 'currentQuantity debe ser un número >= 0' };
+					}
+					const result = await addCustomItemToRetreat(retreatId, {
+						customName: customName.trim(),
+						customUnit,
+						currentQuantity,
+						requiredQuantity: requiredQuantity ?? 0,
+						notes,
+					});
+					if ('error' in result) return result;
+					return {
+						success: true,
+						retreatInventoryId: result.id,
+						name: result.customName,
+						unit: result.customUnit,
+						currentQuantity: result.currentQuantity,
+						requiredQuantity: result.requiredQuantity,
+					};
 				},
 			},
 			getResponsibilities: {
@@ -944,46 +1273,91 @@ export async function createChatStream(
 				},
 			},
 			findCommunityMember: {
-				description: 'Busca un miembro de una comunidad por nombre o correo. Útil antes de agregar para confirmar si la persona ya existe.',
+				description:
+					'Busca un miembro de una comunidad por teléfono (≥7 dígitos), email (con @) o nombre. Matching tolerante: normaliza acentos ("Bolaños"="Bolanos"), tokeniza el query y matchea todos los tokens contra firstName+lastName concatenados. Si no hay match exacto, intenta matches PARCIALES (al menos 50% de tokens) ordenados por score, indicando isPartialMatch=true — útil cuando el query es solo apellido o solo primer nombre. Cada resultado trae matchScore (0..1) y matchedBy ("phone"|"email"|"name").',
 				inputSchema: jsonSchema<{ communityId: string; query: string }>({
 					type: 'object',
 					properties: {
 						communityId: { type: 'string', description: 'ID de la comunidad' },
-						query: { type: 'string', description: 'Nombre, apellido o correo' },
+						query: { type: 'string', description: 'Teléfono (10 dígitos), email, nombre completo, apellido suelto o primer nombre' },
 					},
 					required: ['communityId', 'query'],
 				}),
 				execute: async ({ communityId: cId, query }) => {
 					await verifyCommunityAdminAccess(userId, cId);
-					const q = query.trim().toLowerCase();
+					const raw = query.trim();
+					const qLower = raw.toLowerCase();
+					// Normaliza diacríticos para que "Bolaños" matchee "Bolanos" en BD.
+					const normalize = (s: string) =>
+						s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+					const qNorm = normalize(raw);
+					// Si la query parece un teléfono (>= 7 dígitos), busca por últimos 10 dígitos.
+					const digits = raw.replace(/\D/g, '');
+					const isPhoneQuery = digits.length >= 7;
+					const last10 = digits.slice(-10);
+
 					const memberRepo = AppDataSource.getRepository(CommunityMember);
-					// Buscar contra overlay (cm.X) Y participant (p.X) — el efectivo
-					// es overlay > participant, así que cualquier match cuenta.
-					const members = await memberRepo
+					// Trae todos los miembros de la comunidad para hacer matching en memoria
+					// con tokens normalizados — necesario para que "Hector Bolaños" matchee
+					// contra firstName="Hector Leonardo" + lastName="Bolanos Munoz".
+					const allMembers = await memberRepo
 						.createQueryBuilder('m')
 						.innerJoinAndSelect('m.participant', 'p')
 						.where('m.communityId = :cId', { cId })
-						.andWhere(
-							`(
-								LOWER(p.firstName) LIKE :q OR LOWER(p.lastName) LIKE :q OR
-								LOWER(p.email) LIKE :q OR p.cellPhone LIKE :qPhone OR
-								LOWER(m.firstName) LIKE :q OR LOWER(m.lastName) LIKE :q OR
-								LOWER(m.email) LIKE :q OR m.cellPhone LIKE :qPhone
-							)`,
-							{ q: `%${q}%`, qPhone: `%${query.trim()}%` },
-						)
 						.getMany();
 
-					return {
-						count: members.length,
-						members: members.map((m) => {
+					const tokens = qNorm.split(/\s+/).filter((t) => t.length >= 2);
+
+					// Para cada miembro calcula un score 0..1 (cuántos tokens del query
+					// están en el haystack), o 1.0 si matchea por tel/email exacto.
+					const scored = allMembers
+						.map((m) => {
 							const profile = resolveMemberProfile(m);
+							const haystackName = normalize(
+								`${profile.firstName ?? ''} ${profile.lastName ?? ''} ${profile.fullName ?? ''}`,
+							);
+							const haystackEmail = normalize(profile.email ?? '');
+							const memberPhone = (profile.cellPhone ?? '').replace(/\D/g, '');
+
+							// Match por teléfono (últimos 10 dígitos) — más fiable
+							if (isPhoneQuery && memberPhone.length >= 7) {
+								if (memberPhone.slice(-10) === last10) return { m, score: 1, matchType: 'phone' as const };
+								if (memberPhone.includes(last10) || last10.includes(memberPhone.slice(-10)))
+									return { m, score: 1, matchType: 'phone' as const };
+							}
+							// Email exacto
+							if (qLower.includes('@') && haystackEmail.includes(qLower)) {
+								return { m, score: 1, matchType: 'email' as const };
+							}
+							// Score por nombre: fracción de tokens que aparecen en haystack
+							if (tokens.length === 0) return { m, score: 0, matchType: 'name' as const };
+							const hits = tokens.filter((t) => haystackName.includes(t)).length;
+							return { m, score: hits / tokens.length, matchType: 'name' as const };
+						})
+						.filter((r) => r.score > 0);
+
+					// Prioriza matches exactos (score=1). Si no hay, devuelve parciales
+					// con score >= 0.5 (al menos la mitad de los tokens matchean) ordenados
+					// por score desc — para que el bot vea apellidos sueltos como sugerencia.
+					const exact = scored.filter((r) => r.score === 1);
+					const partial = scored
+						.filter((r) => r.score >= 0.5 && r.score < 1)
+						.sort((a, b) => b.score - a.score);
+					const results = exact.length > 0 ? exact : partial;
+
+					return {
+						count: results.length,
+						isPartialMatch: exact.length === 0 && partial.length > 0,
+						members: results.map((r) => {
+							const profile = resolveMemberProfile(r.m);
 							return {
-								memberId: m.id,
+								memberId: r.m.id,
 								name: profile.fullName,
 								email: profile.email,
 								cellPhone: profile.cellPhone,
-								state: m.state,
+								state: r.m.state,
+								matchScore: Math.round(r.score * 100) / 100,
+								matchedBy: r.matchType,
 							};
 						}),
 					};
@@ -1064,7 +1438,7 @@ export async function createChatStream(
 			},
 			listCommunityMeetings: {
 				description:
-					'Lista reuniones de una comunidad (pasadas y próximas). Útil para que el usuario identifique a qué reunión registrar asistencia. Ordena por fecha descendente.',
+					'Lista reuniones de una comunidad (pasadas y próximas). Útil para que el usuario identifique a qué reunión registrar asistencia. Incluye templates de series recurrentes (el template representa la primera ocurrencia de la serie). Ordena por fecha descendente.',
 				inputSchema: jsonSchema<{
 					communityId: string;
 					limit?: number;
@@ -1091,25 +1465,65 @@ export async function createChatStream(
 						return { error: e.message || 'Sin acceso' };
 					}
 					const meetingRepo = AppDataSource.getRepository(CommunityMeeting);
+					// IMPORTANTE: NO excluir templates de recurrencia. Cuando una serie
+					// recurrente arranca, el template MISMO representa la primera ocurrencia
+					// real (el cron solo genera las siguientes). Excluirlos haría que
+					// listCommunityMeetings devuelva 0 si solo existe el template y aún no
+					// se han materializado instancias. Sí excluimos announcements (comunicados,
+					// sin asistencia) y excepciones canceladas.
 					const qb = meetingRepo
 						.createQueryBuilder('m')
 						.where('m.communityId = :cId', { cId })
-						.andWhere('(m.isRecurrenceTemplate IS NULL OR m.isRecurrenceTemplate = 0)')
 						.andWhere('(m.isAnnouncement IS NULL OR m.isAnnouncement = 0)')
+						.andWhere('(m.exceptionType IS NULL OR m.exceptionType != :cancelled)', {
+							cancelled: 'cancelled',
+						})
 						.orderBy('m.startDate', 'DESC')
 						.limit(limit || 10);
 					if (onlyUpcoming) {
 						qb.andWhere('m.startDate >= datetime("now")');
 					}
 					const meetings = await qb.getMany();
+					const now = new Date();
+					// Resolver la timezone de la comunidad para formatear fechas legibles.
+					// Las fechas en BD están en UTC; el coordinador piensa en hora local.
+					// Si el LLM solo ve UTC, suele equivocarse al comparar contra "ayer".
+					const community = await AppDataSource.getRepository(Community).findOne({
+						where: { id: cId },
+						select: ['timezone'],
+					});
+					const tz = community?.timezone || 'America/Mexico_City';
+					const fmtDate = new Intl.DateTimeFormat('es-MX', {
+						timeZone: tz,
+						weekday: 'long',
+						year: 'numeric',
+						month: 'long',
+						day: 'numeric',
+					});
+					const fmtTime = new Intl.DateTimeFormat('es-MX', {
+						timeZone: tz,
+						hour: '2-digit',
+						minute: '2-digit',
+					});
+					const toLocal = (d: Date | null | undefined): string | null => {
+						if (!d) return null;
+						return `${fmtDate.format(d)}, ${fmtTime.format(d)}`;
+					};
 					return {
+						timezone: tz,
+						currentTimeLocal: toLocal(now),
 						count: meetings.length,
 						meetings: meetings.map((m) => ({
 							id: m.id,
 							title: m.title,
 							startDate: m.startDate,
+							startDateLocal: toLocal(m.startDate),
 							endDate: m.endDate,
-							isPast: m.startDate < new Date(),
+							endDateLocal: toLocal(m.endDate),
+							isPast: m.startDate < now,
+							isRecurring: !!m.recurrenceFrequency,
+							recurrenceFrequency: m.recurrenceFrequency ?? null,
+							isRecurrenceTemplate: !!m.isRecurrenceTemplate,
 						})),
 					};
 				},

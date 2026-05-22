@@ -18,12 +18,19 @@ const isMaximized = ref(false);
 const isConfigured = ref<boolean | null>(null);
 const input = ref('');
 const messagesContainer = ref<HTMLElement | null>(null);
+const fileInput = ref<HTMLInputElement | null>(null);
+const cameraInput = ref<HTMLInputElement | null>(null);
+const pendingImage = ref<{ dataUrl: string; mediaType: string } | null>(null);
+const imageError = ref<string | null>(null);
+const isDraggingImage = ref(false);
+const MAX_RAW_IMAGE_BYTES = 15 * 1024 * 1024; // 15 MB defensive limit before resize
 const retreatStore = useRetreatStore();
 const tableMesaStore = useTableMesaStore();
 const communityStore = useCommunityStore();
 const conversationId = ref<string | null>(null);
 const conversationList = ref<{ id: string; title: string | null; updatedAt: string }[]>([]);
 const showHistory = ref(false);
+const showHelp = ref(false);
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
 const {
@@ -222,12 +229,18 @@ const deleteConversationItem = async (id: string) => {
 const toggleHistory = async () => {
 	showHistory.value = !showHistory.value;
 	if (showHistory.value) {
+		showHelp.value = false;
 		try {
 			conversationList.value = await getChatConversations();
 		} catch {
 			conversationList.value = [];
 		}
 	}
+};
+
+const toggleHelp = () => {
+	showHelp.value = !showHelp.value;
+	if (showHelp.value) showHistory.value = false;
 };
 
 onMounted(async () => {
@@ -268,9 +281,127 @@ const renderMarkdown = (parts: any[] | undefined): string => {
 
 const handleSubmit = (e: Event) => {
 	e.preventDefault();
-	if (!input.value.trim() || chat.status === 'streaming') return;
-	chat.sendMessage({ text: input.value });
+	if (chat.status === 'streaming') return;
+	const text = input.value.trim();
+	const img = pendingImage.value;
+	if (!text && !img) return;
+	const payload: { text: string; files?: { type: 'file'; mediaType: string; url: string }[] } = {
+		text: text || 'Foto de lista de asistencia',
+	};
+	if (img) {
+		payload.files = [{ type: 'file', mediaType: img.mediaType, url: img.dataUrl }];
+	}
+	chat.sendMessage(payload);
 	input.value = '';
+	pendingImage.value = null;
+	imageError.value = null;
+	showHelp.value = false;
+	if (fileInput.value) fileInput.value.value = '';
+	if (cameraInput.value) cameraInput.value.value = '';
+};
+
+// --- Image attach (camera / file / paste / drag&drop) ---
+// Resize on the client to keep payload manageable: max 1600px on the long side, JPEG 0.85.
+// Uses HTMLCanvasElement (not OffscreenCanvas) for Safari iOS compatibility.
+async function loadImage(file: File | Blob): Promise<HTMLImageElement> {
+	const dataUrl = await blobToDataUrl(file);
+	return new Promise((resolve, reject) => {
+		const img = new Image();
+		img.onload = () => resolve(img);
+		img.onerror = () => reject(new Error('No se pudo leer la imagen'));
+		img.src = dataUrl;
+	});
+}
+
+async function resizeImage(file: File | Blob): Promise<{ dataUrl: string; mediaType: string }> {
+	const MAX_SIDE = 1600;
+	const img = await loadImage(file);
+	const longest = Math.max(img.naturalWidth, img.naturalHeight);
+	const scale = longest > MAX_SIDE ? MAX_SIDE / longest : 1;
+	const w = Math.round(img.naturalWidth * scale);
+	const h = Math.round(img.naturalHeight * scale);
+	const canvas = document.createElement('canvas');
+	canvas.width = w;
+	canvas.height = h;
+	const ctx = canvas.getContext('2d');
+	if (!ctx) throw new Error('Canvas no soportado');
+	ctx.drawImage(img, 0, 0, w, h);
+	const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+	return { dataUrl, mediaType: 'image/jpeg' };
+}
+
+async function attachImageFile(file: File | Blob) {
+	imageError.value = null;
+	if (!file.type.startsWith('image/')) {
+		imageError.value = 'El archivo debe ser una imagen.';
+		return;
+	}
+	if (file.size > MAX_RAW_IMAGE_BYTES) {
+		imageError.value = 'La imagen es demasiado grande (máx. 15 MB).';
+		return;
+	}
+	try {
+		pendingImage.value = await resizeImage(file);
+		showHelp.value = false;
+	} catch (e: any) {
+		imageError.value = e?.message || 'No se pudo procesar la imagen.';
+	}
+}
+
+const onFileInputChange = async (e: Event) => {
+	const target = e.target as HTMLInputElement;
+	const file = target.files?.[0];
+	if (file) await attachImageFile(file);
+};
+
+const onPaste = async (e: ClipboardEvent) => {
+	const items = e.clipboardData?.items;
+	if (!items) return;
+	for (let i = 0; i < items.length; i++) {
+		const it = items[i];
+		if (it.kind === 'file' && it.type.startsWith('image/')) {
+			const file = it.getAsFile();
+			if (file) {
+				e.preventDefault();
+				await attachImageFile(file);
+				break;
+			}
+		}
+	}
+};
+
+const onDragOver = (e: DragEvent) => {
+	if (!e.dataTransfer) return;
+	const hasFile = Array.from(e.dataTransfer.items || []).some((it) => it.kind === 'file');
+	if (!hasFile) return;
+	e.preventDefault();
+	isDraggingImage.value = true;
+};
+
+const onDragLeave = (e: DragEvent) => {
+	if (e.target === e.currentTarget) isDraggingImage.value = false;
+};
+
+const onDrop = async (e: DragEvent) => {
+	e.preventDefault();
+	isDraggingImage.value = false;
+	const file = e.dataTransfer?.files?.[0];
+	if (file) await attachImageFile(file);
+};
+
+const removePendingImage = () => {
+	pendingImage.value = null;
+	imageError.value = null;
+	if (fileInput.value) fileInput.value.value = '';
+	if (cameraInput.value) cameraInput.value.value = '';
+};
+
+const triggerFilePicker = () => {
+	fileInput.value?.click();
+};
+
+const triggerCamera = () => {
+	cameraInput.value?.click();
 };
 
 // --- Voice input ---
@@ -343,16 +474,26 @@ const speakMessage = (parts: any[] | undefined) => {
 	}
 };
 
-// --- Persist: filter out audio data URLs to avoid bloating localStorage ---
+// --- Persist: filter out file data URLs (audio + image) to avoid bloating localStorage ---
 function filterMessagesForStorage(msgs: any[]): any[] {
 	return msgs.map((msg) => ({
 		...msg,
 		parts: msg.parts?.map((p: any) => {
-			if (p.type === 'file') return { type: 'text', text: '(mensaje de voz)' };
+			if (p.type === 'file') {
+				const isImage = typeof p.mediaType === 'string' && p.mediaType.startsWith('image/');
+				return { type: 'text', text: isImage ? '(imagen)' : '(mensaje de voz)' };
+			}
 			return p;
 		}),
 	}));
 }
+
+const getImageParts = (parts: any[] | undefined): { url: string; mediaType: string }[] => {
+	if (!parts) return [];
+	return parts
+		.filter((p) => p.type === 'file' && typeof p.mediaType === 'string' && p.mediaType.startsWith('image/'))
+		.map((p) => ({ url: p.url, mediaType: p.mediaType }));
+};
 </script>
 
 <template>
@@ -383,6 +524,17 @@ function filterMessagesForStorage(msgs: any[]): any[] {
 						>
 							<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+							</svg>
+						</button>
+						<!-- Help button -->
+						<button
+							class="text-white/80 hover:text-white transition-colors"
+							:class="showHelp ? 'text-white' : ''"
+							title="¿Qué puedo hacer?"
+							@click="toggleHelp"
+						>
+							<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093M12 17h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
 							</svg>
 						</button>
 						<!-- History button -->
@@ -461,8 +613,87 @@ function filterMessagesForStorage(msgs: any[]): any[] {
 					</div>
 				</div>
 
+				<!-- Help Panel -->
+				<div v-if="showHelp" class="flex-1 overflow-y-auto p-3 space-y-3 text-sm">
+					<p class="font-semibold text-gray-800 dark:text-gray-100">¿Qué puedo hacer por ti?</p>
+
+					<section>
+						<h4 class="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-400 mb-1">Consultas de retiro</h4>
+						<ul class="list-disc pl-5 space-y-1 text-gray-700 dark:text-gray-300">
+							<li>Buscar participantes por nombre, apellido o <strong>número de retiro</strong> (ej. "busca al 29").</li>
+							<li>Listar caminantes, servidores o lista de espera de un retiro.</li>
+							<li>Ver detalles completos de una persona (teléfono, dirección, contactos de emergencia, dieta, medicación).</li>
+							<li>Resumen de pagos del retiro: total recaudado, quiénes han pagado.</li>
+							<li>Estado de palancas: quién las recibió, quién falta, quién las pidió.</li>
+							<li>Cumpleaños durante el retiro.</li>
+							<li>Inventario y alertas de artículos con déficit.</li>
+							<li>Responsabilidades asignadas.</li>
+						</ul>
+					</section>
+
+					<section>
+						<h4 class="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-400 mb-1">Inventario del retiro</h4>
+						<ul class="list-disc pl-5 space-y-1 text-gray-700 dark:text-gray-300">
+							<li>Ver inventario completo, alertas de déficit y unidades.</li>
+							<li>
+								<strong>📷 Foto del inventario</strong>: adjunta una foto de la mesa/caja —
+								extraigo cada item y su cantidad, los mapeo contra el inventario del retiro y
+								registro lo actual (modo <em>set</em>: la foto es snapshot).
+							</li>
+							<li>
+								<strong>🎙 Audio de inventario</strong>: graba un mensaje de voz como
+								"llegaron 5 jabones y 3 detergentes" — detecto si es <em>incremento</em> ("llegan",
+								"agrega") o <em>snapshot</em> ("hay", "son").
+							</li>
+							<li>Items que no estaban en la lista se crean como ad-hoc para este retiro (sin tocar el catálogo global).</li>
+						</ul>
+					</section>
+
+					<section>
+						<h4 class="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-400 mb-1">Mesas y camas</h4>
+						<ul class="list-disc pl-5 space-y-1 text-gray-700 dark:text-gray-300">
+							<li>Ver asignaciones de mesas con líderes y caminantes.</li>
+							<li>Asignar, quitar o <strong>mover</strong> un caminante de mesa.</li>
+							<li>Asignar líder o co-líder a una mesa.</li>
+							<li>Ver camas, conflictos de ronquidos y personas mayores en literas altas.</li>
+							<li>Asignar o mover un participante a otra cama / habitación.</li>
+						</ul>
+					</section>
+
+					<section>
+						<h4 class="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-400 mb-1">Comunidades y reuniones</h4>
+						<ul class="list-disc pl-5 space-y-1 text-gray-700 dark:text-gray-300">
+							<li>Listar las comunidades que administras.</li>
+							<li>Buscar un miembro por nombre, email o teléfono.</li>
+							<li><strong>Agregar miembros en lote</strong> desde una lista en texto libre.</li>
+							<li>Listar reuniones (pasadas y próximas) para elegir a cuál marcar asistencia.</li>
+							<li>Registrar asistencia de varios miembros a una reunión.</li>
+							<li>
+								<strong>📷 Foto de lista de asistencia</strong>: adjunta una foto de la hoja escrita a mano —
+								extraigo los nombres, identifico quién ya es miembro, propongo crear los nuevos como
+								<em>pendientes de verificación</em>, te muestro un resumen y aplico tras tu confirmación.
+							</li>
+						</ul>
+					</section>
+
+					<section>
+						<h4 class="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-400 mb-1">Cómo interactuar</h4>
+						<ul class="list-disc pl-5 space-y-1 text-gray-700 dark:text-gray-300">
+							<li>Escribe en lenguaje natural. Puedo entender "la reunión de ayer", "los tres últimos pagos", etc.</li>
+							<li>Usa el <strong>micrófono</strong> para dictar (incluso números separados como "29, 26 y 30").</li>
+							<li>Adjunta una <strong>imagen</strong>: en celular usa el botón de cámara para tomar la foto directo, o el de galería; en escritorio usa el botón de galería, pega (Ctrl/Cmd+V) o arrástrala al chat.</li>
+							<li>Antes de cualquier cambio importante (agregar miembros, mover camas), te muestro qué voy a hacer y espero tu "sí".</li>
+							<li>Si activas el ícono de altavoz, te leo mis respuestas en voz alta.</li>
+						</ul>
+					</section>
+
+					<p class="text-xs italic text-gray-500 dark:text-gray-400">
+						Tip: si estás navegando dentro de un retiro o una comunidad, ya tengo ese contexto y no necesitas mencionarlo.
+					</p>
+				</div>
+
 				<!-- Conversation History Panel -->
-				<div v-if="showHistory" class="flex-1 overflow-y-auto p-3 space-y-2">
+				<div v-else-if="showHistory" class="flex-1 overflow-y-auto p-3 space-y-2">
 					<p class="text-xs text-gray-500 dark:text-gray-400 font-medium mb-2">Conversaciones anteriores</p>
 					<div v-if="conversationList.length === 0" class="text-xs text-gray-400 dark:text-gray-500">
 						No hay conversaciones guardadas.
@@ -495,7 +726,23 @@ function filterMessagesForStorage(msgs: any[]): any[] {
 				</div>
 
 				<!-- Messages -->
-				<div v-else ref="messagesContainer" class="flex-1 overflow-y-auto p-3 space-y-3">
+				<div
+					v-else
+					ref="messagesContainer"
+					class="flex-1 overflow-y-auto p-3 space-y-3 relative"
+					:class="isDraggingImage ? 'ring-2 ring-blue-400 ring-inset' : ''"
+					@dragover="onDragOver"
+					@dragleave="onDragLeave"
+					@drop="onDrop"
+				>
+					<div
+						v-if="isDraggingImage"
+						class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-blue-50/90 dark:bg-blue-900/40"
+					>
+						<p class="text-sm font-medium text-blue-700 dark:text-blue-300">
+							Suelta la imagen para adjuntar
+						</p>
+					</div>
 					<div v-if="chat.messages.length === 0" class="p-2 space-y-2">
 						<p class="text-gray-600 dark:text-gray-300 text-sm font-medium">
 							Hola, soy Jessy, tu asistente virtual.
@@ -514,9 +761,11 @@ function filterMessagesForStorage(msgs: any[]): any[] {
 							<li>Camas y disponibilidad</li>
 							<li>Agregar miembros a una comunidad desde una lista</li>
 							<li>Registrar asistencia a reuniones de la comunidad</li>
+							<li>Procesar fotos de listas de asistencia (envía la foto y elige la reunión)</li>
+							<li>Registrar inventario por foto o voz (extrae items y cantidades)</li>
 						</ul>
 						<p class="text-gray-400 dark:text-gray-500 text-xs italic mt-2">
-							Escribe o usa el micr&oacute;fono para comenzar...
+							Escribe, usa el micr&oacute;fono o adjunta una foto para comenzar...
 						</p>
 					</div>
 					<template v-for="message in chat.messages" :key="message.id">
@@ -525,9 +774,18 @@ function filterMessagesForStorage(msgs: any[]): any[] {
 							class="flex justify-end"
 						>
 							<div
-								class="max-w-[80%] rounded-lg bg-blue-600 px-3 py-2 text-sm text-white"
+								class="max-w-[80%] rounded-lg bg-blue-600 px-3 py-2 text-sm text-white space-y-2"
 							>
-								{{ getTextContent(message.parts) }}
+								<img
+									v-for="(img, idx) in getImageParts(message.parts)"
+									:key="idx"
+									:src="img.url"
+									alt="Adjunto"
+									class="block max-h-48 rounded border border-white/30 object-contain"
+								/>
+								<span v-if="getTextContent(message.parts)">
+									{{ getTextContent(message.parts) }}
+								</span>
 							</div>
 						</div>
 						<div
@@ -573,6 +831,41 @@ function filterMessagesForStorage(msgs: any[]): any[] {
 							{{ isFallbackMode ? 'Grabando audio...' : (interimTranscript || 'Escuchando...') }}
 						</span>
 					</div>
+					<!-- Pending image preview -->
+					<div v-if="pendingImage" class="mb-2 flex items-center gap-2">
+						<div class="relative inline-block">
+							<img :src="pendingImage.dataUrl" alt="Imagen adjunta" class="h-16 w-16 rounded border border-gray-300 object-cover dark:border-gray-600" />
+							<button
+								type="button"
+								class="absolute -top-2 -right-2 rounded-full bg-gray-800 p-0.5 text-white shadow hover:bg-gray-900"
+								title="Quitar imagen"
+								@click="removePendingImage"
+							>
+								<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+								</svg>
+							</button>
+						</div>
+						<span class="text-xs text-gray-500 dark:text-gray-400">
+							Imagen lista. Escribe contexto o envía sin texto.
+						</span>
+					</div>
+					<p v-if="imageError" class="mb-2 text-xs text-red-500">{{ imageError }}</p>
+					<input
+						ref="fileInput"
+						type="file"
+						accept="image/*"
+						class="hidden"
+						@change="onFileInputChange"
+					/>
+					<input
+						ref="cameraInput"
+						type="file"
+						accept="image/*"
+						capture="environment"
+						class="hidden"
+						@change="onFileInputChange"
+					/>
 					<div class="flex gap-2">
 						<!-- Mic button -->
 						<button
@@ -591,17 +884,45 @@ function filterMessagesForStorage(msgs: any[]): any[] {
 								<path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0zM9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
 							</svg>
 						</button>
+						<!-- Camera button (mobile-only: opens the camera directly) -->
+						<button
+							type="button"
+							class="md:hidden rounded-lg px-3 py-2 text-sm bg-gray-200 text-gray-600 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500 transition-colors"
+							:disabled="chat.status === 'streaming'"
+							title="Tomar foto con la cámara"
+							@click="triggerCamera"
+						>
+							<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h3l2-2h4l2 2h3a2 2 0 012 2v11a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+								<circle cx="12" cy="13" r="3.5" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+							</svg>
+						</button>
+						<!-- File / gallery button -->
+						<button
+							type="button"
+							class="rounded-lg px-3 py-2 text-sm bg-gray-200 text-gray-600 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500 transition-colors"
+							:disabled="chat.status === 'streaming'"
+							title="Adjuntar imagen (galería o archivo)"
+							@click="triggerFilePicker"
+						>
+							<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a2 2 0 012-2h12a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V5z" />
+								<circle cx="9" cy="9" r="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 17l5-5 4 4 3-3 4 4" />
+							</svg>
+						</button>
 						<input
 							v-model="input"
 							type="text"
-							:placeholder="isListening ? 'Escuchando...' : 'Escribe tu pregunta...'"
+							:placeholder="isListening ? 'Escuchando...' : (pendingImage ? 'Describe la foto (opcional)...' : 'Escribe tu pregunta...')"
 							class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
 							:disabled="chat.status === 'streaming' || isListening"
+							@paste="onPaste"
 						/>
 						<button
 							type="submit"
 							class="rounded-lg bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
-							:disabled="!input.trim() || chat.status === 'streaming'"
+							:disabled="(!input.trim() && !pendingImage) || chat.status === 'streaming'"
 						>
 							<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path

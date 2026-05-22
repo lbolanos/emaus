@@ -37,7 +37,11 @@ export const config = {
 		// Vision model
 		visionProvider: process.env.AI_VISION_PROVIDER || 'google',
 		visionModel: process.env.AI_VISION_MODEL || 'gemini-2.0-flash',
-		maxTokens: parseInt(process.env.AI_CHAT_MAX_TOKENS || '1024'),
+		// 4096 default — suficiente para respuestas largas del chat. Los modelos
+		// "thinking" (gemini-3-pro-preview, gemini-3.5-flash) consumen muchos tokens
+		// en razonamiento interno; si el stream se corta con finishReason=length
+		// sube AI_CHAT_MAX_TOKENS a 8192 o 16384.
+		maxTokens: parseInt(process.env.AI_CHAT_MAX_TOKENS || '4096'),
 		// Provider API keys (set the one matching AI_PROVIDER)
 		googleApiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || '',
 		anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',

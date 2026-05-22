@@ -5,6 +5,9 @@
  * Follows the same pattern as fieldMapping.simple.test.ts.
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
+
 // ---- Extracted logic: birthday date matching (string-based, timezone-safe) ----
 
 const toYMD = (d: Date | string): string => {
@@ -105,6 +108,50 @@ function filterPalancas(participants: PalancaParticipant[]) {
 	const withoutPalancas = walkers.filter((p) => !p.palancasReceived || p.palancasReceived.trim() === '');
 	const requested = walkers.filter((p) => p.palancasRequested);
 	return { totalWalkers: walkers.length, withPalancas: withPalancas.length, withoutPalancas: withoutPalancas.length, requested: requested.length };
+}
+
+// ---- Extracted logic: fuzzy matching (community + inventory) ----
+// Replica la lógica tokenizada que vive dentro de las tools del bot para que
+// podamos testearla sin levantar BD ni AI SDK.
+
+function normalizeForMatch(s: string): string {
+	return s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+}
+
+function tokenizeQuery(query: string): string[] {
+	return normalizeForMatch(query.trim())
+		.split(/\s+/)
+		.filter((t) => t.length >= 2);
+}
+
+interface ScoredCandidate {
+	score: number;
+	matchType: 'phone' | 'email' | 'name';
+}
+
+function scoreNameMatch(query: string, haystack: string): number {
+	const tokens = tokenizeQuery(query);
+	if (tokens.length === 0) return 0;
+	const norm = normalizeForMatch(haystack);
+	const hits = tokens.filter((t) => norm.includes(t)).length;
+	return hits / tokens.length;
+}
+
+function isPartialMatch(scores: number[]): boolean {
+	const exact = scores.filter((s) => s === 1).length;
+	const partial = scores.filter((s) => s >= 0.5 && s < 1).length;
+	return exact === 0 && partial > 0;
+}
+
+function phoneLast10(s: string): string {
+	return s.replace(/\D/g, '').slice(-10);
+}
+
+function phonesMatch(a: string, b: string): boolean {
+	const lA = phoneLast10(a);
+	const lB = phoneLast10(b);
+	if (lA.length < 7 || lB.length < 7) return false;
+	return lA === lB;
 }
 
 // ---- Extracted logic: isConfigured ----
@@ -377,6 +424,219 @@ describe('AI Chat Service - Pure Logic Tests', () => {
 
 		test('should convert Date object to YYYY-MM-DD', () => {
 			expect(toYMD(new Date('1988-02-20T00:00:00Z'))).toBe('1988-02-20');
+		});
+	});
+
+	describe('System prompt — Foto de lista de asistencia', () => {
+		const source = fs.readFileSync(
+			path.join(__dirname, '../../services/aiChatService.ts'),
+			'utf8',
+		);
+
+		test('mentions the new capability in the capabilities list', () => {
+			expect(source).toMatch(/Procesar fotos de listas de asistencia/);
+		});
+
+		test('contains the IMPORTANTE block for image handling', () => {
+			expect(source).toMatch(/IMPORTANTE\s*[—-]\s*Foto de lista de asistencia/);
+		});
+
+		test('instructs the model to identify the community before mutating', () => {
+			expect(source).toMatch(/getMyAdminCommunities/);
+			expect(source).toMatch(/NUNCA asumas la comunidad/);
+		});
+
+		test('instructs the model to identify the meeting via listCommunityMeetings', () => {
+			expect(source).toMatch(/listCommunityMeetings/);
+		});
+
+		test('requires a consolidated preview before mutating', () => {
+			expect(source).toMatch(/preview/i);
+			expect(source).toMatch(/Confirmas/);
+		});
+
+		test('uses pending_verification for new members from photo', () => {
+			expect(source).toMatch(/pending_verification/);
+			expect(source).toMatch(/Agregado desde foto de asistencia/);
+		});
+
+		test('subió stepCountIs para acomodar el flujo multi-paso', () => {
+			expect(source).toMatch(/stepCountIs\(8\)/);
+		});
+	});
+
+	describe('System prompt — Foto/audio de inventario', () => {
+		const source = fs.readFileSync(
+			path.join(__dirname, '../../services/aiChatService.ts'),
+			'utf8',
+		);
+
+		test('lista la capacidad nueva de inventario', () => {
+			expect(source).toMatch(/Registrar inventario desde foto o audio/);
+		});
+
+		test('incluye la sección IMPORTANTE para foto/audio de inventario', () => {
+			expect(source).toMatch(/IMPORTANTE\s*[—-]\s*Foto o audio de inventario/);
+		});
+
+		test('instruye detectar intent snapshot vs incremento', () => {
+			expect(source).toMatch(/snapshot/i);
+			expect(source).toMatch(/incremento/i);
+			expect(source).toMatch(/llegan|llegaron|agrega/i);
+		});
+
+		test('define las 3 tools nuevas de inventario', () => {
+			expect(source).toMatch(/findInventoryItem:/);
+			expect(source).toMatch(/updateInventoryQuantity:/);
+			expect(source).toMatch(/addCustomInventoryItem:/);
+		});
+
+		test('siempre busca match en el inventario y muestra el resultado al usuario', () => {
+			expect(source).toMatch(/SIEMPRE llama findInventoryItem/);
+			expect(source).toMatch(/sin tomar decisi[óo]n autom[áa]tica|NO decidas t[úu]/);
+		});
+
+		test('cuando varios artículos matchean al mismo item genérico, pregunta antes de unificar', () => {
+			expect(source).toMatch(/Marcadores y Plumas/); // ejemplo de nombre genérico
+			expect(source).toMatch(/sumo todos a ese item.*ad-hoc separados/i);
+		});
+
+		test('exige enumerar cada producto distinto antes de matchear', () => {
+			expect(source).toMatch(/DESCRIBE PRIMERO TODO LO QUE VES/);
+			expect(source).toMatch(/marca\/color\/modelo distintos/);
+		});
+	});
+
+	describe('Fuzzy matching — community y inventory', () => {
+		describe('normalizeForMatch', () => {
+			test('quita diacríticos', () => {
+				expect(normalizeForMatch('Bolaños')).toBe('bolanos');
+				expect(normalizeForMatch('René Solórzano')).toBe('rene solorzano');
+				expect(normalizeForMatch('Pérez')).toBe('perez');
+			});
+
+			test('lowercase', () => {
+				expect(normalizeForMatch('JORGE AVALOS')).toBe('jorge avalos');
+			});
+		});
+
+		describe('tokenizeQuery', () => {
+			test('separa por espacios y descarta tokens muy cortos', () => {
+				expect(tokenizeQuery('Hector Bolaños')).toEqual(['hector', 'bolanos']);
+				expect(tokenizeQuery('  Carlos   Ponzio  ')).toEqual(['carlos', 'ponzio']);
+			});
+
+			test('descarta tokens de 1 letra (preposiciones, iniciales)', () => {
+				expect(tokenizeQuery('Juan de la Torre')).toEqual(['juan', 'de', 'la', 'torre']);
+				// "a" sí se filtra (< 2), "de" y "la" pasan
+			});
+
+			test('query vacía produce array vacío', () => {
+				expect(tokenizeQuery('')).toEqual([]);
+				expect(tokenizeQuery('   ')).toEqual([]);
+			});
+		});
+
+		describe('scoreNameMatch', () => {
+			test('match perfecto da score 1', () => {
+				const score = scoreNameMatch('Hector Bolaños', 'Hector Leonardo Bolanos Munoz');
+				expect(score).toBe(1);
+			});
+
+			test('match parcial da score fraccionario', () => {
+				// "Pedro Bolaños": pedro NO está, bolanos SÍ → 1/2 = 0.5
+				const score = scoreNameMatch('Pedro Bolaños', 'Hector Leonardo Bolanos');
+				expect(score).toBe(0.5);
+			});
+
+			test('un solo apellido matchea contra nombre completo (score 1)', () => {
+				const score = scoreNameMatch('Bolaños', 'Hector Leonardo Bolanos Munoz');
+				expect(score).toBe(1);
+			});
+
+			test('orden invertido (apellido primero) sigue matcheando', () => {
+				const score = scoreNameMatch('Bolaños Hector', 'Hector Leonardo Bolanos Munoz');
+				expect(score).toBe(1);
+			});
+
+			test('sin coincidencia da score 0', () => {
+				const score = scoreNameMatch('Pedro Ramirez', 'Hector Bolanos');
+				expect(score).toBe(0);
+			});
+
+			test('case-insensitive y sin acentos', () => {
+				const score = scoreNameMatch('RENÉ SOLÓRZANO', 'rene solorzano mercado');
+				expect(score).toBe(1);
+			});
+		});
+
+		describe('isPartialMatch', () => {
+			test('true cuando solo hay matches parciales (≥0.5 y <1)', () => {
+				expect(isPartialMatch([0.5, 0.7])).toBe(true);
+			});
+
+			test('false si hay al menos un match exacto (score=1)', () => {
+				expect(isPartialMatch([1, 0.5])).toBe(false);
+			});
+
+			test('false si solo hay scores bajos (<0.5)', () => {
+				expect(isPartialMatch([0.3, 0.4])).toBe(false);
+			});
+
+			test('false si no hay candidatos', () => {
+				expect(isPartialMatch([])).toBe(false);
+			});
+		});
+
+		describe('phonesMatch (últimos 10 dígitos)', () => {
+			test('mismos 10 dígitos con formato distinto matchean', () => {
+				expect(phonesMatch('+52 55 1234 5678', '5512345678')).toBe(true);
+				expect(phonesMatch('(55) 1234-5678', '5512345678')).toBe(true);
+				expect(phonesMatch('+1 555 123 4567', '5551234567')).toBe(true);
+			});
+
+			test('teléfonos distintos no matchean', () => {
+				expect(phonesMatch('5512345678', '5511112222')).toBe(false);
+			});
+
+			test('teléfonos muy cortos (<7 dígitos) no matchean', () => {
+				expect(phonesMatch('123', '123')).toBe(false);
+			});
+
+			test('un teléfono vacío no matchea', () => {
+				expect(phonesMatch('', '5512345678')).toBe(false);
+				expect(phonesMatch('5512345678', '')).toBe(false);
+			});
+
+			test('mismo número aun con +52 implícito (último 10 igual)', () => {
+				// Caso real: prefijo +52 vs sin prefijo, mismos 10 dígitos
+				expect(phonesMatch('5215511406973', '5511406973')).toBe(true);
+			});
+		});
+
+		describe('escenarios reales del bot (asistencia / inventario)', () => {
+			test("Hector Bolaños matchea contra 'Hector Leonardo Bolanos Munoz' (caso real)", () => {
+				expect(scoreNameMatch('Hector Bolaños', 'Hector Leonardo Bolanos Munoz')).toBe(1);
+			});
+
+			test("'Plumas' matchea con 'Marcadores y Plumas' del catálogo (item genérico)", () => {
+				// El bot detecta el match aunque sea parcial — el prompt manda
+				// preguntar al usuario antes de unificar.
+				expect(scoreNameMatch('Plumas', 'Marcadores y Plumas')).toBe(1);
+			});
+
+			test("'Bolígrafo Bic azul' NO matchea perfecto con 'Marcadores y Plumas' (score parcial)", () => {
+				// El nombre específico tiene 3 tokens; el genérico solo cubre 0 → score 0
+				const score = scoreNameMatch('Bolígrafo Bic azul', 'Marcadores y Plumas');
+				expect(score).toBe(0);
+			});
+
+			test("Maria López matchea con 'Mario Amado López López' (apellido único compartido)", () => {
+				// Real: el bot encontró match cuando solo el apellido coincidía
+				const score = scoreNameMatch('Maria Lopez', 'Mario Amado López López');
+				// "maria" NO está, "lopez" SÍ → 1/2 = 0.5 (partial match)
+				expect(score).toBe(0.5);
+			});
 		});
 	});
 
