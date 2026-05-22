@@ -2749,6 +2749,81 @@ describe('Community Service', () => {
 			).rejects.toThrow('EMAIL_DUPLICATE_IN_COMMUNITY');
 		});
 
+		// ---- Teléfono: misma garantía que email ----
+		it('SECURITY: rechaza colisión de teléfono dentro de la misma comunidad (overlay vs overlay)', async () => {
+			const pA = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const memberA = await service.addMember(testCommunity.id, pA.id);
+			await service.updateMemberProfile(testCommunity.id, memberA.id, {
+				cellPhone: '5512345678',
+			});
+
+			const pB = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const memberB = await service.addMember(testCommunity.id, pB.id);
+
+			// Mismo número con formato distinto (espacios, +52) — debe colisionar
+			// por normalización a últimos 10 dígitos.
+			await expect(
+				service.updateMemberProfile(testCommunity.id, memberB.id, {
+					cellPhone: '+52 55 1234 5678',
+				}),
+			).rejects.toThrow('PHONE_DUPLICATE_IN_COMMUNITY');
+		});
+
+		it('detecta colisión contra el participant.cellPhone heredado (overlay null) de otro miembro', async () => {
+			// Miembro A sin overlay — su cellPhone efectivo es participant.cellPhone
+			const pA = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const partRepo = AppDataSource.getRepository(
+				require('@/entities/participant.entity').Participant,
+			);
+			await partRepo.update(pA.id, { cellPhone: '5599998888' });
+			await service.addMember(testCommunity.id, pA.id);
+
+			// Miembro B intenta poner overlay con el mismo tel — debe bloquearse.
+			// Este es el caso real reportado: Fernando Marin con 2 perfiles, ambos
+			// con tel en participant y overlay NULL.
+			const pB = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const memberB = await service.addMember(testCommunity.id, pB.id);
+
+			await expect(
+				service.updateMemberProfile(testCommunity.id, memberB.id, {
+					cellPhone: '5599998888',
+				}),
+			).rejects.toThrow('PHONE_DUPLICATE_IN_COMMUNITY');
+		});
+
+		it('permite mismo teléfono en COMUNIDADES DISTINTAS', async () => {
+			const otherCommunity = await TestDataFactory.createTestCommunity(testUser.id, {
+				name: 'Comunidad C',
+			});
+			const pA = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const memberA = await service.addMember(testCommunity.id, pA.id);
+			await service.updateMemberProfile(testCommunity.id, memberA.id, {
+				cellPhone: '5577776666',
+			});
+
+			const pB = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const memberB = await service.addMember(otherCommunity.id, pB.id);
+
+			const updated = await service.updateMemberProfile(otherCommunity.id, memberB.id, {
+				cellPhone: '5577776666',
+			});
+			expect((updated.member as any)?.cellPhone).toBe('5577776666');
+		});
+
+		it('no reporta colisión cuando el teléfono es el mismo del miembro (no cambia)', async () => {
+			const pA = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const memberA = await service.addMember(testCommunity.id, pA.id);
+			await service.updateMemberProfile(testCommunity.id, memberA.id, {
+				cellPhone: '5566665555',
+			});
+
+			// Re-set del mismo tel debe ser no-op
+			const updated = await service.updateMemberProfile(testCommunity.id, memberA.id, {
+				cellPhone: '5566665555',
+			});
+			expect((updated.member as any)?.cellPhone).toBe('5566665555');
+		});
+
 		it('SECURITY: el partial unique index dispara EMAIL_DUPLICATE_IN_COMMUNITY si la race condition salta el check', async () => {
 			// Defense in depth: simulamos la race condition insertando directamente
 			// otro miembro con email overlay para evitar el check del service y

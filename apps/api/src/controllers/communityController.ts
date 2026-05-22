@@ -112,8 +112,18 @@ export class CommunityController {
 	static async createCommunityMember(req: Request, res: Response) {
 		const { id } = req.params;
 		const participantData = req.body;
-		const member = await communityService.createCommunityMember(id, participantData);
-		res.status(201).json(member);
+		try {
+			const member = await communityService.createCommunityMember(id, participantData);
+			res.status(201).json(member);
+		} catch (err: any) {
+			if (err?.message === 'PHONE_DUPLICATE_IN_COMMUNITY') {
+				return res.status(409).json({
+					code: 'PHONE_DUPLICATE_IN_COMMUNITY',
+					message: 'Ya existe otro miembro de esta comunidad con ese teléfono.',
+				});
+			}
+			throw err;
+		}
 	}
 
 	static async importFromRetreat(req: Request, res: Response) {
@@ -246,6 +256,12 @@ export class CommunityController {
 				return res.status(409).json({
 					code: 'EMAIL_DUPLICATE_IN_COMMUNITY',
 					message: 'Ya existe otro miembro de esta comunidad con ese correo.',
+				});
+			}
+			if (err?.message === 'PHONE_DUPLICATE_IN_COMMUNITY') {
+				return res.status(409).json({
+					code: 'PHONE_DUPLICATE_IN_COMMUNITY',
+					message: 'Ya existe otro miembro de esta comunidad con ese teléfono.',
 				});
 			}
 			throw err;

@@ -447,6 +447,39 @@ export class CommunityService {
 		}));
 	}
 
+	/**
+	 * Detecta si el cellPhone dado colisiona con OTRO miembro de la misma
+	 * comunidad. El cellPhone "efectivo" puede vivir en overlay (community_member.cellPhone)
+	 * o en participant.cellPhone — chequea ambos. Compara por últimos 10 dígitos
+	 * (ignora formato/espacios/prefijo +52). Pensado para llamarse antes de crear
+	 * o actualizar miembros. Devuelve el primer miembro colisionando o null.
+	 */
+	private async findPhoneCollision(
+		communityId: string,
+		cellPhone: string | null | undefined,
+		excludeMemberId?: string,
+	): Promise<CommunityMember | null> {
+		if (!cellPhone) return null;
+		const last10 = cellPhone.replace(/\D/g, '').slice(-10);
+		if (last10.length < 7) return null; // tels muy cortos no son confiables
+
+		// Trae los miembros de la comunidad con su participant para evaluar overlay+participant.
+		const qb = this.memberRepo
+			.createQueryBuilder('cm')
+			.leftJoinAndSelect('cm.participant', 'p')
+			.where('cm.communityId = :cid', { cid: communityId });
+		if (excludeMemberId) qb.andWhere('cm.id != :mid', { mid: excludeMemberId });
+		const members = await qb.getMany();
+
+		for (const m of members) {
+			const effective = (m.cellPhone ?? m.participant?.cellPhone ?? '')
+				.replace(/\D/g, '')
+				.slice(-10);
+			if (effective.length >= 7 && effective === last10) return m;
+		}
+		return null;
+	}
+
 	async addMember(
 		communityId: string,
 		participantId: string,
@@ -504,6 +537,16 @@ export class CommunityService {
 		},
 		state: MemberState = 'active_member',
 	) {
+		// Bloquea tel duplicado en la misma comunidad. Si llaman desde bulkAddMembers,
+		// ahí también verifico para devolver mejor mensaje, pero aquí es safety net
+		// adicional (otras rutas como POST /communities/:id/members/create lo cruzan).
+		if (participantData.cellPhone) {
+			const collision = await this.findPhoneCollision(communityId, participantData.cellPhone);
+			if (collision) {
+				throw new Error('PHONE_DUPLICATE_IN_COMMUNITY');
+			}
+		}
+
 		// 1. Create participant with retreatId: null and minimal required fields
 		const participant = this.participantRepo.create({
 			...participantData,
@@ -684,6 +727,19 @@ export class CommunityService {
 		}
 		if (typeof profile.cellPhone === 'string') {
 			const trimmed = profile.cellPhone.trim();
+			// Bloquea tel duplicado en la misma comunidad (otro miembro distinto).
+			// Solo valida si el tel cambió respecto al efectivo actual.
+			if (trimmed.length > 0) {
+				const currentPhone =
+					(member.cellPhone ?? member.participant?.cellPhone ?? '').replace(/\D/g, '').slice(-10);
+				const newPhoneLast10 = trimmed.replace(/\D/g, '').slice(-10);
+				if (currentPhone !== newPhoneLast10) {
+					const collision = await this.findPhoneCollision(communityId, trimmed, memberId);
+					if (collision) {
+						throw new Error('PHONE_DUPLICATE_IN_COMMUNITY');
+					}
+				}
+			}
 			overlayUpdates.cellPhone = trimmed === '' ? null : trimmed;
 		}
 		if (typeof profile.email === 'string') {
@@ -1978,6 +2034,17 @@ export class CommunityService {
 						continue;
 					}
 
+					// El participant existe globalmente pero NO es miembro de esta comunidad
+					// todavía. Antes de vincular, valida que su tel no colisione con OTRO
+					// miembro de esta comunidad (distinto al participant que vamos a vincular).
+					if (cellPhone) {
+						const collision = await this.findPhoneCollision(communityId, cellPhone);
+						if (collision && collision.participantId !== existingParticipant.id) {
+							skipped.push({ name: displayName, reason: 'phone_duplicate_in_community' });
+							continue;
+						}
+					}
+
 					const newMember = await this.addMember(communityId, existingParticipant.id, state);
 
 					// Overlay: si el input difiere del Participant existente,
@@ -2041,6 +2108,14 @@ export class CommunityService {
 					}
 				}
 			} catch (err: any) {
+				// PHONE_DUPLICATE_IN_COMMUNITY puede salir de createCommunityMember
+				// cuando el participant es totalmente nuevo pero su tel ya pertenece
+				// a otro miembro de la comunidad. Lo movemos a skipped (no rejected)
+				// para consistencia con el caso detectado antes.
+				if (err?.message === 'PHONE_DUPLICATE_IN_COMMUNITY') {
+					skipped.push({ name: displayName, reason: 'phone_duplicate_in_community' });
+					continue;
+				}
 				rejected.push({
 					rawInput: entry,
 					missingFields: [],
