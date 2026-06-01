@@ -973,13 +973,21 @@ export class RetreatScheduleService {
 			}
 		}
 
+		const now = Date.now();
 		for (const x of affected) {
 			const newStart = new Date(x.startTime.getTime() + minutesDelta * 60000);
 			const newEnd = new Date(x.endTime.getTime() + minutesDelta * 60000);
+			// `delayed` solo aplica cuando el item REALMENTE va tarde: ya debía haber
+			// empezado (su hora programada es <= ahora) y sigue pendiente. Si está en el
+			// futuro — retiro no iniciado o actividad por venir — un +5/-5 es solo
+			// reprogramación y conserva su status (igual que shiftDay). No se sobre-escribe
+			// el status de items active/completed/skipped.
+			const isLate =
+				minutesDelta > 0 && x.status === 'pending' && x.startTime.getTime() <= now;
 			await this.itemRepo.update(x.id, {
 				startTime: newStart,
 				endTime: newEnd,
-				status: minutesDelta > 0 ? 'delayed' : x.status,
+				status: isLate ? 'delayed' : x.status,
 			});
 		}
 

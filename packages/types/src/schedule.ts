@@ -2,6 +2,19 @@ import { z } from 'zod';
 
 const idSchema = z.string().uuid();
 
+// Id de una Responsabilidad del retiro. Acepta uuid (uuidv4, creadas por el
+// servicio) y hex de 32 chars sin guiones (las creadas por migraciones batch con
+// `hex(randomblob(16))`: roles fijos, charlas, textos). Coacciona "" -> null para
+// tolerar el `<select>` del modal de edición. La existencia la garantiza el FK a
+// retreat_responsibilities, así que no hace falta validar más estricto.
+const responsabilityIdSchema = z.preprocess(
+	(v) => (v === '' ? null : v),
+	z
+		.union([z.string().uuid(), z.string().regex(/^[0-9a-f]{32}$/i)])
+		.nullable()
+		.optional(),
+);
+
 export const ScheduleItemTypeSchema = z.enum([
 	'charla',
 	'testimonio',
@@ -121,7 +134,7 @@ export const RetreatScheduleItemSchema = z.object({
 	durationMinutes: z.number().int().min(0).default(15),
 	orderInDay: z.number().int().default(0),
 	status: ScheduleItemStatusSchema.default('pending'),
-	responsabilityId: idSchema.nullable().optional(),
+	responsabilityId: responsabilityIdSchema,
 	location: z.string().nullable().optional(),
 	notes: z.string().nullable().optional(),
 	musicTrackUrl: z.string().nullable().optional(),

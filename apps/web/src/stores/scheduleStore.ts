@@ -72,11 +72,17 @@ export const useScheduleStore = defineStore("schedule", () => {
   });
 
   async function loadForRetreat(retreatId: string) {
-    loading.value = true;
+    // El spinner de carga solo aplica en la PRIMERA carga (lista vacía). Las
+    // recargas posteriores (shift +5/-5, shiftDay, reorder, eventos WS) reemplazan
+    // los items en sitio: con `:key="item.id"` Vue reutiliza el DOM y NO se pierde
+    // la posición de scroll. Mostrar "Cargando…" aquí desmontaba la lista, colapsaba
+    // la página y saltaba el scroll al inicio en cada +5/-5.
+    const isInitialLoad = items.value.length === 0;
+    if (isInitialLoad) loading.value = true;
     try {
       items.value = await retreatScheduleApi.list(retreatId);
     } finally {
-      loading.value = false;
+      if (isInitialLoad) loading.value = false;
     }
   }
 
