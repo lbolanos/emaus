@@ -1273,10 +1273,6 @@ onMounted(() => {
   }
 
   const handleKeyDown = (event: KeyboardEvent) => {
-    if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
-      event.preventDefault();
-      openSearch();
-    }
     if ((event.ctrlKey || event.metaKey) && event.key === 'b') {
       event.preventDefault();
       uiStore.toggleSidebar();
