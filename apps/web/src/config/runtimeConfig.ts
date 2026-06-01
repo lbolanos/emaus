@@ -203,7 +203,7 @@ class RuntimeConfigManager {
 				if (typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname)) {
 					return '/api';
 				}
-				return 'http://localhost:3001/api';
+				return 'http://localhost:3084/api';
 			case 'staging':
 				return 'https://staging.emaus.cc/api';
 			case 'production':

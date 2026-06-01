@@ -556,18 +556,32 @@ una forma de agregar la direccion de la iglesia donde se hace la misa de clausur
 
 un listado real de responsabilidades
 en inventario agregar una columna de numero de articulos a comprar req-actual
-## TODO
+
 la busqueda de comunidad en el landing no esta funcionando correctamente
-Si los horarios de los angelitos empatan en horario de comida entonces se debe cobrar una suma.
 
 in inventario cuando borro un elemento desde los tres puntos la interfaz web se congela.  lo mismo pasa al ver historial de cambios.
+
 crear un reporte de camisetas que solicitaron los servidores y angelitos y tallas para llevar a la reunion de preparacion semanal.
 
-por agregar foto del inventario y que vaya registrando.  o tambien por audio en el bot.
+orden correcto en la mesas 1 no debe estar a lado de 10 
+
+si alguien se registra y el correo corresponde a una comunidad darle permisos para gestionar su comunidad.
+
+
+agregar foto del inventario y que vaya registrando.  o tambien por audio en el bot. 
+
+que en el bot reciba foto de la lista de participantes a la reunion para agregar.  Si el participante no esta en la comunidad agregar a la comunidad y a la asistencia.
+
+quitar ctrl f vaya a encontrar menu
+
+
+## TODO
+
+
+Si los horarios de los angelitos empatan en horario de comida entonces se debe cobrar una suma.
 
 
 una forma en bubbles cursor encima da mas informacion pero aveces no funciona entonces colocar una forma segura de sabes mas detalles
-orden correcto en la mesas 1 no debe estar a lado de 10 
 
 verificar que el orden en las camas
 
@@ -575,7 +589,6 @@ cuando ya esta el retiro por empezar modificar las camas para servidores.  es de
 cuando estoy creando un retiro:  colocar la hora de llegada por defecto en punto x:00.  placeholder de notas por defecto
 
 cuando edito el retiro y voy a ver el flyer , en el lugar, πaparece el nombre de la parroquia.  tengo que refrescar la pagina para que aparezca bien
-
 
 Crear un retiro a partir de los datos del anterior retiro. Casa de retiro, inventario, mensajes.
 

@@ -41,7 +41,7 @@ declare module 'express-session' {
 async function main() {
 	const app = express();
 	app.set('trust proxy', 1);
-	const port = process.env.PORT || 3001;
+	const port = process.env.PORT || 3084;
 
 	// --- 1. Initialize Database Connection ---
 	await AppDataSource.initialize();
@@ -63,7 +63,7 @@ async function main() {
 
 	// Add localhost URLs for development
 	if (isDevelopment) {
-		connectSrc.push('http://localhost:5173', 'http://localhost:3001');
+		connectSrc.push('http://localhost:5173', 'http://localhost:3084');
 	}
 
 	app.use(
@@ -77,7 +77,7 @@ async function main() {
 					return callback(null, false);
 				}
 				// Allow configured frontend URL and localhost
-				const allowed = [frontendUrl, 'http://localhost:5173', 'http://localhost:3001'];
+				const allowed = [frontendUrl, 'http://localhost:5173', 'http://localhost:3084'];
 				if (allowed.includes(origin)) {
 					return callback(null, origin);
 				}
@@ -276,7 +276,7 @@ async function main() {
 		}
 	}, ONE_MINUTE);
 
-	// Graceful shutdown: close :3001 before exiting so PM2's next child can
+	// Graceful shutdown: close the listen port before exiting so PM2's next child can
 	// bind it. Without this, PM2 SIGINT-then-SIGKILLs the old process while
 	// httpServer keeps the port LISTEN; the next child crashes with EADDRINUSE
 	// in a loop until manual intervention. See LIGHTSAIL_MIGRATION_NOTES.md §17.

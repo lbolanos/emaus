@@ -24,7 +24,7 @@ export function initRealtime(httpServer: HttpServer, sessionMiddleware: RequestH
 		cors: {
 			origin: (origin, cb) => {
 				if (!origin) return cb(null, isDevelopment);
-				const allowed = [frontendUrl, 'http://localhost:5173', 'http://localhost:3001'];
+				const allowed = [frontendUrl, 'http://localhost:5173', 'http://localhost:3084'];
 				if (allowed.includes(origin)) return cb(null, true);
 				return cb(null, false);
 			},
