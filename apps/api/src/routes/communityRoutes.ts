@@ -20,6 +20,7 @@ import {
 	updateMemberProfileSchema,
 	recordAttendanceSchema,
 	inviteCommunityAdminSchema,
+	addCommunityAdminSchema,
 	publicRegisterCommunitySchema,
 	rejectCommunitySchema,
 } from '@repo/types';
@@ -206,6 +207,13 @@ router.post(
 	requireCommunityOwner(),
 	validateRequest(inviteCommunityAdminSchema),
 	(req, res) => CommunityController.inviteAdmin(req, res),
+);
+// Acceso directo (1 clic): el owner elige un usuario existente y queda activo de inmediato.
+router.post(
+	'/:id/admins/add',
+	requireCommunityOwner(),
+	validateRequest(addCommunityAdminSchema),
+	(req, res) => CommunityController.addAdmin(req, res),
 );
 router.delete('/:id/admins/:userId', requireCommunityOwner(), (req, res) =>
 	CommunityController.revokeAdmin(req, res),

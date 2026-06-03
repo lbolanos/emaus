@@ -158,6 +158,62 @@ describe('Community Service', () => {
 			expect(invitation.status).toBe('pending');
 			expect(invitation.invitationToken).toBeDefined();
 		});
+
+		it('addAdminDirect should grant immediate active access without token', async () => {
+			const newUser = await TestDataFactory.createTestUser();
+
+			const admin = await service.addAdminDirect(testCommunity.id, newUser.id, testUser.id);
+
+			expect(admin).toBeDefined();
+			expect(admin!.userId).toBe(newUser.id);
+			expect(admin!.status).toBe('active');
+			expect(admin!.role).toBe('admin');
+			expect(admin!.acceptedAt).toBeDefined();
+			expect(admin!.invitationToken).toBeFalsy();
+			// debe traer la relación user para que el front lo pinte
+			expect(admin!.user).toBeDefined();
+			expect(admin!.user.id).toBe(newUser.id);
+		});
+
+		it('addAdminDirect should reactivate an existing pending/revoked admin without duplicating', async () => {
+			const newUser = await TestDataFactory.createTestUser();
+			const adminRepo = AppDataSource.getRepository(CommunityAdmin);
+
+			// invitación pendiente previa
+			await service.inviteAdmin(testCommunity.id, newUser.email, testUser.id);
+
+			const admin = await service.addAdminDirect(testCommunity.id, newUser.id, testUser.id);
+			expect(admin!.status).toBe('active');
+
+			const rows = await adminRepo.find({
+				where: { communityId: testCommunity.id, userId: newUser.id },
+			});
+			expect(rows.length).toBe(1);
+		});
+
+		it('addAdminDirect should not downgrade the owner', async () => {
+			const adminRepo = AppDataSource.getRepository(CommunityAdmin);
+			const owner = await adminRepo.save(
+				adminRepo.create({
+					communityId: testCommunity.id,
+					userId: testUser.id,
+					role: 'owner',
+					status: 'active',
+				}),
+			);
+
+			const result = await service.addAdminDirect(testCommunity.id, testUser.id, testUser.id);
+			expect(result!.role).toBe('owner');
+
+			const reloaded = await adminRepo.findOne({ where: { id: owner.id } });
+			expect(reloaded!.role).toBe('owner');
+		});
+
+		it('addAdminDirect should throw when the user does not exist', async () => {
+			await expect(
+				service.addAdminDirect(testCommunity.id, 'non-existent-user', testUser.id),
+			).rejects.toThrow('User not found');
+		});
 	});
 
 	describe('createNextMeetingInstance', () => {

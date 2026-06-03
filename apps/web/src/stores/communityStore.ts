@@ -453,6 +453,27 @@ export const useCommunityStore = defineStore('community', () => {
 		}
 	};
 
+	const addAdmin = async (communityId: string, userId: string) => {
+		loading.value = true;
+		error.value = null;
+		try {
+			const admin = await api.addCommunityAdmin(communityId, userId);
+			// Upsert: reemplaza si ya existe ese userId, si no lo agrega.
+			const idx = admins.value.findIndex((a) => a.userId === admin.userId);
+			if (idx >= 0) {
+				admins.value[idx] = admin;
+			} else {
+				admins.value.push(admin);
+			}
+			return admin;
+		} catch (err: any) {
+			error.value = err.message || 'Failed to add admin';
+			throw err;
+		} finally {
+			loading.value = false;
+		}
+	};
+
 	const revokeAdmin = async (communityId: string, userId: string) => {
 		loading.value = true;
 		error.value = null;
@@ -608,6 +629,7 @@ export const useCommunityStore = defineStore('community', () => {
 		fetchInvitationStatus,
 		acceptInvitation,
 		inviteAdmin,
+		addAdmin,
 		revokeAdmin,
 		undoLastAction,
 	};

@@ -1818,6 +1818,64 @@ export class CommunityService {
 		return this.adminRepo.save(admin);
 	}
 
+	/**
+	 * Otorga acceso de admin de forma directa e inmediata (status='active'), sin
+	 * link de invitación ni aceptación. Espejo de la "Asignación Rápida" de roles
+	 * del retiro: el owner elige un usuario YA registrado de una lista y le da
+	 * acceso con un clic. La ruta es owner-only.
+	 *
+	 * Idempotente: si ya existe un CommunityAdmin para ese usuario (pending/revoked)
+	 * lo reactiva en vez de duplicar; nunca degrada/toca a un 'owner'.
+	 */
+	async addAdminDirect(communityId: string, userId: string, addedBy: string) {
+		const userRepo = AppDataSource.getRepository(User);
+		const user = await userRepo.findOne({ where: { id: userId } });
+		if (!user) {
+			throw new Error('User not found');
+		}
+
+		const existing = await this.adminRepo.findOne({ where: { communityId, userId } });
+
+		if (existing && existing.role === 'owner') {
+			// No tocar al owner; ya tiene acceso total.
+			return this.adminRepo.findOne({
+				where: { id: existing.id },
+				relations: ['user', 'inviter'],
+			});
+		}
+
+		let saved: CommunityAdmin;
+		if (existing) {
+			existing.status = 'active';
+			existing.acceptedAt = new Date();
+			existing.invitationToken = undefined;
+			existing.invitationExpiresAt = undefined;
+			existing.invitedBy = addedBy;
+			saved = await this.adminRepo.save(existing);
+		} else {
+			const admin = this.adminRepo.create({
+				communityId,
+				userId,
+				role: 'admin',
+				status: 'active',
+				invitedBy: addedBy,
+				acceptedAt: new Date(),
+			});
+			saved = await this.adminRepo.save(admin);
+		}
+
+		// Invalidar caches de permisos para que el acceso aplique de inmediato.
+		const { performanceOptimizationService } = await import('./performanceOptimizationService');
+		performanceOptimizationService.invalidateUserPermissionCache(userId);
+		performanceOptimizationService.invalidateUserRetreatCache(userId);
+		performanceOptimizationService.invalidateUserPermissionsResultCache(userId);
+
+		return this.adminRepo.findOne({
+			where: { id: saved.id },
+			relations: ['user', 'inviter'],
+		});
+	}
+
 	async getAdmins(communityId: string) {
 		return this.adminRepo.find({
 			where: { communityId },

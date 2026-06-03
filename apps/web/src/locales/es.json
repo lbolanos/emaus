@@ -2073,7 +2073,22 @@
       "pending": "Pendiente",
       "creator": "Creador",
       "invitedBy": "Invitado por",
-      "acceptedAt": "Aceptado el"
+      "acceptedAt": "Aceptado el",
+      "tabSearch": "Buscar usuario",
+      "tabLink": "Invitar por enlace",
+      "searchUser": "Buscar usuario por nombre o correo...",
+      "searchHint": "Escribe al menos 2 caracteres...",
+      "noUsersFound": "No se encontraron usuarios",
+      "giveAccess": "Dar acceso",
+      "addSuccess": "Acceso otorgado",
+      "addSuccessDesc": "{name} ahora es administrador de la comunidad.",
+      "addError": "No se pudo otorgar el acceso",
+      "linkDesc": "Genera un enlace de invitación para que el usuario acepte el acceso desde su cuenta.",
+      "shareableLink": "Enlace para compartir",
+      "linkCreated": "Invitación creada",
+      "linkCreatedDesc": "Ya puedes compartir el enlace con el co-administrador.",
+      "copied": "Copiado",
+      "copiedDesc": "Enlace de invitación copiado al portapapeles."
     }
   },
   "dataDelete": {

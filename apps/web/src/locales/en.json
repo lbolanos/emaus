@@ -1976,7 +1976,22 @@
       "pending": "Pending",
       "creator": "Creator",
       "invitedBy": "Invited By",
-      "acceptedAt": "Accepted At"
+      "acceptedAt": "Accepted At",
+      "tabSearch": "Search user",
+      "tabLink": "Invite by link",
+      "searchUser": "Search user by name or email...",
+      "searchHint": "Type at least 2 characters...",
+      "noUsersFound": "No users found",
+      "giveAccess": "Give access",
+      "addSuccess": "Access granted",
+      "addSuccessDesc": "{name} is now a community administrator.",
+      "addError": "Could not grant access",
+      "linkDesc": "Generate an invitation link so the user can accept access from their account.",
+      "shareableLink": "Shareable link",
+      "linkCreated": "Invitation created",
+      "linkCreatedDesc": "You can now share the link with the co-admin.",
+      "copied": "Copied",
+      "copiedDesc": "Invitation link copied to clipboard."
     }
   },
   "dataDelete": {

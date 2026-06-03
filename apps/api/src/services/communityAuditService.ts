@@ -11,6 +11,7 @@ export const CommunityAuditAction = {
 	UPDATE: 'community.update',
 	DELETE: 'community.delete',
 	ADMIN_INVITE: 'community.admin.invite',
+	ADMIN_ADD: 'community.admin.add',
 	ADMIN_REVOKE: 'community.admin.revoke',
 	ADMIN_ACCEPT_TOKEN: 'community.admin.accept_token',
 	MEMBER_REMOVE: 'community.member.remove',

@@ -1481,6 +1481,16 @@ export async function inviteCommunityAdmin(
   return response.data;
 }
 
+export async function addCommunityAdmin(
+  communityId: string,
+  userId: string,
+): Promise<CommunityAdmin> {
+  const response = await api.post(`/communities/${communityId}/admins/add`, {
+    userId,
+  });
+  return response.data;
+}
+
 export async function getCommunityInvitationStatus(
   token: string,
 ): Promise<any> {

@@ -472,6 +472,33 @@ export class CommunityController {
 
 	// --- Admin Management ---
 
+	/**
+	 * CommunityAdmin.toJSON() elimina `invitationToken` para no filtrarlo en
+	 * respuestas genéricas. Pero el OWNER (o superadmin) sí necesita el token para
+	 * construir el enlace de invitación (`/accept-community-invitation/{token}`).
+	 *
+	 * SECURITY: el token es un secreto de la invitación pendiente; solo debe
+	 * exponerse a owner/superadmin, NO a co-admins (un admin no-owner no genera ni
+	 * gestiona invitaciones). Llamar a esta función solo tras verificar ese rol.
+	 */
+	private static serializeAdminWithToken(admin: any) {
+		if (!admin) return admin;
+		return {
+			id: admin.id,
+			communityId: admin.communityId,
+			userId: admin.userId,
+			role: admin.role,
+			status: admin.status,
+			invitedBy: admin.invitedBy,
+			invitedAt: admin.invitedAt,
+			acceptedAt: admin.acceptedAt,
+			invitationToken: admin.invitationToken ?? null,
+			invitationExpiresAt: admin.invitationExpiresAt ?? null,
+			user: admin.user,
+			inviter: admin.inviter,
+		};
+	}
+
 	static async inviteAdmin(req: Request, res: Response) {
 		const { id } = req.params;
 		const { email } = req.body;
@@ -487,13 +514,51 @@ export class CommunityController {
 			ipAddress: req.ip,
 			userAgent: req.get('user-agent'),
 		});
-		res.status(201).json(invitation);
+		res.status(201).json(CommunityController.serializeAdminWithToken(invitation));
+	}
+
+	static async addAdmin(req: Request, res: Response) {
+		const { id } = req.params;
+		const { userId } = req.body;
+		const actorUserId = (req.user as any).id;
+		try {
+			const admin = await communityService.addAdminDirect(id, userId, actorUserId);
+			void communityAuditService.log({
+				action: CommunityAuditAction.ADMIN_ADD,
+				resourceType: 'community_admin',
+				resourceId: (admin as any)?.id,
+				communityId: id,
+				actorUserId,
+				metadata: { addedUserId: userId, direct: true },
+				ipAddress: req.ip,
+				userAgent: req.get('user-agent'),
+			});
+			res.status(201).json(admin);
+		} catch (err: any) {
+			if (err?.message === 'User not found') {
+				return res.status(404).json({ message: 'Usuario no encontrado' });
+			}
+			return res
+				.status(400)
+				.json({ message: err?.message || 'No se pudo agregar el administrador' });
+		}
 	}
 
 	static async getAdmins(req: Request, res: Response) {
 		const { id } = req.params;
 		const admins = await communityService.getAdmins(id);
-		res.json(admins);
+		// SECURITY: el invitationToken de las invitaciones pendientes es un secreto.
+		// Solo el owner (o superadmin) lo recibe — para que su botón "copiar enlace"
+		// funcione tras recargar. requireCommunityAccess deja pasar también a co-admins
+		// no-owner; a ellos se les devuelve la entidad cruda, cuyo toJSON() elimina el token.
+		// req.communityAdmin === null ⇒ superadmin; .role === 'owner' ⇒ owner.
+		const requester = (req as any).communityAdmin;
+		const isOwnerOrSuperadmin = requester === null || requester?.role === 'owner';
+		if (isOwnerOrSuperadmin) {
+			res.json(admins.map((a) => CommunityController.serializeAdminWithToken(a)));
+		} else {
+			res.json(admins);
+		}
 	}
 
 	static async acceptInvitation(req: Request, res: Response) {

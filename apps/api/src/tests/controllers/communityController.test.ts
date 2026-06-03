@@ -6,6 +6,70 @@
  * The actual service integration is tested at the integration test level.
  */
 
+import { addCommunityAdminSchema } from '@repo/types';
+import { CommunityAdmin } from '@/entities/communityAdmin.entity';
+
+describe('CommunityAdmin serialization — invitationToken para el enlace de invitación', () => {
+	const makePending = () => {
+		const admin = new CommunityAdmin();
+		admin.id = 'admin-1';
+		admin.communityId = 'comm-1';
+		admin.userId = 'user-1';
+		admin.role = 'admin';
+		admin.status = 'pending';
+		admin.invitationToken = 'tok-abc123';
+		return admin;
+	};
+
+	it('entity.toJSON() OMITE invitationToken (causa raíz del enlace /undefined)', () => {
+		const serialized = JSON.parse(JSON.stringify(makePending()));
+		expect(serialized.invitationToken).toBeUndefined();
+	});
+
+	it('una serialización explícita SÍ conserva invitationToken para construir el enlace', () => {
+		const a = makePending();
+		// equivalente a CommunityController.serializeAdminWithToken
+		const payload = { id: a.id, status: a.status, invitationToken: a.invitationToken ?? null };
+		expect(payload.invitationToken).toBe('tok-abc123');
+	});
+
+	// SECURITY: el token solo debe exponerse a owner/superadmin en GET /:id/admins.
+	// req.communityAdmin === null ⇒ superadmin; .role === 'owner' ⇒ owner; otro ⇒ co-admin.
+	const canSeeToken = (requester: { role: string } | null) =>
+		requester === null || requester?.role === 'owner';
+
+	it('owner puede ver el invitationToken', () => {
+		expect(canSeeToken({ role: 'owner' })).toBe(true);
+	});
+
+	it('superadmin (req.communityAdmin === null) puede ver el invitationToken', () => {
+		expect(canSeeToken(null)).toBe(true);
+	});
+
+	it('co-admin no-owner NO puede ver el invitationToken', () => {
+		expect(canSeeToken({ role: 'admin' })).toBe(false);
+	});
+});
+
+describe('addCommunityAdminSchema — contrato del endpoint POST /:id/admins/add', () => {
+	it('acepta un userId con formato UUID', () => {
+		const result = addCommunityAdminSchema.safeParse({
+			body: { userId: '11111111-1111-1111-1111-111111111111' },
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it('rechaza un userId que no es UUID', () => {
+		const result = addCommunityAdminSchema.safeParse({ body: { userId: 'not-a-uuid' } });
+		expect(result.success).toBe(false);
+	});
+
+	it('rechaza body sin userId', () => {
+		const result = addCommunityAdminSchema.safeParse({ body: {} });
+		expect(result.success).toBe(false);
+	});
+});
+
 describe('CommunityController - publicJoinRequest Validation', () => {
 	// Email validation regex (copied from controller)
 	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

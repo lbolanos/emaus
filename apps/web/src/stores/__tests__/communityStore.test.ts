@@ -23,6 +23,7 @@ vi.mock('@/services/api', () => ({
 	getCommunityInvitationStatus: vi.fn(),
 	acceptCommunityInvitation: vi.fn(),
 	inviteCommunityAdmin: vi.fn(),
+	addCommunityAdmin: vi.fn(),
 	revokeCommunityAdmin: vi.fn(),
 }));
 
@@ -199,6 +200,54 @@ describe('CommunityStore', () => {
 				'User not found',
 			);
 			expect(api.inviteCommunityAdmin).toHaveBeenCalledWith('comm-1', 'nonexistent@example.com');
+		});
+
+		it('addAdmin should grant direct access and push a new admin', async () => {
+			const mockAdmin = {
+				id: 'admin-3',
+				userId: 'user-3',
+				communityId: 'comm-1',
+				role: 'admin',
+				status: 'active',
+				user: { id: 'user-3', displayName: 'Direct Admin', email: 'direct@example.com' },
+			};
+			(api.addCommunityAdmin as any).mockResolvedValue(mockAdmin);
+
+			const result = await store.addAdmin('comm-1', 'user-3');
+
+			expect(api.addCommunityAdmin).toHaveBeenCalledWith('comm-1', 'user-3');
+			expect(result).toEqual(mockAdmin);
+			expect(store.admins).toContainEqual(mockAdmin);
+		});
+
+		it('addAdmin should upsert (replace) an existing admin with the same userId', async () => {
+			const existing = {
+				id: 'admin-4',
+				userId: 'user-4',
+				communityId: 'comm-1',
+				role: 'admin',
+				status: 'pending',
+				invitationToken: 'token-old',
+				user: { id: 'user-4', displayName: 'User Four', email: 'four@example.com' },
+			};
+			store.admins = [existing];
+
+			const reactivated = { ...existing, status: 'active', invitationToken: undefined };
+			(api.addCommunityAdmin as any).mockResolvedValue(reactivated);
+
+			await store.addAdmin('comm-1', 'user-4');
+
+			// No se duplica: sigue habiendo un solo registro para user-4, ahora activo
+			const rows = store.admins.filter((a: any) => a.userId === 'user-4');
+			expect(rows.length).toBe(1);
+			expect(rows[0].status).toBe('active');
+		});
+
+		it('addAdmin should propagate errors', async () => {
+			(api.addCommunityAdmin as any).mockRejectedValue(new Error('Forbidden'));
+
+			await expect(store.addAdmin('comm-1', 'user-x')).rejects.toThrow('Forbidden');
+			expect(api.addCommunityAdmin).toHaveBeenCalledWith('comm-1', 'user-x');
 		});
 	});
 

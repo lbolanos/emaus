@@ -303,6 +303,12 @@ export const inviteCommunityAdminSchema = z.object({
 	}),
 });
 
+export const addCommunityAdminSchema = z.object({
+	body: z.object({
+		userId: z.string().uuid(),
+	}),
+});
+
 export const publicJoinRequestSchema = z.object({
 	body: z.object({
 		firstName: z.string().min(1),
