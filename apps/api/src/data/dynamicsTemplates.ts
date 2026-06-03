@@ -1063,4 +1063,108 @@ Durante el retiro se realizan **ejercicios de oración grupal en cada mesa**, do
 *Las instrucciones detalladas paso a paso deben seguirse del Manual oficial de Emaús de su parroquia/diócesis. Consulte con el Rector del retiro.*`,
 		priority: 24,
 	},
+	{
+		name: 'Sacerdotes',
+		teamType: ServiceTeamType.SACERDOTES,
+		description: 'Coordinación de los sacerdotes y la atención sacramental del retiro',
+		instructions: `## Equipo de Sacerdotes
+
+### Propósito
+Coordinar la presencia y participación de los sacerdotes a lo largo del retiro para asegurar la atención sacramental y litúrgica de caminantes y servidores.
+
+### Responsabilidades
+- Confirmar con anticipación qué sacerdote(s) acompañarán el retiro y sus horarios de llegada/salida
+- Coordinar los horarios de **confesiones** (especialmente tras la dinámica del Examen de Conciencia / Quema de Pecados)
+- Coordinar la **celebración de las Santas Misas** (incluida la Misa de Clausura)
+- Coordinar la **bendición de los alimentos** cuando el sacerdote esté presente
+- Apoyar en la **imposición de la ceniza** durante la dinámica que lo requiera
+- Asegurar que el sacerdote tenga todo lo necesario para la liturgia (coordinar con el equipo de Liturgia)
+- Atender el hospedaje, traslado y alimentación de los sacerdotes invitados
+
+### Coordinación
+- Trabajar en estrecha relación con el equipo de **Liturgia** (preparación de eucaristía y lecturas)
+- Confirmar tiempos exactos con **Logística** dentro del minuto-a-minuto del retiro
+${NOTA_DINAMICAS}`,
+		priority: 25,
+	},
+	{
+		name: 'Compras',
+		teamType: ServiceTeamType.COMPRAS,
+		description: 'Aprovisionamiento y compras de materiales e insumos del retiro',
+		instructions: `## Equipo de Compras
+
+### Propósito
+Asegurar que todos los insumos y materiales necesarios para el retiro estén comprados y disponibles a tiempo, cuidando el presupuesto.
+
+### Responsabilidades
+- Consolidar las listas de compras de todos los equipos (cocina, snacks, dinámicas, liturgia, etc.)
+- Cotizar y comprar los insumos respetando el **presupuesto** asignado
+- Coordinar la entrega de lo comprado a cada equipo responsable
+- Llevar el control de **gastos y comprobantes** (coordinar con Tesorería)
+- Atender compras de último momento durante el retiro
+
+### Coordinación
+- Recibir con anticipación las listas de cada equipo (especialmente **Cocina/Comedor** y **Snacks**)
+- Coordinar con **Transporte** la recolección y traslado de las compras
+- Reportar gastos a **Tesorero**
+${NOTA_DINAMICAS}`,
+		priority: 26,
+	},
+	{
+		name: 'Examen de Conciencia / Quema de Pecados',
+		teamType: ServiceTeamType.DINAMICA,
+		description: 'Dinámica de examen de conciencia y quema de pecados (Anexo A-2-16)',
+		instructions: `## Examen de Conciencia / Quema de Pecados
+
+### Contexto
+Esta dinámica es el inicio de una serie que incluye la pared y la reconciliación, terminando con la misa del sábado. Muchos caminantes quizás nunca han confesado sus pecados o no se confiesan desde hace mucho tiempo. Se busca que el caminante, en un ambiente de reflexión y en forma individual, haga una introspección profunda sobre sus faltas y escriba sus pecados, para concientizar la necesidad de un cambio profundo en su vida.
+
+### Propósito
+- Guiar a los caminantes en un examen de conciencia personal
+- Invitar a la introspección profunda sobre faltas cometidas y bien omitido hacia Dios, el prójimo y uno mismo
+- Preparar el corazón para el sacramento de la reconciliación
+- Simbolizar la liberación de los pecados mediante la quema de los papeles
+
+### Preparación
+- Preparar hojas de papel y bolígrafos/plumas para cada caminante
+- Conseguir un envase metálico resistente al fuego para la quema
+- Tener aceite y hojas secas para iniciar el fuego
+- Preparar dos vasos de plástico pequeños para la pasta de ceniza
+- Coordinar el espacio exterior seguro para la fogata
+- Tener agua cerca como medida de seguridad contra incendios
+- Preparar música suave y de recogimiento
+
+### Materiales
+- Hojas de papel (una por caminante)
+- Bolígrafos o plumas
+- Envase metálico para quemar los papeles
+- Aceite y hojas secas para el fuego
+- Agua (para mezclar con ceniza y como seguridad)
+- Dos vasos de plástico pequeños
+- Encendedor o fósforos
+- Música de recogimiento preparada
+
+### Desarrollo
+1. Se invita a los caminantes a escribir en silencio todos los pecados que puedan recordar
+2. Se les asegura que **nadie leerá los papeles** — serán quemados
+3. Los caminantes permanecen sentados en silencio hasta que todos terminen
+4. Se organizan en círculo alrededor del envase preparado
+5. Se inicia el fuego con hojas y aceite en el fondo del envase
+6. Cada caminante se acerca a depositar su papel en el fuego
+7. Se entonan canciones suaves mientras se queman los papeles
+8. La ceniza se mezcla con agua/aceite para formar una pasta
+9. Se ordena a los caminantes en dos filas **por edad** (mayor a menor)
+10. Dos servidores colocan una **cruz de ceniza en las manos** de cada caminante diciendo: *"Estas cenizas representan todos los pecados que escribiste y los que no escribiste, los cuales solo en confesión te serán perdonados por Dios"*
+11. Se indica a los participantes que pasen al salón de actividades
+
+### Coordinación con Líderes de Mesa
+- Los líderes de mesa deben ser informados para ser los primeros en entrar al salón
+- Deben sentarse en los últimos asientos para facilitar el vendaje de los caminantes
+- Los servidores NO serán vendados (para la dinámica siguiente de la Pared)
+
+### ⚠️ Confidencialidad
+**No divulgar los detalles de esta dinámica a los caminantes antes del retiro.** La experiencia de escribir y quemar los pecados debe ser completamente espontánea.
+${NOTA_DINAMICAS}`,
+		priority: 27,
+	},
 ];

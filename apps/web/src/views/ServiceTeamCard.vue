@@ -202,6 +202,7 @@ const teamTypeLabels: Record<string, string> = {
   [ServiceTeamType.COMPRAS]: 'Compras',
   [ServiceTeamType.SNACKS]: 'Snacks',
   [ServiceTeamType.CONTINUA]: 'Continua',
+  [ServiceTeamType.SACERDOTES]: 'Sacerdotes',
   [ServiceTeamType.DINAMICA]: 'Dinámica',
   [ServiceTeamType.OTRO]: 'Otro',
 };

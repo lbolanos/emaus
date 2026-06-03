@@ -19,6 +19,7 @@ export enum ServiceTeamType {
 	COMPRAS = 'compras',
 	SNACKS = 'snacks',
 	CONTINUA = 'continua',
+	SACERDOTES = 'sacerdotes',
 	DINAMICA = 'dinamica',
 	OTRO = 'otro',
 }

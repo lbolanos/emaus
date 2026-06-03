@@ -14,9 +14,9 @@ describe('Service Team Zod Schemas', () => {
 	const validUuid2 = uuidv4();
 
 	describe('ServiceTeamType enum', () => {
-		test('should have exactly 18 values', () => {
+		test('should have exactly 19 values', () => {
 			const values = Object.values(ServiceTeamType);
-			expect(values).toHaveLength(18);
+			expect(values).toHaveLength(19);
 		});
 	});
 

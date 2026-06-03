@@ -7,8 +7,8 @@ import { charlaDocumentation, responsibilityDocumentation } from '../../data/cha
 
 describe('Service Team Data Integrity', () => {
 	describe('Default Service Teams (dynamicsTemplates)', () => {
-		test('should have exactly 24 service teams', () => {
-			expect(defaultServiceTeams).toHaveLength(24);
+		test('should have exactly 27 service teams', () => {
+			expect(defaultServiceTeams).toHaveLength(27);
 		});
 
 		test('should have unique names', () => {
@@ -16,9 +16,9 @@ describe('Service Team Data Integrity', () => {
 			expect(new Set(names).size).toBe(names.length);
 		});
 
-		test('should have unique priorities from 1 to 24', () => {
+		test('should have unique priorities from 1 to 27', () => {
 			const priorities = defaultServiceTeams.map((t) => t.priority).sort((a, b) => a - b);
-			expect(priorities).toEqual(Array.from({ length: 24 }, (_, i) => i + 1));
+			expect(priorities).toEqual(Array.from({ length: 27 }, (_, i) => i + 1));
 		});
 
 		test('should all have non-empty instructions', () => {
@@ -49,6 +49,8 @@ describe('Service Team Data Integrity', () => {
 				'cuartos',
 				'transporte',
 				'snacks',
+				'compras',
+				'sacerdotes',
 				'dinamica',
 				'otro',
 			];
@@ -73,6 +75,29 @@ describe('Service Team Data Integrity', () => {
 			expect(names).toContain('Snacks');
 			expect(names).toContain('Líder de Mesa (Primero de Mesa)');
 			expect(names).toContain('Colíder de Mesa (Segundo de Mesa)');
+			expect(names).toContain('Sacerdotes');
+			expect(names).toContain('Compras');
+			expect(names).toContain('Examen de Conciencia / Quema de Pecados');
+		});
+
+		test('Sacerdotes team should use the sacerdotes teamType (synced with the Sacerdotes responsibility)', () => {
+			const sacerdotes = defaultServiceTeams.find((t) => t.name === 'Sacerdotes');
+			expect(sacerdotes).toBeDefined();
+			expect(sacerdotes!.teamType).toBe('sacerdotes');
+		});
+
+		test('Compras team should use the compras teamType', () => {
+			const compras = defaultServiceTeams.find((t) => t.name === 'Compras');
+			expect(compras).toBeDefined();
+			expect(compras!.teamType).toBe('compras');
+		});
+
+		test('Examen de Conciencia should be a dinamica', () => {
+			const examen = defaultServiceTeams.find(
+				(t) => t.name === 'Examen de Conciencia / Quema de Pecados',
+			);
+			expect(examen).toBeDefined();
+			expect(examen!.teamType).toBe('dinamica');
 		});
 	});
 

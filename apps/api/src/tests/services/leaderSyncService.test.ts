@@ -315,6 +315,74 @@ describe('Leader Sync Service', () => {
 		});
 	});
 
+	describe('Sacerdotes mapping', () => {
+		it('should set Sacerdotes team leader when assigning the Sacerdotes responsibility', async () => {
+			const ds = getDS();
+			const server = await createServer({ firstName: 'Padre', lastName: 'Gomez' });
+			const resp = await createResponsibility('Sacerdotes');
+			const team = await createServiceTeam('Sacerdotes', ServiceTeamType.SACERDOTES);
+
+			await responsabilityService.assignResponsabilityToParticipant(resp.id, server.id, ds);
+
+			const updatedTeam = await ds.getRepository(ServiceTeam).findOne({
+				where: { id: team.id },
+			});
+			expect(updatedTeam?.leaderId).toBe(server.id);
+
+			const members = await ds.getRepository(ServiceTeamMember).find({
+				where: { serviceTeamId: team.id },
+			});
+			expect(members.length).toBe(1);
+			expect(members[0].participantId).toBe(server.id);
+			expect(members[0].role).toBe('líder');
+		});
+
+		it('should set Sacerdotes responsibility participant when assigning the Sacerdotes team leader', async () => {
+			const ds = getDS();
+			const server = await createServer({ firstName: 'Padre', lastName: 'Ortiz' });
+			const resp = await createResponsibility('Sacerdotes');
+			const team = await createServiceTeam('Sacerdotes', ServiceTeamType.SACERDOTES);
+
+			await serviceTeamService.assignLeader(team.id, server.id, undefined, ds);
+
+			const updatedResp = await ds.getRepository(Responsability).findOne({
+				where: { id: resp.id },
+			});
+			expect(updatedResp?.participantId).toBe(server.id);
+		});
+
+		it('should clear Sacerdotes responsibility when unassigning the Sacerdotes team leader', async () => {
+			const ds = getDS();
+			const server = await createServer({ firstName: 'Padre', lastName: 'Luna' });
+			const resp = await createResponsibility('Sacerdotes');
+			const team = await createServiceTeam('Sacerdotes', ServiceTeamType.SACERDOTES);
+
+			await serviceTeamService.assignLeader(team.id, server.id, undefined, ds);
+			await serviceTeamService.unassignLeader(team.id, ds);
+
+			const updatedResp = await ds.getRepository(Responsability).findOne({
+				where: { id: resp.id },
+			});
+			expect(updatedResp?.participantId).toBeNull();
+		});
+	});
+
+	describe('Compras mapping', () => {
+		it('should set Compras team leader when assigning the Compras responsibility', async () => {
+			const ds = getDS();
+			const server = await createServer({ firstName: 'Compras', lastName: 'Reyes' });
+			const resp = await createResponsibility('Compras');
+			const team = await createServiceTeam('Compras', ServiceTeamType.COMPRAS);
+
+			await responsabilityService.assignResponsabilityToParticipant(resp.id, server.id, ds);
+
+			const updatedTeam = await ds.getRepository(ServiceTeam).findOne({
+				where: { id: team.id },
+			});
+			expect(updatedTeam?.leaderId).toBe(server.id);
+		});
+	});
+
 	describe('removeMember clears leader and syncs', () => {
 		it('should clear responsibility when removing a member who was leader', async () => {
 			const ds = getDS();
