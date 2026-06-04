@@ -194,7 +194,7 @@
                 {{ $t('responsibilities.unassigned') }}
               </span>
               <Button
-                v-if="resp.responsabilityType === ResponsabilityType.CHARLISTA"
+                v-if="isCharla(resp)"
                 variant="outline"
                 size="sm"
                 class="ml-2 h-7 text-xs"
@@ -611,6 +611,11 @@ const displayName = (resp: Responsability) => {
   }
   return resp.name;
 };
+
+// Una charla real (con expositor/charlista). Los "Texto:" comparten el tipo
+// interno CHARLISTA pero no son charlas: se asignan como servidor normal.
+const isCharla = (resp: Responsability) =>
+  resp.responsabilityType === ResponsabilityType.CHARLISTA && !resp.name.startsWith('Texto:');
 
 const getCardClass = (resp: Responsability) => {
   if (resp.responsabilityType === ResponsabilityType.CHARLISTA) {

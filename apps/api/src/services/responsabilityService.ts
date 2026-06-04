@@ -485,6 +485,12 @@ export const searchSpeakers = async (query: string, retreatId?: string, dataSour
 		'(p.firstName LIKE :q OR p.lastName LIKE :q OR p.cellPhone LIKE :q OR p.email LIKE :q)',
 		{ q },
 	);
+	// Solo servidores pueden ser charlistas; nunca caminantes ni participantes en espera.
+	// `type` es virtual (vive en retreat_participants), por eso se filtra vía EXISTS.
+	// Se acepta cualquier retiro porque los charlistas se reutilizan entre retiros.
+	qb.andWhere(
+		`EXISTS (SELECT 1 FROM retreat_participants rp WHERE rp.participantId = p.id AND rp.type = 'server')`,
+	);
 	if (retreatId) {
 		qb.orderBy(
 			`CASE WHEN p.retreatId = :orderRetreatId THEN 0 ELSE 1 END`,

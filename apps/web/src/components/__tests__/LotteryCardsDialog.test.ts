@@ -93,12 +93,23 @@ describe('LotteryCardsDialog', () => {
 		expect(w.emitted('close')).toBeTruthy();
 	});
 
-	it('calls window.print when Print button is clicked', async () => {
-		const printSpy = vi.spyOn(window, 'print').mockImplementation(() => {});
-		const w = mountDialog([makeWalker()]);
+	it('opens a print window with the cards when Print button is clicked', async () => {
+		const writes: string[] = [];
+		const fakeWin = {
+			document: {
+				open: vi.fn(),
+				write: vi.fn((html: string) => writes.push(html)),
+				close: vi.fn(),
+			},
+		} as unknown as Window;
+		const openSpy = vi.spyOn(window, 'open').mockReturnValue(fakeWin);
+		const w = mountDialog([makeWalker({ firstName: 'Juan', lastName: 'Pérez' })]);
 		// First button is the Print button
 		await w.findAll('button')[0].trigger('click');
-		expect(printSpy).toHaveBeenCalled();
-		printSpy.mockRestore();
+		expect(openSpy).toHaveBeenCalled();
+		const html = writes.join('');
+		expect(html).toContain('lottery-cards-grid');
+		expect(html).toContain('Juan Pérez');
+		openSpy.mockRestore();
 	});
 });

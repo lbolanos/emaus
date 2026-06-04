@@ -1297,18 +1297,50 @@ const serversCount = computed(() => (participants.value || []).filter(p => p.typ
 const waitingCount = computed(() => (participants.value || []).filter(p => p.type === 'waiting' && !p.isCancelled).length);
 const angelitosCount = computed(() => (participants.value || []).filter(p => p.type === 'partial_server' && !p.isCancelled).length);
 
+// --- Helpers de fecha-solo (TZ-safe) ---------------------------------------
+// Las fechas del retiro (startDate/endDate) son columnas 'date': representan un
+// día calendario, NO un instante. Compararlas con `new Date(str)` + setHours()
+// corre el día porque "2026-06-05" se parsea como UTC y luego setHours opera en
+// local (CDMX UTC-6), dejando todo un día antes. Trabajamos con strings
+// "YYYY-MM-DD" que se comparan léxicograficamente en orden cronológico.
+const retreatTimezone = computed(() => selectedRetreat.value?.timezone || 'America/Mexico_City');
+
+const toYmd = (value: string | Date | null | undefined): string | null => {
+  if (!value) return null;
+  if (typeof value === 'string') return value.slice(0, 10);
+  // Date: las columnas 'date' se guardan a medianoche UTC → leer componentes UTC.
+  const y = value.getUTCFullYear();
+  const m = String(value.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(value.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+const todayYmdInRetreatTz = (): string =>
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone: retreatTimezone.value,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+
+const ymdToUtcMillis = (ymd: string): number => {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return Date.UTC(y, m - 1, d);
+};
+
+const addDaysYmd = (ymd: string, days: number): string =>
+  new Date(ymdToUtcMillis(ymd) + days * 86400000).toISOString().slice(0, 10);
+
 const isRetreatLive = computed(() => {
   const r = selectedRetreat.value;
   if (!r?.startDate || !r?.endDate) return false;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const start = new Date(r.startDate);
-  start.setHours(0, 0, 0, 0);
-  // 1 día de gracia antes (preparación final del viernes)
-  start.setDate(start.getDate() - 1);
-  const end = new Date(r.endDate);
-  end.setHours(23, 59, 59, 999);
-  return today >= start && today <= end;
+  const startYmd = toYmd(r.startDate);
+  const endYmd = toYmd(r.endDate);
+  if (!startYmd || !endYmd) return false;
+  const today = todayYmdInRetreatTz();
+  // 1 día de gracia antes (preparación final del día previo al inicio).
+  const graceStart = addDaysYmd(startYmd, -1);
+  return today >= graceStart && today <= endYmd;
 });
 
 const liveBadgeMessage = computed(() => {
@@ -1321,12 +1353,10 @@ const liveBadgeMessage = computed(() => {
 });
 
 const daysUntilRetreat = computed(() => {
-  if (!selectedRetreat.value?.startDate) return null;
-  const start = new Date(selectedRetreat.value.startDate);
-  const today = new Date();
-  start.setHours(0, 0, 0, 0);
-  today.setHours(0, 0, 0, 0);
-  return Math.round((start.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const startYmd = toYmd(selectedRetreat.value?.startDate);
+  if (!startYmd) return null;
+  const today = todayYmdInRetreatTz();
+  return Math.round((ymdToUtcMillis(startYmd) - ymdToUtcMillis(today)) / 86400000);
 });
 
 const walkersPercentage = computed(() => {

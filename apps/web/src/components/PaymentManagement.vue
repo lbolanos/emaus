@@ -196,16 +196,57 @@
 					<div class="space-y-4">
 						<div>
 							<label class="block text-sm font-medium text-gray-700 mb-1">Participante</label>
-							<Select v-model="paymentForm.participantId" required>
-								<SelectTrigger>
-									<SelectValue placeholder="Seleccionar participante" />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem v-for="participant in participants" :key="participant.id" :value="participant.id">
-										{{ participant.firstName }} {{ participant.lastName }} ({{ participant.nickname }})
-									</SelectItem>
-								</SelectContent>
-							</Select>
+							<div class="relative">
+								<!-- Trigger: muestra el participante seleccionado o un placeholder -->
+								<button
+									v-show="!participantDropdownOpen"
+									type="button"
+									:aria-expanded="participantDropdownOpen"
+									class="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+									@click="openParticipantDropdown"
+								>
+									<span :class="{ 'text-gray-400': !paymentForm.participantId }" class="truncate">
+										{{ selectedParticipantLabel || 'Buscar participante...' }}
+									</span>
+									<ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+								</button>
+
+								<!-- Buscador + lista (inline, dentro del Dialog) -->
+								<input
+									v-show="participantDropdownOpen"
+									ref="participantSearchInput"
+									v-model="participantSearch"
+									type="text"
+									placeholder="Nombre, apellido o apodo..."
+									class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background placeholder:text-gray-400 focus:ring-2 focus:ring-ring focus:ring-offset-2"
+									@blur="participantDropdownOpen = false"
+									@keydown.esc="participantDropdownOpen = false"
+								/>
+								<div
+									v-if="participantDropdownOpen"
+									class="absolute z-50 mt-1 max-h-[240px] w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-md"
+								>
+									<button
+										v-for="participant in filteredParticipants"
+										:key="participant.id"
+										type="button"
+										class="flex w-full items-center rounded-sm px-2 py-1.5 text-left text-sm hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+										@mousedown.prevent="selectParticipant(participant.id)"
+									>
+										<Check
+											class="mr-2 h-4 w-4 shrink-0"
+											:class="paymentForm.participantId === participant.id ? 'opacity-100' : 'opacity-0'"
+										/>
+										<span class="truncate">
+											{{ participant.firstName }} {{ participant.lastName }}
+											<span v-if="participant.nickname" class="text-gray-500">({{ participant.nickname }})</span>
+										</span>
+									</button>
+									<div v-if="filteredParticipants.length === 0" class="px-2 py-4 text-center text-sm text-gray-500">
+										No se encontraron participantes
+									</div>
+								</div>
+							</div>
 						</div>
 						<div>
 							<label class="block text-sm font-medium text-gray-700 mb-1">Monto</label>
@@ -285,7 +326,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
@@ -316,6 +357,8 @@ import {
 	Pencil,
 	Trash2,
 	Printer,
+	ChevronsUpDown,
+	Check,
 } from 'lucide-vue-next';
 import type { Payment, CreatePayment, UpdatePayment } from '@repo/types';
 import { formatDate } from '@repo/utils';
@@ -327,6 +370,9 @@ const authStore = useAuthStore();
 
 // State
 const showPaymentModal = ref(false);
+const participantDropdownOpen = ref(false);
+const participantSearch = ref('');
+const participantSearchInput = ref<HTMLInputElement | null>(null);
 const showDeleteDialog = ref(false);
 const editingPayment = ref<Payment | null>(null);
 const deletingPayment = ref<Payment | null>(null);
@@ -358,6 +404,43 @@ const paymentForm = ref({
 // Computed
 const retreats = computed(() => retreatStore.retreats);
 const participants = computed(() => participantStore.participants);
+
+const selectedParticipantLabel = computed(() => {
+	const p = participants.value.find((x: any) => x.id === paymentForm.value.participantId);
+	if (!p) return '';
+	const name = `${p.firstName} ${p.lastName}`.trim();
+	return p.nickname ? `${name} (${p.nickname})` : name;
+});
+
+// Filtra por nombre, apellido o apodo conforme el usuario escribe.
+const filteredParticipants = computed(() => {
+	const q = participantSearch.value.trim().toLowerCase();
+	if (!q) return participants.value;
+	return participants.value.filter((p: any) => {
+		const first = (p.firstName || '').toLowerCase();
+		const last = (p.lastName || '').toLowerCase();
+		const nick = (p.nickname || '').toLowerCase();
+		return (
+			first.includes(q) ||
+			last.includes(q) ||
+			nick.includes(q) ||
+			`${first} ${last}`.includes(q)
+		);
+	});
+});
+
+const openParticipantDropdown = () => {
+	participantSearch.value = '';
+	participantDropdownOpen.value = true;
+	// Enfocar el buscador una vez renderizado.
+	nextTick(() => participantSearchInput.value?.focus());
+};
+
+const selectParticipant = (participantId: string) => {
+	paymentForm.value.participantId = participantId;
+	participantDropdownOpen.value = false;
+	participantSearch.value = '';
+};
 
 const filteredPayments = computed(() => {
 	let payments = paymentStore.payments;
@@ -452,6 +535,8 @@ const closePaymentModal = () => {
 };
 
 const resetPaymentForm = () => {
+	participantDropdownOpen.value = false;
+	participantSearch.value = '';
 	paymentForm.value = {
 		participantId: '',
 		amount: '',
