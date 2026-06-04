@@ -12,6 +12,10 @@
             <p class="text-sm text-gray-500 dark:text-gray-400">{{ $t('tables.lotteryCards.description') }}</p>
           </div>
           <div class="flex items-center gap-2">
+            <Button variant="outline" @click="printCardsWithInviter">
+              <UserCheck class="mr-2 h-4 w-4" />
+              {{ $t('tables.lotteryCards.printWithInviter') }}
+            </Button>
             <Button @click="printCards">
               <Printer class="mr-2 h-4 w-4" />
               {{ $t('tables.lotteryCards.print') }}
@@ -47,9 +51,12 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { Participant } from '@repo/types';
 import { Button } from '@repo/ui';
-import { Printer, X } from 'lucide-vue-next';
+import { Printer, UserCheck, X } from 'lucide-vue-next';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   open: boolean;
@@ -74,19 +81,26 @@ const escapeHtml = (unsafe: unknown): string => {
     .replace(/'/g, '&#039;');
 };
 
-const printCards = () => {
+const buildAndPrint = (withInviter: boolean) => {
   const win = window.open('', '_blank', 'width=1024,height=768');
   if (!win) return;
+
+  const inviterLabel = escapeHtml(t('tables.invitedBy'));
 
   const cards = sortedWalkers.value
     .map((walker) => {
       const color = escapeHtml(walker.family_friend_color || '#e5e7eb');
       const id = escapeHtml(walker.id_on_retreat || '?');
       const name = `${escapeHtml(walker.firstName || '')} ${escapeHtml(walker.lastName || '')}`.trim();
+      const inviter =
+        withInviter && walker.invitedBy
+          ? `<span class="lottery-card-inviter">${inviterLabel}: ${escapeHtml(walker.invitedBy)}</span>`
+          : '';
       return (
         `<div class="lottery-card" style="border-left-color: ${color}">` +
         `<span class="lottery-card-id">${id}</span>` +
         `<span class="lottery-card-name">${name}</span>` +
+        inviter +
         '</div>'
       );
     })
@@ -100,6 +114,7 @@ const printCards = () => {
     '.lottery-card { border: 1px dashed #999; border-left: 6px solid #e5e7eb; border-radius: 4px; padding: 6px 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60px; background: #fff; break-inside: avoid; page-break-inside: avoid; }',
     '.lottery-card-id { font-size: 28px; font-weight: 800; line-height: 1; color: #000; }',
     '.lottery-card-name { font-size: 10px; color: #333; text-align: center; margin-top: 2px; line-height: 1.2; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }',
+    '.lottery-card-inviter { font-size: 8px; color: #666; text-align: center; margin-top: 2px; line-height: 1.2; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }',
   ].join(' ');
 
   const inlineScript =
@@ -122,6 +137,9 @@ const printCards = () => {
   win.document.write(html);
   win.document.close();
 };
+
+const printCards = () => buildAndPrint(false);
+const printCardsWithInviter = () => buildAndPrint(true);
 </script>
 
 <style>

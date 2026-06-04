@@ -1200,6 +1200,7 @@
       "title": "Tarjetas de los Caminantes",
       "description": "Imprime y recorta las tarjetas de cada caminante para la asignación de mesas.",
       "print": "Imprimir",
+      "printWithInviter": "Imprimir con invitador",
       "noWalkers": "No hay caminantes registrados para este retiro."
     },
     "photoAssignment": "Asignar por Foto (IA)",

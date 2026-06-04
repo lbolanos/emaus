@@ -1084,6 +1084,7 @@
       "disabledTooltip": "Cannot delete table with walkers assigned"
     },
     "viewWalkers": "View Walkers",
+    "invitedBy": "Invited by",
     "tableCard": {
       "dialogTitle": "Walkers and Inviters",
       "walkerName": "Walker Name",
@@ -1123,6 +1124,7 @@
       "title": "Walker Cards",
       "description": "Print and cut a card for each walker for the table assignment.",
       "print": "Print",
+      "printWithInviter": "Print with inviter",
       "noWalkers": "No walkers registered for this retreat."
     },
     "photoAssignment": "Assign by Photo (AI)",

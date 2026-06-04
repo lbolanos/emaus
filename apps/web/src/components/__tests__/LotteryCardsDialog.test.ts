@@ -10,6 +10,7 @@ vi.mock('@repo/ui', () => ({
 
 vi.mock('lucide-vue-next', () => ({
 	Printer: { template: '<svg />' },
+	UserCheck: { template: '<svg />' },
 	X: { template: '<svg />' },
 }));
 
@@ -93,7 +94,7 @@ describe('LotteryCardsDialog', () => {
 		expect(w.emitted('close')).toBeTruthy();
 	});
 
-	it('opens a print window with the cards when Print button is clicked', async () => {
+	const spyPrintWindow = () => {
 		const writes: string[] = [];
 		const fakeWin = {
 			document: {
@@ -103,13 +104,78 @@ describe('LotteryCardsDialog', () => {
 			},
 		} as unknown as Window;
 		const openSpy = vi.spyOn(window, 'open').mockReturnValue(fakeWin);
-		const w = mountDialog([makeWalker({ firstName: 'Juan', lastName: 'Pérez' })]);
-		// First button is the Print button
-		await w.findAll('button')[0].trigger('click');
+		return { writes, openSpy };
+	};
+
+	it('opens a print window with the cards when Print button is clicked', async () => {
+		const { writes, openSpy } = spyPrintWindow();
+		const w = mountDialog([makeWalker({ firstName: 'Juan', lastName: 'Pérez', invitedBy: 'Pedro López' })]);
+		// Buttons: [0] print-with-inviter, [1] print, [last] close
+		await w.findAll('button')[1].trigger('click');
 		expect(openSpy).toHaveBeenCalled();
 		const html = writes.join('');
 		expect(html).toContain('lottery-cards-grid');
 		expect(html).toContain('Juan Pérez');
+		// Plain print must NOT include the inviter
+		expect(html).not.toContain('Pedro López');
+		openSpy.mockRestore();
+	});
+
+	it('includes the inviter when "Print with inviter" is clicked', async () => {
+		const { writes, openSpy } = spyPrintWindow();
+		const w = mountDialog([makeWalker({ firstName: 'Juan', lastName: 'Pérez', invitedBy: 'Pedro López' })]);
+		// First button is "Print with inviter"
+		await w.findAll('button')[0].trigger('click');
+		expect(openSpy).toHaveBeenCalled();
+		const html = writes.join('');
+		expect(html).toContain('Juan Pérez');
+		expect(html).toContain('Pedro López');
+		expect(html).toContain('lottery-card-inviter');
+		openSpy.mockRestore();
+	});
+
+	it('omits the inviter line for walkers without invitedBy even in inviter mode', async () => {
+		const { writes, openSpy } = spyPrintWindow();
+		const w = mountDialog([
+			makeWalker({ id: 'w-1', id_on_retreat: 1, invitedBy: 'Pedro López' }),
+			makeWalker({ id: 'w-2', id_on_retreat: 2, invitedBy: undefined }),
+		]);
+		await w.findAll('button')[0].trigger('click');
+		const html = writes.join('');
+		// Only one inviter line is rendered (for the walker that has invitedBy)
+		expect(html.match(/class="lottery-card-inviter"/g)?.length).toBe(1);
+		expect(html).toContain('Pedro López');
+		openSpy.mockRestore();
+	});
+
+	it('escapes HTML in walker data to prevent injection', async () => {
+		const { writes, openSpy } = spyPrintWindow();
+		const w = mountDialog([
+			makeWalker({ firstName: '<b>Evil</b>', lastName: '& Co', invitedBy: '<script>x</script>' }),
+		]);
+		await w.findAll('button')[0].trigger('click');
+		const html = writes.join('');
+		expect(html).not.toContain('<b>Evil</b>');
+		expect(html).toContain('&lt;b&gt;Evil&lt;/b&gt;');
+		expect(html).toContain('&amp; Co');
+		expect(html).not.toContain('<script>x</script>');
+		openSpy.mockRestore();
+	});
+
+	it('uses a 4-column A4 grid so cards fit on the page', async () => {
+		const { writes, openSpy } = spyPrintWindow();
+		const w = mountDialog([makeWalker()]);
+		await w.findAll('button')[1].trigger('click');
+		const html = writes.join('');
+		expect(html).toContain('grid-template-columns: repeat(4, 1fr)');
+		expect(html).toContain('@page { size: A4; margin: 8mm; }');
+		openSpy.mockRestore();
+	});
+
+	it('does not throw when the print popup is blocked', async () => {
+		const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
+		const w = mountDialog([makeWalker()]);
+		await expect(w.findAll('button')[1].trigger('click')).resolves.not.toThrow();
 		openSpy.mockRestore();
 	});
 });
