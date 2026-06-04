@@ -4385,6 +4385,18 @@ export const getReceptionStats = async (retreatId: string) => {
   const arrived = walkers.filter((rp) => rp.checkedIn).length;
   const pending = walkers.filter((rp) => !rp.checkedIn);
 
+  // Total pagado por participante en este retiro (suma de payments.amount)
+  const paymentRepo = AppDataSource.getRepository(Payment);
+  const paymentRows = await paymentRepo.find({ where: { retreatId } });
+  const totalPaidByParticipant = new Map<string, number>();
+  for (const payment of paymentRows) {
+    const prev = totalPaidByParticipant.get(payment.participantId) ?? 0;
+    totalPaidByParticipant.set(
+      payment.participantId,
+      prev + Number(payment.amount),
+    );
+  }
+
   const pendingList = pending.map((rp) => ({
     retreatParticipantId: rp.id,
     participantId: rp.participantId,
@@ -4394,6 +4406,9 @@ export const getReceptionStats = async (retreatId: string) => {
     cellPhone: rp.participant?.cellPhone ?? "",
     checkedIn: false,
     checkedInAt: null,
+    totalPaid: rp.participantId
+      ? (totalPaidByParticipant.get(rp.participantId) ?? 0)
+      : 0,
   }));
 
   const arrivedList = walkers
@@ -4407,6 +4422,9 @@ export const getReceptionStats = async (retreatId: string) => {
       cellPhone: rp.participant?.cellPhone ?? "",
       checkedIn: true,
       checkedInAt: rp.checkedInAt ?? null,
+      totalPaid: rp.participantId
+        ? (totalPaidByParticipant.get(rp.participantId) ?? 0)
+        : 0,
     }));
 
   return { total, arrived, pending: total - arrived, pendingList, arrivedList };

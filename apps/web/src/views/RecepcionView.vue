@@ -190,6 +190,10 @@ function formatTime(iso: string | null): string {
   return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
 }
 
+function formatCurrency(amount: number): string {
+  return amount.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+}
+
 // ── Lifecycle ──────────────────────────────────────────────────────────────
 
 async function loadForRetreat(id: string) {
@@ -350,6 +354,15 @@ onUnmounted(() => {
               <span class="text-xs text-muted-foreground w-6 text-right shrink-0">{{ p.idOnRetreat ?? '—' }}</span>
               <span class="font-medium truncate">{{ p.firstName }} {{ p.lastName }}</span>
               <span v-if="p.cellPhone" class="text-xs text-muted-foreground hidden sm:inline">{{ p.cellPhone }}</span>
+              <span
+                class="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                :class="p.totalPaid > 0
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                  : 'bg-muted text-muted-foreground'"
+                :title="t('reception.totalPaid')"
+              >
+                ${{ formatCurrency(p.totalPaid) }}
+              </span>
             </div>
 
             <!-- No participantId: warn instead of silently doing nothing -->
@@ -422,6 +435,15 @@ onUnmounted(() => {
                 <span class="font-medium truncate">{{ p.firstName }} {{ p.lastName }}</span>
                 <span v-if="p.checkedInAt" class="text-xs text-muted-foreground hidden sm:inline">
                   {{ formatTime(p.checkedInAt) }}
+                </span>
+                <span
+                  class="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                  :class="p.totalPaid > 0
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                    : 'bg-muted text-muted-foreground'"
+                  :title="t('reception.totalPaid')"
+                >
+                  ${{ formatCurrency(p.totalPaid) }}
                 </span>
               </div>
               <button

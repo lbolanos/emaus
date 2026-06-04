@@ -990,7 +990,8 @@
     "sortBy": "Ordenar por",
     "sortByLastName": "Apellido",
     "sortByFirstName": "Nombre",
-    "sortByIdOnRetreat": "Número"
+    "sortByIdOnRetreat": "Número",
+    "totalPaid": "Total pagado"
   },
   "retreatDashboard": {
     "title": "Dashboard del Retiro",

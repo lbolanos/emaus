@@ -2415,6 +2415,7 @@ export interface ReceptionParticipant {
   cellPhone: string;
   checkedIn: boolean;
   checkedInAt: string | null;
+  totalPaid: number;
 }
 
 export interface ReceptionStats {

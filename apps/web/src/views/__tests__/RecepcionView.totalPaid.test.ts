@@ -57,7 +57,6 @@ vi.mock('vue-router', () => ({
 	useRouter: () => ({ push: vi.fn() }),
 }));
 
-// Override the global lucide-vue-next mock with the icons RecepcionView uses.
 vi.mock('lucide-vue-next', () => ({
 	CheckCircle: { name: 'CheckCircle', template: '<svg></svg>' },
 	Clock: { name: 'Clock', template: '<svg></svg>' },
@@ -87,28 +86,18 @@ function makeParticipant(overrides: Partial<ReceptionParticipant> = {}): Recepti
 }
 
 const pendingFixture: ReceptionParticipant[] = [
-	makeParticipant({ retreatParticipantId: 'rp-3', firstName: 'Carlos', lastName: 'Zapata', idOnRetreat: 3 }),
-	makeParticipant({ retreatParticipantId: 'rp-1', firstName: 'Ana', lastName: 'García', idOnRetreat: 1 }),
-	makeParticipant({ retreatParticipantId: 'rp-2', firstName: 'Beto', lastName: 'álvarez', idOnRetreat: 2 }),
-	makeParticipant({ retreatParticipantId: 'rp-4', firstName: 'Diana', lastName: 'Pérez', idOnRetreat: 10 }),
+	makeParticipant({ firstName: 'Ana', lastName: 'García', idOnRetreat: 1, totalPaid: 1500 }),
+	makeParticipant({ firstName: 'Beto', lastName: 'Núñez', idOnRetreat: 2, totalPaid: 0 }),
 ];
 
 const arrivedFixture: ReceptionParticipant[] = [
 	makeParticipant({
-		retreatParticipantId: 'rp-a2',
-		firstName: 'Yolanda',
-		lastName: 'López',
-		idOnRetreat: 8,
+		firstName: 'Carla',
+		lastName: 'Ruiz',
+		idOnRetreat: 3,
 		checkedIn: true,
 		checkedInAt: '2026-05-08T12:00:00Z',
-	}),
-	makeParticipant({
-		retreatParticipantId: 'rp-a1',
-		firstName: 'Xavier',
-		lastName: 'Aguirre',
-		idOnRetreat: 5,
-		checkedIn: true,
-		checkedInAt: '2026-05-08T11:30:00Z',
+		totalPaid: 2750.5,
 	}),
 ];
 
@@ -129,42 +118,22 @@ async function mountView() {
 	const { useRetreatStore } = await import('@/stores/retreatStore');
 	const retreatStore = useRetreatStore();
 	(retreatStore as any).retreats = [
-		{
-			id: 'retreat-1',
-			parish: 'Test',
-			startDate: '2026-05-08',
-			walkerArrivalTime: '08:00',
-		},
+		{ id: 'retreat-1', parish: 'Test', startDate: '2026-05-08', walkerArrivalTime: '08:00' },
 	];
 	retreatStore.selectedRetreatId = 'retreat-1';
 	(retreatStore as any).fetchRetreat = vi.fn().mockResolvedValue(undefined);
 
 	const RecepcionView = (await import('../RecepcionView.vue')).default;
 
-	const wrapper = mount(RecepcionView, {
-		global: {
-			plugins: [pinia],
-		},
-	});
+	const wrapper = mount(RecepcionView, { global: { plugins: [pinia] } });
 	await flushPromises();
 	await nextTick();
 	return wrapper;
 }
 
-function getPendingNames(wrapper: any): string[] {
-	const items = wrapper.findAll('ul')[0]?.findAll('li') ?? [];
-	return items.map((li: any) => {
-		const text = li.text().replace(/\s+/g, ' ').trim();
-		// Each row is "<idOnRetreat> <firstName> <lastName> [phone] [Llegó]"
-		// Extract the name segment between the id and any trailing button label.
-		const m = text.match(/^\S+\s+(.*?)(?:\s+(?:reception\.arrivedButton|Llegó|\d{2,}.*))?$/);
-		return m ? m[1] : text;
-	});
-}
-
 // ── Tests ────────────────────────────────────────────────────────────────
 
-describe('RecepcionView - sort selector', () => {
+describe('RecepcionView - total pagado', () => {
 	beforeEach(() => {
 		(window.localStorage as any)._reset?.();
 		getReceptionStatsMock.mockResolvedValue({ ...statsFixture });
@@ -176,91 +145,59 @@ describe('RecepcionView - sort selector', () => {
 		checkInParticipantMock.mockReset();
 	});
 
-	it('orders pending list by lastName by default (case- and accent-insensitive)', async () => {
+	it('muestra el monto pagado formateado en la lista de pendientes', async () => {
 		const wrapper = await mountView();
 
-		const lis = wrapper.findAll('ul')[0].findAll('li');
-		const names = lis.map((li: any) => li.text());
-
-		// Expected order: álvarez, García, Pérez, Zapata
-		expect(names[0]).toContain('álvarez');
-		expect(names[1]).toContain('García');
-		expect(names[2]).toContain('Pérez');
-		expect(names[3]).toContain('Zapata');
+		const pendingLis = wrapper.findAll('ul')[0].findAll('li');
+		// Ana García ($1,500) viene antes que Beto Núñez por apellido
+		const ana = pendingLis.find((li: any) => li.text().includes('García'));
+		expect(ana, 'Ana row should exist').toBeTruthy();
+		expect(ana!.text()).toContain('$1,500');
 	});
 
-	it('orders by firstName when selector changes', async () => {
+	it('muestra $0 cuando el caminante no ha pagado', async () => {
 		const wrapper = await mountView();
 
-		const select = wrapper.find('select');
-		await select.setValue('firstName');
-		await nextTick();
-
-		const lis = wrapper.findAll('ul')[0].findAll('li');
-		const names = lis.map((li: any) => li.text());
-
-		// Expected: Ana, Beto, Carlos, Diana
-		expect(names[0]).toContain('Ana');
-		expect(names[1]).toContain('Beto');
-		expect(names[2]).toContain('Carlos');
-		expect(names[3]).toContain('Diana');
+		const pendingLis = wrapper.findAll('ul')[0].findAll('li');
+		const beto = pendingLis.find((li: any) => li.text().includes('Núñez'));
+		expect(beto, 'Beto row should exist').toBeTruthy();
+		expect(beto!.text()).toContain('$0');
 	});
 
-	it('orders by idOnRetreat numerically when selected', async () => {
+	it('muestra el total pagado en la lista de llegados con decimales', async () => {
 		const wrapper = await mountView();
 
-		const select = wrapper.find('select');
-		await select.setValue('idOnRetreat');
-		await nextTick();
-
-		const lis = wrapper.findAll('ul')[0].findAll('li');
-		const names = lis.map((li: any) => li.text());
-
-		// Expected: 1 (Ana), 2 (Beto), 3 (Carlos), 10 (Diana)
-		expect(names[0]).toContain('Ana');
-		expect(names[1]).toContain('Beto');
-		expect(names[2]).toContain('Carlos');
-		expect(names[3]).toContain('Diana');
-	});
-
-	it('persists the selected sort to localStorage', async () => {
-		const wrapper = await mountView();
-
-		const select = wrapper.find('select');
-		await select.setValue('firstName');
-		await nextTick();
-
-		expect(window.localStorage.getItem('reception.sortBy')).toBe('firstName');
-	});
-
-	it('reads the persisted sort from localStorage on mount', async () => {
-		window.localStorage.setItem('reception.sortBy', 'idOnRetreat');
-
-		const wrapper = await mountView();
-
-		const select = wrapper.find('select');
-		expect((select.element as HTMLSelectElement).value).toBe('idOnRetreat');
-	});
-
-	it('also applies the selected sort to the arrived list', async () => {
-		const wrapper = await mountView();
-
-		// Open arrived section
+		// Abrir sección de llegados
 		const toggle = wrapper.findAll('button').find((b: any) =>
 			b.text().includes('reception.arrivedSection') || b.text().includes('Ver llegados'),
 		);
-		expect(toggle, 'arrived toggle button should exist').toBeTruthy();
+		expect(toggle, 'arrived toggle should exist').toBeTruthy();
 		await toggle!.trigger('click');
 		await nextTick();
 
-		// arrived list is the second <ul> on the page once expanded
 		const uls = wrapper.findAll('ul');
 		const arrivedUl = uls[uls.length - 1];
-		const lis = arrivedUl.findAll('li');
-		const names = lis.map((li: any) => li.text());
+		const carla = arrivedUl.findAll('li').find((li: any) => li.text().includes('Ruiz'));
+		expect(carla, 'Carla row should exist').toBeTruthy();
+		expect(carla!.text()).toContain('$2,750.5');
+	});
 
-		// Default sort is lastName: Aguirre (Xavier), López (Yolanda)
-		expect(names[0]).toContain('Aguirre');
-		expect(names[1]).toContain('López');
+	it('pinta el badge en verde cuando hay pago y en muted cuando no', async () => {
+		const wrapper = await mountView();
+
+		const pendingLis = wrapper.findAll('ul')[0].findAll('li');
+
+		// Ana pagó $1,500 → badge verde
+		const ana = pendingLis.find((li: any) => li.text().includes('García'));
+		const anaBadge = ana!.findAll('span').find((s: any) => s.text().includes('$1,500'));
+		expect(anaBadge, 'Ana badge should exist').toBeTruthy();
+		expect(anaBadge!.classes().some((c: string) => c.includes('green'))).toBe(true);
+
+		// Beto pagó $0 → badge muted, sin verde
+		const beto = pendingLis.find((li: any) => li.text().includes('Núñez'));
+		const betoBadge = beto!.findAll('span').find((s: any) => s.text().includes('$0'));
+		expect(betoBadge, 'Beto badge should exist').toBeTruthy();
+		expect(betoBadge!.classes().some((c: string) => c.includes('green'))).toBe(false);
+		expect(betoBadge!.classes()).toContain('text-muted-foreground');
 	});
 });
