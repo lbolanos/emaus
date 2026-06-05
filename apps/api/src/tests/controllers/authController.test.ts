@@ -28,12 +28,25 @@ jest.mock('../../services/globalMessageTemplateService', () => ({
 	})),
 }));
 
-// Mock RecaptchaService
-jest.mock('../../services/recaptchaService', () => ({
-	RecaptchaService: jest.fn().mockImplementation(() => ({
-		verifyToken: jest.fn().mockResolvedValue({ valid: true }),
-	})),
-}));
+// Mock RecaptchaService. verifyToken lives in the factory closure (shared across
+// every `new RecaptchaService()`) so tests can control its result per case without
+// hitting the "Cannot access before initialization" hoisting trap.
+jest.mock('../../services/recaptchaService', () => {
+	const verifyToken = jest.fn().mockResolvedValue({ valid: true });
+	return {
+		RecaptchaService: jest.fn().mockImplementation(() => ({ verifyToken })),
+		resolveMinScore: jest.fn((_envVarName: string, fallback: number) => fallback),
+	};
+});
+
+// Handles to the mocked reCAPTCHA exports (module mocked above).
+const mockRecaptcha = jest.requireMock('../../services/recaptchaService') as {
+	RecaptchaService: jest.Mock;
+	resolveMinScore: jest.Mock;
+};
+const mockResolveMinScore = mockRecaptcha.resolveMinScore;
+// The shared verifyToken mock returned by every `new RecaptchaService()`.
+const mockVerifyToken = new mockRecaptcha.RecaptchaService().verifyToken as jest.Mock;
 
 /**
  * Auth Controller Unit Tests
@@ -340,6 +353,59 @@ describe('Auth Controller', () => {
 			await authController.login(req, res, next);
 
 			expect(next).toHaveBeenCalledWith(expect.any(Error));
+		});
+
+		test('should verify reCAPTCHA with the lenient login threshold (0.3)', async () => {
+			const req = createMockRequest({
+				body: {
+					email: testUser.email,
+					password: 'password123',
+					recaptchaToken: 'valid-token',
+				},
+				user: testUser,
+			});
+			const res = createMockResponse();
+
+			(passport.authenticate as jest.Mock).mockImplementation((_strategy: string, callback: any) => {
+				return () => callback(null, testUser, { message: 'Success' });
+			});
+
+			await authController.login(req, res, mockNext);
+
+			// Login uses its own, more lenient env-configurable threshold.
+			expect(mockResolveMinScore).toHaveBeenCalledWith('RECAPTCHA_MIN_SCORE_LOGIN', 0.3);
+			expect(mockVerifyToken).toHaveBeenCalledWith('valid-token', { minScore: 0.3 });
+		});
+
+		test('should reject with 400 and not check credentials when reCAPTCHA fails', async () => {
+			const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+			mockVerifyToken.mockResolvedValueOnce({
+				valid: false,
+				error: 'reCAPTCHA score too low (0.20 < 0.3)',
+				score: 0.2,
+			});
+
+			const req = createMockRequest({
+				body: {
+					email: testUser.email,
+					password: 'password123',
+					recaptchaToken: 'low-score-token',
+				},
+			});
+			const res = createMockResponse();
+
+			await authController.login(req, res, mockNext);
+
+			expect(res.status).toHaveBeenCalledWith(400);
+			expect(res.json).toHaveBeenCalledWith({
+				message: 'reCAPTCHA score too low (0.20 < 0.3)',
+			});
+			// The captcha gate must short-circuit BEFORE passport validates credentials.
+			expect(passport.authenticate).not.toHaveBeenCalled();
+			// The score is logged (without PII) for production diagnosis.
+			expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('0.20'));
+
+			warnSpy.mockRestore();
 		});
 	});
 

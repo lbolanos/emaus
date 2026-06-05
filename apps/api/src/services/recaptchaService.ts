@@ -31,6 +31,28 @@ interface RecaptchaVerifyOptions {
 	action?: string;
 }
 
+/**
+ * Resolve a reCAPTCHA minimum-score threshold from an environment variable so
+ * thresholds can be tuned in production without a redeploy.
+ *
+ * Returns `fallback` when the variable is missing, empty, or not a finite
+ * number within [0, 1]; invalid values are warned about and ignored.
+ */
+export function resolveMinScore(envVarName: string, fallback: number): number {
+	const raw = process.env[envVarName];
+	if (raw === undefined || raw.trim() === '') {
+		return fallback;
+	}
+	const parsed = Number(raw);
+	if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
+		console.warn(
+			`⚠️  ${envVarName}="${raw}" no es un score reCAPTCHA válido (0.0-1.0); usando ${fallback}`,
+		);
+		return fallback;
+	}
+	return parsed;
+}
+
 export class RecaptchaService {
 	private verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
 
@@ -107,8 +129,9 @@ export class RecaptchaService {
 				};
 			}
 
-			// Check score threshold if specified
-			const minScore = options.minScore ?? 0.5;
+			// Check score threshold. When the caller doesn't specify one, fall back to the
+			// RECAPTCHA_MIN_SCORE env var (default 0.5) so it can be tuned without a redeploy.
+			const minScore = options.minScore ?? resolveMinScore('RECAPTCHA_MIN_SCORE', 0.5);
 			if (data.score !== undefined && data.score < minScore) {
 				return {
 					valid: false,

@@ -2,7 +2,7 @@
  * Tests for RecaptchaService
  */
 
-import { RecaptchaService } from '../../services/recaptchaService';
+import { RecaptchaService, resolveMinScore } from '../../services/recaptchaService';
 import { jest } from '@jest/globals';
 
 // Mock global fetch
@@ -20,6 +20,8 @@ describe('RecaptchaService', () => {
 	afterEach(() => {
 		// Reset environment variables
 		delete process.env.RECAPTCHA_SECRET_KEY;
+		delete process.env.RECAPTCHA_MIN_SCORE;
+		delete process.env.RECAPTCHA_MIN_SCORE_LOGIN;
 	});
 
 	describe('Constructor', () => {
@@ -308,6 +310,34 @@ describe('RecaptchaService', () => {
 			expect(result.error).toContain('0.40 < 0.5');
 		});
 
+		it('should use RECAPTCHA_MIN_SCORE env var as the default threshold', async () => {
+			process.env.RECAPTCHA_SECRET_KEY = 'real-secret-key';
+			process.env.RECAPTCHA_MIN_SCORE = '0.3';
+			mockFetch.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ success: true, score: 0.4 }),
+			} as Response);
+
+			const result = await service.verifyToken(validToken);
+
+			// 0.4 >= 0.3 env default → valid (would have failed against the hardcoded 0.5)
+			expect(result.valid).toBe(true);
+		});
+
+		it('should let an explicit minScore override the env var', async () => {
+			process.env.RECAPTCHA_SECRET_KEY = 'real-secret-key';
+			process.env.RECAPTCHA_MIN_SCORE = '0.3';
+			mockFetch.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ success: true, score: 0.4 }),
+			} as Response);
+
+			const result = await service.verifyToken(validToken, { minScore: 0.5 });
+
+			expect(result.valid).toBe(false);
+			expect(result.error).toContain('0.40 < 0.5');
+		});
+
 		it('should handle multiple error codes from Google', async () => {
 			process.env.RECAPTCHA_SECRET_KEY = 'real-secret-key';
 			mockFetch.mockResolvedValueOnce({
@@ -472,6 +502,44 @@ describe('RecaptchaService', () => {
 			await middleware(req, res, next);
 
 			expect(next).toHaveBeenCalled();
+		});
+	});
+
+	describe('resolveMinScore', () => {
+		it('returns the fallback when the env var is unset', () => {
+			delete process.env.RECAPTCHA_MIN_SCORE;
+			expect(resolveMinScore('RECAPTCHA_MIN_SCORE', 0.5)).toBe(0.5);
+		});
+
+		it('returns the fallback when the env var is empty or whitespace', () => {
+			process.env.RECAPTCHA_MIN_SCORE = '   ';
+			expect(resolveMinScore('RECAPTCHA_MIN_SCORE', 0.5)).toBe(0.5);
+		});
+
+		it('parses a valid numeric env var', () => {
+			process.env.RECAPTCHA_MIN_SCORE = '0.3';
+			expect(resolveMinScore('RECAPTCHA_MIN_SCORE', 0.5)).toBe(0.3);
+		});
+
+		it('accepts the boundary values 0 and 1', () => {
+			process.env.RECAPTCHA_MIN_SCORE = '0';
+			expect(resolveMinScore('RECAPTCHA_MIN_SCORE', 0.5)).toBe(0);
+			process.env.RECAPTCHA_MIN_SCORE = '1';
+			expect(resolveMinScore('RECAPTCHA_MIN_SCORE', 0.5)).toBe(1);
+		});
+
+		it('falls back and warns when the value is non-numeric or out of [0,1]', () => {
+			const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+			process.env.RECAPTCHA_MIN_SCORE = 'abc';
+			expect(resolveMinScore('RECAPTCHA_MIN_SCORE', 0.5)).toBe(0.5);
+			process.env.RECAPTCHA_MIN_SCORE = '1.5';
+			expect(resolveMinScore('RECAPTCHA_MIN_SCORE', 0.5)).toBe(0.5);
+			process.env.RECAPTCHA_MIN_SCORE = '-0.2';
+			expect(resolveMinScore('RECAPTCHA_MIN_SCORE', 0.5)).toBe(0.5);
+
+			expect(warnSpy).toHaveBeenCalledTimes(3);
+			warnSpy.mockRestore();
 		});
 	});
 });

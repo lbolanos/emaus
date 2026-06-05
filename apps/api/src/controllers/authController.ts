@@ -9,7 +9,7 @@ import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { UserService } from '../services/userService';
 import { CommunityService } from '../services/communityService';
 import { GlobalMessageTemplateService } from '../services/globalMessageTemplateService';
-import { RecaptchaService } from '../services/recaptchaService';
+import { RecaptchaService, resolveMinScore } from '../services/recaptchaService';
 import { config } from '../config';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
@@ -197,12 +197,19 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 export const login = async (req: Request, res: Response, next: NextFunction) => {
 	const { recaptchaToken } = req.body;
 
-	// Verify reCAPTCHA token
+	// Verify reCAPTCHA token. Login uses a more lenient threshold than public forms:
+	// v3 scores legitimate users low for many benign reasons, and rate limiting +
+	// account lockout are the real brute-force defenses here.
 	const recaptchaResult = await recaptchaService.verifyToken(recaptchaToken, {
-		minScore: 0.5,
+		minScore: resolveMinScore('RECAPTCHA_MIN_SCORE_LOGIN', 0.3),
 	});
 
 	if (!recaptchaResult.valid) {
+		console.warn(
+			`Login bloqueado por reCAPTCHA${
+				recaptchaResult.score !== undefined ? ` (score ${recaptchaResult.score.toFixed(2)})` : ''
+			}: ${recaptchaResult.error}`,
+		);
 		return res
 			.status(400)
 			.json({ message: recaptchaResult.error || 'reCAPTCHA verification failed' });
