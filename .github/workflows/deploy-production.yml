@@ -136,6 +136,16 @@ jobs:
             find ./build-output -name "index.js" -path "*/api/dist/*"
           fi
 
+          # Sync API source tree so `migration:run` (vite-node desde src/) vea las
+          # migraciones nuevas. El deploy sólo envía dist/, pero migration:run lee
+          # src/migrations/sqlite/*.ts — sin esto las migraciones nuevas son
+          # invisibles en prod y reporta "No pending migrations". Incidente 2026-06-04.
+          # rsync es incremental: en deploys normales sólo sube los archivos cambiados.
+          echo "Syncing API source (needed by vite-node migration:run)..."
+          rsync -az --no-perms --no-owner --no-group \
+            -e "ssh -i ~/.ssh/lightsail-emaus.pem" \
+            ./apps/api/src/ ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/api/src/
+
           echo "Uploading Web build..."
           if [ -d "./build-output/web/dist" ]; then
             scp -i ~/.ssh/lightsail-emaus.pem -r ./build-output/web/dist ubuntu@$LIGHTSAIL_HOST:/var/www/emaus/apps/web/
