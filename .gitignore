@@ -24,6 +24,8 @@ apps/api/emaus.db
 # Backups de prod descargados localmente (incidente 2026-06-04)
 apps/api/prod-*.sqlite
 apps/api/prod-*.sqlite.gz
+# Temporales de Vite/Vitest al cargar config .ts (quedan huérfanos si el proceso se corta)
+*.timestamp-*.mjs
 # Generated files from build/compilation
 dist/
 .vite/
