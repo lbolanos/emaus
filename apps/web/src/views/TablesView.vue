@@ -163,25 +163,29 @@
             class="mt-1 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[40px] max-h-32 overflow-y-auto flex flex-wrap gap-2 transition-colors"
             :class="{ 'border-primary bg-primary/10 border-dashed border-2': isOverUnassignedServer }"
           >
-            <ParticipantTooltip
+            <span
               v-for="server in unassignedServers"
               :key="server.id"
-              :participant="server"
+              class="inline-flex items-center"
             >
-              <div
-                draggable="true"
-                @touchstart.passive="tapTouchStart"
-                @touchend="tapTouchEnd($event, server)"
-                @dragstart="startDrag($event, server)"
-                @dragend="handleDragEnd"
-                :data-participant-id="server.id"
-                :data-is-unassigned="true"
-                class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium cursor-pointer transition-all"
-                :class="[getParticipantHighlightClass(server.id), { 'ring-2 ring-blue-500 ring-offset-1 scale-110': isTapSelected(server.id) }]"
-              >
-                {{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
-              </div>
-            </ParticipantTooltip>
+              <ParticipantInfoPopover :participant="server">
+                <ParticipantTooltip :participant="server">
+                  <div
+                    draggable="true"
+                    @touchstart.passive="tapTouchStart"
+                    @touchend="tapTouchEnd($event, server)"
+                    @dragstart="startDrag($event, server)"
+                    @dragend="handleDragEnd"
+                    :data-participant-id="server.id"
+                    :data-is-unassigned="true"
+                    class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium cursor-pointer transition-all"
+                    :class="[getParticipantHighlightClass(server.id), { 'ring-2 ring-blue-500 ring-offset-1 scale-110': isTapSelected(server.id) }]"
+                  >
+                    {{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
+                  </div>
+                </ParticipantTooltip>
+              </ParticipantInfoPopover>
+            </span>
           </div>
         </div>
         <!-- Unassigned Walkers -->
@@ -195,25 +199,29 @@
             class="mt-1 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[40px] max-h-32 overflow-y-auto flex flex-wrap gap-2 transition-colors"
             :class="{ 'border-primary bg-primary/10 border-dashed border-2': isOverUnassignedWalker }"
           >
-            <ParticipantTooltip
+            <span
               v-for="walker in unassignedWalkers"
               :key="walker.id"
-              :participant="walker"
+              class="inline-flex items-center"
             >
-              <div
-                draggable="true"
-                @touchstart.passive="tapTouchStart"
-                @touchend="tapTouchEnd($event, walker)"
-                @dragstart="startDrag($event, walker)"
-                @dragend="handleDragEnd"
-                :data-participant-id="walker.id"
-                :data-is-unassigned="true"
-                class="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium cursor-pointer transition-all"
-                :class="[getParticipantHighlightClass(walker.id), { 'ring-2 ring-green-500 ring-offset-1 scale-110': isTapSelected(walker.id) }]"
-              >
-                <span class="font-bold px-1 rounded" :style="walker.family_friend_color ? { backgroundColor: walker.family_friend_color, color: '#000' } : {}">{{ walker.id_on_retreat || '' }}</span> {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
-              </div>
-            </ParticipantTooltip>
+              <ParticipantInfoPopover :participant="walker">
+                <ParticipantTooltip :participant="walker">
+                  <div
+                    draggable="true"
+                    @touchstart.passive="tapTouchStart"
+                    @touchend="tapTouchEnd($event, walker)"
+                    @dragstart="startDrag($event, walker)"
+                    @dragend="handleDragEnd"
+                    :data-participant-id="walker.id"
+                    :data-is-unassigned="true"
+                    class="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium cursor-pointer transition-all"
+                    :class="[getParticipantHighlightClass(walker.id), { 'ring-2 ring-green-500 ring-offset-1 scale-110': isTapSelected(walker.id) }]"
+                  >
+                    <span class="font-bold px-1 rounded" :style="walker.family_friend_color ? { backgroundColor: walker.family_friend_color, color: '#000' } : {}">{{ walker.id_on_retreat || '' }}</span> {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
+                  </div>
+                </ParticipantTooltip>
+              </ParticipantInfoPopover>
+            </span>
           </div>
         </div>
       </div>
@@ -223,31 +231,39 @@
         <!-- Unassigned Servers -->
         <div v-show="unassignedTab === 'server'">
           <div class="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[40px] max-h-24 overflow-y-auto flex flex-wrap gap-2">
-            <span
+            <ParticipantInfoPopover
               v-for="server in unassignedServers"
               :key="server.id"
-              @touchstart.passive="tapTouchStart"
-              @touchend="tapTouchEnd($event, server)"
-              class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium cursor-pointer transition-all select-none"
-              :class="{ 'ring-2 ring-blue-500 ring-offset-1 scale-110': isTapSelected(server.id) }"
+              :participant="server"
             >
-              {{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
-            </span>
+              <span
+                @touchstart.passive="tapTouchStart"
+                @touchend="tapTouchEnd($event, server)"
+                class="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium cursor-pointer transition-all select-none"
+                :class="{ 'ring-2 ring-blue-500 ring-offset-1 scale-110': isTapSelected(server.id) }"
+              >
+                {{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
+              </span>
+            </ParticipantInfoPopover>
           </div>
         </div>
         <!-- Unassigned Walkers -->
         <div v-show="unassignedTab === 'walker'">
           <div class="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border min-h-[40px] max-h-24 overflow-y-auto flex flex-wrap gap-2">
-            <span
+            <ParticipantInfoPopover
               v-for="walker in unassignedWalkers"
               :key="walker.id"
-              @touchstart.passive="tapTouchStart"
-              @touchend="tapTouchEnd($event, walker)"
-              class="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium cursor-pointer transition-all select-none"
-              :class="{ 'ring-2 ring-green-500 ring-offset-1 scale-110': isTapSelected(walker.id) }"
+              :participant="walker"
             >
-              <span class="font-bold px-1 rounded" :style="walker.family_friend_color ? { backgroundColor: walker.family_friend_color, color: '#000' } : {}">{{ walker.id_on_retreat || '' }}</span> {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
-            </span>
+              <span
+                @touchstart.passive="tapTouchStart"
+                @touchend="tapTouchEnd($event, walker)"
+                class="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium cursor-pointer transition-all select-none"
+                :class="{ 'ring-2 ring-green-500 ring-offset-1 scale-110': isTapSelected(walker.id) }"
+              >
+                <span class="font-bold px-1 rounded" :style="walker.family_friend_color ? { backgroundColor: walker.family_friend_color, color: '#000' } : {}">{{ walker.id_on_retreat || '' }}</span> {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
+              </span>
+            </ParticipantInfoPopover>
           </div>
         </div>
       </div>
@@ -353,6 +369,14 @@
 
   <TablesHelpDialog :open="isHelpOpen" @update:open="isHelpOpen = $event" />
 
+  <!-- Mensaje a participante (compartido por todos los popovers de detalle) -->
+  <MessageDialog
+    v-model:open="messageDialogOpen"
+    context="retreat"
+    :retreat-id="retreatStore.selectedRetreatId ?? undefined"
+    :participant="messageParticipant"
+  />
+
   <!-- Floating unassign button — shown when an assigned participant is tap-selected -->
   <Teleport to="body">
     <div
@@ -378,8 +402,11 @@ import { useParticipantStore } from '@/stores/participantStore';
 import TableCard from './TableCard.vue';
 import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, TooltipProvider } from '@repo/ui';
 import ParticipantTooltip from '@/components/ParticipantTooltip.vue';
+import ParticipantInfoPopover from '@/components/ParticipantInfoPopover.vue';
+import MessageDialog from '@/components/MessageDialog.vue';
 import LotteryCardsDialog from '@/components/LotteryCardsDialog.vue';
 import TablesHelpDialog from '@/components/TablesHelpDialog.vue';
+import { useParticipantMessageDialog } from '@/composables/useParticipantMessageDialog';
 import { useToast } from '@repo/ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@repo/ui';
 import { ChevronLeft, ChevronRight, Download, HelpCircle, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw, Scissors, UserX, X } from 'lucide-vue-next';
@@ -399,6 +426,7 @@ import {
 const tableMesaStore = useTableMesaStore();
 const retreatStore = useRetreatStore();
 const participantStore = useParticipantStore();
+const { isOpen: messageDialogOpen, participant: messageParticipant } = useParticipantMessageDialog();
 const { toast } = useToast();
 const { t } = useI18n();
 const { draggedParticipantType, startDrag: startDragState, endDrag } = useDragState();

@@ -113,26 +113,28 @@
               <span
                 v-for="walker in table.walkers"
                 :key="`${walker.id}-${searchIndexKey}`"
-                class="inline-block"
+                class="inline-flex items-center"
                 @touchstart.passive="tapTouchStart"
                 @touchend.stop="tapTouchEnd($event, walker, table.id, 'walkers')"
                 @click.stop
               >
-                <ParticipantTooltip :participant="walker">
-                  <div
-                    draggable="true"
-                    @dragstart="startDragFromTable($event, walker, 'walkers')"
-                    @dragend="handleDragEnd"
-                    @dblclick.stop="table.id && tableMesaStore.unassignWalkerFromTable(table.id, walker.id)"
-                    :style="{ borderColor: walker.family_friend_color }"
-                    :data-participant-id="walker.id"
-                    :data-table-id="table.id"
-                    class="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm font-medium cursor-pointer border-2 transition-all"
-                    :class="[getParticipantHighlightClass(walker), { 'ring-2 ring-green-500 ring-offset-1 scale-110': isTapSelected(walker.id) }]"
-                  >
-                    <span class="font-bold px-1 rounded" :style="walker.family_friend_color ? { backgroundColor: walker.family_friend_color, color: '#000' } : {}">{{ walker.id_on_retreat || '?' }}</span> {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
-                  </div>
-                </ParticipantTooltip>
+                <ParticipantInfoPopover :participant="walker">
+                  <ParticipantTooltip :participant="walker">
+                    <div
+                      draggable="true"
+                      @dragstart="startDragFromTable($event, walker, 'walkers')"
+                      @dragend="handleDragEnd"
+                      @dblclick.stop="table.id && tableMesaStore.unassignWalkerFromTable(table.id, walker.id)"
+                      :style="{ borderColor: walker.family_friend_color }"
+                      :data-participant-id="walker.id"
+                      :data-table-id="table.id"
+                      class="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-sm font-medium cursor-pointer border-2 transition-all"
+                      :class="[getParticipantHighlightClass(walker), { 'ring-2 ring-green-500 ring-offset-1 scale-110': isTapSelected(walker.id) }]"
+                    >
+                      <span class="font-bold px-1 rounded" :style="walker.family_friend_color ? { backgroundColor: walker.family_friend_color, color: '#000' } : {}">{{ walker.id_on_retreat || '?' }}</span> {{ walker.firstName.split(' ')[0] }} {{ walker.lastName.charAt(0) }}.
+                    </div>
+                  </ParticipantTooltip>
+                </ParticipantInfoPopover>
               </span>
             </transition-group>
             <span v-else class="text-gray-400 text-sm mt-2 block">{{ $t('tables.unassigned') }}</span>
@@ -212,6 +214,7 @@ import { useTableMesaStore } from '@/stores/tableMesaStore';
 import { useI18n } from 'vue-i18n';
 import ServerDropZone from './ServerDropZone.vue';
 import ParticipantTooltip from '@/components/ParticipantTooltip.vue';
+import ParticipantInfoPopover from '@/components/ParticipantInfoPopover.vue';
 import { useToast } from '@repo/ui';
 import { useDragState } from '@/composables/useDragState';
 import { useTapAssign } from '@/composables/useTapAssign';

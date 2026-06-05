@@ -306,6 +306,19 @@ vi.mock('@repo/ui', () => ({
 		name: 'TooltipTrigger',
 		template: '<div><slot /></div>',
 	},
+	Popover: {
+		name: 'Popover',
+		template: '<div><slot /></div>',
+		props: ['open'],
+	},
+	PopoverContent: {
+		name: 'PopoverContent',
+		template: '<div><slot /></div>',
+	},
+	PopoverTrigger: {
+		name: 'PopoverTrigger',
+		template: '<div><slot /></div>',
+	},
 	Toast: {
 		name: 'Toast',
 		template: '<div><slot /></div>',
