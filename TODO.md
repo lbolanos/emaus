@@ -2,6 +2,21 @@
 
 Backlog de mejoras pendientes, organizado por urgencia. Mantenido manualmente.
 
+## 🗄️ Resiliencia de base de datos (incidente 2026-06-04)
+
+> Transacción colgada → lock de horas → db-pull corrupto, backups del cron en 0 bytes y **pérdida del
+> trabajo de mesas** (no confirmado). Detalle completo y roadmap por capas:
+> [`docs/features/db-resilience-incident-2026-06-04.md`](docs/features/db-resilience-incident-2026-06-04.md).
+
+- [x] **Capa 0 — WAL + busy_timeout** (`config.ts`) + `scripts/db-pull.sh` con `.backup` ✅ aplicado y verificado en local 2026-06-04.
+- [ ] **Deploy Capa 0 a prod** — build backend en server + reiniciar API (~20s downtime). Coordinar momento de baja actividad.
+- [ ] **Capa 1 — migrar driver a `better-sqlite3`** (síncrono, ya instalado). Cambiar `type: 'sqlite'`→`'better-sqlite3'` y `busyTimeout`→`timeout`. Elimina la clase de bug de la transacción colgada. Bajo esfuerzo.
+- [ ] **Capa 2a — guardado confirmado en frontend** 🔑 la UI NO debe mostrar "guardado" hasta el 200 del server (esto causó la pérdida de las mesas).
+- [ ] **Capa 2b — auditar las 13 `AppDataSource.transaction()`** para que sean cortas (sin LLM/email/red dentro): `aiChatService`, `participantService`, `communityService`, `retreatScheduleService`, `invitationService`, `retreatBedController`.
+- [ ] **Capa 3 — resiliencia operativa**: healthcheck con write de prueba + auto-restart PM2; backups por hora (no diarios); alerta si `-wal`/journal crece de más.
+- [ ] **Capa 4 (mediano plazo) — evaluar migración a PostgreSQL**: `idle_in_transaction_session_timeout`/`statement_timeout`/`transaction_timeout` harían el bug imposible. Esfuerzo alto (86 migraciones a regenerar, 48 raw queries, 41 booleanos a revisar). Disparador: si "database is locked" se repite >1×/semana.
+- [ ] **Cleanup**: regla operativa con WAL → respaldos manuales con `sqlite3 ".backup"`, nunca `cp`/`scp` directo.
+
 ## 🔴 Críticos antes de prod
 
 - [x] ~~**Activar S3 en producción**~~ ✅ Resuelto 2026-04-27 04:55 UTC.

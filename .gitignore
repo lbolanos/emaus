@@ -17,7 +17,13 @@ dist/
 gha-creds-*.json
 node_modules/
 apps/api/database.sqlite
+apps/api/database.sqlite-wal
+apps/api/database.sqlite-shm
 apps/api/2database.sqlite
+apps/api/emaus.db
+# Backups de prod descargados localmente (incidente 2026-06-04)
+apps/api/prod-*.sqlite
+apps/api/prod-*.sqlite.gz
 # Generated files from build/compilation
 dist/
 .vite/

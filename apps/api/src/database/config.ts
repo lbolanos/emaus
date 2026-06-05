@@ -162,6 +162,18 @@ export function createDatabaseConfig() {
 			entities,
 			migrations: [],
 			subscribers: [],
+			// --- Prevención de "database is locked" / transacciones colgadas ---
+			// WAL: lectores (backups del cron, db:pull con .backup, dashboards) ya NO
+			// se bloquean por un escritor activo. Resuelve el reader/writer blocking.
+			enableWAL: true,
+			// busyTimeout: ante SQLITE_BUSY, esperar hasta 5s a que se libere el lock
+			// en vez de fallar de inmediato (default del driver = 0 → falla al instante).
+			busyTimeout: 5000,
+			// busyErrorRetry: capa extra de TypeORM que reintenta el write ante SQLITE_BUSY.
+			busyErrorRetry: 3000,
+			// Loguea cualquier query/transacción que tarde >5s → detecta a tiempo una
+			// transacción que se está colgando (la causa raíz del incidente 2026-06-04).
+			maxQueryExecutionTime: 5000,
 		};
 	}
 }
