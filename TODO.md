@@ -8,8 +8,9 @@ Backlog de mejoras pendientes, organizado por urgencia. Mantenido manualmente.
 > trabajo de mesas** (no confirmado). Detalle completo y roadmap por capas:
 > [`docs/features/db-resilience-incident-2026-06-04.md`](docs/features/db-resilience-incident-2026-06-04.md).
 
-- [x] **Capa 0 — WAL + busy_timeout** (`config.ts`) + `scripts/db-pull.sh` con `.backup` ✅ aplicado y verificado en local 2026-06-04.
-- [ ] **Deploy Capa 0 a prod** — build backend en server + reiniciar API (~20s downtime). Coordinar momento de baja actividad.
+- [x] **Capa 0 — WAL + busy_timeout** (`config.ts`) + `scripts/db-pull.sh` con `.backup` ✅ aplicado y verificado, **desplegado a prod** 2026-06-04 (WAL activo en prod).
+- [x] **CI/CD: sincronizar `apps/api/src/` a prod** ✅ El deploy sólo subía `dist/`, pero `migration:run` (vite-node) lee `src/`. Sin esto las migraciones nuevas eran invisibles en prod ("No pending migrations") pese a deploys verdes. Fix: `rsync apps/api/src/` en `deploy-production.yml`. Probado: aplicó `AssignSanAgustinTables`.
+- [ ] **🔴 Migraciones que importan `@repo/types` fallan en prod** — `AddMissingServiceTeams` queda pending con `Unknown file extension ".ts" for packages/types/src/index.ts` (el loader resuelve `@repo/types` a su `.ts` y no lo carga). `ServiceTeamType` es un **enum** (valor runtime, no type-only). **Impacto: faltan equipos "Compras" y "Sacerdotes" en prod.** Opciones: (a) build+sync de `packages/types` a prod con su `dist/`, (b) que el migration runner cargue migraciones vía vite-node con resolución de workspace, (c) migración de datos con SQL literal sin `@repo/types`.
 - [ ] **Capa 1 — migrar driver a `better-sqlite3`** (síncrono, ya instalado). Cambiar `type: 'sqlite'`→`'better-sqlite3'` y `busyTimeout`→`timeout`. Elimina la clase de bug de la transacción colgada. Bajo esfuerzo.
 - [ ] **Capa 2a — guardado confirmado en frontend** 🔑 la UI NO debe mostrar "guardado" hasta el 200 del server (esto causó la pérdida de las mesas).
 - [ ] **Capa 2b — auditar las 13 `AppDataSource.transaction()`** para que sean cortas (sin LLM/email/red dentro): `aiChatService`, `participantService`, `communityService`, `retreatScheduleService`, `invitationService`, `retreatBedController`.
