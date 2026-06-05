@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { mount, VueWrapper } from '@vue/test-utils';
 
+// Simula el ancho del viewport para el guard de desktop (matchMedia md+).
+function setViewport(isDesktop: boolean) {
+  window.matchMedia = vi.fn().mockReturnValue({ matches: isDesktop }) as any;
+}
+
 // --- Mocks locales ---------------------------------------------------------
 vi.mock('@repo/ui', () => ({
   Popover: { name: 'Popover', props: ['open'], template: '<div class="popover"><slot /></div>' },
@@ -41,8 +46,18 @@ const enrichedParticipant = {
   tags: [{ id: 'pt-1', tag: { id: 't-1', name: 'Hermanos', color: '#ff0000' } }],
 };
 
+// Servidor sin datos de invitador (caso típico): solo nombre + teléfono.
+const serverParticipant = {
+  id: 's-1',
+  firstName: 'Ernesto',
+  lastName: 'Lopez',
+  type: 'server',
+  cellPhone: '5512345678',
+  isInvitedByEmausMember: false, // por sí solo NO debe disparar la sección Invitador
+};
+
 vi.mock('@/stores/participantStore', () => ({
-  useParticipantStore: () => ({ participants: [enrichedParticipant] }),
+  useParticipantStore: () => ({ participants: [enrichedParticipant, serverParticipant] }),
 }));
 
 const openSpy = vi.fn();
@@ -62,9 +77,15 @@ function mountPopover(participant: Record<string, any>) {
 describe('ParticipantInfoPopover', () => {
   let wrapper: VueWrapper;
 
+  // El popover (root del componente) cuya prop `open` refleja popoverOpen.
+  const popoverOpen = () => wrapper.findComponent({ name: 'Popover' }).props('open');
+  // El <span> que envuelve la pastilla y dispara onPillClick (clase única md:gap-0.5).
+  const pillTrigger = () => wrapper.findAll('span').find((s) => s.classes().includes('md:gap-0.5'))!;
+
   afterEach(() => {
     wrapper?.unmount();
     openSpy.mockClear();
+    vi.useRealTimers();
   });
 
   it('enriquece desde el store: muestra tags, teléfonos del participante e invitador', () => {
@@ -106,5 +127,53 @@ describe('ParticipantInfoPopover', () => {
     expect(text).toContain('5551234567');
     // No hay tags ni invitador para el fallback
     expect(wrapper.find('.tag-badge').exists()).toBe(false);
+  });
+
+  it('NO muestra la sección Invitador para un servidor sin datos de invitador', () => {
+    // isInvitedByEmausMember=false por sí solo no debe abrir la sección.
+    wrapper = mountPopover({ id: 's-1', firstName: 'Ernesto', lastName: 'Lopez' });
+    const text = wrapper.text();
+    expect(text).toContain('Ernesto');
+    expect(text).toContain('5512345678');
+    expect(text).not.toContain('tables.detail.inviter');
+  });
+
+  describe('disparador por clic en la pastilla', () => {
+    it('en desktop, un clic en la pastilla abre el popover tras ~200ms', async () => {
+      setViewport(true);
+      vi.useFakeTimers();
+      wrapper = mountPopover({ id: 'p-1', firstName: 'Miguel', lastName: 'Cavazos' });
+
+      expect(popoverOpen()).toBe(false);
+      await pillTrigger().trigger('click');
+      expect(popoverOpen()).toBe(false); // aún no: hay gracia para distinguir doble clic
+
+      vi.advanceTimersByTime(200);
+      await wrapper.vm.$nextTick();
+      expect(popoverOpen()).toBe(true);
+    });
+
+    it('un doble clic NO abre el popover (se reserva para desasignar)', async () => {
+      setViewport(true);
+      vi.useFakeTimers();
+      wrapper = mountPopover({ id: 'p-1', firstName: 'Miguel', lastName: 'Cavazos' });
+
+      await pillTrigger().trigger('click'); // arma el timer
+      await pillTrigger().trigger('click'); // segundo clic: lo cancela
+      vi.advanceTimersByTime(300);
+      await wrapper.vm.$nextTick();
+      expect(popoverOpen()).toBe(false);
+    });
+
+    it('en móvil, un toque/clic en la pastilla NO abre el popover (se reserva para tap-to-assign)', async () => {
+      setViewport(false);
+      vi.useFakeTimers();
+      wrapper = mountPopover({ id: 'p-1', firstName: 'Miguel', lastName: 'Cavazos' });
+
+      await pillTrigger().trigger('click');
+      vi.advanceTimersByTime(300);
+      await wrapper.vm.$nextTick();
+      expect(popoverOpen()).toBe(false);
+    });
   });
 });
