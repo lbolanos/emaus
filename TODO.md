@@ -18,6 +18,7 @@ Backlog de mejoras pendientes, organizado por urgencia. Mantenido manualmente.
 - [x] **Capa 3 (parcial) — watchdog DB con auto-restart** ✅ `scripts/db-watchdog.sh` prueba escritura real (`BEGIN IMMEDIATE`) cada minuto por cron; si la DB queda locked 3 min seguidos reinicia el API (rollback del lock). Pruebas 6/6 (`scripts/tests/db-watchdog.test.sh`), doc en `docs/features/db-watchdog.md`, **cron instalado en prod 2026-06-05**. Pendiente del resto de Capa 3: backups por hora (no diarios) + alerta si `-wal`/journal crece de más.
 - [ ] **Capa 4 (mediano plazo) — evaluar migración a PostgreSQL**: `idle_in_transaction_session_timeout`/`statement_timeout`/`transaction_timeout` harían el bug imposible. Esfuerzo alto (86 migraciones a regenerar, 48 raw queries, 41 booleanos a revisar). Disparador: si "database is locked" se repite >1×/semana.
 - [ ] **Cleanup**: regla operativa con WAL → respaldos manuales con `sqlite3 ".backup"`, nunca `cp`/`scp` directo.
+- [ ] **Deploy: subir `assets/` ANTES que `index.html`** en `deploy-production.yml` — hoy se suben en pasos separados (`web/dist` completo) dejando una ventana de ~47s donde el `index.html` ya apunta a un bundle `index-*.js` aún no subido → **404 transitorio** que Cloudflare/navegador cachea (síntoma: `GET /assets/index-XXXX.js 404`, se resuelve con hard-refresh). Fix: subir primero `assets/`, y el `index.html` (+ entrypoints) al final, para que el HTML nunca referencie un asset ausente. Incidente 2026-06-05.
 
 ## 🔴 Críticos antes de prod
 
