@@ -152,6 +152,16 @@
                 class="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-emerald-600 text-white text-[9px] font-semibold leading-none"
               >{{ attachmentCounts[resp.name] }}</span>
             </Button>
+            <Button
+              v-if="canManage.retreat.value && relatedTeam(resp)"
+              variant="ghost"
+              size="icon"
+              class="h-7 w-7 text-indigo-600 hover:text-indigo-800"
+              :title="$t('responsibilities.addToTeam')"
+              @click="openTeamDialog(resp)"
+            >
+              <UserPlus class="h-3.5 w-3.5" />
+            </Button>
             <Button variant="ghost" size="icon" class="h-7 w-7" @click="openAddEditModal(resp)">
               <Edit class="h-3.5 w-3.5" />
             </Button>
@@ -436,6 +446,88 @@
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <!-- Add Members To Existing Team Modal (responsable = líder; agregar servidores) -->
+    <Dialog :open="isTeamDialogOpen" @update:open="isTeamDialogOpen = $event">
+      <DialogContent class="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{{ $t('responsibilities.addToTeam') }}</DialogTitle>
+          <DialogDescription>{{ $t('responsibilities.addToTeamDescription') }}</DialogDescription>
+        </DialogHeader>
+        <div v-if="teamDialogTeam" class="space-y-4">
+          <!-- Equipo + líder (responsable), solo lectura -->
+          <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <div>
+              <Label>{{ $t('responsibilities.teamLabel') }}</Label>
+              <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ teamDialogTeam.name }}</p>
+            </div>
+            <div>
+              <Label>{{ $t('responsibilities.teamLeaderLabel') }}</Label>
+              <div class="mt-1">
+                <span
+                  v-if="teamDialogLeader"
+                  class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
+                >
+                  <Crown class="h-3 w-3" />
+                  {{ teamDialogLeader.firstName }} {{ teamDialogLeader.lastName }}
+                </span>
+                <span v-else class="text-xs text-gray-500">{{ $t('responsibilities.unassigned') }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Miembros actuales (solo lectura) -->
+          <div v-if="teamCurrentMembers.length > 0">
+            <Label>{{ $t('responsibilities.currentMembersLabel') }} ({{ teamCurrentMembers.length }})</Label>
+            <div class="mt-1 flex flex-wrap gap-1.5">
+              <span
+                v-for="m in teamCurrentMembers"
+                :key="m.id"
+                class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+              >
+                {{ m.participant ? `${m.participant.firstName} ${m.participant.lastName}` : '—' }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Servidores activos a agregar -->
+          <div>
+            <Label>{{ $t('responsibilities.serversToAddLabel') }} ({{ selectedServerIds.length }})</Label>
+            <Input
+              v-model="teamServerSearch"
+              :placeholder="$t('responsibilities.searchServersPlaceholder')"
+              class="mt-1 mb-2"
+            />
+            <div class="max-h-72 overflow-y-auto border rounded-md divide-y dark:divide-gray-700">
+              <button
+                v-for="s in teamDialogServers"
+                :key="s.id"
+                type="button"
+                class="w-full flex items-center justify-between px-3 py-2 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
+                :class="{ 'bg-indigo-50 dark:bg-indigo-950/30': selectedServerIds.includes(s.id) }"
+                @click="toggleServer(s.id)"
+              >
+                <span class="flex flex-col">
+                  <span class="text-sm font-medium">{{ s.firstName }} {{ s.lastName }}</span>
+                  <span class="text-xs text-gray-500">{{ s.cellPhone }}{{ s.email ? ` · ${s.email}` : '' }}</span>
+                </span>
+                <Check v-if="selectedServerIds.includes(s.id)" class="h-4 w-4 text-indigo-600 shrink-0" />
+              </button>
+              <p v-if="teamDialogServers.length === 0" class="px-3 py-4 text-sm text-gray-500 text-center">
+                {{ $t('responsibilities.noServersToAdd') }}
+              </p>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" @click="isTeamDialogOpen = false">{{ $t('common.cancel') }}</Button>
+          <Button :disabled="!selectedServerIds.length || isAddingMembers" @click="confirmAddMembers">
+            <Loader2 v-if="isAddingMembers" class="h-4 w-4 mr-2 animate-spin" />
+            {{ $t('responsibilities.addMembersConfirm') }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
@@ -444,12 +536,13 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useResponsabilityStore } from '@/stores/responsabilityStore';
+import { useServiceTeamStore } from '@/stores/serviceTeamStore';
 import { storeToRefs } from 'pinia';
 import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@repo/ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@repo/ui';
 import { Label } from '@repo/ui';
-import { ChevronLeft, Download, Edit, FileText, LayoutGrid, Loader2, MoreVertical, Paperclip, Plus, Printer, Trash2, UserPlus, X } from 'lucide-vue-next';
+import { Check, ChevronLeft, Crown, Download, Edit, FileText, LayoutGrid, Loader2, MoreVertical, Paperclip, Plus, Printer, Trash2, UserPlus, X } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import {
   exportResponsibilitiesToDocx,
@@ -459,14 +552,16 @@ import {
 } from '@/services/api';
 import { renderMarkdown } from '@/composables/useMarkdown';
 import { ResponsabilityType } from '@repo/types';
+import { findRelatedTeam } from '@/utils/serviceTeamLink';
 import ResponsabilityAttachmentsDialog from '@/components/ResponsabilityAttachmentsDialog.vue';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { getSocket } from '@/services/realtime';
-import type { Responsability, Participant } from '@repo/types';
+import type { Responsability, Participant, ServiceTeam } from '@repo/types';
 
 const retreatStore = useRetreatStore();
 const participantStore = useParticipantStore();
 const responsabilityStore = useResponsabilityStore();
+const serviceTeamStore = useServiceTeamStore();
 
 const { selectedRetreatId } = storeToRefs(retreatStore);
 const { participants } = storeToRefs(participantStore);
@@ -634,8 +729,82 @@ watch(selectedRetreatId, (newRetreatId) => {
     responsabilityStore.fetchResponsibilities(newRetreatId);
     participantStore.filters.retreatId = newRetreatId;
     participantStore.fetchParticipants();
+    // Cargar equipos para detectar cuáles responsabilidades ya tienen equipo creado.
+    serviceTeamStore.fetchTeams();
   }
 }, { immediate: true });
+
+// --- Agregar servidores al equipo de servicio relacionado con la responsabilidad ---
+const normalizeName = (text: string) =>
+  text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+
+// Equipo de servicio existente relacionado con esta responsabilidad (vía el mapeo
+// canónico responsable→equipo). Si no hay mapeo o no existe el equipo → null (sin botón).
+const relatedTeam = (resp: Responsability): ServiceTeam | null =>
+  findRelatedTeam(resp.name, serviceTeamStore.teams);
+
+// Diálogo para agregar servidores activos como miembros del equipo existente.
+const isTeamDialogOpen = ref(false);
+const teamDialogTeam = ref<ServiceTeam | null>(null);
+const teamServerSearch = ref('');
+const selectedServerIds = ref<string[]>([]);
+const isAddingMembers = ref(false);
+
+// Líder actual del equipo (el responsable asignado), de solo lectura.
+const teamDialogLeader = computed(() => teamDialogTeam.value?.leader ?? null);
+
+// IDs ya en el equipo (líder + miembros) para no ofrecerlos de nuevo.
+const teamMemberIds = computed(() => {
+  const ids = new Set<string>();
+  const team = teamDialogTeam.value;
+  if (!team) return ids;
+  if (team.leaderId) ids.add(team.leaderId);
+  for (const m of team.members ?? []) ids.add(m.participantId);
+  return ids;
+});
+
+// Miembros actuales (sin el líder), de solo lectura.
+const teamCurrentMembers = computed(() =>
+  (teamDialogTeam.value?.members ?? []).filter(m => m.participantId !== teamDialogTeam.value?.leaderId),
+);
+
+// Servidores activos que aún no están en el equipo y se pueden agregar.
+const teamDialogServers = computed(() => {
+  let list = availableParticipants.value.filter(s => !teamMemberIds.value.has(s.id));
+  const q = teamServerSearch.value.trim();
+  if (q) {
+    const nq = normalizeName(q);
+    list = list.filter(s => normalizeName(`${s.firstName} ${s.lastName} ${s.email ?? ''} ${s.cellPhone ?? ''}`).includes(nq));
+  }
+  return list;
+});
+
+const openTeamDialog = (resp: Responsability) => {
+  const team = relatedTeam(resp);
+  if (!team) return;
+  teamDialogTeam.value = team;
+  teamServerSearch.value = '';
+  selectedServerIds.value = [];
+  isTeamDialogOpen.value = true;
+};
+
+const toggleServer = (id: string) => {
+  const i = selectedServerIds.value.indexOf(id);
+  if (i === -1) selectedServerIds.value.push(id);
+  else selectedServerIds.value.splice(i, 1);
+};
+
+const confirmAddMembers = async () => {
+  const team = teamDialogTeam.value;
+  if (!team || !selectedServerIds.value.length) return;
+  isAddingMembers.value = true;
+  try {
+    await serviceTeamStore.addMembersToTeam(team.id, selectedServerIds.value);
+    isTeamDialogOpen.value = false;
+  } finally {
+    isAddingMembers.value = false;
+  }
+};
 
 // --- Attachments (Documentos por Responsabilidad) ---
 const { canManage } = useAuthPermissions();
