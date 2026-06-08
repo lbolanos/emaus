@@ -3,6 +3,7 @@ import { AppDataSource } from '../data-source';
 import { House } from '../entities/house.entity';
 import { Bed } from '../entities/bed.entity';
 import { getRepositories } from '../utils/repositoryHelpers';
+import { domainAuditService } from './domainAuditService';
 // import { CreateHouse, UpdateHouse } from '@repo/types'; // Types will be defined when needed
 
 export const getHouses = async (dataSource?: DataSource): Promise<House[]> => {
@@ -45,6 +46,9 @@ export const createHouse = async (
 	if (!result) {
 		throw new Error('Could not find created house');
 	}
+	void domainAuditService.logCreate('house', (savedHouse as unknown as House).id, result, {
+		metadata: { bedCount: result.beds?.length ?? 0 },
+	});
 	return result;
 };
 
@@ -72,8 +76,10 @@ export const updateHouse = async (
 
 	// Update house properties
 	// Note: merge is not directly available on the repository, need to use Object.assign
+	const oldSnapshot = { ...house };
 	Object.assign(house, { ...houseInfo, name });
 	await repos.house.save(house);
+	void domainAuditService.logUpdate('house', id, oldSnapshot, house);
 
 	// Manage beds
 	if (beds) {
@@ -118,9 +124,14 @@ export const deleteHouse = async (id: string, dataSource?: DataSource): Promise<
 	const repos = getRepositories(dataSource);
 	const house = await repos.house.findOne({ where: { id }, relations: ['beds'] });
 	if (house) {
+		const deletedSnapshot = { ...house };
+		const bedCount = house.beds?.length ?? 0;
 		if (house.beds && house.beds.length > 0) {
 			await repos.bed.remove(house.beds);
 		}
 		await repos.house.remove(house);
+		void domainAuditService.logDelete('house', id, deletedSnapshot, {
+			metadata: { bedCount },
+		});
 	}
 };

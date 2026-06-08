@@ -732,6 +732,38 @@ export const getAuditStats = async (
   return response.data;
 };
 
+// Auditoría de dominio (participantes, mesas, camas/casas, pagos, retiros)
+export const getDomainAuditLogs = async (
+  retreatId: string,
+  options?: {
+    action?: string;
+    resourceType?: string;
+    resourceId?: string;
+    actorUserId?: string;
+    limit?: number;
+    offset?: number;
+    startDate?: string;
+    endDate?: string;
+  },
+) => {
+  const params = new URLSearchParams();
+  if (options?.action) params.append("action", options.action);
+  if (options?.resourceType)
+    params.append("resourceType", options.resourceType);
+  if (options?.resourceId) params.append("resourceId", options.resourceId);
+  if (options?.actorUserId)
+    params.append("actorUserId", options.actorUserId);
+  if (options?.limit) params.append("limit", options.limit.toString());
+  if (options?.offset) params.append("offset", options.offset.toString());
+  if (options?.startDate) params.append("startDate", options.startDate);
+  if (options?.endDate) params.append("endDate", options.endDate);
+
+  const response = await api.get(
+    `/domain-audit/retreat/${retreatId}?${params.toString()}`,
+  );
+  return response.data;
+};
+
 // Payment API functions
 export const createPayment = async (paymentData: any) => {
   const response = await api.post("/payments", paymentData);

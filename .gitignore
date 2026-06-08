@@ -26,6 +26,8 @@ apps/api/prod-*.sqlite
 apps/api/prod-*.sqlite.gz
 # Temporales de Vite/Vitest al cargar config .ts (quedan huérfanos si el proceso se corta)
 *.timestamp-*.mjs
+# Logs de auditoría de dominio a archivo (NDJSON rotado por winston-daily-rotate-file)
+apps/api/logs/
 # Generated files from build/compilation
 dist/
 .vite/

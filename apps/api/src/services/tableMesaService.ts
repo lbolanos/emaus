@@ -10,6 +10,7 @@ import { In } from 'typeorm';
 import { tableMesaSchema } from '@repo/types';
 import { formatDate as formatDateUtil } from '@repo/utils';
 import { sortByName as sortByTableName } from '../utils/naturalSort';
+import { domainAuditService, DomainAuditAction } from './domainAuditService';
 
 const MAX_WALKERS_PER_TABLE = 7;
 
@@ -80,7 +81,12 @@ export const createTable = async (
 		...tableData,
 		id: uuidv4(),
 	});
-	return repos.tableMesa.save(newTable);
+	const saved = await repos.tableMesa.save(newTable);
+	void domainAuditService.logCreate('table', saved.id, saved, {
+		retreatId: saved.retreatId,
+		fields: ['name', 'retreatId'],
+	});
+	return saved;
 };
 
 export const createDefaultTablesForRetreat = async (retreat: Retreat, dataSource?: DataSource) => {
@@ -103,13 +109,26 @@ export const updateTable = async (
 	const repos = getRepositories(dataSource);
 	const table = await repos.tableMesa.findOneBy({ id });
 	if (!table) return null;
+	const oldSnapshot = { ...table };
 	Object.assign(table, tableData);
-	return repos.tableMesa.save(table);
+	const saved = await repos.tableMesa.save(table);
+	void domainAuditService.logUpdate('table', id, oldSnapshot, saved, {
+		retreatId: saved.retreatId,
+		fields: ['name'],
+	});
+	return saved;
 };
 
 export const deleteTable = async (id: string, dataSource?: DataSource) => {
 	const repos = getRepositories(dataSource);
+	const table = await repos.tableMesa.findOneBy({ id });
 	await repos.tableMesa.delete(id);
+	if (table) {
+		void domainAuditService.logDelete('table', id, table, {
+			retreatId: table.retreatId,
+			fields: ['name', 'retreatId'],
+		});
+	}
 };
 
 export const assignLeaderToTable = async (
@@ -189,6 +208,13 @@ export const assignLeaderToTable = async (
 	// Assign to the new role
 	freshTable[`${role}Id`] = participantId;
 	await repos.tableMesa.save(freshTable);
+	void domainAuditService.log({
+		action: DomainAuditAction.TABLE_ASSIGN_LEADER,
+		resourceType: 'table',
+		resourceId: tableId,
+		retreatId: freshTable.retreatId,
+		metadata: { tableId, participantId, role, tableName: freshTable.name },
+	});
 	return findTableById(tableId, dataSource); // Return the table with all relations
 };
 
@@ -202,7 +228,15 @@ export const unassignLeaderFromTable = async (
 	if (!table) throw new Error('Table not found');
 
 	// Use a direct update to set the foreign key to null, which is more reliable.
+	const previousParticipantId = (table as any)[`${role}Id`] ?? null;
 	await repos.tableMesa.update(tableId, { [`${role}Id`]: null });
+	void domainAuditService.log({
+		action: DomainAuditAction.TABLE_UNASSIGN_LEADER,
+		resourceType: 'table',
+		resourceId: tableId,
+		retreatId: table.retreatId,
+		metadata: { tableId, role, participantId: previousParticipantId, tableName: table.name },
+	});
 
 	return findTableById(tableId, dataSource); // Refetch to get the updated state with relations.
 };
@@ -271,6 +305,14 @@ export const assignWalkerToTable = async (
 		}
 	}
 
+	void domainAuditService.log({
+		action: DomainAuditAction.TABLE_ASSIGN_WALKER,
+		resourceType: 'table',
+		resourceId: tableId,
+		retreatId: table.retreatId,
+		metadata: { tableId, participantId, tableName: table.name },
+	});
+
 	return findTableById(tableId, dataSource);
 };
 
@@ -294,6 +336,14 @@ export const unassignWalkerFromTable = async (
 			console.error('Error syncing tableId to history (unassign):', err);
 		}
 	}
+
+	void domainAuditService.log({
+		action: DomainAuditAction.TABLE_UNASSIGN_WALKER,
+		resourceType: 'table',
+		resourceId: tableId,
+		retreatId: table.retreatId,
+		metadata: { tableId, participantId, tableName: table.name },
+	});
 
 	return findTableById(tableId, dataSource);
 };
@@ -364,6 +414,13 @@ export const rebalanceTablesForRetreat = async (retreatId: string, dataSource?: 
 
 	// Distribute walkers
 	if (walkers.length === 0 || tables.length === 0) {
+		void domainAuditService.log({
+			action: DomainAuditAction.TABLE_REBALANCE,
+			resourceType: 'retreat',
+			resourceId: retreatId,
+			retreatId,
+			metadata: { walkerCount, tableCount: tables.length, idealTableCount, assigned: 0 },
+		});
 		return;
 	}
 
@@ -458,6 +515,20 @@ export const rebalanceTablesForRetreat = async (retreatId: string, dataSource?: 
 			);
 		}
 	}
+
+	// Un solo evento-resumen para todo el rebalanceo (no uno por caminante).
+	void domainAuditService.log({
+		action: DomainAuditAction.TABLE_REBALANCE,
+		resourceType: 'retreat',
+		resourceId: retreatId,
+		retreatId,
+		metadata: {
+			walkerCount,
+			tableCount: tables.length,
+			idealTableCount,
+			assigned: walkerAssignments.filter((a) => a.tableId).length,
+		},
+	});
 };
 
 export const clearAllTablesForRetreat = async (retreatId: string, dataSource?: DataSource) => {
@@ -479,6 +550,14 @@ export const clearAllTablesForRetreat = async (retreatId: string, dataSource?: D
 		.set({ liderId: null, colider1Id: null, colider2Id: null })
 		.where('retreatId = :retreatId', { retreatId })
 		.execute();
+
+	void domainAuditService.log({
+		action: DomainAuditAction.TABLE_CLEAR_ALL,
+		resourceType: 'retreat',
+		resourceId: retreatId,
+		retreatId,
+		metadata: { scope: 'all_tables_and_leaders' },
+	});
 };
 
 export const exportTablesToDocx = async (retreatId: string, dataSource?: DataSource) => {

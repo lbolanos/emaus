@@ -5,6 +5,7 @@ import { Participant } from '../entities/participant.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { User } from '../entities/user.entity';
 import { Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
+import { domainAuditService } from '../services/domainAuditService';
 
 interface WhereClause {
 	retreatId?: string;
@@ -83,6 +84,11 @@ export class PaymentController {
 			const savedPayment = await paymentRepository.findOne({
 				where: { id: payment.id },
 				relations: ['participant', 'retreat', 'recordedByUser'],
+			});
+
+			void domainAuditService.logCreate('payment', payment.id, payment, {
+				retreatId: effectiveRetreatId,
+				fields: ['participantId', 'amount', 'paymentDate', 'paymentMethod', 'referenceNumber'],
 			});
 
 			res.status(201).json(savedPayment);
@@ -178,6 +184,8 @@ export class PaymentController {
 				return res.status(404).json({ message: 'Pago no encontrado' });
 			}
 
+			const oldSnapshot = { ...payment };
+
 			// Update fields
 			if (amount !== undefined) payment.amount = amount;
 			if (paymentDate !== undefined) payment.paymentDate = new Date(paymentDate);
@@ -186,6 +194,11 @@ export class PaymentController {
 			if (notes !== undefined) payment.notes = notes;
 
 			await paymentRepository.save(payment);
+
+			void domainAuditService.logUpdate('payment', payment.id, oldSnapshot, payment, {
+				retreatId: payment.retreatId,
+				fields: ['amount', 'paymentDate', 'paymentMethod', 'referenceNumber', 'notes'],
+			});
 
 			res.json(payment);
 		} catch (error) {
@@ -207,7 +220,14 @@ export class PaymentController {
 				return res.status(404).json({ message: 'Pago no encontrado' });
 			}
 
+			const deletedSnapshot = { ...payment };
+
 			await paymentRepository.remove(payment);
+
+			void domainAuditService.logDelete('payment', id, deletedSnapshot, {
+				retreatId: deletedSnapshot.retreatId,
+				fields: ['participantId', 'amount', 'paymentDate', 'paymentMethod', 'referenceNumber'],
+			});
 
 			res.json({ message: 'Pago eliminado correctamente' });
 		} catch (error) {

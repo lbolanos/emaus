@@ -30,6 +30,7 @@ import { PerformanceMiddleware, PerformanceRequest } from './middleware/performa
 import { performanceOptimizationService } from './services/performanceOptimizationService';
 import { csrfMiddleware } from './middleware/csrfAlternative';
 import { apiLimiter } from './middleware/rateLimiting';
+import { requestContextMiddleware } from './middleware/requestContext';
 
 // Extend express-session
 declare module 'express-session' {
@@ -146,6 +147,11 @@ async function main() {
 	app.use(sessionMiddleware);
 	app.use(passport.initialize());
 	app.use(passport.session());
+
+	// Captura del actor (userId/ip/userAgent) en AsyncLocalStorage para la auditoría
+	// de dominio. Va DESPUÉS de passport.session() (para tener req.user) y ANTES de
+	// las rutas, de modo que cualquier service downstream pueda leer el contexto.
+	app.use(requestContextMiddleware);
 
 	// --- 4. Performance, CSRF, and API Routes ---
 	app.use((req, res, next) =>
