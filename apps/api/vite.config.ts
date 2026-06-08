@@ -45,6 +45,8 @@ export default defineConfig({
 				'@aws-sdk/client-s3',
 				'sharp',
 				'sanitize-html',
+				'winston',
+				'winston-daily-rotate-file',
 			],
 		},
 	},
