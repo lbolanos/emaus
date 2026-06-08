@@ -9,6 +9,7 @@ const CanceledView = () => import('../views/CanceledView.vue');
 const HousesView = () => import('../views/HousesView.vue');
 const PalancasView = () => import('../views/PalancasView.vue');
 const PaymentsView = () => import('../views/PaymentsView.vue');
+const DomainAuditView = () => import('../views/DomainAuditView.vue');
 const NotesAndMeetingPointsView = () => import('../views/NotesAndMeetingPointsView.vue');
 const RoomsView = () => import('../views/RoomsView.vue');
 const UserTypeAndTableView = () => import('../views/UserTypeAndTableView.vue');
@@ -218,6 +219,12 @@ const router = createRouter({
 					path: 'tables',
 					name: 'tables',
 					component: TablesView,
+					meta: { requiresRetreat: true },
+				},
+				{
+					path: 'audit',
+					name: 'domain-audit',
+					component: DomainAuditView,
 					meta: { requiresRetreat: true },
 				},
 				{

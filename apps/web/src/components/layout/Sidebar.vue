@@ -875,6 +875,13 @@ const menuSections: MenuSection[] = [
         icon: Salad,
         requiresRetreat: true,
         label: 'sidebar.food'
+      },
+      {
+        name: 'domain-audit',
+        routeName: 'domain-audit',
+        icon: Activity,
+        requiresRetreat: true,
+        label: 'sidebar.audit'
       }
     ],
     position: 'top'

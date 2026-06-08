@@ -49,6 +49,19 @@ export const config = {
 		openaiApiKey: process.env.OPENAI_API_KEY || '',
 		openaiBaseUrl: process.env.OPENAI_BASE_URL || '',
 	},
+	audit: {
+		// Sinks de la auditoría de dominio. Ambos activos por defecto; se pueden
+		// apagar con AUDIT_DB_ENABLED=false / AUDIT_FILE_ENABLED=false.
+		dbEnabled: process.env.AUDIT_DB_ENABLED !== 'false',
+		fileEnabled: process.env.AUDIT_FILE_ENABLED !== 'false',
+		// Directorio de los NDJSON. Default: prod → /var/log/emaus, dev → apps/api/logs.
+		logDir:
+			process.env.AUDIT_LOG_DIR ||
+			(process.env.NODE_ENV === 'production' ? '/var/log/emaus' : 'logs'),
+		// Retención y tamaño de rotación (winston-daily-rotate-file).
+		retentionDays: process.env.AUDIT_LOG_RETENTION_DAYS || '90d',
+		maxSize: process.env.AUDIT_LOG_MAX_SIZE || '20m',
+	},
 	migrations: {
 		autoRun: process.env.MIGRATIONS_AUTO_RUN === 'true',
 		warnOnly: process.env.MIGRATIONS_WARN_ONLY === 'true',
