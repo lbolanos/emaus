@@ -1,7 +1,7 @@
 <template>
   <Dialog v-model:open="isOpen" @keydown.ctrl.s.prevent="sendMessage" @keydown.ctrl.enter.prevent="sendMessage">
-    <DialogContent :class="showHistory ? 'max-w-5xl' : 'max-w-2xl'" class="focus:outline-none">
-      <DialogHeader class="pr-10">
+    <DialogContent :class="showHistory ? 'max-w-5xl' : 'max-w-2xl'" class="focus:outline-none w-[95vw] max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+      <DialogHeader class="pr-10 min-w-0">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0 flex-1">
             <DialogTitle class="truncate">Enviar Mensaje a {{ displayName }}</DialogTitle>
@@ -29,7 +29,7 @@
           </Button>
         </div>
       </DialogHeader>
-      <div class="flex gap-6">
+      <div class="flex flex-col md:flex-row gap-4 md:gap-6">
         <!-- Main Content -->
         <div class="flex-1 space-y-6">
           <!-- Send Method Selection -->
@@ -297,7 +297,7 @@
         </div>
 
         <!-- History Sidebar -->
-        <div v-if="showHistory" class="w-80 border-l pl-6">
+        <div v-if="showHistory" class="w-full md:w-80 border-t md:border-t-0 md:border-l pt-4 md:pt-0 md:pl-6">
           <ParticipantMessageHistory
             v-if="canShowHistory && props.context === 'retreat'"
             :participant-id="recipientId"
@@ -1139,7 +1139,9 @@ const sendMessage = async () => {
 
 			const tryOpenUrl = (url: string, fallback?: () => void) => {
 				try {
-					const newWindow = window.open(url, '_blank', 'width=800,height=600');
+					// Sin features de tamaño: en móvil `width/height` hace que algunos
+					// navegadores ignoren o abran mal el deep link de WhatsApp.
+					const newWindow = window.open(url, '_blank');
 					if (!newWindow) {
 						fallback?.();
 					}

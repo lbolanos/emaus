@@ -1085,6 +1085,16 @@
     },
     "viewWalkers": "View Walkers",
     "invitedBy": "Invited by",
+    "detail": {
+      "info": "View details",
+      "tags": "Tags",
+      "phones": "Phones",
+      "inviter": "Inviter",
+      "sendMessage": "Send message",
+      "cell": "Cell",
+      "home": "Home",
+      "work": "Work"
+    },
     "tableCard": {
       "dialogTitle": "Walkers and Inviters",
       "walkerName": "Walker Name",

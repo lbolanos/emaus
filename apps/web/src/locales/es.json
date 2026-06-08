@@ -1161,6 +1161,16 @@
     },
     "viewWalkers": "Ver Caminantes",
     "invitedBy": "Invitado por",
+    "detail": {
+      "info": "Ver detalles",
+      "tags": "Etiquetas",
+      "phones": "Teléfonos",
+      "inviter": "Invitador",
+      "sendMessage": "Mandar mensaje",
+      "cell": "Cel",
+      "home": "Casa",
+      "work": "Trabajo"
+    },
     "tableCard": {
       "dialogTitle": "Caminantes e Invitadores",
       "walkerName": "Nombre del Caminante",
