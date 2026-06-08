@@ -58,6 +58,24 @@ export const useServiceTeamStore = defineStore('serviceTeam', () => {
 		}
 	};
 
+	// Agrega varios servidores como miembros de un equipo de servicio existente
+	// (usado desde la vista de Responsabilidades: responsable = líder, estos son miembros).
+	const addMembersToTeam = async (teamId: string, participantIds: string[]) => {
+		if (!participantIds.length) return;
+		try {
+			let updated: ServiceTeam | undefined;
+			for (const pid of participantIds) {
+				updated = await addServiceTeamMember(teamId, pid);
+			}
+			if (updated) updateTeamInState(updated);
+			toast({ title: 'Servidores agregados al equipo' });
+			return updated;
+		} catch (e: any) {
+			console.error('Failed to add members to team', e);
+			toast({ title: 'Error', description: 'Error al agregar servidores', variant: 'destructive' });
+		}
+	};
+
 	const updateTeam = async (id: string, data: any) => {
 		try {
 			const updated = await updateServiceTeamApi(id, data);
@@ -196,6 +214,7 @@ export const useServiceTeamStore = defineStore('serviceTeam', () => {
 		error,
 		fetchTeams,
 		createTeam,
+		addMembersToTeam,
 		updateTeam,
 		deleteTeam,
 		addMember,

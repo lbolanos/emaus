@@ -1,25 +1,7 @@
 import { DataSource } from 'typeorm';
-import { ServiceTeamType } from '@repo/types';
+import { ServiceTeamType, RESPONSIBILITY_TEAM_TYPE_MAP } from '@repo/types';
 import { getRepositories } from '../utils/repositoryHelpers';
 import { v4 as uuidv4 } from 'uuid';
-
-// Mapping: responsibility name → service team type
-const RESPONSIBILITY_TEAM_TYPE_MAP: Record<string, ServiceTeamType> = {
-	'Música': ServiceTeamType.MUSICA,
-	'Logistica': ServiceTeamType.LOGISTICA,
-	'Comedor': ServiceTeamType.COCINA,
-	'Snacks': ServiceTeamType.SNACKS,
-	'Compras': ServiceTeamType.COMPRAS,
-	'Transporte': ServiceTeamType.TRANSPORTE,
-	'Salón': ServiceTeamType.SALON,
-	'Cuartos': ServiceTeamType.CUARTOS,
-	'Oración de Intercesión': ServiceTeamType.ORACION,
-	'Continua': ServiceTeamType.CONTINUA,
-	'Sacerdotes': ServiceTeamType.SACERDOTES,
-	'Palanquero 1': ServiceTeamType.PALANCAS,
-	'Palanquero 2': ServiceTeamType.PALANCAS,
-	'Palanquero 3': ServiceTeamType.PALANCAS,
-};
 
 // Reverse mapping: service team type → responsibility name(s)
 // For Palancas, always use "Palanquero 1" as the target

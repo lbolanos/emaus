@@ -73,3 +73,26 @@ export const updateServiceTeamSchema = z.object({
 	isActive: z.boolean().optional(),
 });
 export type UpdateServiceTeam = z.infer<typeof updateServiceTeamSchema>;
+
+/**
+ * Mapeo canónico: nombre de responsabilidad → tipo de equipo de servicio.
+ * Fuente única de la relación responsabilidad ↔ equipo (responsable = líder del equipo),
+ * usada por el backend (leaderSyncService) y el frontend (vista de Responsabilidades para
+ * decidir a qué equipo existente se le agregan miembros).
+ */
+export const RESPONSIBILITY_TEAM_TYPE_MAP: Record<string, ServiceTeamType> = {
+	Música: ServiceTeamType.MUSICA,
+	Logistica: ServiceTeamType.LOGISTICA,
+	Comedor: ServiceTeamType.COCINA,
+	Snacks: ServiceTeamType.SNACKS,
+	Compras: ServiceTeamType.COMPRAS,
+	Transporte: ServiceTeamType.TRANSPORTE,
+	Salón: ServiceTeamType.SALON,
+	Cuartos: ServiceTeamType.CUARTOS,
+	'Oración de Intercesión': ServiceTeamType.ORACION,
+	Continua: ServiceTeamType.CONTINUA,
+	Sacerdotes: ServiceTeamType.SACERDOTES,
+	'Palanquero 1': ServiceTeamType.PALANCAS,
+	'Palanquero 2': ServiceTeamType.PALANCAS,
+	'Palanquero 3': ServiceTeamType.PALANCAS,
+};
