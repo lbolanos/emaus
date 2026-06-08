@@ -115,3 +115,43 @@ pnpm --filter web exec vitest run src/views/__tests__/DomainAuditView.test.ts
 > se espera a que la fila aparezca (poll corto) en vez de asumir que ya está al retornar
 > la operación. Los servicios con repos a nivel de módulo (p.ej. `participantService`) se
 > importan dinámicamente **después** de `setupTestDatabase()`.
+
+---
+
+## Lecciones aprendidas
+
+1. **Toda dependencia nueva de Node en `apps/api` debe externalizarse en
+   `apps/api/vite.config.ts`** (`rollupOptions.external`). El api se empaqueta como bundle
+   SSR; si no se externaliza, Rollup intenta bundlear sus imports nativos de Node y
+   `pnpm build` falla con *"Rollup failed to resolve import"*. Nos pasó con `winston`/
+   `winston-daily-rotate-file`. **Ni los tests, ni el lint, ni `vue-tsc`/`tsc` detectan
+   esto** — solo `pnpm build`. Regla: tras `pnpm --filter api add <dep>`, agregarla al
+   array `external` y correr `pnpm build` antes de cerrar.
+
+2. **Capturar "quién" sin tocar firmas: `AsyncLocalStorage`.** Los servicios de dominio no
+   reciben `userId`. En vez de propagarlo por decenas de firmas (y romper ~2100 tests), un
+   middleware puebla un store por-request y el audit service lo lee. Patrón reusable para
+   cualquier cross-cutting concern (actor, request-id, tenant).
+
+3. **Fire-and-forget = los tests deben esperar la fila.** Como los call sites usan
+   `void domainAuditService.log(...)`, el INSERT no está garantizado al retornar la
+   operación. En tests de integración: poll corto hasta que aparezca la fila; nunca asumir
+   timing. En producción es la propiedad deseada (un fallo de auditoría no rompe el negocio).
+
+4. **Repos a nivel de módulo + test data source.** `participantService.ts` hace
+   `const repo = AppDataSource.getRepository(...)` al cargar el módulo. Si se importa
+   estáticamente en un test, captura el data source **antes** del monkey-patch de
+   `setupTestDatabase()` → `Class constructor X cannot be invoked without 'new'`. Fix:
+   importar el servicio dinámicamente dentro de `beforeAll`, después del setup.
+
+5. **`text` + `JSON.stringify`, no `json`, para SQLite.** `oldValues`/`newValues`/`metadata`
+   se guardan como `text` (igual que `community_audit_log`); el tipo `json` de TypeORM da
+   fricción en SQLite.
+
+6. **PII en auditoría:** diff solo de campos cambiados + denylist de secretos; el borrado
+   GDPR (`participant.anonymize`) registra el hecho pero **nunca** los valores eliminados.
+
+> Bug colateral encontrado al correr la regresión (no de auditoría, ya corregido en el
+> mismo branch): `recurrenceUtils.calculateNextOccurrence` con `weekly` sin `dayOfWeek`
+> caía a domingo y rompía los topes de `recurrenceEndDate` de forma dependiente de la
+> fecha. Fix: sin día explícito, "weekly" = +7 días manteniendo el día del inicio.

@@ -48,6 +48,15 @@ pnpm --filter web test       # Frontend (Vitest)
 - Web app runs on `http://localhost:5173`
 - DB local: `apps/api/database.sqlite`
 
+### Dependencias nuevas en `apps/api` → externalizar en el build
+
+El `apps/api` se empaqueta como **bundle SSR** con Vite/Rollup. **Toda dependencia de Node
+que agregues** (`pnpm --filter api add <dep>`) **debe añadirse a `rollupOptions.external`
+en `apps/api/vite.config.ts`**, junto a `typeorm`/`express`/etc. Si no, `pnpm build` falla
+con *"Rollup failed to resolve import «dep»"*. **Ni los tests, ni el lint, ni `tsc`/`vue-tsc`
+detectan esto — solo `pnpm build`.** Regla: tras agregar una dep al api, externalizarla y
+correr `pnpm build` antes de dar por terminado.
+
 ## Key Business Concepts
 
 ### Participants
