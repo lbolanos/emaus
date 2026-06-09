@@ -9,13 +9,13 @@ describe('getMessageTemplateAudience', () => {
 			'WALKER_FOLLOWUP_YEAR_1',
 			'WALKER_REUNION_INVITATION',
 			'WALKER_CONFIRMATION',
-			'PALANCA_REQUEST',
-			'PALANCA_REMINDER',
 			'PRE_RETREAT_REMINDER',
 			'PAYMENT_REMINDER',
 			'POST_RETREAT_MESSAGE',
 			'CANCELLATION_CONFIRMATION',
 			'BIRTHDAY_MESSAGE',
+			// Se envía AL caminante para confirmar su contacto de emergencia.
+			'EMERGENCY_CONTACT_VALIDATION',
 		]) {
 			expect(getMessageTemplateAudience(t)).toBe('walker');
 		}
@@ -27,9 +27,10 @@ describe('getMessageTemplateAudience', () => {
 		}
 	});
 
-	it('clasifica plantillas de familiar (contacto de emergencia)', () => {
+	it('clasifica plantillas de familiar (palanquero / familia)', () => {
 		for (const t of [
-			'EMERGENCY_CONTACT_VALIDATION',
+			'PALANCA_REQUEST',
+			'PALANCA_REMINDER',
 			'FAMILY_CLOSING_INVITATION_WHATSAPP',
 			'FAMILY_CLOSING_INVITATION_EMAIL',
 		]) {

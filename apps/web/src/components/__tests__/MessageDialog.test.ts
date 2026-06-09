@@ -412,6 +412,20 @@ describe('MessageDialog Component', () => {
 			expect(vm.displayName).toContain('Pedro Invitador');
 			expect(vm.displayName).toContain('Invitador');
 		});
+
+		it('cambiar el contacto resetea isUserEditing para regenerar al nuevo destinatario', async () => {
+			// Regresión: con un borrador restaurado (isUserEditing=true) el cuerpo
+			// quedaba stale al cambiar de contacto. Ahora el cambio de contacto fuerza
+			// la regeneración para reflejar a la nueva persona.
+			const wrapper = mountDialog({ participant: participantWithContacts });
+			const vm = wrapper.vm as any;
+			vm.selectedTemplate = 'any-template-id';
+			vm.isUserEditing = true;
+			await nextTick();
+			vm.selectedContact = '5552220000'; // contacto de emergencia 1
+			await nextTick();
+			expect(vm.isUserEditing).toBe(false);
+		});
 	});
 
 	describe('Null participant handling', () => {

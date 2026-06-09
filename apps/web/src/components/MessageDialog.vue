@@ -1683,9 +1683,15 @@ watch(
 // Re-render the preview when the selected contact changes so that
 // {participant.emergencyContact*} variables resolve to the chosen contact.
 watch(selectedContact, () => {
-	if (selectedTemplate.value && !isUserEditing.value) {
-		updateMessagePreview();
-	}
+	if (!selectedTemplate.value) return;
+	// El contacto define el DESTINATARIO. Al cambiarlo, regeneramos el mensaje para
+	// que refleje a la nueva persona (nombre via {participant.recipientName}/
+	// {participant.emergencyContactName}). Descartamos edición/borrador previo: el
+	// mensaje anterior era para otro destinatario. Sin esto, si había un borrador
+	// restaurado (isUserEditing=true) el nombre quedaba stale al cambiar de contacto.
+	isUserEditing.value = false;
+	draftRestored.value = false;
+	updateMessagePreview();
 });
 
 // Re-render the preview when responsibilities finish loading so that

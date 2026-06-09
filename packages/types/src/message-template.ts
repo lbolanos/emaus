@@ -71,19 +71,21 @@ const MESSAGE_TEMPLATE_AUDIENCE_BY_TYPE: Record<string, MessageTemplateAudience>
 	WALKER_FOLLOWUP_YEAR_1: 'walker',
 	WALKER_REUNION_INVITATION: 'walker',
 	WALKER_CONFIRMATION: 'walker',
-	PALANCA_REQUEST: 'walker',
-	PALANCA_REMINDER: 'walker',
 	PRE_RETREAT_REMINDER: 'walker',
 	PAYMENT_REMINDER: 'walker',
 	POST_RETREAT_MESSAGE: 'walker',
 	CANCELLATION_CONFIRMATION: 'walker',
 	BIRTHDAY_MESSAGE: 'walker',
+	// Se envía AL caminante para que confirme su contacto de emergencia.
+	EMERGENCY_CONTACT_VALIDATION: 'walker',
 	// Servidor
 	SERVER_WELCOME: 'server',
 	TABLE_LEADER_BRIEFING: 'server',
 	PALANQUERO_NEW_WALKER: 'server',
-	// Familiar (contacto de emergencia / familia)
-	EMERGENCY_CONTACT_VALIDATION: 'family',
+	// Familiar (palanquero/familia/contacto de emergencia): la palanca se le pide a
+	// un familiar o amigo del caminante; la invitación de clausura va a la familia.
+	PALANCA_REQUEST: 'family',
+	PALANCA_REMINDER: 'family',
 	FAMILY_CLOSING_INVITATION_WHATSAPP: 'family',
 	FAMILY_CLOSING_INVITATION_EMAIL: 'family',
 	// El resto (GENERAL, PRIVACY_DATA_DELETE, COMMUNITY_*, SYS_*, etc.) → general.

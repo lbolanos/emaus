@@ -24,12 +24,21 @@ La audiencia se **deriva del tipo** de plantilla (sin cambios de BD) vía
 `getMessageTemplateAudience(type)` en `packages/types/src/message-template.ts`:
 
 - **walker (Caminantes):** WALKER_WELCOME, WALKER_FOLLOWUP_*, WALKER_REUNION_INVITATION,
-  WALKER_CONFIRMATION, PALANCA_*, PRE_RETREAT_REMINDER, PAYMENT_REMINDER, POST_RETREAT_MESSAGE,
-  CANCELLATION_CONFIRMATION, BIRTHDAY_MESSAGE.
+  WALKER_CONFIRMATION, PRE_RETREAT_REMINDER, PAYMENT_REMINDER, POST_RETREAT_MESSAGE,
+  CANCELLATION_CONFIRMATION, BIRTHDAY_MESSAGE, y **EMERGENCY_CONTACT_VALIDATION** (se envía
+  AL caminante para que confirme su contacto de emergencia).
 - **server (Servidores):** SERVER_WELCOME, TABLE_LEADER_BRIEFING, PALANQUERO_NEW_WALKER.
-- **family (Familiares / contacto de emergencia):** EMERGENCY_CONTACT_VALIDATION,
-  FAMILY_CLOSING_INVITATION_WHATSAPP, FAMILY_CLOSING_INVITATION_EMAIL.
+- **family (Familiares / contacto de emergencia):** **PALANCA_REQUEST, PALANCA_REMINDER**
+  (la palanca se le pide a un familiar/amigo del caminante), FAMILY_CLOSING_INVITATION_WHATSAPP,
+  FAMILY_CLOSING_INVITATION_EMAIL.
 - **general:** todo lo demás (default).
+
+> **Reclasificación (2026-06-09):** `PALANCA_*` pasó de *walker* → *family* y
+> `EMERGENCY_CONTACT_VALIDATION` de *family* → *walker*, según a quién se envía realmente cada
+> mensaje. Como las palancas son de audiencia *family*, su saludo `{participant.nickname}`
+> (= el caminante) se cambió a `{participant.recipientName}` (= el destinatario real) vía la
+> migración `20260609140000_PalancaGreetingRecipientName` (solo toca filas que aún usan
+> `{participant.nickname}`; deja intactas las variantes ya customizadas).
 
 Cambios:
 - **Filtro arreglado:** el filtro de tipo en `MessageDialog` comparaba `template.type === 'WALKER'`
@@ -67,4 +76,8 @@ Cambios:
 - `apps/web/src/utils/__tests__/messageTemplateI18n.test.ts` — guard: cada tipo tiene etiqueta i18n
   (es/en) + audiencia válida.
 - `apps/web/src/components/__tests__/MessageDialog.test.ts` — `displayName` cambia con el contacto
-  (propio / EC1 / EC2 / invitador).
+  (propio / EC1 / EC2 / invitador) + regresión: cambiar el contacto regenera el cuerpo al nuevo
+  destinatario (resetea `isUserEditing`/`draftRestored`).
+- `apps/api/src/tests/migrations/palancaGreetingRecipientName.test.ts` — la migración del saludo de
+  palancas (reemplaza solo palancas con `{participant.nickname}`, respeta otros tipos y filas
+  customizadas, `down()` revierte).
