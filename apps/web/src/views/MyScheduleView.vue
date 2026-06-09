@@ -66,8 +66,10 @@ let unsubscribe: (() => void) | null = null;
 const retreatId = computed(() => retreatStore.selectedRetreatId || '');
 
 const myParticipantId = computed<string | null>(() => {
-  const p = authStore.userProfile as any;
-  return p?.participantId ?? p?.participant?.id ?? null;
+  // El participantId vive en el objeto `user` (raíz del response de /auth/status),
+  // NO en `userProfile`, que solo trae { roles, permissions }.
+  const u = authStore.user as any;
+  return u?.participantId ?? u?.participant?.id ?? null;
 });
 
 type Entry = {
