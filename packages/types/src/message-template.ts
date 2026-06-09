@@ -26,6 +26,10 @@ export const messageTemplateTypes = z.enum([
 	'WALKER_FOLLOWUP_MONTH_6',
 	'WALKER_FOLLOWUP_YEAR_1',
 	'WALKER_REUNION_INVITATION',
+	// Briefing de mesa para líderes/colíderes (roster + teléfonos + guion)
+	'TABLE_LEADER_BRIEFING',
+	// Confirmación de asistencia que el líder envía a cada caminante (con datos del retiro)
+	'WALKER_CONFIRMATION',
 	// Family invitation to closing mass
 	'FAMILY_CLOSING_INVITATION_WHATSAPP',
 	'FAMILY_CLOSING_INVITATION_EMAIL',
@@ -47,6 +51,50 @@ export const messageTemplateTypes = z.enum([
 ]);
 
 export const messageTemplateScope = z.enum(['retreat', 'community']);
+
+/**
+ * Audiencia a la que va dirigida una plantilla, para clasificarla/filtrarla en
+ * el selector de mensajes y en el admin de plantillas. Se DERIVA del `type`
+ * (no se persiste): caminante, servidor, familiar (contacto de emergencia) o
+ * general.
+ */
+export const messageTemplateAudiences = z.enum(['walker', 'server', 'family', 'general']);
+export type MessageTemplateAudience = z.infer<typeof messageTemplateAudiences>;
+
+const MESSAGE_TEMPLATE_AUDIENCE_BY_TYPE: Record<string, MessageTemplateAudience> = {
+	// Caminante
+	WALKER_WELCOME: 'walker',
+	WALKER_FOLLOWUP_WEEK_1: 'walker',
+	WALKER_FOLLOWUP_MONTH_1: 'walker',
+	WALKER_FOLLOWUP_MONTH_3: 'walker',
+	WALKER_FOLLOWUP_MONTH_6: 'walker',
+	WALKER_FOLLOWUP_YEAR_1: 'walker',
+	WALKER_REUNION_INVITATION: 'walker',
+	WALKER_CONFIRMATION: 'walker',
+	PALANCA_REQUEST: 'walker',
+	PALANCA_REMINDER: 'walker',
+	PRE_RETREAT_REMINDER: 'walker',
+	PAYMENT_REMINDER: 'walker',
+	POST_RETREAT_MESSAGE: 'walker',
+	CANCELLATION_CONFIRMATION: 'walker',
+	BIRTHDAY_MESSAGE: 'walker',
+	// Servidor
+	SERVER_WELCOME: 'server',
+	TABLE_LEADER_BRIEFING: 'server',
+	PALANQUERO_NEW_WALKER: 'server',
+	// Familiar (contacto de emergencia / familia)
+	EMERGENCY_CONTACT_VALIDATION: 'family',
+	FAMILY_CLOSING_INVITATION_WHATSAPP: 'family',
+	FAMILY_CLOSING_INVITATION_EMAIL: 'family',
+	// El resto (GENERAL, PRIVACY_DATA_DELETE, COMMUNITY_*, SYS_*, etc.) → general.
+};
+
+/**
+ * Devuelve la audiencia de una plantilla a partir de su `type`. Default 'general'.
+ */
+export function getMessageTemplateAudience(type: string): MessageTemplateAudience {
+	return MESSAGE_TEMPLATE_AUDIENCE_BY_TYPE[type] ?? 'general';
+}
 
 export const MessageTemplateSchema = z.object({
 	id: idSchema,

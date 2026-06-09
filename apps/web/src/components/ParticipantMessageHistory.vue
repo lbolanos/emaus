@@ -86,16 +86,20 @@
           {{ formatMessageContent(message.messageContent, 80) }}
         </div>
 
-        <!-- Template Info -->
-        <div v-if="message.templateName" class="flex items-center gap-1">
-          <Badge variant="secondary" class="text-xs">
+        <!-- Template Info + Audiencia -->
+        <div v-if="message.templateName || message.audience" class="flex flex-wrap items-center gap-1">
+          <Badge v-if="message.templateName" variant="secondary" class="text-xs">
             {{ message.templateName }}
+          </Badge>
+          <Badge v-if="message.audience" variant="outline" class="text-xs">
+            {{ audienceLabel(message.audience) }}
           </Badge>
         </div>
 
         <!-- Recipient Info -->
         <div class="text-xs text-muted-foreground">
-          Enviado a: {{ message.recipientContact }}
+          Enviado a:
+          <span v-if="message.recipientName" class="font-medium">{{ message.recipientName }} — </span>{{ message.recipientContact }}
         </div>
 
         <!-- Sender Info -->
@@ -200,6 +204,15 @@ const {
   getMessageTypeColor,
   clearCommunications
 } = communicationStore;
+
+// Etiqueta legible de la audiencia de la plantilla registrada en el historial.
+const AUDIENCE_LABELS: Record<string, string> = {
+  walker: 'Caminante',
+  server: 'Servidor',
+  family: 'Familiar',
+  general: 'General',
+};
+const audienceLabel = (a?: string | null): string => (a ? AUDIENCE_LABELS[a] || a : '');
 
 // Local state
 const localLoading = ref(false);

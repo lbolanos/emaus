@@ -31,6 +31,10 @@
                   </SelectItem>
                 </SelectContent>
               </Select>
+              <p v-if="formData.type" class="text-xs text-muted-foreground">
+                {{ t ? t('messageTemplates.audience.label') : 'Audiencia' }}:
+                <span class="font-medium">{{ audienceLabel(formData.type) }}</span>
+              </p>
             </div>
 
             <!-- Active Status (only for global templates and when editing) -->
@@ -416,7 +420,7 @@ import { useGlobalMessageTemplateStore } from '@/stores/globalMessageTemplateSto
 import { useMessageTemplateStore } from '@/stores/messageTemplateStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import RichTextEditor from './RichTextEditor.vue';
-import { messageTemplateTypes } from '@repo/types';
+import { messageTemplateTypes, getMessageTemplateAudience } from '@repo/types';
 import { convertHtmlToWhatsApp, convertHtmlToEmail, detectEmailClient, copyRichTextToClipboard, testEmojiConversion, beautifyHtml, replaceAllVariables, ParticipantData, RetreatData } from '@/utils/message';
 import { getParticipantNextMeeting } from '@/services/api';
 import { sanitizeHtml, sanitizeEmailHtml } from '@/utils/sanitize';
@@ -587,6 +591,8 @@ const isVariableUsed = (variable: string) => {
 
 // Participant variables with i18n support
 const participantVariables = computed(() => [
+  { key: 'recipientName', label: 'Destinatario (se adapta al contacto elegido)' },
+  { key: 'recipientFirstName', label: 'Destinatario - Nombre (se adapta al contacto)' },
   { key: 'nickname', label: t ? t('participants.fields.nickname') : 'Apodo' },
   { key: 'firstName', label: t ? t('participants.fields.firstName') : 'Nombre' },
   { key: 'lastName', label: t ? t('participants.fields.lastName') : 'Apellido' },
@@ -654,6 +660,18 @@ const communityVariables = computed(() => [
   { key: 'acceptUrl', label: 'URL para aceptar acceso' },
 ]);
 
+// Variables del scope {table.*} — solo aplican al briefing de mesa
+// (TABLE_LEADER_BRIEFING). El roster es un bloque pre-formateado.
+const tableVariables = computed(() => [
+  { key: 'name', label: 'Nombre de la mesa' },
+  { key: 'liderName', label: 'Nombre del líder' },
+  { key: 'colider1Name', label: 'Nombre del co-líder 1' },
+  { key: 'colider2Name', label: 'Nombre del co-líder 2' },
+  { key: 'walkersCount', label: 'Cantidad de caminantes' },
+  { key: 'walkersNames', label: 'Nombres de caminantes (lista)' },
+  { key: 'walkersRoster', label: 'Roster: caminantes + teléfonos + contactos de emergencia' },
+]);
+
 const isCommunityScope = computed(
   () =>
     props.scope === 'community' ||
@@ -716,6 +734,16 @@ const variableCategories = computed<VariableCategory[]>(() => {
         label: v.label,
         category: 'retreat'
       }))
+    });
+    categories.push({
+      id: 'table',
+      title: 'Mesa',
+      description: 'Solo aplican al briefing de mesa para líderes (roster de caminantes).',
+      variables: tableVariables.value.map(v => ({
+        value: `{table.${v.key}}`,
+        label: v.label,
+        category: 'table',
+      })),
     });
   }
 
@@ -807,12 +835,16 @@ const previewMessage = computed(() => {
   // For community-scoped templates we pass `null` as community so
   // replaceCommunityVariables falls back to mock data and the preview
   // shows realistic placeholder values for {community.X}.
+  // Pass `null` table so replaceTableVariables falls back to mock data and the
+  // preview shows realistic placeholders for {table.X} (only resolves if the
+  // template actually contains table placeholders, e.g. TABLE_LEADER_BRIEFING).
   message = replaceAllVariables(
     message,
     selectedParticipantData.value as ParticipantData,
     retreatData,
     undefined,
     isCommunityScope.value ? null : undefined,
+    null,
   );
 
   // Mock values for system/server-only placeholders so the preview shows
@@ -869,6 +901,12 @@ watch(
 
 const getTypeLabel = (type: string) => {
   return typeLabels.value[type] || type;
+};
+
+// Etiqueta de audiencia (Caminantes/Servidores/Familiares/General) derivada del tipo.
+const audienceLabel = (type: string): string => {
+  const audience = getMessageTemplateAudience(type);
+  return t ? t(`messageTemplates.audience.${audience}`) : audience;
 };
 
 // Initialize form data

@@ -8,6 +8,26 @@
         </CardTitle>
         <div class="flex items-center gap-2">
           <span class="text-sm font-normal text-gray-500 dark:text-gray-400"> {{ table.walkers?.length || 0 }} / 7 </span>
+          <Popover v-if="leaderOptions.length > 0" v-model:open="briefingOpen">
+            <PopoverTrigger as-child>
+              <Button variant="outline" size="icon" :title="$t('tables.briefing.button')">
+                <Send class="w-4 h-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" class="w-60 p-1">
+              <p class="px-2 py-1.5 text-xs text-muted-foreground">{{ $t('tables.briefing.chooseLeader') }}</p>
+              <button
+                v-for="opt in leaderOptions"
+                :key="opt.role"
+                type="button"
+                class="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent flex items-center gap-2"
+                @click="onChooseLeader(opt.participant)"
+              >
+                <span class="text-xs text-muted-foreground w-14 shrink-0">{{ opt.label }}</span>
+                <span class="truncate">{{ opt.participant.firstName }} {{ opt.participant.lastName }}</span>
+              </button>
+            </PopoverContent>
+          </Popover>
           <Button
             variant="outline"
             size="icon"
@@ -206,11 +226,12 @@
 </style>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import type { PropType } from 'vue';
 import type { Participant, TableMesa } from '@repo/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui';
 import { useTableMesaStore } from '@/stores/tableMesaStore';
+import { useParticipantStore } from '@/stores/participantStore';
 import { useI18n } from 'vue-i18n';
 import ServerDropZone from './ServerDropZone.vue';
 import ParticipantTooltip from '@/components/ParticipantTooltip.vue';
@@ -218,9 +239,11 @@ import ParticipantInfoPopover from '@/components/ParticipantInfoPopover.vue';
 import { useToast } from '@repo/ui';
 import { useDragState } from '@/composables/useDragState';
 import { useTapAssign } from '@/composables/useTapAssign';
+import { useParticipantMessageDialog } from '@/composables/useParticipantMessageDialog';
+import { buildTableData } from '@/utils/tableBriefing';
 
-import { Button } from '@repo/ui';
-import { Trash2, Eye, Camera } from 'lucide-vue-next';
+import { Button, Popover, PopoverContent, PopoverTrigger } from '@repo/ui';
+import { Trash2, Eye, Camera, Send } from 'lucide-vue-next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@repo/ui';
 import PhotoAssignmentDialog from '@/components/PhotoAssignmentDialog.vue';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@repo/ui';
@@ -240,6 +263,8 @@ const emit = defineEmits(['delete', 'refresh']);
 
 const { t } = useI18n();
 const tableMesaStore = useTableMesaStore();
+const participantStore = useParticipantStore();
+const { open: openMessageDialog } = useParticipantMessageDialog();
 const { toast } = useToast();
 const { draggedParticipantType, startDrag: startDragState, endDrag } = useDragState();
 const { tappedParticipant, onTouchStart: tapTouchStart, onTouchEnd: tapTouchEnd, onTapZone: tapZone, onZoneClick: tapZoneClick, isSelected: isTapSelected, clearSelection: clearTap } = useTapAssign();
@@ -261,6 +286,33 @@ const handleSearchIndexChanged = () => {
 };
 
 const hasWalkers = computed(() => (props.table.walkers?.length || 0) > 0);
+
+// --- Briefing de mesa: enviar info de la mesa al líder/colíder elegido ---
+const briefingOpen = ref(false);
+
+const leaderOptions = computed(() => {
+  const opts: { role: string; label: string; participant: Participant }[] = [];
+  if (props.table.lider) opts.push({ role: 'lider', label: t('tables.roles.lider'), participant: props.table.lider });
+  if (props.table.colider1)
+    opts.push({ role: 'colider1', label: t('tables.roles.colider1'), participant: props.table.colider1 });
+  if (props.table.colider2)
+    opts.push({ role: 'colider2', label: t('tables.roles.colider2'), participant: props.table.colider2 });
+  return opts;
+});
+
+// Enriquece un participante con sus datos completos del store (tags, contactos
+// de emergencia) que el payload de mesas no incluye. Fallback al objeto base.
+const enrichParticipant = (p: Participant): Participant =>
+  participantStore.participants.find((x) => x.id === p.id) ?? p;
+
+// Cerrar el popover ANTES de abrir el Dialog (mismo tick) deja pointer-events:none
+// huérfano en <body> (bug reka-ui). Cerramos y abrimos en nextTick.
+const onChooseLeader = (leader: Participant) => {
+  briefingOpen.value = false;
+  const tableData = buildTableData(props.table, participantStore.participants);
+  const target = enrichParticipant(leader);
+  nextTick(() => openMessageDialog(target, { tableData, templateType: 'TABLE_LEADER_BRIEFING' }));
+};
 
 // Normalize text: remove accents and convert to lowercase
 const normalizeText = (text: string): string => {

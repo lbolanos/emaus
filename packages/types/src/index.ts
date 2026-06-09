@@ -234,6 +234,8 @@ export const participantSchema = z.object({
 	registrationDate: z.coerce.date(),
 	lastUpdatedDate: z.coerce.date(),
 	isCancelled: z.boolean().optional(),
+	// Confirmación de asistencia per-retiro (la marca el líder/coordinador).
+	attendanceConfirmation: z.enum(['pending', 'confirmed', 'declined']).optional(),
 	isScholarship: z.boolean().optional(),
 	scholarshipAmount: z.preprocess(
 		(val) => (val === '' || val === null || val === undefined ? null : Number(val)),

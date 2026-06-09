@@ -50,13 +50,12 @@ import { computed, h, onMounted, onUnmounted, ref, watch } from 'vue';
 import { Card, CardContent, useToast, Badge } from '@repo/ui';
 import { useScheduleStore } from '@/stores/scheduleStore';
 import { useRetreatStore } from '@/stores/retreatStore';
-import { useAuthStore } from '@/stores/authStore';
+import { useMyParticipantId } from '@/composables/useMyParticipantId';
 import { useResponsabilityStore } from '@/stores/responsabilityStore';
 import type { RetreatScheduleItemDTO } from '@/services/api';
 
 const store = useScheduleStore();
 const retreatStore = useRetreatStore();
-const authStore = useAuthStore();
 const responsabilityStore = useResponsabilityStore();
 const { toast } = useToast();
 
@@ -65,10 +64,7 @@ let unsubscribe: (() => void) | null = null;
 
 const retreatId = computed(() => retreatStore.selectedRetreatId || '');
 
-const myParticipantId = computed<string | null>(() => {
-  const p = authStore.userProfile as any;
-  return p?.participantId ?? p?.participant?.id ?? null;
-});
+const myParticipantId = useMyParticipantId();
 
 type Entry = {
   item: RetreatScheduleItemDTO;

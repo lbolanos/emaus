@@ -179,6 +179,45 @@ export interface RetreatData {
 }
 
 /**
+ * Datos de un caminante para el roster de mesa (scope `table.*`). Solo se
+ * usan los campos necesarios para que un líder pueda contactarlo: teléfonos
+ * propios y de ambos contactos de emergencia.
+ */
+export interface TableWalkerData {
+	firstName?: string;
+	lastName?: string;
+	nickname?: string;
+	cellPhone?: string;
+	homePhone?: string;
+	workPhone?: string;
+	emergencyContact1Name?: string;
+	emergencyContact1Relation?: string;
+	emergencyContact1CellPhone?: string;
+	emergencyContact1HomePhone?: string;
+	emergencyContact1WorkPhone?: string;
+	emergencyContact2Name?: string;
+	emergencyContact2Relation?: string;
+	emergencyContact2CellPhone?: string;
+	emergencyContact2HomePhone?: string;
+	emergencyContact2WorkPhone?: string;
+}
+
+/**
+ * Variables del scope `table.*`: datos de una mesa de retiro armada, para
+ * enviar al líder/colíder el roster de caminantes con sus teléfonos y los de
+ * sus contactos de emergencia. Se arma client-side en `TableCard` (no hay un
+ * "table" en el contexto retreat normal, por eso es opcional en
+ * `replaceAllVariables`).
+ */
+export interface TableData {
+	name?: string;
+	liderName?: string;
+	colider1Name?: string;
+	colider2Name?: string;
+	walkers?: TableWalkerData[];
+}
+
+/**
  * URL universal de Google Maps construida desde lat/lng. Funciona en
  * cualquier app de escaneo, cliente de email o WhatsApp; en mobile abre la
  * app de mapas instalada (Google Maps / Apple Maps), en desktop abre la web.
@@ -445,6 +484,20 @@ const buildParticipantReplacements = (
 		? participantData.emergencyContact2Email
 		: participantData.emergencyContact1Email;
 
+	// Nombre del DESTINATARIO real según el contacto elegido en el formulario de
+	// envío: contacto de emergencia 1/2, invitador, o el propio participante.
+	// Permite que UNA plantilla salude a quien sea el destinatario con
+	// {participant.recipientName} / {participant.recipientFirstName}, sin tener
+	// que escribir condicionales por tipo de contacto.
+	const recipientName = selectedContactKey?.startsWith('emergencyContact1')
+		? participantData.emergencyContact1Name || ''
+		: selectedContactKey?.startsWith('emergencyContact2')
+			? participantData.emergencyContact2Name || ''
+			: selectedContactKey?.startsWith('inviter')
+				? participantData.invitedBy || ''
+				: `${participantData.firstName || ''} ${participantData.lastName || ''}`.trim();
+	const recipientFirstName = recipientName.split(' ')[0] || '';
+
 	return {
 		'participant.firstName': participantData.firstName || '',
 		'participant.lastName': participantData.lastName || '',
@@ -488,6 +541,8 @@ const buildParticipantReplacements = (
 		'participant.emergencyContact2Email': participantData.emergencyContact2Email || '',
 		// Generic emergency contact variables — resolve to EC1 or EC2
 		// based on the contact selected in the message sending form.
+		'participant.recipientName': recipientName,
+		'participant.recipientFirstName': recipientFirstName,
 		'participant.emergencyContactName': ecName || '',
 		'participant.emergencyContactRelation': ecRelation || '',
 		'participant.emergencyContactHomePhone': ecHomePhone || '',
@@ -688,6 +743,128 @@ export const replaceCommunityVariables = (
 	return out;
 };
 
+/** True si el valor tiene al menos un dígito (evita imprimir "-" o vacíos). */
+const hasDigits = (v?: string | null): v is string => !!v && /\d/.test(v);
+
+/**
+ * Arma una línea de teléfonos presente para un caminante/contacto.
+ * Ej: "Cel: 555-1, Casa: 555-2". Devuelve '' si no hay ninguno.
+ */
+const formatPhones = (
+	cell?: string,
+	home?: string,
+	work?: string,
+): string => {
+	const parts: string[] = [];
+	if (hasDigits(cell)) parts.push(`Cel: ${cell}`);
+	if (hasDigits(home)) parts.push(`Casa: ${home}`);
+	if (hasDigits(work)) parts.push(`Trabajo: ${work}`);
+	return parts.join(', ');
+};
+
+/**
+ * Construye el bloque HTML del roster de caminantes (líneas separadas por
+ * <br>). Cada caminante: nombre + teléfonos + ambos contactos de emergencia.
+ */
+const buildWalkersRoster = (walkers: TableWalkerData[]): string => {
+	if (!walkers.length) return '';
+	return walkers
+		.map((w, i) => {
+			const fullName = [w.firstName, w.lastName].filter(Boolean).join(' ').trim();
+			const lines: string[] = [`${i + 1}. <strong>${fullName || 'Sin nombre'}</strong>`];
+			const ownPhones = formatPhones(w.cellPhone, w.homePhone, w.workPhone);
+			if (ownPhones) lines.push(`   Tel: ${ownPhones}`);
+			const ec1Phones = formatPhones(
+				w.emergencyContact1CellPhone,
+				w.emergencyContact1HomePhone,
+				w.emergencyContact1WorkPhone,
+			);
+			if (w.emergencyContact1Name || ec1Phones) {
+				const rel = w.emergencyContact1Relation ? ` (${w.emergencyContact1Relation})` : '';
+				lines.push(
+					`   Emergencia 1: ${w.emergencyContact1Name || ''}${rel}${ec1Phones ? ` — ${ec1Phones}` : ''}`.trimEnd(),
+				);
+			}
+			const ec2Phones = formatPhones(
+				w.emergencyContact2CellPhone,
+				w.emergencyContact2HomePhone,
+				w.emergencyContact2WorkPhone,
+			);
+			if (w.emergencyContact2Name || ec2Phones) {
+				const rel = w.emergencyContact2Relation ? ` (${w.emergencyContact2Relation})` : '';
+				lines.push(
+					`   Emergencia 2: ${w.emergencyContact2Name || ''}${rel}${ec2Phones ? ` — ${ec2Phones}` : ''}`.trimEnd(),
+				);
+			}
+			return lines.join('<br>');
+		})
+		.join('<br><br>');
+};
+
+const buildTableReplacements = (tableData: TableData): Record<string, string> => {
+	const walkers = tableData.walkers ?? [];
+	return {
+		'table.name': tableData.name || '',
+		'table.liderName': tableData.liderName || '',
+		'table.colider1Name': tableData.colider1Name || '',
+		'table.colider2Name': tableData.colider2Name || '',
+		'table.walkersCount': walkers.length.toString(),
+		'table.walkersNames': walkers
+			.map((w) => [w.firstName, w.lastName].filter(Boolean).join(' ').trim())
+			.filter(Boolean)
+			.join(', '),
+		'table.walkersRoster': buildWalkersRoster(walkers),
+	};
+};
+
+/**
+ * Default mock table used for previews in the template editor.
+ */
+const getMockTable = (): TableData => ({
+	name: 'Mesa 01',
+	liderName: 'Juan Pérez',
+	colider1Name: 'María López',
+	colider2Name: '',
+	walkers: [
+		{
+			firstName: 'Pedro',
+			lastName: 'Ramírez',
+			cellPhone: '555-100-2000',
+			emergencyContact1Name: 'Ana Ramírez',
+			emergencyContact1Relation: 'Esposa',
+			emergencyContact1CellPhone: '555-100-2001',
+			emergencyContact2Name: 'Luis Ramírez',
+			emergencyContact2Relation: 'Hermano',
+			emergencyContact2CellPhone: '555-100-2002',
+		},
+		{
+			firstName: 'Carlos',
+			lastName: 'Gómez',
+			cellPhone: '555-300-4000',
+			emergencyContact1Name: 'Rosa Gómez',
+			emergencyContact1Relation: 'Madre',
+			emergencyContact1CellPhone: '555-300-4001',
+		},
+	],
+});
+
+/**
+ * Replaces table-scoped variables in a message template. Falls back to mock
+ * data when `table` is null/undefined so the UI preview shows placeholders.
+ */
+export const replaceTableVariables = (
+	message: string,
+	table: TableData | null | undefined,
+): string => {
+	const data = table || getMockTable();
+	const replacements = buildTableReplacements(data);
+	let out = message;
+	for (const [k, v] of Object.entries(replacements)) {
+		out = out.replace(new RegExp(`\\{${k}\\}`, 'g'), v);
+	}
+	return out;
+};
+
 /**
  * Finds all known template variables in a message whose resolved value is
  * an empty string. Unlike replaceAllVariables, this function does NOT fall
@@ -702,6 +879,7 @@ export const findEmptyVariables = (
 	retreat: RetreatData | null | undefined,
 	selectedContactKey?: string,
 	community?: CommunityData | null,
+	table?: TableData | null,
 ): string[] => {
 	const participantReplacements = buildParticipantReplacements(
 		participant ?? ({} as ParticipantData),
@@ -709,10 +887,17 @@ export const findEmptyVariables = (
 	);
 	const retreatReplacements = buildRetreatReplacements(retreat ?? ({} as RetreatData));
 	const communityReplacements = buildCommunityReplacements(community ?? ({} as CommunityData));
+	// Las variables {table.*} son contextuales: solo se llenan vía el flujo de
+	// briefing de mesa (que siempre pasa un TableData completo). Cuando NO hay
+	// contexto de mesa no las incluimos en el chequeo de "vacías", para no
+	// advertir `{table.name}`/`{table.walkersRoster}` con un consejo ("revisa los
+	// datos del caminante o del retiro") que no aplica a este scope.
+	const tableReplacements = table ? buildTableReplacements(table) : {};
 	const combined: Record<string, string> = {
 		...participantReplacements,
 		...retreatReplacements,
 		...communityReplacements,
+		...tableReplacements,
 	};
 
 	// Extract all unique placeholders from the message.
@@ -742,6 +927,7 @@ export const replaceAllVariables = (
 	retreat: RetreatData | null | undefined,
 	selectedContactKey?: string,
 	community?: CommunityData | null,
+	table?: TableData | null,
 ): string => {
 	let processedMessage = message;
 
@@ -756,6 +942,13 @@ export const replaceAllVariables = (
 	// context — the {community.*} placeholders simply stay unresolved.
 	if (community !== undefined) {
 		processedMessage = replaceCommunityVariables(processedMessage, community);
+	}
+
+	// Replace table variables when provided. Same rationale as community: most
+	// callers don't have a table context, so {table.*} stays unresolved unless
+	// a TableData is explicitly passed (table briefing flow).
+	if (table !== undefined) {
+		processedMessage = replaceTableVariables(processedMessage, table);
 	}
 
 	return processedMessage;

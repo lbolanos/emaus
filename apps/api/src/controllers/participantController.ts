@@ -548,6 +548,28 @@ export const checkInParticipant = async (
   }
 };
 
+export const updateAttendanceConfirmation = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id } = req.params;
+    const { retreatId, attendanceConfirmation } = req.body;
+    if (!retreatId) {
+      return res.status(400).json({ message: "retreatId is required" });
+    }
+    const result = await participantService.setAttendanceConfirmation(
+      id,
+      retreatId,
+      attendanceConfirmation,
+    );
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getReceptionStats = async (
   req: Request,
   res: Response,

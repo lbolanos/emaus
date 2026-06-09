@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, reactive } from 'vue';
 import { useToast } from '@repo/ui';
 import type { Participant, CreateParticipant, Tag } from '@repo/types';
-import { api } from '@/services/api';
+import { api, setAttendanceConfirmation as apiSetAttendanceConfirmation, type AttendanceConfirmation } from '@/services/api';
 
 export const useParticipantStore = defineStore('participant', () => {
 	const participants = ref<Participant[]>([]);
@@ -279,6 +279,22 @@ export const useParticipantStore = defineStore('participant', () => {
 		Object.keys(filters).forEach((key) => delete filters[key]);
 	}
 
+	// Confirmación de asistencia: actualización optimista (revierte si la API falla).
+	async function setAttendanceConfirmation(participantId: string, status: AttendanceConfirmation) {
+		const retreatId = filters.retreatId;
+		if (!retreatId) return;
+		const idx = participants.value.findIndex((p) => p.id === participantId);
+		const prev = idx >= 0 ? (participants.value[idx] as any).attendanceConfirmation : undefined;
+		if (idx >= 0) (participants.value[idx] as any).attendanceConfirmation = status;
+		try {
+			await apiSetAttendanceConfirmation(participantId, retreatId, status);
+		} catch (e) {
+			if (idx >= 0) (participants.value[idx] as any).attendanceConfirmation = prev;
+			toast({ title: 'Error', description: 'No se pudo actualizar la confirmación.', variant: 'destructive' });
+			throw e;
+		}
+	}
+
 	return {
 		participants,
 		tags,
@@ -293,6 +309,7 @@ export const useParticipantStore = defineStore('participant', () => {
 		importParticipants,
 		updateParticipant,
 		deleteParticipant,
+		setAttendanceConfirmation,
 		saveColumnSelection,
 		loadColumnSelection,
 		getColumnSelection,

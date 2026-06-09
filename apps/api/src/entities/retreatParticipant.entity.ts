@@ -79,6 +79,12 @@ export class RetreatParticipant {
 	@Column({ type: 'datetime', nullable: true })
 	checkedInAt?: Date | null;
 
+	// Confirmación de asistencia (el líder/coordinador llama al caminante antes
+	// del retiro): pending = por contactar, confirmed = confirmó, declined = no asiste.
+	// Distinto de checkedIn (registro de llegada en recepción).
+	@Column({ type: 'varchar', default: 'pending' })
+	attendanceConfirmation!: 'pending' | 'confirmed' | 'declined';
+
 	@Column({ type: 'boolean', default: false })
 	bagMade!: boolean;
 

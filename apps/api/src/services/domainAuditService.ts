@@ -30,6 +30,7 @@ export const DomainAuditAction = {
 	PARTICIPANT_IMPORT: 'participant.import',
 	PARTICIPANT_CONFIRM: 'participant.confirm',
 	PARTICIPANT_CHECKIN: 'participant.checkin',
+	PARTICIPANT_ATTENDANCE_CONFIRMATION: 'participant.attendance_confirmation',
 	PARTICIPANT_ANONYMIZE: 'participant.anonymize',
 	// Mesas
 	TABLE_CREATE: 'table.create',

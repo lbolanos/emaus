@@ -320,6 +320,14 @@
     "title": "Message Templates",
     "addNew": "Add New Template",
     "loading": "Loading...",
+    "audience": {
+      "label": "Audience",
+      "all": "All",
+      "walker": "Walkers",
+      "server": "Servers",
+      "family": "Family",
+      "general": "General"
+    },
     "table": {
       "name": "Name",
       "type": "Type",
@@ -373,6 +381,8 @@
     "types": {
       "all": "All Types",
       "WALKER_WELCOME": "Walker Welcome",
+      "TABLE_LEADER_BRIEFING": "Table Leader Briefing",
+      "WALKER_CONFIRMATION": "Walker Attendance Confirmation",
       "SERVER_WELCOME": "Server Welcome",
       "EMERGENCY_CONTACT_VALIDATION": "Emergency Contact Validation",
       "PALANCA_REQUEST": "Palanca Request",
@@ -578,6 +588,7 @@
     },
     "filters": {
       "title": "Advanced Filters",
+      "myTable": "Only participants from my table",
       "tabs": {
         "health": "Health",
         "logistics": "Logistics",
@@ -1040,6 +1051,10 @@
       "lider": "Leader",
       "colider1": "Co-Leader 1",
       "colider2": "Co-Leader 2"
+    },
+    "briefing": {
+      "button": "Send info to leaders",
+      "chooseLeader": "Choose who to send to:"
     },
     "unassignedServers": "Unassigned Servers",
     "unassignedWalkers": "Unassigned Walkers",

@@ -56,6 +56,29 @@
             </SelectContent>
           </Select>
 
+          <!-- Enviar briefing a líderes (toda la mesa) -->
+          <Popover v-if="allLeaders.length > 0" v-model:open="leadersBriefingOpen">
+            <PopoverTrigger as-child>
+              <Button variant="outline" size="icon" title="Enviar briefing a líderes">
+                <Send class="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" class="w-80 p-1 max-h-[60vh] overflow-y-auto">
+              <p class="px-2 py-1.5 text-xs text-muted-foreground">Enviar briefing a un líder ({{ allLeaders.length }}):</p>
+              <button
+                v-for="opt in allLeaders"
+                :key="opt.table.id + '-' + opt.role"
+                type="button"
+                class="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent flex items-center gap-2"
+                @click="sendBriefingToLeader(opt.table, opt.participant)"
+              >
+                <span class="text-xs text-muted-foreground w-16 shrink-0 truncate">{{ opt.table.name }}</span>
+                <span class="text-xs text-muted-foreground w-14 shrink-0">{{ $t('tables.roles.' + opt.role) }}</span>
+                <span class="truncate">{{ opt.participant.firstName }} {{ opt.participant.lastName }}</span>
+              </button>
+            </PopoverContent>
+          </Popover>
+
           <!-- Actions Dropdown -->
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
@@ -375,6 +398,8 @@
     context="retreat"
     :retreat-id="retreatStore.selectedRetreatId ?? undefined"
     :participant="messageParticipant"
+    :table-data="messageTableData ?? undefined"
+    :force-template-type="messageTemplateType ?? undefined"
   />
 
   <!-- Floating unassign button — shown when an assigned participant is tap-selected -->
@@ -400,7 +425,8 @@ import { useTableMesaStore } from '@/stores/tableMesaStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import TableCard from './TableCard.vue';
-import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, TooltipProvider } from '@repo/ui';
+import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, TooltipProvider, Popover, PopoverContent, PopoverTrigger } from '@repo/ui';
+import { buildTableData } from '@/utils/tableBriefing';
 import ParticipantTooltip from '@/components/ParticipantTooltip.vue';
 import ParticipantInfoPopover from '@/components/ParticipantInfoPopover.vue';
 import MessageDialog from '@/components/MessageDialog.vue';
@@ -409,7 +435,7 @@ import TablesHelpDialog from '@/components/TablesHelpDialog.vue';
 import { useParticipantMessageDialog } from '@/composables/useParticipantMessageDialog';
 import { useToast } from '@repo/ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@repo/ui';
-import { ChevronLeft, ChevronRight, Download, HelpCircle, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw, Scissors, UserX, X } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Download, HelpCircle, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw, Scissors, Send, UserX, X } from 'lucide-vue-next';
 import type { Participant, TableMesa } from '@repo/types';
 import { useI18n } from 'vue-i18n';
 import { exportTablesToDocx } from '@/services/api';
@@ -426,9 +452,35 @@ import {
 const tableMesaStore = useTableMesaStore();
 const retreatStore = useRetreatStore();
 const participantStore = useParticipantStore();
-const { isOpen: messageDialogOpen, participant: messageParticipant } = useParticipantMessageDialog();
+const {
+  isOpen: messageDialogOpen,
+  participant: messageParticipant,
+  tableData: messageTableData,
+  templateType: messageTemplateType,
+  open: openMessageDialog,
+} = useParticipantMessageDialog();
 const { toast } = useToast();
 const { t } = useI18n();
+
+// --- Enviar briefing a todos los líderes (consolidado a nivel retiro) ---
+const leadersBriefingOpen = ref(false);
+
+const allLeaders = computed(() => {
+  const out: { table: any; role: string; participant: any }[] = [];
+  for (const table of tableMesaStore.tables || []) {
+    if (table.lider) out.push({ table, role: 'lider', participant: table.lider });
+    if (table.colider1) out.push({ table, role: 'colider1', participant: table.colider1 });
+    if (table.colider2) out.push({ table, role: 'colider2', participant: table.colider2 });
+  }
+  return out;
+});
+
+const sendBriefingToLeader = (table: any, leader: any) => {
+  leadersBriefingOpen.value = false;
+  const tableData = buildTableData(table, participantStore.participants);
+  const target = participantStore.participants.find((x: any) => x.id === leader.id) ?? leader;
+  nextTick(() => openMessageDialog(target, { tableData, templateType: 'TABLE_LEADER_BRIEFING' }));
+};
 const { draggedParticipantType, startDrag: startDragState, endDrag } = useDragState();
 const { tappedParticipant, onTouchStart: tapTouchStart, onTouchEnd: tapTouchEnd, clearSelection: clearTap, isSelected: isTapSelected } = useTapAssign();
 
