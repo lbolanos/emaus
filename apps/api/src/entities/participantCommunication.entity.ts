@@ -55,6 +55,17 @@ export class ParticipantCommunication {
 	@Column({ type: 'varchar', length: 255 })
 	recipientContact!: string;
 
+	// Quién es el dueño del contacto al que se envió (caminante/EC1/EC2/invitador)
+	// + audiencia de la plantilla. Para reportes "a quién contactamos".
+	@Column({ type: 'varchar', length: 50, nullable: true })
+	recipientContactKey?: string | null;
+
+	@Column({ type: 'varchar', length: 150, nullable: true })
+	recipientName?: string | null;
+
+	@Column({ type: 'varchar', length: 20, nullable: true })
+	audience?: string | null;
+
 	@Column({ type: 'text' })
 	messageContent!: string;
 

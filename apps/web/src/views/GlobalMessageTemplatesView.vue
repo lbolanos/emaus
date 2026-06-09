@@ -63,7 +63,10 @@
 								{{ template.isActive ? 'Activa' : 'Inactiva' }}
 							</span>
 						</div>
+						<div class="flex items-center gap-2">
 						<span class="text-sm text-gray-500">{{ getTypeLabel(template.type) }}</span>
+						<span class="inline-block px-2 py-0.5 text-xs rounded-full bg-blue-50 text-blue-700 border border-blue-200">{{ getAudienceLabel(template.type) }}</span>
+					</div>
 					</div>
 
 					<div class="mb-4">
@@ -197,6 +200,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { getMessageTemplateAudience } from '@repo/types';
 import { useGlobalMessageTemplateStore, type GlobalMessageTemplate } from '@/stores/globalMessageTemplateStore';
 import { useAuthStore } from '@/stores/authStore';
 import BaseMessageTemplateModal from '@/components/BaseMessageTemplateModal.vue';
@@ -246,6 +250,14 @@ const refreshTemplates = async () => {
 const getTypeLabel = (type: string) => {
 	return typeLabels[type] || type;
 };
+
+const audienceLabels: Record<string, string> = {
+	walker: 'Caminantes',
+	server: 'Servidores',
+	family: 'Familiares',
+	general: 'General',
+};
+const getAudienceLabel = (type: string) => audienceLabels[getMessageTemplateAudience(type)];
 
 const formatMessagePreview = (message: string) => {
 	// Extract text from HTML by removing all HTML tags

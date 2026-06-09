@@ -891,4 +891,125 @@ describe('ParticipantList Component', () => {
 			serverWrapper.unmount();
 		});
 	});
+
+	describe('Filtro "mi mesa"', () => {
+		// Monta y luego setea el estado de líder (después del mount para que el
+		// watch inmediato no sobrescriba las mesas vía fetchTables).
+		async function mountAsLeader() {
+			const { mount: vtuMount } = require('@vue/test-utils');
+			const w = vtuMount(ParticipantList, {
+				props: { type: 'walker' },
+				global: {
+					plugins: [pinia],
+					stubs: {
+						'router-link': true, 'router-view': true, transition: true,
+						'transition-group': true, teleport: true, suspense: true,
+						ColumnSelector: { template: '<div />' },
+						EditParticipantForm: { template: '<div />' },
+						FilterDialog: { template: '<div />' },
+						ImportParticipantsModal: { template: '<div />' },
+						ExportParticipantsModal: { template: '<div />' },
+						TagBadge: { template: '<span />' },
+						MessageDialog: { template: '<div />' },
+						BulkEditParticipantsModal: { template: '<div />' },
+					},
+					mocks: { $t: (key: string) => key },
+				},
+			});
+
+			const { useAuthStore } = await import('@/stores/authStore');
+			const { useTableMesaStore } = await import('@/stores/tableMesaStore');
+			const { useParticipantStore } = await import('@/stores/participantStore');
+			const authStore = useAuthStore();
+			const tableMesaStore = useTableMesaStore();
+			const participantStore = useParticipantStore();
+
+			// En producción participantId viene en authStore.user (nivel superior),
+			// no en userProfile (que solo trae roles+permissions).
+			authStore.user = { ...(authStore.user as any), participantId: 'leader-pid' };
+			(tableMesaStore as any).tables = [
+				{ id: 'tbl-1', name: 'Mesa 1', lider: { id: 'leader-pid' }, colider1: null, colider2: null, walkers: [] },
+				{ id: 'tbl-2', name: 'Mesa 2', lider: { id: 'other-pid' }, colider1: null, colider2: null, walkers: [] },
+			];
+			participantStore.participants = [
+				createMockParticipant({ id: 'w1', type: 'walker', tableId: 'tbl-1' }),
+				createMockParticipant({ id: 'w2', type: 'walker', tableId: 'tbl-2' }),
+				createMockParticipant({ id: 'w3', type: 'walker', tableId: null }),
+			];
+			await nextTick();
+			return w;
+		}
+
+		it('detecta que el usuario lidera una mesa y ofrece el filtro', async () => {
+			const w = await mountAsLeader();
+			expect(w.vm.myTableIds).toContain('tbl-1');
+			expect(w.vm.myTableIds).not.toContain('tbl-2');
+			expect(w.vm.canFilterByMyTable).toBe(true);
+			w.unmount();
+		});
+
+		it('al activar el toggle solo muestra caminantes de mi mesa', async () => {
+			const w = await mountAsLeader();
+			w.vm.showOnlyMyTable = true;
+			await nextTick();
+			const ids = w.vm.filteredAndSortedParticipants.map((p: any) => p.id);
+			expect(ids).toEqual(['w1']);
+			w.unmount();
+		});
+
+		it('sin el toggle muestra todos los caminantes', async () => {
+			const w = await mountAsLeader();
+			const ids = w.vm.filteredAndSortedParticipants.map((p: any) => p.id).sort();
+			expect(ids).toEqual(['w1', 'w2', 'w3']);
+			w.unmount();
+		});
+
+		it('si el usuario no lidera ninguna mesa, no ofrece el filtro', () => {
+			// El wrapper por defecto (beforeEach) no tiene participantId ni mesas.
+			expect(wrapper.vm.canFilterByMyTable).toBe(false);
+		});
+	});
+
+	describe('Filtro de confirmación de asistencia', () => {
+		async function mountWithStatuses() {
+			const { useParticipantStore } = await import('@/stores/participantStore');
+			const participantStore = useParticipantStore();
+			participantStore.participants = [
+				createMockParticipant({ id: 'a1', type: 'walker', attendanceConfirmation: 'pending' }),
+				createMockParticipant({ id: 'a2', type: 'walker', attendanceConfirmation: 'confirmed' }),
+				createMockParticipant({ id: 'a3', type: 'walker', attendanceConfirmation: 'declined' }),
+				createMockParticipant({ id: 'a4', type: 'walker' }), // sin campo → cuenta como pending
+			];
+			await nextTick();
+		}
+
+		it('filtra por "confirmed"', async () => {
+			await mountWithStatuses();
+			wrapper.vm.attendanceFilter = 'confirmed';
+			await nextTick();
+			expect(wrapper.vm.filteredAndSortedParticipants.map((p: any) => p.id)).toEqual(['a2']);
+		});
+
+		it('filtra por "pending" e incluye los sin campo', async () => {
+			await mountWithStatuses();
+			wrapper.vm.attendanceFilter = 'pending';
+			await nextTick();
+			expect(wrapper.vm.filteredAndSortedParticipants.map((p: any) => p.id).sort()).toEqual(['a1', 'a4']);
+		});
+
+		it('con "all" muestra todos', async () => {
+			await mountWithStatuses();
+			wrapper.vm.attendanceFilter = 'all';
+			await nextTick();
+			expect(wrapper.vm.filteredAndSortedParticipants.length).toBe(4);
+		});
+
+		it('cycleAttendance avanza pending→confirmed y llama al store', async () => {
+			const { useParticipantStore } = await import('@/stores/participantStore');
+			const participantStore = useParticipantStore();
+			const spy = vi.spyOn(participantStore, 'setAttendanceConfirmation').mockResolvedValue(undefined as any);
+			wrapper.vm.cycleAttendance({ id: 'x', attendanceConfirmation: 'pending' });
+			expect(spy).toHaveBeenCalledWith('x', 'confirmed');
+		});
+	});
 });

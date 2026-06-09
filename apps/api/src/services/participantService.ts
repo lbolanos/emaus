@@ -684,6 +684,7 @@ export const findAllParticipants = async (
         "pickupLocation",
         "arrivesOnOwn",
         "requestsSingleRoom",
+        "attendanceConfirmation",
         "notes",
         "createdAt",
       ],
@@ -724,6 +725,8 @@ export const findAllParticipants = async (
         if (h.arrivesOnOwn !== undefined) p.arrivesOnOwn = h.arrivesOnOwn;
         if (h.requestsSingleRoom !== undefined)
           p.requestsSingleRoom = h.requestsSingleRoom;
+        if (h.attendanceConfirmation != null)
+          p.attendanceConfirmation = h.attendanceConfirmation;
         // notes: per-retreat note (the rp row owns this; participants.notes
         // is legacy and can be empty for newly registered participants).
         if (h.notes !== undefined && h.notes !== null) p.notes = h.notes;
@@ -4478,6 +4481,40 @@ export const setParticipantCheckIn = async (
     checkedInAt: rp.checkedInAt ? rp.checkedInAt.toISOString() : null,
   });
   return { checkedIn: rp.checkedIn, checkedInAt: rp.checkedInAt ?? null };
+};
+
+const ATTENDANCE_CONFIRMATION_VALUES = ["pending", "confirmed", "declined"] as const;
+export type AttendanceConfirmation = (typeof ATTENDANCE_CONFIRMATION_VALUES)[number];
+
+export const setAttendanceConfirmation = async (
+  participantId: string,
+  retreatId: string,
+  status: AttendanceConfirmation,
+): Promise<{ attendanceConfirmation: AttendanceConfirmation }> => {
+  if (!ATTENDANCE_CONFIRMATION_VALUES.includes(status)) {
+    const err = new Error("Invalid attendance confirmation status");
+    (err as any).status = 400;
+    throw err;
+  }
+  const rpRepo = AppDataSource.getRepository(RetreatParticipant);
+  const rp = await rpRepo.findOne({ where: { participantId, retreatId } });
+  if (!rp) {
+    const err = new Error("Participant not found in retreat");
+    (err as any).status = 404;
+    throw err;
+  }
+  const previousStatus = rp.attendanceConfirmation;
+  rp.attendanceConfirmation = status;
+  await rpRepo.save(rp);
+  void domainAuditService.log({
+    action: DomainAuditAction.PARTICIPANT_ATTENDANCE_CONFIRMATION,
+    resourceType: "participant",
+    resourceId: participantId,
+    retreatId,
+    oldValues: { attendanceConfirmation: previousStatus },
+    newValues: { attendanceConfirmation: status },
+  });
+  return { attendanceConfirmation: rp.attendanceConfirmation };
 };
 
 export const getReceptionStats = async (retreatId: string) => {

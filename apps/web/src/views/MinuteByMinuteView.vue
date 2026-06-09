@@ -438,7 +438,7 @@ import {
 } from '@repo/ui';
 import { useScheduleStore } from '@/stores/scheduleStore';
 import { useRetreatStore } from '@/stores/retreatStore';
-import { useAuthStore } from '@/stores/authStore';
+import { useMyParticipantId } from '@/composables/useMyParticipantId';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { useResponsabilityStore } from '@/stores/responsabilityStore';
 import ScheduleItemEditModal, { type SubmitPayload as ItemSubmitPayload } from '@/components/ScheduleItemEditModal.vue';
@@ -453,7 +453,6 @@ const route = useRoute();
 const router = useRouter();
 const store = useScheduleStore();
 const retreatStore = useRetreatStore();
-const authStore = useAuthStore();
 const { canManage } = useAuthPermissions();
 const responsabilityStore = useResponsabilityStore();
 const { toast } = useToast();
@@ -891,9 +890,7 @@ const selectedSet = computed(() =>
 
 let unsubscribe: (() => void) | null = null;
 
-const myParticipantId = computed(() =>
-  (authStore.userProfile as any)?.participantId ?? (authStore.userProfile as any)?.participant?.id ?? null,
-);
+const myParticipantId = useMyParticipantId();
 
 // Reloj reactivo para indicador "ahora" y tiempo relativo. Refresca cada 60s.
 const now = ref<number>(Date.now());

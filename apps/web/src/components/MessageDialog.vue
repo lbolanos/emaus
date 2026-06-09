@@ -129,6 +129,9 @@
                 </SelectItem>
               </SelectContent>
             </Select>
+            <p v-if="contactWarning" class="text-xs text-yellow-600 flex items-center gap-1">
+              <span aria-hidden="true">⚠</span>{{ contactWarning }}
+            </p>
           </div>
 
           <!-- Template Selection -->
@@ -149,9 +152,10 @@
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="WALKER">Caminantes</SelectItem>
-                    <SelectItem value="SERVER">Servidores</SelectItem>
-                    <SelectItem value="GENERAL">General</SelectItem>
+                    <SelectItem value="walker">Caminantes</SelectItem>
+                    <SelectItem value="server">Servidores</SelectItem>
+                    <SelectItem value="family">Familiares</SelectItem>
+                    <SelectItem value="general">General</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -447,7 +451,7 @@ import {
 	TabsList,
 	TabsTrigger,
 } from '@repo/ui';
-import { convertHtmlToWhatsApp, convertHtmlToEmail, replaceAllVariables, findEmptyVariables, ParticipantData, RetreatData, CommunityData } from '@/utils/message';
+import { convertHtmlToWhatsApp, convertHtmlToEmail, replaceAllVariables, findEmptyVariables, ParticipantData, RetreatData, CommunityData, TableData } from '@/utils/message';
 import { resolveMemberProfile } from '@repo/utils';
 import { sanitizeEmailHtml } from '@/utils/sanitize';
 import { sanitizePhoneForWhatsapp } from '@/utils/phone';
@@ -462,6 +466,7 @@ import {
 import ParticipantMessageHistory from './ParticipantMessageHistory.vue';
 import CommunityMessageHistory from './CommunityMessageHistory.vue';
 import type { Participant, CommunityMember } from '@repo/types';
+import { getMessageTemplateAudience } from '@repo/types';
 
 // Constants
 const DRAFT_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -477,6 +482,10 @@ interface Props {
 	participant?: Participant | CommunityMember | null;
 	retreatId?: string;
 	communityId?: string;
+	/** Datos de mesa para resolver variables {table.*} (flujo briefing de mesa). */
+	tableData?: TableData | null;
+	/** Si se setea, preselecciona la plantilla de ese tipo al abrir (sobre la preferencia guardada). */
+	forceTemplateType?: string | null;
 }
 
 interface Emits {
@@ -487,6 +496,8 @@ const props = withDefaults(defineProps<Props>(), {
 	participant: null,
 	retreatId: '',
 	communityId: '',
+	tableData: null,
+	forceTemplateType: null,
 });
 
 const emit = defineEmits<Emits>();
@@ -563,13 +574,39 @@ const canShowHistory = computed(() => !!recipientId.value && !!contextId.value);
 
 const displayName = computed(() => {
 	if (!props.participant) return '';
-	const p = props.participant;
-	if ('participant' in p && p.participant) {
-		// CommunityMember with participant relation — usar overlay si existe.
-		// Per-community alias > nombre del Participant global.
-		return resolveMemberProfile(p as any).fullName;
+	const p = props.participant as any;
+
+	// Datos base del participante (con overlay community si aplica), igual que
+	// contactOptions. Sirve para resolver el nombre del destinatario cuando el
+	// contacto seleccionado es un contacto de emergencia o el invitador.
+	let pd: any = 'participant' in p && p.participant ? p.participant : p;
+	if (props.context === 'community' && 'participant' in p) {
+		const overlay = resolveMemberProfile(p);
+		pd = {
+			...pd,
+			firstName: overlay.firstName || pd.firstName,
+			lastName: overlay.lastName || pd.lastName,
+		};
 	}
-	// Participant or CommunityMember without relation
+
+	// El nombre mostrado refleja a quién se le envía: si el contacto elegido es
+	// de un contacto de emergencia / invitador, mostramos a esa persona.
+	const key = selectedContactKey.value;
+	if (key?.startsWith('emergencyContact1')) {
+		return `${pd.emergencyContact1Name || 'Contacto de emergencia 1'} (Contacto de emergencia)`;
+	}
+	if (key?.startsWith('emergencyContact2')) {
+		return `${pd.emergencyContact2Name || 'Contacto de emergencia 2'} (Contacto de emergencia)`;
+	}
+	if (key?.startsWith('inviter')) {
+		return `${pd.invitedBy || 'Invitador'} (Invitador)`;
+	}
+
+	// Contacto propio del participante (o sin contacto seleccionado).
+	if ('participant' in p && p.participant) {
+		// CommunityMember con relación — overlay per-community > nombre global.
+		return resolveMemberProfile(p).fullName;
+	}
 	if ('firstName' in p) {
 		return `${p.firstName} ${p.lastName}`;
 	}
@@ -654,6 +691,21 @@ const selectedContactKey = computed<string | undefined>(() => {
 	return match?.key;
 });
 
+// Aviso inline cuando el contacto seleccionado parece inválido (antes de enviar).
+// En la DB hay teléfonos rotos reales (dígitos de menos/de más); avisamos para
+// evitar links de WhatsApp muertos. No bloquea: la validación dura sigue en sendMessage.
+const contactWarning = computed<string>(() => {
+	const v = selectedContact.value;
+	if (!v) return '';
+	if (sendMethod.value === 'email') {
+		return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? '' : 'Este correo no parece válido.';
+	}
+	const digits = sanitizePhoneForWhatsapp(v);
+	if (digits.length < 10) return `Este número parece incompleto (${digits.length} dígitos).`;
+	if (digits.length > 15) return 'Este número tiene demasiados dígitos.';
+	return '';
+});
+
 // Builds a participant object enriched with the resolved palanquero data,
 // looking up the Responsability whose name matches participant.palancasCoordinator.
 // Cuando `context === 'community'`, aplica overlay per-community ANTES de
@@ -698,6 +750,15 @@ const enrichedParticipantData = computed(() => {
 	};
 });
 
+// Plantillas que solo deben usarse vía un flujo dedicado (no en el selector
+// manual): TABLE_LEADER_BRIEFING únicamente se envía con el botón "Enviar info a
+// líderes" (que pasa el contexto de mesa). Sin ese contexto sus variables
+// {table.*} quedarían vacías/literales. Se oculta del dropdown EXCEPTO cuando el
+// diálogo se abrió justo para ese tipo (forceTemplateType).
+const MANUAL_HIDDEN_TEMPLATE_TYPES = ['TABLE_LEADER_BRIEFING'];
+const isHiddenFromManualSelector = (type: string): boolean =>
+	MANUAL_HIDDEN_TEMPLATE_TYPES.includes(type) && props.forceTemplateType !== type;
+
 // Template filtering
 const filterTemplates = () => {
 	const templates = allMessageTemplates.value || [];
@@ -705,11 +766,13 @@ const filterTemplates = () => {
 	const typeFilter = templateTypeFilter.value;
 
 	filteredTemplates.value = templates.filter(template => {
+		if (isHiddenFromManualSelector(template.type)) return false;
+
 		const matchesSearch = !search ||
 			template.name.toLowerCase().includes(search) ||
 			template.message.toLowerCase().includes(search);
 
-		const matchesType = typeFilter === 'all' || template.type === typeFilter;
+		const matchesType = typeFilter === 'all' || getMessageTemplateAudience(template.type) === typeFilter;
 
 		return matchesSearch && matchesType;
 	});
@@ -719,10 +782,16 @@ const relevantTemplates = computed(() => {
 	if (templateSearch.value || templateTypeFilter.value !== 'all') {
 		return filteredTemplates.value;
 	}
-	return allMessageTemplates.value || [];
+	return (allMessageTemplates.value || []).filter(
+		(t: any) => !isHiddenFromManualSelector(t.type),
+	);
 });
 
 // Message preview
+// TODO (deuda técnica): esta función se llama imperativamente desde ~6 watchers,
+// lo que genera una familia de bugs "stale" (ej. {table.*} literal, parchado con
+// flush:'post'). Migrar a un `computed`/`watchEffect` declarativo que rastree las
+// dependencias automáticamente. Ver docs/features/TODO-messagedialog-declarative-preview.md
 const updateMessagePreview = () => {
 	// No template selected: keep whatever the user has typed (do not reset).
 	if (!selectedTemplate.value || !props.participant) {
@@ -799,6 +868,7 @@ const updateMessagePreview = () => {
 		retreatData,
 		selectedContactKey.value,
 		communityData,
+		props.tableData ?? undefined,
 	);
 
 	let message = replaceAllVariables(
@@ -807,6 +877,7 @@ const updateMessagePreview = () => {
 		retreatData,
 		selectedContactKey.value,
 		communityData,
+		props.tableData ?? undefined,
 	);
 	messagePreview.value = message;
 
@@ -1079,6 +1150,9 @@ const saveCommunicationToHistory = async (): Promise<void> => {
 				retreatId: props.retreatId!,
 				messageType: sendMethod.value,
 				recipientContact: selectedContact.value!,
+				recipientContactKey: selectedContactKey.value,
+				recipientName: displayName.value,
+				audience: template ? getMessageTemplateAudience(template.type) : undefined,
 				messageContent: editedMessage.value,
 				templateId: selectedTemplate.value || undefined,
 				templateName: template?.name,
@@ -1480,10 +1554,40 @@ watch(() => props.open, (newValue: boolean) => {
 	}
 });
 
+// Recalcular el preview con flush 'post' (tras el render, con props ya
+// commiteados) cuando cambia la plantilla o el contexto de mesa. En el flujo de
+// briefing, `props.tableData` puede no estar asentado cuando el watcher pre-flush
+// de `selectedTemplate` corre updateMessagePreview(), dejando {table.*} literales
+// (race de timing no determinista). Un watcher post-flush garantiza datos frescos.
+watch(
+	[selectedTemplate, () => props.tableData],
+	() => {
+		if (props.open && selectedTemplate.value && !isUserEditing.value) {
+			updateMessagePreview();
+		}
+	},
+	{ flush: 'post' },
+);
+
+// Default inteligente: al elegir una plantilla de audiencia "familiar" (dirigida
+// al contacto de emergencia), si el contacto actual es el propio del participante,
+// preseleccionar automáticamente el contacto de emergencia disponible. Así el
+// envío va al destinatario correcto sin que el usuario cambie el contacto a mano.
+const applyAudienceContactDefault = () => {
+	const tmpl = (allMessageTemplates.value || []).find((t: any) => t.id === selectedTemplate.value);
+	if (!tmpl) return;
+	if (getMessageTemplateAudience(tmpl.type) !== 'family') return;
+	// No tocar si el usuario ya eligió un contacto de emergencia.
+	if (selectedContactKey.value?.startsWith('emergencyContact')) return;
+	const ec = contactOptions.value.find((o: any) => o.key?.startsWith('emergencyContact'));
+	if (ec) selectedContact.value = ec.value;
+};
+
 watch(selectedTemplate, (newValue: string) => {
 	// Reset banner antes de evaluar el nuevo draft — cada par
 	// (recipient, template) tiene su propio storage key.
 	draftRestored.value = false;
+	applyAudienceContactDefault();
 	updateMessagePreview();
 
 	if (newValue && sendMethod.value === 'email') {
@@ -1547,14 +1651,26 @@ watch(selectedTemplate, (newValue: string) => {
 });
 
 // Apply a previously remembered template once the templates list finishes loading.
+// When `forceTemplateType` is set (e.g. table briefing flow), it takes priority
+// over the remembered preference for this open.
 watch(
 	[allMessageTemplates, templatesLoading],
 	([templates, loading]) => {
 		if (!props.open) return;
 		if (loading) return;
-		if (!pendingTemplateId.value) return;
 		const list = templates || [];
 		if (list.length === 0) return;
+
+		if (props.forceTemplateType) {
+			const forced = list.find((t: any) => t.type === props.forceTemplateType);
+			if (forced) {
+				selectedTemplate.value = forced.id;
+				pendingTemplateId.value = null;
+				return;
+			}
+		}
+
+		if (!pendingTemplateId.value) return;
 		const exists = list.some((t: any) => t.id === pendingTemplateId.value);
 		if (exists) {
 			selectedTemplate.value = pendingTemplateId.value!;
@@ -1567,9 +1683,15 @@ watch(
 // Re-render the preview when the selected contact changes so that
 // {participant.emergencyContact*} variables resolve to the chosen contact.
 watch(selectedContact, () => {
-	if (selectedTemplate.value && !isUserEditing.value) {
-		updateMessagePreview();
-	}
+	if (!selectedTemplate.value) return;
+	// El contacto define el DESTINATARIO. Al cambiarlo, regeneramos el mensaje para
+	// que refleje a la nueva persona (nombre via {participant.recipientName}/
+	// {participant.emergencyContactName}). Descartamos edición/borrador previo: el
+	// mensaje anterior era para otro destinatario. Sin esto, si había un borrador
+	// restaurado (isUserEditing=true) el nombre quedaba stale al cambiar de contacto.
+	isUserEditing.value = false;
+	draftRestored.value = false;
+	updateMessagePreview();
 });
 
 // Re-render the preview when responsibilities finish loading so that

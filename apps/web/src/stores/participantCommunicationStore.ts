@@ -9,6 +9,9 @@ export interface ParticipantCommunication {
 	retreatId: string;
 	messageType: 'whatsapp' | 'email';
 	recipientContact: string;
+	recipientContactKey?: string | null;
+	recipientName?: string | null;
+	audience?: string | null;
 	messageContent: string;
 	templateId?: string;
 	templateName?: string;
@@ -40,6 +43,9 @@ export interface CreateCommunicationData {
 	retreatId: string;
 	messageType: 'whatsapp' | 'email';
 	recipientContact: string;
+	recipientContactKey?: string;
+	recipientName?: string;
+	audience?: string;
 	messageContent: string;
 	templateId?: string;
 	templateName?: string;

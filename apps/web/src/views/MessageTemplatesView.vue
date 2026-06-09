@@ -15,6 +15,7 @@ import { Badge } from '@repo/ui';
 import { Search, ChevronUp, ChevronDown } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import type { MessageTemplate } from '@repo/types';
+import { getMessageTemplateAudience } from '@repo/types';
 import BaseMessageTemplateModal from '@/components/BaseMessageTemplateModal.vue';
 import { createLocaleComparator } from '@/utils/sort';
 
@@ -312,9 +313,14 @@ const handleTemplateSaved = () => {
               >
                 <TableCell class="font-medium">{{ template.name }}</TableCell>
                 <TableCell>
-                  <Badge variant="secondary" class="text-xs">
-                    {{ t(`messageTemplates.types.${template.type}`) }}
-                  </Badge>
+                  <div class="flex flex-wrap items-center gap-1">
+                    <Badge variant="secondary" class="text-xs">
+                      {{ t(`messageTemplates.types.${template.type}`) }}
+                    </Badge>
+                    <Badge variant="outline" class="text-xs">
+                      {{ t(`messageTemplates.audience.${getMessageTemplateAudience(template.type)}`) }}
+                    </Badge>
+                  </div>
                 </TableCell>
                 <TableCell class="max-w-xs">
                   <div class="flex items-start gap-2">

@@ -2564,6 +2564,20 @@ export async function checkInParticipant(
   return r.data;
 }
 
+export type AttendanceConfirmation = 'pending' | 'confirmed' | 'declined';
+
+export async function setAttendanceConfirmation(
+  participantId: string,
+  retreatId: string,
+  attendanceConfirmation: AttendanceConfirmation,
+): Promise<{ attendanceConfirmation: AttendanceConfirmation }> {
+  const r = await api.patch(`/participants/${participantId}/attendance-confirmation`, {
+    retreatId,
+    attendanceConfirmation,
+  });
+  return r.data;
+}
+
 // ---------- Minuto a Minuto (schedule) ----------
 
 export interface ScheduleTemplateSetDTO {

@@ -17,6 +17,9 @@ class CreateCommunicationDTO {
 	templateId?: string;
 	templateName?: string;
 	subject?: string;
+	recipientContactKey?: string;
+	recipientName?: string;
+	audience?: string;
 }
 
 // Returns true when the caller is a superadmin OR has access to the
@@ -203,6 +206,9 @@ export class ParticipantCommunicationController {
 				communityId: dto.communityId,
 				messageType: dto.messageType as MessageType,
 				recipientContact: dto.recipientContact,
+				recipientContactKey: dto.recipientContactKey ?? null,
+				recipientName: dto.recipientName ?? null,
+				audience: dto.audience ?? null,
 				messageContent: dto.messageContent,
 				templateId: dto.templateId,
 				templateName,
