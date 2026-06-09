@@ -497,6 +497,24 @@ una forma de recepccion pueda saber que caminantes hacen falta
 un check en reporte de bolsas que se realizo la bolsa
 
 ## IN PROGRESS
+que el sistema en el minuto a minuto se de cuenta que los minutos de duracion no concuerdas con la siguiente activida y que se pueda solucionar con un boton.
+agregar un boton para ir hasta la hora actual
+
+
+una vez armadas las mesas necesito q se pueda enviar un mensaje a lider y colider indicando caminantes de su mesa y telefonos de caminante y telefonos contactos de emergencia y el mensaje que deben enviar a los caminantes que es algo como
+Hola mi nombre es, ¿hablo con [nombre del caminante]? Te llamo de parte del Retiro de Emaús de San Agustín.
+Te marco para confirmar tu asistencia y darte la bienvenida. ¿Cuento contigo este fin de semana?
+Perfecto. Solo recuerda llevar: termo, sábanas, ropa cómoda y tus cosas de aseo personal (toalla, cepillo de dientes, etc.).
+Una cosa importante: necesitas llegar directamente a la casa de retiro, a más tardar a las 5:30. Toma en cuenta que no hay transporte organizado, y de preferencia que alguien te lleve porque no hay estacionamiento. ¿Sabes cómo llegar o te paso la dirección?
+Cualquier duda que tengas, aquí estoy para apoyarte. Nos vemos el fin de semana. ¡Que Dios te bendiga!
+
+si el usuario es lider o colider de una mesa mostrar un filtro por participantes de mi mesa
+
+cuando se envia un mensaje con un template al cambiar el contacto de caminante a contacto de emergencia debe cambiar el nombre de la persona a la que se envia el mensaje.
+tambien agregar clasificacion de mensaje si es para caminante, servidor o familiar (contacto de emergencia)
+
+en asignacion de responsables tambien agregar un boton para enviar la documentacion con los links de los docuemntos a los responsables
+
 Ordenar por id_on_retreat en las mesas
 el ordenar esta dejando 1 al lado de 10, 11
 verificar el comportamiento de borrar mesas.  8 mesas y se borran 7 que debe pasar
@@ -576,7 +594,11 @@ quitar ctrl f vaya a encontrar menu
 
 
 ## TODO
+en mis retiros se pueda ver la musica usada en las charlas y las actividad del mam.
 
+
+una pagina en el que el servidor puede ver el resumen de sus labores en el retiro , mesa asignada y cuarto asignado
+aumentar el tiempo de la sesion 
 
 Si los horarios de los angelitos empatan en horario de comida entonces se debe cobrar una suma.
 

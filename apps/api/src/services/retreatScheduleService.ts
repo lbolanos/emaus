@@ -11,6 +11,7 @@ import { participantAvailabilityService } from './participantAvailabilityService
 import { Responsability } from '../entities/responsability.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { makeDateInTimezone } from '../utils/date.transformer';
+import { afterMidnightDayOffset } from '@repo/types';
 import archiver from 'archiver';
 import type { Readable, Writable } from 'stream';
 import { s3Service } from './s3Service';
@@ -114,7 +115,7 @@ export class RetreatScheduleService {
 		retreatId: string,
 		data: Partial<RetreatScheduleItem> & { responsableParticipantIds?: string[] },
 	): Promise<RetreatScheduleItem> {
-		const startTime = data.startTime
+		const rawStart = data.startTime
 			? data.startTime instanceof Date
 				? data.startTime
 				: new Date(data.startTime)
@@ -126,20 +127,37 @@ export class RetreatScheduleService {
 			: undefined;
 		const durationMinutes =
 			data.durationMinutes ??
-			(startTime && endTimeInput
-				? Math.max(0, Math.round((endTimeInput.getTime() - startTime.getTime()) / 60000))
+			(rawStart && endTimeInput
+				? Math.max(0, Math.round((endTimeInput.getTime() - rawStart.getTime()) / 60000))
 				: 15);
-		const endTime =
-			endTimeInput ??
-			(startTime ? new Date(startTime.getTime() + durationMinutes * 60000) : new Date());
+		const day = data.day ?? 1;
+
+		// Re-anclar la fecha del item al "Día N" elegido. El coordinador elige un
+		// Día + una hora; la fecha es irrelevante (el `day` es la fuente de verdad
+		// del agrupado, igual que en materializeFromTemplate). Sin esto, un item
+		// creado hoy con day=1 quedaba con startTime de hoy y se hundía al fondo del
+		// grupo Día 1 (cuya fecha real es retreat.startDate), pareciendo "no creado".
+		let startTime: Date;
+		let endTime: Date;
+		const anchored = rawStart
+			? await this.anchorStartTimeToDay(retreatId, day, rawStart, durationMinutes)
+			: null;
+		if (anchored) {
+			startTime = anchored.startTime;
+			endTime = anchored.endTime;
+		} else {
+			startTime = rawStart ?? new Date();
+			endTime =
+				endTimeInput ?? new Date(startTime.getTime() + durationMinutes * 60000);
+		}
 
 		const entity = this.itemRepo.create({
 			retreatId,
 			scheduleTemplateId: data.scheduleTemplateId ?? null,
 			name: data.name!,
 			type: data.type ?? 'otro',
-			day: data.day ?? 1,
-			startTime: startTime!,
+			day,
+			startTime,
 			endTime,
 			durationMinutes,
 			orderInDay: data.orderInDay ?? 0,
@@ -197,6 +215,26 @@ export class RetreatScheduleService {
 				(update as any)[k] = dateFields.has(k) && value && !(value instanceof Date)
 					? new Date(value)
 					: value;
+			}
+		}
+
+		// Re-anclar la fecha al Día elegido cuando cambia la hora o el día (misma
+		// lógica que create): el form manda solo Día + hora, la fecha la deriva el
+		// server desde retreat.startDate + (día-1). Idempotente si nada se movió.
+		if (update.startTime || update.day !== undefined) {
+			const day = update.day ?? existing.day;
+			const instantRaw = update.startTime ?? existing.startTime;
+			const instant = instantRaw instanceof Date ? instantRaw : new Date(instantRaw);
+			const dur = update.durationMinutes ?? existing.durationMinutes;
+			const anchored = await this.anchorStartTimeToDay(
+				existing.retreatId,
+				day,
+				instant,
+				dur,
+			);
+			if (anchored) {
+				update.startTime = anchored.startTime;
+				update.endTime = anchored.endTime;
 			}
 		}
 
@@ -592,6 +630,59 @@ export class RetreatScheduleService {
 	 * rendered as 10:00 AM in the browser — exactly the symptom users
 	 * reported on the Santísimo schedule.
 	 */
+	/**
+	 * Extrae la hora de pared (HH:MM) de un instante UTC tal como se vería en la
+	 * timezone del retiro. Usado por `create()` para recuperar la intención
+	 * horaria del coordinador y re-anclarla al Día N. `hourCycle: 'h23'` evita
+	 * que medianoche salga como '24'.
+	 */
+	private wallClockInTimezone(
+		instant: Date,
+		timezone: string,
+	): { hour: number; minute: number } {
+		const parts = new Intl.DateTimeFormat('en-GB', {
+			timeZone: timezone,
+			hour: '2-digit',
+			minute: '2-digit',
+			hourCycle: 'h23',
+		}).formatToParts(instant);
+		const hour = parseInt(parts.find((p) => p.type === 'hour')?.value ?? '9', 10);
+		const minute = parseInt(parts.find((p) => p.type === 'minute')?.value ?? '0', 10);
+		return { hour, minute };
+	}
+
+	/**
+	 * Ancla un instante al "Día N" del retiro: extrae la hora de pared (en la TZ
+	 * del retiro) del instante recibido y la re-ancla a retreat.startDate +
+	 * (día-1), reusando computeItemDateRange (TZ-aware + offset after-midnight).
+	 * Devuelve null si el retiro no tiene startDate válido — el caller usa
+	 * entonces el instante crudo como fallback.
+	 */
+	private async anchorStartTimeToDay(
+		retreatId: string,
+		day: number,
+		instant: Date,
+		durationMinutes: number,
+	): Promise<{ startTime: Date; endTime: Date } | null> {
+		const retreatRepo = AppDataSource.getRepository(Retreat);
+		const retreat = await retreatRepo.findOne({
+			where: { id: retreatId },
+			relations: ['house'],
+		});
+		const baseDate = retreat?.startDate ? new Date(retreat.startDate) : undefined;
+		if (!baseDate || Number.isNaN(baseDate.getTime())) return null;
+		const tz =
+			retreat?.timezone || retreat?.house?.timezone || 'America/Mexico_City';
+		const { hour, minute } = this.wallClockInTimezone(instant, tz);
+		return this.computeItemDateRange(
+			baseDate,
+			day,
+			`${hour}:${minute}`,
+			durationMinutes,
+			tz,
+		);
+	}
+
 	private computeItemDateRange(
 		baseDate: Date,
 		day: number,
@@ -612,10 +703,9 @@ export class RetreatScheduleService {
 		// "After-midnight" items (e.g. Polanco's Vigilia at 00:10 on Día 1)
 		// are part of the previous logical day's evening flow. Their
 		// `defaultDay` stays the same (so the UI groups them under Día N),
-		// but on the CALENDAR they're early morning of N+1 — without this
-		// shift they sort BEFORE the rest of Día N's items by startTime
-		// (e.g. 00:10 < 15:00). Threshold: < 06:00 is treated as next-morning.
-		const dayOffset = h < 6 ? day : day - 1;
+		// but on the CALENDAR they're early morning of N+1. La regla (h < 6 →
+		// día siguiente) vive en `@repo/types` y la comparte la UI.
+		const dayOffset = afterMidnightDayOffset(h, day);
 		const startTime = makeDateInTimezone(yyyy, mm, dd + dayOffset, h, m, timezone);
 		const endTime = new Date(startTime.getTime() + durationMinutes * 60_000);
 		return { startTime, endTime };

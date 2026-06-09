@@ -112,11 +112,24 @@ export const ScheduleTemplateSchema = z.object({
 });
 export type ScheduleTemplate = z.infer<typeof ScheduleTemplateSchema>;
 
+// `attachments` es read-only (se gestiona por nombre canónico vía los endpoints
+// de responsability-attachments); se omite del body de create/update para que el
+// servidor lo descarte y no falle la validación si el cliente lo envía.
 export const CreateScheduleTemplateSchema = z.object({
-	body: ScheduleTemplateSchema.omit({ id: true, createdAt: true, updatedAt: true }),
+	body: ScheduleTemplateSchema.omit({
+		id: true,
+		createdAt: true,
+		updatedAt: true,
+		attachments: true,
+	}),
 });
 export const UpdateScheduleTemplateSchema = z.object({
-	body: ScheduleTemplateSchema.omit({ id: true, createdAt: true, updatedAt: true }).partial(),
+	body: ScheduleTemplateSchema.omit({
+		id: true,
+		createdAt: true,
+		updatedAt: true,
+		attachments: true,
+	}).partial(),
 	params: z.object({ id: idSchema }),
 });
 
@@ -161,15 +174,37 @@ export const RetreatScheduleItemSchema = z.object({
 });
 export type RetreatScheduleItem = z.infer<typeof RetreatScheduleItemSchema>;
 
+// Campos read-only/derivados que NO se escriben por estos endpoints y por tanto
+// se omiten del body: `attachments` y `templateDescription` se heredan del
+// template (JOIN al listar); `responsables` es la forma de LECTURA — para escribir
+// se usa `responsableParticipantIds`. Omitirlos evita 400 si un cliente reenvía el
+// DTO de lectura completo (ver "Lecciones aprendidas" en docs/features/minuto-a-minuto.md).
+const RETREAT_ITEM_READONLY = {
+	attachments: true,
+	templateDescription: true,
+	responsables: true,
+} as const;
+
 export const CreateRetreatScheduleItemSchema = z.object({
-	body: RetreatScheduleItemSchema.omit({ id: true, retreatId: true }).extend({
+	body: RetreatScheduleItemSchema.omit({
+		id: true,
+		retreatId: true,
+		...RETREAT_ITEM_READONLY,
+	}).extend({
+		// El servicio calcula endTime desde startTime + durationMinutes cuando no
+		// se envía, así que el cliente solo manda startTime/durationMinutes.
+		endTime: z.coerce.date().optional(),
 		responsableParticipantIds: z.array(idSchema).optional(),
 	}),
 	params: z.object({ retreatId: idSchema }),
 });
 
 export const UpdateRetreatScheduleItemSchema = z.object({
-	body: RetreatScheduleItemSchema.omit({ id: true, retreatId: true })
+	body: RetreatScheduleItemSchema.omit({
+		id: true,
+		retreatId: true,
+		...RETREAT_ITEM_READONLY,
+	})
 		.partial()
 		.extend({
 			responsableParticipantIds: z.array(idSchema).optional(),

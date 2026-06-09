@@ -5,6 +5,13 @@
         <DialogTitle>
           {{ mode === 'add' ? 'Nueva actividad' : 'Editar actividad' }}
         </DialogTitle>
+        <DialogDescription>
+          {{
+            mode === 'add'
+              ? 'Agrega una actividad al minuto a minuto del retiro.'
+              : 'Edita los datos de esta actividad del minuto a minuto.'
+          }}
+        </DialogDescription>
       </DialogHeader>
 
       <div class="space-y-4">
@@ -25,7 +32,10 @@
           </div>
           <div class="space-y-1">
             <Label>Hora de inicio</Label>
-            <Input type="datetime-local" v-model="form.startTimeLocal" />
+            <Input type="time" v-model="form.startTimeLocal" />
+            <p class="text-[10px] text-muted-foreground leading-tight">
+              La fecha se toma del «Día» del retiro.
+            </p>
           </div>
           <div class="space-y-1">
             <Label>Duración (min)</Label>
@@ -34,10 +44,6 @@
           <div class="space-y-1">
             <Label>Lugar</Label>
             <Input v-model="form.location" placeholder="Comedor, Capilla…" />
-          </div>
-          <div class="space-y-1">
-            <Label>Orden del día</Label>
-            <Input type="number" v-model.number="form.orderInDay" />
           </div>
         </div>
 
@@ -238,6 +244,7 @@ import {
   Button,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -335,6 +342,16 @@ function toLocalInput(iso?: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// Solo la hora local (HH:MM): la fecha del item la deriva el backend desde el
+// «Día» del retiro, así que el campo "Hora de inicio" es time-only.
+function toLocalTime(iso?: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 watch(
   () => [props.open, props.item, props.mode],
   () => {
@@ -345,7 +362,7 @@ watch(
         name: it.name,
         type: it.type,
         day: it.day,
-        startTimeLocal: toLocalInput(it.startTime),
+        startTimeLocal: toLocalTime(it.startTime),
         durationMinutes: it.durationMinutes,
         orderInDay: it.orderInDay,
         location: it.location ?? '',
@@ -399,11 +416,30 @@ function localToIso(local: string): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
+// "HH:MM" → ISO. La fecha es irrelevante (el backend re-ancla al «Día» del
+// retiro); usamos `refIso` (la fecha del item al editar) para fijar la hora de
+// pared local, que el server interpreta en la TZ del retiro.
+function timeToIso(hhmm: string, refIso?: string | null): string | null {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(':').map((n) => parseInt(n, 10));
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  const base = refIso ? new Date(refIso) : new Date();
+  if (Number.isNaN(base.getTime())) return null;
+  base.setHours(h, m, 0, 0);
+  return base.toISOString();
+}
+
 function copyPlannedToActual() {
-  form.value.actualStartTimeLocal = form.value.startTimeLocal;
-  // Calculate planned end = startTime + durationMinutes
-  if (form.value.startTimeLocal && form.value.durationMinutes > 0) {
-    const start = new Date(form.value.startTimeLocal);
+  // Los "reales" son datetime-local completos; la fecha sale del item editado
+  // (o de hoy como fallback) combinada con la hora planeada (time-only).
+  const datePart = (
+    toLocalInput(props.item?.startTime) || toLocalInput(new Date().toISOString())
+  ).slice(0, 10);
+  const t = form.value.startTimeLocal;
+  if (!t) return;
+  form.value.actualStartTimeLocal = `${datePart}T${t}`;
+  if (form.value.durationMinutes > 0) {
+    const start = new Date(`${datePart}T${t}`);
     if (!Number.isNaN(start.getTime())) {
       const end = new Date(start.getTime() + form.value.durationMinutes * 60_000);
       const pad = (n: number) => String(n).padStart(2, '0');
@@ -427,7 +463,9 @@ function onSubmit() {
     name: form.value.name,
     type: form.value.type,
     day: form.value.day,
-    startTime: new Date(form.value.startTimeLocal).toISOString(),
+    startTime:
+      timeToIso(form.value.startTimeLocal, props.item?.startTime) ??
+      new Date().toISOString(),
     durationMinutes: form.value.durationMinutes,
     orderInDay: form.value.orderInDay,
     location: form.value.location || null,

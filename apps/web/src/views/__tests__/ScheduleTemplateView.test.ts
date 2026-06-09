@@ -205,9 +205,10 @@ describe('ScheduleTemplateView', () => {
 			wrapper.unmount();
 		});
 
-		it('shows "Nueva actividad" button', async () => {
+		it('shows "Nueva actividad" button (icono + junto al buscador)', async () => {
 			const wrapper = await mountView();
-			expect(wrapper.text()).toContain('Nueva actividad');
+			// Con items, "Nueva actividad" es el botón "+" con aria-label.
+			expect(wrapper.find('button[aria-label="Nueva actividad"]').exists()).toBe(true);
 			wrapper.unmount();
 		});
 
@@ -217,10 +218,10 @@ describe('ScheduleTemplateView', () => {
 			expect(text).toContain('Día 1');
 			expect(text).toContain('Día 2');
 			expect(text).toContain('Día 3');
-			// Day 1 has 3, Day 2 has 2, Day 3 has 1
-			expect(text).toContain('3 actividades');
-			expect(text).toContain('2 actividades');
-			expect(text).toContain('1 actividades');
+			// Day 1 has 3, Day 2 has 2, Day 3 has 1 (etiqueta compacta "N act.")
+			expect(text).toContain('3 act.');
+			expect(text).toContain('2 act.');
+			expect(text).toContain('1 act.');
 			wrapper.unmount();
 		});
 
@@ -339,18 +340,12 @@ describe('ScheduleTemplateView', () => {
 		});
 	});
 
-	// ── Santísimo column ──────────────────────────────────────────────────────
-	describe('santísimo column', () => {
-		it('shows amber check for blocksSantisimoAttendance = true', async () => {
+	// ── Santísimo (marcador inline 🚫) ──────────────────────────────────────────
+	describe('santísimo', () => {
+		it('shows blocker marker for blocksSantisimoAttendance = true', async () => {
 			const wrapper = await mountView();
-			// Almuerzo equipo has blocksSantisimoAttendance = true
-			expect(wrapper.html()).toContain('bg-amber-100');
-			wrapper.unmount();
-		});
-
-		it('shows gray dash for blocksSantisimoAttendance = false', async () => {
-			const wrapper = await mountView();
-			expect(wrapper.html()).toContain('bg-gray-100');
+			// Almuerzo equipo tiene blocksSantisimoAttendance = true → 🚫 con title
+			expect(wrapper.html()).toContain('Bloquea Santísimo');
 			wrapper.unmount();
 		});
 	});
@@ -363,9 +358,9 @@ describe('ScheduleTemplateView', () => {
 			// Dialog should not be visible initially
 			expect(wrapper.text()).not.toContain('Nueva actividad\nNombre');
 
-			// Find and click the Nueva actividad button (the top-level one)
+			// Find and click the Nueva actividad button (icono "+" con aria-label)
 			const buttons = wrapper.findAll('button');
-			const newBtn = buttons.find(b => b.text().includes('Nueva actividad'));
+			const newBtn = buttons.find(b => b.attributes('aria-label') === 'Nueva actividad');
 			expect(newBtn).toBeTruthy();
 			await newBtn!.trigger('click');
 			await flushAll();
@@ -378,27 +373,48 @@ describe('ScheduleTemplateView', () => {
 		it('opens edit dialog pre-filled when edit icon is clicked', async () => {
 			const wrapper = await mountView();
 
-			// Trigger hover to reveal action buttons on first row
-			const rows = wrapper.findAll('tbody tr');
-			expect(rows.length).toBeGreaterThan(0);
-			await rows[0].trigger('mouseenter');
-
-			// Find edit buttons (they're inside the row group)
+			// Cada tarjeta de actividad tiene un botón "Editar" (opacity por hover en
+			// desktop, pero visible para queries en jsdom).
 			const editButtons = wrapper.findAll('button[title="Editar"]');
-			if (editButtons.length === 0) {
-				// Buttons are opacity-0 without hover in jsdom; click directly
-				const allButtons = rows[0].findAll('button');
-				const editBtn = allButtons.find(b => b.attributes('title') === 'Editar');
-				if (editBtn) {
-					await editBtn.trigger('click');
-					await flushAll();
-					expect(wrapper.text()).toContain('Editar actividad');
-				}
-			} else {
-				await editButtons[0].trigger('click');
-				await flushAll();
-				expect(wrapper.text()).toContain('Editar actividad');
-			}
+			expect(editButtons.length).toBeGreaterThan(0);
+			await editButtons[0].trigger('click');
+			await flushAll();
+			expect(wrapper.text()).toContain('Editar actividad');
+			wrapper.unmount();
+		});
+
+		it('NO envía attachments en el update (regresión del 400)', async () => {
+			// Item con attachments parciales (como los devuelve el list): si se mandan
+			// al PATCH, el schema exige storageUrl y revienta con 400.
+			const itemWithAtt = makeItem({
+				id: 'att-1',
+				name: 'Con documentos',
+				attachments: [
+					{ id: 'a1', responsabilityName: 'X', fileName: 'f.pdf', mimeType: 'application/pdf', sizeBytes: 1 },
+				],
+			});
+			mockListSets.mockResolvedValue([SET_DEFAULT]);
+			mockList.mockResolvedValue([itemWithAtt]);
+			mockUpdate.mockResolvedValue({ ...itemWithAtt });
+
+			const pinia = createPinia();
+			setActivePinia(pinia);
+			const { default: ScheduleTemplateView } = await import('../ScheduleTemplateView.vue');
+			const wrapper = mount(ScheduleTemplateView, {
+				...globalOpts,
+				global: { ...globalOpts.global, plugins: [pinia] },
+			});
+			await flushAll();
+
+			await wrapper.find('button[title="Editar"]').trigger('click');
+			await flushAll();
+			const guardar = wrapper.findAll('button').find((b) => b.text().trim() === 'Guardar');
+			await guardar!.trigger('click');
+			await flushAll();
+
+			expect(mockUpdate).toHaveBeenCalled();
+			const payload = mockUpdate.mock.calls[0][1];
+			expect(payload).not.toHaveProperty('attachments');
 			wrapper.unmount();
 		});
 
@@ -501,6 +517,76 @@ describe('ScheduleTemplateView', () => {
 			const pos21 = text.indexOf('21:00');
 			expect(pos10).toBeLessThan(pos13);
 			expect(pos13).toBeLessThan(pos21);
+			wrapper.unmount();
+		});
+	});
+
+	// ── Campo de hora + "Orden" removido + click-para-editar ──────────────────
+	describe('hora, orden y edición por click', () => {
+		it('el modal de edición YA NO muestra el campo "Orden"', async () => {
+			const wrapper = await mountView();
+			await wrapper.find('button[title="Editar"]').trigger('click');
+			await flushAll();
+			// El modal está abierto (título visible) pero sin Label "Orden".
+			expect(wrapper.text()).toContain('Editar actividad');
+			const labels = wrapper.findAll('label').map((l) => l.text().trim());
+			expect(labels).not.toContain('Orden');
+			wrapper.unmount();
+		});
+
+		it('la hora se captura con <input type="time"> (no texto libre)', async () => {
+			const wrapper = await mountView();
+			await wrapper.find('button[title="Editar"]').trigger('click');
+			await flushAll();
+			// Existe un input de hora tipo "time" en el modal abierto.
+			expect(wrapper.find('input[type="time"]').exists()).toBe(true);
+			wrapper.unmount();
+		});
+
+		it('al editar, precarga la hora NORMALIZADA "8:30" → "08:30"', async () => {
+			// type="time" sólo refleja "HH:MM" zero-padded; openEdit debe normalizar
+			// para no perder la hora de items viejos guardados sin cero a la izquierda.
+			const item = makeItem({ id: 'sd-1', name: 'Hora sin cero', defaultStartTime: '8:30' });
+			mockListSets.mockResolvedValue([SET_DEFAULT]);
+			mockList.mockResolvedValue([item]);
+
+			const pinia = createPinia();
+			setActivePinia(pinia);
+			const { default: ScheduleTemplateView } = await import('../ScheduleTemplateView.vue');
+			const wrapper = mount(ScheduleTemplateView, {
+				...globalOpts,
+				global: { ...globalOpts.global, plugins: [pinia] },
+			});
+			await flushAll();
+
+			await wrapper.find('button[title="Editar"]').trigger('click');
+			await flushAll();
+
+			const timeInput = wrapper.find('input[type="time"]').element as HTMLInputElement;
+			expect(timeInput.value).toBe('08:30');
+			wrapper.unmount();
+		});
+
+		it('clic en la tarjeta de la actividad abre el modal de edición', async () => {
+			mockListSets.mockResolvedValue([SET_DEFAULT]);
+			mockList.mockResolvedValue([makeItem({ id: 'card-1', name: 'Clic para editar' })]);
+
+			const pinia = createPinia();
+			setActivePinia(pinia);
+			const { default: ScheduleTemplateView } = await import('../ScheduleTemplateView.vue');
+			const wrapper = mount(ScheduleTemplateView, {
+				...globalOpts,
+				global: { ...globalOpts.global, plugins: [pinia] },
+			});
+			await flushAll();
+
+			// La tarjeta tiene id="template-item-<id>"; un clic en ella abre el editor.
+			const card = wrapper.find('#template-item-card-1');
+			expect(card.exists()).toBe(true);
+			await card.trigger('click');
+			await flushAll();
+
+			expect(wrapper.text()).toContain('Editar actividad');
 			wrapper.unmount();
 		});
 	});

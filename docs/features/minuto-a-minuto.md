@@ -17,19 +17,19 @@ Agenda en tiempo real de un retiro Emaús. Reemplaza la hoja de cálculo "minuto
 
 `Logística → Minuto a Minuto`
 
-- **Timeline compacto por día** (~50px por fila): hora · duración + tiempo relativo (`en 35m` / `hace 2h` / `en curso`) · status icon · nombre · type badge · responsable principal · apoyos · 📎 docs.
+- **Timeline por día, responsive** (refactor 2026-06-08): en **desktop** fila horizontal — hora (columna izq) · nombre · type badge · responsable · apoyos · 📎 docs · acciones (hover). En **móvil** se apila: **fila 1** = hora pequeña ("09:00 a.m. · 60m · hace 2h") + acciones (▶ −5 +5); **fila 2** = nombre completo (hasta 2 líneas); luego responsable y descripción. La hora usa `clockParts` (meridiano pequeño, sin wrap accidental); el status es un marcador inline antes del nombre.
 - **Indicador "AHORA"**: línea horizontal rosa que separa pasado y futuro del día calendario actual; se actualiza cada 60 s sin recargar.
 - **Item activo destacado**: fondo verde tenue + punto pulse + acciones siempre visibles (`✓ Completar · −5 · +5`).
 - **Acciones en hover** para items pending: `▶` Iniciar (verde), `−5` `+5` para ajustar al vuelo. Items completed quedan tachados/grises.
 - **Tap-targets en mobile** (refactor 2026-04-29): los botones `−5` `+5` antes estaban ocultos en móvil (`hidden sm:inline-flex`) — el coordinador tenía que abrir el modal de edición para cada ajuste de tiempo. Ahora se renderizan también en móvil como botones cuadrados de 32 px (`h-8 w-8`, cumple WCAG 2.5.5) y `active:bg-gray-200` para feedback táctil. En desktop se conserva el padding compacto (`sm:p-1`).
 - **Día header con fecha y resumen**: `Día 1 — vie, 17 abr — 5/47 completados`. Si hay un item activo: `5/47 · ▶ Charla: De la Rosa`.
 - **Type badges colorizados**: charla=azul, comida=verde, dinámica=naranja, misa=amarillo, oración=rojo, logística=gris, etc.
-- **Toggle de agrupación 📅 Día / 🎤 Responsabilidad**, persistido por usuario (localStorage).
-- **Búsqueda sticky**: filtra por hora, nombre, responsabilidad, palanquita y nombre del participante asignado. Enter avanza, Esc limpia.
-- **Header de acciones consolidado** (refactor 2026-04-29 — antes 6 botones, ahora 2):
-  - Visibles: `+ Nueva actividad` · (`Importar desde template` solo si la agenda está vacía) · `⋮ Más acciones`.
-  - Menú `⋮ Más acciones` (visible para TODOS los roles, items de manage filtrados con `v-if`):
-    - **Frecuente**: `🔔 Tocar campana` · `🖨 Imprimir` · `📦 Descargar guiones (zip)` · `📺 Copiar link de pantalla pública` · `❓ Ayuda` (manual con 8 secciones explicativas).
+- **Agrupación 📅 Día / 🎤 Responsabilidad** (persistida por usuario en localStorage): vive en **`⋮ Más acciones → Vista`** (el activo lleva ✓). Antes era un toggle en la barra de búsqueda; se movió al menú para despejar la barra (2026-06-08).
+- **Búsqueda sticky**: filtra por hora, nombre, responsabilidad, palanquita y nombre del participante asignado. Enter avanza, Esc limpia. Junto al buscador hay tres botones **solo-ícono con tooltip**: **`+`** (Nueva actividad, solo `schedule:manage`), **`⏱`** (ir a la próxima actividad pendiente de hoy; deshabilitado si no hay) y **`⋮`** (Más acciones). Con la agenda vacía no hay barra de búsqueda, así que `+ Nueva actividad` / `Importar desde template` / `⋮ Más acciones` aparecen en el header superior.
+- **Acciones junto al buscador** (refactor 2026-06-08): cuando hay agenda, los tres botones solo-ícono viven a la derecha del buscador → `+` (Nueva actividad) · `⏱` (ir a la próxima de hoy) · `⋮` (Más acciones). Con la agenda **vacía** (sin buscador) aparecen en el header superior `+ Nueva actividad` · `Importar desde template` · `⋮ Más acciones` (con texto).
+  - El menú `⋮ Más acciones` se extrajo al componente **`MamMoreActions.vue`** (una sola fuente; se instancia con `icon-only` en el buscador y con texto en el header vacío, compartiendo `moreActionsOpen` + `groupBy` por `v-model`). Visible para TODOS los roles; items de manage filtrados con `v-if`:
+    - **Frecuente**: `🔔 Tocar campana` · `🖨 Imprimir` · `📦 Descargar guiones (zip)` · `📺 Copiar link de pantalla pública` · `❓ Ayuda`.
+    - **Vista**: `📅 Agrupar por día` / `🎤 Agrupar por responsabilidad` (✓ en el activo).
     - **Manage**: `🔗 Re-vincular responsabilidades` · `👥 Apoyos / sobreescribir` · `✨ Auto-asignar angelitos` · `📥 Importar desde template (sobrescribe)`.
 
 - **Layout container**: `max-w-5xl mx-auto` (1024px) — antes el MaM se estiraba a todo el ancho disponible y dejaba demasiado espacio en la derecha.
@@ -39,6 +39,52 @@ Agenda en tiempo real de un retiro Emaús. Reemplaza la hoja de cálculo "minuto
 - **Tiempo relativo compacto**: bajo la duración (`text-[9px]`), siempre oculto en print (`print:hidden` + `.print-mam .relative-time`) — la hora absoluta a la izquierda basta en papel.
 - Click en cualquier fila abre el modal de edición (responsable principal + N apoyos + nombre/hora/duración/notas/descripción + sección **📎 Documentos del template** read-only).
 - Indicador `● conectado (WS)` arriba.
+
+### Coherencia de tiempos: huecos y solapes + botón "Ahora" (2026-06-08)
+
+El sistema detecta cuando la **duración de una actividad no concuerda con el inicio de la siguiente** y lo muestra como una fila entre actividades (solo en agrupación **por día**):
+
+- **Solape** (se enciman) → fila ámbar: "⚠ Se encima X min con la siguiente".
+- **Hueco** (tiempo muerto) → fila gris: "Hueco de X min hasta la siguiente".
+- Solo aparece si el desfase es **≥ 1 min**, y se omite cuando el bloque y el siguiente ya están `completed` (no ensucia días pasados).
+- **Actividades en paralelo** (mismo `startTime` — revisiones, pruebas de audio) **NO** se marcan como solape entre sí: el indicador se evalúa al final del bloque, comparando el `endTime` **máximo** del bloque contra el inicio del siguiente bloque.
+
+Dos botones de arreglo (requieren `schedule:manage`):
+- **"Ajustar duración"**: pone la duración de la actividad (o de todo el bloque paralelo) para que termine cuando empieza la siguiente. Reusa `PATCH /items/:id` con `durationMinutes`; el backend recalcula `endTime` y re-corre `resolveSantisimoConflicts`. Se oculta si la duración resultante sería < 1 min.
+- **"Mover el siguiente"**: empuja la siguiente actividad **y posteriores del día** para que empiece cuando esta termina. Reusa `POST /items/:id/shift` con `propagate=true`.
+
+> Se evaluó **eliminar la duración** y calcularla como "hasta la siguiente", pero se descartó: `endTime`/duración alimenta las ventanas del Santísimo (`resolveSantisimoConflicts`). Calcularla por hueco haría que un bloqueador de comida de 60 min bloqueara hasta horas. La duración sigue siendo la fuente de verdad; el sistema avisa y corrige el desajuste.
+
+**Botón "⏱ Ahora"** (en el header, junto al toggle de agrupación): hace scroll y resalta la **próxima actividad pendiente de hoy**; si no hay, lo avisa con un toast y queda deshabilitado. Reusa `scrollToItem` + `highlightedItemId`. No aplica al editor de templates (no hay "hora actual" en una plantilla sin fecha).
+
+**Scroll automático a la actividad afectada** (2026-06-08): tras **crear**, **editar**, **Ajustar duración** o **Mover el siguiente**, la vista hace scroll y resalta la actividad correspondiente (la creada/editada, o la siguiente en el caso de mover). Aplica al minuto a minuto por retiro y al editor de templates (`scrollToItem` / `scrollToTemplateItem`). `createItem` del store devuelve el item creado para conocer su id. El scroll hace **doble pasada** (nextTick + 250 ms) para ganarle a la restauración de foco de reka-ui al cerrar el modal, y el resaltado **se auto-limpia** a los 4 s.
+
+**Rango + resumen de desajustes por día** (2026-06-08): cada fila muestra `duración · hora-fin` (ej. `60m · 10:00`). El header de cada día muestra un badge **"⚠ N solapes · M huecos"** y un botón **"🧹 Compactar día"** que normaliza el día (cada actividad empieza cuando termina la anterior; cierra huecos y solapes en cascada respetando bloques paralelos). Ambos en por-retiro y template.
+
+**Robustez (2026-06-08)**:
+- **`apiErrorMessage(err)`** (`apps/web/src/services/api.ts`): convierte errores de axios/Zod (incl. el array crudo de `validateRequest`) en un mensaje legible. Usado en los toasts de error de ambas vistas (antes el template usaba `alert()` o no daba feedback).
+- **Payloads de escritura sin campos read-only**: el editor de templates ya no manda `attachments` en create/update (eran derivados → causaban 400); además los schemas `Create/UpdateScheduleTemplateSchema` omiten `attachments` del body.
+- **Lógica de tiempo unificada** en `packages/types/src/scheduleTime.ts` (`afterMidnightDayOffset`, `hhmmToDayMinutes`, `dayMinutesToHHMM`, `templateGap`): single source of truth compartida por el backend (`computeItemDateRange`) y la UI (`mamTime.ts` re-exporta). Antes el umbral `h < 6` estaba duplicado en 3 sitios.
+- **DX**: `apps/api` corre `vite-node --watch` → el backend recarga en caliente (antes había que reiniciar manualmente).
+- `orderInDay` ahora es desempate real del orden cuando dos actividades comparten `startTime` (paralelas).
+
+### Lecciones aprendidas (para que no vuelvan a pasar)
+
+1. **Los schemas de ESCRITURA no deben requerir campos read-only/derivados.** Bug recurrente: el cliente reenvía el DTO de **lectura** completo (`{ ...item }`) y campos como `attachments` (deriva del template, y su `storageUrl` es requerido), `templateDescription`, `responsables` o `endTime` viajan en el body → **400** de Zod. Pasó dos veces (crear actividad por `endTime`; editar template por `attachments`).
+   - **Regla**: los `Create/Update*Schema` derivados de un schema de entidad **deben `.omit()` los campos read-only/derivados**; y el cliente debería armar **payloads explícitos** (como `ScheduleItemEditModal`) en vez de spread del DTO completo.
+   - **Guard**: `apps/api/src/tests/services/scheduleWriteSchemas.simple.test.ts` envía el DTO de lectura "sucio" (attachments sin `storageUrl`) y exige que los schemas de escritura lo acepten. Si alguien re-introduce un campo read-only requerido en el input, este test grita.
+2. **El `day` es la fuente de verdad del agrupado; la fecha se deriva.** No mezclar la fecha del `datetime-local` con el Día. El umbral after-midnight (`h < 6`) vive en **un solo lugar** (`packages/types/src/scheduleTime.ts`), consumido por backend (`computeItemDateRange`) y UI (`mamTime.ts`). Antes estaba duplicado en 3 sitios y divergía.
+3. **`startTime`/`endTime`/`durationMinutes` son redundantes** → el backend los mantiene coherentes (recalcula `endTime` en cada escritura). La detección de huecos/solapes existe justamente para visibilizar cuando driftan.
+4. **Toda mutación necesita feedback al usuario**: try/catch + toast con `apiErrorMessage(err)` (entiende el array Zod). Nunca `alert()` ni fallar en silencio (el modal del template quedaba abierto sin avisar).
+5. **DX**: la API corre `vite-node --watch` (antes no recargaba → confusión sobre si un cambio aplicó). `@repo/types` se consume **desde fuente** (sin build), pero la API sólo lo recarga si está en watch.
+6. **Capturar horas con `<input type="time">`, nunca texto libre.** El campo "Hora" del template era un `<Input>` de texto (`placeholder="08:30"`) → permitía guardar formatos basura que rompían el orden cronológico y la detección de huecos/solapes (ambos parsean `HH:MM`). Se cambió a picker nativo `type="time"` (igual que el modal del retiro), que valida el formato y deja la fecha al "Día".
+   - **Trampa de zero-padding**: `type="time"` **sólo refleja `HH:MM` con cero a la izquierda**. El regex del schema acepta `8:30`, así que pueden existir items viejos sin padding; al abrirlos en el picker, el campo salía **vacío** y se perdía la hora al guardar. Fix: `normalizeHhmm()` en `openEdit` (`8:30` → `08:30`) reusando `hhmmToDayMinutes`/`dayMinutesToHHMM`. **Guard**: test "precarga la hora NORMALIZADA" en `ScheduleTemplateView.test.ts`.
+   - El campo **"Orden"** (`defaultOrder`) se quitó del modal del template por la misma razón que "Orden del día" en el retiro: el orden visible lo manda la hora. La **columna se conserva** como desempate automático (items a la misma hora o sin hora) en el sort del front y la query del servicio; `openEdit` la preserva aunque ya no sea editable.
+7. **En E2E, `page.locator('select').first()` es frágil — scopea por contenido.** La página del template tiene **varios `<select>`** (el "Retiro" del sidebar entre ellos), y cuál es el primero depende del estado expandido/colapsado del sidebar (persistido en `storageState`) → el test seleccionaba el set en el `<select>` equivocado de forma intermitente. Fix: `page.locator('select').filter({ has: page.getByRole('option', { name: setName }) })` + afirmar `toHaveValue(setId)`. Además, `goto(..., { waitUntil: 'networkidle' })` para que el auto-load del set por defecto (`onMounted`) **no llegue tarde y sobrescriba** los items del set elegido. **Ojo con `--repeat-each`**: re-ejecuta los hooks `beforeAll`/`afterAll` del `describe.serial` de forma inconsistente (crea/borra el set entre repeticiones); la estabilidad real se valida con invocaciones independientes, que es como corre CI.
+
+### Crear/editar actividad: Día + hora (anclaje de fecha) (2026-06-08)
+
+El modal usa un input de **solo hora** (`type="time"`) — la **fecha la deriva el backend del campo "Día"**. El coordinador elige `Día N` + hora; al guardar, el servidor ancla la actividad a `retreat.startDate + (Día−1)` en la timezone del retiro. Sin esto, una actividad creada con la fecha de "hoy" pero `día=1` quedaba con `startTime` de hoy y se **hundía al fondo del grupo Día 1** (cuya fecha real es la del retiro), pareciendo "no creada". El campo **"Orden del día"** se quitó del modal: el orden visible lo determina el `startTime`, no `orderInDay`.
 
 ### Documentos por Responsabilidad (📎)
 
@@ -83,9 +129,15 @@ URL: `/mam/<slug>` — auth-less, diseñada para proyectar en el salón durante 
 
 `Configuración Global → Template Minuto a Minuto` — ABM de los conjuntos de plantillas:
 - Editar items existentes (Colombia / México vienen seedeados; cada item tiene nombre, hora, duración, tipo, responsabilidad asignada, descripción breve, palanquita musical y plan B).
-- **Búsqueda sticky** y **toggle de columnas** (Hora, Duración, Tipo, Santísimo, Acciones — Actividad siempre visible). Las preferencias de columnas se guardan en localStorage por usuario.
+  - **Clic en la tarjeta** abre el editor (paridad con el MaM del retiro); los botones de acción (editar/eliminar/📎) llevan `@click.stop` para no disparar el clic del card.
+  - El campo **"Hora"** es un picker nativo **`type="time"`** (no texto libre); vacío permitido (→ `null`). Al editar items viejos guardados como `8:30`, `openEdit` normaliza a `08:30` para que el picker los muestre.
+  - Se quitó el campo **"Orden"** del modal (la hora determina el orden); la columna `defaultOrder` se conserva como desempate automático.
+- **Lista de tarjetas apiladas** (refactor 2026-06-08): antes era una tabla con scroll horizontal (mala en móvil). Ahora cada actividad es una tarjeta — en móvil **hora en una fila pequeña** (+ acciones editar/eliminar) y **actividad en su propia fila**; en desktop, hora como columna izquierda. Mismo patrón que el minuto a minuto por retiro. Se eliminó el toggle de columnas (era específico de la tabla).
+- **Búsqueda sticky** con botones solo-ícono: **`+`** (Nueva actividad) y **`⋮ Más acciones`** (Vista 📅/🎤 + Ayuda). Las acciones de template-set (Nuevo template, Marcar predeterminado, Eliminar) viven en el toolbar del selector.
 - Crear un template propio.
 - Cambiar cuál es el ★ predeterminado.
+- **Detección de huecos/solapes** (2026-06-08): igual que en el minuto a minuto por retiro, pero sobre `defaultStartTime` ("HH:MM") + `defaultDurationMinutes`. Entre items consecutivos del mismo día muestra una fila ámbar (solape) o gris (hueco) con botones **"Ajustar duración"** y **"Mover el siguiente"** (ambos reusan `scheduleTemplateApi.update`). Arreglar el template aquí aplica a todos los retiros futuros que lo materialicen.
+  - **Orden cronológico after-midnight**: la vista por día ahora ordena por minutos del día con offset (`hh < 6` → +1440), igual que la materialización. Un item de `00:10` se muestra al **final** de la noche (no al inicio), para que el orden y los indicadores sean correctos.
 
 **Idempotencia del seeder:**
 - `seedSet` es **aditivo**: si el set ya existe, sólo inserta los items que faltan (match por `(defaultDay, name)`). No duplica items existentes.
@@ -254,6 +306,18 @@ Sala: `retreat:${retreatId}:schedule`. Cliente envía `schedule:subscribe` con e
 - **`addMissingTemplateItems(retreatId, baseDate, templateSetId?)`**
   Inserta sólo los items del template que el retiro aún no tiene materializados. Detecta duplicados por `scheduleTemplateId` y por `(day, name)`. Invoca `ensureCharlaResponsibilitiesFromTemplateSet` igual que `materializeFromTemplate`. Si añade al menos un item, también dispara `autoGenerateSantisimoSlotsFromItems` + `resolveSantisimoConflicts` sobre el conjunto completo del retiro — así, agregar un item nuevo de tipo `santisimo` al template propaga los slots a los retiros existentes sin pasos extra. Returns `{added, skipped, total}`.
 
+- **Anclaje de fecha por Día en `create`/`update`** (2026-06-08)
+  Una actividad **manual** se ancla a la fecha del `Día` elegido, igual que la materialización. Helpers privados en `retreatScheduleService.ts`:
+  - `wallClockInTimezone(instant, tz)` — extrae la hora de pared (HH:MM) del instante en la TZ del retiro vía `Intl.DateTimeFormat` (`hourCycle: 'h23'`).
+  - `anchorStartTimeToDay(retreatId, day, instant, durationMinutes)` — resuelve `retreat.startDate` + TZ y re-ancla con `computeItemDateRange` (TZ-aware + offset after-midnight `h < 6`). Devuelve `null` si el retiro no tiene `startDate` válido (fallback: instante crudo).
+  `create()` lo usa siempre; `update()` cuando cambia `startTime` o `day`. El frontend manda `startTime` como instante construido desde la hora del input `type="time"` (la fecha es irrelevante, la pone el server). **Cambio relacionado en el schema**: `CreateRetreatScheduleItemSchema.endTime` pasó a **opcional** (el cliente solo manda `startTime` + `durationMinutes`; antes el 400 era por `endTime` requerido).
+
+- **Detección de huecos/solapes (helpers puros `apps/web/src/views/mamTime.ts`)** (2026-06-08)
+  Lógica compartida por las dos vistas, testeable sin montar componentes:
+  - `gapAfter(curEndIso, nextStartIso)`, `durationToFill(curStartIso, nextStartIso)` — minutos entre items del retiro (ISO).
+  - `hhmmToDayMinutes(hhmm)` / `dayMinutesToHHMM(min)` — "HH:MM" ↔ minutos del día con offset after-midnight (`h < 6` → +1440) y wrap de medianoche. Usados por el editor de templates para ordenar, detectar y mover.
+  - `retreatGapAfter(items, idx)` / `templateGapAfter(items, idx)` — gap block-aware (positivo=hueco, negativo=solape) entre items consecutivos; ignora paralelos (mismo start) y, en el retiro, pares completados. Las vistas solo agregan el gate "agrupación por día" y los handlers de arreglo (`onFixByDuration*` vía `update`, `onFixByMovingNext*` vía `shift`/`update`).
+
 ### Horario del Santísimo: auto-generación + UX
 
 **Generación automática.** Los `santisimo_slot` (slots de inscripción de servidores y angelitos al Santísimo) se crean automáticamente al materializar el template. Duración fija **60 min por slot, capacidad 1**, cubriendo el rango `min/max` de los items con `type='santisimo'` en el template materializado. Para los template sets actuales:
@@ -329,11 +393,23 @@ Pure-logic tests (sin TypeORM ni DB):
 | `apps/web/src/components/__tests__/MamHelpDialog.test.ts`                | 1      | 8     | smoke del manual MaM: open/close, 8 secciones (qué es, durante retiro, drag, más acciones, pantalla pública, docs, atajos, tips), controles ▶ ✓ ±5 📎, items de menú "Más acciones", atajos Ctrl+P / ESC |
 | `apps/web/src/components/__tests__/ScheduleTemplateHelpDialog.test.ts`   | 1      | 8     | smoke del manual del editor de templates: open/close, 6 secciones, ambos templates por nombre (México/Colombia), funciones de docs (subir/markdown/imprimir/versiones/restaurar), warnings sobre delete y rename |
 | `apps/web/src/stores/__tests__/dashboardSettingsStore.test.ts`          | 8      | 29    | toggle/move/persist/load + merge legacy sectionOrder + new keys (minutoAMinuto, santisimo) |
+| `apps/web/src/components/__tests__/mamGap.spec.ts`                       | 6      | 32    | helpers puros de tiempo (`mamTime.ts`): `gapAfter`/`durationToFill` (ISO), `hhmmToDayMinutes`/`dayMinutesToHHMM` (after-midnight + wrap), `templateGap`, y los block-aware `retreatGapAfter`/`templateGapAfter` (paralelos, completados, after-midnight, último item) |
+| `apps/api/src/tests/services/scheduleCreateAnchorsDate.simple.test.ts`  | 1      | 5     | integración (DB real): `create`/`update` anclan la fecha al Día N en CDMX (offset after-midnight, mover de día, "solo hora" del form) |
+| `apps/api/src/tests/services/scheduleItemSchema.simple.test.ts`         | 2      | 7     | schema puro: `CreateRetreatScheduleItemSchema.endTime` **opcional** (regresión del 400), acepta `responsableParticipantIds`, coacciona `responsabilityId ''→null`, rechaza sin `name`; `UpdateRetreatScheduleItemSchema` parcial (solo `durationMinutes` / solo `day`) |
+| `apps/web/tests/e2e/mam-schedule-timing.spec.ts` (Playwright)            | 1      | 5     | E2E navegador (Chrome): login superadmin por API → crea 2 items aislados en Día 7 vía API → UI muestra "Hueco de 15 min" y **"Ajustar duración"** lo corrige (→30m); fuerza solape vía PATCH y **"Mover el siguiente"** lo corrige; modal de crear con campo **solo-hora** (sin `datetime-local` ni "Orden del día") y botón **"⏱ Ahora"** presente; crear vía modal → item **resaltado** (scroll+highlight); **"Compactar día"** cierra todos los huecos. Cleanup vía `DELETE /items/:id`. Se salta si no hay superadmin/retiros |
+| `apps/web/tests/e2e/mam-template.spec.ts` (Playwright)                   | 1      | 1     | E2E navegador (Chrome) del editor de Templates: aísla todo en un TemplateSet propio creado por API → detecta "Hueco de 15 min" y **"Ajustar duración"** lo cierra; editar un item **no da 400** (regresión `attachments`); captura la hora vía **`<input type="time">`** y verifica que el modal **precarga la hora normalizada**. Selecciona el set scopeando el `<select>` por su opción (hay varios selects en la página). Cleanup vía `DELETE /sets/:id` (cascade) |
+| `apps/web/src/views/__tests__/ScheduleTemplateView.test.ts`             | 1      | 36    | Vitest del editor de templates: render (sets, días, badges, santísimo 🚫), interacciones (nueva/editar/eliminar, cambio de set, **no envía `attachments` en update**), orden por día/hora, y **campo "Orden" removido del modal + hora `type="time"` + precarga normalizada `8:30`→`08:30` + clic en tarjeta abre editor** |
 
 Correr todo:
 ```bash
 pnpm --filter api test           # backend Jest
 pnpm --filter web test           # frontend Vitest
+
+# E2E navegador (requiere dev arriba: web 5173 + api; superadmin local 123456)
+pnpm --filter web exec playwright test mam-schedule-timing --project=chromium
+pnpm --filter web exec playwright test mam-template --project=chromium
+# o contra Google Chrome real:
+pnpm --filter web exec playwright test mam-schedule-timing --project="Google Chrome"
 ```
 
 End-to-end con la API real:
@@ -443,8 +519,9 @@ pnpm --filter api exec vite-node src/cli/seed-template-responsibilities.ts
 - `apps/web/src/views/MinuteByMinuteView.vue` — timeline coordinador con header colapsable (`⋮ Más acciones`), filas compactas, indicador "AHORA", item activo con pulse, tiempo relativo, type badges colorizados
 - `apps/web/src/views/MyScheduleView.vue` — vista servidor con chips de descarga directa de docs
 - `apps/web/src/views/AssignResponsiblesView.vue` — bulk assign con sugerencias heurísticas
-- `apps/web/src/views/ScheduleTemplateView.vue` — ABM templates globales con columna `📎 Documentos` y toggle
-- `apps/web/src/components/ScheduleItemEditModal.vue` — modal con sección read-only "Documentos del template"
+- `apps/web/src/views/ScheduleTemplateView.vue` — ABM templates globales con columna `📎 Documentos` y toggle; orden cronológico after-midnight + detección de huecos/solapes
+- `apps/web/src/views/mamTime.ts` — helpers puros de tiempo compartidos (gap/duración ISO, `HH:MM`↔minutos after-midnight, gap block-aware retiro/template)
+- `apps/web/src/components/ScheduleItemEditModal.vue` — modal con sección read-only "Documentos del template"; campo de **solo hora** (`type="time"`) — la fecha la deriva el backend del Día
 - `apps/web/src/components/ResponsabilityAttachmentsDialog.vue` — drag&drop, editor MD con preview en vivo, descarga MD/PDF (jspdf), gestión de múltiples archivos por rol
 - `apps/web/src/stores/scheduleStore.ts` — store + subscribeRealtime
 - `apps/web/src/services/api.ts` — `scheduleTemplateApi`, `retreatScheduleApi`, **`responsabilityAttachmentApi`** (`list/upload/createMarkdown/update/updateMarkdown/remove`)

@@ -67,7 +67,11 @@ export const useScheduleStore = defineStore("schedule", () => {
       map.set(it.day, arr);
     }
     for (const arr of map.values())
-      arr.sort((a, b) => a.startTime.localeCompare(b.startTime));
+      arr.sort(
+        (a, b) =>
+          a.startTime.localeCompare(b.startTime) ||
+          (a.orderInDay ?? 0) - (b.orderInDay ?? 0),
+      );
     return map;
   });
 
@@ -141,6 +145,7 @@ export const useScheduleStore = defineStore("schedule", () => {
     items.value = [...items.value, created].sort((a, b) =>
       a.startTime.localeCompare(b.startTime),
     );
+    return created;
   }
   async function removeItem(id: string) {
     await retreatScheduleApi.remove(id);

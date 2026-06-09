@@ -16,99 +16,39 @@
         </div>
       </div>
       <div class="flex flex-wrap gap-2 items-center print-hide">
-        <Button v-if="canManage.schedule.value" variant="outline" size="sm" @click="onAddItem">+ Nueva actividad</Button>
+        <!-- Con lista vacía no hay barra de búsqueda; ofrecemos crear/importar aquí.
+             Cuando hay items, el "+" vive junto al buscador (icono, ver abajo). -->
+        <Button
+          v-if="canManage.schedule.value && !store.items.length"
+          variant="outline"
+          size="sm"
+          @click="onAddItem"
+        >+ Nueva actividad</Button>
         <Button
           v-if="canManage.schedule.value && !store.items.length"
           variant="outline"
           size="sm"
           @click="onMaterialize"
         >Importar desde template</Button>
-        <!-- Single "⋮ Más acciones" menu — visible to ALL roles (not just manage),
-             since reading actions like Print, Download bundle and Public screen
-             link should be available to viewers too. Items are gated per-action
-             below by the same canManage check that applied before. -->
-        <div class="relative" @click.stop>
-          <Button
-            variant="outline"
-            size="sm"
-            @click="moreActionsOpen = !moreActionsOpen"
-            :aria-expanded="moreActionsOpen"
-            aria-haspopup="menu"
-          >⋮ Más acciones</Button>
-          <div
-            v-if="moreActionsOpen"
-            role="menu"
-            class="absolute right-0 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1 text-sm"
-          >
-            <!-- Acciones de uso frecuente durante el retiro -->
-            <button
-              v-if="canManage.schedule.value"
-              type="button"
-              role="menuitem"
-              class="w-full text-left px-3 py-2 hover:bg-gray-50"
-              @click="closeMore(); onRingBell()"
-            >🔔 Tocar campana</button>
-            <button
-              type="button"
-              role="menuitem"
-              class="w-full text-left px-3 py-2 hover:bg-gray-50"
-              @click="closeMore(); onPrint()"
-              title="Imprimir o guardar como PDF (Ctrl/Cmd+P)"
-            >🖨 Imprimir</button>
-            <button
-              type="button"
-              role="menuitem"
-              class="w-full text-left px-3 py-2 hover:bg-gray-50"
-              @click="closeMore(); onDownloadBundle()"
-              title="Descargar todos los guiones del retiro como .zip"
-            >📦 Descargar guiones (zip)</button>
-            <button
-              v-if="publicMamUrl"
-              type="button"
-              role="menuitem"
-              class="w-full text-left px-3 py-2 hover:bg-gray-50"
-              @click="closeMore(); onCopyPublicLink()"
-              :title="'Vista big-screen pública (auth-less): ' + publicMamUrl"
-            >📺 Copiar link de pantalla pública</button>
-            <div class="border-t border-gray-100 my-1"></div>
-            <button
-              type="button"
-              role="menuitem"
-              class="w-full text-left px-3 py-2 hover:bg-gray-50"
-              @click="closeMore(); helpOpen = true"
-              title="Cómo usar el Minuto a Minuto"
-            >❓ Ayuda</button>
-            <!-- Acciones de gestión (manage) -->
-            <template v-if="canManage.schedule.value">
-              <div class="border-t border-gray-100 my-1"></div>
-              <button
-                type="button"
-                role="menuitem"
-                class="w-full text-left px-3 py-2 hover:bg-gray-50"
-                @click="closeMore(); onRelinkResponsibilities()"
-              >🔗 Re-vincular responsabilidades</button>
-              <button
-                type="button"
-                role="menuitem"
-                class="w-full text-left px-3 py-2 hover:bg-gray-50"
-                @click="closeMore(); goAssignResponsables()"
-              >👥 Apoyos / sobreescribir</button>
-              <button
-                type="button"
-                role="menuitem"
-                class="w-full text-left px-3 py-2 hover:bg-gray-50"
-                @click="closeMore(); onResolveSantisimo()"
-              >✨ Auto-asignar angelitos</button>
-              <div class="border-t border-gray-100 my-1"></div>
-              <button
-                type="button"
-                role="menuitem"
-                class="w-full text-left px-3 py-2 hover:bg-gray-50 text-amber-700"
-                @click="closeMore(); onMaterialize()"
-              >📥 Importar desde template (sobrescribe)</button>
-            </template>
-          </div>
-        </div>
+        <!-- "Más acciones" se movió junto al buscador (icono ⋮). Con la lista
+             vacía (sin barra de búsqueda) se muestra aquí como respaldo. -->
+        <MamMoreActions
+          v-if="!store.items.length"
+          :can-manage="canManage.schedule.value"
+          :public-mam-url="publicMamUrl"
+          v-model:group-by="groupBy"
+          :open="moreActionsOpen"
+          @update:open="moreActionsOpen = $event"
+          @ring-bell="onRingBell"
+          @print="onPrint"
+          @download-bundle="onDownloadBundle"
+          @copy-public-link="onCopyPublicLink"
+          @help="helpOpen = true"
+          @relink="onRelinkResponsibilities"
+          @assign-responsables="goAssignResponsables"
+          @resolve-santisimo="onResolveSantisimo"
+          @materialize="onMaterialize"
+        />
       </div>
     </div>
 
@@ -143,23 +83,40 @@
           <span v-else-if="searchQuery" class="text-xs text-gray-500 px-2">
             Sin resultados
           </span>
-          <!-- Toggle agrupar por día / responsabilidad -->
-          <div class="inline-flex rounded-md border border-gray-200 overflow-hidden text-xs">
-            <button
-              type="button"
-              class="px-3 py-1.5"
-              :class="groupBy === 'day' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
-              @click="groupBy = 'day'"
-              title="Agrupar por día"
-            >📅 Día</button>
-            <button
-              type="button"
-              class="px-3 py-1.5 border-l border-gray-200"
-              :class="groupBy === 'responsibility' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
-              @click="groupBy = 'responsibility'"
-              title="Agrupar por responsabilidad"
-            >🎤 Responsabilidad</button>
-          </div>
+          <!-- Acciones rápidas junto al buscador: crear y "ir a ahora" (solo ícono + tooltip).
+               El toggle de agrupación vive ahora en "⋮ Más acciones → Vista". -->
+          <Button
+            v-if="canManage.schedule.value"
+            variant="outline"
+            size="sm"
+            title="Nueva actividad"
+            aria-label="Nueva actividad"
+            @click="onAddItem"
+          >+</Button>
+          <Button
+            variant="outline"
+            size="sm"
+            :disabled="!nextTodayItemId"
+            title="Ir a la próxima actividad pendiente de hoy"
+            aria-label="Ir a la próxima actividad pendiente de hoy"
+            @click="goToNow"
+          >⏱</Button>
+          <MamMoreActions
+            icon-only
+            :can-manage="canManage.schedule.value"
+            :public-mam-url="publicMamUrl"
+            v-model:group-by="groupBy"
+            v-model:open="moreActionsOpen"
+            @ring-bell="onRingBell"
+            @print="onPrint"
+            @download-bundle="onDownloadBundle"
+            @copy-public-link="onCopyPublicLink"
+            @help="helpOpen = true"
+            @relink="onRelinkResponsibilities"
+            @assign-responsables="goAssignResponsables"
+            @resolve-santisimo="onResolveSantisimo"
+            @materialize="onMaterialize"
+          />
         </div>
       </CardContent>
     </Card>
@@ -185,15 +142,35 @@
               <span class="text-xs text-gray-500">
                 {{ groupSummary(items) }}
               </span>
-              <button
-                v-if="groupBy === 'day' && canManage.schedule.value"
-                type="button"
-                class="ml-auto text-xs text-blue-600 hover:underline"
-                :title="'Mover todos los items del Día ' + groupKey + ' por ±N minutos'"
-                @click="onShiftDay(Number(groupKey))"
+              <!-- Resumen de desajustes del día (solo agrupación por día) -->
+              <span
+                v-if="groupBy === 'day' && dayGapSummary(items).total > 0"
+                class="text-xs font-medium"
+                :class="dayGapSummary(items).overlaps > 0 ? 'text-amber-700' : 'text-gray-500'"
               >
-                ⏱ Mover día
-              </button>
+                <template v-if="dayGapSummary(items).overlaps > 0">⚠ {{ dayGapSummary(items).overlaps }} solape{{ dayGapSummary(items).overlaps > 1 ? 's' : '' }}</template>
+                <template v-if="dayGapSummary(items).overlaps > 0 && dayGapSummary(items).gaps > 0"> · </template>
+                <template v-if="dayGapSummary(items).gaps > 0">{{ dayGapSummary(items).gaps }} hueco{{ dayGapSummary(items).gaps > 1 ? 's' : '' }}</template>
+              </span>
+              <div v-if="groupBy === 'day' && canManage.schedule.value" class="ml-auto flex items-center gap-3">
+                <button
+                  v-if="dayGapSummary(items).total > 0"
+                  type="button"
+                  class="text-xs text-blue-600 hover:underline"
+                  title="Cerrar todos los huecos y solapes del día: cada actividad empieza cuando termina la anterior"
+                  @click="onCompactDay(items)"
+                >
+                  🧹 Compactar día
+                </button>
+                <button
+                  type="button"
+                  class="text-xs text-blue-600 hover:underline"
+                  :title="'Mover todos los items del Día ' + groupKey + ' por ±N minutos'"
+                  @click="onShiftDay(Number(groupKey))"
+                >
+                  ⏱ Mover día
+                </button>
+              </div>
             </div>
             <!-- Compact rows -->
             <div class="border border-gray-200 rounded-lg overflow-hidden bg-white">
@@ -211,7 +188,7 @@
 
                 <div
                   :id="`schedule-item-${item.id}`"
-                  class="group flex items-center gap-2 px-3 py-2 border-t first:border-t-0 transition-colors"
+                  class="group flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2 border-t first:border-t-0 transition-colors"
                   :class="[
                     rowCompactClass(item),
                     canManage.schedule.value ? 'cursor-pointer' : '',
@@ -227,31 +204,72 @@
                   @dragend="onDragEnd()"
                   @click="canManage.schedule.value && onEditItem(item)"
                 >
-                  <!-- Hora + duración + tiempo relativo (compacto bajo la hora).
-                       relative-time se oculta en print (la hora absoluta basta
-                       en papel). -->
-                  <div class="flex flex-col items-start w-20 sm:w-24 shrink-0">
-                    <div class="text-sm font-mono font-semibold leading-tight">{{ fmtTime(item.startTime) }}</div>
-                    <div class="text-[10px] text-gray-400 leading-tight">{{ item.durationMinutes }}m</div>
-                    <div class="text-[9px] text-gray-400 leading-tight print:hidden relative-time">{{ relativeTime(item) }}</div>
+                  <!-- HORA: fila completa pequeña en móvil (horizontal); columna a la
+                       izquierda en desktop. relative-time oculto en print. -->
+                  <div class="flex items-center gap-2 text-gray-400 sm:flex-col sm:items-start sm:gap-0 sm:w-[72px] sm:shrink-0 sm:order-1 leading-tight">
+                    <span class="text-sm font-mono font-semibold whitespace-nowrap text-gray-900">{{ clockParts(item.startTime).hm }}<span class="text-[9px] font-normal text-gray-500 ml-0.5">{{ clockParts(item.startTime).mer }}</span></span>
+                    <span class="text-[11px] sm:text-[10px] whitespace-nowrap">{{ item.durationMinutes }}m · {{ clockParts(item.endTime).hm }}</span>
+                    <span class="text-[11px] sm:text-[9px] print:hidden relative-time">{{ relativeTime(item) }}</span>
                   </div>
 
-                  <!-- Status icon (solo si no es pending) -->
-                  <div class="w-5 shrink-0 text-center">
-                    <span v-if="item.status === 'active'" class="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" title="En curso"></span>
-                    <span v-else-if="item.status === 'completed'" class="text-green-500 text-sm" title="Completado">✓</span>
-                    <span v-else-if="item.status === 'delayed'" class="text-amber-500 text-sm" title="Retrasado">⚠</span>
-                    <span v-else-if="item.status === 'skipped'" class="text-gray-400 text-sm" title="Saltado">⊘</span>
+                  <!-- Acciones: en móvil van a la derecha de la hora (misma fila);
+                       en desktop a la derecha del todo. Siempre visibles en móvil. -->
+                  <div
+                    v-if="canManage.schedule.value"
+                    class="flex items-center gap-0.5 shrink-0 ml-auto sm:order-3 transition-opacity"
+                    :class="item.status === 'active'
+                      ? 'opacity-100'
+                      : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100'"
+                    @click.stop
+                  >
+                    <button
+                      v-if="item.status === 'pending' || item.status === 'delayed'"
+                      type="button"
+                      class="inline-flex items-center justify-center h-8 w-8 sm:h-auto sm:w-auto sm:p-1.5 rounded-full hover:bg-green-100 text-green-600"
+                      title="Iniciar (Enter)"
+                      @click="onStart(item.id)"
+                    >▶</button>
+                    <button
+                      v-if="item.status === 'active'"
+                      type="button"
+                      class="inline-flex items-center justify-center h-8 w-8 sm:h-auto sm:w-auto sm:p-1.5 rounded-full hover:bg-blue-100 text-blue-600 font-semibold text-xs"
+                      title="Completar"
+                      @click="onComplete(item.id)"
+                    >✓</button>
+                    <!-- Shift: tap-targets de 32px en móvil (WCAG 2.5.5) sin abrir el modal. -->
+                    <button
+                      type="button"
+                      class="inline-flex items-center justify-center h-8 w-8 sm:h-auto sm:w-auto sm:p-1 rounded text-gray-500 hover:text-gray-700 active:bg-gray-200 hover:bg-gray-100 text-xs font-mono"
+                      title="Adelantar 5 minutos"
+                      @click="onShift(item.id, -5)"
+                    >−5</button>
+                    <button
+                      type="button"
+                      class="inline-flex items-center justify-center h-8 w-8 sm:h-auto sm:w-auto sm:p-1 rounded text-gray-500 hover:text-gray-700 active:bg-gray-200 hover:bg-gray-100 text-xs font-mono"
+                      title="Atrasar 5 minutos"
+                      @click="onShift(item.id, 5)"
+                    >+5</button>
                   </div>
 
-                  <!-- Nombre + meta inline -->
-                  <div class="flex-1 min-w-0">
+                  <!-- ACTIVIDAD: fila completa en móvil (basis-full); centro flexible en desktop. -->
+                  <div class="basis-full sm:basis-0 sm:flex-1 min-w-0 sm:order-2">
                     <div class="flex items-center gap-2 flex-wrap text-sm">
+                      <!-- Status inline (solo si no es pending) -->
+                      <span
+                        v-if="item.status !== 'pending'"
+                        class="shrink-0 inline-flex items-center"
+                        :title="item.status === 'active' ? 'En curso' : item.status === 'completed' ? 'Completado' : item.status === 'delayed' ? 'Retrasado' : 'Saltado'"
+                      >
+                        <span v-if="item.status === 'active'" class="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                        <span v-else-if="item.status === 'completed'" class="text-green-500 text-sm">✓</span>
+                        <span v-else-if="item.status === 'delayed'" class="text-amber-500 text-sm">⚠</span>
+                        <span v-else-if="item.status === 'skipped'" class="text-gray-400 text-sm">⊘</span>
+                      </span>
                       <span
                         v-if="groupBy === 'responsibility'"
                         class="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700 leading-tight"
                       >D{{ item.day }}</span>
-                      <span class="font-medium truncate" :class="item.status === 'completed' ? 'text-gray-400 line-through' : ''">{{ item.name }}</span>
+                      <span class="font-medium min-w-0 line-clamp-2 sm:line-clamp-1" :class="item.status === 'completed' ? 'text-gray-400 line-through' : ''">{{ item.name }}</span>
                       <!-- Type badge: oculta en mobile (ya transmitido por el color de la fila) -->
                       <span
                         class="hidden sm:inline-flex items-center px-1.5 py-0 rounded text-[10px] font-medium leading-tight"
@@ -297,46 +315,43 @@
                     </div>
                   </div>
 
-                  <!-- Acciones: en mobile siempre visibles (no hay hover); en desktop solo en hover para pending. -->
+                </div>
+
+                <!-- Indicador de desajuste: hueco (gris) o solape (ámbar) con la
+                     siguiente actividad, + acciones para corregirlo. -->
+                <div
+                  v-if="gapBetween(items, idx) !== null"
+                  class="flex flex-wrap items-center gap-2 px-3 py-1 text-xs border-t"
+                  :class="(gapBetween(items, idx) ?? 0) < 0
+                    ? 'bg-amber-50 text-amber-800'
+                    : 'bg-gray-50 text-gray-500'"
+                >
+                  <span class="font-medium">
+                    <template v-if="(gapBetween(items, idx) ?? 0) < 0">
+                      ⚠ Se encima {{ Math.abs(gapBetween(items, idx) ?? 0) }} min con la siguiente
+                    </template>
+                    <template v-else>
+                      Hueco de {{ gapBetween(items, idx) }} min hasta la siguiente
+                    </template>
+                  </span>
                   <div
                     v-if="canManage.schedule.value"
-                    class="flex items-center gap-0.5 shrink-0 ml-auto transition-opacity"
-                    :class="item.status === 'active'
-                      ? 'opacity-100'
-                      : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100'"
-                    @click.stop
+                    class="flex items-center gap-2 ml-auto"
                   >
                     <button
-                      v-if="item.status === 'pending' || item.status === 'delayed'"
+                      v-if="canFixByDuration(items, idx)"
                       type="button"
-                      class="p-1.5 rounded-full hover:bg-green-100 text-green-600"
-                      title="Iniciar (Enter)"
-                      @click="onStart(item.id)"
-                    >▶</button>
-                    <button
-                      v-if="item.status === 'active'"
-                      type="button"
-                      class="p-1.5 rounded-full hover:bg-blue-100 text-blue-600 font-semibold text-xs"
-                      title="Completar"
-                      @click="onComplete(item.id)"
-                    >✓</button>
-                    <!-- Shift buttons: visibles en mobile y desktop.
-                         En mobile son tap-targets de 32px (h-8 w-8) para
-                         cumplir WCAG 2.5.5 sin abrir el modal de edición. -->
+                      class="text-blue-600 hover:underline"
+                      title="Ajustar la duración de esta actividad para que termine cuando empieza la siguiente"
+                      @click="onFixByDuration(items, idx)"
+                    >Ajustar duración</button>
                     <button
                       type="button"
-                      class="inline-flex items-center justify-center h-8 w-8 sm:h-auto sm:w-auto sm:p-1 rounded text-gray-500 hover:text-gray-700 active:bg-gray-200 hover:bg-gray-100 text-xs font-mono"
-                      title="Adelantar 5 minutos"
-                      @click="onShift(item.id, -5)"
-                    >−5</button>
-                    <button
-                      type="button"
-                      class="inline-flex items-center justify-center h-8 w-8 sm:h-auto sm:w-auto sm:p-1 rounded text-gray-500 hover:text-gray-700 active:bg-gray-200 hover:bg-gray-100 text-xs font-mono"
-                      title="Atrasar 5 minutos"
-                      @click="onShift(item.id, 5)"
-                    >+5</button>
+                      class="text-blue-600 hover:underline"
+                      title="Mover la siguiente actividad (y posteriores) para que empiece cuando esta termina"
+                      @click="onFixByMovingNext(items, idx)"
+                    >Mover el siguiente</button>
                   </div>
-
                 </div>
               </template>
             </div>
@@ -429,8 +444,10 @@ import { useResponsabilityStore } from '@/stores/responsabilityStore';
 import ScheduleItemEditModal, { type SubmitPayload as ItemSubmitPayload } from '@/components/ScheduleItemEditModal.vue';
 import ResponsabilityAttachmentsDialog from '@/components/ResponsabilityAttachmentsDialog.vue';
 import MamHelpDialog from '@/components/MamHelpDialog.vue';
-import { api, retreatScheduleApi, type RetreatScheduleItemDTO } from '@/services/api';
+import MamMoreActions from '@/components/MamMoreActions.vue';
+import { api, retreatScheduleApi, apiErrorMessage, type RetreatScheduleItemDTO } from '@/services/api';
 import type { Participant, Responsability } from '@repo/types';
+import { durationToFill, retreatGapAfter, computeCompactPlan } from '@/views/mamTime';
 
 const route = useRoute();
 const router = useRouter();
@@ -520,12 +537,26 @@ watch(searchQuery, (q) => {
   }, 200);
 });
 
-function scrollToItem(id: string) {
+let highlightClearTimer: ReturnType<typeof setTimeout> | null = null;
+function scrollToItem(id: string, autoClear = false) {
   highlightedItemId.value = id;
-  nextTick(() => {
+  const doScroll = () => {
     const el = document.getElementById(`schedule-item-${id}`);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  });
+  };
+  // Doble pasada: nextTick para el primer render y otra tras ~250ms para ganarle
+  // a la restauración de foco de reka-ui (al cerrar el modal vuelve el foco al
+  // disparador, lo que puede provocar un scroll que pelea con el nuestro).
+  nextTick(doScroll);
+  setTimeout(doScroll, 250);
+  // Auto-limpiar el resaltado tras unos segundos (para crear/editar/arreglar;
+  // la búsqueda no lo pide para no perder el seguimiento de coincidencias).
+  if (highlightClearTimer) clearTimeout(highlightClearTimer);
+  if (autoClear) {
+    highlightClearTimer = setTimeout(() => {
+      if (highlightedItemId.value === id) highlightedItemId.value = null;
+    }, 4000);
+  }
 }
 
 function onSearchNext() {
@@ -640,19 +671,24 @@ function onEditItem(item: RetreatScheduleItemDTO) {
 async function onSubmitItem(payload: ItemSubmitPayload) {
   if (!retreatId.value) return;
   try {
+    let targetId: string | null = null;
     if (itemModalMode.value === 'add') {
-      await store.createItem(retreatId.value, payload);
+      const created = await store.createItem(retreatId.value, payload);
+      targetId = created?.id ?? null;
       toast({ title: 'Actividad creada' });
     } else if (editingItem.value) {
       await store.updateItem(editingItem.value.id, payload);
+      targetId = editingItem.value.id;
       toast({ title: 'Actividad actualizada' });
     }
     itemModalOpen.value = false;
     await store.loadForRetreat(retreatId.value);
+    // Llevar el scroll a la actividad creada/editada y resaltarla.
+    if (targetId) scrollToItem(targetId, true);
   } catch (err: any) {
     toast({
       title: 'Error',
-      description: err?.response?.data?.message || err?.message || 'No se pudo guardar',
+      description: apiErrorMessage(err, 'No se pudo guardar'),
       variant: 'destructive',
     });
   }
@@ -744,7 +780,7 @@ async function onDrop(e: DragEvent, target: AnyItem, items: AnyItem[], day: numb
   } catch (err: any) {
     toast({
       title: 'No se pudo reordenar',
-      description: err?.response?.data?.message || err?.message,
+      description: apiErrorMessage(err),
       variant: 'destructive',
     });
   }
@@ -776,7 +812,7 @@ async function onShiftDay(day: number) {
   } catch (err: any) {
     toast({
       title: 'Error al mover día',
-      description: err?.response?.data?.message || err?.message,
+      description: apiErrorMessage(err),
       variant: 'destructive',
     });
   }
@@ -843,7 +879,7 @@ async function onDeleteItem(id: string) {
   } catch (err: any) {
     toast({
       title: 'Error al eliminar',
-      description: err?.response?.data?.message || err?.message,
+      description: apiErrorMessage(err),
       variant: 'destructive',
     });
   }
@@ -889,6 +925,18 @@ const retreatStartDate = computed<Date | null>(() => {
 function fmtTime(iso: string) {
   const d = new Date(iso);
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+// Hora separada en "HH:MM" + meridiano, para renderizar el am/pm pequeño y
+// evitar que en móvil la hora se parta en dos líneas de forma accidental.
+function clockParts(iso: string): { hm: string; mer: string } {
+  const d = new Date(iso);
+  let h = d.getHours();
+  const m = d.getMinutes();
+  const mer = h < 12 ? 'a.m.' : 'p.m.';
+  h = h % 12;
+  if (h === 0) h = 12;
+  return { hm: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`, mer };
 }
 
 function fmtNow() {
@@ -993,6 +1041,61 @@ function shouldShowNowLine(items: any[], idx: number): boolean {
   return prevTime < now.value && itemTime >= now.value;
 }
 
+// Actividades en paralelo arrancan a la MISMA hora (revisiones, pruebas de audio)
+// y NO se consideran solape entre sí. Las agrupamos por startTime idéntico en
+// "bloques"; items[idx] es el último de su bloque (los items van ordenados por
+// startTime, así que el bloque es contiguo).
+function sameStartBlock(items: any[], idx: number): any[] {
+  const start = items[idx]?.startTime;
+  const block: any[] = [];
+  for (let j = idx; j >= 0 && items[j].startTime === start; j--) block.push(items[j]);
+  return block;
+}
+
+// Desajuste entre el bloque que termina en items[idx] y el siguiente bloque.
+// Positivo = hueco, negativo = solape. null si no aplica mostrar indicador.
+// La lógica block-aware vive en `retreatGapAfter` (pura, testeada); aquí solo
+// agregamos el gate de "vista por día".
+function gapBetween(items: any[], idx: number): number | null {
+  if (groupBy.value !== 'day') return null;
+  return retreatGapAfter(items, idx);
+}
+
+// ¿"Ajustar duración" produce una duración válida (≥ 1)?
+function canFixByDuration(items: any[], idx: number): boolean {
+  const cur = items[idx];
+  const next = items[idx + 1];
+  if (!cur || !next) return false;
+  return durationToFill(cur.startTime, next.startTime) >= 1;
+}
+
+// Próxima actividad pendiente de HOY — destino del botón "⏱ Ahora".
+const nextTodayItemId = computed<string | null>(() => {
+  const today = new Date(now.value);
+  const candidates = store.items
+    .filter((it: any) => {
+      if (it.status === 'completed') return false;
+      const d = new Date(it.startTime);
+      if (
+        d.getFullYear() !== today.getFullYear() ||
+        d.getMonth() !== today.getMonth() ||
+        d.getDate() !== today.getDate()
+      )
+        return false;
+      return d.getTime() >= now.value;
+    })
+    .sort((a: any, b: any) => a.startTime.localeCompare(b.startTime));
+  return candidates[0]?.id ?? null;
+});
+
+function goToNow() {
+  if (nextTodayItemId.value) {
+    scrollToItem(nextTodayItemId.value);
+  } else {
+    toast({ title: 'No hay próxima actividad pendiente hoy' });
+  }
+}
+
 // Resumen del grupo: completados / total · próximo en X
 function groupSummary(items: any[]): string {
   const total = items.length;
@@ -1014,27 +1117,147 @@ function dayDateLabel(day: number): string {
   return localStart.toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
+// Wrapper para mutaciones simples: ejecuta y muestra toast de error si falla.
+async function withErrorToast(fn: () => Promise<unknown>, fallback: string) {
+  try {
+    await fn();
+  } catch (err) {
+    toast({ title: 'Error', description: apiErrorMessage(err, fallback), variant: 'destructive' });
+  }
+}
+
 async function onStart(id: string) {
-  await store.start(id);
+  await withErrorToast(() => store.start(id), 'No se pudo iniciar la actividad');
 }
 async function onComplete(id: string) {
-  await store.complete(id);
+  await withErrorToast(() => store.complete(id), 'No se pudo completar la actividad');
 }
 async function onShift(id: string, delta: number) {
-  await store.shift(id, delta);
+  await withErrorToast(() => store.shift(id, delta), 'No se pudo mover la actividad');
+}
+
+// ── Desajustes de tiempo (hueco / solape) entre actividades consecutivas ───────
+//
+// El día se ordena por startTime; entre dos items seguidos comparamos el fin de
+// uno (item.endTime) con el inicio del siguiente. El coordinador puede arreglarlo
+// de dos formas (ver template):
+//   1) Ajustar la duración del item actual para que termine al iniciar el siguiente.
+//   2) Mover el siguiente (y posteriores) para que empiece cuando este termina.
+
+// Ajusta la duración del bloque (items que comparten startTime con items[idx])
+// para que termine cuando empieza el siguiente bloque.
+async function onFixByDuration(items: any[], idx: number) {
+  const next = items[idx + 1];
+  if (!next) return;
+  const block = sameStartBlock(items, idx);
+  const dur = durationToFill(block[0].startTime, next.startTime);
+  if (dur < 1) return;
+  const targetId = items[idx].id;
+  try {
+    for (const b of block) {
+      if (b.durationMinutes !== dur) {
+        await store.updateItem(b.id, { durationMinutes: dur });
+      }
+    }
+    toast({ title: 'Duración ajustada' });
+    // Recarga para reflejar el recálculo de ventanas del Santísimo (server-side).
+    await store.loadForRetreat(retreatId.value);
+    scrollToItem(targetId, true);
+  } catch (err: any) {
+    toast({
+      title: 'Error',
+      description: apiErrorMessage(err, 'No se pudo ajustar'),
+      variant: 'destructive',
+    });
+  }
+}
+
+// Mueve el siguiente bloque (y posteriores del día) para que empiece cuando este termina.
+async function onFixByMovingNext(items: any[], idx: number) {
+  const gap = gapBetween(items, idx);
+  if (gap === null || gap === 0) return;
+  const next = items[idx + 1];
+  try {
+    await store.shift(next.id, -gap, true);
+    toast({ title: 'Actividad reubicada' });
+    scrollToItem(next.id, true);
+  } catch (err: any) {
+    toast({
+      title: 'Error',
+      description: apiErrorMessage(err, 'No se pudo reubicar'),
+      variant: 'destructive',
+    });
+  }
+}
+
+// Cuenta de desajustes del día (para el badge del header).
+function dayGapSummary(items: any[]): { overlaps: number; gaps: number; total: number } {
+  let overlaps = 0;
+  let gaps = 0;
+  for (let i = 0; i < items.length - 1; i++) {
+    const g = gapBetween(items, i);
+    if (g == null) continue;
+    if (g < 0) overlaps++;
+    else if (g > 0) gaps++;
+  }
+  return { overlaps, gaps, total: overlaps + gaps };
+}
+
+// Compacta el día: cada bloque empieza cuando termina el anterior (cierra huecos
+// y solapes). El primer bloque queda donde está; los demás se reubican en cascada.
+async function onCompactDay(items: any[]) {
+  if (items.length < 2) return;
+  if (
+    !confirm(
+      '¿Compactar el día? Cada actividad empezará cuando termine la anterior (se cierran huecos y solapes).',
+    )
+  )
+    return;
+  const plan = computeCompactPlan(
+    items.map((it) => ({
+      id: it.id,
+      start: new Date(it.startTime).getTime(),
+      end: new Date(it.endTime).getTime(),
+    })),
+  );
+  if (!plan.length) {
+    toast({ title: 'El día ya está compacto' });
+    return;
+  }
+  try {
+    for (const p of plan) {
+      await store.updateItem(p.id, { startTime: new Date(p.start).toISOString() } as any);
+    }
+    toast({ title: `Día compactado · ${plan.length} actividad(es) reubicada(s)` });
+    await store.loadForRetreat(retreatId.value);
+  } catch (err: any) {
+    toast({
+      title: 'Error',
+      description: apiErrorMessage(err, 'No se pudo compactar el día'),
+      variant: 'destructive',
+    });
+  }
 }
 async function onRingBell() {
   if (!retreatId.value) return;
-  await store.ringBell(retreatId.value, 'Campana del coordinador');
-  toast({ title: 'Campana enviada a todos los servidores' });
+  try {
+    await store.ringBell(retreatId.value, 'Campana del coordinador');
+    toast({ title: 'Campana enviada a todos los servidores' });
+  } catch (err) {
+    toast({ title: 'Error', description: apiErrorMessage(err, 'No se pudo tocar la campana'), variant: 'destructive' });
+  }
 }
 async function onResolveSantisimo() {
   if (!retreatId.value) return;
-  const r = await store.resolveSantisimo(retreatId.value);
-  toast({
-    title: `Santísimo revisado`,
-    description: `${r.mealSlots} slots en comidas · ${r.angelitosAssigned} angelitos asignados · ${r.unresolvedSlots.length} sin cubrir`,
-  });
+  try {
+    const r = await store.resolveSantisimo(retreatId.value);
+    toast({
+      title: `Santísimo revisado`,
+      description: `${r.mealSlots} slots en comidas · ${r.angelitosAssigned} angelitos asignados · ${r.unresolvedSlots.length} sin cubrir`,
+    });
+  } catch (err) {
+    toast({ title: 'Error', description: apiErrorMessage(err, 'No se pudo resolver el Santísimo'), variant: 'destructive' });
+  }
 }
 
 async function onMaterialize() {
