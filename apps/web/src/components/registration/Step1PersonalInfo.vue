@@ -74,18 +74,18 @@ const privacyUrl = router.resolve({ name: 'privacy' }).href
         </div>
         <div>
           <Label for="homePhone">{{ $t('serverRegistration.fields.homePhone') }}</Label>
-          <Input id="homePhone" v-model="formData.homePhone" :class="{ 'border-red-500': hasError('homePhone') || hasError('phoneNumbers') }" />
+          <Input id="homePhone" v-model="formData.homePhone" type="tel" inputmode="numeric" :class="{ 'border-red-500': hasError('homePhone') || hasError('phoneNumbers') }" />
           <p v-if="hasError('homePhone')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('homePhone') }}</p>
           <p v-else-if="hasError('phoneNumbers')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('phoneNumbers') }}</p>
         </div>
         <div>
           <Label for="workPhone">{{ $t('serverRegistration.fields.workPhone') }}</Label>
-          <Input id="workPhone" v-model="formData.workPhone" :class="{ 'border-red-500': hasError('workPhone') || hasError('phoneNumbers') }" />
+          <Input id="workPhone" v-model="formData.workPhone" type="tel" inputmode="numeric" :class="{ 'border-red-500': hasError('workPhone') || hasError('phoneNumbers') }" />
           <p v-if="hasError('workPhone')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('workPhone') }}</p>
         </div>
         <div>
           <Label for="cellPhone">{{ $t('serverRegistration.fields.cellPhone') }}</Label>
-          <Input id="cellPhone" v-model="formData.cellPhone" :class="{ 'border-red-500': hasError('cellPhone') || hasError('phoneNumbers') }" />
+          <Input id="cellPhone" v-model="formData.cellPhone" type="tel" inputmode="numeric" :class="{ 'border-red-500': hasError('cellPhone') || hasError('phoneNumbers') }" />
           <p v-if="hasError('cellPhone')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('cellPhone') }}</p>
         </div>
         <div>

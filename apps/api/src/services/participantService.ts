@@ -8,7 +8,11 @@ import { TableMesa } from "../entities/tableMesa.entity";
 import { RetreatBed, BedUsage, BedType } from "../entities/retreatBed.entity";
 import { MessageTemplate } from "../entities/messageTemplate.entity";
 import { Payment } from "../entities/payment.entity";
-import { CreateParticipant, UpdateParticipant } from "@repo/types";
+import {
+  CreateParticipant,
+  UpdateParticipant,
+  normalizeParticipantPhones,
+} from "@repo/types";
 import {
   rebalanceTablesForRetreat,
   assignLeaderToTable,
@@ -1468,6 +1472,10 @@ export const createParticipant = async (
     participantData.isScholarship = true;
   }
 
+  // Persistir los teléfonos normalizados (solo dígitos, sin espacios/guiones/+).
+  // Aplica a todos los orígenes de alta: registro público, import Excel, admin.
+  participantData = normalizeParticipantPhones(participantData);
+
   const createdParticipant = await AppDataSource.transaction(async (transactionalEntityManager) => {
     const participantRepository =
       transactionalEntityManager.getRepository(Participant);
@@ -2510,6 +2518,9 @@ export const updateParticipant = async (
   if (!participant) {
     return null;
   }
+
+  // Normalizar teléfonos (solo dígitos) antes de persistir cualquier edición.
+  participantData = normalizeParticipantPhones(participantData);
 
   // Separate retreat-specific fields (written to retreat_participants)
   // Also strip relation objects and read-only fields that TypeORM would try to cascade

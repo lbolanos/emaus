@@ -509,6 +509,7 @@ export * from './testimonial';
 export * from './santisimo';
 export * from './schedule';
 export * from './availability';
+export * from './phone';
 
 // Payment Schema
 export const paymentSchema = z.object({

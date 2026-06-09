@@ -85,15 +85,18 @@ const walkerSizes = computed<string[]>(() => {
       </div>
       <div>
         <Label for="inviterHomePhone">{{ $t('walkerRegistration.fields.inviterHomePhone') }}</Label>
-        <Input id="inviterHomePhone" v-model="formData.inviterHomePhone" />
+        <Input id="inviterHomePhone" v-model="formData.inviterHomePhone" type="tel" inputmode="numeric" :class="{ 'border-red-500': hasError('inviterHomePhone') }" />
+        <p v-if="hasError('inviterHomePhone')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('inviterHomePhone') }}</p>
       </div>
       <div>
         <Label for="inviterWorkPhone">{{ $t('walkerRegistration.fields.inviterWorkPhone') }}</Label>
-        <Input id="inviterWorkPhone" v-model="formData.inviterWorkPhone" />
+        <Input id="inviterWorkPhone" v-model="formData.inviterWorkPhone" type="tel" inputmode="numeric" :class="{ 'border-red-500': hasError('inviterWorkPhone') }" />
+        <p v-if="hasError('inviterWorkPhone')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('inviterWorkPhone') }}</p>
       </div>
       <div>
         <Label for="inviterCellPhone">{{ $t('walkerRegistration.fields.inviterCellPhone') }}</Label>
-        <Input id="inviterCellPhone" v-model="formData.inviterCellPhone" />
+        <Input id="inviterCellPhone" v-model="formData.inviterCellPhone" type="tel" inputmode="numeric" :class="{ 'border-red-500': hasError('inviterCellPhone') }" />
+        <p v-if="hasError('inviterCellPhone')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('inviterCellPhone') }}</p>
       </div>
       <div>
         <Label for="inviterEmail">{{ $t('walkerRegistration.fields.inviterEmail') }}</Label>

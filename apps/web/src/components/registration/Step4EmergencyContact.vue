@@ -45,13 +45,13 @@ const isWalker = computed(() => props.type === 'walker')
           </div>
           <div>
             <Label for="emergencyContact1HomePhone">{{ $t('serverRegistration.fields.emergencyContact.homePhone') }}</Label>
-            <Input id="emergencyContact1HomePhone" v-model="formData.emergencyContact1HomePhone" :class="{ 'border-red-500': hasError('emergencyContact1HomePhone') || hasError('emergencyContact1PhoneNumbers') }" />
+            <Input id="emergencyContact1HomePhone" v-model="formData.emergencyContact1HomePhone" type="tel" inputmode="numeric" :class="{ 'border-red-500': hasError('emergencyContact1HomePhone') || hasError('emergencyContact1PhoneNumbers') }" />
             <p v-if="hasError('emergencyContact1HomePhone')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('emergencyContact1HomePhone') }}</p>
             <p v-else-if="hasError('emergencyContact1PhoneNumbers')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('emergencyContact1PhoneNumbers') }}</p>
           </div>
           <div>
             <Label for="emergencyContact1WorkPhone">{{ $t('serverRegistration.fields.emergencyContact.workPhone') }}</Label>
-            <Input id="emergencyContact1WorkPhone" v-model="formData.emergencyContact1WorkPhone" :class="{ 'border-red-500': hasError('emergencyContact1WorkPhone') || hasError('emergencyContact1PhoneNumbers') }" />
+            <Input id="emergencyContact1WorkPhone" v-model="formData.emergencyContact1WorkPhone" type="tel" inputmode="numeric" :class="{ 'border-red-500': hasError('emergencyContact1WorkPhone') || hasError('emergencyContact1PhoneNumbers') }" />
             <p v-if="hasError('emergencyContact1WorkPhone')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('emergencyContact1WorkPhone') }}</p>
           </div>
           <div>
@@ -59,7 +59,7 @@ const isWalker = computed(() => props.type === 'walker')
               {{ $t('serverRegistration.fields.emergencyContact.cellPhone') }}
               <span v-if="isWalker" class="text-red-500">*</span>
             </Label>
-            <Input id="emergencyContact1CellPhone" v-model="formData.emergencyContact1CellPhone" :class="{ 'border-red-500': hasError('emergencyContact1CellPhone') || hasError('emergencyContact1PhoneNumbers') }" />
+            <Input id="emergencyContact1CellPhone" v-model="formData.emergencyContact1CellPhone" type="tel" inputmode="numeric" :class="{ 'border-red-500': hasError('emergencyContact1CellPhone') || hasError('emergencyContact1PhoneNumbers') }" />
             <p v-if="hasError('emergencyContact1CellPhone')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('emergencyContact1CellPhone') }}</p>
           </div>
           <div>
@@ -93,19 +93,20 @@ const isWalker = computed(() => props.type === 'walker')
           </div>
           <div>
             <Label for="emergencyContact2HomePhone">{{ $t('serverRegistration.fields.emergencyContact.homePhone') }}</Label>
-            <Input id="emergencyContact2HomePhone" v-model="formData.emergencyContact2HomePhone" :class="{ 'border-red-500': hasError('emergencyContact2HomePhone') || hasError('emergencyContact2PhoneNumbers') }" />
+            <Input id="emergencyContact2HomePhone" v-model="formData.emergencyContact2HomePhone" type="tel" inputmode="numeric" :class="{ 'border-red-500': hasError('emergencyContact2HomePhone') || hasError('emergencyContact2PhoneNumbers') }" />
             <p v-if="hasError('emergencyContact2HomePhone')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('emergencyContact2HomePhone') }}</p>
           </div>
           <div>
             <Label for="emergencyContact2WorkPhone">{{ $t('serverRegistration.fields.emergencyContact.workPhone') }}</Label>
-            <Input id="emergencyContact2WorkPhone" v-model="formData.emergencyContact2WorkPhone" />
+            <Input id="emergencyContact2WorkPhone" v-model="formData.emergencyContact2WorkPhone" type="tel" inputmode="numeric" :class="{ 'border-red-500': hasError('emergencyContact2WorkPhone') }" />
+            <p v-if="hasError('emergencyContact2WorkPhone')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('emergencyContact2WorkPhone') }}</p>
           </div>
           <div>
             <Label for="emergencyContact2CellPhone">
               {{ $t('serverRegistration.fields.emergencyContact.cellPhone') }}
               <span v-if="isWalker" class="text-red-500">*</span>
             </Label>
-            <Input id="emergencyContact2CellPhone" v-model="formData.emergencyContact2CellPhone" :class="{ 'border-red-500': hasError('emergencyContact2CellPhone') }" />
+            <Input id="emergencyContact2CellPhone" v-model="formData.emergencyContact2CellPhone" type="tel" inputmode="numeric" :class="{ 'border-red-500': hasError('emergencyContact2CellPhone') }" />
             <p v-if="hasError('emergencyContact2CellPhone')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('emergencyContact2CellPhone') }}</p>
           </div>
           <div>

@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import * as participantService from "../services/participantService";
 import { RecaptchaService } from "../services/recaptchaService";
-import { participantSchema } from "@repo/types";
+import { participantSchema, validateParticipantPhones } from "@repo/types";
 import { z } from "zod";
 import { authorizationService } from "../middleware/authorization";
 import { participantAvailabilityService } from "../services/participantAvailabilityService";
@@ -245,6 +245,22 @@ export const createParticipant = async (
       return res.status(400).json({ message: "Validation failed", errors });
     }
     const validatedData = zodResult.data;
+
+    // Validar teléfonos según el país del retiro (solo dígitos + longitud por país).
+    if (validatedData.retreatId) {
+      const { findById } = await import("../services/retreatService");
+      const retreat = await findById(validatedData.retreatId);
+      const phoneErrors = validateParticipantPhones(
+        validatedData as Record<string, string | null | undefined>,
+        retreat?.house?.country,
+      );
+      if (phoneErrors.length > 0) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: phoneErrors.map((e) => `${e.field}: ${e.message}`),
+        });
+      }
+    }
 
     // Dry-run mode: validate only, no DB writes
     if (dryRun === true) {

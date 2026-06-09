@@ -104,6 +104,7 @@ export const getRetreatByIdPublic = async (
       isRegistrationClosed: isRetreatPast(retreat.endDate),
       flyer_options: retreat.flyer_options || {},
       slug: retreat.slug,
+      country: retreat.house?.country ?? null,
       shirtTypes,
     });
   } catch (error) {
@@ -131,6 +132,7 @@ export const getRetreatBySlugPublic = async (
       isRegistrationClosed: isRetreatPast(retreat.endDate),
       flyer_options: retreat.flyer_options || {},
       slug: retreat.slug,
+      country: retreat.house?.country ?? null,
       shirtTypes,
     });
   } catch (error) {

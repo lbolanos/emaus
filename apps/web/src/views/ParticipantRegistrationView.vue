@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { useToast } from '@repo/ui'
 import { z } from 'zod'
-import { participantSchema, Participant } from '@repo/types'
+import { participantSchema, Participant, validatePhoneForCountry, phoneValidationMessage } from '@repo/types'
 import { useParticipantStore } from '@/stores/participantStore'
 import { getApiUrl } from '@/config/runtimeConfig'
 import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha'
@@ -44,6 +44,24 @@ const switchLocale = (lang: string) => {
 const validRetreatId = ref(props.retreatId || '')
 const isLoading = ref(true)
 const retreatData = ref<any>(null)
+
+// País del retiro (casa): define la regla de longitud de teléfono.
+const retreatCountry = computed<string | undefined>(() => retreatData.value?.country || undefined)
+
+const EMERGENCY_PHONE_FIELDS = [
+  'emergencyContact1HomePhone', 'emergencyContact1WorkPhone', 'emergencyContact1CellPhone',
+  'emergencyContact2HomePhone', 'emergencyContact2WorkPhone', 'emergencyContact2CellPhone',
+]
+
+// Agrega issues de Zod por cada teléfono inválido (solo dígitos + longitud por país del retiro).
+const addPhoneIssues = (fields: string[], data: Record<string, any>, ctx: z.RefinementCtx) => {
+  for (const field of fields) {
+    const result = validatePhoneForCountry(data[field], retreatCountry.value)
+    if (!result.valid) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [field], message: phoneValidationMessage(result)! })
+    }
+  }
+}
 
 const getInitialFormData = (): Partial<Omit<Participant, 'id'>> & { hasDisability?: boolean; isAngelito?: boolean; availability?: Array<{ startTime: string; endTime: string }> } => ({
   retreatId: validRetreatId.value,
@@ -165,6 +183,8 @@ const step1Schema = z.object({
 }).refine(data => data.cellPhone || data.workPhone || data.homePhone, {
   message: 'At least one phone number (Cell, Work, or Home) is required.',
   path: ['phoneNumbers'],
+}).superRefine((data, ctx) => {
+  addPhoneIssues(['homePhone', 'workPhone', 'cellPhone'], data, ctx)
 })
 
 const step2Schema = z.object({
@@ -245,6 +265,8 @@ const step4ServerSchema = z.object({
     val => (val === '' ? undefined : val),
     z.string().email({ message: 'Invalid email address' }).optional(),
   ),
+}).superRefine((data, ctx) => {
+  addPhoneIssues(EMERGENCY_PHONE_FIELDS, data, ctx)
 })
 
 // For walkers: 2 emergency contacts required, each with email and cell phone
@@ -267,6 +289,8 @@ const step4WalkerSchema = z.object({
     val => (val === '' ? undefined : val),
     z.string().email({ message: 'Invalid email address' }).min(1, 'Email is required for Emergency Contact 2'),
   ),
+}).superRefine((data, ctx) => {
+  addPhoneIssues(EMERGENCY_PHONE_FIELDS, data, ctx)
 })
 
 const step5WalkerSchema = z.object({
@@ -282,6 +306,8 @@ const step5WalkerSchema = z.object({
   ),
   pickupLocation: z.string().optional(),
   arrivesOnOwn: z.boolean().optional(),
+}).superRefine((data, ctx) => {
+  addPhoneIssues(['inviterHomePhone', 'inviterWorkPhone', 'inviterCellPhone'], data, ctx)
 })
 
 const step5ServerSchema = z.object({
@@ -776,6 +802,10 @@ onMounted(async () => {
     isLoading.value = false
   }
 })
+
+// Expuesto para pruebas: permite validar pasos y leer/escribir el estado del
+// formulario sin tener que conducir todo el flujo de UI.
+defineExpose({ validateStep, formData, formErrors, retreatData, retreatCountry })
 </script>
 
 <template>
