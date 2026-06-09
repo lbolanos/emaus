@@ -218,6 +218,8 @@ export class Participant {
 	// Virtual — populated from retreat_participants at query time
 	isCancelled?: boolean;
 	bagMade?: boolean;
+	// Confirmación de asistencia (pending/confirmed/declined) per-retiro.
+	attendanceConfirmation?: 'pending' | 'confirmed' | 'declined';
 
 	@Column({ type: 'text', nullable: true })
 	notes?: string; // Corresponde a 'notas'

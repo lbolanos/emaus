@@ -224,6 +224,7 @@
     "notesAndMeetingPoints": "Notas y Puntos de Encuentro",
     "rooms": "Etiquetas Cuartos",
     "userTypeAndTable": "Tipo de Usuario y Mesa",
+    "audit": "Auditoría",
     "food": "Alimentos",
     "cancellationAndNotes": "Cancelación y Notas",
     "waitingList": "Lista de Espera",
@@ -361,6 +362,14 @@
     "title": "Plantillas de Mensajes",
     "addNew": "Agregar Nueva Plantilla",
     "loading": "Cargando...",
+    "audience": {
+      "label": "Audiencia",
+      "all": "Todos",
+      "walker": "Caminantes",
+      "server": "Servidores",
+      "family": "Familiares",
+      "general": "General"
+    },
     "table": {
       "name": "Nombre",
       "type": "Tipo",
@@ -429,6 +438,8 @@
     "types": {
       "all": "Todos los Tipos",
       "WALKER_WELCOME": "Bienvenida Caminante",
+      "TABLE_LEADER_BRIEFING": "Briefing de Mesa para Líderes",
+      "WALKER_CONFIRMATION": "Confirmación de Asistencia (Caminante)",
       "SERVER_WELCOME": "Bienvenida Servidor",
       "EMERGENCY_CONTACT_VALIDATION": "Validación Contacto Emergencia",
       "PALANCA_REQUEST": "Solicitud Palanca",
@@ -627,6 +638,7 @@
     },
     "filters": {
       "title": "Filtros Avanzados",
+      "myTable": "Solo participantes de mi mesa",
       "tabs": {
         "health": "Salud",
         "logistics": "Logística",
@@ -1115,6 +1127,10 @@
       "colider1": "Co-Líder 1",
       "colider2": "Co-Líder 2"
     },
+    "briefing": {
+      "button": "Enviar info a líderes",
+      "chooseLeader": "Elige a quién enviar:"
+    },
     "unassignedServers": "Servidores Sin Asignar",
     "unassignedWalkers": "Caminantes Sin Asignar",
     "rebalanceWalkers": "Rebalancear Caminantes",
@@ -1161,6 +1177,16 @@
     },
     "viewWalkers": "Ver Caminantes",
     "invitedBy": "Invitado por",
+    "detail": {
+      "info": "Ver detalles",
+      "tags": "Etiquetas",
+      "phones": "Teléfonos",
+      "inviter": "Invitador",
+      "sendMessage": "Mandar mensaje",
+      "cell": "Cel",
+      "home": "Casa",
+      "work": "Trabajo"
+    },
     "tableCard": {
       "dialogTitle": "Caminantes e Invitadores",
       "walkerName": "Nombre del Caminante",
@@ -1632,6 +1658,14 @@
     "title": "Responsabilidades del Retiro",
     "description": "Gestiona las responsabilidades del retiro y asigna servidores a cada una",
     "createResponsability": "Crear Responsabilidad",
+    "addToTeam": "Agregar servidores al equipo",
+    "addToTeamDescription": "Elige los servidores activos que se agregarán a este equipo de servicio",
+    "teamLabel": "Equipo",
+    "teamLeaderLabel": "Líder (responsable)",
+    "currentMembersLabel": "Miembros actuales",
+    "serversToAddLabel": "Servidores a agregar",
+    "addMembersConfirm": "Agregar",
+    "noServersToAdd": "No hay servidores disponibles para agregar",
     "assignedParticipant": "Participante Asignado",
     "selectParticipantPlaceholder": "Elegir un participante...",
     "assign": "Asignar",

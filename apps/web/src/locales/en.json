@@ -221,6 +221,7 @@
     "notesAndMeetingPoints": "Notes & Meeting Points",
     "rooms": "Rooms Tags",
     "userTypeAndTable": "User Type & Table",
+    "audit": "Audit",
     "food": "Food",
     "cancellationAndNotes": "Cancellation & Notes",
     "waitingList": "Waiting List",
@@ -319,6 +320,14 @@
     "title": "Message Templates",
     "addNew": "Add New Template",
     "loading": "Loading...",
+    "audience": {
+      "label": "Audience",
+      "all": "All",
+      "walker": "Walkers",
+      "server": "Servers",
+      "family": "Family",
+      "general": "General"
+    },
     "table": {
       "name": "Name",
       "type": "Type",
@@ -372,6 +381,8 @@
     "types": {
       "all": "All Types",
       "WALKER_WELCOME": "Walker Welcome",
+      "TABLE_LEADER_BRIEFING": "Table Leader Briefing",
+      "WALKER_CONFIRMATION": "Walker Attendance Confirmation",
       "SERVER_WELCOME": "Server Welcome",
       "EMERGENCY_CONTACT_VALIDATION": "Emergency Contact Validation",
       "PALANCA_REQUEST": "Palanca Request",
@@ -577,6 +588,7 @@
     },
     "filters": {
       "title": "Advanced Filters",
+      "myTable": "Only participants from my table",
       "tabs": {
         "health": "Health",
         "logistics": "Logistics",
@@ -1040,6 +1052,10 @@
       "colider1": "Co-Leader 1",
       "colider2": "Co-Leader 2"
     },
+    "briefing": {
+      "button": "Send info to leaders",
+      "chooseLeader": "Choose who to send to:"
+    },
     "unassignedServers": "Unassigned Servers",
     "unassignedWalkers": "Unassigned Walkers",
     "rebalanceWalkers": "Rebalance Walkers",
@@ -1085,6 +1101,16 @@
     },
     "viewWalkers": "View Walkers",
     "invitedBy": "Invited by",
+    "detail": {
+      "info": "View details",
+      "tags": "Tags",
+      "phones": "Phones",
+      "inviter": "Inviter",
+      "sendMessage": "Send message",
+      "cell": "Cell",
+      "home": "Home",
+      "work": "Work"
+    },
     "tableCard": {
       "dialogTitle": "Walkers and Inviters",
       "walkerName": "Walker Name",
@@ -1552,6 +1578,14 @@
     "title": "Retreat Responsibilities",
     "description": "Manage retreat responsibilities and assign servers to each one",
     "createResponsability": "Create Responsability",
+    "addToTeam": "Add servers to team",
+    "addToTeamDescription": "Choose the active servers to add to this service team",
+    "teamLabel": "Team",
+    "teamLeaderLabel": "Leader (responsible)",
+    "currentMembersLabel": "Current members",
+    "serversToAddLabel": "Servers to add",
+    "addMembersConfirm": "Add",
+    "noServersToAdd": "No servers available to add",
     "assignedParticipant": "Assigned Participant",
     "selectParticipantPlaceholder": "Choose a participant...",
     "assign": "Assign",

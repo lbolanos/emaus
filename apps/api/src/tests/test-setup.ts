@@ -32,6 +32,7 @@ import { Tag } from '../entities/tag.entity';
 import { ParticipantTag } from '../entities/participantTag.entity';
 import { AuditLog } from '../entities/auditLog.entity';
 import { CommunityAuditLog } from '../entities/communityAuditLog.entity';
+import { DomainAuditLog } from '../entities/domainAuditLog.entity';
 // Note: RoleRequest and PermissionOverride excluded due to SQLite incompatibility
 // They use 'timestamp' and 'json' types which PostgreSQL supports but SQLite doesn't
 import { Session } from '../entities/session.entity';
@@ -98,6 +99,7 @@ const entities = [
 	ParticipantTag,
 	AuditLog,
 	CommunityAuditLog,
+	DomainAuditLog,
 	Community,
 	CommunityMember,
 	CommunityMeeting,
@@ -315,6 +317,7 @@ export async function clearTestData() {
 		'role',
 		'permission',
 		'audit_log',
+		'domain_audit_log',
 		'session',
 		'telemetry_event',
 		'telemetry_metric',

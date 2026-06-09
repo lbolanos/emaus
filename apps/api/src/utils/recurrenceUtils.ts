@@ -32,8 +32,15 @@ export function calculateNextOccurrence(
 		case 'weekly': {
 			// Calculate based on day of week
 			const intervalWeeks = interval || 1;
-			const targetDay = getDayNumber(dayOfWeek);
 			const currentDay = current.getDay();
+
+			// When no explicit day-of-week is given, "weekly" means "+N weeks on the
+			// same weekday as the start date" (i.e. always +7 days), NOT "jump to the
+			// next Sunday". Falling back to Sunday (getDayNumber(null) === 0) made the
+			// next occurrence land anywhere from +1 to +7 days depending on which
+			// weekday the start fell on — a date-dependent bug that broke
+			// recurrenceEndDate ceilings non-deterministically.
+			const targetDay = dayOfWeek ? getDayNumber(dayOfWeek) : currentDay;
 
 			// Calculate days until the next occurrence of the target day
 			// If current day is the target day, we want the NEXT occurrence (7 days later + intervals)

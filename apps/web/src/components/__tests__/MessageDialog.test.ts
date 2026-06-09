@@ -364,6 +364,70 @@ describe('MessageDialog Component', () => {
 		});
 	});
 
+	describe('displayName dinámico según el contacto', () => {
+		const participantWithContacts = createMockParticipant({
+			id: 'p-ec',
+			firstName: 'Juan',
+			lastName: 'Perez',
+			cellPhone: '5551110000',
+			emergencyContact1Name: 'Ana Ramírez',
+			emergencyContact1CellPhone: '5552220000',
+			emergencyContact2Name: 'Luis Ramírez',
+			emergencyContact2CellPhone: '5553330000',
+			invitedBy: 'Pedro Invitador',
+			inviterCellPhone: '5554440000',
+		});
+
+		it('con el contacto propio muestra el nombre del participante', async () => {
+			const wrapper = mountDialog({ participant: participantWithContacts });
+			const vm = wrapper.vm as any;
+			vm.selectedContact = '5551110000';
+			await nextTick();
+			expect(vm.displayName).toContain('Juan');
+			expect(vm.displayName).not.toContain('Contacto de emergencia');
+		});
+
+		it('al elegir el contacto de emergencia 1, muestra su nombre', async () => {
+			const wrapper = mountDialog({ participant: participantWithContacts });
+			const vm = wrapper.vm as any;
+			vm.selectedContact = '5552220000';
+			await nextTick();
+			expect(vm.displayName).toContain('Ana Ramírez');
+			expect(vm.displayName).toContain('Contacto de emergencia');
+		});
+
+		it('al elegir el contacto de emergencia 2, muestra su nombre', async () => {
+			const wrapper = mountDialog({ participant: participantWithContacts });
+			const vm = wrapper.vm as any;
+			vm.selectedContact = '5553330000';
+			await nextTick();
+			expect(vm.displayName).toContain('Luis Ramírez');
+		});
+
+		it('al elegir el teléfono del invitador, muestra su nombre', async () => {
+			const wrapper = mountDialog({ participant: participantWithContacts });
+			const vm = wrapper.vm as any;
+			vm.selectedContact = '5554440000';
+			await nextTick();
+			expect(vm.displayName).toContain('Pedro Invitador');
+			expect(vm.displayName).toContain('Invitador');
+		});
+
+		it('cambiar el contacto resetea isUserEditing para regenerar al nuevo destinatario', async () => {
+			// Regresión: con un borrador restaurado (isUserEditing=true) el cuerpo
+			// quedaba stale al cambiar de contacto. Ahora el cambio de contacto fuerza
+			// la regeneración para reflejar a la nueva persona.
+			const wrapper = mountDialog({ participant: participantWithContacts });
+			const vm = wrapper.vm as any;
+			vm.selectedTemplate = 'any-template-id';
+			vm.isUserEditing = true;
+			await nextTick();
+			vm.selectedContact = '5552220000'; // contacto de emergencia 1
+			await nextTick();
+			expect(vm.isUserEditing).toBe(false);
+		});
+	});
+
 	describe('Null participant handling', () => {
 		it('should handle null participant gracefully', () => {
 			const wrapper = mountDialog({ participant: null });

@@ -11,6 +11,7 @@ import {
 	checkParticipantEmail,
 	confirmExistingParticipantEmail,
 	checkInParticipant,
+	updateAttendanceConfirmation,
 	getReceptionStats,
 	getParticipantByDeleteToken,
 	deleteParticipantByDeleteToken,
@@ -63,6 +64,12 @@ router.put(
 	requirePermission('participant:update'),
 	requireRetreatAccess('retreatId', 'body'),
 	checkInParticipant,
+);
+router.patch(
+	'/:id/attendance-confirmation',
+	requirePermission('participant:update'),
+	requireRetreatAccess('retreatId', 'body'),
+	updateAttendanceConfirmation,
 );
 router.put(
 	'/:id',

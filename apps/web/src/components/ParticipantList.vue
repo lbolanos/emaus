@@ -4,6 +4,8 @@ import { storeToRefs } from 'pinia';
 import { useRoute } from 'vue-router';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useRetreatStore } from '@/stores/retreatStore';
+import { useMyParticipantId } from '@/composables/useMyParticipantId';
+import { useTableMesaStore } from '@/stores/tableMesaStore';
 import { getPalanqueroOptions, sendEmailViaBackend, getSmtpConfig, listShirtTypes, getParticipantById } from '@/services/api';
 import { useMessageTemplateStore } from '@/stores/messageTemplateStore';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
@@ -94,6 +96,43 @@ const { selectedRetreatId, serverRegistrationLink, walkerRegistrationLink } = st
 const { tags } = storeToRefs(participantStore);
 const messageTemplateStore = useMessageTemplateStore();
 const { templates: allMessageTemplates } = storeToRefs(messageTemplateStore);
+const tableMesaStore = useTableMesaStore();
+
+// El participant vinculado al usuario logueado (match por email en el registro).
+const myParticipantId = useMyParticipantId();
+
+// Mesas del retiro donde el usuario logueado es líder o colíder.
+const myTableIds = computed<string[]>(() => {
+    const me = myParticipantId.value;
+    if (!me) return [];
+    return (tableMesaStore.tables || [])
+        .filter((tt: any) => tt.lider?.id === me || tt.colider1?.id === me || tt.colider2?.id === me)
+        .map((tt: any) => tt.id);
+});
+
+// El filtro "mi mesa" solo se ofrece si el usuario lidera al menos una mesa.
+const canFilterByMyTable = computed(() => myTableIds.value.length > 0);
+const showOnlyMyTable = ref(false);
+
+// Filtro por estado de confirmación de asistencia (solo aplica a caminantes).
+const attendanceFilter = ref<'all' | 'pending' | 'confirmed' | 'declined'>('all');
+
+// Control de confirmación de asistencia por caminante (clic = avanza de estado).
+const ATTENDANCE_NEXT: Record<string, 'pending' | 'confirmed' | 'declined'> = {
+    pending: 'confirmed',
+    confirmed: 'declined',
+    declined: 'pending',
+};
+const attendanceMeta = (status?: string) => {
+    const s = status || 'pending';
+    if (s === 'confirmed') return { label: 'Confirmado', cls: 'bg-green-100 text-green-700 border-green-300', icon: '✓' };
+    if (s === 'declined') return { label: 'No asiste', cls: 'bg-red-100 text-red-700 border-red-300', icon: '✕' };
+    return { label: 'Por contactar', cls: 'bg-gray-100 text-gray-600 border-gray-300', icon: '•' };
+};
+const cycleAttendance = (p: any) => {
+    const next = ATTENDANCE_NEXT[(p.attendanceConfirmation as string) || 'pending'];
+    participantStore.setAttendanceConfirmation(p.id, next);
+};
 
 const palanqueroDisplayMap = ref<Record<string, string>>({});
 
@@ -438,8 +477,14 @@ const toggleColumn = (key: string) => {
 };
 // Watch for retreat changes to fetch tags and palanquero options
 watch(selectedRetreatId, async (newId) => {
+    // Al cambiar de retiro cambian las mesas; resetea el toggle de "mi mesa".
+    showOnlyMyTable.value = false;
     if (newId) {
         participantStore.fetchTags(newId);
+        // Carga las mesas para saber si el usuario es líder/colíder (filtro "mi mesa").
+        if (myParticipantId.value) {
+            tableMesaStore.fetchTables();
+        }
         try {
             const options = await getPalanqueroOptions(newId);
             const map: Record<string, string> = {};
@@ -466,6 +511,17 @@ const filteredAndSortedParticipants = computed(() => {
             (p.email?.toLowerCase().includes(lowerCaseQuery)) ||
             (p.nickname?.toLowerCase().includes(lowerCaseQuery))
         );
+    }
+
+    // Filtro "solo participantes de mi mesa" (si el usuario es líder/colíder).
+    if (showOnlyMyTable.value && myTableIds.value.length > 0) {
+        const ids = myTableIds.value;
+        result = result.filter((p: any) => p.tableId && ids.includes(p.tableId));
+    }
+
+    // Filtro por estado de confirmación de asistencia.
+    if (attendanceFilter.value !== 'all') {
+        result = result.filter((p: any) => (p.attendanceConfirmation || 'pending') === attendanceFilter.value);
     }
 
     const actualFilters = extractFilters(filters.value);
@@ -1373,6 +1429,36 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                         <X class="h-4 w-4" />
                     </button>
                 </div>
+                <select
+                    v-if="props.type === 'walker'"
+                    v-model="attendanceFilter"
+                    class="h-9 shrink-0 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    :class="{ 'border-blue-500 bg-blue-50 text-blue-600': attendanceFilter !== 'all' }"
+                    title="Filtrar por confirmación de asistencia"
+                >
+                    <option value="all">Confirmación: Todos</option>
+                    <option value="pending">Por contactar</option>
+                    <option value="confirmed">Confirmado</option>
+                    <option value="declined">No asiste</option>
+                </select>
+                <TooltipProvider v-if="canFilterByMyTable">
+                    <Tooltip>
+                        <TooltipTrigger as-child>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                @click="showOnlyMyTable = !showOnlyMyTable"
+                                :class="{ 'border-blue-500 bg-blue-50 text-blue-600': showOnlyMyTable }"
+                                class="shrink-0"
+                            >
+                                <Users class="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>{{ $t('participants.filters.myTable') }}</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger as-child>
@@ -1681,6 +1767,16 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                         </TableCell>
                         <TableCell class="no-print">
                             <div class="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                                <button
+                                    v-if="props.type === 'walker'"
+                                    type="button"
+                                    class="h-7 px-2 mr-1 rounded text-[11px] font-medium border whitespace-nowrap transition-colors"
+                                    :class="attendanceMeta(participant.attendanceConfirmation).cls"
+                                    :title="`Confirmación: ${attendanceMeta(participant.attendanceConfirmation).label} — clic para cambiar`"
+                                    @click="cycleAttendance(participant)"
+                                >
+                                    {{ attendanceMeta(participant.attendanceConfirmation).icon }} {{ attendanceMeta(participant.attendanceConfirmation).label }}
+                                </button>
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger as-child>

@@ -5,6 +5,7 @@ import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { autoAssignBedsForRetreat } from '../services/participantService';
 import { authorizationService } from '../middleware/authorization';
 import { sortRetreatBedsNaturally } from '../utils/naturalSort';
+import { domainAuditService, DomainAuditAction } from '../services/domainAuditService';
 import type { Request, Response, NextFunction } from 'express';
 
 export const getRetreatBeds = async (req: Request, res: Response, next: NextFunction) => {
@@ -53,6 +54,10 @@ export const assignParticipantToBed = async (req: Request, res: Response, next: 
 		const { participantId } = req.body; // participantId can be null to unassign
 		const userId = (req as any).user?.id;
 
+		// Capturados dentro de la transacción para auditar tras el commit.
+		let auditRetreatId: string | null = null;
+		let auditPreviousParticipantId: string | null = null;
+
 		// Use TypeORM transaction for atomic operations (auth check inside to prevent TOCTOU)
 		await AppDataSource.transaction(async (transactionalEntityManager) => {
 			const bedRepo = transactionalEntityManager.getRepository(RetreatBed);
@@ -63,6 +68,8 @@ export const assignParticipantToBed = async (req: Request, res: Response, next: 
 			if (!bedCheck) {
 				throw new Error('Bed not found');
 			}
+			auditRetreatId = bedCheck.retreatId;
+			auditPreviousParticipantId = bedCheck.participantId ?? null;
 			const hasAccess = await authorizationService.hasRetreatAccess(userId, bedCheck.retreatId);
 			if (!hasAccess) {
 				throw new Error('No access to this retreat');
@@ -119,6 +126,18 @@ export const assignParticipantToBed = async (req: Request, res: Response, next: 
 		const updatedBed = await retreatBedRepository.findOne({
 			where: { id: bedId },
 			relations: ['participant'],
+		});
+
+		const isUnassign = participantId === null;
+		void domainAuditService.log({
+			action: isUnassign ? DomainAuditAction.BED_UNASSIGN : DomainAuditAction.BED_ASSIGN,
+			resourceType: 'bed',
+			resourceId: bedId,
+			retreatId: auditRetreatId,
+			metadata: {
+				bedId,
+				participantId: isUnassign ? auditPreviousParticipantId : participantId,
+			},
 		});
 
 		res.json(updatedBed);
@@ -178,11 +197,22 @@ export const toggleBedActive = async (req: Request, res: Response, next: NextFun
 		}
 
 		// If disabling and bed has a participant, unassign them
+		const unassignedParticipantId = !isActive && bed.participantId ? bed.participantId : null;
 		if (!isActive && bed.participantId) {
 			await retreatBedRepository.update(bedId, { isActive, participantId: null });
 		} else {
 			await retreatBedRepository.update(bedId, { isActive });
 		}
+
+		void domainAuditService.log({
+			action: DomainAuditAction.BED_TOGGLE_ACTIVE,
+			resourceType: 'bed',
+			resourceId: bedId,
+			retreatId: bed.retreatId,
+			oldValues: { isActive: bed.isActive },
+			newValues: { isActive },
+			metadata: unassignedParticipantId ? { unassignedParticipantId } : undefined,
+		});
 
 		const updatedBed = await retreatBedRepository.findOne({
 			where: { id: bedId },
@@ -199,12 +229,19 @@ export const clearBedAssignments = async (req: Request, res: Response, next: Nex
 	try {
 		const { retreatId } = req.params;
 		const retreatBedRepository = AppDataSource.getRepository(RetreatBed);
-		await retreatBedRepository
+		const result = await retreatBedRepository
 			.createQueryBuilder()
 			.update(RetreatBed)
 			.set({ participantId: null })
 			.where('retreatId = :retreatId', { retreatId })
 			.execute();
+		void domainAuditService.log({
+			action: DomainAuditAction.BED_CLEAR_ALL,
+			resourceType: 'retreat',
+			resourceId: retreatId,
+			retreatId,
+			metadata: { affected: result.affected ?? null },
+		});
 		res.json({ message: 'Bed assignments cleared' });
 	} catch (error) {
 		next(error);

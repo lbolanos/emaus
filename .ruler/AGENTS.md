@@ -136,8 +136,10 @@ Sistema TypeORM contra SQLite. Comandos: `migration:generate`, `migration:run`, 
 - Migrations deben ser reversibles y documentar breaking changes.
 - **Trata de crear un solo archivo de migration por feature.**
 - **Avísale al usuario cuando necesites restaurar el backup de la base.**
+- **Migraciones que corren en prod NO deben importar `@repo/types`** (ni encadenar a un paquete del workspace con `main` `.ts`): quedan "pending" para siempre con `Unknown file extension .ts`. Usar valores literales / SQL plano (solo `typeorm` + `uuid`).
 
-> Cualquier migration con `DROP TABLE`, recreate-table, FK changes o cualquier cambio sobre tabla con FKs entrantes → cargar el skill **`sqlite-migrations`** (cubre el bug de `PRAGMA foreign_keys = OFF` dentro de transacciones TypeORM y la receta de recuperación cuando se borra data).
+> Cualquier migration con `DROP TABLE`, recreate-table, FK changes o cualquier cambio sobre tabla con FKs entrantes → cargar el skill **`sqlite-migrations`**.
+> Para operar la DB de prod (descargar con `make db-pull`, backups, DB corrupta, `database is locked`, watchdog) o cuando una migración **no corre en prod** pese a un deploy verde → cargar el skill **`db-production-resilience`**.
 
 ## Skills disponibles — cuándo cargarlas
 
@@ -146,6 +148,7 @@ Sistema TypeORM contra SQLite. Comandos: `migration:generate`, `migration:run`, 
 | Bug reportado por el usuario (UI congelada, página blanca, fechas saltan, checkbox no marca, test falla, etc.) | `troubleshooting` (índice maestro síntoma → causa → fix) |
 | Tocar fechas, horas, defaults de pickers, filtros por rango, `datetime-local`, helpers `makeDateInTimezone`/`calendarDateOnly` | `timezone-handling` |
 | Crear o modificar archivo en `apps/api/src/migrations/sqlite/` | `sqlite-migrations` |
+| Operar la DB de prod: `make db-pull`, backups, DB corrupta, `database is locked`/lock colgado, watchdog, o una migración que no corre en prod ("No pending migrations" / "Unknown file extension .ts") | `db-production-resilience` |
 | Agregar/modificar variables `{scope.var}` en plantillas, debugear variable que queda literal, o crear nuevo scope de reemplazo | `template-variables` |
 | Tocar lectura/escritura de `CommunityMember` (display, búsqueda, mensajes, attendance, edición de perfil), nombre/email que no coincide entre comunidad y retiro, o nuevo endpoint que mute `community_member.*` | `community-overlay` |
 | Tocar `community_member.state` (agregar estados, filtros de roster/asistencia/notificaciones, lógica de `notifyMemberStateChange`) | `community-state-semantics` |
@@ -205,6 +208,12 @@ Script: `/var/www/emaus/backup-db.sh` — cron diario a las **3:00 AM** del serv
 # Backup manual
 ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104 "bash /var/www/emaus/backup-db.sh"
 ```
+
+La DB de prod corre en **WAL**; un watchdog (`scripts/db-watchdog.sh`, cron cada minuto) detecta
+locks de escritura colgados y reinicia el API. Para descargar la DB usa **`make db-pull`** (snapshot
+`.backup` consistente), **nunca** `scp`/`cp` del `.sqlite` vivo (corrompe la copia).
+
+> Operar la DB de prod (db-pull, backups, DB corrupta, `database is locked`, lock colgado, watchdog) → skill **`db-production-resilience`**.
 
 ## Convenciones operativas
 

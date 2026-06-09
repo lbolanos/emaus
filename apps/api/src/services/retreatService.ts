@@ -15,9 +15,27 @@ import { createDefaultServiceTeamsForRetreat } from './serviceTeamService';
 import { createDefaultInventoryData } from '../data/inventorySeeder';
 import { createDefaultScheduleTemplate } from '../data/scheduleTemplateSeeder';
 import { authorizationService } from '../middleware/authorization';
+import { domainAuditService } from './domainAuditService';
 import { ROLES } from '@repo/types';
 import type { CreateRetreat, UpdateRetreat } from '@repo/types';
 import { v4 as uuidv4 } from 'uuid';
+
+// Campos de negocio del retiro que vale la pena auditar (allowlist para el diff).
+const RETREAT_AUDIT_FIELDS = [
+	'parish',
+	'slug',
+	'startDate',
+	'endDate',
+	'isPublic',
+	'max_walkers',
+	'max_servers',
+	'cost',
+	'paymentInfo',
+	'houseId',
+	'timezone',
+	'memoryPhotoUrl',
+	'musicPlaylistUrl',
+];
 
 export const getRetreats = async (dataSource?: DataSource) => {
 	const retreatRepository = getRepository(Retreat, dataSource);
@@ -197,8 +215,13 @@ export const update = async (
 	const newStartRaw = (retreatData as { startDate?: Date | string | null }).startDate;
 	const newStartMs = newStartRaw !== undefined ? toMs(newStartRaw) : null;
 
+	const oldSnapshot = { ...retreat };
 	Object.assign(retreat, retreatData);
 	await retreatRepository.save(retreat);
+	void domainAuditService.logUpdate('retreat', id, oldSnapshot, retreat, {
+		retreatId: id,
+		fields: RETREAT_AUDIT_FIELDS,
+	});
 
 	if (refreshBeds && retreat.houseId) {
 		await refreshRetreatBedsFromHouse(id, retreat.houseId, dataSource);
@@ -334,6 +357,11 @@ export const createRetreat = async (
 	const result = await repos.retreat.findOne({
 		where: { id: newRetreat.id },
 		relations: ['house'],
+	});
+
+	void domainAuditService.logCreate('retreat', newRetreat.id, newRetreat, {
+		retreatId: newRetreat.id,
+		fields: RETREAT_AUDIT_FIELDS,
 	});
 
 	return result;
