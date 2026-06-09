@@ -147,6 +147,42 @@ class S3Service {
 		await this.ensureClient().send(command);
 	}
 
+	// Per-photo key so a retreat can hold multiple memory photos without one
+	// overwriting another (the legacy `{retreatId}.webp` key was fixed per retreat).
+	async uploadRetreatMemoryPhotoById(
+		retreatId: string,
+		photoId: string,
+		buffer: Buffer,
+		contentType: string,
+	): Promise<UploadResult> {
+		const key = `${this.prefixes.retreatMemories}${retreatId}/${photoId}.webp`;
+
+		const command = new PutObjectCommand({
+			Bucket: this.bucketName,
+			Key: key,
+			Body: buffer,
+			ContentType: contentType,
+			CacheControl: 'public, max-age=31536000, immutable',
+		});
+
+		await this.ensureClient().send(command);
+
+		return {
+			url: this.getPublicUrl(key),
+			key,
+		};
+	}
+
+	// Delete a single memory photo by its stored S3 key.
+	async deleteRetreatMemoryPhotoByKey(key: string): Promise<void> {
+		const command = new DeleteObjectCommand({
+			Bucket: this.bucketName,
+			Key: key,
+		});
+
+		await this.ensureClient().send(command);
+	}
+
 	// Document storage methods
 	async uploadDocument(path: string, buffer: Buffer, contentType: string): Promise<UploadResult> {
 		const key = `${this.prefixes.documents}${path}`;

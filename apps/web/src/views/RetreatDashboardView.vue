@@ -1009,7 +1009,7 @@
           </Card>
 
           <!-- Memory Section -->
-          <Card v-if="selectedRetreat.memoryPhotoUrl || selectedRetreat.musicPlaylistUrl" class="md:col-span-2 group hover:shadow-md transition-all duration-300">
+          <Card v-if="dashboardHasMemories" class="md:col-span-2 group hover:shadow-md transition-all duration-300">
             <CardHeader class="pb-3">
               <CardTitle class="text-lg flex items-center gap-2">
                 <Camera class="w-4 h-4 text-primary" />
@@ -1017,22 +1017,24 @@
               </CardTitle>
             </CardHeader>
             <CardContent class="space-y-4">
-              <div v-if="selectedRetreat.memoryPhotoUrl">
-                <img
-                  :src="selectedRetreat.memoryPhotoUrl"
-                  alt="Foto del recuerdo"
-                  class="w-full h-64 object-cover rounded-lg shadow-sm"
+              <div v-if="dashboardHasPhotos" class="rounded-lg overflow-hidden shadow-sm">
+                <MemoryPhotoCarousel
+                  :photos="selectedRetreat.memoryPhotos"
+                  :fallback-url="selectedRetreat.memoryPhotoUrl"
+                  height-class="h-64"
                 />
               </div>
-              <div v-if="selectedRetreat.musicPlaylistUrl">
+              <div v-if="dashboardSongs.length" class="flex flex-wrap gap-2">
                 <a
-                  :href="selectedRetreat.musicPlaylistUrl"
+                  v-for="song in dashboardSongs"
+                  :key="song.id"
+                  :href="song.url"
                   target="_blank"
                   rel="noopener noreferrer"
                   class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-sm font-medium"
                 >
                   <Music class="w-4 h-4" />
-                  <span>{{ $t('retreatDashboard.listenMusic') }}</span>
+                  <span>{{ song.title || $t('retreatDashboard.listenMusic') }}</span>
                   <ExternalLink class="w-3.5 h-3.5 text-muted-foreground" />
                 </a>
               </div>
@@ -1158,6 +1160,7 @@ import { Progress } from '@repo/ui';
 import InviteUsersModal from '@/components/InviteUsersModal.vue';
 import DashboardCustomizePanel from '@/components/DashboardCustomizePanel.vue';
 import DashboardMiniStats from '@/components/DashboardMiniStats.vue';
+import MemoryPhotoCarousel from '@/components/social/MemoryPhotoCarousel.vue';
 import {
   AlertTriangle,
   BedDouble,
@@ -1208,6 +1211,25 @@ const route = useRoute();
 const router = useRouter();
 const retreatStore = useRetreatStore();
 const { selectedRetreat, walkerRegistrationLink, serverRegistrationLink } = storeToRefs(retreatStore);
+
+// --- Retreat memories (photos carousel + songs) ---
+const dashboardHasPhotos = computed(
+	() => (selectedRetreat.value?.memoryPhotos?.length ?? 0) > 0 || !!selectedRetreat.value?.memoryPhotoUrl,
+);
+const dashboardSongs = computed(() => {
+	const r = selectedRetreat.value;
+	if (!r) return [] as Array<{ id: string; url: string; title?: string | null }>;
+	if (r.memorySongs?.length) {
+		return [...r.memorySongs].sort((a, b) => {
+			if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
+			return a.sortOrder - b.sortOrder;
+		});
+	}
+	return r.musicPlaylistUrl
+		? [{ id: 'legacy', url: r.musicPlaylistUrl, title: null }]
+		: [];
+});
+const dashboardHasMemories = computed(() => dashboardHasPhotos.value || dashboardSongs.value.length > 0);
 const { toast } = useToast();
 const participantStore = useParticipantStore();
 const { participants } = storeToRefs(participantStore);

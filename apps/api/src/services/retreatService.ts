@@ -123,7 +123,10 @@ export const findActiveRetreats = async (dataSource?: DataSource) => {
 
 export const findById = async (id: string, dataSource?: DataSource) => {
 	const retreatRepository = getRepository(Retreat, dataSource);
-	return retreatRepository.findOne({ where: { id }, relations: ['house'] });
+	return retreatRepository.findOne({
+		where: { id },
+		relations: ['house', 'memoryPhotos', 'memorySongs'],
+	});
 };
 
 export const findBySlug = async (slug: string, dataSource?: DataSource) => {

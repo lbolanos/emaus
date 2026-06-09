@@ -776,6 +776,7 @@
              	:retreat-id="retreat.id"
              	:current-photo-url="retreat.memoryPhotoUrl"
              	:current-music-url="retreat.musicPlaylistUrl"
+             	:retreat-end-date="retreat.endDate"
              	@saved="handleMemorySaved"
             />
             <div v-else class="text-center py-8 text-muted-foreground">
@@ -1629,19 +1630,12 @@ function openClosingChurchUrl(kind: 'maps' | 'waze') {
 }
 
 const handleMemorySaved = (data: { memoryPhotoUrl?: string; musicPlaylistUrl?: string }) => {
-	// Update local retreat data when memory is saved
+	// Mirror the current primary photo/song onto the local retreat so the rest
+	// of the UI reflects additions, removals and primary changes immediately.
 	if (props.retreat) {
-		if (data.memoryPhotoUrl) {
-			props.retreat.memoryPhotoUrl = data.memoryPhotoUrl;
-		}
-		if (data.musicPlaylistUrl !== undefined) {
-			props.retreat.musicPlaylistUrl = data.musicPlaylistUrl;
-		}
+		props.retreat.memoryPhotoUrl = data.memoryPhotoUrl;
+		props.retreat.musicPlaylistUrl = data.musicPlaylistUrl;
 	}
-	toast({
-		title: 'Recuerdos guardados',
-		description: 'Los recuerdos del retiro se han actualizado correctamente',
-	});
 };
 
 // Watchers

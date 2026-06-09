@@ -12,75 +12,51 @@
 			</span>
 		</div>
 
-		<!-- Memory Photo -->
-		<div v-if="retreat.memoryPhotoUrl" class="mb-3 -mx-4 -mt-4">
-			<img
-				:src="retreat.memoryPhotoUrl"
-				alt="Foto del recuerdo"
-				class="w-full h-48 object-cover"
-			/>
+		<!-- Memory Photos (carousel) -->
+		<div v-if="hasPhotos" class="mb-3 -mx-4 overflow-hidden">
+			<MemoryPhotoCarousel :photos="retreat.memoryPhotos" :fallback-url="retreat.memoryPhotoUrl" />
 		</div>
 
-		<!-- Music Playlist -->
-		<div v-if="retreat.musicPlaylistUrl" class="mb-3">
+		<!-- Manual Memory Songs -->
+		<div v-if="manualSongs.length" class="mb-3 space-y-2">
 			<a
-				:href="retreat.musicPlaylistUrl"
+				v-for="song in manualSongs"
+				:key="song.id"
+				:href="song.url"
 				target="_blank"
 				rel="noopener noreferrer"
-				class="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-secondary hover:bg-secondary/80 transition-colors text-sm"
+				class="flex items-center gap-2 px-3 py-2 rounded-md bg-secondary hover:bg-secondary/80 transition-colors text-sm"
+				:class="{ 'ring-1 ring-primary/40': song.isPrimary }"
 			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="16"
-					height="16"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				>
-					<path d="M9 18V5l12-2v13"></path>
-					<circle cx="6" cy="18" r="3"></circle>
-					<circle cx="18" cy="16" r="3"></circle>
-				</svg>
-				<span>Escuchar música del retiro</span>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="14"
-					height="14"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				>
-					<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-					<polyline points="15 3 21 3 21 9"></polyline>
-					<line x1="10" y1="14" x2="21" y2="3"></line>
-				</svg>
+				<Music class="w-4 h-4 flex-shrink-0" />
+				<span class="flex-1 min-w-0 truncate">{{ song.title || 'Escuchar música del retiro' }}</span>
+				<Star v-if="song.isPrimary" class="w-3.5 h-3.5 flex-shrink-0 fill-primary text-primary" />
+				<ExternalLink class="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground" />
 			</a>
 		</div>
 
+		<!-- MAM Songs (música usada en las charlas y actividades) -->
+		<div v-if="mamSongs.length" class="mb-3">
+			<p class="text-xs font-medium text-muted-foreground mb-1.5">Música del minuto a minuto</p>
+			<div class="space-y-1.5">
+				<a
+					v-for="song in mamSongs"
+					:key="song.id"
+					:href="song.url"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="flex items-center gap-2 px-3 py-1.5 rounded-md bg-secondary/60 hover:bg-secondary transition-colors text-sm"
+				>
+					<Music class="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground" />
+					<span class="flex-1 min-w-0 truncate">{{ song.title || song.url }}</span>
+					<ExternalLink class="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground" />
+				</a>
+			</div>
+		</div>
+
 		<!-- Empty state -->
-		<div v-if="!retreat.memoryPhotoUrl && !retreat.musicPlaylistUrl" class="text-center py-6 text-muted-foreground">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				width="48"
-				height="48"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="1.5"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				class="mx-auto mb-2 opacity-50"
-			>
-				<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-				<circle cx="8.5" cy="8.5" r="1.5"></circle>
-				<polyline points="21 15 16 10 5 21"></polyline>
-			</svg>
+		<div v-if="!hasPhotos && !manualSongs.length && !mamSongs.length" class="text-center py-6 text-muted-foreground">
+			<ImageIcon class="mx-auto mb-2 opacity-50 w-12 h-12" />
 			<p class="text-sm">No hay recuerdos añadidos aún</p>
 		</div>
 	</div>
@@ -88,13 +64,44 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { Retreat } from '@repo/types';
+import type { Retreat, RetreatMemorySong } from '@repo/types';
+import { Music, Star, ExternalLink, Image as ImageIcon } from 'lucide-vue-next';
+import MemoryPhotoCarousel from './MemoryPhotoCarousel.vue';
 
 interface Props {
 	retreat: Retreat;
 }
 
 const props = defineProps<Props>();
+
+const hasPhotos = computed(
+	() => (props.retreat.memoryPhotos?.length ?? 0) > 0 || !!props.retreat.memoryPhotoUrl,
+);
+
+type SongView = Pick<RetreatMemorySong, 'id' | 'url' | 'title' | 'isPrimary'>;
+
+// Manual songs (added by hand): primary first; fall back to the legacy single
+// playlist URL for old retreats with no gallery rows.
+const manualSongs = computed<SongView[]>(() => {
+	const manual = (props.retreat.memorySongs ?? []).filter((s) => s.source !== 'mam');
+	if (manual.length) {
+		return [...manual].sort((a, b) => {
+			if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
+			return a.sortOrder - b.sortOrder;
+		});
+	}
+	if (props.retreat.musicPlaylistUrl) {
+		return [{ id: 'legacy', url: props.retreat.musicPlaylistUrl, title: null, isPrimary: true }];
+	}
+	return [];
+});
+
+// MAM songs (música de las charlas/actividades importada del minuto a minuto).
+const mamSongs = computed<SongView[]>(() =>
+	[...(props.retreat.memorySongs ?? [])]
+		.filter((s) => s.source === 'mam')
+		.sort((a, b) => a.sortOrder - b.sortOrder),
+);
 
 const retreatTypeLabel = computed(() => {
 	const labels: Record<string, string> = {

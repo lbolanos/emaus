@@ -15,6 +15,9 @@ import type {
 import { setupCsrfInterceptor } from "@/utils/csrf";
 import { getApiUrl } from "@/config/runtimeConfig";
 
+// Helper de mensajes de error legibles (módulo puro, sin side-effects).
+export { apiErrorMessage } from "./apiError";
+
 // Extend axios request config to include metadata
 declare module "axios" {
   interface InternalAxiosRequestConfig {
@@ -1925,6 +1928,95 @@ export async function updateRetreatMemory(
 
 export async function getAttendedRetreats(): Promise<Retreat[]> {
   const response = await api.get("/retreats/attended");
+  return response.data;
+}
+
+// ==================== RETREAT MEMORY GALLERY API ====================
+
+import type { RetreatMemoryPhoto, RetreatMemorySong } from "@repo/types";
+
+export interface RetreatMemories {
+  photos: RetreatMemoryPhoto[];
+  songs: RetreatMemorySong[];
+}
+
+export async function getRetreatMemories(
+  retreatId: string,
+): Promise<RetreatMemories> {
+  const response = await api.get(`/retreats/${retreatId}/memories`);
+  return response.data;
+}
+
+export async function addRetreatMemoryPhoto(
+  retreatId: string,
+  photoData: string,
+): Promise<RetreatMemoryPhoto> {
+  const response = await api.post(`/retreats/${retreatId}/memory-photos`, {
+    photoData,
+  });
+  return response.data;
+}
+
+export async function deleteRetreatMemoryPhoto(
+  retreatId: string,
+  photoId: string,
+): Promise<void> {
+  await api.delete(`/retreats/${retreatId}/memory-photos/${photoId}`);
+}
+
+export async function setPrimaryRetreatMemoryPhoto(
+  retreatId: string,
+  photoId: string,
+): Promise<RetreatMemories> {
+  const response = await api.put(
+    `/retreats/${retreatId}/memory-photos/${photoId}/primary`,
+  );
+  return response.data;
+}
+
+export async function addRetreatMemorySong(
+  retreatId: string,
+  data: { url: string; title?: string },
+): Promise<RetreatMemorySong> {
+  const response = await api.post(`/retreats/${retreatId}/memory-songs`, data);
+  return response.data;
+}
+
+export async function updateRetreatMemorySong(
+  retreatId: string,
+  songId: string,
+  data: { url?: string; title?: string },
+): Promise<RetreatMemorySong> {
+  const response = await api.put(
+    `/retreats/${retreatId}/memory-songs/${songId}`,
+    data,
+  );
+  return response.data;
+}
+
+export async function deleteRetreatMemorySong(
+  retreatId: string,
+  songId: string,
+): Promise<void> {
+  await api.delete(`/retreats/${retreatId}/memory-songs/${songId}`);
+}
+
+export async function setPrimaryRetreatMemorySong(
+  retreatId: string,
+  songId: string,
+): Promise<RetreatMemories> {
+  const response = await api.put(
+    `/retreats/${retreatId}/memory-songs/${songId}/primary`,
+  );
+  return response.data;
+}
+
+export async function importRetreatMemorySongsFromMam(
+  retreatId: string,
+): Promise<{ imported: number; skipped: number; songs: RetreatMemorySong[] }> {
+  const response = await api.post(
+    `/retreats/${retreatId}/memory-songs/import-from-mam`,
+  );
   return response.data;
 }
 

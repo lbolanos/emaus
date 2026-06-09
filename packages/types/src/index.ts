@@ -87,6 +87,49 @@ export const flyerOptionsSchema = z.object({
 });
 export type FlyerOptions = z.infer<typeof flyerOptionsSchema>;
 
+// Retreat Memory Photo (read) — `url` may be an S3 https URL or a base64 data URI
+// (disk/base64 storage), so it is a plain string, not a strict URL.
+export const retreatMemoryPhotoSchema = z.object({
+	id: idSchema,
+	retreatId: idSchema,
+	url: z.string(),
+	isPrimary: z.boolean(),
+	sortOrder: z.number().int(),
+	createdAt: z.coerce.date(),
+});
+export type RetreatMemoryPhoto = z.infer<typeof retreatMemoryPhotoSchema>;
+
+// Retreat Memory Song (read)
+export const retreatMemorySongSchema = z.object({
+	id: idSchema,
+	retreatId: idSchema,
+	url: z.string().url(),
+	title: z.string().nullable().optional(),
+	// 'manual' = agregada en el form de Recuerdos; 'mam' = importada del minuto a minuto.
+	source: z.enum(['manual', 'mam']).default('manual'),
+	isPrimary: z.boolean(),
+	sortOrder: z.number().int(),
+	createdAt: z.coerce.date(),
+});
+export type RetreatMemorySong = z.infer<typeof retreatMemorySongSchema>;
+
+// Write schemas — only the fields the client actually sends. Derived/read-only
+// fields (id, isPrimary, sortOrder, createdAt) are assigned server-side and must
+// NOT be required in the request body (recurring 400 bug otherwise).
+export const createRetreatMemoryPhotoSchema = z.object({
+	photoData: z.string().min(1),
+});
+export type CreateRetreatMemoryPhoto = z.infer<typeof createRetreatMemoryPhotoSchema>;
+
+export const createRetreatMemorySongSchema = z.object({
+	url: z.string().url(),
+	title: z.string().trim().max(200).optional(),
+});
+export type CreateRetreatMemorySong = z.infer<typeof createRetreatMemorySongSchema>;
+
+export const updateRetreatMemorySongSchema = createRetreatMemorySongSchema.partial();
+export type UpdateRetreatMemorySong = z.infer<typeof updateRetreatMemorySongSchema>;
+
 // Retreat Schema
 export const retreatSchema = z.object({
 	id: idSchema,
@@ -119,6 +162,10 @@ export const retreatSchema = z.object({
 	flyer_options: flyerOptionsSchema.optional(),
 	memoryPhotoUrl: z.string().url().optional().or(z.literal('')),
 	musicPlaylistUrl: z.string().url().optional().or(z.literal('')),
+	// Read-only galleries (loaded via relations). Derived primary fields above
+	// (memoryPhotoUrl/musicPlaylistUrl) mirror the item marked isPrimary.
+	memoryPhotos: z.array(retreatMemoryPhotoSchema).optional(),
+	memorySongs: z.array(retreatMemorySongSchema).optional(),
 	notifyParticipant: z.boolean().default(true),
 	notifyInviter: z.boolean().default(true),
 	notifyPalanqueros: z.array(z.number().int().min(1).max(3)).transform(arr => [...new Set(arr)]).optional(),
@@ -449,13 +496,15 @@ export type UpdateParticipant = z.infer<typeof updateParticipantSchema.shape.bod
 
 // POST /retreats — createdBy is assigned server-side from the authenticated user, never from the body.
 export const createRetreatSchema = z.object({
-	body: retreatSchema.omit({ id: true, createdBy: true }),
+	body: retreatSchema.omit({ id: true, createdBy: true, memoryPhotos: true, memorySongs: true }),
 });
 export type CreateRetreat = z.infer<typeof createRetreatSchema.shape.body>;
 
 // PUT /retreats/:id — createdBy must not be reassignable via an update request.
 export const updateRetreatSchema = z.object({
-	body: retreatSchema.omit({ id: true, createdBy: true }).partial(),
+	body: retreatSchema
+		.omit({ id: true, createdBy: true, memoryPhotos: true, memorySongs: true })
+		.partial(),
 	params: z.object({ id: idSchema }),
 });
 export type UpdateRetreat = z.infer<typeof updateRetreatSchema.shape.body>;
@@ -508,6 +557,7 @@ export * from './community';
 export * from './testimonial';
 export * from './santisimo';
 export * from './schedule';
+export * from './scheduleTime';
 export * from './availability';
 export * from './phone';
 

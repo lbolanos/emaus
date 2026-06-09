@@ -7,6 +7,8 @@ import { TestDataFactory } from "../test-utils/testDataFactory";
 import { Retreat } from "../../entities/retreat.entity";
 import { House } from "../../entities/house.entity";
 import { User } from "../../entities/user.entity";
+import { RetreatScheduleItem } from "../../entities/retreatScheduleItem.entity";
+import { RetreatMemorySong } from "../../entities/retreatMemorySong.entity";
 import * as bcrypt from "bcrypt";
 import { v4 as uuidv4 } from "uuid";
 import * as retreatController from "../../controllers/retreatController";
@@ -586,6 +588,96 @@ describe("Retreat Controller", () => {
       const response = res.json.mock.calls[0][0];
       expect(response).toHaveProperty("message");
       expect(response.message).toContain("gafetes");
+    });
+  });
+
+  describe("importRetreatMemorySongsFromMam", () => {
+    // Earlier tests spy on retreatService.findById; the suite's beforeEach uses
+    // jest.clearAllMocks() which does NOT restore spy implementations. These
+    // tests need the REAL findById/services, so restore before each.
+    beforeEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    const addScheduleItem = async (
+      retreatId: string,
+      name: string,
+      musicTrackUrl: string | null,
+      orderInDay = 0,
+    ) => {
+      const repo = getTestDataSource().getRepository(RetreatScheduleItem);
+      const item = repo.create({
+        retreatId,
+        name,
+        type: "charla",
+        day: 1,
+        startTime: new Date("2026-04-17T09:00:00Z"),
+        endTime: new Date("2026-04-17T10:00:00Z"),
+        durationMinutes: 60,
+        orderInDay,
+        status: "pending",
+        musicTrackUrl,
+      });
+      return repo.save(item);
+    };
+
+    it("rechaza con 400 si el retiro aún no ha terminado", async () => {
+      // Default endDate is 3 days in the future.
+      const retreat = await TestDataFactory.createTestRetreat();
+      await addScheduleItem(retreat.id, "Charla", "https://a.com");
+
+      const req = createMockRequest({ params: { id: retreat.id } });
+      const res = createMockResponse();
+      await retreatController.importRetreatMemorySongsFromMam(
+        req,
+        res,
+        mockNext,
+      );
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json.mock.calls[0][0].message).toContain("no ha terminado");
+      // No se insertó ninguna canción.
+      const count = await getTestDataSource()
+        .getRepository(RetreatMemorySong)
+        .count({ where: { retreatId: retreat.id } });
+      expect(count).toBe(0);
+    });
+
+    it("importa la música del MAM cuando el retiro ya terminó", async () => {
+      const retreat = await TestDataFactory.createTestRetreat({
+        startDate: new Date("2000-01-01"),
+        endDate: new Date("2000-01-03"),
+      });
+      await addScheduleItem(retreat.id, "Charla: La Rosa", "https://rosa.com", 0);
+      await addScheduleItem(retreat.id, "Testimonio 1", "https://t1.com", 1);
+      await addScheduleItem(retreat.id, "Sin música", null, 2);
+
+      const req = createMockRequest({ params: { id: retreat.id } });
+      const res = createMockResponse();
+      await retreatController.importRetreatMemorySongsFromMam(
+        req,
+        res,
+        mockNext,
+      );
+
+      expect(res.status).not.toHaveBeenCalledWith(400);
+      const payload = res.json.mock.calls[0][0];
+      expect(payload.imported).toBe(2);
+      expect(payload.skipped).toBe(0);
+      expect(
+        payload.songs.filter((s: any) => s.source === "mam"),
+      ).toHaveLength(2);
+    });
+
+    it("responde 404 si el retiro no existe", async () => {
+      const req = createMockRequest({ params: { id: uuidv4() } });
+      const res = createMockResponse();
+      await retreatController.importRetreatMemorySongsFromMam(
+        req,
+        res,
+        mockNext,
+      );
+      expect(res.status).toHaveBeenCalledWith(404);
     });
   });
 });

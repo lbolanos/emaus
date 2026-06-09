@@ -61,6 +61,8 @@ import { RetreatScheduleItem } from '../entities/retreatScheduleItem.entity';
 import { RetreatScheduleItemResponsable } from '../entities/retreatScheduleItemResponsable.entity';
 import { RetreatShirtType } from '../entities/retreatShirtType.entity';
 import { ParticipantShirtSize } from '../entities/participantShirtSize.entity';
+import { RetreatMemoryPhoto } from '../entities/retreatMemoryPhoto.entity';
+import { RetreatMemorySong } from '../entities/retreatMemorySong.entity';
 
 export function createDatabaseConfig() {
 	const dbType = process.env.DB_TYPE || 'sqlite';
@@ -136,6 +138,9 @@ export function createDatabaseConfig() {
 		// Shirt types per retreat
 		RetreatShirtType,
 		ParticipantShirtSize,
+		// Retreat memories (galleries)
+		RetreatMemoryPhoto,
+		RetreatMemorySong,
 		// Temporarily excluding entities with enum issues
 		// PermissionOverride,
 		// RoleRequest,

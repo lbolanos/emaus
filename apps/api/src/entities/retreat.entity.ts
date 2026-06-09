@@ -10,6 +10,8 @@ import { User } from './user.entity';
 import { Payment } from './payment.entity';
 import { Tag } from './tag.entity';
 import { RetreatParticipant } from './retreatParticipant.entity';
+import { RetreatMemoryPhoto } from './retreatMemoryPhoto.entity';
+import { RetreatMemorySong } from './retreatMemorySong.entity';
 
 @Entity('retreat')
 export class Retreat {
@@ -149,4 +151,10 @@ export class Retreat {
 
 	@OneToMany(() => Payment, (payment) => payment.retreat)
 	payments!: Payment[];
+
+	@OneToMany(() => RetreatMemoryPhoto, (photo) => photo.retreat)
+	memoryPhotos!: RetreatMemoryPhoto[];
+
+	@OneToMany(() => RetreatMemorySong, (song) => song.retreat)
+	memorySongs!: RetreatMemorySong[];
 }

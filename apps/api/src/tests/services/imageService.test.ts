@@ -255,6 +255,30 @@ describe('ImageService', () => {
 			// and the base64 data is too short. This test validates the conversion flow.
 		});
 
+		// Regression: retreatController.uploadRetreatMemoryPhoto used to pass the WHOLE
+		// { buffer, contentType } object (not .buffer) and a hardcoded "image/*" to
+		// processAvatar, which always failed magic-byte validation with
+		// "File content does not match declared MIME type" -> 500/503 on prod uploads.
+		// The correct contract is: destructure base64ToBuffer() and pass the detected
+		// contentType. See feedback: memory-photo 503 (2026-06-09).
+		test('processAvatar must receive destructured buffer + detected contentType', async () => {
+			const pngBase64 =
+				'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+			mockMetadata.mockResolvedValueOnce({ width: 1, height: 1, format: 'png' });
+
+			const result = imageService.base64ToBuffer(pngBase64);
+
+			// Correct wiring (what the controller now does) must NOT throw.
+			await expect(
+				imageService.processAvatar(result.buffer, result.contentType),
+			).resolves.toBeDefined();
+
+			// Buggy wiring (passing the wrapper object + "image/*") must fail magic bytes.
+			await expect(
+				imageService.processAvatar(result as unknown as Buffer, 'image/*'),
+			).rejects.toThrow('File content does not match declared MIME type');
+		});
+
 		test('should handle different aspect ratios correctly', async () => {
 			const jpegBuffer = Buffer.from([
 				0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01,

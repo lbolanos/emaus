@@ -13,12 +13,26 @@ import {
 	exportBadgesToDocx,
 	uploadRetreatMemoryPhoto,
 	updateRetreatMemory,
+	getRetreatMemories,
+	addRetreatMemoryPhoto,
+	deleteRetreatMemoryPhoto,
+	setPrimaryRetreatMemoryPhoto,
+	addRetreatMemorySong,
+	updateRetreatMemorySong,
+	deleteRetreatMemorySong,
+	setPrimaryRetreatMemorySong,
+	importRetreatMemorySongsFromMam,
 	getAttendedRetreats,
 	refreshRetreatBeds,
 } from '../controllers/retreatController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { validateRequest } from '../middleware/validateRequest';
-import { createRetreatSchema, updateRetreatSchema } from '@repo/types';
+import {
+	createRetreatSchema,
+	updateRetreatSchema,
+	createRetreatMemorySongSchema,
+	updateRetreatMemorySongSchema,
+} from '@repo/types';
 import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
 
 const router = Router();
@@ -68,10 +82,53 @@ router.post(
 	(req: any, res: any, next: any) => exportBadgesToDocx(req, res, next),
 );
 
-// Retreat memory routes
+// Retreat memory routes (legacy single-value, kept for cached clients)
 router.post('/:id/memory-photo', requireRetreatAccess('id'), uploadRetreatMemoryPhoto);
 
 router.put('/:id/memory', requireRetreatAccess('id'), updateRetreatMemory);
+
+// Retreat memory gallery routes (multiple photos + songs)
+router.get('/:id/memories', requireRetreatAccess('id'), getRetreatMemories);
+
+router.post('/:id/memory-photos', requireRetreatAccess('id'), addRetreatMemoryPhoto);
+router.delete(
+	'/:id/memory-photos/:photoId',
+	requireRetreatAccess('id'),
+	deleteRetreatMemoryPhoto,
+);
+router.put(
+	'/:id/memory-photos/:photoId/primary',
+	requireRetreatAccess('id'),
+	setPrimaryRetreatMemoryPhoto,
+);
+
+router.post(
+	'/:id/memory-songs',
+	requireRetreatAccess('id'),
+	validateRequest(createRetreatMemorySongSchema),
+	addRetreatMemorySong,
+);
+router.post(
+	'/:id/memory-songs/import-from-mam',
+	requireRetreatAccess('id'),
+	importRetreatMemorySongsFromMam,
+);
+router.put(
+	'/:id/memory-songs/:songId',
+	requireRetreatAccess('id'),
+	validateRequest(updateRetreatMemorySongSchema),
+	updateRetreatMemorySong,
+);
+router.delete(
+	'/:id/memory-songs/:songId',
+	requireRetreatAccess('id'),
+	deleteRetreatMemorySong,
+);
+router.put(
+	'/:id/memory-songs/:songId/primary',
+	requireRetreatAccess('id'),
+	setPrimaryRetreatMemorySong,
+);
 
 router.post(
 	'/:id/refresh-beds',

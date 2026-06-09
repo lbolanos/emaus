@@ -15,9 +15,7 @@ import { AppDataSource } from "../data-source";
 import { Retreat } from "../entities/retreat.entity";
 import { Participant } from "../entities/participant.entity";
 import { RetreatParticipant } from "../entities/retreatParticipant.entity";
-import { avatarStorageService } from "../services/avatarStorageService";
-import { s3Service } from "../services/s3Service";
-import { imageService } from "../services/imageService";
+import { retreatMemoryService } from "../services/retreatMemoryService";
 
 export const getAllRetreats = async (
   req: Request,
@@ -299,6 +297,11 @@ export const exportBadgesToDocx = async (
   }
 };
 
+// ---------------------------------------------------------------------------
+// Legacy single-value endpoints (kept for cached clients). They now delegate
+// to the gallery service so the new child tables stay the source of truth.
+// ---------------------------------------------------------------------------
+
 export const uploadRetreatMemoryPhoto = async (
   req: Request,
   res: Response,
@@ -317,27 +320,8 @@ export const uploadRetreatMemoryPhoto = async (
       return res.status(404).json({ message: "Retreat not found" });
     }
 
-    // Delete old photo if exists
-    if (retreat.memoryPhotoUrl && avatarStorageService.isS3Storage()) {
-      await s3Service.deleteRetreatMemoryPhoto(retreatId);
-    }
-
-    let photoUrl: string;
-    if (avatarStorageService.isS3Storage()) {
-      const buffer = imageService.base64ToBuffer(photoData);
-      const processed = await imageService.processAvatar(buffer, "image/*");
-      const result = await s3Service.uploadRetreatMemoryPhoto(
-        retreatId,
-        processed.buffer,
-        processed.contentType,
-      );
-      photoUrl = result.url;
-    } else {
-      photoUrl = photoData;
-    }
-
-    const updated = await update(retreatId, { memoryPhotoUrl: photoUrl });
-    res.json({ memoryPhotoUrl: updated?.memoryPhotoUrl });
+    const photo = await retreatMemoryService.addPhoto(retreatId, photoData);
+    res.json({ memoryPhotoUrl: photo.url });
   } catch (error) {
     next(error);
   }
@@ -352,15 +336,172 @@ export const updateRetreatMemory = async (
     const { id: retreatId } = req.params;
     const { musicPlaylistUrl } = req.body;
 
-    const retreat = await update(retreatId, { musicPlaylistUrl });
+    const retreat = await findById(retreatId);
     if (!retreat) {
       return res.status(404).json({ message: "Retreat not found" });
     }
 
+    if (musicPlaylistUrl) {
+      await retreatMemoryService.addSong(retreatId, { url: musicPlaylistUrl });
+    }
+
+    const refreshed = await findById(retreatId);
     res.json({
-      musicPlaylistUrl: retreat.musicPlaylistUrl,
-      memoryPhotoUrl: retreat.memoryPhotoUrl,
+      musicPlaylistUrl: refreshed?.musicPlaylistUrl,
+      memoryPhotoUrl: refreshed?.memoryPhotoUrl,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Gallery endpoints (multiple photos + songs, with a designated primary).
+// ---------------------------------------------------------------------------
+
+export const getRetreatMemories = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id: retreatId } = req.params;
+    const memories = await retreatMemoryService.listMemories(retreatId);
+    res.json(memories);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const addRetreatMemoryPhoto = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id: retreatId } = req.params;
+    const { photoData } = req.body;
+    if (!photoData) {
+      return res.status(400).json({ message: "photoData is required" });
+    }
+    const photo = await retreatMemoryService.addPhoto(retreatId, photoData);
+    res.status(201).json(photo);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteRetreatMemoryPhoto = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id: retreatId, photoId } = req.params;
+    await retreatMemoryService.deletePhoto(retreatId, photoId);
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const setPrimaryRetreatMemoryPhoto = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id: retreatId, photoId } = req.params;
+    await retreatMemoryService.setPrimaryPhoto(retreatId, photoId);
+    const memories = await retreatMemoryService.listMemories(retreatId);
+    res.json(memories);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const addRetreatMemorySong = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id: retreatId } = req.params;
+    const { url, title } = req.body;
+    const song = await retreatMemoryService.addSong(retreatId, { url, title });
+    res.status(201).json(song);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateRetreatMemorySong = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id: retreatId, songId } = req.params;
+    const { url, title } = req.body;
+    const song = await retreatMemoryService.updateSong(retreatId, songId, { url, title });
+    res.json(song);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteRetreatMemorySong = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id: retreatId, songId } = req.params;
+    await retreatMemoryService.deleteSong(retreatId, songId);
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const setPrimaryRetreatMemorySong = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id: retreatId, songId } = req.params;
+    await retreatMemoryService.setPrimarySong(retreatId, songId);
+    const memories = await retreatMemoryService.listMemories(retreatId);
+    res.json(memories);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Import every minute-by-minute item's music into the gallery. Only allowed
+// once the retreat has ended.
+export const importRetreatMemorySongsFromMam = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id: retreatId } = req.params;
+    const retreat = await findById(retreatId);
+    if (!retreat) {
+      return res.status(404).json({ message: "Retreat not found" });
+    }
+    if (!isRetreatPast(retreat.endDate)) {
+      return res
+        .status(400)
+        .json({ message: "El retiro aún no ha terminado." });
+    }
+
+    const { imported, skipped } =
+      await retreatMemoryService.importSongsFromMam(retreatId);
+    const memories = await retreatMemoryService.listMemories(retreatId);
+    res.json({ imported, skipped, songs: memories.songs });
   } catch (error) {
     next(error);
   }
@@ -384,14 +525,14 @@ export const getAttendedRetreats = async (
     // Source 1: legacy/per-retreat participants table linked by userId
     const participants = await participantRepo.find({
       where: { userId },
-      relations: ["retreat"],
+      relations: ["retreat", "retreat.memoryPhotos", "retreat.memorySongs"],
     });
 
     // Source 2: retreat_participants junction (a single participant may
     // attend multiple retreats via this table)
     const retreatParticipations = await retreatParticipantRepo.find({
       where: { userId },
-      relations: ["retreat"],
+      relations: ["retreat", "retreat.memoryPhotos", "retreat.memorySongs"],
     });
 
     const retreatsById = new Map<string, Retreat>();
