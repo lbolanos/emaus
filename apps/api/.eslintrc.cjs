@@ -3,6 +3,10 @@ module.exports = {
   extends: ["../../packages/config/eslint-preset.js"],
   parserOptions: {
     project: "./tsconfig.json",
+    // Ancla la resolución de tsconfig al dir de este archivo, no al cwd.
+    // Permite que lint-staged corra `eslint` desde la raíz del monorepo
+    // (pre-commit) y que el editor lintee bien sin importar desde dónde.
+    tsconfigRootDir: __dirname,
   },
   ignorePatterns: ["src/tests/**", "src/**/*.test.ts"],
   rules: {

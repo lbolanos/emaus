@@ -182,6 +182,13 @@ pnpm --filter web test src/components/__tests__/X.ts   # un archivo
 
 > Para recetas de tests problemáticos (mocks Jest con ESM, tests 403 con path aliases, componentes con `defineModel` que rompen mocks globales) → skill **`troubleshooting`** (secciones #8, #9, #10).
 
+### Git hooks (husky) — rápidos por diseño
+
+- **pre-commit** (`.husky/pre-commit`): solo `lint-staged` → `eslint --fix` sobre los **archivos staged** (config en `.lintstagedrc.cjs`). Tarda segundos. **NO usa `prettier --write`**: el repo nunca se formateó con Prettier (~1000 archivos no conformes), así que prettier reescribiría el archivo entero en cada commit y enterraría el cambio real. eslint no toca indentación (el preset usa eslint-config-prettier). Saltar: `SKIP_PRE_COMMIT=1 git commit` o `git commit --no-verify`.
+- **pre-push** (`.husky/pre-push`): corre tests solo de lo que se va a pushear — **API**: `jest --findRelatedTests` sobre las fuentes `.ts` cambiadas; **web**: suite completa (`pnpm --filter web test`, ~10s; no se usa `vitest related` porque su grafo de imports rompe con los `.md`). Saltar: `SKIP_PRE_PUSH=1 git push` o `git push --no-verify`.
+- La **suite completa** (api+web), lint y build corren en **CI** (`.github/workflows/ci.yml`) y antes del deploy. El hook local es feedback rápido, no la red de seguridad. `--findRelatedTests` solo halla tests que importan estáticamente el archivo — el CI es el backstop.
+- El lint type-aware funciona desde la raíz porque cada `.eslintrc.cjs` hoja fija `parserOptions.tsconfigRootDir: __dirname`. No lo quites.
+
 ## Infraestructura y acceso remoto
 
 ### SSH al servidor de producción

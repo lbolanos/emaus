@@ -1,0 +1,44 @@
+#!/usr/bin/env sh
+# Pre-push: corre SOLO los tests relacionados a los archivos que se van a pushear
+# (jest --findRelatedTests / vitest related). La suite completa la corre el CI.
+# Limitación: solo encuentra tests que importan estáticamente el archivo cambiado;
+# el CI con la suite completa es el backstop.
+# Saltar: SKIP_PRE_PUSH=1 git push   ·   o   git push --no-verify
+[ -n "$SKIP_PRE_PUSH" ] && exit 0
+
+ROOT=$(git rev-parse --show-toplevel)
+
+# Base de comparación: upstream del branch, o fallback a origin/master.
+if git rev-parse --abbrev-ref @{u} >/dev/null 2>&1; then
+  BASE=$(git rev-parse @{u})
+elif git rev-parse --verify origin/master >/dev/null 2>&1; then
+  BASE=origin/master
+else
+  exit 0 # nada con qué comparar (primer push sin remoto)
+fi
+
+CHANGED=$(git diff --name-only --diff-filter=ACMR "$BASE"...HEAD)
+[ -z "$CHANGED" ] && exit 0
+
+# API: jest --findRelatedTests sobre las fuentes .ts cambiadas.
+API_FILES=$(echo "$CHANGED" | grep '^apps/api/.*\.ts$' | sed "s|^|$ROOT/|" | tr '\n' ' ')
+if [ -n "$API_FILES" ]; then
+  echo "pre-push: tests API relacionados..."
+  ( cd "$ROOT/apps/api" && NODE_OPTIONS="--experimental-vm-modules" \
+      npx jest --findRelatedTests $API_FILES --passWithNoTests --forceExit ) || {
+    echo "Tests API relacionados fallaron. Saltar: SKIP_PRE_PUSH=1 git push"
+    exit 1
+  }
+fi
+
+# Web: suite completa (es rápida, ~10s, y confiable). No usamos `vitest related`
+# porque su análisis del grafo de imports tropieza con los `.md` que importan
+# algunos componentes; la suite completa con `vitest run` no tiene ese problema.
+WEB_FILES=$(echo "$CHANGED" | grep -E '^apps/web/.*\.(ts|vue|js)$')
+if [ -n "$WEB_FILES" ]; then
+  echo "pre-push: suite de tests web..."
+  ( cd "$ROOT/apps/web" && pnpm test ) || {
+    echo "Tests web fallaron. Saltar: SKIP_PRE_PUSH=1 git push"
+    exit 1
+  }
+fi

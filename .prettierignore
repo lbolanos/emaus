@@ -1,0 +1,9 @@
+# Generados / no fuente — que prettier --write (lint-staged) no los toque.
+**/dist/**
+**/coverage/**
+**/playwright-report/**
+**/.turbo/**
+**/node_modules/**
+pnpm-lock.yaml
+apps/api/database.sqlite*
+**/*.min.*
