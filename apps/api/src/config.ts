@@ -27,6 +27,9 @@ export const config = {
 	session: {
 		secret: process.env.SESSION_SECRET || crypto.randomBytes(64).toString('hex'),
 		cookieDomain: process.env.COOKIE_DOMAIN,
+		// Duración de la sesión logueada en días. Rolling: se cuenta desde la última
+		// actividad, no desde el login. Configurable sin recompilar.
+		maxAgeDays: parseInt(process.env.SESSION_MAX_AGE_DAYS || '30', 10),
 	},
 	frontend: {
 		url: process.env.FRONTEND_URL || 'http://localhost:5173',

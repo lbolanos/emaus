@@ -124,20 +124,22 @@ async function main() {
 
 	// --- 3. Session and Auth Middleware (AFTER DB connection) ---
 	const sessionRepository = AppDataSource.getRepository(Session);
+	const sessionMaxAgeMs = config.session.maxAgeDays * 24 * 60 * 60 * 1000;
 	const sessionMiddleware = session({
 		store: new TypeormStore({
 			cleanupLimit: 2,
 			limitSubquery: false,
-			ttl: 86400, // 1 day
+			ttl: config.session.maxAgeDays * 24 * 60 * 60, // segundos
 		}).connect(sessionRepository),
 		secret: config.session.secret,
 		resave: false,
 		saveUninitialized: false,
+		rolling: true, // Renueva la cookie en cada respuesta → expira por inactividad
 		cookie: {
 			httpOnly: true,
 			secure: config.env === 'production', // Always secure in production
 			sameSite: 'strict', // Strongest CSRF protection
-			maxAge: 24 * 60 * 60 * 1000, // 24 hours
+			maxAge: sessionMaxAgeMs,
 			domain: config.env === 'production' ? config.session.cookieDomain : undefined,
 			path: '/',
 		},
