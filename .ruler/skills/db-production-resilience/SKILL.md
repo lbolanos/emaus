@@ -22,6 +22,25 @@ Usa **`make db-pull`** (→ `scripts/db-pull.sh`): hace `sqlite3 ".backup"` en e
 backup online, consistente con WAL), reintenta si hay contención, baja el snapshot y verifica
 `PRAGMA integrity_check` antes de aceptarlo.
 
+**Segundo modo de corrupción — la transferencia, no el snapshot (incidente 2026-06-09).**
+`scp` **no verifica checksum**, así que un glitch de red puede entregar un archivo malformado
+sin error aunque el snapshot del server esté íntegro. Señales de que el problema es la red (no
+prod): `integrity_check` en el server da `ok` pero la copia local da `malformed`, y el header es
+válido (`SQLite format 3`). Diagnóstico de 30s para aislar dónde está la corrupción:
+```bash
+# 1) ¿Prod sana? (readonly directo, no modifica nada)
+ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104 \
+  "sqlite3 -readonly 'file:/var/www/emaus/apps/api/database.sqlite?mode=ro' 'PRAGMA integrity_check;'"
+# 2) ¿El snapshot .backup del server es bueno? compara su md5 contra la copia local.
+#    md5 igual + integrity ok en server → la corrupción fue el scp → re-descargá.
+```
+El script **endurecido** (post-incidente) ya cierra este hueco: baja a un **temporal**, compara
+**MD5 server↔local** + `integrity_check`, **reintenta la descarga** (5x) si difieren, y sólo
+entonces hace `mv` atómico sobre `apps/api/database.sqlite`. La versión vieja escribía `scp`
+directo sobre la DB local y verificaba **después**, así que una transferencia corrupta
+**sobrescribía la DB de trabajo** antes de detectar el fallo. Si tocas el script, mantené el orden:
+*temporal → verificar (md5 + integridad) → mv*. Nunca escribas el `scp` directo sobre `LOCAL_DB`.
+
 **Recuperar una copia corrupta** que ya bajaste:
 ```bash
 sqlite3 corrupta.sqlite ".recover" | sqlite3 nueva.sqlite
