@@ -184,10 +184,11 @@ pnpm --filter web test src/components/__tests__/X.ts   # un archivo
 
 ### Git hooks (husky) — rápidos por diseño
 
-- **pre-commit** (`.husky/pre-commit`): solo `lint-staged` → `eslint --fix` sobre los **archivos staged** (config en `.lintstagedrc.cjs`). Tarda segundos. **NO usa `prettier --write`**: el repo nunca se formateó con Prettier (~1000 archivos no conformes), así que prettier reescribiría el archivo entero en cada commit y enterraría el cambio real. eslint no toca indentación (el preset usa eslint-config-prettier). Saltar: `SKIP_PRE_COMMIT=1 git commit` o `git commit --no-verify`.
-- **pre-push** (`.husky/pre-push`): corre tests solo de lo que se va a pushear — **API**: `jest --findRelatedTests` sobre las fuentes `.ts` cambiadas; **web**: suite completa (`pnpm --filter web test`, ~10s; no se usa `vitest related` porque su grafo de imports rompe con los `.md`). Saltar: `SKIP_PRE_PUSH=1 git push` o `git push --no-verify`.
-- La **suite completa** (api+web), lint y build corren en **CI** (`.github/workflows/ci.yml`) y antes del deploy. El hook local es feedback rápido, no la red de seguridad. `--findRelatedTests` solo halla tests que importan estáticamente el archivo — el CI es el backstop.
-- El lint type-aware funciona desde la raíz porque cada `.eslintrc.cjs` hoja fija `parserOptions.tsconfigRootDir: __dirname`. No lo quites.
+- **pre-commit** (`.husky/pre-commit`): solo `lint-staged` → `eslint --fix` sobre los **archivos staged**, con **globs por paquete** en `.lintstagedrc.cjs` (solo `apps/api`, `apps/web`, `packages/{ui,types,utils}` — los 5 con `.eslintrc`). Linteear archivos de la raíz/`scripts/`/`*.config.js` rompería el hook con *"ESLint couldn't find a configuration file"* (no hay eslintrc en la raíz). **NO usa `prettier --write`**: el repo nunca se formateó con Prettier (~1000 archivos no conformes) → reescribiría el archivo entero en cada commit y enterraría el cambio real. Saltar: `SKIP_PRE_COMMIT=1 git commit` o `git commit --no-verify`.
+- **pre-push** (`.husky/pre-push`): tests solo de lo que se va a pushear — **API**: `jest --findRelatedTests`; **web**: suite completa (`pnpm --filter web test`, ~10s; no `vitest related`, su grafo de imports rompe con los `.md`). Saltar: `SKIP_PRE_PUSH=1 git push` o `git push --no-verify`.
+- **CI** (`.github/workflows/ci.yml`): lint + test-api + test-web + build en cada PR/push; `deploy-production.yml` redeploya en push a `master`. El hook local es feedback rápido; el CI es el backstop (`--findRelatedTests` solo halla tests que importan estáticamente el archivo). Los 5 workflows de **Gemini** se eliminaron (nunca configurados → fallaban en cada PR).
+- `tsconfigRootDir: __dirname` en cada `.eslintrc.cjs` hoja → lint type-aware desde la raíz. No lo quites.
+- Detalle completo y rationale: `docs/features/git-hooks-and-ci.md`.
 
 ## Infraestructura y acceso remoto
 
