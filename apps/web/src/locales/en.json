@@ -90,6 +90,34 @@
     "topTemplates": "Most used templates",
     "empty": "No communication data for this retreat yet."
   },
+  "followUp": {
+    "title": "Tasks & follow-up",
+    "subtitle": "Coordinator reminders and follow-up status for each participant.",
+    "tasksTitle": "Tasks",
+    "taskTitle": "Task",
+    "taskPlaceholder": "e.g. Call Juan to confirm payment",
+    "dueDate": "Due",
+    "addTask": "Add",
+    "taskError": "Could not create the task",
+    "noTasks": "No pending tasks.",
+    "pipelineTitle": "Participant follow-up",
+    "participant": "Participant",
+    "selectParticipant": "Select a participant",
+    "status": "Status",
+    "note": "Note",
+    "notePlaceholder": "Optional",
+    "save": "Save",
+    "saved": "Follow-up updated",
+    "saveError": "Could not save the follow-up",
+    "noFollowUps": "No follow-ups recorded yet.",
+    "statuses": {
+      "pending": "To contact",
+      "contacted": "Contacted",
+      "confirmed": "Confirmed",
+      "no_answer": "No answer",
+      "declined": "Declined"
+    }
+  },
   "delete": {
     "confirmTitle": "Are you sure?"
   },
@@ -352,6 +380,7 @@
       "messageTemplates": "Message Templates",
       "messageSequences": "Automated Sequences",
       "communicationDashboard": "Communication Dashboard",
+      "followUp": "Tasks & Follow-up",
       "globalMessageTemplates": "Global Templates",
       "inventoryItems": "Inventory Items",
       "changePassword": "Change Password"

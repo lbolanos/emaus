@@ -55,6 +55,8 @@ import { SavedSegment } from '../entities/savedSegment.entity';
 import { MessageSequence } from '../entities/messageSequence.entity';
 import { SequenceStep } from '../entities/sequenceStep.entity';
 import { ScheduledMessage } from '../entities/scheduledMessage.entity';
+import { ParticipantFollowUp } from '../entities/participantFollowUp.entity';
+import { CrmTask } from '../entities/crmTask.entity';
 import { ScheduleTemplate } from '../entities/scheduleTemplate.entity';
 import { ScheduleTemplateSet } from '../entities/scheduleTemplateSet.entity';
 import { ResponsabilityAttachment } from '../entities/responsabilityAttachment.entity';
@@ -125,6 +127,8 @@ const entities = [
 	MessageSequence,
 	SequenceStep,
 	ScheduledMessage,
+	ParticipantFollowUp,
+	CrmTask,
 ];
 
 // Test database configuration - will be created in setupTestDatabase

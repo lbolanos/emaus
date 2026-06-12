@@ -32,6 +32,7 @@ const MessageTemplatesView = () => import('../views/MessageTemplatesView.vue');
 const GlobalMessageTemplatesView = () => import('../views/GlobalMessageTemplatesView.vue');
 const MessageSequencesView = () => import('../views/MessageSequencesView.vue');
 const CommunicationDashboardView = () => import('../views/CommunicationDashboardView.vue');
+const FollowUpView = () => import('../views/FollowUpView.vue');
 const InventoryView = () => import('../views/InventoryView.vue');
 const InventoryItemsView = () => import('../views/InventoryItemsView.vue');
 const RetreatRoleManagementView = () => import('../views/RetreatRoleManagementView.vue');
@@ -416,6 +417,12 @@ const router = createRouter({
 					path: 'settings/communication-dashboard',
 					name: 'communication-dashboard',
 					component: CommunicationDashboardView,
+					meta: { requiresRetreat: true },
+				},
+				{
+					path: 'follow-up',
+					name: 'follow-up',
+					component: FollowUpView,
 					meta: { requiresRetreat: true },
 				},
 				{

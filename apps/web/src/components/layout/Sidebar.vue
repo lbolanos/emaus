@@ -921,6 +921,14 @@ const menuSections: MenuSection[] = [
         label: 'sidebar.settings.communicationDashboard'
       },
       {
+        name: 'follow-up',
+        routeName: 'follow-up',
+        icon: UserCheck,
+        permission: 'messageTemplate',
+        requiresRetreat: true,
+        label: 'sidebar.settings.followUp'
+      },
+      {
         name: 'retreat-shirt-types',
         routeName: 'retreat-shirt-types',
         icon: Settings,

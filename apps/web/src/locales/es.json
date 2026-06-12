@@ -90,6 +90,34 @@
     "topTemplates": "Plantillas más usadas",
     "empty": "Aún no hay datos de comunicación para este retiro."
   },
+  "followUp": {
+    "title": "Tareas y seguimiento",
+    "subtitle": "Recordatorios del coordinador y estado de seguimiento de cada participante.",
+    "tasksTitle": "Tareas",
+    "taskTitle": "Tarea",
+    "taskPlaceholder": "Ej. Llamar a Juan para confirmar pago",
+    "dueDate": "Vence",
+    "addTask": "Agregar",
+    "taskError": "No se pudo crear la tarea",
+    "noTasks": "No hay tareas pendientes.",
+    "pipelineTitle": "Seguimiento de participantes",
+    "participant": "Participante",
+    "selectParticipant": "Selecciona un participante",
+    "status": "Estado",
+    "note": "Nota",
+    "notePlaceholder": "Opcional",
+    "save": "Guardar",
+    "saved": "Seguimiento actualizado",
+    "saveError": "No se pudo guardar el seguimiento",
+    "noFollowUps": "Aún no hay seguimientos registrados.",
+    "statuses": {
+      "pending": "Por contactar",
+      "contacted": "Contactado",
+      "confirmed": "Confirmado",
+      "no_answer": "Sin respuesta",
+      "declined": "Declinó"
+    }
+  },
   "delete": {
     "confirmTitle": "¿Estás seguro?"
   },
@@ -355,6 +383,7 @@
       "messageTemplates": "Plantillas de Mensajes",
       "messageSequences": "Secuencias Automáticas",
       "communicationDashboard": "Tablero de Comunicación",
+      "followUp": "Tareas y Seguimiento",
       "globalMessageTemplates": "Plantillas Globales",
       "inventoryItems": "Artículos de Inventario",
       "changePassword": "Cambiar Contraseña"

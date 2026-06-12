@@ -65,6 +65,8 @@ import { SavedSegment } from '../entities/savedSegment.entity';
 import { MessageSequence } from '../entities/messageSequence.entity';
 import { SequenceStep } from '../entities/sequenceStep.entity';
 import { ScheduledMessage } from '../entities/scheduledMessage.entity';
+import { ParticipantFollowUp } from '../entities/participantFollowUp.entity';
+import { CrmTask } from '../entities/crmTask.entity';
 
 export function createDatabaseConfig() {
 	const dbType = process.env.DB_TYPE || 'sqlite';
@@ -146,6 +148,9 @@ export function createDatabaseConfig() {
 		MessageSequence,
 		SequenceStep,
 		ScheduledMessage,
+		// CRM: pipeline de seguimiento + tareas
+		ParticipantFollowUp,
+		CrmTask,
 		// Temporarily excluding entities with enum issues
 		// PermissionOverride,
 		// RoleRequest,

@@ -12,6 +12,9 @@ import type {
   SavedSegment,
   SegmentFilters,
   MessageSequence,
+  ParticipantFollowUp,
+  CrmTask,
+  FollowUpStatus,
   Retreat,
   Participant,
 } from "@repo/types";
@@ -3088,4 +3091,58 @@ export const runSequences = async (
 
 export const dispatchScheduledMessage = async (id: string): Promise<void> => {
   await api.post(`/message-sequences/scheduled/${id}/dispatch`);
+};
+
+// ---------------------------------------------------------------------------
+// CRM: pipeline de seguimiento + tareas/recordatorios del coordinador.
+// ---------------------------------------------------------------------------
+
+export const getFollowUps = async (
+  retreatId: string,
+): Promise<(ParticipantFollowUp & { participant?: any })[]> => {
+  const r = await api.get(`/crm/retreat/${retreatId}/follow-ups`);
+  return r.data;
+};
+
+export const upsertFollowUp = async (data: {
+  retreatId: string;
+  participantId: string;
+  status: FollowUpStatus;
+  note?: string | null;
+}): Promise<ParticipantFollowUp> => {
+  const r = await api.post("/crm/follow-ups", data);
+  return r.data;
+};
+
+export const getCrmTasks = async (
+  retreatId: string,
+  status?: "open" | "done",
+): Promise<(CrmTask & { participant?: any; assignee?: any })[]> => {
+  const r = await api.get(`/crm/retreat/${retreatId}/tasks`, {
+    params: status ? { status } : undefined,
+  });
+  return r.data;
+};
+
+export const createCrmTask = async (data: {
+  retreatId: string;
+  participantId?: string | null;
+  title: string;
+  description?: string | null;
+  dueDate?: string | null;
+}): Promise<CrmTask> => {
+  const r = await api.post("/crm/tasks", data);
+  return r.data;
+};
+
+export const updateCrmTask = async (
+  id: string,
+  data: { title?: string; description?: string | null; dueDate?: string | null; status?: "open" | "done" },
+): Promise<CrmTask> => {
+  const r = await api.put(`/crm/tasks/${id}`, data);
+  return r.data;
+};
+
+export const deleteCrmTask = async (id: string): Promise<void> => {
+  await api.delete(`/crm/tasks/${id}`);
 };
