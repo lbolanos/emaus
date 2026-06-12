@@ -52,6 +52,9 @@ import { ServiceTeamMember } from '../entities/serviceTeamMember.entity';
 import { RetreatShirtType } from '../entities/retreatShirtType.entity';
 import { ParticipantShirtSize } from '../entities/participantShirtSize.entity';
 import { SavedSegment } from '../entities/savedSegment.entity';
+import { MessageSequence } from '../entities/messageSequence.entity';
+import { SequenceStep } from '../entities/sequenceStep.entity';
+import { ScheduledMessage } from '../entities/scheduledMessage.entity';
 import { ScheduleTemplate } from '../entities/scheduleTemplate.entity';
 import { ScheduleTemplateSet } from '../entities/scheduleTemplateSet.entity';
 import { ResponsabilityAttachment } from '../entities/responsabilityAttachment.entity';
@@ -119,6 +122,9 @@ const entities = [
 	SantisimoSignup,
 	ParticipantAvailability,
 	SavedSegment,
+	MessageSequence,
+	SequenceStep,
+	ScheduledMessage,
 ];
 
 // Test database configuration - will be created in setupTestDatabase

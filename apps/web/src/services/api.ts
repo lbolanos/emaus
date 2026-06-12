@@ -11,6 +11,7 @@ import type {
   MessageTemplate,
   SavedSegment,
   SegmentFilters,
+  MessageSequence,
   Retreat,
   Participant,
 } from "@repo/types";
@@ -3019,4 +3020,72 @@ export const updateSavedSegment = async (
 
 export const deleteSavedSegment = async (id: string): Promise<void> => {
   await api.delete(`/saved-segments/${id}`);
+};
+
+// ---------------------------------------------------------------------------
+// Secuencias de mensajes (drip CRM) y bandeja de pendientes de WhatsApp.
+// ---------------------------------------------------------------------------
+
+/** Ítem de la bandeja de pendientes: ScheduledMessage con participante y paso. */
+export interface ScheduledMessageQueueItem {
+  id: string;
+  sequenceId: string;
+  stepId: string;
+  participantId: string;
+  retreatId: string;
+  channel: "email" | "whatsapp";
+  templateType: string;
+  scheduledFor: string;
+  status: string;
+  participant?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    cellPhone?: string;
+  };
+  step?: { id: string; templateType: string; channel: string };
+}
+
+export const getRetreatSequences = async (
+  retreatId: string,
+): Promise<MessageSequence[]> => {
+  const r = await api.get(`/message-sequences/retreat/${retreatId}`);
+  return r.data;
+};
+
+export const createMessageSequence = async (
+  data: Record<string, unknown>,
+): Promise<MessageSequence> => {
+  const r = await api.post("/message-sequences", data);
+  return r.data;
+};
+
+export const updateMessageSequence = async (
+  id: string,
+  data: Record<string, unknown>,
+): Promise<MessageSequence> => {
+  const r = await api.put(`/message-sequences/${id}`, data);
+  return r.data;
+};
+
+export const deleteMessageSequence = async (id: string): Promise<void> => {
+  await api.delete(`/message-sequences/${id}`);
+};
+
+export const getSequenceQueue = async (
+  retreatId: string,
+): Promise<ScheduledMessageQueueItem[]> => {
+  const r = await api.get(`/message-sequences/retreat/${retreatId}/queue`);
+  return r.data;
+};
+
+export const runSequences = async (
+  retreatId: string,
+): Promise<{ enrolled: number; processed: number }> => {
+  const r = await api.post(`/message-sequences/retreat/${retreatId}/run`);
+  return r.data;
+};
+
+export const dispatchScheduledMessage = async (id: string): Promise<void> => {
+  await api.post(`/message-sequences/scheduled/${id}/dispatch`);
 };

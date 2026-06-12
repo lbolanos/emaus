@@ -30,6 +30,7 @@ const TablesView = () => import('../views/TablesView.vue');
 const BadgesView = () => import('../views/BadgesView.vue');
 const MessageTemplatesView = () => import('../views/MessageTemplatesView.vue');
 const GlobalMessageTemplatesView = () => import('../views/GlobalMessageTemplatesView.vue');
+const MessageSequencesView = () => import('../views/MessageSequencesView.vue');
 const InventoryView = () => import('../views/InventoryView.vue');
 const InventoryItemsView = () => import('../views/InventoryItemsView.vue');
 const RetreatRoleManagementView = () => import('../views/RetreatRoleManagementView.vue');
@@ -402,6 +403,12 @@ const router = createRouter({
 					path: 'settings/message-templates',
 					name: 'message-templates',
 					component: MessageTemplatesView,
+					meta: { requiresRetreat: true },
+				},
+				{
+					path: 'settings/message-sequences',
+					name: 'message-sequences',
+					component: MessageSequencesView,
 					meta: { requiresRetreat: true },
 				},
 				{

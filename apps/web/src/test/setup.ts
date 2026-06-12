@@ -456,6 +456,8 @@ vi.mock('lucide-vue-next', () => ({
 	Bookmark: { name: 'Bookmark', template: '<svg></svg>' },
 	Trash2: { name: 'Trash2', template: '<svg></svg>' },
 	Plus: { name: 'Plus', template: '<svg></svg>' },
+	Play: { name: 'Play', template: '<svg></svg>' },
+	Pencil: { name: 'Pencil', template: '<svg></svg>' },
 }));
 
 // Mock axios

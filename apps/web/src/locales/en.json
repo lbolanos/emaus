@@ -31,6 +31,55 @@
     "deleteError": "Could not delete the segment",
     "applied": "Segment \"{name}\" applied"
   },
+  "sequences": {
+    "title": "Automated sequences",
+    "subtitle": "Event/time-based drip sends. Email goes out automatically; WhatsApp lands in the queue to send from your account.",
+    "runNow": "Run now",
+    "new": "New sequence",
+    "inactive": "Inactive",
+    "stepCount": "{count} step(s)",
+    "empty": "No sequences yet. Create one to automate welcomes, reminders and follow-ups.",
+    "queueTitle": "Pending WhatsApp",
+    "queueEmpty": "No WhatsApp messages pending to send.",
+    "dispatch": "Send via WhatsApp",
+    "editTitle": "Edit sequence",
+    "newTitle": "New sequence",
+    "name": "Name",
+    "namePlaceholder": "e.g. Walker welcome",
+    "trigger": "Trigger",
+    "audience": "Audience",
+    "active": "Active",
+    "steps": "Steps",
+    "addStep": "Add step",
+    "offsetDays": "Days",
+    "sendHour": "Hour",
+    "template": "Template",
+    "channel": "Channel",
+    "noSteps": "Add at least one step (template + channel + offset).",
+    "saved": "Sequence saved",
+    "saveError": "Could not save the sequence",
+    "deleted": "Sequence deleted",
+    "deleteError": "Could not delete the sequence",
+    "runDone": "Done: {enrolled} scheduled, {processed} processed",
+    "runError": "Could not run the sequence",
+    "noPhone": "The participant has no valid phone",
+    "dispatchError": "Could not mark as sent",
+    "triggers": {
+      "participant_created": "On registration",
+      "days_before_retreat": "Days before the retreat",
+      "days_after_retreat": "Days after the retreat",
+      "birthday": "On their birthday"
+    },
+    "audiences": {
+      "all": "Everyone",
+      "walker": "Walkers",
+      "server": "Servers"
+    },
+    "channels": {
+      "email": "Email",
+      "whatsapp": "WhatsApp"
+    }
+  },
   "delete": {
     "confirmTitle": "Are you sure?"
   },
@@ -291,6 +340,7 @@
     "settings": {
       "title": "Settings",
       "messageTemplates": "Message Templates",
+      "messageSequences": "Automated Sequences",
       "globalMessageTemplates": "Global Templates",
       "inventoryItems": "Inventory Items",
       "changePassword": "Change Password"

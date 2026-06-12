@@ -905,6 +905,14 @@ const menuSections: MenuSection[] = [
         label: 'sidebar.settings.messageTemplates'
       },
       {
+        name: 'message-sequences',
+        routeName: 'message-sequences',
+        icon: MessageSquare,
+        permission: 'messageTemplate',
+        requiresRetreat: true,
+        label: 'sidebar.settings.messageSequences'
+      },
+      {
         name: 'retreat-shirt-types',
         routeName: 'retreat-shirt-types',
         icon: Settings,

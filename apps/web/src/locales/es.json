@@ -31,6 +31,55 @@
     "deleteError": "No se pudo eliminar el segmento",
     "applied": "Segmento «{name}» aplicado"
   },
+  "sequences": {
+    "title": "Secuencias automáticas",
+    "subtitle": "Envíos por evento/tiempo (drip). El Email se envía solo; el WhatsApp queda en la bandeja para enviarlo desde tu cuenta.",
+    "runNow": "Ejecutar ahora",
+    "new": "Nueva secuencia",
+    "inactive": "Inactiva",
+    "stepCount": "{count} paso(s)",
+    "empty": "Aún no hay secuencias. Crea una para automatizar bienvenidas, recordatorios y seguimientos.",
+    "queueTitle": "Pendientes de WhatsApp",
+    "queueEmpty": "No hay mensajes de WhatsApp pendientes de enviar.",
+    "dispatch": "Enviar por WhatsApp",
+    "editTitle": "Editar secuencia",
+    "newTitle": "Nueva secuencia",
+    "name": "Nombre",
+    "namePlaceholder": "Ej. Bienvenida a caminantes",
+    "trigger": "Disparador",
+    "audience": "Audiencia",
+    "active": "Activa",
+    "steps": "Pasos",
+    "addStep": "Agregar paso",
+    "offsetDays": "Días",
+    "sendHour": "Hora",
+    "template": "Plantilla",
+    "channel": "Canal",
+    "noSteps": "Agrega al menos un paso (plantilla + canal + desfase).",
+    "saved": "Secuencia guardada",
+    "saveError": "No se pudo guardar la secuencia",
+    "deleted": "Secuencia eliminada",
+    "deleteError": "No se pudo eliminar la secuencia",
+    "runDone": "Listo: {enrolled} programados, {processed} procesados",
+    "runError": "No se pudo ejecutar la secuencia",
+    "noPhone": "El participante no tiene teléfono válido",
+    "dispatchError": "No se pudo marcar como enviado",
+    "triggers": {
+      "participant_created": "Al registrarse",
+      "days_before_retreat": "Días antes del retiro",
+      "days_after_retreat": "Días después del retiro",
+      "birthday": "En su cumpleaños"
+    },
+    "audiences": {
+      "all": "Todos",
+      "walker": "Caminantes",
+      "server": "Servidores"
+    },
+    "channels": {
+      "email": "Email",
+      "whatsapp": "WhatsApp"
+    }
+  },
   "delete": {
     "confirmTitle": "¿Estás seguro?"
   },
@@ -294,6 +343,7 @@
     "settings": {
       "title": "Configuración",
       "messageTemplates": "Plantillas de Mensajes",
+      "messageSequences": "Secuencias Automáticas",
       "globalMessageTemplates": "Plantillas Globales",
       "inventoryItems": "Artículos de Inventario",
       "changePassword": "Cambiar Contraseña"

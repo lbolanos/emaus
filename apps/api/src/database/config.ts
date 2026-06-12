@@ -62,6 +62,9 @@ import { RetreatScheduleItemResponsable } from '../entities/retreatScheduleItemR
 import { RetreatShirtType } from '../entities/retreatShirtType.entity';
 import { ParticipantShirtSize } from '../entities/participantShirtSize.entity';
 import { SavedSegment } from '../entities/savedSegment.entity';
+import { MessageSequence } from '../entities/messageSequence.entity';
+import { SequenceStep } from '../entities/sequenceStep.entity';
+import { ScheduledMessage } from '../entities/scheduledMessage.entity';
 
 export function createDatabaseConfig() {
 	const dbType = process.env.DB_TYPE || 'sqlite';
@@ -139,6 +142,10 @@ export function createDatabaseConfig() {
 		ParticipantShirtSize,
 		// CRM: segmentos guardados
 		SavedSegment,
+		// CRM: secuencias de mensajes (drip)
+		MessageSequence,
+		SequenceStep,
+		ScheduledMessage,
 		// Temporarily excluding entities with enum issues
 		// PermissionOverride,
 		// RoleRequest,
