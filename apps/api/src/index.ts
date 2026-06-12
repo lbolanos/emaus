@@ -315,6 +315,23 @@ async function main() {
 	};
 	process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 	process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+	// Hot reload (vite-node --watch, solo dev): el watcher re-ejecuta el entry en el
+	// MISMO proceso. Sin esto, el httpServer anterior retiene el puerto, el nuevo
+	// listen() muere con EADDRINUSE y el proceso queda sirviendo CÓDIGO VIEJO en
+	// silencio ("watcher pegado") hasta reiniciar a mano. Cerrar server, timer y
+	// conexión antes de la re-ejecución. En prod (bundle Rollup) import.meta.hot
+	// es undefined y este bloque no hace nada.
+	const hot = (import.meta as any).hot;
+	if (hot) {
+		hot.accept?.(() => {});
+		hot.dispose(() => {
+			console.log('♻️  Hot reload: cerrando server anterior');
+			clearInterval(upcomingTimer);
+			httpServer.close();
+			void AppDataSource.destroy().catch(() => {});
+		});
+	}
 }
 
 main().catch((err) => {
