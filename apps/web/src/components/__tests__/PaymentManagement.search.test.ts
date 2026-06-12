@@ -27,7 +27,7 @@ vi.mock('lucide-vue-next', () => ({
 	X: { name: 'X', template: '<svg></svg>' },
 	DollarSign: { name: 'DollarSign', template: '<svg></svg>' },
 	Receipt: { name: 'Receipt', template: '<svg></svg>' },
-	Users: { name: 'Users', template: '<svg></svg>' },
+	Wallet: { name: 'Wallet', template: '<svg></svg>' },
 	UserCheck: { name: 'UserCheck', template: '<svg></svg>' },
 	Pencil: { name: 'Pencil', template: '<svg></svg>' },
 	Trash2: { name: 'Trash2', template: '<svg></svg>' },
@@ -56,10 +56,12 @@ vi.mock('@repo/ui', () => ({
 	DialogHeader: { name: 'DialogHeader', template: '<div><slot /></div>' },
 	DialogTitle: { name: 'DialogTitle', template: '<h2><slot /></h2>' },
 	DialogDescription: { name: 'DialogDescription', template: '<p><slot /></p>' },
+	useToast: () => ({ toast: vi.fn() }),
 }));
 
 vi.mock('@repo/utils', () => ({
 	formatDate: (d: unknown) => String(d),
+	formatCurrency: (n: unknown) => `$${Number(n) || 0}`,
 }));
 
 // ----- Mocks de stores -----
@@ -107,7 +109,9 @@ import PaymentManagement from '../PaymentManagement.vue';
 const SEARCH_SELECTOR = 'input[placeholder="Nombre, apellido o apodo..."]';
 
 async function mountComponent(): Promise<VueWrapper> {
-	const wrapper = mount(PaymentManagement);
+	const wrapper = mount(PaymentManagement, {
+		global: { mocks: { $t: (k: string) => k } },
+	});
 	await flushPromises();
 	await nextTick();
 	return wrapper;
