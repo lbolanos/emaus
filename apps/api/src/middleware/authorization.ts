@@ -534,6 +534,33 @@ export class AuthorizationService {
 
 export const authorizationService = AuthorizationService.getInstance();
 
+/**
+ * Guard de acceso a retiro para usar DENTRO de un controller, cuando el
+ * retreatId no viene en la ruta (viene del body o se deriva del registro
+ * cargado por `:id`) y `requireRetreatAccess` no alcanza.
+ *
+ * Responde 401/403 y devuelve `false` si el usuario no tiene acceso; el
+ * controller debe cortar con `if (!(await ensureRetreatAccess(...))) return;`.
+ * Superadmin siempre pasa (bypass dentro de `hasRetreatAccess`).
+ */
+export async function ensureRetreatAccess(
+	req: Request,
+	res: Response,
+	retreatId: string,
+): Promise<boolean> {
+	const userId = (req.user as any)?.id;
+	if (!userId) {
+		res.status(401).json({ message: 'No autorizado' });
+		return false;
+	}
+	const hasAccess = await authorizationService.hasRetreatAccess(userId, retreatId);
+	if (!hasAccess) {
+		res.status(403).json({ message: 'No tienes acceso a este retiro' });
+		return false;
+	}
+	return true;
+}
+
 export const requirePermission = (permission: string): any => {
 	return async (req: any, res: Response, next: NextFunction) => {
 		try {

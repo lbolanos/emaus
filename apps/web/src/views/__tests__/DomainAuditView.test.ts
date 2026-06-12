@@ -78,21 +78,22 @@ describe('DomainAuditView', () => {
 		);
 	});
 
-	it('renderiza la acción con etiqueta en español y el actor', async () => {
+	it('renderiza la acción vía i18n (key audit.actions.*) y el actor', async () => {
 		const wrapper = mountView();
 		await flushPromises();
 		const text = wrapper.text();
-		expect(text).toContain('Mesa creada');
+		// El mock global de vue-i18n devuelve la key: verificamos la key correcta.
+		expect(text).toContain('audit.actions.table.create');
 		expect(text).toContain('Coordinadora Ana');
 		// Sin actor → fallback
-		expect(text).toContain('Sistema / sin sesión');
+		expect(text).toContain('audit.ui.systemActor');
 	});
 
 	it('muestra el diff old→new de un update', async () => {
 		const wrapper = mountView();
 		await flushPromises();
 		const text = wrapper.text();
-		expect(text).toContain('Pago editado');
+		expect(text).toContain('audit.actions.payment.update');
 		expect(text).toContain('100');
 		expect(text).toContain('250');
 	});
@@ -120,5 +121,104 @@ describe('DomainAuditView', () => {
 			RETREAT_ID,
 			expect.objectContaining({ resourceType: 'payment', offset: 0 }),
 		);
+	});
+
+	it('resuelve participant_debt.create a su key i18n (no el mapa hardcodeado)', async () => {
+		mockGetDomainAuditLogs.mockResolvedValue({
+			logs: [
+				{
+					id: 'log-debt',
+					action: 'participant_debt.create',
+					resourceType: 'participant_debt',
+					resourceId: 'debt-1',
+					retreatId: RETREAT_ID,
+					actorUserId: 'u1',
+					actor: { displayName: 'Tesorero', email: 'tesorero@example.com' },
+					oldValues: null,
+					newValues: { amount: 500, description: 'Hospedaje' },
+					metadata: null,
+					ipAddress: null,
+					userAgent: null,
+					createdAt: '2026-06-05T12:00:00.000Z',
+				},
+			],
+			total: 1,
+			limit: 50,
+			offset: 0,
+			hasMore: false,
+		});
+
+		const wrapper = mountView();
+		await flushPromises();
+		const text = wrapper.text();
+		expect(text).toContain('audit.actions.participant_debt.create');
+		expect(text).toContain('audit.resources.participant_debt');
+	});
+
+	it('reenvía el filtro de área Deudas (participant_debt) a la API', async () => {
+		const wrapper = mountView();
+		await flushPromises();
+		mockGetDomainAuditLogs.mockClear();
+
+		(wrapper.vm as any).resourceTypeFilter = 'participant_debt';
+		await flushPromises();
+
+		expect(mockGetDomainAuditLogs).toHaveBeenCalledWith(
+			RETREAT_ID,
+			expect.objectContaining({ resourceType: 'participant_debt', offset: 0 }),
+		);
+	});
+
+	it('por defecto carga el último mes (startDate ~30 días antes de endDate)', async () => {
+		mountView();
+		await flushPromises();
+		const opts = mockGetDomainAuditLogs.mock.calls[0][1];
+		expect(typeof opts.startDate).toBe('string');
+		expect(typeof opts.endDate).toBe('string');
+		const days =
+			(new Date(opts.endDate).getTime() - new Date(opts.startDate).getTime()) / 86_400_000;
+		expect(days).toBeGreaterThanOrEqual(29);
+		expect(days).toBeLessThanOrEqual(32);
+	});
+
+	it('un preset de rango rápido (1 semana) recarga con ~7 días y se resalta', async () => {
+		const wrapper = mountView();
+		await flushPromises();
+		mockGetDomainAuditLogs.mockClear();
+
+		(wrapper.vm as any).applyPreset({ key: '1w', days: 7 });
+		await flushPromises();
+
+		const opts = mockGetDomainAuditLogs.mock.calls[0][1];
+		const days =
+			(new Date(opts.endDate).getTime() - new Date(opts.startDate).getTime()) / 86_400_000;
+		expect(days).toBeGreaterThanOrEqual(6);
+		expect(days).toBeLessThanOrEqual(9);
+		expect((wrapper.vm as any).activePreset).toBe('1w');
+	});
+
+	it('el preset "Todo" limpia el filtro de fecha (sin startDate/endDate)', async () => {
+		const wrapper = mountView();
+		await flushPromises();
+		mockGetDomainAuditLogs.mockClear();
+
+		(wrapper.vm as any).applyPreset({ key: 'all', days: null });
+		await flushPromises();
+
+		const opts = mockGetDomainAuditLogs.mock.calls[0][1];
+		expect(opts.startDate).toBeUndefined();
+		expect(opts.endDate).toBeUndefined();
+		expect((wrapper.vm as any).activePreset).toBe('all');
+	});
+
+	it('editar una fecha a mano apaga el resaltado del preset', async () => {
+		const wrapper = mountView();
+		await flushPromises();
+		expect((wrapper.vm as any).activePreset).toBe('1m'); // default
+
+		(wrapper.vm as any).onStartInput('2026-01-01');
+		await flushPromises();
+
+		expect((wrapper.vm as any).activePreset).toBeNull();
 	});
 });

@@ -6,6 +6,7 @@ import { Retreat } from '../entities/retreat.entity';
 import { User } from '../entities/user.entity';
 import { Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { domainAuditService } from '../services/domainAuditService';
+import { ensureRetreatAccess } from '../middleware/authorization';
 
 interface WhereClause {
 	retreatId?: string;
@@ -65,6 +66,10 @@ export class PaymentController {
 					message: 'No se pudo determinar el retiro al que pertenece el pago',
 				});
 			}
+
+			// El retreatId viene del body/participante, no de la ruta: validar acceso
+			// aquí para evitar registrar pagos en retiros ajenos con solo payment:create.
+			if (!(await ensureRetreatAccess(req, res, effectiveRetreatId))) return;
 
 			// Create payment
 			const payment = paymentRepository.create({
@@ -184,6 +189,8 @@ export class PaymentController {
 				return res.status(404).json({ message: 'Pago no encontrado' });
 			}
 
+			if (!(await ensureRetreatAccess(req, res, payment.retreatId))) return;
+
 			const oldSnapshot = { ...payment };
 
 			// Update fields
@@ -219,6 +226,8 @@ export class PaymentController {
 			if (!payment) {
 				return res.status(404).json({ message: 'Pago no encontrado' });
 			}
+
+			if (!(await ensureRetreatAccess(req, res, payment.retreatId))) return;
 
 			const deletedSnapshot = { ...payment };
 

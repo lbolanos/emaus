@@ -1,4 +1,238 @@
 {
+
+  "audit": {
+    "actions": {
+      "participant": {
+        "create": "Participant created",
+        "update": "Participant edited",
+        "self_update": "Participant edited their own data",
+        "delete": "Participant deleted",
+        "import": "Participants imported",
+        "confirm": "Participant confirmed",
+        "checkin": "Check-in",
+        "attendance_confirmation": "Attendance confirmation",
+        "anonymize": "Data anonymized (GDPR)"
+      },
+      "table": {
+        "create": "Table created",
+        "update": "Table edited",
+        "delete": "Table deleted",
+        "assign_leader": "Leader assigned",
+        "unassign_leader": "Leader removed",
+        "assign_walker": "Walker assigned to table",
+        "unassign_walker": "Walker removed from table",
+        "rebalance": "Tables rebalanced",
+        "clear_all": "Tables cleared"
+      },
+      "bed": {
+        "assign": "Bed assigned",
+        "unassign": "Bed released",
+        "toggle_active": "Bed enabled/disabled",
+        "clear_all": "Beds cleared"
+      },
+      "house": {
+        "create": "House created",
+        "update": "House edited",
+        "delete": "House deleted"
+      },
+      "payment": {
+        "create": "Payment recorded",
+        "update": "Payment edited",
+        "delete": "Payment deleted"
+      },
+      "participant_debt": {
+        "create": "Debt recorded",
+        "update": "Debt edited",
+        "delete": "Debt deleted"
+      },
+      "retreat": {
+        "create": "Retreat created",
+        "update": "Retreat edited",
+        "memory": {
+          "photo_upload": "Memory photo uploaded",
+          "update": "Retreat memories edited"
+        }
+      }
+    },
+    "resources": {
+      "participant": "Participant",
+      "participant_debt": "Debt",
+      "table": "Table",
+      "bed": "Bed",
+      "house": "House",
+      "payment": "Payment",
+      "retreat": "Retreat"
+    },
+    "ranges": {
+      "1w": "1 week",
+      "2w": "2 weeks",
+      "1m": "1 month",
+      "3m": "3 months",
+      "6m": "6 months",
+      "all": "All"
+    },
+    "ui": {
+      "title": "Audit",
+      "description": "Record of who created, edited or deleted participants, tables, beds, houses, payments and retreat data.",
+      "quickRange": "Quick range:",
+      "area": "Area",
+      "action": "Action",
+      "all": "All",
+      "from": "From",
+      "to": "To",
+      "clear": "Clear",
+      "loading": "Loading…",
+      "empty": "There are no audit events for the selected filters.",
+      "systemActor": "System / no session",
+      "ip": "IP",
+      "of": "of",
+      "previous": "Previous",
+      "next": "Next",
+      "yes": "yes",
+      "no": "no",
+      "errorTitle": "Error",
+      "errorLoad": "Could not load the audit trail."
+    }
+  },
+  "debts": {
+    "title": "Debts",
+    "add": "Add",
+    "amount": "Amount",
+    "description": "Concept",
+    "descriptionRequired": "The concept is required",
+    "empty": "No debts recorded.",
+    "retreatFee": "Retreat fee",
+    "meals": "Meals",
+    "debts": "Debts",
+    "expected": "Expected total",
+    "paid": "Paid",
+    "balance": "Balance",
+    "pazYSalvo": "Cleared",
+    "pending": "Pending"
+  },
+  "paymentManagement": {
+    "tabs": { "payments": "Payments", "balances": "Balances" },
+    "title": "Payment Management",
+    "subtitle": "Record and track participant payments",
+    "print": "Print",
+    "addCharge": "Charge",
+    "addPayment": "Add Payment",
+    "reportTitle": "Payments Report",
+    "generated": "Generated",
+    "filters": {
+      "searchLabel": "Search by name",
+      "searchPlaceholder": "Participant first name, last name or nickname",
+      "method": "Payment Method",
+      "allMethods": "All methods",
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "search": "Search",
+      "clear": "Clear"
+    },
+    "methods": {
+      "cash": "Cash",
+      "transfer": "Transfer",
+      "check": "Check",
+      "card": "Card",
+      "other": "Other"
+    },
+    "summary": {
+      "collected": "Total Collected",
+      "toCollect": "To Collect",
+      "pazYSalvo": "Cleared",
+      "totalPayments": "Total Payments"
+    },
+    "table": {
+      "title": "Recorded Payments",
+      "date": "Date",
+      "participant": "Participant",
+      "amount": "Amount",
+      "method": "Method",
+      "reference": "Reference",
+      "recordedBy": "Recorded by",
+      "actions": "Actions",
+      "empty": "No payments found",
+      "ref": "Ref"
+    },
+    "edit": "Edit",
+    "delete": "Delete",
+    "modal": {
+      "editTitle": "Edit Payment",
+      "addTitle": "Add Payment",
+      "editDesc": "Edit the payment details",
+      "addDesc": "Record a new payment",
+      "participant": "Participant",
+      "amount": "Amount",
+      "paymentDate": "Payment Date",
+      "method": "Payment Method",
+      "selectMethod": "Select method",
+      "reference": "Reference Number",
+      "notes": "Notes",
+      "markScholarship": "Mark as Scholarship",
+      "cancel": "Cancel",
+      "update": "Update",
+      "save": "Save"
+    },
+    "debtModal": {
+      "title": "Add charge",
+      "desc": "Record an additional charge (debt) for a server or angelito.",
+      "selectPrompt": "Select a server or angelito to record the charge.",
+      "searchPlaceholder": "Search server or angelito...",
+      "empty": "No servers or angelitos",
+      "close": "Close"
+    },
+    "deleteDialog": {
+      "title": "Confirm Deletion",
+      "message": "Are you sure you want to delete this payment? This action cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete"
+    },
+    "balances": {
+      "print": "Print",
+      "columns": "Columns",
+      "actions": "Actions",
+      "export": "Export",
+      "reportTitle": "Balances Report",
+      "registerPayment": "Register payment",
+      "addCharge": "Add charge",
+      "whatsappReminder": "Reminder",
+      "reminderMessage": "Hi {name}, this is a reminder that you have a pending balance of {amount} for the retreat {retreat}. Thank you!",
+      "payments": "Payments",
+      "noPayments": "No payments recorded.",
+      "details": "Details",
+      "pendingByType": "Pending by type",
+      "sortBy": "Sort by",
+      "markScholarship": "Mark as scholarship",
+      "removeScholarship": "Remove scholarship",
+      "confirmScholarship": "Mark {name} as scholarship? They will be exempt from all charges (cleared).",
+      "confirmRemoveScholarship": "Remove scholarship from {name}? Charges will apply again based on their type.",
+      "expected": "Expected",
+      "paid": "Paid",
+      "toCollect": "To collect",
+      "pazYSalvo": "Cleared",
+      "searchPlaceholder": "Search by name, last name or nickname",
+      "allTypes": "All types",
+      "allStatus": "All",
+      "statusPaz": "Cleared",
+      "statusPending": "Pending",
+      "participant": "Participant",
+      "type": "Type",
+      "balance": "Balance",
+      "status": "Status",
+      "scholarship": "Scholarship",
+      "pending": "Pending",
+      "empty": "No matching participants",
+      "types": {
+        "walker": "Walker",
+        "server": "Server",
+        "partial_server": "Angelito",
+        "waiting": "Waiting",
+        "walkers": "Walkers",
+        "servers": "Servers",
+        "partialServers": "Angelitos"
+      }
+    }
+  },
   "delete": {
     "confirmTitle": "Are you sure?"
   },
@@ -568,9 +802,12 @@
       "arrivesOnOwn": "Arrives on Own?",
       "lastPaymentDate": "Last Payment Date",
       "totalPaid": "Total Paid",
+      "paymentRemaining": "Balance due",
       "paymentStatus": "Payment Status",
       "isScholarship": "Scholarship?",
-      "scholarshipAmount": "Scholarship Amount",
+      "scholarshipAmount": "Scholarship amount (informational)",
+      "mealCount": "Meal count",
+      "takesFridayMeal": "Friday meal",
       "palancasCoordinator": "Palancas Coord.",
       "palancasRequested": "Palancas Requested",
       "palancasReceived": "Palancas Received",
@@ -799,6 +1036,11 @@
     "contactPhonesHelp": "You can enter multiple phone numbers, one per line",
     "cost": "Cost",
     "costPlaceholder": "Retreat cost (e.g., $1500)",
+    "costNotNumericHint": "The cost is the walker fee. If it doesn't contain a number, the walker will be set to 0 (automatically cleared).",
+    "serverFeeAmount": "Server fee",
+    "mealCost": "Meal price",
+    "feeAmountPlaceholder": "0.00",
+    "feesHelp": "The “Cost” above is the walker fee. Here you set the server fee (plus the Friday meal if they take it) and the per-meal price for angelitos based on the meals they indicate. If the server fee is left empty, servers pay the same as walkers.",
     "paymentInfo": "Payment Info",
     "paymentInfoPlaceholder": "Payment instructions",
     "paymentMethods": "Payment Methods",
@@ -854,6 +1096,11 @@
     "contactPhonesHelp": "You can enter multiple phone numbers, one per line",
     "cost": "Cost",
     "costPlaceholder": "Retreat cost (e.g., $1500)",
+    "costNotNumericHint": "The cost is the walker fee. If it doesn't contain a number, the walker will be set to 0 (automatically cleared).",
+    "serverFeeAmount": "Server fee",
+    "mealCost": "Meal price",
+    "feeAmountPlaceholder": "0.00",
+    "feesHelp": "The “Cost” above is the walker fee. Here you set the server fee (plus the Friday meal if they take it) and the per-meal price for angelitos based on the meals they indicate. If the server fee is left empty, servers pay the same as walkers.",
     "paymentInfo": "Payment Info",
     "paymentInfoPlaceholder": "Payment instructions",
     "paymentMethods": "Payment Methods",
@@ -1554,7 +1801,11 @@
       "shirtsAskTitle": "Do you need any shirt or jacket?",
       "shirtsAskHint": "If you already have yours from past retreats, leave \"Not needed\".",
       "isAngelito": "Register as angelito",
-      "isAngelitoHint": "Partial support: not assigned to table or bed, and no payment required.",
+      "isAngelitoHint": "Partial support: not assigned to table or bed, and not charged the retreat fee (only the meals they take).",
+      "mealCount": "How many meals will they take?",
+      "mealCountHint": "The meal price configured for the retreat is charged for each meal indicated.",
+      "takesFridayMeal": "Will take the Friday meal",
+      "takesFridayMealHint": "If taken, the price of one meal is added to their charge.",
       "angelitoAvailability": {
         "title": "Service availability",
         "hint": "Tell us the time windows when you will be serving",

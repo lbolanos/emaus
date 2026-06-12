@@ -1,4 +1,238 @@
 {
+
+  "audit": {
+    "actions": {
+      "participant": {
+        "create": "Participante creado",
+        "update": "Participante editado",
+        "self_update": "Participante editó sus datos",
+        "delete": "Participante eliminado",
+        "import": "Importación de participantes",
+        "confirm": "Participante confirmado",
+        "checkin": "Check-in",
+        "attendance_confirmation": "Confirmación de asistencia",
+        "anonymize": "Datos anonimizados (GDPR)"
+      },
+      "table": {
+        "create": "Mesa creada",
+        "update": "Mesa editada",
+        "delete": "Mesa eliminada",
+        "assign_leader": "Líder asignado",
+        "unassign_leader": "Líder removido",
+        "assign_walker": "Caminante asignado a mesa",
+        "unassign_walker": "Caminante removido de mesa",
+        "rebalance": "Mesas rebalanceadas",
+        "clear_all": "Mesas limpiadas"
+      },
+      "bed": {
+        "assign": "Cama asignada",
+        "unassign": "Cama liberada",
+        "toggle_active": "Cama habilitada/deshabilitada",
+        "clear_all": "Camas limpiadas"
+      },
+      "house": {
+        "create": "Casa creada",
+        "update": "Casa editada",
+        "delete": "Casa eliminada"
+      },
+      "payment": {
+        "create": "Pago registrado",
+        "update": "Pago editado",
+        "delete": "Pago eliminado"
+      },
+      "participant_debt": {
+        "create": "Deuda registrada",
+        "update": "Deuda editada",
+        "delete": "Deuda eliminada"
+      },
+      "retreat": {
+        "create": "Retiro creado",
+        "update": "Retiro editado",
+        "memory": {
+          "photo_upload": "Foto de recuerdo subida",
+          "update": "Recuerdos del retiro editados"
+        }
+      }
+    },
+    "resources": {
+      "participant": "Participante",
+      "participant_debt": "Deuda",
+      "table": "Mesa",
+      "bed": "Cama",
+      "house": "Casa",
+      "payment": "Pago",
+      "retreat": "Retiro"
+    },
+    "ranges": {
+      "1w": "1 semana",
+      "2w": "2 semanas",
+      "1m": "1 mes",
+      "3m": "3 meses",
+      "6m": "6 meses",
+      "all": "Todo"
+    },
+    "ui": {
+      "title": "Auditoría",
+      "description": "Registro de quién creó, editó o borró participantes, mesas, camas, casas, pagos y datos del retiro.",
+      "quickRange": "Rango rápido:",
+      "area": "Área",
+      "action": "Acción",
+      "all": "Todas",
+      "from": "Desde",
+      "to": "Hasta",
+      "clear": "Limpiar",
+      "loading": "Cargando…",
+      "empty": "No hay eventos de auditoría para los filtros seleccionados.",
+      "systemActor": "Sistema / sin sesión",
+      "ip": "IP",
+      "of": "de",
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "yes": "sí",
+      "no": "no",
+      "errorTitle": "Error",
+      "errorLoad": "No se pudo cargar la auditoría."
+    }
+  },
+  "debts": {
+    "title": "Deudas",
+    "add": "Agregar",
+    "amount": "Monto",
+    "description": "Concepto",
+    "descriptionRequired": "El concepto es obligatorio",
+    "empty": "Sin deudas registradas.",
+    "retreatFee": "Cobro del retiro",
+    "meals": "Comidas",
+    "debts": "Deudas",
+    "expected": "Total esperado",
+    "paid": "Pagado",
+    "balance": "Balance",
+    "pazYSalvo": "Paz y salvo",
+    "pending": "Pendiente"
+  },
+  "paymentManagement": {
+    "tabs": { "payments": "Pagos", "balances": "Saldos" },
+    "title": "Gestión de Pagos",
+    "subtitle": "Registro y seguimiento de pagos de participantes",
+    "print": "Imprimir",
+    "addCharge": "Cobro",
+    "addPayment": "Agregar Pago",
+    "reportTitle": "Reporte de Pagos",
+    "generated": "Generado",
+    "filters": {
+      "searchLabel": "Buscar por nombre",
+      "searchPlaceholder": "Nombre, apellido o apodo del participante",
+      "method": "Método de Pago",
+      "allMethods": "Todos los métodos",
+      "startDate": "Fecha Inicio",
+      "endDate": "Fecha Fin",
+      "search": "Buscar",
+      "clear": "Limpiar"
+    },
+    "methods": {
+      "cash": "Efectivo",
+      "transfer": "Transferencia",
+      "check": "Cheque",
+      "card": "Tarjeta",
+      "other": "Otro"
+    },
+    "summary": {
+      "collected": "Total Recaudado",
+      "toCollect": "Por Cobrar",
+      "pazYSalvo": "Paz y salvo",
+      "totalPayments": "Total Pagos"
+    },
+    "table": {
+      "title": "Pagos Registrados",
+      "date": "Fecha",
+      "participant": "Participante",
+      "amount": "Monto",
+      "method": "Método",
+      "reference": "Referencia",
+      "recordedBy": "Registrado por",
+      "actions": "Acciones",
+      "empty": "No se encontraron pagos",
+      "ref": "Ref"
+    },
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "modal": {
+      "editTitle": "Editar Pago",
+      "addTitle": "Agregar Pago",
+      "editDesc": "Modifica los datos del pago",
+      "addDesc": "Registra un nuevo pago",
+      "participant": "Participante",
+      "amount": "Monto",
+      "paymentDate": "Fecha de Pago",
+      "method": "Método de Pago",
+      "selectMethod": "Seleccionar método",
+      "reference": "Número de Referencia",
+      "notes": "Notas",
+      "markScholarship": "Marcar como Becado",
+      "cancel": "Cancelar",
+      "update": "Actualizar",
+      "save": "Guardar"
+    },
+    "debtModal": {
+      "title": "Agregar cobro",
+      "desc": "Registra un cobro adicional (deuda) a un servidor o angelito.",
+      "selectPrompt": "Selecciona un servidor o angelito para registrar el cobro.",
+      "searchPlaceholder": "Buscar servidor o angelito...",
+      "empty": "No hay servidores o angelitos",
+      "close": "Cerrar"
+    },
+    "deleteDialog": {
+      "title": "Confirmar Eliminación",
+      "message": "¿Estás seguro de que deseas eliminar este pago? Esta acción no se puede deshacer.",
+      "cancel": "Cancelar",
+      "confirm": "Eliminar"
+    },
+    "balances": {
+      "print": "Imprimir",
+      "columns": "Columnas",
+      "actions": "Acciones",
+      "export": "Exportar",
+      "reportTitle": "Reporte de Saldos",
+      "registerPayment": "Registrar pago",
+      "addCharge": "Agregar cobro",
+      "whatsappReminder": "Recordatorio",
+      "reminderMessage": "Hola {name}, te recordamos que tienes un saldo pendiente de {amount} para el retiro {retreat}. ¡Gracias!",
+      "payments": "Pagos",
+      "noPayments": "Sin pagos registrados.",
+      "details": "Detalle",
+      "pendingByType": "Pendiente por tipo",
+      "sortBy": "Ordenar por",
+      "markScholarship": "Marcar como becado",
+      "removeScholarship": "Quitar beca",
+      "confirmScholarship": "¿Marcar a {name} como becado? Quedará exento de todo cobro (paz y salvo).",
+      "confirmRemoveScholarship": "¿Quitar la beca a {name}? Volverá a aplicar el cobro según su tipo.",
+      "expected": "Esperado",
+      "paid": "Pagado",
+      "toCollect": "Por cobrar",
+      "pazYSalvo": "Paz y salvo",
+      "searchPlaceholder": "Buscar por nombre, apellido o apodo",
+      "allTypes": "Todos los tipos",
+      "allStatus": "Todos",
+      "statusPaz": "Paz y salvo",
+      "statusPending": "Pendiente",
+      "participant": "Participante",
+      "type": "Tipo",
+      "balance": "Balance",
+      "status": "Estado",
+      "scholarship": "Becado",
+      "pending": "Pendiente",
+      "empty": "No hay participantes que coincidan",
+      "types": {
+        "walker": "Caminante",
+        "server": "Servidor",
+        "partial_server": "Angelito",
+        "waiting": "En espera",
+        "walkers": "Caminantes",
+        "servers": "Servidores",
+        "partialServers": "Angelitos"
+      }
+    }
+  },
   "delete": {
     "confirmTitle": "¿Estás seguro?"
   },
@@ -618,9 +852,12 @@
       "arrivesOnOwn": "Llega por su cuenta?",
       "lastPaymentDate": "Fecha Último Pago",
       "totalPaid": "Total Pagado",
+      "paymentRemaining": "Falta por pagar",
       "paymentStatus": "Estado de Pago",
       "isScholarship": "Beca?",
-      "scholarshipAmount": "Monto Becado",
+      "scholarshipAmount": "Monto de beca (informativo)",
+      "mealCount": "Nº de comidas",
+      "takesFridayMeal": "Comida del viernes",
       "palancasCoordinator": "Coord. Palancas",
       "palancasRequested": "Pal. Solicitadas",
       "palancasReceived": "Pal. Recibidas",
@@ -849,6 +1086,11 @@
     "contactPhonesHelp": "Puede ingresar múltiples números de teléfono, uno por línea",
     "cost": "Costo",
     "costPlaceholder": "Costo del retiro (ej: $1500)",
+    "costNotNumericHint": "El costo es el cobro del caminante. Si no contiene un número, el caminante quedará en 0 (paz y salvo automático).",
+    "serverFeeAmount": "Cobro servidor",
+    "mealCost": "Valor por comida",
+    "feeAmountPlaceholder": "0.00",
+    "feesHelp": "El “Costo” de arriba es el cobro del caminante. Aquí se define el cobro del servidor (más la comida del viernes si la toma) y el valor por comida del angelito según las que indique. Si el cobro del servidor queda vacío, el servidor paga lo mismo que el caminante.",
     "paymentInfo": "Información de Pago",
     "paymentInfoPlaceholder": "Instrucciones para realizar el pago",
     "paymentMethods": "Métodos de Pago",
@@ -894,6 +1136,11 @@
     "contactPhonesHelp": "Puede ingresar múltiples números de teléfono, uno por línea",
     "cost": "Costo",
     "costPlaceholder": "Costo del retiro (ej: $1500)",
+    "costNotNumericHint": "El costo es el cobro del caminante. Si no contiene un número, el caminante quedará en 0 (paz y salvo automático).",
+    "serverFeeAmount": "Cobro servidor",
+    "mealCost": "Valor por comida",
+    "feeAmountPlaceholder": "0.00",
+    "feesHelp": "El “Costo” de arriba es el cobro del caminante. Aquí se define el cobro del servidor (más la comida del viernes si la toma) y el valor por comida del angelito según las que indique. Si el cobro del servidor queda vacío, el servidor paga lo mismo que el caminante.",
     "paymentInfo": "Información de Pago",
     "paymentInfoPlaceholder": "Instrucciones para realizar el pago",
     "paymentMethods": "Métodos de Pago",
@@ -1634,7 +1881,11 @@
       "shirtsAskTitle": "¿Necesitas alguna playera o chamarra?",
       "shirtsAskHint": "Si ya tienes las tuyas de retiros anteriores, déjalas en \"No necesita\".",
       "isAngelito": "Registrar como angelito",
-      "isAngelitoHint": "Apoyo parcial: no se asigna a mesa ni cama, y no requiere pago.",
+      "isAngelitoHint": "Apoyo parcial: no se asigna a mesa ni cama, y no se cobra el retiro (sí las comidas que tome).",
+      "mealCount": "¿Cuántas comidas tomará?",
+      "mealCountHint": "Se cobra el valor por comida configurado en el retiro por cada comida indicada.",
+      "takesFridayMeal": "Tomará la comida del viernes",
+      "takesFridayMealHint": "Si la toma, se agrega el valor de una comida a su cobro.",
       "angelitoAvailability": {
         "title": "Disponibilidad de servicio",
         "hint": "Indica los horarios en los que prestarás tu servicio",

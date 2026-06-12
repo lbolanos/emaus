@@ -34,6 +34,19 @@ describe('domainAuditController.getDomainAuditLogs', () => {
 		retreat = await TestDataFactory.createTestRetreat();
 	});
 
+	// Gating de lectura: audit:read (superadmin) OR creador OR rol admin del retiro.
+	// Un miembro "regular" del retiro (hasRetreatAccess true) NO puede leer auditoría.
+	const denyAll = () => {
+		jest.spyOn(authorizationService, 'hasPermission').mockResolvedValue(false);
+		jest.spyOn(authorizationService, 'isRetreatCreator').mockResolvedValue(false);
+		jest.spyOn(authorizationService, 'hasRetreatRole').mockResolvedValue(false);
+	};
+	const allowAsRetreatAdmin = () => {
+		jest.spyOn(authorizationService, 'hasPermission').mockResolvedValue(false);
+		jest.spyOn(authorizationService, 'isRetreatCreator').mockResolvedValue(false);
+		jest.spyOn(authorizationService, 'hasRetreatRole').mockResolvedValue(true);
+	};
+
 	const seed = (overrides: Partial<DomainAuditLog> = {}) =>
 		AppDataSource.getRepository(DomainAuditLog).save(
 			AppDataSource.getRepository(DomainAuditLog).create({
@@ -54,9 +67,7 @@ describe('domainAuditController.getDomainAuditLogs', () => {
 	});
 
 	it('responde 403 cuando el usuario no tiene acceso ni permisos', async () => {
-		jest.spyOn(authorizationService, 'hasRetreatAccess').mockResolvedValue(false);
-		jest.spyOn(authorizationService, 'isRetreatCreator').mockResolvedValue(false);
-		jest.spyOn(authorizationService, 'hasPermission').mockResolvedValue(false);
+		denyAll();
 
 		const req: any = { params: { retreatId: retreat.id }, query: {}, user: { id: actor.id } };
 		const res = createMockResponse();
@@ -65,7 +76,7 @@ describe('domainAuditController.getDomainAuditLogs', () => {
 	});
 
 	it('devuelve los logs del retiro con el actor enriquecido', async () => {
-		jest.spyOn(authorizationService, 'hasRetreatAccess').mockResolvedValue(true);
+		allowAsRetreatAdmin();
 		await seed({ action: 'payment.create', resourceType: 'payment', resourceId: 'p1' });
 
 		const req: any = { params: { retreatId: retreat.id }, query: {}, user: { id: actor.id } };
@@ -81,7 +92,7 @@ describe('domainAuditController.getDomainAuditLogs', () => {
 	});
 
 	it('parsea oldValues/newValues/metadata de JSON a objeto', async () => {
-		jest.spyOn(authorizationService, 'hasRetreatAccess').mockResolvedValue(true);
+		allowAsRetreatAdmin();
 		await seed({
 			action: 'table.update',
 			oldValues: JSON.stringify({ name: 'A' }),
@@ -100,7 +111,7 @@ describe('domainAuditController.getDomainAuditLogs', () => {
 	});
 
 	it('filtra por resourceType', async () => {
-		jest.spyOn(authorizationService, 'hasRetreatAccess').mockResolvedValue(true);
+		allowAsRetreatAdmin();
 		await seed({ resourceType: 'table', action: 'table.create' });
 		await seed({ resourceType: 'payment', action: 'payment.create' });
 
@@ -118,7 +129,7 @@ describe('domainAuditController.getDomainAuditLogs', () => {
 	});
 
 	it('solo devuelve logs del retiro pedido (aislamiento entre retiros)', async () => {
-		jest.spyOn(authorizationService, 'hasRetreatAccess').mockResolvedValue(true);
+		allowAsRetreatAdmin();
 		const otherRetreat = await TestDataFactory.createTestRetreat();
 		await seed();
 		await seed({ retreatId: otherRetreat.id });
@@ -132,10 +143,54 @@ describe('domainAuditController.getDomainAuditLogs', () => {
 		expect(payload.logs[0].retreatId).toBe(retreat.id);
 	});
 
-	it('permite el acceso al creador del retiro aunque no tenga hasRetreatAccess', async () => {
-		jest.spyOn(authorizationService, 'hasRetreatAccess').mockResolvedValue(false);
-		jest.spyOn(authorizationService, 'isRetreatCreator').mockResolvedValue(true);
+	it('responde 403 a un miembro del retiro SIN rol admin (hasRetreatAccess no basta)', async () => {
+		denyAll();
+		// El usuario sí pertenece al retiro, pero solo el rol admin/creador/audit:read lee auditoría.
+		jest.spyOn(authorizationService, 'hasRetreatAccess').mockResolvedValue(true);
+
+		const req: any = { params: { retreatId: retreat.id }, query: {}, user: { id: actor.id } };
+		const res = createMockResponse();
+		await getDomainAuditLogs(req, res);
+		expect(res.status).toHaveBeenCalledWith(403);
+	});
+
+	it('interpreta startDate/endDate (YYYY-MM-DD) en la timezone del retiro', async () => {
+		allowAsRetreatAdmin();
+		// Retiro sin timezone propia → fallback America/Mexico_City (UTC-6).
+		// Evento a las 2026-06-05T05:30Z = 2026-06-04 23:30 hora CDMX.
+		const repo = AppDataSource.getRepository(DomainAuditLog);
+		const row = await seed();
+		await repo.update(row.id, { createdAt: new Date('2026-06-05T05:30:00.000Z') } as any);
+
+		// El día CDMX del evento es 2026-06-04: endDate=2026-06-04 lo incluye…
+		const resIncluded = createMockResponse();
+		await getDomainAuditLogs(
+			{
+				params: { retreatId: retreat.id },
+				query: { endDate: '2026-06-04' },
+				user: { id: actor.id },
+			} as any,
+			resIncluded,
+		);
+		expect(resIncluded.json.mock.calls[0][0].total).toBe(1);
+
+		// …y startDate=2026-06-05 lo excluye (en UTC habría caído el día 5).
+		const resExcluded = createMockResponse();
+		await getDomainAuditLogs(
+			{
+				params: { retreatId: retreat.id },
+				query: { startDate: '2026-06-05' },
+				user: { id: actor.id },
+			} as any,
+			resExcluded,
+		);
+		expect(resExcluded.json.mock.calls[0][0].total).toBe(0);
+	});
+
+	it('permite el acceso al creador del retiro aunque no sea admin del retiro', async () => {
 		jest.spyOn(authorizationService, 'hasPermission').mockResolvedValue(false);
+		jest.spyOn(authorizationService, 'isRetreatCreator').mockResolvedValue(true);
+		jest.spyOn(authorizationService, 'hasRetreatRole').mockResolvedValue(false);
 		await seed();
 
 		const req: any = { params: { retreatId: retreat.id }, query: {}, user: { id: actor.id } };

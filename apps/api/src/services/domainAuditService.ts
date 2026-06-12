@@ -1,9 +1,15 @@
+import type { DomainResourceType } from '@repo/types';
 import { AppDataSource } from '../data-source';
 import { DomainAuditLog } from '../entities/domainAuditLog.entity';
 import { auditContext } from '../utils/auditContext';
 import { auditLogger } from '../utils/auditLogger';
 import { diffFields, sanitizeSnapshot } from '../utils/auditDiff';
 import { config } from '../config';
+
+// Fuente de verdad compartida con el frontend — re-export para los ~13 call sites
+// que importan estas constantes/tipos desde este servicio.
+export { DomainAuditAction, DOMAIN_RESOURCE_TYPES } from '@repo/types';
+export type { DomainAuditActionType, DomainResourceType } from '@repo/types';
 
 /**
  * Auditoría de operaciones de ESCRITURA del dominio (participantes, mesas, camas/casas,
@@ -20,57 +26,9 @@ import { config } from '../config';
  *    monkey-patch de `AppDataSource.getRepository` que hace `test-setup.ts`.
  *
  * Usar las constantes `DomainAuditAction` para `action` (consistencia para queries/análisis).
+ * Las constantes/tipos viven en `@repo/types` (`packages/types/src/audit.ts`) para
+ * compartirlas con el frontend; aquí solo se re-exportan.
  */
-export const DomainAuditAction = {
-	// Participantes
-	PARTICIPANT_CREATE: 'participant.create',
-	PARTICIPANT_UPDATE: 'participant.update',
-	PARTICIPANT_SELF_UPDATE: 'participant.self_update',
-	PARTICIPANT_DELETE: 'participant.delete',
-	PARTICIPANT_IMPORT: 'participant.import',
-	PARTICIPANT_CONFIRM: 'participant.confirm',
-	PARTICIPANT_CHECKIN: 'participant.checkin',
-	PARTICIPANT_ATTENDANCE_CONFIRMATION: 'participant.attendance_confirmation',
-	PARTICIPANT_ANONYMIZE: 'participant.anonymize',
-	// Mesas
-	TABLE_CREATE: 'table.create',
-	TABLE_UPDATE: 'table.update',
-	TABLE_DELETE: 'table.delete',
-	TABLE_ASSIGN_LEADER: 'table.assign_leader',
-	TABLE_UNASSIGN_LEADER: 'table.unassign_leader',
-	TABLE_ASSIGN_WALKER: 'table.assign_walker',
-	TABLE_UNASSIGN_WALKER: 'table.unassign_walker',
-	TABLE_REBALANCE: 'table.rebalance',
-	TABLE_CLEAR_ALL: 'table.clear_all',
-	// Camas / Casas
-	BED_ASSIGN: 'bed.assign',
-	BED_UNASSIGN: 'bed.unassign',
-	BED_TOGGLE_ACTIVE: 'bed.toggle_active',
-	BED_CLEAR_ALL: 'bed.clear_all',
-	HOUSE_CREATE: 'house.create',
-	HOUSE_UPDATE: 'house.update',
-	HOUSE_DELETE: 'house.delete',
-	// Pagos
-	PAYMENT_CREATE: 'payment.create',
-	PAYMENT_UPDATE: 'payment.update',
-	PAYMENT_DELETE: 'payment.delete',
-	// Retiros
-	RETREAT_CREATE: 'retreat.create',
-	RETREAT_UPDATE: 'retreat.update',
-	RETREAT_MEMORY_PHOTO_UPLOAD: 'retreat.memory.photo_upload',
-	RETREAT_MEMORY_UPDATE: 'retreat.memory.update',
-} as const;
-
-export type DomainAuditActionType = (typeof DomainAuditAction)[keyof typeof DomainAuditAction];
-
-export type DomainResourceType =
-	| 'participant'
-	| 'table'
-	| 'bed'
-	| 'house'
-	| 'payment'
-	| 'retreat';
-
 export interface DomainAuditEvent {
 	action: string;
 	resourceType: string;
@@ -157,7 +115,7 @@ export class DomainAuditService {
 
 	/** Registra una creación: `newValues` = snapshot compacto de la entidad creada. */
 	logCreate(
-		resourceType: string,
+		resourceType: DomainResourceType,
 		resourceId: string | null | undefined,
 		newValues: Record<string, any> | null | undefined,
 		opts: DomainAuditHelperOptions = {},
@@ -174,7 +132,7 @@ export class DomainAuditService {
 
 	/** Registra una actualización: solo los campos que cambiaron (diff). */
 	logUpdate(
-		resourceType: string,
+		resourceType: DomainResourceType,
 		resourceId: string | null | undefined,
 		oldValues: Record<string, any> | null | undefined,
 		newValues: Record<string, any> | null | undefined,
@@ -198,7 +156,7 @@ export class DomainAuditService {
 
 	/** Registra un borrado: `oldValues` = snapshot compacto de la entidad eliminada. */
 	logDelete(
-		resourceType: string,
+		resourceType: DomainResourceType,
 		resourceId: string | null | undefined,
 		oldValues: Record<string, any> | null | undefined,
 		opts: DomainAuditHelperOptions = {},

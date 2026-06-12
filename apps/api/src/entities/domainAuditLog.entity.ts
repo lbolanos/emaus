@@ -20,6 +20,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 
 @Entity('domain_audit_log')
 @Index('idx_domain_audit_log_resource', ['resourceType', 'resourceId'])
 @Index('idx_domain_audit_log_retreat', ['retreatId'])
+@Index('idx_domain_audit_log_retreat_created', ['retreatId', 'createdAt'])
 @Index('idx_domain_audit_log_actor', ['actorUserId'])
 @Index('idx_domain_audit_log_action', ['action', 'createdAt'])
 export class DomainAuditLog {
