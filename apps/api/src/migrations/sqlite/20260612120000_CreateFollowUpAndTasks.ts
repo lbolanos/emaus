@@ -24,7 +24,7 @@ export class CreateFollowUpAndTasks20260612120000 implements MigrationInterface 
 				"createdAt" datetime NOT NULL DEFAULT (datetime('now')),
 				"updatedAt" datetime NOT NULL DEFAULT (datetime('now')),
 				CONSTRAINT "FK_followups_retreat" FOREIGN KEY ("retreatId") REFERENCES "retreat" ("id") ON DELETE CASCADE,
-				CONSTRAINT "FK_followups_participant" FOREIGN KEY ("participantId") REFERENCES "participant" ("id") ON DELETE CASCADE,
+				CONSTRAINT "FK_followups_participant" FOREIGN KEY ("participantId") REFERENCES "participants" ("id") ON DELETE CASCADE,
 				CONSTRAINT "FK_followups_user" FOREIGN KEY ("updatedBy") REFERENCES "users" ("id") ON DELETE SET NULL,
 				CONSTRAINT "UQ_followup_participant_retreat" UNIQUE ("participantId", "retreatId")
 			)
@@ -48,7 +48,7 @@ export class CreateFollowUpAndTasks20260612120000 implements MigrationInterface 
 				"createdAt" datetime NOT NULL DEFAULT (datetime('now')),
 				"updatedAt" datetime NOT NULL DEFAULT (datetime('now')),
 				CONSTRAINT "FK_crm_tasks_retreat" FOREIGN KEY ("retreatId") REFERENCES "retreat" ("id") ON DELETE CASCADE,
-				CONSTRAINT "FK_crm_tasks_participant" FOREIGN KEY ("participantId") REFERENCES "participant" ("id") ON DELETE SET NULL,
+				CONSTRAINT "FK_crm_tasks_participant" FOREIGN KEY ("participantId") REFERENCES "participants" ("id") ON DELETE SET NULL,
 				CONSTRAINT "FK_crm_tasks_assignee" FOREIGN KEY ("assignedTo") REFERENCES "users" ("id") ON DELETE SET NULL
 			)
 		`);

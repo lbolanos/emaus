@@ -1822,6 +1822,7 @@
     "columns": "columns",
     "actions": {
       "cancel": "Cancel",
+      "save": "Save",
       "delete": "Delete",
       "close": "Close",
       "print": "Print",

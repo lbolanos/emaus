@@ -69,7 +69,7 @@ export class CreateMessageSequences20260612110000 implements MigrationInterface 
 				"updatedAt" datetime NOT NULL DEFAULT (datetime('now')),
 				CONSTRAINT "FK_scheduled_messages_sequence" FOREIGN KEY ("sequenceId") REFERENCES "message_sequences" ("id") ON DELETE CASCADE,
 				CONSTRAINT "FK_scheduled_messages_step" FOREIGN KEY ("stepId") REFERENCES "sequence_steps" ("id") ON DELETE CASCADE,
-				CONSTRAINT "FK_scheduled_messages_participant" FOREIGN KEY ("participantId") REFERENCES "participant" ("id") ON DELETE CASCADE,
+				CONSTRAINT "FK_scheduled_messages_participant" FOREIGN KEY ("participantId") REFERENCES "participants" ("id") ON DELETE CASCADE,
 				CONSTRAINT "FK_scheduled_messages_retreat" FOREIGN KEY ("retreatId") REFERENCES "retreat" ("id") ON DELETE CASCADE,
 				CONSTRAINT "UQ_scheduled_step_participant" UNIQUE ("stepId", "participantId")
 			)
