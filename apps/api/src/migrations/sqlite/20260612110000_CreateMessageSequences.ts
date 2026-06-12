@@ -8,6 +8,9 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 export class CreateMessageSequences20260612110000 implements MigrationInterface {
 	name = 'CreateMessageSequences20260612110000';
 	timestamp = '20260612110000';
+	// El down() hace DROP TABLE; el guard sqliteSafePattern exige este flag.
+	// (Tablas nuevas sin FKs entrantes; el runner custom además ignora el flag.)
+	transaction = false as const;
 
 	public async up(queryRunner: QueryRunner): Promise<void> {
 		await queryRunner.query(`
