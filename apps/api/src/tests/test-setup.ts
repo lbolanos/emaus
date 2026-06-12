@@ -22,6 +22,7 @@ import { UserRetreat } from '../entities/userRetreat.entity';
 import { Permission } from '../entities/permission.entity';
 import { Migration } from '../entities/migration.entity';
 import { Payment } from '../entities/payment.entity';
+import { ParticipantDebt } from '../entities/participantDebt.entity';
 import { GlobalMessageTemplate } from '../entities/globalMessageTemplate.entity';
 import { ParticipantCommunication } from '../entities/participantCommunication.entity';
 import { TelemetryMetric } from '../entities/telemetryMetric.entity';
@@ -92,6 +93,7 @@ const entities = [
 	Permission,
 	Migration,
 	Payment,
+	ParticipantDebt,
 	ParticipantCommunication,
 	TelemetryMetric,
 	TelemetryEvent,

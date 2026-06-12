@@ -475,6 +475,7 @@ describe("Email Lookup Feature - Server Registration", () => {
         "retreat-1",
         "server",
         undefined,
+        { mealCount: null, takesFridayMeal: null },
       );
       expect(res.json).toHaveBeenCalledWith({
         success: true,

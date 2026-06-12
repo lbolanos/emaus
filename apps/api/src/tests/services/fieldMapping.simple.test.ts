@@ -78,6 +78,16 @@ const mapToEnglishKeys = (participant: any): any => {
 		departureDate: formatDate(participant.fechasalida),
 		notes: participant.notas?.trim() || null,
 		familyFriends: participant.amigosfamilia?.trim() || null,
+		// Comidas (paz y salvo v2) — espejo del mapeo real en participantService:
+		// numerocomidas → mealCount, comidaviernes (S/N) → takesFridayMeal.
+		mealCount:
+			participant.numerocomidas != null && String(participant.numerocomidas).trim() !== ''
+				? Number(String(participant.numerocomidas).trim()) || null
+				: null,
+		takesFridayMeal:
+			participant.comidaviernes != null && String(participant.comidaviernes).trim() !== ''
+				? String(participant.comidaviernes).trim() === 'S'
+				: null,
 	};
 };
 
@@ -174,6 +184,20 @@ describe('Field Mapping - Excel to Database (Simple Tests)', () => {
 			expect(result.isFirstRetreat).toBe(false);
 			expect(result.snoring).toBe(true);
 			expect(result.requiresSpecialCare).toBe(false);
+		});
+	});
+
+	describe('Comidas (paz y salvo v2)', () => {
+		test('mapea numerocomidas y comidaviernes cuando vienen en el Excel', () => {
+			const result = mapToEnglishKeys({ numerocomidas: '4', comidaviernes: 'S' });
+			expect(result.mealCount).toBe(4);
+			expect(result.takesFridayMeal).toBe(true);
+		});
+
+		test('comidaviernes N → false; vacío/ausente → null (no respondido)', () => {
+			expect(mapToEnglishKeys({ comidaviernes: 'N' }).takesFridayMeal).toBe(false);
+			expect(mapToEnglishKeys({}).takesFridayMeal).toBeNull();
+			expect(mapToEnglishKeys({ numerocomidas: '' }).mealCount).toBeNull();
 		});
 	});
 
@@ -379,6 +403,8 @@ describe('Field Mapping - Excel to Database (Simple Tests)', () => {
 				departureDate: '2023-12-23',
 				notes: 'Participante activa',
 				familyFriends: 'Juan Pérez, Laura Martínez',
+				mealCount: null,
+				takesFridayMeal: null,
 			});
 		});
 	});

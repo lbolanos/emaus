@@ -1,12 +1,12 @@
 /**
- * Tests for the "angelito" (partial_server) automatic scholarship coercion.
+ * Tests for "angelito" (partial_server) scholarship behavior.
  *
- * Business rule: participants registered as type='partial_server' (angelitos)
- * never pay. Backend must force isScholarship=true on every entry point
- * (public registration, admin creation, email-lookup confirmation) so they
- * show as 'paid' in PaymentsView regardless of what the caller sends.
+ * Business rule (paz y salvo v2): angelitos ya NO se fuerzan a beca. No se les
+ * cobra el retiro, pero sí las comidas que indiquen (mealCount × mealCost), por
+ * lo que isScholarship debe respetar el valor del caller (default false) en todos
+ * los puntos de entrada. La beca queda como flag manual.
  *
- * Also verifies regular servers are NOT auto-flagged as scholarship.
+ * También verifica que los servidores regulares no se auto-marquen como beca.
  *
  * Database-independent: uses Jest mocks only.
  */
@@ -190,8 +190,8 @@ beforeEach(() => {
 // createParticipant — new creation (no existing email)
 // --------------------------------------------------------------------------
 
-describe("createParticipant — angelito scholarship coercion (new participant)", () => {
-	it("forces isScholarship=true when type='partial_server' even if caller sent false", async () => {
+describe("createParticipant — angelito ya NO se fuerza a beca (new participant)", () => {
+	it("respeta isScholarship=false cuando type='partial_server'", async () => {
 		mockParticipantGetOne.mockResolvedValue(null); // no existing by email
 
 		await createParticipant({
@@ -202,11 +202,11 @@ describe("createParticipant — angelito scholarship coercion (new participant)"
 
 		const savedArgs = mockParticipantSave.mock.calls.map((c) => c[0]);
 		expect(savedArgs.length).toBeGreaterThan(0);
-		// Every save call on Participant must have isScholarship=true
-		expect(savedArgs[0].isScholarship).toBe(true);
+		// Ya no se fuerza beca: el angelito paga sus comidas.
+		expect(savedArgs[0].isScholarship).toBe(false);
 	});
 
-	it("forces isScholarship=true when isScholarship is omitted", async () => {
+	it("no fuerza beca cuando isScholarship se omite (default falsy)", async () => {
 		mockParticipantGetOne.mockResolvedValue(null);
 
 		const payload = { ...basePayload, type: "partial_server" as const };
@@ -214,7 +214,7 @@ describe("createParticipant — angelito scholarship coercion (new participant)"
 		await createParticipant(payload);
 
 		const savedArgs = mockParticipantSave.mock.calls.map((c) => c[0]);
-		expect(savedArgs[0].isScholarship).toBe(true);
+		expect(savedArgs[0].isScholarship).toBeFalsy();
 	});
 
 	it("does NOT auto-flag isScholarship for regular servers", async () => {
@@ -236,8 +236,8 @@ describe("createParticipant — angelito scholarship coercion (new participant)"
 // createParticipant — reuse branch (existing participant by email)
 // --------------------------------------------------------------------------
 
-describe("createParticipant — angelito coercion (email reuse branch)", () => {
-	it("forces isScholarship=true when reusing a Participant as partial_server", async () => {
+describe("createParticipant — angelito (email reuse branch)", () => {
+	it("respeta isScholarship=false al reusar un Participant como partial_server", async () => {
 		mockParticipantGetOne.mockResolvedValue({
 			...existingParticipant,
 			retreatId: "retreat-OLD",
@@ -252,8 +252,8 @@ describe("createParticipant — angelito coercion (email reuse branch)", () => {
 
 		const savedArgs = mockParticipantSave.mock.calls.map((c) => c[0]);
 		expect(savedArgs.length).toBeGreaterThan(0);
-		// The reused participant saved with isScholarship=true
-		expect(savedArgs[0].isScholarship).toBe(true);
+		// Ya no se fuerza beca al reusar como angelito.
+		expect(savedArgs[0].isScholarship).toBe(false);
 	});
 });
 
@@ -261,8 +261,8 @@ describe("createParticipant — angelito coercion (email reuse branch)", () => {
 // confirmExistingParticipant — email-lookup flow
 // --------------------------------------------------------------------------
 
-describe("confirmExistingParticipant — angelito coercion", () => {
-	it("sets isScholarship=true on the existing Participant when type='partial_server'", async () => {
+describe("confirmExistingParticipant — angelito ya NO se fuerza a beca", () => {
+	it("NO marca beca en el Participant existente cuando type='partial_server'", async () => {
 		mockParticipantGetOne.mockResolvedValue({
 			...existingParticipant,
 			isScholarship: false,
@@ -276,7 +276,7 @@ describe("confirmExistingParticipant — angelito coercion", () => {
 
 		expect(mockParticipantSave).toHaveBeenCalled();
 		const savedParticipant = mockParticipantSave.mock.calls[0][0];
-		expect(savedParticipant.isScholarship).toBe(true);
+		expect(savedParticipant.isScholarship).toBe(false);
 	});
 
 	it("does NOT flip isScholarship when type='server'", async () => {

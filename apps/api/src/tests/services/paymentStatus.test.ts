@@ -2,6 +2,7 @@
 // No DB: instantiate the entity directly and assign relevant fields.
 import { Participant } from '../../entities/participant.entity';
 import { Payment } from '../../entities/payment.entity';
+import { ParticipantDebt } from '../../entities/participantDebt.entity';
 import { Retreat } from '../../entities/retreat.entity';
 
 const makePayment = (amount: number): Payment => {
@@ -12,20 +13,44 @@ const makePayment = (amount: number): Payment => {
 	return p;
 };
 
-const makeRetreat = (cost: string | null): Retreat => {
+const makeDebt = (amount: number): ParticipantDebt => {
+	const d = new ParticipantDebt();
+	d.amount = amount as any;
+	return d;
+};
+
+const makeRetreat = (
+	cost: string | null,
+	fees?: {
+		serverFeeAmount?: number | null;
+		mealCost?: number | null;
+	},
+): Retreat => {
 	const r = new Retreat();
 	(r as any).cost = cost;
+	if (fees) {
+		if (fees.serverFeeAmount !== undefined) r.serverFeeAmount = fees.serverFeeAmount;
+		if (fees.mealCost !== undefined) r.mealCost = fees.mealCost;
+	}
 	return r;
 };
 
 const makeParticipant = (opts: {
+	type?: 'walker' | 'server' | 'waiting' | 'partial_server';
 	isScholarship?: boolean;
 	payments?: Payment[];
+	debts?: ParticipantDebt[];
+	mealCount?: number | null;
+	takesFridayMeal?: boolean | null;
 	retreat?: Retreat | null;
 }): Participant => {
 	const p = new Participant();
+	if (opts.type !== undefined) (p as any).type = opts.type;
 	p.isScholarship = !!opts.isScholarship;
 	p.payments = opts.payments ?? ([] as any);
+	p.debts = opts.debts ?? ([] as any);
+	if (opts.mealCount !== undefined) p.mealCount = opts.mealCount;
+	if (opts.takesFridayMeal !== undefined) p.takesFridayMeal = opts.takesFridayMeal;
 	if (opts.retreat !== undefined) {
 		p.retreat = opts.retreat as any;
 	}
@@ -60,13 +85,15 @@ describe('Participant.paymentStatus', () => {
 		expect(p.paymentStatus).toBe('scholarship');
 	});
 
-	it('"overpaid" takes precedence over "scholarship" when totalPaid > cost', () => {
+	it('becado queda exento de todo: "scholarship" aun pagando de más', () => {
+		// Nueva semántica (paz y salvo v2): el becado queda en cero, no hay
+		// "overpaid". El monto esperado es 0, así que domina "scholarship".
 		const p = makeParticipant({
 			isScholarship: true,
 			payments: [makePayment(2000)],
 			retreat: makeRetreat('1500'),
 		});
-		expect(p.paymentStatus).toBe('overpaid');
+		expect(p.paymentStatus).toBe('scholarship');
 	});
 
 	it('returns "scholarship" for becados without a retreat associated', () => {
@@ -122,6 +149,94 @@ describe('Participant.paymentStatus', () => {
 			retreat: makeRetreat('$1,500.00'),
 		});
 		expect(p.paymentStatus).toBe('paid');
+	});
+});
+
+describe('Participant — cargos por tipo (paz y salvo v2)', () => {
+	// El cobro del caminante es el texto `cost`; servidor y comida son numéricos.
+	const retreat = () => makeRetreat('$2,800', { serverFeeAmount: 1500, mealCost: 150 });
+
+	it('caminante: monto esperado = costo del retiro (texto cost)', () => {
+		const p = makeParticipant({ type: 'walker', retreat: retreat(), payments: [] });
+		expect(p.chargeBreakdown.expected).toBe(2800);
+		expect(p.paymentStatus).toBe('unpaid');
+	});
+
+	it('caminante a paz y salvo al pagar la cuota completa', () => {
+		const p = makeParticipant({
+			type: 'walker',
+			retreat: retreat(),
+			payments: [makePayment(2800)],
+		});
+		expect(p.chargeBreakdown.balance).toBe(0);
+		expect(p.paymentStatus).toBe('paid');
+	});
+
+	it('servidor sin comida del viernes: esperado = serverFeeAmount', () => {
+		const p = makeParticipant({ type: 'server', retreat: retreat(), takesFridayMeal: false });
+		expect(p.chargeBreakdown.expected).toBe(1500);
+	});
+
+	it('servidor con comida del viernes: esperado = serverFeeAmount + mealCost', () => {
+		const p = makeParticipant({ type: 'server', retreat: retreat(), takesFridayMeal: true });
+		expect(p.chargeBreakdown.expected).toBe(1650);
+		expect(p.chargeBreakdown.meals).toBe(150);
+	});
+
+	it('angelito: esperado = nº comidas × mealCost, sin cobro de retiro', () => {
+		const p = makeParticipant({ type: 'partial_server', retreat: retreat(), mealCount: 4 });
+		expect(p.chargeBreakdown.retreatFee).toBe(0);
+		expect(p.chargeBreakdown.meals).toBe(600);
+		expect(p.chargeBreakdown.expected).toBe(600);
+	});
+
+	it('angelito a paz y salvo al pagar sus comidas (NO becado)', () => {
+		const p = makeParticipant({
+			type: 'partial_server',
+			retreat: retreat(),
+			mealCount: 4,
+			payments: [makePayment(600)],
+		});
+		expect(p.isScholarship).toBe(false);
+		expect(p.paymentStatus).toBe('paid');
+	});
+
+	it('angelito sin comidas no debe nada → paz y salvo', () => {
+		const p = makeParticipant({ type: 'partial_server', retreat: retreat(), mealCount: 0 });
+		expect(p.chargeBreakdown.expected).toBe(0);
+		expect(p.paymentStatus).toBe('paid');
+	});
+
+	it('suma deudas manuales al monto esperado', () => {
+		const p = makeParticipant({
+			type: 'server',
+			retreat: retreat(),
+			takesFridayMeal: false,
+			debts: [makeDebt(200), makeDebt(50)],
+		});
+		expect(p.chargeBreakdown.debts).toBe(250);
+		expect(p.chargeBreakdown.expected).toBe(1750);
+	});
+
+	it('servidor cae al costo (texto) cuando serverFeeAmount no está configurado', () => {
+		const p = makeParticipant({
+			type: 'server',
+			retreat: makeRetreat('$2,800', { mealCost: 150 }),
+			takesFridayMeal: false,
+		});
+		expect(p.chargeBreakdown.expected).toBe(2800);
+	});
+
+	it('becado: exento de todo (esperado 0) aun con comidas y deudas', () => {
+		const p = makeParticipant({
+			type: 'server',
+			isScholarship: true,
+			retreat: retreat(),
+			takesFridayMeal: true,
+			debts: [makeDebt(500)],
+		});
+		expect(p.chargeBreakdown.expected).toBe(0);
+		expect(p.paymentStatus).toBe('scholarship');
 	});
 });
 
@@ -406,7 +521,7 @@ describe('RetreatSnapshotFields contract', () => {
 	// Locks the shape of RetreatSnapshotFields. If a field gets removed from
 	// the type accidentally, syncRetreatFields() would silently drop it on
 	// updateParticipant. This compile-time check enforces the 15 expected keys.
-	it('contains all 15 per-retreat fields', () => {
+	it('contains all per-retreat fields', () => {
 		const expected = [
 			// Already present before this refactor
 			'type',
@@ -418,6 +533,9 @@ describe('RetreatSnapshotFields contract', () => {
 			// Scholarship
 			'isScholarship',
 			'scholarshipAmount',
+			// Comidas (paz y salvo v2)
+			'mealCount',
+			'takesFridayMeal',
 			// Palancas
 			'palancasCoordinator',
 			'palancasRequested',
@@ -446,6 +564,8 @@ describe('RetreatSnapshotFields contract', () => {
 			bagMade: false,
 			isScholarship: false,
 			scholarshipAmount: null,
+			mealCount: null,
+			takesFridayMeal: null,
 			palancasCoordinator: null,
 			palancasRequested: null,
 			palancasReceived: null,
