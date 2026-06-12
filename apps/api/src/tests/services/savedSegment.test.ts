@@ -75,4 +75,43 @@ describe('SavedSegmentService', () => {
 		expect(await service.findByRetreat(retreat.id)).toHaveLength(1);
 		expect((await service.findByRetreat(retreat.id))[0].name).toBe('A');
 	});
+
+	describe('evaluateFilters (segmento dinámico)', () => {
+		beforeEach(async () => {
+			await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker',
+				firstName: 'Juan',
+				email: 'juan@example.com',
+			} as any);
+			await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker',
+				firstName: 'Pedro',
+				email: 'pedro@example.com',
+			} as any);
+			await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'server',
+				firstName: 'Ana',
+				email: 'ana@example.com',
+			} as any);
+		});
+
+		it('filtro vacío devuelve todos los participantes activos del retiro', async () => {
+			const result = await service.evaluateFilters(retreat.id, {});
+			expect(result).toHaveLength(3);
+		});
+
+		it('filtra por tipo de participante (audiencia dinámica)', async () => {
+			const walkers = await service.evaluateFilters(retreat.id, { participantType: 'walker' });
+			expect(walkers).toHaveLength(2);
+			const servers = await service.evaluateFilters(retreat.id, { participantType: 'server' });
+			expect(servers).toHaveLength(1);
+			expect(servers[0].firstName).toBe('Ana');
+		});
+
+		it('filtra por búsqueda de nombre', async () => {
+			const result = await service.evaluateFilters(retreat.id, { search: 'juan' });
+			expect(result).toHaveLength(1);
+			expect(result[0].firstName).toBe('Juan');
+		});
+	});
 });

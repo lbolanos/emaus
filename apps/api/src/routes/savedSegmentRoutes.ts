@@ -16,6 +16,9 @@ router.get(
 	controller.getCommunitySegments,
 );
 
+// Preview en vivo (cuántos participantes matchean los filtros).
+router.post('/preview', controller.previewSegment);
+
 // Mutaciones: la autorización por recurso se valida dentro del controller
 // (el scope/retiro/comunidad vienen en el body o en el registro existente).
 router.post('/', controller.createSegment);

@@ -80,6 +80,16 @@
       "whatsapp": "WhatsApp"
     }
   },
+  "commDashboard": {
+    "title": "Tablero de comunicación",
+    "subtitle": "Resumen de mensajes enviados, cobertura y pendientes del retiro.",
+    "total": "Total enviados",
+    "reached": "Participantes contactados",
+    "queued": "Pendientes de WhatsApp",
+    "recentActivity": "Actividad (últimos 30 días)",
+    "topTemplates": "Plantillas más usadas",
+    "empty": "Aún no hay datos de comunicación para este retiro."
+  },
   "delete": {
     "confirmTitle": "¿Estás seguro?"
   },
@@ -344,6 +354,7 @@
       "title": "Configuración",
       "messageTemplates": "Plantillas de Mensajes",
       "messageSequences": "Secuencias Automáticas",
+      "communicationDashboard": "Tablero de Comunicación",
       "globalMessageTemplates": "Plantillas Globales",
       "inventoryItems": "Artículos de Inventario",
       "changePassword": "Cambiar Contraseña"

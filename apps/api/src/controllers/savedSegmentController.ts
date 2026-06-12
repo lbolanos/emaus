@@ -118,6 +118,25 @@ export class SavedSegmentController {
 		}
 	};
 
+	// POST /saved-segments/preview — evalúa filtros en vivo y devuelve cuántos matchean
+	previewSegment = async (req: Request, res: Response) => {
+		try {
+			const { retreatId, filters } = req.body ?? {};
+			if (!retreatId) {
+				return res.status(400).json({ error: 'retreatId requerido' });
+			}
+			const userId = (req.user as any)?.id;
+			if (!(await authorizationService.hasRetreatAccess(userId, retreatId))) {
+				return res.status(403).json({ error: 'Forbidden' });
+			}
+			const participants = await savedSegmentService.evaluateFilters(retreatId, filters ?? {});
+			res.json({ count: participants.length, participantIds: participants.map((p) => p.id) });
+		} catch (error) {
+			console.error('Error previewing segment:', error);
+			res.status(500).json({ error: 'Error al previsualizar el segmento' });
+		}
+	};
+
 	// DELETE /saved-segments/:id
 	deleteSegment = async (req: Request, res: Response) => {
 		try {

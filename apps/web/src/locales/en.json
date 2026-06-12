@@ -80,6 +80,16 @@
       "whatsapp": "WhatsApp"
     }
   },
+  "commDashboard": {
+    "title": "Communication dashboard",
+    "subtitle": "Overview of sent messages, reach and pending items for the retreat.",
+    "total": "Total sent",
+    "reached": "Participants reached",
+    "queued": "Pending WhatsApp",
+    "recentActivity": "Activity (last 30 days)",
+    "topTemplates": "Most used templates",
+    "empty": "No communication data for this retreat yet."
+  },
   "delete": {
     "confirmTitle": "Are you sure?"
   },
@@ -341,6 +351,7 @@
       "title": "Settings",
       "messageTemplates": "Message Templates",
       "messageSequences": "Automated Sequences",
+      "communicationDashboard": "Communication Dashboard",
       "globalMessageTemplates": "Global Templates",
       "inventoryItems": "Inventory Items",
       "changePassword": "Change Password"

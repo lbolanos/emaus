@@ -13,6 +13,7 @@ import { EmailService } from './emailService';
 import { makeDateInTimezone } from '../utils/date.transformer';
 import { replaceAllVariables, convertHtmlToEmail } from '@repo/utils';
 import { getMessageTemplateAudience } from '@repo/types';
+import { savedSegmentService } from './savedSegmentService';
 
 const DEFAULT_TZ = process.env.APP_TIMEZONE || 'America/Mexico_City';
 
@@ -165,18 +166,25 @@ export class MessageSequenceService {
 		});
 		if (!retreat) return 0;
 
-		// Participantes elegibles por audiencia. La fuente per-retiro de `type` e
-		// `isCancelled` es `retreat_participants` (en `participant` son virtuales).
-		const rpWhere: Record<string, unknown> = { retreatId: seq.retreatId, isCancelled: false };
-		if (seq.audience === 'walker') rpWhere.type = 'walker';
-		else if (seq.audience === 'server') rpWhere.type = In(['server', 'partial_server']);
-		const rps = await AppDataSource.getRepository(RetreatParticipant).find({
-			where: rpWhere,
-			relations: ['participant'],
-		});
-		const participants = rps
-			.map((rp) => rp.participant)
-			.filter((p): p is Participant => !!p);
+		// Participantes elegibles. Si la secuencia tiene un segmento, se evalúa en
+		// vivo (audiencia dinámica). Si no, se usa la audiencia base por type. La
+		// fuente per-retiro de type/isCancelled es `retreat_participants`.
+		let participants: Participant[];
+		if (seq.segmentId) {
+			const segment = await savedSegmentService.findById(seq.segmentId);
+			participants = segment
+				? await savedSegmentService.evaluateFilters(seq.retreatId, segment.filters)
+				: [];
+		} else {
+			const rpWhere: Record<string, unknown> = { retreatId: seq.retreatId, isCancelled: false };
+			if (seq.audience === 'walker') rpWhere.type = 'walker';
+			else if (seq.audience === 'server') rpWhere.type = In(['server', 'partial_server']);
+			const rps = await AppDataSource.getRepository(RetreatParticipant).find({
+				where: rpWhere,
+				relations: ['participant'],
+			});
+			participants = rps.map((rp) => rp.participant).filter((p): p is Participant => !!p);
+		}
 		if (!participants.length) return 0;
 
 		// Set de (stepId:participantId) ya programados → idempotencia.

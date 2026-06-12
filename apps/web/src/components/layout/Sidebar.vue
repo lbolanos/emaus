@@ -913,6 +913,14 @@ const menuSections: MenuSection[] = [
         label: 'sidebar.settings.messageSequences'
       },
       {
+        name: 'communication-dashboard',
+        routeName: 'communication-dashboard',
+        icon: Activity,
+        permission: 'messageTemplate',
+        requiresRetreat: true,
+        label: 'sidebar.settings.communicationDashboard'
+      },
+      {
         name: 'retreat-shirt-types',
         routeName: 'retreat-shirt-types',
         icon: Settings,
