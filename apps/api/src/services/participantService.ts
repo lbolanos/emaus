@@ -51,6 +51,8 @@ import { ParticipantCommunication } from "../entities/participantCommunication.e
 import { CommunityMember } from "../entities/communityMember.entity";
 import { CommunityMeeting } from "../entities/communityMeeting.entity";
 import { calculateNextOccurrence } from "../utils/recurrenceUtils";
+import { retreatFeeForType } from "../utils/retreatCharges";
+import { RetreatScheduleItem } from "../entities/retreatScheduleItem.entity";
 import { emitReceptionCheckin } from "../realtime";
 
 const participantRepository = AppDataSource.getRepository(Participant);
@@ -199,6 +201,31 @@ const assertRetreatAcceptsRegistrations = async (
       code?: string;
     };
     err.code = "RETREAT_CLOSED";
+    throw err;
+  }
+};
+
+/**
+ * Validación suave del nº de comidas de un angelito: no puede superar las comidas
+ * (items type='comida') materializadas del retiro. Si el schedule no está armado
+ * (0 comidas) o mealCount es nulo/0, no valida nada.
+ */
+const assertMealCountWithinRetreatMeals = async (
+  retreatId: string,
+  mealCount: unknown,
+): Promise<void> => {
+  if (mealCount === null || mealCount === undefined || mealCount === "") return;
+  const count = Number(mealCount);
+  if (!Number.isFinite(count) || count <= 0) return;
+
+  const totalMeals = await AppDataSource.getRepository(RetreatScheduleItem).count({
+    where: { retreatId, type: "comida" as any },
+  });
+  if (totalMeals > 0 && count > totalMeals) {
+    const err = new Error(
+      `El número de comidas (${count}) no puede superar las comidas del retiro (${totalMeals}).`,
+    ) as Error & { code?: string };
+    err.code = "MEAL_COUNT_EXCEEDS_RETREAT_MEALS";
     throw err;
   }
 };
@@ -367,10 +394,16 @@ export const confirmExistingParticipant = async (
   retreatId: string,
   type: "server" | "partial_server",
   shirtSizes?: { shirtTypeId: string; size: string }[],
+  meals?: { mealCount?: number | null; takesFridayMeal?: boolean | null },
 ): Promise<{ success: true; firstName: string; lastName: string }> => {
   const existing = await findParticipantByEmail(email);
   if (!existing) {
     throw new Error("Participant not found");
+  }
+
+  // Validación suave del nº de comidas del angelito contra las comidas del retiro.
+  if (type === "partial_server" && meals?.mealCount != null) {
+    await assertMealCountWithinRetreatMeals(retreatId, meals.mealCount);
   }
 
   return AppDataSource.transaction(async (transactionalEntityManager) => {
@@ -422,16 +455,19 @@ export const confirmExistingParticipant = async (
     // Update retreatId only — do NOT overwrite personal data
     existing.retreatId = retreatId;
     existing.lastUpdatedDate = new Date();
-    // Angelitos (partial_server) nunca pagan — forzar beca
-    if (type === "partial_server") {
-      existing.isScholarship = true;
-    }
     await participantRepo.save(existing);
 
     // Ensure RetreatParticipant record exists for the new retreat
     const existingRp = await historyRepo.findOne({
       where: { participantId: existing.id, retreatId },
     });
+
+    // Comidas (paz y salvo v2): angelito → nº comidas; servidor → comida del viernes.
+    const mealCount =
+      meals?.mealCount === null || meals?.mealCount === undefined
+        ? null
+        : Number(meals.mealCount);
+    const takesFridayMeal = meals?.takesFridayMeal ?? null;
 
     if (!existingRp) {
       const nextId = await getNextIdOnRetreat(
@@ -447,6 +483,8 @@ export const confirmExistingParticipant = async (
         type,
         isCancelled: false,
         idOnRetreat: nextId,
+        mealCount,
+        takesFridayMeal,
       };
       const rp = historyRepo.create(rpData);
       await historyRepo.save(rp);
@@ -454,6 +492,9 @@ export const confirmExistingParticipant = async (
       existingRp.type = type;
       existingRp.isCancelled = false;
       existingRp.roleInRetreat = "server";
+      if (meals?.mealCount !== undefined) existingRp.mealCount = mealCount;
+      if (meals?.takesFridayMeal !== undefined)
+        existingRp.takesFridayMeal = takesFridayMeal;
       if (existingRp.idOnRetreat == null) {
         existingRp.idOnRetreat = await getNextIdOnRetreat(
           retreatId,
@@ -564,9 +605,10 @@ export const findAllParticipants = async (
     throw new Error("retreatId is required");
   }
 
-  // Always include payments, retreat, and tags relations for payment calculations and tag display
+  // Always include payments, debts, retreat, and tags relations for paz y salvo
+  // calculations and tag display
   const allRelations = [
-    ...new Set([...relations, "payments", "retreat", "tags", "tags.tag"]),
+    ...new Set([...relations, "payments", "debts", "retreat", "tags", "tags.tag"]),
   ];
   if (includePayments) {
     allRelations.push("payments.recordedByUser");
@@ -604,6 +646,15 @@ export const findAllParticipants = async (
             "payments",
             "payments.retreatId = :paymentsRetreatId",
             { paymentsRetreatId: retreatId },
+          );
+        } else if (parts[0] === "debts") {
+          // Scope debts JOIN to the requested retreat (mismo bug que payments:
+          // sin esto, las deudas de otros retiros se suman al balance).
+          queryBuilder.leftJoinAndSelect(
+            "participant.debts",
+            "debts",
+            "debts.retreatId = :debtsRetreatId",
+            { debtsRetreatId: retreatId },
           );
         } else {
           queryBuilder.leftJoinAndSelect(`participant.${parts[0]}`, parts[0]);
@@ -653,6 +704,31 @@ export const findAllParticipants = async (
     .addOrderBy("participant.firstName", "ASC")
     .getMany();
 
+  // El cálculo de paz y salvo (computeCharges) usa `participant.retreat`, pero la
+  // relación carga el retiro PRIMARIO (participants.retreatId). Cuando el participante
+  // está en varios retiros, los montos (cost/serverFeeAmount/mealCost) saldrían del
+  // retiro equivocado: sobreescribir con el retiro consultado.
+  if (participants.length > 0) {
+    const needsContextRetreat = participants.some(
+      (p) => p.retreat && p.retreat.id !== retreatId,
+    );
+    if (needsContextRetreat) {
+      const wantsHouse = allRelations.includes("retreat.house");
+      const contextRetreat = await AppDataSource.getRepository(Retreat).findOne({
+        where: { id: retreatId },
+        ...(wantsHouse ? { relations: ["house"] } : {}),
+      });
+      if (contextRetreat) {
+        participants.forEach((p) => {
+          if (p.retreat && p.retreat.id !== retreatId) {
+            p.retreat = contextRetreat;
+            p.retreatId = retreatId;
+          }
+        });
+      }
+    }
+  }
+
   // Overlay retreat-specific fields from retreat_participants
   if (participants.length > 0) {
     const historyRepo = AppDataSource.getRepository(RetreatParticipant);
@@ -671,6 +747,8 @@ export const findAllParticipants = async (
         "bagMade",
         "isScholarship",
         "scholarshipAmount",
+        "mealCount",
+        "takesFridayMeal",
         "palancasCoordinator",
         "palancasRequested",
         "palancasReceived",
@@ -703,6 +781,9 @@ export const findAllParticipants = async (
         p.isScholarship = h.isScholarship ?? false;
         if (h.scholarshipAmount !== undefined)
           p.scholarshipAmount = h.scholarshipAmount;
+        if (h.mealCount !== undefined) p.mealCount = h.mealCount;
+        if (h.takesFridayMeal !== undefined)
+          p.takesFridayMeal = h.takesFridayMeal;
         if (h.palancasCoordinator !== undefined)
           p.palancasCoordinator = h.palancasCoordinator;
         if (h.palancasRequested !== undefined)
@@ -990,10 +1071,12 @@ export const findParticipantById = async (
 ): Promise<Participant | null> => {
   const relations = ["retreat", "retreatBed", "tags", "tags.tag"];
   if (includePayments) {
-    relations.push("payments", "payments.recordedByUser");
+    relations.push("payments", "payments.recordedByUser", "debts");
   }
 
-  const participant = await participantRepository.findOne({
+  // Repo lazy (no el module-level) para que el harness de tests pueda
+  // redirigir AppDataSource al testDataSource.
+  const participant = await AppDataSource.getRepository(Participant).findOne({
     where: { id },
     relations,
   });
@@ -1011,6 +1094,32 @@ export const findParticipantById = async (
     participant.tags = participant.tags.filter(
       (pt: any) => pt.tag?.retreatId === overlayRetreatId,
     );
+  }
+
+  // Paz y salvo per-retiro: los pagos/deudas cargados por relación incluyen TODOS
+  // los retiros del participante. Filtrar al retiro de contexto para que
+  // totalPaid/totalDebt/chargeBreakdown no mezclen retiros.
+  if (overlayRetreatId) {
+    if (participant.payments) {
+      participant.payments = participant.payments.filter(
+        (pay: any) => pay.retreatId === overlayRetreatId,
+      );
+    }
+    if (participant.debts) {
+      participant.debts = participant.debts.filter(
+        (d: any) => d.retreatId === overlayRetreatId,
+      );
+    }
+    // El monto esperado sale de participant.retreat (primario): usar el del contexto.
+    if (participant.retreat && participant.retreat.id !== overlayRetreatId) {
+      const contextRetreat = await AppDataSource.getRepository(Retreat).findOne({
+        where: { id: overlayRetreatId },
+      });
+      if (contextRetreat) {
+        participant.retreat = contextRetreat;
+        participant.retreatId = overlayRetreatId;
+      }
+    }
   }
 
   // Overlay retreat-specific fields from retreat_participants
@@ -1035,6 +1144,9 @@ export const findParticipantById = async (
       participant.isScholarship = rp.isScholarship ?? false;
       if (rp.scholarshipAmount !== undefined)
         participant.scholarshipAmount = rp.scholarshipAmount;
+      if (rp.mealCount !== undefined) participant.mealCount = rp.mealCount;
+      if (rp.takesFridayMeal !== undefined)
+        participant.takesFridayMeal = rp.takesFridayMeal;
       if (rp.palancasCoordinator !== undefined)
         participant.palancasCoordinator = rp.palancasCoordinator;
       if (rp.palancasRequested !== undefined)
@@ -1076,6 +1188,8 @@ export const findParticipantById = async (
       participant.bagMade = undefined as any;
       participant.isScholarship = undefined as any;
       participant.scholarshipAmount = null;
+      participant.mealCount = null;
+      participant.takesFridayMeal = null;
       participant.palancasCoordinator = null;
       participant.palancasRequested = null;
       participant.palancasReceived = null;
@@ -1469,10 +1583,17 @@ export const createParticipant = async (
     "#FD79A8",
   ];
 
-  // Los angelitos (partial_server) nunca pagan: forzar beca en todos los orígenes
-  // (registro público, import Excel, alta por admin).
-  if (participantData.type === "partial_server") {
-    participantData.isScholarship = true;
+  // Nota (paz y salvo v2): los angelitos (partial_server) ya NO se fuerzan a beca.
+  // No se les cobra el retiro, pero sí las comidas que indiquen (mealCount × mealCost),
+  // calculado en Participant.getExpectedAmount. La beca queda como flag manual.
+
+  // Validación suave: el nº de comidas de un angelito no puede superar las comidas
+  // del retiro (si el schedule ya está armado).
+  if (participantData.type === "partial_server" && participantData.retreatId) {
+    await assertMealCountWithinRetreatMeals(
+      participantData.retreatId,
+      (participantData as any).mealCount,
+    );
   }
 
   // Persistir los teléfonos normalizados (solo dígitos, sin espacios/guiones/+).
@@ -1621,6 +1742,12 @@ export const createParticipant = async (
                     transactionalEntityManager,
                   ),
             familyFriendColor: newColor || null,
+            mealCount:
+              (participantData as any).mealCount === null ||
+              (participantData as any).mealCount === undefined
+                ? null
+                : Number((participantData as any).mealCount),
+            takesFridayMeal: (participantData as any).takesFridayMeal ?? null,
           };
 
           const rpRepo =
@@ -2071,6 +2198,12 @@ export const createParticipant = async (
             participantData.scholarshipAmount === undefined
               ? null
               : Number(participantData.scholarshipAmount),
+          mealCount:
+            (participantData as any).mealCount === null ||
+            (participantData as any).mealCount === undefined
+              ? null
+              : Number((participantData as any).mealCount),
+          takesFridayMeal: (participantData as any).takesFridayMeal ?? null,
           palancasCoordinator: participantData.palancasCoordinator || null,
           palancasRequested: participantData.palancasRequested ?? null,
           palancasReceived: participantData.palancasReceived || null,
@@ -2535,6 +2668,8 @@ export const updateParticipant = async (
     family_friend_color,
     isScholarship,
     scholarshipAmount,
+    mealCount,
+    takesFridayMeal,
     palancasCoordinator,
     palancasRequested,
     palancasReceived,
@@ -2553,6 +2688,9 @@ export const updateParticipant = async (
     retreatBed,
     tags,
     payments,
+    debts,
+    totalDebt,
+    chargeBreakdown,
     responsibilities,
     retreat,
     user,
@@ -2596,11 +2734,13 @@ export const updateParticipant = async (
     const retreatRepo = AppDataSource.getRepository(Retreat);
     const retreatRow = await retreatRepo.findOne({
       where: { id: effectiveRetreatId },
-      select: ["id", "cost"],
+      select: ["id", "cost", "serverFeeAmount"],
     });
-    if (retreatRow?.cost) {
-      const expected =
-        parseFloat(retreatRow.cost.replace(/[^0-9.-]/g, "")) || 0;
+    if (retreatRow) {
+      // Cobro del retiro aplicable según el tipo (helper consolidado). El angelito
+      // no tiene cobro de retiro → expected 0 → no se valida tope.
+      const effType = type ?? currentRp?.type;
+      const expected = retreatFeeForType(effType, retreatRow);
       const proposed = Number(scholarshipAmount);
       if (Number.isFinite(proposed) && expected > 0 && proposed > expected) {
         const err = new Error(
@@ -2649,6 +2789,18 @@ export const updateParticipant = async (
     if (isScholarship === false && scholarshipAmount === undefined) {
       rpUpdates.scholarshipAmount = null;
     }
+    // Comidas (paz y salvo v2)
+    if (mealCount !== undefined) {
+      // Validación suave: no superar las comidas del retiro.
+      if (effectiveRetreatId) {
+        await assertMealCountWithinRetreatMeals(effectiveRetreatId, mealCount);
+      }
+      rpUpdates.mealCount =
+        mealCount === null || mealCount === "" ? null : Number(mealCount);
+    }
+    if (takesFridayMeal !== undefined)
+      rpUpdates.takesFridayMeal =
+        takesFridayMeal === null ? null : !!takesFridayMeal;
     // Palancas
     if (palancasCoordinator !== undefined)
       rpUpdates.palancasCoordinator = palancasCoordinator || null;
@@ -2988,6 +3140,16 @@ const mapToEnglishKeys = (participant: any): Partial<CreateParticipant> => {
     inviterEmail: str(participant.invemail),
     pickupLocation: str(participant.puntoencuentro),
     isScholarship: str(participant.becado) === "S",
+    // Comidas (paz y salvo v2): nº de comidas del angelito y comida del viernes
+    // del servidor. Opcionales en el Excel; si no vienen, quedan null.
+    mealCount:
+      str(participant.numerocomidas) != null && str(participant.numerocomidas) !== ""
+        ? Number(str(participant.numerocomidas)) || null
+        : null,
+    takesFridayMeal:
+      str(participant.comidaviernes) != null && str(participant.comidaviernes) !== ""
+        ? str(participant.comidaviernes) === "S"
+        : null,
     palancasCoordinator: str(participant.palancasencargado),
     palancasRequested: str(participant.palancaspedidas) === "S",
     palancasReceived: str(participant.palancas),

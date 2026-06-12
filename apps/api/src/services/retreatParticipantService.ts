@@ -36,6 +36,9 @@ export interface RetreatSnapshotFields {
 	// Scholarship
 	isScholarship?: boolean;
 	scholarshipAmount?: number | null;
+	// Comidas (paz y salvo v2): angelito → nº comidas; servidor → comida del viernes
+	mealCount?: number | null;
+	takesFridayMeal?: boolean | null;
 	// Palancas
 	palancasCoordinator?: string | null;
 	palancasRequested?: boolean | null;

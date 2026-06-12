@@ -88,11 +88,26 @@ export class RetreatParticipant {
 	@Column({ type: 'boolean', default: false })
 	bagMade!: boolean;
 
+	// Becado = exento de todo (paz y salvo v2): si isScholarship, el monto esperado es 0
+	// independientemente de cobro/comidas/deudas.
 	@Column({ type: 'boolean', default: false })
 	isScholarship!: boolean;
 
+	// Informativo/auditoría: el monto de beca otorgado. NO afecta el cálculo de paz y
+	// salvo (isScholarship ya exime de todo); solo se usa como referencia y para validar
+	// que no supere el cobro del retiro.
 	@Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
 	scholarshipAmount?: number | null;
+
+	// ---- Comidas (per-retreat, para el cálculo de paz y salvo) ----
+
+	// Angelitos (type='partial_server'): nº de comidas que toma → se cobra mealCount × mealCost.
+	@Column({ type: 'integer', nullable: true })
+	mealCount?: number | null;
+
+	// Servidores (type='server'): si toma la comida del viernes → se cobra 1 × mealCost.
+	@Column({ type: 'boolean', nullable: true })
+	takesFridayMeal?: boolean | null;
 
 	// ---- Palancas (per-retreat) ----
 

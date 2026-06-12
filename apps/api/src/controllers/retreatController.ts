@@ -103,6 +103,8 @@ export const getRetreatByIdPublic = async (
       flyer_options: retreat.flyer_options || {},
       slug: retreat.slug,
       country: retreat.house?.country ?? null,
+      // Valor por comida: el registro solo pregunta comidas si es > 0.
+      mealCost: retreat.mealCost ?? null,
       shirtTypes,
     });
   } catch (error) {
@@ -131,6 +133,8 @@ export const getRetreatBySlugPublic = async (
       flyer_options: retreat.flyer_options || {},
       slug: retreat.slug,
       country: retreat.house?.country ?? null,
+      // Valor por comida: el registro solo pregunta comidas si es > 0.
+      mealCost: retreat.mealCost ?? null,
       shirtTypes,
     });
   } catch (error) {

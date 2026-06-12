@@ -305,7 +305,8 @@ export const createParticipant = async (
       if (
         code === "RETREAT_CLOSED" ||
         code === "RETREAT_NOT_PUBLIC" ||
-        code === "RETREAT_NOT_FOUND"
+        code === "RETREAT_NOT_FOUND" ||
+        code === "MEAL_COUNT_EXCEEDS_RETREAT_MEALS"
       ) {
         return res.status(400).json({ message: error.message, code });
       }
@@ -407,13 +408,13 @@ export const updateParticipant = async (
       res.status(404).json({ message: "Participant not found" });
     }
   } catch (error) {
+    const code = (error as Error & { code?: string })?.code;
     if (
       error instanceof Error &&
-      (error as Error & { code?: string }).code === "SCHOLARSHIP_EXCEEDS_COST"
+      (code === "SCHOLARSHIP_EXCEEDS_COST" ||
+        code === "MEAL_COUNT_EXCEEDS_RETREAT_MEALS")
     ) {
-      return res
-        .status(400)
-        .json({ message: error.message, code: "SCHOLARSHIP_EXCEEDS_COST" });
+      return res.status(400).json({ message: error.message, code });
     }
     next(error);
   }
@@ -464,7 +465,16 @@ export const confirmExistingParticipantEmail = async (
   next: NextFunction,
 ) => {
   try {
-    const { email, retreatId, type, recaptchaToken, shirtSizes, availability } = req.body;
+    const {
+      email,
+      retreatId,
+      type,
+      recaptchaToken,
+      shirtSizes,
+      availability,
+      mealCount,
+      takesFridayMeal,
+    } = req.body;
 
     if (!email || !retreatId) {
       return res
@@ -491,6 +501,7 @@ export const confirmExistingParticipantEmail = async (
       retreatId,
       type || "server",
       Array.isArray(shirtSizes) ? shirtSizes : undefined,
+      { mealCount: mealCount ?? null, takesFridayMeal: takesFridayMeal ?? null },
     );
 
     // Persistir disponibilidad si confirmó como angelito
@@ -533,7 +544,8 @@ export const confirmExistingParticipantEmail = async (
       if (
         code === "RETREAT_CLOSED" ||
         code === "RETREAT_NOT_PUBLIC" ||
-        code === "RETREAT_NOT_FOUND"
+        code === "RETREAT_NOT_FOUND" ||
+        code === "MEAL_COUNT_EXCEEDS_RETREAT_MEALS"
       ) {
         return res.status(400).json({ message: error.message, code });
       }

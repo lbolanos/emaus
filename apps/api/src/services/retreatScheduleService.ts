@@ -101,6 +101,14 @@ export class RetreatScheduleService {
 		return this.populateTemplateAttachments(items);
 	}
 
+	/**
+	 * Número de comidas (items type='comida') materializadas en el retiro.
+	 * Usado para topar el `mealCount` de los angelitos. 0 si el schedule no está armado.
+	 */
+	async countMealsForRetreat(retreatId: string): Promise<number> {
+		return this.itemRepo.count({ where: { retreatId, type: 'comida' as any } });
+	}
+
 	async get(id: string): Promise<RetreatScheduleItem | null> {
 		const item = await this.itemRepo.findOne({
 			where: { id },

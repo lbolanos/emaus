@@ -13,6 +13,8 @@ import { Retreat } from './retreat.entity';
 import { TableMesa } from './tableMesa.entity';
 import { Responsability } from './responsability.entity';
 import { Payment } from './payment.entity';
+import { ParticipantDebt } from './participantDebt.entity';
+import { retreatFeeForType } from '../utils/retreatCharges';
 import { RetreatBed } from './retreatBed.entity';
 import { ParticipantTag } from './participantTag.entity';
 import { DateTransformer } from '../utils/date.transformer';
@@ -221,6 +223,12 @@ export class Participant {
 	// Confirmación de asistencia (pending/confirmed/declined) per-retiro.
 	attendanceConfirmation?: 'pending' | 'confirmed' | 'declined';
 
+	// Virtual — populated from retreat_participants at query time.
+	// mealCount: nº de comidas de un angelito; takesFridayMeal: si un servidor toma
+	// la comida del viernes. Alimentan el cálculo de paz y salvo (getExpectedAmount).
+	mealCount?: number | null;
+	takesFridayMeal?: boolean | null;
+
 	@Column({ type: 'text', nullable: true })
 	notes?: string; // Corresponde a 'notas'
 
@@ -265,6 +273,9 @@ export class Participant {
 	@OneToMany(() => Payment, (payment) => payment.participant)
 	payments!: Payment[];
 
+	@OneToMany(() => ParticipantDebt, (debt) => debt.participant)
+	debts!: ParticipantDebt[];
+
 	@OneToMany(() => ParticipantTag, (participantTag) => participantTag.participant)
 	tags!: ParticipantTag[];
 
@@ -284,7 +295,9 @@ export class Participant {
 		if (!this.payments || this.payments.length === 0) {
 			return 0;
 		}
-		return this.payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+		// Redondeo a centavos: evita acumulación de error binario en sumas float.
+		const total = this.payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+		return Math.round(total * 100) / 100;
 	}
 
 	/**
@@ -326,66 +339,118 @@ export class Participant {
 	}
 
 	/**
-	 * Calcula el estado de pago del participante
-	 * 'paid': Pagado completamente
-	 * 'partial': Pagado parcialmente
-	 * 'unpaid': Sin pagos
-	 * 'overpaid': Pagado de más
+	 * Total de deudas manuales agregadas al participante (servidor/angelito).
+	 */
+	get totalDebt(): number {
+		if (!this.debts || this.debts.length === 0) {
+			return 0;
+		}
+		const total = this.debts.reduce((sum, debt) => sum + Number(debt.amount), 0);
+		return Math.round(total * 100) / 100;
+	}
+
+	/**
+	 * Calcula el desglose de cargos esperados del participante según su tipo:
+	 *   - retreatFee: cobro del retiro. Caminante → el texto `cost` del retiro
+	 *     (parseado). Servidor → serverFeeAmount (fallback a `cost` si es null).
+	 *   - meals: angelito (partial_server) → nº comidas × mealCost; server → comida del viernes.
+	 *   - debts: suma de deudas manuales.
+	 * Becado (isScholarship) queda exento de todo → expected 0 (paz y salvo automático).
+	 */
+	private computeCharges(): {
+		retreatFee: number;
+		meals: number;
+		debts: number;
+		expected: number;
+	} {
+		const retreat = this.retreat;
+		if (this.isScholarship || !retreat) {
+			return { retreatFee: 0, meals: 0, debts: 0, expected: 0 };
+		}
+
+		// Cobro del retiro según tipo (helper consolidado).
+		const retreatFee = retreatFeeForType(this.type, retreat);
+		const mealCost = Number(retreat.mealCost) || 0;
+
+		let meals = 0;
+		switch (this.type) {
+			case 'partial_server': // angelito: nº comidas × mealCost
+				meals = (Number(this.mealCount) || 0) * mealCost;
+				break;
+			case 'server':
+				meals = this.takesFridayMeal ? mealCost : 0;
+				break;
+		}
+
+		const debts = this.totalDebt;
+		// Redondeo a centavos: las sumas en float pueden acumular error binario
+		// (ej. 0.1 + 0.2); el dinero del modelo siempre se trata a 2 decimales.
+		const round2 = (n: number) => Math.round(n * 100) / 100;
+		return {
+			retreatFee: round2(retreatFee),
+			meals: round2(meals),
+			debts: round2(debts),
+			expected: round2(retreatFee + meals + debts),
+		};
+	}
+
+	/**
+	 * Desglose de cargos + balance, expuesto al frontend (tesorería).
+	 */
+	get chargeBreakdown(): {
+		retreatFee: number;
+		meals: number;
+		debts: number;
+		expected: number;
+		totalPaid: number;
+		balance: number;
+	} {
+		const charges = this.computeCharges();
+		return {
+			...charges,
+			totalPaid: this.totalPaid,
+			balance: Math.round(Math.max(0, charges.expected - this.totalPaid) * 100) / 100,
+		};
+	}
+
+	/**
+	 * Calcula el estado de pago del participante.
+	 * "Paz y salvo" = balance en 0 (totalPaid >= expected).
+	 * 'paid': a paz y salvo · 'partial': pago parcial · 'unpaid': sin pagos y con deuda
+	 * 'overpaid': pagó de más · 'scholarship': becado (exento de todo)
 	 */
 	get paymentStatus(): 'paid' | 'partial' | 'unpaid' | 'overpaid' | 'scholarship' {
-		const total = this.totalPaid;
-
-		// Parsear el costo del retiro (puede ser un string con formato de moneda)
-		let expectedAmount = 0;
-		if (this.retreat?.cost) {
-			const costString = this.retreat.cost.replace(/[^0-9.-]/g, '');
-			expectedAmount = parseFloat(costString) || 0;
-		}
-
-		// 'overpaid' tiene prioridad sobre 'scholarship': si un becado pagó
-		// más del costo del retiro, es información relevante que debe verse.
-		if (expectedAmount > 0 && total > expectedAmount) {
-			return 'overpaid';
-		}
-
-		// Para el resto de los casos, becado domina al estado de pago.
 		if (this.isScholarship) {
 			return 'scholarship';
 		}
-
-		// Si no tiene retiro asociado, no hay pago esperado
 		if (!this.retreat) {
 			return 'unpaid';
 		}
 
+		const total = this.totalPaid;
+		const expected = this.computeCharges().expected;
+
+		if (expected > 0 && total > expected) return 'overpaid';
+		if (expected === 0) return 'paid'; // no debe nada → paz y salvo
 		if (total === 0) return 'unpaid';
-		if (total < expectedAmount) return 'partial';
+		if (total < expected) return 'partial';
 		return 'paid';
 	}
 
 	/**
-	 * Calcula el monto restante por pagar
+	 * Calcula el monto restante por pagar (0 si está a paz y salvo o becado).
 	 */
 	get paymentRemaining(): number {
-		if (this.isScholarship) return 0;
-
-		// Si no tiene retiro asociado, no hay pago esperado
-		if (!this.retreat) return 0;
-
-		let expectedAmount = 0;
-		if (this.retreat?.cost) {
-			const costString = this.retreat.cost.replace(/[^0-9.-]/g, '');
-			expectedAmount = parseFloat(costString) || 0;
-		}
-
-		return Math.max(0, expectedAmount - this.totalPaid);
+		return Math.round(Math.max(0, this.computeCharges().expected - this.totalPaid) * 100) / 100;
 	}
 
 	/**
-	 * Custom JSON serialization to include computed properties
+	 * Custom JSON serialization to include computed properties.
+	 * Record<string, unknown>: el spread de `this` no incluye getters en el tipo,
+	 * así que se agregan explícitamente abajo.
 	 */
-	toJSON() {
-		const { ...plainObject } = this;
+	toJSON(): Record<string, unknown> {
+		const plainObject = { ...this } as unknown as Record<string, unknown>;
 
 		// Add computed properties to JSON output
 		plainObject.totalPaid = this.totalPaid;
@@ -393,11 +458,15 @@ export class Participant {
 		plainObject.paymentRemaining = this.paymentRemaining;
 		plainObject.hasPayments = this.hasPayments;
 		plainObject.lastPaymentDate = this.lastPaymentDate;
+		plainObject.totalDebt = this.totalDebt;
+		plainObject.chargeBreakdown = this.chargeBreakdown;
 
 		// Ensure virtual fields from retreat_participants are present
 		if (this.id_on_retreat !== undefined) plainObject.id_on_retreat = this.id_on_retreat;
 		if (this.type !== undefined) plainObject.type = this.type;
 		if (this.messageCount !== undefined) plainObject.messageCount = this.messageCount;
+		if (this.mealCount !== undefined) plainObject.mealCount = this.mealCount;
+		if (this.takesFridayMeal !== undefined) plainObject.takesFridayMeal = this.takesFridayMeal;
 
 		return plainObject;
 	}

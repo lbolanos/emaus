@@ -76,6 +76,15 @@ export class Retreat {
 	@Column({ type: 'text', nullable: true })
 	paymentMethods?: string;
 
+	// Cobro del retiro para servidores. El cobro del CAMINANTE es el campo `cost`
+	// existente (texto). Si serverFeeAmount es null, el servidor cae a parsear `cost`.
+	@Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+	serverFeeAmount?: number | null;
+
+	// Valor de UNA comida. Angelitos: nº comidas × mealCost. Servidores: comida del viernes.
+	@Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+	mealCost?: number | null;
+
 	@Column({ type: 'int', nullable: true })
 	max_walkers?: number;
 

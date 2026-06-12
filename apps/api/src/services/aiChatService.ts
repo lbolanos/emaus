@@ -20,7 +20,7 @@ import { Participant } from '../entities/participant.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { RetreatBed, BedType } from '../entities/retreatBed.entity';
 import { authorizationService } from '../middleware/authorization';
-import { Like, In } from 'typeorm';
+import { In } from 'typeorm';
 import { CommunityAdmin } from '../entities/communityAdmin.entity';
 import { CommunityMember } from '../entities/communityMember.entity';
 import { Community } from '../entities/community.entity';
@@ -399,35 +399,29 @@ export async function createChatStream(
 				}),
 				execute: async ({ retreatId, query }) => {
 					await verifyRetreatAccess(userId, retreatId);
-					const repo = AppDataSource.getRepository(Participant);
-					const participants = await repo.find({
-						where: [
-							{ retreatId, firstName: Like(`%${query}%`) },
-							{ retreatId, lastName: Like(`%${query}%`) },
-						],
-						relations: ['payments', 'retreat'],
-					});
-					const rpRepo = AppDataSource.getRepository(RetreatParticipant);
-					const rpRows = participants.length > 0 ? await rpRepo.find({
-						where: { retreatId, participantId: In(participants.map((p) => p.id)) },
-						select: ['participantId', 'idOnRetreat', 'type'],
-					}) : [];
-					const rpMap = new Map(rpRows.map((r) => [r.participantId, r]));
+					// findAllParticipants resuelve membresía vía retreat_participants
+					// (participants.retreatId es solo el retiro primario) y scopea
+					// payments/debts/retreat al retiro — los getters monetarios
+					// (totalPaid/paymentStatus) salen per-retiro, no globales.
+					const all = await findAllParticipants(retreatId, undefined, undefined, [], true);
+					const q = query.toLowerCase();
+					const participants = all.filter(
+						(p) =>
+							(p.firstName || '').toLowerCase().includes(q) ||
+							(p.lastName || '').toLowerCase().includes(q),
+					);
 					return {
 						count: participants.length,
-						participants: participants.map((p) => {
-							const rp = rpMap.get(p.id);
-							return {
-								id: p.id,
-								idOnRetreat: rp?.idOnRetreat ?? null,
-								name: `${p.firstName} ${p.lastName}`,
-								type: rp?.type ?? p.type,
-								phone: p.cellPhone,
-								email: p.email,
-								totalPaid: p.totalPaid,
-								paymentStatus: p.paymentStatus,
-							};
-						}),
+						participants: participants.map((p) => ({
+							id: p.id,
+							idOnRetreat: p.id_on_retreat ?? null,
+							name: `${p.firstName} ${p.lastName}`,
+							type: p.type,
+							phone: p.cellPhone,
+							email: p.email,
+							totalPaid: p.totalPaid,
+							paymentStatus: p.paymentStatus,
+						})),
 					};
 				},
 			},

@@ -30,6 +30,8 @@ const RETREAT_AUDIT_FIELDS = [
 	'max_walkers',
 	'max_servers',
 	'cost',
+	'serverFeeAmount',
+	'mealCost',
 	'paymentInfo',
 	'houseId',
 	'timezone',

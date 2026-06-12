@@ -111,6 +111,8 @@ export interface ParticipantData {
 	arrivesOnOwn?: boolean;
 	paymentDate?: string;
 	paymentAmount?: number;
+	/** Saldo pendiente (computado por el backend): 0 = paz y salvo. */
+	paymentRemaining?: number | string;
 	isScholarship?: boolean;
 	palancasCoordinator?: string;
 	palancasRequested?: boolean;
@@ -375,6 +377,35 @@ export function formatDate(date: Date | string, options: FormatDateOptions = {})
 	}
 }
 
+export interface FormatCurrencyOptions {
+	locale?: string;
+	currency?: string;
+	/** Si es false, no incluye el símbolo de moneda (solo el número formateado). */
+	symbol?: boolean;
+}
+
+/**
+ * Formatea un monto de dinero de forma consistente en toda la app.
+ * Por defecto: es-MX / MXN con símbolo (ej. "$1,500.00").
+ * Redondea a 2 decimales para mitigar errores de punto flotante.
+ * Acepta number | string | null (los valores no numéricos se tratan como 0).
+ */
+export function formatCurrency(
+	amount: number | string | null | undefined,
+	options: FormatCurrencyOptions = {},
+): string {
+	const { locale = 'es-MX', currency = 'MXN', symbol = true } = options;
+	const n = Number(amount);
+	const safe = Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+	if (symbol) {
+		return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(safe);
+	}
+	return new Intl.NumberFormat(locale, {
+		minimumFractionDigits: 2,
+		maximumFractionDigits: 2,
+	}).format(safe);
+}
+
 /**
  * Default mock participant data used as a fallback for preview/editor when
  * no real participant is available. Exported for reuse in tests.
@@ -431,6 +462,7 @@ const getMockParticipant = (): ParticipantData => {
 		arrivesOnOwn: false,
 		paymentDate: '2024-01-15',
 		paymentAmount: 1500,
+		paymentRemaining: 1300,
 		isScholarship: false,
 		palancasCoordinator: 'Palanquero 1',
 		palanquero: {
@@ -561,6 +593,10 @@ const buildParticipantReplacements = (
 		'participant.arrivesOnOwn': participantData.arrivesOnOwn ? 'Sí' : 'No',
 		'participant.paymentDate': participantData.paymentDate || '',
 		'participant.paymentAmount': participantData.paymentAmount?.toString() || '',
+		'participant.paymentRemaining':
+			participantData.paymentRemaining != null
+				? formatCurrency(participantData.paymentRemaining)
+				: '',
 		'participant.isScholarship': participantData.isScholarship ? 'Sí' : 'No',
 		'participant.palancasCoordinator': participantData.palancasCoordinator || '',
 		'participant.palanqueroName': participantData.palanquero?.name || '',

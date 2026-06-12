@@ -6,6 +6,7 @@ import { Retreat } from '../entities/retreat.entity';
 import { User } from '../entities/user.entity';
 import { Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { domainAuditService } from '../services/domainAuditService';
+import { findAllParticipants } from '../services/participantService';
 import { ensureRetreatAccess } from '../middleware/authorization';
 
 interface WhereClause {
@@ -321,10 +322,26 @@ export class PaymentController {
 				participantData.totalPaid += Number(payment.amount);
 			});
 
-			// Get all participants in retreat for comparison
-			const participants = await participantRepository.find({
-				where: { retreatId },
-			});
+			// Get all participants in retreat (overlaid + with payments/debts) so the
+			// computed getters (expected/balance/paz y salvo) reflect the new model.
+			const participants = await findAllParticipants(
+				retreatId,
+				undefined,
+				undefined,
+				[],
+				true,
+			);
+
+			let totalExpected = 0;
+			let totalRemaining = 0;
+			let pazYSalvoCount = 0;
+			for (const p of participants) {
+				if (p.isCancelled) continue;
+				const breakdown = p.chargeBreakdown;
+				totalExpected += breakdown.expected;
+				totalRemaining += breakdown.balance;
+				if (breakdown.balance <= 0) pazYSalvoCount += 1;
+			}
 
 			const summary = {
 				retreatId,
@@ -332,6 +349,9 @@ export class PaymentController {
 				totalPayments,
 				participantsWithPayments: participantPayments.size,
 				totalParticipants: participants.length,
+				totalExpected,
+				totalRemaining,
+				pazYSalvoCount,
 				participantPayments: Array.from(participantPayments.values()),
 			};
 

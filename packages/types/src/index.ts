@@ -144,6 +144,10 @@ export const retreatSchema = z.object({
 	cost: z.string().optional(),
 	paymentInfo: z.string().optional(),
 	paymentMethods: z.string().optional(),
+	// Cobro del retiro para servidores + valor de una comida (paz y salvo v2).
+	// El cobro del caminante es el campo `cost` existente.
+	serverFeeAmount: z.number().nonnegative().nullable().optional(),
+	mealCost: z.number().nonnegative().nullable().optional(),
 	max_walkers: z.number().int().positive().optional(),
 	max_servers: z.number().int().positive().optional(),
 	retreat_type: z.enum(['men', 'women', 'couples', 'effeta']).optional(),
@@ -288,6 +292,18 @@ export const participantSchema = z.object({
 		(val) => (val === '' || val === null || val === undefined ? null : Number(val)),
 		z.number().nonnegative().nullable().optional(),
 	),
+	// Comidas per-retiro (paz y salvo v2): angelito → nº comidas; servidor → comida del viernes.
+	mealCount: z.preprocess(
+		(val) => (val === '' || val === null || val === undefined ? null : Number(val)),
+		z.number().int().nonnegative().nullable().optional(),
+	),
+	takesFridayMeal: z.preprocess(
+		(val) => (val === null ? undefined : val),
+		z.boolean().nullable().optional(),
+	),
+	// Read-only: desglose de cargos y deuda total (computados en el backend).
+	totalDebt: z.number().optional(),
+	chargeBreakdown: z.any().optional(),
 	palancasCoordinator: z.preprocess(
 		(val) => (val === '' || val === null ? undefined : val),
 		z.string().optional(),
@@ -583,15 +599,23 @@ export const paymentSchema = z.object({
 export type Payment = z.infer<typeof paymentSchema>;
 
 // Payment Request Schemas
+// `amount` se coacciona (el form lo envía como string); `retreatId` es opcional
+// porque el controller lo infiere del participante si no viene.
 export const createPaymentSchema = z.object({
-	body: paymentSchema.omit({
-		id: true,
-		createdAt: true,
-		updatedAt: true,
-		participant: true,
-		retreat: true,
-		recordedByUser: true,
-	}),
+	body: paymentSchema
+		.omit({
+			id: true,
+			createdAt: true,
+			updatedAt: true,
+			participant: true,
+			retreat: true,
+			recordedByUser: true,
+			recordedBy: true,
+		})
+		.extend({
+			amount: z.coerce.number().positive(),
+			retreatId: idSchema.optional(),
+		}),
 });
 export type CreatePayment = z.infer<typeof createPaymentSchema.shape.body>;
 
@@ -608,10 +632,67 @@ export const updatePaymentSchema = z.object({
 			retreat: true,
 			recordedByUser: true,
 		})
-		.partial(),
+		.partial()
+		.extend({ amount: z.coerce.number().positive().optional() }),
 	params: z.object({ id: idSchema }),
 });
 export type UpdatePayment = z.infer<typeof updatePaymentSchema.shape.body>;
+
+// Participant Debt Schema (deudas manuales para servidores/angelitos)
+export const participantDebtSchema = z.object({
+	id: idSchema,
+	participantId: idSchema,
+	retreatId: idSchema,
+	amount: z.number().positive(),
+	description: z.string().optional(),
+	recordedBy: idSchema,
+	createdAt: z.coerce.date(),
+	updatedAt: z.coerce.date(),
+	participant: z.lazy(() => participantSchema).optional(),
+	retreat: z.lazy(() => retreatSchema).optional(),
+	recordedByUser: z.any().optional(), // Use any to avoid circular reference
+});
+export type ParticipantDebt = z.infer<typeof participantDebtSchema>;
+
+export const createParticipantDebtSchema = z.object({
+	body: participantDebtSchema
+		.omit({
+			id: true,
+			recordedBy: true,
+			createdAt: true,
+			updatedAt: true,
+			participant: true,
+			retreat: true,
+			recordedByUser: true,
+		})
+		.extend({
+			// El concepto es obligatorio al registrar una deuda.
+			description: z.string().min(1, 'El concepto es obligatorio'),
+			amount: z.coerce.number().positive(),
+			// El controller infiere el retiro del participante si no viene.
+			retreatId: idSchema.optional(),
+		}),
+});
+export type CreateParticipantDebt = z.infer<typeof createParticipantDebtSchema.shape.body>;
+
+export const updateParticipantDebtSchema = z.object({
+	body: participantDebtSchema
+		.omit({
+			id: true,
+			participantId: true,
+			retreatId: true,
+			recordedBy: true,
+			createdAt: true,
+			updatedAt: true,
+			participant: true,
+			retreat: true,
+			recordedByUser: true,
+		})
+		.partial()
+		.extend({ amount: z.coerce.number().positive().optional() }),
+	params: z.object({ id: idSchema }),
+});
+export type UpdateParticipantDebt = z.infer<typeof updateParticipantDebtSchema.shape.body>;
 
 // Role management types
 export type {

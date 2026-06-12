@@ -1,6 +1,8 @@
 import { Router } from 'express';
+import { createPaymentSchema, updatePaymentSchema } from '@repo/types';
 import { PaymentController } from '../controllers/paymentController';
 import { isAuthenticated } from '../middleware/authentication';
+import { validateRequest } from '../middleware/validateRequest';
 import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
 
 const router = Router();
@@ -13,6 +15,7 @@ router.use(isAuthenticated);
 router.post(
 	'/',
 	requirePermission('payment:create'),
+	validateRequest(createPaymentSchema),
 	paymentController.createPayment.bind(paymentController),
 );
 
@@ -34,6 +37,7 @@ router.get(
 router.put(
 	'/:id',
 	requirePermission('payment:update'),
+	validateRequest(updatePaymentSchema),
 	paymentController.updatePayment.bind(paymentController),
 );
 
