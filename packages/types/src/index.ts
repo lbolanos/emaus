@@ -504,6 +504,7 @@ export type {
 } from './user';
 
 export * from './message-template';
+export * from './segment';
 export * from './serviceTeam';
 export * from './permissions';
 export * from './community';

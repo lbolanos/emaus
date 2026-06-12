@@ -9,6 +9,8 @@ import type {
   CommunityAttendance,
   MemberState,
   MessageTemplate,
+  SavedSegment,
+  SegmentFilters,
   Retreat,
   Participant,
 } from "@repo/types";
@@ -2974,4 +2976,47 @@ export const getTimezoneFromCoords = async (
     params: { lat, lon },
   });
   return r.data?.timezone ?? null;
+};
+
+// ---------------------------------------------------------------------------
+// Segmentos guardados (CRM): combinaciones de filtros con nombre, reutilizables
+// para enviar mensajes (cola WhatsApp / bulk email) o como audiencia de una
+// secuencia.
+// ---------------------------------------------------------------------------
+
+export const getRetreatSegments = async (
+  retreatId: string,
+): Promise<SavedSegment[]> => {
+  const r = await api.get(`/saved-segments/retreat/${retreatId}`);
+  return r.data;
+};
+
+export const getCommunitySegments = async (
+  communityId: string,
+): Promise<SavedSegment[]> => {
+  const r = await api.get(`/saved-segments/community/${communityId}`);
+  return r.data;
+};
+
+export const createSavedSegment = async (data: {
+  name: string;
+  scope: "retreat" | "community";
+  retreatId?: string;
+  communityId?: string;
+  filters: SegmentFilters;
+}): Promise<SavedSegment> => {
+  const r = await api.post("/saved-segments", data);
+  return r.data;
+};
+
+export const updateSavedSegment = async (
+  id: string,
+  data: { name?: string; filters?: SegmentFilters },
+): Promise<SavedSegment> => {
+  const r = await api.put(`/saved-segments/${id}`, data);
+  return r.data;
+};
+
+export const deleteSavedSegment = async (id: string): Promise<void> => {
+  await api.delete(`/saved-segments/${id}`);
 };

@@ -61,6 +61,7 @@ import { RetreatScheduleItem } from '../entities/retreatScheduleItem.entity';
 import { RetreatScheduleItemResponsable } from '../entities/retreatScheduleItemResponsable.entity';
 import { RetreatShirtType } from '../entities/retreatShirtType.entity';
 import { ParticipantShirtSize } from '../entities/participantShirtSize.entity';
+import { SavedSegment } from '../entities/savedSegment.entity';
 
 export function createDatabaseConfig() {
 	const dbType = process.env.DB_TYPE || 'sqlite';
@@ -136,6 +137,8 @@ export function createDatabaseConfig() {
 		// Shirt types per retreat
 		RetreatShirtType,
 		ParticipantShirtSize,
+		// CRM: segmentos guardados
+		SavedSegment,
 		// Temporarily excluding entities with enum issues
 		// PermissionOverride,
 		// RoleRequest,

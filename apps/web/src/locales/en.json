@@ -1,4 +1,36 @@
 {
+  "whatsappQueue": {
+    "title": "WhatsApp send queue",
+    "description": "Send from your own WhatsApp account. {count} recipient(s) with a phone.",
+    "bulkAction": "WhatsApp queue",
+    "template": "Template",
+    "selectTemplate": "Select a template",
+    "message": "Message",
+    "messagePlaceholder": "Type the message or pick a template. You can use variables like {'{'}participant.firstName{'}'}.",
+    "variablesNote": "Variables are replaced per recipient when opening WhatsApp.",
+    "progress": "{sent} of {total} sent",
+    "withoutPhone": "{count} without a valid phone (cannot be sent)",
+    "openWhatsApp": "Open WhatsApp",
+    "resend": "Resend",
+    "close": "Close",
+    "noMessageTitle": "Empty message",
+    "noMessageDesc": "Type a message or select a template before sending.",
+    "openFallbackTitle": "Could not open WhatsApp",
+    "openFallbackDesc": "The message was copied to the clipboard. Open WhatsApp manually and paste it."
+  },
+  "segments": {
+    "apply": "Apply segment…",
+    "saveTooltip": "Save filters as a segment",
+    "saveTitle": "Saved segments",
+    "name": "Segment name",
+    "namePlaceholder": "e.g. Walkers with pending payment",
+    "saveHint": "The currently active filters will be saved for reuse.",
+    "saved": "Segment \"{name}\" saved",
+    "saveError": "Could not save the segment",
+    "deleted": "Segment \"{name}\" deleted",
+    "deleteError": "Could not delete the segment",
+    "applied": "Segment \"{name}\" applied"
+  },
   "delete": {
     "confirmTitle": "Are you sure?"
   },

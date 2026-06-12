@@ -1,4 +1,36 @@
 {
+  "whatsappQueue": {
+    "title": "Cola de envío por WhatsApp",
+    "description": "Envía desde tu propia cuenta de WhatsApp. {count} destinatario(s) con teléfono.",
+    "bulkAction": "Cola de WhatsApp",
+    "template": "Plantilla",
+    "selectTemplate": "Selecciona una plantilla",
+    "message": "Mensaje",
+    "messagePlaceholder": "Escribe el mensaje o elige una plantilla. Puedes usar variables como {'{'}participant.firstName{'}'}.",
+    "variablesNote": "Las variables se reemplazan por cada destinatario al abrir WhatsApp.",
+    "progress": "{sent} de {total} enviados",
+    "withoutPhone": "{count} sin teléfono válido (no se pueden enviar)",
+    "openWhatsApp": "Abrir WhatsApp",
+    "resend": "Reenviar",
+    "close": "Cerrar",
+    "noMessageTitle": "Mensaje vacío",
+    "noMessageDesc": "Escribe un mensaje o selecciona una plantilla antes de enviar.",
+    "openFallbackTitle": "No se pudo abrir WhatsApp",
+    "openFallbackDesc": "El mensaje se copió al portapapeles. Abre WhatsApp manualmente y pégalo."
+  },
+  "segments": {
+    "apply": "Aplicar segmento…",
+    "saveTooltip": "Guardar filtros como segmento",
+    "saveTitle": "Segmentos guardados",
+    "name": "Nombre del segmento",
+    "namePlaceholder": "Ej. Caminantes con pago pendiente",
+    "saveHint": "Se guardarán los filtros activos actuales para reutilizarlos.",
+    "saved": "Segmento «{name}» guardado",
+    "saveError": "No se pudo guardar el segmento",
+    "deleted": "Segmento «{name}» eliminado",
+    "deleteError": "No se pudo eliminar el segmento",
+    "applied": "Segmento «{name}» aplicado"
+  },
   "delete": {
     "confirmTitle": "¿Estás seguro?"
   },

@@ -451,6 +451,11 @@ vi.mock('lucide-vue-next', () => ({
 	LayoutGrid: { name: 'LayoutGrid', template: '<svg></svg>' },
 	UserMinus: { name: 'UserMinus', template: '<svg></svg>' },
 	Printer: { name: 'Printer', template: '<svg></svg>' },
+	Check: { name: 'Check', template: '<svg></svg>' },
+	Send: { name: 'Send', template: '<svg></svg>' },
+	Bookmark: { name: 'Bookmark', template: '<svg></svg>' },
+	Trash2: { name: 'Trash2', template: '<svg></svg>' },
+	Plus: { name: 'Plus', template: '<svg></svg>' },
 }));
 
 // Mock axios
