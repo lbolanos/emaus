@@ -1,133 +1,201 @@
 <template>
 	<div class="payment-management">
 		<!-- Header -->
-		<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 no-print">
+		<div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 sm:mb-6 no-print">
 			<div>
-				<h2 class="text-2xl font-bold">Gestión de Pagos</h2>
-				<p class="text-gray-600">Registro y seguimiento de pagos de participantes</p>
+				<h2 class="text-xl sm:text-2xl font-bold">{{ $t('paymentManagement.title') }}</h2>
+				<p class="text-sm text-gray-600">{{ $t('paymentManagement.subtitle') }}</p>
 			</div>
-			<div class="flex gap-2">
-				<Button @click="printReport" variant="outline">
-					<Printer class="w-4 h-4 mr-2" />
-					Imprimir
+			<div class="grid grid-cols-2 sm:flex gap-2">
+				<Button @click="printReport" variant="outline" class="w-full sm:w-auto">
+					<Printer class="w-4 h-4 sm:mr-2" />
+					<span>{{ $t('paymentManagement.print') }}</span>
 				</Button>
-				<Button @click="openAddPaymentModal" class="bg-blue-600 hover:bg-blue-700">
+				<Button @click="openAddDebtModal" variant="outline" class="w-full sm:w-auto text-amber-700 border-amber-300 hover:bg-amber-50">
+					<Plus class="w-4 h-4 sm:mr-2" />
+					<span>{{ $t('paymentManagement.addCharge') }}</span>
+				</Button>
+				<Button @click="openAddPaymentModal" class="col-span-2 sm:w-auto bg-blue-600 hover:bg-blue-700">
 					<Plus class="w-4 h-4 mr-2" />
-					Agregar Pago
+					{{ $t('paymentManagement.addPayment') }}
 				</Button>
 			</div>
 		</div>
 
 		<!-- Print header (only visible when printing) -->
 		<div class="print-only mb-4">
-			<h1 class="text-2xl font-bold">Reporte de Pagos</h1>
+			<h1 class="text-2xl font-bold">{{ $t('paymentManagement.reportTitle') }}</h1>
 			<p v-if="selectedRetreatLabel" class="text-sm">{{ selectedRetreatLabel }}</p>
-			<p class="text-sm text-gray-600">Generado: {{ formatDate(new Date()) }}</p>
+			<p class="text-sm text-gray-600">{{ $t('paymentManagement.generated') }}: {{ formatDate(new Date()) }}</p>
 		</div>
 
 		<!-- Filters -->
-		<div class="bg-white p-4 rounded-lg shadow mb-6 no-print">
-			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-				<div class="sm:col-span-2 lg:col-span-3">
-					<label class="block text-sm font-medium text-gray-700 mb-1">Buscar por nombre</label>
+		<div class="bg-white p-3 sm:p-4 rounded-lg shadow mb-4 sm:mb-6 no-print">
+			<div class="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+				<div class="col-span-2 lg:col-span-3">
+					<label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('paymentManagement.filters.searchLabel') }}</label>
 					<Input
 						v-model="filters.search"
 						type="text"
-						placeholder="Nombre, apellido o apodo del participante"
+						:placeholder="$t('paymentManagement.filters.searchPlaceholder')"
 					/>
 				</div>
-				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">Método de Pago</label>
+				<div class="col-span-2 lg:col-span-1">
+					<label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('paymentManagement.filters.method') }}</label>
 						<Select v-model="filters.paymentMethod">
 							<SelectTrigger>
-								<SelectValue placeholder="Todos los métodos" />
+								<SelectValue :placeholder="$t('paymentManagement.filters.allMethods')" />
 							</SelectTrigger>
 							<SelectContent>
-								<SelectItem value="cash">Efectivo</SelectItem>
-								<SelectItem value="transfer">Transferencia</SelectItem>
-								<SelectItem value="check">Cheque</SelectItem>
-								<SelectItem value="card">Tarjeta</SelectItem>
-								<SelectItem value="other">Otro</SelectItem>
+								<SelectItem value="cash">{{ $t('paymentManagement.methods.cash') }}</SelectItem>
+								<SelectItem value="transfer">{{ $t('paymentManagement.methods.transfer') }}</SelectItem>
+								<SelectItem value="check">{{ $t('paymentManagement.methods.check') }}</SelectItem>
+								<SelectItem value="card">{{ $t('paymentManagement.methods.card') }}</SelectItem>
+								<SelectItem value="other">{{ $t('paymentManagement.methods.other') }}</SelectItem>
 							</SelectContent>
 						</Select>
 				</div>
 				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">Fecha Inicio</label>
+					<label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('paymentManagement.filters.startDate') }}</label>
 					<Input v-model="filters.startDate" type="date" />
 				</div>
 				<div>
-					<label class="block text-sm font-medium text-gray-700 mb-1">Fecha Fin</label>
+					<label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('paymentManagement.filters.endDate') }}</label>
 					<Input v-model="filters.endDate" type="date" />
 				</div>
 			</div>
-			<div class="mt-4 flex gap-2">
-				<Button @click="applyFilters" :disabled="paymentStore.loading">
+			<div class="mt-3 sm:mt-4 grid grid-cols-2 sm:flex gap-2">
+				<Button @click="applyFilters" :disabled="paymentStore.loading" class="w-full sm:w-auto">
 					<Search class="w-4 h-4 mr-2" />
-					Buscar
+					{{ $t('paymentManagement.filters.search') }}
 				</Button>
-				<Button @click="clearFilters" variant="outline">
+				<Button @click="clearFilters" variant="outline" class="w-full sm:w-auto">
 					<X class="w-4 h-4 mr-2" />
-					Limpiar
+					{{ $t('paymentManagement.filters.clear') }}
 				</Button>
 			</div>
 		</div>
 
 		<!-- Summary Cards -->
-		<div v-if="summary" class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-			<div class="bg-white p-4 rounded-lg shadow">
-				<div class="flex items-center">
-					<DollarSign class="w-8 h-8 text-green-600" />
-					<div class="ml-3">
-						<p class="text-sm font-medium text-gray-600">Total Recaudado</p>
-						<p class="text-2xl font-bold">${{ formatCurrency(summary.totalPaid) }}</p>
+		<div v-if="summary" class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
+			<div class="bg-white p-3 sm:p-4 rounded-lg shadow no-print">
+				<div class="flex items-center gap-3">
+					<div class="shrink-0 rounded-full bg-green-100 p-2">
+						<DollarSign class="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
+					</div>
+					<div class="min-w-0">
+						<p class="text-xs sm:text-sm font-medium text-gray-600 truncate">{{ $t('paymentManagement.summary.collected') }}</p>
+						<p class="text-lg sm:text-2xl font-bold truncate">{{ formatCurrency(summary.totalPaid) }}</p>
 					</div>
 				</div>
 			</div>
-			<div class="bg-white p-4 rounded-lg shadow">
-				<div class="flex items-center">
-					<Receipt class="w-8 h-8 text-blue-600" />
-					<div class="ml-3">
-						<p class="text-sm font-medium text-gray-600">Total Pagos</p>
-						<p class="text-2xl font-bold">{{ summary.totalPayments }}</p>
+			<div class="bg-white p-3 sm:p-4 rounded-lg shadow no-print">
+				<div class="flex items-center gap-3">
+					<div class="shrink-0 rounded-full bg-amber-100 p-2">
+						<Wallet class="w-5 h-5 sm:w-6 sm:h-6 text-amber-600" />
+					</div>
+					<div class="min-w-0">
+						<p class="text-xs sm:text-sm font-medium text-gray-600 truncate">{{ $t('paymentManagement.summary.toCollect') }}</p>
+						<p
+							class="text-lg sm:text-2xl font-bold truncate"
+							:class="(summary.totalRemaining ?? 0) > 0 ? 'text-amber-600' : 'text-green-600'"
+						>
+							{{ formatCurrency(summary.totalRemaining ?? 0) }}
+						</p>
 					</div>
 				</div>
 			</div>
-			<div class="bg-white p-4 rounded-lg shadow">
-				<div class="flex items-center">
-					<Users class="w-8 h-8 text-purple-600" />
-					<div class="ml-3">
-						<p class="text-sm font-medium text-gray-600">Participantes con Pagos</p>
-						<p class="text-2xl font-bold">{{ summary.participantsWithPayments }}</p>
+			<div class="bg-white p-3 sm:p-4 rounded-lg shadow">
+				<div class="flex items-center gap-3">
+					<div class="shrink-0 rounded-full bg-emerald-100 p-2">
+						<UserCheck class="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600" />
+					</div>
+					<div class="min-w-0">
+						<p class="text-xs sm:text-sm font-medium text-gray-600 truncate">{{ $t('paymentManagement.summary.pazYSalvo') }}</p>
+						<p class="text-lg sm:text-2xl font-bold truncate">
+							{{ summary.pazYSalvoCount ?? 0 }}
+							<span class="text-sm font-normal text-gray-400">/ {{ summary.totalParticipants }}</span>
+						</p>
 					</div>
 				</div>
 			</div>
-			<div class="bg-white p-4 rounded-lg shadow">
-				<div class="flex items-center">
-					<UserCheck class="w-8 h-8 text-orange-600" />
-					<div class="ml-3">
-						<p class="text-sm font-medium text-gray-600">Total Participantes</p>
-						<p class="text-2xl font-bold">{{ summary.totalParticipants }}</p>
+			<div class="bg-white p-3 sm:p-4 rounded-lg shadow">
+				<div class="flex items-center gap-3">
+					<div class="shrink-0 rounded-full bg-blue-100 p-2">
+						<Receipt class="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+					</div>
+					<div class="min-w-0">
+						<p class="text-xs sm:text-sm font-medium text-gray-600 truncate">{{ $t('paymentManagement.summary.totalPayments') }}</p>
+						<p class="text-lg sm:text-2xl font-bold truncate">{{ summary.totalPayments }}</p>
 					</div>
 				</div>
 			</div>
 		</div>
 
-		<!-- Payments Table -->
+		<!-- Payments list -->
 		<div class="bg-white rounded-lg shadow">
 			<div class="p-4 border-b">
-				<h3 class="text-lg font-semibold">Pagos Registrados</h3>
+				<h3 class="text-lg font-semibold">{{ $t('paymentManagement.table.title') }}</h3>
 			</div>
-			<div class="overflow-x-auto">
+
+			<!-- Mobile: stacked cards -->
+			<div class="md:hidden divide-y divide-gray-200">
+				<div
+					v-for="payment in filteredPayments"
+					:key="payment.id"
+					class="p-4"
+				>
+					<div class="flex items-start justify-between gap-3">
+						<div class="min-w-0">
+							<p class="text-sm font-semibold text-gray-900 truncate">
+								{{ payment.participant?.firstName }} {{ payment.participant?.lastName }}
+								<span v-if="payment.participant?.nickname" class="font-normal text-gray-500">
+									({{ payment.participant?.nickname }})
+								</span>
+							</p>
+							<p class="text-xs text-gray-500 mt-0.5">{{ formatDate(payment.paymentDate) }}</p>
+						</div>
+						<p class="text-base font-bold text-green-600 whitespace-nowrap">
+							{{ formatCurrency(payment.amount) }}
+						</p>
+					</div>
+					<div class="mt-2 flex flex-wrap items-center gap-2">
+						<span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
+							{{ getPaymentMethodLabel(payment.paymentMethod) }}
+						</span>
+						<span v-if="payment.referenceNumber" class="text-xs text-gray-500">
+							{{ $t('paymentManagement.table.ref') }}: {{ payment.referenceNumber }}
+						</span>
+						<span v-if="payment.recordedByUser?.displayName" class="text-xs text-gray-400">
+							· {{ payment.recordedByUser?.displayName }}
+						</span>
+					</div>
+					<div class="mt-3 flex gap-2 no-print">
+						<Button @click="editPayment(payment)" variant="outline" size="sm" class="flex-1">
+							<Pencil class="w-4 h-4 mr-1" /> {{ $t('paymentManagement.edit') }}
+						</Button>
+						<Button @click="deletePayment(payment)" variant="outline" size="sm" class="flex-1 text-red-600 hover:text-red-700">
+							<Trash2 class="w-4 h-4 mr-1" /> {{ $t('paymentManagement.delete') }}
+						</Button>
+					</div>
+				</div>
+				<div v-if="filteredPayments.length === 0" class="p-8 text-center text-gray-500">
+					{{ $t('paymentManagement.table.empty') }}
+				</div>
+			</div>
+
+			<!-- Desktop: table -->
+			<div class="hidden md:block overflow-x-auto">
 				<table class="w-full">
 					<thead class="bg-gray-50">
 						<tr>
-							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Participante</th>
-							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
-							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Método</th>
-							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Referencia</th>
-							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registrado por</th>
-							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider no-print">Acciones</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ $t('paymentManagement.table.date') }}</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ $t('paymentManagement.table.participant') }}</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ $t('paymentManagement.table.amount') }}</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ $t('paymentManagement.table.method') }}</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ $t('paymentManagement.table.reference') }}</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ $t('paymentManagement.table.recordedBy') }}</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider no-print">{{ $t('paymentManagement.table.actions') }}</th>
 						</tr>
 					</thead>
 					<tbody class="bg-white divide-y divide-gray-200">
@@ -146,7 +214,7 @@
 								</div>
 							</td>
 							<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-								${{ formatCurrency(payment.amount) }}
+								{{ formatCurrency(payment.amount) }}
 							</td>
 							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
 								{{ getPaymentMethodLabel(payment.paymentMethod) }}
@@ -170,13 +238,8 @@
 						</tr>
 						<tr v-if="filteredPayments.length === 0">
 							<td colspan="7" class="px-6 py-4 text-center text-gray-500">
-								No se encontraron pagos
+								{{ $t('paymentManagement.table.empty') }}
 							</td>
-						</tr>
-						<tr v-if="filteredPayments.length > 0" class="print-only font-semibold bg-gray-50">
-							<td colspan="2" class="px-6 py-3 text-sm">Total</td>
-							<td class="px-6 py-3 text-sm text-green-700">${{ formatCurrency(printTotal) }}</td>
-							<td colspan="4"></td>
 						</tr>
 					</tbody>
 				</table>
@@ -187,96 +250,55 @@
 		<Dialog v-model:open="showPaymentModal" @update:open="handleModalClose">
 			<DialogContent class="max-w-md">
 				<DialogHeader>
-					<DialogTitle>{{ editingPayment ? 'Editar Pago' : 'Agregar Pago' }}</DialogTitle>
+					<DialogTitle>{{ editingPayment ? $t('paymentManagement.modal.editTitle') : $t('paymentManagement.modal.addTitle') }}</DialogTitle>
 					<DialogDescription>
-						{{ editingPayment ? 'Modifica los datos del pago' : 'Registra un nuevo pago' }}
+						{{ editingPayment ? $t('paymentManagement.modal.editDesc') : $t('paymentManagement.modal.addDesc') }}
 					</DialogDescription>
 				</DialogHeader>
 				<form @submit.prevent="savePayment">
 					<div class="space-y-4">
 						<div>
-							<label class="block text-sm font-medium text-gray-700 mb-1">Participante</label>
-							<div class="relative">
-								<!-- Trigger: muestra el participante seleccionado o un placeholder -->
-								<button
-									v-show="!participantDropdownOpen"
-									type="button"
-									:aria-expanded="participantDropdownOpen"
-									class="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-									@click="openParticipantDropdown"
-								>
-									<span :class="{ 'text-gray-400': !paymentForm.participantId }" class="truncate">
-										{{ selectedParticipantLabel || 'Buscar participante...' }}
-									</span>
-									<ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
-								</button>
-
-								<!-- Buscador + lista (inline, dentro del Dialog) -->
-								<input
-									v-show="participantDropdownOpen"
-									ref="participantSearchInput"
-									v-model="participantSearch"
-									type="text"
-									placeholder="Nombre, apellido o apodo..."
-									class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background placeholder:text-gray-400 focus:ring-2 focus:ring-ring focus:ring-offset-2"
-									@blur="participantDropdownOpen = false"
-									@keydown.esc="participantDropdownOpen = false"
-								/>
-								<div
-									v-if="participantDropdownOpen"
-									class="absolute z-50 mt-1 max-h-[240px] w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-md"
-								>
-									<button
-										v-for="participant in filteredParticipants"
-										:key="participant.id"
-										type="button"
-										class="flex w-full items-center rounded-sm px-2 py-1.5 text-left text-sm hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-										@mousedown.prevent="selectParticipant(participant.id)"
-									>
-										<Check
-											class="mr-2 h-4 w-4 shrink-0"
-											:class="paymentForm.participantId === participant.id ? 'opacity-100' : 'opacity-0'"
-										/>
-										<span class="truncate">
-											{{ participant.firstName }} {{ participant.lastName }}
-											<span v-if="participant.nickname" class="text-gray-500">({{ participant.nickname }})</span>
-										</span>
-									</button>
-									<div v-if="filteredParticipants.length === 0" class="px-2 py-4 text-center text-sm text-gray-500">
-										No se encontraron participantes
-									</div>
-								</div>
-							</div>
+							<label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('paymentManagement.modal.participant') }}</label>
+							<ParticipantSelect v-model="paymentForm.participantId" :participants="participants" />
 						</div>
+
+						<!-- Desglose de cargos + deudas del participante (paz y salvo v2) -->
+						<ParticipantDebtManager
+							v-if="selectedParticipantObj && activeRetreatId"
+							:participant="selectedParticipantObj"
+							:retreat-id="activeRetreatId"
+							@changed="onDebtsChanged"
+						/>
+
 						<div>
-							<label class="block text-sm font-medium text-gray-700 mb-1">Monto</label>
+							<label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('paymentManagement.modal.amount') }}</label>
 							<Input v-model="paymentForm.amount" type="number" step="0.01" min="0" required />
 						</div>
 						<div>
-							<label class="block text-sm font-medium text-gray-700 mb-1">Fecha de Pago</label>
+							<label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('paymentManagement.modal.paymentDate') }}</label>
 							<Input v-model="paymentForm.paymentDate" type="date" required />
 						</div>
 						<div>
-							<label class="block text-sm font-medium text-gray-700 mb-1">Método de Pago</label>
+							<label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('paymentManagement.modal.method') }}</label>
 							<Select v-model="paymentForm.paymentMethod" required>
 								<SelectTrigger>
-									<SelectValue placeholder="Seleccionar método" />
+									<SelectValue :placeholder="$t('paymentManagement.modal.selectMethod')" />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="cash">Efectivo</SelectItem>
-									<SelectItem value="transfer">Transferencia</SelectItem>
-									<SelectItem value="check">Cheque</SelectItem>
-									<SelectItem value="card">Tarjeta</SelectItem>
-									<SelectItem value="other">Otro</SelectItem>
+									<SelectItem value="cash">{{ $t('paymentManagement.methods.cash') }}</SelectItem>
+									<SelectItem value="transfer">{{ $t('paymentManagement.methods.transfer') }}</SelectItem>
+									<SelectItem value="check">{{ $t('paymentManagement.methods.check') }}</SelectItem>
+									<SelectItem value="card">{{ $t('paymentManagement.methods.card') }}</SelectItem>
+									<SelectItem value="other">{{ $t('paymentManagement.methods.other') }}</SelectItem>
 								</SelectContent>
 							</Select>
 						</div>
 						<div>
-							<label class="block text-sm font-medium text-gray-700 mb-1">Número de Referencia</label>
+							<label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('paymentManagement.modal.reference') }}</label>
 							<Input v-model="paymentForm.referenceNumber" />
 						</div>
 						<div>
-							<label class="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+							<label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('paymentManagement.modal.notes') }}</label>
 							<Textarea v-model="paymentForm.notes" rows="3" />
 						</div>
 					</div>
@@ -289,15 +311,15 @@
 							:disabled="!paymentForm.participantId || paymentStore.loading || markingScholarship"
 							@click="markAsScholarship"
 						>
-							🎓 Marcar como Becado
+							🎓 {{ $t('paymentManagement.modal.markScholarship') }}
 						</Button>
 						<div v-else></div>
 						<div class="flex justify-end gap-2">
 							<Button type="button" variant="outline" @click="closePaymentModal">
-								Cancelar
+								{{ $t('paymentManagement.modal.cancel') }}
 							</Button>
 							<Button type="submit" :disabled="paymentStore.loading">
-								{{ editingPayment ? 'Actualizar' : 'Guardar' }}
+								{{ editingPayment ? $t('paymentManagement.modal.update') : $t('paymentManagement.modal.save') }}
 							</Button>
 						</div>
 					</div>
@@ -305,19 +327,56 @@
 			</DialogContent>
 		</Dialog>
 
+		<!-- Add Charge (deuda) Modal -->
+		<Dialog v-model:open="showDebtModal">
+			<DialogContent class="max-w-md">
+				<DialogHeader>
+					<DialogTitle>{{ $t('paymentManagement.debtModal.title') }}</DialogTitle>
+					<DialogDescription>
+						{{ $t('paymentManagement.debtModal.desc') }}
+					</DialogDescription>
+				</DialogHeader>
+				<div class="space-y-4">
+					<div>
+						<label class="block text-sm font-medium text-gray-700 mb-1">{{ $t('paymentManagement.modal.participant') }}</label>
+						<ParticipantSelect
+							v-model="debtParticipantId"
+							:participants="serverAngelitoParticipants"
+							:placeholder="$t('paymentManagement.debtModal.searchPlaceholder')"
+							:empty-text="$t('paymentManagement.debtModal.empty')"
+						/>
+					</div>
+
+					<!-- Desglose + alta/edición de cobros del participante seleccionado -->
+					<ParticipantDebtManager
+						v-if="selectedDebtParticipantObj && activeRetreatId"
+						:participant="selectedDebtParticipantObj"
+						:retreat-id="activeRetreatId"
+						@changed="onDebtsChanged"
+					/>
+					<p v-else class="text-sm text-gray-500">
+						{{ $t('paymentManagement.debtModal.selectPrompt') }}
+					</p>
+				</div>
+				<div class="mt-6 flex justify-end">
+					<Button type="button" variant="outline" @click="showDebtModal = false">{{ $t('paymentManagement.debtModal.close') }}</Button>
+				</div>
+			</DialogContent>
+		</Dialog>
+
 		<!-- Delete Confirmation Dialog -->
 		<Dialog v-model:open="showDeleteDialog">
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>Confirmar Eliminación</DialogTitle>
+					<DialogTitle>{{ $t('paymentManagement.deleteDialog.title') }}</DialogTitle>
 					<DialogDescription>
-						¿Estás seguro de que deseas eliminar este pago? Esta acción no se puede deshacer.
+						{{ $t('paymentManagement.deleteDialog.message') }}
 					</DialogDescription>
 				</DialogHeader>
 				<div class="mt-4 flex justify-end gap-2">
-					<Button variant="outline" @click="showDeleteDialog = false">Cancelar</Button>
+					<Button variant="outline" @click="showDeleteDialog = false">{{ $t('paymentManagement.deleteDialog.cancel') }}</Button>
 					<Button variant="destructive" @click="confirmDelete" :disabled="paymentStore.loading">
-						Eliminar
+						{{ $t('paymentManagement.deleteDialog.confirm') }}
 					</Button>
 				</div>
 			</DialogContent>
@@ -326,7 +385,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
@@ -352,17 +412,18 @@ import {
 	X,
 	DollarSign,
 	Receipt,
-	Users,
+	Wallet,
 	UserCheck,
 	Pencil,
 	Trash2,
 	Printer,
-	ChevronsUpDown,
-	Check,
 } from 'lucide-vue-next';
 import type { Payment, CreatePayment, UpdatePayment } from '@repo/types';
-import { formatDate } from '@repo/utils';
+import { formatDate, formatCurrency } from '@repo/utils';
+import ParticipantDebtManager from '@/components/ParticipantDebtManager.vue';
+import ParticipantSelect from '@/components/ParticipantSelect.vue';
 
+const { t } = useI18n();
 const paymentStore = usePaymentStore();
 const retreatStore = useRetreatStore();
 const participantStore = useParticipantStore();
@@ -370,9 +431,9 @@ const authStore = useAuthStore();
 
 // State
 const showPaymentModal = ref(false);
-const participantDropdownOpen = ref(false);
-const participantSearch = ref('');
-const participantSearchInput = ref<HTMLInputElement | null>(null);
+// Estado del diálogo "Agregar cobro" (deudas)
+const showDebtModal = ref(false);
+const debtParticipantId = ref('');
 const showDeleteDialog = ref(false);
 const editingPayment = ref<Payment | null>(null);
 const deletingPayment = ref<Payment | null>(null);
@@ -405,41 +466,24 @@ const paymentForm = ref({
 const retreats = computed(() => retreatStore.retreats);
 const participants = computed(() => participantStore.participants);
 
-const selectedParticipantLabel = computed(() => {
-	const p = participants.value.find((x: any) => x.id === paymentForm.value.participantId);
-	if (!p) return '';
-	const name = `${p.firstName} ${p.lastName}`.trim();
-	return p.nickname ? `${name} (${p.nickname})` : name;
-});
+const selectedParticipantObj = computed(() =>
+	participants.value.find((x: any) => x.id === paymentForm.value.participantId) || null,
+);
 
-// Filtra por nombre, apellido o apodo conforme el usuario escribe.
-const filteredParticipants = computed(() => {
-	const q = participantSearch.value.trim().toLowerCase();
-	if (!q) return participants.value;
-	return participants.value.filter((p: any) => {
-		const first = (p.firstName || '').toLowerCase();
-		const last = (p.lastName || '').toLowerCase();
-		const nick = (p.nickname || '').toLowerCase();
-		return (
-			first.includes(q) ||
-			last.includes(q) ||
-			nick.includes(q) ||
-			`${first} ${last}`.includes(q)
-		);
-	});
-});
+// --- Diálogo "Agregar cobro" (deudas): solo servidores y angelitos ---
+const serverAngelitoParticipants = computed(() =>
+	participants.value.filter(
+		(p: any) => p.type === 'server' || p.type === 'partial_server',
+	),
+);
 
-const openParticipantDropdown = () => {
-	participantSearch.value = '';
-	participantDropdownOpen.value = true;
-	// Enfocar el buscador una vez renderizado.
-	nextTick(() => participantSearchInput.value?.focus());
-};
+const selectedDebtParticipantObj = computed(
+	() => participants.value.find((x: any) => x.id === debtParticipantId.value) || null,
+);
 
-const selectParticipant = (participantId: string) => {
-	paymentForm.value.participantId = participantId;
-	participantDropdownOpen.value = false;
-	participantSearch.value = '';
+const openAddDebtModal = () => {
+	debtParticipantId.value = '';
+	showDebtModal.value = true;
 };
 
 const filteredPayments = computed(() => {
@@ -481,10 +525,6 @@ const filteredPayments = computed(() => {
 	return payments;
 });
 
-const printTotal = computed(() =>
-	filteredPayments.value.reduce((sum, p) => sum + Number(p.amount || 0), 0),
-);
-
 const selectedRetreatLabel = computed(() => {
 	const r = retreats.value.find((x: any) => x.id === activeRetreatId.value);
 	return r ? `${r.parish} - ${formatDate(r.startDate)}` : '';
@@ -495,19 +535,9 @@ const printReport = () => {
 };
 
 // Methods
-const formatCurrency = (amount: number) => {
-	return amount.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-};
-
 const getPaymentMethodLabel = (method: string) => {
-	const labels = {
-		cash: 'Efectivo',
-		transfer: 'Transferencia',
-		check: 'Cheque',
-		card: 'Tarjeta',
-		other: 'Otro',
-	};
-	return labels[method as keyof typeof labels] || method;
+	const known = ['cash', 'transfer', 'check', 'card', 'other'];
+	return known.includes(method) ? t(`paymentManagement.methods.${method}`) : method;
 };
 
 const openAddPaymentModal = () => {
@@ -515,6 +545,22 @@ const openAddPaymentModal = () => {
 	resetPaymentForm();
 	showPaymentModal.value = true;
 };
+
+// Acceso programático desde la pestaña Saldos (PaymentsView): abrir los modales
+// con un participante ya preseleccionado.
+const openPaymentFor = (participantId: string) => {
+	editingPayment.value = null;
+	resetPaymentForm();
+	paymentForm.value.participantId = participantId;
+	showPaymentModal.value = true;
+};
+
+const openChargeFor = (participantId: string) => {
+	debtParticipantId.value = participantId;
+	showDebtModal.value = true;
+};
+
+defineExpose({ openPaymentFor, openChargeFor });
 
 const editPayment = (payment: Payment) => {
 	editingPayment.value = payment;
@@ -535,8 +581,6 @@ const closePaymentModal = () => {
 };
 
 const resetPaymentForm = () => {
-	participantDropdownOpen.value = false;
-	participantSearch.value = '';
 	paymentForm.value = {
 		participantId: '',
 		amount: '',
@@ -575,6 +619,13 @@ const savePayment = async () => {
 	} catch (error) {
 		console.error('Error saving payment:', error);
 	}
+};
+
+// Tras agregar/editar/eliminar una deuda: refrescar participantes (para recomputar
+// el desglose chargeBreakdown) y el resumen del retiro.
+const onDebtsChanged = async () => {
+	await participantStore.fetchParticipants();
+	loadSummary();
 };
 
 const markAsScholarship = async () => {

@@ -408,6 +408,11 @@ vi.mock('lucide-vue-next', () => ({
 	Salad: { name: 'Salad', template: '<svg></svg>' },
 	FileX: { name: 'FileX', template: '<svg></svg>' },
 	UserCheck: { name: 'UserCheck', template: '<svg></svg>' },
+	Wallet: { name: 'Wallet', template: '<svg></svg>' },
+	GraduationCap: { name: 'GraduationCap', template: '<svg></svg>' },
+	Columns3: { name: 'Columns3', template: '<svg></svg>' },
+	MessageCircle: { name: 'MessageCircle', template: '<svg></svg>' },
+	Scale: { name: 'Scale', template: '<svg></svg>' },
 	ShoppingBag: { name: 'ShoppingBag', template: '<svg></svg>' },
 	Pill: { name: 'Pill', template: '<svg></svg>' },
 	UserCog: { name: 'UserCog', template: '<svg></svg>' },
@@ -452,6 +457,7 @@ vi.mock('lucide-vue-next', () => ({
 	UserMinus: { name: 'UserMinus', template: '<svg></svg>' },
 	Printer: { name: 'Printer', template: '<svg></svg>' },
 	Plus: { name: 'Plus', template: '<svg></svg>' },
+	Pencil: { name: 'Pencil', template: '<svg></svg>' },
 	Star: { name: 'Star', template: '<svg></svg>' },
 	Trash2: { name: 'Trash2', template: '<svg></svg>' },
 	Image: { name: 'Image', template: '<svg></svg>' },
@@ -465,12 +471,23 @@ vi.mock('axios', () => ({
 		put: vi.fn(),
 		delete: vi.fn(),
 		patch: vi.fn(),
+		// defaults/interceptors: csrf.ts y api.ts los tocan al importarse
+		defaults: { baseURL: '', withCredentials: false, headers: { common: {} } },
+		interceptors: {
+			request: { use: vi.fn() },
+			response: { use: vi.fn() },
+		},
 		create: vi.fn(() => ({
 			get: vi.fn(),
 			post: vi.fn(),
 			put: vi.fn(),
 			delete: vi.fn(),
 			patch: vi.fn(),
+			defaults: { headers: { common: {} } },
+			interceptors: {
+				request: { use: vi.fn() },
+				response: { use: vi.fn() },
+			},
 		})),
 	},
 }));

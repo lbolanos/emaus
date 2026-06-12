@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
 import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch, Textarea } from '@repo/ui';
+import { formatCurrency } from '@repo/utils';
 import TagSelector from './TagSelector.vue';
 import AngelitoAvailabilityEditor from './AngelitoAvailabilityEditor.vue';
 import { getParticipantTags, assignTagToParticipant, removeTagFromParticipant, getPalanqueroOptions as fetchPalanqueroOptions, santisimoApi } from '@/services/api';
@@ -117,7 +118,7 @@ const fieldGroups: { key: string; label: string; icon: string; keys: string[] }[
   { key: 'inviter', label: 'Invitador', icon: 'users', keys: ['invitedBy', 'isInvitedByEmausMember', 'inviterHomePhone', 'inviterWorkPhone', 'inviterCellPhone', 'inviterEmail'] },
   { key: 'emergency', label: 'Emergencia', icon: 'heart', keys: ['emergencyContact1Name', 'emergencyContact1Relation', 'emergencyContact1HomePhone', 'emergencyContact1WorkPhone', 'emergencyContact1CellPhone', 'emergencyContact1Email', 'emergencyContact2Name', 'emergencyContact2Relation', 'emergencyContact2HomePhone', 'emergencyContact2WorkPhone', 'emergencyContact2CellPhone', 'emergencyContact2Email'] },
   { key: 'logistics', label: 'Log\u00edstica', icon: 'briefcase', keys: ['pickupLocation', 'arrivesOnOwn', 'requestsSingleRoom', 'retreatBed.roomNumber', 'tableMesa.name', 'tableId'] },
-  { key: 'financial', label: 'Financiero', icon: 'fileText', keys: ['totalPaid', 'lastPaymentDate', 'paymentStatus', 'isScholarship', 'scholarshipAmount'] },
+  { key: 'financial', label: 'Financiero', icon: 'fileText', keys: ['totalPaid', 'paymentRemaining', 'lastPaymentDate', 'paymentStatus', 'isScholarship', 'scholarshipAmount', 'mealCount', 'takesFridayMeal'] },
   { key: 'palancas', label: 'Palancas', icon: 'clipboardList', keys: ['palancasCoordinator', 'palancasRequested', 'palancasReceived', 'palancasNotes'] },
   { key: 'admin', label: 'Administraci\u00f3n', icon: 'fileText', keys: ['isCancelled', 'notes', 'registrationDate', 'lastUpdatedDate', 'retreatId'] },
 ];
@@ -168,15 +169,15 @@ const maxBirthDate = computed(() => {
   return d.toISOString().slice(0, 10)
 })
 
-const READ_ONLY_COMPUTED_FIELDS = ['totalPaid', 'paymentStatus', 'lastPaymentDate'];
+const READ_ONLY_COMPUTED_FIELDS = ['totalPaid', 'paymentRemaining', 'paymentStatus', 'lastPaymentDate'];
 
 const getColumnType = (key: string) => {
     const col = props.allColumns.find(c => c.key === key);
     if (col && col.type) return col.type;
     if (key === 'tags') return 'tags';
-    if (key === 'scholarshipAmount') return 'number';
+    if (key === 'scholarshipAmount' || key === 'mealCount') return 'number';
     if (key === 'type' || key === 'palancasCoordinator' || key === 'pickupLocation') return 'select';
-    if (key.startsWith('is') || key.startsWith('has') || key.startsWith('requests') || key === 'arrivesOnOwn' || key === 'snores' || key === 'palancasRequested') return 'boolean';
+    if (key.startsWith('is') || key.startsWith('has') || key.startsWith('requests') || key === 'arrivesOnOwn' || key === 'snores' || key === 'palancasRequested' || key === 'takesFridayMeal') return 'boolean';
     if (key.toLowerCase().includes('notes') || key.toLowerCase().includes('details')) return 'textarea';
     if (key.toLowerCase().includes('date')) return 'date';
     return 'text';
@@ -786,8 +787,8 @@ const calculateAge = (birthDate: string | Date) => {
             </template>
             <!-- Read-only field display -->
             <div v-else class="flex items-center min-h-[36px] px-3 py-1.5 bg-gray-50 rounded-md border border-gray-100 text-sm text-gray-600">
-              <template v-if="key === 'totalPaid'">
-                {{ new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(participant[key]) || 0) }}
+              <template v-if="key === 'totalPaid' || key === 'paymentRemaining'">
+                {{ formatCurrency(participant[key]) }}
               </template>
               <template v-else>
                 {{ getColumnType(key) === 'date' ? formatDateForDisplay(participant[key]) : (getColumnType(key) === 'boolean' ? (participant[key] ? 'S\u00ed' : 'No') : (participant[key] || '\u2014')) }}

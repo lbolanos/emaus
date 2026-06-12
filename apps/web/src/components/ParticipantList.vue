@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRoute } from 'vue-router';
+import { formatCurrency } from '@repo/utils';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useMyParticipantId } from '@/composables/useMyParticipantId';
@@ -409,9 +410,12 @@ const baseColumns = ref([
     { key: 'arrivesOnOwn', label: 'participants.fields.arrivesOnOwn' },
     { key: 'lastPaymentDate', label: 'participants.fields.lastPaymentDate' },
     { key: 'totalPaid', label: 'participants.fields.totalPaid' },
+    { key: 'paymentRemaining', label: 'participants.fields.paymentRemaining' },
     { key: 'paymentStatus', label: 'participants.fields.paymentStatus' },
     { key: 'isScholarship', label: 'participants.fields.isScholarship' },
     { key: 'scholarshipAmount', label: 'participants.fields.scholarshipAmount' },
+    { key: 'mealCount', label: 'participants.fields.mealCount' },
+    { key: 'takesFridayMeal', label: 'participants.fields.takesFridayMeal' },
     { key: 'palancasCoordinator', label: 'participants.fields.palancasCoordinator' },
     { key: 'palancasRequested', label: 'participants.fields.palancasRequested' },
     { key: 'palancasReceived', label: 'participants.fields.palancasReceived' },
@@ -666,12 +670,12 @@ const formatCell = (participant: any, colKey: string) => {
 
     // Handle totalPaid field - use calculated totalPaid from API
     if (colKey === 'totalPaid') {
-        const totalPaid = participant.totalPaid || 0;
-        if (totalPaid === 0) return '$0.00';
-        return new Intl.NumberFormat('es-MX', {
-            style: 'currency',
-            currency: 'MXN'
-        }).format(totalPaid);
+        return formatCurrency(participant.totalPaid || 0);
+    }
+
+    // Falta por pagar (balance): 0 = paz y salvo; > 0 = aún debe.
+    if (colKey === 'paymentRemaining') {
+        return formatCurrency(participant.paymentRemaining || 0);
     }
 
     // Scholarship amount — gated currency field for treasurer/admin.
@@ -680,10 +684,7 @@ const formatCell = (participant: any, colKey: string) => {
         if (raw === null || raw === undefined || raw === '') return 'N/A';
         const amount = Number(raw);
         if (!Number.isFinite(amount)) return 'N/A';
-        return new Intl.NumberFormat('es-MX', {
-            style: 'currency',
-            currency: 'MXN'
-        }).format(amount);
+        return formatCurrency(amount);
     }
 
     // Handle paymentStatus field - use computed property from API
@@ -727,8 +728,8 @@ const getCellContent = (participant: any, colKey: string) => {
         };
     }
 
-    // Add payment status indicator for totalPaid amounts
-    if (colKey === 'totalPaid') {
+    // Add payment status indicator for totalPaid / paymentRemaining amounts
+    if (colKey === 'totalPaid' || colKey === 'paymentRemaining') {
         const paymentStatus = participant.paymentStatus || 'unpaid';
         const formattedAmount = formatCell(participant, colKey);
 

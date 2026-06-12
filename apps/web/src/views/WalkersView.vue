@@ -8,8 +8,8 @@ import { useParticipantStore } from '@/stores/participantStore'
 import ParticipantList from '@/components/ParticipantList.vue'
 import { DoorOpen } from 'lucide-vue-next'
 
-const walkerTableColumns = ['id_on_retreat','firstName', 'lastName', 'email', 'cellPhone', 'parish', 'totalPaid']
-const walkerFormShowColumns = ['id_on_retreat','firstName', 'lastName', 'cellPhone', 'parish', 'totalPaid', 'email']
+const walkerTableColumns = ['id_on_retreat','firstName', 'lastName', 'email', 'cellPhone', 'parish', 'paymentRemaining']
+const walkerFormShowColumns = ['id_on_retreat','firstName', 'lastName', 'cellPhone', 'parish', 'paymentRemaining', 'email']
 const nonEditableColumns = ['email']
 const walkerFormEditColumns = walkerTableColumns.filter(c => !nonEditableColumns.includes(c))
 

@@ -823,6 +823,42 @@ export const getPaymentSummaryByRetreat = async (retreatId: string) => {
   return response.data;
 };
 
+// Participant Debt API functions (deudas manuales para servidores/angelitos)
+export const createParticipantDebt = async (debtData: {
+  participantId: string;
+  retreatId?: string;
+  amount: number;
+  description?: string;
+}) => {
+  const response = await api.post("/participant-debts", debtData);
+  return response.data;
+};
+
+export const updateParticipantDebt = async (
+  debtId: string,
+  debtData: { amount?: number; description?: string },
+) => {
+  const response = await api.put(`/participant-debts/${debtId}`, debtData);
+  return response.data;
+};
+
+export const deleteParticipantDebt = async (debtId: string) => {
+  const response = await api.delete(`/participant-debts/${debtId}`);
+  return response.data;
+};
+
+export const getDebtsByParticipant = async (participantId: string) => {
+  const response = await api.get(
+    `/participant-debts/participant/${participantId}`,
+  );
+  return response.data;
+};
+
+export const getDebtsByRetreat = async (retreatId: string) => {
+  const response = await api.get(`/participant-debts/retreat/${retreatId}`);
+  return response.data;
+};
+
 // Participant API functions
 export const getWalkersByRetreat = async (
   retreatId: string,
@@ -954,6 +990,7 @@ export const confirmExistingRegistration = async (
   recaptchaToken: string,
   shirtSizes?: { shirtTypeId: string; size: string }[],
   availability?: { startTime: string; endTime: string }[],
+  meals?: { mealCount?: number | null; takesFridayMeal?: boolean | null },
 ): Promise<{ success: boolean; firstName: string; lastName: string }> => {
   const response = await api.post("/participants/confirm-registration", {
     email,
@@ -962,6 +999,8 @@ export const confirmExistingRegistration = async (
     recaptchaToken,
     shirtSizes,
     availability,
+    mealCount: meals?.mealCount ?? null,
+    takesFridayMeal: meals?.takesFridayMeal ?? null,
   });
   return response.data;
 };

@@ -459,7 +459,40 @@
                 v-model="formData.cost"
                 :placeholder="$t('retreatModal.costPlaceholder')"
               />
+              <p v-if="costNotNumeric" class="text-sm text-amber-600">
+                {{ $t('retreatModal.costNotNumericHint') }}
+              </p>
             </div>
+
+            <!-- Cobro del servidor + valor de la comida (paz y salvo v2).
+                 El cobro del CAMINANTE es el campo "Costo" de arriba. -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="space-y-2">
+                <Label for="serverFeeAmount">{{ $t('retreatModal.serverFeeAmount') }}</Label>
+                <Input
+                  id="serverFeeAmount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  v-model.number="formData.serverFeeAmount"
+                  :placeholder="$t('retreatModal.feeAmountPlaceholder')"
+                />
+              </div>
+              <div class="space-y-2">
+                <Label for="mealCost">{{ $t('retreatModal.mealCost') }}</Label>
+                <Input
+                  id="mealCost"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  v-model.number="formData.mealCost"
+                  :placeholder="$t('retreatModal.feeAmountPlaceholder')"
+                />
+              </div>
+            </div>
+            <p class="text-sm text-muted-foreground">
+              {{ $t('retreatModal.feesHelp') }}
+            </p>
 
             <div class="space-y-2">
               <Label for="paymentInfo">{{ $t('retreatModal.paymentInfo') }}</Label>
@@ -1026,6 +1059,8 @@ const formData = ref({
   cost: '',
   paymentInfo: '',
   paymentMethods: '',
+  serverFeeAmount: undefined as number | null | undefined,
+  mealCost: undefined as number | null | undefined,
   max_walkers: undefined as number | undefined,
   max_servers: undefined as number | undefined,
   isPublic: false,
@@ -1219,6 +1254,15 @@ const isFormValid = computed(() => {
          Object.keys(errors.value).length === 0;
 });
 
+// Aviso: el "Costo" es el cobro del caminante; si no contiene un número, el caminante
+// quedaría en 0 (paz y salvo automático) por error de captura.
+const costNotNumeric = computed(() => {
+  const c = formData.value.cost;
+  if (!c || !String(c).trim()) return false;
+  const parsed = parseFloat(String(c).replace(/[^0-9.-]/g, ''));
+  return !parsed; // NaN o 0
+});
+
 const startDate = computed({
   get: () => {
     if (!formData.value.startDate) return '';
@@ -1410,6 +1454,8 @@ const handleSubmit = async () => {
         cost: formData.value.cost,
         paymentInfo: formData.value.paymentInfo,
         paymentMethods: formData.value.paymentMethods,
+        serverFeeAmount: formData.value.serverFeeAmount,
+        mealCost: formData.value.mealCost,
         max_walkers: formData.value.max_walkers,
         max_servers: formData.value.max_servers,
         walkerArrivalTime: formData.value.walkerArrivalTime || undefined,
@@ -1456,6 +1502,8 @@ const resetForm = () => {
     cost: '',
     paymentInfo: '',
     paymentMethods: '',
+    serverFeeAmount: undefined,
+    mealCost: undefined,
     max_walkers: undefined,
     max_servers: undefined,
     isPublic: false,
@@ -1665,6 +1713,8 @@ watch(() => props.open, (newOpen) => {
           cost: props.retreat.cost || '',
           paymentInfo: props.retreat.paymentInfo || '',
           paymentMethods: props.retreat.paymentMethods || '',
+          serverFeeAmount: (props.retreat as any).serverFeeAmount ?? undefined,
+          mealCost: (props.retreat as any).mealCost ?? undefined,
           max_walkers: props.retreat.max_walkers,
           max_servers: props.retreat.max_servers,
           isPublic: props.retreat.isPublic,

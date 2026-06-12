@@ -608,6 +608,7 @@ const participantVariables = computed(() => [
   { key: 'palanqueroName', label: 'Palanquero del Caminante (Nombre)' },
   { key: 'palanqueroEmail', label: 'Palanquero del Caminante (Email)' },
   { key: 'palanqueroCellPhone', label: 'Palanquero del Caminante (Móvil)' },
+  { key: 'paymentRemaining', label: 'Saldo pendiente (falta por pagar)' },
 ]);
 
 const retreatVariables = computed(() => [

@@ -24,8 +24,8 @@ const { t } = useI18n()
 const retreatStore = useRetreatStore()
 const { toast } = useToast()
 
-const tableColumns = ['id_on_retreat','firstName', 'lastName', 'email', 'cellPhone', 'parish', 'totalPaid'];
-const formShowColumns = ['id_on_retreat','firstName', 'lastName', 'cellPhone', 'parish', 'totalPaid', 'email'];
+const tableColumns = ['id_on_retreat','firstName', 'lastName', 'email', 'cellPhone', 'parish', 'paymentRemaining'];
+const formShowColumns = ['id_on_retreat','firstName', 'lastName', 'cellPhone', 'parish', 'paymentRemaining', 'email'];
 const nonEditableColumns = ['email'];
 const formEditColumns = tableColumns.filter(c => !nonEditableColumns.includes(c));
 

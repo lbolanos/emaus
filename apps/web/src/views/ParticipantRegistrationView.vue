@@ -45,6 +45,10 @@ const validRetreatId = ref(props.retreatId || '')
 const isLoading = ref(true)
 const retreatData = ref<any>(null)
 
+// Solo preguntar por comidas (nº de comidas del angelito / comida del viernes del
+// servidor) cuando el retiro tiene configurado un valor por comida > 0.
+const mealChargesEnabled = computed(() => Number(retreatData.value?.mealCost) > 0)
+
 // País del retiro (casa): define la regla de longitud de teléfono.
 const retreatCountry = computed<string | undefined>(() => retreatData.value?.country || undefined)
 
@@ -122,6 +126,9 @@ const getInitialFormData = (): Partial<Omit<Participant, 'id'>> & { hasDisabilit
   arrivesOnOwn: true,
   isAngelito: false,
   availability: [],
+  // Comidas (paz y salvo v2): servidor → comida del viernes; angelito → nº comidas
+  takesFridayMeal: false,
+  mealCount: null,
   acceptedPrivacyNotice: false,
 })
 
@@ -531,6 +538,10 @@ const handleConfirmIdentity = async () => {
       }
       availability = blocks
     }
+    // Comidas (paz y salvo v2): angelito → nº comidas; servidor → comida del viernes.
+    const meals = (formData.value as any).isAngelito
+      ? { mealCount: (formData.value as any).mealCount ?? null }
+      : { takesFridayMeal: (formData.value as any).takesFridayMeal ?? false }
     await confirmExistingRegistration(
       emailLookup.value,
       validRetreatId.value,
@@ -538,6 +549,7 @@ const handleConfirmIdentity = async () => {
       recaptchaToken,
       shirtSizes,
       availability,
+      meals,
     )
     // Show success screen briefly before closing
     showSuccessScreen.value = true
@@ -611,10 +623,10 @@ const onSubmit = async () => {
   formData.value.acceptedPrivacyNotice = true
   ;(formData.value as any).acceptedPrivacyNoticeAt = new Date().toISOString()
 
-  // If server marked as angelito, register as partial_server with scholarship (no bed/table/pago)
+  // If server marked as angelito, register as partial_server (sin cama/mesa).
+  // Ya NO se fuerza beca: el angelito paga las comidas que indique (mealCount).
   if (props.type === 'server' && (formData.value as any).isAngelito) {
     formData.value.type = 'partial_server'
-    formData.value.isScholarship = true
 
     // Validar disponibilidad: al menos un bloque, sin rangos invertidos
     const blocks = ((formData.value as any).availability ?? []) as Array<{ startTime: string; endTime: string }>
@@ -1031,6 +1043,43 @@ defineExpose({ validateStep, formData, formErrors, retreatData, retreatCountry }
                   :min-date="retreatData?.startDate"
                   :max-date="retreatData?.endDate"
                 />
+
+                <!-- Nº de comidas del angelito (solo si el retiro cobra comidas) -->
+                <div v-if="mealChargesEnabled" class="space-y-1 pt-2 border-t border-purple-200 dark:border-purple-800">
+                  <Label for="lookup-mealCount" class="block text-sm font-medium">
+                    {{ $t('serverRegistration.fields.mealCount') }}
+                  </Label>
+                  <p class="text-xs text-muted-foreground">
+                    {{ $t('serverRegistration.fields.mealCountHint') }}
+                  </p>
+                  <Input
+                    id="lookup-mealCount"
+                    type="number"
+                    min="0"
+                    class="max-w-[8rem]"
+                    v-model.number="formData.mealCount"
+                  />
+                </div>
+              </div>
+
+              <!-- Comida del viernes para servidores (solo si el retiro cobra comidas) -->
+              <div
+                v-if="props.type === 'server' && !formData.isAngelito && mealChargesEnabled"
+                class="w-full max-w-md flex items-start gap-3 rounded-lg border p-3 text-left"
+              >
+                <Checkbox
+                  id="lookup-takesFridayMeal"
+                  :model-value="!!formData.takesFridayMeal"
+                  @update:model-value="(v: boolean) => (formData.takesFridayMeal = v)"
+                />
+                <div class="space-y-0.5">
+                  <Label for="lookup-takesFridayMeal" class="font-medium text-sm">
+                    {{ $t('serverRegistration.fields.takesFridayMeal') }}
+                  </Label>
+                  <p class="text-xs text-muted-foreground">
+                    {{ $t('serverRegistration.fields.takesFridayMealHint') }}
+                  </p>
+                </div>
               </div>
 
               <!-- Shirt size selectors in lookup confirm flow -->
@@ -1151,7 +1200,7 @@ defineExpose({ validateStep, formData, formErrors, retreatData, retreatCountry }
                   <Step3ServiceInfo v-else-if="currentStep === 3" v-model="formData" :errors="formErrors" :type="(props.type as 'walker' | 'server' | 'partial_server' | 'waiting')" />
                   <Step4EmergencyContact v-else-if="currentStep === 4" v-model="formData" :errors="formErrors" :type="(props.type as 'walker' | 'server')" />
                   <Step5OtherInfo v-else-if="currentStep === 5 && props.type === 'walker'" v-model="formData" :errors="formErrors" :showPickupInfo="retreatData?.flyer_options?.showPickupInfo ?? true" :shirt-types="retreatData?.shirtTypes" />
-                  <Step5ServerInfo v-else-if="currentStep === 5 && props.type === 'server'" v-model="formData" :errors="formErrors" :shirt-types="retreatData?.shirtTypes" :retreat-start-date="retreatData?.startDate" :retreat-end-date="retreatData?.endDate" />
+                  <Step5ServerInfo v-else-if="currentStep === 5 && props.type === 'server'" v-model="formData" :errors="formErrors" :shirt-types="retreatData?.shirtTypes" :retreat-start-date="retreatData?.startDate" :retreat-end-date="retreatData?.endDate" :meal-charges-enabled="mealChargesEnabled" />
 
                   <!-- Step 6: Summary -->
                   <div v-else-if="currentStep === totalSteps">

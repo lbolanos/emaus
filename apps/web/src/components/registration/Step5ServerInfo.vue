@@ -2,6 +2,7 @@
 import { computed, watch } from 'vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui'
 import { Label } from '@repo/ui'
+import { Input } from '@repo/ui'
 import { Checkbox } from '@repo/ui'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui'
 import AngelitoAvailabilityEditor from '@/components/AngelitoAvailabilityEditor.vue'
@@ -21,6 +22,8 @@ const props = defineProps<{
   shirtTypes?: ShirtType[]
   retreatStartDate?: string | null
   retreatEndDate?: string | null
+  /** Solo preguntar comidas si el retiro tiene valor por comida > 0. */
+  mealChargesEnabled?: boolean
 }>()
 
 const formData = defineModel<Record<string, any>>({ required: true })
@@ -112,6 +115,43 @@ function getSize(typeId: string): string {
         >
           {{ props.errors.availability }}
         </p>
+
+        <!-- Nº de comidas del angelito (solo si el retiro cobra comidas) -->
+        <div v-if="props.mealChargesEnabled" class="space-y-1 pt-2 border-t border-purple-200 dark:border-purple-800">
+          <Label for="mealCount" class="block text-sm font-medium">
+            {{ $t('serverRegistration.fields.mealCount') }}
+          </Label>
+          <p class="text-xs text-muted-foreground">
+            {{ $t('serverRegistration.fields.mealCountHint') }}
+          </p>
+          <Input
+            id="mealCount"
+            type="number"
+            min="0"
+            class="max-w-[8rem]"
+            v-model.number="formData.mealCount"
+          />
+        </div>
+      </div>
+
+      <!-- Comida del viernes para servidores (no angelitos) -->
+      <div
+        v-else-if="props.mealChargesEnabled"
+        class="flex items-start gap-3 rounded-lg border p-3"
+      >
+        <Checkbox
+          id="takesFridayMeal"
+          :model-value="!!formData.takesFridayMeal"
+          @update:model-value="(v: boolean) => (formData.takesFridayMeal = v)"
+        />
+        <div class="space-y-0.5">
+          <Label for="takesFridayMeal" class="font-medium text-sm">
+            {{ $t('serverRegistration.fields.takesFridayMeal') }}
+          </Label>
+          <p class="text-xs text-muted-foreground">
+            {{ $t('serverRegistration.fields.takesFridayMealHint') }}
+          </p>
+        </div>
       </div>
 
       <div v-if="visibleTypes.length === 0" class="text-sm text-muted-foreground">

@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { formatCurrency } from '@repo/utils'
 import { useRetreatStore } from '@/stores/retreatStore'
 import { useReceptionStore } from '@/stores/receptionStore'
 import { getReceptionStats, checkInParticipant, type ReceptionParticipant } from '@/services/api'
@@ -190,10 +191,6 @@ function formatTime(iso: string | null): string {
   return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
 }
 
-function formatCurrency(amount: number): string {
-  return amount.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-}
-
 // ── Lifecycle ──────────────────────────────────────────────────────────────
 
 async function loadForRetreat(id: string) {
@@ -361,7 +358,7 @@ onUnmounted(() => {
                   : 'bg-muted text-muted-foreground'"
                 :title="t('reception.totalPaid')"
               >
-                ${{ formatCurrency(p.totalPaid) }}
+                {{ formatCurrency(p.totalPaid) }}
               </span>
             </div>
 
@@ -443,7 +440,7 @@ onUnmounted(() => {
                     : 'bg-muted text-muted-foreground'"
                   :title="t('reception.totalPaid')"
                 >
-                  ${{ formatCurrency(p.totalPaid) }}
+                  {{ formatCurrency(p.totalPaid) }}
                 </span>
               </div>
               <button
