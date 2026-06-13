@@ -130,7 +130,7 @@ Reglas:
 
 ### Topología
 ```
-Browser ──wss──▶ Express+IO (port 3001) ──emit──▶ services
+Browser ──wss──▶ Express+IO (port 3084) ──emit──▶ services
          ◀─reception:* ───────────────────────┘
 ```
 
@@ -181,7 +181,7 @@ Browser ──wss──▶ Express+IO (port 3001) ──emit──▶ services
 - **Reverse proxy**: Nginx con Let's Encrypt (certbot DNS-01)
 - **Process manager**: PM2 (modo fork)
 - **Estáticos**: `apps/web/dist` servido por Nginx
-- **API**: `localhost:3001` proxied bajo `/api` y `/socket.io`
+- **API**: `localhost:3084` proxied bajo `/api` y `/socket.io`
 - **CI/CD**: GitHub Actions con SSH deploy a Lightsail (ver `.github/workflows/` y `deploy/lightsail/`)
 
 Gotchas conocidos:

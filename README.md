@@ -496,10 +496,10 @@ las impresiones de badges crear una impresion de solo caminantes para la bolsa
 una forma de recepccion pueda saber que caminantes hacen falta
 un check en reporte de bolsas que se realizo la bolsa
 
-## IN PROGRESS
 que el sistema en el minuto a minuto se de cuenta que los minutos de duracion no concuerdas con la siguiente activida y que se pueda solucionar con un boton.
 agregar un boton para ir hasta la hora actual
 
+en mis retiros se pueda ver la musica usada en las charlas y las actividad del mam.
 
 una vez armadas las mesas necesito q se pueda enviar un mensaje a lider y colider indicando caminantes de su mesa y telefonos de caminante y telefonos contactos de emergencia y el mensaje que deben enviar a los caminantes que es algo como
 Hola mi nombre es, ¿hablo con [nombre del caminante]? Te llamo de parte del Retiro de Emaús de San Agustín.
@@ -593,17 +593,27 @@ que en el bot reciba foto de la lista de participantes a la reunion para agregar
 quitar ctrl f vaya a encontrar menu
 
 
-## TODO
-en mis retiros se pueda ver la musica usada en las charlas y las actividad del mam.
-
+una forma en bubbles cursor encima da mas informacion pero aveces no funciona entonces colocar una forma segura de sabes mas detalles
 
 una pagina en el que el servidor puede ver el resumen de sus labores en el retiro , mesa asignada y cuarto asignado
+## IN PROGRESS
+i need a security code review of all we are going to push
+
+crear una plantilla global de secuencias de mensajes que pueda ser usada en cualquier retiro.
+
+en este momento el pass y salvo se hace identificando si pago la cantidad del monto del retiro.  pero necesitamos que 
+cuando se inscribe un servidor o un caminante se debe asignar un cobro del retiro.  para que este a paz y salvo debe estar en 0.  
+los angelitos en inscripcion no se les cobra pero si debe indicar si van a tomar almuerzo y tambien se les realiza un cobro.
+los angelitos deben indicar cuantas comidas van a tomar.  los servidores indicar si van a tomar la comida del viernes.
+se debe indicar el valor de cada comida en la ficha de configuracion del retiro
+se pueden agregar deudas a los servidores o angelitos.
+
 aumentar el tiempo de la sesion 
+## TODO
+agregar la foto de la reunion
 
-Si los horarios de los angelitos empatan en horario de comida entonces se debe cobrar una suma.
+crear el seguimiento preretiro que hacer y como.
 
-
-una forma en bubbles cursor encima da mas informacion pero aveces no funciona entonces colocar una forma segura de sabes mas detalles
 
 verificar que el orden en las camas
 
@@ -672,7 +682,7 @@ al selecciona menu casas de retiro debe desaparecer la seleccion de retiro porqu
 
 This will use Turborepo to run the `dev` script in both `apps/api` and `apps/web`.
 
-- The API will be available at `http://localhost:3001`.
+- The API will be available at `http://localhost:3084`.
 - The Web app will be available at `http://localhost:5173`.
 
 ## prompts:

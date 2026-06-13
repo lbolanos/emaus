@@ -44,7 +44,7 @@ pnpm --filter web test       # Frontend (Vitest)
 
 ### Development Environment
 
-- API runs on `http://localhost:3001`
+- API runs on `http://localhost:3084` (default en `index.ts`; configurable con `PORT`. El proxy de Vite del web apunta ahí)
 - Web app runs on `http://localhost:5173`
 - DB local: `apps/api/database.sqlite`
 

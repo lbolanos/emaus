@@ -1,13 +1,13 @@
 ---
 name: worktree-testing
-description: MUST be used cuando trabajes en un git worktree del proyecto Emaús y necesites probar con Playwright/Chrome DevTools/curl, o levantar `pnpm dev` sin chocar con la sesión del main que ya ocupa los puertos 3001/5173. Cubre setup de puertos paralelos (3002/5174), DB SQLite aislada, override de CORS y proxy de Vite, y workaround del bug de `runtimeConfig.ts` con `import_meta`. Triggers — "puertos están tomados", "el main está corriendo", "no puedo levantar dev en el worktree", "probar con playwright", "chrome devtools", "test e2e en worktree", "API ya está usando 3001".
+description: MUST be used cuando trabajes en un git worktree del proyecto Emaús y necesites probar con Playwright/Chrome DevTools/curl, o levantar `pnpm dev` sin chocar con la sesión del main que ya ocupa los puertos 3084/5173. Cubre setup de puertos paralelos (3002/5174), DB SQLite aislada, override de CORS y proxy de Vite, y workaround del bug de `runtimeConfig.ts` con `import_meta`. Triggers — "puertos están tomados", "el main está corriendo", "no puedo levantar dev en el worktree", "probar con playwright", "chrome devtools", "test e2e en worktree", "API ya está usando 3084".
 ---
 
 # Worktree Testing — levantar dev paralelo sin chocar con el main
 
-Cuando estás en `.claude/worktrees/<branch>/` y el dev del main ya ocupa los puertos default (`:3001` API, `:5173` web), levantar `pnpm dev` falla. Este skill explica el setup de puertos paralelos con DB aislada, y provee scripts ejecutables.
+Cuando estás en `.claude/worktrees/<branch>/` y el dev del main ya ocupa los puertos default (`:3084` API, `:5173` web), levantar `pnpm dev` falla. Este skill explica el setup de puertos paralelos con DB aislada, y provee scripts ejecutables.
 
-> **Regla clave**: el frontend del worktree **debe** hablar con la API del worktree, no con la del main. Si solo cambiás el puerto de la API el web seguirá pegándole a `:3001` (proxy hardcoded + `runtimeConfig` con bug). Necesitás los **tres** ajustes de abajo.
+> **Regla clave**: el frontend del worktree **debe** hablar con la API del worktree, no con la del main. Si solo cambiás el puerto de la API el web seguirá pegándole a `:3084` (proxy hardcoded + `runtimeConfig` con bug). Necesitás los **tres** ajustes de abajo.
 
 ---
 
@@ -32,26 +32,26 @@ Esto deja:
 
 ### 1. CORS de la API
 
-`apps/api/src/index.ts:78-79` arma la allowlist con `frontendUrl` (de `FRONTEND_URL` env, default `http://localhost:5173`) más dos hardcoded (`:5173`, `:3001`). Si tu web corre en `:5174`, la API del worktree lo bloquea.
+`apps/api/src/index.ts:78-79` arma la allowlist con `frontendUrl` (de `FRONTEND_URL` env, default `http://localhost:5173`) más dos hardcoded (`:5173`, `:3084`). Si tu web corre en `:5174`, la API del worktree lo bloquea.
 
 **Fix**: levantar API con `FRONTEND_URL=http://localhost:5174`.
 
 ### 2. Proxy de Vite
 
-`apps/web/vite.config.ts:90` apunta hardcoded a `http://localhost:3001`. Para que el web del worktree hable con la API del worktree:
+`apps/web/vite.config.ts:90` ya es configurable: `env.VITE_API_PROXY_TARGET || 'http://localhost:3084'` (default 3084, el del main). Para que el web del worktree hable con la API del worktree:
 
-**Fix permanente** (ya aplicado en este worktree, mantener al hacer merge):
+**Fix permanente** (ya en el repo; el snippet de abajo es el código actual):
 
 ```ts
 // apps/web/vite.config.ts
-target: env.VITE_API_PROXY_TARGET || 'http://localhost:3001',
+target: env.VITE_API_PROXY_TARGET || 'http://localhost:3084',
 ```
 
 Y setear `VITE_API_PROXY_TARGET=http://localhost:3002` al arrancar Vite.
 
 ### 3. `runtimeConfig.ts` (bug pre-existente)
 
-`apps/web/src/config/runtimeConfig.ts:139` chequea `import_meta` (con underscore) en vez de `import.meta`. Como esa variable nunca está definida, `VITE_API_URL` es ignorada y el cliente cae al default `http://localhost:3001/api` aunque hayas seteado la env.
+`apps/web/src/config/runtimeConfig.ts:139` chequea `import_meta` (con underscore) en vez de `import.meta`. Como esa variable nunca está definida, `VITE_API_URL` es ignorada y el cliente cae al default `http://localhost:3084/api` aunque hayas seteado la env.
 
 **Workaround sin tocar source**: crear `apps/web/public/runtime-config.js` que inyecta `window.EMAUS_RUNTIME_CONFIG` antes de que cargue el bundle. El `index.html` ya tiene `<script src="/runtime-config.js">`.
 
@@ -165,7 +165,7 @@ Una vez arriba, navegá a `http://localhost:5174/login` y autenticá con `leonar
 
 ## Diagnóstico rápido
 
-Si el browser se queja de `localhost:3001` aunque hiciste todo:
+Si el browser se queja de `localhost:3084` aunque hiciste todo:
 
 ```bash
 # 1. Confirmar que runtime-config.js existe y está en /public
