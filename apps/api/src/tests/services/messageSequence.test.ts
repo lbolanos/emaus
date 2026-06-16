@@ -72,6 +72,33 @@ describe('MessageSequenceService', () => {
 		});
 	});
 
+	describe('isRetreatClosed (TZ-aware)', () => {
+		// endDate '2026-06-05' en CDMX (UTC-6) → cierre = medianoche CDMX del 06-jun
+		// = 2026-06-06T06:00:00Z. El retiro vive todo el día 5 en hora local.
+		const retreat = { endDate: new Date('2026-06-05T00:00:00.000Z'), timezone: 'America/Mexico_City' } as any;
+
+		it('aún ABIERTO a las 23:00 CDMX del último día (05:00Z del día siguiente)', () => {
+			// Punto que la versión cruda (epoch + 86.4M ms) cerraba 6 h antes.
+			const now = new Date('2026-06-06T05:00:00.000Z'); // 23:00 CDMX del 05-jun
+			expect(svc.isRetreatClosed(retreat, 'participant_created', now)).toBe(false);
+		});
+
+		it('CERRADO pasada la medianoche CDMX (07:00Z = 01:00 CDMX del 06-jun)', () => {
+			const now = new Date('2026-06-06T07:00:00.000Z');
+			expect(svc.isRetreatClosed(retreat, 'participant_created', now)).toBe(true);
+		});
+
+		it('days_after_retreat sigue abierto dentro de la ventana de gracia', () => {
+			const now = new Date('2026-06-20T12:00:00.000Z'); // 15 días después del fin
+			expect(svc.isRetreatClosed(retreat, 'days_after_retreat', now)).toBe(false);
+			expect(svc.isRetreatClosed(retreat, 'participant_created', now)).toBe(true);
+		});
+
+		it('sin endDate no se puede afirmar cerrado', () => {
+			expect(svc.isRetreatClosed({ timezone: 'America/Mexico_City' } as any, 'participant_created', new Date())).toBe(false);
+		});
+	});
+
 	describe('enrollSequence', () => {
 		it('enrola solo la audiencia indicada y es idempotente', async () => {
 			const retreat = await TestDataFactory.createTestRetreat({
@@ -110,6 +137,59 @@ describe('MessageSequenceService', () => {
 				where: { sequenceId: seq.id },
 			});
 			expect(total).toBe(2);
+		});
+
+		it('anti-backfill: no enrola un retiro ya terminado (trigger previo/al alta)', async () => {
+			// Retiro que terminó hace meses (caso del incidente: bienvenida retroactiva).
+			const retreat = await TestDataFactory.createTestRetreat({
+				startDate: new Date(Date.now() - 200 * 86400000),
+				endDate: new Date(Date.now() - 197 * 86400000),
+				timezone: 'America/Mexico_City',
+			});
+			await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker',
+				email: 'viejo@example.com',
+			} as any);
+
+			const seq = await svc.createSequence({
+				name: 'Bienvenida (retiro viejo)',
+				retreatId: retreat.id,
+				trigger: 'participant_created',
+				audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'email' } as any],
+			});
+
+			const created = await svc.enrollSequence(seq);
+			expect(created).toBe(0); // no se materializa nada para un retiro cerrado
+
+			const total = await AppDataSource.getRepository(ScheduledMessage).count({
+				where: { sequenceId: seq.id },
+			});
+			expect(total).toBe(0);
+		});
+
+		it('catch-up legítimo: SÍ enrola un retiro aún futuro aunque el paso ya venció', async () => {
+			// Registro tardío: retiro en 3 días (futuro), paso "10 días antes" ya pasó.
+			const retreat = await TestDataFactory.createTestRetreat({
+				startDate: new Date(Date.now() + 3 * 86400000),
+				endDate: new Date(Date.now() + 5 * 86400000),
+				timezone: 'America/Mexico_City',
+			});
+			await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker',
+				email: 'tardio2@example.com',
+			} as any);
+
+			const seq = await svc.createSequence({
+				name: 'Recordatorio 10 días antes',
+				retreatId: retreat.id,
+				trigger: 'days_before_retreat',
+				audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 10, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'email' } as any],
+			});
+
+			const created = await svc.enrollSequence(seq);
+			expect(created).toBe(1); // el retiro no ha cerrado → se enrola normal
 		});
 	});
 
@@ -201,6 +281,58 @@ describe('MessageSequenceService', () => {
 			expect(processed).toBe(1);
 			const sm = await smRepo.findOne({ where: { participantId: participant.id } });
 			expect(sm?.status).toBe('sent'); // se envía, no 'skipped'
+		});
+
+		it('anti-backfill (red de seguridad): NO envía un pending de retiro ya terminado', async () => {
+			// Simula el incidente: filas pending materializadas de un retiro que ya
+			// terminó. El procesador debe saltarlas (skipped), nunca enviarlas.
+			const retreat = await TestDataFactory.createTestRetreat({
+				startDate: new Date(Date.now() - 200 * 86400000),
+				endDate: new Date(Date.now() - 197 * 86400000),
+				timezone: 'America/Mexico_City',
+			});
+			const participant = await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker',
+				email: 'viejo2@example.com',
+				firstName: 'Viejo',
+			} as any);
+			await createTemplate(retreat.id, 'WALKER_WELCOME', 'Hola {participant.firstName}');
+
+			const seq = await svc.createSequence({
+				name: 'Bienvenida (retiro viejo)',
+				retreatId: retreat.id,
+				trigger: 'participant_created',
+				audience: 'walker',
+				steps: [{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'email' } as any],
+			});
+			const step = seq.steps![0];
+
+			const smRepo = AppDataSource.getRepository(ScheduledMessage);
+			await smRepo.save(
+				smRepo.create({
+					sequenceId: seq.id,
+					stepId: step.id,
+					participantId: participant.id,
+					retreatId: retreat.id,
+					channel: 'email',
+					templateType: 'WALKER_WELCOME',
+					recipientTarget: 'participant',
+					scheduledFor: new Date(Date.now() - 197 * 86400000),
+					status: 'pending',
+				}),
+			);
+
+			const processed = await svc.processDue();
+			expect(processed).toBe(0); // no se procesa/envía
+
+			const sm = await smRepo.findOne({ where: { participantId: participant.id } });
+			expect(sm?.status).toBe('skipped');
+			expect(sm?.error).toContain('retiro finalizado');
+
+			const comms = await AppDataSource.getRepository(ParticipantCommunication).count({
+				where: { participantId: participant.id },
+			});
+			expect(comms).toBe(0); // no se registró ningún envío
 		});
 
 		it('whatsapp: encola (queued) sin enviar ni registrar', async () => {

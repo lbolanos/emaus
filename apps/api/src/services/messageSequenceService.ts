@@ -22,6 +22,13 @@ import { savedSegmentService } from './savedSegmentService';
 const DEFAULT_TZ = process.env.APP_TIMEZONE || 'America/Mexico_City';
 /** Máximo de reintentos de envío de email ante fallo (SMTP transitorio). */
 const MAX_ATTEMPTS = 3;
+/**
+ * Días de gracia tras el fin del retiro durante los cuales una secuencia
+ * `days_after_retreat` sigue siendo relevante (cubre offsets razonables del
+ * paso). Pasada esta ventana, el retiro se considera CERRADO para todos los
+ * triggers. Configurable vía `SEQUENCE_AFTER_RETREAT_GRACE_DAYS`.
+ */
+const AFTER_RETREAT_GRACE_DAYS = Number(process.env.SEQUENCE_AFTER_RETREAT_GRACE_DAYS) || 30;
 
 /** Paso recibido al crear/editar; `id` presente ⇒ paso existente (se conserva). */
 type StepSyncInput = {
@@ -107,6 +114,42 @@ export class MessageSequenceService {
 	}
 
 	/**
+	 * ¿El retiro ya cerró su ventana de relevancia para esta secuencia?
+	 *
+	 * Esta es la salvaguarda contra el "backfill" al activar una secuencia: un
+	 * retiro que ya terminó no debe disparar bienvenidas, recordatorios previos
+	 * ni cumpleaños — esos mensajes son puramente históricos. El discriminador
+	 * correcto es el FIN DEL RETIRO, no "hace cuántos días venció el paso" (un
+	 * registro tardío en un retiro AÚN futuro es un catch-up legítimo y debe
+	 * enviarse).
+	 *
+	 * - Triggers previos / al alta (`participant_created`, `days_before_retreat`,
+	 *   `birthday`): cierran al terminar el último día del retiro.
+	 * - `days_after_retreat`: cierran tras `AFTER_RETREAT_GRACE_DAYS` días del fin
+	 *   (esos mensajes nacen para enviarse después).
+	 *
+	 * Si el retiro no tiene `endDate`, no podemos afirmar que cerró → `false`.
+	 */
+	public isRetreatClosed(
+		retreat: Retreat | undefined | null,
+		trigger: MessageSequence['trigger'] | undefined,
+		now: Date = new Date(),
+	): boolean {
+		if (!retreat?.endDate) return false;
+		// TZ-aware: el retiro vive todo su último día EN SU PROPIA ZONA, no en UTC.
+		// endDate se almacena a medianoche UTC del día de fin → leer sus componentes
+		// calendario en UTC (Regla N°3) y construir el instante de cierre como la
+		// medianoche —en la zona del retiro— del día siguiente al último relevante.
+		// Sumar 86_400_000 ms en epoch cerraría el retiro 6 h antes en CDMX (UTC-6).
+		const tz = this.resolveTz(retreat);
+		const graceDays = trigger === 'days_after_retreat' ? AFTER_RETREAT_GRACE_DAYS : 0;
+		const end = ymdUtc(retreat.endDate);
+		const close = addDays(end.y, end.m0, end.d, graceDays + 1);
+		const closeAt = makeDateInTimezone(close.y, close.m0, close.d, 0, 0, tz);
+		return now.getTime() >= closeAt.getTime();
+	}
+
+	/**
 	 * Calcula el instante UTC en que debe enviarse un paso a un participante,
 	 * según el trigger de la secuencia y el desfase del paso.
 	 */
@@ -160,20 +203,20 @@ export class MessageSequenceService {
 	}
 
 	/** Enrola participantes elegibles en todas las secuencias activas. */
-	public async enrollAll(): Promise<number> {
+	public async enrollAll(now: Date = new Date()): Promise<number> {
 		const sequences = await AppDataSource.getRepository(MessageSequence).find({
 			where: { isActive: true },
 			relations: ['steps'],
 		});
 		let created = 0;
 		for (const seq of sequences) {
-			created += await this.enrollSequence(seq);
+			created += await this.enrollSequence(seq, now);
 		}
 		return created;
 	}
 
 	/** Enrola los participantes elegibles de una secuencia (idempotente). */
-	public async enrollSequence(seq: MessageSequence): Promise<number> {
+	public async enrollSequence(seq: MessageSequence, now: Date = new Date()): Promise<number> {
 		const steps = seq.steps?.length
 			? seq.steps
 			: await AppDataSource.getRepository(SequenceStep).find({ where: { sequenceId: seq.id } });
@@ -184,6 +227,11 @@ export class MessageSequenceService {
 			relations: ['house'],
 		});
 		if (!retreat) return 0;
+
+		// Salvaguarda anti-backfill: si el retiro ya cerró su ventana para este
+		// trigger, no materializar nada. Evita que activar/desplegar una secuencia
+		// dispare mensajes (bienvenidas, recordatorios) de retiros ya terminados.
+		if (this.isRetreatClosed(retreat, seq.trigger, now)) return 0;
 
 		// Participantes elegibles. Si la secuencia tiene un segmento, se evalúa en
 		// vivo (audiencia dinámica). Si no, se usa la audiencia base por type. La
@@ -586,8 +634,18 @@ export class MessageSequenceService {
 				continue;
 			}
 
-			// Ventana de gracia: no enviar un paso vencido hace más de N días.
+			// Salvaguarda anti-backfill (red de seguridad): no enviar mensajes de un
+			// retiro que ya cerró su ventana para este trigger, aunque quedaran filas
+			// `pending` materializadas (p. ej. de una activación previa de la feature).
 			const seq = sm.sequence;
+			if (this.isRetreatClosed(retreat, seq?.trigger, now)) {
+				sm.status = 'skipped';
+				sm.error = 'retiro finalizado';
+				await repo.save(sm);
+				continue;
+			}
+
+			// Ventana de gracia: no enviar un paso vencido hace más de N días.
 			if (seq?.maxOverdueDays != null) {
 				const overdueDays = (now.getTime() - new Date(sm.scheduledFor).getTime()) / 86400000;
 				if (overdueDays > seq.maxOverdueDays) {
@@ -1277,7 +1335,7 @@ export class MessageSequenceService {
 				audience: 'walker',
 				isActive: notifyParticipant,
 				steps: [
-					{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'email' },
+					{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'WALKER_WELCOME', channel: 'whatsapp' },
 				],
 			},
 			{
@@ -1285,7 +1343,7 @@ export class MessageSequenceService {
 				audience: 'server',
 				isActive: notifyParticipant,
 				steps: [
-					{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'SERVER_WELCOME', channel: 'email' },
+					{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'SERVER_WELCOME', channel: 'whatsapp' },
 				],
 			},
 			{
@@ -1293,7 +1351,7 @@ export class MessageSequenceService {
 				audience: 'all',
 				isActive: notifyParticipant,
 				steps: [
-					{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'PRIVACY_DATA_DELETE', channel: 'email' },
+					{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'PRIVACY_DATA_DELETE', channel: 'whatsapp' },
 				],
 			},
 			{
@@ -1302,7 +1360,7 @@ export class MessageSequenceService {
 				audience: 'walker',
 				isActive: notifyInviter,
 				steps: [
-					{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'GENERAL', channel: 'email', recipientTarget: 'inviter' },
+					{ stepOrder: 0, offsetDays: 0, sendHour: 9, templateType: 'GENERAL', channel: 'whatsapp', recipientTarget: 'inviter' },
 				],
 			},
 			{
@@ -1316,7 +1374,7 @@ export class MessageSequenceService {
 					offsetDays: 0,
 					sendHour: 9,
 					templateType: 'PALANQUERO_NEW_WALKER',
-					channel: 'email' as const,
+					channel: 'whatsapp' as const,
 					recipientTarget: 'responsibility' as const,
 					recipientResponsibility: `Palanquero ${n}`,
 				})),
