@@ -47,7 +47,11 @@ export class EmailService {
 	async sendEmail(emailData: EmailData): Promise<boolean> {
 		try {
 			if (!this.isSmtpConfigured()) {
-				throw new Error('SMTP configuration is not complete');
+				throw new Error(
+					this.realEmailsBlockedInDev()
+						? 'Email sending disabled outside production (set ALLOW_REAL_EMAILS=true to override)'
+						: 'SMTP configuration is not complete',
+				);
 			}
 
 			const mailOptions: nodemailer.SendMailOptions = {
@@ -131,8 +135,9 @@ export class EmailService {
 			if (!this.isSmtpConfigured()) {
 				return {
 					success: false,
-					message:
-						'Configuración SMTP incompleta. Verifica las variables de entorno SMTP_HOST, SMTP_USER, y SMTP_PASS.',
+					message: this.realEmailsBlockedInDev()
+						? 'Envío de correos deshabilitado fuera de producción (usa ALLOW_REAL_EMAILS=true para forzar).'
+						: 'Configuración SMTP incompleta. Verifica las variables de entorno SMTP_HOST, SMTP_USER, y SMTP_PASS.',
 				};
 			}
 
@@ -158,7 +163,19 @@ export class EmailService {
 		};
 	}
 
+	/**
+	 * Candado de seguridad: en entornos que NO son producción jamás enviamos
+	 * correos reales. La DB de local/staging suele ser una copia de producción
+	 * con emails reales de participantes, y el cron de secuencias intentaría
+	 * enviarles. Para habilitar envíos a propósito en dev (p.ej. apuntando a un
+	 * buzón de captura como Mailpit/Mailtrap) usar `ALLOW_REAL_EMAILS=true`.
+	 */
+	private realEmailsBlockedInDev(): boolean {
+		return process.env.NODE_ENV !== 'production' && process.env.ALLOW_REAL_EMAILS !== 'true';
+	}
+
 	isSmtpConfigured(): boolean {
+		if (this.realEmailsBlockedInDev()) return false;
 		return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 	}
 
