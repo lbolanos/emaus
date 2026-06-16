@@ -899,10 +899,15 @@ export class CommunityService {
 		// Roster para conteo de asistencia: misma base que el endpoint público de
 		// asistencia, que muestra el padrón completo (todos están invitados). El
 		// conteo "X de Y asistieron" debe usar el mismo denominador que el roster
-		// que ve el coordinador al pasar lista.
-		const allMembers = await this.memberRepo.find({
-			where: { communityId },
-		});
+		// que ve el coordinador al pasar lista. Se excluyen los participantes con
+		// datos borrados (dataDeletedAt) para que el denominador coincida con el
+		// roster público, que también los excluye.
+		const allMembers = (
+			await this.memberRepo.find({
+				where: { communityId },
+				relations: ['participant'],
+			})
+		).filter((m) => !m.participant?.dataDeletedAt);
 
 		// Add attendance counts to each meeting
 		const meetingsWithCounts = await Promise.all(
@@ -1521,11 +1526,16 @@ export class CommunityService {
 		// completo (incluyendo no_answer, paused, far_from_location, etc.): el
 		// estado de seguimiento no debe ocultar a nadie de la captura de asistencia.
 		// La UI puede agrupar/etiquetar visualmente usando el `state` que se expone.
-		const members = await this.memberRepo.find({
-			where: { communityId },
-			relations: ['participant'],
-			order: { joinedAt: 'ASC' },
-		});
+		// Excepción: se excluyen los participantes que ejercieron su derecho de
+		// borrado de datos (dataDeletedAt != null → nombre anonimizado a
+		// "(eliminado)"); no deben reaparecer en ningún listado.
+		const members = (
+			await this.memberRepo.find({
+				where: { communityId },
+				relations: ['participant'],
+				order: { joinedAt: 'ASC' },
+			})
+		).filter((m) => !m.participant?.dataDeletedAt);
 
 		// Get existing attendance
 		const attendance = await this.attendanceRepo.find({
@@ -2905,6 +2915,9 @@ export class CommunityService {
 			.innerJoinAndSelect('m.participant', 'p')
 			.where('m.communityId = :cid', { cid: community.id })
 			.andWhere('m.state NOT IN (:...silentStates)', { silentStates: [...EMAIL_SILENT_STATES] })
+			// Excluir participantes con datos borrados (dataDeletedAt): su email quedó
+			// anonimizado a deleted-<id>@local, que no es null pero no debe recibir nada.
+			.andWhere('p.dataDeletedAt IS NULL')
 			.andWhere(
 				'((m.email IS NOT NULL AND m.email != \'\') OR (p.email IS NOT NULL AND p.email != \'\'))',
 			)

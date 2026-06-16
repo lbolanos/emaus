@@ -1099,6 +1099,34 @@ describe('Community Service', () => {
 			const states = data!.members.map((m: any) => m.state).sort();
 			expect(states).toEqual(['active_member', 'active_member', 'another_group', 'pending_verification']);
 		});
+
+		it('excluye participantes con datos borrados (dataDeletedAt → "(eliminado)")', async () => {
+			const pNormal = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const pDeleted = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const partRepo = AppDataSource.getRepository(
+				require('@/entities/participant.entity').Participant,
+			);
+			await partRepo.update(pNormal.id, { firstName: 'Normal', lastName: 'User' });
+			// Simula anonymizeParticipantByToken: nombre anonimizado + dataDeletedAt.
+			await partRepo.update(pDeleted.id, { firstName: '(eliminado)', lastName: '', dataDeletedAt: new Date() });
+
+			await service.addMember(testCommunity.id, pNormal.id);
+			await service.addMember(testCommunity.id, pDeleted.id);
+
+			const meeting = await service.createMeeting(testCommunity.id, {
+				title: 'Roster sin eliminados',
+				startDate: new Date(Date.now() + 86_400_000),
+				durationMinutes: 60,
+			});
+
+			const data = await service.getPublicAttendanceData(testCommunity.id, meeting.id);
+
+			expect(data!.members.length).toBe(1);
+			expect(data!.members[0].participant.firstName).toBe('Normal');
+			expect(
+				data!.members.find((m: any) => m.participant.firstName === '(eliminado)'),
+			).toBeUndefined();
+		});
 	});
 
 	describe('importFromRetreat - Edge Cases', () => {
