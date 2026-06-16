@@ -4,8 +4,20 @@ import {
 	DeleteObjectCommand,
 	GetObjectCommand,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { Readable } from 'stream';
 import { config } from '../config/env';
+
+// Default validity for presigned read URLs. Kept short on purpose: in production
+// the S3 client signs with EC2 IAM-role *temporary* credentials, and a presigned
+// URL can never outlive the credentials that produced it. We presign on every
+// read, so a 1-hour window comfortably covers a page session.
+const SIGNED_URL_TTL_SECONDS = 3600;
+
+// Private prefixes whose objects are NOT world-readable in the bucket policy and
+// therefore must be served via presigned URLs. `avatars/` and `public-assets/`
+// are intentionally absent: they are public and their plain URLs pass through.
+const PRIVATE_PREFIXES = ['retreat-memories/', 'community-meetings/'];
 
 interface UploadResult {
 	url: string;
@@ -320,6 +332,37 @@ class S3Service {
 	private getPublicUrl(key: string): string {
 		// Return S3 public URL format
 		return `https://${this.bucketName}.s3.${config.aws.region}.amazonaws.com/${key}`;
+	}
+
+	/**
+	 * Generate a short-lived presigned GET URL for a full S3 key. Used to serve
+	 * objects under private prefixes (the bucket policy denies public reads there).
+	 */
+	async getSignedReadUrl(key: string, expiresIn: number = SIGNED_URL_TTL_SECONDS): Promise<string> {
+		const command = new GetObjectCommand({
+			Bucket: this.bucketName,
+			Key: key,
+		});
+		return getSignedUrl(this.ensureClient(), command, { expiresIn });
+	}
+
+	/**
+	 * Turn a *stored* public S3 URL that points at a PRIVATE prefix into a
+	 * short-lived presigned URL. Idempotent and safe for any input:
+	 *   - null / empty                       → returned unchanged
+	 *   - base64 data: URIs / external links → returned unchanged (not our bucket)
+	 *   - public prefixes (avatars/…)        → returned unchanged (world-readable)
+	 *   - private prefixes (retreat-memories)→ replaced with a presigned URL
+	 * Also a no-op when storage isn't S3, so base64-mode deployments are untouched.
+	 */
+	async presignPrivateUrl<T extends string | null | undefined>(url: T): Promise<T | string> {
+		if (!url || config.avatar.storage !== 's3') return url;
+		const base = `https://${this.bucketName}.s3.${config.aws.region}.amazonaws.com/`;
+		if (!url.startsWith(base)) return url;
+		// Drop any pre-existing query string before deriving the key.
+		const key = url.slice(base.length).split('?')[0];
+		if (!PRIVATE_PREFIXES.some((p) => key.startsWith(p))) return url;
+		return this.getSignedReadUrl(key);
 	}
 }
 

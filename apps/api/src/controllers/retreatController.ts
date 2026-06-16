@@ -15,7 +15,12 @@ import { AppDataSource } from "../data-source";
 import { Retreat } from "../entities/retreat.entity";
 import { Participant } from "../entities/participant.entity";
 import { RetreatParticipant } from "../entities/retreatParticipant.entity";
-import { retreatMemoryService } from "../services/retreatMemoryService";
+import {
+  retreatMemoryService,
+  presignRetreatMemoryUrls,
+  presignMemoryPhoto,
+} from "../services/retreatMemoryService";
+import { s3Service } from "../services/s3Service";
 
 export const getAllRetreats = async (
   req: Request,
@@ -30,6 +35,7 @@ export const getAllRetreats = async (
 
     // Only return retreats the user has access to
     const retreats = await getRetreatsForUser(userId);
+    await Promise.all(retreats.map(presignRetreatMemoryUrls));
     res.json(retreats);
   } catch (error) {
     next(error);
@@ -46,7 +52,7 @@ export const getRetreatById = async (
     if (!retreat) {
       return res.status(404).json({ message: "Retreat not found" });
     }
-    res.json(retreat);
+    res.json(await presignRetreatMemoryUrls(retreat));
   } catch (error) {
     next(error);
   }
@@ -325,7 +331,7 @@ export const uploadRetreatMemoryPhoto = async (
     }
 
     const photo = await retreatMemoryService.addPhoto(retreatId, photoData);
-    res.json({ memoryPhotoUrl: photo.url });
+    res.json({ memoryPhotoUrl: await s3Service.presignPrivateUrl(photo.url) });
   } catch (error) {
     next(error);
   }
@@ -352,7 +358,7 @@ export const updateRetreatMemory = async (
     const refreshed = await findById(retreatId);
     res.json({
       musicPlaylistUrl: refreshed?.musicPlaylistUrl,
-      memoryPhotoUrl: refreshed?.memoryPhotoUrl,
+      memoryPhotoUrl: await s3Service.presignPrivateUrl(refreshed?.memoryPhotoUrl),
     });
   } catch (error) {
     next(error);
@@ -389,7 +395,7 @@ export const addRetreatMemoryPhoto = async (
       return res.status(400).json({ message: "photoData is required" });
     }
     const photo = await retreatMemoryService.addPhoto(retreatId, photoData);
-    res.status(201).json(photo);
+    res.status(201).json(await presignMemoryPhoto(photo));
   } catch (error) {
     next(error);
   }
@@ -547,7 +553,9 @@ export const getAttendedRetreats = async (
       if (rp.retreat) retreatsById.set(rp.retreat.id, rp.retreat);
     }
 
-    res.json(Array.from(retreatsById.values()));
+    const attended = Array.from(retreatsById.values());
+    await Promise.all(attended.map(presignRetreatMemoryUrls));
+    res.json(attended);
   } catch (error) {
     next(error);
   }

@@ -43,6 +43,7 @@ export default defineConfig({
 				'express-rate-limit',
 				'node-cache',
 				'@aws-sdk/client-s3',
+				'@aws-sdk/s3-request-presigner',
 				'sharp',
 				'sanitize-html',
 				'winston',

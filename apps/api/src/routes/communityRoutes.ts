@@ -174,10 +174,13 @@ router.put(
 	'/meetings/:id/photo',
 	requireCommunityMeetingAccess(),
 	validateRequest(setCommunityMeetingPhotoSchema),
-	(req, res) => CommunityController.uploadMeetingPhoto(req, res),
+	// Forward async rejections to the error handler. Sin el .catch(next) un fallo
+	// de S3 (p.ej. AccessDenied) se convierte en unhandledRejection y Node mata el
+	// proceso → pm2 reinicia → 503. Con esto devuelve 500 y la API sigue viva.
+	(req, res, next) => CommunityController.uploadMeetingPhoto(req, res).catch(next),
 );
-router.delete('/meetings/:id/photo', requireCommunityMeetingAccess(), (req, res) =>
-	CommunityController.deleteMeetingPhoto(req, res),
+router.delete('/meetings/:id/photo', requireCommunityMeetingAccess(), (req, res, next) =>
+	CommunityController.deleteMeetingPhoto(req, res).catch(next),
 );
 
 // G3: Re-disparar notificación a miembros sobre una reunión (botón "Notificar").

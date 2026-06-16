@@ -17,6 +17,34 @@ const photoOrder = { isPrimary: 'DESC', sortOrder: 'ASC', createdAt: 'ASC' } as 
 const songOrder = { isPrimary: 'DESC', sortOrder: 'ASC', createdAt: 'ASC' } as const;
 
 /**
+ * Return a shallow copy of a memory photo with its `url` swapped for a
+ * short-lived presigned URL when it points at the private S3 prefix. Non-S3
+ * (base64) photos and base64-mode deployments pass through unchanged.
+ */
+export async function presignMemoryPhoto<T extends { url: string }>(photo: T): Promise<T> {
+	return { ...photo, url: (await s3Service.presignPrivateUrl(photo.url)) as string };
+}
+
+/**
+ * Presign the memory-photo URLs carried on a retreat object before it is
+ * serialized to the client: the legacy single-value `memoryPhotoUrl` mirror and
+ * every photo in the `memoryPhotos` relation (when loaded). Mutates and returns
+ * the same object — only ever called on read paths that discard it afterwards.
+ */
+export async function presignRetreatMemoryUrls<
+	T extends { memoryPhotoUrl?: string | null; memoryPhotos?: { url: string }[] } | null | undefined,
+>(retreat: T): Promise<T> {
+	if (!retreat) return retreat;
+	if (retreat.memoryPhotoUrl) {
+		retreat.memoryPhotoUrl = (await s3Service.presignPrivateUrl(retreat.memoryPhotoUrl)) as string;
+	}
+	if (Array.isArray(retreat.memoryPhotos)) {
+		retreat.memoryPhotos = await Promise.all(retreat.memoryPhotos.map(presignMemoryPhoto));
+	}
+	return retreat;
+}
+
+/**
  * Keep the legacy single-value `retreat.memoryPhotoUrl` in sync with whichever
  * photo is currently primary (or null when none). This mirror keeps existing
  * consumers (dashboard, legacy card) working unchanged.
@@ -49,7 +77,9 @@ export const retreatMemoryService = {
 			photoRepo.find({ where: { retreatId }, order: photoOrder }),
 			songRepo.find({ where: { retreatId }, order: songOrder }),
 		]);
-		return { photos, songs };
+		// Photos live under a private S3 prefix: hand the client presigned URLs.
+		const signedPhotos = await Promise.all(photos.map(presignMemoryPhoto));
+		return { photos: signedPhotos, songs };
 	},
 
 	async addPhoto(retreatId: string, photoData: string, ds?: DataSource) {

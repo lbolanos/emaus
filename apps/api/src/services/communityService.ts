@@ -910,6 +910,8 @@ export class CommunityService {
 
 				return {
 					...meeting,
+					// La foto vive bajo un prefijo S3 privado: entregar URL presignada.
+					photoUrl: await s3Service.presignPrivateUrl(meeting.photoUrl),
 					attendeeCount,
 					absentCount,
 				};
@@ -920,7 +922,11 @@ export class CommunityService {
 	}
 
 	async getMeetingById(id: string) {
-		return this.meetingRepo.findOne({ where: { id } });
+		const meeting = await this.meetingRepo.findOne({ where: { id } });
+		if (meeting) {
+			meeting.photoUrl = (await s3Service.presignPrivateUrl(meeting.photoUrl)) as typeof meeting.photoUrl;
+		}
+		return meeting;
 	}
 
 	/**
