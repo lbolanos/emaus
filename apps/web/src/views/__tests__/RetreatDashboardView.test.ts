@@ -55,7 +55,9 @@ import RetreatDashboardView from '../RetreatDashboardView.vue';
 const mockRetreat = createMockRetreat({
 	id: 'retreat-1',
 	parish: 'Parroquia San Juan',
-	startDate: new Date('2026-06-15'),
+	// Fecha futura relativa al reloj (antes era fija 2026-06-15 y el test se
+	// rompía cuando la fecha del sistema la alcanzaba). Siempre "en el futuro".
+	startDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
 	max_walkers: 50,
 	max_servers: 20,
 	openingNotes: 'Welcome notes',
@@ -299,7 +301,7 @@ describe('RetreatDashboardView', () => {
 	describe('Days until retreat', () => {
 		it('shows positive days for future retreat', async () => {
 			const { wrapper } = await mountDashboard();
-			// mockRetreat startDate is 2026-06-15, today is 2026-04-09
+			// mockRetreat startDate is ~60 días en el futuro
 			// Should show positive number
 			expect(wrapper.text()).toContain('retreatDashboard.daysUntilRetreat');
 			wrapper.unmount();

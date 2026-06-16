@@ -670,7 +670,7 @@ async function discardIssue(item: any) {
 const bulkBusy = ref(false);
 async function bulkIssues(action: 'retry' | 'discard') {
 	if (!retreatId.value || bulkBusy.value) return;
-	if (!window.confirm(t('sequences.bulkConfirm', { n: issues.length }))) return;
+	if (!window.confirm(t('sequences.bulkConfirm', { n: issues.value.length }))) return;
 	bulkBusy.value = true;
 	try {
 		const res = await sequenceStore.bulkResolveIssues(retreatId.value, action);
