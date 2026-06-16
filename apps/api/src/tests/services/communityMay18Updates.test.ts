@@ -14,7 +14,8 @@
  *   3. Los 5 estados nuevos (`wrong_contact_info`, `no_time`, `paused`,
  *      `not_interested`, `do_not_contact`) son aceptados por el CHECK
  *      constraint y son tratados como declinaciones — quedan fuera del
- *      roster del meeting (que solo lista active_member/pending_verification).
+ *      roster del meeting muestra a TODOS los miembros (todos invitados); el state
+	 *      solo silencia el EMAIL de invitación para los SILENT.
  *
  *   4. `inferTimezoneFromCoords` se dispara en `createCommunity` cuando
  *      vienen lat/lon. Sin coords, queda NULL y `getCommunityTimezone`
@@ -204,7 +205,7 @@ describe('Community Service — 2026-05-18 updates', () => {
 			expect((fromDb as any)?.state).toBe(state);
 		});
 
-		it('los nuevos estados quedan fuera del roster del meeting (solo active + pending)', async () => {
+		it('el roster del meeting incluye TODOS los estados (todos están invitados)', async () => {
 			const states = [
 				'active_member',
 				'pending_verification',
@@ -232,16 +233,11 @@ describe('Community Service — 2026-05-18 updates', () => {
 			const roster = await service.getPublicAttendanceData(testCommunity.id, meeting.id);
 			expect(roster).not.toBeNull();
 			const rosterStates = new Set((roster!.members as any[]).map((m) => m.state));
-			expect(rosterStates.has('active_member')).toBe(true);
-			expect(rosterStates.has('pending_verification')).toBe(true);
-			// Los 5 nuevos NO deben estar
-			for (const s of ['wrong_contact_info', 'no_time', 'paused', 'not_interested', 'do_not_contact']) {
-				expect(rosterStates.has(s)).toBe(false);
+			// Todos los miembros están invitados a las reuniones: ningún state se oculta.
+			for (const s of states) {
+				expect(rosterStates.has(s)).toBe(true);
 			}
-			// Tampoco los viejos declined
-			for (const s of ['no_answer', 'far_from_location', 'another_group']) {
-				expect(rosterStates.has(s)).toBe(false);
-			}
+			expect(roster!.members.length).toBe(states.length);
 		});
 	});
 

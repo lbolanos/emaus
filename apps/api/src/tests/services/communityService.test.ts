@@ -1058,10 +1058,10 @@ describe('Community Service', () => {
 			expect(data.members.every((m: any) => 'attended' in m)).toBe(true);
 		});
 
-		it('incluye active_member + pending_verification, excluye declinados explícitos', async () => {
-			// state es marcador de follow-up del coordinador, NO permiso de asistir.
-			// active + pending → en roster (pending = "por contactar").
-			// no_answer / another_group / far_from_location → fuera (declinaron explícitamente).
+		it('incluye TODOS los miembros sin filtrar por state', async () => {
+			// La vista pública de asistencia muestra el padrón completo: el coordinador
+			// pasa lista contra todos, sin que el state de seguimiento oculte a nadie.
+			// El state se expone para que la UI pueda agrupar/etiquetar visualmente.
 			const pActive1 = await TestDataFactory.createTestParticipant(testRetreat.id);
 			const pActive2 = await TestDataFactory.createTestParticipant(testRetreat.id);
 			const pPending = await TestDataFactory.createTestParticipant(testRetreat.id);
@@ -1091,14 +1091,13 @@ describe('Community Service', () => {
 
 			const data = await service.getPublicAttendanceData(testCommunity.id, meeting.id);
 
-			// 2 active + 1 pending = 3. Otro (another_group) queda fuera.
-			expect(data!.members.length).toBe(3);
+			// 2 active + 1 pending + 1 another_group = 4. Ninguno queda fuera.
+			expect(data!.members.length).toBe(4);
 			const firstNames = data!.members.map((m: any) => m.participant.firstName).sort();
-			expect(firstNames).toEqual(['Active', 'Active', 'Pending']);
-			expect(data!.members.find((m: any) => m.participant.firstName === 'Other')).toBeUndefined();
+			expect(firstNames).toEqual(['Active', 'Active', 'Other', 'Pending']);
 			// El roster expone el state para que la UI pueda agrupar visualmente
 			const states = data!.members.map((m: any) => m.state).sort();
-			expect(states).toEqual(['active_member', 'active_member', 'pending_verification']);
+			expect(states).toEqual(['active_member', 'active_member', 'another_group', 'pending_verification']);
 		});
 	});
 
@@ -1788,6 +1787,53 @@ describe('Community Service', () => {
 			expect(sent[0].html).toContain('/public/attendance/');
 		});
 
+		it('invita a todos los contactables (incluye no_answer/far_from_location), excluye los SILENT', async () => {
+			// Todos están invitados a la reunión: declinaciones blandas SÍ reciben.
+			// Solo se excluyen canal-roto/no-contactar (EMAIL_SILENT_STATES).
+			const partRepo = AppDataSource.getRepository(
+				require('@/entities/participant.entity').Participant,
+			);
+			const mkMember = async (email: string, state: string) => {
+				const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+				await partRepo.update(p.id, { email });
+				const m = await service.addMember(testCommunity.id, p.id);
+				if (state !== 'active_member') await service.updateMemberState(m.id, state as any, testUser.id);
+				return m;
+			};
+
+			await mkMember('active@test.com', 'active_member');
+			await mkMember('noanswer@test.com', 'no_answer');
+			await mkMember('faraway@test.com', 'far_from_location');
+			await mkMember('paused@test.com', 'paused');
+			await mkMember('dnc@test.com', 'do_not_contact');
+			await mkMember('badinfo@test.com', 'wrong_contact_info');
+
+			const meetingRepo = AppDataSource.getRepository(
+				require('@/entities/communityMeeting.entity').CommunityMeeting,
+			);
+			const meeting = await meetingRepo.save(
+				meetingRepo.create({
+					communityId: testCommunity.id,
+					title: 'Invitación amplia',
+					startDate: new Date(Date.now() + 86_400_000),
+					durationMinutes: 60,
+				} as any),
+			);
+			(globalThis as any).__sentEmails = [];
+
+			await service.notifyMembersOfMeeting(meeting.id, testCommunity.id);
+			await new Promise((r) => setTimeout(r, 100));
+
+			const tos = getSent().map((e) => e.to);
+			expect(tos).toContain('active@test.com');
+			expect(tos).toContain('noanswer@test.com');
+			expect(tos).toContain('faraway@test.com');
+			// SILENT: canal roto / no contactar
+			expect(tos).not.toContain('paused@test.com');
+			expect(tos).not.toContain('dnc@test.com');
+			expect(tos).not.toContain('badinfo@test.com');
+		});
+
 		it('SECURITY: rechaza con MEETING_COMMUNITY_MISMATCH si meetingId pertenece a otra comunidad (IDOR fix)', async () => {
 			// Crear segunda comunidad y un meeting en ella
 			const otherUser = await TestDataFactory.createTestUser({ email: 'other-comm@test.com' });
@@ -1861,13 +1907,15 @@ describe('Community Service', () => {
 			expect(getSent().length).toBe(0);
 		});
 
-		it('envía a active_member + pending_verification, omite declinados y miembros sin email', async () => {
-			// `state` es marcador de follow-up: pending también recibe el email
-			// (sirve para reactivarlos). Declinados (another_group/no_answer/etc) NO.
+		it('invita a todos los contactables (incl. declinados blandos), omite SILENT y sin email', async () => {
+			// Todos están invitados a la reunión: pending y declinados blandos
+			// (another_group/no_answer/etc) SÍ reciben. Solo se excluyen los SILENT
+			// (paused/do_not_contact/wrong_contact_info) y los que no tienen email.
 			const pActive = await TestDataFactory.createTestParticipant(testRetreat.id);
 			const pNoEmail = await TestDataFactory.createTestParticipant(testRetreat.id);
 			const pPending = await TestDataFactory.createTestParticipant(testRetreat.id);
 			const pAnother = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const pPaused = await TestDataFactory.createTestParticipant(testRetreat.id);
 			const partRepo = AppDataSource.getRepository(
 				require('@/entities/participant.entity').Participant,
 			);
@@ -1875,13 +1923,16 @@ describe('Community Service', () => {
 			await partRepo.update(pNoEmail.id, { email: '' });
 			await partRepo.update(pPending.id, { email: 'pending@test.com' });
 			await partRepo.update(pAnother.id, { email: 'another@test.com' });
+			await partRepo.update(pPaused.id, { email: 'paused@test.com' });
 
 			await service.addMember(testCommunity.id, pActive.id);
 			await service.addMember(testCommunity.id, pNoEmail.id);
 			const memberPending = await service.addMember(testCommunity.id, pPending.id);
 			const memberAnother = await service.addMember(testCommunity.id, pAnother.id);
+			const memberPaused = await service.addMember(testCommunity.id, pPaused.id);
 			await service.updateMemberState(memberPending.id, 'pending_verification', testUser.id);
 			await service.updateMemberState(memberAnother.id, 'another_group', testUser.id);
+			await service.updateMemberState(memberPaused.id, 'paused', testUser.id);
 			(globalThis as any).__sentEmails = []; // limpiar previos
 
 			await service.createMeeting(testCommunity.id, {
@@ -1894,8 +1945,10 @@ describe('Community Service', () => {
 			const sent = getSent();
 			expect(sent.find((e) => e.to === 'active@test.com')).toBeTruthy();
 			expect(sent.find((e) => e.to === 'pending@test.com')).toBeTruthy();
+			expect(sent.find((e) => e.to === 'another@test.com')).toBeTruthy();
 			expect(sent.find((e) => e.to === '')).toBeUndefined();
-			expect(sent.find((e) => e.to === 'another@test.com')).toBeUndefined();
+			// SILENT: pausa explícita → no recibe
+			expect(sent.find((e) => e.to === 'paused@test.com')).toBeUndefined();
 		});
 	});
 

@@ -33,6 +33,18 @@ export const getCommunityTimezone = (community: { timezone?: string | null } | n
 };
 
 /**
+ * Estados en los que NO se envía email: el canal está roto o el contacto está
+ * explícitamente vetado.
+ *   - wrong_contact_info: correo/teléfono inválido (rebotaría).
+ *   - paused: el miembro pidió pausa temporal.
+ *   - do_not_contact: lista negra explícita.
+ * Todos los demás estados SÍ reciben invitaciones de reunión: todos están
+ * invitados a venir. Es lista de EXCLUSIÓN a propósito — un estado nuevo en el
+ * futuro recibe email por default (inclusivo), salvo que se agregue aquí.
+ */
+export const EMAIL_SILENT_STATES = ['wrong_contact_info', 'paused', 'do_not_contact'] as const;
+
+/**
  * Feature flag temporal — el envío automático de invitaciones de reunión está
  * apagado por default. El usuario lo pausó hasta que se valide el tono / cadencia
  * con los coordinadores. Reactivar seteando la env var
@@ -884,11 +896,12 @@ export class CommunityService {
 		});
 		const meetings = meetingsRaw.filter((m) => m.exceptionType !== 'cancelled');
 
-		// Roster para conteo de asistencia: matching el filtro del endpoint público
-		// (active + pending). El conteo "X de Y asistieron" debe usar la misma base que
-		// el roster que ve el coordinador en el papel/UI de asistencia.
+		// Roster para conteo de asistencia: misma base que el endpoint público de
+		// asistencia, que muestra el padrón completo (todos están invitados). El
+		// conteo "X de Y asistieron" debe usar el mismo denominador que el roster
+		// que ve el coordinador al pasar lista.
 		const allMembers = await this.memberRepo.find({
-			where: { communityId, state: In(['active_member', 'pending_verification']) },
+			where: { communityId },
 		});
 
 		// Add attendance counts to each meeting
@@ -1503,16 +1516,13 @@ export class CommunityService {
 			return null;
 		}
 
-		// Roster del retiro: incluye a todos los miembros que pueden asistir,
-		// incluyendo los que aún no fueron contactados (pending_verification).
-		// `state` es un MARCADOR DE SEGUIMIENTO, no de permiso para asistir:
-		//   - active_member: confirmado asistiendo, no requiere follow-up.
-		//   - pending_verification: aún no contactado / por invitar.
-		// Todos los demás estados (no_answer, another_group, far_from_location,
-		// wrong_contact_info, no_time, paused, not_interested, do_not_contact)
-		// son declinaciones explícitas o canales rotos — fuera del roster.
+		// La vista pública de asistencia muestra TODOS los miembros de la comunidad
+		// sin filtrar por `state`. El coordinador pasa lista contra el padrón
+		// completo (incluyendo no_answer, paused, far_from_location, etc.): el
+		// estado de seguimiento no debe ocultar a nadie de la captura de asistencia.
+		// La UI puede agrupar/etiquetar visualmente usando el `state` que se expone.
 		const members = await this.memberRepo.find({
-			where: { communityId, state: In(['active_member', 'pending_verification']) },
+			where: { communityId },
 			relations: ['participant'],
 			order: { joinedAt: 'ASC' },
 		});
@@ -2696,8 +2706,7 @@ export class CommunityService {
 
 		// Estados donde el canal está roto o el contacto está explícitamente
 		// vetado: no mandamos email aunque haya recipientEmail (puede estar mal).
-		const SILENT_STATES = new Set(['wrong_contact_info', 'do_not_contact', 'paused']);
-		if (SILENT_STATES.has(newState)) return;
+		if ((EMAIL_SILENT_STATES as readonly string[]).includes(newState)) return;
 
 		const emailService = new EmailService();
 		if (!emailService.isSmtpConfigured()) return;
@@ -2886,16 +2895,16 @@ export class CommunityService {
 		const emailService = new EmailService();
 		if (!emailService.isSmtpConfigured()) return;
 
-		// Miembros que pueden asistir. Incluye pending_verification:
-		// el correo de invitación a la reunión también sirve para reactivarlos.
-		// Excluye no_answer/another_group/far_from_location (ya declinaron).
-		// Filtramos por email NO null (sea en overlay o en participant) en SQL,
-		// y por estado activo. El resolveMemberProfile en JS hace el coalesce final.
+		// Todos los miembros están invitados a la reunión, así que el correo va a
+		// todos los contactables. Solo se excluyen los estados de canal roto /
+		// no-contactar (EMAIL_SILENT_STATES: wrong_contact_info, paused,
+		// do_not_contact). Filtramos por email NO null (sea en overlay o en
+		// participant) en SQL. El resolveMemberProfile en JS hace el coalesce final.
 		const members = await this.memberRepo
 			.createQueryBuilder('m')
 			.innerJoinAndSelect('m.participant', 'p')
 			.where('m.communityId = :cid', { cid: community.id })
-			.andWhere('m.state IN (:...states)', { states: ['active_member', 'pending_verification'] })
+			.andWhere('m.state NOT IN (:...silentStates)', { silentStates: [...EMAIL_SILENT_STATES] })
 			.andWhere(
 				'((m.email IS NOT NULL AND m.email != \'\') OR (p.email IS NOT NULL AND p.email != \'\'))',
 			)

@@ -161,8 +161,8 @@
             </div>
           </div>
 
-          <!-- Pending Members (follow-up needed) -->
-          <div v-if="pendingMembers.length > 0">
+          <!-- Other Members (resto del padrón: también invitados) -->
+          <div v-if="otherMembers.length > 0">
             <div class="flex items-baseline justify-between mb-3 px-1">
               <div>
                 <h2 class="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-widest">
@@ -173,13 +173,13 @@
                 </p>
               </div>
               <span class="text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-2 py-1 rounded-full">
-                {{ pendingMembers.length }}
+                {{ otherMembers.length }}
               </span>
             </div>
             <div class="space-y-3">
               <TransitionGroup name="list">
                 <div
-                  v-for="member in pendingMembers"
+                  v-for="member in otherMembers"
                   :key="member.id"
                   class="member-card group relative overflow-hidden bg-white dark:bg-slate-900 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border-2"
                   :class="{
@@ -321,8 +321,12 @@ const filteredMembers = computed(() => {
 
 const presentCount = computed(() => members.value.filter((m) => m.attended).length);
 
+// "Activos" = los que ya asisten seguido (active_member). El resto de los
+// miembros también están invitados a la reunión, así que se muestran todos:
+// cualquier estado distinto de active_member cae en el segundo grupo para que
+// el coordinador pueda pasarles lista. Ningún estado oculta a un miembro.
 const activeMembers = computed(() => filteredMembers.value.filter((m) => m.state === 'active_member'));
-const pendingMembers = computed(() => filteredMembers.value.filter((m) => m.state === 'pending_verification'));
+const otherMembers = computed(() => filteredMembers.value.filter((m) => m.state !== 'active_member'));
 
 const hasPhone = (participant: any): boolean => {
   return !!(participant.cellPhone || participant.homePhone || participant.workPhone);
