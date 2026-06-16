@@ -950,6 +950,14 @@ const menuSections: MenuSection[] = [
         permission: 'superadmin'
       },
       {
+        name: 'global-message-sequences',
+        routeName: 'global-message-sequences',
+        icon: Globe,
+        label: 'sidebar.settings.globalMessageSequences',
+        requiresRetreat: false,
+        permission: 'superadmin'
+      },
+      {
         name: 'inventory-items',
         routeName: 'inventory-items',
         icon: Package,

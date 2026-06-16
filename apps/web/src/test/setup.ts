@@ -419,6 +419,7 @@ vi.mock('lucide-vue-next', () => ({
 	Search: { name: 'Search', template: '<svg></svg>' },
 	X: { name: 'X', template: '<svg></svg>' },
 	RefreshCw: { name: 'RefreshCw', template: '<svg></svg>' },
+	MoreVertical: { name: 'MoreVertical', template: '<svg></svg>' },
 	ArrowRight: { name: 'ArrowRight', template: '<svg></svg>' },
 	ChevronDown: { name: 'ChevronDown', template: '<svg></svg>' },
 	ChevronUp: { name: 'ChevronUp', template: '<svg></svg>' },
@@ -458,6 +459,7 @@ vi.mock('lucide-vue-next', () => ({
 	Plus: { name: 'Plus', template: '<svg></svg>' },
 	Play: { name: 'Play', template: '<svg></svg>' },
 	Pencil: { name: 'Pencil', template: '<svg></svg>' },
+	Power: { name: 'Power', template: '<svg></svg>' },
 }));
 
 // Mock axios

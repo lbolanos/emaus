@@ -19,6 +19,24 @@ describe('helpIndex', () => {
 		it('should have at least 8 sections', () => {
 			expect(helpIndex.length).toBeGreaterThanOrEqual(8);
 		});
+
+		it('should include the CRM/communication help section with its topics', () => {
+			const crm = getHelpSectionByKey('crm');
+			expect(crm).toBeTruthy();
+			expect(crm?.title).not.toBe(crm?.titleEs); // bilingüe
+			const topicKeys = (crm?.topics || []).map((t) => t.key);
+			expect(topicKeys).toEqual(
+				expect.arrayContaining(['whatsapp-queue', 'segments', 'sequences', 'follow-up']),
+			);
+			// El contenido apunta al archivo crm.md (es/en).
+			expect((crm?.topics || []).every((t) => t.content.startsWith('crm.md'))).toBe(true);
+		});
+
+		it('maps CRM routes to the crm help section', () => {
+			expect(getHelpByRoute('message-sequences')?.key).toBe('crm');
+			expect(getHelpByRoute('communication-dashboard')?.key).toBe('crm');
+			expect(getHelpByRoute('follow-up')?.key).toBe('crm');
+		});
 	});
 
 	describe('Section Validation', () => {

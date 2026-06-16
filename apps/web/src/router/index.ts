@@ -30,6 +30,7 @@ const TablesView = () => import('../views/TablesView.vue');
 const BadgesView = () => import('../views/BadgesView.vue');
 const MessageTemplatesView = () => import('../views/MessageTemplatesView.vue');
 const GlobalMessageTemplatesView = () => import('../views/GlobalMessageTemplatesView.vue');
+const GlobalMessageSequencesView = () => import('../views/GlobalMessageSequencesView.vue');
 const MessageSequencesView = () => import('../views/MessageSequencesView.vue');
 const CommunicationDashboardView = () => import('../views/CommunicationDashboardView.vue');
 const FollowUpView = () => import('../views/FollowUpView.vue');
@@ -435,6 +436,12 @@ const router = createRouter({
 					path: 'settings/global-message-templates',
 					name: 'global-message-templates',
 					component: GlobalMessageTemplatesView,
+					meta: { requiresRetreat: false, requiresAdmin: true },
+				},
+				{
+					path: 'settings/global-message-sequences',
+					name: 'global-message-sequences',
+					component: GlobalMessageSequencesView,
 					meta: { requiresRetreat: false, requiresAdmin: true },
 				},
 				{

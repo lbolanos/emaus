@@ -199,6 +199,51 @@ export const helpIndex: HelpSection[] = [
 			},
 		],
 	},
+	{
+		key: 'crm',
+		title: 'Communication & CRM',
+		titleEs: 'Comunicación (CRM)',
+		icon: 'mdi-message-text',
+		routeContext: ['message-sequences', 'communication-dashboard', 'follow-up'],
+		topics: [
+			{
+				key: 'crm-overview',
+				title: 'Overview',
+				titleEs: 'Visión general',
+				content: 'crm.md',
+			},
+			{
+				key: 'whatsapp-queue',
+				title: 'WhatsApp send queue',
+				titleEs: 'Cola de WhatsApp',
+				content: 'crm.md#cola-de-whatsapp',
+			},
+			{
+				key: 'segments',
+				title: 'Segments',
+				titleEs: 'Segmentos',
+				content: 'crm.md#segmentos',
+			},
+			{
+				key: 'sequences',
+				title: 'Automated sequences',
+				titleEs: 'Secuencias automáticas',
+				content: 'crm.md#secuencias-automaticas',
+			},
+			{
+				key: 'dashboard',
+				title: 'Dashboard',
+				titleEs: 'Tablero de comunicación',
+				content: 'crm.md#tablero-de-comunicacion',
+			},
+			{
+				key: 'follow-up',
+				title: 'Tasks & follow-up',
+				titleEs: 'Tareas y seguimiento',
+				content: 'crm.md#tareas-y-seguimiento',
+			},
+		],
+	},
 ];
 
 export function getHelpSectionByKey(key: string): HelpSection | undefined {
