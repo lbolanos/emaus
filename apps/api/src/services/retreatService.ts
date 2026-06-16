@@ -7,6 +7,7 @@ import { UserRetreat } from '../entities/userRetreat.entity';
 import { Role } from '../entities/role.entity';
 import { getRepository, getRepositories } from '../utils/repositoryHelpers';
 import { GlobalMessageTemplateService } from './globalMessageTemplateService';
+import { messageSequenceService } from './messageSequenceService';
 import { createDefaultResponsibilitiesForRetreat } from './responsabilityService';
 import { createDefaultTablesForRetreat } from './tableMesaService';
 import { seedDefaultShirtTypes } from './shirtTypeService';
@@ -322,6 +323,15 @@ export const createRetreat = async (
 	// 5. Copy global message templates to this retreat
 	const globalMessageTemplateService = new GlobalMessageTemplateService(dataSource);
 	await globalMessageTemplateService.copyAllActiveTemplatesToRetreat(newRetreat);
+
+	// 5.5. Seed registration sequences (bienvenida/privacidad/palanquero). Estas
+	// REEMPLAZAN los envíos automáticos que antes hacía el alta; respetan los
+	// flags notifyParticipant/notifyInviter.
+	try {
+		await messageSequenceService.createDefaultMessageSequencesForRetreat(newRetreat as any);
+	} catch (seqErr) {
+		console.error('Error seeding default message sequences for retreat:', seqErr);
+	}
 
 	// 6. Create default inventory
 	await createDefaultInventoryForRetreat(newRetreat, dataSource);
