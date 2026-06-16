@@ -391,7 +391,7 @@ export interface MenuSection {
   position: 'top' | 'bottom';
 }
 
-const RETREAT_CATEGORIES = ['main', 'people', 'assignments', 'logistics', 'financial', 'reports', 'services', 'administration'];
+const RETREAT_CATEGORIES = ['main', 'people', 'assignments', 'logistics', 'communications', 'reports', 'services', 'administration'];
 
 const auth = useAuthStore();
 const authStore = useAuthStore();
@@ -797,13 +797,7 @@ const menuSections: MenuSection[] = [
         permission: 'retreatInventory',
         requiresRetreat: true,
         label: 'sidebar.inventory'
-      }
-    ],
-    position: 'top'
-  },
-  {
-    category: 'financial',
-    items: [
+      },
       {
         name: 'payments',
         routeName: 'payments',
@@ -811,6 +805,44 @@ const menuSections: MenuSection[] = [
         permission: 'payment',
         requiresRetreat: true,
         label: 'sidebar.payments'
+      }
+    ],
+    position: 'top'
+  },
+  {
+    category: 'communications',
+    items: [
+      {
+        name: 'message-templates',
+        routeName: 'message-templates',
+        icon: Settings,
+        permission: 'messageTemplate',
+        requiresRetreat: true,
+        label: 'sidebar.settings.messageTemplates'
+      },
+      {
+        name: 'message-sequences',
+        routeName: 'message-sequences',
+        icon: MessageSquare,
+        permission: 'messageTemplate',
+        requiresRetreat: true,
+        label: 'sidebar.settings.messageSequences'
+      },
+      {
+        name: 'communication-dashboard',
+        routeName: 'communication-dashboard',
+        icon: Activity,
+        permission: 'messageTemplate',
+        requiresRetreat: true,
+        label: 'sidebar.settings.communicationDashboard'
+      },
+      {
+        name: 'follow-up',
+        routeName: 'follow-up',
+        icon: UserCheck,
+        permission: 'messageTemplate',
+        requiresRetreat: true,
+        label: 'sidebar.settings.followUp'
       }
     ],
     position: 'top'
@@ -895,38 +927,6 @@ const menuSections: MenuSection[] = [
         icon: UserCog,
         requiresRetreat: true,
         label: 'sidebar.roleManagement'
-      },
-      {
-        name: 'message-templates',
-        routeName: 'message-templates',
-        icon: Settings,
-        permission: 'messageTemplate',
-        requiresRetreat: true,
-        label: 'sidebar.settings.messageTemplates'
-      },
-      {
-        name: 'message-sequences',
-        routeName: 'message-sequences',
-        icon: MessageSquare,
-        permission: 'messageTemplate',
-        requiresRetreat: true,
-        label: 'sidebar.settings.messageSequences'
-      },
-      {
-        name: 'communication-dashboard',
-        routeName: 'communication-dashboard',
-        icon: Activity,
-        permission: 'messageTemplate',
-        requiresRetreat: true,
-        label: 'sidebar.settings.communicationDashboard'
-      },
-      {
-        name: 'follow-up',
-        routeName: 'follow-up',
-        icon: UserCheck,
-        permission: 'messageTemplate',
-        requiresRetreat: true,
-        label: 'sidebar.settings.followUp'
       },
       {
         name: 'retreat-shirt-types',
