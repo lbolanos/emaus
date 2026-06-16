@@ -17,10 +17,17 @@
             <span>{{ $t('community.meeting.title') }}</span>
           </div>
         </div>
-        <Button @click="openCreateModal">
-          <CalendarPlus class="w-4 h-4 mr-2" />
-          {{ $t('community.meeting.addMeeting') }}
-        </Button>
+        <Tooltip>
+          <TooltipTrigger as-child>
+            <Button @click="openCreateModal">
+              <CalendarPlus class="w-4 h-4 mr-2" />
+              {{ $t('community.meeting.addMeeting') }}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{{ $t('community.meeting.addMeeting') }}</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       <!-- Filter bar: tabs + search -->
@@ -55,6 +62,12 @@
       <div class="grid gap-4">
         <Card v-for="meeting in filteredMeetings" :key="meeting.id" :class="{ 'border-l-4 border-l-blue-500': meeting.isAnnouncement, 'opacity-75': isPastMeeting(meeting) }">
           <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+            <img
+              v-if="(meeting as any).photoUrl"
+              :src="(meeting as any).photoUrl"
+              :alt="meeting.title"
+              class="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg border mr-3 sm:mr-4 flex-shrink-0"
+            />
             <div class="flex-1">
               <div class="flex items-center gap-2 flex-wrap">
                 <Badge v-if="meeting.isAnnouncement" variant="secondary">
@@ -144,6 +157,17 @@
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger as-child>
+                  <Button size="sm" variant="ghost" @click="triggerPhotoUpload(meeting)" :disabled="uploadingPhotoId === meeting.id" :aria-label="(meeting as any).photoUrl ? 'Cambiar foto' : 'Subir foto'">
+                    <Loader2 v-if="uploadingPhotoId === meeting.id" class="w-4 h-4 animate-spin" />
+                    <ImagePlus v-else class="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{{ (meeting as any).photoUrl ? 'Cambiar foto' : 'Subir foto' }}</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger as-child>
                   <Button size="sm" variant="ghost" @click="openEditModal(meeting)">
                     <Pencil class="w-4 h-4" />
                   </Button>
@@ -181,6 +205,15 @@
         </div>
       </div>
     </template>
+
+    <!-- Input oculto compartido para la subida directa de foto desde la lista -->
+    <input
+      ref="photoInputRef"
+      type="file"
+      accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+      class="hidden"
+      @change="handlePhotoFileSelect"
+    />
 
     <MeetingFormModal
       v-if="currentCommunity"
@@ -257,7 +290,7 @@ import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
-import { Loader2, CalendarPlus, Calendar, Clock, CheckSquare, ChevronRight, Pencil, Trash2, RefreshCw, Share, FileText, UserCheck, UserX, Search } from 'lucide-vue-next';
+import { Loader2, CalendarPlus, Calendar, Clock, CheckSquare, ChevronRight, Pencil, Trash2, RefreshCw, Share, FileText, UserCheck, UserX, Search, ImagePlus } from 'lucide-vue-next';
 import {
   Button, Card, CardHeader, CardTitle, CardDescription, Badge,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -471,6 +504,59 @@ const copyAttendanceLink = (meeting: any) => {
     title: $t('community.attendance.publicLinkCopied'),
     description: $t('community.attendance.publicLinkWarning'),
   });
+};
+
+// --- Subida directa de foto desde la lista (sin abrir el modal de edición) ---
+const photoInputRef = ref<HTMLInputElement | null>(null);
+const photoTargetMeetingId = ref<string | null>(null);
+const uploadingPhotoId = ref<string | null>(null);
+const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
+
+const triggerPhotoUpload = (meeting: any) => {
+  photoTargetMeetingId.value = meeting.id;
+  photoInputRef.value?.click();
+};
+
+const handlePhotoFileSelect = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  const meetingId = photoTargetMeetingId.value;
+  // Reset del input para permitir re-elegir el mismo archivo después.
+  if (photoInputRef.value) photoInputRef.value.value = '';
+  if (!file || !meetingId) return;
+
+  if (!file.type.startsWith('image/')) {
+    toast({ title: 'Error', description: 'El archivo debe ser una imagen', variant: 'destructive' });
+    return;
+  }
+  if (file.size > MAX_PHOTO_BYTES) {
+    toast({ title: 'Error', description: 'La imagen no puede exceder 2MB', variant: 'destructive' });
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const dataUrl = e.target?.result as string;
+    uploadingPhotoId.value = meetingId;
+    try {
+      await communityStore.setMeetingPhoto(meetingId, dataUrl);
+      toast({ title: 'Foto actualizada', description: 'La foto de la reunión se guardó exitosamente.' });
+    } catch (error: any) {
+      console.error('Failed to upload meeting photo:', error);
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || error.message || 'No se pudo subir la foto.',
+        variant: 'destructive',
+      });
+    } finally {
+      uploadingPhotoId.value = null;
+      photoTargetMeetingId.value = null;
+    }
+  };
+  reader.onerror = () => {
+    toast({ title: 'Error', description: 'No se pudo leer la imagen', variant: 'destructive' });
+  };
+  reader.readAsDataURL(file);
 };
 
 const handleCreateNextInstance = async (meeting: any) => {

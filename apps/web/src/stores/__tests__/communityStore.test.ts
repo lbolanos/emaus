@@ -17,6 +17,8 @@ vi.mock('@/services/api', () => ({
 	removeCommunityMember: vi.fn(),
 	getCommunityMeetings: vi.fn(),
 	createCommunityMeeting: vi.fn(),
+	setCommunityMeetingPhoto: vi.fn(),
+	deleteCommunityMeetingPhoto: vi.fn(),
 	getCommunityAttendance: vi.fn(),
 	recordCommunityAttendance: vi.fn(),
 	getCommunityAdmins: vi.fn(),
@@ -283,6 +285,54 @@ describe('CommunityStore', () => {
 
 			expect(api.acceptCommunityInvitation).toHaveBeenCalledWith('token-abc123');
 			expect(result).toEqual(mockAcceptedAdmin);
+		});
+	});
+
+	describe('Meeting Photo', () => {
+		const PHOTO_DATA = 'data:image/png;base64,AAAA';
+
+		it('setMeetingPhoto sube la foto y actualiza la reunión en el array', async () => {
+			store.meetings = [
+				{ id: 'm-1', title: 'A', photoUrl: null },
+				{ id: 'm-2', title: 'B', photoUrl: null },
+			];
+			const updated = { id: 'm-1', title: 'A', photoUrl: PHOTO_DATA };
+			(api.setCommunityMeetingPhoto as any).mockResolvedValue(updated);
+
+			const result = await store.setMeetingPhoto('m-1', PHOTO_DATA);
+
+			expect(api.setCommunityMeetingPhoto).toHaveBeenCalledWith('m-1', PHOTO_DATA);
+			expect(result).toEqual(updated);
+			expect(store.meetings[0]).toEqual(updated);
+			expect(store.meetings[1]).toEqual({ id: 'm-2', title: 'B', photoUrl: null });
+		});
+
+		it('setMeetingPhoto no rompe si la reunión no está en el array', async () => {
+			store.meetings = [];
+			const updated = { id: 'm-9', photoUrl: PHOTO_DATA };
+			(api.setCommunityMeetingPhoto as any).mockResolvedValue(updated);
+
+			const result = await store.setMeetingPhoto('m-9', PHOTO_DATA);
+
+			expect(result).toEqual(updated);
+			expect(store.meetings).toEqual([]);
+		});
+
+		it('deleteMeetingPhoto limpia la foto y actualiza la reunión en el array', async () => {
+			store.meetings = [{ id: 'm-1', title: 'A', photoUrl: PHOTO_DATA }];
+			const updated = { id: 'm-1', title: 'A', photoUrl: null };
+			(api.deleteCommunityMeetingPhoto as any).mockResolvedValue(updated);
+
+			const result = await store.deleteMeetingPhoto('m-1');
+
+			expect(api.deleteCommunityMeetingPhoto).toHaveBeenCalledWith('m-1');
+			expect(result).toEqual(updated);
+			expect(store.meetings[0].photoUrl).toBeNull();
+		});
+
+		it('setMeetingPhoto propaga el error de la API', async () => {
+			(api.setCommunityMeetingPhoto as any).mockRejectedValue(new Error('Boom'));
+			await expect(store.setMeetingPhoto('m-1', PHOTO_DATA)).rejects.toThrow('Boom');
 		});
 	});
 });

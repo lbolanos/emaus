@@ -183,6 +183,40 @@ class S3Service {
 		await this.ensureClient().send(command);
 	}
 
+	// Foto única por reunión de comunidad. Key fijo por meeting (community-meetings/{meetingId}.webp):
+	// subir de nuevo reemplaza la foto anterior, igual que el avatar.
+	async uploadCommunityMeetingPhoto(
+		meetingId: string,
+		buffer: Buffer,
+		contentType: string,
+	): Promise<UploadResult> {
+		const key = `community-meetings/${meetingId}.webp`;
+
+		const command = new PutObjectCommand({
+			Bucket: this.bucketName,
+			Key: key,
+			Body: buffer,
+			ContentType: contentType,
+			CacheControl: 'public, max-age=31536000, immutable',
+		});
+
+		await this.ensureClient().send(command);
+
+		return {
+			url: this.getPublicUrl(key),
+			key,
+		};
+	}
+
+	async deleteCommunityMeetingPhoto(meetingId: string): Promise<void> {
+		const command = new DeleteObjectCommand({
+			Bucket: this.bucketName,
+			Key: `community-meetings/${meetingId}.webp`,
+		});
+
+		await this.ensureClient().send(command);
+	}
+
 	// Document storage methods
 	async uploadDocument(path: string, buffer: Buffer, contentType: string): Promise<UploadResult> {
 		const key = `${this.prefixes.documents}${path}`;

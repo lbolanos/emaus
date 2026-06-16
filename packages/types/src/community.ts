@@ -128,6 +128,10 @@ export const communityMeetingSchema = z.object({
 	title: z.string().min(1).max(200),
 	description: z.string().optional(),
 	flyerTemplate: z.string().optional(),
+	// Foto única (banner/portada) de la reunión. Read-only desde la perspectiva
+	// del cliente: se gestiona vía el endpoint dedicado de foto, no en el PUT
+	// genérico de la reunión (ver updateCommunityMeetingSchema más abajo).
+	photoUrl: z.string().nullable().optional(),
 	startDate: z.coerce.date(),
 	endDate: z.coerce.date().optional(),
 	durationMinutes: z.number().int().positive(),
@@ -225,8 +229,25 @@ export const updateCommunityMeetingSchema = z.object({
 			id: true,
 			communityId: true,
 			createdAt: true,
+			// photoUrl se gestiona vía el endpoint dedicado de foto, no en el PUT
+			// genérico — evita que el cliente setee URLs arbitrarias sin procesar.
+			photoUrl: true,
 		})
 		.partial(),
+	params: z.object({ id: z.string().uuid() }),
+});
+
+// Subida de la foto única de una reunión: data-URI base64 de imagen.
+// El tamaño/formato real se valida en imageService (magic bytes + 2MB).
+export const setCommunityMeetingPhotoSchema = z.object({
+	body: z.object({
+		photoData: z
+			.string()
+			.min(1)
+			.regex(/^data:image\/(jpeg|jpg|png|gif|webp);base64,/, {
+				message: 'photoData debe ser un data-URI de imagen válido',
+			}),
+	}),
 	params: z.object({ id: z.string().uuid() }),
 });
 

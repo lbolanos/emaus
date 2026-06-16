@@ -74,6 +74,43 @@
               <p class="text-xs text-muted-foreground">Información adicional para los miembros (opcional)</p>
             </div>
 
+            <!-- Foto de la reunión -->
+            <div class="space-y-2">
+              <Label>Foto de la reunión</Label>
+              <div v-if="photoPreview" class="relative w-full max-w-sm">
+                <img
+                  :src="photoPreview"
+                  alt="Foto de la reunión"
+                  class="w-full h-48 object-cover rounded-lg border"
+                />
+                <button
+                  type="button"
+                  class="absolute top-2 right-2 w-7 h-7 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center shadow-sm hover:bg-destructive/90 transition-colors"
+                  @click="handleRemovePhoto"
+                  aria-label="Quitar foto"
+                >
+                  <X class="w-4 h-4" />
+                </button>
+              </div>
+              <button
+                v-else
+                type="button"
+                @click="triggerPhotoInput"
+                class="flex flex-col items-center justify-center w-full max-w-sm h-32 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors"
+              >
+                <ImagePlus class="w-6 h-6 mb-1" />
+                <span class="text-sm">Agregar foto</span>
+              </button>
+              <input
+                ref="photoInputRef"
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+                class="hidden"
+                @change="handlePhotoSelect"
+              />
+              <p class="text-xs text-muted-foreground">Imagen opcional (máx. 2MB). PNG, JPG, GIF o WebP.</p>
+            </div>
+
             <!-- Edit Scope (when editing recurring meeting) -->
             <div v-if="editingMeeting?.isRecurrenceTemplate && !form.isAnnouncement" class="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg mb-4">
               <Label class="font-medium mb-2 block text-amber-800 dark:text-amber-200">
@@ -217,7 +254,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import { useCommunityStore } from '@/stores/communityStore';
-import { Info, Loader2, Trash2 } from 'lucide-vue-next';
+import { Info, Loader2, Trash2, X, ImagePlus } from 'lucide-vue-next';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
   Button, Label, Input, Textarea, Switch, Badge, Tabs, TabsList, TabsTrigger, TabsContent,
@@ -285,6 +322,56 @@ const form = ref({
 
 const editingMeeting = ref<any>(null);
 const errors = ref<Record<string, string>>({});
+
+// Foto de la reunión.
+//  - photoPreview: lo que se muestra (foto existente o data-URI recién elegido).
+//  - pendingPhotoData: data-URI nuevo a subir tras guardar la reunión (null si no cambió).
+//  - pendingPhotoRemove: marcar para borrar la foto existente al guardar.
+const photoInputRef = ref<HTMLInputElement | null>(null);
+const photoPreview = ref<string>('');
+const pendingPhotoData = ref<string | null>(null);
+const pendingPhotoRemove = ref(false);
+const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
+
+const triggerPhotoInput = () => {
+  photoInputRef.value?.click();
+};
+
+const handlePhotoSelect = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    toast({ title: 'Error', description: 'El archivo debe ser una imagen', variant: 'destructive' });
+    return;
+  }
+  if (file.size > MAX_PHOTO_BYTES) {
+    toast({ title: 'Error', description: 'La imagen no puede exceder 2MB', variant: 'destructive' });
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const result = e.target?.result as string;
+    photoPreview.value = result;
+    pendingPhotoData.value = result;
+    pendingPhotoRemove.value = false;
+  };
+  reader.onerror = () => {
+    toast({ title: 'Error', description: 'No se pudo leer la imagen', variant: 'destructive' });
+  };
+  reader.readAsDataURL(file);
+
+  if (photoInputRef.value) photoInputRef.value.value = '';
+};
+
+const handleRemovePhoto = () => {
+  photoPreview.value = '';
+  pendingPhotoData.value = null;
+  // Solo hay que borrar en el server si la reunión ya tenía foto guardada.
+  pendingPhotoRemove.value = !!editingMeeting.value?.photoUrl;
+};
 
 // Template variables with labels
 const templateVariables = [
@@ -419,6 +506,27 @@ watch(() => form.value.isAnnouncement, (newValue) => {
   }
 });
 
+// Sincroniza la foto tras guardar la reunión. La foto vive en un endpoint
+// aparte (necesita el id de la reunión, que al crear no existe hasta guardar).
+// Un fallo aquí no revierte la reunión ya guardada: se avisa sin romper el flujo.
+const syncMeetingPhoto = async (meetingId?: string) => {
+  if (!meetingId) return;
+  try {
+    if (pendingPhotoData.value) {
+      await communityStore.setMeetingPhoto(meetingId, pendingPhotoData.value);
+    } else if (pendingPhotoRemove.value) {
+      await communityStore.deleteMeetingPhoto(meetingId);
+    }
+  } catch (error: any) {
+    console.error('Failed to sync meeting photo:', error);
+    toast({
+      title: 'Reunión guardada, pero la foto no',
+      description: error.message || 'No se pudo guardar la foto de la reunión.',
+      variant: 'destructive',
+    });
+  }
+};
+
 const handleSubmit = async () => {
   if (!validateForm() || !isFormValid.value) {
     return;
@@ -466,13 +574,15 @@ const handleSubmit = async () => {
         data,
         scope
       );
+      await syncMeetingPhoto(editingMeeting.value.id);
       toast({
         title: 'Reunión actualizada',
         description: 'La reunión ha sido actualizada exitosamente.',
       });
       emit('updated', editingMeeting.value.id);
     } else {
-      await communityStore.createMeeting(props.communityId, data);
+      const created = await communityStore.createMeeting(props.communityId, data);
+      await syncMeetingPhoto(created?.id);
       toast({
         title: 'Reunión creada',
         description: 'La reunión ha sido creada exitosamente.',
@@ -539,6 +649,9 @@ const resetForm = () => {
   };
   errors.value = {};
   updateScope.value = 'this';
+  photoPreview.value = '';
+  pendingPhotoData.value = null;
+  pendingPhotoRemove.value = false;
 };
 
 const handleClose = () => {
@@ -552,6 +665,9 @@ const handleClose = () => {
 watch(() => props.meetingToEdit, (meeting) => {
   if (meeting) {
     editingMeeting.value = meeting;
+    photoPreview.value = meeting.photoUrl || '';
+    pendingPhotoData.value = null;
+    pendingPhotoRemove.value = false;
     const startDate = new Date(meeting.startDate);
     const isRecurring = meeting.isRecurrenceTemplate === true;
     const pad = (n: number) => String(n).padStart(2, '0');

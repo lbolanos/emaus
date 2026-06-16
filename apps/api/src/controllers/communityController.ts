@@ -323,6 +323,42 @@ export class CommunityController {
 		}
 	}
 
+	static async uploadMeetingPhoto(req: Request, res: Response) {
+		const { id: meetingId } = req.params;
+		const { photoData } = req.body;
+		try {
+			const meeting = await communityService.setMeetingPhoto(meetingId, photoData);
+			res.json(meeting);
+		} catch (error: any) {
+			if (error.message === 'Meeting not found') {
+				return res.status(404).json({ message: 'Meeting not found' });
+			}
+			// Errores de validación de imagen (formato/tamaño) → 400
+			if (
+				error.message?.includes('image') ||
+				error.message?.includes('Image') ||
+				error.message?.includes('MIME') ||
+				error.message?.includes('2MB')
+			) {
+				return res.status(400).json({ message: error.message });
+			}
+			throw error;
+		}
+	}
+
+	static async deleteMeetingPhoto(req: Request, res: Response) {
+		const { id: meetingId } = req.params;
+		try {
+			const meeting = await communityService.deleteMeetingPhoto(meetingId);
+			res.json(meeting);
+		} catch (error: any) {
+			if (error.message === 'Meeting not found') {
+				return res.status(404).json({ message: 'Meeting not found' });
+			}
+			throw error;
+		}
+	}
+
 	// --- Recurrence Instance Management ---
 
 	static async getMyCommunities(req: Request, res: Response) {

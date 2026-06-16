@@ -32,6 +32,14 @@ export class CommunityMeeting {
 	@Column({ type: 'text', nullable: true, name: 'flyer_template' })
 	flyerTemplate?: string;
 
+	// Foto única (banner/portada) de la reunión. `photoUrl` = URL pública de S3
+	// o data-URI en modo base64; `photoS3Key` = object key para borrar el objeto.
+	@Column({ type: 'varchar', nullable: true })
+	photoUrl?: string | null;
+
+	@Column({ type: 'varchar', nullable: true })
+	photoS3Key?: string | null;
+
 	@Column({ type: 'datetime', transformer: new DateTimeTransformer() })
 	startDate!: Date;
 

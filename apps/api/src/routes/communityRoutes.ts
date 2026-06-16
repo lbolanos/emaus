@@ -15,6 +15,7 @@ import {
 	updateCommunitySchema,
 	createCommunityMeetingSchema,
 	updateCommunityMeetingSchema,
+	setCommunityMeetingPhotoSchema,
 	importMembersSchema,
 	updateMemberStateSchema,
 	updateMemberProfileSchema,
@@ -164,6 +165,19 @@ router.delete('/meetings/:id', requireCommunityMeetingAccess(), (req, res) =>
 );
 router.post('/meetings/:id/next-instance', requireCommunityMeetingAccess(), (req, res) =>
 	CommunityController.createNextMeetingInstance(req, res),
+);
+
+// Foto única de la reunión. Autorización contra la comunidad REAL del meeting
+// (requireCommunityMeetingAccess resuelve el :id como meetingId) — mismo patrón
+// que el PUT/DELETE de la reunión, evita IDOR cross-tenant.
+router.put(
+	'/meetings/:id/photo',
+	requireCommunityMeetingAccess(),
+	validateRequest(setCommunityMeetingPhotoSchema),
+	(req, res) => CommunityController.uploadMeetingPhoto(req, res),
+);
+router.delete('/meetings/:id/photo', requireCommunityMeetingAccess(), (req, res) =>
+	CommunityController.deleteMeetingPhoto(req, res),
 );
 
 // G3: Re-disparar notificación a miembros sobre una reunión (botón "Notificar").

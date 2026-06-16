@@ -11,6 +11,8 @@ const mockFetchCommunity = vi.fn();
 const mockFetchMeetings = vi.fn();
 const mockDeleteMeeting = vi.fn();
 const mockCreateNextMeetingInstance = vi.fn();
+const mockSetMeetingPhoto = vi.fn();
+const mockDeleteMeetingPhoto = vi.fn();
 
 vi.mock('@/stores/communityStore', () => ({
 	useCommunityStore: () => ({
@@ -21,6 +23,8 @@ vi.mock('@/stores/communityStore', () => ({
 		fetchMeetings: mockFetchMeetings,
 		deleteMeeting: mockDeleteMeeting,
 		createNextMeetingInstance: mockCreateNextMeetingInstance,
+		setMeetingPhoto: mockSetMeetingPhoto,
+		deleteMeetingPhoto: mockDeleteMeetingPhoto,
 	}),
 }));
 
@@ -56,6 +60,7 @@ vi.mock('lucide-vue-next', async () => {
 		UserX: stub('UserX'),
 		Search: stub('Search'),
 		Loader2: stub('Loader2'),
+		ImagePlus: stub('ImagePlus'),
 	};
 });
 
@@ -372,5 +377,81 @@ describe('CommunityMeetingsView — filters and view logic', () => {
 
 		// El dialog de confirmación debe estar abierto.
 		expect(wrapper.text()).toContain('community.meeting.editPastTitle');
+	});
+});
+
+describe('CommunityMeetingsView — meeting photo', () => {
+	beforeEach(() => {
+		mockMeetings.value = [];
+		mockSetMeetingPhoto.mockReset();
+		mockDeleteMeetingPhoto.mockReset();
+	});
+
+	it('muestra la miniatura cuando la reunión tiene photoUrl', async () => {
+		mockMeetings.value = [
+			baseMeeting({ title: 'Con foto', startDate: daysFromNow(5), photoUrl: 'data:image/png;base64,AAA' }),
+		];
+		const wrapper = factory();
+		await flushPromises();
+		await nextTick();
+
+		expect(wrapper.find('img[src="data:image/png;base64,AAA"]').exists()).toBe(true);
+	});
+
+	it('el botón dice "Subir foto" sin foto y "Cambiar foto" con foto', async () => {
+		mockMeetings.value = [
+			baseMeeting({ title: 'Sin foto', startDate: daysFromNow(5), photoUrl: null }),
+			baseMeeting({ title: 'Con foto', startDate: daysFromNow(6), photoUrl: 'data:image/png;base64,AAA' }),
+		];
+		const wrapper = factory();
+		await flushPromises();
+		await nextTick();
+
+		expect(wrapper.find('button[aria-label="Subir foto"]').exists()).toBe(true);
+		expect(wrapper.find('button[aria-label="Cambiar foto"]').exists()).toBe(true);
+	});
+
+	it('al elegir una imagen llama a setMeetingPhoto con el id y un data-URI', async () => {
+		const meeting = baseMeeting({ title: 'Sin foto', startDate: daysFromNow(5), photoUrl: null });
+		mockMeetings.value = [meeting];
+		mockSetMeetingPhoto.mockResolvedValue({ ...meeting, photoUrl: 'data:image/png;base64,AAA' });
+
+		const wrapper = factory();
+		await flushPromises();
+		await nextTick();
+
+		// 1) Click en el botón fija la reunión objetivo.
+		await wrapper.find('button[aria-label="Subir foto"]').trigger('click');
+
+		// 2) Simular la selección de archivo en el input oculto compartido.
+		const input = wrapper.find('input[type="file"]');
+		const file = new File(['binarycontent'], 'foto.png', { type: 'image/png' });
+		Object.defineProperty(input.element, 'files', { value: [file] });
+		await input.trigger('change');
+		// FileReader.onload es basado en eventos (no promesa): esperar un tick de macrotask.
+		await new Promise((r) => setTimeout(r, 30));
+		await flushPromises();
+
+		expect(mockSetMeetingPhoto).toHaveBeenCalledTimes(1);
+		expect(mockSetMeetingPhoto.mock.calls[0][0]).toBe(meeting.id);
+		expect(mockSetMeetingPhoto.mock.calls[0][1]).toMatch(/^data:/);
+	});
+
+	it('rechaza archivos que no son imagen sin llamar a setMeetingPhoto', async () => {
+		const meeting = baseMeeting({ title: 'Sin foto', startDate: daysFromNow(5), photoUrl: null });
+		mockMeetings.value = [meeting];
+
+		const wrapper = factory();
+		await flushPromises();
+		await nextTick();
+
+		await wrapper.find('button[aria-label="Subir foto"]').trigger('click');
+		const input = wrapper.find('input[type="file"]');
+		const file = new File(['hello'], 'doc.pdf', { type: 'application/pdf' });
+		Object.defineProperty(input.element, 'files', { value: [file] });
+		await input.trigger('change');
+		await flushPromises();
+
+		expect(mockSetMeetingPhoto).not.toHaveBeenCalled();
 	});
 });

@@ -326,6 +326,20 @@ export const useCommunityStore = defineStore('community', () => {
 		}
 	};
 
+	const setMeetingPhoto = async (meetingId: string, photoData: string) => {
+		const updated = await api.setCommunityMeetingPhoto(meetingId, photoData);
+		const index = meetings.value.findIndex((m) => m.id === meetingId);
+		if (index !== -1) meetings.value[index] = updated;
+		return updated;
+	};
+
+	const deleteMeetingPhoto = async (meetingId: string) => {
+		const updated = await api.deleteCommunityMeetingPhoto(meetingId);
+		const index = meetings.value.findIndex((m) => m.id === meetingId);
+		if (index !== -1) meetings.value[index] = updated;
+		return updated;
+	};
+
 	const createNextMeetingInstance = async (meetingId: string) => {
 		loading.value = true;
 		error.value = null;
@@ -620,6 +634,8 @@ export const useCommunityStore = defineStore('community', () => {
 		createMeeting,
 		updateMeeting,
 		deleteMeeting,
+		setMeetingPhoto,
+		deleteMeetingPhoto,
 		createNextMeetingInstance,
 		fetchAttendance,
 		recordAttendance,

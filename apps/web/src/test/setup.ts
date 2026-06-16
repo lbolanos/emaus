@@ -462,6 +462,7 @@ vi.mock('lucide-vue-next', () => ({
 	Star: { name: 'Star', template: '<svg></svg>' },
 	Trash2: { name: 'Trash2', template: '<svg></svg>' },
 	Image: { name: 'Image', template: '<svg></svg>' },
+	ImagePlus: { name: 'ImagePlus', template: '<svg></svg>' },
 	Check: { name: 'Check', template: '<svg></svg>' },
 	Send: { name: 'Send', template: '<svg></svg>' },
 	Bookmark: { name: 'Bookmark', template: '<svg></svg>' },

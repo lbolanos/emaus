@@ -12,6 +12,9 @@ import { In, MoreThanOrEqual, Not } from 'typeorm';
 import { calculateNextOccurrence } from '../utils/recurrenceUtils';
 import { EmailService } from './emailService';
 import { MessageTemplate } from '../entities/messageTemplate.entity';
+import { imageService } from './imageService';
+import { avatarStorageService } from './avatarStorageService';
+import { s3Service } from './s3Service';
 // renderTemplate (línea ~39) usa single-pass regex local en vez de los
 // helpers de `@repo/utils` para prevenir placeholder-spoofing. Pero el
 // resto del service sí usa `resolveMemberProfile` para resolver el overlay
@@ -918,6 +921,63 @@ export class CommunityService {
 
 	async getMeetingById(id: string) {
 		return this.meetingRepo.findOne({ where: { id } });
+	}
+
+	/**
+	 * Sube/reemplaza la foto única de una reunión. Espera un data-URI base64
+	 * (`photoData`). En modo S3 procesa la imagen (resize + webp) y la sube con
+	 * key fija por meeting; en modo base64 persiste el data-URI ya validado.
+	 * Reutiliza el mismo flujo de imágenes que avatares y retreat-memories.
+	 */
+	async setMeetingPhoto(meetingId: string, photoData: string) {
+		const meeting = await this.getMeetingById(meetingId);
+		if (!meeting) {
+			throw new Error('Meeting not found');
+		}
+
+		let url: string;
+		let s3Key: string | null = null;
+
+		if (avatarStorageService.isS3Storage()) {
+			const { buffer, contentType } = imageService.base64ToBuffer(photoData);
+			const processed = await imageService.processAvatar(buffer, contentType);
+			const result = await s3Service.uploadCommunityMeetingPhoto(
+				meetingId,
+				processed.buffer,
+				processed.contentType,
+			);
+			url = result.url;
+			s3Key = result.key;
+		} else {
+			// Modo base64: el formato/tamaño se validan en la frontera
+			// (setCommunityMeetingPhotoSchema). Aquí solo persistimos el data-URI.
+			url = photoData;
+		}
+
+		await this.meetingRepo.update(meetingId, { photoUrl: url, photoS3Key: s3Key });
+		return this.getMeetingById(meetingId);
+	}
+
+	/**
+	 * Elimina la foto de una reunión (objeto en S3 si aplica + columnas en DB).
+	 * No falla si el objeto en S3 ya no existe.
+	 */
+	async deleteMeetingPhoto(meetingId: string) {
+		const meeting = await this.getMeetingById(meetingId);
+		if (!meeting) {
+			throw new Error('Meeting not found');
+		}
+
+		if (meeting.photoS3Key && avatarStorageService.isS3Storage()) {
+			try {
+				await s3Service.deleteCommunityMeetingPhoto(meetingId);
+			} catch (err) {
+				console.warn(`[communityService] S3 delete failed for meeting photo ${meetingId}:`, err);
+			}
+		}
+
+		await this.meetingRepo.update(meetingId, { photoUrl: null, photoS3Key: null });
+		return this.getMeetingById(meetingId);
 	}
 
 	/**

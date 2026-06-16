@@ -1370,6 +1370,23 @@ export async function deleteCommunityMeeting(
   await api.delete(`/communities/meetings/${meetingId}?scope=${scope}`);
 }
 
+export async function setCommunityMeetingPhoto(
+  meetingId: string,
+  photoData: string,
+): Promise<CommunityMeeting> {
+  const response = await api.put(`/communities/meetings/${meetingId}/photo`, {
+    photoData,
+  });
+  return response.data;
+}
+
+export async function deleteCommunityMeetingPhoto(
+  meetingId: string,
+): Promise<CommunityMeeting> {
+  const response = await api.delete(`/communities/meetings/${meetingId}/photo`);
+  return response.data;
+}
+
 export async function createNextMeetingInstance(
   meetingId: string,
 ): Promise<CommunityMeeting & { isPastDate?: boolean }> {
