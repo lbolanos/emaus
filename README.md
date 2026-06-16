@@ -592,11 +592,7 @@ que en el bot reciba foto de la lista de participantes a la reunion para agregar
 
 quitar ctrl f vaya a encontrar menu
 
-
-una forma en bubbles cursor encima da mas informacion pero aveces no funciona entonces colocar una forma segura de sabes mas detalles
-
-una pagina en el que el servidor puede ver el resumen de sus labores en el retiro , mesa asignada y cuarto asignado
-## IN PROGRESS
+agregar la foto de la reunion
 i need a security code review of all we are going to push
 
 crear una plantilla global de secuencias de mensajes que pueda ser usada en cualquier retiro.
@@ -609,11 +605,16 @@ se debe indicar el valor de cada comida en la ficha de configuracion del retiro
 se pueden agregar deudas a los servidores o angelitos.
 
 aumentar el tiempo de la sesion 
+
+una forma en bubbles cursor encima da mas informacion pero aveces no funciona entonces colocar una forma segura de sabes mas detalles
+
+una pagina en el que el servidor puede ver el resumen de sus labores en el retiro , mesa asignada y cuarto asignado
+## IN PROGRESS
 ## TODO
-agregar la foto de la reunion
+
+agregar tambien a las comunidades las secuencias de mensajes filtrando por el tipo de estado del miembro.
 
 crear el seguimiento preretiro que hacer y como.
-
 
 verificar que el orden en las camas
 
