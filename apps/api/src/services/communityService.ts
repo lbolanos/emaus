@@ -924,7 +924,7 @@ export class CommunityService {
 	async getMeetingById(id: string) {
 		const meeting = await this.meetingRepo.findOne({ where: { id } });
 		if (meeting) {
-			meeting.photoUrl = (await s3Service.presignPrivateUrl(meeting.photoUrl)) as typeof meeting.photoUrl;
+			meeting.photoUrl = await s3Service.presignPrivateUrl(meeting.photoUrl);
 		}
 		return meeting;
 	}

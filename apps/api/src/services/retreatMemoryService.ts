@@ -22,7 +22,7 @@ const songOrder = { isPrimary: 'DESC', sortOrder: 'ASC', createdAt: 'ASC' } as c
  * (base64) photos and base64-mode deployments pass through unchanged.
  */
 export async function presignMemoryPhoto<T extends { url: string }>(photo: T): Promise<T> {
-	return { ...photo, url: (await s3Service.presignPrivateUrl(photo.url)) as string };
+	return { ...photo, url: await s3Service.presignPrivateUrl(photo.url) };
 }
 
 /**
@@ -36,7 +36,7 @@ export async function presignRetreatMemoryUrls<
 >(retreat: T): Promise<T> {
 	if (!retreat) return retreat;
 	if (retreat.memoryPhotoUrl) {
-		retreat.memoryPhotoUrl = (await s3Service.presignPrivateUrl(retreat.memoryPhotoUrl)) as string;
+		retreat.memoryPhotoUrl = await s3Service.presignPrivateUrl(retreat.memoryPhotoUrl);
 	}
 	if (Array.isArray(retreat.memoryPhotos)) {
 		retreat.memoryPhotos = await Promise.all(retreat.memoryPhotos.map(presignMemoryPhoto));
