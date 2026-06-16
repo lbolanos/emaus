@@ -52,6 +52,14 @@ import { ServiceTeam } from '../entities/serviceTeam.entity';
 import { ServiceTeamMember } from '../entities/serviceTeamMember.entity';
 import { RetreatShirtType } from '../entities/retreatShirtType.entity';
 import { ParticipantShirtSize } from '../entities/participantShirtSize.entity';
+import { SavedSegment } from '../entities/savedSegment.entity';
+import { MessageSequence } from '../entities/messageSequence.entity';
+import { SequenceStep } from '../entities/sequenceStep.entity';
+import { ScheduledMessage } from '../entities/scheduledMessage.entity';
+import { ParticipantFollowUp } from '../entities/participantFollowUp.entity';
+import { CrmTask } from '../entities/crmTask.entity';
+import { GlobalMessageSequence } from '../entities/globalMessageSequence.entity';
+import { GlobalSequenceStep } from '../entities/globalSequenceStep.entity';
 import { ScheduleTemplate } from '../entities/scheduleTemplate.entity';
 import { ScheduleTemplateSet } from '../entities/scheduleTemplateSet.entity';
 import { ResponsabilityAttachment } from '../entities/responsabilityAttachment.entity';
@@ -123,6 +131,14 @@ const entities = [
 	ParticipantAvailability,
 	RetreatMemoryPhoto,
 	RetreatMemorySong,
+	SavedSegment,
+	MessageSequence,
+	SequenceStep,
+	ScheduledMessage,
+	ParticipantFollowUp,
+	CrmTask,
+	GlobalMessageSequence,
+	GlobalSequenceStep,
 ];
 
 // Test database configuration - will be created in setupTestDatabase

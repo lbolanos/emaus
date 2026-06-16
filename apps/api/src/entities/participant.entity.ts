@@ -232,6 +232,11 @@ export class Participant {
 	@Column({ type: 'text', nullable: true })
 	notes?: string; // Corresponde a 'notas'
 
+	// Opt-out / lista de no-contacto: si true, el motor de secuencias NO lo enrola
+	// ni le envía (también debería respetarse en envíos manuales).
+	@Column({ type: 'boolean', default: false })
+	doNotContact!: boolean;
+
 	@CreateDateColumn({ type: 'datetime' })
 	registrationDate!: Date; // Corresponde a 'fecharegistro'
 

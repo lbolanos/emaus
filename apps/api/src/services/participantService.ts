@@ -19,6 +19,7 @@ import {
 } from "./tableMesaService";
 import { domainAuditService, DomainAuditAction } from "./domainAuditService";
 import { EmailService } from "./emailService";
+import { messageSequenceService } from "./messageSequenceService";
 
 // Campos de participante que vale la pena auditar (allowlist). Excluye datos médicos
 // y otros campos sensibles que no aportan al "quién hizo qué".
@@ -2297,333 +2298,11 @@ export const createParticipant = async (
       }
     }
 
-    // Send welcome email after successful registration (only if not importing or if retreat is public)
-    try {
-      // Get retreat details for template variables and to check if retreat is public
-      const retreat = await transactionalEntityManager
-        .getRepository(Retreat)
-        .findOne({
-          where: { id: savedParticipant.retreatId },
-        });
-
-      // Skip email sending if importing or retreat is not public
-      if (isImporting || !retreat || !retreat.isPublic) {
-        console.warn(
-          `Skipping email sending for imported participant ${savedParticipant.email} - retreat is not public`,
-        );
-        return savedParticipant;
-      }
-
-      // Source of truth for `type`: read it from retreat_participants.
-      // The virtual `savedParticipant.type` can be undefined if the caller
-      // didn't pass it or if the reload block above stripped it, causing the
-      // email selection ternary to default to 'SERVER_WELCOME' for walkers.
-      let resolvedType: Participant["type"] = savedParticipant.type;
-      if (savedParticipant.retreatId) {
-        const rpForType = await transactionalEntityManager
-          .getRepository(RetreatParticipant)
-          .findOne({
-            where: {
-              participantId: savedParticipant.id,
-              retreatId: savedParticipant.retreatId,
-            },
-            select: ["type"],
-          });
-        if (rpForType?.type) {
-          resolvedType = rpForType.type as Participant["type"];
-          savedParticipant.type = resolvedType;
-        }
-      }
-
-      const emailService = new EmailService();
-      const commRepo = transactionalEntityManager.getRepository(
-        ParticipantCommunication,
-      );
-
-      const logCommunication = async (opts: {
-        participantId: string;
-        retreatId: string;
-        recipientContact: string;
-        subject: string;
-        messageContent: string;
-        templateId?: string;
-        templateName?: string;
-      }) => {
-        try {
-          await commRepo.save(
-            commRepo.create({
-              participantId: opts.participantId,
-              scope: "retreat" as const,
-              retreatId: opts.retreatId,
-              messageType: "email" as const,
-              recipientContact: opts.recipientContact,
-              messageContent: opts.messageContent,
-              templateId: opts.templateId,
-              templateName: opts.templateName,
-              subject: opts.subject,
-              sentBy: null as any,
-            }),
-          );
-        } catch (logErr) {
-          console.error("Error logging communication:", logErr);
-        }
-      };
-
-      // Send welcome email to participant (configurable)
-      if (retreat.notifyParticipant !== false) {
-        const templateType =
-          resolvedType === "walker" ? "WALKER_WELCOME" : "SERVER_WELCOME";
-
-        const welcomeTemplate = await transactionalEntityManager
-          .getRepository(MessageTemplate)
-          .findOne({
-            where: {
-              retreatId: savedParticipant.retreatId,
-              type: templateType,
-            },
-          });
-
-        if (welcomeTemplate && savedParticipant.email) {
-          await emailService.sendEmailWithTemplate(
-            savedParticipant.email,
-            welcomeTemplate.id,
-            savedParticipant.retreatId,
-            {
-              participant: savedParticipant,
-              retreat: retreat,
-            },
-          );
-          await logCommunication({
-            participantId: savedParticipant.id,
-            retreatId: savedParticipant.retreatId,
-            recipientContact: savedParticipant.email,
-            subject: `Bienvenida ${resolvedType === "walker" ? "Caminante" : "Servidor"}`,
-            messageContent: welcomeTemplate.message,
-            templateId: welcomeTemplate.id,
-            templateName: welcomeTemplate.name,
-          });
-        }
-
-        // Send privacy / data-deletion info as a separate email
-        const privacyTemplate = await transactionalEntityManager
-          .getRepository(MessageTemplate)
-          .findOne({
-            where: {
-              retreatId: savedParticipant.retreatId,
-              type: "PRIVACY_DATA_DELETE" as any,
-            },
-          });
-
-        if (privacyTemplate && savedParticipant.email) {
-          try {
-            await emailService.sendEmailWithTemplate(
-              savedParticipant.email,
-              privacyTemplate.id,
-              savedParticipant.retreatId,
-              {
-                participant: savedParticipant,
-                retreat: retreat,
-              },
-            );
-            await logCommunication({
-              participantId: savedParticipant.id,
-              retreatId: savedParticipant.retreatId,
-              recipientContact: savedParticipant.email,
-              subject: privacyTemplate.name || "Aviso de privacidad",
-              messageContent: privacyTemplate.message,
-              templateId: privacyTemplate.id,
-              templateName: privacyTemplate.name,
-            });
-          } catch (privacyErr) {
-            console.error(
-              "Error sending PRIVACY_DATA_DELETE email:",
-              privacyErr,
-            );
-          }
-        }
-      }
-
-      // Send notification email to the server who invited the participant (configurable)
-      if (
-        retreat.notifyInviter !== false &&
-        savedParticipant.invitedBy &&
-        retreat
-      ) {
-        // Find the server who invited this participant
-        const invitingServer = await transactionalEntityManager
-          .getRepository(Participant)
-          .createQueryBuilder("participant")
-          .innerJoin(
-            "retreat_participants",
-            "rp",
-            'rp."participantId" = participant.id AND rp."retreatId" = :retreatId',
-            { retreatId: savedParticipant.retreatId },
-          )
-          .where('rp."retreatId" = :retreatId', {
-            retreatId: savedParticipant.retreatId,
-          })
-          .andWhere("participant.nickname = :nickname", {
-            nickname: savedParticipant.invitedBy,
-          })
-          .andWhere('rp."type" = :type', { type: "server" })
-          .getOne();
-
-        if (invitingServer && invitingServer.email) {
-          // Find notification template for servers - use GENERAL type as fallback
-          const notificationTemplate = await transactionalEntityManager
-            .getRepository(MessageTemplate)
-            .findOne({
-              where: {
-                retreatId: savedParticipant.retreatId,
-                type: "GENERAL",
-              },
-            });
-
-          const inviterSubject = `Nuevo participante invitado: ${savedParticipant.firstName} ${savedParticipant.lastName}`;
-
-          if (notificationTemplate) {
-            await emailService.sendEmailWithTemplate(
-              invitingServer.email,
-              notificationTemplate.id,
-              savedParticipant.retreatId,
-              {
-                participant: savedParticipant,
-                retreat: retreat,
-                invitingServer: invitingServer,
-              },
-            );
-            await logCommunication({
-              participantId: savedParticipant.id,
-              retreatId: savedParticipant.retreatId,
-              recipientContact: invitingServer.email,
-              subject: inviterSubject,
-              messageContent: notificationTemplate.message,
-              templateId: notificationTemplate.id,
-              templateName: notificationTemplate.name,
-            });
-          } else {
-            const fallbackContent = `
-								<h2>¡Hola ${escapeHtml(invitingServer.firstName)}!</h2>
-								<p>Te informamos que <strong>${escapeHtml(savedParticipant.firstName)} ${escapeHtml(savedParticipant.lastName)}</strong> se ha registrado exitosamente en el retiro.</p>
-								<p><strong>Detalles del participante:</strong></p>
-								<ul>
-									<li>Nombre: ${escapeHtml(savedParticipant.firstName)} ${escapeHtml(savedParticipant.lastName)}</li>
-									<li>Tipo: ${resolvedType === "walker" ? "Caminante" : "Servidor"}</li>
-									<li>Email: ${escapeHtml(savedParticipant.email) || "No proporcionado"}</li>
-									<li>Teléfono: ${escapeHtml(savedParticipant.cellPhone) || "No proporcionado"}</li>
-								</ul>
-								<p>Gracias por invitar a nuevos participantes al retiro.</p>
-							`;
-            await emailService.sendParticipantEmail({
-              to: invitingServer.email,
-              subject: inviterSubject,
-              participant: savedParticipant,
-              retreat: retreat,
-              messageContent: fallbackContent,
-            });
-            await logCommunication({
-              participantId: savedParticipant.id,
-              retreatId: savedParticipant.retreatId,
-              recipientContact: invitingServer.email,
-              subject: inviterSubject,
-              messageContent: fallbackContent,
-            });
-          }
-          console.warn(
-            `Notification email sent to server ${invitingServer.nickname} for new participant ${savedParticipant.firstName} ${savedParticipant.lastName}`,
-          );
-        } else {
-          console.warn(
-            `Could not find server with nickname '${savedParticipant.invitedBy}' to send notification`,
-          );
-        }
-      }
-
-      // Send notification to configured palanqueros (only for walkers)
-      if (resolvedType === "walker" && retreat.notifyPalanqueros?.length) {
-        const palanqueroNames = retreat.notifyPalanqueros.map(
-          (n: number) => `Palanquero ${n}`,
-        );
-
-        const palanqueroResponsibilities = await transactionalEntityManager
-          .getRepository(Responsability)
-          .createQueryBuilder("r")
-          .leftJoinAndSelect("r.participant", "participant")
-          .where("r.retreatId = :retreatId", { retreatId: retreat.id })
-          .andWhere("r.name IN (:...names)", { names: palanqueroNames })
-          .andWhere("r.participantId IS NOT NULL")
-          .getMany();
-
-        for (const resp of palanqueroResponsibilities) {
-          if (!resp.participant?.email) continue;
-
-          const palanqueroTemplate = await transactionalEntityManager
-            .getRepository(MessageTemplate)
-            .findOne({
-              where: {
-                retreatId: retreat.id,
-                type: "PALANQUERO_NEW_WALKER",
-              },
-            });
-
-          const palanqueroSubject = `Nuevo caminante registrado: ${savedParticipant.firstName} ${savedParticipant.lastName}`;
-
-          if (palanqueroTemplate) {
-            await emailService.sendEmailWithTemplate(
-              resp.participant.email,
-              palanqueroTemplate.id,
-              retreat.id,
-              {
-                participant: savedParticipant,
-                retreat: retreat,
-              },
-            );
-            await logCommunication({
-              participantId: savedParticipant.id,
-              retreatId: retreat.id,
-              recipientContact: resp.participant.email,
-              subject: palanqueroSubject,
-              messageContent: palanqueroTemplate.message,
-              templateId: palanqueroTemplate.id,
-              templateName: palanqueroTemplate.name,
-            });
-          } else {
-            const fallbackContent = `
-								<h2>¡Hola ${escapeHtml(resp.participant.firstName)}!</h2>
-								<p>Un nuevo caminante se ha registrado en el retiro.</p>
-								<p><strong>Detalles del caminante:</strong></p>
-								<ul>
-									<li>Nombre: ${escapeHtml(savedParticipant.firstName)} ${escapeHtml(savedParticipant.lastName)}</li>
-									<li>Email: ${escapeHtml(savedParticipant.email) || "No proporcionado"}</li>
-									<li>Teléfono: ${escapeHtml(savedParticipant.cellPhone) || "No proporcionado"}</li>
-									<li>Invitado por: ${escapeHtml(savedParticipant.invitedBy) || "No especificado"}</li>
-								</ul>
-							`;
-            await emailService.sendParticipantEmail({
-              to: resp.participant.email,
-              subject: palanqueroSubject,
-              participant: savedParticipant,
-              retreat: retreat,
-              messageContent: fallbackContent,
-            });
-            await logCommunication({
-              participantId: savedParticipant.id,
-              retreatId: retreat.id,
-              recipientContact: resp.participant.email,
-              subject: palanqueroSubject,
-              messageContent: fallbackContent,
-            });
-          }
-          console.warn(
-            `Palanquero notification sent to ${resp.participant.email} (${resp.name}) for new walker ${savedParticipant.firstName} ${savedParticipant.lastName}`,
-          );
-        }
-      }
-    } catch (emailError) {
-      console.error("Error sending welcome/notification emails:", emailError);
-      // Don't throw - registration succeeded even if email fails
-    }
-
+    // Los correos del alta (bienvenida caminante/servidor, aviso de privacidad,
+    // aviso al invitador y a los palanqueros) se MOVIERON al motor de secuencias
+    // (trigger `participant_created`). Se disparan tras el alta vía
+    // `messageSequenceService.runForRetreat` (ver después del commit) y se
+    // gobiernan activando/desactivando esas secuencias por retiro.
     return savedParticipant;
   });
 
@@ -2640,6 +2319,19 @@ export const createParticipant = async (
         metadata: { type: participantData.type },
       },
     );
+
+    // Disparo inmediato de las secuencias del retiro: los pasos
+    // `participant_created` offset-0 (bienvenida, privacidad, aviso al palanquero)
+    // salen al momento, sin esperar al cron horario. Best-effort: no bloquea ni
+    // falla el alta si el motor de secuencias tiene un problema. En importación
+    // masiva se omite (el cron horario los procesará).
+    if (createdParticipant.retreatId) {
+      void messageSequenceService
+        .runForRetreat(createdParticipant.retreatId)
+        .catch((err) =>
+          console.error("Error running sequences after participant create:", err),
+        );
+    }
   }
 
   return createdParticipant;

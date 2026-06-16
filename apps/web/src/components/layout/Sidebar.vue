@@ -905,6 +905,30 @@ const menuSections: MenuSection[] = [
         label: 'sidebar.settings.messageTemplates'
       },
       {
+        name: 'message-sequences',
+        routeName: 'message-sequences',
+        icon: MessageSquare,
+        permission: 'messageTemplate',
+        requiresRetreat: true,
+        label: 'sidebar.settings.messageSequences'
+      },
+      {
+        name: 'communication-dashboard',
+        routeName: 'communication-dashboard',
+        icon: Activity,
+        permission: 'messageTemplate',
+        requiresRetreat: true,
+        label: 'sidebar.settings.communicationDashboard'
+      },
+      {
+        name: 'follow-up',
+        routeName: 'follow-up',
+        icon: UserCheck,
+        permission: 'messageTemplate',
+        requiresRetreat: true,
+        label: 'sidebar.settings.followUp'
+      },
+      {
         name: 'retreat-shirt-types',
         routeName: 'retreat-shirt-types',
         icon: Settings,
@@ -922,6 +946,14 @@ const menuSections: MenuSection[] = [
         routeName: 'global-message-templates',
         icon: Globe,
         label: 'sidebar.settings.globalMessageTemplates',
+        requiresRetreat: false,
+        permission: 'superadmin'
+      },
+      {
+        name: 'global-message-sequences',
+        routeName: 'global-message-sequences',
+        icon: Globe,
+        label: 'sidebar.settings.globalMessageSequences',
         requiresRetreat: false,
         permission: 'superadmin'
       },

@@ -64,6 +64,14 @@ import { RetreatShirtType } from '../entities/retreatShirtType.entity';
 import { ParticipantShirtSize } from '../entities/participantShirtSize.entity';
 import { RetreatMemoryPhoto } from '../entities/retreatMemoryPhoto.entity';
 import { RetreatMemorySong } from '../entities/retreatMemorySong.entity';
+import { SavedSegment } from '../entities/savedSegment.entity';
+import { MessageSequence } from '../entities/messageSequence.entity';
+import { SequenceStep } from '../entities/sequenceStep.entity';
+import { ScheduledMessage } from '../entities/scheduledMessage.entity';
+import { ParticipantFollowUp } from '../entities/participantFollowUp.entity';
+import { CrmTask } from '../entities/crmTask.entity';
+import { GlobalMessageSequence } from '../entities/globalMessageSequence.entity';
+import { GlobalSequenceStep } from '../entities/globalSequenceStep.entity';
 
 export function createDatabaseConfig() {
 	const dbType = process.env.DB_TYPE || 'sqlite';
@@ -143,6 +151,18 @@ export function createDatabaseConfig() {
 		// Retreat memories (galleries)
 		RetreatMemoryPhoto,
 		RetreatMemorySong,
+		// CRM: segmentos guardados
+		SavedSegment,
+		// CRM: secuencias de mensajes (drip)
+		MessageSequence,
+		SequenceStep,
+		ScheduledMessage,
+		// CRM: plantillas globales de secuencias
+		GlobalMessageSequence,
+		GlobalSequenceStep,
+		// CRM: pipeline de seguimiento + tareas
+		ParticipantFollowUp,
+		CrmTask,
 		// Temporarily excluding entities with enum issues
 		// PermissionOverride,
 		// RoleRequest,

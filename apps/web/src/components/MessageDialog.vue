@@ -154,6 +154,9 @@
                     <SelectItem value="all">Todos</SelectItem>
                     <SelectItem value="walker">Caminantes</SelectItem>
                     <SelectItem value="server">Servidores</SelectItem>
+                    <SelectItem value="participant">Caminantes y servidores</SelectItem>
+                    <SelectItem value="table_leader">Líderes/colíderes</SelectItem>
+                    <SelectItem value="responsible">Responsables</SelectItem>
                     <SelectItem value="family">Familiares</SelectItem>
                     <SelectItem value="general">General</SelectItem>
                   </SelectContent>
@@ -772,7 +775,12 @@ const filterTemplates = () => {
 			template.name.toLowerCase().includes(search) ||
 			template.message.toLowerCase().includes(search);
 
-		const matchesType = typeFilter === 'all' || getMessageTemplateAudience(template.type) === typeFilter;
+		const a = getMessageTemplateAudience(template.type);
+		// 'participant' (ambos) aplica a los filtros Caminantes y Servidores.
+		const matchesType =
+			typeFilter === 'all' ||
+			a === typeFilter ||
+			(a === 'participant' && (typeFilter === 'walker' || typeFilter === 'server'));
 
 		return matchesSearch && matchesType;
 	});

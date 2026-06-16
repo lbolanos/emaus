@@ -208,6 +208,28 @@ describe('Message variable replacement', () => {
 			);
 			expect(result).toBe('Ana Rodríguez -> Juan, contacto: Carlos López');
 		});
+
+		it('usa el apodo si existe; si no, cae al primer nombre', () => {
+			const tpl = 'Hola {participant.nickname}';
+			// Con apodo → usa el apodo.
+			expect(replaceAllVariables(tpl, buildParticipant({ nickname: 'Juancho' }), retreat)).toBe(
+				'Hola Juancho',
+			);
+			// Sin apodo → primer nombre de pila (no queda en blanco).
+			expect(
+				replaceAllVariables(tpl, buildParticipant({ firstName: 'Hector Leonardo', nickname: undefined }), retreat),
+			).toBe('Hola Hector');
+		});
+
+		it('resuelve variables {table.*} cuando se pasa el contexto de mesa', () => {
+			const tpl = 'Mesa {table.name} ({table.walkersCount}): {table.liderName}';
+			const result = replaceAllVariables(tpl, buildParticipant(), retreat, undefined, null, {
+				name: 'Mesa 5',
+				liderName: 'Oscar',
+				walkers: [{ firstName: 'Ana' }, { firstName: 'Luis' }],
+			});
+			expect(result).toBe('Mesa Mesa 5 (2): Oscar');
+		});
 	});
 
 	describe('findEmptyVariables', () => {
@@ -224,13 +246,15 @@ describe('Message variable replacement', () => {
 		});
 
 		it('detects missing participant variables', () => {
-			const template = 'Hola {participant.firstName}, apodo {participant.nickname}';
+			// `occupation` no tiene fallback (a diferencia de `nickname`, que cae a
+			// firstName), así que sirve para verificar la detección de vacíos.
+			const template = 'Hola {participant.firstName}, ocupación {participant.occupation}';
 			const result = findEmptyVariables(
 				template,
-				buildParticipant({ nickname: undefined }),
+				buildParticipant({ occupation: undefined }),
 				retreat,
 			);
-			expect(result).toEqual(['participant.nickname']);
+			expect(result).toEqual(['participant.occupation']);
 		});
 
 		it('detects missing retreat variables', () => {
@@ -264,13 +288,13 @@ describe('Message variable replacement', () => {
 		});
 
 		it('dedupes repeated variables', () => {
-			const template = '{participant.nickname} y {participant.nickname}';
+			const template = '{participant.occupation} y {participant.occupation}';
 			const result = findEmptyVariables(
 				template,
-				buildParticipant({ nickname: undefined }),
+				buildParticipant({ occupation: undefined }),
 				retreat,
 			);
-			expect(result).toEqual(['participant.nickname']);
+			expect(result).toEqual(['participant.occupation']);
 		});
 
 		it('reports known variables as empty when participant is null', () => {

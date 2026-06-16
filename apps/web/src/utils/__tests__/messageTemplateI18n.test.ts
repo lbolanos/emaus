@@ -7,7 +7,7 @@ import en from '@/locales/en.json';
 // audiencia conocida. Atrapa el caso (visto en e2e) donde un tipo nuevo se agrega
 // sin su `messageTemplates.types.*` y aparece como key cruda en el admin.
 const types = messageTemplateTypes.options as readonly string[];
-const validAudiences = ['walker', 'server', 'family', 'general'];
+const validAudiences = ['walker', 'server', 'participant', 'family', 'general', 'table_leader', 'responsible'];
 
 describe('i18n y audiencia de tipos de plantilla', () => {
 	it('cada tipo tiene etiqueta en español', () => {

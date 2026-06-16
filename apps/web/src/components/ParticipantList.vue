@@ -13,7 +13,10 @@ import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { convertHtmlToEmail, replaceAllVariables } from '@/utils/message';
 import type { ParticipantData, RetreatData } from '@/utils/message';
 import MessageDialog from './MessageDialog.vue';
+import WhatsAppSendQueue from './WhatsAppSendQueue.vue';
 import BulkEditParticipantsModal from './BulkEditParticipantsModal.vue';
+import { useSavedSegmentStore } from '@/stores/savedSegmentStore';
+import type { SavedSegment, SegmentFilters } from '@repo/types';
 import { useI18n } from 'vue-i18n';
 import ExcelJS from 'exceljs';
 import { createLocaleComparator } from '@/utils/sort';
@@ -61,7 +64,7 @@ import {
 } from '@repo/ui';
 
 
-import { ArrowUpDown, Trash2, Edit, FileUp, FileDown, Columns, ListFilter, MoreVertical, Plus, X, Printer, RefreshCw, Search, Users, MessageSquare, RotateCcw } from 'lucide-vue-next';
+import { ArrowUpDown, Trash2, Edit, FileUp, FileDown, Columns, ListFilter, MoreVertical, Plus, X, Printer, RefreshCw, Search, Users, MessageSquare, RotateCcw, Send, Bookmark } from 'lucide-vue-next';
 import { useToast } from '@repo/ui';
 
 // Traducción (simulada, usa tu sistema de i18n)
@@ -169,6 +172,16 @@ const isMessageDialogOpen = ref(false);
 const messageParticipant = ref<any>(null);
 const isBulkMessageDialogOpen = ref(false);
 const bulkMessageParticipants = ref<any[]>([]);
+
+// --- COLA DE ENVÍO WHATSAPP ASISTIDA (cada quien con su cuenta) ---
+const isWhatsAppQueueOpen = ref(false);
+const whatsAppQueueParticipants = ref<any[]>([]);
+
+// --- SEGMENTOS GUARDADOS ---
+const savedSegmentStore = useSavedSegmentStore();
+const { segments: savedSegments } = storeToRefs(savedSegmentStore);
+const isSaveSegmentDialogOpen = ref(false);
+const newSegmentName = ref('');
 
 // Bulk email sending state
 const bulkEmailTemplate = ref('');
@@ -458,8 +471,9 @@ onMounted(() => {
     
     if (selectedRetreatId.value) {
         participantStore.fetchTags(selectedRetreatId.value);
+        savedSegmentStore.fetchForRetreat(selectedRetreatId.value);
     }
-    
+
     // Add keyboard shortcuts
     document.addEventListener('keydown', handleKeyboardShortcuts);
 });
@@ -485,6 +499,7 @@ watch(selectedRetreatId, async (newId) => {
     showOnlyMyTable.value = false;
     if (newId) {
         participantStore.fetchTags(newId);
+        savedSegmentStore.fetchForRetreat(newId);
         // Carga las mesas para saber si el usuario es líder/colíder (filtro "mi mesa").
         if (myParticipantId.value) {
             tableMesaStore.fetchTables();
@@ -903,6 +918,78 @@ const bulkMessageSelected = async () => {
     }
 
     isBulkMessageDialogOpen.value = true;
+};
+
+// Abre la cola de envío WhatsApp asistida con los participantes seleccionados.
+const openWhatsAppQueue = () => {
+    const selectedIds = Array.from(selectedParticipants.value);
+    whatsAppQueueParticipants.value = filteredAndSortedParticipants.value.filter((p: any) =>
+        selectedIds.includes(p.id),
+    );
+    if (selectedRetreatId.value) {
+        messageTemplateStore.fetchTemplates(selectedRetreatId.value);
+    }
+    isWhatsAppQueueOpen.value = true;
+};
+
+// --- SEGMENTOS GUARDADOS ---
+// Mapea el estado de filtros actual de la lista a la forma persistible.
+const currentFiltersAsSegment = (): SegmentFilters => {
+    const f = filters.value || {};
+    return {
+        tagIds: Array.isArray(f.tagIds) && f.tagIds.length ? [...f.tagIds] : undefined,
+        paymentStatus: f.paymentStatus || undefined,
+        maritalStatus: f.maritalStatus || undefined,
+        attendanceFilter: attendanceFilter.value !== 'all' ? attendanceFilter.value : undefined,
+        cancelStatus: filterStatus.value,
+        search: searchQuery.value || undefined,
+    };
+};
+
+// Reaplica un segmento guardado a los filtros de la lista.
+const applySegment = (seg: SavedSegment) => {
+    const f = (seg.filters || {}) as SegmentFilters;
+    const newFilters: Record<string, any> = {};
+    if (f.tagIds && f.tagIds.length) newFilters.tagIds = [...f.tagIds];
+    if (f.paymentStatus) newFilters.paymentStatus = f.paymentStatus;
+    if (f.maritalStatus) newFilters.maritalStatus = f.maritalStatus;
+    filters.value = newFilters;
+    attendanceFilter.value = f.attendanceFilter || 'all';
+    filterStatus.value = f.cancelStatus || 'active';
+    searchQuery.value = f.search || '';
+    toast({ title: $t('segments.applied', { name: seg.name }) });
+};
+
+const saveCurrentSegment = async () => {
+    if (!newSegmentName.value.trim() || !selectedRetreatId.value) return;
+    try {
+        await savedSegmentStore.create({
+            name: newSegmentName.value.trim(),
+            scope: 'retreat',
+            retreatId: selectedRetreatId.value,
+            filters: currentFiltersAsSegment(),
+        });
+        toast({ title: $t('segments.saved', { name: newSegmentName.value.trim() }) });
+        newSegmentName.value = '';
+        isSaveSegmentDialogOpen.value = false;
+    } catch (e: any) {
+        toast({ title: $t('segments.saveError'), variant: 'destructive' });
+    }
+};
+
+const deleteSegment = async (seg: SavedSegment) => {
+    try {
+        await savedSegmentStore.remove(seg.id);
+        toast({ title: $t('segments.deleted', { name: seg.name }) });
+    } catch {
+        toast({ title: $t('segments.deleteError'), variant: 'destructive' });
+    }
+};
+
+const onSegmentSelect = (segmentId: string) => {
+    if (!segmentId) return;
+    const seg = savedSegments.value.find((s) => s.id === segmentId);
+    if (seg) applySegment(seg);
 };
 
 const bulkEditSelected = () => {
@@ -1484,6 +1571,27 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                         </TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
+
+                <!-- Segmentos guardados -->
+                <select
+                    v-if="savedSegments.length"
+                    class="h-9 border rounded-md text-sm px-2 max-w-[160px] shrink-0"
+                    :value="''"
+                    @change="onSegmentSelect(($event.target as HTMLSelectElement).value)"
+                >
+                    <option value="">{{ $t('segments.apply') }}</option>
+                    <option v-for="seg in savedSegments" :key="seg.id" :value="seg.id">{{ seg.name }}</option>
+                </select>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger as-child>
+                            <Button variant="outline" size="icon" class="shrink-0" @click="isSaveSegmentDialogOpen = true">
+                                <Bookmark class="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{{ $t('segments.saveTooltip') }}</TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
             </div>
 
             <!-- Selection Status Bar -->
@@ -1501,6 +1609,16 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent>{{ $t('participants.bulkActions.sendMessage') }}</TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger as-child>
+                                <Button variant="ghost" size="icon" class="h-7 w-7 text-green-600 hover:text-green-800 hover:bg-green-100" @click="openWhatsAppQueue">
+                                    <Send class="h-3.5 w-3.5" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>{{ $t('whatsappQueue.bulkAction') }}</TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
                     <TooltipProvider>
@@ -2120,5 +2238,50 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+
+        <!-- Cola de envío WhatsApp asistida -->
+        <WhatsAppSendQueue
+            v-model:open="isWhatsAppQueueOpen"
+            :participants="whatsAppQueueParticipants"
+            :retreat-id="selectedRetreatId || ''"
+            :templates="allMessageTemplates"
+        />
+
+        <!-- Guardar segmento (filtros actuales) -->
+        <Teleport to="body" v-if="isSaveSegmentDialogOpen">
+            <div
+                class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+                @click.self="isSaveSegmentDialogOpen = false"
+            >
+                <div class="bg-white rounded-lg shadow-xl max-w-md w-full overflow-hidden">
+                    <div class="flex items-center justify-between p-6 border-b">
+                        <h2 class="text-lg font-semibold">{{ $t('segments.saveTitle') }}</h2>
+                        <Button variant="ghost" size="icon" @click="isSaveSegmentDialogOpen = false">
+                            <X class="w-5 h-5" />
+                        </Button>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <div>
+                            <label class="text-sm font-medium">{{ $t('segments.name') }}</label>
+                            <Input v-model="newSegmentName" class="mt-1" :placeholder="$t('segments.namePlaceholder')" @keyup.enter="saveCurrentSegment" />
+                            <p class="text-xs text-gray-500 mt-1">{{ $t('segments.saveHint') }}</p>
+                        </div>
+                        <!-- Segmentos existentes (gestión) -->
+                        <div v-if="savedSegments.length" class="border rounded-md divide-y max-h-48 overflow-y-auto">
+                            <div v-for="seg in savedSegments" :key="seg.id" class="flex items-center justify-between gap-2 p-2 text-sm">
+                                <span class="truncate">{{ seg.name }}</span>
+                                <Button variant="ghost" size="icon" class="h-7 w-7 text-red-500 hover:text-red-700" @click="deleteSegment(seg)">
+                                    <Trash2 class="h-3.5 w-3.5" />
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-end gap-2 p-6 border-t bg-gray-50">
+                        <Button variant="outline" @click="isSaveSegmentDialogOpen = false">{{ $t('common.actions.cancel') }}</Button>
+                        <Button :disabled="!newSegmentName.trim()" @click="saveCurrentSegment">{{ $t('common.actions.save') }}</Button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
     </div>
 </template>

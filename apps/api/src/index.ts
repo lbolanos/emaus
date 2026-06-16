@@ -26,6 +26,7 @@ import { attachmentHistoryCleanupService } from './services/attachmentHistoryCle
 import { santisimoReminderService } from './services/santisimoReminderService';
 import { meetingInstanceGeneratorService } from './services/meetingInstanceGeneratorService';
 import { passwordResetCleanupService } from './services/passwordResetCleanupService';
+import { messageSequenceService } from './services/messageSequenceService';
 import { PerformanceMiddleware, PerformanceRequest } from './middleware/performanceMiddleware';
 import { performanceOptimizationService } from './services/performanceOptimizationService';
 import { csrfMiddleware } from './middleware/csrfAlternative';
@@ -219,6 +220,7 @@ async function main() {
 	attachmentHistoryCleanupService.startScheduledTasks();
 	santisimoReminderService.startScheduledTasks();
 	meetingInstanceGeneratorService.startScheduledTasks();
+	messageSequenceService.startScheduledTasks();
 	await performanceOptimizationService.optimizeHeavyQueries();
 
 	// Ensure minuto-a-minuto default templates exist (idempotent by name).
