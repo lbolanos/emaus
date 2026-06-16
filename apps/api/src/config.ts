@@ -6,6 +6,18 @@ if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
 	throw new Error('SESSION_SECRET environment variable is required in production');
 }
 
+/**
+ * Parsea un ENV de "días" con fallback y clamp. Un valor inválido (NaN, vacío,
+ * "30d"), cero o negativo NO debe degradar silenciosamente la expiración de la
+ * sesión: cae al default. Se acota a `max` para evitar sesiones absurdamente
+ * largas por un typo.
+ */
+export function parseDaysEnv(raw: string | undefined, fallback: number, max = 365): number {
+	const parsed = parseInt(raw ?? '', 10);
+	if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+	return Math.min(parsed, max);
+}
+
 // Fail fast if seeding is enabled in production without explicit master-user credentials
 if (
 	process.env.NODE_ENV === 'production' &&
@@ -27,9 +39,13 @@ export const config = {
 	session: {
 		secret: process.env.SESSION_SECRET || crypto.randomBytes(64).toString('hex'),
 		cookieDomain: process.env.COOKIE_DOMAIN,
-		// Duración de la sesión logueada en días. Rolling: se cuenta desde la última
-		// actividad, no desde el login. Configurable sin recompilar.
-		maxAgeDays: parseInt(process.env.SESSION_MAX_AGE_DAYS || '30', 10),
+		// Ventana de inactividad en días (rolling): la sesión expira si no hay
+		// actividad en este lapso. Se renueva en cada request. Configurable.
+		maxAgeDays: parseDaysEnv(process.env.SESSION_MAX_AGE_DAYS, 30, 365),
+		// Techo absoluto en días desde el LOGIN, sin importar la actividad. Acota
+		// el valor de una cookie robada (con rolling una sesión activa nunca
+		// caducaría). Default 90 días.
+		absoluteMaxAgeDays: parseDaysEnv(process.env.SESSION_ABSOLUTE_MAX_AGE_DAYS, 90, 365),
 	},
 	frontend: {
 		url: process.env.FRONTEND_URL || 'http://localhost:5173',

@@ -117,12 +117,32 @@ export type RetreatMemorySong = z.infer<typeof retreatMemorySongSchema>;
 // fields (id, isPrimary, sortOrder, createdAt) are assigned server-side and must
 // NOT be required in the request body (recurring 400 bug otherwise).
 export const createRetreatMemoryPhotoSchema = z.object({
-	photoData: z.string().min(1),
+	// SECURITY: debe ser un data-URI de imagen y acotado en tamaño. Sin esto, en el
+	// modo de almacenamiento por defecto (base64) se guardaba cualquier string sin
+	// validar (DoS de almacenamiento / contenido no-imagen servido al render).
+	// ~4MB de string ≈ 3MB binario, holgura sobre el límite de 2MB del imageService.
+	photoData: z
+		.string()
+		.min(1)
+		.max(4_000_000, { message: 'La imagen es demasiado grande' })
+		.refine((d) => /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(d), {
+			message: 'Debe ser una imagen (data URI base64)',
+		}),
 });
 export type CreateRetreatMemoryPhoto = z.infer<typeof createRetreatMemoryPhotoSchema>;
 
+// SECURITY: `z.string().url()` acepta `javascript:`/`data:`; esas URLs se
+// renderizan luego en `:href` (RetreatMemoryCard) → XSS almacenado. Restringir a
+// http(s) para todo lo que termine en un enlace clickeable.
+export const httpUrlSchema = z
+	.string()
+	.url()
+	.refine((u) => /^https?:\/\//i.test(u), {
+		message: 'La URL debe iniciar con http:// o https://',
+	});
+
 export const createRetreatMemorySongSchema = z.object({
-	url: z.string().url(),
+	url: httpUrlSchema,
 	title: z.string().trim().max(200).optional(),
 });
 export type CreateRetreatMemorySong = z.infer<typeof createRetreatMemorySongSchema>;

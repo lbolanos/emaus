@@ -41,14 +41,21 @@ echo "📸 Generando snapshot consistente en producción (con reintentos)…"
 # abortamos sin tocar nada local.
 REMOTE_MD5=$(ssh -i "$KEY" "$HOST" bash -s "$REMOTE_DB" "$REMOTE_SNAP" <<'REMOTE'
 set -euo pipefail
+# Snapshot = copia COMPLETA de la DB de prod (hashes bcrypt, PII, sesiones). En un
+# host potencialmente multiusuario, crearlo world-readable en /tmp lo expone. umask
+# 077 → el .backup nace 600; el log de error usa nombre con $$ (no fijo, no pisable).
+umask 077
 DB="$1"; SNAP="$2"
+ERRLOG="/tmp/emaus-backup-$$.err"
+trap 'rm -f "$ERRLOG"' EXIT
 for i in $(seq 1 15); do
   rm -f "$SNAP"
-  if sqlite3 "$DB" ".backup '$SNAP'" 2>/tmp/backup.err; then
+  if sqlite3 "$DB" ".backup '$SNAP'" 2>"$ERRLOG"; then
+    chmod 600 "$SNAP" 2>/dev/null || true
     echo "   ✓ snapshot creado en el intento $i" >&2
     break
   fi
-  echo "   … intento $i: $(cat /tmp/backup.err); reintentando en 2s" >&2
+  echo "   … intento $i: $(cat "$ERRLOG"); reintentando en 2s" >&2
   sleep 2
   if [[ "$i" == 15 ]]; then
     echo "❌ No se pudo obtener un snapshot consistente tras 15 intentos." >&2

@@ -561,6 +561,28 @@ export async function ensureRetreatAccess(
 	return true;
 }
 
+/**
+ * Filtra una lista de registros dejando solo los de retiros a los que el usuario
+ * tiene acceso. Para lecturas por participante (pagos/deudas) cuyo recurso puede
+ * abarcar varios retiros y donde `requireRetreatAccess` (parámetro de ruta) no
+ * alcanza. Superadmin recibe todo (bypass dentro de `hasRetreatAccess`).
+ */
+export async function filterByRetreatAccess<T extends { retreatId: string }>(
+	userId: string,
+	rows: T[],
+): Promise<T[]> {
+	const uniqueRetreatIds = [...new Set(rows.map((r) => r.retreatId))];
+	const accessible = new Set<string>();
+	await Promise.all(
+		uniqueRetreatIds.map(async (retreatId) => {
+			if (await authorizationService.hasRetreatAccess(userId, retreatId)) {
+				accessible.add(retreatId);
+			}
+		}),
+	);
+	return rows.filter((r) => accessible.has(r.retreatId));
+}
+
 export const requirePermission = (permission: string): any => {
 	return async (req: any, res: Response, next: NextFunction) => {
 		try {

@@ -26,6 +26,7 @@ import type { MessageChannel, MessageRecipientTarget } from './sequenceStep.enti
  */
 export type ScheduledMessageStatus =
 	| 'pending'
+	| 'processing'
 	| 'sent'
 	| 'queued'
 	| 'skipped'

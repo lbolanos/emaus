@@ -1,6 +1,17 @@
 import { Request, Response, NextFunction } from 'express';
 
 export const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
+	// Body demasiado grande (body-parser lanza con type 'entity.too.large'/status 413).
+	// Mapear a 413 explícito en vez del 500 genérico.
+	const anyErr = err as any;
+	if (anyErr?.type === 'entity.too.large' || anyErr?.status === 413 || anyErr?.statusCode === 413) {
+		console.warn(`[PAYLOAD TOO LARGE] ${req.method} ${req.originalUrl}`);
+		if (res.headersSent) {
+			return next(err);
+		}
+		return res.status(413).json({ message: 'El contenido enviado es demasiado grande' });
+	}
+
 	// Check for validation errors (these should return 400 with the actual message)
 	const validationErrorPatterns = [
 		'No se puede asignar:',

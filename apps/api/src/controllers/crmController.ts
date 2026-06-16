@@ -13,10 +13,14 @@ export class CrmController {
 	// POST /crm/retreat/:retreatId/participants/:participantId/do-not-contact { value }
 	setDoNotContact = async (req: Request, res: Response) => {
 		try {
-			const updated = await crmService.setDoNotContact(
-				req.params.participantId,
-				req.body?.value !== false,
-			);
+			const { retreatId, participantId } = req.params;
+			// La ruta valida acceso a :retreatId, pero `doNotContact` es un flag global
+			// del participante. Verificar que el participante pertenezca a este retiro
+			// evita mutar a participantes ajenos (IDOR cross-retiro).
+			if (!(await crmService.participantBelongsToRetreat(participantId, retreatId))) {
+				return res.status(404).json({ error: 'Participante no encontrado en este retiro' });
+			}
+			const updated = await crmService.setDoNotContact(participantId, req.body?.value !== false);
 			if (!updated) return res.status(404).json({ error: 'Participante no encontrado' });
 			res.json({ id: updated.id, doNotContact: updated.doNotContact });
 		} catch (error) {
@@ -47,6 +51,12 @@ export class CrmController {
 			const body = parsed.data.body;
 			if (!(await callerHasRetreatAccess(req, body.retreatId))) {
 				return res.status(403).json({ error: 'Forbidden' });
+			}
+			if (
+				body.participantId &&
+				!(await crmService.participantBelongsToRetreat(body.participantId, body.retreatId))
+			) {
+				return res.status(404).json({ error: 'Participante no encontrado en este retiro' });
 			}
 			const row = await crmService.upsertFollowUp({ ...body, updatedBy: (req.user as any)?.id });
 			res.status(201).json(row);
@@ -79,6 +89,12 @@ export class CrmController {
 			const body = parsed.data.body;
 			if (!(await callerHasRetreatAccess(req, body.retreatId))) {
 				return res.status(403).json({ error: 'Forbidden' });
+			}
+			if (
+				body.participantId &&
+				!(await crmService.participantBelongsToRetreat(body.participantId, body.retreatId))
+			) {
+				return res.status(404).json({ error: 'Participante no encontrado en este retiro' });
 			}
 			const task = await crmService.createTask({ ...body, createdBy: (req.user as any)?.id });
 			res.status(201).json(task);

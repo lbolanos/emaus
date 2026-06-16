@@ -4,7 +4,7 @@ import { ParticipantDebt } from '../entities/participantDebt.entity';
 import { Participant } from '../entities/participant.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { domainAuditService } from '../services/domainAuditService';
-import { ensureRetreatAccess } from '../middleware/authorization';
+import { ensureRetreatAccess, filterByRetreatAccess } from '../middleware/authorization';
 
 /**
  * CRUD de deudas manuales (espejo de PaymentController). Las deudas solo aplican a
@@ -99,13 +99,20 @@ export class ParticipantDebtController {
 	async getDebtsByParticipant(req: Request, res: Response) {
 		try {
 			const { participantId } = req.params;
+			const userId = (req.user as any)?.id;
+			if (!userId) {
+				return res.status(401).json({ message: 'No autorizado' });
+			}
 			const debtRepository = AppDataSource.getRepository(ParticipantDebt);
 			const debts = await debtRepository.find({
 				where: { participantId },
 				relations: ['recordedByUser'],
 				order: { createdAt: 'DESC' },
 			});
-			res.json(debts);
+			// Solo las deudas de retiros a los que el usuario tiene acceso (evita IDOR
+			// cross-retiro: `payment:read` es un permiso global, no scopeado al retiro).
+			const accessible = await filterByRetreatAccess(userId, debts);
+			res.json(accessible);
 		} catch (error) {
 			console.error('Error getting participant debts:', error);
 			res.status(500).json({ message: 'Error al obtener deudas del participante' });

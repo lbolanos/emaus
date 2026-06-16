@@ -32,11 +32,15 @@ import { performanceOptimizationService } from './services/performanceOptimizati
 import { csrfMiddleware } from './middleware/csrfAlternative';
 import { apiLimiter } from './middleware/rateLimiting';
 import { requestContextMiddleware } from './middleware/requestContext';
+import { enforceAbsoluteSessionExpiry } from './middleware/sessionExpiry';
 
 // Extend express-session
 declare module 'express-session' {
 	interface SessionData {
 		csrfToken?: string;
+		// Epoch ms del login. Sella la sesión para imponer un techo absoluto de
+		// vida (independiente del rolling de inactividad).
+		loginAt?: number;
 	}
 }
 
@@ -121,7 +125,11 @@ async function main() {
 			referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 		}),
 	);
-	app.use(express.json({ limit: '2mb' }));
+	// 5mb: las fotos de recuerdos viajan como data-URI base64 (una imagen de ~2MB
+	// binario ≈ 2.7MB en base64). El tamaño real de imagen se acota aguas abajo
+	// (createRetreatMemoryPhotoSchema y imageService, 2MB binario). Un body que
+	// supere este límite recibe 413 (ver errorHandler), no 500.
+	app.use(express.json({ limit: '5mb' }));
 
 	// --- 3. Session and Auth Middleware (AFTER DB connection) ---
 	const sessionRepository = AppDataSource.getRepository(Session);
@@ -150,6 +158,9 @@ async function main() {
 	app.use(sessionMiddleware);
 	app.use(passport.initialize());
 	app.use(passport.session());
+
+	// Techo absoluto de sesión: caduca a los N días del login pese al rolling.
+	app.use(enforceAbsoluteSessionExpiry);
 
 	// Captura del actor (userId/ip/userAgent) en AsyncLocalStorage para la auditoría
 	// de dominio. Va DESPUÉS de passport.session() (para tener req.user) y ANTES de

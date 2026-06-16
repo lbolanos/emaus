@@ -238,3 +238,21 @@ export const emailCheckLimiter = rateLimit({
 		return process.env.NODE_ENV === 'development' && process.env.SKIP_RATE_LIMIT === 'true';
 	},
 });
+
+/**
+ * Rate limit para el chat de IA (endpoint caro: cada request consume tokens del
+ * proveedor = costo). Por USUARIO autenticado (no solo IP), ya que el costo se
+ * imputa al usuario y varias sesiones pueden compartir IP.
+ */
+export const aiChatLimiter = rateLimit({
+	windowMs: 1 * 60 * 1000, // 1 minuto
+	max: 20, // 20 mensajes por minuto por usuario
+	keyGenerator: (req: Request) => (req.user as any)?.id || req.ip || 'unknown',
+	message: {
+		message: 'Demasiadas solicitudes al asistente. Espera un momento.',
+		error: 'AI_CHAT_RATE_LIMIT_EXCEEDED',
+	},
+	skip: (req: Request) => {
+		return process.env.NODE_ENV === 'development' && process.env.SKIP_RATE_LIMIT === 'true';
+	},
+});

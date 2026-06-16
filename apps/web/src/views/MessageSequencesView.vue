@@ -621,6 +621,7 @@ async function openWhatsapp(item: any) {
 	window.open(
 		`https://api.whatsapp.com/send?phone=${link.phone}&text=${encodeURIComponent(link.text)}`,
 		'_blank',
+		'noopener,noreferrer',
 	);
 	try {
 		// Con "envío automático" activado, abrir WhatsApp ya lo marca como enviado

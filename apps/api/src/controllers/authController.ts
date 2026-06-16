@@ -10,6 +10,7 @@ import { UserService } from '../services/userService';
 import { CommunityService } from '../services/communityService';
 import { GlobalMessageTemplateService } from '../services/globalMessageTemplateService';
 import { RecaptchaService, resolveMinScore } from '../services/recaptchaService';
+import { revokeUserSessions } from '../services/sessionService';
 import { config } from '../config';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
@@ -243,6 +244,9 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 					req.session.csrfToken = oldCsrfToken;
 				}
 
+				// Sella el inicio de sesión para el techo absoluto de vida.
+				req.session.loginAt = Date.now();
+
 				// Re-serialize user to new session
 				req.logIn(user, async (loginErr) => {
 					if (loginErr) {
@@ -453,6 +457,10 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
 
 		await userRepository.save(user);
 
+		// Reset vía token (no autenticado): invalida TODAS las sesiones del usuario.
+		// Un reset de contraseña debe cortar cualquier sesión activa previa.
+		await revokeUserSessions(user.id);
+
 		res.json({ message: 'La contraseña ha sido restablecida exitosamente.' });
 	} catch (error) {
 		next(error);
@@ -522,6 +530,11 @@ export const changePassword = async (req: Request, res: Response, next: NextFunc
 		// Update password (will be hashed automatically by @BeforeUpdate hook)
 		freshUser.password = newPassword;
 		await userRepository.save(freshUser);
+
+		// Invalida las demás sesiones del usuario (deja viva la actual): si la
+		// contraseña se cambia por sospecha de robo, las sesiones del atacante
+		// deben morir de inmediato, no sobrevivir hasta el techo absoluto.
+		await revokeUserSessions(freshUser.id, req.sessionID);
 
 		// Return appropriate success message based on whether user had a password before
 		const successMessage = userHadPassword

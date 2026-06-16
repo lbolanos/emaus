@@ -2,12 +2,27 @@ import { AppDataSource } from '../data-source';
 import { ParticipantFollowUp, FollowUpStatus } from '../entities/participantFollowUp.entity';
 import { CrmTask } from '../entities/crmTask.entity';
 import { Participant } from '../entities/participant.entity';
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 
 /**
  * Pipeline de seguimiento de participantes + tareas/recordatorios del
  * coordinador.
  */
 export class CrmService {
+	/**
+	 * Verifica que un participante esté vinculado al retiro dado. Necesario porque
+	 * las rutas CRM validan acceso al `:retreatId` (el padre), pero `participantId`
+	 * llega aparte; sin esta comprobación un coordinador podría operar sobre
+	 * participantes de otros retiros (IDOR cross-retiro).
+	 */
+	async participantBelongsToRetreat(participantId: string, retreatId: string): Promise<boolean> {
+		if (!participantId || !retreatId) return false;
+		const count = await AppDataSource.getRepository(RetreatParticipant).count({
+			where: { participantId, retreatId },
+		});
+		return count > 0;
+	}
+
 	// --- Follow-up (pipeline de seguimiento) ---
 
 	async listFollowUps(retreatId: string): Promise<ParticipantFollowUp[]> {

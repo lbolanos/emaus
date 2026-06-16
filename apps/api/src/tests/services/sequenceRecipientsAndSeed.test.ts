@@ -257,7 +257,13 @@ describe('MessageSequence — destinatarios invitador/responsabilidad + seed', (
 
 	it('runForRetreat: enrola y procesa los pasos offset-0 al momento', async () => {
 		const retreat = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });
-		await TestDataFactory.createTestParticipant(retreat.id, { type: 'walker', email: 'w@example.com' } as any);
+		// registrationDate hace 2 días → el paso offset-0 (ese día a las 9:00) queda en
+		// el pasado SIEMPRE, sin depender de la hora a la que corra el test.
+		await TestDataFactory.createTestParticipant(retreat.id, {
+			type: 'walker',
+			email: 'w@example.com',
+			registrationDate: new Date(Date.now() - 2 * 24 * 3600_000),
+		} as any);
 		await createTemplate(retreat.id, 'WALKER_WELCOME', 'Hola {participant.firstName}');
 		await svc.createSequence({
 			name: 'Bienvenida', retreatId: retreat.id, trigger: 'participant_created', audience: 'walker',

@@ -159,11 +159,18 @@ export class MessageSequenceController {
 		try {
 			const { id } = req.params;
 			const userId = req.body?.userId ?? null;
-			const updated = await messageSequenceService.assign(id, userId);
-			if (!updated) return res.status(404).json({ error: 'Mensaje programado no encontrado' });
-			if (!(await callerHasRetreatAccess(req, updated.retreatId))) {
+			// Cargar y validar acceso ANTES de mutar (no asignar y validar después).
+			const sm = await messageSequenceService.getScheduledById(id);
+			if (!sm) return res.status(404).json({ error: 'Mensaje programado no encontrado' });
+			if (!(await callerHasRetreatAccess(req, sm.retreatId))) {
 				return res.status(403).json({ error: 'Forbidden' });
 			}
+			// El responsable asignado debe tener acceso al retiro (evita asignar a un
+			// userId arbitrario sin vínculo con el retiro).
+			if (userId && !(await authorizationService.hasRetreatAccess(userId, sm.retreatId))) {
+				return res.status(400).json({ error: 'El usuario asignado no tiene acceso a este retiro' });
+			}
+			const updated = await messageSequenceService.assign(id, userId);
 			res.json(updated);
 		} catch (error) {
 			console.error('Error assigning scheduled message:', error);
@@ -228,7 +235,9 @@ export class MessageSequenceController {
 			for (const seq of sequences) {
 				if (seq.isActive) enrolled += await messageSequenceService.enrollSequence(seq);
 			}
-			const processed = await messageSequenceService.processDue();
+			// Solo procesar este retiro: el disparo manual no debe enviar mensajes de
+			// otros retiros (la ruta solo valida acceso a :retreatId).
+			const processed = await messageSequenceService.processDue(new Date(), undefined, retreatId);
 			res.json({ enrolled, processed });
 		} catch (error) {
 			console.error('Error running sequences:', error);

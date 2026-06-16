@@ -1,7 +1,10 @@
-# Duración de la sesión logueada (30 días, rolling, configurable por ENV)
+# Duración de la sesión logueada (rolling + techo absoluto, configurable por ENV)
 
-**Fecha:** 2026-06-09
-**Archivos:** `apps/api/src/config.ts`, `apps/api/src/index.ts`, `apps/api/.env.example`
+**Fecha:** 2026-06-09 · **Hardening de seguridad:** 2026-06-15
+**Archivos:** `apps/api/src/config.ts`, `apps/api/src/index.ts`,
+`apps/api/src/middleware/sessionExpiry.ts`, `apps/api/src/services/sessionService.ts`,
+`apps/api/src/controllers/authController.ts`, `apps/api/src/types/session.ts`,
+`apps/api/.env.example`
 
 ## Qué cambió
 
@@ -10,6 +13,19 @@ La sesión de un usuario logueado pasó de **24 horas fijas desde el login** a
 tras 30 días de **inactividad** real, no 30 días desde el login).
 
 El valor es **configurable por variable de entorno** sin recompilar.
+
+### Hardening 2026-06-15 (security review)
+
+El rolling puro tenía un riesgo: una sesión usada con regularidad **nunca caduca**,
+así que una cookie robada daba acceso indefinido, y cambiar la contraseña **no**
+mataba las sesiones existentes. Se añadió:
+
+1. **Techo absoluto de sesión** (default **90 días** desde el login, configurable):
+   independientemente del rolling, una sesión muere a los N días del login.
+2. **Revocación de sesiones al cambiar/resetear contraseña**: se borran las demás
+   sesiones del usuario en la tabla `sessions`.
+3. **Validación/clamp de los ENV de días**: un valor inválido (`NaN`, `0`, `"30d"`)
+   ya no degrada silenciosamente la expiración; cae al default y se acota a un máximo.
 
 ## Contexto técnico
 
@@ -28,11 +44,16 @@ La duración la controlan dos valores que deben ir sincronizados:
 session: {
   secret: process.env.SESSION_SECRET || crypto.randomBytes(64).toString('hex'),
   cookieDomain: process.env.COOKIE_DOMAIN,
-  // Duración de la sesión logueada en días. Rolling: se cuenta desde la última
-  // actividad, no desde el login. Configurable sin recompilar.
-  maxAgeDays: parseInt(process.env.SESSION_MAX_AGE_DAYS || '30', 10),
+  // Ventana de inactividad (rolling). Se renueva en cada request.
+  maxAgeDays: parseDaysEnv(process.env.SESSION_MAX_AGE_DAYS, 30, 365),
+  // Techo absoluto desde el LOGIN, sin importar la actividad.
+  absoluteMaxAgeDays: parseDaysEnv(process.env.SESSION_ABSOLUTE_MAX_AGE_DAYS, 90, 365),
 },
 ```
+
+`parseDaysEnv(raw, fallback, max)` (en el mismo `config.ts`) parsea un ENV de
+días con clamp: `NaN`/`""`/`"30d"`/`0`/negativo → `fallback`; un valor válido se
+acota a `max`. Evita que un typo en el ENV degrade la expiración de la sesión.
 
 ### 2. `apps/api/src/index.ts` (bloque `sessionMiddleware`)
 
@@ -66,33 +87,68 @@ Con `rolling: true`, `express-session` reescribe la cookie en cada respuesta y
 fila en `sessions` se extienden con cada request. No requiere cambios en
 `session.entity.ts`.
 
+### 3. Techo absoluto — `middleware/sessionExpiry.ts`
+
+`enforceAbsoluteSessionExpiry` se monta **después de `passport.session()`** en
+`index.ts`. Sella el login con `req.session.loginAt` (epoch ms; el login lo fija
+en `authController.ts` tras el `regenerate()`) y, en cada request autenticado:
+
+- Si `loginAt` está ausente (sesiones creadas **antes** de este deploy) → la sella
+  con `Date.now()` y continúa (no se expulsa a nadie al desplegar).
+- Si `Date.now() - loginAt > absoluteMaxAgeDays` → `req.logout()` +
+  `req.session.destroy()` + `clearCookie('emaus.sid')` + responde **401**.
+
+`loginAt` se declara en `SessionData` (`apps/api/src/types/session.ts` e
+`index.ts`).
+
+### 4. Revocación al cambiar/resetear contraseña — `services/sessionService.ts`
+
+`revokeUserSessions(userId, exceptSessionId?)` borra de la tabla `sessions` las
+filas del usuario, buscando el fragmento que passport serializa en el JSON:
+`"passport":{"user":"<id>"}` (ver `authService.serializeUser`).
+
+- `changePassword` (autenticado) → `revokeUserSessions(userId, req.sessionID)`:
+  mata las **demás** sesiones, conserva la actual (no desloguea a quien la cambia).
+- `resetPassword` (vía token, no autenticado) → `revokeUserSessions(userId)`: mata
+  **todas**.
+
 ## Configuración
 
-Variable de entorno (`apps/api/.env`):
+Variables de entorno (`apps/api/.env`):
 
 ```
-# Duración de la sesión logueada en días (rolling: cuenta desde la última actividad)
+# Ventana de inactividad en días (rolling: cuenta desde la última actividad)
 SESSION_MAX_AGE_DAYS=30
+# Techo absoluto en días desde el login (sin importar la actividad)
+SESSION_ABSOLUTE_MAX_AGE_DAYS=90
 ```
 
-- **Default = 30** (tanto en código como en `.env.example`). Si no se define la
-  variable en producción, igual usa 30.
-- Para cambiar la duración en prod: ajustar `SESSION_MAX_AGE_DAYS` en el `.env` del
-  servidor y reiniciar el API (`pm2 restart`). No requiere recompilar.
+- **Defaults:** `SESSION_MAX_AGE_DAYS=30`, `SESSION_ABSOLUTE_MAX_AGE_DAYS=90`.
+  Un valor inválido/0/negativo cae al default (vía `parseDaysEnv`), acotado a 365.
+- Para cambiar en prod: ajustar el `.env` del servidor y reiniciar el API
+  (`pm2 restart`). No requiere recompilar.
 
 ## Seguridad
 
-Se conservan intactas todas las protecciones previas:
+Protecciones previas (intactas):
 
 - `httpOnly: true` (no accesible desde JS → anti-XSS).
 - `secure` en producción (solo HTTPS).
 - `sameSite: 'strict'` (anti-CSRF).
-- `req.session.regenerate()` en el login (anti session-fixation, en
-  `authController.ts`).
+- `req.session.regenerate()` en el login (anti session-fixation) y
+  `req.session.destroy()` en el logout (`authController.ts`).
 
-Trade-off: una sesión más larga amplía la ventana si se pierde un dispositivo;
-mitigado porque `rolling` expira por inactividad real y la cookie sigue siendo
-`httpOnly`/`secure`.
+Hardening 2026-06-15 (cierra el HIGH del security review del feature CRM):
+
+- **Techo absoluto**: una cookie robada deja de dar acceso indefinido aunque la
+  víctima siga usando la app; caduca a los 90 días del login.
+- **Revocación en cambio de contraseña**: la acción natural ante sospecha de robo
+  (cambiar contraseña) ahora **sí** corta las sesiones del atacante de inmediato.
+- **Clamp de ENV**: un typo (`SESSION_MAX_AGE_DAYS=30d`) ya no produce
+  `maxAge: NaN` ni degrada silenciosamente la expiración.
+
+Trade-off: el techo absoluto obliga a re-login periódico aun con uso continuo; 90
+días equilibra comodidad y exposición. Ajustable por ENV.
 
 ## Verificación
 
@@ -101,6 +157,15 @@ mitigado porque `rolling` expira por inactividad real y la cookie sigue siendo
 2. Hacer una acción cualquiera (navegar/recargar) y confirmar que el `Expires` se
    **recorre hacia adelante** (prueba de `rolling`).
 3. Override: arrancar con `SESSION_MAX_AGE_DAYS=1` → la cookie vuelve a ~24 h.
+4. Techo absoluto: arrancar con `SESSION_ABSOLUTE_MAX_AGE_DAYS=1`, loguearse, y al
+   día siguiente cualquier request devuelve **401** aunque la cookie no haya
+   expirado por inactividad.
+5. Revocación: con dos sesiones abiertas del mismo usuario, cambiar la contraseña en
+   una → la **otra** queda invalidada (el siguiente request da 401); la actual sigue.
+
+Cobertura de tests: `src/tests/security/sessionExpiry.test.ts` (unit del middleware
+y de `parseDaysEnv`) y `src/tests/services/revokeUserSessions.integration.test.ts`
+(integración con la tabla `sessions`).
 
 Prueba real con `curl` (puerto local del API):
 

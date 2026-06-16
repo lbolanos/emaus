@@ -432,11 +432,20 @@ export class MessageSequenceService {
 		retreat: Retreat,
 		contactKey: string | undefined,
 		retreatId: string,
+		escapeHtmlValues = false,
 	): Promise<string> {
 		const tableData = message.includes('{table.')
 			? await this.buildTableData(participant.id, retreatId)
 			: null;
-		return replaceAllVariables(message, participant as any, retreat as any, contactKey, null, tableData);
+		return replaceAllVariables(
+			message,
+			participant as any,
+			retreat as any,
+			contactKey,
+			null,
+			tableData,
+			escapeHtmlValues,
+		);
 	}
 
 	/** Titular (asignado) de una responsabilidad del retiro, por nombre. */
@@ -495,10 +504,11 @@ export class MessageSequenceService {
 	public async processDue(
 		now: Date = new Date(),
 		limit = Number(process.env.SEQUENCE_PROCESS_LIMIT) || 200,
+		retreatId?: string,
 	): Promise<number> {
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		// Solo de secuencias activas; pendientes o fallidos con reintentos restantes.
-		const due = await repo
+		const dueQb = repo
 			.createQueryBuilder('sm')
 			.leftJoinAndSelect('sm.participant', 'participant')
 			.leftJoinAndSelect('sm.retreat', 'retreat')
@@ -509,10 +519,13 @@ export class MessageSequenceService {
 			.andWhere('seq.isActive = :active', { active: true })
 			.andWhere("(sm.status = 'pending' OR (sm.status = 'failed' AND sm.attempts < :max))", {
 				max: MAX_ATTEMPTS,
-			})
-			.orderBy('sm.scheduledFor', 'ASC')
-			.take(limit)
-			.getMany();
+			});
+		// Scope opcional por retiro: el disparo manual (runNow) solo debe procesar su
+		// propio retiro; el cron horario lo llama sin filtro (global del sistema).
+		if (retreatId) {
+			dueQb.andWhere('sm.retreatId = :retreatId', { retreatId });
+		}
+		const due = await dueQb.orderBy('sm.scheduledFor', 'ASC').take(limit).getMany();
 
 		// Tope diario por participante (0 = desactivado). Cuenta los ya enviados/encolados
 		// hoy para no exceder el límite; los excedentes se posponen (quedan pending).
@@ -535,6 +548,16 @@ export class MessageSequenceService {
 
 		let processed = 0;
 		for (const sm of due) {
+			// Claim atómico: marca la fila como 'processing' solo si sigue en el estado
+			// con que la leímos. Si otra corrida concurrente (cron, runNow, o el
+			// fire-and-forget del alta) ya la tomó, affected=0 → la saltamos. Evita el
+			// doble envío del mismo mensaje a un participante.
+			const claim = await repo.update(
+				{ id: sm.id, status: sm.status },
+				{ status: 'processing' },
+			);
+			if (!claim.affected) continue;
+
 			const participant = sm.participant;
 			const retreat = sm.retreat;
 			if (!participant || !retreat) {
@@ -679,7 +702,18 @@ export class MessageSequenceService {
 				continue;
 			}
 			const subject = template.name || 'Mensaje';
-			const html = convertHtmlToEmail(content, { format: 'enhanced' });
+			// HTML del email: re-resuelve escapando los valores de las variables
+			// (anti-inyección de HTML vía datos del participante). El `text` plano usa
+			// el `content` sin escapar para no mostrar entidades (&amp;) al destinatario.
+			const htmlContent = await this.resolveContent(
+				template.message,
+				participant,
+				retreat,
+				recipient.contactKey,
+				sm.retreatId,
+				true,
+			);
+			const html = convertHtmlToEmail(htmlContent, { format: 'enhanced' });
 			const text = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 			try {
 				const ok = await this.emailService.sendEmail({ to: recipient.email, subject, html, text });
@@ -1028,6 +1062,11 @@ export class MessageSequenceService {
 	}
 
 	/** Asigna (o reasigna) el pendiente a un coordinador responsable de enviarlo. */
+	/** Carga un mensaje programado sin mutarlo (para validar acceso antes de actuar). */
+	async getScheduledById(id: string): Promise<ScheduledMessage | null> {
+		return AppDataSource.getRepository(ScheduledMessage).findOne({ where: { id } });
+	}
+
 	async assign(id: string, userId: string | null): Promise<ScheduledMessage | null> {
 		const repo = AppDataSource.getRepository(ScheduledMessage);
 		const sm = await repo.findOne({ where: { id } });
@@ -1207,7 +1246,9 @@ export class MessageSequenceService {
 		for (const seq of sequences) {
 			if (seq.isActive) enrolled += await this.enrollSequence(seq);
 		}
-		const processed = await this.processDue();
+		// Scopeado a este retiro: el alta de un participante no debe disparar envíos
+		// de otros retiros.
+		const processed = await this.processDue(new Date(), undefined, retreatId);
 		return { enrolled, processed };
 	}
 

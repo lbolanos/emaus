@@ -840,7 +840,7 @@ async function onCopyPublicLink() {
     });
   } catch {
     // Fallback: open in new tab so they can copy from the URL bar
-    window.open(url, '_blank');
+    window.open(url, '_blank', 'noopener,noreferrer');
   }
 }
 

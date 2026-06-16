@@ -7,7 +7,11 @@ import { User } from '../entities/user.entity';
 import { Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { domainAuditService } from '../services/domainAuditService';
 import { findAllParticipants } from '../services/participantService';
-import { ensureRetreatAccess } from '../middleware/authorization';
+import {
+	ensureRetreatAccess,
+	filterByRetreatAccess,
+	authorizationService,
+} from '../middleware/authorization';
 
 interface WhereClause {
 	retreatId?: string;
@@ -109,6 +113,22 @@ export class PaymentController {
 		try {
 			const { retreatId, participantId, startDate, endDate, paymentMethod } = req.query;
 
+			const userId = (req.user as any)?.id;
+			if (!userId) {
+				return res.status(401).json({ message: 'No autorizado' });
+			}
+
+			// Scope obligatorio por retiro: sin un retreatId validado, un usuario con
+			// `payment:list` (scoped a sus retiros) volcaría los pagos de todo el sistema.
+			// Superadmin sí puede listar sin filtro.
+			const isSuperadmin = await authorizationService.hasRole(userId, 'superadmin');
+			if (!isSuperadmin) {
+				if (!retreatId || typeof retreatId !== 'string') {
+					return res.status(400).json({ message: 'Se requiere especificar el retiro (retreatId)' });
+				}
+				if (!(await ensureRetreatAccess(req, res, retreatId))) return;
+			}
+
 			const paymentRepository = AppDataSource.getRepository(Payment);
 
 			let where: any = {};
@@ -165,6 +185,8 @@ export class PaymentController {
 			if (!payment) {
 				return res.status(404).json({ message: 'Pago no encontrado' });
 			}
+
+			if (!(await ensureRetreatAccess(req, res, payment.retreatId))) return;
 
 			res.json(payment);
 		} catch (error) {
@@ -251,6 +273,11 @@ export class PaymentController {
 		try {
 			const { participantId } = req.params;
 
+			const userId = (req.user as any)?.id;
+			if (!userId) {
+				return res.status(401).json({ message: 'No autorizado' });
+			}
+
 			const paymentRepository = AppDataSource.getRepository(Payment);
 
 			const payments = await paymentRepository.find({
@@ -259,7 +286,11 @@ export class PaymentController {
 				order: { paymentDate: 'DESC', createdAt: 'DESC' },
 			});
 
-			res.json(payments);
+			// Un participante puede aparecer en varios retiros: devolver solo los pagos
+			// de retiros a los que el usuario tiene acceso (evita IDOR cross-retiro).
+			const accessible = await filterByRetreatAccess(userId, payments);
+
+			res.json(accessible);
 		} catch (error) {
 			console.error('Error getting participant payments:', error);
 			res.status(500).json({ message: 'Error al obtener pagos del participante' });

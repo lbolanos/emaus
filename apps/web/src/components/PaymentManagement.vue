@@ -715,9 +715,8 @@ onMounted(async () => {
 	if (activeRetreatId.value) {
 		await paymentStore.fetchPayments(buildFetchFilters());
 		loadSummary();
-	} else {
-		await paymentStore.fetchPayments();
 	}
+	// Sin retiro seleccionado no se cargan pagos: el endpoint exige scope por retiro.
 });
 
 // Watch for sidebar retreat selection changes

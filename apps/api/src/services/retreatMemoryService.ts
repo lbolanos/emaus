@@ -80,6 +80,9 @@ export const retreatMemoryService = {
 			url = result.url;
 			s3Key = result.key;
 		} else {
+			// Modo base64 (sin S3): el formato/tamaño se validan en la frontera
+			// (createRetreatMemoryPhotoSchema en la ruta POST /:id/memory-photos), que
+			// es el único caller. Aquí solo se persiste el data-URI ya validado.
 			url = photoData;
 		}
 

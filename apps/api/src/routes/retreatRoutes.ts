@@ -30,6 +30,7 @@ import { validateRequest } from '../middleware/validateRequest';
 import {
 	createRetreatSchema,
 	updateRetreatSchema,
+	createRetreatMemoryPhotoSchema,
 	createRetreatMemorySongSchema,
 	updateRetreatMemorySongSchema,
 } from '@repo/types';
@@ -90,7 +91,12 @@ router.put('/:id/memory', requireRetreatAccess('id'), updateRetreatMemory);
 // Retreat memory gallery routes (multiple photos + songs)
 router.get('/:id/memories', requireRetreatAccess('id'), getRetreatMemories);
 
-router.post('/:id/memory-photos', requireRetreatAccess('id'), addRetreatMemoryPhoto);
+router.post(
+	'/:id/memory-photos',
+	requireRetreatAccess('id'),
+	validateRequest(createRetreatMemoryPhotoSchema),
+	addRetreatMemoryPhoto,
+);
 router.delete(
 	'/:id/memory-photos/:photoId',
 	requireRetreatAccess('id'),

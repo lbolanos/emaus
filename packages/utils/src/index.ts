@@ -484,6 +484,26 @@ const getMockParticipant = (): ParticipantData => {
 };
 
 /**
+ * Escapa los caracteres HTML peligrosos de un valor de variable.
+ *
+ * SECURITY: los VALORES de las variables ({participant.firstName}, notas, etc.)
+ * son datos auto-reportados por el participante, no markup. Cuando el mensaje se
+ * renderiza como HTML (email), interpolarlos sin escapar permite inyectar enlaces
+ * / contenido en el correo que llega a un tercero (invitador/líder) → phishing.
+ * El template en sí SÍ es HTML de confianza (lo escribe el coordinador), por eso
+ * el escape se aplica al valor, no al mensaje completo, y solo en el path de email
+ * (`replace*Variables(..., escapeHtmlValues=true)`). WhatsApp y el preview de UI
+ * (que ya pasa por DOMPurify) no lo activan.
+ */
+const escapeHtmlValue = (value: string): string =>
+	String(value ?? '')
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+
+/**
  * Builds the participant variable replacement map from real data (no mock
  * fallback). Used by replaceParticipantVariables and findEmptyVariables.
  */
@@ -643,13 +663,15 @@ export const replaceParticipantVariables = (
 	message: string,
 	participant: ParticipantData | null | undefined,
 	selectedContactKey?: string,
+	escapeHtmlValues = false,
 ): string => {
 	const participantData = participant || getMockParticipant();
 	const participantReplacements = buildParticipantReplacements(participantData, selectedContactKey);
 
 	let processedMessage = message;
 	Object.entries(participantReplacements).forEach(([key, value]) => {
-		processedMessage = processedMessage.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
+		const safe = escapeHtmlValues ? escapeHtmlValue(value) : value;
+		processedMessage = processedMessage.replace(new RegExp(`\\{${key}\\}`, 'g'), () => safe);
 	});
 
 	return processedMessage;
@@ -722,13 +744,15 @@ const buildRetreatReplacements = (retreatData: RetreatData): Record<string, stri
 export const replaceRetreatVariables = (
 	message: string,
 	retreat: RetreatData | null | undefined,
+	escapeHtmlValues = false,
 ): string => {
 	const retreatData = retreat || getMockRetreat();
 	const retreatReplacements = buildRetreatReplacements(retreatData);
 
 	let processedMessage = message;
 	Object.entries(retreatReplacements).forEach(([key, value]) => {
-		processedMessage = processedMessage.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
+		const safe = escapeHtmlValues ? escapeHtmlValue(value) : value;
+		processedMessage = processedMessage.replace(new RegExp(`\\{${key}\\}`, 'g'), () => safe);
 	});
 
 	return processedMessage;
@@ -772,12 +796,14 @@ const buildCommunityReplacements = (data: CommunityData): Record<string, string>
 export const replaceCommunityVariables = (
 	message: string,
 	community: CommunityData | null | undefined,
+	escapeHtmlValues = false,
 ): string => {
 	const data = community || getMockCommunity();
 	const replacements = buildCommunityReplacements(data);
 	let out = message;
 	for (const [k, v] of Object.entries(replacements)) {
-		out = out.replace(new RegExp(`\\{${k}\\}`, 'g'), v);
+		const safe = escapeHtmlValues ? escapeHtmlValue(v) : v;
+		out = out.replace(new RegExp(`\\{${k}\\}`, 'g'), () => safe);
 	}
 	return out;
 };
@@ -894,12 +920,14 @@ const getMockTable = (): TableData => ({
 export const replaceTableVariables = (
 	message: string,
 	table: TableData | null | undefined,
+	escapeHtmlValues = false,
 ): string => {
 	const data = table || getMockTable();
 	const replacements = buildTableReplacements(data);
 	let out = message;
 	for (const [k, v] of Object.entries(replacements)) {
-		out = out.replace(new RegExp(`\\{${k}\\}`, 'g'), v);
+		const safe = escapeHtmlValues ? escapeHtmlValue(v) : v;
+		out = out.replace(new RegExp(`\\{${k}\\}`, 'g'), () => safe);
 	}
 	return out;
 };
@@ -967,27 +995,36 @@ export const replaceAllVariables = (
 	selectedContactKey?: string,
 	community?: CommunityData | null,
 	table?: TableData | null,
+	// SECURITY: escapa los VALORES de las variables. Activar SOLO cuando el
+	// resultado se renderiza como HTML (email). Para texto plano (WhatsApp) o
+	// preview de UI con DOMPurify, dejar en false. Ver `escapeHtmlValue`.
+	escapeHtmlValues = false,
 ): string => {
 	let processedMessage = message;
 
 	// Replace participant variables
-	processedMessage = replaceParticipantVariables(processedMessage, participant, selectedContactKey);
+	processedMessage = replaceParticipantVariables(
+		processedMessage,
+		participant,
+		selectedContactKey,
+		escapeHtmlValues,
+	);
 
 	// Replace retreat variables
-	processedMessage = replaceRetreatVariables(processedMessage, retreat);
+	processedMessage = replaceRetreatVariables(processedMessage, retreat, escapeHtmlValues);
 
 	// Replace community variables when provided. We do NOT fall back to mock
 	// data here because most retreat-scoped callers don't deal with community
 	// context — the {community.*} placeholders simply stay unresolved.
 	if (community !== undefined) {
-		processedMessage = replaceCommunityVariables(processedMessage, community);
+		processedMessage = replaceCommunityVariables(processedMessage, community, escapeHtmlValues);
 	}
 
 	// Replace table variables when provided. Same rationale as community: most
 	// callers don't have a table context, so {table.*} stays unresolved unless
 	// a TableData is explicitly passed (table briefing flow).
 	if (table !== undefined) {
-		processedMessage = replaceTableVariables(processedMessage, table);
+		processedMessage = replaceTableVariables(processedMessage, table, escapeHtmlValues);
 	}
 
 	return processedMessage;
