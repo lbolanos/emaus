@@ -10,6 +10,21 @@ async function callerHasRetreatAccess(req: Request, retreatId: string): Promise<
 }
 
 export class CrmController {
+	// POST /crm/retreat/:retreatId/participants/:participantId/do-not-contact { value }
+	setDoNotContact = async (req: Request, res: Response) => {
+		try {
+			const updated = await crmService.setDoNotContact(
+				req.params.participantId,
+				req.body?.value !== false,
+			);
+			if (!updated) return res.status(404).json({ error: 'Participante no encontrado' });
+			res.json({ id: updated.id, doNotContact: updated.doNotContact });
+		} catch (error) {
+			console.error('Error setting do-not-contact:', error);
+			res.status(500).json({ error: 'Error al actualizar la lista de no-contacto' });
+		}
+	};
+
 	// --- Follow-up ---
 
 	// GET /crm/retreat/:retreatId/follow-ups  (gated por requireRetreatAccess)

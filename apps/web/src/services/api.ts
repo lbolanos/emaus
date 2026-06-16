@@ -12,6 +12,7 @@ import type {
   SavedSegment,
   SegmentFilters,
   MessageSequence,
+  GlobalMessageSequence,
   ParticipantFollowUp,
   CrmTask,
   FollowUpStatus,
@@ -3038,16 +3039,44 @@ export interface ScheduledMessageQueueItem {
   retreatId: string;
   channel: "email" | "whatsapp";
   templateType: string;
+  recipientTarget?: "participant" | "emergencyContact1" | "emergencyContact2";
   scheduledFor: string;
   status: string;
+  // Estado de seguimiento del participante (solo en la bandeja), para dar contexto.
+  followUpStatus?: string | null;
+  error?: string | null;
+  // Snapshot resuelto al encolar/procesar (la bandeja despacha sin recalcular).
+  resolvedContent?: string | null;
+  resolvedContact?: string | null;
+  recipientName?: string | null;
+  // Ownership/auditoría del despacho de WhatsApp.
+  assignedTo?: string | null;
+  openedAt?: string | null;
+  dispatchedBy?: string | null;
   participant?: {
     id: string;
     firstName: string;
     lastName: string;
     cellPhone?: string;
+    emergencyContact1Name?: string;
+    emergencyContact1CellPhone?: string;
+    emergencyContact2Name?: string;
+    emergencyContact2CellPhone?: string;
   };
   step?: { id: string; templateType: string; channel: string };
 }
+
+export interface SequenceStatsResponse {
+  stats: Record<string, Record<string, number>>;
+  issues: ScheduledMessageQueueItem[];
+}
+
+export const getSequenceStats = async (
+  retreatId: string,
+): Promise<SequenceStatsResponse> => {
+  const r = await api.get(`/message-sequences/retreat/${retreatId}/stats`);
+  return r.data;
+};
 
 export const getRetreatSequences = async (
   retreatId: string,
@@ -3082,6 +3111,49 @@ export const getSequenceQueue = async (
   return r.data;
 };
 
+/** Detalle del participante de un pendiente (notas, cartas, seguimiento, historial). */
+export interface ScheduledMessageDetail {
+  message: {
+    id: string;
+    templateType: string;
+    recipientTarget: string;
+    recipientName: string | null;
+    resolvedContent: string | null;
+    scheduledFor: string;
+    status: string;
+    retreatId: string;
+  };
+  participant: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    notes: string | null;
+    doNotContact: boolean;
+  };
+  palancas: {
+    requested: boolean | null;
+    received: string | null;
+    notes: string | null;
+    coordinator: string | null;
+  };
+  followUp: { status: string; note: string | null } | null;
+  communications: Array<{
+    id: string;
+    messageType: string;
+    templateName: string | null;
+    subject: string | null;
+    recipientName: string | null;
+    sentAt: string;
+  }>;
+}
+
+export const getScheduledMessageDetail = async (
+  id: string,
+): Promise<ScheduledMessageDetail> => {
+  const r = await api.get(`/message-sequences/scheduled/${id}/detail`);
+  return r.data;
+};
+
 export const runSequences = async (
   retreatId: string,
 ): Promise<{ enrolled: number; processed: number }> => {
@@ -3089,8 +3161,118 @@ export const runSequences = async (
   return r.data;
 };
 
+/** Refresca el snapshot de los pendientes de la bandeja con la plantilla vigente. */
+export const regenerateSequenceQueue = async (
+  retreatId: string,
+): Promise<{ regenerated: number }> => {
+  const r = await api.post(`/message-sequences/retreat/${retreatId}/regenerate-queue`);
+  return r.data;
+};
+
+/** Reenvía o descarta en masa los mensajes con problema (failed/skipped) del retiro. */
+export const bulkResolveSequenceIssues = async (
+  retreatId: string,
+  action: 'retry' | 'discard',
+): Promise<{ affected: number }> => {
+  const r = await api.post(`/message-sequences/retreat/${retreatId}/issues/bulk`, { action });
+  return r.data;
+};
+
 export const dispatchScheduledMessage = async (id: string): Promise<void> => {
   await api.post(`/message-sequences/scheduled/${id}/dispatch`);
+};
+
+export const skipScheduledMessage = async (id: string): Promise<void> => {
+  await api.post(`/message-sequences/scheduled/${id}/skip`);
+};
+
+/** Re-encola un mensaje fallido para que vuelva a intentarse. */
+export const retryScheduledMessage = async (id: string): Promise<void> => {
+  await api.post(`/message-sequences/scheduled/${id}/retry`);
+};
+
+/** Descarta un mensaje con problema (no se envía ni reaparece). */
+export const discardScheduledMessage = async (id: string): Promise<void> => {
+  await api.post(`/message-sequences/scheduled/${id}/discard`);
+};
+
+/** Registra que se abrió el deep-link (≠ enviado). */
+export const openScheduledMessage = async (id: string): Promise<void> => {
+  await api.post(`/message-sequences/scheduled/${id}/open`);
+};
+
+/** Asigna (o libera con null) el pendiente a un coordinador. */
+export const assignScheduledMessage = async (
+  id: string,
+  userId: string | null,
+): Promise<void> => {
+  await api.post(`/message-sequences/scheduled/${id}/assign`, { userId });
+};
+
+/** Marca/desmarca a un participante como no-contactable (opt-out). */
+export const setParticipantDoNotContact = async (
+  retreatId: string,
+  participantId: string,
+  value: boolean,
+): Promise<{ id: string; doNotContact: boolean }> => {
+  const r = await api.post(
+    `/crm/retreat/${retreatId}/participants/${participantId}/do-not-contact`,
+    { value },
+  );
+  return r.data;
+};
+
+// ---------------------------------------------------------------------------
+// Plantillas globales de secuencias (reutilizables en cualquier retiro).
+// ---------------------------------------------------------------------------
+
+export const getGlobalSequences = async (): Promise<GlobalMessageSequence[]> => {
+  const r = await api.get("/global-message-sequences");
+  return r.data;
+};
+
+export const getGlobalSequence = async (
+  id: string,
+): Promise<GlobalMessageSequence> => {
+  const r = await api.get(`/global-message-sequences/${id}`);
+  return r.data;
+};
+
+export const createGlobalSequence = async (
+  data: Record<string, unknown>,
+): Promise<GlobalMessageSequence> => {
+  const r = await api.post("/global-message-sequences", data);
+  return r.data;
+};
+
+export const updateGlobalSequence = async (
+  id: string,
+  data: Record<string, unknown>,
+): Promise<GlobalMessageSequence> => {
+  const r = await api.put(`/global-message-sequences/${id}`, data);
+  return r.data;
+};
+
+export const deleteGlobalSequence = async (id: string): Promise<void> => {
+  await api.delete(`/global-message-sequences/${id}`);
+};
+
+export const toggleGlobalSequenceActive = async (
+  id: string,
+): Promise<GlobalMessageSequence> => {
+  const r = await api.post(`/global-message-sequences/${id}/toggle-active`);
+  return r.data;
+};
+
+/** Importa una plantilla global a un retiro (crea una secuencia inactiva). */
+export const copyGlobalSequenceToRetreat = async (
+  id: string,
+  retreatId: string,
+): Promise<MessageSequence> => {
+  const r = await api.post(`/global-message-sequences/${id}/copy-to-retreat`, {
+    retreatId,
+  });
+  return r.data;
 };
 
 // ---------------------------------------------------------------------------

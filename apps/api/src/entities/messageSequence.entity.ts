@@ -19,8 +19,11 @@ export type SequenceTrigger =
 	| 'days_after_retreat' // N días después del fin del retiro
 	| 'birthday'; // en torno al cumpleaños
 
-/** Audiencia base (Fase 2). Fase 3 añade segmentId para audiencias dinámicas. */
-export type SequenceAudience = 'walker' | 'server' | 'all';
+/**
+ * Audiencia base. 'table_leaders' = líderes/colíderes de mesa del retiro.
+ * Fase 3 añade segmentId para audiencias dinámicas.
+ */
+export type SequenceAudience = 'walker' | 'server' | 'all' | 'table_leaders' | 'responsables';
 
 /**
  * Una secuencia de mensajes automatizada (drip) ligada a un retiro. Define un
@@ -57,6 +60,11 @@ export class MessageSequence {
 
 	@Column({ type: 'boolean', default: true })
 	isActive!: boolean;
+
+	// Ventana de gracia: no enviar un paso vencido hace más de N días
+	// (null = sin límite; comportamiento histórico de catch-up).
+	@Column({ type: 'integer', nullable: true })
+	maxOverdueDays?: number | null;
 
 	@Column({ type: 'uuid', nullable: true })
 	createdBy?: string | null;

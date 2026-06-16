@@ -9,22 +9,34 @@ describe('getMessageTemplateAudience', () => {
 			'WALKER_FOLLOWUP_YEAR_1',
 			'WALKER_REUNION_INVITATION',
 			'WALKER_CONFIRMATION',
-			'PRE_RETREAT_REMINDER',
-			'PAYMENT_REMINDER',
 			'POST_RETREAT_MESSAGE',
-			'CANCELLATION_CONFIRMATION',
-			'BIRTHDAY_MESSAGE',
-			// Se envía AL caminante para confirmar su contacto de emergencia.
-			'EMERGENCY_CONTACT_VALIDATION',
 		]) {
 			expect(getMessageTemplateAudience(t)).toBe('walker');
 		}
 	});
 
-	it('clasifica plantillas de servidor', () => {
-		for (const t of ['SERVER_WELCOME', 'TABLE_LEADER_BRIEFING', 'PALANQUERO_NEW_WALKER']) {
-			expect(getMessageTemplateAudience(t)).toBe('server');
+	it('clasifica como participante (caminante y servidor) las que aplican a ambos', () => {
+		for (const t of [
+			'PRE_RETREAT_REMINDER',
+			'PAYMENT_REMINDER',
+			'CANCELLATION_CONFIRMATION',
+			'BIRTHDAY_MESSAGE',
+			'EMERGENCY_CONTACT_VALIDATION',
+		]) {
+			expect(getMessageTemplateAudience(t)).toBe('participant');
 		}
+	});
+
+	it('clasifica plantillas de servidor', () => {
+		expect(getMessageTemplateAudience('SERVER_WELCOME')).toBe('server');
+	});
+
+	it('clasifica briefing de mesa como líder/colíder', () => {
+		expect(getMessageTemplateAudience('TABLE_LEADER_BRIEFING')).toBe('table_leader');
+	});
+
+	it('clasifica aviso de palanquero como responsable', () => {
+		expect(getMessageTemplateAudience('PALANQUERO_NEW_WALKER')).toBe('responsible');
 	});
 
 	it('clasifica plantillas de familiar (palanquero / familia)', () => {

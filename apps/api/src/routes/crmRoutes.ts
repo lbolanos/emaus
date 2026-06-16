@@ -11,6 +11,11 @@ router.use(isAuthenticated);
 // Listados por retiro (gated por acceso al retiro).
 router.get('/retreat/:retreatId/follow-ups', requireRetreatAccess('retreatId'), controller.listFollowUps);
 router.get('/retreat/:retreatId/tasks', requireRetreatAccess('retreatId'), controller.listTasks);
+router.post(
+	'/retreat/:retreatId/participants/:participantId/do-not-contact',
+	requireRetreatAccess('retreatId'),
+	controller.setDoNotContact,
+);
 
 // Mutaciones: autorización por recurso dentro del controller.
 router.post('/follow-ups', controller.upsertFollowUp);

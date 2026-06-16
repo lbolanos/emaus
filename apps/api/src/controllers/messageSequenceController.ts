@@ -80,6 +80,21 @@ export class MessageSequenceController {
 		}
 	};
 
+	// GET /message-sequences/retreat/:retreatId/stats — métricas + problemas por secuencia
+	getStats = async (req: Request, res: Response) => {
+		try {
+			const { retreatId } = req.params;
+			const [stats, issues] = await Promise.all([
+				messageSequenceService.getStatsByRetreat(retreatId),
+				messageSequenceService.getIssuesByRetreat(retreatId),
+			]);
+			res.json({ stats, issues });
+		} catch (error) {
+			console.error('Error fetching sequence stats:', error);
+			res.status(500).json({ error: 'Error al obtener las métricas de secuencias' });
+		}
+	};
+
 	// GET /message-sequences/retreat/:retreatId/queue — bandeja de pendientes WhatsApp
 	getQueue = async (req: Request, res: Response) => {
 		try {
@@ -91,11 +106,27 @@ export class MessageSequenceController {
 		}
 	};
 
+	// GET /message-sequences/scheduled/:id/detail — detalle del participante del pendiente
+	getQueueItemDetail = async (req: Request, res: Response) => {
+		try {
+			const { id } = req.params;
+			const detail = await messageSequenceService.getQueueItemDetail(id);
+			if (!detail) return res.status(404).json({ error: 'Mensaje programado no encontrado' });
+			if (!(await callerHasRetreatAccess(req, detail.message.retreatId))) {
+				return res.status(403).json({ error: 'Forbidden' });
+			}
+			res.json(detail);
+		} catch (error) {
+			console.error('Error fetching queue item detail:', error);
+			res.status(500).json({ error: 'Error al obtener el detalle del pendiente' });
+		}
+	};
+
 	// POST /message-sequences/scheduled/:id/dispatch — marcar pendiente WhatsApp como enviado
 	markDispatched = async (req: Request, res: Response) => {
 		try {
 			const { id } = req.params;
-			const updated = await messageSequenceService.markDispatched(id);
+			const updated = await messageSequenceService.markDispatched(id, (req.user as any)?.id);
 			if (!updated) return res.status(404).json({ error: 'Mensaje programado no encontrado' });
 			if (!(await callerHasRetreatAccess(req, updated.retreatId))) {
 				return res.status(403).json({ error: 'Forbidden' });
@@ -104,6 +135,87 @@ export class MessageSequenceController {
 		} catch (error) {
 			console.error('Error marking dispatched:', error);
 			res.status(500).json({ error: 'Error al marcar como enviado' });
+		}
+	};
+
+	// POST /message-sequences/scheduled/:id/open — registrar que se abrió el deep-link
+	markOpened = async (req: Request, res: Response) => {
+		try {
+			const { id } = req.params;
+			const updated = await messageSequenceService.markOpened(id);
+			if (!updated) return res.status(404).json({ error: 'Mensaje programado no encontrado' });
+			if (!(await callerHasRetreatAccess(req, updated.retreatId))) {
+				return res.status(403).json({ error: 'Forbidden' });
+			}
+			res.json(updated);
+		} catch (error) {
+			console.error('Error marking opened:', error);
+			res.status(500).json({ error: 'Error al registrar la apertura' });
+		}
+	};
+
+	// POST /message-sequences/scheduled/:id/assign  { userId }
+	assign = async (req: Request, res: Response) => {
+		try {
+			const { id } = req.params;
+			const userId = req.body?.userId ?? null;
+			const updated = await messageSequenceService.assign(id, userId);
+			if (!updated) return res.status(404).json({ error: 'Mensaje programado no encontrado' });
+			if (!(await callerHasRetreatAccess(req, updated.retreatId))) {
+				return res.status(403).json({ error: 'Forbidden' });
+			}
+			res.json(updated);
+		} catch (error) {
+			console.error('Error assigning scheduled message:', error);
+			res.status(500).json({ error: 'Error al asignar el mensaje' });
+		}
+	};
+
+	// POST /message-sequences/scheduled/:id/skip — omitir un pendiente (no se envía)
+	markSkipped = async (req: Request, res: Response) => {
+		try {
+			const { id } = req.params;
+			const updated = await messageSequenceService.markSkipped(id, (req.user as any)?.id);
+			if (!updated) return res.status(404).json({ error: 'Mensaje programado no encontrado' });
+			if (!(await callerHasRetreatAccess(req, updated.retreatId))) {
+				return res.status(403).json({ error: 'Forbidden' });
+			}
+			res.json(updated);
+		} catch (error) {
+			console.error('Error skipping scheduled message:', error);
+			res.status(500).json({ error: 'Error al omitir el mensaje' });
+		}
+	};
+
+	// POST /message-sequences/scheduled/:id/retry — re-encolar un fallido
+	retry = async (req: Request, res: Response) => {
+		try {
+			const { id } = req.params;
+			const updated = await messageSequenceService.retryScheduled(id, (req.user as any)?.id);
+			if (!updated) return res.status(404).json({ error: 'Mensaje programado no encontrado' });
+			if (!(await callerHasRetreatAccess(req, updated.retreatId))) {
+				return res.status(403).json({ error: 'Forbidden' });
+			}
+			res.json(updated);
+		} catch (error) {
+			console.error('Error retrying scheduled message:', error);
+			res.status(500).json({ error: 'Error al reintentar el mensaje' });
+		}
+	};
+
+	// POST /message-sequences/scheduled/:id/discard — descartar (no se enviará ni reaparece)
+	discard = async (req: Request, res: Response) => {
+		try {
+			const { id } = req.params;
+			const updated = await messageSequenceService.discardScheduled(id, (req.user as any)?.id);
+			if (!updated) return res.status(404).json({ error: 'Mensaje programado no encontrado' });
+			if (!(await callerHasRetreatAccess(req, updated.retreatId))) {
+				return res.status(403).json({ error: 'Forbidden' });
+			}
+			res.json(updated);
+		} catch (error) {
+			console.error('Error discarding scheduled message:', error);
+			res.status(500).json({ error: 'Error al descartar el mensaje' });
 		}
 	};
 
@@ -121,6 +233,36 @@ export class MessageSequenceController {
 		} catch (error) {
 			console.error('Error running sequences:', error);
 			res.status(500).json({ error: 'Error al ejecutar las secuencias' });
+		}
+	};
+
+	// POST /message-sequences/retreat/:retreatId/issues/bulk — reenviar/descartar
+	// en masa todos los mensajes con problema (failed/skipped) del retiro.
+	bulkIssues = async (req: Request, res: Response) => {
+		try {
+			const { retreatId } = req.params;
+			const action = req.body?.action;
+			if (action !== 'retry' && action !== 'discard') {
+				return res.status(400).json({ error: 'Acción inválida (retry|discard)' });
+			}
+			const affected = await messageSequenceService.bulkResolveIssues(retreatId, action);
+			res.json({ affected });
+		} catch (error) {
+			console.error('Error in bulk issues:', error);
+			res.status(500).json({ error: 'Error al procesar los mensajes con problema' });
+		}
+	};
+
+	// POST /message-sequences/retreat/:retreatId/regenerate-queue — refresca el
+	// snapshot de los pendientes de la bandeja con la plantilla vigente.
+	regenerateQueue = async (req: Request, res: Response) => {
+		try {
+			const { retreatId } = req.params;
+			const regenerated = await messageSequenceService.regenerateQueuedForRetreat(retreatId);
+			res.json({ regenerated });
+		} catch (error) {
+			console.error('Error regenerating queue:', error);
+			res.status(500).json({ error: 'Error al regenerar la bandeja' });
 		}
 	};
 }

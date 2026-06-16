@@ -501,7 +501,10 @@ const buildParticipantReplacements = (
 	return {
 		'participant.firstName': participantData.firstName || '',
 		'participant.lastName': participantData.lastName || '',
-		'participant.nickname': participantData.nickname || '',
+		// Si no hay apodo, usar un nombre corto (el primer nombre de pila) en vez de
+		// dejar el saludo en blanco. Muchas plantillas saludan con {participant.nickname}.
+		'participant.nickname':
+			participantData.nickname || (participantData.firstName || '').trim().split(/\s+/)[0] || '',
 		'participant.type': participantData.type || '',
 		'participant.birthDate': participantData.birthDate || '',
 		'participant.maritalStatus': participantData.maritalStatus || '',

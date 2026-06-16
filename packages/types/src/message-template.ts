@@ -58,7 +58,19 @@ export const messageTemplateScope = z.enum(['retreat', 'community']);
  * (no se persiste): caminante, servidor, familiar (contacto de emergencia) o
  * general.
  */
-export const messageTemplateAudiences = z.enum(['walker', 'server', 'family', 'general']);
+export const messageTemplateAudiences = z.enum([
+	'walker',
+	'server',
+	// Aplica a cualquier participante (caminante Y servidor): pago, cancelación,
+	// cumpleaños, validación de contacto, recordatorio pre-retiro, etc.
+	'participant',
+	'family',
+	'general',
+	// Líder/colíder de mesa (briefing de mesa).
+	'table_leader',
+	// Responsable del retiro (palanquero, sacerdotes, coordinadores, etc.).
+	'responsible',
+]);
 export type MessageTemplateAudience = z.infer<typeof messageTemplateAudiences>;
 
 const MESSAGE_TEMPLATE_AUDIENCE_BY_TYPE: Record<string, MessageTemplateAudience> = {
@@ -71,17 +83,19 @@ const MESSAGE_TEMPLATE_AUDIENCE_BY_TYPE: Record<string, MessageTemplateAudience>
 	WALKER_FOLLOWUP_YEAR_1: 'walker',
 	WALKER_REUNION_INVITATION: 'walker',
 	WALKER_CONFIRMATION: 'walker',
-	PRE_RETREAT_REMINDER: 'walker',
-	PAYMENT_REMINDER: 'walker',
 	POST_RETREAT_MESSAGE: 'walker',
-	CANCELLATION_CONFIRMATION: 'walker',
-	BIRTHDAY_MESSAGE: 'walker',
-	// Se envía AL caminante para que confirme su contacto de emergencia.
-	EMERGENCY_CONTACT_VALIDATION: 'walker',
+	// Aplican a cualquier participante (caminante y servidor).
+	PRE_RETREAT_REMINDER: 'participant',
+	PAYMENT_REMINDER: 'participant',
+	CANCELLATION_CONFIRMATION: 'participant',
+	BIRTHDAY_MESSAGE: 'participant',
+	EMERGENCY_CONTACT_VALIDATION: 'participant',
 	// Servidor
 	SERVER_WELCOME: 'server',
-	TABLE_LEADER_BRIEFING: 'server',
-	PALANQUERO_NEW_WALKER: 'server',
+	// Líder/colíder de mesa
+	TABLE_LEADER_BRIEFING: 'table_leader',
+	// Responsable (palanquero recibe el aviso de nuevo caminante)
+	PALANQUERO_NEW_WALKER: 'responsible',
 	// Familiar (palanquero/familia/contacto de emergencia): la palanca se le pide a
 	// un familiar o amigo del caminante; la invitación de clausura va a la familia.
 	PALANCA_REQUEST: 'family',

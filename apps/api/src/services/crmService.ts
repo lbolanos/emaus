@@ -1,6 +1,7 @@
 import { AppDataSource } from '../data-source';
 import { ParticipantFollowUp, FollowUpStatus } from '../entities/participantFollowUp.entity';
 import { CrmTask } from '../entities/crmTask.entity';
+import { Participant } from '../entities/participant.entity';
 
 /**
  * Pipeline de seguimiento de participantes + tareas/recordatorios del
@@ -104,6 +105,17 @@ export class CrmService {
 	async deleteTask(id: string): Promise<boolean> {
 		const result = await AppDataSource.getRepository(CrmTask).delete(id);
 		return (result.affected ?? 0) > 0;
+	}
+
+	// --- Opt-out / lista de no-contacto ---
+
+	/** Marca/desmarca a un participante como no-contactable (afecta a las secuencias). */
+	async setDoNotContact(participantId: string, value: boolean): Promise<Participant | null> {
+		const repo = AppDataSource.getRepository(Participant);
+		const p = await repo.findOne({ where: { id: participantId } });
+		if (!p) return null;
+		p.doNotContact = value;
+		return repo.save(p);
 	}
 }
 

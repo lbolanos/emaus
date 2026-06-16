@@ -12,6 +12,19 @@ import { MessageSequence } from './messageSequence.entity';
 export type MessageChannel = 'email' | 'whatsapp';
 
 /**
+ * A quién va dirigido el paso: al participante, a un contacto de emergencia, al
+ * servidor invitador (palanquero), o al titular de una responsabilidad del
+ * retiro (el nombre va en `recipientResponsibility`).
+ */
+export type MessageRecipientTarget =
+	| 'participant'
+	| 'emergencyContact1'
+	| 'emergencyContact2'
+	| 'inviter'
+	| 'tableLeader'
+	| 'responsibility';
+
+/**
  * Un paso de una secuencia: qué plantilla enviar, por qué canal y con qué
  * desfase temporal respecto al evento del disparador.
  *
@@ -49,6 +62,19 @@ export class SequenceStep {
 
 	@Column({ type: 'varchar', length: 20 })
 	channel!: MessageChannel;
+
+	// Destinatario del paso (participante o contacto de emergencia).
+	@Column({ type: 'varchar', length: 30, default: 'participant' })
+	recipientTarget!: MessageRecipientTarget;
+
+	// Nombre de la responsabilidad destino cuando recipientTarget = 'responsibility'.
+	@Column({ type: 'varchar', length: 100, nullable: true })
+	recipientResponsibility?: string | null;
+
+	// Condición opcional (SegmentFilters): el participante debe cumplirla para
+	// recibir ESTE paso. null = sin condición (todos). simple-json (de)serializa.
+	@Column({ type: 'simple-json', nullable: true })
+	condition?: Record<string, unknown> | null;
 
 	@CreateDateColumn({ type: 'datetime' })
 	createdAt!: Date;
