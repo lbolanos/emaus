@@ -134,6 +134,33 @@ describe('Registro — validación de teléfono por país del retiro', () => {
 		expect(vm.formErrors.cellPhone).toBeUndefined();
 	});
 
+	it('avanza el paso 1 con cellPhone con lada de país (+52) — bug Celaya 2026-06-17', async () => {
+		const wrapper = await mountForm('México', 'server');
+		const vm = wrapper.vm as any;
+		Object.assign(vm.formData, {
+			firstName: 'Roy', lastName: 'Rodrigo', nickname: 'Roy',
+			birthDate: '1980-01-01', maritalStatus: 'C',
+			email: 'roy@example.com', occupation: 'Servidor',
+			acceptedPrivacyNotice: true,
+			cellPhone: '+52 55 1234 5678',
+		});
+		expect(vm.validateStep(1)).toBe(true);
+		expect(vm.formErrors.cellPhone).toBeUndefined();
+	});
+
+	it('avanza el paso 1 con cellPhone con prefijo legado (044)', async () => {
+		const wrapper = await mountForm('Mexico', 'server');
+		const vm = wrapper.vm as any;
+		Object.assign(vm.formData, {
+			firstName: 'Ana', lastName: 'Lopez', nickname: 'Ani',
+			birthDate: '1990-01-01', maritalStatus: 'S',
+			email: 'ana@example.com', occupation: 'Dev',
+			acceptedPrivacyNotice: true,
+			cellPhone: '044 55 1234 5678',
+		});
+		expect(vm.validateStep(1)).toBe(true);
+	});
+
 	it('sin país en el retiro: solo exige dígitos, no longitud', async () => {
 		const wrapper = await mountForm(null);
 		const vm = wrapper.vm as any;

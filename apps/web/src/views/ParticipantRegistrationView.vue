@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, reactive, onMounted } from 'vue'
+import { computed, ref, watch, reactive, onMounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { useToast } from '@repo/ui'
@@ -372,12 +372,30 @@ watch(formData, (newValue, oldValue) => {
   }
 }, { deep: true })
 
+// Tras un error de validación, lleva al usuario al primer campo en rojo (y lo
+// enfoca si es un input). En móvil el toast es fácil de no ver: sin esto, "el
+// botón Siguiente no hace nada". Best-effort: si no hay error visible, no hace nada.
+const scrollToFirstError = async () => {
+  await nextTick()
+  const container = document.querySelector('[data-registration-step]') ?? document
+  const target = container.querySelector('.border-red-500') as HTMLElement | null
+  if (!target) return
+  if (typeof target.scrollIntoView === 'function') {
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+  if ((target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') && typeof target.focus === 'function') {
+    target.focus({ preventScroll: true })
+  }
+}
+
 const nextStep = () => {
   if (validateStep(currentStep.value)) {
     completedSteps.value.add(currentStep.value)
     if (currentStep.value < totalSteps.value) {
       currentStep.value++
     }
+  } else {
+    scrollToFirstError()
   }
 }
 
@@ -609,6 +627,7 @@ const onSubmit = async () => {
   for (let step = 1; step <= totalSteps.value - 1; step++) {
     if (!validateStep(step)) {
       currentStep.value = step
+      scrollToFirstError()
       toast({
         title: 'Validation Error',
         description: `Please correct the errors in step ${step}.`,
@@ -1192,7 +1211,7 @@ defineExpose({ validateStep, formData, formErrors, retreatData, retreatCountry }
               </div>
             </DialogHeader>
 
-            <div class="flex-1 overflow-y-auto overflow-x-hidden min-h-0 px-1 sm:px-2 py-4">
+            <div class="flex-1 overflow-y-auto overflow-x-hidden min-h-0 px-1 sm:px-2 py-4" data-registration-step>
               <transition name="step-fade" mode="out-in">
                 <div :key="currentStep">
                   <Step1PersonalInfo v-if="currentStep === 1" v-model="formData" :errors="formErrors" />

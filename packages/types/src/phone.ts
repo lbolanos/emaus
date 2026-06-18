@@ -36,6 +36,47 @@ export const PHONE_DIGIT_LENGTHS_BY_COUNTRY: Record<string, number[]> = {
 };
 
 /**
+ * Lada (código telefónico de país) por ISO-2. Se usa para tolerar números
+ * tecleados con el prefijo internacional (+52, 0052) y recortarlo antes de medir
+ * la longitud nacional. Es muy común que la gente —y el autocompletado de
+ * contactos del celular— guarde el número con la lada.
+ */
+export const PHONE_CALLING_CODE_BY_COUNTRY: Record<string, string> = {
+	MX: '52',
+	CO: '57',
+	US: '1',
+	CA: '1',
+	AR: '54',
+	VE: '58',
+	DO: '1',
+	PR: '1',
+	PE: '51',
+	CL: '56',
+	EC: '593',
+	ES: '34',
+	PY: '595',
+	GT: '502',
+	SV: '503',
+	HN: '504',
+	NI: '505',
+	CR: '506',
+	BO: '591',
+	UY: '598',
+	PA: '507',
+	BR: '55',
+};
+
+/**
+ * Prefijos troncales / de larga distancia nacionales legados que la gente todavía
+ * teclea, por país (ISO-2). En México 044/045 (móvil) y 01 (fijo) se eliminaron en
+ * 2019, pero siguen apareciendo en los registros. Se recortan antes de medir la
+ * longitud nacional.
+ */
+export const NATIONAL_TRUNK_PREFIXES_BY_COUNTRY: Record<string, string[]> = {
+	MX: ['044', '045', '01'],
+};
+
+/**
  * Alias de nombre de país (normalizado: minúsculas, sin acentos) → código ISO-2.
  * El país de la casa se captura como texto libre (ej. "México", "Mexico",
  * "Colombia"), por lo que hay que resolverlo a ISO antes de buscar su regla.
@@ -130,10 +171,67 @@ export interface PhoneValidationResult {
 }
 
 /**
+ * Dada una cadena de SOLO dígitos y un país (ISO-2), devuelve el número nacional
+ * quitando — si están presentes — la lada de país (52 → de `+52`), el prefijo
+ * internacional (`0052`) y los prefijos troncales/legados nacionales (en México
+ * 044/045/01). Solo recorta un prefijo cuando el resto resultante tiene una
+ * longitud nacional válida, de modo que NUNCA acorta de más un número que ya era
+ * correcto. Si no reconoce ningún prefijo, devuelve los dígitos sin cambios.
+ */
+function stripDialingPrefixes(digits: string, iso: string): string {
+	const lengths = PHONE_DIGIT_LENGTHS_BY_COUNTRY[iso];
+	if (!lengths || lengths.length === 0) return digits;
+	if (lengths.includes(digits.length)) return digits; // ya es número nacional
+
+	const candidates: string[] = [];
+	const callingCode = PHONE_CALLING_CODE_BY_COUNTRY[iso];
+	if (callingCode) {
+		candidates.push(`00${callingCode}`); // prefijo internacional (00 + lada)
+		candidates.push(`0${callingCode}`);
+		candidates.push(callingCode); // +lada (el `+` ya fue normalizado)
+	}
+	for (const prefix of NATIONAL_TRUNK_PREFIXES_BY_COUNTRY[iso] ?? []) {
+		candidates.push(prefix);
+	}
+	candidates.push('0'); // prefijo troncal nacional genérico
+
+	// Más largo primero: evita recortar de menos (ej. "044" antes que "0").
+	candidates.sort((a, b) => b.length - a.length);
+
+	for (const prefix of candidates) {
+		if (digits.startsWith(prefix)) {
+			const rest = digits.slice(prefix.length);
+			if (lengths.includes(rest.length)) return rest;
+		}
+	}
+	return digits; // ningún prefijo reconocido: la longitud es realmente inválida
+}
+
+/**
+ * Normaliza un teléfono a su número NACIONAL canónico (solo dígitos) según el
+ * país: quita separadores y, si se reconoce, la lada/prefijos legados. Si no hay
+ * país con regla o no se reconoce el prefijo, devuelve los dígitos tal cual (como
+ * `normalizePhone`). Úsalo al persistir para guardar el número nacional limpio.
+ */
+export function toNationalPhone(
+	value: string | null | undefined,
+	country?: string | null,
+): string {
+	const normalized = normalizePhone(value);
+	if (normalized === '' || !DIGITS_ONLY_REGEX.test(normalized)) return normalized;
+	const iso = resolveCountryToIso(country);
+	if (!iso) return normalized;
+	return stripDialingPrefixes(normalized, iso);
+}
+
+/**
  * Valida un teléfono según el país (ISO-2 o nombre). El valor se normaliza
- * primero (se quitan espacios/guiones/paréntesis/puntos/`+`), por lo que
- * `55 1234 5678` se acepta como 10 dígitos. Vacío/ausente = válido: la
- * obligatoriedad de cada campo se maneja por separado en los schemas.
+ * primero (se quitan espacios/guiones/paréntesis/puntos/`+`) y, si el país tiene
+ * regla de longitud, se tolera la lada de país (+52) y los prefijos nacionales
+ * legados (044/045/01) recortándolos antes de medir la longitud. Así
+ * `55 1234 5678`, `+52 55 1234 5678` y `044 55 1234 5678` se aceptan como un
+ * número MX de 10 dígitos. Vacío/ausente = válido: la obligatoriedad de cada
+ * campo se maneja por separado en los schemas.
  */
 export function validatePhoneForCountry(
 	value: string | null | undefined,
@@ -145,9 +243,15 @@ export function validatePhoneForCountry(
 	if (!DIGITS_ONLY_REGEX.test(normalized)) {
 		return { valid: false, error: 'not_digits' };
 	}
-	const lengths = getPhoneDigitLengths(country);
-	if (lengths && !lengths.includes(normalized.length)) {
-		return { valid: false, error: 'wrong_length', expectedLengths: lengths };
+	const iso = resolveCountryToIso(country);
+	if (iso) {
+		const lengths = PHONE_DIGIT_LENGTHS_BY_COUNTRY[iso];
+		if (lengths && lengths.length > 0) {
+			const national = stripDialingPrefixes(normalized, iso);
+			if (!lengths.includes(national.length)) {
+				return { valid: false, error: 'wrong_length', expectedLengths: lengths };
+			}
+		}
 	}
 	return { valid: true };
 }
@@ -211,18 +315,22 @@ export function validateParticipantPhones(
 
 /**
  * Devuelve una copia del objeto con todos los campos de teléfono presentes
- * normalizados (solo dígitos, sin separadores). Solo toca los campos que
- * existen en el objeto; el resto de propiedades se conservan intactas.
- * Úsalo antes de persistir para guardar el teléfono normalizado en la base.
+ * normalizados. Solo toca los campos que existen en el objeto; el resto de
+ * propiedades se conservan intactas. Úsalo antes de persistir.
+ *
+ * Si se pasa `country` (ISO-2 o nombre), cada teléfono se canoniza a su número
+ * NACIONAL (se recortan lada/prefijos reconocidos), de modo que `+52 55 1234 5678`
+ * se guarda como `5512345678`. Sin `country` mantiene el comportamiento previo:
+ * solo quita separadores.
  */
 export function normalizeParticipantPhones<
 	T extends Partial<Record<ParticipantPhoneField, string | null | undefined>>,
->(data: T): T {
+>(data: T, country?: string | null): T {
 	const out: T = { ...data };
 	for (const field of PARTICIPANT_PHONE_FIELDS) {
 		const value = data[field];
 		if (typeof value === 'string') {
-			(out as Record<string, unknown>)[field] = normalizePhone(value);
+			(out as Record<string, unknown>)[field] = toNationalPhone(value, country);
 		}
 	}
 	return out;

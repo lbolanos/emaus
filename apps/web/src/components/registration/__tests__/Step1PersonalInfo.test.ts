@@ -100,4 +100,30 @@ describe('Step1PersonalInfo', () => {
 			expect(birthInput.classes()).toContain('border-red-500');
 		});
 	});
+
+	describe('Aviso de privacidad', () => {
+		it('togglea acceptedPrivacyNotice al hacer click en el botón del checkbox', async () => {
+			const model: Record<string, any> = { ...defaultFormData, acceptedPrivacyNotice: false };
+			wrapper = mount(Step1PersonalInfo, {
+				global: { plugins: [pinia], mocks: { $t: (key: string) => key } },
+				props: { modelValue: model, errors: {} },
+			});
+			const btn = wrapper.find('button[type="button"]');
+			expect(btn.exists()).toBe(true);
+			await btn.trigger('click');
+			expect(model.acceptedPrivacyNotice).toBe(true);
+			await btn.trigger('click');
+			expect(model.acceptedPrivacyNotice).toBe(false);
+		});
+
+		it('renderiza el enlace al aviso FUERA del botón (tocarlo nunca impide marcar)', () => {
+			wrapper = mountComponent();
+			const btn = wrapper.find('button[type="button"]');
+			// Bug Celaya 2026-06-18: el <a> vivía dentro del <button> (@click.stop) y en
+			// móvil robaba el tap → no se marcaba el checkbox. Ahora va por separado.
+			expect(btn.find('a').exists()).toBe(false);
+			const link = wrapper.find('a[target="_blank"]');
+			expect(link.exists()).toBe(true);
+		});
+	});
 });

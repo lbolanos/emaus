@@ -1,7 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import * as participantService from "../services/participantService";
 import { RecaptchaService } from "../services/recaptchaService";
-import { participantSchema, validateParticipantPhones } from "@repo/types";
+import {
+  participantSchema,
+  validateParticipantPhones,
+  normalizeParticipantPhones,
+} from "@repo/types";
 import { z } from "zod";
 import { authorizationService } from "../middleware/authorization";
 import { participantAvailabilityService } from "../services/participantAvailabilityService";
@@ -244,9 +248,11 @@ export const createParticipant = async (
       );
       return res.status(400).json({ message: "Validation failed", errors });
     }
-    const validatedData = zodResult.data;
+    let validatedData = zodResult.data;
 
-    // Validar teléfonos según el país del retiro (solo dígitos + longitud por país).
+    // Validar teléfonos según el país del retiro (solo dígitos + longitud por país,
+    // tolerando lada/prefijos). Tras validar, canonizar a número nacional para
+    // persistir limpio (ej. "+52 55 1234 5678" → "5512345678").
     if (validatedData.retreatId) {
       const { findById } = await import("../services/retreatService");
       const retreat = await findById(validatedData.retreatId);
@@ -260,6 +266,10 @@ export const createParticipant = async (
           errors: phoneErrors.map((e) => `${e.field}: ${e.message}`),
         });
       }
+      validatedData = normalizeParticipantPhones(
+        validatedData as Record<string, string | null | undefined>,
+        retreat?.house?.country,
+      ) as typeof validatedData;
     }
 
     // Dry-run mode: validate only, no DB writes

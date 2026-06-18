@@ -118,11 +118,14 @@ const privacyUrl = router.resolve({ name: 'privacy' }).href
           </div>
           <span class="text-sm leading-snug">
             {{ $t('serverRegistration.fields.acceptedPrivacyNotice') }}
-            <a :href="privacyUrl" target="_blank" rel="noopener" class="underline text-primary ml-1" @click.stop>
-              {{ $t('serverRegistration.fields.privacyLinkText') }}
-            </a>
           </span>
         </button>
+        <!-- El enlace va FUERA del botón: un <a> dentro de <button> es HTML inválido y
+             en móvil se robaba el tap (tocar el enlace no marcaba el checkbox). Ahora
+             todo el botón togglea y el enlace abre el aviso por separado. -->
+        <a :href="privacyUrl" target="_blank" rel="noopener" class="inline-block underline text-primary text-sm mt-2 ml-1">
+          {{ $t('serverRegistration.fields.privacyLinkText') }}
+        </a>
         <p v-if="hasError('acceptedPrivacyNotice')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('acceptedPrivacyNotice') }}</p>
       </div>
     </CardContent>

@@ -15,6 +15,7 @@ import {
   phoneValidationMessage,
   normalizePhone,
   normalizeParticipantPhones,
+  toNationalPhone,
 } from '@repo/types';
 
 describe('validatePhoneForCountry', () => {
@@ -64,9 +65,31 @@ describe('validatePhoneForCountry', () => {
     expect(validatePhoneForCountry('55 ABC 5678', 'MX').error).toBe('not_digits');
   });
 
-  it('rechaza si tras normalizar la longitud no cuadra', () => {
-    // +52 prefijo de país hace que sobren dígitos (12) → falla la regla MX(10)
-    expect(validatePhoneForCountry('+52 55 1234 5678', 'MX').error).toBe('wrong_length');
+  it('TOLERA la lada de país (+52 / 52 / 0052) en México', () => {
+    // Bug 2026-06-17 (Celaya): la gente y el autocompletado de contactos del
+    // celular guardan el número con la lada → no podían avanzar del paso 1.
+    expect(validatePhoneForCountry('+52 55 1234 5678', 'MX').valid).toBe(true);
+    expect(validatePhoneForCountry('52 55 1234 5678', 'MX').valid).toBe(true);
+    expect(validatePhoneForCountry('0052 55 1234 5678', 'MX').valid).toBe(true);
+  });
+
+  it('TOLERA prefijos nacionales legados (044 / 045 / 01) en México', () => {
+    expect(validatePhoneForCountry('044 55 1234 5678', 'MX').valid).toBe(true);
+    expect(validatePhoneForCountry('045 5512345678', 'MX').valid).toBe(true);
+    expect(validatePhoneForCountry('01 55 1234 5678', 'MX').valid).toBe(true);
+  });
+
+  it('NO acorta de más: un número que ya tiene 10 dígitos no se toca aunque empiece con prefijo', () => {
+    // "5512345678" es válido tal cual; no debe recortarse el "55" inicial.
+    expect(validatePhoneForCountry('5512345678', 'MX').valid).toBe(true);
+    expect(toNationalPhone('5512345678', 'MX')).toBe('5512345678');
+  });
+
+  it('sigue rechazando longitudes realmente inválidas (sin prefijo reconocible)', () => {
+    // 11 dígitos que no empiezan con lada ni prefijo legado: inválido.
+    expect(validatePhoneForCountry('55123456789', 'MX').valid).toBe(false);
+    // 8 dígitos: corto, ningún prefijo lo arregla.
+    expect(validatePhoneForCountry('12345678', 'MX').valid).toBe(false);
   });
 
   it('vacío/ausente es válido (la obligatoriedad se valida aparte)', () => {
@@ -157,6 +180,25 @@ describe('normalizePhone', () => {
   });
 });
 
+describe('toNationalPhone', () => {
+  it('canoniza la lada/prefijos al número nacional (con país)', () => {
+    expect(toNationalPhone('+52 55 1234 5678', 'MX')).toBe('5512345678');
+    expect(toNationalPhone('52 55 1234 5678', 'México')).toBe('5512345678');
+    expect(toNationalPhone('044 55 1234 5678', 'MX')).toBe('5512345678');
+    expect(toNationalPhone('01 5512345678', 'MX')).toBe('5512345678');
+  });
+
+  it('sin país: solo quita separadores (no recorta prefijos)', () => {
+    expect(toNationalPhone('+52 55 1234 5678')).toBe('525512345678');
+    expect(toNationalPhone('(55) 1234-5678')).toBe('5512345678');
+  });
+
+  it('deja intacto lo que no reconoce (letras o prefijo no resoluble)', () => {
+    expect(toNationalPhone('55ABC5678', 'MX')).toBe('55ABC5678');
+    expect(toNationalPhone('55123456789', 'MX')).toBe('55123456789');
+  });
+});
+
 describe('normalizeParticipantPhones', () => {
   it('normaliza solo los campos de teléfono presentes, conserva el resto', () => {
     const out = normalizeParticipantPhones({
@@ -169,5 +211,17 @@ describe('normalizeParticipantPhones', () => {
     expect(out.emergencyContact1CellPhone).toBe('5598765432');
     expect((out as any).firstName).toBe('Ana');
     expect(out.inviterCellPhone).toBeUndefined();
+  });
+
+  it('con país: canoniza los teléfonos al número nacional', () => {
+    const out = normalizeParticipantPhones(
+      {
+        cellPhone: '+52 55 1234 5678',
+        emergencyContact1CellPhone: '044 55 9876 5432',
+      } as any,
+      'MX',
+    );
+    expect(out.cellPhone).toBe('5512345678');
+    expect(out.emergencyContact1CellPhone).toBe('5598765432');
   });
 });
