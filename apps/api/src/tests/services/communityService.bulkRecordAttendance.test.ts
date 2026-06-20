@@ -184,4 +184,36 @@ describe('CommunityService.bulkRecordAttendance', () => {
 		expect(result.marked).toHaveLength(1);
 		expect(result.marked[0].memberId).toBe(m2.id);
 	});
+
+	it('no matchea a un participante con datos borrados (dataDeletedAt → "(eliminado)")', async () => {
+		const { meeting } = await setupCommunityWithMembers();
+
+		// Un miembro cuyo participant ejerció el borrado de datos: nombre
+		// anonimizado a "(eliminado)". No debe poder marcarse asistencia.
+		const pDeleted = await TestDataFactory.createTestParticipant(testRetreat.id, {
+			firstName: 'Pedro',
+			lastName: 'Borrado',
+			cellPhone: '5500001111',
+		});
+		await TestDataFactory.createTestCommunityMember(testCommunity.id, pDeleted.id);
+		await AppDataSource.getRepository(require('@/entities/participant.entity').Participant).update(
+			pDeleted.id,
+			{ firstName: '(eliminado)', lastName: '', dataDeletedAt: new Date() },
+		);
+
+		// Ni por su nombre original, ni por el teléfono, ni por "(eliminado)".
+		const result = await service.bulkRecordAttendance(testCommunity.id, meeting.id, [
+			{ name: 'Pedro Borrado' },
+			{ cellPhone: '5500001111' },
+			{ name: '(eliminado)' },
+		]);
+
+		expect(result.marked).toHaveLength(0);
+		expect(result.notFound.length).toBeGreaterThan(0);
+
+		const attendances = await AppDataSource.getRepository(CommunityAttendance).find({
+			where: { meetingId: meeting.id },
+		});
+		expect(attendances).toHaveLength(0);
+	});
 });

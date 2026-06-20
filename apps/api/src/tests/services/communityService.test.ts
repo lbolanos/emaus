@@ -966,6 +966,77 @@ describe('Community Service', () => {
 		});
 	});
 
+	// Participantes que ejercieron su derecho de borrado de datos
+	// (participant.dataDeletedAt != null → nombre anonimizado a "(eliminado)",
+	// email deleted-<id>@local) NO deben reaparecer en NINGÚN listado ni conteo
+	// de la comunidad. Cada método que carga miembros con su participant filtra
+	// `dataDeletedAt IS NULL`. Estos tests son la red de seguridad de esa regla.
+	// Doc: docs/features/community-data-deleted-exclusion.md
+	describe('exclusión de participantes con datos borrados (dataDeletedAt)', () => {
+		const partRepo = () =>
+			AppDataSource.getRepository(require('@/entities/participant.entity').Participant);
+
+		// Crea dos participantes en el retiro: uno normal y uno anonimizado por
+		// borrado de datos. Devuelve ambos para que cada test los use según necesite.
+		async function makeNormalAndDeleted() {
+			const pNormal = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const pDeleted = await TestDataFactory.createTestParticipant(testRetreat.id);
+			await partRepo().update(pNormal.id, { firstName: 'Normal', lastName: 'User' });
+			// Simula anonymizeParticipantByToken: nombre anonimizado + dataDeletedAt.
+			await partRepo().update(pDeleted.id, {
+				firstName: '(eliminado)',
+				lastName: '',
+				dataDeletedAt: new Date(),
+			});
+			return { pNormal, pDeleted };
+		}
+
+		it('getMembers excluye al miembro con datos borrados del roster', async () => {
+			const { pNormal, pDeleted } = await makeNormalAndDeleted();
+			await service.addMember(testCommunity.id, pNormal.id);
+			await service.addMember(testCommunity.id, pDeleted.id);
+
+			const members = await service.getMembers(testCommunity.id);
+
+			expect(members.length).toBe(1);
+			expect(members[0].participant.firstName).toBe('Normal');
+			expect(
+				members.find((m: any) => m.participant?.firstName === '(eliminado)'),
+			).toBeUndefined();
+		});
+
+		it('getPotentialMembers no ofrece al participante con datos borrados como candidato', async () => {
+			const { pNormal, pDeleted } = await makeNormalAndDeleted();
+
+			const candidates = await service.getPotentialMembers(testCommunity.id, testRetreat.id);
+
+			const ids = candidates.map((c: any) => c.id);
+			expect(ids).toContain(pNormal.id);
+			expect(ids).not.toContain(pDeleted.id);
+			expect(
+				candidates.find((c: any) => c.firstName === '(eliminado)'),
+			).toBeUndefined();
+		});
+
+		it('getDashboardStats no cuenta al miembro con datos borrados en totales ni distribución', async () => {
+			const { pNormal, pDeleted } = await makeNormalAndDeleted();
+			await TestDataFactory.createTestCommunityMember(testCommunity.id, pNormal.id, {
+				state: MemberStateEnum.Enum.active_member,
+			});
+			await TestDataFactory.createTestCommunityMember(testCommunity.id, pDeleted.id, {
+				state: MemberStateEnum.Enum.active_member,
+			});
+
+			const stats = await service.getDashboardStats(testCommunity.id);
+
+			// Solo el miembro normal cuenta — el borrado no infla el padrón.
+			expect(stats.memberCount).toBe(1);
+			expect(
+				stats.memberStateDistribution.find((s: any) => s.state === 'active_member')?.count,
+			).toBe(1);
+		});
+	});
+
 	describe('getPublicAttendanceData', () => {
 		it('should return data for valid community and meeting', async () => {
 			const p1 = await TestDataFactory.createTestParticipant(testRetreat.id, {

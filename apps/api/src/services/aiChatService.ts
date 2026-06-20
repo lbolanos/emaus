@@ -1305,6 +1305,10 @@ export async function createChatStream(
 						.createQueryBuilder('m')
 						.innerJoinAndSelect('m.participant', 'p')
 						.where('m.communityId = :cId', { cId })
+						// Excluir participantes con datos borrados (dataDeletedAt): su
+						// nombre quedó anonimizado a "(eliminado)" y no deben aparecer
+						// como resultado de búsqueda del asistente.
+						.andWhere('p.dataDeletedAt IS NULL')
 						.getMany();
 
 					const tokens = qNorm.split(/\s+/).filter((t) => t.length >= 2);

@@ -294,10 +294,15 @@ export class CommunityService {
 			where.state = state;
 		}
 
-		const members = await this.memberRepo.find({
-			where,
-			relations: ['participant'],
-		});
+		// Excluir participantes que ejercieron su derecho de borrado de datos
+		// (dataDeletedAt != null → nombre anonimizado a "(eliminado)", email
+		// deleted-<id>@local): no deben reaparecer en el roster de la comunidad.
+		const members = (
+			await this.memberRepo.find({
+				where,
+				relations: ['participant'],
+			})
+		).filter((m) => !m.participant?.dataDeletedAt);
 
 		// Last message sent (community scope) per participant — para que el
 		// frontend pueda ordenar por "último contacto" sin un round-trip extra.
@@ -628,10 +633,13 @@ export class CommunityService {
 		});
 		const existingParticipantIds = new Set(existingMembers.map((m) => m.participantId));
 
-		// Get all participants from the retreat
+		// Get all participants from the retreat. Excluir los que ejercieron su
+		// derecho de borrado de datos (dataDeletedAt): su nombre quedó anonimizado
+		// a "(eliminado)" y no deben ofrecerse como candidatos a agregar.
 		const retreatParticipants = await this.participantRepo
 			.createQueryBuilder('participant')
 			.where('participant.retreatId = :retreatId', { retreatId })
+			.andWhere('participant.dataDeletedAt IS NULL')
 			.getMany();
 
 		// Filter out participants who are already in the community and add a flag
@@ -1599,11 +1607,15 @@ export class CommunityService {
 	}> {
 		// Pre-cargar todos los miembros de la comunidad con sus participants una sola
 		// vez para resolver matches en memoria. Más rápido y permite búsqueda flexible
-		// por nombre completo (que SQL puro hace torpe).
-		const members = await this.memberRepo.find({
-			where: { communityId },
-			relations: ['participant'],
-		});
+		// por nombre completo (que SQL puro hace torpe). Excluir participantes con
+		// datos borrados (dataDeletedAt): su nombre quedó anonimizado a "(eliminado)"
+		// y no deben ser candidatos a marcar asistencia.
+		const members = (
+			await this.memberRepo.find({
+				where: { communityId },
+				relations: ['participant'],
+			})
+		).filter((m) => !m.participant?.dataDeletedAt);
 
 		const normalize = (s: string) =>
 			s
@@ -1725,8 +1737,12 @@ export class CommunityService {
 	async getDashboardStats(communityId: string) {
 		const now = new Date();
 
-		// 1. Members and Basic Counts
-		const members = await this.memberRepo.find({ where: { communityId } });
+		// 1. Members and Basic Counts. Excluir participantes con datos borrados
+		// (dataDeletedAt): no deben contar en totales ni en la distribución por
+		// estado, igual que se excluyen del roster y la asistencia.
+		const members = (
+			await this.memberRepo.find({ where: { communityId }, relations: ['participant'] })
+		).filter((m) => !m.participant?.dataDeletedAt);
 		const activeMembers = members.filter((m) => m.state === 'active_member');
 
 		// 2. Member State Distribution
