@@ -193,6 +193,31 @@ describe('EditCommunityMemberDialog', () => {
 		expect(wrapper.text()).toContain('Ya existe otro miembro de esta comunidad con ese correo');
 	});
 
+	it('precarga la fecha de ingreso (joinedAt) en formato YYYY-MM-DD', async () => {
+		const wrapper = mountDialog({
+			member: buildMember({ joinedAt: '2026-01-15T00:00:00.000Z' }),
+		});
+		await nextTick();
+
+		expect((wrapper.find('#joinedAt').element as HTMLInputElement).value).toBe('2026-01-15');
+	});
+
+	it('submit incluye joinedAt solo cuando cambia', async () => {
+		mockUpdateMemberProfile.mockResolvedValue(buildMember());
+		const wrapper = mountDialog({
+			member: buildMember({ joinedAt: '2026-01-15T00:00:00.000Z' }),
+		});
+		await nextTick();
+
+		await wrapper.find('#joinedAt').setValue('2026-02-20');
+		await wrapper.find('form').trigger('submit.prevent');
+		await flushPromises();
+
+		expect(mockUpdateMemberProfile).toHaveBeenCalledWith('community-1', 'member-1', {
+			joinedAt: '2026-02-20',
+		});
+	});
+
 	it('detecta y avisa cuando el email es placeholder generado por el bot', async () => {
 		const wrapper = mountDialog({
 			member: buildMember({

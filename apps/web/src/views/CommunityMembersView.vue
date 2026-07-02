@@ -10,9 +10,9 @@
     </div>
 
     <template v-else-if="currentCommunity">
-      <div class="flex justify-between items-center">
-        <div>
-          <h1 class="text-2xl font-bold">{{ currentCommunity.name }} - {{ $t('community.membersLabel') }}</h1>
+      <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
+        <div class="min-w-0">
+          <h1 class="text-xl sm:text-2xl font-bold">{{ currentCommunity.name }} - {{ $t('community.membersLabel') }}</h1>
           <div class="flex items-center text-sm text-muted-foreground">
             <router-link :to="{ name: 'community-dashboard', params: { id: currentCommunity.id } }" class="hover:underline">
               {{ $t('community.dashboard') }}
@@ -59,17 +59,27 @@
         </div>
       </div>
 
-      <div class="flex items-center space-x-2">
-        <div class="relative flex-1 max-w-sm">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div class="relative w-full sm:flex-1 sm:max-w-sm">
           <Search class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             v-model="searchQuery"
             :placeholder="$t('community.members.searchPlaceholder')"
-            class="pl-8"
+            class="pl-8 pr-8"
           />
+          <button
+            v-if="searchQuery"
+            type="button"
+            class="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground transition-colors"
+            @click="searchQuery = ''"
+            aria-label="Limpiar búsqueda"
+          >
+            <X class="h-4 w-4" />
+          </button>
         </div>
+        <div class="flex items-center gap-2 flex-wrap">
         <Select v-model="stateFilter">
-          <SelectTrigger class="w-[180px]">
+          <SelectTrigger class="w-[160px] sm:w-[180px]">
             <SelectValue :placeholder="$t('community.members.filterByState')" />
           </SelectTrigger>
           <SelectContent>
@@ -155,6 +165,7 @@
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
 
       <!-- Pending verifications banner: visible solo cuando hay solicitudes pendientes -->
@@ -185,7 +196,7 @@
       </div>
 
       <!-- Filter Presets -->
-      <div class="flex items-center gap-2" role="group" aria-label="Filtros rápidos de miembros">
+      <div class="flex items-center gap-2 flex-wrap" role="group" aria-label="Filtros rápidos de miembros">
         <span class="text-sm text-muted-foreground">Filtros rápidos:</span>
         <Button
           variant="outline"
@@ -272,7 +283,9 @@
         {{ filteredMembers.length }} miembros encontrados
       </div>
 
-      <Card>
+      <!-- Tabla (escritorio) -->
+      <Card class="hidden md:block">
+        <div class="w-full overflow-x-auto">
         <Table class="text-sm">
           <TableHeader>
             <TableRow>
@@ -315,7 +328,7 @@
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow v-for="member in filteredMembers" :key="member.id" class="hover:bg-muted/50">
+            <TableRow v-for="member in paginatedMembers" :key="member.id" class="hover:bg-muted/50">
               <TableCell v-if="visibleColumns.name" class="font-medium py-2">
                 <div class="flex items-center gap-2">
                   <span>{{ resolveMemberProfile(member).fullName }}</span>
@@ -340,96 +353,25 @@
               <TableCell v-if="visibleColumns.attendance" class="py-2">
                 <Badge :variant="getFrequencyVariant(member.lastMeetingsFrequency)" class="text-xs">
                   {{ $t(`community.participationFrequency.${member.lastMeetingsFrequency?.toLowerCase() || 'none'}`) }}
-                  ({{ Math.round(member.lastMeetingsAttendanceRate || 0) }}%)
+                  ({{ Math.round(member.lastMeetingsAttendanceRate || 0) }}%{{ member.lastMeetingsTotal ? ` · ${member.lastMeetingsAttended}/${member.lastMeetingsTotal}` : '' }})
                 </Badge>
               </TableCell>
               <TableCell v-if="visibleColumns.lastMessage" class="py-2 text-xs text-muted-foreground whitespace-nowrap">
                 {{ formatLastMessage(member.lastMessageSentAt) }}
               </TableCell>
               <TableCell v-if="visibleColumns.actions">
-                <div class="flex items-center -space-x-3">
-                  <!-- "Ya contacté" toggle — solo localStorage, sin backend -->
-                  <Tooltip>
-                    <TooltipTrigger as-child>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        :class="contactedMarks.isMarked(member.id) ? 'text-green-600' : 'text-muted-foreground/60'"
-                        @click="contactedMarks.toggle(member.id)"
-                      >
-                        <CheckCircle2 v-if="contactedMarks.isMarked(member.id)" class="w-4 h-4" />
-                        <Circle v-else class="w-4 h-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p v-if="contactedMarks.isMarked(member.id)">
-                        Marcado como contactado<br/>
-                        <span class="text-xs opacity-75">{{ formatMarkedRelative(contactedMarks.getMarkedAt(member.id)) }} — click para desmarcar</span>
-                      </p>
-                      <p v-else>Marcar como contactado<br/><span class="text-xs opacity-75">(solo en este navegador)</span></p>
-                    </TooltipContent>
-                  </Tooltip>
-
-                  <!-- Notes Button -->
-                  <Tooltip>
-                    <TooltipTrigger as-child>
-                      <Button variant="ghost" size="icon" @click="openNotesDialog(member)">
-                        <FileText class="w-4 h-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Notas</p>
-                    </TooltipContent>
-                  </Tooltip>
-
-                  <!-- Timeline Button -->
-                  <Tooltip>
-                    <TooltipTrigger as-child>
-                      <Button variant="ghost" size="icon" @click="openTimelineDialog(member)">
-                        <History class="w-4 h-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Historial</p>
-                    </TooltipContent>
-                  </Tooltip>
-
-                  <!-- Message Button -->
-                  <Tooltip>
-                    <TooltipTrigger as-child>
-                      <Button variant="ghost" size="icon" @click="openMessageDialog(member)">
-                        <MessageSquare class="w-4 h-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Mensajes</p>
-                    </TooltipContent>
-                  </Tooltip>
-
-                  <!-- Edit Profile Button — owner-only (un co-admin podría rerutear notificaciones cambiando overlay.email) -->
-                  <Tooltip v-if="communityStore.isOwnerOrSuperadmin">
-                    <TooltipTrigger as-child>
-                      <Button variant="ghost" size="icon" @click="openEditDialog(member)">
-                        <Pencil class="w-4 h-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Editar datos</p>
-                    </TooltipContent>
-                  </Tooltip>
-
-                  <!-- Remove Button — owner-only (admin no-owner no puede eliminar miembros) -->
-                  <Tooltip v-if="communityStore.isOwnerOrSuperadmin">
-                    <TooltipTrigger as-child>
-                      <Button variant="ghost" size="icon" @click="confirmRemove(member)" class="text-destructive">
-                        <UserMinus class="w-4 h-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Eliminar miembro</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
+                <MemberActions
+                  :is-owner="communityStore.isOwnerOrSuperadmin"
+                  :is-contacted="contactedMarks.isMarked(member.id)"
+                  :contacted-at="contactedMarks.getMarkedAt(member.id)"
+                  @toggle-contacted="contactedMarks.toggle(member.id)"
+                  @attendance="openAttendanceDialog(member)"
+                  @message="openMessageDialog(member)"
+                  @notes="openNotesDialog(member)"
+                  @timeline="openTimelineDialog(member)"
+                  @edit="openEditDialog(member)"
+                  @remove="confirmRemove(member)"
+                />
               </TableCell>
             </TableRow>
             <TableRow v-if="filteredMembers.length === 0">
@@ -439,7 +381,76 @@
             </TableRow>
           </TableBody>
         </Table>
+        </div>
       </Card>
+
+      <!-- Tarjetas (móvil) -->
+      <div class="md:hidden space-y-3">
+        <div
+          v-for="member in paginatedMembers"
+          :key="member.id"
+          class="border rounded-lg p-3 space-y-2"
+        >
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <div class="font-medium truncate">{{ resolveMemberProfile(member).fullName }}</div>
+              <div v-if="resolveMemberProfile(member).email" class="text-xs text-muted-foreground truncate">
+                {{ resolveMemberProfile(member).email }}
+              </div>
+            </div>
+            <Badge :variant="getFrequencyVariant(member.lastMeetingsFrequency)" class="text-xs flex-shrink-0">
+              {{ $t(`community.participationFrequency.${member.lastMeetingsFrequency?.toLowerCase() || 'none'}`) }}
+              ({{ Math.round(member.lastMeetingsAttendanceRate || 0) }}%{{ member.lastMeetingsTotal ? ` · ${member.lastMeetingsAttended}/${member.lastMeetingsTotal}` : '' }})
+            </Badge>
+          </div>
+          <div class="flex items-center justify-between gap-2">
+            <Select
+              :model-value="member.state"
+              @update:model-value="updateMemberState(member.id, $event)"
+            >
+              <SelectTrigger :class="['h-8 w-[150px] text-xs', getStateBorderClass(member.state)]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="state in states" :key="state" :value="state">
+                  {{ $t(`community.memberStates.${state}`) }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <MemberActions
+              :is-owner="communityStore.isOwnerOrSuperadmin"
+              :is-contacted="contactedMarks.isMarked(member.id)"
+              :contacted-at="contactedMarks.getMarkedAt(member.id)"
+              @toggle-contacted="contactedMarks.toggle(member.id)"
+              @attendance="openAttendanceDialog(member)"
+              @message="openMessageDialog(member)"
+              @notes="openNotesDialog(member)"
+              @timeline="openTimelineDialog(member)"
+              @edit="openEditDialog(member)"
+              @remove="confirmRemove(member)"
+            />
+          </div>
+        </div>
+        <div v-if="filteredMembers.length === 0" class="text-center py-8 text-muted-foreground text-sm">
+          No hay miembros.
+        </div>
+      </div>
+
+      <!-- Paginación (escritorio y móvil) -->
+      <div v-if="totalPages > 1" class="flex items-center justify-between gap-2 text-sm">
+        <span class="text-muted-foreground">
+          {{ pageStart }}–{{ pageEnd }} de {{ filteredMembers.length }}
+        </span>
+        <div class="flex items-center gap-2">
+          <Button variant="outline" size="sm" :disabled="currentPage <= 1" @click="currentPage--">
+            Anterior
+          </Button>
+          <span class="tabular-nums">{{ currentPage }} / {{ totalPages }}</span>
+          <Button variant="outline" size="sm" :disabled="currentPage >= totalPages" @click="currentPage++">
+            Siguiente
+          </Button>
+        </div>
+      </div>
     </template>
 
     <ImportMembersModal
@@ -522,6 +533,15 @@
       :community-id="currentCommunity.id"
       @created="fetchMembers"
     />
+
+    <MemberAttendanceDialog
+      v-if="currentCommunity"
+      v-model:open="isAttendanceDialogOpen"
+      :member="attendanceMember"
+      :community-id="currentCommunity.id"
+      :community="currentCommunity"
+      @saved="handleAttendanceSaved"
+    />
     </div>
   </TooltipProvider>
 </template>
@@ -531,7 +551,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
-import { Loader2, UserPlus, UserMinus, Pencil, Search, ChevronRight, ChevronUp, ChevronDown, Download, FileText, History, MessageSquare, Settings2, Eye, EyeOff, Check, Info, CheckCircle2, Circle, RotateCcw } from 'lucide-vue-next';
+import { Loader2, UserPlus, Search, ChevronRight, ChevronUp, ChevronDown, Download, FileText, Settings2, Eye, EyeOff, Check, Info, RotateCcw, X } from 'lucide-vue-next';
 import {
   Button, Input, Card, Badge,
   Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
@@ -545,6 +565,8 @@ import { resolveMemberProfile } from '@repo/utils';
 import { sanitizePhoneForWhatsapp } from '@/utils/phone';
 import ImportMembersModal from '@/components/community/ImportMembersModal.vue';
 import CreateMemberModal from '@/components/community/CreateMemberModal.vue';
+import MemberAttendanceDialog from '@/components/community/MemberAttendanceDialog.vue';
+import MemberActions from '@/components/community/MemberActions.vue';
 import SkeletonCard from '@/components/community/SkeletonCard.vue';
 import MemberNotesDialog from '@/components/community/MemberNotesDialog.vue';
 import MemberTimelineDialog from '@/components/community/MemberTimelineDialog.vue';
@@ -552,6 +574,12 @@ import MessageDialog from '@/components/MessageDialog.vue';
 import EditCommunityMemberDialog from '@/components/EditCommunityMemberDialog.vue';
 import { MemberStateEnum, type MemberState } from '@repo/types';
 import { useContactedMarks } from '@/composables/useContactedMarks';
+import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
+
+// Poll global que limpia el pointer-events:none huérfano de reka-ui. Una sola
+// instancia a nivel vista; los MemberActions usan deferOpen con poll:false para
+// no registrar 25 intervals (uno por fila).
+useRekaDialogFix();
 
 const { t: $t } = useI18n();
 
@@ -569,19 +597,6 @@ const { toast } = useToast();
 const communityIdRef = computed(() => props.id);
 const contactedMarks = useContactedMarks(communityIdRef);
 const showClearMarksConfirm = ref(false);
-
-const formatMarkedRelative = (iso: string | undefined): string => {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const diffMs = Date.now() - d.getTime();
-  const min = Math.floor(diffMs / 60000);
-  if (min < 1) return 'ahora';
-  if (min < 60) return `hace ${min} min`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `hace ${h} h`;
-  const days = Math.floor(h / 24);
-  return `hace ${days} d`;
-};
 
 const confirmClearMarks = () => {
   contactedMarks.clear();
@@ -619,6 +634,18 @@ const isEditDialogOpen = ref(false);
 const openEditDialog = (member: any) => {
   editMember.value = member;
   isEditDialogOpen.value = true;
+};
+
+// Attendance dialog — registrar asistencia de un miembro a varias reuniones
+const attendanceMember = ref<any>(null);
+const isAttendanceDialogOpen = ref(false);
+const openAttendanceDialog = (member: any) => {
+  attendanceMember.value = member;
+  isAttendanceDialogOpen.value = true;
+};
+const handleAttendanceSaved = () => {
+  // Refrescar para actualizar la tasa de asistencia (badge) del miembro.
+  fetchMembers();
 };
 
 // Column visibility state with localStorage
@@ -779,6 +806,25 @@ const filteredMembers = computed(() => {
   });
 
   return filtered;
+});
+
+// Paginación client-side (ya tenemos todos los miembros en memoria).
+const PAGE_SIZE = 25;
+const currentPage = ref(1);
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredMembers.value.length / PAGE_SIZE)));
+const paginatedMembers = computed(() => {
+  const start = (currentPage.value - 1) * PAGE_SIZE;
+  return filteredMembers.value.slice(start, start + PAGE_SIZE);
+});
+const pageStart = computed(() => (filteredMembers.value.length === 0 ? 0 : (currentPage.value - 1) * PAGE_SIZE + 1));
+const pageEnd = computed(() => Math.min(currentPage.value * PAGE_SIZE, filteredMembers.value.length));
+// Volver a la página 1 cuando cambia el conjunto filtrado/orden.
+watch([searchQuery, stateFilter, sortColumn, sortDirection], () => {
+  currentPage.value = 1;
+});
+// Si la página actual queda fuera de rango (p.ej. tras filtrar), acotarla.
+watch(totalPages, (tp) => {
+  if (currentPage.value > tp) currentPage.value = tp;
 });
 
 const sortBy = (column: 'name' | 'email' | 'state' | 'attendance' | 'lastMessage') => {

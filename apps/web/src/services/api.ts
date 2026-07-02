@@ -1293,6 +1293,7 @@ export async function createCommunityMember(
     lastName: string;
     email: string;
     cellPhone: string;
+    joinedAt?: string;
   },
 ): Promise<CommunityMember> {
   const response = await api.post(
@@ -1427,6 +1428,30 @@ export async function recordSingleCommunityAttendance(
   const response = await api.post(
     `/communities/${communityId}/meetings/${meetingId}/attendance/single`,
     { memberId, attended },
+  );
+  return response.data;
+}
+
+// Asistencia de UN miembro a través de todas las reuniones de la comunidad.
+export async function getMemberAttendance(
+  communityId: string,
+  memberId: string,
+): Promise<{ meetingId: string; attended: boolean }[]> {
+  const response = await api.get(
+    `/communities/${communityId}/members/${memberId}/attendance`,
+  );
+  return response.data;
+}
+
+// Upsert de asistencia de UN miembro en VARIAS reuniones (una llamada).
+export async function bulkRecordMemberAttendance(
+  communityId: string,
+  memberId: string,
+  records: { meetingId: string; attended: boolean }[],
+): Promise<{ updated: number }> {
+  const response = await api.post(
+    `/communities/${communityId}/members/${memberId}/attendance/bulk`,
+    { records },
   );
   return response.data;
 }
@@ -1642,6 +1667,7 @@ export async function updateMemberProfile(
     lastName?: string;
     email?: string;
     cellPhone?: string;
+    joinedAt?: string;
   },
 ): Promise<CommunityMember> {
   const response = await api.patch(

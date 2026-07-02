@@ -815,6 +815,46 @@ describe('Community Service', () => {
 			expect(members[0].lastMeetingsFrequency).toBe('high');
 		});
 
+		it('cuenta una reunión asistida aunque sea anterior al joinedAt (alta durante la reunión)', async () => {
+			// Repro del "0% falso": la reunión empezó ANTES de que el miembro se uniera
+			// (se le dio de alta durante la propia reunión), pero tiene asistencia
+			// registrada. La reunión debe contar → 100%, no 0%.
+			const meeting = await service.createMeeting(testCommunity.id, {
+				title: 'Reunión en curso',
+				startDate: new Date(Date.now() - 60 * 60 * 1000), // hace 1 hora
+				durationMinutes: 60,
+			});
+
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			// joinedAt se fija al insertar (ahora) → posterior al startDate de la reunión.
+			const member = await TestDataFactory.createTestCommunityMember(testCommunity.id, p.id);
+
+			await service.recordAttendance(meeting.id, [{ memberId: member.id, attended: true }]);
+
+			const members = await service.getMembers(testCommunity.id);
+			const everardo = members.find((m) => m.id === member.id)!;
+
+			expect(everardo.lastMeetingsAttendanceRate).toBe(100);
+			expect(everardo.lastMeetingsFrequency).toBe('high');
+		});
+
+		it('NO penaliza con reuniones anteriores al ingreso a las que el miembro no asistió', async () => {
+			// La reunión previa al ingreso, SIN registro de asistencia, no entra al
+			// denominador (se mantiene la intención original del cálculo).
+			await service.createMeeting(testCommunity.id, {
+				title: 'Reunión previa al ingreso',
+				startDate: new Date(Date.now() - 60 * 60 * 1000),
+				durationMinutes: 60,
+			});
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			await TestDataFactory.createTestCommunityMember(testCommunity.id, p.id);
+
+			const members = await service.getMembers(testCommunity.id);
+
+			expect(members[0].lastMeetingsAttendanceRate).toBe(0);
+			expect(members[0].lastMeetingsFrequency).toBe('none');
+		});
+
 		it('should calculate rate for members with partial attendance', async () => {
 			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
 			const member = await TestDataFactory.createTestCommunityMember(testCommunity.id, p.id);
@@ -2418,6 +2458,160 @@ describe('Community Service', () => {
 
 			expect(member).toBeTruthy();
 			expect(member!.participant!.userId).toBe(user.id);
+		});
+	});
+
+	describe('joinedAt custom (fecha de ingreso)', () => {
+		it('createCommunityMember respeta un joinedAt provisto', async () => {
+			const joined = new Date('2026-01-15T00:00:00.000Z');
+			const member = await service.createCommunityMember(testCommunity.id, {
+				firstName: 'Nuevo',
+				lastName: 'Miembro',
+				email: 'joined-custom@test.com',
+				cellPhone: '555-0001',
+				joinedAt: joined,
+			});
+			expect(member).toBeTruthy();
+			expect(new Date(member!.joinedAt).getTime()).toBe(joined.getTime());
+		});
+
+		it('createCommunityMember usa el default cuando no se provee joinedAt', async () => {
+			const member = await service.createCommunityMember(testCommunity.id, {
+				firstName: 'Sin',
+				lastName: 'Fecha',
+				email: 'joined-default@test.com',
+				cellPhone: '555-0002',
+			});
+			expect(member!.joinedAt).toBeTruthy();
+		});
+
+		it('updateMemberProfile actualiza joinedAt y lo reporta en changedFields', async () => {
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const member = await TestDataFactory.createTestCommunityMember(testCommunity.id, p.id);
+			const newJoined = new Date('2026-02-20T00:00:00.000Z');
+
+			const { member: updated, changedFields } = await service.updateMemberProfile(
+				testCommunity.id,
+				member.id,
+				{ joinedAt: newJoined },
+			);
+
+			expect(changedFields).toContain('joinedAt');
+			expect(new Date(updated!.joinedAt).getTime()).toBe(newJoined.getTime());
+		});
+
+		it('mover joinedAt hacia atrás incluye reuniones no asistidas en la tasa (caso Everardo)', async () => {
+			// Dos reuniones previas al ingreso por default del miembro.
+			const r1 = await service.createMeeting(testCommunity.id, {
+				title: 'R1',
+				startDate: new Date('2026-03-01T02:00:00.000Z'),
+				durationMinutes: 60,
+			});
+			await service.createMeeting(testCommunity.id, {
+				title: 'R2',
+				startDate: new Date('2026-03-08T02:00:00.000Z'),
+				durationMinutes: 60,
+			});
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const member = await TestDataFactory.createTestCommunityMember(testCommunity.id, p.id);
+			// Asiste solo a R1.
+			await service.recordSingleAttendance(testCommunity.id, r1.id, member.id, true);
+
+			// joinedAt = ahora (posterior a ambas). Solo R1 cuenta (tiene asistencia
+			// registrada) → 100%. R2 no cuenta porque es previa al ingreso y sin asistencia.
+			let members = await service.getMembers(testCommunity.id);
+			expect(members.find((m) => m.id === member.id)!.lastMeetingsAttendanceRate).toBe(100);
+
+			// Corregir la fecha de ingreso a antes de ambas reuniones → R2 (no asistida)
+			// ahora también cuenta → 1 de 2 = 50%.
+			await service.updateMemberProfile(testCommunity.id, member.id, {
+				joinedAt: new Date('2026-01-01T00:00:00.000Z'),
+			});
+			members = await service.getMembers(testCommunity.id);
+			expect(members.find((m) => m.id === member.id)!.lastMeetingsAttendanceRate).toBe(50);
+		});
+	});
+
+	describe('asistencia por miembro (getMemberAttendance / bulkRecordMemberAttendance)', () => {
+		it('getMembers expone el conteo lastMeetingsAttended / lastMeetingsTotal', async () => {
+			const m1 = await service.createMeeting(testCommunity.id, {
+				title: 'A', startDate: new Date('2026-03-01T02:00:00.000Z'), durationMinutes: 60,
+			});
+			await service.createMeeting(testCommunity.id, {
+				title: 'B', startDate: new Date('2026-03-08T02:00:00.000Z'), durationMinutes: 60,
+			});
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const member = await TestDataFactory.createTestCommunityMember(testCommunity.id, p.id);
+			// joinedAt es @CreateDateColumn (no lo respeta el factory): fijarlo con update
+			// a antes de ambas reuniones para que las dos cuenten en el denominador.
+			await service.updateMemberProfile(testCommunity.id, member.id, {
+				joinedAt: new Date('2026-01-01T00:00:00.000Z'),
+			});
+			await service.recordSingleAttendance(testCommunity.id, m1.id, member.id, true);
+
+			const members = await service.getMembers(testCommunity.id);
+			const target = members.find((m) => m.id === member.id)! as any;
+			expect(target.lastMeetingsAttended).toBe(1);
+			expect(target.lastMeetingsTotal).toBe(2);
+			expect(target.lastMeetingsAttendanceRate).toBe(50);
+		});
+
+		it('getMemberAttendance devuelve solo registros de reuniones de la comunidad', async () => {
+			const meeting = await service.createMeeting(testCommunity.id, {
+				title: 'Reunión', startDate: new Date('2026-03-01T02:00:00.000Z'), durationMinutes: 60,
+			});
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const member = await TestDataFactory.createTestCommunityMember(testCommunity.id, p.id);
+			await service.recordSingleAttendance(testCommunity.id, meeting.id, member.id, true);
+
+			const records = await service.getMemberAttendance(testCommunity.id, member.id);
+			expect(records).toEqual([{ meetingId: meeting.id, attended: true }]);
+		});
+
+		it('getMemberAttendance lanza si el miembro no pertenece a la comunidad', async () => {
+			await expect(
+				service.getMemberAttendance(testCommunity.id, 'non-existent-member'),
+			).rejects.toThrow('Member not found');
+		});
+
+		it('bulkRecordMemberAttendance hace upsert de varias reuniones en una llamada', async () => {
+			const m1 = await service.createMeeting(testCommunity.id, {
+				title: 'A', startDate: new Date('2026-03-01T02:00:00.000Z'), durationMinutes: 60,
+			});
+			const m2 = await service.createMeeting(testCommunity.id, {
+				title: 'B', startDate: new Date('2026-03-08T02:00:00.000Z'), durationMinutes: 60,
+			});
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const member = await TestDataFactory.createTestCommunityMember(testCommunity.id, p.id);
+
+			const res = await service.bulkRecordMemberAttendance(testCommunity.id, member.id, [
+				{ meetingId: m1.id, attended: true },
+				{ meetingId: m2.id, attended: false },
+			]);
+			expect(res.updated).toBe(2);
+
+			const records = await service.getMemberAttendance(testCommunity.id, member.id);
+			expect(records.find((r) => r.meetingId === m1.id)?.attended).toBe(true);
+			expect(records.find((r) => r.meetingId === m2.id)?.attended).toBe(false);
+
+			// Upsert: volver a marcar m1 como ausente actualiza (no duplica).
+			await service.bulkRecordMemberAttendance(testCommunity.id, member.id, [
+				{ meetingId: m1.id, attended: false },
+			]);
+			const after = await service.getMemberAttendance(testCommunity.id, member.id);
+			expect(after.filter((r) => r.meetingId === m1.id).length).toBe(1);
+			expect(after.find((r) => r.meetingId === m1.id)?.attended).toBe(false);
+		});
+
+		it('bulkRecordMemberAttendance ignora reuniones que no son de la comunidad', async () => {
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const member = await TestDataFactory.createTestCommunityMember(testCommunity.id, p.id);
+
+			const res = await service.bulkRecordMemberAttendance(testCommunity.id, member.id, [
+				{ meetingId: 'foreign-meeting-id', attended: true },
+			]);
+			expect(res.updated).toBe(0);
+			expect(await service.getMemberAttendance(testCommunity.id, member.id)).toEqual([]);
 		});
 	});
 

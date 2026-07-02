@@ -114,6 +114,9 @@ export const communityMemberSchema = z.object({
 	// Calculated fields
 	lastMeetingsAttendanceRate: z.number().optional(),
 	lastMeetingsFrequency: ParticipationFrequencyEnum.optional(),
+	// Conteo que respalda el porcentaje (asistidas / total que le cuentan).
+	lastMeetingsAttended: z.number().optional(),
+	lastMeetingsTotal: z.number().optional(),
 	// ISO timestamp del último `participant_communications` scope=community
 	// para este (communityId, participantId). NULL si nunca recibió mensaje
 	// en esta comunidad. Lo usa el frontend para ordenar por "último contacto".
@@ -298,6 +301,10 @@ export const updateMemberProfileSchema = z.object({
 				})
 				.optional(),
 			cellPhone: z.string().trim().max(30).optional(),
+			// Fecha de ingreso a la comunidad. NO es overlay de perfil, pero se
+			// edita desde el mismo diálogo. Determina desde cuándo cuentan las
+			// reuniones para la tasa de asistencia del miembro.
+			joinedAt: z.coerce.date().optional(),
 		})
 		.refine((data) => Object.keys(data).length > 0, {
 			message: 'At least one field must be provided',
@@ -316,6 +323,23 @@ export const recordAttendanceSchema = z.object({
 			notes: z.string().optional(),
 		}),
 	),
+});
+
+// Asistencia de UN miembro en VARIAS reuniones (una llamada). Usado por el
+// diálogo "Registrar asistencia" de la lista de miembros.
+export const bulkMemberAttendanceSchema = z.object({
+	body: z.object({
+		records: z.array(
+			z.object({
+				meetingId: z.string().uuid(),
+				attended: z.boolean(),
+			}),
+		),
+	}),
+	params: z.object({
+		id: z.string().uuid(),
+		memberId: z.string().uuid(),
+	}),
 });
 
 export const inviteCommunityAdminSchema = z.object({

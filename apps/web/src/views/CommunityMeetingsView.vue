@@ -6,9 +6,9 @@
     </div>
 
     <template v-else-if="currentCommunity">
-      <div class="flex justify-between items-center">
-        <div>
-          <h1 class="text-2xl font-bold">{{ currentCommunity.name }} - {{ $t('community.meeting.title') }}</h1>
+      <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
+        <div class="min-w-0">
+          <h1 class="text-xl sm:text-2xl font-bold">{{ currentCommunity.name }} - {{ $t('community.meeting.title') }}</h1>
           <div class="flex items-center text-sm text-muted-foreground">
             <router-link :to="{ name: 'community-dashboard', params: { id: currentCommunity.id } }" class="hover:underline">
               {{ $t('community.dashboard') }}
@@ -19,7 +19,7 @@
         </div>
         <Tooltip>
           <TooltipTrigger as-child>
-            <Button @click="openCreateModal">
+            <Button class="w-full sm:w-auto" @click="openCreateModal">
               <CalendarPlus class="w-4 h-4 mr-2" />
               {{ $t('community.meeting.addMeeting') }}
             </Button>
@@ -61,14 +61,20 @@
 
       <div class="grid gap-4">
         <Card v-for="meeting in filteredMeetings" :key="meeting.id" :class="{ 'border-l-4 border-l-blue-500': meeting.isAnnouncement, 'opacity-75': isPastMeeting(meeting) }">
-          <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between space-y-0 pb-2">
+            <div class="flex items-start sm:items-center gap-3 min-w-0 flex-1">
             <img
               v-if="(meeting as any).photoUrl"
               :src="(meeting as any).photoUrl"
               :alt="meeting.title"
-              class="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg border mr-3 sm:mr-4 flex-shrink-0"
+              class="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg border flex-shrink-0 cursor-pointer transition hover:opacity-90"
+              role="button"
+              tabindex="0"
+              :aria-label="`Ver foto de ${meeting.title}`"
+              @click.stop="openPhotoPreview(meeting)"
+              @keydown.enter.stop="openPhotoPreview(meeting)"
             />
-            <div class="flex-1">
+            <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2 flex-wrap">
                 <Badge v-if="meeting.isAnnouncement" variant="secondary">
                   {{ $t('community.meeting.isAnnouncement') }}
@@ -86,7 +92,7 @@
                 </Tooltip>
                 <CardTitle class="text-xl">{{ meeting.title }}</CardTitle>
               </div>
-              <CardDescription class="flex items-center gap-4 mt-1">
+              <CardDescription class="flex items-center flex-wrap gap-x-4 gap-y-1 mt-1">
                 <span class="flex items-center">
                   <Calendar class="w-4 h-4 mr-1" />
                   {{ formatDateTime(meeting.startDate) }}
@@ -110,7 +116,8 @@
                 {{ meeting.description }}
               </CardDescription>
             </div>
-            <div class="flex items-center -space-x-3">
+            </div>
+            <div class="flex items-center flex-wrap gap-1 sm:flex-nowrap sm:gap-0 sm:-space-x-3">
               <Tooltip v-if="!meeting.isAnnouncement">
                 <TooltipTrigger as-child>
                   <Button size="sm" variant="outline" as-child>
@@ -225,6 +232,7 @@
       @deleted="handleMeetingDeleted"
     />
 
+
     <Dialog :open="!!meetingToDelete" @update:open="meetingToDelete = null">
       <DialogContent>
         <DialogHeader>
@@ -261,6 +269,21 @@
             {{ $t('common.delete') }}
           </Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <!-- Lightbox: foto de la reunión ampliada -->
+    <Dialog :open="!!photoPreview" @update:open="(v: boolean) => !v && (photoPreview = null)">
+      <DialogContent class="max-w-3xl p-4">
+        <DialogHeader>
+          <DialogTitle class="text-base pr-8">{{ photoPreview?.title }}</DialogTitle>
+        </DialogHeader>
+        <img
+          v-if="photoPreview"
+          :src="photoPreview.url"
+          :alt="photoPreview.title"
+          class="w-full max-h-[75vh] object-contain rounded-md"
+        />
       </DialogContent>
     </Dialog>
 
@@ -504,6 +527,15 @@ const copyAttendanceLink = (meeting: any) => {
     title: $t('community.attendance.publicLinkCopied'),
     description: $t('community.attendance.publicLinkWarning'),
   });
+};
+
+// --- Lightbox: ver la foto de la reunión en grande ---
+const photoPreview = ref<{ url: string; title: string } | null>(null);
+
+const openPhotoPreview = (meeting: any) => {
+  const url = (meeting as any).photoUrl;
+  if (!url) return;
+  photoPreview.value = { url, title: meeting.title };
 };
 
 // --- Subida directa de foto desde la lista (sin abrir el modal de edición) ---

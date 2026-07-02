@@ -205,12 +205,12 @@ export class CommunityController {
 	 */
 	static async updateMemberProfile(req: Request, res: Response) {
 		const { id: communityId, memberId } = req.params;
-		const { firstName, lastName, email, cellPhone } = req.body || {};
+		const { firstName, lastName, email, cellPhone, joinedAt } = req.body || {};
 		try {
 			const { member, changedFields } = await communityService.updateMemberProfile(
 				communityId,
 				memberId,
-				{ firstName, lastName, email, cellPhone },
+				{ firstName, lastName, email, cellPhone, joinedAt },
 			);
 
 			// Audit log: solo cuando el overlay REALMENTE cambió (no en
@@ -447,6 +447,37 @@ export class CommunityController {
 		const { meetingId } = req.params;
 		const attendance = await communityService.getAttendance(meetingId);
 		res.json(attendance);
+	}
+
+	static async getMemberAttendance(req: Request, res: Response) {
+		const { id: communityId, memberId } = req.params;
+		try {
+			const attendance = await communityService.getMemberAttendance(communityId, memberId);
+			res.json(attendance);
+		} catch (error: any) {
+			if (error.message === 'Member not found') {
+				return res.status(404).json({ message: 'Member not found' });
+			}
+			throw error;
+		}
+	}
+
+	static async bulkRecordMemberAttendance(req: Request, res: Response) {
+		const { id: communityId, memberId } = req.params;
+		const { records } = req.body;
+		try {
+			const result = await communityService.bulkRecordMemberAttendance(
+				communityId,
+				memberId,
+				records,
+			);
+			res.status(201).json(result);
+		} catch (error: any) {
+			if (error.message === 'Member not found') {
+				return res.status(404).json({ message: 'Member not found' });
+			}
+			throw error;
+		}
 	}
 
 	// --- Public Attendance (No Auth Required) ---

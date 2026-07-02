@@ -349,6 +349,8 @@ export class CommunityService {
 					...m,
 					lastMeetingsAttendanceRate: 0,
 					lastMeetingsFrequency: 'none' as const,
+					lastMeetingsAttended: 0,
+					lastMeetingsTotal: 0,
 					lastMessageSentAt: lastMessageByParticipant[m.participantId] || null,
 				}))
 				.sort((a, b) => b.joinedAt.getTime() - a.joinedAt.getTime());
@@ -371,17 +373,23 @@ export class CommunityService {
 		}
 
 		// Add calculated rate and frequency to each member
-		// Only count meetings that occurred AFTER the member joined
 		const membersWithRate = members.map((member) => {
-			// Filter meetings to only include those on or after member's join date
-			const meetingsSinceJoin = pastMeetings.filter((m) => m.startDate >= member.joinedAt);
-			const meetingIdsSinceJoin = new Set(meetingsSinceJoin.map((m) => m.id));
-
-			// Count only attendances to valid meetings (since member joined)
 			const attendedMeetingIds = attendanceByMember[member.id] || [];
-			const attendedCount = attendedMeetingIds.filter((id) => meetingIdsSinceJoin.has(id)).length;
+			const attendedIdSet = new Set(attendedMeetingIds);
 
-			const totalValidMeetings = meetingsSinceJoin.length;
+			// Reuniones que cuentan para la tasa: las ocurridas desde que el miembro se
+			// unió, MÁS cualquier reunión a la que tenga asistencia registrada
+			// (attended=true), aunque sea anterior a su joinedAt. Sin esto, dar de alta
+			// a un miembro DURANTE la reunión (su joinedAt queda después del startDate)
+			// y marcarlo presente lo dejaba en 0% falso, con la reunión excluida del
+			// denominador pese a tener asistencia.
+			const validMeetings = pastMeetings.filter(
+				(m) => m.startDate >= member.joinedAt || attendedIdSet.has(m.id),
+			);
+			const validMeetingIds = new Set(validMeetings.map((m) => m.id));
+
+			const attendedCount = attendedMeetingIds.filter((id) => validMeetingIds.has(id)).length;
+			const totalValidMeetings = validMeetings.length;
 			const rate = totalValidMeetings > 0 ? (attendedCount / totalValidMeetings) * 100 : 0;
 
 			// Determine frequency based on rate
@@ -400,6 +408,10 @@ export class CommunityService {
 				...member,
 				lastMeetingsAttendanceRate: rate,
 				lastMeetingsFrequency: frequency,
+				// Conteo que respalda el porcentaje (asistidas / total que le cuentan).
+				// El badge lo muestra como "Alta (100% · 1/1)" para dar contexto.
+				lastMeetingsAttended: attendedCount,
+				lastMeetingsTotal: totalValidMeetings,
 				lastMessageSentAt: lastMessageByParticipant[member.participantId] || null,
 			};
 		});
@@ -554,14 +566,21 @@ export class CommunityService {
 			lastName: string;
 			email: string;
 			cellPhone: string;
+			// Fecha de ingreso opcional. Si no se provee, joinedAt cae al default
+			// (@CreateDateColumn = ahora). Útil para dar de alta a alguien que en
+			// realidad se unió antes, y que su tasa de asistencia cuente las
+			// reuniones correctas.
+			joinedAt?: string | Date;
 		},
 		state: MemberState = 'active_member',
 	) {
+		const { joinedAt, ...participantFields } = participantData;
+
 		// Bloquea tel duplicado en la misma comunidad. Si llaman desde bulkAddMembers,
 		// ahí también verifico para devolver mejor mensaje, pero aquí es safety net
 		// adicional (otras rutas como POST /communities/:id/members/create lo cruzan).
-		if (participantData.cellPhone) {
-			const collision = await this.findPhoneCollision(communityId, participantData.cellPhone);
+		if (participantFields.cellPhone) {
+			const collision = await this.findPhoneCollision(communityId, participantFields.cellPhone);
 			if (collision) {
 				throw new Error('PHONE_DUPLICATE_IN_COMMUNITY');
 			}
@@ -569,8 +588,8 @@ export class CommunityService {
 
 		// 1. Create participant with retreatId: null and minimal required fields
 		const participant = this.participantRepo.create({
-			...participantData,
-			email: participantData.email.toLowerCase().trim(),
+			...participantFields,
+			email: participantFields.email.toLowerCase().trim(),
 			retreatId: null,
 			type: 'walker', // Default type for community members
 			id_on_retreat: 0, // Required field, set to 0 for community members
@@ -590,7 +609,7 @@ export class CommunityService {
 			sacraments: ['none'],
 			emergencyContact1Name: 'N/A',
 			emergencyContact1Relation: 'N/A',
-			emergencyContact1CellPhone: participantData.cellPhone,
+			emergencyContact1CellPhone: participantFields.cellPhone,
 		});
 
 		const savedParticipant = await this.participantRepo.save(participant);
@@ -608,6 +627,15 @@ export class CommunityService {
 		});
 
 		const savedMember = await this.memberRepo.save(member);
+
+		// joinedAt es @CreateDateColumn (se autofija al insertar). Para respetar
+		// una fecha de ingreso custom hay que sobreescribirla con un UPDATE.
+		if (joinedAt) {
+			const parsed = new Date(joinedAt);
+			if (!Number.isNaN(parsed.getTime())) {
+				await this.memberRepo.update(savedMember.id, { joinedAt: parsed });
+			}
+		}
 
 		// 3. Return member with participant data
 		return this.memberRepo.findOne({
@@ -726,6 +754,7 @@ export class CommunityService {
 			lastName?: string;
 			email?: string;
 			cellPhone?: string;
+			joinedAt?: string | Date;
 		},
 	) {
 		const member = await this.memberRepo.findOne({
@@ -801,6 +830,20 @@ export class CommunityService {
 		for (const [key, value] of Object.entries(overlayUpdates)) {
 			if ((member as any)[key] !== value) {
 				changedFields.push(key);
+			}
+		}
+
+		// joinedAt: fecha de ingreso a la comunidad (no es overlay). Comparar por
+		// timestamp — dos Date nunca son === por referencia. Solo persistir si el
+		// día efectivo cambió.
+		if (profile.joinedAt !== undefined && profile.joinedAt !== null) {
+			const newJoined = new Date(profile.joinedAt);
+			if (!Number.isNaN(newJoined.getTime())) {
+				const currentMs = member.joinedAt ? new Date(member.joinedAt).getTime() : NaN;
+				if (currentMs !== newJoined.getTime()) {
+					overlayUpdates.joinedAt = newJoined;
+					changedFields.push('joinedAt');
+				}
 			}
 		}
 
@@ -1730,6 +1773,86 @@ export class CommunityService {
 			});
 			return this.attendanceRepo.save(attendance);
 		}
+	}
+
+	/**
+	 * Asistencia de UN miembro a través de las reuniones de la comunidad.
+	 * Devuelve solo los registros existentes (ausencia implícita = sin registro).
+	 * Evita las N llamadas por-reunión del cliente al abrir el diálogo de
+	 * asistencia por miembro.
+	 */
+	async getMemberAttendance(communityId: string, memberId: string) {
+		const member = await this.memberRepo.findOne({
+			where: { id: memberId, communityId },
+		});
+		if (!member) {
+			throw new Error('Member not found');
+		}
+
+		// Solo reuniones de esta comunidad (evita filtrar cross-community por memberId).
+		const meetings = await this.meetingRepo.find({
+			where: { communityId },
+			select: ['id'],
+		});
+		const meetingIds = new Set(meetings.map((m) => m.id));
+
+		const records = await this.attendanceRepo.find({ where: { memberId } });
+		return records
+			.filter((r) => meetingIds.has(r.meetingId))
+			.map((r) => ({ meetingId: r.meetingId, attended: r.attended }));
+	}
+
+	/**
+	 * Upsert de asistencia de UN miembro en VARIAS reuniones (una llamada).
+	 * Reemplaza el bucle de recordSingleAttendance del cliente. Cada registro es
+	 * idempotente; se validan las reuniones contra la comunidad para no escribir
+	 * cross-community.
+	 */
+	async bulkRecordMemberAttendance(
+		communityId: string,
+		memberId: string,
+		records: { meetingId: string; attended: boolean }[],
+	) {
+		const member = await this.memberRepo.findOne({
+			where: { id: memberId, communityId },
+		});
+		if (!member) {
+			throw new Error('Member not found');
+		}
+		if (!records || records.length === 0) {
+			return { updated: 0 };
+		}
+
+		// Validar que todas las reuniones pertenezcan a la comunidad.
+		const meetings = await this.meetingRepo.find({
+			where: { communityId },
+			select: ['id'],
+		});
+		const validMeetingIds = new Set(meetings.map((m) => m.id));
+
+		let updated = 0;
+		for (const rec of records) {
+			if (!validMeetingIds.has(rec.meetingId)) continue;
+			const existing = await this.attendanceRepo.findOne({
+				where: { meetingId: rec.meetingId, memberId },
+			});
+			if (existing) {
+				existing.attended = rec.attended;
+				existing.recordedAt = new Date();
+				await this.attendanceRepo.save(existing);
+			} else {
+				await this.attendanceRepo.save(
+					this.attendanceRepo.create({
+						meetingId: rec.meetingId,
+						memberId,
+						attended: rec.attended,
+						recordedAt: new Date(),
+					}),
+				);
+			}
+			updated++;
+		}
+		return { updated };
 	}
 
 	// --- Dashboard & Analytics ---

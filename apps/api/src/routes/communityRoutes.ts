@@ -20,6 +20,7 @@ import {
 	updateMemberStateSchema,
 	updateMemberProfileSchema,
 	recordAttendanceSchema,
+	bulkMemberAttendanceSchema,
 	inviteCommunityAdminSchema,
 	addCommunityAdminSchema,
 	publicRegisterCommunitySchema,
@@ -142,6 +143,16 @@ router.patch(
 );
 router.get('/:id/members/:memberId/timeline', requireCommunityAccess(), (req, res) =>
 	CommunityController.getMemberTimeline(req, res),
+);
+// Asistencia por miembro (a través de reuniones)
+router.get('/:id/members/:memberId/attendance', requireCommunityAccess(), (req, res) =>
+	CommunityController.getMemberAttendance(req, res),
+);
+router.post(
+	'/:id/members/:memberId/attendance/bulk',
+	requireCommunityAccess(),
+	validateRequest(bulkMemberAttendanceSchema),
+	(req, res) => CommunityController.bulkRecordMemberAttendance(req, res),
 );
 
 // Meetings

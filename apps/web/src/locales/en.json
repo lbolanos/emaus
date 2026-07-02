@@ -2067,7 +2067,7 @@
     "membersLabel": "Members",
     "adminsLabel": "Admins",
     "templatesLabel": "Templates",
-    "participationRate": "Participation Frequency",
+    "participationRate": "Attendance",
     "dashboard": "Dashboard",
     "admins": "Admins",
     "actions": "Actions",
@@ -2175,7 +2175,7 @@
       "totalMembers": "Total Members",
       "lastMeetings": "Last Meetings",
       "memberStatus": "Member Status Distribution",
-      "participationRate": "Participation Frequency",
+      "participationRate": "Attendance",
       "averageAttendance": "Avg. Attendance",
       "upcomingMeetings": "Upcoming",
       "recentMeetings": "Recent Meetings",
@@ -2185,6 +2185,7 @@
       "noData": "No data available"
     },
     "attendance": {
+      "recordFor": "Record attendance",
       "present": "Present",
       "absent": "Absent",
       "pending": "Pending",

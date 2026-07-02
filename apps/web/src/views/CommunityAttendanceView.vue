@@ -15,28 +15,56 @@
     </div>
 
     <template v-else-if="currentMeeting && currentCommunity">
-      <div class="flex justify-between items-center">
-        <div>
-          <h1 class="text-2xl font-bold">{{ currentMeeting.title }} - {{ $t('community.meeting.recordAttendance') }}</h1>
-          <p class="text-muted-foreground">{{ formatMeetingDate(currentMeeting.startDate) }}</p>
-          <div class="flex items-center text-sm text-muted-foreground">
-            <router-link
-              :to="{ name: 'community-meetings', params: { id: currentCommunity.id } }"
-              class="hover:underline"
-            >
-              {{ $t('community.meeting.title') }}
-            </router-link>
-            <ChevronRight class="w-4 h-4 mx-1" />
-            <span>{{ $t('community.meeting.recordAttendance') }}</span>
+      <div class="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start">
+        <div class="flex items-start gap-3 min-w-0">
+          <img
+            v-if="(currentMeeting as any).photoUrl"
+            :src="(currentMeeting as any).photoUrl"
+            :alt="currentMeeting.title"
+            class="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg border flex-shrink-0 cursor-pointer transition hover:opacity-90"
+            role="button"
+            tabindex="0"
+            aria-label="Ver foto de la reunión"
+            @click="openPhotoPreview()"
+            @keydown.enter="openPhotoPreview()"
+          />
+          <div class="min-w-0">
+            <h1 class="text-xl sm:text-2xl font-bold">{{ currentMeeting.title }} - {{ $t('community.meeting.recordAttendance') }}</h1>
+            <p class="text-muted-foreground">{{ formatMeetingDate(currentMeeting.startDate) }}</p>
+            <div class="flex items-center text-sm text-muted-foreground">
+              <router-link
+                :to="{ name: 'community-meetings', params: { id: currentCommunity.id } }"
+                class="hover:underline"
+              >
+                {{ $t('community.meeting.title') }}
+              </router-link>
+              <ChevronRight class="w-4 h-4 mx-1" />
+              <span>{{ $t('community.meeting.recordAttendance') }}</span>
+            </div>
           </div>
         </div>
-        <div class="relative max-w-xs">
-          <Search class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            v-model="searchQuery"
-            :placeholder="$t('community.attendance.searchPlaceholder')"
-            class="pl-8"
-          />
+        <div class="flex flex-col gap-2 sm:items-end sm:flex-shrink-0">
+          <Button class="w-full sm:w-auto" @click="isCreateModalOpen = true">
+            <UserPlus class="w-4 h-4 mr-2" />
+            Crear miembro
+          </Button>
+          <div class="relative w-full sm:w-64">
+            <Search class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              v-model="searchQuery"
+              :placeholder="$t('community.attendance.searchPlaceholder')"
+              class="pl-8 pr-8"
+            />
+            <button
+              v-if="searchQuery"
+              type="button"
+              class="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground transition-colors"
+              @click="searchQuery = ''"
+              aria-label="Limpiar búsqueda"
+            >
+              <X class="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -99,6 +127,28 @@
         <Users class="w-12 h-12 mx-auto mb-3 opacity-50" />
         <p>No hay miembros en esta comunidad.</p>
       </div>
+
+      <!-- Modal: crear miembro de la comunidad -->
+      <CreateMemberModal
+        v-model:open="isCreateModalOpen"
+        :community-id="currentCommunity.id"
+        @created="handleMemberCreated"
+      />
+
+      <!-- Lightbox: foto de la reunión ampliada -->
+      <Dialog :open="photoPreview" @update:open="(v: boolean) => (photoPreview = v)">
+        <DialogContent class="max-w-3xl p-4">
+          <DialogHeader>
+            <DialogTitle class="text-base pr-8">{{ currentMeeting.title }}</DialogTitle>
+          </DialogHeader>
+          <img
+            v-if="(currentMeeting as any).photoUrl"
+            :src="(currentMeeting as any).photoUrl"
+            :alt="currentMeeting.title"
+            class="w-full max-h-[75vh] object-contain rounded-md"
+          />
+        </DialogContent>
+      </Dialog>
     </template>
   </div>
 </template>
@@ -108,10 +158,11 @@ import { ref, onMounted, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
-import { ChevronRight, Check, Users, Search, Loader2 } from 'lucide-vue-next';
-import { Button, Card, Badge, Input } from '@repo/ui';
+import { ChevronRight, Check, Users, Search, Loader2, UserPlus, X } from 'lucide-vue-next';
+import { Button, Card, Badge, Input, Dialog, DialogContent, DialogHeader, DialogTitle } from '@repo/ui';
 import { useToast } from '@repo/ui';
 import { formatDate, resolveMemberProfile, formatDateInCommunityTimezone } from '@repo/utils';
+import CreateMemberModal from '@/components/community/CreateMemberModal.vue';
 
 const { t: $t } = useI18n();
 
@@ -134,6 +185,23 @@ const formatMeetingDate = (date: string | Date) =>
 const loadingMeeting = ref(true);
 const searchQuery = ref('');
 const savingStates = ref<Record<string, boolean>>({});
+const isCreateModalOpen = ref(false);
+const photoPreview = ref(false);
+
+const openPhotoPreview = () => {
+  if (!(currentMeeting.value as any)?.photoUrl) return;
+  photoPreview.value = true;
+};
+
+// Recargar miembros tras crear uno nuevo, preservando la asistencia ya marcada
+// en esta sesión (el nuevo miembro entra como ausente por defecto).
+const handleMemberCreated = async () => {
+  await communityStore.fetchMembers(props.id);
+  membersWithAttendance.value = members.value.map((m) => {
+    const existing = membersWithAttendance.value.find((mwa) => mwa.id === m.id);
+    return { ...m, attended: existing?.attended ?? false };
+  });
+};
 
 // Make members reactive with attended property
 const membersWithAttendance = ref<any[]>([]);

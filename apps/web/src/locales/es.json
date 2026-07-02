@@ -2164,7 +2164,7 @@
     "membersLabel": "Miembros",
     "adminsLabel": "Administradores",
     "templatesLabel": "Plantillas",
-    "participationRate": "Frecuencia de Participación",
+    "participationRate": "Asistencia",
     "dashboard": "Dashboard",
     "admins": "Administradores",
     "actions": "Acciones",
@@ -2272,7 +2272,7 @@
       "totalMembers": "Total de Miembros",
       "lastMeetings": "Últimas Reuniones",
       "memberStatus": "Distribución de Estado de Miembros",
-      "participationRate": "Frecuencia de Participación",
+      "participationRate": "Asistencia",
       "averageAttendance": "Asist. Promedio",
       "upcomingMeetings": "Próximas",
       "recentMeetings": "Reuniones Recientes",
@@ -2282,6 +2282,7 @@
       "noData": "Sin datos disponibles"
     },
     "attendance": {
+      "recordFor": "Registrar asistencia",
       "present": "Presentes",
       "absent": "Ausente",
       "pending": "Pendiente",

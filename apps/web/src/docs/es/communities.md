@@ -26,6 +26,16 @@ Será agregado automáticamente como propietario de la comunidad.
 
 ## Administrar Miembros
 
+### Crear un Miembro
+
+1. En la pestaña **Miembros**, haga clic en **Crear miembro**
+2. Complete nombre, apellido, correo y teléfono
+3. **Fecha de ingreso** (opcional): fecha en que la persona se unió a la
+   comunidad. Determina desde cuándo cuentan las reuniones para su asistencia.
+   Si la deja vacía, se usa la fecha de hoy. Puede corregirla luego en
+   **Editar datos**.
+4. Haga clic en **Crear miembro**
+
 ### Importar Miembros desde un Retiro
 
 1. Abra el panel de la comunidad
@@ -70,11 +80,22 @@ Para eliminar un miembro de la comunidad:
 
 ### Registrar Asistencia
 
+**Por reunión** (marcar a todos los miembros de una reunión):
+
 1. Abra una reunión de la lista de reuniones
 2. Haga clic en **Registrar Asistencia**
 3. Marque cada miembro como presente o ausente
 4. Agregue notas para miembros individuales si es necesario
 5. Haga clic en **Guardar Asistencia**
+
+**Por miembro** (marcar a un miembro en varias reuniones a la vez):
+
+1. En la lista de **Miembros**, ubique al miembro
+2. Haga clic en el botón de **Registrar asistencia** (ícono de portapapeles) en su fila
+3. Marque las reuniones a las que asistió (puede usar **Marcar todas** / **Limpiar**)
+4. Haga clic en **Guardar** — solo se actualizan las reuniones que cambió
+
+Solo se listan las reuniones pasadas o de hoy (no anuncios ni reuniones futuras).
 
 ## Panel y Análisis
 
@@ -83,11 +104,19 @@ El panel de la comunidad proporciona información sobre:
 - **Total de Miembros**: Número actual de miembros de la comunidad
 - **Distribución de Estados de Miembros**: Desglose por estado de miembro
 - **Conteo de Reuniones**: Número de reuniones realizadas
-- **Frecuencia de Participación**: Con qué frecuencia asisten los miembros a las reuniones
+- **Asistencia**: Con qué frecuencia asisten los miembros a las reuniones
   - Alta: 75%+ de asistencia
   - Media: 25-75% de asistencia
   - Baja: <25% de asistencia
   - Ninguna: No se registró asistencia
+
+  El porcentaje se calcula **desde la fecha de ingreso del miembro** (`joinedAt`):
+  solo cuentan las reuniones ocurridas a partir de esa fecha, más cualquier
+  reunión anterior a la que el miembro tenga asistencia registrada. Así, un
+  miembro recién dado de alta no aparece penalizado por reuniones previas a su
+  ingreso. Si la fecha de ingreso quedó mal (p. ej. se creó al miembro tiempo
+  después de que realmente se unió), edítela en **Editar datos** para que el
+  porcentaje refleje todas sus reuniones.
 
 ## Administrar Administradores
 

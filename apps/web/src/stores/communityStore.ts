@@ -165,7 +165,13 @@ export const useCommunityStore = defineStore('community', () => {
 
 	const createMember = async (
 		communityId: string,
-		participantData: { firstName: string; lastName: string; email: string; cellPhone: string },
+		participantData: {
+			firstName: string;
+			lastName: string;
+			email: string;
+			cellPhone: string;
+			joinedAt?: string;
+		},
 	) => {
 		loading.value = true;
 		error.value = null;
@@ -527,7 +533,13 @@ export const useCommunityStore = defineStore('community', () => {
 	const updateMemberProfile = async (
 		communityId: string,
 		memberId: string,
-		profile: { firstName?: string; lastName?: string; email?: string; cellPhone?: string },
+		profile: {
+			firstName?: string;
+			lastName?: string;
+			email?: string;
+			cellPhone?: string;
+			joinedAt?: string;
+		},
 	) => {
 		loading.value = true;
 		error.value = null;

@@ -59,6 +59,18 @@
           />
         </div>
 
+        <div class="space-y-2">
+          <Label for="joinedAt">Fecha de ingreso</Label>
+          <Input
+            id="joinedAt"
+            v-model="form.joinedAt"
+            type="date"
+          />
+          <p class="text-xs text-muted-foreground">
+            Desde esta fecha cuentan las reuniones para su tasa de asistencia.
+          </p>
+        </div>
+
         <div v-if="errorMessage" class="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">
           {{ errorMessage }}
         </div>
@@ -119,7 +131,10 @@ const form = ref({
   lastName: '',
   email: '',
   cellPhone: '',
+  joinedAt: '',
 });
+// Valor original de joinedAt (YYYY-MM-DD) para enviar solo si cambió.
+const initialJoinedAt = ref('');
 const isSaving = ref(false);
 const errorMessage = ref<string | null>(null);
 
@@ -138,12 +153,18 @@ watch(
   () => {
     if (!props.open || !props.member) return;
     const profile = resolveMemberProfile(props.member);
+    // joinedAt en formato YYYY-MM-DD (UTC) para el <input type="date">. Usar UTC
+    // en ambos lados (lectura y guardado) evita el off-by-one por zona horaria.
+    const joined = (props.member as any).joinedAt;
+    const joinedStr = joined ? new Date(joined).toISOString().slice(0, 10) : '';
     form.value = {
       firstName: profile.firstName,
       lastName: profile.lastName,
       email: profile.email,
       cellPhone: profile.cellPhone,
+      joinedAt: joinedStr,
     };
+    initialJoinedAt.value = joinedStr;
     errorMessage.value = null;
   },
   { immediate: true },
@@ -176,6 +197,10 @@ const submit = async () => {
     }
     if (current.cellPhone !== form.value.cellPhone.trim()) {
       payload.cellPhone = form.value.cellPhone.trim();
+    }
+    // joinedAt: enviar solo si cambió y no quedó vacío.
+    if (form.value.joinedAt && form.value.joinedAt !== initialJoinedAt.value) {
+      payload.joinedAt = form.value.joinedAt;
     }
 
     if (Object.keys(payload).length === 0) {

@@ -81,8 +81,21 @@
                 <img
                   :src="photoPreview"
                   alt="Foto de la reunión"
-                  class="w-full h-48 object-cover rounded-lg border"
+                  class="w-full h-48 object-cover rounded-lg border cursor-zoom-in transition hover:opacity-90"
+                  role="button"
+                  tabindex="0"
+                  aria-label="Ampliar foto"
+                  @click="openPhotoLightbox"
+                  @keydown.enter="openPhotoLightbox"
                 />
+                <button
+                  type="button"
+                  class="absolute bottom-2 right-2 w-7 h-7 bg-black/60 text-white rounded-full flex items-center justify-center shadow-sm hover:bg-black/80 transition-colors"
+                  @click="openPhotoLightbox"
+                  aria-label="Ampliar foto"
+                >
+                  <Maximize2 class="w-4 h-4" />
+                </button>
                 <button
                   type="button"
                   class="absolute top-2 right-2 w-7 h-7 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center shadow-sm hover:bg-destructive/90 transition-colors"
@@ -249,12 +262,37 @@
       </form>
     </DialogContent>
   </Dialog>
+
+  <!-- Lightbox: foto ampliada. Overlay propio (no Dialog anidado) para evitar
+       los conflictos de pointer-events/focus-trap de radix con dialogs anidados. -->
+  <Teleport to="body">
+    <div
+      v-if="showPhotoLightbox && photoPreview"
+      class="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 p-4"
+      @click="showPhotoLightbox = false"
+    >
+      <img
+        :src="photoPreview"
+        alt="Foto de la reunión"
+        class="max-w-full max-h-full object-contain rounded-lg shadow-xl"
+        @click.stop
+      />
+      <button
+        type="button"
+        class="absolute top-4 right-4 w-9 h-9 bg-black/60 text-white rounded-full flex items-center justify-center hover:bg-black/80 transition-colors"
+        @click="showPhotoLightbox = false"
+        aria-label="Cerrar"
+      >
+        <X class="w-5 h-5" />
+      </button>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useCommunityStore } from '@/stores/communityStore';
-import { Info, Loader2, Trash2, X, ImagePlus } from 'lucide-vue-next';
+import { Info, Loader2, Trash2, X, ImagePlus, Maximize2 } from 'lucide-vue-next';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
   Button, Label, Input, Textarea, Switch, Badge, Tabs, TabsList, TabsTrigger, TabsContent,
@@ -372,6 +410,28 @@ const handleRemovePhoto = () => {
   // Solo hay que borrar en el server si la reunión ya tenía foto guardada.
   pendingPhotoRemove.value = !!editingMeeting.value?.photoUrl;
 };
+
+// Lightbox para ver la foto en grande dentro del modal.
+const showPhotoLightbox = ref(false);
+const openPhotoLightbox = () => {
+  if (photoPreview.value) showPhotoLightbox.value = true;
+};
+// Cerrar con Escape sin que el Dialog padre también se cierre (capture + stop).
+const onLightboxKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation();
+    showPhotoLightbox.value = false;
+  }
+};
+watch(showPhotoLightbox, (openState) => {
+  if (openState) {
+    window.addEventListener('keydown', onLightboxKeydown, true);
+  } else {
+    window.removeEventListener('keydown', onLightboxKeydown, true);
+  }
+});
+onUnmounted(() => window.removeEventListener('keydown', onLightboxKeydown, true));
 
 // Template variables with labels
 const templateVariables = [
@@ -700,6 +760,7 @@ watch(() => props.meetingToEdit, (meeting) => {
 watch(() => props.open, (isOpen) => {
   if (!isOpen) {
     editingMeeting.value = null;
+    showPhotoLightbox.value = false;
   }
 });
 </script>

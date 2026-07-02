@@ -30,6 +30,7 @@ const formData = ref({
 	lastName: '',
 	email: '',
 	cellPhone: '',
+	joinedAt: '',
 });
 
 const formErrors = ref<Record<string, string>>({});
@@ -48,6 +49,7 @@ const resetForm = () => {
 		lastName: '',
 		email: '',
 		cellPhone: '',
+		joinedAt: '',
 	};
 	formErrors.value = {};
 };
@@ -85,7 +87,22 @@ const handleSubmit = async () => {
 
 	isSubmitting.value = true;
 	try {
-		await communityStore.createMember(props.communityId, formData.value);
+		const payload: {
+			firstName: string;
+			lastName: string;
+			email: string;
+			cellPhone: string;
+			joinedAt?: string;
+		} = {
+			firstName: formData.value.firstName,
+			lastName: formData.value.lastName,
+			email: formData.value.email,
+			cellPhone: formData.value.cellPhone,
+		};
+		// Solo enviar joinedAt si el coordinador puso una fecha; si no, el backend
+		// usa el default (ahora).
+		if (formData.value.joinedAt) payload.joinedAt = formData.value.joinedAt;
+		await communityStore.createMember(props.communityId, payload);
 		toast({
 			title: 'Miembro creado',
 			description: `${formData.value.firstName} ${formData.value.lastName} ha sido agregado a la comunidad`,
@@ -179,6 +196,20 @@ const handleClose = () => {
 						:disabled="isSubmitting"
 					/>
 					<p v-if="formErrors.cellPhone" class="text-sm text-destructive">{{ formErrors.cellPhone }}</p>
+				</div>
+
+				<!-- Fecha de ingreso (opcional) -->
+				<div class="space-y-2">
+					<Label for="joinedAt">Fecha de ingreso</Label>
+					<Input
+						id="joinedAt"
+						v-model="formData.joinedAt"
+						type="date"
+						:disabled="isSubmitting"
+					/>
+					<p class="text-xs text-muted-foreground">
+						Opcional. Desde esta fecha cuentan las reuniones para su asistencia. Si lo dejas vacío, se usa hoy.
+					</p>
 				</div>
 			</div>
 
