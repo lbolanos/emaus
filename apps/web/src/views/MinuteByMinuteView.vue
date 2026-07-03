@@ -289,7 +289,7 @@
                       <!-- Apoyos: solo desktop -->
                       <span v-if="item.responsables?.length" class="hidden sm:inline text-gray-500 truncate">
                         👤
-                        <span v-for="(r, i) in item.responsables" :key="r.id || i">{{ r.participant?.nickname || r.participant?.firstName || '—' }}<template v-if="i < (item.responsables?.length ?? 0) - 1">, </template></span>
+                        <span v-for="(r, i) in item.responsables" :key="r.id || i">{{ isMeaninglessNickname(r.participant?.nickname) ? (r.participant?.firstName || '—') : r.participant?.nickname }}<template v-if="i < (item.responsables?.length ?? 0) - 1">, </template></span>
                       </span>
                       <!-- Palanquita: solo desktop -->
                       <span v-if="item.palanquitaNotes" class="hidden sm:inline text-gray-400 truncate">🎵 {{ item.palanquitaNotes }}</span>
@@ -446,6 +446,7 @@ import ResponsabilityAttachmentsDialog from '@/components/ResponsabilityAttachme
 import MamHelpDialog from '@/components/MamHelpDialog.vue';
 import MamMoreActions from '@/components/MamMoreActions.vue';
 import { api, retreatScheduleApi, apiErrorMessage, type RetreatScheduleItemDTO } from '@/services/api';
+import { participantLabel, isMeaninglessNickname } from '@/utils/participant';
 import type { Participant, Responsability } from '@repo/types';
 import { durationToFill, retreatGapAfter, computeCompactPlan } from '@/views/mamTime';
 
@@ -610,7 +611,7 @@ function responsableParticipantName(id?: string | null): string | null {
   const r = responsibilities.value.find((x) => x.id === id);
   const p = r?.participant;
   if (!p) return null;
-  return p.nickname || `${p.firstName ?? ''} ${p.lastName ?? ''}`.trim() || null;
+  return participantLabel(p) || null;
 }
 
 async function loadParticipantsForRetreat(id: string) {

@@ -12,6 +12,7 @@ import { TypeormStore } from 'connect-typeorm';
 import { initRealtime, emitScheduleUpcoming } from './realtime';
 import { retreatScheduleService } from './services/retreatScheduleService';
 import { createDefaultScheduleTemplate } from './data/scheduleTemplateSeeder';
+import { createDefaultPreRetreatTaskTemplate } from './data/preRetreatTaskSeeder';
 import { seedCanonicalResponsabilityAttachments } from './data/responsabilityAttachmentSeeder';
 
 import { AppDataSource } from './data-source';
@@ -239,6 +240,13 @@ async function main() {
 		await createDefaultScheduleTemplate();
 	} catch (err) {
 		console.warn('[scheduleTemplateSeeder] bootstrap error', err);
+	}
+
+	// Ensure pre-retreat task default template exists (idempotent by name).
+	try {
+		await createDefaultPreRetreatTaskTemplate();
+	} catch (err) {
+		console.warn('[preRetreatTaskSeeder] bootstrap error', err);
 	}
 
 	// Importa los guiones de las charlas/roles (description → markdown attachment).

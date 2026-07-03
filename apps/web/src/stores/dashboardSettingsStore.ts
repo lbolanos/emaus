@@ -13,6 +13,7 @@ export type SectionKey =
   | 'additionalInfo'
   | 'inventoryAlerts'
   | 'minutoAMinuto'
+  | 'preRetreatTasks'
   | 'santisimo';
 
 type SectionRecord = Record<SectionKey, boolean>;
@@ -33,6 +34,7 @@ const ALL_VISIBLE: SectionRecord = {
   additionalInfo: true,
   inventoryAlerts: true,
   minutoAMinuto: true,
+  preRetreatTasks: true,
   santisimo: true,
 };
 
@@ -48,11 +50,13 @@ const ALL_EXPANDED: SectionRecord = {
   additionalInfo: false,
   inventoryAlerts: false,
   minutoAMinuto: false,
+  preRetreatTasks: false,
   santisimo: false,
 };
 
 export const DEFAULT_ORDER: SectionKey[] = [
   'registrationLinks',
+  'preRetreatTasks',
   'minutoAMinuto',
   'primaryStats',
   'responsibilities',

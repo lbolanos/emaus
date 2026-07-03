@@ -329,7 +329,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { ref, computed, nextTick, onMounted, watch } from 'vue';
-import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, Shirt, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, Clock, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages, DoorOpen } from 'lucide-vue-next';
+import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, Shirt, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, Clock, ClipboardList, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages, DoorOpen } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useReceptionStore } from '@/stores/receptionStore';
 import { useRouter, useRoute } from 'vue-router';
@@ -370,7 +370,7 @@ import { useI18n } from 'vue-i18n';
 import { storeLocale } from '@/i18n';
 import SidebarMenuItem from '@/components/layout/SidebarMenuItem.vue';
 
-type PermissionType = 'retreat' | 'participant' | 'table' | 'house' | 'user' | 'retreatInventory' | 'inventoryItem' | 'payment' | 'responsability' | 'messageTemplate' | 'santisimo' | 'schedule' | 'scheduleTemplate' | 'superadmin';
+type PermissionType = 'retreat' | 'participant' | 'table' | 'house' | 'user' | 'retreatInventory' | 'inventoryItem' | 'payment' | 'responsability' | 'messageTemplate' | 'santisimo' | 'schedule' | 'scheduleTemplate' | 'preRetreatTask' | 'preRetreatTaskTemplate' | 'superadmin';
 
 export interface MenuItem {
   name: string;
@@ -783,6 +783,14 @@ const menuSections: MenuSection[] = [
         label: 'sidebar.minuteByMinute'
       },
       {
+        name: 'pre-retreat-tasks',
+        routeName: 'pre-retreat-tasks',
+        icon: ClipboardList,
+        permission: 'preRetreatTask',
+        requiresRetreat: true,
+        label: 'sidebar.preRetreatTasks'
+      },
+      {
         name: 'my-schedule',
         routeName: 'my-schedule',
         icon: Clock,
@@ -972,6 +980,14 @@ const menuSections: MenuSection[] = [
         permission: 'scheduleTemplate',
         requiresRetreat: false,
         label: 'sidebar.scheduleTemplate'
+      },
+      {
+        name: 'pre-retreat-task-template',
+        routeName: 'pre-retreat-task-template',
+        icon: ClipboardList,
+        permission: 'preRetreatTaskTemplate',
+        requiresRetreat: false,
+        label: 'sidebar.preRetreatTaskTemplate'
       },
       {
         name: 'houses',
@@ -1264,7 +1280,8 @@ const getRouteWithParams = (item: MenuItem) => {
     'role-management',
     'santisimo',
     'reception',
-    'minuto-a-minuto'
+    'minuto-a-minuto',
+    'pre-retreat-tasks'
   ];
   if (item.routeName && routesRequiringId.includes(item.routeName)) {
     if (!retreatStore.selectedRetreatId) return null;

@@ -348,6 +348,66 @@
               </div>
             </div>
 
+            <!-- Tareas Pre-Retiro template -->
+            <div
+              v-if="preTaskTemplateSets.length"
+              class="p-4 border rounded-lg space-y-3"
+            >
+              <div class="space-y-1">
+                <Label class="font-medium">Template Tareas Pre-Retiro</Label>
+                <p class="text-xs text-muted-foreground">
+                  <template v-if="props.mode === 'add'">
+                    Al crear el retiro se generará el checklist "qué hacer y cuándo" con fechas límite calculadas desde la fecha de inicio.
+                  </template>
+                  <template v-else>
+                    Elige un template y pulsa "Importar ahora" para regenerar el checklist de este retiro. Si ya había tareas, las sobrescribirá.
+                  </template>
+                </p>
+              </div>
+              <select
+                v-model="selectedPreTaskSetId"
+                class="w-full border rounded px-2 py-2 text-sm"
+                :disabled="isSubmitting || isMaterializingPreTasks"
+              >
+                <option
+                  v-for="s in preTaskTemplateSets"
+                  :key="s.id"
+                  :value="s.id"
+                >
+                  {{ s.name }}{{ s.isDefault ? ' ★' : '' }}
+                </option>
+              </select>
+              <p
+                v-if="selectedPreTaskSet?.description"
+                class="text-xs text-muted-foreground"
+              >
+                {{ selectedPreTaskSet.description }}
+              </p>
+              <div v-if="props.mode === 'add'" class="flex items-center space-x-2">
+                <Checkbox
+                  id="materializePreTasksOnCreate"
+                  :model-value="materializePreTasksOnCreate"
+                  @update:model-value="materializePreTasksOnCreate = $event"
+                  :disabled="isSubmitting"
+                />
+                <Label for="materializePreTasksOnCreate" class="text-sm cursor-pointer">
+                  Crear las tareas al crear el retiro
+                </Label>
+              </div>
+              <div v-else-if="props.retreat" class="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  @click="handleMaterializePreTasksNow"
+                  :disabled="isSubmitting || isMaterializingPreTasks || !selectedPreTaskSetId"
+                >
+                  <Loader2 v-if="isMaterializingPreTasks" class="w-4 h-4 mr-2 animate-spin" />
+                  Importar ahora (sobrescribe)
+                </Button>
+              </div>
+            </div>
+
           </TabsContent>
 
           <!-- Settings Tab (visibilidad, roles, notificaciones, pickup) -->
@@ -923,7 +983,7 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Button, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Textarea, RadioGroup, RadioGroupItem, Tabs, TabsContent, TabsList, TabsTrigger, Checkbox } from '@repo/ui';
 import { Loader2 } from 'lucide-vue-next';
 import { useHouseStore } from '@/stores/houseStore';
-import { api, scheduleTemplateApi, retreatScheduleApi, type ScheduleTemplateSetDTO } from '@/services/api';
+import { api, scheduleTemplateApi, retreatScheduleApi, preRetreatTaskApi, preRetreatTaskTemplateApi, type ScheduleTemplateSetDTO, type PreRetreatTaskTemplateSetDTO } from '@/services/api';
 import { getApiUrl } from '@/config/runtimeConfig';
 import { useToast } from '@repo/ui';
 import type { CreateRetreat, Retreat } from '@repo/types';
@@ -1010,6 +1070,60 @@ async function loadScheduleTemplateSets() {
 	} catch {
 		// user may lack scheduleTemplate:read permission — silently skip
 		scheduleTemplateSets.value = [];
+	}
+}
+
+// Tareas pre-retiro template
+const preTaskTemplateSets = ref<PreRetreatTaskTemplateSetDTO[]>([]);
+const selectedPreTaskSetId = ref<string>('');
+const materializePreTasksOnCreate = ref(true);
+const isMaterializingPreTasks = ref(false);
+
+const selectedPreTaskSet = computed(
+	() => preTaskTemplateSets.value.find((s) => s.id === selectedPreTaskSetId.value) ?? null,
+);
+
+async function loadPreTaskTemplateSets() {
+	try {
+		preTaskTemplateSets.value = await preRetreatTaskTemplateApi.listSets();
+		if (!selectedPreTaskSetId.value && preTaskTemplateSets.value.length) {
+			const def =
+				preTaskTemplateSets.value.find((s) => s.isDefault) ?? preTaskTemplateSets.value[0];
+			selectedPreTaskSetId.value = def.id;
+		}
+	} catch {
+		// user may lack preRetreatTaskTemplate:read permission — silently skip
+		preTaskTemplateSets.value = [];
+	}
+}
+
+async function handleMaterializePreTasksNow() {
+	if (!props.retreat || !selectedPreTaskSetId.value) return;
+	if (
+		!confirm(
+			`Esto reemplazará las tareas pre-retiro actuales con "${selectedPreTaskSet.value?.name}". ¿Continuar?`,
+		)
+	) {
+		return;
+	}
+	isMaterializingPreTasks.value = true;
+	try {
+		await preRetreatTaskApi.materialize(props.retreat.id, {
+			templateSetId: selectedPreTaskSetId.value,
+			clearExisting: true,
+		});
+		toast({
+			title: 'Tareas importadas',
+			description: `Checklist pre-retiro regenerado desde "${selectedPreTaskSet.value?.name}"`,
+		});
+	} catch (err: any) {
+		toast({
+			title: 'Error al importar las tareas',
+			description: err?.response?.data?.message || err?.message || 'No se pudo importar el template.',
+			variant: 'destructive',
+		});
+	} finally {
+		isMaterializingPreTasks.value = false;
 	}
 }
 
@@ -1432,6 +1546,26 @@ const handleSubmit = async () => {
           }
         }
 
+        // Auto-materialize tareas pre-retiro if template selected
+        if (materializePreTasksOnCreate.value && selectedPreTaskSetId.value) {
+          try {
+            await preRetreatTaskApi.materialize(retreat.id, {
+              templateSetId: selectedPreTaskSetId.value,
+              clearExisting: true,
+            });
+            toast({
+              title: 'Tareas pre-retiro creadas',
+              description: `Checklist generado desde "${selectedPreTaskSet.value?.name}"`,
+            });
+          } catch (err: any) {
+            toast({
+              title: 'Retiro creado, pero las tareas no se importaron',
+              description: err?.response?.data?.message || err?.message || 'Puedes importarlas manualmente en la vista Tareas Pre-Retiro.',
+              variant: 'destructive',
+            });
+          }
+        }
+
         showSuccessDialog.value = true;
         resetForm();
       }
@@ -1694,6 +1828,7 @@ watch(() => props.open, (newOpen) => {
     refreshBedsFromHouse.value = false;
     closingChurchAddressEditing.value = false;
     void loadScheduleTemplateSets();
+    void loadPreTaskTemplateSets();
 
     if (props.mode === 'edit' && props.retreat) {
       // Edit mode - populate        // Initialize with legacy showQrCodes if new fields are undefined

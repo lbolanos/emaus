@@ -503,6 +503,87 @@
         </div>
       </div>
 
+      <!-- Tareas Pre-Retiro -->
+      <Card
+        id="ds-section-preRetreatTasks"
+        v-if="dashSettings.visible.preRetreatTasks && (preTaskCounts !== null || loadingPreTasks)"
+        :style="{ order: dashSettings.sectionOrder.indexOf('preRetreatTasks') }"
+        class="group hover:shadow-md transition-all duration-300"
+        :class="{ 'cursor-pointer': !dashSettings.collapsed.preRetreatTasks }"
+        @click="!dashSettings.collapsed.preRetreatTasks && goToPreRetreatTasks()"
+      >
+        <CardHeader
+          class="pb-3 cursor-pointer select-none"
+          @click.stop="dashSettings.toggleCollapsed('preRetreatTasks')"
+        >
+          <CardTitle class="text-lg flex items-center justify-between">
+            <span class="flex items-center gap-2">
+              <ClipboardList class="w-5 h-5 text-primary" />
+              Tareas Pre-Retiro
+            </span>
+            <ChevronDown
+              class="w-4 h-4 text-muted-foreground transition-transform duration-200"
+              :class="{ '-rotate-90': dashSettings.collapsed.preRetreatTasks }"
+            />
+          </CardTitle>
+        </CardHeader>
+        <div v-show="!dashSettings.collapsed.preRetreatTasks">
+          <CardContent>
+            <template v-if="loadingPreTasks">
+              <div class="animate-pulse grid grid-cols-3 gap-4">
+                <div v-for="i in 3" :key="i" class="h-12 bg-muted rounded"></div>
+              </div>
+            </template>
+            <template v-else-if="preTaskCounts">
+              <div v-if="!preTaskCounts.total" class="text-sm text-muted-foreground py-2">
+                Aún no hay tareas. Ve a Tareas Pre-Retiro e importa desde un template.
+              </div>
+              <template v-else>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div>
+                    <p class="text-xs uppercase tracking-wider text-muted-foreground">Listas</p>
+                    <p class="text-2xl font-bold mt-1">
+                      {{ preTaskCounts.done }} / {{ preTaskCounts.total }}
+                    </p>
+                  </div>
+                  <div>
+                    <p class="text-xs uppercase tracking-wider text-muted-foreground">Vencidas</p>
+                    <p
+                      class="text-2xl font-bold mt-1"
+                      :class="preTaskCounts.overdue > 0 ? 'text-red-600' : 'text-muted-foreground'"
+                    >
+                      {{ preTaskCounts.overdue }}
+                    </p>
+                  </div>
+                  <div>
+                    <p class="text-xs uppercase tracking-wider text-muted-foreground">Esta semana</p>
+                    <p
+                      class="text-2xl font-bold mt-1"
+                      :class="preTaskCounts.soon > 0 ? 'text-amber-600' : 'text-muted-foreground'"
+                    >
+                      {{ preTaskCounts.soon }}
+                    </p>
+                  </div>
+                  <div>
+                    <p class="text-xs uppercase tracking-wider text-muted-foreground">Sin asignar</p>
+                    <p
+                      class="text-2xl font-bold mt-1"
+                      :class="preTaskCounts.unassigned > 0 ? 'text-gray-600' : 'text-muted-foreground'"
+                    >
+                      {{ preTaskCounts.unassigned }}
+                    </p>
+                  </div>
+                </div>
+                <Progress
+                  :model-value="preTaskCounts.total ? Math.round((preTaskCounts.done / preTaskCounts.total) * 100) : 0"
+                  class="mt-4 h-2"
+                />
+              </template>
+            </template>
+          </CardContent>
+        </div>
+      </Card>
+
       <!-- Minuto a Minuto -->
       <Card
         id="ds-section-minutoAMinuto"
@@ -1128,9 +1209,15 @@ import {
 	api,
 	getReceptionStats,
 	retreatScheduleApi,
+	preRetreatTaskApi,
 	type ReceptionStats,
 	type ScheduleDashboardStats,
 } from '@/services/api';
+import {
+	computeTaskCounts,
+	todayISO,
+	type PreRetreatTaskCounts,
+} from '@/stores/preRetreatTaskStore';
 import type { RetreatBed } from '@repo/types';
 import { Button } from '@repo/ui';
 import {
@@ -1244,6 +1331,7 @@ const dashSettings = useDashboardSettingsStore();
 const beds = ref<RetreatBed[]>([]);
 const receptionStats = ref<ReceptionStats | null>(null);
 const scheduleStats = ref<ScheduleDashboardStats | null>(null);
+const preTaskCounts = ref<PreRetreatTaskCounts | null>(null);
 
 const isQrCodeVisible = ref(false);
 const qrCodeUrl = ref('');
@@ -1260,6 +1348,7 @@ const loadingResponsibilities = ref(false);
 const loadingReception = ref(false);
 const loadingInventory = ref(false);
 const loadingSchedule = ref(false);
+const loadingPreTasks = ref(false);
 
 const isAnyLoading = computed(() =>
   loadingParticipants.value ||
@@ -1487,6 +1576,12 @@ const goToSantisimo = () => {
   }
 };
 
+const goToPreRetreatTasks = () => {
+  if (selectedRetreat.value?.id) {
+    router.push({ name: 'pre-retreat-tasks', params: { id: selectedRetreat.value.id } });
+  }
+};
+
 const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 const todayProgressPercent = computed(() => {
@@ -1548,6 +1643,15 @@ const fetchSchedule = async (retreatId: string) => {
   }
 };
 
+const fetchPreTasks = async (retreatId: string) => {
+  try {
+    const tasks = await preRetreatTaskApi.list(retreatId);
+    preTaskCounts.value = computeTaskCounts(tasks, todayISO());
+  } catch {
+    preTaskCounts.value = null;
+  }
+};
+
 let loadedRetreatId: string | null = null;
 
 const loadRetreatData = async (retreatId: string, showFullSpinner = true) => {
@@ -1563,6 +1667,7 @@ const loadRetreatData = async (retreatId: string, showFullSpinner = true) => {
   loadingResponsibilities.value = true;
   loadingReception.value = true;
   loadingSchedule.value = true;
+  loadingPreTasks.value = true;
   if (can.read('retreatInventory')) loadingInventory.value = true;
 
   try {
@@ -1577,6 +1682,7 @@ const loadRetreatData = async (retreatId: string, showFullSpinner = true) => {
       responsabilityStore.fetchResponsibilities(retreatId, { silent: true }).finally(() => { loadingResponsibilities.value = false; }),
       fetchReception(retreatId).finally(() => { loadingReception.value = false; }),
       fetchSchedule(retreatId).finally(() => { loadingSchedule.value = false; }),
+      fetchPreTasks(retreatId).finally(() => { loadingPreTasks.value = false; }),
     ];
     if (can.read('retreatInventory')) {
       fetches.push(inventoryStore.fetchInventoryAlerts(retreatId).finally(() => { loadingInventory.value = false; }));
@@ -1593,6 +1699,7 @@ const loadRetreatData = async (retreatId: string, showFullSpinner = true) => {
     loadingResponsibilities.value = false;
     loadingReception.value = false;
     loadingSchedule.value = false;
+    loadingPreTasks.value = false;
     loadingInventory.value = false;
   } finally {
     isLoading.value = false;

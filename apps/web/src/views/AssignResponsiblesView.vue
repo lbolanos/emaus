@@ -138,6 +138,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { participantLabel } from '@/utils/participant';
 import { Badge, Button, Card, CardContent, useToast } from '@repo/ui';
 import {
   retreatScheduleApi,
@@ -226,7 +227,7 @@ function rowState(r: RowState): 'saved' | 'unsaved' | 'unassigned' {
 function participantName(id: string): string {
   const p = participants.value.find((x) => x.id === id);
   if (!p) return '—';
-  return p.nickname || `${p.firstName} ${p.lastName}`;
+  return participantLabel(p);
 }
 
 function availableApoyos(row: RowState): Participant[] {

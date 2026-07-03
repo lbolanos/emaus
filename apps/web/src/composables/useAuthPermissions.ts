@@ -22,6 +22,8 @@ import {
 	canManagePayments,
 	canManageSchedule,
 	canManageScheduleTemplate,
+	canManagePreRetreatTask,
+	canManagePreRetreatTaskTemplate,
 } from '@/utils/permissions';
 
 /**
@@ -158,6 +160,8 @@ export function useAuthPermissions() {
 		payments: computed(() => canManagePayments(retreatSpecificPermissions.value)),
 		schedule: computed(() => canManageSchedule(retreatSpecificPermissions.value)),
 		scheduleTemplate: computed(() => canManageScheduleTemplate(userPermissions.value)),
+		preRetreatTask: computed(() => canManagePreRetreatTask(retreatSpecificPermissions.value)),
+		preRetreatTaskTemplate: computed(() => canManagePreRetreatTaskTemplate(userPermissions.value)),
 	};
 
 	// Get user roles

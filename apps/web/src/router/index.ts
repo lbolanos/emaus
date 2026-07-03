@@ -44,6 +44,8 @@ const HelpView = () => import('../views/HelpView.vue');
 const LandingView = () => import('../views/LandingView.vue');
 const SantisimoAdminView = () => import('../views/SantisimoAdminView.vue');
 const MinuteByMinuteView = () => import('../views/MinuteByMinuteView.vue');
+const PreRetreatTasksView = () => import('../views/PreRetreatTasksView.vue');
+const PreRetreatTaskTemplateView = () => import('../views/PreRetreatTaskTemplateView.vue');
 const MyScheduleView = () => import('../views/MyScheduleView.vue');
 const ScheduleTemplateView = () => import('../views/ScheduleTemplateView.vue');
 const AssignResponsiblesView = () => import('../views/AssignResponsiblesView.vue');
@@ -384,6 +386,13 @@ const router = createRouter({
 					meta: { requiresRetreat: true },
 				},
 				{
+					path: 'retreats/:id/tareas-pre-retiro',
+					name: 'pre-retreat-tasks',
+					component: PreRetreatTasksView,
+					props: true,
+					meta: { requiresRetreat: true },
+				},
+				{
 					path: 'retreats/:id/asignar-responsables',
 					name: 'asignar-responsables',
 					component: AssignResponsiblesView,
@@ -400,6 +409,12 @@ const router = createRouter({
 					path: 'settings/schedule-template',
 					name: 'schedule-template',
 					component: ScheduleTemplateView,
+					meta: { requiresRetreat: false },
+				},
+				{
+					path: 'settings/pre-retreat-task-template',
+					name: 'pre-retreat-task-template',
+					component: PreRetreatTaskTemplateView,
 					meta: { requiresRetreat: false },
 				},
 				{

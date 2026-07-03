@@ -9,6 +9,7 @@ import { Loader2, Printer, MoreVertical, FileDown, Check, Search, X, Minus, Plus
 import { useI18n } from 'vue-i18n';
 import type { Participant } from '@repo/types';
 import { createLocaleComparator } from '@/utils/sort';
+import { isMeaninglessNickname } from '@/utils/participant';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -290,7 +291,7 @@ const retreatTypeLogo = computed(() => {
 });
 
 const getDisplayName = (walker: Participant): string => {
-  return walker.nickname || walker.firstName;
+  return isMeaninglessNickname(walker.nickname) ? walker.firstName : walker.nickname!;
 };
 
 const getFullName = (walker: Participant): string => {

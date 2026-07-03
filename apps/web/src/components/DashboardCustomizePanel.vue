@@ -21,6 +21,7 @@ const LABELS: Record<SectionKey, string> = {
   additionalInfo: 'Información adicional',
   inventoryAlerts: 'Alertas de inventario',
   minutoAMinuto: 'Minuto a Minuto',
+  preRetreatTasks: 'Tareas Pre-Retiro',
   santisimo: 'Santísimo + angelitos',
 };
 

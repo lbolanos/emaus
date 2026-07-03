@@ -244,6 +244,23 @@ export const helpIndex: HelpSection[] = [
 			},
 		],
 	},
+	{
+		key: 'pre-retreat-tasks',
+		title: 'Pre-Retreat Tasks',
+		titleEs: 'Tareas Pre-Retiro',
+		icon: 'mdi-clipboard-check',
+		// getHelpByRoute usa includes(): 'pre-retreat-task' cubre las rutas
+		// 'pre-retreat-tasks' (por retiro) y 'pre-retreat-task-template' (global).
+		routeContext: ['pre-retreat-task'],
+		topics: [
+			{
+				key: 'pre-retreat-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'pre-retreat-tasks.md',
+			},
+		],
+	},
 ];
 
 export function getHelpSectionByKey(key: string): HelpSection | undefined {

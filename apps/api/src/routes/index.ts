@@ -42,6 +42,8 @@ import santisimoRoutes from './santisimoRoutes';
 import scheduleTemplateRoutes from './scheduleTemplateRoutes';
 import responsabilityAttachmentRoutes from './responsabilityAttachmentRoutes';
 import retreatScheduleRoutes from './retreatScheduleRoutes';
+import preRetreatTaskTemplateRoutes from './preRetreatTaskTemplateRoutes';
+import retreatPreRetreatTaskRoutes from './retreatPreRetreatTaskRoutes';
 import shirtTypeRoutes from './shirtTypeRoutes';
 import { applyCsrfProtectionExcept } from '../middleware/routeCsrf';
 
@@ -112,6 +114,8 @@ router.use('/santisimo', santisimoRoutes);
 router.use('/schedule-templates', scheduleTemplateRoutes);
 router.use('/responsability-attachments', responsabilityAttachmentRoutes);
 router.use('/schedule', retreatScheduleRoutes);
+router.use('/pre-retreat-task-templates', preRetreatTaskTemplateRoutes);
+router.use('/pre-retreat-tasks', retreatPreRetreatTaskRoutes);
 router.use(shirtTypeRoutes);
 
 export default router;

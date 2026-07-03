@@ -599,6 +599,8 @@ export * from './testimonial';
 export * from './santisimo';
 export * from './schedule';
 export * from './scheduleTime';
+export * from './preRetreatTask';
+export * from './preRetreatTaskTime';
 export * from './availability';
 export * from './phone';
 

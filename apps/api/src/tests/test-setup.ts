@@ -65,6 +65,9 @@ import { ScheduleTemplateSet } from '../entities/scheduleTemplateSet.entity';
 import { ResponsabilityAttachment } from '../entities/responsabilityAttachment.entity';
 import { RetreatScheduleItem } from '../entities/retreatScheduleItem.entity';
 import { RetreatScheduleItemResponsable } from '../entities/retreatScheduleItemResponsable.entity';
+import { PreRetreatTaskTemplateSet } from '../entities/preRetreatTaskTemplateSet.entity';
+import { PreRetreatTaskTemplate } from '../entities/preRetreatTaskTemplate.entity';
+import { RetreatPreRetreatTask } from '../entities/retreatPreRetreatTask.entity';
 import { SantisimoSlot } from '../entities/santisimoSlot.entity';
 import { SantisimoSignup } from '../entities/santisimoSignup.entity';
 import { ParticipantAvailability } from '../entities/participantAvailability.entity';
@@ -126,6 +129,9 @@ const entities = [
 	ResponsabilityAttachment,
 	RetreatScheduleItem,
 	RetreatScheduleItemResponsable,
+	PreRetreatTaskTemplateSet,
+	PreRetreatTaskTemplate,
+	RetreatPreRetreatTask,
 	SantisimoSlot,
 	SantisimoSignup,
 	ParticipantAvailability,

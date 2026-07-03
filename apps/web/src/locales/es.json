@@ -524,7 +524,9 @@
     "minuteByMinute": "Minuto a Minuto",
     "shirtTypes": "Tipos de playera",
     "mySchedule": "Mi agenda",
-    "scheduleTemplate": "Template Minuto a Minuto"
+    "scheduleTemplate": "Template Minuto a Minuto",
+    "preRetreatTasks": "Tareas Pre-Retiro",
+    "preRetreatTaskTemplate": "Template Tareas Pre-Retiro"
   },
   "changePassword": {
     "title": "Cambiar Contraseña",

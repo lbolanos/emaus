@@ -162,6 +162,7 @@ vi.mock('lucide-vue-next', () => ({
 	UserCircle: { template: '<div data-icon="UserCircle" />' },
 	MessageSquare: { template: '<div data-icon="MessageSquare" />' },
 	Clock: { template: '<div data-icon="Clock" />' },
+	ClipboardList: { template: '<div data-icon="ClipboardList" />' },
 	Plus: { template: '<div data-icon="Plus" />' },
 	Edit: { template: '<div data-icon="Edit" />' },
 	HelpCircle: { template: '<div data-icon="HelpCircle" />' },

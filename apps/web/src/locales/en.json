@@ -521,7 +521,9 @@
     "minuteByMinute": "Minute by Minute",
     "shirtTypes": "Shirt Types",
     "mySchedule": "My Schedule",
-    "scheduleTemplate": "Minute by Minute Template"
+    "scheduleTemplate": "Minute by Minute Template",
+    "preRetreatTasks": "Pre-Retreat Tasks",
+    "preRetreatTaskTemplate": "Pre-Retreat Task Template"
   },
   "communityTemplates": {
     "title": "Community Message Templates",

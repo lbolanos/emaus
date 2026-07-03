@@ -2795,6 +2795,150 @@ export const scheduleTemplateApi = {
   },
 };
 
+// --- Tareas Pre-Retiro (checklist "Qué Hacer y Cuándo") ---
+
+export type PreRetreatTaskStatus = "pending" | "in_progress" | "done" | "not_applicable";
+
+export interface PreRetreatTaskTemplateSetDTO {
+  id: string;
+  name: string;
+  description?: string | null;
+  sourceTag?: string | null;
+  isActive: boolean;
+  isDefault: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PreRetreatTaskTemplateDTO {
+  id: string;
+  templateSetId?: string | null;
+  parentId?: string | null;
+  name: string;
+  description?: string | null;
+  dueOffsetDays?: number | null;
+  defaultOrder: number;
+  supportNotes?: string | null;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RetreatPreRetreatTaskDTO {
+  id: string;
+  retreatId: string;
+  templateId?: string | null;
+  parentId?: string | null;
+  name: string;
+  description?: string | null;
+  dueOffsetDays?: number | null;
+  dueDate?: string | null;
+  status: PreRetreatTaskStatus;
+  responsibleParticipantId?: string | null;
+  responsibleText?: string | null;
+  notes?: string | null;
+  supportNotes?: string | null;
+  sortOrder: number;
+  completedAt?: string | null;
+  responsible?: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    nickname?: string | null;
+  } | null;
+  children?: RetreatPreRetreatTaskDTO[];
+  progress?: { done: number; total: number };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const preRetreatTaskTemplateApi = {
+  async list(setId?: string): Promise<PreRetreatTaskTemplateDTO[]> {
+    const r = await api.get("/pre-retreat-task-templates", {
+      params: setId ? { setId } : {},
+    });
+    return r.data;
+  },
+  async listSets(): Promise<PreRetreatTaskTemplateSetDTO[]> {
+    const r = await api.get("/pre-retreat-task-templates/sets");
+    return r.data;
+  },
+  async createSet(
+    data: Partial<PreRetreatTaskTemplateSetDTO>,
+  ): Promise<PreRetreatTaskTemplateSetDTO> {
+    const r = await api.post("/pre-retreat-task-templates/sets", data);
+    return r.data;
+  },
+  async updateSet(
+    id: string,
+    data: Partial<PreRetreatTaskTemplateSetDTO>,
+  ): Promise<PreRetreatTaskTemplateSetDTO> {
+    const r = await api.patch(`/pre-retreat-task-templates/sets/${id}`, data);
+    return r.data;
+  },
+  async removeSet(id: string): Promise<void> {
+    await api.delete(`/pre-retreat-task-templates/sets/${id}`);
+  },
+  async create(data: Partial<PreRetreatTaskTemplateDTO>): Promise<PreRetreatTaskTemplateDTO> {
+    const r = await api.post("/pre-retreat-task-templates", data);
+    return r.data;
+  },
+  async update(
+    id: string,
+    data: Partial<PreRetreatTaskTemplateDTO>,
+  ): Promise<PreRetreatTaskTemplateDTO> {
+    const r = await api.patch(`/pre-retreat-task-templates/${id}`, data);
+    return r.data;
+  },
+  async remove(id: string): Promise<void> {
+    await api.delete(`/pre-retreat-task-templates/${id}`);
+  },
+};
+
+export const preRetreatTaskApi = {
+  async list(retreatId: string): Promise<RetreatPreRetreatTaskDTO[]> {
+    const r = await api.get(`/pre-retreat-tasks/retreats/${retreatId}/tasks`);
+    return r.data;
+  },
+  async create(
+    retreatId: string,
+    data: Partial<RetreatPreRetreatTaskDTO>,
+  ): Promise<RetreatPreRetreatTaskDTO> {
+    const r = await api.post(`/pre-retreat-tasks/retreats/${retreatId}/tasks`, data);
+    return r.data;
+  },
+  async update(
+    id: string,
+    data: Partial<RetreatPreRetreatTaskDTO>,
+  ): Promise<RetreatPreRetreatTaskDTO> {
+    const r = await api.patch(`/pre-retreat-tasks/tasks/${id}`, data);
+    return r.data;
+  },
+  async setStatus(id: string, status: PreRetreatTaskStatus): Promise<RetreatPreRetreatTaskDTO> {
+    const r = await api.post(`/pre-retreat-tasks/tasks/${id}/status`, { status });
+    return r.data;
+  },
+  async remove(id: string): Promise<void> {
+    await api.delete(`/pre-retreat-tasks/tasks/${id}`);
+  },
+  async materialize(
+    retreatId: string,
+    opts: { templateSetId?: string; clearExisting?: boolean } = {},
+  ): Promise<RetreatPreRetreatTaskDTO[]> {
+    const r = await api.post(`/pre-retreat-tasks/retreats/${retreatId}/materialize`, opts);
+    return r.data;
+  },
+  async addMissing(
+    retreatId: string,
+    templateSetId?: string,
+  ): Promise<{ added: number; skipped: number; total: number }> {
+    const r = await api.post(`/pre-retreat-tasks/retreats/${retreatId}/add-missing`, {
+      ...(templateSetId ? { templateSetId } : {}),
+    });
+    return r.data;
+  },
+};
+
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

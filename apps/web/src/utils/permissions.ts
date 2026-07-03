@@ -17,6 +17,8 @@ export const RESOURCES = {
 	santisimo: ['read', 'manage'] as const,
 	schedule: ['read', 'manage'] as const,
 	scheduleTemplate: ['read', 'manage'] as const,
+	preRetreatTask: ['read', 'manage'] as const,
+	preRetreatTaskTemplate: ['read', 'manage'] as const,
 	shirtType: ['read', 'manage'] as const,
 } as const;
 
@@ -128,6 +130,14 @@ export function canManageSchedule(userPermissions: string[] | undefined): boolea
 
 export function canManageScheduleTemplate(userPermissions: string[] | undefined): boolean {
 	return hasPermission(userPermissions, 'scheduleTemplate:manage');
+}
+
+export function canManagePreRetreatTask(userPermissions: string[] | undefined): boolean {
+	return hasPermission(userPermissions, 'preRetreatTask:manage');
+}
+
+export function canManagePreRetreatTaskTemplate(userPermissions: string[] | undefined): boolean {
+	return hasPermission(userPermissions, 'preRetreatTaskTemplate:manage');
 }
 
 // Vue composable for permission checking

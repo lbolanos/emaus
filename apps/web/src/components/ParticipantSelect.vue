@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue';
 import { ChevronsUpDown, Check } from 'lucide-vue-next';
+import { isMeaninglessNickname } from '@/utils/participant';
 
 interface ParticipantLike {
   id: string;
@@ -45,7 +46,7 @@ const selectedLabel = computed(() => {
   const p = props.participants.find((x) => x.id === model.value);
   if (!p) return '';
   const name = `${p.firstName ?? ''} ${p.lastName ?? ''}`.trim();
-  return p.nickname ? `${name} (${p.nickname})` : name;
+  return isMeaninglessNickname(p.nickname) ? name : `${name} (${p.nickname})`;
 });
 
 const openDropdown = () => {
@@ -101,7 +102,7 @@ const select = (id: string) => {
         <Check class="mr-2 h-4 w-4 shrink-0" :class="model === participant.id ? 'opacity-100' : 'opacity-0'" />
         <span class="truncate">
           {{ participant.firstName }} {{ participant.lastName }}
-          <span v-if="participant.nickname" class="text-gray-500">({{ participant.nickname }})</span>
+          <span v-if="!isMeaninglessNickname(participant.nickname)" class="text-gray-500">({{ participant.nickname }})</span>
         </span>
       </button>
       <div v-if="filtered.length === 0" class="px-2 py-4 text-center text-sm text-gray-500">

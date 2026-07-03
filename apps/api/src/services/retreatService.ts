@@ -15,6 +15,7 @@ import { createDefaultInventoryForRetreat } from './inventoryService';
 import { createDefaultServiceTeamsForRetreat } from './serviceTeamService';
 import { createDefaultInventoryData } from '../data/inventorySeeder';
 import { createDefaultScheduleTemplate } from '../data/scheduleTemplateSeeder';
+import { createDefaultPreRetreatTaskTemplate } from '../data/preRetreatTaskSeeder';
 import { authorizationService } from '../middleware/authorization';
 import { domainAuditService } from './domainAuditService';
 import { ROLES } from '@repo/types';
@@ -268,9 +269,10 @@ export const createRetreat = async (
 ) => {
 	const repos = getRepositories(dataSource);
 
-	// 0. Ensure default inventory + schedule template data exist
+	// 0. Ensure default inventory + schedule/pre-retreat template data exist
 	await createDefaultInventoryData();
 	await createDefaultScheduleTemplate();
+	await createDefaultPreRetreatTaskTemplate();
 
 	// Validate slug uniqueness
 	if (retreatData.slug) {

@@ -240,6 +240,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { participantLabel } from '@/utils/participant';
 import {
   Button,
   Dialog,
@@ -394,7 +395,7 @@ const availableParticipants = computed(() =>
 function participantName(id: string): string {
   const p = props.participants.find((x) => x.id === id);
   if (!p) return id.slice(0, 8);
-  return p.nickname || `${p.firstName} ${p.lastName}`.trim();
+  return participantLabel(p);
 }
 
 function addApoyo() {
