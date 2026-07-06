@@ -4,7 +4,7 @@ Plan de contenido para el canal de ayuda. Cada video se graba con el pipeline de
 `apps/web/e2e/demo/` (skill **`demo-videos`**) y se publica con **`youtube-publishing`**.
 Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 
-**Hechos: 5 · Pendientes: ~20**
+**Hechos: 6 · Pendientes: ~19**
 
 ---
 
@@ -13,6 +13,7 @@ Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 - [x] **Cómo entrar a Emaús** (login / crear cuenta / Google / pedir acceso / roles) — https://youtu.be/Jh0LWC9wKvE
 - [x] **Registro al retiro** (inscripción pública de caminante) — https://youtu.be/jQb3q-mUG-8
 - [x] **Registro de servidor** (búsqueda por correo, angelito, horarios, camisetas) — https://youtu.be/2DGScPALLDY
+- [x] **Dar acceso y roles** (invitar usuarios, aprobar solicitudes, roles) — https://youtu.be/yvNfMx8P5Ic
 - [x] **Tareas Pre-Retiro** (checklist qué hacer y cuándo) — https://youtu.be/pPguV-Gg7Bs
 - [x] **Minuto a Minuto** (agenda en vivo del retiro) — https://youtu.be/YYwjzHcumpA
 
@@ -22,8 +23,8 @@ Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 
 Cierran la confusión "cuenta de usuario vs. registro al retiro" que ya viene en los mensajes.
 
-- [x] ~~**Registro de participante al retiro**~~ — publicado (arriba).
-- [ ] **Dar acceso y roles (para el dueño del retiro)** — cómo el admin invita usuarios y asigna rol (`role-management`). Contraparte de "pide acceso al dueño".
+- [x] ~~**Registro de participante al retiro**~~ — publicado (arriba). *(+ video aparte de servidor.)*
+- [x] ~~**Dar acceso y roles (para el dueño del retiro)**~~ — publicado (arriba).
 - [ ] **Primeros pasos / tour general** — qué es la plataforma, navegación, selector de retiro, dónde está cada cosa.
 
 ## 🟠 P1 — Configuración y núcleo del retiro
