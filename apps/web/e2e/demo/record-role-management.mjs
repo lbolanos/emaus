@@ -52,8 +52,10 @@ const LINES = [
   { id: 'intro', text: 'Cuando alguien crea su cuenta, todavía no ve tu retiro. Tú le das acceso desde aquí: Gestión de Roles.' },
   { id: 'requests', text: 'En "Solicitudes de Rol" apruebas o rechazas a quien pide acceso a tu retiro.' },
   { id: 'users', text: 'Abajo ves a todos los que ya tienen acceso, con su rol y su estado.' },
-  { id: 'invite', text: 'Para dar acceso tú mismo, tocas "Invitar Usuario", escribes su correo y eliges su rol.' },
-  { id: 'roles', text: 'Administrador gestiona todo; coordinador maneja el retiro; observador solo consulta; y hay roles como tesorero o logística.' },
+  { id: 'invite', text: 'Para dar acceso, tocas "Invitar Usuario", escribes su correo y eliges su rol.' },
+  { id: 'roles1', text: 'Cada rol da un acceso distinto. El administrador gestiona todo el retiro, hasta los usuarios y sus roles.' },
+  { id: 'roles2', text: 'El tesorero ve los pagos; logística, inventario y mesas; comunicaciones, los mensajes; y el servidor solo consulta.' },
+  { id: 'quick', text: '¿La persona ya usa Emaús? Con "Asignación Rápida" la buscas por nombre y le das el rol al instante, sin correo.' },
   { id: 'outro', text: 'Así decides quién entra a tu retiro y qué puede hacer cada quien.' },
 ];
 
@@ -66,7 +68,8 @@ const YT_DESCRIPTION =
 const YT_TAGS = ['Emaús', 'retiro', 'roles', 'acceso', 'permisos', 'administrador', 'tutorial'];
 const CHAPTER_LABELS = {
   intro: 'Gestión de Roles', requests: 'Solicitudes de acceso', users: 'Quién tiene acceso',
-  invite: 'Invitar por correo', roles: 'Los roles', outro: 'Resumen',
+  invite: 'Invitar por correo', roles1: 'Qué puede cada rol', roles2: 'Tesorero, logística y más',
+  quick: 'Asignación Rápida', outro: 'Resumen',
 };
 
 const log = (...a) => console.log(...a);
@@ -159,10 +162,22 @@ async function main() {
     await roleTrigger.click().catch(() => {});
     await sleep(page, 700);
     await nar.say(clips.invite);
-    await nar.say(clips.roles);
-    // elegir Coordinador (o cerrar si no aparece)
-    await page.getByRole('option').filter({ hasText: /oordinad/i }).first().click({ timeout: 3000 }).catch(() => page.keyboard.press('Escape'));
-    await sleep(page, 600);
+    // Roles en español (dropdown abierto con descripciones).
+    await nar.say(clips.roles1);
+    await nar.say(clips.roles2);
+    // Cerrar dropdown y modal.
+    await page.keyboard.press('Escape');
+    await sleep(page, 400);
+    await page.keyboard.press('Escape');
+    await sleep(page, 700);
+
+    // ── Asignación Rápida (usuario que ya existe) ──
+    await page.getByRole('button', { name: /Asignación Rápida/i }).click().catch(() => {});
+    await page.getByText('Asignación Rápida de Rol').first().waitFor({ timeout: 6000 }).catch(() => {});
+    await sleep(page, 800);
+    await nar.say(clips.quick);
+    await page.keyboard.press('Escape').catch(() => {});
+    await sleep(page, 500);
 
     await nar.say(clips.outro);
     await sleep(page, 1200);

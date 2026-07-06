@@ -13,7 +13,7 @@ Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 - [x] **Cómo entrar a Emaús** (login / crear cuenta / Google / pedir acceso / roles) — https://youtu.be/Jh0LWC9wKvE
 - [x] **Registro al retiro** (inscripción pública de caminante) — https://youtu.be/jQb3q-mUG-8
 - [x] **Registro de servidor** (búsqueda por correo, angelito, horarios, camisetas) — https://youtu.be/2DGScPALLDY
-- [x] **Dar acceso y roles** (invitar usuarios, aprobar solicitudes, roles) — https://youtu.be/yvNfMx8P5Ic
+- [x] **Dar acceso y roles** (invitar, solicitudes, permisos por rol, Asignación Rápida) — https://youtu.be/0UpgoH21JY8 · _(reemplaza https://youtu.be/yvNfMx8P5Ic — borrar ese)_
 - [x] **Tareas Pre-Retiro** (checklist qué hacer y cuándo) — https://youtu.be/pPguV-Gg7Bs
 - [x] **Minuto a Minuto** (agenda en vivo del retiro) — https://youtu.be/YYwjzHcumpA
 
