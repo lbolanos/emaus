@@ -2,6 +2,8 @@
 
 Esta sección explica cómo usar el checklist de "qué hacer y cuándo" **antes** de un retiro: las tareas de logística que hay que preparar con meses o semanas de anticipación (parroquia, casa, charlistas, snacks, flores, etc.).
 
+📺 **[Ver video tutorial (2 min)](https://youtu.be/pPguV-Gg7Bs)**
+
 ## Descripción General
 
 Las Tareas Pre-Retiro reemplazan la hoja de cálculo en papel. Cada tarea tiene:

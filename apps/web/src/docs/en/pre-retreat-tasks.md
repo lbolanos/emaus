@@ -2,6 +2,8 @@
 
 This section explains how to use the "what to do and when" checklist **before** a retreat: the logistics that must be prepared months or weeks in advance (parish, retreat house, speakers, snacks, flowers, etc.).
 
+📺 **[Watch the tutorial (2 min)](https://youtu.be/pPguV-Gg7Bs)**
+
 ## Overview
 
 Pre-Retreat Tasks replace the paper spreadsheet. Each task has:
