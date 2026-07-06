@@ -238,6 +238,18 @@
   "delete": {
     "confirmTitle": "¿Estás seguro?"
   },
+  "passwordReset": {
+    "requestTitle": "Restablecer tu contraseña",
+    "requestDescription": "Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.",
+    "tryAnother": "Probar con otro correo",
+    "sendButton": "Enviar enlace de recuperación",
+    "setTitle": "Crear una nueva contraseña",
+    "newPasswordLabel": "Nueva contraseña",
+    "setButton": "Guardar contraseña",
+    "loginLink": "Haz clic aquí para iniciar sesión",
+    "noToken": "No se encontró el token de restablecimiento.",
+    "genericError": "Ocurrió un error."
+  },
   "login": {
     "title": "Iniciar Sesión",
     "description": "Ingresa tu correo y contraseña para iniciar sesión",

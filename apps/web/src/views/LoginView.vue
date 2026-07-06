@@ -32,7 +32,7 @@
             <Input
               id="email"
               type="email"
-              placeholder="user{'@'}example.com"
+              placeholder="tu@correo.com"
               autocomplete="email"
               required
               v-model="email"

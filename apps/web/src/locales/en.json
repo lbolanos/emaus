@@ -238,6 +238,18 @@
   "delete": {
     "confirmTitle": "Are you sure?"
   },
+  "passwordReset": {
+    "requestTitle": "Reset your password",
+    "requestDescription": "Enter your email address and we will send you a link to reset your password.",
+    "tryAnother": "Try another email",
+    "sendButton": "Send password reset email",
+    "setTitle": "Set a new password",
+    "newPasswordLabel": "New Password",
+    "setButton": "Set new password",
+    "loginLink": "Click here to login",
+    "noToken": "No reset token found.",
+    "genericError": "An error occurred."
+  },
   "login": {
     "title": "Login",
     "description": "Enter your email and password below to login",

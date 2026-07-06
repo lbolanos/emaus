@@ -3,17 +3,17 @@
     <Card class="w-full max-w-md">
       <CardHeader class="space-y-1 text-center">
         <CardTitle class="text-2xl">
-          Set a new password
+          {{ $t('passwordReset.setTitle') }}
         </CardTitle>
       </CardHeader>
       <CardContent class="grid gap-4">
         <div v-if="message" class="text-green-500 text-sm mb-4">
           {{ message }}
-          <router-link to="/login" class="font-medium text-primary hover:underline"> Click here to login </router-link>
+          <router-link to="/login" class="font-medium text-primary hover:underline"> {{ $t('passwordReset.loginLink') }} </router-link>
         </div>
         <form v-else @submit.prevent="handleReset" class="grid gap-4">
           <div class="grid gap-2">
-            <Label for="password">New Password</Label>
+            <Label for="password">{{ $t('passwordReset.newPasswordLabel') }}</Label>
             <Input
               id="password"
               type="password"
@@ -25,7 +25,7 @@
             {{ error }}
           </div>
           <Button type="submit" class="w-full">
-            Set new password
+            {{ $t('passwordReset.setButton') }}
           </Button>
         </form>
       </CardContent>
@@ -36,6 +36,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRoute } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { api } from '@/services/api';
 import { Button } from '@repo/ui';
 import {
@@ -48,6 +49,7 @@ import { Input } from '@repo/ui';
 import { Label } from '@repo/ui';
 
 const route = useRoute();
+const { t } = useI18n();
 const password = ref('');
 const message = ref<string | null>(null);
 const error = ref<string | null>(null);
@@ -58,7 +60,7 @@ const handleReset = async () => {
   const token = route.query.token as string;
 
   if (!token) {
-    error.value = 'No reset token found.';
+    error.value = t('passwordReset.noToken');
     return;
   }
 
@@ -66,7 +68,7 @@ const handleReset = async () => {
     const response = await api.post('/auth/password/reset', { token, password: password.value });
     message.value = response.data.message;
   } catch (err: any) {
-    error.value = err.response?.data?.message || 'An error occurred.';
+    error.value = err.response?.data?.message || t('passwordReset.genericError');
   }
 };
 </script>
