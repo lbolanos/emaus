@@ -31,6 +31,7 @@ import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 import PreRetreatTaskEditModal from '@/components/PreRetreatTaskEditModal.vue';
 import PreRetreatTaskAssignInline from '@/components/PreRetreatTaskAssignInline.vue';
+import HelpVideoButton from '@/components/HelpVideoButton.vue';
 
 const route = useRoute();
 const store = usePreRetreatTaskStore();
@@ -415,6 +416,7 @@ watch(retreatId, () => {
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:shrink-0 sm:self-start">
+        <HelpVideoButton feature="pre-retreat-tasks" />
         <Button
           v-if="store.tasks.length"
           variant="outline"
