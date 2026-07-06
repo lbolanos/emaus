@@ -33,7 +33,10 @@ no specs de CI). El video crudo (`.webm`), los clips TTS y el `.mp4` final van a
    `data-testid` en todo (`import-template`, `new-task`, `filter-*`, `task-<id>`,
    `menu-<id>`, `today-marker`, `export-csv`) — úsalos.
 2. **Escribí el guion** (tuteo, frases < 25 palabras; el cartel = lo narrado) y las escenas
-   imperativas reutilizando `demo-lib.mjs`.
+   imperativas reutilizando `demo-lib.mjs`. **Para features de `/app`: mostrá dónde vive en el
+   sidebar** (resaltá el ítem del menú con `nar.cueAt(...)`/hover y narrá la ruta, p.ej. "Logística →
+   Tareas Pre-Retiro") ANTES de entrar a la vista — no entres solo por `page.goto(url)`. Los usuarios
+   necesitan saber dónde hacer clic. (No aplica a vistas públicas sin sidebar: login, registro.)
 3. **Corré y verificá POR FRAMES.** Extraé un frame en cada offset del `timeline` con ffmpeg
    y miralo (`Read`) para confirmar que la escena muestra lo que dice el cartel. Ajustá
    pacing/orden y volvé a correr.

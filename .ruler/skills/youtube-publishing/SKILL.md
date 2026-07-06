@@ -34,6 +34,11 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 
 ## Flujo de subida
 
+> ⚠️ **Confirmar con el usuario ANTES de subir.** No auto-subir aunque el video esté grabado y
+> verificado: preguntar "¿lo subo? ¿público o unlisted?" y subir solo tras el OK. YouTube **no
+> permite reemplazar el archivo** de un video ya subido — si subes algo que luego cambia, hay que
+> subir otro y borrar el anterior a mano (incidente 2026-07-06).
+
 1. **Autorizar (una sola vez)**: `node e2e/demo/youtube-auth.mjs` — levanta un servidor
    loopback, abre el navegador, canjea el code por `refresh_token` y lo guarda.
 2. **Subir**: `node e2e/demo/upload-to-youtube.mjs output/<video>.mp4 [--privacy unlisted]`.
