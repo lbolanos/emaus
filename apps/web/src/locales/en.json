@@ -238,6 +238,16 @@
   "delete": {
     "confirmTitle": "Are you sure?"
   },
+  "roleInfo": {
+    "superadmin": { "label": "Superadmin", "description": "Full system access." },
+    "admin": { "label": "Administrator", "description": "Full access to the retreat and its management." },
+    "coordinator": { "label": "Coordinator", "description": "Manages participants and assignments." },
+    "viewer": { "label": "Viewer", "description": "Read-only access to retreat information." },
+    "regular_server": { "label": "Server", "description": "Server access within the retreat." },
+    "treasurer": { "label": "Treasurer", "description": "Manages payments and finances." },
+    "logistics": { "label": "Logistics", "description": "Manages inventory and logistics." },
+    "communications": { "label": "Communications", "description": "Manages messages and communication templates." }
+  },
   "passwordReset": {
     "requestTitle": "Reset your password",
     "requestDescription": "Enter your email address and we will send you a link to reset your password.",

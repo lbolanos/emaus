@@ -238,6 +238,16 @@
   "delete": {
     "confirmTitle": "¿Estás seguro?"
   },
+  "roleInfo": {
+    "superadmin": { "label": "Superadministrador", "description": "Acceso total al sistema." },
+    "admin": { "label": "Administrador", "description": "Acceso completo al retiro y su gestión." },
+    "coordinator": { "label": "Coordinador", "description": "Gestiona participantes y asignaciones del retiro." },
+    "viewer": { "label": "Observador", "description": "Solo lectura de la información del retiro." },
+    "regular_server": { "label": "Servidor", "description": "Acceso de servidor dentro del retiro." },
+    "treasurer": { "label": "Tesorero", "description": "Gestiona pagos y finanzas del retiro." },
+    "logistics": { "label": "Logística", "description": "Gestiona inventario y logística del retiro." },
+    "communications": { "label": "Comunicaciones", "description": "Gestiona mensajes y plantillas de comunicación." }
+  },
   "passwordReset": {
     "requestTitle": "Restablecer tu contraseña",
     "requestDescription": "Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.",

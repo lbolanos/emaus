@@ -96,8 +96,8 @@
                       </svg>
                     </div>
                     <div class="flex-1 min-w-0">
-                      <div class="font-medium text-gray-900">{{ role.name }}</div>
-                      <div v-if="role.description" class="text-sm text-gray-500 mt-1">{{ role.description }}</div>
+                      <div class="font-medium text-gray-900">{{ roleLabel(role) }}</div>
+                      <div v-if="roleDescription(role)" class="text-sm text-gray-500 mt-1">{{ roleDescription(role) }}</div>
                     </div>
                   </div>
                 </SelectItem>
@@ -237,6 +237,18 @@ const invitationResults = ref<any[]>([]);
 const availableRoles = ref<any[]>([]);
 
 const { toast } = useToast();
+
+// Nombre/descripción del rol localizados (fallback al valor crudo del backend).
+const roleLabel = (role: any): string => {
+  const key = `roleInfo.${role.name}.label`;
+  const tr = t(key);
+  return tr === key ? role.name : tr;
+};
+const roleDescription = (role: any): string => {
+  const key = `roleInfo.${role.name}.description`;
+  const tr = t(key);
+  return tr === key ? role.description || '' : tr;
+};
 
 // Fetch available roles from API
 const fetchRoles = async () => {
