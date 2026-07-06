@@ -88,3 +88,6 @@ infra/lambda_src.zip
 
 .DS_Store
 tmp/chrome/
+
+client_secret_*.json
+

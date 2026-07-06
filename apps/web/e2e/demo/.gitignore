@@ -1,0 +1,10 @@
+# Artefactos de grabación y secretos: no commitear.
+.env
+output/
+*.webm
+*.mp4
+*.wav
+*.aiff
+
+# Token OAuth de YouTube (contiene refresh_token → tratar como secreto).
+youtube-token.json
