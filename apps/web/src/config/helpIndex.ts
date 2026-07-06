@@ -245,6 +245,23 @@ export const helpIndex: HelpSection[] = [
 		],
 	},
 	{
+		key: 'minute-by-minute',
+		title: 'Minute by Minute',
+		titleEs: 'Minuto a Minuto',
+		icon: 'mdi-timeline-clock',
+		// getHelpByRoute usa includes(): 'minuto-a-minuto' cubre la agenda en vivo y
+		// 'schedule-template' el editor del template global.
+		routeContext: ['minuto-a-minuto', 'schedule-template'],
+		topics: [
+			{
+				key: 'mam-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'minute-by-minute.md',
+			},
+		],
+	},
+	{
 		key: 'pre-retreat-tasks',
 		title: 'Pre-Retreat Tasks',
 		titleEs: 'Tareas Pre-Retiro',

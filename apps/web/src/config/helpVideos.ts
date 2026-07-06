@@ -14,6 +14,10 @@ export const helpVideos: Record<string, HelpVideo> = {
     url: 'https://youtu.be/pPguV-Gg7Bs',
     title: 'Ver video: Tareas Pre-Retiro',
   },
+  'minuto-a-minuto': {
+    url: 'https://youtu.be/YYwjzHcumpA',
+    title: 'Ver video: Minuto a Minuto',
+  },
 };
 
 export function getHelpVideo(feature: string): HelpVideo | undefined {

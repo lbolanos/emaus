@@ -16,6 +16,7 @@
         </div>
       </div>
       <div class="flex flex-wrap gap-2 items-center print-hide">
+        <HelpVideoButton feature="minuto-a-minuto" />
         <!-- Con lista vacía no hay barra de búsqueda; ofrecemos crear/importar aquí.
              Cuando hay items, el "+" vive junto al buscador (icono, ver abajo). -->
         <Button
@@ -445,6 +446,7 @@ import ScheduleItemEditModal, { type SubmitPayload as ItemSubmitPayload } from '
 import ResponsabilityAttachmentsDialog from '@/components/ResponsabilityAttachmentsDialog.vue';
 import MamHelpDialog from '@/components/MamHelpDialog.vue';
 import MamMoreActions from '@/components/MamMoreActions.vue';
+import HelpVideoButton from '@/components/HelpVideoButton.vue';
 import { api, retreatScheduleApi, apiErrorMessage, type RetreatScheduleItemDTO } from '@/services/api';
 import { participantLabel, isMeaninglessNickname } from '@/utils/participant';
 import type { Participant, Responsability } from '@repo/types';

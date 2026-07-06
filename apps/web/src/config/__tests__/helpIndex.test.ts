@@ -37,6 +37,14 @@ describe('helpIndex', () => {
 			expect(getHelpByRoute('communication-dashboard')?.key).toBe('crm');
 			expect(getHelpByRoute('follow-up')?.key).toBe('crm');
 		});
+
+		it('maps the minuto-a-minuto route to its help section (no queda sin ayuda)', () => {
+			const s = getHelpByRoute('minuto-a-minuto');
+			expect(s?.key).toBe('minute-by-minute');
+			// HelpPanel carga `${sectionKey}.md`; el content debe apuntar al mismo archivo.
+			expect(s?.topics[0]?.content).toBe('minute-by-minute.md');
+			expect(getHelpByRoute('schedule-template')?.key).toBe('minute-by-minute');
+		});
 	});
 
 	describe('Section Validation', () => {
