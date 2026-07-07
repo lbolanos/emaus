@@ -38,6 +38,12 @@ describe('helpIndex', () => {
 			expect(getHelpByRoute('follow-up')?.key).toBe('crm');
 		});
 
+		it('maps the role-management route to its help section (no queda sin ayuda)', () => {
+			const s = getHelpByRoute('role-management');
+			expect(s?.key).toBe('role-management');
+			expect(s?.topics[0]?.content).toBe('role-management.md');
+		});
+
 		it('maps the minuto-a-minuto route to its help section (no queda sin ayuda)', () => {
 			const s = getHelpByRoute('minuto-a-minuto');
 			expect(s?.key).toBe('minute-by-minute');

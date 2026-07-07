@@ -245,6 +245,21 @@ export const helpIndex: HelpSection[] = [
 		],
 	},
 	{
+		key: 'role-management',
+		title: 'Role Management',
+		titleEs: 'Gestión de Roles',
+		icon: 'mdi-account-key',
+		routeContext: ['role-management'],
+		topics: [
+			{
+				key: 'role-management-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'role-management.md',
+			},
+		],
+	},
+	{
 		key: 'minute-by-minute',
 		title: 'Minute by Minute',
 		titleEs: 'Minuto a Minuto',
