@@ -208,16 +208,26 @@ export class Narrator {
 // syncScale: el .webm de Playwright corre ~2-3% más lento que el reloj (Date.now),
 // así que los offsets medidos por reloj adelantan el audio en la 2ª mitad. Escalar
 // cada offset por webmDuration/wallClock realinea audio↔video (ver computeSyncScale).
-export async function muxVideo(cfg, { video, timeline, out, syncOffsetMs = 0, syncScale = 1 }) {
+// leadKeepMs: recorta el inicio muerto (carga/login/navegación sin narración) para que
+// el video arranque ~leadKeepMs antes de la primera voz. Sin esto "la voz demora en iniciar".
+export async function muxVideo(cfg, { video, timeline, out, syncOffsetMs = 0, syncScale = 1, leadKeepMs = 700 }) {
   const clips = timeline.filter((t) => t.file);
-  const inputs = ['-y', '-i', video];
+
+  // Offset (ya escalado) de la primera narración → cuánto silencio inicial recortar.
+  const scaledOffsets = clips.map((c) => c.offsetMs * syncScale + syncOffsetMs);
+  const firstOffset = scaledOffsets.length ? Math.min(...scaledOffsets) : 0;
+  const leadTrimMs = Math.max(0, Math.round(firstOffset - leadKeepMs));
+
+  const inputs = ['-y'];
+  if (leadTrimMs > 0) inputs.push('-ss', (leadTrimMs / 1000).toFixed(3)); // trim del inicio del video
+  inputs.push('-i', video);
   for (const c of clips) inputs.push('-i', c.file);
 
-  // adelay por clip (ms) → amix normalize=0 → mux con el video.
+  // adelay por clip (ms) → amix normalize=0 → mux con el video (restando el trim inicial).
   const parts = [];
   const labels = [];
   clips.forEach((c, i) => {
-    const delay = Math.max(0, Math.round(c.offsetMs * syncScale + syncOffsetMs));
+    const delay = Math.max(0, Math.round(c.offsetMs * syncScale + syncOffsetMs - leadTrimMs));
     parts.push(`[${i + 1}:a]adelay=${delay}:all=1[a${i}]`);
     labels.push(`[a${i}]`);
   });

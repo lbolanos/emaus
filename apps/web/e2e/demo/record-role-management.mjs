@@ -49,7 +49,9 @@ function maskPII(node, ctr) {
 }
 
 const LINES = [
-  { id: 'intro', text: 'Cuando alguien crea su cuenta, todavía no ve tu retiro. Tú le das acceso desde aquí: Gestión de Roles.' },
+  { id: 'sidebar1', text: 'Primero, ¿dónde está? En el menú de la izquierda, abre la sección Administración.' },
+  { id: 'sidebar2', text: 'Y ahí aparece Gestión de Roles. Ese es el que buscamos.' },
+  { id: 'intro', text: 'Cuando alguien crea su cuenta, todavía no ve tu retiro. Tú le das acceso desde aquí.' },
   { id: 'requests', text: 'En "Solicitudes de Rol" apruebas o rechazas a quien pide acceso a tu retiro.' },
   { id: 'users', text: 'Abajo ves a todos los que ya tienen acceso, con su rol y su estado.' },
   { id: 'invite', text: 'Para dar acceso, tocas "Invitar Usuario", escribes su correo y eliges su rol.' },
@@ -67,7 +69,7 @@ const YT_DESCRIPTION =
   '"Cómo entrar a Emaús".';
 const YT_TAGS = ['Emaús', 'retiro', 'roles', 'acceso', 'permisos', 'administrador', 'tutorial'];
 const CHAPTER_LABELS = {
-  intro: 'Gestión de Roles', requests: 'Solicitudes de acceso', users: 'Quién tiene acceso',
+  sidebar1: 'Dónde está en el menú', sidebar2: 'Gestión de Roles en el menú', intro: 'Gestión de Roles', requests: 'Solicitudes de acceso', users: 'Quién tiene acceso',
   invite: 'Invitar por correo', roles1: 'Qué puede cada rol', roles2: 'Tesorero, logística y más',
   quick: 'Asignación Rápida', outro: 'Resumen',
 };
@@ -138,6 +140,22 @@ async function main() {
     await page.goto(`${cfg.baseUrl}/app/retreats/${RETREAT}/role-management`, { waitUntil: 'networkidle' });
     await page.getByText('Gestión de Roles del Retiro').first().waitFor({ timeout: 15000 });
     await sleep(page, 1500);
+
+    // ── Ubicación en el sidebar: clic real en "Administración" → aparece "Gestión de Roles" ──
+    const admBtn = page.locator('button', { hasText: /Administraci/i }).first();
+    await admBtn.scrollIntoViewIfNeeded().catch(() => {});
+    const abox = await admBtn.boundingBox().catch(() => null);
+    if (abox) await nar.cueAt(abox.x + abox.width / 2, abox.y + abox.height / 2); // señalar la sección (colapsada)
+    await nar.say(clips.sidebar1); // 1ª voz (define el recorte) → el clic queda DESPUÉS y se conserva
+    // clic real que expande la sección y revela los ítems
+    await admBtn.click().catch(() => {});
+    await sleep(page, 1000);
+    const sideItem = page.getByText('Gestión de Roles', { exact: true }).first();
+    await sideItem.hover({ timeout: 4000 }).catch(() => {});
+    const ibox = await sideItem.boundingBox().catch(() => null);
+    if (ibox) await nar.cueAt(ibox.x + ibox.width / 2, ibox.y + ibox.height / 2); // señalar el ítem ya visible
+    await nar.say(clips.sidebar2);
+
     await nar.say(clips.intro);
 
     // ── Solicitudes de Rol ──
