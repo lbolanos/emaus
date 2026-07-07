@@ -2,6 +2,8 @@
 
 Aquí administras las casas donde se realizan los retiros, junto con sus habitaciones y camas. Cada casa guarda su nombre, dirección y la lista de camas que luego se usan para asignar a los participantes.
 
+📺 **[Ver video tutorial](https://youtu.be/h9KR02vu6mE)**
+
 ## Buscar y listar
 
 Usa el buscador para filtrar por **nombre** o **dirección**. La tabla muestra cada casa con su dirección y el **número de camas** configuradas.

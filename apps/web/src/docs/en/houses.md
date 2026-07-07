@@ -2,6 +2,8 @@
 
 Here you manage the houses where retreats take place, along with their rooms and beds. Each house stores its name, address, and the list of beds later used to assign participants.
 
+📺 **[Watch the tutorial](https://youtu.be/h9KR02vu6mE)**
+
 ## Search and list
 
 Use the search box to filter by **name** or **address**. The table shows each house with its address and the **number of beds** configured.
