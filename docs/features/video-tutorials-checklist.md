@@ -4,7 +4,7 @@ Plan de contenido para el canal de ayuda. Cada video se graba con el pipeline de
 `apps/web/e2e/demo/` (skill **`demo-videos`**) y se publica con **`youtube-publishing`**.
 Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 
-**Hechos: 7 · Pendientes: ~18**
+**Hechos: 8 · Pendientes: ~17**
 
 ---
 
@@ -17,6 +17,7 @@ Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 - [x] **Tareas Pre-Retiro** (checklist qué hacer y cuándo) — https://youtu.be/pPguV-Gg7Bs
 - [x] **Minuto a Minuto** (agenda en vivo del retiro) — https://youtu.be/YYwjzHcumpA
 - [x] **Crear y configurar un retiro** (casa/máximos, templates, publicar, finanzas, recuerdos) — https://youtu.be/XG3v2C7u9qo
+- [x] **Casas y camas** (crear/editar casa, nombres de piso, agregar piso/habitación/cama, operaciones masivas, mapa) — https://youtu.be/h9KR02vu6mE
 
 ---
 
@@ -31,7 +32,7 @@ Cierran la confusión "cuenta de usuario vs. registro al retiro" que ya viene en
 ## 🟠 P1 — Configuración y núcleo del retiro
 
 - [x] ~~**Crear y configurar un retiro**~~ — publicado (arriba).
-- [ ] **Casas y camas** — configurar habitaciones/camas de la casa (`houses`, `rooms`).
+- [x] ~~**Casas y camas**~~ — publicado (arriba).
 - [ ] **Caminantes** — alta, edición, importar/exportar Excel, colores familia/amigo (`walkers`).
 - [ ] **Servidores** — alta y gestión de servidores (`servers`).
 - [ ] **Asignación de camas** — flujo por edad/ronquidos/tipo de cama (`bed-assignments`).
