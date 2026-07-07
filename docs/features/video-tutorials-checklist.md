@@ -4,7 +4,7 @@ Plan de contenido para el canal de ayuda. Cada video se graba con el pipeline de
 `apps/web/e2e/demo/` (skill **`demo-videos`**) y se publica con **`youtube-publishing`**.
 Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 
-**Hechos: 6 · Pendientes: ~19**
+**Hechos: 7 · Pendientes: ~18**
 
 ---
 
@@ -16,6 +16,7 @@ Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 - [x] **Dar acceso y roles** (ubicación en menú, solicitudes, permisos por rol, Asignación Rápida) — https://youtu.be/-5nbC10cPQg · _(borrar previos: yvNfMx8P5Ic, 0UpgoH21JY8)_
 - [x] **Tareas Pre-Retiro** (checklist qué hacer y cuándo) — https://youtu.be/pPguV-Gg7Bs
 - [x] **Minuto a Minuto** (agenda en vivo del retiro) — https://youtu.be/YYwjzHcumpA
+- [x] **Crear y configurar un retiro** (casa/máximos, templates, publicar, finanzas, recuerdos) — https://youtu.be/XG3v2C7u9qo
 
 ---
 
@@ -29,7 +30,7 @@ Cierran la confusión "cuenta de usuario vs. registro al retiro" que ya viene en
 
 ## 🟠 P1 — Configuración y núcleo del retiro
 
-- [ ] **Crear y configurar un retiro** — datos, fechas, casa, límites, zona horaria.
+- [x] ~~**Crear y configurar un retiro**~~ — publicado (arriba).
 - [ ] **Casas y camas** — configurar habitaciones/camas de la casa (`houses`, `rooms`).
 - [ ] **Caminantes** — alta, edición, importar/exportar Excel, colores familia/amigo (`walkers`).
 - [ ] **Servidores** — alta y gestión de servidores (`servers`).
