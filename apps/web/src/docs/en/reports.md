@@ -71,6 +71,36 @@ The reports section provides various ways to view and export data about your ret
 - Ensures proper inventory levels
 - Based on walker count
 
+### Logistics Reports
+
+#### Bags Report
+
+- Track each walker's bag (mark as done)
+- Progress bar and count of ready / pending
+- T-shirt size summary and a content checklist (holy water, shirt, phones, palancas, invitation)
+- Search by name, table, or number; filters for All / Pending / Done
+
+#### Shirts Report
+
+- Servers and angelitos with the garments they requested
+- One column per retreat shirt type, showing each person's size
+- Totals for servers, angelitos, and garments
+- Print-optimized (includes a check column)
+
+#### Medicines Report
+
+- Walkers who take medication or need disability support
+- Shows medication details, schedule, and support notes
+- Count of how many take medication and how many need support
+- Print-ready for the health team
+
+#### Walker Badges
+
+- Generates badges with each person's name, table, and room
+- Filter by name, type, table, or room; select which ones to print
+- Adjust badge size and print single- or double-sided (for folding)
+- Export to DOCX
+
 ## Exporting Reports
 
 All reports can be exported in multiple formats:

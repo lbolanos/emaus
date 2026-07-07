@@ -38,6 +38,39 @@ describe('helpIndex', () => {
 			expect(getHelpByRoute('follow-up')?.key).toBe('crm');
 		});
 
+		it('cubre las rutas del batch de ayuda agrupada (sin páginas huérfanas)', () => {
+			const expected: Record<string, string> = {
+				'retreat-dashboard': 'retreat-dashboard',
+				houses: 'houses',
+				'retreat-shirt-types': 'retreat-shirt-types',
+				'notes-and-meeting-points': 'notes-and-meeting-points',
+				food: 'food',
+				responsibilities: 'responsibilities',
+				'service-teams': 'responsibilities',
+				'user-type-and-table': 'user-type-and-table',
+				'waiting-list': 'participant-status',
+				canceled: 'participant-status',
+				'cancellation-and-notes': 'participant-status',
+				reception: 'reception',
+				angelitos: 'angelitos',
+				palancas: 'palancas',
+				testimonials: 'testimonials',
+				santisimo: 'santisimo',
+				inventory: 'inventory',
+				'inventory-items': 'inventory',
+				'my-schedule': 'my-schedule',
+				'message-templates': 'message-templates',
+				'global-message-templates': 'message-templates',
+				'bags-report': 'reports',
+				'shirts-report': 'reports',
+				'medicines-report': 'reports',
+				'walker-badges': 'reports',
+			};
+			for (const [route, key] of Object.entries(expected)) {
+				expect(getHelpByRoute(route)?.key, `ruta ${route}`).toBe(key);
+			}
+		});
+
 		it('maps the role-management route to its help section (no queda sin ayuda)', () => {
 			const s = getHelpByRoute('role-management');
 			expect(s?.key).toBe('role-management');

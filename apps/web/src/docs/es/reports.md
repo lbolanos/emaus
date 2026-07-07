@@ -71,6 +71,36 @@ La sección de reportes proporciona varias formas de ver y exportar datos sobre 
 - Asegura niveles de inventario adecuados
 - Basado en la cantidad de caminantes
 
+### Reportes de Logística
+
+#### Reporte de Bolsas
+
+- Seguimiento de la bolsa de cada caminante (marcar como realizada)
+- Barra de progreso y conteo de listas / faltantes
+- Resumen de tallas de playera y checklist del contenido (agua bendita, playera, celulares, palancas, invitación)
+- Búsqueda por nombre, mesa o número; filtros Todos / Pendientes / Realizadas
+
+#### Reporte de Camisetas
+
+- Servidores y angelitos con las prendas que solicitaron
+- Una columna por tipo de camiseta del retiro, con la talla de cada persona
+- Totales de servidores, angelitos y prendas
+- Optimizado para imprimir (incluye columna de verificación)
+
+#### Reporte de Medicinas
+
+- Caminantes que toman medicamento o requieren apoyos por discapacidad
+- Muestra detalles del medicamento, horario y apoyos
+- Conteo de cuántos tienen medicamento y cuántos apoyos
+- Listo para imprimir para el equipo de salud
+
+#### Gafetes de Caminantes
+
+- Genera los gafetes con nombre, mesa y habitación de cada persona
+- Filtra por nombre, tipo, mesa o habitación; selecciona cuáles imprimir
+- Ajusta el tamaño del gafete e imprime a una o dos caras (para doblar)
+- Exporta a DOCX
+
 ## Exportar Reportes
 
 Todos los reportes se pueden exportar en múltiples formatos:

@@ -117,7 +117,7 @@ export const helpIndex: HelpSection[] = [
 		title: 'Reports',
 		titleEs: 'Reportes',
 		icon: 'mdi-file-chart',
-		routeContext: ['reports'],
+		routeContext: ['reports', 'bags-report', 'shirts-report', 'medicines-report', 'walker-badges'],
 		topics: [
 			{
 				key: 'available-reports',
@@ -290,6 +290,246 @@ export const helpIndex: HelpSection[] = [
 				title: 'Overview',
 				titleEs: 'Descripción general',
 				content: 'pre-retreat-tasks.md',
+			},
+		],
+	},
+	{
+		key: 'retreat-dashboard',
+		title: 'Retreat Dashboard',
+		titleEs: 'Panel del Retiro',
+		icon: 'mdi-view-dashboard',
+		routeContext: ['retreat-dashboard'],
+		topics: [
+			{
+				key: 'retreat-dashboard-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'retreat-dashboard.md',
+			},
+		],
+	},
+	{
+		key: 'houses',
+		title: 'Houses',
+		titleEs: 'Casas',
+		icon: 'mdi-home-city',
+		routeContext: ['houses'],
+		topics: [
+			{
+				key: 'houses-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'houses.md',
+			},
+		],
+	},
+	{
+		key: 'retreat-shirt-types',
+		title: 'Retreat Shirt Types',
+		titleEs: 'Tipos de Playera',
+		icon: 'mdi-tshirt-crew',
+		routeContext: ['retreat-shirt-types'],
+		topics: [
+			{
+				key: 'retreat-shirt-types-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'retreat-shirt-types.md',
+			},
+		],
+	},
+	{
+		key: 'notes-and-meeting-points',
+		title: 'Notes and Meeting Points',
+		titleEs: 'Notas y Puntos de Encuentro',
+		icon: 'mdi-map-marker',
+		routeContext: ['notes-and-meeting-points'],
+		topics: [
+			{
+				key: 'notes-and-meeting-points-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'notes-and-meeting-points.md',
+			},
+		],
+	},
+	{
+		key: 'food',
+		title: 'Food',
+		titleEs: 'Comida',
+		icon: 'mdi-food',
+		routeContext: ['food'],
+		topics: [
+			{
+				key: 'food-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'food.md',
+			},
+		],
+	},
+	{
+		key: 'responsibilities',
+		title: 'Responsibilities and Service Teams',
+		titleEs: 'Responsabilidades y Equipos',
+		icon: 'mdi-clipboard-account',
+		routeContext: ['responsibilities', 'service-teams'],
+		topics: [
+			{
+				key: 'responsibilities-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'responsibilities.md',
+			},
+		],
+	},
+	{
+		key: 'user-type-and-table',
+		title: 'User Type and Table',
+		titleEs: 'Tipo de Usuario y Mesa',
+		icon: 'mdi-account-switch',
+		routeContext: ['user-type-and-table'],
+		topics: [
+			{
+				key: 'user-type-and-table-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'user-type-and-table.md',
+			},
+		],
+	},
+	{
+		key: 'participant-status',
+		title: 'Waiting List, Canceled and Notes',
+		titleEs: 'Espera, Cancelados y Notas',
+		icon: 'mdi-account-clock',
+		routeContext: ['waiting-list', 'canceled', 'cancellation-and-notes'],
+		topics: [
+			{
+				key: 'participant-status-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'participant-status.md',
+			},
+		],
+	},
+	{
+		key: 'reception',
+		title: 'Reception',
+		titleEs: 'Recepción',
+		icon: 'mdi-check-decagram',
+		routeContext: ['reception'],
+		topics: [
+			{
+				key: 'reception-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'reception.md',
+			},
+		],
+	},
+	{
+		key: 'angelitos',
+		title: 'Angelitos (Helpers)',
+		titleEs: 'Angelitos',
+		icon: 'mdi-account-heart',
+		routeContext: ['angelitos'],
+		topics: [
+			{
+				key: 'angelitos-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'angelitos.md',
+			},
+		],
+	},
+	{
+		key: 'palancas',
+		title: 'Support Letters',
+		titleEs: 'Palancas',
+		icon: 'mdi-email-heart-outline',
+		routeContext: ['palancas'],
+		topics: [
+			{
+				key: 'palancas-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'palancas.md',
+			},
+		],
+	},
+	{
+		key: 'testimonials',
+		title: 'Testimonials',
+		titleEs: 'Testimonios',
+		icon: 'mdi-comment-quote',
+		routeContext: ['testimonials'],
+		topics: [
+			{
+				key: 'testimonials-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'testimonials.md',
+			},
+		],
+	},
+	{
+		key: 'santisimo',
+		title: 'Chapel Watch Schedule',
+		titleEs: 'Guardias de la Capilla',
+		icon: 'mdi-church',
+		routeContext: ['santisimo'],
+		topics: [
+			{
+				key: 'santisimo-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'santisimo.md',
+			},
+		],
+	},
+	{
+		key: 'inventory',
+		title: 'Inventory',
+		titleEs: 'Inventario',
+		icon: 'mdi-package-variant',
+		routeContext: ['inventory'],
+		topics: [
+			{
+				key: 'inventory-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'inventory.md',
+			},
+		],
+	},
+	{
+		key: 'my-schedule',
+		title: 'My Schedule',
+		titleEs: 'Mi Agenda',
+		icon: 'mdi-calendar-account',
+		routeContext: ['my-schedule'],
+		topics: [
+			{
+				key: 'my-schedule-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'my-schedule.md',
+			},
+		],
+	},
+	{
+		key: 'message-templates',
+		title: 'Message Templates',
+		titleEs: 'Plantillas de Mensajes',
+		icon: 'mdi-message-text',
+		routeContext: ['message-templates'],
+		topics: [
+			{
+				key: 'message-templates-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'message-templates.md',
 			},
 		],
 	},
