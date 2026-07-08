@@ -23,6 +23,7 @@ Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 - [x] **Mesas** (asignar líderes/caminantes, colores familia, dinámica del Santísimo con tarjetas, verificación de datos, rebalanceo, briefing) — https://youtu.be/fEzKgqUJpGI
 - [x] **Responsabilidades, equipos, documentos, MAM y Mi Agenda** (asignar, guiones/versionado, líder/miembros, apoyos, agenda del servidor con avisos) — https://youtu.be/3XZlQJZlcmo
 - [x] **Equipo de Palancas** (asignar Palanquero 1/2/3, avisos al registrarse, secuencias a familiares, registro solicitadas/recibidas/notas) — https://youtu.be/5mUo2Q1v3Ws
+- [x] **Equipo de Recepción** (gafetes: imprimir doble cara / para bolsa / entregar; recepción: buscar, mesa, verificar pago, cobrar inline, beca, celulares, marcar llegada; reporte de bolsas: checklist, armar por mesa, marcar) — https://youtu.be/_ayhFpxBSQ4
 
 ---
 
@@ -53,7 +54,8 @@ Cierran la confusión "cuenta de usuario vs. registro al retiro" que ya viene en
 - [ ] **Misa de clausura** — captura de iglesia + invitación a familiares (skill `closing-mass-church`).
 - [x] ~~**Palancas**~~ — publicado — https://youtu.be/5mUo2Q1v3Ws *(asignar palanqueros, avisos al registrarse, secuencias a familiares, registro solicitadas/recibidas/notas).*
 - [ ] **Camisetas y comida** — tipos de camiseta y reporte, comida (`shirts`, `food`).
-- [ ] **Reportes y gafetes** — bolsas, medicinas, camisetas, gafetes (`*-report`, `walker-badges`).
+- [x] ~~**Recepción (equipo)**~~ — publicado (arriba) — https://youtu.be/_ayhFpxBSQ4 *(gafetes, recepción con mesa/cobro/beca, y reporte de bolsas).*
+- [ ] **Reportes restantes** — medicinas y camisetas (`medicines-report`, `shirts-report`). *(Gafetes y bolsas ya cubiertos en el video de Recepción.)*
 
 ## 🟢 P3 — Comunicación y comunidades (CRM)
 

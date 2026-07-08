@@ -1,5 +1,7 @@
 # Recepción (registro de llegada)
 
+📺 **[Ver video tutorial](https://youtu.be/_ayhFpxBSQ4)**
+
 La Recepción es el tablero de **check-in** del día del retiro: marcas quién ya llegó, ves cuántos faltan y sigues el avance en tiempo real. Está pensada para usarse desde el celular en la puerta.
 
 ## Panel de avance
@@ -8,7 +10,11 @@ Arriba ves tres tarjetas: **Total** de participantes, cuántos han **llegado** y
 
 ## Marcar llegadas
 
-En la lista de **pendientes**, pulsa **Llegó** junto a la persona para registrar su check-in; junto al nombre se muestra su número, teléfono y lo pagado. La lista de **quienes ya llegaron** es colapsable y muestra la hora de check-in; ahí puedes **deshacer** una llegada si te equivocaste.
+En la lista de **pendientes**, pulsa **Llegó** junto a la persona para registrar su check-in; junto al nombre se muestra su número, teléfono, su **mesa** (etiqueta azul) y lo pagado. La lista de **quienes ya llegaron** es colapsable y muestra la hora de check-in; ahí puedes **deshacer** una llegada si te equivocaste.
+
+## Verificar el pago y cobrar
+
+Junto a cada caminante ves cuánto ha pagado: en **verde** si ya pagó, o el botón **Cobrar** si aún debe. Pulsa **Cobrar** para registrar el pago ahí mismo —escribes el monto y eliges efectivo, transferencia o tarjeta— sin salir de Recepción. Si el caminante viene **becado**, en lugar del botón aparece la etiqueta **Beca**: a él no se le cobra.
 
 ## Buscar y ordenar
 
