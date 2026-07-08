@@ -189,6 +189,21 @@ alternativas es-LATAM: `aura-2-selena-es`, `aura-2-estrella-es`, `aura-2-javier-
 - **reka-ui submenú (`DropdownMenuSub`)**: abrir por `hover` es poco fiable en headed + `hasTouch`,
   y `click` en el subtrigger a veces no es accionable. Preferí beats que NO dependan del submenú
   (señalar el trigger y narrar dónde vive), o abrí con reintento y verificá por frames.
+- **`button[aria-haspopup="menu"]` colisiona con el menú de usuario del sidebar (video Recepción).**
+  El dropdown de cuenta del sidebar Y cualquier `DropdownMenu` de la página renderizan ambos
+  `aria-haspopup="menu"`; `.first()` agarra el del sidebar (aparece antes en el DOM) → abrís el
+  menú equivocado y el cartel narra sobre algo que no se ve. Fix: **acotá el selector al contenido
+  de la página**, p.ej. `.no-print button[aria-haspopup="menu"]` (el header de Gafetes) o el
+  contenedor de la sección. **Verificá por frame que abrió el menú correcto.**
+- **Un retiro 100%-completo NO puede demostrar progreso parcial → floja el estado en el interceptor.**
+  San Agustín tiene recepción al 100% de llegadas y 38/38 bolsas hechas: no hay "pendiente" que
+  buscar/cobrar/marcar. Para el video de Recepción: (1) **fabricá el payload de stats**
+  (`GET /participants/reception/:id`) con una lista de pendientes de pago/beca controlados; (2) en
+  el mismo handler de enmascarado del `GET /participants`, **voltéa `bagMade=false` en ~40%** de los
+  caminantes para que marcar una bolsa suba el avance visiblemente. Interceptá las escrituras
+  (`PUT …/checkin`, `POST /payments`, `PATCH …/bag-made`) para no mutar la BD; hacé el interceptor
+  **con estado** (mover de pendientes→llegados, fijar `totalPaid`) para que el `fetchStats` posterior
+  refleje el cambio. Referencia: `record-reception.mjs`.
 
 ## ⚠️ Datos de la demo: NUNCA backup/restore de sqlite por CLI (CRITICAL)
 
