@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Input, Button, Card, CardContent, CardHeader, CardTitle, ScrollArea, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@repo/ui';
 import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, ChevronUp, ChevronDown, GripVertical, RotateCcw } from 'lucide-vue-next'
+
+const { t } = useI18n()
 
 type Column = {
   key: string
@@ -156,8 +159,8 @@ const resetToDefault = () => {
     <!-- Hidden Columns -->
     <Card>
       <CardHeader>
-        <CardTitle>Hidden Columns</CardTitle>
-        <Input v-model="hiddenSearch" placeholder="Search..." />
+        <CardTitle>{{ t('participants.columnSelector.hidden') }}</CardTitle>
+        <Input v-model="hiddenSearch" :placeholder="t('participants.columnSelector.search')" />
       </CardHeader>
       <CardContent>
         <ScrollArea class="h-64">
@@ -215,7 +218,7 @@ const resetToDefault = () => {
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Reset to default columns</p>
+            <p>{{ t('participants.columnSelector.resetTooltip') }}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -224,10 +227,10 @@ const resetToDefault = () => {
     <!-- Visible Columns -->
     <Card>
       <CardHeader>
-        <CardTitle>Visible Columns</CardTitle>
+        <CardTitle>{{ t('participants.columnSelector.visible') }}</CardTitle>
         <div class="flex gap-2 items-center">
-          <Input v-model="visibleSearch" placeholder="Search..." class="flex-1" />
-          <span class="text-xs text-muted-foreground">Use ↑↓ to move</span>
+          <Input v-model="visibleSearch" :placeholder="t('participants.columnSelector.search')" class="flex-1" />
+          <span class="text-xs text-muted-foreground">{{ t('participants.columnSelector.reorderHint') }}</span>
         </div>
       </CardHeader>
       <CardContent>

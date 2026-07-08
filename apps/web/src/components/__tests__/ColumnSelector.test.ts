@@ -94,7 +94,7 @@ describe('ColumnSelector Component', () => {
 			});
 
 			const cardTitles = wrapper.findAll('.card-title');
-			expect(cardTitles[0].text()).toContain('Hidden Columns');
+			expect(cardTitles[0].text()).toContain('participants.columnSelector.hidden');
 		});
 
 		it('should render visible columns card', () => {
@@ -107,7 +107,7 @@ describe('ColumnSelector Component', () => {
 			});
 
 			const cardTitles = wrapper.findAll('.card-title');
-			expect(cardTitles[1].text()).toContain('Visible Columns');
+			expect(cardTitles[1].text()).toContain('participants.columnSelector.visible');
 		});
 
 		it('should render search inputs for both lists', () => {

@@ -702,6 +702,13 @@
     "addParticipant": "Add Participant",
     "refresh": "Refresh table",
     "selectColumns": "Select columns",
+    "columnSelector": {
+      "hidden": "Hidden columns",
+      "visible": "Visible columns",
+      "search": "Search...",
+      "reorderHint": "Use ↑↓ to move",
+      "resetTooltip": "Reset to default columns"
+    },
     "delete": {
       "confirmMessage1": "This will cancel the participation of",
       "confirmMessage2": "in this retreat. Their table and bed assignments will be released. The participant can be reactivated later.",
