@@ -1,5 +1,7 @@
 # Mi agenda
 
+📺 **[Ver video tutorial](https://youtu.be/3XZlQJZlcmo)**
+
 Esta pantalla muestra **lo que te toca a ti** durante el retiro: solo las actividades del Minuto a Minuto donde estás asignado como responsable o apoyo. Es la vista personal de cada servidor, no la agenda completa del retiro.
 
 ## Próximas y pasadas

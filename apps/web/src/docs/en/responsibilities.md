@@ -1,5 +1,7 @@
 # Responsibilities and Service Teams
 
+📺 **[Watch the tutorial](https://youtu.be/3XZlQJZlcmo)** (Spanish)
+
 These two screens organize the retreat's service: **Responsibilities** assigns tasks and talks to individual servers; **Service Teams** groups servers into teams (kitchen, music, palancas, logistics, etc.).
 
 ## Responsibilities

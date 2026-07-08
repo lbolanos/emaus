@@ -1,5 +1,7 @@
 # Plantillas de Mensajes
 
+📺 **[Ver video tutorial](https://youtu.be/KpYW_kWYdMk)**
+
 Las plantillas son textos reutilizables (bienvenidas, recordatorios de pago, solicitud de palanca, etc.) que luego envías por correo o WhatsApp a los participantes. Cada plantilla tiene un **tipo** y un **público** (caminantes, servidores, familiares o general).
 
 ## Crear y editar

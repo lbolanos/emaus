@@ -1,5 +1,7 @@
 # Gestionar Caminantes
 
+📺 **[Ver video tutorial](https://youtu.be/Lgxy9dJm9_o)**
+
 Esta sección explica cómo gestionar caminantes - los participantes que asistirán al retiro.
 
 ## Descripción General
@@ -49,6 +51,20 @@ Los caminantes nunca se eliminan permanentemente. En su lugar, se marcan como "e
 3. Confirme la acción
 
 El caminante ya no aparecerá en las listas activas pero permanecerá en la base de datos.
+
+## Columnas de la tabla = campos editables
+
+Con el menú de opciones (los tres puntos) → **Columnas** eliges qué datos ves en la tabla. Lo
+importante: **la columna que agregas también se vuelve un campo editable en la ficha** del
+caminante. Por ejemplo, si agregas la columna **Ocupación**, aparece en la tabla y, al abrir
+**Editar**, podrás capturarla. El correo se muestra pero queda fijo (no se edita desde la ficha).
+
+## Enviar mensajes
+
+- **Individual**: el ícono de mensaje de cada fila abre el envío por **WhatsApp o correo**, con
+  **plantillas** y con **historial** de lo enviado.
+- **Masivo**: marca varios caminantes con los cuadros de selección y usa la **barra azul** para
+  mandarles un mensaje a todos o editarlos juntos.
 
 ## Código de Colores
 

@@ -1,5 +1,7 @@
 # Communication & CRM
 
+📺 **[Watch the tutorial: templates and sequences](https://youtu.be/KpYW_kWYdMk)** (Spanish)
+
 This section explains how to communicate with participants more efficiently: send group messages over WhatsApp, automate reminders and follow-ups, and keep track of who you've already contacted.
 
 ## Overview

@@ -1,5 +1,7 @@
 # Asignaciones de Mesas
 
+📺 **[Ver video tutorial](https://youtu.be/fEzKgqUJpGI)**
+
 Esta sección explica cómo gestionar las asignaciones de mesas para los participantes del retiro.
 
 ## Descripción General

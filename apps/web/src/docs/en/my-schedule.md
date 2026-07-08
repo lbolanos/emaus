@@ -1,5 +1,7 @@
 # My Schedule
 
+📺 **[Watch the tutorial](https://youtu.be/3XZlQJZlcmo)** (Spanish)
+
 This screen shows **what's assigned to you** during the retreat: only the Minute-by-Minute activities where you are listed as a lead or support. It's each server's personal view, not the retreat's full schedule.
 
 ## Upcoming and past

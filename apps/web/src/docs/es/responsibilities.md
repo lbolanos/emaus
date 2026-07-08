@@ -1,5 +1,7 @@
 # Responsabilidades y equipos de servicio
 
+📺 **[Ver video tutorial](https://youtu.be/3XZlQJZlcmo)**
+
 Estas dos pantallas organizan el servicio del retiro: **Responsabilidades** asigna tareas y charlas a servidores individuales; **Equipos de servicio** agrupa a los servidores en equipos (cocina, música, palancas, logística, etc.).
 
 ## Responsabilidades

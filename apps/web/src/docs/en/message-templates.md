@@ -1,5 +1,7 @@
 # Message Templates
 
+📺 **[Watch the tutorial](https://youtu.be/KpYW_kWYdMk)** (Spanish)
+
 Templates are reusable texts (welcomes, payment reminders, palanca requests, etc.) that you later send to participants by email or WhatsApp. Each template has a **type** and an **audience** (walkers, servers, family, or general).
 
 ## Create and edit

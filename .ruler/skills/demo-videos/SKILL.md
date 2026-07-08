@@ -115,6 +115,81 @@ alternativas es-LATAM: `aura-2-selena-es`, `aura-2-estrella-es`, `aura-2-javier-
   (el más nuevo)**, NO por orden alfabético (los nombres son hex aleatorios → `.sort().pop()`
   puede agarrar el webm de OTRA feature y pegarle el audio equivocado).
 
+## Lecciones aprendidas grabando vistas de `/app` (sesión 2026-07-06)
+
+- **`page.setDefaultTimeout(6000)` SIEMPRE en videos con interacciones opcionales.** Un `.click()`
+  a un selector ausente espera 30 s por defecto → un solo fallo mete un **hueco de 30 s** de silencio.
+  Con muchos `.catch(()=>{})`, varios fallos apilan minutos muertos (un video salió de 6 min). Con
+  default 6 s, cualquier fallo es un blip. Poné timeouts explícitos solo en los waits legítimos largos
+  (carga de vista, apertura de modal).
+- **La voz "demora en iniciar" = inicio muerto.** El webm graba la carga/login/navegación antes de
+  la 1ª narración. `muxVideo` ahora **auto-recorta** ese inicio (`leadKeepMs`, arranca ~0.7 s antes de
+  la 1ª voz). Consecuencia: la 1ª narración es el ancla del recorte; **los clics que quieras conservar
+  deben ir DESPUÉS de la 1ª `say`** (lo anterior se recorta). Verificá offsets del video = `timeline − recorte`.
+- **Muchas vistas de `/app` renderizan EN BLANCO con `page.goto` directo** (el SPA necesita el retiro
+  seleccionado por la UI). Renderizan bien por goto: `role-management`, y las de config global
+  (`/app/houses`, `requiresRetreat:false`). Para las demás: navegá dentro del SPA o usá una que sí renderice.
+- **Idioma**: forzá español con `ctx.addInitScript(() => localStorage.setItem('preferred-locale','es'))`
+  + `newContext({ locale:'es-MX' })`. Varias vistas (recuperar contraseña, roles) tenían inglés hardcoded.
+- **Sidebar colapsable**: para revelar un ítem de una sección, clic en el `<button>` del encabezado de
+  `SidebarSection` (no el `<span>` de texto — Playwright lo cree "visible" pero no togglea). La sección
+  activa auto-expande en su propia página; en otras hay que expandirla. Señalá con `boundingBox` dinámico.
+- **Menús ⋮ del mapa de camas por índice** (mapealos con una exploración: 1=acciones globales, 2=piso,
+  3=habitación, 4=cama). Las mutaciones (agregar cama/hab) **corren los índices posteriores** → reusá solo
+  índices estables (el ⋮ global) o hacé las mutaciones al final.
+- **PII en el fondo**: si la pantalla (o el fondo de un modal) muestra datos reales (correos/nombres de
+  usuarios), **enmascaralos interceptando el endpoint** con `page.route('**/…', route => { …reescribir JSON… })`
+  antes de grabar público. Patrón en `record-role-management.mjs` / `record-create-retreat.mjs`.
+- **No mutar**: mostrá formularios y **Cancelá** (no envíes); los cambios locales del mapa/lote se ven sin
+  guardar. Señalá "Guardar" sin clicarlo.
+- **Google Places (crear casa) no se automatiza** (web component, shadow DOM: las sugerencias aparecen
+  pero no se clican fiable, y el modal no cierra con Escape). Para mostrar el formulario de casa usá
+  **"Editar"** (mismo modal, dirección ya válida) → así hasta se puede pasar de paso con "Siguiente".
+- **Features gated**: p.ej. "Agregar Camas en Lote" solo aparece en casa **vacía**; el paso 2 del modal
+  ("Capacidad y Camas") solo avanza si la dirección es válida (usá una casa con dirección real). Planeá
+  el estado/registro antes de grabar.
+- **Confirmá antes de subir** cada video (ver skill `youtube-publishing`) y **mostrá la ubicación en el
+  sidebar** de la feature al inicio.
+
+## Lecciones aprendidas (sesión 2026-07-08): datos reales + carga + rutas
+
+- **Preferí un retiro REAL COMPLETO + enmascarar nombres, sobre fabricar datos.** El retiro
+  **San Agustín** (`RETREAT_ID=4c8173c9-a068-4efe-a936-e3618523bead`) tiene TODO poblado
+  (responsabilidades asignadas, equipos con líder/miembros, MAM materializado con apoyos, Mi
+  Agenda del admin, palancas solicitadas/recibidas). **Celaya** (`96f06c40-…`) está casi vacío
+  (equipos sin miembros, MAM con 0 items, agenda vacía) → obliga a fabricar. Para un video
+  creíble, usá San Agustín y enmascará PII.
+- **Enmascarado de nombres (`maskNode` recursivo + `fakeFor` determinista por id):** interceptá
+  con `page.route` los GET que traen participantes (`**/responsibilities**`, `**/participants**`,
+  `**/service-teams**`, `**/schedule/retreats/**`, `**/sequences**`), parseá JSON, reemplazá
+  `firstName/lastName/nickname/displayName/email` por fakes estables (mismo id → mismo nombre).
+  ⚠️ **Nombres embebidos en strings `label`** ("Palanquero 1 (Nombre Real)" de
+  `/responsibilities/palanquero-options`) NO se cubren con firstName/lastName → agregá un handler
+  regex `/^(Palanquero \d+)\s*\((.+)\)$/`. **Verificá por frames que NO filtra PII antes de subir.**
+- **Cuando el dato está vacío → sandbox por interceptación**: GET devuelve fakes y se FABRICA la
+  respuesta de las escrituras (POST) echando el objeto actualizado (patrón del video de Mesas:
+  `assign walker/leader` → devolver la mesa con el participante agregado; el front actualiza su
+  estado desde la respuesta, sin tocar la BD).
+- **La carga del sistema arruina la grabación headed (CRÍTICO).** Con la sesión larga, **iTerm
+  llega a ~60% CPU** (re-render del scrollback) y hambrea el renderer del navegador → el
+  `page.evaluate` de la narración se **cuelga 1-3 min** → tramos muertos enormes (el video de
+  Mesas tardó 8 intentos). Fix: grabar con el equipo tranquilo (`uptime` load ≲ 4), minimizar tu
+  propio output (no leer imágenes/logs de más), y NO correr monitores/probes en paralelo a la
+  grabación. Con load bajo el 1er intento sale limpio.
+- **`page.setDefaultNavigationTimeout(30000)` aparte de `setDefaultTimeout(6000)`**: si dejás que
+  `goto`/`networkidle` herede los 6s de acciones, la navegación timea bajo carga y aborta.
+- **Blindá TODO `waitFor`/`click` con `.catch(() => {})`.** Un `waitFor` sin catch (ruta
+  equivocada → texto que no aparece) lanza y **aborta la grabación entera**, perdés todos los
+  beats siguientes (incidente palancas: usé `/app/message-sequences` en vez de
+  `/app/settings/message-sequences`).
+- **Rutas de `/app`**: `/app/<name>` para `walkers`, `palancas`, `service-teams`, `my-schedule`;
+  `/app/retreats/:id/<name>` para `responsibilities`, `minuto-a-minuto`; y
+  `/app/settings/message-templates|message-sequences`. Navegar a un `/app/retreats/:id/…`
+  **selecciona ese retiro** para las rutas sin `:id` (así fijás San Agustín).
+- **reka-ui submenú (`DropdownMenuSub`)**: abrir por `hover` es poco fiable en headed + `hasTouch`,
+  y `click` en el subtrigger a veces no es accionable. Preferí beats que NO dependan del submenú
+  (señalar el trigger y narrar dónde vive), o abrí con reintento y verificá por frames.
+
 ## ⚠️ Datos de la demo: NUNCA backup/restore de sqlite por CLI (CRITICAL)
 
 La grabación **muta la DB** (marca una tarea, asigna un responsable). Es tentador

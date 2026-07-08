@@ -4,7 +4,7 @@ Plan de contenido para el canal de ayuda. Cada video se graba con el pipeline de
 `apps/web/e2e/demo/` (skill **`demo-videos`**) y se publica con **`youtube-publishing`**.
 Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 
-**Hechos: 8 · Pendientes: ~17**
+**Hechos: 13 · Pendientes: ~12**
 
 ---
 
@@ -18,6 +18,11 @@ Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 - [x] **Minuto a Minuto** (agenda en vivo del retiro) — https://youtu.be/YYwjzHcumpA
 - [x] **Crear y configurar un retiro** (casa/máximos, templates, publicar, finanzas, recuerdos) — https://youtu.be/XG3v2C7u9qo
 - [x] **Casas y camas** (crear/editar casa, nombres de piso, agregar piso/habitación/cama, operaciones masivas, mapa) — https://youtu.be/h9KR02vu6mE
+- [x] **Caminantes** (lista, buscar/filtrar, editar ficha, columnas = campos editables, mensajes individual y masivo) — https://youtu.be/Lgxy9dJm9_o
+- [x] **Plantillas y secuencias automáticas** (crear plantilla con variables, disparadores, pasos por canal/desfase, ejecutar) — https://youtu.be/KpYW_kWYdMk
+- [x] **Mesas** (asignar líderes/caminantes, colores familia, dinámica del Santísimo con tarjetas, verificación de datos, rebalanceo, briefing) — https://youtu.be/fEzKgqUJpGI
+- [x] **Responsabilidades, equipos, documentos, MAM y Mi Agenda** (asignar, guiones/versionado, líder/miembros, apoyos, agenda del servidor con avisos) — https://youtu.be/3XZlQJZlcmo
+- [x] **Equipo de Palancas** (asignar Palanquero 1/2/3, avisos al registrarse, secuencias a familiares, registro solicitadas/recibidas/notas) — https://youtu.be/5mUo2Q1v3Ws
 
 ---
 
@@ -33,33 +38,33 @@ Cierran la confusión "cuenta de usuario vs. registro al retiro" que ya viene en
 
 - [x] ~~**Crear y configurar un retiro**~~ — publicado (arriba).
 - [x] ~~**Casas y camas**~~ — publicado (arriba).
-- [ ] **Caminantes** — alta, edición, importar/exportar Excel, colores familia/amigo (`walkers`).
+- [x] ~~**Caminantes**~~ — publicado (arriba). *(Falta cubrir aparte: importar/exportar Excel y colores familia/amigo.)*
 - [ ] **Servidores** — alta y gestión de servidores (`servers`).
 - [ ] **Asignación de camas** — flujo por edad/ronquidos/tipo de cama (`bed-assignments`).
-- [ ] **Mesas** — asignar líderes y caminantes, evitar conflictos familia/amigo (`tables`).
+- [x] ~~**Mesas**~~ — publicado (arriba). *(Incluye la dinámica del Santísimo y la verificación de datos.)*
 - [ ] **Pagos** — registrar y dar seguimiento a pagos (`payments`).
 
 ## 🟡 P2 — Logística y features del retiro
 
-- [ ] **Equipos de servicio y responsabilidades** — `service-teams`, `responsibilities`, `asignar-responsables`.
+- [x] ~~**Equipos de servicio y responsabilidades**~~ — publicado (arriba). *(Incluye documentos/guiones, versionado, MAM y Mi Agenda.)*
 - [ ] **Inventario** — control de inventario del retiro (`inventory`).
 - [ ] **Santísimo (guardias de adoración)** — armado del horario de guardias (`santisimo`).
 - [ ] **Angelitos** — asignación de angelitos (`angelitos`).
 - [ ] **Misa de clausura** — captura de iglesia + invitación a familiares (skill `closing-mass-church`).
-- [ ] **Palancas** — gestión de palancas (`palancas`).
+- [x] ~~**Palancas**~~ — publicado — https://youtu.be/5mUo2Q1v3Ws *(asignar palanqueros, avisos al registrarse, secuencias a familiares, registro solicitadas/recibidas/notas).*
 - [ ] **Camisetas y comida** — tipos de camiseta y reporte, comida (`shirts`, `food`).
 - [ ] **Reportes y gafetes** — bolsas, medicinas, camisetas, gafetes (`*-report`, `walker-badges`).
 
 ## 🟢 P3 — Comunicación y comunidades (CRM)
 
 - [ ] **Comunidades** — miembros, reuniones, asistencia (`communities`, `community-*`).
-- [ ] **Secuencias y plantillas de mensajes** — automatización (`message-sequences`, `message-templates`).
+- [x] ~~**Secuencias y plantillas de mensajes**~~ — publicado (arriba).
 - [ ] **Tablero de comunicación y seguimiento** — `communication-dashboard`, `follow-up`.
 - [ ] **WhatsApp** — envío y administración (skill `whatsapp-admin`).
 
 ## 🔵 P4 — Vista del usuario / servidor
 
-- [ ] **Mi agenda** — qué le toca a cada servidor (`my-schedule`).
+- [x] ~~**Mi agenda**~~ — cubierto en el video de Responsabilidades (arriba) — https://youtu.be/3XZlQJZlcmo
 - [ ] **Mis retiros y mi perfil** — `my-retreats`, `profile`, social.
 
 ---

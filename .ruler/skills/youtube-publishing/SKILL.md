@@ -1,6 +1,6 @@
 ---
 name: youtube-publishing
-description: Publicar los videos-demo de emaús en el canal de YouTube "Emaús Retiros" y generar el arte del canal (avatar, banner, miniaturas) con IA. Cubre el flujo OAuth (una vez), la subida por API con metadata/capítulos, la generación de imágenes con Gemini "nano banana" + composición de texto con CSS, el branding del canal, el botón de ayuda in-app (HelpVideoButton), y los gotchas ganados a pulso (token que expira, facturación de imágenes, verificación para miniaturas). Usar cuando se pida "subir a YouTube", "publicar el video", "crear/mejorar el logo o banner del canal", "generar miniatura/thumbnail", "generar imagen con IA/nano banana", o "botón de ayuda con video".
+description: Publicar los videos-demo de emaús en el canal de YouTube "Emaús Retiros" y generar el arte del canal (avatar, banner, miniaturas) con IA. Cubre el flujo OAuth (una vez), la subida por API con metadata/capítulos, la generación de imágenes con Gemini "nano banana" + composición de texto con CSS, el branding del canal, enlazar el video en la ayuda in-app, y los gotchas ganados a pulso (token que expira, facturación de imágenes, verificación para miniaturas). Usar cuando se pida "subir a YouTube", "publicar el video", "crear/mejorar el logo o banner del canal", "generar miniatura/thumbnail", "generar imagen con IA/nano banana", o "botón de ayuda con video".
 ---
 
 # Publicar en YouTube + arte del canal (Emaús Retiros)
@@ -14,7 +14,10 @@ paquete que graba los videos (skill **`demo-videos`**): grabar → generar metad
 - **Nombre**: `Emaús Retiros` · **Handle**: `@emaus-retiros`
 - **Channel ID**: `UCHiwG7pIB5Su3iwzSt7kIJA` · público: `https://www.youtube.com/channel/UCHiwG7pIB5Su3iwzSt7kIJA`
 - **Cuenta Google**: `emaus.cccc@gmail.com` (Gmail personal, NO Workspace)
-- **Videos publicados**: Tareas Pre-Retiro `https://youtu.be/pPguV-Gg7Bs` · Minuto a Minuto `https://youtu.be/YYwjzHcumpA`
+- **Videos publicados** (ver lista viva en `docs/features/video-tutorials-checklist.md`): incluye
+  Cómo entrar, Registro (caminante/servidor), Roles, Tareas Pre-Retiro `pPguV-Gg7Bs`, Minuto a
+  Minuto `YYwjzHcumpA`, Crear retiro, Casas, Caminantes `Lgxy9dJm9_o`, Plantillas/Secuencias
+  `KpYW_kWYdMk`, Mesas `fEzKgqUJpGI`, Responsabilidades `3XZlQJZlcmo`, Palancas `5mUo2Q1v3Ws`.
 - **Estilo de marca**: "Camino a Emaús" — acuarela, amanecer, cruz en la colina, morado
   primario `#7c3aed` (= `hsl(271 76% 53%)`, el `--primary` del sitio), tipografía **serif**
   (el sitio usa Cinzel/Playfair; en la composición usamos Georgia como equivalente de sistema).
@@ -84,16 +87,20 @@ Dimensiones objetivo:
 - **Marca de agua**: 150×150, esquinas transparentes.
 - **Miniatura**: 1280×720 (título grande a un lado + `✝ Emaús Retiros`).
 
-## Botón de ayuda in-app (video por feature)
+## Enlazar el video en la ayuda in-app (tras publicar)
 
-- `apps/web/src/config/helpVideos.ts`: mapa `feature → { url, title }`. **URL vacía → sin botón.**
-- `apps/web/src/components/HelpVideoButton.vue`: `<HelpVideoButton feature="pre-retreat-tasks" />`
-  abre el video en pestaña nueva; **se oculta solo** si la feature no tiene URL. Usa el ícono
-  `Play` (está en el allowlist del mock de lucide — si usas otro ícono, agrégalo a
-  `apps/web/src/test/setup.ts`).
-- Al subir el video de una feature, pega su URL en `helpVideos.ts` y agrega el botón a la vista.
-- El panel de Ayuda (`HelpPanel.vue`) renderiza markdown con `marked` + `DOMPurify`, que **quita
-  iframes** → no se puede incrustar el player; usar enlace/botón, no `<iframe>`.
+El botón flotante `HelpVideoButton`/`helpVideos.ts` se **descartó** (2026-07-06) — quedaba redundante.
+Ahora el video se surface desde el **panel de Ayuda** ("Obtener ayuda para esta página"): pega un
+enlace 📺 al inicio del doc markdown de la feature.
+
+```md
+📺 **[Ver video tutorial](https://youtu.be/<id>)**
+```
+
+- Archivo: `apps/web/src/docs/{es,en}/<sección>.md` (la `<sección>` = `key` de `helpIndex.ts`).
+- El panel (`HelpPanel.vue`) renderiza markdown con `marked` + `DOMPurify`, que **quita iframes** →
+  usa un **enlace**, no `<iframe>` (no se puede incrustar el player).
+- Cómo funciona la ayuda por página y cómo agregar una sección nueva → `docs/features/in-app-help.md`.
 
 ## Gotchas (ganados a pulso, 2026-07)
 
@@ -110,6 +117,15 @@ Dimensiones objetivo:
   Para verificar el canal, abrir la **página pública** con Playwright y sacar screenshot
   (WebFetch solo trae el footer: YouTube es SPA con JS).
 - **Miniaturas personalizadas requieren teléfono verificado** en el canal ([youtube.com/verify](https://youtube.com/verify)).
+  El canal Emaús Retiros **ya está verificado** → se pueden subir por API con `thumbnails.set`
+  (POST `https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId=<id>&uploadType=media`,
+  `Content-Type: image/png`, `Authorization: Bearer <getAccessToken>`). Hay **cuota diaria**: al
+  excederla devuelve `429 uploadRateLimitExceeded` ("too many thumbnails recently") — se **resetea
+  al día siguiente**; si topa, entregá el PNG para subir en Studio o reintentá mañana.
+- **Composición de miniatura reusable** (efímero, recrear si hace falta): `e2e/demo/_compose-thumb.mjs`
+  toma el fondo IA (`nano banana`, escena sin texto) y sobrepone el texto exacto por CSS con
+  Playwright (screenshot 1280×720). Config por env: `BG`, `OUT`, `TITLE`, `TITLE_SIZE`, `CHIPS`
+  (separados por `·`). Marca fija: brand `✝ Emaús Retiros` arriba-derecha + regla morada + chips.
 - **Nombre del canal ≠ banner**: el "Name" en Studio → Personalización → Información básica es
   independiente del texto del banner; hay que fijarlo aparte (`Emaús Retiros`, con acento).
 

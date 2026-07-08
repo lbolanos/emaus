@@ -1,5 +1,7 @@
 # Table Assignments
 
+📺 **[Watch the tutorial](https://youtu.be/fEzKgqUJpGI)** (Spanish)
+
 This section explains how to manage table assignments for retreat participants.
 
 ## Overview

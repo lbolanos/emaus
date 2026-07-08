@@ -1,5 +1,7 @@
 # Palancas
 
+📺 **[Ver video tutorial](https://youtu.be/5mUo2Q1v3Ws)**
+
 Las **palancas** son las cartas y mensajes de apoyo que reciben los caminantes durante el retiro. Esta pantalla te ayuda a llevar el control de cuántas se pidieron, cuántas llegaron y quién las coordina para cada caminante.
 
 ## Qué muestra la tabla

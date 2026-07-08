@@ -1,5 +1,7 @@
 # Managing Walkers
 
+📺 **[Watch the tutorial](https://youtu.be/Lgxy9dJm9_o)** (Spanish)
+
 This section explains how to manage walkers (caminantes) - retreat participants who will be attending the retreat.
 
 ## Overview
@@ -49,6 +51,20 @@ Walkers are never permanently deleted. Instead, they are marked as "deleted" to 
 3. Confirm the action
 
 The walker will no longer appear in active lists but remains in the database.
+
+## Table columns = editable fields
+
+From the options menu (three dots) → **Columns** you choose which data appears in the table. The
+key point: **a column you add also becomes an editable field on the walker's form**. For example,
+adding the **Occupation** column makes it appear in the table and, when you open **Edit**, you can
+fill it in. Email is shown but stays fixed (not editable from the form).
+
+## Sending messages
+
+- **Individual**: each row's message icon opens sending via **WhatsApp or email**, with
+  **templates** and a **history** of what was sent.
+- **Bulk**: select several walkers with the checkboxes and use the **blue bar** to message them
+  all at once or edit them together.
 
 ## Color Coding
 
