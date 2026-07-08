@@ -204,6 +204,19 @@ alternativas es-LATAM: `aura-2-selena-es`, `aura-2-estrella-es`, `aura-2-javier-
   (`PUT …/checkin`, `POST /payments`, `PATCH …/bag-made`) para no mutar la BD; hacé el interceptor
   **con estado** (mover de pendientes→llegados, fijar `totalPaid`) para que el `fetchStats` posterior
   refleje el cambio. Referencia: `record-reception.mjs`.
+- **Los patrones de `page.route` de API DEBEN prefijarse con `**/api/` (video Camas, CRÍTICO).** Un
+  patrón "a secas" como `**/retreats/*/bed-assignments` **también matchea la URL de la PÁGINA SPA**
+  (`/app/retreats/:id/bed-assignments`) → interceptás la **navegación del documento** y la respondés
+  con tu JSON mock (`{"ok":true}`) → **página en blanco** (y todos los `waitFor` timean 6s → huecos
+  enormes). El síntoma en frames es la página vacía mostrando tu propio body de mock. Fix: prefijá
+  **todas** las rutas de API con `**/api/…` (las llamadas del front van por `/api/…`; las navegaciones
+  por `/app/…`). Ojo: reception usó `**/participants**` sin `/api/` y funcionó solo porque ninguna
+  página SPA contiene "participants" — no te confíes.
+- **`button[aria-haspopup="menu"]` se duplica por responsive.** Muchas vistas renderizan el MISMO ⋮
+  dos veces (header desktop `hidden sm:block` + barra móvil `md:hidden`); a 1280px el móvil está
+  OCULTO pero sigue en el DOM, así que `.last()` lo agarra y el click no abre nada. Sumado al menú
+  de usuario del sidebar (también `aria-haspopup="menu"`), usá **`button[aria-haspopup="menu"]:visible`**
+  y `.last()`, y **verificá por frame** que el menú abrió (referencia: `record-bed-assignments.mjs`).
 
 ## ⚠️ Datos de la demo: NUNCA backup/restore de sqlite por CLI (CRITICAL)
 
