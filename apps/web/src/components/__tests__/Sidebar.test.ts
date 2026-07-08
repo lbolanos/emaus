@@ -607,16 +607,24 @@ describe('Sidebar Component', () => {
 			expect(names).not.toContain('inventory');
 		});
 
-		it('assignments section retains tables, responsibilities, service-teams, palancas, user-type-table, bed-assignments', () => {
+		it('assignments section retains tables, responsibilities, service-teams, user-type-table, bed-assignments', () => {
 			const sections = getSections(superWrapper);
 			const assignments = sections.find((s: any) => s.category === 'assignments');
 			const names: string[] = assignments?.items.map((i: any) => i.name) ?? [];
 			expect(names).toContain('tables');
 			expect(names).toContain('responsibilities');
 			expect(names).toContain('service-teams');
-			expect(names).toContain('palancas');
 			expect(names).toContain('user-type-table');
 			expect(names).toContain('bed-assignments');
+			// palancas se movió a Comunicaciones
+			expect(names).not.toContain('palancas');
+		});
+
+		it('palancas is in communications section', () => {
+			const sections = getSections(superWrapper);
+			const comms = sections.find((s: any) => s.category === 'communications');
+			const names: string[] = comms?.items.map((i: any) => i.name) ?? [];
+			expect(names).toContain('palancas');
 		});
 
 		it('food is in reports section, not services', () => {

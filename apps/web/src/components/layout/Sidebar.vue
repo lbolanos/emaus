@@ -737,14 +737,6 @@ const menuSections: MenuSection[] = [
         label: 'sidebar.serviceTeams'
       },
       {
-        name: 'palancas',
-        routeName: 'palancas',
-        icon: HandHeart,
-        permission: 'participant',
-        requiresRetreat: true,
-        label: 'sidebar.palancas'
-      },
-      {
         name: 'user-type-table',
         routeName: 'user-type-and-table',
         icon: UsersRound,
@@ -851,6 +843,14 @@ const menuSections: MenuSection[] = [
         permission: 'messageTemplate',
         requiresRetreat: true,
         label: 'sidebar.settings.followUp'
+      },
+      {
+        name: 'palancas',
+        routeName: 'palancas',
+        icon: HandHeart,
+        permission: 'participant',
+        requiresRetreat: true,
+        label: 'sidebar.palancas'
       }
     ],
     position: 'top'
