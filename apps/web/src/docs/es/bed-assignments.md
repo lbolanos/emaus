@@ -1,5 +1,7 @@
 # Asignaciones de Camas
 
+📺 **[Ver video tutorial](https://youtu.be/1hP7OBDduL0)**
+
 Esta sección explica cómo gestionar las asignaciones de habitaciones y camas para los participantes del retiro.
 
 ## Descripción General

@@ -24,6 +24,7 @@ Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 - [x] **Responsabilidades, equipos, documentos, MAM y Mi Agenda** (asignar, guiones/versionado, líder/miembros, apoyos, agenda del servidor con avisos) — https://youtu.be/3XZlQJZlcmo
 - [x] **Equipo de Palancas** (asignar Palanquero 1/2/3, avisos al registrarse, secuencias a familiares, registro solicitadas/recibidas/notas) — https://youtu.be/5mUo2Q1v3Ws
 - [x] **Equipo de Recepción** (gafetes: imprimir doble cara / para bolsa / entregar; recepción: buscar, mesa, verificar pago, cobrar inline, beca, celulares, marcar llegada; reporte de bolsas: checklist, armar por mesa, marcar) — https://youtu.be/_ayhFpxBSQ4
+- [x] **Asignación de camas** (asignación automática al registrarse + ajuste manual; ronquidos rojo/verde, edad, tipo de cama, piso; filtros; auto-asignar/exportar/borrar) — https://youtu.be/1hP7OBDduL0
 
 ---
 
@@ -41,7 +42,7 @@ Cierran la confusión "cuenta de usuario vs. registro al retiro" que ya viene en
 - [x] ~~**Casas y camas**~~ — publicado (arriba).
 - [x] ~~**Caminantes**~~ — publicado (arriba). *(Falta cubrir aparte: importar/exportar Excel y colores familia/amigo.)*
 - [ ] **Servidores** — alta y gestión de servidores (`servers`).
-- [ ] **Asignación de camas** — flujo por edad/ronquidos/tipo de cama (`bed-assignments`).
+- [x] ~~**Asignación de camas**~~ — publicado (arriba) — https://youtu.be/1hP7OBDduL0
 - [x] ~~**Mesas**~~ — publicado (arriba). *(Incluye la dinámica del Santísimo y la verificación de datos.)*
 - [ ] **Pagos** — registrar y dar seguimiento a pagos (`payments`).
 

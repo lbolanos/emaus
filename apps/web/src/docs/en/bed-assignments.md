@@ -1,5 +1,7 @@
 # Bed Assignments
 
+📺 **[Watch video tutorial](https://youtu.be/1hP7OBDduL0)**
+
 This section explains how to manage room and bed assignments for retreat participants.
 
 ## Overview
