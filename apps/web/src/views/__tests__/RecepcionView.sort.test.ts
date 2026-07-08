@@ -67,6 +67,7 @@ vi.mock('lucide-vue-next', () => ({
 	RotateCcw: { name: 'RotateCcw', template: '<svg></svg>' },
 	X: { name: 'X', template: '<svg></svg>' },
 	AlertCircle: { name: 'AlertCircle', template: '<svg></svg>' },
+	DollarSign: { name: 'DollarSign', template: '<svg></svg>' },
 }));
 
 // ── Fixtures ─────────────────────────────────────────────────────────────

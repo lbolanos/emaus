@@ -4376,7 +4376,7 @@ export const getReceptionStats = async (retreatId: string) => {
 
   const walkers = await rpRepo.find({
     where: { retreatId, isCancelled: false, type: "walker" },
-    relations: ["participant"],
+    relations: ["participant", "tableMesa"],
     order: { idOnRetreat: "ASC" },
   });
 
@@ -4408,6 +4408,8 @@ export const getReceptionStats = async (retreatId: string) => {
     totalPaid: rp.participantId
       ? (totalPaidByParticipant.get(rp.participantId) ?? 0)
       : 0,
+    tableName: rp.tableMesa?.name ?? null,
+    isScholarship: !!rp.isScholarship,
   }));
 
   const arrivedList = walkers
@@ -4424,6 +4426,8 @@ export const getReceptionStats = async (retreatId: string) => {
       totalPaid: rp.participantId
         ? (totalPaidByParticipant.get(rp.participantId) ?? 0)
         : 0,
+      tableName: rp.tableMesa?.name ?? null,
+      isScholarship: !!rp.isScholarship,
     }));
 
   return { total, arrived, pending: total - arrived, pendingList, arrivedList };

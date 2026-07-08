@@ -2629,6 +2629,8 @@ export interface ReceptionParticipant {
   checkedIn: boolean;
   checkedInAt: string | null;
   totalPaid: number;
+  tableName: string | null;
+  isScholarship: boolean;
 }
 
 export interface ReceptionStats {

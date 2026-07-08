@@ -760,6 +760,13 @@
     "addParticipant": "Agregar Participante",
     "refresh": "Actualizar tabla",
     "selectColumns": "Seleccionar Columnas",
+    "columnSelector": {
+      "hidden": "Columnas ocultas",
+      "visible": "Columnas visibles",
+      "search": "Buscar...",
+      "reorderHint": "Usa ↑↓ para mover",
+      "resetTooltip": "Restablecer columnas predeterminadas"
+    },
     "delete": {
       "confirmMessage1": "Se cancelará la participación de",
       "confirmMessage2": "en este retiro. Se liberarán su mesa y cama asignadas. El participante podrá ser reactivado después.",
@@ -1263,6 +1270,17 @@
   },
   "reception": {
     "title": "Recepción de Caminantes",
+    "table": "Mesa",
+    "noTable": "Sin mesa",
+    "charge": "Cobrar",
+    "scholarship": "Beca",
+    "amount": "Monto",
+    "method": "Método",
+    "methodCash": "Efectivo",
+    "methodTransfer": "Transferencia",
+    "methodCard": "Tarjeta",
+    "registerPayment": "Registrar pago",
+    "paymentRegistered": "Pago registrado para {name}",
     "total": "Total",
     "arrived": "Llegaron",
     "pending": "Faltan",

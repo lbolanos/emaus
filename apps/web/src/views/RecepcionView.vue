@@ -5,9 +5,9 @@ import { useI18n } from 'vue-i18n'
 import { formatCurrency } from '@repo/utils'
 import { useRetreatStore } from '@/stores/retreatStore'
 import { useReceptionStore } from '@/stores/receptionStore'
-import { getReceptionStats, checkInParticipant, type ReceptionParticipant } from '@/services/api'
+import { getReceptionStats, checkInParticipant, createPayment, type ReceptionParticipant } from '@/services/api'
 import { useToast } from '@repo/ui'
-import { CheckCircle, Clock, Users, Search, Loader2, RotateCcw, X, AlertCircle } from 'lucide-vue-next'
+import { CheckCircle, Clock, Users, Search, Loader2, RotateCcw, X, AlertCircle, DollarSign } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 
 const route = useRoute()
@@ -156,6 +156,41 @@ async function markArrived(participant: ReceptionParticipant, checkedIn: boolean
     const next = new Set(processingIds.value)
     next.delete(key)
     processingIds.value = next
+  }
+}
+
+// ── Cobro inline (registrar pago en recepción) ──────────────────────────────
+const chargeParticipant = ref<ReceptionParticipant | null>(null)
+const chargeAmount = ref<string>('')
+const chargeMethod = ref<'cash' | 'transfer' | 'card'>('cash')
+const chargeSaving = ref(false)
+
+function openCharge(p: ReceptionParticipant) {
+  chargeParticipant.value = p
+  chargeAmount.value = ''
+  chargeMethod.value = 'cash'
+}
+
+async function confirmCharge() {
+  const p = chargeParticipant.value
+  const amount = Number(chargeAmount.value)
+  if (!p?.participantId || !amount || amount <= 0) return
+  chargeSaving.value = true
+  try {
+    await createPayment({
+      retreatId: retreatId.value,
+      participantId: p.participantId,
+      amount,
+      paymentDate: new Date().toISOString().split('T')[0],
+      paymentMethod: chargeMethod.value,
+    })
+    chargeParticipant.value = null
+    await fetchStats()
+    toast({ title: t('reception.paymentRegistered', { name: `${p.firstName} ${p.lastName}` }) })
+  } catch {
+    toast({ title: t('reception.updateError'), variant: 'destructive' })
+  } finally {
+    chargeSaving.value = false
   }
 }
 
@@ -350,6 +385,15 @@ onUnmounted(() => {
             <div class="flex items-center gap-3 min-w-0">
               <span class="text-xs text-muted-foreground w-6 text-right shrink-0">{{ p.idOnRetreat ?? '—' }}</span>
               <span class="font-medium truncate">{{ p.firstName }} {{ p.lastName }}</span>
+              <span
+                class="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                :class="p.tableName
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                  : 'bg-muted text-muted-foreground'"
+                :title="t('reception.table')"
+              >
+                {{ p.tableName || t('reception.noTable') }}
+              </span>
               <span v-if="p.cellPhone" class="text-xs text-muted-foreground hidden sm:inline">{{ p.cellPhone }}</span>
               <span
                 class="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
@@ -371,16 +415,32 @@ onUnmounted(() => {
               <AlertCircle class="w-3 h-3" />
               Sin vínculo
             </span>
-            <button
-              v-else
-              class="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
-              :disabled="processingIds.has(p.participantId)"
-              @click="markArrived(p, true)"
-            >
-              <Loader2 v-if="processingIds.has(p.participantId)" class="w-3 h-3 animate-spin" />
-              <CheckCircle v-else class="w-3 h-3" />
-              {{ t('reception.arrivedButton') }}
-            </button>
+            <div v-else class="shrink-0 flex items-center gap-2">
+              <span
+                v-if="p.isScholarship"
+                class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
+              >
+                {{ t('reception.scholarship') }}
+              </span>
+              <button
+                v-else-if="!p.totalPaid"
+                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium border border-input hover:bg-muted transition-colors"
+                @click="openCharge(p)"
+                :title="t('reception.charge')"
+              >
+                <DollarSign class="w-3 h-3" />
+                {{ t('reception.charge') }}
+              </button>
+              <button
+                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+                :disabled="processingIds.has(p.participantId)"
+                @click="markArrived(p, true)"
+              >
+                <Loader2 v-if="processingIds.has(p.participantId)" class="w-3 h-3 animate-spin" />
+                <CheckCircle v-else class="w-3 h-3" />
+                {{ t('reception.arrivedButton') }}
+              </button>
+            </div>
           </li>
         </ul>
       </div>
@@ -430,6 +490,15 @@ onUnmounted(() => {
                 <span class="text-xs text-muted-foreground w-6 text-right shrink-0">{{ p.idOnRetreat ?? '—' }}</span>
                 <CheckCircle class="w-4 h-4 text-green-500 shrink-0" />
                 <span class="font-medium truncate">{{ p.firstName }} {{ p.lastName }}</span>
+                <span
+                  class="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                  :class="p.tableName
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                    : 'bg-muted text-muted-foreground'"
+                  :title="t('reception.table')"
+                >
+                  {{ p.tableName || t('reception.noTable') }}
+                </span>
                 <span v-if="p.checkedInAt" class="text-xs text-muted-foreground hidden sm:inline">
                   {{ formatTime(p.checkedInAt) }}
                 </span>
@@ -457,5 +526,51 @@ onUnmounted(() => {
         </template>
       </div>
     </template>
+
+    <!-- Diálogo de cobro inline -->
+    <div
+      v-if="chargeParticipant"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      @click.self="!chargeSaving && (chargeParticipant = null)"
+    >
+      <div class="bg-card rounded-lg shadow-xl w-full max-w-sm p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="font-semibold">{{ t('reception.charge') }} — {{ chargeParticipant.firstName }} {{ chargeParticipant.lastName }}</h3>
+          <button class="text-muted-foreground hover:text-foreground" @click="chargeParticipant = null"><X class="w-4 h-4" /></button>
+        </div>
+        <p class="text-sm text-muted-foreground">{{ t('reception.totalPaid') }}: <strong>{{ formatCurrency(chargeParticipant.totalPaid) }}</strong></p>
+        <div class="space-y-1">
+          <label class="text-sm font-medium">{{ t('reception.amount') }}</label>
+          <input
+            v-model="chargeAmount"
+            type="number"
+            min="0"
+            inputmode="decimal"
+            class="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            placeholder="0.00"
+          />
+        </div>
+        <div class="space-y-1">
+          <label class="text-sm font-medium">{{ t('reception.method') }}</label>
+          <select v-model="chargeMethod" class="w-full h-10 rounded-md border border-input bg-background px-2 text-sm">
+            <option value="cash">{{ t('reception.methodCash') }}</option>
+            <option value="transfer">{{ t('reception.methodTransfer') }}</option>
+            <option value="card">{{ t('reception.methodCard') }}</option>
+          </select>
+        </div>
+        <div class="flex justify-end gap-2 pt-1">
+          <button class="px-3 py-2 rounded-lg text-sm border border-input hover:bg-muted" @click="chargeParticipant = null">{{ t('common.actions.cancel') }}</button>
+          <button
+            class="px-3 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-1"
+            :disabled="chargeSaving || !Number(chargeAmount)"
+            @click="confirmCharge"
+          >
+            <Loader2 v-if="chargeSaving" class="w-3 h-3 animate-spin" />
+            <DollarSign v-else class="w-3 h-3" />
+            {{ t('reception.registerPayment') }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
