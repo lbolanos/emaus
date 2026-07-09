@@ -610,11 +610,15 @@ una forma en bubbles cursor encima da mas informacion pero aveces no funciona en
 
 una pagina en el que el servidor puede ver el resumen de sus labores en el retiro , mesa asignada y cuarto asignado
 ## IN PROGRESS
+crear el seguimiento preretiro que hacer y como.
+
+emaus.cccc@gmail.com
+
+
 ## TODO
 
 agregar tambien a las comunidades las secuencias de mensajes filtrando por el tipo de estado del miembro.
 
-crear el seguimiento preretiro que hacer y como.
 
 verificar que el orden en las camas
 

@@ -57,6 +57,16 @@ con *"Rollup failed to resolve import «dep»"*. **Ni los tests, ni el lint, ni 
 detectan esto — solo `pnpm build`.** Regla: tras agregar una dep al api, externalizarla y
 correr `pnpm build` antes de dar por terminado.
 
+**El bundle de prod es ESM (`"type": "module"`): `__dirname` y `require` NO existen.** Código
+del `apps/api` que los use **compila y pasa tests/tsc en dev** (vite-node/jest los shimean) pero
+en el bundle de prod lanza `ReferenceError: __dirname is not defined in ES module scope` **al
+cargar el módulo** → el API entra en crash-loop y el deploy falla en el healthcheck (incidente
+2026-07-09, `preparationDocSeeder`). Para rutas de archivos, resolvé contra `process.cwd()` (que
+en prod y dev es `apps/api`), NO contra `__dirname`. Evitá `import.meta` en código del bundle
+(tiene su propio historial de romper en runtime). Ni tests, ni lint, ni `tsc` lo detectan — solo
+arrancar el bundle. Regla: si tocás rutas/paths en `apps/api`, corré el `dist/index.js` una vez
+(o al menos `grep __dirname dist/index.js`) antes de dar por terminado.
+
 ## Key Business Concepts
 
 ### Participants

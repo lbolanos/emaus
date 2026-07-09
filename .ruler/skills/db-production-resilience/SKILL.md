@@ -1,6 +1,6 @@
 ---
 name: db-production-resilience
-description: MUST be used al operar la base SQLite de producción o el pipeline de deploy/migraciones — descargar la DB de prod (make db-pull), backups, recuperar una DB corrupta, diagnosticar/liberar un lock colgado, el watchdog de auto-recuperación, y por qué una migración puede quedar "pending" en prod aunque el deploy salga verde. Triggers — "make db-pull", "db:pull", "database is locked", "SQLITE_CORRUPT", "disk image is malformed", "backup de prod", "restaurar backup", "No pending migrations en prod", "Unknown file extension .ts", "la migración no corrió en prod", "el deploy no aplicó la migración", "lock colgado", "WAL", "busy_timeout", "watchdog", "transacción colgada".
+description: MUST be used al operar la base SQLite de producción o el pipeline de deploy/migraciones — descargar la DB de prod (make db-pull), backups, recuperar una DB corrupta, diagnosticar/liberar un lock colgado, el watchdog de auto-recuperación, por qué una migración puede quedar "pending" en prod aunque el deploy salga verde, y por qué un deploy falla en el healthcheck cuando el API crashea al arrancar (prod caída) + su recuperación rápida. Triggers — "make db-pull", "db:pull", "database is locked", "SQLITE_CORRUPT", "disk image is malformed", "backup de prod", "restaurar backup", "No pending migrations en prod", "Unknown file extension .ts", "la migración no corrió en prod", "el deploy no aplicó la migración", "lock colgado", "WAL", "busy_timeout", "watchdog", "transacción colgada", "falló el CI/CD", "falló el deploy", "deploy failure", "Deploy to Lightsail", "healthcheck falla", "prod caída", "API crash-loop", "__dirname is not defined", "ES module scope", "ReferenceError al arrancar".
 ---
 
 # Resiliencia de la base de datos en producción
@@ -110,6 +110,41 @@ contar el efecto de datos.
 
 > Cualquier cambio de **schema** sigue el patrón de `sqlite-migrations` (recreate-table, `transaction = false`).
 > Este skill cubre la capa de **operación/pipeline en producción**.
+
+## 5b. ⚠️ Deploy falla en el healthcheck = el API crashea al arrancar (prod CAÍDA)
+
+El deploy tiene dos jobs: **Build Application** (en el runner) y **Deploy to Lightsail** (scp del
+`dist` + `rsync src/` + `migration:run` + `pm2 startOrReload` + healthcheck a `localhost:3001`).
+Que el build pase **no garantiza** que el API arranque: si el bundle revienta al cargar, PM2 entra
+en **crash-loop**, el healthcheck responde `000` y el step falla con `exit 1` — **y prod queda caída**
+(el `dist` viejo ya fue sobrescrito). El build es verde y el deploy rojo.
+
+**Causa recurrente #1 — `__dirname`/`require`/`import.meta` en el bundle ESM.** El bundle de prod
+es ESM; `__dirname` no existe → `ReferenceError: __dirname is not defined in ES module scope` al
+cargar el módulo. Pasa dev/tests/`tsc` (vite-node/jest lo shimean), solo revienta el bundle real
+(incidente 2026-07-09, `preparationDocSeeder`). Resolvé paths contra `process.cwd()` (`apps/api`
+en prod y dev). Regla preventiva: tras tocar el API, `grep -n "__dirname" apps/api/dist/index.js`
+tras `pnpm --filter api build`. Ver la sección "Dependencias nuevas en apps/api" de `AGENTS.md`.
+
+**Diagnóstico (el log del run no baja hasta que termina — ve al server):**
+```bash
+ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104 \
+  'pm2 status | grep emaus-api; curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3001/api/health; \
+   pm2 logs emaus-api --lines 30 --nostream --err'
+```
+Un `restart count` alto + health `000` + un stack trace repetido en el `-error.log` = crash-loop;
+la última excepción del log es la causa raíz.
+
+**Recuperación rápida (minimiza downtime, ~1 min vs ~7 del CI):** arreglá el código → `pnpm --filter
+api build` local → `scp dist/index.js` al server → `pm2 restart emaus-api --update-env` → confirmá
+health 200. Luego commit + push para que el repo/CI queden consistentes (el CI resube el mismo dist).
+El backend build SÍ se puede en Lightsail, pero es más rápido y seguro buildear local y solo subir
+`dist/index.js`. (Frontend NUNCA se buildea en Lightsail — OOM; ver memoria.)
+
+**Ojo con el orden migración↔arranque:** `migration:run` corre **antes** del `pm2 restart`, así que
+una migración puede quedar **aplicada** aunque el API luego no arranque (fue el caso: las tablas se
+crearon y el crash fue por `__dirname`, no por la migración). Verificá ambas cosas por separado:
+`sqlite3 database.sqlite "SELECT name FROM migrations WHERE …"` y el health del API.
 
 ## 6. Backups
 
