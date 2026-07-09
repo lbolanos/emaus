@@ -218,6 +218,44 @@ alternativas es-LATAM: `aura-2-selena-es`, `aura-2-estrella-es`, `aura-2-javier-
   de usuario del sidebar (también `aria-haspopup="menu"`), usá **`button[aria-haspopup="menu"]:visible`**
   y `.last()`, y **verificá por frame** que el menú abrió (referencia: `record-bed-assignments.mjs`).
 
+## Tour de onboarding: resaltar el ítem exacto del menú + editar el mp4 (sesión 2026-07-08, `record-tour.mjs`)
+
+- **Sync desincronizado AL INICIO = narrás sobre una pantalla a medio cargar.** `domcontentloaded`
+  dispara ANTES de que se pinte el contenido servido por fetch (enmascarado). Fix: tras `goto`,
+  `await page.waitForLoadState('networkidle', { timeout: 2000 }).catch(()=>{})` **antes** del primer
+  `say` de esa pantalla. (El `computeSyncScale` global NO corrige un beat que arrancó sobre un loader.)
+- **Resaltar el ÍTEM exacto del sidebar (no solo la sección).** El sidebar es **acordeón anidado**:
+  grupo `RETIRO` → sub-secciones (`Logística`, `Personas`, `Asignaciones`, `Comunicaciones`,
+  `Reportes`, `Administración`) → ítems; y grupo `Configuración Global` con ítems directos (`Casas`…).
+  Tras navegar, las **sub-secciones vienen COLAPSADAS** (el `<a>` del ítem existe en el DOM pero está
+  clipeado → `boundingBox` da una posición fuera de vista → el cue no se ve). Receta: **expandí la
+  cadena de ancestros** (`['Retiro', subSección]` o `['Configuración Global']`) con un helper que
+  clica el header **solo si `aria-expanded !== 'true'`** (todos los headers exponen `aria-expanded`;
+  clicar uno ya abierto lo cierra). Luego cue al ítem exacto: `getByRole('link', { name: /^Ítem/i })`
+  **anclado al inicio** para no confundir `Inventario` con `Artículos de Inventario` ni `Minuto a
+  Minuto` con `Template Minuto a Minuto`.
+- **NUNCA clic en el encabezado de GRUPO `Retiro` para llegar a un botón (p.ej. el "+").** Clicarlo
+  **colapsa TODO el grupo RETIRO** y queda así el resto del video → todos los ítems de retiro
+  desaparecen y sus resaltados se rompen. Verificá por frames que RETIRO sigue expandido en beats tardíos.
+- **Abrí los modales con `el.click()` vía DOM, no con `.click()` de puntero.** Expandir
+  `Configuración Global` deja su contenedor scrollable **interceptando el clic** del "+"/"Editar" del
+  grupo RETIRO — y esa expansión **persiste en localStorage aun tras recargar** (`goto` no la resetea),
+  así que ni recargar ni `force:true` abren el modal. `await locator.evaluate(el => el.click())`
+  dispara el handler Vue ignorando la intercepción de puntero. (Confirmá con `[role="dialog"]` count.)
+- **Enmascarar PII más allá de nombres/correos/fotos: TELÉFONOS.** El campo real es `cellPhone`
+  (camelCase) — una lista de claves en minúsculas NO lo atrapa. Matcheá las claves por regex
+  case-insensitive (`/phone|celular|tel[eé]fono|whatsapp/i`) y reemplazá por un número ficticio
+  determinista. Encontrado en Recepción, donde el nombre estaba fake pero el teléfono era real.
+- **Editar el mp4 final (recortar tramos) con ffmpeg — video+audio JUNTOS o se descuadra el sync.**
+  El audio está horneado por offset; cortá ambos streams en los mismos puntos:
+  `trim`/`atrim` + `concat=n=2:v=1:a=1` (un solo re-encode libx264/aac). **Cortá solo en el silencio
+  entre beats** (`volumedetect` del tramo debe dar ~-91 dB) para no partir una frase; verificá los
+  frames de ambos bordes de la costura. **Tras cortar, regenerá los capítulos**: los offsets de las
+  narraciones posteriores al corte se corren por la duración eliminada. La posición REAL en el mp4 =
+  `offsetReloj * syncScale - leadTrim` (los capítulos del `.meta.json` usan offset de reloj crudo →
+  van ~`leadTrim` adelantados incluso sin cortar); restale la duración del corte a los beats que caen
+  después, y reescribí `<video>.meta.json` con `buildYoutubeChapters` + `writeVideoMeta`.
+
 ## ⚠️ Datos de la demo: NUNCA backup/restore de sqlite por CLI (CRITICAL)
 
 La grabación **muta la DB** (marca una tarea, asigna un responsable). Es tentador
