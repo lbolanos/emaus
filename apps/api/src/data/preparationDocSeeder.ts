@@ -50,12 +50,14 @@ export const DEFAULT_PREPARATION_DOCS: DefaultPreparationDoc[] = [
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
-// El bundle SSR corre desde apps/api (pm2 cwd) pero __dirname cambia al
-// compilar; probar rutas relativas al cwd y al source.
+// Resolver relativo al cwd, NUNCA a __dirname: el bundle de prod es ESM
+// (`"type": "module"`) y `__dirname` no existe ahí → ReferenceError al cargar
+// el módulo y crash-loop del API (incidente 2026-07-09). En prod el cwd de PM2
+// es `/var/www/emaus/apps/api`; en dev/tests es `apps/api`. En ambos, los .docx
+// viven en `src/data/preparation-docs` (el deploy los sincroniza vía rsync de src/).
 const CANDIDATE_DIRS = [
 	path.resolve(process.cwd(), 'src/data/preparation-docs'),
 	path.resolve(process.cwd(), 'apps/api/src/data/preparation-docs'),
-	path.resolve(__dirname, 'preparation-docs'),
 ];
 
 function resolveDocsDir(): string | null {
