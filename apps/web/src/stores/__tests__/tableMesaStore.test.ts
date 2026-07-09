@@ -385,7 +385,9 @@ describe('TableMesaStore', () => {
 			await expect(store.deleteTable('table-1')).rejects.toThrow(error);
 			expect(toastSpy).toHaveBeenCalledWith({
 				title: 'Error',
-				description: 'Failed to delete table',
+				// apiErrorMessage surfaces the real error message (más informativo que el
+				// fallback fijo); solo cae al fallback si no hay message ni body de Zod.
+				description: 'Delete failed',
 				variant: 'destructive',
 			});
 		});

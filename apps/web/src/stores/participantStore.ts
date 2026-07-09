@@ -3,6 +3,7 @@ import { ref, reactive } from 'vue';
 import { useToast } from '@repo/ui';
 import type { Participant, CreateParticipant, Tag } from '@repo/types';
 import { api, setAttendanceConfirmation as apiSetAttendanceConfirmation, type AttendanceConfirmation } from '@/services/api';
+import { apiErrorMessage } from '@/services/apiError';
 
 export const useParticipantStore = defineStore('participant', () => {
 	const participants = ref<Participant[]>([]);
@@ -68,7 +69,7 @@ export const useParticipantStore = defineStore('participant', () => {
 					return;
 				}
 				const errorMessage =
-					err.response?.data?.message || err.message || `Failed to fetch participants`;
+					apiErrorMessage(err, `Failed to fetch participants`);
 				error.value = errorMessage;
 				toast({
 					title: 'Error',
@@ -112,7 +113,7 @@ export const useParticipantStore = defineStore('participant', () => {
 			toast({
 				title: 'Error',
 				description:
-					error.response?.data?.message || error.message || 'Failed to create Participant',
+					apiErrorMessage(error, 'Failed to create Participant'),
 				variant: 'destructive',
 			});
 			throw error;
@@ -137,7 +138,7 @@ export const useParticipantStore = defineStore('participant', () => {
 			toast({
 				title: 'Error',
 				description:
-					error.response?.data?.message || error.message || 'Failed to import participants',
+					apiErrorMessage(error, 'Failed to import participants'),
 				variant: 'destructive',
 			});
 			throw error;
@@ -187,11 +188,10 @@ export const useParticipantStore = defineStore('participant', () => {
 			console.error('Error response:', error.response?.data);
 			toast({
 				title: 'Error',
-				description:
-					error.response?.data?.message ||
-					error.response?.data?.details ||
-					error.message ||
-					'Failed to update participant',
+				description: apiErrorMessage(
+					error,
+					error.response?.data?.details || 'Failed to update participant',
+				),
 				variant: 'destructive',
 			});
 			throw error;
@@ -213,7 +213,7 @@ export const useParticipantStore = defineStore('participant', () => {
 			toast({
 				title: 'Error',
 				description:
-					error.response?.data?.message || error.message || 'Failed to delete participant',
+					apiErrorMessage(error, 'Failed to delete participant'),
 				variant: 'destructive',
 			});
 			throw error;

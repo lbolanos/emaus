@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue';
 import { useToast } from '@repo/ui';
 import type { Retreat, CreateRetreat } from '@repo/types';
 import { api } from '@/services/api';
+import { apiErrorMessage } from '@/services/apiError';
 
 const STORAGE_KEY = 'selectedRetreatId';
 
@@ -90,7 +91,7 @@ export const useRetreatStore = defineStore('retreat', () => {
 		} catch (err: any) {
 			toast({
 				title: 'Error',
-				description: err.response?.data?.message || err.message || 'Failed to fetch retreats.',
+				description: apiErrorMessage(err, 'Failed to fetch retreats.'),
 				variant: 'destructive',
 			});
 		} finally {
@@ -112,7 +113,7 @@ export const useRetreatStore = defineStore('retreat', () => {
 		} catch (err: any) {
 			toast({
 				title: 'Error',
-				description: err.response?.data?.message || err.message || 'Failed to fetch retreat.',
+				description: apiErrorMessage(err, 'Failed to fetch retreat.'),
 				variant: 'destructive',
 			});
 		} finally {
@@ -133,7 +134,7 @@ export const useRetreatStore = defineStore('retreat', () => {
 		} catch (err: any) {
 			toast({
 				title: 'Error',
-				description: err.response?.data?.message || err.message || 'Failed to create retreat.',
+				description: apiErrorMessage(err, 'Failed to create retreat.'),
 				variant: 'destructive',
 			});
 			throw err;
@@ -167,7 +168,7 @@ export const useRetreatStore = defineStore('retreat', () => {
 			//console.error('RetreatStore - Update failed:', err);
 			toast({
 				title: 'Error',
-				description: err.response?.data?.message || err.message || 'Failed to update retreat.',
+				description: apiErrorMessage(err, 'Failed to update retreat.'),
 				variant: 'destructive',
 			});
 			throw err;

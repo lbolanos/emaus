@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import type { User, UserProfile } from '@repo/types';
 import { api } from '../services/api';
+import { apiErrorMessage } from '@/services/apiError';
 import { useRouter } from 'vue-router';
 import { useToast } from '@repo/ui';
 import { telemetryService } from '../services/telemetryService';
@@ -56,7 +57,7 @@ export const useAuthStore = defineStore('auth', () => {
 			toast({
 				title: 'Login Failed',
 				description:
-					error.response?.data?.message || error.message || 'An unexpected error occurred.',
+					apiErrorMessage(error, 'An unexpected error occurred.'),
 				variant: 'destructive',
 			});
 			// Rethrow the error to be caught in the component
@@ -139,7 +140,7 @@ export const useAuthStore = defineStore('auth', () => {
 			toast({
 				title: 'Logout Failed',
 				description:
-					error.response?.data?.message || error.message || 'An unexpected error occurred.',
+					apiErrorMessage(error, 'An unexpected error occurred.'),
 				variant: 'destructive',
 			});
 		} finally {
@@ -159,7 +160,7 @@ export const useAuthStore = defineStore('auth', () => {
 			toast({
 				title: 'Error',
 				description:
-					error.response?.data?.message || error.message || 'An unexpected error occurred.',
+					apiErrorMessage(error, 'An unexpected error occurred.'),
 				variant: 'destructive',
 			});
 			throw error.response?.data || error;
@@ -181,7 +182,7 @@ export const useAuthStore = defineStore('auth', () => {
 			toast({
 				title: 'Password Reset Failed',
 				description:
-					error.response?.data?.message || error.message || 'An unexpected error occurred.',
+					apiErrorMessage(error, 'An unexpected error occurred.'),
 				variant: 'destructive',
 			});
 			throw error.response?.data || error;

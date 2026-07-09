@@ -150,6 +150,17 @@ export type CreateRetreatMemorySong = z.infer<typeof createRetreatMemorySongSche
 export const updateRetreatMemorySongSchema = createRetreatMemorySongSchema.partial();
 export type UpdateRetreatMemorySong = z.infer<typeof updateRetreatMemorySongSchema>;
 
+// Hora de llegada en formato HH:MM (24h). Los campos son opcionales: el cliente
+// suele enviar '' cuando no se captura, así que normalizamos ''/null a undefined
+// antes de validar la regex (evita el falso "Validation error" al crear el retiro).
+const arrivalTimeSchema = z.preprocess(
+	(v) => (v === '' || v === null ? undefined : v),
+	z
+		.string()
+		.regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Debe tener formato HH:MM (24h)')
+		.optional(),
+);
+
 // Retreat Schema
 export const retreatSchema = z.object({
 	id: idSchema,
@@ -175,14 +186,8 @@ export const retreatSchema = z.object({
 	slug: z.string().optional(),
 	isPublic: z.boolean().default(false),
 	roleInvitationEnabled: z.boolean().default(true),
-	walkerArrivalTime: z
-		.string()
-		.regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
-		.optional(),
-	serverArrivalTimeFriday: z
-		.string()
-		.regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)
-		.optional(),
+	walkerArrivalTime: arrivalTimeSchema,
+	serverArrivalTimeFriday: arrivalTimeSchema,
 	flyer_options: flyerOptionsSchema.optional(),
 	memoryPhotoUrl: z.string().url().optional().or(z.literal('')),
 	musicPlaylistUrl: z.string().url().optional().or(z.literal('')),

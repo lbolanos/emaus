@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { api } from '@/services/api';
+import { apiErrorMessage } from '@/services/apiError';
 import { formatDate as formatDateTime } from '@repo/utils';
 
 export interface CommunityCommunication {
@@ -103,7 +104,7 @@ export const useCommunityCommunicationStore = defineStore('community-communicati
 			total.value = response.data.total || 0;
 			return response.data;
 		} catch (err: any) {
-			error.value = err.response?.data?.message || err.message || 'Failed to fetch communications';
+			error.value = apiErrorMessage(err, 'Failed to fetch communications');
 			throw err;
 		} finally {
 			loading.value = false;
@@ -139,7 +140,7 @@ export const useCommunityCommunicationStore = defineStore('community-communicati
 			total.value = response.data.total || 0;
 			return response.data;
 		} catch (err: any) {
-			error.value = err.response?.data?.message || err.message || 'Failed to fetch communications';
+			error.value = apiErrorMessage(err, 'Failed to fetch communications');
 			throw err;
 		} finally {
 			loading.value = false;
@@ -162,7 +163,7 @@ export const useCommunityCommunicationStore = defineStore('community-communicati
 
 			return response.data;
 		} catch (err: any) {
-			error.value = err.response?.data?.message || err.message || 'Failed to create communication';
+			error.value = apiErrorMessage(err, 'Failed to create communication');
 			throw err;
 		} finally {
 			loading.value = false;
@@ -184,7 +185,7 @@ export const useCommunityCommunicationStore = defineStore('community-communicati
 				total.value = Math.max(0, total.value - 1);
 			}
 		} catch (err: any) {
-			error.value = err.response?.data?.message || err.message || 'Failed to delete communication';
+			error.value = apiErrorMessage(err, 'Failed to delete communication');
 			throw err;
 		} finally {
 			loading.value = false;

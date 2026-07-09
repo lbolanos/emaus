@@ -127,7 +127,7 @@
                     <SelectItem v-for="house in availableHouses" :key="house.id" :value="house.id">
                       <div class="flex flex-col">
                         <span class="font-medium">{{ house.name }}</span>
-                        <span class="text-xs text-muted-foreground">{{ house.city }}, {{ house.state }}</span>
+                        <span class="text-xs text-muted-foreground">{{ houseLocationLabel(house) }}</span>
                       </div>
                     </SelectItem>
                   </SelectGroup>
@@ -989,6 +989,7 @@ import { useToast } from '@repo/ui';
 import type { CreateRetreat, Retreat } from '@repo/types';
 import { buildClosingChurchMapsUrl, buildClosingChurchWazeUrl } from '@repo/utils';
 import { loadGoogleMaps } from '@/utils/googleMaps';
+import { houseLocationLabel as houseLabel } from '@/utils/houseLabel';
 import MemoryUploadForm from '@/components/social/MemoryUploadForm.vue';
 
 interface Props {
@@ -1307,6 +1308,9 @@ const minDate = computed(() => {
 const availableHouses = computed(() => {
   return houseStore.houses;
 });
+
+// Etiqueta de la casa en el desplegable (dirección, no ciudad). Ver util para el porqué.
+const houseLocationLabel = houseLabel;
 
 const selectedHouseTimezone = computed<string | null>(() => {
   const h = availableHouses.value.find((house: any) => house.id === formData.value.houseId);

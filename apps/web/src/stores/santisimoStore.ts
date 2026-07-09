@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { santisimoApi, type SantisimoSlotWithSignups } from '../services/api';
+import { apiErrorMessage } from '@/services/apiError';
 
 export const useSantisimoStore = defineStore('santisimo', () => {
 	const slots = ref<SantisimoSlotWithSignups[]>([]);
@@ -13,7 +14,7 @@ export const useSantisimoStore = defineStore('santisimo', () => {
 		try {
 			slots.value = await santisimoApi.listSlots(retreatId);
 		} catch (e: any) {
-			error.value = e?.response?.data?.message || e?.message || 'Failed to fetch';
+			error.value = apiErrorMessage(e, 'Failed to fetch');
 		} finally {
 			loading.value = false;
 		}
@@ -34,7 +35,7 @@ export const useSantisimoStore = defineStore('santisimo', () => {
 		try {
 			slots.value = await santisimoApi.generateSlots(retreatId, payload);
 		} catch (e: any) {
-			error.value = e?.response?.data?.message || e?.message || 'Failed to generate';
+			error.value = apiErrorMessage(e, 'Failed to generate');
 			throw e;
 		} finally {
 			loading.value = false;
@@ -55,7 +56,7 @@ export const useSantisimoStore = defineStore('santisimo', () => {
 			};
 		} catch (e: any) {
 			error.value =
-				e?.response?.data?.message || e?.message || 'Failed to regenerate';
+				apiErrorMessage(e, 'Failed to regenerate');
 			throw e;
 		} finally {
 			loading.value = false;

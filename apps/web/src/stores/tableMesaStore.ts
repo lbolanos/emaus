@@ -9,6 +9,7 @@ import {
 	clearAllTables as clearAllTablesApi,
 	api,
 } from '@/services/api';
+import { apiErrorMessage } from '@/services/apiError';
 import type { TableMesa } from '@repo/types';
 import { useRetreatStore } from './retreatStore';
 import { useToast } from '@repo/ui';
@@ -97,7 +98,7 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
 			}
 		} catch (e: any) {
 			console.error(`Failed to assign walker`, e);
-			const errorMessage = e.response?.data?.message || e.message || 'Failed to assign walker';
+			const errorMessage = apiErrorMessage(e, 'Failed to assign walker');
 			toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
 		}
 	};
@@ -189,7 +190,7 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
 			await api.delete(`/tables/${tableId}`);
 			tables.value = tables.value.filter((t) => t.id !== tableId);
 		} catch (e: any) {
-			const errorMessage = e.response?.data?.message || 'Failed to delete table';
+			const errorMessage = apiErrorMessage(e, 'Failed to delete table');
 			console.error('Failed to delete table', e);
 			toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
 			throw e; // Re-throw to be caught in the component

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { useToast } from '@repo/ui';
 import { api } from '@/services/api';
+import { apiErrorMessage } from '@/services/apiError';
 
 export const useInventoryStore = defineStore('inventory', () => {
 	const categories = ref<any[]>([]);
@@ -198,7 +199,7 @@ export const useInventoryStore = defineStore('inventory', () => {
 			toast({
 				title: 'Error',
 				description:
-					e?.response?.data?.message || 'No se pudo guardar el cambio en inventario.',
+					apiErrorMessage(e, 'No se pudo guardar el cambio en inventario.'),
 				variant: 'destructive',
 			});
 			console.error(e);
@@ -388,7 +389,7 @@ export const useInventoryStore = defineStore('inventory', () => {
 		} catch (e: any) {
 			toast({
 				title: 'Error',
-				description: e?.response?.data?.message || 'No se pudo recalcular.',
+				description: apiErrorMessage(e, 'No se pudo recalcular.'),
 				variant: 'destructive',
 			});
 			console.error(e);

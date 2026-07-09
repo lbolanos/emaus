@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { useToast } from '@repo/ui';
 import type { House, CreateHouse, UpdateHouse } from '@repo/types';
 import { api } from '@/services/api';
+import { apiErrorMessage } from '@/services/apiError';
 
 export const useHouseStore = defineStore('house', () => {
 	const houses = ref<House[]>([]);
@@ -17,7 +18,7 @@ export const useHouseStore = defineStore('house', () => {
 		} catch (error: any) {
 			toast({
 				title: 'Error',
-				description: error.response?.data?.message || error.message || `Failed to fetch houses`,
+				description: apiErrorMessage(error, `Failed to fetch houses`),
 				variant: 'destructive',
 			});
 			throw error;
@@ -39,7 +40,7 @@ export const useHouseStore = defineStore('house', () => {
 		} catch (error: any) {
 			toast({
 				title: 'Error',
-				description: error.response?.data?.message || error.message || 'Failed to create house',
+				description: apiErrorMessage(error, 'Failed to create house'),
 				variant: 'destructive',
 			});
 			return false;
@@ -73,7 +74,7 @@ export const useHouseStore = defineStore('house', () => {
 		} catch (error: any) {
 			toast({
 				title: 'Error',
-				description: error.response?.data?.message || error.message || 'Failed to update house',
+				description: apiErrorMessage(error, 'Failed to update house'),
 				variant: 'destructive',
 			});
 			return false;
@@ -94,7 +95,7 @@ export const useHouseStore = defineStore('house', () => {
 		} catch (error: any) {
 			toast({
 				title: 'Error',
-				description: error.response?.data?.message || error.message || 'Failed to delete house',
+				description: apiErrorMessage(error, 'Failed to delete house'),
 				variant: 'destructive',
 			});
 			throw error;
@@ -117,7 +118,7 @@ export const useHouseStore = defineStore('house', () => {
 			toast({
 				title: 'Error',
 				description:
-					error.response?.data?.message || error.message || `Failed to fetch house ${id}`,
+					apiErrorMessage(error, `Failed to fetch house ${id}`),
 				variant: 'destructive',
 			});
 			throw error;
