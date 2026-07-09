@@ -4,12 +4,13 @@ Plan de contenido para el canal de ayuda. Cada video se graba con el pipeline de
 `apps/web/e2e/demo/` (skill **`demo-videos`**) y se publica con **`youtube-publishing`**.
 Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 
-**Hechos: 13 · Pendientes: ~12**
+**Hechos: 17 · Pendientes: ~9**
 
 ---
 
 ## ✅ Publicados
 
+- [x] **Primeros pasos / tour general** (recorrido cronológico del ciclo completo del retiro, resaltando dónde vive cada cosa en el menú) — https://youtu.be/O5hTa8J-31c
 - [x] **Cómo entrar a Emaús** (login / crear cuenta / Google / pedir acceso / roles) — https://youtu.be/Jh0LWC9wKvE
 - [x] **Registro al retiro** (inscripción pública de caminante) — https://youtu.be/jQb3q-mUG-8
 - [x] **Registro de servidor** (búsqueda por correo, angelito, horarios, camisetas) — https://youtu.be/2DGScPALLDY
@@ -34,7 +35,7 @@ Cierran la confusión "cuenta de usuario vs. registro al retiro" que ya viene en
 
 - [x] ~~**Registro de participante al retiro**~~ — publicado (arriba). *(+ video aparte de servidor.)*
 - [x] ~~**Dar acceso y roles (para el dueño del retiro)**~~ — publicado (arriba).
-- [ ] **Primeros pasos / tour general** — qué es la plataforma, navegación, selector de retiro, dónde está cada cosa.
+- [x] ~~**Primeros pasos / tour general**~~ — publicado — https://youtu.be/O5hTa8J-31c *(recorrido cronológico del ciclo completo del retiro, resaltando dónde vive cada cosa en el menú).*
 
 ## 🟠 P1 — Configuración y núcleo del retiro
 

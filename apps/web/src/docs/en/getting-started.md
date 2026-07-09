@@ -1,5 +1,7 @@
 # Getting Started
 
+📺 **[Watch video tutorial](https://youtu.be/O5hTa8J-31c)**
+
 Welcome to the Emaus Retreat Logistics Management System. This guide will help you understand the basics of navigating and using the system.
 
 ## System Overview
