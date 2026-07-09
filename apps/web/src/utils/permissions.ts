@@ -19,6 +19,7 @@ export const RESOURCES = {
 	scheduleTemplate: ['read', 'manage'] as const,
 	preRetreatTask: ['read', 'manage'] as const,
 	preRetreatTaskTemplate: ['read', 'manage'] as const,
+	retreatPreparation: ['read', 'manage'] as const,
 	shirtType: ['read', 'manage'] as const,
 } as const;
 

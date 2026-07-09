@@ -8,6 +8,7 @@ import { Role } from '../entities/role.entity';
 import { getRepository, getRepositories } from '../utils/repositoryHelpers';
 import { GlobalMessageTemplateService } from './globalMessageTemplateService';
 import { messageSequenceService } from './messageSequenceService';
+import { retreatPreparationService, addDaysYmd } from './retreatPreparationService';
 import { createDefaultResponsibilitiesForRetreat } from './responsabilityService';
 import { createDefaultTablesForRetreat } from './tableMesaService';
 import { seedDefaultShirtTypes } from './shirtTypeService';
@@ -345,6 +346,28 @@ export const createRetreat = async (
 
 	// 6.5. Seed default Mexican-style shirt types
 	await seedDefaultShirtTypes(newRetreat.id);
+
+	// 6.6. Calendario de preparaciones por defecto: 7 sesiones semanales que
+	// terminan una semana antes del retiro, a las 20:00 (todo editable después).
+	try {
+		const rawStart: unknown = newRetreat.startDate;
+		const startYmd =
+			typeof rawStart === 'string'
+				? (rawStart).slice(0, 10)
+				: rawStart instanceof Date
+					? rawStart.toISOString().slice(0, 10)
+					: null;
+		if (startYmd) {
+			await retreatPreparationService.generate(newRetreat.id, {
+				weeks: 7,
+				firstDate: addDaysYmd(startYmd, -7 * 7),
+				time: '20:00',
+				includeDefaultDocs: true,
+			});
+		}
+	} catch (prepErr) {
+		console.error('Error seeding default preparations calendar for retreat:', prepErr);
+	}
 
 	// 7. Create retreat beds from house beds
 	if (retreatData.houseId) {

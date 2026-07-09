@@ -294,6 +294,22 @@ export const helpIndex: HelpSection[] = [
 		],
 	},
 	{
+		key: 'preparations',
+		title: 'Preparations',
+		titleEs: 'Preparaciones',
+		icon: 'mdi-book-open-page-variant',
+		// getHelpByRoute usa includes() sobre el route NAME ('retreat-preparations').
+		routeContext: ['retreat-preparation'],
+		topics: [
+			{
+				key: 'preparations-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'preparations.md',
+			},
+		],
+	},
+	{
 		key: 'retreat-dashboard',
 		title: 'Retreat Dashboard',
 		titleEs: 'Panel del Retiro',

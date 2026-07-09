@@ -44,6 +44,7 @@ import responsabilityAttachmentRoutes from './responsabilityAttachmentRoutes';
 import retreatScheduleRoutes from './retreatScheduleRoutes';
 import preRetreatTaskTemplateRoutes from './preRetreatTaskTemplateRoutes';
 import retreatPreRetreatTaskRoutes from './retreatPreRetreatTaskRoutes';
+import retreatPreparationRoutes from './retreatPreparationRoutes';
 import shirtTypeRoutes from './shirtTypeRoutes';
 import { applyCsrfProtectionExcept } from '../middleware/routeCsrf';
 
@@ -70,6 +71,7 @@ applyCsrfProtectionExcept(router, [
 	'/participants/confirm-registration',
 	'/santisimo/public',
 	'/schedule/public',
+	'/retreat-preparations/public',
 ]);
 
 // Resto de las rutas (con protección CSRF)
@@ -116,6 +118,7 @@ router.use('/responsability-attachments', responsabilityAttachmentRoutes);
 router.use('/schedule', retreatScheduleRoutes);
 router.use('/pre-retreat-task-templates', preRetreatTaskTemplateRoutes);
 router.use('/pre-retreat-tasks', retreatPreRetreatTaskRoutes);
+router.use('/retreat-preparations', retreatPreparationRoutes);
 router.use(shirtTypeRoutes);
 
 export default router;

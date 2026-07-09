@@ -157,7 +157,7 @@ describe('LoginView', () => {
 		it('should render email input field', () => {
 			const emailInput = wrapper.find('input[type="email"]');
 			expect(emailInput.exists()).toBe(true);
-			expect(emailInput.attributes('placeholder')).toContain('example.com');
+			expect(emailInput.attributes('placeholder')).toContain('tu@correo.com');
 		});
 
 		it('should render password input field', () => {

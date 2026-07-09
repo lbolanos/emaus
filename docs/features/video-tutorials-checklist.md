@@ -26,6 +26,7 @@ Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 - [x] **Equipo de Palancas** (asignar Palanquero 1/2/3, avisos al registrarse, secuencias a familiares, registro solicitadas/recibidas/notas) — https://youtu.be/5mUo2Q1v3Ws
 - [x] **Equipo de Recepción** (gafetes: imprimir doble cara / para bolsa / entregar; recepción: buscar, mesa, verificar pago, cobrar inline, beca, celulares, marcar llegada; reporte de bolsas: checklist, armar por mesa, marcar) — https://youtu.be/_ayhFpxBSQ4
 - [x] **Asignación de camas** (asignación automática al registrarse + ajuste manual; ronquidos rojo/verde, edad, tipo de cama, piso; filtros; auto-asignar/exportar/borrar) — https://youtu.be/1hP7OBDduL0
+- [x] **Preparaciones** (reuniones semanales del equipo de servidores: calendario automático, editar fechas/horas, documentos por charla, saltar festivo, enlace público) — https://youtu.be/Zt6tmd1A2O0
 
 ---
 

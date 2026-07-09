@@ -63,6 +63,8 @@ import { RetreatScheduleItemResponsable } from '../entities/retreatScheduleItemR
 import { PreRetreatTaskTemplateSet } from '../entities/preRetreatTaskTemplateSet.entity';
 import { PreRetreatTaskTemplate } from '../entities/preRetreatTaskTemplate.entity';
 import { RetreatPreRetreatTask } from '../entities/retreatPreRetreatTask.entity';
+import { RetreatPreparation } from '../entities/retreatPreparation.entity';
+import { RetreatPreparationDocument } from '../entities/retreatPreparationDocument.entity';
 import { RetreatShirtType } from '../entities/retreatShirtType.entity';
 import { ParticipantShirtSize } from '../entities/participantShirtSize.entity';
 import { RetreatMemoryPhoto } from '../entities/retreatMemoryPhoto.entity';
@@ -152,6 +154,9 @@ export function createDatabaseConfig() {
 		PreRetreatTaskTemplateSet,
 		PreRetreatTaskTemplate,
 		RetreatPreRetreatTask,
+		// Preparaciones semanales pre-retiro
+		RetreatPreparation,
+		RetreatPreparationDocument,
 		// Shirt types per retreat
 		RetreatShirtType,
 		ParticipantShirtSize,

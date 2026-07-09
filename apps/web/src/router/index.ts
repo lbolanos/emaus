@@ -152,6 +152,15 @@ const router = createRouter({
 			meta: { requiresAuth: false },
 		},
 		{
+			// Calendario público de preparaciones semanales previas al retiro.
+			// Auth-less; el backend solo expone retiros con `isPublic=true`.
+			path: '/preparaciones/:slug',
+			name: 'public-preparations',
+			component: () => import('../views/PublicPreparationsView.vue'),
+			props: true,
+			meta: { requiresAuth: false },
+		},
+		{
 			// Big-screen public view of the minuto a minuto for projecting in
 			// the salon during a retreat. Auth-less; only retreats with
 			// `isPublic=true` are exposed by the backend.
@@ -389,6 +398,13 @@ const router = createRouter({
 					path: 'retreats/:id/tareas-pre-retiro',
 					name: 'pre-retreat-tasks',
 					component: PreRetreatTasksView,
+					props: true,
+					meta: { requiresRetreat: true },
+				},
+				{
+					path: 'retreats/:id/preparaciones',
+					name: 'retreat-preparations',
+					component: () => import('../views/RetreatPreparationsView.vue'),
 					props: true,
 					meta: { requiresRetreat: true },
 				},

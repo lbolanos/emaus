@@ -601,6 +601,7 @@ export * from './schedule';
 export * from './scheduleTime';
 export * from './preRetreatTask';
 export * from './preRetreatTaskTime';
+export * from './retreatPreparation';
 export * from './availability';
 export * from './phone';
 

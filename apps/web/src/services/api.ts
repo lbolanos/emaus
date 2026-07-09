@@ -2950,6 +2950,134 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+// -- Preparaciones semanales pre-retiro --
+
+export interface RetreatPreparationDocumentDTO {
+  id: string;
+  preparationId: string;
+  kind: "file" | "markdown";
+  content?: string | null;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  url: string;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface RetreatPreparationDTO {
+  id: string;
+  retreatId: string;
+  type: "session" | "break";
+  weekNumber?: number | null;
+  title: string;
+  description?: string | null;
+  date?: string | null; // YYYY-MM-DD
+  time?: string | null; // HH:MM
+  sortOrder: number;
+  documents?: RetreatPreparationDocumentDTO[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PublicRetreatPreparationsDTO {
+  retreat: {
+    id: string;
+    parish?: string | null;
+    startDate?: string | null;
+    endDate?: string | null;
+  };
+  preparations: RetreatPreparationDTO[];
+}
+
+export const retreatPreparationApi = {
+  async list(retreatId: string): Promise<RetreatPreparationDTO[]> {
+    const r = await api.get(`/retreat-preparations/retreats/${retreatId}`);
+    return r.data;
+  },
+  async generate(
+    retreatId: string,
+    data: {
+      weeks: number;
+      firstDate: string;
+      time: string;
+      clearExisting?: boolean;
+      includeDefaultDocs?: boolean;
+    },
+  ): Promise<RetreatPreparationDTO[]> {
+    const r = await api.post(`/retreat-preparations/retreats/${retreatId}/generate`, data);
+    return r.data;
+  },
+  async create(
+    retreatId: string,
+    data: {
+      type?: "session" | "break";
+      weekNumber?: number | null;
+      title: string;
+      description?: string | null;
+      date?: string | null;
+      time?: string | null;
+    },
+  ): Promise<RetreatPreparationDTO> {
+    const r = await api.post(`/retreat-preparations/retreats/${retreatId}`, data);
+    return r.data;
+  },
+  async update(
+    id: string,
+    data: Partial<{
+      type: "session" | "break";
+      weekNumber: number | null;
+      title: string;
+      description: string | null;
+      date: string | null;
+      time: string | null;
+      sortOrder: number;
+    }>,
+  ): Promise<RetreatPreparationDTO> {
+    const r = await api.patch(`/retreat-preparations/${id}`, data);
+    return r.data;
+  },
+  async remove(id: string): Promise<void> {
+    await api.delete(`/retreat-preparations/${id}`);
+  },
+  async skip(id: string, reason?: string): Promise<RetreatPreparationDTO[]> {
+    const r = await api.post(`/retreat-preparations/${id}/skip`, {
+      ...(reason ? { reason } : {}),
+    });
+    return r.data;
+  },
+  async uploadDocument(preparationId: string, file: File): Promise<RetreatPreparationDocumentDTO> {
+    const dataUrl = await fileToDataUrl(file);
+    const r = await api.post(`/retreat-preparations/${preparationId}/documents`, {
+      fileName: file.name,
+      mimeType: file.type || "application/octet-stream",
+      dataUrl,
+    });
+    return r.data;
+  },
+  async createMarkdown(
+    preparationId: string,
+    data: { title: string; content: string },
+  ): Promise<RetreatPreparationDocumentDTO> {
+    const r = await api.post(`/retreat-preparations/${preparationId}/documents/markdown`, data);
+    return r.data;
+  },
+  async updateMarkdown(
+    docId: string,
+    data: { title?: string; content?: string },
+  ): Promise<RetreatPreparationDocumentDTO> {
+    const r = await api.patch(`/retreat-preparations/documents/${docId}`, data);
+    return r.data;
+  },
+  async removeDocument(docId: string): Promise<void> {
+    await api.delete(`/retreat-preparations/documents/${docId}`);
+  },
+  async getPublic(slug: string): Promise<PublicRetreatPreparationsDTO> {
+    const r = await api.get(`/retreat-preparations/public/${slug}`);
+    return r.data;
+  },
+};
+
 // Attachments vinculados a una Responsabilidad por nombre canónico.
 // El nombre se URL-encode al consultar.
 export const responsabilityAttachmentApi = {
