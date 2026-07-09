@@ -1,6 +1,6 @@
 # Primeros Pasos
 
-📺 **[Ver video tutorial](https://youtu.be/O5hTa8J-31c)**
+📺 **[Ver video tutorial](https://youtu.be/zmTOCfy0t7k)**
 
 Bienvenido al Sistema de Gestión Logística de Retiros Emaus. Esta guía le ayudará a entender los conceptos básicos de navegación y uso del sistema.
 

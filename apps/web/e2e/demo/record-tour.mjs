@@ -89,11 +89,13 @@ async function maskRoute(route) {
 
 const LINES = [
   { id: 'intro', text: 'En este video hacemos un recorrido completo: cómo se organiza un retiro en Emaús de principio a fin, y dónde vive cada cosa en el menú.' },
-  { id: 'casas', text: 'Todo empieza en Configuración Global, en Casas: defines la casa del retiro, con sus cuartos y sus camas.' },
-  { id: 'retiro', text: 'Con el botón más creas el retiro sobre esa casa: eliges sus fechas, sus cupos y sus datos.' },
+  { id: 'casas', text: 'Todo empieza en Configuración Global, en Casas: aquí defines la casa del retiro, con sus cuartos y sus camas. Si la casa ya existe, no la vuelvas a crear.' },
+  { id: 'retiroBtn', text: 'Con la casa lista, empieza la creación del retiro: aquí, con el botón más, lo creas sobre esa casa.' },
+  { id: 'retiro', text: 'En el formulario eliges sus fechas, sus cupos y todos sus datos.' },
   { id: 'roles', text: 'En Administración, Gestión de Roles, invitas a tu equipo y le das su rol: logística, comunicaciones o tesorero.' },
   { id: 'flyer', text: 'Creas el volante para invitar, y con él se abre el registro de caminantes y servidores.' },
   { id: 'preretiro', text: 'En Logística, Tareas Pre-Retiro te marca qué hacer y cuándo, paso a paso.' },
+  { id: 'preparaciones', text: 'Y el calendario de reuniones de preparación: las juntas semanales del equipo de servidores. Copias el enlace público y se lo pasas a los servidores.' },
   { id: 'inventory', text: 'Y revisas el inventario que vas a llevar al retiro.' },
   { id: 'palancas', text: 'En Comunicaciones, el equipo de Palancas contacta a los familiares con secuencias, y lleva el seguimiento de cada uno.' },
   { id: 'payments', text: 'Registras y sigues los pagos de caminantes y servidores.' },
@@ -116,10 +118,12 @@ const LINES = [
 const STEPS = [
   { clip: 'intro', url: `/app/houses`, wait: /Casas|Agregar Casa|Google Maps/i, settle: 2600 },
   { clip: 'casas', section: 'Configuración Global', item: 'Casas' },
-  { clip: 'retiro', openModal: 'Agregar Retiro', modalWait: /Parroquia|Casa|Fecha|Cupo/i, cue: /Parroquia|Casa|Fecha/i, closeAfter: true },
+  { clip: 'retiroBtn', cuePlus: 'Agregar Retiro' },
+  { clip: 'retiro', openModal: 'Agregar Retiro', modalWait: /Nombre de la Parroquia/i, cue: /Nombre de la Parroquia/i, closeAfter: true },
   { clip: 'roles', url: `/app/retreats/${SA}/role-management`, section: 'Administración', item: 'Gestión de Roles' },
   { clip: 'flyer', url: `/app/retreats/${SA}/flyer`, settle: 3200 },
   { clip: 'preretiro', url: `/app/retreats/${SA}/tareas-pre-retiro`, section: 'Logística', item: 'Tareas Pre-Retiro' },
+  { clip: 'preparaciones', url: `/app/retreats/${SA}/preparaciones`, section: 'Logística', item: 'Preparaciones' },
   { clip: 'inventory', url: `/app/retreats/${SA}/inventory`, section: 'Logística', item: 'Inventario' },
   { clip: 'palancas', url: `/app/palancas`, section: 'Comunicaciones', item: 'Palancas' },
   { clip: 'payments', url: `/app/payments`, section: 'Logística', item: 'Pagos' },
@@ -150,12 +154,12 @@ const YT_DESCRIPTION =
   'tiene su propio video a fondo. Los nombres mostrados son ficticios.';
 const YT_TAGS = ['Emaús', 'retiro', 'tutorial', 'primeros pasos', 'onboarding', 'guía', 'tour', 'introducción'];
 const CHAPTER_LABELS = {
-  intro: 'Introducción', casas: '1. Crear la casa', retiro: '2. Crear el retiro', roles: '3. Invitar al equipo y roles',
-  flyer: '4. Volante y registro', preretiro: '5. Tareas pre-retiro', inventory: '6. Inventario',
-  palancas: '7. Palancas y seguimiento', payments: '8. Pagos', resp: '9. Responsabilidades',
-  tables: '10. Mesas y confirmación', santisimo: '11. Guardias de la capilla', dashmid: '12. Panel del día del retiro',
-  dashmid2: 'Detalles del panel', mam: '13. Minuto a minuto', reception: '14. Recepción', gafetes: '15. Gafetes',
-  rooms: '16. Etiquetas de cuartos', bags: '17. Reporte de bolsas', memories: '18. Fotos y música', outro: 'Resumen',
+  intro: 'Introducción', casas: '1. Crear la casa', retiroBtn: '2. Crear el retiro', retiro: 'Datos del retiro', roles: '3. Invitar al equipo y roles',
+  flyer: '4. Volante y registro', preretiro: '5. Tareas pre-retiro', preparaciones: '6. Preparaciones de servidores', inventory: '7. Inventario',
+  palancas: '8. Palancas y seguimiento', payments: '9. Pagos', resp: '10. Responsabilidades',
+  tables: '11. Mesas y confirmación', santisimo: '12. Guardias de la capilla', dashmid: '13. Panel del día del retiro',
+  dashmid2: 'Detalles del panel', mam: '14. Minuto a minuto', reception: '15. Recepción', gafetes: '16. Gafetes',
+  rooms: '17. Etiquetas de cuartos', bags: '18. Reporte de bolsas', memories: '19. Fotos y música', outro: 'Resumen',
 };
 
 const log = (...a) => console.log(...a);
@@ -268,6 +272,13 @@ async function main() {
         const esc = step.item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const link = page.getByRole('link', { name: new RegExp('^\\s*' + esc, 'i') }).first();
         await cueLoc(nar, link);
+      }
+      // Apuntar al botón "+" del sidebar (muestra dónde se crea el retiro) sin abrir el modal.
+      // Expandir el grupo RETIRO primero: el paso "casas" abrió Config Global, que lo colapsa
+      // (acordeón de grupos hermanos) y ocultaría el "+".
+      if (step.cuePlus) {
+        await ensureExpanded(page, 'Retiro');
+        await cueLoc(nar, page.locator(`button[title="${step.cuePlus}"]`).first());
       }
       if (step.scroll) { await page.getByText(/Estad[íi]sticas principales|# Caminantes/i).first().scrollIntoViewIfNeeded().catch(() => {}); await sleep(page, 600); }
       if (step.cue && !step.section) await cue(nar, page, step.cue);
