@@ -37,7 +37,9 @@ interface ModelConfig {
 
 const MODELS_TO_TEST: ModelConfig[] = [
 	{ id: 'claude-3-5-haiku-20241022' },
-	{ id: 'glm-4.6v', apiKey: 'b625667c9ebf4a61bfb6d184c2d94132.hFo4CirlQz3AUoEa', baseURL: 'https://api.z.ai/api/anthropic/v1' },
+	...(process.env.ZAI_VISION_API_KEY
+		? [{ id: 'glm-4.6v', apiKey: process.env.ZAI_VISION_API_KEY, baseURL: 'https://api.z.ai/api/anthropic/v1' }]
+		: []),
 	{ id: 'claude-sonnet-4-20250514' },
 	{ id: 'claude-3-5-sonnet-20241022' },
 ];

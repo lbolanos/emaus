@@ -135,13 +135,15 @@ async function run() {
 		imageBuffer,
 	);
 
-	// Haiku via Anthropic endpoint with the other key
-	await testWithAnthropic(
-		'claude-3-5-haiku-20241022',
-		'b625667c9ebf4a61bfb6d184c2d94132.hFo4CirlQz3AUoEa',
-		'https://api.z.ai/api/anthropic/v1',
-		imageBuffer,
-	);
+	// Haiku via Anthropic endpoint with the vision key (solo si está definida)
+	if (process.env.ZAI_VISION_API_KEY) {
+		await testWithAnthropic(
+			'claude-3-5-haiku-20241022',
+			process.env.ZAI_VISION_API_KEY,
+			'https://api.z.ai/api/anthropic/v1',
+			imageBuffer,
+		);
+	}
 
 	console.log('=== Tests complete ===');
 }

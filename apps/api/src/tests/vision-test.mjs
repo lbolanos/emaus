@@ -2,37 +2,45 @@
  * Quick vision test — run with:
  *   node src/tests/vision-test.mjs
  */
+import 'dotenv/config';
 import fs from 'fs';
-import path from 'path';
 
 const IMAGE_PATH = '/mnt/d/Users/lbola/OneDrive/Pictures/Capturas de pantalla/Captura de pantalla 2026-04-14 230026.png';
+
+const ZAI_API_KEY = process.env.ZAI_API_KEY || process.env.OPENAI_API_KEY;
+const ZAI_VISION_API_KEY = process.env.ZAI_VISION_API_KEY;
 
 const CONFIGS = [
   {
     label: 'glm-4.6v  (vision key)',
     model: 'glm-4.6v',
-    apiKey: 'b625667c9ebf4a61bfb6d184c2d94132.hFo4CirlQz3AUoEa',
+    apiKey: ZAI_VISION_API_KEY,
     baseUrl: 'https://api.z.ai/api/paas/v4',
   },
   {
     label: 'glm-4.6v  (main key)',
     model: 'glm-4.6v',
-    apiKey: '759e13944c924fb18cbc26179a81da3b.ndCXTyFz405BFRBL',
+    apiKey: ZAI_API_KEY,
     baseUrl: 'https://api.z.ai/api/paas/v4',
   },
   {
     label: 'glm-4v-plus (vision key)',
     model: 'glm-4v-plus',
-    apiKey: 'b625667c9ebf4a61bfb6d184c2d94132.hFo4CirlQz3AUoEa',
+    apiKey: ZAI_VISION_API_KEY,
     baseUrl: 'https://api.z.ai/api/paas/v4',
   },
   {
     label: 'glm-4v-plus (main key)',
     model: 'glm-4v-plus',
-    apiKey: '759e13944c924fb18cbc26179a81da3b.ndCXTyFz405BFRBL',
+    apiKey: ZAI_API_KEY,
     baseUrl: 'https://api.z.ai/api/paas/v4',
   },
-];
+].filter((cfg) => cfg.apiKey);
+
+if (CONFIGS.length === 0) {
+  console.error('Define ZAI_API_KEY (u OPENAI_API_KEY) y/o ZAI_VISION_API_KEY en el entorno o en .env');
+  process.exit(1);
+}
 
 const imageBase64 = fs.readFileSync(IMAGE_PATH).toString('base64');
 console.log(`Image loaded: ${Math.round(imageBase64.length * 3 / 4 / 1024)}KB\n`);
