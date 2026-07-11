@@ -118,6 +118,7 @@ JWT-based with refresh tokens, session management, bcrypt password hashing, acco
 CSRF tokens + SameSite cookies + Origin validation, Zod input validation, TypeORM parameterized queries, XSS-safe output encoding, rate limiting on auth endpoints, HTTPS in prod, CORS allowlist, request logging.
 
 > Para hardening detallado, OWASP Top 10, configuración de CORS/CSRF y rate limiting → cargar el skill **`security-best-practices`**.
+> Para API keys/secretos (dónde vive cada uno, cambiar una var de entorno en prod, responder a una key filtrada, barrido con gitleaks) → cargar el skill **`secrets-management`**. Regla dura: **nunca hardcodear keys, ni en scripts de prueba** — el repo es público.
 
 ## API Integration
 
@@ -174,6 +175,7 @@ Sistema TypeORM contra SQLite. Comandos: `migration:generate`, `migration:run`, 
 | Reporte de blank page en iPhone/iPad o `Maximum call stack size exceeded` | `safari-ios-compatibility` |
 | Trabajar con archivos `.vue`, Pinia, Vue Router, Vite | `vue-best-practices`, `vue-pinia-best-practices` |
 | Hardening de API, CORS, CSRF, rate limit, OWASP | `security-best-practices` |
+| API keys/secretos: key filtrada o expuesta, rotar una key, cambiar una variable de entorno en prod (`.env.production`), escanear secretos (gitleaks) | `secrets-management` |
 | Tests con Playwright o Chrome DevTools en local | `webapp-testing` |
 | Crear/regenerar un video-demo NARRADO de una feature (Playwright headed + subtítulos + TTS Deepgram/`say` + mux ffmpeg) | `demo-videos` |
 | Subir videos al canal de YouTube "Emaús Retiros", generar arte del canal/miniaturas con IA (nano banana/Gemini), OAuth de YouTube, o el botón de ayuda `HelpVideoButton` in-app | `youtube-publishing` |
