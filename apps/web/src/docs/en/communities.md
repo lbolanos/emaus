@@ -1,5 +1,7 @@
 # Community Management
 
+📺 **[Watch tutorial video](https://youtu.be/xIVmHyhkDHA)**
+
 The Community Management feature allows you to maintain ongoing relationships with retreat participants by organizing them into communities, tracking their engagement, and managing group activities.
 
 ## Overview

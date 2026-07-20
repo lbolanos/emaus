@@ -1,5 +1,7 @@
 # Gestión de Comunidades
 
+📺 **[Ver video tutorial](https://youtu.be/xIVmHyhkDHA)**
+
 La función de Gestión de Comunidades le permite mantener relaciones continuas con los participantes de retiros organizándolos en comunidades, rastreando su participación y administrando actividades grupales.
 
 ## Descripción General

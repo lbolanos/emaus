@@ -4,7 +4,7 @@ Plan de contenido para el canal de ayuda. Cada video se graba con el pipeline de
 `apps/web/e2e/demo/` (skill **`demo-videos`**) y se publica con **`youtube-publishing`**.
 Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 
-**Hechos: 17 · Pendientes: ~9**
+**Hechos: 18 · Pendientes: ~8**
 
 ---
 
@@ -27,6 +27,7 @@ Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 - [x] **Equipo de Recepción** (gafetes: imprimir doble cara / para bolsa / entregar; recepción: buscar, mesa, verificar pago, cobrar inline, beca, celulares, marcar llegada; reporte de bolsas: checklist, armar por mesa, marcar) — https://youtu.be/_ayhFpxBSQ4
 - [x] **Asignación de camas** (asignación automática al registrarse + ajuste manual; ronquidos rojo/verde, edad, tipo de cama, piso; filtros; auto-asignar/exportar/borrar) — https://youtu.be/1hP7OBDduL0
 - [x] **Preparaciones** (reuniones semanales del equipo de servidores: calendario automático, editar fechas/horas, documentos por charla, saltar festivo, enlace público) — https://youtu.be/Zt6tmd1A2O0
+- [x] **Comunidades (CRM)** (acompañamiento — no control; ruta al registro público, panel, miembros, crear/importar de un retiro, estado de seguimiento, editar datos por comunidad, reuniones, asistencia manual/enlace público en el celular/bot con foto del listado, analítica, Mis Comunidades, administradores) — https://youtu.be/xIVmHyhkDHA
 
 ---
 
@@ -62,7 +63,7 @@ Cierran la confusión "cuenta de usuario vs. registro al retiro" que ya viene en
 
 ## 🟢 P3 — Comunicación y comunidades (CRM)
 
-- [ ] **Comunidades** — miembros, reuniones, asistencia (`communities`, `community-*`).
+- [x] ~~**Comunidades**~~ — publicado — https://youtu.be/xIVmHyhkDHA *(propósito pastoral/acompañamiento — no control; ruta al registro público desde la landing (mapa → formulario que un admin aprueba); panel; miembros con búsqueda/filtros, crear e importar de un retiro; estado como marca de acompañamiento; editar datos por comunidad; reuniones; y las varias formas de registrar asistencia: manual por reunión y por miembro, enlace público en el celular, y el asistente/bot con foto del listado; analítica; Mis Comunidades; administradores).*
 - [x] ~~**Secuencias y plantillas de mensajes**~~ — publicado (arriba).
 - [ ] **Tablero de comunicación y seguimiento** — `communication-dashboard`, `follow-up`.
 - [ ] **WhatsApp** — envío y administración (skill `whatsapp-admin`).
@@ -79,5 +80,5 @@ Cierran la confusión "cuenta de usuario vs. registro al retiro" que ya viene en
 - Al publicar cada uno: pegar la URL como link 📺 en su doc de ayuda (`apps/web/src/docs/es/<sección>.md`)
   para que aparezca en "Obtener ayuda para esta página".
 - Generar miniatura a juego (estilo acuarela "Camino a Emaús") y subirla en Studio.
-- **Playlist del canal** (17 videos en orden de ciclo del retiro): https://www.youtube.com/playlist?list=PLSdqEiN1fbDM — "Emaús Retiros — Tutoriales". Al publicar uno nuevo, agregarlo con `playlistItems.insert` (scope `youtube.force-ssl`).
+- **Playlist del canal** (18 videos en orden de ciclo del retiro): https://www.youtube.com/playlist?list=PLSdqEiN1fbDM — "Emaús Retiros — Tutoriales". Al publicar uno nuevo, agregarlo con `playlistItems.insert` (scope `youtube.force-ssl`).
 - Fijar como **video destacado** del canal el de onboarding (P0) para nuevos visitantes.
