@@ -11,9 +11,11 @@
 import pw from '@playwright/test';
 const { chromium } = pw;
 import path from 'node:path';
+import { existsSync } from 'node:fs';
 import {
   loadEnv, ensureOutputDir, genTts, OVERLAY_INIT, Narrator, muxVideo,
   computeSyncScale, audioDuration, buildYoutubeChapters, writeVideoMeta, OUTPUT_DIR,
+  renderEndCard, appendEndCard,
 } from './demo-lib.mjs';
 
 const cfg = loadEnv();
@@ -90,10 +92,11 @@ async function maskRoute(route) {
 const LINES = [
   { id: 'intro', text: 'En este video hacemos un recorrido completo: cómo se organiza un retiro en Emaús de principio a fin, y dónde vive cada cosa en el menú.' },
   { id: 'casas', text: 'Todo empieza en Configuración Global, en Casas: aquí defines la casa del retiro, con sus cuartos y sus camas. Si la casa ya existe, no la vuelvas a crear.' },
-  { id: 'retiroBtn', text: 'Con la casa lista, empieza la creación del retiro: aquí, con el botón más, lo creas sobre esa casa.' },
-  { id: 'retiro', text: 'En el formulario eliges sus fechas, sus cupos y todos sus datos.' },
-  { id: 'roles', text: 'En Administración, Gestión de Roles, invitas a tu equipo y le das su rol: logística, comunicaciones o tesorero.' },
-  { id: 'flyer', text: 'Creas el volante para invitar, y con él se abre el registro de caminantes y servidores.' },
+  { id: 'retiroBtn', text: 'Con la casa lista, empieza la creación del retiro. Aquí, con este botón más, abres el formulario para crear un retiro nuevo.' },
+  { id: 'retiro', text: 'En el formulario eliges la casa, las fechas, los cupos y todos sus datos.' },
+  { id: 'roles', text: 'En Administración, Gestión de Roles, invitas a tu equipo y le das su rol: administrador, logística, comunicaciones o tesorero.' },
+  { id: 'flyerEdit', text: 'El volante no se crea aparte: lo editas aquí, en la pestaña Volante del formulario del retiro.' },
+  { id: 'flyerView', text: 'Y para verlo, en Principal entra a Dashboard del Retiro y toca el botón Ver Flyer: ahí revisas cómo quedó, listo para compartir.' },
   { id: 'preretiro', text: 'En Logística, Tareas Pre-Retiro te marca qué hacer y cuándo, paso a paso.' },
   { id: 'preparaciones', text: 'Y el calendario de reuniones de preparación: las juntas semanales del equipo de servidores. Copias el enlace público y se lo pasas a los servidores.' },
   { id: 'inventory', text: 'Y revisas el inventario que vas a llevar al retiro.' },
@@ -118,10 +121,11 @@ const LINES = [
 const STEPS = [
   { clip: 'intro', url: `/app/houses`, wait: /Casas|Agregar Casa|Google Maps/i, settle: 2600 },
   { clip: 'casas', section: 'Configuración Global', item: 'Casas' },
-  { clip: 'retiroBtn', cuePlus: 'Agregar Retiro' },
-  { clip: 'retiro', openModal: 'Agregar Retiro', modalWait: /Nombre de la Parroquia/i, cue: /Nombre de la Parroquia/i, closeAfter: true },
+  { clip: 'retiroBtn', cuePlus: 'Agregar Retiro', holdMs: 2500 },
+  { clip: 'retiro', openModal: 'Agregar Retiro', modalWait: /Nombre de la Parroquia/i, closeAfter: true },
   { clip: 'roles', url: `/app/retreats/${SA}/role-management`, section: 'Administración', item: 'Gestión de Roles' },
-  { clip: 'flyer', url: `/app/retreats/${SA}/flyer`, settle: 3200 },
+  { clip: 'flyerEdit', url: `/app/retreats/${SA}/dashboard`, wait: /San Agust/i, editModal: true, tab: 'Volante', closeAfter: true },
+  { clip: 'flyerView', url: `/app/retreats/${SA}/dashboard`, wait: /San Agust/i, section: 'Principal', item: 'Dashboard del Retiro', cueBtn: 'Ver Flyer', clickBtn: 'Ver Flyer', holdMs: 2800 },
   { clip: 'preretiro', url: `/app/retreats/${SA}/tareas-pre-retiro`, section: 'Logística', item: 'Tareas Pre-Retiro' },
   { clip: 'preparaciones', url: `/app/retreats/${SA}/preparaciones`, section: 'Logística', item: 'Preparaciones' },
   { clip: 'inventory', url: `/app/retreats/${SA}/inventory`, section: 'Logística', item: 'Inventario' },
@@ -155,7 +159,7 @@ const YT_DESCRIPTION =
 const YT_TAGS = ['Emaús', 'retiro', 'tutorial', 'primeros pasos', 'onboarding', 'guía', 'tour', 'introducción'];
 const CHAPTER_LABELS = {
   intro: 'Introducción', casas: '1. Crear la casa', retiroBtn: '2. Crear el retiro', retiro: 'Datos del retiro', roles: '3. Invitar al equipo y roles',
-  flyer: '4. Volante y registro', preretiro: '5. Tareas pre-retiro', preparaciones: '6. Preparaciones de servidores', inventory: '7. Inventario',
+  flyerEdit: '4. Editar el volante', flyerView: 'Ver el volante', preretiro: '5. Tareas pre-retiro', preparaciones: '6. Preparaciones de servidores', inventory: '7. Inventario',
   palancas: '8. Palancas y seguimiento', payments: '9. Pagos', resp: '10. Responsabilidades',
   tables: '11. Mesas y confirmación', santisimo: '12. Guardias de la capilla', dashmid: '13. Panel del día del retiro',
   dashmid2: 'Detalles del panel', mam: '14. Minuto a minuto', reception: '15. Recepción', gafetes: '16. Gafetes',
@@ -236,6 +240,8 @@ async function main() {
     await sleep(page, 1000);
 
     for (const step of STEPS) {
+      // Limpia el anillo del beat anterior para que no quede colgado (p.ej. el "+" al abrir el modal).
+      await nar.clearCue().catch(() => {});
       if (step.url) {
         await page.goto(`${cfg.baseUrl}${step.url}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
         // Espera a que las fetches (ya enmascaradas) terminen: domcontentloaded dispara ANTES de
@@ -281,8 +287,18 @@ async function main() {
         await cueLoc(nar, page.locator(`button[title="${step.cuePlus}"]`).first());
       }
       if (step.scroll) { await page.getByText(/Estad[íi]sticas principales|# Caminantes/i).first().scrollIntoViewIfNeeded().catch(() => {}); await sleep(page, 600); }
+      // Señalar un botón del contenido (p.ej. "Ver Flyer" en el dashboard) antes de narrar.
+      if (step.cueBtn) await cueLoc(nar, page.getByRole('button', { name: new RegExp(step.cueBtn, 'i') }).first());
       if (step.cue && !step.section) await cue(nar, page, step.cue);
       await nar.say(clips[step.clip]);
+      // Clic en un botón tras narrar (p.ej. "Ver Flyer" → abre el volante); esperar a que cargue.
+      if (step.clickBtn) {
+        await page.getByRole('button', { name: new RegExp(step.clickBtn, 'i') }).first().evaluate((el) => el.click()).catch(() => {});
+        await page.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => {});
+        await sleep(page, 1200);
+      }
+      // Mantener el cue/subtítulo un rato más (p.ej. seguir señalando el botón "+", o ver el flyer).
+      if (step.holdMs) await sleep(page, step.holdMs);
       if (step.closeAfter) { await page.keyboard.press('Escape').catch(() => {}); await sleep(page, 700); }
     }
     await sleep(page, 800);
@@ -296,6 +312,14 @@ async function main() {
   const wallMs = nar.elapsedMs;
   await ctx.close();
   const videoPath = await video.path();
+  // Renderiza la tarjeta final mientras el browser sigue vivo (fondo acuarela si existe, si no degradado).
+  const endcardPng = path.join(OUTPUT_DIR, 'endcard-tour.png');
+  await renderEndCard(browser, {
+    title: 'Explora cada<br>sección',
+    subtitle: 'Cada tema del retiro tiene su propio video tutorial.',
+    bgPath: path.join(OUTPUT_DIR, 'thumb-tour-bg.png'),
+    out: endcardPng,
+  }).catch((e) => console.warn('⚠️ endcard render:', e.message));
   await browser.close();
   log('🎬', videoPath);
 
@@ -305,7 +329,21 @@ async function main() {
 
   const out = path.join(OUTPUT_DIR, 'tour-demo.mp4');
   await muxVideo(cfg, { video: videoPath, timeline: nar.timeline, out, syncOffsetMs: SYNC_OFFSET_MS, syncScale });
-  const chapters = buildYoutubeChapters(nar.timeline, { labels: CHAPTER_LABELS });
+
+  // Tarjeta final: 14s de lienzo limpio para las Pantallas Finales de YouTube (los enlaces
+  // clicables a otros videos se agregan a mano en Studio sobre este tramo — no hay API).
+  if (existsSync(endcardPng)) {
+    await appendEndCard(cfg, { video: out, card: endcardPng, out, seconds: 14 }).catch((e) => console.warn('⚠️ appendEndCard:', e.message));
+    log('🎬 tarjeta final agregada (14s)');
+  }
+
+  // Capítulos en la posición REAL del mp4 (offset*scale − leadTrim), no el offset de reloj crudo
+  // (que iba ~leadTrim adelantado). Replica el leadKeepMs=700 default de muxVideo.
+  const LEAD_KEEP_MS = 700;
+  const scaled = nar.timeline.map((t) => t.offsetMs * syncScale + SYNC_OFFSET_MS);
+  const leadTrimMs = scaled.length ? Math.max(0, Math.min(...scaled) - LEAD_KEEP_MS) : 0;
+  const chapterTimeline = nar.timeline.map((t) => ({ ...t, offsetMs: Math.max(0, Math.round(t.offsetMs * syncScale + SYNC_OFFSET_MS - leadTrimMs)) }));
+  const chapters = buildYoutubeChapters(chapterTimeline, { labels: CHAPTER_LABELS });
   writeVideoMeta(out, { title: YT_TITLE, description: YT_DESCRIPTION, tags: YT_TAGS, chapters });
   log('✅ Listo:', out);
   for (const t of nar.timeline) log(`  ${(t.offsetMs / 1000).toFixed(1)}s  ${t.id}`);

@@ -11,7 +11,7 @@
 
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync, mkdirSync, renameSync, unlinkSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -150,17 +150,24 @@ export const OVERLAY_INIT = `
     cap.textContent = text;
     cap.style.opacity = '1';
   };
+  // Anillo PERSISTENTE: se queda pulsando en (x,y) hasta que se lo mueve o se limpia con
+  // __cue(null). Así el círculo sigue visible mientras se narra (no un ping de 0.7s que se va
+  // antes de que se diga la palabra), y no queda uno viejo colgado si el siguiente beat lo limpia.
   window.__cue = (x, y) => {
     ensure();
-    const ring = document.createElement('div');
-    ring.style.cssText = 'position:absolute;left:' + (x-26) + 'px;top:' + (y-26) + 'px;width:52px;height:52px;border:4px solid rgba(124,58,237,.95);border-radius:9999px;box-shadow:0 0 0 4px rgba(124,58,237,.25);animation:__demoPing .7s ease-out forwards;';
-    document.getElementById('__demo_overlay').appendChild(ring);
-    setTimeout(() => ring.remove(), 720);
+    let ring = document.getElementById('__demo_cue_ring');
+    if (x == null || y == null) { if (ring) ring.remove(); return; }
+    if (!ring) {
+      ring = document.createElement('div');
+      ring.id = '__demo_cue_ring';
+      document.getElementById('__demo_overlay').appendChild(ring);
+    }
+    ring.style.cssText = 'position:absolute;left:' + (x-28) + 'px;top:' + (y-28) + 'px;width:56px;height:56px;border:4px solid rgba(124,58,237,.98);border-radius:9999px;box-shadow:0 0 0 5px rgba(124,58,237,.28),0 0 14px rgba(124,58,237,.5);animation:__demoPulse 1.1s ease-in-out infinite;';
   };
   if (!document.getElementById('__demo_kf')) {
     const st = document.createElement('style');
     st.id = '__demo_kf';
-    st.textContent = '@keyframes __demoPing{0%{transform:scale(.4);opacity:1}100%{transform:scale(1.25);opacity:0}}';
+    st.textContent = '@keyframes __demoPulse{0%,100%{transform:scale(1);opacity:.98}50%{transform:scale(1.14);opacity:.6}}';
     (document.head || document.documentElement).appendChild(st);
   }
   if (document.readyState === 'loading') {
@@ -201,6 +208,10 @@ export class Narrator {
   }
   async cueAt(x, y) {
     await this.page.evaluate(({ x, y }) => window.__cue(x, y), { x, y });
+  }
+  // Quita el anillo persistente (para que no quede colgado en un beat sin cue, p.ej. el formulario).
+  async clearCue() {
+    await this.page.evaluate(() => window.__cue(null, null));
   }
 }
 
@@ -302,4 +313,65 @@ export function writeVideoMeta(mp4Path, { title, description = '', tags = [], ch
   const metaPath = mp4Path.replace(/\.mp4$/i, '.meta.json');
   writeFileSync(metaPath, JSON.stringify(meta, null, 2));
   return metaPath;
+}
+
+// ── Tarjeta final de marca (espacio para las Pantallas Finales de YouTube) ────
+// Renderiza una tarjeta estática (fondo acuarela si existe bgPath; si no, degradado morado) con
+// título/subtítulo por CSS. Necesita un `browser` de Playwright ya lanzado (headless o headed).
+// Las Pantallas Finales (enlaces a otros videos) NO se pueden poner por API: esto solo prepara el
+// LIENZO limpio; los elementos clicables se agregan a mano en YouTube Studio sobre estos segundos.
+export async function renderEndCard(browser, { title, subtitle = '', bgPath, out, width = 1280, height = 800, brand = 'Emaús Retiros' }) {
+  const bg = (bgPath && existsSync(bgPath))
+    ? `background:#1a0f28 center/cover no-repeat url("data:image/png;base64,${readFileSync(bgPath).toString('base64')}")`
+    : 'background:linear-gradient(120deg,#2a1147 0%,#4c1d95 55%,#7c3aed 120%)';
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:${width}px;height:${height}px;overflow:hidden;font-family:Georgia,'Times New Roman',serif}
+.wrap{position:relative;width:${width}px;height:${height}px;${bg}}
+.scrim{position:absolute;inset:0;background:linear-gradient(90deg,rgba(20,10,40,.86) 0%,rgba(20,10,40,.66) 42%,rgba(20,10,40,.18) 100%)}
+.brand{position:absolute;top:40px;right:52px;color:#fff;font-size:32px;font-weight:700;letter-spacing:.5px;text-shadow:0 2px 8px rgba(0,0,0,.5)}
+.brand .c{color:#a78bfa}
+.content{position:absolute;left:76px;top:${Math.round(height * 0.31)}px;right:${Math.round(width * 0.41)}px}
+.rule{width:104px;height:8px;background:#7c3aed;border-radius:4px;margin-bottom:30px}
+.title{color:#fff;font-size:82px;font-weight:700;line-height:1.06;text-shadow:0 3px 14px rgba(0,0,0,.55)}
+.sub{margin-top:26px;color:#e9e2ff;font-size:32px;line-height:1.35;font-family:Helvetica,Arial,sans-serif}
+</style></head><body><div class="wrap"><div class="scrim"></div>
+<div class="brand"><span class="c">✝</span> ${brand}</div>
+<div class="content"><div class="rule"></div><div class="title">${title}</div>${subtitle ? `<div class="sub">${subtitle}</div>` : ''}</div>
+</div></body></html>`;
+  const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
+  const pg = await ctx.newPage();
+  await pg.setContent(html, { waitUntil: 'networkidle' });
+  await pg.waitForTimeout(250);
+  await pg.screenshot({ path: out, clip: { x: 0, y: 0, width, height } });
+  await ctx.close();
+  return out;
+}
+
+// Añade una tarjeta final (imagen) de `seconds` al final del mp4 (con audio silencioso), dejando
+// espacio limpio para las Pantallas Finales de YouTube. Reescribe `out` (usa temp si out === video).
+export async function appendEndCard(cfg, { video, card, out, seconds = 14 }) {
+  // Detecta tamaño y fps del video para que el segmento calce sin re-escalar mal.
+  let W = 1280, H = 800, fps = 25;
+  try {
+    const { stdout } = await execFileP(cfg.ffprobe, ['-v', 'error', '-select_streams', 'v:0',
+      '-show_entries', 'stream=width,height,r_frame_rate', '-of', 'csv=p=0', video]);
+    const [w, h, r] = stdout.trim().split(',');
+    W = parseInt(w, 10) || W; H = parseInt(h, 10) || H;
+    const [n, d] = (r || '25/1').split('/'); fps = Math.round((parseInt(n, 10) || 25) / (parseInt(d, 10) || 1)) || 25;
+  } catch { /* usa defaults */ }
+  const clip = path.join(OUTPUT_DIR, '_endcard-clip.mp4');
+  const tmp = path.join(OUTPUT_DIR, '_endcard-out.mp4');
+  await execFileP(cfg.ffmpeg, ['-y', '-loop', '1', '-i', card,
+    '-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100',
+    '-t', String(seconds), '-r', String(fps),
+    '-vf', `scale=${W}:${H},setsar=1,format=yuv420p`,
+    '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-c:a', 'aac', '-b:a', '192k', '-shortest', clip]);
+  await execFileP(cfg.ffmpeg, ['-y', '-i', video, '-i', clip, '-filter_complex',
+    `[0:v]fps=${fps},scale=${W}:${H},setsar=1[v0];[1:v]fps=${fps},scale=${W}:${H},setsar=1[v1];[v0][0:a][v1][1:a]concat=n=2:v=1:a=1[v][a]`,
+    '-map', '[v]', '-map', '[a]', '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p',
+    '-c:a', 'aac', '-b:a', '192k', tmp], { maxBuffer: 1024 * 1024 * 64 });
+  unlinkSync(clip);
+  renameSync(tmp, out);
+  return out;
 }
