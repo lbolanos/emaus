@@ -91,3 +91,8 @@ tmp/chrome/
 
 client_secret_*.json
 
+# Backup / recovery codes (2FA/MFA) — nunca subir, repo público
+Backup-codes-*.txt
+backup-codes-*.txt
+*backup-codes*.txt
+
