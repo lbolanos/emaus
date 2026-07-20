@@ -255,6 +255,26 @@ alternativas es-LATAM: `aura-2-selena-es`, `aura-2-estrella-es`, `aura-2-javier-
   `offsetReloj * syncScale - leadTrim` (los capítulos del `.meta.json` usan offset de reloj crudo →
   van ~`leadTrim` adelantados incluso sin cortar); restale la duración del corte a los beats que caen
   después, y reescribí `<video>.meta.json` con `buildYoutubeChapters` + `writeVideoMeta`.
+- **El cue (círculo morado) debe ser PERSISTENTE, no un ping (sesión 2026-07-09).** El `__cue`
+  original pintaba un anillo con animación de 0.7s que se auto-removía → cuando la voz llegaba a la
+  palabra ("aquí, con este botón") el círculo ya se había ido, no se sentía sincronizado, y a veces
+  quedaba uno viejo colgado sobre un modal. Fix en `demo-lib.mjs`: **anillo persistente que pulsa y
+  se queda** hasta que se lo mueve o se limpia con `__cue(null)` → `Narrator.clearCue()`. En el loop,
+  **limpiá el cue al inicio de CADA beat** para que no quede colgado (p.ej. el "+" al abrir el
+  formulario). Patrones `cueBtn`/`clickBtn`: señalar un botón del contenido antes de narrar y
+  clicarlo después (p.ej. "Ver Flyer" en el dashboard → abre el volante).
+- **Capítulos correctos SOLOS en el pipeline (ya no regenerar a mano).** `buildYoutubeChapters` usa
+  el offset de RELOJ crudo → va ~`leadTrim` adelantado del contenido real. Fix en `record-tour.mjs`:
+  antes de llamarlo, transformá el timeline con `offset*syncScale - leadTrim` (leadTrim =
+  `min(offset)*scale - 700`, replicando el default de `muxVideo`). Así los capítulos salen bien solos;
+  el regen manual queda solo para cuando hacés un corte manual del mp4.
+- **Tarjeta final para las Pantallas Finales de YouTube.** Las end screens (enlaces a otros videos en
+  los últimos 5-20s) NO se ponen por API ni van horneadas — se agregan a mano en Studio. Lo que SÍ se
+  automatiza es dejar un **lienzo limpio** al final: `demo-lib.mjs` expone
+  `renderEndCard(browser, {title, subtitle, bgPath, out})` (tarjeta de marca por CSS; fondo acuarela
+  si existe `bgPath`, si no un degradado morado) y `appendEndCard(cfg, {video, card, out, seconds})`
+  (clip de N segundos con audio silencioso, concatenado al final; detecta tamaño/fps del video).
+  `record-tour.mjs` los llama tras el mux → la tarjeta queda integrada en toda regrabación.
 
 ## ⚠️ Datos de la demo: NUNCA backup/restore de sqlite por CLI (CRITICAL)
 

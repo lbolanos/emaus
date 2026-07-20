@@ -42,8 +42,14 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 > permite reemplazar el archivo** de un video ya subido — si subes algo que luego cambia, hay que
 > subir otro y borrar el anterior a mano (incidente 2026-07-06).
 
-1. **Autorizar (una sola vez)**: `node e2e/demo/youtube-auth.mjs` — levanta un servidor
-   loopback, abre el navegador, canjea el code por `refresh_token` y lo guarda.
+1. **Autorizar**: `node e2e/demo/youtube-auth.mjs` — levanta un servidor loopback, abre el navegador,
+   canjea el code por `refresh_token` y lo guarda. **Scope** (`youtube-lib.mjs` → `YT_SCOPE`):
+   `youtube.upload` **+** `youtube.force-ssl` (subir + gestionar playlists/miniaturas/borrar; el
+   `youtube.upload` solo NO alcanza para playlists ni borrado). ⚠️ **El script SE SALTA la
+   reautorización si ya existe `youtube-token.json`** (aunque el token esté vencido) → para
+   reautorizar hay que **borrar/renombrar `youtube-token.json` primero**. El login de Google es
+   interactivo (solo lo hace el humano): lanzalo en background y esperá el aviso de que aprobó; si el
+   navegador no abre, el script imprime la URL para pegar.
 2. **Subir**: `node e2e/demo/upload-to-youtube.mjs output/<video>.mp4 [--privacy unlisted]`.
    Lee `<video>.meta.json` (título, descripción, tags, capítulos) si existe; si no, usa el
    nombre del archivo como título. Imprime la URL final.
@@ -60,6 +66,23 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 | `youtube-auth.mjs` | Flujo OAuth loopback (una vez) → `youtube-token.json`. |
 | `upload-to-youtube.mjs` | CLI de subida; lee `<video>.meta.json`. |
 | `demo-lib.mjs` | `writeVideoMeta()` / `buildYoutubeChapters()` + `loadEnv()` con la config YT/Gemini. |
+
+## Playlists y borrado por API (scope `youtube.force-ssl`)
+
+Ambos requieren `youtube.force-ssl` (ver paso de autorización). Access token con
+`getAccessToken(cfg)` de `youtube-lib.mjs`; headers `Authorization: Bearer <token>` + `Content-Type: application/json`.
+
+- **Crear playlist**: `POST youtube/v3/playlists?part=snippet,status` con
+  `{ snippet:{ title, description }, status:{ privacyStatus:'public' } }` → devuelve `id`.
+- **Agregar video**: `POST youtube/v3/playlistItems?part=snippet` con
+  `{ snippet:{ playlistId, resourceId:{ kind:'youtube#video', videoId } } }`. Agregá **secuencial**
+  (uno tras otro) para preservar el orden; cada insert lo appendea al final.
+- **Borrar video**: `DELETE youtube/v3/videos?id=<videoId>` → 204. (El `youtube.upload` NO puede
+  borrar; da 403.) YouTube tampoco deja reemplazar el archivo de un video → al re-publicar una
+  versión nueva, subir + borrar la vieja (ahora se puede por API).
+- **Playlist del canal** (17 videos en orden de ciclo, creada 2026-07-09):
+  `https://www.youtube.com/playlist?list=PLSdqEiN1fbDM` — al publicar uno nuevo, agregarlo con
+  `playlistItems.insert`. Lista viva de videos: `docs/features/video-tutorials-checklist.md`.
 
 ## Arte del canal con IA (nano banana) + composición
 
@@ -104,18 +127,22 @@ enlace 📺 al inicio del doc markdown de la feature.
 
 ## Gotchas (ganados a pulso, 2026-07)
 
-- **OAuth "External" en modo Testing → el `refresh_token` expira a los 7 días.** Para que no
-  caduque: en Google Auth Platform → **Audience → "Publish app"** (sale aviso de "app no
-  verificada"; se ignora porque es de uso propio). *Internal* (sin caducidad ni verificación)
-  **solo existe si el proyecto está en Workspace** — este canal es Gmail personal, así que es External.
-- **`Error 403: access_denied` al autorizar** = la cuenta no está en **Test users**. Agregarla en
-  Audience → Test users (o publicar la app).
+- **OAuth "External" en modo Testing → el `refresh_token` expira a los 7 días.** ✅ **YA RESUELTO
+  (2026-07-09): la app está "In production"** (Google Auth Platform → Audience → **Publish app** →
+  Push to production). Con eso los refresh tokens **ya no caducan** (sigue saliendo el aviso de "app
+  no verificada" al autorizar, se ignora por ser de uso propio). *Internal* (sin caducidad ni aviso)
+  solo existe en Workspace; este canal es Gmail personal → External + Published. Nota: un token
+  emitido *mientras* la app estaba en Testing puede caducar una última vez; la siguiente reautorización
+  (ya In production) queda permanente.
+- **`Error 403: access_denied` al autorizar** = la cuenta no está en **Test users**. Con la app ya
+  publicada esto no aplica; si reaparece, agregar la cuenta en Audience → Test users.
 - **La generación de imágenes NO está en el free tier de Gemini** (`429`, `limit: 0`). Requiere
   **facturación activada** en el proyecto de la API key (~$0.04 USD/imagen). El error es de cuota,
   no de auth — reintentar no ayuda hasta activar billing.
-- **El scope `youtube.upload` NO permite leer datos del canal** (`channels.list?mine=true` → 403).
-  Para verificar el canal, abrir la **página pública** con Playwright y sacar screenshot
-  (WebFetch solo trae el footer: YouTube es SPA con JS).
+- **El scope `youtube.upload` NO permite leer datos del canal, gestionar playlists, ni borrar**
+  (`channels.list?mine=true` / `playlists.insert` / `videos.delete` → 403 "insufficientPermissions").
+  Para eso hace falta **`youtube.force-ssl`** (ya incluido en `YT_SCOPE`). Verificación visual del
+  canal: abrir la **página pública** con Playwright y screenshot (WebFetch solo trae el footer; es SPA).
 - **Miniaturas personalizadas requieren teléfono verificado** en el canal ([youtube.com/verify](https://youtube.com/verify)).
   El canal Emaús Retiros **ya está verificado** → se pueden subir por API con `thumbnails.set`
   (POST `https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId=<id>&uploadType=media`,
