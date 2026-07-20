@@ -79,5 +79,5 @@ Cierran la confusión "cuenta de usuario vs. registro al retiro" que ya viene en
 - Al publicar cada uno: pegar la URL como link 📺 en su doc de ayuda (`apps/web/src/docs/es/<sección>.md`)
   para que aparezca en "Obtener ayuda para esta página".
 - Generar miniatura a juego (estilo acuarela "Camino a Emaús") y subirla en Studio.
-- Considerar una **playlist por prioridad** (Onboarding, Configuración, Logística, Comunicación).
+- **Playlist del canal** (17 videos en orden de ciclo del retiro): https://www.youtube.com/playlist?list=PLSdqEiN1fbDM — "Emaús Retiros — Tutoriales". Al publicar uno nuevo, agregarlo con `playlistItems.insert` (scope `youtube.force-ssl`).
 - Fijar como **video destacado** del canal el de onboarding (P0) para nuevos visitantes.

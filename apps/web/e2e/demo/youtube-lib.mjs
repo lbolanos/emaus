@@ -14,7 +14,9 @@ import { DEMO_DIR } from './demo-lib.mjs';
 
 const TOKEN_PATH = path.join(DEMO_DIR, 'youtube-token.json');
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
-export const YT_SCOPE = 'https://www.googleapis.com/auth/youtube.upload';
+// upload = subir videos; force-ssl = gestionar el canal (playlists, miniaturas, borrar).
+export const YT_SCOPE =
+  'https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.force-ssl';
 
 export function loadToken() {
   if (!existsSync(TOKEN_PATH)) return null;
