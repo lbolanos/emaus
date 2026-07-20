@@ -430,9 +430,9 @@
                 </RadioGroup>
                 <div
                   v-if="formData.isPublic"
-                  class="mt-3 p-2 rounded-md bg-amber-50 border border-amber-300 text-amber-900 text-xs flex gap-2"
+                  class="mt-3 p-2 rounded-md bg-blue-50 border border-blue-200 text-blue-900 text-xs flex gap-2"
                 >
-                  <span class="text-base leading-none">⚠️</span>
+                  <span class="text-base leading-none">ℹ️</span>
                   <span>{{ $t('retreatModal.isPublicWarning') }}</span>
                 </div>
               </div>
