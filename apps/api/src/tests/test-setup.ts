@@ -75,6 +75,7 @@ import { SantisimoSignup } from '../entities/santisimoSignup.entity';
 import { ParticipantAvailability } from '../entities/participantAvailability.entity';
 import { RetreatMemoryPhoto } from '../entities/retreatMemoryPhoto.entity';
 import { RetreatMemorySong } from '../entities/retreatMemorySong.entity';
+import { ChatConversation } from '../entities/chatConversation.entity';
 
 const entities = [
 	Session,
@@ -141,6 +142,7 @@ const entities = [
 	ParticipantAvailability,
 	RetreatMemoryPhoto,
 	RetreatMemorySong,
+	ChatConversation,
 	SavedSegment,
 	MessageSequence,
 	SequenceStep,

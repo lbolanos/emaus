@@ -177,6 +177,33 @@ export const useRetreatStore = defineStore('retreat', () => {
 		}
 	}
 
+	// Delete a retreat (superadmin: cualquiera; admin: solo propios y sin participantes).
+	// El backend valida la autorización y responde 403/409 si no procede.
+	async function deleteRetreat(retreatId: string) {
+		loading.value = true;
+		try {
+			await api.delete(`/retreats/${retreatId}`);
+			retreats.value = retreats.value.filter((r) => r.id !== retreatId);
+			// Si borramos el retiro seleccionado, pasar al más reciente (o ninguno).
+			if (selectedRetreatId.value === retreatId) {
+				selectedRetreatId.value = mostRecentRetreat.value?.id ?? null;
+			}
+			toast({
+				title: 'Éxito',
+				description: 'Retiro eliminado correctamente.',
+			});
+		} catch (err: any) {
+			toast({
+				title: 'Error',
+				description: apiErrorMessage(err, 'No se pudo eliminar el retiro.'),
+				variant: 'destructive',
+			});
+			throw err;
+		} finally {
+			loading.value = false;
+		}
+	}
+
 	return {
 		retreats,
 		selectedRetreatId,
@@ -188,6 +215,7 @@ export const useRetreatStore = defineStore('retreat', () => {
 		fetchRetreat,
 		createRetreat,
 		updateRetreat, // Export new action
+		deleteRetreat, // Export delete action
 		walkerRegistrationLink,
 		serverRegistrationLink,
 	};

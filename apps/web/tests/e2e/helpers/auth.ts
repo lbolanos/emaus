@@ -9,7 +9,12 @@ export const E2E_USERS = {
 	admin: { email: 'e2e-admin@test.local', password: 'Test1234!' },
 	member: { email: 'e2e-member@test.local', password: 'Test1234!' },
 	other: { email: 'e2e-other@test.local', password: 'Test1234!' },
+	// Superadmin sembrado por 20260721130000 (prod-guarded) para el e2e de retiros.
+	superadmin: { email: 'e2e-superadmin@test.local', password: 'Test1234!' },
 } as const;
+
+// Casa fija sembrada por 20260721130000 — houseId requerido para crear un retiro en e2e.
+export const E2E_HOUSE_ID = 'e2e00003-cccc-cccc-cccc-000000000003';
 
 export const E2E_COMMUNITIES = {
 	primary: 'e2e00001-aaaa-aaaa-aaaa-000000000001',

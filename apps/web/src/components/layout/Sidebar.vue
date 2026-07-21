@@ -210,38 +210,71 @@
               <div v-if="retreatStore.loading" class="text-sm text-gray-400">{{ $t('sidebar.loadingRetreats') }}</div>
               <div v-else-if="retreatStore.retreats.length === 0" class="text-center">
                 <p class="text-sm text-gray-400 mb-2">{{ $t('sidebar.noRetreatsFound') }}</p>
-                <Button @click="isAddModalOpen = true" class="w-full" size="sm" :title="$t('sidebar.addRetreat')">
+                <Button v-if="can.create('retreat')" @click="isAddModalOpen = true" class="w-full" size="sm">
                   <Plus class="w-4 h-4 mr-2" />
                   {{ $t('sidebar.addRetreat') }}
                 </Button>
               </div>
               <div v-else class="space-y-2">
                 <Select v-model="retreatStore.selectedRetreatId as string">
-                  <SelectTrigger id="retreat-selector" class="bg-gray-700 border-gray-600 text-white text-sm">
-                    <SelectValue :placeholder="$t('sidebar.selectRetreat')" />
-                  </SelectTrigger>
+                  <TooltipProvider :delay-duration="150">
+                    <Tooltip>
+                      <TooltipTrigger as-child>
+                        <SelectTrigger
+                          id="retreat-selector"
+                          class="bg-gray-700 border-gray-600 text-white text-sm min-w-0 [&>span]:line-clamp-1 [&>span]:text-left"
+                        >
+                          <SelectValue :placeholder="$t('sidebar.selectRetreat')" />
+                        </SelectTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent v-if="selectedRetreatLabel" side="right" class="max-w-xs break-words">
+                        {{ selectedRetreatLabel }}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <SelectContent>
                     <SelectGroup>
                       <SelectItem v-for="retreat in retreatStore.retreats" :key="retreat.id" :value="retreat.id">
-                        {{ retreat.parish }} - {{ formatDate(retreat.startDate) }}
+                        <span class="block truncate">{{ retreat.parish }} - {{ formatDate(retreat.startDate) }}</span>
                       </SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>
-                <div class="flex items-center gap-2">
-                  <Button @click="isAddModalOpen = true" variant="outline" size="icon" class="border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700" :title="$t('sidebar.addRetreat')">
-                    <Plus class="w-4 h-4" />
-                  </Button>
-                  <Button
-                    v-if="retreatStore.selectedRetreatId && can.update('retreat')"
-                    @click="isEditModalOpen = true"
-                    variant="outline"
-                    size="icon"
-                    class="border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700"
-                    :title="$t('common.edit')"
+                <div class="flex items-center gap-1.5">
+                  <TooltipProvider :delay-duration="150">
+                    <Tooltip v-if="can.create('retreat')">
+                      <TooltipTrigger as-child>
+                        <Button @click="isAddModalOpen = true" variant="outline" size="icon" :aria-label="$t('sidebar.addRetreat')" class="h-7 w-7 border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700">
+                          <Plus class="w-3.5 h-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{{ $t('sidebar.addRetreat') }}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip v-if="retreatStore.selectedRetreatId && can.update('retreat')">
+                      <TooltipTrigger as-child>
+                        <Button @click="isEditModalOpen = true" variant="outline" size="icon" :aria-label="$t('common.edit')" class="h-7 w-7 border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700">
+                          <EditIcon class="w-3.5 h-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{{ $t('common.edit') }}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip v-if="retreatStore.selectedRetreatId && canDeleteSelectedRetreat">
+                      <TooltipTrigger as-child>
+                        <Button @click="isDeleteRetreatOpen = true" variant="outline" size="icon" :aria-label="$t('common.delete')" class="h-7 w-7 border-gray-600 text-gray-300 hover:text-white hover:bg-red-900/40 hover:border-red-700">
+                          <Trash2 class="w-3.5 h-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{{ $t('common.delete') }}</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <!-- Fecha de inicio del retiro seleccionado (junto a los botones) -->
+                  <span
+                    v-if="selectedRetreatStartDate"
+                    class="ml-auto flex items-center gap-1 text-xs text-gray-400 whitespace-nowrap"
                   >
-                    <EditIcon class="w-4 h-4" />
-                  </Button>
+                    <Clock class="w-3 h-3 flex-shrink-0" />
+                    {{ selectedRetreatStartDate }}
+                  </span>
                 </div>
                 <!-- Permission refresh indicator -->
                 <div v-if="authStore.refreshingProfile" class="flex items-center text-xs text-blue-400">
@@ -323,13 +356,17 @@
     @update:open="isEditModalOpen = $event"
     @update="handleEditRetreat"
   />
+  <DeleteRetreatDialog
+    v-model:open="isDeleteRetreatOpen"
+    :retreat="retreatStore.selectedRetreat"
+  />
   <HelpPanel :open="isHelpPanelOpen" @close="isHelpPanelOpen = false" />
 </template>
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { ref, computed, nextTick, onMounted, watch } from 'vue';
-import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, Shirt, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, Clock, ClipboardList, BookOpen, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages, DoorOpen } from 'lucide-vue-next';
+import { LogOut, Users, UtensilsCrossed, LayoutDashboard, ChevronLeft, Home, Ban, Bed, HandHeart, DollarSign, NotebookPen, Building, UsersRound, Salad, FileX, UserCheck, ShoppingBag, Pill, Shirt, UserCog, Table, Settings, Package, Globe, Briefcase, Search, X, ArrowRight, ChevronDown, Lock, CreditCard, Activity, KeyRound, Heart, UserPlus, UserCircle, MessageSquare, Clock, ClipboardList, BookOpen, Plus, Edit as EditIcon, HelpCircle, Cross, User as UserIcon, Languages, DoorOpen, Trash2 } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/authStore';
 import { useReceptionStore } from '@/stores/receptionStore';
 import { useRouter, useRoute } from 'vue-router';
@@ -364,6 +401,7 @@ import { useRouteContext } from '@/composables/useRouteContext';
 import { formatDate } from '@repo/utils';
 import type { CreateRetreat, Retreat } from '@repo/types';
 import RetreatModal from '@/components/RetreatModal.vue';
+import DeleteRetreatDialog from '@/components/DeleteRetreatDialog.vue';
 import HelpPanel from '@/components/HelpPanel.vue';
 import SidebarSection from '@/components/layout/SidebarSection.vue';
 import { useI18n } from 'vue-i18n';
@@ -403,7 +441,7 @@ const receptionStore = useReceptionStore();
 const participantStore = useParticipantStore();
 const { participants } = storeToRefs(participantStore);
 const { isSidebarCollapsed, isMobile } = storeToRefs(uiStore);
-const { can, currentRetreatRole, retreatOnlyPermissions } = useAuthPermissions();
+const { can, isSuperadmin, currentRetreatRole, retreatOnlyPermissions } = useAuthPermissions();
 const route = useRoute();
 const { isRetreatSection, currentSectionTitle } = useRouteContext();
 const { locale, t } = useI18n();
@@ -491,7 +529,30 @@ const toggleRetreatGroup = () => {
 // Header-absorbed state
 const isAddModalOpen = ref(false);
 const isEditModalOpen = ref(false);
+const isDeleteRetreatOpen = ref(false);
 const isHelpPanelOpen = ref(false);
+
+// Etiqueta completa del retiro seleccionado (para el tooltip al hover).
+const selectedRetreatLabel = computed(() => {
+	const r = retreatStore.selectedRetreat;
+	return r ? `${r.parish} - ${formatDate(r.startDate)}` : '';
+});
+
+// Fecha de inicio del retiro seleccionado (se muestra junto a los botones; la píldora
+// trunca el nombre largo y puede ocultar la fecha).
+const selectedRetreatStartDate = computed(() => {
+	const r = retreatStore.selectedRetreat;
+	return r?.startDate ? formatDate(r.startDate) : '';
+});
+
+// Puede borrar el retiro seleccionado: superadmin siempre; admin solo si lo creó.
+// El backend valida la matriz real (403/409); esto controla la visibilidad.
+const canDeleteSelectedRetreat = computed(() => {
+	const r = retreatStore.selectedRetreat;
+	if (!r) return false;
+	if (isSuperadmin.value) return true;
+	return can.delete('retreat') && r.createdBy === authStore.user?.id;
+});
 
 // Auto-close mobile menu on navigation
 watch(() => route.fullPath, () => {

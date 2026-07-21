@@ -328,6 +328,68 @@ describe('RetreatStore', () => {
 		});
 	});
 
+	describe('Delete Retreat', () => {
+		it('should delete retreat and remove it from the list', async () => {
+			store.retreats = [...mockRetreats];
+			const { api } = await import('@/services/api');
+			(api.delete as any).mockResolvedValue({ status: 204 });
+
+			await store.deleteRetreat('retreat-1');
+
+			expect(api.delete).toHaveBeenCalledWith('/retreats/retreat-1');
+			expect(store.retreats.find((r: any) => r.id === 'retreat-1')).toBeUndefined();
+			expect(store.retreats).toHaveLength(1);
+			expect(store.loading).toBe(false);
+		});
+
+		it('should reselect the most recent retreat when the deleted one was selected', async () => {
+			store.retreats = [...mockRetreats];
+			store.selectRetreat('retreat-1');
+			const { api } = await import('@/services/api');
+			(api.delete as any).mockResolvedValue({ status: 204 });
+
+			await store.deleteRetreat('retreat-1');
+
+			// retreat-1 removed → most recent of the remaining is retreat-2
+			expect(store.selectedRetreatId).toBe('retreat-2');
+		});
+
+		it('should set selection to null when deleting the last retreat', async () => {
+			store.retreats = [createMockRetreat({ id: 'retreat-1' })];
+			store.selectRetreat('retreat-1');
+			const { api } = await import('@/services/api');
+			(api.delete as any).mockResolvedValue({ status: 204 });
+
+			await store.deleteRetreat('retreat-1');
+
+			expect(store.retreats).toHaveLength(0);
+			expect(store.selectedRetreatId).toBeNull();
+		});
+
+		it('should keep the current selection when deleting a different retreat', async () => {
+			store.retreats = [...mockRetreats];
+			store.selectRetreat('retreat-2');
+			const { api } = await import('@/services/api');
+			(api.delete as any).mockResolvedValue({ status: 204 });
+
+			await store.deleteRetreat('retreat-1');
+
+			expect(store.selectedRetreatId).toBe('retreat-2');
+		});
+
+		it('should handle delete retreat error and keep the list intact', async () => {
+			store.retreats = [...mockRetreats];
+			const { api } = await import('@/services/api');
+			(api.delete as any).mockRejectedValue({
+				response: { data: { message: 'Forbidden' } },
+			});
+
+			await expect(store.deleteRetreat('retreat-1')).rejects.toThrow();
+			expect(store.retreats).toHaveLength(2);
+			expect(store.loading).toBe(false);
+		});
+	});
+
 	describe('LocalStorage Integration', () => {
 		it('should save selection to localStorage when it changes', async () => {
 			store.selectRetreat('test-retreat-id');

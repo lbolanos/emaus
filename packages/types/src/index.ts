@@ -164,7 +164,9 @@ const arrivalTimeSchema = z.preprocess(
 // Retreat Schema
 export const retreatSchema = z.object({
 	id: idSchema,
-	parish: z.string(),
+	// .trim() limpia espacios al borde en cada create/update (evita nombres como
+	// "… | Mexico City " que rompen la confirmación por nombre y confunden al deduplicar).
+	parish: z.string().trim(),
 	startDate: z.coerce.date(),
 	endDate: z.coerce.date(),
 	houseId: idSchema,

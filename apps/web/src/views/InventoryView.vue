@@ -1206,6 +1206,7 @@ import {
   HelpCircle,
   SlidersHorizontal,
   RefreshCw,
+  Loader2,
 } from 'lucide-vue-next';
 import InventoryHelpDialog from '@/components/InventoryHelpDialog.vue';
 import ExcelJS from 'exceljs';

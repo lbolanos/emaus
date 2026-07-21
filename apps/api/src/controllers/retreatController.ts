@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import {
   getRetreatsForUser,
   createRetreat as createRetreatService,
+  deleteRetreat as deleteRetreatService,
+  getRetreatDeletionImpact as getRetreatDeletionImpactService,
   findById,
   findBySlug,
   isSlugAvailable,
@@ -179,6 +181,44 @@ export const updateRetreat = async (
     if (error.statusCode === 409) {
       return res.status(409).json({ message: error.message });
     }
+    next(error);
+  }
+};
+
+export const deleteRetreat = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    await deleteRetreatService(req.params.id, { id: userId });
+    res.status(204).send();
+  } catch (error: any) {
+    const status = error?.statusCode;
+    if (status === 404 || status === 403 || status === 409) {
+      return res.status(status).json({ message: error.message });
+    }
+    next(error);
+  }
+};
+
+export const getRetreatDeletionImpact = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const retreat = await findById(req.params.id);
+    if (!retreat) {
+      return res.status(404).json({ message: "Retreat not found" });
+    }
+    const impact = await getRetreatDeletionImpactService(req.params.id);
+    res.json(impact);
+  } catch (error) {
     next(error);
   }
 };

@@ -24,6 +24,8 @@ import {
 	importRetreatMemorySongsFromMam,
 	getAttendedRetreats,
 	refreshRetreatBeds,
+	deleteRetreat,
+	getRetreatDeletionImpact,
 } from '../controllers/retreatController';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { validateRequest } from '../middleware/validateRequest';
@@ -69,6 +71,18 @@ router.put(
 	validateRequest(updateRetreatSchema),
 	requirePermission('retreat:update'),
 	(req: any, res: any, next: any) => updateRetreat(req, res, next),
+);
+
+router.delete(
+	'/:id',
+	requirePermission('retreat:delete'),
+	(req: any, res: any, next: any) => deleteRetreat(req, res, next),
+);
+
+router.get(
+	'/:id/deletion-impact',
+	requirePermission('retreat:read'),
+	(req: any, res: any, next: any) => getRetreatDeletionImpact(req, res, next),
 );
 
 router.post(

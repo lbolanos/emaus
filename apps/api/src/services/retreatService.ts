@@ -1,10 +1,45 @@
-import { DataSource } from 'typeorm';
+import { DataSource, type EntityTarget, type ObjectLiteral } from 'typeorm';
 import { AppDataSource } from '../data-source';
 import { Retreat } from '../entities/retreat.entity';
 import { House } from '../entities/house.entity';
 import { RetreatBed } from '../entities/retreatBed.entity';
 import { UserRetreat } from '../entities/userRetreat.entity';
 import { Role } from '../entities/role.entity';
+// Entidades hijas del retiro — usadas por deleteRetreat para el borrado en cascada explícito.
+import { RetreatParticipant } from '../entities/retreatParticipant.entity';
+import { Participant } from '../entities/participant.entity';
+import { TableMesa } from '../entities/tableMesa.entity';
+import { ServiceTeam } from '../entities/serviceTeam.entity';
+import { ServiceTeamMember } from '../entities/serviceTeamMember.entity';
+import { MessageTemplate } from '../entities/messageTemplate.entity';
+import { MessageSequence } from '../entities/messageSequence.entity';
+import { SequenceStep } from '../entities/sequenceStep.entity';
+import { ScheduledMessage } from '../entities/scheduledMessage.entity';
+import { RetreatInventory } from '../entities/retreatInventory.entity';
+import { RetreatInventoryHistory } from '../entities/retreatInventoryHistory.entity';
+import { RetreatShirtType } from '../entities/retreatShirtType.entity';
+import { ParticipantShirtSize } from '../entities/participantShirtSize.entity';
+import { RetreatPreparation } from '../entities/retreatPreparation.entity';
+import { RetreatPreparationDocument } from '../entities/retreatPreparationDocument.entity';
+import { RetreatScheduleItem } from '../entities/retreatScheduleItem.entity';
+import { RetreatScheduleItemResponsable } from '../entities/retreatScheduleItemResponsable.entity';
+import { RetreatPreRetreatTask } from '../entities/retreatPreRetreatTask.entity';
+import { SantisimoSlot } from '../entities/santisimoSlot.entity';
+import { SantisimoSignup } from '../entities/santisimoSignup.entity';
+import { Responsability } from '../entities/responsability.entity';
+import { Tag } from '../entities/tag.entity';
+import { ParticipantTag } from '../entities/participantTag.entity';
+import { SavedSegment } from '../entities/savedSegment.entity';
+import { RetreatMemoryPhoto } from '../entities/retreatMemoryPhoto.entity';
+import { RetreatMemorySong } from '../entities/retreatMemorySong.entity';
+import { ChatConversation } from '../entities/chatConversation.entity';
+import { CrmTask } from '../entities/crmTask.entity';
+import { Payment } from '../entities/payment.entity';
+import { ParticipantDebt } from '../entities/participantDebt.entity';
+import { ParticipantCommunication } from '../entities/participantCommunication.entity';
+import { ParticipantFollowUp } from '../entities/participantFollowUp.entity';
+import { ParticipantAvailability } from '../entities/participantAvailability.entity';
+import { performanceOptimizationService } from './performanceOptimizationService';
 import { getRepository, getRepositories } from '../utils/repositoryHelpers';
 import { GlobalMessageTemplateService } from './globalMessageTemplateService';
 import { messageSequenceService } from './messageSequenceService';
@@ -405,4 +440,193 @@ export const createRetreat = async (
 	});
 
 	return result;
+};
+
+/**
+ * Elimina un retiro y TODAS sus entidades dependientes de forma segura.
+ *
+ * Autorización (la ruta ya exigió el permiso `retreat:delete`):
+ *   - superadmin  → puede borrar cualquier retiro, con o sin participantes.
+ *   - admin       → solo retiros que él creó (`createdBy`) y SIN participantes activos.
+ *
+ * Borrado: NO confiamos en `ON DELETE CASCADE` (en SQLite depende del DDL real y de
+ * `PRAGMA foreign_keys`, que la config no garantiza). Borramos explícitamente cada tabla
+ * hija en orden nietas → hijas → retiro, dentro de una transacción. Las tablas históricas
+ * (auditoría/telemetría/testimonios) conservan su registro con `retreatId = NULL`.
+ */
+export const deleteRetreat = async (
+	retreatId: string,
+	actor: { id: string },
+	dataSource?: DataSource,
+) => {
+	const ds = dataSource || AppDataSource;
+	const retreatRepository = ds.getRepository(Retreat);
+	const retreat = await retreatRepository.findOne({ where: { id: retreatId } });
+	if (!retreat) {
+		throw Object.assign(new Error('Retreat not found'), { statusCode: 404 });
+	}
+
+	// --- Autorización fina ---
+	const isSuperadmin = await authorizationService.hasRole(actor.id, ROLES.superadmin);
+	if (!isSuperadmin) {
+		// Admin: solo puede borrar retiros que él mismo creó.
+		if (retreat.createdBy !== actor.id) {
+			throw Object.assign(new Error('Solo puedes eliminar retiros que tú creaste.'), {
+				statusCode: 403,
+			});
+		}
+		// Admin: y solo si el retiro no tiene participantes activos.
+		// `isCancelled = false` en retreat_participants es el ground truth del soft-delete
+		// de participantes (ver participantService.deleteParticipant).
+		const activeParticipants = await ds.getRepository(RetreatParticipant).count({
+			where: { retreatId, isCancelled: false },
+		});
+		if (activeParticipants > 0) {
+			throw Object.assign(
+				new Error(
+					`No se puede eliminar: el retiro tiene ${activeParticipants} participante(s) inscrito(s). Solo un superadministrador puede eliminar retiros con participantes.`,
+				),
+				{ statusCode: 409 },
+			);
+		}
+	}
+
+	const snapshot = { ...retreat };
+
+	await ds.transaction(async (manager) => {
+		// Borra una tabla hija por su columna `retreatId`.
+		const delByRetreat = (entity: EntityTarget<ObjectLiteral>) =>
+			manager.getRepository(entity).delete({ retreatId } as any);
+
+		// IDs de una tabla padre (para borrar sus nietas, que no tienen `retreatId`).
+		const idsByRetreat = async (entity: EntityTarget<ObjectLiteral>): Promise<string[]> => {
+			const rows = await manager.getRepository(entity).find({ where: { retreatId } as any });
+			return rows.map((r: any) => r.id as string);
+		};
+
+		// Borra una tabla nieta por su columna FK al padre.
+		const delByParent = async (
+			entity: EntityTarget<ObjectLiteral>,
+			fkColumn: string,
+			parentIds: string[],
+		) => {
+			if (parentIds.length === 0) return;
+			await manager.getRepository(entity).delete({ [fkColumn]: In(parentIds) } as any);
+		};
+
+		// 1) IDs de tablas padre cuyas nietas no tienen `retreatId` directo.
+		const sequenceIds = await idsByRetreat(MessageSequence);
+		const preparationIds = await idsByRetreat(RetreatPreparation);
+		const scheduleItemIds = await idsByRetreat(RetreatScheduleItem);
+		const serviceTeamIds = await idsByRetreat(ServiceTeam);
+		const santisimoSlotIds = await idsByRetreat(SantisimoSlot);
+		const participantIds = await idsByRetreat(Participant);
+
+		// 2) Nietas (sin `retreatId`) — antes que sus padres.
+		await delByParent(SequenceStep, 'sequenceId', sequenceIds);
+		await delByParent(RetreatPreparationDocument, 'preparationId', preparationIds);
+		await delByParent(RetreatScheduleItemResponsable, 'scheduleItemId', scheduleItemIds);
+		await delByParent(ServiceTeamMember, 'serviceTeamId', serviceTeamIds);
+		await delByParent(SantisimoSignup, 'slotId', santisimoSlotIds);
+		await delByParent(ParticipantShirtSize, 'participantId', participantIds);
+		await delByParent(ParticipantTag, 'participantId', participantIds);
+
+		// 3) Hijas con columna `retreatId` directa. `retreat_participants` y `participants`
+		//    van al final (otras hijas —p. ej. payments— referencian participantId).
+		const childrenWithRetreatId: EntityTarget<ObjectLiteral>[] = [
+			ScheduledMessage,
+			MessageSequence,
+			MessageTemplate,
+			RetreatScheduleItem,
+			RetreatPreparation,
+			ServiceTeam,
+			SantisimoSlot,
+			RetreatShirtType,
+			RetreatInventoryHistory,
+			RetreatInventory,
+			RetreatBed,
+			TableMesa,
+			Responsability,
+			Tag,
+			SavedSegment,
+			RetreatMemoryPhoto,
+			RetreatMemorySong,
+			ChatConversation,
+			CrmTask,
+			RetreatPreRetreatTask,
+			Payment,
+			ParticipantDebt,
+			ParticipantCommunication,
+			ParticipantFollowUp,
+			ParticipantAvailability,
+			RetreatParticipant,
+			Participant,
+			UserRetreat,
+		];
+		for (const entity of childrenWithRetreatId) {
+			await delByRetreat(entity);
+		}
+
+		// 4) Tablas históricas: preservar el registro, soltar el vínculo (retreatId → NULL).
+		for (const table of [
+			'audit_logs',
+			'domain_audit_log',
+			'telemetry_events',
+			'telemetry_metrics',
+			'testimonials',
+		]) {
+			try {
+				await manager.query(`UPDATE ${table} SET retreatId = NULL WHERE retreatId = ?`, [
+					retreatId,
+				]);
+			} catch (err) {
+				console.warn(`[deleteRetreat] no se pudo desvincular ${table}:`, err);
+			}
+		}
+
+		// 5) Tablas legacy no mapeadas como entidad TypeORM (config.ts las excluye).
+		for (const table of ['permission_overrides', 'role_requests']) {
+			try {
+				await manager.query(`DELETE FROM ${table} WHERE retreatId = ?`, [retreatId]);
+			} catch (err) {
+				console.warn(`[deleteRetreat] no se pudo limpiar ${table}:`, err);
+			}
+		}
+
+		// 6) Finalmente, el retiro.
+		await manager.getRepository(Retreat).delete({ id: retreatId });
+	});
+
+	// Invalidar cachés relacionadas al retiro (best-effort).
+	try {
+		performanceOptimizationService.invalidateRetreatPermissionCache(retreatId);
+		performanceOptimizationService.invalidateRetreatCache(retreatId);
+	} catch {
+		/* noop */
+	}
+
+	void domainAuditService.logDelete('retreat', retreatId, snapshot, {
+		retreatId,
+		fields: RETREAT_AUDIT_FIELDS,
+		metadata: { deletedBy: actor.id, superadmin: isSuperadmin },
+	});
+
+	return retreat;
+};
+
+/**
+ * Conteos del impacto de borrar un retiro — para advertir en el diálogo de confirmación
+ * cuánto se perdería (sobre todo cuando un superadmin borra un retiro poblado).
+ */
+export const getRetreatDeletionImpact = async (retreatId: string, dataSource?: DataSource) => {
+	const ds = dataSource || AppDataSource;
+	const [activeParticipants, totalRegistrations, payments, tables, scheduledMessages] =
+		await Promise.all([
+			ds.getRepository(RetreatParticipant).count({ where: { retreatId, isCancelled: false } }),
+			ds.getRepository(RetreatParticipant).count({ where: { retreatId } }),
+			ds.getRepository(Payment).count({ where: { retreatId } }),
+			ds.getRepository(TableMesa).count({ where: { retreatId } }),
+			ds.getRepository(ScheduledMessage).count({ where: { retreatId } }),
+		]);
+	return { activeParticipants, totalRegistrations, payments, tables, scheduledMessages };
 };

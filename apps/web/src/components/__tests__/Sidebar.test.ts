@@ -93,6 +93,9 @@ vi.mock('vue-router', () => ({
 vi.mock('@/components/RetreatModal.vue', () => ({
 	default: { template: '<div />' },
 }));
+vi.mock('@/components/DeleteRetreatDialog.vue', () => ({
+	default: { template: '<div />' },
+}));
 vi.mock('@/components/HelpPanel.vue', () => ({
 	default: { template: '<div />' },
 }));
@@ -166,6 +169,7 @@ vi.mock('lucide-vue-next', () => ({
 	BookOpen: { template: '<div data-icon="BookOpen" />' },
 	Plus: { template: '<div data-icon="Plus" />' },
 	Edit: { template: '<div data-icon="Edit" />' },
+	Trash2: { template: '<div data-icon="Trash2" />' },
 	HelpCircle: { template: '<div data-icon="HelpCircle" />' },
 	Cross: { template: '<div data-icon="Cross" />' },
 	User: { template: '<div data-icon="User" />' },

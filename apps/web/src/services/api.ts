@@ -2020,6 +2020,21 @@ export async function getAttendedRetreats(): Promise<Retreat[]> {
   return response.data;
 }
 
+export interface RetreatDeletionImpact {
+  activeParticipants: number;
+  totalRegistrations: number;
+  payments: number;
+  tables: number;
+  scheduledMessages: number;
+}
+
+export async function getRetreatDeletionImpact(
+  id: string,
+): Promise<RetreatDeletionImpact> {
+  const response = await api.get(`/retreats/${id}/deletion-impact`);
+  return response.data;
+}
+
 // ==================== RETREAT MEMORY GALLERY API ====================
 
 import type { RetreatMemoryPhoto, RetreatMemorySong } from "@repo/types";
