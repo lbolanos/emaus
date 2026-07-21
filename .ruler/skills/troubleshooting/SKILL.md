@@ -22,6 +22,9 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "el test 403 no se dispara", "el mock de authorization no se usa" | [#9 Tests 403 con ESM + path aliases](#9-tests-de-autorización-403-con-esm--path-aliases) |
 | "el test Vue rompe porque Input no tiene min/max" / "defineModel" | [#10 Tests Vue con defineModel](#10-tests-vue-con-componentes-definemodel) |
 | "el botón no navega", "click al Button no me lleva a la página", "as=router-link no funciona" | [#11 Button con `as` string ignora componentes Vue](#11-button-con-as-string-ignora-componentes-vue-router-link) |
+| "el botón no tiene ícono", "el ícono no aparece", "el componente sale vacío pero no hay error" | [#12 Ícono/componente usado sin importar en `<script setup>`](#12-íconocomponente-usado-sin-importar-en-script-setup) |
+| "el tooltip tarda mucho en salir", "demora en aparecer el texto al pasar el mouse" | [#13 Tooltip lento: `title` nativo vs reka-ui](#13-tooltip-lento-title-nativo-vs-reka-ui) |
+| "el botón Eliminar/Confirmar sigue deshabilitado aunque escribí el nombre exacto" | [#14 Confirmación por nombre nunca se habilita (whitespace)](#14-confirmación-por-nombre-nunca-se-habilita-whitespace) |
 
 ---
 
@@ -363,6 +366,89 @@ grep -rEn 'as="[A-Z][a-zA-Z]+"' apps/web/src/
 - 2026-05-17 `apps/web/src/views/VerifyEmailView.vue:19` — el botón "Ir al login" tras verificar email no navegaba. Fix con `as-child` + computed `continueTarget`/`continueLabel` para enviar al user autenticado a `/app` en lugar de `/login`.
 
 **Detalle**: docs de radix-vue sobre [`Primitive` y `as-child`](https://www.radix-vue.com/utilities/primitive).
+
+---
+
+## 12. Ícono/componente usado sin importar en `<script setup>`
+
+**Síntoma**: un botón (u otro elemento) aparece **sin su ícono** — el hueco está pero el SVG no. No hay error en consola y **`pnpm build` (vue-tsc) pasa sin quejarse**.
+
+**Causa**: en `<script setup>`, un componente usado en el template (p. ej. `<Trash2 />`) debe estar **importado**. Si falta el import, Vue no lo resuelve y **renderiza nada** en silencio. `vue-tsc` no lo detecta como error de tipos, así que el build queda verde. Los tests con mock global de lucide tampoco fallan (el mock resuelve el ícono aunque el componente real no lo importe).
+
+**Fix** — importar el ícono en el bloque de imports de lucide:
+
+```ts
+import { Plus, Edit as EditIcon, Trash2 } from 'lucide-vue-next'; // ← faltaba Trash2
+```
+
+**Auditar el repo** — íconos usados en template pero ausentes del import (heurística):
+```bash
+# Lista íconos PascalCase usados en <template> y compáralos con el import de lucide del archivo
+grep -oE '<[A-Z][A-Za-z0-9]+' apps/web/src/components/layout/Sidebar.vue | sort -u
+```
+
+**Casos**:
+- 2026-07-21 `Sidebar.vue` — el botón "Eliminar retiro" salía sin ícono porque `Trash2` se usaba en el template pero no estaba en el import de `lucide-vue-next`. El build pasó igual.
+
+**Relacionado**: distinto del bug del **mock** de lucide en tests (agregar el ícono al allowlist de `src/test/setup.ts`) — aquí el problema es el import en el **componente real**.
+
+---
+
+## 13. Tooltip lento: `title` nativo vs reka-ui
+
+**Síntoma**: el usuario pasa el mouse sobre un elemento y el texto de ayuda **tarda ~1s en aparecer** (o se siente lento).
+
+**Causa**: se usó el atributo **`title` nativo** del HTML. El navegador tiene un delay fijo (~700ms+) no configurable para mostrar el tooltip nativo.
+
+**Fix** — usar el componente **`Tooltip` de `@repo/ui`** (reka-ui) con `delay-duration` corto:
+
+```vue
+<script setup>
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@repo/ui';
+</script>
+
+<TooltipProvider :delay-duration="150">
+  <Tooltip>
+    <TooltipTrigger as-child>
+      <Button variant="outline" size="icon"><Trash2 class="w-4 h-4" /></Button>
+    </TooltipTrigger>
+    <TooltipContent>Eliminar retiro</TooltipContent>
+  </Tooltip>
+</TooltipProvider>
+```
+
+Notas:
+- `TooltipTrigger as-child` envuelve el elemento real (Button, incluso un `SelectTrigger`) — el contexto de reka-ui va por provide/inject, así que anidar dentro de un `Select` funciona.
+- Un `TooltipProvider` puede envolver varios `Tooltip` (fija el delay para todos).
+
+**Auditar el repo**:
+```bash
+grep -rnE ':?title=' apps/web/src/ | grep -v 'EmptyState\|<title>'   # candidatos a migrar a Tooltip
+```
+
+**Casos**:
+- 2026-07-21 `Sidebar.vue` / `MyRetreatsView.vue` — el nombre del retiro y los botones +/✏️/🗑️ usaban `title` nativo (lento); migrados a `Tooltip` de reka-ui.
+
+---
+
+## 14. Confirmación por nombre nunca se habilita (whitespace)
+
+**Síntoma**: un diálogo de borrado tipo "escribe el nombre para confirmar" deja el botón **deshabilitado aunque el usuario escribió el nombre exacto** que se muestra en pantalla.
+
+**Causa**: la comparación trimea **solo un lado**: `input.trim() === entidad.nombre`. Si el nombre guardado en la BD trae **espacios al borde** (frecuente en datos reales, p. ej. `"… | Mexico City "`), nunca coincide.
+
+**Fix** — trimear **ambos lados**:
+
+```ts
+const canConfirm = computed(
+  () => !!retreat.value && input.value.trim() === (retreat.value.parish ?? '').trim(),
+);
+```
+
+**Casos**:
+- 2026-07-21 `DeleteRetreatDialog.vue` — el `parish` del retiro tenía un espacio final; la confirmación por nombre era imposible hasta trimear ambos lados. Descubierto en el e2e por la UI real (no lo veían los tests con nombres limpios).
+
+**Detalle**: feature completa en `docs/features/retreat-deletion.md`.
 
 ---
 
