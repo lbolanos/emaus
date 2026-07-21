@@ -1,6 +1,8 @@
 # My Retreats
 
-The My Retreats feature allows you to view all retreats you have attended and revisit the special memories from each experience.
+In **My Retreats** you manage your retreats —create, edit and delete them— and revisit the memories of those you attended.
+
+📺 **[Watch: create and manage a retreat (3 min)](https://youtu.be/EDUr1n_fJk8)**
 
 ## Viewing Your Retreats
 

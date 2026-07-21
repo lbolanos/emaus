@@ -1,6 +1,8 @@
 # Mis Retiros
 
-La función Mis Retiros te permite ver todos los retiros en los que has participado y revivir los momentos especiales de cada experiencia.
+En **Mis Retiros** administras tus retiros —crearlos, editarlos y eliminarlos— y revives los recuerdos de aquellos en los que participaste.
+
+📺 **[Ver video: crear y gestionar un retiro (3 min)](https://youtu.be/EDUr1n_fJk8)**
 
 ## Ver Tus Retiros
 
