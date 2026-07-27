@@ -1,0 +1,35 @@
+# Config de gitleaks para el pre-commit hook (ver .husky/pre-commit).
+# Extiende el ruleset default y permite SOLO los valores placeholder/demo conocidos.
+#
+# Criterio: los allowlists filtran por VALOR literal, nunca por path. Así, si alguien pega
+# un secreto real en .env.example o en un doc, se detecta igual — solo los placeholders
+# exactos de abajo pasan. Falsos positivos nuevos: agregar acá, no usar --no-verify.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Placeholders de apps/api/.env.example (your_… / YOUR_…)"
+regexes = [
+  '''(?i)^your[_-]''',
+  '''(?i)^(changeme|replace[_-]?me|xxx+|placeholder)''',
+]
+
+[[allowlists]]
+description = "Clave RSA ilustrativa y truncada de docs/deployment/setup-guide.md"
+targetRules = ["private-key"]
+regexes = [
+  '''MIIEpAIBAAKCAQEA\.\.\.''',
+  '''\[middle section with many lines\]''',
+]
+
+[[allowlists]]
+description = "reCAPTCHA test key pública de Google (documentada como 'always valid score')"
+regexes = ['''6Lf_NUssAAAAAJNezAhbH6Ym26f8qA6ac4pGGXAe''']
+
+[[allowlists]]
+description = "Claves de localStorage y mocks de test — no son secretos"
+regexes = [
+  '''inventory\.visibleColumns\.v2''',
+  '''sk-ant-123''',
+]

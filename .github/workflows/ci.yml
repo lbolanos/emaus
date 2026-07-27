@@ -12,6 +12,8 @@ permissions:
   pull-requests: write
 
 jobs:
+  # El escaneo de secretos vive en su propio workflow (.github/workflows/secret-scan.yml):
+  # acá quedaría excluido de los pushes directos a master, que es el flujo habitual del repo.
   lint:
     name: Lint
     runs-on: ubuntu-latest

@@ -1,6 +1,24 @@
 #!/usr/bin/env sh
-# Pre-commit liviano: solo eslint --fix de los archivos staged (ver .lintstagedrc.cjs).
+# Pre-commit liviano: escaneo de secretos + eslint --fix de los archivos staged.
 # Los tests corren en pre-push (relacionados) y en CI (suite completa).
 # Saltar: SKIP_PRE_COMMIT=1 git commit   ·   o   git commit --no-verify
 [ -n "$SKIP_PRE_COMMIT" ] && exit 0
+
+# 1) Secretos: el repo es PÚBLICO. Bloquea el commit antes de que la key entre al historial
+#    (limpiar el working tree después NO des-expone nada; hay que rotar). Falsos positivos:
+#    agregarlos a .gitleaks.toml, no saltar el hook.
+if command -v gitleaks >/dev/null 2>&1; then
+  if ! gitleaks git --staged --no-banner --redact -c .gitleaks.toml; then
+    echo ""
+    echo "🔒 gitleaks encontró un posible secreto en los archivos staged (ver arriba)."
+    echo "   • Si es real: sacalo del código (usar variable de entorno) y re-stagea."
+    echo "   • Si es un falso positivo: agregá el valor a .gitleaks.toml."
+    echo "   • Skill de referencia: secrets-management"
+    exit 1
+  fi
+else
+  echo "⚠️  gitleaks no está instalado — commit sin escaneo de secretos (brew install gitleaks)."
+fi
+
+# 2) Lint de lo staged (globs por paquete en .lintstagedrc.cjs)
 npx lint-staged

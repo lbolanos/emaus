@@ -54,8 +54,8 @@ No se arregla — afecta solo scripts de DevTools, el workaround (usar `<router-
 ### S3 en producción ✅
 
 Verificado vía AWS CLI + SSH:
-- Bucket `emaus-media` (us-east-1, account 585853725478) con bucket policy pública en `avatars/*` y `public-assets/*`.
-- IAM user `emaus-app` con inline policy `EmausMediaRW` (RW sobre 4 prefijos), access key `AKIAYQZ42NMTH4USH55L`.
+- Bucket `emaus-media` (us-east-1) con bucket policy pública en `avatars/*` y `public-assets/*`.
+- IAM user `emaus-app` con inline policy `EmausMediaRW` (RW sobre 4 prefijos). El access key ID vive solo en `.env.production` y en la consola de IAM — no se documenta acá (ver skill `secrets-management`).
 - `.env.production` (`/var/www/emaus/apps/api/.env.production`): `AVATAR_STORAGE=s3`, `S3_BUCKET_NAME=emaus-media`, `AWS_REGION=us-east-1`, secret de 40 chars.
 - PM2 reiniciado DESPUÉS del .env update.
 
