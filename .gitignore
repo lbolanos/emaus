@@ -54,6 +54,9 @@ test-results/
 
 
 # START Ruler Generated Files
+/.agent/rules/ruler.md
+/.agent/rules/ruler.md.bak
+/.agent/skills
 /.claude/skills
 /.mcp.json
 /.mcp.json.bak

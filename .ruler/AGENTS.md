@@ -120,31 +120,15 @@ CSRF tokens + SameSite cookies + Origin validation, Zod input validation, TypeOR
 > Para hardening detallado, OWASP Top 10, configuración de CORS/CSRF y rate limiting → cargar el skill **`security-best-practices`**.
 > Para API keys/secretos (dónde vive cada uno, cambiar una var de entorno en prod, responder a una key filtrada, barrido con gitleaks) → cargar el skill **`secrets-management`**. Regla dura: **nunca hardcodear keys, ni en scripts de prueba** — el repo es público.
 
-## API Integration
+## Frontend (API, UI, Vue)
 
-**Always use the centralized API service** — never direct fetch calls.
+Las convenciones del frontend — servicio centralizado de API en vez de `fetch` directo, texto de
+UI en español, componentes de `packages/ui`, y el `useRekaDialogFix` obligatorio al abrir un
+diálogo desde un `DropdownMenuItem` — viven en **`.claude/rules/frontend.md`**, con ámbito
+`apps/web/**` y `packages/ui/**`.
 
-```typescript
-// CORRECT
-import { getSmtpConfig } from '@/services/api';
-const config = await getSmtpConfig();
-
-// INCORRECT
-const response = await fetch('/api/endpoint', {
-  headers: await setupCsrfHeaders(),
-  credentials: 'include',
-});
-```
-
-Built-in CSRF, error handling, authentication, and consistent configuration. Add new functions to `apps/web/src/services/api.ts`.
-
-## UI / UX conventions
-
-- Todo el texto de UI en **español**.
-- Usar `WalkerView.vue` como template para nuevas list views.
-- Componentes compartidos viven en `packages/ui` (basados en reka-ui / Radix port).
-- Cuando un `<DropdownMenuItem>` abre un `Dialog`/`AlertDialog`/`Sheet`/`Drawer` de `@repo/ui`, usar **`useRekaDialogFix`** (`apps/web/src/composables/useRekaDialogFix.ts`) y `@select="deferOpen(...)"` para evitar dejar `pointer-events: none` huérfano en `<body>`. Detalle en skill `troubleshooting`.
-- Patrones de Vue 3 Composition API (`<script setup>` + TypeScript). Si tocas Vue, cargar el skill **`vue-best-practices`**.
+> Ese directorio **no lo gestiona ruler**: se edita a mano y se versiona. Si añades convenciones
+> atadas a un lenguaje o subdirectorio, van ahí y no en este archivo.
 
 ## Database Migrations
 
@@ -180,6 +164,7 @@ Sistema TypeORM contra SQLite. Comandos: `migration:generate`, `migration:run`, 
 | Crear/regenerar un video-demo NARRADO de una feature (Playwright headed + subtítulos + TTS Deepgram/`say` + mux ffmpeg) | `demo-videos` |
 | Subir videos al canal de YouTube "Emaús Retiros", generar arte del canal/miniaturas con IA (nano banana/Gemini), OAuth de YouTube, o el botón de ayuda `HelpVideoButton` in-app | `youtube-publishing` |
 | Levantar `pnpm dev` en un git worktree (`.claude/worktrees/<branch>/`) sin chocar con los puertos del main | `worktree-testing` |
+| Entrar por SSH al servidor de prod, AWS CLI, bucket `emaus-media`, backup manual de la DB | `infra-remota` |
 | Features puntuales del dominio | `closing-mass-church`, `santisimo`, `whatsapp-admin`, `arquitectura` |
 
 ## Testing — solo el qué y el cómo correr
@@ -206,48 +191,27 @@ pnpm --filter web test src/components/__tests__/X.ts   # un archivo
 
 ## Infraestructura y acceso remoto
 
-### SSH al servidor de producción
+SSH al servidor Lightsail (`emaus.cc` está tras Cloudflare: el puerto 22 **no** responde por el
+dominio, hay que usar la IP directa), perfil de AWS CLI, bucket `emaus-media` y el backup diario
+de la base → skill **`infra-remota`**.
 
-`emaus.cc` está detrás de Cloudflare (proxy), por lo que el puerto 22 **no es accesible** vía el dominio. Siempre usar la IP directa de Lightsail:
-
-```bash
-ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104
-```
-
-- Llave: `~/.ssh/lightsail-emaus.pem`
-- Usuario: `ubuntu` · IP: `18.116.102.104`
-- DB en prod: `/var/www/emaus/apps/api/database.sqlite`
-- Backups locales: `/var/backups/emaus/` · Logs: `/var/log/emaus-backup.log`
-- Deploy path web: `/var/www/emaus/apps/web/dist`
-
-### AWS CLI
-
-Perfil `emaus` → cuenta `585853725478`:
-
-```bash
-aws sts get-caller-identity --profile emaus
-aws s3 ls s3://emaus-media/backups/database/ --human-readable --profile emaus | tail -10
-```
-
-Bucket `emaus-media` — prefijos: `backups/database/` (retención 90 días), `avatars/`, `retreat-memories/`, `public-assets/`, `documents/`.
-
-### Backups de base de datos
-
-Script: `/var/www/emaus/backup-db.sh` — cron diario a las **3:00 AM** del servidor.
-
-```bash
-# Backup manual
-ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104 "bash /var/www/emaus/backup-db.sh"
-```
-
-La DB de prod corre en **WAL**; un watchdog (`scripts/db-watchdog.sh`, cron cada minuto) detecta
-locks de escritura colgados y reinicia el API. Para descargar la DB usa **`make db-pull`** (snapshot
-`.backup` consistente), **nunca** `scp`/`cp` del `.sqlite` vivo (corrompe la copia).
-
-> Operar la DB de prod (db-pull, backups, DB corrupta, `database is locked`, lock colgado, watchdog) → skill **`db-production-resilience`**.
+> ⚠️ Para descargar la DB de prod usa **`make db-pull`**, nunca `scp`/`cp` del `.sqlite` vivo.
+> Operarla (backups, DB corrupta, `database is locked`, watchdog) → skill
+> **`db-production-resilience`**.
 
 ## Convenciones operativas
 
 - **Chrome / Playwright screenshots**: guardarlos en `/tmp/chrome`.
 - **Credenciales de testing local**: `leonardo.bolanos@gmail.com` / `123456`.
 - **Configuración multi-asistente**: el repo usa `@intellectronica/ruler` — `CLAUDE.md` (raíz) se **regenera desde `.ruler/AGENTS.md`**. No edites `CLAUDE.md` directamente, los cambios se pierden. Para docs de features puntuales, crea archivos en `docs/features/<name>.md`.
+## Modelos y effort
+
+Este repo no fija modelo ni effort; se heredan de tu configuración de Claude Code.
+
+- **Modelo**: Opus 5 para trabajo agéntico y arquitectura; Sonnet 5 para pases mecánicos y
+  subagentes. `/model` para cambiar.
+- **Effort**: `high` por defecto; `/effort xhigh` puntualmente en lo más duro. No lo fijes global.
+- **Si el modelo se comporta raro** — se enrolla, amplía el alcance, verifica de más, delega de
+  más, o dice que llamó a una herramienta y no pasó nada — carga la skill `claude-models`.
+- **Antes de añadir instrucciones a este archivo**, lee `claude-models` §5. Varias prácticas que
+  funcionaban en modelos anteriores hoy degradan a Opus 5.

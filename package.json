@@ -27,7 +27,7 @@
     "render-build": "pnpm install --frozen-lockfile && pnpm --filter api build",
     "render-start": "cd apps/api && pnpm start",
     "prepare": "husky",
-    "ruler:apply": "ruler apply",
+    "ruler:apply": "ruler apply --mcp-overwrite",
     "db:reset-passwords": "pnpm --filter api exec npx tsx scripts/reset-passwords.ts",
     "db:reset-password": "bash scripts/reset-password.sh",
     "db:reset-password:prod": "bash scripts/reset-password.sh --prod",
@@ -43,7 +43,7 @@
     "scripts": "node -e \"const p=require('./package.json');console.log('\\n📦 Root scripts:\\n');Object.entries(p.scripts).forEach(([k,v])=>console.log('  pnpm '+k.padEnd(22)+v));\" && echo '' && for dir in apps/api apps/web; do if [ -f $dir/package.json ]; then echo \"📦 $dir scripts:\"; echo ''; node -e \"const p=require('./$dir/package.json');Object.entries(p.scripts||{}).forEach(([k,v])=>console.log('  pnpm --filter '+p.name+' '+k.padEnd(22)+v))\"; echo ''; fi; done"
   },
   "devDependencies": {
-    "@intellectronica/ruler": "^0.3.35",
+    "@intellectronica/ruler": "0.3.44",
     "baseline-browser-mapping": "^2.9.15",
     "eslint": "^8.57.0",
     "husky": "^9.1.7",
