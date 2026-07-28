@@ -58,6 +58,13 @@ The monorepo is organized into `apps` and `packages`:
 must call
 pnpm --filter api db:seed
 
+3.  Generate agent instructions (CLAUDE.md and, if you use Antigravity, `.agent/`):
+    ```bash
+    pnpm ruler:apply
+    ```
+    Re-run this whenever `.ruler/` changes — it's not versioned, so a fresh clone starts
+    without it.
+
 ### Development
 
 To start the development servers for both the backend and frontend, run the following command from the root of the project:
