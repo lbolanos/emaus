@@ -64,6 +64,11 @@ test-results/
 /CLAUDE.md.bak
 # END Ruler Generated Files
 
+# FUERA del bloque de ruler a propósito: ruler reescribe el bloque completo cuando cambia su
+# configuración y se lleva lo que no reconoce. Esta línea ya se perdió una vez y el archivo
+# (permisos y overrides locales de la máquina) terminó commiteado.
+/.claude/settings.local.json
+
 .playwright-mcp/
 
 # Database backups
