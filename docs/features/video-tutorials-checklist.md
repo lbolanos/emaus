@@ -4,7 +4,7 @@ Plan de contenido para el canal de ayuda. Cada video se graba con el pipeline de
 `apps/web/e2e/demo/` (skill **`demo-videos`**) y se publica con **`youtube-publishing`**.
 Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 
-**Hechos: 18 · Pendientes: ~8**
+**Hechos: 19 · Pendientes: ~7**
 
 ---
 
@@ -28,6 +28,7 @@ Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 - [x] **Asignación de camas** (asignación automática al registrarse + ajuste manual; ronquidos rojo/verde, edad, tipo de cama, piso; filtros; auto-asignar/exportar/borrar) — https://youtu.be/1hP7OBDduL0
 - [x] **Preparaciones** (reuniones semanales del equipo de servidores: calendario automático, editar fechas/horas, documentos por charla, saltar festivo, enlace público) — https://youtu.be/Zt6tmd1A2O0
 - [x] **Comunidades (CRM)** (acompañamiento — no control; ruta al registro público, panel, miembros, crear/importar de un retiro, estado de seguimiento, editar datos por comunidad, reuniones, asistencia manual/enlace público en el celular/bot con foto del listado, analítica, Mis Comunidades, administradores) — https://youtu.be/xIVmHyhkDHA
+- [x] **Familia Emaús** (capa social: Mi Perfil con bio/intereses/dones y privacidad; Buscar Hermanos con filtros y acciones conectar/seguir; Hermanos con aceptadas/pendientes/enviadas; Seguidores; Testimonios con visibilidad y publicación en landing) — _unlisted_ — https://youtu.be/K-YtP1DFaRw
 
 ---
 
@@ -71,7 +72,7 @@ Cierran la confusión "cuenta de usuario vs. registro al retiro" que ya viene en
 ## 🔵 P4 — Vista del usuario / servidor
 
 - [x] ~~**Mi agenda**~~ — cubierto en el video de Responsabilidades (arriba) — https://youtu.be/3XZlQJZlcmo
-- [ ] **Mis retiros y mi perfil** — `my-retreats`, `profile`, social.
+- [x] ~~**Familia Emaús (perfil, hermanos, seguidores, testimonios)**~~ — publicado (unlisted) — https://youtu.be/K-YtP1DFaRw *(Mi Perfil con bio/intereses/privacidad; Buscar Hermanos con filtros y acciones; Hermanos y solicitudes; Seguidores; Testimonios con visibilidad y landing pública). Datos ficticios (sandbox). Falta cubrir aparte: **Mis retiros** (`my-retreats`).*
 
 ---
 
@@ -80,5 +81,5 @@ Cierran la confusión "cuenta de usuario vs. registro al retiro" que ya viene en
 - Al publicar cada uno: pegar la URL como link 📺 en su doc de ayuda (`apps/web/src/docs/es/<sección>.md`)
   para que aparezca en "Obtener ayuda para esta página".
 - Generar miniatura a juego (estilo acuarela "Camino a Emaús") y subirla en Studio.
-- **Playlist del canal** (18 videos en orden de ciclo del retiro): https://www.youtube.com/playlist?list=PLSdqEiN1fbDM — "Emaús Retiros — Tutoriales". Al publicar uno nuevo, agregarlo con `playlistItems.insert` (scope `youtube.force-ssl`).
+- **Playlist del canal** (19 videos en orden de ciclo del retiro): https://www.youtube.com/playlist?list=PLSdqEiN1fbDM — "Emaús Retiros — Tutoriales". Al publicar uno nuevo, agregarlo con `playlistItems.insert` (scope `youtube.force-ssl`).
 - Fijar como **video destacado** del canal el de onboarding (P0) para nuevos visitantes.

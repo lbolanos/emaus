@@ -1,5 +1,7 @@
 # Características Sociales
 
+📺 **[Ver video tutorial](https://youtu.be/K-YtP1DFaRw)**
+
 Las características sociales te permiten conectar con otros usuarios en la comunidad de Emaus. Puedes gestionar tu perfil, agregar amigos, seguir usuarios y buscar personas con intereses compartidos.
 
 ## Gestión del Perfil

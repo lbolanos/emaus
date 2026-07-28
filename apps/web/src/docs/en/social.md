@@ -1,5 +1,7 @@
 # Social Features
 
+📺 **[Watch video tutorial](https://youtu.be/K-YtP1DFaRw)**
+
 The social features allow you to connect with other users in the Emaus community. You can manage your profile, add friends, follow users, and search for people with shared interests.
 
 ## Profile Management
