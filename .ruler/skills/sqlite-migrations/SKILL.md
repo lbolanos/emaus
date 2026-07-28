@@ -83,15 +83,19 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * - participant_communications (communityId nullable)
  * - message_templates (communityId nullable)
  *
- * Por eso usamos transaction=false + PRAGMA foreign_keys=OFF.
+ * Por eso el DROP TABLE tiene que correr FUERA de transacción, con PRAGMA foreign_keys=OFF.
  */
 export class FooBar20260507120000 implements MigrationInterface {
 	name = 'FooBar20260507120000';
 	timestamp = '20260507120000';
 
-	// CRÍTICO: TypeORM no envuelve up()/down() en BEGIN…COMMIT.
-	// Sin esto, PRAGMA foreign_keys=OFF es ignorado por SQLite y
-	// DROP TABLE cascadea a las hijas, borrando data silenciosamente.
+	// OJO: el proyecto NO usa el runner de TypeORM, usa uno propio, y ese runner IGNORA esta
+	// propiedad — la transacción la decide el flag CLI `--transaction` (default OFF). Así que
+	// esto es inerte en runtime; se declara porque el guard
+	// `sqliteSafePattern.simple.test.ts` lo exige cuando hay DROP TABLE (incluido en down()).
+	// Lo que de verdad te protege es que `migration:run` corra SIN transacción envolvente: si
+	// hubiera una, SQLite ignoraría el PRAGMA foreign_keys=OFF de abajo y el DROP TABLE
+	// cascadearía a las hijas, borrando data silenciosamente.
 	transaction = false as const;
 
 	public async up(queryRunner: QueryRunner): Promise<void> {
@@ -238,12 +242,22 @@ pnpm --filter api migration:generate src/migrations/sqlite/<NombreDescriptivo>
 # Aplicar migrations pendientes
 pnpm --filter api migration:run
 
-# Revertir la última (cuando es reversible — el patrón recreate-table debe serlo)
-pnpm --filter api migration:revert
-
-# Backup manual antes de correr en local con datos importantes
-cp apps/api/database.sqlite apps/api/database.sqlite.backup-pre-<feature>-$(date +%Y%m%d-%H%M)
+# Backup manual antes de correr en local con datos importantes.
+# SIEMPRE con .backup — la DB de dev corre en WAL y `cp`/`scp` del .sqlite vivo copia páginas a
+# medio escribir y deja fuera el -wal → la copia queda corrupta (SQLITE_CORRUPT).
+sqlite3 apps/api/database.sqlite ".backup 'apps/api/database.sqlite.backup-pre-<feature>-$(date +%Y%m%d-%H%M)'"
 ```
+
+> ⚠️ **No uses `pnpm --filter api migration:revert` para deshacer o iterar una migration.**
+> No es confiable: en al menos un caso revirtió migraciones **más viejas** que la última y dropeó
+> schema en uso (`recurrenceEndDate`, el índice único de teléfono). Para iterar en local:
+> respaldá con `.backup` **antes** de correr y restaurá ese backup si hay que deshacer. Si aun así
+> corrés un revert, verificá después con `migration:show` **y** contra el schema concreto.
+
+> ⚠️ **Un solo comando `sqlite3` por invocación, y nunca contra la DB de dev viva.** El CLI ignora
+> el 2º argumento posicional (`sqlite3 DB "cmd1" "cmd2"` corre solo `cmd1` — así se generó un
+> backup con 0 filas), y escribir contra una DB en WAL que el API tiene abierta divergió inodos y
+> borró datos en dev. Para resetear datos de prueba, hacelo por el API, no por sqlite.
 
 ## Naming convention
 
@@ -263,9 +277,10 @@ sqlite3 apps/api/database.sqlite \
 sqlite3 apps/api/database.sqlite.backup-pre-<feature> \
   "SELECT 'backup' AS db, COUNT(*) FROM community_member;"
 
-# 2. Snapshot de la BD actual antes de tocar nada.
-cp apps/api/database.sqlite \
-   apps/api/database.sqlite.backup-pre-restore-$(date +%Y%m%d-%H%M%S)
+# 2. Snapshot de la BD actual antes de tocar nada. Con .backup, NO con cp (WAL).
+#    Bajá el API primero: escribir contra la DB viva divergió inodos y borró datos en dev.
+sqlite3 apps/api/database.sqlite \
+  ".backup 'apps/api/database.sqlite.backup-pre-restore-$(date +%Y%m%d-%H%M%S)'"
 ```
 
 ```sql

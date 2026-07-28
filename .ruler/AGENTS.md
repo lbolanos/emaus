@@ -6,41 +6,12 @@ This file provides guidance to AI Agents when working with code in this reposito
 
 ## Project Architecture
 
-This is a retreat logistics management system built as a monorepo using pnpm workspaces and Turborepo. The system manages religious retreats with features for participant management, housing assignments, table assignments, and various administrative tasks.
+Sistema de gestión logística de retiros religiosos: participantes, asignación de casas y camas,
+asignación de mesas y tareas administrativas. Monorepo de pnpm workspaces + Turborepo.
 
-### Monorepo Structure
-
-- **apps/api**: Express.js backend with TypeORM and SQLite
-- **apps/web**: Vue.js 3 frontend with Composition API, Vite, and Pinia
-- **packages/config**: Shared ESLint configurations
-- **packages/tsconfig**: Shared TypeScript configurations
-- **packages/types**: Shared Zod schemas and TypeScript types
-- **packages/ui**: Shared Vue components
-
-### Core Development Commands
-
-```bash
-# Install dependencies
-pnpm install
-
-# Run all pending migrations
-pnpm --filter api migration:run
-
-# Development (runs both API and web)
-pnpm dev
-
-# Build all applications
-pnpm build
-
-# Lint / Format
-pnpm lint
-pnpm format
-
-# Testing
-pnpm test                    # All tests
-pnpm --filter api test       # Backend (Jest)
-pnpm --filter web test       # Frontend (Vitest)
-```
+La estructura (`apps/*`, `packages/*`), el stack de cada paquete y los scripts
+(`pnpm dev`/`build`/`lint`/`test`) se leen de `pnpm-workspace.yaml` y de los `package.json`.
+Lo que **no** es derivable está abajo.
 
 ### Development Environment
 
@@ -48,14 +19,11 @@ pnpm --filter web test       # Frontend (Vitest)
 - Web app runs on `http://localhost:5173`
 - DB local: `apps/api/database.sqlite`
 
-### Dependencias nuevas en `apps/api` → externalizar en el build
+### Reglas duras del bundle de `apps/api`
 
-El `apps/api` se empaqueta como **bundle SSR** con Vite/Rollup. **Toda dependencia de Node
-que agregues** (`pnpm --filter api add <dep>`) **debe añadirse a `rollupOptions.external`
-en `apps/api/vite.config.ts`**, junto a `typeorm`/`express`/etc. Si no, `pnpm build` falla
-con *"Rollup failed to resolve import «dep»"*. **Ni los tests, ni el lint, ni `tsc`/`vue-tsc`
-detectan esto — solo `pnpm build`.** Regla: tras agregar una dep al api, externalizarla y
-correr `pnpm build` antes de dar por terminado.
+> Detalle de la externalización de dependencias en `rollupOptions.external`: **`apps/api/CLAUDE.md`**
+> (se carga solo al trabajar bajo `apps/api/`). La prohibición de abajo se queda aquí porque una
+> sesión puede agregar una dependencia sin abrir ningún archivo de ese directorio.
 
 **El bundle de prod es ESM (`"type": "module"`): `__dirname` y `require` NO existen.** Código
 del `apps/api` que los use **compila y pasa tests/tsc en dev** (vite-node/jest los shimean) pero
@@ -96,7 +64,9 @@ arrancar el bundle. Regla: si tocás rutas/paths en `apps/api`, corré el `dist/
 
 ### Database Schema
 
-System uses TypeORM with SQLite. Key entities: Participant (`family_friend_color`, snoring info), Retreat (house, capacity limits, notes, timezone), House (rooms + beds), RoomBed (retreat-specific bed assignments), Table (leader assignments), and various assignment/tracking entities.
+TypeORM contra SQLite. Las entidades y sus columnas se leen de `apps/api/src/entities/`; los
+detalles que importan y no son obvios (`family_friend_color`, info de ronquidos, `timezone` por
+casa y por retiro) están arriba en Business Concepts.
 
 ## Authentication and Authorization
 
@@ -113,9 +83,7 @@ Implementation: route-level protection via decorators, resource-based authorizat
 
 JWT-based with refresh tokens, session management, bcrypt password hashing, account lockout on failed attempts, email verification for signup.
 
-### Security stack (high level)
-
-CSRF tokens + SameSite cookies + Origin validation, Zod input validation, TypeORM parameterized queries, XSS-safe output encoding, rate limiting on auth endpoints, HTTPS in prod, CORS allowlist, request logging.
+### Security stack
 
 > Para hardening detallado, OWASP Top 10, configuración de CORS/CSRF y rate limiting → cargar el skill **`security-best-practices`**.
 > Para API keys/secretos (dónde vive cada uno, cambiar una var de entorno en prod, responder a una key filtrada, barrido con gitleaks) → cargar el skill **`secrets-management`**. Regla dura: **nunca hardcodear keys, ni en scripts de prueba** — el repo es público.
@@ -132,11 +100,12 @@ diálogo desde un `DropdownMenuItem` — viven en **`.claude/rules/frontend.md`*
 
 ## Database Migrations
 
-Sistema TypeORM contra SQLite. Comandos: `migration:generate`, `migration:run`, `migration:revert`, `SEED_FORCE=true … migration:run`.
+Sistema TypeORM contra SQLite. Comandos: `migration:generate`, `migration:run`, `SEED_FORCE=true … migration:run`.
 
 **Reglas clave**:
 
 - Toda mutación de schema debe ir vía migration.
+- **No uses `migration:revert`**: no es confiable (revirtió migraciones más viejas que la última y dropeó schema en uso). Para deshacer en local: respaldar con `sqlite3 … ".backup"` antes de correr, y restaurar ese backup. Detalle en el skill `sqlite-migrations`.
 - Migrations deben ser reversibles y documentar breaking changes.
 - **Trata de crear un solo archivo de migration por feature.**
 - **Avísale al usuario cuando necesites restaurar el backup de la base.**
@@ -169,13 +138,10 @@ Sistema TypeORM contra SQLite. Comandos: `migration:generate`, `migration:run`, 
 
 ## Testing — solo el qué y el cómo correr
 
-- **Backend (Jest)**: ~2100 tests. Config: `apps/api/jest.config.json`. Setup global: `apps/api/src/tests/jest.setup.ts`. Helpers de integration: `apps/api/src/tests/test-setup.ts` (`setupTestDatabase`/`teardownTestDatabase`/`testDataSource`).
-- **Frontend (Vitest)**: ~1500 tests con `happy-dom`. Config: `apps/web/vitest.config.ts`. Mocks globales (`@repo/ui`, `lucide-vue-next`, `vue-router`, `vue-i18n`, `axios`): `apps/web/src/test/setup.ts`.
-- **E2E**: Playwright configurado, tests escasos.
+- **Backend**: Jest. **Frontend**: Vitest con `happy-dom`. **E2E**: Playwright configurado, tests escasos.
+- Lo que hay que saber y no se ve en la config: `apps/web/src/test/setup.ts` tiene **mocks globales** de `@repo/ui`, `lucide-vue-next`, `vue-router`, `vue-i18n` y `axios` — un ícono o un export nuevo que no esté en esa lista rompe el `mount()`.
 
 ```bash
-pnpm --filter api test                                 # backend
-pnpm --filter web test                                 # frontend
 pnpm --filter web test src/components/__tests__/X.ts   # un archivo
 ```
 
@@ -183,11 +149,14 @@ pnpm --filter web test src/components/__tests__/X.ts   # un archivo
 
 ### Git hooks (husky) — rápidos por diseño
 
-- **pre-commit** (`.husky/pre-commit`): solo `lint-staged` → `eslint --fix` sobre los **archivos staged**, con **globs por paquete** en `.lintstagedrc.cjs` (solo `apps/api`, `apps/web`, `packages/{ui,types,utils}` — los 5 con `.eslintrc`). Linteear archivos de la raíz/`scripts/`/`*.config.js` rompería el hook con *"ESLint couldn't find a configuration file"* (no hay eslintrc en la raíz). **NO usa `prettier --write`**: el repo nunca se formateó con Prettier (~1000 archivos no conformes) → reescribiría el archivo entero en cada commit y enterraría el cambio real. Saltar: `SKIP_PRE_COMMIT=1 git commit` o `git commit --no-verify`.
-- **pre-push** (`.husky/pre-push`): tests solo de lo que se va a pushear — **API**: `jest --findRelatedTests`; **web**: suite completa (`pnpm --filter web test`, ~10s; no `vitest related`, su grafo de imports rompe con los `.md`). Saltar: `SKIP_PRE_PUSH=1 git push` o `git push --no-verify`.
-- **CI** (`.github/workflows/ci.yml`): lint + test-api + test-web + build en cada PR/push; `deploy-production.yml` redeploya en push a `master`. El hook local es feedback rápido; el CI es el backstop (`--findRelatedTests` solo halla tests que importan estáticamente el archivo). Los 5 workflows de **Gemini** se eliminaron (nunca configurados → fallaban en cada PR).
-- `tsconfigRootDir: __dirname` en cada `.eslintrc.cjs` hoja → lint type-aware desde la raíz. No lo quites.
-- Detalle completo y rationale: `docs/features/git-hooks-and-ci.md`.
+Tres reglas duras; el resto (qué corre cada hook, por qué, y los globs por paquete) está en
+**`docs/features/git-hooks-and-ci.md`**:
+
+- **No metas `prettier --write` en pre-commit.** El repo nunca se formateó con Prettier (~1000 archivos no conformes) → reescribiría el archivo entero en cada commit y enterraría el cambio real.
+- **No amplíes los globs de `.lintstagedrc.cjs` a la raíz / `scripts/` / `*.config.js`.** No hay eslintrc en la raíz: el hook muere con *"ESLint couldn't find a configuration file"*.
+- **No quites `tsconfigRootDir: __dirname`** de los `.eslintrc.cjs` hoja — es lo que hace que el lint type-aware funcione desde la raíz.
+
+Saltar hooks: `SKIP_PRE_COMMIT=1 git commit` / `SKIP_PRE_PUSH=1 git push` (o `--no-verify`).
 
 ## Infraestructura y acceso remoto
 
