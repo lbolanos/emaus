@@ -1,6 +1,6 @@
 ---
 name: troubleshooting
-description: MUST be used cuando el usuario reporta cualquier bug, error o comportamiento inesperado en el proyecto Emaús. Índice maestro de bugs recurrentes con síntoma → causa → fix. Cubre UI congelada (reka-ui), página blanca en Safari iOS, fechas que saltan un día (TZ CDMX), checkbox sin reacción, Set/Map no reactivos, migrations SQLite que borran data silenciosamente, tap-to-assign en móvil, tests Vue con defineModel, mocks Jest con ESM, tests 403, y más. Triggers — "se congela", "no responde", "página en blanco", "Safari", "iPhone", "fechas saltan", "un día antes", "checkbox no funciona", "no marca", "migration borró", "perdió data", "tap no responde", "no asigna en móvil", "test falla", "ReferenceError mock", "Cannot access before initialization", "vue-i18n", "stack overflow", "Maximum call stack".
+description: MUST be used cuando el usuario reporta cualquier bug, error o comportamiento inesperado en el proyecto Emaús. Índice maestro de bugs recurrentes con síntoma → causa → fix. Cubre UI congelada (reka-ui), página blanca en Safari iOS, fechas que saltan un día (TZ CDMX), checkbox sin reacción, Set/Map no reactivos, migrations SQLite que borran data silenciosamente, tap-to-assign en móvil, registro que no avanza de paso por el autofill del celular, tests Vue con defineModel, mocks Jest con ESM, tests 403, y más. Triggers — "se congela", "no responde", "página en blanco", "Safari", "iPhone", "fechas saltan", "un día antes", "checkbox no funciona", "no marca", "migration borró", "perdió data", "tap no responde", "no asigna en móvil", "no me deja avanzar", "no avanza el registro", "el botón Siguiente no hace nada", "dice que el teléfono no es número", "test falla", "ReferenceError mock", "Cannot access before initialization", "vue-i18n", "stack overflow", "Maximum call stack".
 ---
 
 # Troubleshooting — bugs recurrentes del proyecto Emaús
@@ -25,6 +25,8 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "el botón no tiene ícono", "el ícono no aparece", "el componente sale vacío pero no hay error" | [#12 Ícono/componente usado sin importar en `<script setup>`](#12-íconocomponente-usado-sin-importar-en-script-setup) |
 | "el tooltip tarda mucho en salir", "demora en aparecer el texto al pasar el mouse" | [#13 Tooltip lento: `title` nativo vs reka-ui](#13-tooltip-lento-title-nativo-vs-reka-ui) |
 | "el botón Eliminar/Confirmar sigue deshabilitado aunque escribí el nombre exacto" | [#14 Confirmación por nombre nunca se habilita (whitespace)](#14-confirmación-por-nombre-nunca-se-habilita-whitespace) |
+| "no me deja avanzar el registro", "el botón Siguiente no hace nada", "dice que el teléfono no es número pero sí lo es", "llenó todo bien desde el celular y no pasa" | [#15 Caracteres invisibles del autofill móvil](#15-caracteres-invisibles-del-autofill-móvil-bloquean-la-validación) |
+| "la suite del API falla en tests que no toqué", "SQLITE_MISUSE / Database handle is closed", "pasa aislado pero falla completo" | [#16 Fallos fantasma por dos jest simultáneos](#16-fallos-fantasma-al-correr-dos-jest-a-la-vez-api) |
 
 ---
 
@@ -449,6 +451,81 @@ const canConfirm = computed(
 - 2026-07-21 `DeleteRetreatDialog.vue` — el `parish` del retiro tenía un espacio final; la confirmación por nombre era imposible hasta trimear ambos lados. Descubierto en el e2e por la UI real (no lo veían los tests con nombres limpios).
 
 **Detalle**: feature completa en `docs/features/retreat-deletion.md`.
+
+---
+
+## 15. Caracteres invisibles del autofill móvil bloquean la validación
+
+**Síntoma**: el usuario llena un formulario desde el celular y **no puede avanzar de paso**. Manda capturas donde todos los campos se ven llenos y correctos. Si acaso llega a ver el error, es absurdo: "el teléfono solo puede contener números" sobre un número que en pantalla es 100% numérico.
+
+**Causa**: al autocompletar desde **Contactos** (o al pegar), iOS envuelve el valor en **caracteres de formato Unicode invisibles** — marcas bidi `U+202D`/`U+202C`, espacios de ancho cero `U+200B`, BOM `U+FEFF` — y deja espacios al borde. No se ven, pero cuentan como contenido: `DIGITS_ONLY_REGEX` falla (`not_digits`) y `z.string().email()` rechaza el correo.
+
+Por qué el usuario no puede diagnosticarlo solo:
+- El único aviso es un toast que se desvanece, fácil de perder en móvil.
+- El borde rojo **desaparece al tocar el campo** (el `watch` sobre `formData` limpia el error al editar) → para cuando mira, no hay rastro.
+- Lo percibe como "el botón Siguiente no hace nada".
+
+**Fix** — ya aplicado para teléfonos y correos del registro (2026-08-14). El saneo vive en `packages/types/src/text.ts` y se aplica en el schema, no en el componente, para que el valor limpio sea el que se persiste:
+
+```ts
+// Campo nuevo de correo: usar los helpers, NO el viejo preprocess de ''→undefined
+emergencyContact1Email: optionalEmailField(z.string().email().optional()),
+
+// normalizePhone ya limpia los invisibles antes de quitar separadores
+normalizePhone('\u202D5530978314\u202C'); // → '5530978314'
+```
+
+**Diagnosticar un campo sospechoso** (consola del navegador):
+```js
+[...document.querySelector('#cellPhone').value].map((c) => c.codePointAt(0).toString(16));
+// 202d / 202c / 200b / feff en la lista = es esto.
+```
+
+**Desbloqueo inmediato del usuario, sin deploy**: borrar el campo completo y teclear el valor a mano, sin pegar ni aceptar la sugerencia de autocompletar.
+
+**Al escribir tests de esto**: nunca dejes el carácter invisible **literal** en el archivo — va como escape (`'\u202D'`) o constante con nombre. Literal es ilegible en el diff y un formatter puede comérselo sin dejar rastro, y entonces el test pasa por la razón equivocada.
+
+**Auditar el repo** — validaciones estrictas sobre texto de formulario que aún no sanean:
+```bash
+# Campos de correo con el preprocess viejo (solo ''→undefined)
+grep -rn "val === '' ? undefined" apps/web/src/ packages/types/src/
+
+# Validaciones de solo-dígitos que no pasen por normalizePhone
+grep -rn "\^\[0-9\]" packages/types/src/ apps/api/src/
+```
+
+**Casos**:
+- 2026-08-14 registro de servidor de Celaya (`/celayav/server`) — un servidor no pasaba del paso 1; reproducido en producción con WebKit emulando iPhone. Mismo síntoma que el bug de la lada (`+52`/`044`) de junio, causa distinta.
+
+**Detalle**: `docs/features/mobile-autofill-input-sanitization.md` (y `docs/features/phone-validation-by-country.md` para la regla por país).
+
+---
+
+## 16. Fallos fantasma al correr dos jest a la vez (api)
+
+**Síntoma**: `pnpm --filter api test` reporta un puñado de tests fallidos en suites que no tocaste, con errores de base de datos (`SQLITE_MISUSE: Database handle is closed`, `QueryFailedError`). Corriendo esas mismas suites solas, todas pasan.
+
+**Causa**: dos procesos de jest compartiendo la base SQLite de test. Ocurre fácil sin darse cuenta: lanzás la suite completa en background y mientras tanto corrés un subconjunto para ir mirando, o quedó viva una corrida anterior. El segundo proceso cierra el handle que el primero está usando.
+
+**Antes de investigar un fallo de la suite, verificá que solo haya una corrida**:
+```bash
+ps aux | grep "[j]est" | wc -l    # más de un jest node = los fallos pueden ser fantasma
+pkill -f jest                     # dejá una sola corrida y repetí
+```
+
+**Otras dos cosas que muerden en la misma tarea**:
+- La suite completa puede morir con **SIGABRT (exit 134)** por memoria antes de imprimir el resumen. Correrla con más heap y pedir el resultado estructurado evita quedarse sin dato: `NODE_OPTIONS="--experimental-vm-modules --max-old-space-size=8192" npx jest --forceExit --silent --json --outputFile=/tmp/api-result.json`.
+- Si redirigís con `| tail -N`, el archivo de salida se queda solo con esas N líneas **y el exit code es el de `tail`** (0 aunque jest falle). Para diagnosticar, redirigí el log completo.
+
+**Para comprobar que un fix es el que hace pasar un test** (que el test falla sin él), **no uses `git stash`**: el stash abarca el árbol completo, y al hacer `pop` puede chocar con artefactos generados (p. ej. `apps/web/playwright-report/index.html`) y dejar marcadores de conflicto en archivos que no tienen nada que ver. Copiá el archivo, revertí la línea, corré, restaurá:
+```bash
+cp packages/types/src/phone.ts /tmp/phone.ts.bak
+# … revertir el cambio y correr el test (debe fallar) …
+cp /tmp/phone.ts.bak packages/types/src/phone.ts
+```
+
+**Casos**:
+- 2026-08-14 — al validar el fix del autofill (#15), una corrida completa reportó 18 tests fallidos en 6 suites; con un solo jest corriendo, la suite dio 191 suites / 3039 tests en verde.
 
 ---
 

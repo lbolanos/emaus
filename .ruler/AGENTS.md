@@ -118,7 +118,7 @@ Sistema TypeORM contra SQLite. Comandos: `migration:generate`, `migration:run`, 
 
 | Trigger / situación | Skill |
 | --- | --- |
-| Bug reportado por el usuario (UI congelada, página blanca, fechas saltan, checkbox no marca, test falla, etc.) | `troubleshooting` (índice maestro síntoma → causa → fix) |
+| Bug reportado por el usuario (UI congelada, página blanca, fechas saltan, checkbox no marca, registro que no avanza de paso, test falla, etc.) | `troubleshooting` (índice maestro síntoma → causa → fix) |
 | Tocar fechas, horas, defaults de pickers, filtros por rango, `datetime-local`, helpers `makeDateInTimezone`/`calendarDateOnly` | `timezone-handling` |
 | Crear o modificar archivo en `apps/api/src/migrations/sqlite/` | `sqlite-migrations` |
 | Operar la DB de prod: `make db-pull`, backups, DB corrupta, `database is locked`/lock colgado, watchdog, o una migración que no corre en prod ("No pending migrations" / "Unknown file extension .ts") | `db-production-resilience` |
@@ -126,10 +126,7 @@ Sistema TypeORM contra SQLite. Comandos: `migration:generate`, `migration:run`, 
 | Tocar lectura/escritura de `CommunityMember` (display, búsqueda, mensajes, attendance, edición de perfil), nombre/email que no coincide entre comunidad y retiro, o nuevo endpoint que mute `community_member.*` | `community-overlay` |
 | Tocar `community_member.state` (agregar estados, filtros de roster/asistencia/notificaciones, lógica de `notifyMemberStateChange`) | `community-state-semantics` |
 | Reporte de blank page en iPhone/iPad o `Maximum call stack size exceeded` | `safari-ios-compatibility` |
-| Trabajar con archivos `.vue`, Pinia, Vue Router, Vite | `vue-best-practices`, `vue-pinia-best-practices` |
-| Hardening de API, CORS, CSRF, rate limit, OWASP | `security-best-practices` |
 | API keys/secretos: key filtrada o expuesta, rotar una key, cambiar una variable de entorno en prod (`.env.production`), escanear secretos (gitleaks) | `secrets-management` |
-| Tests con Playwright o Chrome DevTools en local | `webapp-testing` |
 | Crear/regenerar un video-demo NARRADO de una feature (Playwright headed + subtítulos + TTS Deepgram/`say` + mux ffmpeg) | `demo-videos` |
 | Subir videos al canal de YouTube "Emaús Retiros", generar arte del canal/miniaturas con IA (nano banana/Gemini), OAuth de YouTube, o el botón de ayuda `HelpVideoButton` in-app | `youtube-publishing` |
 | Levantar `pnpm dev` en un git worktree (`.claude/worktrees/<branch>/`) sin chocar con los puertos del main | `worktree-testing` |
@@ -145,7 +142,9 @@ Sistema TypeORM contra SQLite. Comandos: `migration:generate`, `migration:run`, 
 pnpm --filter web test src/components/__tests__/X.ts   # un archivo
 ```
 
-> Para recetas de tests problemáticos (mocks Jest con ESM, tests 403 con path aliases, componentes con `defineModel` que rompen mocks globales) → skill **`troubleshooting`** (secciones #8, #9, #10).
+- **Una sola corrida de jest a la vez.** Dos procesos comparten la SQLite de test y se cierran el handle entre sí: aparecen fallos fantasma (`SQLITE_MISUSE`) en suites que no tocaste. Verificá con `ps aux | grep "[j]est"` antes de investigar un fallo de la suite.
+
+> Para recetas de tests problemáticos (mocks Jest con ESM, tests 403 con path aliases, componentes con `defineModel` que rompen mocks globales, fallos fantasma por jest concurrente) → skill **`troubleshooting`** (secciones #8, #9, #10, #16).
 
 ### Git hooks (husky) — rápidos por diseño
 

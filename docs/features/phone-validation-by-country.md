@@ -11,6 +11,8 @@ antes de medir la longitud, de modo que `+52 55 1234 5678` se acepta y se guarda
 
 Feature agregada el 2026-06-09. Tolerancia a lada/prefijos agregada el 2026-06-18
 (bug Celaya: servidores no podían avanzar del paso 1 al teclear su celular con `+52`/`044`).
+Tolerancia a los **caracteres invisibles del autofill de iOS** agregada el 2026-08-14
+(mismo síntoma, otra causa) → [mobile-autofill-input-sanitization.md](mobile-autofill-input-sanitization.md).
 
 ## Reglas
 
@@ -19,8 +21,9 @@ Feature agregada el 2026-06-09. Tolerancia a lada/prefijos agregada el 2026-06-1
    de la **casa** del retiro. Ej.: un retiro en México siempre pide 10 dígitos.
 2. **Solo números.** Letras → error "El teléfono solo puede contener números (sin
    letras ni espacios)". Los separadores de formato (espacios, guiones, paréntesis,
-   puntos, `+`) **sí se aceptan**: se eliminan al normalizar. Las letras **no** se
-   eliminan, para que el mensaje de error tenga sentido.
+   puntos, `+`) **sí se aceptan**: se eliminan al normalizar, igual que los caracteres
+   de formato Unicode invisibles que agrega el autocompletado del celular. Las letras
+   **no** se eliminan, para que el mensaje de error tenga sentido.
 3. **Longitud por país.** Si el país tiene regla, el número (ya normalizado y sin
    lada/prefijos) debe tener exactamente esa cantidad de dígitos. Si no la tiene, solo
    se exige que sean dígitos (sin restricción de longitud).
@@ -60,7 +63,9 @@ normalizado (minúsculas, sin acentos).
 
 Lógica compartida en **`packages/types/src/phone.ts`** (consumida por web y api):
 
-- `normalizePhone(value)` — quita separadores de formato (`/[\s().\-+]/g`); no quita letras.
+- `normalizePhone(value)` — quita los caracteres invisibles del autofill móvil
+  (`stripInvisibleFormatChars`, en `packages/types/src/text.ts`) y los separadores de
+  formato (`/[\s().\-+]/g`); no quita letras.
 - `resolveCountryToIso(country)` — ISO-2 o nombre → ISO-2, o `null`.
 - `getPhoneDigitLengths(country)` — longitudes válidas, o `null` si el país no tiene regla.
 - `toNationalPhone(value, country)` — normaliza y recorta lada/prefijos reconocidos →
@@ -97,13 +102,15 @@ Lógica compartida en **`packages/types/src/phone.ts`** (consumida por web y api
 
 ## Tests
 
-- `apps/api/src/tests/services/phoneValidation.simple.test.ts` — 30 tests del helper
+- `apps/api/src/tests/services/phoneValidation.simple.test.ts` — 32 tests del helper
   (normalización, separadores, letras, longitud, resolución por nombre, multi-longitud BR,
-  tolerancia a lada/prefijos `+52`/`044`/`045`/`01`, canonización vía `toNationalPhone` y
-  `normalizeParticipantPhones` con país).
-- `apps/api/src/tests/controllers/participantPhoneValidation.test.ts` — 8 tests del
+  tolerancia a lada/prefijos `+52`/`044`/`045`/`01` y a los invisibles del autofill,
+  canonización vía `toNationalPhone` y `normalizeParticipantPhones` con país).
+- `apps/api/src/tests/controllers/participantPhoneValidation.test.ts` — 9 tests del
   controlador (400 por letras/longitud, acepta separadores, país por nombre, todos los
-  teléfonos, país del retiro vs del participante, dryRun).
-- `apps/web/src/views/__tests__/ParticipantRegistrationPhone.test.ts` — 7 tests del
+  teléfonos, país del retiro vs del participante, dryRun, y persistencia del número
+  canónico cuando el valor viene del autofill de iOS).
+- `apps/web/src/views/__tests__/ParticipantRegistrationPhone.test.ts` — 8 tests del
   formulario (país expuesto desde el endpoint, rechazo por letras/longitud, acepta
-  separadores, tolera lada `+52` y prefijo `044` → avanza el paso 1, sin país → solo dígitos).
+  separadores, tolera lada `+52`, prefijo `044` y los invisibles del autofill → avanza
+  el paso 1, sin país → solo dígitos).
