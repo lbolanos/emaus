@@ -13,8 +13,8 @@ importers:
         version: 3.58.1
     devDependencies:
       '@intellectronica/ruler':
-        specifier: ^0.3.35
-        version: 0.3.35
+        specifier: 0.3.44
+        version: 0.3.44
       baseline-browser-mapping:
         specifier: ^2.9.15
         version: 2.9.15
@@ -3340,13 +3340,13 @@ packages:
     resolution: {integrity: sha512-woWMi8PDpPQpvTsRaUw4Ig+nOGS/CWwAwS66Fa1Vr/EkW+NEwxI8YfPBsdBMn33jK2Y86/qMiiuX/ROHIkJLTw==}
     dev: false
 
-  /@intellectronica/ruler@0.3.35:
-    resolution: {integrity: sha512-yaGgnb83SaX4QGZjVWjuM0fLo5J2NbVufiQRmx5IcFoFUipogKQ7HCEbbCQdpYg18p0LIIJHeInzMTwzBPPcnA==}
+  /@intellectronica/ruler@0.3.44:
+    resolution: {integrity: sha512-OjJCdZleUQSLapy2HuLdDNpbyneArwYT9i9QP7mskrREPqBEB3JoDiZ8xded3Q7oA7/s5Pgn8Qo6UiGEsYZIVQ==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=23}
     hasBin: true
     dependencies:
       '@iarna/toml': 2.2.5
-      js-yaml: 4.1.0
+      js-yaml: 4.3.1
       yargs: 18.0.0
       zod: 4.3.6
     dev: true
@@ -10433,6 +10433,13 @@ packages:
 
   /js-yaml@4.1.0:
     resolution: {integrity: sha512-wpxZs9NoxZaJESJGIZTyDEaYpl0FKSA+FB9aJiyemKhMwkxQg63h4T1KJgUGHpTqPDNRcmmYLugrRjJlBtWvRA==}
+    hasBin: true
+    dependencies:
+      argparse: 2.0.1
+    dev: true
+
+  /js-yaml@4.3.1:
+    resolution: {integrity: sha512-CY6crGq313MX8GkwvB7tzgp99vjQxY1++5y10/BKN/GUfHqWaOGQMNZkBvqSzsZKWk/ijwHlWzzkLulsGHhjWQ==}
     hasBin: true
     dependencies:
       argparse: 2.0.1
