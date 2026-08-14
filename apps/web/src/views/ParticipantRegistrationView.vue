@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { useToast } from '@repo/ui'
 import { z } from 'zod'
-import { participantSchema, Participant, validatePhoneForCountry, phoneValidationMessage } from '@repo/types'
+import { participantSchema, Participant, validatePhoneForCountry, phoneValidationMessage, normalizeEmail } from '@repo/types'
 import { useParticipantStore } from '@/stores/participantStore'
 import { getApiUrl } from '@/config/runtimeConfig'
 import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha'
@@ -56,6 +56,20 @@ const EMERGENCY_PHONE_FIELDS = [
   'emergencyContact1HomePhone', 'emergencyContact1WorkPhone', 'emergencyContact1CellPhone',
   'emergencyContact2HomePhone', 'emergencyContact2WorkPhone', 'emergencyContact2CellPhone',
 ]
+
+// El autocompletado de contactos del celular pega espacios y caracteres Unicode
+// invisibles junto al correo: `.email()` los rechaza con el correo viéndose
+// perfecto en pantalla. Se sanean antes de validar, en el campo obligatorio y en
+// los opcionales (donde además un valor que queda vacío pasa a `undefined`).
+const requiredEmailField = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((val) => (typeof val === 'string' ? normalizeEmail(val) : val), schema)
+
+const optionalEmailField = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((val) => {
+    if (typeof val !== 'string') return val === null ? undefined : val
+    const normalized = normalizeEmail(val)
+    return normalized === '' ? undefined : normalized
+  }, schema)
 
 // Agrega issues de Zod por cada teléfono inválido (solo dígitos + longitud por país del retiro).
 const addPhoneIssues = (fields: string[], data: Record<string, any>, ctx: z.RefinementCtx) => {
@@ -182,7 +196,7 @@ const step1Schema = z.object({
   homePhone: z.string().optional(),
   workPhone: z.string().optional(),
   cellPhone: z.string().optional(),
-  email: z.string().email('Invalid email address').min(1, 'Email is required'),
+  email: requiredEmailField(z.string().email('Invalid email address').min(1, 'Email is required')),
   occupation: z.string().min(1, 'Occupation is required'),
   acceptedPrivacyNotice: z.literal(true, {
     errorMap: () => ({ message: 'Debes aceptar el aviso de privacidad' }),
@@ -259,8 +273,7 @@ const step4ServerSchema = z.object({
   emergencyContact1HomePhone: z.string().optional(),
   emergencyContact1WorkPhone: z.string().optional(),
   emergencyContact1CellPhone: z.string().optional(),
-  emergencyContact1Email: z.preprocess(
-    val => (val === '' ? undefined : val),
+  emergencyContact1Email: optionalEmailField(
     z.string().email({ message: 'Invalid email address' }).optional(),
   ),
   emergencyContact2Name: z.string().optional(),
@@ -268,8 +281,7 @@ const step4ServerSchema = z.object({
   emergencyContact2HomePhone: z.string().optional(),
   emergencyContact2WorkPhone: z.string().optional(),
   emergencyContact2CellPhone: z.string().optional(),
-  emergencyContact2Email: z.preprocess(
-    val => (val === '' ? undefined : val),
+  emergencyContact2Email: optionalEmailField(
     z.string().email({ message: 'Invalid email address' }).optional(),
   ),
 }).superRefine((data, ctx) => {
@@ -283,8 +295,7 @@ const step4WalkerSchema = z.object({
   emergencyContact1HomePhone: z.string().optional(),
   emergencyContact1WorkPhone: z.string().optional(),
   emergencyContact1CellPhone: z.string().min(1, 'Cell phone is required for Emergency Contact 1'),
-  emergencyContact1Email: z.preprocess(
-    val => (val === '' ? undefined : val),
+  emergencyContact1Email: optionalEmailField(
     z.string().email({ message: 'Invalid email address' }).min(1, 'Email is required for Emergency Contact 1'),
   ),
   emergencyContact2Name: z.string().min(1, 'Emergency Contact 2 Name is required'),
@@ -292,8 +303,7 @@ const step4WalkerSchema = z.object({
   emergencyContact2HomePhone: z.string().optional(),
   emergencyContact2WorkPhone: z.string().optional(),
   emergencyContact2CellPhone: z.string().min(1, 'Cell phone is required for Emergency Contact 2'),
-  emergencyContact2Email: z.preprocess(
-    val => (val === '' ? undefined : val),
+  emergencyContact2Email: optionalEmailField(
     z.string().email({ message: 'Invalid email address' }).min(1, 'Email is required for Emergency Contact 2'),
   ),
 }).superRefine((data, ctx) => {
@@ -307,8 +317,7 @@ const step5WalkerSchema = z.object({
   inviterHomePhone: z.string().optional(),
   inviterWorkPhone: z.string().optional(),
   inviterCellPhone: z.string().optional(),
-  inviterEmail: z.preprocess(
-    val => (val === '' ? undefined : val),
+  inviterEmail: optionalEmailField(
     z.string().email({ message: 'Invalid inviter email address' }).optional(),
   ),
   pickupLocation: z.string().optional(),

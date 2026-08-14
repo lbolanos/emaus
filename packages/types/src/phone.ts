@@ -6,6 +6,8 @@
  * tabla, debe tener exactamente la cantidad de dígitos esperada.
  */
 
+import { stripInvisibleFormatChars } from './text';
+
 /**
  * Longitud (en dígitos) válida del número telefónico nacional por país (ISO-2).
  * Algunos países aceptan más de una longitud (línea fija vs. móvil).
@@ -153,13 +155,14 @@ const PHONE_SEPARATORS_REGEX = /[\s().\-+]/g;
 
 /**
  * Normaliza un teléfono quitando separadores de formato comunes (espacios,
- * guiones, paréntesis, puntos, `+`). NO elimina letras: un teléfono con letras
- * sigue siendo inválido para que el mensaje "solo números" tenga sentido.
- * Es el valor que se persiste en la base.
+ * guiones, paréntesis, puntos, `+`) y los caracteres de formato Unicode
+ * invisibles que inserta el autocompletado de contactos del celular. NO elimina
+ * letras: un teléfono con letras sigue siendo inválido para que el mensaje
+ * "solo números" tenga sentido. Es el valor que se persiste en la base.
  */
 export function normalizePhone(value: string | null | undefined): string {
 	if (value == null) return '';
-	return value.replace(PHONE_SEPARATORS_REGEX, '');
+	return stripInvisibleFormatChars(value).replace(PHONE_SEPARATORS_REGEX, '');
 }
 
 export type PhoneValidationErrorCode = 'not_digits' | 'wrong_length';

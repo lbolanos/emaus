@@ -161,6 +161,28 @@ describe('Registro — validación de teléfono por país del retiro', () => {
 		expect(vm.validateStep(1)).toBe(true);
 	});
 
+	it('avanza el paso 1 con teléfono y correo del autofill de iOS — bug Celaya 2026-08-14', async () => {
+		// Reproducido en producción: al autocompletar desde Contactos, iOS envuelve
+		// el valor en marcas bidi invisibles (U+202D/U+202C) y deja espacios al
+		// borde del correo. El número se ve "5530978314" en la pantalla del iPhone,
+		// pero el paso 1 se quedaba clavado con "solo puede contener números".
+		const wrapper = await mountForm('México', 'server');
+		const vm = wrapper.vm as any;
+		Object.assign(vm.formData, {
+			firstName: 'Adrian', lastName: 'Garcilazo Ruiz', nickname: 'Sin apodo',
+			birthDate: '1969-09-08', maritalStatus: 'C',
+			email: ' \u202Dajgarcilazo@aol.com\u202C ', occupation: 'Comerciante',
+			parish: 'Echegaray',
+			acceptedPrivacyNotice: true,
+			homePhone: '\u202D5555628051\u202C',
+			workPhone: '\u202D5553697381\u202C',
+			cellPhone: '\u202D5530978314\u202C',
+		});
+		expect(vm.validateStep(1)).toBe(true);
+		expect(vm.formErrors.cellPhone).toBeUndefined();
+		expect(vm.formErrors.email).toBeUndefined();
+	});
+
 	it('sin país en el retiro: solo exige dígitos, no longitud', async () => {
 		const wrapper = await mountForm(null);
 		const vm = wrapper.vm as any;

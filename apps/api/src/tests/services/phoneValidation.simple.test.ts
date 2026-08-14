@@ -65,6 +65,15 @@ describe('validatePhoneForCountry', () => {
     expect(validatePhoneForCountry('55 ABC 5678', 'MX').error).toBe('not_digits');
   });
 
+  it('TOLERA los caracteres invisibles del autofill de iOS (bug 2026-08-14, Celaya V)', () => {
+    // Verificado en producción: el número se ve "5530978314" en la pantalla del
+    // iPhone pero llega envuelto en marcas bidi → antes daba not_digits y el
+    // registro se quedaba clavado en el paso 1 sin error visible.
+    expect(validatePhoneForCountry('\u202D5530978314\u202C', 'MX').valid).toBe(true);
+    expect(validatePhoneForCountry('\u202D+52 55 1234 5678\u202C', 'México').valid).toBe(true);
+    expect(toNationalPhone('\u202D+52 55 1234 5678\u202C', 'MX')).toBe('5512345678');
+  });
+
   it('TOLERA la lada de país (+52 / 52 / 0052) en México', () => {
     // Bug 2026-06-17 (Celaya): la gente y el autocompletado de contactos del
     // celular guardan el número con la lada → no podían avanzar del paso 1.
@@ -177,6 +186,15 @@ describe('normalizePhone', () => {
 
   it('NO quita letras (siguen presentes para que falle la validación)', () => {
     expect(normalizePhone('55ABC5678')).toBe('55ABC5678');
+  });
+
+  it('quita caracteres de formato Unicode invisibles (autofill de iOS)', () => {
+    // Bug 2026-08-14 (Celaya V): al pegar/autocompletar el número desde Contactos,
+    // iOS envuelve el teléfono en marcas bidi invisibles. El número se ve
+    // "5530978314" en pantalla pero fallaba como "solo puede contener números".
+    expect(normalizePhone('\u202D5530978314\u202C')).toBe('5530978314');
+    expect(normalizePhone('\u200E55 1234 5678\u200F')).toBe('5512345678');
+    expect(normalizePhone('\uFEFF5512345678')).toBe('5512345678');
   });
 });
 

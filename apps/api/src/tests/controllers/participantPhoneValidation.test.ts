@@ -163,6 +163,30 @@ describe('createParticipant — validación de teléfono por país del retiro', 
 		expect(mockCreateParticipant).toHaveBeenCalledTimes(1);
 	});
 
+	it('acepta teléfonos y correo del autofill de iOS y los persiste limpios (bug Celaya 2026-08-14)', async () => {
+		// Al autocompletar desde Contactos, iOS envuelve el valor en marcas bidi
+		// invisibles (U+202D/U+202C) y deja espacios al borde del correo. El número
+		// se ve "5530978314" en pantalla, pero antes el API respondía 400.
+		const req = createMockReq({
+			body: {
+				...baseWalkerBody,
+				cellPhone: '\u202D5530978314\u202C',
+				emergencyContact1CellPhone: '\u202D+52 55 9876 5432\u202C',
+				email: ' \u202Dajgarcilazo@aol.com\u202C ',
+			},
+		});
+		const res = createMockRes();
+
+		await createParticipant(req, res, mockNext);
+
+		expect(res.status).not.toHaveBeenCalledWith(400);
+		expect(mockCreateParticipant).toHaveBeenCalledTimes(1);
+		// Se guarda el número nacional canónico, sin invisibles ni lada.
+		const saved = mockCreateParticipant.mock.calls[0][0];
+		expect(saved.cellPhone).toBe('5530978314');
+		expect(saved.emergencyContact1CellPhone).toBe('5598765432');
+	});
+
 	it('resuelve el país por NOMBRE: "México" aplica la regla de 10 dígitos', async () => {
 		mockFindById.mockResolvedValue({ id: RETREAT_ID, house: { country: 'México' } });
 		const req = createMockReq({ body: { ...baseWalkerBody, cellPhone: '123456789' } }); // 9 dígitos

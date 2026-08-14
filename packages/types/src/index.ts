@@ -1,7 +1,23 @@
 import { z } from 'zod';
+import { normalizeEmail } from './text';
 
 // Base UUID schema for reuse
 const idSchema = z.string().uuid();
+
+// Correos capturados en formularios: el autocompletado del celular pega espacios
+// y caracteres invisibles que hacen fallar `.email()` con el correo viéndose
+// correcto en pantalla. Se sanean antes de validar y se persisten ya limpios.
+const requiredEmailSchema = z.preprocess(
+	(val) => (typeof val === 'string' ? normalizeEmail(val) : val),
+	z.string().min(1, 'Email is required').email(),
+);
+const optionalEmailSchema = z.preprocess((val) => {
+	if (typeof val === 'string') {
+		const normalized = normalizeEmail(val);
+		return normalized === '' ? undefined : normalized;
+	}
+	return val === null ? undefined : val;
+}, z.string().email({ message: 'Invalid email address' }).optional());
 
 // Bed Schema
 export const bedSchema = z.object({
@@ -367,7 +383,7 @@ export const participantSchema = z.object({
 	homePhone: z.string().optional(),
 	workPhone: z.string().optional(),
 	cellPhone: z.string(),
-	email: z.string().min(1, 'Email is required').email(),
+	email: requiredEmailSchema,
 	occupation: z.string().min(1, 'Occupation is required'),
 	snores: z.boolean(),
 	hasMedication: z.boolean(),
@@ -385,19 +401,13 @@ export const participantSchema = z.object({
 	emergencyContact1HomePhone: z.string().optional(),
 	emergencyContact1WorkPhone: z.string().optional(),
 	emergencyContact1CellPhone: z.string().min(1, 'Emergency contact 1 cell phone is required'),
-	emergencyContact1Email: z.preprocess(
-		(val) => (val === '' || val === null ? undefined : val),
-		z.string().email({ message: 'Invalid email address' }).optional(),
-	),
+	emergencyContact1Email: optionalEmailSchema,
 	emergencyContact2Name: z.string().optional(),
 	emergencyContact2Relation: z.string().optional(),
 	emergencyContact2HomePhone: z.string().optional(),
 	emergencyContact2WorkPhone: z.string().optional(),
 	emergencyContact2CellPhone: z.string().optional(),
-	emergencyContact2Email: z.preprocess(
-		(val) => (val === '' || val === null ? undefined : val),
-		z.string().email({ message: 'Invalid email address' }).optional(),
-	),
+	emergencyContact2Email: optionalEmailSchema,
 	tshirtSize: z.preprocess(
 		(val) => (val === '' || val === null ? undefined : val),
 		z.string().optional(),
@@ -611,6 +621,7 @@ export * from './preRetreatTaskTime';
 export * from './retreatPreparation';
 export * from './availability';
 export * from './phone';
+export * from './text';
 
 // Payment Schema
 export const paymentSchema = z.object({
