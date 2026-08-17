@@ -83,22 +83,23 @@ Cierran la confusión "cuenta de usuario vs. registro al retiro" que ya viene en
 - Generar miniatura a juego (estilo acuarela "Camino a Emaús") y subirla en Studio.
 - **Playlist del canal** (19 videos en orden de ciclo del retiro): https://www.youtube.com/playlist?list=PLSdqEiN1fbDM — "Emaús Retiros — Tutoriales". Al publicar uno nuevo, agregarlo con `playlistItems.insert` (scope `youtube.force-ssl`).
 - Fijar como **video destacado** del canal el de onboarding (P0) para nuevos visitantes.
-### Visibilidad: el canal es material del equipo servidor
+### Audiencia: el canal es del equipo servidor, la landing es de los caminantes
 
-**Regla (2026-08-17): todo tutorial de operación se sube `unlisted`.** La landing es para
-caminantes y el único video dirigido a ellos es el de **inscripción** (`jQb3q-mUG-8`), que es el
-único `public` del canal. Los demás cubren cómo se opera el sistema y su puerta de entrada es la
-**ayuda in-app** (`apps/web/src/docs/es/*.md`, detrás del login), donde ya están enlazados: en
-`unlisted` esos enlaces siguen funcionando y los videos también se pueden embeber.
+Los tutoriales se suben **públicos** y así se quedan: el enlace del canal y de cada video se
+comparte directamente con los servidores, y ponerlos `unlisted` solo estorbaría. Lo que sí se
+separa es **dónde se exponen**:
 
-Motivos: el caminante no debe encontrarse material que no le toca, y varios videos destripan
-sorpresas del fin de semana (las palancas y las cartas, la dinámica del Santísimo). La playlist
-"Emaús Retiros — Tutoriales" (`PLSdqEiN1fbDM`) también quedó `unlisted`: una playlist pública
-muestra los videos `unlisted` que contiene a cualquiera con su enlace.
+- **Landing pública** (`/`): solo el video de **inscripción** (`jQb3q-mUG-8`), el único dirigido a
+  caminantes, en la sección `#inscripcion`. La landing **no enlaza al canal** ni lleva ícono de
+  YouTube en el footer, porque el resto del material es operación del sistema.
+- **Ayuda in-app** (`apps/web/src/docs/es/*.md`, detrás del login): cada sección enlaza su
+  tutorial. Es la puerta de entrada del servidor.
+- **Canal y playlist** «Emaús Retiros — Tutoriales» (`PLSdqEiN1fbDM`, pública): se comparten con
+  el equipo por fuera de la app.
 
-Para auditar o corregir la visibilidad en bloque: `videos.list part=status` sobre la playlist de
-subidas del canal y `videos.update part=status` reenviando el `status` completo (si solo mandas
-`privacyStatus` se pierden `embeddable`/`license`). Requiere el scope `youtube.force-ssl`.
+Para auditar la visibilidad en bloque: `videos.list part=status` sobre la playlist de subidas del
+canal y `videos.update part=status` reenviando el `status` completo (si solo mandas `privacyStatus`
+se pierden `embeddable`/`license`). Requiere el scope `youtube.force-ssl`.
 
 ### El video de la landing
 
