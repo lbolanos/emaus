@@ -14,6 +14,11 @@ vi.mock('@/composables/useMarkdown', () => ({
   renderMarkdown: (text: string) => `<p>${text}</p>`,
 }));
 
+const mockPrint = vi.fn();
+vi.mock('@/composables/usePrintableDocument', () => ({
+  printMarkdownDocument: (...args: any[]) => mockPrint(...args),
+}));
+
 function doc(overrides: Record<string, any> = {}) {
   return {
     id: 'doc-1',
@@ -146,6 +151,60 @@ describe('PublicPreparationsView', () => {
     expect(readButtons.length).toBeGreaterThan(0);
     await readButtons[0].trigger('click');
     expect(wrapper.html()).toContain('<p>Leer antes de la reunión</p>');
+  });
+
+  it('el lector muestra el texto resuelto, no la plantilla con los {…}', async () => {
+    // El servidor manda ambos: `content` es la plantilla que se edita,
+    // `renderedContent` el texto con las fechas de este retiro ya puestas.
+    mockGetPublic.mockResolvedValueOnce({
+      ...PAYLOAD,
+      preparations: PAYLOAD.preparations.map((p) =>
+        p.id === 'prep-2'
+          ? {
+              ...p,
+              documents: [
+                doc({
+                  id: 'doc-2',
+                  kind: 'markdown',
+                  fileName: 'Guía de la semana.md',
+                  content: 'Cupo de {retreat.maxWalkers}\n\n{preparations.table}',
+                  renderedContent: 'Cupo de 30\n\n| # | Fecha | Preparación |',
+                  url: 'data:text/markdown;base64,',
+                }),
+              ],
+            }
+          : p,
+      ),
+    });
+    const wrapper = await mountView();
+    const readButtons = wrapper
+      .findAll('button')
+      .filter((b) => b.text().includes('Guía de la semana'));
+    await readButtons[0].trigger('click');
+
+    expect(wrapper.html()).toContain('Cupo de 30');
+    expect(wrapper.html()).not.toContain('{retreat.maxWalkers}');
+    expect(wrapper.html()).not.toContain('{preparations.table}');
+  });
+
+  it('imprime el documento resuelto desde el lector', async () => {
+    const wrapper = await mountView();
+    const readButtons = wrapper
+      .findAll('button')
+      .filter((b) => b.text().includes('Guía de la semana'));
+    await readButtons[0].trigger('click');
+
+    const printButton = wrapper
+      .findAll('button')
+      .find((b) => b.text().includes('preparations.printDoc'));
+    expect(printButton).toBeDefined();
+    await printButton!.trigger('click');
+
+    expect(mockPrint).toHaveBeenCalledOnce();
+    expect(mockPrint.mock.calls[0][0]).toMatchObject({
+      title: 'Guía de la semana',
+      markdown: 'Leer antes de la reunión',
+    });
   });
 
   it('muestra el error de no encontrado cuando el retiro no es público', async () => {

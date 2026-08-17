@@ -3247,6 +3247,7 @@
     "includeDefaultDocs": "Adjuntar a cada semana los documentos de preparación por defecto",
     "includeOriginalDocx": "Adjuntar también el .docx original (en Word, sin fechas del retiro)",
     "clearExisting": "Reemplazar el calendario existente (borra también sus documentos)",
+    "downloadPdf": "Descargar PDF",
     "printDoc": "Imprimir / PDF",
     "popupBlocked": "Permite las ventanas emergentes para poder imprimir el documento.",
     "preview": "Vista previa",

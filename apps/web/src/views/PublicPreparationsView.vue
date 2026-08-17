@@ -62,7 +62,7 @@
                 <button
                   v-else
                   class="inline-flex items-center gap-2 rounded-md bg-emerald-600 text-white px-4 py-2 text-sm font-medium hover:bg-emerald-700"
-                  @click="openReader(doc)"
+                  @click="openReader(doc, nextSession)"
                 >
                   <FileText class="h-4 w-4" />
                   {{ t('preparations.viewText') }} — {{ doc.fileName.replace(/\.md$/i, '') }}
@@ -129,7 +129,7 @@
                   <button
                     v-else
                     class="inline-flex items-center gap-1.5 border rounded-full px-3 py-1 text-sm bg-gray-50 hover:bg-emerald-50 text-emerald-700"
-                    @click="openReader(doc)"
+                    @click="openReader(doc, prep)"
                   >
                     <FileText class="h-4 w-4" />
                     {{ doc.fileName.replace(/\.md$/i, '') }}
@@ -151,9 +151,28 @@
       <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col">
         <div class="flex items-center justify-between border-b px-4 py-3">
           <h3 class="font-semibold">{{ readerDoc.fileName.replace(/\.md$/i, '') }}</h3>
-          <button class="text-gray-400 hover:text-gray-700" @click="readerDoc = null">
-            <X class="h-5 w-5" />
-          </button>
+          <div class="flex items-center gap-1">
+            <button
+              class="inline-flex items-center gap-1.5 rounded px-2 py-1 text-sm text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+              :title="t('preparations.downloadPdf')"
+              :disabled="pdfBusy"
+              @click="downloadPdf(readerDoc)"
+            >
+              <FileDown class="h-4 w-4" />
+              {{ t('preparations.downloadPdf') }}
+            </button>
+            <button
+              class="inline-flex items-center gap-1.5 rounded px-2 py-1 text-sm text-gray-600 hover:bg-gray-100"
+              :title="t('preparations.printDoc')"
+              @click="printDoc(readerDoc)"
+            >
+              <Printer class="h-4 w-4" />
+              {{ t('preparations.printDoc') }}
+            </button>
+            <button class="text-gray-400 hover:text-gray-700" @click="readerDoc = null">
+              <X class="h-5 w-5" />
+            </button>
+          </div>
         </div>
         <!-- eslint-disable-next-line vue/no-v-html — contenido sanitizado con DOMPurify -->
         <div class="prose prose-sm max-w-none p-4 overflow-y-auto" v-html="readerHtml" />
@@ -165,8 +184,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { FileDown, FileText, X } from 'lucide-vue-next';
+import { FileDown, FileText, Printer, X } from 'lucide-vue-next';
 import { renderMarkdown } from '@/composables/useMarkdown';
+import { printMarkdownDocument } from '@/composables/usePrintableDocument';
+import { downloadPreparationPdf } from '@/composables/usePreparationPdf';
 import {
   retreatPreparationApi,
   type PublicRetreatPreparationsDTO,
@@ -232,12 +253,60 @@ function formatTime(hhmm: string): string {
 }
 
 // -- Lector de textos markdown --
+// Siempre `renderedContent`: es el texto con las fechas de este retiro ya
+// resueltas. `content` es la plantilla con los `{...}` crudos y solo sirve
+// para editar (que aquí, en la vista pública, no se hace).
 const readerDoc = ref<RetreatPreparationDocumentDTO | null>(null);
-const readerHtml = computed(() =>
-  readerDoc.value ? renderMarkdown(readerDoc.value.content ?? '') : '',
-);
+// La sesión dueña del documento abierto: su fecha va en el encabezado del PDF.
+const readerPrep = ref<RetreatPreparationDTO | null>(null);
+const readerHtml = computed(() => (readerDoc.value ? renderMarkdown(docText(readerDoc.value)) : ''));
 
-function openReader(doc: RetreatPreparationDocumentDTO) {
+function docText(doc: RetreatPreparationDocumentDTO): string {
+  return doc.renderedContent ?? doc.content ?? '';
+}
+
+function openReader(doc: RetreatPreparationDocumentDTO, prep: RetreatPreparationDTO) {
   readerDoc.value = doc;
+  readerPrep.value = prep;
+}
+
+/**
+ * Fecha y hora de ESTA preparación, para el encabezado del PDF: es lo que
+ * identifica a qué reunión pertenece el documento impreso.
+ */
+function printMeta(prep: RetreatPreparationDTO | null): string | undefined {
+  if (!prep) return undefined;
+  const when = prep.date
+    ? [formatLongDate(prep.date), prep.time && formatTime(prep.time)].filter(Boolean).join(' · ')
+    : '';
+  return [prep.title, when].filter(Boolean).join('\n') || undefined;
+}
+
+// PDF con panel de marcadores, generado en el navegador con jsPDF.
+const pdfBusy = ref(false);
+
+async function downloadPdf(doc: RetreatPreparationDocumentDTO) {
+  pdfBusy.value = true;
+  try {
+    await downloadPreparationPdf({
+      doc,
+      subtitle: data.value?.retreat?.parish ?? undefined,
+      meta: printMeta(readerPrep.value),
+      onError: (message) => window.alert(message),
+    });
+  } finally {
+    pdfBusy.value = false;
+  }
+}
+
+function printDoc(doc: RetreatPreparationDocumentDTO) {
+  const prep = readerPrep.value;
+  printMarkdownDocument({
+    title: doc.fileName.replace(/\.md$/i, ''),
+    markdown: docText(doc),
+    subtitle: data.value?.retreat?.parish ?? undefined,
+    meta: printMeta(prep),
+    onPopupBlocked: () => window.alert(t('preparations.popupBlocked')),
+  });
 }
 </script>
