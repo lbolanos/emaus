@@ -201,7 +201,20 @@ export const retreatSchema = z.object({
 	max_servers: z.number().int().positive().optional(),
 	retreat_type: z.enum(['men', 'women', 'couples', 'effeta']).optional(),
 	retreat_number_version: z.string().optional(),
-	slug: z.string().optional(),
+	// El slug va dentro de la URL pública del retiro y acaba interpolado en el
+	// HTML del preview OG. Acotarlo aquí evita que un valor con comillas o
+	// etiquetas llegue a ese HTML. Los 7 retiros existentes ya lo cumplen.
+	// El preprocess de '' es obligatorio: el formulario manda cadena vacía
+	// cuando el campo está en blanco, y `.regex().optional()` la rechazaría con
+	// un 400 al crear el retiro (bug recurrente de este repo).
+	slug: z.preprocess(
+		(v) => (v === '' || v === null ? undefined : v),
+		z
+			.string()
+			.regex(/^[a-z0-9-]+$/, 'El enlace solo admite minúsculas, números y guiones')
+			.max(120)
+			.optional(),
+	),
 	isPublic: z.boolean().default(false),
 	roleInvitationEnabled: z.boolean().default(true),
 	walkerArrivalTime: arrivalTimeSchema,

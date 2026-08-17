@@ -274,6 +274,40 @@ Reglas:
   exponer. Un `grep` de `res.json(` sobre los controladores públicos toma un minuto.
 - Verificalo desde fuera, sin sesión: `curl -s https://emaus.cc/api/<ruta> | python3 -m json.tool`.
 
+## Escapar en el punto de salida, no solo donde parece que entra el dato
+
+Un endpoint público que arma HTML por concatenación tiene que escapar **todos** los valores que
+vienen de la base, no solo los que "parecen texto libre". El caso real de este repo (2026-08-17):
+`ogController` escapaba `title` y `description` —los campos obvios— pero no la URL, que se
+construye con `retreat.slug`. Y el slug no tenía formato validado en ninguna capa: el schema era
+`z.string().optional()` y la normalización a `[a-z0-9]` vivía solo en el modal, que es cliente y
+además opcional.
+
+```ts
+// MAL: parece seguro porque el slug "siempre" es limpio
+const url = `${baseUrl}/${retreat.slug}`;
+`<meta http-equiv="refresh" content="0;url=${url}">`
+
+// BIEN: dos capas, y la de salida es la que cuenta
+const safeUrl = escapeHtml(url);          // no depende de que nadie se salte la otra
+slug: z.preprocess(                        // y el dato entra ya acotado
+  (v) => (v === '' || v === null ? undefined : v),
+  z.string().regex(/^[a-z0-9-]+$/).max(120).optional(),
+)
+```
+
+Con el slug sin escapar se podía guardar `x"><meta http-equiv="refresh" content="0;url=...">` y
+dejar servida desde el propio dominio una página que redirige a otro. El CSP de helmet frena el
+`<script>` inline, **pero no el `<meta refresh>`**: no confiar en el CSP como sustituto del escape.
+
+Al validar formato de un campo que ya existe en producción: **consultar primero los valores reales**
+(`SELECT slug FROM retreat`) antes de añadir la regex, o el deploy rompe registros vivos. Y siempre
+con `z.preprocess` para la cadena vacía — el formulario manda `''` y `.regex().optional()` la
+rechaza con un 400 (bug recurrente de este repo).
+
+Guard: `apps/api/src/tests/controllers/ogController.test.ts` intenta romper el atributo desde el
+slug, no solo desde la parroquia.
+
 ## Best practices
 
 1. **Principle of Least Privilege**: grant minimal privileges

@@ -317,6 +317,7 @@ import {
 } from '@repo/ui';
 import { marked } from 'marked';
 import jsPDF from 'jspdf';
+import { printMarkdownDocument } from '@/composables/usePrintableDocument';
 import {
   responsabilityAttachmentApi,
   type ResponsabilityAttachmentDTO,
@@ -685,59 +686,21 @@ function downloadMd(att: ResponsabilityAttachmentDTO) {
 }
 
 /**
- * Print a single markdown attachment.
- *
- * Opens a fresh window with the rendered markdown and a small print
- * stylesheet (A4-friendly, 11pt body, table borders), then triggers
- * `window.print()`. The user can save as PDF or send to printer from
- * the native dialog. Closes the popup after the dialog is dismissed.
- *
- * Why a new window (vs in-page `@media print`): the MaM page already has
- * its own print rules that hide the dialog. A child window gives the
- * markdown its own clean print context and avoids any interaction with
- * the parent's @media print sheet.
+ * Print a single markdown attachment. The A4 stylesheet, the popup and the
+ * wait-for-images logic live in `usePrintableDocument`, shared with the
+ * preparation documents so every printed retreat document looks alike.
  */
 function printMarkdown(att: ResponsabilityAttachmentDTO) {
-  const title = (att.fileName || 'Guion').replace(/\.md$/i, '');
-  const html = marked.parse(att.content ?? '', { async: false }) as string;
-  const win = window.open('', '_blank', 'width=900,height=1100');
-  if (!win) {
-    toast({
-      title: 'Bloqueado por el navegador',
-      description: 'Permite ventanas emergentes para imprimir el guion.',
-      variant: 'destructive',
-    });
-    return;
-  }
-  win.document.write(`<!DOCTYPE html>
-<html lang="es"><head><meta charset="UTF-8" />
-<title>${title}</title>
-<style>
-  @page { margin: 16mm; }
-  body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11pt; line-height: 1.45; color: #1a1a1a; max-width: 700px; margin: 0 auto; padding: 8mm; }
-  h1 { font-size: 18pt; border-bottom: 2px solid #333; padding-bottom: 4pt; margin-top: 0; }
-  h2 { font-size: 14pt; margin-top: 16pt; color: #2c3e50; }
-  h3 { font-size: 12pt; margin-top: 12pt; }
-  table { border-collapse: collapse; width: 100%; margin: 8pt 0; font-size: 10pt; }
-  th, td { border: 1px solid #999; padding: 4pt 6pt; text-align: left; vertical-align: top; }
-  th { background: #f0f0f0; font-weight: 600; }
-  ul, ol { padding-left: 20pt; }
-  li { margin: 2pt 0; }
-  blockquote { border-left: 3px solid #ccc; padding-left: 8pt; color: #555; margin-left: 0; }
-  code { background: #f4f4f4; padding: 1pt 3pt; border-radius: 2pt; font-size: 10pt; }
-  hr { border: none; border-top: 1px solid #ccc; margin: 12pt 0; }
-  @media print {
-    body { max-width: none; padding: 0; }
-    h1 { page-break-after: avoid; }
-    h2, h3 { page-break-after: avoid; }
-    tr { page-break-inside: avoid; }
-  }
-</style></head><body>
-<h1>${title}</h1>
-${html}
-<script>window.addEventListener('load', () => { setTimeout(() => { window.print(); }, 100); window.addEventListener('afterprint', () => window.close()); });</` + `script>
-</body></html>`);
-  win.document.close();
+  printMarkdownDocument({
+    title: (att.fileName || 'Guion').replace(/\.md$/i, ''),
+    markdown: att.content ?? '',
+    onPopupBlocked: () =>
+      toast({
+        title: 'Bloqueado por el navegador',
+        description: 'Permite ventanas emergentes para imprimir el guion.',
+        variant: 'destructive',
+      }),
+  });
 }
 
 function downloadPdf(att: ResponsabilityAttachmentDTO) {

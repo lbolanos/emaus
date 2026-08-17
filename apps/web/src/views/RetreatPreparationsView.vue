@@ -17,6 +17,10 @@
           <Link2 class="h-4 w-4 mr-1" />
           {{ t('preparations.copyPublicLink') }}
         </Button>
+        <Button v-if="preparations.length" variant="outline" @click="resyncOpen = true">
+          <RefreshCw class="h-4 w-4 mr-1" />
+          {{ t('preparations.resyncDocs') }}
+        </Button>
         <Button variant="outline" @click="openAddEntry">
           <Plus class="h-4 w-4 mr-1" />
           {{ t('preparations.addEntry') }}
@@ -145,6 +149,25 @@
                 <button class="hover:underline" @click="openMarkdownEditor(prep, doc)">
                   {{ doc.fileName.replace(/\.md$/i, '') }}
                 </button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="h-6 w-6 text-gray-400 hover:text-gray-700"
+                  :title="t('preparations.downloadPdf')"
+                  :disabled="pdfBusyFor === doc.id"
+                  @click="downloadPdf(doc, prep)"
+                >
+                  <FileDown class="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="h-6 w-6 text-gray-400 hover:text-gray-700"
+                  :title="t('preparations.printDoc')"
+                  @click="printDoc(doc, prep)"
+                >
+                  <Printer class="h-3.5 w-3.5" />
+                </Button>
               </template>
               <template v-else>
                 <FileDown class="h-4 w-4 text-blue-600" />
@@ -216,6 +239,13 @@
           <label class="flex items-center gap-2 text-sm">
             <input v-model="genForm.includeDefaultDocs" type="checkbox" />
             {{ t('preparations.includeDefaultDocs') }}
+          </label>
+          <label
+            v-if="genForm.includeDefaultDocs"
+            class="flex items-center gap-2 text-sm text-gray-600 pl-6"
+          >
+            <input v-model="genForm.includeOriginalDocx" type="checkbox" />
+            {{ t('preparations.includeOriginalDocx') }}
           </label>
           <label v-if="preparations.length" class="flex items-center gap-2 text-sm text-red-700">
             <input v-model="genForm.clearExisting" type="checkbox" />
@@ -331,7 +361,7 @@
 
     <!-- Dialog: editor de texto markdown -->
     <Dialog v-model:open="mdOpen">
-      <DialogContent class="sm:max-w-2xl">
+      <DialogContent class="sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>
             {{ mdEditingDoc ? t('preparations.editText') : t('preparations.newText') }}
@@ -342,15 +372,51 @@
             <Label>{{ t('preparations.textTitle') }}</Label>
             <Input v-model="mdForm.title" />
           </div>
-          <div>
-            <Label>{{ t('preparations.textContent') }}</Label>
-            <Textarea v-model="mdForm.content" rows="14" class="font-mono text-sm" />
+          <div class="grid gap-3 md:grid-cols-2">
+            <div>
+              <Label>{{ t('preparations.editTemplate') }}</Label>
+              <Textarea v-model="mdForm.content" rows="16" class="font-mono text-sm" />
+              <p class="text-xs text-muted-foreground mt-1">
+                {{ t('preparations.templateHint') }}
+              </p>
+            </div>
+            <div>
+              <Label>{{ t('preparations.preview') }}</Label>
+              <!-- eslint-disable-next-line vue/no-v-html — sanitizado con DOMPurify -->
+              <div
+                class="prose prose-sm max-w-none border rounded p-3 bg-white overflow-y-auto"
+                style="height: 24rem"
+                v-html="mdPreviewHtml"
+              />
+            </div>
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" @click="mdOpen = false">{{ t('preparations.cancel') }}</Button>
           <Button :disabled="!mdForm.title.trim() || mdBusy" @click="confirmMarkdown">
             {{ t('preparations.save') }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <!-- Dialog: actualizar documentos por defecto -->
+    <Dialog v-model:open="resyncOpen">
+      <DialogContent class="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{{ t('preparations.resyncTitle') }}</DialogTitle>
+          <DialogDescription>{{ t('preparations.resyncBody') }}</DialogDescription>
+        </DialogHeader>
+        <label class="flex items-center gap-2 text-sm">
+          <input v-model="resyncRemoveLegacy" type="checkbox" />
+          {{ t('preparations.resyncRemoveLegacy') }}
+        </label>
+        <DialogFooter>
+          <Button variant="outline" @click="resyncOpen = false">
+            {{ t('preparations.cancel') }}
+          </Button>
+          <Button :disabled="resyncBusy" @click="confirmResync">
+            {{ t('preparations.resyncDocs') }}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -384,11 +450,21 @@ import {
   HelpCircle,
   Link2,
   Plus,
+  Printer,
+  RefreshCw,
   Trash2,
   Upload,
   X,
 } from 'lucide-vue-next';
+import {
+  resolvePreparationDocumentContent,
+  type PreparationEntryData,
+  type RetreatData,
+} from '@repo/utils';
 import PreparationsHelpDialog from '@/components/PreparationsHelpDialog.vue';
+import { renderMarkdown } from '@/composables/useMarkdown';
+import { printMarkdownDocument } from '@/composables/usePrintableDocument';
+import { downloadPreparationPdf } from '@/composables/usePreparationPdf';
 import { useRetreatStore } from '@/stores/retreatStore';
 import {
   retreatPreparationApi,
@@ -468,6 +544,9 @@ const genForm = reactive({
   time: '20:00',
   clearExisting: false,
   includeDefaultDocs: true,
+  // El .docx original es una descarga opcional: trae las fechas de otro
+  // retiro quemadas dentro del binario, que las plantillas ya resuelven.
+  includeOriginalDocx: false,
 });
 
 function addDaysYmd(ymd: string, days: number): string {
@@ -505,6 +584,7 @@ async function confirmGenerate() {
       time: genForm.time,
       clearExisting: genForm.clearExisting,
       includeDefaultDocs: genForm.includeDefaultDocs,
+      includeOriginalDocx: genForm.includeDefaultDocs && genForm.includeOriginalDocx,
     });
   } catch (err) {
     toast({ title: apiErrorMessage(err), variant: 'destructive' });
@@ -641,8 +721,98 @@ function openMarkdownEditor(
   mdPrepTarget.value = prep;
   mdEditingDoc.value = doc;
   mdForm.title = doc ? doc.fileName.replace(/\.md$/i, '') : '';
+  // Se edita la PLANTILLA (`content`), no el texto ya resuelto: así las
+  // fechas siguen actualizándose solas cuando el calendario cambie.
   mdForm.content = doc?.content ?? '';
   mdOpen.value = true;
+}
+
+// El preview resuelve las variables contra este retiro y su calendario, con
+// el mismo motor que usa el API — para que el coordinador vea la tabla real
+// mientras edita, sin tener que guardar ni abrir el enlace público.
+const mdPreviewHtml = computed(() =>
+  renderMarkdown(
+    resolvePreparationDocumentContent(
+      mdForm.content,
+      (retreat.value ?? null) as unknown as RetreatData | null,
+      { entries: preparations.value.map(toPreparationEntry) },
+    ),
+  ),
+);
+
+function toPreparationEntry(prep: RetreatPreparationDTO): PreparationEntryData {
+  return {
+    type: prep.type,
+    weekNumber: prep.weekNumber,
+    title: prep.title,
+    date: prep.date,
+    time: prep.time,
+  };
+}
+
+/**
+ * Fecha y hora de ESTA preparación, para el encabezado del PDF: es lo que
+ * identifica a qué reunión pertenece el documento impreso.
+ */
+function printMeta(prep: RetreatPreparationDTO): string | undefined {
+  const when = prep.date
+    ? [formatLongDate(prep.date), prep.time].filter(Boolean).join(' · ')
+    : '';
+  return [prep.title, when].filter(Boolean).join('\n') || undefined;
+}
+
+function printDoc(doc: RetreatPreparationDocumentDTO, prep: RetreatPreparationDTO) {
+  printMarkdownDocument({
+    title: doc.fileName.replace(/\.md$/i, ''),
+    markdown: doc.renderedContent ?? doc.content ?? '',
+    subtitle: retreat.value?.parish ?? undefined,
+    meta: printMeta(prep),
+    onPopupBlocked: () =>
+      toast({ title: t('preparations.popupBlocked'), variant: 'destructive' }),
+  });
+}
+
+// PDF con panel de marcadores, generado en el navegador con jsPDF.
+const pdfBusyFor = ref<string | null>(null);
+
+async function downloadPdf(doc: RetreatPreparationDocumentDTO, prep: RetreatPreparationDTO) {
+  pdfBusyFor.value = doc.id;
+  try {
+    await downloadPreparationPdf({
+      doc,
+      subtitle: retreat.value?.parish ?? undefined,
+      meta: printMeta(prep),
+      onError: (message) => toast({ title: message, variant: 'destructive' }),
+    });
+  } finally {
+    pdfBusyFor.value = null;
+  }
+}
+
+// -- Actualizar documentos por defecto (retiros creados antes de las plantillas) --
+const resyncOpen = ref(false);
+const resyncBusy = ref(false);
+const resyncRemoveLegacy = ref(false);
+
+async function confirmResync() {
+  if (!retreatId.value) return;
+  resyncOpen.value = false;
+  resyncBusy.value = true;
+  try {
+    const result = await retreatPreparationApi.resyncDefaultDocs(retreatId.value, {
+      removeLegacy: resyncRemoveLegacy.value,
+    });
+    await reload();
+    toast({
+      title: result.added
+        ? t('preparations.resyncDone', { added: result.added, removed: result.removed })
+        : t('preparations.resyncNothing'),
+    });
+  } catch (err) {
+    toast({ title: apiErrorMessage(err), variant: 'destructive' });
+  } finally {
+    resyncBusy.value = false;
+  }
 }
 
 async function confirmMarkdown() {

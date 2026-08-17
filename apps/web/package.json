@@ -60,6 +60,7 @@
     "exceljs": "^4.4.0",
     "html-to-image": "^1.11.13",
     "jspdf": "^2.5.2",
+    "jspdf-autotable": "^5.0.8",
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
     "lucide-vue-next": "^0.363.0",

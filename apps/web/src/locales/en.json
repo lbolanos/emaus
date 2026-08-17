@@ -2928,6 +2928,7 @@
     "includeDefaultDocs": "Attach the default preparation documents to each week",
     "includeOriginalDocx": "Also attach the original .docx (Word, without this retreat's dates)",
     "clearExisting": "Replace the existing calendar (also deletes its documents)",
+    "downloadPdf": "Download PDF",
     "printDoc": "Print / PDF",
     "popupBlocked": "Allow pop-up windows to print this document.",
     "preview": "Preview",

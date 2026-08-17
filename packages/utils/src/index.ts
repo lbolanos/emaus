@@ -1,3 +1,4 @@
+export * from './printableDocument';
 /**
  * Shared utility functions for message template variable replacement
  * Used by both API and web applications to avoid code duplication
@@ -931,6 +932,121 @@ export const replaceTableVariables = (
 	}
 	return out;
 };
+
+/**
+ * Una entrada del calendario de preparaciones (las reuniones semanales del
+ * equipo servidor previas al retiro). Espejo mínimo de la fila
+ * `retreat_preparation`: solo lo necesario para imprimir el calendario.
+ */
+export interface PreparationEntryData {
+	type: 'session' | 'break';
+	weekNumber?: number | null;
+	title: string;
+	/** Date-only YYYY-MM-DD, nunca Date (bug TZ conocido). */
+	date?: string | null;
+	/** HH:MM en hora local del retiro. */
+	time?: string | null;
+}
+
+/**
+ * Variables del scope `preparations.*`: el calendario de preparaciones de un
+ * retiro, para embeberlo en los documentos que lee el equipo servidor.
+ *
+ * Igual que `table.*`, es contextual: lo arma el caller que ya consultó las
+ * filas y este módulo solo formatea. `entries` debe venir YA ORDENADA — el
+ * orden del calendario lo decide el servicio (`sortEntries`), no el formateo.
+ *
+ * Deliberadamente fuera del picker de plantillas de mensaje:
+ * `{preparations.table}` es un bloque de tabla markdown, no un valor escalar,
+ * y no tendría cómo resolverse en un WhatsApp o un correo.
+ */
+export interface PreparationsData {
+	entries: PreparationEntryData[];
+}
+
+/** Un `|` o un salto de línea en el título partiría la fila de la tabla. */
+const escapeMdTableCell = (value: string): string =>
+	value
+		.replace(/\|/g, '\\|')
+		.replace(/\r?\n/g, ' ')
+		.trim();
+
+/**
+ * Calendario de preparaciones como tabla markdown GFM. Los festivos
+ * (`type: 'break'`) aparecen en su lugar cronológico sin número de semana,
+ * para que se lea "esa fecha no hubo reunión" en vez de desaparecer.
+ */
+export const buildPreparationsTableMarkdown = (entries: PreparationEntryData[]): string => {
+	if (entries.length === 0) return '_El calendario de preparaciones aún no se ha generado._';
+	const rows = entries.map((entry) => {
+		// 'full' incluye el día de la semana: en un calendario de reuniones es
+		// lo primero que busca la gente.
+		const date = entry.date ? formatDate(entry.date, { format: 'full' }) : 'Por confirmar';
+		const when = entry.time ? `${date} · ${entry.time}` : date;
+		const title = escapeMdTableCell(entry.title || '');
+		// El motivo solo ("Semana Santa") no dice que esa fecha se salta; en un
+		// documento impreso hay que decirlo explícito.
+		return entry.type === 'break'
+			? `| — | ${when} | _${title ? `${title} — sin reunión` : 'Sin reunión'}_ |`
+			: `| ${entry.weekNumber ?? '•'} | ${when} | ${title} |`;
+	});
+	return ['| # | Fecha | Preparación |', '| --- | --- | --- |', ...rows].join('\n');
+};
+
+const buildPreparationsReplacements = (data: PreparationsData): Record<string, string> => {
+	const entries = data.entries ?? [];
+	const dated = entries.filter((e) => e.type === 'session' && !!e.date);
+	return {
+		'preparations.table': buildPreparationsTableMarkdown(entries),
+		'preparations.count': entries.filter((e) => e.type === 'session').length.toString(),
+		'preparations.firstDate': dated.length
+			? formatDate(dated[0].date!, { format: 'full' })
+			: '',
+		'preparations.lastDate': dated.length
+			? formatDate(dated[dated.length - 1].date!, { format: 'full' })
+			: '',
+	};
+};
+
+/**
+ * Reemplaza las variables `{preparations.*}`. A diferencia de los otros
+ * scopes NO cae a datos mock: un calendario inventado dentro de un documento
+ * real que el equipo va a imprimir sería peor que un aviso de "aún no se ha
+ * generado".
+ */
+export const replacePreparationsVariables = (
+	message: string,
+	preparations: PreparationsData | null | undefined,
+	escapeHtmlValues = false,
+): string => {
+	const replacements = buildPreparationsReplacements(preparations ?? { entries: [] });
+	let out = message;
+	for (const [k, v] of Object.entries(replacements)) {
+		const safe = escapeHtmlValues ? escapeHtmlValue(v) : v;
+		out = out.replace(new RegExp(`\\{${k}\\}`, 'g'), () => safe);
+	}
+	return out;
+};
+
+/**
+ * Resuelve el contenido de un documento de preparación: `{retreat.*}` y
+ * `{preparations.*}` en una sola pasada.
+ *
+ * No pasa por `replaceAllVariables` a propósito: estos documentos son del
+ * equipo servidor en conjunto, no de un participante — no hay `{participant.*}`
+ * que resolver y `replaceAllVariables` inyectaría los datos de un caminante
+ * mock. Pasar `retreat` null sí cae al retiro mock (útil para previews).
+ */
+export const resolvePreparationDocumentContent = (
+	content: string,
+	retreat: RetreatData | null | undefined,
+	preparations: PreparationsData | null | undefined,
+): string =>
+	replacePreparationsVariables(
+		replaceRetreatVariables(content, retreat, false),
+		preparations,
+		false,
+	);
 
 /**
  * Finds all known template variables in a message whose resolved value is

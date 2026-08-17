@@ -2971,7 +2971,13 @@ export interface RetreatPreparationDocumentDTO {
   id: string;
   preparationId: string;
   kind: "file" | "markdown";
+  /** Plantilla cruda, con los `{retreat.*}` / `{preparations.*}` sin resolver. */
   content?: string | null;
+  /**
+   * Solo lectura: `content` ya resuelto contra el retiro y su calendario. Es
+   * lo que hay que mostrar e imprimir — el editor, en cambio, edita `content`.
+   */
+  renderedContent?: string | null;
   fileName: string;
   mimeType: string;
   sizeBytes: number;
@@ -3018,9 +3024,24 @@ export const retreatPreparationApi = {
       time: string;
       clearExisting?: boolean;
       includeDefaultDocs?: boolean;
+      includeOriginalDocx?: boolean;
     },
   ): Promise<RetreatPreparationDTO[]> {
     const r = await api.post(`/retreat-preparations/retreats/${retreatId}/generate`, data);
+    return r.data;
+  },
+  /**
+   * Migra un retiro existente de los .docx de fábrica a las plantillas
+   * markdown. Solo toca documentos con el nombre original exacto.
+   */
+  async resyncDefaultDocs(
+    retreatId: string,
+    data: { removeLegacy?: boolean } = {},
+  ): Promise<{ added: number; removed: number; skipped: number }> {
+    const r = await api.post(
+      `/retreat-preparations/retreats/${retreatId}/resync-default-docs`,
+      data,
+    );
     return r.data;
   },
   async create(

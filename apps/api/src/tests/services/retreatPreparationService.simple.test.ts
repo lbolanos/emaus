@@ -72,7 +72,7 @@ describe('RetreatPreparationService — calendario de preparaciones', () => {
 			}
 		});
 
-		it('con includeDefaultDocs adjunta los documentos de la serie IX a cada semana', async () => {
+		it('con includeDefaultDocs adjunta las plantillas markdown de la serie IX a cada semana', async () => {
 			const preps = await retreatPreparationService.generate(retreat.id, {
 				weeks: 7,
 				firstDate: '2026-07-14',
@@ -85,8 +85,8 @@ describe('RetreatPreparationService — calendario de preparaciones', () => {
 				expect(byWeek.get(w)).toHaveLength(1);
 			}
 			expect(byWeek.get(5)).toHaveLength(2);
-			expect(byWeek.get(1)![0].fileName).toBe('1ª preparación — Servicio.docx');
-			expect(byWeek.get(1)![0].kind).toBe('file');
+			expect(byWeek.get(1)![0].fileName).toBe('1ª preparación — Servicio.md');
+			expect(byWeek.get(1)![0].kind).toBe('markdown');
 			// Semanas extra (>7) no tienen documento por defecto.
 			const extra = await retreatPreparationService.generate(retreat.id, {
 				weeks: 9,
@@ -96,6 +96,192 @@ describe('RetreatPreparationService — calendario de preparaciones', () => {
 				includeDefaultDocs: true,
 			});
 			expect(extra.find((p) => p.weekNumber === 9)!.documents ?? []).toHaveLength(0);
+		});
+
+		it('con includeOriginalDocx adjunta además el .docx original', async () => {
+			const preps = await retreatPreparationService.generate(retreat.id, {
+				weeks: 1,
+				firstDate: '2026-07-14',
+				time: '20:00',
+				includeDefaultDocs: true,
+				includeOriginalDocx: true,
+			});
+			const docs = preps[0].documents ?? [];
+			expect(docs).toHaveLength(2);
+			expect(docs.map((d) => d.kind).sort()).toEqual(['file', 'markdown']);
+			expect(docs.find((d) => d.kind === 'file')!.fileName).toBe(
+				'1ª preparación — Servicio.docx',
+			);
+		});
+
+		it('la plantilla guarda los placeholders crudos pero se lee resuelta', async () => {
+			const preps = await retreatPreparationService.generate(retreat.id, {
+				weeks: 7,
+				firstDate: '2026-07-14',
+				time: '20:00',
+				includeDefaultDocs: true,
+			});
+			const doc = (preps[0].documents ?? [])[0];
+
+			// El content persistido es la PLANTILLA: nunca se congela.
+			expect(doc.content).toContain('{preparations.table}');
+			expect(doc.content).toContain('{retreat.maxWalkers}');
+
+			// Lo que se lee/imprime ya trae las fechas de ESTE retiro.
+			expect(doc.renderedContent).not.toContain('{preparations.table}');
+			expect(doc.renderedContent).toContain('| # | Fecha | Preparación |');
+			expect(doc.renderedContent).toContain('14 de julio de 2026');
+			// Y ningún rastro del retiro del que venía el .docx original.
+			expect(doc.renderedContent).not.toContain('Polanco');
+		});
+
+		it('mover una fecha actualiza la tabla del documento sin regenerarlo', async () => {
+			const preps = await retreatPreparationService.generate(retreat.id, {
+				weeks: 7,
+				firstDate: '2026-07-14',
+				time: '20:00',
+				includeDefaultDocs: true,
+			});
+			const docId = (preps[0].documents ?? [])[0].id;
+
+			await retreatPreparationService.skipForHoliday(preps[2].id, 'Día feriado');
+
+			const after = await retreatPreparationService.listForRetreat(retreat.id);
+			const doc = after
+				.flatMap((p) => p.documents ?? [])
+				.find((d) => d.id === docId)!;
+			// El break aparece en la tabla y las fechas se corrieron solas.
+			expect(doc.renderedContent).toContain('Día feriado');
+			expect(doc.renderedContent).toContain('7 de julio de 2026');
+			expect(doc.content).toContain('{preparations.table}');
+		});
+	});
+
+	describe('alcance público de las variables', () => {
+		it('un documento público NO resuelve los datos de pago del retiro', async () => {
+			// Un coordinador puede escribir cualquier {retreat.*} en el markdown.
+			// Por el enlace público eso no debe poder publicar la info bancaria.
+			await getDS()
+				.getRepository('Retreat')
+				.update(retreat.id, {
+					isPublic: true,
+					slug: 'retiro-publico-test',
+					paymentInfo: 'CLABE 012345678901234567',
+					cost: '$3,500',
+				} as any);
+
+			const preps = await retreatPreparationService.generate(retreat.id, {
+				weeks: 1,
+				firstDate: '2026-07-14',
+				time: '20:00',
+			});
+			await retreatPreparationService.createMarkdownDocument(preps[0].id, {
+				title: 'Filtracion',
+				content: 'Pago: {retreat.paymentInfo} — Costo: {retreat.cost} — {retreat.parish}',
+			});
+
+			const publico = await retreatPreparationService.getPublicBySlug('retiro-publico-test');
+			const doc = (publico!.preparations[0].documents ?? [])[0];
+			expect(doc.renderedContent).not.toContain('CLABE');
+			expect(doc.renderedContent).not.toContain('3,500');
+			// Y lo que sí es público sigue resolviendo.
+			expect(doc.renderedContent).toContain(retreat.parish);
+		});
+
+		it('el mismo documento sí resuelve todo para quien tiene acceso al retiro', async () => {
+			await getDS()
+				.getRepository('Retreat')
+				.update(retreat.id, { paymentInfo: 'CLABE 012345678901234567' } as any);
+			const preps = await retreatPreparationService.generate(retreat.id, {
+				weeks: 1,
+				firstDate: '2026-07-14',
+				time: '20:00',
+			});
+			await retreatPreparationService.createMarkdownDocument(preps[0].id, {
+				title: 'Interno',
+				content: 'Pago: {retreat.paymentInfo}',
+			});
+
+			const interno = await retreatPreparationService.listForRetreat(retreat.id);
+			const doc = (interno[0].documents ?? [])[0];
+			expect(doc.renderedContent).toContain('CLABE');
+		});
+	});
+
+	describe('resyncDefaultDocuments', () => {
+		it('reemplaza el .docx de fábrica por la plantilla y conserva el original', async () => {
+			const preps = await retreatPreparationService.generate(retreat.id, {
+				weeks: 1,
+				firstDate: '2026-07-14',
+				time: '20:00',
+			});
+			// Simula un retiro viejo: solo el .docx adjunto.
+			await retreatPreparationService.addDocument(preps[0].id, {
+				fileName: '1ª preparación — Servicio.docx',
+				mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+				dataUrl: `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${Buffer.from('docx').toString('base64')}`,
+			});
+
+			const result = await retreatPreparationService.resyncDefaultDocuments(retreat.id);
+			expect(result.added).toBe(1);
+			expect(result.removed).toBe(0);
+
+			const after = await retreatPreparationService.listForRetreat(retreat.id);
+			const docs = after[0].documents ?? [];
+			expect(docs).toHaveLength(2);
+			const markdown = docs.find((d) => d.kind === 'markdown')!;
+			expect(markdown.renderedContent).toContain('| # | Fecha | Preparación |');
+
+			// Idempotente: correrlo otra vez no duplica.
+			const again = await retreatPreparationService.resyncDefaultDocuments(retreat.id);
+			expect(again.added).toBe(0);
+		});
+
+		it('con removeLegacy borra el .docx original', async () => {
+			const preps = await retreatPreparationService.generate(retreat.id, {
+				weeks: 1,
+				firstDate: '2026-07-14',
+				time: '20:00',
+			});
+			await retreatPreparationService.addDocument(preps[0].id, {
+				fileName: '1ª preparación — Servicio.docx',
+				mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+				dataUrl: `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${Buffer.from('docx').toString('base64')}`,
+			});
+
+			const result = await retreatPreparationService.resyncDefaultDocuments(retreat.id, {
+				removeLegacy: true,
+			});
+			expect(result).toMatchObject({ added: 1, removed: 1 });
+
+			const after = await retreatPreparationService.listForRetreat(retreat.id);
+			const docs = after[0].documents ?? [];
+			expect(docs).toHaveLength(1);
+			expect(docs[0].kind).toBe('markdown');
+		});
+
+		it('no toca un documento que el coordinador renombró', async () => {
+			const preps = await retreatPreparationService.generate(retreat.id, {
+				weeks: 1,
+				firstDate: '2026-07-14',
+				time: '20:00',
+			});
+			await retreatPreparationService.addDocument(preps[0].id, {
+				fileName: 'Servicio (versión de la comunidad).docx',
+				mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+				dataUrl: `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${Buffer.from('docx').toString('base64')}`,
+			});
+
+			const result = await retreatPreparationService.resyncDefaultDocuments(retreat.id, {
+				removeLegacy: true,
+			});
+			expect(result).toMatchObject({ added: 0, removed: 0 });
+
+			const after = await retreatPreparationService.listForRetreat(retreat.id);
+			expect(after[0].documents).toHaveLength(1);
+			expect((after[0].documents ?? [])[0].fileName).toBe(
+				'Servicio (versión de la comunidad).docx',
+			);
 		});
 
 		it('sin includeDefaultDocs genera el calendario vacío de documentos', async () => {

@@ -81,6 +81,12 @@ const renderPreview = ({
 	const image = `${baseUrl}/og-image.jpg`;
 	const safeTitle = escapeHtml(title);
 	const safeDescription = escapeHtml(description);
+	// La URL lleva dentro el `slug` del retiro, que viene de la base. Sin
+	// escaparla, un slug con comillas rompe el atributo y permite inyectar
+	// marcado — incluido un <meta refresh> a otro dominio, servido desde el
+	// nuestro. El slug ya se valida al guardarlo; esto es la defensa del punto
+	// de salida, que es la que no depende de que nadie se salte la otra.
+	const safeUrl = escapeHtml(url);
 
 	return `<!DOCTYPE html>
 <html lang="es">
@@ -88,11 +94,11 @@ const renderPreview = ({
 <meta charset="utf-8">
 <title>${safeTitle}</title>
 <meta name="description" content="${safeDescription}">
-<link rel="canonical" href="${url}">
+<link rel="canonical" href="${safeUrl}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Retiros Emaús">
 <meta property="og:locale" content="es_MX">
-<meta property="og:url" content="${url}">
+<meta property="og:url" content="${safeUrl}">
 <meta property="og:title" content="${safeTitle}">
 <meta property="og:description" content="${safeDescription}">
 <meta property="og:image" content="${image}">
@@ -103,10 +109,10 @@ const renderPreview = ({
 <meta name="twitter:title" content="${safeTitle}">
 <meta name="twitter:description" content="${safeDescription}">
 <meta name="twitter:image" content="${image}">
-<meta http-equiv="refresh" content="0;url=${url}">
+<meta http-equiv="refresh" content="0;url=${safeUrl}">
 </head>
 <body>
-<p><a href="${url}">${safeTitle}</a></p>
+<p><a href="${safeUrl}">${safeTitle}</a></p>
 </body>
 </html>
 `;

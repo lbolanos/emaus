@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
 	listPreparations,
 	generatePreparations,
+	resyncPreparationDefaultDocs,
 	createPreparation,
 	updatePreparation,
 	deletePreparation,
@@ -19,6 +20,7 @@ import {
 	CreateRetreatPreparationSchema,
 	UpdateRetreatPreparationSchema,
 	GenerateRetreatPreparationsSchema,
+	ResyncRetreatPreparationDocsSchema,
 	SkipRetreatPreparationSchema,
 	UploadRetreatPreparationDocumentSchema,
 	CreateRetreatPreparationMarkdownSchema,
@@ -46,6 +48,13 @@ router.post(
 	requirePermission('retreatPreparation:manage'),
 	requireRetreatAccess('retreatId'),
 	generatePreparations,
+);
+router.post(
+	'/retreats/:retreatId/resync-default-docs',
+	validateRequest(ResyncRetreatPreparationDocsSchema),
+	requirePermission('retreatPreparation:manage'),
+	requireRetreatAccess('retreatId'),
+	resyncPreparationDefaultDocs,
 );
 router.post(
 	'/retreats/:retreatId',
