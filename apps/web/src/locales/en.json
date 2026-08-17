@@ -331,9 +331,27 @@
     "signupLink": "Sign Up",
     "nav": {
       "thePath": "The Path",
+      "videos": "Videos",
       "retreats": "Retreats",
       "community": "Community",
       "stories": "Stories"
+    },
+    "videos": {
+      "badge": "YouTube channel",
+      "title": "See how it works",
+      "subtitle": "Short videos walking through the platform: how to sign up, how houses and tables come together, and how we accompany communities.",
+      "watch": "Watch video",
+      "channelCta": "Visit the full channel",
+      "channelHint": "More than 19 videos covering the whole system",
+      "openInYoutube": "Open in YouTube",
+      "items": {
+        "tour": "Getting started: a full walkthrough of a retreat",
+        "registration": "How to sign up for a retreat",
+        "access": "Signing in: log in, create an account and request access",
+        "houses": "Houses and beds: create the house and lay out the beds",
+        "tables": "Tables: assigning walkers and the Blessed Sacrament rotation",
+        "communities": "Communities: accompaniment, meetings and attendance"
+      }
     },
     "upcomingRetreats": "Upcoming Retreats",
     "noUpcomingRetreats": "No upcoming retreats at this time.",

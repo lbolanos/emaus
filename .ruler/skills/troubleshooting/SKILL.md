@@ -27,6 +27,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "el botón Eliminar/Confirmar sigue deshabilitado aunque escribí el nombre exacto" | [#14 Confirmación por nombre nunca se habilita (whitespace)](#14-confirmación-por-nombre-nunca-se-habilita-whitespace) |
 | "no me deja avanzar el registro", "el botón Siguiente no hace nada", "dice que el teléfono no es número pero sí lo es", "llenó todo bien desde el celular y no pasa" | [#15 Caracteres invisibles del autofill móvil](#15-caracteres-invisibles-del-autofill-móvil-bloquean-la-validación) |
 | "la suite del API falla en tests que no toqué", "SQLITE_MISUSE / Database handle is closed", "pasa aislado pero falla completo" | [#16 Fallos fantasma por dos jest simultáneos](#16-fallos-fantasma-al-correr-dos-jest-a-la-vez-api) |
+| "el test del scroll lock pasa aislado y falla en el archivo completo", "body.style.overflow me da '' cuando acabo de ponerlo en hidden" (Vitest) | [#17 happy-dom: `body.style` se queda pegado tras resetearlo](#17-happy-dom-bodystyle-se-queda-pegado-tras-resetearlo) |
 
 ---
 
@@ -526,6 +527,33 @@ cp /tmp/phone.ts.bak packages/types/src/phone.ts
 
 **Casos**:
 - 2026-08-14 — al validar el fix del autofill (#15), una corrida completa reportó 18 tests fallidos en 6 suites; con un solo jest corriendo, la suite dio 191 suites / 3039 tests en verde.
+
+---
+
+## 17. happy-dom: `body.style` se queda pegado tras resetearlo
+
+**Síntoma** (solo en tests del web, `environment: 'happy-dom'`): un test que verifica el bloqueo de scroll de un modal falla con `expected '' to be 'hidden'`. Corrido aislado (`-t "..."`) pasa; en el archivo completo falla. El componente sí funciona en el navegador.
+
+**Causa**: una vez que **algún** test del archivo ejecuta `document.body.style.overflow = ''` (por ejemplo el `onBeforeUnmount` del componente al desmontarlo con el modal abierto), el *getter* `document.body.style.overflow` devuelve `''` para siempre en ese archivo. Las escrituras posteriores sí llegan al **atributo** `style` — solo el getter miente. No es un bug de Vue ni del componente; se reproduce sin Vue:
+
+```ts
+it('a', () => { document.body.style.overflow = 'hidden'; document.body.style.overflow = ''; });
+it('b', () => { document.body.style.overflow = 'hidden';
+  expect(document.body.style.overflow).toBe('hidden');   // ❌ recibe ''
+  expect(document.body.getAttribute('style')).toContain('overflow: hidden'); // ✅
+});
+```
+
+**Fix en el test** — leer el atributo, no la propiedad:
+```ts
+const bodyStyle = () => document.body.getAttribute('style') ?? '';
+expect(bodyStyle()).toContain('overflow: hidden');
+expect(bodyStyle()).not.toContain('overflow: hidden');   // tras cerrar
+```
+`style.setProperty('overflow', 'hidden')` también sortea el getter, pero no cambies el componente por una limitación del entorno de test.
+
+**Casos**:
+- 2026-08-17 — `LandingVideos.test.ts` (modal del showcase de videos del landing): el test de Escape + scroll lock fallaba solo al correr después del test que deja el player abierto.
 
 ---
 

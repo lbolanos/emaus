@@ -83,3 +83,13 @@ Cierran la confusión "cuenta de usuario vs. registro al retiro" que ya viene en
 - Generar miniatura a juego (estilo acuarela "Camino a Emaús") y subirla en Studio.
 - **Playlist del canal** (19 videos en orden de ciclo del retiro): https://www.youtube.com/playlist?list=PLSdqEiN1fbDM — "Emaús Retiros — Tutoriales". Al publicar uno nuevo, agregarlo con `playlistItems.insert` (scope `youtube.force-ssl`).
 - Fijar como **video destacado** del canal el de onboarding (P0) para nuevos visitantes.
+- **6 de estos videos salen en la landing pública** (sección "Mira cómo funciona", `#videos`). La lista
+  vive en `FEATURED_VIDEOS` dentro de `apps/web/src/components/landing/LandingVideos.vue` (id de
+  YouTube + clave i18n del título + duración en segundos); los títulos están en
+  `apps/web/src/locales/{es,en}.json` bajo `landing.videos.items`. Para cambiar uno:
+  1. Agregar/editar la entrada en `FEATURED_VIDEOS` y su clave i18n en los dos locales.
+  2. Bajar la miniatura y dejarla en `apps/web/public/videos/<videoId>.webp` (no se hotlinkea
+     `i.ytimg.com`): `curl -s -o /tmp/t.jpg https://i.ytimg.com/vi/<id>/maxresdefault.jpg && magick /tmp/t.jpg -resize 640x360 -quality 80 -strip apps/web/public/videos/<id>.webp`
+  3. La duración se saca del propio video: `curl -s "https://www.youtube.com/watch?v=<id>" | grep -o '"lengthSeconds":"[0-9]*"' | head -1`
+  4. Actualizar el conteo de `landing.videos.channelHint` si cambió el total del canal.
+  Solo videos **públicos** — los `unlisted` (p. ej. Familia Emaús) no van en la landing.

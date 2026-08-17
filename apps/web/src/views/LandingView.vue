@@ -33,6 +33,12 @@
           >
             {{ $t('landing.nav.stories') }}
           </a>
+          <a
+            href="#videos"
+            :class="['text-sm font-medium hover:text-sage-600 transition-colors', scrolled ? 'text-stone-600' : 'text-white/90']"
+          >
+            {{ $t('landing.nav.videos') }}
+          </a>
           <div class="flex items-center gap-4 ml-4">
             <button @click="handleLoginClick" :class="['text-sm font-medium', scrolled ? 'text-stone-600' : 'text-white/90']">{{ $t('landing.loginLink') }}</button>
             <button @click="handleLoginClick" class="px-5 py-2 rounded-full bg-stone-800 text-white text-sm font-medium hover:bg-stone-700 transition-all">
@@ -62,6 +68,9 @@
             </a>
             <a href="#stories" class="block text-sm font-medium text-stone-600 hover:text-sage-600 transition-colors py-2" @click="isMenuOpen = false">
               {{ $t('landing.nav.stories') }}
+            </a>
+            <a href="#videos" class="block text-sm font-medium text-stone-600 hover:text-sage-600 transition-colors py-2" @click="isMenuOpen = false">
+              {{ $t('landing.nav.videos') }}
             </a>
             <div class="pt-3 border-t border-stone-200 space-y-3">
               <button @click="isMenuOpen = false; handleLoginClick()" class="block w-full text-left text-sm font-medium text-stone-600 py-2">
@@ -105,9 +114,13 @@
           <a href="#retreats" class="px-8 py-4 rounded-full bg-white text-stone-800 font-medium hover:shadow-xl transition-all transform hover:-translate-y-1">
             {{ $t('landing.ctaButton') }}
           </a>
-          <button class="px-8 py-4 rounded-full bg-white/10 backdrop-blur-md border border-white/30 text-white font-medium hover:bg-white/20 transition-all">
+          <a
+            href="#videos"
+            class="px-8 py-4 rounded-full bg-white/10 backdrop-blur-md border border-white/30 text-white font-medium hover:bg-white/20 transition-all flex items-center justify-center gap-2"
+          >
+            <Play :size="18" fill="currentColor" />
             {{ $t('landing.watchStory') }}
-          </button>
+          </a>
         </div>
       </div>
 
@@ -484,6 +497,9 @@
       </div>
     </section>
 
+    <!-- Video Showcase (YouTube channel "Emaús Retiros") -->
+    <LandingVideos />
+
     <!-- CTA Footer Wrapper -->
     <section class="py-20 px-6">
       <div class="max-w-7xl mx-auto rounded-[3rem] overflow-hidden relative bg-stone-900 text-white p-12 md:p-24 text-center">
@@ -546,6 +562,9 @@
           <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
             <Facebook :size="20" class="text-stone-400 hover:text-stone-900 transition-colors" />
           </a>
+          <a :href="YOUTUBE_CHANNEL_URL" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
+            <Youtube :size="20" class="text-stone-400 hover:text-stone-900 transition-colors" />
+          </a>
           <a href="mailto:leonardo.bolanos@gmail.com" aria-label="Email">
             <Mail :size="20" class="text-stone-400 hover:text-stone-900 transition-colors" />
           </a>
@@ -590,6 +609,8 @@ import { ref, computed, defineAsyncComponent, onMounted, onUnmounted } from 'vue
 import { refDebounced } from '@vueuse/core';
 
 const CommunityMap = defineAsyncComponent(() => import('@/components/landing/CommunityMap.vue'));
+import LandingVideos from '@/components/landing/LandingVideos.vue';
+import { YOUTUBE_CHANNEL_URL } from '@/config/socialLinks';
 import { useI18n } from 'vue-i18n';
 import {
   MapPin,
@@ -600,6 +621,8 @@ import {
   X,
   Instagram,
   Facebook,
+  Youtube,
+  Play,
   Mail,
   Loader2
 } from 'lucide-vue-next';

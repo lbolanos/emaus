@@ -119,6 +119,9 @@ vi.mock('lucide-vue-next', () => ({
 	X: { template: '<div data-icon="X" />' },
 	Instagram: { template: '<div data-icon="Instagram" />' },
 	Facebook: { template: '<div data-icon="Facebook" />' },
+	Youtube: { template: '<div data-icon="Youtube" />' },
+	Play: { template: '<div data-icon="Play" />' },
+	ExternalLink: { template: '<div data-icon="ExternalLink" />' },
 	Mail: { template: '<div data-icon="Mail" />' },
 	Loader2: { template: '<div data-icon="Loader2" />' },
 }));
