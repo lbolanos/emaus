@@ -8,7 +8,7 @@
 
       <div :class="isSingle ? 'space-y-6' : 'grid grid-cols-1 sm:grid-cols-2 gap-6'">
         <button
-          v-for="video in FEATURED_VIDEOS"
+          v-for="video in LANDING_VIDEOS"
           :key="video.id"
           type="button"
           class="group block w-full text-left rounded-2xl overflow-hidden bg-stone-50 hover:shadow-xl transition-all focus:outline-none focus:ring-2 focus:ring-stone-400"
@@ -98,32 +98,13 @@
 import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ChevronRight, Play, X } from 'lucide-vue-next';
+import { LANDING_VIDEOS, type LandingVideo } from '@/config/landingVideos';
 
-type FeaturedVideo = {
-  /** YouTube video id */
-  id: string;
-  /** i18n key for the human-facing title */
-  titleKey: string;
-  /** Real length reported by YouTube, used for the duration badge */
-  seconds: number;
-};
-
-/**
- * Videos aimed at walkers, the audience of this page. The rest of the channel
- * covers running the system and belongs to the in-app help, behind login.
- *
- * Thumbnails live in public/videos/<id>.webp (downloaded from YouTube and
- * re-encoded) so the landing does not depend on i.ytimg.com at render time.
- */
-const FEATURED_VIDEOS: FeaturedVideo[] = [
-  { id: 'jQb3q-mUG-8', titleKey: 'landing.videos.items.registration', seconds: 59 },
-];
-
-const isSingle = FEATURED_VIDEOS.length === 1;
+const isSingle = LANDING_VIDEOS.length === 1;
 
 const { t: $t } = useI18n();
 
-const activeVideo = ref<FeaturedVideo | null>(null);
+const activeVideo = ref<LandingVideo | null>(null);
 const contentEl = ref<HTMLElement | null>(null);
 let previousActiveElement: HTMLElement | null = null;
 
@@ -139,7 +120,7 @@ const embedUrl = computed(() =>
     : '',
 );
 
-const openVideo = (video: FeaturedVideo) => {
+const openVideo = (video: LandingVideo) => {
   activeVideo.value = video;
 };
 

@@ -251,6 +251,39 @@ describe('LandingView', () => {
 			const logoImg = wrapper.find('img[src="/crossRoseButtT.png"]');
 			expect(logoImg.exists()).toBe(true);
 		});
+
+		it('nav links point at sections that exist on the page', () => {
+			const anchors = wrapper
+				.findAll('nav a[href^="#"]')
+				.map((link) => link.attributes('href')!)
+				.filter((href, index, all) => all.indexOf(href) === index);
+
+			expect(anchors.length).toBeGreaterThan(0);
+			for (const href of anchors) {
+				// Un ancla sin sección hace que el click no haga nada (pasó con #the-path)
+				expect(wrapper.find(`${href}`).exists(), `${href} sin sección`).toBe(true);
+			}
+		});
+
+		it('does not link the YouTube channel: it is serving-team material', () => {
+			// La landing es para caminantes; el canal se comparte con el equipo por
+			// fuera de la app. Ver docs/features/landing-page.md
+			const youtubeLinks = wrapper
+				.findAll('a')
+				.map((link) => link.attributes('href') ?? '')
+				.filter((href) => href.includes('youtube.com') || href.includes('youtu.be'));
+			expect(youtubeLinks).toEqual([]);
+		});
+
+		it('uses the project mailbox for public contact links', () => {
+			const mailtos = wrapper
+				.findAll('a[href^="mailto:"]')
+				.map((link) => link.attributes('href')!);
+			expect(mailtos.length).toBeGreaterThan(0);
+			for (const href of mailtos) {
+				expect(href).toContain('emaus.cccc@gmail.com');
+			}
+		});
 	});
 
 	describe('handleLoginClick Function', () => {
