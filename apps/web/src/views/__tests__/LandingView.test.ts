@@ -715,9 +715,15 @@ describe('LandingView', () => {
 
 			// Check for section styling classes
 			const sectionElement = storiesSection?.element as HTMLElement;
-			expect(sectionElement?.classList.contains('py-24')).toBe(true);
 			expect(sectionElement?.classList.contains('px-6')).toBe(true);
 			expect(sectionElement?.classList.contains('bg-stone-50')).toBe(true);
+		});
+
+		it('should collapse the vertical padding while there are no published stories', () => {
+			const sectionElement = wrapper.find('#stories').element as HTMLElement;
+			// With no published testimonials the section goes compact (py-14), not py-24
+			expect(sectionElement?.classList.contains('py-14')).toBe(true);
+			expect(sectionElement?.classList.contains('py-24')).toBe(false);
 		});
 	});
 

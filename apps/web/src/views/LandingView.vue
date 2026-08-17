@@ -424,9 +424,11 @@
     </section>
 
     <!-- Stories/Testimonials Section -->
-    <section id="stories" class="py-24 px-6 bg-stone-50">
+    <!-- With zero published testimonials the section renders compact: heading and
+         CTA stay, without the ~400px gap the empty state used to leave behind. -->
+    <section id="stories" :class="['px-6 bg-stone-50', hasNoStories ? 'py-14' : 'py-24']">
       <div class="max-w-7xl mx-auto">
-        <div class="text-center mb-16">
+        <div :class="['text-center', hasNoStories ? 'mb-6' : 'mb-16']">
           <span class="text-sage-600 font-semibold tracking-widest uppercase text-xs mb-3 block" :style="{ color: '#8DAA91' }">
             {{ $t('landing.storiesBadge') }}
           </span>
@@ -440,7 +442,7 @@
         </div>
 
         <!-- Empty state -->
-        <div v-else-if="testimonials.length === 0" class="text-center py-12 text-stone-500">
+        <div v-else-if="testimonials.length === 0" class="text-center py-2 text-stone-500">
           <p>{{ $t('landing.noStories') }}</p>
         </div>
 
@@ -491,7 +493,7 @@
         </div>
 
         <!-- CTA to share your story -->
-        <div v-if="!authStore.isAuthenticated" class="text-center mt-12">
+        <div v-if="!authStore.isAuthenticated" :class="['text-center', hasNoStories ? 'mt-6' : 'mt-12']">
           <p class="text-stone-600 mb-4">{{ $t('landing.shareYourStory') }}</p>
           <button @click="handleLoginClick" class="px-6 py-3 rounded-full bg-stone-800 text-white font-medium hover:bg-stone-700 transition-colors">
             {{ $t('landing.loginToShare') }}
@@ -700,6 +702,9 @@ const retreats = ref<any[]>([]);
 const communities = ref<any[]>([]);
 const meetings = ref<any[]>([]);
 const testimonials = ref<any[]>([]);
+
+// Nothing published yet: the stories section renders compact instead of leaving a gap
+const hasNoStories = computed(() => !loadingTestimonials.value && testimonials.value.length === 0);
 
 // Pool of retreat images, served from public/ instead of hotlinking Unsplash
 const retreatImages = [
