@@ -4,7 +4,7 @@
     <nav :class="['fixed w-full z-50 transition-all duration-300', scrolled ? 'bg-white/90 backdrop-blur-md shadow-sm py-3' : 'bg-transparent py-6']">
       <div class="max-w-7xl mx-auto px-6 flex justify-between items-center">
         <router-link to="/" class="flex items-center gap-2">
-          <img src="/crossRoseButtT.png" alt="Emmaus Rose" class="w-8 h-8" />
+          <img src="/crossRoseButtT.png" alt="Emmaus Rose" width="32" height="32" class="w-8 h-8" />
           <span :class="['text-xl font-light tracking-widest uppercase', scrolled ? 'text-stone-800' : 'text-white']">{{ $t('landing.emmaus') }}</span>
         </router-link>
 
@@ -80,8 +80,14 @@
     <section class="relative h-screen flex items-center justify-center overflow-hidden bg-stone-800">
       <div class="absolute inset-0 z-0">
         <img
-          src="/landing.png"
+          src="/landing.webp"
+          srcset="/landing-736.webp 736w, /landing.webp 1472w"
+          sizes="100vw"
           :alt="$t('landing.heroTitle')"
+          width="1472"
+          height="704"
+          fetchpriority="high"
+          decoding="async"
           class="w-full h-full object-cover scale-105"
         />
         <div class="absolute inset-0 bg-black/20"></div>
@@ -483,7 +489,12 @@
       <div class="max-w-7xl mx-auto rounded-[3rem] overflow-hidden relative bg-stone-900 text-white p-12 md:p-24 text-center">
         <div class="absolute inset-0 opacity-20 pointer-events-none">
           <img
-            src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=2000&auto=format&fit=crop" 
+            src="/cta-bg.webp"
+            alt=""
+            width="1600"
+            height="1068"
+            loading="lazy"
+            decoding="async"
             class="w-full h-full object-cover"
           />
         </div>
@@ -519,7 +530,7 @@
     <footer class="py-12 border-t border-stone-100">
       <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
         <router-link to="/" class="flex items-center gap-2">
-          <img src="/crossRoseButtT.png" alt="Emmaus Rose" class="w-6 h-6" />
+          <img src="/crossRoseButtT.png" alt="Emmaus Rose" width="24" height="24" loading="lazy" class="w-6 h-6" />
           <span class="text-sm font-light tracking-widest uppercase">{{ $t('landing.emmaus') }}</span>
         </router-link>
         <div class="flex gap-8 text-sm text-stone-400">
@@ -663,11 +674,11 @@ const communities = ref<any[]>([]);
 const meetings = ref<any[]>([]);
 const testimonials = ref<any[]>([]);
 
-// Pool of retreat images
+// Pool of retreat images, served from public/ instead of hotlinking Unsplash
 const retreatImages = [
-  'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?q=80&w=1000&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=1000&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=1000&auto=format&fit=crop'
+  '/retreats/retreat-1.webp',
+  '/retreats/retreat-2.webp',
+  '/retreats/retreat-3.webp'
 ];
 
 // Get image for retreat based on index
