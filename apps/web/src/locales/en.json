@@ -370,7 +370,7 @@
         },
         "cost": {
           "q": "How much does it cost?",
-          "a": "The cost is announced with each retreat and covers lodging and meals for the weekend. If money is the obstacle, write to us: scholarships are available."
+          "a": "Each retreat has its own cost, published together with the dates: open it under \"Upcoming Retreats\" to see it. It covers lodging, meals and materials for the weekend."
         },
         "signup": {
           "q": "How do I sign up?",
@@ -2934,7 +2934,19 @@
     "firstDate": "Date of the first preparation",
     "time": "Time",
     "includeDefaultDocs": "Attach the default preparation documents to each week",
+    "includeOriginalDocx": "Also attach the original .docx (Word, without this retreat's dates)",
     "clearExisting": "Replace the existing calendar (also deletes its documents)",
+    "printDoc": "Print / PDF",
+    "popupBlocked": "Allow pop-up windows to print this document.",
+    "preview": "Preview",
+    "editTemplate": "Template",
+    "templateHint": "Variables in braces fill themselves with this retreat's data: {'{'}preparations.table{'}'} inserts the schedule of dates.",
+    "resyncDocs": "Update default documents",
+    "resyncTitle": "Update the default documents",
+    "resyncBody": "Replaces the factory Word documents with their text templates, which fill in with this retreat's dates and details. Documents you uploaded or renamed are left untouched.",
+    "resyncRemoveLegacy": "Remove the original .docx (kept as a download by default)",
+    "resyncDone": "Documents updated: {added} added, {removed} removed",
+    "resyncNothing": "There were no factory documents to update",
     "previewDates": "Resulting dates",
     "generateConfirm": "Create calendar",
     "copyPublicLink": "Copy public link",

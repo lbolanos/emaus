@@ -370,7 +370,7 @@
         },
         "cost": {
           "q": "¿Cuánto cuesta?",
-          "a": "El costo se anuncia con cada retiro e incluye hospedaje y comidas del fin de semana. Si el dinero es el impedimento, escríbenos: existen becas."
+          "a": "Cada retiro tiene su propio costo y se publica junto con las fechas: ábrelo en «Próximos Retiros» para verlo. Incluye hospedaje, comidas y materiales del fin de semana."
         },
         "signup": {
           "q": "¿Cómo me inscribo?",
@@ -3253,7 +3253,19 @@
     "firstDate": "Fecha de la primera preparación",
     "time": "Hora",
     "includeDefaultDocs": "Adjuntar a cada semana los documentos de preparación por defecto",
+    "includeOriginalDocx": "Adjuntar también el .docx original (en Word, sin fechas del retiro)",
     "clearExisting": "Reemplazar el calendario existente (borra también sus documentos)",
+    "printDoc": "Imprimir / PDF",
+    "popupBlocked": "Permite las ventanas emergentes para poder imprimir el documento.",
+    "preview": "Vista previa",
+    "editTemplate": "Plantilla",
+    "templateHint": "Las variables entre llaves se llenan solas con los datos de este retiro: {'{'}preparations.table{'}'} inserta el calendario de fechas.",
+    "resyncDocs": "Actualizar documentos por defecto",
+    "resyncTitle": "Actualizar los documentos por defecto",
+    "resyncBody": "Reemplaza los documentos de fábrica en Word por sus plantillas de texto, que se llenan con las fechas y los datos de este retiro. Los documentos que subiste o renombraste no se tocan.",
+    "resyncRemoveLegacy": "Quitar el .docx original (por defecto se conserva como descarga)",
+    "resyncDone": "Documentos actualizados: {added} nuevos, {removed} retirados",
+    "resyncNothing": "No había documentos de fábrica que actualizar",
     "previewDates": "Fechas resultantes",
     "generateConfirm": "Crear calendario",
     "copyPublicLink": "Copiar enlace público",
