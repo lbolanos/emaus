@@ -107,6 +107,23 @@ explícitas, pero **lint-staged hace stash y restore de lo no preparado en cada 
 sesiones escribiendo a la vez, ahí es donde se pierden cambios. Conviene una sesión por worktree
 (ver skill `worktree-testing`).
 
+### 9. Escapar «los campos de texto» no es escapar la salida
+
+En `renderPreview` del preview OG se escapaban `title` y `description` —lo que *parecía* el texto—
+pero no la URL, que se arma con el slug del retiro y entra en cuatro atributos del HTML. Un slug
+con comillas rompía el atributo y permitía inyectar marcado, incluido un `<meta refresh>` a otro
+dominio **servido desde emaus.cc**. Lo encontró y corrigió otra sesión (`06dda32`, `a717678`), con
+escape en el punto de salida más un `^[a-z0-9-]+$` en el schema del slug.
+
+Dos cosas que llevarse:
+
+- El criterio no es «qué campo parece texto», sino **qué posición de la plantilla recibe datos**.
+  Todo lo interpolado cuenta: atributos, URLs, `content=` de las metas.
+- El test que ya existía probaba el escapado **desde la parroquia** y daba sensación de cobertura.
+  Cubría una vía de entrada, no el punto de salida — que es lo que hay que probar.
+
+Detalle en el skill `security-best-practices`.
+
 ## Pendientes que quedaron anotados
 
 1. Desplegar el preview por retiro: `nginx.conf` al servidor + reload + confirmar `FRONTEND_URL`,
