@@ -347,7 +347,7 @@
         },
         "team": {
           "title": "Un equipo que sirve",
-          "body": "Detrás de cada retiro hay servidores que preparan la casa y las camas, la comida y la agenda minuto a minuto. También las palancas: cartas y oraciones de quienes te acompañan sin que lo sepas."
+          "body": "Detrás de cada retiro hay servidores que preparan la casa y las camas, la comida y la agenda minuto a minuto, y que se reúnen a formarse durante las semanas previas."
         },
         "after": {
           "title": "Después del retiro",
@@ -378,7 +378,7 @@
         },
         "serve": {
           "q": "¿Puedo servir en un retiro?",
-          "a": "Sí. Si ya viviste tu retiro puedes inscribirte como servidor: hay equipos de cocina, palancas, recepción, música y más, con reuniones de preparación antes del fin de semana."
+          "a": "Sí. Si ya viviste tu retiro puedes inscribirte como servidor: hay equipos de cocina, recepción, música y más, con reuniones de preparación antes del fin de semana."
         }
       },
       "cta": "Ver próximos retiros"
