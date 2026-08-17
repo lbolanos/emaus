@@ -131,6 +131,29 @@ describe('ogController.getRetreatPreview', () => {
 		expect(html).toContain('&quot;');
 	});
 
+	test('escapa también el slug, que va dentro de la URL', async () => {
+		// El slug se interpola en href, en og:url y en el <meta refresh>. Sin
+		// escapar, uno con comillas rompe el atributo e inyecta marcado —
+		// incluido un redirect a otro dominio servido desde el nuestro.
+		const evil = 'x"><meta http-equiv="refresh" content="0;url=https://phish.example">';
+		jest.spyOn(retreatService, 'findBySlug').mockResolvedValue({
+			...publicRetreat,
+			slug: evil,
+		} as any);
+
+		const { html } = await renderFor(createMockRequest({ params: { slug: evil } }));
+
+		// Un solo <meta refresh>: el nuestro. Si el del slug hubiera entrado,
+		// habría dos y el navegador seguiría el primero.
+		expect(html.match(/http-equiv="refresh"/g) ?? []).toHaveLength(1);
+		// El dominio del atacante puede aparecer como texto inerte dentro del
+		// atributo escapado; lo que no debe existir es un destino operativo.
+		expect(html).not.toContain('content="0;url=https://phish.example"');
+		expect(html).toContain('&quot;');
+		// Y el marcado del payload viaja escapado, no como etiqueta.
+		expect(html).toContain('&lt;meta');
+	});
+
 	test('propaga el error al handler central si la consulta falla', async () => {
 		const boom = new Error('db down');
 		jest.spyOn(retreatService, 'findBySlug').mockRejectedValue(boom);
