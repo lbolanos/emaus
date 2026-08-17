@@ -336,6 +336,53 @@
       "community": "Comunidad",
       "stories": "Historias"
     },
+    "thePath": {
+      "badge": "El Camino",
+      "title": "Tres días para volver a lo esencial",
+      "subtitle": "Un retiro de Emaús es un fin de semana para parar, escuchar y encontrarte contigo mismo y con Dios, acompañado por un equipo que preparó cada detalle.",
+      "steps": {
+        "weekend": {
+          "title": "El fin de semana",
+          "body": "Son tres días completos, de viernes a domingo en la mayoría de los retiros. Pláticas, momentos de silencio, adoración al Santísimo y una mesa pequeña con la que compartes el camino. La misa de clausura se celebra con tu familia."
+        },
+        "team": {
+          "title": "Un equipo que sirve",
+          "body": "Detrás de cada retiro hay servidores que preparan la casa y las camas, la comida y la agenda minuto a minuto. También las palancas: cartas y oraciones de quienes te acompañan sin que lo sepas."
+        },
+        "after": {
+          "title": "Después del retiro",
+          "body": "El camino sigue en comunidad: reuniones periódicas cerca de tu ciudad para seguir acompañados. Puedes buscar la más cercana en el mapa de esta página."
+        }
+      },
+      "faqTitle": "Preguntas frecuentes",
+      "faq": {
+        "who": {
+          "q": "¿Quién puede participar?",
+          "a": "Cualquier persona que quiera vivir el fin de semana. No necesitas experiencia previa ni pertenecer a una comunidad: basta inscribirte en un retiro con lugares disponibles."
+        },
+        "duration": {
+          "q": "¿Cuánto dura y dónde es?",
+          "a": "Tres días. Cada retiro se hace en una casa distinta; en «Próximos Retiros» ves la casa, la ciudad, las fechas exactas y el mapa para llegar."
+        },
+        "bring": {
+          "q": "¿Qué necesito llevar?",
+          "a": "Ropa cómoda para tres días, artículos de aseo personal y tus medicinas si tomas alguna: indícalas al inscribirte. El equipo te confirma cualquier otro detalle antes de la salida."
+        },
+        "cost": {
+          "q": "¿Cuánto cuesta?",
+          "a": "El costo se anuncia con cada retiro e incluye hospedaje y comidas del fin de semana. Si el dinero es el impedimento, escríbenos: existen becas."
+        },
+        "signup": {
+          "q": "¿Cómo me inscribo?",
+          "a": "Elige un retiro en «Próximos Retiros» y llena el registro en línea. Recibirás la confirmación y los avisos previos por correo o WhatsApp."
+        },
+        "serve": {
+          "q": "¿Puedo servir en un retiro?",
+          "a": "Sí. Si ya viviste tu retiro puedes inscribirte como servidor: hay equipos de cocina, palancas, recepción, música y más, con reuniones de preparación antes del fin de semana."
+        }
+      },
+      "cta": "Ver próximos retiros"
+    },
     "videos": {
       "badge": "Canal de YouTube",
       "title": "Mira cómo funciona",

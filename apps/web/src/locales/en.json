@@ -336,6 +336,53 @@
       "community": "Community",
       "stories": "Stories"
     },
+    "thePath": {
+      "badge": "The Path",
+      "title": "Three days to get back to what matters",
+      "subtitle": "An Emmaus retreat is a weekend to stop, listen and meet yourself and God, alongside a team that prepared every detail.",
+      "steps": {
+        "weekend": {
+          "title": "The weekend",
+          "body": "Three full days, Friday through Sunday for most retreats. Talks, moments of silence, adoration of the Blessed Sacrament and a small table you share the journey with. The closing mass is celebrated with your family."
+        },
+        "team": {
+          "title": "A team that serves",
+          "body": "Behind every retreat there are servers preparing the house and the beds, the meals and the minute-by-minute schedule. And the palancas: letters and prayers from people supporting you without you knowing."
+        },
+        "after": {
+          "title": "After the retreat",
+          "body": "The journey continues in community: regular meetings near your city so you are not walking alone. You can find the closest one on the map on this page."
+        }
+      },
+      "faqTitle": "Frequently asked questions",
+      "faq": {
+        "who": {
+          "q": "Who can take part?",
+          "a": "Anyone who wants to live the weekend. No previous experience or community membership required: just sign up for a retreat with open spots."
+        },
+        "duration": {
+          "q": "How long is it and where?",
+          "a": "Three days. Each retreat takes place in a different house; under \"Upcoming Retreats\" you can see the house, the city, the exact dates and the map to get there."
+        },
+        "bring": {
+          "q": "What should I bring?",
+          "a": "Comfortable clothes for three days, personal toiletries and any medication you take — list it when you sign up. The team confirms any other detail before departure."
+        },
+        "cost": {
+          "q": "How much does it cost?",
+          "a": "The cost is announced with each retreat and covers lodging and meals for the weekend. If money is the obstacle, write to us: scholarships are available."
+        },
+        "signup": {
+          "q": "How do I sign up?",
+          "a": "Pick a retreat under \"Upcoming Retreats\" and fill in the online registration. You will get the confirmation and all reminders by email or WhatsApp."
+        },
+        "serve": {
+          "q": "Can I serve at a retreat?",
+          "a": "Yes. Once you have lived your own retreat you can sign up as a server: there are kitchen, palancas, reception, music and other teams, with preparation meetings before the weekend."
+        }
+      },
+      "cta": "See upcoming retreats"
+    },
     "videos": {
       "badge": "YouTube channel",
       "title": "See how it works",

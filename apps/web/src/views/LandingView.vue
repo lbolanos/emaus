@@ -129,6 +129,9 @@
       </div>
     </section>
 
+    <!-- What a retreat is: the weekend, the team, the community afterwards + FAQ -->
+    <LandingThePath />
+
     <!-- Upcoming Retreats Grid -->
     <section id="retreats" class="py-24 px-6 bg-white">
       <div class="max-w-7xl mx-auto">
@@ -550,7 +553,7 @@
           <span class="text-sm font-light tracking-widest uppercase">{{ $t('landing.emmaus') }}</span>
         </router-link>
         <div class="flex gap-8 text-sm text-stone-400">
-          <a href="#" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.about') }}</a>
+          <a href="#the-path" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.about') }}</a>
           <router-link to="/privacy" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.privacy') }}</router-link>
           <router-link to="/terms" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.terms') }}</router-link>
           <a href="mailto:leonardo.bolanos@gmail.com" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.contactUs') }}</a>
@@ -609,6 +612,7 @@ import { ref, computed, defineAsyncComponent, onMounted, onUnmounted } from 'vue
 import { refDebounced } from '@vueuse/core';
 
 const CommunityMap = defineAsyncComponent(() => import('@/components/landing/CommunityMap.vue'));
+import LandingThePath from '@/components/landing/LandingThePath.vue';
 import LandingVideos from '@/components/landing/LandingVideos.vue';
 import { YOUTUBE_CHANNEL_URL } from '@/config/socialLinks';
 import { useI18n } from 'vue-i18n';
