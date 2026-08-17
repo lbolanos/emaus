@@ -28,6 +28,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "no me deja avanzar el registro", "el botón Siguiente no hace nada", "dice que el teléfono no es número pero sí lo es", "llenó todo bien desde el celular y no pasa" | [#15 Caracteres invisibles del autofill móvil](#15-caracteres-invisibles-del-autofill-móvil-bloquean-la-validación) |
 | "la suite del API falla en tests que no toqué", "SQLITE_MISUSE / Database handle is closed", "pasa aislado pero falla completo" | [#16 Fallos fantasma por dos jest simultáneos](#16-fallos-fantasma-al-correr-dos-jest-a-la-vez-api) |
 | "el test del scroll lock pasa aislado y falla en el archivo completo", "body.style.overflow me da '' cuando acabo de ponerlo en hidden" (Vitest) | [#17 happy-dom: `body.style` se queda pegado tras resetearlo](#17-happy-dom-bodystyle-se-queda-pegado-tras-resetearlo) |
+| "compartí el link del retiro por WhatsApp y sale sin título/imagen", "el preview no dice de qué retiro es", "sigue saliendo la tarjeta vieja" | [#18 El preview del enlace no muestra el retiro](#18-el-preview-del-enlace-no-muestra-el-retiro) |
 
 ---
 
@@ -554,6 +555,47 @@ expect(bodyStyle()).not.toContain('overflow: hidden');   // tras cerrar
 
 **Casos**:
 - 2026-08-17 — `LandingVideos.test.ts` (modal del showcase de videos del landing): el test de Escape + scroll lock fallaba solo al correr después del test que deja el player abierto.
+
+---
+
+## 18. El preview del enlace no muestra el retiro
+
+**Síntoma**: se comparte `https://emaus.cc/<slug>` por WhatsApp y la tarjeta sale genérica (o sin
+título ni imagen), en vez de «Retiro Emaús Celaya · 28 al 30 de agosto de 2026».
+
+**Causa raíz permanente**: los rastreadores **no ejecutan JavaScript**. Del SPA solo leen las metas
+de `index.html`. El preview por retiro lo resuelve nginx desviando esos user agents a
+`/api/og/<slug>` (ver `docs/features/link-previews-og.md`).
+
+**Diagnóstico, en este orden** — cada paso descarta una causa distinta:
+
+```bash
+# 1. ¿El endpoint responde con las metas del retiro? (si falla: API viejo o sin desplegar)
+curl -s -A "WhatsApp/2.23" https://emaus.cc/api/og/<slug> | grep "og:title"
+
+# 2. ¿nginx desvía al rastreador? (si devuelve el HTML del SPA: falta copiar el conf o recargarlo)
+curl -s -A "facebookexternalhit/1.1" https://emaus.cc/<slug> | grep "og:title"
+
+# 3. ¿Las URLs salen absolutas y del dominio real? (si dicen localhost:5173: falta FRONTEND_URL)
+curl -s -A "WhatsApp/2.23" https://emaus.cc/api/og/<slug> | grep -E "og:url|og:image"
+
+# 4. ¿Una persona sigue recibiendo el SPA? (debe traer el div de la app)
+curl -s https://emaus.cc/<slug> | grep 'id="app"'
+```
+
+**Causas por frecuencia**:
+
+1. **nginx no recargado** tras copiar `nginx.conf`: `sudo nginx -t && sudo systemctl reload nginx`.
+2. **`FRONTEND_URL` mal en `.env.production`**: de ahí salen `og:url` y `og:image`; si apunta a
+   localhost, la tarjeta sale con URLs inservibles. Es la misma variable del CORS.
+3. **Caché del rastreador**: WhatsApp y Facebook guardan el preview con fuerza. Forzar en
+   `https://developers.facebook.com/tools/debug/` con «Scrape Again»; WhatsApp reutiliza ese caché.
+   Sin este paso, un fix correcto parece no haber funcionado.
+4. **El bloque de nginx se perdió** en una edición del conf. Lo cubre
+   `apps/api/src/tests/infrastructure/nginxOgPreview.simple.test.ts`.
+
+**Ojo**: un slug inexistente o un retiro con `isPublic = false` devuelven la tarjeta genérica **a
+propósito**, para no confirmar si existe un retiro privado detrás de esa URL. No es un bug.
 
 ---
 

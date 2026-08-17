@@ -90,6 +90,24 @@ Ambos requieren `youtube.force-ssl` (ver paso de autorización). Access token co
   `https://www.youtube.com/playlist?list=PLSdqEiN1fbDM` — al publicar uno nuevo, agregarlo con
   `playlistItems.insert`. Lista viva de videos: `docs/features/video-tutorials-checklist.md`.
 
+### Cambiar visibilidad en bloque
+
+Para auditar o corregir la privacidad de todo el canal: `channels.list part=contentDetails&mine=true`
+→ playlist de subidas → `playlistItems.list` (paginar con `nextPageToken`) → `videos.list part=snippet,status`
+en lotes de 50 → `videos.update part=status`.
+
+Dos cosas que muerden:
+
+- **`videos.update` reemplaza el recurso**: si mandás solo `{ privacyStatus }` se pierden
+  `embeddable`, `license`, `publicStatsViewable` y `selfDeclaredMadeForKids`. Leé el `status` actual
+  y reenvialo completo con el campo cambiado.
+- **Una playlist pública muestra los videos `unlisted` que contiene** a cualquiera con su enlace.
+  Poner videos en `unlisted` sin bajar también la playlist (`playlists.update part=snippet,status`,
+  que igualmente exige reenviar el `snippet` con título y descripción) no oculta nada.
+
+Verificación desde fuera, sin token: el feed del canal lista **solo** los públicos —
+`curl -s "https://www.youtube.com/feeds/videos.xml?channel_id=UCHiwG7pIB5Su3iwzSt7kIJA" | grep -c "<entry>"`.
+
 ## Arte del canal con IA (nano banana) + composición
 
 `gen-ai-image.mjs` llama a **Gemini 2.5 Flash Image** ("nano banana"). El estilo del sitio

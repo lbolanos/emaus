@@ -62,6 +62,19 @@ arrancar el bundle. Regla: si tocás rutas/paths en `apps/api`, corré el `dist/
 - Google Maps integration and notes about facilities
 - Each house has a fixed IANA `timezone` (default `America/Mexico_City`); each retreat may override it
 
+### Superficies públicas: audiencia y qué NO se dice
+
+La **landing (`/`) es para caminantes**; los tutoriales de operación del sistema son para
+servidores y viven en la ayuda in-app (`apps/web/src/docs/es/*.md`, detrás del login). La landing
+no enlaza el canal de YouTube. Estructura, assets y recetas: **`docs/features/landing-page.md`**.
+
+Reglas duras del texto público (landing, volantes, mensajes a caminantes) — decididas por la
+organización, con guard en `apps/web/src/locales/__tests__/landingPublicContent.test.ts`:
+
+- **No mencionar palancas ni cartas**: son la sorpresa del retiro para el caminante.
+- **No ofrecer becas**: existen solo para casos excepcionales.
+- **No publicar montos**: cada retiro tiene su propio costo (cubre hospedaje, comidas y materiales).
+
 ### Database Schema
 
 TypeORM contra SQLite. Las entidades y sus columnas se leen de `apps/api/src/entities/`; los

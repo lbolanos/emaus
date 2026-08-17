@@ -253,6 +253,27 @@ app.post('/api/auth/refresh', async (req, res) => {
 - [ ] A10: SSRF - validate outbound requests
 ```
 
+## Endpoints públicos: whitelist de campos, nunca la entidad
+
+Un endpoint sin autenticación que devuelve la entidad de TypeORM tal cual filtra todo lo que
+alguien agregue a esa tabla después, sin que nadie lo revise. No es hipotético en este repo:
+`GET /api/retreats/public` devuelve el `Retreat` completo, así que hoy expone sin login
+`paymentInfo` (banco, titular, número de cuenta y CLABE) y `contactPhones` (nombre + celular de
+varias personas). El volante público los muestra a propósito, pero el **listado** los entrega en
+JSON a cualquiera con un `curl`, incluidos retiros cuyo volante nadie abrió — material listo para
+pedir depósitos suplantando a la organización.
+
+Reglas:
+
+- El controlador público arma un **objeto explícito** con los campos que la UI necesita
+  (`res.json({ id, parish, startDate, endDate, house: { name, city } })`), no `res.json(entity)`.
+  Patrón correcto en el repo: `getRetreatBySlugPublic` en `retreatController.ts`.
+- Los datos sensibles (pago, teléfonos personales) se sirven **al consultar un recurso concreto**,
+  no en listados masivos: sube el costo de recolectarlos en bloque.
+- Al agregar una columna a una entidad con endpoints públicos, revisar qué endpoints la empiezan a
+  exponer. Un `grep` de `res.json(` sobre los controladores públicos toma un minuto.
+- Verificalo desde fuera, sin sesión: `curl -s https://emaus.cc/api/<ruta> | python3 -m json.tool`.
+
 ## Best practices
 
 1. **Principle of Least Privilege**: grant minimal privileges

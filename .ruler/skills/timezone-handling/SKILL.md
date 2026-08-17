@@ -52,6 +52,19 @@ const dd = baseDate.getUTCDate();
 
 Ver `computeItemDateRange()` en `retreatScheduleService.ts:592-617` como referencia.
 
+**Y para _mostrar_ esa fecha, `Intl` con `timeZone: 'UTC'`** — no basta con leer los componentes:
+formatear una columna date-only en la zona del server la corre al día anterior.
+
+```ts
+// startDate = 2026-08-28T00:00:00.000Z (columna date-only)
+new Intl.DateTimeFormat('es-MX', { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' })
+  .formatToParts(startDate);   // → 28 de agosto de 2026 ✅  (sin timeZone: 27 ❌)
+```
+
+Referencia: `formatRetreatDateRange()` en `apps/api/src/controllers/ogController.ts` (arma el
+título del preview de WhatsApp), con tests de corrimiento de día, cruce de mes y cruce de año en
+`apps/api/src/tests/controllers/ogController.test.ts`.
+
 ## Regla N°4 — para "¿hoy ya pasó?" usa `Intl.DateTimeFormat` con la zona del retiro
 
 NO uses `new Date().getDate()` (server-local) ni `new Date().getUTCDate()` (que cierra el retiro 6h antes para usuarios en CDMX).
