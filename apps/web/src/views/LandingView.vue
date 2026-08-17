@@ -558,7 +558,7 @@
           <a href="#the-path" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.about') }}</a>
           <router-link to="/privacy" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.privacy') }}</router-link>
           <router-link to="/terms" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.terms') }}</router-link>
-          <a href="mailto:leonardo.bolanos@gmail.com" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.contactUs') }}</a>
+          <a :href="`mailto:${CONTACT_EMAIL}`" class="hover:text-stone-900 transition-colors">{{ $t('landing.footer.contactUs') }}</a>
         </div>
         <div class="flex gap-4">
           <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
@@ -570,7 +570,7 @@
           <a :href="YOUTUBE_CHANNEL_URL" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
             <Youtube :size="20" class="text-stone-400 hover:text-stone-900 transition-colors" />
           </a>
-          <a href="mailto:leonardo.bolanos@gmail.com" aria-label="Email">
+          <a :href="`mailto:${CONTACT_EMAIL}`" aria-label="Email">
             <Mail :size="20" class="text-stone-400 hover:text-stone-900 transition-colors" />
           </a>
         </div>
@@ -616,7 +616,7 @@ import { refDebounced } from '@vueuse/core';
 const CommunityMap = defineAsyncComponent(() => import('@/components/landing/CommunityMap.vue'));
 import LandingThePath from '@/components/landing/LandingThePath.vue';
 import LandingVideos from '@/components/landing/LandingVideos.vue';
-import { YOUTUBE_CHANNEL_URL } from '@/config/socialLinks';
+import { CONTACT_EMAIL, YOUTUBE_CHANNEL_URL } from '@/config/socialLinks';
 import { useI18n } from 'vue-i18n';
 import {
   MapPin,

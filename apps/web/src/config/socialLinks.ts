@@ -5,3 +5,6 @@
  * handle URL is used because it survives channel renames and is readable.
  */
 export const YOUTUBE_CHANNEL_URL = 'https://www.youtube.com/@emaus-retiros';
+
+/** Project mailbox for public contact links (same Google account as the channel). */
+export const CONTACT_EMAIL = 'emaus.cccc@gmail.com';
