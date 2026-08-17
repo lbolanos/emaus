@@ -331,7 +331,7 @@
     "signupLink": "Registrarse",
     "nav": {
       "thePath": "El Camino",
-      "videos": "Videos",
+      "registration": "Inscripción",
       "retreats": "Retiros",
       "community": "Comunidad",
       "stories": "Historias"
@@ -384,20 +384,12 @@
       "cta": "Ver próximos retiros"
     },
     "videos": {
-      "badge": "Canal de YouTube",
-      "title": "Mira cómo funciona",
-      "subtitle": "Videos cortos que recorren la plataforma: cómo inscribirte, cómo se arman las casas y las mesas, y cómo acompañamos a las comunidades.",
+      "title": "Cómo inscribirte al retiro",
+      "subtitle": "Un minuto: los datos que te vamos a pedir y cómo confirmar tu lugar.",
       "watch": "Ver video",
-      "channelCta": "Ver el canal completo",
-      "channelHint": "Más de 19 videos con el recorrido completo del sistema",
-      "openInYoutube": "Abrir en YouTube",
+      "cta": "Ver próximos retiros",
       "items": {
-        "tour": "Primeros pasos: el recorrido completo de un retiro",
-        "registration": "Cómo inscribirte a un retiro",
-        "access": "Cómo entrar: iniciar sesión, crear cuenta y pedir acceso",
-        "houses": "Casas y camas: crear la casa y armar el mapa de camas",
-        "tables": "Mesas: asignar caminantes y la dinámica del Santísimo",
-        "communities": "Comunidades: acompañar, reuniones y asistencia"
+        "registration": "Cómo inscribirte a un retiro"
       }
     },
     "upcomingRetreats": "Próximos Retiros",

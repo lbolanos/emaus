@@ -34,10 +34,10 @@
             {{ $t('landing.nav.stories') }}
           </a>
           <a
-            href="#videos"
+            href="#inscripcion"
             :class="['text-sm font-medium hover:text-sage-600 transition-colors', scrolled ? 'text-stone-600' : 'text-white/90']"
           >
-            {{ $t('landing.nav.videos') }}
+            {{ $t('landing.nav.registration') }}
           </a>
           <div class="flex items-center gap-4 ml-4">
             <button @click="handleLoginClick" :class="['text-sm font-medium', scrolled ? 'text-stone-600' : 'text-white/90']">{{ $t('landing.loginLink') }}</button>
@@ -69,8 +69,8 @@
             <a href="#stories" class="block text-sm font-medium text-stone-600 hover:text-sage-600 transition-colors py-2" @click="isMenuOpen = false">
               {{ $t('landing.nav.stories') }}
             </a>
-            <a href="#videos" class="block text-sm font-medium text-stone-600 hover:text-sage-600 transition-colors py-2" @click="isMenuOpen = false">
-              {{ $t('landing.nav.videos') }}
+            <a href="#inscripcion" class="block text-sm font-medium text-stone-600 hover:text-sage-600 transition-colors py-2" @click="isMenuOpen = false">
+              {{ $t('landing.nav.registration') }}
             </a>
             <div class="pt-3 border-t border-stone-200 space-y-3">
               <button @click="isMenuOpen = false; handleLoginClick()" class="block w-full text-left text-sm font-medium text-stone-600 py-2">
@@ -115,10 +115,9 @@
             {{ $t('landing.ctaButton') }}
           </a>
           <a
-            href="#videos"
-            class="px-8 py-4 rounded-full bg-white/10 backdrop-blur-md border border-white/30 text-white font-medium hover:bg-white/20 transition-all flex items-center justify-center gap-2"
+            href="#the-path"
+            class="px-8 py-4 rounded-full bg-white/10 backdrop-blur-md border border-white/30 text-white font-medium hover:bg-white/20 transition-all flex items-center justify-center"
           >
-            <Play :size="18" fill="currentColor" />
             {{ $t('landing.watchStory') }}
           </a>
         </div>
@@ -567,9 +566,6 @@
           <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
             <Facebook :size="20" class="text-stone-400 hover:text-stone-900 transition-colors" />
           </a>
-          <a :href="YOUTUBE_CHANNEL_URL" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
-            <Youtube :size="20" class="text-stone-400 hover:text-stone-900 transition-colors" />
-          </a>
           <a :href="`mailto:${CONTACT_EMAIL}`" aria-label="Email">
             <Mail :size="20" class="text-stone-400 hover:text-stone-900 transition-colors" />
           </a>
@@ -616,7 +612,7 @@ import { refDebounced } from '@vueuse/core';
 const CommunityMap = defineAsyncComponent(() => import('@/components/landing/CommunityMap.vue'));
 import LandingThePath from '@/components/landing/LandingThePath.vue';
 import LandingVideos from '@/components/landing/LandingVideos.vue';
-import { CONTACT_EMAIL, YOUTUBE_CHANNEL_URL } from '@/config/socialLinks';
+import { CONTACT_EMAIL } from '@/config/socialLinks';
 import { useI18n } from 'vue-i18n';
 import {
   MapPin,
@@ -627,8 +623,6 @@ import {
   X,
   Instagram,
   Facebook,
-  Youtube,
-  Play,
   Mail,
   Loader2
 } from 'lucide-vue-next';

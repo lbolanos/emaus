@@ -83,13 +83,34 @@ Cierran la confusión "cuenta de usuario vs. registro al retiro" que ya viene en
 - Generar miniatura a juego (estilo acuarela "Camino a Emaús") y subirla en Studio.
 - **Playlist del canal** (19 videos en orden de ciclo del retiro): https://www.youtube.com/playlist?list=PLSdqEiN1fbDM — "Emaús Retiros — Tutoriales". Al publicar uno nuevo, agregarlo con `playlistItems.insert` (scope `youtube.force-ssl`).
 - Fijar como **video destacado** del canal el de onboarding (P0) para nuevos visitantes.
-- **6 de estos videos salen en la landing pública** (sección "Mira cómo funciona", `#videos`). La lista
-  vive en `FEATURED_VIDEOS` dentro de `apps/web/src/components/landing/LandingVideos.vue` (id de
-  YouTube + clave i18n del título + duración en segundos); los títulos están en
-  `apps/web/src/locales/{es,en}.json` bajo `landing.videos.items`. Para cambiar uno:
-  1. Agregar/editar la entrada en `FEATURED_VIDEOS` y su clave i18n en los dos locales.
-  2. Bajar la miniatura y dejarla en `apps/web/public/videos/<videoId>.webp` (no se hotlinkea
-     `i.ytimg.com`): `curl -s -o /tmp/t.jpg https://i.ytimg.com/vi/<id>/maxresdefault.jpg && magick /tmp/t.jpg -resize 640x360 -quality 80 -strip apps/web/public/videos/<id>.webp`
-  3. La duración se saca del propio video: `curl -s "https://www.youtube.com/watch?v=<id>" | grep -o '"lengthSeconds":"[0-9]*"' | head -1`
-  4. Actualizar el conteo de `landing.videos.channelHint` si cambió el total del canal.
-  Solo videos **públicos** — los `unlisted` (p. ej. Familia Emaús) no van en la landing.
+### Visibilidad: el canal es material del equipo servidor
+
+**Regla (2026-08-17): todo tutorial de operación se sube `unlisted`.** La landing es para
+caminantes y el único video dirigido a ellos es el de **inscripción** (`jQb3q-mUG-8`), que es el
+único `public` del canal. Los demás cubren cómo se opera el sistema y su puerta de entrada es la
+**ayuda in-app** (`apps/web/src/docs/es/*.md`, detrás del login), donde ya están enlazados: en
+`unlisted` esos enlaces siguen funcionando y los videos también se pueden embeber.
+
+Motivos: el caminante no debe encontrarse material que no le toca, y varios videos destripan
+sorpresas del fin de semana (las palancas y las cartas, la dinámica del Santísimo). La playlist
+"Emaús Retiros — Tutoriales" (`PLSdqEiN1fbDM`) también quedó `unlisted`: una playlist pública
+muestra los videos `unlisted` que contiene a cualquiera con su enlace.
+
+Para auditar o corregir la visibilidad en bloque: `videos.list part=status` sobre la playlist de
+subidas del canal y `videos.update part=status` reenviando el `status` completo (si solo mandas
+`privacyStatus` se pierden `embeddable`/`license`). Requiere el scope `youtube.force-ssl`.
+
+### El video de la landing
+
+Sale de `FEATURED_VIDEOS` en `apps/web/src/components/landing/LandingVideos.vue` (id de YouTube +
+clave i18n del título + duración en segundos); los títulos están en
+`apps/web/src/locales/{es,en}.json` bajo `landing.videos.items`. La sección es `#inscripcion` y
+**no enlaza al canal**. Para cambiar o sumar uno:
+
+1. Agregar/editar la entrada en `FEATURED_VIDEOS` y su clave i18n en los dos locales. Con un solo
+   video se renderiza grande; con dos o más pasa a grid automáticamente.
+2. Bajar la miniatura a `apps/web/public/videos/<videoId>.webp` (no se hotlinkea `i.ytimg.com`):
+   `curl -s -o /tmp/t.jpg https://i.ytimg.com/vi/<id>/maxresdefault.jpg && magick /tmp/t.jpg -resize 1280x720 -quality 82 -strip apps/web/public/videos/<id>.webp`
+3. La duración se saca del propio video: `curl -s "https://www.youtube.com/watch?v=<id>" | grep -o '"lengthSeconds":"[0-9]*"' | head -1`
+4. El video **debe ser `public`**: uno `unlisted` se puede embeber, pero si el caminante abre
+   "Ver en YouTube" no lo encuentra por búsqueda.

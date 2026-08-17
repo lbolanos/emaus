@@ -50,6 +50,15 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
    reautorizar hay que **borrar/renombrar `youtube-token.json` primero**. El login de Google es
    interactivo (solo lo hace el humano): lanzalo en background y esperá el aviso de que aprobó; si el
    navegador no abre, el script imprime la URL para pegar.
+> ⚠️ **Los tutoriales de operación se suben `--privacy unlisted`** (regla 2026-08-17). El canal es
+> material del equipo servidor: su puerta de entrada es la ayuda in-app (`apps/web/src/docs/es/*.md`,
+> detrás del login), donde los enlaces siguen funcionando y el embed también. El único video
+> `public` es el de inscripción (`jQb3q-mUG-8`), el único dirigido a caminantes y el único que sale
+> en la landing. Varios videos destripan sorpresas del fin de semana (palancas y cartas, dinámica
+> del Santísimo), así que públicos no van. La playlist `PLSdqEiN1fbDM` también es `unlisted`: una
+> playlist pública muestra a cualquiera los videos `unlisted` que contiene. Detalle y receta de
+> auditoría en `docs/features/video-tutorials-checklist.md`.
+
 2. **Subir**: `node e2e/demo/upload-to-youtube.mjs output/<video>.mp4 [--privacy unlisted]`.
    Lee `<video>.meta.json` (título, descripción, tags, capítulos) si existe; si no, usa el
    nombre del archivo como título. Imprime la URL final.

@@ -1,45 +1,41 @@
 <template>
-  <section id="videos" class="py-24 px-6 bg-white">
-    <div class="max-w-7xl mx-auto">
-      <div class="text-center max-w-2xl mx-auto mb-14">
-        <span class="inline-flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-stone-400">
-          <Youtube :size="16" />
-          {{ $t('landing.videos.badge') }}
-        </span>
-        <h2 class="text-4xl font-light text-stone-900 mt-4">{{ $t('landing.videos.title') }}</h2>
+  <section id="inscripcion" class="py-24 px-6 bg-white">
+    <div class="max-w-3xl mx-auto">
+      <div class="text-center mb-10">
+        <h2 class="text-4xl font-light text-stone-900">{{ $t('landing.videos.title') }}</h2>
         <p class="text-stone-600 mt-4 font-light leading-relaxed">{{ $t('landing.videos.subtitle') }}</p>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div :class="isSingle ? 'space-y-6' : 'grid grid-cols-1 sm:grid-cols-2 gap-6'">
         <button
           v-for="video in FEATURED_VIDEOS"
           :key="video.id"
           type="button"
-          class="group text-left rounded-2xl overflow-hidden bg-stone-50 hover:shadow-xl transition-all hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-stone-400"
+          class="group block w-full text-left rounded-2xl overflow-hidden bg-stone-50 hover:shadow-xl transition-all focus:outline-none focus:ring-2 focus:ring-stone-400"
           @click="openVideo(video)"
         >
           <div class="relative aspect-video overflow-hidden bg-stone-200">
             <img
               :src="`/videos/${video.id}.webp`"
               :alt="$t(video.titleKey)"
-              width="640"
-              height="360"
+              width="1280"
+              height="720"
               loading="lazy"
               decoding="async"
               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
             <span class="absolute inset-0 flex items-center justify-center">
-              <span class="w-14 h-14 rounded-full bg-black/55 backdrop-blur-sm flex items-center justify-center group-hover:bg-red-600 transition-colors">
-                <Play :size="22" class="text-white translate-x-[1px]" fill="currentColor" />
+              <span class="w-16 h-16 rounded-full bg-black/55 backdrop-blur-sm flex items-center justify-center group-hover:bg-red-600 transition-colors">
+                <Play :size="26" class="text-white translate-x-[1px]" fill="currentColor" />
               </span>
             </span>
-            <span class="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/75 text-white text-[11px] font-medium tabular-nums">
+            <span class="absolute bottom-3 right-3 px-2 py-0.5 rounded bg-black/75 text-white text-xs font-medium tabular-nums">
               {{ formatDuration(video.seconds) }}
             </span>
           </div>
-          <div class="p-5">
+          <div class="p-5 flex items-center justify-between gap-4">
             <h3 class="text-base font-medium text-stone-900 leading-snug">{{ $t(video.titleKey) }}</h3>
-            <span class="inline-flex items-center gap-1 text-sm text-stone-500 mt-2 group-hover:text-stone-900 transition-colors">
+            <span class="inline-flex items-center gap-1 text-sm text-stone-500 shrink-0 group-hover:text-stone-900 transition-colors">
               {{ $t('landing.videos.watch') }}
               <ChevronRight :size="14" />
             </span>
@@ -47,17 +43,14 @@
         </button>
       </div>
 
-      <div class="text-center mt-14">
+      <div class="text-center mt-10">
         <a
-          :href="YOUTUBE_CHANNEL_URL"
-          target="_blank"
-          rel="noopener noreferrer"
+          href="#retreats"
           class="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-stone-900 text-white font-medium hover:bg-stone-700 transition-colors"
         >
-          <Youtube :size="20" />
-          {{ $t('landing.videos.channelCta') }}
+          {{ $t('landing.videos.cta') }}
+          <ChevronRight :size="18" />
         </a>
-        <p class="text-sm text-stone-400 mt-4">{{ $t('landing.videos.channelHint') }}</p>
       </div>
     </div>
 
@@ -94,15 +87,6 @@
                 allowfullscreen
               ></iframe>
             </div>
-            <a
-              :href="`https://www.youtube.com/watch?v=${activeVideo.id}`"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="inline-flex items-center gap-1 text-sm text-white/60 hover:text-white transition-colors mt-3"
-            >
-              {{ $t('landing.videos.openInYoutube') }}
-              <ExternalLink :size="14" />
-            </a>
           </div>
         </div>
       </Transition>
@@ -113,8 +97,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { ChevronRight, ExternalLink, Play, X, Youtube } from 'lucide-vue-next';
-import { YOUTUBE_CHANNEL_URL } from '@/config/socialLinks';
+import { ChevronRight, Play, X } from 'lucide-vue-next';
 
 type FeaturedVideo = {
   /** YouTube video id */
@@ -125,16 +108,18 @@ type FeaturedVideo = {
   seconds: number;
 };
 
-// Thumbnails live in public/videos/<id>.webp (downloaded from YouTube and
-// re-encoded) so the landing does not depend on i.ytimg.com at render time.
+/**
+ * Videos aimed at walkers, the audience of this page. The rest of the channel
+ * covers running the system and belongs to the in-app help, behind login.
+ *
+ * Thumbnails live in public/videos/<id>.webp (downloaded from YouTube and
+ * re-encoded) so the landing does not depend on i.ytimg.com at render time.
+ */
 const FEATURED_VIDEOS: FeaturedVideo[] = [
-  { id: 'AHhyWbUv_Is', titleKey: 'landing.videos.items.tour', seconds: 254 },
   { id: 'jQb3q-mUG-8', titleKey: 'landing.videos.items.registration', seconds: 59 },
-  { id: 'Jh0LWC9wKvE', titleKey: 'landing.videos.items.access', seconds: 75 },
-  { id: 'h9KR02vu6mE', titleKey: 'landing.videos.items.houses', seconds: 62 },
-  { id: 'fEzKgqUJpGI', titleKey: 'landing.videos.items.tables', seconds: 126 },
-  { id: 'xIVmHyhkDHA', titleKey: 'landing.videos.items.communities', seconds: 241 },
 ];
+
+const isSingle = FEATURED_VIDEOS.length === 1;
 
 const { t: $t } = useI18n();
 
