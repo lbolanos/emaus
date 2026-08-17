@@ -50,6 +50,21 @@ export const generatePreparations = async (req: Request, res: Response) => {
 	}
 };
 
+/**
+ * Migra un retiro existente de los .docx de fábrica a las plantillas markdown.
+ * Ver `resyncDefaultDocuments` para el criterio de match (fail-safe).
+ */
+export const resyncPreparationDefaultDocs = async (req: Request, res: Response) => {
+	try {
+		const result = await retreatPreparationService.resyncDefaultDocuments(req.params.retreatId, {
+			removeLegacy: req.body?.removeLegacy === true,
+		});
+		res.json(result);
+	} catch (err) {
+		mapError(res, err);
+	}
+};
+
 export const createPreparation = async (req: Request, res: Response) => {
 	try {
 		const prep = await retreatPreparationService.create(req.params.retreatId, req.body);

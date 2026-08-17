@@ -1,11 +1,21 @@
 import { randomUUID } from 'crypto';
+import {
+	formatDate,
+	resolvePreparationDocumentContent,
+	type PreparationsData,
+	type RetreatData,
+} from '@repo/utils';
 import { AppDataSource } from '../data-source';
 import { RetreatPreparation } from '../entities/retreatPreparation.entity';
 import { RetreatPreparationDocument } from '../entities/retreatPreparationDocument.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { s3Service } from './s3Service';
 import { avatarStorageService } from './avatarStorageService';
-import { loadDefaultDocsForWeek } from '../data/preparationDocSeeder';
+import {
+	DEFAULT_PREPARATION_DOCS,
+	loadDefaultDocsForWeek,
+	loadOriginalDocxForWeek,
+} from '../data/preparationDocSeeder';
 
 export class PreparationValidationError extends Error {}
 export class PreparationNotFoundError extends Error {}
@@ -32,8 +42,12 @@ interface GenerateInput {
 	firstDate: string; // YYYY-MM-DD
 	time: string; // HH:MM (hora local del retiro)
 	clearExisting?: boolean;
-	// Adjunta a cada semana los documentos por defecto (serie IX) del seeder.
+	// Adjunta a cada semana las plantillas markdown por defecto (serie IX).
 	includeDefaultDocs?: boolean;
+	// Adjunta además el .docx original de cada semana, para quien lo prefiera
+	// en Word. Apagado por defecto: es un binario con las fechas de un retiro
+	// pasado quemadas, que no se resuelven contra este retiro.
+	includeOriginalDocx?: boolean;
 }
 
 interface UploadDocumentInput {
@@ -41,6 +55,19 @@ interface UploadDocumentInput {
 	mimeType: string;
 	dataUrl: string;
 }
+
+/**
+ * Documento con su `content` ya resuelto contra el retiro. `content` conserva
+ * SIEMPRE los placeholders crudos (es la plantilla que edita el coordinador);
+ * `renderedContent` es lo que se lee y se imprime. Nunca se persiste.
+ */
+export type RenderedPreparationDocument = RetreatPreparationDocument & {
+	renderedContent?: string | null;
+};
+
+export type RenderedRetreatPreparation = Omit<RetreatPreparation, 'documents'> & {
+	documents?: RenderedPreparationDocument[];
+};
 
 /** Suma días a una fecha date-only leyendo componentes UTC (nunca hora local del server). */
 export function addDaysYmd(ymd: string, days: number): string {
@@ -57,6 +84,22 @@ function parseDataUrl(dataUrl: string): { buffer: Buffer; mimeType: string } {
 	const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
 	if (!match) throw new PreparationValidationError('Invalid data URL');
 	return { mimeType: match[1], buffer: Buffer.from(match[2], 'base64') };
+}
+
+/**
+ * Campos del retiro que un documento PÚBLICO puede resolver. Allowlist, no
+ * denylist: si mañana se agrega una columna sensible al retiro, no se filtra
+ * sola por el endpoint sin auth.
+ */
+function toPublicRetreatData(retreat: Retreat | null): RetreatData | null {
+	if (!retreat) return null;
+	return {
+		parish: retreat.parish,
+		startDate: retreat.startDate,
+		endDate: retreat.endDate,
+		max_walkers: retreat.max_walkers,
+		serverArrivalTimeFriday: retreat.serverArrivalTimeFriday as unknown as string | undefined,
+	};
 }
 
 function slugFileName(name: string): string {
@@ -88,16 +131,76 @@ class RetreatPreparationService {
 		return AppDataSource.getRepository(Retreat);
 	}
 
-	async listForRetreat(retreatId: string): Promise<RetreatPreparation[]> {
+	async listForRetreat(
+		retreatId: string,
+		options: { publicScope?: boolean } = {},
+	): Promise<RenderedRetreatPreparation[]> {
 		const rows = await this.repo.find({
 			where: { retreatId },
 			relations: ['documents'],
 		});
-		return this.sortEntries(rows);
+		return this.withRenderedDocuments(retreatId, this.sortEntries(rows), options);
 	}
 
-	async get(id: string): Promise<RetreatPreparation | null> {
-		return this.repo.findOne({ where: { id }, relations: ['documents'] });
+	async get(id: string): Promise<RenderedRetreatPreparation | null> {
+		const prep = await this.repo.findOne({ where: { id } });
+		if (!prep) return null;
+		// Resolver `{preparations.table}` necesita TODO el calendario, no solo
+		// esta fila, así que se reusa listForRetreat en vez de duplicar el armado.
+		// Con ≤10 filas por retiro el costo extra es irrelevante.
+		const all = await this.listForRetreat(prep.retreatId);
+		return all.find((row) => row.id === id) ?? null;
+	}
+
+	/**
+	 * Resuelve los placeholders de los documentos markdown contra el retiro y
+	 * el calendario actuales, exponiéndolos como `renderedContent`. El
+	 * `content` guardado no se toca nunca: es la plantilla.
+	 */
+	private async withRenderedDocuments(
+		retreatId: string,
+		rows: RetreatPreparation[],
+		options: { publicScope?: boolean } = {},
+	): Promise<RenderedRetreatPreparation[]> {
+		const hasMarkdown = rows.some((row) =>
+			(row.documents ?? []).some((doc) => doc.kind === 'markdown'),
+		);
+		if (!hasMarkdown) return rows;
+
+		const full = await this.retreatRepo.findOne({ where: { id: retreatId } });
+		// En la vista pública el retiro se recorta a los campos que las
+		// plantillas necesitan. Con el retiro entero, un coordinador que
+		// escribiera `{retreat.paymentInfo}` en un documento publicaría los datos
+		// bancarios a cualquiera con el enlace, sin enterarse: el resto de la
+		// respuesta pública sigue mostrando solo 4 campos y da falsa sensación de
+		// que lo demás está protegido. Ampliar esta lista es una decisión
+		// consciente, no un descuido.
+		const retreat = options.publicScope ? toPublicRetreatData(full) : full;
+		const preparations: PreparationsData = {
+			entries: rows.map((row) => ({
+				type: row.type,
+				weekNumber: row.weekNumber,
+				title: row.title,
+				date: row.date,
+				time: row.time,
+			})),
+		};
+
+		return rows.map((row) => ({
+			...row,
+			documents: (row.documents ?? []).map((doc) =>
+				doc.kind === 'markdown'
+					? {
+							...doc,
+							renderedContent: resolvePreparationDocumentContent(
+								doc.content ?? '',
+								retreat as unknown as RetreatData | null,
+								preparations,
+							),
+						}
+					: doc,
+			),
+		}));
 	}
 
 	/**
@@ -119,7 +222,7 @@ class RetreatPreparationService {
 	 * una por semana, todas a la misma hora. El número de semanas es variable
 	 * (típicamente 7 a 9). Si ya existe calendario, exige clearExisting.
 	 */
-	async generate(retreatId: string, input: GenerateInput): Promise<RetreatPreparation[]> {
+	async generate(retreatId: string, input: GenerateInput): Promise<RenderedRetreatPreparation[]> {
 		const existing = await this.repo.find({ where: { retreatId }, relations: ['documents'] });
 		if (existing.length > 0 && !input.clearExisting) {
 			throw new PreparationValidationError(
@@ -153,10 +256,24 @@ class RetreatPreparationService {
 			for (const session of created) {
 				for (const doc of loadDefaultDocsForWeek(session.weekNumber!)) {
 					try {
-						await this.addDocument(session.id, doc);
+						await this.createMarkdownDocument(session.id, {
+							title: doc.fileName,
+							content: doc.content,
+						});
 					} catch (err) {
 						console.warn(
 							`[retreatPreparationService] no se pudo adjuntar doc por defecto (semana ${session.weekNumber})`,
+							err,
+						);
+					}
+				}
+				if (!input.includeOriginalDocx) continue;
+				for (const doc of loadOriginalDocxForWeek(session.weekNumber!)) {
+					try {
+						await this.addDocument(session.id, doc);
+					} catch (err) {
+						console.warn(
+							`[retreatPreparationService] no se pudo adjuntar el .docx original (semana ${session.weekNumber})`,
 							err,
 						);
 					}
@@ -219,7 +336,7 @@ class RetreatPreparationService {
 	 * calendario crece hacia atrás tomando una fecha anterior para la primera.
 	 * Los breaks existentes no se mueven (son fechas de calendario fijas).
 	 */
-	async skipForHoliday(id: string, reason?: string): Promise<RetreatPreparation[]> {
+	async skipForHoliday(id: string, reason?: string): Promise<RenderedRetreatPreparation[]> {
 		const prep = await this.repo.findOne({ where: { id } });
 		if (!prep) throw new PreparationNotFoundError('Preparación no encontrada');
 		if (prep.type !== 'session') {
@@ -380,6 +497,44 @@ class RetreatPreparationService {
 		return this.docRepo.findOne({ where: { id: docId }, relations: ['preparation'] });
 	}
 
+	/**
+	 * Documento markdown con su texto ya resuelto y el contexto que va en el
+	 * encabezado del PDF (retiro a la izquierda, sesión y fecha a la derecha).
+	 * Un solo método para las dos rutas de PDF, la autenticada y la pública.
+	 */
+	async getDocumentForPdf(docId: string): Promise<{
+		fileName: string;
+		markdown: string;
+		subtitle?: string;
+		meta?: string;
+		retreatId: string;
+		isPublic: boolean;
+	} | null> {
+		const doc = await this.docRepo.findOne({
+			where: { id: docId },
+			relations: ['preparation'],
+		});
+		if (!doc || !doc.preparation || doc.kind !== 'markdown') return null;
+
+		const prep = doc.preparation;
+		const rendered = await this.get(prep.id);
+		const renderedDoc = (rendered?.documents ?? []).find((d) => d.id === docId);
+		const retreat = await this.retreatRepo.findOne({ where: { id: prep.retreatId } });
+
+		const when = prep.date
+			? [formatDate(prep.date, { format: 'full' }), prep.time].filter(Boolean).join(' · ')
+			: '';
+
+		return {
+			fileName: doc.fileName,
+			markdown: renderedDoc?.renderedContent ?? doc.content ?? '',
+			subtitle: retreat?.parish ?? undefined,
+			meta: [prep.title, when].filter(Boolean).join('\n') || undefined,
+			retreatId: prep.retreatId,
+			isPublic: retreat?.isPublic === true,
+		};
+	}
+
 	async removeDocument(docId: string): Promise<boolean> {
 		const existing = await this.docRepo.findOne({ where: { id: docId } });
 		if (!existing) return false;
@@ -398,16 +553,75 @@ class RetreatPreparationService {
 	}
 
 	/**
+	 * Migra un retiro YA EXISTENTE de los .docx "de fábrica" a las plantillas
+	 * markdown, para que su documento de Servicio deje de mostrar las fechas
+	 * quemadas de otro retiro.
+	 *
+	 * Match por `fileName` EXACTO contra `legacyFileName` + `kind: 'file'`: si
+	 * el coordinador renombró el archivo o subió otro documento, no se toca
+	 * (fail-safe deliberado — preferimos no migrar a pisar algo suyo).
+	 *
+	 * Por defecto CONSERVA el .docx original junto a la plantilla, como
+	 * descarga opcional; `removeLegacy` lo borra.
+	 */
+	async resyncDefaultDocuments(
+		retreatId: string,
+		options: { removeLegacy?: boolean } = {},
+	): Promise<{ added: number; removed: number; skipped: number }> {
+		const rows = await this.repo.find({ where: { retreatId }, relations: ['documents'] });
+		let added = 0;
+		let removed = 0;
+		let skipped = 0;
+
+		for (const prep of rows) {
+			if (prep.type !== 'session' || !prep.weekNumber) continue;
+			const templates = loadDefaultDocsForWeek(prep.weekNumber);
+			const docs = prep.documents ?? [];
+
+			for (const entry of DEFAULT_PREPARATION_DOCS.filter((d) => d.week === prep.weekNumber)) {
+				const legacy = docs.find(
+					(doc) => doc.kind === 'file' && doc.fileName === entry.legacyFileName,
+				);
+				if (!legacy) {
+					skipped++;
+					continue;
+				}
+
+				const template = templates.find((t) => t.fileName === entry.fileName);
+				const alreadyMigrated = docs.some(
+					(doc) => doc.kind === 'markdown' && doc.fileName === `${entry.fileName}.md`,
+				);
+				if (template && !alreadyMigrated) {
+					await this.createMarkdownDocument(prep.id, {
+						title: entry.fileName,
+						content: template.content,
+					});
+					added++;
+				} else {
+					skipped++;
+				}
+
+				if (options.removeLegacy) {
+					await this.removeDocument(legacy.id);
+					removed++;
+				}
+			}
+		}
+
+		return { added, removed, skipped };
+	}
+
+	/**
 	 * Vista pública por slug. Requiere retreat.isPublic (mismo gate que el
 	 * Santísimo público). Devuelve solo datos mínimos del retiro.
 	 */
 	async getPublicBySlug(slug: string): Promise<{
 		retreat: { id: string; parish?: string | null; startDate?: Date | null; endDate?: Date | null };
-		preparations: RetreatPreparation[];
+		preparations: RenderedRetreatPreparation[];
 	} | null> {
 		const retreat = await this.retreatRepo.findOne({ where: { slug } });
 		if (!retreat || !retreat.isPublic) return null;
-		const preparations = await this.listForRetreat(retreat.id);
+		const preparations = await this.listForRetreat(retreat.id, { publicScope: true });
 		return {
 			retreat: {
 				id: retreat.id,

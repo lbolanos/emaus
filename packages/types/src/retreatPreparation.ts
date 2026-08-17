@@ -14,7 +14,12 @@ export const RetreatPreparationDocumentSchema = z.object({
 	id: idSchema,
 	preparationId: idSchema,
 	kind: PreparationDocumentKindSchema.default('file'),
+	// Plantilla cruda, con los placeholders {retreat.*} / {preparations.*} sin
+	// resolver: es lo que edita el coordinador.
 	content: z.string().nullable().optional(),
+	// Solo lectura: `content` ya resuelto contra el retiro y su calendario.
+	// Es lo que se muestra y se imprime. Nunca se persiste ni se envía al server.
+	renderedContent: z.string().nullable().optional(),
 	fileName: z.string(),
 	mimeType: z.string(),
 	sizeBytes: z.number().int(),
@@ -71,12 +76,24 @@ export const GenerateRetreatPreparationsSchema = z.object({
 		firstDate: dateOnly,
 		time: timeOnly,
 		clearExisting: z.boolean().default(false).optional(),
-		// Adjunta a cada semana los documentos por defecto (serie IX).
+		// Adjunta a cada semana las plantillas markdown por defecto (serie IX).
 		includeDefaultDocs: z.boolean().default(true).optional(),
+		// Adjunta además el .docx original de cada semana (descarga opcional).
+		includeOriginalDocx: z.boolean().default(false).optional(),
 	}),
 	params: z.object({ retreatId: idSchema }),
 });
 export type GenerateRetreatPreparations = z.infer<typeof GenerateRetreatPreparationsSchema>;
+
+export const ResyncRetreatPreparationDocsSchema = z.object({
+	body: z.object({
+		// Borra el .docx de fábrica tras crear la plantilla. Por defecto se
+		// conserva, como descarga opcional junto al markdown.
+		removeLegacy: z.boolean().default(false).optional(),
+	}),
+	params: z.object({ retreatId: idSchema }),
+});
+export type ResyncRetreatPreparationDocs = z.infer<typeof ResyncRetreatPreparationDocsSchema>;
 
 export const SkipRetreatPreparationSchema = z.object({
 	body: z.object({
