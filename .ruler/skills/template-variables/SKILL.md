@@ -1,6 +1,6 @@
 ---
 name: template-variables
-description: "Sistema de variables {scope.var} en plantillas de mensaje (Emaús): scopes (participant/retreat/community), cómo agregar variables nuevas, server-only vs cliente, casos comunes."
+description: "Sistema de variables {scope.var} en plantillas de mensaje y documentos (Emaús): scopes (participant/retreat/community/table/preparations), cómo agregar variables nuevas, server-only vs cliente, casos comunes."
 ---
 
 # Template Variables — sistema canónico `{scope.var}`
@@ -38,6 +38,27 @@ NO usamos mustache (`{{var}}`). La única excepción es retro-compat en `communi
 | `participant.*` | Datos del destinatario (caminante/servidor) | `firstName`, `nickname`, `cellPhone`, `email`, `emergencyContact1Name`, `palanqueroName`, `pickupLocation`, `dataDeleteUrl` |
 | `retreat.*` | Datos del retiro al que pertenece el participante | `parish`, `startDate`, `endDate`, `cost`, `paymentInfo`, `thingsToBringNotes`, `closingChurchName`, `walkerArrivalTime`, `next_meeting_date` |
 | `community.*` | Datos de comunidad (solo en plantillas community-scoped) | `name`, `meetingTitle`, `meetingDate`, `attendanceLink`, `requesterName`, `acceptUrl` |
+| `table.*` | Roster de una mesa armada (solo en el briefing de mesa) | `name`, `liderName`, `walkersRoster` |
+| `preparations.*` | Calendario de preparaciones, **solo en documentos**, no en mensajes | `table`, `count`, `firstDate`, `lastDate` |
+
+### El scope `preparations.*` — el que NO va en el picker
+
+`{preparations.table}` devuelve una **tabla markdown entera**, no un valor escalar. Vive en
+`@repo/utils` como los demás (`buildPreparationsTableMarkdown`, `replacePreparationsVariables`,
+`resolvePreparationDocumentContent`), pero con tres diferencias que hay que respetar:
+
+1. **No se registra en el picker** de `BaseMessageTemplateModal`. Un bloque de tabla no tiene cómo
+   resolverse dentro de un WhatsApp o un correo: aparecería en el selector y produciría basura.
+   El picker declara sus variables una a una, así que basta con no añadirla.
+2. **No cae a datos mock.** El resto de scopes inventan un participante/retiro de ejemplo para el
+   preview; un calendario inventado dentro de un documento que el equipo va a imprimir es peor que
+   un aviso, así que sin entradas devuelve `_El calendario de preparaciones aún no se ha generado._`.
+3. **El caller pasa las filas ya ordenadas** (mismo contrato que `table.*`): el orden lo decide
+   `sortEntries` del servicio, y `@repo/utils` solo formatea.
+
+Dónde se resuelve: `retreatPreparationService.withRenderedDocuments()` lo aplica en cada lectura y
+expone el resultado como `renderedContent`, **sin tocar `content`**, que sigue siendo la plantilla.
+Ver `docs/features/retreat-preparations.md`.
 
 ### Cómo se conecta el cliente
 

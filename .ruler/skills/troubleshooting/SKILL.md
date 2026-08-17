@@ -29,6 +29,9 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "la suite del API falla en tests que no toqué", "SQLITE_MISUSE / Database handle is closed", "pasa aislado pero falla completo" | [#16 Fallos fantasma por dos jest simultáneos](#16-fallos-fantasma-al-correr-dos-jest-a-la-vez-api) |
 | "el test del scroll lock pasa aislado y falla en el archivo completo", "body.style.overflow me da '' cuando acabo de ponerlo en hidden" (Vitest) | [#17 happy-dom: `body.style` se queda pegado tras resetearlo](#17-happy-dom-bodystyle-se-queda-pegado-tras-resetearlo) |
 | "compartí el link del retiro por WhatsApp y sale sin título/imagen", "el preview no dice de qué retiro es", "sigue saliendo la tarjeta vieja" | [#18 El preview del enlace no muestra el retiro](#18-el-preview-del-enlace-no-muestra-el-retiro) |
+| "el encabezado del PDF sale abajo", "la cabecera se monta encima del texto", "solo sale en la primera página" | [#19 Encabezado con `position: fixed` se pinta al pie](#19-el-encabezado-repetido-con-position-fixed-se-pinta-al-pie-y-tapa-el-texto) |
+| "en el PDF hay palabras pegadas", "sale un espacio antes del signo de interrogación", "SERVIR ?" | [#20 Texto con negritas: espacios perdidos o inventados](#20-texto-con-negritas-se-pierden-o-se-inventan-espacios) |
+| "la suite falla en tests distintos cada vez", "Maximum call stack size exceeded en un test", "Exceeded timeout of 10000 ms" | [#21 La suite de jest falla en suites distintas cada vez](#21-la-suite-de-jest-falla-en-suites-distintas-cada-vez-sin-tocar-ese-código) |
 
 ---
 
@@ -596,6 +599,86 @@ curl -s https://emaus.cc/<slug> | grep 'id="app"'
 
 **Ojo**: un slug inexistente o un retiro con `isPublic = false` devuelven la tarjeta genérica **a
 propósito**, para no confirmar si existe un retiro privado detrás de esa URL. No es un bug.
+
+---
+
+## 19. El encabezado repetido con `position: fixed` se pinta al pie y tapa el texto
+
+**Síntoma**: en el PDF impreso desde el navegador, la franja del encabezado (retiro / fecha)
+aparece **abajo de la página, encima del último párrafo**, en vez de arriba y en cada hoja.
+
+**Causa**: `position: fixed` **no** es la forma de repetir un encabezado por página en Chrome. Con
+un `top` negativo (para meterlo en el margen de `@page`) el motor lo coloca al final del flujo y lo
+superpone al contenido. CSS Paged Media sí define `@top-left`/`@top-right`, pero **Chrome no los
+soporta** — son de motores como Prince o WeasyPrint.
+
+**Fix**: hay dos caminos y ninguno es CSS puro:
+
+- **Diálogo del navegador** (`window.print()`): no se puede. El encabezado va solo en la primera
+  hoja, como parte del flujo normal.
+- **PDF generado**: el generador pinta el encabezado y el pie por página. Con jsPDF, en una pasada
+  final (`paintChrome`) cuando ya se sabe el total de páginas.
+
+**Auditar**: `grep -rn "position: fixed" apps/web/src --include=*.ts --include=*.vue` dentro de
+hojas de impresión.
+
+**Caso**: 2026-08-17, hoja A4 de las preparaciones. Detalle: `printable-documents`.
+
+---
+
+## 20. Texto con negritas: se pierden o se inventan espacios
+
+**Síntoma**: en un PDF generado por código, `**SERVIR**?` sale impreso como `SERVIR ?`, o dos
+palabras aparecen pegadas.
+
+**Causa**: al componer texto con estilos mezclados hay que partirlo en palabras para calcular el
+ajuste de línea, y al hacerlo **se pierde la información de si había un espacio** entre dos trozos
+de distinto estilo. Poner un espacio entre todos, o entre ninguno, falla en la mitad de los casos.
+
+**Fix**: cada unidad de composición guarda un `spaceBefore` con lo que había en el original:
+
+```ts
+// apps/web/src/utils/markdownToPdf.ts
+export interface TextUnit extends Piece { spaceBefore: boolean; newline?: boolean }
+export function toUnits(pieces: Piece[], forceItalic?: boolean): TextUnit[]
+```
+
+Y al empezar línea nueva, el `spaceBefore` de la primera unidad se descarta.
+
+**Ojo con el falso positivo**: al revisar el PDF renderizado a baja resolución (`pdftoppm -r 80`)
+las palabras **parecen** pegadas aunque el archivo esté bien. Comprobar siempre con
+`pdftotext archivo.pdf -`, que es lo que de verdad hay.
+
+**Guard**: `apps/web/src/utils/__tests__/markdownToPdf.test.ts` (bloque `toUnits`).
+
+**Caso**: 2026-08-17, PDF de las preparaciones. Detalle: `printable-documents`.
+
+---
+
+## 21. La suite de jest falla en suites distintas cada vez (sin tocar ese código)
+
+**Síntoma**: `pnpm --filter api test` completo falla con 20+ tests en `houseService`; se repite y
+ahora fallan `retreatService` y `responsabilityAttachment`, y `houseService` pasa. Aisladas, todas
+pasan.
+
+**Causa**: **presión de memoria en la máquina**, no el código. Los síntomas típicos son
+`RangeError: Maximum call stack size exceeded` en un regex sobre un string grande, y
+`Exceeded timeout of 10000 ms` en tests que normalmente tardan milisegundos.
+
+**Diagnóstico**:
+
+```bash
+top -l 1 -n 0 | grep -E "^(Load Avg|PhysMem)"   # >20G en compressor y <6G unused = esto es
+npx jest --runInBand <las suites que fallaron>   # si pasan aisladas, es ruido
+```
+
+**Fix**: liberar memoria (skill `mac-performance`) y repetir. Si hace falta correr la suite
+igualmente, `--runInBand` reduce el pico frente a los 5 workers por defecto.
+
+**No confundir con el #16** (dos jest a la vez pisándose la SQLite de test), que da `SQLITE_MISUSE`
+y es determinista mientras haya dos procesos.
+
+**Caso**: 2026-08-17, Mac con 57G usados y 23G comprimidos.
 
 ---
 
