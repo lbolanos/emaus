@@ -19,7 +19,14 @@ describe('nginx.conf — preview por retiro', () => {
 	test('atiende /<slug> y /<slug>/server con el mismo patrón que el router de Vue', () => {
 		// El router usa /:slug([a-z0-9]+); si las clases divergen, el rastreador
 		// pediría una URL que nginx no reconoce como retiro.
-		expect(nginxConf).toContain('location ~ ^/([a-z0-9]+)(/server)?$');
+		expect(nginxConf).toContain('location ~ ^/(?!api$|health$)([a-z0-9]+)(/server)?$');
+	});
+
+	test('deja fuera /api y /health, que un regex location le robaría a los de prefijo', () => {
+		// Un location regex gana sobre los de prefijo: sin el lookahead, /health
+		// devolvería el SPA en vez de "healthy".
+		expect(nginxConf).toContain('(?!api$|health$)');
+		expect(nginxConf).toContain('location = /health');
 	});
 
 	test('proxya al endpoint del API preservando slug y sufijo', () => {
@@ -27,7 +34,7 @@ describe('nginx.conf — preview por retiro', () => {
 	});
 
 	test('guarda los capturados antes del if (no sobreviven al bloque)', () => {
-		const block = nginxConf.slice(nginxConf.indexOf('location ~ ^/([a-z0-9]+)'));
+		const block = nginxConf.slice(nginxConf.indexOf('location ~ ^/(?!api$|health$)([a-z0-9]+)'));
 		const setSlug = block.indexOf('set $og_slug $1;');
 		const ifCrawler = block.indexOf('if ($og_crawler = 1)');
 		expect(setSlug).toBeGreaterThan(-1);
@@ -50,7 +57,7 @@ describe('nginx.conf — preview por retiro', () => {
 
 	test('las personas siguen recibiendo el SPA', () => {
 		const block = nginxConf.slice(
-			nginxConf.indexOf('location ~ ^/([a-z0-9]+)'),
+			nginxConf.indexOf('location ~ ^/(?!api$|health$)([a-z0-9]+)'),
 			nginxConf.indexOf('# This location block handles all Vue app assets'),
 		);
 		expect(block).toContain('try_files $uri $uri/ /index.html;');
@@ -58,7 +65,7 @@ describe('nginx.conf — preview por retiro', () => {
 
 	test('el bloque repite las cabeceras de seguridad (add_header no se hereda)', () => {
 		const block = nginxConf.slice(
-			nginxConf.indexOf('location ~ ^/([a-z0-9]+)'),
+			nginxConf.indexOf('location ~ ^/(?!api$|health$)([a-z0-9]+)'),
 			nginxConf.indexOf('# This location block handles all Vue app assets'),
 		);
 		expect(block).toContain('Strict-Transport-Security');
