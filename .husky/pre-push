@@ -20,8 +20,13 @@ fi
 CHANGED=$(git diff --name-only --diff-filter=ACMR "$BASE"...HEAD)
 [ -z "$CHANGED" ] && exit 0
 
+# husky invoca este hook con `sh -e`, y una asignación cuyo último comando de la
+# tubería es un `grep` sin coincidencias vale 1 y aborta el script en silencio:
+# sin el `|| true`, cualquier push que no toque apps/web (docs, skills, nginx,
+# migraciones) falla con "pre-push script failed (code 1)" y sin explicación.
+
 # API: jest --findRelatedTests sobre las fuentes .ts cambiadas.
-API_FILES=$(echo "$CHANGED" | grep '^apps/api/.*\.ts$' | sed "s|^|$ROOT/|" | tr '\n' ' ')
+API_FILES=$(echo "$CHANGED" | grep '^apps/api/.*\.ts$' | sed "s|^|$ROOT/|" | tr '\n' ' ') || true
 if [ -n "$API_FILES" ]; then
   echo "pre-push: tests API relacionados..."
   ( cd "$ROOT/apps/api" && NODE_OPTIONS="--experimental-vm-modules" \
@@ -34,7 +39,7 @@ fi
 # Web: suite completa (es rápida, ~10s, y confiable). No usamos `vitest related`
 # porque su análisis del grafo de imports tropieza con los `.md` que importan
 # algunos componentes; la suite completa con `vitest run` no tiene ese problema.
-WEB_FILES=$(echo "$CHANGED" | grep -E '^apps/web/.*\.(ts|vue|js)$')
+WEB_FILES=$(echo "$CHANGED" | grep -E '^apps/web/.*\.(ts|vue|js)$') || true
 if [ -n "$WEB_FILES" ]; then
   echo "pre-push: suite de tests web..."
   ( cd "$ROOT/apps/web" && pnpm test ) || {
