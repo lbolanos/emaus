@@ -259,8 +259,17 @@ jobs:
           echo "Installing dependencies..."
           pnpm install --frozen-lockfile 2>&1 | tail -20
 
+          # NODE_ENV must be set here. Migrations run through vite-node, which
+          # does NOT go through env-wrapper.sh, so without this the production
+          # guards inside migrations (`NODE_ENV === 'production'`) silently
+          # evaluate false and dev-only fixtures get seeded into prod. That is
+          # how 20260721130000_SeedE2eSuperadminAndHouse planted an
+          # e2e-superadmin account (password public in this repo) in the
+          # production DB on 2026-07-21; found and removed 2026-08-20.
+          # Safe to set: the migration CLI's import chain does not reach
+          # src/config.ts, so it won't trip that module's SESSION_SECRET throw.
           echo "Running migrations..."
-          pnpm --filter api migration:run 2>&1 | tail -5 || echo "Migrations skipped"
+          NODE_ENV=production pnpm --filter api migration:run 2>&1 | tail -5 || echo "Migrations skipped"
 
           # Dual-daemon guard — see 2026-04-23 incident. A second PM2 daemon
           # (usually in /root/.pm2 from a past `sudo pm2 start`) competes with
