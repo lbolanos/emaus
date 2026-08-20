@@ -247,7 +247,7 @@
                 </SelectContent>
               </Select>
               
-              <Switch v-model:checked="override.granted" />
+              <Switch v-model="override.granted" />
               <span class="text-sm">{{ override.granted ? 'Permitir' : 'Denegar' }}</span>
               
               <Button size="sm" variant="ghost" @click="removePermissionOverride(index)">

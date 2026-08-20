@@ -129,9 +129,8 @@
                   <TableRow>
                     <TableHead class="w-[50px]">
                       <Checkbox
-                        :checked="allFilteredSelected"
-                        :indeterminate="someFilteredSelected"
-                        @update:checked="(checked: boolean) => toggleAllFiltered()"
+                        :model-value="allFilteredSelected ? true : (someFilteredSelected ? 'indeterminate' : false)"
+                        @update:model-value="toggleAllFiltered()"
                       />
                     </TableHead>
                     <TableHead>Participante</TableHead>
@@ -148,8 +147,8 @@
                   >
                     <TableCell @click.stop>
                       <Checkbox
-                        :checked="selectedIds.includes(participant.id)"
-                        @click="toggleParticipant(participant.id)"
+                        :model-value="selectedIds.includes(participant.id)"
+                        @update:model-value="toggleParticipant(participant.id)"
                       />
                     </TableCell>
                     <TableCell>

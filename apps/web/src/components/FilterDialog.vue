@@ -371,11 +371,10 @@ const getTextPlaceholder = (key: string) => {
                   {{ tag.name }}
                 </Label>
               </div>
-              <Switch 
+              <Switch
                 :id="`tag-${tag.id}`"
-                :checked="(localFilters.tagIds || []).includes(tag.id)"
-                @update:checked="(checked: boolean) => handleTagToggle(tag.id, !!checked)"
-                @update:modelValue="(checked: boolean) => handleTagToggle(tag.id, !!checked)"
+                :model-value="(localFilters.tagIds || []).includes(tag.id)"
+                @update:model-value="(checked: boolean) => handleTagToggle(tag.id, !!checked)"
               />
             </div>
           </div>
