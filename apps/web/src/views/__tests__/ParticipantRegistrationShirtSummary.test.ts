@@ -190,6 +190,18 @@ describe('Server registration — emergency contact row (step 6)', () => {
 		expect(row?.value).toBe('Ana López (Esposa) - 4771234567');
 	});
 
+	it('keeps the row when only the relation was filled', async () => {
+		const wrapper = await mountAtSummary({}, SHIRT_TYPES, {
+			emergencyContact1Name: '',
+			emergencyContact1Relation: 'Esposa',
+		});
+		const row = ((wrapper.vm as any).summaryData as Array<{ label: string; value?: string }>).find(
+			(r) => r.label === 'serverRegistration.emergencyContact1',
+		);
+
+		expect(row?.value).toBe('(Esposa)');
+	});
+
 	it('falls back to the work phone and skips a missing relation', async () => {
 		const wrapper = await mountAtSummary({}, SHIRT_TYPES, {
 			emergencyContact1Name: 'Ana López',

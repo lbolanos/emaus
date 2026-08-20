@@ -472,6 +472,8 @@ vi.mock('lucide-vue-next', () => ({
 	Maximize2: { name: 'Maximize2', template: '<svg></svg>' },
 	ClipboardCheck: { name: 'ClipboardCheck', template: '<svg></svg>' },
 	Check: { name: 'Check', template: '<svg></svg>' },
+	Calendar: { name: 'Calendar', template: '<svg></svg>' },
+	Square: { name: 'Square', template: '<svg></svg>' },
 	ChevronsUpDown: { name: 'ChevronsUpDown', template: '<svg></svg>' },
 	Send: { name: 'Send', template: '<svg></svg>' },
 	Bookmark: { name: 'Bookmark', template: '<svg></svg>' },

@@ -1,6 +1,6 @@
 ---
 name: troubleshooting
-description: MUST be used cuando el usuario reporta cualquier bug, error o comportamiento inesperado en el proyecto Emaús. Índice maestro de bugs recurrentes con síntoma → causa → fix. Cubre UI congelada (reka-ui), página blanca en Safari iOS, fechas que saltan un día (TZ CDMX), checkbox sin reacción, Set/Map no reactivos, migrations SQLite que borran data silenciosamente, tap-to-assign en móvil, registro que no avanza de paso por el autofill del celular, tests Vue con defineModel, mocks Jest con ESM, tests 403, y más. Triggers — "se congela", "no responde", "página en blanco", "Safari", "iPhone", "fechas saltan", "un día antes", "checkbox no funciona", "no marca", "migration borró", "perdió data", "tap no responde", "no asigna en móvil", "no me deja avanzar", "no avanza el registro", "el botón Siguiente no hace nada", "dice que el teléfono no es número", "test falla", "ReferenceError mock", "Cannot access before initialization", "vue-i18n", "stack overflow", "Maximum call stack".
+description: MUST be used cuando el usuario reporta cualquier bug, error o comportamiento inesperado en el proyecto Emaús. Índice maestro de bugs recurrentes con síntoma → causa → fix. Cubre UI congelada (reka-ui), página blanca en Safari iOS, fechas que saltan un día (TZ CDMX), checkbox sin reacción, Set/Map no reactivos, migrations SQLite que borran data silenciosamente, tap-to-assign en móvil, registro que no avanza de paso por el autofill del celular, tests Vue con defineModel, mocks Jest con ESM, tests 403, y más. Triggers — "se congela", "no responde", "página en blanco", "Safari", "iPhone", "fechas saltan", "un día antes", "checkbox no funciona", "no marca", "migration borró", "perdió data", "tap no responde", "no asigna en móvil", "no me deja avanzar", "no avanza el registro", "el botón Siguiente no hace nada", "dice que el teléfono no es número", "test falla", "ReferenceError mock", "Cannot access before initialization", "vue-i18n", "stack overflow", "Maximum call stack", "el switch no se mueve", "seleccionar todos no hace nada", "seleccioné y dice que no seleccioné nada", "el resumen sale vacío".
 ---
 
 # Troubleshooting — bugs recurrentes del proyecto Emaús
@@ -14,7 +14,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "se congela la UI", "no responde después de cerrar el menú", "tengo que recargar", "pointer-events none" | [#1 reka-ui Dialog/DropdownMenu](#1-reka-ui-dialogdropdownmenu-congela-la-ui) |
 | "página en blanco en iPhone/iPad", "Safari crashea", "Maximum call stack" en móvil | [#2 Safari iOS blank page](#2-safari-ios-blank-page) |
 | "las fechas salen un día antes", "el picker arranca el día previo", "el min/max del input está mal" | [#3 Timezone CDMX salta un día](#3-timezone-cdmx-salta-un-día) |
-| "el checkbox no marca", "no responde al click", "queda en otro estado" | [#4 Checkbox reka-ui ignora :checked](#4-checkbox-reka-ui-ignora-checked) |
+| "el checkbox no marca", "el switch no se mueve", "seleccioné y no se seleccionó nada", "seleccionar todos no hace nada" | [#4 Checkbox y Switch de reka-ui ignoran `:checked`](#4-checkbox-y-switch-de-reka-ui-ignoran-checked) |
 | "la lista no se actualiza", "el contador no cambia aunque cambien los datos" | [#5 Set/Map en `ref` no son reactivos](#5-setmap-en-ref-no-son-reactivos) |
 | "la migration borró data", "se perdieron rows", "tablas hijas vacías" | [#6 SQLite recreate-table cascade](#6-sqlite-recreate-table-borra-data-en-tablas-hijas) |
 | "el tap en móvil no asigna", "drag funciona pero tap no", "Chrome DevTools touch falla" | [#7 Tap-to-assign móvil/DevTools](#7-tap-to-assign-no-funciona-en-móvildevtools) |
@@ -32,6 +32,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "el encabezado del PDF sale abajo", "la cabecera se monta encima del texto", "solo sale en la primera página" | [#19 Encabezado con `position: fixed` se pinta al pie](#19-el-encabezado-repetido-con-position-fixed-se-pinta-al-pie-y-tapa-el-texto) |
 | "en el PDF hay palabras pegadas", "sale un espacio antes del signo de interrogación", "SERVIR ?" | [#20 Texto con negritas: espacios perdidos o inventados](#20-texto-con-negritas-se-pierden-o-se-inventan-espacios) |
 | "la suite falla en tests distintos cada vez", "Maximum call stack size exceeded en un test", "Exceeded timeout of 10000 ms" | [#21 La suite de jest falla en suites distintas cada vez](#21-la-suite-de-jest-falla-en-suites-distintas-cada-vez-sin-tocar-ese-código) |
+| "elegí las tallas y el resumen dice que no elegí ninguna", "lo capturé y la pantalla lo muestra vacío", "el reporte sale en cero aunque hay datos" | [#22 La pantalla lee un campo legacy que el formulario ya no llena](#22-la-pantalla-lee-un-campo-legacy-que-el-formulario-ya-no-llena) |
 
 ---
 
@@ -148,27 +149,69 @@ const minLocal = `${c.y}-${pad(c.m)}-${pad(c.d)}T00:00`; // input datetime-local
 
 ---
 
-## 4. Checkbox reka-ui ignora :checked
+## 4. Checkbox y Switch de reka-ui ignoran `:checked`
 
-**Síntoma**: un checkbox renderiza pero no responde al click, o muestra el estado equivocado.
+**Síntoma**: el usuario marca una casilla o mueve un switch y **no pasa nada visible**. A veces
+la acción sí ocurre por detrás (el contador sube, el filtro se aplica) pero el control se ve
+apagado; a veces no ocurre nada en absoluto. El usuario lo reporta como *"seleccioné y me dice
+que no seleccioné ninguna"*.
 
-**Causa**: reka-ui `CheckboxRoot` usa la prop `modelValue`, no `checked`. El emit es `update:modelValue`, no `update:checked`. Si pasás `:checked="bool"`, reka-ui lo ignora y el atributo cae como HTML attr en el `<button>` interno.
+**Causa**: reka-ui 2.x sólo entiende **`modelValue` / `update:modelValue`**. El par
+`checked` / `update:checked` de radix-vue se descarta en silencio: la prop cae como atributo HTML
+en el `<button>` interno y el emit nunca se dispara.
+
+| Lo que escribís | `data-state` | Evento al hacer clic |
+| --- | --- | --- |
+| `:model-value="true"` | `checked` ✅ | `update:modelValue` ✅ |
+| `:checked="true"` | `unchecked` ❌ | `update:modelValue` (el handler de `@update:checked` nunca corre) ❌ |
 
 ```vue
-<!-- ❌ MAL: cualquier valor de :checked se ignora -->
+<!-- ❌ MAL -->
 <Checkbox :checked="row.selected" @update:checked="toggle(row.id)" />
+<Switch v-model:checked="override.granted" />
 
 <!-- ✅ BIEN -->
 <Checkbox :model-value="row.selected" @update:model-value="toggle(row.id)" />
+<Switch v-model="override.granted" />
+
+<!-- Tercer estado del checkbox: NO existe la prop `indeterminate` -->
+<Checkbox :model-value="allSelected ? true : (someSelected ? 'indeterminate' : false)" />
 ```
+
+**Combinación que engaña**: `:checked` + `@click="toggle(...)"`. El clic funciona (es un evento
+DOM), así que la selección avanza, pero la casilla nunca se pinta. Es el caso más difícil de ver
+en una demo rápida y el que más confunde al usuario.
+
+**Por qué la suite no lo atrapa**: `apps/web/src/test/setup.ts` mockea `@repo/ui` entero con
+componentes que aceptan cualquier prop. Ningún test montado con el mock global puede ver esto.
+El guard vive en `apps/web/src/test/repoUiToggleApi.test.ts`, que importa los componentes
+**reales** por ruta relativa (`../../../../packages/ui/src/...`, saltándose el mock) y además
+grepea `apps/web` para que no reaparezca la forma vieja. Si un test de una vista necesita
+comprobar selección, su `vi.mock('@repo/ui')` local debe replicar el contrato real
+(ver `src/components/community/__tests__/ImportMembersModal.test.ts`).
+
+**Ojo al arreglar el wrapper de `@repo/ui`** (`packages/ui/src/components/ui/switch/Switch.vue`),
+dos trampas que costaron un rato:
+
+- `useForwardPropsEmits` re-emite `update:modelValue` **además** del que emite el wrapper: cada
+  handler del consumidor se ejecutaría dos veces y un toggle volvería a su estado inicial. Hay que
+  escribir el forward a mano.
+- Vue castea a `false` una prop booleana ausente, así que `props.modelValue ?? props.checked`
+  **nunca** llega a `checked`. Las props de valor tienen que declararse con
+  `withDefaults(..., { checked: undefined, modelValue: undefined })`.
 
 **Auditar el repo**:
 ```bash
-grep -rn 'Checkbox.*:checked' apps/web/src/
-grep -rn 'Checkbox.*@update:checked' apps/web/src/
+grep -rn 'Checkbox.*:checked\|Checkbox.*@update:checked' apps/web/src/
+grep -rn 'v-model:checked' apps/web/src/          # afecta a Switch
+# `<input type="checkbox" :checked>` nativo NO es bug: filtrá por el componente.
 ```
 
-> Hay componentes en el codebase que aún usan `:checked` (bug latente). Cuando los toques, migralos a `:model-value`.
+**Casos**:
+- 2026-08-20 `ImportMembersModal.vue` — "seleccionar todos" no hacía nada y los checks de fila
+  nunca se pintaban; `RetreatRoleManagementView.vue` — el switch Permitir/Denegar estaba muerto,
+  imposible crear un override de denegación; `FilterDialog.vue` — el switch de etiquetas se veía
+  apagado con el filtro aplicado.
 
 ---
 
@@ -679,6 +722,59 @@ igualmente, `--runInBand` reduce el pico frente a los 5 workers por defecto.
 y es determinista mientras haya dos procesos.
 
 **Caso**: 2026-08-17, Mac con 57G usados y 23G comprimidos.
+
+---
+
+## 22. La pantalla lee un campo legacy que el formulario ya no llena
+
+**Síntoma**: el usuario captura algo y la app le muestra que no hay nada. No es un error ni un
+formulario que no guarda: **el dato está bien guardado**, pero la pantalla que lo muestra lee otro
+lugar. El usuario lo cuenta como *"lo seleccioné y me dice que no seleccioné ninguna"*.
+
+**Causa**: una feature migró de columnas fijas en `participant` a una tabla por retiro
+(el caso típico: `needsWhiteShirt` / `needsBlueShirt` / `needsJacket` → `participant_shirt_size`
+con los tipos de `retreat_shirt_type`). El formulario se migró; **una vista se quedó leyendo las
+columnas viejas**, que hoy son siempre `null`. No hay error, no hay test rojo: la vista muestra el
+valor por defecto ("No necesita", 0, vacío) con total naturalidad.
+
+**Cómo confirmarlo rápido** — comparar dónde escribe el formulario contra dónde lee la vista:
+
+```bash
+# ¿Quién lee todavía las columnas viejas?
+grep -rn 'needsWhiteShirt\|needsBlueShirt\|needsJacket' apps/web/src apps/api/src --include=*.ts --include=*.vue
+
+# ¿Qué escribe de verdad el formulario? (mirá el payload real, no el código)
+#   DevTools → Network → el POST, o un e2e con page.waitForRequest
+```
+
+**Chequeo mecánico útil** en formularios grandes: sacar las claves que el formulario escribe y
+compararlas con las del schema de envío. Lo que no está en el schema, Zod lo strippea sin avisar.
+
+```bash
+python3 - <<'EOF'
+import re
+schema = open('packages/types/src/index.ts').read()
+blk = schema[schema.index('export const participantSchema'):]
+blk = blk[:blk.index('\n});')]
+keys = set(re.findall(r'^\t(\w+):', blk, re.M))
+view = open('apps/web/src/views/ParticipantRegistrationView.vue').read()
+written = set(re.findall(r'formData\.value\.(\w+)\s*=', view)) | set(re.findall(r'v-model="formData\.(\w+)"', view))
+print('se pierden al enviar:', sorted(written - keys))
+EOF
+```
+
+**Dónde suele esconderse el mismo patrón**: pantallas de resumen/confirmación, reportes, cálculos
+de inventario, exportaciones a Excel y plantillas de mensaje — todo lo que no se toca al migrar la
+captura.
+
+**Casos**:
+- 2026-08-20 `ParticipantRegistrationView.vue` — el resumen del paso 6 del registro de servidor
+  mostraba "No necesita" en las tres filas legacy mientras el paso 5 guardaba las tallas por tipo
+  de playera. El servidor creía que su selección se había perdido; el payload la llevaba correcta.
+- Mismo día, `inventoryService.ts` (`calculateTshirtQuantity` y hermanas) contaba servidores por
+  esas mismas columnas: quedó inerte tras la migración `InventoryEnhancementsBundle` (los ítems
+  están `isActive = 0` y las consultas filtran por activos), pero reactivar uno haría que el
+  inventario pidiera cero playeras.
 
 ---
 

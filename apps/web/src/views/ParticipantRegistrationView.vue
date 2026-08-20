@@ -810,7 +810,7 @@ const summaryData = computed<SummaryItem[]>(() => {
   ]
     .map((phone) => (phone ?? '').trim())
     .find(Boolean) ?? ''
-  if (ecName || ecPhone) {
+  if (ecName || ecPhone || ecRelation) {
     data.push({
       label: 'serverRegistration.emergencyContact1',
       value: [ecName, ecRelation ? `(${ecRelation})` : ''].filter(Boolean).join(' ')

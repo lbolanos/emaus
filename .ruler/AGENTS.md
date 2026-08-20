@@ -149,8 +149,11 @@ Sistema TypeORM contra SQLite. Comandos: `migration:generate`, `migration:run`, 
 
 ## Testing — solo el qué y el cómo correr
 
-- **Backend**: Jest. **Frontend**: Vitest con `happy-dom`. **E2E**: Playwright configurado, tests escasos.
+- **Backend**: Jest. **Frontend**: Vitest con `happy-dom`. **E2E**: Playwright en
+  `apps/web/tests/e2e/` (tests escasos). Convenciones y trampas al escribir uno nuevo —idioma,
+  dry-run para no tocar la base, `count()` sin auto-wait— en **`.claude/rules/e2e-tests.md`**.
 - Lo que hay que saber y no se ve en la config: `apps/web/src/test/setup.ts` tiene **mocks globales** de `@repo/ui`, `lucide-vue-next`, `vue-router`, `vue-i18n` y `axios` — un ícono o un export nuevo que no esté en esa lista rompe el `mount()`.
+- Ese mock de `@repo/ui` **acepta cualquier prop**, así que ningún test montado detecta que una vista le pase a un componente compartido una prop que reka-ui ignora (`:checked`). Para fijar el contrato hay que importar el componente real por ruta: `apps/web/src/test/repoUiToggleApi.test.ts`.
 
 ```bash
 pnpm --filter web test src/components/__tests__/X.ts   # un archivo

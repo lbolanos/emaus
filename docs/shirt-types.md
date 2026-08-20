@@ -165,12 +165,14 @@ When walker shirts went per-retreat, several legacy hardcoded references were re
 | `apps/web/src/components/FilterDialog.vue` | `tshirtSize` filter switched from a `select` with hardcoded `['S','M','G','X','2']` to free-text input. Sizes vary per retreat so the previous select was wrong for non-MX retreats. |
 | `apps/web/src/components/BulkEditParticipantsModal.vue` | `tshirtSize` bulk-edit field switched from a `select` with `XS/S/M/L/XL/XXL` hardcoded to free-text. Admin types whatever code the target retreat uses. |
 | `apps/api/src/services/participantService.ts` (`mapToEnglishKeys`) | Excel import no longer rejects sizes outside `['S','M','G','X','2']`. Trims and uppercases whatever the legacy `camiseta` column contains. |
+| `apps/web/src/views/ParticipantRegistrationView.vue` | **(2026-08-20, missed in the original sweep)** The step-6 summary of the server registration still read `needsWhiteShirt` / `needsBlueShirt` / `needsJacket`, which the form stopped filling. Every server saw "No necesita" on all three rows right after picking sizes and thought the selection was lost — the payload carried it correctly all along. The summary now builds one row per shirt type of the retreat from `shirtSizesByType`. |
 
 Out-of-scope leftovers (intentional):
 
 - `apps/api/src/migrations/sqlite/20250910163337_CreateSchema.ts:138` — initial-schema CHECK constraint on `tshirtSize` is not enforced in the live SQLite DB; rewriting requires recreating the table and is unnecessary.
 - `apps/web/src/locales/{es,en}.json` `walkerRegistration.fields.tshirtSize.options.*` — translation keys still exist but no caller references them. Kept for now to avoid touching localization for a follow-up change.
-- Frontend component tests for the chip editor, color picker, dynamic walker dropdown, and read-only gate — `apps/web` has no Vitest harness yet. Setting one up is a separate effort.
+- `apps/api/src/services/inventoryService.ts` (`calculateTshirtQuantity`, `calculateBlueTshirtQuantity`, `calculateJacketQuantity`) — still count servers by the legacy columns, so they would return zero. Dead in practice: `InventoryEnhancementsBundle` moved the quantities to `retreatShirtTypeId` + `shirtSize` rows, deleted the old `retreat_inventory` rows and set those catalog items to `isActive = 0`, and every query filters by active. Reactivating one of those items would bring the bug back; deleting the code is a separate cleanup (it forces an API redeploy).
+- Frontend component tests for the chip editor, color picker, dynamic walker dropdown, and read-only gate. (`apps/web` does have a Vitest harness — that note is outdated; see the shirt tests listed below.)
 
 ## Tests
 
@@ -181,6 +183,18 @@ Out-of-scope leftovers (intentional):
 - `availableSizes` column behavior: defaults when omitted, custom Colombian list, trimming/empty filtering, update.
 - **Persistence across reload** — recreates a type, updates its `availableSizes`, then re-fetches via a separate call to confirm the change actually hit the DB (catches the `repo.save()` simple-json regression mentioned above).
 - `validateSizesAgainstType` accept/reject paths and the legacy `null` fallback.
+
+Frontend (Vitest + one Playwright spec), added 2026-08-20 with the summary fix:
+
+- `apps/web/src/components/registration/__tests__/Step5ServerInfo.test.ts` — the picked size lands
+  in both `shirtSizesByType` (UI index) and `shirtSizes` (what the API persists), and going back to
+  "No necesita" drops the type from the payload.
+- `apps/web/src/views/__tests__/ParticipantRegistrationShirtSummary.test.ts` — summary rows per
+  shirt type, ordering, retreat with no types, and no fallback to the legacy fields.
+- `apps/web/tests/e2e/server-registration-shirt-sizes.spec.ts` — drives the real registration
+  dialog against the dev stack and asserts the submitted `shirtSizes`. Runs in dry-run
+  (`?test=true`), so it never writes to the database. Needs a public retreat with 2+ server shirt
+  types; override the default with `E2E_RETREAT_ID`.
 
 Run with:
 
