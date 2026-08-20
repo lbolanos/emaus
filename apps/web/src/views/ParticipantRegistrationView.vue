@@ -159,7 +159,9 @@ const isConfirming = ref(false)
 const showSuccessScreen = ref(false)
 const lookupShirtSizes = ref<Record<string, string>>({})
 
-const lookupVisibleShirtTypes = computed(() => {
+// Shirt types a server may request for this retreat. Same criteria as Step5ServerInfo:
+// used by step 5 / the summary and by the email-lookup confirm flow.
+const serverShirtTypes = computed(() => {
   const types = retreatData.value?.shirtTypes || []
   return [...types]
     .filter((t: any) => t.optionalForServers)
@@ -780,8 +782,14 @@ const onSubmit = async () => {
   }
 }
 
-const summaryData = computed(() => {
-  const data = [
+/**
+ * A row of the final summary. `rawLabel` marks labels that already come in the user's
+ * language (the shirt type name configured for the retreat) and must not go through $t().
+ */
+type SummaryItem = { label: string; value?: string; rawLabel?: boolean }
+
+const summaryData = computed<SummaryItem[]>(() => {
+  const data: SummaryItem[] = [
     { label: 'serverRegistration.fields.firstName', value: formData.value.firstName },
     { label: 'serverRegistration.fields.lastName', value: formData.value.lastName },
     { label: 'serverRegistration.fields.email', value: formData.value.email },
@@ -789,17 +797,44 @@ const summaryData = computed(() => {
     { label: 'serverRegistration.fields.snores', value: formData.value.snores ? 'common.yes' : 'common.no' },
     { label: 'serverRegistration.fields.hasMedication', value: formData.value.hasMedication ? 'common.yes' : 'common.no' },
     { label: 'serverRegistration.fields.hasDietaryRestrictions', value: formData.value.hasDietaryRestrictions ? 'common.yes' : 'common.no' },
-    { label: 'serverRegistration.emergencyContact1', value: `${formData.value.emergencyContact1Name} (${formData.value.emergencyContact1Relation}) - ${formData.value.emergencyContact1CellPhone || formData.value.emergencyContact1WorkPhone || formData.value.emergencyContact1HomePhone}` }
   ]
+
+  // The emergency contact is optional for servers. Built piecewise and skipped when
+  // empty, otherwise the row rendered as "() -".
+  const ecName = (formData.value.emergencyContact1Name ?? '').trim()
+  const ecRelation = (formData.value.emergencyContact1Relation ?? '').trim()
+  const ecPhone = [
+    formData.value.emergencyContact1CellPhone,
+    formData.value.emergencyContact1WorkPhone,
+    formData.value.emergencyContact1HomePhone,
+  ]
+    .map((phone) => (phone ?? '').trim())
+    .find(Boolean) ?? ''
+  if (ecName || ecPhone) {
+    data.push({
+      label: 'serverRegistration.emergencyContact1',
+      value: [ecName, ecRelation ? `(${ecRelation})` : ''].filter(Boolean).join(' ')
+        + (ecPhone ? ` - ${ecPhone}` : ''),
+    })
+  }
 
   if (props.type === 'walker') {
     data.push({ label: 'walkerRegistration.fields.invitedBy', value: formData.value.invitedBy },
               { label: 'walkerRegistration.fields.tshirtSize.label', value: formData.value.tshirtSize }
     )
   } else {
-    data.push({ label: 'serverRegistration.fields.needsWhiteShirt', value: (formData.value.needsWhiteShirt === 'null' || !formData.value.needsWhiteShirt) ? 'serverRegistration.fields.noSizeNeeded' : formData.value.needsWhiteShirt })
-    data.push({ label: 'serverRegistration.fields.needsBlueShirt', value: (formData.value.needsBlueShirt === 'null' || !formData.value.needsBlueShirt) ? 'serverRegistration.fields.noSizeNeeded' : formData.value.needsBlueShirt })
-    data.push({ label: 'serverRegistration.fields.needsJacket', value: (formData.value.needsJacket === 'null' || !formData.value.needsJacket) ? 'serverRegistration.fields.noSizeNeeded' : formData.value.needsJacket })
+    // Server sizes live in shirtSizesByType (per-retreat shirt types), not in the legacy
+    // needsWhiteShirt/needsBlueShirt/needsJacket fields, which this form no longer fills
+    // and which made the summary say "No necesita" every time.
+    const sizesByType = ((formData.value as any).shirtSizesByType ?? {}) as Record<string, string>
+    for (const t of serverShirtTypes.value) {
+      const size = sizesByType[t.id]
+      data.push({
+        label: t.name,
+        rawLabel: true,
+        value: !size || size === 'null' ? 'serverRegistration.fields.noSizeNeeded' : size,
+      })
+    }
   }
 
   return data
@@ -845,7 +880,7 @@ onMounted(async () => {
 
 // Expuesto para pruebas: permite validar pasos y leer/escribir el estado del
 // formulario sin tener que conducir todo el flujo de UI.
-defineExpose({ validateStep, formData, formErrors, retreatData, retreatCountry })
+defineExpose({ validateStep, formData, formErrors, retreatData, retreatCountry, currentStep, summaryData })
 </script>
 
 <template>
@@ -1111,10 +1146,10 @@ defineExpose({ validateStep, formData, formErrors, retreatData, retreatCountry }
               </div>
 
               <!-- Shirt size selectors in lookup confirm flow -->
-              <div v-if="props.type === 'server' && lookupVisibleShirtTypes.length > 0" class="w-full max-w-md text-left space-y-3 border-t pt-4">
+              <div v-if="props.type === 'server' && serverShirtTypes.length > 0" class="w-full max-w-md text-left space-y-3 border-t pt-4">
                 <p class="text-sm font-medium">{{ $t('serverRegistration.fields.shirtsAskTitle') }}</p>
                 <p class="text-xs text-muted-foreground">{{ $t('serverRegistration.fields.shirtsAskHint') }}</p>
-                <div v-for="t in lookupVisibleShirtTypes" :key="t.id">
+                <div v-for="t in serverShirtTypes" :key="t.id">
                   <Label :for="`lookup-shirt-${t.id}`">{{ t.name }}</Label>
                   <Select
                     :model-value="lookupShirtSizes[t.id] ?? 'null'"
@@ -1241,8 +1276,8 @@ defineExpose({ validateStep, formData, formErrors, retreatData, retreatCountry }
                         <CardDescription>{{ $t('serverRegistration.summary.description') }}</CardDescription>
                       </CardHeader>
                       <CardContent class="space-y-2">
-                        <div v-for="item in summaryData" :key="item.label" class="flex flex-wrap gap-2 justify-between border-b pb-1.5 last:border-0">
-                          <span class="font-medium text-muted-foreground text-sm">{{ $t(item.label) }}</span>
+                        <div v-for="(item, idx) in summaryData" :key="`${idx}-${item.label}`" class="flex flex-wrap gap-2 justify-between border-b pb-1.5 last:border-0">
+                          <span class="font-medium text-muted-foreground text-sm">{{ item.rawLabel ? item.label : $t(item.label) }}</span>
                           <span class="text-sm">{{ item.value?.includes('Registration.') || item.value?.includes('common.') ? $t(item.value) : item.value }}</span>
                         </div>
                       </CardContent>
