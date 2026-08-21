@@ -259,17 +259,33 @@ jobs:
           echo "Installing dependencies..."
           pnpm install --frozen-lockfile 2>&1 | tail -20
 
-          # NODE_ENV must be set here. Migrations run through vite-node, which
-          # does NOT go through env-wrapper.sh, so without this the production
-          # guards inside migrations (`NODE_ENV === 'production'`) silently
-          # evaluate false and dev-only fixtures get seeded into prod. That is
-          # how 20260721130000_SeedE2eSuperadminAndHouse planted an
-          # e2e-superadmin account (password public in this repo) in the
-          # production DB on 2026-07-21; found and removed 2026-08-20.
-          # Safe to set: the migration CLI's import chain does not reach
-          # src/config.ts, so it won't trip that module's SESSION_SECRET throw.
+          # NODE_ENV must be set here: migrations run through vite-node, which
+          # does NOT go through env-wrapper.sh, so without it the production
+          # guards inside migrations (`NODE_ENV === 'production'`) evaluate false
+          # and dev-only fixtures get seeded into prod. That is how
+          # 20260721130000_SeedE2eSuperadminAndHouse planted an e2e-superadmin
+          # account — password public in this repo — in the production DB on
+          # 2026-07-21; found and removed 2026-08-20. Safe to set: the migration
+          # CLI's import chain never reaches src/config.ts, so it does not trip
+          # that module's SESSION_SECRET throw.
+          #
+          # Failures must abort the deploy, and the exit code has to be captured
+          # separately — piping into `tail` makes $? the code of `tail` (always
+          # 0), so the previous `| tail -5 || echo "Migrations skipped"` masked
+          # failures twice over. Aborting here is safe because it happens before
+          # the pm2 restart: the old release keeps serving the schema it was
+          # built for. (MIGRATIONS_WARN_ONLY stays true in .env.production on
+          # purpose — that flag governs API *startup*, where exiting would
+          # crash-loop prod. Fail loudly at deploy time, not at boot.)
           echo "Running migrations..."
-          NODE_ENV=production pnpm --filter api migration:run 2>&1 | tail -5 || echo "Migrations skipped"
+          MIGRATION_RC=0
+          MIGRATION_LOG=$(NODE_ENV=production pnpm --filter api migration:run 2>&1) || MIGRATION_RC=$?
+          echo "$MIGRATION_LOG" | tail -20
+          if [ "$MIGRATION_RC" -ne 0 ]; then
+            echo "❌ Migrations failed (exit $MIGRATION_RC) — aborting before pm2 restart."
+            echo "   The running API is untouched and still serving the previous release."
+            exit 1
+          fi
 
           # Dual-daemon guard — see 2026-04-23 incident. A second PM2 daemon
           # (usually in /root/.pm2 from a past `sudo pm2 start`) competes with
@@ -359,6 +375,19 @@ jobs:
             pm2 logs emaus-api --lines 30 --nostream || true
             exit 1
           fi
+
+          # Deploy provenance. The git worktree on the box is NOT a reliable
+          # answer to "which version is running": the deploy rsyncs src/ over it,
+          # so it sits on an old commit with a permanently dirty tree (218 files
+          # modified as of 2026-08-20). Record what actually shipped.
+          # Read it with: ssh <host> cat /var/www/emaus/DEPLOYED_VERSION
+          {
+            echo "commit=${{ github.sha }}"
+            echo "ref=${{ github.ref_name }}"
+            echo "run_id=${{ github.run_id }}"
+            echo "deployed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > /var/www/emaus/DEPLOYED_VERSION
+          echo "Recorded deployed version: ${{ github.sha }}"
           RESTARTEOF
 
       - name: Public URL smoke test (non-fatal)
