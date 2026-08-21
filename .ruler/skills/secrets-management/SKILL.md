@@ -35,6 +35,47 @@ ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104 '
 
 El API tarda >3s en arrancar — un health inmediato da `000` falso. Para sincronizar el local: bajar el de prod (nunca al revés).
 
+## Respaldar el `.env.production` fuera de la instancia
+
+`backup-db.sh` respalda **solo la base**. El `.env.production` existe únicamente en el disco de
+Lightsail, así que perder la instancia significa regenerar y rotar **todos** los secretos de
+prod a mano: SES, Google OAuth, InfluxDB, Grafana, las keys de IA y las de AWS. Un snapshot de
+Lightsail lo cubre de rebote, pero un snapshot no es un almacén de secretos (y los
+auto-snapshots están desactivados).
+
+Procedimiento (hecho por primera vez el 2026-08-20; el resultado vive en
+`s3://emaus-media/secrets/env-production-<stamp>.age`):
+
+```bash
+# 1. La clave pública se deriva de la privada de Lightsail; NO es secreta.
+ssh-keygen -y -f ~/.ssh/lightsail-emaus.pem > /tmp/recipient.pub
+# 2. Bajar el archivo y cifrarlo ANTES de que toque cualquier bucket.
+scp -i ~/.ssh/lightsail-emaus.pem \
+  ubuntu@18.116.102.104:/var/www/emaus/apps/api/.env.production /tmp/env.plain
+age -R /tmp/recipient.pub -o /tmp/env.age /tmp/env.plain
+# 3. Verificar el round-trip: un backup que no descifra no es un backup.
+diff <(age -d -i ~/.ssh/lightsail-emaus.pem /tmp/env.age) /tmp/env.plain && echo OK
+# 4. Subir a un prefijo privado y borrar el claro.
+aws s3 cp /tmp/env.age s3://emaus-media/secrets/env-production-$(date +%Y%m%d_%H%M%S).age \
+  --sse AES256 --profile emaus
+shred -u /tmp/env.plain /tmp/recipient.pub
+```
+
+Restaurar: `aws s3 cp s3://… - --profile emaus | age -d -i ~/.ssh/lightsail-emaus.pem`
+
+Tres cosas que muerden:
+
+- **`age -p` (passphrase) no funciona desde Claude Code.** Necesita un TTY para preguntar, y
+  bajo el prefijo `!` el script no tiene `/dev/tty`: falla con *"could not read passphrase:
+  standard input is not a terminal"*. Por eso el procedimiento usa cifrado asimétrico
+  (`age -R`), que no pregunta nada. Con passphrase solo funciona en una terminal de verdad.
+- **La llave de Lightsail pasa a proteger también este backup.** No añade exposición (quien la
+  tenga ya puede leer el archivo por SSH), pero esa llave se vuelve el punto único: sin ella no
+  hay restauración. Tiene que estar respaldada en el gestor de contraseñas.
+- **Es una foto, no un backup vivo.** Cada vez que cambie una variable en prod hay que repetirlo.
+  El prefijo `secrets/` queda fuera del statement `PublicReadGetObject` de la policy del bucket
+  (que solo cubre `avatars/` y `public-assets/`) — verificar con un GET anónimo que da 403.
+
 ## Protocolo de respuesta a un leak
 
 1. **Rotar/revocar** en el dashboard del proveedor (lo hace el usuario).

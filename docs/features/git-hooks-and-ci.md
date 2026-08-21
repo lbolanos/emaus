@@ -85,6 +85,42 @@ el backstop.**
 - `deploy-production.yml` (push a `master`): lint + tests + build + deploy a Lightsail (rsync + PM2).
 - `build-release.yml` (tags `v*.*.*`): build de release.
 
+### Qué versión corre en prod: `DEPLOYED_VERSION`
+
+**El worktree git del servidor no responde esa pregunta.** El deploy hace rsync de `src/` encima,
+así que el repo de `/var/www/emaus` quedó en un commit de mayo con ~218 archivos modificados
+permanentemente: `git log -1` ahí miente. Desde el 2026-08-20 el deploy escribe, después de que
+el healthcheck pasa:
+
+```bash
+ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104 cat /var/www/emaus/DEPLOYED_VERSION
+# commit=87feaec6c8ec2935c64d565c71c447ad31bb42ad
+# ref=master
+# run_id=32434214119
+# deployed_at=2026-08-21T00:57:56Z
+```
+
+Se escribe al final a propósito: si el deploy aborta antes, el archivo sigue describiendo la
+release que de verdad está sirviendo.
+
+### Un fallo de migración aborta el deploy (2026-08-20)
+
+El paso de migraciones era `migration:run 2>&1 | tail -5 || echo "Migrations skipped"`, que
+enmascaraba el fallo **dos veces**: el pipe hace que `$?` sea el de `tail` (siempre 0), y el `||`
+imprimía un mensaje tranquilizador de todos modos. Un deploy podía quedar verde con el schema sin
+migrar. Ahora el código se captura aparte y el deploy aborta.
+
+Aborta **antes** del restart de pm2, que es lo que lo hace seguro: la release anterior sigue
+sirviendo el schema con el que se construyó.
+
+`MIGRATIONS_WARN_ONLY=true` se queda así en `.env.production` **a propósito**. Esa bandera
+gobierna el *arranque* del API (`apps/api/src/index.ts`), donde una verificación fallida llama a
+`process.exit(1)` y deja prod en crash-loop. El sitio para fallar ruidosamente es el deploy, no el
+boot.
+
+Ese mismo paso fija `NODE_ENV=production`; el porqué está en el skill `sqlite-migrations`
+(los guards de entorno dentro de una migration no se disparan sin eso).
+
 ### Workflows de Gemini eliminados (2026-06-09)
 
 Había 5 workflows `gemini-*.yml` (plantilla de `run-gemini-cli` de Google) que **nunca se

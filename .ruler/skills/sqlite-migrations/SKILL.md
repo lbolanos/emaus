@@ -265,6 +265,44 @@ sqlite3 apps/api/database.sqlite ".backup 'apps/api/database.sqlite.backup-pre-<
 - Clase: `<DescriptiveName><YYYYMMDDHHMMSS>` (camelCase)
 - `name` y `timestamp` deben coincidir con el archivo y la clase.
 
+**El nombre no es cosmético: 14 dígitos y guion bajo, o el runner no ve el archivo.**
+`getAllMigrations()` en `apps/api/src/database/base-migration-manager.ts` filtra con
+`new RegExp('(\\d{14})_(.+)\\.ts$')`. Un archivo con guion o con timestamp epoch de 13
+dígitos **no matchea y es invisible**: no corre, no aparece en `migration:show`, y no da
+ningún error. Falla en silencio.
+
+Cómo se ve el síntoma: contás los archivos y no cuadran con la tabla `migrations`, y parece
+que hay una migration pendiente para siempre. Pasó con
+`1699774320000-FixParticipantCommunicationsUserFk.ts` (guion + 13 dígitos), que estuvo
+muerto en el repo hasta que se borró el 2026-08-20 — nunca corrió en ningún entorno.
+
+```sh
+# Cualquier archivo que salga acá es invisible al runner:
+ls apps/api/src/migrations/sqlite/ | grep -vE '^[0-9]{14}_'
+```
+
+### Guards de entorno dentro de una migration: `NODE_ENV` NO está definido
+
+Si tu migration siembra fixtures y te protegés con
+`if (process.env.NODE_ENV === 'production') return;`, **ese guard no se dispara en el deploy**.
+El paso corre `pnpm --filter api migration:run` vía vite-node, que **no pasa por
+`apps/api/env-wrapper.sh`** ni carga `.env.production` (y `NODE_ENV` tampoco está en ese
+archivo: vive en `ecosystem.config.js`, que solo aplica al proceso de pm2). Resultado:
+`process.env.NODE_ENV` es `undefined` y el guard evalúa false.
+
+Así fue como `20260721130000_SeedE2eSuperadminAndHouse` sembró en la base de **producción** un
+usuario `superadmin` con contraseña conocida —y publicada en este repo, que es público— el
+2026-07-21. Se detectó y borró el 2026-08-20, 30 días después. El workflow ahora fija
+`NODE_ENV=production` en ese paso (`.github/workflows/deploy-production.yml`).
+
+Dos reglas que salen de ahí:
+
+- **No confíes en `NODE_ENV` para un guard.** Un `migration:run` a mano en el servidor
+  tampoco lo tiene. Si el guard protege algo que dolería en prod, hacelo **fail-closed**:
+  exigir una variable explícita para *activar* el sembrado, en vez de una para desactivarlo.
+- **Nada de credenciales literales en una migration**, ni de test. El repo es público. Que la
+  contraseña venga de una variable de entorno y la migration se saltee si falta.
+
 ## Recuperación cuando una migration ya borró data
 
 Si descubres que una migration recreate-table eliminó rows de tablas
