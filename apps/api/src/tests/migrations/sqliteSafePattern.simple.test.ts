@@ -30,8 +30,13 @@ function listMigrationFiles(): string[] {
 }
 
 function extractTimestamp(filename: string): string | null {
-	// Filenames look like `20260507240000_AddWalkerFollowupTemplates.ts` or
-	// `1699774320000-FixParticipantCommunicationsUserFk.ts` (legacy).
+	// Filenames look like `20260507240000_AddWalkerFollowupTemplates.ts`.
+	// The 13-digit epoch form is still accepted here for safety, but note the
+	// migration runner only matches `(\d{14})_` (see getAllMigrations in
+	// base-migration-manager.ts): a 13-digit or hyphen-separated file is
+	// INVISIBLE to it and silently never runs. One such file existed until
+	// 2026-08-20 and made prod look like it had a permanently pending
+	// migration. Keep new migrations on the 14-digit + underscore form.
 	const m = filename.match(/^(\d{14}|\d{13})/);
 	return m ? m[1] : null;
 }
