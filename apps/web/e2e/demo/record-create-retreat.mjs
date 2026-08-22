@@ -23,6 +23,7 @@ import path from 'node:path';
 import {
   loadEnv, ensureOutputDir, genTts, OVERLAY_INIT, Narrator, muxVideo,
   computeSyncScale, audioDuration, buildYoutubeChapters, writeVideoMeta, OUTPUT_DIR,
+  maskNode,
 } from './demo-lib.mjs';
 
 const cfg = loadEnv();
@@ -37,35 +38,8 @@ const state = {
   flyerTitleOverride: null, // inyecta titleOverride en el flyer sin persistir
 };
 
-// Enmascarar PII (nombres/correos/teléfonos) de forma determinista por id.
-const FAKES = ['María López', 'Juan Pérez', 'Ana Torres', 'Pedro Gómez', 'Luis Ramírez', 'Sofía Cruz'];
-function fakeFor(id) {
-  let h = 0;
-  for (const c of String(id || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return FAKES[h % FAKES.length];
-}
-function maskNode(node) {
-  if (Array.isArray(node)) return node.forEach(maskNode);
-  if (node && typeof node === 'object') {
-    const name = fakeFor(node.id || node.userId || node.email);
-    if (typeof node.email === 'string' && node.email.includes('@')) {
-      node.email = name.toLowerCase().replace(/[^a-z]/g, '.') + '@correo.com';
-    }
-    if (typeof node.firstName === 'string') node.firstName = name.split(' ')[0];
-    if (typeof node.lastName === 'string') node.lastName = name.split(' ')[1] || '';
-    if (typeof node.nickname === 'string') node.nickname = name.split(' ')[0];
-    if (typeof node.displayName === 'string') node.displayName = name;
-    if ('photo' in node) node.photo = null;
-    if ('avatarUrl' in node) node.avatarUrl = null;
-    for (const k of Object.keys(node)) {
-      if (/phone|celular|tel[eé]fono|whatsapp/i.test(k) && typeof node[k] === 'string') {
-        node[k] = '55 0000 0000';
-      } else {
-        maskNode(node[k]);
-      }
-    }
-  }
-}
+// Enmascarado de PII: maskNode canónico de demo-lib.mjs (una sola copia para
+// todos los demos; las lecciones nuevas se agregan allá).
 
 const LINES = [
   { id: 'nav', text: 'En el menú lateral, dentro de Familia Emaús, entra a Mis Retiros.' },

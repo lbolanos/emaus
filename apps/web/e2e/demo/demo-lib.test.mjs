@@ -104,3 +104,59 @@ test('writeVideoMeta: sin capítulos no agrega la sección "Contenido"', () => {
     rmSync(metaPath, { force: true });
   }
 });
+
+// ── maskNode / alignChapterTimeline (canónicos desde el refactor 2026-08-22) ──
+
+test('maskNode: ningún dato real sobrevive en un payload de participante', async () => {
+  const { maskNode } = await import('./demo-lib.mjs');
+  const p = {
+    id: 'p1', firstName: 'Rosa', lastName: 'Martínez', nickname: 'Rosita',
+    email: 'rosa.martinez@gmail.com', cellPhone: '+52 461 123 4567',
+    inviterCellPhone: '4611112222', inviterEmail: 'invita@gmail.com',
+    emergencyContact1Name: 'Pedro Martínez', emergencyContact1CellPhone: '4613334444',
+    invitedBy: 'Gerardo Aguilar',
+    photo: 'https://s3.aws.com/faces/rosa.jpg', avatarUrl: '/uploads/rosa.png', picture: 'data:image/png;base64,xxx',
+    nested: [{ displayName: 'Carlos Juárez', whatsapp: '4615556666' }],
+  };
+  maskNode(p);
+  const flat = JSON.stringify(p);
+  for (const real of ['Rosa', 'Martínez', 'rosa.martinez', '1234567', '4611112222', 'invita@', 'Pedro', 'Gerardo', 'Aguilar', 'Carlos Juárez', '4615556666', 's3.aws', 'uploads', 'base64']) {
+    assert.ok(!flat.includes(real), `sobrevivió: ${real}`);
+  }
+  assert.equal(p.photo, ''); assert.equal(p.avatarUrl, ''); assert.equal(p.picture, '');
+  assert.match(p.cellPhone, /^55\d{8}$/);
+  assert.match(p.email, /@correo\.com$/);
+  // Identidad consistente: el email fake deriva del MISMO nombre fake de la persona.
+  assert.equal(p.email, `${p.firstName}.${p.lastName}@correo.com`.toLowerCase());
+});
+
+test('maskNode: determinista (mismo input → mismo fake)', async () => {
+  const { maskNode } = await import('./demo-lib.mjs');
+  const a = { id: 'x9', firstName: 'Rosa', lastName: 'Martínez' };
+  const b = { id: 'x9', firstName: 'Rosa', lastName: 'Martínez' };
+  maskNode(a); maskNode(b);
+  assert.equal(a.firstName, b.firstName);
+  assert.equal(a.lastName, b.lastName);
+});
+
+test('maskNode: etiqueta "Palanquero N (Nombre)" se enmascara en cualquier clave', async () => {
+  const { maskNode } = await import('./demo-lib.mjs');
+  const n = { label: 'Palanquero 2 (Juan Camacho)' };
+  maskNode(n);
+  assert.ok(!n.label.includes('Camacho'));
+  assert.match(n.label, /^Palanquero 2 \(.+\)$/);
+});
+
+test('alignChapterTimeline: replica el leadTrim de muxVideo (filtra por file y redondea)', async () => {
+  const { alignChapterTimeline } = await import('./demo-lib.mjs');
+  const timeline = [
+    { id: 'a', offsetMs: 2000, file: 'a.wav' },
+    { id: 'b', offsetMs: 15000, file: 'b.wav' },
+    { id: 'sinAudio', offsetMs: 100 }, // sin file: no cuenta para el trim
+  ];
+  const out = alignChapterTimeline(timeline, { syncScale: 1, syncOffsetMs: 0 });
+  // leadTrim = 2000 - 700 = 1300 → offsets reposicionados al mp4 real.
+  assert.equal(out[0].offsetMs, 700);
+  assert.equal(out[1].offsetMs, 13700);
+  assert.equal(out[2].offsetMs, 0); // clamp a 0, nunca negativo
+});

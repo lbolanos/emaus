@@ -3,6 +3,8 @@
 // personales → todo se fabrica; nada se muta. Red de seguridad: cualquier GET no fabricado pasa
 // por maskNode (enmascara nombres/correos/teléfonos, blanquea fotos http, incluido avatarUrl).
 
+import { maskNode } from './demo-lib.mjs';
+
 // "Yo" (el dueño de la sesión): identidad ficticia fija para el sidebar y Mi Perfil.
 export const ME = {
   displayName: 'Andrés Ramírez',
@@ -81,48 +83,8 @@ function testimonials() {
   ];
 }
 
-// ── Enmascarado (red de seguridad) ────────────────────────────────────────────────────────────
-const FF = ['María', 'José', 'Lucía', 'Miguel', 'Ana', 'Carlos', 'Sofía', 'Diego', 'Laura', 'Pedro',
-  'Elena', 'Jorge', 'Paula', 'Andrés', 'Rosa', 'Luis', 'Marta', 'Pablo', 'Clara', 'Raúl'];
-const FL = ['González', 'Ramírez', 'Hernández', 'Torres', 'Flores', 'Jiménez', 'Vargas', 'Castro', 'López', 'Pérez',
-  'Díaz', 'Cruz', 'Morales', 'Reyes', 'Ortiz', 'Ruiz', 'Mendoza', 'Fuentes', 'Ríos', 'Núñez'];
-function hstr(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; }
-const cache = {};
-function fakeFor(key) {
-  if (!cache[key]) { const h = hstr(String(key)); cache[key] = { first: FF[h % FF.length], last: FL[(Math.floor(h / 7)) % FL.length] }; }
-  return cache[key];
-}
-export function maskNode(n) {
-  if (Array.isArray(n)) return n.forEach(maskNode);
-  if (n && typeof n === 'object') {
-    if (typeof n.firstName === 'string') {
-      const key = n.id || n.participantId || (n.firstName + '|' + (n.lastName || ''));
-      const f = fakeFor(key);
-      n.firstName = f.first;
-      if ('lastName' in n) n.lastName = f.last;
-      if ('nickname' in n && n.nickname) n.nickname = f.first;
-      if ('displayName' in n && n.displayName) n.displayName = `${f.first} ${f.last}`;
-    } else if (typeof n.displayName === 'string' && n.displayName.trim()) {
-      const f = fakeFor(n.id || n.displayName);
-      n.displayName = `${f.first} ${f.last}`;
-      if (typeof n.name === 'string' && n.name.trim() && !n.name.includes('@')) n.name = `${f.first} ${f.last}`;
-      if (typeof n.fullName === 'string') n.fullName = `${f.first} ${f.last}`;
-    }
-    if (typeof n.email === 'string' && n.email.includes('@')) {
-      const f = fakeFor(n.email);
-      n.email = `${f.first}.${f.last}@correo.com`.toLowerCase();
-    }
-    for (const k of ['photo', 'avatar', 'avatarUrl', 'photoUrl', 'picture']) {
-      if (typeof n[k] === 'string' && n[k].startsWith('http')) n[k] = '';
-    }
-    for (const k of Object.keys(n)) {
-      if (/phone|celular|tel[eé]fono|whatsapp/i.test(k) && typeof n[k] === 'string' && n[k].replace(/\D/g, '').length >= 7) {
-        n[k] = '55' + String(10000000 + (hstr(n[k]) % 90000000));
-      }
-    }
-    for (const k of Object.keys(n)) if (typeof n[k] === 'object') maskNode(n[k]);
-  }
-}
+// ── Enmascarado (red de seguridad): maskNode canónico de demo-lib.mjs ─────────
+// (una sola copia para todos los demos; las lecciones nuevas se agregan allá).
 
 function fulfillJson(route, data) {
   return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });

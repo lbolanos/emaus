@@ -12,6 +12,7 @@ import path from 'node:path';
 import {
   loadEnv, ensureOutputDir, genTts, OVERLAY_INIT, Narrator, muxVideo,
   computeSyncScale, audioDuration, buildYoutubeChapters, writeVideoMeta, OUTPUT_DIR,
+  maskRoute, alignChapterTimeline,
 } from './demo-lib.mjs';
 
 const cfg = loadEnv();
@@ -20,73 +21,8 @@ const SYNC_OFFSET_MS = 0;
 const OVERLAY = OVERLAY_INIT.replace('✝ Emaús · Tareas Pre-Retiro', '✝ Emaús · Palancas');
 const SA = process.env.RETREAT_ID || '4c8173c9-a068-4efe-a936-e3618523bead';
 
-// ── Enmascarado de nombres (determinista) ──
-const FF = ['María', 'José', 'Lucía', 'Miguel', 'Ana', 'Carlos', 'Sofía', 'Diego', 'Laura', 'Pedro',
-  'Elena', 'Jorge', 'Paula', 'Andrés', 'Rosa', 'Luis', 'Marta', 'Pablo', 'Clara', 'Raúl',
-  'Silvia', 'Hugo', 'Nadia', 'Iván', 'Gloria', 'Tomás', 'Irene', 'Óscar', 'Beatriz', 'Víctor'];
-const FL = ['González', 'Ramírez', 'Hernández', 'Torres', 'Flores', 'Jiménez', 'Vargas', 'Castro', 'López', 'Pérez',
-  'Díaz', 'Cruz', 'Morales', 'Reyes', 'Ortiz', 'Ruiz', 'Mendoza', 'Fuentes', 'Ríos', 'Núñez',
-  'Campos', 'Vega', 'Rojas', 'Solís', 'Peña', 'Cabrera', 'Ibarra', 'Salas', 'Duarte', 'Prieto'];
-function hstr(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; }
-const cache = {};
-function fakeFor(key) {
-  if (!cache[key]) { const h = hstr(String(key)); cache[key] = { first: FF[h % FF.length], last: FL[(Math.floor(h / 7)) % FL.length] }; }
-  return cache[key];
-}
-function maskNode(n) {
-  if (Array.isArray(n)) return n.forEach(maskNode);
-  if (n && typeof n === 'object') {
-    if (typeof n.firstName === 'string') {
-      const key = n.id || n.participantId || (n.firstName + '|' + (n.lastName || ''));
-      const f = fakeFor(key);
-      n.firstName = f.first;
-      if ('lastName' in n) n.lastName = f.last;
-      if ('nickname' in n && n.nickname) n.nickname = f.first;
-      if ('displayName' in n && n.displayName) n.displayName = `${f.first} ${f.last}`;
-    } else if (typeof n.displayName === 'string' && n.displayName.trim()) {
-      const f = fakeFor(n.id || n.displayName);
-      n.displayName = `${f.first} ${f.last}`;
-      if (typeof n.name === 'string' && n.name.trim() && !n.name.includes('@')) n.name = `${f.first} ${f.last}`;
-      if (typeof n.fullName === 'string') n.fullName = `${f.first} ${f.last}`;
-    }
-    for (const k of Object.keys(n)) {
-      const v = n[k];
-      if (typeof v !== 'string') continue;
-      // Fotos/avatares (caras reales) → blanquear: photo/avatar y sus variantes *Url,
-      // tanto http(s) como data-URIs.
-      if (/^(photo|avatar)(Url)?$/i.test(k) && /^(https?:|data:)/.test(v)) {
-        n[k] = '';
-      // Teléfonos (PII): cellPhone/homePhone/inviterCellPhone/emergencyContact1CellPhone/whatsapp…
-      } else if (/phone|celular|tel[eé]fono|whatsapp/i.test(k) && v.replace(/\D/g, '').length >= 7) {
-        n[k] = '55' + String(10000000 + (hstr(v) % 90000000));
-      // Emails en cualquier clave (email, inviterEmail, emergencyContact1Email…).
-      } else if (/email/i.test(k) && v.includes('@')) {
-        const f = fakeFor(v);
-        n[k] = `${f.first}.${f.last}@correo.com`.toLowerCase();
-      // Nombres completos en una sola clave: contactos de emergencia y quién lo invitó
-      // (invitedBy es texto libre con el nombre real del invitador — se pinta en
-      // MessageDialog como "{name} (Invitador)").
-      } else if (/emergencyContact\d*Name|invitedBy|inviterName/i.test(k) && v.trim()) {
-        const f = fakeFor(v);
-        n[k] = `${f.first} ${f.last}`;
-      } else {
-        // "Palanquero N (Nombre Real)" → "Palanquero N (Nombre Falso)" en cualquier clave.
-        const m = v.match(/^(.*?Palanquero\s*\d+)\s*\((.+)\)\s*$/i);
-        if (m) { const f = fakeFor(v); n[k] = `${m[1]} (${f.first} ${f.last})`; }
-      }
-    }
-    for (const k of Object.keys(n)) if (typeof n[k] === 'object') maskNode(n[k]);
-  }
-}
-async function maskRoute(route) {
-  if (route.request().method() !== 'GET') return route.continue();
-  let resp;
-  try { resp = await route.fetch(); } catch { return route.continue().catch(() => {}); }
-  const ct = (resp.headers()['content-type'] || '');
-  if (!ct.includes('json')) return route.fulfill({ response: resp }).catch(() => {});
-  try { const d = await resp.json(); maskNode(d); return route.fulfill({ response: resp, body: JSON.stringify(d) }); }
-  catch { return route.fulfill({ response: resp }).catch(() => {}); }
-}
+// Enmascarado de PII: maskRoute canónico de demo-lib.mjs (una sola copia para
+// todos los demos; las lecciones nuevas se agregan allá).
 
 const LINES = [
   { id: 'sidebar1', text: 'Palancas vive en el menú, dentro de Comunicaciones.' },
@@ -241,11 +177,10 @@ async function main() {
   log(`⏱ webm ${webmDur.toFixed(1)}s reloj ${(wallMs / 1000).toFixed(1)}s scale ${syncScale.toFixed(4)}`);
   const out = path.join(OUTPUT_DIR, 'palancas-demo.mp4');
   await muxVideo(cfg, { video: videoPath, timeline: nar.timeline, out, syncOffsetMs: SYNC_OFFSET_MS, syncScale });
-  const LEAD_KEEP_MS = 700;
-  const scaled = nar.timeline.map((t) => t.offsetMs * syncScale + SYNC_OFFSET_MS);
-  const leadTrimMs = scaled.length ? Math.max(0, Math.min(...scaled) - LEAD_KEEP_MS) : 0;
-  const chapterTimeline = nar.timeline.map((t) => ({ ...t, offsetMs: Math.max(0, Math.round(t.offsetMs * syncScale + SYNC_OFFSET_MS - leadTrimMs)) }));
-  const chapters = buildYoutubeChapters(chapterTimeline, { labels: CHAPTER_LABELS });
+  const chapters = buildYoutubeChapters(
+    alignChapterTimeline(nar.timeline, { syncScale, syncOffsetMs: SYNC_OFFSET_MS }),
+    { labels: CHAPTER_LABELS },
+  );
   writeVideoMeta(out, { title: YT_TITLE, description: YT_DESCRIPTION, tags: YT_TAGS, chapters });
   log('✅ Listo:', out);
   for (const t of nar.timeline) log(`  ${(t.offsetMs / 1000).toFixed(1)}s  ${t.id}`);

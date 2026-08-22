@@ -12,6 +12,7 @@ import path from 'node:path';
 import {
   loadEnv, ensureOutputDir, genTts, OVERLAY_INIT, Narrator, muxVideo,
   computeSyncScale, audioDuration, buildYoutubeChapters, writeVideoMeta, OUTPUT_DIR,
+  maskRoute,
 } from './demo-lib.mjs';
 
 const cfg = loadEnv();
@@ -21,45 +22,8 @@ const OVERLAY = OVERLAY_INIT.replace('✝ Emaús · Tareas Pre-Retiro', '✝ Ema
 const SA = process.env.RETREAT_ID || '4c8173c9-a068-4efe-a936-e3618523bead'; // San Agustín (completo)
 
 // ── Enmascarado de nombres (determinista: mismo id/nombre real → mismo nombre falso) ──
-const FF = ['María', 'José', 'Lucía', 'Miguel', 'Ana', 'Carlos', 'Sofía', 'Diego', 'Laura', 'Pedro',
-  'Elena', 'Jorge', 'Paula', 'Andrés', 'Rosa', 'Luis', 'Marta', 'Pablo', 'Clara', 'Raúl',
-  'Silvia', 'Hugo', 'Nadia', 'Iván', 'Gloria', 'Tomás', 'Irene', 'Óscar', 'Beatriz', 'Víctor'];
-const FL = ['González', 'Ramírez', 'Hernández', 'Torres', 'Flores', 'Jiménez', 'Vargas', 'Castro', 'López', 'Pérez',
-  'Díaz', 'Cruz', 'Morales', 'Reyes', 'Ortiz', 'Ruiz', 'Mendoza', 'Fuentes', 'Ríos', 'Núñez',
-  'Campos', 'Vega', 'Rojas', 'Solís', 'Peña', 'Cabrera', 'Ibarra', 'Salas', 'Duarte', 'Prieto'];
-function hstr(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; }
-const cache = {};
-function fakeFor(key) {
-  if (!cache[key]) { const h = hstr(String(key)); cache[key] = { first: FF[h % FF.length], last: FL[(Math.floor(h / 7)) % FL.length] }; }
-  return cache[key];
-}
-function maskNode(n) {
-  if (Array.isArray(n)) return n.forEach(maskNode);
-  if (n && typeof n === 'object') {
-    if (typeof n.firstName === 'string') {
-      const key = n.id || n.participantId || (n.firstName + '|' + (n.lastName || ''));
-      const f = fakeFor(key);
-      n.firstName = f.first;
-      if ('lastName' in n) n.lastName = f.last;
-      if ('nickname' in n && n.nickname) n.nickname = f.first;
-      if ('displayName' in n && n.displayName) n.displayName = `${f.first} ${f.last}`;
-      if ('email' in n && typeof n.email === 'string' && n.email.includes('@')) n.email = `${f.first}.${f.last}@correo.com`.toLowerCase();
-    } else if (typeof n.displayName === 'string' && n.displayName.trim()) {
-      const f = fakeFor(n.id || n.displayName); n.displayName = `${f.first} ${f.last}`;
-    }
-    for (const k of Object.keys(n)) if (typeof n[k] === 'object') maskNode(n[k]);
-  }
-}
-async function maskRoute(route) {
-  const req = route.request();
-  if (req.method() !== 'GET') return route.continue();
-  try {
-    const resp = await route.fetch();
-    const data = await resp.json();
-    maskNode(data);
-    return route.fulfill({ response: resp, body: JSON.stringify(data) });
-  } catch { return route.continue(); }
-}
+// Enmascarado de PII: maskRoute canónico de demo-lib.mjs (una sola copia para
+// todos los demos; las lecciones nuevas se agregan allá).
 
 const LINES = [
   { id: 'sidebar1', text: 'En el menú, sección Asignaciones, entra a Responsabilidades.' },
@@ -132,10 +96,9 @@ async function main() {
   const page = await ctx.newPage();
   page.setDefaultTimeout(6000);
   page.setDefaultNavigationTimeout(30000);
-  // 🔒 Enmascarar nombres en todos los endpoints que traen participantes.
-  for (const pat of ['**/responsibilities**', '**/service-teams**', '**/schedule/retreats/**', '**/participants**']) {
-    await page.route(pat, maskRoute);
-  }
+  // 🔒 Enmascarar PII en TODO el API (lección 2026-08-22: una lista de patrones
+  // deja pasar los endpoints que no se listaron).
+  await page.route('**/api/**', maskRoute);
 
   const video = page.video();
   const nar = new Narrator(page, cfg);

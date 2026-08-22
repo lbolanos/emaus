@@ -14,6 +14,7 @@ import path from 'node:path';
 import {
   loadEnv, ensureOutputDir, genTts, OVERLAY_INIT, Narrator, muxVideo,
   computeSyncScale, audioDuration, buildYoutubeChapters, writeVideoMeta, OUTPUT_DIR,
+  maskRoute,
 } from './demo-lib.mjs';
 
 const cfg = loadEnv();
@@ -119,6 +120,10 @@ async function main() {
   await ctx.addInitScript(() => localStorage.setItem('preferred-locale', 'es'));
   await ctx.addInitScript(OVERLAY);
   const page = await ctx.newPage();
+
+  // Red de seguridad: enmascarar PII en TODO el API. La ruta específica de abajo
+  // gana porque Playwright evalúa primero la última registrada.
+  await page.route('**/api/**', maskRoute);
 
   // 🔒 Enmascarar PII del endpoint de usuarios del retiro.
   await page.route('**/retreat-roles/retreat/*/users', async (route) => {

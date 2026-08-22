@@ -16,7 +16,7 @@ import { existsSync } from 'node:fs';
 import {
   loadEnv, ensureOutputDir, genTts, OVERLAY_INIT, Narrator, muxVideo,
   computeSyncScale, audioDuration, buildYoutubeChapters, writeVideoMeta, OUTPUT_DIR,
-  renderEndCard, appendEndCard,
+  renderEndCard, appendEndCard, alignChapterTimeline,
 } from './demo-lib.mjs';
 import { installSocialSandbox } from './social-sandbox.mjs';
 
@@ -223,11 +223,10 @@ async function main() {
     log('🎬 tarjeta final agregada (14s)');
   }
 
-  const LEAD_KEEP_MS = 700;
-  const scaled = nar.timeline.map((t) => t.offsetMs * syncScale + SYNC_OFFSET_MS);
-  const leadTrimMs = scaled.length ? Math.max(0, Math.min(...scaled) - LEAD_KEEP_MS) : 0;
-  const chapterTimeline = nar.timeline.map((t) => ({ ...t, offsetMs: Math.max(0, Math.round(t.offsetMs * syncScale + SYNC_OFFSET_MS - leadTrimMs)) }));
-  const chapters = buildYoutubeChapters(chapterTimeline, { labels: CHAPTER_LABELS });
+  const chapters = buildYoutubeChapters(
+    alignChapterTimeline(nar.timeline, { syncScale, syncOffsetMs: SYNC_OFFSET_MS }),
+    { labels: CHAPTER_LABELS },
+  );
   writeVideoMeta(out, { title: YT_TITLE, description: YT_DESCRIPTION, tags: YT_TAGS, chapters });
   log('✅ Listo:', out);
   for (const t of nar.timeline) log(`  ${(t.offsetMs / 1000).toFixed(1)}s  ${t.id}`);

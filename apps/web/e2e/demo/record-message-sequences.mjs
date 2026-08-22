@@ -17,6 +17,7 @@ import path from 'node:path';
 import {
   loadEnv, ensureOutputDir, genTts, OVERLAY_INIT, Narrator, muxVideo,
   computeSyncScale, audioDuration, buildYoutubeChapters, writeVideoMeta, OUTPUT_DIR,
+  maskRoute,
 } from './demo-lib.mjs';
 
 const cfg = loadEnv();
@@ -125,6 +126,10 @@ async function main() {
   const page = await ctx.newPage();
   page.setDefaultTimeout(6000);
   page.setDefaultNavigationTimeout(30000); // goto/networkidle no debe heredar el 6s de acciones
+
+  // Red de seguridad: enmascarar PII en TODO el API. La ruta específica de abajo
+  // gana porque Playwright evalúa primero la última registrada.
+  await page.route('**/api/**', maskRoute);
 
   // 🔒 Cualquier dato de participante (p.ej. vista previa) = ficticio.
   await page.route('**/participants**', async (route) => {

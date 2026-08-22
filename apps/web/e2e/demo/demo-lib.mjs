@@ -64,6 +64,93 @@ export function ensureOutputDir() {
   if (!existsSync(OUTPUT_DIR)) mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 
+// ── Enmascarado determinista de PII (demos con datos reales) ─────────────────
+// UNA sola copia para todos los record-*.mjs. Lección del incidente 2026-08-22:
+// YouTube eliminó el video de Palancas por un celular real en pantalla porque el
+// masking vivía copiado por script y el fix solo llegó a uno. Cada lección nueva
+// se agrega AQUÍ; los scripts solo registran `page.route('**/api/**', maskRoute)`.
+export const FAKE_FIRSTS = ['María', 'José', 'Lucía', 'Miguel', 'Ana', 'Carlos', 'Sofía', 'Diego', 'Laura', 'Pedro',
+  'Elena', 'Jorge', 'Paula', 'Andrés', 'Rosa', 'Luis', 'Marta', 'Pablo', 'Clara', 'Raúl',
+  'Silvia', 'Hugo', 'Nadia', 'Iván', 'Gloria', 'Tomás', 'Irene', 'Óscar', 'Beatriz', 'Víctor'];
+export const FAKE_LASTS = ['González', 'Ramírez', 'Hernández', 'Torres', 'Flores', 'Jiménez', 'Vargas', 'Castro', 'López', 'Pérez',
+  'Díaz', 'Cruz', 'Morales', 'Reyes', 'Ortiz', 'Ruiz', 'Mendoza', 'Fuentes', 'Ríos', 'Núñez',
+  'Campos', 'Vega', 'Rojas', 'Solís', 'Peña', 'Cabrera', 'Ibarra', 'Salas', 'Duarte', 'Prieto'];
+export function hstr(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; }
+const fakeCache = {};
+export function fakeFor(key) {
+  if (!fakeCache[key]) {
+    const h = hstr(String(key));
+    fakeCache[key] = { first: FAKE_FIRSTS[h % FAKE_FIRSTS.length], last: FAKE_LASTS[Math.floor(h / 7) % FAKE_LASTS.length] };
+  }
+  return fakeCache[key];
+}
+
+export function maskNode(n) {
+  if (Array.isArray(n)) return n.forEach(maskNode);
+  if (!n || typeof n !== 'object') return;
+  // Identidad del objeto: un mismo fake para nombre y correo, para que la persona
+  // enmascarada se vea consistente en pantalla.
+  let person = null;
+  if (typeof n.firstName === 'string') {
+    person = fakeFor(n.id || n.participantId || (n.firstName + '|' + (n.lastName || '')));
+    n.firstName = person.first;
+    if ('lastName' in n) n.lastName = person.last;
+    if ('nickname' in n && n.nickname) n.nickname = person.first;
+    if ('displayName' in n && n.displayName) n.displayName = `${person.first} ${person.last}`;
+    if ('fullName' in n && n.fullName) n.fullName = `${person.first} ${person.last}`;
+  } else if (typeof n.displayName === 'string' && n.displayName.trim()) {
+    person = fakeFor(n.id || n.displayName);
+    n.displayName = `${person.first} ${person.last}`;
+    if (typeof n.name === 'string' && n.name.trim() && !n.name.includes('@')) n.name = `${person.first} ${person.last}`;
+    if (typeof n.fullName === 'string' && n.fullName) n.fullName = `${person.first} ${person.last}`;
+  } else if (typeof n.fullName === 'string' && n.fullName.trim()) {
+    person = fakeFor(n.id || n.fullName);
+    n.fullName = `${person.first} ${person.last}`;
+  }
+  for (const k of Object.keys(n)) {
+    const v = n[k];
+    if (typeof v !== 'string' || !v) continue;
+    // Fotos/avatares (caras reales) → blanquear: photo/avatar/picture y variantes
+    // *Url, valga http(s), data-URI o ruta relativa.
+    if (/^(photo|avatar|picture)(Url)?$/i.test(k)) {
+      n[k] = '';
+    // Teléfonos en cualquier clave (cellPhone/homePhone/inviterCellPhone/emergencyContact1CellPhone/whatsapp…).
+    } else if (/phone|celular|tel[eé]fono|whatsapp/i.test(k) && v.replace(/\D/g, '').length >= 7) {
+      n[k] = '55' + String(10000000 + (hstr(v) % 90000000));
+    // Emails en cualquier clave; si el objeto es una persona, con SU mismo fake.
+    } else if (/email/i.test(k) && v.includes('@')) {
+      const f = person || fakeFor(v);
+      n[k] = `${f.first}.${f.last}@correo.com`.toLowerCase();
+    // Nombres completos en una sola clave: contactos de emergencia y quién lo invitó
+    // (invitedBy es texto libre con el nombre real; se pinta como "{name} (Invitador)").
+    } else if (/emergencyContact\d*Name|invitedBy|inviterName/i.test(k) && v.trim()) {
+      const f = fakeFor(v);
+      n[k] = `${f.first} ${f.last}`;
+    } else {
+      // "Palanquero N (Nombre Real)" → "(Nombre Falso)" en cualquier clave.
+      const m = v.match(/^(.*?Palanquero\s*\d+)\s*\((.+)\)\s*$/i);
+      if (m) { const f = fakeFor(v); n[k] = `${m[1]} (${f.first} ${f.last})`; }
+    }
+  }
+  for (const k of Object.keys(n)) if (typeof n[k] === 'object') maskNode(n[k]);
+}
+
+// Interceptor de página: registrar con `page.route('**/api/**', maskRoute)`.
+// Enmascara todo GET JSON; los exportes con PII (csv/excel) se bloquean —
+// nunca deben llegar al video. Lo no-JSON restante (imágenes, etc.) pasa igual.
+export async function maskRoute(route) {
+  if (route.request().method() !== 'GET') return route.continue();
+  let resp;
+  try { resp = await route.fetch(); } catch { return route.continue().catch(() => {}); }
+  const ct = resp.headers()['content-type'] || '';
+  if (/text\/csv|ms-excel|spreadsheetml/i.test(ct)) {
+    return route.fulfill({ status: 204, body: '' }).catch(() => {});
+  }
+  if (!ct.includes('json')) return route.fulfill({ response: resp }).catch(() => {});
+  try { const d = await resp.json(); maskNode(d); return route.fulfill({ response: resp, body: JSON.stringify(d) }); }
+  catch { return route.fulfill({ response: resp }).catch(() => {}); }
+}
+
 // ── duración de un audio (segundos) ──────────────────────────────────────────
 export async function audioDuration(ffprobe, file) {
   const { stdout } = await execFileP(ffprobe, [
@@ -221,13 +308,28 @@ export class Narrator {
 // cada offset por webmDuration/wallClock realinea audio↔video (ver computeSyncScale).
 // leadKeepMs: recorta el inicio muerto (carga/login/navegación sin narración) para que
 // el video arranque ~leadKeepMs antes de la primera voz. Sin esto "la voz demora en iniciar".
-export async function muxVideo(cfg, { video, timeline, out, syncOffsetMs = 0, syncScale = 1, leadKeepMs = 700 }) {
-  const clips = timeline.filter((t) => t.file);
+export const DEFAULT_LEAD_KEEP_MS = 700;
 
-  // Offset (ya escalado) de la primera narración → cuánto silencio inicial recortar.
-  const scaledOffsets = clips.map((c) => c.offsetMs * syncScale + syncOffsetMs);
+// Silencio inicial que muxVideo recorta del video. Compartido con
+// alignChapterTimeline para que los capítulos nunca diverjan del mp4 real.
+function leadTrimMsFor(timeline, { syncScale = 1, syncOffsetMs = 0, leadKeepMs = DEFAULT_LEAD_KEEP_MS } = {}) {
+  const scaledOffsets = timeline.filter((t) => t.file).map((t) => t.offsetMs * syncScale + syncOffsetMs);
   const firstOffset = scaledOffsets.length ? Math.min(...scaledOffsets) : 0;
-  const leadTrimMs = Math.max(0, Math.round(firstOffset - leadKeepMs));
+  return Math.max(0, Math.round(firstOffset - leadKeepMs));
+}
+
+// Timeline con los offsets en la posición REAL del mp4 que produce muxVideo
+// (offset*scale + syncOffset − leadTrim). Pasarlo a buildYoutubeChapters; usar
+// los MISMOS syncScale/syncOffsetMs/leadKeepMs que se le dieron a muxVideo.
+export function alignChapterTimeline(timeline, opts = {}) {
+  const { syncScale = 1, syncOffsetMs = 0 } = opts;
+  const leadTrimMs = leadTrimMsFor(timeline, opts);
+  return timeline.map((t) => ({ ...t, offsetMs: Math.max(0, Math.round(t.offsetMs * syncScale + syncOffsetMs - leadTrimMs)) }));
+}
+
+export async function muxVideo(cfg, { video, timeline, out, syncOffsetMs = 0, syncScale = 1, leadKeepMs = DEFAULT_LEAD_KEEP_MS }) {
+  const clips = timeline.filter((t) => t.file);
+  const leadTrimMs = leadTrimMsFor(timeline, { syncScale, syncOffsetMs, leadKeepMs });
 
   const inputs = ['-y'];
   if (leadTrimMs > 0) inputs.push('-ss', (leadTrimMs / 1000).toFixed(3)); // trim del inicio del video

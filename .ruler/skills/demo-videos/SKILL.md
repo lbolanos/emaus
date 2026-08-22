@@ -159,13 +159,19 @@ alternativas es-LATAM: `aura-2-selena-es`, `aura-2-estrella-es`, `aura-2-javier-
   Agenda del admin, palancas solicitadas/recibidas). **Celaya** (`96f06c40-…`) está casi vacío
   (equipos sin miembros, MAM con 0 items, agenda vacía) → obliga a fabricar. Para un video
   creíble, usá San Agustín y enmascará PII.
-- **Enmascarado de nombres (`maskNode` recursivo + `fakeFor` determinista por id):** interceptá
-  con `page.route` los GET que traen participantes (`**/responsibilities**`, `**/participants**`,
-  `**/service-teams**`, `**/schedule/retreats/**`, `**/sequences**`), parseá JSON, reemplazá
-  `firstName/lastName/nickname/displayName/email` por fakes estables (mismo id → mismo nombre).
-  ⚠️ **Nombres embebidos en strings `label`** ("Palanquero 1 (Nombre Real)" de
-  `/responsibilities/palanquero-options`) NO se cubren con firstName/lastName → agregá un handler
-  regex `/^(Palanquero \d+)\s*\((.+)\)$/`. **Verificá por frames que NO filtra PII antes de subir.**
+- **Enmascarado de PII: usá el canónico de `demo-lib.mjs`, NUNCA una copia local.** Desde el
+  refactor 2026-08-22 `maskNode`/`maskRoute`/`fakeFor` viven UNA sola vez en `demo-lib.mjs`
+  (guard: `demo-lib.test.mjs`, `pnpm --filter web test:demo`). En un script nuevo basta
+  `import { maskRoute } from './demo-lib.mjs'` + `await page.route('**/api/**', maskRoute)` —
+  interceptar TODO el API, no una lista de endpoints. Cubre nombres (firstName/displayName/
+  fullName), emails y teléfonos en cualquier clave, `emergencyContact*Name`/`invitedBy`,
+  fotos/avatares (`photo|avatar|picture` + `*Url`), labels "Palanquero N (Nombre)", y bloquea
+  exportes csv/excel. Cada lección nueva se agrega ALLÁ (con su test), no al script. Los scripts
+  con sandbox fabricado (walkers, message-sequences, role-management, social) registran además su
+  ruta específica DESPUÉS de la red — Playwright evalúa primero la última registrada.
+  ⚠️ **Excepción conocida: `record-tables.mjs` NO tiene masking** — su guion clickea por nombres
+  REALES (`/Gerardo/`, `/Carlos J\./`); para regrabarlo hay que re-coreografiar esos selectores
+  antes de ponerle la red. **Verificá por frames que NO filtra PII antes de subir.**
 - **Cuando el dato está vacío → sandbox por interceptación**: GET devuelve fakes y se FABRICA la
   respuesta de las escrituras (POST) echando el objeto actualizado (patrón del video de Mesas:
   `assign walker/leader` → devolver la mesa con el participante agregado; el front actualiza su

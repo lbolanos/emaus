@@ -14,6 +14,7 @@ import path from 'node:path';
 import {
   loadEnv, ensureOutputDir, genTts, OVERLAY_INIT, Narrator, muxVideo,
   computeSyncScale, audioDuration, buildYoutubeChapters, writeVideoMeta, OUTPUT_DIR,
+  maskNode,
 } from './demo-lib.mjs';
 
 const cfg = loadEnv();
@@ -22,34 +23,8 @@ const SYNC_OFFSET_MS = 0;
 const OVERLAY = OVERLAY_INIT.replace('✝ Emaús · Tareas Pre-Retiro', '✝ Emaús · Camas');
 const SA = process.env.RETREAT_ID || '4c8173c9-a068-4efe-a936-e3618523bead';
 
-// ── Enmascarado determinista ────────────────────────────────────────────────
-const FF = ['María', 'José', 'Lucía', 'Miguel', 'Ana', 'Carlos', 'Sofía', 'Diego', 'Laura', 'Pedro',
-  'Elena', 'Jorge', 'Paula', 'Andrés', 'Rosa', 'Luis', 'Marta', 'Pablo', 'Clara', 'Raúl',
-  'Silvia', 'Hugo', 'Nadia', 'Iván', 'Gloria', 'Tomás', 'Irene', 'Óscar', 'Beatriz', 'Víctor'];
-const FL = ['González', 'Ramírez', 'Hernández', 'Torres', 'Flores', 'Jiménez', 'Vargas', 'Castro', 'López', 'Pérez',
-  'Díaz', 'Cruz', 'Morales', 'Reyes', 'Ortiz', 'Ruiz', 'Mendoza', 'Fuentes', 'Ríos', 'Núñez',
-  'Campos', 'Vega', 'Rojas', 'Solís', 'Peña', 'Cabrera', 'Ibarra', 'Salas', 'Duarte', 'Prieto'];
-function hstr(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; }
-const cache = {};
-function fakeFor(key) {
-  if (!cache[key]) { const h = hstr(String(key)); cache[key] = { first: FF[h % FF.length], last: FL[(Math.floor(h / 7)) % FL.length] }; }
-  return cache[key];
-}
-function maskNode(n) {
-  if (Array.isArray(n)) return n.forEach(maskNode);
-  if (n && typeof n === 'object') {
-    if (typeof n.firstName === 'string') {
-      const key = n.id || n.participantId || (n.firstName + '|' + (n.lastName || ''));
-      const f = fakeFor(key);
-      n.firstName = f.first;
-      if ('lastName' in n) n.lastName = f.last;
-      if ('nickname' in n && n.nickname) n.nickname = f.first;
-      if ('displayName' in n && n.displayName) n.displayName = `${f.first} ${f.last}`;
-      if ('email' in n && typeof n.email === 'string' && n.email.includes('@')) n.email = `${f.first}.${f.last}@correo.com`.toLowerCase();
-    }
-    for (const k of Object.keys(n)) if (typeof n[k] === 'object') maskNode(n[k]);
-  }
-}
+// Enmascarado de PII: maskNode canónico de demo-lib.mjs (una sola copia para
+// todos los demos; las lecciones nuevas se agregan allá).
 
 // ── Sandbox con estado ───────────────────────────────────────────────────────
 let bedsState = null;                 // array de camas enmascarado (cacheado)
