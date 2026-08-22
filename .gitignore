@@ -104,3 +104,6 @@ Backup-codes-*.txt
 backup-codes-*.txt
 *backup-codes*.txt
 
+
+# DB local del worktree-dev (skill worktree-testing) — nunca se versiona
+apps/api/database.worktree.sqlite*
