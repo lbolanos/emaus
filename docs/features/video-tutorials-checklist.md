@@ -14,7 +14,7 @@ Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 - [x] **Cómo entrar a Emaús** (login / crear cuenta / Google / pedir acceso / roles) — https://youtu.be/Jh0LWC9wKvE
 - [x] **Registro al retiro** (inscripción pública de caminante) — https://youtu.be/jQb3q-mUG-8
 - [x] **Registro de servidor** (búsqueda por correo, angelito, horarios, camisetas) — https://youtu.be/2DGScPALLDY
-- [x] **Dar acceso y roles** (ubicación en menú, solicitudes, permisos por rol, Asignación Rápida) — https://youtu.be/-5nbC10cPQg · _(borrar previos: yvNfMx8P5Ic, 0UpgoH21JY8)_
+- [x] **Dar acceso y roles** (ubicación en menú, solicitudes, permisos por rol, Asignación Rápida) — https://youtu.be/-5nbC10cPQg
 - [x] **Tareas Pre-Retiro** (checklist qué hacer y cuándo) — https://youtu.be/pPguV-Gg7Bs
 - [x] **Minuto a Minuto** (agenda en vivo del retiro) — https://youtu.be/YYwjzHcumpA
 - [x] **Crear y configurar un retiro** (casa/máximos, templates, publicar, finanzas, recuerdos) — https://youtu.be/XG3v2C7u9qo
@@ -57,7 +57,7 @@ Cierran la confusión "cuenta de usuario vs. registro al retiro" que ya viene en
 - [ ] **Santísimo (guardias de adoración)** — armado del horario de guardias (`santisimo`).
 - [ ] **Angelitos** — asignación de angelitos (`angelitos`).
 - [ ] **Misa de clausura** — captura de iglesia + invitación a familiares (skill `closing-mass-church`).
-- [x] ~~**Palancas**~~ — regrabado y resubido **unlisted** 2026-08-22 — https://youtu.be/-D7uV1bvB-A *(asignar palanqueros, avisos al registrarse, secuencias a familiares, registro solicitadas/recibidas/notas; pendiente confirmar strike y agregarlo a la playlist, ver arriba).*
+- [x] ~~**Palancas**~~ — regrabado y resubido **unlisted** 2026-08-22 — https://youtu.be/-D7uV1bvB-A *(asignar palanqueros, avisos al registrarse, secuencias a familiares, registro solicitadas/recibidas/notas; en playlist y sin strike, ver arriba).*
 - [ ] **Camisetas y comida** — tipos de camiseta y reporte, comida (`shirts`, `food`).
 - [x] ~~**Recepción (equipo)**~~ — publicado (arriba) — https://youtu.be/_ayhFpxBSQ4 *(gafetes, recepción con mesa/cobro/beca, y reporte de bolsas).*
 - [ ] **Reportes restantes** — medicinas y camisetas (`medicines-report`, `shirts-report`). *(Gafetes y bolsas ya cubiertos en el video de Recepción.)*
@@ -90,7 +90,8 @@ en la búsqueda de YouTube dinámicas que son la sorpresa del retiro para el cam
 Santísimo, angelitos), y el correo amenazaba con reportar el canal — que ya tuvo un video eliminado
 por PII, así que más reportes arriesgan strikes. La separación landing/canal funcionaba en nuestro
 sitio, pero no en YouTube, que es indexable. Ese día se pasaron **los 18 videos públicos y la
-playlist a `unlisted`** en bloque (verificado: el feed RSS del canal quedó en 0 entradas).
+playlist a `unlisted`** en bloque — el canal tenía 20 videos y los otros 2 ya eran unlisted
+(verificado: el feed RSS del canal quedó en 0 entradas).
 
 La política desde entonces — **nada del canal es público; no pasar nada a `public` sin OK
 explícito de Leo**:

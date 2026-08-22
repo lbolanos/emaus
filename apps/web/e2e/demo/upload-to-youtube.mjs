@@ -2,7 +2,10 @@
 //
 //   cd apps/web
 //   node e2e/demo/upload-to-youtube.mjs output/tareas-pre-retiro-demo.mp4
-//   node e2e/demo/upload-to-youtube.mjs output/tareas-pre-retiro-demo.mp4 --privacy public
+//   node e2e/demo/upload-to-youtube.mjs output/tareas-pre-retiro-demo.mp4 --privacy unlisted
+//
+// Política 2026-08-22: todo el canal va unlisted; `--privacy public` solo con OK
+// explícito del usuario (ver skill youtube-publishing).
 //
 // Busca <video>.meta.json junto al mp4 (lo genera record-*.mjs). Si no existe, usa
 // el nombre del archivo como título. Requiere haber corrido youtube-auth.mjs una vez.

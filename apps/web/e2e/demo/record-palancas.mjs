@@ -49,21 +49,24 @@ function maskNode(n) {
       if (typeof n.name === 'string' && n.name.trim() && !n.name.includes('@')) n.name = `${f.first} ${f.last}`;
       if (typeof n.fullName === 'string') n.fullName = `${f.first} ${f.last}`;
     }
-    // Fotos/avatares (caras reales) → blanquear.
-    if (typeof n.photo === 'string' && n.photo.startsWith('http')) n.photo = '';
-    if (typeof n.avatar === 'string' && n.avatar.startsWith('http')) n.avatar = '';
     for (const k of Object.keys(n)) {
       const v = n[k];
       if (typeof v !== 'string') continue;
+      // Fotos/avatares (caras reales) → blanquear: photo/avatar y sus variantes *Url,
+      // tanto http(s) como data-URIs.
+      if (/^(photo|avatar)(Url)?$/i.test(k) && /^(https?:|data:)/.test(v)) {
+        n[k] = '';
       // Teléfonos (PII): cellPhone/homePhone/inviterCellPhone/emergencyContact1CellPhone/whatsapp…
-      if (/phone|celular|tel[eé]fono|whatsapp/i.test(k) && v.replace(/\D/g, '').length >= 7) {
+      } else if (/phone|celular|tel[eé]fono|whatsapp/i.test(k) && v.replace(/\D/g, '').length >= 7) {
         n[k] = '55' + String(10000000 + (hstr(v) % 90000000));
       // Emails en cualquier clave (email, inviterEmail, emergencyContact1Email…).
       } else if (/email/i.test(k) && v.includes('@')) {
         const f = fakeFor(v);
         n[k] = `${f.first}.${f.last}@correo.com`.toLowerCase();
-      // Nombres de contacto de emergencia (nombre completo en una sola clave).
-      } else if (/emergencyContact\d*Name/i.test(k) && v.trim()) {
+      // Nombres completos en una sola clave: contactos de emergencia y quién lo invitó
+      // (invitedBy es texto libre con el nombre real del invitador — se pinta en
+      // MessageDialog como "{name} (Invitador)").
+      } else if (/emergencyContact\d*Name|invitedBy|inviterName/i.test(k) && v.trim()) {
         const f = fakeFor(v);
         n[k] = `${f.first} ${f.last}`;
       } else {

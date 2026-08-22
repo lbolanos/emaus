@@ -17,7 +17,7 @@ paquete que graba los videos (skill **`demo-videos`**): grabar → generar metad
 - **Videos publicados** (ver lista viva en `docs/features/video-tutorials-checklist.md`): incluye
   Cómo entrar, Registro (caminante/servidor), Roles, Tareas Pre-Retiro `pPguV-Gg7Bs`, Minuto a
   Minuto `YYwjzHcumpA`, Crear retiro, Casas, Caminantes `Lgxy9dJm9_o`, Plantillas/Secuencias
-  `KpYW_kWYdMk`, Mesas `fEzKgqUJpGI`, Responsabilidades `3XZlQJZlcmo`, Palancas `5mUo2Q1v3Ws`.
+  `KpYW_kWYdMk`, Mesas `fEzKgqUJpGI`, Responsabilidades `3XZlQJZlcmo`, Palancas `-D7uV1bvB-A`.
 - **Estilo de marca**: "Camino a Emaús" — acuarela, amanecer, cruz en la colina, morado
   primario `#7c3aed` (= `hsl(271 76% 53%)`, el `--primary` del sitio), tipografía **serif**
   (el sitio usa Cinzel/Playfair; en la composición usamos Georgia como equivalente de sistema).

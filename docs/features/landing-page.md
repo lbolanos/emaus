@@ -37,9 +37,12 @@ hardcodeado en los componentes. Decisiones de la organización, protegidas por
   expectativa equivocada.
 - **No se publica un monto.** Cada retiro tiene su propio costo y lo publica junto con las
   fechas; la respuesta del FAQ solo dice qué cubre: hospedaje, comidas y materiales.
+- **No se describen las dinámicas internas del retiro** (Santísimo, angelitos, misa de
+  clausura). A caminantes solo se les dice: tres días para encontrarte contigo y con Dios.
+  Salió de la queja formal de otra hermandad (2026-08-22).
 - **No se enlaza el canal de YouTube.** Ver abajo.
 
-Las cuatro reglas salieron de correcciones hechas sobre texto ya publicado, así que el test las
+Las cinco reglas salieron de correcciones hechas sobre texto ya publicado, así que el test las
 convierte en error de suite en vez de en confianza.
 
 ## Videos

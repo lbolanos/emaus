@@ -72,6 +72,7 @@ Reglas duras del texto público (landing, volantes, mensajes a caminantes) — d
 organización, con guard en `apps/web/src/locales/__tests__/landingPublicContent.test.ts`:
 
 - **No mencionar palancas ni cartas**: son la sorpresa del retiro para el caminante.
+- **No describir las dinámicas internas** (Santísimo, angelitos, misa de clausura): a caminantes solo se les dice "tres días para encontrarte contigo y con Dios" (queja formal de otra hermandad, 2026-08-22).
 - **No ofrecer becas**: existen solo para casos excepcionales.
 - **No publicar montos**: cada retiro tiene su propio costo (cubre hospedaje, comidas y materiales).
 
