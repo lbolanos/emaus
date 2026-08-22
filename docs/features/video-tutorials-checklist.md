@@ -23,7 +23,7 @@ Convención: ~1–3 min, en español, narrado, conduciendo la app real.
 - [x] **Plantillas y secuencias automáticas** (crear plantilla con variables, disparadores, pasos por canal/desfase, ejecutar) — https://youtu.be/KpYW_kWYdMk
 - [x] **Mesas** (asignar líderes/caminantes, colores familia, dinámica del Santísimo con tarjetas, verificación de datos, rebalanceo, briefing) — https://youtu.be/fEzKgqUJpGI
 - [x] **Responsabilidades, equipos, documentos, MAM y Mi Agenda** (asignar, guiones/versionado, líder/miembros, apoyos, agenda del servidor con avisos) — https://youtu.be/3XZlQJZlcmo
-- [x] **Equipo de Palancas** (asignar Palanquero 1/2/3, avisos al registrarse, secuencias a familiares, registro solicitadas/recibidas/notas) — https://youtu.be/5mUo2Q1v3Ws
+- [x] **Equipo de Palancas** (asignar Palanquero 1/2/3, avisos al registrarse, secuencias a familiares, registro solicitadas/recibidas/notas) — https://youtu.be/-D7uV1bvB-A — unlisted (regrabado 2026-08-22 con masking completo; el video anterior `5mUo2Q1v3Ws` lo eliminó YouTube por PII: mostraba el celular real de un participante — `maskNode` sin teléfonos, ya corregido). **Pendiente**: confirmar en Studio que no hay strike → agregar a la playlist (ya se puede: desde 2026-08-22 la playlist también es unlisted). **Ya NO se pasa a público** — ver política de audiencia abajo.
 - [x] **Equipo de Recepción** (gafetes: imprimir doble cara / para bolsa / entregar; recepción: buscar, mesa, verificar pago, cobrar inline, beca, celulares, marcar llegada; reporte de bolsas: checklist, armar por mesa, marcar) — https://youtu.be/_ayhFpxBSQ4
 - [x] **Asignación de camas** (asignación automática al registrarse + ajuste manual; ronquidos rojo/verde, edad, tipo de cama, piso; filtros; auto-asignar/exportar/borrar) — https://youtu.be/1hP7OBDduL0
 - [x] **Preparaciones** (reuniones semanales del equipo de servidores: calendario automático, editar fechas/horas, documentos por charla, saltar festivo, enlace público) — https://youtu.be/Zt6tmd1A2O0
@@ -57,7 +57,7 @@ Cierran la confusión "cuenta de usuario vs. registro al retiro" que ya viene en
 - [ ] **Santísimo (guardias de adoración)** — armado del horario de guardias (`santisimo`).
 - [ ] **Angelitos** — asignación de angelitos (`angelitos`).
 - [ ] **Misa de clausura** — captura de iglesia + invitación a familiares (skill `closing-mass-church`).
-- [x] ~~**Palancas**~~ — publicado — https://youtu.be/5mUo2Q1v3Ws *(asignar palanqueros, avisos al registrarse, secuencias a familiares, registro solicitadas/recibidas/notas).*
+- [x] ~~**Palancas**~~ — regrabado y resubido **unlisted** 2026-08-22 — https://youtu.be/-D7uV1bvB-A *(asignar palanqueros, avisos al registrarse, secuencias a familiares, registro solicitadas/recibidas/notas; pendiente confirmar strike y agregarlo a la playlist, ver arriba).*
 - [ ] **Camisetas y comida** — tipos de camiseta y reporte, comida (`shirts`, `food`).
 - [x] ~~**Recepción (equipo)**~~ — publicado (arriba) — https://youtu.be/_ayhFpxBSQ4 *(gafetes, recepción con mesa/cobro/beca, y reporte de bolsas).*
 - [ ] **Reportes restantes** — medicinas y camisetas (`medicines-report`, `shirts-report`). *(Gafetes y bolsas ya cubiertos en el video de Recepción.)*
@@ -81,21 +81,31 @@ Cierran la confusión "cuenta de usuario vs. registro al retiro" que ya viene en
 - Al publicar cada uno: pegar la URL como link 📺 en su doc de ayuda (`apps/web/src/docs/es/<sección>.md`)
   para que aparezca en "Obtener ayuda para esta página".
 - Generar miniatura a juego (estilo acuarela "Camino a Emaús") y subirla en Studio.
-- **Playlist del canal** (19 videos en orden de ciclo del retiro): https://www.youtube.com/playlist?list=PLSdqEiN1fbDM — "Emaús Retiros — Tutoriales". Al publicar uno nuevo, agregarlo con `playlistItems.insert` (scope `youtube.force-ssl`).
-- Fijar como **video destacado** del canal el de onboarding (P0) para nuevos visitantes.
-### Audiencia: el canal es del equipo servidor, la landing es de los caminantes
+- **Playlist del canal** (orden de ciclo del retiro, **unlisted** desde 2026-08-22): https://www.youtube.com/playlist?list=PLSdqEiN1fbDM — "Emaús Retiros — Tutoriales". Al publicar uno nuevo, agregarlo con `playlistItems.insert` (scope `youtube.force-ssl`).
 
-Los tutoriales se suben **públicos** y así se quedan: el enlace del canal y de cada video se
-comparte directamente con los servidores, y ponerlos `unlisted` solo estorbaría. Lo que sí se
-separa es **dónde se exponen**:
+### Audiencia: TODO el canal es `unlisted` — se enlaza solo desde el sitio (política 2026-08-22)
 
-- **Landing pública** (`/`): solo el video de **inscripción** (`jQb3q-mUG-8`), el único dirigido a
-  caminantes, en la sección `#inscripcion`. La landing **no enlaza al canal** ni lleva ícono de
-  YouTube en el footer, porque el resto del material es operación del sistema.
+El 2026-08-22 llegó una **queja formal de la comunidad Emaús**: los tutoriales públicos revelaban
+en la búsqueda de YouTube dinámicas que son la sorpresa del retiro para el caminante (palancas,
+Santísimo, angelitos), y el correo amenazaba con reportar el canal — que ya tuvo un video eliminado
+por PII, así que más reportes arriesgan strikes. La separación landing/canal funcionaba en nuestro
+sitio, pero no en YouTube, que es indexable. Ese día se pasaron **los 18 videos públicos y la
+playlist a `unlisted`** en bloque (verificado: el feed RSS del canal quedó en 0 entradas).
+
+La política desde entonces — **nada del canal es público; no pasar nada a `public` sin OK
+explícito de Leo**:
+
+- **Todos los videos y la playlist van `unlisted`** (`YT_PRIVACY=unlisted` en el `.env` de demos).
+  El enlace directo y el embed siguen funcionando; simplemente no aparecen en búsquedas ni en la
+  página del canal.
+- **Landing pública** (`/`): solo embebe el video de **inscripción** (`jQb3q-mUG-8`, también
+  unlisted), el único dirigido a caminantes, en la sección `#inscripcion`. La landing **no enlaza
+  al canal** ni lleva ícono de YouTube en el footer.
 - **Ayuda in-app** (`apps/web/src/docs/es/*.md`, detrás del login): cada sección enlaza su
   tutorial. Es la puerta de entrada del servidor.
-- **Canal y playlist** «Emaús Retiros — Tutoriales» (`PLSdqEiN1fbDM`, pública): se comparten con
-  el equipo por fuera de la app.
+- **Playlist** «Emaús Retiros — Tutoriales» (`PLSdqEiN1fbDM`, unlisted): su enlace se comparte
+  con el equipo servidor por fuera de la app. Una playlist pública expondría los videos unlisted
+  que contiene — por eso también bajó.
 
 Para auditar la visibilidad en bloque: `videos.list part=status` sobre la playlist de subidas del
 canal y `videos.update part=status` reenviando el `status` completo (si solo mandas `privacyStatus`
@@ -113,5 +123,6 @@ clave i18n del título + duración en segundos); los títulos están en
 2. Bajar la miniatura a `apps/web/public/videos/<videoId>.webp` (no se hotlinkea `i.ytimg.com`):
    `curl -s -o /tmp/t.jpg https://i.ytimg.com/vi/<id>/maxresdefault.jpg && magick /tmp/t.jpg -resize 1280x720 -quality 82 -strip apps/web/public/videos/<id>.webp`
 3. La duración se saca del propio video: `curl -s "https://www.youtube.com/watch?v=<id>" | grep -o '"lengthSeconds":"[0-9]*"' | head -1`
-4. El video **debe ser `public`**: uno `unlisted` se puede embeber, pero si el caminante abre
-   "Ver en YouTube" no lo encuentra por búsqueda.
+4. El video va **`unlisted`** como todo el canal (política 2026-08-22): el embed funciona igual y
+   "Ver en YouTube" abre el enlace directo, que sí funciona — solo no aparece en búsquedas, que es
+   justamente lo que se quiere.

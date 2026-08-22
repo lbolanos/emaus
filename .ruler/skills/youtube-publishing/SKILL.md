@@ -27,7 +27,7 @@ paquete que graba los videos (skill **`demo-videos`**): grabar → generar metad
 ```
 YT_CLIENT_ID=…          # OAuth 2.0 "App de escritorio" (Google Cloud)
 YT_CLIENT_SECRET=…
-YT_PRIVACY=public       # public | unlisted | private (default de subida)
+YT_PRIVACY=unlisted     # public | unlisted | private (default de subida; unlisted por política, ver Audiencia)
 YT_CATEGORY_ID=27       # 27 = Educación
 GEMINI_API_KEY=…        # nano banana: https://aistudio.google.com/apikey (requiere facturación, ver abajo)
 GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
@@ -38,9 +38,9 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 ## Flujo de subida
 
 > ⚠️ **Confirmar con el usuario ANTES de subir.** No auto-subir aunque el video esté grabado y
-> verificado: preguntar "¿lo subo? ¿público o unlisted?" y subir solo tras el OK. YouTube **no
-> permite reemplazar el archivo** de un video ya subido — si subes algo que luego cambia, hay que
-> subir otro y borrar el anterior a mano (incidente 2026-07-06).
+> verificado: preguntar "¿lo subo?" y subir solo tras el OK (siempre `unlisted`, ver Audiencia).
+> YouTube **no permite reemplazar el archivo** de un video ya subido — si subes algo que luego
+> cambia, hay que subir otro y borrar el anterior a mano (incidente 2026-07-06).
 
 1. **Autorizar**: `node e2e/demo/youtube-auth.mjs` — levanta un servidor loopback, abre el navegador,
    canjea el code por `refresh_token` y lo guarda. **Scope** (`youtube-lib.mjs` → `YT_SCOPE`):
@@ -50,11 +50,15 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
    reautorizar hay que **borrar/renombrar `youtube-token.json` primero**. El login de Google es
    interactivo (solo lo hace el humano): lanzalo en background y esperá el aviso de que aprobó; si el
    navegador no abre, el script imprime la URL para pegar.
-> **Audiencia**: los tutoriales van **públicos** (`YT_PRIVACY=public`) y el enlace del canal, de la
-> playlist y de cada video se comparte con el equipo servidor. Lo que se separa es dónde se
-> exponen: en la **landing pública** solo aparece el video de inscripción (`jQb3q-mUG-8`), el único
-> dirigido a caminantes, y esa página **no enlaza al canal**. Detalle en
-> `docs/features/video-tutorials-checklist.md`.
+> **Audiencia — TODO va `unlisted` (política desde 2026-08-22)**: el 2026-08-22 llegó una queja
+> formal de la comunidad Emaús — los tutoriales públicos revelaban en YouTube dinámicas que son
+> la sorpresa del retiro (palancas, Santísimo, angelitos) y amenazaban con reportar el canal (que
+> ya tuvo un video eliminado por PII). Desde entonces **ningún video ni playlist del canal es
+> público**: todo se sube `unlisted` (`YT_PRIVACY=unlisted`) y se enlaza **solo desde el sitio** —
+> la ayuda in-app (detrás del login) y la landing, que embebe únicamente el video de inscripción
+> (`jQb3q-mUG-8`, también unlisted: el embed y el enlace directo funcionan igual). La playlist es
+> unlisted y su enlace se comparte con el equipo servidor por fuera. **No pases nada a `public`
+> sin OK explícito del usuario.** Detalle en `docs/features/video-tutorials-checklist.md`.
 
 2. **Subir**: `node e2e/demo/upload-to-youtube.mjs output/<video>.mp4 [--privacy unlisted]`.
    Lee `<video>.meta.json` (título, descripción, tags, capítulos) si existe; si no, usa el
@@ -79,16 +83,16 @@ Ambos requieren `youtube.force-ssl` (ver paso de autorización). Access token co
 `getAccessToken(cfg)` de `youtube-lib.mjs`; headers `Authorization: Bearer <token>` + `Content-Type: application/json`.
 
 - **Crear playlist**: `POST youtube/v3/playlists?part=snippet,status` con
-  `{ snippet:{ title, description }, status:{ privacyStatus:'public' } }` → devuelve `id`.
+  `{ snippet:{ title, description }, status:{ privacyStatus:'unlisted' } }` → devuelve `id`.
 - **Agregar video**: `POST youtube/v3/playlistItems?part=snippet` con
   `{ snippet:{ playlistId, resourceId:{ kind:'youtube#video', videoId } } }`. Agregá **secuencial**
   (uno tras otro) para preservar el orden; cada insert lo appendea al final.
 - **Borrar video**: `DELETE youtube/v3/videos?id=<videoId>` → 204. (El `youtube.upload` NO puede
   borrar; da 403.) YouTube tampoco deja reemplazar el archivo de un video → al re-publicar una
   versión nueva, subir + borrar la vieja (ahora se puede por API).
-- **Playlist del canal** (17 videos en orden de ciclo, creada 2026-07-09):
-  `https://www.youtube.com/playlist?list=PLSdqEiN1fbDM` — al publicar uno nuevo, agregarlo con
-  `playlistItems.insert`. Lista viva de videos: `docs/features/video-tutorials-checklist.md`.
+- **Playlist del canal** (orden de ciclo del retiro, creada 2026-07-09, **unlisted** desde
+  2026-08-22): `https://www.youtube.com/playlist?list=PLSdqEiN1fbDM` — al publicar uno nuevo,
+  agregarlo con `playlistItems.insert`. Lista viva: `docs/features/video-tutorials-checklist.md`.
 
 ### Cambiar visibilidad en bloque
 
