@@ -111,7 +111,7 @@ const hasEmergencyContacts = computed(() => {
 // Field grouping for the generic edit form
 const fieldGroups: { key: string; label: string; icon: string; keys: string[] }[] = [
   { key: 'identity', label: 'Identificaci\u00f3n', icon: 'user', keys: ['id_on_retreat', 'type', 'firstName', 'lastName', 'nickname', 'tags'] },
-  { key: 'personal', label: 'Datos Personales', icon: 'fileText', keys: ['birthDate', 'maritalStatus', 'occupation', 'sacraments', 'tshirtSize'] },
+  { key: 'personal', label: 'Datos Personales', icon: 'fileText', keys: ['birthDate', 'maritalStatus', 'gender', 'occupation', 'sacraments', 'tshirtSize'] },
   { key: 'contact', label: 'Contacto', icon: 'phone', keys: ['email', 'cellPhone', 'homePhone', 'workPhone'] },
   { key: 'address', label: 'Direcci\u00f3n', icon: 'mapPin', keys: ['street', 'houseNumber', 'neighborhood', 'postalCode', 'city', 'state', 'country', 'parish'] },
   { key: 'health', label: 'Salud', icon: 'shield', keys: ['snores', 'hasMedication', 'medicationDetails', 'medicationSchedule', 'hasDietaryRestrictions', 'dietaryRestrictionsDetails', 'disabilitySupport'] },

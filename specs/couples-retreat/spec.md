@@ -3,7 +3,8 @@
 > Metodología SDD. Artefactos: [spec.md](spec.md) (qué y por qué) →
 > [research.md](research.md) (estado actual) → [plan.md](plan.md) (cómo) →
 > [tasks.md](tasks.md) (desglose ejecutable).
-> Estado: **aprobada** (2026-08-22). Branch: `feature/couples-retreat`.
+> Estado: **implementada** (2026-08-22, M1–M3 en `feature/couples-retreat`).
+> Doc de la feature: `docs/features/couples-retreat.md`.
 
 ## Problema
 

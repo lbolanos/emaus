@@ -767,6 +767,7 @@ export const findAllParticipants = async (
         "arrivesOnOwn",
         "requestsSingleRoom",
         "attendanceConfirmation",
+        "spouseParticipantId",
         "notes",
         "createdAt",
       ],
@@ -812,6 +813,8 @@ export const findAllParticipants = async (
           p.requestsSingleRoom = h.requestsSingleRoom;
         if (h.attendanceConfirmation != null)
           p.attendanceConfirmation = h.attendanceConfirmation;
+        if (h.spouseParticipantId !== undefined)
+          p.spouseParticipantId = h.spouseParticipantId;
         // notes: per-retreat note (the rp row owns this; participants.notes
         // is legacy and can be empty for newly registered participants).
         if (h.notes !== undefined && h.notes !== null) p.notes = h.notes;
@@ -819,6 +822,17 @@ export const findAllParticipants = async (
         // date for THIS retreat). The participants.registrationDate is
         // the participant's first-ever registration in the system.
         if (h.createdAt) p.registrationDate = h.createdAt;
+      }
+    }
+
+    // Retiros de parejas: nombre del cónyuge vinculado (columna/export del
+    // admin). El cónyuge vive en el mismo retiro, así que ya está en el set.
+    const nameById = new Map(
+      participants.map((p) => [p.id, `${p.firstName} ${p.lastName}`.trim()]),
+    );
+    for (const p of participants) {
+      if (p.spouseParticipantId) {
+        p.spouseName = nameById.get(p.spouseParticipantId) ?? null;
       }
     }
 
@@ -5228,6 +5242,12 @@ export const anonymizeParticipantByToken = async (
     p.lastUpdatedDate = new Date();
 
     await repo.save(p);
+
+    // Retiros de parejas: desvincular al cónyuge en TODOS los retiros. La fila
+    // anonimizada no debe seguir referenciada como pareja de nadie.
+    await em
+      .getRepository(RetreatParticipant)
+      .update({ spouseParticipantId: p.id }, { spouseParticipantId: null });
 
     // GDPR: registrar SOLO el hecho de la anonimización (id/acción/retiro),
     // nunca los valores eliminados.

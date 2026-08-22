@@ -678,6 +678,60 @@ export const replaceParticipantVariables = (
 	return processedMessage;
 };
 
+// ==================== SPOUSE (retiros de parejas) ====================
+
+/**
+ * Datos del cónyuge del destinatario (subset de ParticipantData). Solo aplica en
+ * retiros retreat_type='couples', donde cada participante tiene spouseParticipantId.
+ */
+export interface SpouseData {
+	firstName?: string;
+	lastName?: string;
+	nickname?: string;
+	email?: string;
+	cellPhone?: string;
+}
+
+const getMockSpouse = (): SpouseData => ({
+	firstName: 'María',
+	lastName: 'García',
+	nickname: 'Mary',
+	email: 'maria.garcia@email.com',
+	cellPhone: '+52 55 8765 4321',
+});
+
+const buildSpouseReplacements = (spouseData: SpouseData): Record<string, string> => ({
+	'spouse.firstName': spouseData.firstName || '',
+	'spouse.lastName': spouseData.lastName || '',
+	'spouse.fullName': [spouseData.firstName, spouseData.lastName].filter(Boolean).join(' '),
+	'spouse.nickname': spouseData.nickname || spouseData.firstName || '',
+	'spouse.email': spouseData.email || '',
+	'spouse.cellPhone': spouseData.cellPhone || '',
+});
+
+/**
+ * Reemplaza variables {spouse.*} (el cónyuge del destinatario en retiros de
+ * parejas). Con `null` cae al mock (preview del editor de plantillas); los
+ * callers sin contexto de pareja pasan `undefined` a replaceAllVariables y los
+ * placeholders quedan sin resolver, igual que community/table.
+ */
+export const replaceSpouseVariables = (
+	message: string,
+	spouse: SpouseData | null | undefined,
+	escapeHtmlValues = false,
+): string => {
+	const spouseData = spouse || getMockSpouse();
+	const spouseReplacements = buildSpouseReplacements(spouseData);
+
+	let processedMessage = message;
+	Object.entries(spouseReplacements).forEach(([key, value]) => {
+		const safe = escapeHtmlValues ? escapeHtmlValue(value) : value;
+		processedMessage = processedMessage.replace(new RegExp(`\\{${key}\\}`, 'g'), () => safe);
+	});
+
+	return processedMessage;
+};
+
 const getMockRetreat = (): RetreatData => {
 	return {
 		parish: 'Parroquia San José',
@@ -1115,6 +1169,9 @@ export const replaceAllVariables = (
 	// resultado se renderiza como HTML (email). Para texto plano (WhatsApp) o
 	// preview de UI con DOMPurify, dejar en false. Ver `escapeHtmlValue`.
 	escapeHtmlValues = false,
+	// Cónyuge del destinatario (retiros de parejas). Va al final para no romper
+	// a los callers que pasan escapeHtmlValues posicional.
+	spouse?: SpouseData | null,
 ): string => {
 	let processedMessage = message;
 
@@ -1141,6 +1198,12 @@ export const replaceAllVariables = (
 	// a TableData is explicitly passed (table briefing flow).
 	if (table !== undefined) {
 		processedMessage = replaceTableVariables(processedMessage, table, escapeHtmlValues);
+	}
+
+	// Replace spouse variables when provided (retiros de parejas). Mismo criterio:
+	// sin contexto de pareja, {spouse.*} queda sin resolver.
+	if (spouse !== undefined) {
+		processedMessage = replaceSpouseVariables(processedMessage, spouse, escapeHtmlValues);
 	}
 
 	return processedMessage;

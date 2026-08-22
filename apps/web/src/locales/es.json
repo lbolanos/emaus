@@ -906,6 +906,8 @@
       "table": "Mesa",
       "birthDate": "Fecha Nac.",
       "maritalStatus": "Estado Civil",
+      "gender": "Género (parejas)",
+      "spouseName": "Cónyuge",
       "street": "Calle",
       "houseNumber": "N° de Casa",
       "postalCode": "C.P.",
@@ -998,6 +1000,10 @@
           "separated_divorced": "Separado/a/Divorciado/a",
           "widowed": "Viudo/a",
           "other": "Otro"
+        },
+        "gender": {
+          "M": "Esposo (él)",
+          "F": "Esposa (ella)"
         }
       },
       "placeholder": {
@@ -1287,7 +1293,8 @@
     "couplesConfig": {
       "title": "Configuración del retiro de matrimonios",
       "shareRoom": "Las parejas comparten habitación",
-      "shareTable": "Las parejas se sientan en la misma mesa"
+      "shareTable": "Las parejas se sientan en la misma mesa",
+      "costPerCoupleHint": "En retiros de matrimonios este costo es POR PAREJA; el sistema carga la mitad a cada cónyuge."
     },
     "walkerArrivalTime": "Hora de llegada de caminantes",
     "walkerArrivalTimeDescription": "Hora en que deben llegar los caminantes al retiro",

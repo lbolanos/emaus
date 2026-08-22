@@ -379,6 +379,9 @@ const baseColumns = ref([
     { key: 'tableMesa.name', label: 'participants.fields.table' },
     { key: 'birthDate', label: 'participants.fields.birthDate' },
     { key: 'maritalStatus', label: 'participants.fields.maritalStatus' },
+    // Retiros de parejas: género (esposo/esposa) y cónyuge vinculado.
+    { key: 'gender', label: 'participants.fields.gender' },
+    { key: 'spouseName', label: 'participants.fields.spouseName' },
     { key: 'street', label: 'participants.fields.street' },
     { key: 'houseNumber', label: 'participants.fields.houseNumber' },
     { key: 'postalCode', label: 'participants.fields.postalCode' },

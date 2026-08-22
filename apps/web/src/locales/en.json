@@ -856,6 +856,8 @@
       "table": "Table",
       "birthDate": "Birth Date",
       "maritalStatus": "Marital Status",
+      "gender": "Gender (couples)",
+      "spouseName": "Spouse",
       "street": "Street",
       "houseNumber": "House #",
       "postalCode": "Postal Code",
@@ -948,6 +950,10 @@
           "separated_divorced": "Separated/Divorced",
           "widowed": "Widowed",
           "other": "Other"
+        },
+        "gender": {
+          "M": "Husband (him)",
+          "F": "Wife (her)"
         }
       },
       "placeholder": {
@@ -1176,7 +1182,8 @@
     "couplesConfig": {
       "title": "Couples retreat settings",
       "shareRoom": "Couples share a room",
-      "shareTable": "Couples sit at the same table"
+      "shareTable": "Couples sit at the same table",
+      "costPerCoupleHint": "In couples retreats this cost is PER COUPLE; the system charges half to each spouse."
     },
     "types": {
       "men": "Men",

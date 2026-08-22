@@ -453,6 +453,10 @@ export const participantSchema = z.object({
 	inviterCellPhone: z.string().optional(),
 	inviterEmail: z.string().optional(),
 	family_friend_color: z.string().nullable().optional(),
+	// Read-only (retiros de parejas): vínculo y nombre del cónyuge, resueltos por
+	// el backend desde retreat_participants.
+	spouseParticipantId: idSchema.nullable().optional(),
+	spouseName: z.string().nullable().optional(),
 	pickupLocation: z.string().optional(),
 	arrivesOnOwn: z.preprocess((val) => (val === null ? undefined : val), z.boolean().optional()),
 	retreatId: idSchema.nullable().optional(),
@@ -559,6 +563,8 @@ const coupleSpouseSchema = participantSchema
 		id_on_retreat: true,
 		isCancelled: true,
 		family_friend_color: true,
+		spouseParticipantId: true,
+		spouseName: true,
 		tableId: true,
 		tableMesa: true,
 		retreatBed: true,

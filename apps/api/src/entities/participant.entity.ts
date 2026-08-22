@@ -29,6 +29,7 @@ export class Participant {
 	id_on_retreat?: number;
 	type?: 'walker' | 'server' | 'waiting' | 'partial_server';
 	spouseParticipantId?: string | null;
+	spouseName?: string | null;
 
 	@Column('varchar')
 	firstName!: string; // Corresponde a 'nombre'

@@ -547,6 +547,9 @@
               <p v-if="costNotNumeric" class="text-sm text-amber-600">
                 {{ $t('retreatModal.costNotNumericHint') }}
               </p>
+              <p v-if="formData.retreat_type === 'couples'" class="text-sm text-muted-foreground">
+                {{ $t('retreatModal.couplesConfig.costPerCoupleHint') }}
+              </p>
             </div>
 
             <!-- Cobro del servidor + valor de la comida (paz y salvo v2).

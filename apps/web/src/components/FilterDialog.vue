@@ -59,6 +59,8 @@ const filterDefinitions = {
     { key: 'arrivesOnOwn', type: 'boolean' },
     { key: 'requestsSingleRoom', type: 'boolean' },
     { key: 'maritalStatus', type: 'select', options: ['single', 'married', 'separated_divorced', 'widowed', 'other'] },
+    // Retiros de parejas: esposo (M) / esposa (F).
+    { key: 'gender', type: 'select', options: ['M', 'F'] },
     { key: 'tableMesa.name', type: 'select', options: ['unassigned'], dynamic: true },
     { key: 'retreatBed.roomNumber', type: 'select', options: ['unassigned'], dynamic: true },
   ],
@@ -193,6 +195,12 @@ const getSelectOptions = (filter: any) => {
       { value: 'separated_divorced', label: t('participants.filters.options.maritalStatus.separated_divorced') },
       { value: 'widowed', label: t('participants.filters.options.maritalStatus.widowed') },
       { value: 'other', label: t('participants.filters.options.maritalStatus.other') },
+    ];
+  }
+  if (filter.key === 'gender') {
+    return [
+      { value: 'M', label: t('participants.filters.options.gender.M') },
+      { value: 'F', label: t('participants.filters.options.gender.F') },
     ];
   }
   // Generic fallback: show raw codes (no i18n mapping). Sizes are configured per retreat.
