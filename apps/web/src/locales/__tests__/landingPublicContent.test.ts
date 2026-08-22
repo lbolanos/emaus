@@ -38,6 +38,16 @@ describe('contenido de la landing pública', () => {
 			expect(offenders).toEqual([]);
 		});
 
+		it('no describe las dinámicas internas del retiro (Santísimo, angelitos, misa de clausura)', () => {
+			// Queja formal de otra hermandad (2026-08-22): lo que se vive adentro es la
+			// sorpresa del caminante. A caminantes solo se les dice: tres días para
+			// encontrarte contigo y con Dios.
+			const offenders = entries.filter(({ text }) =>
+				/sant[ií]simo|blessed sacrament|angelitos?\b|misa de clausura|closing mass/i.test(text),
+			);
+			expect(offenders).toEqual([]);
+		});
+
 		it('no ofrece becas: existen solo para casos excepcionales', () => {
 			const offenders = entries.filter(({ text }) => /beca[s]?\b|scholarship/i.test(text));
 			expect(offenders).toEqual([]);
