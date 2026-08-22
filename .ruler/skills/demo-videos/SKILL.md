@@ -246,6 +246,14 @@ alternativas es-LATAM: `aura-2-selena-es`, `aura-2-estrella-es`, `aura-2-javier-
   (camelCase) — una lista de claves en minúsculas NO lo atrapa. Matcheá las claves por regex
   case-insensitive (`/phone|celular|tel[eé]fono|whatsapp/i`) y reemplazá por un número ficticio
   determinista. Encontrado en Recepción, donde el nombre estaba fake pero el teléfono era real.
+  **Incidente 2026-08-22**: YouTube eliminó el video de Palancas (`5mUo2Q1v3Ws`) por su política
+  de PII — el `maskNode` viejo de `record-palancas.mjs` (grabado 8 jul, antes de esta lección)
+  enmascaraba nombre/email pero dejó a la vista el celular real de un participante en 1:07.
+  Corolario: **al mejorar el masking, auditá los videos YA publicados** que se grabaron con la
+  versión anterior (extraé frames con ffmpeg y revisalos), no solo los futuros. Cubrí también
+  claves `emergencyContact\d*Name` (nombre completo en una sola clave, sin `firstName`) y
+  `*Email` por regex — `n.email` exacto no atrapa `inviterEmail`/`emergencyContact1Email`.
+  Interceptá `**/api/**` completo, no una lista de endpoints.
 - **Editar el mp4 final (recortar tramos) con ffmpeg — video+audio JUNTOS o se descuadra el sync.**
   El audio está horneado por offset; cortá ambos streams en los mismos puntos:
   `trim`/`atrim` + `concat=n=2:v=1:a=1` (un solo re-encode libx264/aac). **Cortá solo en el silencio

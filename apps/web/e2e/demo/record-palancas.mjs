@@ -37,25 +37,52 @@ function maskNode(n) {
   if (Array.isArray(n)) return n.forEach(maskNode);
   if (n && typeof n === 'object') {
     if (typeof n.firstName === 'string') {
-      const f = fakeFor(n.id || n.participantId || (n.firstName + '|' + (n.lastName || '')));
+      const key = n.id || n.participantId || (n.firstName + '|' + (n.lastName || ''));
+      const f = fakeFor(key);
       n.firstName = f.first;
       if ('lastName' in n) n.lastName = f.last;
       if ('nickname' in n && n.nickname) n.nickname = f.first;
       if ('displayName' in n && n.displayName) n.displayName = `${f.first} ${f.last}`;
-      if ('email' in n && typeof n.email === 'string' && n.email.includes('@')) n.email = `${f.first}.${f.last}@correo.com`.toLowerCase();
+    } else if (typeof n.displayName === 'string' && n.displayName.trim()) {
+      const f = fakeFor(n.id || n.displayName);
+      n.displayName = `${f.first} ${f.last}`;
+      if (typeof n.name === 'string' && n.name.trim() && !n.name.includes('@')) n.name = `${f.first} ${f.last}`;
+      if (typeof n.fullName === 'string') n.fullName = `${f.first} ${f.last}`;
     }
-    // "Palanquero N (Nombre Real)" → "Palanquero N (Nombre Falso)"
-    if (typeof n.label === 'string') {
-      const m = n.label.match(/^(Palanquero\s*\d+)\s*\((.+)\)$/i);
-      if (m) { const f = fakeFor(n.value || m[1]); n.label = `${m[1]} (${f.first} ${f.last})`; }
+    // Fotos/avatares (caras reales) → blanquear.
+    if (typeof n.photo === 'string' && n.photo.startsWith('http')) n.photo = '';
+    if (typeof n.avatar === 'string' && n.avatar.startsWith('http')) n.avatar = '';
+    for (const k of Object.keys(n)) {
+      const v = n[k];
+      if (typeof v !== 'string') continue;
+      // Teléfonos (PII): cellPhone/homePhone/inviterCellPhone/emergencyContact1CellPhone/whatsapp…
+      if (/phone|celular|tel[eé]fono|whatsapp/i.test(k) && v.replace(/\D/g, '').length >= 7) {
+        n[k] = '55' + String(10000000 + (hstr(v) % 90000000));
+      // Emails en cualquier clave (email, inviterEmail, emergencyContact1Email…).
+      } else if (/email/i.test(k) && v.includes('@')) {
+        const f = fakeFor(v);
+        n[k] = `${f.first}.${f.last}@correo.com`.toLowerCase();
+      // Nombres de contacto de emergencia (nombre completo en una sola clave).
+      } else if (/emergencyContact\d*Name/i.test(k) && v.trim()) {
+        const f = fakeFor(v);
+        n[k] = `${f.first} ${f.last}`;
+      } else {
+        // "Palanquero N (Nombre Real)" → "Palanquero N (Nombre Falso)" en cualquier clave.
+        const m = v.match(/^(.*?Palanquero\s*\d+)\s*\((.+)\)\s*$/i);
+        if (m) { const f = fakeFor(v); n[k] = `${m[1]} (${f.first} ${f.last})`; }
+      }
     }
     for (const k of Object.keys(n)) if (typeof n[k] === 'object') maskNode(n[k]);
   }
 }
 async function maskRoute(route) {
   if (route.request().method() !== 'GET') return route.continue();
-  try { const resp = await route.fetch(); const data = await resp.json(); maskNode(data); return route.fulfill({ response: resp, body: JSON.stringify(data) }); }
-  catch { return route.continue(); }
+  let resp;
+  try { resp = await route.fetch(); } catch { return route.continue().catch(() => {}); }
+  const ct = (resp.headers()['content-type'] || '');
+  if (!ct.includes('json')) return route.fulfill({ response: resp }).catch(() => {});
+  try { const d = await resp.json(); maskNode(d); return route.fulfill({ response: resp, body: JSON.stringify(d) }); }
+  catch { return route.fulfill({ response: resp }).catch(() => {}); }
 }
 
 const LINES = [
@@ -121,9 +148,7 @@ async function main() {
   const page = await ctx.newPage();
   page.setDefaultTimeout(6000);
   page.setDefaultNavigationTimeout(30000);
-  for (const pat of ['**/responsibilities**', '**/participants**', '**/service-teams**', '**/sequences**', '**/message-sequences**']) {
-    await page.route(pat, maskRoute);
-  }
+  await page.route('**/api/**', maskRoute);
 
   const video = page.video();
   const nar = new Narrator(page, cfg);
@@ -213,7 +238,11 @@ async function main() {
   log(`⏱ webm ${webmDur.toFixed(1)}s reloj ${(wallMs / 1000).toFixed(1)}s scale ${syncScale.toFixed(4)}`);
   const out = path.join(OUTPUT_DIR, 'palancas-demo.mp4');
   await muxVideo(cfg, { video: videoPath, timeline: nar.timeline, out, syncOffsetMs: SYNC_OFFSET_MS, syncScale });
-  const chapters = buildYoutubeChapters(nar.timeline, { labels: CHAPTER_LABELS });
+  const LEAD_KEEP_MS = 700;
+  const scaled = nar.timeline.map((t) => t.offsetMs * syncScale + SYNC_OFFSET_MS);
+  const leadTrimMs = scaled.length ? Math.max(0, Math.min(...scaled) - LEAD_KEEP_MS) : 0;
+  const chapterTimeline = nar.timeline.map((t) => ({ ...t, offsetMs: Math.max(0, Math.round(t.offsetMs * syncScale + SYNC_OFFSET_MS - leadTrimMs)) }));
+  const chapters = buildYoutubeChapters(chapterTimeline, { labels: CHAPTER_LABELS });
   writeVideoMeta(out, { title: YT_TITLE, description: YT_DESCRIPTION, tags: YT_TAGS, chapters });
   log('✅ Listo:', out);
   for (const t of nar.timeline) log(`  ${(t.offsetMs / 1000).toFixed(1)}s  ${t.id}`);

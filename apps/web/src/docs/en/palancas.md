@@ -1,6 +1,6 @@
 # Palancas
 
-📺 **[Watch the tutorial](https://youtu.be/5mUo2Q1v3Ws)** (Spanish)
+📺 **[Watch the tutorial](https://youtu.be/-D7uV1bvB-A)** (Spanish)
 
 **Palancas** are the letters and support messages that walkers receive during the retreat. This screen helps you track how many were requested, how many arrived, and who coordinates them for each walker.
 
