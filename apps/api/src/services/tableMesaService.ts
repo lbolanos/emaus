@@ -12,7 +12,7 @@ import { formatDate as formatDateUtil } from '@repo/utils';
 import { sortByName as sortByTableName } from '../utils/naturalSort';
 import { domainAuditService, DomainAuditAction } from './domainAuditService';
 
-const MAX_WALKERS_PER_TABLE = 7;
+export const MAX_WALKERS_PER_TABLE = 7;
 
 export const findTablesByRetreatId = async (retreatId: string, dataSource?: DataSource) => {
 	const repos = getRepositories(dataSource);
@@ -255,6 +255,7 @@ export const assignWalkerToTable = async (
 	if (!table) throw new Error('Table not found');
 
 	// Load retreat-specific fields from retreat_participants (use table's retreatId)
+	let spouseParticipantId: string | null = null;
 	if (table.retreatId) {
 		const rp = await ds.getRepository(RetreatParticipant).findOne({
 			where: { participantId, retreatId: table.retreatId },
@@ -262,11 +263,37 @@ export const assignWalkerToTable = async (
 		if (rp) {
 			participant.type = rp.type as any;
 			participant.isCancelled = rp.isCancelled;
+			spouseParticipantId = rp.spouseParticipantId ?? null;
 		}
 	}
 
 	if (participant.type !== 'walker') throw new Error('Only walkers can be assigned to a table.');
 	if (participant.isCancelled) throw new Error('Cannot assign cancelled participants to tables.');
+
+	// Retiros de parejas: warning suave (no bloqueo) cuando la asignación manual
+	// contradice la configuración del retiro. Consistente con el patrón actual:
+	// los tags bloquean, familia/amigos solo avisa.
+	let coupleWarning: string | undefined;
+	if (table.retreatId && spouseParticipantId) {
+		const retreatCfg = await ds.getRepository(Retreat).findOne({
+			where: { id: table.retreatId },
+			select: ['id', 'retreat_type', 'couplesShareTable'],
+		});
+		if (retreatCfg?.retreat_type === 'couples') {
+			const spouseRp = await ds.getRepository(RetreatParticipant).findOne({
+				where: { participantId: spouseParticipantId, retreatId: table.retreatId },
+			});
+			const spouseTableId = spouseRp?.tableId ?? null;
+			const share = retreatCfg.couplesShareTable !== false;
+			if (share && spouseTableId && spouseTableId !== tableId) {
+				coupleWarning =
+					'Su pareja está en otra mesa y este retiro sienta a los matrimonios juntos.';
+			} else if (!share && spouseTableId === tableId) {
+				coupleWarning =
+					'Su pareja ya está en esta mesa y este retiro sienta a los matrimonios separados.';
+			}
+		}
+	}
 
 	// Check for tag conflicts with ALL participants at the table
 	const { checkTableTagConflict } = await import('./tagService');
@@ -313,7 +340,11 @@ export const assignWalkerToTable = async (
 		metadata: { tableId, participantId, tableName: table.name },
 	});
 
-	return findTableById(tableId, dataSource);
+	const result = await findTableById(tableId, dataSource);
+	if (coupleWarning && result) {
+		(result as any).warning = coupleWarning;
+	}
+	return result;
 };
 
 export const unassignWalkerFromTable = async (
@@ -368,8 +399,18 @@ export const rebalanceTablesForRetreat = async (retreatId: string, dataSource?: 
 			p.type = rp.type as any;
 			p.isCancelled = rp.isCancelled;
 			p.tableId = rp.tableId;
+			p.spouseParticipantId = rp.spouseParticipantId ?? null;
 			return p;
 		});
+
+	// Configuración de retiros de parejas: juntos (parejas primero, misma mesa)
+	// o separados (la mesa del cónyuge se excluye, mismo mecanismo que invitedBy).
+	const retreatConfig = await ds.getRepository(Retreat).findOne({
+		where: { id: retreatId },
+		select: ['id', 'retreat_type', 'couplesShareTable'],
+	});
+	const isCouplesRetreat = retreatConfig?.retreat_type === 'couples';
+	const couplesShareTable = isCouplesRetreat && retreatConfig?.couplesShareTable !== false;
 
 	const tablesRaw = await repos.tableMesa.find({ where: { retreatId } });
 	const tables = sortByTableName(tablesRaw);
@@ -447,9 +488,82 @@ export const rebalanceTablesForRetreat = async (retreatId: string, dataSource?: 
 	);
 	const walkerAssignments: { id: string; tableId: string | null }[] = [];
 	const assignedWalkersByInviter: Record<string, string[]> = {}; // inviter -> tableId[]
+	const assignedTableByParticipant: Record<string, string> = {}; // participantId -> tableId
+
+	// Filtro de mesas por conflicto de tags con los líderes (compartido entre el
+	// camino individual y el de parejas).
+	const tablesWithoutLeaderTagConflicts = (
+		candidateTables: TableMesa[],
+		walkerIds: string[],
+	): TableMesa[] => {
+		const tagIdsOf = (pid: string) => participantTags.get(pid) || [];
+		const allWalkerTagIds = walkerIds.flatMap(tagIdsOf);
+		if (allWalkerTagIds.length === 0) return candidateTables;
+		const filtered = candidateTables.filter((table) => {
+			const leaderIds = [table.liderId, table.colider1Id, table.colider2Id].filter(
+				Boolean,
+			) as string[];
+			return !leaderIds.some((leaderId) =>
+				tagIdsOf(leaderId).some((tagId) => allWalkerTagIds.includes(tagId)),
+			);
+		});
+		// Si el filtro deja mesas, usarlo; si todas chocan, usar todas para garantizar asignación.
+		return filtered.length > 0 ? filtered : candidateTables;
+	};
+
+	// Parejas primero (couplesShareTable=true): cada matrimonio se sienta como
+	// unidad en la mesa con menos caminantes que tenga 2 lugares libres.
+	const seatedAsCouple = new Set<string>();
+	if (couplesShareTable) {
+		const walkersById = new Map(walkers.map((w) => [w.id, w]));
+		for (const walker of walkers) {
+			if (seatedAsCouple.has(walker.id)) continue;
+			const spouse = walker.spouseParticipantId
+				? walkersById.get(walker.spouseParticipantId)
+				: undefined;
+			if (!spouse || seatedAsCouple.has(spouse.id)) continue;
+
+			let candidates = tablesWithoutLeaderTagConflicts([...tables], [walker.id, spouse.id]);
+			const withTwoSeats = candidates.filter(
+				(t) => tableWalkerCounts[t.id] + 2 <= MAX_WALKERS_PER_TABLE,
+			);
+			if (withTwoSeats.length > 0) candidates = withTwoSeats;
+			candidates.sort((a, b) => tableWalkerCounts[a.id] - tableWalkerCounts[b.id]);
+			const targetTable = candidates[0];
+			if (!targetTable) continue;
+
+			for (const member of [walker, spouse]) {
+				walkerAssignments.push({ id: member.id, tableId: targetTable.id });
+				tableWalkerCounts[targetTable.id]++;
+				assignedTableByParticipant[member.id] = targetTable.id;
+				if (member.invitedBy) {
+					if (!assignedWalkersByInviter[member.invitedBy]) {
+						assignedWalkersByInviter[member.invitedBy] = [];
+					}
+					assignedWalkersByInviter[member.invitedBy].push(targetTable.id);
+				}
+			}
+			seatedAsCouple.add(walker.id);
+			seatedAsCouple.add(spouse.id);
+		}
+	}
 
 	for (const walker of walkers) {
+		if (seatedAsCouple.has(walker.id)) continue;
 		let availableTables = [...tables];
+
+		// Parejas separadas (couplesShareTable=false): excluir la mesa donde ya
+		// quedó el cónyuge, con el mismo fallback que invitedBy (si no queda
+		// ninguna mesa, se usa la lista completa para garantizar asignación).
+		if (isCouplesRetreat && !couplesShareTable && walker.spouseParticipantId) {
+			const spouseTableId = assignedTableByParticipant[walker.spouseParticipantId];
+			if (spouseTableId) {
+				const filteredTables = availableTables.filter((t) => t.id !== spouseTableId);
+				if (filteredTables.length > 0) {
+					availableTables = filteredTables;
+				}
+			}
+		}
 
 		// If the walker was invited by someone, filter out tables where another walker invited by the same person already is.
 		if (walker.invitedBy && assignedWalkersByInviter[walker.invitedBy]) {
@@ -495,6 +609,7 @@ export const rebalanceTablesForRetreat = async (retreatId: string, dataSource?: 
 		const targetTable = availableTables[0];
 		walkerAssignments.push({ id: walker.id, tableId: targetTable.id });
 		tableWalkerCounts[targetTable.id]++;
+		assignedTableByParticipant[walker.id] = targetTable.id;
 
 		// Track the assignment for the inviter constraint.
 		if (walker.invitedBy) {

@@ -18,6 +18,7 @@ import {
 import {
   rebalanceTablesForRetreat,
   assignLeaderToTable,
+  MAX_WALKERS_PER_TABLE,
 } from "./tableMesaService";
 import { domainAuditService, DomainAuditAction } from "./domainAuditService";
 import { EmailService } from "./emailService";
@@ -1341,6 +1342,56 @@ const updateRoomSnoreStatus = (
 };
 
 /**
+ * Map from floor|roomNumber → 'M' | 'F'. El primer ocupante CON gender fija el
+ * género de la habitación. Solo se usa en retiros de parejas con
+ * couplesShareRoom=false: ahí el retiro es mixto y un dormitorio compartido no
+ * puede mezclar géneros — filtro DURO (como defaultUsage), no un score suave.
+ * La llave incluye el piso porque dos pisos pueden repetir número de cuarto.
+ */
+type RoomGenderStatusMap = Map<string, "M" | "F">;
+
+const roomGenderKey = (bed: {
+  floor?: number | null;
+  roomNumber: string;
+}): string => `${bed.floor ?? ""}|${bed.roomNumber}`;
+
+const buildRoomGenderStatusMap = async (
+  retreatBedRepository: any,
+  retreatId: string,
+): Promise<RoomGenderStatusMap> => {
+  const rows = await retreatBedRepository
+    .createQueryBuilder("bed")
+    .select("bed.roomNumber", "roomNumber")
+    .addSelect("bed.floor", "floor")
+    .addSelect("p.gender", "gender")
+    .innerJoin("bed.participant", "p")
+    .where("bed.retreatId = :retreatId", { retreatId })
+    .getRawMany();
+
+  const map: RoomGenderStatusMap = new Map();
+  for (const row of rows) {
+    if (row.gender !== "M" && row.gender !== "F") continue;
+    const key = `${row.floor ?? ""}|${row.roomNumber}`;
+    if (!map.has(key)) {
+      map.set(key, row.gender);
+    }
+  }
+  return map;
+};
+
+const updateRoomGenderStatus = (
+  map: RoomGenderStatusMap,
+  participant: Participant,
+  bed: RetreatBed,
+): void => {
+  if (participant.gender !== "M" && participant.gender !== "F") return;
+  const key = roomGenderKey(bed);
+  if (!map.has(key)) {
+    map.set(key, participant.gender);
+  }
+};
+
+/**
  * Score a single bed for a participant. Higher is better.
  */
 const scoreBedForParticipant = (
@@ -1395,6 +1446,7 @@ const assignBedToParticipant = async (
   excludedBedIds: string[] = [],
   entityManager?: any,
   roomSnoreStatusMap?: RoomSnoreStatusMap,
+  roomGenderStatusMap?: RoomGenderStatusMap,
 ): Promise<string | undefined> => {
   if (participant.isCancelled) return undefined;
   if (!participant.birthDate) return undefined;
@@ -1406,7 +1458,7 @@ const assignBedToParticipant = async (
   const bedUsage = participant.type === "walker" ? "caminante" : "servidor";
 
   // Fetch all available beds in one query
-  const availableBeds: RetreatBed[] = await retreatBedRepository
+  let availableBeds: RetreatBed[] = await retreatBedRepository
     .createQueryBuilder("bed")
     .where("bed.retreatId = :retreatId", { retreatId: participant.retreatId })
     .andWhere("bed.participantId IS NULL")
@@ -1416,6 +1468,18 @@ const assignBedToParticipant = async (
       excludedBedIds: excludedBedIds.length > 0 ? excludedBedIds : [""],
     })
     .getMany();
+
+  // Filtro DURO por género (retiros de parejas con habitaciones separadas):
+  // nunca proponer una cama en un cuarto ya ocupado por el otro género.
+  if (
+    roomGenderStatusMap &&
+    (participant.gender === "M" || participant.gender === "F")
+  ) {
+    availableBeds = availableBeds.filter((bed) => {
+      const roomGender = roomGenderStatusMap.get(roomGenderKey(bed));
+      return !roomGender || roomGender === participant.gender;
+    });
+  }
 
   if (availableBeds.length === 0) return undefined;
 
@@ -1440,6 +1504,62 @@ const assignBedToParticipant = async (
   }
 
   return bestBed?.id;
+};
+
+/**
+ * Asigna a los dos cónyuges como UNIDAD a la misma habitación (retiros de
+ * parejas con couplesShareRoom=true): elige la habitación con ≥2 camas libres
+ * que maximice la suma de scoreBedForParticipant de ambos. Devuelve undefined
+ * si ninguna habitación tiene 2 camas libres (el caller decide el fallback).
+ */
+const assignBedsToCouple = async (
+  spouseA: Participant,
+  spouseB: Participant,
+  excludedBedIds: string[],
+  retreatBedRepository: any,
+  roomSnoreStatusMap: RoomSnoreStatusMap,
+): Promise<{ bedA: RetreatBed; bedB: RetreatBed } | undefined> => {
+  if (spouseA.isCancelled || spouseB.isCancelled) return undefined;
+  if (!spouseA.birthDate || !spouseB.birthDate) return undefined;
+
+  const bedUsage = spouseA.type === "walker" ? "caminante" : "servidor";
+
+  const availableBeds: RetreatBed[] = await retreatBedRepository
+    .createQueryBuilder("bed")
+    .where("bed.retreatId = :retreatId", { retreatId: spouseA.retreatId })
+    .andWhere("bed.participantId IS NULL")
+    .andWhere("bed.isActive = :isActive", { isActive: true })
+    .andWhere("bed.defaultUsage = :bedUsage", { bedUsage })
+    .andWhere("bed.id NOT IN (:...excludedBedIds)", {
+      excludedBedIds: excludedBedIds.length > 0 ? excludedBedIds : [""],
+    })
+    .getMany();
+
+  // Agrupar camas libres por habitación (piso + número).
+  const rooms = new Map<string, RetreatBed[]>();
+  for (const bed of availableBeds) {
+    const key = roomGenderKey(bed);
+    if (!rooms.has(key)) rooms.set(key, []);
+    rooms.get(key)!.push(bed);
+  }
+
+  let best: { bedA: RetreatBed; bedB: RetreatBed; score: number } | undefined;
+  for (const beds of rooms.values()) {
+    if (beds.length < 2) continue;
+    for (const bedA of beds) {
+      for (const bedB of beds) {
+        if (bedA.id === bedB.id) continue;
+        const score =
+          scoreBedForParticipant(spouseA, bedA, roomSnoreStatusMap) +
+          scoreBedForParticipant(spouseB, bedB, roomSnoreStatusMap);
+        if (!best || score > best.score) {
+          best = { bedA, bedB, score };
+        }
+      }
+    }
+  }
+
+  return best ? { bedA: best.bedA, bedB: best.bedB } : undefined;
 };
 
 const assignBedAndTableToParticipant = async (
@@ -2530,6 +2650,54 @@ const upsertCoupleSpouse = async (
 };
 
 /**
+ * Elige mesa(s) para una pareja recién registrada según la configuración del
+ * retiro: juntos → la mesa con menos caminantes que tenga 2 lugares libres;
+ * separados → las dos mesas menos pobladas distintas (si solo hay una mesa,
+ * caen juntos — garantizar asignación pesa más, mismo fallback que invitedBy).
+ * Devuelve ids iguales cuando comparten mesa; vacío si el retiro aún no tiene mesas.
+ */
+const pickTablesForCouple = async (
+  manager: EntityManager,
+  retreat: Retreat,
+): Promise<{ tableIdA?: string; tableIdB?: string }> => {
+  const tables = await manager
+    .getRepository(TableMesa)
+    .find({ where: { retreatId: retreat.id } });
+  if (tables.length === 0) return {};
+
+  const counts = await manager
+    .getRepository(RetreatParticipant)
+    .createQueryBuilder("rp")
+    .select('rp."tableId"', "tableId")
+    .addSelect("COUNT(*)", "c")
+    .where('rp."retreatId" = :retreatId', { retreatId: retreat.id })
+    .andWhere('rp."tableId" IS NOT NULL')
+    .andWhere('rp."isCancelled" = :cancelled', { cancelled: false })
+    .groupBy('rp."tableId"')
+    .getRawMany();
+  const countByTable: Record<string, number> = {};
+  for (const t of tables) countByTable[t.id] = 0;
+  for (const row of counts) {
+    if (row.tableId in countByTable) countByTable[row.tableId] = Number(row.c);
+  }
+  const sorted = [...tables].sort(
+    (a, b) => countByTable[a.id] - countByTable[b.id],
+  );
+
+  if (retreat.couplesShareTable !== false) {
+    const withTwoSeats = sorted.filter(
+      (t) => countByTable[t.id] + 2 <= MAX_WALKERS_PER_TABLE,
+    );
+    const target = withTwoSeats[0] ?? sorted[0];
+    return { tableIdA: target?.id, tableIdB: target?.id };
+  }
+
+  const first = sorted[0];
+  const second = sorted.find((t) => t.id !== first?.id) ?? first;
+  return { tableIdA: first?.id, tableIdB: second?.id };
+};
+
+/**
  * Alta transaccional de una pareja (retiros de matrimonios).
  *
  * No llama a createParticipant() dos veces: su lookup global por email fusionaría
@@ -2668,6 +2836,22 @@ export const createCoupleParticipants = async (
       }
     }
 
+    // Mesa según la configuración del retiro (solo caminantes admitidos; los que
+    // quedan en waiting no llevan mesa, igual que en el flujo individual).
+    if (effectiveType === "walker") {
+      const { tableIdA, tableIdB } = await pickTablesForCouple(manager, retreat);
+      const tableBySlot = { husband: tableIdA, wife: tableIdB } as const;
+      for (const slot of slots) {
+        const tableId = tableBySlot[slot.key];
+        if (!tableId) continue;
+        await rpRepo.update(
+          { participantId: savedByKey[slot.key].id, retreatId },
+          { tableId },
+        );
+        savedByKey[slot.key].tableId = tableId;
+      }
+    }
+
     return savedByKey;
   });
 
@@ -2774,6 +2958,9 @@ export const updateParticipant = async (
   participantData: UpdateParticipant,
   skipRebalance: boolean = false,
 ): Promise<Participant | null> => {
+  // Resolver el repo perezosamente (shadow del módulo-level): permite que los
+  // tests de integración swapeen AppDataSource a la DB de test.
+  const participantRepository = AppDataSource.getRepository(Participant);
   const participant = await participantRepository.findOneBy({ id });
   if (!participant) {
     return null;
@@ -2858,7 +3045,9 @@ export const updateParticipant = async (
     const retreatRepo = AppDataSource.getRepository(Retreat);
     const retreatRow = await retreatRepo.findOne({
       where: { id: effectiveRetreatId },
-      select: ["id", "cost", "serverFeeAmount"],
+      // retreat_type entra al cálculo: en retiros de parejas el fee individual
+      // es la mitad del costo (por pareja).
+      select: ["id", "cost", "serverFeeAmount", "retreat_type"],
     });
     if (retreatRow) {
       // Cobro del retiro aplicable según el tipo (helper consolidado). El angelito
@@ -2999,6 +3188,46 @@ export const updateParticipant = async (
         );
       } catch (err) {
         console.error("Error syncing retreat fields:", err);
+      }
+    }
+
+    // Retiros de parejas: la promoción desde (o el regreso a) la lista de espera
+    // se espeja al cónyuge en el mismo update — la pareja entra o espera JUNTA.
+    // Los cambios de rol que no tocan 'waiting' (p. ej. walker→server) son un
+    // override deliberado del admin y NO se espejan.
+    if (
+      type !== undefined &&
+      type !== currentRp?.type &&
+      (type === "waiting" || currentRp?.type === "waiting") &&
+      currentRp?.spouseParticipantId
+    ) {
+      try {
+        const spouseRp = await AppDataSource.getRepository(
+          RetreatParticipant,
+        ).findOne({
+          where: {
+            participantId: currentRp.spouseParticipantId,
+            retreatId: effectiveRetreatId,
+            isCancelled: false,
+          },
+        });
+        const shouldMirror =
+          spouseRp &&
+          (type === "waiting"
+            ? spouseRp.type !== "waiting"
+            : spouseRp.type === "waiting");
+        if (shouldMirror) {
+          await syncRetreatFields(
+            currentRp.spouseParticipantId,
+            effectiveRetreatId,
+            { type },
+          );
+          console.warn(
+            `↔️ Mirrored type '${type}' to spouse ${currentRp.spouseParticipantId} (couple atomic waiting)`,
+          );
+        }
+      } catch (err) {
+        console.error("Error mirroring type change to spouse:", err);
       }
     }
 
@@ -4053,16 +4282,30 @@ export const autoAssignBedsForRetreat = async (
       p.tableId = rp.tableId;
       p.id_on_retreat = rp.idOnRetreat ?? undefined;
       p.family_friend_color = rp.familyFriendColor ?? undefined;
+      p.spouseParticipantId = rp.spouseParticipantId ?? null;
       return p;
     });
 
-  const eligible = participants.filter(
+  let eligible = participants.filter(
     (p) =>
       p.type !== "waiting" &&
       p.type !== "partial_server" &&
       p.birthDate &&
       !assignedParticipantIds.includes(p.id),
   );
+
+  // Configuración de retiros de parejas: juntos en habitación (parejas primero,
+  // como unidad) o dormitorios separados por género (filtro duro).
+  const retreat = await AppDataSource.getRepository(Retreat).findOne({
+    where: { id: retreatId },
+    select: ["id", "retreat_type", "couplesShareRoom"],
+  });
+  const isCouplesRetreat = retreat?.retreat_type === "couples";
+  const couplesShareRoom = isCouplesRetreat && retreat?.couplesShareRoom !== false;
+  const genderMap =
+    isCouplesRetreat && !couplesShareRoom
+      ? await buildRoomGenderStatusMap(retreatBedRepository, retreatId)
+      : undefined;
 
   // Sort: oldest first so they get bottom bunks/normal beds first,
   // then young walkers fill remaining top bunks (which they prefer anyway)
@@ -4093,12 +4336,54 @@ export const autoAssignBedsForRetreat = async (
   let assigned = 0;
   let skipped = 0;
 
+  // Parejas primero, como unidad (misma habitación). Los cónyuges que consigan
+  // habitación salen de la lista individual; si no hay habitación con 2 camas
+  // libres, caen al loop individual normal.
+  if (couplesShareRoom) {
+    const byId = new Map(eligible.map((p) => [p.id, p]));
+    const processed = new Set<string>();
+    for (const participant of eligible) {
+      if (processed.has(participant.id)) continue;
+      const spouse = participant.spouseParticipantId
+        ? byId.get(participant.spouseParticipantId)
+        : undefined;
+      if (!spouse || processed.has(spouse.id)) continue;
+
+      const pair = await assignBedsToCouple(
+        participant,
+        spouse,
+        assignedBedIds,
+        retreatBedRepository,
+        snoreMap,
+      );
+      if (pair) {
+        await retreatBedRepository.update(pair.bedA.id, {
+          participantId: participant.id,
+        });
+        await retreatBedRepository.update(pair.bedB.id, {
+          participantId: spouse.id,
+        });
+        assignedBedIds.push(pair.bedA.id, pair.bedB.id);
+        assigned += 2;
+        updateRoomSnoreStatus(snoreMap, participant, pair.bedA);
+        processed.add(participant.id);
+        processed.add(spouse.id);
+      } else {
+        console.warn(
+          `⚠️ No room with 2 free beds for couple ${participant.id} + ${spouse.id}; falling back to individual assignment`,
+        );
+      }
+    }
+    eligible = eligible.filter((p) => !processed.has(p.id));
+  }
+
   for (const participant of eligible) {
     const bedId = await assignBedToParticipant(
       participant,
       assignedBedIds,
       undefined,
       snoreMap,
+      genderMap,
     );
     if (bedId) {
       await retreatBedRepository.update(bedId, {
@@ -4113,6 +4398,9 @@ export const autoAssignBedsForRetreat = async (
       });
       if (assignedBed) {
         updateRoomSnoreStatus(snoreMap, participant, assignedBed);
+        if (genderMap) {
+          updateRoomGenderStatus(genderMap, participant, assignedBed);
+        }
       }
     } else {
       skipped++;

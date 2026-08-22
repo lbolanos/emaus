@@ -1,6 +1,7 @@
 import { AppDataSource } from '../data-source';
 import { RetreatBed } from '../entities/retreatBed.entity';
 import { Participant } from '../entities/participant.entity';
+import { Retreat } from '../entities/retreat.entity';
 import { RetreatParticipant } from '../entities/retreatParticipant.entity';
 import { autoAssignBedsForRetreat } from '../services/participantService';
 import { authorizationService } from '../middleware/authorization';
@@ -57,6 +58,9 @@ export const assignParticipantToBed = async (req: Request, res: Response, next: 
 		// Capturados dentro de la transacción para auditar tras el commit.
 		let auditRetreatId: string | null = null;
 		let auditPreviousParticipantId: string | null = null;
+		// Warning suave (no bloquea) cuando la asignación separa a una pareja en un
+		// retiro que hospeda a los matrimonios juntos.
+		let coupleWarning: string | undefined;
 
 		// Use TypeORM transaction for atomic operations (auth check inside to prevent TOCTOU)
 		await AppDataSource.transaction(async (transactionalEntityManager) => {
@@ -104,6 +108,53 @@ export const assignParticipantToBed = async (req: Request, res: Response, next: 
 				throw new Error('Cannot assign cancelled participant to bed');
 			}
 
+			// Retiros de parejas: género (bloqueo duro) y pareja separada (warning).
+			const retreat = await transactionalEntityManager.getRepository(Retreat).findOne({
+				where: { id: bedCheck.retreatId },
+				select: ['id', 'retreat_type', 'couplesShareRoom'],
+			});
+			if (retreat?.retreat_type === 'couples') {
+				if (
+					retreat.couplesShareRoom === false &&
+					(participant.gender === 'M' || participant.gender === 'F')
+				) {
+					// Dormitorios separados por género: nunca mezclar en una habitación.
+					const roomConflict = await bedRepo
+						.createQueryBuilder('bed')
+						.innerJoinAndSelect('bed.participant', 'p')
+						.where('bed.retreatId = :retreatId', { retreatId: bedCheck.retreatId })
+						.andWhere('bed.roomNumber = :roomNumber', { roomNumber: bedCheck.roomNumber })
+						.andWhere(
+							bedCheck.floor == null ? 'bed.floor IS NULL' : 'bed.floor = :floor',
+							{ floor: bedCheck.floor },
+						)
+						.andWhere('bed.id != :bedId', { bedId })
+						.andWhere('p.gender IS NOT NULL')
+						.andWhere('p.gender != :gender', { gender: participant.gender })
+						.getOne();
+					if (roomConflict) {
+						throw new Error(
+							'La habitación ya tiene ocupantes del otro género y este retiro separa los dormitorios por género',
+						);
+					}
+				} else if (retreat.couplesShareRoom !== false && rp?.spouseParticipantId) {
+					const spouseBed = await bedRepo.findOne({
+						where: {
+							retreatId: bedCheck.retreatId,
+							participantId: rp.spouseParticipantId,
+						},
+					});
+					if (
+						spouseBed &&
+						(spouseBed.roomNumber !== bedCheck.roomNumber ||
+							(spouseBed.floor ?? null) !== (bedCheck.floor ?? null))
+					) {
+						coupleWarning =
+							'Su pareja está en otra habitación y este retiro hospeda a los matrimonios juntos.';
+					}
+				}
+			}
+
 			// Check if participant already has a bed in the same retreat and unassign if necessary
 			const existingBed = await bedRepo.findOne({
 				where: { participantId, retreatId: bedCheck.retreatId },
@@ -140,7 +191,7 @@ export const assignParticipantToBed = async (req: Request, res: Response, next: 
 			},
 		});
 
-		res.json(updatedBed);
+		res.json(coupleWarning ? { ...updatedBed, warning: coupleWarning } : updatedBed);
 	} catch (error: any) {
 		// Convert errors to appropriate HTTP responses
 		let statusCode = 400;
@@ -152,7 +203,7 @@ export const assignParticipantToBed = async (req: Request, res: Response, next: 
 			statusCode = 404;
 		} else if (message.includes('already assigned')) {
 			statusCode = 409; // Conflict
-		} else if (message.includes('cancelled')) {
+		} else if (message.includes('cancelled') || message.includes('otro género')) {
 			statusCode = 422; // Unprocessable Entity
 		}
 
