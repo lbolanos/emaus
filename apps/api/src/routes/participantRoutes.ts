@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
 	createParticipant,
+	createCoupleParticipant,
 	deleteParticipant,
 	getAllParticipants,
 	getParticipantById,
@@ -17,7 +18,11 @@ import {
 	deleteParticipantByDeleteToken,
 } from '../controllers/participantController';
 import { validateRequest } from '../middleware/validateRequest';
-import { createParticipantSchema, updateParticipantSchema } from '@repo/types';
+import {
+	createParticipantSchema,
+	createCoupleParticipantSchema,
+	updateParticipantSchema,
+} from '@repo/types';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { requirePermission, requireRetreatAccess } from '../middleware/authorization';
 import { publicParticipantLimiter, emailCheckLimiter } from '../middleware/rateLimiting';
@@ -26,6 +31,14 @@ const router = Router();
 
 // Public routes for walker and server registration (with dedicated rate limiters)
 router.post('/new', publicParticipantLimiter, validateRequest(createParticipantSchema), createParticipant);
+
+// Public couple registration (retiros retreat_type='couples'): one submit → both spouses linked
+router.post(
+	'/couple/new',
+	publicParticipantLimiter,
+	validateRequest(createCoupleParticipantSchema),
+	createCoupleParticipant,
+);
 
 // Public check-email with reCAPTCHA protection and rate limiting
 router.get('/check-email/:email', emailCheckLimiter, checkParticipantEmail);

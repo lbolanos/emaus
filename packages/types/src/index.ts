@@ -200,6 +200,9 @@ export const retreatSchema = z.object({
 	max_walkers: z.number().int().positive().optional(),
 	max_servers: z.number().int().positive().optional(),
 	retreat_type: z.enum(['men', 'women', 'couples', 'effeta']).optional(),
+	// Configuración de retiros de parejas; solo se consulta cuando retreat_type='couples'.
+	couplesShareRoom: z.boolean().optional(),
+	couplesShareTable: z.boolean().optional(),
 	retreat_number_version: z.string().optional(),
 	// El slug va dentro de la URL pública del retiro y acaba interpolado en el
 	// HTML del preview OG. Acotarlo aquí evita que un valor con comillas o
@@ -385,6 +388,13 @@ export const participantSchema = z.object({
 		z.string().optional(),
 	),
 	maritalStatus: z.enum(['S', 'C', 'D', 'V', 'O']),
+	// Solo lo llena el registro de retiros de parejas (esposo→'M', esposa→'F').
+	// El preprocess de '' es obligatorio: el cliente reenvía el DTO completo por spread
+	// y un '' rompería el enum con 400 (bug recurrente de este repo).
+	gender: z.preprocess(
+		(val) => (val === '' || val === null ? undefined : val),
+		z.enum(['M', 'F']).optional(),
+	),
 	street: z.string().min(1, 'Street is required'),
 	houseNumber: z.string().min(1, 'House number is required'),
 	postalCode: z.string().min(1, 'Postal code is required'),
@@ -533,6 +543,81 @@ export const createParticipantSchema = z.object({
 		),
 });
 export type CreateParticipant = z.infer<typeof createParticipantSchema.shape.body>;
+
+// POST /participants/couple/new — registro de pareja (retiros retreat_type='couples').
+// Un submit crea a ambos cónyuges vinculados. type/retreatId/gender viajan a nivel
+// del body (gender lo deriva el server del slot husband/wife); los campos per-retiro
+// read-only y de asignación se omiten del payload de cada cónyuge.
+const coupleSpouseSchema = participantSchema
+	.omit({
+		id: true,
+		lastUpdatedDate: true,
+		registrationDate: true,
+		type: true,
+		retreatId: true,
+		gender: true,
+		id_on_retreat: true,
+		isCancelled: true,
+		family_friend_color: true,
+		tableId: true,
+		tableMesa: true,
+		retreatBed: true,
+		tags: true,
+		acceptedPrivacyNotice: true,
+		acceptedPrivacyNoticeAt: true,
+		attendanceConfirmation: true,
+		totalDebt: true,
+		chargeBreakdown: true,
+	})
+	// Igual que en createParticipantSchema: los contactos de emergencia solo son
+	// obligatorios para caminantes; se re-exigen con el refine de abajo.
+	.extend({
+		emergencyContact1Name: z.string().optional(),
+		emergencyContact1Relation: z.string().optional(),
+		emergencyContact1CellPhone: z.string().optional(),
+	});
+export type CoupleSpouseInput = z.infer<typeof coupleSpouseSchema>;
+
+export const createCoupleParticipantSchema = z.object({
+	body: z
+		.object({
+			retreatId: idSchema,
+			type: z.enum(['walker', 'server']),
+			acceptedPrivacyNotice: z.literal(true, {
+				errorMap: () => ({ message: 'Debes aceptar el aviso de privacidad' }),
+			}),
+			husband: coupleSpouseSchema,
+			wife: coupleSpouseSchema,
+		})
+		.superRefine((d, ctx) => {
+			if (d.type !== 'walker') return;
+			for (const slot of ['husband', 'wife'] as const) {
+				const s = d[slot];
+				if (!s.emergencyContact1Name) {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						message: 'Emergency contact 1 name is required',
+						path: [slot, 'emergencyContact1Name'],
+					});
+				}
+				if (!s.emergencyContact1Relation) {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						message: 'Emergency contact 1 relation is required',
+						path: [slot, 'emergencyContact1Relation'],
+					});
+				}
+				if (!s.emergencyContact1CellPhone) {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						message: 'Emergency contact 1 cell phone is required',
+						path: [slot, 'emergencyContact1CellPhone'],
+					});
+				}
+			}
+		}),
+});
+export type CreateCoupleParticipant = z.infer<typeof createCoupleParticipantSchema.shape.body>;
 
 
 export const TableSchema = z.object({

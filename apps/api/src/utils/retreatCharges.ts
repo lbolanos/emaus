@@ -12,6 +12,7 @@
 export interface RetreatFeeSource {
 	cost?: string | null;
 	serverFeeAmount?: number | null;
+	retreat_type?: string | null;
 }
 
 /**
@@ -26,18 +27,27 @@ export function parseRetreatCost(cost?: string | null): number {
 
 /**
  * Cobro del retiro aplicable según el tipo de participante (sin comidas ni deudas).
+ *
+ * Retiros de parejas (retreat_type='couples'): `cost` y `serverFeeAmount` son el
+ * monto POR PAREJA (decisión de la organización), así que cada cónyuge carga la
+ * mitad en su ledger individual de pagos. Un pago registrado contra un cónyuge
+ * abona solo a su mitad.
  */
 export function retreatFeeForType(
 	type: string | null | undefined,
 	retreat: RetreatFeeSource,
 ): number {
 	const parsedCost = parseRetreatCost(retreat.cost);
+	const perPersonFactor = retreat.retreat_type === 'couples' ? 0.5 : 1;
 	switch (type) {
 		case 'partial_server': // angelito: sin cobro de retiro
 			return 0;
-		case 'server':
-			return retreat.serverFeeAmount != null ? Number(retreat.serverFeeAmount) || 0 : parsedCost;
+		case 'server': {
+			const fee =
+				retreat.serverFeeAmount != null ? Number(retreat.serverFeeAmount) || 0 : parsedCost;
+			return fee * perPersonFactor;
+		}
 		default: // walker, waiting, o tipo no overlaid → cobro del caminante = `cost`
-			return parsedCost;
+			return parsedCost * perPersonFactor;
 	}
 }

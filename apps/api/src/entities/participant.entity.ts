@@ -28,6 +28,7 @@ export class Participant {
 	// Virtual — populated from retreat_participants at query time
 	id_on_retreat?: number;
 	type?: 'walker' | 'server' | 'waiting' | 'partial_server';
+	spouseParticipantId?: string | null;
 
 	@Column('varchar')
 	firstName!: string; // Corresponde a 'nombre'
@@ -47,6 +48,12 @@ export class Participant {
 	@Column('varchar')
 	maritalStatus!: // Corresponde a 'estadocivil'
 	'S' | 'C' | 'D' | 'V' | 'O';
+
+	// Solo lo llena el registro de retiros de parejas (esposo→'M', esposa→'F'); en los
+	// demás retiros queda NULL. Participa en UQ_participants_email_retreat vía
+	// COALESCE(gender,'') para que un matrimonio pueda compartir email en el retiro.
+	@Column({ type: 'varchar', nullable: true })
+	gender?: 'M' | 'F' | null;
 
 	@Column('varchar')
 	street!: string; // Corresponde a 'dircalle'

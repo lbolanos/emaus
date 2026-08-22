@@ -3,6 +3,7 @@ import * as participantService from "../services/participantService";
 import { RecaptchaService } from "../services/recaptchaService";
 import {
   participantSchema,
+  createCoupleParticipantSchema,
   validateParticipantPhones,
   normalizeParticipantPhones,
 } from "@repo/types";
@@ -317,6 +318,89 @@ export const createParticipant = async (
         code === "RETREAT_NOT_PUBLIC" ||
         code === "RETREAT_NOT_FOUND" ||
         code === "MEAL_COUNT_EXCEEDS_RETREAT_MEALS"
+      ) {
+        return res.status(400).json({ message: error.message, code });
+      }
+    }
+    next(error);
+  }
+};
+
+/**
+ * Alta pública de una pareja (retiros retreat_type='couples'): un submit crea a
+ * ambos cónyuges vinculados. Calcado de createParticipant: reCAPTCHA, Zod,
+ * validación/normalización de teléfonos por país del retiro (para los dos) y dryRun.
+ */
+export const createCoupleParticipant = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { recaptchaToken, dryRun, ...coupleData } = req.body;
+
+    const recaptchaResult = await recaptchaService.verifyToken(recaptchaToken, {
+      minScore: 0.5,
+    });
+    if (!recaptchaResult.valid) {
+      return res.status(400).json({
+        message: recaptchaResult.error || "reCAPTCHA verification failed",
+      });
+    }
+
+    const zodResult =
+      createCoupleParticipantSchema.shape.body.safeParse(coupleData);
+    if (!zodResult.success) {
+      const errors = zodResult.error.errors.map(
+        (e) => `${e.path.join(".")}: ${e.message}`,
+      );
+      return res.status(400).json({ message: "Validation failed", errors });
+    }
+    const validatedData = zodResult.data;
+
+    // Teléfonos de ambos cónyuges según el país de la casa del retiro.
+    const { findById } = await import("../services/retreatService");
+    const retreat = await findById(validatedData.retreatId);
+    for (const slot of ["husband", "wife"] as const) {
+      const phoneErrors = validateParticipantPhones(
+        validatedData[slot] as Record<string, string | null | undefined>,
+        retreat?.house?.country,
+      );
+      if (phoneErrors.length > 0) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: phoneErrors.map((e) => `${slot}.${e.field}: ${e.message}`),
+        });
+      }
+      validatedData[slot] = normalizeParticipantPhones(
+        validatedData[slot] as Record<string, string | null | undefined>,
+        retreat?.house?.country,
+      ) as (typeof validatedData)[typeof slot];
+    }
+
+    if (dryRun === true) {
+      const result =
+        await participantService.validateCoupleParticipants(validatedData);
+      return res.status(200).json(result);
+    }
+
+    const couple =
+      await participantService.createCoupleParticipants(validatedData);
+    res.status(201).json(couple);
+  } catch (error) {
+    if (error instanceof Error) {
+      const code = (error as Error & { code?: string }).code;
+      if (
+        code === "ALREADY_REGISTERED_IN_RETREAT" ||
+        error.message.includes("already exists")
+      ) {
+        return res.status(409).json({ message: error.message });
+      }
+      if (
+        code === "RETREAT_CLOSED" ||
+        code === "RETREAT_NOT_PUBLIC" ||
+        code === "RETREAT_NOT_FOUND" ||
+        code === "RETREAT_NOT_COUPLES"
       ) {
         return res.status(400).json({ message: error.message, code });
       }
