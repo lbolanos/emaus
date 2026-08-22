@@ -98,9 +98,13 @@ explícito de Leo**:
 - **Todos los videos y la playlist van `unlisted`** (`YT_PRIVACY=unlisted` en el `.env` de demos).
   El enlace directo y el embed siguen funcionando; simplemente no aparecen en búsquedas ni en la
   página del canal.
-- **Landing pública** (`/`): solo embebe el video de **inscripción** (`jQb3q-mUG-8`, también
-  unlisted), el único dirigido a caminantes, en la sección `#inscripcion`. La landing **no enlaza
-  al canal** ni lleva ícono de YouTube en el footer.
+- **Única excepción pública (OK de Leo 2026-08-22): el video de inscripción `jQb3q-mUG-8`.**
+  Está dirigido a caminantes, graba solo el formulario público (nunca el sidebar de admin, que
+  lista "Palancas") y su narración no toca las dinámicas — es la categoría que la propia queja
+  concede ("cómo participar"). Público para que un caminante lo encuentre por búsqueda.
+- **Landing pública** (`/`): solo embebe el video de **inscripción** (la excepción de arriba), en
+  la sección `#inscripcion`. La landing **no enlaza al canal** ni lleva ícono de YouTube en el
+  footer.
 - **Ayuda in-app** (`apps/web/src/docs/es/*.md`, detrás del login): cada sección enlaza su
   tutorial. Es la puerta de entrada del servidor.
 - **Playlist** «Emaús Retiros — Tutoriales» (`PLSdqEiN1fbDM`, unlisted): su enlace se comparte
@@ -123,6 +127,7 @@ clave i18n del título + duración en segundos); los títulos están en
 2. Bajar la miniatura a `apps/web/public/videos/<videoId>.webp` (no se hotlinkea `i.ytimg.com`):
    `curl -s -o /tmp/t.jpg https://i.ytimg.com/vi/<id>/maxresdefault.jpg && magick /tmp/t.jpg -resize 1280x720 -quality 82 -strip apps/web/public/videos/<id>.webp`
 3. La duración se saca del propio video: `curl -s "https://www.youtube.com/watch?v=<id>" | grep -o '"lengthSeconds":"[0-9]*"' | head -1`
-4. El video va **`unlisted`** como todo el canal (política 2026-08-22): el embed funciona igual y
-   "Ver en YouTube" abre el enlace directo, que sí funciona — solo no aparece en búsquedas, que es
-   justamente lo que se quiere.
+4. El video de la landing es la **única excepción `public`** del canal (OK de Leo 2026-08-22):
+   dirigido a caminantes y sin contenido sensible, así la búsqueda y "Ver en YouTube" funcionan
+   para quien quiere inscribirse. Cualquier otro video que se agregue aquí necesita el mismo
+   análisis (narración + pantalla) y OK explícito antes de pasarlo a `public`.

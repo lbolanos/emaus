@@ -55,10 +55,12 @@ GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 > la sorpresa del retiro (palancas, Santísimo, angelitos) y amenazaban con reportar el canal (que
 > ya tuvo un video eliminado por PII). Desde entonces **ningún video ni playlist del canal es
 > público**: todo se sube `unlisted` (`YT_PRIVACY=unlisted`) y se enlaza **solo desde el sitio** —
-> la ayuda in-app (detrás del login) y la landing, que embebe únicamente el video de inscripción
-> (`jQb3q-mUG-8`, también unlisted: el embed y el enlace directo funcionan igual). La playlist es
-> unlisted y su enlace se comparte con el equipo servidor por fuera. **No pases nada a `public`
-> sin OK explícito del usuario.** Detalle en `docs/features/video-tutorials-checklist.md`.
+> la ayuda in-app (detrás del login) y la landing. **Única excepción pública (OK de Leo
+> 2026-08-22): el video de inscripción `jQb3q-mUG-8`** — dirigido a caminantes, graba solo el
+> formulario público (nunca el sidebar, que lista "Palancas") y su narración está limpia. La
+> playlist es unlisted y su enlace se comparte con el equipo servidor por fuera. **No pases nada
+> a `public` sin OK explícito del usuario** y sin analizar narración + pantalla. Detalle en
+> `docs/features/video-tutorials-checklist.md`.
 
 2. **Subir**: `node e2e/demo/upload-to-youtube.mjs output/<video>.mp4 [--privacy unlisted]`.
    Lee `<video>.meta.json` (título, descripción, tags, capítulos) si existe; si no, usa el
