@@ -111,6 +111,8 @@ export const getRetreatByIdPublic = async (
       flyer_options: retreat.flyer_options || {},
       slug: retreat.slug,
       country: retreat.house?.country ?? null,
+      // El registro público de parejas se activa con retreat_type='couples'.
+      retreat_type: retreat.retreat_type ?? null,
       // Valor por comida: el registro solo pregunta comidas si es > 0.
       mealCost: retreat.mealCost ?? null,
       shirtTypes,
@@ -141,6 +143,8 @@ export const getRetreatBySlugPublic = async (
       flyer_options: retreat.flyer_options || {},
       slug: retreat.slug,
       country: retreat.house?.country ?? null,
+      // El registro público de parejas se activa con retreat_type='couples'.
+      retreat_type: retreat.retreat_type ?? null,
       // Valor por comida: el registro solo pregunta comidas si es > 0.
       mealCost: retreat.mealCost ?? null,
       shirtTypes,

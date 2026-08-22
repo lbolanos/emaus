@@ -1284,6 +1284,11 @@
       "couples": "Matrimonios",
       "effeta": "Effetá"
     },
+    "couplesConfig": {
+      "title": "Configuración del retiro de matrimonios",
+      "shareRoom": "Las parejas comparten habitación",
+      "shareTable": "Las parejas se sientan en la misma mesa"
+    },
     "walkerArrivalTime": "Hora de llegada de caminantes",
     "walkerArrivalTimeDescription": "Hora en que deben llegar los caminantes al retiro",
     "serverArrivalTimeFriday": "Hora de llegada de servidores (viernes)",
@@ -1780,6 +1785,40 @@
     "undoError": "No se pudo deshacer la asignación",
     "participant": "Participante",
     "select": "Seleccionar"
+  },
+  "coupleRegistration": {
+    "title": "Registro de pareja",
+    "asWalkers": "como caminantes",
+    "asServers": "como servidores",
+    "husband": "Él",
+    "wife": "Ella",
+    "husbandSection": "Datos de él",
+    "wifeSection": "Datos de ella",
+    "steps": {
+      "husbandPersonal": "Datos de él",
+      "wifePersonal": "Datos de ella",
+      "address": "Dirección del hogar",
+      "husbandHealth": "Salud y sacramentos de él",
+      "wifeHealth": "Salud y sacramentos de ella",
+      "emergency": "Contactos de emergencia",
+      "otherWalker": "Playeras e invitación",
+      "otherServer": "Playeras y comida"
+    },
+    "sharedAddressHint": "La dirección se registra una sola vez para los dos.",
+    "useDifferentEmergencyContacts": "Usar contactos de emergencia diferentes para cada uno",
+    "shirtsTitle": "Tallas de playera",
+    "husbandShirtSize": "Talla de él",
+    "wifeShirtSize": "Talla de ella",
+    "inviterTitle": "¿Quién los invita?",
+    "validationError": "Revisa los campos marcados",
+    "dryRunOk": "Validación exitosa (no se guardó nada)",
+    "successTitle": "¡Registro exitoso!",
+    "successMessage": "Los dos quedaron inscritos juntos. Pronto recibirán un correo de confirmación.",
+    "waitingTitle": "Quedaron en lista de espera",
+    "waitingMessage": "El retiro alcanzó su cupo: quedaron registrados juntos en la lista de espera y les avisaremos si se libera lugar.",
+    "retreatNotFoundTitle": "Retiro no encontrado",
+    "retreatNotFoundMessage": "El enlace no corresponde a un retiro abierto. Verifica con quien te lo compartió.",
+    "registrationClosed": "Este retiro ya terminó y no acepta nuevos registros."
   },
   "walkerRegistration": {
     "title": "Registro de Caminante",

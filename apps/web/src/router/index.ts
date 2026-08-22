@@ -23,7 +23,8 @@ const LoginView = () => import('../views/LoginView.vue');
 const RequestPasswordResetView = () => import('../views/RequestPasswordResetView.vue');
 const ResetPasswordView = () => import('../views/ResetPasswordView.vue');
 const VerifyEmailView = () => import('../views/VerifyEmailView.vue');
-const ParticipantRegistrationView = () => import('../views/ParticipantRegistrationView.vue');
+// Dispatcher: monta el wizard individual o el de pareja según retreat_type.
+const RegistrationEntryView = () => import('../views/RegistrationEntryView.vue');
 const RetreatDashboardView = () => import('../views/RetreatDashboardView.vue');
 const BedAssignmentsView = () => import('../views/BedAssignmentsView.vue');
 const TablesView = () => import('../views/TablesView.vue');
@@ -105,21 +106,21 @@ const router = createRouter({
 		{
 			path: '/register/:type/:retreatId',
 			name: 'registration',
-			component: ParticipantRegistrationView,
+			component: RegistrationEntryView,
 			props: true,
 			meta: { requiresAuth: false },
 		},
 		{
 			path: '/:slug([a-z0-9]+)',
 			name: 'registration-slug-walker',
-			component: ParticipantRegistrationView,
+			component: RegistrationEntryView,
 			props: (route) => ({ slug: route.params.slug, type: 'walker' }),
 			meta: { requiresAuth: false },
 		},
 		{
 			path: '/:slug([a-z0-9]+)/server',
 			name: 'registration-slug-server',
-			component: ParticipantRegistrationView,
+			component: RegistrationEntryView,
 			props: (route) => ({ slug: route.params.slug, type: 'server' }),
 			meta: { requiresAuth: false },
 		},

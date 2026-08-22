@@ -24,6 +24,8 @@ const props = defineProps<{
   retreatEndDate?: string | null
   /** Solo preguntar comidas si el retiro tiene valor por comida > 0. */
   mealChargesEnabled?: boolean
+  /** El registro de parejas no ofrece angelito (solo reclasificación admin). */
+  allowAngelito?: boolean
 }>()
 
 const formData = defineModel<Record<string, any>>({ required: true })
@@ -69,6 +71,7 @@ function getSize(typeId: string): string {
     <CardHeader><CardTitle>{{ $t('serverRegistration.tabs.serverInfo') }}</CardTitle></CardHeader>
     <CardContent class="space-y-4">
       <button
+        v-if="props.allowAngelito !== false"
         type="button"
         class="w-full flex items-start gap-3 rounded-lg border p-3 text-left transition-all"
         :class="formData.isAngelito

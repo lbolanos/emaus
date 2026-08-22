@@ -240,6 +240,31 @@
               </div>
             </div>
 
+            <!-- Configuración de parejas (solo retiros de matrimonios) -->
+            <div v-if="formData.retreat_type === 'couples'" class="space-y-3 p-3 border rounded-md bg-muted/20">
+              <p class="text-sm font-medium">{{ $t('retreatModal.couplesConfig.title') }}</p>
+              <div class="flex items-center space-x-2">
+                <Checkbox
+                  id="couplesShareRoom"
+                  :model-value="formData.couplesShareRoom"
+                  @update:model-value="formData.couplesShareRoom = $event === true"
+                />
+                <Label for="couplesShareRoom" class="text-sm cursor-pointer">
+                  {{ $t('retreatModal.couplesConfig.shareRoom') }}
+                </Label>
+              </div>
+              <div class="flex items-center space-x-2">
+                <Checkbox
+                  id="couplesShareTable"
+                  :model-value="formData.couplesShareTable"
+                  @update:model-value="formData.couplesShareTable = $event === true"
+                />
+                <Label for="couplesShareTable" class="text-sm cursor-pointer">
+                  {{ $t('retreatModal.couplesConfig.shareTable') }}
+                </Label>
+              </div>
+            </div>
+
             <!-- House capacity info display -->
             <div v-if="houseCapacity.walkerBeds !== null && mode === 'add'" class="text-sm text-muted-foreground p-3 border rounded-md bg-muted/20">
               <span class="font-medium mr-2">House Bed Capacity:</span>
@@ -1186,6 +1211,8 @@ const formData = ref({
   walkerArrivalTime: '',
   serverArrivalTimeFriday: '',
   retreat_type: undefined as 'men' | 'women' | 'couples' | 'effeta' | undefined,
+  couplesShareRoom: true,
+  couplesShareTable: true,
   retreat_number_version: '',
   slug: '',
   closingChurchName: '' as string | null,
@@ -1599,6 +1626,8 @@ const handleSubmit = async () => {
         walkerArrivalTime: formData.value.walkerArrivalTime || undefined,
         serverArrivalTimeFriday: formData.value.serverArrivalTimeFriday || undefined,
         retreat_type: formData.value.retreat_type || undefined,
+        couplesShareRoom: formData.value.couplesShareRoom,
+        couplesShareTable: formData.value.couplesShareTable,
         retreat_number_version: formData.value.retreat_number_version || undefined,
         slug: formData.value.slug || undefined,
         flyer_options: formData.value.flyer_options,
@@ -1652,6 +1681,8 @@ const resetForm = () => {
     walkerArrivalTime: '',
     serverArrivalTimeFriday: '',
     retreat_type: undefined,
+    couplesShareRoom: true,
+    couplesShareTable: true,
     retreat_number_version: '',
     slug: '',
     closingChurchName: '' as string | null,
@@ -1864,6 +1895,8 @@ watch(() => props.open, (newOpen) => {
           walkerArrivalTime: props.retreat.walkerArrivalTime || '',
           serverArrivalTimeFriday: props.retreat.serverArrivalTimeFriday || '',
           retreat_type: props.retreat.retreat_type,
+          couplesShareRoom: props.retreat.couplesShareRoom ?? true,
+          couplesShareTable: props.retreat.couplesShareTable ?? true,
           retreat_number_version: props.retreat.retreat_number_version || '',
           slug: (props.retreat as any).slug || '',
           closingChurchName: (props.retreat as any).closingChurchName || '',

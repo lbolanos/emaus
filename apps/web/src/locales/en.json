@@ -1173,6 +1173,11 @@
     "retreatTypePlaceholder": "Select type",
     "retreatNumber": "Number / Version",
     "retreatNumberPlaceholder": "Ex. XVI",
+    "couplesConfig": {
+      "title": "Couples retreat settings",
+      "shareRoom": "Couples share a room",
+      "shareTable": "Couples sit at the same table"
+    },
     "types": {
       "men": "Men",
       "women": "Women",
@@ -1692,6 +1697,40 @@
     "undoError": "Could not undo the assignment",
     "participant": "Participant",
     "select": "Select"
+  },
+  "coupleRegistration": {
+    "title": "Couple registration",
+    "asWalkers": "as walkers",
+    "asServers": "as servers",
+    "husband": "Him",
+    "wife": "Her",
+    "husbandSection": "His information",
+    "wifeSection": "Her information",
+    "steps": {
+      "husbandPersonal": "His information",
+      "wifePersonal": "Her information",
+      "address": "Home address",
+      "husbandHealth": "His health and sacraments",
+      "wifeHealth": "Her health and sacraments",
+      "emergency": "Emergency contacts",
+      "otherWalker": "Shirts and inviter",
+      "otherServer": "Shirts and meals"
+    },
+    "sharedAddressHint": "The address is captured once for both.",
+    "useDifferentEmergencyContacts": "Use different emergency contacts for each spouse",
+    "shirtsTitle": "Shirt sizes",
+    "husbandShirtSize": "His size",
+    "wifeShirtSize": "Her size",
+    "inviterTitle": "Who invites you?",
+    "validationError": "Please review the highlighted fields",
+    "dryRunOk": "Validation successful (nothing was saved)",
+    "successTitle": "Registration successful!",
+    "successMessage": "You are both registered together. You will receive a confirmation email soon.",
+    "waitingTitle": "You are on the waiting list",
+    "waitingMessage": "The retreat is full: you were registered together on the waiting list and we will let you know if a spot opens.",
+    "retreatNotFoundTitle": "Retreat not found",
+    "retreatNotFoundMessage": "This link does not match an open retreat. Please check with the person who shared it.",
+    "registrationClosed": "This retreat has ended and no longer accepts registrations."
   },
   "walkerRegistration": {
     "title": "Walker Registration",
