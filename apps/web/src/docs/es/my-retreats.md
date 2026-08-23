@@ -4,6 +4,8 @@ En **Mis Retiros** administras tus retiros —crearlos, editarlos y eliminarlos�
 
 📺 **[Ver video: crear y gestionar un retiro (3 min)](https://youtu.be/EDUr1n_fJk8)**
 
+📺 **[Ver video: retiros de matrimonios, qué cambia (2 min)](https://youtu.be/gwhPnDV2680)**
+
 ## Ver Tus Retiros
 
 1. Navega a **Mis Retiros** en la barra lateral (sección social)
