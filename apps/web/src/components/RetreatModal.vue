@@ -1629,8 +1629,14 @@ const handleSubmit = async () => {
         walkerArrivalTime: formData.value.walkerArrivalTime || undefined,
         serverArrivalTimeFriday: formData.value.serverArrivalTimeFriday || undefined,
         retreat_type: formData.value.retreat_type || undefined,
-        couplesShareRoom: formData.value.couplesShareRoom,
-        couplesShareTable: formData.value.couplesShareTable,
+        // Solo viajan en retiros de matrimonios: en los demás no aplican y no
+        // tiene sentido escribirlos.
+        ...(formData.value.retreat_type === 'couples'
+          ? {
+              couplesShareRoom: formData.value.couplesShareRoom,
+              couplesShareTable: formData.value.couplesShareTable,
+            }
+          : {}),
         retreat_number_version: formData.value.retreat_number_version || undefined,
         slug: formData.value.slug || undefined,
         flyer_options: formData.value.flyer_options,
