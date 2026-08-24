@@ -4234,13 +4234,17 @@ export const importParticipants = async (
             }
           }
 
-          // Handle table assignment
+          // Handle table assignment. The source of truth for tableId is
+          // retreat_participants. On Participant it is a virtual field populated
+          // at query time, so updating it there throws
+          // `Property "tableId" was not found in "Participant"`.
           if (tableId) {
-            await transactionalParticipantRepository
+            await rpRepo
               .createQueryBuilder()
-              .update(Participant)
+              .update(RetreatParticipant)
               .set({ tableId })
-              .where("id = :id", { id: participant.id })
+              .where('"participantId" = :pid', { pid: participant.id })
+              .andWhere('"retreatId" = :rid', { rid: retreatId })
               .execute();
           }
         }
