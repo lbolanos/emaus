@@ -2869,7 +2869,7 @@ export class CommunityService {
 			const nextMeeting = await this.meetingRepo
 				.createQueryBuilder('m')
 				.where('m.communityId = :cid', { cid: community.id })
-				.andWhere('m.startDate >= datetime("now")')
+				.andWhere("m.startDate >= datetime('now')")
 				.andWhere('(m.isRecurrenceTemplate = 0 OR m.isRecurrenceTemplate IS NULL)')
 				.andWhere('(m.exceptionType IS NULL OR m.exceptionType != :cancelled)', {
 					cancelled: 'cancelled',
@@ -2956,7 +2956,7 @@ export class CommunityService {
 			const physical = await this.meetingRepo
 				.createQueryBuilder('meeting')
 				.where('meeting.communityId = :cid', { cid: m.community.id })
-				.andWhere('meeting.startDate >= datetime("now")')
+				.andWhere("meeting.startDate >= datetime('now')")
 				.andWhere('(meeting.isRecurrenceTemplate IS NULL OR meeting.isRecurrenceTemplate = 0)')
 				.andWhere('(meeting.exceptionType IS NULL OR meeting.exceptionType != :cancelled)', {
 					cancelled: 'cancelled',
