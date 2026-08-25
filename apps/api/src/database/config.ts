@@ -196,7 +196,16 @@ export function createDatabaseConfig() {
 		};
 	} else {
 		return {
-			type: 'sqlite' as const,
+			// Driver SÍNCRONO. El asincrónico (`type: 'sqlite'`) entrelazaba transacciones:
+			// TypeORM usa una sola conexión, cada sentencia cedía el event loop y entre dos
+			// sentencias de una transacción se colaba otra petición con su propio BEGIN
+			// ("cannot start a transaction within a transaction" / "Transaction is not
+			// started yet" / "cannot commit - no transaction is active"). En el import las
+			// filas perdidas se contaban como `skipped` y el endpoint respondía 200 →
+			// pérdida SILENCIOSA (incidente Celaya 2026-08-24). Con el driver síncrono los
+			// await intermedios son microtasks: Node los drena antes de atender otra
+			// petición, así que la ventana desaparece. Detalle: specs/sqlite-sync-driver/.
+			type: 'better-sqlite3' as const,
 			database: process.env.DB_DATABASE || 'database.sqlite',
 			synchronize: false,
 			logging: false,
@@ -207,13 +216,17 @@ export function createDatabaseConfig() {
 			// WAL: lectores (backups del cron, db:pull con .backup, dashboards) ya NO
 			// se bloquean por un escritor activo. Resuelve el reader/writer blocking.
 			enableWAL: true,
-			// busyTimeout: ante SQLITE_BUSY, esperar hasta 5s a que se libere el lock
-			// en vez de fallar de inmediato (default del driver = 0 → falla al instante).
-			busyTimeout: 5000,
-			// busyErrorRetry: capa extra de TypeORM que reintenta el write ante SQLITE_BUSY.
-			busyErrorRetry: 3000,
+			// busy_timeout: ante SQLITE_BUSY, esperar hasta 5s a que se libere el lock en
+			// vez de fallar de inmediato (default = 0 → falla al instante). Este driver no
+			// acepta las claves `busyTimeout`/`busyErrorRetry` del asincrónico, así que va
+			// por PRAGMA. Cubre la contención ENTRE procesos (watchdog, .backup del cron),
+			// que sigue existiendo: SQLite mantiene un único escritor.
+			prepareDatabase: (db: { pragma: (source: string) => unknown }) => {
+				db.pragma('busy_timeout = 5000');
+			},
 			// Loguea cualquier query/transacción que tarde >5s → detecta a tiempo una
 			// transacción que se está colgando (la causa raíz del incidente 2026-06-04).
+			// Con el driver síncrono además delata una query que bloquee el event loop.
 			maxQueryExecutionTime: 5000,
 		};
 	}

@@ -74,16 +74,33 @@ const parseCsvLine = (line: string): string[] => {
  * Logs in with whatever credentials this database has. CI seeds the e2e users; a
  * developer machine running a copy of production does not, so it falls back to
  * credentials supplied via env. Never hardcode credentials here.
+ *
+ * Returns null only when no credentials work, which is a legitimate skip. A 429
+ * THROWS instead: /auth/login allows 10 attempts per 15 minutes, and running the
+ * suite a few times in a row burns through them. Skipping on that would report a
+ * green run for a test that never executed — the failure mode this distinction
+ * exists to prevent.
  */
 const login = async (baseURL: string): Promise<AuthSession | null> => {
 	const local =
 		process.env.E2E_LOCAL_EMAIL && process.env.E2E_LOCAL_PASSWORD
 			? { email: process.env.E2E_LOCAL_EMAIL, password: process.env.E2E_LOCAL_PASSWORD }
 			: null;
+	let rateLimited = false;
 	for (const creds of [E2E_USERS.superadmin, local]) {
 		if (!creds) continue;
-		const session = await loginAs(baseURL, creds).catch(() => null);
-		if (session) return session;
+		try {
+			return await loginAs(baseURL, creds);
+		} catch (err) {
+			if (String(err).includes(': 429')) rateLimited = true;
+		}
+	}
+	if (rateLimited) {
+		throw new Error(
+			'login rate-limited (429): /auth/login allows 10 attempts per 15 minutes and the ' +
+				'window is exhausted. Wait for it to expire and re-run — this is the test ' +
+				'environment, not the code under test.',
+		);
 	}
 	return null;
 };
@@ -191,20 +208,25 @@ test.describe('Import participants from CSV', () => {
 	});
 
 	/**
-	 * Known open bug, reproduced locally on 2026-08-24 (3 of 3 runs).
+	 * Guards the fix for the transaction race (2026-08-25).
 	 *
-	 * TypeORM drives SQLite over a single shared connection, so a long import that
-	 * opens transactions races against any other write hitting the API at the same
-	 * moment. Rows die individually with either
+	 * With the asynchronous `sqlite` driver, TypeORM drove SQLite over a single shared
+	 * connection and every statement yielded the event loop, so a long import raced
+	 * against any other write hitting the API at the same moment. Rows died one by one
+	 * with either
 	 *   - `SQLITE_ERROR: cannot start a transaction within a transaction`, or
 	 *   - `Transaction is not started yet, start transaction before committing…`
-	 * and the endpoint still answers 200 — the loss is silent, visible only as
-	 * skippedCount in the response.
+	 * and the endpoint still answered 200 — the loss was silent, visible only as
+	 * skippedCount. Measured at the time: 3 of 3 runs lost rows.
 	 *
-	 * Remove the fixme once imports survive concurrent writes (the roadmap fix is
-	 * the synchronous better-sqlite3 driver; see the db-production-resilience skill).
+	 * The synchronous `better-sqlite3` driver closes the window (statements resolve
+	 * in place, so the intermediate awaits are microtasks Node drains before serving
+	 * another request). If this test starts failing, check whether the driver in
+	 * `apps/api/src/database/config.ts` went back to `sqlite`, or whether a
+	 * transaction grew an await that is not a database call — either one reopens it.
+	 * Background: specs/sqlite-sync-driver/.
 	 */
-	test.fixme('survives concurrent writes without losing rows', async ({ baseURL }) => {
+	test('survives concurrent writes without losing rows', async ({ baseURL }) => {
 		test.skip(!fs.existsSync(CSV_PATH), `CSV fixture not found: ${CSV_PATH}`);
 		const session = await login(baseURL!);
 		test.skip(!session, 'no usable credentials (seed the e2e users or set E2E_LOCAL_*)');
@@ -231,29 +253,39 @@ test.describe('Import participants from CSV', () => {
 				data: { isPublic: true },
 			});
 
-			const rows = parseCsv(fs.readFileSync(CSV_PATH, 'utf8')).map((row, index) => ({
-				...row,
-				email: `e2e-race-${stamp}-${index}@test.local`,
-			}));
+			const csv = parseCsv(fs.readFileSync(CSV_PATH, 'utf8'));
 
-			// Import while hammering the API with other writes on the same connection.
-			const [importRes] = await Promise.all([
-				ctx.post(`/api/participants/import/${retreatId}`, {
-					headers: withCsrf(csrfToken),
-					data: { participants: rows },
-				}),
-				...Array.from({ length: 25 }, (_, i) =>
-					ctx.post('/api/tables', {
+			// Losing the race is probabilistic, so one round is not enough to trust a
+			// pass: with the old driver a single round caught it only ~2 times out of 3.
+			// Three rounds make a false green unlikely enough to be worth relying on.
+			for (let round = 0; round < 3; round++) {
+				const rows = csv.map((row, index) => ({
+					...row,
+					email: `e2e-race-${stamp}-${round}-${index}@test.local`,
+				}));
+
+				// Import while hammering the API with other writes on the same connection.
+				const [importRes] = await Promise.all([
+					ctx.post(`/api/participants/import/${retreatId}`, {
 						headers: withCsrf(csrfToken),
-						data: { name: `Race ${i}`, retreatId },
+						data: { participants: rows },
 					}),
-				),
-			]);
+					...Array.from({ length: 25 }, (_, i) =>
+						ctx.post('/api/tables', {
+							headers: withCsrf(csrfToken),
+							data: { name: `Race ${round}-${i}`, retreatId },
+						}),
+					),
+				]);
 
-			const raw = await importRes.text();
-			const result = JSON.parse(raw);
-			expect(result.skippedCount ?? 0, `rows lost to a transaction race: ${raw}`).toBe(0);
-			expect(result.importedCount).toBe(rows.length);
+				const raw = await importRes.text();
+				const result = JSON.parse(raw);
+				expect(
+					result.skippedCount ?? 0,
+					`round ${round + 1}: rows lost to a transaction race: ${raw}`,
+				).toBe(0);
+				expect(result.importedCount, `round ${round + 1}`).toBe(rows.length);
+			}
 		} finally {
 			if (retreatId) {
 				await ctx
