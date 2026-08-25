@@ -1674,7 +1674,13 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                 <!-- Three dots menu with all actions -->
                 <DropdownMenu>
                     <DropdownMenuTrigger as-child>
-                        <Button variant="outline" size="icon" class="shrink-0">
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            class="shrink-0"
+                            aria-label="Acciones"
+                            data-testid="participant-actions-menu"
+                        >
                             <MoreVertical class="h-4 w-4" />
                         </Button>
                     </DropdownMenuTrigger>

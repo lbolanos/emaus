@@ -13,6 +13,8 @@
   `specs/sqlite-sync-driver/`.
 - [x] **T0b. Worktree y puertos** — worktree creado, dependencias instaladas, base aislada y
   entorno de desarrollo levantado en puertos paralelos.
+- [x] **T0c. Construir `@repo/ui` en el worktree** — `pnpm install` no lo hace y el paquete se
+  sirve desde `dist/`, así que el web arranca roto hasta construirlo.
 
 ## M1 — Empaquetado
 
@@ -64,6 +66,8 @@ pre-push siguen verdes.
 
 - [x] **T13. Ejecutar el bundle real** — arrancar `dist/index.js` una vez en local. El modo de
   fallo de este cambio es **al cargar** el módulo, y eso no lo detectan ni los tests ni `tsc`.
+- [x] **T16. E2E de navegador** — `participant-import-ui.spec.ts`: la app monta sin errores y
+  el CSV se carga por la UI. Cubre el punto ciego de los specs de API.
 - [ ] **T14. Documentar** — actualizar el skill `db-production-resilience`: el roadmap deja de
   ser pendiente y pasa a ser la configuración vigente, con el incidente que lo motivó.
 - [ ] **T15. Desplegar y vigilar** — tras el deploy, revisar el log del API buscando
@@ -117,3 +121,25 @@ pre-push siguen verdes.
 
 - Los 18 tests que fallaron al cambiar el driver eran todos este mismo problema. Tras la
   corrección: 133 suites de services y 48 del resto en verde (~2.900 tests).
+
+### Punto ciego de los e2e (detectado por el usuario, no por los tests)
+
+- **Los dos specs de `participant-csv-import.spec.ts` nunca cargan el navegador.** Usan
+  `APIRequestContext`, que habla HTTP directo contra la API: el frontend no se monta. Se
+  mantuvieron en verde mientras la web del worktree no arrancaba —
+  `Failed to resolve entry for package "@repo/ui"`— porque `pnpm install` no construye los
+  paquetes del workspace y `@repo/ui` se sirve desde un `dist/` que nunca se generó. Un test
+  de API no puede ver esa clase de rotura.
+
+- **Arreglo del entorno**: `pnpm --filter @repo/ui build` en el worktree (más limpiar
+  `apps/web/node_modules/.vite`, que quedaba con referencias muertas). Anotado como T0c: en un
+  worktree nuevo hay que construir `@repo/ui` antes de levantar el web.
+
+- **Arreglo de la cobertura**: nuevo `participant-import-ui.spec.ts`, que sí abre la app en
+  Chromium — falla ante el overlay de error de Vite, ante errores de consola y ante un
+  `pageerror`. Verificado en ambas direcciones renombrando `packages/ui/dist`: el spec de
+  navegador **falla**, el de API **pasa en verde**. Esa es exactamente la diferencia.
+
+- Hizo falta un `data-testid` (`participant-actions-menu`) en el botón del menú de acciones de
+  `ParticipantList.vue`: es un botón sólo-icono, sin texto, y el icono de lucide no expone ni
+  clase ni nombre accesible. Se agregó también `aria-label`, que además mejora accesibilidad.
