@@ -566,4 +566,46 @@ describe('RetreatStore', () => {
 			expect(secondSelection).toBe('retreat-1');
 		});
 	});
+	// Retiros cuyo registro de caminantes lo lleva la parroquia en su propio sitio:
+	// el enlace externo manda sobre el slug, para que el tablero, el QR del volante
+	// y las plantillas no repartan inscripciones entre dos sistemas.
+	describe('registro externo de caminantes', () => {
+		const EXTERNAL = 'https://emaushombres.buendespacho.com/inscripcion';
+
+		it('walkerRegistrationLink devuelve la URL externa cuando el retiro la tiene', () => {
+			store.retreats = [
+				createMockRetreat({ id: 'retreat-1', slug: 'delvalleii', externalRegistrationUrl: EXTERNAL }),
+			];
+			store.selectRetreat('retreat-1');
+
+			expect(store.walkerRegistrationLink).toBe(EXTERNAL);
+		});
+
+		it('vuelve al slug propio cuando no hay URL externa', () => {
+			store.retreats = [createMockRetreat({ id: 'retreat-1', slug: 'delvalleii' })];
+			store.selectRetreat('retreat-1');
+
+			expect(store.walkerRegistrationLink).toContain('/delvalleii');
+			expect(store.walkerRegistrationLink).not.toContain('buendespacho');
+		});
+
+		it('una URL externa vacía no gana sobre el slug', () => {
+			store.retreats = [
+				createMockRetreat({ id: 'retreat-1', slug: 'delvalleii', externalRegistrationUrl: '' }),
+			];
+			store.selectRetreat('retreat-1');
+
+			expect(store.walkerRegistrationLink).toContain('/delvalleii');
+		});
+
+		it('los servidores siguen registrándose en emaus.cc aunque los caminantes no', () => {
+			store.retreats = [
+				createMockRetreat({ id: 'retreat-1', slug: 'delvalleii', externalRegistrationUrl: EXTERNAL }),
+			];
+			store.selectRetreat('retreat-1');
+
+			expect(store.serverRegistrationLink).toContain('/delvalleii/server');
+			expect(store.serverRegistrationLink).not.toContain('buendespacho');
+		});
+	});
 });

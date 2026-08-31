@@ -125,6 +125,14 @@ export class Retreat {
 	@Column({ type: 'varchar', nullable: true, unique: true })
 	slug?: string;
 
+	/**
+	 * Set when the parish runs walker registration on its own site. The walker
+	 * link (landing CTA, flyer QR, dashboard) points here instead of to the
+	 * built-in form. Server registration always stays on emaus.cc.
+	 */
+	@Column({ type: 'varchar', nullable: true })
+	externalRegistrationUrl?: string | null;
+
 	@Column({ type: 'varchar', nullable: true })
 	memoryPhotoUrl?: string;
 

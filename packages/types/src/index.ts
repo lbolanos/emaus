@@ -215,6 +215,24 @@ export const retreatSchema = z.object({
 			.max(120)
 			.optional(),
 	),
+	// Set when the parish runs walker registration on its own site. This value
+	// is redirected to and encoded into the flyer QR, so it must be a real
+	// http(s) address: `.url()` alone would accept `javascript:` and turn the
+	// redirect into an XSS vector. '' maps to null so the field can be cleared;
+	// undefined leaves the stored value untouched.
+	externalRegistrationUrl: z.preprocess(
+		(v) => (v === '' ? null : v),
+		z
+			.string()
+			.url()
+			.max(500)
+			.refine(
+				(v) => /^https?:\/\//i.test(v),
+				'El enlace debe empezar con http:// o https://',
+			)
+			.nullable()
+			.optional(),
+	),
 	isPublic: z.boolean().default(false),
 	roleInvitationEnabled: z.boolean().default(true),
 	walkerArrivalTime: arrivalTimeSchema,

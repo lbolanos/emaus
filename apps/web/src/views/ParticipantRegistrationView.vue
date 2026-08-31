@@ -43,6 +43,8 @@ const switchLocale = (lang: string) => {
 
 const validRetreatId = ref(props.retreatId || '')
 const isLoading = ref(true)
+// True while handing the walker over to the parish's own registration site.
+const isRedirectingExternally = ref(false)
 const retreatData = ref<any>(null)
 
 // Solo preguntar por comidas (nº de comidas del angelito / comida del viernes del
@@ -856,6 +858,26 @@ onMounted(async () => {
     if (response.ok) {
       const retreat = await response.json()
       if (retreat && retreat.isPublic) {
+        // The parish runs walker registration on its own site: hand the walker
+        // over instead of rendering a second form, which would split
+        // registrations across two systems and two payment instructions.
+        // Servers keep registering here. The protocol check is defence in
+        // depth — the write schema already rejects non-http(s) URLs, but a
+        // value stored before that validation must never reach location.replace.
+        // A finished retreat must show "this retreat has ended" here, not hand
+        // the walker to a form for a weekend that already happened — we cannot
+        // assume the parish closed theirs.
+        const external = retreat.externalRegistrationUrl
+        if (
+          !isServerType.value &&
+          !retreat.isRegistrationClosed &&
+          external &&
+          /^https?:\/\//i.test(external)
+        ) {
+          isRedirectingExternally.value = true
+          window.location.replace(external)
+          return
+        }
         validRetreatId.value = retreat.id
         retreatData.value = retreat
       } else {
@@ -874,7 +896,11 @@ onMounted(async () => {
       variant: 'destructive',
     })
   } finally {
-    isLoading.value = false
+    // Keep the form disabled while the browser navigates away, so the walker
+    // cannot start filling a form that is about to be replaced.
+    if (!isRedirectingExternally.value) {
+      isLoading.value = false
+    }
   }
 })
 

@@ -54,6 +54,14 @@ export const useRetreatStore = defineStore('retreat', () => {
 	});
 
 	const walkerRegistrationLink = computed(() => {
+		// When the parish runs walker registration on its own site, that URL is
+		// the single source of truth: it feeds the dashboard link, the flyer QR
+		// and the message templates, so none of them can drift to the built-in
+		// form and split registrations across two systems.
+		const external = selectedRetreat.value?.externalRegistrationUrl;
+		if (external) {
+			return external;
+		}
 		if (selectedRetreat.value?.slug) {
 			return `${window.location.origin}/${selectedRetreat.value.slug}`;
 		}
@@ -63,6 +71,8 @@ export const useRetreatStore = defineStore('retreat', () => {
 		return '';
 	});
 
+	// Servers always register through emaus.cc, even when walkers do not: the
+	// parish only collects walkers.
 	const serverRegistrationLink = computed(() => {
 		if (selectedRetreat.value?.slug) {
 			return `${window.location.origin}/${selectedRetreat.value.slug}/server`;

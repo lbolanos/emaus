@@ -110,6 +110,9 @@ export const getRetreatByIdPublic = async (
       isRegistrationClosed: isRetreatPast(retreat.endDate),
       flyer_options: retreat.flyer_options || {},
       slug: retreat.slug,
+      // Drives the redirect away from the built-in walker form when the parish
+      // runs its own registration.
+      externalRegistrationUrl: retreat.externalRegistrationUrl ?? null,
       country: retreat.house?.country ?? null,
       // Valor por comida: el registro solo pregunta comidas si es > 0.
       mealCost: retreat.mealCost ?? null,
@@ -140,6 +143,9 @@ export const getRetreatBySlugPublic = async (
       isRegistrationClosed: isRetreatPast(retreat.endDate),
       flyer_options: retreat.flyer_options || {},
       slug: retreat.slug,
+      // Drives the redirect away from the built-in walker form when the parish
+      // runs its own registration.
+      externalRegistrationUrl: retreat.externalRegistrationUrl ?? null,
       country: retreat.house?.country ?? null,
       // Valor por comida: el registro solo pregunta comidas si es > 0.
       mealCost: retreat.mealCost ?? null,

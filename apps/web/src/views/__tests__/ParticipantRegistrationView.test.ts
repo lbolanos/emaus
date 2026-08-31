@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mount, VueWrapper } from '@vue/test-utils';
+import { mount, VueWrapper, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { nextTick } from 'vue';
 import ParticipantRegistrationView from '../ParticipantRegistrationView.vue';
@@ -221,5 +221,90 @@ describe('ParticipantRegistrationView - Summary Translation', () => {
 			const shouldTranslate = value?.includes('Registration.') || value?.includes('common.');
 			expect(shouldTranslate).toBeFalsy();
 		});
+	});
+});
+
+// Retiros cuyo registro de caminantes lo lleva la parroquia en su propio sitio.
+//
+// El caso del retiro TERMINADO es un bug real encontrado al probar en el
+// navegador: la primera versión redirigía antes de mirar isRegistrationClosed,
+// así que quien abría el enlace de un retiro ya pasado acababa en el formulario
+// de la parroquia en vez de ver "este retiro ya terminó".
+describe('ParticipantRegistrationView - registro externo de caminantes', () => {
+	const EXTERNAL = 'https://emaushombres.buendespacho.com/inscripcion';
+	let pinia: ReturnType<typeof createPinia>;
+	let replaceSpy: ReturnType<typeof vi.fn>;
+
+	const mockRetreat = (extra: Record<string, any>) => {
+		global.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ id: 'retreat-123', isPublic: true, ...extra }),
+		});
+	};
+
+	const mountWith = (type: string) =>
+		mount(ParticipantRegistrationView, {
+			props: { retreatId: 'retreat-123', type },
+			global: { plugins: [pinia], mocks: { $t: (key: string) => key } },
+		});
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		pinia = createPinia();
+		setActivePinia(pinia);
+		replaceSpy = vi.fn();
+		// happy-dom's location is not configurable by default; replace the whole
+		// object so the spy survives the component's call.
+		Object.defineProperty(window, 'location', {
+			configurable: true,
+			writable: true,
+			value: { ...window.location, replace: replaceSpy, href: 'http://localhost/' },
+		});
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it('manda al caminante al sitio de la parroquia', async () => {
+		mockRetreat({ externalRegistrationUrl: EXTERNAL, isRegistrationClosed: false });
+		mountWith('walker');
+		await flushPromises();
+
+		expect(replaceSpy).toHaveBeenCalledWith(EXTERNAL);
+	});
+
+	it('NO redirige si el retiro ya terminó: debe verse "este retiro ya terminó"', async () => {
+		mockRetreat({ externalRegistrationUrl: EXTERNAL, isRegistrationClosed: true });
+		mountWith('walker');
+		await flushPromises();
+
+		expect(replaceSpy).not.toHaveBeenCalled();
+	});
+
+	it('NO redirige a los servidores: siguen registrándose en emaus.cc', async () => {
+		mockRetreat({ externalRegistrationUrl: EXTERNAL, isRegistrationClosed: false });
+		mountWith('server');
+		await flushPromises();
+
+		expect(replaceSpy).not.toHaveBeenCalled();
+	});
+
+	it('NO redirige a una URL que no sea http(s)', async () => {
+		// Defensa en profundidad: el schema ya lo rechaza al guardar, pero un
+		// valor viejo en base nunca puede llegar a location.replace.
+		mockRetreat({ externalRegistrationUrl: 'javascript:alert(1)', isRegistrationClosed: false });
+		mountWith('walker');
+		await flushPromises();
+
+		expect(replaceSpy).not.toHaveBeenCalled();
+	});
+
+	it('sin URL externa se queda en el formulario propio', async () => {
+		mockRetreat({ isRegistrationClosed: false });
+		mountWith('walker');
+		await flushPromises();
+
+		expect(replaceSpy).not.toHaveBeenCalled();
 	});
 });

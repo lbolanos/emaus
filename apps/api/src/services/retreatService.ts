@@ -62,6 +62,7 @@ import { v4 as uuidv4 } from 'uuid';
 const RETREAT_AUDIT_FIELDS = [
 	'parish',
 	'slug',
+	'externalRegistrationUrl',
 	'startDate',
 	'endDate',
 	'isPublic',

@@ -105,6 +105,25 @@
                 </div>
               </div>
 
+              <div class="space-y-2">
+                <Label for="externalRegistrationUrl">
+                  Registro externo de caminantes
+                </Label>
+                <Input
+                  id="externalRegistrationUrl"
+                  v-model="formData.externalRegistrationUrl"
+                  type="url"
+                  placeholder="https://ejemplo.com/inscripcion"
+                  @blur="normalizeExternalRegistrationUrl"
+                />
+                <p class="text-xs text-muted-foreground">
+                  Solo si la parroquia lleva el registro en su propio sitio. Al llenarlo,
+                  <code class="font-mono">emaus.cc/{{ formData.slug || 'slug' }}</code> redirige ahí,
+                  y el QR del volante y el enlace del tablero apuntan al mismo lugar.
+                  Los servidores siguen registrándose en emaus.cc.
+                </p>
+              </div>
+
             </div>
 
             <!-- Casa + regeneración de camas -->
@@ -1188,6 +1207,7 @@ const formData = ref({
   retreat_type: undefined as 'men' | 'women' | 'couples' | 'effeta' | undefined,
   retreat_number_version: '',
   slug: '',
+  externalRegistrationUrl: '',
   closingChurchName: '' as string | null,
   closingChurchAddress: '' as string | null,
   closingChurchLatitude: null as number | null,
@@ -1217,6 +1237,22 @@ const formData = ref({
     comeOverride: '',
   },
 });
+
+/**
+ * People type "parroquia.com/inscripcion" without a protocol, and the write
+ * schema requires http(s) — the API would answer 400 with a bare "Validation
+ * error" that says nothing about which field or why. Prepending https:// here
+ * removes the most likely rejection and shows the user what will be saved.
+ * Real garbage still fails validation, which is what we want.
+ */
+function normalizeExternalRegistrationUrl(): void {
+  const raw = formData.value.externalRegistrationUrl?.trim() ?? '';
+  if (!raw) {
+    formData.value.externalRegistrationUrl = '';
+    return;
+  }
+  formData.value.externalRegistrationUrl = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+}
 
 // Slug helpers
 function generateSlug(parish: string, number: string): string {
@@ -1592,6 +1628,7 @@ const handleSubmit = async () => {
         cost: formData.value.cost,
         paymentInfo: formData.value.paymentInfo,
         paymentMethods: formData.value.paymentMethods,
+        externalRegistrationUrl: formData.value.externalRegistrationUrl,
         serverFeeAmount: formData.value.serverFeeAmount,
         mealCost: formData.value.mealCost,
         max_walkers: formData.value.max_walkers,
@@ -1640,6 +1677,7 @@ const resetForm = () => {
     cost: '',
     paymentInfo: '',
     paymentMethods: '',
+    externalRegistrationUrl: '',
     serverFeeAmount: undefined,
     mealCost: undefined,
     max_walkers: undefined,
@@ -1852,6 +1890,7 @@ watch(() => props.open, (newOpen) => {
           cost: props.retreat.cost || '',
           paymentInfo: props.retreat.paymentInfo || '',
           paymentMethods: props.retreat.paymentMethods || '',
+          externalRegistrationUrl: (props.retreat as any).externalRegistrationUrl || '',
           serverFeeAmount: (props.retreat as any).serverFeeAmount ?? undefined,
           mealCost: (props.retreat as any).mealCost ?? undefined,
           max_walkers: props.retreat.max_walkers,
@@ -1905,6 +1944,8 @@ watch(() => props.open, (newOpen) => {
         ...props.initialData,
         startDate: props.initialData.startDate ? new Date(props.initialData.startDate) : new Date(),
         endDate: props.initialData.endDate ? new Date(props.initialData.endDate) : new Date(),
+        // Nullable in the API (null clears the link); the input needs a string.
+        externalRegistrationUrl: (props.initialData as any).externalRegistrationUrl ?? '',
         flyer_options: {
           titleOverride: initialFlyerOptions.titleOverride || '',
           subtitleOverride: initialFlyerOptions.subtitleOverride || '',
