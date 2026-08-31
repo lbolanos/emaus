@@ -29,6 +29,16 @@ vi.mock('@repo/ui', () => ({
 		emits: ['update:modelValue'],
 	},
 	Label: { template: '<label :for="$attrs.for"><slot /></label>' },
+	// El diálogo monta BirthdayFields, que usa Select para día y mes.
+	Select: {
+		template: '<div class="select"><slot /></div>',
+		props: ['modelValue'],
+		emits: ['update:modelValue'],
+	},
+	SelectTrigger: { template: '<div><slot /></div>' },
+	SelectContent: { template: '<div><slot /></div>' },
+	SelectItem: { template: '<div><slot /></div>' },
+	SelectValue: { template: '<div><slot /></div>' },
 	useToast: () => ({ toast: vi.fn() }),
 }));
 
@@ -215,6 +225,62 @@ describe('EditCommunityMemberDialog', () => {
 
 		expect(mockUpdateMemberProfile).toHaveBeenCalledWith('community-1', 'member-1', {
 			joinedAt: '2026-02-20',
+		});
+	});
+
+	// ─── Cumpleaños ──────────────────────────────────────────────────────────
+
+	it('precarga el cumpleaños desde los derivados que manda el API', async () => {
+		const wrapper = mountDialog({
+			member: buildMember({ birthdayMonthDay: '03-14', birthdayYear: 1985 }),
+		});
+		await nextTick();
+
+		// El año va en el input de BirthdayFields; el día y el mes viven en los
+		// Select, que aquí son stubs.
+		expect((wrapper.find('#member-birthday-year').element as HTMLInputElement).value).toBe(
+			'1985',
+		);
+	});
+
+	it('deja el cumpleaños vacío cuando el miembro no tiene fecha', async () => {
+		const wrapper = mountDialog({
+			member: buildMember({ birthdayMonthDay: null, birthdayYear: null }),
+		});
+		await nextTick();
+
+		expect((wrapper.find('#member-birthday-year').element as HTMLInputElement).value).toBe('');
+	});
+
+	it('manda el cumpleaños solo cuando cambia', async () => {
+		const wrapper = mountDialog({
+			member: buildMember({ birthdayMonthDay: '03-14', birthdayYear: 1985 }),
+		});
+		await nextTick();
+
+		// Cambiar solo el año: 1985 → 1986.
+		await wrapper.find('#member-birthday-year').setValue('1986');
+		await wrapper.find('form').trigger('submit');
+		await nextTick();
+
+		expect(mockUpdateMemberProfile).toHaveBeenCalledWith('community-1', 'member-1', {
+			birthDate: '1986-03-14',
+		});
+	});
+
+	it('no manda el cumpleaños si el usuario no lo toca', async () => {
+		const wrapper = mountDialog({
+			member: buildMember({ birthdayMonthDay: '03-14', birthdayYear: 1985 }),
+		});
+		await nextTick();
+
+		const inputs = wrapper.findAll('input');
+		await inputs[0].setValue('OtroNombre');
+		await wrapper.find('form').trigger('submit');
+		await nextTick();
+
+		expect(mockUpdateMemberProfile).toHaveBeenCalledWith('community-1', 'member-1', {
+			firstName: 'OtroNombre',
 		});
 	});
 

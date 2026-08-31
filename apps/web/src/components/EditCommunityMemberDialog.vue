@@ -1,6 +1,9 @@
 <template>
   <Dialog :open="open" @update:open="emit('update:open', $event)">
-    <DialogContent class="sm:max-w-[480px]">
+    <!-- max-h + scroll: con el campo de cumpleaños el formulario ya no cabe
+         entero en pantallas bajas (portátiles, móvil apaisado) y el encabezado
+         quedaba fuera de vista. Mismo patrón que MeetingFormModal. -->
+    <DialogContent class="sm:max-w-[480px] max-h-[90vh] overflow-hidden flex flex-col">
       <DialogHeader>
         <DialogTitle>Editar datos del miembro</DialogTitle>
         <DialogDescription>
@@ -9,7 +12,7 @@
         </DialogDescription>
       </DialogHeader>
 
-      <form v-if="member" @submit.prevent="submit" class="space-y-4">
+      <form v-if="member" @submit.prevent="submit" class="space-y-4 flex-1 overflow-y-auto pr-1">
         <div class="space-y-2">
           <Label for="firstName">Nombre <span class="text-red-500">*</span></Label>
           <Input
@@ -59,6 +62,13 @@
           />
         </div>
 
+        <BirthdayFields
+          id-prefix="member-birthday"
+          :model-value="form.birthDate"
+          @update:model-value="form.birthDate = $event"
+          @update:invalid="birthdayInvalid = $event"
+        />
+
         <div class="space-y-2">
           <Label for="joinedAt">Fecha de ingreso</Label>
           <Input
@@ -84,7 +94,7 @@
           >
             Cancelar
           </Button>
-          <Button type="submit" :disabled="isSaving || !form.firstName.trim()">
+          <Button type="submit" :disabled="isSaving || !form.firstName.trim() || birthdayInvalid">
             {{ isSaving ? 'Guardando…' : 'Guardar cambios' }}
           </Button>
         </DialogFooter>
@@ -108,6 +118,7 @@ import {
   useToast,
 } from '@repo/ui';
 import { useCommunityStore } from '@/stores/communityStore';
+import BirthdayFields from '@/components/community/BirthdayFields.vue';
 import { resolveMemberProfile } from '@repo/utils';
 import type { CommunityMember } from '@repo/types';
 
@@ -131,8 +142,14 @@ const form = ref({
   lastName: '',
   email: '',
   cellPhone: '',
+  birthDate: '',
   joinedAt: '',
 });
+// El hijo avisa cuando lo tecleado no forma una fecha real (31 de febrero);
+// mientras tanto, bloqueamos el guardado en vez de mandar un 400.
+const birthdayInvalid = ref(false);
+// Valor original del cumpleaños para enviar solo si cambió.
+const initialBirthDate = ref('');
 // Valor original de joinedAt (YYYY-MM-DD) para enviar solo si cambió.
 const initialJoinedAt = ref('');
 const isSaving = ref(false);
@@ -157,14 +174,25 @@ watch(
     // en ambos lados (lectura y guardado) evita el off-by-one por zona horaria.
     const joined = (props.member as any).joinedAt;
     const joinedStr = joined ? new Date(joined).toISOString().slice(0, 10) : '';
+    // El cumpleaños llega ya resuelto por el backend (`birthdayMonthDay` +
+    // `birthdayYear`), que aplica el fallback al participant y descarta el
+    // relleno automático del alta. Se recompone al formato canónico que el
+    // campo y el endpoint manejan.
+    const monthDay = (props.member as any).birthdayMonthDay as string | null;
+    const birthYear = (props.member as any).birthdayYear as number | null;
+    const birthStr = monthDay ? (birthYear ? `${birthYear}-${monthDay}` : monthDay) : '';
+
     form.value = {
       firstName: profile.firstName,
       lastName: profile.lastName,
       email: profile.email,
       cellPhone: profile.cellPhone,
+      birthDate: birthStr,
       joinedAt: joinedStr,
     };
     initialJoinedAt.value = joinedStr;
+    initialBirthDate.value = birthStr;
+    birthdayInvalid.value = false;
     errorMessage.value = null;
   },
   { immediate: true },
@@ -174,6 +202,10 @@ const submit = async () => {
   if (!props.member) return;
   if (!form.value.firstName.trim()) {
     errorMessage.value = 'El nombre no puede quedar vacío';
+    return;
+  }
+  if (birthdayInvalid.value) {
+    errorMessage.value = 'Revisa la fecha de cumpleaños';
     return;
   }
 
@@ -197,6 +229,10 @@ const submit = async () => {
     }
     if (current.cellPhone !== form.value.cellPhone.trim()) {
       payload.cellPhone = form.value.cellPhone.trim();
+    }
+    // Cumpleaños: enviar si cambió, incluido el vaciado (string vacío = limpiar).
+    if (form.value.birthDate !== initialBirthDate.value) {
+      payload.birthDate = form.value.birthDate;
     }
     // joinedAt: enviar solo si cambió y no quedó vacío.
     if (form.value.joinedAt && form.value.joinedAt !== initialJoinedAt.value) {
@@ -222,7 +258,9 @@ const submit = async () => {
   } catch (err: any) {
     // Mensajes específicos del backend
     const code = err?.response?.data?.code;
-    if (code === 'EMAIL_DUPLICATE_IN_COMMUNITY') {
+    if (code === 'INVALID_BIRTH_DATE') {
+      errorMessage.value = 'La fecha de cumpleaños no existe en el calendario.';
+    } else if (code === 'EMAIL_DUPLICATE_IN_COMMUNITY') {
       errorMessage.value =
         'Ya existe otro miembro de esta comunidad con ese correo. Verifica si es la misma persona o usa otro correo.';
     } else {

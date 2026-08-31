@@ -15,7 +15,16 @@
 
 const mockFindOne = jest.fn();
 const mockSave = jest.fn();
-const mockRepo = { findOne: mockFindOne, save: mockSave };
+// `find` y `update` los usa la limpieza de fotos de miembro: al anonimizar hay
+// que soltar también la cara que la persona tenga guardada en sus comunidades.
+const mockFind = jest.fn(async () => []);
+const mockUpdate = jest.fn(async () => ({ affected: 0 }));
+const mockRepo = {
+	findOne: mockFindOne,
+	save: mockSave,
+	find: mockFind,
+	update: mockUpdate,
+};
 const mockTransaction = jest.fn(async (cb: any) =>
 	cb({ getRepository: () => mockRepo }),
 );

@@ -7,6 +7,8 @@ import { Retreat } from "../entities/retreat.entity";
 import { TableMesa } from "../entities/tableMesa.entity";
 import { RetreatBed, BedUsage, BedType } from "../entities/retreatBed.entity";
 import { MessageTemplate } from "../entities/messageTemplate.entity";
+import { s3Service } from "./s3Service";
+import { avatarStorageService } from "./avatarStorageService";
 import { Payment } from "../entities/payment.entity";
 import {
   CreateParticipant,
@@ -4462,7 +4464,11 @@ export const findParticipantByDeleteToken = async (
 export const anonymizeParticipantByToken = async (
   token: string,
 ): Promise<boolean> => {
-  return AppDataSource.transaction(async (em) => {
+  // Ids de miembros cuya foto hay que borrar de S3 una vez confirmada la
+  // transacción.
+  let photoMemberIds: string[] = [];
+
+  const anonymized = await AppDataSource.transaction(async (em) => {
     const repo = em.getRepository(Participant);
     const p = await repo.findOne({ where: { dataDeleteToken: token } });
     if (!p || p.dataDeletedAt) return false;
@@ -4513,6 +4519,26 @@ export const anonymizeParticipantByToken = async (
 
     await repo.save(p);
 
+    // Fotos de rostro en las comunidades donde sea miembro. Anonimizar el
+    // Participant no bastaba: la cara vive en `community_member` (modelo
+    // overlay) y, en S3, en un objeto que sobreviviría a la solicitud de
+    // borrado. Aquí se sueltan las referencias dentro de la misma transacción;
+    // los objetos se borran después del commit, porque una llamada de red no
+    // debe alargar ni poder abortar la transacción.
+    const memberRepo = em.getRepository(CommunityMember);
+    const membersWithPhoto = await memberRepo.find({
+      where: { participantId: p.id },
+    });
+    photoMemberIds = membersWithPhoto
+      .filter((m) => m.photoS3Key)
+      .map((m) => m.id);
+    if (membersWithPhoto.some((m) => m.photoUrl || m.photoS3Key)) {
+      await memberRepo.update(
+        { participantId: p.id },
+        { photoUrl: null, photoS3Key: null },
+      );
+    }
+
     // GDPR: registrar SOLO el hecho de la anonimización (id/acción/retiro),
     // nunca los valores eliminados.
     void domainAuditService.log({
@@ -4525,4 +4551,21 @@ export const anonymizeParticipantByToken = async (
 
     return true;
   });
+
+  // Best-effort fuera de la transacción: si S3 falla, la referencia en base ya
+  // desapareció y el objeto queda para una limpieza aparte. Nunca al revés.
+  if (anonymized && photoMemberIds.length > 0 && avatarStorageService.isS3Storage()) {
+    for (const memberId of photoMemberIds) {
+      try {
+        await s3Service.deleteCommunityMemberPhoto(memberId);
+      } catch (err) {
+        console.warn(
+          `[participantService] no se pudo borrar de S3 la foto del miembro ${memberId} tras la anonimización:`,
+          err,
+        );
+      }
+    }
+  }
+
+  return anonymized;
 };

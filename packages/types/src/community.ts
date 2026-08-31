@@ -109,6 +109,20 @@ export const communityMemberSchema = z.object({
 	lastName: z.string().nullable().optional(),
 	email: z.string().nullable().optional(),
 	cellPhone: z.string().nullable().optional(),
+	// Cumpleaños capturado por la comunidad: 'YYYY-MM-DD' o 'MM-DD' (año
+	// desconocido). NULL no significa "no tiene" — la resolución cae al
+	// participant si su fecha es creíble. No leer esta columna directamente:
+	// usar los derivados de abajo, que el backend ya calculó y filtró por rol.
+	birthDate: z.string().nullable().optional(),
+	// Derivados de solo lectura que devuelve el API:
+	//  - birthdayMonthDay: 'MM-DD' del cumpleaños efectivo. Visible a todo admin.
+	//  - birthdayYear: año de nacimiento. Solo llega si el viewer es owner.
+	birthdayMonthDay: z.string().nullable().optional(),
+	birthdayYear: z.number().nullable().optional(),
+	// Foto de rostro. Al leerla, el API devuelve una URL firmada de S3 que
+	// caduca en una hora (o un data-URI en modo local). La key S3 nunca viaja
+	// al cliente: solo la usa el servidor para borrar el objeto.
+	photoUrl: z.string().nullable().optional(),
 	// Join relations (not always present)
 	participant: z.any().optional(),
 	// Calculated fields
@@ -254,6 +268,27 @@ export const setCommunityMeetingPhotoSchema = z.object({
 	params: z.object({ id: z.string().uuid() }),
 });
 
+/**
+ * Foto de rostro de un miembro. Mismo contrato que la foto de reunión: data-URI
+ * base64. El tamaño real y el formato los verifica `imageService` en el
+ * servidor (magic bytes + límite de 2 MB); aquí solo se acota la forma para
+ * rechazar temprano lo que ni siquiera es una imagen.
+ */
+export const setCommunityMemberPhotoSchema = z.object({
+	body: z.object({
+		photoData: z
+			.string()
+			.min(1)
+			.regex(/^data:image\/(jpeg|jpg|png|gif|webp);base64,/, {
+				message: 'photoData debe ser un data-URI de imagen válido',
+			}),
+	}),
+	params: z.object({
+		id: z.string().uuid(),
+		memberId: z.string().uuid(),
+	}),
+});
+
 export const importMembersSchema = z.object({
 	body: z.object({
 		retreatId: z.string().uuid(),
@@ -301,6 +336,26 @@ export const updateMemberProfileSchema = z.object({
 				})
 				.optional(),
 			cellPhone: z.string().trim().max(30).optional(),
+			// Cumpleaños del miembro. Dos formatos válidos: 'YYYY-MM-DD' cuando se
+			// conoce el año y 'MM-DD' cuando no (mucha gente da día y mes nada más).
+			// Empty string = limpiar, igual que los demás campos.
+			//
+			// El `.refine()` acepta '' explícitamente en vez de encadenar un
+			// `.regex().optional()`: esa combinación rechaza el string vacío que el
+			// cliente manda al limpiar un campo y devuelve un 400 desconcertante.
+			//
+			// Aquí solo se valida la FORMA. Que la fecha exista en el calendario
+			// (mes 13, 31 de febrero, 29 de febrero de un año no bisiesto) lo
+			// verifica el service con `normalizeBirthdayValue` de `@repo/utils`;
+			// este paquete no depende de utils.
+			birthDate: z
+				.string()
+				.trim()
+				.max(10)
+				.refine((v) => v === '' || /^(?:\d{4}-)?\d{2}-\d{2}$/.test(v), {
+					message: 'birthDate debe ser YYYY-MM-DD o MM-DD',
+				})
+				.optional(),
 			// Fecha de ingreso a la comunidad. NO es overlay de perfil, pero se
 			// edita desde el mismo diálogo. Determina desde cuándo cuentan las
 			// reuniones para la tasa de asistencia del miembro.
@@ -360,6 +415,17 @@ export const publicJoinRequestSchema = z.object({
 		lastName: z.string().min(1),
 		email: z.string().email(),
 		cellPhone: z.string().optional(),
+		// Cumpleaños opcional. Mismo formato dual que el resto: 'YYYY-MM-DD' o
+		// 'MM-DD'. El `.refine()` acepta '' porque el formulario lo manda vacío
+		// cuando la persona no lo llena.
+		birthDate: z
+			.string()
+			.trim()
+			.max(10)
+			.refine((v) => v === '' || /^(?:\d{4}-)?\d{2}-\d{2}$/.test(v), {
+				message: 'birthDate debe ser YYYY-MM-DD o MM-DD',
+			})
+			.optional(),
 	}),
 	params: z.object({
 		id: z.string().uuid(),

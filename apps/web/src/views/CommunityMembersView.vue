@@ -131,6 +131,14 @@
                 <span>Email</span>
               </div>
             </DropdownMenuItem>
+            <DropdownMenuItem @click="visibleColumns.birthday = !visibleColumns.birthday">
+              <div class="flex items-center gap-2">
+                <div class="w-4 h-4 border rounded flex items-center justify-center">
+                  <Check v-if="visibleColumns.birthday" class="w-3 h-3" />
+                </div>
+                <span>Cumpleaños</span>
+              </div>
+            </DropdownMenuItem>
             <DropdownMenuItem @click="visibleColumns.state = !visibleColumns.state">
               <div class="flex items-center gap-2">
                 <div class="w-4 h-4 border rounded flex items-center justify-center">
@@ -274,8 +282,28 @@
       >
         <Info :size="18" class="text-stone-400 shrink-0 mt-0.5" />
         <p class="text-stone-600">
-          Estás viendo la lista como <strong>admin</strong>. Algunos campos (dirección, fecha de nacimiento, información médica, contactos de emergencia) solo son visibles para el <strong>owner</strong> de la comunidad.
+          Estás viendo la lista como <strong>admin</strong>. Algunos campos (dirección, año de nacimiento, información médica, contactos de emergencia) solo son visibles para el <strong>owner</strong> de la comunidad. El día y el mes del cumpleaños sí los ves, para poder felicitar.
         </p>
+      </div>
+
+      <!-- Cobertura de cumpleaños: convierte la captura en una tarea que se
+           puede terminar, en vez de un campo que nadie llena. -->
+      <div
+        v-if="membersWithoutBirthday > 0"
+        class="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
+      >
+        <Cake :size="16" class="text-muted-foreground shrink-0" />
+        <span>
+          {{ membersWithoutBirthday }} de {{ members.length }}
+          {{ membersWithoutBirthday === 1 ? 'miembro no tiene' : 'miembros no tienen' }} cumpleaños registrado.
+        </span>
+        <button
+          type="button"
+          class="underline hover:text-foreground"
+          @click="missingBirthdayOnly = !missingBirthdayOnly"
+        >
+          {{ missingBirthdayOnly ? 'Ver todos' : 'Ver solo esos' }}
+        </button>
       </div>
 
       <!-- Live region for filter results -->
@@ -301,6 +329,13 @@
                   {{ $t('participants.email') }}
                   <ChevronUp v-if="sortColumn === 'email' && sortDirection === 'asc'" class="w-3.5 h-3.5" />
                   <ChevronDown v-if="sortColumn === 'email' && sortDirection === 'desc'" class="w-3.5 h-3.5" />
+                </button>
+              </TableHead>
+              <TableHead v-if="visibleColumns.birthday">
+                <button @click="sortBy('birthday')" class="flex items-center gap-1 hover:text-primary transition-colors">
+                  Cumpleaños
+                  <ChevronUp v-if="sortColumn === 'birthday' && sortDirection === 'asc'" class="w-3.5 h-3.5" />
+                  <ChevronDown v-if="sortColumn === 'birthday' && sortDirection === 'desc'" class="w-3.5 h-3.5" />
                 </button>
               </TableHead>
               <TableHead v-if="visibleColumns.state">
@@ -331,10 +366,36 @@
             <TableRow v-for="member in paginatedMembers" :key="member.id" class="hover:bg-muted/50">
               <TableCell v-if="visibleColumns.name" class="font-medium py-2">
                 <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="rounded-full ring-offset-background transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    :aria-label="`Cambiar foto de ${resolveMemberProfile(member).fullName}`"
+                    @click="openPhotoDialog(member)"
+                  >
+                    <MemberAvatar
+                      :photo-url="member.photoUrl"
+                      :full-name="resolveMemberProfile(member).fullName"
+                      size="sm"
+                    />
+                  </button>
                   <span>{{ resolveMemberProfile(member).fullName }}</span>
                 </div>
               </TableCell>
               <TableCell v-if="visibleColumns.email" class="py-2">{{ resolveMemberProfile(member).email }}</TableCell>
+              <TableCell v-if="visibleColumns.birthday" class="py-2 whitespace-nowrap">
+                <span v-if="memberBirthdayLabel(member)" class="text-sm">
+                  {{ memberBirthdayLabel(member) }}
+                </span>
+                <button
+                  v-else-if="communityStore.isOwnerOrSuperadmin"
+                  type="button"
+                  class="text-xs text-muted-foreground underline hover:text-foreground"
+                  @click="openEditDialog(member)"
+                >
+                  Sin fecha
+                </button>
+                <span v-else class="text-xs text-muted-foreground">Sin fecha</span>
+              </TableCell>
               <TableCell v-if="visibleColumns.state" class="py-2">
                 <Select
                   :model-value="member.state"
@@ -367,6 +428,7 @@
                   @toggle-contacted="contactedMarks.toggle(member.id)"
                   @attendance="openAttendanceDialog(member)"
                   @message="openMessageDialog(member)"
+                  @photo="openPhotoDialog(member)"
                   @notes="openNotesDialog(member)"
                   @timeline="openTimelineDialog(member)"
                   @edit="openEditDialog(member)"
@@ -424,6 +486,7 @@
               @toggle-contacted="contactedMarks.toggle(member.id)"
               @attendance="openAttendanceDialog(member)"
               @message="openMessageDialog(member)"
+              @photo="openPhotoDialog(member)"
               @notes="openNotesDialog(member)"
               @timeline="openTimelineDialog(member)"
               @edit="openEditDialog(member)"
@@ -519,6 +582,16 @@
       :participant="messageParticipant"
     />
 
+    <MemberPhotoDialog
+      v-if="currentCommunity"
+      v-model:open="isPhotoDialogOpen"
+      :community-id="currentCommunity.id"
+      :member-id="photoMember?.id ?? null"
+      :member-name="photoMember ? resolveMemberProfile(photoMember).fullName : ''"
+      :current-photo-url="photoMember?.photoUrl ?? null"
+      @saved="onPhotoSaved"
+    />
+
     <!-- Edit Member Profile Dialog -->
     <EditCommunityMemberDialog
       v-if="currentCommunity && editMember"
@@ -551,7 +624,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useCommunityStore } from '@/stores/communityStore';
 import { storeToRefs } from 'pinia';
-import { Loader2, UserPlus, Search, ChevronRight, ChevronUp, ChevronDown, Download, FileText, Settings2, Eye, EyeOff, Check, Info, RotateCcw, X } from 'lucide-vue-next';
+import { Loader2, UserPlus, Search, ChevronRight, ChevronUp, ChevronDown, Download, FileText, Settings2, Eye, EyeOff, Check, Info, RotateCcw, X, Cake } from 'lucide-vue-next';
 import {
   Button, Input, Card, Badge,
   Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
@@ -561,7 +634,12 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator
 } from '@repo/ui';
 import { useToast } from '@repo/ui';
-import { resolveMemberProfile } from '@repo/utils';
+import {
+  resolveMemberProfile,
+  formatBirthdayEs,
+  daysUntilBirthday,
+  todayInTimezone,
+} from '@repo/utils';
 import { sanitizePhoneForWhatsapp } from '@/utils/phone';
 import ImportMembersModal from '@/components/community/ImportMembersModal.vue';
 import CreateMemberModal from '@/components/community/CreateMemberModal.vue';
@@ -572,6 +650,8 @@ import MemberNotesDialog from '@/components/community/MemberNotesDialog.vue';
 import MemberTimelineDialog from '@/components/community/MemberTimelineDialog.vue';
 import MessageDialog from '@/components/MessageDialog.vue';
 import EditCommunityMemberDialog from '@/components/EditCommunityMemberDialog.vue';
+import MemberAvatar from '@/components/community/MemberAvatar.vue';
+import MemberPhotoDialog from '@/components/community/MemberPhotoDialog.vue';
 import { MemberStateEnum, type MemberState } from '@repo/types';
 import { useContactedMarks } from '@/composables/useContactedMarks';
 import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
@@ -648,12 +728,60 @@ const handleAttendanceSaved = () => {
   fetchMembers();
 };
 
+// --- Foto del miembro -------------------------------------------------------
+const photoMember = ref<any>(null);
+const isPhotoDialogOpen = ref(false);
+
+const openPhotoDialog = (member: any) => {
+  photoMember.value = member;
+  isPhotoDialogOpen.value = true;
+};
+
+// El endpoint devuelve el miembro con la URL ya firmada: se sustituye en la
+// lista para que la foto aparezca sin recargar.
+const onPhotoSaved = (updated: any) => {
+  const index = members.value.findIndex((m: any) => m.id === updated?.id);
+  if (index !== -1) {
+    members.value[index] = { ...members.value[index], photoUrl: updated.photoUrl ?? null };
+  }
+  if (photoMember.value?.id === updated?.id) {
+    photoMember.value = { ...photoMember.value, photoUrl: updated.photoUrl ?? null };
+  }
+};
+
+// --- Cumpleaños -------------------------------------------------------------
+// El backend ya resolvió el cumpleaños efectivo de cada miembro (overlay >
+// participant creíble) y lo mandó en `birthdayMonthDay` / `birthdayYear`. Aquí
+// solo se formatea y se ordena; nada de reconstruir fechas con `new Date()`.
+
+const missingBirthdayOnly = ref(false);
+
+const membersWithoutBirthday = computed(
+  () => members.value.filter((m: any) => !m.birthdayMonthDay).length,
+);
+
+const memberBirthdayLabel = (member: any): string | null =>
+  formatBirthdayEs({
+    monthDay: member.birthdayMonthDay ?? null,
+    year: member.birthdayYear ?? null,
+  });
+
+// "Hoy" en la zona de la comunidad, no en la del navegador: un coordinador de
+// viaje no debe ver los cumpleaños corridos un día.
+const communityToday = computed(() =>
+  todayInTimezone(currentCommunity.value?.timezone || 'America/Mexico_City'),
+);
+
+const memberDaysUntilBirthday = (member: any): number | null =>
+  daysUntilBirthday(member.birthdayMonthDay ?? null, communityToday.value);
+
 // Column visibility state with localStorage
 const STORAGE_KEY = 'community-members-columns';
 
 interface ColumnVisibility {
   name: boolean;
   email: boolean;
+  birthday: boolean;
   state: boolean;
   attendance: boolean;
   lastMessage: boolean;
@@ -663,6 +791,7 @@ interface ColumnVisibility {
 const defaultColumns: ColumnVisibility = {
   name: true,
   email: false, // Hidden by default
+  birthday: true,
   state: true,
   attendance: true,
   lastMessage: true,
@@ -689,7 +818,7 @@ const visibleColumnCount = computed(() => {
 });
 
 // Sort state
-const sortColumn = ref<'name' | 'email' | 'state' | 'attendance' | 'lastMessage'>('attendance');
+const sortColumn = ref<'name' | 'email' | 'birthday' | 'state' | 'attendance' | 'lastMessage'>('attendance');
 const sortDirection = ref<'asc' | 'desc'>('desc');
 
 /**
@@ -769,7 +898,9 @@ const filteredMembers = computed(() => {
       }
     }
     const matchesState = stateFilter.value === 'all' || member.state === stateFilter.value;
-    return matchesSearch && matchesState;
+    const matchesBirthdayFilter =
+      !missingBirthdayOnly.value || !(member as any).birthdayMonthDay;
+    return matchesSearch && matchesState && matchesBirthdayFilter;
   });
 
   // Sort filtered members
@@ -786,6 +917,18 @@ const filteredMembers = computed(() => {
       case 'email':
         compareValue = resolveMemberProfile(a).email.localeCompare(resolveMemberProfile(b).email);
         break;
+      case 'birthday': {
+        // Por proximidad del próximo cumpleaños. Quien no tiene fecha va
+        // siempre al final, sin importar la dirección del orden — mezclarlos
+        // entre los que sí tienen no le sirve a nadie.
+        const aDays = memberDaysUntilBirthday(a);
+        const bDays = memberDaysUntilBirthday(b);
+        if (aDays === null && bDays === null) compareValue = 0;
+        else if (aDays === null) return 1;
+        else if (bDays === null) return -1;
+        else compareValue = aDays - bDays;
+        break;
+      }
       case 'state':
         compareValue = a.state.localeCompare(b.state);
         break;
@@ -827,14 +970,15 @@ watch(totalPages, (tp) => {
   if (currentPage.value > tp) currentPage.value = tp;
 });
 
-const sortBy = (column: 'name' | 'email' | 'state' | 'attendance' | 'lastMessage') => {
+const sortBy = (column: 'name' | 'email' | 'birthday' | 'state' | 'attendance' | 'lastMessage') => {
   if (sortColumn.value === column) {
     // Toggle direction if clicking the same column
     sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
   } else {
     // New column, set to descending by default (except for name/email where ascending is more natural)
     sortColumn.value = column;
-    sortDirection.value = column === 'name' || column === 'email' ? 'asc' : 'desc';
+    sortDirection.value =
+      column === 'name' || column === 'email' || column === 'birthday' ? 'asc' : 'desc';
   }
 };
 

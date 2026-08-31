@@ -17,7 +17,7 @@ const SIGNED_URL_TTL_SECONDS = 3600;
 // Private prefixes whose objects are NOT world-readable in the bucket policy and
 // therefore must be served via presigned URLs. `avatars/` and `public-assets/`
 // are intentionally absent: they are public and their plain URLs pass through.
-const PRIVATE_PREFIXES = ['retreat-memories/', 'community-meetings/'];
+const PRIVATE_PREFIXES = ['retreat-memories/', 'community-meetings/', 'community-members/'];
 
 interface UploadResult {
 	url: string;
@@ -218,6 +218,41 @@ class S3Service {
 			url: this.getPublicUrl(key),
 			key,
 		};
+	}
+
+	// Foto de rostro de un miembro de comunidad. Key fija por miembro
+	// (community-members/{memberId}.webp): volver a subir reemplaza la anterior.
+	// Prefijo PRIVADO — se sirve con presignPrivateUrl, nunca con la URL cruda.
+	async uploadCommunityMemberPhoto(
+		memberId: string,
+		buffer: Buffer,
+		contentType: string,
+	): Promise<UploadResult> {
+		const key = `community-members/${memberId}.webp`;
+
+		const command = new PutObjectCommand({
+			Bucket: this.bucketName,
+			Key: key,
+			Body: buffer,
+			ContentType: contentType,
+			CacheControl: 'private, max-age=3600',
+		});
+
+		await this.ensureClient().send(command);
+
+		return {
+			url: this.getPublicUrl(key),
+			key,
+		};
+	}
+
+	async deleteCommunityMemberPhoto(memberId: string): Promise<void> {
+		const command = new DeleteObjectCommand({
+			Bucket: this.bucketName,
+			Key: `community-members/${memberId}.webp`,
+		});
+
+		await this.ensureClient().send(command);
 	}
 
 	async deleteCommunityMeetingPhoto(meetingId: string): Promise<void> {

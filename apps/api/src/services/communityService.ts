@@ -19,7 +19,14 @@ import { s3Service } from './s3Service';
 // helpers de `@repo/utils` para prevenir placeholder-spoofing. Pero el
 // resto del service sí usa `resolveMemberProfile` para resolver el overlay
 // per-community sobre el Participant subyacente.
-import { resolveMemberProfile } from '@repo/utils';
+import {
+	resolveMemberProfile,
+	resolveMemberBirthday,
+	normalizeBirthdayValue,
+	daysUntilBirthday,
+	turningAge,
+	todayInTimezone,
+} from '@repo/utils';
 import { inferTimezoneFromCoords } from '../utils/date.transformer';
 
 /**
@@ -30,6 +37,21 @@ import { inferTimezoneFromCoords } from '../utils/date.transformer';
  */
 export const getCommunityTimezone = (community: { timezone?: string | null } | null | undefined): string => {
 	return community?.timezone || 'America/Mexico_City';
+};
+
+/**
+ * Parsea un datetime crudo de SQLite ('YYYY-MM-DD HH:MM:SS.mmm', sin zona) como
+ * UTC. Mismo criterio que `DateTimeTransformer`, pero para filas que vuelven de
+ * un `AppDataSource.query()` a pelo, donde el transformer de la entidad no
+ * corre. Sin esto, `new Date()` las interpretaría como hora local y se irían
+ * 6 horas en CDMX.
+ */
+const parseSqliteDate = (raw: string | null | undefined): Date | null => {
+	if (!raw) return null;
+	const normalized =
+		raw.endsWith('Z') || raw.includes('+') ? raw : `${raw.replace(' ', 'T')}Z`;
+	const parsed = new Date(normalized);
+	return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
 /**
@@ -460,23 +482,248 @@ export class CommunityService {
 			viewer.isSuperadmin,
 		);
 		const members = await this.getMembers(communityId, state);
-		// Owner y superadmin ven todo
-		if (role === 'superadmin' || role === 'owner') return members;
-		// Admin no-owner: trim PII sensible
-		return members.map((m: any) => ({
-			...m,
-			participant: m.participant
-				? {
-						id: m.participant.id,
-						firstName: m.participant.firstName,
-						lastName: m.participant.lastName,
-						email: m.participant.email,
-						cellPhone: m.participant.cellPhone,
-						// Marcar explícitamente como trimmed para que el frontend sepa
-						_trimmed: true,
-					}
-				: null,
-		}));
+		const isPrivileged = role === 'superadmin' || role === 'owner';
+
+		return Promise.all(
+			members.map(async (m: any) => {
+			// El cumpleaños efectivo se resuelve SIEMPRE aquí, en el servidor. El
+			// frontend recibe campos derivados y nunca el crudo: así no necesita
+			// saber del fallback al participant ni de la detección del relleno
+			// automático del alta, y el filtro de PII de abajo no se puede
+			// esquivar leyendo otra columna.
+				const birthday = resolveMemberBirthday(m);
+				const withDerived = {
+					...m,
+					// Día y mes: los ve cualquier admin — es lo que hace falta para felicitar.
+					birthdayMonthDay: birthday.monthDay,
+					// El año (y con él la edad) es PII sensible: solo owner y superadmin.
+					birthdayYear: isPrivileged ? birthday.year : null,
+					// La foto vive en un prefijo S3 privado: la URL cruda no abre. Se
+					// firma en cada lectura (la firma es local y barata).
+					photoUrl: await s3Service.presignPrivateUrl(m.photoUrl),
+					// La key solo sirve para borrar en el servidor; no viaja al cliente.
+					photoS3Key: undefined,
+				};
+
+				if (isPrivileged) return withDerived;
+
+				// Admin no-owner: trim PII sensible. `birthDate` se descarta del objeto
+				// — dejarlo pasar filtraría el año que `birthdayYear` acaba de ocultar.
+				// La foto SÍ se queda: reconocer una cara en la reunión es justo para
+				// lo que sirve, y es tarea de todo el equipo, no solo del owner.
+				const { birthDate: _hiddenBirthDate, ...rest } = withDerived;
+				return {
+					...rest,
+					participant: m.participant
+						? {
+								id: m.participant.id,
+								firstName: m.participant.firstName,
+								lastName: m.participant.lastName,
+								email: m.participant.email,
+								cellPhone: m.participant.cellPhone,
+								// Marcar explícitamente como trimmed para que el frontend sepa
+								_trimmed: true,
+							}
+						: null,
+				};
+			}),
+		);
+	}
+
+	/**
+	 * Miembros que cumplen años dentro de los próximos `windowDays` días,
+	 * ordenados por proximidad. Alimenta el panel "Cumplen pronto", desde donde
+	 * el coordinador dispara la felicitación a mano.
+	 *
+	 * Criterios:
+	 *  - "Hoy" se resuelve en la zona horaria de la comunidad, no en la del
+	 *    servidor. Todo el cálculo va sobre componentes de calendario y strings
+	 *    'MM-DD' — nunca sobre `Date`, que es donde este proyecto ha perdido
+	 *    días enteros.
+	 *  - Audiencia: la lista positiva canónica de estados (`active_member` y
+	 *    `pending_verification`). Los demás son declinaciones o canales rotos.
+	 *  - `doNotContact` del Participant excluye siempre.
+	 *  - El año de nacimiento y la edad solo viajan si el viewer es owner o
+	 *    superadmin, igual que en `getMembersForViewer`.
+	 */
+	async getUpcomingBirthdays(
+		communityId: string,
+		viewer: { userId: string; isSuperadmin: boolean },
+		windowDays = 30,
+	) {
+		const role = await this.getViewerRoleForCommunity(
+			viewer.userId,
+			communityId,
+			viewer.isSuperadmin,
+		);
+		const isPrivileged = role === 'superadmin' || role === 'owner';
+
+		const community = await this.communityRepo.findOne({ where: { id: communityId } });
+		const today = todayInTimezone(getCommunityTimezone(community));
+
+		const members = (await this.getMembers(communityId)).filter(
+			(m: any) =>
+				['active_member', 'pending_verification'].includes(m.state) &&
+				!m.participant?.doNotContact,
+		);
+
+		const upcoming = members
+			.map((m: any) => {
+				const birthday = resolveMemberBirthday(m);
+				const daysUntil = daysUntilBirthday(birthday.monthDay, today);
+				return { member: m, birthday, daysUntil };
+			})
+			.filter((row) => row.daysUntil !== null && row.daysUntil <= windowDays);
+
+		// ¿A quién ya felicitaron? `participant_communications` no guarda el tipo
+		// de plantilla, así que hay que resolverlo por join contra la plantilla
+		// usada. Se comparan fechas con `datetime()` de SQLite y no con un ISO de
+		// JS: la columna se persiste como 'YYYY-MM-DD HH:MM:SS.mmm' sin zona, y un
+		// ISO con 'T' y 'Z' no compara bien contra ese formato.
+		const greetingRows: { participantId: string; lastSentAt: string }[] = upcoming.length
+			? await AppDataSource.query(
+					`SELECT pc.participantId AS participantId, MAX(pc.sentAt) AS lastSentAt
+					 FROM participant_communications pc
+					 INNER JOIN message_templates mt ON mt.id = pc.templateId
+					 WHERE pc.scope = 'community'
+					   AND pc.communityId = ?
+					   AND mt.type = 'BIRTHDAY_MESSAGE'
+					   AND pc.sentAt >= datetime('now', ?)
+					 GROUP BY pc.participantId`,
+					[communityId, `-${windowDays} days`],
+				)
+			: [];
+		const lastGreetingByParticipant = new Map(
+			greetingRows.map((r) => [r.participantId, parseSqliteDate(r.lastSentAt)]),
+		);
+
+		const nowMs = Date.now();
+		const rows = await Promise.all(
+			upcoming.map(async ({ member, birthday, daysUntil }) => {
+				const profile = resolveMemberProfile(member);
+				// Una felicitación cuenta como "ya enviada" si salió después de que
+				// este miembro entrara en la ventana — es decir, hace menos de
+				// (windowDays - daysUntil) días. Así una felicitación anticipada de
+				// esta ronda cuenta, y la del año pasado no. Comparar contra "este
+				// año calendario" fallaría con los cumpleaños de principios de enero.
+				const lastGreeting = lastGreetingByParticipant.get(member.participantId);
+				const alreadyGreeted =
+					lastGreeting != null &&
+					nowMs - lastGreeting.getTime() <= (windowDays - daysUntil!) * 86_400_000;
+
+				return {
+					memberId: member.id,
+					participantId: member.participantId,
+					fullName: profile.fullName,
+					email: profile.email,
+					cellPhone: profile.cellPhone,
+					photoUrl: await s3Service.presignPrivateUrl(member.photoUrl),
+					state: member.state,
+					birthdayMonthDay: birthday.monthDay,
+					birthdayYear: isPrivileged ? birthday.year : null,
+					turningAge: isPrivileged ? turningAge(birthday, today) : null,
+					daysUntil: daysUntil!,
+					alreadyGreeted,
+				};
+			}),
+		);
+
+		return rows.sort(
+			(a, b) => a.daysUntil - b.daysUntil || a.fullName.localeCompare(b.fullName, 'es'),
+		);
+	}
+
+	/**
+	 * Sube o reemplaza la foto de rostro de un miembro. Espera un data-URI
+	 * base64. Mismo flujo que la foto de reunión: en modo S3 procesa la imagen
+	 * (resize a 512px + webp) y la sube con key fija por miembro; en modo base64
+	 * persiste el data-URI ya validado en la frontera.
+	 *
+	 * La foto va al miembro, NUNCA al Participant: el modelo overlay no deja que
+	 * una comunidad escriba en la identidad global.
+	 */
+	async setMemberPhoto(communityId: string, memberId: string, photoData: string) {
+		const member = await this.memberRepo.findOne({
+			where: { id: memberId, communityId },
+			relations: ['participant'],
+		});
+		if (!member) {
+			throw new Error('Member not found in this community');
+		}
+
+		let url: string;
+		let s3Key: string | null = null;
+
+		if (avatarStorageService.isS3Storage()) {
+			const { buffer, contentType } = imageService.base64ToBuffer(photoData);
+			const processed = await imageService.processAvatar(buffer, contentType);
+			const result = await s3Service.uploadCommunityMemberPhoto(
+				memberId,
+				processed.buffer,
+				processed.contentType,
+			);
+			url = result.url;
+			s3Key = result.key;
+		} else {
+			url = photoData;
+		}
+
+		await this.memberRepo.update(memberId, { photoUrl: url, photoS3Key: s3Key });
+		return this.findMemberWithBirthday(memberId);
+	}
+
+	/**
+	 * Elimina la foto de un miembro (objeto en S3 si aplica + columnas). No falla
+	 * si el objeto ya no está en S3 — el objetivo es que la referencia desaparezca
+	 * de la base pase lo que pase.
+	 */
+	async deleteMemberPhoto(communityId: string, memberId: string) {
+		const member = await this.memberRepo.findOne({ where: { id: memberId, communityId } });
+		if (!member) {
+			throw new Error('Member not found in this community');
+		}
+
+		if (member.photoS3Key && avatarStorageService.isS3Storage()) {
+			try {
+				await s3Service.deleteCommunityMemberPhoto(memberId);
+			} catch (err) {
+				console.warn(`[communityService] S3 delete failed for member photo ${memberId}:`, err);
+			}
+		}
+
+		await this.memberRepo.update(memberId, { photoUrl: null, photoS3Key: null });
+		return this.findMemberWithBirthday(memberId);
+	}
+
+	/**
+	 * Borra TODAS las fotos de un participante en todas las comunidades donde sea
+	 * miembro. La usa el flujo de derecho de eliminación: sin esto, la persona
+	 * pide que borren sus datos y su cara sigue en el bucket.
+	 *
+	 * Devuelve cuántas fotos se limpiaron.
+	 */
+	async purgeMemberPhotosForParticipant(participantId: string): Promise<number> {
+		const members = await this.memberRepo.find({ where: { participantId } });
+		const withPhoto = members.filter((m) => m.photoUrl || m.photoS3Key);
+		if (withPhoto.length === 0) return 0;
+
+		for (const member of withPhoto) {
+			if (member.photoS3Key && avatarStorageService.isS3Storage()) {
+				try {
+					await s3Service.deleteCommunityMemberPhoto(member.id);
+				} catch (err) {
+					// Se registra pero no se aborta: la referencia en base SIEMPRE
+					// debe irse, aunque el objeto en S3 quede colgando y haya que
+					// limpiarlo aparte.
+					console.warn(
+						`[communityService] S3 delete failed while purging member photo ${member.id}:`,
+						err,
+					);
+				}
+			}
+			await this.memberRepo.update(member.id, { photoUrl: null, photoS3Key: null });
+		}
+		return withPhoto.length;
 	}
 
 	/**
@@ -571,10 +818,13 @@ export class CommunityService {
 			// realidad se unió antes, y que su tasa de asistencia cuente las
 			// reuniones correctas.
 			joinedAt?: string | Date;
+			// Cumpleaños ('YYYY-MM-DD' o 'MM-DD'). Se guarda en el miembro, no en
+			// el Participant: en contexto comunidad la identidad global no se toca.
+			birthDate?: string;
 		},
 		state: MemberState = 'active_member',
 	) {
-		const { joinedAt, ...participantFields } = participantData;
+		const { joinedAt, birthDate, ...participantFields } = participantData;
 
 		// Bloquea tel duplicado en la misma comunidad. Si llaman desde bulkAddMembers,
 		// ahí también verifico para devolver mejor mensaje, pero aquí es safety net
@@ -634,6 +884,16 @@ export class CommunityService {
 			const parsed = new Date(joinedAt);
 			if (!Number.isNaN(parsed.getTime())) {
 				await this.memberRepo.update(savedMember.id, { joinedAt: parsed });
+			}
+		}
+
+		// Cumpleaños: se ignora en silencio si no es una fecha real. Es un campo
+		// opcional de un alta que ya se completó — tumbar la creación entera por
+		// una fecha mal tecleada sería peor que dejarla sin capturar.
+		if (birthDate) {
+			const normalized = normalizeBirthdayValue(birthDate);
+			if (normalized) {
+				await this.memberRepo.update(savedMember.id, { birthDate: normalized });
 			}
 		}
 
@@ -754,6 +1014,7 @@ export class CommunityService {
 			lastName?: string;
 			email?: string;
 			cellPhone?: string;
+			birthDate?: string;
 			joinedAt?: string | Date;
 		},
 	) {
@@ -824,6 +1085,20 @@ export class CommunityService {
 			overlayUpdates.email = newEmail === '' ? null : newEmail;
 		}
 
+		// Cumpleaños. Se guarda como texto ('YYYY-MM-DD' o 'MM-DD'); el schema
+		// Zod ya validó la forma, aquí se valida que la fecha exista de verdad
+		// en el calendario. Empty string limpia el dato, como el resto.
+		if (typeof profile.birthDate === 'string') {
+			const trimmed = profile.birthDate.trim();
+			if (trimmed === '') {
+				overlayUpdates.birthDate = null;
+			} else {
+				const normalized = normalizeBirthdayValue(trimmed);
+				if (!normalized) throw new Error('INVALID_BIRTH_DATE');
+				overlayUpdates.birthDate = normalized;
+			}
+		}
+
 		// Detectar si los valores ya estaban iguales al overlay actual —
 		// evita audit log spurious de no-op (security review feedback).
 		const changedFields: string[] = [];
@@ -848,13 +1123,7 @@ export class CommunityService {
 		}
 
 		if (changedFields.length === 0) {
-			return {
-				member: await this.memberRepo.findOne({
-					where: { id: memberId },
-					relations: ['participant', 'community'],
-				}),
-				changedFields,
-			};
+			return { member: await this.findMemberWithBirthday(memberId), changedFields };
 		}
 
 		try {
@@ -873,12 +1142,31 @@ export class CommunityService {
 			throw err;
 		}
 
+		return { member: await this.findMemberWithBirthday(memberId), changedFields };
+	}
+
+	/**
+	 * Recarga un miembro con los mismos campos derivados de cumpleaños que
+	 * devuelve `getMembersForViewer`, para que el cliente pueda refrescar la fila
+	 * tras guardar sin pedir la lista entera. No filtra el año: el único
+	 * endpoint que llama aquí es owner-only.
+	 */
+	private async findMemberWithBirthday(memberId: string) {
+		const member = await this.memberRepo.findOne({
+			where: { id: memberId },
+			relations: ['participant', 'community'],
+		});
+		if (!member) return member;
+		const birthday = resolveMemberBirthday(member);
 		return {
-			member: await this.memberRepo.findOne({
-				where: { id: memberId },
-				relations: ['participant', 'community'],
-			}),
-			changedFields,
+			...member,
+			birthdayMonthDay: birthday.monthDay,
+			birthdayYear: birthday.year,
+			photoUrl: await s3Service.presignPrivateUrl(member.photoUrl),
+			photoS3Key: undefined,
+		} as typeof member & {
+			birthdayMonthDay: string | null;
+			birthdayYear: number | null;
 		};
 	}
 
@@ -2417,6 +2705,8 @@ export class CommunityService {
 			lastName: string;
 			email: string;
 			cellPhone?: string;
+			/** Cumpleaños opcional ('YYYY-MM-DD' o 'MM-DD'). Se ignora si no es real. */
+			birthDate?: string;
 		},
 	) {
 		const normalizedEmail = participantData.email.toLowerCase().trim();
@@ -2492,6 +2782,9 @@ export class CommunityService {
 					communityId,
 					participantId: savedParticipant.id,
 					state: 'pending_verification',
+					// El cumpleaños es opcional en el formulario público; si viene mal
+					// formado se descarta en silencio en vez de tumbar la solicitud.
+					birthDate: normalizeBirthdayValue(participantData.birthDate),
 				});
 				savedMember = await memberRepoTx.save(member);
 			} catch (dbErr: any) {

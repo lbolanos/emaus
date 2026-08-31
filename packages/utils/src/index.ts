@@ -59,6 +59,263 @@ export function resolveMemberProfile(m: MemberOverlayLike): {
 }
 
 /**
+ * ---------------------------------------------------------------------------
+ * Cumpleaños de un miembro de comunidad
+ * ---------------------------------------------------------------------------
+ *
+ * El cumpleaños per-community se guarda en `community_member.birthDate` como
+ * TEXTO, no como fecha, en uno de dos formatos:
+ *
+ *   - `'YYYY-MM-DD'` (10 chars) cuando se conoce el año.
+ *   - `'MM-DD'`      (5 chars)  cuando no. Mucha gente da día y mes nada más.
+ *
+ * Texto y no `Date` por dos razones: el año opcional no cabe en un tipo fecha,
+ * y pasar un cumpleaños por `new Date()` lo expone al off-by-one por zona
+ * horaria que ya mordió a este proyecto. Un `'MM-DD'` plano no puede saltar de
+ * día. **Nunca conviertas estos valores a `Date` para mostrarlos.**
+ */
+
+/** Días por mes; febrero se trata aparte porque depende del año. */
+const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+const MONTH_NAMES_ES = [
+	'enero',
+	'febrero',
+	'marzo',
+	'abril',
+	'mayo',
+	'junio',
+	'julio',
+	'agosto',
+	'septiembre',
+	'octubre',
+	'noviembre',
+	'diciembre',
+];
+
+/** Edad mínima creíble. Por debajo, el `birthDate` es basura, no un dato. */
+const MIN_CREDIBLE_AGE_YEARS = 5;
+
+export interface ResolvedBirthday {
+	/** `'MM-DD'`, o null si no hay dato. */
+	monthDay: string | null;
+	/** Año de nacimiento, o null si se capturó sin año. */
+	year: number | null;
+}
+
+/**
+ * Shape mínima para `resolveMemberBirthday`. Igual que `MemberOverlayLike`,
+ * acepta un `CommunityMember` con `participant` cargado o un literal.
+ */
+export interface MemberBirthdayLike {
+	birthDate?: string | null;
+	participant?: {
+		birthDate?: string | Date | null;
+		registrationDate?: string | Date | null;
+	} | null;
+}
+
+export function isLeapYear(year: number): boolean {
+	return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+/** ¿`month` (1-12) y `day` forman una fecha real? Sin año, febrero admite 29. */
+function isRealMonthDay(month: number, day: number, year?: number): boolean {
+	if (!Number.isInteger(month) || month < 1 || month > 12) return false;
+	if (!Number.isInteger(day) || day < 1) return false;
+	if (month === 2 && year !== undefined && !isLeapYear(year)) return day <= 28;
+	return day <= DAYS_IN_MONTH[month - 1];
+}
+
+/**
+ * Normaliza un cumpleaños escrito por un humano al formato canónico.
+ * Devuelve `'YYYY-MM-DD'`, `'MM-DD'` o `null` si no es una fecha real.
+ *
+ * Rechaza calendario imposible (mes 13, 31 de febrero, 29 de febrero de un año
+ * no bisiesto) y años absurdos. NO acepta string vacío — el caller decide qué
+ * significa vacío (para el service, "limpiar el dato").
+ */
+export function normalizeBirthdayValue(raw: string | null | undefined): string | null {
+	if (typeof raw !== 'string') return null;
+	const value = raw.trim();
+
+	const withYear = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+	if (withYear) {
+		const year = Number(withYear[1]);
+		const month = Number(withYear[2]);
+		const day = Number(withYear[3]);
+		const currentYear = new Date().getUTCFullYear();
+		if (year < 1900 || year > currentYear) return null;
+		if (!isRealMonthDay(month, day, year)) return null;
+		return value;
+	}
+
+	const withoutYear = /^(\d{2})-(\d{2})$/.exec(value);
+	if (withoutYear) {
+		const month = Number(withoutYear[1]);
+		const day = Number(withoutYear[2]);
+		if (!isRealMonthDay(month, day)) return null;
+		return value;
+	}
+
+	return null;
+}
+
+/** Predicado para validaciones (Zod). El string vacío NO es válido aquí. */
+export function isValidBirthdayValue(raw: string | null | undefined): boolean {
+	return normalizeBirthdayValue(raw) !== null;
+}
+
+/** Parte un valor canónico en sus componentes. */
+export function splitBirthdayValue(value: string | null | undefined): ResolvedBirthday {
+	const normalized = normalizeBirthdayValue(value);
+	if (!normalized) return { monthDay: null, year: null };
+	if (normalized.length === 5) return { monthDay: normalized, year: null };
+	return { monthDay: normalized.slice(5), year: Number(normalized.slice(0, 4)) };
+}
+
+/** `Date` o string ISO → `'YYYY-MM-DD'` leído en UTC. Null si no es fecha. */
+function toYmdUtc(value: string | Date | null | undefined): string | null {
+	if (!value) return null;
+	if (typeof value === 'string') {
+		const match = /^(\d{4}-\d{2}-\d{2})/.exec(value.trim());
+		if (match) return match[1];
+		const parsed = new Date(value);
+		return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
+	}
+	return Number.isNaN(value.getTime()) ? null : value.toISOString().slice(0, 10);
+}
+
+/**
+ * ¿El `participant.birthDate` es el relleno automático del alta y no un dato real?
+ *
+ * Todo Participant creado desde el flujo de comunidad recibe
+ * `birthDate: new Date()` (ver `communityService.createCommunityMember`), porque
+ * la columna es NOT NULL y nadie pregunta la fecha en ese flujo. El resultado es
+ * un "cumpleaños" igual al día del alta, indistinguible a simple vista de uno
+ * real — y si se toma en serio, el sistema felicitaría a media comunidad en el
+ * aniversario de su registro.
+ *
+ * Dos señales:
+ *  1. Coincide con el día de `registrationDate`. Es exacta, no heurística: ambos
+ *     valores salen del mismo `new Date()` en el mismo INSERT.
+ *  2. Red de seguridad para cuando no hay `registrationDate` a mano (o el INSERT
+ *     cruzó la medianoche UTC): una edad menor a 5 años. Ningún miembro de una
+ *     comunidad de adultos nació hace tan poco.
+ */
+export function isPlaceholderBirthDate(
+	birthDate: string | Date | null | undefined,
+	registrationDate?: string | Date | null,
+	now: Date = new Date(),
+): boolean {
+	const birthYmd = toYmdUtc(birthDate);
+	if (!birthYmd) return true;
+
+	const registrationYmd = toYmdUtc(registrationDate);
+	if (registrationYmd && registrationYmd === birthYmd) return true;
+
+	const birthYear = Number(birthYmd.slice(0, 4));
+	const yearsElapsed = now.getUTCFullYear() - birthYear;
+	return yearsElapsed < MIN_CREDIBLE_AGE_YEARS;
+}
+
+/**
+ * Cumpleaños efectivo de un miembro en contexto comunidad.
+ *
+ * 1. `community_member.birthDate` si está set → gana (es el dato que capturó
+ *    la comunidad).
+ * 2. Si no, `participant.birthDate`, pero solo si es creíble — ver
+ *    `isPlaceholderBirthDate`. Así se aprovecha la fecha real de quien ya se
+ *    registró a un retiro, sin heredar el relleno del alta.
+ * 3. Si no, `{ monthDay: null, year: null }` → la UI muestra "Sin fecha".
+ */
+export function resolveMemberBirthday(
+	m: MemberBirthdayLike,
+	now: Date = new Date(),
+): ResolvedBirthday {
+	const overlay = splitBirthdayValue(m.birthDate);
+	if (overlay.monthDay) return overlay;
+
+	const participant = m.participant;
+	if (!participant) return { monthDay: null, year: null };
+	if (isPlaceholderBirthDate(participant.birthDate, participant.registrationDate, now)) {
+		return { monthDay: null, year: null };
+	}
+	const ymd = toYmdUtc(participant.birthDate);
+	if (!ymd) return { monthDay: null, year: null };
+	return { monthDay: ymd.slice(5), year: Number(ymd.slice(0, 4)) };
+}
+
+/**
+ * Día del año en que cae el cumpleaños `monthDay` durante `year`.
+ * El 29 de febrero se celebra el 28 en los años no bisiestos.
+ */
+function birthdayInYear(monthDay: string, year: number): { month: number; day: number } {
+	const month = Number(monthDay.slice(0, 2));
+	let day = Number(monthDay.slice(3));
+	if (month === 2 && day === 29 && !isLeapYear(year)) day = 28;
+	return { month, day };
+}
+
+/**
+ * Días que faltan para el próximo cumpleaños. `0` = hoy cumple.
+ *
+ * `today` son los componentes del día de hoy YA resueltos en la zona horaria
+ * que corresponda (la de la comunidad) — esta función no conoce zonas. Todo el
+ * cálculo va en UTC sobre componentes explícitos, así que no puede desfasarse.
+ */
+export function daysUntilBirthday(
+	monthDay: string | null | undefined,
+	today: { year: number; month: number; day: number },
+): number | null {
+	if (!monthDay || !/^\d{2}-\d{2}$/.test(monthDay)) return null;
+	const todayMs = Date.UTC(today.year, today.month - 1, today.day);
+
+	for (const year of [today.year, today.year + 1]) {
+		const { month, day } = birthdayInYear(monthDay, year);
+		const diff = Math.round((Date.UTC(year, month - 1, day) - todayMs) / 86_400_000);
+		if (diff >= 0) return diff;
+	}
+	return null;
+}
+
+/** Edad que cumple en su próximo cumpleaños, o null si no se conoce el año. */
+export function turningAge(
+	birthday: ResolvedBirthday,
+	today: { year: number; month: number; day: number },
+): number | null {
+	if (!birthday.monthDay || birthday.year == null) return null;
+	const { month, day } = birthdayInYear(birthday.monthDay, today.year);
+	const alreadyPassed =
+		today.month > month || (today.month === month && today.day > day);
+	return (alreadyPassed ? today.year + 1 : today.year) - birthday.year;
+}
+
+/** `'03-14'` → `'14 de marzo'`. Con año: `'14 de marzo de 1985'`. */
+export function formatBirthdayEs(birthday: ResolvedBirthday): string | null {
+	if (!birthday.monthDay) return null;
+	const month = Number(birthday.monthDay.slice(0, 2));
+	const day = Number(birthday.monthDay.slice(3));
+	const base = `${day} de ${MONTH_NAMES_ES[month - 1]}`;
+	return birthday.year == null ? base : `${base} de ${birthday.year}`;
+}
+
+/** Componentes del día de hoy en una zona IANA. Sin dependencias. */
+export function todayInTimezone(
+	tz: string,
+	now: Date = new Date(),
+): { year: number; month: number; day: number } {
+	const parts = new Intl.DateTimeFormat('en-CA', {
+		timeZone: tz,
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+	}).formatToParts(now);
+	const get = (k: string): number => Number(parts.find((p) => p.type === k)?.value ?? '0');
+	return { year: get('year'), month: get('month'), day: get('day') };
+}
+
+/**
  * Interface for participant data structure
  */
 export interface ParticipantData {

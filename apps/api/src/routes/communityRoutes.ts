@@ -19,6 +19,7 @@ import {
 	importMembersSchema,
 	updateMemberStateSchema,
 	updateMemberProfileSchema,
+	setCommunityMemberPhotoSchema,
 	recordAttendanceSchema,
 	bulkMemberAttendanceSchema,
 	inviteCommunityAdminSchema,
@@ -104,6 +105,12 @@ router.get('/:id/members', requireCommunityAccess(), (req, res) =>
 router.get('/:id/members/potential', requireCommunityAccess(), (req, res) =>
 	CommunityController.getPotentialMembers(req, res),
 );
+// Próximos cumpleaños (panel "Cumplen pronto"). Lectura para cualquier admin de
+// la comunidad: felicitar no requiere ser owner. El año de nacimiento y la edad
+// los filtra el service según el rol.
+router.get('/:id/birthdays', requireCommunityAccess(), (req, res) =>
+	CommunityController.getUpcomingBirthdays(req, res),
+);
 router.post('/:id/members', requireCommunityAccess(), (req, res) =>
 	CommunityController.addMember(req, res),
 );
@@ -140,6 +147,19 @@ router.patch(
 	requireCommunityOwner(),
 	validateRequest(updateMemberProfileSchema),
 	(req, res) => CommunityController.updateMemberProfile(req, res),
+);
+// Foto de rostro del miembro. A diferencia del perfil (owner-only por el riesgo
+// de rerutear notificaciones cambiando el correo), esto es `requireCommunityAccess`:
+// una foto no redirige nada, y poner cara a los nombres es trabajo de todo el
+// equipo de servidores, no solo del owner.
+router.post(
+	'/:id/members/:memberId/photo',
+	requireCommunityAccess(),
+	validateRequest(setCommunityMemberPhotoSchema),
+	(req, res, next) => CommunityController.uploadMemberPhoto(req, res).catch(next),
+);
+router.delete('/:id/members/:memberId/photo', requireCommunityAccess(), (req, res, next) =>
+	CommunityController.deleteMemberPhoto(req, res).catch(next),
 );
 router.get('/:id/members/:memberId/timeline', requireCommunityAccess(), (req, res) =>
 	CommunityController.getMemberTimeline(req, res),

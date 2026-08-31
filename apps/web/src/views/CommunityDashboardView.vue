@@ -130,6 +130,57 @@
         </Card>
       </div>
 
+      <!-- Próximos cumpleaños. Va antes de las reuniones porque es lo que caduca:
+           un "cumple mañana" no sirve si hay que bajar a buscarlo. -->
+      <Card v-if="upcomingBirthdays.length > 0" class="overflow-hidden">
+        <CardHeader class="bg-muted/30">
+          <CardTitle class="flex items-center gap-2">
+            <Cake class="h-5 w-5 text-primary" />
+            Próximos cumpleaños
+            <Badge variant="secondary" class="ml-1">{{ upcomingBirthdays.length }}</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent class="p-0">
+          <ul class="divide-y">
+            <li
+              v-for="birthday in upcomingBirthdays"
+              :key="birthday.memberId"
+              class="flex flex-wrap items-center gap-3 px-4 sm:px-6 py-3"
+            >
+              <MemberAvatar
+                :photo-url="birthday.photoUrl"
+                :full-name="birthday.fullName"
+                size="md"
+              />
+              <div class="min-w-0 flex-1">
+                <p class="font-medium truncate">{{ birthday.fullName }}</p>
+                <p class="text-xs text-muted-foreground">
+                  {{ formatBirthdayLabel(birthday) }}
+                  <span v-if="birthday.turningAge"> · cumple {{ birthday.turningAge }}</span>
+                </p>
+              </div>
+              <Badge :variant="birthday.daysUntil === 0 ? 'default' : 'secondary'" class="shrink-0">
+                {{ daysUntilLabel(birthday.daysUntil) }}
+              </Badge>
+              <Badge v-if="birthday.alreadyGreeted" variant="outline" class="shrink-0 gap-1">
+                <Check class="h-3 w-3" />
+                Ya felicitado
+              </Badge>
+              <Button
+                v-else
+                size="sm"
+                variant="outline"
+                class="shrink-0"
+                :disabled="greetingMemberId === birthday.memberId"
+                @click="openGreeting(birthday)"
+              >
+                Felicitar
+              </Button>
+            </li>
+          </ul>
+        </CardContent>
+      </Card>
+
       <!-- Quick Actions & Recent Meetings Row -->
       <div class="grid gap-4 md:grid-cols-3">
         <!-- Quick Actions -->
@@ -289,6 +340,20 @@
     </div>
 
     <!-- Modals -->
+    <!-- Montado siempre (no `v-if` sobre greetingMember): MessageDialog carga las
+         plantillas en un watcher de `open`, así que necesita existir cerrado y ver
+         la transición a abierto. Si naciera ya abierto, el watcher no dispara y el
+         diálogo sale con "No hay plantillas para esta comunidad". -->
+    <MessageDialog
+      v-if="currentCommunity"
+      v-model:open="isGreetingDialogOpen"
+      context="community"
+      :community-id="currentCommunity.id"
+      :participant="greetingMember"
+      force-template-type="BIRTHDAY_MESSAGE"
+      @update:open="onGreetingDialogToggle"
+    />
+
     <MeetingFormModal
       v-if="currentCommunity"
       v-model:open="showMeetingModal"
@@ -320,13 +385,18 @@ import {
 	PieChart,
 	BarChart3,
 	MessageSquare,
+	Cake,
+	Check,
 } from 'lucide-vue-next';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from '@repo/ui';
 import { Pie } from 'vue-chartjs';
 import { Chart as ChartJS, Title, Tooltip, Legend, ArcElement, CategoryScale } from 'chart.js';
 import { useI18n } from 'vue-i18n';
 import MeetingFormModal from '@/components/community/MeetingFormModal.vue';
-import { formatDateInCommunityTimezone } from '@repo/utils';
+import MessageDialog from '@/components/MessageDialog.vue';
+import MemberAvatar from '@/components/community/MemberAvatar.vue';
+import { formatDateInCommunityTimezone, formatBirthdayEs } from '@repo/utils';
+import { getUpcomingBirthdays, type UpcomingBirthday } from '@/services/api';
 
 ChartJS.register(Title, Tooltip, Legend, ArcElement, CategoryScale);
 
@@ -341,9 +411,63 @@ const { currentCommunity, stats, loadingCommunity } = storeToRefs(communityStore
 
 const showMeetingModal = ref(false);
 
+// --- Cumpleaños próximos ----------------------------------------------------
+// El backend entrega la lista ya resuelta y ordenada por proximidad, calculada
+// en la zona horaria de la comunidad. Aquí no se hace aritmética de fechas.
+
+const upcomingBirthdays = ref<UpcomingBirthday[]>([]);
+const greetingMember = ref<any>(null);
+const greetingMemberId = ref<string | null>(null);
+const isGreetingDialogOpen = ref(false);
+
+const loadUpcomingBirthdays = async () => {
+  try {
+    upcomingBirthdays.value = await getUpcomingBirthdays(props.id, 30);
+  } catch {
+    // El panel es accesorio: si falla, el resto del dashboard sigue vivo.
+    upcomingBirthdays.value = [];
+  }
+};
+
+const formatBirthdayLabel = (birthday: UpcomingBirthday): string =>
+  formatBirthdayEs({ monthDay: birthday.birthdayMonthDay, year: null }) ?? '';
+
+const daysUntilLabel = (days: number): string => {
+  if (days === 0) return 'Hoy';
+  if (days === 1) return 'Mañana';
+  return `En ${days} días`;
+};
+
+/**
+ * `MessageDialog` necesita el `CommunityMember` completo (con su `participant`)
+ * para resolver el overlay y las variables de la plantilla. El panel solo trae
+ * filas planas, así que los miembros se cargan la primera vez que se felicita
+ * a alguien — no en cada visita al dashboard.
+ */
+const openGreeting = async (birthday: UpcomingBirthday) => {
+  greetingMemberId.value = birthday.memberId;
+  try {
+    if (communityStore.members.length === 0) {
+      await communityStore.fetchMembers(props.id);
+    }
+    const member = communityStore.members.find((m: any) => m.id === birthday.memberId);
+    if (!member) return;
+    greetingMember.value = member;
+    isGreetingDialogOpen.value = true;
+  } finally {
+    greetingMemberId.value = null;
+  }
+};
+
+// Al cerrar el diálogo, recargar para que el "Ya felicitado" refleje el envío.
+const onGreetingDialogToggle = (open: boolean) => {
+  if (!open) void loadUpcomingBirthdays();
+};
+
 onMounted(async () => {
   await communityStore.fetchCommunity(props.id);
   await communityStore.fetchDashboardStats(props.id);
+  await loadUpcomingBirthdays();
 });
 
 const onMeetingCreated = async () => {

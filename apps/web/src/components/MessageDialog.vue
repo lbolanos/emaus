@@ -1670,7 +1670,12 @@ watch(
 		if (list.length === 0) return;
 
 		if (props.forceTemplateType) {
-			const forced = list.find((t: any) => t.type === props.forceTemplateType);
+			// Puede haber DOS plantillas del mismo tipo: la propia de la comunidad
+			// (o del retiro) y la global de fallback. Gana la propia — es la que el
+			// coordinador personalizó. Sin este desempate quedaba a merced del
+			// orden en que llegara la lista.
+			const candidates = list.filter((t: any) => t.type === props.forceTemplateType);
+			const forced = candidates.find((t: any) => t.communityId || t.retreatId) ?? candidates[0];
 			if (forced) {
 				selectedTemplate.value = forced.id;
 				pendingTemplateId.value = null;

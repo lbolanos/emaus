@@ -62,6 +62,10 @@
           <History class="w-4 h-4 mr-2" />
           Historial
         </DropdownMenuItem>
+        <DropdownMenuItem @select="deferOpen(() => emit('photo'))">
+          <Camera class="w-4 h-4 mr-2" />
+          Foto
+        </DropdownMenuItem>
         <template v-if="isOwner">
           <DropdownMenuSeparator />
           <DropdownMenuItem @select="deferOpen(() => emit('edit'))">
@@ -88,7 +92,7 @@ import {
   Tooltip, TooltipContent, TooltipTrigger,
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from '@repo/ui';
-import { CheckCircle2, Circle, ClipboardCheck, MessageSquare, MoreVertical, FileText, History, Pencil, UserMinus } from 'lucide-vue-next';
+import { CheckCircle2, Circle, ClipboardCheck, MessageSquare, MoreVertical, FileText, History, Pencil, UserMinus, Camera } from 'lucide-vue-next';
 import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 
 const props = defineProps<{
@@ -103,6 +107,7 @@ const emit = defineEmits<{
   message: [];
   notes: [];
   timeline: [];
+  photo: [];
   edit: [];
   remove: [];
 }>();

@@ -18,6 +18,7 @@ import {
 	AlertDescription,
 } from '@repo/ui';
 import { UserPlus, Loader2, AlertCircle } from 'lucide-vue-next';
+import BirthdayFields from '@/components/community/BirthdayFields.vue';
 
 const props = defineProps<{
 	open: boolean;
@@ -35,8 +36,11 @@ const formData = ref({
 	lastName: '',
 	email: '',
 	cellPhone: '',
+	birthDate: '',
 	consent: false,
 });
+// El campo de cumpleaños avisa cuando lo tecleado no forma una fecha real.
+const birthdayInvalid = ref(false);
 
 const formErrors = ref<Record<string, string>>({});
 const isSubmitting = ref(false);
@@ -56,8 +60,10 @@ const resetForm = () => {
 		lastName: '',
 		email: '',
 		cellPhone: '',
+		birthDate: '',
 		consent: false,
 	};
+	birthdayInvalid.value = false;
 	formErrors.value = {};
 };
 
@@ -115,6 +121,8 @@ const handleSubmit = async () => {
 			lastName: formData.value.lastName.trim(),
 			email: formData.value.email.trim().toLowerCase(),
 			cellPhone: formData.value.cellPhone.trim(),
+			// Opcional: si quedó vacío no se manda, para no ensuciar el payload.
+			...(formData.value.birthDate ? { birthDate: formData.value.birthDate } : {}),
 			recaptchaToken,
 		});
 
@@ -247,6 +255,14 @@ const handleClose = () => {
 					</p>
 				</div>
 
+				<BirthdayFields
+					id-prefix="join-birthday"
+					optional-hint
+					:model-value="formData.birthDate"
+					@update:model-value="formData.birthDate = $event"
+					@update:invalid="birthdayInvalid = $event"
+				/>
+
 				<!-- Consentimiento de datos (LFPDPPP / GDPR) -->
 				<div class="pt-2">
 					<label class="flex items-start gap-2 cursor-pointer text-sm">
@@ -277,7 +293,7 @@ const handleClose = () => {
 				</Button>
 				<Button
 					@click="handleSubmit"
-					:disabled="isSubmitting"
+					:disabled="isSubmitting || birthdayInvalid"
 				>
 					<Loader2 v-if="isSubmitting" class="w-4 h-4 mr-2 animate-spin" />
 					<UserPlus v-else class="w-4 h-4 mr-2" />

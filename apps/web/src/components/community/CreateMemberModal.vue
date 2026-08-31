@@ -14,6 +14,7 @@ import {
 	Label,
 } from '@repo/ui';
 import { UserPlus, Loader2 } from 'lucide-vue-next';
+import BirthdayFields from '@/components/community/BirthdayFields.vue';
 
 const props = defineProps<{
 	open: boolean;
@@ -30,8 +31,11 @@ const formData = ref({
 	lastName: '',
 	email: '',
 	cellPhone: '',
+	birthDate: '',
 	joinedAt: '',
 });
+// El campo de cumpleaños avisa cuando lo tecleado no forma una fecha real.
+const birthdayInvalid = ref(false);
 
 const formErrors = ref<Record<string, string>>({});
 const isSubmitting = ref(false);
@@ -49,6 +53,7 @@ const resetForm = () => {
 		lastName: '',
 		email: '',
 		cellPhone: '',
+		birthDate: '',
 		joinedAt: '',
 	};
 	formErrors.value = {};
@@ -93,6 +98,7 @@ const handleSubmit = async () => {
 			email: string;
 			cellPhone: string;
 			joinedAt?: string;
+			birthDate?: string;
 		} = {
 			firstName: formData.value.firstName,
 			lastName: formData.value.lastName,
@@ -102,6 +108,7 @@ const handleSubmit = async () => {
 		// Solo enviar joinedAt si el coordinador puso una fecha; si no, el backend
 		// usa el default (ahora).
 		if (formData.value.joinedAt) payload.joinedAt = formData.value.joinedAt;
+		if (formData.value.birthDate) payload.birthDate = formData.value.birthDate;
 		await communityStore.createMember(props.communityId, payload);
 		toast({
 			title: 'Miembro creado',
@@ -198,6 +205,14 @@ const handleClose = () => {
 					<p v-if="formErrors.cellPhone" class="text-sm text-destructive">{{ formErrors.cellPhone }}</p>
 				</div>
 
+				<BirthdayFields
+					id-prefix="new-member-birthday"
+					optional-hint
+					:model-value="formData.birthDate"
+					@update:model-value="formData.birthDate = $event"
+					@update:invalid="birthdayInvalid = $event"
+				/>
+
 				<!-- Fecha de ingreso (opcional) -->
 				<div class="space-y-2">
 					<Label for="joinedAt">Fecha de ingreso</Label>
@@ -223,7 +238,7 @@ const handleClose = () => {
 				</Button>
 				<Button
 					@click="handleSubmit"
-					:disabled="isSubmitting"
+					:disabled="isSubmitting || birthdayInvalid"
 				>
 					<Loader2 v-if="isSubmitting" class="w-4 h-4 mr-2 animate-spin" />
 					<UserPlus v-else class="w-4 h-4 mr-2" />

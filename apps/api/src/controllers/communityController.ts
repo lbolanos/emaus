@@ -102,6 +102,30 @@ export class CommunityController {
 		res.json(members);
 	}
 
+	/**
+	 * Próximos cumpleaños de la comunidad, para el panel "Cumplen pronto".
+	 * `window` en días (1-365, default 30). El service aplica el mismo filtro de
+	 * PII que `getMembers`: el año y la edad solo viajan si el viewer es owner.
+	 */
+	static async getUpcomingBirthdays(req: Request, res: Response) {
+		const { id } = req.params;
+		const user = req.user as any;
+		const isSuperadmin = user?.id
+			? await authorizationService.hasRole(user.id, 'superadmin')
+			: false;
+		const parsedWindow = Number.parseInt(String(req.query.window ?? ''), 10);
+		const windowDays =
+			Number.isFinite(parsedWindow) && parsedWindow >= 1 && parsedWindow <= 365
+				? parsedWindow
+				: 30;
+		const birthdays = await communityService.getUpcomingBirthdays(
+			id,
+			{ userId: user?.id, isSuperadmin },
+			windowDays,
+		);
+		res.json(birthdays);
+	}
+
 	static async addMember(req: Request, res: Response) {
 		const { id } = req.params;
 		const { participantId } = req.body;
@@ -205,12 +229,12 @@ export class CommunityController {
 	 */
 	static async updateMemberProfile(req: Request, res: Response) {
 		const { id: communityId, memberId } = req.params;
-		const { firstName, lastName, email, cellPhone, joinedAt } = req.body || {};
+		const { firstName, lastName, email, cellPhone, birthDate, joinedAt } = req.body || {};
 		try {
 			const { member, changedFields } = await communityService.updateMemberProfile(
 				communityId,
 				memberId,
-				{ firstName, lastName, email, cellPhone, joinedAt },
+				{ firstName, lastName, email, cellPhone, birthDate, joinedAt },
 			);
 
 			// Audit log: solo cuando el overlay REALMENTE cambió (no en
@@ -252,6 +276,12 @@ export class CommunityController {
 			if (err?.message === 'firstName cannot be empty') {
 				return res.status(400).json({ message: err.message });
 			}
+			if (err?.message === 'INVALID_BIRTH_DATE') {
+				return res.status(400).json({
+					code: 'INVALID_BIRTH_DATE',
+					message: 'La fecha de cumpleaños no existe en el calendario.',
+				});
+			}
 			if (err?.message === 'EMAIL_DUPLICATE_IN_COMMUNITY') {
 				return res.status(409).json({
 					code: 'EMAIL_DUPLICATE_IN_COMMUNITY',
@@ -263,6 +293,69 @@ export class CommunityController {
 					code: 'PHONE_DUPLICATE_IN_COMMUNITY',
 					message: 'Ya existe otro miembro de esta comunidad con ese teléfono.',
 				});
+			}
+			throw err;
+		}
+	}
+
+	/**
+	 * Sube o reemplaza la foto de rostro de un miembro.
+	 *
+	 * No es owner-only (ver el comentario de la ruta): una foto no puede
+	 * rerutear notificaciones, y ponerle cara a los nombres es trabajo de todo
+	 * el equipo. Sí queda en el audit log, porque es PII biométrica y conviene
+	 * saber quién la subió.
+	 */
+	static async uploadMemberPhoto(req: Request, res: Response) {
+		const { id: communityId, memberId } = req.params;
+		const { photoData } = req.body;
+		try {
+			const member = await communityService.setMemberPhoto(communityId, memberId, photoData);
+			void communityAuditService.log({
+				action: CommunityAuditAction.MEMBER_PROFILE_UPDATE,
+				resourceType: 'community_member',
+				resourceId: memberId,
+				communityId,
+				actorUserId: (req.user as any)?.id,
+				// Nunca la imagen ni su URL: solo el hecho.
+				metadata: { changedFields: ['photo'], photoAction: 'set' },
+				ipAddress: req.ip,
+				userAgent: req.get('user-agent'),
+			});
+			res.json(member);
+		} catch (err: any) {
+			if (err?.message === 'Member not found in this community') {
+				return res.status(404).json({ message: err.message });
+			}
+			// imageService rechaza formatos falsos (magic bytes) y archivos > 2 MB.
+			if (/image|formato|size|too large|Invalid/i.test(err?.message || '')) {
+				return res.status(400).json({
+					code: 'INVALID_PHOTO',
+					message: 'La imagen no es válida o pesa más de 2 MB.',
+				});
+			}
+			throw err;
+		}
+	}
+
+	static async deleteMemberPhoto(req: Request, res: Response) {
+		const { id: communityId, memberId } = req.params;
+		try {
+			const member = await communityService.deleteMemberPhoto(communityId, memberId);
+			void communityAuditService.log({
+				action: CommunityAuditAction.MEMBER_PROFILE_UPDATE,
+				resourceType: 'community_member',
+				resourceId: memberId,
+				communityId,
+				actorUserId: (req.user as any)?.id,
+				metadata: { changedFields: ['photo'], photoAction: 'delete' },
+				ipAddress: req.ip,
+				userAgent: req.get('user-agent'),
+			});
+			res.json(member);
+		} catch (err: any) {
+			if (err?.message === 'Member not found in this community') {
+				return res.status(404).json({ message: err.message });
 			}
 			throw err;
 		}
@@ -740,6 +833,7 @@ export class CommunityController {
 					lastName,
 					email,
 					cellPhone,
+					birthDate: req.body?.birthDate,
 				});
 				return res.status(201).json(member);
 			} catch (err: any) {

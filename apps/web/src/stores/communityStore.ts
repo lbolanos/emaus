@@ -170,6 +170,7 @@ export const useCommunityStore = defineStore('community', () => {
 			lastName: string;
 			email: string;
 			cellPhone: string;
+			birthDate?: string;
 			joinedAt?: string;
 		},
 	) => {
@@ -538,6 +539,7 @@ export const useCommunityStore = defineStore('community', () => {
 			lastName?: string;
 			email?: string;
 			cellPhone?: string;
+			birthDate?: string;
 			joinedAt?: string;
 		},
 	) => {

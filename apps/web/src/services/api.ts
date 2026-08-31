@@ -1276,6 +1276,34 @@ export async function getCommunityMembers(
   return response.data;
 }
 
+/** Fila del panel "Cumplen pronto". El año y la edad llegan en null si el
+ *  usuario no es owner de la comunidad. */
+export interface UpcomingBirthday {
+  memberId: string;
+  participantId: string;
+  fullName: string;
+  email: string;
+  cellPhone: string;
+  /** URL firmada de la foto (caduca en 1 h) o null. */
+  photoUrl: string | null;
+  state: string;
+  birthdayMonthDay: string;
+  birthdayYear: number | null;
+  turningAge: number | null;
+  daysUntil: number;
+  alreadyGreeted: boolean;
+}
+
+export async function getUpcomingBirthdays(
+  communityId: string,
+  windowDays = 30,
+): Promise<UpcomingBirthday[]> {
+  const response = await api.get(`/communities/${communityId}/birthdays`, {
+    params: { window: windowDays },
+  });
+  return response.data;
+}
+
 export async function addCommunityMember(
   communityId: string,
   participantId: string,
@@ -1293,6 +1321,8 @@ export async function createCommunityMember(
     lastName: string;
     email: string;
     cellPhone: string;
+    /** 'YYYY-MM-DD' o 'MM-DD' (año desconocido). */
+    birthDate?: string;
     joinedAt?: string;
   },
 ): Promise<CommunityMember> {
@@ -1489,6 +1519,8 @@ export async function publicCommunityJoinRequest(
     lastName: string;
     email: string;
     cellPhone?: string;
+    /** Opcional: 'YYYY-MM-DD' o 'MM-DD' (año desconocido). */
+    birthDate?: string;
     recaptchaToken?: string;
   },
 ): Promise<CommunityMember> {
@@ -1667,12 +1699,37 @@ export async function updateMemberProfile(
     lastName?: string;
     email?: string;
     cellPhone?: string;
+    /** 'YYYY-MM-DD', 'MM-DD' (año desconocido) o '' para limpiar. */
+    birthDate?: string;
     joinedAt?: string;
   },
 ): Promise<CommunityMember> {
   const response = await api.patch(
     `/communities/${communityId}/members/${memberId}/profile`,
     profile,
+  );
+  return response.data;
+}
+
+/** Sube o reemplaza la foto de rostro de un miembro (data-URI base64). */
+export async function setCommunityMemberPhoto(
+  communityId: string,
+  memberId: string,
+  photoData: string,
+): Promise<CommunityMember> {
+  const response = await api.post(
+    `/communities/${communityId}/members/${memberId}/photo`,
+    { photoData },
+  );
+  return response.data;
+}
+
+export async function deleteCommunityMemberPhoto(
+  communityId: string,
+  memberId: string,
+): Promise<CommunityMember> {
+  const response = await api.delete(
+    `/communities/${communityId}/members/${memberId}/photo`,
   );
   return response.data;
 }

@@ -237,9 +237,15 @@ vi.mock('@repo/ui', () => ({
 		props: ['variant', 'size', 'disabled', 'onClick'],
 	},
 	Input: {
+		// Una sola raíz y sin <slot />: `<input>` es un elemento void, así que
+		// `'<input><slot /></input>'` compilaba a DOS nodos raíz y Vue dejaba de
+		// heredar atributos — el stub salía pelado y los tests no veían el
+		// binding real. Emite `update:modelValue` como el componente de verdad.
 		name: 'Input',
-		template: '<input><slot /></input>',
+		template:
+			'<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
 		props: ['modelValue', 'placeholder', 'type', 'disabled'],
+		emits: ['update:modelValue'],
 	},
 	Dialog: {
 		name: 'Dialog',
@@ -392,6 +398,7 @@ vi.mock('@repo/ui', () => ({
 
 // Mock lucide-vue-next icons
 vi.mock('lucide-vue-next', () => ({
+	Cake: { name: 'Cake', template: '<svg></svg>' },
 	ChevronLeft: { name: 'ChevronLeft', template: '<svg></svg>' },
 	LogOut: { name: 'LogOut', template: '<svg></svg>' },
 	Users: { name: 'Users', template: '<svg></svg>' },
@@ -447,6 +454,7 @@ vi.mock('lucide-vue-next', () => ({
 	Upload: { name: 'Upload', template: '<svg></svg>' },
 	CalendarDays: { name: 'CalendarDays', template: '<svg></svg>' },
 	Camera: { name: 'Camera', template: '<svg></svg>' },
+	ClipboardPaste: { name: 'ClipboardPaste', template: '<svg></svg>' },
 	Clock: { name: 'Clock', template: '<svg></svg>' },
 	Copy: { name: 'Copy', template: '<svg></svg>' },
 	ExternalLink: { name: 'ExternalLink', template: '<svg></svg>' },
