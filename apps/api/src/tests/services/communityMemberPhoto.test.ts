@@ -145,30 +145,6 @@ describe('Foto de miembro de comunidad', () => {
 		});
 	});
 
-	describe('purgeMemberPhotosForParticipant', () => {
-		it('borra las fotos del participante en todas sus comunidades', async () => {
-			// Un mismo Participant puede ser miembro de varias comunidades, y su
-			// cara está en cada una: el derecho de borrado las alcanza a todas.
-			const participant = await TestDataFactory.createTestParticipant(testRetreat.id);
-			const communityB = await TestDataFactory.createTestCommunity(testUser.id);
-			const memberA: any = await service.addMember(testCommunity.id, participant.id);
-			const memberB: any = await service.addMember(communityB.id, participant.id);
-			await service.setMemberPhoto(testCommunity.id, memberA.id, PNG_DATA_URI);
-			await service.setMemberPhoto(communityB.id, memberB.id, PNG_DATA_URI);
-
-			const purged = await service.purgeMemberPhotosForParticipant(participant.id);
-			expect(purged).toBe(2);
-
-			const after = await memberRepo().find({ where: { participantId: participant.id } });
-			expect(after.every((m) => m.photoUrl === null && m.photoS3Key === null)).toBe(true);
-		});
-
-		it('no hace nada si no hay fotos', async () => {
-			const { participantId } = await addMember();
-			expect(await service.purgeMemberPhotosForParticipant(participantId)).toBe(0);
-		});
-	});
-
 	describe('derecho de eliminación', () => {
 		it('anonimizar al participante borra su foto de la comunidad', async () => {
 			// Sin esto, la persona pide que borren sus datos y su cara sigue

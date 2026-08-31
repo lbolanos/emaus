@@ -289,6 +289,14 @@ export const setCommunityMemberPhotoSchema = z.object({
 	}),
 });
 
+/** DELETE de la foto: no lleva cuerpo, pero los ids se validan igual que en el POST. */
+export const deleteCommunityMemberPhotoSchema = z.object({
+	params: z.object({
+		id: z.string().uuid(),
+		memberId: z.string().uuid(),
+	}),
+});
+
 export const importMembersSchema = z.object({
 	body: z.object({
 		retreatId: z.string().uuid(),

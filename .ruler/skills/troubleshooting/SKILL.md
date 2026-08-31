@@ -33,6 +33,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "en el PDF hay palabras pegadas", "sale un espacio antes del signo de interrogación", "SERVIR ?" | [#20 Texto con negritas: espacios perdidos o inventados](#20-texto-con-negritas-se-pierden-o-se-inventan-espacios) |
 | "la suite falla en tests distintos cada vez", "Maximum call stack size exceeded en un test", "Exceeded timeout of 10000 ms" | [#21 La suite de jest falla en suites distintas cada vez](#21-la-suite-de-jest-falla-en-suites-distintas-cada-vez-sin-tocar-ese-código) |
 | "elegí las tallas y el resumen dice que no elegí ninguna", "lo capturé y la pantalla lo muestra vacío", "el reporte sale en cero aunque hay datos" | [#22 La pantalla lee un campo legacy que el formulario ya no llena](#22-la-pantalla-lee-un-campo-legacy-que-el-formulario-ya-no-llena) |
+| "al dar clic en elegir foto no sale nada", "el botón de subir archivo no hace nada", "en local no funciona pero en prod sí" | [#23 El selector de archivos no abre: la ref quedó vieja por el hot-reload](#23-el-selector-de-archivos-no-abre-la-ref-quedó-vieja-por-el-hot-reload) |
 
 ---
 
@@ -321,6 +322,13 @@ jest.mock('@/services/emailService', () => ({
 ```
 
 **Para verificar llamadas**: usar `result.sent`, `signupId` en un `Map`, o estado observable — no accedas al mock internamente. `jest.requireMock` puede dar contextos distintos con ESM.
+
+**`await import()` DENTRO del test resuelve otra instancia del módulo.** Un
+`const { fn } = await import('@/services/xService')` escrito dentro del `it()` devuelve un módulo
+distinto del que cargó el `test-setup`, con un `AppDataSource` **sin** el swap a la base de test.
+Salta como `ConnectionIsNotSetError: Connection with sqlite database is not established` en la
+primera transacción — idéntico a un bug de producción. El import va **estático, arriba del
+archivo**. (2026-08-31, al testear `anonymizeParticipantByToken`.)
 
 **Singletons**: instanciar el servicio directo en cada test para estado limpio:
 ```ts
@@ -775,6 +783,59 @@ captura.
   esas mismas columnas: quedó inerte tras la migración `InventoryEnhancementsBundle` (los ítems
   están `isActive = 0` y las consultas filtran por activos), pero reactivar uno haría que el
   inventario pidiera cero playeras.
+
+---
+
+## 23. El selector de archivos no abre: la ref quedó vieja por el hot-reload
+
+**Síntoma**: el usuario pulsa "Elegir foto" / "Subir foto" y **no pasa nada**. Sin error en
+consola. Ocurre **solo en local**; el mismo botón funciona en producción. Suele afectar a varios
+botones a la vez, **incluidos los que nadie tocó ese día**.
+
+**Causa**: el patrón `const inputRef = ref(); … inputRef.value?.click()` sobre un
+`<input type="file" class="hidden">`. Cuando Vite reemplaza el componente en caliente, la
+referencia puede quedar apuntando a un input **ya desconectado del DOM**, y `click()` sobre un
+nodo desconectado **no hace nada y no lanza nada**. En producción no hay hot-reload; por eso ahí
+nunca aparece. El mismo patrón falla además en Safari aunque no haya HMR: no abre el selector si
+el input está en `display:none`.
+
+**Diagnóstico, en este orden** — los dos primeros pasos son gratis y evitan tocar código:
+
+```bash
+# 1. ¿Cuánto lleva viva la pestaña? Si son horas, es esto casi seguro.
+ps -o etime= -p $(lsof -nP -iTCP:5173 -sTCP:LISTEN -t | head -1)
+# 2. ¿Falla también un control que nadie tocó? Si sí, es ambiental, no del código.
+```
+
+Recargar la pestaña (`⌘⇧R`) lo confirma en cinco segundos.
+
+**Fix permanente** — un `<label>` que envuelve al input abre el selector por HTML, sin JS:
+
+```vue
+<label class="…clases del botón… cursor-pointer">
+  <ImagePlus class="w-4 h-4 mr-2" />
+  Elegir foto
+  <input type="file" accept="image/*" class="sr-only" @change="onFileSelected" />
+</label>
+```
+
+`sr-only` en vez de `hidden`: el input sigue renderizado (invisible), que es lo que Safari exige.
+Y **sin** `:disabled` en el input — un input deshabilitado vuelve inerte a su etiqueta.
+
+**Auditar el repo** — los que aún usan el patrón frágil:
+```bash
+grep -rn "\.value?\.click()" apps/web/src
+```
+
+**Casos**:
+- 2026-08-31 `MemberPhotoDialog.vue` (foto de miembro) y `CommunityMeetingsView.vue` /
+  `MeetingFormModal.vue` (foto de reunión). El dev server llevaba 3 h 37 min. Se persiguieron tres
+  causas falsas —Safari, el `Slot` de `Button as-child`, file choosers colgados— antes de que el
+  dato decisivo lo diera el usuario: *"el de la reunión tampoco funciona en local, pero en prod
+  sí"*. Guard de regresión en
+  `apps/web/src/components/community/__tests__/MemberPhotoDialog.test.ts`.
+- Quedan seis botones de subida con el patrón frágil (importar participantes, adjuntos, avatar,
+  memorias, chat, foto de reunión).
 
 ---
 

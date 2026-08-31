@@ -696,37 +696,6 @@ export class CommunityService {
 	}
 
 	/**
-	 * Borra TODAS las fotos de un participante en todas las comunidades donde sea
-	 * miembro. La usa el flujo de derecho de eliminación: sin esto, la persona
-	 * pide que borren sus datos y su cara sigue en el bucket.
-	 *
-	 * Devuelve cuántas fotos se limpiaron.
-	 */
-	async purgeMemberPhotosForParticipant(participantId: string): Promise<number> {
-		const members = await this.memberRepo.find({ where: { participantId } });
-		const withPhoto = members.filter((m) => m.photoUrl || m.photoS3Key);
-		if (withPhoto.length === 0) return 0;
-
-		for (const member of withPhoto) {
-			if (member.photoS3Key && avatarStorageService.isS3Storage()) {
-				try {
-					await s3Service.deleteCommunityMemberPhoto(member.id);
-				} catch (err) {
-					// Se registra pero no se aborta: la referencia en base SIEMPRE
-					// debe irse, aunque el objeto en S3 quede colgando y haya que
-					// limpiarlo aparte.
-					console.warn(
-						`[communityService] S3 delete failed while purging member photo ${member.id}:`,
-						err,
-					);
-				}
-			}
-			await this.memberRepo.update(member.id, { photoUrl: null, photoS3Key: null });
-		}
-		return withPhoto.length;
-	}
-
-	/**
 	 * Detecta si el cellPhone dado colisiona con OTRO miembro de la misma
 	 * comunidad. El cellPhone "efectivo" puede vivir en overlay (community_member.cellPhone)
 	 * o en participant.cellPhone — chequea ambos. Compara por últimos 10 dígitos

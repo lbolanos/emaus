@@ -1,6 +1,7 @@
 import {
 	updateMemberProfileSchema,
 	setCommunityMemberPhotoSchema,
+	deleteCommunityMemberPhotoSchema,
 	publicJoinRequestSchema,
 } from '@repo/types';
 
@@ -83,6 +84,22 @@ describe('setCommunityMemberPhotoSchema', () => {
 				body: { photoData: 'data:image/png;base64,AAAA' },
 				params: { id: uuid },
 			}).success,
+		).toBe(false);
+	});
+});
+
+describe('deleteCommunityMemberPhotoSchema', () => {
+	it('exige que los dos ids sean UUID', () => {
+		// El DELETE no lleva cuerpo, pero su `memberId` acaba formando la key del
+		// objeto en S3. Se valida igual que en el POST para que los dos endpoints
+		// no diverjan.
+		expect(deleteCommunityMemberPhotoSchema.safeParse({ params }).success).toBe(true);
+		expect(
+			deleteCommunityMemberPhotoSchema.safeParse({ params: { id: uuid, memberId: '../otro' } })
+				.success,
+		).toBe(false);
+		expect(
+			deleteCommunityMemberPhotoSchema.safeParse({ params: { id: uuid } }).success,
 		).toBe(false);
 	});
 });

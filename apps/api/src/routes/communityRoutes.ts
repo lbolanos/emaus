@@ -20,6 +20,7 @@ import {
 	updateMemberStateSchema,
 	updateMemberProfileSchema,
 	setCommunityMemberPhotoSchema,
+	deleteCommunityMemberPhotoSchema,
 	recordAttendanceSchema,
 	bulkMemberAttendanceSchema,
 	inviteCommunityAdminSchema,
@@ -158,8 +159,11 @@ router.post(
 	validateRequest(setCommunityMemberPhotoSchema),
 	(req, res, next) => CommunityController.uploadMemberPhoto(req, res).catch(next),
 );
-router.delete('/:id/members/:memberId/photo', requireCommunityAccess(), (req, res, next) =>
-	CommunityController.deleteMemberPhoto(req, res).catch(next),
+router.delete(
+	'/:id/members/:memberId/photo',
+	requireCommunityAccess(),
+	validateRequest(deleteCommunityMemberPhotoSchema),
+	(req, res, next) => CommunityController.deleteMemberPhoto(req, res).catch(next),
 );
 router.get('/:id/members/:memberId/timeline', requireCommunityAccess(), (req, res) =>
 	CommunityController.getMemberTimeline(req, res),
