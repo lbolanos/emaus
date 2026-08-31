@@ -104,3 +104,9 @@ Backup-codes-*.txt
 backup-codes-*.txt
 *backup-codes*.txt
 
+
+# Bytecode de los scripts de Python (scripts/*.py). Se genera solo en cuanto uno
+# se importa como módulo. Va FUERA del bloque de ruler a propósito: ruler
+# reescribe su bloque entero y se llevaría esta línea sin avisar.
+__pycache__/
+*.pyc
