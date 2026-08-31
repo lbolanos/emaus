@@ -274,6 +274,37 @@ Reglas:
   exponer. Un `grep` de `res.json(` sobre los controladores públicos toma un minuto.
 - Verificalo desde fuera, sin sesión: `curl -s https://emaus.cc/api/<ruta> | python3 -m json.tool`.
 
+## `z.string().url()` NO acota el esquema: acepta `javascript:`
+
+Zod valida con `new URL()`, que admite cualquier esquema. `javascript:alert(1)` y
+`data:text/html,<script>...</script>` pasan `.url()` sin quejarse. Es inofensivo mientras el
+valor solo se muestre; deja de serlo en cuanto alguien lo navega, lo pone en un `href` o lo
+codifica en un QR.
+
+Caso real (2026-08-31, `retreat.externalRegistrationUrl`): el campo termina en
+`window.location.replace()` dentro de `ParticipantRegistrationView`. Con solo `.url()`, un valor
+`javascript:` habria sido XSS ejecutandose en el navegador del caminante.
+
+Regla: **todo campo URL que se navegue lleva el esquema acotado a mano**, y la comprobacion se
+repite en el punto de uso, por si quedo un valor guardado antes de existir la validacion:
+
+```ts
+z.string().url().max(500).refine(
+  (v) => /^https?:\/\//i.test(v),
+  'El enlace debe empezar con http:// o https://',
+)
+```
+
+Dos detalles que muerden al escribirlo:
+
+- `.refine()` devuelve un `ZodEffects`, que ya **no** tiene `.max()` ni `.regex()`. Todo lo que
+  sea de `ZodString` va **antes** del refine. Si se pone despues, el paquete falla al importarse
+  con `TypeError: ....max is not a function`, y como falla al cargar el modulo se lleva por
+  delante cualquier comando que toque `@repo/types` — incluido `migration:run`, que muere sin
+  llegar a mirar las migraciones.
+- El guard del punto de uso se escribe en positivo (`/^https?:\/\//i`), no como lista negra
+  (`!v.startsWith('javascript:')`): una lista negra de esquemas siempre se queda corta.
+
 ## Escapar en el punto de salida, no solo donde parece que entra el dato
 
 Un endpoint público que arma HTML por concatenación tiene que escapar **todos** los valores que

@@ -233,6 +233,38 @@ export class AddBarToFoo20260507120000 implements MigrationInterface {
 }
 ```
 
+## El API dev aplica tu migration SOLA, en cuanto guardas
+
+`MIGRATIONS_AUTO_RUN=true` en `apps/api/.env` (linea 31). Al arrancar, el API instancia
+`MigrationVerifier` (`apps/api/src/index.ts:218`) y este ejecuta las migraciones pendientes
+(`migration-verifier.ts:122`). Como nodemon vigila `apps/api/src/`, **cada vez que guardas
+cualquier archivo del API el server reinicia y aplica lo que haya pendiente** — incluida la
+migration que estas escribiendo en ese momento.
+
+Nadie corre `migration:run` y aun asi la migration aparece aplicada. Verificado el 2026-08-31:
+dos sesiones distintas crearon una migration cada una y las dos se aplicaron solas, con 54
+segundos de diferencia (dos reinicios de nodemon, no una corrida que arrastro a la otra).
+
+**El daño real no es que se aplique: es que queda marcada como ejecutada.** Si el API se
+reinicio cuando tu `up()` estaba a medias, se aplico esa version parcial y se registro en la
+tabla `migrations`. Todo lo que le agregues despues NO se aplica ni se reintenta jamas. El caso
+tipico es la migration que hace dos cosas (crear la columna y sembrar una fila): la columna
+existe, el seed no, y `migration:show` dice que todo esta bien.
+
+Sintoma: `migration:show` da "Pending: 0" pero el schema o el dato que esperabas no esta.
+
+- **Comprobar por el estado real, nunca por la tabla `migrations`**: `PRAGMA table_info(tabla)`
+  para las columnas, y un `SELECT` para lo que sembraste.
+- **Para que vuelva a correr** hay que borrar su fila de `migrations` (`DELETE FROM migrations
+  WHERE name = '<NombreSinTimestamp>'`) — reescribir el archivo no basta. Ojo con el `up()`:
+  si no es idempotente, al re-aplicarse revienta con "duplicate column name".
+- **Para evitarlo**: escribi la migration entera antes del primer guardado, o hacela idempotente
+  (comprobar `PRAGMA table_info` antes de cada `ADD COLUMN`), que ademas la hace segura ante
+  cualquier re-aplicacion.
+
+En `.env.production` tambien esta en `true`: en prod las migraciones las aplica el arranque del
+API tras el deploy, no un paso separado del pipeline.
+
 ## Comandos del proyecto
 
 ```bash
