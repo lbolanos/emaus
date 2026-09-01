@@ -107,24 +107,42 @@ export function useSpeechSynthesis() {
 	let currentUtterance: SpeechSynthesisUtterance | null = null;
 	let currentAudio: HTMLAudioElement | null = null;
 
+	/**
+	 * Blob → data-URI.
+	 *
+	 * No se usa `URL.createObjectURL` porque la CSP del sitio no declara
+	 * `media-src` y hereda `default-src 'self' https:`, sin `blob:`. El
+	 * navegador bloquea la reproducción, `play()` rechaza y el `catch` de abajo
+	 * cae a la voz del navegador: no se queda mudo, pero nunca suena la voz de
+	 * Edge en producción aunque el backend la haya generado.
+	 *
+	 * El audio de una frase de chat es corto, así que el ~33 % extra del base64
+	 * no compensa tocar la cabecera de seguridad de todo el sitio.
+	 */
+	function blobToDataUrl(blob: Blob): Promise<string> {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(reader.result as string);
+			reader.onerror = () => reject(new Error('No se pudo leer el audio'));
+			reader.readAsDataURL(blob);
+		});
+	}
+
 	// --- Edge TTS (backend) ---
 	async function speakWithEdgeTts(text: string) {
 		try {
 			isSpeaking.value = true;
 			const blob = await ttsSpeak(text);
-			const url = URL.createObjectURL(blob);
-			const audio = new Audio(url);
+			const audio = new Audio(await blobToDataUrl(blob));
 			currentAudio = audio;
 
 			audio.onended = () => {
 				isSpeaking.value = false;
 				currentAudio = null;
-				URL.revokeObjectURL(url);
 			};
 			audio.onerror = () => {
 				isSpeaking.value = false;
 				currentAudio = null;
-				URL.revokeObjectURL(url);
 			};
 
 			await audio.play();

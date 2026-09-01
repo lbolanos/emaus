@@ -151,8 +151,12 @@ const readFileAsBase64 = (file: File): Promise<string> =>
 
 const loadFile = async (file: File) => {
   contentType.value = file.type || 'image/jpeg';
-  previewUrl.value = URL.createObjectURL(file);
   imageBase64.value = await readFileAsBase64(file);
+  // Data-URI y no `URL.createObjectURL`: la CSP declara
+  // `img-src 'self' https: data:` — sin `blob:` — así que el navegador bloquea
+  // la vista previa en producción y no se ve nada. El archivo ya se leyó aquí
+  // arriba, así que reutilizar ese base64 no cuesta una lectura extra.
+  previewUrl.value = `data:${contentType.value};base64,${imageBase64.value}`;
 };
 
 const onFileChange = async (e: Event) => {
