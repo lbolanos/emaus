@@ -213,14 +213,6 @@
       </div>
     </template>
 
-    <!-- Input oculto compartido para la subida directa de foto desde la lista -->
-    <input
-      ref="photoInputRef"
-      type="file"
-      accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
-      class="hidden"
-      @change="handlePhotoFileSelect"
-    />
 
     <MeetingFormModal
       v-if="currentCommunity"
@@ -312,6 +304,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { useCommunityStore } from '@/stores/communityStore';
+import { pickFile } from '@/utils/filePicker';
 import { storeToRefs } from 'pinia';
 import { Loader2, CalendarPlus, Calendar, Clock, CheckSquare, ChevronRight, Pencil, Trash2, RefreshCw, Share, FileText, UserCheck, UserX, Search, ImagePlus } from 'lucide-vue-next';
 import {
@@ -539,22 +532,21 @@ const openPhotoPreview = (meeting: any) => {
 };
 
 // --- Subida directa de foto desde la lista (sin abrir el modal de edición) ---
-const photoInputRef = ref<HTMLInputElement | null>(null);
 const photoTargetMeetingId = ref<string | null>(null);
 const uploadingPhotoId = ref<string | null>(null);
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 
-const triggerPhotoUpload = (meeting: any) => {
+const triggerPhotoUpload = async (meeting: any) => {
   photoTargetMeetingId.value = meeting.id;
-  photoInputRef.value?.click();
+  // `pickFiles` crea el input en el momento: no hay referencia que pueda quedar
+  // apuntando a un nodo que el hot-reload desconectó, ni input en display:none
+  // que Safari ignore.
+  const file = await pickFile({ accept: 'image/png,image/jpeg,image/jpg,image/gif,image/webp' });
+  handlePhotoFile(file);
 };
 
-const handlePhotoFileSelect = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  const file = target.files?.[0];
+const handlePhotoFile = (file: File | null) => {
   const meetingId = photoTargetMeetingId.value;
-  // Reset del input para permitir re-elegir el mismo archivo después.
-  if (photoInputRef.value) photoInputRef.value.value = '';
   if (!file || !meetingId) return;
 
   if (!file.type.startsWith('image/')) {

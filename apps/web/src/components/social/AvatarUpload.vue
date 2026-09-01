@@ -46,14 +46,6 @@
 		</div>
 
 		<!-- Hidden File Input -->
-		<input
-			ref="fileInputRef"
-			type="file"
-			accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
-			class="hidden"
-			@change="handleFileSelect"
-			:aria-label="$t('social.avatar.upload')"
-		/>
 
 		<!-- Upload Info -->
 		<p v-if="editable" class="text-xs text-muted-foreground text-center">
@@ -64,6 +56,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
+import { pickFile } from '@/utils/filePicker';
 import { useI18n } from 'vue-i18n';
 import { Camera, Pencil, X } from 'lucide-vue-next';
 import { useToast } from '@repo/ui';
@@ -90,7 +83,6 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const { toast } = useToast();
 
-const fileInputRef = ref<HTMLInputElement | null>(null);
 const previewUrl = ref<string>(props.currentAvatar || '');
 
 // Sync with currentAvatar prop
@@ -131,14 +123,15 @@ const initials = computed(() => {
 	return (names[0].charAt(0) + names[names.length - 1].charAt(0)).toUpperCase();
 });
 
-const triggerFileInput = () => {
-	fileInputRef.value?.click();
+const triggerFileInput = async () => {
+	// El input se crea al vuelo: ni un `display:none` que Safari ignora, ni una
+	// referencia que el hot-reload dejó apuntando a un nodo desconectado.
+	applySelectedFile(
+		await pickFile({ accept: 'image/png,image/jpeg,image/jpg,image/gif,image/webp' }),
+	);
 };
 
-const handleFileSelect = (event: Event) => {
-	const target = event.target as HTMLInputElement;
-	const file = target.files?.[0];
-
+const applySelectedFile = (file: File | null) => {
 	if (!file) return;
 
 	// Validate file size
@@ -177,10 +170,7 @@ const handleFileSelect = (event: Event) => {
 	};
 	reader.readAsDataURL(file);
 
-	// Reset input
-	if (fileInputRef.value) {
-		fileInputRef.value.value = '';
-	}
+	// Sin reset: cada apertura crea un input nuevo.
 };
 
 const handleRemove = () => {

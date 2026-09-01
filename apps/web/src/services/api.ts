@@ -1711,6 +1711,22 @@ export async function updateMemberProfile(
   return response.data;
 }
 
+/**
+ * Actualiza solo el cumpleaños. Endpoint aparte del perfil: este NO es
+ * owner-only, así que cualquier coordinador puede capturar las fechas.
+ */
+export async function updateCommunityMemberBirthday(
+  communityId: string,
+  memberId: string,
+  birthDate: string,
+): Promise<CommunityMember> {
+  const response = await api.patch(
+    `/communities/${communityId}/members/${memberId}/birthday`,
+    { birthDate },
+  );
+  return response.data;
+}
+
 /** Sube o reemplaza la foto de rostro de un miembro (data-URI base64). */
 export async function setCommunityMemberPhoto(
   communityId: string,

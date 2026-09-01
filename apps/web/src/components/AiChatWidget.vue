@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Chat } from '@ai-sdk/vue';
+import { pickFile } from '@/utils/filePicker';
 import { DefaultChatTransport } from 'ai';
 import { ref, nextTick, watch, onMounted } from 'vue';
 import { marked } from 'marked';
@@ -18,8 +19,6 @@ const isMaximized = ref(false);
 const isConfigured = ref<boolean | null>(null);
 const input = ref('');
 const messagesContainer = ref<HTMLElement | null>(null);
-const fileInput = ref<HTMLInputElement | null>(null);
-const cameraInput = ref<HTMLInputElement | null>(null);
 const pendingImage = ref<{ dataUrl: string; mediaType: string } | null>(null);
 const imageError = ref<string | null>(null);
 const isDraggingImage = ref(false);
@@ -296,8 +295,6 @@ const handleSubmit = (e: Event) => {
 	pendingImage.value = null;
 	imageError.value = null;
 	showHelp.value = false;
-	if (fileInput.value) fileInput.value.value = '';
-	if (cameraInput.value) cameraInput.value.value = '';
 };
 
 // --- Image attach (camera / file / paste / drag&drop) ---
@@ -348,11 +345,6 @@ async function attachImageFile(file: File | Blob) {
 	}
 }
 
-const onFileInputChange = async (e: Event) => {
-	const target = e.target as HTMLInputElement;
-	const file = target.files?.[0];
-	if (file) await attachImageFile(file);
-};
 
 const onPaste = async (e: ClipboardEvent) => {
 	const items = e.clipboardData?.items;
@@ -392,16 +384,19 @@ const onDrop = async (e: DragEvent) => {
 const removePendingImage = () => {
 	pendingImage.value = null;
 	imageError.value = null;
-	if (fileInput.value) fileInput.value.value = '';
-	if (cameraInput.value) cameraInput.value.value = '';
 };
 
-const triggerFilePicker = () => {
-	fileInput.value?.click();
+// Los inputs se crean al vuelo: sobreviven al hot-reload y a Safari, que
+// ignora el click programático sobre un input en display:none.
+const triggerFilePicker = async () => {
+	const file = await pickFile({ accept: 'image/*' });
+	if (file) await attachImageFile(file);
 };
 
-const triggerCamera = () => {
-	cameraInput.value?.click();
+const triggerCamera = async () => {
+	// `capture` abre la cámara en móvil; en escritorio cae al selector normal.
+	const file = await pickFile({ accept: 'image/*', capture: 'environment' });
+	if (file) await attachImageFile(file);
 };
 
 // --- Voice input ---
@@ -851,21 +846,6 @@ const getImageParts = (parts: any[] | undefined): { url: string; mediaType: stri
 						</span>
 					</div>
 					<p v-if="imageError" class="mb-2 text-xs text-red-500">{{ imageError }}</p>
-					<input
-						ref="fileInput"
-						type="file"
-						accept="image/*"
-						class="hidden"
-						@change="onFileInputChange"
-					/>
-					<input
-						ref="cameraInput"
-						type="file"
-						accept="image/*"
-						capture="environment"
-						class="hidden"
-						@change="onFileInputChange"
-					/>
 					<div class="flex gap-2">
 						<!-- Mic button -->
 						<button

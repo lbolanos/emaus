@@ -383,18 +383,19 @@
               </TableCell>
               <TableCell v-if="visibleColumns.email" class="py-2">{{ resolveMemberProfile(member).email }}</TableCell>
               <TableCell v-if="visibleColumns.birthday" class="py-2 whitespace-nowrap">
-                <span v-if="memberBirthdayLabel(member)" class="text-sm">
-                  {{ memberBirthdayLabel(member) }}
-                </span>
                 <button
-                  v-else-if="communityStore.isOwnerOrSuperadmin"
                   type="button"
-                  class="text-xs text-muted-foreground underline hover:text-foreground"
-                  @click="openEditDialog(member)"
+                  :class="[
+                    'text-left hover:underline',
+                    memberBirthdayLabel(member)
+                      ? 'text-sm'
+                      : 'text-xs text-muted-foreground',
+                  ]"
+                  :aria-label="`Editar el cumpleaños de ${resolveMemberProfile(member).fullName}`"
+                  @click="openBirthdayDialog(member)"
                 >
-                  Sin fecha
+                  {{ memberBirthdayLabel(member) || 'Sin fecha' }}
                 </button>
-                <span v-else class="text-xs text-muted-foreground">Sin fecha</span>
               </TableCell>
               <TableCell v-if="visibleColumns.state" class="py-2">
                 <Select
@@ -582,6 +583,17 @@
       :participant="messageParticipant"
     />
 
+    <MemberBirthdayDialog
+      v-if="currentCommunity"
+      v-model:open="isBirthdayDialogOpen"
+      :community-id="currentCommunity.id"
+      :member-id="birthdayMember?.id ?? null"
+      :member-name="birthdayMember ? resolveMemberProfile(birthdayMember).fullName : ''"
+      :birthday-month-day="birthdayMember?.birthdayMonthDay ?? null"
+      :birthday-year="birthdayMember?.birthdayYear ?? null"
+      @saved="onBirthdaySaved"
+    />
+
     <MemberPhotoDialog
       v-if="currentCommunity"
       v-model:open="isPhotoDialogOpen"
@@ -652,6 +664,7 @@ import MessageDialog from '@/components/MessageDialog.vue';
 import EditCommunityMemberDialog from '@/components/EditCommunityMemberDialog.vue';
 import MemberAvatar from '@/components/community/MemberAvatar.vue';
 import MemberPhotoDialog from '@/components/community/MemberPhotoDialog.vue';
+import MemberBirthdayDialog from '@/components/community/MemberBirthdayDialog.vue';
 import { MemberStateEnum, type MemberState } from '@repo/types';
 import { useContactedMarks } from '@/composables/useContactedMarks';
 import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
@@ -726,6 +739,28 @@ const openAttendanceDialog = (member: any) => {
 const handleAttendanceSaved = () => {
   // Refrescar para actualizar la tasa de asistencia (badge) del miembro.
   fetchMembers();
+};
+
+// --- Cumpleaños: captura rápida ------------------------------------------
+// Va por su propio endpoint, que NO es owner-only, para que cualquier
+// coordinador pueda ayudar a llenar las fechas que faltan.
+const birthdayMember = ref<any>(null);
+const isBirthdayDialogOpen = ref(false);
+
+const openBirthdayDialog = (member: any) => {
+  birthdayMember.value = member;
+  isBirthdayDialogOpen.value = true;
+};
+
+const onBirthdaySaved = (updated: any) => {
+  const index = members.value.findIndex((m: any) => m.id === updated?.id);
+  if (index !== -1) {
+    members.value[index] = {
+      ...members.value[index],
+      birthdayMonthDay: updated.birthdayMonthDay ?? null,
+      birthdayYear: updated.birthdayYear ?? null,
+    };
+  }
 };
 
 // --- Foto del miembro -------------------------------------------------------

@@ -6,6 +6,7 @@ import {
 	resolveMemberBirthday,
 	splitBirthdayValue,
 	turningAge,
+	BIRTH_DATE_SENTINEL,
 } from '@repo/utils';
 
 /**
@@ -31,6 +32,13 @@ describe('normalizeBirthdayValue', () => {
 		expect(normalizeBirthdayValue('02-29')).toBe('02-29');
 		expect(normalizeBirthdayValue('2024-02-29')).toBe('2024-02-29');
 		expect(normalizeBirthdayValue('2023-02-29')).toBeNull();
+	});
+
+	it('no deja guardar el año centinela como si fuera un cumpleaños', () => {
+		// Guardarlo sería peor que no guardarlo: al leerlo se descartaría y el
+		// coordinador vería "Sin fecha" tras haberlo capturado.
+		expect(normalizeBirthdayValue('1900-01-01')).toBeNull();
+		expect(normalizeBirthdayValue('1901-01-01')).toBe('1901-01-01');
 	});
 
 	it('rechaza basura y años imposibles', () => {
@@ -70,6 +78,16 @@ describe('isPlaceholderBirthDate', () => {
 		expect(
 			isPlaceholderBirthDate('1985-03-14', new Date('2024-05-10T18:30:00Z'), now),
 		).toBe(false);
+	});
+
+	it('detecta el año centinela 1900, venga del alta o de una importación', () => {
+		// Dos orígenes con el mismo síntoma: el alta de comunidad escribe
+		// BIRTH_DATE_SENTINEL porque la columna es NOT NULL, y las hojas de
+		// cálculo importadas traen 1900 cuando la casilla venía vacía.
+		expect(isPlaceholderBirthDate(BIRTH_DATE_SENTINEL, null, now)).toBe(true);
+		expect(isPlaceholderBirthDate('1900-07-24', null, now)).toBe(true);
+		// 1901 ya es una fecha, por absurda que parezca: el corte es explícito.
+		expect(isPlaceholderBirthDate('1901-07-24', null, now)).toBe(false);
 	});
 
 	it('trata la ausencia de fecha como relleno', () => {

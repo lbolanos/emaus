@@ -114,13 +114,6 @@
                 <ImagePlus class="w-6 h-6 mb-1" />
                 <span class="text-sm">Agregar foto</span>
               </button>
-              <input
-                ref="photoInputRef"
-                type="file"
-                accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
-                class="hidden"
-                @change="handlePhotoSelect"
-              />
               <p class="text-xs text-muted-foreground">Imagen opcional (máx. 2MB). PNG, JPG, GIF o WebP.</p>
             </div>
 
@@ -299,6 +292,7 @@ import {
   RadioGroup, RadioGroupItem
 } from '@repo/ui';
 import { useToast } from '@repo/ui';
+import { pickFile } from '@/utils/filePicker';
 import type { RecurrenceFrequency } from '@repo/types';
 import MeetingDateTimeForm from './forms/MeetingDateTimeForm.vue';
 import MeetingRecurrenceForm from './forms/MeetingRecurrenceForm.vue';
@@ -365,19 +359,19 @@ const errors = ref<Record<string, string>>({});
 //  - photoPreview: lo que se muestra (foto existente o data-URI recién elegido).
 //  - pendingPhotoData: data-URI nuevo a subir tras guardar la reunión (null si no cambió).
 //  - pendingPhotoRemove: marcar para borrar la foto existente al guardar.
-const photoInputRef = ref<HTMLInputElement | null>(null);
 const photoPreview = ref<string>('');
 const pendingPhotoData = ref<string | null>(null);
 const pendingPhotoRemove = ref(false);
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 
-const triggerPhotoInput = () => {
-  photoInputRef.value?.click();
+const triggerPhotoInput = async () => {
+  // Input creado al vuelo: inmune a Safari con display:none y a que el
+  // hot-reload deje la referencia apuntando a un nodo desconectado.
+  const file = await pickFile({ accept: 'image/png,image/jpeg,image/jpg,image/gif,image/webp' });
+  applyPhotoFile(file);
 };
 
-const handlePhotoSelect = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  const file = target.files?.[0];
+const applyPhotoFile = (file: File | null) => {
   if (!file) return;
 
   if (!file.type.startsWith('image/')) {
@@ -401,7 +395,6 @@ const handlePhotoSelect = (event: Event) => {
   };
   reader.readAsDataURL(file);
 
-  if (photoInputRef.value) photoInputRef.value.value = '';
 };
 
 const handleRemovePhoto = () => {

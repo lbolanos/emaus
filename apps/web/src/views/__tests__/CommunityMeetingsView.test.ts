@@ -14,6 +14,15 @@ const mockCreateNextMeetingInstance = vi.fn();
 const mockSetMeetingPhoto = vi.fn();
 const mockDeleteMeetingPhoto = vi.fn();
 
+// El selector de archivos ya no es un <input> del template: se crea al vuelo
+// para que no lo rompan Safari (display:none) ni el hot-reload (referencia a
+// un nodo desconectado). Se mockea el helper para decidir qué se "elige".
+const mockPickFile = vi.fn();
+vi.mock('@/utils/filePicker', () => ({
+	pickFile: (...args: any[]) => mockPickFile(...args),
+	pickFiles: (...args: any[]) => mockPickFile(...args),
+}));
+
 vi.mock('@/stores/communityStore', () => ({
 	useCommunityStore: () => ({
 		currentCommunity: mockCurrentCommunity,
@@ -385,6 +394,7 @@ describe('CommunityMeetingsView — meeting photo', () => {
 		mockMeetings.value = [];
 		mockSetMeetingPhoto.mockReset();
 		mockDeleteMeetingPhoto.mockReset();
+		mockPickFile.mockReset();
 	});
 
 	it('muestra la miniatura cuando la reunión tiene photoUrl', async () => {
@@ -420,14 +430,10 @@ describe('CommunityMeetingsView — meeting photo', () => {
 		await flushPromises();
 		await nextTick();
 
-		// 1) Click en el botón fija la reunión objetivo.
-		await wrapper.find('button[aria-label="Subir foto"]').trigger('click');
+		// La persona elige una imagen en el selector del sistema.
+		mockPickFile.mockResolvedValue(new File(['binarycontent'], 'foto.png', { type: 'image/png' }));
 
-		// 2) Simular la selección de archivo en el input oculto compartido.
-		const input = wrapper.find('input[type="file"]');
-		const file = new File(['binarycontent'], 'foto.png', { type: 'image/png' });
-		Object.defineProperty(input.element, 'files', { value: [file] });
-		await input.trigger('change');
+		await wrapper.find('button[aria-label="Subir foto"]').trigger('click');
 		// FileReader.onload es basado en eventos (no promesa): esperar un tick de macrotask.
 		await new Promise((r) => setTimeout(r, 30));
 		await flushPromises();
@@ -445,11 +451,9 @@ describe('CommunityMeetingsView — meeting photo', () => {
 		await flushPromises();
 		await nextTick();
 
+		mockPickFile.mockResolvedValue(new File(['hello'], 'doc.pdf', { type: 'application/pdf' }));
+
 		await wrapper.find('button[aria-label="Subir foto"]').trigger('click');
-		const input = wrapper.find('input[type="file"]');
-		const file = new File(['hello'], 'doc.pdf', { type: 'application/pdf' });
-		Object.defineProperty(input.element, 'files', { value: [file] });
-		await input.trigger('change');
 		await flushPromises();
 
 		expect(mockSetMeetingPhoto).not.toHaveBeenCalled();

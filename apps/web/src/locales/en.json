@@ -239,14 +239,38 @@
     "confirmTitle": "Are you sure?"
   },
   "roleInfo": {
-    "superadmin": { "label": "Superadmin", "description": "Full system access." },
-    "admin": { "label": "Administrator", "description": "Full access to the retreat and its management." },
-    "coordinator": { "label": "Coordinator", "description": "Manages participants and assignments." },
-    "viewer": { "label": "Viewer", "description": "Read-only access to retreat information." },
-    "regular_server": { "label": "Server", "description": "Server access within the retreat." },
-    "treasurer": { "label": "Treasurer", "description": "Manages payments and finances." },
-    "logistics": { "label": "Logistics", "description": "Manages inventory and logistics." },
-    "communications": { "label": "Communications", "description": "Manages messages and communication templates." }
+    "superadmin": {
+      "label": "Superadmin",
+      "description": "Full system access."
+    },
+    "admin": {
+      "label": "Administrator",
+      "description": "Full access to the retreat and its management."
+    },
+    "coordinator": {
+      "label": "Coordinator",
+      "description": "Manages participants and assignments."
+    },
+    "viewer": {
+      "label": "Viewer",
+      "description": "Read-only access to retreat information."
+    },
+    "regular_server": {
+      "label": "Server",
+      "description": "Server access within the retreat."
+    },
+    "treasurer": {
+      "label": "Treasurer",
+      "description": "Manages payments and finances."
+    },
+    "logistics": {
+      "label": "Logistics",
+      "description": "Manages inventory and logistics."
+    },
+    "communications": {
+      "label": "Communications",
+      "description": "Manages messages and communication templates."
+    }
   },
   "passwordReset": {
     "requestTitle": "Reset your password",
@@ -494,7 +518,7 @@
       "validationError": "Validation Error",
       "validationErrorDesc": "Please correct the errors in the form.",
       "alreadyMember": "You are already a member of this community.",
-      "consentLabel": "I agree to share my personal data (name, email, phone) with the community coordinators to process my request.",
+      "consentLabel": "I agree that my personal data (name, email, phone and birthday) may be shared with the coordinators of this community to process my request.",
       "validation": {
         "firstName": "First name is required",
         "firstNameMin": "First name must be at least 2 characters",
@@ -2409,7 +2433,8 @@
       "items": {
         "personal": "Name, last name, date of birth, and marital status",
         "contact": "Address, phone, email, and social media",
-        "demographic": "Information about occupation, sacraments received, and parish"
+        "demographic": "Information about occupation, sacraments received, and parish",
+        "photo": "Face photograph, when a coordinator of your community registers it to recognize you at meetings"
       }
     },
     "use": {

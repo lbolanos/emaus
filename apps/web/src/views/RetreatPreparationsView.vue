@@ -190,13 +190,6 @@
     </div>
 
     <!-- input file oculto compartido -->
-    <input
-      ref="fileInputRef"
-      type="file"
-      class="hidden"
-      accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp"
-      @change="onFileChosen"
-    />
 
     <!-- Dialog: generar calendario -->
     <Dialog v-model:open="generateOpen">
@@ -426,6 +419,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
+import { pickFile } from '@/utils/filePicker';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import {
@@ -681,20 +675,17 @@ async function confirmDelete() {
 }
 
 // -- Subir archivo --
-const fileInputRef = ref<HTMLInputElement | null>(null);
 const uploadTarget = ref<RetreatPreparationDTO | null>(null);
 const uploadingFor = ref<string | null>(null);
 
-function triggerUpload(prep: RetreatPreparationDTO) {
+async function triggerUpload(prep: RetreatPreparationDTO) {
   uploadTarget.value = prep;
-  fileInputRef.value?.click();
+  // El input se crea al vuelo: sobrevive al hot-reload y a Safari.
+  await onFileChosen(await pickFile({ accept: '.pdf,.doc,.docx,.png,.jpg,.jpeg,.webp' }));
 }
 
-async function onFileChosen(e: Event) {
-  const input = e.target as HTMLInputElement;
-  const file = input.files?.[0];
+async function onFileChosen(file: File | null) {
   const target = uploadTarget.value;
-  input.value = '';
   if (!file || !target) return;
   uploadingFor.value = target.id;
   try {

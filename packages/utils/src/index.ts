@@ -96,6 +96,18 @@ const MONTH_NAMES_ES = [
 /** Edad mínima creíble. Por debajo, el `birthDate` es basura, no un dato. */
 const MIN_CREDIBLE_AGE_YEARS = 5;
 
+/**
+ * Año centinela de "no sé la fecha". Lo escribe el alta de comunidad, donde la
+ * columna `participants.birthDate` es NOT NULL y nadie pregunta el cumpleaños,
+ * y aparece también en registros importados de hojas de cálculo.
+ *
+ * 1900 y no la fecha del alta: un cumpleaños igual al día del registro es
+ * indistinguible de uno real a simple vista, y hacía que media comunidad
+ * "cumpliera años" el día que la dieron de alta.
+ */
+export const BIRTH_DATE_SENTINEL = '1900-01-01';
+const SENTINEL_YEAR = 1900;
+
 export interface ResolvedBirthday {
 	/** `'MM-DD'`, o null si no hay dato. */
 	monthDay: string | null;
@@ -145,7 +157,9 @@ export function normalizeBirthdayValue(raw: string | null | undefined): string |
 		const month = Number(withYear[2]);
 		const day = Number(withYear[3]);
 		const currentYear = new Date().getUTCFullYear();
-		if (year < 1900 || year > currentYear) return null;
+		// El límite inferior es 1901: 1900 es el centinela de "sin fecha" y
+		// guardarlo como cumpleaños real lo haría desaparecer al leerlo.
+		if (year <= SENTINEL_YEAR || year > currentYear) return null;
 		if (!isRealMonthDay(month, day, year)) return null;
 		return value;
 	}
@@ -215,6 +229,11 @@ export function isPlaceholderBirthDate(
 	if (registrationYmd && registrationYmd === birthYmd) return true;
 
 	const birthYear = Number(birthYmd.slice(0, 4));
+
+	// Centinela explícito: 1900 completo. Nadie con 126 años está en un roster,
+	// y es el año con el que llegan los registros importados sin fecha.
+	if (birthYear <= SENTINEL_YEAR) return true;
+
 	const yearsElapsed = now.getUTCFullYear() - birthYear;
 	return yearsElapsed < MIN_CREDIBLE_AGE_YEARS;
 }

@@ -62,14 +62,6 @@
 					<span class="text-[10px]">{{ uploading ? 'Subiendo...' : 'Agregar' }}</span>
 				</button>
 			</div>
-			<input
-				ref="fileInput"
-				type="file"
-				accept="image/jpeg,image/png,image/webp"
-				multiple
-				class="hidden"
-				@change="handleFileSelect"
-			/>
 			<p class="text-xs text-muted-foreground">JPG, PNG o WebP (máx. 5MB c/u). La principal se muestra primero en "Mis Retiros".</p>
 		</div>
 
@@ -189,6 +181,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { pickFiles } from '@/utils/filePicker';
 import { Star, Trash2, Plus, Loader2, Music, Download } from 'lucide-vue-next';
 import { useToast } from '@repo/ui';
 import type { RetreatMemoryPhoto, RetreatMemorySong } from '@repo/types';
@@ -225,7 +218,6 @@ const { toast } = useToast();
 
 const photos = ref<RetreatMemoryPhoto[]>([]);
 const songs = ref<RetreatMemorySong[]>([]);
-const fileInput = ref<HTMLInputElement | null>(null);
 const uploading = ref(false);
 const importing = ref(false);
 const newSongUrl = ref('');
@@ -274,7 +266,10 @@ const load = async () => {
 
 onMounted(load);
 
-const triggerFileInput = () => fileInput.value?.click();
+const triggerFileInput = async () => {
+	// El input se crea al vuelo: sobrevive al hot-reload y a Safari.
+	await handleFiles(await pickFiles({ accept: 'image/jpeg,image/png,image/webp', multiple: true }));
+};
 
 const validateFile = (file: File): boolean => {
 	if (file.size > 5 * 1024 * 1024) {
@@ -296,10 +291,7 @@ const readAsDataURL = (file: File): Promise<string> =>
 		reader.readAsDataURL(file);
 	});
 
-const handleFileSelect = async (e: Event) => {
-	const target = e.target as HTMLInputElement;
-	const files = Array.from(target.files ?? []);
-	if (fileInput.value) fileInput.value.value = '';
+const handleFiles = async (files: File[]) => {
 	if (!files.length) return;
 
 	uploading.value = true;

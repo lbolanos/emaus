@@ -20,6 +20,7 @@ import { s3Service } from './s3Service';
 // resto del service sí usa `resolveMemberProfile` para resolver el overlay
 // per-community sobre el Participant subyacente.
 import {
+	BIRTH_DATE_SENTINEL,
 	resolveMemberProfile,
 	resolveMemberBirthday,
 	normalizeBirthdayValue,
@@ -812,7 +813,10 @@ export class CommunityService {
 			retreatId: null,
 			type: 'walker', // Default type for community members
 			id_on_retreat: 0, // Required field, set to 0 for community members
-			birthDate: new Date(), // Default date for community members
+			// Centinela de "sin fecha": la columna es NOT NULL y este flujo no
+			// pregunta el cumpleaños. Escribir `new Date()` daba un cumpleaños
+			// igual al día del alta, indistinguible de uno real.
+			birthDate: new Date(BIRTH_DATE_SENTINEL),
 			maritalStatus: 'O', // Default marital status (Other)
 			street: 'N/A',
 			houseNumber: 'N/A',
@@ -2711,7 +2715,8 @@ export class CommunityService {
 				retreatId: null,
 				type: 'walker',
 				id_on_retreat: 0,
-				birthDate: new Date(),
+				// Centinela de "sin fecha" — ver createCommunityMember.
+				birthDate: new Date(BIRTH_DATE_SENTINEL),
 				maritalStatus: 'O',
 				street: 'N/A',
 				houseNumber: 'N/A',

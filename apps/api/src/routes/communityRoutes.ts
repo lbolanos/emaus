@@ -19,6 +19,7 @@ import {
 	importMembersSchema,
 	updateMemberStateSchema,
 	updateMemberProfileSchema,
+	updateMemberBirthdaySchema,
 	setCommunityMemberPhotoSchema,
 	deleteCommunityMemberPhotoSchema,
 	recordAttendanceSchema,
@@ -148,6 +149,15 @@ router.patch(
 	requireCommunityOwner(),
 	validateRequest(updateMemberProfileSchema),
 	(req, res) => CommunityController.updateMemberProfile(req, res),
+);
+// Cumpleaños: NO es owner-only, a diferencia del perfil. Cambiar una fecha de
+// nacimiento no puede rerutear nada, y capturar las que faltan es trabajo de
+// todo el equipo de coordinadores, no solo del owner.
+router.patch(
+	'/:id/members/:memberId/birthday',
+	requireCommunityAccess(),
+	validateRequest(updateMemberBirthdaySchema),
+	(req, res) => CommunityController.updateMemberBirthday(req, res),
 );
 // Foto de rostro del miembro. A diferencia del perfil (owner-only por el riesgo
 // de rerutear notificaciones cambiando el correo), esto es `requireCommunityAccess`:

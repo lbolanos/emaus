@@ -299,6 +299,50 @@ export class CommunityController {
 	}
 
 	/**
+	 * Actualiza SOLO el cumpleaños de un miembro.
+	 *
+	 * Endpoint aparte del perfil porque no comparte su riesgo: el perfil es
+	 * owner-only para que un co-admin no pueda rerutear notificaciones
+	 * cambiando el correo. Un cumpleaños no redirige nada, y capturarlo es
+	 * trabajo de todo el equipo.
+	 */
+	static async updateMemberBirthday(req: Request, res: Response) {
+		const { id: communityId, memberId } = req.params;
+		const { birthDate } = req.body;
+		try {
+			const { member, changedFields } = await communityService.updateMemberProfile(
+				communityId,
+				memberId,
+				{ birthDate },
+			);
+			if (changedFields.length > 0) {
+				void communityAuditService.log({
+					action: CommunityAuditAction.MEMBER_PROFILE_UPDATE,
+					resourceType: 'community_member',
+					resourceId: memberId,
+					communityId,
+					actorUserId: (req.user as any)?.id,
+					metadata: { changedFields, overlay: true },
+					ipAddress: req.ip,
+					userAgent: req.get('user-agent'),
+				});
+			}
+			res.json(member);
+		} catch (err: any) {
+			if (err?.message === 'Member not found in this community') {
+				return res.status(404).json({ message: err.message });
+			}
+			if (err?.message === 'INVALID_BIRTH_DATE') {
+				return res.status(400).json({
+					code: 'INVALID_BIRTH_DATE',
+					message: 'La fecha de cumpleaños no existe en el calendario.',
+				});
+			}
+			throw err;
+		}
+	}
+
+	/**
 	 * Sube o reemplaza la foto de rostro de un miembro.
 	 *
 	 * No es owner-only (ver el comentario de la ruta): una foto no puede

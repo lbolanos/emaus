@@ -289,6 +289,29 @@ export const setCommunityMemberPhotoSchema = z.object({
 	}),
 });
 
+/**
+ * PATCH del cumpleaños. Endpoint aparte del perfil a propósito: el perfil es
+ * owner-only porque un co-admin podría rerutear notificaciones cambiando el
+ * correo, y un cumpleaños no redirige nada. Separarlo permite que cualquier
+ * coordinador ayude a capturar las fechas, que es trabajo de varios.
+ */
+export const updateMemberBirthdaySchema = z.object({
+	body: z.object({
+		// '' limpia el dato, igual que en el resto de campos del overlay.
+		birthDate: z
+			.string()
+			.trim()
+			.max(10)
+			.refine((v) => v === '' || /^(?:\d{4}-)?\d{2}-\d{2}$/.test(v), {
+				message: 'birthDate debe ser YYYY-MM-DD o MM-DD',
+			}),
+	}),
+	params: z.object({
+		id: z.string().uuid(),
+		memberId: z.string().uuid(),
+	}),
+});
+
 /** DELETE de la foto: no lleva cuerpo, pero los ids se validan igual que en el POST. */
 export const deleteCommunityMemberPhotoSchema = z.object({
 	params: z.object({

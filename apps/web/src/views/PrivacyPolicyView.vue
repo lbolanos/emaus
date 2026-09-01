@@ -173,6 +173,7 @@ const informationItems = ref([
 	t('privacy.information.items.personal'),
 	t('privacy.information.items.contact'),
 	t('privacy.information.items.demographic'),
+	t('privacy.information.items.photo'),
 ]);
 
 // Use of information items

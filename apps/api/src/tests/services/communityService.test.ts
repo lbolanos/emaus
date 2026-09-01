@@ -24,6 +24,26 @@ jest.mock('@/services/emailService', () => ({
 	})),
 }));
 
+/**
+ * Espera a que lleguen al menos `count` correos, sondeando hasta el límite.
+ *
+ * Sustituye a `await new Promise(r => setTimeout(r, 50))` en los tests que
+ * comprueban que un envío SÍ ocurrió: el envío es fire-and-forget y 50 ms
+ * bastan en una máquina ociosa, pero no cuando el pre-push lanza cien suites
+ * en paralelo. Ahí este archivo fallaba y tumbaba el push (2026-08-31).
+ *
+ * Para comprobar que un envío NO ocurrió sigue haciendo falta dormir un
+ * plazo fijo: no se puede esperar a que algo no pase.
+ */
+const waitForEmails = async (count: number, timeoutMs = 3000): Promise<any[]> => {
+	const deadline = Date.now() + timeoutMs;
+	for (;;) {
+		const sent = ((globalThis as any).__sentEmails as any[]) || [];
+		if (sent.length >= count || Date.now() > deadline) return sent;
+		await new Promise((r) => setTimeout(r, 10));
+	}
+};
+
 describe('Community Service', () => {
 	let testUser: User;
 	let testCommunity: Community;
@@ -368,10 +388,8 @@ describe('Community Service', () => {
 
 				await service.createNextMeetingInstance(meeting.id);
 
-				// Esperar al fire-and-forget
-				await new Promise((r) => setTimeout(r, 50));
-
-				const sent = (globalThis as any).__sentEmails || [];
+				// Esperar al fire-and-forget hasta que llegue, no un plazo fijo.
+				const sent = await waitForEmails(1);
 				expect(sent.length).toBe(1);
 				expect(sent[0].to).toBe('recipient@example.com');
 			} finally {
