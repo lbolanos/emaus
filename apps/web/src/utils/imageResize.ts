@@ -16,20 +16,31 @@ interface ResizeOptions {
 	quality?: number;
 }
 
-const loadImage = (file: File | Blob): Promise<HTMLImageElement> =>
+/**
+ * Se lee el archivo como data-URI en vez de `URL.createObjectURL()`.
+ *
+ * Un blob URL sería más eficiente, pero la CSP de producción declara
+ * `img-src 'self' https: data:` — sin `blob:` — así que el navegador bloquea la
+ * carga y la subida falla con "no se pudo leer la imagen". Un `data:` sí está
+ * permitido. Verificado en producción el 2026-08-31.
+ */
+const readAsDataUrl = (file: File | Blob): Promise<string> =>
 	new Promise((resolve, reject) => {
-		const url = URL.createObjectURL(file);
-		const img = new Image();
-		img.onload = () => {
-			URL.revokeObjectURL(url);
-			resolve(img);
-		};
-		img.onerror = () => {
-			URL.revokeObjectURL(url);
-			reject(new Error('No se pudo leer la imagen'));
-		};
-		img.src = url;
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result as string);
+		reader.onerror = () => reject(new Error('No se pudo leer la imagen'));
+		reader.readAsDataURL(file);
 	});
+
+const loadImage = async (file: File | Blob): Promise<HTMLImageElement> => {
+	const dataUrl = await readAsDataUrl(file);
+	return new Promise((resolve, reject) => {
+		const img = new Image();
+		img.onload = () => resolve(img);
+		img.onerror = () => reject(new Error('No se pudo leer la imagen'));
+		img.src = dataUrl;
+	});
+};
 
 export async function resizeImageToDataUrl(
 	file: File | Blob,

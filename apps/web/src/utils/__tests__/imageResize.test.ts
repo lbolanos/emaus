@@ -51,11 +51,18 @@ beforeEach(() => {
 	vi.spyOn(document, 'createElement').mockImplementation(((tag: string) =>
 		tag === 'canvas' ? (fakeCanvas as unknown as HTMLCanvasElement) : originalCreateElement(tag)) as any);
 
-	vi.stubGlobal('URL', {
-		...URL,
-		createObjectURL: vi.fn(() => 'blob:fake'),
-		revokeObjectURL: vi.fn(),
-	});
+	// La imagen se lee con FileReader (data-URI), no con blob URL: la CSP de
+	// producción no permite `blob:` en img-src.
+	class FakeFileReader {
+		result: string | null = null;
+		onload: (() => void) | null = null;
+		onerror: (() => void) | null = null;
+		readAsDataURL(_file: Blob) {
+			this.result = 'data:image/jpeg;base64,ENTRADA';
+			setTimeout(() => this.onload?.(), 0);
+		}
+	}
+	vi.stubGlobal('FileReader', FakeFileReader as any);
 });
 
 afterEach(() => {
@@ -126,12 +133,17 @@ describe('resizeImageToDataUrl', () => {
 		expect(fakeCanvas.toDataURL).toHaveBeenCalledWith('image/jpeg', 0.5);
 	});
 
-	it('libera la URL temporal del objeto', async () => {
-		// Sin el revoke, cada foto subida deja un blob retenido en memoria.
+	it('NO usa blob: para cargar la imagen (la CSP de producción lo bloquea)', async () => {
+		// `img-src 'self' https: data:` — sin `blob:`. Con createObjectURL, el
+		// navegador bloquea la carga en producción y la subida falla con "no se
+		// pudo leer la imagen", pero en local funciona. Pasó el 2026-08-31.
+		const createObjectURL = vi.fn(() => 'blob:fake');
+		vi.stubGlobal('URL', { ...URL, createObjectURL, revokeObjectURL: vi.fn() });
+
 		stubImage(800, 800);
 		await resizeImageToDataUrl(blob());
 
-		expect((URL.revokeObjectURL as any)).toHaveBeenCalledWith('blob:fake');
+		expect(createObjectURL).not.toHaveBeenCalled();
 	});
 
 	it('falla con un mensaje claro si el navegador no da contexto 2D', async () => {
@@ -141,7 +153,20 @@ describe('resizeImageToDataUrl', () => {
 		await expect(resizeImageToDataUrl(blob())).rejects.toThrow('canvas');
 	});
 
-	it('falla con un mensaje claro si la imagen no se puede leer', async () => {
+	it('falla con un mensaje claro si el archivo no se puede leer', async () => {
+		class BrokenReader {
+			onload: (() => void) | null = null;
+			onerror: (() => void) | null = null;
+			readAsDataURL(_f: Blob) {
+				setTimeout(() => this.onerror?.(), 0);
+			}
+		}
+		vi.stubGlobal('FileReader', BrokenReader as any);
+
+		await expect(resizeImageToDataUrl(blob())).rejects.toThrow('No se pudo leer la imagen');
+	});
+
+	it('falla con un mensaje claro si la imagen está corrupta', async () => {
 		class BrokenImage {
 			onload: (() => void) | null = null;
 			onerror: (() => void) | null = null;
