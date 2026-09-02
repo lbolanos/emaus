@@ -76,7 +76,7 @@
           @dragstart="startDrag"
           @dragend="onDragEnd"
           @dblclick.stop="$emit('unassign', bed.id)"
-          :title="`${bed.participant.firstName} ${bed.participant.lastName}\n${$t('bedAssignments.age')}: ${calculateAge(bed.participant.birthDate)}\n${$t('bedAssignments.snores')}: ${bed.participant.snores ? $t('common.yes') : $t('common.no')}\n${$t('bedAssignments.idOnRetreat')}: ${bed.participant.id_on_retreat || 'N/A'}`"
+          :title="`${bed.participant.firstName} ${bed.participant.lastName}\n${$t('bedAssignments.age')}: ${calculateAge(bed.participant.birthDate)}\n${$t('bedAssignments.snores')}: ${bed.participant.snores ? $t('common.yes') : $t('common.no')}\n${$t('bedAssignments.idOnRetreat')}: ${bed.participant.id_on_retreat || 'N/A'}${(bed.participant as any).requestsSingleRoom ? '\nSolicitó cuarto individual' : ''}`"
           :style="{ borderColor: bed.participant.family_friend_color || '#ccc' }"
           class="p-2 rounded-lg border-2 cursor-grab transition-all duration-200 hover:shadow-sm"
           :class="{
@@ -96,6 +96,15 @@
                 <span class="text-sm font-medium text-gray-900 dark:text-white truncate">
                   {{ bed.participant.firstName }} {{ bed.participant.lastName }}
                 </span>
+                <!-- Solicitud, no asignación: el algoritmo de camas ignora este
+                     campo a propósito y son los admin quienes deciden si se
+                     concede. Sin esta marca la petición sólo se ve abriendo la
+                     ficha uno por uno. -->
+                <span
+                  v-if="(bed.participant as any).requestsSingleRoom"
+                  class="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200"
+                  title="Solicitó cuarto individual"
+                >Individual</span>
               </div>
               <div class="mt-1 flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
                 <span v-if="bed.participant.id_on_retreat" class="font-medium">
