@@ -21,7 +21,7 @@
 			<div
 				v-for="(phone, index) in content.contactPhones"
 				:key="phone?.number || index"
-				class="p-1.5 rounded-lg border border-current/20"
+				class="p-1.5 rounded-lg shadow-sm border border-green-200/60"
 			>
 				<div class="flex items-center justify-end gap-1.5">
 					<div class="text-right min-w-0">
@@ -49,7 +49,7 @@
 			<div
 				v-for="email in content.contactEmails"
 				:key="email"
-				class="p-1.5 rounded-lg border border-current/20"
+				class="p-1.5 rounded-lg shadow-sm border border-blue-200/60"
 				:class="content.totalContactItems > 2 ? 'col-span-2' : ''"
 			>
 				<div class="flex items-center justify-end gap-1.5">

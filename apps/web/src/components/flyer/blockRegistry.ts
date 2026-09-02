@@ -63,15 +63,7 @@ export const FLYER_BLOCK_STYLE_DEFAULTS: Record<FlyerBlockId, FlyerBlockStyle> =
 	endTime: { textColor: '#ffffff', headingColor: '#ffffff', textShadow: true },
 	registrationQr: { textColor: '#4b5563', headingColor: '#1d4ed8', textShadow: false },
 	contact: { textColor: '#111827', headingColor: '#374151', textShadow: false },
-	// The only one with a box by default, as in the original: its small print falls on
-	// the brightest part of the artwork and needs something behind it
-	payment: {
-		backgroundColor: '#ffffff',
-		backgroundOpacity: 65,
-		textColor: '#374151',
-		headingColor: '#1d4ed8',
-		textShadow: false,
-	},
+	payment: { textColor: '#374151', headingColor: '#1d4ed8', textShadow: false },
 	whatToBring: { textColor: '#f3f4f6', headingColor: '#ffffff', textShadow: true },
 };
 

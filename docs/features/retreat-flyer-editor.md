@@ -38,11 +38,14 @@ layout por defecto, así que el bloque nuevo aparece en su sitio en vez de falta
 
 ## Estilo: es un cartel, no una interfaz
 
-Por defecto los bloques **no tienen caja**: el texto va directo sobre la imagen, con los colores
-del volante original — azul en los horarios y el costo, verde en el lugar, texto claro donde el
-arte se oscurece abajo, y los chips de icono con sus gradientes de siempre. El único con caja por
-defecto es el costo, porque su letra pequeña cae sobre la parte más luminosa de la foto; el
-original también la llevaba.
+Por defecto **ningún bloque tiene caja**: el texto va directo sobre la imagen, con los colores del
+volante original — azul en los horarios y el costo, verde en el lugar, texto claro donde el arte se
+oscurece abajo, y los chips de icono con sus gradientes de siempre.
+
+Que ninguno la tenga no es un detalle estético: si un bloque llevara velo de fábrica, el panel de
+diseño diría "Fondo: Ninguno" mientras el volante enseña una caja, y eso se lee como que el editor
+no responde. Las placas blancas que el bloque de costo necesita para su letra pequeña son parte de
+su plantilla —como la píldora del precio o los platos de los QR—, no un fondo de bloque.
 
 Esos colores **asumen la posición por defecto de cada bloque sobre el arte por defecto**, que es
 donde el diseño original los puso. Si mueves un bloque de texto claro a la mitad pálida, o cambias

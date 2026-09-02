@@ -80,10 +80,10 @@ describe('resolveBlockStyle', () => {
 	// A missing field cannot clear an inherited one, so "no box" on a block that
 	// defaults to having one has to be said with an explicit zero.
 	it('lets an opacity of zero switch off a box inherited from below', () => {
-		const withBox = resolveBlockStyle('payment');
-		expect(withBox.hasBox).toBe(true);
+		const themed = { backgroundColor: '#ffffff', backgroundOpacity: 65 };
+		expect(resolveBlockStyle('payment', themed).hasBox).toBe(true);
 
-		const off = resolveBlockStyle('payment', null, { payment: { backgroundOpacity: 0 } });
+		const off = resolveBlockStyle('payment', themed, { payment: { backgroundOpacity: 0 } });
 		expect(off.hasBox).toBe(false);
 		expect(off['--fb-bg']).toBe('transparent');
 		expect(off['--fb-radius']).toBe('0');
@@ -117,12 +117,14 @@ describe('resolveBlockStyle', () => {
 		expect(resolveBlockStyle('whatToBring')['--fb-text']).toBe('#f3f4f6');
 	});
 
-	it('gives the cost block the only default box, as the original had', () => {
-		const payment = resolveBlockStyle('payment');
-		expect(payment.hasBox).toBe(true);
-		expect(payment['--fb-bg']).toBe('rgba(255, 255, 255, 0.65)');
-
-		expect(resolveBlockStyle('startTime').hasBox).toBe(false);
+	// No block ships with a box: otherwise the design panel would say "no background"
+	// while the flyer clearly showed one, which is what a coordinator reads as a bug.
+	it('ships every block without a box', () => {
+		const ids = ['intro', 'startTime', 'location', 'endTime', 'contact', 'payment'] as const;
+		for (const id of ids) {
+			expect(resolveBlockStyle(id).hasBox).toBe(false);
+			expect(resolveBlockStyle(id)['--fb-bg']).toBe('transparent');
+		}
 	});
 
 	it('never leaks the theme-only fields into the block vars', () => {
