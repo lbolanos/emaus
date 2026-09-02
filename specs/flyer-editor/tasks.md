@@ -55,16 +55,36 @@ Marcar al cerrar cada milestone, anotando las desviaciones reales respecto al pl
 
 ## M4 — Plantillas
 
-- [ ] `apps/api/src/entities/flyerTemplate.entity.ts` + registro en `database/config.ts`
-- [ ] Migración `CreateFlyerTemplates` (tabla + dos índices, `transaction = false`)
-- [ ] Schemas `flyerTemplateSchema` / `create` / `update`
-- [ ] `flyerTemplateService.ts` + controller + routes + montaje
-- [ ] `flyerTemplateStore.ts` + `FlyerTemplatePanel.vue`
-- [ ] Tests de autorización: personal, comunidad (admin activo), superadmin, tercero → 403
+- [x] `apps/api/src/entities/flyerTemplate.entity.ts` + registro en `database/config.ts`
+- [x] Migración `CreateFlyerTemplates` (tabla + dos índices, `transaction = false`)
+- [x] Schemas `flyerTemplateSchema` / `create` / `update`
+- [x] `flyerTemplateService.ts` + controller + routes + montaje
+- [x] `flyerTemplateStore.ts` + `FlyerTemplatePanel.vue`
+- [x] Tests de autorización: personal, comunidad (admin activo), superadmin, tercero → 403
 
 **Done**: guardar, listar, aplicar y eliminar plantillas con el alcance correcto.
 
 ## Desviaciones respecto al plan
+
+### M4
+
+- **El bloque de schemas de plantilla tuvo que ir después de `flyerOptionsSchema`.** `const` no se
+  hoistea, así que declararlo antes dejaba `layout` en `undefined` y `.partial()` reventaba al
+  importar el módulo — un fallo que aparece en cualquier test del API, no solo en los nuevos.
+- **`authorizationService` vive en `middleware/authorization`**, no en `services/`.
+- **La entidad se registró también en `apps/api/src/tests/test-setup.ts`**: su lista de entidades
+  es un subconjunto de la de producción y sin esto `getRepository(FlyerTemplate)` falla con
+  "No metadata for FlyerTemplate".
+- **El panel captura el fallo de carga.** Se monta junto al editor, así que un `GET` fallido
+  dejaba una promesa rechazada sin manejar (siete en la suite). Ahora muestra el motivo y el
+  panel sigue sirviendo para guardar.
+- **Otro mock global arreglado**: el stub de `Button` no propagaba `disabled`, así que un test
+  podía "hacer clic" en un botón que el usuario no puede pulsar — se coló guardar una plantilla
+  sin nombre. Ahora el stub lo enlaza, y el componente además valida antes de enviar.
+- **`update` permite renombrar y sobrescribir el diseño**, pero no re-escopar: cambiar
+  `scope`/`communityId` cambiaría quién ve la plantilla, así que son inmutables tras crearla.
+- Verificado en el navegador: guardar el diseño de Buen Despacho y aplicarlo a San Agustín copia
+  bloques e imágenes y **respeta los datos del retiro destino** (parroquia, fechas, QR).
 
 ### M3
 

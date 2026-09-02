@@ -36,10 +36,13 @@
 			<Card class="h-fit lg:sticky lg:top-4">
 				<CardContent class="p-4">
 					<Tabs default-value="blocks">
-						<TabsList class="grid w-full grid-cols-3">
+						<TabsList class="grid w-full grid-cols-4">
 							<TabsTrigger value="blocks">{{ t('retreatFlyerEditor.tabs.blocks') }}</TabsTrigger>
 							<TabsTrigger value="images">{{ t('retreatFlyerEditor.tabs.images') }}</TabsTrigger>
 							<TabsTrigger value="texts">{{ t('retreatFlyerEditor.tabs.texts') }}</TabsTrigger>
+							<TabsTrigger value="templates">
+								{{ t('retreatFlyerEditor.tabs.templates') }}
+							</TabsTrigger>
 						</TabsList>
 
 						<TabsContent value="blocks" class="mt-4">
@@ -69,6 +72,13 @@
 
 						<TabsContent value="texts" class="mt-4">
 							<FlyerTextPanel :values="store.textOverrides" @update="store.setTextOverride" />
+						</TabsContent>
+
+						<TabsContent value="templates" class="mt-4">
+							<FlyerTemplatePanel
+								:layout="store.draftOptions"
+								@apply="store.applyTemplate"
+							/>
 						</TabsContent>
 					</Tabs>
 				</CardContent>
@@ -107,6 +117,7 @@ import RetreatFlyerCanvas from '@/components/flyer/RetreatFlyerCanvas.vue';
 import FlyerBlockList from '@/components/flyer/editor/FlyerBlockList.vue';
 import FlyerTextPanel from '@/components/flyer/editor/FlyerTextPanel.vue';
 import FlyerImagePicker from '@/components/flyer/editor/FlyerImagePicker.vue';
+import FlyerTemplatePanel from '@/components/flyer/editor/FlyerTemplatePanel.vue';
 import { FLYER_IMAGE_KEYS } from '@/components/flyer/flyerPresetAssets';
 
 const route = useRoute();

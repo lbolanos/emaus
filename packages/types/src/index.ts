@@ -170,6 +170,59 @@ export const flyerOptionsSchema = z.object({
 });
 export type FlyerOptions = z.infer<typeof flyerOptionsSchema>;
 
+/**
+ * Reusable flyer designs. `personal` is visible only to its author; `community` to
+ * every active admin of that community. A retreat has no link to a community, so the
+ * scope is chosen when saving, never derived.
+ */
+export const flyerTemplateScopeSchema = z.enum(['personal', 'community']);
+export type FlyerTemplateScope = z.infer<typeof flyerTemplateScopeSchema>;
+
+export const flyerTemplateSchema = z.object({
+	id: idSchema,
+	name: z.string().trim().min(1, 'El nombre es obligatorio').max(255),
+	scope: flyerTemplateScopeSchema,
+	communityId: idSchema.nullable().optional(),
+	createdBy: idSchema.nullable().optional(),
+	layout: flyerOptionsSchema,
+	createdAt: z.coerce.date(),
+	updatedAt: z.coerce.date(),
+});
+export type FlyerTemplate = z.infer<typeof flyerTemplateSchema>;
+
+export const createFlyerTemplateSchema = z.object({
+	// createdAt/updatedAt/createdBy are set by the server; sending them back from a
+	// read DTO is the usual source of surprise 400s.
+	body: flyerTemplateSchema
+		.omit({ id: true, createdBy: true, createdAt: true, updatedAt: true })
+		.superRefine((data, ctx) => {
+			if (data.scope === 'community' && !data.communityId) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					path: ['communityId'],
+					message: 'Elige la comunidad con la que se comparte',
+				});
+			}
+		}),
+});
+export type CreateFlyerTemplate = z.infer<typeof createFlyerTemplateSchema>['body'];
+
+/** Scope and community are immutable after creation: re-scoping would change who can see it. */
+export const updateFlyerTemplateSchema = z.object({
+	body: flyerTemplateSchema
+		.omit({
+			id: true,
+			scope: true,
+			communityId: true,
+			createdBy: true,
+			createdAt: true,
+			updatedAt: true,
+		})
+		.partial(),
+	params: z.object({ id: idSchema }),
+});
+export type UpdateFlyerTemplate = z.infer<typeof updateFlyerTemplateSchema>['body'];
+
 // Retreat Memory Photo (read) — `url` may be an S3 https URL or a base64 data URI
 // (disk/base64 storage), so it is a plain string, not a strict URL.
 export const retreatMemoryPhotoSchema = z.object({

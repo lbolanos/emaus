@@ -233,7 +233,9 @@ config.global.stubs = {
 vi.mock('@repo/ui', () => ({
 	Button: {
 		name: 'Button',
-		template: '<button><slot /></button>',
+		// `disabled` is bound through, so a test clicking a disabled button gets the
+		// same nothing a user would.
+		template: '<button :disabled="disabled"><slot /></button>',
 		// `onClick` must NOT be declared here: declaring it turns `@click` into a prop,
 		// so Vue stops treating it as a native listener and the stub swallows every
 		// click — no test could ever verify what a <Button @click> does.

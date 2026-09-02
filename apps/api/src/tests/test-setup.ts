@@ -10,6 +10,7 @@ import { Participant } from '../entities/participant.entity';
 import { User } from '../entities/user.entity';
 import { Responsability } from '../entities/responsability.entity';
 import { MessageTemplate } from '../entities/messageTemplate.entity';
+import { FlyerTemplate } from '../entities/flyerTemplate.entity';
 import { InventoryCategory } from '../entities/inventoryCategory.entity';
 import { InventoryTeam } from '../entities/inventoryTeam.entity';
 import { InventoryItem } from '../entities/inventoryItem.entity';
@@ -94,6 +95,7 @@ const entities = [
 	RetreatParticipant,
 	Responsability,
 	MessageTemplate,
+	FlyerTemplate,
 	GlobalMessageTemplate,
 	InventoryCategory,
 	InventoryTeam,
