@@ -88,16 +88,43 @@ export const flyerBlockLayoutSchema = z.object({
 });
 export type FlyerBlockLayout = z.infer<typeof flyerBlockLayoutSchema>;
 
+/**
+ * A flyer image: an app-bundled preset (`/jesus2.png`), an https URL (S3), or an
+ * inline data URI (the fallback when S3 is not configured).
+ *
+ * SECURITY: these end up in `background-image: url(...)` and `<img :src>`, and the
+ * field can be written straight through PUT /retreats/:id, skipping the upload
+ * endpoint's checks. Restricting the scheme keeps `javascript:` and friends out;
+ * the length cap bounds the inline case (512KB binary ≈ 700KB of base64).
+ */
+const flyerImageUrlSchema = z.preprocess(
+	// The client clears an image by sending '', which a formatted .optional() would
+	// reject with a 400 — a bug this repo has already paid for more than once.
+	(value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+	z
+		.string()
+		.max(1_000_000, { message: 'La imagen es demasiado grande' })
+		.refine(
+			(value) =>
+				/^(\/[\w./-]*|https:\/\/[^\s"']+|data:image\/[\w+.-]+;base64,[\w+/=]+)$/.test(value),
+			{ message: 'La imagen debe ser una ruta de la app, una URL https o una imagen en base64' },
+		)
+		.optional(),
+);
+
 /** Image URLs. Empty/absent means "use the built-in preset". */
 export const flyerImagesSchema = z.object({
-	bodyBackground: z.string().optional(),
-	headerBackground: z.string().optional(),
-	footerBackground: z.string().optional(),
-	logo: z.string().optional(),
+	bodyBackground: flyerImageUrlSchema,
+	headerBackground: flyerImageUrlSchema,
+	footerBackground: flyerImageUrlSchema,
+	logo: flyerImageUrlSchema,
 });
 export type FlyerImages = z.infer<typeof flyerImagesSchema>;
 
 export const FLYER_LAYOUT_VERSION = 2;
+
+/** Upper bound for the flyer's free-text overrides; they are headings and short lines. */
+const FLYER_TEXT_MAX = 2000;
 
 /** Which slot an uploaded flyer image is meant for; drives the resize bounds. */
 export const flyerAssetKindSchema = z.enum([
@@ -131,12 +158,14 @@ export type UploadFlyerAsset = z.infer<typeof uploadFlyerAssetSchema>['body'];
 export const flyerOptionsSchema = z.object({
 	/** 1 = legacy (no `blocks`); 2 = block layout. Resolved on read, never migrated in place. */
 	layoutVersion: z.number().int().min(1).max(FLYER_LAYOUT_VERSION).optional(),
-	blocks: z.array(flyerBlockLayoutSchema).optional(),
+	// Capped: there are only 8 block ids, and the canvas mounts a component per entry,
+	// so an unbounded array would let one coordinator freeze the flyer for everyone else.
+	blocks: z.array(flyerBlockLayoutSchema).max(32).optional(),
 	images: flyerImagesSchema.optional(),
 
-	titleOverride: z.string().optional(),
-	subtitleOverride: z.string().optional(),
-	cssStyles: z.record(z.string()).optional(),
+	titleOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	subtitleOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	cssStyles: z.record(z.string().max(FLYER_TEXT_MAX)).optional(),
 	// Legacy, read-only: superseded by showQrCodesLocation/Registration below, and by
 	// blocks[].visible in v2. Kept so v1 rows keep parsing.
 	showQrCodes: z.boolean().default(true).optional(),
@@ -146,27 +175,27 @@ export const flyerOptionsSchema = z.object({
 	showPickupInfo: z.boolean().default(true),
 
 	// Declared but unused by the views; kept so existing rows keep parsing.
-	catholicRetreat: z.string().optional(),
-	emausFor: z.string().optional(),
-	weekendOfHope: z.string().optional(),
+	catholicRetreat: z.string().max(FLYER_TEXT_MAX).optional(),
+	emausFor: z.string().max(FLYER_TEXT_MAX).optional(),
+	weekendOfHope: z.string().max(FLYER_TEXT_MAX).optional(),
 
-	catholicRetreatOverride: z.string().optional(),
-	emausForOverride: z.string().optional(),
-	weekendOfHopeOverride: z.string().optional(),
+	catholicRetreatOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	emausForOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	weekendOfHopeOverride: z.string().max(FLYER_TEXT_MAX).optional(),
 	// hopeOverride wins over titleOverride, and weekendOfHopeOverride over subtitleOverride.
-	hopeOverride: z.string().optional(),
-	hopeQuoteOverride: z.string().optional(),
-	encounterDescriptionOverride: z.string().optional(),
-	dareToLiveItOverride: z.string().optional(),
-	arrivalTimeNoteOverride: z.string().optional(),
-	whatToBringOverride: z.string().optional(),
-	registerOverride: z.string().optional(),
-	scanToRegisterOverride: z.string().optional(),
-	goToRegistrationOverride: z.string().optional(),
-	limitedCapacityOverride: z.string().optional(),
-	dontMissItOverride: z.string().optional(),
-	reservationNoteOverride: z.string().optional(),
-	comeOverride: z.string().optional(),
+	hopeOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	hopeQuoteOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	encounterDescriptionOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	dareToLiveItOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	arrivalTimeNoteOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	whatToBringOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	registerOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	scanToRegisterOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	goToRegistrationOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	limitedCapacityOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	dontMissItOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	reservationNoteOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	comeOverride: z.string().max(FLYER_TEXT_MAX).optional(),
 });
 export type FlyerOptions = z.infer<typeof flyerOptionsSchema>;
 
