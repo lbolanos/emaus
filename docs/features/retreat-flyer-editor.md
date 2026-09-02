@@ -111,9 +111,20 @@ cambia en cada configuración. Por eso:
 - **Copiar imagen**: `toBlob` en PNG al portapapeles, que es lo que conviene al pegarlo en un
   documento.
 
-## Pendiente
+### CORS con las imágenes de S3 — verificado, no hace falta tocar nada
 
-- **CORS del bucket**: con una imagen servida desde S3 (cross-origin), `html-to-image` puede
-  fallar con el canvas contaminado al copiar o exportar. En dev no se reproduce porque sin S3 la
-  imagen queda como data URI. Hay que probarlo contra el bucket real y, si falta, añadir la regla
-  de CORS.
+Preocupaba que una imagen cross-origin contaminase el canvas al exportar. No ocurre, y conviene
+saber por qué antes de "arreglarlo" algún día:
+
+- `html-to-image` **no** pinta la URL remota en el canvas: hace `fetch(url, fetchRequestInit)`,
+  la pasa a blob y la inlinea como data URI (`es/dataurl.js`). Un data URI es same-origin, así
+  que el canvas nunca queda contaminado. Cubre tanto los `<img>` como el `background-image` de
+  **estilos inline**, que es como el volante pinta el fondo (`es/embed-images.js`).
+- El bucket `emaus-media` ya responde `Access-Control-Allow-Origin: *` con `GET` (regla a nivel
+  de bucket, aplica a todo objeto). Comprobado el 2026-09-02 con un `fetch(..., { mode: 'cors' })`
+  desde el origen real `https://emaus.cc`: 200 y blob leído sin error.
+
+⚠️ **El modo de fallo, si algún día el CORS se rompe, es silencioso.** `resourceToDataURL` captura
+el error, hace `console.warn` y devuelve `options.imagePlaceholder || ''`. No hay excepción: el
+PDF o la imagen copiada **salen sin esa imagen**. Si alguien reporta "el volante se exporta sin
+fondo", mira primero la consola y los headers CORS del bucket, no el código del volante.

@@ -47,9 +47,10 @@ Marcar al cerrar cada milestone, anotando las desviaciones reales respecto al pl
 - [x] `uploadFlyerAsset()` en `apps/web/src/services/api.ts`
 - [x] `flyerPresetAssets.ts` + `FlyerImagePicker.vue` (galería + subida)
 - [x] Chrome y canvas leyendo `images.*` con fallback a presets
-- [ ] **Verificar CORS del bucket** con copiar imagen y exportar PDF usando una imagen subida
-      — pendiente de verdad: en dev no hay S3, la imagen subida queda como data URI y no
-      ejercita el caso cross-origin. Hay que probarlo contra el bucket real.
+- [x] **Verificar CORS del bucket** — hecho el 2026-09-02 contra el bucket real: `emaus-media`
+      responde `Access-Control-Allow-Origin: *` con GET, y un `fetch(..., {mode:'cors'})` desde
+      el origen `https://emaus.cc` devuelve 200. Además `html-to-image` inlinea por fetch a data
+      URI (no pinta la URL remota), así que el canvas no se contamina. No hubo que cambiar nada.
 
 **Done**: las cuatro imágenes se cambian desde el editor y salen en volante, PDF e imagen copiada.
 
