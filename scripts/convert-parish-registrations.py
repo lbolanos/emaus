@@ -72,7 +72,7 @@ OUTPUT_COLUMNS = [
     "emerg2nombre", "emerg2relacion", "emerg2telcelular", "emerg2telcasa", "emerg2teltrabajo", "emerg2email",
     "camiseta", "invitadopor", "invitadaporemaus",
     "invtelcelular", "invtelcasa", "invteltrabajo", "invemail",
-    "notas", "cancelado",
+    "montopago", "notas", "cancelado",
 ]
 
 
@@ -130,6 +130,20 @@ def is_empty_row(record):
 def yes_no(value):
     """'Sí'/'No' -> 'S'/'N'. Note the accent: a plain 'Si' never appears."""
     return "S" if value.strip().lower() in ("sí", "si") else "N"
+
+
+def money(value):
+    """'3,100.00' -> '3100.00'. Strips the thousands separator.
+
+    Not cosmetic: the importer does `parseFloat(montopago)`, and parseFloat
+    stops at the comma. '3,100.00' would become 3 — a payment of three pesos
+    that passes the `amount > 0` check and leaves the walker owing 3,097.
+    """
+    cleaned = (value or "").replace(",", "").replace("$", "").strip()
+    try:
+        return f"{float(cleaned):.2f}" if cleaned else ""
+    except ValueError:
+        return ""
 
 
 def split_birth_date(value):
@@ -194,6 +208,12 @@ def convert_row(source):
         "invtelcasa": source.get("Quien invitó · Teléfono de casa", ""),
         "invteltrabajo": source.get("Quien invitó · Teléfono del trabajo", ""),
         "invemail": source.get("Quien invitó · Correo", ""),
+        # The importer needs BOTH montopago and fechapago to create the payment,
+        # and the export has no payment date — only "Fecha de registro", which is
+        # when they signed up, not when they paid. Inventing a date for a money
+        # record is worse than leaving it out, so the amount travels for reference
+        # and the payment is captured by hand. Ask the parish for a date column.
+        "montopago": money(source.get("Monto pagado", "")),
         # "Activa" is the healthy state; anything else means the person is out.
         "cancelado": "N" if source.get("Estado de la inscripción", "").strip() == "Activa" else "S",
     })
@@ -213,7 +233,17 @@ def convert_row(source):
     if source.get("Forma de pago"):
         notes.append(f"Forma de pago: {source['Forma de pago']}")
     if source.get("Estado del pago"):
-        notes.append(f"Pago: {source['Estado del pago']}")
+        estado = source["Estado del pago"]
+        # "Último pago (estado)" es lo único que distingue un pago RECHAZADO de
+        # uno que nunca se intentó: ambos dejan "Estado del pago: Pendiente".
+        ultimo = source.get("Último pago (estado)", "").strip()
+        saldo = source.get("Saldo pendiente", "").strip()
+        detalle = f"Pago: {estado}"
+        if ultimo and ultimo.lower() != "confirmado":
+            detalle += f" (último intento: {ultimo})"
+        if saldo:
+            detalle += f", saldo {saldo}"
+        notes.append(detalle)
     out["notas"] = " | ".join(notes)
 
     return out
