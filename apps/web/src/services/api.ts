@@ -1401,6 +1401,19 @@ export async function deleteCommunityMeeting(
   await api.delete(`/communities/meetings/${meetingId}?scope=${scope}`);
 }
 
+/**
+ * Stores an image for use as flyer artwork and returns its public URL.
+ * `dataUrl` must be a data URI — see resizeImageToDataUrl, which reads with
+ * FileReader because the production CSP blocks `blob:` image sources.
+ */
+export async function uploadFlyerAsset(
+  kind: 'bodyBackground' | 'headerBackground' | 'footerBackground' | 'logo',
+  dataUrl: string,
+): Promise<string> {
+  const response = await api.post('/flyer-assets', { kind, dataUrl });
+  return response.data.url;
+}
+
 export async function setCommunityMeetingPhoto(
   meetingId: string,
   photoData: string,

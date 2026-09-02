@@ -1,7 +1,7 @@
 <template>
-	<div class="p-2.5">
+	<div class="p-2.5 rounded-2xl bg-white/85 backdrop-blur-sm shadow-md print:bg-white print:backdrop-blur-none">
 		<h4
-			class="font-black text-[13px] uppercase text-white mb-2 flex items-center gap-2 border-b border-white/30 pb-2 tracking-[0.1em] drop-shadow-lg"
+			class="font-black text-[13px] uppercase text-purple-700 mb-2 flex items-center gap-2 border-b border-purple-200 pb-2 tracking-[0.1em] drop-shadow-lg"
 		>
 			<div
 				class="bg-gradient-to-br from-purple-400 to-purple-600 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
@@ -17,7 +17,7 @@
 			</span>
 		</h4>
 
-		<ul class="grid grid-cols-3 gap-x-3 gap-y-1.5 text-[11px] text-gray-100 print:text-white">
+		<ul class="grid grid-cols-3 gap-x-3 gap-y-1.5 text-[11px] text-gray-800">
 			<li v-for="item in items" :key="item" class="flex items-start gap-1.5">
 				<div
 					class="w-1.5 h-1.5 mt-1.5 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 shadow-sm flex-shrink-0"

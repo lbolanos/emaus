@@ -7,8 +7,12 @@ interface ProcessedImage {
 	height: number;
 }
 
+export type FlyerAssetKind = 'bodyBackground' | 'headerBackground' | 'footerBackground' | 'logo';
+
 class ImageService {
 	private readonly MAX_SIZE = 512; // pixels
+	/** Flyer backgrounds are exported at pixelRatio 2, so they need more than 512px. */
+	private readonly MAX_FLYER_BACKGROUND_SIZE = 1600; // pixels
 	private readonly QUALITY = 85; // webp quality
 	private readonly MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 
@@ -117,6 +121,54 @@ class ImageService {
 				contentType: 'image/webp',
 				width: metadata.width || 0,
 				height: metadata.height || 0,
+			};
+		} catch (error) {
+			throw new Error(`Invalid image file: ${error.message}`);
+		}
+	}
+
+	/**
+	 * Processes an image used as flyer artwork (background or logo).
+	 *
+	 * Unlike processAvatar this never crops: a background cropped to a square would
+	 * lose the part of the picture the coordinator picked it for. Backgrounds also get
+	 * a larger bound than avatars because the flyer is exported at twice its size.
+	 */
+	async processFlyerAsset(
+		buffer: Buffer,
+		contentType: string,
+		kind: FlyerAssetKind,
+	): Promise<ProcessedImage> {
+		if (buffer.length > this.MAX_FILE_SIZE) {
+			throw new Error('File size exceeds maximum (2MB)');
+		}
+
+		if (!this.verifyMagicBytes(buffer, contentType)) {
+			throw new Error('File content does not match declared MIME type');
+		}
+
+		const maxSide = kind === 'logo' ? this.MAX_SIZE : this.MAX_FLYER_BACKGROUND_SIZE;
+
+		try {
+			const image = sharp(buffer);
+			const metadata = await image.metadata();
+
+			if (!metadata.format) {
+				throw new Error('Unable to determine image format');
+			}
+
+			const processed = await image
+				.resize(maxSide, maxSide, { fit: 'inside', withoutEnlargement: true })
+				.webp({ quality: this.QUALITY })
+				.toBuffer();
+
+			const processedMetadata = await sharp(processed).metadata();
+
+			return {
+				buffer: processed,
+				contentType: 'image/webp',
+				width: processedMetadata.width || 0,
+				height: processedMetadata.height || 0,
 			};
 		} catch (error) {
 			throw new Error(`Invalid image file: ${error.message}`);

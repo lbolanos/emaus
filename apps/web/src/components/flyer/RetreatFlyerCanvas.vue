@@ -26,11 +26,11 @@
 			}"
 		>
 			<div
-				class="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/10 pointer-events-none"
+				class="absolute inset-0 bg-gradient-to-br from-white/20 via-white/5 to-black/10 pointer-events-none"
 			></div>
 
 			<div class="relative z-10 grid grid-cols-2 gap-x-3 items-start">
-				<div class="flex flex-col">
+				<div class="flex flex-col gap-3">
 					<component
 						v-for="block in blocksInSlot.left"
 						:key="block.id"
@@ -39,7 +39,7 @@
 						:data-flyer-block="block.id"
 					/>
 				</div>
-				<div class="flex flex-col">
+				<div class="flex flex-col gap-3">
 					<component
 						v-for="block in blocksInSlot.right"
 						:key="block.id"
@@ -50,7 +50,7 @@
 				</div>
 			</div>
 
-			<div v-if="blocksInSlot.wide.length" class="relative z-10 flex flex-col">
+			<div v-if="blocksInSlot.wide.length" class="relative z-10 mt-3 flex flex-col gap-3">
 				<component
 					v-for="block in blocksInSlot.wide"
 					:key="block.id"

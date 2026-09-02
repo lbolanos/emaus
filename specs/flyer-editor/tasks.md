@@ -41,13 +41,15 @@ Marcar al cerrar cada milestone, anotando las desviaciones reales respecto al pl
 
 ## M3 — Imágenes
 
-- [ ] `imageService.processFlyerAsset` (fit `inside`, 1600px fondos / 512px logo, WebP q85)
-- [ ] `uploadFlyerAssetSchema` en `packages/types`
-- [ ] `POST /flyer-assets` (controller + route + montaje) con fallback data-URI sin S3
-- [ ] `uploadFlyerAsset()` en `apps/web/src/services/api.ts`
-- [ ] `flyerPresetAssets.ts` + `FlyerImagePicker.vue` (galería + subida)
-- [ ] Chrome y canvas leyendo `images.*` con fallback a presets
+- [x] `imageService.processFlyerAsset` (fit `inside`, 1600px fondos / 512px logo, WebP q85)
+- [x] `uploadFlyerAssetSchema` en `packages/types`
+- [x] `POST /flyer-assets` (controller + route + montaje) con fallback data-URI sin S3
+- [x] `uploadFlyerAsset()` en `apps/web/src/services/api.ts`
+- [x] `flyerPresetAssets.ts` + `FlyerImagePicker.vue` (galería + subida)
+- [x] Chrome y canvas leyendo `images.*` con fallback a presets
 - [ ] **Verificar CORS del bucket** con copiar imagen y exportar PDF usando una imagen subida
+      — pendiente de verdad: en dev no hay S3, la imagen subida queda como data URI y no
+      ejercita el caso cross-origin. Hay que probarlo contra el bucket real.
 
 **Done**: las cuatro imágenes se cambian desde el editor y salen en volante, PDF e imagen copiada.
 
@@ -63,6 +65,27 @@ Marcar al cerrar cada milestone, anotando las desviaciones reales respecto al pl
 **Done**: guardar, listar, aplicar y eliminar plantillas con el alcance correcto.
 
 ## Desviaciones respecto al plan
+
+### M3
+
+- **Las tarjetas de los bloques pasan a tener fondo propio** (blanco translúcido con
+  `backdrop-blur`, texto oscuro). No estaba en el plan y resultó obligatorio: con el layout
+  absoluto cada tarjeta se apoyaba en una zona conocida del fondo, así que el texto blanco de
+  "Fin del retiro" y "Qué llevar" funcionaba. En cuanto los bloques se mueven —y más con un fondo
+  que sube el usuario— aparece texto blanco sobre fondo claro, ilegible. Verificado en el
+  navegador antes y después. Es un cambio de aspecto visible respecto al volante original.
+- **La subida vive en un servicio propio** (`flyerAssetService.storeFlyerAsset`) en vez de en el
+  controller: así el fallback sin S3 y la elección de prefijo quedan testeables sin HTTP.
+- **`POST /flyer-assets` no está scopeado a un retiro.** Devuelve una URL pública reutilizable, así
+  que atarla a un `:retreatId` no aportaba nada; la autorización es `retreat:update`.
+- **La escala de la vista previa se mide sobre la columna, no sobre el contenedor del lienzo.** Un
+  elemento con `transform: scale()` conserva su caja de 850px, así que el ancho del contenedor
+  nunca cambia y el `ResizeObserver` no volvía a dispararse: la vista previa se quedaba con la
+  escala de la primera medición (0.79 dentro de un hueco de 850px).
+- **El límite inline sin S3 es 512KB.** En dev la imagen acaba dentro de `flyer_options`; el guard
+  evita que la fila de un retiro cargue con megas de base64.
+- La trampa de `vi.mock` con variables top-level (hoisting) reapareció en el test del selector; se
+  resuelve con `vi.hoisted`.
 
 ### M2
 

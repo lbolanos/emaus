@@ -1,6 +1,6 @@
 <template>
 	<!-- A heading with no numbers under it reads as a mistake, so render nothing -->
-	<div v-if="content.totalContactItems > 0" class="p-2.5">
+	<div v-if="content.totalContactItems > 0" class="p-2.5 rounded-2xl bg-white/85 backdrop-blur-sm shadow-md print:bg-white print:backdrop-blur-none">
 		<h4
 			class="text-[14px] font-black text-gray-700 uppercase mb-1.5 flex items-center justify-end gap-3 tracking-[0.1em] text-right"
 		>

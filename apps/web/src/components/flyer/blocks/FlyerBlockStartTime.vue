@@ -1,5 +1,5 @@
 <template>
-	<div class="p-4 rounded-2xl">
+	<div class="p-4 rounded-2xl bg-white/85 backdrop-blur-sm shadow-md print:bg-white print:backdrop-blur-none">
 		<div class="flex gap-4 items-start group">
 			<div
 				class="bg-gradient-to-br from-blue-500 to-blue-700 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"

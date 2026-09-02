@@ -1,6 +1,6 @@
 <template>
 	<!-- Capped so the divider under the price doesn't stretch across the column -->
-	<div class="max-w-[360px] mx-auto">
+	<div class="max-w-[360px] mx-auto p-3 rounded-2xl bg-white/85 backdrop-blur-sm shadow-md print:bg-white print:backdrop-blur-none">
 		<div class="text-center mb-3 pb-3 border-b-2 border-yellow-200">
 			<span class="text-[20px] font-black uppercase text-blue-700 tracking-[0.2em] block mb-1">
 				{{ t('retreatFlyer.cost') }}

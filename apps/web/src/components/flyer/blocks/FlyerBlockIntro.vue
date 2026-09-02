@@ -1,5 +1,5 @@
 <template>
-	<div class="p-4 rounded-2xl">
+	<div class="p-4 rounded-2xl bg-white/85 backdrop-blur-sm shadow-md print:bg-white print:backdrop-blur-none">
 		<p
 			class="text-[18px] text-gray-900 text-center leading-relaxed font-medium"
 			style="font-family: 'Playfair Display', serif"

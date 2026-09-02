@@ -54,10 +54,17 @@
 							</Button>
 						</TabsContent>
 
-						<TabsContent value="images" class="mt-4">
+						<TabsContent value="images" class="mt-4 space-y-4">
 							<p class="text-sm text-muted-foreground">
 								{{ t('retreatFlyerEditor.images.hint') }}
 							</p>
+							<FlyerImagePicker
+								v-for="key in FLYER_IMAGE_KEYS"
+								:key="key"
+								:image-key="key"
+								:model-value="store.images[key]"
+								@update="store.setImage(key, $event)"
+							/>
 						</TabsContent>
 
 						<TabsContent value="texts" class="mt-4">
@@ -68,11 +75,11 @@
 			</Card>
 
 			<!-- Live preview -->
-			<div>
+			<div ref="previewColumnRef" class="min-w-0">
 				<h2 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
 					{{ t('retreatFlyerEditor.preview') }}
 				</h2>
-				<div ref="previewWrapperRef" :style="{ height: previewHeight }">
+				<div :style="{ height: previewHeight }">
 					<RetreatFlyerCanvas
 						ref="canvasRef"
 						:retreat="retreat"
@@ -99,6 +106,8 @@ import { useFlyerEditorStore } from '@/stores/flyerEditorStore';
 import RetreatFlyerCanvas from '@/components/flyer/RetreatFlyerCanvas.vue';
 import FlyerBlockList from '@/components/flyer/editor/FlyerBlockList.vue';
 import FlyerTextPanel from '@/components/flyer/editor/FlyerTextPanel.vue';
+import FlyerImagePicker from '@/components/flyer/editor/FlyerImagePicker.vue';
+import { FLYER_IMAGE_KEYS } from '@/components/flyer/flyerPresetAssets';
 
 const route = useRoute();
 const { t } = useI18n();
@@ -109,15 +118,18 @@ const retreatId = computed(() => route.params.id as string);
 const retreat = computed(() => (retreatStore.selectedRetreat as any) || null);
 const walkerRegistrationLink = computed(() => retreatStore.walkerRegistrationLink);
 
-const previewWrapperRef = ref<HTMLElement>();
+// The available width is measured on the column, not on the wrapper around the canvas:
+// a scaled element keeps its unscaled 850px layout box, so the wrapper's own width
+// never changes and the observer would never fire a second time.
+const previewColumnRef = ref<HTMLElement>();
 const canvasRef = ref<{ $el: HTMLElement }>();
 const previewScale = ref(1);
 const canvasHeight = ref(0);
 let resizeObserver: ResizeObserver | null = null;
 
 const updateScale = () => {
-	if (!previewWrapperRef.value) return;
-	previewScale.value = Math.min(previewWrapperRef.value.clientWidth / 850, 1);
+	if (!previewColumnRef.value) return;
+	previewScale.value = Math.min(previewColumnRef.value.clientWidth / 850, 1);
 	const el = canvasRef.value?.$el;
 	if (el) canvasHeight.value = el.scrollHeight;
 };
@@ -142,10 +154,10 @@ async function load(id: string) {
 onMounted(async () => {
 	await load(retreatId.value);
 
-	if (previewWrapperRef.value) {
+	if (previewColumnRef.value) {
 		updateScale();
 		resizeObserver = new ResizeObserver(updateScale);
-		resizeObserver.observe(previewWrapperRef.value);
+		resizeObserver.observe(previewColumnRef.value);
 		const el = canvasRef.value?.$el;
 		if (el) resizeObserver.observe(el);
 	}

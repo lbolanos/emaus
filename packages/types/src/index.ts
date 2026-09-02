@@ -99,6 +99,32 @@ export type FlyerImages = z.infer<typeof flyerImagesSchema>;
 
 export const FLYER_LAYOUT_VERSION = 2;
 
+/** Which slot an uploaded flyer image is meant for; drives the resize bounds. */
+export const flyerAssetKindSchema = z.enum([
+	'bodyBackground',
+	'headerBackground',
+	'footerBackground',
+	'logo',
+]);
+export type FlyerAssetKind = z.infer<typeof flyerAssetKindSchema>;
+
+export const uploadFlyerAssetSchema = z.object({
+	body: z.object({
+		kind: flyerAssetKindSchema,
+		// Same bound as the memory photos: ~4MB of string ≈ 3MB binary, leaving slack
+		// over the imageService 2MB limit. Without it, an unvalidated string could be
+		// stored and later served as if it were an image.
+		dataUrl: z
+			.string()
+			.min(1)
+			.max(4_000_000, { message: 'La imagen es demasiado grande' })
+			.refine((d) => /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(d), {
+				message: 'Debe ser una imagen (data URI base64)',
+			}),
+	}),
+});
+export type UploadFlyerAsset = z.infer<typeof uploadFlyerAssetSchema>['body'];
+
 // Flyer Options Schema
 // NOTE: z.object() silently drops undeclared keys, so any field that must survive
 // PUT /retreats/:id has to be declared here.

@@ -5,6 +5,7 @@ import authRoutes from './authRoutes';
 import houseRoutes from './houseRoutes';
 import retreatBedRoutes from './retreatBedRoutes';
 import retreatRoutes from './retreatRoutes';
+import flyerAssetRoutes from './flyerAssetRoutes';
 import responsabilityRoutes from './responsabilityRoutes';
 import retreatResponsabilityRoutes from './retreatResponsabilityRoutes';
 import tableMesaRoutes from './tableMesaRoutes';
@@ -79,6 +80,7 @@ applyCsrfProtectionExcept(router, [
 router.use('/participants', participantRoutes);
 router.use('/houses', houseRoutes);
 router.use('/retreats', retreatRoutes);
+router.use('/flyer-assets', flyerAssetRoutes);
 router.use('/retreat-roles', retreatRoleRoutes);
 router.use('/role-requests', roleRequestRoutes);
 router.use('/permission-overrides', permissionOverrideRoutes);

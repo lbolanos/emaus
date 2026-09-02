@@ -1,5 +1,5 @@
 <template>
-	<div class="p-4 text-center">
+	<div class="p-4 text-center rounded-2xl bg-white/85 backdrop-blur-sm shadow-md print:bg-white print:backdrop-blur-none">
 		<h3 class="text-[22px] font-black text-blue-700 uppercase mb-2 tracking-[0.15em] drop-shadow-sm">
 			{{ content.registerText }}
 		</h3>
