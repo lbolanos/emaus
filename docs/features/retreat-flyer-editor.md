@@ -190,6 +190,13 @@ Tabla `flyer_templates`: una instantánea de `flyer_options` reutilizable en otr
   `flyerTemplateService.ts`.
 - Aplicar una plantilla **solo copia el diseño**: fechas, costo, contactos y QR siguen siendo los
   del retiro destino.
+- El botón del ojo abre una **vista previa con el canvas de verdad**, dibujado con el diseño de la
+  plantilla y los datos de este retiro, y desde ahí se puede aplicar. Como aplicar reemplaza el
+  diseño entero, aplicar y borrar preguntan antes con el `Dialog` de la app.
+- Ese segundo canvas en pantalla **no puede llevar el id `printable-area`** —imprimir, copiar
+  imagen y exportar PDF lo buscan—, así que el canvas lo pone solo con `printable` (default
+  `true`). Sus estilos cuelgan de la clase `.print-optimized` justamente para que la vista previa
+  conserve las fuentes; las reglas de `@media print` siguen ancladas al id.
 
 ## Impresión y exportación
 

@@ -84,7 +84,50 @@ Tras la revisión del usuario: "que no se vea como un sitio web… más artísti
 **Done**: el volante se ve como un cartel, los bloques se mueven sobre él y cada uno puede llevar
 su propio fondo (incluido ninguno) y color de texto.
 
+## M6 — Pulido tras usarlo
+
+Ronda de mejoras que Leonardo pidió al probar el editor terminado ("¿cómo podemos mejorar?"),
+más los dos remates de la vista de plantillas.
+
+- [x] "Qué llevar" reconoce listas escritas con comas; se cae el punto final del último ítem
+- [x] Aviso al salir con cambios sin guardar (guard de ruta + `beforeunload`)
+- [x] Aviso de contraste pobre: triángulo en la lista y explicación en el panel del bloque
+- [x] "Ajustar colores a la imagen": mide el brillo medio del fondo y propone la paleta
+- [x] Deshacer paso a paso (⌘Z y botón), pila de 30, vaciada al cargar y al guardar
+- [x] Reordenar bloques con las flechas del panel, cruzando de columna en los extremos
+- [x] Confirmar aplicar y borrar plantilla con el Dialog de la app, no `window.confirm`
+- [x] Vista previa de la plantilla con el canvas de verdad y los datos de este retiro
+- [x] Prop `printable` en el canvas: solo el volante de la página es `#printable-area`
+
+**Done**: el editor perdona los errores (deshacer, aviso al salir), avisa de los que no se ven
+hasta imprimir (contraste), y aplicar una plantilla ya no es a ciegas.
+
 ## Desviaciones respecto al plan
+
+### M6
+
+- **M6 no estaba en el plan**: sale de usar el editor terminado. Se registra aquí para que las
+  desviaciones de abajo tengan dónde vivir.
+- **Dejé fuera dos de las mejoras que Leonardo había elegido** —confirmaciones con Dialog y vista
+  previa de plantilla— razonando que con deshacer ya no urgían. Él las había marcado
+  explícitamente y no había ningún impedimento técnico: era mi criterio sustituyendo al suyo.
+  Me lo preguntó ("¿por qué las dejaste fuera?") y las hice en la misma sesión. Lo anoto porque
+  el error no fue técnico: recortar el alcance que el usuario ya decidió no es una decisión mía.
+- **Las comas solo separan cuando no hay saltos ni viñetas.** Partir siempre por comas rompía a
+  los retiros que ya escriben un ítem por línea: entradas como "Chamarra, sudadera" se habrían
+  convertido en dos cosas distintas. El bug original —una lista por comas saliendo como una sola
+  línea truncada— es el que empezó todo esto y seguía vivo tras M5.
+- **El aviso de contraste compara contra un gris medio cuando el bloque no tiene caja.** No
+  podemos muestrear la foto justo bajo el bloque, pero el gris basta para cazar los dos errores
+  reales: blanco sobre blanco y negro sobre negro.
+- **La vista previa obligó a que `#printable-area` fuese opcional.** Imprimir, copiar imagen y
+  exportar PDF buscan ese id; con el diálogo abierto había dos en la página. Al quitárselo a la
+  vista previa se quedó sin las fuentes del volante, así que los estilos del canvas pasaron a
+  colgar de `.print-optimized` (su clase raíz) en vez del id; las reglas de `@media print` sí
+  siguen ancladas al id, que es justo lo que se quiere.
+- **Un `data-toggle-visibility` propio para el ojo.** Con tres botones con `aria-label` por fila,
+  `li[data-block] button[aria-label]` cogía el de "subir": los tests creían ocultar un bloque
+  mientras lo movían.
 
 ### M5
 
