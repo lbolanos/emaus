@@ -2,7 +2,7 @@
 	<div class="p-4">
 		<div class="flex gap-4 items-start group">
 			<div
-				class="bg-[color:var(--fb-heading)] p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
+				class="bg-gradient-to-br from-blue-500 to-blue-700 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
 			>
 				<Clock class="w-5 h-5" />
 			</div>

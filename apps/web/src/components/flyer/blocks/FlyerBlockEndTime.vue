@@ -2,7 +2,7 @@
 	<div class="p-4">
 		<div class="flex gap-4 items-start group">
 			<div
-				class="bg-[color:var(--fb-heading)] p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
+				class="bg-gradient-to-br from-blue-500 to-blue-700 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
 			>
 				<Calendar class="w-5 h-5" />
 			</div>
@@ -12,7 +12,7 @@
 				>
 					{{ t('retreatFlyer.endTime') }}
 				</h4>
-				<p data-end-date class="text-[17px] text-[color:var(--fb-text)] font-bold mb-0.5">
+				<p data-end-date class="text-[17px] text-yellow-300 font-bold mb-0.5 drop-shadow-lg">
 					{{ content.formatDate(content.endDate) }}
 				</p>
 				<div v-if="content.closingLocation" class="mb-2">

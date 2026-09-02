@@ -46,30 +46,33 @@ export const FLYER_PRESET_IMAGES = {
 } as const;
 
 /**
- * How every block looks before the theme or a per-block override touches it: white
- * text with a shadow, warm headings, and no box — a poster, not a set of cards.
+ * How each block looks before the theme or a per-block override touches it: the colours
+ * of the original flyer, block by block — blue for times and cost, green for the venue,
+ * light text where the artwork turns dark at the bottom.
  *
- * The same for all eight on purpose. The original design could give each card its own
- * colour because each sat at a fixed spot on the artwork (blue over the pale top, white
- * over the dark bottom). Now that blocks move — and the image is the coordinator's —
- * no per-block colour is right in every position. One legible palette plus the default
- * scrim (see resolveScrim) works wherever a block lands, on any photo.
+ * They assume each block's default position on the default artwork, which is where the
+ * original design put them. Move a light-text block up onto the pale half, or swap the
+ * background image, and it will need its own colour — that is what the theme and the
+ * per-block overrides in the editor are for.
  */
-const POSTER_DEFAULT: FlyerBlockStyle = {
-	textColor: '#ffffff',
-	headingColor: '#fde68a',
-	textShadow: true,
-};
-
 export const FLYER_BLOCK_STYLE_DEFAULTS: Record<FlyerBlockId, FlyerBlockStyle> = {
-	intro: POSTER_DEFAULT,
-	startTime: POSTER_DEFAULT,
-	location: POSTER_DEFAULT,
-	endTime: POSTER_DEFAULT,
-	registrationQr: POSTER_DEFAULT,
-	contact: POSTER_DEFAULT,
-	payment: POSTER_DEFAULT,
-	whatToBring: POSTER_DEFAULT,
+	intro: { textColor: '#111827', headingColor: '#1e40af', textShadow: false },
+	startTime: { textColor: '#111827', headingColor: '#1d4ed8', textShadow: false },
+	location: { textColor: '#000000', headingColor: '#15803d', textShadow: false },
+	// Sits over the dark lower half: white heading, amber date, as in the original
+	endTime: { textColor: '#ffffff', headingColor: '#ffffff', textShadow: true },
+	registrationQr: { textColor: '#4b5563', headingColor: '#1d4ed8', textShadow: false },
+	contact: { textColor: '#111827', headingColor: '#374151', textShadow: false },
+	// The only one with a box by default, as in the original: its small print falls on
+	// the brightest part of the artwork and needs something behind it
+	payment: {
+		backgroundColor: '#ffffff',
+		backgroundOpacity: 65,
+		textColor: '#374151',
+		headingColor: '#1d4ed8',
+		textShadow: false,
+	},
+	whatToBring: { textColor: '#f3f4f6', headingColor: '#ffffff', textShadow: true },
 };
 
 /**

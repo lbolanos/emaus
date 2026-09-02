@@ -6,7 +6,7 @@
 		>
 			{{ t('retreatFlyer.information') }}
 			<div
-				class="bg-[color:var(--fb-heading)] p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
+				class="bg-gradient-to-br from-blue-400 to-blue-600 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
 			>
 				<Info class="w-5 h-5" />
 			</div>

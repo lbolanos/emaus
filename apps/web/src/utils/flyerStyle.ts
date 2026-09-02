@@ -77,12 +77,12 @@ export function resolveBlockStyle(
 /**
  * The wash between the background image and the blocks.
  *
- * Dark by default, and that default is what makes the poster look work: the stock
- * artwork is pale at the top and dark at the bottom, so white text would drown in the
- * light half without it. Set `scrim: 'none'` to paint straight on the photo.
+ * Off by default, like the original flyer: the block colours assume the artwork as it
+ * is. It is the knob to reach for after changing the background image, or after moving
+ * a light-text block onto the pale half.
  */
 export function resolveScrim(theme?: FlyerTheme | null): string {
-	const mode = theme?.scrim ?? 'dark';
+	const mode = theme?.scrim ?? 'none';
 	if (mode === 'none') return 'transparent';
 	const opacity = theme?.scrimOpacity ?? 35;
 	return toRgba(mode === 'dark' ? '#000000' : '#ffffff', opacity);

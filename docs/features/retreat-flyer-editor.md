@@ -38,14 +38,16 @@ layout por defecto, así que el bloque nuevo aparece en su sitio en vez de falta
 
 ## Estilo: es un cartel, no una interfaz
 
-Por defecto los bloques **no tienen caja**: el texto va sobre la imagen, en blanco con sombra y
-con los títulos en dorado, y un velo oscuro del 35% uniforma la foto por debajo. Ese velo es lo
-que hace que el blanco funcione tanto en la mitad clara como en la oscura del arte por defecto.
+Por defecto los bloques **no tienen caja**: el texto va directo sobre la imagen, con los colores
+del volante original — azul en los horarios y el costo, verde en el lugar, texto claro donde el
+arte se oscurece abajo, y los chips de icono con sus gradientes de siempre. El único con caja por
+defecto es el costo, porque su letra pequeña cae sobre la parte más luminosa de la foto; el
+original también la llevaba.
 
-Los ocho bloques comparten el mismo estilo de fábrica **a propósito**. El diseño original podía
-dar a cada tarjeta su color (azul arriba, blanco abajo) porque cada una estaba clavada en un punto
-del arte. Desde que los bloques se mueven —y la imagen la elige el coordinador— ningún color por
-bloque es correcto en todas las posiciones.
+Esos colores **asumen la posición por defecto de cada bloque sobre el arte por defecto**, que es
+donde el diseño original los puso. Si mueves un bloque de texto claro a la mitad pálida, o cambias
+la imagen de fondo, va a necesitar su propio color: para eso están el tema y los overrides del
+editor, y el velo (`scrim`), que está apagado por defecto igual que en el original.
 
 La cascada de estilo (`apps/web/src/utils/flyerStyle.ts`, puro y con tests):
 

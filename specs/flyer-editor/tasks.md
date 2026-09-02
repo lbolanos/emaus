@@ -88,14 +88,15 @@ su propio fondo (incluido ninguno) y color de texto.
 
 ### M5
 
-- **Los ocho bloques comparten el mismo estilo de fábrica**, en contra de lo planeado (defaults por
-  bloque reproduciendo el look original). Al probarlo se vio por qué: con texto oscuro heredado del
-  diseño viejo, "Fin del retiro" y "Métodos de pago" quedaban ilegibles sobre la mitad oscura de la
-  foto. El diseño original podía dar un color a cada tarjeta porque cada una estaba clavada en un
-  punto del arte; desde que los bloques se mueven, ningún color por bloque es correcto siempre. Una
-  sola paleta legible + el velo por defecto funciona en cualquier posición y con cualquier imagen.
-- **El velo (`scrim`) viene activado por defecto** (oscuro al 35%). Sin él, el texto blanco se
-  perdía en la mitad clara del arte por defecto.
+- **Los defaults son los colores del volante original, bloque por bloque** (azul en horarios y
+  costo, verde en el lugar, texto claro abajo, chips con sus gradientes). Probé antes una paleta
+  uniforme de cartel —blanco y dorado para los ocho— porque con bloques móviles ningún color por
+  bloque es correcto en todas las posiciones; Leonardo la vio y prefirió los colores de siempre.
+  Es su volante: los colores originales le dan identidad, y para el caso de mover un bloque a una
+  zona que no le va están el tema, los overrides y el velo.
+- **El bloque de costo es el único con caja por defecto** (velo blanco al 65%), como en el
+  original: su letra pequeña cae sobre la parte más luminosa del arte y sin nada detrás no se lee.
+- **El velo (`scrim`) viene apagado**, también como el original.
 - **`background` no es un enum**: "ninguno / velo claro / velo oscuro" son atajos de la UI que
   escriben en `backgroundColor`. Menos ramas en el resolvedor y misma experiencia.
 - **No hay variable de "acento" aparte del heading**: en los bloques reales la segunda mancha de

@@ -88,11 +88,20 @@ describe('resolveBlockStyle', () => {
 		expect(style['--fb-text']).toBe('#123456');
 	});
 
-	it('gives every block the same poster palette out of the box', () => {
-		// One legible palette beats per-block colours once blocks can move anywhere
-		const ids = ['intro', 'startTime', 'payment', 'whatToBring'] as const;
-		const texts = new Set(ids.map((id) => resolveBlockStyle(id)['--fb-text']));
-		expect(texts).toEqual(new Set(['#ffffff']));
+	it('keeps the original flyer colours per block', () => {
+		// Blue for the times, green for the venue, light text where the artwork darkens
+		expect(resolveBlockStyle('startTime')['--fb-heading']).toBe('#1d4ed8');
+		expect(resolveBlockStyle('location')['--fb-heading']).toBe('#15803d');
+		expect(resolveBlockStyle('endTime')['--fb-text']).toBe('#ffffff');
+		expect(resolveBlockStyle('whatToBring')['--fb-text']).toBe('#f3f4f6');
+	});
+
+	it('gives the cost block the only default box, as the original had', () => {
+		const payment = resolveBlockStyle('payment');
+		expect(payment.hasBox).toBe(true);
+		expect(payment['--fb-bg']).toBe('rgba(255, 255, 255, 0.65)');
+
+		expect(resolveBlockStyle('startTime').hasBox).toBe(false);
 	});
 
 	it('never leaks the theme-only fields into the block vars', () => {
@@ -103,9 +112,9 @@ describe('resolveBlockStyle', () => {
 });
 
 describe('resolveScrim', () => {
-	// Dark by default: the stock artwork is pale on top, so white text needs it
-	it('dims the image by default, and only steps aside when asked', () => {
-		expect(resolveScrim()).toBe('rgba(0, 0, 0, 0.35)');
+	// Off by default, like the original flyer: the block colours assume the artwork as-is
+	it('leaves the image alone by default', () => {
+		expect(resolveScrim()).toBe('transparent');
 		expect(resolveScrim({ scrim: 'none' })).toBe('transparent');
 	});
 
