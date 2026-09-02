@@ -37,10 +37,23 @@
 		</div>
 
 		<!-- Whole-flyer palette -->
-		<div class="space-y-3 rounded-lg border p-3">
-			<p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-				{{ t('retreatFlyerEditor.design.wholeFlyer') }}
-			</p>
+		<FlyerPanelSection
+			name="whole-flyer"
+			:title="t('retreatFlyerEditor.design.wholeFlyer')"
+			:open="openWholeFlyer"
+			@update:open="openWholeFlyer = $event"
+		>
+			<template #summary>
+				<span
+					v-for="swatch in themeSwatches"
+					:key="swatch"
+					class="h-3 w-3 rounded-full border border-black/10"
+					:style="{ backgroundColor: swatch }"
+				/>
+				<span v-if="!themeSwatches.length" class="text-[11px] text-muted-foreground">
+					{{ t('retreatFlyerEditor.design.preset.original') }}
+				</span>
+			</template>
 
 			<FlyerStyleFields :values="theme" @update="(key, value) => emit('updateTheme', key, value)" />
 
@@ -82,13 +95,26 @@
 					</span>
 				</div>
 			</div>
-		</div>
+		</FlyerPanelSection>
 
 		<!-- Blocks: visibility, and click to style one -->
-		<div class="space-y-2">
-			<p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-				{{ t('retreatFlyerEditor.design.blocks') }}
-			</p>
+		<FlyerPanelSection
+			name="blocks"
+			:title="t('retreatFlyerEditor.design.blocks')"
+			:open="openBlocks"
+			@update:open="openBlocks = $event"
+		>
+			<template #summary>
+				<AlertTriangle
+					v-if="poorContrast.size"
+					class="h-3.5 w-3.5 text-amber-500"
+					:aria-label="t('retreatFlyerEditor.design.lowContrast')"
+				/>
+				<span v-if="hiddenCount" class="text-[11px] text-muted-foreground">
+					{{ t('retreatFlyerEditor.design.hiddenCount', hiddenCount) }}
+				</span>
+			</template>
+
 			<p class="text-[11px] text-muted-foreground">{{ t('retreatFlyerEditor.dragHint') }}</p>
 
 			<ul class="space-y-1">
@@ -158,38 +184,38 @@
 					</button>
 				</li>
 			</ul>
-		</div>
 
-		<!-- Selected block's own style -->
-		<div v-if="selectedBlockId" class="space-y-3 rounded-lg border border-primary/40 p-3">
-			<div class="flex items-center justify-between gap-2">
-				<p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-					{{ t(`retreatFlyerEditor.blocks.${selectedBlockId}`) }}
+			<!-- Selected block's own style -->
+			<div v-if="selectedBlockId" class="space-y-3 rounded-lg border border-primary/40 p-3">
+				<div class="flex items-center justify-between gap-2">
+					<p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+						{{ t(`retreatFlyerEditor.blocks.${selectedBlockId}`) }}
+					</p>
+					<Button type="button" size="sm" variant="ghost" @click="emit('clearBlockStyle', selectedBlockId)">
+						{{ t('retreatFlyerEditor.design.reset') }}
+					</Button>
+				</div>
+				<p
+					v-if="poorContrast.has(selectedBlockId)"
+					class="flex items-start gap-1.5 text-[11px] text-amber-600"
+				>
+					<AlertTriangle class="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+					{{ t('retreatFlyerEditor.design.lowContrastHint') }}
 				</p>
-				<Button type="button" size="sm" variant="ghost" @click="emit('clearBlockStyle', selectedBlockId)">
-					{{ t('retreatFlyerEditor.design.reset') }}
-				</Button>
+				<FlyerStyleFields
+					:values="blockStyles[selectedBlockId] ?? {}"
+					@update="(key, value) => emit('updateBlockStyle', selectedBlockId!, key, value)"
+				/>
 			</div>
-			<p
-				v-if="poorContrast.has(selectedBlockId)"
-				class="flex items-start gap-1.5 text-[11px] text-amber-600"
-			>
-				<AlertTriangle class="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-				{{ t('retreatFlyerEditor.design.lowContrastHint') }}
+			<p v-else class="text-[11px] text-muted-foreground">
+				{{ t('retreatFlyerEditor.design.selectHint') }}
 			</p>
-			<FlyerStyleFields
-				:values="blockStyles[selectedBlockId] ?? {}"
-				@update="(key, value) => emit('updateBlockStyle', selectedBlockId!, key, value)"
-			/>
-		</div>
-		<p v-else class="text-[11px] text-muted-foreground">
-			{{ t('retreatFlyerEditor.design.selectHint') }}
-		</p>
+		</FlyerPanelSection>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { AlertTriangle, ChevronDown, ChevronUp, Eye, EyeOff, Loader2, Wand2 } from 'lucide-vue-next';
 import { Button, Label } from '@repo/ui';
@@ -203,6 +229,7 @@ import type {
 import { FLYER_THEME_PRESETS, checkBlockContrast, themeForBackground } from '@/utils/flyerStyle';
 import { averageImageLuminance } from '@/utils/imageLuminance';
 import { FLYER_SLOTS } from '../blockRegistry';
+import FlyerPanelSection from './FlyerPanelSection.vue';
 import FlyerStyleFields from './FlyerStyleFields.vue';
 
 const props = defineProps<{
@@ -232,6 +259,27 @@ const { t } = useI18n();
 
 const matching = ref(false);
 const matchError = ref('');
+
+// The block list is the one you keep coming back to; the palette is set once and left alone
+const openBlocks = ref(true);
+const openWholeFlyer = ref(false);
+
+/** Picking a block on the flyer must show its fields, even if the section was closed. */
+watch(
+	() => props.selectedBlockId,
+	(id) => {
+		if (id) openBlocks.value = true;
+	},
+);
+
+/** What the palette is doing, readable with the section closed. */
+const themeSwatches = computed(() =>
+	[props.theme.backgroundColor, props.theme.headingColor, props.theme.textColor].filter(
+		(colour): colour is string => !!colour,
+	),
+);
+
+const hiddenCount = computed(() => props.blocks.filter((b) => b.visible === false).length);
 
 /** Blocks whose text would be hard to read on what is behind them. */
 const poorContrast = computed(() => {

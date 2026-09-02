@@ -3131,7 +3131,8 @@
       "lowContrast": "This text is hard to read on its background",
       "lowContrastHint": "This text is hard to read on its background. Try another text colour, a veil, or dimming the image.",
       "moveUp": "Move the block up",
-      "moveDown": "Move the block down"
+      "moveDown": "Move the block down",
+      "hiddenCount": "{count} block hidden | {count} blocks hidden"
     },
     "leaveWithoutSaving": "You have unsaved changes to the flyer. Leave anyway?",
     "undo": "Undo",

@@ -98,6 +98,7 @@ más los dos remates de la vista de plantillas.
 - [x] Confirmar aplicar y borrar plantilla con el Dialog de la app, no `window.confirm`
 - [x] Vista previa de la plantilla con el canvas de verdad y los datos de este retiro
 - [x] Prop `printable` en el canvas: solo el volante de la página es `#printable-area`
+- [x] Panel de Diseño en dos secciones plegables: "Todo el volante" y "Bloques"
 
 **Done**: el editor perdona los errores (deshacer, aviso al salir), avisa de los que no se ven
 hasta imprimir (contraste), y aplicar una plantilla ya no es a ciegas.
@@ -125,6 +126,14 @@ hasta imprimir (contraste), y aplicar una plantilla ya no es a ciegas.
   vista previa se quedó sin las fuentes del volante, así que los estilos del canvas pasaron a
   colgar de `.print-optimized` (su clase raíz) en vez del id; las reglas de `@media print` sí
   siguen ancladas al id, que es justo lo que se quiere.
+- **Las secciones plegables se hicieron a mano.** `@repo/ui` no exporta Accordion ni Collapsible
+  —ya lo anotaba el plan de M5—, así que `FlyerPanelSection` es un `<button aria-expanded>` con su
+  `<div>`. El cuerpo va con `v-show` y no `v-if`: plegar no puede tirar lo que se esté escribiendo.
+  Las dos secciones son independientes, no un acordeón de una a la vez; cerrarle una sección al
+  usuario porque abrió la otra sorprende más de lo que ahorra.
+- **La cabecera plegada tiene que seguir avisando.** El conteo de ocultos y el triángulo de
+  contraste suben al resumen de la sección: si no, plegar "Bloques" escondía justo la señal que
+  explica por qué al volante le falta algo.
 - **Un `data-toggle-visibility` propio para el ojo.** Con tres botones con `aria-label` por fila,
   `li[data-block] button[aria-label]` cogía el de "subir": los tests creían ocultar un bloque
   mientras lo movían.

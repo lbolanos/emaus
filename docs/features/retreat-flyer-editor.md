@@ -113,6 +113,24 @@ El índice de inserción es **el índice del bloque sobre el que estás**, sin g
 `getBoundingClientRect`, que devuelve ceros bajo happy-dom y además tendría que compensar el
 `transform: scale()` de la vista previa.
 
+## El panel de Diseño
+
+Dos secciones plegables (`FlyerPanelSection`), independientes entre sí: **Todo el volante** —la
+paleta del tema y el velo sobre la foto— y **Bloques** —la lista, y el estilo del que esté
+seleccionado—. Los estilos rápidos quedan fuera, siempre visibles: son el primer golpe de vista.
+
+- Arranca con **Bloques abierta** y la paleta plegada: la lista es a la que se vuelve todo el
+  rato, el tema se elige una vez.
+- Seleccionar un bloque **sobre el volante** despliega Bloques aunque estuviera cerrada; si no,
+  el clic no tendría efecto visible.
+- El cuerpo va con `v-show`, no `v-if`: plegar una sección no puede perder lo que se esté
+  escribiendo dentro, ni el foco.
+- La cabecera resume lo que la sección diría abierta —los colores del tema o "Original", cuántos
+  bloques están ocultos y el aviso de contraste—, porque plegada es lo único que se ve.
+
+`@repo/ui` no trae Accordion ni Collapsible; es un `<button aria-expanded>` con su `<div>`, que
+es todo lo que hace falta.
+
 ## Red de seguridad del editor
 
 Cuatro cosas que evitan errores caros, todas nacidas de usarlo:
