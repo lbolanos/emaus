@@ -14,7 +14,7 @@
 							? 'border-primary bg-primary/10 text-foreground'
 							: 'border-muted text-muted-foreground hover:text-foreground'
 					"
-					@click="emit('update', 'backgroundColor', option.color)"
+					@click="option.color ? pickBackground(option.color) : clearBackground()"
 				>
 					{{ t(`retreatFlyerEditor.design.background.${option.id}`) }}
 				</button>
@@ -24,12 +24,12 @@
 						type="color"
 						class="h-7 w-9 cursor-pointer rounded border border-muted bg-transparent p-0.5"
 						:value="values.backgroundColor ?? '#ffffff'"
-						@input="emit('update', 'backgroundColor', ($event.target as HTMLInputElement).value)"
+						@input="pickBackground(($event.target as HTMLInputElement).value)"
 					/>
 				</label>
 			</div>
 
-			<div v-if="values.backgroundColor" class="flex items-center gap-2">
+			<div v-if="activeBackground !== 'none'" class="flex items-center gap-2">
 				<span class="text-[11px] text-muted-foreground">
 					{{ t('retreatFlyerEditor.design.opacity') }}
 				</span>
@@ -132,10 +132,31 @@ const BACKGROUND_OPTIONS = [
 const TEXT_SWATCHES = ['#ffffff', '#111827', '#1f2937', '#fde68a'];
 const HEADING_SWATCHES = ['#fde68a', '#1d4ed8', '#15803d', '#ffffff'];
 
+/** Opacity used when a colour is picked after the block was set to "no background". */
+const DEFAULT_VEIL_OPACITY = 85;
+
 const activeBackground = computed(() => {
+	// A zero opacity is what "none" looks like on a block that inherits a box
+	if (props.values.backgroundOpacity === 0) return 'none';
 	if (!props.values.backgroundColor) return 'none';
 	if (props.values.backgroundColor.toLowerCase() === '#ffffff') return 'light';
 	if (props.values.backgroundColor.toLowerCase() === '#000000') return 'dark';
 	return 'custom';
 });
+
+/**
+ * Turning the box off has to be explicit. Simply dropping `backgroundColor` would only
+ * uncover whatever the layer below sets — and the cost block does default to a veil.
+ */
+function clearBackground() {
+	emit('update', 'backgroundColor', undefined);
+	emit('update', 'backgroundOpacity', 0);
+}
+
+function pickBackground(colour: string) {
+	emit('update', 'backgroundColor', colour);
+	if ((props.values.backgroundOpacity ?? 0) === 0) {
+		emit('update', 'backgroundOpacity', DEFAULT_VEIL_OPACITY);
+	}
+}
 </script>

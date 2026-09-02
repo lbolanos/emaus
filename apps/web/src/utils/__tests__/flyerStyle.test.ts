@@ -77,6 +77,27 @@ describe('resolveBlockStyle', () => {
 		);
 	});
 
+	// A missing field cannot clear an inherited one, so "no box" on a block that
+	// defaults to having one has to be said with an explicit zero.
+	it('lets an opacity of zero switch off a box inherited from below', () => {
+		const withBox = resolveBlockStyle('payment');
+		expect(withBox.hasBox).toBe(true);
+
+		const off = resolveBlockStyle('payment', null, { payment: { backgroundOpacity: 0 } });
+		expect(off.hasBox).toBe(false);
+		expect(off['--fb-bg']).toBe('transparent');
+		expect(off['--fb-radius']).toBe('0');
+	});
+
+	it('lets a block switch off a box coming from the theme', () => {
+		const off = resolveBlockStyle(
+			'intro',
+			{ backgroundColor: '#ffffff', backgroundOpacity: 80 },
+			{ intro: { backgroundOpacity: 0 } },
+		);
+		expect(off.hasBox).toBe(false);
+	});
+
 	it('falls back to the text colour when no heading colour is set anywhere', () => {
 		const style = resolveBlockStyle(
 			'startTime',

@@ -58,6 +58,11 @@ FLYER_BLOCK_STYLE_DEFAULTS  ←  flyer_options.theme  ←  flyer_options.blockSt
 Cada capa solo pisa los campos que fija, y el resultado son cuatro CSS vars (`--fb-bg`,
 `--fb-text`, `--fb-heading`, `--fb-shadow`) que el canvas pone en el envoltorio de cada bloque.
 
+⚠️ **Un campo ausente no borra lo que hereda, solo deja pasar la capa de abajo.** Por eso "sin
+fondo" se dice con `backgroundOpacity: 0` y no quitando `backgroundColor`: el bloque de costo trae
+velo por defecto, y limpiar el color solo destapaba ese velo otra vez. `hasBox` es falso cuando la
+opacidad resuelta es 0, así que el bloque pierde también el redondeo y el desenfoque.
+
 Dos reglas que no se pueden cambiar sin romper la impresión:
 
 - **La opacidad se compone en JS a `rgba(...)`**, nunca con `opacity` de CSS: eso atenuaría el

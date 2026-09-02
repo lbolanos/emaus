@@ -62,11 +62,14 @@ export function resolveBlockStyle(
 		...definedFields(blockStyles?.[blockId]),
 	};
 
-	const hasBox = !!merged.backgroundColor;
+	// Opacity 0 is how "no box" is spelled on top of a layer that does have one: an
+	// absent field cannot clear an inherited value, only replace it.
+	const opacity = merged.backgroundOpacity ?? 100;
+	const hasBox = !!merged.backgroundColor && opacity > 0;
 
 	return {
 		hasBox,
-		'--fb-bg': hasBox ? toRgba(merged.backgroundColor!, merged.backgroundOpacity ?? 100) : 'transparent',
+		'--fb-bg': hasBox ? toRgba(merged.backgroundColor!, opacity) : 'transparent',
 		'--fb-text': merged.textColor ?? '#111827',
 		'--fb-heading': merged.headingColor ?? merged.textColor ?? '#111827',
 		'--fb-shadow': merged.textShadow ? TEXT_SHADOW : 'none',
