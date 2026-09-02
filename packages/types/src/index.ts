@@ -62,32 +62,73 @@ export const roomSchema = z.object({
 });
 export type Room = z.infer<typeof roomSchema>;
 
+// Flyer layout (v2): the body of the flyer is a set of blocks laid out in three
+// managed cells. Header, banner and footer are fixed chrome, not blocks.
+export const flyerBlockIdSchema = z.enum([
+	'intro',
+	'startTime',
+	'endTime',
+	'location',
+	'contact',
+	'payment',
+	'whatToBring',
+	'registrationQr',
+]);
+export type FlyerBlockId = z.infer<typeof flyerBlockIdSchema>;
+
+export const flyerSlotSchema = z.enum(['left', 'right', 'wide']);
+export type FlyerSlot = z.infer<typeof flyerSlotSchema>;
+
+export const flyerBlockLayoutSchema = z.object({
+	id: flyerBlockIdSchema,
+	slot: flyerSlotSchema,
+	/** Position within its own slot. */
+	order: z.number().int().min(0),
+	visible: z.boolean().default(true),
+});
+export type FlyerBlockLayout = z.infer<typeof flyerBlockLayoutSchema>;
+
+/** Image URLs. Empty/absent means "use the built-in preset". */
+export const flyerImagesSchema = z.object({
+	bodyBackground: z.string().optional(),
+	headerBackground: z.string().optional(),
+	footerBackground: z.string().optional(),
+	logo: z.string().optional(),
+});
+export type FlyerImages = z.infer<typeof flyerImagesSchema>;
+
+export const FLYER_LAYOUT_VERSION = 2;
+
 // Flyer Options Schema
+// NOTE: z.object() silently drops undeclared keys, so any field that must survive
+// PUT /retreats/:id has to be declared here.
 export const flyerOptionsSchema = z.object({
+	/** 1 = legacy (no `blocks`); 2 = block layout. Resolved on read, never migrated in place. */
+	layoutVersion: z.number().int().min(1).max(FLYER_LAYOUT_VERSION).optional(),
+	blocks: z.array(flyerBlockLayoutSchema).optional(),
+	images: flyerImagesSchema.optional(),
+
 	titleOverride: z.string().optional(),
 	subtitleOverride: z.string().optional(),
 	cssStyles: z.record(z.string()).optional(),
-	// showQrCodes is deprecated, replaced by granularity below
+	// Legacy, read-only: superseded by showQrCodesLocation/Registration below, and by
+	// blocks[].visible in v2. Kept so v1 rows keep parsing.
 	showQrCodes: z.boolean().default(true).optional(),
 	showQrCodesLocation: z.boolean().default(true),
 	showQrCodesRegistration: z.boolean().default(true),
+	/** Registration form, not the flyer design. Edited in the retreat modal. */
 	showPickupInfo: z.boolean().default(true),
 
-	// New fields
+	// Declared but unused by the views; kept so existing rows keep parsing.
 	catholicRetreat: z.string().optional(),
 	emausFor: z.string().optional(),
-	weekendOfHope: z.string().optional(), // Mapping to existing override key if needed, or separate? Let's use new keys for all.
-	// user supplied "weekendOfHope": "a weekend of", this was actually subtitleOverride logic before?
-	// To avoid confusion, I will add explicit overrides for every key provided by the user.
-	// If titleOverride and subtitleOverride map to these, we should clarify.
-	// Assuming titleOverride -> 'hope' and subtitleOverride -> 'weekendOfHope' based on previous code.
-	// BUT user asked for "change all this texts in flyer options".
-	// It's safer to add explicit overrides for each specific label if they want granular control.
+	weekendOfHope: z.string().optional(),
 
 	catholicRetreatOverride: z.string().optional(),
 	emausForOverride: z.string().optional(),
 	weekendOfHopeOverride: z.string().optional(),
-	hopeOverride: z.string().optional(), // Overlaps with titleOverride?
+	// hopeOverride wins over titleOverride, and weekendOfHopeOverride over subtitleOverride.
+	hopeOverride: z.string().optional(),
 	hopeQuoteOverride: z.string().optional(),
 	encounterDescriptionOverride: z.string().optional(),
 	dareToLiveItOverride: z.string().optional(),

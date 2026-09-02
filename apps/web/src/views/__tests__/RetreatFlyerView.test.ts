@@ -73,9 +73,23 @@ vi.mock('qrcode.vue', () => ({
 	default: { name: 'QrcodeVue', template: '<canvas />', props: ['value', 'size'] },
 }));
 
+// Mock jsPDF: the real module is heavy and its dynamic import does not settle in
+// happy-dom, which would stall the export handler before it renders the flyer.
+const pdfAddImage = vi.fn();
+const pdfSave = vi.fn();
+vi.mock('jspdf', () => ({
+	default: class {
+		internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
+		addImage = pdfAddImage;
+		save = pdfSave;
+	},
+}));
+
 // Mock html-to-image
 vi.mock('html-to-image', () => ({
 	toPng: vi.fn(() => Promise.resolve('data:image/png;base64,fake')),
+	toJpeg: vi.fn(() => Promise.resolve('data:image/jpeg;base64,fake')),
+	toBlob: vi.fn(() => Promise.resolve(new Blob([], { type: 'image/png' }))),
 }));
 
 // Add missing lucide icons to the mock
@@ -485,12 +499,27 @@ describe('RetreatFlyerView', () => {
 			expect(wrapper.text()).toContain('UN RETIRO DE');
 		});
 
+		// The QrcodeVue stub renders a <canvas>, so count those: findAllComponents({name})
+		// always returns 0 here because the stub replaces the named component.
+		it('renders both QR codes by default', () => {
+			const wrapper = mountFlyer();
+			expect(wrapper.findAll('canvas').length).toBe(2);
+		});
+
 		it('hides QR codes when showQrCodes is false', () => {
 			const wrapper = mountFlyer({
 				flyer_options: { showQrCodes: false },
 			});
-			const qrComponents = wrapper.findAllComponents({ name: 'QrcodeVue' });
-			expect(qrComponents.length).toBe(0);
+			expect(wrapper.findAll('canvas').length).toBe(0);
+		});
+
+		it('hides only the registration QR when showQrCodesRegistration is false', () => {
+			const wrapper = mountFlyer({
+				flyer_options: { showQrCodesRegistration: false },
+			});
+			expect(wrapper.findAll('canvas').length).toBe(1);
+			expect(wrapper.text()).toContain('retreatFlyer.locationQR');
+			expect(wrapper.text()).not.toContain('retreatFlyer.scanToRegister');
 		});
 	});
 
@@ -521,20 +550,29 @@ describe('RetreatFlyerView', () => {
 		});
 	});
 
-	describe('Copy to clipboard', () => {
-		it('calls html-to-image toPng when copy is clicked', async () => {
-			const { toPng } = await import('html-to-image');
-			const wrapper = mountFlyer();
-
-			// Open menu
-			const menuButton = wrapper.find('button');
-			await menuButton.trigger('click');
+	describe('Export', () => {
+		/** Opens the actions menu and clicks the entry whose label contains `labelKey`. */
+		async function clickMenuEntry(wrapper: ReturnType<typeof mountFlyer>, labelKey: string) {
+			await wrapper.find('button').trigger('click');
 			await nextTick();
 
-			// Find and click copy button
-			const buttons = wrapper.findAll('button');
-			const copyButton = buttons.find(b => b.text().includes('retreatFlyer.copyImage'));
-			expect(copyButton).toBeDefined();
+			const entry = wrapper.findAll('button').find((b) => b.text().includes(labelKey));
+			expect(entry).toBeDefined();
+			await entry!.trigger('click');
+			// Let the dynamic import() and the awaits inside the handler settle
+			await vi.runAllTimersAsync();
+		}
+
+		it('renders the flyer into a blob when copying, so the clipboard gets a PNG', async () => {
+			const { toBlob } = await import('html-to-image');
+			await clickMenuEntry(mountFlyer(), 'retreatFlyer.copyImage');
+			expect(toBlob).toHaveBeenCalled();
+		});
+
+		it('renders the flyer as JPEG for the PDF, which keeps the file small enough to send', async () => {
+			const { toJpeg } = await import('html-to-image');
+			await clickMenuEntry(mountFlyer(), 'retreatFlyer.exportPdf');
+			expect(toJpeg).toHaveBeenCalled();
 		});
 	});
 

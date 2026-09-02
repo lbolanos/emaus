@@ -11,15 +11,15 @@ Marcar al cerrar cada milestone, anotando las desviaciones reales respecto al pl
 
 ## M1 — Refactor a bloques, layout fijo (sin UI nueva)
 
-- [ ] `apps/web/src/composables/useFlyerContent.ts` — extraer los computeds de texto/datos
-- [ ] `apps/web/src/components/flyer/blockRegistry.ts` — `FLYER_BLOCK_COMPONENTS` + `FLYER_DEFAULT_LAYOUT`
-- [ ] Ocho bloques en `apps/web/src/components/flyer/blocks/`
-- [ ] Chrome: `FlyerHeader.vue`, `FlyerBanner.vue`, `FlyerFooter.vue`
-- [ ] `apps/web/src/components/flyer/RetreatFlyerCanvas.vue` (grid `left`/`right`/`wide`)
-- [ ] `RetreatFlyerView.vue` reducido a shell + acciones; borrar `calculateContentHeight`
-- [ ] `RetreatFlyerView.test.ts` verde (ajustar aserciones ligadas a posiciones absolutas)
-- [ ] Revisión visual con un retiro real por `retreat_type` (valida los cuatro logotipos)
-- [ ] Verificar imprimir / copiar imagen / PDF
+- [x] `apps/web/src/composables/useFlyerContent.ts` — extraer los computeds de texto/datos
+- [x] `apps/web/src/components/flyer/blockRegistry.ts` — `FLYER_BLOCK_COMPONENTS` + `FLYER_DEFAULT_LAYOUT`
+- [x] Ocho bloques en `apps/web/src/components/flyer/blocks/`
+- [x] Chrome: `FlyerHeader.vue`, `FlyerBanner.vue`, `FlyerFooter.vue`
+- [x] `apps/web/src/components/flyer/RetreatFlyerCanvas.vue` (grid `left`/`right`/`wide`)
+- [x] `RetreatFlyerView.vue` reducido a shell + acciones; borrar `calculateContentHeight`
+- [x] `RetreatFlyerView.test.ts` verde (ajustar aserciones ligadas a posiciones absolutas)
+- [x] Revisión visual con un retiro real por `retreat_type` (valida los cuatro logotipos)
+- [x] Verificar imprimir / copiar imagen / PDF
 
 **Done**: el volante se ve equivalente al actual, renderizado desde bloques en grid.
 
@@ -64,4 +64,29 @@ Marcar al cerrar cada milestone, anotando las desviaciones reales respecto al pl
 
 ## Desviaciones respecto al plan
 
-_(anotar aquí lo que cambie durante la implementación)_
+### M1
+
+- **El schema v2 se añadió ya en M1**, no en M2. Los tipos `FlyerBlockId`/`FlyerSlot`/
+  `FlyerBlockLayout`/`FlyerImages` viven en `packages/types` desde el principio para que el canvas
+  y el registry los consuman sin duplicar definiciones. Es aditivo: ningún campo v1 cambió.
+- **Impresión y PDF pasan a escalar para caber en una página.** No estaba en el plan y resultó
+  obligatorio: en flujo normal el cuerpo mide 1236px contra los 1202px de A4, así que el troceado
+  vertical del PDF habría partido el volante en dos páginas cortando una tarjeta por la mitad. Ahora
+  la vista calcula `--flyer-print-scale` desde la altura real (truncando, con 1% de holgura) y el
+  PDF encaja la imagen por la dimensión que limite. Esto cierra el riesgo 3 del plan y es lo que
+  hace viable el editor: al ocultar o mover bloques la altura cambia en cada configuración.
+- **`RetreatFlyerCanvas` ya acepta `layout` e `imageOverrides` como props opcionales**, con caída a
+  `FLYER_DEFAULT_LAYOUT` y a los presets. M2 y M3 solo tienen que pasarlos; el canvas no cambia.
+- **El canvas honra `showQrCodesRegistration`/`showQrCodes` de v1** al derivar el layout por
+  defecto. Sin esto habría sido una regresión silenciosa: el test que debía cubrirlo era vacuo
+  (`stubs: { QrcodeVue }` reemplaza al componente, así que `findAllComponents({ name })` siempre
+  devolvía 0). El test ahora cuenta `<canvas>` y se añadió el caso de ocultar solo el QR de registro.
+- **Se compactaron los rellenos** (bloques `p-5`→`p-4`, contacto y qué llevar `p-3`→`p-2.5`, cuerpo
+  `p-5`→`p-4`) y se acotó el ancho de contacto (320px) y costo (360px), que al pasar a columna se
+  estiraban a media página.
+- **Dos mejoras de contenido** que el layout absoluto impedía: los ítems de "qué llevar" ya no
+  llevan `truncate` (se ajustan en varias líneas en vez de cortarse con "…"), y el bloque de
+  contacto no se dibuja si el retiro no tiene teléfonos ni correos.
+- **Cinco íconos añadidos al mock global** de `lucide-vue-next` en `apps/web/src/test/setup.ts`
+  (`MapPin`, `Phone`, `Info`, `Backpack`, `EllipsisVertical`): la allowlist es fija y sin ellos el
+  `mount()` de cualquier test del canvas revienta.
