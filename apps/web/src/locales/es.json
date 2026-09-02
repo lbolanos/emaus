@@ -3337,10 +3337,10 @@
     "preview": "Vista previa",
     "resetLayout": "Restaurar distribución original",
     "tabs": {
-      "blocks": "Bloques",
       "images": "Imágenes",
       "texts": "Textos",
-      "templates": "Plantillas"
+      "templates": "Plantillas",
+      "design": "Diseño"
     },
     "blocks": {
       "intro": "Introducción",
@@ -3357,7 +3357,7 @@
       "right": "Columna derecha",
       "wide": "Fila completa"
     },
-    "dragHint": "Arrastra los bloques para moverlos entre columnas o cambiar su orden.",
+    "dragHint": "Arrastra los bloques sobre el volante para moverlos.",
     "show": "Mostrar",
     "hide": "Ocultar",
     "hidden": "Oculto",
@@ -3411,6 +3411,37 @@
       "saved": "Plantilla guardada",
       "applied": "Plantilla aplicada",
       "deleted": "Plantilla eliminada"
+    },
+    "design": {
+      "presets": "Estilos rápidos",
+      "preset": {
+        "poster": "Cartel",
+        "ink": "Tinta",
+        "veils": "Velos",
+        "original": "Original"
+      },
+      "wholeFlyer": "Todo el volante",
+      "blocks": "Bloques",
+      "blockBackground": "Fondo del bloque",
+      "background": {
+        "none": "Ninguno",
+        "light": "Velo claro",
+        "dark": "Velo oscuro"
+      },
+      "customColor": "Color personalizado",
+      "opacity": "Opacidad",
+      "textColor": "Texto",
+      "headingColor": "Títulos",
+      "textShadow": "Sombra en el texto (se lee mejor sobre la foto)",
+      "scrim": "Atenuar la imagen de fondo",
+      "scrimHint": "Útil cuando la foto tiene mucho contraste y el texto compite con ella.",
+      "scrimMode": {
+        "none": "Sin atenuar",
+        "dark": "Oscurecer",
+        "light": "Aclarar"
+      },
+      "reset": "Restaurar",
+      "selectHint": "Toca un bloque del volante para darle un estilo propio."
     }
   }
 }

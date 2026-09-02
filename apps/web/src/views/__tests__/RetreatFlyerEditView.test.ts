@@ -62,46 +62,74 @@ const previewBlocks = (wrapper: any) =>
 		el.attributes('data-flyer-block'),
 	);
 
-const panelBlocks = (wrapper: any, slot: string) =>
+/** Block ids inside one slot of the preview, in DOM order. */
+const slotBlocks = (wrapper: any, slot: string) =>
 	wrapper
-		.findAll(`ul[data-slot="${slot}"] li[data-block]`)
-		.map((el: any) => el.attributes('data-block'));
+		.findAll(`[data-flyer-slot="${slot}"] [data-flyer-block]`)
+		.map((el: any) => el.attributes('data-flyer-block'));
+
+/** The design panel's list, which is the only place a hidden block still shows up. */
+const panelBlocks = (wrapper: any) =>
+	wrapper.findAll('li[data-block]').map((el: any) => el.attributes('data-block'));
+
+/** Drags a block of the preview onto another one, the way a pointer would. */
+async function dragOnFlyer(wrapper: any, fromId: string, toSelector: string) {
+	await wrapper.find(`[data-flyer-block="${fromId}"]`).trigger('dragstart');
+	await wrapper.find(toSelector).trigger('drop');
+	await nextTick();
+}
 
 describe('RetreatFlyerEditView', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 	});
 
-	it('lists every block in its slot and previews the flyer', async () => {
+	it('lays every block out in its slot on the flyer', async () => {
 		const wrapper = await mountEditor();
 
-		expect(panelBlocks(wrapper, 'left')).toEqual(['intro', 'startTime', 'location', 'endTime']);
-		expect(panelBlocks(wrapper, 'right')).toEqual(['registrationQr', 'contact', 'payment']);
-		expect(panelBlocks(wrapper, 'wide')).toEqual(['whatToBring']);
+		expect(slotBlocks(wrapper, 'left')).toEqual(['intro', 'startTime', 'location', 'endTime']);
+		expect(slotBlocks(wrapper, 'right')).toEqual(['registrationQr', 'contact', 'payment']);
+		expect(slotBlocks(wrapper, 'wide')).toEqual(['whatToBring']);
 		expect(previewBlocks(wrapper)).toHaveLength(8);
 	});
 
-	it('removes a block from the preview when it is hidden', async () => {
+	it('removes a block from the flyer when it is hidden', async () => {
 		const wrapper = await mountEditor();
 
-		await wrapper.find('li[data-block="payment"] button').trigger('click');
+		await wrapper.find('li[data-block="payment"] button[aria-label]').trigger('click');
 		await nextTick();
 
 		expect(previewBlocks(wrapper)).not.toContain('payment');
-		// Still listed in the panel, marked as hidden, so it can be brought back
-		expect(panelBlocks(wrapper, 'right')).toContain('payment');
+		// Still in the panel list, which is the only way to bring it back
+		expect(panelBlocks(wrapper)).toContain('payment');
 	});
 
-	it('moves a block across slots on drop, and the preview follows', async () => {
+	it('moves a block across slots when dropped on the flyer itself', async () => {
 		const wrapper = await mountEditor();
 
-		await wrapper.find('li[data-block="whatToBring"]').trigger('dragstart');
-		await wrapper.find('li[data-block="intro"]').trigger('drop');
+		await dragOnFlyer(wrapper, 'whatToBring', '[data-flyer-block="intro"]');
+
+		expect(slotBlocks(wrapper, 'left')[0]).toBe('whatToBring');
+		expect(slotBlocks(wrapper, 'wide')).toEqual([]);
+	});
+
+	it('appends when the drop lands on the column instead of a block', async () => {
+		const wrapper = await mountEditor();
+
+		await dragOnFlyer(wrapper, 'intro', '[data-flyer-slot="wide"]');
+
+		expect(slotBlocks(wrapper, 'wide')).toEqual(['whatToBring', 'intro']);
+		expect(slotBlocks(wrapper, 'left')).toEqual(['startTime', 'location', 'endTime']);
+	});
+
+	it('selects a block when it is clicked on the flyer', async () => {
+		const wrapper = await mountEditor();
+		const store = useFlyerEditorStore();
+
+		await wrapper.find('[data-flyer-block="payment"]').trigger('click');
 		await nextTick();
 
-		expect(panelBlocks(wrapper, 'left')[0]).toBe('whatToBring');
-		expect(panelBlocks(wrapper, 'wide')).toEqual([]);
-		expect(previewBlocks(wrapper)[0]).toBe('whatToBring');
+		expect(store.selectedBlockId).toBe('payment');
 	});
 
 	it('keeps Save disabled until something changes', async () => {
@@ -110,20 +138,34 @@ describe('RetreatFlyerEditView', () => {
 
 		expect(store.isDirty).toBe(false);
 
-		await wrapper.find('li[data-block="payment"] button').trigger('click');
+		await wrapper.find('li[data-block="payment"] button[aria-label]').trigger('click');
 		expect(store.isDirty).toBe(true);
+	});
+
+	it('marks the flyer dirty when the theme changes', async () => {
+		const wrapper = await mountEditor();
+		const store = useFlyerEditorStore();
+
+		const poster = wrapper
+			.findAll('button')
+			.find((b: any) => b.text().includes('retreatFlyerEditor.design.preset.poster'));
+		await poster!.trigger('click');
+		await nextTick();
+
+		expect(store.isDirty).toBe(true);
+		expect(store.theme.textColor).toBe('#ffffff');
 	});
 
 	it('discards changes back to what the retreat has stored', async () => {
 		const wrapper = await mountEditor();
 		const store = useFlyerEditorStore();
 
-		await wrapper.find('li[data-block="payment"] button').trigger('click');
+		await wrapper.find('li[data-block="payment"] button[aria-label]').trigger('click');
 		expect(store.isDirty).toBe(true);
 
 		const discard = wrapper
 			.findAll('button')
-			.find((b) => b.text().includes('retreatFlyerEditor.discard'));
+			.find((b: any) => b.text().includes('retreatFlyerEditor.discard'));
 		await discard!.trigger('click');
 		await nextTick();
 
@@ -140,8 +182,8 @@ describe('RetreatFlyerEditView', () => {
 			],
 		});
 
-		expect(panelBlocks(wrapper, 'left')[0]).toBe('whatToBring');
-		expect(panelBlocks(wrapper, 'wide')[0]).toBe('intro');
+		expect(slotBlocks(wrapper, 'left')[0]).toBe('whatToBring');
+		expect(slotBlocks(wrapper, 'wide')[0]).toBe('intro');
 	});
 
 	it('feeds text overrides into the preview as they are typed', async () => {

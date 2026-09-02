@@ -1,9 +1,9 @@
 <template>
-	<div class="p-4 text-center rounded-2xl bg-white/85 backdrop-blur-sm shadow-md print:bg-white print:backdrop-blur-none">
-		<h3 class="text-[22px] font-black text-blue-700 uppercase mb-2 tracking-[0.15em] drop-shadow-sm">
+	<div class="p-4 text-center">
+		<h3 class="text-[22px] font-black text-[color:var(--fb-heading)] uppercase mb-2 tracking-[0.15em]">
 			{{ content.registerText }}
 		</h3>
-		<p class="text-[11px] text-gray-600 mb-4 font-bold leading-tight">
+		<p class="text-[11px] text-[color:var(--fb-text)] mb-4 font-bold leading-tight">
 			{{ content.scanToRegisterText }}
 		</p>
 

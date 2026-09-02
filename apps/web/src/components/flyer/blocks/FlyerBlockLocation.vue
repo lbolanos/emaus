@@ -1,19 +1,19 @@
 <template>
-	<div class="p-4 rounded-2xl bg-white/85 backdrop-blur-sm shadow-md print:bg-white print:backdrop-blur-none">
+	<div class="p-4">
 		<div class="flex gap-4 items-start group">
 			<div
-				class="bg-gradient-to-br from-green-500 to-green-700 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
+				class="bg-[color:var(--fb-heading)] p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
 			>
 				<MapPin class="w-5 h-5" />
 			</div>
 			<div class="flex-1 min-w-0">
 				<h4
-					class="font-black text-[15px] uppercase text-green-700 tracking-[0.15em] mb-1.5 drop-shadow-lg"
+					class="font-black text-[15px] uppercase text-[color:var(--fb-heading)] tracking-[0.15em] mb-1.5"
 				>
 					{{ t('retreatFlyer.location') }}
 				</h4>
-				<p class="text-[18px] font-black text-black leading-tight">{{ content.retreatLocation }}</p>
-				<p class="text-[11px] text-blue-900 leading-snug mt-1 font-medium">
+				<p class="text-[18px] font-black text-[color:var(--fb-text)] leading-tight">{{ content.retreatLocation }}</p>
+				<p class="text-[11px] text-[color:var(--fb-text)] leading-snug mt-1 font-medium opacity-90">
 					{{ content.retreatAddress }}
 				</p>
 			</div>
@@ -30,7 +30,7 @@
 						class="rounded-lg"
 					/>
 				</div>
-				<span class="text-[11px] text-black font-black uppercase tracking-wider">
+				<span class="text-[11px] text-[color:var(--fb-text)] font-black uppercase tracking-wider">
 					{{ t('retreatFlyer.locationQR') }}
 				</span>
 			</div>

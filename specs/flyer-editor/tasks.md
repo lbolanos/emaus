@@ -65,7 +65,47 @@ Marcar al cerrar cada milestone, anotando las desviaciones reales respecto al pl
 
 **Done**: guardar, listar, aplicar y eliminar plantillas con el alcance correcto.
 
+## M5 — Cartel configurable y arrastre sobre el volante
+
+Tras la revisión del usuario: "que no se vea como un sitio web… más artístico".
+
+- [x] Schema `flyerBlockStyleSchema` / `flyerThemeSchema` + `theme` y `blockStyles` en flyer_options
+- [x] `apps/web/src/utils/flyerStyle.ts` — cascada, rgba compuesto, scrim, presets (+18 tests)
+- [x] Defaults de cartel en `blockRegistry` + lista de excepciones fijas documentada
+- [x] Los ocho bloques sin caja, con colores por CSS vars
+- [x] `FlyerSlotColumn.vue` — celda con arrastre y selección
+- [x] `RetreatFlyerCanvas` editable: emite `moveBlock` / `selectBlock`, pinta el scrim
+- [x] Store: `theme`/`blockStyles` de primera clase (dirty, save, applyTemplate) + selección
+- [x] `FlyerDesignPanel.vue` + `FlyerStyleFields.vue`; pestaña unificada "Diseño"
+- [x] i18n `retreatFlyerEditor.design.*` en es/en
+- [x] Tests: estilo, canvas editable, vista, store, schema del API
+- [x] Verificación en navegador: arrastre real, presets, override por bloque, PDF de una página
+
+**Done**: el volante se ve como un cartel, los bloques se mueven sobre él y cada uno puede llevar
+su propio fondo (incluido ninguno) y color de texto.
+
 ## Desviaciones respecto al plan
+
+### M5
+
+- **Los ocho bloques comparten el mismo estilo de fábrica**, en contra de lo planeado (defaults por
+  bloque reproduciendo el look original). Al probarlo se vio por qué: con texto oscuro heredado del
+  diseño viejo, "Fin del retiro" y "Métodos de pago" quedaban ilegibles sobre la mitad oscura de la
+  foto. El diseño original podía dar un color a cada tarjeta porque cada una estaba clavada en un
+  punto del arte; desde que los bloques se mueven, ningún color por bloque es correcto siempre. Una
+  sola paleta legible + el velo por defecto funciona en cualquier posición y con cualquier imagen.
+- **El velo (`scrim`) viene activado por defecto** (oscuro al 35%). Sin él, el texto blanco se
+  perdía en la mitad clara del arte por defecto.
+- **`background` no es un enum**: "ninguno / velo claro / velo oscuro" son atajos de la UI que
+  escriben en `backgroundColor`. Menos ramas en el resolvedor y misma experiencia.
+- **No hay variable de "acento" aparte del heading**: en los bloques reales la segunda mancha de
+  color o coincide con el título o es una de las cuatro excepciones fijas.
+- **`FlyerBlockList.vue` desaparece**: su lista de visibilidad vive ahora en `FlyerDesignPanel`, y
+  el arrastre se mudó al volante. La pestaña "Bloques" se fusionó en "Diseño".
+- **`FlyerSlotColumn.vue`** es nuevo (no estaba en el plan): las tres celdas repetían el mismo
+  markup y ahora además llevan estilo, arrastre y selección.
+- La columna emite `dropAt(slot, index)` y el canvas traduce a `moveBlock` con el id que arrastra:
+  el estado del arrastre vive en un solo sitio.
 
 ### M4
 

@@ -25,40 +25,47 @@
 				backgroundPosition: 'center',
 			}"
 		>
+			<!-- Wash between the artwork and the text; how strong it is comes from the theme -->
 			<div
-				class="absolute inset-0 bg-gradient-to-br from-white/20 via-white/5 to-black/10 pointer-events-none"
+				class="print-exact absolute inset-0 pointer-events-none"
+				:style="{ backgroundColor: scrimColor }"
 			></div>
 
 			<div class="relative z-10 grid grid-cols-2 gap-x-3 items-start">
-				<div class="flex flex-col gap-3">
-					<component
-						v-for="block in blocksInSlot.left"
-						:key="block.id"
-						:is="FLYER_BLOCK_COMPONENTS[block.id]"
-						:content="content"
-						:data-flyer-block="block.id"
-					/>
-				</div>
-				<div class="flex flex-col gap-3">
-					<component
-						v-for="block in blocksInSlot.right"
-						:key="block.id"
-						:is="FLYER_BLOCK_COMPONENTS[block.id]"
-						:content="content"
-						:data-flyer-block="block.id"
-					/>
-				</div>
-			</div>
-
-			<div v-if="blocksInSlot.wide.length" class="relative z-10 mt-3 flex flex-col gap-3">
-				<component
-					v-for="block in blocksInSlot.wide"
-					:key="block.id"
-					:is="FLYER_BLOCK_COMPONENTS[block.id]"
+				<FlyerSlotColumn
+					v-for="slotName in ['left', 'right'] as const"
+					:key="slotName"
+					:slot-name="slotName"
+					:blocks="blocksInSlot[slotName]"
 					:content="content"
-					:data-flyer-block="block.id"
+					:theme="theme"
+					:block-styles="blockStyles"
+					:editable="editable"
+					:selected-block-id="selectedBlockId"
+					:empty-label="emptySlotLabel"
+					@drop-at="onDropAt"
+					@select-block="(id) => emit('selectBlock', id)"
+					@drag-block-start="draggingId = $event"
+					@drag-block-end="draggingId = null"
 				/>
 			</div>
+
+			<FlyerSlotColumn
+				v-if="blocksInSlot.wide.length || editable"
+				slot-name="wide"
+				class="relative z-10 mt-3"
+				:blocks="blocksInSlot.wide"
+				:content="content"
+				:theme="theme"
+				:block-styles="blockStyles"
+				:editable="editable"
+				:selected-block-id="selectedBlockId"
+				:empty-label="emptySlotLabel"
+				@drop-at="onDropAt"
+				@select-block="(id) => emit('selectBlock', id)"
+				@drag-block-start="draggingId = $event"
+				@drag-block-end="draggingId = null"
+			/>
 		</div>
 
 		<FlyerFooter :content="content" :background-image="images.footerBackground" />
@@ -66,13 +73,22 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import type { FlyerBlockLayout, FlyerImages, FlyerSlot } from '@repo/types';
+import { computed, ref } from 'vue';
+import type {
+	FlyerBlockId,
+	FlyerBlockLayout,
+	FlyerBlockStyle,
+	FlyerImages,
+	FlyerSlot,
+	FlyerTheme,
+} from '@repo/types';
 import { useFlyerContent } from '@/composables/useFlyerContent';
+import { resolveScrim } from '@/utils/flyerStyle';
 import FlyerHeader from './FlyerHeader.vue';
 import FlyerBanner from './FlyerBanner.vue';
 import FlyerFooter from './FlyerFooter.vue';
-import { FLYER_BLOCK_COMPONENTS, FLYER_DEFAULT_LAYOUT, FLYER_PRESET_IMAGES } from './blockRegistry';
+import FlyerSlotColumn from './FlyerSlotColumn.vue';
+import { FLYER_DEFAULT_LAYOUT, FLYER_PRESET_IMAGES } from './blockRegistry';
 
 const props = withDefaults(
 	defineProps<{
@@ -82,12 +98,36 @@ const props = withDefaults(
 		layout?: FlyerBlockLayout[];
 		/** Image overrides; each missing key falls back to its preset. */
 		imageOverrides?: FlyerImages;
+		/** Palette for every block, plus the wash over the background image. */
+		theme?: FlyerTheme | null;
+		/** Per-block overrides on top of the theme. */
+		blockStyles?: Partial<Record<FlyerBlockId, FlyerBlockStyle>> | null;
 		registrationLink?: string;
 		/** Mobile downscale of the fixed 850px design. */
 		scale?: number;
+		/** Turns the flyer into a drop target. Off for the read-only view. */
+		editable?: boolean;
+		selectedBlockId?: FlyerBlockId | null;
+		emptySlotLabel?: string;
 	}>(),
-	{ scale: 1 },
+	{ scale: 1, editable: false, emptySlotLabel: '' },
 );
+
+const emit = defineEmits<{
+	moveBlock: [blockId: FlyerBlockId, slot: FlyerSlot, index: number];
+	selectBlock: [blockId: FlyerBlockId];
+}>();
+
+/** Which block the pointer is carrying; the columns only report where it landed. */
+const draggingId = ref<FlyerBlockId | null>(null);
+
+function onDropAt(slot: FlyerSlot, index: number) {
+	if (!draggingId.value) return;
+	emit('moveBlock', draggingId.value, slot, index);
+	draggingId.value = null;
+}
+
+const scrimColor = computed(() => resolveScrim(props.theme));
 
 const content = useFlyerContent(
 	() => props.retreat,

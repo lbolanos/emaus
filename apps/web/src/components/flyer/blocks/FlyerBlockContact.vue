@@ -1,12 +1,12 @@
 <template>
 	<!-- A heading with no numbers under it reads as a mistake, so render nothing -->
-	<div v-if="content.totalContactItems > 0" class="p-2.5 rounded-2xl bg-white/85 backdrop-blur-sm shadow-md print:bg-white print:backdrop-blur-none">
+	<div v-if="content.totalContactItems > 0" class="p-2.5">
 		<h4
-			class="text-[14px] font-black text-gray-700 uppercase mb-1.5 flex items-center justify-end gap-3 tracking-[0.1em] text-right"
+			class="text-[14px] font-black text-[color:var(--fb-heading)] uppercase mb-1.5 flex items-center justify-end gap-3 tracking-[0.1em] text-right"
 		>
 			{{ t('retreatFlyer.information') }}
 			<div
-				class="bg-gradient-to-br from-blue-400 to-blue-600 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
+				class="bg-[color:var(--fb-heading)] p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
 			>
 				<Info class="w-5 h-5" />
 			</div>
@@ -21,18 +21,18 @@
 			<div
 				v-for="(phone, index) in content.contactPhones"
 				:key="phone?.number || index"
-				class="p-1.5 rounded-lg shadow-sm border border-green-200/60"
+				class="p-1.5 rounded-lg border border-current/20"
 			>
 				<div class="flex items-center justify-end gap-1.5">
 					<div class="text-right min-w-0">
 						<span
-							class="font-bold text-gray-700 block text-[8px] uppercase tracking-wider truncate"
+							class="font-bold text-[color:var(--fb-text)] block text-[8px] uppercase tracking-wider truncate opacity-80"
 						>
 							{{ phone?.name || t('retreatFlyer.contact') }}
 						</span>
 						<span
 							:class="[
-								'text-gray-900 font-black font-mono',
+								'font-black font-mono text-[color:var(--fb-text)]',
 								content.totalContactItems > 2 ? 'text-[11px]' : 'text-[13px]',
 							]"
 						>
@@ -49,17 +49,17 @@
 			<div
 				v-for="email in content.contactEmails"
 				:key="email"
-				class="p-1.5 rounded-lg shadow-sm border border-blue-200/60"
+				class="p-1.5 rounded-lg border border-current/20"
 				:class="content.totalContactItems > 2 ? 'col-span-2' : ''"
 			>
 				<div class="flex items-center justify-end gap-1.5">
 					<div class="text-right min-w-0">
-						<span class="font-bold text-gray-700 block text-[8px] uppercase tracking-wider">
+						<span class="font-bold text-[color:var(--fb-text)] block text-[8px] uppercase tracking-wider opacity-80">
 							Email
 						</span>
 						<span
 							:class="[
-								'text-gray-900 font-black break-all',
+								'font-black break-all text-[color:var(--fb-text)]',
 								content.totalContactItems > 2 ? 'text-[11px]' : 'text-[12px]',
 							]"
 						>

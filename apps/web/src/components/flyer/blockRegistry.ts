@@ -1,5 +1,5 @@
 import type { Component } from 'vue';
-import type { FlyerBlockId, FlyerBlockLayout, FlyerSlot } from '@repo/types';
+import type { FlyerBlockId, FlyerBlockLayout, FlyerBlockStyle, FlyerSlot } from '@repo/types';
 
 import FlyerBlockIntro from './blocks/FlyerBlockIntro.vue';
 import FlyerBlockStartTime from './blocks/FlyerBlockStartTime.vue';
@@ -44,3 +44,49 @@ export const FLYER_PRESET_IMAGES = {
 	headerBackground: '/header_bck.png',
 	footerBackground: '/footer.png',
 } as const;
+
+/**
+ * How every block looks before the theme or a per-block override touches it: white
+ * text with a shadow, warm headings, and no box — a poster, not a set of cards.
+ *
+ * The same for all eight on purpose. The original design could give each card its own
+ * colour because each sat at a fixed spot on the artwork (blue over the pale top, white
+ * over the dark bottom). Now that blocks move — and the image is the coordinator's —
+ * no per-block colour is right in every position. One legible palette plus the default
+ * scrim (see resolveScrim) works wherever a block lands, on any photo.
+ */
+const POSTER_DEFAULT: FlyerBlockStyle = {
+	textColor: '#ffffff',
+	headingColor: '#fde68a',
+	textShadow: true,
+};
+
+export const FLYER_BLOCK_STYLE_DEFAULTS: Record<FlyerBlockId, FlyerBlockStyle> = {
+	intro: POSTER_DEFAULT,
+	startTime: POSTER_DEFAULT,
+	location: POSTER_DEFAULT,
+	endTime: POSTER_DEFAULT,
+	registrationQr: POSTER_DEFAULT,
+	contact: POSTER_DEFAULT,
+	payment: POSTER_DEFAULT,
+	whatToBring: POSTER_DEFAULT,
+};
+
+/**
+ * Parts that deliberately ignore the theme, because their colour carries meaning
+ * rather than decoration. Documented here so nobody "fixes" them by mistake:
+ *
+ * 1. The white plates behind both QR codes — scannability.
+ * 2. The price pill in `payment` — the single most important figure on the flyer keeps
+ *    guaranteed contrast even when its block has no box.
+ * 3. The amber notice in `endTime` ("importante que tu familia asista") — a warning,
+ *    not decoration; blending it into the palette loses its job.
+ * 4. The green/blue chips in `contact` — green means phone and blue means email, which
+ *    is the only cue before actually reading the value.
+ */
+export const FLYER_FIXED_COLOUR_PARTS = [
+	'qr-plate',
+	'payment-price-pill',
+	'endtime-notice',
+	'contact-channel-chips',
+] as const;

@@ -1,14 +1,14 @@
 <template>
-	<div class="p-4 rounded-2xl bg-white/85 backdrop-blur-sm shadow-md print:bg-white print:backdrop-blur-none">
+	<div class="p-4">
 		<p
-			class="text-[18px] text-gray-900 text-center leading-relaxed font-medium"
+			class="text-[18px] text-[color:var(--fb-text)] text-center leading-relaxed font-medium"
 			style="font-family: 'Playfair Display', serif"
 		>
 			<span class="font-bold" v-html="content.encounterDescriptionHtml"></span>
 		</p>
 		<div class="mt-3 text-center">
 			<span
-				class="inline-block font-black text-blue-800 text-[26px] px-5 py-2 from-blue-50 to-indigo-50 rounded-xl tracking-wide shadow-lg border-2 border-blue-200"
+				class="inline-block font-black text-[color:var(--fb-heading)] text-[26px] px-5 py-2 rounded-xl tracking-wide border-2 border-current/30"
 				style="font-family: 'Playfair Display', serif"
 			>
 				{{ content.dareToLiveItText }}

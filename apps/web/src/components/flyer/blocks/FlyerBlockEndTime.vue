@@ -1,22 +1,22 @@
 <template>
-	<div class="p-4 rounded-2xl bg-white/85 backdrop-blur-sm shadow-md print:bg-white print:backdrop-blur-none">
+	<div class="p-4">
 		<div class="flex gap-4 items-start group">
 			<div
-				class="bg-gradient-to-br from-blue-500 to-blue-700 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
+				class="bg-[color:var(--fb-heading)] p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
 			>
 				<Calendar class="w-5 h-5" />
 			</div>
 			<div class="flex-1 min-w-0">
 				<h4
-					class="font-black text-[15px] uppercase text-blue-700 tracking-[0.15em] mb-1.5 drop-shadow-lg"
+					class="font-black text-[15px] uppercase text-[color:var(--fb-heading)] tracking-[0.15em] mb-1.5"
 				>
 					{{ t('retreatFlyer.endTime') }}
 				</h4>
-				<p data-end-date class="text-[17px] text-amber-700 font-bold mb-0.5 drop-shadow-lg">
+				<p data-end-date class="text-[17px] text-[color:var(--fb-text)] font-bold mb-0.5">
 					{{ content.formatDate(content.endDate) }}
 				</p>
-				<div v-if="content.closingLocation" class="bg-blue-50/80 p-2 rounded-lg mb-2">
-					<p class="font-semibold text-gray-700 text-[12px] leading-tight">
+				<div v-if="content.closingLocation" class="mb-2">
+					<p class="font-semibold text-[color:var(--fb-text)] text-[12px] leading-tight">
 						{{ content.closingLocation }}
 					</p>
 				</div>

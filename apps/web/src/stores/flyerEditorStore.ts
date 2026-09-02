@@ -4,8 +4,10 @@ import {
 	FLYER_LAYOUT_VERSION,
 	type FlyerBlockId,
 	type FlyerBlockLayout,
+	type FlyerBlockStyle,
 	type FlyerImages,
 	type FlyerSlot,
+	type FlyerTheme,
 } from '@repo/types';
 import { moveBlockInLayout, resolveFlyerLayout } from '@/utils/flyerLayout';
 import { useRetreatStore } from '@/stores/retreatStore';
@@ -39,13 +41,23 @@ export const useFlyerEditorStore = defineStore('flyerEditor', () => {
 	const untouchedOptions = ref<Record<string, any>>({});
 	const blocks = ref<FlyerBlockLayout[]>([]);
 	const images = ref<FlyerImages>({});
+	const theme = ref<FlyerTheme>({});
+	const blockStyles = ref<Partial<Record<FlyerBlockId, FlyerBlockStyle>>>({});
 	const textOverrides = ref<Record<string, string>>({});
+	/** Which block the editor panel is showing the style of. */
+	const selectedBlockId = ref<FlyerBlockId | null>(null);
 	const savedSnapshot = ref('');
 	const saving = ref(false);
 
 	/** Serialised form of what save() would send, used to detect changes. */
 	const snapshot = computed(() =>
-		JSON.stringify({ blocks: blocks.value, images: images.value, texts: textOverrides.value }),
+		JSON.stringify({
+			blocks: blocks.value,
+			images: images.value,
+			theme: theme.value,
+			blockStyles: blockStyles.value,
+			texts: textOverrides.value,
+		}),
 	);
 
 	const isDirty = computed(() => snapshot.value !== savedSnapshot.value);
@@ -68,6 +80,8 @@ export const useFlyerEditorStore = defineStore('flyerEditor', () => {
 		layoutVersion: FLYER_LAYOUT_VERSION,
 		blocks: blocks.value,
 		images: images.value,
+		theme: theme.value,
+		blockStyles: blockStyles.value,
 	}));
 
 	function loadFromRetreat(retreat: any) {
@@ -77,6 +91,9 @@ export const useFlyerEditorStore = defineStore('flyerEditor', () => {
 		const resolved = resolveFlyerLayout(options);
 		blocks.value = resolved.blocks;
 		images.value = resolved.images;
+		theme.value = { ...(options.theme ?? {}) };
+		blockStyles.value = { ...(options.blockStyles ?? {}) };
+		selectedBlockId.value = null;
 
 		const texts: Record<string, string> = {};
 		for (const key of FLYER_TEXT_OVERRIDE_KEYS) {
@@ -92,6 +109,8 @@ export const useFlyerEditorStore = defineStore('flyerEditor', () => {
 				key === 'layoutVersion' ||
 				key === 'blocks' ||
 				key === 'images' ||
+				key === 'theme' ||
+				key === 'blockStyles' ||
 				(FLYER_TEXT_OVERRIDE_KEYS as readonly string[]).includes(key);
 			if (!isOurs) rest[key] = value;
 		}
@@ -118,11 +137,57 @@ export const useFlyerEditorStore = defineStore('flyerEditor', () => {
 		textOverrides.value = { ...textOverrides.value, [key]: value };
 	}
 
+	function selectBlock(blockId: FlyerBlockId | null) {
+		selectedBlockId.value = blockId;
+	}
+
+	/** An undefined value clears the field so the layer below shows through again. */
+	function setThemeField<K extends keyof FlyerTheme>(key: K, value: FlyerTheme[K] | undefined) {
+		const next = { ...theme.value };
+		if (value === undefined) delete next[key];
+		else next[key] = value;
+		theme.value = next;
+	}
+
+	function applyThemePreset(preset: FlyerTheme) {
+		theme.value = { ...preset };
+	}
+
+	/** Back to the built-in per-block defaults. */
+	function clearTheme() {
+		theme.value = {};
+	}
+
+	function setBlockStyleField<K extends keyof FlyerBlockStyle>(
+		blockId: FlyerBlockId,
+		key: K,
+		value: FlyerBlockStyle[K] | undefined,
+	) {
+		const current = { ...(blockStyles.value[blockId] ?? {}) };
+		if (value === undefined) delete current[key];
+		else current[key] = value;
+
+		const next = { ...blockStyles.value };
+		if (Object.keys(current).length === 0) delete next[blockId];
+		else next[blockId] = current;
+		blockStyles.value = next;
+	}
+
+	/** Drops the block's override so it follows the theme again. */
+	function clearBlockStyle(blockId: FlyerBlockId) {
+		const next = { ...blockStyles.value };
+		delete next[blockId];
+		blockStyles.value = next;
+	}
+
 	/** Replaces the whole design with a template's snapshot. */
 	function applyTemplate(layout: Record<string, any>) {
 		const resolved = resolveFlyerLayout(layout);
 		blocks.value = resolved.blocks;
 		images.value = resolved.images;
+		// Set-or-clear: a template without a theme means "no theme", not "keep mine"
+		theme.value = { ...(layout?.theme ?? {}) };
+		blockStyles.value = { ...(layout?.blockStyles ?? {}) };
 
 		const texts: Record<string, string> = {};
 		for (const key of FLYER_TEXT_OVERRIDE_KEYS) {
@@ -154,6 +219,9 @@ export const useFlyerEditorStore = defineStore('flyerEditor', () => {
 		retreatId,
 		blocks,
 		images,
+		theme,
+		blockStyles,
+		selectedBlockId,
 		textOverrides,
 		saving,
 		isDirty,
@@ -164,6 +232,12 @@ export const useFlyerEditorStore = defineStore('flyerEditor', () => {
 		toggleVisibility,
 		setImage,
 		setTextOverride,
+		selectBlock,
+		setThemeField,
+		applyThemePreset,
+		clearTheme,
+		setBlockStyleField,
+		clearBlockStyle,
 		applyTemplate,
 		resetToDefaultLayout,
 		save,

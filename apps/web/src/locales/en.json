@@ -3018,10 +3018,10 @@
     "preview": "Preview",
     "resetLayout": "Restore the original layout",
     "tabs": {
-      "blocks": "Blocks",
       "images": "Images",
       "texts": "Texts",
-      "templates": "Templates"
+      "templates": "Templates",
+      "design": "Design"
     },
     "blocks": {
       "intro": "Introduction",
@@ -3038,7 +3038,7 @@
       "right": "Right column",
       "wide": "Full-width row"
     },
-    "dragHint": "Drag blocks to move them between columns or reorder them.",
+    "dragHint": "Drag the blocks on the flyer itself to move them.",
     "show": "Show",
     "hide": "Hide",
     "hidden": "Hidden",
@@ -3092,6 +3092,37 @@
       "saved": "Template saved",
       "applied": "Template applied",
       "deleted": "Template deleted"
+    },
+    "design": {
+      "presets": "Quick styles",
+      "preset": {
+        "poster": "Poster",
+        "ink": "Ink",
+        "veils": "Veils",
+        "original": "Original"
+      },
+      "wholeFlyer": "Whole flyer",
+      "blocks": "Blocks",
+      "blockBackground": "Block background",
+      "background": {
+        "none": "None",
+        "light": "Light veil",
+        "dark": "Dark veil"
+      },
+      "customColor": "Custom colour",
+      "opacity": "Opacity",
+      "textColor": "Text",
+      "headingColor": "Headings",
+      "textShadow": "Text shadow (reads better over the photo)",
+      "scrim": "Dim the background image",
+      "scrimHint": "Useful when the photo is busy and competes with the text.",
+      "scrimMode": {
+        "none": "No dimming",
+        "dark": "Darken",
+        "light": "Lighten"
+      },
+      "reset": "Reset",
+      "selectHint": "Tap a block on the flyer to give it its own style."
     }
   }
 }

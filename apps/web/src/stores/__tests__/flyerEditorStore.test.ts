@@ -149,6 +149,82 @@ describe('flyerEditorStore', () => {
 		});
 	});
 
+	describe('theme and per-block style', () => {
+		it('starts empty and marks the flyer dirty once the theme changes', () => {
+			const store = useFlyerEditorStore();
+			store.loadFromRetreat(retreatWith());
+
+			expect(store.theme).toEqual({});
+			store.setThemeField('textColor', '#ffffff');
+			expect(store.isDirty).toBe(true);
+		});
+
+		it('clears a theme field when set to undefined, so the layer below shows again', () => {
+			const store = useFlyerEditorStore();
+			store.loadFromRetreat(retreatWith({ theme: { textColor: '#ffffff' } }));
+
+			store.setThemeField('textColor', undefined);
+			expect(store.theme.textColor).toBeUndefined();
+		});
+
+		it('drops a block override entirely once its last field is cleared', () => {
+			const store = useFlyerEditorStore();
+			store.loadFromRetreat(retreatWith());
+
+			store.setBlockStyleField('payment', 'textColor', '#000000');
+			expect(store.blockStyles.payment).toEqual({ textColor: '#000000' });
+
+			store.setBlockStyleField('payment', 'textColor', undefined);
+			expect(store.blockStyles.payment).toBeUndefined();
+		});
+
+		it('restores a block to the theme without touching the theme itself', () => {
+			const store = useFlyerEditorStore();
+			store.loadFromRetreat(
+				retreatWith({
+					theme: { textColor: '#ffffff' },
+					blockStyles: { payment: { textColor: '#000000' } },
+				}),
+			);
+
+			store.clearBlockStyle('payment');
+			expect(store.blockStyles.payment).toBeUndefined();
+			expect(store.theme.textColor).toBe('#ffffff');
+		});
+
+		it('applies a preset over the whole theme', () => {
+			const store = useFlyerEditorStore();
+			store.loadFromRetreat(retreatWith({ theme: { textColor: '#000000' } }));
+
+			store.applyThemePreset({ textColor: '#ffffff', textShadow: true, scrim: 'dark' });
+			expect(store.theme).toEqual({ textColor: '#ffffff', textShadow: true, scrim: 'dark' });
+		});
+
+		it('sends theme and block styles when saving', async () => {
+			const store = useFlyerEditorStore();
+			store.loadFromRetreat(retreatWith());
+			store.setThemeField('scrim', 'dark');
+			store.setBlockStyleField('intro', 'backgroundColor', '#ffffff');
+			await store.save();
+
+			const options = updateRetreat.mock.calls[0][0].flyer_options;
+			expect(options.theme).toEqual({ scrim: 'dark' });
+			expect(options.blockStyles).toEqual({ intro: { backgroundColor: '#ffffff' } });
+		});
+
+		it('tracks the block the editor is styling', () => {
+			const store = useFlyerEditorStore();
+			store.loadFromRetreat(retreatWith());
+
+			expect(store.selectedBlockId).toBeNull();
+			store.selectBlock('contact');
+			expect(store.selectedBlockId).toBe('contact');
+			// Loading another retreat must not leave a stale selection behind
+			store.loadFromRetreat(retreatWith());
+			expect(store.selectedBlockId).toBeNull();
+		});
+	});
+
 	describe('applyTemplate', () => {
 		it('replaces layout, images and texts', () => {
 			const store = useFlyerEditorStore();
@@ -173,6 +249,38 @@ describe('flyerEditorStore', () => {
 
 			store.applyTemplate({ layoutVersion: 2, blocks: [] });
 			expect(store.textOverrides.comeOverride).toBe('');
+		});
+
+		it('brings the template theme along', () => {
+			const store = useFlyerEditorStore();
+			store.loadFromRetreat(retreatWith());
+
+			store.applyTemplate({
+				layoutVersion: 2,
+				blocks: [],
+				theme: { textColor: '#ffffff', scrim: 'dark' },
+				blockStyles: { payment: { backgroundColor: '#000000' } },
+			});
+
+			expect(store.theme).toEqual({ textColor: '#ffffff', scrim: 'dark' });
+			expect(store.blockStyles.payment).toEqual({ backgroundColor: '#000000' });
+		});
+
+		// theme/blockStyles must be first-class state: parked in untouchedOptions they
+		// would survive the template silently, which reads as "applying did nothing".
+		it('drops the current theme when the template has none', () => {
+			const store = useFlyerEditorStore();
+			store.loadFromRetreat(
+				retreatWith({
+					theme: { textColor: '#ffffff' },
+					blockStyles: { intro: { textColor: '#000000' } },
+				}),
+			);
+
+			store.applyTemplate({ layoutVersion: 2, blocks: [] });
+
+			expect(store.theme).toEqual({});
+			expect(store.blockStyles).toEqual({});
 		});
 	});
 });

@@ -120,6 +120,97 @@ describe('RetreatFlyerCanvas', () => {
 		expect(wrapper.text()).not.toContain('retreatFlyer.information');
 	});
 
+	describe('styling', () => {
+		it('paints no box by default, so the artwork shows through', () => {
+			const wrapper = mountCanvas();
+			const style = wrapper.find('[data-flyer-block="intro"]').attributes('style') ?? '';
+
+			expect(style).toContain('--fb-bg: transparent');
+			expect(style).toContain('--fb-radius: 0');
+		});
+
+		it('applies the theme colours to every block', () => {
+			const wrapper = mountCanvas({ theme: { textColor: '#ffffff', textShadow: true } });
+			const style = wrapper.find('[data-flyer-block="location"]').attributes('style') ?? '';
+
+			expect(style).toContain('--fb-text: #ffffff');
+			expect(style).not.toContain('--fb-shadow: none');
+		});
+
+		it('lets a single block override the theme', () => {
+			const wrapper = mountCanvas({
+				theme: { textColor: '#ffffff' },
+				blockStyles: { payment: { textColor: '#111827', backgroundColor: '#ffffff', backgroundOpacity: 50 } },
+			});
+
+			const payment = wrapper.find('[data-flyer-block="payment"]').attributes('style') ?? '';
+			const contact = wrapper.find('[data-flyer-block="contact"]').attributes('style') ?? '';
+
+			expect(payment).toContain('--fb-text: #111827');
+			expect(payment).toContain('rgba(255, 255, 255, 0.5)');
+			expect(contact).toContain('--fb-text: #ffffff');
+		});
+
+		it('washes the background image when the theme asks for it', () => {
+			const plain = mountCanvas();
+			const dimmed = mountCanvas({ theme: { scrim: 'dark', scrimOpacity: 50 } });
+
+			expect(plain.html()).toContain('transparent');
+			expect(dimmed.html()).toContain('rgba(0, 0, 0, 0.5)');
+		});
+	});
+
+	describe('editing', () => {
+		it('is not draggable unless editable, so the published flyer stays inert', () => {
+			// draggable="false" is how HTML spells "not draggable"
+			expect(
+				mountCanvas().find('[data-flyer-block="intro"]').attributes('draggable'),
+			).toBe('false');
+			expect(
+				mountCanvas({ editable: true }).find('[data-flyer-block="intro"]').attributes('draggable'),
+			).toBe('true');
+		});
+
+		it('emits the move when a block is dropped on another one', async () => {
+			const wrapper = mountCanvas({ editable: true });
+
+			await wrapper.find('[data-flyer-block="whatToBring"]').trigger('dragstart');
+			await wrapper.find('[data-flyer-block="intro"]').trigger('drop');
+
+			expect(wrapper.emitted('moveBlock')?.[0]).toEqual(['whatToBring', 'left', 0]);
+		});
+
+		it('appends when the drop lands on the column itself', async () => {
+			const wrapper = mountCanvas({ editable: true });
+
+			await wrapper.find('[data-flyer-block="intro"]').trigger('dragstart');
+			await wrapper.find('[data-flyer-slot="wide"]').trigger('drop');
+
+			expect(wrapper.emitted('moveBlock')?.[0]).toEqual(['intro', 'wide', 1]);
+		});
+
+		it('ignores a drop with nothing being dragged', async () => {
+			const wrapper = mountCanvas({ editable: true });
+			await wrapper.find('[data-flyer-slot="wide"]').trigger('drop');
+
+			expect(wrapper.emitted('moveBlock')).toBeUndefined();
+		});
+
+		it('emits the selection when a block is clicked', async () => {
+			const wrapper = mountCanvas({ editable: true });
+			await wrapper.find('[data-flyer-block="contact"]').trigger('click');
+
+			expect(wrapper.emitted('selectBlock')?.[0]).toEqual(['contact']);
+		});
+
+		it('does not select anything when it is not editable', async () => {
+			const wrapper = mountCanvas();
+			await wrapper.find('[data-flyer-block="contact"]').trigger('click');
+
+			expect(wrapper.emitted('selectBlock')).toBeUndefined();
+		});
+	});
+
 	it('keeps the printable-area id so print, copy and PDF export keep working', () => {
 		const wrapper = mountCanvas();
 		expect(wrapper.find('#printable-area').exists()).toBe(true);

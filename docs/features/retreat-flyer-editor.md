@@ -27,18 +27,60 @@ El lienzo mide 850px de ancho (diseño fijo, se escala para móvil e impresión)
 Cada bloque es un componente "tonto" en `apps/web/src/components/flyer/blocks/` que recibe una
 sola prop `content` (ver `useFlyerContent.ts`). Añadir un bloque nuevo son tres pasos:
 
-1. Crear el componente en `blocks/`.
-2. Registrarlo en `FLYER_BLOCK_COMPONENTS` y darle una posición en `FLYER_DEFAULT_LAYOUT`
-   (`apps/web/src/components/flyer/blockRegistry.ts`).
+1. Crear el componente en `blocks/`, con sus colores en `var(--fb-text)` / `var(--fb-heading)`.
+2. Registrarlo en `FLYER_BLOCK_COMPONENTS`, darle posición en `FLYER_DEFAULT_LAYOUT` y estilo en
+   `FLYER_BLOCK_STYLE_DEFAULTS` (`apps/web/src/components/flyer/blockRegistry.ts`).
 3. Añadir su id a `flyerBlockIdSchema` en `packages/types/src/index.ts` y su nombre a
    `retreatFlyerEditor.blocks.*` en los locales.
 
 Los diseños ya guardados no se rompen: `resolveFlyerLayout` reconcilia lo almacenado contra el
 layout por defecto, así que el bloque nuevo aparece en su sitio en vez de faltar.
 
-> **Las tarjetas llevan fondo propio a propósito.** Los bloques se mueven y el fondo lo elige el
-> usuario, así que ninguno puede dar por hecho lo que tiene debajo. Un bloque con texto claro
-> "sobre la parte oscura de la foto" es un volante ilegible en cuanto alguien lo mueve.
+## Estilo: es un cartel, no una interfaz
+
+Por defecto los bloques **no tienen caja**: el texto va sobre la imagen, en blanco con sombra y
+con los títulos en dorado, y un velo oscuro del 35% uniforma la foto por debajo. Ese velo es lo
+que hace que el blanco funcione tanto en la mitad clara como en la oscura del arte por defecto.
+
+Los ocho bloques comparten el mismo estilo de fábrica **a propósito**. El diseño original podía
+dar a cada tarjeta su color (azul arriba, blanco abajo) porque cada una estaba clavada en un punto
+del arte. Desde que los bloques se mueven —y la imagen la elige el coordinador— ningún color por
+bloque es correcto en todas las posiciones.
+
+La cascada de estilo (`apps/web/src/utils/flyerStyle.ts`, puro y con tests):
+
+```
+FLYER_BLOCK_STYLE_DEFAULTS  ←  flyer_options.theme  ←  flyer_options.blockStyles[id]
+```
+
+Cada capa solo pisa los campos que fija, y el resultado son cuatro CSS vars (`--fb-bg`,
+`--fb-text`, `--fb-heading`, `--fb-shadow`) que el canvas pone en el envoltorio de cada bloque.
+
+Dos reglas que no se pueden cambiar sin romper la impresión:
+
+- **La opacidad se compone en JS a `rgba(...)`**, nunca con `opacity` de CSS: eso atenuaría el
+  texto y su sombra junto con la caja, que es justo lo contrario de lo que se busca.
+- **Solo `background-color`, nunca `background-image`**, y **`text-shadow`, nunca
+  `filter: drop-shadow`** — Chrome descarta el filtro al imprimir.
+
+### Partes que ignoran el tema a propósito
+
+No las "arregles": su color es información, no decoración.
+
+1. Los platos blancos de los dos QR — que se puedan escanear.
+2. La píldora del precio en `payment` — el dato más importante, con contraste garantizado.
+3. El aviso ámbar de `endTime` ("importante que tu familia asista") — es una advertencia.
+4. Los chips verde/azul de `contact` — verde es teléfono y azul es correo.
+
+## Mover bloques
+
+Se arrastran **sobre el volante**, no en el panel. `RetreatFlyerCanvas` acepta `editable` (apagado
+en la vista publicada, para que el volante no gane `draggable`) y emite `moveBlock` y
+`selectBlock`; `FlyerSlotColumn` es la celda que recibe el drop.
+
+El índice de inserción es **el índice del bloque sobre el que estás**, sin geometría: nada de
+`getBoundingClientRect`, que devuelve ceros bajo happy-dom y además tendría que compensar el
+`transform: scale()` de la vista previa.
 
 ## Datos
 

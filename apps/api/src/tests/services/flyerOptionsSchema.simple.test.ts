@@ -69,6 +69,56 @@ describe('flyerOptionsSchema', () => {
 		});
 	});
 
+	describe('theme and block styles', () => {
+		it('accepts a full theme', () => {
+			const parsed = flyerOptionsSchema.parse({
+				theme: {
+					backgroundColor: '#ffffff',
+					backgroundOpacity: 80,
+					textColor: '#111827',
+					headingColor: '#1d4ed8',
+					textShadow: true,
+					scrim: 'dark',
+					scrimOpacity: 40,
+				},
+			});
+			expect(parsed.theme?.scrim).toBe('dark');
+		});
+
+		it('accepts per-block overrides keyed by block id', () => {
+			const parsed = flyerOptionsSchema.parse({
+				blockStyles: { payment: { textColor: '#000000' } },
+			});
+			expect(parsed.blockStyles?.payment?.textColor).toBe('#000000');
+		});
+
+		it('rejects a made-up block id', () => {
+			expect(
+				flyerOptionsSchema.safeParse({ blockStyles: { nope: { textColor: '#000000' } } }).success,
+			).toBe(false);
+		});
+
+		it.each([
+			['a colour name', 'red'],
+			['a short hex', '#fff'],
+			['a colour with alpha', '#ffffffcc'],
+			['something that is not a colour', 'url(evil)'],
+		])('rejects %s', (_label, colour) => {
+			expect(flyerOptionsSchema.safeParse({ theme: { textColor: colour } }).success).toBe(false);
+		});
+
+		it('rejects an opacity outside 0-100', () => {
+			expect(flyerOptionsSchema.safeParse({ theme: { backgroundOpacity: 120 } }).success).toBe(
+				false,
+			);
+			expect(flyerOptionsSchema.safeParse({ theme: { scrimOpacity: -5 } }).success).toBe(false);
+		});
+
+		it('rejects an invented scrim mode', () => {
+			expect(flyerOptionsSchema.safeParse({ theme: { scrim: 'rainbow' } }).success).toBe(false);
+		});
+	});
+
 	describe('bounds', () => {
 		it('rejects an absurd number of blocks', () => {
 			const blocks = Array.from({ length: 500 }, () => ({

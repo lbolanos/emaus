@@ -35,9 +35,9 @@
 			<!-- Side panel -->
 			<Card class="h-fit lg:sticky lg:top-4">
 				<CardContent class="p-4">
-					<Tabs default-value="blocks">
+					<Tabs default-value="design">
 						<TabsList class="grid w-full grid-cols-4">
-							<TabsTrigger value="blocks">{{ t('retreatFlyerEditor.tabs.blocks') }}</TabsTrigger>
+							<TabsTrigger value="design">{{ t('retreatFlyerEditor.tabs.design') }}</TabsTrigger>
 							<TabsTrigger value="images">{{ t('retreatFlyerEditor.tabs.images') }}</TabsTrigger>
 							<TabsTrigger value="texts">{{ t('retreatFlyerEditor.tabs.texts') }}</TabsTrigger>
 							<TabsTrigger value="templates">
@@ -45,11 +45,19 @@
 							</TabsTrigger>
 						</TabsList>
 
-						<TabsContent value="blocks" class="mt-4">
-							<FlyerBlockList
-								:blocks-by-slot="store.blocksBySlot"
-								@move="store.moveBlock"
-								@toggle="store.toggleVisibility"
+						<TabsContent value="design" class="mt-4">
+							<FlyerDesignPanel
+								:blocks="store.blocks"
+								:theme="store.theme"
+								:block-styles="store.blockStyles"
+								:selected-block-id="store.selectedBlockId"
+								@apply-preset="store.applyThemePreset"
+								@clear-theme="store.clearTheme"
+								@update-theme="store.setThemeField"
+								@update-block-style="store.setBlockStyleField"
+								@clear-block-style="store.clearBlockStyle"
+								@toggle-visibility="store.toggleVisibility"
+								@select-block="store.selectBlock"
 							/>
 							<Button variant="ghost" size="sm" class="mt-4 w-full" @click="store.resetToDefaultLayout()">
 								<RotateCcw class="mr-1.5 h-4 w-4" />
@@ -96,8 +104,15 @@
 						:flyer-options="store.draftOptions"
 						:layout="store.blocks"
 						:image-overrides="store.images"
+						:theme="store.theme"
+						:block-styles="store.blockStyles"
 						:registration-link="walkerRegistrationLink"
 						:scale="previewScale"
+						editable
+						:selected-block-id="store.selectedBlockId"
+						:empty-slot-label="t('retreatFlyerEditor.emptySlot')"
+						@move-block="store.moveBlock"
+						@select-block="store.selectBlock"
 					/>
 				</div>
 			</div>
@@ -114,7 +129,7 @@ import { Button, Card, CardContent, Tabs, TabsContent, TabsList, TabsTrigger } f
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useFlyerEditorStore } from '@/stores/flyerEditorStore';
 import RetreatFlyerCanvas from '@/components/flyer/RetreatFlyerCanvas.vue';
-import FlyerBlockList from '@/components/flyer/editor/FlyerBlockList.vue';
+import FlyerDesignPanel from '@/components/flyer/editor/FlyerDesignPanel.vue';
 import FlyerTextPanel from '@/components/flyer/editor/FlyerTextPanel.vue';
 import FlyerImagePicker from '@/components/flyer/editor/FlyerImagePicker.vue';
 import FlyerTemplatePanel from '@/components/flyer/editor/FlyerTemplatePanel.vue';

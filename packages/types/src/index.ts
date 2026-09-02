@@ -121,6 +121,33 @@ export const flyerImagesSchema = z.object({
 });
 export type FlyerImages = z.infer<typeof flyerImagesSchema>;
 
+const hexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Debe ser un color en formato #rrggbb');
+
+/**
+ * How a block is painted. Every field is optional and falls back to the theme, and
+ * then to the block's built-in default.
+ *
+ * An absent `backgroundColor` means no box at all — the text sits straight on the
+ * flyer's image, which is the poster look the flyer defaults to. The "light veil" and
+ * "dark veil" shortcuts in the editor are just presets writing white/black here, so
+ * there is no separate mode to keep in sync.
+ */
+export const flyerBlockStyleSchema = z.object({
+	backgroundColor: hexColorSchema.optional(),
+	backgroundOpacity: z.number().int().min(0).max(100).optional(),
+	textColor: hexColorSchema.optional(),
+	headingColor: hexColorSchema.optional(),
+	textShadow: z.boolean().optional(),
+});
+export type FlyerBlockStyle = z.infer<typeof flyerBlockStyleSchema>;
+
+/** The same knobs applied to every block, plus the wash over the background image. */
+export const flyerThemeSchema = flyerBlockStyleSchema.extend({
+	scrim: z.enum(['none', 'dark', 'light']).optional(),
+	scrimOpacity: z.number().int().min(0).max(100).optional(),
+});
+export type FlyerTheme = z.infer<typeof flyerThemeSchema>;
+
 export const FLYER_LAYOUT_VERSION = 2;
 
 /** Upper bound for the flyer's free-text overrides; they are headings and short lines. */
@@ -162,6 +189,10 @@ export const flyerOptionsSchema = z.object({
 	// so an unbounded array would let one coordinator freeze the flyer for everyone else.
 	blocks: z.array(flyerBlockLayoutSchema).max(32).optional(),
 	images: flyerImagesSchema.optional(),
+	/** Palette applied to every block, and the wash over the background image. */
+	theme: flyerThemeSchema.optional(),
+	/** Per-block overrides on top of the theme. Zod validates the keys against the enum. */
+	blockStyles: z.record(flyerBlockIdSchema, flyerBlockStyleSchema).optional(),
 
 	titleOverride: z.string().max(FLYER_TEXT_MAX).optional(),
 	subtitleOverride: z.string().max(FLYER_TEXT_MAX).optional(),
