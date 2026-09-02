@@ -3442,7 +3442,12 @@
         "light": "Aclarar"
       },
       "reset": "Restaurar",
-      "selectHint": "Toca un bloque del volante para darle un estilo propio."
-    }
+      "selectHint": "Toca un bloque del volante para darle un estilo propio.",
+      "matchBackground": "Ajustar colores a la imagen",
+      "matchFailed": "No se pudo leer la imagen de fondo.",
+      "lowContrast": "Este texto casi no se lee sobre su fondo",
+      "lowContrastHint": "Este texto casi no se lee sobre su fondo. Prueba otro color de texto, un velo, o atenuar la imagen."
+    },
+    "leaveWithoutSaving": "Tienes cambios sin guardar en el volante. ¿Salir de todas formas?"
   }
 }

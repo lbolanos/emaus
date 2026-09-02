@@ -28,9 +28,14 @@ vi.mock('@/stores/retreatStore', () => ({
 	}),
 }));
 
+// onBeforeRouteLeave is captured so the tests can fire the guard by hand
+let leaveGuard: (() => boolean) | null = null;
 vi.mock('vue-router', () => ({
 	useRoute: () => ({ params: { id: 'retreat-1' } }),
 	useRouter: () => ({ push: vi.fn() }),
+	onBeforeRouteLeave: (guard: () => boolean) => {
+		leaveGuard = guard;
+	},
 	RouterLink: { name: 'RouterLink', template: '<a><slot /></a>', props: ['to'] },
 }));
 
@@ -184,6 +189,34 @@ describe('RetreatFlyerEditView', () => {
 
 		expect(slotBlocks(wrapper, 'left')[0]).toBe('whatToBring');
 		expect(slotBlocks(wrapper, 'wide')[0]).toBe('intro');
+	});
+
+	describe('leaving with unsaved work', () => {
+		it('lets you go when there is nothing to lose', async () => {
+			await mountEditor();
+			expect(leaveGuard?.()).toBe(true);
+		});
+
+		it('asks first when there are unsaved changes', async () => {
+			const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+			const wrapper = await mountEditor();
+
+			await wrapper.find('li[data-block="payment"] button[aria-label]').trigger('click');
+			await nextTick();
+
+			expect(leaveGuard?.()).toBe(false);
+			expect(confirm).toHaveBeenCalled();
+		});
+
+		it('lets you go if you confirm', async () => {
+			vi.spyOn(window, 'confirm').mockReturnValue(true);
+			const wrapper = await mountEditor();
+
+			await wrapper.find('li[data-block="payment"] button[aria-label]').trigger('click');
+			await nextTick();
+
+			expect(leaveGuard?.()).toBe(true);
+		});
 	});
 
 	it('feeds text overrides into the preview as they are typed', async () => {

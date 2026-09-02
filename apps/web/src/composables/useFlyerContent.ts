@@ -231,8 +231,16 @@ export function useFlyerContent(
 		const notes = retreat.value?.thingsToBringNotes;
 		if (!notes) return { subtitle: '', items: [] as string[] };
 
+		// Most retreats write one item per line or with bullets. Some write a single
+		// line separated by commas, and that used to come out as one long item.
+		//
+		// Commas are only a separator when there is no other structure: a real list has
+		// items like "Chamarra, sudadera", and splitting those would invent items.
+		const hasLineStructure = /[\n•*]/.test(notes);
+		const separator = hasLineStructure ? /[\n•*]/ : /,/;
+
 		const items = notes
-			.split(/[\n•*]/)
+			.split(separator)
 			.map((item: string) => item.trim())
 			.map((item: string) => item.replace(/^[•*\-\d.]\s*/, ''))
 			.filter((item: string) => item.length > 0)
@@ -240,6 +248,8 @@ export function useFlyerContent(
 				item
 					.replace(/\(para tu uso\)/gi, '')
 					.replace(/etc\./gi, '')
+					// A trailing full stop on the last item reads as a typo in a bullet list
+					.replace(/\.$/, '')
 					.trim(),
 			)
 			.filter((item: string) => item.length > 0);

@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { resolveBlockStyle, resolveScrim, toRgba, FLYER_THEME_PRESETS } from '../flyerStyle';
+import {
+	resolveBlockStyle,
+	resolveScrim,
+	toRgba,
+	contrastRatio,
+	checkBlockContrast,
+	themeForBackground,
+	FLYER_THEME_PRESETS,
+} from '../flyerStyle';
 import { FLYER_BLOCK_STYLE_DEFAULTS } from '@/components/flyer/blockRegistry';
 
 describe('toRgba', () => {
@@ -148,6 +156,77 @@ describe('resolveScrim', () => {
 
 	it('has a sensible strength when only the mode is set', () => {
 		expect(resolveScrim({ scrim: 'dark' })).toBe('rgba(0, 0, 0, 0.35)');
+	});
+});
+
+describe('contrastRatio', () => {
+	it('is 21 for black on white and 1 for a colour on itself', () => {
+		expect(contrastRatio('#000000', '#ffffff')).toBeCloseTo(21, 0);
+		expect(contrastRatio('#1d4ed8', '#1d4ed8')).toBeCloseTo(1, 5);
+	});
+
+	it('does not care which colour is the text', () => {
+		expect(contrastRatio('#000000', '#ffffff')).toBeCloseTo(
+			contrastRatio('#ffffff', '#000000'),
+			5,
+		);
+	});
+});
+
+describe('checkBlockContrast', () => {
+	it('passes the stock design', () => {
+		expect(checkBlockContrast('startTime').isPoor).toBe(false);
+		expect(checkBlockContrast('endTime').isPoor).toBe(false);
+	});
+
+	// The trap this exists for: a dark veil under text that stayed dark
+	it('flags dark text on a dark veil', () => {
+		const check = checkBlockContrast(
+			'payment',
+			{ textColor: '#1f2937' },
+			{ payment: { backgroundColor: '#000000', backgroundOpacity: 90 } },
+		);
+		expect(check.isPoor).toBe(true);
+	});
+
+	it('flags white text on a white veil', () => {
+		const check = checkBlockContrast('intro', {
+			textColor: '#ffffff',
+			backgroundColor: '#ffffff',
+			backgroundOpacity: 95,
+		});
+		expect(check.isPoor).toBe(true);
+	});
+
+	it('is happy once the text colour is flipped', () => {
+		const check = checkBlockContrast(
+			'payment',
+			{ textColor: '#ffffff' },
+			{ payment: { backgroundColor: '#000000', backgroundOpacity: 90 } },
+		);
+		expect(check.isPoor).toBe(false);
+	});
+});
+
+describe('themeForBackground', () => {
+	it('goes light over a dark picture', () => {
+		const theme = themeForBackground(0.15);
+		expect(theme.textColor).toBe('#ffffff');
+		expect(theme.textShadow).toBe(true);
+		expect(theme.scrim).toBe('dark');
+	});
+
+	it('goes dark over a pale picture', () => {
+		const theme = themeForBackground(0.85);
+		expect(theme.textColor).toBe('#1f2937');
+		expect(theme.scrim).toBe('light');
+	});
+
+	it('produces a readable palette either way', () => {
+		for (const brightness of [0.1, 0.5, 0.9]) {
+			const theme = themeForBackground(brightness);
+			expect(checkBlockContrast('startTime', theme).isPoor).toBe(false);
+		}
 	});
 });
 

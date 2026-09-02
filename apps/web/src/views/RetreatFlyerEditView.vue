@@ -48,6 +48,7 @@
 						<TabsContent value="design" class="mt-4">
 							<FlyerDesignPanel
 								:blocks="store.blocks"
+								:background-image="store.images.bodyBackground || FLYER_PRESET_IMAGES.bodyBackground"
 								:theme="store.theme"
 								:block-styles="store.blockStyles"
 								:selected-block-id="store.selectedBlockId"
@@ -127,7 +128,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { onBeforeRouteLeave, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { ArrowLeft, Loader2, RotateCcw } from 'lucide-vue-next';
 import { Button, Card, CardContent, Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui';
@@ -139,6 +140,7 @@ import FlyerTextPanel from '@/components/flyer/editor/FlyerTextPanel.vue';
 import FlyerImagePicker from '@/components/flyer/editor/FlyerImagePicker.vue';
 import FlyerTemplatePanel from '@/components/flyer/editor/FlyerTemplatePanel.vue';
 import { FLYER_IMAGE_KEYS } from '@/components/flyer/flyerPresetAssets';
+import { FLYER_PRESET_IMAGES } from '@/components/flyer/blockRegistry';
 
 const route = useRoute();
 const { t } = useI18n();
@@ -183,6 +185,7 @@ async function load(id: string) {
 }
 
 onMounted(async () => {
+	window.addEventListener('beforeunload', warnOnUnload);
 	await load(retreatId.value);
 
 	if (previewColumnRef.value) {
@@ -194,9 +197,26 @@ onMounted(async () => {
 	}
 });
 
+/**
+ * Leaving with unsaved work used to lose it without a word — the most expensive thing
+ * this screen could do to someone who just spent ten minutes on a design.
+ */
+const warnOnUnload = (event: BeforeUnloadEvent) => {
+	if (!store.isDirty) return;
+	event.preventDefault();
+	// Chrome ignores the message and shows its own, but still needs returnValue set
+	event.returnValue = '';
+};
+
+onBeforeRouteLeave(() => {
+	if (!store.isDirty) return true;
+	return window.confirm(t('retreatFlyerEditor.leaveWithoutSaving'));
+});
+
 onUnmounted(() => {
 	resizeObserver?.disconnect();
 	resizeObserver = null;
+	window.removeEventListener('beforeunload', warnOnUnload);
 });
 
 watch(retreatId, async (newId, oldId) => {

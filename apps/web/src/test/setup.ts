@@ -508,6 +508,7 @@ vi.mock('lucide-vue-next', () => ({
 	Eye: { name: 'Eye', template: '<svg></svg>' },
 	EyeOff: { name: 'EyeOff', template: '<svg></svg>' },
 	GripVertical: { name: 'GripVertical', template: '<svg></svg>' },
+	Wand2: { name: 'Wand2', template: '<svg></svg>' },
 	Save: { name: 'Save', template: '<svg></svg>' },
 	Music: { name: 'Music', template: '<svg></svg>' },
 	QrCode: { name: 'QrCode', template: '<svg></svg>' },

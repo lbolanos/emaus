@@ -19,6 +19,21 @@
 					{{ t('retreatFlyerEditor.design.preset.original') }}
 				</Button>
 			</div>
+
+			<!-- Saves fixing eight blocks by hand after swapping the background image -->
+			<Button
+				type="button"
+				size="sm"
+				variant="outline"
+				class="w-full"
+				:disabled="matching"
+				@click="matchBackground"
+			>
+				<Loader2 v-if="matching" class="mr-1.5 h-4 w-4 animate-spin" />
+				<Wand2 v-else class="mr-1.5 h-4 w-4" />
+				{{ t('retreatFlyerEditor.design.matchBackground') }}
+			</Button>
+			<p v-if="matchError" class="text-[11px] text-destructive">{{ matchError }}</p>
 		</div>
 
 		<!-- Whole-flyer palette -->
@@ -100,6 +115,13 @@
 					>
 						{{ t('retreatFlyerEditor.hidden') }}
 					</span>
+					<AlertTriangle
+						v-else-if="poorContrast.has(block.id)"
+						class="h-3.5 w-3.5 flex-shrink-0 text-amber-500"
+						:aria-label="t('retreatFlyerEditor.design.lowContrast')"
+					>
+						<title>{{ t('retreatFlyerEditor.design.lowContrast') }}</title>
+					</AlertTriangle>
 					<button
 						type="button"
 						class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -124,6 +146,13 @@
 					{{ t('retreatFlyerEditor.design.reset') }}
 				</Button>
 			</div>
+			<p
+				v-if="poorContrast.has(selectedBlockId)"
+				class="flex items-start gap-1.5 text-[11px] text-amber-600"
+			>
+				<AlertTriangle class="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+				{{ t('retreatFlyerEditor.design.lowContrastHint') }}
+			</p>
 			<FlyerStyleFields
 				:values="blockStyles[selectedBlockId] ?? {}"
 				@update="(key, value) => emit('updateBlockStyle', selectedBlockId!, key, value)"
@@ -136,12 +165,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Eye, EyeOff } from 'lucide-vue-next';
+import { AlertTriangle, Eye, EyeOff, Loader2, Wand2 } from 'lucide-vue-next';
 import { Button, Label } from '@repo/ui';
 import type { FlyerBlockId, FlyerBlockLayout, FlyerBlockStyle, FlyerTheme } from '@repo/types';
-import { FLYER_THEME_PRESETS } from '@/utils/flyerStyle';
+import { FLYER_THEME_PRESETS, checkBlockContrast, themeForBackground } from '@/utils/flyerStyle';
+import { averageImageLuminance } from '@/utils/imageLuminance';
 import { FLYER_SLOTS } from '../blockRegistry';
 import FlyerStyleFields from './FlyerStyleFields.vue';
 
@@ -150,6 +180,8 @@ const props = defineProps<{
 	theme: FlyerTheme;
 	blockStyles: Partial<Record<FlyerBlockId, FlyerBlockStyle>>;
 	selectedBlockId: FlyerBlockId | null;
+	/** The artwork currently behind the blocks, to match a palette to it. */
+	backgroundImage?: string;
 }>();
 
 /** Every style field is a colour, a percentage or a flag. */
@@ -166,6 +198,35 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+
+const matching = ref(false);
+const matchError = ref('');
+
+/** Blocks whose text would be hard to read on what is behind them. */
+const poorContrast = computed(() => {
+	const flagged = new Set<FlyerBlockId>();
+	for (const block of props.blocks) {
+		if (block.visible === false) continue;
+		if (checkBlockContrast(block.id, props.theme, props.blockStyles).isPoor) {
+			flagged.add(block.id);
+		}
+	}
+	return flagged;
+});
+
+async function matchBackground() {
+	if (!props.backgroundImage) return;
+	matchError.value = '';
+	matching.value = true;
+	try {
+		const brightness = await averageImageLuminance(props.backgroundImage);
+		emit('applyPreset', themeForBackground(brightness));
+	} catch {
+		matchError.value = t('retreatFlyerEditor.design.matchFailed');
+	} finally {
+		matching.value = false;
+	}
+}
 
 /** Listed the way they read on the flyer, so the list matches what you see. */
 const orderedBlocks = computed(() =>

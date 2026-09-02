@@ -3123,7 +3123,12 @@
         "light": "Lighten"
       },
       "reset": "Reset",
-      "selectHint": "Tap a block on the flyer to give it its own style."
-    }
+      "selectHint": "Tap a block on the flyer to give it its own style.",
+      "matchBackground": "Match colours to the image",
+      "matchFailed": "The background image could not be read.",
+      "lowContrast": "This text is hard to read on its background",
+      "lowContrastHint": "This text is hard to read on its background. Try another text colour, a veil, or dimming the image."
+    },
+    "leaveWithoutSaving": "You have unsaved changes to the flyer. Leave anyway?"
   }
 }

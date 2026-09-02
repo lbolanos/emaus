@@ -289,6 +289,50 @@ describe('RetreatFlyerView', () => {
 	});
 
 	describe('Things to bring parsing', () => {
+		/** One <li> per item, which is what tells a real list from one long string. */
+		const items = (wrapper: ReturnType<typeof mountFlyer>) =>
+			wrapper.findAll('li').map((li) => li.text().trim());
+
+		// The bug that started all of this: Buen Despacho had its list on a single
+		// comma-separated line and the flyer showed it as one item, truncated.
+		it('splits a single comma-separated line into items', () => {
+			const wrapper = mountFlyer({
+				thingsToBringNotes: 'Termo, Chamarra/Sudadera, Ropa con la que estés cómodo, Toalla',
+			});
+
+			expect(items(wrapper)).toEqual([
+				'Termo',
+				'Chamarra/Sudadera',
+				'Ropa con la que estés cómodo',
+				'Toalla',
+			]);
+		});
+
+		// …but a comma inside an item is legitimate when the list already has structure
+		it('leaves commas alone when the list is already one per line', () => {
+			const wrapper = mountFlyer({
+				thingsToBringNotes: 'Termo\nChamarra, sudadera o suéter\nToalla',
+			});
+
+			expect(items(wrapper)).toEqual(['Termo', 'Chamarra, sudadera o suéter', 'Toalla']);
+		});
+
+		it('leaves commas alone when the list uses bullets', () => {
+			const wrapper = mountFlyer({
+				thingsToBringNotes: '• Termo• Chamarra, sudadera• Toalla',
+			});
+
+			expect(items(wrapper)).toEqual(['Termo', 'Chamarra, sudadera', 'Toalla']);
+		});
+
+		it('drops the full stop that ends the last item', () => {
+			const wrapper = mountFlyer({
+				thingsToBringNotes: 'Termo, Toalla, Artículos para asearte.',
+			});
+
+			expect(items(wrapper)).toEqual(['Termo', 'Toalla', 'Artículos para asearte']);
+		});
+
 		it('splits items by newline', () => {
 			const wrapper = mountFlyer({
 				thingsToBringNotes: 'Termo\nToalla\nSábanas',
