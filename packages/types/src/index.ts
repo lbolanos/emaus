@@ -138,8 +138,11 @@ export const flyerBlockStyleSchema = z.object({
 	textColor: hexColorSchema.optional(),
 	headingColor: hexColorSchema.optional(),
 	textShadow: z.boolean().optional(),
+	/** Which way the block's own contents line up: its icons, lists and text. */
+	textAlign: z.enum(['left', 'center', 'right']).optional(),
 });
 export type FlyerBlockStyle = z.infer<typeof flyerBlockStyleSchema>;
+export type FlyerTextAlign = NonNullable<FlyerBlockStyle['textAlign']>;
 
 /** The same knobs applied to every block, plus the wash over the background image. */
 export const flyerThemeSchema = flyerBlockStyleSchema.extend({

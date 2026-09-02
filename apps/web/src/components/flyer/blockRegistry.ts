@@ -56,15 +56,26 @@ export const FLYER_PRESET_IMAGES = {
  * per-block overrides in the editor are for.
  */
 export const FLYER_BLOCK_STYLE_DEFAULTS: Record<FlyerBlockId, FlyerBlockStyle> = {
-	intro: { textColor: '#111827', headingColor: '#1e40af', textShadow: false },
-	startTime: { textColor: '#111827', headingColor: '#1d4ed8', textShadow: false },
-	location: { textColor: '#000000', headingColor: '#15803d', textShadow: false },
+	intro: { textColor: '#111827', headingColor: '#1e40af', textShadow: false, textAlign: 'center' },
+	startTime: { textColor: '#111827', headingColor: '#1d4ed8', textShadow: false, textAlign: 'left' },
+	location: { textColor: '#000000', headingColor: '#15803d', textShadow: false, textAlign: 'left' },
 	// Sits over the dark lower half: white heading, amber date, as in the original
-	endTime: { textColor: '#ffffff', headingColor: '#ffffff', textShadow: true },
-	registrationQr: { textColor: '#4b5563', headingColor: '#1d4ed8', textShadow: false },
-	contact: { textColor: '#111827', headingColor: '#374151', textShadow: false },
-	payment: { textColor: '#374151', headingColor: '#1d4ed8', textShadow: false },
-	whatToBring: { textColor: '#f3f4f6', headingColor: '#ffffff', textShadow: true },
+	endTime: { textColor: '#ffffff', headingColor: '#ffffff', textShadow: true, textAlign: 'left' },
+	registrationQr: {
+		textColor: '#4b5563',
+		headingColor: '#1d4ed8',
+		textShadow: false,
+		textAlign: 'center',
+	},
+	// The original hung contact off the right edge; now that is a default, not a hard-coded class
+	contact: { textColor: '#111827', headingColor: '#374151', textShadow: false, textAlign: 'right' },
+	payment: { textColor: '#374151', headingColor: '#1d4ed8', textShadow: false, textAlign: 'center' },
+	whatToBring: {
+		textColor: '#f3f4f6',
+		headingColor: '#ffffff',
+		textShadow: true,
+		textAlign: 'left',
+	},
 };
 
 /**

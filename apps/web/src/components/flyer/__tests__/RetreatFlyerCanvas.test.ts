@@ -151,6 +151,39 @@ describe('RetreatFlyerCanvas', () => {
 			expect(contact).toContain('--fb-text: #ffffff');
 		});
 
+		// The reflow that centring and right-aligning need is a selector, not a value:
+		// stacking the icon row cannot be expressed as a CSS variable.
+		it('carries the alignment as both a variable and an attribute', () => {
+			const wrapper = mountCanvas({ blockStyles: { startTime: { textAlign: 'center' } } });
+			const block = wrapper.find('[data-flyer-block="startTime"]');
+
+			expect(block.attributes('style')).toContain('--fb-align: center');
+			expect(block.attributes('style')).toContain('--fb-justify: center');
+			expect(block.attributes('data-align')).toBe('center');
+		});
+
+		it('hangs contact off the right by default, and lets that be changed', () => {
+			expect(
+				mountCanvas().find('[data-flyer-block="contact"]').attributes('data-align'),
+			).toBe('right');
+
+			expect(
+				mountCanvas({ blockStyles: { contact: { textAlign: 'left' } } })
+					.find('[data-flyer-block="contact"]')
+					.attributes('data-align'),
+			).toBe('left');
+		});
+
+		// The rows are marked so the icons and bullets travel with the text
+		it('marks the rows the alignment has to move', () => {
+			const wrapper = mountCanvas();
+
+			expect(wrapper.find('[data-flyer-block="startTime"] .fb-lead').exists()).toBe(true);
+			expect(wrapper.find('[data-flyer-block="contact"] .fb-lead').exists()).toBe(true);
+			expect(wrapper.find('[data-flyer-block="contact"] .fb-box').exists()).toBe(true);
+			expect(wrapper.find('[data-flyer-block="payment"] .fb-box').exists()).toBe(true);
+		});
+
 		it('washes the background image when the theme asks for it', () => {
 			const plain = mountCanvas();
 			const dimmed = mountCanvas({ theme: { scrim: 'dark', scrimOpacity: 50 } });

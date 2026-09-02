@@ -569,6 +569,47 @@ describe('RetreatFlyerView', () => {
 		});
 	});
 
+	// The bug this guards: the published flyer took only flyer_options and left every
+	// other prop unset, so the canvas fell back to its defaults. The editor saved a
+	// design and this page — the one that prints, copies and exports — ignored it.
+	describe('Saved design', () => {
+		const SAVED = {
+			layoutVersion: 2,
+			blocks: [
+				{ id: 'intro', slot: 'wide', order: 0, visible: true },
+				{ id: 'startTime', slot: 'left', order: 0, visible: false },
+			],
+			theme: { textColor: '#ffffff' },
+			blockStyles: { intro: { textAlign: 'right' } },
+			images: { bodyBackground: 'https://cdn.example/art.webp' },
+		};
+
+		it('lays the blocks out the way they were saved', () => {
+			const wrapper = mountFlyer({ flyer_options: SAVED });
+
+			expect(wrapper.find('[data-flyer-slot="wide"] [data-flyer-block="intro"]').exists()).toBe(
+				true,
+			);
+			expect(wrapper.find('[data-flyer-block="startTime"]').exists()).toBe(false);
+		});
+
+		it('paints the saved theme, per-block style and background image', () => {
+			const wrapper = mountFlyer({ flyer_options: SAVED });
+			const intro = wrapper.find('[data-flyer-block="intro"]');
+
+			expect(intro.attributes('style')).toContain('--fb-text: #ffffff');
+			expect(intro.attributes('data-align')).toBe('right');
+			expect(wrapper.find('[data-main-content]').attributes('style')).toContain(
+				'https://cdn.example/art.webp',
+			);
+		});
+
+		it('still honours the v1 QR toggles, which have no blocks array', () => {
+			const wrapper = mountFlyer({ flyer_options: { showQrCodesRegistration: false } });
+			expect(wrapper.findAll('canvas').length).toBe(1);
+		});
+	});
+
 	describe('Menu and actions', () => {
 		it('shows menu when button is clicked', async () => {
 			const wrapper = mountFlyer();

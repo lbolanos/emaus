@@ -96,6 +96,30 @@
 			</div>
 		</div>
 
+		<!-- Not just the words: the icons, the bullets and the capped boxes move with them -->
+		<div class="space-y-1.5">
+			<Label class="text-xs">{{ t('retreatFlyerEditor.design.align') }}</Label>
+			<div class="flex items-center gap-1.5">
+				<button
+					v-for="option in ALIGN_OPTIONS"
+					:key="option.id"
+					type="button"
+					class="rounded border p-1.5 transition-colors"
+					:class="
+						values.textAlign === option.id
+							? 'border-primary bg-primary/10 text-foreground'
+							: 'border-muted text-muted-foreground hover:text-foreground'
+					"
+					:aria-label="t(`retreatFlyerEditor.design.alignMode.${option.id}`)"
+					:title="t(`retreatFlyerEditor.design.alignMode.${option.id}`)"
+					:data-align-option="option.id"
+					@click="emit('update', 'textAlign', option.id)"
+				>
+					<component :is="option.icon" class="h-4 w-4" />
+				</button>
+			</div>
+		</div>
+
 		<label class="flex items-center gap-2 text-xs">
 			<input
 				type="checkbox"
@@ -110,6 +134,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { AlignCenter, AlignLeft, AlignRight } from 'lucide-vue-next';
 import { Label } from '@repo/ui';
 import type { FlyerBlockStyle } from '@repo/types';
 
@@ -127,6 +152,12 @@ const BACKGROUND_OPTIONS = [
 	{ id: 'none', color: undefined },
 	{ id: 'light', color: '#ffffff' },
 	{ id: 'dark', color: '#000000' },
+] as const;
+
+const ALIGN_OPTIONS = [
+	{ id: 'left', icon: AlignLeft },
+	{ id: 'center', icon: AlignCenter },
+	{ id: 'right', icon: AlignRight },
 ] as const;
 
 const TEXT_SWATCHES = ['#ffffff', '#111827', '#1f2937', '#fde68a'];

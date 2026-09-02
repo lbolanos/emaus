@@ -117,6 +117,20 @@ describe('flyerOptionsSchema', () => {
 		it('rejects an invented scrim mode', () => {
 			expect(flyerOptionsSchema.safeParse({ theme: { scrim: 'rainbow' } }).success).toBe(false);
 		});
+
+		it('takes an alignment per block, and only the three that exist', () => {
+			const parsed = flyerOptionsSchema.parse({
+				theme: { textAlign: 'center' },
+				blockStyles: { contact: { textAlign: 'right' } },
+			});
+			expect(parsed.theme?.textAlign).toBe('center');
+			expect(parsed.blockStyles?.contact?.textAlign).toBe('right');
+
+			expect(flyerOptionsSchema.safeParse({ theme: { textAlign: 'justify' } }).success).toBe(false);
+			expect(
+				flyerOptionsSchema.safeParse({ blockStyles: { intro: { textAlign: 'middle' } } }).success,
+			).toBe(false);
+		});
 	});
 
 	describe('bounds', () => {

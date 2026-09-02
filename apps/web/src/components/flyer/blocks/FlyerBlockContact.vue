@@ -2,19 +2,19 @@
 	<!-- A heading with no numbers under it reads as a mistake, so render nothing -->
 	<div v-if="content.totalContactItems > 0" class="p-2.5">
 		<h4
-			class="text-[14px] font-black text-[color:var(--fb-heading)] uppercase mb-1.5 flex items-center justify-end gap-3 tracking-[0.1em] text-right"
+			class="fb-lead text-[14px] font-black text-[color:var(--fb-heading)] uppercase mb-1.5 flex items-center gap-3 tracking-[0.1em]"
 		>
-			{{ t('retreatFlyer.information') }}
 			<div
 				class="bg-gradient-to-br from-blue-400 to-blue-600 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
 			>
 				<Info class="w-5 h-5" />
 			</div>
+			{{ t('retreatFlyer.information') }}
 		</h4>
-		<!-- Capped and right-aligned: the phone cards read as a stretched box otherwise -->
+		<!-- Capped: the phone cards read as a stretched box across a whole column otherwise -->
 		<div
 			:class="[
-				'gap-1 max-w-[320px] ml-auto',
+				'fb-box gap-1 max-w-[320px]',
 				content.totalContactItems > 2 ? 'grid grid-cols-2' : 'space-y-1',
 			]"
 		>
@@ -23,8 +23,13 @@
 				:key="phone?.number || index"
 				class="p-1.5 rounded-lg shadow-sm border border-green-200/60"
 			>
-				<div class="flex items-center justify-end gap-1.5">
-					<div class="text-right min-w-0">
+				<div class="fb-row flex items-center gap-1.5">
+					<div
+						class="bg-gradient-to-br from-green-500 to-green-600 p-1.5 rounded-full text-white flex-shrink-0 shadow"
+					>
+						<Phone class="w-3.5 h-3.5" />
+					</div>
+					<div class="min-w-0">
 						<span
 							class="font-bold text-[color:var(--fb-text)] block text-[8px] uppercase tracking-wider truncate opacity-80"
 						>
@@ -39,11 +44,6 @@
 							{{ phone?.number }}
 						</span>
 					</div>
-					<div
-						class="bg-gradient-to-br from-green-500 to-green-600 p-1.5 rounded-full text-white flex-shrink-0 shadow"
-					>
-						<Phone class="w-3.5 h-3.5" />
-					</div>
 				</div>
 			</div>
 			<div
@@ -52,8 +52,13 @@
 				class="p-1.5 rounded-lg shadow-sm border border-blue-200/60"
 				:class="content.totalContactItems > 2 ? 'col-span-2' : ''"
 			>
-				<div class="flex items-center justify-end gap-1.5">
-					<div class="text-right min-w-0">
+				<div class="fb-row flex items-center gap-1.5">
+					<div
+						class="bg-gradient-to-br from-blue-500 to-blue-600 p-1.5 rounded-full text-white flex-shrink-0 shadow"
+					>
+						<Mail class="w-3.5 h-3.5" />
+					</div>
+					<div class="min-w-0">
 						<span class="font-bold text-[color:var(--fb-text)] block text-[8px] uppercase tracking-wider opacity-80">
 							Email
 						</span>
@@ -65,11 +70,6 @@
 						>
 							{{ email }}
 						</span>
-					</div>
-					<div
-						class="bg-gradient-to-br from-blue-500 to-blue-600 p-1.5 rounded-full text-white flex-shrink-0 shadow"
-					>
-						<Mail class="w-3.5 h-3.5" />
 					</div>
 				</div>
 			</div>

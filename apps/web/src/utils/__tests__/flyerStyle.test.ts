@@ -135,6 +135,38 @@ describe('resolveBlockStyle', () => {
 		}
 	});
 
+	// The alignment moves the icons and the capped boxes too, so it resolves into
+	// three things at once: the text-align, a justify-content and a pair of margins.
+	it('keeps the alignment each block had in the original flyer', () => {
+		expect(resolveBlockStyle('contact')['--fb-align']).toBe('right');
+		expect(resolveBlockStyle('intro')['--fb-align']).toBe('center');
+		expect(resolveBlockStyle('payment')['--fb-align']).toBe('center');
+		expect(resolveBlockStyle('startTime')['--fb-align']).toBe('left');
+	});
+
+	it('turns the alignment into the flex and margin values the blocks need', () => {
+		const centred = resolveBlockStyle('startTime', undefined, { startTime: { textAlign: 'center' } });
+		expect(centred['--fb-justify']).toBe('center');
+		expect([centred['--fb-box-ml'], centred['--fb-box-mr']]).toEqual(['auto', 'auto']);
+
+		const right = resolveBlockStyle('startTime', undefined, { startTime: { textAlign: 'right' } });
+		expect(right['--fb-justify']).toBe('flex-end');
+		expect([right['--fb-box-ml'], right['--fb-box-mr']]).toEqual(['auto', '0']);
+
+		const left = resolveBlockStyle('contact', undefined, { contact: { textAlign: 'left' } });
+		expect(left['--fb-justify']).toBe('flex-start');
+		expect([left['--fb-box-ml'], left['--fb-box-mr']]).toEqual(['0', 'auto']);
+	});
+
+	it('lets the theme align every block, and a block still overrule it', () => {
+		expect(resolveBlockStyle('startTime', { textAlign: 'center' })['--fb-align']).toBe('center');
+		expect(
+			resolveBlockStyle('startTime', { textAlign: 'center' }, { startTime: { textAlign: 'right' } })[
+				'--fb-align'
+			],
+		).toBe('right');
+	});
+
 	it('never leaks the theme-only fields into the block vars', () => {
 		const style = resolveBlockStyle('intro', { scrim: 'dark', scrimOpacity: 60 });
 		expect(Object.keys(style)).not.toContain('scrim');

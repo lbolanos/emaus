@@ -33,6 +33,13 @@ describe('FlyerStyleFields', () => {
 		expect(updates(wrapper)).toContainEqual(['backgroundOpacity', 85]);
 	});
 
+	it('sets the alignment, which moves the icons and boxes too, not just the words', async () => {
+		const wrapper = mountFields({ textAlign: 'left' });
+		await wrapper.find('[data-align-option="right"]').trigger('click');
+
+		expect(updates(wrapper)).toContainEqual(['textAlign', 'right']);
+	});
+
 	it('leaves a chosen opacity alone when only the colour changes', async () => {
 		const wrapper = mountFields({ backgroundColor: '#ffffff', backgroundOpacity: 40 });
 		await buttonWith(wrapper, 'retreatFlyerEditor.design.background.dark')!.trigger('click');

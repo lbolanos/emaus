@@ -113,6 +113,31 @@ El índice de inserción es **el índice del bloque sobre el que estás**, sin g
 `getBoundingClientRect`, que devuelve ceros bajo happy-dom y además tendría que compensar el
 `transform: scale()` de la vista previa.
 
+## Alineación dentro del bloque
+
+`textAlign` (`left` | `center` | `right`) sigue la misma cascada que los colores: valor de
+fábrica del bloque ← tema ← override. Los valores de fábrica son los del volante original —
+contacto a la derecha, introducción, costo y QR centrados, el resto a la izquierda—, así que lo
+que antes eran clases clavadas (`text-right`, `ml-auto`, `justify-end`) ahora son datos que se
+pueden cambiar.
+
+`text-align` solo mueve las palabras. Los chips de icono, las viñetas y las cajas acotadas se
+colocan con flex y con márgenes automáticos, y se quedarían a la izquierda mientras el texto se
+va. Por eso cada bloque marca sus filas y `resolveBlockStyle` devuelve cuatro variables:
+
+| marca | qué es | cómo se mueve |
+|---|---|---|
+| `.fb-lead` | la fila principal: icono y su texto | centrada se apila (icono arriba); a la derecha se invierte |
+| `.fb-row` | una fila secundaria: un ítem de lista, la placa del QR | sigue la alineación sin apilarse |
+| `.fb-box` | una caja con ancho máximo | se coloca por `--fb-box-ml` / `--fb-box-mr` |
+
+Dos trampas que costaron una vuelta:
+
+- **Invertir la fila invierte el eje**: con `flex-direction: row-reverse`, `justify-content:
+  flex-end` es el borde **izquierdo**. Las filas alineadas a la derecha justifican a `flex-start`.
+- Al apilar, solo el hijo que se llevaba el ancho sobrante (`.flex-1`) pasa a `width: 100%`. Si
+  se aplica a todos, el chip del icono se estira de lado a lado.
+
 ## El panel de Diseño
 
 Dos secciones plegables (`FlyerPanelSection`), independientes entre sí: **Todo el volante** —la
@@ -215,6 +240,17 @@ Tabla `flyer_templates`: una instantánea de `flyer_options` reutilizable en otr
   imagen y exportar PDF lo buscan—, así que el canvas lo pone solo con `printable` (default
   `true`). Sus estilos cuelgan de la clase `.print-optimized` justamente para que la vista previa
   conserve las fuentes; las reglas de `@media print` siguen ancladas al id.
+
+## La vista publicada tiene que recibir el diseño
+
+`RetreatFlyerView` —la pantalla que se imprime, se copia y se exporta— resuelve
+`flyer_options` con `resolveFlyerLayout` y le pasa al canvas `layout`, `imageOverrides`, `theme`
+y `blockStyles`, igual que el editor.
+
+No es un detalle: el canvas cae a sus valores de fábrica en cada prop que no recibe, así que una
+prop olvidada no se ve como un fallo sino como "este retiro no personalizó nada". Estuvo así
+desde M1 hasta que lo cazó una prueba de alineación en el navegador: el editor guardaba y esta
+pantalla enseñaba el volante de siempre. Lo cubre `RetreatFlyerView.test.ts` → "Saved design".
 
 ## Impresión y exportación
 

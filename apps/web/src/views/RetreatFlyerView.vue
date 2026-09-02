@@ -72,6 +72,10 @@
 				ref="canvasRef"
 				:retreat="retreatData"
 				:flyer-options="flyerOptions"
+				:layout="savedLayout.blocks"
+				:image-overrides="savedLayout.images"
+				:theme="flyerOptions?.theme"
+				:block-styles="flyerOptions?.blockStyles"
 				:registration-link="walkerRegistrationLink"
 				:scale="effectiveScale"
 			/>
@@ -86,6 +90,7 @@ import { useI18n } from 'vue-i18n';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { EllipsisVertical, Printer, Copy, Check, FileDown, Loader2, Pencil } from 'lucide-vue-next';
 import RetreatFlyerCanvas from '@/components/flyer/RetreatFlyerCanvas.vue';
+import { resolveFlyerLayout } from '@/utils/flyerLayout';
 
 const route = useRoute();
 const retreatStore = useRetreatStore();
@@ -98,6 +103,14 @@ const retreatId = computed(() => route.params.id as string);
 // Cast to any: `house` exists at runtime/API but not in the stricter Zod schema
 const retreatData = computed(() => (selectedRetreat.value as any) || null);
 const flyerOptions = computed(() => retreatData.value?.flyer_options);
+
+/**
+ * The design saved by the editor. Without this the flyer that gets printed, copied and
+ * exported would quietly be the stock one: the canvas falls back to its defaults for
+ * every prop it is not given, so a missing prop looks like "nothing was customised"
+ * rather than like a bug. Handles v1 options too — see resolveFlyerLayout.
+ */
+const savedLayout = computed(() => resolveFlyerLayout(flyerOptions.value ?? null));
 
 // Menu state
 const showMenu = ref(false);

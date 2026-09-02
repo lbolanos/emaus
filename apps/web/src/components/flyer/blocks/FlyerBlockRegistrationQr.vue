@@ -1,5 +1,5 @@
 <template>
-	<div class="p-4 text-center">
+	<div class="p-4">
 		<h3
 			v-if="content.registerText"
 			class="text-[22px] font-black text-[color:var(--fb-heading)] uppercase mb-2 tracking-[0.15em]"
@@ -13,7 +13,7 @@
 			{{ content.scanToRegisterText }}
 		</p>
 
-		<div class="flex justify-center mb-4">
+		<div class="fb-row flex mb-4">
 			<div class="p-3 bg-white rounded-xl shadow-xl border-2 border-blue-300">
 				<QrcodeVue
 					:value="content.registrationUrl"

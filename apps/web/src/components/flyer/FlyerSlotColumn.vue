@@ -10,6 +10,7 @@
 			v-for="(block, index) in blocks"
 			:key="block.id"
 			:data-flyer-block="block.id"
+			:data-align="stylesById[block.id]?.align"
 			:style="styleFor(block.id)"
 			class="relative bg-[color:var(--fb-bg)] rounded-[length:var(--fb-radius)] text-[color:var(--fb-text)]"
 			:class="[
@@ -78,7 +79,7 @@ const stylesById = computed(() => {
 });
 
 function styleFor(blockId: FlyerBlockId) {
-	const { hasBox: _hasBox, ...cssVars } = stylesById.value[blockId] ?? {};
+	const { hasBox: _hasBox, align: _align, ...cssVars } = stylesById.value[blockId] ?? {};
 	return cssVars as Record<string, string>;
 }
 

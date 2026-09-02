@@ -1,4 +1,4 @@
-import type { FlyerBlockId, FlyerBlockStyle, FlyerTheme } from '@repo/types';
+import type { FlyerBlockId, FlyerBlockStyle, FlyerTextAlign, FlyerTheme } from '@repo/types';
 import { FLYER_BLOCK_STYLE_DEFAULTS } from '@/components/flyer/blockRegistry';
 
 /** CSS custom properties the blocks read. */
@@ -9,12 +9,33 @@ export interface FlyerBlockCssVars {
 	'--fb-shadow': string;
 	/** Blocks add their padding and radius only when they actually have a box. */
 	'--fb-radius': string;
+	'--fb-align': FlyerTextAlign;
+	/** The same alignment for flex rows: icons and their text, list items, the QR plate. */
+	'--fb-justify': string;
+	/** And for capped boxes, which line up by margin rather than by justify-content. */
+	'--fb-box-ml': string;
+	'--fb-box-mr': string;
 }
 
 export interface ResolvedBlockStyle extends FlyerBlockCssVars {
 	/** True when the block paints a box, which is what earns it a radius and shadow. */
 	hasBox: boolean;
+	/** Mirrored as an attribute: some of the reflow needs a selector, not a value. */
+	align: FlyerTextAlign;
 }
+
+const JUSTIFY: Record<FlyerTextAlign, string> = {
+	left: 'flex-start',
+	center: 'center',
+	right: 'flex-end',
+};
+
+/** A capped box lines up by which side its auto margin is on. */
+const BOX_MARGINS: Record<FlyerTextAlign, [string, string]> = {
+	left: ['0', 'auto'],
+	center: ['auto', 'auto'],
+	right: ['auto', '0'],
+};
 
 const TEXT_SHADOW = '0 2px 6px rgba(0, 0, 0, 0.65), 0 1px 2px rgba(0, 0, 0, 0.5)';
 
@@ -66,14 +87,21 @@ export function resolveBlockStyle(
 	// absent field cannot clear an inherited value, only replace it.
 	const opacity = merged.backgroundOpacity ?? 100;
 	const hasBox = !!merged.backgroundColor && opacity > 0;
+	const align = merged.textAlign ?? 'left';
+	const [boxMarginLeft, boxMarginRight] = BOX_MARGINS[align];
 
 	return {
 		hasBox,
+		align,
 		'--fb-bg': hasBox ? toRgba(merged.backgroundColor!, opacity) : 'transparent',
 		'--fb-text': merged.textColor ?? '#111827',
 		'--fb-heading': merged.headingColor ?? merged.textColor ?? '#111827',
 		'--fb-shadow': merged.textShadow ? TEXT_SHADOW : 'none',
 		'--fb-radius': hasBox ? '1rem' : '0',
+		'--fb-align': align,
+		'--fb-justify': JUSTIFY[align],
+		'--fb-box-ml': boxMarginLeft,
+		'--fb-box-mr': boxMarginRight,
 	};
 }
 

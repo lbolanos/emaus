@@ -1,6 +1,6 @@
 <template>
 	<div class="p-4">
-		<div class="flex gap-4 items-start group">
+		<div class="fb-lead flex gap-4 items-start group">
 			<div
 				class="bg-gradient-to-br from-blue-500 to-blue-700 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0"
 			>

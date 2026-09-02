@@ -99,6 +99,8 @@ más los dos remates de la vista de plantillas.
 - [x] Vista previa de la plantilla con el canvas de verdad y los datos de este retiro
 - [x] Prop `printable` en el canvas: solo el volante de la página es `#printable-area`
 - [x] Panel de Diseño en dos secciones plegables: "Todo el volante" y "Bloques"
+- [x] Alineación por bloque (izquierda / centro / derecha), con su cascada y su control
+- [x] La vista publicada del volante recibe el diseño guardado (bug de M1)
 
 **Done**: el editor perdona los errores (deshacer, aviso al salir), avisa de los que no se ven
 hasta imprimir (contraste), y aplicar una plantilla ya no es a ciegas.
@@ -126,6 +128,25 @@ hasta imprimir (contraste), y aplicar una plantilla ya no es a ciegas.
   vista previa se quedó sin las fuentes del volante, así que los estilos del canvas pasaron a
   colgar de `.print-optimized` (su clase raíz) en vez del id; las reglas de `@media print` sí
   siguen ancladas al id, que es justo lo que se quiere.
+- **La vista publicada del volante nunca mostró el diseño guardado.** Desde M1,
+  `RetreatFlyerView` le pasaba al canvas solo `flyer_options`: ni `layout`, ni `imageOverrides`,
+  ni `theme`, ni `blockStyles`. Como el canvas cae a sus valores de fábrica en cada prop que no
+  recibe, el resultado no parecía un fallo —parecía un retiro sin personalizar—, y la pantalla que
+  se imprime, se copia y se exporta enseñaba el volante de siempre. Salió al comprobar la
+  alineación en el navegador, no en los tests: los de la vista pública montaban el volante de
+  fábrica y por eso pasaban. Ahora hay tres tests que fallan sin el arreglo (comprobado
+  revirtiéndolo). Es el fallo más caro de toda la feature: cuatro milestones de editor que no
+  llegaban a la hoja impresa.
+- **La alineación no se resuelve con `text-align` a secas.** Los chips de icono, las viñetas y
+  las cajas acotadas se colocan con flex y márgenes automáticos: se quedaban a la izquierda
+  mientras el texto se movía. Cada bloque marca ahora sus filas (`.fb-lead`, `.fb-row`, `.fb-box`)
+  y el estilo resuelve cuatro variables en vez de una. Dos trampas: invertir la fila invierte
+  también el eje —`flex-end` pasa a ser el borde izquierdo—, y al apilar solo el hijo que se
+  llevaba el ancho sobrante puede ir a `width: 100%`, o el chip del icono se estira entero.
+- **Los valores de fábrica de alineación son los del volante original**, que hasta ahora vivían
+  como clases clavadas: contacto colgaba de la derecha con `ml-auto`, `justify-end` y `text-right`.
+  Convertirlas en datos es lo que permite moverlas; el volante se ve exactamente igual que antes
+  mientras nadie las toque.
 - **Las secciones plegables se hicieron a mano.** `@repo/ui` no exporta Accordion ni Collapsible
   —ya lo anotaba el plan de M5—, así que `FlyerPanelSection` es un `<button aria-expanded>` con su
   `<div>`. El cuerpo va con `v-show` y no `v-if`: plegar no puede tirar lo que se esté escribiendo.

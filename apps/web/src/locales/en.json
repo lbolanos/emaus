@@ -3124,6 +3124,12 @@
         "dark": "Darken",
         "light": "Lighten"
       },
+      "align": "Alignment",
+      "alignMode": {
+        "left": "Left",
+        "center": "Centre",
+        "right": "Right"
+      },
       "reset": "Reset",
       "selectHint": "Tap a block on the flyer to give it its own style.",
       "matchBackground": "Match colours to the image",

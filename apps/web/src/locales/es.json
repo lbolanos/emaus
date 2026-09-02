@@ -3443,6 +3443,12 @@
         "dark": "Oscurecer",
         "light": "Aclarar"
       },
+      "align": "Alineación",
+      "alignMode": {
+        "left": "Izquierda",
+        "center": "Centro",
+        "right": "Derecha"
+      },
       "reset": "Restaurar",
       "selectHint": "Toca un bloque del volante para darle un estilo propio.",
       "matchBackground": "Ajustar colores a la imagen",

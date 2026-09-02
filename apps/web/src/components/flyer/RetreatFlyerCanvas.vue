@@ -196,6 +196,54 @@ const blocksInSlot = computed(() => {
 	color-adjust: exact !important;
 }
 
+/*
+ * Alignment inside a block.
+ *
+ * `text-align` alone gets the text but not the furniture: the icon chips, the list
+ * bullets and the capped boxes are laid out with flex and auto margins, and they would
+ * stay put on the left while the words moved. So each block marks its rows:
+ *
+ *   .fb-lead  the block's main row — its icon and the text beside it. Centred, it
+ *             stacks so the icon sits above; right-aligned, it flips so the icon
+ *             ends up on the outer edge, which is where the original put contact's.
+ *   .fb-row   a secondary row (a list item, the QR plate). Follows the alignment
+ *             without stacking; flips its icon on the right.
+ *   .fb-box   a width-capped box, which lines up by auto margin instead.
+ */
+.print-optimized [data-flyer-block] {
+	text-align: var(--fb-align, left);
+}
+
+.print-optimized .fb-lead,
+.print-optimized .fb-row {
+	justify-content: var(--fb-justify, flex-start);
+}
+
+.print-optimized [data-align='center'] .fb-lead {
+	flex-direction: column;
+	align-items: center;
+}
+
+/* Stacked, the child that used to take the leftover width would grow in height
+   instead. Only that one: the icon chip has to keep its own size. */
+.print-optimized [data-align='center'] .fb-lead > .flex-1 {
+	flex: none;
+	width: 100%;
+}
+
+/* Flipping the row flips the main axis with it, so flex-end becomes the LEFT edge.
+   Right-aligned rows therefore justify to flex-start. */
+.print-optimized [data-align='right'] .fb-lead,
+.print-optimized [data-align='right'] .fb-row {
+	flex-direction: row-reverse;
+	justify-content: flex-start;
+}
+
+.print-optimized .fb-box {
+	margin-left: var(--fb-box-ml, 0);
+	margin-right: var(--fb-box-mr, auto);
+}
+
 .print-optimized .font-display {
 	font-family: 'Dancing Script', cursive;
 }
