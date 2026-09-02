@@ -93,7 +93,7 @@
 
 			<ul class="space-y-1">
 				<li
-					v-for="block in orderedBlocks"
+					v-for="(block, index) in orderedBlocks"
 					:key="block.id"
 					class="flex items-center gap-2 rounded-md border px-2 py-1.5"
 					:class="[
@@ -108,6 +108,29 @@
 						@click="emit('selectBlock', block.id)"
 					>
 						{{ t(`retreatFlyerEditor.blocks.${block.id}`) }}
+					</button>
+					<!-- Dragging on the flyer is mouse-only; these keep it reachable -->
+					<button
+						type="button"
+						class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+						:aria-label="t('retreatFlyerEditor.design.moveUp')"
+						:title="t('retreatFlyerEditor.design.moveUp')"
+						:disabled="index === 0"
+						:data-move-up="block.id"
+						@click="moveByStep(block, -1)"
+					>
+						<ChevronUp class="h-3.5 w-3.5" />
+					</button>
+					<button
+						type="button"
+						class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+						:aria-label="t('retreatFlyerEditor.design.moveDown')"
+						:title="t('retreatFlyerEditor.design.moveDown')"
+						:disabled="index === orderedBlocks.length - 1"
+						:data-move-down="block.id"
+						@click="moveByStep(block, 1)"
+					>
+						<ChevronDown class="h-3.5 w-3.5" />
 					</button>
 					<span
 						v-if="block.visible === false"
@@ -128,6 +151,7 @@
 						:aria-label="
 							block.visible === false ? t('retreatFlyerEditor.show') : t('retreatFlyerEditor.hide')
 						"
+						:data-toggle-visibility="block.id"
 						@click="emit('toggleVisibility', block.id)"
 					>
 						<component :is="block.visible === false ? EyeOff : Eye" class="h-4 w-4" />
@@ -167,9 +191,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { AlertTriangle, Eye, EyeOff, Loader2, Wand2 } from 'lucide-vue-next';
+import { AlertTriangle, ChevronDown, ChevronUp, Eye, EyeOff, Loader2, Wand2 } from 'lucide-vue-next';
 import { Button, Label } from '@repo/ui';
-import type { FlyerBlockId, FlyerBlockLayout, FlyerBlockStyle, FlyerTheme } from '@repo/types';
+import type {
+	FlyerBlockId,
+	FlyerBlockLayout,
+	FlyerBlockStyle,
+	FlyerSlot,
+	FlyerTheme,
+} from '@repo/types';
 import { FLYER_THEME_PRESETS, checkBlockContrast, themeForBackground } from '@/utils/flyerStyle';
 import { averageImageLuminance } from '@/utils/imageLuminance';
 import { FLYER_SLOTS } from '../blockRegistry';
@@ -188,6 +218,7 @@ const props = defineProps<{
 type StyleValue = string | number | boolean | undefined;
 
 const emit = defineEmits<{
+	moveBlock: [blockId: FlyerBlockId, slot: FlyerSlot, index: number];
 	applyPreset: [theme: FlyerTheme];
 	clearTheme: [];
 	updateTheme: [key: keyof FlyerTheme, value: StyleValue];
@@ -213,6 +244,26 @@ const poorContrast = computed(() => {
 	}
 	return flagged;
 });
+
+/**
+ * Moves a block one place in the flat, flyer-order list, crossing into the next slot
+ * when it reaches an edge. The list reads top to bottom like the flyer, so "up" and
+ * "down" mean what they look like.
+ */
+function moveByStep(block: FlyerBlockLayout, direction: -1 | 1) {
+	const list = orderedBlocks.value;
+	const from = list.findIndex((b) => b.id === block.id);
+	const target = list[from + direction];
+	if (!target) return;
+
+	if (target.slot === block.slot) {
+		emit('moveBlock', block.id, block.slot, target.order);
+		return;
+	}
+	// Crossing slots: land at the near end of the neighbouring one
+	const slotBlocks = list.filter((b) => b.slot === target.slot);
+	emit('moveBlock', block.id, target.slot, direction === 1 ? 0 : slotBlocks.length);
+}
 
 async function matchBackground() {
 	if (!props.backgroundImage) return;

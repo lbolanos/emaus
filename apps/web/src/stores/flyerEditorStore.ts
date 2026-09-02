@@ -52,6 +52,12 @@ export const useFlyerEditorStore = defineStore('flyerEditor', () => {
 	const savedSnapshot = ref('');
 	const saving = ref(false);
 
+	/** Serialised states to step back through. Capped: this is undo, not history. */
+	const undoStack = ref<string[]>([]);
+	const UNDO_LIMIT = 30;
+	/** Set while undoing, so restoring a state doesn't get pushed as a new step. */
+	let restoring = false;
+
 	/** Serialised form of what save() would send, used to detect changes. */
 	const snapshot = computed(() =>
 		JSON.stringify({
@@ -89,6 +95,33 @@ export const useFlyerEditorStore = defineStore('flyerEditor', () => {
 		hiddenTexts: hiddenTexts.value,
 	}));
 
+	/** Records the state before a change, so it can be stepped back to. */
+	function pushUndo() {
+		if (restoring) return;
+		undoStack.value = [...undoStack.value, snapshot.value].slice(-UNDO_LIMIT);
+	}
+
+	const canUndo = computed(() => undoStack.value.length > 0);
+
+	function applySnapshot(serialised: string) {
+		const state = JSON.parse(serialised);
+		restoring = true;
+		blocks.value = state.blocks;
+		images.value = state.images;
+		theme.value = state.theme;
+		blockStyles.value = state.blockStyles;
+		textOverrides.value = state.texts;
+		hiddenTexts.value = state.hidden;
+		restoring = false;
+	}
+
+	function undo() {
+		const previous = undoStack.value[undoStack.value.length - 1];
+		if (previous === undefined) return;
+		undoStack.value = undoStack.value.slice(0, -1);
+		applySnapshot(previous);
+	}
+
 	function loadFromRetreat(retreat: any) {
 		retreatId.value = retreat?.id ?? null;
 		const options = (retreat?.flyer_options ?? {}) as Record<string, any>;
@@ -124,27 +157,34 @@ export const useFlyerEditorStore = defineStore('flyerEditor', () => {
 		untouchedOptions.value = rest;
 
 		savedSnapshot.value = snapshot.value;
+		// Nothing to step back to once we (re)load the retreat
+		undoStack.value = [];
 	}
 
 	function moveBlock(blockId: FlyerBlockId, toSlot: FlyerSlot, toIndex: number) {
+		pushUndo();
 		blocks.value = moveBlockInLayout(blocks.value, blockId, toSlot, toIndex);
 	}
 
 	function toggleVisibility(blockId: FlyerBlockId) {
+		pushUndo();
 		blocks.value = blocks.value.map((block) =>
 			block.id === blockId ? { ...block, visible: !block.visible } : block,
 		);
 	}
 
 	function setImage(key: keyof FlyerImages, url: string | undefined) {
+		pushUndo();
 		images.value = { ...images.value, [key]: url || undefined };
 	}
 
 	function setTextOverride(key: FlyerTextOverrideKey, value: string) {
+		pushUndo();
 		textOverrides.value = { ...textOverrides.value, [key]: value };
 	}
 
 	function toggleTextVisibility(key: FlyerTextKey) {
+		pushUndo();
 		hiddenTexts.value = hiddenTexts.value.includes(key)
 			? hiddenTexts.value.filter((k) => k !== key)
 			: [...hiddenTexts.value, key];
@@ -156,6 +196,7 @@ export const useFlyerEditorStore = defineStore('flyerEditor', () => {
 
 	/** An undefined value clears the field so the layer below shows through again. */
 	function setThemeField<K extends keyof FlyerTheme>(key: K, value: FlyerTheme[K] | undefined) {
+		pushUndo();
 		const next = { ...theme.value };
 		if (value === undefined) delete next[key];
 		else next[key] = value;
@@ -163,11 +204,13 @@ export const useFlyerEditorStore = defineStore('flyerEditor', () => {
 	}
 
 	function applyThemePreset(preset: FlyerTheme) {
+		pushUndo();
 		theme.value = { ...preset };
 	}
 
 	/** Back to the built-in per-block defaults. */
 	function clearTheme() {
+		pushUndo();
 		theme.value = {};
 	}
 
@@ -176,6 +219,7 @@ export const useFlyerEditorStore = defineStore('flyerEditor', () => {
 		key: K,
 		value: FlyerBlockStyle[K] | undefined,
 	) {
+		pushUndo();
 		const current = { ...(blockStyles.value[blockId] ?? {}) };
 		if (value === undefined) delete current[key];
 		else current[key] = value;
@@ -188,6 +232,7 @@ export const useFlyerEditorStore = defineStore('flyerEditor', () => {
 
 	/** Drops the block's override so it follows the theme again. */
 	function clearBlockStyle(blockId: FlyerBlockId) {
+		pushUndo();
 		const next = { ...blockStyles.value };
 		delete next[blockId];
 		blockStyles.value = next;
@@ -195,6 +240,7 @@ export const useFlyerEditorStore = defineStore('flyerEditor', () => {
 
 	/** Replaces the whole design with a template's snapshot. */
 	function applyTemplate(layout: Record<string, any>) {
+		pushUndo();
 		const resolved = resolveFlyerLayout(layout);
 		blocks.value = resolved.blocks;
 		images.value = resolved.images;
@@ -211,6 +257,7 @@ export const useFlyerEditorStore = defineStore('flyerEditor', () => {
 	}
 
 	function resetToDefaultLayout() {
+		pushUndo();
 		const resolved = resolveFlyerLayout(null);
 		blocks.value = resolved.blocks;
 	}
@@ -224,6 +271,7 @@ export const useFlyerEditorStore = defineStore('flyerEditor', () => {
 				flyer_options: draftOptions.value,
 			} as any);
 			savedSnapshot.value = snapshot.value;
+			undoStack.value = [];
 		} finally {
 			saving.value = false;
 		}
@@ -238,6 +286,7 @@ export const useFlyerEditorStore = defineStore('flyerEditor', () => {
 		selectedBlockId,
 		textOverrides,
 		hiddenTexts,
+		canUndo,
 		saving,
 		isDirty,
 		blocksBySlot,
@@ -254,6 +303,7 @@ export const useFlyerEditorStore = defineStore('flyerEditor', () => {
 		clearTheme,
 		setBlockStyleField,
 		clearBlockStyle,
+		undo,
 		applyTemplate,
 		resetToDefaultLayout,
 		save,

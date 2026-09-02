@@ -98,6 +98,11 @@ Todos los textos libres se pintan con `whitespace-pre-line`, así que **los salt
 escribe el coordinador se respetan**. Sin eso, un texto de dos líneas salía en una sola y parecía
 que la edición no se había guardado.
 
+**"Qué llevar" acepta las dos formas de escribir una lista**: una línea por ítem (con o sin
+viñetas) o todo en una línea separado por comas. Las comas solo separan cuando no hay saltos ni
+viñetas — con estructura, un ítem como "Chamarra, sudadera" es legítimo y partirlo inventaría
+entradas.
+
 ## Mover bloques
 
 Se arrastran **sobre el volante**, no en el panel. `RetreatFlyerCanvas` acepta `editable` (apagado
@@ -107,6 +112,27 @@ en la vista publicada, para que el volante no gane `draggable`) y emite `moveBlo
 El índice de inserción es **el índice del bloque sobre el que estás**, sin geometría: nada de
 `getBoundingClientRect`, que devuelve ceros bajo happy-dom y además tendría que compensar el
 `transform: scale()` de la vista previa.
+
+## Red de seguridad del editor
+
+Cuatro cosas que evitan errores caros, todas nacidas de usarlo:
+
+- **Deshacer** (`⌘Z` o el botón): cada acción apila el estado anterior, con tope de 30 pasos.
+  Cargar o guardar vacía la pila. "Descartar cambios" sigue existiendo para tirarlo todo; deshacer
+  es para el bloque que soltaste donde no era.
+- **Salir con cambios sin guardar** pregunta, tanto al navegar dentro de la app
+  (`onBeforeRouteLeave`) como al cerrar la pestaña (`beforeunload`).
+- **Aviso de contraste**: `checkBlockContrast` calcula el ratio WCAG del texto contra lo que tiene
+  detrás y marca el bloque en la lista y en su panel. Sin caja no se puede muestrear la foto bajo
+  el bloque, así que se compara contra un gris medio: basta para cazar blanco sobre blanco y
+  oscuro sobre oscuro, que es lo que la gente se hace.
+- **"Ajustar colores a la imagen"**: `averageImageLuminance` mide el brillo medio del fondo en un
+  canvas de 32×32 y `themeForBackground` devuelve la paleta que le va. Cambiar la imagen ya no
+  obliga a repasar ocho bloques.
+
+Los bloques se reordenan arrastrando sobre el volante, que es solo con ratón; las flechas de la
+lista del panel hacen lo mismo y llegan por teclado. Al llegar al extremo de una columna, el
+bloque cruza a la siguiente.
 
 ## Datos
 

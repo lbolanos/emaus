@@ -17,6 +17,16 @@
 					{{ t('retreatFlyerEditor.unsavedChanges') }}
 				</span>
 				<Button
+					variant="ghost"
+					size="sm"
+					:disabled="!store.canUndo || store.saving"
+					:title="t('retreatFlyerEditor.undoHint')"
+					@click="store.undo()"
+				>
+					<Undo2 class="mr-1.5 h-4 w-4" />
+					{{ t('retreatFlyerEditor.undo') }}
+				</Button>
+				<Button
 					variant="outline"
 					size="sm"
 					:disabled="!store.isDirty || store.saving"
@@ -52,6 +62,7 @@
 								:theme="store.theme"
 								:block-styles="store.blockStyles"
 								:selected-block-id="store.selectedBlockId"
+								@move-block="store.moveBlock"
 								@apply-preset="store.applyThemePreset"
 								@clear-theme="store.clearTheme"
 								@update-theme="store.setThemeField"
@@ -130,7 +141,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { ArrowLeft, Loader2, RotateCcw } from 'lucide-vue-next';
+import { ArrowLeft, Loader2, RotateCcw, Undo2 } from 'lucide-vue-next';
 import { Button, Card, CardContent, Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useFlyerEditorStore } from '@/stores/flyerEditorStore';
@@ -184,8 +195,20 @@ async function load(id: string) {
 	updateScale();
 }
 
+/** Cmd/Ctrl+Z, which is what everyone tries first. */
+const onKeydown = (event: KeyboardEvent) => {
+	if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z' && !event.shiftKey) {
+		const target = event.target as HTMLElement | null;
+		// Let the browser undo typing inside a field
+		if (target && ['INPUT', 'TEXTAREA'].includes(target.tagName)) return;
+		event.preventDefault();
+		store.undo();
+	}
+};
+
 onMounted(async () => {
 	window.addEventListener('beforeunload', warnOnUnload);
+	window.addEventListener('keydown', onKeydown);
 	await load(retreatId.value);
 
 	if (previewColumnRef.value) {
@@ -217,6 +240,7 @@ onUnmounted(() => {
 	resizeObserver?.disconnect();
 	resizeObserver = null;
 	window.removeEventListener('beforeunload', warnOnUnload);
+	window.removeEventListener('keydown', onKeydown);
 });
 
 watch(retreatId, async (newId, oldId) => {

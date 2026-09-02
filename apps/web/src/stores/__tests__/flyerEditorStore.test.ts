@@ -225,6 +225,75 @@ describe('flyerEditorStore', () => {
 		});
 	});
 
+	describe('undo', () => {
+		it('has nothing to undo on a freshly loaded retreat', () => {
+			const store = useFlyerEditorStore();
+			store.loadFromRetreat(retreatWith());
+
+			expect(store.canUndo).toBe(false);
+			store.undo(); // must not throw or corrupt anything
+			expect(store.blocks).toEqual(FLYER_DEFAULT_LAYOUT);
+		});
+
+		// "Discard" is all-or-nothing; this is for the single mis-drop
+		it('steps back one change at a time', () => {
+			const store = useFlyerEditorStore();
+			store.loadFromRetreat(retreatWith());
+
+			store.toggleVisibility('payment');
+			store.setThemeField('textColor', '#ffffff');
+			expect(store.theme.textColor).toBe('#ffffff');
+
+			store.undo();
+			expect(store.theme.textColor).toBeUndefined();
+			expect(store.blocks.find((b) => b.id === 'payment')?.visible).toBe(false);
+
+			store.undo();
+			expect(store.blocks.find((b) => b.id === 'payment')?.visible).toBe(true);
+			expect(store.canUndo).toBe(false);
+		});
+
+		it('undoes a move, a hidden text and a template just the same', () => {
+			const store = useFlyerEditorStore();
+			store.loadFromRetreat(retreatWith());
+
+			store.moveBlock('whatToBring', 'left', 0);
+			store.toggleTextVisibility('comeOverride');
+			store.applyTemplate({ layoutVersion: 2, blocks: [], theme: { scrim: 'dark' } });
+
+			store.undo();
+			expect(store.theme.scrim).toBeUndefined();
+			expect(store.hiddenTexts).toEqual(['comeOverride']);
+
+			store.undo();
+			expect(store.hiddenTexts).toEqual([]);
+
+			store.undo();
+			expect(store.blocksBySlot.wide[0]?.id).toBe('whatToBring');
+		});
+
+		it('leaves nothing to undo once saved', async () => {
+			const store = useFlyerEditorStore();
+			store.loadFromRetreat(retreatWith());
+			store.toggleVisibility('payment');
+			expect(store.canUndo).toBe(true);
+
+			await store.save();
+			expect(store.canUndo).toBe(false);
+		});
+
+		it('turns the flyer clean again when undone back to the start', () => {
+			const store = useFlyerEditorStore();
+			store.loadFromRetreat(retreatWith());
+
+			store.toggleVisibility('payment');
+			expect(store.isDirty).toBe(true);
+
+			store.undo();
+			expect(store.isDirty).toBe(false);
+		});
+	});
+
 	describe('hiding texts', () => {
 		it('toggles a text on and off', () => {
 			const store = useFlyerEditorStore();

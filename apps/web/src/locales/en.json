@@ -3127,8 +3127,12 @@
       "matchBackground": "Match colours to the image",
       "matchFailed": "The background image could not be read.",
       "lowContrast": "This text is hard to read on its background",
-      "lowContrastHint": "This text is hard to read on its background. Try another text colour, a veil, or dimming the image."
+      "lowContrastHint": "This text is hard to read on its background. Try another text colour, a veil, or dimming the image.",
+      "moveUp": "Move the block up",
+      "moveDown": "Move the block down"
     },
-    "leaveWithoutSaving": "You have unsaved changes to the flyer. Leave anyway?"
+    "leaveWithoutSaving": "You have unsaved changes to the flyer. Leave anyway?",
+    "undo": "Undo",
+    "undoHint": "Undo the last change (⌘Z)"
   }
 }

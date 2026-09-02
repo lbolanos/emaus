@@ -101,7 +101,7 @@ describe('RetreatFlyerEditView', () => {
 	it('removes a block from the flyer when it is hidden', async () => {
 		const wrapper = await mountEditor();
 
-		await wrapper.find('li[data-block="payment"] button[aria-label]').trigger('click');
+		await wrapper.find('[data-toggle-visibility="payment"]').trigger('click');
 		await nextTick();
 
 		expect(previewBlocks(wrapper)).not.toContain('payment');
@@ -143,7 +143,7 @@ describe('RetreatFlyerEditView', () => {
 
 		expect(store.isDirty).toBe(false);
 
-		await wrapper.find('li[data-block="payment"] button[aria-label]').trigger('click');
+		await wrapper.find('[data-toggle-visibility="payment"]').trigger('click');
 		expect(store.isDirty).toBe(true);
 	});
 
@@ -165,7 +165,7 @@ describe('RetreatFlyerEditView', () => {
 		const wrapper = await mountEditor();
 		const store = useFlyerEditorStore();
 
-		await wrapper.find('li[data-block="payment"] button[aria-label]').trigger('click');
+		await wrapper.find('[data-toggle-visibility="payment"]').trigger('click');
 		expect(store.isDirty).toBe(true);
 
 		const discard = wrapper
@@ -191,6 +191,69 @@ describe('RetreatFlyerEditView', () => {
 		expect(slotBlocks(wrapper, 'wide')[0]).toBe('intro');
 	});
 
+	// Dragging on the flyer is mouse-only, so the panel keeps a reachable way to reorder
+	describe('reordering without a mouse', () => {
+		it('moves a block down within its column', async () => {
+			const wrapper = await mountEditor();
+
+			await wrapper.find('[data-move-down="intro"]').trigger('click');
+			await nextTick();
+
+			expect(slotBlocks(wrapper, 'left')).toEqual([
+				'startTime',
+				'intro',
+				'location',
+				'endTime',
+			]);
+		});
+
+		it('crosses into the next column at the edge', async () => {
+			const wrapper = await mountEditor();
+
+			// endTime is last in the left column; down takes it to the right one
+			await wrapper.find('[data-move-down="endTime"]').trigger('click');
+			await nextTick();
+
+			expect(slotBlocks(wrapper, 'left')).toEqual(['intro', 'startTime', 'location']);
+			expect(slotBlocks(wrapper, 'right')[0]).toBe('endTime');
+		});
+
+		it('cannot move the first block up or the last one down', async () => {
+			const wrapper = await mountEditor();
+
+			expect(wrapper.find('[data-move-up="intro"]').attributes('disabled')).toBeDefined();
+			expect(wrapper.find('[data-move-down="whatToBring"]').attributes('disabled')).toBeDefined();
+		});
+	});
+
+	describe('undo', () => {
+		it('steps back the last change from the toolbar', async () => {
+			const wrapper = await mountEditor();
+			const store = useFlyerEditorStore();
+
+			await wrapper.find('[data-toggle-visibility="payment"]').trigger('click');
+			expect(previewBlocks(wrapper)).not.toContain('payment');
+
+			const undo = wrapper
+				.findAll('button')
+				.find((b: any) => b.text().includes('retreatFlyerEditor.undo'));
+			await undo!.trigger('click');
+			await nextTick();
+
+			expect(previewBlocks(wrapper)).toContain('payment');
+			expect(store.canUndo).toBe(false);
+		});
+
+		it('offers nothing to undo on arrival', async () => {
+			const wrapper = await mountEditor();
+			const undo = wrapper
+				.findAll('button')
+				.find((b: any) => b.text().includes('retreatFlyerEditor.undo'));
+
+			expect(undo!.attributes('disabled')).toBeDefined();
+		});
+	});
+
 	describe('leaving with unsaved work', () => {
 		it('lets you go when there is nothing to lose', async () => {
 			await mountEditor();
@@ -201,7 +264,7 @@ describe('RetreatFlyerEditView', () => {
 			const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
 			const wrapper = await mountEditor();
 
-			await wrapper.find('li[data-block="payment"] button[aria-label]').trigger('click');
+			await wrapper.find('[data-toggle-visibility="payment"]').trigger('click');
 			await nextTick();
 
 			expect(leaveGuard?.()).toBe(false);
@@ -212,7 +275,7 @@ describe('RetreatFlyerEditView', () => {
 			vi.spyOn(window, 'confirm').mockReturnValue(true);
 			const wrapper = await mountEditor();
 
-			await wrapper.find('li[data-block="payment"] button[aria-label]').trigger('click');
+			await wrapper.find('[data-toggle-visibility="payment"]').trigger('click');
 			await nextTick();
 
 			expect(leaveGuard?.()).toBe(true);
