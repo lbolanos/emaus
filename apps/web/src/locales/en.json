@@ -1292,7 +1292,10 @@
         "content": "Content",
         "footer": "Footer",
         "json": "JSON"
-      }
+      },
+      "openEditor": "Open the flyer editor",
+      "editorHint": "The flyer is designed on its own screen, with a live preview.",
+      "editorNeedsSavedRetreat": "Save the retreat first to design its flyer."
     },
     "notificationSettings": "Email notifications on walker registration",
     "notificationSettingsDescription": "Configure which emails are sent when a new walker registers",
@@ -3003,5 +3006,92 @@
     "description": "Description",
     "titleField": "Title",
     "dateField": "Date"
+  },
+  "retreatFlyerEditor": {
+    "title": "Flyer editor",
+    "backToFlyer": "Back to the flyer",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "unsavedChanges": "You have unsaved changes",
+    "discard": "Discard changes",
+    "preview": "Preview",
+    "resetLayout": "Restore the original layout",
+    "tabs": {
+      "blocks": "Blocks",
+      "images": "Images",
+      "texts": "Texts",
+      "templates": "Templates"
+    },
+    "blocks": {
+      "intro": "Introduction",
+      "startTime": "Start",
+      "endTime": "End of the retreat",
+      "location": "Location",
+      "contact": "Contact",
+      "payment": "Cost and payment",
+      "whatToBring": "What to bring",
+      "registrationQr": "Registration QR"
+    },
+    "slots": {
+      "left": "Left column",
+      "right": "Right column",
+      "wide": "Full-width row"
+    },
+    "dragHint": "Drag blocks to move them between columns or reorder them.",
+    "show": "Show",
+    "hide": "Hide",
+    "hidden": "Hidden",
+    "emptySlot": "Drop a block here",
+    "images": {
+      "bodyBackground": "Flyer background",
+      "headerBackground": "Header background",
+      "footerBackground": "Footer background",
+      "logo": "Logo",
+      "gallery": "Gallery",
+      "upload": "Upload image",
+      "uploading": "Uploading…",
+      "useDefault": "Use the default one",
+      "current": "Current",
+      "hint": "Works best with images at least 1200 px wide.",
+      "tooLarge": "That image is too heavy. Try a lighter one.",
+      "failed": "The image could not be uploaded."
+    },
+    "texts": {
+      "hint": "Leave a field empty to use the default text.",
+      "catholicRetreatOverride": "Header: Catholic Retreat",
+      "emausForOverride": "Header: Emmaus for",
+      "weekendOfHopeOverride": "Header: A weekend of",
+      "hopeOverride": "Header: large title",
+      "hopeQuoteOverride": "Header: quote",
+      "encounterDescriptionOverride": "Introduction",
+      "dareToLiveItOverride": "Call to action",
+      "arrivalTimeNoteOverride": "Arrival note",
+      "whatToBringOverride": "What to bring heading",
+      "registerOverride": "Registration heading",
+      "scanToRegisterOverride": "Text under the QR",
+      "comeOverride": "Footer: Come",
+      "limitedCapacityOverride": "Footer: limited capacity",
+      "dontMissItOverride": "Footer: don't miss it",
+      "reservationNoteOverride": "Footer: reservation note"
+    },
+    "templates": {
+      "title": "Templates",
+      "hint": "Save this layout to reuse it in other retreats.",
+      "saveAsNew": "Save as template",
+      "name": "Template name",
+      "scope": "Available to",
+      "scopePersonal": "Only me",
+      "scopeCommunity": "The whole community",
+      "selectCommunity": "Pick a community",
+      "apply": "Apply",
+      "delete": "Delete",
+      "empty": "You haven't saved any templates yet.",
+      "confirmApply": "This replaces the flyer's current layout. Continue?",
+      "confirmDelete": "Delete this template?",
+      "saved": "Template saved",
+      "applied": "Template applied",
+      "deleted": "Template deleted"
+    }
   }
 }

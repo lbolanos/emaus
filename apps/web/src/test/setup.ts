@@ -234,7 +234,10 @@ vi.mock('@repo/ui', () => ({
 	Button: {
 		name: 'Button',
 		template: '<button><slot /></button>',
-		props: ['variant', 'size', 'disabled', 'onClick'],
+		// `onClick` must NOT be declared here: declaring it turns `@click` into a prop,
+		// so Vue stops treating it as a native listener and the stub swallows every
+		// click — no test could ever verify what a <Button @click> does.
+		props: ['variant', 'size', 'disabled'],
 	},
 	Input: {
 		// Una sola raíz y sin <slot />: `<input>` es un elemento void, así que
@@ -371,6 +374,38 @@ vi.mock('@repo/ui', () => ({
 		name: 'Label',
 		template: '<label><slot /></label>',
 	},
+	Textarea: {
+		name: 'Textarea',
+		props: ['modelValue'],
+		emits: ['update:modelValue'],
+		template:
+			'<textarea :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+	},
+	Switch: {
+		name: 'Switch',
+		props: ['modelValue'],
+		emits: ['update:modelValue'],
+		template:
+			'<button role="switch" :aria-checked="String(modelValue)" @click="$emit(\'update:modelValue\', !modelValue)"><slot /></button>',
+	},
+	// The tab stubs render every panel at once: hiding panels the way reka-ui does
+	// would make the inactive ones unreachable from tests.
+	Tabs: {
+		name: 'Tabs',
+		template: '<div><slot /></div>',
+	},
+	TabsList: {
+		name: 'TabsList',
+		template: '<div role="tablist"><slot /></div>',
+	},
+	TabsTrigger: {
+		name: 'TabsTrigger',
+		template: '<button role="tab"><slot /></button>',
+	},
+	TabsContent: {
+		name: 'TabsContent',
+		template: '<div role="tabpanel"><slot /></div>',
+	},
 	Select: {
 		name: 'Select',
 		template: '<div><slot /></div>',
@@ -466,6 +501,12 @@ vi.mock('lucide-vue-next', () => ({
 	Info: { name: 'Info', template: '<svg></svg>' },
 	Backpack: { name: 'Backpack', template: '<svg></svg>' },
 	EllipsisVertical: { name: 'EllipsisVertical', template: '<svg></svg>' },
+	ArrowLeft: { name: 'ArrowLeft', template: '<svg></svg>' },
+	RotateCcw: { name: 'RotateCcw', template: '<svg></svg>' },
+	Eye: { name: 'Eye', template: '<svg></svg>' },
+	EyeOff: { name: 'EyeOff', template: '<svg></svg>' },
+	GripVertical: { name: 'GripVertical', template: '<svg></svg>' },
+	Save: { name: 'Save', template: '<svg></svg>' },
 	Music: { name: 'Music', template: '<svg></svg>' },
 	QrCode: { name: 'QrCode', template: '<svg></svg>' },
 	UserPlus: { name: 'UserPlus', template: '<svg></svg>' },

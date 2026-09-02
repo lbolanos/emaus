@@ -25,17 +25,17 @@ Marcar al cerrar cada milestone, anotando las desviaciones reales respecto al pl
 
 ## M2 — Editor: reorden, visibilidad y textos
 
-- [ ] Schema v2 en `packages/types/src/index.ts` (`layoutVersion`, `blocks`, `images`)
-- [ ] `apps/web/src/utils/flyerLayout.ts` — `resolveFlyerLayout` + tests
-- [ ] `apps/web/src/stores/flyerEditorStore.ts`
-- [ ] Ruta `retreats/:id/flyer/edit` + `RetreatFlyerEditView.vue`
-- [ ] `FlyerBlockList.vue` con arrastre HTML5 entre tres celdas + `Switch` de visibilidad
-- [ ] Pestaña Textos (migrar los inputs `*Override`)
-- [ ] `RetreatModal.vue`: quitar la pestaña Volante y el editor JSON; **fix del clobber** (spread)
-- [ ] i18n `retreatFlyerEditor.*` en es/en
-- [ ] Íconos nuevos al `vi.mock('lucide-vue-next')` de `apps/web/src/test/setup.ts`
-- [ ] Tests: store, vista del editor, caso v1 legacy en el canvas
-- [ ] Prueba manual: guardar desde otra pestaña del modal no borra el diseño
+- [x] Schema v2 en `packages/types/src/index.ts` (`layoutVersion`, `blocks`, `images`)
+- [x] `apps/web/src/utils/flyerLayout.ts` — `resolveFlyerLayout` + tests
+- [x] `apps/web/src/stores/flyerEditorStore.ts`
+- [x] Ruta `retreats/:id/flyer/edit` + `RetreatFlyerEditView.vue`
+- [x] `FlyerBlockList.vue` con arrastre HTML5 entre tres celdas + `Switch` de visibilidad
+- [x] Pestaña Textos (migrar los inputs `*Override`)
+- [x] `RetreatModal.vue`: quitar la pestaña Volante y el editor JSON; **fix del clobber** (spread)
+- [x] i18n `retreatFlyerEditor.*` en es/en
+- [x] Íconos nuevos al `vi.mock('lucide-vue-next')` de `apps/web/src/test/setup.ts`
+- [x] Tests: store, vista del editor, caso v1 legacy en el canvas
+- [x] Prueba manual: guardar desde otra pestaña del modal no borra el diseño
 
 **Done**: reordenar/ocultar persiste; los retiros v1 se ven igual.
 
@@ -63,6 +63,29 @@ Marcar al cerrar cada milestone, anotando las desviaciones reales respecto al pl
 **Done**: guardar, listar, aplicar y eliminar plantillas con el alcance correcto.
 
 ## Desviaciones respecto al plan
+
+### M2
+
+- **La visibilidad se alterna con un botón de ojo, no con un `Switch`.** En una lista de bloques
+  arrastrables el interruptor competía visualmente con el asa de arrastre; el ojo ocupa menos y se
+  lee mejor. (El plan pedía `Switch` de `@repo/ui`; queda como nota por si se revisa el criterio.)
+- **El editor no tiene pestaña de imágenes todavía**: la pestaña existe con su texto de ayuda, pero
+  el selector llega en M3. Las props `imageOverrides` ya viajan del store al canvas.
+- **`moveBlockInLayout` vive en `flyerLayout.ts`, no en el store.** Es lógica pura de reordenado y
+  así se prueba sin Pinia; el store solo la invoca. Tenía un fallo que el test cazó: al mezclar los
+  bloques movidos con el resto, `normalizeOrder` los reordenaba por su `order` viejo y deshacía el
+  movimiento. Ahora se sella la posición nueva antes de normalizar.
+- **El store conserva lo que no edita** (`untouchedOptions`): como el PUT reemplaza la columna
+  entera, guardar el volante habría borrado `showPickupInfo` y los flags legacy. Hay test.
+- **Dos mocks globales estaban rotos y los arreglé** en `apps/web/src/test/setup.ts`:
+  - `Button` declaraba `onClick` entre sus props, lo que convierte `@click` en prop y hace que el
+    stub se coma **todos** los clics. Ningún test del repo podía verificar el clic de un `Button`.
+  - Faltaban `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent`, `Textarea` y `Switch` en el mock de
+    `@repo/ui`. Los stubs de pestañas renderizan todos los paneles a la vez a propósito, para que
+    los tests alcancen el contenido de las pestañas inactivas.
+- **Verificado en navegador** (worktree, puertos 3002/5174): ocultar y arrastrar se reflejan en la
+  vista previa al instante, el guardado persiste `layoutVersion: 2` con los bloques, y editar el
+  retiro desde la pestaña Notas del modal **no** borra el diseño — el riesgo 1 del plan, cerrado.
 
 ### M1
 

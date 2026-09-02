@@ -11,8 +11,17 @@
 				</button>
 				<div
 					v-if="showMenu"
-					class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 overflow-hidden"
+					class="absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-xl border border-gray-200 py-1 overflow-hidden"
 				>
+					<router-link
+						:to="{ name: 'retreat-flyer-edit', params: { id: retreatId } }"
+						class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+						@click="showMenu = false"
+					>
+						<Pencil class="w-4 h-4" />
+						{{ t('retreatFlyerEditor.title') }}
+					</router-link>
+					<div class="my-1 border-t border-gray-100"></div>
 					<button
 						@click="
 							handlePrint();
@@ -75,7 +84,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useRetreatStore } from '@/stores/retreatStore';
-import { EllipsisVertical, Printer, Copy, Check, FileDown, Loader2 } from 'lucide-vue-next';
+import { EllipsisVertical, Printer, Copy, Check, FileDown, Loader2, Pencil } from 'lucide-vue-next';
 import RetreatFlyerCanvas from '@/components/flyer/RetreatFlyerCanvas.vue';
 
 const route = useRoute();
@@ -83,6 +92,8 @@ const retreatStore = useRetreatStore();
 const { t } = useI18n();
 const selectedRetreat = computed(() => retreatStore.selectedRetreat);
 const walkerRegistrationLink = computed(() => retreatStore.walkerRegistrationLink);
+
+const retreatId = computed(() => route.params.id as string);
 
 // Cast to any: `house` exists at runtime/API but not in the stricter Zod schema
 const retreatData = computed(() => (selectedRetreat.value as any) || null);
@@ -276,10 +287,9 @@ const handleDownloadPdf = async () => {
 };
 
 onMounted(async () => {
-	const retreatId = route.params.id as string;
-	if (retreatId) {
+	if (retreatId.value) {
 		// Always fetch fresh retreat data (includes house with address2, etc.)
-		await retreatStore.fetchRetreat(retreatId);
+		await retreatStore.fetchRetreat(retreatId.value);
 	}
 	await nextTick();
 	document.addEventListener('click', handleClickOutside);

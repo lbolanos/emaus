@@ -40,6 +40,7 @@ const RetreatRoleManagementView = () => import('../views/RetreatRoleManagementVi
 const AcceptInvitationView = () => import('../views/AcceptInvitationView.vue');
 const TelemetryDashboardView = () => import('../views/TelemetryDashboardView.vue');
 const RetreatFlyerView = () => import('../views/RetreatFlyerView.vue');
+const RetreatFlyerEditView = () => import('../views/RetreatFlyerEditView.vue');
 const HelpView = () => import('../views/HelpView.vue');
 const LandingView = () => import('../views/LandingView.vue');
 const SantisimoAdminView = () => import('../views/SantisimoAdminView.vue');
@@ -337,6 +338,13 @@ const router = createRouter({
 					path: 'retreats/:id/flyer',
 					name: 'retreat-flyer',
 					component: RetreatFlyerView,
+					props: true,
+					meta: { requiresRetreat: true },
+				},
+				{
+					path: 'retreats/:id/flyer/edit',
+					name: 'retreat-flyer-edit',
+					component: RetreatFlyerEditView,
 					props: true,
 					meta: { requiresRetreat: true },
 				},
