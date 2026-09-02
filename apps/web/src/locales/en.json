@@ -3092,7 +3092,9 @@
       "confirmDelete": "Delete this template?",
       "saved": "Template saved",
       "applied": "Template applied",
-      "deleted": "Template deleted"
+      "deleted": "Template deleted",
+      "preview": "See how it looks",
+      "previewHint": "This is how this retreat would look with the template's design."
     },
     "design": {
       "presets": "Quick styles",

@@ -1,6 +1,6 @@
 <template>
 	<div
-		id="printable-area"
+		:id="printable ? 'printable-area' : undefined"
 		class="print-optimized shadow-2xl print:shadow-none rounded-3xl overflow-hidden print:overflow-visible print:rounded-none relative bg-white border border-gray-200 print:border-none"
 		:style="[
 			{ fontFamily: `'Roboto', sans-serif`, width: '100%', maxWidth: '850px', margin: '0 auto' },
@@ -105,12 +105,18 @@ const props = withDefaults(
 		registrationLink?: string;
 		/** Mobile downscale of the fixed 850px design. */
 		scale?: number;
+		/**
+		 * Whether this is *the* flyer of the page. Print, copy and PDF all target
+		 * #printable-area, so a second canvas on screen — a template preview, say —
+		 * must not claim the same id.
+		 */
+		printable?: boolean;
 		/** Turns the flyer into a drop target. Off for the read-only view. */
 		editable?: boolean;
 		selectedBlockId?: FlyerBlockId | null;
 		emptySlotLabel?: string;
 	}>(),
-	{ scale: 1, editable: false, emptySlotLabel: '' },
+	{ scale: 1, editable: false, emptySlotLabel: '', printable: true },
 );
 
 const emit = defineEmits<{
@@ -171,44 +177,46 @@ const blocksInSlot = computed(() => {
 
 <style>
 /* Not scoped: these rules must reach elements rendered by the child block components.
-   Everything is anchored to #printable-area so nothing leaks into the rest of the app. */
+   Anchored to .print-optimized, the canvas root, so nothing leaks into the rest of the
+   app — and so a template preview, which cannot claim the printable-area id, still
+   gets the fonts and shadows. */
 @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Miltonian+Tattoo&family=Oswald:wght@300;400;500;700;900&family=Roboto:ital,wght@0,300;0,400;0,500;0,700;0,900;1,400&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&display=swap');
 
-#printable-area.print-optimized {
+.print-optimized {
 	width: 100%;
 	max-width: 850px;
 	margin: 0 auto;
 }
 
 /* Force browsers to print backgrounds and colors */
-#printable-area .print-exact,
-#printable-area.print-optimized {
+.print-optimized .print-exact,
+.print-optimized {
 	-webkit-print-color-adjust: exact !important;
 	print-color-adjust: exact !important;
 	color-adjust: exact !important;
 }
 
-#printable-area .font-display {
+.print-optimized .font-display {
 	font-family: 'Dancing Script', cursive;
 }
 
-#printable-area .font-header {
+.print-optimized .font-header {
 	font-family: 'Oswald', sans-serif;
 }
 
-#printable-area .flyer-title {
+.print-optimized .flyer-title {
 	text-shadow:
 		5px 5px 15px rgba(0, 0, 0, 0.7),
 		2px 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 @media screen {
-	#printable-area .flyer-title {
+	.print-optimized .flyer-title {
 		filter: drop-shadow(5px 5px 10px rgba(0, 0, 0, 0.7));
 	}
 }
 
-#printable-area .group:hover {
+.print-optimized .group:hover {
 	transform: translateY(-2px);
 }
 
@@ -222,12 +230,12 @@ const blocksInSlot = computed(() => {
 	}
 }
 
-#printable-area .animate-pulse {
+.print-optimized .animate-pulse {
 	animation: flyerPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 /* Override AppLayout's mobile rule that hides every h1, which also kills the flyer title */
-#printable-area h1 {
+.print-optimized h1 {
 	display: block !important;
 }
 

@@ -3411,7 +3411,9 @@
       "confirmDelete": "¿Eliminar esta plantilla?",
       "saved": "Plantilla guardada",
       "applied": "Plantilla aplicada",
-      "deleted": "Plantilla eliminada"
+      "deleted": "Plantilla eliminada",
+      "preview": "Ver cómo queda",
+      "previewHint": "Así quedaría este retiro con el diseño de la plantilla."
     },
     "design": {
       "presets": "Estilos rápidos",

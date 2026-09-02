@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
+import { nextTick } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 
 const api = vi.hoisted(() => ({
@@ -11,6 +12,10 @@ const api = vi.hoisted(() => ({
 }));
 
 vi.mock('@/services/api', () => api);
+
+vi.mock('qrcode.vue', () => ({
+	default: { name: 'QrcodeVue', template: '<canvas />', props: ['value', 'size'] },
+}));
 
 import FlyerTemplatePanel from '../editor/FlyerTemplatePanel.vue';
 
@@ -30,7 +35,12 @@ const template = (over: Record<string, any> = {}) => ({
 
 async function mountPanel() {
 	setActivePinia(createPinia());
-	const wrapper = mount(FlyerTemplatePanel, { props: { layout: LAYOUT } });
+	const wrapper = mount(FlyerTemplatePanel, {
+		props: {
+			layout: LAYOUT,
+			retreat: { id: 'r1', parish: 'San Judas Tadeo', retreat_type: 'men' },
+		},
+	});
 	await flushPromises();
 	return wrapper;
 }
@@ -43,7 +53,6 @@ describe('FlyerTemplatePanel', () => {
 		vi.clearAllMocks();
 		api.getFlyerTemplates.mockResolvedValue([]);
 		api.getCommunities.mockResolvedValue([]);
-		vi.spyOn(window, 'confirm').mockReturnValue(true);
 	});
 
 	it('says so when there are no templates yet', async () => {
@@ -83,33 +92,82 @@ describe('FlyerTemplatePanel', () => {
 		expect(wrapper.findAll('input[type="radio"]')).toHaveLength(2);
 	});
 
-	it('emits the stored design when a template is applied', async () => {
+	// Applying replaces the whole design, so it asks first — with the app's own dialog,
+	// not the browser's.
+	it('asks before applying, and only then emits the stored design', async () => {
 		const stored = { layoutVersion: 2, blocks: [], images: { logo: 'https://cdn/x.webp' } };
 		api.getFlyerTemplates.mockResolvedValue([template({ layout: stored })]);
 		const wrapper = await mountPanel();
 
-		await buttonWith(wrapper, 'retreatFlyerEditor.templates.apply')!.trigger('click');
+		await wrapper.find('[data-apply="t1"]').trigger('click');
+		await nextTick();
+		expect(wrapper.emitted('apply')).toBeUndefined();
 
-		expect(window.confirm).toHaveBeenCalled();
+		await wrapper.find('[data-confirm-apply]').trigger('click');
 		expect(wrapper.emitted('apply')?.[0]).toEqual([stored]);
 	});
 
-	it('does not apply anything if the confirmation is dismissed', async () => {
-		vi.spyOn(window, 'confirm').mockReturnValue(false);
+	it('applies nothing while the confirmation is still open', async () => {
 		api.getFlyerTemplates.mockResolvedValue([template()]);
 		const wrapper = await mountPanel();
 
-		await buttonWith(wrapper, 'retreatFlyerEditor.templates.apply')!.trigger('click');
+		await wrapper.find('[data-apply="t1"]').trigger('click');
+		await nextTick();
+
+		const cancel = buttonWith(wrapper, 'common.cancel');
+		await cancel!.trigger('click');
+		await nextTick();
 
 		expect(wrapper.emitted('apply')).toBeUndefined();
+		expect(wrapper.find('[data-confirm-apply]').exists()).toBe(false);
 	});
 
-	it('deletes after confirming', async () => {
+	it('shows the flyer as it would look before applying', async () => {
+		const stored = {
+			layoutVersion: 2,
+			blocks: [{ id: 'intro', slot: 'wide', order: 0, visible: true }],
+		};
+		api.getFlyerTemplates.mockResolvedValue([template({ layout: stored })]);
+		const wrapper = await mountPanel();
+
+		await wrapper.find('[data-preview="t1"]').trigger('click');
+		await nextTick();
+
+		// The real canvas, drawn with the template's layout
+		expect(wrapper.find('.print-optimized').exists()).toBe(true);
+		expect(wrapper.find('[data-flyer-slot="wide"] [data-flyer-block="intro"]').exists()).toBe(
+			true,
+		);
+		// …but it must not claim the id that print, copy and PDF export target
+		expect(wrapper.find('#printable-area').exists()).toBe(false);
+	});
+
+	it('can apply straight from the preview, without asking twice', async () => {
+		const stored = { layoutVersion: 2, blocks: [] };
+		api.getFlyerTemplates.mockResolvedValue([template({ layout: stored })]);
+		const wrapper = await mountPanel();
+
+		await wrapper.find('[data-preview="t1"]').trigger('click');
+		await nextTick();
+
+		const applyInDialog = wrapper
+			.findAll('button')
+			.filter((b) => b.text().includes('retreatFlyerEditor.templates.apply'));
+		await applyInDialog[applyInDialog.length - 1].trigger('click');
+
+		expect(wrapper.emitted('apply')?.[0]).toEqual([stored]);
+	});
+
+	it('asks before deleting', async () => {
 		api.getFlyerTemplates.mockResolvedValue([template()]);
 		api.deleteFlyerTemplate.mockResolvedValue(undefined);
 		const wrapper = await mountPanel();
 
-		await wrapper.find('li button[aria-label]').trigger('click');
+		await wrapper.find('[data-delete="t1"]').trigger('click');
+		await nextTick();
+		expect(api.deleteFlyerTemplate).not.toHaveBeenCalled();
+
+		await wrapper.find('[data-confirm-delete]').trigger('click');
 		await flushPromises();
 
 		expect(api.deleteFlyerTemplate).toHaveBeenCalledWith('t1');

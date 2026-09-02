@@ -102,6 +102,8 @@
 						<TabsContent value="templates" class="mt-4">
 							<FlyerTemplatePanel
 								:layout="store.draftOptions"
+								:retreat="retreat"
+								:registration-link="walkerRegistrationLink"
 								@apply="store.applyTemplate"
 							/>
 						</TabsContent>
