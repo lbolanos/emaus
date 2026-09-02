@@ -16,12 +16,15 @@
 					{{ content.formatDate(content.endDate) }}
 				</p>
 				<div v-if="content.closingLocation" class="mb-2">
-					<p class="font-semibold text-[color:var(--fb-text)] text-[12px] leading-tight">
+					<p
+						class="font-semibold text-[color:var(--fb-text)] text-[12px] leading-tight whitespace-pre-line"
+					>
 						{{ content.closingLocation }}
 					</p>
 				</div>
 				<p
-					class="text-gray-800 font-bold uppercase text-[12px] flex items-center gap-2 bg-amber-50/80 px-3 py-2 rounded-lg border border-amber-200"
+					v-if="content.arrivalTimeNoteText"
+					class="text-gray-800 font-bold uppercase text-[12px] flex items-center gap-2 bg-amber-50/80 px-3 py-2 rounded-lg border border-amber-200 whitespace-pre-line"
 				>
 					<Users class="w-5 h-5 flex-shrink-0" /> {{ content.arrivalTimeNoteText }}
 				</p>

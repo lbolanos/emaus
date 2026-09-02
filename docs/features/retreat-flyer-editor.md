@@ -79,6 +79,22 @@ No las "arregles": su color es información, no decoración.
 3. El aviso ámbar de `endTime` ("importante que tu familia asista") — es una advertencia.
 4. Los chips verde/azul de `contact` — verde es teléfono y azul es correo.
 
+## Textos: personalizar u ocultar
+
+La pestaña **Textos** del editor lista los quince textos editables del volante. Cada uno tiene dos
+cosas distintas:
+
+- **Dejarlo vacío** = usar la redacción por defecto (la del i18n, que se ve como marca de agua).
+- **El ojo** = quitarlo del volante. Se guarda en `flyer_options.hiddenTexts`, y el composable
+  devuelve `''` para esa clave, así que el `v-if` de la plantilla no dibuja el elemento. Sirve para
+  quitar "Retiro Católico", "¡Atrévete, vívelo!" o lo que sobre en un volante concreto.
+
+Ocultar no borra la redacción: si vuelves a mostrarlo, tu texto sigue ahí.
+
+Todos los textos libres se pintan con `whitespace-pre-line`, así que **los saltos de línea que
+escribe el coordinador se respetan**. Sin eso, un texto de dos líneas salía en una sola y parecía
+que la edición no se había guardado.
+
 ## Mover bloques
 
 Se arrastran **sobre el volante**, no en el panel. `RetreatFlyerCanvas` acepta `editable` (apagado

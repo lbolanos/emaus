@@ -79,7 +79,12 @@
 						</TabsContent>
 
 						<TabsContent value="texts" class="mt-4">
-							<FlyerTextPanel :values="store.textOverrides" @update="store.setTextOverride" />
+							<FlyerTextPanel
+								:values="store.textOverrides"
+								:hidden-texts="store.hiddenTexts"
+								@update="store.setTextOverride"
+								@toggle-visibility="store.toggleTextVisibility"
+							/>
 						</TabsContent>
 
 						<TabsContent value="templates" class="mt-4">

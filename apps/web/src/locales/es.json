@@ -3392,7 +3392,8 @@
       "comeOverride": "Pie: Ven",
       "limitedCapacityOverride": "Pie: cupo limitado",
       "dontMissItOverride": "Pie: no te lo pierdas",
-      "reservationNoteOverride": "Pie: nota de reservación"
+      "reservationNoteOverride": "Pie: nota de reservación",
+      "hiddenNote": "Oculto: no aparece en el volante."
     },
     "templates": {
       "title": "Plantillas",

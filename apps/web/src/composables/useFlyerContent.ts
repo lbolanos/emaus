@@ -102,6 +102,19 @@ export function useFlyerContent(
 	const retreat = computed(() => getRetreat() || null);
 	const options = computed(() => getFlyerOptions() || null);
 
+	/** Texts the coordinator took off the flyer altogether. */
+	const hiddenTexts = computed<string[]>(() => options.value?.hiddenTexts ?? []);
+
+	/**
+	 * Resolves one editable text: the override, then the default wording — unless it is
+	 * hidden, in which case it returns '' and the template drops the element.
+	 */
+	const editableText = (key: string, fallbackKey: string) =>
+		computed(() => {
+			if (hiddenTexts.value.includes(key)) return '';
+			return options.value?.[key] || t(`retreatFlyer.${fallbackKey}`);
+		});
+
 	const retreatTypeText = computed(() => {
 		if (retreat.value?.retreat_type) {
 			return t(`retreatModal.types.${retreat.value.retreat_type}`);
@@ -350,20 +363,21 @@ export function useFlyerContent(
 		retreatParish: computed(() => retreat.value?.parish),
 		retreatNumber: computed(() => retreat.value?.retreat_number_version || ''),
 		formatDateRange,
-		titleText: computed(
-			() => options.value?.hopeOverride || options.value?.titleOverride || t('retreatFlyer.hope'),
-		),
-		subtitleText: computed(
-			() =>
+		titleText: computed(() => {
+			if (hiddenTexts.value.includes('hopeOverride')) return '';
+			return options.value?.hopeOverride || options.value?.titleOverride || t('retreatFlyer.hope');
+		}),
+		subtitleText: computed(() => {
+			if (hiddenTexts.value.includes('weekendOfHopeOverride')) return '';
+			return (
 				options.value?.weekendOfHopeOverride ||
 				options.value?.subtitleOverride ||
-				t('retreatFlyer.weekendOfHope'),
-		),
-		quoteText: computed(() => options.value?.hopeQuoteOverride || t('retreatFlyer.hopeQuote')),
-		catholicRetreatText: computed(
-			() => options.value?.catholicRetreatOverride || t('retreatFlyer.catholicRetreat'),
-		),
-		emausForText: computed(() => options.value?.emausForOverride || t('retreatFlyer.emausFor')),
+				t('retreatFlyer.weekendOfHope')
+			);
+		}),
+		quoteText: editableText('hopeQuoteOverride', 'hopeQuote'),
+		catholicRetreatText: editableText('catholicRetreatOverride', 'catholicRetreat'),
+		emausForText: editableText('emausForOverride', 'emausFor'),
 
 		startDate: computed(() => retreat.value?.startDate),
 		endDate: computed(() => retreat.value?.endDate),
@@ -393,34 +407,21 @@ export function useFlyerContent(
 		registrationDomain,
 
 		encounterDescriptionHtml: computed(() => {
+			if (hiddenTexts.value.includes('encounterDescriptionOverride')) return '';
 			const text =
 				options.value?.encounterDescriptionOverride || t('retreatFlyer.encounterDescription');
 			return DOMPurify.sanitize(text.replace(/\n/g, '<br>'));
 		}),
-		dareToLiveItText: computed(
-			() => options.value?.dareToLiveItOverride || t('retreatFlyer.dareToLiveIt'),
-		),
-		arrivalTimeNoteText: computed(
-			() => options.value?.arrivalTimeNoteOverride || t('retreatFlyer.arrivalTimeNote'),
-		),
-		whatToBringText: computed(
-			() => options.value?.whatToBringOverride || t('retreatFlyer.whatToBring'),
-		),
-		registerText: computed(() => options.value?.registerOverride || t('retreatFlyer.register')),
-		scanToRegisterText: computed(
-			() => options.value?.scanToRegisterOverride || t('retreatFlyer.scanToRegister'),
-		),
+		dareToLiveItText: editableText('dareToLiveItOverride', 'dareToLiveIt'),
+		arrivalTimeNoteText: editableText('arrivalTimeNoteOverride', 'arrivalTimeNote'),
+		whatToBringText: editableText('whatToBringOverride', 'whatToBring'),
+		registerText: editableText('registerOverride', 'register'),
+		scanToRegisterText: editableText('scanToRegisterOverride', 'scanToRegister'),
 
-		comeText: computed(() => options.value?.comeOverride || t('retreatFlyer.come')),
-		limitedCapacityText: computed(
-			() => options.value?.limitedCapacityOverride || t('retreatFlyer.limitedCapacity'),
-		),
-		dontMissItText: computed(
-			() => options.value?.dontMissItOverride || t('retreatFlyer.dontMissIt'),
-		),
-		reservationNoteText: computed(
-			() => options.value?.reservationNoteOverride || t('retreatFlyer.reservationNote'),
-		),
+		comeText: editableText('comeOverride', 'come'),
+		limitedCapacityText: editableText('limitedCapacityOverride', 'limitedCapacity'),
+		dontMissItText: editableText('dontMissItOverride', 'dontMissIt'),
+		reservationNoteText: editableText('reservationNoteOverride', 'reservationNote'),
 
 		formatDate,
 	}) as FlyerContent;

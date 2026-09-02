@@ -3073,7 +3073,8 @@
       "comeOverride": "Footer: Come",
       "limitedCapacityOverride": "Footer: limited capacity",
       "dontMissItOverride": "Footer: don't miss it",
-      "reservationNoteOverride": "Footer: reservation note"
+      "reservationNoteOverride": "Footer: reservation note",
+      "hiddenNote": "Hidden: it does not appear on the flyer."
     },
     "templates": {
       "title": "Templates",

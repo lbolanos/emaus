@@ -148,6 +148,30 @@ export const flyerThemeSchema = flyerBlockStyleSchema.extend({
 });
 export type FlyerTheme = z.infer<typeof flyerThemeSchema>;
 
+/**
+ * The flyer's editable texts. Every one of them can be hidden outright, which is a
+ * different thing from leaving its override empty: empty means "use the default
+ * wording", hidden means "this line does not belong on my flyer".
+ */
+export const flyerTextKeySchema = z.enum([
+	'catholicRetreatOverride',
+	'emausForOverride',
+	'weekendOfHopeOverride',
+	'hopeOverride',
+	'hopeQuoteOverride',
+	'encounterDescriptionOverride',
+	'dareToLiveItOverride',
+	'arrivalTimeNoteOverride',
+	'whatToBringOverride',
+	'registerOverride',
+	'scanToRegisterOverride',
+	'comeOverride',
+	'limitedCapacityOverride',
+	'dontMissItOverride',
+	'reservationNoteOverride',
+]);
+export type FlyerTextKey = z.infer<typeof flyerTextKeySchema>;
+
 export const FLYER_LAYOUT_VERSION = 2;
 
 /** Upper bound for the flyer's free-text overrides; they are headings and short lines. */
@@ -193,6 +217,8 @@ export const flyerOptionsSchema = z.object({
 	theme: flyerThemeSchema.optional(),
 	/** Per-block overrides on top of the theme. Zod validates the keys against the enum. */
 	blockStyles: z.record(flyerBlockIdSchema, flyerBlockStyleSchema).optional(),
+	/** Texts left off the flyer entirely, as opposed to just not customised. */
+	hiddenTexts: z.array(flyerTextKeySchema).max(30).optional(),
 
 	titleOverride: z.string().max(FLYER_TEXT_MAX).optional(),
 	subtitleOverride: z.string().max(FLYER_TEXT_MAX).optional(),

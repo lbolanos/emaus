@@ -225,6 +225,54 @@ describe('flyerEditorStore', () => {
 		});
 	});
 
+	describe('hiding texts', () => {
+		it('toggles a text on and off', () => {
+			const store = useFlyerEditorStore();
+			store.loadFromRetreat(retreatWith());
+
+			expect(store.hiddenTexts).toEqual([]);
+			store.toggleTextVisibility('catholicRetreatOverride');
+			expect(store.hiddenTexts).toEqual(['catholicRetreatOverride']);
+			expect(store.isDirty).toBe(true);
+
+			store.toggleTextVisibility('catholicRetreatOverride');
+			expect(store.hiddenTexts).toEqual([]);
+		});
+
+		it('persists the hidden list', async () => {
+			const store = useFlyerEditorStore();
+			store.loadFromRetreat(retreatWith());
+			store.toggleTextVisibility('dareToLiveItOverride');
+			await store.save();
+
+			expect(updateRetreat.mock.calls[0][0].flyer_options.hiddenTexts).toEqual([
+				'dareToLiveItOverride',
+			]);
+		});
+
+		// Hiding is independent of the override: the wording survives being switched off
+		it('keeps the custom wording of a hidden text', () => {
+			const store = useFlyerEditorStore();
+			store.loadFromRetreat(
+				retreatWith({ comeOverride: 'Anímate', hiddenTexts: ['comeOverride'] }),
+			);
+
+			expect(store.hiddenTexts).toEqual(['comeOverride']);
+			expect(store.textOverrides.comeOverride).toBe('Anímate');
+		});
+
+		it('takes the hidden list from an applied template', () => {
+			const store = useFlyerEditorStore();
+			store.loadFromRetreat(retreatWith({ hiddenTexts: ['comeOverride'] }));
+
+			store.applyTemplate({ layoutVersion: 2, blocks: [], hiddenTexts: ['registerOverride'] });
+			expect(store.hiddenTexts).toEqual(['registerOverride']);
+
+			store.applyTemplate({ layoutVersion: 2, blocks: [] });
+			expect(store.hiddenTexts).toEqual([]);
+		});
+	});
+
 	describe('applyTemplate', () => {
 		it('replaces layout, images and texts', () => {
 			const store = useFlyerEditorStore();

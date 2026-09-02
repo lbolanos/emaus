@@ -44,11 +44,13 @@
 
 		<div class="relative z-10 text-right flex-1 pr-2">
 			<p
+				v-if="content.subtitleText"
 				class="text-[17px] text-white/95 font-bold mb-0.5 uppercase tracking-[0.25em] drop-shadow-lg"
 			>
 				{{ content.subtitleText }}
 			</p>
 			<h1
+				v-if="content.titleText"
 				id="flyer-title"
 				data-flyer-title
 				class="flyer-title text-[68px] font-bold text-white leading-[0.9] transform -rotate-1 origin-bottom-right pb-1"
@@ -57,7 +59,8 @@
 				{{ content.titleText }}
 			</h1>
 			<p
-				class="text-[13px] text-white/95 italic font-medium tracking-wide mt-10 drop-shadow-lg leading-tight max-w-[420px] ml-auto"
+				v-if="content.quoteText"
+				class="text-[13px] text-white/95 italic font-medium tracking-wide mt-10 drop-shadow-lg leading-tight max-w-[420px] ml-auto whitespace-pre-line"
 			>
 				"{{ content.quoteText }}"
 			</p>

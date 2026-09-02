@@ -1,6 +1,7 @@
 <template>
 	<div class="p-2.5">
 		<h4
+			v-if="content.whatToBringText"
 			class="font-black text-[13px] uppercase text-[color:var(--fb-heading)] mb-2 flex items-center gap-2 border-b border-current/30 pb-2 tracking-[0.1em]"
 		>
 			<div

@@ -25,7 +25,9 @@
 				<span class="block text-[10px] text-[color:var(--fb-text)] uppercase tracking-[0.15em] mb-1 font-black opacity-80">
 					{{ t('retreatFlyer.paymentMethods') }}
 				</span>
-				<span class="font-bold text-[color:var(--fb-text)] text-center block text-[12px]">
+				<span
+					class="font-bold text-[color:var(--fb-text)] text-center block text-[12px] whitespace-pre-line"
+				>
 					{{ content.paymentMethods }}
 				</span>
 			</div>

@@ -9,14 +9,22 @@
 				class="flex flex-col md:flex-row print:flex-row items-center justify-center gap-2 md:gap-6 print:gap-2 text-center"
 			>
 				<h3
+					v-if="content.catholicRetreatText"
 					data-banner-title
 					class="text-xl md:text-2xl font-bold uppercase tracking-widest font-header"
 				>
 					{{ content.catholicRetreatText }}
 				</h3>
-				<span data-banner-divider class="hidden md:block print:block w-px h-8 bg-blue-500/30"></span>
+				<span
+					v-if="content.catholicRetreatText"
+					data-banner-divider
+					class="hidden md:block print:block w-px h-8 bg-blue-500/30"
+				></span>
 				<div class="flex items-center gap-3">
-					<span class="text-sm opacity-80 uppercase tracking-wide print:opacity-100">
+					<span
+						v-if="content.emausForText"
+						class="text-sm opacity-80 uppercase tracking-wide print:opacity-100"
+					>
 						{{ content.emausForText }}
 					</span>
 					<span

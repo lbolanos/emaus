@@ -17,10 +17,13 @@
 				</p>
 				<p class="text-[22px] font-black text-[color:var(--fb-text)] mt-1">{{ content.openingTimeDisplay }}</p>
 				<div
+					v-if="content.registrationDeadline"
 					class="mt-3 border-l-4 border-[color:var(--fb-heading)] pl-3.5 py-1"
 				>
 					<p class="text-[13px] text-[color:var(--fb-text)] font-bold flex items-center gap-2.5">
-						<span class="text-[14px] leading-tight">{{ content.registrationDeadline }}</span>
+						<span class="text-[14px] leading-tight whitespace-pre-line">
+							{{ content.registrationDeadline }}
+						</span>
 					</p>
 				</div>
 			</div>

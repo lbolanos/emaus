@@ -1,9 +1,15 @@
 <template>
 	<div class="p-4 text-center">
-		<h3 class="text-[22px] font-black text-[color:var(--fb-heading)] uppercase mb-2 tracking-[0.15em]">
+		<h3
+			v-if="content.registerText"
+			class="text-[22px] font-black text-[color:var(--fb-heading)] uppercase mb-2 tracking-[0.15em]"
+		>
 			{{ content.registerText }}
 		</h3>
-		<p class="text-[11px] text-[color:var(--fb-text)] mb-4 font-bold leading-tight">
+		<p
+			v-if="content.scanToRegisterText"
+			class="text-[11px] text-[color:var(--fb-text)] mb-4 font-bold leading-tight whitespace-pre-line"
+		>
 			{{ content.scanToRegisterText }}
 		</p>
 

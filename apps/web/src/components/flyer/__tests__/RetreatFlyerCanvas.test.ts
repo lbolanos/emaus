@@ -160,6 +160,46 @@ describe('RetreatFlyerCanvas', () => {
 		});
 	});
 
+	describe('hidden texts', () => {
+		// Hiding is not the same as leaving an override empty: empty means "use the
+		// default wording", hidden means the line should not be on the flyer at all.
+		it('drops a hidden text from the flyer instead of falling back to the default', () => {
+			const shown = mountCanvas();
+			expect(shown.text()).toContain('retreatFlyer.catholicRetreat');
+
+			const hidden = mountCanvas({ flyerOptions: { hiddenTexts: ['catholicRetreatOverride'] } });
+			expect(hidden.text()).not.toContain('retreatFlyer.catholicRetreat');
+		});
+
+		it('hides the call to action without touching the intro copy', () => {
+			const wrapper = mountCanvas({ flyerOptions: { hiddenTexts: ['dareToLiveItOverride'] } });
+
+			expect(wrapper.text()).not.toContain('retreatFlyer.dareToLiveIt');
+			expect(wrapper.text()).toContain('retreatFlyer.encounterDescription');
+		});
+
+		it('can strip the header down to nothing but the parish', () => {
+			const wrapper = mountCanvas({
+				flyerOptions: {
+					hiddenTexts: ['hopeOverride', 'weekendOfHopeOverride', 'hopeQuoteOverride'],
+				},
+			});
+
+			expect(wrapper.find('#flyer-title').exists()).toBe(false);
+			expect(wrapper.text()).not.toContain('retreatFlyer.hopeQuote');
+			expect(wrapper.text()).toContain('San Judas Tadeo');
+		});
+
+		it('keeps a custom text when it is not in the hidden list', () => {
+			const wrapper = mountCanvas({
+				flyerOptions: { comeOverride: 'Anímate', hiddenTexts: ['dontMissItOverride'] },
+			});
+
+			expect(wrapper.text()).toContain('Anímate');
+			expect(wrapper.text()).not.toContain('retreatFlyer.dontMissIt');
+		});
+	});
+
 	describe('editing', () => {
 		it('is not draggable unless editable, so the published flyer stays inert', () => {
 			// draggable="false" is how HTML spells "not draggable"
