@@ -282,6 +282,23 @@ describe('RetreatFlyerEditView', () => {
 		});
 	});
 
+	// On a phone the panel is a screenful of its own: with the flyer below it, hiding a
+	// block or changing a colour showed you nothing at all.
+	it('keeps the preview on screen on a phone, and out of the way on a desktop', async () => {
+		const wrapper = await mountEditor();
+		const preview = wrapper.find('#printable-area').element.parentElement!;
+		const column = preview.parentElement!;
+
+		expect(column.className).toContain('order-first');
+		expect(column.className).toContain('sticky');
+		expect(preview.className).toContain('max-h-[42vh]');
+
+		// …and from lg up it goes back to being the right-hand column
+		expect(column.className).toContain('lg:static');
+		expect(column.className).toContain('lg:order-none');
+		expect(preview.className).toContain('lg:max-h-none');
+	});
+
 	it('feeds text overrides into the preview as they are typed', async () => {
 		const wrapper = await mountEditor();
 		const store = useFlyerEditorStore();

@@ -3038,7 +3038,7 @@
       "right": "Right column",
       "wide": "Full-width row"
     },
-    "dragHint": "Drag the blocks on the flyer itself to move them.",
+    "dragHint": "Drag the blocks on the flyer, or move them with the arrows in the list.",
     "show": "Show",
     "hide": "Hide",
     "hidden": "Hidden",

@@ -103,6 +103,7 @@ más los dos remates de la vista de plantillas.
 - [x] La vista publicada del volante recibe el diseño guardado (bug de M1)
 - [x] Tests de `useFlyerContent`, `FlyerTextPanel` y del cableado de las rutas del API
 - [x] Ayuda in-app del volante (es/en) enlazada desde `helpIndex.ts`
+- [x] Editor usable en teléfono: vista previa pegada arriba
 
 **Done**: el editor perdona los errores (deshacer, aviso al salir), avisa de los que no se ven
 hasta imprimir (contraste), y aplicar una plantilla ya no es a ciegas.
@@ -130,6 +131,11 @@ hasta imprimir (contraste), y aplicar una plantilla ya no es a ciegas.
   vista previa se quedó sin las fuentes del volante, así que los estilos del canvas pasaron a
   colgar de `.print-optimized` (su clase raíz) en vez del id; las reglas de `@media print` sí
   siguen ancladas al id, que es justo lo que se quiere.
+- **En el teléfono el editor no servía para lo que es.** El panel ocupa una pantalla entera, así
+  que en la rejilla de una columna el volante quedaba a pantalla y media por debajo: tocabas el
+  ojo de un bloque y no veías nada. Salió al probarlo en 390px, no en los tests. Ahora la vista
+  previa va primero y pegada arriba por debajo de `lg`. De paso, el texto prometía arrastrar
+  bloques sobre el volante, que en táctil no se puede; ahora nombra también las flechas.
 - **Escribir los tests que faltaban encontró dos bugs vivos**, ninguno introducido en esta rama:
   una lista numerada perdía el número y ganaba un punto suelto ("1. Termo" salía como ". Termo"),
   y un teléfono escrito sin nombre se partía mal — el primer dígito se tomaba como etiqueta y el

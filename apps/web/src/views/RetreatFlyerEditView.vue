@@ -111,12 +111,30 @@
 				</CardContent>
 			</Card>
 
-			<!-- Live preview -->
-			<div ref="previewColumnRef" class="min-w-0">
+			<!--
+				Live preview. On a phone the panel is a screenful of its own, which left the
+				flyer a screen and a half below: you hid a block or changed a colour and saw
+				nothing happen. So on small screens it comes first and sticks to the top,
+				capped in height with its own scroll. From lg up the two columns sit side by
+				side as before.
+			-->
+			<div
+				class="order-first min-w-0 sticky top-0 z-20 -mx-4 border-b bg-gray-100 px-4 pb-3 pt-2 lg:static lg:order-none lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0"
+			>
 				<h2 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
 					{{ t('retreatFlyerEditor.preview') }}
 				</h2>
-				<div :style="{ height: previewHeight }">
+				<!--
+					The ref goes here, on the box the flyer actually has to fit into: measuring
+					the wrapper counted its padding as usable width and the flyer overflowed.
+					overflow-x-hidden because a scaled element keeps its full 850px layout box,
+					which would otherwise show up as a horizontal scrollbar under the preview.
+				-->
+				<div
+					ref="previewColumnRef"
+					class="max-h-[42vh] overflow-y-auto overflow-x-hidden lg:max-h-none lg:overflow-visible"
+					:style="{ height: previewHeight }"
+				>
 					<RetreatFlyerCanvas
 						ref="canvasRef"
 						:retreat="retreat"

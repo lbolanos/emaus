@@ -139,6 +139,25 @@ Dos trampas que costaron una vuelta:
 - Al apilar, solo el hijo que se llevaba el ancho sobrante (`.flex-1`) pasa a `width: 100%`. Si
   se aplica a todos, el chip del icono se estira de lado a lado.
 
+## En un teléfono
+
+El panel es un pantallazo entero por sí solo, así que con el volante debajo —donde lo dejaba la
+rejilla de una columna— ocultar un bloque o cambiar un color no enseñaba nada: el volante estaba
+a pantalla y media. Por debajo de `lg` la vista previa va **primero** y **pegada arriba**
+(`sticky`), con la altura tope en `42vh` y su propio scroll; de `lg` para arriba vuelve a ser la
+columna derecha de siempre.
+
+Dos trampas al hacerlo:
+
+- **El `ref` que mide el ancho va en la caja donde entra el volante**, no en el envoltorio: éste
+  lleva `px-4`, y `clientWidth` cuenta el relleno como espacio útil, así que el volante se
+  escalaba de más y se salía por la derecha.
+- **`overflow-x-hidden`** en esa caja: un elemento escalado conserva su caja de 850px, que sin
+  eso asoma como una barra de scroll horizontal bajo la vista previa.
+
+Arrastrar sigue siendo cosa de ratón; en el teléfono se mueve con las flechas de la lista, y el
+texto de ayuda nombra las dos formas.
+
 ## El panel de Diseño
 
 Dos secciones plegables (`FlyerPanelSection`), independientes entre sí: **Todo el volante** —la
