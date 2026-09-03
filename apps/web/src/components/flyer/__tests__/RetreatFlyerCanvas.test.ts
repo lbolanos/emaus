@@ -184,6 +184,15 @@ describe('RetreatFlyerCanvas', () => {
 			expect(wrapper.find('[data-flyer-block="payment"] .fb-box').exists()).toBe(true);
 		});
 
+		// As a block it stretched across the column: a white bar with the address stranded
+		// at one end. happy-dom has no layout, so this fixes the class that does it.
+		it('sizes the address plate to the address', () => {
+			const plate = mountCanvas().find('[data-registration-domain]');
+
+			expect(plate.classes()).toContain('inline-block');
+			expect(plate.classes()).toContain('max-w-full');
+		});
+
 		it('washes the background image when the theme asks for it', () => {
 			const plain = mountCanvas();
 			const dimmed = mountCanvas({ theme: { scrim: 'dark', scrimOpacity: 50 } });

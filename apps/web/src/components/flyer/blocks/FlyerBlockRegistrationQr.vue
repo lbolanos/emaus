@@ -24,8 +24,14 @@
 				/>
 			</div>
 		</div>
+		<!--
+			inline-block so the plate is as wide as the address and no wider: as a block it
+			stretched across the column and read as an empty white bar with the text stranded
+			at one end. It lines up by the block's own alignment, like everything else here.
+		-->
 		<div
-			class="mt-2 text-[9px] text-blue-700 font-black font-mono lowercase tracking-normal bg-white/80 px-2 py-1.5 rounded-lg border border-blue-200/50 shadow-sm break-all leading-tight"
+			data-registration-domain
+			class="mt-2 inline-block max-w-full text-[9px] text-blue-700 font-black font-mono lowercase tracking-normal bg-white/80 px-2 py-1.5 rounded-lg border border-blue-200/50 shadow-sm break-all leading-tight"
 		>
 			{{ content.registrationDomain }}
 		</div>
