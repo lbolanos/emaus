@@ -27,17 +27,30 @@ export const getRetreatBeds = async (req: Request, res: Response, next: NextFunc
 			const rpRepo = AppDataSource.getRepository(RetreatParticipant);
 			const retreatParticipants = await rpRepo.find({
 				where: { retreatId },
-				select: ['participantId', 'type'],
+				select: ['participantId', 'type', 'requestsSingleRoom'],
 			});
 			const typeMap = new Map(
 				retreatParticipants
 					.filter((rp) => rp.participantId)
 					.map((rp) => [rp.participantId!, rp.type]),
 			);
+			// `requestsSingleRoom` vive en las dos tablas: el valor por retiro manda
+			// sobre el global del Participant, igual que hace el listado de
+			// participantes. Sin este overlay el mapa de camas mostraría la
+			// preferencia de otro retiro.
+			const singleRoomMap = new Map(
+				retreatParticipants
+					.filter((rp) => rp.participantId && rp.requestsSingleRoom !== undefined)
+					.map((rp) => [rp.participantId!, rp.requestsSingleRoom]),
+			);
 
 			for (const bed of beds) {
 				if (bed.participant) {
 					(bed.participant as any).type = typeMap.get(bed.participant.id) || null;
+					const perRetreat = singleRoomMap.get(bed.participant.id);
+					if (perRetreat !== undefined && perRetreat !== null) {
+						bed.participant.requestsSingleRoom = perRetreat;
+					}
 				}
 			}
 		}

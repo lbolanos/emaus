@@ -72,7 +72,7 @@
         @dragstart="startDrag"
         @dragend="onDragEnd"
         @dblclick.stop="$emit('unassign', bed.id)"
-        :title="`${bed.participant.firstName} ${bed.participant.lastName}\n${$t('bedAssignments.age')}: ${calculateAge(bed.participant.birthDate)}\n${$t('bedAssignments.snores')}: ${bed.participant.snores ? $t('common.yes') : $t('common.no')}\n${$t('bedAssignments.idOnRetreat')}: ${bed.participant.id_on_retreat || 'N/A'}`"
+        :title="`${bed.participant.firstName} ${bed.participant.lastName}\n${$t('bedAssignments.age')}: ${calculateAge(bed.participant.birthDate)}\n${$t('bedAssignments.snores')}: ${bed.participant.snores ? $t('common.yes') : $t('common.no')}\n${$t('bedAssignments.idOnRetreat')}: ${bed.participant.id_on_retreat || 'N/A'}${(bed.participant as any).requestsSingleRoom ? '\nSolicitó cuarto individual' : ''}`"
         :style="{ borderColor: bed.participant.family_friend_color || '#ccc' }"
         class="w-full p-1 rounded border cursor-grab transition-all duration-200 hover:shadow-sm"
         :class="{
@@ -94,6 +94,13 @@
             <span class="text-xs text-gray-600 dark:text-gray-400">
               {{ calculateAge(bed.participant.birthDate) }}
             </span>
+            <!-- Aquí no cabe el badge de la vista amplia; el símbolo basta para
+                 que el admin sepa que hay una petición que atender. -->
+            <span
+              v-if="(bed.participant as any).requestsSingleRoom"
+              class="flex-shrink-0 text-[10px] leading-none"
+              title="Solicitó cuarto individual"
+            >⚠️</span>
           </div>
           <button
             @click="$emit('unassign', bed.id)"
