@@ -41,14 +41,22 @@ MARITAL_STATUS = {
 }
 
 # The parish's shirt catalogue -> the sizes configured on the retreat.
-# VERIFY THIS against the retreat's shirt types before importing: sizes are
-# per-retreat (retreat_shirt_type.availableSizes) and differ by country.
+#
+# These are the Mexican sizes (S/M/G/X/2), which is what Del Valle II uses:
+#   SELECT availableSizes FROM retreat_shirt_type WHERE retreatId = '<retiro>'
+#
+# CHECK THIS before every import. Sizes live per-retreat in
+# retreat_shirt_type.availableSizes and differ by country — Colombia uses
+# S/M/L/XL/XXL. The first version of this script mapped to the Colombian set and
+# would have written "L" into a retreat whose catalogue only knows "G": the
+# importer trusts whatever it receives, so the size lands orphaned and nobody
+# finds out until the shirts are ordered.
 SHIRT_SIZE = {
-    "Chica (CH)": "CH",
+    "Chica (CH)": "S",
     "Mediana (M)": "M",
-    "Grande (L)": "L",
-    "Extra grande (XL)": "XL",
-    "Extra extra grande (XXL)": "XXL",
+    "Grande (L)": "G",
+    "Extra grande (XL)": "X",
+    "Extra extra grande (XXL)": "2",
 }
 
 # The export writes one comma-separated cell; the importer reads four columns.
