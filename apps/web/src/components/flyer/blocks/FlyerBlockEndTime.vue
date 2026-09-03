@@ -22,9 +22,12 @@
 						{{ content.closingLocation }}
 					</p>
 				</div>
+				<!-- inline-flex, not flex: block-level it stretched to the column and the
+				     warning read as an empty amber bar with a line of text inside -->
 				<p
 					v-if="content.arrivalTimeNoteText"
-					class="text-gray-800 font-bold uppercase text-[12px] flex items-center gap-2 bg-amber-50/80 px-3 py-2 rounded-lg border border-amber-200 whitespace-pre-line"
+					data-arrival-note
+					class="fb-row text-gray-800 font-bold uppercase text-[12px] inline-flex max-w-full items-center gap-2 bg-amber-50/80 px-3 py-2 rounded-lg border border-amber-200 whitespace-pre-line"
 				>
 					<Users class="w-5 h-5 flex-shrink-0" /> {{ content.arrivalTimeNoteText }}
 				</p>

@@ -203,6 +203,14 @@ describe('RetreatFlyerCanvas', () => {
 			expect(stack.classes()).not.toContain('space-y-1');
 		});
 
+		it('sizes the family notice to its wording', () => {
+			const note = mountCanvas().find('[data-arrival-note]');
+
+			expect(note.classes()).toContain('inline-flex');
+			expect(note.classes()).toContain('max-w-full');
+			expect(note.classes()).not.toContain('flex');
+		});
+
 		it('washes the background image when the theme asks for it', () => {
 			const plain = mountCanvas();
 			const dimmed = mountCanvas({ theme: { scrim: 'dark', scrimOpacity: 50 } });
