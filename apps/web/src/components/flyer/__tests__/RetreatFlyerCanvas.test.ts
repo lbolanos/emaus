@@ -193,6 +193,16 @@ describe('RetreatFlyerCanvas', () => {
 			expect(plate.classes()).toContain('max-w-full');
 		});
 
+		// Same story as the address plate: block-level cards stretched to the column and
+		// read as empty bars. A grid with fb-stack sizes each card to its own number.
+		it('sizes each contact card to its own number', () => {
+			const stack = mountCanvas().find('[data-flyer-block="contact"] .fb-stack');
+
+			expect(stack.exists()).toBe(true);
+			expect(stack.classes()).toContain('grid');
+			expect(stack.classes()).not.toContain('space-y-1');
+		});
+
 		it('washes the background image when the theme asks for it', () => {
 			const plain = mountCanvas();
 			const dimmed = mountCanvas({ theme: { scrim: 'dark', scrimOpacity: 50 } });

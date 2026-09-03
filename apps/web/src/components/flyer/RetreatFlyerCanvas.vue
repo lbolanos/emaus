@@ -244,6 +244,12 @@ const blocksInSlot = computed(() => {
 	margin-right: var(--fb-box-mr, auto);
 }
 
+/* A grid whose cells hug their contents instead of stretching to the column width,
+   and line up on the side the block is aligned to. */
+.print-optimized .fb-stack {
+	justify-items: var(--fb-justify, flex-start);
+}
+
 .print-optimized .font-display {
 	font-family: 'Dancing Script', cursive;
 }

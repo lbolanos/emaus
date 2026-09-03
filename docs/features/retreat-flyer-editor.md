@@ -130,6 +130,7 @@ va. Por eso cada bloque marca sus filas y `resolveBlockStyle` devuelve cuatro va
 | `.fb-lead` | la fila principal: icono y su texto | centrada se apila (icono arriba); a la derecha se invierte |
 | `.fb-row` | una fila secundaria: un ítem de lista, la placa del QR | sigue la alineación sin apilarse |
 | `.fb-box` | una caja con ancho máximo | se coloca por `--fb-box-ml` / `--fb-box-mr` |
+| `.fb-stack` | una rejilla de tarjetas (los contactos) | cada celda se ajusta a su contenido con `justify-items` |
 
 Dos trampas que costaron una vuelta:
 

@@ -11,11 +11,15 @@
 			</div>
 			{{ t('retreatFlyer.information') }}
 		</h4>
-		<!-- Capped: the phone cards read as a stretched box across a whole column otherwise -->
+		<!--
+			Capped: the phone cards read as a stretched box across a whole column otherwise.
+			Always a grid — one column or two — because that is what lets .fb-stack size each
+			card to its own number instead of to the width of the widest one.
+		-->
 		<div
 			:class="[
-				'fb-box gap-1 max-w-[320px]',
-				content.totalContactItems > 2 ? 'grid grid-cols-2' : 'space-y-1',
+				'fb-box fb-stack grid gap-1 max-w-[320px]',
+				content.totalContactItems > 2 ? 'grid-cols-2' : 'grid-cols-1',
 			]"
 		>
 			<div
