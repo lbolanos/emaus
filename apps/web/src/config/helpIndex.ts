@@ -355,6 +355,22 @@ export const helpIndex: HelpSection[] = [
 		],
 	},
 	{
+		key: 'flyer-editor',
+		title: 'Retreat Flyer',
+		titleEs: 'Volante del retiro',
+		icon: 'mdi-image-text',
+		// Matched by substring, so this covers both retreat-flyer and retreat-flyer-edit
+		routeContext: ['retreat-flyer'],
+		topics: [
+			{
+				key: 'flyer-editor-overview',
+				title: 'Overview',
+				titleEs: 'Descripción general',
+				content: 'flyer-editor.md',
+			},
+		],
+	},
+	{
 		key: 'notes-and-meeting-points',
 		title: 'Notes and Meeting Points',
 		titleEs: 'Notas y Puntos de Encuentro',

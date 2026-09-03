@@ -242,7 +242,9 @@ export function useFlyerContent(
 		const items = notes
 			.split(separator)
 			.map((item: string) => item.trim())
-			.map((item: string) => item.replace(/^[•*\-\d.]\s*/, ''))
+			// A list marker is a bullet or a number followed by . or ) — never a bare
+			// digit, which is part of the item itself ("2 pares de calcetines")
+			.map((item: string) => item.replace(/^(?:[•*-]|\d+[.)])\s*/, ''))
 			.filter((item: string) => item.length > 0)
 			.map((item: string) =>
 				item
@@ -294,7 +296,10 @@ export function useFlyerContent(
 				.map((phone: string) => phone.trim())
 				.filter((phone: string) => phone.length > 0)
 				.map((phone: string) => {
-					const match = phone.match(/(.+?)\s*(\d[\d\s-]*\d)/);
+					// The name has to start with something that is not a digit. With `.+?`
+					// a bare "55-6525-0861" matched too: it took the first 5 as the name and
+					// printed the number one digit short, on a flyer, in print.
+					const match = phone.match(/^(\D.*?)\s*(\d[\d\s-]*\d)$/);
 					if (match) {
 						return { name: match[1].trim(), number: match[2].trim() };
 					}

@@ -283,3 +283,36 @@ saber por qué antes de "arreglarlo" algún día:
 el error, hace `console.warn` y devuelve `options.imagePlaceholder || ''`. No hay excepción: el
 PDF o la imagen copiada **salen sin esa imagen**. Si alguien reporta "el volante se exporta sin
 fondo", mira primero la consola y los headers CORS del bucket, no el código del volante.
+
+## Ayuda para quien lo usa
+
+`apps/web/src/docs/{es,en}/flyer-editor.md`, enlazado en `helpIndex.ts` con
+`routeContext: ['retreat-flyer']` — por substring, así que cubre la vista y el editor. Sale por
+"Obtener ayuda para esta página". Al cambiar la interfaz, ese texto se actualiza con ella:
+describe botones concretos.
+
+## Qué cubre cada test
+
+| Archivo | Qué fija |
+|---|---|
+| `utils/__tests__/flyerStyle.test.ts` | La cascada de estilo, la opacidad compuesta a rgba, el contraste y la alineación resuelta a cuatro variables |
+| `utils/__tests__/flyerLayout.test.ts` | Normalizar v1→v2, descartar bloques inventados y mover uno sin desordenar el resto |
+| `composables/__tests__/useFlyerContent.test.ts` | Todo el contenido derivado: el parseo de "qué llevar", los textos ocultos, teléfonos y correos, el coste, las horas, las fechas sin desfase, el saneado del pago y los enlaces |
+| `components/flyer/__tests__/RetreatFlyerCanvas.test.ts` | El volante: bloques por hueco, arrastre, variables CSS, el velo, los textos ocultos y las marcas de alineación |
+| `components/flyer/__tests__/FlyerDesignPanel.test.ts` | Las secciones plegables, el resumen de la cabecera y que seleccionar un bloque despliegue la suya |
+| `components/flyer/__tests__/FlyerStyleFields.test.ts` | Los campos de estilo, incluido el "sin fondo" que se escribe como opacidad 0 |
+| `components/flyer/__tests__/FlyerTextPanel.test.ts` | Un campo por texto, los largos con textarea, y ocultar sin perder lo escrito |
+| `components/flyer/__tests__/FlyerImagePicker.test.ts` | Elegir preset y subir imagen propia |
+| `components/flyer/__tests__/FlyerTemplatePanel.test.ts` | Guardar, alcance, vista previa y las confirmaciones |
+| `stores/__tests__/flyerEditorStore.test.ts` | El borrador: qué ensucia, qué guarda, deshacer, aplicar plantilla y **no pisar lo que otras pantallas guardan en `flyer_options`** |
+| `views/__tests__/RetreatFlyerView.test.ts` | La vista publicada, incluido que reciba el diseño guardado (§ "Saved design") |
+| `views/__tests__/RetreatFlyerEditView.test.ts` | El editor completo: pestañas, arrastre sobre el volante, guardar y avisar al salir |
+| `api/tests/services/flyerOptionsSchema.simple.test.ts` | Lo que el API acepta y lo que rechaza en `flyer_options` |
+| `api/tests/services/flyerTemplateService.test.ts` | Quién puede ver, editar y borrar cada plantilla |
+| `api/tests/services/flyerAsset.test.ts` | La subida de imágenes y su recorte a `public-assets/` |
+| `api/tests/routes/flyerRoutes.simple.test.ts` | El cableado: sesión, `retreat:update` y validación **antes** del controlador |
+
+Los tests de la vista pública montaban el volante de fábrica, que es exactamente el punto ciego
+por el que el diseño guardado nunca llegó a la hoja impresa. Cuando añadas cobertura aquí, pasa
+opciones **con** diseño: un flyer por defecto pasa todos los tests que importan y ninguno que
+sirva.

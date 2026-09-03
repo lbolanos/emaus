@@ -248,7 +248,7 @@ vi.mock('@repo/ui', () => ({
 		// binding real. Emite `update:modelValue` como el componente de verdad.
 		name: 'Input',
 		template:
-			'<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+			'<input :value="modelValue" :placeholder="placeholder" :type="type" :disabled="disabled" @input="$emit(\'update:modelValue\', $event.target.value)" />',
 		props: ['modelValue', 'placeholder', 'type', 'disabled'],
 		emits: ['update:modelValue'],
 	},
@@ -378,10 +378,10 @@ vi.mock('@repo/ui', () => ({
 	},
 	Textarea: {
 		name: 'Textarea',
-		props: ['modelValue'],
+		props: ['modelValue', 'placeholder', 'rows', 'disabled'],
 		emits: ['update:modelValue'],
 		template:
-			'<textarea :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+			'<textarea :value="modelValue" :placeholder="placeholder" :rows="rows" :disabled="disabled" @input="$emit(\'update:modelValue\', $event.target.value)" />',
 	},
 	Switch: {
 		name: 'Switch',

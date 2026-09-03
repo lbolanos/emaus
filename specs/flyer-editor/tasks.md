@@ -101,6 +101,8 @@ más los dos remates de la vista de plantillas.
 - [x] Panel de Diseño en dos secciones plegables: "Todo el volante" y "Bloques"
 - [x] Alineación por bloque (izquierda / centro / derecha), con su cascada y su control
 - [x] La vista publicada del volante recibe el diseño guardado (bug de M1)
+- [x] Tests de `useFlyerContent`, `FlyerTextPanel` y del cableado de las rutas del API
+- [x] Ayuda in-app del volante (es/en) enlazada desde `helpIndex.ts`
 
 **Done**: el editor perdona los errores (deshacer, aviso al salir), avisa de los que no se ven
 hasta imprimir (contraste), y aplicar una plantilla ya no es a ciegas.
@@ -128,6 +130,15 @@ hasta imprimir (contraste), y aplicar una plantilla ya no es a ciegas.
   vista previa se quedó sin las fuentes del volante, así que los estilos del canvas pasaron a
   colgar de `.print-optimized` (su clase raíz) en vez del id; las reglas de `@media print` sí
   siguen ancladas al id, que es justo lo que se quiere.
+- **Escribir los tests que faltaban encontró dos bugs vivos**, ninguno introducido en esta rama:
+  una lista numerada perdía el número y ganaba un punto suelto ("1. Termo" salía como ". Termo"),
+  y un teléfono escrito sin nombre se partía mal — el primer dígito se tomaba como etiqueta y el
+  número salía impreso incompleto. Los dos estaban en `useFlyerContent`, que tenía 438 líneas y
+  ningún test propio: se probaba de refilón a través de la vista.
+- **El mock global de `Input` declaraba `placeholder` sin bindearlo.** Declarar una prop la saca
+  de `$attrs`, así que nunca llegaba al `<input>` y ningún test de la app podía ver un
+  placeholder. Es el tercer caso del mismo patrón en esta rama, tras `Button.onClick` y
+  `Button.disabled`; arreglado también en `Textarea`.
 - **La vista publicada del volante nunca mostró el diseño guardado.** Desde M1,
   `RetreatFlyerView` le pasaba al canvas solo `flyer_options`: ni `layout`, ni `imageOverrides`,
   ni `theme`, ni `blockStyles`. Como el canvas cae a sus valores de fábrica en cada prop que no
