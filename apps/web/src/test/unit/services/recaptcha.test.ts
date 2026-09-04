@@ -29,6 +29,17 @@ const mockScriptElement = {
 const createElementMock = vi.fn(() => mockScriptElement);
 const appendChildMock = vi.fn();
 
+// The service waits for the visitor to focus a form field before fetching the
+// script, so the fake document needs the listener pair — and the test needs a
+// handle on the registered handler to simulate that focus.
+let focusInHandler: ((event: Event) => void) | null = null;
+const addEventListenerMock = vi.fn((type: string, handler: (event: Event) => void) => {
+	if (type === 'focusin') focusInHandler = handler;
+});
+const removeEventListenerMock = vi.fn();
+const focusOn = (tagName: string) =>
+	focusInHandler?.({ target: { tagName } } as unknown as Event);
+
 describe('recaptcha service', () => {
 	beforeEach(() => {
 		// Reset mocks
@@ -39,9 +50,12 @@ describe('recaptcha service', () => {
 		vi.resetModules();
 
 		// Mock DOM APIs
+		focusInHandler = null;
 		global.document = {
 			createElement: createElementMock,
 			head: { appendChild: appendChildMock },
+			addEventListener: addEventListenerMock,
+			removeEventListener: removeEventListenerMock,
 		} as any;
 
 		(window as any).grecaptcha = undefined;
@@ -80,19 +94,40 @@ describe('recaptcha service', () => {
 	});
 
 	describe('installRecaptcha', () => {
-		it('should preload script when configured', async () => {
+		// Google's script is ~0.8 MB and used to be fetched on boot by every page,
+		// including the ones without a single form (terms, privacy notice). Now it
+		// waits for the visitor to focus a field, which still happens seconds
+		// before any submit.
+		it('does not fetch the script just because the app booted', async () => {
 			vi.stubEnv('VITE_RECAPTCHA_SITE_KEY', 'real-site-key-abc123');
 
 			const { installRecaptcha: install } = await import('@/services/recaptcha');
 
-			const mockApp = {
-				use: vi.fn(),
-			} as unknown as App;
+			install({ use: vi.fn() } as unknown as App);
 
-			install(mockApp);
+			expect(createElementMock).not.toHaveBeenCalledWith('script');
+		});
 
-			// Should have attempted to create a script element
+		it('fetches the script once the visitor focuses a form field', async () => {
+			vi.stubEnv('VITE_RECAPTCHA_SITE_KEY', 'real-site-key-abc123');
+
+			const { installRecaptcha: install } = await import('@/services/recaptcha');
+			install({ use: vi.fn() } as unknown as App);
+
+			focusOn('INPUT');
+
 			expect(createElementMock).toHaveBeenCalledWith('script');
+		});
+
+		it('ignores focus on anything that is not a form field', async () => {
+			vi.stubEnv('VITE_RECAPTCHA_SITE_KEY', 'real-site-key-abc123');
+
+			const { installRecaptcha: install } = await import('@/services/recaptcha');
+			install({ use: vi.fn() } as unknown as App);
+
+			focusOn('A');
+
+			expect(createElementMock).not.toHaveBeenCalledWith('script');
 		});
 
 		it('should not throw when not configured', async () => {

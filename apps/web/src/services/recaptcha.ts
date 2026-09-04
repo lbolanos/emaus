@@ -73,18 +73,47 @@ export function isRecaptchaConfigured(): boolean {
 	return configured;
 }
 
+/** Tags whose focus means the visitor is about to submit something. */
+const FORM_FIELD_TAGS = new Set(['INPUT', 'TEXTAREA', 'SELECT']);
+
+/**
+ * Fetch the script the first time the visitor focuses a form field.
+ *
+ * Google's script is ~0.8 MB (decoded) and it used to be preloaded on boot, so
+ * every page paid for it — including the ones with no form at all (terms,
+ * privacy notice, the projected minute-by-minute). On a phone that competes
+ * with the app's own bundle for parse time and memory.
+ *
+ * Focusing a field happens seconds before a submit, which is plenty for the
+ * script to arrive, so nobody waits longer than before; and a visitor who only
+ * reads never downloads it. `getRecaptchaToken` awaits the same cached promise,
+ * so a submit that somehow beats this still works.
+ */
+function warmOnFirstFieldFocus(): void {
+	if (typeof document === 'undefined') return;
+
+	const onFocusIn = (event: Event) => {
+		const target = event.target as HTMLElement | null;
+		if (!target || !FORM_FIELD_TAGS.has(target.tagName)) return;
+		document.removeEventListener('focusin', onFocusIn, true);
+		loadRecaptchaScript().catch(() => {
+			// Silent fail — the script is retried when the first token is requested.
+		});
+	};
+
+	document.addEventListener('focusin', onFocusIn, true);
+}
+
 /**
  * Plugin to install reCAPTCHA in the Vue app
  */
 export function installRecaptcha(app: App): void {
+	void app;
 	if (!isRecaptchaConfigured()) {
 		return;
 	}
 
-	// Preload the script
-	loadRecaptchaScript().catch(() => {
-		// Silent fail - script will load when first token is requested
-	});
+	warmOnFirstFieldFocus();
 }
 
 /**
