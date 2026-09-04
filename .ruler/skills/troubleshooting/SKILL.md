@@ -34,6 +34,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "la suite falla en tests distintos cada vez", "Maximum call stack size exceeded en un test", "Exceeded timeout of 10000 ms" | [#21 La suite de jest falla en suites distintas cada vez](#21-la-suite-de-jest-falla-en-suites-distintas-cada-vez-sin-tocar-ese-código) |
 | "elegí las tallas y el resumen dice que no elegí ninguna", "lo capturé y la pantalla lo muestra vacío", "el reporte sale en cero aunque hay datos" | [#22 La pantalla lee un campo legacy que el formulario ya no llena](#22-la-pantalla-lee-un-campo-legacy-que-el-formulario-ya-no-llena) |
 | "al dar clic en elegir foto no sale nada", "el botón de subir archivo no hace nada", "en local no funciona pero en prod sí" | [#23 El selector de archivos no abre: la ref quedó vieja por el hot-reload](#23-el-selector-de-archivos-no-abre-la-ref-quedó-vieja-por-el-hot-reload) |
+| "no me deja seleccionar el país", "se sale al inicio y pierdo el registro", "en el iPhone se cierra solo", "se queda en Cargando…" | [#24 Un paquete de datos entero en un selector tumba Safari iOS](#24-un-paquete-de-datos-entero-en-un-selector-tumba-safari-ios) |
 
 ---
 
@@ -836,6 +837,83 @@ grep -rn "\.value?\.click()" apps/web/src
   `apps/web/src/components/community/__tests__/MemberPhotoDialog.test.ts`.
 - Quedan seis botones de subida con el patrón frágil (importar participantes, adjuntos, avatar,
   memorias, chat, foto de reunión).
+
+---
+
+## 24. Un paquete de datos entero en un selector tumba Safari iOS
+
+**Síntoma**: desde el iPhone, un paso del formulario **"no deja seleccionar"** el campo (el
+desplegable se queda en *Cargando…* o abre una lista imposible de recorrer con el dedo) y al rato
+**"se sale al inicio"**: la página vuelve a la portada y el avance se pierde. En una laptop el
+mismo formulario va perfecto.
+
+**Causa**: el campo carga un catálogo entero para pintar unas pocas opciones. El caso medido:
+`import('country-state-city')` — la raíz del paquete importa sus tres assets, y `city.json` son
+**7.7 MB con ~150 000 ciudades**. Abrir el paso descargaba **9.05 MB**. Dos consecuencias, que el
+usuario cuenta como dos bugs distintos:
+
+- mientras baja y se parsea, el `<Select>` está `disabled` → *"no me deja seleccionar el país"*;
+- el pico de memoria basta para que **Safari mate la pestaña y la recargue** → *"se sale al inicio"*.
+
+Safari no avisa de esto: no hay error en consola ni pantalla de error, la pestaña simplemente
+vuelve a cargar. Y como en un escritorio sobra memoria y la red es rápida, no se reproduce.
+
+**Fix** — importar sólo el trozo que se usa, y no ofrecer catálogos que el formulario no necesita:
+
+```ts
+// ❌ arrastra country + state + city (8.3 MB de JSON)
+const { Country } = await import('country-state-city')
+
+// ✅ sólo country.json (93 KB); lib/state son 542 KB
+const { default: Country } = await import('country-state-city/lib/country')
+```
+
+`import type { ICountry } from 'country-state-city'` **sí** es seguro: los tipos se borran al
+compilar. Lo que cuesta es el `import()` dinámico de la raíz.
+
+**Segunda mitad del mismo síntoma**: aunque los datos ya estén cargados, un `Select` de reka-ui con
+250 opciones es inservible en un teléfono. El wrapper de `@repo/ui` no incluye
+`SelectScrollUpButton`/`SelectScrollDownButton`, así que en modo *item-aligned* **sólo son
+alcanzables las ~19 opciones que caben en pantalla**; en escritorio no se nota porque el typeahead
+del teclado salva la papeleta. Para listas largas usar
+`apps/web/src/components/form/SearchableSelect.vue` (buscador que ignora acentos, lista en flujo en
+móvil y flotante desde `md`, y `Escape` que cierra sólo el desplegable — sin `.stop` cierra el
+`Dialog` que envuelve el formulario y el usuario pierde todo).
+
+**Y la tercera**: si el formulario guarda borrador, restaurá también **el paso**, no sólo los
+datos. Volver al paso 1 tras una recarga se lee como *"perdí todo"* aunque las respuestas estén
+ahí (`loadDraft` en `ParticipantRegistrationView.vue`).
+
+**Auditar el repo**:
+```bash
+# Imports dinámicos de paquetes conocidos por traer datos gordos
+grep -rn "import('country-state-city')" apps/web/src
+
+# Qué pesa de verdad cada asset del paquete
+du -h node_modules/.pnpm/country-state-city@*/node_modules/country-state-city/lib/assets/*
+
+# Selects con más de ~50 opciones que no usan SearchableSelect
+grep -rn "SelectItem v-for" apps/web/src
+```
+
+**Medirlo antes de creerse el fix** — el peso se mide en el navegador, no leyendo el código:
+
+```js
+// Playwright: sumar el cuerpo de cada respuesta del propio origen entre dos pasos
+page.on('response', async (r) => { bytes += (await r.body()).length })
+```
+
+Guards: `apps/web/tests/e2e/server-registration-mobile.spec.ts` (presupuesto de bytes del paso, en
+iPhone 12 emulado) y `apps/web/src/components/form/__tests__/addressStepWeight.test.ts` (nadie
+vuelve a importar la raíz del paquete).
+
+**Casos**:
+- 2026-09-03 registro de servidor en emaus.cc desde un iPhone — el paso «Dirección» descargaba
+  9.05 MB por el selector de país. Fix: `lib/country` + `lib/state`, ciudad como texto libre
+  (se eliminó `CitySelector.vue`) y `SearchableSelect`. El paso quedó en 0.67 MB.
+
+**Relacionado**: #2 (Safari iOS blank page) — misma familia: lo que en escritorio es "un poco
+pesado", en Safari iOS es una pestaña muerta.
 
 ---
 

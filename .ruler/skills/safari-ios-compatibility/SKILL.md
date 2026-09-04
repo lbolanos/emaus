@@ -92,18 +92,48 @@ ParticipantRegistrationView-xxx.js  8,677 kB  ← TOO LARGE
 // ❌ WRONG — pulls 8MB of country data into the parent chunk
 import CountrySelector from '@/components/form/CountrySelector.vue';
 import StateSelector from '@/components/form/StateSelector.vue';
-import CitySelector from '@/components/form/CitySelector.vue';
 
 // ✅ CORRECT — country data loads only when the component renders
 import { defineAsyncComponent } from 'vue';
 const CountrySelector = defineAsyncComponent(() => import('@/components/form/CountrySelector.vue'));
 const StateSelector = defineAsyncComponent(() => import('@/components/form/StateSelector.vue'));
-const CitySelector = defineAsyncComponent(() => import('@/components/form/CitySelector.vue'));
 ```
 
 **Result:** Chunk size dropped from 8.6MB → 59KB.
 
 **Rule of thumb:** Any dependency that bundles large datasets (phone metadata, country lists, timezone data, locale data) MUST be lazy-loaded via `defineAsyncComponent` or dynamic `import()`.
+
+### Deferring the weight is not removing it (2026-09-03)
+
+Lazy-loading only moves the crash to whoever reaches that step. The registration
+wizard did exactly that: `defineAsyncComponent` kept the entry chunk small, and then
+opening the address step downloaded **9.05 MB** on the phone — the select sat disabled
+on "Cargando…", and Safari killed and reloaded the tab, which the server reported as
+*"it won't let me pick a country and it throws me back to the start"*.
+
+The package root is the trap: `country-state-city`'s entry imports all three assets,
+and `city.json` alone is 7.7 MB of cities nothing in the form ever used.
+
+```typescript
+// ❌ 8.3 MB of JSON: country + state + city
+const { Country } = await import('country-state-city');
+
+// ✅ 93 KB — the slice this field actually needs (lib/state is 542 KB)
+const { default: Country } = await import('country-state-city/lib/country');
+```
+
+`import type { ICountry } from 'country-state-city'` stays fine: types are erased.
+
+Two rules that follow from it:
+
+- **Import the slice, not the package**, and check what the entry point pulls in
+  (`du -h node_modules/.pnpm/<pkg>@*/node_modules/<pkg>/**/assets/*`).
+- **Question the field itself.** City became a plain text input; a 7.7 MB catalogue
+  never justified itself for a form where nearly everyone types the same city.
+
+Measure it in the browser, not in the code — the byte budget of the step is pinned by
+`apps/web/tests/e2e/server-registration-mobile.spec.ts`. Full write-up:
+`troubleshooting` #24.
 
 ## 3. vue-i18n `@` Character in Translations
 

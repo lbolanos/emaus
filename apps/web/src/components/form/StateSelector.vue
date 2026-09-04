@@ -1,48 +1,58 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
-import type { IState } from 'country-state-city';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui';
+import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import type { IState } from 'country-state-city'
+import SearchableSelect, { type SearchableOption } from './SearchableSelect.vue'
 
 const props = defineProps<{
-  modelValue: string;
-  countryCode: string;
-}>();
+  modelValue: string
+  countryCode: string
+}>()
 
-const emit = defineEmits(['update:modelValue']);
+const emit = defineEmits(['update:modelValue'])
 
-const states = ref<IState[]>([]);
-const loading = ref(false);
+const { t } = useI18n()
 
-watch(() => props.countryCode, async (newCountryCode, oldCountryCode) => {
-  if (newCountryCode) {
-    loading.value = true;
-    const { State } = await import('country-state-city');
-    states.value = State.getStatesOfCountry(newCountryCode);
-    loading.value = false;
-  } else {
-    states.value = [];
-  }
-  // Only reset the state if the country has actually changed from a previous valid value
-  if (newCountryCode !== oldCountryCode && oldCountryCode !== undefined) {
-    emit('update:modelValue', '');
-  }
-}, { immediate: true });
+const states = ref<IState[]>([])
+const loading = ref(false)
+
+watch(
+  () => props.countryCode,
+  async (newCountryCode, oldCountryCode) => {
+    if (newCountryCode) {
+      loading.value = true
+      // Only state.json (~542 KB). See CountrySelector for why the package root
+      // is off limits here.
+      const { default: State } = await import('country-state-city/lib/state')
+      states.value = State.getStatesOfCountry(newCountryCode)
+      loading.value = false
+    } else {
+      states.value = []
+    }
+    // Only reset the state if the country has actually changed from a previous valid value
+    if (newCountryCode !== oldCountryCode && oldCountryCode !== undefined) {
+      emit('update:modelValue', '')
+    }
+  },
+  { immediate: true },
+)
+
+const options = computed<SearchableOption[]>(() =>
+  states.value.map((state) => ({ value: state.isoCode, label: state.name })),
+)
 
 const handleUpdate = (value: string) => {
-  console.log('[StateSelector] handleUpdate called with:', value);
-  emit('update:modelValue', value);
-};
+  emit('update:modelValue', value)
+}
 </script>
 
 <template>
-  <Select :model-value="props.modelValue" @update:model-value="handleUpdate" :disabled="!countryCode || loading">
-    <SelectTrigger>
-      <SelectValue :placeholder="loading ? 'Cargando...' : $t('serverRegistration.fields.state')" />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem v-for="state in states" :key="state.isoCode" :value="state.isoCode">
-        {{ state.name }}
-      </SelectItem>
-    </SelectContent>
-  </Select>
+  <SearchableSelect
+    :model-value="props.modelValue"
+    :options="options"
+    :disabled="!props.countryCode || loading"
+    :placeholder="loading ? t('common.loading') : t('serverRegistration.fields.state')"
+    :search-placeholder="t('common.searchPlaceholder')"
+    @update:model-value="handleUpdate"
+  />
 </template>

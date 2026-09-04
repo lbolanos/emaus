@@ -465,6 +465,16 @@ function loadDraft() {
       return false
     }
     formData.value = { ...formData.value, ...parsed.data, retreatId: validRetreatId.value }
+    // Resume where the draft left off. Safari on iOS reloads the tab on its own
+    // when memory runs short, and landing back on step 1 reads as "it threw me
+    // out and I lost everything" even though the answers were restored.
+    const savedStep = Number(parsed.step)
+    if (Number.isInteger(savedStep) && savedStep > 1 && savedStep <= totalSteps.value) {
+      const done = new Set(completedSteps.value)
+      for (let step = 1; step < savedStep; step++) done.add(step)
+      completedSteps.value = done
+      currentStep.value = savedStep
+    }
     return true
   } catch {
     return false

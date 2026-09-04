@@ -60,12 +60,16 @@ vi.mock('@/services/recaptcha', () => ({
 	RECAPTCHA_ACTIONS: { PARTICIPANT_EMAIL_CHECK: 'check' },
 }));
 
-vi.mock('country-state-city', () => ({
-	Country: {
+// Los selectores cargan cada lista por separado: importar el paquete entero
+// arrastra city.json (7.7 MB) y era lo que tumbaba el paso en el iPhone.
+vi.mock('country-state-city/lib/country', () => ({
+	default: {
 		getCountryByCode: vi.fn().mockReturnValue({ name: 'Mexico', isoCode: 'MX' }),
 		getAllCountries: vi.fn().mockReturnValue([{ name: 'Mexico', isoCode: 'MX' }]),
 	},
-	State: {
+}));
+vi.mock('country-state-city/lib/state', () => ({
+	default: {
 		getStatesOfCountry: vi.fn().mockReturnValue([{ name: 'CDMX', isoCode: 'CDMX' }]),
 	},
 }));
