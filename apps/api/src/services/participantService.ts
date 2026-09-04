@@ -39,6 +39,21 @@ const PARTICIPANT_AUDIT_FIELDS = [
   "scholarshipAmount",
   "paymentAmount",
 ];
+
+/**
+ * ¿El participante declaró algún dato de salud? Son datos sensibles bajo la
+ * LFPDPPP art. 9 y exigen consentimiento expreso, a diferencia del resto del
+ * registro. Si no declaró ninguno no hay nada que consentir, y sellar la
+ * constancia sería registrar una autorización sin objeto.
+ */
+const hasSensitiveHealthData = (p: {
+  hasMedication?: boolean;
+  hasDietaryRestrictions?: boolean;
+  disabilitySupport?: string | null;
+}): boolean =>
+  p.hasMedication === true ||
+  p.hasDietaryRestrictions === true ||
+  (typeof p.disabilitySupport === "string" && p.disabilitySupport.length > 0);
 import { BedQueryUtils } from "../utils/bedQueryUtils";
 import { In, Not, IsNull, ILike, Brackets, EntityManager } from "typeorm";
 import {
@@ -1697,8 +1712,11 @@ export const createParticipant = async (
         retreatBed: _rb,
         ...personalUpdates
       } = participantData;
-      const { acceptedPrivacyNotice: existingConsent, ...personalUpdatesNoConsent } =
-        personalUpdates as any;
+      const {
+        acceptedPrivacyNotice: existingConsent,
+        acceptedSensitiveDataConsent: existingSensitiveConsent,
+        ...personalUpdatesNoConsent
+      } = personalUpdates as any;
       Object.assign(existingParticipantByEmail, {
         ...personalUpdatesNoConsent,
         retreatId: participantData.retreatId,
@@ -1707,6 +1725,14 @@ export const createParticipant = async (
       });
       if (existingConsent === true && !existingParticipantByEmail.acceptedPrivacyNoticeAt) {
         existingParticipantByEmail.acceptedPrivacyNoticeAt = new Date();
+      }
+      // Se resella en cada reinscripción: el consentimiento aplica a los datos
+      // de salud declarados ahora, que pueden haber cambiado desde la anterior.
+      if (
+        existingSensitiveConsent === true &&
+        hasSensitiveHealthData(existingParticipantByEmail)
+      ) {
+        existingParticipantByEmail.sensitiveDataConsentAt = new Date();
       }
       if (!existingParticipantByEmail.dataDeleteToken) {
         existingParticipantByEmail.dataDeleteToken = crypto
@@ -2040,7 +2066,11 @@ export const createParticipant = async (
       ...restOfParticipantData
     } = participantData;
 
-    const { acceptedPrivacyNotice, ...restWithoutConsent } = restOfParticipantData as any;
+    const {
+      acceptedPrivacyNotice,
+      acceptedSensitiveDataConsent,
+      ...restWithoutConsent
+    } = restOfParticipantData as any;
     const newParticipantData: any = {
       ...restWithoutConsent,
       registrationDate: new Date(),
@@ -2069,6 +2099,11 @@ export const createParticipant = async (
     }
     if (acceptedPrivacyNotice === true) {
       newParticipantData.acceptedPrivacyNoticeAt = new Date();
+    }
+    // Constancia del consentimiento expreso para datos de salud. Solo se sella
+    // si además se declaró alguno: sin dato sensible no hay nada que consentir.
+    if (acceptedSensitiveDataConsent === true && hasSensitiveHealthData(newParticipantData)) {
+      newParticipantData.sensitiveDataConsentAt = new Date();
     }
 
     if (!newParticipantData.nickname) {
@@ -4513,6 +4548,7 @@ export const anonymizeParticipantByToken = async (
     p.notes = null as any;
     p.palancasNotes = null as any;
     p.palancasReceived = null as any;
+    p.sensitiveDataConsentAt = null;
     p.dataDeleteToken = null;
     p.dataDeletedAt = new Date();
     p.lastUpdatedDate = new Date();

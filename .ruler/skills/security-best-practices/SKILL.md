@@ -285,15 +285,27 @@ Caso real (2026-08-31, `retreat.externalRegistrationUrl`): el campo termina en
 `window.location.replace()` dentro de `ParticipantRegistrationView`. Con solo `.url()`, un valor
 `javascript:` habria sido XSS ejecutandose en el navegador del caminante.
 
-Regla: **todo campo URL que se navegue lleva el esquema acotado a mano**, y la comprobacion se
-repite en el punto de uso, por si quedo un valor guardado antes de existir la validacion:
+Regla: **este repo ya tiene el helper — usalo, no lo reescribas.** `httpUrlSchema`, exportado
+desde `packages/types/src/index.ts`, es exactamente eso y ya tiene su test
+(`apps/api/src/tests/services/retreatMemorySchemas.test.ts`, que cubre `javascript:` y `data:`):
 
 ```ts
-z.string().url().max(500).refine(
-  (v) => /^https?:\/\//i.test(v),
-  'El enlace debe empezar con http:// o https://',
-)
+import { httpUrlSchema } from '@repo/types';
+
+url: httpUrlSchema,                                  // caso simple
+externalRegistrationUrl: z.preprocess(               // con largo, nullable y '' -> null
+  (v) => (v === '' ? null : v),
+  httpUrlSchema.refine((v) => v.length <= 500, 'El enlace es demasiado largo')
+    .nullable().optional(),
+),
 ```
+
+Yo mismo lo reimplemente a mano en `externalRegistrationUrl` sin ver que ya existia; lo corrigio
+el code-review del cierre. Antes de escribir una validacion de URL, `grep httpUrlSchema`.
+
+Y la comprobacion se **repite en el punto de uso**, por si quedo un valor guardado antes de que
+la validacion existiera: en `ParticipantRegistrationView` hay un `/^https?:\/\//i.test(...)`
+justo antes del `location.replace`.
 
 Dos detalles que muerden al escribirlo:
 

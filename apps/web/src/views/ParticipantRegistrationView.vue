@@ -146,6 +146,7 @@ const getInitialFormData = (): Partial<Omit<Participant, 'id'>> & { hasDisabilit
   takesFridayMeal: false,
   mealCount: null,
   acceptedPrivacyNotice: false,
+  acceptedSensitiveDataConsent: false,
 })
 
 const formData = ref(getInitialFormData())
@@ -235,6 +236,7 @@ const step3Schema = z.object({
   dietaryRestrictionsDetails: z.string().optional(),
   hasDisability: z.boolean().optional(),
   disabilitySupport: z.string().optional(),
+  acceptedSensitiveDataConsent: z.boolean().optional(),
   sacraments: sacramentsField,
 }).refine((data) => {
   if (data.hasMedication && (!data.medicationDetails || data.medicationDetails.trim() === '')) {
@@ -268,6 +270,16 @@ const step3Schema = z.object({
 }, {
   message: 'Debe seleccionar al menos un tipo de apoyo si tiene capacidad diferente.',
   path: ['disabilitySupport'],
+}).refine((data) => {
+  // Los datos de salud son sensibles (LFPDPPP art. 9): solo se recaban con
+  // consentimiento expreso. Quien no declara ninguno no ve la casilla.
+  const declaresHealthData = Boolean(
+    data.hasMedication || data.hasDietaryRestrictions || data.hasDisability,
+  )
+  return !declaresHealthData || data.acceptedSensitiveDataConsent === true
+}, {
+  message: 'Debes autorizar el uso de tus datos de salud para continuar',
+  path: ['acceptedSensitiveDataConsent'],
 })
 
 // For servers: emergency contacts are optional
@@ -430,7 +442,7 @@ const goToStep = (step: number) => {
 }
 
 // Auto-save draft to localStorage
-const SENSITIVE_KEYS_TO_SKIP = new Set(['acceptedPrivacyNotice'])
+const SENSITIVE_KEYS_TO_SKIP = new Set(['acceptedPrivacyNotice', 'acceptedSensitiveDataConsent'])
 function saveDraft() {
   if (!isDialogOpen.value) return
   try {

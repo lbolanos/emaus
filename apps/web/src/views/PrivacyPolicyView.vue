@@ -42,6 +42,16 @@
 						</p>
 					</section>
 
+					<!-- Responsible party -->
+					<section>
+						<h2 class="text-2xl font-medium text-stone-900 mb-4">
+							{{ $t('privacy.responsible.title') }}
+						</h2>
+						<p class="text-stone-600 leading-relaxed">
+							{{ $t('privacy.responsible.content') }}
+						</p>
+					</section>
+
 					<!-- Information Collection -->
 					<section>
 						<h2 class="text-2xl font-medium text-stone-900 mb-4">
@@ -51,6 +61,19 @@
 							<p>{{ $t('privacy.information.content') }}</p>
 							<ul class="list-disc pl-6 space-y-2">
 								<li v-for="item in informationItems" :key="item">{{ item }}</li>
+							</ul>
+						</div>
+					</section>
+
+					<!-- Sensitive personal data -->
+					<section class="rounded-lg border border-sage-200 bg-sage-50/60 p-6">
+						<h2 class="text-2xl font-medium text-stone-900 mb-4">
+							{{ $t('privacy.sensitive.title') }}
+						</h2>
+						<div class="text-stone-600 leading-relaxed space-y-4">
+							<p>{{ $t('privacy.sensitive.content') }}</p>
+							<ul class="list-disc pl-6 space-y-2">
+								<li v-for="item in sensitiveItems" :key="item">{{ item }}</li>
 							</ul>
 						</div>
 					</section>
@@ -112,6 +135,7 @@
 							<ul class="list-disc pl-6 space-y-2">
 								<li v-for="item in rightsItems" :key="item">{{ item }}</li>
 							</ul>
+							<p>{{ $t('privacy.rights.howTo') }}</p>
 						</div>
 					</section>
 
@@ -161,12 +185,10 @@ import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
 
-// Last updated date - you can update this when you change the policy
-const lastUpdated = ref(new Date().toLocaleDateString('es-ES', {
-	year: 'numeric',
-	month: 'long',
-	day: 'numeric',
-}));
+// Fecha de la versión vigente del aviso. Es un literal a propósito: un
+// `new Date()` mostraba la fecha de hoy en cada visita, de modo que el aviso
+// nunca identificaba una versión estable. Actualizar al cambiar el texto.
+const lastUpdated = ref(t('privacy.lastUpdatedDate'));
 
 // Information items
 const informationItems = ref([
@@ -174,6 +196,8 @@ const informationItems = ref([
 	t('privacy.information.items.contact'),
 	t('privacy.information.items.demographic'),
 	t('privacy.information.items.photo'),
+	t('privacy.information.items.health'),
+	t('privacy.information.items.emergency'),
 ]);
 
 // Use of information items
@@ -181,6 +205,14 @@ const useItems = ref([
 	t('privacy.use.items.registration'),
 	t('privacy.use.items.communication'),
 	t('privacy.use.items.improvement'),
+]);
+
+// Sensitive data items
+const sensitiveItems = ref([
+	t('privacy.sensitive.items.consent'),
+	t('privacy.sensitive.items.purpose'),
+	t('privacy.sensitive.items.access'),
+	t('privacy.sensitive.items.deletion'),
 ]);
 
 // User rights items
@@ -200,5 +232,13 @@ const rightsItems = ref([
 
 .text-sage-600 {
 	color: #8DAA91;
+}
+
+.border-sage-200 {
+	border-color: #D5E0D7;
+}
+
+.bg-sage-50\/60 {
+	background-color: rgba(241, 246, 242, 0.6);
 }
 </style>

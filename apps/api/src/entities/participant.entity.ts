@@ -246,6 +246,11 @@ export class Participant {
 	@Column({ type: 'datetime', nullable: true })
 	acceptedPrivacyNoticeAt?: Date | null;
 
+	// Consentimiento expreso para datos sensibles de salud (LFPDPPP art. 9).
+	// Distinto del aviso genérico de arriba: su presencia es la constancia.
+	@Column({ type: 'datetime', nullable: true })
+	sensitiveDataConsentAt?: Date | null;
+
 	@Column({ type: 'varchar', length: 64, nullable: true })
 	dataDeleteToken?: string | null;
 
