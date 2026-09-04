@@ -80,7 +80,7 @@ OUTPUT_COLUMNS = [
     "emerg2nombre", "emerg2relacion", "emerg2telcelular", "emerg2telcasa", "emerg2teltrabajo", "emerg2email",
     "camiseta", "invitadopor", "invitadaporemaus",
     "invtelcelular", "invtelcasa", "invteltrabajo", "invemail",
-    "montopago", "notas", "cancelado",
+    "montopago", "fechapago", "notas", "cancelado",
 ]
 
 
@@ -154,6 +154,26 @@ def money(value):
         return ""
 
 
+def registration_date_iso(value):
+    """'02/09/2026 13:14' -> '2026-09-02T12:00:00'.
+
+    Used as the payment date. It is NOT when the money moved — the export does
+    not carry that — it is when the person registered. That is deliberate: the
+    parish keeps the real accounting, and what this system needs the payment for
+    is knowing the walker already paid so reception does not charge them twice.
+    Without a date the importer skips the payment entirely and everyone shows up
+    owing the full fee.
+
+    Noon, not midnight: the importer does `new Date(...)`, and a bare date is
+    parsed as UTC midnight, which renders as the previous day in México.
+    """
+    match = re.match(r"\s*(\d{1,2})/(\d{1,2})/(\d{4})", value or "")
+    if not match:
+        return ""
+    day, month, year = match.groups()
+    return f"{year}-{int(month):02d}-{int(day):02d}T12:00:00"
+
+
 def split_birth_date(value):
     """'14/03/1985' -> ('14', '03', '1985'). The export is unambiguous dd/mm/yyyy."""
     match = re.match(r"\s*(\d{1,2})/(\d{1,2})/(\d{4})", value or "")
@@ -165,6 +185,8 @@ def split_birth_date(value):
 def convert_row(source):
     """Translate one export row (dict keyed by Spanish header) into importer keys."""
     day, month, year = split_birth_date(source.get("Fecha de nacimiento", ""))
+    amount = money(source.get("Monto pagado", ""))
+    paid = amount not in ("", "0.00")
 
     out = {key: "" for key in OUTPUT_COLUMNS}
     out.update({
@@ -216,12 +238,13 @@ def convert_row(source):
         "invtelcasa": source.get("Quien invitó · Teléfono de casa", ""),
         "invteltrabajo": source.get("Quien invitó · Teléfono del trabajo", ""),
         "invemail": source.get("Quien invitó · Correo", ""),
-        # The importer needs BOTH montopago and fechapago to create the payment,
-        # and the export has no payment date — only "Fecha de registro", which is
-        # when they signed up, not when they paid. Inventing a date for a money
-        # record is worse than leaving it out, so the amount travels for reference
-        # and the payment is captured by hand. Ask the parish for a date column.
-        "montopago": money(source.get("Monto pagado", "")),
+        # The importer needs BOTH montopago and fechapago, so a paid walker with no
+        # date would import owing the full fee — and get charged again at
+        # reception. See registration_date_iso() for why the registration date is
+        # good enough here. Only emitted when money actually came in: a zero
+        # amount must not create a payment record.
+        "montopago": amount,
+        "fechapago": registration_date_iso(source.get("Fecha de registro", "")) if paid else "",
         # "Activa" is the healthy state; anything else means the person is out.
         "cancelado": "N" if source.get("Estado de la inscripción", "").strip() == "Activa" else "S",
     })
