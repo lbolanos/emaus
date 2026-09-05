@@ -17,17 +17,26 @@
             <Input
               v-model="searchQuery"
               :placeholder="$t('common.searchPlaceholder')"
-              :class="['w-full sm:w-64', totalMatches > 0 ? 'pr-36' : (searchQuery ? 'pr-10' : '')]"
+              :class="['w-full sm:w-64', searchQuery ? 'pr-36' : '']"
+              @keydown.enter.prevent="onSearchEnter"
               @keydown.esc="clearSearch"
             />
             <div v-if="searchQuery" class="absolute right-1 flex items-center gap-1 bg-background rounded-md pl-1">
-              <div v-if="totalMatches > 0" class="flex items-center bg-background rounded-md border">
-                <span class="text-xs px-2">{{ currentMatchIndex + 1 }} / {{ totalMatches }}</span>
+              <div class="flex items-center bg-background rounded-md border">
+                <span
+                  class="text-xs px-2"
+                  :class="totalMatches === 0 ? 'text-muted-foreground' : ''"
+                  aria-live="polite"
+                >
+                  {{ totalMatches > 0 ? currentMatchIndex + 1 : 0 }} / {{ totalMatches }}
+                </span>
                 <Button
                   variant="ghost"
                   size="icon"
                   class="h-7 w-7"
-                  :disabled="currentMatchIndex === 0"
+                  :disabled="totalMatches === 0"
+                  :title="$t('common.previous')"
+                  :aria-label="$t('common.previous')"
                   @click="goToPreviousMatch"
                 >
                   <ChevronLeft class="h-4 w-4" />
@@ -36,7 +45,9 @@
                   variant="ghost"
                   size="icon"
                   class="h-7 w-7"
-                  :disabled="currentMatchIndex === totalMatches - 1"
+                  :disabled="totalMatches === 0"
+                  :title="$t('common.next')"
+                  :aria-label="$t('common.next')"
                   @click="goToNextMatch"
                 >
                   <ChevronRight class="h-4 w-4" />
@@ -649,23 +660,38 @@ const currentMatchId = computed(() => matchingIds.value[currentMatchIndex.value]
 const getParticipantHighlightClass = (participantId: string) =>
   highlightClassFor(participantId, matchingIds.value, currentMatchId.value);
 
-// Navigate between matches
-const goToPreviousMatch = () => {
-  if (currentMatchIndex.value > 0) {
-    currentMatchIndex.value--;
-    scrollToCurrentMatch();
-  }
+// Navigate between matches. Both ends wrap around, the way Ctrl+F does: with
+// the last match on screen, one more step goes back to the first instead of
+// leaving the user at a dead end.
+const stepMatch = (delta: number) => {
+  const total = totalMatches.value;
+  if (total === 0) return;
+  currentMatchIndex.value = (currentMatchIndex.value + delta + total) % total;
+  scrollToCurrentMatch();
 };
 
-const goToNextMatch = () => {
-  if (currentMatchIndex.value < totalMatches.value - 1) {
-    currentMatchIndex.value++;
-    scrollToCurrentMatch();
-  }
+const goToPreviousMatch = () => stepMatch(-1);
+
+const goToNextMatch = () => stepMatch(1);
+
+// Enter walks the matches without leaving the keyboard; Shift+Enter goes back.
+const onSearchEnter = (event: KeyboardEvent) => {
+  stepMatch(event.shiftKey ? -1 : 1);
+};
+
+// The sticky header covers the top of the page, so a pill hidden behind it is
+// not really visible.
+const STICKY_HEADER_OFFSET = 96;
+
+const isOnScreen = (element: Element) => {
+  const { top, bottom } = element.getBoundingClientRect();
+  return top >= STICKY_HEADER_OFFSET && bottom <= window.innerHeight;
 };
 
 // Scroll to the current match, wherever it is rendered: the unassigned lists,
-// a leader slot or a table's walkers all expose data-participant-id.
+// a leader slot or a table's walkers all expose data-participant-id. A match
+// already on screen is left alone, so stepping through nearby matches does not
+// shake the page.
 const scrollToCurrentMatch = () => {
   const participantId = currentMatchId.value;
   if (!participantId) return;
@@ -673,7 +699,9 @@ const scrollToCurrentMatch = () => {
   nextTick(() => {
     const root = document.querySelector('.tables-view-root') ?? document;
     const element = root.querySelector(`[data-participant-id="${participantId}"]`);
-    element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (element && !isOnScreen(element)) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   });
 };
 
