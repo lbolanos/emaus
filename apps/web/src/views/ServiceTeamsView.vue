@@ -211,6 +211,7 @@
 
 <script setup lang="ts">
 import { onMounted, computed, ref, watch } from 'vue';
+import { normalizeText, participantMatchesTokens, searchTokens } from '@/utils/participantSearch';
 import { useServiceTeamStore } from '@/stores/serviceTeamStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
@@ -322,33 +323,35 @@ const serversWithTeam = computed(() => {
   return allServers.value.filter(s => assignedServerIds.value.has(s.id));
 });
 
-const normalizeSearch = (text: string) => text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
+// Palabra por palabra, no como una sola cadena: "jose garcia" tiene que
+// encontrar a "José Luis García Ramírez", que lleva un nombre en medio.
 const filteredServersWithoutTeam = computed(() => {
-  if (!serverSearchQuery.value.trim()) return serversWithoutTeam.value;
-  const q = normalizeSearch(serverSearchQuery.value);
-  return serversWithoutTeam.value.filter(s => normalizeSearch(`${s.firstName} ${s.lastName}`).includes(q));
+  const tokens = searchTokens(serverSearchQuery.value);
+  if (tokens.length === 0) return serversWithoutTeam.value;
+  return serversWithoutTeam.value.filter(s => participantMatchesTokens(s, tokens));
 });
 
 const filteredServersWithTeam = computed(() => {
-  if (!serverSearchQuery.value.trim()) return serversWithTeam.value;
-  const q = normalizeSearch(serverSearchQuery.value);
-  return serversWithTeam.value.filter(s => normalizeSearch(`${s.firstName} ${s.lastName}`).includes(q));
+  const tokens = searchTokens(serverSearchQuery.value);
+  if (tokens.length === 0) return serversWithTeam.value;
+  return serversWithTeam.value.filter(s => participantMatchesTokens(s, tokens));
 });
 
 const filteredTeams = computed(() => {
-  if (!teamSearchQuery.value.trim()) return serviceTeamStore.teams;
-  const q = normalizeSearch(teamSearchQuery.value);
+  const tokens = searchTokens(teamSearchQuery.value);
+  if (tokens.length === 0) return serviceTeamStore.teams;
+  // El nombre del equipo se compara entero; las personas, palabra por palabra.
+  const q = normalizeText(teamSearchQuery.value.trim());
   return serviceTeamStore.teams.filter(team => {
-    const name = normalizeSearch(team.name);
+    const name = normalizeText(team.name);
     const type = (team.teamType || '').toLowerCase();
     if (name.includes(q) || type.includes(q)) return true;
     if (team.leader) {
-      if (normalizeSearch(`${team.leader.firstName} ${team.leader.lastName}`).includes(q)) return true;
+      if (participantMatchesTokens(team.leader, tokens)) return true;
     }
     if (team.members) {
       for (const m of team.members) {
-        if (m.participant && normalizeSearch(`${m.participant.firstName} ${m.participant.lastName}`).includes(q)) return true;
+        if (m.participant && participantMatchesTokens(m.participant, tokens)) return true;
       }
     }
     return false;

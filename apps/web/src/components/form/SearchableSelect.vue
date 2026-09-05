@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { normalizeText } from '@/utils/participantSearch'
 
 export interface SearchableOption {
   value: string
@@ -42,9 +43,7 @@ const rootEl = ref<HTMLElement | null>(null)
 const searchEl = ref<HTMLInputElement | null>(null)
 
 // Accent- and case-insensitive so "mexico" matches "México".
-const COMBINING_MARKS = /[\u0300-\u036f]/g
-const fold = (value: string) =>
-  value.normalize('NFD').replace(COMBINING_MARKS, '').toLowerCase().trim()
+const fold = (value: string) => normalizeText(value).trim()
 
 const selectedLabel = computed(
   () => props.options.find((o) => o.value === props.modelValue)?.label ?? '',

@@ -76,6 +76,15 @@ describe('SearchableSelect', () => {
 		expect(optionLabels(wrapper)).toEqual([]);
 	});
 
+	it('ignores stray spaces around the query', async () => {
+		wrapper = mountSelect();
+		await trigger(wrapper).trigger('click');
+
+		// Autocomplete and paste on a phone often leave a trailing space.
+		await wrapper.get('input[type="text"]').setValue('  mexico  ');
+		expect(optionLabels(wrapper)).toEqual(['México']);
+	});
+
 	it('emits the chosen value and closes', async () => {
 		wrapper = mountSelect();
 		await trigger(wrapper).trigger('click');

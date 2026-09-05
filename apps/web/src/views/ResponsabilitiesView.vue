@@ -533,6 +533,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { normalizeText, participantMatchesTokens, searchTokens } from '@/utils/participantSearch';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useResponsabilityStore } from '@/stores/responsabilityStore';
@@ -666,15 +667,14 @@ const filteredResponsibilities = computed(() => {
     items = items.filter(r => !r.participant);
   }
 
-  // Apply search
-  if (!searchQuery.value.trim()) return items;
-  const q = searchQuery.value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  // Apply search. El nombre de la responsabilidad se compara entero; el
+  // servidor asignado, palabra por palabra, para que "jose garcia" lo encuentre.
+  const tokens = searchTokens(searchQuery.value);
+  if (tokens.length === 0) return items;
+  const q = normalizeText(searchQuery.value.trim());
   return items.filter(r => {
-    const name = r.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const participantName = r.participant
-      ? `${r.participant.firstName} ${r.participant.lastName}`.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      : '';
-    return name.includes(q) || participantName.includes(q);
+    if (normalizeText(r.name).includes(q)) return true;
+    return participantMatchesTokens(r.participant, tokens);
   });
 });
 
@@ -735,8 +735,7 @@ watch(selectedRetreatId, (newRetreatId) => {
 }, { immediate: true });
 
 // --- Agregar servidores al equipo de servicio relacionado con la responsabilidad ---
-const normalizeName = (text: string) =>
-  text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+const normalizeName = (text: string) => normalizeText(text).trim();
 
 // Equipo de servicio existente relacionado con esta responsabilidad (vía el mapeo
 // canónico responsable→equipo). Si no hay mapeo o no existe el equipo → null (sin botón).
