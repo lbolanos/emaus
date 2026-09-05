@@ -35,6 +35,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "elegí las tallas y el resumen dice que no elegí ninguna", "lo capturé y la pantalla lo muestra vacío", "el reporte sale en cero aunque hay datos" | [#22 La pantalla lee un campo legacy que el formulario ya no llena](#22-la-pantalla-lee-un-campo-legacy-que-el-formulario-ya-no-llena) |
 | "al dar clic en elegir foto no sale nada", "el botón de subir archivo no hace nada", "en local no funciona pero en prod sí" | [#23 El selector de archivos no abre: la ref quedó vieja por el hot-reload](#23-el-selector-de-archivos-no-abre-la-ref-quedó-vieja-por-el-hot-reload) |
 | "no me deja seleccionar el país", "se sale al inicio y pierdo el registro", "en el iPhone se cierra solo", "se queda en Cargando…" | [#24 Un paquete de datos entero en un selector tumba Safari iOS](#24-un-paquete-de-datos-entero-en-un-selector-tumba-safari-ios) |
+| "importé el Excel y faltan personas", "subí 140 y salen 108", "el retiro no está abierto para registro público", "cannot start a transaction within a transaction", "hay tres personas en una habitación de dos", "se perdieron las habitaciones que ya había asignado la parroquia" | [#25 La importación del Excel pierde gente en silencio](#25-la-importación-del-excel-pierde-gente-en-silencio) |
 
 ---
 
@@ -916,6 +917,89 @@ vuelve a importar la raíz del paquete).
 pesado", en Safari iOS es una pestaña muerta.
 
 ---
+
+## 25. La importación del Excel pierde gente en silencio
+
+**Síntoma**: subís N filas y en el retiro aparecen menos. El endpoint responde 200 y el
+`skippedCount` sale en 0 o en 1, así que nadie lo mira. Nadie avisa de las que faltan.
+
+Son **cuatro causas distintas**, todas verificadas importando el export de la parroquia de
+Veracruz (sep 2026). Conviene descartarlas en este orden.
+
+### 25.1 Correos compartidos: N personas se funden en una
+
+`importParticipants` busca por `LOWER(email)` dentro del retiro y, si encuentra, **actualiza en
+vez de crear**; además hay índice único `UQ_participants_email_retreat` sobre `(email, retreatId)`.
+En parroquias donde el coordinador inscribe a todos con su propio correo esto es masivo: 18
+personas con `notengo@gmail.com` entran como **una sola**.
+
+**Fix**: generá correos sintéticos únicos antes de importar (el celular sirve de base:
+`2297003093@sincorreo.emaus.cc`) y guardá el original en `notas`. Dejá el correo compartido solo
+cuando las filas son *la misma persona* repetida, que es como se reconcilian una cancelación y su
+re-inscripción.
+
+### 25.2 El retiro debe ser público o fallan TODAS las filas
+
+`createParticipant` llama a `assertRetreatAcceptsRegistrations` en cada fila y **no hay excepción
+para el import**. Con `isPublic = false` fallan las N filas con "El retiro no está abierto para
+registro público". Tampoco acepta nada después de `endDate`.
+
+### 25.3 `cannot start a transaction within a transaction`
+
+`updateParticipant` dispara `void domainAuditService.logUpdate(...)` **sin await**, y la auditoría
+escribe con `AppDataSource.getRepository(...)`, o sea la conexión compartida. Mientras ese save
+sigue en vuelo, la fila siguiente abre su `AppDataSource.transaction` en `createParticipant` y
+choca. El camino de *create* sí silencia su auditoría durante el import (`if (!isImporting …)`);
+el de *update* no. Es una **carrera**: se reproduce con los mismos datos pero no siempre.
+
+Solo muerde en la transición **update → create**. Dos updates seguidos no colisionan porque
+`updateParticipant` no abre transacción (140 updates consecutivos, cero pérdidas).
+
+**Reordenar el archivo NO alcanza**: el importador reordena las filas canceladas al principio, y
+eso vuelve a crear la transición pase lo que pase. El workaround que sí funciona es **una sola
+fila por persona** —la que decide su estado final, la activa gana sobre la cancelada—, con lo que
+el camino de update no se usa y la carrera no tiene con qué chocar.
+
+### 25.4 Camas inventadas y habitaciones mezcladas
+
+`findAvailableBedByRoom` solo acepta una cama cuyo `defaultUsage` coincida con el tipo del
+participante y, si no la encuentra, **crea una nueva** en esa habitación. Resultado: habitaciones
+de 2 con 3 personas, y caminantes durmiendo con servidores.
+
+**Fix**: no asumas el uso por módulo, derivá el de cada habitación del propio export (una cama por
+ocupante asignado, con su tipo). Las parroquias usan un bloque de habitaciones para las
+solicitudes de cuarto individual **de los dos tipos**.
+
+### Orden que funciona
+
+1. Casa → 2. retiro (público) → 3. import → 4. `POST /retreats/:id/auto-assign-beds`.
+
+Nunca `refreshBeds` ni auto-asignar **antes** del import: la asignación automática por edad
+reparte a todos y **borra las habitaciones que ya venían en el Excel**. El auto-assign posterior
+sí es seguro: salta a quien ya tiene cama.
+
+### Regla dura
+
+**Contá los participantes después de importar y compará contra las filas.** El importador informa
+lo que saltó, pero no lo grita, y las cuatro causas de arriba fallan en silencio.
+
+**Auditar el repo**:
+
+```bash
+grep -n "LOWER(participant.email)" apps/api/src/services/participantService.ts   # 25.1
+grep -n "assertRetreatAcceptsRegistrations" apps/api/src/services/participantService.ts  # 25.2
+grep -n "void domainAuditService.logUpdate" apps/api/src/services/participantService.ts  # 25.3
+grep -n "createRetreatBedForRoom" apps/api/src/services/participantService.ts    # 25.4
+```
+
+**Casos**: Veracruz XXIII, sep 2026 — 213 filas de export, 41 compartiendo 8 direcciones; 31
+personas se habrían perdido por 25.1 y 2 más por 25.3.
+
+**Nota**: la fixture del e2e (`apps/web/tests/e2e/fixtures/participant-import-sample.csv`) no tiene
+columnas de sacramentos ni `habitacionindividual`, así que esos caminos no se ejercitan. Y el
+mapeo de sacramentos busca las claves en inglés (`sacramentobaptism`) mientras los export legados
+las traen en español: hay un conversor en `scripts/convert-parish-registrations.py` que ya emite
+las inglesas, así que si se unifica hay que tocar los dos a la vez.
 
 ## Cómo agregar un bug nuevo a este skill
 
