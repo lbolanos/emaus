@@ -13,31 +13,44 @@
         <!-- Search and Actions -->
         <div class="flex items-center gap-2">
           <!-- Search Bar -->
-          <div class="relative flex items-center flex-1 sm:flex-none">
+          <div ref="searchWrapper" class="relative flex items-center flex-1 sm:flex-none">
             <Input
               v-model="searchQuery"
               :placeholder="$t('common.searchPlaceholder')"
-              class="w-full sm:w-64 pr-20"
+              :class="['w-full sm:w-64', totalMatches > 0 ? 'pr-36' : (searchQuery ? 'pr-10' : '')]"
+              @keydown.esc="clearSearch"
             />
-            <div v-if="totalMatches > 0" class="absolute right-1 flex items-center bg-background rounded-md border">
-              <span class="text-xs px-2">{{ currentMatchIndex + 1 }} / {{ totalMatches }}</span>
+            <div v-if="searchQuery" class="absolute right-1 flex items-center gap-1 bg-background rounded-md pl-1">
+              <div v-if="totalMatches > 0" class="flex items-center bg-background rounded-md border">
+                <span class="text-xs px-2">{{ currentMatchIndex + 1 }} / {{ totalMatches }}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="h-7 w-7"
+                  :disabled="currentMatchIndex === 0"
+                  @click="goToPreviousMatch"
+                >
+                  <ChevronLeft class="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="h-7 w-7"
+                  :disabled="currentMatchIndex === totalMatches - 1"
+                  @click="goToNextMatch"
+                >
+                  <ChevronRight class="h-4 w-4" />
+                </Button>
+              </div>
               <Button
                 variant="ghost"
                 size="icon"
                 class="h-7 w-7"
-                :disabled="currentMatchIndex === 0"
-                @click="goToPreviousMatch"
+                :title="$t('common.clearSearch')"
+                :aria-label="$t('common.clearSearch')"
+                @click="clearSearch"
               >
-                <ChevronLeft class="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                class="h-7 w-7"
-                :disabled="currentMatchIndex === totalMatches - 1"
-                @click="goToNextMatch"
-              >
-                <ChevronRight class="h-4 w-4" />
+                <X class="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -310,7 +323,8 @@
           v-for="table in tableMesaStore.tables"
           :key="table.id"
           :table="table"
-          :search-query="searchQuery"
+          :matching-ids="matchingIds"
+          :current-match-id="currentMatchId"
           class="table-card"
           @delete="handleDeleteTable"
           @refresh="tableMesaStore.fetchTables()"
@@ -427,6 +441,7 @@ import { useParticipantStore } from '@/stores/participantStore';
 import TableCard from './TableCard.vue';
 import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, TooltipProvider, Popover, PopoverContent, PopoverTrigger } from '@repo/ui';
 import { buildTableData } from '@/utils/tableBriefing';
+import { highlightClassFor, participantMatchesTokens, searchTokens } from '@/utils/participantSearch';
 import ParticipantTooltip from '@/components/ParticipantTooltip.vue';
 import ParticipantInfoPopover from '@/components/ParticipantInfoPopover.vue';
 import MessageDialog from '@/components/MessageDialog.vue';
@@ -531,6 +546,14 @@ const gridColumnsClass = computed(() => {
 // Search functionality
 const searchQuery = ref('');
 const currentMatchIndex = ref(0);
+const searchWrapper = ref<HTMLElement | null>(null);
+
+// Clear the search and hand focus back to the field, so the user can type the
+// next name without reaching for the mouse.
+const clearSearch = () => {
+  searchQuery.value = '';
+  nextTick(() => searchWrapper.value?.querySelector('input')?.focus());
+};
 
 // Collect all participants from tables and unassigned areas
 const allParticipants = computed(() => {
@@ -565,53 +588,31 @@ const allParticipants = computed(() => {
   return participants;
 });
 
-// Normalize text: remove accents and convert to lowercase
-const normalizeText = (text: string): string => {
-  return text
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-};
-
 // Get matching participants based on search query
 const matchingParticipants = computed(() => {
-  if (!searchQuery.value.trim()) return [];
+  const tokens = searchTokens(searchQuery.value);
+  if (tokens.length === 0) return [];
 
-  const normalizedQuery = normalizeText(searchQuery.value.trim());
-  return allParticipants.value.filter(({ participant }) => {
-    return (
-      (participant.firstName && normalizeText(participant.firstName).includes(normalizedQuery)) ||
-      (participant.lastName && normalizeText(participant.lastName).includes(normalizedQuery)) ||
-      (participant.nickname && normalizeText(participant.nickname).includes(normalizedQuery)) ||
-      (participant.id_on_retreat && participant.id_on_retreat.toString().includes(normalizedQuery))
-    );
-  });
+  return allParticipants.value.filter(({ participant }) => participantMatchesTokens(participant, tokens));
 });
 
 const totalMatches = computed(() => matchingParticipants.value.length);
 
+// IDs of every match, in navigation order. They are handed down to TableCard so
+// each zone highlights against the same list: computing the index inside a card
+// made every table mark its own Nth match as the current one.
+const matchingIds = computed(() => matchingParticipants.value.map(m => m.participant.id));
+
+const currentMatchId = computed(() => matchingIds.value[currentMatchIndex.value] ?? null);
+
 // Get highlight class for a participant
-const getParticipantHighlightClass = (participantId: string) => {
-  if (!searchQuery.value.trim() || totalMatches.value === 0) return '';
-
-  const matchIndex = matchingParticipants.value.findIndex(m => m.participant.id === participantId);
-
-  if (matchIndex === -1) return '';
-
-  if (matchIndex === currentMatchIndex.value) {
-    // Current match - prominent highlight with ring
-    return 'ring-2 ring-yellow-500 ring-offset-2 bg-yellow-200 dark:bg-yellow-700 scale-110';
-  } else {
-    // Other matches - subtle highlight
-    return 'bg-yellow-100 dark:bg-yellow-800/50';
-  }
-};
+const getParticipantHighlightClass = (participantId: string) =>
+  highlightClassFor(participantId, matchingIds.value, currentMatchId.value);
 
 // Navigate between matches
 const goToPreviousMatch = () => {
   if (currentMatchIndex.value > 0) {
     currentMatchIndex.value--;
-    updateCurrentMatchIndex();
     scrollToCurrentMatch();
   }
 };
@@ -619,48 +620,34 @@ const goToPreviousMatch = () => {
 const goToNextMatch = () => {
   if (currentMatchIndex.value < totalMatches.value - 1) {
     currentMatchIndex.value++;
-    updateCurrentMatchIndex();
     scrollToCurrentMatch();
   }
 };
 
-// Update the global current match index on window object
-const updateCurrentMatchIndex = () => {
-  (window as any).__currentMatchIndex = currentMatchIndex.value;
-  // Trigger a re-render in TableCard components
-  window.dispatchEvent(new CustomEvent('search-index-changed'));
-};
-
-// Scroll to the current match
+// Scroll to the current match, wherever it is rendered: the unassigned lists,
+// a leader slot or a table's walkers all expose data-participant-id.
 const scrollToCurrentMatch = () => {
-  if (totalMatches.value === 0) return;
+  const participantId = currentMatchId.value;
+  if (!participantId) return;
 
-  const currentMatch = matchingParticipants.value[currentMatchIndex.value];
-  if (!currentMatch) return;
-
-  // Try to find the element in the unassigned areas first
-  const unassignedElement = document.querySelector(`[data-participant-id="${currentMatch.participant.id}"][data-is-unassigned="true"]`);
-
-  if (unassignedElement) {
-    unassignedElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    return;
-  }
-
-  // If not in unassigned areas, it might be in a table - we'll emit an event or use a different approach
-  // For now, we'll just emit a custom event that TableCard can listen to
-  window.dispatchEvent(new CustomEvent('scroll-to-participant', {
-    detail: { participantId: currentMatch.participant.id }
-  }));
+  nextTick(() => {
+    const root = document.querySelector('.tables-view-root') ?? document;
+    const element = root.querySelector(`[data-participant-id="${participantId}"]`);
+    element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
 };
 
 // Watch for search query changes to reset current match index
 watch(searchQuery, () => {
   currentMatchIndex.value = 0;
-  updateCurrentMatchIndex();
-  if (totalMatches.value > 0) {
-    nextTick(() => {
-      scrollToCurrentMatch();
-    });
+  scrollToCurrentMatch();
+});
+
+// Assigning or removing participants changes the match list under our feet;
+// keep the index inside it so the counter never points past the last match.
+watch(totalMatches, (total) => {
+  if (currentMatchIndex.value > Math.max(total - 1, 0)) {
+    currentMatchIndex.value = Math.max(total - 1, 0);
   }
 });
 
@@ -1369,6 +1356,30 @@ watch(
 </script>
 
 <style>
+/* Bounce for the current search match. The keyframes keep the highlight's
+   scale-110 so the pill does not jerk when the animation ends. Unscoped
+   because the pill is rendered by three components: this view's unassigned
+   lists, TableCard's walkers and ServerDropZone's leaders. */
+@keyframes match-bounce {
+  0% { transform: translateY(0) scale(1.1); }
+  15% { transform: translateY(-10px) scale(1.18); }
+  30% { transform: translateY(0) scale(1.1); }
+  45% { transform: translateY(-6px) scale(1.14); }
+  60% { transform: translateY(0) scale(1.1); }
+  75% { transform: translateY(-3px) scale(1.12); }
+  100% { transform: translateY(0) scale(1.1); }
+}
+
+.match-bounce {
+  animation: match-bounce 0.75s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .match-bounce {
+    animation: none;
+  }
+}
+
 @media print {
   /* Ensure ancestors don't clip or constrain the printable content */
   html, body, #app-root {

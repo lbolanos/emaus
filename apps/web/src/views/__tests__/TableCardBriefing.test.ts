@@ -93,7 +93,7 @@ const makeTable = (withLeader: boolean) => ({
 let wrapper: VueWrapper<any>;
 const factory = (withLeader = true) =>
   mount(TableCard, {
-    props: { table: makeTable(withLeader) as any, searchQuery: '' },
+    props: { table: makeTable(withLeader) as any, matchingIds: [], currentMatchId: null },
     global: { mocks: { $t: (k: string) => k } },
   });
 

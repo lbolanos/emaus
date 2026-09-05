@@ -2156,6 +2156,7 @@
     "previous": "Anterior",
     "noResults": "No se encontraron resultados.",
     "searchPlaceholder": "Buscar...",
+    "clearSearch": "Limpiar búsqueda",
     "filters": {
       "title": "Filtros",
       "clearAll": "Borrar todo",

@@ -2065,6 +2065,7 @@
     "previous": "Previous",
     "noResults": "No results found.",
     "searchPlaceholder": "Search...",
+    "clearSearch": "Clear search",
     "filters": {
       "title": "Filters",
       "clearAll": "Clear All",
