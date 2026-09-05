@@ -2731,6 +2731,8 @@ export interface ReceptionParticipant {
   idOnRetreat: number | null;
   firstName: string;
   lastName: string;
+  /** Many people introduce themselves by their nickname at the door. */
+  nickname: string | null;
   cellPhone: string;
   checkedIn: boolean;
   checkedInAt: string | null;

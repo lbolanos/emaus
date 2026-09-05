@@ -79,6 +79,7 @@ function makeParticipant(overrides: Partial<ReceptionParticipant> = {}): Recepti
 		idOnRetreat: 0,
 		firstName: '',
 		lastName: '',
+		nickname: null,
 		cellPhone: '',
 		checkedIn: false,
 		checkedInAt: null,
@@ -90,7 +91,13 @@ function makeParticipant(overrides: Partial<ReceptionParticipant> = {}): Recepti
 const pendingFixture: ReceptionParticipant[] = [
 	makeParticipant({ retreatParticipantId: 'rp-3', firstName: 'Carlos', lastName: 'Zapata', idOnRetreat: 3 }),
 	makeParticipant({ retreatParticipantId: 'rp-1', firstName: 'José Luis', lastName: 'García Ramírez', idOnRetreat: 1 }),
-	makeParticipant({ retreatParticipantId: 'rp-2', firstName: 'Beto', lastName: 'álvarez', idOnRetreat: 2 }),
+	makeParticipant({
+		retreatParticipantId: 'rp-2',
+		firstName: 'Beto',
+		lastName: 'álvarez',
+		nickname: 'El Güero',
+		idOnRetreat: 2,
+	}),
 	makeParticipant({ retreatParticipantId: 'rp-4', firstName: 'Diana', lastName: 'Pérez', idOnRetreat: 10 }),
 ];
 
@@ -209,6 +216,15 @@ describe('RecepcionView - search', () => {
 
 		expect(rows).toHaveLength(1);
 		expect(rows[0]).toContain('García');
+	});
+
+	it('finds a participant by the nickname they introduce themselves with', async () => {
+		const wrapper = await mountView();
+
+		const rows = await searchPending(wrapper, 'guero');
+
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toContain('Beto');
 	});
 
 	it('still finds a participant by retreat number', async () => {
