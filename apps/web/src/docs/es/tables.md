@@ -32,6 +32,28 @@ Si sobraron mesas sin nadie asignado, no hace falta borrarlas una por una:
 
 Solo se borran las mesas que no tienen líder, ni colíderes, ni caminantes. Las demás no se tocan.
 
+## Buscar una Persona en el Tablero
+
+El buscador de arriba a la derecha encuentra a cualquiera del retiro, esté sin asignar o ya sentado en una mesa.
+
+**Escriba como le salga natural:**
+
+- **Nombre y apellido juntos**: "adan perez" encuentra a Adán Bautista Pérez
+- **En cualquier orden**: "perez adan" encuentra lo mismo
+- **Sin acentos**: "jose" encuentra a José, "diaz" encuentra a Díaz
+- **Por número de retiro**: escriba 17 y aparece el caminante 17
+- **Por apodo**: si lo tiene registrado, también sirve
+
+**Mientras busca:**
+
+- Las coincidencias se resaltan en amarillo y **el resto del tablero se atenúa**. Así ve de un golpe dónde quedó una familia o cómo se repartió una parroquia, sin ir una por una.
+- El contador (por ejemplo **3 / 12**) le dice en cuál está y cuántas hay. Si marca **0 / 0**, no hay nadie con ese nombre en el tablero.
+- **Enter** salta a la siguiente coincidencia y **Shift + Enter** a la anterior. También puede usar las flechas ‹ ›. Al llegar a la última, la siguiente vuelve a la primera.
+- La pantalla solo se mueve si la persona está fuera de la vista.
+- La **X** (o la tecla Esc) limpia la búsqueda.
+
+**Si la persona canceló**, no aparece en el tablero, pero debajo del buscador se le avisa: *"Cancelados que coinciden: ..."*. Así sabe que existe y que canceló, en vez de pensar que escribió mal el nombre.
+
 ## Reglas de Asignación de Mesas
 
 - Cada mesa debe tener al menos un líder
