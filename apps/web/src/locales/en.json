@@ -1402,6 +1402,9 @@
     "spanish": "Spanish"
   },
   "tables": {
+    "search": {
+      "cancelledMatches": "Cancelled matches: {names}"
+    },
     "title": "Retreat Tables",
     "description": "Manage table assignments, leaders, and walkers.",
     "noTablesFound": "No tables found for this retreat.",

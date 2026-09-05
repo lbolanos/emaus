@@ -1488,6 +1488,9 @@
     "spanish": "Español"
   },
   "tables": {
+    "search": {
+      "cancelledMatches": "Cancelados que coinciden: {names}"
+    },
     "title": "Mesas del Retiro",
     "description": "Gestiona las asignaciones de mesas, líderes y caminantes.",
     "noTablesFound": "No se encontraron mesas para este retiro.",

@@ -886,6 +886,17 @@ export const getWalkersByRetreat = async (
   return response.data;
 };
 
+/**
+ * Cancelled participants of a retreat. Views that hide them (the tables board)
+ * still need the list to explain why a search comes up empty.
+ */
+export const getCancelledParticipants = async (retreatId: string): Promise<Participant[]> => {
+  const response = await api.get("/participants", {
+    params: { retreatId, isCancelled: "true" },
+  });
+  return response.data;
+};
+
 export const getParticipantsByRetreat = async (
   retreatId: string,
   type?: "walker" | "server" | "waiting" | "partial_server" | undefined,

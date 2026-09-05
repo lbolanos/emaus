@@ -174,6 +174,12 @@
         </DropdownMenu>
         </div>
       </div>
+
+      <!-- Cancelled participants matching the search: they are not on the
+           board, so without this the search just comes up empty. -->
+      <p v-if="cancelledMatches.length > 0" class="mt-1 text-xs text-muted-foreground text-right">
+        {{ $t('tables.search.cancelledMatches', { names: cancelledMatchNames }) }}
+      </p>
     </div>
 
     <!-- Unassigned Areas (inside same glass panel) -->
@@ -338,8 +344,7 @@
           v-for="table in tableMesaStore.tables"
           :key="table.id"
           :table="table"
-          :matching-ids="matchingIds"
-          :current-match-id="currentMatchId"
+          :search-highlight="searchHighlight"
           class="table-card"
           @delete="handleDeleteTable"
           @refresh="tableMesaStore.fetchTables()"
@@ -491,6 +496,7 @@ import TableCard from './TableCard.vue';
 import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, TooltipProvider, Popover, PopoverContent, PopoverTrigger } from '@repo/ui';
 import { buildTableData } from '@/utils/tableBriefing';
 import { highlightClassFor, participantMatchesTokens, searchTokens } from '@/utils/participantSearch';
+import type { SearchHighlight } from '@/utils/participantSearch';
 import ParticipantTooltip from '@/components/ParticipantTooltip.vue';
 import ParticipantInfoPopover from '@/components/ParticipantInfoPopover.vue';
 import MessageDialog from '@/components/MessageDialog.vue';
@@ -502,7 +508,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { ChevronLeft, ChevronRight, Download, HelpCircle, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw, Scissors, Send, Trash2, UserX, X } from 'lucide-vue-next';
 import type { Participant, TableMesa } from '@repo/types';
 import { useI18n } from 'vue-i18n';
-import { exportTablesToDocx } from '@/services/api';
+import { exportTablesToDocx, getCancelledParticipants } from '@/services/api';
 import { useDragState } from '@/composables/useDragState';
 import { useTapAssign } from '@/composables/useTapAssign';
 import {
@@ -656,9 +662,50 @@ const matchingIds = computed(() => matchingParticipants.value.map(m => m.partici
 
 const currentMatchId = computed(() => matchingIds.value[currentMatchIndex.value] ?? null);
 
+// Single search state for every zone: the board fades everyone who does not
+// match, so a family or a parish is read as a shape instead of walked one by
+// one. Handed down to TableCard as a whole.
+const searchHighlight = computed<SearchHighlight>(() => ({
+  matchingIds: matchingIds.value,
+  currentMatchId: currentMatchId.value,
+  searching: searchTokens(searchQuery.value).length > 0,
+}));
+
 // Get highlight class for a participant
 const getParticipantHighlightClass = (participantId: string) =>
-  highlightClassFor(participantId, matchingIds.value, currentMatchId.value);
+  highlightClassFor(participantId, searchHighlight.value);
+
+// A cancelled participant is not on the board, so searching for one returns
+// nothing and the screen gives no clue why. They cannot be navigated to, so
+// they are announced apart from the counter.
+//
+// The store is loaded with isCancelled=false for this view, so cancelled
+// participants are fetched on their own; failing to load them just means no
+// hint, never a broken board.
+const cancelledParticipants = ref<Participant[]>([]);
+
+const loadCancelledParticipants = async (retreatId: string) => {
+  cancelledParticipants.value = [];
+  if (!retreatId) return;
+  try {
+    cancelledParticipants.value = await getCancelledParticipants(retreatId);
+  } catch {
+    cancelledParticipants.value = [];
+  }
+};
+
+const cancelledMatches = computed(() => {
+  const tokens = searchTokens(searchQuery.value);
+  if (tokens.length === 0) return [];
+
+  return cancelledParticipants.value.filter(p => participantMatchesTokens(p, tokens));
+});
+
+const cancelledMatchNames = computed(() => {
+  const shown = cancelledMatches.value.slice(0, 3).map(p => `${p.firstName} ${p.lastName}`.trim());
+  const rest = cancelledMatches.value.length - shown.length;
+  return rest > 0 ? `${shown.join(', ')} +${rest}` : shown.join(', ');
+});
 
 // Navigate between matches. Both ends wrap around, the way Ctrl+F does: with
 // the last match on screen, one more step goes back to the first instead of
@@ -1444,6 +1491,7 @@ watch(
       participantStore.filters.isCancelled = false;
       participantStore.fetchParticipants();
       tableMesaStore.fetchTables();
+      loadCancelledParticipants(newRetreatId);
     }
   },
   { immediate: true }

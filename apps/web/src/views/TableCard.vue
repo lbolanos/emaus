@@ -245,6 +245,7 @@ import { useTapAssign } from '@/composables/useTapAssign';
 import { useParticipantMessageDialog } from '@/composables/useParticipantMessageDialog';
 import { buildTableData } from '@/utils/tableBriefing';
 import { highlightClassFor } from '@/utils/participantSearch';
+import type { SearchHighlight } from '@/utils/participantSearch';
 
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@repo/ui';
 import { Trash2, Eye, Camera, Send } from 'lucide-vue-next';
@@ -257,13 +258,9 @@ const props = defineProps({
     type: Object as PropType<TableMesa>,
     required: true,
   },
-  matchingIds: {
-    type: Array as PropType<string[]>,
-    default: () => [],
-  },
-  currentMatchId: {
-    type: String as PropType<string | null>,
-    default: null,
+  searchHighlight: {
+    type: Object as PropType<SearchHighlight>,
+    default: () => ({ matchingIds: [], currentMatchId: null, searching: false }),
   },
 });
 
@@ -319,7 +316,7 @@ const onChooseLeader = (leader: Participant) => {
 // computed once in TablesView; deriving an index per table used to mark one
 // "current" match in every table at the same time.
 const getParticipantHighlightClass = (participant: Participant | null | undefined): string =>
-  highlightClassFor(participant?.id, props.matchingIds, props.currentMatchId);
+  highlightClassFor(participant?.id, props.searchHighlight);
 
 const confirmDelete = () => {
   emit('delete', props.table);

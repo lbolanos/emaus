@@ -11,6 +11,14 @@ export const CURRENT_MATCH_CLASS =
 export const OTHER_MATCH_CLASS = 'bg-yellow-100 dark:bg-yellow-800/50';
 
 /**
+ * Everyone who does not match fades back while a search is running, turning the
+ * board into a map: where a family or a parish ended up is read at a glance
+ * instead of walked match by match. Faded pills keep their shape and colour, so
+ * the layout still reads.
+ */
+export const DIMMED_CLASS = 'opacity-40';
+
+/**
  * Anything with a name. The retreat number arrives under two spellings across
  * the codebase (`id_on_retreat` in the entities, `idOnRetreat` in some API
  * payloads), so both are accepted and callers need no mapping.
@@ -75,15 +83,24 @@ export const participantMatchesTokens = (
 };
 
 /**
- * Highlight class for a participant. `matchingIds` and `currentMatchId` are
- * computed once by the view that owns the search, so every zone (unassigned
- * lists, leader slots, table walkers) agrees on which match is the current one.
+ * Search class for a participant: the current match, another match, or faded
+ * out. The state is computed once by the view that owns the search, so every
+ * zone (unassigned lists, leader slots, table walkers) agrees on it.
  */
+export type SearchHighlight = {
+	/** Ids of every match, in navigation order. */
+	matchingIds: string[];
+	/** The match the user is standing on, if any. */
+	currentMatchId: string | null;
+	/** Whether the box has text: with an empty search nothing fades. */
+	searching: boolean;
+};
+
 export const highlightClassFor = (
 	participantId: string | null | undefined,
-	matchingIds: string[],
-	currentMatchId: string | null,
+	{ matchingIds, currentMatchId, searching }: SearchHighlight,
 ): string => {
-	if (!participantId || !matchingIds.includes(participantId)) return '';
+	if (!searching) return '';
+	if (!participantId || !matchingIds.includes(participantId)) return DIMMED_CLASS;
 	return participantId === currentMatchId ? CURRENT_MATCH_CLASS : OTHER_MATCH_CLASS;
 };

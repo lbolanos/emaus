@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import {
 	CURRENT_MATCH_CLASS,
+	DIMMED_CLASS,
 	OTHER_MATCH_CLASS,
 	highlightClassFor,
 	participantMatchesTokens,
@@ -48,20 +49,28 @@ describe('participantMatchesTokens', () => {
 
 describe('highlightClassFor', () => {
 	const ids = ['a', 'b', 'c'];
+	const searching = (currentMatchId: string | null) => ({ matchingIds: ids, currentMatchId, searching: true });
 
 	it('marca como actual solo al participante actual', () => {
-		expect(highlightClassFor('b', ids, 'b')).toBe(CURRENT_MATCH_CLASS);
-		expect(highlightClassFor('a', ids, 'b')).toBe(OTHER_MATCH_CLASS);
-		expect(highlightClassFor('c', ids, 'b')).toBe(OTHER_MATCH_CLASS);
+		expect(highlightClassFor('b', searching('b'))).toBe(CURRENT_MATCH_CLASS);
+		expect(highlightClassFor('a', searching('b'))).toBe(OTHER_MATCH_CLASS);
+		expect(highlightClassFor('c', searching('b'))).toBe(OTHER_MATCH_CLASS);
 	});
 
-	it('no resalta a quien no coincide', () => {
-		expect(highlightClassFor('z', ids, 'b')).toBe('');
-		expect(highlightClassFor(null, ids, 'b')).toBe('');
+	it('atenúa a quien no coincide, para leer el tablero de un vistazo', () => {
+		expect(highlightClassFor('z', searching('b'))).toBe(DIMMED_CLASS);
+		expect(highlightClassFor(null, searching('b'))).toBe(DIMMED_CLASS);
 	});
 
-	it('no resalta nada cuando no hay coincidencias', () => {
-		expect(highlightClassFor('a', [], null)).toBe('');
+	it('atenúa a todos cuando la búsqueda no encuentra nada', () => {
+		expect(highlightClassFor('a', { matchingIds: [], currentMatchId: null, searching: true })).toBe(
+			DIMMED_CLASS,
+		);
+	});
+
+	it('no toca a nadie mientras no se está buscando', () => {
+		expect(highlightClassFor('a', { matchingIds: [], currentMatchId: null, searching: false })).toBe('');
+		expect(highlightClassFor('a', { matchingIds: ids, currentMatchId: 'a', searching: false })).toBe('');
 	});
 });
 
