@@ -138,6 +138,13 @@ export const clearAllTables = async (retreatId: string): Promise<void> => {
   await api.post(`/tables/clear-all/${retreatId}`);
 };
 
+export const deleteEmptyTables = async (
+  retreatId: string,
+): Promise<{ deletedCount: number; deletedNames: string[] }> => {
+  const response = await api.post(`/tables/delete-empty/${retreatId}`);
+  return response.data;
+};
+
 export const exportTablesToDocx = async (retreatId: string): Promise<void> => {
   const response = await api.post(
     `/tables/export/${retreatId}`,

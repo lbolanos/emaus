@@ -1450,6 +1450,16 @@
       "errorDescription": "An error occurred while clearing the tables."
     },
     "addTable": "Add Table",
+    "deleteEmpty": "Delete Empty Tables",
+    "deleteEmptyConfirmation": {
+      "title": "Delete Empty Tables",
+      "description": "{count} table(s) with no leader, no coleaders and no walkers will be deleted. This action cannot be undone.",
+      "none": "There are no empty tables: every table has at least one leader or walker assigned.",
+      "confirm": "Delete Tables",
+      "deleting": "Deleting...",
+      "successTitle": "Tables Deleted",
+      "successDescription": "{count} empty table(s) were deleted."
+    },
     "column": "Column",
     "columns": "Columns",
     "exportDocx": "Print Tables",

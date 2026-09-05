@@ -7,6 +7,7 @@ import {
 	unassignLeader as unassignLeaderApi,
 	unassignWalker as unassignWalkerApi,
 	clearAllTables as clearAllTablesApi,
+	deleteEmptyTables as deleteEmptyTablesApi,
 	api,
 } from '@/services/api';
 import { apiErrorMessage } from '@/services/apiError';
@@ -170,6 +171,22 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
 		}
 	};
 
+	const deleteEmptyTables = async (retreatId: string) => {
+		isLoading.value = true;
+		try {
+			const result = await deleteEmptyTablesApi(retreatId);
+			await fetchTables();
+			return result;
+		} catch (e: any) {
+			const errorMessage = apiErrorMessage(e, 'Failed to delete empty tables');
+			console.error('Failed to delete empty tables', e);
+			toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
+			throw e; // Re-throw to be caught in the component
+		} finally {
+			isLoading.value = false;
+		}
+	};
+
 	const createTable = async () => {
 		if (!retreatStore.selectedRetreatId) return;
 		try {
@@ -223,5 +240,6 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
 		unassignWalkerFromTable,
 		createTable,
 		deleteTable,
+		deleteEmptyTables,
 	};
 });

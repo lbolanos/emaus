@@ -131,6 +131,48 @@ export const deleteTable = async (id: string, dataSource?: DataSource) => {
 	}
 };
 
+/**
+ * Deletes every table of the retreat that has no lider, no coliders and no active walkers.
+ * Returns the names of the deleted tables so the caller can report what was removed.
+ */
+export const deleteEmptyTablesForRetreat = async (retreatId: string, dataSource?: DataSource) => {
+	const repos = getRepositories(dataSource);
+	const ds = dataSource || AppDataSource;
+	const rpRepo = ds.getRepository(RetreatParticipant);
+
+	const tables = await repos.tableMesa.find({ where: { retreatId }, order: { name: 'ASC' } });
+
+	// A table counts as occupied when at least one non-cancelled walker points at it,
+	// matching what findTablesByRetreatId returns to the UI.
+	const occupiedRows = await rpRepo
+		.createQueryBuilder('rp')
+		.select('rp.tableId', 'tableId')
+		.where('rp.retreatId = :retreatId', { retreatId })
+		.andWhere('rp.tableId IS NOT NULL')
+		.andWhere('rp.isCancelled = :isCancelled', { isCancelled: false })
+		.getRawMany<{ tableId: string }>();
+	const occupiedTableIds = new Set(occupiedRows.map((row) => row.tableId));
+
+	const emptyTables = tables.filter(
+		(table) =>
+			!table.liderId &&
+			!table.colider1Id &&
+			!table.colider2Id &&
+			!occupiedTableIds.has(table.id),
+	);
+
+	for (const table of emptyTables) {
+		// Cancelled walkers may still reference the table; detach them before dropping the row.
+		await rpRepo.update({ tableId: table.id }, { tableId: null });
+		await deleteTable(table.id, dataSource);
+	}
+
+	return {
+		deletedCount: emptyTables.length,
+		deletedNames: emptyTables.map((table) => table.name),
+	};
+};
+
 export const assignLeaderToTable = async (
 	tableId: string,
 	participantId: string,

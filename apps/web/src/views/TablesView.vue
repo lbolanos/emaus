@@ -112,6 +112,10 @@
               <Plus class="mr-2 h-4 w-4" />
               {{ $t('tables.addTable') }}
             </DropdownMenuItem>
+            <DropdownMenuItem @click="isDeleteEmptyDialogOpen = true">
+              <Trash2 class="mr-2 h-4 w-4" />
+              {{ $t('tables.deleteEmpty') }}
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
@@ -396,6 +400,40 @@
     </div>
   </Teleport>
 
+  <!-- Delete Empty Tables Confirmation Dialog -->
+  <Teleport to="body" v-if="isDeleteEmptyDialogOpen">
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" @click.self="isDeleteEmptyDialogOpen = false">
+      <div class="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-md w-full">
+        <div class="p-6">
+          <h2 class="text-lg font-semibold">{{ $t('tables.deleteEmptyConfirmation.title') }}</h2>
+          <template v-if="emptyTables.length > 0">
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+              {{ $t('tables.deleteEmptyConfirmation.description', { count: emptyTables.length }) }}
+            </p>
+            <ul class="mt-3 max-h-40 overflow-y-auto text-sm text-gray-700 dark:text-gray-300 list-disc list-inside">
+              <li v-for="table in emptyTables" :key="table.id">{{ table.name }}</li>
+            </ul>
+          </template>
+          <p v-else class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+            {{ $t('tables.deleteEmptyConfirmation.none') }}
+          </p>
+        </div>
+        <div class="flex items-center justify-end gap-2 p-6 border-t">
+          <Button variant="outline" @click="isDeleteEmptyDialogOpen = false">{{ $t('common.cancel') }}</Button>
+          <Button
+            v-if="emptyTables.length > 0"
+            variant="destructive"
+            @click="confirmDeleteEmptyTables"
+            :disabled="isDeletingEmpty"
+          >
+            <Loader2 v-if="isDeletingEmpty" class="w-4 h-4 mr-2 animate-spin" />
+            {{ isDeletingEmpty ? $t('tables.deleteEmptyConfirmation.deleting') : $t('tables.deleteEmptyConfirmation.confirm') }}
+          </Button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
   <!-- Lottery Cards Dialog -->
   <LotteryCardsDialog
     v-if="isLotteryCardsOpen"
@@ -450,7 +488,7 @@ import TablesHelpDialog from '@/components/TablesHelpDialog.vue';
 import { useParticipantMessageDialog } from '@/composables/useParticipantMessageDialog';
 import { useToast } from '@repo/ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@repo/ui';
-import { ChevronLeft, ChevronRight, Download, HelpCircle, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw, Scissors, Send, UserX, X } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Download, HelpCircle, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw, Scissors, Send, Trash2, UserX, X } from 'lucide-vue-next';
 import type { Participant, TableMesa } from '@repo/types';
 import { useI18n } from 'vue-i18n';
 import { exportTablesToDocx } from '@/services/api';
@@ -521,6 +559,8 @@ const isDeleting = ref(false);
 const tableToDelete = ref<TableMesa | null>(null);
 const isClearAllDialogOpen = ref(false);
 const isClearingAll = ref(false);
+const isDeleteEmptyDialogOpen = ref(false);
+const isDeletingEmpty = ref(false);
 const isExporting = ref(false);
 const isLotteryCardsOpen = ref(false);
 const isHelpOpen = ref(false);
@@ -739,6 +779,33 @@ const onDropToUnassigned = (event: DragEvent, type: 'server' | 'walker') => {
 
 const handleCreateTable = () => {
   tableMesaStore.createTable();
+};
+
+// A table is empty when it has no lider, no coliders and no walkers.
+const emptyTables = computed(() =>
+  tableMesaStore.tables.filter(
+    (table) =>
+      !table.lider && !table.colider1 && !table.colider2 && (table.walkers?.length || 0) === 0,
+  ),
+);
+
+const confirmDeleteEmptyTables = async () => {
+  if (!retreatStore.selectedRetreatId) return;
+  isDeletingEmpty.value = true;
+  try {
+    const result = await tableMesaStore.deleteEmptyTables(retreatStore.selectedRetreatId);
+    isDeleteEmptyDialogOpen.value = false;
+    toast({
+      title: t('tables.deleteEmptyConfirmation.successTitle'),
+      description: t('tables.deleteEmptyConfirmation.successDescription', {
+        count: result?.deletedCount ?? 0,
+      }),
+    });
+  } catch (error) {
+    // The store already surfaced the error toast
+  } finally {
+    isDeletingEmpty.value = false;
+  }
 };
 
 const confirmRebalance = async () => {

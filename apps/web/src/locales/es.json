@@ -1536,6 +1536,16 @@
       "errorDescription": "Ocurrió un error al vaciar las mesas."
     },
     "addTable": "Agregar Mesa",
+    "deleteEmpty": "Eliminar Mesas Vacías",
+    "deleteEmptyConfirmation": {
+      "title": "Eliminar Mesas Vacías",
+      "description": "Se eliminarán {count} mesa(s) sin líder, sin colíderes y sin caminantes. Esta acción no se puede deshacer.",
+      "none": "No hay mesas vacías: todas tienen al menos un líder o un caminante asignado.",
+      "confirm": "Eliminar Mesas",
+      "deleting": "Eliminando...",
+      "successTitle": "Mesas Eliminadas",
+      "successDescription": "Se eliminaron {count} mesa(s) vacía(s)."
+    },
     "column": "Columna",
     "columns": "Columnas",
     "printTables": "Imprimir Mesas",
