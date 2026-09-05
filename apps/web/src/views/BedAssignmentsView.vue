@@ -558,6 +558,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { normalizeText, participantMatchesTokens, searchTokens } from '@/utils/participantSearch';
 import { floorDisplay } from '@/composables/useFloorLabel';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
@@ -919,17 +920,20 @@ const filteredBeds = computed(() => {
   }
 
   // Apply search query
-  if (searchQuery.value.trim()) {
-    const query = searchQuery.value.toLowerCase().trim();
+  const searchWords = searchTokens(searchQuery.value);
+  if (searchWords.length > 0) {
+    // Bed fields are matched against the raw query (a room is "12-B", not two
+    // words); participants go token by token so "juan perez" finds them.
+    const query = normalizeText(searchQuery.value.trim());
 
     filtered = filtered.filter(bed => {
       // Search beds
       if (searchType.value === 'all' || searchType.value === 'beds') {
         if (
-          bed.roomNumber.toLowerCase().includes(query) ||
-          bed.bedNumber.toLowerCase().includes(query) ||
+          normalizeText(bed.roomNumber).includes(query) ||
+          normalizeText(bed.bedNumber).includes(query) ||
           (bed.floor && bed.floor.toString().includes(query)) ||
-          bed.type.toLowerCase().includes(query)
+          normalizeText(bed.type).includes(query)
         ) {
           return true;
         }
@@ -938,12 +942,12 @@ const filteredBeds = computed(() => {
       // Search participants
       if (searchType.value === 'all' || searchType.value === 'participants') {
         if (bed.participant) {
-          const participant = bed.participant;
+          if (participantMatchesTokens(bed.participant, searchWords)) {
+            return true;
+          }
           if (
-            participant.firstName.toLowerCase().includes(query) ||
-            participant.lastName.toLowerCase().includes(query) ||
-            (participant.id_on_retreat && participant.id_on_retreat.toString().includes(query)) ||
-            (participant.family_friend_color && participant.family_friend_color.toLowerCase().includes(query))
+            bed.participant.family_friend_color &&
+            normalizeText(bed.participant.family_friend_color).includes(query)
           ) {
             return true;
           }
@@ -1249,21 +1253,18 @@ const clearSearch = () => {
 };
 
 const shouldHighlightBed = (bed: RetreatBed) => {
-  if (!searchQuery.value.trim()) return false;
+  const searchWords = searchTokens(searchQuery.value);
+  if (searchWords.length === 0) return false;
 
-  const query = searchQuery.value.toLowerCase().trim();
   if (bed.participant) {
-    return (
-      bed.participant.firstName.toLowerCase().includes(query) ||
-      bed.participant.lastName.toLowerCase().includes(query) ||
-      (bed.participant.id_on_retreat && bed.participant.id_on_retreat.toString().includes(query))
-    );
+    return participantMatchesTokens(bed.participant, searchWords);
   }
 
-  return (
-    bed.roomNumber.toLowerCase().includes(query) ||
-    bed.bedNumber.toLowerCase().includes(query) ||
-    (bed.floor && bed.floor.toString().includes(query))
+  const query = normalizeText(searchQuery.value.trim());
+  return Boolean(
+    normalizeText(bed.roomNumber).includes(query) ||
+      normalizeText(bed.bedNumber).includes(query) ||
+      (bed.floor && bed.floor.toString().includes(query)),
   );
 };
 

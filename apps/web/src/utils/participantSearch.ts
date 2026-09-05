@@ -19,9 +19,16 @@ type SearchableParticipant = {
 	firstName?: string | null;
 	lastName?: string | null;
 	nickname?: string | null;
+	email?: string | null;
 	id_on_retreat?: number | string | null;
 	idOnRetreat?: number | string | null;
 };
+
+/**
+ * Email is opt-in: admin lists search by address, but on the tables board or
+ * at the door it only adds noise (every "gmail" would match).
+ */
+export type SearchOptions = { includeEmail?: boolean };
 
 /** Remove accents and lowercase, so "Pérez" matches "perez". */
 export const normalizeText = (text: string): string =>
@@ -40,13 +47,17 @@ export const searchTokens = (query: string): string[] =>
  * Single searchable string per participant. First and last name live in
  * separate fields, so matching them one by one makes "juan perez" find nothing.
  */
-export const participantHaystack = (participant: SearchableParticipant): string =>
+export const participantHaystack = (
+	participant: SearchableParticipant,
+	{ includeEmail = false }: SearchOptions = {},
+): string =>
 	normalizeText(
 		[
 			participant.id_on_retreat ?? participant.idOnRetreat,
 			participant.firstName,
 			participant.lastName,
 			participant.nickname,
+			includeEmail ? participant.email : null,
 		]
 			.filter(Boolean)
 			.join(' '),
@@ -56,9 +67,10 @@ export const participantHaystack = (participant: SearchableParticipant): string 
 export const participantMatchesTokens = (
 	participant: SearchableParticipant | null | undefined,
 	tokens: string[],
+	options?: SearchOptions,
 ): boolean => {
 	if (!participant || tokens.length === 0) return false;
-	const haystack = participantHaystack(participant);
+	const haystack = participantHaystack(participant, options);
 	return tokens.every((token) => haystack.includes(token));
 };
 

@@ -11,6 +11,7 @@ import { getPalanqueroOptions, sendEmailViaBackend, getSmtpConfig, listShirtType
 import { useMessageTemplateStore } from '@/stores/messageTemplateStore';
 import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { convertHtmlToEmail, replaceAllVariables } from '@/utils/message';
+import { participantMatchesTokens, searchTokens } from '@/utils/participantSearch';
 import type { ParticipantData, RetreatData } from '@/utils/message';
 import MessageDialog from './MessageDialog.vue';
 import WhatsAppSendQueue from './WhatsAppSendQueue.vue';
@@ -522,14 +523,12 @@ const filteredAndSortedParticipants = computed(() => {
     let result = [...participants.value];
 
     // 1. Filtrar por búsqueda
-    if (searchQuery.value) {
-        const lowerCaseQuery = searchQuery.value.toLowerCase();
-        result = result.filter(p =>
-            (p.firstName?.toLowerCase().includes(lowerCaseQuery)) ||
-            (p.lastName?.toLowerCase().includes(lowerCaseQuery)) ||
-            (p.email?.toLowerCase().includes(lowerCaseQuery)) ||
-            (p.nickname?.toLowerCase().includes(lowerCaseQuery))
-        );
+    // Matching against the participant's whole text: "juan perez" has to find
+    // someone whose first and last name live in separate fields, and "perez"
+    // has to find "Pérez".
+    const searchWords = searchTokens(searchQuery.value);
+    if (searchWords.length > 0) {
+        result = result.filter(p => participantMatchesTokens(p, searchWords, { includeEmail: true }));
     }
 
     // Filtro "solo participantes de mi mesa" (si el usuario es líder/colíder).

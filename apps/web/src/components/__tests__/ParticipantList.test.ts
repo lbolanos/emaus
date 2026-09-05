@@ -1014,4 +1014,65 @@ describe('ParticipantList Component', () => {
 			expect(spy).toHaveBeenCalledWith('x', 'confirmed');
 		});
 	});
+
+	describe('Search: full name and accents', () => {
+		const names = () =>
+			wrapper.vm.filteredAndSortedParticipants.map((p: any) => `${p.firstName} ${p.lastName}`);
+
+		beforeEach(async () => {
+			const { useParticipantStore } = await import('@/stores/participantStore');
+			const participantStore = useParticipantStore();
+			participantStore.participants = [
+				createMockParticipant({
+					id: 'w1',
+					firstName: 'José Luis',
+					lastName: 'García Ramírez',
+					email: 'joseluis@example.com',
+					type: 'walker',
+				}),
+				createMockParticipant({
+					id: 'w2',
+					firstName: 'Ana',
+					lastName: 'Pérez',
+					email: 'ana@example.com',
+					type: 'walker',
+				}),
+			];
+			await nextTick();
+		});
+
+		it('finds by full name, though first and last name are separate fields', async () => {
+			wrapper.vm.searchQuery = 'jose garcia';
+			await nextTick();
+			expect(names()).toEqual(['José Luis García Ramírez']);
+		});
+
+		it('ignores accents in both directions', async () => {
+			wrapper.vm.searchQuery = 'perez';
+			await nextTick();
+			expect(names()).toEqual(['Ana Pérez']);
+
+			wrapper.vm.searchQuery = 'ramirez';
+			await nextTick();
+			expect(names()).toEqual(['José Luis García Ramírez']);
+		});
+
+		it('ignores word order', async () => {
+			wrapper.vm.searchQuery = 'garcia jose';
+			await nextTick();
+			expect(names()).toEqual(['José Luis García Ramírez']);
+		});
+
+		it('keeps searching by email, as this list always did', async () => {
+			wrapper.vm.searchQuery = 'ana@example.com';
+			await nextTick();
+			expect(names()).toEqual(['Ana Pérez']);
+		});
+
+		it('returns nothing when a word does not match', async () => {
+			wrapper.vm.searchQuery = 'jose perez';
+			await nextTick();
+			expect(names()).toEqual([]);
+		});
+	});
 });
