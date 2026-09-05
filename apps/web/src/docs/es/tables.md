@@ -22,6 +22,16 @@ Las mesas son grupos pequeños donde los caminantes procesan su experiencia de r
 4. Agregue caminantes a la mesa
 5. Guarde la mesa
 
+## Eliminar Mesas Vacías
+
+Si sobraron mesas sin nadie asignado, no hace falta borrarlas una por una:
+
+1. Abra el menú de acciones (⋮) arriba a la derecha
+2. Elija **Eliminar Mesas Vacías**
+3. Revise la lista de mesas que se van a borrar y confirme
+
+Solo se borran las mesas que no tienen líder, ni colíderes, ni caminantes. Las demás no se tocan.
+
 ## Reglas de Asignación de Mesas
 
 - Cada mesa debe tener al menos un líder

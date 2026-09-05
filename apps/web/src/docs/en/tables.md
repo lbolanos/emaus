@@ -22,6 +22,16 @@ Tables are small groups where walkers process their retreat experience together.
 4. Add walkers to the table
 5. Save the table
 
+## Delete Empty Tables
+
+If you ended up with tables that have nobody assigned, you do not have to delete them one by one:
+
+1. Open the actions menu (⋮) in the top right
+2. Choose **Delete Empty Tables**
+3. Review the list of tables about to be deleted and confirm
+
+Only tables with no leader, no coleaders and no walkers are deleted. The rest are left untouched.
+
 ## Table Assignment Rules
 
 - Each table must have at least one leader

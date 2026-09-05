@@ -142,8 +142,10 @@ export const deleteEmptyTablesForRetreat = async (retreatId: string, dataSource?
 
 	const tables = await repos.tableMesa.find({ where: { retreatId }, order: { name: 'ASC' } });
 
-	// A table counts as occupied when at least one non-cancelled walker points at it,
-	// matching what findTablesByRetreatId returns to the UI.
+	// A table counts as occupied when at least one non-cancelled participant points at it,
+	// matching what findTablesByRetreatId returns to the UI. Unlike rebalanceTablesForRetreat
+	// this deliberately does NOT filter by type: only walkers get a tableId today, and if a
+	// row of another type ever got one, protecting the table from deletion is the safe outcome.
 	const occupiedRows = await rpRepo
 		.createQueryBuilder('rp')
 		.select('rp.tableId', 'tableId')
