@@ -59,6 +59,11 @@ describe('flyerOptionsSchema', () => {
 			['plain http', 'http://example.com/x.png'],
 			['a non-image data URI', 'data:text/html;base64,PHNjcmlwdD4='],
 			['a quote that would break out of url()', "https://x/y.png');background:red;//"],
+			// Protocol-relative: `//host/x.png` inherits the page's scheme, so it is a
+			// remote fetch dressed as an app path. The flyer page is public and
+			// unauthenticated — every visitor's IP would reach that host.
+			['a protocol-relative URL', '//attacker.example/x.png'],
+			['a protocol-relative URL with a port', '//attacker.example:8080/x.png'],
 		])('rejects %s', (_label, url) => {
 			expect(flyerOptionsSchema.safeParse({ images: { logo: url } }).success).toBe(false);
 		});

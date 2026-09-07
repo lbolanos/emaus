@@ -106,7 +106,14 @@ const flyerImageUrlSchema = z.preprocess(
 		.max(1_000_000, { message: 'La imagen es demasiado grande' })
 		.refine(
 			(value) =>
-				/^(\/[\w./-]*|https:\/\/[^\s"']+|data:image\/[\w+.-]+;base64,[\w+/=]+)$/.test(value),
+				// `(?!\/)` tras la primera barra: sin él, la rama de ruta de la app acepta
+				// `//attacker.example/x.png`, porque `/` está dentro de `[\w./-]`. Eso es una
+				// URL protocol-relative, y el volante es público y sin autenticación: cada
+				// visitante cargaría el recurso desde un origen ajeno, que se queda con su IP
+				// y su user-agent. Justo lo que el bloque SECURITY de arriba quiere impedir.
+				/^(\/(?!\/)[\w./-]*|https:\/\/[^\s"']+|data:image\/[\w+.-]+;base64,[\w+/=]+)$/.test(
+					value,
+				),
 			{ message: 'La imagen debe ser una ruta de la app, una URL https o una imagen en base64' },
 		)
 		.optional(),
