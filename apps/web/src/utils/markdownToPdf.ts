@@ -332,6 +332,92 @@ function drawParagraph(ctx: Ctx, token: Tokens.Paragraph) {
 	ctx.y += 1.8;
 }
 
+/** Token inline que no aporta texto: sobra al partir un bloque por imágenes. */
+function isBlankInline(token: Token): boolean {
+	if (token.type === 'br') return true;
+	if (token.type !== 'text' && token.type !== 'escape') return false;
+	return !((token as Tokens.Text).text ?? '').trim();
+}
+
+/**
+ * Recorta los blancos de los extremos de un tramo inline.
+ *
+ * Sin esto, el tramo que sigue a una imagen empieza por el salto de línea que
+ * la separaba del texto: `writeRich` abre un renglón vacío y, peor, el rótulo
+ * (`Tema:`) deja de ser el primer trozo y pierde su sangría francesa.
+ */
+function trimInline(tokens: Token[]): Token[] {
+	let start = 0;
+	let end = tokens.length;
+	while (start < end && isBlankInline(tokens[start])) start++;
+	while (end > start && isBlankInline(tokens[end - 1])) end--;
+	const out = tokens.slice(start, end);
+	if (!out.length) return out;
+	const first = out[0] as Tokens.Text;
+	if (first.type === 'text') out[0] = { ...first, text: first.text.replace(/^\s+/, '') } as Token;
+	const last = out[out.length - 1] as Tokens.Text;
+	if (last.type === 'text') {
+		out[out.length - 1] = { ...last, text: last.text.replace(/\s+$/, '') } as Token;
+	}
+	return out;
+}
+
+/**
+ * Párrafo que puede llevar imágenes intercaladas con el texto.
+ *
+ * En los documentos convertidos del .docx la ilustración va pegada al texto
+ * sin línea en blanco de por medio, así que marked la mete DENTRO del párrafo
+ * y no como bloque propio. Antes solo se dibujaba el párrafo que era
+ * exclusivamente una imagen: las otras nueve de las plantillas desaparecían
+ * sin dejar rastro, porque `flattenInline` descarta el token `image` (su
+ * único texto es el `alt`, que en estos documentos está vacío). Se parte el
+ * párrafo en tramos y se dibuja cada uno en su orden.
+ */
+async function drawParagraphBlock(ctx: Ctx, token: Tokens.Paragraph) {
+	let run: Token[] = [];
+	const flushRun = () => {
+		const inline = trimInline(run);
+		run = [];
+		if (inline.length) drawParagraph(ctx, { ...token, tokens: inline });
+	};
+
+	for (const child of token.tokens ?? []) {
+		if (child.type === 'image') {
+			flushRun();
+			await drawImage(ctx, (child as Tokens.Image).href);
+			continue;
+		}
+		run.push(child);
+	}
+	flushRun();
+}
+
+/**
+ * Encabezado que puede llevar una imagen. `## ![](…)` existe en la 3ª
+ * preparación: el texto resultante era vacío y `drawHeading` se iba de largo,
+ * perdiendo la imagen y el encabezado enteros.
+ */
+async function drawHeadingBlock(ctx: Ctx, token: Tokens.Heading) {
+	const before: string[] = [];
+	const after: string[] = [];
+	const inline: Token[] = [];
+	let hasText = false;
+
+	for (const child of token.tokens ?? []) {
+		if (child.type === 'image') {
+			(hasText ? after : before).push((child as Tokens.Image).href);
+			continue;
+		}
+		inline.push(child);
+		if (!isBlankInline(child)) hasText = true;
+	}
+
+	for (const href of before) await drawImage(ctx, href);
+	// Sin texto no hay encabezado que pintar: `drawHeading` ya se sale solo.
+	drawHeading(ctx, { ...token, tokens: trimInline(inline) });
+	for (const href of after) await drawImage(ctx, href);
+}
+
 function drawList(ctx: Ctx, token: Tokens.List) {
 	for (const [index, item] of token.items.entries()) {
 		const bullet = token.ordered ? `${(Number(token.start) || 1) + index}.` : '•';
@@ -431,8 +517,11 @@ async function drawImage(ctx: Ctx, src: string) {
 		ensureSpace(ctx, h + 4);
 		ctx.doc.addImage(dataUrl, MARGIN_X + (CONTENT_W - w) / 2, ctx.y, w, h);
 		ctx.y += h + 4;
-	} catch {
-		// Una imagen que no carga no debe tumbar el documento entero.
+	} catch (err) {
+		// Una imagen que no carga no debe tumbar el documento entero, pero un
+		// catch mudo convierte la pérdida en invisible: así al menos queda en
+		// la consola de quien descarga el PDF.
+		console.warn('[markdownToPdf] no se pudo incrustar la imagen', src, err);
 	}
 }
 
@@ -505,17 +594,11 @@ export async function buildPreparationPdf(input: PdfDocumentInput): Promise<Blob
 	for (const token of marked.lexer(input.markdown ?? '')) {
 		switch (token.type) {
 			case 'heading':
-				drawHeading(ctx, token as Tokens.Heading);
+				await drawHeadingBlock(ctx, token as Tokens.Heading);
 				break;
-			case 'paragraph': {
-				const paragraph = token as Tokens.Paragraph;
-				const image = (paragraph.tokens ?? []).find((t) => t.type === 'image') as
-					| Tokens.Image
-					| undefined;
-				if (image && (paragraph.tokens ?? []).length === 1) await drawImage(ctx, image.href);
-				else drawParagraph(ctx, paragraph);
+			case 'paragraph':
+				await drawParagraphBlock(ctx, token as Tokens.Paragraph);
 				break;
-			}
 			case 'list':
 				drawList(ctx, token as Tokens.List);
 				break;
