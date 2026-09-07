@@ -33,6 +33,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "en el PDF hay palabras pegadas", "sale un espacio antes del signo de interrogación", "SERVIR ?" | [#20 Texto con negritas: espacios perdidos o inventados](#20-texto-con-negritas-se-pierden-o-se-inventan-espacios) |
 | "la suite falla en tests distintos cada vez", "Maximum call stack size exceeded en un test", "Exceeded timeout of 10000 ms" | [#21 La suite de jest falla en suites distintas cada vez](#21-la-suite-de-jest-falla-en-suites-distintas-cada-vez-sin-tocar-ese-código) |
 | "elegí las tallas y el resumen dice que no elegí ninguna", "lo capturé y la pantalla lo muestra vacío", "el reporte sale en cero aunque hay datos" | [#22 La pantalla lee un campo legacy que el formulario ya no llena](#22-la-pantalla-lee-un-campo-legacy-que-el-formulario-ya-no-llena) |
+| "el test que lee un archivo del repo revienta con ERR_INVALID_URL_SCHEME" | [#26 `import.meta.url` no es una URL file: bajo `src/test/`](#26-importmetaurl-no-es-una-url-file-bajo-srctest) |
 | "al dar clic en elegir foto no sale nada", "el botón de subir archivo no hace nada", "en local no funciona pero en prod sí" | [#23 El selector de archivos no abre: la ref quedó vieja por el hot-reload](#23-el-selector-de-archivos-no-abre-la-ref-quedó-vieja-por-el-hot-reload) |
 | "no me deja seleccionar el país", "se sale al inicio y pierdo el registro", "en el iPhone se cierra solo", "se queda en Cargando…" | [#24 Un paquete de datos entero en un selector tumba Safari iOS](#24-un-paquete-de-datos-entero-en-un-selector-tumba-safari-ios) |
 
@@ -914,6 +915,33 @@ vuelve a importar la raíz del paquete).
 
 **Relacionado**: #2 (Safari iOS blank page) — misma familia: lo que en escritorio es "un poco
 pesado", en Safari iOS es una pestaña muerta.
+
+---
+
+## 26. `import.meta.url` no es una URL file: bajo `src/test/`
+
+**Síntoma**: un test de Vitest que lee un archivo del repo (un guard de código, un HTML) muere
+antes de correr ningún caso con `Serialized Error: { code: 'ERR_INVALID_URL_SCHEME' }` apuntando
+a la línea del `fileURLToPath`. El **mismo patrón funciona** en un test de otra carpeta.
+
+**Causa**: para los archivos bajo `apps/web/src/test/` —la carpeta del `setupFiles`— Vitest no
+entrega `import.meta.url` como `file://`, así que `fileURLToPath()` lo rechaza. En
+`src/components/**/__tests__/` el mismo código resuelve bien; no es el patrón, es la ubicación.
+
+**Fix** — `__dirname`, como los tests vecinos de esa carpeta (`indexHtmlSeo.test.ts`):
+
+```ts
+// ❌ revienta en src/test/
+const SRC = fileURLToPath(new URL('..', import.meta.url));
+
+// ✅
+const SRC = resolve(__dirname, '..');
+```
+
+Nada que ver con la prohibición de `__dirname` en `apps/api`, que es por el bundle ESM de
+producción: en un test de Vitest no hay bundle.
+
+**Casos**: 2026-09-07 `src/test/bootPayload.test.ts`.
 
 ---
 

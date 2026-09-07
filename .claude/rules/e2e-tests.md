@@ -34,4 +34,15 @@ Cuatro cosas que hacen fallar un spec nuevo por razones que no son del código:
 Aserción negativa sobre una pantalla que aún no cargó (`toHaveCount(0)`) siempre pasa: esperá
 primero a que la pantalla esté, o el test es un falso verde.
 
+Y si el spec mide **peticiones de red**, dos cosas más:
+
+- **Filtrá por origen antes de mirar la URL.** En dev, Vite sirve los módulos por su ruta de
+  fuente, así que un patrón como `/recaptcha/` hace match con `src/services/recaptcha.ts` —
+  el guard acusa a Google mirando código propio. Aplicá el patrón sólo a lo que no empiece por
+  el `baseURL`.
+- **No afirmes megabytes.** La misma página pesa varias veces más en dev que en producción, y la
+  caché del navegador hace que la cifra dependa del orden de los tests. Afirmá *qué* se pide y
+  *tras qué interacción*, que es idéntico en los dos entornos. Ejemplo:
+  `apps/web/tests/e2e/mobile-page-weight.spec.ts`.
+
 Ejemplo completo con las cuatro: `apps/web/tests/e2e/server-registration-shirt-sizes.spec.ts`.
