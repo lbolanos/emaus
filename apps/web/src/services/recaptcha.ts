@@ -73,18 +73,66 @@ export function isRecaptchaConfigured(): boolean {
 	return configured;
 }
 
+/** Tags whose focus means the visitor is about to submit something. */
+const FORM_FIELD_TAGS = new Set(['INPUT', 'TEXTAREA', 'SELECT']);
+
 /**
- * Plugin to install reCAPTCHA in the Vue app
+ * Fetch the script the first time the visitor focuses a form field.
+ *
+ * Google's script is ~0.8 MB (decoded) and it used to be preloaded on boot, so
+ * every page paid for it — including the ones with no form at all (terms,
+ * privacy notice, the projected minute-by-minute). On a phone that competes
+ * with the app's own bundle for parse time and memory.
+ *
+ * Focusing a field happens seconds before a submit, which is plenty for the
+ * script to arrive, so nobody waits longer than before; and a visitor who only
+ * reads never downloads it. `getRecaptchaToken` awaits the same cached promise,
+ * so a submit that somehow beats this still works.
  */
-export function installRecaptcha(app: App): void {
+function warmOnFirstFieldFocus(): void {
+	if (typeof document === 'undefined') return;
+
+	const onFocusIn = (event: Event) => {
+		const target = event.target as HTMLElement | null;
+		if (!target || !FORM_FIELD_TAGS.has(target.tagName)) return;
+		document.removeEventListener('focusin', onFocusIn, true);
+		loadRecaptchaScript().catch(() => {
+			// Silent fail — the script is retried when the first token is requested.
+		});
+	};
+
+	document.addEventListener('focusin', onFocusIn, true);
+}
+
+/**
+ * Fetch the script now, for screens whose only action is a submit.
+ *
+ * `warmOnFirstFieldFocus` covers a form: you focus a field seconds before
+ * pressing the button. But a screen where the visitor arrives and taps straight
+ * away — accepting an invitation, marking attendance from a list — has no focus
+ * to hook, and `getRecaptchaToken` would fetch ~0.8 MB with the tap already
+ * made. Those call this on mount instead.
+ */
+export function warmRecaptcha(): void {
 	if (!isRecaptchaConfigured()) {
 		return;
 	}
 
-	// Preload the script
 	loadRecaptchaScript().catch(() => {
-		// Silent fail - script will load when first token is requested
+		// Silent fail — the script is retried when the first token is requested.
 	});
+}
+
+/**
+ * Plugin to install reCAPTCHA in the Vue app
+ */
+export function installRecaptcha(app: App): void {
+	void app;
+	if (!isRecaptchaConfigured()) {
+		return;
+	}
+
+	warmOnFirstFieldFocus();
 }
 
 /**

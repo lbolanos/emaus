@@ -135,6 +135,42 @@ Measure it in the browser, not in the code — the byte budget of the step is pi
 `apps/web/tests/e2e/server-registration-mobile.spec.ts`. Full write-up:
 `troubleshooting` #24.
 
+### Third-party scripts on the boot path (2026-09-07)
+
+Same lesson, one layer up: what the app fetches *for booting* is paid by every page,
+including the ones that need none of it. `main.ts` preloaded Google Maps with the
+places library (~1.5 MB decoded) and reCAPTCHA (~0.8 MB), so the terms page and the
+privacy notice downloaded a map and a captcha they do not have — 3.89 MB of Google on
+a page that is text.
+
+Both preloads turned out to be **dead weight, not a trade-off**: the three screens
+that use Maps already `await loadGoogleMaps()` (the promise is cached), and
+`getRecaptchaToken()` already awaits `loadRecaptchaScript()`. Nothing was being
+anticipated by loading them early.
+
+The pattern that replaced the captcha preload generalises: **fetch on the interaction
+that precedes the need**, not on boot.
+
+```ts
+// Focusing any form field is seconds before a submit — plenty of time for the
+// script, and a visitor who only reads never downloads it.
+document.addEventListener('focusin', onFocusIn, true);
+```
+
+Two things to check before deleting a preload of your own:
+
+- **Does every consumer load it itself?** If one screen relied on the boot preload it
+  breaks only there, only at runtime. Guard:
+  `apps/web/src/test/bootPayload.test.ts` fails if a screen uses `google.maps` at
+  runtime without calling `loadGoogleMaps()`.
+- **Is the fallback still in the path?** Removing a preload is safe because the lazy
+  loader is awaited at the point of use. If it is not, you have moved a crash.
+
+Measured (iPhone 12 emulated, decoded bytes): `/terms` and `/privacy` 7.70 → 3.80 MB,
+landing 10.72 → 6.52 MB. Guard: `apps/web/tests/e2e/mobile-page-weight.spec.ts`, which
+asserts *which* third party is requested and after which interaction — a megabyte
+budget would be meaningless in dev (unbundled modules) and flaky (browser cache).
+
 ## 3. vue-i18n `@` Character in Translations
 
 **Symptom:** `VUE_ERR: Invalid linked format` — component renders as `<!---->` (empty comment). No visible error unless you add `app.config.errorHandler`.

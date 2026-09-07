@@ -37,6 +37,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "no me deja seleccionar el país", "se sale al inicio y pierdo el registro", "en el iPhone se cierra solo", "se queda en Cargando…" | [#24 Un paquete de datos entero en un selector tumba Safari iOS](#24-un-paquete-de-datos-entero-en-un-selector-tumba-safari-ios) |
 | "importé el Excel y faltan personas", "subí 140 y salen 108", "el retiro no está abierto para registro público", "cannot start a transaction within a transaction", "hay tres personas en una habitación de dos", "se perdieron las habitaciones que ya había asignado la parroquia" | [#25 La importación del Excel pierde gente en silencio](#25-la-importación-del-excel-pierde-gente-en-silencio) |
 | "Cannot call trigger on an empty DOMWrapper", "el test no encuentra el thead/la fila", "el selector existe en la app pero no en el test", "el `mount()` me da la tabla vacía" (Vitest) | [#26 La vista montada sigue en el skeleton: falta `flushPromises`](#26-la-vista-montada-sigue-en-el-skeleton-falta-flushpromises) |
+| "el test que lee un archivo del repo revienta con ERR_INVALID_URL_SCHEME" | [#27 `import.meta.url` no es una URL file: bajo `src/test/`](#27-importmetaurl-no-es-una-url-file-bajo-srctest) |
 
 ---
 
@@ -1094,6 +1095,33 @@ const names = w => w.findAll('tbody tr').map(r => r.find('td:nth-child(2) span')
   desde el principio. Otros 5 fallos del mismo lote eran el avatar de iniciales.
 
 **Detalle**: `docs/features/bags-report.md` § Tests.
+
+---
+
+## 27. `import.meta.url` no es una URL file: bajo `src/test/`
+
+**Síntoma**: un test de Vitest que lee un archivo del repo (un guard de código, un HTML) muere
+antes de correr ningún caso con `Serialized Error: { code: 'ERR_INVALID_URL_SCHEME' }` apuntando
+a la línea del `fileURLToPath`. El **mismo patrón funciona** en un test de otra carpeta.
+
+**Causa**: para los archivos bajo `apps/web/src/test/` —la carpeta del `setupFiles`— Vitest no
+entrega `import.meta.url` como `file://`, así que `fileURLToPath()` lo rechaza. En
+`src/components/**/__tests__/` el mismo código resuelve bien; no es el patrón, es la ubicación.
+
+**Fix** — `__dirname`, como los tests vecinos de esa carpeta (`indexHtmlSeo.test.ts`):
+
+```ts
+// ❌ revienta en src/test/
+const SRC = fileURLToPath(new URL('..', import.meta.url));
+
+// ✅
+const SRC = resolve(__dirname, '..');
+```
+
+Nada que ver con la prohibición de `__dirname` en `apps/api`, que es por el bundle ESM de
+producción: en un test de Vitest no hay bundle.
+
+**Casos**: 2026-09-07 `src/test/bootPayload.test.ts`.
 
 ---
 

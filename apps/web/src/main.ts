@@ -14,7 +14,6 @@ if ((window as any).__EMAUS_BOOTED) {
 		const { useAuthStore } = await import('./stores/authStore');
 		const { initializeCsrfProtection } = await import('./utils/csrf');
 		const { installRecaptcha } = await import('./services/recaptcha');
-		const { loadGoogleMaps } = await import('./utils/googleMaps');
 
 		const app = createApp(App);
 		const pinia = createPinia();
@@ -44,7 +43,10 @@ if ((window as any).__EMAUS_BOOTED) {
 			}
 		};
 
-		loadGoogleMaps().catch((err) => console.error('[Maps]', err));
+		// Google Maps is NOT preloaded here on purpose. The script plus the places
+		// library is ~1.5 MB (decoded) and only three screens use it, but every
+		// page used to pay for it. Each of those screens awaits `loadGoogleMaps()`
+		// itself (the promise is cached), so loading it on boot bought nothing.
 		initializeCsrfProtection();
 
 		// Wait for the router to resolve the initial navigation before

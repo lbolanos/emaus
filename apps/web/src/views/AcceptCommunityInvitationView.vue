@@ -337,7 +337,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { getCommunityInvitationStatus, acceptCommunityInvitation } from '@/services/api';
-import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha';
+import { getRecaptchaToken, RECAPTCHA_ACTIONS, warmRecaptcha } from '@/services/recaptcha';
 import { formatDate } from '@repo/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { api } from '@/services/api';
@@ -473,6 +473,9 @@ const resendVerification = async () => {
 };
 
 onMounted(() => {
+  // Esta pantalla no tiene ningún campo: se entra y se pulsa Aceptar. Sin este
+  // aviso, el captcha se descargaría con el botón ya pulsado.
+  warmRecaptcha();
   validateInvitation();
 });
 </script>
