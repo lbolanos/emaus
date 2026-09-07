@@ -143,6 +143,7 @@ Sistema TypeORM contra SQLite. Comandos: `migration:generate`, `migration:run`, 
 | API keys/secretos: key filtrada o expuesta, rotar una key, cambiar una variable de entorno en prod (`.env.production`), escanear secretos (gitleaks) | `secrets-management` |
 | Generar un PDF o un documento imprimible (marcadores, encabezado por página, exportar una vista a papel) | `printable-documents` |
 | Crear/regenerar un video-demo NARRADO de una feature (Playwright headed + subtítulos + TTS Deepgram/`say` + mux ffmpeg) | `demo-videos` |
+| Armar el recuerdo de un retiro terminado: foto de grupo + rótulo en vertical para WhatsApp, o reencuadrar uno hecho | `retreat-keepsakes` |
 | Subir videos al canal de YouTube "Emaús Retiros", generar arte del canal/miniaturas con IA (nano banana/Gemini), OAuth de YouTube, o el botón de ayuda `HelpVideoButton` in-app | `youtube-publishing` |
 | Levantar `pnpm dev` en un git worktree (`.claude/worktrees/<branch>/`) sin chocar con los puertos del main | `worktree-testing` |
 | Entrar por SSH al servidor de prod, AWS CLI, bucket `emaus-media`, backup manual de la DB | `infra-remota` |
