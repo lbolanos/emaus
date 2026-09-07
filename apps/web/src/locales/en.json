@@ -777,6 +777,7 @@
     "email": "Email",
     "table": "Table",
     "actions": "Actions",
+    "all": "Participants",
     "loading": "Loading...",
     "selectRetreatPrompt": "Please select a retreat to see the participants.",
     "noParticipantsFound": "No participants found for this retreat.",
