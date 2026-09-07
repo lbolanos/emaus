@@ -32,6 +32,18 @@ echo "→ Liberando puertos $API_PORT y $WEB_PORT si están en uso..."
 lsof -ti ":$API_PORT","$WEB_PORT" 2>/dev/null | xargs -r kill -KILL 2>/dev/null || true
 sleep 1
 
+# @repo/ui se sirve desde packages/ui/dist, y `pnpm install` NO construye los paquetes del
+# workspace. En un worktree recién creado ese dist no existe y el web arranca roto con
+# "Failed to resolve entry for package @repo/ui" — con el agravante de que un e2e que sólo
+# pegue a la API no lo nota. Se construye si falta (idempotente: no rehace si ya está).
+if [[ ! -f packages/ui/dist/index.es.js ]]; then
+  echo "→ Construyendo @repo/ui (no existe packages/ui/dist)"
+  pnpm --filter @repo/ui build
+  # Vite cachea las deps optimizadas; tras generar el dist hay que invalidarla o el web
+  # sigue resolviendo contra referencias muertas.
+  rm -rf apps/web/node_modules/.vite
+fi
+
 # Copiar DB del main (snapshot al momento del start)
 if [[ ! -f "$MAIN_REPO/apps/api/database.sqlite" ]]; then
   echo "❌ No encuentro la DB del main en $MAIN_REPO/apps/api/database.sqlite" >&2

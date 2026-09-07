@@ -2152,7 +2152,8 @@
       "showMore": "Show more",
       "showLess": "Show less",
       "importing": "Importing...",
-      "save": "Save"
+      "save": "Save",
+      "menu": "Actions"
     },
     "import": {
       "errorTitle": "Import Error",

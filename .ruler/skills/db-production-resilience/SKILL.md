@@ -64,11 +64,44 @@ skill `arbol-compartido`.
   completo con casa, 160 camas y 139 participantes, y reconstruirlo costó una ejecución porque
   todo estaba en scripts y el Excel de origen vivía fuera del repo.
 
-## 2. WAL + timeouts (ya en prod)
+## 2. Driver síncrono + WAL + timeouts (ya en prod)
 
-`apps/api/src/database/config.ts` (rama sqlite) tiene `enableWAL: true`, `busyTimeout: 5000`,
-`busyErrorRetry: 3000`, `maxQueryExecutionTime: 5000`. WAL hace que lectores/backups **no se
-bloqueen** por un escritor.
+`apps/api/src/database/config.ts` (rama sqlite) usa **`type: 'better-sqlite3'`** con
+`enableWAL: true`, `maxQueryExecutionTime: 5000` y el `busy_timeout` por PRAGMA vía
+`prepareDatabase` (este driver **no** acepta `busyTimeout`/`busyErrorRetry`, que eran del
+asincrónico). WAL hace que lectores/backups **no se bloqueen** por un escritor.
+
+**Por qué el driver síncrono (2026-08-25).** Con el asincrónico, TypeORM hablaba con SQLite
+sobre una sola conexión y cada sentencia cedía el event loop: entre dos sentencias de una
+transacción se colaba otra petición con su propio `BEGIN`. Errores característicos:
+
+- `SQLITE_ERROR: cannot start a transaction within a transaction`
+- `SQLITE_ERROR: cannot commit - no transaction is active`
+- `TransactionNotStartedError: Transaction is not started yet…`
+
+Lo grave era el modo de fallo: en el import de participantes cada fila va en su `try`, así que
+la que perdía la carrera se contaba como `skipped` y el endpoint respondía **200** — pérdida
+**silenciosa** de caminantes (incidente Celaya 2026-08-24). Con el driver síncrono las
+sentencias resuelven en el acto y los `await` intermedios son microtasks, que Node drena antes
+de atender otra petición: la ventana desaparece. Medido: 3 de 3 rondas perdían filas antes,
+5 de 5 limpias después, y además más rápido (import 130→93 ms).
+
+**La garantía tiene una condición**: ninguna transacción debe contener un `await` ajeno a la
+base (red, `fs`, timers). Auditado al migrar; si alguien mete uno, la ventana se reabre.
+Guard: el test de concurrencia en `apps/web/tests/e2e/participant-csv-import.spec.ts`.
+
+**Dos trampas al tocar esto**:
+
+- `better-sqlite3` es un **módulo nativo** y tiene que estar en `rollupOptions.external`
+  (`apps/api/vite.config.ts`). Si Rollup lo empaqueta, el API no arranca y el deploy muere en
+  el healthcheck **con el `dist` viejo ya sobrescrito** → prod caída (ver §5b).
+- Este driver **no** tolera el SQL con comillas dobles alrededor de un literal. `datetime("now")`
+  funcionaba por una permisividad histórica de SQLite; aquí falla con `no such column: "now"`.
+  Si aparece ese error, es SQL mal escrito en el código, no un problema del driver. Va con
+  comillas simples: `datetime('now')`.
+- `apps/api/src/tests/test-setup.ts` arma su **propia** configuración: si diverge del driver de
+  producción, los tests ejercitan uno que ya nadie usa. Mantenerlos en sincronía — esa
+  divergencia es la que dejó pasar la carrera de transacciones.
 
 **Regla operativa con WAL**: respaldos manuales SIEMPRE con `sqlite3 db ".backup destino"`,
 **nunca** `cp`/`scp` directo (perderían lo que está en `-wal`). `.backup` sí incluye el WAL.
@@ -171,6 +204,6 @@ crearon y el crash fue por `__dirname`, no por la migración). Verificá ambas c
 - Un backup de **0 bytes** en `/var/backups/emaus/` es la firma de un `.backup` que falló por lock.
 
 ## Roadmap pendiente (ver TODO.md sección 🗄️)
-better-sqlite3 (driver síncrono, elimina la txn colgada), guardado confirmado en el frontend
+~~better-sqlite3 (driver síncrono)~~ **hecho 2026-08-25, ver §2**; guardado confirmado en el frontend
 (la UI mostró "guardado" sin confirmar → causó la pérdida), arreglo de fondo de `@repo/types`,
 y mejora del deploy (subir `assets/` antes que `index.html` para evitar el 404 transitorio).

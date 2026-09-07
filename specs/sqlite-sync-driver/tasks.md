@@ -68,8 +68,11 @@ pre-push siguen verdes.
   fallo de este cambio es **al cargar** el módulo, y eso no lo detectan ni los tests ni `tsc`.
 - [x] **T16. E2E de navegador** — `participant-import-ui.spec.ts`: la app monta sin errores y
   el CSV se carga por la UI. Cubre el punto ciego de los specs de API.
-- [ ] **T14. Documentar** — actualizar el skill `db-production-resilience`: el roadmap deja de
-  ser pendiente y pasa a ser la configuración vigente, con el incidente que lo motivó.
+- [x] **T14. Documentar** — `db-production-resilience` §2: better-sqlite3 pasa de roadmap a
+  configuración vigente, con los tres errores del bug, la condición que sostiene la garantía y
+  las tres trampas (módulo nativo en `external`, comillas dobles en SQL, `test-setup` en
+  sincronía). Ojo: la fuente versionada es `.ruler/skills/`; hace falta `ruler apply` para que
+  llegue a `.claude/skills/`.
 - [ ] **T15. Desplegar y vigilar** — tras el deploy, revisar el log del API buscando
   `SQLITE_BUSY` y consultas por encima de 5 s.
 
