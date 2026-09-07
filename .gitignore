@@ -53,6 +53,11 @@ coverage/
 .nyc_output/
 junit.xml
 test-results/
+# Reporte HTML de Playwright: lo regenera cada corrida de e2e, junto a test-results/.
+# OJO: apps/web/playwright-report/index.html ya está TRACKEADO desde 66b9249 (2026-07-09),
+# y .gitignore no afecta a lo ya trackeado. Para sacarlo del repo hace falta un
+# `git rm --cached apps/web/playwright-report/index.html` aparte de este patrón.
+playwright-report/
 
 # Test backed up files
 **/__tests__.bak/

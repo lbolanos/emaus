@@ -70,6 +70,30 @@ window.EMAUS_RUNTIME_CONFIG = {
 
 ---
 
+## `@repo/ui` hay que construirlo (worktree nuevo)
+
+`@repo/ui` se sirve desde `packages/ui/dist` (así lo declaran `main`/`module`/`exports`), y
+**`pnpm install` no construye los paquetes del workspace**. En el main ese `dist` existe de
+builds anteriores; en un worktree recién creado, no — y el web arranca roto:
+
+```
+[plugin:vite:import-analysis] Failed to resolve entry for package "@repo/ui".
+```
+
+```bash
+pnpm --filter @repo/ui build
+rm -rf apps/web/node_modules/.vite   # la caché de deps queda con referencias muertas
+```
+
+El script `start-worktree-dev.sh` ya lo hace si falta. Los otros paquetes (`@repo/types`,
+`@repo/utils`) apuntan directo a `src/*.ts` y no necesitan build.
+
+> **La trampa de verdad no es el error, es no verlo.** Un e2e que use `APIRequestContext`
+> (Playwright hablando HTTP contra la API) **nunca monta el frontend**: sigue en verde con la
+> web caída. Si vas a dar por bueno un cambio con e2e, que al menos uno abra la app en el
+> navegador y falle ante el overlay de error de Vite y ante errores de consola. Ejemplo:
+> `apps/web/tests/e2e/participant-import-ui.spec.ts` (2026-08-25).
+
 ## DB aislada (importante)
 
 **Nunca uses la DB del main en el worktree** — vas a contaminar el trabajo en curso del main (sesiones, datos de prueba, migrations a medias). Siempre copiá:

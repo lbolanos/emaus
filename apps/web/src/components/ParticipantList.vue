@@ -1678,7 +1678,7 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                             variant="outline"
                             size="icon"
                             class="shrink-0"
-                            aria-label="Acciones"
+                            :aria-label="$t('common.actions.menu')"
                             data-testid="participant-actions-menu"
                         >
                             <MoreVertical class="h-4 w-4" />
