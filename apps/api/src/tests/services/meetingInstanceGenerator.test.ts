@@ -158,4 +158,82 @@ describe('MeetingInstanceGeneratorService', () => {
 		});
 		expect(instances).toBe(0);
 	});
+	/**
+	 * Regresión de zona horaria (bug reportado en producción).
+	 *
+	 * El cron corre en un server en Etc/UTC. Una serie de los miércoles a las
+	 * 19:45 CDMX se guarda como 01:45Z del jueves, así que resolver "el próximo
+	 * miércoles" con los getters locales de `Date` avanzaba 6 días en vez de 7 y
+	 * materializaba toda la serie los martes.
+	 *
+	 * Estos dos tests cubren el plumbing completo (no solo el helper): que el
+	 * generador cargue la community y le pase su timezone. El caso de Tokio usa
+	 * una zona distinta del default para que el test falle si alguien deja de
+	 * propagar la timezone y el cálculo cae al fallback de CDMX.
+	 */
+	describe('timezone de la community', () => {
+		const weekdayIn = (date: Date, timeZone: string) =>
+			new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' }).format(date);
+
+		it('mantiene la serie en miércoles para una community en CDMX', async () => {
+			const community = await TestDataFactory.createTestCommunity(testUser.id, {
+				timezone: 'America/Mexico_City',
+			});
+			// Miércoles 2 de septiembre de 2026, 19:45 CDMX.
+			const template = await service.createMeeting(community.id, {
+				title: 'Preparacion Retiro',
+				startDate: new Date('2026-09-03T01:45:00.000Z'),
+				durationMinutes: 60,
+				recurrenceFrequency: 'weekly',
+				recurrenceInterval: 1,
+				recurrenceDayOfWeek: 'wednesday',
+			});
+
+			const result = await generator.performGeneration(new Date('2026-09-03T12:00:00.000Z'));
+			expect(result.errors).toBe(0);
+
+			const instances = await AppDataSource.getRepository(CommunityMeeting).find({
+				where: { parentMeetingId: template.id },
+				order: { startDate: 'ASC' },
+			});
+
+			expect(instances.map((i) => i.startDate.toISOString())).toEqual([
+				'2026-09-10T01:45:00.000Z', // miércoles 9
+				'2026-09-17T01:45:00.000Z', // miércoles 16
+			]);
+			for (const inst of instances) {
+				expect(weekdayIn(inst.startDate, 'America/Mexico_City')).toBe('Wed');
+			}
+		});
+
+		it('usa la timezone de la community y no el fallback de CDMX', async () => {
+			const community = await TestDataFactory.createTestCommunity(testUser.id, {
+				timezone: 'Asia/Tokyo',
+			});
+			// Miércoles 2 de septiembre de 2026, 08:00 en Tokio = martes 23:00Z.
+			const template = await service.createMeeting(community.id, {
+				title: 'Reunion Tokio',
+				startDate: new Date('2026-09-01T23:00:00.000Z'),
+				durationMinutes: 60,
+				recurrenceFrequency: 'weekly',
+				recurrenceInterval: 1,
+				recurrenceDayOfWeek: 'wednesday',
+			});
+
+			const result = await generator.performGeneration(new Date('2026-09-01T12:00:00.000Z'));
+			expect(result.errors).toBe(0);
+
+			const instances = await AppDataSource.getRepository(CommunityMeeting).find({
+				where: { parentMeetingId: template.id },
+				order: { startDate: 'ASC' },
+			});
+
+			// Con el fallback de CDMX este instante es martes 17:00 y la serie
+			// saltaría un solo día, a 2026-09-02T23:00Z.
+			expect(instances.map((i) => i.startDate.toISOString())).toEqual([
+				'2026-09-08T23:00:00.000Z',
+			]);
+			expect(weekdayIn(instances[0].startDate, 'Asia/Tokyo')).toBe('Wed');
+		});
+	});
 });

@@ -37,10 +37,12 @@ Dejarlo vacío devuelve el comportamiento normal.
 
 ## Tres cosas que no son obvias
 
-**El protocolo se valida a mano, y no es cosmético.** El valor va a `window.location.replace`,
-así que un `javascript:...` sería XSS. `z.string().url()` **no** protege: usa `new URL()`, que
-acepta cualquier esquema. Por eso el schema lleva un `.refine()` que exige `http(s)`, y la vista
-repite la comprobación antes de redirigir por si quedó un valor viejo en base.
+**El protocolo se acota, y no es cosmético.** El valor va a `window.location.replace`, así que
+un `javascript:...` sería XSS. `z.string().url()` **no** protege: usa `new URL()`, que acepta
+cualquier esquema. El campo pasa por `httpUrlSchema` (`packages/types/src/index.ts`), el helper
+que el repo ya tenía para esto — la primera versión lo reimplementó a mano sin verlo, y lo
+corrigió el code-review. La vista repite la comprobación antes de redirigir, por si quedó un
+valor guardado antes de que la validación existiera.
 Guard: `apps/api/src/tests/services/retreatExternalRegistrationUrl.simple.test.ts`.
 
 **Un retiro terminado no redirige.** Fue un bug encontrado probando en el navegador: la primera

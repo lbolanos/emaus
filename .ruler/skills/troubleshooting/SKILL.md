@@ -34,6 +34,9 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "la suite falla en tests distintos cada vez", "Maximum call stack size exceeded en un test", "Exceeded timeout of 10000 ms" | [#21 La suite de jest falla en suites distintas cada vez](#21-la-suite-de-jest-falla-en-suites-distintas-cada-vez-sin-tocar-ese-código) |
 | "elegí las tallas y el resumen dice que no elegí ninguna", "lo capturé y la pantalla lo muestra vacío", "el reporte sale en cero aunque hay datos" | [#22 La pantalla lee un campo legacy que el formulario ya no llena](#22-la-pantalla-lee-un-campo-legacy-que-el-formulario-ya-no-llena) |
 | "al dar clic en elegir foto no sale nada", "el botón de subir archivo no hace nada", "en local no funciona pero en prod sí" | [#23 El selector de archivos no abre: la ref quedó vieja por el hot-reload](#23-el-selector-de-archivos-no-abre-la-ref-quedó-vieja-por-el-hot-reload) |
+| "no me deja seleccionar el país", "se sale al inicio y pierdo el registro", "en el iPhone se cierra solo", "se queda en Cargando…" | [#24 Un paquete de datos entero en un selector tumba Safari iOS](#24-un-paquete-de-datos-entero-en-un-selector-tumba-safari-ios) |
+| "importé el Excel y faltan personas", "subí 140 y salen 108", "el retiro no está abierto para registro público", "cannot start a transaction within a transaction", "hay tres personas en una habitación de dos", "se perdieron las habitaciones que ya había asignado la parroquia" | [#25 La importación del Excel pierde gente en silencio](#25-la-importación-del-excel-pierde-gente-en-silencio) |
+| "Cannot call trigger on an empty DOMWrapper", "el test no encuentra el thead/la fila", "el selector existe en la app pero no en el test", "el `mount()` me da la tabla vacía" (Vitest) | [#26 La vista montada sigue en el skeleton: falta `flushPromises`](#26-la-vista-montada-sigue-en-el-skeleton-falta-flushpromises) |
 
 ---
 
@@ -836,6 +839,261 @@ grep -rn "\.value?\.click()" apps/web/src
   `apps/web/src/components/community/__tests__/MemberPhotoDialog.test.ts`.
 - Quedan seis botones de subida con el patrón frágil (importar participantes, adjuntos, avatar,
   memorias, chat, foto de reunión).
+
+---
+
+## 24. Un paquete de datos entero en un selector tumba Safari iOS
+
+**Síntoma**: desde el iPhone, un paso del formulario **"no deja seleccionar"** el campo (el
+desplegable se queda en *Cargando…* o abre una lista imposible de recorrer con el dedo) y al rato
+**"se sale al inicio"**: la página vuelve a la portada y el avance se pierde. En una laptop el
+mismo formulario va perfecto.
+
+**Causa**: el campo carga un catálogo entero para pintar unas pocas opciones. El caso medido:
+`import('country-state-city')` — la raíz del paquete importa sus tres assets, y `city.json` son
+**7.7 MB con ~150 000 ciudades**. Abrir el paso descargaba **9.05 MB**. Dos consecuencias, que el
+usuario cuenta como dos bugs distintos:
+
+- mientras baja y se parsea, el `<Select>` está `disabled` → *"no me deja seleccionar el país"*;
+- el pico de memoria basta para que **Safari mate la pestaña y la recargue** → *"se sale al inicio"*.
+
+Safari no avisa de esto: no hay error en consola ni pantalla de error, la pestaña simplemente
+vuelve a cargar. Y como en un escritorio sobra memoria y la red es rápida, no se reproduce.
+
+**Fix** — importar sólo el trozo que se usa, y no ofrecer catálogos que el formulario no necesita:
+
+```ts
+// ❌ arrastra country + state + city (8.3 MB de JSON)
+const { Country } = await import('country-state-city')
+
+// ✅ sólo country.json (93 KB); lib/state son 542 KB
+const { default: Country } = await import('country-state-city/lib/country')
+```
+
+`import type { ICountry } from 'country-state-city'` **sí** es seguro: los tipos se borran al
+compilar. Lo que cuesta es el `import()` dinámico de la raíz.
+
+**Segunda mitad del mismo síntoma**: aunque los datos ya estén cargados, un `Select` de reka-ui con
+250 opciones es inservible en un teléfono. El wrapper de `@repo/ui` no incluye
+`SelectScrollUpButton`/`SelectScrollDownButton`, así que en modo *item-aligned* **sólo son
+alcanzables las ~19 opciones que caben en pantalla**; en escritorio no se nota porque el typeahead
+del teclado salva la papeleta. Para listas largas usar
+`apps/web/src/components/form/SearchableSelect.vue` (buscador que ignora acentos, lista en flujo en
+móvil y flotante desde `md`, y `Escape` que cierra sólo el desplegable — sin `.stop` cierra el
+`Dialog` que envuelve el formulario y el usuario pierde todo).
+
+**Y la tercera**: si el formulario guarda borrador, restaurá también **el paso**, no sólo los
+datos. Volver al paso 1 tras una recarga se lee como *"perdí todo"* aunque las respuestas estén
+ahí (`loadDraft` en `ParticipantRegistrationView.vue`).
+
+**Auditar el repo**:
+```bash
+# Imports dinámicos de paquetes conocidos por traer datos gordos
+grep -rn "import('country-state-city')" apps/web/src
+
+# Qué pesa de verdad cada asset del paquete
+du -h node_modules/.pnpm/country-state-city@*/node_modules/country-state-city/lib/assets/*
+
+# Selects con más de ~50 opciones que no usan SearchableSelect
+grep -rn "SelectItem v-for" apps/web/src
+```
+
+**Medirlo antes de creerse el fix** — el peso se mide en el navegador, no leyendo el código:
+
+```js
+// Playwright: sumar el cuerpo de cada respuesta del propio origen entre dos pasos
+page.on('response', async (r) => { bytes += (await r.body()).length })
+```
+
+Guards: `apps/web/tests/e2e/server-registration-mobile.spec.ts` (presupuesto de bytes del paso, en
+iPhone 12 emulado) y `apps/web/src/components/form/__tests__/addressStepWeight.test.ts` (nadie
+vuelve a importar la raíz del paquete).
+
+**Casos**:
+- 2026-09-03 registro de servidor en emaus.cc desde un iPhone — el paso «Dirección» descargaba
+  9.05 MB por el selector de país. Fix: `lib/country` + `lib/state`, ciudad como texto libre
+  (se eliminó `CitySelector.vue`) y `SearchableSelect`. El paso quedó en 0.67 MB.
+
+**Relacionado**: #2 (Safari iOS blank page) — misma familia: lo que en escritorio es "un poco
+pesado", en Safari iOS es una pestaña muerta.
+
+---
+
+## 25. La importación del Excel pierde gente en silencio
+
+**Síntoma**: subís N filas y en el retiro aparecen menos. El endpoint responde 200 y el
+`skippedCount` sale en 0 o en 1, así que nadie lo mira. Nadie avisa de las que faltan.
+
+Son **cuatro causas distintas**, todas verificadas importando el export de la parroquia de
+Veracruz (sep 2026). Conviene descartarlas en este orden.
+
+### 25.1 Correos compartidos: N personas se funden en una
+
+`importParticipants` busca por `LOWER(email)` dentro del retiro y, si encuentra, **actualiza en
+vez de crear**; además hay índice único `UQ_participants_email_retreat` sobre `(email, retreatId)`.
+En parroquias donde el coordinador inscribe a todos con su propio correo esto es masivo: 18
+personas con `notengo@gmail.com` entran como **una sola**.
+
+**Fix**: generá correos sintéticos únicos antes de importar (el celular sirve de base:
+`2297003093@sincorreo.emaus.cc`) y guardá el original en `notas`. Dejá el correo compartido solo
+cuando las filas son *la misma persona* repetida, que es como se reconcilian una cancelación y su
+re-inscripción.
+
+### 25.2 El retiro debe ser público o fallan TODAS las filas
+
+`createParticipant` llama a `assertRetreatAcceptsRegistrations` en cada fila y **no hay excepción
+para el import**. Con `isPublic = false` fallan las N filas con "El retiro no está abierto para
+registro público". Tampoco acepta nada después de `endDate`.
+
+### 25.3 `cannot start a transaction within a transaction`
+
+`updateParticipant` dispara `void domainAuditService.logUpdate(...)` **sin await**, y la auditoría
+escribe con `AppDataSource.getRepository(...)`, o sea la conexión compartida. Mientras ese save
+sigue en vuelo, la fila siguiente abre su `AppDataSource.transaction` en `createParticipant` y
+choca. El camino de *create* sí silencia su auditoría durante el import (`if (!isImporting …)`);
+el de *update* no. Es una **carrera**: se reproduce con los mismos datos pero no siempre.
+
+Solo muerde en la transición **update → create**. Dos updates seguidos no colisionan porque
+`updateParticipant` no abre transacción (140 updates consecutivos, cero pérdidas).
+
+**Reordenar el archivo NO alcanza**: el importador reordena las filas canceladas al principio, y
+eso vuelve a crear la transición pase lo que pase. El workaround que sí funciona es **una sola
+fila por persona** —la que decide su estado final, la activa gana sobre la cancelada—, con lo que
+el camino de update no se usa y la carrera no tiene con qué chocar.
+
+### 25.4 Camas inventadas y habitaciones mezcladas
+
+`findAvailableBedByRoom` solo acepta una cama cuyo `defaultUsage` coincida con el tipo del
+participante y, si no la encuentra, **crea una nueva** en esa habitación. Resultado: habitaciones
+de 2 con 3 personas, y caminantes durmiendo con servidores.
+
+**Fix**: no asumas el uso por módulo, derivá el de cada habitación del propio export (una cama por
+ocupante asignado, con su tipo). Las parroquias usan un bloque de habitaciones para las
+solicitudes de cuarto individual **de los dos tipos**.
+
+### 25.5 Mesas fantasma: la columna `mesa` mezcla dos cosas
+
+En el export de emaus.mx la columna `mesa` lleva **el número de mesa del caminante** (`01`-`17`)
+y, para los servidores, **el nombre de su equipo de servicio** (`COMEDOR`, `SNACK`, `LOGISTICA`,
+`CAMPANA`, `FINANZAS`...). El importador crea una `TableMesa` por cada valor distinto, así que los
+nombres de equipo generan **mesas vacías** junto a las reales: en Veracruz salieron 27 mesas donde
+había 17.
+
+**Fix**: en la hoja curada, vaciar `mesa` cuando no sea numérica y mover el valor a `notas`.
+Comprobá antes que ningún caminante tenga mesa no numérica (en Veracruz eran 23 filas, todas de
+servidores). Los servidores con mesa numérica **sí** hay que conservarlos: con `tipousuario` 1 o 2
+son líder y colíder de esa mesa.
+
+### 25.6 El CSV es más frágil que el xlsx en la pantalla de importación
+
+`parseCSV` en `ImportParticipantsModal.vue` tiene dos comportamientos que el camino xlsx no tiene:
+
+- **Parte el archivo por `\n` antes de separar campos.** Un salto de línea dentro de un valor
+  entrecomillado desplaza todas las columnas desde ahí. Hay que aplanar los valores a una línea.
+- **`values[index] || null`**: el vacío se convierte en `null`, y el importador escribe ese NULL en
+  columnas `NOT NULL` y la fila muere. En el xlsx el vacío llega como cadena vacía y entra sin
+  problema. En Veracruz eran **272 celdas** obligatorias vacías (98 municipios, 89 estados...).
+
+**Fix**: rellenar esas celdas con **un espacio**, no con un guion. `parseCSVLine` no recorta, así
+que el espacio sobrevive al `|| null`, y el `str()` del mapeo lo deja en cadena vacía — mismo
+resultado que el xlsx y sin basura visible en la pantalla. Si podés elegir, **importá el xlsx**.
+
+### 25.7 Crear un retiro por SQL deja el retiro sin camas
+
+`createRetreat` copia las camas de la casa a `retreat_bed` (vía `refreshRetreatBedsFromHouse`).
+Una migración o un script que inserte el retiro **por SQL crudo se salta ese paso**, el retiro
+nace sin mapa de camas, y el importador va creando una cama por cada habitación del Excel: en
+Veracruz **139 camas inventadas**. Hay que replicar la copia a mano.
+
+Y si la parroquia mezcló tipos en algunas habitaciones, la excepción va en `retreat_bed`
+—que tiene su propio `defaultUsage`—, **no en la casa**: así la casa queda limpia y reutilizable
+para el siguiente retiro. Sin eso quedaban otras 32 camas inventadas.
+
+### Orden que funciona
+
+1. Casa → 2. retiro (público) → 3. import → 4. `POST /retreats/:id/auto-assign-beds`.
+
+Nunca `refreshBeds` ni auto-asignar **antes** del import: la asignación automática por edad
+reparte a todos y **borra las habitaciones que ya venían en el Excel**. El auto-assign posterior
+sí es seguro: salta a quien ya tiene cama.
+
+### Regla dura
+
+**Contá los participantes después de importar y compará contra las filas.** El importador informa
+lo que saltó, pero no lo grita, y las cuatro causas de arriba fallan en silencio.
+
+**Auditar el repo**:
+
+```bash
+grep -n "LOWER(participant.email)" apps/api/src/services/participantService.ts   # 25.1
+grep -n "assertRetreatAcceptsRegistrations" apps/api/src/services/participantService.ts  # 25.2
+grep -n "void domainAuditService.logUpdate" apps/api/src/services/participantService.ts  # 25.3
+grep -n "createRetreatBedForRoom" apps/api/src/services/participantService.ts    # 25.4
+```
+
+**Casos**: Veracruz XXIII, sep 2026 — 213 filas de export, 41 compartiendo 8 direcciones; 31
+personas se habrían perdido por 25.1 y 2 más por 25.3.
+
+**Nota**: la fixture del e2e (`apps/web/tests/e2e/fixtures/participant-import-sample.csv`) no tiene
+columnas de sacramentos ni `habitacionindividual`, así que esos caminos no se ejercitan. Y el
+mapeo de sacramentos busca las claves en inglés (`sacramentobaptism`) mientras los export legados
+las traen en español: hay un conversor en `scripts/convert-parish-registrations.py` que ya emite
+las inglesas, así que si se unifica hay que tocar los dos a la vez.
+
+## 26. La vista montada sigue en el skeleton: falta `flushPromises`
+
+**Síntoma** (tests del web, Vitest): un test que monta una vista falla con
+`Error: Cannot call trigger on an empty DOMWrapper` o con `Cannot read properties of undefined`
+al indexar `findAll(...)`. El elemento **existe** en la app real y `w.html()` lo muestra si lo
+imprimís desde otro test del mismo archivo. Lo delator: los tests que **no** esperan nada tras
+`mount()` pasan, y los que hacen `await nextTick()` fallan.
+
+**Causa**: el `onMounted` de la vista es `async` y levanta un flag de carga:
+
+```ts
+onMounted(async () => {
+  loading.value = true
+  try { await participantStore.fetchParticipants() } finally { loading.value = false }
+})
+```
+
+`await nextTick()` cede **un** tick de microtareas: el `loading = true` ya se aplicó pero el
+`finally` todavía no corrió, así que el template está en la rama del skeleton
+(`<div v-if="loading">`) y la tabla real no existe en el DOM. El mensaje de VTU no menciona el
+skeleton, así que se busca el error en el selector, en el mock o en el markup — donde no está.
+
+**Fix en el test** — esperar todas las promesas pendientes, no un tick:
+
+```ts
+const w = mountView(walkers);
+await flushPromises();          // ✅ el finally corre, loading vuelve a false
+await w.find('button[title="Ordenar por mesa"]').trigger('click');
+```
+
+`nextTick()` alcanza para lo que ya está renderizado (un click, un `v-if` que depende de un ref
+local), y de hecho los tests de búsqueda de esa misma vista lo usan sin problema: el input vive
+**fuera** del bloque de `loading`. La regla corta: si el elemento está dentro de una rama que
+depende del flag de carga, `flushPromises`.
+
+**Auditar el repo** — vistas cuyo `onMounted` async mueve un flag de carga:
+```bash
+grep -rlZ "onMounted(async" apps/web/src/views | xargs -0 grep -l "loading.value = true"
+```
+
+**Bonus de la misma familia** — la celda de nombre de las tablas de participantes trae el avatar
+de iniciales dentro del `<td>`, así que `td:nth-child(2)` devuelve `"AGAna García"` y la
+comparación falla por dos letras. El nombre se lee del `span`:
+
+```ts
+const names = w => w.findAll('tbody tr').map(r => r.find('td:nth-child(2) span').text().trim());
+```
+
+**Casos**:
+- 2026-09-06 — `BagsReportView.test.ts` (ordenamiento por mesa/nombre/apellido/talla): 12 tests
+  nuevos en rojo, todos con el mismo mensaje de DOMWrapper vacío; el ordenamiento estaba bien
+  desde el principio. Otros 5 fallos del mismo lote eran el avatar de iniciales.
+
+**Detalle**: `docs/features/bags-report.md` § Tests.
 
 ---
 

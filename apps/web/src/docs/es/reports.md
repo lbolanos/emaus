@@ -79,6 +79,12 @@ La sección de reportes proporciona varias formas de ver y exportar datos sobre 
 - Barra de progreso y conteo de listas / faltantes
 - Resumen de tallas de playera y checklist del contenido (agua bendita, playera, celulares, palancas, invitación)
 - Búsqueda por nombre, mesa o número; filtros Todos / Pendientes / Realizadas
+- Ordena la lista haciendo clic en los encabezados: número, nombre, apellido, mesa o talla. Un
+  clic ordena de menor a mayor, otro clic invierte. Al ordenar por **mesa** cada mesa queda
+  numerada de menor a mayor, que es el orden en que conviene armar y repartir las bolsas; al
+  ordenar por **talla** salen agrupadas de la más chica a la más grande, útil para contar
+  playeras. Quien no tiene mesa o talla asignada queda siempre al final. El orden se imprime
+  tal como se ve en pantalla, así que ordena primero y usa el botón de imprimir después.
 
 #### Reporte de Camisetas
 

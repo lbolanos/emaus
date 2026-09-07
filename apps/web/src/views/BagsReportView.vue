@@ -20,7 +20,11 @@ import {
   CheckCircle2,
   Circle,
   ListFilter,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from 'lucide-vue-next'
+import { createLocaleComparator } from '@/utils/sort'
 
 // ── Checklist ────────────────────────────────────────────────
 const checklistItems = [
@@ -146,6 +150,76 @@ const filteredWalkers = computed(() => {
 function clearSearch() {
   searchQuery.value = ''
 }
+
+// ── Sort ──────────────────────────────────────────────────────
+type SortKey = 'number' | 'firstName' | 'lastName' | 'mesa' | 'size'
+
+const sortKey = ref<SortKey>('number')
+const sortOrder = ref<'asc' | 'desc'>('asc')
+
+function toggleSort(key: SortKey) {
+  if (sortKey.value === key) sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
+  else {
+    sortKey.value = key
+    sortOrder.value = 'asc'
+  }
+}
+
+function sortIcon(key: SortKey) {
+  if (sortKey.value !== key) return ArrowUpDown
+  return sortOrder.value === 'asc' ? ArrowUp : ArrowDown
+}
+
+function ariaSort(key: SortKey) {
+  if (sortKey.value !== key) return 'none'
+  return sortOrder.value === 'asc' ? 'ascending' : 'descending'
+}
+
+const byNumber = (a: any, b: any) => (a.id_on_retreat ?? 0) - (b.id_on_retreat ?? 0)
+
+// Sizes have a logical order (XS → XXL), not an alphabetical one; unknown codes
+// go after the known ones and participants without a size always go last.
+const sizeCollator = new Intl.Collator('es', { sensitivity: 'base', numeric: true })
+
+function compareBySize(a: any, b: any, orderMul: number) {
+  const sa = a.tshirtSize || ''
+  const sb = b.tshirtSize || ''
+  if (!sa && !sb) return 0
+  if (!sa) return 1
+  if (!sb) return -1
+  const rankA = FALLBACK_ORDER.indexOf(sa)
+  const rankB = FALLBACK_ORDER.indexOf(sb)
+  const normA = rankA >= 0 ? rankA : FALLBACK_ORDER.length
+  const normB = rankB >= 0 ? rankB : FALLBACK_ORDER.length
+  if (normA !== normB) return orderMul * (normA - normB)
+  return orderMul * sizeCollator.compare(sa, sb)
+}
+
+function sortValue(p: any, key: SortKey) {
+  switch (key) {
+    case 'firstName': return p.firstName ?? ''
+    case 'lastName': return p.lastName ?? ''
+    case 'mesa': return p.tableMesa?.name ?? ''
+    default: return p.id_on_retreat ?? null
+  }
+}
+
+const sortedWalkers = computed(() => {
+  const list = [...filteredWalkers.value]
+  const orderMul = sortOrder.value === 'asc' ? 1 : -1
+  const compare = createLocaleComparator('es', sortOrder.value)
+  const key = sortKey.value
+
+  list.sort((a, b) => {
+    const result = key === 'size'
+      ? compareBySize(a, b, orderMul)
+      : compare(sortValue(a, key), sortValue(b, key))
+    // Stable, predictable tie-break: participant number ascending
+    return result !== 0 ? result : byNumber(a, b)
+  })
+
+  return list
+})
 
 // ── Bag toggle ────────────────────────────────────────────────
 const updatingBag = ref<Set<string>>(new Set())
@@ -404,16 +478,100 @@ onMounted(async () => {
         <table class="w-full text-sm">
           <thead>
             <tr class="bg-gray-50/80 border-b border-gray-200 text-left">
-              <th class="px-4 py-2.5 w-10 text-xs font-semibold text-gray-500 uppercase tracking-wide">#</th>
-              <th class="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Nombre</th>
-              <th class="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Mesa</th>
-              <th class="px-4 py-2.5 w-16 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Talla</th>
+              <th
+                class="px-4 py-2.5 w-10 text-xs font-semibold text-gray-500 uppercase tracking-wide"
+                :aria-sort="ariaSort('number')"
+              >
+                <button
+                  class="inline-flex items-center gap-1 uppercase transition-colors"
+                  :class="sortKey === 'number' ? 'text-indigo-600' : 'hover:text-gray-900'"
+                  title="Ordenar por número"
+                  @click="toggleSort('number')"
+                >
+                  #
+                  <component
+                    :is="sortIcon('number')"
+                    class="w-3 h-3 no-print"
+                    :class="sortKey === 'number' ? 'text-indigo-500' : 'text-gray-300'"
+                  />
+                </button>
+              </th>
+              <th
+                class="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide"
+                :aria-sort="sortKey === 'lastName' ? ariaSort('lastName') : ariaSort('firstName')"
+              >
+                <div class="flex items-center gap-1.5">
+                  <button
+                    class="inline-flex items-center gap-1 uppercase transition-colors"
+                    :class="sortKey === 'firstName' ? 'text-indigo-600' : 'hover:text-gray-900'"
+                    title="Ordenar por nombre"
+                    @click="toggleSort('firstName')"
+                  >
+                    Nombre
+                    <component
+                      :is="sortIcon('firstName')"
+                      class="w-3 h-3 no-print"
+                      :class="sortKey === 'firstName' ? 'text-indigo-500' : 'text-gray-300'"
+                    />
+                  </button>
+                  <span class="text-gray-300 no-print">/</span>
+                  <button
+                    class="inline-flex items-center gap-1 uppercase transition-colors no-print"
+                    :class="sortKey === 'lastName' ? 'text-indigo-600' : 'hover:text-gray-900'"
+                    title="Ordenar por apellido"
+                    @click="toggleSort('lastName')"
+                  >
+                    Apellido
+                    <component
+                      :is="sortIcon('lastName')"
+                      class="w-3 h-3"
+                      :class="sortKey === 'lastName' ? 'text-indigo-500' : 'text-gray-300'"
+                    />
+                  </button>
+                </div>
+              </th>
+              <th
+                class="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide"
+                :aria-sort="ariaSort('mesa')"
+              >
+                <button
+                  class="inline-flex items-center gap-1 uppercase transition-colors"
+                  :class="sortKey === 'mesa' ? 'text-indigo-600' : 'hover:text-gray-900'"
+                  title="Ordenar por mesa"
+                  @click="toggleSort('mesa')"
+                >
+                  Mesa
+                  <component
+                    :is="sortIcon('mesa')"
+                    class="w-3 h-3 no-print"
+                    :class="sortKey === 'mesa' ? 'text-indigo-500' : 'text-gray-300'"
+                  />
+                </button>
+              </th>
+              <th
+                class="px-4 py-2.5 w-16 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide"
+                :aria-sort="ariaSort('size')"
+              >
+                <button
+                  class="inline-flex items-center gap-1 uppercase transition-colors"
+                  :class="sortKey === 'size' ? 'text-indigo-600' : 'hover:text-gray-900'"
+                  title="Ordenar por talla"
+                  @click="toggleSort('size')"
+                >
+                  Talla
+                  <component
+                    :is="sortIcon('size')"
+                    class="w-3 h-3 no-print"
+                    :class="sortKey === 'size' ? 'text-indigo-500' : 'text-gray-300'"
+                  />
+                </button>
+              </th>
               <th class="px-4 py-2.5 w-32 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Bolsa</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
             <tr
-              v-for="participant in filteredWalkers"
+              v-for="participant in sortedWalkers"
               :key="participant.id"
               class="transition-colors duration-100 group"
               :class="participant.bagMade
@@ -491,7 +649,7 @@ onMounted(async () => {
             </tr>
 
             <!-- No results from search/filter -->
-            <tr v-if="filteredWalkers.length === 0 && !loading">
+            <tr v-if="sortedWalkers.length === 0 && !loading">
               <td colspan="5" class="px-4 py-12 text-center">
                 <div class="flex flex-col items-center gap-2 text-gray-400">
                   <Search class="w-8 h-8 opacity-40" />
@@ -514,13 +672,13 @@ onMounted(async () => {
 
       <!-- Table footer -->
       <div
-        v-if="!loading && filteredWalkers.length > 0"
+        v-if="!loading && sortedWalkers.length > 0"
         class="px-4 py-2.5 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between"
       >
         <span class="text-xs text-gray-400">
-          Mostrando {{ filteredWalkers.length }}
-          <template v-if="filteredWalkers.length !== totalWalkers"> de {{ totalWalkers }}</template>
-          caminante{{ filteredWalkers.length !== 1 ? 's' : '' }}
+          Mostrando {{ sortedWalkers.length }}
+          <template v-if="sortedWalkers.length !== totalWalkers"> de {{ totalWalkers }}</template>
+          caminante{{ sortedWalkers.length !== 1 ? 's' : '' }}
         </span>
         <span class="text-xs font-medium" :class="bagsProgress === 100 ? 'text-green-600' : 'text-gray-500'">
           {{ bagsCompleted }}/{{ totalWalkers }} bolsas · {{ bagsProgress }}%
@@ -530,3 +688,11 @@ onMounted(async () => {
 
   </div>
 </template>
+
+<style scoped>
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+</style>

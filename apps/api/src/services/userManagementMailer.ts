@@ -15,6 +15,18 @@ export interface EmailTemplateData {
 	shareLink?: string;
 }
 
+/**
+ * Formatea una columna date-only (`retreat.startDate` / `endDate`, declaradas
+ * `@Column('date')` y leídas como medianoche UTC).
+ *
+ * `timeZone: 'UTC'` no es opcional: sin él, `toLocaleDateString` formatea en la
+ * zona del proceso y en cualquier offset negativo — CDMX incluida — muestra el
+ * día anterior. La fecha de un retiro no tiene hora, así que no hay ninguna
+ * zona a la que convertirla.
+ */
+export const formatDateOnly = (value: Date | string | null | undefined): string =>
+	value ? new Date(value).toLocaleDateString('es-ES', { timeZone: 'UTC' }) : '';
+
 export class UserManagementMailer {
 	private messageTemplateRepository = AppDataSource.getRepository(MessageTemplate);
 	private globalMessageTemplateRepository = AppDataSource.getRepository(GlobalMessageTemplate);
@@ -163,12 +175,9 @@ export class UserManagementMailer {
 			processed = processed.replace(/{retreat\.name}/g, data.retreat.parish || '');
 			processed = processed.replace(
 				/{retreat\.startDate}/g,
-				data.retreat.startDate ? new Date(data.retreat.startDate).toLocaleDateString('es-ES') : '',
+				formatDateOnly(data.retreat.startDate),
 			);
-			processed = processed.replace(
-				/{retreat\.endDate}/g,
-				data.retreat.endDate ? new Date(data.retreat.endDate).toLocaleDateString('es-ES') : '',
-			);
+			processed = processed.replace(/{retreat\.endDate}/g, formatDateOnly(data.retreat.endDate));
 		}
 
 		if (data.role) {

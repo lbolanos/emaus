@@ -52,6 +52,8 @@ vi.mock('lucide-vue-next', () => {
     ChevronUp: icon('chevron-up'), Printer: icon('printer'), Package: icon('package'),
     Search: icon('search'), X: icon('x'), CheckCircle2: icon('check-circle-2'),
     Circle: icon('circle'), ListFilter: icon('list-filter'),
+    ArrowUp: icon('arrow-up'), ArrowDown: icon('arrow-down'),
+    ArrowUpDown: icon('arrow-up-down'),
   };
 });
 
@@ -414,6 +416,182 @@ describe('BagsReportView', () => {
       await clearBtn.trigger('click');
       await nextTick();
       expect(w.text()).toContain('Sofía');
+    });
+  });
+
+  // ── Sorting ──────────────────────────────────────────────────────────────
+
+  describe('sorting', () => {
+    // Column 2 holds the full name, column 3 the mesa, column 4 the size.
+    const cells = (w: ReturnType<typeof mountView>, nth: number) =>
+      w.findAll('tbody tr').map(r => r.find(`td:nth-child(${nth})`).text().trim());
+
+    // The name cell also holds the initials avatar, so read the name span itself.
+    const names = (w: ReturnType<typeof mountView>) =>
+      w.findAll('tbody tr').map(r => r.find('td:nth-child(2) span').text().trim());
+    const mesas = (w: ReturnType<typeof mountView>) => cells(w, 3);
+    const sizes = (w: ReturnType<typeof mountView>) => cells(w, 4);
+
+    const sortBy = async (w: ReturnType<typeof mountView>, title: string) => {
+      await w.find(`button[title="${title}"]`).trigger('click');
+      await nextTick();
+    };
+
+    it('defaults to participant number ascending', () => {
+      const w = mountView([
+        makeWalker({ firstName: 'Tres', id_on_retreat: 3 }),
+        makeWalker({ firstName: 'Uno',  id_on_retreat: 1 }),
+        makeWalker({ firstName: 'Dos',  id_on_retreat: 2 }),
+      ]);
+      expect(cells(w, 1)).toEqual(['1', '2', '3']);
+    });
+
+    it('reverses the number order on a second click', async () => {
+      const w = mountView([
+        makeWalker({ id_on_retreat: 1 }),
+        makeWalker({ id_on_retreat: 2 }),
+        makeWalker({ id_on_retreat: 3 }),
+      ]);
+      await flushPromises();
+      await sortBy(w, 'Ordenar por número');
+      expect(cells(w, 1)).toEqual(['3', '2', '1']);
+    });
+
+    it('sorts by mesa name', async () => {
+      const w = mountView([
+        makeWalker({ tableMesa: { name: 'Mesa Roja' },  id_on_retreat: 1 }),
+        makeWalker({ tableMesa: { name: 'Mesa Azul' },  id_on_retreat: 2 }),
+        makeWalker({ tableMesa: { name: 'Mesa Verde' }, id_on_retreat: 3 }),
+      ]);
+      await flushPromises();
+      await sortBy(w, 'Ordenar por mesa');
+      expect(mesas(w)).toEqual(['Mesa Azul', 'Mesa Roja', 'Mesa Verde']);
+    });
+
+    it('orders numbered mesas naturally (Mesa 2 before Mesa 10)', async () => {
+      const w = mountView([
+        makeWalker({ tableMesa: { name: 'Mesa 10' }, id_on_retreat: 1 }),
+        makeWalker({ tableMesa: { name: 'Mesa 2' },  id_on_retreat: 2 }),
+      ]);
+      await flushPromises();
+      await sortBy(w, 'Ordenar por mesa');
+      expect(mesas(w)).toEqual(['Mesa 2', 'Mesa 10']);
+    });
+
+    it('keeps participants without mesa last in both directions', async () => {
+      const w = mountView([
+        makeWalker({ tableMesa: null,               id_on_retreat: 1 }),
+        makeWalker({ tableMesa: { name: 'Mesa B' }, id_on_retreat: 2 }),
+        makeWalker({ tableMesa: { name: 'Mesa A' }, id_on_retreat: 3 }),
+      ]);
+      await flushPromises();
+      await sortBy(w, 'Ordenar por mesa');
+      expect(mesas(w)).toEqual(['Mesa A', 'Mesa B', '—']);
+      await sortBy(w, 'Ordenar por mesa');
+      expect(mesas(w)).toEqual(['Mesa B', 'Mesa A', '—']);
+    });
+
+    it('sorts participants of the same mesa by number', async () => {
+      const w = mountView([
+        makeWalker({ tableMesa: { name: 'Mesa 1' }, id_on_retreat: 9 }),
+        makeWalker({ tableMesa: { name: 'Mesa 1' }, id_on_retreat: 4 }),
+        makeWalker({ tableMesa: { name: 'Mesa 1' }, id_on_retreat: 7 }),
+      ]);
+      await flushPromises();
+      await sortBy(w, 'Ordenar por mesa');
+      expect(cells(w, 1)).toEqual(['4', '7', '9']);
+    });
+
+    it('sorts by first name', async () => {
+      const w = mountView([
+        makeWalker({ firstName: 'Carlos', lastName: 'Zavala', id_on_retreat: 1 }),
+        makeWalker({ firstName: 'Ana',    lastName: 'Yáñez',  id_on_retreat: 2 }),
+      ]);
+      await flushPromises();
+      await sortBy(w, 'Ordenar por nombre');
+      expect(names(w)).toEqual(['Ana Yáñez', 'Carlos Zavala']);
+    });
+
+    it('sorts by last name', async () => {
+      const w = mountView([
+        makeWalker({ firstName: 'Ana',    lastName: 'Zavala', id_on_retreat: 1 }),
+        makeWalker({ firstName: 'Carlos', lastName: 'Álvarez', id_on_retreat: 2 }),
+      ]);
+      await flushPromises();
+      await sortBy(w, 'Ordenar por apellido');
+      expect(names(w)).toEqual(['Carlos Álvarez', 'Ana Zavala']);
+    });
+
+    it('ignores accents and case when sorting names', async () => {
+      const w = mountView([
+        makeWalker({ firstName: 'Zoe',    lastName: 'ibarra', id_on_retreat: 1 }),
+        makeWalker({ firstName: 'Íñigo',  lastName: 'Ibáñez', id_on_retreat: 2 }),
+      ]);
+      await flushPromises();
+      await sortBy(w, 'Ordenar por apellido');
+      expect(names(w)).toEqual(['Íñigo Ibáñez', 'Zoe ibarra']);
+    });
+
+    it('sorts sizes by their logical order, not alphabetically', async () => {
+      const w = mountView([
+        makeWalker({ tshirtSize: 'G',  id_on_retreat: 1 }),
+        makeWalker({ tshirtSize: 'XS', id_on_retreat: 2 }),
+        makeWalker({ tshirtSize: 'M',  id_on_retreat: 3 }),
+        makeWalker({ tshirtSize: 'S',  id_on_retreat: 4 }),
+      ]);
+      await flushPromises();
+      await sortBy(w, 'Ordenar por talla');
+      expect(sizes(w)).toEqual(['XS', 'S', 'M', 'G']);
+    });
+
+    it('keeps participants without size last when sorting by size', async () => {
+      const w = mountView([
+        makeWalker({ tshirtSize: null, id_on_retreat: 1 }),
+        makeWalker({ tshirtSize: 'M',  id_on_retreat: 2 }),
+        makeWalker({ tshirtSize: 'S',  id_on_retreat: 3 }),
+      ]);
+      await flushPromises();
+      await sortBy(w, 'Ordenar por talla');
+      expect(sizes(w)).toEqual(['S', 'M', '—']);
+      await sortBy(w, 'Ordenar por talla');
+      expect(sizes(w)).toEqual(['M', 'S', '—']);
+    });
+
+    it('starts ascending again when switching to another column', async () => {
+      const w = mountView([
+        makeWalker({ firstName: 'Ana',  tableMesa: { name: 'Mesa B' }, id_on_retreat: 1 }),
+        makeWalker({ firstName: 'Beto', tableMesa: { name: 'Mesa A' }, id_on_retreat: 2 }),
+      ]);
+      await flushPromises();
+      await sortBy(w, 'Ordenar por nombre');
+      await sortBy(w, 'Ordenar por nombre'); // now descending by first name
+      expect(names(w)).toEqual(['Beto García', 'Ana García']);
+      await sortBy(w, 'Ordenar por mesa');   // new column resets to ascending
+      expect(mesas(w)).toEqual(['Mesa A', 'Mesa B']);
+    });
+
+    it('sorts only the rows left by the active search', async () => {
+      const w = mountView([
+        makeWalker({ firstName: 'Ana',   tableMesa: { name: 'Mesa B' }, id_on_retreat: 1 }),
+        makeWalker({ firstName: 'Ana',   tableMesa: { name: 'Mesa A' }, id_on_retreat: 2 }),
+        makeWalker({ firstName: 'Pedro', tableMesa: { name: 'Mesa C' }, id_on_retreat: 3 }),
+      ]);
+      await flushPromises();
+      await w.find('input').setValue('ana');
+      await flushPromises();
+      await sortBy(w, 'Ordenar por mesa');
+      expect(mesas(w)).toEqual(['Mesa A', 'Mesa B']);
+    });
+
+    it('marks the active column with aria-sort', async () => {
+      const w = mountView([makeWalker({ id_on_retreat: 1 })]);
+      await flushPromises();
+      const mesaHeader = () => w.findAll('thead th')[2];
+      expect(mesaHeader().attributes('aria-sort')).toBe('none');
+      await sortBy(w, 'Ordenar por mesa');
+      expect(mesaHeader().attributes('aria-sort')).toBe('ascending');
+      await sortBy(w, 'Ordenar por mesa');
+      expect(mesaHeader().attributes('aria-sort')).toBe('descending');
     });
   });
 

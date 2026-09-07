@@ -315,6 +315,28 @@ def main():
     if padding:
         print(f"  ({padding} filas vacías del export descartadas)")
 
+    # Dos filas con el mismo correo NO son dos personas para el importador: hace
+    # upsert por email, así que la segunda pisa a la primera y una desaparece.
+    # Pasa de verdad — familias que comparten una dirección. Y en el retiro de
+    # Veracruz de 2026-09 una sola dirección la compartían 15 personas.
+    # Además, la fila siguiente a una que actualiza ha fallado con
+    # "cannot start a transaction within a transaction" en importaciones grandes.
+    seen = {}
+    duplicated = []
+    for r in records:
+        key = r.get("Correo", "").strip().lower()
+        if not key:
+            continue
+        if key in seen:
+            duplicated.append((seen[key], r.get("Folio", "?")))
+        else:
+            seen[key] = r.get("Folio", "?")
+    if duplicated:
+        print("\n⚠️  CORREOS REPETIDOS — el importador los tomará como la MISMA persona:")
+        for first, dup in duplicated:
+            print(f"    {first} y {dup} comparten correo")
+        print("    Dale un correo propio a cada uno ANTES de importar, o uno de los dos se pierde.")
+
     missing_email = [r["Folio"] for r in records if not r.get("Correo", "").strip()]
     if missing_email:
         # The importer keys its upsert on email and skips rows without one.

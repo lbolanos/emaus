@@ -21,7 +21,7 @@ export const findTablesByRetreatId = async (retreatId: string, dataSource?: Data
 		.leftJoinAndSelect('table.lider', 'lider')
 		.leftJoinAndSelect('table.colider1', 'colider1')
 		.leftJoinAndSelect('table.colider2', 'colider2')
-		.leftJoinAndSelect('table.walkers', 'walkers')
+		.leftJoinAndSelect('table.walkers', 'walkers', 'walkers.isCancelled = :isCancelled', { isCancelled: false })
 		.leftJoinAndSelect('walkers.participant', 'wp')
 		.leftJoinAndSelect('wp.retreatBed', 'retreatBed', 'retreatBed.retreatId = :retreatId')
 		.where('table.retreatId = :retreatId', { retreatId })
@@ -52,7 +52,7 @@ export const findTableById = async (id: string, dataSource?: DataSource) => {
 		.leftJoinAndSelect('table.lider', 'lider')
 		.leftJoinAndSelect('table.colider1', 'colider1')
 		.leftJoinAndSelect('table.colider2', 'colider2')
-		.leftJoinAndSelect('table.walkers', 'walkers')
+		.leftJoinAndSelect('table.walkers', 'walkers', 'walkers.isCancelled = :isCancelled', { isCancelled: false })
 		.leftJoinAndSelect('walkers.participant', 'wp')
 		.leftJoinAndSelect('wp.retreatBed', 'retreatBed', 'retreatBed.retreatId = table.retreatId')
 		.where('table.id = :id', { id })
@@ -129,6 +129,50 @@ export const deleteTable = async (id: string, dataSource?: DataSource) => {
 			fields: ['name', 'retreatId'],
 		});
 	}
+};
+
+/**
+ * Deletes every table of the retreat that has no lider, no coliders and no active walkers.
+ * Returns the names of the deleted tables so the caller can report what was removed.
+ */
+export const deleteEmptyTablesForRetreat = async (retreatId: string, dataSource?: DataSource) => {
+	const repos = getRepositories(dataSource);
+	const ds = dataSource || AppDataSource;
+	const rpRepo = ds.getRepository(RetreatParticipant);
+
+	const tables = await repos.tableMesa.find({ where: { retreatId }, order: { name: 'ASC' } });
+
+	// A table counts as occupied when at least one non-cancelled participant points at it,
+	// matching what findTablesByRetreatId returns to the UI. Unlike rebalanceTablesForRetreat
+	// this deliberately does NOT filter by type: only walkers get a tableId today, and if a
+	// row of another type ever got one, protecting the table from deletion is the safe outcome.
+	const occupiedRows = await rpRepo
+		.createQueryBuilder('rp')
+		.select('rp.tableId', 'tableId')
+		.where('rp.retreatId = :retreatId', { retreatId })
+		.andWhere('rp.tableId IS NOT NULL')
+		.andWhere('rp.isCancelled = :isCancelled', { isCancelled: false })
+		.getRawMany<{ tableId: string }>();
+	const occupiedTableIds = new Set(occupiedRows.map((row) => row.tableId));
+
+	const emptyTables = tables.filter(
+		(table) =>
+			!table.liderId &&
+			!table.colider1Id &&
+			!table.colider2Id &&
+			!occupiedTableIds.has(table.id),
+	);
+
+	for (const table of emptyTables) {
+		// Cancelled walkers may still reference the table; detach them before dropping the row.
+		await rpRepo.update({ tableId: table.id }, { tableId: null });
+		await deleteTable(table.id, dataSource);
+	}
+
+	return {
+		deletedCount: emptyTables.length,
+		deletedNames: emptyTables.map((table) => table.name),
+	};
 };
 
 export const assignLeaderToTable = async (
@@ -587,7 +631,7 @@ export const exportTablesToDocx = async (retreatId: string, dataSource?: DataSou
 		.leftJoinAndSelect('table.lider', 'lider')
 		.leftJoinAndSelect('table.colider1', 'colider1')
 		.leftJoinAndSelect('table.colider2', 'colider2')
-		.leftJoinAndSelect('table.walkers', 'walkers')
+		.leftJoinAndSelect('table.walkers', 'walkers', 'walkers.isCancelled = :isCancelled', { isCancelled: false })
 		.leftJoinAndSelect('walkers.participant', 'wp')
 		.where('table.retreatId = :retreatId', { retreatId })
 		.getMany();

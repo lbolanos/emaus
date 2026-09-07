@@ -1491,6 +1491,9 @@
     "spanish": "Español"
   },
   "tables": {
+    "search": {
+      "cancelledMatches": "Cancelados que coinciden: {names}"
+    },
     "title": "Mesas del Retiro",
     "description": "Gestiona las asignaciones de mesas, líderes y caminantes.",
     "noTablesFound": "No se encontraron mesas para este retiro.",
@@ -1539,6 +1542,16 @@
       "errorDescription": "Ocurrió un error al vaciar las mesas."
     },
     "addTable": "Agregar Mesa",
+    "deleteEmpty": "Eliminar Mesas Vacías",
+    "deleteEmptyConfirmation": {
+      "title": "Eliminar Mesas Vacías",
+      "description": "Se eliminarán {count} mesa(s) sin líder, sin colíderes y sin caminantes. Esta acción no se puede deshacer.",
+      "none": "No hay mesas vacías: todas tienen al menos un líder o un caminante asignado.",
+      "confirm": "Eliminar Mesas",
+      "deleting": "Eliminando...",
+      "successTitle": "Mesas Eliminadas",
+      "successDescription": "Se eliminaron {count} mesa(s) vacía(s)."
+    },
     "column": "Columna",
     "columns": "Columnas",
     "printTables": "Imprimir Mesas",
@@ -1947,6 +1960,8 @@
     "fields": {
       "acceptedPrivacyNotice": "Acepto el aviso de privacidad y el tratamiento de mis datos personales.",
       "privacyLinkText": "Leer aviso de privacidad",
+      "sensitiveDataConsent": "Autorizo expresamente que se registre y use la información de salud que acabo de indicar, con el único fin de cuidarme durante el retiro.",
+      "sensitiveDataConsentHint": "Es un dato sensible: solo lo consulta el equipo de coordinación de tu retiro y se elimina si pides que borremos tu información. Si prefieres no darlo, responde \"No\" en las preguntas anteriores.",
       "firstName": "Nombre",
       "lastName": "Apellidos",
       "nickname": "Apodo",
@@ -2157,6 +2172,7 @@
     "previous": "Anterior",
     "noResults": "No se encontraron resultados.",
     "searchPlaceholder": "Buscar...",
+    "clearSearch": "Limpiar búsqueda",
     "filters": {
       "title": "Filtros",
       "clearAll": "Borrar todo",
@@ -2538,6 +2554,10 @@
       "title": "Introducción",
       "content": "En Retiros Emaús, valoramos tu privacidad y estamos comprometidos a proteger tus datos personales. Esta política de privacidad explica cómo recolectamos, usamos y protegemos tu información cuando utilizas nuestra plataforma y servicios."
     },
+    "responsible": {
+      "title": "Responsable de tus datos",
+      "content": "El responsable del tratamiento de tus datos personales es la comunidad Emaús del Valle, con sede en la Parroquia El Señor del Buen Despacho, Ciudad de México. Puedes contactarnos por los medios indicados al final de este aviso."
+    },
     "information": {
       "title": "Información que Recolectamos",
       "content": "Recolectamos la siguiente información personal para proporcionarte nuestros servicios:",
@@ -2545,7 +2565,19 @@
         "personal": "Nombre, apellido, fecha de nacimiento y estado civil",
         "contact": "Dirección, teléfono, correo electrónico y redes sociales",
         "demographic": "Información sobre ocupación, sacramentos recibidos y parroquia",
-        "photo": "Fotografía de rostro, cuando un coordinador de tu comunidad la registra para reconocerte en las reuniones"
+        "photo": "Fotografía de rostro, cuando un coordinador de tu comunidad la registra para reconocerte en las reuniones",
+        "health": "Información de salud necesaria para acompañarte durante el retiro: medicamentos y sus horarios, restricciones alimentarias y apoyos por capacidad diferente",
+        "emergency": "Datos de las personas que designes como contacto de emergencia (nombre, parentesco y teléfono)"
+      }
+    },
+    "sensitive": {
+      "title": "Datos personales sensibles",
+      "content": "La información de salud que nos compartes —medicamentos y sus horarios, restricciones alimentarias y apoyos por capacidad diferente— es un dato personal sensible conforme a la Ley Federal de Protección de Datos Personales en Posesión de los Particulares. Por eso la tratamos bajo reglas más estrictas:",
+      "items": {
+        "consent": "Solo la recabamos con tu consentimiento expreso, que otorgas al marcar la casilla correspondiente durante tu registro. Puedes no otorgarlo: en ese caso no registramos esa información y tu participación en el retiro sigue en pie.",
+        "purpose": "La usamos únicamente para cuidarte durante el retiro: prever tus alimentos, respetar tus horarios de medicación y poder actuar ante una emergencia.",
+        "access": "Solo la consulta el equipo de coordinación del retiro en el que participas. No se comparte con otros retiros ni con terceros.",
+        "deletion": "Se elimina junto con el resto de tu información cuando solicitas su eliminación."
       }
     },
     "use": {
@@ -2579,13 +2611,15 @@
         "correction": "Solicitar la corrección de datos inexactos",
         "deletion": "Solicitar la eliminación de tus datos personales",
         "objection": "Oponerte al procesamiento de tus datos"
-      }
+      },
+      "howTo": "Para ejercer cualquiera de estos derechos escríbenos al correo que aparece al final de este aviso; responderemos en un plazo máximo de 20 días hábiles. También puedes eliminar toda tu información por tu cuenta, desde el enlace personal que incluimos en el correo de aviso de privacidad que te enviamos."
     },
     "contact": {
       "title": "Contáctanos",
       "content": "Si tienes preguntas sobre esta política de privacidad o cómo manejamos tus datos, por favor contáctanos:",
       "email": "Correo electrónico"
-    }
+    },
+    "lastUpdatedDate": "1 de septiembre de 2026"
   },
   "terms": {
     "title": "Términos y Condiciones",

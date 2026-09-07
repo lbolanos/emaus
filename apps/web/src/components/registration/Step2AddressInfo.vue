@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui'
 import { Input } from '@repo/ui'
 import { Label } from '@repo/ui'
 
-// Lazy-load country/state/city selectors — country-state-city is ~8MB of data
+// Lazy-load the country/state selectors: each one pulls its own slice of
+// country-state-city. City is a plain text field on purpose — the package's city
+// list weighs 7.7 MB and used to be downloaded just to open this step.
 const CountrySelector = defineAsyncComponent(() => import('@/components/form/CountrySelector.vue'))
 const StateSelector = defineAsyncComponent(() => import('@/components/form/StateSelector.vue'))
-const CitySelector = defineAsyncComponent(() => import('@/components/form/CitySelector.vue'))
 
 const props = defineProps<{
   errors: Record<string, string>
@@ -36,7 +37,7 @@ const getErrorMessage = (field: string) => props.errors[field]
         </div>
         <div>
           <Label for="city">{{ $t('serverRegistration.fields.city') }}</Label>
-          <CitySelector id="city" v-model="formData.city" :country-code="formData.country!" :state-code="formData.state!" :class="{ 'border-red-500': hasError('city') }" />
+          <Input id="city" v-model="formData.city" :class="{ 'border-red-500': hasError('city') }" />
           <p v-if="hasError('city')" class="text-red-500 text-sm mt-1">{{ getErrorMessage('city') }}</p>
         </div>
         <div>

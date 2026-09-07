@@ -291,6 +291,27 @@ sqlite3 apps/api/database.sqlite ".backup 'apps/api/database.sqlite.backup-pre-<
 > backup con 0 filas), y escribir contra una DB en WAL que el API tiene abierta divergió inodos y
 > borró datos en dev. Para resetear datos de prueba, hacelo por el API, no por sqlite.
 
+## La guarda de idempotencia se puede comer la migración en dev
+
+Una migración de datos que arranca con "si ya existe, no hago nada" es lo correcto, pero en **dev**
+tiene una trampa: el API corre con `MIGRATIONS_AUTO_RUN=true` y nodemon lo reinicia **cada vez que
+guardás un archivo del API**. Así que al crear el archivo de la migración, el reinicio la aplica de
+inmediato. Si en ese momento la condición de la guarda se cumple —los datos ya estaban ahí de una
+prueba anterior—, la migración **queda marcada como ejecutada sin haber insertado nada**, y
+`migration:run` responde "No pending migrations" para siempre.
+
+Pasó el 2026-09-06 con `AddVeracruzXxiiiHouseAndRetreat`: la casa existía de un ensayo por API, la
+migración se autoconsumió, luego se borró la casa, y quedó una base con la migración "hecha" y sin
+datos.
+
+- **Verificá por el dato, no por `migration:show`**: `sqlite3 -readonly … "SELECT count(*) FROM …"`.
+- Para volver a probar el `up()` sin tocar la tabla `migrations`, instanciá la clase y llamá al
+  método directo con `vite-node`, o corré la migración contra una **copia** de la base
+  (`sqlite3 database.sqlite ".backup 'database.test.sqlite'"` + `DB_DATABASE=…`).
+- En producción el riesgo equivalente es que alguien cree los datos a mano antes del deploy: la
+  migración se marcará hecha y nunca los creará. Comprobá el resultado en prod después de
+  desplegar.
+
 ## Naming convention
 
 - Archivo: `apps/api/src/migrations/sqlite/<YYYYMMDDHHMMSS>_<DescriptiveName>.ts`

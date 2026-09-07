@@ -1405,6 +1405,9 @@
     "spanish": "Spanish"
   },
   "tables": {
+    "search": {
+      "cancelledMatches": "Cancelled matches: {names}"
+    },
     "title": "Retreat Tables",
     "description": "Manage table assignments, leaders, and walkers.",
     "noTablesFound": "No tables found for this retreat.",
@@ -1453,6 +1456,16 @@
       "errorDescription": "An error occurred while clearing the tables."
     },
     "addTable": "Add Table",
+    "deleteEmpty": "Delete Empty Tables",
+    "deleteEmptyConfirmation": {
+      "title": "Delete Empty Tables",
+      "description": "{count} table(s) with no leader, no coleaders and no walkers will be deleted. This action cannot be undone.",
+      "none": "There are no empty tables: every table has at least one leader or walker assigned.",
+      "confirm": "Delete Tables",
+      "deleting": "Deleting...",
+      "successTitle": "Tables Deleted",
+      "successDescription": "{count} empty table(s) were deleted."
+    },
     "column": "Column",
     "columns": "Columns",
     "exportDocx": "Print Tables",
@@ -1859,6 +1872,8 @@
     "fields": {
       "acceptedPrivacyNotice": "I accept the privacy notice and the processing of my personal data.",
       "privacyLinkText": "Read privacy notice",
+      "sensitiveDataConsent": "I expressly authorize the recording and use of the health information I just provided, for the sole purpose of looking after me during the retreat.",
+      "sensitiveDataConsentHint": "This is sensitive data: only your retreat coordination team can see it, and it is deleted if you ask us to remove your information. If you prefer not to share it, answer \"No\" to the questions above.",
       "firstName": "First Name",
       "lastName": "Last Name",
       "nickname": "Nickname",
@@ -2066,6 +2081,7 @@
     "previous": "Previous",
     "noResults": "No results found.",
     "searchPlaceholder": "Search...",
+    "clearSearch": "Clear search",
     "filters": {
       "title": "Filters",
       "clearAll": "Clear All",
@@ -2430,6 +2446,10 @@
       "title": "Introduction",
       "content": "At Emmaus Retreats, we value your privacy and are committed to protecting your personal data. This privacy policy explains how we collect, use, and protect your information when you use our platform and services."
     },
+    "responsible": {
+      "title": "Who Is Responsible for Your Data",
+      "content": "The party responsible for processing your personal data is the Emaús del Valle community, based at Parroquia El Señor del Buen Despacho, Mexico City. You can reach us through the contact details at the end of this notice."
+    },
     "information": {
       "title": "Information We Collect",
       "content": "We collect the following personal information to provide you with our services:",
@@ -2437,7 +2457,19 @@
         "personal": "Name, last name, date of birth, and marital status",
         "contact": "Address, phone, email, and social media",
         "demographic": "Information about occupation, sacraments received, and parish",
-        "photo": "Face photograph, when a coordinator of your community registers it to recognize you at meetings"
+        "photo": "Face photograph, when a coordinator of your community registers it to recognize you at meetings",
+        "health": "Health information needed to look after you during the retreat: medications and their schedules, dietary restrictions, and accessibility support",
+        "emergency": "Details of the people you designate as emergency contacts (name, relationship, and phone number)"
+      }
+    },
+    "sensitive": {
+      "title": "Sensitive Personal Data",
+      "content": "The health information you share with us — medications and their schedules, dietary restrictions, and accessibility support — is sensitive personal data under Mexico's Federal Law on Protection of Personal Data Held by Private Parties. We therefore handle it under stricter rules:",
+      "items": {
+        "consent": "We collect it only with your express consent, which you give by checking the corresponding box during registration. You may withhold it: in that case we do not record this information and your participation in the retreat still stands.",
+        "purpose": "We use it solely to look after you during the retreat: planning your meals, respecting your medication schedule, and being able to act in an emergency.",
+        "access": "Only the coordination team of the retreat you attend can see it. It is not shared with other retreats or with third parties.",
+        "deletion": "It is deleted along with the rest of your information when you request its removal."
       }
     },
     "use": {
@@ -2471,13 +2503,15 @@
         "correction": "Request correction of inaccurate data",
         "deletion": "Request deletion of your personal data",
         "objection": "Object to processing of your data"
-      }
+      },
+      "howTo": "To exercise any of these rights, write to the email address at the end of this notice; we will respond within a maximum of 20 business days. You can also delete all of your information yourself, using the personal link we include in the privacy notice email we send you."
     },
     "contact": {
       "title": "Contact Us",
       "content": "If you have questions about this privacy policy or how we handle your data, please contact us:",
       "email": "Email"
-    }
+    },
+    "lastUpdatedDate": "September 1, 2026"
   },
   "terms": {
     "title": "Terms and Conditions",

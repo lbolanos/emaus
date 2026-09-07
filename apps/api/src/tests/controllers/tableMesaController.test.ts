@@ -3,6 +3,7 @@ import * as tableMesaController from '../../controllers/tableMesaController';
 // Mock the service
 jest.mock('../../services/tableMesaService', () => ({
 	clearAllTablesForRetreat: jest.fn(),
+	deleteEmptyTablesForRetreat: jest.fn(),
 	rebalanceTablesForRetreat: jest.fn(),
 	findTablesByRetreatId: jest.fn(),
 }));
@@ -69,6 +70,40 @@ describe('Table Mesa Controller', () => {
 			await tableMesaController.clearAllTables(req as any, res as any, mockNext);
 
 			expect(tableMesaService.clearAllTablesForRetreat).toHaveBeenCalledWith(retreatId);
+		});
+	});
+
+	describe('deleteEmptyTables', () => {
+		test('should return 200 with the deletion summary', async () => {
+			(tableMesaService.deleteEmptyTablesForRetreat as jest.Mock).mockResolvedValue({
+				deletedCount: 2,
+				deletedNames: ['Mesa 4', 'Mesa 5'],
+			});
+
+			const req = createMockRequest({ params: { retreatId: 'test-retreat-id' } });
+			const res = createMockResponse();
+
+			await tableMesaController.deleteEmptyTables(req as any, res as any, mockNext);
+
+			expect(tableMesaService.deleteEmptyTablesForRetreat).toHaveBeenCalledWith('test-retreat-id');
+			expect(res.status).toHaveBeenCalledWith(200);
+			expect(res.json).toHaveBeenCalledWith({
+				deletedCount: 2,
+				deletedNames: ['Mesa 4', 'Mesa 5'],
+			});
+		});
+
+		test('should call next with error on failure', async () => {
+			const error = new Error('Delete error');
+			(tableMesaService.deleteEmptyTablesForRetreat as jest.Mock).mockRejectedValue(error);
+
+			const req = createMockRequest({ params: { retreatId: 'test-retreat-id' } });
+			const res = createMockResponse();
+
+			await tableMesaController.deleteEmptyTables(req as any, res as any, mockNext);
+
+			expect(mockNext).toHaveBeenCalledWith(error);
+			expect(res.status).not.toHaveBeenCalled();
 		});
 	});
 

@@ -16,6 +16,23 @@ const formData = defineModel<Record<string, any>>({ required: true })
 const hasError = (field: string) => !!props.errors[field]
 const getErrorMessage = (field: string) => props.errors[field]
 
+// Los datos de salud son sensibles (LFPDPPP art. 9): la casilla de
+// consentimiento expreso solo aparece si el participante declara alguno. Quien
+// responde "no" a todo no ve fricción adicional.
+const declaresHealthData = computed(() =>
+  Boolean(
+    formData.value.hasMedication ||
+      formData.value.hasDietaryRestrictions ||
+      formData.value.hasDisability,
+  ),
+)
+
+// Si deja de declarar datos de salud, el consentimiento pierde objeto: se
+// limpia para no arrastrar una autorización dada sobre otro estado del form.
+watch(declaresHealthData, (declares) => {
+  if (!declares) formData.value.acceptedSensitiveDataConsent = false
+})
+
 const sacramentOptions = ['baptism', 'communion', 'confirmation', 'marriage', 'none'] as const
 
 function updateSacraments(sacrament: typeof sacramentOptions[number]) {
@@ -257,6 +274,36 @@ if (formData.value.disabilitySupport && !formData.value.hasDisability) {
           v-model="disabilityOther"
           :placeholder="$t('serverRegistration.fields.disabilityOtherPlaceholder')"
         />
+      </div>
+
+      <!-- Consentimiento expreso para datos sensibles de salud -->
+      <div v-if="declaresHealthData" class="pt-4 mt-4 border-t">
+        <button
+          type="button"
+          class="w-full flex items-start gap-3 rounded-lg border p-3 text-left transition-all"
+          :class="formData.acceptedSensitiveDataConsent
+            ? 'border-primary bg-primary/5'
+            : (hasError('acceptedSensitiveDataConsent') ? 'border-red-500 bg-red-50 dark:bg-red-950/30' : 'border-input bg-background hover:bg-accent/50')"
+          @click="formData.acceptedSensitiveDataConsent = !formData.acceptedSensitiveDataConsent"
+        >
+          <div
+            class="flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 mt-0.5 transition-colors"
+            :class="formData.acceptedSensitiveDataConsent ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/40 bg-background'"
+          >
+            <svg v-if="formData.acceptedSensitiveDataConsent" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <span class="text-sm leading-snug">
+            {{ $t('serverRegistration.fields.sensitiveDataConsent') }}
+          </span>
+        </button>
+        <p class="text-muted-foreground text-xs mt-2 ml-1">
+          {{ $t('serverRegistration.fields.sensitiveDataConsentHint') }}
+        </p>
+        <p v-if="hasError('acceptedSensitiveDataConsent')" class="text-red-500 text-sm mt-1">
+          {{ getErrorMessage('acceptedSensitiveDataConsent') }}
+        </p>
       </div>
     </CardContent>
   </Card>

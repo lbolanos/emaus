@@ -424,21 +424,14 @@ export const retreatSchema = z.object({
 			.max(120)
 			.optional(),
 	),
-	// Set when the parish runs walker registration on its own site. This value
-	// is redirected to and encoded into the flyer QR, so it must be a real
-	// http(s) address: `.url()` alone would accept `javascript:` and turn the
-	// redirect into an XSS vector. '' maps to null so the field can be cleared;
-	// undefined leaves the stored value untouched.
+	// Set when the parish runs walker registration on its own site. The value is
+	// navigated to (window.location.replace) and encoded into the flyer QR, so it
+	// goes through httpUrlSchema for the same reason retreat memory songs do.
+	// '' maps to null so the field can be cleared; undefined leaves it untouched.
 	externalRegistrationUrl: z.preprocess(
 		(v) => (v === '' ? null : v),
-		z
-			.string()
-			.url()
-			.max(500)
-			.refine(
-				(v) => /^https?:\/\//i.test(v),
-				'El enlace debe empezar con http:// o https://',
-			)
+		httpUrlSchema
+			.refine((v) => v.length <= 500, 'El enlace es demasiado largo')
 			.nullable()
 			.optional(),
 	),
@@ -679,6 +672,10 @@ export const participantSchema = z.object({
 	tags: z.array(participantTagSchema).optional(),
 	acceptedPrivacyNotice: z.boolean().optional(),
 	acceptedPrivacyNoticeAt: z.coerce.date().nullable().optional(),
+	// Consentimiento expreso para los datos de salud (LFPDPPP art. 9). El flag
+	// viaja desde el formulario; el sello de tiempo es la constancia persistida.
+	acceptedSensitiveDataConsent: z.boolean().optional(),
+	sensitiveDataConsentAt: z.coerce.date().nullable().optional(),
 });
 export type Participant = z.infer<typeof participantSchema>;
 
@@ -736,6 +733,21 @@ export const createParticipantSchema = z.object({
 			message: 'Debes aceptar el aviso de privacidad',
 			path: ['acceptedPrivacyNotice'],
 		})
+		// Los datos de salud son sensibles: sin consentimiento expreso no se
+		// aceptan. El cliente los oculta, pero la regla se impone aquí también
+		// porque el endpoint de registro es público.
+		.refine(
+			(d) =>
+				!(
+					d.hasMedication === true ||
+					d.hasDietaryRestrictions === true ||
+					(typeof d.disabilitySupport === 'string' && d.disabilitySupport.length > 0)
+				) || d.acceptedSensitiveDataConsent === true,
+			{
+				message: 'Debes autorizar expresamente el uso de tus datos de salud',
+				path: ['acceptedSensitiveDataConsent'],
+			},
+		)
 		.refine(
 			(d) =>
 				d.type !== 'walker' ||

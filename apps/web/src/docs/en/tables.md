@@ -22,6 +22,38 @@ Tables are small groups where walkers process their retreat experience together.
 4. Add walkers to the table
 5. Save the table
 
+## Delete Empty Tables
+
+If you ended up with tables that have nobody assigned, you do not have to delete them one by one:
+
+1. Open the actions menu (⋮) in the top right
+2. Choose **Delete Empty Tables**
+3. Review the list of tables about to be deleted and confirm
+
+Only tables with no leader, no coleaders and no walkers are deleted. The rest are left untouched.
+
+## Finding a Person on the Board
+
+The search box at the top right finds anyone in the retreat, whether they are unassigned or already seated at a table.
+
+**Type it however comes naturally:**
+
+- **First and last name together**: "adan perez" finds Adán Bautista Pérez
+- **In any order**: "perez adan" finds the same person
+- **Without accents**: "jose" finds José, "diaz" finds Díaz
+- **By retreat number**: type 17 and walker 17 shows up
+- **By nickname**, if one is on file
+
+**While searching:**
+
+- Matches are highlighted in yellow and **the rest of the board fades out**, so you can see at a glance where a family ended up or how a parish was spread out.
+- The counter (for example **3 / 12**) tells you which match you are on and how many there are. **0 / 0** means nobody on the board has that name.
+- **Enter** jumps to the next match and **Shift + Enter** to the previous one. The ‹ › arrows do the same. Past the last match it wraps around to the first.
+- The screen only scrolls if the person is out of view.
+- The **X** button (or the Esc key) clears the search.
+
+**If the person cancelled**, they are not on the board, but a note under the search box tells you: *"Cancelled matches: ..."*. That way you know they exist and cancelled, instead of assuming you misspelled the name.
+
 ## Table Assignment Rules
 
 - Each table must have at least one leader

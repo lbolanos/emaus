@@ -78,6 +78,54 @@ const todayYmd = new Intl.DateTimeFormat('en-CA', {
 // → "2026-06-05"
 ```
 
+## Regla N°5 — el día de la semana y el día del mes de un instante son de su zona
+
+Corolario de la N°1 que muerde aparte: un `Date` que salió de la base es un **instante**, y su
+día de la semana depende de dónde lo mires. `getDay()`, `getDate()` y `getMonth()` responden en
+la zona del **proceso Node** — `Etc/UTC` en el server de producción.
+
+Una reunión de los miércoles a las 19:45 CDMX se guarda como `01:45Z` **del jueves**:
+
+```ts
+new Date('2026-09-03T01:45:00.000Z').getDay()   // 4 (jueves) con TZ=UTC ❌
+                                                // 3 (miércoles) con TZ=America/Mexico_City
+```
+
+Bug de producción (2026-09-07): el generador de reuniones recurrentes calculaba
+`(targetDay - current.getDay() + 7) % 7`, veía jueves donde el usuario veía miércoles, avanzaba
+6 días en vez de 7, y **toda la serie se materializó los martes**. La rama `monthly` tenía el
+mismo defecto (día 2 del mes generaba día 1).
+
+**Descomponé en la zona del evento, operá con números planos, recomponé con
+`makeDateInTimezone`**:
+
+```ts
+import { makeDateInTimezone } from '@/utils/date.transformer';
+
+// 1. componentes de calendario en la zona correcta
+const parts = new Intl.DateTimeFormat('en-US', {
+  timeZone: tz, hourCycle: 'h23',
+  year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+}).formatToParts(instant);
+
+// 2. el weekday se deriva de la fecha civil, no de un string de locale
+const weekday = new Date(Date.UTC(year, month0, day)).getUTCDay();
+
+// 3. aritmética civil pura (sin zona, sin DST) y recomposición
+const next = makeDateInTimezone(year, month0, day + 7, hour, minute, tz);
+```
+
+Referencia completa: `calculateNextOccurrence()` y `nextWeekdayOccurrence()` en
+`apps/api/src/utils/recurrenceUtils.ts`.
+
+Dos trampas asociadas que aparecieron en el mismo barrido:
+
+- **`setMonth` desborda el fin de mes.** `new Date(31-ene).setMonth(+1)` aterriza en el 3 de
+  marzo, y un recorte posterior mide **marzo**, no febrero. Normalizá el mes a mano
+  (`year + Math.floor(totalMonths/12)`) y recortá contra `Date.UTC(y, m0+1, 0)`.
+- **El día no siempre dura 24 h.** Para los límites de "hoy" usá `dayBoundsInTimezone()`, que
+  resuelve la medianoche del día civil siguiente en vez de sumar 86 400 000 ms.
+
 ## API: timezone configurable por casa + retiro
 
 ### Modelo
@@ -126,6 +174,27 @@ Suite de referencia: `apps/api/src/tests/services/scheduleMaterializeTimezone.si
 
 Suite del helper: `apps/api/src/tests/services/inferTimezoneFromCoords.simple.test.ts` — 11 tests cubriendo coords reales, inválidas, mar abierto, concurrencia.
 
+### Elegí zonas de signo opuesto, o el test no detecta nada
+
+Un test cuya semilla se construye con `new Date('2026-06-10T09:00:00')` (hora del runner) y se
+calcula contra otra zona mezcla dos calendarios: pasa en una Mac en CDMX y falla en CI. Semillas
+siempre como instante UTC absoluto (`...Z`) y zona explícita en la llamada.
+
+Y para que la suite detecte la regresión **desde cualquier runner**, cubrí el mismo caso con dos
+zonas de offset opuesto — CDMX (UTC−6) y Asia/Tokyo (UTC+9). No existe zona de proceso en la que
+ambos pasen si alguien vuelve a los getters locales. Verificado por mutación: reintroducir
+`getDay()` rompe 7 tests bajo UTC, 6 bajo Madrid, 7 bajo Tokio y 1 bajo CDMX — pero **nunca cero**.
+
+### El antipatrón del mirror
+
+Dos suites de este repo **replicaban inline** la implementación que decían probar
+(`getNextDayOfWeekDate` en `communityPublicRegistration.simple.test.ts`, `dashboardStats` en
+`retreatScheduleDashboard.simple.test.ts`). Copiaron el defecto junto con el algoritmo, así que
+lo confirmaban en vez de detectarlo: ninguna de las dos vio pasar el bug de 2026-09-07.
+
+Si hay que evitar bootear TypeORM, importá **el helper puro real** y replicá solo el andamiaje
+alrededor. Un mirror que copia la línea con el bug no es cobertura.
+
 ## Setup en SQLite + TypeORM
 
 Cuando guardas un `Date` en columna `'date'` (no `'datetime'`), TypeORM con SQLite truncá usando hora local del proceso:
@@ -160,13 +229,19 @@ En código de producción: el flujo del UI ya envía la string `YYYY-MM-DD` — 
 - **Items duplicados con `scheduleTemplateId` repetido**: doble materialización (típicamente antes y después del fix). El método `regenerateSantisimoSlotsFromSchedule` borra todos los items con templateId y re-materializa, eliminando la duplicación.
 - **Retiro se cierra "un día antes"**: usaste `new Date().getDate()` o `getUTCDate()` en lugar de `Intl.DateTimeFormat` con zona del retiro.
 - **Test pasa local pero falla en CI**: aserciones sobre `getHours()`/`getDate()` son server-local. Convierte a `toISOString()` o `getUTCHours()`.
+- **Una serie semanal se materializa un día antes** (miércoles → martes): Regla N°5. El cálculo leyó `getDay()` del proceso. Revisá que el caller propague la timezone de la community; el helper cae a CDMX por defecto y eso enmascara el fallo en dev.
+- **La reunión por defecto de una community nueva queda 6 h antes**: `setHours()` sobre el reloj del proceso. Usá `nextWeekdayOccurrence()`.
+- **Los contadores de "hoy" del dashboard cuentan mal la tarde-noche**: `setHours(0,0,0,0)` da la medianoche del proceso. Usá `dayBoundsInTimezone()`.
+- **Una fecha date-only sale un día antes en un correo**: `toLocaleDateString()` sin `timeZone: 'UTC'` sobre una `@Column('date')`. Regla N°3.
 - **`tz-lookup` no carga en Jest**: usa dynamic `await import('tz-lookup' as any)` en lugar de `require()` — la package es CommonJS y `import.meta.url` no existe en Jest.
 
 ## Archivos clave
 
 | Archivo | Propósito |
 |---|---|
-| `apps/api/src/utils/date.transformer.ts` | `makeDateInTimezone`, `inferTimezoneFromCoords`, `DateTransformer`, `DateTimeTransformer` |
+| `apps/api/src/utils/date.transformer.ts` | `makeDateInTimezone`, `dayBoundsInTimezone`, `inferTimezoneFromCoords`, `DateTransformer`, `DateTimeTransformer` |
+| `apps/api/src/utils/recurrenceUtils.ts` | `calculateNextOccurrence(…, timeZone)`, `nextWeekdayOccurrence()` — recurrencia de reuniones de community |
+| `apps/api/src/services/communityService.ts` `getCommunityTimezone()` | resuelve `community.timezone ?? default` |
 | `apps/api/src/services/retreatScheduleService.ts:592-617` | `computeItemDateRange(timezone)` con makeDateInTimezone |
 | `apps/api/src/services/retreatScheduleService.ts` `resolveRetreatTimezone()` | resuelve `retreat.timezone ?? house.timezone ?? default` |
 | `apps/api/src/migrations/sqlite/20260507280000_AddTimezoneToHouseAndRetreat.ts` | añade columnas |
