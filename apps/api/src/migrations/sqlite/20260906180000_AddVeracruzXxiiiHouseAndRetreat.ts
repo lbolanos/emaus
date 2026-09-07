@@ -22,6 +22,9 @@ import { v4 as uuidv4 } from 'uuid';
  * de nacimiento, medicación) y este repositorio es público. Se importan por la pantalla de
  * importación con el CSV curado que vive fuera del repo.
  *
+ * Por lo mismo tampoco van los teléfonos de contacto del retiro, aunque estén impresos en el
+ * volante: `contactPhones` se captura desde la app, no se versiona.
+ *
  * Distribución de la casa, según lo que confirmó el coordinador y el export del 5 de sep:
  *   Módulo C — C01-C17 planta baja, C18-C32 planta alta — caminantes
  *   Módulo B — B01-B19 — caminantes
@@ -107,18 +110,24 @@ export class AddVeracruzXxiiiHouseAndRetreat20260906180000 implements MigrationI
 	timestamp = '20260906180000';
 
 	public async up(queryRunner: QueryRunner): Promise<void> {
-		const existingHouse = await queryRunner.query(`SELECT "id" FROM "house" WHERE "name" = ?`, [HOUSE_NAME]);
+		// El retiro es lo que esta migración existe para crear: si ya está, no hay nada que hacer.
+		// La casa se trata aparte a propósito. Un intento anterior por script contra producción
+		// murió a medio camino (NOT NULL en service_teams.teamType) y dejó casa sin retiro; una
+		// guarda que se saltara todo al ver cualquiera de los dos dejaría ese estado a medias sin
+		// corregir para siempre. Aquí, si la casa está, se reutiliza en vez de duplicarla.
 		const existingRetreat = await queryRunner.query(`SELECT "id" FROM "retreat" WHERE "slug" = ?`, [RETREAT_SLUG]);
-		if (existingHouse.length > 0 || existingRetreat.length > 0) {
-			console.log('[AddVeracruzXxiii] la casa o el retiro ya existen — no se hace nada');
+		if (existingRetreat.length > 0) {
+			console.log(`[AddVeracruzXxiii] el retiro ${RETREAT_SLUG} ya existe — no se hace nada`);
 			return;
 		}
 
 		const beds = buildBeds();
-		const walkerBeds = beds.filter((b) => b.defaultUsage === 'caminante').length;
-		const houseId = uuidv4();
-
-		await queryRunner.query(
+		const existingHouse = await queryRunner.query(`SELECT "id" FROM "house" WHERE "name" = ?`, [HOUSE_NAME]);
+		const houseId = existingHouse[0]?.id ?? uuidv4();
+		if (existingHouse.length > 0) {
+			console.log(`[AddVeracruzXxiii] la casa ya existía (${houseId}) — se reutiliza`);
+		} else {
+			await queryRunner.query(
 			`INSERT INTO "house" ("id", "name", "address1", "address2", "city", "state", "zipCode", "country",
 			 "capacity", "latitude", "longitude", "googleMapsUrl", "notes", "timezone", "floorLabels")
 			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -139,26 +148,59 @@ export class AddVeracruzXxiiiHouseAndRetreat20260906180000 implements MigrationI
 					'Pendiente confirmar si son literas, el tamaño real del módulo B y si la C11 tiene una tercera cama.',
 				'America/Mexico_City',
 				JSON.stringify(FLOORS),
-			],
-		);
-
-		for (const bed of beds) {
-			await queryRunner.query(
-				`INSERT INTO "bed" ("id", "roomNumber", "bedNumber", "floor", "type", "defaultUsage", "houseId", "floorLabel")
-				 VALUES (?, ?, ?, ?, 'normal', ?, ?, ?)`,
-				[uuidv4(), bed.roomNumber, bed.bedNumber, bed.floor, bed.defaultUsage, houseId, bed.floorLabel],
+				],
 			);
+
+			for (const bed of beds) {
+				await queryRunner.query(
+					`INSERT INTO "bed" ("id", "roomNumber", "bedNumber", "floor", "type", "defaultUsage", "houseId", "floorLabel")
+					 VALUES (?, ?, ?, ?, 'normal', ?, ?, ?)`,
+					[uuidv4(), bed.roomNumber, bed.bedNumber, bed.floor, bed.defaultUsage, houseId, bed.floorLabel],
+				);
+			}
 		}
+
+		// El mapa de camas del RETIRO se calcula antes de insertar el retiro, porque de él salen
+		// max_walkers y max_servers. Tomarlos del reparto de la casa era un error: las excepciones
+		// por habitación mueven camas entre usos, así que los topes quedaban en 102/80 cuando las
+		// camas reales del retiro son 115/68 — el sistema habría aceptado servidores para los que
+		// no hay cama y marcado en espera a caminantes que sí la tenían.
+		const houseBeds: Array<{ roomNumber: string; floor: number; type: string; defaultUsage: string; floorLabel: string }> =
+			await queryRunner.query(
+				`SELECT "roomNumber", "floor", "type", "defaultUsage", "floorLabel"
+				 FROM "bed" WHERE "houseId" = ? ORDER BY "roomNumber", "bedNumber"`,
+				[houseId],
+			);
+		const byRoom = new Map<string, (typeof houseBeds)[number]>();
+		for (const b of houseBeds) if (!byRoom.has(b.roomNumber)) byRoom.set(b.roomNumber, b);
+
+		const retreatBedPlan: Array<{ roomNumber: string; bedNumber: string; floor: number; type: string; usage: string; floorLabel: string }> = [];
+		for (const [roomNumber, sample] of byRoom) {
+			const moduleWalkerBeds = sample.defaultUsage === 'caminante' ? BEDS_PER_ROOM : 0;
+			const roomWalkerBeds = RETREAT_WALKER_BEDS_BY_ROOM[roomNumber] ?? moduleWalkerBeds;
+			const total = Math.max(BEDS_PER_ROOM, roomWalkerBeds);
+			for (let i = 0; i < total; i++) {
+				retreatBedPlan.push({
+					roomNumber,
+					bedNumber: String(i + 1),
+					floor: sample.floor,
+					type: sample.type,
+					usage: i < roomWalkerBeds ? 'caminante' : 'servidor',
+					floorLabel: sample.floorLabel,
+				});
+			}
+		}
+		const retreatWalkerBeds = retreatBedPlan.filter((b) => b.usage === 'caminante').length;
 
 		const retreatId = uuidv4();
 		await queryRunner.query(
 			`INSERT INTO "retreat" ("id", "parish", "startDate", "endDate", "houseId", "closingNotes",
-			 "thingsToBringNotes", "contactPhones", "cost", "max_walkers", "max_servers", "isPublic",
+			 "thingsToBringNotes", "cost", "max_walkers", "max_servers", "isPublic",
 			 "roleInvitationEnabled", "walkerArrivalTime", "retreat_type", "retreat_number_version", "slug",
 			 "notifyParticipant", "notifyInviter", "santisimoEnabled", "timezone",
 			 "closingChurchName", "closingChurchAddress", "closingChurchLatitude", "closingChurchLongitude",
 			 "externalRegistrationUrl")
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?, ?, ?, 0, 0, 0, ?, ?, ?, ?, ?, ?)`,
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?, ?, ?, 0, 0, 0, ?, ?, ?, ?, ?, ?)`,
 			[
 				retreatId,
 				'San Miguel Arcángel',
@@ -169,10 +211,9 @@ export class AddVeracruzXxiiiHouseAndRetreat20260906180000 implements MigrationI
 					'Es muy importante que la familia venga a recibir al caminante.',
 				'Toalla. Objetos personales: desodorante, jabón, cepillo de dientes, medicinas. ' +
 					'Ropa y calzado cómodo, ropa de dormir, y una sudadera o chamarra para una actividad al aire libre de noche.',
-				'Madre Carmen 285 956 60 47 (lunes a viernes 10:00-13:00) | Guillermo Álvarez 285 109 65 63 (WhatsApp)',
 				'1500',
-				walkerBeds,
-				beds.length - walkerBeds,
+				retreatWalkerBeds,
+				retreatBedPlan.length - retreatWalkerBeds,
 				'17:00',
 				'men',
 				'XXIII',
@@ -184,44 +225,19 @@ export class AddVeracruzXxiiiHouseAndRetreat20260906180000 implements MigrationI
 				-96.2092096,
 				'http://www.emaus.mx/veracruz/',
 			],
-		);
+);
 
-		// Las camas del retiro son una COPIA de las de la casa: sin esto el retiro nace sin mapa de
-		// camas y el importador va inventando una por cada habitación del Excel. El servicio
-		// createRetreat lo hace vía refreshRetreatBedsFromHouse; por SQL hay que replicarlo.
-		const houseBeds: Array<{ roomNumber: string; floor: number; type: string; defaultUsage: string; floorLabel: string }> =
+		// Sin esta copia el retiro nace sin mapa de camas y el importador va inventando una por
+		// cada habitación del Excel. createRetreat lo hace vía refreshRetreatBedsFromHouse.
+		for (const bed of retreatBedPlan) {
 			await queryRunner.query(
-				`SELECT "roomNumber", "floor", "type", "defaultUsage", "floorLabel"
-				 FROM "bed" WHERE "houseId" = ? ORDER BY "roomNumber", "bedNumber"`,
-				[houseId],
+				`INSERT INTO "retreat_bed" ("id", "roomNumber", "bedNumber", "floor", "type", "defaultUsage",
+				 "retreatId", "participantId", "isActive", "floorLabel")
+				 VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 1, ?)`,
+				[uuidv4(), bed.roomNumber, bed.bedNumber, bed.floor, bed.type, bed.usage, retreatId, bed.floorLabel],
 			);
-		const byRoom = new Map<string, (typeof houseBeds)[number]>();
-		for (const b of houseBeds) if (!byRoom.has(b.roomNumber)) byRoom.set(b.roomNumber, b);
-
-		let retreatBedCount = 0;
-		for (const [roomNumber, sample] of byRoom) {
-			const moduleWalkerBeds = sample.defaultUsage === 'caminante' ? BEDS_PER_ROOM : 0;
-			const walkerBeds = RETREAT_WALKER_BEDS_BY_ROOM[roomNumber] ?? moduleWalkerBeds;
-			const total = Math.max(BEDS_PER_ROOM, walkerBeds);
-			for (let i = 0; i < total; i++) {
-				await queryRunner.query(
-					`INSERT INTO "retreat_bed" ("id", "roomNumber", "bedNumber", "floor", "type", "defaultUsage",
-					 "retreatId", "participantId", "isActive", "floorLabel")
-					 VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 1, ?)`,
-					[
-						uuidv4(),
-						roomNumber,
-						String(i + 1),
-						sample.floor,
-						sample.type,
-						i < walkerBeds ? 'caminante' : 'servidor',
-						retreatId,
-						sample.floorLabel,
-					],
-				);
-				retreatBedCount++;
-			}
 		}
+		const retreatBedCount = retreatBedPlan.length;
 
 		console.log(
 			`[AddVeracruzXxiii] casa ${houseId} con ${beds.length} camas, retiro ${RETREAT_SLUG} y ${retreatBedCount} camas de retiro creados`,

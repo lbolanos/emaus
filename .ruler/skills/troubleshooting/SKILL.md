@@ -971,6 +971,44 @@ de 2 con 3 personas, y caminantes durmiendo con servidores.
 ocupante asignado, con su tipo). Las parroquias usan un bloque de habitaciones para las
 solicitudes de cuarto individual **de los dos tipos**.
 
+### 25.5 Mesas fantasma: la columna `mesa` mezcla dos cosas
+
+En el export de emaus.mx la columna `mesa` lleva **el número de mesa del caminante** (`01`-`17`)
+y, para los servidores, **el nombre de su equipo de servicio** (`COMEDOR`, `SNACK`, `LOGISTICA`,
+`CAMPANA`, `FINANZAS`...). El importador crea una `TableMesa` por cada valor distinto, así que los
+nombres de equipo generan **mesas vacías** junto a las reales: en Veracruz salieron 27 mesas donde
+había 17.
+
+**Fix**: en la hoja curada, vaciar `mesa` cuando no sea numérica y mover el valor a `notas`.
+Comprobá antes que ningún caminante tenga mesa no numérica (en Veracruz eran 23 filas, todas de
+servidores). Los servidores con mesa numérica **sí** hay que conservarlos: con `tipousuario` 1 o 2
+son líder y colíder de esa mesa.
+
+### 25.6 El CSV es más frágil que el xlsx en la pantalla de importación
+
+`parseCSV` en `ImportParticipantsModal.vue` tiene dos comportamientos que el camino xlsx no tiene:
+
+- **Parte el archivo por `\n` antes de separar campos.** Un salto de línea dentro de un valor
+  entrecomillado desplaza todas las columnas desde ahí. Hay que aplanar los valores a una línea.
+- **`values[index] || null`**: el vacío se convierte en `null`, y el importador escribe ese NULL en
+  columnas `NOT NULL` y la fila muere. En el xlsx el vacío llega como cadena vacía y entra sin
+  problema. En Veracruz eran **272 celdas** obligatorias vacías (98 municipios, 89 estados...).
+
+**Fix**: rellenar esas celdas con **un espacio**, no con un guion. `parseCSVLine` no recorta, así
+que el espacio sobrevive al `|| null`, y el `str()` del mapeo lo deja en cadena vacía — mismo
+resultado que el xlsx y sin basura visible en la pantalla. Si podés elegir, **importá el xlsx**.
+
+### 25.7 Crear un retiro por SQL deja el retiro sin camas
+
+`createRetreat` copia las camas de la casa a `retreat_bed` (vía `refreshRetreatBedsFromHouse`).
+Una migración o un script que inserte el retiro **por SQL crudo se salta ese paso**, el retiro
+nace sin mapa de camas, y el importador va creando una cama por cada habitación del Excel: en
+Veracruz **139 camas inventadas**. Hay que replicar la copia a mano.
+
+Y si la parroquia mezcló tipos en algunas habitaciones, la excepción va en `retreat_bed`
+—que tiene su propio `defaultUsage`—, **no en la casa**: así la casa queda limpia y reutilizable
+para el siguiente retiro. Sin eso quedaban otras 32 camas inventadas.
+
 ### Orden que funciona
 
 1. Casa → 2. retiro (público) → 3. import → 4. `POST /retreats/:id/auto-assign-beds`.
