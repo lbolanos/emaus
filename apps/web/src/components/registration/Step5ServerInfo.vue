@@ -17,14 +17,23 @@ type ShirtType = {
   availableSizes?: string[] | null
 }
 
-const props = defineProps<{
-  errors: Record<string, string>
-  shirtTypes?: ShirtType[]
-  retreatStartDate?: string | null
-  retreatEndDate?: string | null
-  /** Solo preguntar comidas si el retiro tiene valor por comida > 0. */
-  mealChargesEnabled?: boolean
-}>()
+// withDefaults es OBLIGATORIO por `allowAngelito`: Vue castea una prop booleana
+// AUSENTE a `false`, así que sin default explícito el registro individual (que no
+// pasa la prop) escondía el bloque de angelito. Con el default en `true`, quien
+// no la pasa mantiene el comportamiento de siempre.
+const props = withDefaults(
+  defineProps<{
+    errors: Record<string, string>
+    shirtTypes?: ShirtType[]
+    retreatStartDate?: string | null
+    retreatEndDate?: string | null
+    /** Solo preguntar comidas si el retiro tiene valor por comida > 0. */
+    mealChargesEnabled?: boolean
+    /** El registro de parejas no ofrece angelito (solo reclasificación admin). */
+    allowAngelito?: boolean
+  }>(),
+  { allowAngelito: true },
+)
 
 const formData = defineModel<Record<string, any>>({ required: true })
 
@@ -69,6 +78,7 @@ function getSize(typeId: string): string {
     <CardHeader><CardTitle>{{ $t('serverRegistration.tabs.serverInfo') }}</CardTitle></CardHeader>
     <CardContent class="space-y-4">
       <button
+        v-if="props.allowAngelito"
         type="button"
         class="w-full flex items-start gap-3 rounded-lg border p-3 text-left transition-all"
         :class="formData.isAngelito

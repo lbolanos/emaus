@@ -673,6 +673,17 @@ const tableVariables = computed(() => [
   { key: 'walkersRoster', label: 'Roster: caminantes + teléfonos + contactos de emergencia' },
 ]);
 
+// Variables del scope {spouse.*} — solo aplican en retiros de parejas
+// (retreat_type='couples'), donde el destinatario tiene cónyuge vinculado.
+const spouseVariables = computed(() => [
+  { key: 'firstName', label: 'Nombre del cónyuge' },
+  { key: 'lastName', label: 'Apellidos del cónyuge' },
+  { key: 'fullName', label: 'Nombre completo del cónyuge' },
+  { key: 'nickname', label: 'Apodo del cónyuge' },
+  { key: 'email', label: 'Correo del cónyuge' },
+  { key: 'cellPhone', label: 'Celular del cónyuge' },
+]);
+
 const isCommunityScope = computed(
   () =>
     props.scope === 'community' ||
@@ -744,6 +755,17 @@ const variableCategories = computed<VariableCategory[]>(() => {
         value: `{table.${v.key}}`,
         label: v.label,
         category: 'table',
+      })),
+    });
+    categories.push({
+      id: 'spouse',
+      title: 'Cónyuge',
+      description:
+        'Solo resuelven en retiros de matrimonios, cuando el destinatario tiene pareja vinculada. En otros retiros quedan literales.',
+      variables: spouseVariables.value.map(v => ({
+        value: `{spouse.${v.key}}`,
+        label: v.label,
+        category: 'spouse',
       })),
     });
   }
@@ -845,6 +867,10 @@ const previewMessage = computed(() => {
     retreatData,
     undefined,
     isCommunityScope.value ? null : undefined,
+    null,
+    false,
+    // Cónyuge (retiros de parejas): mock en el preview para que {spouse.*} no
+    // salga literal en el editor.
     null,
   );
 

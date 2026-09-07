@@ -91,6 +91,13 @@ export class Retreat {
 	@Column({ type: 'int', nullable: true })
 	max_servers?: number;
 
+	// Configuración de retiros de parejas — solo se consulta cuando retreat_type='couples'.
+	@Column({ type: 'boolean', default: true })
+	couplesShareRoom!: boolean;
+
+	@Column({ type: 'boolean', default: true })
+	couplesShareTable!: boolean;
+
 	@OneToMany(() => Responsability, (responsability) => responsability.retreat)
 	responsibilities!: Responsability[];
 

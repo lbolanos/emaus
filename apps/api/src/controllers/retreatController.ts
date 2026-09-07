@@ -114,6 +114,8 @@ export const getRetreatByIdPublic = async (
       // runs its own registration.
       externalRegistrationUrl: retreat.externalRegistrationUrl ?? null,
       country: retreat.house?.country ?? null,
+      // El registro público de parejas se activa con retreat_type='couples'.
+      retreat_type: retreat.retreat_type ?? null,
       // Valor por comida: el registro solo pregunta comidas si es > 0.
       mealCost: retreat.mealCost ?? null,
       shirtTypes,
@@ -147,6 +149,8 @@ export const getRetreatBySlugPublic = async (
       // runs its own registration.
       externalRegistrationUrl: retreat.externalRegistrationUrl ?? null,
       country: retreat.house?.country ?? null,
+      // El registro público de parejas se activa con retreat_type='couples'.
+      retreat_type: retreat.retreat_type ?? null,
       // Valor por comida: el registro solo pregunta comidas si es > 0.
       mealCost: retreat.mealCost ?? null,
       shirtTypes,

@@ -73,6 +73,12 @@ export class RetreatParticipant {
 	@Column({ type: 'varchar', length: 20, nullable: true })
 	familyFriendColor?: string | null;
 
+	// Vínculo de pareja (retiros de matrimonios): Participant.id del otro cónyuge en este
+	// retiro. Simétrico por diseño — ambos lados se escriben en la misma transacción y se
+	// nulifican juntos. Sin FK física; la integridad vive en participantService.
+	@Column({ type: 'varchar', nullable: true })
+	spouseParticipantId?: string | null;
+
 	@Column({ type: 'boolean', default: false })
 	checkedIn!: boolean;
 

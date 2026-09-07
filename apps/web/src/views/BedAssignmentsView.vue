@@ -578,6 +578,7 @@ import {
   sortUnassigned as sortUnassignedUtil,
   filterUnassignedBySearch as filterUnassignedBySearchUtil,
   computeIncompatibleBedIds as computeIncompatibleBedIdsUtil,
+  computeGenderIncompatibleBedIds as computeGenderIncompatibleBedIdsUtil,
   getProgressColor as getProgressColorUtil,
   type UnassignedSort,
 } from '@/utils/bedAssignmentUtils';
@@ -703,15 +704,28 @@ const performUndo = async () => {
 
 // Compatibility: set of bed ids considered incompatible for tappedParticipant
 // Rule: an empty bed is incompatible if any other participant in the same room
-// has opposite snoring status from the tapped participant.
-const incompatibleBedIds = computed<Set<string>>(() =>
-  computeIncompatibleBedIdsUtil(
-    beds.value,
+// has opposite snoring status from the tapped participant. En retiros de
+// parejas con dormitorios separados (couplesShareRoom=false) se suma el filtro
+// por género (que el backend además rechaza en duro).
+const incompatibleBedIds = computed<Set<string>>(() => {
+  const tapped = tappedParticipant.value
+    ? { id: tappedParticipant.value.id, snores: (tappedParticipant.value as any).snores }
+    : null;
+  const result = computeIncompatibleBedIdsUtil(beds.value, tapped);
+  const retreat = retreatStore.selectedRetreat as any;
+  if (
+    retreat?.retreat_type === 'couples' &&
+    retreat?.couplesShareRoom === false &&
     tappedParticipant.value
-      ? { id: tappedParticipant.value.id, snores: (tappedParticipant.value as any).snores }
-      : null,
-  ),
-);
+  ) {
+    const genderSet = computeGenderIncompatibleBedIdsUtil(beds.value, {
+      id: tappedParticipant.value.id,
+      gender: (tappedParticipant.value as any).gender,
+    });
+    for (const id of genderSet) result.add(id);
+  }
+  return result;
+});
 
 const filterUnassignedBySearch = (list: any[]) =>
   filterUnassignedBySearchUtil(list, unassignedSearch.value);
@@ -1098,7 +1112,12 @@ const assignParticipant = async (bedId: string, participantId: string) => {
     ? `${participant.firstName} ${participant.lastName}`.trim()
     : t('bedAssignments.participant') || 'Participante';
   try {
-    await api.put(`/retreat-beds/${bedId}/assign`, { participantId });
+    const response = await api.put(`/retreat-beds/${bedId}/assign`, { participantId });
+    // Retiros de parejas: aviso suave del backend cuando la asignación separa
+    // a un matrimonio que debería compartir habitación.
+    if (response.data?.warning) {
+      toast({ title: response.data.warning });
+    }
     // Refresh data
     await fetchBeds(true);
     if (retreatStore.selectedRetreatId) {

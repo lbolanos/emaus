@@ -4,6 +4,8 @@ In **My Retreats** you manage your retreats —create, edit and delete them— a
 
 📺 **[Watch: create and manage a retreat (3 min)](https://youtu.be/EDUr1n_fJk8)**
 
+📺 **[Watch: couples retreats, what changes (2 min)](https://youtu.be/gwhPnDV2680)**
+
 ## Viewing Your Retreats
 
 1. Navigate to **My Retreats** in the sidebar (social section)

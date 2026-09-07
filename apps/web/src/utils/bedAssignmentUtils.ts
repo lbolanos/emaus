@@ -91,6 +91,42 @@ export const computeIncompatibleBedIds = (
 	return result;
 };
 
+/**
+ * Retiros de parejas con dormitorios separados por género (couplesShareRoom=false):
+ * camas vacías en habitaciones ya ocupadas por el otro género. A diferencia del
+ * ronquido (preferencia suave), este conjunto refleja un rechazo duro del backend.
+ */
+export const computeGenderIncompatibleBedIds = (
+	beds: RetreatBed[],
+	tappedParticipant: { id: string; gender?: string | null } | null,
+): Set<string> => {
+	const result = new Set<string>();
+	const gender = tappedParticipant?.gender;
+	if (!tappedParticipant || (gender !== 'M' && gender !== 'F')) return result;
+	const byRoom = new Map<string, RetreatBed[]>();
+	for (const bed of beds) {
+		const key = `${bed.floor || 0}|${bed.roomNumber}`;
+		const arr = byRoom.get(key) || [];
+		arr.push(bed);
+		byRoom.set(key, arr);
+	}
+	for (const [, roomBeds] of byRoom) {
+		const hasOtherGender = roomBeds.some(
+			(b) =>
+				b.participant &&
+				b.participant.id !== tappedParticipant.id &&
+				(b.participant.gender === 'M' || b.participant.gender === 'F') &&
+				b.participant.gender !== gender,
+		);
+		if (hasOtherGender) {
+			for (const b of roomBeds) {
+				if (!b.participant) result.add(b.id);
+			}
+		}
+	}
+	return result;
+};
+
 export const getProgressColor = (pct: number): string => {
 	if (pct >= 100) return 'bg-green-500';
 	if (pct >= 75) return 'bg-blue-500';

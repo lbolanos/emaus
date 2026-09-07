@@ -87,6 +87,12 @@ export const useTableMesaStore = defineStore('tableMesa', () => {
 			const updatedTable = await assignWalkerToTableApi(tableId, participantId);
 			updateTableInState(updatedTable);
 
+			// Retiros de parejas: el backend avisa (sin bloquear) cuando la asignación
+			// manual contradice la configuración juntos/separados del retiro.
+			if ((updatedTable as any)?.warning) {
+				toast({ title: (updatedTable as any).warning });
+			}
+
 			// If the participant came from another table, we need to refresh that table's state as well.
 			if (sourceTableId && sourceTableId !== tableId) {
 				try {

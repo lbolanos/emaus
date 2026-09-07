@@ -12,12 +12,15 @@ import { avatarStorageService } from "./avatarStorageService";
 import { Payment } from "../entities/payment.entity";
 import {
   CreateParticipant,
+  CreateCoupleParticipant,
+  CoupleSpouseInput,
   UpdateParticipant,
   normalizeParticipantPhones,
 } from "@repo/types";
 import {
   rebalanceTablesForRetreat,
   assignLeaderToTable,
+  MAX_WALKERS_PER_TABLE,
 } from "./tableMesaService";
 import { domainAuditService, DomainAuditAction } from "./domainAuditService";
 import { EmailService } from "./emailService";
@@ -782,6 +785,7 @@ export const findAllParticipants = async (
         "arrivesOnOwn",
         "requestsSingleRoom",
         "attendanceConfirmation",
+        "spouseParticipantId",
         "notes",
         "createdAt",
       ],
@@ -827,6 +831,8 @@ export const findAllParticipants = async (
           p.requestsSingleRoom = h.requestsSingleRoom;
         if (h.attendanceConfirmation != null)
           p.attendanceConfirmation = h.attendanceConfirmation;
+        if (h.spouseParticipantId !== undefined)
+          p.spouseParticipantId = h.spouseParticipantId;
         // notes: per-retreat note (the rp row owns this; participants.notes
         // is legacy and can be empty for newly registered participants).
         if (h.notes !== undefined && h.notes !== null) p.notes = h.notes;
@@ -834,6 +840,17 @@ export const findAllParticipants = async (
         // date for THIS retreat). The participants.registrationDate is
         // the participant's first-ever registration in the system.
         if (h.createdAt) p.registrationDate = h.createdAt;
+      }
+    }
+
+    // Retiros de parejas: nombre del cónyuge vinculado (columna/export del
+    // admin). El cónyuge vive en el mismo retiro, así que ya está en el set.
+    const nameById = new Map(
+      participants.map((p) => [p.id, `${p.firstName} ${p.lastName}`.trim()]),
+    );
+    for (const p of participants) {
+      if (p.spouseParticipantId) {
+        p.spouseName = nameById.get(p.spouseParticipantId) ?? null;
       }
     }
 
@@ -1359,6 +1376,56 @@ const updateRoomSnoreStatus = (
 };
 
 /**
+ * Map from floor|roomNumber → 'M' | 'F'. El primer ocupante CON gender fija el
+ * género de la habitación. Solo se usa en retiros de parejas con
+ * couplesShareRoom=false: ahí el retiro es mixto y un dormitorio compartido no
+ * puede mezclar géneros — filtro DURO (como defaultUsage), no un score suave.
+ * La llave incluye el piso porque dos pisos pueden repetir número de cuarto.
+ */
+type RoomGenderStatusMap = Map<string, "M" | "F">;
+
+const roomGenderKey = (bed: {
+  floor?: number | null;
+  roomNumber: string;
+}): string => `${bed.floor ?? ""}|${bed.roomNumber}`;
+
+const buildRoomGenderStatusMap = async (
+  retreatBedRepository: any,
+  retreatId: string,
+): Promise<RoomGenderStatusMap> => {
+  const rows = await retreatBedRepository
+    .createQueryBuilder("bed")
+    .select("bed.roomNumber", "roomNumber")
+    .addSelect("bed.floor", "floor")
+    .addSelect("p.gender", "gender")
+    .innerJoin("bed.participant", "p")
+    .where("bed.retreatId = :retreatId", { retreatId })
+    .getRawMany();
+
+  const map: RoomGenderStatusMap = new Map();
+  for (const row of rows) {
+    if (row.gender !== "M" && row.gender !== "F") continue;
+    const key = `${row.floor ?? ""}|${row.roomNumber}`;
+    if (!map.has(key)) {
+      map.set(key, row.gender);
+    }
+  }
+  return map;
+};
+
+const updateRoomGenderStatus = (
+  map: RoomGenderStatusMap,
+  participant: Participant,
+  bed: RetreatBed,
+): void => {
+  if (participant.gender !== "M" && participant.gender !== "F") return;
+  const key = roomGenderKey(bed);
+  if (!map.has(key)) {
+    map.set(key, participant.gender);
+  }
+};
+
+/**
  * Score a single bed for a participant. Higher is better.
  */
 const scoreBedForParticipant = (
@@ -1413,6 +1480,7 @@ const assignBedToParticipant = async (
   excludedBedIds: string[] = [],
   entityManager?: any,
   roomSnoreStatusMap?: RoomSnoreStatusMap,
+  roomGenderStatusMap?: RoomGenderStatusMap,
 ): Promise<string | undefined> => {
   if (participant.isCancelled) return undefined;
   if (!participant.birthDate) return undefined;
@@ -1424,7 +1492,7 @@ const assignBedToParticipant = async (
   const bedUsage = participant.type === "walker" ? "caminante" : "servidor";
 
   // Fetch all available beds in one query
-  const availableBeds: RetreatBed[] = await retreatBedRepository
+  let availableBeds: RetreatBed[] = await retreatBedRepository
     .createQueryBuilder("bed")
     .where("bed.retreatId = :retreatId", { retreatId: participant.retreatId })
     .andWhere("bed.participantId IS NULL")
@@ -1434,6 +1502,18 @@ const assignBedToParticipant = async (
       excludedBedIds: excludedBedIds.length > 0 ? excludedBedIds : [""],
     })
     .getMany();
+
+  // Filtro DURO por género (retiros de parejas con habitaciones separadas):
+  // nunca proponer una cama en un cuarto ya ocupado por el otro género.
+  if (
+    roomGenderStatusMap &&
+    (participant.gender === "M" || participant.gender === "F")
+  ) {
+    availableBeds = availableBeds.filter((bed) => {
+      const roomGender = roomGenderStatusMap.get(roomGenderKey(bed));
+      return !roomGender || roomGender === participant.gender;
+    });
+  }
 
   if (availableBeds.length === 0) return undefined;
 
@@ -1458,6 +1538,62 @@ const assignBedToParticipant = async (
   }
 
   return bestBed?.id;
+};
+
+/**
+ * Asigna a los dos cónyuges como UNIDAD a la misma habitación (retiros de
+ * parejas con couplesShareRoom=true): elige la habitación con ≥2 camas libres
+ * que maximice la suma de scoreBedForParticipant de ambos. Devuelve undefined
+ * si ninguna habitación tiene 2 camas libres (el caller decide el fallback).
+ */
+const assignBedsToCouple = async (
+  spouseA: Participant,
+  spouseB: Participant,
+  excludedBedIds: string[],
+  retreatBedRepository: any,
+  roomSnoreStatusMap: RoomSnoreStatusMap,
+): Promise<{ bedA: RetreatBed; bedB: RetreatBed } | undefined> => {
+  if (spouseA.isCancelled || spouseB.isCancelled) return undefined;
+  if (!spouseA.birthDate || !spouseB.birthDate) return undefined;
+
+  const bedUsage = spouseA.type === "walker" ? "caminante" : "servidor";
+
+  const availableBeds: RetreatBed[] = await retreatBedRepository
+    .createQueryBuilder("bed")
+    .where("bed.retreatId = :retreatId", { retreatId: spouseA.retreatId })
+    .andWhere("bed.participantId IS NULL")
+    .andWhere("bed.isActive = :isActive", { isActive: true })
+    .andWhere("bed.defaultUsage = :bedUsage", { bedUsage })
+    .andWhere("bed.id NOT IN (:...excludedBedIds)", {
+      excludedBedIds: excludedBedIds.length > 0 ? excludedBedIds : [""],
+    })
+    .getMany();
+
+  // Agrupar camas libres por habitación (piso + número).
+  const rooms = new Map<string, RetreatBed[]>();
+  for (const bed of availableBeds) {
+    const key = roomGenderKey(bed);
+    if (!rooms.has(key)) rooms.set(key, []);
+    rooms.get(key)!.push(bed);
+  }
+
+  let best: { bedA: RetreatBed; bedB: RetreatBed; score: number } | undefined;
+  for (const beds of rooms.values()) {
+    if (beds.length < 2) continue;
+    for (const bedA of beds) {
+      for (const bedB of beds) {
+        if (bedA.id === bedB.id) continue;
+        const score =
+          scoreBedForParticipant(spouseA, bedA, roomSnoreStatusMap) +
+          scoreBedForParticipant(spouseB, bedB, roomSnoreStatusMap);
+        if (!best || score > best.score) {
+          best = { bedA, bedB, score };
+        }
+      }
+    }
+  }
+
+  return best ? { bedA: best.bedA, bedB: best.bedB } : undefined;
 };
 
 const assignBedAndTableToParticipant = async (
@@ -1551,14 +1687,74 @@ const assignTableToWalker = async (
   return leastPopulatedTables[randomIndex]?.id;
 };
 
-export const createParticipant = async (
-  participantData: CreateParticipant,
-  assignRelationships = true,
-  isImporting = false,
-  skipCapacityCheck = false,
-): Promise<Participant> => {
-  const COLOR_POOL = [
-    "#FFADAD",
+/**
+ * Persiste las tallas de playera de un participante (validando cada talla contra
+ * las disponibles del tipo) y recalcula requiredQuantity del inventario del retiro.
+ * Compartido por el alta individual y el alta de pareja.
+ */
+const persistShirtSizes = async (
+  manager: EntityManager,
+  participantId: string,
+  retreatId: string | null | undefined,
+  shirtSizesInput: { shirtTypeId: string; size: string }[] | undefined,
+): Promise<void> => {
+  if (!Array.isArray(shirtSizesInput) || shirtSizesInput.length === 0) return;
+
+  const shirtRepo = manager.getRepository(ParticipantShirtSize);
+  const typeRepo = manager.getRepository(RetreatShirtType);
+
+  const validSizes = shirtSizesInput.filter(
+    (s) => s && s.shirtTypeId && s.size && s.size !== "null",
+  );
+
+  // Validate each requested size against the type's availableSizes
+  for (const s of validSizes) {
+    const type = await typeRepo.findOne({ where: { id: s.shirtTypeId } });
+    if (!type) {
+      throw new Error(`Invalid shirt type ${s.shirtTypeId}`);
+    }
+    if (
+      type.availableSizes &&
+      type.availableSizes.length > 0 &&
+      !type.availableSizes.includes(s.size)
+    ) {
+      throw new Error(
+        `Size "${s.size}" is not available for shirt type "${type.name}"`,
+      );
+    }
+  }
+
+  const rows = validSizes.map((s) =>
+    shirtRepo.create({
+      participantId,
+      shirtTypeId: s.shirtTypeId,
+      size: s.size,
+    }),
+  );
+  if (rows.length > 0) {
+    await shirtRepo.save(rows);
+
+    // Recalcular requiredQuantity en inventario para los shirts de este retiro
+    if (retreatId) {
+      await manager.query(
+        `UPDATE retreat_inventory
+         SET requiredQuantity = (
+           SELECT COUNT(*) FROM participant_shirt_size pss
+           INNER JOIN retreat_participants rp ON rp.participantId = pss.participantId
+             AND rp.retreatId = retreat_inventory.retreatId AND rp.isCancelled = 0
+           WHERE pss.shirtTypeId = retreat_inventory.retreatShirtTypeId
+             AND pss.size = retreat_inventory.shirtSize
+         ), updatedAt = datetime('now')
+         WHERE retreatId = ? AND retreatShirtTypeId IS NOT NULL`,
+        [retreatId],
+      );
+    }
+  }
+};
+
+// Paleta para family_friend_color (agrupación visual de familias/amigos y parejas).
+const COLOR_POOL = [
+  "#FFADAD",
     "#FFD6A5",
     "#FDFFB6",
     "#CAFFBF",
@@ -1600,10 +1796,16 @@ export const createParticipant = async (
     "#74B9FF",
     "#A29BFE",
     "#81ECEC",
-    "#55A3FF",
-    "#FD79A8",
-  ];
+  "#55A3FF",
+  "#FD79A8",
+];
 
+export const createParticipant = async (
+  participantData: CreateParticipant,
+  assignRelationships = true,
+  isImporting = false,
+  skipCapacityCheck = false,
+): Promise<Participant> => {
   // Nota (paz y salvo v2): los angelitos (partial_server) ya NO se fuerzan a beca.
   // No se les cobra el retiro, pero sí las comidas que indiquen (mealCount × mealCost),
   // calculado en Participant.getExpectedAmount. La beca queda como flag manual.
@@ -2136,60 +2338,12 @@ export const createParticipant = async (
       await participantRepository.save(newParticipant);
 
     // Persist shirt sizes if provided
-    if (Array.isArray(shirtSizesInput) && shirtSizesInput.length > 0) {
-      const shirtRepo =
-        transactionalEntityManager.getRepository(ParticipantShirtSize);
-      const typeRepo =
-        transactionalEntityManager.getRepository(RetreatShirtType);
-
-      const validSizes = shirtSizesInput.filter(
-        (s) => s && s.shirtTypeId && s.size && s.size !== "null",
-      );
-
-      // Validate each requested size against the type's availableSizes
-      for (const s of validSizes) {
-        const type = await typeRepo.findOne({ where: { id: s.shirtTypeId } });
-        if (!type) {
-          throw new Error(`Invalid shirt type ${s.shirtTypeId}`);
-        }
-        if (
-          type.availableSizes &&
-          type.availableSizes.length > 0 &&
-          !type.availableSizes.includes(s.size)
-        ) {
-          throw new Error(
-            `Size "${s.size}" is not available for shirt type "${type.name}"`,
-          );
-        }
-      }
-
-      const rows = validSizes.map((s) =>
-        shirtRepo.create({
-          participantId: savedParticipant.id,
-          shirtTypeId: s.shirtTypeId,
-          size: s.size,
-        }),
-      );
-      if (rows.length > 0) {
-        await shirtRepo.save(rows);
-
-        // Recalcular requiredQuantity en inventario para los shirts de este retiro
-        if (participantData.retreatId) {
-          await transactionalEntityManager.query(
-            `UPDATE retreat_inventory
-             SET requiredQuantity = (
-               SELECT COUNT(*) FROM participant_shirt_size pss
-               INNER JOIN retreat_participants rp ON rp.participantId = pss.participantId
-                 AND rp.retreatId = retreat_inventory.retreatId AND rp.isCancelled = 0
-               WHERE pss.shirtTypeId = retreat_inventory.retreatShirtTypeId
-                 AND pss.size = retreat_inventory.shirtSize
-             ), updatedAt = datetime('now')
-             WHERE retreatId = ? AND retreatShirtTypeId IS NOT NULL`,
-            [participantData.retreatId],
-          );
-        }
-      }
-    }
+    await persistShirtSizes(
+      transactionalEntityManager,
+      savedParticipant.id,
+      participantData.retreatId,
+      shirtSizesInput,
+    );
 
     // Reciprocal link: if the matched user has no participantId yet, set it.
     if (savedParticipant.userId) {
@@ -2377,11 +2531,490 @@ export const createParticipant = async (
   return createdParticipant;
 };
 
+// ==================== COUPLES (retreat_type = 'couples') ====================
+
+/**
+ * Elige el primer color libre del pool para un grupo nuevo en el retiro
+ * (familia/amigos o pareja); si el pool se agota, reusa uno al azar.
+ */
+const pickUnusedFamilyFriendColor = async (
+  manager: EntityManager,
+  retreatId: string,
+): Promise<string> => {
+  const usedColorsResult = await manager
+    .getRepository(RetreatParticipant)
+    .createQueryBuilder("rp")
+    .select('DISTINCT rp."familyFriendColor"', "color")
+    .where('rp."retreatId" = :retreatId', { retreatId })
+    .andWhere('rp."familyFriendColor" IS NOT NULL')
+    .getRawMany();
+  const usedColors = usedColorsResult.map((r: any) => r.color);
+  return (
+    COLOR_POOL.find((c) => !usedColors.includes(c)) ??
+    COLOR_POOL[Math.floor(Math.random() * COLOR_POOL.length)]
+  );
+};
+
+/**
+ * Crea o reutiliza la fila Participant de un cónyuge.
+ *
+ * El reuso es por email+gender — NO por email a secas como en createParticipant:
+ * con email compartido, ese lookup fusionaría al segundo cónyuge sobre el primero.
+ * Fallback: fila histórica sin gender (retiros de un solo género) solo si además
+ * coincide el nombre, para no secuestrar la fila del otro cónyuge.
+ */
+const upsertCoupleSpouse = async (
+  manager: EntityManager,
+  retreat: Retreat,
+  gender: "M" | "F",
+  data: CoupleSpouseInput,
+  requestedType: "walker" | "server",
+  acceptedPrivacyNotice: boolean,
+): Promise<Participant> => {
+  const participantRepo = manager.getRepository(Participant);
+  const normalizedEmail = data.email?.toLowerCase().trim();
+
+  // Campos que no son columnas de participants o que no deben viajar al INSERT.
+  const {
+    tableMesa: _tm,
+    retreatBed: _rb,
+    tags: _tags,
+    shirtSizes: _ss,
+    ...personal
+  } = data as any;
+
+  if (personal.arrivesOnOwn === true) {
+    personal.pickupLocation = "Llego por mi cuenta";
+  }
+
+  let existing = normalizedEmail
+    ? await participantRepo
+        .createQueryBuilder("participant")
+        .where("LOWER(participant.email) = :email", { email: normalizedEmail })
+        .andWhere("participant.gender = :gender", { gender })
+        .orderBy("participant.registrationDate", "DESC")
+        .getOne()
+    : null;
+
+  if (!existing && normalizedEmail) {
+    existing = await participantRepo
+      .createQueryBuilder("participant")
+      .where("LOWER(participant.email) = :email", { email: normalizedEmail })
+      .andWhere("participant.gender IS NULL")
+      .andWhere("LOWER(TRIM(participant.firstName)) = :firstName", {
+        firstName: (data.firstName || "").toLowerCase().trim(),
+      })
+      .orderBy("participant.registrationDate", "DESC")
+      .getOne();
+  }
+
+  if (existing) {
+    await assertNotDoubleRegisteredInRetreat(manager, existing.id, retreat.id);
+    Object.assign(existing, {
+      ...personal,
+      gender,
+      retreatId: retreat.id,
+      lastUpdatedDate: new Date(),
+      registrationDate: existing.registrationDate,
+    });
+    if (acceptedPrivacyNotice && !existing.acceptedPrivacyNoticeAt) {
+      existing.acceptedPrivacyNoticeAt = new Date();
+    }
+    if (!existing.dataDeleteToken) {
+      existing.dataDeleteToken = crypto.randomBytes(24).toString("hex");
+    }
+    return participantRepo.save(existing);
+  }
+
+  // Pre-check amable del duplicado exacto en este retiro (el índice único
+  // email+retiro+gender es el backstop a nivel DB).
+  if (normalizedEmail) {
+    const dupInRetreat = await participantRepo
+      .createQueryBuilder("participant")
+      .where("LOWER(participant.email) = :email", { email: normalizedEmail })
+      .andWhere("participant.retreatId = :retreatId", { retreatId: retreat.id })
+      .andWhere("participant.gender = :gender", { gender })
+      .getOne();
+    if (dupInRetreat) {
+      const err = new Error(
+        alreadyRegisteredMessageFor(typeToGroup(requestedType)),
+      ) as Error & { code?: string };
+      err.code = "ALREADY_REGISTERED_IN_RETREAT";
+      throw err;
+    }
+  }
+
+  const newParticipantData: any = {
+    ...personal,
+    gender,
+    retreatId: retreat.id,
+    registrationDate: new Date(),
+    lastUpdatedDate: new Date(),
+    dataDeleteToken: crypto.randomBytes(24).toString("hex"),
+  };
+
+  // Mismos defaults que el alta individual: columnas NOT NULL legacy que Zod
+  // relaja para no-caminantes.
+  if (requestedType !== "walker") {
+    for (const field of [
+      "emergencyContact1Name",
+      "emergencyContact1Relation",
+      "emergencyContact1CellPhone",
+    ]) {
+      if (newParticipantData[field] === undefined || newParticipantData[field] === null) {
+        newParticipantData[field] = "";
+      }
+    }
+  }
+  if (acceptedPrivacyNotice) {
+    newParticipantData.acceptedPrivacyNoticeAt = new Date();
+  }
+  if (!newParticipantData.nickname) {
+    newParticipantData.nickname = newParticipantData.firstName;
+  }
+
+  // Auto-link a la cuenta de usuario por email. Con email compartido ambos
+  // cónyuges quedan ligados al mismo user; user.participantId apunta al primero.
+  if (!newParticipantData.userId && normalizedEmail) {
+    const matchingUser = await manager
+      .getRepository(User)
+      .createQueryBuilder("user")
+      .where("LOWER(user.email) = :email", { email: normalizedEmail })
+      .getOne();
+    if (matchingUser) {
+      newParticipantData.userId = matchingUser.id;
+    }
+  }
+
+  const saved: Participant = await participantRepo.save(
+    participantRepo.create(newParticipantData as Partial<Participant>),
+  );
+
+  if (saved.userId) {
+    await manager
+      .getRepository(User)
+      .createQueryBuilder()
+      .update(User)
+      .set({ participantId: saved.id })
+      .where("id = :id AND participantId IS NULL", { id: saved.userId })
+      .execute();
+  }
+
+  return saved;
+};
+
+/**
+ * Elige mesa(s) para una pareja recién registrada según la configuración del
+ * retiro: juntos → la mesa con menos caminantes que tenga 2 lugares libres;
+ * separados → las dos mesas menos pobladas distintas (si solo hay una mesa,
+ * caen juntos — garantizar asignación pesa más, mismo fallback que invitedBy).
+ * Devuelve ids iguales cuando comparten mesa; vacío si el retiro aún no tiene mesas.
+ */
+const pickTablesForCouple = async (
+  manager: EntityManager,
+  retreat: Retreat,
+): Promise<{ tableIdA?: string; tableIdB?: string }> => {
+  const tables = await manager
+    .getRepository(TableMesa)
+    .find({ where: { retreatId: retreat.id } });
+  if (tables.length === 0) return {};
+
+  const counts = await manager
+    .getRepository(RetreatParticipant)
+    .createQueryBuilder("rp")
+    .select('rp."tableId"', "tableId")
+    .addSelect("COUNT(*)", "c")
+    .where('rp."retreatId" = :retreatId', { retreatId: retreat.id })
+    .andWhere('rp."tableId" IS NOT NULL')
+    .andWhere('rp."isCancelled" = :cancelled', { cancelled: false })
+    .groupBy('rp."tableId"')
+    .getRawMany();
+  const countByTable: Record<string, number> = {};
+  for (const t of tables) countByTable[t.id] = 0;
+  for (const row of counts) {
+    if (row.tableId in countByTable) countByTable[row.tableId] = Number(row.c);
+  }
+  const sorted = [...tables].sort(
+    (a, b) => countByTable[a.id] - countByTable[b.id],
+  );
+
+  if (retreat.couplesShareTable !== false) {
+    const withTwoSeats = sorted.filter(
+      (t) => countByTable[t.id] + 2 <= MAX_WALKERS_PER_TABLE,
+    );
+    const target = withTwoSeats[0] ?? sorted[0];
+    return { tableIdA: target?.id, tableIdB: target?.id };
+  }
+
+  const first = sorted[0];
+  const second = sorted.find((t) => t.id !== first?.id) ?? first;
+  return { tableIdA: first?.id, tableIdB: second?.id };
+};
+
+/**
+ * Alta transaccional de una pareja (retiros de matrimonios).
+ *
+ * No llama a createParticipant() dos veces: su lookup global por email fusionaría
+ * a los dos cónyuges cuando comparten correo. Garantías:
+ * - Capacidad atómica: la pareja necesita 2 lugares libres; si no caben, AMBOS
+ *   quedan en 'waiting' (nunca uno adentro y otro esperando).
+ * - Vínculo spouseParticipantId simétrico, escrito en la misma transacción.
+ * - Mismo family_friend_color para ambos (agrupación visual en camas/mesas).
+ *
+ * En M1 no se auto-asignan camas ni mesas para parejas (la lógica couple-aware
+ * llega en M2); el coordinador asigna manualmente.
+ */
+export const createCoupleParticipants = async (
+  input: CreateCoupleParticipant,
+): Promise<{ husband: Participant; wife: Participant }> => {
+  const { retreatId, type } = input;
+
+  const slots = [
+    {
+      key: "husband" as const,
+      gender: "M" as const,
+      data: normalizeParticipantPhones(input.husband as any) as CoupleSpouseInput,
+    },
+    {
+      key: "wife" as const,
+      gender: "F" as const,
+      data: normalizeParticipantPhones(input.wife as any) as CoupleSpouseInput,
+    },
+  ];
+
+  const created = await AppDataSource.transaction(async (manager) => {
+    await assertRetreatAcceptsRegistrations(manager, retreatId);
+
+    const retreat = await manager
+      .getRepository(Retreat)
+      .findOne({ where: { id: retreatId } });
+    if (!retreat) {
+      const err = new Error("Retiro no encontrado.") as Error & { code?: string };
+      err.code = "RETREAT_NOT_FOUND";
+      throw err;
+    }
+    if (retreat.retreat_type !== "couples") {
+      const err = new Error(
+        "Este retiro no acepta registro de parejas.",
+      ) as Error & { code?: string };
+      err.code = "RETREAT_NOT_COUPLES";
+      throw err;
+    }
+
+    // Capacidad atómica por pareja.
+    let effectiveType: "walker" | "server" | "waiting" = type;
+    const limit = type === "walker" ? retreat.max_walkers : retreat.max_servers;
+    if (limit != null) {
+      const count = await manager.getRepository(RetreatParticipant).count({
+        where: { retreatId, type, isCancelled: false },
+      });
+      if (count + 2 > limit) {
+        console.warn(
+          `⚠️ CAPACITY REACHED for couple: ${count} + 2 > ${limit} — both spouses go to 'waiting'`,
+        );
+        effectiveType = "waiting";
+      }
+    }
+
+    const familyFriendColor = await pickUnusedFamilyFriendColor(
+      manager,
+      retreatId,
+    );
+
+    const savedByKey = {} as Record<"husband" | "wife", Participant>;
+    for (const slot of slots) {
+      savedByKey[slot.key] = await upsertCoupleSpouse(
+        manager,
+        retreat,
+        slot.gender,
+        slot.data,
+        type,
+        input.acceptedPrivacyNotice === true,
+      );
+    }
+
+    const spouseOf = { husband: "wife", wife: "husband" } as const;
+    const rpRepo = manager.getRepository(RetreatParticipant);
+
+    for (const slot of slots) {
+      const me = savedByKey[slot.key];
+      const partner = savedByKey[spouseOf[slot.key]];
+      const idOnRetreat = await getNextIdOnRetreat(retreatId, manager);
+
+      const rpData: CreateHistoryData & Partial<RetreatParticipant> = {
+        userId: me.userId || null,
+        participantId: me.id,
+        retreatId,
+        roleInRetreat: type === "walker" ? "walker" : "server",
+        isPrimaryRetreat: false,
+        type: effectiveType,
+        isCancelled: false,
+        idOnRetreat,
+        familyFriendColor,
+        spouseParticipantId: partner.id,
+        mealCount: null,
+        takesFridayMeal: (slot.data as any).takesFridayMeal ?? null,
+        invitedBy: slot.data.invitedBy || null,
+        isInvitedByEmausMember: slot.data.isInvitedByEmausMember ?? null,
+        inviterHomePhone: slot.data.inviterHomePhone || null,
+        inviterWorkPhone: slot.data.inviterWorkPhone || null,
+        inviterCellPhone: slot.data.inviterCellPhone || null,
+        inviterEmail: slot.data.inviterEmail || null,
+        pickupLocation:
+          slot.data.arrivesOnOwn === true
+            ? "Llego por mi cuenta"
+            : slot.data.pickupLocation || null,
+        arrivesOnOwn: slot.data.arrivesOnOwn ?? null,
+        requestsSingleRoom: slot.data.requestsSingleRoom ?? null,
+        notes: (slot.data as any).notes || null,
+      };
+      const rp = rpRepo.create(rpData);
+      await rpRepo.save(rp);
+
+      await persistShirtSizes(
+        manager,
+        me.id,
+        retreatId,
+        (slot.data as any).shirtSizes,
+      );
+
+      // Campos virtuales para la respuesta del API.
+      me.type = effectiveType;
+      me.isCancelled = false;
+      me.id_on_retreat = idOnRetreat;
+      me.family_friend_color = familyFriendColor;
+      me.spouseParticipantId = partner.id;
+
+      if (me.userId) {
+        await autoSetPrimaryRetreat(me.userId);
+      }
+    }
+
+    // Mesa según la configuración del retiro (solo caminantes admitidos; los que
+    // quedan en waiting no llevan mesa, igual que en el flujo individual).
+    if (effectiveType === "walker") {
+      const { tableIdA, tableIdB } = await pickTablesForCouple(manager, retreat);
+      const tableBySlot = { husband: tableIdA, wife: tableIdB } as const;
+      for (const slot of slots) {
+        const tableId = tableBySlot[slot.key];
+        if (!tableId) continue;
+        await rpRepo.update(
+          { participantId: savedByKey[slot.key].id, retreatId },
+          { tableId },
+        );
+        savedByKey[slot.key].tableId = tableId;
+      }
+    }
+
+    return savedByKey;
+  });
+
+  for (const key of ["husband", "wife"] as const) {
+    const p = created[key];
+    void domainAuditService.logCreate("participant", p.id, p, {
+      retreatId,
+      fields: PARTICIPANT_AUDIT_FIELDS,
+      metadata: { type: p.type, couple: true },
+    });
+  }
+
+  // Secuencias offset-0 (bienvenida, privacidad) al momento; best-effort.
+  void messageSequenceService
+    .runForRetreat(retreatId)
+    .catch((err) =>
+      console.error("Error running sequences after couple create:", err),
+    );
+
+  return created;
+};
+
+/**
+ * Dry-run del registro de pareja: valida sin escribir. Espejo couple-aware de
+ * validateParticipant — reporta si el retiro acepta registros, si la pareja cabe
+ * (2 lugares) y si alguno de los cónyuges ya está registrado en el retiro.
+ */
+export const validateCoupleParticipants = async (
+  input: CreateCoupleParticipant,
+): Promise<{ valid: boolean; error?: string; warnings: string[] }> => {
+  const warnings: string[] = [];
+  const { retreatId, type } = input;
+
+  try {
+    await assertRetreatAcceptsRegistrations(AppDataSource.manager, retreatId);
+  } catch (err) {
+    return { valid: false, error: (err as Error).message, warnings };
+  }
+
+  const retreat = await AppDataSource.getRepository(Retreat).findOne({
+    where: { id: retreatId },
+  });
+  if (!retreat) {
+    return { valid: false, error: "Retiro no encontrado.", warnings };
+  }
+  if (retreat.retreat_type !== "couples") {
+    return {
+      valid: false,
+      error: "Este retiro no acepta registro de parejas.",
+      warnings,
+    };
+  }
+
+  const rpRepo = AppDataSource.getRepository(RetreatParticipant);
+
+  // ¿Alguno de los dos ya está registrado (email+gender) en este retiro?
+  const slots = [
+    { gender: "M" as const, data: input.husband },
+    { gender: "F" as const, data: input.wife },
+  ];
+  for (const slot of slots) {
+    const email = slot.data.email?.toLowerCase().trim();
+    if (!email) continue;
+    const existing = await AppDataSource.getRepository(Participant)
+      .createQueryBuilder("participant")
+      .where("LOWER(participant.email) = :email", { email })
+      .andWhere("participant.retreatId = :retreatId", { retreatId })
+      .andWhere("participant.gender = :gender", { gender: slot.gender })
+      .getOne();
+    if (existing) {
+      const active = await rpRepo.findOne({
+        where: { participantId: existing.id, retreatId, isCancelled: false },
+        select: ["id", "type"],
+      });
+      if (active) {
+        return {
+          valid: false,
+          error: alreadyRegisteredMessageFor(typeToGroup(active.type)),
+          warnings,
+        };
+      }
+    }
+  }
+
+  const limit = type === "walker" ? retreat.max_walkers : retreat.max_servers;
+  if (limit != null) {
+    const count = await rpRepo.count({
+      where: { retreatId, type, isCancelled: false },
+    });
+    if (count + 2 > limit) {
+      warnings.push(
+        type === "walker"
+          ? `El retiro ha alcanzado su capacidad máxima de caminantes (${limit}). La pareja quedará completa en lista de espera.`
+          : `El retiro ha alcanzado su capacidad máxima de servidores (${limit}). La pareja quedará completa en lista de espera.`,
+      );
+    }
+  }
+
+  return { valid: true, warnings };
+};
+
 export const updateParticipant = async (
   id: string,
   participantData: UpdateParticipant,
   skipRebalance: boolean = false,
 ): Promise<Participant | null> => {
+  // Resolver el repo perezosamente (shadow del módulo-level): permite que los
+  // tests de integración swapeen AppDataSource a la DB de test.
+  const participantRepository = AppDataSource.getRepository(Participant);
   const participant = await participantRepository.findOneBy({ id });
   if (!participant) {
     return null;
@@ -2466,7 +3099,9 @@ export const updateParticipant = async (
     const retreatRepo = AppDataSource.getRepository(Retreat);
     const retreatRow = await retreatRepo.findOne({
       where: { id: effectiveRetreatId },
-      select: ["id", "cost", "serverFeeAmount"],
+      // retreat_type entra al cálculo: en retiros de parejas el fee individual
+      // es la mitad del costo (por pareja).
+      select: ["id", "cost", "serverFeeAmount", "retreat_type"],
     });
     if (retreatRow) {
       // Cobro del retiro aplicable según el tipo (helper consolidado). El angelito
@@ -2607,6 +3242,46 @@ export const updateParticipant = async (
         );
       } catch (err) {
         console.error("Error syncing retreat fields:", err);
+      }
+    }
+
+    // Retiros de parejas: la promoción desde (o el regreso a) la lista de espera
+    // se espeja al cónyuge en el mismo update — la pareja entra o espera JUNTA.
+    // Los cambios de rol que no tocan 'waiting' (p. ej. walker→server) son un
+    // override deliberado del admin y NO se espejan.
+    if (
+      type !== undefined &&
+      type !== currentRp?.type &&
+      (type === "waiting" || currentRp?.type === "waiting") &&
+      currentRp?.spouseParticipantId
+    ) {
+      try {
+        const spouseRp = await AppDataSource.getRepository(
+          RetreatParticipant,
+        ).findOne({
+          where: {
+            participantId: currentRp.spouseParticipantId,
+            retreatId: effectiveRetreatId,
+            isCancelled: false,
+          },
+        });
+        const shouldMirror =
+          spouseRp &&
+          (type === "waiting"
+            ? spouseRp.type !== "waiting"
+            : spouseRp.type === "waiting");
+        if (shouldMirror) {
+          await syncRetreatFields(
+            currentRp.spouseParticipantId,
+            effectiveRetreatId,
+            { type },
+          );
+          console.warn(
+            `↔️ Mirrored type '${type}' to spouse ${currentRp.spouseParticipantId} (couple atomic waiting)`,
+          );
+        }
+      } catch (err) {
+        console.error("Error mirroring type change to spouse:", err);
       }
     }
 
@@ -3661,16 +4336,30 @@ export const autoAssignBedsForRetreat = async (
       p.tableId = rp.tableId;
       p.id_on_retreat = rp.idOnRetreat ?? undefined;
       p.family_friend_color = rp.familyFriendColor ?? undefined;
+      p.spouseParticipantId = rp.spouseParticipantId ?? null;
       return p;
     });
 
-  const eligible = participants.filter(
+  let eligible = participants.filter(
     (p) =>
       p.type !== "waiting" &&
       p.type !== "partial_server" &&
       p.birthDate &&
       !assignedParticipantIds.includes(p.id),
   );
+
+  // Configuración de retiros de parejas: juntos en habitación (parejas primero,
+  // como unidad) o dormitorios separados por género (filtro duro).
+  const retreat = await AppDataSource.getRepository(Retreat).findOne({
+    where: { id: retreatId },
+    select: ["id", "retreat_type", "couplesShareRoom"],
+  });
+  const isCouplesRetreat = retreat?.retreat_type === "couples";
+  const couplesShareRoom = isCouplesRetreat && retreat?.couplesShareRoom !== false;
+  const genderMap =
+    isCouplesRetreat && !couplesShareRoom
+      ? await buildRoomGenderStatusMap(retreatBedRepository, retreatId)
+      : undefined;
 
   // Sort: oldest first so they get bottom bunks/normal beds first,
   // then young walkers fill remaining top bunks (which they prefer anyway)
@@ -3701,12 +4390,54 @@ export const autoAssignBedsForRetreat = async (
   let assigned = 0;
   let skipped = 0;
 
+  // Parejas primero, como unidad (misma habitación). Los cónyuges que consigan
+  // habitación salen de la lista individual; si no hay habitación con 2 camas
+  // libres, caen al loop individual normal.
+  if (couplesShareRoom) {
+    const byId = new Map(eligible.map((p) => [p.id, p]));
+    const processed = new Set<string>();
+    for (const participant of eligible) {
+      if (processed.has(participant.id)) continue;
+      const spouse = participant.spouseParticipantId
+        ? byId.get(participant.spouseParticipantId)
+        : undefined;
+      if (!spouse || processed.has(spouse.id)) continue;
+
+      const pair = await assignBedsToCouple(
+        participant,
+        spouse,
+        assignedBedIds,
+        retreatBedRepository,
+        snoreMap,
+      );
+      if (pair) {
+        await retreatBedRepository.update(pair.bedA.id, {
+          participantId: participant.id,
+        });
+        await retreatBedRepository.update(pair.bedB.id, {
+          participantId: spouse.id,
+        });
+        assignedBedIds.push(pair.bedA.id, pair.bedB.id);
+        assigned += 2;
+        updateRoomSnoreStatus(snoreMap, participant, pair.bedA);
+        processed.add(participant.id);
+        processed.add(spouse.id);
+      } else {
+        console.warn(
+          `⚠️ No room with 2 free beds for couple ${participant.id} + ${spouse.id}; falling back to individual assignment`,
+        );
+      }
+    }
+    eligible = eligible.filter((p) => !processed.has(p.id));
+  }
+
   for (const participant of eligible) {
     const bedId = await assignBedToParticipant(
       participant,
       assignedBedIds,
       undefined,
       snoreMap,
+      genderMap,
     );
     if (bedId) {
       await retreatBedRepository.update(bedId, {
@@ -3721,6 +4452,9 @@ export const autoAssignBedsForRetreat = async (
       });
       if (assignedBed) {
         updateRoomSnoreStatus(snoreMap, participant, assignedBed);
+        if (genderMap) {
+          updateRoomGenderStatus(genderMap, participant, assignedBed);
+        }
       }
     } else {
       skipped++;
@@ -4579,6 +5313,12 @@ export const anonymizeParticipantByToken = async (
         { photoUrl: null, photoS3Key: null },
       );
     }
+
+    // Retiros de parejas: desvincular al cónyuge en TODOS los retiros. La fila
+    // anonimizada no debe seguir referenciada como pareja de nadie.
+    await em
+      .getRepository(RetreatParticipant)
+      .update({ spouseParticipantId: p.id }, { spouseParticipantId: null });
 
     // GDPR: registrar SOLO el hecho de la anonimización (id/acción/retiro),
     // nunca los valores eliminados.

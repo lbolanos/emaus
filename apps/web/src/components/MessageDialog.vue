@@ -425,6 +425,7 @@
 import { ref, computed, watch, onUnmounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRetreatStore } from '@/stores/retreatStore';
+import { useParticipantStore } from '@/stores/participantStore';
 import { useCommunityStore } from '@/stores/communityStore';
 import { useMessageTemplateStore } from '@/stores/messageTemplateStore';
 import { useCommunityMessageTemplateStore } from '@/stores/communityMessageTemplateStore';
@@ -454,7 +455,7 @@ import {
 	TabsList,
 	TabsTrigger,
 } from '@repo/ui';
-import { convertHtmlToWhatsApp, convertHtmlToEmail, replaceAllVariables, findEmptyVariables, ParticipantData, RetreatData, CommunityData, TableData } from '@/utils/message';
+import { convertHtmlToWhatsApp, convertHtmlToEmail, replaceAllVariables, findEmptyVariables, ParticipantData, RetreatData, CommunityData, TableData, SpouseData } from '@/utils/message';
 import { resolveMemberProfile } from '@repo/utils';
 import { sanitizeEmailHtml } from '@/utils/sanitize';
 import { sanitizePhoneForWhatsapp } from '@/utils/phone';
@@ -507,6 +508,7 @@ const emit = defineEmits<Emits>();
 
 const { toast } = useToast();
 const retreatStore = useRetreatStore();
+const participantStore = useParticipantStore();
 const communityStore = useCommunityStore();
 const messageTemplateStore = useMessageTemplateStore();
 const communityMessageTemplateStore = useCommunityMessageTemplateStore();
@@ -879,6 +881,23 @@ const updateMessagePreview = () => {
 		props.tableData ?? undefined,
 	);
 
+	// Retiros de parejas: datos del cónyuge para {spouse.*}. Solo cuando el
+	// destinatario tiene pareja vinculada y su fila está cargada en el store;
+	// si no, los placeholders quedan literales (igual que community/table).
+	const spouseId = (props.participant as any)?.spouseParticipantId;
+	const spouseRaw: any = spouseId
+		? (participantStore.participants || []).find((p: any) => p.id === spouseId)
+		: undefined;
+	const spouseData: SpouseData | undefined = spouseRaw
+		? {
+				firstName: spouseRaw.firstName,
+				lastName: spouseRaw.lastName,
+				nickname: spouseRaw.nickname,
+				email: spouseRaw.email,
+				cellPhone: spouseRaw.cellPhone,
+			}
+		: undefined;
+
 	let message = replaceAllVariables(
 		template.message,
 		participantData,
@@ -886,6 +905,8 @@ const updateMessagePreview = () => {
 		selectedContactKey.value,
 		communityData,
 		props.tableData ?? undefined,
+		false,
+		spouseData,
 	);
 	messagePreview.value = message;
 

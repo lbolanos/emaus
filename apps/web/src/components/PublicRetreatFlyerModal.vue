@@ -245,6 +245,11 @@ const retreatTypeLogo = computed(() => {
     return '/woman_logo.png';
   }
 
+  // Matrimonios: mismo logo neutro (cruz) que usa RoomsView para couples.
+  if (type === 'couples' || parish.includes('matrimonio')) {
+    return '/crossRoseButtT.png';
+  }
+
   return '/man_logo.png';
 });
 

@@ -33,6 +33,30 @@ funciones nuevas van en `apps/web/src/services/api.ts`.
 - Patrones de Vue 3 Composition API (`<script setup>` + TypeScript). Para trabajo de Vue en
   profundidad, cargar el skill **`vue-best-practices`**.
 
+## Prop booleana nueva en un componente ya usado: `withDefaults` obligatorio
+
+Vue castea una prop declarada como booleana **que el padre no pasa** a `false`, no a
+`undefined`. Añadir un `flag?: boolean` a un componente que ya tiene llamadores y escribir
+`v-if="props.flag !== false"` **apaga la sección en todos los llamadores viejos** — que es
+justo lo contrario de lo que uno cree estar escribiendo.
+
+```vue
+<!-- ❌ el llamador que no pasa la prop recibe false y pierde el bloque -->
+const props = defineProps<{ allowAngelito?: boolean }>()
+<button v-if="props.allowAngelito !== false">
+
+<!-- ✅ default explícito: quien no la pasa conserva el comportamiento de antes -->
+const props = withDefaults(defineProps<{ allowAngelito?: boolean }>(), { allowAngelito: true })
+<button v-if="props.allowAngelito">
+```
+
+Pasó el 2026-08-22 en `Step5ServerInfo.vue`: el registro de parejas necesitaba ocultar
+"Registrar como angelito" y la prop lo escondió también en el registro individual, en **todos**
+los retiros. Ningún test unitario lo vio (el mock de `@repo/ui` acepta cualquier prop y los
+tests montaban el componente pasándola); lo cazó el e2e `server-registration-shirt-sizes`.
+Corolario: cuando agregues una bandera para apagar algo en un flujo nuevo, corré el e2e del
+flujo viejo — o invertí el nombre (`hideX`), que con el casting a `false` da el default seguro.
+
 ## Checkboxes y switches: `model-value`, nunca `checked`
 
 `Checkbox` y `Switch` de `@repo/ui` envuelven reka-ui, que **sólo** entiende

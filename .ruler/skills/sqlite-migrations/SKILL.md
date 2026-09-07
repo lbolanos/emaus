@@ -160,6 +160,36 @@ Antes de aprobar / commitear:
 - [ ] Test seed-and-verify (sección siguiente).
 - [ ] Backup manual de `apps/api/database.sqlite` antes de correr en local.
 
+## La DB de test NO tiene los índices de las migrations (falso verde)
+
+`setupTestDatabase()` sincroniza el esquema **desde las entities**, y las entities no declaran
+índices: en la base de test no existe ninguno de los que crean las migrations. Consecuencia: un
+test que afirme "esto rechaza el duplicado" **pasa en verde sin probar nada**, porque el INSERT
+duplicado simplemente entra.
+
+```ts
+// Comprobación rápida dentro de un test:
+await ds.query(`SELECT name FROM sqlite_master WHERE type='index' AND name LIKE '%email%'`); // []
+```
+
+Si el test cubre un `UNIQUE INDEX`, instalá el índice real en el `beforeAll` corriendo la
+migration (`down()` y luego `up()`, para que sea idempotente si el schema ya trae las columnas):
+
+```ts
+const mod = await import('@/migrations/sqlite/<TS>_<Nombre>');
+const migration = new mod.<Clase>();
+const qr = TestDataFactory.getDataSource().createQueryRunner();
+await migration.down(qr); await migration.up(qr); await qr.release();
+```
+
+Dos trampas al hacerlo (ambas mordieron el 2026-08-22):
+
+- **`clearTestData()` no limpia `participants`** — su lista dice `'participant'`, en singular, y el
+  DELETE falla en silencio dentro de su `try/catch`. Las filas sobreviven entre tests y al recrear
+  un índice único revientan con `SQLITE_CONSTRAINT`. Limpiá a mano lo que el índice cubra.
+- **Tras `down()` no uses el factory**: la entity sigue mapeando la columna que la migration acaba
+  de borrar y TypeORM falla con "no such column". Verificá el efecto leyendo `sqlite_master`.
+
 ## Test obligatorio: seed-and-verify
 
 Toda migration que recree una tabla con hijas debe venir con un test que

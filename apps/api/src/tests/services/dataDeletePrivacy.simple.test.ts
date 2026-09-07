@@ -17,6 +17,8 @@ const mockFindOne = jest.fn();
 const mockSave = jest.fn();
 // `find` y `update` los usa la limpieza de fotos de miembro: al anonimizar hay
 // que soltar también la cara que la persona tenga guardada en sus comunidades.
+// `update` lo usa además la desvinculación del cónyuge (retiros de parejas):
+// al anonimizar, ninguna fila puede seguir apuntando al participante borrado.
 const mockFind = jest.fn(async () => []);
 const mockUpdate = jest.fn(async () => ({ affected: 0 }));
 const mockRepo = {
@@ -94,6 +96,7 @@ const makeParticipant = (overrides: Partial<any> = {}) => ({
 beforeEach(() => {
 	mockFindOne.mockReset();
 	mockSave.mockReset();
+	mockUpdate.mockReset();
 	mockTransaction.mockClear();
 });
 
@@ -156,11 +159,26 @@ describe('anonymizeParticipantByToken', () => {
 		expect(saved.lastUpdatedDate).toBeInstanceOf(Date);
 	});
 
+	it('desvincula al cónyuge: ninguna fila queda apuntando al anonimizado', async () => {
+		const participant = makeParticipant();
+		mockFindOne.mockResolvedValue(participant);
+		mockSave.mockImplementation(async (p: any) => p);
+
+		await anonymizeParticipantByToken('a'.repeat(48));
+
+		expect(mockUpdate).toHaveBeenCalledWith(
+			{ spouseParticipantId: participant.id },
+			{ spouseParticipantId: null },
+		);
+	});
+
 	it('returns false when token does not match any participant', async () => {
 		mockFindOne.mockResolvedValue(null);
 		const ok = await anonymizeParticipantByToken('z'.repeat(48));
 		expect(ok).toBe(false);
 		expect(mockSave).not.toHaveBeenCalled();
+		// Sin participante no hay nada que desvincular.
+		expect(mockUpdate).not.toHaveBeenCalled();
 	});
 
 	it('is idempotent — second call on already-anonymized returns false', async () => {

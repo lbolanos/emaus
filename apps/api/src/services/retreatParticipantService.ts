@@ -401,9 +401,11 @@ export const syncRetreatFields = async (
 	fields: RetreatSnapshotFields,
 	entityManager?: any,
 ): Promise<void> => {
+	// Resolver el repo perezosamente: los tests de integración swapean
+	// AppDataSource.getRepository a la DB de test después del import del módulo.
 	const repo = entityManager
 		? entityManager.getRepository(RetreatParticipant)
-		: retreatParticipantRepository;
+		: AppDataSource.getRepository(RetreatParticipant);
 	await repo.update({ participantId, retreatId }, fields);
 };
 

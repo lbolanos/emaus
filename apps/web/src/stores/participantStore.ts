@@ -122,6 +122,42 @@ export const useParticipantStore = defineStore('participant', () => {
 		}
 	}
 
+	/**
+	 * Registro público de pareja (retiros retreat_type='couples'): un submit crea a
+	 * ambos cónyuges vinculados. Con dryRun devuelve {valid, error?, warnings} sin escribir.
+	 */
+	async function createCoupleParticipant(
+		data: Record<string, unknown>,
+		recaptchaToken?: string,
+		dryRun?: boolean,
+	) {
+		try {
+			loading.value = true;
+			const response = await api.post('/participants/couple/new', {
+				...data,
+				recaptchaToken,
+				...(dryRun ? { dryRun: true } : {}),
+			});
+
+			if (dryRun) {
+				return response.data;
+			}
+
+			if (response.data?.husband) participants.value.push(response.data.husband);
+			if (response.data?.wife) participants.value.push(response.data.wife);
+			return response.data;
+		} catch (error: any) {
+			toast({
+				title: 'Error',
+				description: apiErrorMessage(error, 'Failed to register couple'),
+				variant: 'destructive',
+			});
+			throw error;
+		} finally {
+			loading.value = false;
+		}
+	}
+
 	async function importParticipants(retreatId: string, participantsData: any[], skipRefresh = false) {
 		try {
 			loading.value = true;
@@ -306,6 +342,7 @@ export const useParticipantStore = defineStore('participant', () => {
 		fetchTags,
 		fetchParticipants,
 		createParticipant,
+		createCoupleParticipant,
 		importParticipants,
 		updateParticipant,
 		deleteParticipant,
