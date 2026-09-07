@@ -148,6 +148,46 @@ export function makeDateInTimezone(
 }
 
 /**
+ * Devuelve `tz` si `Intl` la reconoce como zona IANA, y `fallback` si no.
+ *
+ * `community.timezone` y `retreat.timezone` se validan como `z.string()` — sin
+ * comprobar que el valor sea una zona real —, así que un typo guardado desde el
+ * API llega hasta el cálculo. `Intl` lanza `RangeError` con una zona inválida, y
+ * en el cron de reuniones ese throw se captura por template: la serie dejaría de
+ * generar reuniones **en silencio**, que es el peor modo de fallo posible. En el
+ * dashboard del retiro sería un 500.
+ *
+ * Cachea el veredicto: el cron recorre todos los templates en cada corrida y el
+ * try/catch de `Intl` no es gratis.
+ */
+const timeZoneVerdicts = new Map<string, boolean>();
+
+export function resolveSafeTimeZone(
+	tz: string | null | undefined,
+	fallback = 'America/Mexico_City',
+): string {
+	if (!tz) return fallback;
+
+	let valid = timeZoneVerdicts.get(tz);
+	if (valid === undefined) {
+		try {
+			new Intl.DateTimeFormat('en-US', { timeZone: tz });
+			valid = true;
+		} catch {
+			valid = false;
+		}
+		timeZoneVerdicts.set(tz, valid);
+		if (!valid) {
+			console.warn(
+				`[date.transformer] timezone inválida ${JSON.stringify(tz)}; usando ${fallback}`,
+			);
+		}
+	}
+
+	return valid ? tz : fallback;
+}
+
+/**
  * Límites del día natural (`[start, end)`) tal como lo vive un observador en
  * `tz`, para el instante `instant`.
  *
@@ -158,7 +198,8 @@ export function makeDateInTimezone(
  * El fin del día se calcula sumando un día **civil** y volviendo a resolver la
  * medianoche, no sumando 24 horas: un día con cambio de horario dura 23 o 25.
  */
-export function dayBoundsInTimezone(instant: Date, tz: string): { start: Date; end: Date } {
+export function dayBoundsInTimezone(instant: Date, rawTz: string): { start: Date; end: Date } {
+	const tz = resolveSafeTimeZone(rawTz);
 	const parts = new Intl.DateTimeFormat('en-CA', {
 		timeZone: tz,
 		year: 'numeric',

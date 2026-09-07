@@ -21,7 +21,7 @@
  * the instant with `makeDateInTimezone` (which is DST-aware). Never use the
  * local getters/setters of `Date` for this.
  */
-import { makeDateInTimezone } from './date.transformer';
+import { makeDateInTimezone, resolveSafeTimeZone } from './date.transformer';
 
 /** Fallback when the community has no IANA timezone persisted yet. */
 export const DEFAULT_RECURRENCE_TIMEZONE = 'America/Mexico_City';
@@ -115,7 +115,11 @@ function composeInTimeZone(
  * @param dayOfWeek - Day of week for weekly recurrence ('monday', 'tuesday', etc.)
  * @param dayOfMonth - Day of month for monthly recurrence (1-31)
  * @param timeZone - IANA timezone the series is anchored to (the community's).
- *                   Defaults to CDMX so pre-existing callers keep working.
+ *                   Required on purpose: an optional parameter is how the
+ *                   original bug survived — a caller that forgets to thread the
+ *                   community's zone silently falls back to CDMX and the series
+ *                   slides to the wrong weekday again. Let the type system catch
+ *                   the next call site instead.
  * @returns The next occurrence date, or null if calculation fails
  */
 export function calculateNextOccurrence(
@@ -124,11 +128,13 @@ export function calculateNextOccurrence(
 	interval: number | null,
 	dayOfWeek: string | null,
 	dayOfMonth: number | null,
-	timeZone: string = DEFAULT_RECURRENCE_TIMEZONE,
+	timeZone: string,
 ): Date | null {
 	if (!frequency) return null;
 
-	const current = getPartsInTimeZone(new Date(currentStartDate), timeZone);
+	// Una zona inválida persistida no puede tumbar la generación de la serie.
+	const tz = resolveSafeTimeZone(timeZone);
+	const current = getPartsInTimeZone(new Date(currentStartDate), tz);
 	let next: { year: number; month0: number; day: number };
 
 	switch (frequency) {
@@ -145,7 +151,11 @@ export function calculateNextOccurrence(
 			// next occurrence land anywhere from +1 to +7 days depending on which
 			// weekday the start fell on — a date-dependent bug that broke
 			// recurrenceEndDate ceilings non-deterministically.
-			const targetDay = dayOfWeek ? getDayNumber(dayOfWeek) : current.weekday;
+			// Un nombre de día que no se reconoce se trata como "sin día", NO como
+			// domingo: `recurrenceDayOfWeek` es `z.string()` sin enum, así que un
+			// 'Wednesday' con mayúscula llegaba acá y el índice 0 mandaba la serie
+			// entera al domingo — la misma clase de bug que este módulo arregla.
+			const targetDay = (dayOfWeek ? getDayNumber(dayOfWeek) : null) ?? current.weekday;
 
 			// Days until the next occurrence of the target day. If the current day
 			// already is the target, we want the NEXT one (7 days later), not today.
@@ -192,16 +202,23 @@ export function calculateNextOccurrence(
 		current.minute,
 		current.second,
 		current.millisecond,
-		timeZone,
+		tz,
 	);
 }
 
 /**
- * Converts day name to JavaScript day number
+ * Converts day name to JavaScript day number.
+ *
+ * Case- and whitespace-insensitive: `recurrenceDayOfWeek` is stored as a bare
+ * `z.string()` with no enum constraint, so 'Wednesday' and ' wednesday ' both
+ * reach this function from the API.
+ *
  * @param dayName - Name of day ('sunday', 'monday', etc.)
- * @returns Day number (0=Sunday, 1=Monday, ..., 6=Saturday)
+ * @returns Day number (0=Sunday … 6=Saturday), or null if unrecognized — the
+ *          caller decides what an unknown name means; defaulting to Sunday
+ *          silently relocated whole series.
  */
-function getDayNumber(dayName: string | null): number {
+function getDayNumber(dayName: string | null | undefined): number | null {
 	const days: Record<string, number> = {
 		sunday: 0,
 		monday: 1,
@@ -211,7 +228,7 @@ function getDayNumber(dayName: string | null): number {
 		friday: 5,
 		saturday: 6,
 	};
-	return days[dayName || ''] ?? 0;
+	return days[(dayName ?? '').trim().toLowerCase()] ?? null;
 }
 
 /**
@@ -231,19 +248,19 @@ export function nextWeekdayOccurrence(
 	dayOfWeek: string,
 	hour: number,
 	minute: number,
-	timeZone: string = DEFAULT_RECURRENCE_TIMEZONE,
+	timeZone: string,
 	from: Date = new Date(),
 ): Date | null {
-	const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-	const targetDay = days.indexOf(dayOfWeek.toLowerCase());
-	if (targetDay < 0) return null;
+	const targetDay = getDayNumber(dayOfWeek);
+	if (targetDay === null) return null;
 
-	const today = getPartsInTimeZone(from, timeZone);
+	const tz = resolveSafeTimeZone(timeZone);
+	const today = getPartsInTimeZone(from, tz);
 	const diff = (targetDay - today.weekday + 7) % 7;
 
 	const at = (offsetDays: number): Date => {
 		const d = addCivilDays(today.year, today.month0, today.day, offsetDays);
-		return composeInTimeZone(d.year, d.month0, d.day, hour, minute, 0, 0, timeZone);
+		return composeInTimeZone(d.year, d.month0, d.day, hour, minute, 0, 0, tz);
 	};
 
 	// Same weekday but the hour already went by → push a full week.

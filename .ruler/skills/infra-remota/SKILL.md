@@ -24,6 +24,14 @@ ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104
 | Backups locales | `/var/backups/emaus/` |
 | Log de backup | `/var/log/emaus-backup.log` |
 | Deploy web | `/var/www/emaus/apps/web/dist` |
+| Zona horaria | `Etc/UTC` — y pm2 **no** define `TZ`, así que Node hereda UTC |
+
+> La zona del servidor es UTC, no CDMX. Todo cálculo de calendario en el API
+> (día de la semana, día del mes, "hoy") tiene que resolverse contra la zona del
+> retiro o de la community, nunca contra el reloj del proceso: es la Regla N°5
+> del skill `timezone-handling`, y el origen del bug de 2026-09-07 en que una
+> serie semanal de los miércoles se materializaba los martes. Verificable con
+> `ssh … "timedatectl"`.
 
 ## nginx en producción
 

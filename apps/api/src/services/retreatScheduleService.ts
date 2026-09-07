@@ -1604,17 +1604,22 @@ export class RetreatScheduleService {
 	 * agenda progress, current/next item, santisimo coverage and angelito pool.
 	 */
 	async dashboardStats(retreatId: string) {
-		const items = await this.itemRepo.find({
-			where: { retreatId },
-			relations: ['responsability', 'responsables'],
-			order: { startTime: 'ASC' },
-		});
-
 		// El día del retiro se delimita en la zona del retiro, no en la del proceso.
 		// Con la medianoche del server (Etc/UTC en producción) "hoy" arrancaba a las
 		// 18:00 CDMX de la víspera, y los items de tarde-noche se contaban en el día
 		// equivocado en el progreso del dashboard.
-		const timezone = await this.resolveRetreatTimezone(retreatId);
+		//
+		// Las dos lecturas son independientes; en paralelo, porque este endpoint se
+		// consulta a repetición durante el retiro.
+		const [items, timezone] = await Promise.all([
+			this.itemRepo.find({
+				where: { retreatId },
+				relations: ['responsability', 'responsables'],
+				order: { startTime: 'ASC' },
+			}),
+			this.resolveRetreatTimezone(retreatId),
+		]);
+
 		const now = new Date();
 		const { start: todayStart, end: todayEnd } = dayBoundsInTimezone(now, timezone);
 

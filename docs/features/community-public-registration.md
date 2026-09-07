@@ -213,9 +213,13 @@ Archivo: `apps/api/src/tests/services/communityPublicRegistration.simple.test.ts
   válido, rechazan no-UUID, razón opcional con tope de 2000 chars.
 - **Enums**: `CommunityStatusEnum` y `DayOfWeekEnum` exponen los valores
   esperados.
-- **`getNextDayOfWeekDate`**: lógica del cálculo del próximo día de la
-  semana — siguiente semana si ya pasó, mismo día si la hora aún no
-  llegó, case-insensitive del día de la semana.
+- **`nextWeekdayOccurrence`** (`apps/api/src/utils/recurrenceUtils.ts`):
+  lógica del cálculo del próximo día de la semana — siguiente semana si ya
+  pasó, mismo día si la hora aún no llegó, case-insensitive del día de la
+  semana, y la hora interpretada en la timezone de la community. El método
+  privado `getNextDayOfWeekDate` de `communityService` ahora sólo delega en
+  él; antes construía la hora con `setHours()` sobre el reloj del proceso y
+  guardaba "19:45" como 19:45Z (13:45 CDMX).
 
 ```bash
 pnpm --filter api exec jest src/tests/services/communityPublicRegistration.simple.test.ts

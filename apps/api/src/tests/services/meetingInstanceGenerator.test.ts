@@ -159,6 +159,38 @@ describe('MeetingInstanceGeneratorService', () => {
 		expect(instances).toBe(0);
 	});
 	/**
+	 * `skipped` medía contra el acumulado `generated` de toda la corrida, no contra
+	 * lo que produjo cada template: en cuanto uno generaba algo, la métrica se
+	 * congelaba en 0 y las series estancadas dejaban de verse en el log del cron.
+	 *
+	 * El orden importa para que el test distinga: el template productivo se crea
+	 * primero, así el bug deja `skipped` en 0 en vez de acertar por casualidad.
+	 */
+	it('cuenta como skipped cada template que no produjo instancias', async () => {
+		await service.createMeeting(testCommunity.id, {
+			title: 'Productivo',
+			startDate: daysFromNow(7),
+			durationMinutes: 60,
+			recurrenceFrequency: 'weekly',
+		});
+		// Muy lejos de la ventana de 14 días: no generan nada.
+		for (const title of ['Lejano A', 'Lejano B']) {
+			await service.createMeeting(testCommunity.id, {
+				title,
+				startDate: daysFromNow(90),
+				durationMinutes: 60,
+				recurrenceFrequency: 'weekly',
+			});
+		}
+
+		const result = await generator.performGeneration();
+
+		expect(result.errors).toBe(0);
+		expect(result.generated).toBeGreaterThanOrEqual(1);
+		expect(result.skipped).toBe(2);
+	});
+
+	/**
 	 * Regresión de zona horaria (bug reportado en producción).
 	 *
 	 * El cron corre en un server en Etc/UTC. Una serie de los miércoles a las

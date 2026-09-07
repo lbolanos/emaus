@@ -1,4 +1,4 @@
-import { dayBoundsInTimezone } from '@/utils/date.transformer';
+import { dayBoundsInTimezone, resolveSafeTimeZone } from '@/utils/date.transformer';
 
 /**
  * Límites del día natural en la zona de un retiro.
@@ -49,5 +49,50 @@ describe('dayBoundsInTimezone', () => {
 		const { start, end } = dayBoundsInTimezone(instant, 'America/Mexico_City');
 		expect(start.toISOString()).toBe('2026-09-30T06:00:00.000Z');
 		expect(end.toISOString()).toBe('2026-10-01T06:00:00.000Z');
+	});
+});
+
+/**
+ * `community.timezone` y `retreat.timezone` se validan como `z.string()`, sin
+ * comprobar que sean zonas reales. Un typo persistido hacía que `Intl` lanzara
+ * `RangeError`, y en el cron de reuniones ese throw se captura por template: la
+ * serie dejaba de generarse en silencio.
+ */
+describe('resolveSafeTimeZone', () => {
+	let warn: jest.SpyInstance;
+	beforeEach(() => {
+		warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+	});
+	afterEach(() => {
+		warn.mockRestore();
+	});
+
+	it('deja pasar una zona IANA válida', () => {
+		expect(resolveSafeTimeZone('Europe/Madrid')).toBe('Europe/Madrid');
+	});
+
+	it('cae al fallback con una zona inventada, y avisa', () => {
+		expect(resolveSafeTimeZone('America/Ciudad_Inventada')).toBe('America/Mexico_City');
+		expect(warn).toHaveBeenCalled();
+	});
+
+	it('cae al fallback con null, undefined y cadena vacía sin avisar', () => {
+		expect(resolveSafeTimeZone(null)).toBe('America/Mexico_City');
+		expect(resolveSafeTimeZone(undefined)).toBe('America/Mexico_City');
+		expect(resolveSafeTimeZone('')).toBe('America/Mexico_City');
+		expect(warn).not.toHaveBeenCalled();
+	});
+
+	it('respeta un fallback explícito', () => {
+		expect(resolveSafeTimeZone('basura', 'Asia/Tokyo')).toBe('Asia/Tokyo');
+	});
+
+	it('dayBoundsInTimezone no revienta con una zona inválida', () => {
+		const instant = new Date('2026-09-03T02:00:00.000Z');
+		expect(() => dayBoundsInTimezone(instant, 'no/existe')).not.toThrow();
+		// Cae a CDMX: mismos límites que la zona por defecto.
+		expect(dayBoundsInTimezone(instant, 'no/existe').start.toISOString()).toBe(
+			'2026-09-02T06:00:00.000Z',
+		);
 	});
 });

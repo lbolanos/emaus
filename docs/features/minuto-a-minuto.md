@@ -339,7 +339,7 @@ El coordinador no necesita pulsar el botón **"Generar"** para retiros estándar
   Vincula `retreat_schedule_item.responsabilityId` por nombre canónico. Con `force=true` sobrescribe vínculos existentes; con `false` sólo asigna items con `responsabilityId === null`. Returns `{linked, alreadyLinked, noTemplate, noMatch}`.
 
 - **`dashboardStats(retreatId)`**
-  Devuelve un objeto agregado para el card del dashboard: currentItem, nextItem, conteos por estado, retraso acumulado del día, cobertura de Santísimo, pool de angelitos.
+  Devuelve un objeto agregado para el card del dashboard: currentItem, nextItem, conteos por estado, retraso acumulado del día, cobertura de Santísimo, pool de angelitos. "El día" son los límites del día natural **en la timezone del retiro** (`dayBoundsInTimezone`), no la medianoche del proceso: en el server UTC el día arrancaba a las 18:00 CDMX de la víspera.
 
 - **`streamRetreatBundle(retreatId, output)`** (`apps/api/src/services/retreatScheduleService.ts`)
   Genera y streamea un ZIP con todos los guiones del retiro a la `Writable` que el caller pasa (típicamente `res`). Estructura: `<rol-slug>/<filename>` por attachment, `README.md` top-level con el índice. Tres branches por attachment:
@@ -374,7 +374,7 @@ Pure-logic tests (sin TypeORM ni DB):
 | `apps/api/src/tests/services/scheduleTemplateSeeder.responsabilityNames.simple.test.ts` | 2 | 26 | conteo por template, cobertura de descripciones, responsabilidades canónicas, splits de tareas (revisión, desarmar logística), lecturas Camino Emaús, refrigerios → Snacks, campanas → Campanero (≥10), type→responsibility mapping, alias R.snacks/R.despedida/R.rosarios actualizados |
 | `apps/api/src/tests/services/santisimo.simple.test.ts`                  | 4      | 14    | slot generation, capacity, angelito heuristic       |
 | `apps/api/src/tests/services/realtime.simple.test.ts`                   | 3      | 8     | room naming, event payload shapes                   |
-| `apps/api/src/tests/services/retreatScheduleDashboard.simple.test.ts`   | 5      | 23    | dashboardStats, recomputeMealWindow, angelitoPool, isRetreatLive, materialize date math |
+| `apps/api/src/tests/services/retreatScheduleDashboard.simple.test.ts`   | 5      | 25    | dashboardStats (límites del día TZ-aware), recomputeMealWindow, angelitoPool, isRetreatLive, materialize date math |
 | `apps/api/src/tests/services/serviceTeamData.simple.test.ts`            | —      | 27+   | **21 charlas/textos canónicos** (11 Charla + 10 Texto), anexos A-2-N únicos formato válido, **cobertura completa de docs** (every fixed responsibility + every charla tiene entry en charlaDocumentation/responsibilityDocumentation) |
 | `apps/api/src/tests/services/responsabilityService.simple.test.ts`     | —      | —     | mismos 21 items vía `getDefaultCharlas()` |
 | `apps/api/src/tests/services/responsabilityService.ensureCharlas.simple.test.ts` | 1 | 8 | `ensureCharlaResponsibilitiesFromTemplateSet`: defaults solo crean operativas, charlas se crean al materializar, anexo en description, idempotencia, sets distintos, ignora isActive=false, no duplica con homónimas |

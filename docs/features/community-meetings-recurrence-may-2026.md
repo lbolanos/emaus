@@ -163,7 +163,11 @@ el cron las regenere.
 `SantisimoReminderService`. Schedule `0 6 * * *`. Por cada template root activo:
 
 1. Busca la instancia más reciente de la serie (o usa el template si no hay).
-2. Calcula `calculateNextOccurrence` desde su startDate.
+2. Calcula `calculateNextOccurrence` desde su startDate, anclado a la
+   timezone de la community (`community.timezone`, fallback CDMX). El
+   `startDate` es un instante UTC: resolver "el miércoles" con el reloj del
+   proceso corría la serie un día en el server de producción, que va en
+   `Etc/UTC` — ver Regla N°5 del skill `timezone-handling`.
 3. Si la próxima fecha cae dentro de `now + 14 días` y antes de
    `recurrenceEndDate` (si existe), llama
    `createNextMeetingInstance(seed.id, { notify: !isPast })`.

@@ -105,6 +105,10 @@ export class MeetingInstanceGeneratorService {
 			try {
 				const created = await this.generateForTemplate(template, now, windowEnd);
 				generated += created;
+				// Contra el delta de ESTE template, no contra el acumulado: con el
+				// total, en cuanto un template producía algo `skipped` se congelaba en
+				// 0 y las series estancadas dejaban de aparecer en la métrica.
+				if (created === 0) skipped++;
 			} catch (err) {
 				errors++;
 				console.error(
@@ -112,7 +116,6 @@ export class MeetingInstanceGeneratorService {
 					err,
 				);
 			}
-			if (generated === 0) skipped++;
 		}
 
 		return { generated, skipped, errors };

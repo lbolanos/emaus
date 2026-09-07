@@ -226,11 +226,45 @@ describe('calculateNextOccurrence — timezone-aware', () => {
 		});
 	});
 
-	it('sin timeZone explícita cae a CDMX', () => {
-		const seed = new Date('2026-09-03T01:45:00.000Z');
-		expect(calculateNextOccurrence(seed, 'weekly', 1, 'wednesday', null)!.toISOString()).toBe(
-			calculateNextOccurrence(seed, 'weekly', 1, 'wednesday', null, CDMX)!.toISOString(),
-		);
+	it('una timeZone inválida se comporta como la default, sin lanzar', () => {
+		const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+		try {
+			const seed = new Date('2026-09-03T01:45:00.000Z');
+			expect(
+				calculateNextOccurrence(seed, 'weekly', 1, 'wednesday', null, 'basura')!.toISOString(),
+			).toBe('2026-09-10T01:45:00.000Z');
+		} finally {
+			warn.mockRestore();
+		}
+	});
+
+	/**
+	 * `recurrenceDayOfWeek` se persiste como `z.string()` sin enum, así que el
+	 * nombre del día llega tal cual lo mandó el cliente. `getDayNumber` no
+	 * normalizaba la caja y devolvía 0 para lo que no reconocía: un 'Wednesday'
+	 * con mayúscula mandaba la serie entera al domingo.
+	 */
+	describe('nombre del día tal como llega del API', () => {
+		const SEED = new Date('2026-09-03T01:45:00.000Z'); // miércoles 19:45 CDMX
+
+		it('es indiferente a mayúsculas y espacios', () => {
+			const canonical = calculateNextOccurrence(SEED, 'weekly', 1, 'wednesday', null, CDMX)!;
+			for (const variant of ['Wednesday', 'WEDNESDAY', ' wednesday ', 'WeDnEsDaY']) {
+				expect(calculateNextOccurrence(SEED, 'weekly', 1, variant, null, CDMX)!.toISOString()).toBe(
+					canonical.toISOString(),
+				);
+			}
+		});
+
+		it('un día que no se reconoce avanza una semana, no salta al domingo', () => {
+			// 'miércoles' en español, o cualquier basura: se comporta como "sin día
+			// explícito" (+7 días, mismo weekday). Caer a domingo relocaba la serie.
+			const next = calculateNextOccurrence(SEED, 'weekly', 1, 'miércoles', null, CDMX)!;
+			expect(next.toISOString()).toBe('2026-09-10T01:45:00.000Z');
+			expect(next.toISOString()).not.toBe(
+				calculateNextOccurrence(SEED, 'weekly', 1, 'sunday', null, CDMX)!.toISOString(),
+			);
+		});
 	});
 });
 
@@ -266,6 +300,17 @@ describe('nextWeekdayOccurrence', () => {
 		const from = new Date('2026-09-03T01:00:00.000Z');
 		const next = nextWeekdayOccurrence('wednesday', 19, 45, CDMX, from)!;
 		expect(next.toISOString()).toBe('2026-09-03T01:45:00.000Z');
+	});
+
+	it('no revienta si la community tiene una timezone inválida persistida', () => {
+		const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+		try {
+			// Un throw acá mata la generación de la serie en silencio (el cron captura
+			// el error por template), así que cae a CDMX en vez de lanzar.
+			expect(nextWeekdayOccurrence('wednesday', 19, 45, 'no/existe')).not.toBeNull();
+		} finally {
+			warn.mockRestore();
+		}
 	});
 
 	it('devuelve null con un nombre de día inválido', () => {
