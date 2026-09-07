@@ -12,16 +12,22 @@ Este documento es el procedimiento para pasar ese Excel a participantes del reti
 ```bash
 cd ~/Developer/personal/emaus
 
-# 1. Convertir el export a lo que el importador entiende
-python3 scripts/convert-parish-registrations.py ~/Downloads/inscripciones-hombres-<fecha>.xlsx inscripciones.csv
+make walkers-convert   # elige el Excel de Descargas y lo convierte
+make walkers-check     # elige el retiro y comprueba ANTES de importar
+#                        …importar el CSV desde Caminantes → Importar Participantes…
+make walkers-verify    # comprueba DESPUÉS que no faltó nadie
+```
 
-# 2. Comprobar antes de tocar nada  (el uuid sale de la URL del tablero del retiro)
-python3 scripts/check-import.py --before inscripciones.csv --retreat <uuid-del-retiro>
+Los tres eligen de una lista: el Excel entre los descargados hoy (o los más recientes si no hay
+ninguno de hoy) y el retiro entre los que están en curso o por empezar. Si sólo hay un candidato no
+preguntan. Nadie teclea rutas ni uuids — un uuid equivocado importa a los caminantes en otro retiro.
 
-# 3. Importar por la app:  /app/walkers → menú → Importar Participantes → subir el CSV
+Por debajo son estos dos scripts, por si hace falta llamarlos sueltos:
 
-# 4. Comprobar que entró todo el mundo
-python3 scripts/check-import.py --after inscripciones.csv --retreat <uuid-del-retiro>
+```bash
+python3 scripts/convert-parish-registrations.py <export.xlsx> inscripciones.csv
+python3 scripts/check-import.py --before inscripciones.csv --retreat <uuid>
+python3 scripts/check-import.py --after  inscripciones.csv --retreat <uuid>
 ```
 
 Los pasos 2 y 4 salen con código 1 si algo va mal, así que se pueden encadenar. **El paso 4 no es
