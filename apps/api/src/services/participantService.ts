@@ -3011,6 +3011,7 @@ export const updateParticipant = async (
   id: string,
   participantData: UpdateParticipant,
   skipRebalance: boolean = false,
+  isImporting: boolean = false,
 ): Promise<Participant | null> => {
   // Resolver el repo perezosamente (shadow del módulo-level): permite que los
   // tests de integración swapeen AppDataSource a la DB de test.
@@ -3411,16 +3412,28 @@ export const updateParticipant = async (
     );
   }
 
-  void domainAuditService.logUpdate(
-    "participant",
-    id,
-    oldAuditSnapshot,
-    updatedParticipant,
-    {
-      retreatId: effectiveRetreatId,
-      fields: PARTICIPANT_AUDIT_FIELDS,
-    },
-  );
+  // Durante una importación masiva NO se audita fila a fila: se audita un
+  // resumen aparte (ver importParticipants), igual que hace createParticipant
+  // con `if (!isImporting …)`.
+  //
+  // Aquí no es sólo ruido, es pérdida de datos: este `void` deja un save en
+  // vuelo sobre la conexión compartida, y la fila siguiente abre su
+  // AppDataSource.transaction dentro de createParticipant y choca con
+  // "cannot start a transaction within a transaction". Esa fila se pierde y
+  // sólo queda como skippedCount. Es una carrera, así que no siempre ocurre.
+  // Detalle en el skill troubleshooting §25.3.
+  if (!isImporting) {
+    void domainAuditService.logUpdate(
+      "participant",
+      id,
+      oldAuditSnapshot,
+      updatedParticipant,
+      {
+        retreatId: effectiveRetreatId,
+        fields: PARTICIPANT_AUDIT_FIELDS,
+      },
+    );
+  }
 
   return updatedParticipant;
 };
@@ -4572,8 +4585,9 @@ export const importParticipants = async (
         const updatedParticipant = await updateParticipant(
           existingParticipant.id,
           updateData as UpdateParticipant,
-          true,
-        ); // skipRebalance = true during import
+          true, // skipRebalance
+          true, // isImporting: sin auditoría fila a fila (ver la guarda en updateParticipant)
+        );
         updatedCount++;
         processedParticipantIds.push(existingParticipant.id);
         // Use updatedParticipant (which has the virtual `type` overlaid from
