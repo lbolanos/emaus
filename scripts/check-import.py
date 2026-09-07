@@ -24,7 +24,7 @@ import re
 import sqlite3
 import sys
 
-DEFAULT_DB = os.path.join("apps", "api", "database.sqlite")
+DEFAULT_DB = os.environ.get("EMAUS_DB") or os.path.join("apps", "api", "database.sqlite")
 
 
 def open_db(path):

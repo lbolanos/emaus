@@ -138,3 +138,10 @@ local-assets/
 
 # DB local del worktree-dev (skill worktree-testing) — nunca se versiona
 apps/api/database.worktree.sqlite*
+
+# Los CSV que produce `make walkers-convert` llevan los datos personales de los
+# inscritos: nombre, dirección, teléfonos, contactos de emergencia y salud. Van
+# FUERA de cualquier bloque generado, para que una herramienta no se los lleve
+# al reescribirlo.
+inscripciones.csv
+inscripciones-*.csv
