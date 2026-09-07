@@ -982,6 +982,12 @@
       }
     },
     "birthdayDuringRetreat": "Birthday during retreat",
+    "birthdays": {
+      "title": "Birthdays during the retreat",
+      "summary": "{count} walker has a birthday during the retreat dates | {count} walkers have a birthday during the retreat dates",
+      "empty": "No walker has a birthday during the retreat dates.",
+      "turningAge": "Turns {age}"
+    },
     "selectedCount": "{count} participant selected | {count} participants selected",
     "clearSelection": "Clear Selection",
     "selectAll": "Select All",

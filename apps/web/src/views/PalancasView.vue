@@ -12,5 +12,6 @@ const palancaFormEditColumns = palancaTableColumns.filter(c => !nonEditableColum
     :columns-to-show-in-table="palancaTableColumns"
     :columns-to-show-in-form="palancaFormShowColumns"
     :columns-to-edit-in-form="palancaFormEditColumns"
+    show-attendance-confirmation
  />
 </template>

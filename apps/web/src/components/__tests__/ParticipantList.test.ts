@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { mount, VueWrapper } from '@vue/test-utils';
+import { mount, flushPromises, VueWrapper } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 import ParticipantList from '../ParticipantList.vue';
@@ -1073,6 +1073,59 @@ describe('ParticipantList Component', () => {
 			wrapper.vm.searchQuery = 'jose perez';
 			await nextTick();
 			expect(names()).toEqual([]);
+		});
+	});
+
+	describe('Control de confirmación de asistencia', () => {
+		// Es seguimiento de palancas: solo PalancasView lo pide. Antes salía en
+		// cualquier lista de caminantes y estorbaba en la de Caminantes.
+		const FILTER_SELECTOR = 'select[title="Filtrar por confirmación de asistencia"]';
+
+		// Se monta a mano y no con createTestWrapper porque ese helper descarta
+		// las props, y aquí lo que se prueba es justamente una prop.
+		async function mountWith(props: Record<string, any>) {
+			const { useParticipantStore } = await import('@/stores/participantStore');
+			const participantStore = useParticipantStore();
+			const w = mount(ParticipantList, {
+				props: { type: 'walker', columnsToShowInTable: ['firstName', 'lastName'], ...props },
+				global: {
+					plugins: [pinia],
+					stubs: { 'router-link': true, 'router-view': true, teleport: true },
+					mocks: {
+						$t: (key: string) => key,
+						$router: { push: vi.fn() },
+						$route: { name: 'mocked-route', params: {}, query: {} },
+					},
+				},
+			});
+			// Montar dispara fetchParticipants: sin esperar sus promesas la lista
+			// se queda en el bloque de "cargando" y no renderiza ninguna fila.
+			await flushPromises();
+			participantStore.loading = false;
+			await nextTick();
+			return w;
+		}
+
+		it('no se muestra por defecto', async () => {
+			const w = await mountWith({});
+			expect(w.text()).not.toContain('Por contactar');
+			expect(w.find(FILTER_SELECTOR).exists()).toBe(false);
+			w.unmount();
+		});
+
+		it('se muestra cuando la vista lo pide', async () => {
+			const w = await mountWith({ showAttendanceConfirmation: true });
+			expect(w.text()).toContain('Por contactar');
+			expect(w.find(FILTER_SELECTOR).exists()).toBe(true);
+			w.unmount();
+		});
+
+		it('no aplica el filtro de un segmento guardado donde el control no se ve', async () => {
+			const w = await mountWith({});
+			w.vm.applySegment({ id: 's1', name: 'Pendientes', filters: { attendanceFilter: 'confirmed' } });
+			await nextTick();
+			expect(w.vm.attendanceFilter).toBe('all');
+			w.unmount();
 		});
 	});
 });

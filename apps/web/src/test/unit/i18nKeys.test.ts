@@ -110,3 +110,16 @@ describe('i18n required keys for messageTemplates.types', () => {
 		expect(enKeys.has(`messageTemplates.types.${type}`)).toBe(true);
 	});
 });
+
+describe('i18n required keys for participants.birthdays', () => {
+	// Las consume el menú de Caminantes y RetreatBirthdaysDialog.vue.
+	const REQUIRED_KEYS = ['title', 'summary', 'empty', 'turningAge'];
+
+	it.each(REQUIRED_KEYS)('participants.birthdays.%s existe en es.json', (key) => {
+		expect(esKeys.has(`participants.birthdays.${key}`)).toBe(true);
+	});
+
+	it.each(REQUIRED_KEYS)('participants.birthdays.%s existe en en.json', (key) => {
+		expect(enKeys.has(`participants.birthdays.${key}`)).toBe(true);
+	});
+});

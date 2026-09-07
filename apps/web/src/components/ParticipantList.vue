@@ -21,6 +21,7 @@ import type { SavedSegment, SegmentFilters } from '@repo/types';
 import { useI18n } from 'vue-i18n';
 import ExcelJS from 'exceljs';
 import { createLocaleComparator } from '@/utils/sort';
+import { hasBirthdayDuringRetreat as hasBirthdayInRetreatDates } from '@/utils/retreatBirthdays';
 
 // Importa los componentes de UI necesarios
 import { Button } from '@repo/ui';
@@ -78,12 +79,19 @@ const props = withDefaults(defineProps<{
     columnsToShowInForm?: string[],
     columnsToEditInForm?: string[],
     defaultFilters?: Record<string, any>,
+    /**
+     * Muestra el control de confirmación de asistencia (el botón "Por contactar"
+     * de cada fila y su filtro). Es seguimiento de palancas, así que solo lo
+     * enciende PalancasView; en el resto de las listas estorbaba.
+     */
+    showAttendanceConfirmation?: boolean,
 }>(), {
     isCancelled: false,
     columnsToShowInTable: () => ['id_on_retreat', 'firstName', 'lastName', 'email', 'cellPhone', 'tableMesa.name'],
     columnsToShowInForm: () => [],
     columnsToEditInForm: () => [],
     defaultFilters: () => ({}),
+    showAttendanceConfirmation: false,
 });
 
 const { toast } = useToast();
@@ -616,39 +624,9 @@ const getNestedProperty = (obj: any, path: string) => {
 
 // Función para verificar si el cumpleaños del participante cae durante el retiro
 const hasBirthdayDuringRetreat = (participant: any) => {
-    if (!participant.birthDate) return false;
-
     const currentRetreat = retreatStore.selectedRetreat || retreatStore.mostRecentRetreat;
-    if (!currentRetreat || !currentRetreat.startDate || !currentRetreat.endDate) return false;
-
-    // Parsear la fecha de nacimiento directamente del string
-    const birthDateStr = participant.birthDate;
-    const [birthYear, birthMonth, birthDay] = birthDateStr.split('T')[0].split('-').map(Number);
-
-    // Parsear fechas del retiro evitando desplazamiento de zona horaria
-    const parseLocalDate = (s: string | Date) => {
-        if (s instanceof Date) return s;
-        const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-        return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(s);
-    };
-    const retreatStart = parseLocalDate(currentRetreat.startDate);
-    const retreatEnd = parseLocalDate(currentRetreat.endDate);
-
-    // Verificar cada día del retiro
-    const currentDate = new Date(retreatStart);
-    const endDate = new Date(retreatEnd);
-
-    while (currentDate <= endDate) {
-        const currentMonth = currentDate.getMonth() + 1; // Convertir a 1-indexed
-        const currentDay = currentDate.getDate();
-
-        if (currentMonth === birthMonth && currentDay === birthDay) {
-            return true;
-        }
-        currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    return false;
+    if (!currentRetreat) return false;
+    return hasBirthdayInRetreatDates(participant.birthDate, currentRetreat.startDate, currentRetreat.endDate);
 };
 
 const formatCell = (participant: any, colKey: string) => {
@@ -953,7 +931,10 @@ const applySegment = (seg: SavedSegment) => {
     if (f.paymentStatus) newFilters.paymentStatus = f.paymentStatus;
     if (f.maritalStatus) newFilters.maritalStatus = f.maritalStatus;
     filters.value = newFilters;
-    attendanceFilter.value = f.attendanceFilter || 'all';
+    // Los segmentos son del retiro, no de la vista: aplicar el filtro de
+    // confirmación donde no se muestra el control dejaría la lista filtrada
+    // sin forma de verlo ni quitarlo.
+    attendanceFilter.value = props.showAttendanceConfirmation ? f.attendanceFilter || 'all' : 'all';
     filterStatus.value = f.cancelStatus || 'active';
     searchQuery.value = f.search || '';
     toast({ title: $t('segments.applied', { name: seg.name }) });
@@ -1517,7 +1498,7 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                     </button>
                 </div>
                 <select
-                    v-if="props.type === 'walker'"
+                    v-if="props.showAttendanceConfirmation"
                     v-model="attendanceFilter"
                     class="h-9 shrink-0 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                     :class="{ 'border-blue-500 bg-blue-50 text-blue-600': attendanceFilter !== 'all' }"
@@ -1657,8 +1638,6 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                         <TooltipContent>{{ $t('participants.refresh') }}</TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
-                <!-- Extra actions slot (e.g. reception button from WalkersView) -->
-                <slot name="extra-actions" />
                 <!-- Add Participant -->
                 <TooltipProvider>
                     <Tooltip>
@@ -1739,6 +1718,11 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                             <Printer class="h-4 w-4 mr-2" />
                             {{ $t('common.actions.print') || 'Print' }}
                         </DropdownMenuItem>
+                        <!-- Acciones propias de la vista (cumpleaños y recepción en Caminantes) -->
+                        <template v-if="$slots['extra-menu-items']">
+                            <DropdownMenuSeparator />
+                            <slot name="extra-menu-items" />
+                        </template>
                         <DropdownMenuSeparator />
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -1886,7 +1870,7 @@ const handleKeyboardShortcuts = (event: KeyboardEvent) => {
                         <TableCell class="no-print">
                             <div class="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
                                 <button
-                                    v-if="props.type === 'walker'"
+                                    v-if="props.showAttendanceConfirmation"
                                     type="button"
                                     class="h-7 px-2 mr-1 rounded text-[11px] font-medium border whitespace-nowrap transition-colors"
                                     :class="attendanceMeta(participant.attendanceConfirmation).cls"

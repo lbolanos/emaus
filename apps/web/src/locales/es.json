@@ -1032,6 +1032,12 @@
       }
     },
     "birthdayDuringRetreat": "Cumpleaños durante el retiro",
+    "birthdays": {
+      "title": "Cumpleaños durante el retiro",
+      "summary": "{count} caminante cumple años durante las fechas del retiro | {count} caminantes cumplen años durante las fechas del retiro",
+      "empty": "Ningún caminante cumple años durante las fechas del retiro.",
+      "turningAge": "Cumple {age} años"
+    },
     "selectedCount": "{count} participante seleccionado | {count} participantes seleccionados",
     "clearSelection": "Limpiar selección",
     "selectAll": "Seleccionar todo",
