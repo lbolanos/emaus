@@ -37,7 +37,8 @@ una **vista pública sin auth** (calendario y archivos públicos) para compartir
     referencian por ruta raíz-relativa: así el texto se copia barato a cada retiro sin duplicar
     ~1.3MB de binarios por retiro.
   - Los `.docx` originales siguen versionados al lado como referencia, y se pueden adjuntar como
-    descarga opcional con `includeOriginalDocx` (apagado por defecto).
+    descarga opcional con `includeOriginalDocx` (apagado por defecto). Ya **no** llevan el nombre ni
+    las fechas del retiro de origen — ver *Los .docx originales, sin el retiro de origen* abajo.
 - Retiros existentes: botón **"Configurar y crear"** en la vista admin (semanas, fecha de la primera,
   hora; preview de fechas; `clearExisting` para reemplazar).
 - **Saltar por festivo** (`POST /:id/skip`): registra un `break` en la fecha original y **adelanta
@@ -120,6 +121,18 @@ navegador del usuario y el servidor no se entera.
 - **Rótulos** (`Tema:`, `Objetivo:`): sangría francesa con el rótulo en su columna, como el .docx.
   Se detectan por longitud (≤24) y por acabar en dos puntos: un párrafo entero en negrita no es un
   rótulo y no debe sangrarse.
+- **Imágenes intercaladas** (2026-09-07): al convertir el .docx, la ilustración quedó pegada al
+  texto sin línea en blanco, así que marked la mete **dentro** del párrafo (o del encabezado, caso
+  `## ![](…)` de la 3ª). El renderizador solo dibujaba el párrafo que era *exclusivamente* una
+  imagen, y `flattenInline` descarta el token `image` porque su único texto es el `alt`, vacío en
+  estos documentos: **9 de las 13 imágenes no llegaban al PDF, en silencio**. Ahora el párrafo se
+  parte en tramos por sus imágenes (`drawParagraphBlock`) y el encabezado dibuja las suyas aparte
+  (`drawHeadingBlock`). El `catch` de `drawImage` ya no es mudo: avisa por consola.
+  - Guard: `markdownToPdf.test.ts` cuenta los objetos `/Subtype /Image` con **cuatro PNG
+    distintos y sin canal alfa** — jsPDF reutiliza un XObject para dos imágenes idénticas y añade
+    uno extra como máscara de las que llevan alfa, así que con un solo PNG el conteo miente.
+  - No se arregló tocando las plantillas: los documentos ya están **copiados** en cada retiro, y el
+    coordinador puede escribir su propio markdown en el editor.
 
 ## Impresión a PDF (desde el navegador)
 
@@ -141,6 +154,42 @@ renombró el archivo o subió otro, no se toca. Conserva el `.docx` salvo que se
 `removeLegacy`. Es idempotente. **No hay migración de datos** a propósito — el contenido pudo
 haberse editado a mano.
 
+
+## Los .docx originales, sin el retiro de origen (2026-09-07)
+
+Los `.docx` que se adjuntan como descarga opcional llevaban en **encabezado y pie** el nombre y las
+fechas del retiro del que se copiaron: `Retiro Emaús – Polanco III`, `Preparación Retiro Del Valle 1`,
+`22 de abril 2025`, más un `2015.2012` ilegible recortado contra el margen. Es el mismo problema que
+motivó las plantillas markdown, pero dentro del binario, donde no lo ve ni un test ni una revisión de
+código. Se borraron de los ocho archivos; queda el ordinal de la preparación (`4ta Preparación`), que
+sí es genérico.
+
+- **Cómo se editó**: Word parte una frase en varios `<w:t>` (cada cambio de formato abre un run), así
+  que "Del Valle 1" puede estar repartido entre nodos. Hay que concatenar el texto, buscar ahí y
+  recortar nodo a nodo — **por párrafo, no por parte entera**: al concatenar la parte completa el `1`
+  de "Del Valle 1" queda pegado a la `P` del párrafo siguiente y `\b` deja de existir, así que el
+  patrón no encuentra el final de palabra y no borra nada. Dos de los ocho se escaparon por eso.
+- **Dónde mirar**: no basta `word/document.xml`. Estaba en `header*/footer*`, y en la 2ª y la 7ª
+  además dentro de un cuadro de texto (`w:txbxContent`), duplicado en el `mc:Fallback` de VML — dos
+  copias del mismo rótulo que hay que borrar las dos.
+- **Verificación**: los ocho tienen que abrir en LibreOffice (`--convert-to pdf`) y renderizarse; el
+  zip puede quedar válido y el documento roto.
+
+### Los adjuntos ya copiados
+
+El `.docx` se **copia** al adjuntarse, así que arreglar el fuente no toca los retiros existentes, y
+`resyncDefaultDocuments` conserva el archivo tal cual: solo migra las plantillas markdown.
+`apps/api/scripts/refresh-legacy-preparation-docx.ts` los refresca, y **sobrescribe el mismo objeto
+de S3** (`storageKey`) en vez de borrar y subir de nuevo: la URL que ya se compartió con los
+servidores sigue sirviendo, ahora el archivo limpio. Solo toca los que se llaman exactamente como el
+`legacyFileName` del manifest, y salta los que ya pesan lo que el archivo en disco (idempotente).
+
+- El `.env` local no trae credenciales de AWS: para correrlo desde tu máquina hay que pasarle las del
+  perfil `emaus` del CLI por entorno (`AWS_ACCESS_KEY_ID=$(aws configure get … --profile emaus)`),
+  con `S3_BUCKET_NAME=emaus-media`. En el servidor no hace falta: usa el IAM role.
+- Los objetos se suben con `CacheControl: public, max-age=2592000, immutable`. No hay CDN delante,
+  pero **quien ya descargó el archivo puede seguir viendo el viejo desde la caché de su navegador**
+  hasta 30 días. Si urge, hay que cambiar la key (y con ella la URL).
 
 ## Lecciones aprendidas (2026-08-17)
 
