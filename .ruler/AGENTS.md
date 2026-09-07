@@ -162,7 +162,7 @@ pnpm --filter web test src/components/__tests__/X.ts   # un archivo
 
 - **Una sola corrida de jest a la vez.** Dos procesos comparten la SQLite de test y se cierran el handle entre sí: aparecen fallos fantasma (`SQLITE_MISUSE`) en suites que no tocaste. Verificá con `ps aux | grep "[j]est"` antes de investigar un fallo de la suite.
 
-> Para recetas de tests problemáticos (mocks Jest con ESM, tests 403 con path aliases, componentes con `defineModel` que rompen mocks globales, fallos fantasma por jest concurrente) → skill **`troubleshooting`** (secciones #8, #9, #10, #16).
+> Para recetas de tests problemáticos (mocks Jest con ESM, tests 403 con path aliases, componentes con `defineModel` que rompen mocks globales, fallos fantasma por jest concurrente, vistas que al montarse se quedan en el skeleton porque el test esperó con `nextTick` en vez de `flushPromises`) → skill **`troubleshooting`** (secciones #8, #9, #10, #16, #26).
 
 ### Git hooks (husky) — rápidos por diseño
 

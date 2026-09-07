@@ -36,6 +36,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "al dar clic en elegir foto no sale nada", "el botón de subir archivo no hace nada", "en local no funciona pero en prod sí" | [#23 El selector de archivos no abre: la ref quedó vieja por el hot-reload](#23-el-selector-de-archivos-no-abre-la-ref-quedó-vieja-por-el-hot-reload) |
 | "no me deja seleccionar el país", "se sale al inicio y pierdo el registro", "en el iPhone se cierra solo", "se queda en Cargando…" | [#24 Un paquete de datos entero en un selector tumba Safari iOS](#24-un-paquete-de-datos-entero-en-un-selector-tumba-safari-ios) |
 | "importé el Excel y faltan personas", "subí 140 y salen 108", "el retiro no está abierto para registro público", "cannot start a transaction within a transaction", "hay tres personas en una habitación de dos", "se perdieron las habitaciones que ya había asignado la parroquia" | [#25 La importación del Excel pierde gente en silencio](#25-la-importación-del-excel-pierde-gente-en-silencio) |
+| "Cannot call trigger on an empty DOMWrapper", "el test no encuentra el thead/la fila", "el selector existe en la app pero no en el test", "el `mount()` me da la tabla vacía" (Vitest) | [#26 La vista montada sigue en el skeleton: falta `flushPromises`](#26-la-vista-montada-sigue-en-el-skeleton-falta-flushpromises) |
 
 ---
 
@@ -1000,6 +1001,63 @@ columnas de sacramentos ni `habitacionindividual`, así que esos caminos no se e
 mapeo de sacramentos busca las claves en inglés (`sacramentobaptism`) mientras los export legados
 las traen en español: hay un conversor en `scripts/convert-parish-registrations.py` que ya emite
 las inglesas, así que si se unifica hay que tocar los dos a la vez.
+
+## 26. La vista montada sigue en el skeleton: falta `flushPromises`
+
+**Síntoma** (tests del web, Vitest): un test que monta una vista falla con
+`Error: Cannot call trigger on an empty DOMWrapper` o con `Cannot read properties of undefined`
+al indexar `findAll(...)`. El elemento **existe** en la app real y `w.html()` lo muestra si lo
+imprimís desde otro test del mismo archivo. Lo delator: los tests que **no** esperan nada tras
+`mount()` pasan, y los que hacen `await nextTick()` fallan.
+
+**Causa**: el `onMounted` de la vista es `async` y levanta un flag de carga:
+
+```ts
+onMounted(async () => {
+  loading.value = true
+  try { await participantStore.fetchParticipants() } finally { loading.value = false }
+})
+```
+
+`await nextTick()` cede **un** tick de microtareas: el `loading = true` ya se aplicó pero el
+`finally` todavía no corrió, así que el template está en la rama del skeleton
+(`<div v-if="loading">`) y la tabla real no existe en el DOM. El mensaje de VTU no menciona el
+skeleton, así que se busca el error en el selector, en el mock o en el markup — donde no está.
+
+**Fix en el test** — esperar todas las promesas pendientes, no un tick:
+
+```ts
+const w = mountView(walkers);
+await flushPromises();          // ✅ el finally corre, loading vuelve a false
+await w.find('button[title="Ordenar por mesa"]').trigger('click');
+```
+
+`nextTick()` alcanza para lo que ya está renderizado (un click, un `v-if` que depende de un ref
+local), y de hecho los tests de búsqueda de esa misma vista lo usan sin problema: el input vive
+**fuera** del bloque de `loading`. La regla corta: si el elemento está dentro de una rama que
+depende del flag de carga, `flushPromises`.
+
+**Auditar el repo** — vistas cuyo `onMounted` async mueve un flag de carga:
+```bash
+grep -rlZ "onMounted(async" apps/web/src/views | xargs -0 grep -l "loading.value = true"
+```
+
+**Bonus de la misma familia** — la celda de nombre de las tablas de participantes trae el avatar
+de iniciales dentro del `<td>`, así que `td:nth-child(2)` devuelve `"AGAna García"` y la
+comparación falla por dos letras. El nombre se lee del `span`:
+
+```ts
+const names = w => w.findAll('tbody tr').map(r => r.find('td:nth-child(2) span').text().trim());
+```
+
+**Casos**:
+- 2026-09-06 — `BagsReportView.test.ts` (ordenamiento por mesa/nombre/apellido/talla): 12 tests
+  nuevos en rojo, todos con el mismo mensaje de DOMWrapper vacío; el ordenamiento estaba bien
+  desde el principio. Otros 5 fallos del mismo lote eran el avatar de iniciales.
+
+**Detalle**: `docs/features/bags-report.md` § Tests.
+
+---
 
 ## Cómo agregar un bug nuevo a este skill
 
