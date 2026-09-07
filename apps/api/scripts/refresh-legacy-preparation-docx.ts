@@ -13,13 +13,17 @@
  * regeneran en la propia fila.
  *
  * Solo toca documentos `kind: 'file'` cuyo nombre coincide EXACTO con el
- * `legacyFileName` del manifest: un archivo renombrado o subido por un
- * coordinador no se toca. Es idempotente — salta los que ya pesan lo que el
- * archivo en disco.
+ * `legacyFileName` del manifest, así que un archivo renombrado queda fuera.
+ * Ojo con el límite de eso: si un coordinador subió SU propia versión
+ * conservando el nombre de fábrica, el script la pisa igual — el filtro es el
+ * nombre, no el contenido. Antes de `--apply` sobre una base ajena, mirá el
+ * dry-run: lista el peso actual de cada uno, y el de fábrica es conocido.
+ * Es idempotente: salta los que ya pesan lo que el archivo en disco.
  *
  * Uso (con el API detenido para evitar locks de SQLite):
  *   pnpm --filter api exec vite-node --require dotenv/config scripts/refresh-legacy-preparation-docx.ts
- *   …mismo comando con --apply para escribir de verdad.
+ *   …mismo comando con --apply para escribir de verdad, y --force para
+ *   reprocesar también los que ya pesan lo mismo.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -27,12 +31,14 @@ import { In } from 'typeorm';
 import { AppDataSource } from '../src/data-source';
 import { RetreatPreparationDocument } from '../src/entities/retreatPreparationDocument.entity';
 import { RetreatPreparation } from '../src/entities/retreatPreparation.entity';
-import { DEFAULT_PREPARATION_DOCS } from '../src/data/preparationDocSeeder';
+import { DEFAULT_PREPARATION_DOCS, DOCX_MIME } from '../src/data/preparationDocSeeder';
 import { s3Service } from '../src/services/s3Service';
 
-const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const DOCS_DIR = path.resolve(process.cwd(), 'src/data/preparation-docs');
 const apply = process.argv.includes('--apply');
+// El salto por peso es una heurística: dos versiones distintas del mismo .docx
+// pueden comprimir al mismo número de bytes. `--force` reprocesa todo.
+const force = process.argv.includes('--force');
 
 (async () => {
 	await AppDataSource.initialize();
@@ -56,7 +62,7 @@ const apply = process.argv.includes('--apply');
 		const where = `retiro ${prep?.retreatId ?? '?'} · semana ${prep?.weekNumber ?? '?'}`;
 		const storage = doc.storageKey ? `S3 ${doc.storageKey}` : 'inline';
 
-		if (doc.sizeBytes === buffer.byteLength) {
+		if (!force && doc.sizeBytes === buffer.byteLength) {
 			console.log(`  = ${doc.fileName} · ${where} · ya al día (${doc.sizeBytes} B)`);
 			skipped++;
 			continue;

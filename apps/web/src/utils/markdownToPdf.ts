@@ -353,13 +353,27 @@ function trimInline(tokens: Token[]): Token[] {
 	while (end > start && isBlankInline(tokens[end - 1])) end--;
 	const out = tokens.slice(start, end);
 	if (!out.length) return out;
+	// `escape` cuenta como texto igual que en `isBlankInline`: si uno de los dos
+	// mira un tipo que el otro ignora, un extremo se queda sin recortar.
+	const trimmable = (token: Token) => token.type === 'text' || token.type === 'escape';
 	const first = out[0] as Tokens.Text;
-	if (first.type === 'text') out[0] = { ...first, text: first.text.replace(/^\s+/, '') } as Token;
+	if (trimmable(first)) out[0] = { ...first, text: first.text.replace(/^\s+/, '') } as Token;
 	const last = out[out.length - 1] as Tokens.Text;
-	if (last.type === 'text') {
+	if (trimmable(last)) {
 		out[out.length - 1] = { ...last, text: last.text.replace(/\s+$/, '') } as Token;
 	}
 	return out;
+}
+
+/** Separa las imágenes de un tramo inline; el resto queda para escribir. */
+function splitImages(tokens: Token[]): { images: string[]; text: Token[] } {
+	const images: string[] = [];
+	const text: Token[] = [];
+	for (const token of tokens) {
+		if (token.type === 'image') images.push((token as Tokens.Image).href);
+		else text.push(token);
+	}
+	return { images, text };
 }
 
 /**
@@ -396,6 +410,11 @@ async function drawParagraphBlock(ctx: Ctx, token: Tokens.Paragraph) {
  * Encabezado que puede llevar una imagen. `## ![](…)` existe en la 3ª
  * preparación: el texto resultante era vacío y `drawHeading` se iba de largo,
  * perdiendo la imagen y el encabezado enteros.
+ *
+ * Solo distingue "antes del texto" y "después del texto": un encabezado con dos
+ * imágenes y texto entre medias las dibujaría las dos al final. No se afina más
+ * a propósito — respetar ese orden obligaría a partir el encabezado en varios,
+ * que tipográficamente es peor que el caso que arregla.
  */
 async function drawHeadingBlock(ctx: Ctx, token: Tokens.Heading) {
 	const before: string[] = [];
@@ -418,7 +437,12 @@ async function drawHeadingBlock(ctx: Ctx, token: Tokens.Heading) {
 	for (const href of after) await drawImage(ctx, href);
 }
 
-function drawList(ctx: Ctx, token: Tokens.List) {
+/**
+ * Lista. Un ítem también puede llevar imágenes —el editor in-app deja escribir
+ * `- ![](…) texto`— y `flattenInline` las tira igual que en un párrafo, así que
+ * se sacan aparte y se dibujan bajo el texto del ítem.
+ */
+async function drawList(ctx: Ctx, token: Tokens.List) {
 	for (const [index, item] of token.items.entries()) {
 		const bullet = token.ordered ? `${(Number(token.start) || 1) + index}.` : '•';
 		ensureSpace(ctx, 5);
@@ -426,20 +450,26 @@ function drawList(ctx: Ctx, token: Tokens.List) {
 		ctx.doc.setFontSize(10.5);
 		ctx.doc.setTextColor(...STEEL);
 		ctx.doc.text(bullet, MARGIN_X + 2, ctx.y);
-		const pieces = flattenInline(
-			(item.tokens ?? []).flatMap((t) =>
-				t.type === 'text' || t.type === 'paragraph' ? ((t as Tokens.Text).tokens ?? [t]) : [t],
-			) as Token[],
-		);
-		writeRich(ctx, pieces, { indent: 7, width: CONTENT_W - 7 });
+		const inline = (item.tokens ?? []).flatMap((t) =>
+			t.type === 'text' || t.type === 'paragraph' ? ((t as Tokens.Text).tokens ?? [t]) : [t],
+		) as Token[];
+		const { images, text } = splitImages(inline);
+		writeRich(ctx, flattenInline(text), { indent: 7, width: CONTENT_W - 7 });
+		for (const href of images) await drawImage(ctx, href);
 		ctx.y += 0.8;
 	}
 	ctx.y += 1.6;
 }
 
-function drawBlockquote(ctx: Ctx, token: Tokens.Blockquote) {
+async function drawBlockquote(ctx: Ctx, token: Tokens.Blockquote) {
 	const { doc } = ctx;
 	const paragraphs = (token.tokens ?? []).filter((t) => t.type === 'paragraph');
+	// Las imágenes de la cita van DEBAJO del recuadro: meterlas dentro obligaría
+	// a que la medición previa —que es lo que decide el alto del fondo— las
+	// tuviera en cuenta, y esa medición corre antes de saber cuánto ocupan.
+	const quoteImages = paragraphs.flatMap(
+		(child) => splitImages((child as Tokens.Paragraph).tokens ?? []).images,
+	);
 	const quoteOpts = { color: TEAL, italic: true, indent: 7, width: CONTENT_W - 11 } as const;
 
 	// Medir antes de pintar: el fondo tiene que ir DEBAJO del texto, así que
@@ -473,6 +503,7 @@ function drawBlockquote(ctx: Ctx, token: Tokens.Blockquote) {
 		ctx.y += 1.4;
 	}
 	ctx.y = fits ? top + boxHeight + 3 : ctx.y + 2;
+	for (const href of quoteImages) await drawImage(ctx, href);
 }
 
 function drawTable(ctx: Ctx, token: Tokens.Table) {
@@ -600,10 +631,10 @@ export async function buildPreparationPdf(input: PdfDocumentInput): Promise<Blob
 				await drawParagraphBlock(ctx, token as Tokens.Paragraph);
 				break;
 			case 'list':
-				drawList(ctx, token as Tokens.List);
+				await drawList(ctx, token as Tokens.List);
 				break;
 			case 'blockquote':
-				drawBlockquote(ctx, token as Tokens.Blockquote);
+				await drawBlockquote(ctx, token as Tokens.Blockquote);
 				break;
 			case 'table':
 				drawTable(ctx, token as Tokens.Table);

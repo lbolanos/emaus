@@ -219,4 +219,14 @@ describe('buildPreparationPdf — imágenes intercaladas', () => {
 		const titles = outlineTitlesDecoded(await buildRaw(`## ${img(1)} Lecturas`));
 		expect(titles).toContain('Lecturas');
 	});
+
+	// El editor in-app deja escribir markdown libre, así que la imagen puede caer
+	// en una lista o en una cita. Ahí `flattenInline` la tira igual que en un
+	// párrafo: mismo bug, otro tipo de bloque.
+	it('también incrusta las de una lista y las de una cita', async () => {
+		const pdf = await buildRaw(
+			[`- ${img(1)} primer punto`, '- segundo punto', '', `> ${img(2)} una cita`].join('\n'),
+		);
+		expect(countImages(pdf)).toBe(2);
+	});
 });
