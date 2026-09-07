@@ -162,6 +162,14 @@ export function makeDateInTimezone(
  */
 const timeZoneVerdicts = new Map<string, boolean>();
 
+/**
+ * Tope del caché. Los valores legítimos son unas pocas decenas (una zona por
+ * community o retiro), pero la columna admite texto libre, así que sin tope un
+ * proceso de larga vida alimentado con basura distinta acumularía entradas para
+ * siempre. Al llenarse se vacía entero: recalcular es un `Intl` por zona.
+ */
+const MAX_CACHED_TIMEZONES = 500;
+
 export function resolveSafeTimeZone(
 	tz: string | null | undefined,
 	fallback = 'America/Mexico_City',
@@ -176,6 +184,7 @@ export function resolveSafeTimeZone(
 		} catch {
 			valid = false;
 		}
+		if (timeZoneVerdicts.size >= MAX_CACHED_TIMEZONES) timeZoneVerdicts.clear();
 		timeZoneVerdicts.set(tz, valid);
 		if (!valid) {
 			console.warn(

@@ -87,6 +87,15 @@ describe('resolveSafeTimeZone', () => {
 		expect(resolveSafeTimeZone('basura', 'Asia/Tokyo')).toBe('Asia/Tokyo');
 	});
 
+	it('el caché no crece sin límite con entradas inválidas', () => {
+		// La columna admite texto libre; un proceso de larga vida no debe acumular
+		// una entrada por cada valor distinto que le llegue.
+		for (let i = 0; i < 600; i++) resolveSafeTimeZone(`no/existe-${i}`);
+		// Sigue resolviendo bien tras el vaciado.
+		expect(resolveSafeTimeZone('Europe/Madrid')).toBe('Europe/Madrid');
+		expect(resolveSafeTimeZone('basura')).toBe('America/Mexico_City');
+	});
+
 	it('dayBoundsInTimezone no revienta con una zona inválida', () => {
 		const instant = new Date('2026-09-03T02:00:00.000Z');
 		expect(() => dayBoundsInTimezone(instant, 'no/existe')).not.toThrow();
