@@ -33,6 +33,12 @@ apps/api/prod-*.sqlite.gz
 *.timestamp-*.mjs
 # Logs de auditoría de dominio a archivo (NDJSON rotado por winston-daily-rotate-file)
 apps/api/logs/
+# El mismo directorio, pero en la raíz: el logger resuelve la ruta contra
+# process.cwd(), así que aparece acá cuando algo corre desde la raíz del monorepo
+# (un test, un script). Su estado de rotación guarda rutas absolutas de la máquina
+# y el repo es público. Va FUERA del bloque de ruler a propósito: ruler reescribe
+# su bloque entero y se llevaría esta línea sin avisar.
+logs/
 # Generated files from build/compilation
 dist/
 .vite/
