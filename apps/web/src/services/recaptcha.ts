@@ -105,6 +105,25 @@ function warmOnFirstFieldFocus(): void {
 }
 
 /**
+ * Fetch the script now, for screens whose only action is a submit.
+ *
+ * `warmOnFirstFieldFocus` covers a form: you focus a field seconds before
+ * pressing the button. But a screen where the visitor arrives and taps straight
+ * away — accepting an invitation, marking attendance from a list — has no focus
+ * to hook, and `getRecaptchaToken` would fetch ~0.8 MB with the tap already
+ * made. Those call this on mount instead.
+ */
+export function warmRecaptcha(): void {
+	if (!isRecaptchaConfigured()) {
+		return;
+	}
+
+	loadRecaptchaScript().catch(() => {
+		// Silent fail — the script is retried when the first token is requested.
+	});
+}
+
+/**
  * Plugin to install reCAPTCHA in the Vue app
  */
 export function installRecaptcha(app: App): void {

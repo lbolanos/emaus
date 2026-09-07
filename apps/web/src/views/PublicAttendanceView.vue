@@ -263,7 +263,7 @@ import { useI18n } from 'vue-i18n';
 import { Search, Check, Users, AlertCircle, Loader2, UserPlus, Calendar, Phone } from 'lucide-vue-next';
 import { Input } from '@repo/ui';
 import { resolveMemberProfile } from '@repo/utils';
-import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha';
+import { getRecaptchaToken, RECAPTCHA_ACTIONS, warmRecaptcha } from '@/services/recaptcha';
 import { formatMeetingDate } from '@/utils/meetingFlyer';
 import PublicJoinRequestModal from '@/components/community/PublicJoinRequestModal.vue';
 import { getPublicAttendance, togglePublicAttendance } from '@/services/api';
@@ -367,6 +367,9 @@ const toggleAttendance = async (member: any) => {
 };
 
 onMounted(async () => {
+  // Se marca asistencia tocando un nombre de la lista: el buscador de arriba es
+  // opcional, así que no se puede contar con que alguien enfoque un campo.
+  warmRecaptcha();
   try {
     const data = await getPublicAttendance(communityId, meetingId);
     members.value = data.members || [];

@@ -65,6 +65,31 @@ describe('boot payload', () => {
 		);
 	});
 
+	// The lazy load hangs off focusing a form field, so a screen whose only action
+	// is a tap would fetch ~0.8 MB with the tap already made. Found by review on
+	// `AcceptCommunityInvitationView`, which has no field at all.
+	//
+	// Limitation worth knowing: this only catches a screen with *no* field. A
+	// field that exists but sits off the path — the optional search box on
+	// `PublicAttendanceView`, where attendance is marked by tapping a name — looks
+	// fine here and has to be reasoned about by hand.
+	it('every screen asking for a token can get it in time', () => {
+		const offenders = walk(SRC)
+			.filter((file) => !file.endsWith('services/recaptcha.ts'))
+			.filter((file) => {
+				const source = readFileSync(file, 'utf-8');
+				if (!source.includes('getRecaptchaToken')) return false;
+				const hasField = /<[Ii]nput|<textarea|<select/.test(source);
+				return !hasField && !source.includes('warmRecaptcha');
+			})
+			.map((file) => file.replace(SRC, ''));
+
+		expect(
+			offenders,
+			`Estas pantallas piden captcha sin campo que enfocar ni warmRecaptcha(): ${offenders.join(', ')}`,
+		).toEqual([]);
+	});
+
 	it('reCAPTCHA is not fetched at install time', () => {
 		const service = code(read('services/recaptcha.ts'));
 		const start = service.indexOf('export function installRecaptcha');

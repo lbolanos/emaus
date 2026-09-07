@@ -130,6 +130,24 @@ describe('recaptcha service', () => {
 			expect(createElementMock).not.toHaveBeenCalledWith('script');
 		});
 
+		it('warmRecaptcha fetches it now, for screens with no field to focus', async () => {
+			vi.stubEnv('VITE_RECAPTCHA_SITE_KEY', 'real-site-key-abc123');
+
+			const { warmRecaptcha: warm } = await import('@/services/recaptcha');
+			warm();
+
+			expect(createElementMock).toHaveBeenCalledWith('script');
+		});
+
+		it('warmRecaptcha does nothing when reCAPTCHA is not configured', async () => {
+			vi.stubEnv('VITE_RECAPTCHA_SITE_KEY', '');
+
+			const { warmRecaptcha: warm } = await import('@/services/recaptcha');
+			expect(() => warm()).not.toThrow();
+
+			expect(createElementMock).not.toHaveBeenCalledWith('script');
+		});
+
 		it('should not throw when not configured', async () => {
 			vi.stubEnv('VITE_RECAPTCHA_SITE_KEY', '');
 
