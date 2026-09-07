@@ -127,7 +127,9 @@ navegador del usuario y el servidor no se entera.
   imagen, y `flattenInline` descarta el token `image` porque su único texto es el `alt`, vacío en
   estos documentos: **9 de las 13 imágenes no llegaban al PDF, en silencio**. Ahora el párrafo se
   parte en tramos por sus imágenes (`drawParagraphBlock`) y el encabezado dibuja las suyas aparte
-  (`drawHeadingBlock`). El `catch` de `drawImage` ya no es mudo: avisa por consola.
+  (`drawHeadingBlock`). Lo mismo en listas y citas: el editor in-app deja escribir
+  `- ![](…) texto`, y ahí `flattenInline` las tiraba igual. El `catch` de `drawImage` ya no es
+  mudo: avisa por consola.
   - Guard: `markdownToPdf.test.ts` cuenta los objetos `/Subtype /Image` con **cuatro PNG
     distintos y sin canal alfa** — jsPDF reutiliza un XObject para dos imágenes idénticas y añade
     uno extra como máscara de las que llevan alfa, así que con un solo PNG el conteo miente.

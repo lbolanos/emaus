@@ -113,6 +113,17 @@ incremental del catálogo, ver skill personal `pdf-membretado`).
   `pyftsubset` los deja en ~60 KB cada uno.
 - **Versalitas**: jsPDF no tiene small-caps; se simulan escribiendo carácter a carácter con el
   tamaño reducido en las minúsculas.
+- **Imágenes pegadas al texto** (2026-09-07): si el markdown no deja una línea en blanco entre la
+  imagen y el párrafo, marked **no** emite un bloque `image` — la mete DENTRO del párrafo (o del
+  encabezado, en `## ![](…)`). Un renderizador que solo dibuje el párrafo que es *exclusivamente*
+  una imagen las pierde, y en silencio: `flattenInline` descarta el token `image` porque su único
+  texto es el `alt`, que suele venir vacío. Hay que partir el bloque en tramos por sus imágenes.
+  Se comió 9 de las 13 imágenes de las preparaciones durante tres semanas. Y cubrir los **cuatro**
+  tipos de bloque: párrafo, encabezado, ítem de lista y cita — arreglar solo el párrafo deja el
+  mismo bug vivo en `- ![](…) texto`, que el editor in-app permite escribir.
+- **`fetch` de la imagen, no `<img>`**: jsPDF necesita los bytes, así que el PDF del cliente pide
+  cada imagen por HTTP. Un `catch` mudo ahí convierte "el asset no está desplegado" en un PDF sin
+  fotos y sin ningún error: dejar al menos un `console.warn`.
 
 ## Verificar un PDF
 
@@ -129,6 +140,16 @@ python3 -c "d=open('salida.pdf','rb').read(); print('/UseOutlines' in str(d))"
 Para comprobar que los marcadores conservan sus espacios (el bug del BOM que documenta
 `pdf-membretado`), decodificar los `/Title`: los que empiezan por `FEFF` son UTF-16BE.
 
+**Contar las imágenes incrustadas** — `grep -c '/Subtype */Image'` sobre el PDF, pero el número
+no es la cuenta ingenua y por eso conviene afirmar `>=`, nunca `==`:
+
+- jsPDF **reutiliza un solo XObject** para dos imágenes idénticas. Un test que incruste cuatro
+  veces el mismo PNG y espere 4 encuentra 1, y parece un bug del renderizador que no existe.
+- Cada PNG con **canal alfa** (colorType 4 o 6) añade un XObject extra como máscara, así que suma
+  2 por imagen. `python3 -c "print(open('x.png','rb').read()[25])"` da el colorType.
+
+Para un test determinista: tantos PNG distintos como imágenes, y sin alfa.
+
 ## Testing
 
 - `apps/web/src/utils/__tests__/markdownToPdf.test.ts` — composición de texto (`toUnits`) y
@@ -138,6 +159,9 @@ Para comprobar que los marcadores conservan sus espacios (el bug del BOM que doc
   popup bloqueado.
 - `apps/web/src/composables/__tests__/usePreparationPdf.test.ts` — que se use `renderedContent` y
   no la plantilla cruda.
+- `apps/web/tests/e2e/preparation-pdf-images.spec.ts` — el botón de verdad, contra el stack de
+  dev: los unitarios no ven que las imágenes se piden por HTTP, así que un deploy sin los assets
+  daría un PDF sin fotos con toda la suite en verde.
 
 ## Archivos clave
 

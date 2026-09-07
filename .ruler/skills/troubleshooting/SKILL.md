@@ -38,6 +38,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "importé el Excel y faltan personas", "subí 140 y salen 108", "el retiro no está abierto para registro público", "cannot start a transaction within a transaction", "hay tres personas en una habitación de dos", "se perdieron las habitaciones que ya había asignado la parroquia" | [#25 La importación del Excel pierde gente en silencio](#25-la-importación-del-excel-pierde-gente-en-silencio) |
 | "Cannot call trigger on an empty DOMWrapper", "el test no encuentra el thead/la fila", "el selector existe en la app pero no en el test", "el `mount()` me da la tabla vacía" (Vitest) | [#26 La vista montada sigue en el skeleton: falta `flushPromises`](#26-la-vista-montada-sigue-en-el-skeleton-falta-flushpromises) |
 | "el test que lee un archivo del repo revienta con ERR_INVALID_URL_SCHEME" | [#27 `import.meta.url` no es una URL file: bajo `src/test/`](#27-importmetaurl-no-es-una-url-file-bajo-srctest) |
+| "el PDF no trae las imágenes", "en el Word sí se ven y en el PDF no", "salen solo algunas fotos", "falta el dibujo de la charla" | [#28 El PDF pierde las imágenes que van pegadas al texto](#28-el-pdf-pierde-las-imágenes-que-van-pegadas-al-texto) |
 
 ---
 
@@ -1124,6 +1125,41 @@ producción: en un test de Vitest no hay bundle.
 **Casos**: 2026-09-07 `src/test/bootPayload.test.ts`.
 
 ---
+
+## 28. El PDF pierde las imágenes que van pegadas al texto
+
+**Síntoma**: el usuario compara el `.docx` original con el PDF que baja la app y faltan fotos.
+No falta ninguna en concreto: **algunas** salen y otras no, sin patrón aparente para quien mira.
+En las preparaciones llegaban 4 de 13. Ningún test en rojo, ningún error en consola.
+
+**Causa**: el markdown que salió de convertir un `.docx` deja la imagen pegada al párrafo, sin
+línea en blanco. marked entonces **no** emite un bloque `image`: la mete dentro del `paragraph`
+(o del `heading`, en `## ![](…)`). Un renderizador que sólo dibuje el párrafo cuyo único token es
+la imagen se salta todas las demás, y `flattenInline` las tira sin ruido porque el único texto de
+un token `image` es su `alt`, vacío en estos documentos.
+
+Las que sobreviven son justo las que quedaron con una línea en blanco a cada lado — de ahí que
+parezca aleatorio.
+
+**Fix**: partir el bloque en tramos por sus tokens `image` y dibujar cada tramo en orden;
+recortar los blancos del tramo que sigue a una imagen o el rótulo pierde su sangría.
+`drawParagraphBlock` / `drawHeadingBlock` en `apps/web/src/utils/markdownToPdf.ts`.
+
+**Auditar el repo**:
+
+```bash
+# ¿Alguna plantilla tiene una imagen pegada a texto (sin línea en blanco)?
+grep -n -A1 '^!\[' apps/api/src/data/preparation-docs/*.md | grep -v '^--$' | grep -B0 '\S'
+# ¿Cuántas imágenes llegan de verdad al PDF? (ojo: >= , nunca ==)
+grep -c '/Subtype */Image' salida.pdf
+```
+
+**Casos**: 2026-09-07, `apps/web/src/utils/markdownToPdf.ts` — 9 de 13 imágenes perdidas en los
+documentos de las preparaciones durante tres semanas.
+
+**Detalle**: skill `printable-documents` (por qué el conteo de `/Subtype /Image` engaña: jsPDF
+deduplica imágenes idénticas y añade una máscara por cada PNG con alfa) y
+`docs/features/retreat-preparations.md`.
 
 ## Cómo agregar un bug nuevo a este skill
 
