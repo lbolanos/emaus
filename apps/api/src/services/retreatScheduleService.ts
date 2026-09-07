@@ -10,7 +10,7 @@ import { Participant } from '../entities/participant.entity';
 import { participantAvailabilityService } from './participantAvailabilityService';
 import { Responsability } from '../entities/responsability.entity';
 import { Retreat } from '../entities/retreat.entity';
-import { makeDateInTimezone } from '../utils/date.transformer';
+import { makeDateInTimezone, dayBoundsInTimezone } from '../utils/date.transformer';
 import { afterMidnightDayOffset } from '@repo/types';
 import archiver from 'archiver';
 import type { Readable, Writable } from 'stream';
@@ -1610,10 +1610,13 @@ export class RetreatScheduleService {
 			order: { startTime: 'ASC' },
 		});
 
+		// El día del retiro se delimita en la zona del retiro, no en la del proceso.
+		// Con la medianoche del server (Etc/UTC en producción) "hoy" arrancaba a las
+		// 18:00 CDMX de la víspera, y los items de tarde-noche se contaban en el día
+		// equivocado en el progreso del dashboard.
+		const timezone = await this.resolveRetreatTimezone(retreatId);
 		const now = new Date();
-		const todayStart = new Date(now);
-		todayStart.setHours(0, 0, 0, 0);
-		const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+		const { start: todayStart, end: todayEnd } = dayBoundsInTimezone(now, timezone);
 
 		const todayItems = items.filter(
 			(it) => it.startTime >= todayStart && it.startTime < todayEnd,

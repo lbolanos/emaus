@@ -68,7 +68,10 @@ import { Responsability } from "../entities/responsability.entity";
 import { ParticipantCommunication } from "../entities/participantCommunication.entity";
 import { CommunityMember } from "../entities/communityMember.entity";
 import { CommunityMeeting } from "../entities/communityMeeting.entity";
-import { calculateNextOccurrence } from "../utils/recurrenceUtils";
+import {
+  calculateNextOccurrence,
+  DEFAULT_RECURRENCE_TIMEZONE,
+} from "../utils/recurrenceUtils";
 import { retreatFeeForType } from "../utils/retreatCharges";
 import { RetreatScheduleItem } from "../entities/retreatScheduleItem.entity";
 import { emitReceptionCheckin } from "../realtime";
@@ -1041,6 +1044,9 @@ export const findNextMeetingForParticipant = async (
           recurringTemplate.recurrenceInterval,
           recurringTemplate.recurrenceDayOfWeek ?? null,
           recurringTemplate.recurrenceDayOfMonth ?? null,
+          // La query hace leftJoinAndSelect de la community justamente para esto.
+          (recurringTemplate as any).community?.timezone ||
+            DEFAULT_RECURRENCE_TIMEZONE,
         );
         if (!next) {
           cursor = null as any;

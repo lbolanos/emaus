@@ -146,3 +146,42 @@ export function makeDateInTimezone(
 	const offset = tzAsUtc - utcGuess.getTime();
 	return new Date(utcGuess.getTime() - offset);
 }
+
+/**
+ * Límites del día natural (`[start, end)`) tal como lo vive un observador en
+ * `tz`, para el instante `instant`.
+ *
+ * `new Date().setHours(0,0,0,0)` da la medianoche del **proceso**: en el server
+ * de producción (Etc/UTC) "hoy" arranca a las 18:00 CDMX de la víspera, así que
+ * todo lo que ocurre de tarde-noche cae en el día equivocado.
+ *
+ * El fin del día se calcula sumando un día **civil** y volviendo a resolver la
+ * medianoche, no sumando 24 horas: un día con cambio de horario dura 23 o 25.
+ */
+export function dayBoundsInTimezone(instant: Date, tz: string): { start: Date; end: Date } {
+	const parts = new Intl.DateTimeFormat('en-CA', {
+		timeZone: tz,
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+	}).formatToParts(instant);
+	const get = (k: string): number => Number(parts.find((p) => p.type === k)?.value ?? '0');
+	const y = get('year');
+	const m0 = get('month') - 1;
+	const d = get('day');
+
+	const nextCivilDay = new Date(Date.UTC(y, m0, d));
+	nextCivilDay.setUTCDate(nextCivilDay.getUTCDate() + 1);
+
+	return {
+		start: makeDateInTimezone(y, m0, d, 0, 0, tz),
+		end: makeDateInTimezone(
+			nextCivilDay.getUTCFullYear(),
+			nextCivilDay.getUTCMonth(),
+			nextCivilDay.getUTCDate(),
+			0,
+			0,
+			tz,
+		),
+	};
+}

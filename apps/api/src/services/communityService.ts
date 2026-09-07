@@ -9,7 +9,7 @@ import { UserRole } from '../entities/userRole.entity';
 import { Participant } from '../entities/participant.entity';
 import { MemberState } from '@repo/types';
 import { In, MoreThanOrEqual, Not } from 'typeorm';
-import { calculateNextOccurrence } from '../utils/recurrenceUtils';
+import { calculateNextOccurrence, nextWeekdayOccurrence } from '../utils/recurrenceUtils';
 import { EmailService } from './emailService';
 import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { imageService } from './imageService';
@@ -1477,13 +1477,20 @@ export class CommunityService {
 			throw new Error('Meeting is not a recurrence template');
 		}
 
-		// 3. Calculate next occurrence
+		// 3. Calculate next occurrence. Anchored to the community's timezone:
+		//    `startDate` is a UTC instant, and the weekday/day-of-month it falls on
+		//    in UTC is not the one its members see on the wall clock.
+		const community = await this.communityRepo.findOne({
+			where: { id: meeting.communityId },
+			select: ['id', 'timezone'],
+		});
 		const nextStartDate = calculateNextOccurrence(
 			meeting.startDate,
 			meeting.recurrenceFrequency,
 			meeting.recurrenceInterval,
 			meeting.recurrenceDayOfWeek,
 			meeting.recurrenceDayOfMonth,
+			getCommunityTimezone(community),
 		);
 
 		if (!nextStartDate) {
@@ -1671,23 +1678,11 @@ export class CommunityService {
 		return this.communityRepo.save(community);
 	}
 
-	private getNextDayOfWeekDate(dayOfWeek: string, time: string): Date {
-		const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-		const targetDay = days.indexOf(dayOfWeek.toLowerCase());
-		if (targetDay < 0) return new Date();
-
+	private getNextDayOfWeekDate(dayOfWeek: string, time: string, timeZone: string): Date {
 		const [hours, minutes] = time.split(':').map(Number);
-		const now = new Date();
-		const result = new Date(now);
-		result.setHours(hours, minutes, 0, 0);
-
-		const currentDay = result.getDay();
-		let diff = targetDay - currentDay;
-		if (diff < 0 || (diff === 0 && result <= now)) {
-			diff += 7;
-		}
-		result.setDate(result.getDate() + diff);
-		return result;
+		// El día y la hora se interpretan en la zona de la community, no en la del
+		// proceso: en el server UTC, '19:45' se guardaba como 19:45Z (13:45 CDMX).
+		return nextWeekdayOccurrence(dayOfWeek, hours, minutes, timeZone) ?? new Date();
 	}
 
 	private async createDefaultMeetingForCommunity(community: Community) {
@@ -1702,6 +1697,7 @@ export class CommunityService {
 		const startDate = this.getNextDayOfWeekDate(
 			community.defaultMeetingDayOfWeek,
 			community.defaultMeetingTime,
+			getCommunityTimezone(community),
 		);
 
 		const durationMinutes = community.defaultMeetingDurationMinutes ?? 90;
@@ -3252,6 +3248,7 @@ export class CommunityService {
 							t.recurrenceInterval ?? 1,
 							t.recurrenceDayOfWeek ?? null,
 							t.recurrenceDayOfMonth ?? null,
+							getCommunityTimezone(m.community),
 						);
 						if (!next) break;
 						candidate = next;

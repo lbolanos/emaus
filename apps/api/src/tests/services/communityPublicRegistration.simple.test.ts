@@ -19,6 +19,7 @@ import {
 	CommunityStatusEnum,
 	DayOfWeekEnum,
 } from '@repo/types';
+import { nextWeekdayOccurrence } from '@/utils/recurrenceUtils';
 
 const validBody = {
 	name: 'Comunidad de Prueba',
@@ -235,58 +236,71 @@ describe('CommunityStatusEnum / DayOfWeekEnum', () => {
 });
 
 /**
- * Helper inlined: replica de `getNextDayOfWeekDate` (private en
- * communityService.ts). Se prueba aquí para no exponerlo.
+ * Horario por defecto de una community recién aprobada.
+ *
+ * Antes este bloque replicaba inline la implementación privada de
+ * `getNextDayOfWeekDate` — un test que se confirmaba a sí mismo y que no vio
+ * pasar el bug de zona horaria: en el server UTC, "miércoles 19:00" quedaba
+ * guardado como 19:00Z, es decir 13:00 en CDMX y, según la fecha, en el día
+ * equivocado. Ahora importa la función real y assertá sobre el reloj de pared
+ * de la community, no sobre los getters locales de `Date`.
  */
-function getNextDayOfWeekDate(dayOfWeek: string, time: string, now: Date): Date {
-	const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-	const targetDay = days.indexOf(dayOfWeek.toLowerCase());
-	if (targetDay < 0) return new Date(now);
+describe('nextWeekdayOccurrence (lógica del horario por defecto)', () => {
+	const CDMX = 'America/Mexico_City';
+	// Jueves 7 de mayo de 2026 a las 12:00 en CDMX.
+	const now = new Date('2026-05-07T18:00:00.000Z');
 
-	const [hours, minutes] = time.split(':').map(Number);
-	const result = new Date(now);
-	result.setHours(hours, minutes, 0, 0);
-
-	const currentDay = result.getDay();
-	let diff = targetDay - currentDay;
-	if (diff < 0 || (diff === 0 && result <= now)) {
-		diff += 7;
-	}
-	result.setDate(result.getDate() + diff);
-	return result;
-}
-
-describe('getNextDayOfWeekDate (lógica del horario por defecto)', () => {
-	// Jueves 7 de mayo de 2026 a las 12:00
-	const now = new Date('2026-05-07T12:00:00');
+	const wallClock = (date: Date) => {
+		const parts = new Intl.DateTimeFormat('en-US', {
+			timeZone: CDMX,
+			hourCycle: 'h23',
+			weekday: 'short',
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit',
+		}).formatToParts(date);
+		const at = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
+		return {
+			weekday: at('weekday'),
+			date: `${at('year')}-${at('month')}-${at('day')}`,
+			time: `${at('hour')}:${at('minute')}`,
+		};
+	};
 
 	it('devuelve el próximo miércoles si hoy es jueves', () => {
-		const next = getNextDayOfWeekDate('wednesday', '19:00', now);
-		// Miércoles 13 de mayo
-		expect(next.getDay()).toBe(3);
-		expect(next.getDate()).toBe(13);
-		expect(next.getHours()).toBe(19);
-		expect(next.getMinutes()).toBe(0);
+		const next = nextWeekdayOccurrence('wednesday', 19, 0, CDMX, now)!;
+		expect(wallClock(next)).toEqual({
+			weekday: 'Wed',
+			date: '2026-05-13',
+			time: '19:00',
+		});
 	});
 
 	it('devuelve el siguiente jueves (no hoy mismo) si la hora ya pasó', () => {
-		// Si la reunión es jueves y hoy es jueves a las 12:00, pero la hora pedida es 10:00, ya pasó
-		const next = getNextDayOfWeekDate('thursday', '10:00', now);
-		// Jueves 14 de mayo (la próxima semana)
-		expect(next.getDay()).toBe(4);
-		expect(next.getDate()).toBe(14);
+		// La reunión es jueves 10:00 y hoy es jueves 12:00: ya pasó.
+		const next = nextWeekdayOccurrence('thursday', 10, 0, CDMX, now)!;
+		expect(wallClock(next).date).toBe('2026-05-14');
 	});
 
 	it('devuelve hoy si la hora pedida aún no pasó (mismo día de la semana)', () => {
-		const next = getNextDayOfWeekDate('thursday', '20:00', now);
-		// Jueves 7 de mayo a las 20:00
-		expect(next.getDay()).toBe(4);
-		expect(next.getDate()).toBe(7);
-		expect(next.getHours()).toBe(20);
+		const next = nextWeekdayOccurrence('thursday', 20, 0, CDMX, now)!;
+		expect(wallClock(next)).toEqual({
+			weekday: 'Thu',
+			date: '2026-05-07',
+			time: '20:00',
+		});
 	});
 
 	it('respeta dayOfWeek case-insensitive', () => {
-		const next = getNextDayOfWeekDate('FRIDAY', '08:00', now);
-		expect(next.getDay()).toBe(5);
+		const next = nextWeekdayOccurrence('FRIDAY', 8, 0, CDMX, now)!;
+		expect(wallClock(next).weekday).toBe('Fri');
+	});
+
+	it('la hora se fija en la zona de la community, no en la del proceso', () => {
+		// El fallo original: 19:00 se guardaba como 19:00Z = 13:00 CDMX.
+		const next = nextWeekdayOccurrence('wednesday', 19, 0, CDMX, now)!;
+		expect(next.toISOString()).toBe('2026-05-14T01:00:00.000Z');
 	});
 });
