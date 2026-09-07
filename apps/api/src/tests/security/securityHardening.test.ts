@@ -1087,13 +1087,110 @@ describe('HIGH-P3-5: XSS prevention with DOMPurify in frontend components', () =
 		expect(widgetFile).toContain('DOMPurify.sanitize');
 	});
 
-	it('RetreatFlyerView should sanitize paymentInfo with DOMPurify', () => {
-		const flyerFile = fs.readFileSync(
-			path.join(__dirname, '../../../../web/src/views/RetreatFlyerView.vue'),
-			'utf8',
-		);
-		expect(flyerFile).toContain('DOMPurify');
-		expect(flyerFile).toContain('DOMPurify.sanitize');
+	/**
+	 * El volante: se comprueba la invariante, no la forma del código.
+	 *
+	 * Este test decía "RetreatFlyerView.vue contiene la cadena DOMPurify". Cuando el
+	 * volante pasó a bloques en rejilla, la sanitización se movió al composable y el
+	 * test se puso rojo sin que hubiera ningún XSS — un falso positivo que además
+	 * habría pasado en verde si alguien hubiera dejado un `v-html` sin sanitizar en
+	 * cualquier OTRO archivo del volante. Comprobaba el sitio equivocado en los dos
+	 * sentidos.
+	 *
+	 * Lo que de verdad importa: todo `v-html` del árbol del volante recibe contenido
+	 * ya saneado. La lista de abajo es el contrato auditado — un `v-html` nuevo o uno
+	 * que cambie de origen rompe el test a propósito, para que alguien lo mire.
+	 */
+	describe('todo v-html del volante recibe contenido saneado', () => {
+		const webSrc = path.join(__dirname, '../../../../web/src');
+		const composable = path.join(webSrc, 'composables/useFlyerContent.ts');
+
+		/** Archivos con `v-html` en el árbol del volante, y de dónde sale cada uno. */
+		const AUDITED: Array<{ file: string; expressions: string[] }> = [
+			{ file: 'components/flyer/blocks/FlyerBlockIntro.vue', expressions: ['content.encounterDescriptionHtml'] },
+			{ file: 'components/flyer/blocks/FlyerBlockPayment.vue', expressions: ['content.paymentInfo'] },
+			{ file: 'components/PublicRetreatFlyerModal.vue', expressions: ['sanitizedPaymentInfo'] },
+		];
+
+		/** Todos los .vue bajo un directorio, recursivo. */
+		const vueFilesIn = (dir: string): string[] => {
+			const out: string[] = [];
+			for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+				const full = path.join(dir, entry.name);
+				if (entry.isDirectory()) out.push(...vueFilesIn(full));
+				else if (entry.name.endsWith('.vue')) out.push(full);
+			}
+			return out;
+		};
+
+		const vHtmlExpressionsIn = (absolute: string): string[] =>
+			[...fs.readFileSync(absolute, 'utf8').matchAll(/v-html\s*=\s*"([^"]+)"/g)].map((m) =>
+				m[1].trim(),
+			);
+
+		it('no hay ningún v-html del volante fuera de la lista auditada', () => {
+			const scanned = [
+				...vueFilesIn(path.join(webSrc, 'components/flyer')),
+				path.join(webSrc, 'views/RetreatFlyerView.vue'),
+				path.join(webSrc, 'components/PublicRetreatFlyerModal.vue'),
+			];
+
+			const found: string[] = [];
+			for (const absolute of scanned) {
+				for (const expression of vHtmlExpressionsIn(absolute)) {
+					found.push(`${path.relative(webSrc, absolute)} → ${expression}`);
+				}
+			}
+
+			const expected = AUDITED.flatMap((entry) =>
+				entry.expressions.map((expression) => `${entry.file} → ${expression}`),
+			);
+			// Si esto falla hay un v-html nuevo o cambiado: revisá que su origen esté
+			// saneado y actualizá AUDITED. No lo silencies borrando el caso.
+			expect(found.sort()).toEqual(expected.sort());
+		});
+
+		it('el composable sanea cada campo de `content` que se pinta como HTML', () => {
+			const source = fs.readFileSync(composable, 'utf8');
+			const lines = source.split('\n');
+
+			const fields = AUDITED.flatMap((entry) => entry.expressions)
+				.filter((expression) => expression.startsWith('content.'))
+				.map((expression) => expression.slice('content.'.length));
+
+			expect(fields.length).toBeGreaterThan(0);
+
+			for (const field of fields) {
+				const start = lines.findIndex((line) =>
+					new RegExp(`\\b${field}\\s*[:=]\\s*computed\\(`).test(line),
+				);
+				// start === -1 → el campo cambió de nombre o de forma: actualizá AUDITED.
+				expect({ field, found: start > -1 }).toEqual({ field, found: true });
+
+				// El cuerpo del computed tiene que pasar por DOMPurify antes de devolver.
+				const body = lines.slice(start, start + 15).join('\n');
+				expect({ field, sanitized: body.includes('DOMPurify.sanitize') }).toEqual({
+					field,
+					sanitized: true,
+				});
+			}
+		});
+
+		it('el componente que sanea por su cuenta importa y usa DOMPurify', () => {
+			const selfSanitizing = AUDITED.filter((entry) =>
+				entry.expressions.some((expression) => expression.startsWith('sanitized')),
+			);
+			expect(selfSanitizing.length).toBeGreaterThan(0);
+
+			for (const entry of selfSanitizing) {
+				const source = fs.readFileSync(path.join(webSrc, entry.file), 'utf8');
+				expect({
+					file: entry.file,
+					imports: source.includes("from 'dompurify'"),
+					sanitizes: source.includes('DOMPurify.sanitize'),
+				}).toEqual({ file: entry.file, imports: true, sanitizes: true });
+			}
+		});
 	});
 
 	it('HelpView should sanitize marked output with DOMPurify', () => {
