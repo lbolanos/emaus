@@ -71,6 +71,13 @@ describe('helpIndex', () => {
 			}
 		});
 
+		// Ambas rutas del volante caen en la misma ayuda: el editor y la vista publicada
+		// son la misma pantalla para quien pide ayuda.
+		it('maps both flyer routes to the flyer help section', () => {
+			expect(getHelpByRoute('retreat-flyer')?.key).toBe('flyer-editor');
+			expect(getHelpByRoute('retreat-flyer-edit')?.key).toBe('flyer-editor');
+		});
+
 		it('maps the role-management route to its help section (no queda sin ayuda)', () => {
 			const s = getHelpByRoute('role-management');
 			expect(s?.key).toBe('role-management');

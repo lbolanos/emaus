@@ -233,8 +233,13 @@ config.global.stubs = {
 vi.mock('@repo/ui', () => ({
 	Button: {
 		name: 'Button',
-		template: '<button><slot /></button>',
-		props: ['variant', 'size', 'disabled', 'onClick'],
+		// `disabled` is bound through, so a test clicking a disabled button gets the
+		// same nothing a user would.
+		template: '<button :disabled="disabled"><slot /></button>',
+		// `onClick` must NOT be declared here: declaring it turns `@click` into a prop,
+		// so Vue stops treating it as a native listener and the stub swallows every
+		// click — no test could ever verify what a <Button @click> does.
+		props: ['variant', 'size', 'disabled'],
 	},
 	Input: {
 		// Una sola raíz y sin <slot />: `<input>` es un elemento void, así que
@@ -243,7 +248,7 @@ vi.mock('@repo/ui', () => ({
 		// binding real. Emite `update:modelValue` como el componente de verdad.
 		name: 'Input',
 		template:
-			'<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+			'<input :value="modelValue" :placeholder="placeholder" :type="type" :disabled="disabled" @input="$emit(\'update:modelValue\', $event.target.value)" />',
 		props: ['modelValue', 'placeholder', 'type', 'disabled'],
 		emits: ['update:modelValue'],
 	},
@@ -371,6 +376,38 @@ vi.mock('@repo/ui', () => ({
 		name: 'Label',
 		template: '<label><slot /></label>',
 	},
+	Textarea: {
+		name: 'Textarea',
+		props: ['modelValue', 'placeholder', 'rows', 'disabled'],
+		emits: ['update:modelValue'],
+		template:
+			'<textarea :value="modelValue" :placeholder="placeholder" :rows="rows" :disabled="disabled" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+	},
+	Switch: {
+		name: 'Switch',
+		props: ['modelValue'],
+		emits: ['update:modelValue'],
+		template:
+			'<button role="switch" :aria-checked="String(modelValue)" @click="$emit(\'update:modelValue\', !modelValue)"><slot /></button>',
+	},
+	// The tab stubs render every panel at once: hiding panels the way reka-ui does
+	// would make the inactive ones unreachable from tests.
+	Tabs: {
+		name: 'Tabs',
+		template: '<div><slot /></div>',
+	},
+	TabsList: {
+		name: 'TabsList',
+		template: '<div role="tablist"><slot /></div>',
+	},
+	TabsTrigger: {
+		name: 'TabsTrigger',
+		template: '<button role="tab"><slot /></button>',
+	},
+	TabsContent: {
+		name: 'TabsContent',
+		template: '<div role="tabpanel"><slot /></div>',
+	},
 	Select: {
 		name: 'Select',
 		template: '<div><slot /></div>',
@@ -436,6 +473,9 @@ vi.mock('lucide-vue-next', () => ({
 	ChevronDown: { name: 'ChevronDown', template: '<svg></svg>' },
 	ChevronUp: { name: 'ChevronUp', template: '<svg></svg>' },
 	ChevronRight: { name: 'ChevronRight', template: '<svg></svg>' },
+	AlignLeft: { name: 'AlignLeft', template: '<svg></svg>' },
+	AlignCenter: { name: 'AlignCenter', template: '<svg></svg>' },
+	AlignRight: { name: 'AlignRight', template: '<svg></svg>' },
 	Lock: { name: 'Lock', template: '<svg></svg>' },
 	CreditCard: { name: 'CreditCard', template: '<svg></svg>' },
 	FileUp: { name: 'FileUp', template: '<svg></svg>' },
@@ -461,6 +501,19 @@ vi.mock('lucide-vue-next', () => ({
 	FileText: { name: 'FileText', template: '<svg></svg>' },
 	Link: { name: 'Link', template: '<svg></svg>' },
 	Mail: { name: 'Mail', template: '<svg></svg>' },
+	MapPin: { name: 'MapPin', template: '<svg></svg>' },
+	Phone: { name: 'Phone', template: '<svg></svg>' },
+	Info: { name: 'Info', template: '<svg></svg>' },
+	Backpack: { name: 'Backpack', template: '<svg></svg>' },
+	EllipsisVertical: { name: 'EllipsisVertical', template: '<svg></svg>' },
+	ArrowLeft: { name: 'ArrowLeft', template: '<svg></svg>' },
+	RotateCcw: { name: 'RotateCcw', template: '<svg></svg>' },
+	Eye: { name: 'Eye', template: '<svg></svg>' },
+	EyeOff: { name: 'EyeOff', template: '<svg></svg>' },
+	GripVertical: { name: 'GripVertical', template: '<svg></svg>' },
+	Wand2: { name: 'Wand2', template: '<svg></svg>' },
+	Undo2: { name: 'Undo2', template: '<svg></svg>' },
+	Save: { name: 'Save', template: '<svg></svg>' },
 	Music: { name: 'Music', template: '<svg></svg>' },
 	QrCode: { name: 'QrCode', template: '<svg></svg>' },
 	UserPlus: { name: 'UserPlus', template: '<svg></svg>' },
@@ -483,6 +536,9 @@ vi.mock('lucide-vue-next', () => ({
 	Calendar: { name: 'Calendar', template: '<svg></svg>' },
 	Square: { name: 'Square', template: '<svg></svg>' },
 	ChevronsUpDown: { name: 'ChevronsUpDown', template: '<svg></svg>' },
+	ArrowUp: { name: 'ArrowUp', template: '<svg></svg>' },
+	ArrowDown: { name: 'ArrowDown', template: '<svg></svg>' },
+	ArrowUpDown: { name: 'ArrowUpDown', template: '<svg></svg>' },
 	Send: { name: 'Send', template: '<svg></svg>' },
 	Bookmark: { name: 'Bookmark', template: '<svg></svg>' },
 	Play: { name: 'Play', template: '<svg></svg>' },

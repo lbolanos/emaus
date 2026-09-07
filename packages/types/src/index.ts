@@ -62,46 +62,255 @@ export const roomSchema = z.object({
 });
 export type Room = z.infer<typeof roomSchema>;
 
+// Flyer layout (v2): the body of the flyer is a set of blocks laid out in three
+// managed cells. Header, banner and footer are fixed chrome, not blocks.
+export const flyerBlockIdSchema = z.enum([
+	'intro',
+	'startTime',
+	'endTime',
+	'location',
+	'contact',
+	'payment',
+	'whatToBring',
+	'registrationQr',
+]);
+export type FlyerBlockId = z.infer<typeof flyerBlockIdSchema>;
+
+export const flyerSlotSchema = z.enum(['left', 'right', 'wide']);
+export type FlyerSlot = z.infer<typeof flyerSlotSchema>;
+
+export const flyerBlockLayoutSchema = z.object({
+	id: flyerBlockIdSchema,
+	slot: flyerSlotSchema,
+	/** Position within its own slot. */
+	order: z.number().int().min(0),
+	visible: z.boolean().default(true),
+});
+export type FlyerBlockLayout = z.infer<typeof flyerBlockLayoutSchema>;
+
+/**
+ * A flyer image: an app-bundled preset (`/jesus2.png`), an https URL (S3), or an
+ * inline data URI (the fallback when S3 is not configured).
+ *
+ * SECURITY: these end up in `background-image: url(...)` and `<img :src>`, and the
+ * field can be written straight through PUT /retreats/:id, skipping the upload
+ * endpoint's checks. Restricting the scheme keeps `javascript:` and friends out;
+ * the length cap bounds the inline case (512KB binary ≈ 700KB of base64).
+ */
+const flyerImageUrlSchema = z.preprocess(
+	// The client clears an image by sending '', which a formatted .optional() would
+	// reject with a 400 — a bug this repo has already paid for more than once.
+	(value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+	z
+		.string()
+		.max(1_000_000, { message: 'La imagen es demasiado grande' })
+		.refine(
+			(value) =>
+				/^(\/[\w./-]*|https:\/\/[^\s"']+|data:image\/[\w+.-]+;base64,[\w+/=]+)$/.test(value),
+			{ message: 'La imagen debe ser una ruta de la app, una URL https o una imagen en base64' },
+		)
+		.optional(),
+);
+
+/** Image URLs. Empty/absent means "use the built-in preset". */
+export const flyerImagesSchema = z.object({
+	bodyBackground: flyerImageUrlSchema,
+	headerBackground: flyerImageUrlSchema,
+	footerBackground: flyerImageUrlSchema,
+	logo: flyerImageUrlSchema,
+});
+export type FlyerImages = z.infer<typeof flyerImagesSchema>;
+
+const hexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Debe ser un color en formato #rrggbb');
+
+/**
+ * How a block is painted. Every field is optional and falls back to the theme, and
+ * then to the block's built-in default.
+ *
+ * An absent `backgroundColor` means no box at all — the text sits straight on the
+ * flyer's image, which is the poster look the flyer defaults to. The "light veil" and
+ * "dark veil" shortcuts in the editor are just presets writing white/black here, so
+ * there is no separate mode to keep in sync.
+ */
+export const flyerBlockStyleSchema = z.object({
+	backgroundColor: hexColorSchema.optional(),
+	backgroundOpacity: z.number().int().min(0).max(100).optional(),
+	textColor: hexColorSchema.optional(),
+	headingColor: hexColorSchema.optional(),
+	textShadow: z.boolean().optional(),
+	/** Which way the block's own contents line up: its icons, lists and text. */
+	textAlign: z.enum(['left', 'center', 'right']).optional(),
+});
+export type FlyerBlockStyle = z.infer<typeof flyerBlockStyleSchema>;
+export type FlyerTextAlign = NonNullable<FlyerBlockStyle['textAlign']>;
+
+/** The same knobs applied to every block, plus the wash over the background image. */
+export const flyerThemeSchema = flyerBlockStyleSchema.extend({
+	scrim: z.enum(['none', 'dark', 'light']).optional(),
+	scrimOpacity: z.number().int().min(0).max(100).optional(),
+});
+export type FlyerTheme = z.infer<typeof flyerThemeSchema>;
+
+/**
+ * The flyer's editable texts. Every one of them can be hidden outright, which is a
+ * different thing from leaving its override empty: empty means "use the default
+ * wording", hidden means "this line does not belong on my flyer".
+ */
+export const flyerTextKeySchema = z.enum([
+	'catholicRetreatOverride',
+	'emausForOverride',
+	'weekendOfHopeOverride',
+	'hopeOverride',
+	'hopeQuoteOverride',
+	'encounterDescriptionOverride',
+	'dareToLiveItOverride',
+	'arrivalTimeNoteOverride',
+	'whatToBringOverride',
+	'registerOverride',
+	'scanToRegisterOverride',
+	'comeOverride',
+	'limitedCapacityOverride',
+	'dontMissItOverride',
+	'reservationNoteOverride',
+]);
+export type FlyerTextKey = z.infer<typeof flyerTextKeySchema>;
+
+export const FLYER_LAYOUT_VERSION = 2;
+
+/** Upper bound for the flyer's free-text overrides; they are headings and short lines. */
+const FLYER_TEXT_MAX = 2000;
+
+/** Which slot an uploaded flyer image is meant for; drives the resize bounds. */
+export const flyerAssetKindSchema = z.enum([
+	'bodyBackground',
+	'headerBackground',
+	'footerBackground',
+	'logo',
+]);
+export type FlyerAssetKind = z.infer<typeof flyerAssetKindSchema>;
+
+export const uploadFlyerAssetSchema = z.object({
+	body: z.object({
+		kind: flyerAssetKindSchema,
+		// Same bound as the memory photos: ~4MB of string ≈ 3MB binary, leaving slack
+		// over the imageService 2MB limit. Without it, an unvalidated string could be
+		// stored and later served as if it were an image.
+		dataUrl: z
+			.string()
+			.min(1)
+			.max(4_000_000, { message: 'La imagen es demasiado grande' })
+			.refine((d) => /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(d), {
+				message: 'Debe ser una imagen (data URI base64)',
+			}),
+	}),
+});
+export type UploadFlyerAsset = z.infer<typeof uploadFlyerAssetSchema>['body'];
+
 // Flyer Options Schema
+// NOTE: z.object() silently drops undeclared keys, so any field that must survive
+// PUT /retreats/:id has to be declared here.
 export const flyerOptionsSchema = z.object({
-	titleOverride: z.string().optional(),
-	subtitleOverride: z.string().optional(),
-	cssStyles: z.record(z.string()).optional(),
-	// showQrCodes is deprecated, replaced by granularity below
+	/** 1 = legacy (no `blocks`); 2 = block layout. Resolved on read, never migrated in place. */
+	layoutVersion: z.number().int().min(1).max(FLYER_LAYOUT_VERSION).optional(),
+	// Capped: there are only 8 block ids, and the canvas mounts a component per entry,
+	// so an unbounded array would let one coordinator freeze the flyer for everyone else.
+	blocks: z.array(flyerBlockLayoutSchema).max(32).optional(),
+	images: flyerImagesSchema.optional(),
+	/** Palette applied to every block, and the wash over the background image. */
+	theme: flyerThemeSchema.optional(),
+	/** Per-block overrides on top of the theme. Zod validates the keys against the enum. */
+	blockStyles: z.record(flyerBlockIdSchema, flyerBlockStyleSchema).optional(),
+	/** Texts left off the flyer entirely, as opposed to just not customised. */
+	hiddenTexts: z.array(flyerTextKeySchema).max(30).optional(),
+
+	titleOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	subtitleOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	cssStyles: z.record(z.string().max(FLYER_TEXT_MAX)).optional(),
+	// Legacy, read-only: superseded by showQrCodesLocation/Registration below, and by
+	// blocks[].visible in v2. Kept so v1 rows keep parsing.
 	showQrCodes: z.boolean().default(true).optional(),
 	showQrCodesLocation: z.boolean().default(true),
 	showQrCodesRegistration: z.boolean().default(true),
+	/** Registration form, not the flyer design. Edited in the retreat modal. */
 	showPickupInfo: z.boolean().default(true),
 
-	// New fields
-	catholicRetreat: z.string().optional(),
-	emausFor: z.string().optional(),
-	weekendOfHope: z.string().optional(), // Mapping to existing override key if needed, or separate? Let's use new keys for all.
-	// user supplied "weekendOfHope": "a weekend of", this was actually subtitleOverride logic before?
-	// To avoid confusion, I will add explicit overrides for every key provided by the user.
-	// If titleOverride and subtitleOverride map to these, we should clarify.
-	// Assuming titleOverride -> 'hope' and subtitleOverride -> 'weekendOfHope' based on previous code.
-	// BUT user asked for "change all this texts in flyer options".
-	// It's safer to add explicit overrides for each specific label if they want granular control.
+	// Declared but unused by the views; kept so existing rows keep parsing.
+	catholicRetreat: z.string().max(FLYER_TEXT_MAX).optional(),
+	emausFor: z.string().max(FLYER_TEXT_MAX).optional(),
+	weekendOfHope: z.string().max(FLYER_TEXT_MAX).optional(),
 
-	catholicRetreatOverride: z.string().optional(),
-	emausForOverride: z.string().optional(),
-	weekendOfHopeOverride: z.string().optional(),
-	hopeOverride: z.string().optional(), // Overlaps with titleOverride?
-	hopeQuoteOverride: z.string().optional(),
-	encounterDescriptionOverride: z.string().optional(),
-	dareToLiveItOverride: z.string().optional(),
-	arrivalTimeNoteOverride: z.string().optional(),
-	whatToBringOverride: z.string().optional(),
-	registerOverride: z.string().optional(),
-	scanToRegisterOverride: z.string().optional(),
-	goToRegistrationOverride: z.string().optional(),
-	limitedCapacityOverride: z.string().optional(),
-	dontMissItOverride: z.string().optional(),
-	reservationNoteOverride: z.string().optional(),
-	comeOverride: z.string().optional(),
+	catholicRetreatOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	emausForOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	weekendOfHopeOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	// hopeOverride wins over titleOverride, and weekendOfHopeOverride over subtitleOverride.
+	hopeOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	hopeQuoteOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	encounterDescriptionOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	dareToLiveItOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	arrivalTimeNoteOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	whatToBringOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	registerOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	scanToRegisterOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	goToRegistrationOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	limitedCapacityOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	dontMissItOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	reservationNoteOverride: z.string().max(FLYER_TEXT_MAX).optional(),
+	comeOverride: z.string().max(FLYER_TEXT_MAX).optional(),
 });
 export type FlyerOptions = z.infer<typeof flyerOptionsSchema>;
+
+/**
+ * Reusable flyer designs. `personal` is visible only to its author; `community` to
+ * every active admin of that community. A retreat has no link to a community, so the
+ * scope is chosen when saving, never derived.
+ */
+export const flyerTemplateScopeSchema = z.enum(['personal', 'community']);
+export type FlyerTemplateScope = z.infer<typeof flyerTemplateScopeSchema>;
+
+export const flyerTemplateSchema = z.object({
+	id: idSchema,
+	name: z.string().trim().min(1, 'El nombre es obligatorio').max(255),
+	scope: flyerTemplateScopeSchema,
+	communityId: idSchema.nullable().optional(),
+	createdBy: idSchema.nullable().optional(),
+	layout: flyerOptionsSchema,
+	createdAt: z.coerce.date(),
+	updatedAt: z.coerce.date(),
+});
+export type FlyerTemplate = z.infer<typeof flyerTemplateSchema>;
+
+export const createFlyerTemplateSchema = z.object({
+	// createdAt/updatedAt/createdBy are set by the server; sending them back from a
+	// read DTO is the usual source of surprise 400s.
+	body: flyerTemplateSchema
+		.omit({ id: true, createdBy: true, createdAt: true, updatedAt: true })
+		.superRefine((data, ctx) => {
+			if (data.scope === 'community' && !data.communityId) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					path: ['communityId'],
+					message: 'Elige la comunidad con la que se comparte',
+				});
+			}
+		}),
+});
+export type CreateFlyerTemplate = z.infer<typeof createFlyerTemplateSchema>['body'];
+
+/** Scope and community are immutable after creation: re-scoping would change who can see it. */
+export const updateFlyerTemplateSchema = z.object({
+	body: flyerTemplateSchema
+		.omit({
+			id: true,
+			scope: true,
+			communityId: true,
+			createdBy: true,
+			createdAt: true,
+			updatedAt: true,
+		})
+		.partial(),
+	params: z.object({ id: idSchema }),
+});
+export type UpdateFlyerTemplate = z.infer<typeof updateFlyerTemplateSchema>['body'];
 
 // Retreat Memory Photo (read) — `url` may be an S3 https URL or a base64 data URI
 // (disk/base64 storage), so it is a plain string, not a strict URL.

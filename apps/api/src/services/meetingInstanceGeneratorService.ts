@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { AppDataSource } from '../data-source';
 import { CommunityMeeting } from '../entities/communityMeeting.entity';
-import { CommunityService } from './communityService';
+import { CommunityService, getCommunityTimezone } from './communityService';
 import { calculateNextOccurrence } from '../utils/recurrenceUtils';
 import { IsNull, Not } from 'typeorm';
 
@@ -92,6 +92,9 @@ export class MeetingInstanceGeneratorService {
 				parentMeetingId: IsNull(),
 				exceptionType: IsNull(),
 			},
+			// La timezone de la community es el calendario contra el que se resuelve
+			// "el miércoles": sin ella, en el server UTC la serie se corre un día.
+			relations: ['community'],
 		});
 
 		let generated = 0;
@@ -150,6 +153,7 @@ export class MeetingInstanceGeneratorService {
 				template.recurrenceInterval ?? null,
 				template.recurrenceDayOfWeek ?? null,
 				template.recurrenceDayOfMonth ?? null,
+				getCommunityTimezone(template.community),
 			);
 			if (!nextDate) break;
 

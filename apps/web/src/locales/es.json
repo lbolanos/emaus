@@ -1349,7 +1349,10 @@
         "content": "Contenido",
         "footer": "Pie de Página",
         "json": "JSON"
-      }
+      },
+      "openEditor": "Abrir editor del volante",
+      "editorHint": "El volante se diseña en su propia pantalla, con vista previa en vivo.",
+      "editorNeedsSavedRetreat": "Guarda el retiro primero para poder diseñar su volante."
     },
     "notificationSettings": "Notificaciones por correo al registrar caminante",
     "notificationSettingsDescription": "Configura qué correos se envían cuando se registra un nuevo caminante",
@@ -3362,5 +3365,142 @@
     "description": "Descripción",
     "titleField": "Título",
     "dateField": "Fecha"
+  },
+  "retreatFlyerEditor": {
+    "title": "Editor del volante",
+    "backToFlyer": "Volver al volante",
+    "save": "Guardar",
+    "saving": "Guardando…",
+    "saved": "Guardado",
+    "unsavedChanges": "Tienes cambios sin guardar",
+    "discard": "Descartar cambios",
+    "preview": "Vista previa",
+    "resetLayout": "Restaurar distribución original",
+    "tabs": {
+      "images": "Imágenes",
+      "texts": "Textos",
+      "templates": "Plantillas",
+      "design": "Diseño"
+    },
+    "blocks": {
+      "intro": "Introducción",
+      "startTime": "Inicio",
+      "endTime": "Fin del retiro",
+      "location": "Lugar",
+      "contact": "Informes",
+      "payment": "Costo y pago",
+      "whatToBring": "Qué llevar",
+      "registrationQr": "QR de registro"
+    },
+    "slots": {
+      "left": "Columna izquierda",
+      "right": "Columna derecha",
+      "wide": "Fila completa"
+    },
+    "dragHint": "Arrastra los bloques sobre el volante, o muévelos con las flechas de la lista.",
+    "show": "Mostrar",
+    "hide": "Ocultar",
+    "hidden": "Oculto",
+    "emptySlot": "Suelta un bloque aquí",
+    "images": {
+      "bodyBackground": "Fondo del volante",
+      "headerBackground": "Fondo del encabezado",
+      "footerBackground": "Fondo del pie",
+      "logo": "Logotipo",
+      "gallery": "Galería",
+      "upload": "Subir imagen",
+      "uploading": "Subiendo…",
+      "useDefault": "Usar la predeterminada",
+      "current": "Actual",
+      "hint": "Se ve mejor con imágenes de al menos 1200 px de ancho.",
+      "tooLarge": "La imagen pesa demasiado. Prueba con una más ligera.",
+      "failed": "No se pudo subir la imagen."
+    },
+    "texts": {
+      "hint": "Deja un campo vacío para usar el texto predeterminado.",
+      "catholicRetreatOverride": "Encabezado: Retiro Católico",
+      "emausForOverride": "Encabezado: Emaús para",
+      "weekendOfHopeOverride": "Encabezado: Un fin de semana de",
+      "hopeOverride": "Encabezado: título grande",
+      "hopeQuoteOverride": "Encabezado: cita",
+      "encounterDescriptionOverride": "Introducción",
+      "dareToLiveItOverride": "Llamada a la acción",
+      "arrivalTimeNoteOverride": "Nota de llegada",
+      "whatToBringOverride": "Título de Qué llevar",
+      "registerOverride": "Título del registro",
+      "scanToRegisterOverride": "Texto bajo el QR",
+      "comeOverride": "Pie: Ven",
+      "limitedCapacityOverride": "Pie: cupo limitado",
+      "dontMissItOverride": "Pie: no te lo pierdas",
+      "reservationNoteOverride": "Pie: nota de reservación",
+      "hiddenNote": "Oculto: no aparece en el volante."
+    },
+    "templates": {
+      "title": "Plantillas",
+      "hint": "Guarda esta distribución para reutilizarla en otros retiros.",
+      "saveAsNew": "Guardar como plantilla",
+      "name": "Nombre de la plantilla",
+      "scope": "Disponible para",
+      "scopePersonal": "Solo para mí",
+      "scopeCommunity": "Toda la comunidad",
+      "selectCommunity": "Elige una comunidad",
+      "apply": "Aplicar",
+      "delete": "Eliminar",
+      "empty": "Todavía no has guardado ninguna plantilla.",
+      "confirmApply": "Se reemplazará la distribución actual del volante. ¿Continuar?",
+      "confirmDelete": "¿Eliminar esta plantilla?",
+      "saved": "Plantilla guardada",
+      "applied": "Plantilla aplicada",
+      "deleted": "Plantilla eliminada",
+      "preview": "Ver cómo queda",
+      "previewHint": "Así quedaría este retiro con el diseño de la plantilla."
+    },
+    "design": {
+      "presets": "Estilos rápidos",
+      "preset": {
+        "poster": "Cartel",
+        "ink": "Tinta",
+        "veils": "Velos",
+        "original": "Original"
+      },
+      "wholeFlyer": "Todo el volante",
+      "blocks": "Bloques",
+      "blockBackground": "Fondo del bloque",
+      "background": {
+        "none": "Ninguno",
+        "light": "Velo claro",
+        "dark": "Velo oscuro"
+      },
+      "customColor": "Color personalizado",
+      "opacity": "Opacidad",
+      "textColor": "Texto",
+      "headingColor": "Títulos",
+      "textShadow": "Sombra en el texto (se lee mejor sobre la foto)",
+      "scrim": "Atenuar la imagen de fondo",
+      "scrimHint": "Útil cuando la foto tiene mucho contraste y el texto compite con ella.",
+      "scrimMode": {
+        "none": "Sin atenuar",
+        "dark": "Oscurecer",
+        "light": "Aclarar"
+      },
+      "align": "Alineación",
+      "alignMode": {
+        "left": "Izquierda",
+        "center": "Centro",
+        "right": "Derecha"
+      },
+      "reset": "Restaurar",
+      "selectHint": "Toca un bloque del volante para darle un estilo propio.",
+      "matchBackground": "Ajustar colores a la imagen",
+      "matchFailed": "No se pudo leer la imagen de fondo.",
+      "lowContrast": "Este texto casi no se lee sobre su fondo",
+      "lowContrastHint": "Este texto casi no se lee sobre su fondo. Prueba otro color de texto, un velo, o atenuar la imagen.",
+      "moveUp": "Subir el bloque",
+      "moveDown": "Bajar el bloque",
+      "hiddenCount": "{count} bloque oculto | {count} bloques ocultos"
+    },
+    "leaveWithoutSaving": "Tienes cambios sin guardar en el volante. ¿Salir de todas formas?",
+    "undo": "Deshacer",
+    "undoHint": "Deshacer el último cambio (⌘Z)"
   }
 }

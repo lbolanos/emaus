@@ -7,7 +7,13 @@
  *
  * These mirror the algorithms in apps/api/src/services/retreatScheduleService.ts
  * and apps/web/src/views/RetreatDashboardView.vue without booting TypeORM.
+ *
+ * Excepción deliberada: los límites del día se toman del helper REAL
+ * (`dayBoundsInTimezone`) en vez de replicarlos. Era justo la línea que el
+ * mirror tenía mal — `setHours(0,0,0,0)`, medianoche del proceso — y por eso
+ * esta suite no vio pasar el bug: replicaba el defecto y lo confirmaba.
  */
+import { dayBoundsInTimezone } from '@/utils/date.transformer';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type ItemStatus = 'pending' | 'active' | 'completed' | 'delayed' | 'skipped';
@@ -54,10 +60,9 @@ function dashboardStats(
 	slots: SantisimoSlot[],
 	participants: Participant[],
 	now: Date,
+	timeZone = 'America/Mexico_City',
 ) {
-	const todayStart = new Date(now);
-	todayStart.setHours(0, 0, 0, 0);
-	const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+	const { start: todayStart, end: todayEnd } = dayBoundsInTimezone(now, timeZone);
 
 	const todayItems = items.filter(
 		(it) => it.startTime >= todayStart && it.startTime < todayEnd,
@@ -229,6 +234,38 @@ describe('dashboardStats aggregation', () => {
 		expect(stats.today.total).toBe(2);
 		expect(stats.today.completed).toBe(1);
 		expect(stats.items.total).toBe(4);
+	});
+
+	it('cuenta como de hoy un item de la tarde-noche del retiro', () => {
+		// Regresión: en el server UTC "hoy" arrancaba a las 18:00 CDMX de la
+		// víspera, así que una charla de las 20:00 CDMX (= 02:00Z del día
+		// siguiente) se contaba en el día equivocado.
+		const tz = 'America/Mexico_City';
+		const nowCdmx = new Date('2026-04-26T01:00:00.000Z'); // 25-abr 19:00 CDMX
+		const items = [
+			mkItem({ startTime: new Date('2026-04-26T02:00:00.000Z'), status: 'pending' }), // 25-abr 20:00
+			mkItem({ startTime: new Date('2026-04-25T15:00:00.000Z'), status: 'completed' }), // 25-abr 09:00
+			mkItem({ startTime: new Date('2026-04-26T15:00:00.000Z'), status: 'pending' }), // 26-abr 09:00
+		];
+		const stats = dashboardStats(items, [], [], nowCdmx, tz);
+		expect(stats.today.total).toBe(2);
+		expect(stats.today.completed).toBe(1);
+	});
+
+	it('delimita el día en la zona del retiro aunque el proceso esté en otra', () => {
+		// Un retiro en Tokio: el par de casos CDMX/Tokio tiene offsets de signo
+		// opuesto, así que no hay TZ de runner en la que ambos pasen si alguien
+		// vuelve a la medianoche del proceso.
+		const tz = 'Asia/Tokyo';
+		const nowJst = new Date('2026-04-26T16:00:00.000Z'); // 27-abr 01:00 JST
+		const items = [
+			mkItem({ startTime: new Date('2026-04-26T23:00:00.000Z'), status: 'pending' }), // 27-abr 08:00 JST
+			mkItem({ startTime: new Date('2026-04-26T14:00:00.000Z'), status: 'completed' }), // 26-abr 23:00 JST
+			mkItem({ startTime: new Date('2026-04-27T16:00:00.000Z'), status: 'pending' }), // 28-abr 01:00 JST
+		];
+		const stats = dashboardStats(items, [], [], nowJst, tz);
+		expect(stats.today.total).toBe(1);
+		expect(stats.today.completed).toBe(0);
 	});
 
 	it('flags charlas/testimonios/misas without responsable as missing', () => {

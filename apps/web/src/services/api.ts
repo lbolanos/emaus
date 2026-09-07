@@ -18,6 +18,7 @@ import type {
   FollowUpStatus,
   Retreat,
   Participant,
+  FlyerTemplate,
 } from "@repo/types";
 import { setupCsrfInterceptor } from "@/utils/csrf";
 import { getApiUrl } from "@/config/runtimeConfig";
@@ -1417,6 +1418,48 @@ export async function deleteCommunityMeeting(
   scope: "this" | "all" | "all_future" = "this",
 ): Promise<void> {
   await api.delete(`/communities/meetings/${meetingId}?scope=${scope}`);
+}
+
+// Reusable flyer designs. The list already comes filtered by what the user may see:
+// their own plus those shared with communities they administer.
+export async function getFlyerTemplates(): Promise<FlyerTemplate[]> {
+  const response = await api.get('/flyer-templates');
+  return response.data;
+}
+
+export async function createFlyerTemplate(payload: {
+  name: string;
+  scope: 'personal' | 'community';
+  communityId?: string | null;
+  layout: Record<string, any>;
+}): Promise<FlyerTemplate> {
+  const response = await api.post('/flyer-templates', payload);
+  return response.data;
+}
+
+export async function updateFlyerTemplate(
+  id: string,
+  payload: { name?: string; layout?: Record<string, any> },
+): Promise<FlyerTemplate> {
+  const response = await api.put(`/flyer-templates/${id}`, payload);
+  return response.data;
+}
+
+export async function deleteFlyerTemplate(id: string): Promise<void> {
+  await api.delete(`/flyer-templates/${id}`);
+}
+
+/**
+ * Stores an image for use as flyer artwork and returns its public URL.
+ * `dataUrl` must be a data URI — see resizeImageToDataUrl, which reads with
+ * FileReader because the production CSP blocks `blob:` image sources.
+ */
+export async function uploadFlyerAsset(
+  kind: 'bodyBackground' | 'headerBackground' | 'footerBackground' | 'logo',
+  dataUrl: string,
+): Promise<string> {
+  const response = await api.post('/flyer-assets', { kind, dataUrl });
+  return response.data.url;
 }
 
 export async function setCommunityMeetingPhoto(

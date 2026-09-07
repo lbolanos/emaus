@@ -1,367 +1,96 @@
 <template>
-  <div class="bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 py-6 print:p-0 print:bg-white">
-    <!-- Actions Menu -->
-    <div class="absolute top-2 right-2 z-50 print:hidden">
-      <div class="relative" ref="menuRef">
-        <button
-          @click="showMenu = !showMenu"
-          class="p-2 rounded-full bg-white/80 hover:bg-white shadow-lg border border-gray-200 text-gray-600 hover:text-gray-900 transition-all"
-        >
-          <EllipsisVertical class="w-5 h-5" />
-        </button>
-        <div
-          v-if="showMenu"
-          class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 overflow-hidden"
-        >
-          <button
-            @click="handlePrint(); showMenu = false"
-            class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            <Printer class="w-4 h-4" />
-            {{ t('retreatFlyer.printButton') }}
-          </button>
-          <button
-            @click="handleCopyToClipboard(); showMenu = false"
-            class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            <component :is="copyIcon" class="w-4 h-4" />
-            {{ copyLabel }}
-          </button>
-          <button
-            @click="handleDownloadPdf(); showMenu = false"
-            :disabled="isDownloadingPdf"
-            class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            <Loader2 v-if="isDownloadingPdf" class="w-4 h-4 animate-spin" />
-            <FileDown v-else class="w-4 h-4" />
-            {{ isDownloadingPdf ? t('retreatFlyer.exportingPdf') : t('retreatFlyer.exportPdf') }}
-          </button>
-        </div>
-      </div>
-    </div>
+	<div class="bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 py-6 print:p-0 print:bg-white">
+		<!-- Actions Menu -->
+		<div class="absolute top-2 right-2 z-50 print:hidden">
+			<div class="relative" ref="menuRef">
+				<button
+					@click="showMenu = !showMenu"
+					class="p-2 rounded-full bg-white/80 hover:bg-white shadow-lg border border-gray-200 text-gray-600 hover:text-gray-900 transition-all"
+				>
+					<EllipsisVertical class="w-5 h-5" />
+				</button>
+				<div
+					v-if="showMenu"
+					class="absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-xl border border-gray-200 py-1 overflow-hidden"
+				>
+					<router-link
+						:to="{ name: 'retreat-flyer-edit', params: { id: retreatId } }"
+						class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+						@click="showMenu = false"
+					>
+						<Pencil class="w-4 h-4" />
+						{{ t('retreatFlyerEditor.title') }}
+					</router-link>
+					<div class="my-1 border-t border-gray-100"></div>
+					<button
+						@click="
+							handlePrint();
+							showMenu = false;
+						"
+						class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+					>
+						<Printer class="w-4 h-4" />
+						{{ t('retreatFlyer.printButton') }}
+					</button>
+					<button
+						@click="
+							handleCopyToClipboard();
+							showMenu = false;
+						"
+						class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+					>
+						<component :is="copyIcon" class="w-4 h-4" />
+						{{ copyLabel }}
+					</button>
+					<button
+						@click="
+							handleDownloadPdf();
+							showMenu = false;
+						"
+						:disabled="isDownloadingPdf"
+						class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+					>
+						<Loader2 v-if="isDownloadingPdf" class="w-4 h-4 animate-spin" />
+						<FileDown v-else class="w-4 h-4" />
+						{{ isDownloadingPdf ? t('retreatFlyer.exportingPdf') : t('retreatFlyer.exportPdf') }}
+					</button>
+				</div>
+			</div>
+		</div>
 
-    <!-- Flyer Container -->
-    <div ref="flyerWrapperRef" class="mx-auto px-4 print:max-w-none print:w-full print:mx-0 print:px-0" :style="{ maxWidth: '850px', height: isPrinting ? undefined : wrapperHeight }">
-      <div
-        ref="printableAreaRef"
-        id="printable-area"
-        class="print-optimized shadow-2xl print:shadow-none rounded-3xl overflow-hidden print:overflow-visible print:rounded-none relative bg-white border border-gray-200 print:border-none"
-        :style="[flyerStyles, scaleFactor < 1 && !isPrinting ? { transform: `scale(${scaleFactor})`, transformOrigin: 'top left', width: '850px' } : {}]"
-      >
-        <!-- Header Section -->
-        <header class="print-exact relative h-[140px] px-8 py-4 flex flex-row items-center justify-between overflow-hidden print:overflow-visible print:bg-blue-900 print:h-[130px] print:px-6 print:py-3" style="height: 154px;">
-          <!-- Background Image with enhanced overlay -->
-          <div class="absolute inset-0 bg-cover bg-center z-0" style="background-image: url('/header_bck.png');">
-            <div class="absolute inset-0 bg-gradient-to-r from-blue-900/80 via-blue-800/70 to-blue-900/80"></div>
-            <div class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/20"></div>
-          </div>
-
-          <!-- Emaús Logo Section -->
-          <div class="relative z-10 flex flex-col items-center flex-shrink-0 mr-6 drop-shadow-2xl">
-            <div class="relative mb-1.5 transform hover:scale-110 transition-all duration-300 hover:rotate-3">
-              <div class="absolute inset-0 bg-white/20 rounded-full blur-xl"></div>
-              <img :src="retreatTypeLogo" alt="Emaus Logo" class="w-[90px] h-[90px] object-contain filter drop-shadow-2xl relative z-10" />
-            </div>
-            <h2 class="text-[22px] font-black uppercase tracking-[0.35em] text-white leading-none font-header drop-shadow-lg">Emaús</h2>
-            <div class="flex items-center gap-2 mt-1">
-              <p class="text-[11px] text-white/95 text-center uppercase font-bold leading-tight tracking-[0.2em] drop-shadow-md">{{ retreatParish }}</p>
-              <p v-if="retreatNumber" class="text-[15px] text-yellow-300 text-center uppercase font-black leading-tight tracking-[0.25em] drop-shadow-lg font-header px-3 py-0.5 bg-yellow-500/20 rounded-full border border-yellow-400/30">
-                {{ retreatNumber }}
-              </p>
-            </div>
-          </div>
-
-          <!-- Main Title -->
-          <div class="relative z-10 text-right flex-1 pr-2">
-            <p class="text-[17px] text-white/95 font-bold mb-0.5 uppercase tracking-[0.25em] drop-shadow-lg">{{ subtitleTextRefined }}</p>
-            <h1 id="flyer-title" data-flyer-title class="flyer-title text-[68px] font-bold text-white leading-[0.9] transform -rotate-1 origin-bottom-right pb-1"
-                style="font-family: 'Miltonian Tattoo', cursive;">
-              {{ titleTextRefined }}
-            </h1>
-            <p class="text-[13px] text-white/95 italic font-medium tracking-wide mt-10 drop-shadow-lg leading-tight max-w-[420px] ml-auto">"{{ quoteTextRefined }}"</p>
-          </div>
-        </header>
-
-        <!-- Retreat Type Banner -->
-        <div class="relative z-20">
-          <div data-banner class="print-exact bg-blue-900/80 backdrop-blur-sm text-white p-2 shadow-xl border-y border-blue-500/30 print:bg-blue-900 print:text-white print:backdrop-blur-none">
-            <div data-banner-row class="flex flex-col md:flex-row print:flex-row items-center justify-center gap-2 md:gap-6 print:gap-2 text-center">
-              <h3 data-banner-title class="text-xl md:text-2xl font-bold uppercase tracking-widest font-header">{{ catholicRetreatText }}</h3>
-              <span data-banner-divider class="hidden md:block print:block w-px h-8 bg-blue-500/30"></span>
-              <div class="flex items-center gap-3">
-                <span class="text-sm opacity-80 uppercase tracking-wide print:opacity-100">{{ emausForText }}</span>
-                <span class="print-exact text-xl font-bold uppercase text-yellow-300 tracking-widest border border-yellow-400/60 px-5 py-1 rounded-lg bg-gradient-to-r from-yellow-500/20 to-yellow-400/20 backdrop-blur-sm shadow-inner print:text-yellow-400 print:border-yellow-400 print:bg-yellow-500/20 print:backdrop-blur-none">
-                  {{ retreatTypeText }}
-                </span>
-                <span data-banner-divider class="hidden md:block print:block w-[1.5px] h-9 bg-blue-300/40"></span>
-                <p v-if="formatDateRange" class="text-[20px] font-bold text-white tracking-wide drop-shadow-md">{{ formatDateRange }}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Main Content Area -->
-        <div class="print-exact relative p-5 print:p-4"
-             data-main-content
-             :style="{
-               backgroundImage: 'url(/jesus2.png)',
-               backgroundSize: 'cover',
-               backgroundPosition: 'center',
-               minHeight: calculatedHeight + 'px'
-             }">
-          <!-- Semi-transparent overlay for better readability -->
-          <div class="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/10 pointer-events-none"></div>
-
-          <!-- Intro Card -->
-          <div class="absolute z-10 overflow-hidden" style="top: -13px; left: 15px; width: 560px; max-width: 70%; max-height: 200px;">
-            <div class="p-5 rounded-2xl">
-              <p class="text-[18px] text-gray-900 text-center leading-relaxed font-medium" style="font-family: 'Playfair Display', serif;">
-                <span class="font-bold" v-html="DOMPurify.sanitize(encounterDescriptionText.replace(/\n/g, '<br>'))"></span>
-              </p>
-              <div class="mt-3 text-center">
-                <span class="inline-block font-black text-blue-800 text-[26px] px-5 py-2 from-blue-50 to-indigo-50 rounded-xl tracking-wide shadow-lg border-2 border-blue-200" style="font-family: 'Playfair Display', serif;">
-                  {{ dareToLiveItText }}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Start Time Card -->
-          <div class="absolute z-10 p-5 rounded-2xl overflow-hidden"
-               style="top: 172px; left: 15px; width: 360px; max-width: 36%; max-height: 200px;">
-            <div class="flex gap-4 items-start group">
-              <div class="bg-gradient-to-br from-blue-500 to-blue-700 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0">
-                <Clock class="w-5 h-5" />
-              </div>
-              <div class="flex-1 min-w-0">
-                <h4 class="font-black text-[15px] uppercase text-blue-700 tracking-[0.15em] mb-1.5 drop-shadow-lg">{{ t('retreatFlyer.startTime') }}</h4>
-                <p class="text-[17px] text-blue-700 font-bold mb-0.5">{{ formatDate(startDate) }}</p>
-                <p class="text-[22px] font-black text-gray-900 mt-1">{{ openingTimeDisplay }}</p>
-                <div class="mt-3 backdrop-blur-sm print:backdrop-blur-none border-l-4 border-blue-500 p-3.5 rounded-r-xl shadow-md print:bg-blue-50">
-                  <p class="text-[13px] text-blue-700 font-bold flex items-center gap-2.5">
-                    <span class="text-[14px] leading-tight">{{ registrationDeadline }}</span>
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Contact Information Card -->
-          <div class="absolute z-10 p-3 overflow-hidden"
-               style="top: 286px; left: 488px; width: 300px; max-width: 35%; max-height: 170px;">
-            <h4 class="text-[14px] font-black text-gray-700 uppercase mb-1.5 flex items-center justify-end gap-3 tracking-[0.1em] text-right">
-              {{ t('retreatFlyer.information') }}
-              <div class="bg-gradient-to-br from-blue-400 to-blue-600 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0">
-                <Info class="w-5 h-5" />
-              </div>
-            </h4>
-            <div :class="['gap-1', totalContactItems > 2 ? 'grid grid-cols-2' : 'space-y-1']">
-              <div v-for="(phone, index) in contactPhones" :key="phone?.number || index"
-                   class="p-1.5 rounded-lg shadow-sm border border-green-200/60">
-                <div class="flex items-center justify-end gap-1.5">
-                  <div class="text-right min-w-0">
-                    <span class="font-bold text-gray-700 block text-[8px] uppercase tracking-wider truncate">{{ phone?.name || t('retreatFlyer.contact') }}</span>
-                    <span :class="['text-gray-900 font-black font-mono', totalContactItems > 2 ? 'text-[11px]' : 'text-[13px]']">{{ phone?.number }}</span>
-                  </div>
-                  <div class="bg-gradient-to-br from-green-500 to-green-600 p-1.5 rounded-full text-white flex-shrink-0 shadow">
-                    <Phone class="w-3.5 h-3.5" />
-                  </div>
-                </div>
-              </div>
-              <div v-for="email in contactEmails" :key="email"
-                   class="p-1.5 rounded-lg shadow-sm border border-blue-200/60" :class="totalContactItems > 2 ? 'col-span-2' : ''">
-                <div class="flex items-center justify-end gap-1.5">
-                  <div class="text-right min-w-0">
-                    <span class="font-bold text-gray-700 block text-[8px] uppercase tracking-wider">Email</span>
-                    <span :class="['text-gray-900 font-black break-all', totalContactItems > 2 ? 'text-[11px]' : 'text-[12px]']">{{ email }}</span>
-                  </div>
-                  <div class="bg-gradient-to-br from-blue-500 to-blue-600 p-1.5 rounded-full text-white flex-shrink-0 shadow">
-                    <Mail class="w-3.5 h-3.5" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- End Time Card -->
-          <div class="absolute z-10 p-5 overflow-hidden"
-               style="top: 500px; left: 15px; width: 330px; max-width: 38%; max-height: 200px;">
-            <div class="flex gap-4 items-start group">
-              <div class="bg-gradient-to-br from-blue-500 to-blue-700 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0">
-                <Calendar class="w-5 h-5" />
-              </div>
-              <div class="flex-1 min-w-0">
-                <h4 class="font-black text-[15px] uppercase text-white tracking-[0.15em] mb-1.5 drop-shadow-lg">{{ t('retreatFlyer.endTime') }}</h4>
-                <p data-end-date class="text-[17px] text-yellow-300 font-bold mb-0.5 drop-shadow-lg">{{ formatDate(endDate) }}</p>
-                <div class="bg-white/60 p-2 rounded-lg mb-2">
-                  <p class="font-semibold text-gray-700 text-[12px] leading-tight">{{ closingLocation }}</p>
-                </div>
-                <p class="text-gray-800 font-bold uppercase text-[12px] flex items-center gap-2 bg-white/60 px-3 py-2 rounded-lg border border-amber-200">
-                  <Users class="w-5 h-5 flex-shrink-0" /> {{ arrivalTimeNoteText }}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- What to Bring Card -->
-          <div class="absolute z-10 p-3 overflow-hidden"
-               style="top: 685px; left: 59px; width: 677px; max-width: 80%; max-height: 130px;">
-            <h4 class="font-black text-[13px] uppercase text-white mb-2 flex items-center gap-2 border-b border-white/30 pb-2 tracking-[0.1em] drop-shadow-lg">
-              <div class="bg-gradient-to-br from-purple-400 to-purple-600 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0">
-                <Backpack class="w-5 h-5" />
-              </div>
-              {{ whatToBringText }}
-              <span v-if="thingsToBringSubtitle" class="text-yellow-300 ml-2 text-[11px] normal-case tracking-normal font-bold">{{ thingsToBringSubtitle }}</span>
-            </h4>
-
-            <ul v-if="thingsToBringItems.length > 0" class="grid grid-cols-3 gap-x-3 gap-y-1.5 text-[11px] text-gray-100 print:text-white">
-              <li v-for="item in thingsToBringItems" :key="item" class="flex items-center gap-1.5">
-                <div class="w-1.5 h-1.5 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 shadow-sm flex-shrink-0"></div>
-                <span class="font-medium truncate">{{ item }}</span>
-              </li>
-            </ul>
-
-            <ul v-else class="grid grid-cols-3 gap-x-3 gap-y-1.5 text-[11px] text-gray-100 print:text-white">
-              <li class="flex items-center gap-1.5">
-                <div class="w-1.5 h-1.5 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 shadow-sm"></div>
-                <span class="font-medium">{{ t('retreatFlyer.defaultItems.personalThermos') }}</span>
-              </li>
-              <li class="flex items-center gap-1.5">
-                <div class="w-1.5 h-1.5 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 shadow-sm"></div>
-                <span class="font-medium">{{ t('retreatFlyer.defaultItems.towel') }}</span>
-              </li>
-              <li class="flex items-center gap-1.5">
-                <div class="w-1.5 h-1.5 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 shadow-sm"></div>
-                <span class="font-medium">{{ t('retreatFlyer.defaultItems.toiletries') }}</span>
-              </li>
-              <li class="flex items-center gap-1.5">
-                <div class="w-1.5 h-1.5 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 shadow-sm"></div>
-                <span class="font-medium">{{ t('retreatFlyer.defaultItems.jacketSweatshirt') }}</span>
-              </li>
-              <li class="flex items-center gap-1.5">
-                <div class="w-1.5 h-1.5 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 shadow-sm"></div>
-                <span class="font-medium">{{ t('retreatFlyer.defaultItems.comfortableClothes') }}</span>
-              </li>
-            </ul>
-          </div>
-
-          <!-- Payment Information Card -->
-          <div class="absolute z-10 overflow-hidden"
-               style="top: 463px; left: 460px; width: 330px; max-width: 38%; max-height: 230px;">
-            <div class="text-center mb-3 pb-3 border-b-2 border-yellow-200">
-              <span class="text-[20px] font-black uppercase text-blue-700 tracking-[0.2em] block mb-1">{{ t('retreatFlyer.cost') }}</span>
-              <div class="text-[38px] font-black text-gray-900 leading-none font-header drop-shadow-md bg-gradient-to-r from-yellow-200/50 to-orange-200/50 px-4 py-2 rounded-xl inline-block border-2 border-yellow-300/50">
-                {{ formatCost }}
-              </div>
-            </div>
-            <div class="space-y-2 text-[12px]">
-              <div v-if="paymentInfo" class="text-gray-700 text-center leading-relaxed bg-white/60 p-2 rounded-lg">
-                <span v-html="paymentInfo" class="font-semibold text-[10px] leading-relaxed"></span>
-              </div>
-              <div v-if="paymentMethods" class="bg-white/80 p-3 rounded-xl shadow-md border border-yellow-200">
-                <span class="block text-[10px] text-gray-500 uppercase tracking-[0.15em] mb-1 font-black">{{ t('retreatFlyer.paymentMethods') }}</span>
-                <span class="font-bold text-gray-900 text-center block text-[12px]">{{ paymentMethods }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Location Card -->
-          <div class="absolute z-10 p-5 overflow-hidden"
-               style="top: 362px; left: 15px; width: 440px; max-width: 52%; max-height: 145px;">
-            <div class="flex gap-4 items-start group">
-              <div class="bg-gradient-to-br from-green-500 to-green-700 p-2.5 rounded-xl text-white shadow-xl flex-shrink-0">
-                <MapPin class="w-5 h-5" />
-              </div>
-              <div class="flex-1 min-w-0">
-                <h4 class="font-black text-[15px] uppercase text-green-700 tracking-[0.15em] mb-1.5 drop-shadow-lg">{{ t('retreatFlyer.location') }}</h4>
-                <p class="text-[18px] font-black text-black leading-tight">{{ retreatLocation }}</p>
-                <p class="text-[11px] text-blue-900 leading-snug mt-1 font-medium">{{ retreatAddress }}</p>
-              </div>
-              <!-- Google Maps QR Code -->
-              <div v-if="googleMapsUrl && showQrCodesLocation" class="flex flex-col items-center gap-2 flex-shrink-0">
-                <div class="p-2.5 bg-white rounded-xl shadow-xl border-2 border-red-200">
-                  <QrcodeVue :value="googleMapsUrl" :size="95" level="M" background="#ffffff" class="rounded-lg" />
-                </div>
-                <span class="text-[11px] text-black font-black uppercase tracking-wider">{{ t('retreatFlyer.locationQR') }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Registration QR Code Card -->
-          <div v-if="showQrCodesRegistration" class="absolute z-10 p-5 text-center overflow-hidden"
-               style="top: 2px; right: 21px; width: 220px; max-width: 27%; max-height: 300px;">
-            <h3 class="text-[22px] font-black text-blue-700 uppercase mb-2 tracking-[0.15em] drop-shadow-sm">{{ registerText }}</h3>
-            <p class="text-[11px] text-gray-600 mb-4 font-bold leading-tight">{{ scanToRegisterText }}</p>
-
-            <div class="flex justify-center mb-4">
-              <div class="p-3 bg-white rounded-xl shadow-xl border-2 border-blue-300">
-                <QrcodeVue :value="registrationUrl" :size="110" level="L" background="#ffffff" class="rounded-lg" />
-              </div>
-            </div>
-            <div class="mt-2 text-[9px] text-blue-700 font-black font-mono lowercase tracking-normal bg-white/80 px-2 py-1.5 rounded-lg border border-blue-200/50 shadow-sm break-all leading-tight">{{ registrationDomain }}</div>
-          </div>
-        </div>
-
-        <!-- Footer -->
-        <footer class="print-exact relative min-h-[120px] flex items-center justify-between gap-6 px-8 py-3 overflow-hidden mt-auto print:bg-gray-900 print:min-h-[110px] print:px-8">
-          <!-- Footer Background Image -->
-          <div class="absolute inset-0 bg-cover bg-center z-0" style="background-image: url('/footer.png');">
-            <div class="absolute inset-0 bg-gradient-to-r from-blue-900/90 via-gray-900/80 to-blue-900/90 print:opacity-90"></div>
-          </div>
-
-          <!-- Decorative top border -->
-          <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-400 z-10"></div>
-
-          <div class="relative z-10 flex flex-col justify-center h-full">
-            <h2 data-ven-text class="text-[52px] font-bold text-white leading-none mb-2 font-display drop-shadow-2xl"
-                style="font-family: 'Dancing Script', cursive; text-shadow: 4px 4px 12px rgba(0,0,0,0.6);">
-              {{ comeText }}
-            </h2>
-            <div class="bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-400 text-black text-[13px] font-black px-6 py-1.5 rounded-full uppercase w-max tracking-[0.25em] shadow-2xl print:bg-yellow-400 animate-pulse border-2 border-yellow-300">
-              {{ limitedCapacityText }}
-            </div>
-          </div>
-
-          <div class="relative z-10 max-w-md text-right flex flex-col justify-center h-full min-w-0">
-            <h3 class="text-[28px] font-black text-white uppercase tracking-[0.2em] mb-2 font-header drop-shadow-xl"
-                style="text-shadow: 2px 2px 8px rgba(0,0,0,0.5);">
-              {{ dontMissItText }}
-            </h3>
-            <p class="text-[12px] text-gray-100 leading-tight max-w-[260px] ml-auto drop-shadow-md font-semibold">
-              {{ reservationNoteText }}
-            </p>
-          </div>
-        </footer>
-      </div>
-    </div>
-  </div>
+		<!-- Flyer Container -->
+		<div
+			ref="flyerWrapperRef"
+			class="mx-auto px-4 print:max-w-none print:w-full print:mx-0 print:px-0"
+			:style="{
+				maxWidth: '850px',
+				height: isPrinting ? undefined : wrapperHeight,
+				'--flyer-print-scale': printScale,
+			}"
+		>
+			<RetreatFlyerCanvas
+				ref="canvasRef"
+				:retreat="retreatData"
+				:flyer-options="flyerOptions"
+				:layout="savedLayout.blocks"
+				:image-overrides="savedLayout.images"
+				:theme="flyerOptions?.theme"
+				:block-styles="flyerOptions?.blockStyles"
+				:registration-link="walkerRegistrationLink"
+				:scale="effectiveScale"
+			/>
+		</div>
+	</div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-// Ensure this path matches your project structure
 import { useRetreatStore } from '@/stores/retreatStore';
-import {
-  MapPin,
-  Clock,
-  Calendar,
-  Backpack,
-  Users,
-  Info,
-  Phone,
-  Printer,
-  AlertTriangle,
-  EllipsisVertical,
-  Copy,
-  Check,
-  Mail,
-  FileDown,
-  Loader2
-} from 'lucide-vue-next';
-import QrcodeVue from 'qrcode.vue';
-import DOMPurify from 'dompurify';
+import { EllipsisVertical, Printer, Copy, Check, FileDown, Loader2, Pencil } from 'lucide-vue-next';
+import RetreatFlyerCanvas from '@/components/flyer/RetreatFlyerCanvas.vue';
+import { resolveFlyerLayout } from '@/utils/flyerLayout';
 
 const route = useRoute();
 const retreatStore = useRetreatStore();
@@ -369,834 +98,316 @@ const { t } = useI18n();
 const selectedRetreat = computed(() => retreatStore.selectedRetreat);
 const walkerRegistrationLink = computed(() => retreatStore.walkerRegistrationLink);
 
+const retreatId = computed(() => route.params.id as string);
+
+// Cast to any: `house` exists at runtime/API but not in the stricter Zod schema
+const retreatData = computed(() => (selectedRetreat.value as any) || null);
+const flyerOptions = computed(() => retreatData.value?.flyer_options);
+
+/**
+ * The design saved by the editor. Without this the flyer that gets printed, copied and
+ * exported would quietly be the stock one: the canvas falls back to its defaults for
+ * every prop it is not given, so a missing prop looks like "nothing was customised"
+ * rather than like a bug. Handles v1 options too — see resolveFlyerLayout.
+ */
+const savedLayout = computed(() => resolveFlyerLayout(flyerOptions.value ?? null));
+
 // Menu state
 const showMenu = ref(false);
 const menuRef = ref<HTMLElement>();
 const flyerWrapperRef = ref<HTMLElement>();
-const printableAreaRef = ref<HTMLElement>();
+const canvasRef = ref<{ $el: HTMLElement }>();
 
 // Scale factor for responsive mobile display
 const scaleFactor = ref(1);
 const flyerActualHeight = ref(0);
 let resizeObserver: ResizeObserver | null = null;
 
+/** Print CSS takes full control of sizing, so the mobile downscale must be off then. */
+const effectiveScale = computed(() => (isPrinting.value ? 1 : scaleFactor.value));
+
 const updateScaleFactor = () => {
-  if (!flyerWrapperRef.value) return;
-  const containerWidth = flyerWrapperRef.value.clientWidth;
-  scaleFactor.value = Math.min(containerWidth / 850, 1);
-  // Update tracked height of the printable area
-  if (printableAreaRef.value) {
-    flyerActualHeight.value = printableAreaRef.value.scrollHeight;
-  }
+	if (!flyerWrapperRef.value) return;
+	scaleFactor.value = Math.min(flyerWrapperRef.value.clientWidth / 850, 1);
+	const el = canvasRef.value?.$el;
+	if (el) {
+		flyerActualHeight.value = el.scrollHeight;
+	}
 };
 
+/** A scaled element keeps its unscaled layout box, so the wrapper has to shrink too. */
 const wrapperHeight = computed(() => {
-  if (scaleFactor.value >= 1 || !flyerActualHeight.value) return undefined;
-  return `${flyerActualHeight.value * scaleFactor.value}px`;
+	if (scaleFactor.value >= 1 || !flyerActualHeight.value) return undefined;
+	return `${flyerActualHeight.value * scaleFactor.value}px`;
+});
+
+// A4 minus the 3mm @page margin, in CSS px at 96dpi (1mm = 96/25.4 px).
+const A4_USABLE_WIDTH_PX = (210 - 6) * (96 / 25.4);
+const A4_USABLE_HEIGHT_PX = (297 - 6) * (96 / 25.4);
+const FLYER_DESIGN_WIDTH_PX = 850;
+
+/**
+ * Shrink-to-fit for print: the block layout grows and shrinks with the retreat's
+ * content, so a fixed scale would spill onto a second page. A flyer is a one-page
+ * document, so the limiting dimension decides the scale.
+ */
+const printScale = computed(() => {
+	const widthScale = A4_USABLE_WIDTH_PX / FLYER_DESIGN_WIDTH_PX;
+	const heightScale = flyerActualHeight.value
+		? A4_USABLE_HEIGHT_PX / flyerActualHeight.value
+		: widthScale;
+	// Truncate (never round up) and keep 1% of slack: browsers disagree slightly on
+	// the px→mm mapping when printing, and rounding up spills onto a second page.
+	return (Math.floor(Math.min(widthScale, heightScale) * 0.99 * 1000) / 1000).toFixed(3);
 });
 
 const handleClickOutside = (e: MouseEvent) => {
-  if (menuRef.value && !menuRef.value.contains(e.target as Node)) {
-    showMenu.value = false;
-  }
-};
-
-// Dynamic data from retreat store
-// Cast to any to accept 'house' property which exists at runtime/API but not in stricter Zod schema
-const retreatData = computed(() => (selectedRetreat.value as any) || null);
-
-// Calculate the dynamic height needed for the main content area based on actual DOM elements
-const mainContentHeight = ref(400);
-
-const calculateContentHeight = () => {
-  nextTick(() => {
-    // Find all absolutely positioned cards within the main content area
-    const mainContent = document.querySelector('[data-main-content]');
-    if (!mainContent) return;
-
-    const cards = mainContent.querySelectorAll('.absolute');
-    let maxBottom = 0;
-
-    cards.forEach(card => {
-      const rect = card.getBoundingClientRect();
-      const parentRect = mainContent.getBoundingClientRect();
-      const relativeBottom = rect.bottom - parentRect.top;
-      maxBottom = Math.max(maxBottom, relativeBottom);
-    });
-
-    // Set height with padding
-    mainContentHeight.value = maxBottom + 10;
-  });
-};
-
-const calculatedHeight = computed(() => {
-  // Use a reasonable minimum height during initial render
-  return mainContentHeight.value;
-});
-
-const retreatTypeText = computed(() => {
-  // Use explicit type if available
-  if (retreatData.value?.retreat_type) {
-    return t(`retreatModal.types.${retreatData.value.retreat_type}`);
-  }
-
-  // Try to determine retreat type from available data
-  const parish = retreatData.value?.parish?.toLowerCase() || '';
-  const houseName = retreatData.value?.house?.name?.toLowerCase() || '';
-  const paymentInfo = retreatData.value?.paymentInfo?.toLowerCase() || '';
-
-  // Simple heuristic-based type detection
-  if (parish.includes('mujer') || houseName.includes('mujer') || paymentInfo.includes('mujer')) {
-    return t('retreatModal.types.women');
-  }
-  if (parish.includes('joven') || houseName.includes('joven') || paymentInfo.includes('joven')) {
-    return 'JÓVENES';
-  }
-  if (parish.includes('matrimonio') || houseName.includes('matrimonio') || paymentInfo.includes('matrimonio')) {
-    return t('retreatModal.types.couples');
-  }
-
-  // Default fallback based on typical Emaús retreat types
-  return t('retreatModal.types.men');
-});
-
-const retreatTypeLogo = computed(() => {
-  // Use explicit type if available
-  if (retreatData.value?.retreat_type) {
-    const logos: Record<string, string> = {
-      men: '/oficial_mejorado.png',
-      women: '/woman_logo.png',
-      couples: '/crossRoseButtT.png', // Default to man logo for couples
-      effeta: '/crossRoseButtT.png'   // Default to man logo for effeta
-    };
-    return logos[retreatData.value.retreat_type] || '/crossRoseButtT.png';
-  }
-
-  // Try to determine retreat type from available data
-  const parish = retreatData.value?.parish?.toLowerCase() || '';
-  const houseName = retreatData.value?.house?.name?.toLowerCase() || '';
-  const paymentInfo = retreatData.value?.paymentInfo?.toLowerCase() || '';
-
-  // Simple heuristic-based type detection
-  if (parish.includes('mujer') || houseName.includes('mujer') || paymentInfo.includes('mujer')) {
-    return '/woman_logo.png';
-  }
-  if (parish.includes('matrimonio') || houseName.includes('matrimonio') || paymentInfo.includes('matrimonio')) {
-    return '/man_logo.png'; // Couples use man logo
-  }
-
-  // Default fallback (men, joven, effeta, and unknown)
-  return '/man_logo.png';
-});
-
-const retreatNumber = computed(() => {
-  return retreatData.value?.retreat_number_version || '';
-});
-
-const formatDateRange = computed(() => {
-  if (!retreatData.value?.startDate || !retreatData.value?.endDate) return '';
-  // Extract date parts to avoid timezone shift
-  const parseDate = (dateValue: Date | string) => {
-    if (typeof dateValue === 'string') {
-      const match = dateValue.match(/^(\d{4}-\d{2}-\d{2})/);
-      if (match) {
-        const [year, month, day] = match[1].split('-').map(Number);
-        return new Date(year, month - 1, day);
-      }
-    }
-    const d = dateValue instanceof Date ? dateValue : new Date(dateValue);
-    return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-  };
-  const start = parseDate(retreatData.value.startDate);
-  const end = parseDate(retreatData.value.endDate);
-  return `${start.getDate()} al ${end.getDate()} de ${start.toLocaleDateString('es-ES', { month: 'long' })}`;
-});
-
-const formatDate = (dateValue: Date | string | undefined) => {
-  if (!dateValue) return '';
-  // Extract date parts to avoid timezone shift
-  let date: Date;
-  if (typeof dateValue === 'string') {
-    const match = dateValue.match(/^(\d{4}-\d{2}-\d{2})/);
-    if (match) {
-      const [year, month, day] = match[1].split('-').map(Number);
-      date = new Date(year, month - 1, day);
-    } else {
-      const d = new Date(dateValue);
-      date = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-    }
-  } else {
-    date = new Date(dateValue.getUTCFullYear(), dateValue.getUTCMonth(), dateValue.getUTCDate());
-  }
-  const options: Intl.DateTimeFormatOptions = {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long'
-  };
-  return date.toLocaleDateString('es-ES', options);
-};
-
-const startDate = computed(() => retreatData.value?.startDate);
-const endDate = computed(() => retreatData.value?.endDate);
-
-const retreatParish = computed(() => {
-  const parish = retreatData.value?.parish;
-  return parish;
-});
-
-const openingTimeDisplay = computed(() => {
-  const walkerArrivalTime = retreatData.value?.walkerArrivalTime;
-
-  if (walkerArrivalTime) {
-    const [hours, minutes] = walkerArrivalTime.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour > 12 ? hour - 12 : hour || 12;
-    return `${displayHour}:${minutes || '00'} ${ampm} EN PUNTO`;
-  }
-
-  return '5:00 PM EN PUNTO';
-});
-
-const registrationDeadline = computed(() => {
-  const openingNotes = retreatData.value?.openingNotes;
-
-  if (openingNotes && openingNotes.trim()) {
-    return openingNotes.trim();
-  }
-
-  const walkerArrivalTime = retreatData.value?.walkerArrivalTime;
-  if (walkerArrivalTime) {
-    const [hours, minutes] = walkerArrivalTime.split(':');
-    const hour = parseInt(hours) + 0.5; // Add 30 minutes
-    const displayHour = hour > 12 ? Math.floor(hour - 12) : Math.floor(hour);
-    const displayMinutes = hour % 1 !== 0 ? '30' : minutes || '00';
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    return `Llegar ${displayHour}:${displayMinutes} ${ampm} máximo para registro`;
-  }
-
-  return 'Llegar 5:30 PM máximo para registro';
-});
-
-const retreatLocation = computed(() => {
-  return retreatData.value?.house?.name || retreatData.value?.parish || 'Casa de Retiro';
-});
-
-const retreatAddress = computed(() => {
-  const house = retreatData.value?.house;
-  if (!house) return '';
-
-  const addressParts = [
-    house.address1,
-    house.address2,
-    house.city,
-    house.state,
-    house.zipCode,
-    house.country
-  ].filter(part => part && part.trim());
-
-  return addressParts.join(', ').replace(/^,\s*/, '');
-});
-
-
-const closingLocation = computed(() => {
-  return retreatData.value?.closingNotes;
-});
-
-
-const thingsToBringParsed = computed(() => {
-  const notes = retreatData.value?.thingsToBringNotes;
-  if (!notes) return { subtitle: '', items: [] as string[] };
-
-  const items = notes
-    .split(/[\n•*]/)
-    .map((item: string) => item.trim())
-    .map((item: string) => item.replace(/^[•*\-\d.]\s*/, ''))
-    .filter((item: string) => item.length > 0)
-    .map((item: string) => {
-      return item
-        .replace(/\(para tu uso\)/gi, '')
-        .replace(/etc\./gi, '')
-        .trim();
-    })
-    .filter((item: string) => item.length > 0);
-
-  // Detect if first item looks like a subtitle (ends with ":" or is all uppercase)
-  if (items.length > 1 && (items[0].endsWith(':') || items[0] === items[0].toUpperCase())) {
-    return { subtitle: items[0].replace(/:$/, ''), items: items.slice(1) };
-  }
-
-  return { subtitle: '', items };
-});
-
-const thingsToBringItems = computed(() => thingsToBringParsed.value.items);
-const thingsToBringSubtitle = computed(() => thingsToBringParsed.value.subtitle);
-
-const formatCost = computed(() => {
-  const cost = retreatData.value?.cost;
-  if (!cost) return '$ 2,800';
-
-  // Parse cost as number and format as currency
-  const numericCost = parseFloat(cost.toString().replace(/[^0-9.]/g, ''));
-  if (isNaN(numericCost)) return cost.trim();
-
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN'
-  }).format(numericCost);
-});
-
-const paymentInfo = computed(() => {
-  const paymentInfoRaw = retreatData.value?.paymentInfo;
-  if (!paymentInfoRaw) return '';
-
-  // Fix character encoding issues (replace \u001f and other control characters) and replace line feeds with <br>
-  // eslint-disable-next-line no-control-regex
-  let info = paymentInfoRaw.replace(/\n/g, '<br>').replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
-  return DOMPurify.sanitize(info);
-});
-const paymentMethods = computed(() => retreatData.value?.paymentMethods);
-
-const contactPhones = computed(() => {
-  const phones = retreatData.value?.contactPhones;
-  if (!phones) return [];
-
-  try {
-    // Handle different phone formats
-    let phoneStr: string;
-    if (Array.isArray(phones)) {
-      phoneStr = phones.join('\n');
-    } else {
-      phoneStr = phones.toString();
-    }
-
-    // Split by newlines or commas and clean up
-    return phoneStr
-      .split(/[\n,]+/)
-      .map(phone => phone.trim())
-      .filter(phone => phone.length > 0)
-      .map(phone => {
-        // Extract phone number patterns and keep the name
-        const match = phone.match(/(.+?)\s*(\d[\d\s-]*\d)/);
-        if (match) {
-          return { name: match[1].trim(), number: match[2].trim() };
-        }
-        // If no name found, try to extract just the number
-        const numberMatch = phone.match(/(\d[\d\s-]*\d)/);
-        return numberMatch ? { name: 'Contacto', number: numberMatch[1] } : null;
-      })
-      .filter(Boolean);
-  } catch {
-    return [];
-  }
-});
-
-const contactEmails = computed(() => {
-  const phones = retreatData.value?.contactPhones;
-  if (!phones) return [];
-
-  const phoneStr = Array.isArray(phones) ? phones.join('\n') : phones.toString();
-  const emailRegex = /[\w.-]+@[\w.-]+\.\w+/g;
-  const matches = phoneStr.match(emailRegex);
-  return matches || [];
-});
-
-const totalContactItems = computed(() => contactPhones.value.length + contactEmails.value.length);
-
-const registrationUrl = computed(() => {
-  return walkerRegistrationLink.value || 'https://emaus.cc/';
-});
-
-const registrationDomain = computed(() => {
-  const url = registrationUrl.value;
-  try {
-    const parsed = new URL(url);
-    const domain = parsed.hostname.replace('www.', '');
-    const path = parsed.pathname;
-    // Show domain + path for short slug URLs (e.g. emaus.cc/interlomasiii)
-    if (path && path !== '/' && path.length < 30) {
-      return domain + path;
-    }
-    return domain;
-  } catch {
-    return 'emaus.cc';
-  }
-});
-
-const googleMapsUrl = computed(() => {
-  const raw = retreatData.value?.house?.googleMapsUrl;
-  if (!raw || !raw.trim()) return raw;
-
-  const url = raw.trim();
-
-  // Shorten Google Maps URLs for better QR readability
-  try {
-    const parsed = new URL(url);
-
-    // If it has a CID, use the short form: https://maps.google.com/?cid=XXXXX
-    const cid = parsed.searchParams.get('cid');
-    if (cid) {
-      return `https://maps.google.com/?cid=${cid}`;
-    }
-
-    // If it has a place_id in the path (/place/.../) keep as-is but remove tracking params
-    if (parsed.pathname.includes('/place/')) {
-      parsed.searchParams.delete('g_mp');
-      parsed.searchParams.delete('source');
-      parsed.searchParams.delete('hl');
-      parsed.searchParams.delete('entry');
-      return parsed.toString();
-    }
-
-    // For goo.gl or maps.app.goo.gl short links, already short
-    if (parsed.hostname.includes('goo.gl')) {
-      return url;
-    }
-  } catch {
-    // Not a valid URL, return as-is
-  }
-
-  return url;
-});
-
-const flyerOptions = computed(() => (retreatData.value as any)?.flyer_options);
-
-const showQrCodes = computed(() => {
-  return flyerOptions.value?.showQrCodes ?? true;
-});
-
-const showQrCodesLocation = computed(() => {
-  return flyerOptions.value?.showQrCodesLocation ?? showQrCodes.value;
-});
-
-const showQrCodesRegistration = computed(() => {
-  return flyerOptions.value?.showQrCodesRegistration ?? showQrCodes.value;
-});
-
-// New override computed properties
-const catholicRetreatText = computed(() => flyerOptions.value?.catholicRetreatOverride || t('retreatFlyer.catholicRetreat'));
-const emausForText = computed(() => flyerOptions.value?.emausForOverride || t('retreatFlyer.emausFor'));
-
-const encounterDescriptionText = computed(() => flyerOptions.value?.encounterDescriptionOverride || t('retreatFlyer.encounterDescription'));
-const dareToLiveItText = computed(() => flyerOptions.value?.dareToLiveItOverride || t('retreatFlyer.dareToLiveIt'));
-const arrivalTimeNoteText = computed(() => flyerOptions.value?.arrivalTimeNoteOverride || t('retreatFlyer.arrivalTimeNote'));
-const whatToBringText = computed(() => flyerOptions.value?.whatToBringOverride || t('retreatFlyer.whatToBring'));
-const registerText = computed(() => flyerOptions.value?.registerOverride || t('retreatFlyer.register'));
-const scanToRegisterText = computed(() => flyerOptions.value?.scanToRegisterOverride || t('retreatFlyer.scanToRegister'));
-const limitedCapacityText = computed(() => flyerOptions.value?.limitedCapacityOverride || t('retreatFlyer.limitedCapacity'));
-const dontMissItText = computed(() => flyerOptions.value?.dontMissItOverride || t('retreatFlyer.dontMissIt'));
-const reservationNoteText = computed(() => flyerOptions.value?.reservationNoteOverride || t('retreatFlyer.reservationNote'));
-const comeText = computed(() => flyerOptions.value?.comeOverride || t('retreatFlyer.come'));
-
-// Update valid existing ones to prefer new keys if mapped
-// titleText was using titleOverride. Let's make it look at hopeOverride too.
-// The user sees 'Header: Hope (Title)' and fills hopeOverride.
-// TitleText is what displays the big main title.
-const titleTextRefined = computed(() => {
-    if (flyerOptions.value?.hopeOverride) return flyerOptions.value.hopeOverride;
-    if (flyerOptions.value?.titleOverride) return flyerOptions.value.titleOverride;
-    return t('retreatFlyer.hope');
-});
-const subtitleTextRefined = computed(() => {
-    if (flyerOptions.value?.weekendOfHopeOverride) return flyerOptions.value.weekendOfHopeOverride;
-    if (flyerOptions.value?.subtitleOverride) return flyerOptions.value.subtitleOverride;
-    return t('retreatFlyer.weekendOfHope');
-});
-const quoteTextRefined = computed(() => {
-    if (flyerOptions.value?.hopeQuoteOverride) return flyerOptions.value.hopeQuoteOverride;
-    return t('retreatFlyer.hopeQuote');
-});
-
-// Since I am replacing the old computed props, I need to make sure I don't leave duplicates.
-// The code earlier (lines 535-555) had titleText, subtitleText, etc.
-// I will override the return values of those variables in the chunk below or replace the whole block.
-// To avoid conflicts, I will replace the block from 543 to 557.
-
-// Styling for the flyer
-const flyerStyles = {
-  fontFamily: "'Roboto', sans-serif",
-  // Screen styles
-  width: '100%',
-  maxWidth: '850px',
-  margin: '0 auto',
+	if (menuRef.value && !menuRef.value.contains(e.target as Node)) {
+		showMenu.value = false;
+	}
 };
 
 // Print functionality — temporarily remove mobile scale so print CSS takes full control
 const isPrinting = ref(false);
-const onBeforePrint = () => { isPrinting.value = true; };
-const onAfterPrint = () => { isPrinting.value = false; };
+const onBeforePrint = () => {
+	isPrinting.value = true;
+};
+const onAfterPrint = () => {
+	isPrinting.value = false;
+};
 const handlePrint = () => {
-  isPrinting.value = true;
-  nextTick(() => {
-    window.print();
-    isPrinting.value = false;
-  });
+	isPrinting.value = true;
+	nextTick(() => {
+		window.print();
+		isPrinting.value = false;
+	});
 };
 
 // Copy flyer as image to clipboard
 const copiedRecently = ref(false);
-const copyIcon = computed(() => copiedRecently.value ? Check : Copy);
-const copyLabel = computed(() => copiedRecently.value ? t('retreatFlyer.copied') : t('retreatFlyer.copyImage'));
+const copyIcon = computed(() => (copiedRecently.value ? Check : Copy));
+const copyLabel = computed(() =>
+	copiedRecently.value ? t('retreatFlyer.copied') : t('retreatFlyer.copyImage'),
+);
+
+/** The canvas root is the printable area; prefer the ref over a global id lookup. */
+const printableEl = () => canvasRef.value?.$el ?? document.getElementById('printable-area');
 
 const handleCopyToClipboard = async () => {
-  const el = document.getElementById('printable-area');
-  if (!el) return;
+	const el = printableEl();
+	if (!el) return;
 
-  try {
-    // Ensure custom fonts are fully loaded before rendering
-    if (document.fonts && document.fonts.ready) {
-      await document.fonts.ready;
-    }
+	try {
+		// Ensure custom fonts are fully loaded before rendering
+		if (document.fonts && document.fonts.ready) {
+			await document.fonts.ready;
+		}
 
-    const { toBlob } = await import('html-to-image');
+		const { toBlob } = await import('html-to-image');
 
-    // Use ClipboardItem with a promise to preserve user activation context
-    // This prevents the "Document is not focused" error on async operations
-    const blobPromise = toBlob(el, {
-      pixelRatio: 2,
-      cacheBust: true,
-      fetchRequestInit: { mode: 'cors' },
-    }).then(blob => blob || new Blob([], { type: 'image/png' }));
+		// ClipboardItem with a promise preserves the user activation context, which
+		// otherwise expires mid-render and fails with "Document is not focused"
+		const blobPromise = toBlob(el, {
+			pixelRatio: 2,
+			cacheBust: true,
+			fetchRequestInit: { mode: 'cors' },
+		}).then((blob) => blob || new Blob([], { type: 'image/png' }));
 
-    try {
-      await navigator.clipboard.write([
-        new ClipboardItem({ 'image/png': blobPromise })
-      ]);
-      copiedRecently.value = true;
-      setTimeout(() => { copiedRecently.value = false; }, 2000);
-    } catch {
-      // Fallback: download the image
-      const blob = await blobPromise;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'flyer.png';
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-  } catch (err) {
-    console.error('Failed to copy flyer to clipboard', err);
-  }
+		try {
+			await navigator.clipboard.write([new ClipboardItem({ 'image/png': blobPromise })]);
+			copiedRecently.value = true;
+			setTimeout(() => {
+				copiedRecently.value = false;
+			}, 2000);
+		} catch {
+			// Fallback: download the image
+			const blob = await blobPromise;
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = 'flyer.png';
+			a.click();
+			URL.revokeObjectURL(url);
+		}
+	} catch (err) {
+		console.error('Failed to copy flyer to clipboard', err);
+	}
 };
 
 // Export flyer as PDF (client-side: html-to-image + jsPDF)
 const isDownloadingPdf = ref(false);
 
 const handleDownloadPdf = async () => {
-  const el = document.getElementById('printable-area');
-  if (!el) return;
-  isDownloadingPdf.value = true;
-  try {
-    if (document.fonts && document.fonts.ready) {
-      await document.fonts.ready;
-    }
+	const el = printableEl();
+	if (!el) return;
+	isDownloadingPdf.value = true;
+	try {
+		if (document.fonts && document.fonts.ready) {
+			await document.fonts.ready;
+		}
 
-    const { toPng } = await import('html-to-image');
-    const { default: jsPDF } = await import('jspdf');
+		const { toJpeg } = await import('html-to-image');
+		const { default: jsPDF } = await import('jspdf');
 
-    const dataUrl = await toPng(el, {
-      pixelRatio: 2,
-      cacheBust: true,
-      fetchRequestInit: { mode: 'cors' },
-    });
+		// JPEG, not PNG: the flyer is a full-page photographic composition, so a lossless
+		// capture lands around 15MB — too big to send by email or WhatsApp — while this is
+		// under 2MB with no visible difference in print. The white background matters
+		// because JPEG has no alpha channel.
+		const dataUrl = await toJpeg(el, {
+			pixelRatio: 2,
+			quality: 0.95,
+			backgroundColor: '#ffffff',
+			cacheBust: true,
+			fetchRequestInit: { mode: 'cors' },
+		});
 
-    const img = new Image();
-    img.src = dataUrl;
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = () => reject(new Error('Failed to decode flyer image'));
-    });
+		const img = new Image();
+		img.src = dataUrl;
+		await new Promise<void>((resolve, reject) => {
+			img.onload = () => resolve();
+			img.onerror = () => reject(new Error('Failed to decode flyer image'));
+		});
 
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pageWidthMm = pdf.internal.pageSize.getWidth();
-    const pageHeightMm = pdf.internal.pageSize.getHeight();
-    const ratio = img.height / img.width;
-    const targetWidthMm = pageWidthMm;
-    const targetHeightMm = targetWidthMm * ratio;
+		const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+		const pageWidthMm = pdf.internal.pageSize.getWidth();
+		const pageHeightMm = pdf.internal.pageSize.getHeight();
 
-    if (targetHeightMm <= pageHeightMm) {
-      pdf.addImage(dataUrl, 'PNG', 0, 0, targetWidthMm, targetHeightMm);
-    } else {
-      // Multi-page: slice the image vertically so each page fills A4 height
-      const pageHeightPx = Math.floor((pageHeightMm / targetWidthMm) * img.width);
-      let yPx = 0;
-      let firstPage = true;
-      while (yPx < img.height) {
-        const sliceHeightPx = Math.min(pageHeightPx, img.height - yPx);
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = sliceHeightPx;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) throw new Error('Canvas 2D context unavailable');
-        ctx.drawImage(img, 0, -yPx);
-        const sliceDataUrl = canvas.toDataURL('image/png');
-        const sliceHeightMm = (sliceHeightPx / img.width) * targetWidthMm;
-        if (!firstPage) pdf.addPage();
-        pdf.addImage(sliceDataUrl, 'PNG', 0, 0, targetWidthMm, sliceHeightMm);
-        firstPage = false;
-        yPx += sliceHeightPx;
-      }
-    }
+		// A flyer is a one-page document: fit it inside the page by whichever
+		// dimension binds, and centre it. Slicing it across pages would cut a card
+		// in half, and the block layout's height varies with the retreat's content.
+		const fit = Math.min(pageWidthMm / img.width, pageHeightMm / img.height);
+		const targetWidthMm = img.width * fit;
+		const targetHeightMm = img.height * fit;
+		const offsetXMm = (pageWidthMm - targetWidthMm) / 2;
+		const offsetYMm = (pageHeightMm - targetHeightMm) / 2;
 
-    const parishSlug = (retreatParish.value || 'retiro').toString();
-    const numberSlug = retreatNumber.value ? `-${retreatNumber.value}` : '';
-    const filename = `flyer-${parishSlug}${numberSlug}.pdf`
-      .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9.-]/g, '');
-    pdf.save(filename);
-  } catch (err) {
-    console.error('Failed to export flyer as PDF', err);
-  } finally {
-    isDownloadingPdf.value = false;
-  }
+		pdf.addImage(dataUrl, 'JPEG', offsetXMm, offsetYMm, targetWidthMm, targetHeightMm);
+
+		const parishSlug = (retreatData.value?.parish || 'retiro').toString();
+		const numberSlug = retreatData.value?.retreat_number_version
+			? `-${retreatData.value.retreat_number_version}`
+			: '';
+		const filename = `flyer-${parishSlug}${numberSlug}.pdf`
+			.toLowerCase()
+			.replace(/\s+/g, '-')
+			.replace(/[^a-z0-9.-]/g, '');
+		pdf.save(filename);
+	} catch (err) {
+		console.error('Failed to export flyer as PDF', err);
+	} finally {
+		isDownloadingPdf.value = false;
+	}
 };
 
-// Load retreat data and calculate initial height
 onMounted(async () => {
-  const retreatId = route.params.id as string;
-  if (retreatId) {
-    // Always fetch fresh retreat data (includes house with address2, etc.)
-    await retreatStore.fetchRetreat(retreatId);
-  }
-  await nextTick();
-  calculateContentHeight();
-  document.addEventListener('click', handleClickOutside);
-  window.addEventListener('beforeprint', onBeforePrint);
-  window.addEventListener('afterprint', onAfterPrint);
+	if (retreatId.value) {
+		// Always fetch fresh retreat data (includes house with address2, etc.)
+		await retreatStore.fetchRetreat(retreatId.value);
+	}
+	await nextTick();
+	document.addEventListener('click', handleClickOutside);
+	window.addEventListener('beforeprint', onBeforePrint);
+	window.addEventListener('afterprint', onAfterPrint);
 
-  // Setup ResizeObserver for responsive scaling
-  if (flyerWrapperRef.value) {
-    updateScaleFactor();
-    resizeObserver = new ResizeObserver(() => {
-      updateScaleFactor();
-    });
-    resizeObserver.observe(flyerWrapperRef.value);
-    if (printableAreaRef.value) {
-      resizeObserver.observe(printableAreaRef.value);
-    }
-  }
+	if (flyerWrapperRef.value) {
+		updateScaleFactor();
+		resizeObserver = new ResizeObserver(() => {
+			updateScaleFactor();
+		});
+		resizeObserver.observe(flyerWrapperRef.value);
+		const el = canvasRef.value?.$el;
+		if (el) {
+			resizeObserver.observe(el);
+		}
+	}
 });
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside);
-  window.removeEventListener('beforeprint', onBeforePrint);
-  window.removeEventListener('afterprint', onAfterPrint);
-  if (resizeObserver) {
-    resizeObserver.disconnect();
-    resizeObserver = null;
-  }
+	document.removeEventListener('click', handleClickOutside);
+	window.removeEventListener('beforeprint', onBeforePrint);
+	window.removeEventListener('afterprint', onAfterPrint);
+	if (resizeObserver) {
+		resizeObserver.disconnect();
+		resizeObserver = null;
+	}
 });
 
 // Reload retreat data when the :id param changes (sidebar retreat switch)
-watch(() => route.params.id, async (newId, oldId) => {
-  if (newId && newId !== oldId) {
-    await retreatStore.fetchRetreat(newId as string);
-    await nextTick();
-    calculateContentHeight();
-  }
-});
-
-// Watch for changes in QR code visibility
-watch(showQrCodesRegistration, () => {
-  nextTick(() => {
-    calculateContentHeight();
-  });
-});
-
-// Also recalculate when window resizes
-if (typeof window !== 'undefined') {
-  window.addEventListener('resize', () => {
-    calculateContentHeight();
-    updateScaleFactor();
-  });
-}
+watch(
+	() => route.params.id,
+	async (newId, oldId) => {
+		if (newId && newId !== oldId) {
+			await retreatStore.fetchRetreat(newId as string);
+			await nextTick();
+			updateScaleFactor();
+		}
+	},
+);
 </script>
 
 <style>
-/* Global Print Styles */
+/* Global print styles: the flyer must escape every ancestor's overflow/scroll container */
 @media print {
-  @page {
-    size: A4;
-    margin: 3mm;
-  }
+	@page {
+		size: A4;
+		margin: 3mm;
+	}
 
-  body {
-    margin: 0 !important;
-    padding: 0 !important;
-    background: white !important;
-  }
+	body {
+		margin: 0 !important;
+		padding: 0 !important;
+		background: white !important;
+	}
 
-  /* Hide everything except the flyer */
-  body * {
-    visibility: hidden;
-  }
+	/* Hide everything except the flyer */
+	body * {
+		visibility: hidden;
+	}
 
-  #printable-area,
-  #printable-area * {
-    visibility: visible;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-    color-adjust: exact !important;
-  }
+	#printable-area,
+	#printable-area * {
+		visibility: visible;
+		-webkit-print-color-adjust: exact !important;
+		print-color-adjust: exact !important;
+		color-adjust: exact !important;
+	}
 
-  /* position:fixed breaks out of ALL ancestor overflow/scroll containers */
-  #printable-area {
-    position: fixed;
-    left: 0;
-    top: 0;
-    width: 850px;
-    max-width: none;
-    margin: 0;
-    padding: 0;
-    overflow: visible;
-    z-index: 99999;
-    /* Scale to fit A4 width (210mm ≈ 793px) while keeping 850px design */
-    transform: scale(0.933) !important;
-    transform-origin: top left !important;
-    width: 850px !important;
-  }
+	/* position:fixed breaks out of ALL ancestor overflow/scroll containers */
+	#printable-area {
+		position: fixed;
+		left: 0;
+		top: 0;
+		max-width: none;
+		margin: 0;
+		padding: 0;
+		overflow: visible;
+		z-index: 99999;
+		/* Shrink-to-fit one A4 page; the view computes the factor from the actual height */
+		transform: scale(var(--flyer-print-scale, 0.907)) !important;
+		transform-origin: top left !important;
+		width: 850px !important;
+	}
 
-  /* Force colored backgrounds in print via box-shadow (browsers always print box-shadows
+	/* Force colored backgrounds in print via box-shadow (browsers always print box-shadows
      even when they strip background-color and background-image) */
-  #printable-area header {
-    box-shadow: inset 0 0 0 9999px #1e3a8a !important; /* blue-900 */
-  }
-  #printable-area [data-banner] {
-    box-shadow: inset 0 0 0 9999px #1e3a8a !important; /* blue-900 */
-  }
-  #printable-area footer {
-    box-shadow: inset 0 0 0 9999px #111827 !important; /* gray-900 */
-  }
+	#printable-area header {
+		box-shadow: inset 0 0 0 9999px #1e3a8a !important; /* blue-900 */
+	}
+	#printable-area [data-banner] {
+		box-shadow: inset 0 0 0 9999px #1e3a8a !important; /* blue-900 */
+	}
+	#printable-area footer {
+		box-shadow: inset 0 0 0 9999px #111827 !important; /* gray-900 */
+	}
 
-  /* Hide sidebar, nav, and other app chrome */
-  nav, aside, .sidebar, [class*="Sidebar"],
-  .ai-chat-widget, [class*="AiChat"] {
-    display: none !important;
-  }
-}
-
-/* Override AppLayout's mobile-hide-h1 rule that hides all h1 on mobile,
-   which also kills the "Esperanza" title inside the flyer */
-#printable-area h1 {
-  display: block !important;
-}
-</style>
-
-<style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Miltonian+Tattoo&family=Oswald:wght@300;400;500;700;900&family=Roboto:ital,wght@0,300;0,400;0,500;0,700;0,900;1,400&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&display=swap');
-
-.print-optimized {
-  width: 100%;
-  max-width: 850px;
-  margin: 0 auto;
-}
-
-@media print {
-  .print-optimized {
-    width: 850px !important;
-    max-width: none !important;
-    margin: 0 !important;
-    overflow: visible !important;
-  }
-}
-
-/* Force browsers to print backgrounds and colors */
-.print-exact {
-  -webkit-print-color-adjust: exact !important;
-  print-color-adjust: exact !important;
-  color-adjust: exact !important;
-}
-
-/* Print: add text-shadow fallbacks since Chrome print ignores CSS filter: drop-shadow() */
-@media print {
-  .print\:bg-none {
-    background-image: none !important;
-    -webkit-background-clip: border-box !important;
-    background-clip: border-box !important;
-    -webkit-text-fill-color: currentColor !important;
-  }
-
-  /* Replicate drop-shadow with text-shadow for print */
-  #printable-area .drop-shadow-2xl {
-    text-shadow: 4px 4px 12px rgba(0,0,0,0.6);
-  }
-  #printable-area .drop-shadow-xl {
-    text-shadow: 3px 3px 8px rgba(0,0,0,0.5);
-  }
-  #printable-area .drop-shadow-lg {
-    text-shadow: 2px 2px 6px rgba(0,0,0,0.5);
-  }
-  #printable-area .drop-shadow-md {
-    text-shadow: 1px 1px 4px rgba(0,0,0,0.4);
-  }
-  #printable-area .drop-shadow-sm {
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-  }
-
-  /* "Ven" cursive — strong shadow */
-  #printable-area .font-display {
-    text-shadow: 4px 4px 12px rgba(0,0,0,0.6);
-  }
-
-  /* "¡NO TE LO PIERDAS!" header */
-  #printable-area .font-header.drop-shadow-xl {
-    text-shadow: 3px 3px 10px rgba(0,0,0,0.6);
-  }
-
-  /* "Esperanza" title — strong shadow matching the screen drop-shadow */
-  #flyer-title {
-    text-shadow: 5px 5px 15px rgba(0,0,0,0.7), 2px 2px 4px rgba(0,0,0,0.5) !important;
-  }
-
-  /* Logo image shadow */
-  #printable-area img.drop-shadow-2xl {
-    text-shadow: none;
-    filter: drop-shadow(3px 3px 6px rgba(0,0,0,0.5)) !important;
-  }
-}
-
-.font-display {
-  font-family: 'Dancing Script', cursive;
-}
-
-.font-header {
-  font-family: 'Oswald', sans-serif;
-}
-
-.flyer-title {
-  text-shadow: 5px 5px 15px rgba(0,0,0,0.7), 2px 2px 4px rgba(0,0,0,0.5);
-}
-
-@media screen {
-  .flyer-title {
-    filter: drop-shadow(5px 5px 10px rgba(0,0,0,0.7));
-  }
-}
-
-/* Smooth transitions (disabled during print) */
-@media screen {
-  * {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-}
-
-/* Enhanced hover effects */
-.group:hover {
-  transform: translateY(-2px);
-}
-
-/* Pulse animation for important elements */
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.8;
-  }
-}
-
-.animate-pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+	/* Hide sidebar, nav, and other app chrome */
+	nav,
+	aside,
+	.sidebar,
+	[class*='Sidebar'],
+	.ai-chat-widget,
+	[class*='AiChat'] {
+		display: none !important;
+	}
 }
 </style>

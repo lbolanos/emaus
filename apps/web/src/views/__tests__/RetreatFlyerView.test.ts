@@ -73,9 +73,23 @@ vi.mock('qrcode.vue', () => ({
 	default: { name: 'QrcodeVue', template: '<canvas />', props: ['value', 'size'] },
 }));
 
+// Mock jsPDF: the real module is heavy and its dynamic import does not settle in
+// happy-dom, which would stall the export handler before it renders the flyer.
+const pdfAddImage = vi.fn();
+const pdfSave = vi.fn();
+vi.mock('jspdf', () => ({
+	default: class {
+		internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
+		addImage = pdfAddImage;
+		save = pdfSave;
+	},
+}));
+
 // Mock html-to-image
 vi.mock('html-to-image', () => ({
 	toPng: vi.fn(() => Promise.resolve('data:image/png;base64,fake')),
+	toJpeg: vi.fn(() => Promise.resolve('data:image/jpeg;base64,fake')),
+	toBlob: vi.fn(() => Promise.resolve(new Blob([], { type: 'image/png' }))),
 }));
 
 // Add missing lucide icons to the mock
@@ -94,6 +108,8 @@ vi.mock('lucide-vue-next', () => ({
 	Check: { name: 'Check', template: '<svg></svg>' },
 	Mail: { name: 'Mail', template: '<svg></svg>' },
 	FileDown: { name: 'FileDown', template: '<svg></svg>' },
+	Loader2: { name: 'Loader2', template: '<svg></svg>' },
+	Pencil: { name: 'Pencil', template: '<svg></svg>' },
 }));
 
 import RetreatFlyerView from '../RetreatFlyerView.vue';
@@ -273,6 +289,50 @@ describe('RetreatFlyerView', () => {
 	});
 
 	describe('Things to bring parsing', () => {
+		/** One <li> per item, which is what tells a real list from one long string. */
+		const items = (wrapper: ReturnType<typeof mountFlyer>) =>
+			wrapper.findAll('li').map((li) => li.text().trim());
+
+		// The bug that started all of this: Buen Despacho had its list on a single
+		// comma-separated line and the flyer showed it as one item, truncated.
+		it('splits a single comma-separated line into items', () => {
+			const wrapper = mountFlyer({
+				thingsToBringNotes: 'Termo, Chamarra/Sudadera, Ropa con la que estés cómodo, Toalla',
+			});
+
+			expect(items(wrapper)).toEqual([
+				'Termo',
+				'Chamarra/Sudadera',
+				'Ropa con la que estés cómodo',
+				'Toalla',
+			]);
+		});
+
+		// …but a comma inside an item is legitimate when the list already has structure
+		it('leaves commas alone when the list is already one per line', () => {
+			const wrapper = mountFlyer({
+				thingsToBringNotes: 'Termo\nChamarra, sudadera o suéter\nToalla',
+			});
+
+			expect(items(wrapper)).toEqual(['Termo', 'Chamarra, sudadera o suéter', 'Toalla']);
+		});
+
+		it('leaves commas alone when the list uses bullets', () => {
+			const wrapper = mountFlyer({
+				thingsToBringNotes: '• Termo• Chamarra, sudadera• Toalla',
+			});
+
+			expect(items(wrapper)).toEqual(['Termo', 'Chamarra, sudadera', 'Toalla']);
+		});
+
+		it('drops the full stop that ends the last item', () => {
+			const wrapper = mountFlyer({
+				thingsToBringNotes: 'Termo, Toalla, Artículos para asearte.',
+			});
+
+			expect(items(wrapper)).toEqual(['Termo', 'Toalla', 'Artículos para asearte']);
+		});
+
 		it('splits items by newline', () => {
 			const wrapper = mountFlyer({
 				thingsToBringNotes: 'Termo\nToalla\nSábanas',
@@ -485,12 +545,68 @@ describe('RetreatFlyerView', () => {
 			expect(wrapper.text()).toContain('UN RETIRO DE');
 		});
 
+		// The QrcodeVue stub renders a <canvas>, so count those: findAllComponents({name})
+		// always returns 0 here because the stub replaces the named component.
+		it('renders both QR codes by default', () => {
+			const wrapper = mountFlyer();
+			expect(wrapper.findAll('canvas').length).toBe(2);
+		});
+
 		it('hides QR codes when showQrCodes is false', () => {
 			const wrapper = mountFlyer({
 				flyer_options: { showQrCodes: false },
 			});
-			const qrComponents = wrapper.findAllComponents({ name: 'QrcodeVue' });
-			expect(qrComponents.length).toBe(0);
+			expect(wrapper.findAll('canvas').length).toBe(0);
+		});
+
+		it('hides only the registration QR when showQrCodesRegistration is false', () => {
+			const wrapper = mountFlyer({
+				flyer_options: { showQrCodesRegistration: false },
+			});
+			expect(wrapper.findAll('canvas').length).toBe(1);
+			expect(wrapper.text()).toContain('retreatFlyer.locationQR');
+			expect(wrapper.text()).not.toContain('retreatFlyer.scanToRegister');
+		});
+	});
+
+	// The bug this guards: the published flyer took only flyer_options and left every
+	// other prop unset, so the canvas fell back to its defaults. The editor saved a
+	// design and this page — the one that prints, copies and exports — ignored it.
+	describe('Saved design', () => {
+		const SAVED = {
+			layoutVersion: 2,
+			blocks: [
+				{ id: 'intro', slot: 'wide', order: 0, visible: true },
+				{ id: 'startTime', slot: 'left', order: 0, visible: false },
+			],
+			theme: { textColor: '#ffffff' },
+			blockStyles: { intro: { textAlign: 'right' } },
+			images: { bodyBackground: 'https://cdn.example/art.webp' },
+		};
+
+		it('lays the blocks out the way they were saved', () => {
+			const wrapper = mountFlyer({ flyer_options: SAVED });
+
+			expect(wrapper.find('[data-flyer-slot="wide"] [data-flyer-block="intro"]').exists()).toBe(
+				true,
+			);
+			expect(wrapper.find('[data-flyer-block="startTime"]').exists()).toBe(false);
+		});
+
+		it('paints the saved theme, per-block style and background image', () => {
+			const wrapper = mountFlyer({ flyer_options: SAVED });
+			const intro = wrapper.find('[data-flyer-block="intro"]');
+
+			expect(intro.attributes('style')).toContain('--fb-text: #ffffff');
+			expect(intro.attributes('data-align')).toBe('right');
+			expect(wrapper.find('[data-main-content]').attributes('style')).toContain(
+				'https://cdn.example/art.webp',
+			);
+		});
+
+		it('still honours the v1 QR toggles, which have no blocks array', () => {
+			const wrapper = mountFlyer({ flyer_options: { showQrCodesRegistration: false } });
+			expect(wrapper.findAll('canvas').length).toBe(1);
 		});
 	});
 
@@ -521,20 +637,29 @@ describe('RetreatFlyerView', () => {
 		});
 	});
 
-	describe('Copy to clipboard', () => {
-		it('calls html-to-image toPng when copy is clicked', async () => {
-			const { toPng } = await import('html-to-image');
-			const wrapper = mountFlyer();
-
-			// Open menu
-			const menuButton = wrapper.find('button');
-			await menuButton.trigger('click');
+	describe('Export', () => {
+		/** Opens the actions menu and clicks the entry whose label contains `labelKey`. */
+		async function clickMenuEntry(wrapper: ReturnType<typeof mountFlyer>, labelKey: string) {
+			await wrapper.find('button').trigger('click');
 			await nextTick();
 
-			// Find and click copy button
-			const buttons = wrapper.findAll('button');
-			const copyButton = buttons.find(b => b.text().includes('retreatFlyer.copyImage'));
-			expect(copyButton).toBeDefined();
+			const entry = wrapper.findAll('button').find((b) => b.text().includes(labelKey));
+			expect(entry).toBeDefined();
+			await entry!.trigger('click');
+			// Let the dynamic import() and the awaits inside the handler settle
+			await vi.runAllTimersAsync();
+		}
+
+		it('renders the flyer into a blob when copying, so the clipboard gets a PNG', async () => {
+			const { toBlob } = await import('html-to-image');
+			await clickMenuEntry(mountFlyer(), 'retreatFlyer.copyImage');
+			expect(toBlob).toHaveBeenCalled();
+		});
+
+		it('renders the flyer as JPEG for the PDF, which keeps the file small enough to send', async () => {
+			const { toJpeg } = await import('html-to-image');
+			await clickMenuEntry(mountFlyer(), 'retreatFlyer.exportPdf');
+			expect(toJpeg).toHaveBeenCalled();
 		});
 	});
 
