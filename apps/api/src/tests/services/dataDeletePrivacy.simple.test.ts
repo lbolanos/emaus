@@ -172,6 +172,22 @@ describe('anonymizeParticipantByToken', () => {
 		);
 	});
 
+	it('desvincula también en el otro sentido: el anonimizado no conserva a su cónyuge', async () => {
+		// `findAllParticipants` resuelve `spouseName` desde `spouseParticipantId`, así
+		// que dejarlo puesto hacía que el registro "(eliminado)" siguiera mostrando el
+		// nombre real de su pareja. El vínculo es dato de quien pidió el borrado.
+		const participant = makeParticipant();
+		mockFindOne.mockResolvedValue(participant);
+		mockSave.mockImplementation(async (p: any) => p);
+
+		await anonymizeParticipantByToken('a'.repeat(48));
+
+		expect(mockUpdate).toHaveBeenCalledWith(
+			{ participantId: participant.id },
+			{ spouseParticipantId: null },
+		);
+	});
+
 	it('returns false when token does not match any participant', async () => {
 		mockFindOne.mockResolvedValue(null);
 		const ok = await anonymizeParticipantByToken('z'.repeat(48));

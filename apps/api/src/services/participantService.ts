@@ -5314,11 +5314,15 @@ export const anonymizeParticipantByToken = async (
       );
     }
 
-    // Retiros de parejas: desvincular al cónyuge en TODOS los retiros. La fila
-    // anonimizada no debe seguir referenciada como pareja de nadie.
-    await em
-      .getRepository(RetreatParticipant)
-      .update({ spouseParticipantId: p.id }, { spouseParticipantId: null });
+    // Retiros de parejas: desvincular al cónyuge en TODOS los retiros, en los DOS
+    // sentidos. La fila anonimizada no debe seguir referenciada como pareja de
+    // nadie, ni conservar ella misma el puntero a su cónyuge: `findAllParticipants`
+    // resuelve `spouseName` desde ese id, así que el registro "(eliminado)" seguía
+    // mostrando el nombre real de su pareja. Con quién estaba casada es dato de
+    // quien pidió el borrado, y tiene que irse con él.
+    const rpRepo = em.getRepository(RetreatParticipant);
+    await rpRepo.update({ spouseParticipantId: p.id }, { spouseParticipantId: null });
+    await rpRepo.update({ participantId: p.id }, { spouseParticipantId: null });
 
     // GDPR: registrar SOLO el hecho de la anonimización (id/acción/retiro),
     // nunca los valores eliminados.
