@@ -1486,7 +1486,7 @@ export async function createChatStream(
 						.orderBy('m.startDate', 'DESC')
 						.limit(limit || 10);
 					if (onlyUpcoming) {
-						qb.andWhere('m.startDate >= datetime("now")');
+						qb.andWhere("m.startDate >= datetime('now')");
 					}
 					const meetings = await qb.getMany();
 					const now = new Date();

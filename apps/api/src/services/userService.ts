@@ -20,7 +20,7 @@ export class UserService {
 			.leftJoinAndSelect('userRetreat.role', 'role')
 			.where('userRetreat.userId = :userId', { userId })
 			.andWhere('userRetreat.status = :status', { status: 'active' })
-			.andWhere('(userRetreat.expiresAt IS NULL OR userRetreat.expiresAt > datetime("now"))')
+			.andWhere("(userRetreat.expiresAt IS NULL OR userRetreat.expiresAt > datetime('now'))")
 			.getMany();
 
 		const roleIds = userRoles.map((ur) => ur.role.id);
@@ -121,7 +121,7 @@ export class UserService {
 			.where('userRetreat.userId = :userId', { userId })
 			.andWhere('userRetreat.retreatId = :retreatId', { retreatId })
 			.andWhere('userRetreat.status = :status', { status: 'active' })
-			.andWhere('(userRetreat.expiresAt IS NULL OR userRetreat.expiresAt > datetime("now"))')
+			.andWhere("(userRetreat.expiresAt IS NULL OR userRetreat.expiresAt > datetime('now'))")
 			.getOne();
 
 		return !!userRetreat;
@@ -135,7 +135,7 @@ export class UserService {
 			.andWhere('userRetreat.retreatId = :retreatId', { retreatId })
 			.andWhere('role.name = :roleName', { roleName })
 			.andWhere('userRetreat.status = :status', { status: 'active' })
-			.andWhere('(userRetreat.expiresAt IS NULL OR userRetreat.expiresAt > datetime("now"))')
+			.andWhere("(userRetreat.expiresAt IS NULL OR userRetreat.expiresAt > datetime('now'))")
 			.getOne();
 
 		return !!userRetreat;

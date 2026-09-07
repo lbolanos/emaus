@@ -22,6 +22,10 @@ export default defineConfig({
 				'connect-typeorm',
 				'reflect-metadata',
 				'sqlite3',
+				// Módulo nativo (.node): si Rollup lo empaqueta, el bundle revienta AL CARGAR
+				// y el API queda en crash-loop — el deploy muere en el healthcheck con el dist
+				// viejo ya sobrescrito. Ni los tests ni tsc lo detectan.
+				'better-sqlite3',
 				'pg',
 				'passport',
 				'passport-google-oauth20',

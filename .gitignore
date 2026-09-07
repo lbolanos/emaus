@@ -19,6 +19,11 @@ node_modules/
 apps/api/database.sqlite
 apps/api/database.sqlite-wal
 apps/api/database.sqlite-shm
+# Los sidecar WAL de una DB de worktree (database.worktree.sqlite-wal/-shm): el patrón
+# `database.*.sqlite` de más abajo no cubre los sufijos -wal/-shm. Fuera de cualquier
+# bloque generado, a propósito.
+apps/api/database.*.sqlite-wal
+apps/api/database.*.sqlite-shm
 apps/api/2database.sqlite
 apps/api/emaus.db
 # Backups de prod descargados localmente (incidente 2026-06-04)

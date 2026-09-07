@@ -1005,7 +1005,7 @@ export const findNextMeetingForParticipant = async (
     .createQueryBuilder("m")
     .leftJoinAndSelect("m.community", "c")
     .where("m.communityId IN (:...cids)", { cids: communityIds })
-    .andWhere('m.startDate >= datetime("now")')
+    .andWhere("m.startDate >= datetime('now')")
     .andWhere("(m.isRecurrenceTemplate = 0 OR m.isRecurrenceTemplate IS NULL)")
     .orderBy("m.startDate", "ASC")
     .getOne();

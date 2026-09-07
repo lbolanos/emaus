@@ -161,7 +161,11 @@ let testDataSource: DataSource | null = null;
 // Helper to get or create test data source
 function getTestDataSourceConfig() {
 	return {
-		type: 'sqlite' as const,
+		// Mismo driver que producción (ver getDatabaseConfig). Esta config es
+		// independiente de la de prod, así que si divergen los tests ejercitan un
+		// driver que ya nadie usa — justo el hueco por el que se coló la carrera de
+		// transacciones del incidente 2026-08-24. Mantenerlos en sincronía.
+		type: 'better-sqlite3' as const,
 		database: ':memory:',
 		synchronize: true, // Auto-create schema for tests
 		logging: false,
