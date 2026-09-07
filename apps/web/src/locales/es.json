@@ -916,6 +916,14 @@
       "errorNoData": "No hay datos para exportar.",
       "errorGeneric": "Ocurrió un error durante la exportación. Por favor, inténtelo de nuevo."
     },
+    "bulkDelete": {
+      "title": "Eliminar Participantes Seleccionados",
+      "confirmMessage": "¿Estás seguro de que deseas cancelar la participación de {count} participante seleccionado en este retiro? Se liberarán su mesa y cama asignadas, y podrá ser reactivado después. | ¿Estás seguro de que deseas cancelar la participación de {count} participantes seleccionados en este retiro? Se liberarán sus mesas y camas asignadas, y podrán ser reactivados después.",
+      "successTitle": "Participantes Cancelados",
+      "successDesc": "{count} participante fue cancelado del retiro exitosamente. | {count} participantes fueron cancelados del retiro exitosamente.",
+      "errorTitle": "Error al Cancelar",
+      "errorGeneric": "Ocurrió un error al cancelar la participación. Inténtalo de nuevo."
+    },
     "status": {
       "title": "Filtrar por estado",
       "active": "Activos",
