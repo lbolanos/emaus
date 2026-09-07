@@ -132,6 +132,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { normalizeText } from '@/utils/participantSearch';
 import type { PropType } from 'vue';
 import type { Participant, ServiceTeam } from '@repo/types';
 import { ServiceTeamType } from '@repo/types';
@@ -215,10 +216,6 @@ const nonLeaderMembers = computed(() => {
   if (!props.team.members) return [];
   return props.team.members.filter(m => m.participantId !== props.team.leaderId);
 });
-
-const normalizeText = (text: string): string => {
-  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-};
 
 const getHighlightClass = (participant: Participant | null | undefined): string => {
   if (!participant || !props.searchQuery?.trim()) return '';

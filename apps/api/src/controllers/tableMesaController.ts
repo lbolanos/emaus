@@ -153,6 +153,16 @@ export const clearAllTables = async (req: Request, res: Response, next: NextFunc
 	}
 };
 
+export const deleteEmptyTables = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { retreatId } = req.params;
+		const result = await tableMesaService.deleteEmptyTablesForRetreat(retreatId);
+		res.status(200).json(result);
+	} catch (error: any) {
+		next(error);
+	}
+};
+
 export const exportTablesToDocx = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const { retreatId } = req.params;

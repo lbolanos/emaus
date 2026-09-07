@@ -18,7 +18,7 @@ Next to each walker you see how much they've paid: **green** if already paid, or
 
 ## Search and sort
 
-- **Search** by first name, last name or participant number (search is available in both pending and arrived).
+- **Search** however it comes out: first and last name together ("adan perez"), in any order ("perez adan"), without accents ("jose" finds José, "perez" finds Pérez), by participant number or by nickname. Search is available in both pending and arrived.
 - **Sort** by last name, first name or number; your preference is remembered.
 
 ## Real time

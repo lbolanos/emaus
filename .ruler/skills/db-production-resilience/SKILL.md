@@ -47,6 +47,23 @@ sqlite3 corrupta.sqlite ".recover" | sqlite3 nueva.sqlite
 sqlite3 nueva.sqlite "PRAGMA integrity_check;"   # debe decir 'ok'
 ```
 
+**`db-pull` borra lo que sólo existe en dev, y no deja de dónde restaurarlo.** El script respalda
+del lado del *servidor* (el snapshot de prod), pero su último paso es `mv -f "$LOCAL_TMP"
+"$LOCAL_DB"` **sin copiar antes la base local**. Todo lo que exista únicamente en dev —un retiro
+de planificación, una casa de prueba, participantes importados para ensayar— desaparece sin aviso
+y sin `.bak`.
+
+Duele especialmente en **árbol compartido**: `make db-pull` se siente como una operación local e
+inocua, pero le borra el espacio de trabajo a cualquier otra sesión que esté usando esa base. Ver
+skill `arbol-compartido`.
+
+- Antes de correrlo, preguntá si alguien está usando la base de dev, o copiala:
+  `cp apps/api/database.sqlite apps/api/database.pre-pull.sqlite`.
+- Y si vas a construir algo en dev que costaría rehacer, **hacelo por script**. Es la diferencia
+  entre perder una corrida y perder un día: en el incidente del 2026-09-03 se llevó un retiro
+  completo con casa, 160 camas y 139 participantes, y reconstruirlo costó una ejecución porque
+  todo estaba en scripts y el Excel de origen vivía fuera del repo.
+
 ## 2. WAL + timeouts (ya en prod)
 
 `apps/api/src/database/config.ts` (rama sqlite) tiene `enableWAL: true`, `busyTimeout: 5000`,

@@ -7,6 +7,7 @@ import { useRetreatStore } from '@/stores/retreatStore'
 import { useReceptionStore } from '@/stores/receptionStore'
 import { getReceptionStats, checkInParticipant, createPayment, type ReceptionParticipant } from '@/services/api'
 import { useToast } from '@repo/ui'
+import { participantMatchesTokens, searchTokens } from '@/utils/participantSearch'
 import { CheckCircle, Clock, Users, Search, Loader2, RotateCcw, X, AlertCircle, DollarSign } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 
@@ -196,25 +197,18 @@ async function confirmCharge() {
 
 // ── Filtering ──────────────────────────────────────────────────────────────
 
-function matchesQuery(p: ReceptionParticipant, q: string): boolean {
-  return (
-    p.firstName.toLowerCase().includes(q) ||
-    p.lastName.toLowerCase().includes(q) ||
-    String(p.idOnRetreat ?? '').includes(q)
-  )
+// At the door people type the full name, unaccented. First and last name are
+// separate fields, so matching runs against the participant's whole text,
+// token by token and without diacritics.
+const filterBy = (list: ReceptionParticipant[], query: string) => {
+  const tokens = searchTokens(query)
+  const base = tokens.length ? list.filter(p => participantMatchesTokens(p, tokens)) : list
+  return sortParticipants(base)
 }
 
-const filteredPending = computed(() => {
-  const q = searchQuery.value.toLowerCase().trim()
-  const base = q ? pendingList.value.filter(p => matchesQuery(p, q)) : pendingList.value
-  return sortParticipants(base)
-})
+const filteredPending = computed(() => filterBy(pendingList.value, searchQuery.value))
 
-const filteredArrived = computed(() => {
-  const q = searchArrivedQuery.value.toLowerCase().trim()
-  const base = q ? arrivedList.value.filter(p => matchesQuery(p, q)) : arrivedList.value
-  return sortParticipants(base)
-})
+const filteredArrived = computed(() => filterBy(arrivedList.value, searchArrivedQuery.value))
 
 const progressPercent = computed(() =>
   total.value > 0 ? Math.round((arrived.value / total.value) * 100) : 0,

@@ -314,6 +314,108 @@ describe('Table Mesa Service', () => {
 		});
 	});
 
+	describe('deleteEmptyTablesForRetreat', () => {
+		test('should delete only the tables without leaders and without walkers', async () => {
+			const rpRepo = getTestDataSource().getRepository(RetreatParticipant);
+			const tableMesaRepo = getTestDataSource().getRepository(TableMesa);
+
+			// testTables[0] gets a walker, testTables[1] gets a lider, the rest stay empty
+			await rpRepo.update(
+				{ participantId: testWalkers[0].id, retreatId: testRetreat.id },
+				{ tableId: testTables[0].id },
+			);
+			await tableMesaRepo.update(testTables[1].id, { liderId: testServers[0].id });
+
+			const result = await tableMesaService.deleteEmptyTablesForRetreat(
+				testRetreat.id,
+				getTestDataSource(),
+			);
+
+			expect(result.deletedCount).toBe(testTables.length - 2);
+			expect(result.deletedNames).toHaveLength(testTables.length - 2);
+
+			const remaining = await tableMesaService.findTablesByRetreatId(
+				testRetreat.id,
+				getTestDataSource(),
+			);
+			const remainingIds = remaining.map((table) => table.id);
+			expect(remainingIds).toEqual(
+				expect.arrayContaining([testTables[0].id, testTables[1].id]),
+			);
+			expect(remaining).toHaveLength(2);
+		});
+
+		test('should keep tables that only have a colider assigned', async () => {
+			const tableMesaRepo = getTestDataSource().getRepository(TableMesa);
+			await tableMesaRepo.update(testTables[0].id, { colider2Id: testServers[0].id });
+
+			await tableMesaService.deleteEmptyTablesForRetreat(testRetreat.id, getTestDataSource());
+
+			const remaining = await tableMesaService.findTablesByRetreatId(
+				testRetreat.id,
+				getTestDataSource(),
+			);
+			expect(remaining).toHaveLength(1);
+			expect(remaining[0].id).toBe(testTables[0].id);
+		});
+
+		test('should treat a table holding only cancelled walkers as empty and detach them', async () => {
+			const rpRepo = getTestDataSource().getRepository(RetreatParticipant);
+
+			const cancelled = createTestParticipant({
+				email: 'cancelled@test.com',
+				firstName: 'Cancelled',
+				lastName: 'Walker',
+			});
+			const savedCancelled = await saveParticipantWithRetreatRole(cancelled, 'walker', true);
+			await rpRepo.update(
+				{ participantId: savedCancelled.id, retreatId: testRetreat.id },
+				{ tableId: testTables[0].id },
+			);
+
+			const result = await tableMesaService.deleteEmptyTablesForRetreat(
+				testRetreat.id,
+				getTestDataSource(),
+			);
+
+			expect(result.deletedCount).toBe(testTables.length);
+
+			// The cancelled walker must no longer reference the deleted table
+			const rp = await rpRepo.findOne({
+				where: { participantId: savedCancelled.id, retreatId: testRetreat.id },
+			});
+			expect(rp?.tableId).toBeFalsy();
+		});
+
+		test('should report zero when every table is occupied', async () => {
+			const rpRepo = getTestDataSource().getRepository(RetreatParticipant);
+			for (let i = 0; i < testTables.length; i++) {
+				const walker = createTestParticipant({
+					email: `occupied${i}@test.com`,
+					firstName: `Occupied${i}`,
+					lastName: `Walker${i}`,
+				});
+				const saved = await saveParticipantWithRetreatRole(walker, 'walker');
+				await rpRepo.update(
+					{ participantId: saved.id, retreatId: testRetreat.id },
+					{ tableId: testTables[i].id },
+				);
+			}
+
+			const result = await tableMesaService.deleteEmptyTablesForRetreat(
+				testRetreat.id,
+				getTestDataSource(),
+			);
+
+			expect(result.deletedCount).toBe(0);
+			const remaining = await tableMesaService.findTablesByRetreatId(
+				testRetreat.id,
+				getTestDataSource(),
+			);
+			expect(remaining).toHaveLength(testTables.length);
+		});
+	});
+
 	describe('assignLeaderToTable', () => {
 		test('should assign lider to table', async () => {
 			const updatedTable = await tableMesaService.assignLeaderToTable(

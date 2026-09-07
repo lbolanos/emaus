@@ -32,6 +32,13 @@ router.post(
 );
 
 router.post(
+	'/delete-empty/:retreatId',
+	requirePermission('table:delete'),
+	requireRetreatAccess('retreatId'),
+	tableMesaController.deleteEmptyTables,
+);
+
+router.post(
 	'/export/:retreatId',
 	requirePermission('table:read'),
 	requireRetreatAccess('retreatId'),

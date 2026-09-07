@@ -68,6 +68,7 @@
               :is-over="isOverServer && dragOverRole === 'lider'"
               :is-invalid="isDropInvalid && dragOverRole === 'lider'"
               :is-tap-target="!table.lider && tappedParticipant?.type === 'server'"
+              :highlight-class="getParticipantHighlightClass(table.lider)"
               :table-id="table.id"
               @drop="onDrop($event, 'lider')"
               @dragover="onDragOver($event, 'server', 'lider')"
@@ -86,6 +87,7 @@
               :is-over="isOverServer && dragOverRole === 'colider1'"
               :is-invalid="isDropInvalid && dragOverRole === 'colider1'"
               :is-tap-target="!table.colider1 && tappedParticipant?.type === 'server'"
+              :highlight-class="getParticipantHighlightClass(table.colider1)"
               :table-id="table.id"
               @drop="onDrop($event, 'colider1')"
               @dragover="onDragOver($event, 'server', 'colider1')"
@@ -104,6 +106,7 @@
               :is-over="isOverServer && dragOverRole === 'colider2'"
               :is-invalid="isDropInvalid && dragOverRole === 'colider2'"
               :is-tap-target="!table.colider2 && tappedParticipant?.type === 'server'"
+              :highlight-class="getParticipantHighlightClass(table.colider2)"
               :table-id="table.id"
               @drop="onDrop($event, 'colider2')"
               @dragover="onDragOver($event, 'server', 'colider2')"
@@ -132,7 +135,7 @@
             <transition-group v-if="table.walkers && table.walkers.length > 0" tag="div" name="list-item" class="mt-2 flex flex-wrap gap-2 min-h-[34px]">
               <span
                 v-for="walker in table.walkers"
-                :key="`${walker.id}-${searchIndexKey}`"
+                :key="walker.id"
                 class="inline-flex items-center"
                 @touchstart.passive="tapTouchStart"
                 @touchend.stop="tapTouchEnd($event, walker, table.id, 'walkers')"
@@ -226,7 +229,7 @@
 </style>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, computed, nextTick } from 'vue';
 import type { PropType } from 'vue';
 import type { Participant, TableMesa } from '@repo/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui';
@@ -241,6 +244,8 @@ import { useDragState } from '@/composables/useDragState';
 import { useTapAssign } from '@/composables/useTapAssign';
 import { useParticipantMessageDialog } from '@/composables/useParticipantMessageDialog';
 import { buildTableData } from '@/utils/tableBriefing';
+import { highlightClassFor } from '@/utils/participantSearch';
+import type { SearchHighlight } from '@/utils/participantSearch';
 
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@repo/ui';
 import { Trash2, Eye, Camera, Send } from 'lucide-vue-next';
@@ -253,9 +258,9 @@ const props = defineProps({
     type: Object as PropType<TableMesa>,
     required: true,
   },
-  searchQuery: {
-    type: String,
-    default: '',
+  searchHighlight: {
+    type: Object as PropType<SearchHighlight>,
+    default: () => ({ matchingIds: [], currentMatchId: null, searching: false }),
   },
 });
 
@@ -277,13 +282,6 @@ const dragOverRole = ref<'lider' | 'colider1' | 'colider2' | null>(null);
 const isDropInvalid = ref(false);
 const isDialogOpen = ref(false);
 const isPhotoDialogOpen = ref(false);
-
-// Force re-render when search index changes
-const searchIndexKey = ref(0);
-
-const handleSearchIndexChanged = () => {
-  searchIndexKey.value++;
-};
 
 const hasWalkers = computed(() => (props.table.walkers?.length || 0) > 0);
 
@@ -314,95 +312,11 @@ const onChooseLeader = (leader: Participant) => {
   nextTick(() => openMessageDialog(target, { tableData, templateType: 'TABLE_LEADER_BRIEFING' }));
 };
 
-// Normalize text: remove accents and convert to lowercase
-const normalizeText = (text: string): string => {
-  return text
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-};
-
-// Check if a participant matches the search query
-const participantMatches = (participant: Participant | null | undefined): boolean => {
-  if (!participant || !props.searchQuery?.trim()) return false;
-
-  const normalizedQuery = normalizeText(props.searchQuery.trim());
-  return Boolean(
-    (participant.firstName && normalizeText(participant.firstName).includes(normalizedQuery)) ||
-    (participant.lastName && normalizeText(participant.lastName).includes(normalizedQuery)) ||
-    (participant.nickname && normalizeText(participant.nickname).includes(normalizedQuery)) ||
-    (participant.id_on_retreat && participant.id_on_retreat.toString().includes(normalizedQuery))
-  );
-};
-
-// Get highlight class for a participant
-const getParticipantHighlightClass = (participant: Participant | null | undefined): string => {
-  if (!participant || !participantMatches(participant)) return '';
-
-  // Get current match index from parent (via window event or computed)
-  const allMatchingIds = getAllMatchingParticipantIds();
-  const matchIndex = allMatchingIds.indexOf(participant.id);
-
-  if (matchIndex === -1) return '';
-
-  // Get the global current match index from window
-  const currentMatchIndex = (window as any).__currentMatchIndex ?? 0;
-
-  if (matchIndex === currentMatchIndex) {
-    // Current match - prominent highlight with ring
-    return 'ring-2 ring-yellow-500 ring-offset-2 bg-yellow-200 dark:bg-yellow-700 scale-110';
-  } else {
-    // Other matches - subtle highlight
-    return 'bg-yellow-100 dark:bg-yellow-800/50';
-  }
-};
-
-// Get all matching participant IDs for this table
-const getAllMatchingParticipantIds = (): string[] => {
-  const ids: string[] = [];
-  const query = props.searchQuery?.toLowerCase().trim();
-  if (!query) return ids;
-
-  const checkParticipant = (p: Participant | null | undefined) => {
-    if (p && participantMatches(p)) {
-      ids.push(p.id);
-    }
-  };
-
-  checkParticipant(props.table.lider);
-  checkParticipant(props.table.colider1);
-  checkParticipant(props.table.colider2);
-  props.table.walkers?.forEach(checkParticipant);
-
-  return ids;
-};
-
-// Listen for scroll-to-participant events
-const handleScrollToParticipant = (event: Event) => {
-  const customEvent = event as CustomEvent;
-  const participantId = customEvent.detail?.participantId as string | undefined;
-  if (!participantId) return;
-
-  // Check if this table contains the participant
-  const participantIds = getAllMatchingParticipantIds();
-  if (!participantIds.includes(participantId)) return;
-
-  // Scroll to the participant element
-  const element = document.querySelector(`[data-participant-id="${participantId}"][data-table-id="${props.table.id}"]`);
-  if (element) {
-    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-};
-
-onMounted(() => {
-  window.addEventListener('scroll-to-participant', handleScrollToParticipant);
-  window.addEventListener('search-index-changed', handleSearchIndexChanged);
-});
-
-onUnmounted(() => {
-  window.removeEventListener('scroll-to-participant', handleScrollToParticipant);
-  window.removeEventListener('search-index-changed', handleSearchIndexChanged);
-});
+// Highlight class for a participant. The match list and the current match are
+// computed once in TablesView; deriving an index per table used to mark one
+// "current" match in every table at the same time.
+const getParticipantHighlightClass = (participant: Participant | null | undefined): string =>
+  highlightClassFor(participant?.id, props.searchHighlight);
 
 const confirmDelete = () => {
   emit('delete', props.table);

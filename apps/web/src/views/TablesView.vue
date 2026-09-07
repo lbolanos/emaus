@@ -13,31 +13,55 @@
         <!-- Search and Actions -->
         <div class="flex items-center gap-2">
           <!-- Search Bar -->
-          <div class="relative flex items-center flex-1 sm:flex-none">
+          <div ref="searchWrapper" class="relative flex items-center flex-1 sm:flex-none">
             <Input
               v-model="searchQuery"
               :placeholder="$t('common.searchPlaceholder')"
-              class="w-full sm:w-64 pr-20"
+              :class="['w-full sm:w-64', searchQuery ? 'pr-36' : '']"
+              @keydown.enter.prevent="onSearchEnter"
+              @keydown.esc="clearSearch"
             />
-            <div v-if="totalMatches > 0" class="absolute right-1 flex items-center bg-background rounded-md border">
-              <span class="text-xs px-2">{{ currentMatchIndex + 1 }} / {{ totalMatches }}</span>
+            <div v-if="searchQuery" class="absolute right-1 flex items-center gap-1 bg-background rounded-md pl-1">
+              <div class="flex items-center bg-background rounded-md border">
+                <span
+                  class="text-xs px-2"
+                  :class="totalMatches === 0 ? 'text-muted-foreground' : ''"
+                  aria-live="polite"
+                >
+                  {{ totalMatches > 0 ? currentMatchIndex + 1 : 0 }} / {{ totalMatches }}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="h-7 w-7"
+                  :disabled="totalMatches === 0"
+                  :title="$t('common.previous')"
+                  :aria-label="$t('common.previous')"
+                  @click="goToPreviousMatch"
+                >
+                  <ChevronLeft class="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="h-7 w-7"
+                  :disabled="totalMatches === 0"
+                  :title="$t('common.next')"
+                  :aria-label="$t('common.next')"
+                  @click="goToNextMatch"
+                >
+                  <ChevronRight class="h-4 w-4" />
+                </Button>
+              </div>
               <Button
                 variant="ghost"
                 size="icon"
                 class="h-7 w-7"
-                :disabled="currentMatchIndex === 0"
-                @click="goToPreviousMatch"
+                :title="$t('common.clearSearch')"
+                :aria-label="$t('common.clearSearch')"
+                @click="clearSearch"
               >
-                <ChevronLeft class="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                class="h-7 w-7"
-                :disabled="currentMatchIndex === totalMatches - 1"
-                @click="goToNextMatch"
-              >
-                <ChevronRight class="h-4 w-4" />
+                <X class="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -99,6 +123,10 @@
               <Plus class="mr-2 h-4 w-4" />
               {{ $t('tables.addTable') }}
             </DropdownMenuItem>
+            <DropdownMenuItem @click="isDeleteEmptyDialogOpen = true">
+              <Trash2 class="mr-2 h-4 w-4" />
+              {{ $t('tables.deleteEmpty') }}
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
@@ -146,6 +174,12 @@
         </DropdownMenu>
         </div>
       </div>
+
+      <!-- Cancelled participants matching the search: they are not on the
+           board, so without this the search just comes up empty. -->
+      <p v-if="cancelledMatches.length > 0" class="mt-1 text-xs text-muted-foreground text-right">
+        {{ $t('tables.search.cancelledMatches', { names: cancelledMatchNames }) }}
+      </p>
     </div>
 
     <!-- Unassigned Areas (inside same glass panel) -->
@@ -310,7 +344,7 @@
           v-for="table in tableMesaStore.tables"
           :key="table.id"
           :table="table"
-          :search-query="searchQuery"
+          :search-highlight="searchHighlight"
           class="table-card"
           @delete="handleDeleteTable"
           @refresh="tableMesaStore.fetchTables()"
@@ -382,6 +416,40 @@
     </div>
   </Teleport>
 
+  <!-- Delete Empty Tables Confirmation Dialog -->
+  <Teleport to="body" v-if="isDeleteEmptyDialogOpen">
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" @click.self="isDeleteEmptyDialogOpen = false">
+      <div class="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-md w-full">
+        <div class="p-6">
+          <h2 class="text-lg font-semibold">{{ $t('tables.deleteEmptyConfirmation.title') }}</h2>
+          <template v-if="emptyTables.length > 0">
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+              {{ $t('tables.deleteEmptyConfirmation.description', { count: emptyTables.length }) }}
+            </p>
+            <ul class="mt-3 max-h-40 overflow-y-auto text-sm text-gray-700 dark:text-gray-300 list-disc list-inside">
+              <li v-for="table in emptyTables" :key="table.id">{{ table.name }}</li>
+            </ul>
+          </template>
+          <p v-else class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+            {{ $t('tables.deleteEmptyConfirmation.none') }}
+          </p>
+        </div>
+        <div class="flex items-center justify-end gap-2 p-6 border-t">
+          <Button variant="outline" @click="isDeleteEmptyDialogOpen = false">{{ $t('common.cancel') }}</Button>
+          <Button
+            v-if="emptyTables.length > 0"
+            variant="destructive"
+            @click="confirmDeleteEmptyTables"
+            :disabled="isDeletingEmpty"
+          >
+            <Loader2 v-if="isDeletingEmpty" class="w-4 h-4 mr-2 animate-spin" />
+            {{ isDeletingEmpty ? $t('tables.deleteEmptyConfirmation.deleting') : $t('tables.deleteEmptyConfirmation.confirm') }}
+          </Button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
   <!-- Lottery Cards Dialog -->
   <LotteryCardsDialog
     v-if="isLotteryCardsOpen"
@@ -427,6 +495,8 @@ import { useParticipantStore } from '@/stores/participantStore';
 import TableCard from './TableCard.vue';
 import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, TooltipProvider, Popover, PopoverContent, PopoverTrigger } from '@repo/ui';
 import { buildTableData } from '@/utils/tableBriefing';
+import { highlightClassFor, participantMatchesTokens, searchTokens } from '@/utils/participantSearch';
+import type { SearchHighlight } from '@/utils/participantSearch';
 import ParticipantTooltip from '@/components/ParticipantTooltip.vue';
 import ParticipantInfoPopover from '@/components/ParticipantInfoPopover.vue';
 import MessageDialog from '@/components/MessageDialog.vue';
@@ -435,10 +505,10 @@ import TablesHelpDialog from '@/components/TablesHelpDialog.vue';
 import { useParticipantMessageDialog } from '@/composables/useParticipantMessageDialog';
 import { useToast } from '@repo/ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@repo/ui';
-import { ChevronLeft, ChevronRight, Download, HelpCircle, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw, Scissors, Send, UserX, X } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Download, HelpCircle, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw, Scissors, Send, Trash2, UserX, X } from 'lucide-vue-next';
 import type { Participant, TableMesa } from '@repo/types';
 import { useI18n } from 'vue-i18n';
-import { exportTablesToDocx } from '@/services/api';
+import { exportTablesToDocx, getCancelledParticipants } from '@/services/api';
 import { useDragState } from '@/composables/useDragState';
 import { useTapAssign } from '@/composables/useTapAssign';
 import {
@@ -506,6 +576,8 @@ const isDeleting = ref(false);
 const tableToDelete = ref<TableMesa | null>(null);
 const isClearAllDialogOpen = ref(false);
 const isClearingAll = ref(false);
+const isDeleteEmptyDialogOpen = ref(false);
+const isDeletingEmpty = ref(false);
 const isExporting = ref(false);
 const isLotteryCardsOpen = ref(false);
 const isHelpOpen = ref(false);
@@ -531,6 +603,14 @@ const gridColumnsClass = computed(() => {
 // Search functionality
 const searchQuery = ref('');
 const currentMatchIndex = ref(0);
+const searchWrapper = ref<HTMLElement | null>(null);
+
+// Clear the search and hand focus back to the field, so the user can type the
+// next name without reaching for the mouse.
+const clearSearch = () => {
+  searchQuery.value = '';
+  nextTick(() => searchWrapper.value?.querySelector('input')?.focus());
+};
 
 // Collect all participants from tables and unassigned areas
 const allParticipants = computed(() => {
@@ -565,102 +645,124 @@ const allParticipants = computed(() => {
   return participants;
 });
 
-// Normalize text: remove accents and convert to lowercase
-const normalizeText = (text: string): string => {
-  return text
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-};
-
 // Get matching participants based on search query
 const matchingParticipants = computed(() => {
-  if (!searchQuery.value.trim()) return [];
+  const tokens = searchTokens(searchQuery.value);
+  if (tokens.length === 0) return [];
 
-  const normalizedQuery = normalizeText(searchQuery.value.trim());
-  return allParticipants.value.filter(({ participant }) => {
-    return (
-      (participant.firstName && normalizeText(participant.firstName).includes(normalizedQuery)) ||
-      (participant.lastName && normalizeText(participant.lastName).includes(normalizedQuery)) ||
-      (participant.nickname && normalizeText(participant.nickname).includes(normalizedQuery)) ||
-      (participant.id_on_retreat && participant.id_on_retreat.toString().includes(normalizedQuery))
-    );
-  });
+  return allParticipants.value.filter(({ participant }) => participantMatchesTokens(participant, tokens));
 });
 
 const totalMatches = computed(() => matchingParticipants.value.length);
 
+// IDs of every match, in navigation order. They are handed down to TableCard so
+// each zone highlights against the same list: computing the index inside a card
+// made every table mark its own Nth match as the current one.
+const matchingIds = computed(() => matchingParticipants.value.map(m => m.participant.id));
+
+const currentMatchId = computed(() => matchingIds.value[currentMatchIndex.value] ?? null);
+
+// Single search state for every zone: the board fades everyone who does not
+// match, so a family or a parish is read as a shape instead of walked one by
+// one. Handed down to TableCard as a whole.
+const searchHighlight = computed<SearchHighlight>(() => ({
+  matchingIds: matchingIds.value,
+  currentMatchId: currentMatchId.value,
+  searching: searchTokens(searchQuery.value).length > 0,
+}));
+
 // Get highlight class for a participant
-const getParticipantHighlightClass = (participantId: string) => {
-  if (!searchQuery.value.trim() || totalMatches.value === 0) return '';
+const getParticipantHighlightClass = (participantId: string) =>
+  highlightClassFor(participantId, searchHighlight.value);
 
-  const matchIndex = matchingParticipants.value.findIndex(m => m.participant.id === participantId);
+// A cancelled participant is not on the board, so searching for one returns
+// nothing and the screen gives no clue why. They cannot be navigated to, so
+// they are announced apart from the counter.
+//
+// The store is loaded with isCancelled=false for this view, so cancelled
+// participants are fetched on their own; failing to load them just means no
+// hint, never a broken board.
+const cancelledParticipants = ref<Participant[]>([]);
 
-  if (matchIndex === -1) return '';
-
-  if (matchIndex === currentMatchIndex.value) {
-    // Current match - prominent highlight with ring
-    return 'ring-2 ring-yellow-500 ring-offset-2 bg-yellow-200 dark:bg-yellow-700 scale-110';
-  } else {
-    // Other matches - subtle highlight
-    return 'bg-yellow-100 dark:bg-yellow-800/50';
+const loadCancelledParticipants = async (retreatId: string) => {
+  cancelledParticipants.value = [];
+  if (!retreatId) return;
+  try {
+    cancelledParticipants.value = await getCancelledParticipants(retreatId);
+  } catch {
+    cancelledParticipants.value = [];
   }
 };
 
-// Navigate between matches
-const goToPreviousMatch = () => {
-  if (currentMatchIndex.value > 0) {
-    currentMatchIndex.value--;
-    updateCurrentMatchIndex();
-    scrollToCurrentMatch();
-  }
+const cancelledMatches = computed(() => {
+  const tokens = searchTokens(searchQuery.value);
+  if (tokens.length === 0) return [];
+
+  return cancelledParticipants.value.filter(p => participantMatchesTokens(p, tokens));
+});
+
+const cancelledMatchNames = computed(() => {
+  const shown = cancelledMatches.value.slice(0, 3).map(p => `${p.firstName} ${p.lastName}`.trim());
+  const rest = cancelledMatches.value.length - shown.length;
+  return rest > 0 ? `${shown.join(', ')} +${rest}` : shown.join(', ');
+});
+
+// Navigate between matches. Both ends wrap around, the way Ctrl+F does: with
+// the last match on screen, one more step goes back to the first instead of
+// leaving the user at a dead end.
+const stepMatch = (delta: number) => {
+  const total = totalMatches.value;
+  if (total === 0) return;
+  currentMatchIndex.value = (currentMatchIndex.value + delta + total) % total;
+  scrollToCurrentMatch();
 };
 
-const goToNextMatch = () => {
-  if (currentMatchIndex.value < totalMatches.value - 1) {
-    currentMatchIndex.value++;
-    updateCurrentMatchIndex();
-    scrollToCurrentMatch();
-  }
+const goToPreviousMatch = () => stepMatch(-1);
+
+const goToNextMatch = () => stepMatch(1);
+
+// Enter walks the matches without leaving the keyboard; Shift+Enter goes back.
+const onSearchEnter = (event: KeyboardEvent) => {
+  stepMatch(event.shiftKey ? -1 : 1);
 };
 
-// Update the global current match index on window object
-const updateCurrentMatchIndex = () => {
-  (window as any).__currentMatchIndex = currentMatchIndex.value;
-  // Trigger a re-render in TableCard components
-  window.dispatchEvent(new CustomEvent('search-index-changed'));
+// The sticky header covers the top of the page, so a pill hidden behind it is
+// not really visible.
+const STICKY_HEADER_OFFSET = 96;
+
+const isOnScreen = (element: Element) => {
+  const { top, bottom } = element.getBoundingClientRect();
+  return top >= STICKY_HEADER_OFFSET && bottom <= window.innerHeight;
 };
 
-// Scroll to the current match
+// Scroll to the current match, wherever it is rendered: the unassigned lists,
+// a leader slot or a table's walkers all expose data-participant-id. A match
+// already on screen is left alone, so stepping through nearby matches does not
+// shake the page.
 const scrollToCurrentMatch = () => {
-  if (totalMatches.value === 0) return;
+  const participantId = currentMatchId.value;
+  if (!participantId) return;
 
-  const currentMatch = matchingParticipants.value[currentMatchIndex.value];
-  if (!currentMatch) return;
-
-  // Try to find the element in the unassigned areas first
-  const unassignedElement = document.querySelector(`[data-participant-id="${currentMatch.participant.id}"][data-is-unassigned="true"]`);
-
-  if (unassignedElement) {
-    unassignedElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    return;
-  }
-
-  // If not in unassigned areas, it might be in a table - we'll emit an event or use a different approach
-  // For now, we'll just emit a custom event that TableCard can listen to
-  window.dispatchEvent(new CustomEvent('scroll-to-participant', {
-    detail: { participantId: currentMatch.participant.id }
-  }));
+  nextTick(() => {
+    const root = document.querySelector('.tables-view-root') ?? document;
+    const element = root.querySelector(`[data-participant-id="${participantId}"]`);
+    if (element && !isOnScreen(element)) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  });
 };
 
 // Watch for search query changes to reset current match index
 watch(searchQuery, () => {
   currentMatchIndex.value = 0;
-  updateCurrentMatchIndex();
-  if (totalMatches.value > 0) {
-    nextTick(() => {
-      scrollToCurrentMatch();
-    });
+  scrollToCurrentMatch();
+});
+
+// Assigning or removing participants changes the match list under our feet;
+// keep the index inside it so the counter never points past the last match.
+watch(totalMatches, (total) => {
+  if (currentMatchIndex.value > Math.max(total - 1, 0)) {
+    currentMatchIndex.value = Math.max(total - 1, 0);
   }
 });
 
@@ -752,6 +854,33 @@ const onDropToUnassigned = (event: DragEvent, type: 'server' | 'walker') => {
 
 const handleCreateTable = () => {
   tableMesaStore.createTable();
+};
+
+// A table is empty when it has no lider, no coliders and no walkers.
+const emptyTables = computed(() =>
+  tableMesaStore.tables.filter(
+    (table) =>
+      !table.lider && !table.colider1 && !table.colider2 && (table.walkers?.length || 0) === 0,
+  ),
+);
+
+const confirmDeleteEmptyTables = async () => {
+  if (!retreatStore.selectedRetreatId) return;
+  isDeletingEmpty.value = true;
+  try {
+    const result = await tableMesaStore.deleteEmptyTables(retreatStore.selectedRetreatId);
+    isDeleteEmptyDialogOpen.value = false;
+    toast({
+      title: t('tables.deleteEmptyConfirmation.successTitle'),
+      description: t('tables.deleteEmptyConfirmation.successDescription', {
+        count: result?.deletedCount ?? 0,
+      }),
+    });
+  } catch (error) {
+    // The store already surfaced the error toast
+  } finally {
+    isDeletingEmpty.value = false;
+  }
 };
 
 const confirmRebalance = async () => {
@@ -1362,6 +1491,7 @@ watch(
       participantStore.filters.isCancelled = false;
       participantStore.fetchParticipants();
       tableMesaStore.fetchTables();
+      loadCancelledParticipants(newRetreatId);
     }
   },
   { immediate: true }
@@ -1369,6 +1499,30 @@ watch(
 </script>
 
 <style>
+/* Bounce for the current search match. The keyframes keep the highlight's
+   scale-110 so the pill does not jerk when the animation ends. Unscoped
+   because the pill is rendered by three components: this view's unassigned
+   lists, TableCard's walkers and ServerDropZone's leaders. */
+@keyframes match-bounce {
+  0% { transform: translateY(0) scale(1.1); }
+  15% { transform: translateY(-10px) scale(1.18); }
+  30% { transform: translateY(0) scale(1.1); }
+  45% { transform: translateY(-6px) scale(1.14); }
+  60% { transform: translateY(0) scale(1.1); }
+  75% { transform: translateY(-3px) scale(1.12); }
+  100% { transform: translateY(0) scale(1.1); }
+}
+
+.match-bounce {
+  animation: match-bounce 0.75s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .match-bounce {
+    animation: none;
+  }
+}
+
 @media print {
   /* Ensure ancestors don't clip or constrain the printable content */
   html, body, #app-root {

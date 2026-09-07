@@ -18,7 +18,7 @@ Junto a cada caminante ves cuánto ha pagado: en **verde** si ya pagó, o el bot
 
 ## Buscar y ordenar
 
-- **Busca** por nombre, apellido o número de participante (hay buscador en pendientes y en llegados).
+- **Busca** escribiendo como te salga: nombre y apellido juntos ("adan perez"), en cualquier orden ("perez adan"), sin acentos ("jose" encuentra a José, "perez" a Pérez), por número de participante o por apodo. Hay buscador en pendientes y en llegados.
 - **Ordena** por apellido, nombre o número; tu preferencia se recuerda.
 
 ## Tiempo real

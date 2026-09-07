@@ -28,8 +28,10 @@
                 @dragstart.stop="$emit('dragstart', $event, participant)"
                 @dragend.stop="$emit('dragend', $event)"
                 @dblclick.stop="$emit('unassign')"
+                :data-participant-id="participant.id"
+                :data-table-id="tableId"
                 class="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-sm font-medium inline-block cursor-pointer transition-all"
-                :class="{ 'ring-2 ring-blue-500 ring-offset-1 scale-110': participant && isSelected(participant.id) }"
+                :class="[highlightClass, { 'ring-2 ring-blue-500 ring-offset-1 scale-110': participant && isSelected(participant.id) }]"
               >
                 {{ participant.firstName.split(' ')[0] }} {{ participant.lastName.charAt(0) }}.
               </div>
@@ -77,6 +79,11 @@ defineProps({
   isTapTarget: {
     type: Boolean,
     default: false,
+  },
+  /** Search highlight, computed by the view that owns the search. */
+  highlightClass: {
+    type: String,
+    default: '',
   },
 });
 

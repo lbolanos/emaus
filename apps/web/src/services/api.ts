@@ -138,6 +138,13 @@ export const clearAllTables = async (retreatId: string): Promise<void> => {
   await api.post(`/tables/clear-all/${retreatId}`);
 };
 
+export const deleteEmptyTables = async (
+  retreatId: string,
+): Promise<{ deletedCount: number; deletedNames: string[] }> => {
+  const response = await api.post(`/tables/delete-empty/${retreatId}`);
+  return response.data;
+};
+
 export const exportTablesToDocx = async (retreatId: string): Promise<void> => {
   const response = await api.post(
     `/tables/export/${retreatId}`,
@@ -875,6 +882,17 @@ export const getWalkersByRetreat = async (
       retreatId,
       type: "walker",
     },
+  });
+  return response.data;
+};
+
+/**
+ * Cancelled participants of a retreat. Views that hide them (the tables board)
+ * still need the list to explain why a search comes up empty.
+ */
+export const getCancelledParticipants = async (retreatId: string): Promise<Participant[]> => {
+  const response = await api.get("/participants", {
+    params: { retreatId, isCancelled: "true" },
   });
   return response.data;
 };
@@ -2713,6 +2731,8 @@ export interface ReceptionParticipant {
   idOnRetreat: number | null;
   firstName: string;
   lastName: string;
+  /** Many people introduce themselves by their nickname at the door. */
+  nickname: string | null;
   cellPhone: string;
   checkedIn: boolean;
   checkedInAt: string | null;
