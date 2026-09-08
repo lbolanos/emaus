@@ -168,7 +168,7 @@ describe('Service Team Data Integrity', () => {
 				'Tesorero', 'Sacerdotes', 'Mantelitos', 'Snacks', 'Compras', 'Transporte',
 				'Música', 'Comedor', 'Salón', 'Cuartos', 'Oración de Intercesión', 'Palanquitas',
 				'Santísimo', 'Campanero', 'Continua', 'Biblias', 'Explicación Rosario y entrega', 'Bolsas',
-				'Resumen del día', 'Recepción', 'Reglamento de la Casa',
+				'Resumen del día', 'Recepción', 'Reglamento de la Casa', 'Despedida',
 			];
 			const documented = new Set(Object.keys(responsibilityDocumentation));
 			const missing = CANONICAL_FIXED.filter((r) => !documented.has(r));
