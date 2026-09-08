@@ -3005,6 +3005,8 @@ export interface RetreatScheduleItemDTO {
   orderInDay: number;
   status: "pending" | "active" | "completed" | "delayed" | "skipped";
   responsabilityId?: string | null;
+  /** Relation already loaded by `GET /schedule/retreats/:id/items` (listForRetreat). */
+  responsability?: { id: string; name: string } | null;
   location?: string | null;
   notes?: string | null;
   musicTrackUrl?: string | null;

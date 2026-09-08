@@ -3,6 +3,7 @@ import { AppDataSource } from '../data-source';
 import { getTelemetryCollectionService } from '../services/telemetryCollectionService';
 import { getTelemetryAggregationService } from '../services/telemetryAggregationService';
 import { requirePermission } from '../middleware/authorization';
+import { clientErrorReportLimiter } from '../middleware/rateLimiting';
 import { isAuthenticated } from '../middleware/isAuthenticated';
 import { validateRequest, validateQuery, validateBody } from '../middleware/validateRequest';
 import { TelemetrySession } from '../entities/telemetrySession.entity';
@@ -153,6 +154,42 @@ router.get('/health', async (req, res) => {
 		});
 	}
 });
+
+/**
+ * POST /api/telemetry/public/client-error — un fallo en una pantalla pública
+ * (registro de caminante o de servidor), donde no hay sesión con la que
+ * autenticar. Va ANTES del `isAuthenticated` de abajo a propósito.
+ *
+ * No escribe en la base: deja una línea en el log del API, que es donde se
+ * diagnostica. Una tabla alimentada por una ruta anónima es un buzón abierto,
+ * y para esto no hace falta.
+ */
+const clientErrorReportSchema = z.object({
+	context: z.string().min(1).max(60),
+	message: z.string().min(1).max(300),
+	status: z.number().int().min(100).max(599).optional(),
+	retried: z.boolean().optional(),
+	page: z.string().max(200).optional(),
+});
+
+/** Un salto de línea en el cuerpo partiría la línea del log en dos. */
+const singleLine = (value: string): string => value.replace(/\s+/g, ' ').trim().slice(0, 300);
+
+router.post(
+	'/public/client-error',
+	clientErrorReportLimiter,
+	validateBody(clientErrorReportSchema),
+	(req, res) => {
+		const { context, message, status, retried, page } = req.body;
+		console.warn(
+			`[CLIENT ERROR] context=${singleLine(context)} status=${status ?? 'none'} ` +
+				`retried=${retried === true} page=${singleLine(page || '-')} ` +
+				`ip=${req.ip || 'unknown'} ua="${singleLine(req.get('User-Agent') || '-')}" ` +
+				`message="${singleLine(message)}"`,
+		);
+		res.status(204).send();
+	},
+);
 
 // All telemetry write/read endpoints require authentication
 router.use(isAuthenticated);

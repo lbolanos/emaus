@@ -25,7 +25,11 @@ export type SeedTask = {
 	}>;
 };
 
-const PRE_RETIRO_EMAUS: SeedTask[] = [
+/**
+ * Exportado para que los tests puedan recorrer el checklist canónico completo
+ * (p. ej. el matcher de la carta al párroco, que debe casar con UNA sola tarea).
+ */
+export const PRE_RETIRO_EMAUS: SeedTask[] = [
 	{ name: 'Buscar parroquia', dueOffsetDays: 120, defaultOrder: 10 },
 	{
 		name: 'Tener Parroquia / apoyo del Párroco',

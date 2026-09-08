@@ -1,4 +1,5 @@
 export * from './printableDocument';
+export * from './priestLetter';
 /**
  * Shared utility functions for message template variable replacement
  * Used by both API and web applications to avoid code duplication

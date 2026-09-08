@@ -125,6 +125,15 @@ Dos trampas asociadas que aparecieron en el mismo barrido:
   (`year + Math.floor(totalMonths/12)`) y recortá contra `Date.UTC(y, m0+1, 0)`.
 - **El día no siempre dura 24 h.** Para los límites de "hoy" usá `dayBoundsInTimezone()`, que
   resuelve la medianoche del día civil siguiente en vez de sumar 86 400 000 ms.
+- **`hourCycle: 'h23'`, nunca `hour12: false`.** Con el segundo, varios ICU devuelven **`24`** para
+  la medianoche (`24:00` en vez de `00:00`), así que la hora sale mal justo en el borde del día
+  —que es el caso que la Regla N°5 existe para arreglar—. Es el motivo del `h23` del ejemplo de
+  arriba, no un adorno.
+- **Un documento que se imprime lleva la hora del RETIRO, no la del navegador.** `clockParts()` de
+  `MinuteByMinuteView.vue` usa `getHours()`: en pantalla da igual porque el coordinador está en el
+  retiro, pero al copiarlo a un PDF que se entrega —la carta al párroco— un coordinador en otra
+  zona imprimiría horas equivocadas. Formateá con `timeZone` explícita
+  (`zonedWallClock` en `apps/web/src/utils/priestLetterData.ts`) y no copies `clockParts`.
 
 ## API: timezone configurable por casa + retiro
 

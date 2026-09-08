@@ -1,7 +1,7 @@
 import { type RetreatPreparationDocumentDTO } from '@/services/api';
 
 /**
- * Descarga el PDF de un documento de preparación, con panel de marcadores.
+ * Descarga el PDF de un documento markdown, con panel de marcadores.
  *
  * Se genera **en el navegador**: Chrome headless en el servidor llegaba a
  * 345MB de pico (medido) y el Lightsail de producción tiene ~400MB libres.
@@ -11,6 +11,24 @@ import { type RetreatPreparationDocumentDTO } from '@/services/api';
  * El generador se carga con `import()` dinámico para no meter jsPDF y sus
  * tablas en el bundle inicial: solo lo descarga quien pulsa el botón.
  */
+
+export interface MarkdownPdfOptions {
+	/** Base del nombre de archivo, sin extensión. */
+	fileName: string;
+	title: string;
+	/** Markdown YA resuelto — nunca la plantilla con los `{...}`. */
+	markdown: string;
+	/** Contexto del encabezado (parroquia) y fecha de la sesión. */
+	subtitle?: string;
+	meta?: string;
+	/** Interlineado holgado (documentos cortos que se leen en papel). */
+	relaxedLeading?: boolean;
+	/** Bloque de firma al pie, con hueco real para firmar. */
+	signature?: { intro: string; label: string; dateLine?: boolean };
+	/** Logo sobre el título, como en la hoja A4 del navegador. */
+	logoUrl?: string;
+	onError?: (message: string) => void;
+}
 
 export interface PreparationPdfOptions {
 	doc: RetreatPreparationDocumentDTO;
@@ -31,22 +49,40 @@ function saveBlob(blob: Blob, fileName: string) {
 	URL.revokeObjectURL(url);
 }
 
-export async function downloadPreparationPdf(opts: PreparationPdfOptions): Promise<boolean> {
-	const baseName = opts.doc.fileName.replace(/\.md$/i, '');
+/**
+ * Núcleo genérico: sirve para cualquier documento markdown ya resuelto, no solo
+ * para los de preparación (lo usa también la carta al párroco).
+ */
+export async function downloadMarkdownPdf(opts: MarkdownPdfOptions): Promise<boolean> {
 	try {
 		const { buildPreparationPdf } = await import('@/utils/markdownToPdf');
 		const blob = await buildPreparationPdf({
-			title: baseName,
+			title: opts.title,
 			subtitle: opts.subtitle,
 			meta: opts.meta,
-			// Siempre el texto resuelto: `content` es la plantilla con los `{...}`.
-			markdown: opts.doc.renderedContent ?? opts.doc.content ?? '',
+			markdown: opts.markdown,
+			relaxedLeading: opts.relaxedLeading,
+			signature: opts.signature,
+			logoUrl: opts.logoUrl,
 		});
-		saveBlob(blob, `${baseName}.pdf`);
+		saveBlob(blob, `${opts.fileName}.pdf`);
 		return true;
 	} catch (err) {
 		console.error('[usePreparationPdf]', err);
 		opts.onError?.('No se pudo generar el PDF. Inténtalo de nuevo.');
 		return false;
 	}
+}
+
+export async function downloadPreparationPdf(opts: PreparationPdfOptions): Promise<boolean> {
+	const baseName = opts.doc.fileName.replace(/\.md$/i, '');
+	return downloadMarkdownPdf({
+		fileName: baseName,
+		title: baseName,
+		subtitle: opts.subtitle,
+		meta: opts.meta,
+		// Siempre el texto resuelto: `content` es la plantilla con los `{...}`.
+		markdown: opts.doc.renderedContent ?? opts.doc.content ?? '',
+		onError: opts.onError,
+	});
 }

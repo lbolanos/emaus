@@ -64,6 +64,50 @@ todas las casas están en "Ciudad de México", no ayudaba a distinguirlas.
 `"ciudad, estado"` si no hay dirección. Usado en `RetreatModal.vue`. Guard:
 `apps/web/src/utils/__tests__/houseLabel.test.ts`.
 
+## 4. La petición que nunca llegó — 2026-09-08, registro público
+
+**Síntoma:** una persona confirmó su registro desde un iPhone, vio `An unexpected error occurred`
+y se fue a hacerlo desde una computadora. En el servidor **no había rastro**: ni 4xx, ni 5xx, ni
+una línea en `emaus-access.log`.
+
+**Causa:** la petición no obtuvo respuesta — la pestaña llevaba 70 minutos abierta y Safari de iOS
+mata la conexión de una pestaña suspendida. `error.response` es `undefined`, así que
+`error.response?.data?.message` era `undefined` y el toast caía al literal en inglés, que además
+no sugiere reintentar. Y el cliente tiraba `error.message`, la única evidencia que quedaba.
+
+**Fix**, en `apps/web/src/services/apiError.ts` (mismo módulo standalone de la §2):
+
+```ts
+isNetworkError(err)                  // hubo respuesta o no; exige la marca de axios, para no
+                                     // contarle "sin internet" a un TypeError del mismo try
+serverErrorMessage(err)              // el mensaje del API, o null si el cuerpo no es del API
+retryOnceOnNetworkError(send, opts)  // repite UNA vez cuando no hubo respuesta
+wasRetriedAfterNoResponse(err)       // si este error viene del segundo intento
+```
+
+Tres reglas que salieron de este caso:
+
+- **`serverErrorMessage` devuelve `null` ante un cuerpo HTML o de más de 200 caracteres.** Un
+  502/504 de nginx o un challenge de Cloudflare responden una página entera, y volcarla en un
+  toast es peor que no decir nada. `apiErrorMessage` la usa, así que esto vale para todos sus
+  llamadores.
+- **`retryOnceOnNetworkError` solo en operaciones que se pueden repetir sin duplicar nada.** En el
+  registro se puede: `confirmExistingParticipant` choca con `assertNotDoubleRegisteredInRetreat`
+  y `createParticipant` reusa la ficha por correo — el segundo intento devuelve 409, no crea una
+  segunda ficha.
+- **Un 409 del segundo intento NO se anuncia como éxito.** Suele significar que el primero sí
+  entró, pero con un correo compartido (caso real de este proyecto, ver
+  `docs/features/parish-walker-import.md`) la fila puede ser de otra persona: se dice el hecho
+  que es cierto en los dos casos ("ya está registrado en este retiro") y no se cierra el
+  formulario, para no perder lo que escribió.
+
+**Fallos que el servidor no ve:** `POST /api/telemetry/public/client-error` deja una línea
+`[CLIENT ERROR]` en el log del API. Público (va antes del `isAuthenticated` de
+`telemetryRoutes.ts`), exento de CSRF porque `sendBeacon` no puede poner cabeceras, con rate limit
+propio y **sin escribir en la base**. Solo se reportan los fallos de los que no queda constancia
+—sin respuesta, o con cuerpo que no es del API—: un 400 o un 409 con su mensaje ya está en el log
+del servidor. Cómo leerlos en producción: skill `infra-remota`.
+
 ## Gotcha de entorno: el API dev no observa `packages/*`
 
 `apps/api` corre con `nodemon --watch src`. Editar `packages/types` **no reinicia el API dev** → el
@@ -77,3 +121,14 @@ Reiniciar sin matar `pnpm dev`: `touch apps/api/src/index.ts`; verificar con
   rechazo de formato inválido + valor HH:MM válido (create y update).
 - `apps/web/src/utils/__tests__/houseLabel.test.ts` — dirección, limpieza de comas, fallback a
   ciudad/estado, tolerancia a null/undefined.
+- `apps/web/src/services/__tests__/apiErrorMessage.spec.ts` — cuerpo HTML y cuerpo largo se
+  ignoran, `isNetworkError` distingue axios de un error de JavaScript, y el reintento (que espera
+  de verdad, que no repite un rechazo del servidor, y que marca el error del segundo intento).
+- `apps/web/src/views/__tests__/ParticipantRegistrationConfirmRetry.test.ts` y
+  `ParticipantRegistrationSubmitRetry.test.ts` — el reintento en los dos caminos que escriben.
+  El primer caso del segundo archivo comprueba **la fixture**: si deja de pasar la validación de
+  los cinco pasos, el archivo entero deja de probar algo y se ve.
+- `apps/web/src/views/__tests__/participantRegistrationI18nKeys.test.ts` — que las claves que usa
+  la vista existan en `es.json` **y** `en.json`. Hace falta porque el mock global de `vue-i18n`
+  devuelve la clave tal cual: una errata pasa verde en toda la suite y en producción le muestra
+  `serverRegistration.toasts.algo` a un caminante.

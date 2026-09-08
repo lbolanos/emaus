@@ -42,6 +42,11 @@ Reemplaza el Excel "Que Hacer y Cuando Antes de un Retiro" (hoja Que-Cuando).
   a la vista. A diferencia del card del MaM, **no** está gated por
   `isRetreatLive` (las tareas aplican en los meses previos). Se personaliza/oculta
   desde el panel del dashboard (key `preRetreatTasks`).
+- **Carta al párroco**: la tarea «Preparar con el párroco qué se necesita de él
+  (calendario)» ofrece en su `⋮` un **📄 Imprimir carta al párroco** que arma la
+  carta de solicitud con los datos del retiro y los horarios del Minuto a
+  Minuto. Es el único ítem del menú visible sin `preRetreatTask:manage`
+  (imprimir es lectura). Detalle: **`docs/features/priest-letter.md`**.
 - **Template global**: `Configuración Global → Template Tareas Pre-Retiro` — ABM
   de sets (crear, marcar ★ predeterminado, eliminar) y de tareas/sub-tareas.
   Las sub-tareas pueden **heredar el tiempo del padre** (offset null).

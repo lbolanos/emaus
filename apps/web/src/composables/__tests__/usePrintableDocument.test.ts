@@ -134,4 +134,80 @@ describe('printMarkdownDocument', () => {
     expect(printMarkdownDocument({ title: 'Doc', markdown: 'x' })).toBe(true);
     expect(fakeWin.document.close).toHaveBeenCalledOnce();
   });
+
+  it('pinta el logo dentro del encabezado del documento cuando se le pasa uno', () => {
+    printMarkdownDocument({ title: 'Carta', markdown: 'x', logoUrl: '/man_logo.png' });
+    expect(html()).toContain('<header class="doc-head"><img src="/man_logo.png" alt="" />');
+    // Tope propio: la regla global de img permite 105mm y se comeria el folio.
+    expect(PRINT_STYLESHEET).toContain('header.doc-head img');
+  });
+
+  it('no cambia la salida de quien no pasa logo (preparaciones y guiones)', () => {
+    printMarkdownDocument({ title: 'Guion', markdown: 'x' });
+    expect(html()).toContain('<header class="doc-head"><h1>Guion</h1></header>');
+    expect(html()).not.toContain('<img');
+  });
+
+  it('pone el interlineado holgado solo cuando se le pide', () => {
+    printMarkdownDocument({ title: 'Carta', markdown: 'x', relaxedLeading: true });
+    expect(html()).toContain('<body class="relaxed">');
+    expect(PRINT_STYLESHEET).toContain('body.relaxed');
+  });
+
+  it('deja el interlineado del .docx a quien no lo pide (preparaciones)', () => {
+    printMarkdownDocument({ title: 'Guion', markdown: 'x' });
+    expect(html()).toContain('<body>');
+    expect(html()).not.toContain('class="relaxed"');
+    // El 1.42 del cuerpo sale de los .docx originales: no debe moverse.
+    expect(PRINT_STYLESHEET).toContain('line-height: 1.42');
+  });
+
+  it('pinta el bloque de firma al pie cuando se le pasa', () => {
+    printMarkdownDocument({
+      title: 'Carta',
+      markdown: 'x',
+      signature: { intro: 'Enterado y de acuerdo:', label: 'Nombre y firma del Sr. Párroco' },
+    });
+    const out = html();
+    expect(out).toContain('<footer class="signature">');
+    expect(out).toContain('Enterado y de acuerdo:');
+    expect(out).toContain('Nombre y firma del Sr. Párroco');
+    // Sin dateLine no se pinta la línea de fecha: cuesta la hoja.
+    expect(out).not.toContain('Fecha: ______');
+    // El hueco para firmar es el margen inferior del intro.
+    expect(PRINT_STYLESHEET).toContain('footer.signature .sig-intro');
+  });
+
+  it('añade la línea de fecha solo si se pide', () => {
+    printMarkdownDocument({
+      title: 'Carta',
+      markdown: 'x',
+      signature: { intro: 'i', label: 'l', dateLine: true },
+    });
+    expect(html()).toContain('Fecha: ______');
+  });
+
+  it('no pone firma a quien no la pide (preparaciones y guiones)', () => {
+    printMarkdownDocument({ title: 'Guion', markdown: 'x' });
+    // El selector vive siempre en la hoja: lo que no debe existir es el elemento.
+    expect(html()).not.toContain('<footer');
+  });
+
+  it('escapa el texto del bloque de firma', () => {
+    printMarkdownDocument({
+      title: 'Carta',
+      markdown: 'x',
+      signature: { intro: '<script>alert(1)</script>', label: '"><img onerror=alert(1)>' },
+    });
+    const out = html();
+    expect(out).not.toContain('<script>alert(1)</script>');
+    expect(out).not.toContain('<img onerror');
+    expect(out).toContain('&lt;script&gt;');
+  });
+
+  it('escapa la ruta del logo', () => {
+    printMarkdownDocument({ title: 'Carta', markdown: 'x', logoUrl: '/a"onerror="alert(1)' });
+    expect(html()).not.toContain('onerror="alert(1)"');
+    expect(html()).toContain('&quot;onerror=&quot;');
+  });
 });

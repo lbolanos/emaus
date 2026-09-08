@@ -15,6 +15,8 @@ export interface PrintableDocumentOptions
 	extends Omit<PrintableDocumentData, 'bodyHtml'> {
 	/** Markdown YA resuelto — nunca la plantilla con `{...}` sin sustituir. */
 	markdown: string;
+	/** Interlineado holgado (documentos cortos que se leen en papel). */
+	relaxedLeading?: boolean;
 	/** El caller decide cómo avisar (toast), para no acoplar esto a @repo/ui. */
 	onPopupBlocked?: () => void;
 }
@@ -45,6 +47,8 @@ export function printMarkdownDocument(opts: PrintableDocumentOptions): boolean {
 				title: opts.title,
 				subtitle: opts.subtitle,
 				meta: opts.meta,
+				logoUrl: opts.logoUrl,
+				signature: opts.signature,
 				bodyHtml: renderMarkdown(opts.markdown ?? ''),
 			},
 			{
@@ -52,6 +56,7 @@ export function printMarkdownDocument(opts: PrintableDocumentOptions): boolean {
 				// rutas raíz-relativas de las imágenes no resuelven y el PDF sale
 				// sin ilustraciones.
 				baseHref: `${window.location.origin}/`,
+				relaxedLeading: opts.relaxedLeading,
 				autoPrint: true,
 				printPath: `/imprimir/${printableSlug(opts.title)}`,
 			},

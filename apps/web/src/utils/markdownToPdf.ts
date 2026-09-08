@@ -50,13 +50,33 @@ export interface PdfDocumentInput {
 	meta?: string;
 	/** Markdown YA resuelto — nunca la plantilla con `{...}` sin sustituir. */
 	markdown: string;
+	/**
+	 * Interlineado holgado para documentos cortos que se leen en papel. Las
+	 * preparaciones lo dejan apagado: su interlineado sale de los `.docx`.
+	 */
+	relaxedLeading?: boolean;
+	/** Bloque de firma al pie, con hueco real para firmar. */
+	signature?: { intro: string; label: string; dateLine?: boolean };
+	/** Logo sobre el título, como en la hoja A4 del navegador. */
+	logoUrl?: string;
 }
+
+/**
+ * Misma proporción que el `body.relaxed` de la hoja A4 (1.55 sobre el 1.42
+ * normal), para que las dos rutas de PDF no divergan.
+ */
+const RELAXED_LEADING = 1.09;
 
 interface Ctx {
 	doc: jsPDF;
 	y: number;
 	/** Títulos recogidos para el outline, con la página en la que caen. */
 	bookmarks: Array<{ level: number; text: string; page: number }>;
+	/**
+	 * Multiplicador del interlineado. 1 reproduce el `.docx` de las
+	 * preparaciones; la carta al párroco lo sube para leerse mejor en papel.
+	 */
+	leading: number;
 }
 
 /** Trozo de texto con su estilo, para componer párrafos con negritas. */
@@ -180,7 +200,7 @@ function writeRich(
 	const { doc } = ctx;
 	const family = opts.family ?? SANS;
 	const size = opts.size ?? 10.5;
-	const lineHeight = opts.lineHeight ?? size * 0.42;
+	const lineHeight = (opts.lineHeight ?? size * 0.42) * ctx.leading;
 	const indent = opts.indent ?? 0;
 	const maxWidth = opts.width ?? CONTENT_W - indent;
 	const color = opts.color ?? INK;
@@ -474,7 +494,7 @@ async function drawBlockquote(ctx: Ctx, token: Tokens.Blockquote) {
 
 	// Medir antes de pintar: el fondo tiene que ir DEBAJO del texto, así que
 	// hay que conocer el alto sin haber escrito nada todavía.
-	const probe: Ctx = { doc, y: 0, bookmarks: [] };
+	const probe: Ctx = { doc, y: 0, bookmarks: [], leading: ctx.leading };
 	for (const child of paragraphs) {
 		writeRich(probe, flattenInline((child as Tokens.Paragraph).tokens), {
 			...quoteOpts,
@@ -524,16 +544,45 @@ function drawTable(ctx: Ctx, token: Tokens.Table) {
 	ctx.y = (ctx.doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
 }
 
+async function fetchDataUrl(src: string): Promise<string> {
+	const res = await fetch(src);
+	const blob = await res.blob();
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(String(reader.result));
+		reader.onerror = reject;
+		reader.readAsDataURL(blob);
+	});
+}
+
+/**
+ * Logo sobre el título, acotado igual que en la hoja A4 del navegador
+ * (`header.doc-head img { max-height: 24mm }`), para que las dos rutas de PDF
+ * produzcan el mismo papel.
+ */
+async function drawHeaderLogo(ctx: Ctx, src: string) {
+	try {
+		const dataUrl = await fetchDataUrl(src);
+		const props = ctx.doc.getImageProperties(dataUrl);
+		const maxH = 24;
+		const maxW = 45;
+		let h = maxH;
+		let w = (props.width / props.height) * h;
+		if (w > maxW) {
+			w = maxW;
+			h = (props.height / props.width) * w;
+		}
+		ctx.doc.addImage(dataUrl, MARGIN_X + (CONTENT_W - w) / 2, ctx.y, w, h);
+		ctx.y += h + 3;
+	} catch (err) {
+		// Sin logo el documento sigue siendo válido; lo que no vale es tumbarlo.
+		console.warn('[markdownToPdf] no se pudo incrustar el logo', src, err);
+	}
+}
+
 async function drawImage(ctx: Ctx, src: string) {
 	try {
-		const res = await fetch(src);
-		const blob = await res.blob();
-		const dataUrl: string = await new Promise((resolve, reject) => {
-			const reader = new FileReader();
-			reader.onload = () => resolve(String(reader.result));
-			reader.onerror = reject;
-			reader.readAsDataURL(blob);
-		});
+		const dataUrl = await fetchDataUrl(src);
 		const props = ctx.doc.getImageProperties(dataUrl);
 		// Acotada: las ilustraciones del .docx vienen a tamaño natural y si no
 		// se comen media página.
@@ -605,11 +654,59 @@ function addBookmarks(doc: jsPDF, input: PdfDocumentInput, bookmarks: Ctx['bookm
 	}
 }
 
+/**
+ * Bloque de firma al pie: rótulo, hueco para firmar, raya y nombre debajo.
+ *
+ * El hueco va ANTES de la raya para que la firma caiga sobre ella, igual que en
+ * la hoja A4 del navegador. Si no queda sitio en la página, salta a la
+ * siguiente: una raya de firma partida por el salto no sirve de nada.
+ */
+function drawSignature(
+	ctx: Ctx,
+	signature: { intro: string; label: string; dateLine?: boolean },
+) {
+	const { doc } = ctx;
+	const GAP = 12; // hueco para la firma, en mm
+	const needed = GAP + 16;
+	if (ctx.y + needed > PAGE_H - MARGIN_BOTTOM) {
+		doc.addPage();
+		ctx.y = MARGIN_TOP;
+	} else {
+		ctx.y += 5;
+	}
+
+	setFont(doc, SANS);
+	doc.setFontSize(10.5);
+	doc.setTextColor(...INK);
+	doc.text(signature.intro, MARGIN_X, ctx.y);
+
+	ctx.y += GAP;
+	const lineWidth = CONTENT_W * 0.62;
+	doc.setDrawColor(...INK);
+	doc.setLineWidth(0.25);
+	doc.line(MARGIN_X, ctx.y, MARGIN_X + lineWidth, ctx.y);
+
+	ctx.y += 4.5;
+	setFont(doc, SANS, true);
+	doc.setTextColor(...NAVY);
+	doc.text(signature.label, MARGIN_X, ctx.y);
+
+	if (signature.dateLine) {
+		ctx.y += 5.5;
+		setFont(doc, SANS);
+		doc.setFontSize(9.5);
+		doc.setTextColor(...SLATE);
+		doc.text('Fecha: ______ / ______ / __________', MARGIN_X, ctx.y);
+	}
+}
+
 export async function buildPreparationPdf(input: PdfDocumentInput): Promise<Blob> {
 	const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
 	doc.setProperties({ title: input.title });
 
-	const ctx: Ctx = { doc, y: MARGIN_TOP, bookmarks: [] };
+	const ctx: Ctx = { doc, y: MARGIN_TOP, bookmarks: [], leading: input.relaxedLeading ? RELAXED_LEADING : 1 };
+
+	if (input.logoUrl) await drawHeaderLogo(ctx, input.logoUrl);
 
 	// Título del documento, centrado en versalitas sobre un filete.
 	setFont(doc, SERIF, true);
@@ -653,6 +750,8 @@ export async function buildPreparationPdf(input: PdfDocumentInput): Promise<Blob
 				break;
 		}
 	}
+
+	if (input.signature) drawSignature(ctx, input.signature);
 
 	paintChrome(doc, input);
 	addBookmarks(doc, input, ctx.bookmarks);
