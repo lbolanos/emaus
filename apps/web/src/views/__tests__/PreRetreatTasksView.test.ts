@@ -97,7 +97,32 @@ vi.mock('@/components/PreRetreatTaskEditModal.vue', () => ({
 	default: { name: 'PreRetreatTaskEditModal', template: '<div class="edit-modal-stub" />' },
 }));
 
+// La carta trae sus propias llamadas al MaM y a las preparaciones; se stubea
+// para aislar la vista (el diálogo tiene su propio test).
+vi.mock('@/components/PriestLetterDialog.vue', () => ({
+	default: {
+		name: 'PriestLetterDialog',
+		props: ['open', 'retreatId'],
+		template: '<div class="priest-letter-stub" :data-open="String(open)" />',
+	},
+}));
+
 import PreRetreatTasksView from '../PreRetreatTasksView.vue';
+
+/** La tarea canónica del seeder que dispara la carta al párroco. */
+const PRIEST_TASK = {
+	id: 'p3',
+	retreatId: 'retreat-1',
+	name: 'Preparar con el párroco qué se necesita de él (calendario)',
+	description:
+		'Pedirle Misas de preparaciones (opcional), Misa de envío, charla de sacramentos, confesiones y Misa de salida',
+	status: 'pending',
+	dueOffsetDays: 84,
+	dueDate: '2999-01-01',
+	sortOrder: 100,
+	children: [],
+	progress: { done: 0, total: 0 },
+};
 
 const TASKS = [
 	{
@@ -297,6 +322,48 @@ describe('PreRetreatTasksView', () => {
 		expect(mockTaskApi.materialize).toHaveBeenCalledWith('retreat-1', {
 			templateSetId: 'set-1',
 			clearExisting: true,
+		});
+	});
+
+	describe('carta al párroco', () => {
+		beforeEach(() => {
+			mockTaskApi.list.mockResolvedValue(
+				JSON.parse(JSON.stringify([...TASKS, PRIEST_TASK])),
+			);
+		});
+
+		it('ofrece imprimir la carta solo en la tarea del párroco', async () => {
+			const w = await mountView();
+			const items = w.findAll('[data-testid="priest-letter-item"]');
+			expect(items).toHaveLength(1);
+			expect(items[0].text()).toContain('Imprimir carta al párroco');
+		});
+
+		it('abre el diálogo al seleccionar el ítem', async () => {
+			const w = await mountView();
+			expect(w.find('.priest-letter-stub').attributes('data-open')).toBe('false');
+			await w.find('[data-testid="priest-letter-item"]').trigger('click');
+			await flushPromises();
+			expect(w.find('.priest-letter-stub').attributes('data-open')).toBe('true');
+		});
+
+		it('sigue disponible sin permiso de gestión, y sin los ítems de mutación', async () => {
+			perms.manage = false;
+			const w = await mountView();
+			expect(w.find('[data-testid="priest-letter-item"]').exists()).toBe(true);
+			const labels = w.findAll('.dd-item').map((item) => item.text());
+			expect(labels).toEqual(['📄 Imprimir carta al párroco']);
+		});
+
+		it('no aparece en las demás tareas ni cuando el checklist está vacío', async () => {
+			const w = await mountView();
+			const menus = w.findAll('.dropdown-mock');
+			// Las tres tareas raíz tienen ⋮, pero solo una ofrece la carta.
+			expect(menus.length).toBeGreaterThan(1);
+
+			mockTaskApi.list.mockResolvedValue([]);
+			const empty = await mountView();
+			expect(empty.find('[data-testid="priest-letter-item"]').exists()).toBe(false);
 		});
 	});
 });
