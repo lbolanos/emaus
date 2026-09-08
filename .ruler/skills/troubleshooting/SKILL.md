@@ -41,6 +41,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "el PDF no trae las imágenes", "en el Word sí se ven y en el PDF no", "salen solo algunas fotos", "falta el dibujo de la charla" | [#28 El PDF pierde las imágenes que van pegadas al texto](#28-el-pdf-pierde-las-imágenes-que-van-pegadas-al-texto) |
 | "salió un error y no hay nada en el log del servidor", "An unexpected error occurred", "se registró desde la computadora porque el celular no lo dejó", "le dio error pero sí quedó registrado" | [#29 El error que no dejó rastro: la petición nunca llegó](#29-el-error-que-no-dejó-rastro-la-petición-nunca-llegó) |
 | "en producción sale la clave de traducción en pantalla", "dice serverRegistration.algo.otro en vez del texto", "el test pasa pero el texto sale mal" | [#30 Una clave de i18n inexistente pasa verde en toda la suite](#30-una-clave-de-i18n-inexistente-pasa-verde-en-toda-la-suite) |
+| "Jest encountered an unexpected token" apuntando a un import nuestro, "Test suite failed to run" antes de correr nada, "este módulo no tiene ni un test" | [#31 Un módulo con `import.meta` es invisible para Jest](#31-un-módulo-con-importmeta-es-invisible-para-jest--y-su-lógica-nunca-se-prueba) |
 
 ---
 
@@ -1266,6 +1267,47 @@ sobre el conjunto vacío pasaría igual.
 **Casos**: 2026-09-08, al mover `emailLookup.errors` → `errors` en el registro público.
 
 ---
+
+## 31. Un módulo con `import.meta` es invisible para Jest — y su lógica nunca se prueba
+
+**Síntoma**: al escribir el primer test de un módulo del API, Jest falla antes de correr nada:
+
+```
+Test suite failed to run
+Jest encountered an unexpected token
+  > 2 | import { BaseMigrationManager } from './base-migration-manager';
+```
+
+El cursor apunta a un `import` normal, así que parece un problema de configuración de rutas. No lo
+es: el módulo importado —o alguno de los suyos— usa **`import.meta`**, que la transformación a
+CommonJS de ts-jest no puede parsear. El caso típico es el par que reconstruye `__dirname` en ESM:
+
+```ts
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+```
+
+**Cómo comprobarlo**: `grep -rln "import\.meta" apps/api/src --exclude-dir=tests`. A 2026-09-08
+son dos archivos: `index.ts` y `database/base-migration-manager.ts`.
+
+**Lo que de verdad importa no es el error, es lo que el error esconde.** Un módulo que Jest no
+puede importar es un módulo que **nadie testea**, y eso no se nota: no hay rojo, no hay cobertura
+que baje, simplemente ningún test lo menciona jamás. `base-migration-manager.ts` —el runner que
+aplica todas las migraciones— estuvo así desde siempre, y ahí vivía el bug de que el runner
+ignoraba el `transaction = false` de cada migración (ver skill `sqlite-migrations`).
+
+**Fix**: sacar la lógica pura a un módulo propio, sin `import.meta`, e importarlo desde el módulo
+ESM y desde el test. Es lo que hace `database/transaction-policy.ts`. El módulo ESM en sí sigue
+sin poder importarse, así que su **cableado** se comprueba leyendo el fuente
+(`migrationRunnerTransactionFlag.test.ts`, capa 3).
+
+> Y la lección que va con esto: **un guard que lee texto no prueba comportamiento.**
+> `sqliteSafePattern.simple.test.ts` exigía `transaction = false` en cada migración con
+> `DROP TABLE` y llevaba meses en verde mientras el runner ignoraba la propiedad. Un guard de
+> texto sirve para fijar una convención; no para creer que la convención hace algo. Si el
+> comportamiento se puede ejecutar, tiene que haber un test que lo ejecute — aunque haya que
+> extraer un módulo para conseguirlo. Ver también el *antipatrón del mirror* en
+> `timezone-handling`: el test que replica la implementación en vez de llamarla.
 
 ## Cómo agregar un bug nuevo a este skill
 

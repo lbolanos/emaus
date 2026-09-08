@@ -53,9 +53,19 @@ Si quieres estar, regístrate aquí: {retreat.serverRegistrationLink}
 Cualquier duda me dices. ¡Sería un gusto tenerte en el equipo!`;
 
 	public async up(queryRunner: QueryRunner): Promise<void> {
-		await queryRunner.query(
-			`ALTER TABLE "retreat_preparation" ADD COLUMN "communityMeetingId" varchar`,
+		// Idempotente a propósito. Al declarar `transaction = false` esta migración
+		// renuncia al rollback automático: si `up()` falla más abajo, este ADD COLUMN
+		// ya está aplicado y commiteado, la migración queda sin registrar y el
+		// siguiente intento la reejecuta desde arriba. Sin la guarda moriría con
+		// "duplicate column name" y quedaría atascada para siempre.
+		const columns: { name: string }[] = await queryRunner.query(
+			`PRAGMA table_info("retreat_preparation")`,
 		);
+		if (!columns.some((c) => c.name === 'communityMeetingId')) {
+			await queryRunner.query(
+				`ALTER TABLE "retreat_preparation" ADD COLUMN "communityMeetingId" varchar`,
+			);
+		}
 		await queryRunner.query(
 			`CREATE INDEX IF NOT EXISTS "idx_retreat_preparation_community_meeting" ON "retreat_preparation" ("communityMeetingId")`,
 		);

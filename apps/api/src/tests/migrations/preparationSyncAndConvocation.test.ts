@@ -117,11 +117,15 @@ describe('PreparationSyncAndConvocation20260907200000', () => {
 		expect(seq.templateType).toBe('SERVER_CONVOCATION');
 	});
 
-	it('es idempotente: volver a correr up() no duplica la siembra', async () => {
+	// Al declarar `transaction = false` esta migración renuncia al rollback: si
+	// `up()` falla a mitad, lo anterior queda commiteado y el siguiente arranque la
+	// reejecuta desde arriba. Así que `up()` ENTERO tiene que poder volver a correr.
+	// Antes no podía —el ADD COLUMN moría con "duplicate column name"— y este test
+	// lo rodeaba llamando sólo a la parte de siembra.
+	it('es idempotente: `up()` entero se puede volver a correr', async () => {
 		await runDownThenUp();
 		const qr = ds().createQueryRunner();
-		// Sólo la parte de siembra: `up()` completo fallaría por la columna ya creada.
-		await migration.recreateGlobalTemplateTypeCheck(qr, true);
+		await migration.up(qr);
 		await qr.release();
 
 		expect(

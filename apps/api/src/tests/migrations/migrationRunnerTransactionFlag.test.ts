@@ -109,19 +109,36 @@ describe('3. el runner usa la política en los dos caminos', () => {
 		return to === -1 ? rest : rest.slice(0, to);
 	};
 
-	it.each(['protected async runMigration(', 'protected async revertMigration('])(
-		'%s decide con shouldUseTransaction y no con el flag crudo',
-		(signature) => {
-			const body = bodyOf(signature);
-			expect(body).toContain('shouldUseTransaction(migrationClass, options.transaction)');
-			// Si esto falla, alguien volvió a decidir con el flag del llamador y las
-			// migraciones recreate-table vuelven a correr envueltas. No lo silencies.
-			expect(body).not.toMatch(/if \(options\.transaction\) \{/);
-		},
-	);
+	const METHODS = ['protected async runMigration(', 'protected async revertMigration('];
 
-	it('la clase se carga ANTES de abrir la transacción (si no, no se puede leer su flag)', () => {
-		const body = bodyOf('protected async runMigration(');
+	it.each(METHODS)('%s decide con shouldUseTransaction y no con el flag crudo', (signature) => {
+		const body = bodyOf(signature);
+		expect(body).toContain('shouldUseTransaction(migrationClass, options.transaction)');
+		// Si esto falla, alguien volvió a decidir con el flag del llamador y las
+		// migraciones recreate-table vuelven a correr envueltas. No lo silencies.
+		expect(body).not.toMatch(/if \(options\.transaction\) \{/);
+	});
+
+	// No basta con que se llame a la política: hace falta que su resultado sea el
+	// que abre, confirma y revierte. Calcular `useTransaction` y seguir decidiendo
+	// con otra cosa pasaría el caso de arriba.
+	it.each(METHODS)('%s usa el resultado en begin, commit y rollback', (signature) => {
+		const body = bodyOf(signature);
+		for (const call of ['beginTransaction', 'commitTransaction', 'rollbackTransaction']) {
+			const at = body.indexOf(call);
+			expect({ call, found: at > -1 }).toEqual({ call, found: true });
+			// El `if` que de verdad envuelve la llamada: el último que la precede.
+			const before = body.slice(0, at);
+			const guard = before.slice(before.lastIndexOf('if ('));
+			expect({ call, guarded: guard.includes('useTransaction') }).toEqual({
+				call,
+				guarded: true,
+			});
+		}
+	});
+
+	it.each(METHODS)('%s carga la clase ANTES de abrir la transacción', (signature) => {
+		const body = bodyOf(signature);
 		expect(body.indexOf('loadMigration')).toBeLessThan(body.indexOf('beginTransaction'));
 	});
 });

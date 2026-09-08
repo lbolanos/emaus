@@ -165,6 +165,32 @@ export class FooBar20260507120000 implements MigrationInterface {
 }
 ```
 
+### `transaction = false` renuncia al rollback: la migración tiene que ser reejecutable
+
+Es el precio del patrón, y no se puede evitar: no existe una configuración donde el
+`PRAGMA foreign_keys = OFF` funcione **y** haya una transacción envolvente. Consecuencia práctica:
+si `up()` revienta a mitad, lo anterior **ya está commiteado**, la migración **no** queda
+registrada, y el siguiente arranque la reejecuta desde la primera línea.
+
+Por eso, en toda migración con `transaction = false`, cada paso previo al recreate debe tolerar
+volver a correr. El caso que muerde es el `ADD COLUMN`: sin guarda, el reintento muere con
+*"duplicate column name"* y la migración queda atascada para siempre.
+
+```ts
+const columns: { name: string }[] = await queryRunner.query(`PRAGMA table_info("mi_tabla")`);
+if (!columns.some((c) => c.name === 'mi_columna')) {
+	await queryRunner.query(`ALTER TABLE "mi_tabla" ADD COLUMN "mi_columna" varchar`);
+}
+```
+
+Para índices y tablas basta `IF NOT EXISTS`; para los INSERT de seed, comparar antes.
+
+> Deuda conocida al 2026-09-08: cinco migraciones ya aplicadas declaran `transaction = false` y
+> tienen un `ADD COLUMN` sin guarda —`AddClosingChurchAndFamilyInvitationTemplates`,
+> `AddRetreatFeesMealsAndDebts`, `AddSourceToRetreatMemorySong`, `CrmSequencingSchemaAndSeed` e
+> `InventoryEnhancementsBundle`. No afecta a los entornos donde ya corrieron; sí a una base nueva
+> si fallan a mitad.
+
 ### Checklist por cada recreate-table
 
 Antes de aprobar / commitear:

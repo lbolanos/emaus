@@ -29,6 +29,11 @@ export interface TransactionAware {
  * que lo exige— daban una protección que en runtime no existía por el camino
  * del arranque del API. Ese camino es el normal en dev: `MIGRATIONS_AUTO_RUN`
  * está en `true` y nodemon reinicia con cada archivo que se guarda.
+ * OJO si algún día hay migraciones de Postgres: `transaction = false` es un
+ * apaño para una limitación de SQLite. Postgres sí hace DDL transaccional, así
+ * que copiar el flag allí sólo serviría para perder su rollback automático. Hoy
+ * `apps/api/src/migrations/` únicamente tiene `sqlite/`, y la política no
+ * distingue por motor — si eso cambia, hay que acotarla.
  */
 export const shouldUseTransaction = (
 	migrationClass: TransactionAware | null | undefined,
