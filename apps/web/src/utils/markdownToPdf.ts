@@ -55,13 +55,15 @@ export interface PdfDocumentInput {
 	 * preparaciones lo dejan apagado: su interlineado sale de los `.docx`.
 	 */
 	relaxedLeading?: boolean;
+	/** Bloque de firma al pie, con hueco real para firmar. */
+	signature?: { intro: string; label: string; dateLine?: boolean };
 }
 
 /**
- * Misma proporción que el `body.relaxed` de la hoja A4 (1.65 sobre el 1.42
+ * Misma proporción que el `body.relaxed` de la hoja A4 (1.55 sobre el 1.42
  * normal), para que las dos rutas de PDF no divergan.
  */
-const RELAXED_LEADING = 1.16;
+const RELAXED_LEADING = 1.09;
 
 interface Ctx {
 	doc: jsPDF;
@@ -621,6 +623,52 @@ function addBookmarks(doc: jsPDF, input: PdfDocumentInput, bookmarks: Ctx['bookm
 	}
 }
 
+/**
+ * Bloque de firma al pie: rótulo, hueco para firmar, raya y nombre debajo.
+ *
+ * El hueco va ANTES de la raya para que la firma caiga sobre ella, igual que en
+ * la hoja A4 del navegador. Si no queda sitio en la página, salta a la
+ * siguiente: una raya de firma partida por el salto no sirve de nada.
+ */
+function drawSignature(
+	ctx: Ctx,
+	signature: { intro: string; label: string; dateLine?: boolean },
+) {
+	const { doc } = ctx;
+	const GAP = 12; // hueco para la firma, en mm
+	const needed = GAP + 16;
+	if (ctx.y + needed > PAGE_H - MARGIN_BOTTOM) {
+		doc.addPage();
+		ctx.y = MARGIN_TOP;
+	} else {
+		ctx.y += 5;
+	}
+
+	setFont(doc, SANS);
+	doc.setFontSize(10.5);
+	doc.setTextColor(...INK);
+	doc.text(signature.intro, MARGIN_X, ctx.y);
+
+	ctx.y += GAP;
+	const lineWidth = CONTENT_W * 0.62;
+	doc.setDrawColor(...INK);
+	doc.setLineWidth(0.25);
+	doc.line(MARGIN_X, ctx.y, MARGIN_X + lineWidth, ctx.y);
+
+	ctx.y += 4.5;
+	setFont(doc, SANS, true);
+	doc.setTextColor(...NAVY);
+	doc.text(signature.label, MARGIN_X, ctx.y);
+
+	if (signature.dateLine) {
+		ctx.y += 5.5;
+		setFont(doc, SANS);
+		doc.setFontSize(9.5);
+		doc.setTextColor(...SLATE);
+		doc.text('Fecha: ______ / ______ / __________', MARGIN_X, ctx.y);
+	}
+}
+
 export async function buildPreparationPdf(input: PdfDocumentInput): Promise<Blob> {
 	const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
 	doc.setProperties({ title: input.title });
@@ -669,6 +717,8 @@ export async function buildPreparationPdf(input: PdfDocumentInput): Promise<Blob
 				break;
 		}
 	}
+
+	if (input.signature) drawSignature(ctx, input.signature);
 
 	paintChrome(doc, input);
 	addBookmarks(doc, input, ctx.bookmarks);

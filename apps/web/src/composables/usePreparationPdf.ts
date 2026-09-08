@@ -23,6 +23,8 @@ export interface MarkdownPdfOptions {
 	meta?: string;
 	/** Interlineado holgado (documentos cortos que se leen en papel). */
 	relaxedLeading?: boolean;
+	/** Bloque de firma al pie, con hueco real para firmar. */
+	signature?: { intro: string; label: string; dateLine?: boolean };
 	onError?: (message: string) => void;
 }
 
@@ -58,6 +60,7 @@ export async function downloadMarkdownPdf(opts: MarkdownPdfOptions): Promise<boo
 			meta: opts.meta,
 			markdown: opts.markdown,
 			relaxedLeading: opts.relaxedLeading,
+			signature: opts.signature,
 		});
 		saveBlob(blob, `${opts.fileName}.pdf`);
 		return true;

@@ -48,6 +48,7 @@ export function printMarkdownDocument(opts: PrintableDocumentOptions): boolean {
 				subtitle: opts.subtitle,
 				meta: opts.meta,
 				logoUrl: opts.logoUrl,
+				signature: opts.signature,
 				bodyHtml: renderMarkdown(opts.markdown ?? ''),
 			},
 			{

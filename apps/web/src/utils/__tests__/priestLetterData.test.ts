@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import type { RetreatPreparationDTO, RetreatScheduleItemDTO } from '@/services/api';
 import {
 	buildPriestLetterData,
+	cleanChurchName,
 	resolveRetreatTimezone,
 	retreatLetterLogoUrl,
 	toPriestLetterSource,
@@ -124,6 +125,26 @@ describe('priestLetterData', () => {
 
 		it('drops items whose instant cannot be read instead of throwing', () => {
 			expect(toPriestLetterSource([scheduleItem({ startTime: 'nope' })], MX)).toEqual([]);
+		});
+	});
+
+	describe('cleanChurchName', () => {
+		it('recorta la ciudad que pega el autocompletado de Google Places', () => {
+			// El nombre real de Buen Despacho llega así, y sale tres veces en la
+			// carta: la línea extra decide si cabe en una hoja.
+			expect(cleanChurchName('Parroquia del Señor del Buen Despacho | Mexico City')).toBe(
+				'Parroquia del Señor del Buen Despacho',
+			);
+		});
+
+		it('deja intacto un nombre ya limpio', () => {
+			expect(cleanChurchName('Parroquia de San Agustín')).toBe('Parroquia de San Agustín');
+		});
+
+		it('devuelve null cuando no queda nombre', () => {
+			expect(cleanChurchName(null)).toBeNull();
+			expect(cleanChurchName('  ')).toBeNull();
+			expect(cleanChurchName('| solo la ciudad')).toBeNull();
 		});
 	});
 

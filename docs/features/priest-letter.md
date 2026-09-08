@@ -39,7 +39,7 @@ sea editable: hay tres cosas que el sistema no sabe y salen como `(por confirmar
 | «EMAÚS Hombres.» | `retreat.retreat_type` |
 | Día, hora y cadencia de las reuniones | Calendario de `retreat_preparation` |
 | «Los avisos arrancarían el domingo 26 de abril» | Domingo en o antes de `startDate − 5 semanas` |
-| Iglesia de las misas | `retreat.closingChurchName` |
+| Iglesia de las misas | `retreat.closingChurchName`, recortado por `cleanChurchName` |
 | Casa (charla y confesiones) | `house.name`, o el `location` del ítem del MaM |
 | Las cuatro horas de «Peticiones durante el retiro» | **Minuto a Minuto del retiro** |
 
@@ -115,20 +115,46 @@ Los tres consumidores anteriores (`RetreatPreparationsView`, `PublicPreparations
 `ResponsabilityAttachmentsDialog`) no pasan `logoUrl`, así que su salida no cambia — hay un test
 que lo fija.
 
-### Interlineado holgado, y por qué 1.65
+### El bloque de firma
 
-La carta pide `relaxedLeading`, que pone `class="relaxed"` en el `<body>` y sube el interlineado de
-**1.42 a 1.65** (y el hueco entre párrafos de 8 a 12pt). El generador de jsPDF tiene su equivalente
-en `RELAXED_LEADING = 1.16`, la misma proporción, para que las dos rutas no divergan.
+Al pie va un bloque para que el párroco firme, con `signature: { intro, label, dateLine? }`.
+Es **cromo de la hoja, no markdown**: es un formulario, no prosa, y el coordinador no debería poder
+borrarlo editando el texto. La raya es el `border-top` del rótulo y el hueco para firmar es el
+`margin-bottom` del intro, así la firma cae **sobre** la raya, como en el papel.
+
+Existe en las dos rutas: la hoja A4 lo pinta en CSS y `markdownToPdf` lo dibuja en
+`drawSignature()`, que salta de página si no le quedan los ~28mm que necesita (una raya de firma
+partida por el salto no sirve de nada).
+
+### Interlineado y firma se pelean por la hoja: 1.55 y por qué
+
+`relaxedLeading` pone `class="relaxed"` en el `<body>` y sube el interlineado de **1.42 a 1.55**.
+`markdownToPdf` tiene su equivalente en `RELAXED_LEADING = 1.09`, la misma proporción, para que las
+dos rutas no divergan.
 
 **Las preparaciones lo dejan apagado a propósito**: su 1.42 sale de los `.docx` originales, y
 subirlo les añadiría páginas a documentos que ya son largos. Hay un test que fija que
 `downloadPreparationPdf` no lo pida.
 
-1.65 es el **techo medido**, no un número redondo. La carta tiene que caber en una hoja como el
-original, y con el nombre de parroquia más largo que se ha visto —«Parroquia del Señor del Buen
-Despacho | Mexico City», que aparece tres veces— a 1.7 ya se desborda a una segunda página.
-Si algún día se alarga el cuerpo de la carta, hay que volver a medirlo:
+1.55 no es un número elegido, es el **techo medido**, y el margen es de milímetros. Los datos, sobre
+la carta de Buen Despacho (la más larga que hay hoy) y midiendo con `pdfinfo`:
+
+| Interlineado | Con firma | Sin firma |
+| --- | --- | --- |
+| 1.65 | 2 hojas | 1 hoja |
+| 1.55 | **1 hoja** | 1 hoja |
+| 1.42 (original) | 1 hoja | 1 hoja |
+
+Con interlineado 1.65 la mancha llena **252 de los 257 mm** útiles de la A4: quedan 5 mm y el bloque
+de firma necesita ~28. Por eso el techo baja de 1.65 a 1.55 al añadir la firma, y por eso la línea
+de fecha (`dateLine`) queda **apagada** en la carta: son 6 mm más que cuestan la hoja. El párroco
+puede fechar junto a su firma.
+
+Y hay un tercer factor que no es tipográfico: **el nombre de la iglesia**. Con el sufijo que pega
+Google Places («… | Mexico City»), que aparece tres veces, la carta no cabe en una hoja a ningún
+interlineado. De ahí `cleanChurchName` en el adaptador, que recorta lo que venga tras el `|`.
+
+Si algún día se alarga el cuerpo de la carta, hay que volver a medir:
 
 ```bash
 pdfinfo salida.pdf | grep -i "^Pages"

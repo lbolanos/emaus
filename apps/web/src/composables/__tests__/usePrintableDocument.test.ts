@@ -162,6 +162,37 @@ describe('printMarkdownDocument', () => {
     expect(PRINT_STYLESHEET).toContain('line-height: 1.42');
   });
 
+  it('pinta el bloque de firma al pie cuando se le pasa', () => {
+    printMarkdownDocument({
+      title: 'Carta',
+      markdown: 'x',
+      signature: { intro: 'Enterado y de acuerdo:', label: 'Nombre y firma del Sr. Párroco' },
+    });
+    const out = html();
+    expect(out).toContain('<footer class="signature">');
+    expect(out).toContain('Enterado y de acuerdo:');
+    expect(out).toContain('Nombre y firma del Sr. Párroco');
+    // Sin dateLine no se pinta la línea de fecha: cuesta la hoja.
+    expect(out).not.toContain('Fecha: ______');
+    // El hueco para firmar es el margen inferior del intro.
+    expect(PRINT_STYLESHEET).toContain('footer.signature .sig-intro');
+  });
+
+  it('añade la línea de fecha solo si se pide', () => {
+    printMarkdownDocument({
+      title: 'Carta',
+      markdown: 'x',
+      signature: { intro: 'i', label: 'l', dateLine: true },
+    });
+    expect(html()).toContain('Fecha: ______');
+  });
+
+  it('no pone firma a quien no la pide (preparaciones y guiones)', () => {
+    printMarkdownDocument({ title: 'Guion', markdown: 'x' });
+    // El selector vive siempre en la hoja: lo que no debe existir es el elemento.
+    expect(html()).not.toContain('<footer');
+  });
+
   it('escapa la ruta del logo', () => {
     printMarkdownDocument({ title: 'Carta', markdown: 'x', logoUrl: '/a"onerror="alert(1)' });
     expect(html()).not.toContain('onerror="alert(1)"');

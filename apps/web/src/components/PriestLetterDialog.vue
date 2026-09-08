@@ -78,6 +78,15 @@ const resolvedMarkdown = computed(() => {
 
 const previewHtml = computed(() => renderMarkdown(draft.value));
 
+/**
+ * Signature block. It is a form, not prose, so it lives outside the editable
+ * markdown: the coordinator should not be able to delete it by accident.
+ */
+const SIGNATURE = {
+  intro: 'Enterado y de acuerdo con lo aquí solicitado:',
+  label: 'Nombre y firma del Sr. Párroco',
+} as const;
+
 /** Right side of the running head: which retreat this paper belongs to. */
 const printMeta = computed(() => {
   const data = letterData.value;
@@ -155,6 +164,7 @@ function print() {
     logoUrl: logoUrl.value,
     // Cabe de sobra en una hoja, y en papel se lee mucho mejor holgada.
     relaxedLeading: true,
+    signature: SIGNATURE,
     onPopupBlocked: () =>
       toast({
         title: 'El navegador bloqueó la ventana de impresión',
@@ -174,6 +184,7 @@ async function downloadPdf() {
       subtitle: retreat.value?.parish ?? undefined,
       meta: printMeta.value,
       relaxedLeading: true,
+      signature: SIGNATURE,
       onError: (message) => toast({ title: message, variant: 'destructive' }),
     });
   } finally {

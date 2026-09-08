@@ -52,6 +52,21 @@ export function resolveRetreatTimezone(retreat: PriestLetterRetreatInput | null 
 	return retreat?.timezone || retreat?.house?.timezone || DEFAULT_RETREAT_TIMEZONE;
 }
 
+/**
+ * Trims what Google Places appends to a church name.
+ *
+ * `closingChurchName` is filled from `place.displayName` through the
+ * autocomplete, and comes back as "Parroquia del Señor del Buen Despacho |
+ * Mexico City". That tail reads as noise in a formal letter, where the name
+ * appears three times, and the extra line it wraps to is the difference between
+ * the letter fitting on one sheet or not.
+ */
+export function cleanChurchName(name: string | null | undefined): string | null {
+	if (!name) return null;
+	const cleaned = name.split('|')[0].trim().replace(/[,;]+$/, '');
+	return cleaned || null;
+}
+
 /** `YYYY-MM-DD` out of a `date` column, reading UTC parts so no day shifts. */
 function toYmd(value: string | Date | null | undefined): string | null {
 	if (!value) return null;
@@ -158,7 +173,7 @@ export function buildPriestLetterData(input: {
 		endDate,
 		retreatType: retreat.retreat_type ?? null,
 		retreatNumber: retreat.retreat_number_version ?? null,
-		parishChurchName: retreat.closingChurchName ?? null,
+		parishChurchName: cleanChurchName(retreat.closingChurchName),
 		houseName: retreat.house?.name ?? null,
 		meetings: derivePriestLetterMeetings(
 			(input.preparations ?? []).map((prep) => ({

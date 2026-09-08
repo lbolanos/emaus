@@ -82,10 +82,26 @@ export const PRINT_STYLESHEET = `
   /* Interlineado holgado, opt-in con relaxedLeading. Las preparaciones NO lo
      usan: su 1.42 reproduce el .docx original y subirlo les añadiría páginas.
      Una carta de una hoja sí gana en legibilidad. */
-  body.relaxed { line-height: 1.65; }
-  body.relaxed p { margin: 0 0 12pt; }
-  body.relaxed h2 { margin: 20pt 0 9pt; }
-  body.relaxed h3 { margin: 16pt 0 7pt; }
+  /* Bloque de firma: el hueco para firmar es el margen inferior del rótulo de
+     arriba, y la raya es el borde superior de la línea del nombre — así la
+     firma cae SOBRE la raya, como en el papel. */
+  footer.signature {
+    margin-top: 5mm;
+    page-break-inside: avoid; break-inside: avoid;
+  }
+  footer.signature p { margin: 0; text-align: left; }
+  footer.signature .sig-intro { margin-bottom: 12mm; }
+  footer.signature .sig-line {
+    border-top: 0.75pt solid ${INK};
+    width: 62%; padding-top: 4pt;
+    font-weight: 600; color: ${NAVY};
+  }
+  footer.signature .sig-date { margin-top: 9pt; font-size: 10pt; color: ${SLATE}; }
+
+  body.relaxed { line-height: 1.55; }
+  body.relaxed p { margin: 0 0 9pt; }
+  body.relaxed h2 { margin: 16pt 0 7pt; }
+  body.relaxed h3 { margin: 14pt 0 6pt; }
   strong { color: ${BLUE}; }
 
   /* Párrafos rotulados ("Tema:", "Objetivo:", "Dónde estamos:"): sangría
@@ -190,6 +206,19 @@ export interface PrintableDocumentData {
 	 * de auto-impresión ya espera a que las imágenes carguen.
 	 */
 	logoUrl?: string;
+	/**
+	 * Bloque de firma al pie, con hueco real para firmar. Va aquí y no en el
+	 * cuerpo porque es un formulario, no prosa: no debe poder editarse ni
+	 * borrarse junto con el texto.
+	 */
+	signature?: {
+		/** Línea sobre el hueco de la firma. */
+		intro: string;
+		/** Rótulo bajo la raya ("Nombre y firma del Sr. Párroco"). */
+		label: string;
+		/** Añade una línea de fecha en blanco bajo el rótulo. */
+		dateLine?: boolean;
+	};
 	/** Cuerpo YA renderizado a HTML y sanitizado por el caller. */
 	bodyHtml: string;
 }
@@ -294,6 +323,16 @@ export function buildPrintableHtml(
 		? `<img src="${escapeHtmlText(data.logoUrl)}" alt="" />`
 		: '';
 
+	const signature = data.signature
+		? `<footer class="signature"><p class="sig-intro">${escapeHtmlText(
+				data.signature.intro,
+			)}</p><p class="sig-line">${escapeHtmlText(data.signature.label)}</p>${
+				data.signature.dateLine
+					? '<p class="sig-date">Fecha: ______ / ______ / __________</p>'
+					: ''
+			}</footer>`
+		: '';
+
 	return `<!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8" />
 ${base}
@@ -302,6 +341,7 @@ ${base}
 ${runningHead}
 <header class="doc-head">${logo}<h1>${title}</h1></header>
 ${data.bodyHtml}
+${signature}
 <script>
   (function () {
 ${rename}${LABELED_SCRIPT}${autoPrint}
