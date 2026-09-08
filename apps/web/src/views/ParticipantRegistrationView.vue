@@ -570,7 +570,20 @@ const skipEmailLookup = () => {
  * quita justo el valor que tiene: que ahí solo hay lo que nadie más vio.
  */
 const isUnrecordedFailure = (error: any): boolean =>
-  isNetworkError(error) || !serverErrorMessage(error)
+  isNetworkError(error) || !serverErrorMessage(error) || isRecaptchaRejection(error)
+
+/**
+ * Rechazo de reCAPTCHA. Las seis variantes que devuelve el API traen la palabra
+ * en el mensaje ("token is required", "verification failed: …", "score too low",
+ * "hostname mismatch", "configuration error", "Failed to verify …").
+ *
+ * Se reportan al canal [CLIENT ERROR] aunque traigan mensaje: el API los
+ * devuelve sin escribir nada en su log, así que hoy son invisibles — en nginx
+ * solo queda un 400 pelado. El 2026-09-08 a las 18:27 un iPhone se llevó uno y
+ * no hay forma de saber cuántos más.
+ */
+const isRecaptchaRejection = (error: any): boolean =>
+  /recaptcha/i.test(serverErrorMessage(error) ?? '')
 
 /**
  * Qué decirle a la persona sobre un fallo al guardar su registro. Lo usan los
@@ -578,6 +591,9 @@ const isUnrecordedFailure = (error: any): boolean =>
  */
 const describeRegistrationError = (error: any): string => {
   if (isNetworkError(error)) return t('serverRegistration.errors.connectionLost')
+  // El mensaje de reCAPTCHA viene de Google, en inglés y sin nada que hacer con
+  // él: "reCAPTCHA verification failed: browser-error" no le dice nada a nadie.
+  if (isRecaptchaRejection(error)) return t('serverRegistration.errors.recaptcha')
   const fromServer = serverErrorMessage(error)
   if (fromServer) return fromServer
   // Respondió algo que no es del API: página de nginx, challenge de Cloudflare.

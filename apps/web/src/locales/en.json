@@ -1922,6 +1922,7 @@
       "connectionLost": "The connection dropped and the retry failed too. Check your internet and try again.",
       "serverError": "We could not save your registration right now (error {status}). Please wait a few minutes and try again.",
       "unknown": "We could not save your registration. Please try again in a few minutes.",
+      "recaptcha": "We could not verify that you are not a robot. Please reload the page and try again.",
       "alreadyRegisteredTitle": "You were already registered"
     },
     "emailLookup": {
