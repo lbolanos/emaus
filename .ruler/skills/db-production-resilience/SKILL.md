@@ -22,6 +22,27 @@ Usa **`make db-pull`** (→ `scripts/db-pull.sh`): hace `sqlite3 ".backup"` en e
 backup online, consistente con WAL), reintenta si hay contención, baja el snapshot y verifica
 `PRAGMA integrity_check` antes de aceptarlo.
 
+### ⚠️ Después del db-pull, tu dev apunta a datos reales
+
+`db-pull` **sobrescribe** `apps/api/database.sqlite`. A partir de ahí, `pnpm dev` no levanta un
+entorno de pruebas: levanta producción en tu máquina, con los correos de la gente dentro. Y el
+API arranca `messageSequenceService.startScheduledTasks()` **sin guarda de entorno**
+(`src/index.ts`), un cron `0 * * * *` que hace `enrollAll()` + `processDue()`. Si tu `.env` local
+tiene SMTP —lo tiene—, al dar la hora en punto salen correos de verdad a participantes de verdad.
+Es la misma familia del incidente de los 164 correos retroactivos.
+
+Antes de levantar el dev o correr e2e sobre una copia recién bajada:
+
+```bash
+cp apps/api/database.sqlite apps/api/database.e2e.sqlite   # el .gitignore ya cubre database.*.sqlite
+DB_DATABASE=database.e2e.sqlite SMTP_HOST= SMTP_USER= SMTP_PASS= pnpm --filter api dev
+```
+
+La base aparte evita ensuciar la copia; el SMTP vacío es el que de verdad protege: `emailService`
+comprueba `isSmtpConfigured()` (`SMTP_HOST && SMTP_USER && SMTP_PASS`) y lanza antes de enviar.
+No hay credenciales de WhatsApp en el `.env` local, así que el correo es el único canal saliente.
+Al terminar, borrá la copia y sus `-wal`/`-shm`.
+
 **Segundo modo de corrupción — la transferencia, no el snapshot (incidente 2026-06-09).**
 `scp` **no verifica checksum**, así que un glitch de red puede entregar un archivo malformado
 sin error aunque el snapshot del server esté íntegro. Señales de que el problema es la red (no

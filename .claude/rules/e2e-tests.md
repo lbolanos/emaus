@@ -14,7 +14,7 @@ ya esté levantado:
 cd apps/web && npx playwright test tests/e2e/<spec>.ts --project=chromium --reporter=list
 ```
 
-Cuatro cosas que hacen fallar un spec nuevo por razones que no son del código:
+Cinco cosas que hacen fallar un spec nuevo por razones que no son del código:
 
 - **Fijar el idioma.** Playwright arranca en `en-US` y la app sigue `navigator.language`, así que
   la UI sale en inglés y ningún texto en español coincide. `test.use({ locale: 'es-MX' })` más
@@ -30,6 +30,11 @@ Cuatro cosas que hacen fallar un spec nuevo por razones que no son del código:
   `process.env.E2E_RETREAT_ID` con un default de la base de dev, y hacen `test.skip(...)` con un
   motivo legible si ese retiro no existe o no cumple las condiciones. Así el spec no se vuelve rojo
   en una base distinta.
+- **Nombres con acento en una descarga: normalizá a NFC.** En macOS, WebKit devuelve
+  `download.suggestedFilename()` en **NFD** (la `ó` como `o` + acento combinante), así que
+  `"Oración.pdf"` deja de ser igual a la cadena del documento aunque en pantalla se vean idénticas
+  y el diff del error sea invisible. `.normalize('NFC')` en los dos lados. Chromium devuelve NFC,
+  o sea que el spec pasa en chromium y solo se cae en webkit.
 
 Aserción negativa sobre una pantalla que aún no cargó (`toHaveCount(0)`) siempre pasa: esperá
 primero a que la pantalla esté, o el test es un falso verde.
@@ -45,4 +50,6 @@ Y si el spec mide **peticiones de red**, dos cosas más:
   *tras qué interacción*, que es idéntico en los dos entornos. Ejemplo:
   `apps/web/tests/e2e/mobile-page-weight.spec.ts`.
 
-Ejemplo completo con las cuatro: `apps/web/tests/e2e/server-registration-shirt-sizes.spec.ts`.
+Ejemplo completo con las cuatro primeras: `apps/web/tests/e2e/server-registration-shirt-sizes.spec.ts`.
+Descarga de archivo (con la quinta, y cómo se verifica el binario bajado):
+`apps/web/tests/e2e/preparation-pdf-images.spec.ts`.
