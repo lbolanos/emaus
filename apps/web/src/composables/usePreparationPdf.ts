@@ -21,6 +21,8 @@ export interface MarkdownPdfOptions {
 	/** Contexto del encabezado (parroquia) y fecha de la sesión. */
 	subtitle?: string;
 	meta?: string;
+	/** Interlineado holgado (documentos cortos que se leen en papel). */
+	relaxedLeading?: boolean;
 	onError?: (message: string) => void;
 }
 
@@ -55,6 +57,7 @@ export async function downloadMarkdownPdf(opts: MarkdownPdfOptions): Promise<boo
 			subtitle: opts.subtitle,
 			meta: opts.meta,
 			markdown: opts.markdown,
+			relaxedLeading: opts.relaxedLeading,
 		});
 		saveBlob(blob, `${opts.fileName}.pdf`);
 		return true;

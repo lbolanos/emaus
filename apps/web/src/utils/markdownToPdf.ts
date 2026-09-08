@@ -50,13 +50,29 @@ export interface PdfDocumentInput {
 	meta?: string;
 	/** Markdown YA resuelto — nunca la plantilla con `{...}` sin sustituir. */
 	markdown: string;
+	/**
+	 * Interlineado holgado para documentos cortos que se leen en papel. Las
+	 * preparaciones lo dejan apagado: su interlineado sale de los `.docx`.
+	 */
+	relaxedLeading?: boolean;
 }
+
+/**
+ * Misma proporción que el `body.relaxed` de la hoja A4 (1.65 sobre el 1.42
+ * normal), para que las dos rutas de PDF no divergan.
+ */
+const RELAXED_LEADING = 1.16;
 
 interface Ctx {
 	doc: jsPDF;
 	y: number;
 	/** Títulos recogidos para el outline, con la página en la que caen. */
 	bookmarks: Array<{ level: number; text: string; page: number }>;
+	/**
+	 * Multiplicador del interlineado. 1 reproduce el `.docx` de las
+	 * preparaciones; la carta al párroco lo sube para leerse mejor en papel.
+	 */
+	leading: number;
 }
 
 /** Trozo de texto con su estilo, para componer párrafos con negritas. */
@@ -180,7 +196,7 @@ function writeRich(
 	const { doc } = ctx;
 	const family = opts.family ?? SANS;
 	const size = opts.size ?? 10.5;
-	const lineHeight = opts.lineHeight ?? size * 0.42;
+	const lineHeight = (opts.lineHeight ?? size * 0.42) * ctx.leading;
 	const indent = opts.indent ?? 0;
 	const maxWidth = opts.width ?? CONTENT_W - indent;
 	const color = opts.color ?? INK;
@@ -474,7 +490,7 @@ async function drawBlockquote(ctx: Ctx, token: Tokens.Blockquote) {
 
 	// Medir antes de pintar: el fondo tiene que ir DEBAJO del texto, así que
 	// hay que conocer el alto sin haber escrito nada todavía.
-	const probe: Ctx = { doc, y: 0, bookmarks: [] };
+	const probe: Ctx = { doc, y: 0, bookmarks: [], leading: ctx.leading };
 	for (const child of paragraphs) {
 		writeRich(probe, flattenInline((child as Tokens.Paragraph).tokens), {
 			...quoteOpts,
@@ -609,7 +625,7 @@ export async function buildPreparationPdf(input: PdfDocumentInput): Promise<Blob
 	const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
 	doc.setProperties({ title: input.title });
 
-	const ctx: Ctx = { doc, y: MARGIN_TOP, bookmarks: [] };
+	const ctx: Ctx = { doc, y: MARGIN_TOP, bookmarks: [], leading: input.relaxedLeading ? RELAXED_LEADING : 1 };
 
 	// Título del documento, centrado en versalitas sobre un filete.
 	setFont(doc, SERIF, true);

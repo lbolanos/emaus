@@ -115,6 +115,25 @@ Los tres consumidores anteriores (`RetreatPreparationsView`, `PublicPreparations
 `ResponsabilityAttachmentsDialog`) no pasan `logoUrl`, así que su salida no cambia — hay un test
 que lo fija.
 
+### Interlineado holgado, y por qué 1.65
+
+La carta pide `relaxedLeading`, que pone `class="relaxed"` en el `<body>` y sube el interlineado de
+**1.42 a 1.65** (y el hueco entre párrafos de 8 a 12pt). El generador de jsPDF tiene su equivalente
+en `RELAXED_LEADING = 1.16`, la misma proporción, para que las dos rutas no divergan.
+
+**Las preparaciones lo dejan apagado a propósito**: su 1.42 sale de los `.docx` originales, y
+subirlo les añadiría páginas a documentos que ya son largos. Hay un test que fija que
+`downloadPreparationPdf` no lo pida.
+
+1.65 es el **techo medido**, no un número redondo. La carta tiene que caber en una hoja como el
+original, y con el nombre de parroquia más largo que se ha visto —«Parroquia del Señor del Buen
+Despacho | Mexico City», que aparece tres veces— a 1.7 ya se desborda a una segunda página.
+Si algún día se alarga el cuerpo de la carta, hay que volver a medirlo:
+
+```bash
+pdfinfo salida.pdf | grep -i "^Pages"
+```
+
 ## Gotchas ganados a pulso
 
 - **`1.-` y no `1.`** en los puntos numerados: `marked` abre una `<ol>` con `\d+[.)]` + espacio y
@@ -131,7 +150,9 @@ que lo fija.
   el papel salía con «..» a la vista.
 - **«a la San Agustín»**: el artículo solo cabe si el nombre empieza por Parroquia/Iglesia/Capilla…
 - **Backticks dentro de `PRINT_STYLESHEET`**: es un template literal. Un `` `img` `` en un
-  comentario CSS cierra la cadena y rompe el build con «Expected ";" but found img».
+  comentario CSS cierra la cadena y rompe el build con «Expected ";" but found img». Pasó **dos
+  veces** al escribir esta feature — una con `img` y otra con `relaxedLeading`. Lo caza el
+  typecheck, no los tests.
 
 ## Tests
 

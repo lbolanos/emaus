@@ -153,6 +153,8 @@ function print() {
     subtitle: retreat.value?.parish ?? undefined,
     meta: printMeta.value,
     logoUrl: logoUrl.value,
+    // Cabe de sobra en una hoja, y en papel se lee mucho mejor holgada.
+    relaxedLeading: true,
     onPopupBlocked: () =>
       toast({
         title: 'El navegador bloqueó la ventana de impresión',
@@ -171,6 +173,7 @@ async function downloadPdf() {
       markdown: draft.value,
       subtitle: retreat.value?.parish ?? undefined,
       meta: printMeta.value,
+      relaxedLeading: true,
       onError: (message) => toast({ title: message, variant: 'destructive' }),
     });
   } finally {

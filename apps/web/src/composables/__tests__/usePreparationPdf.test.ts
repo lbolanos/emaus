@@ -76,6 +76,11 @@ describe('downloadPreparationPdf', () => {
     });
   });
 
+  it('NO pide interlineado holgado: su espaciado sale del .docx original', async () => {
+    await downloadPreparationPdf({ doc: doc() });
+    expect(mockBuild.mock.calls[0][0]).not.toMatchObject({ relaxedLeading: true });
+  });
+
   it('descarga con el nombre del documento y extensión .pdf', async () => {
     await downloadPreparationPdf({ doc: doc() });
     expect(clicked?.download).toBe('1ª preparación — Servicio.pdf');
@@ -140,6 +145,11 @@ describe('downloadMarkdownPdf', () => {
       markdown: 'x',
     });
     expect(clicked?.download).toBe('solicitud-parroco-san-agustin.pdf');
+  });
+
+  it('propaga el interlineado holgado al generador', async () => {
+    await downloadMarkdownPdf({ fileName: 'f', title: 't', markdown: 'x', relaxedLeading: true });
+    expect(mockBuild.mock.calls[0][0]).toMatchObject({ relaxedLeading: true });
   });
 
   it('avisa y devuelve false si la generación falla', async () => {

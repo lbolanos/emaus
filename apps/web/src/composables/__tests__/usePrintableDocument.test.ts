@@ -148,6 +148,20 @@ describe('printMarkdownDocument', () => {
     expect(html()).not.toContain('<img');
   });
 
+  it('pone el interlineado holgado solo cuando se le pide', () => {
+    printMarkdownDocument({ title: 'Carta', markdown: 'x', relaxedLeading: true });
+    expect(html()).toContain('<body class="relaxed">');
+    expect(PRINT_STYLESHEET).toContain('body.relaxed');
+  });
+
+  it('deja el interlineado del .docx a quien no lo pide (preparaciones)', () => {
+    printMarkdownDocument({ title: 'Guion', markdown: 'x' });
+    expect(html()).toContain('<body>');
+    expect(html()).not.toContain('class="relaxed"');
+    // El 1.42 del cuerpo sale de los .docx originales: no debe moverse.
+    expect(PRINT_STYLESHEET).toContain('line-height: 1.42');
+  });
+
   it('escapa la ruta del logo', () => {
     printMarkdownDocument({ title: 'Carta', markdown: 'x', logoUrl: '/a"onerror="alert(1)' });
     expect(html()).not.toContain('onerror="alert(1)"');

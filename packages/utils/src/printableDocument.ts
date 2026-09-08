@@ -78,6 +78,14 @@ export const PRINT_STYLESHEET = `
   h4 { font-size: 11pt; color: ${SLATE}; margin: 12pt 0 4pt; }
 
   p { margin: 0 0 8pt; text-align: justify; hyphens: auto; }
+
+  /* Interlineado holgado, opt-in con relaxedLeading. Las preparaciones NO lo
+     usan: su 1.42 reproduce el .docx original y subirlo les añadiría páginas.
+     Una carta de una hoja sí gana en legibilidad. */
+  body.relaxed { line-height: 1.65; }
+  body.relaxed p { margin: 0 0 12pt; }
+  body.relaxed h2 { margin: 20pt 0 9pt; }
+  body.relaxed h3 { margin: 16pt 0 7pt; }
   strong { color: ${BLUE}; }
 
   /* Párrafos rotulados ("Tema:", "Objetivo:", "Dónde estamos:"): sangría
@@ -202,6 +210,12 @@ export interface PrintableHtmlOptions {
 	 * en el margen de cada página con el headerTemplate de Chrome.
 	 */
 	omitRunningHead?: boolean;
+	/**
+	 * Interlineado holgado para documentos cortos que se leen en papel (la carta
+	 * al párroco). Los documentos de preparación lo dejan apagado: su
+	 * interlineado sale de los `.docx` originales.
+	 */
+	relaxedLeading?: boolean;
 }
 
 export function escapeHtmlText(value: string): string {
@@ -284,7 +298,7 @@ export function buildPrintableHtml(
 <html lang="es"><head><meta charset="UTF-8" />
 ${base}
 <title>${title}</title>
-<style>${PRINT_STYLESHEET}</style></head><body>
+<style>${PRINT_STYLESHEET}</style></head><body${options.relaxedLeading ? ' class="relaxed"' : ''}>
 ${runningHead}
 <header class="doc-head">${logo}<h1>${title}</h1></header>
 ${data.bodyHtml}
