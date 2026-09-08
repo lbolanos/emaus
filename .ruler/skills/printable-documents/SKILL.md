@@ -96,6 +96,44 @@ Si algún día hay un servidor con RAM: `page.pdf({ outline: true })` genera el 
 `<h1>`–`<h6>`, pero **Chrome no marca `/PageMode`** — hay que añadirlo aparte (actualización
 incremental del catálogo, ver skill personal `pdf-membretado`).
 
+## Cromo opcional de la hoja: logo, firma, interlineado
+
+`PrintableDocumentData` acepta tres cosas además del cuerpo, todas opt-in y apagadas para las
+preparaciones (su salida no cambia):
+
+| Campo | Qué hace |
+|---|---|
+| `logoUrl` | Logo sobre el título, dentro de `header.doc-head`, acotado a 24mm |
+| `signature: { intro, label, dateLine? }` | Bloque de firma al pie: hueco, raya y rótulo |
+| `relaxedLeading` (opción) | `class="relaxed"` en el `<body>`: interlineado 1.55 en vez de 1.42 |
+
+**Van como cromo y NO dentro del markdown.** Es la lección de la carta al párroco: emitir el logo
+como `![](…)` en el cuerpo lo pintaba **dos veces** en el impreso —el del cuerpo cae bajo la regla
+global `img { max-height: 105mm }` y se comía media hoja— y además dejaba al usuario borrar la
+marca al editar el texto. Un bloque de firma es un formulario, no prosa: lo mismo.
+
+Si añades un elemento así, dale **su propia regla acotada**: la global de `img` permite 105mm, y en
+un preview con `prose` de Tailwind hace falta acotarlo otra vez (`.letter-preview :deep(img)`) o el
+preview deja de mostrar lo que se va a imprimir.
+
+### El interlineado y el pie se pelean por la hoja: mídelo, no lo elijas
+
+Un documento de una hoja llena más de lo que parece. Medido en la carta al párroco: a interlineado
+1.65 la mancha ocupa **252 de los 257mm** útiles de la A4 — quedan 5, y un bloque de firma necesita
+~28. Añadir el pie bajó el techo de 1.65 a 1.55, y la línea de fecha (6mm) hubo que apagarla.
+
+El margen es de milímetros y depende de la **suma** de `line-height` + márgenes de `p` + de `h2`,
+no solo del interlineado. Así que se barre y se cuenta, en el peor caso de longitud de los datos:
+
+```bash
+pdfinfo salida.pdf | grep -i "^Pages"
+```
+
+Y ojo con los datos que alargan el texto: `closingChurchName` viene del autocompletado de Google
+Places como «Parroquia del Señor del Buen Despacho | Mexico City», y ese sufijo —que sale tres
+veces en la carta— hacía imposible la hoja única a cualquier interlineado. Recórtalo en el
+adaptador (`cleanChurchName`), no en la plantilla.
+
 ## Gotchas ganados a pulso
 
 - **Encabezado repetido**: `position: fixed` **no** sirve; Chrome lo pinta al pie y encima del texto.
@@ -107,6 +145,17 @@ incremental del catálogo, ver skill personal `pdf-membretado`).
   entero a la hoja siguiente deja medio folio en blanco.
 - **`print-color-adjust: exact`** en el CSS, o el navegador descarta los fondos al imprimir y la
   tabla sale en blanco.
+- **Backticks dentro de `PRINT_STYLESHEET`**: es un template literal de TS. Un `` `img` `` en un
+  comentario CSS **cierra la cadena** y el build muere con «Expected ";" but found img». Pasó dos
+  veces en la misma tarea (con `img` y con `relaxedLeading`). No lo ve ningún test: lo caza
+  `vue-tsc --noEmit` o `pnpm build`. Escribe los identificadores sin comillas en esos comentarios.
+- **Puntos numerados: `1.-`, no `1.`**. `marked` abre una `<ol>` con `\d+[.)]` + espacio y
+  **renumera** desde 1, así que dos listas seguidas ("Peticiones previas" / "durante") se pelean.
+  Con guion sobrevive como texto plano. Y hace falta una línea en blanco entre puntos, o se juntan
+  en un solo párrafo.
+- **`markdownToPdf` no dibuja `hr`**: no hay `case 'hr'` para la raya, y un `&nbsp;` sale literal.
+  Si necesitas una línea o un hueco en las dos rutas de PDF, va como cromo (ver arriba), no como
+  markdown.
 - **Fuentes**: jsPDF trae las 14 estándar (Times/Helvetica), que cubren acentos, `—`, `·` y `ª`.
   Embeber los clones libres de Cambria/Calibri (Caladea/Carlito) cuesta **2.7 MB** en base64 porque
   Carlito arrastra cirílico, griego y vietnamita. Si algún día hace falta, subsetear a latín con

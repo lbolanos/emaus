@@ -193,6 +193,18 @@ describe('printMarkdownDocument', () => {
     expect(html()).not.toContain('<footer');
   });
 
+  it('escapa el texto del bloque de firma', () => {
+    printMarkdownDocument({
+      title: 'Carta',
+      markdown: 'x',
+      signature: { intro: '<script>alert(1)</script>', label: '"><img onerror=alert(1)>' },
+    });
+    const out = html();
+    expect(out).not.toContain('<script>alert(1)</script>');
+    expect(out).not.toContain('<img onerror');
+    expect(out).toContain('&lt;script&gt;');
+  });
+
   it('escapa la ruta del logo', () => {
     printMarkdownDocument({ title: 'Carta', markdown: 'x', logoUrl: '/a"onerror="alert(1)' });
     expect(html()).not.toContain('onerror="alert(1)"');

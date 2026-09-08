@@ -79,6 +79,17 @@ describe('priestLetterData', () => {
 			expect(zonedWallClock(instant, 'America/Bogota')?.time).toBe('14:00');
 		});
 
+		it('no revienta con una zona que Intl no reconoce', () => {
+			// `retreat.timezone` es texto libre: un valor mal escrito lanzaba
+			// RangeError y tumbaba el diálogo entero.
+			expect(() => zonedWallClock('2026-06-05T19:00:00.000Z', 'Marte/Olympus')).not.toThrow();
+			// Cae a CDMX, que es el default del retiro.
+			expect(zonedWallClock('2026-06-05T19:00:00.000Z', 'Marte/Olympus')).toEqual({
+				date: '2026-06-05',
+				time: '13:00',
+			});
+		});
+
 		it('returns null for an unparseable instant', () => {
 			expect(zonedWallClock('not-a-date', MX)).toBeNull();
 		});

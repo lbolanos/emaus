@@ -226,6 +226,16 @@ describe('priest request letter', () => {
 			expect(selected.find((entry) => entry.role === 'sacramentsTalk')).toBeUndefined();
 		});
 
+		it('compares days numerically, not as strings', () => {
+			// `'9T…' > '10T…'` en orden lexicográfico: un retiro de dos dígitos de
+			// días elegía la misa equivocada como misa de cierre.
+			const selected = selectPriestScheduleItems([
+				item({ day: 9, time: '18:00', name: 'Misa del día 9', date: '2026-06-13' }),
+				item({ day: 10, time: '11:00', name: 'Misa de Cierre', date: '2026-06-14' }),
+			]);
+			expect(selected.find((entry) => entry.role === 'closingMass')?.time).toBe('11:00');
+		});
+
 		it('keeps the later mass when the closing day has two', () => {
 			const selected = selectPriestScheduleItems([
 				...mexicoAgenda,

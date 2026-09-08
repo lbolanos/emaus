@@ -96,15 +96,29 @@ export function zonedWallClock(
 	const instant = new Date(iso);
 	if (Number.isNaN(instant.getTime())) return null;
 
-	const parts = new Intl.DateTimeFormat('en-CA', {
-		timeZone: timezone,
+	// `Intl` lanza `RangeError` con una zona que no reconoce, y `retreat.timezone`
+	// es una columna de texto libre: un valor viejo o mal escrito tumbaría el
+	// diálogo entero. Cae a la zona por defecto, que es peor que la correcta pero
+	// mucho mejor que una carta que no abre.
+	let parts: Intl.DateTimeFormatPart[];
+	const options: Intl.DateTimeFormatOptions = {
 		year: 'numeric',
 		month: '2-digit',
 		day: '2-digit',
 		hour: '2-digit',
 		minute: '2-digit',
 		hourCycle: 'h23',
-	}).formatToParts(instant);
+	};
+	try {
+		parts = new Intl.DateTimeFormat('en-CA', { ...options, timeZone: timezone }).formatToParts(
+			instant,
+		);
+	} catch {
+		parts = new Intl.DateTimeFormat('en-CA', {
+			...options,
+			timeZone: DEFAULT_RETREAT_TIMEZONE,
+		}).formatToParts(instant);
+	}
 
 	const get = (type: Intl.DateTimeFormatPartTypes) =>
 		parts.find((part) => part.type === type)?.value ?? '';

@@ -159,6 +159,16 @@ describe('PriestLetterDialog', () => {
     );
   });
 
+  it('sanea la vista previa del texto editado', async () => {
+    const w = await mountDialog();
+    await w
+      .find('[data-testid="priest-letter-draft"]')
+      .setValue('<script>alert(1)</script><img src=x onerror=alert(1)>');
+    const preview = w.find('[data-testid="priest-letter-preview"]').html();
+    expect(preview).not.toContain('<script>');
+    expect(preview).not.toContain('onerror');
+  });
+
   it('imprime el texto EDITADO, no el original', async () => {
     const w = await mountDialog();
     await w
@@ -231,6 +241,27 @@ describe('PriestLetterDialog', () => {
     const w = await mountDialog();
     expect(draftOf(w)).toContain('Emaús Hombres Polanco');
     expect(draftOf(w)).not.toContain('Otro Retiro');
+  });
+
+  it('recarga si cambia el retiro con el diálogo abierto', async () => {
+    // Sin vigilar `retreatId` quedaba la agenda del retiro anterior bajo el
+    // nombre y las fechas del nuevo: datos cruzados en un documento entregado.
+    const w = await mountDialog();
+    expect(mockScheduleApi.list).toHaveBeenCalledWith('retreat-1');
+
+    await w.setProps({ retreatId: 'retreat-2' });
+    await flushPromises();
+
+    expect(mockScheduleApi.list).toHaveBeenCalledWith('retreat-2');
+    expect(draftOf(w)).toContain('Otro Retiro');
+  });
+
+  it('manda el logo también al PDF, no solo a la impresora', async () => {
+    const w = await mountDialog();
+    await w.find('[data-testid="priest-letter-pdf"]').trigger('click');
+    await flushPromises();
+    expect(mockPdf.mock.calls[0][0].logoUrl).toBe('/oficial_mejorado.png');
+    expect(mockPdf.mock.calls[0][0].signature).toBeTruthy();
   });
 
   it('no vuelve a pedir los datos al cerrar y reabrir', async () => {

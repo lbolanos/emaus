@@ -25,6 +25,8 @@ export interface MarkdownPdfOptions {
 	relaxedLeading?: boolean;
 	/** Bloque de firma al pie, con hueco real para firmar. */
 	signature?: { intro: string; label: string; dateLine?: boolean };
+	/** Logo sobre el título, como en la hoja A4 del navegador. */
+	logoUrl?: string;
 	onError?: (message: string) => void;
 }
 
@@ -61,6 +63,7 @@ export async function downloadMarkdownPdf(opts: MarkdownPdfOptions): Promise<boo
 			markdown: opts.markdown,
 			relaxedLeading: opts.relaxedLeading,
 			signature: opts.signature,
+			logoUrl: opts.logoUrl,
 		});
 		saveBlob(blob, `${opts.fileName}.pdf`);
 		return true;

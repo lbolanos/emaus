@@ -138,13 +138,16 @@ async function load() {
   }
 }
 
-// `immediate` so it also loads when the dialog mounts already open; the
-// `loadedFor` guard keeps it from refetching when reopened.
+// Se vigilan las DOS cosas: `open` y `retreatId`. Con solo `open`, un cambio de
+// retiro mientras el diálogo está abierto dejaba la agenda del anterior bajo el
+// nombre y las fechas del nuevo — datos cruzados en un documento que se entrega.
+// `immediate` cubre el montaje ya abierto y el guard de `loadedFor` evita
+// repedir los datos al reabrir el mismo retiro.
 watch(
-  open,
-  (isOpen) => {
+  [open, () => props.retreatId],
+  ([isOpen, retreatId]) => {
     if (!isOpen) return;
-    if (loadedFor.value === props.retreatId) return;
+    if (loadedFor.value === retreatId) return;
     void load();
   },
   { immediate: true },
@@ -185,6 +188,7 @@ async function downloadPdf() {
       meta: printMeta.value,
       relaxedLeading: true,
       signature: SIGNATURE,
+      logoUrl: logoUrl.value,
       onError: (message) => toast({ title: message, variant: 'destructive' }),
     });
   } finally {

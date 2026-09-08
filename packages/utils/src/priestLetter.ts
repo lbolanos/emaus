@@ -365,9 +365,13 @@ export function selectPriestScheduleItems(
 		// Two masses on the closing day: the later one is the closing mass. For
 		// every other role the first occurrence wins.
 		if (role !== 'closingMass') return;
-		if (`${item.day}T${item.time}` > `${current.day}T${current.time}`) {
-			byRole.set(role, item);
+		// Numérico y no por cadena: `'9T…' > '10T…'` en orden lexicográfico, así
+		// que un retiro de dos dígitos de días elegiría la misa equivocada.
+		if (item.day !== current.day) {
+			if (item.day > current.day) byRole.set(role, item);
+			return;
 		}
+		if (item.time > current.time) byRole.set(role, item);
 	};
 
 	for (const item of items) {

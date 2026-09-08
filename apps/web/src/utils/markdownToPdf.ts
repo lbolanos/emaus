@@ -57,6 +57,8 @@ export interface PdfDocumentInput {
 	relaxedLeading?: boolean;
 	/** Bloque de firma al pie, con hueco real para firmar. */
 	signature?: { intro: string; label: string; dateLine?: boolean };
+	/** Logo sobre el título, como en la hoja A4 del navegador. */
+	logoUrl?: string;
 }
 
 /**
@@ -542,16 +544,45 @@ function drawTable(ctx: Ctx, token: Tokens.Table) {
 	ctx.y = (ctx.doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
 }
 
+async function fetchDataUrl(src: string): Promise<string> {
+	const res = await fetch(src);
+	const blob = await res.blob();
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(String(reader.result));
+		reader.onerror = reject;
+		reader.readAsDataURL(blob);
+	});
+}
+
+/**
+ * Logo sobre el título, acotado igual que en la hoja A4 del navegador
+ * (`header.doc-head img { max-height: 24mm }`), para que las dos rutas de PDF
+ * produzcan el mismo papel.
+ */
+async function drawHeaderLogo(ctx: Ctx, src: string) {
+	try {
+		const dataUrl = await fetchDataUrl(src);
+		const props = ctx.doc.getImageProperties(dataUrl);
+		const maxH = 24;
+		const maxW = 45;
+		let h = maxH;
+		let w = (props.width / props.height) * h;
+		if (w > maxW) {
+			w = maxW;
+			h = (props.height / props.width) * w;
+		}
+		ctx.doc.addImage(dataUrl, MARGIN_X + (CONTENT_W - w) / 2, ctx.y, w, h);
+		ctx.y += h + 3;
+	} catch (err) {
+		// Sin logo el documento sigue siendo válido; lo que no vale es tumbarlo.
+		console.warn('[markdownToPdf] no se pudo incrustar el logo', src, err);
+	}
+}
+
 async function drawImage(ctx: Ctx, src: string) {
 	try {
-		const res = await fetch(src);
-		const blob = await res.blob();
-		const dataUrl: string = await new Promise((resolve, reject) => {
-			const reader = new FileReader();
-			reader.onload = () => resolve(String(reader.result));
-			reader.onerror = reject;
-			reader.readAsDataURL(blob);
-		});
+		const dataUrl = await fetchDataUrl(src);
 		const props = ctx.doc.getImageProperties(dataUrl);
 		// Acotada: las ilustraciones del .docx vienen a tamaño natural y si no
 		// se comen media página.
@@ -674,6 +705,8 @@ export async function buildPreparationPdf(input: PdfDocumentInput): Promise<Blob
 	doc.setProperties({ title: input.title });
 
 	const ctx: Ctx = { doc, y: MARGIN_TOP, bookmarks: [], leading: input.relaxedLeading ? RELAXED_LEADING : 1 };
+
+	if (input.logoUrl) await drawHeaderLogo(ctx, input.logoUrl);
 
 	// Título del documento, centrado en versalitas sobre un filete.
 	setFont(doc, SERIF, true);

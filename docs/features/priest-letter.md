@@ -124,7 +124,8 @@ borrarlo editando el texto. La raya es el `border-top` del rótulo y el hueco pa
 
 Existe en las dos rutas: la hoja A4 lo pinta en CSS y `markdownToPdf` lo dibuja en
 `drawSignature()`, que salta de página si no le quedan los ~28mm que necesita (una raya de firma
-partida por el salto no sirve de nada).
+partida por el salto no sirve de nada). El logo va igual por las dos (`drawHeaderLogo`), acotado a
+los mismos 24mm: el PDF descargado y el impreso son el mismo papel.
 
 ### Interlineado y firma se pelean por la hoja: 1.55 y por qué
 
@@ -189,7 +190,7 @@ pdfinfo salida.pdf | grep -i "^Pages"
 | `apps/web/src/components/__tests__/PriestLetterDialog.test.ts` | Carga, siembra del borrador, imprime el texto **editado**, PDF, restablecer, degradación con MaM/preparaciones caídas, resolución por `retreatId` |
 | `apps/web/src/views/__tests__/PreRetreatTasksView.test.ts` | El ítem sale solo en la tarea del párroco, abre el diálogo, y sigue visible sin `preRetreatTask:manage` (imprimir es lectura) |
 | `apps/web/src/composables/__tests__/usePreparationPdf.test.ts` | `downloadMarkdownPdf` genérico + que `downloadPreparationPdf` siga usando `renderedContent` |
-| `apps/web/src/composables/__tests__/usePrintableDocument.test.ts` | El `logoUrl` opcional y la no-regresión de quien no lo pasa |
+| `apps/web/src/composables/__tests__/usePrintableDocument.test.ts` | El `logoUrl` opcional, el bloque de firma, el interlineado, el escape de los tres, y la no-regresión de quien no los pasa |
 
 ## Permisos
 
