@@ -21,6 +21,7 @@ import {
 	replaceAllVariables,
 	type TableData,
 	isPlaceholderBirthDate,
+	findEmptyVariables,
 } from '@repo/utils';
 import { getMessageTemplateAudience } from '@repo/types';
 import { savedSegmentService } from './savedSegmentService';
@@ -1043,6 +1044,100 @@ export class MessageSequenceService {
 	 * últimas comunicaciones que se le enviaron. Las notas/palancas se toman de
 	 * `retreat_participants` (fuente per-retiro), con fallback al participante.
 	 */
+	/**
+	 * Vista previa de UN paso, resuelta como la resolvería el motor.
+	 *
+	 * Vive en el servidor porque el cliente no puede calcularla: `resolveRecipient`
+	 * es async y consulta la base para `inviter`/`tableLeader`/`responsibility`, y
+	 * `resolveContent` arma el contexto `{table.*}` con el roster e inyecta el
+	 * enlace de alta de servidores. El preview del cliente pasaba
+	 * `recipientTarget` como `contactKey` a secas, lo cual sólo es correcto para
+	 * los contactos de emergencia y da un resultado equivocado para los otros.
+	 */
+	async previewStep(input: {
+		retreatId: string;
+		participantId: string;
+		templateType: string;
+		channel: MessageChannel;
+		recipientTarget: MessageRecipientTarget;
+		recipientResponsibility?: string | null;
+	}): Promise<{
+		content: string;
+		recipientName: string | null;
+		recipientContact: string | null;
+		emptyVariables: string[];
+		warning: string | null;
+	} | null> {
+		const [participant, retreat, template] = await Promise.all([
+			AppDataSource.getRepository(Participant).findOne({ where: { id: input.participantId } }),
+			AppDataSource.getRepository(Retreat).findOne({ where: { id: input.retreatId } }),
+			AppDataSource.getRepository(MessageTemplate).findOne({
+				where: { retreatId: input.retreatId, type: input.templateType as any },
+			}),
+		]);
+		if (!participant || !retreat) return null;
+		if (!template) {
+			return {
+				content: '',
+				recipientName: null,
+				recipientContact: null,
+				emptyVariables: [],
+				warning: `El retiro no tiene una plantilla de tipo ${input.templateType}`,
+			};
+		}
+
+		const recipient = await this.resolveRecipient(
+			participant,
+			input.recipientTarget,
+			input.retreatId,
+			input.recipientResponsibility,
+		);
+
+		const content = await this.resolveContent(
+			template.message,
+			participant,
+			retreat,
+			recipient.contactKey,
+			input.retreatId,
+			input.channel === 'email',
+		);
+
+		// `findEmptyVariables` se evalúa sobre la plantilla CRUDA y su contexto,
+		// no sobre el texto ya resuelto (donde las variables ya no están).
+		const tableData = template.message.includes('{table.')
+			? await this.buildTableData(participant.id, input.retreatId)
+			: null;
+		const emptyVariables = findEmptyVariables(
+			template.message,
+			participant as any,
+			retreat as any,
+			recipient.contactKey,
+			null,
+			tableData,
+		);
+
+		const contact = input.channel === 'email' ? recipient.email : recipient.phone;
+
+		// Mismo criterio que el motor: destinatario sin contacto es accionable.
+		let warning: string | null = null;
+		if (!recipient.name && !contact) {
+			warning = 'El participante no tiene ese vínculo registrado';
+		} else if (!contact) {
+			warning =
+				input.channel === 'email'
+					? 'El destinatario no tiene correo'
+					: 'El destinatario no tiene teléfono';
+		}
+
+		return {
+			content,
+			recipientName: recipient.name || null,
+			recipientContact: contact ?? null,
+			emptyVariables,
+			warning,
+		};
+	}
+
 	async getQueueItemDetail(id: string): Promise<{
 		message: {
 			id: string;

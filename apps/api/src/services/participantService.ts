@@ -774,6 +774,7 @@ export const findAllParticipants = async (
         "palancasCoordinator",
         "palancasRequested",
         "palancasReceived",
+        "palancasReceivedCount",
         "palancasNotes",
         "invitedBy",
         "isInvitedByEmausMember",
@@ -813,6 +814,8 @@ export const findAllParticipants = async (
           p.palancasRequested = h.palancasRequested;
         if (h.palancasReceived !== undefined)
           p.palancasReceived = h.palancasReceived;
+        if (h.palancasReceivedCount !== undefined)
+          p.palancasReceivedCount = h.palancasReceivedCount;
         if (h.palancasNotes !== undefined) p.palancasNotes = h.palancasNotes;
         if (h.invitedBy !== undefined) p.invitedBy = h.invitedBy;
         if (h.isInvitedByEmausMember !== undefined)

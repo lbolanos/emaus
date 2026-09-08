@@ -199,3 +199,30 @@ export const updateGlobalMessageSequenceSchema = z.object({
 
 export type CreateGlobalMessageSequence = z.infer<typeof createGlobalMessageSequenceSchema>;
 export type UpdateGlobalMessageSequence = z.infer<typeof updateGlobalMessageSequenceSchema>;
+
+/**
+ * Vista previa de UN paso resuelta contra un participante real del retiro.
+ *
+ * El destinatario indirecto (`inviter`, `tableLeader`, `responsibility`) sólo
+ * se puede resolver en el servidor, así que el preview es un endpoint y no un
+ * cálculo del cliente.
+ */
+export const previewSequenceStepSchema = z.object({
+	body: z.object({
+		retreatId: z.string().uuid(),
+		participantId: z.string().uuid(),
+		templateType: z.string().min(1).max(60),
+		channel: messageChannel,
+		recipientTarget: messageRecipientTarget.default('participant'),
+		recipientResponsibility: z.string().max(150).nullish(),
+	}),
+});
+export type PreviewSequenceStep = z.infer<typeof previewSequenceStepSchema>;
+
+export interface SequenceStepPreview {
+	content: string;
+	recipientName: string | null;
+	recipientContact: string | null;
+	emptyVariables: string[];
+	warning: string | null;
+}

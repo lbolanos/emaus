@@ -15,6 +15,8 @@ import { convertHtmlToWhatsApp, replaceAllVariables } from '@/utils/message';
 import type { ParticipantData, RetreatData } from '@/utils/message';
 import { sanitizePhoneForWhatsapp } from '@/utils/phone';
 import { getMessageTemplateAudience } from '@repo/types';
+import type { SequenceStepPreview } from '@repo/types';
+import { previewSequenceStep } from '@/services/api';
 
 const { t } = useI18n();
 const { toast } = useToast();
@@ -329,22 +331,66 @@ const stepsWithMissingTemplate = computed(() =>
 	),
 );
 
-// Preview del primer paso resuelto con un participante de ejemplo.
-const previewText = computed(() => {
-	const step = draft.value.steps[0];
-	if (!step || !sampleParticipant.value) return '';
-	const tpl = usableTemplates.value.find((x: any) => x.type === step.templateType);
-	if (!tpl) return '';
-	const retreatData = retreatStore.selectedRetreat as unknown as RetreatData;
-	const contactKey =
-		step.recipientTarget === 'participant' ? undefined : step.recipientTarget;
-	const html = replaceAllVariables(
-		tpl.message,
-		sampleParticipant.value as unknown as ParticipantData,
-		retreatData,
-		contactKey,
-	);
-	return convertHtmlToWhatsApp(html);
+// Vista previa POR PASO, resuelta en el servidor.
+//
+// No se puede calcular en el cliente: el destinatario indirecto
+// (`inviter`/`tableLeader`/`responsibility`) se resuelve con consultas, y el
+// contexto `{table.*}` necesita el roster. El preview anterior pasaba
+// `recipientTarget` como contactKey a secas y saludaba a la persona equivocada.
+const previewParticipantId = ref<string>('');
+const previewStepIndex = ref<number | null>(null);
+const previewResult = ref<SequenceStepPreview | null>(null);
+const previewLoading = ref(false);
+const previewError = ref<string | null>(null);
+
+// Participante de muestra: el elegido, o el primero del retiro.
+const previewParticipant = computed(
+	() =>
+		participantStore.participants?.find((p: any) => p.id === previewParticipantId.value) ||
+		sampleParticipant.value,
+);
+
+async function openStepPreview(index: number) {
+	const step = draft.value.steps[index];
+	const participant = previewParticipant.value;
+	if (!step || !participant || !retreatId.value) return;
+	previewStepIndex.value = index;
+	previewResult.value = null;
+	previewError.value = null;
+	previewLoading.value = true;
+	try {
+		previewResult.value = await previewSequenceStep({
+			retreatId: retreatId.value,
+			participantId: participant.id,
+			templateType: step.templateType,
+			channel: step.channel,
+			recipientTarget: step.recipientTarget,
+			recipientResponsibility: step.recipientResponsibility || null,
+		});
+	} catch (e: any) {
+		previewError.value = e?.message || t('sequences.previewError');
+	} finally {
+		previewLoading.value = false;
+	}
+}
+
+/**
+ * Las plantillas se guardan en HTML. En el preview hay que aplanarlo: si no, el
+ * coordinador lee `<p>Hola…</p>` y parece que el mensaje va a salir roto.
+ */
+const previewPlainText = computed(() =>
+	previewResult.value?.content ? convertHtmlToWhatsApp(previewResult.value.content) : '',
+);
+
+function closeStepPreview() {
+	previewStepIndex.value = null;
+	previewResult.value = null;
+	previewError.value = null;
+}
+
+// Al cambiar de participante, refrescar el paso que esté abierto.
+watch(previewParticipantId, () => {
+	if (previewStepIndex.value !== null) openStepPreview(previewStepIndex.value);
 });
 function removeStep(i: number) {
 	draft.value.steps.splice(i, 1);
@@ -1267,6 +1313,51 @@ async function toggleDoNotContact() {
 										</datalist>
 									</div>
 								</div>
+								<!-- Vista previa de ESTE paso, resuelta en el servidor -->
+								<div class="border-t pt-2">
+									<button
+										type="button"
+										class="text-xs text-blue-600 hover:underline"
+										@click="previewStepIndex === i ? closeStepPreview() : openStepPreview(i)"
+									>
+										{{ previewStepIndex === i ? t('sequences.previewHide') : t('sequences.previewShow') }}
+									</button>
+									<div v-if="previewStepIndex === i" class="mt-2 space-y-1">
+										<p v-if="previewLoading" class="text-xs text-gray-500">
+											{{ t('sequences.previewLoading') }}
+										</p>
+										<p v-else-if="previewError" class="text-xs text-red-600">{{ previewError }}</p>
+										<template v-else-if="previewResult">
+											<p class="text-xs text-gray-500">
+												{{ t('sequences.previewRecipient') }}:
+												<span class="font-medium text-gray-700">
+													{{ previewResult.recipientName || '—' }}
+												</span>
+												<span v-if="previewResult.recipientContact">
+													· {{ previewResult.recipientContact }}
+												</span>
+											</p>
+											<p
+												v-if="previewResult.warning"
+												class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-1.5"
+											>
+												{{ previewResult.warning }}
+											</p>
+											<pre
+												v-if="previewResult.content"
+												class="p-2 bg-gray-50 border rounded text-xs whitespace-pre-wrap font-sans"
+											>{{ previewPlainText }}</pre>
+											<p
+												v-if="previewResult.emptyVariables.length"
+												class="text-xs text-amber-700"
+											>
+												{{ t('sequences.previewEmptyVars') }}:
+												{{ previewResult.emptyVariables.join(', ') }}
+											</p>
+										</template>
+									</div>
+								</div>
+
 								<!-- Condición (opcional, colapsable) -->
 								<div class="border-t pt-2">
 									<button
@@ -1313,10 +1404,15 @@ async function toggleDoNotContact() {
 						{{ t('sequences.missingTemplate', { count: stepsWithMissingTemplate.length }) }}
 					</div>
 
-					<!-- Preview del primer paso (con un participante de ejemplo) -->
-					<div v-if="previewText">
-						<label class="text-xs text-gray-500">{{ t('sequences.preview') }}</label>
-						<pre class="mt-1 p-2 bg-gray-50 border rounded text-xs whitespace-pre-wrap font-sans">{{ previewText }}</pre>
+					<!-- Participante de muestra para las vistas previas por paso -->
+					<div v-if="participantStore.participants?.length">
+						<label class="text-xs text-gray-500">{{ t('sequences.previewParticipant') }}</label>
+						<select v-model="previewParticipantId" class="w-full mt-1 p-2 border rounded-md text-sm">
+							<option value="">{{ t('sequences.previewFirstParticipant') }}</option>
+							<option v-for="p in participantStore.participants" :key="p.id" :value="p.id">
+								{{ p.firstName }} {{ p.lastName }}
+							</option>
+						</select>
 					</div>
 				</div>
 				<div class="flex items-center justify-end gap-2 p-6 border-t bg-gray-50">

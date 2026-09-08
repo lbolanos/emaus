@@ -129,14 +129,49 @@ Un resumen rápido del retiro:
 - **Pendientes de WhatsApp** por despachar.
 - **Actividad de los últimos 30 días** y las **plantillas más usadas**.
 
-## Tareas y seguimiento
+## Seguimiento de caminantes
 
-Para llevar el control de tu gestión:
+Un tablero con cinco columnas, una por etapa. **Arrastra la tarjeta** de una columna a otra (en el
+teléfono: toca la tarjeta y luego la columna). Todos los participantes empiezan en *Por contactar*,
+no hay que dar de alta a nadie.
 
-- **Tareas**: recordatorios para ti (ej. "Llamar a Juan para confirmar pago"), con fecha de vencimiento opcional. Márcalas como completadas cuando las termines.
-- **Seguimiento de participantes**: registra el estado de cada persona:
-  - **Por contactar** · **Contactado** · **Confirmado** · **Sin respuesta** · **Declinó**
+- **Por contactar** · **Contactado** · **Confirmó** · **Sin respuesta** · **Declinó**
 
-  Puedes añadir una nota (ej. "Confirma asistencia por WhatsApp"). Esto te ayuda a saber con quién falta dar seguimiento.
+⚠️ **Al mover una tarjeta a Confirmó o Declinó también se registra la confirmación de asistencia**,
+que es la que hace que las secuencias dejen de insistirle a esa persona. Es lo que normalmente
+quieres, pero tenlo presente: si mueves tarjetas sólo para ordenar el tablero, vas a apagar
+recordatorios. Mover la tarjeta hacia atrás no deshace la confirmación.
+
+Cada tarjeta te dice de un vistazo cuántas **cartas** lleva (verde = llegó al mínimo del retiro,
+ámbar = le faltan, gris = ninguna), si confirmó asistencia, cuántos mensajes le hemos mandado, si
+está en la lista de no contactar y cuántas tareas abiertas tiene. Arriba puedes filtrar por nombre,
+por tipo y por cartas — **"por debajo del mínimo" responde de un clic a quién le falta palanca**.
+
+Si una tarjeta muestra `?` en las cartas, es que están anotadas como texto en vez de número. Ponlas
+como número en la ficha para que cuenten.
+
+### Historial y notas de una persona
+
+Haz clic en cualquier tarjeta y se abre su historial completo:
+
+- **Con quién hemos hablado**: el caminante, sus familiares (con el parentesco) y quien lo invitó.
+  De cada uno ves cuántos mensajes le mandamos y cuándo fue el último.
+  - **WhatsApp** abre la conversación real con esa persona, para leer lo que contestó.
+  - **Escribir** abre el envío con plantilla.
+  - Al hacer clic en un contacto, el historial se filtra a lo que le dijimos **sólo a él**.
+- **Caja de notas**, siempre arriba. Escribe y presiona *Agregar nota* (o `Ctrl+Enter`). Las notas
+  se acumulan con tu nombre y la hora — no se sobrescriben. Puedes editar o borrar las tuyas.
+- **Historial**: mensajes enviados y programados, notas, cambios de etapa, pagos, el registro, la
+  llegada al retiro y las cartas, todo en orden.
+
+> **Lo que ves es lo que enviamos desde Emaús.** Las respuestas llegan a *tu* WhatsApp, no a la
+> aplicación, así que no aparecen aquí — para eso está el botón que abre la conversación. Si alguien
+> te dice algo que importa, anótalo: justo para eso es la caja de notas.
+
+## Tareas
+
+Recordatorios para ti (ej. "Llamar a Juan para confirmar pago"), con fecha de vencimiento opcional.
+Márcalas como completadas cuando las termines. Se crean desde el historial de la persona y aparecen
+como contador en su tarjeta.
 
 > El seguimiento es un marcador de gestión tuyo; no cambia permisos ni mueve al participante de lista.

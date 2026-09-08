@@ -106,6 +106,9 @@ export const PARTICIPANT_REFERENCES: ParticipantReference[] = [
 	{ table: 'crm_tasks', column: 'participantId', policy: { kind: 'repoint' } },
 	{ table: 'participant_availability', column: 'participantId', policy: { kind: 'repoint' } },
 	{ table: 'participant_communications', column: 'participantId', policy: { kind: 'repoint' } },
+	// El hilo de notas y los cambios de etapa: reapuntar, no dedupear. Dos
+	// fichas duplicadas pueden tener notas distintas y las dos importan.
+	{ table: 'participant_notes', column: 'participantId', policy: { kind: 'repoint' } },
 	{ table: 'participant_debts', column: 'participantId', policy: { kind: 'repoint' } },
 	{ table: 'participant_tags', column: 'participantId', policy: { kind: 'repoint' } },
 	{ table: 'payments', column: 'participantId', policy: { kind: 'repoint' } },

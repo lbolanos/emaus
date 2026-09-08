@@ -1,7 +1,12 @@
 import { Request, Response } from 'express';
 import { messageSequenceService } from '../services/messageSequenceService';
 import { authorizationService } from '../middleware/authorization';
-import { createMessageSequenceSchema, updateMessageSequenceSchema } from '@repo/types';
+import {
+	createMessageSequenceSchema,
+	updateMessageSequenceSchema,
+	previewSequenceStepSchema,
+} from '@repo/types';
+import { crmService } from '../services/crmService';
 
 async function callerHasRetreatAccess(req: Request, retreatId: string): Promise<boolean> {
 	const userId = (req.user as any)?.id;
@@ -103,6 +108,31 @@ export class MessageSequenceController {
 		} catch (error) {
 			console.error('Error fetching queue:', error);
 			res.status(500).json({ error: 'Error al obtener la bandeja de pendientes' });
+		}
+	};
+
+	// POST /message-sequences/preview — vista previa de UN paso con un participante real
+	previewStep = async (req: Request, res: Response) => {
+		try {
+			const parsed = previewSequenceStepSchema.safeParse({ body: req.body });
+			if (!parsed.success) {
+				return res.status(400).json({ error: 'Datos inválidos', details: parsed.error.flatten() });
+			}
+			const body = parsed.data.body;
+			if (!(await callerHasRetreatAccess(req, body.retreatId))) {
+				return res.status(403).json({ error: 'Forbidden' });
+			}
+			// El retiro va gated arriba, pero el participante llega aparte: sin
+			// esto se previsualizaría con datos de otro retiro (IDOR cross-retiro).
+			if (!(await crmService.participantBelongsToRetreat(body.participantId, body.retreatId))) {
+				return res.status(404).json({ error: 'Participante no encontrado en este retiro' });
+			}
+			const preview = await messageSequenceService.previewStep(body);
+			if (!preview) return res.status(404).json({ error: 'No se pudo generar la vista previa' });
+			res.json(preview);
+		} catch (error) {
+			console.error('Error building step preview:', error);
+			res.status(500).json({ error: 'Error al generar la vista previa' });
 		}
 	};
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizePhoneForWhatsapp } from '../phone';
+import { sanitizePhoneForWhatsapp, buildWhatsAppChatLink } from '../phone';
 
 describe('sanitizePhoneForWhatsapp', () => {
 	it('quita el signo + del prefijo internacional', () => {
@@ -52,5 +52,35 @@ describe('sanitizePhoneForWhatsapp', () => {
 
 	it('tolera número como string con whitespace alrededor', () => {
 		expect(sanitizePhoneForWhatsapp('  5559999999  ')).toBe('5559999999');
+	});
+});
+
+describe('buildWhatsAppChatLink', () => {
+	/**
+	 * Sin `text` WhatsApp abre la CONVERSACIÓN (y se ve el historial real);
+	 * con `text` abre el compositor. La ausencia del parámetro es la feature,
+	 * así que se fija con un test.
+	 */
+	it('no incluye el parámetro text', () => {
+		const link = buildWhatsAppChatLink('+52 55 5999-9999');
+		expect(link).toBe('https://api.whatsapp.com/send?phone=525559999999');
+		expect(link).not.toContain('text=');
+	});
+
+	it('normaliza el número a solo dígitos', () => {
+		expect(buildWhatsAppChatLink('(55) 5999 9999')).toBe(
+			'https://api.whatsapp.com/send?phone=5559999999',
+		);
+		expect(buildWhatsAppChatLink('555.999.9999')).toBe(
+			'https://api.whatsapp.com/send?phone=5559999999',
+		);
+	});
+
+	it('devuelve null cuando no hay número, para poder ocultar el botón', () => {
+		expect(buildWhatsAppChatLink('')).toBeNull();
+		expect(buildWhatsAppChatLink('   ')).toBeNull();
+		expect(buildWhatsAppChatLink(null)).toBeNull();
+		expect(buildWhatsAppChatLink(undefined)).toBeNull();
+		expect(buildWhatsAppChatLink('sin dígitos')).toBeNull();
 	});
 });

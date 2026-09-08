@@ -59,6 +59,7 @@ import { SequenceStep } from '../entities/sequenceStep.entity';
 import { ScheduledMessage } from '../entities/scheduledMessage.entity';
 import { ParticipantFollowUp } from '../entities/participantFollowUp.entity';
 import { CrmTask } from '../entities/crmTask.entity';
+import { ParticipantNote } from '../entities/participantNote.entity';
 import { GlobalMessageSequence } from '../entities/globalMessageSequence.entity';
 import { GlobalSequenceStep } from '../entities/globalSequenceStep.entity';
 import { ScheduleTemplate } from '../entities/scheduleTemplate.entity';
@@ -151,6 +152,7 @@ const entities = [
 	ScheduledMessage,
 	ParticipantFollowUp,
 	CrmTask,
+	ParticipantNote,
 	GlobalMessageSequence,
 	GlobalSequenceStep,
 ];
