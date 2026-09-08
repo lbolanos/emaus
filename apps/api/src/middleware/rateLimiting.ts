@@ -126,6 +126,26 @@ export const publicParticipantLimiter = rateLimit({
 });
 
 /**
+ * Reportes de error del cliente desde pantallas públicas.
+ *
+ * Generoso a propósito: si alguien reintenta tres veces queremos las tres
+ * líneas en el log. Pero acotado, porque la ruta es anónima y escribe en el
+ * log del API.
+ */
+export const clientErrorReportLimiter = rateLimit({
+	windowMs: 10 * 60 * 1000, // 10 minutos
+	max: 20,
+	keyGenerator: (req: Request) => req.ip || 'unknown',
+	message: {
+		message: 'Demasiados reportes.',
+		error: 'CLIENT_ERROR_REPORT_RATE_LIMIT_EXCEEDED',
+	},
+	skip: (req: Request) => {
+		return process.env.NODE_ENV === 'development' && process.env.SKIP_RATE_LIMIT === 'true';
+	},
+});
+
+/**
  * Public community registration rate limiter (prevent spam communities)
  */
 export const publicCommunityRegisterLimiter = rateLimit({

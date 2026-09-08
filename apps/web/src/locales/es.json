@@ -2002,6 +2002,23 @@
       "title": "Este retiro ya terminó",
       "description": "El registro público está cerrado porque la fecha del retiro ya pasó."
     },
+    "toasts": {
+      "validationTitle": "Revisa los datos",
+      "invalidEmail": "Por favor ingresa un correo electrónico válido.",
+      "fixStepTitle": "Corrige los errores del paso {step}",
+      "fixStepDescription": "Corrige los errores del paso {step} para continuar.",
+      "reviewAllSteps": "Revisa todos los pasos y corrige lo que falte.",
+      "successTitle": "¡Registro exitoso!",
+      "registrationFailedTitle": "No se pudo registrar",
+      "submissionFailedTitle": "No se pudo enviar tu registro",
+      "invalidLink": "El enlace de registro no es válido o el retiro no está abierto. Revisa el enlace que te compartieron."
+    },
+    "errors": {
+      "connectionLost": "Se perdió la conexión y lo intentamos otra vez sin éxito. Revisa tu internet y vuelve a intentarlo.",
+      "serverError": "No pudimos guardar tu registro en este momento (error {status}). Espera unos minutos y vuelve a intentarlo.",
+      "unknown": "No pudimos guardar tu registro. Vuelve a intentarlo en unos minutos.",
+      "alreadyRegisteredTitle": "Ya estabas registrado"
+    },
     "emailLookup": {
       "title": "Buscar registro existente",
       "description": "Ingresa tu correo electrónico para verificar si ya tienes un registro previo",

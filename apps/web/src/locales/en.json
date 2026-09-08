@@ -1907,6 +1907,23 @@
       "subtitle": "Join us in service and fellowship. Register now to be a part of the team.",
       "cta": "Register Now"
     },
+    "toasts": {
+      "validationTitle": "Check your answers",
+      "invalidEmail": "Please enter a valid email address.",
+      "fixStepTitle": "Please correct the errors in step {step}",
+      "fixStepDescription": "Correct the errors in step {step} to continue.",
+      "reviewAllSteps": "Please review all steps and correct any errors.",
+      "successTitle": "Registration successful",
+      "registrationFailedTitle": "Registration failed",
+      "submissionFailedTitle": "Could not submit your registration",
+      "invalidLink": "This registration link is not valid, or the retreat is not open for registration. Please check the link you were given."
+    },
+    "errors": {
+      "connectionLost": "The connection dropped and the retry failed too. Check your internet and try again.",
+      "serverError": "We could not save your registration right now (error {status}). Please wait a few minutes and try again.",
+      "unknown": "We could not save your registration. Please try again in a few minutes.",
+      "alreadyRegisteredTitle": "You were already registered"
+    },
     "emailLookup": {
       "title": "Look up existing registration",
       "description": "Enter your email to check if you already have a previous registration",

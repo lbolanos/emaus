@@ -39,6 +39,8 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "Cannot call trigger on an empty DOMWrapper", "el test no encuentra el thead/la fila", "el selector existe en la app pero no en el test", "el `mount()` me da la tabla vacía" (Vitest) | [#26 La vista montada sigue en el skeleton: falta `flushPromises`](#26-la-vista-montada-sigue-en-el-skeleton-falta-flushpromises) |
 | "el test que lee un archivo del repo revienta con ERR_INVALID_URL_SCHEME" | [#27 `import.meta.url` no es una URL file: bajo `src/test/`](#27-importmetaurl-no-es-una-url-file-bajo-srctest) |
 | "el PDF no trae las imágenes", "en el Word sí se ven y en el PDF no", "salen solo algunas fotos", "falta el dibujo de la charla" | [#28 El PDF pierde las imágenes que van pegadas al texto](#28-el-pdf-pierde-las-imágenes-que-van-pegadas-al-texto) |
+| "salió un error y no hay nada en el log del servidor", "An unexpected error occurred", "se registró desde la computadora porque el celular no lo dejó", "le dio error pero sí quedó registrado" | [#29 El error que no dejó rastro: la petición nunca llegó](#29-el-error-que-no-dejó-rastro-la-petición-nunca-llegó) |
+| "en producción sale la clave de traducción en pantalla", "dice serverRegistration.algo.otro en vez del texto", "el test pasa pero el texto sale mal" | [#30 Una clave de i18n inexistente pasa verde en toda la suite](#30-una-clave-de-i18n-inexistente-pasa-verde-en-toda-la-suite) |
 
 ---
 
@@ -1185,6 +1187,85 @@ documentos de las preparaciones durante tres semanas.
 **Detalle**: skill `printable-documents` (por qué el conteo de `/Subtype /Image` engaña: jsPDF
 deduplica imágenes idénticas y añade una máscara por cada PNG con alfa) y
 `docs/features/retreat-preparations.md`.
+
+## 29. El error que no dejó rastro: la petición nunca llegó
+
+**Síntoma**: alguien reporta un error en una pantalla pública —típicamente con captura— y en el
+servidor **no hay nada**: ni 4xx, ni 5xx, ni una línea en el access log. El mensaje suele ser
+genérico ("An unexpected error occurred"). Casi siempre desde un móvil, y a menudo con la pantalla
+llevando mucho tiempo abierta.
+
+**Causa**: la petición no obtuvo respuesta. Safari de iOS mata la conexión de una pestaña que
+estuvo suspendida, así que el primer XHR después falla al instante sin salir del teléfono; la red
+del móvil que se cae hace lo mismo. En axios eso es un error **sin `response`**, y todo código que
+lee `error.response?.data?.message` cae a su fallback.
+
+Antes de teorizar, dos comprobaciones que descartan medio árbol:
+
+```bash
+ls /var/log/nginx/                 # el vhost escribe en emaus-access.log, NO en access.log
+sudo grep <la-ruta> /var/log/nginx/emaus-access.log | tail
+```
+
+Buscar en el `access.log` genérico devuelve vacío **siempre**, y eso se lee como "no llegó" sin
+haberlo comprobado. Si de verdad no aparece, quedan dos culpables fuera del API: el teléfono y
+Cloudflare (un 403/challenge no toca el origen y solo se ve en Security Events).
+
+**Fix** — en el cliente, `apps/web/src/services/apiError.ts`:
+
+```ts
+if (isNetworkError(error)) …                          // no hubo respuesta
+await retryOnceOnNetworkError(send, { onRetry })      // repetir UNA vez
+wasRetriedAfterNoResponse(error)                      // ¿viene del segundo intento?
+```
+
+El reintento solo en operaciones repetibles sin duplicar, y **un 409 del segundo intento no se
+anuncia como éxito**: suele significar que el primero entró, pero con un correo compartido la fila
+puede ser de otra persona.
+
+**Y que la próxima deje rastro**: `POST /api/telemetry/public/client-error` escribe una línea
+`[CLIENT ERROR]` en el log del API (público, exento de CSRF porque `sendBeacon` no pone
+cabeceras, sin escribir en la base). Se reportan solo los fallos de los que no queda constancia.
+
+```bash
+grep '\[CLIENT ERROR\]' ~/.pm2/logs/emaus-api-error.log | tail
+```
+
+**Casos**: 2026-09-08, confirmación de registro de servidor desde un iPhone (iOS 18.7) con la
+pantalla 70 minutos abierta; la persona se fue a registrarse desde una computadora.
+
+**Detalle**: `docs/features/retreat-form-validation-and-error-messages.md` §4; rutas de logs en el
+skill `infra-remota`.
+
+---
+
+## 30. Una clave de i18n inexistente pasa verde en toda la suite
+
+**Síntoma**: en producción se ve la ruta de la clave en pantalla
+(`serverRegistration.toasts.algo`) en lugar del texto. Ningún test falló.
+
+**Causa**: `apps/web/src/test/setup.ts` mockea `vue-i18n` con `t: (key) => key`. Un `t()` con una
+clave mal escrita, o que quedó apuntando a un bloque que se movió de sitio, devuelve la clave —que
+es exactamente lo que el test espera ver— y pasa. El mock no puede distinguir una clave buena de
+una inexistente: para él todas son iguales.
+
+**Fix**: un guard que lea el archivo fuente y resuelva cada clave contra los dos locales.
+`apps/web/src/views/__tests__/participantRegistrationI18nKeys.test.ts` es la plantilla:
+
+```ts
+const keys = [...source.matchAll(/\$?t\(\s*'([a-zA-Z0-9_.]+)'/g)].map((m) => m[1]);
+// cada clave tiene que resolver a string en es.json Y en en.json
+```
+
+Va con un caso que comprueba que se encontraron claves: si el regex deja de casar, la aserción
+sobre el conjunto vacío pasaría igual.
+
+**Auditar el repo**: mover un bloque de claves de sitio es el disparador típico —
+`grep -rn "t('<prefijo-viejo>" apps/web/src` después de cualquier reorganización de locales.
+
+**Casos**: 2026-09-08, al mover `emailLookup.errors` → `errors` en el registro público.
+
+---
 
 ## Cómo agregar un bug nuevo a este skill
 
