@@ -1022,6 +1022,130 @@ describe('Community Service', () => {
 			expect(members[0].id).toBe(m1.id);
 			expect(members[0].lastMeetingsAttendanceRate).toBe(100);
 		});
+
+		// Regresión: `getMembers` cargaba TODAS las reuniones de la comunidad, así
+		// que una reunión ya agendada pero no celebrada —a la que nadie ha podido
+		// asistir— entraba en el denominador de todo el mundo y hundía el
+		// porcentaje. El dashboard sí la excluía, de ahí que los dos números no
+		// cuadraran.
+		it('no cuenta reuniones futuras sin asistencia en el denominador', async () => {
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const member = await TestDataFactory.createTestCommunityMember(testCommunity.id, p.id);
+
+			const past = await TestDataFactory.createTestCommunityMeeting(testCommunity.id, {
+				startDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+			});
+			await TestDataFactory.createTestCommunityMeeting(testCommunity.id, {
+				startDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+			});
+			await TestDataFactory.createTestCommunityAttendance(past.id, member.id, true);
+
+			const members = await service.getMembers(testCommunity.id);
+
+			expect(members[0].lastMeetingsTotal).toBe(1);
+			expect(members[0].lastMeetingsAttended).toBe(1);
+			expect(members[0].lastMeetingsAttendanceRate).toBe(100);
+		});
+
+		// Los anuncios no pasan lista, así que tampoco pueden contar como
+		// reuniones perdidas. El doc de la feature ya lo decía; el código no.
+		it('no cuenta anuncios en el denominador', async () => {
+			const p = await TestDataFactory.createTestParticipant(testRetreat.id);
+			const member = await TestDataFactory.createTestCommunityMember(testCommunity.id, p.id);
+
+			const meeting = await TestDataFactory.createTestCommunityMeeting(testCommunity.id, {
+				startDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+			});
+			await TestDataFactory.createTestCommunityMeeting(testCommunity.id, {
+				isAnnouncement: true,
+				startDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+			});
+			await TestDataFactory.createTestCommunityAttendance(meeting.id, member.id, true);
+
+			const members = await service.getMembers(testCommunity.id);
+
+			expect(members[0].lastMeetingsTotal).toBe(1);
+			expect(members[0].lastMeetingsAttendanceRate).toBe(100);
+		});
+	});
+
+	describe('meetingType', () => {
+		it('scope=all propaga el tipo de reunión a las instancias', async () => {
+			const template = await service.createMeeting(testCommunity.id, {
+				title: 'Serie',
+				startDate: new Date(),
+				durationMinutes: 60,
+				recurrenceFrequency: 'weekly',
+				recurrenceInterval: 1,
+			} as never);
+			const instance = await service.createNextMeetingInstance(template.id);
+
+			await service.updateMeeting(template.id, { meetingType: 'preparation' } as never, 'all');
+
+			const updatedInstance = await service.getMeetingById(instance!.id);
+			expect(updatedInstance!.meetingType).toBe('preparation');
+		});
+
+		it('una reunión nueva nace como general', async () => {
+			const meeting = await service.createMeeting(testCommunity.id, {
+				title: 'Sin tipo',
+				startDate: new Date(),
+				durationMinutes: 60,
+			});
+			expect(meeting.meetingType).toBe('general');
+		});
+	});
+
+	describe('getDashboardStats — retiros de la comunidad', () => {
+		it('lista los próximos retiros vinculados', async () => {
+			const retreatRepo = AppDataSource.getRepository(Retreat);
+			await retreatRepo.update(testRetreat.id, {
+				communityId: testCommunity.id,
+				startDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+				endDate: new Date(Date.now() + 32 * 24 * 60 * 60 * 1000),
+			});
+
+			const stats = await service.getDashboardStats(testCommunity.id);
+
+			expect(stats.retreatCount).toBe(1);
+			expect(stats.upcomingRetreats).toHaveLength(1);
+			expect(stats.upcomingRetreats[0].id).toBe(testRetreat.id);
+		});
+
+		it('un retiro ya terminado no cuenta como próximo', async () => {
+			const retreatRepo = AppDataSource.getRepository(Retreat);
+			await retreatRepo.update(testRetreat.id, {
+				communityId: testCommunity.id,
+				startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+				endDate: new Date(Date.now() - 28 * 24 * 60 * 60 * 1000),
+			});
+
+			const stats = await service.getDashboardStats(testCommunity.id);
+
+			expect(stats.retreatCount).toBe(1);
+			expect(stats.upcomingRetreats).toHaveLength(0);
+		});
+
+		it('no lista retiros sin vínculo con la comunidad', async () => {
+			const stats = await service.getDashboardStats(testCommunity.id);
+			expect(stats.retreatCount).toBe(0);
+			expect(stats.upcomingRetreats).toHaveLength(0);
+		});
+	});
+
+	describe('deleteCommunity', () => {
+		// `retreat.communityId` no tiene FK física, así que nada lo limpia solo:
+		// sin este UPDATE el retiro se queda apuntando a una comunidad borrada.
+		it('desvincula los retiros que apuntaban a la comunidad', async () => {
+			const retreatRepo = AppDataSource.getRepository(Retreat);
+			await retreatRepo.update(testRetreat.id, { communityId: testCommunity.id });
+
+			await service.deleteCommunity(testCommunity.id);
+
+			const after = await retreatRepo.findOne({ where: { id: testRetreat.id } });
+			expect(after).not.toBeNull();
+			expect(after!.communityId).toBeNull();
+		});
 	});
 
 	// Participantes que ejercieron su derecho de borrado de datos

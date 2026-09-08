@@ -10,6 +10,10 @@ import { RetreatPreparation } from '../entities/retreatPreparation.entity';
 import { RetreatPreparationDocument } from '../entities/retreatPreparationDocument.entity';
 import { Retreat } from '../entities/retreat.entity';
 import { s3Service } from './s3Service';
+import {
+	loadPreparationAttendance,
+	type PreparationAttendance,
+} from './preparationCommunitySync';
 import { avatarStorageService } from './avatarStorageService';
 import {
 	DEFAULT_PREPARATION_DOCS,
@@ -67,6 +71,11 @@ export type RenderedPreparationDocument = RetreatPreparationDocument & {
 
 export type RenderedRetreatPreparation = Omit<RetreatPreparation, 'documents'> & {
 	documents?: RenderedPreparationDocument[];
+	/**
+	 * Asistencia capturada en la reunión de comunidad vinculada. `null` si la
+	 * sesión no está sincronizada, que es el caso por defecto — no es 0 asistentes.
+	 */
+	attendance?: PreparationAttendance | null;
 };
 
 /** Suma días a una fecha date-only leyendo componentes UTC (nunca hora local del server). */
@@ -139,7 +148,17 @@ class RetreatPreparationService {
 			where: { retreatId },
 			relations: ['documents'],
 		});
-		return this.withRenderedDocuments(retreatId, this.sortEntries(rows), options);
+		const rendered = await this.withRenderedDocuments(
+			retreatId,
+			this.sortEntries(rows),
+			options,
+		);
+		// La vista pública es para los servidores: el calendario y sus documentos,
+		// no cuánta gente asistió. La asistencia sólo se adjunta en el ámbito admin.
+		if (options.publicScope) return rendered;
+		const attendance = await loadPreparationAttendance(retreatId);
+		if (attendance.size === 0) return rendered;
+		return rendered.map((row) => ({ ...row, attendance: attendance.get(row.id) ?? null }));
 	}
 
 	async get(id: string): Promise<RenderedRetreatPreparation | null> {

@@ -789,6 +789,7 @@
       "WALKER_WELCOME": "Bienvenida Caminante",
       "TABLE_LEADER_BRIEFING": "Briefing de Mesa para Líderes",
       "WALKER_CONFIRMATION": "Confirmación de Asistencia (Caminante)",
+      "SERVER_CONVOCATION": "Convocatoria de Servidores",
       "SERVER_WELCOME": "Bienvenida Servidor",
       "EMERGENCY_CONTACT_VALIDATION": "Validación Contacto Emergencia",
       "PALANCA_REQUEST": "Solicitud Palanca",
@@ -1377,7 +1378,10 @@
     "notificationSettings": "Notificaciones por correo al registrar caminante",
     "notificationSettingsDescription": "Configura qué correos se envían cuando se registra un nuevo caminante",
     "notifyParticipant": "Enviar bienvenida al caminante",
-    "notifyInviter": "Notificar al servidor que invitó"
+    "notifyInviter": "Notificar al servidor que invitó",
+    "community": "Comunidad",
+    "communityNone": "Sin comunidad",
+    "communityHint": "Opcional. Al vincularlo podrás ver la asistencia a reuniones del equipo servidor al asignar mesas."
   },
   "reception": {
     "title": "Recepción de Caminantes",
@@ -1727,6 +1731,19 @@
         "title": "Quitar un participante de una mesa",
         "desc": "En celular: toca al participante ya asignado → aparece el botón rojo \"Quitar de mesa\" en la parte inferior. En escritorio: arrastra al participante de vuelta a la sección de no asignados."
       }
+    },
+    "attendance": {
+      "title": "Asistencia a preparaciones",
+      "notLinked": "Vincula este retiro a una comunidad para ver la asistencia del equipo servidor.",
+      "notLinkedAction": "Editar el retiro",
+      "coverage": "{matched} de {total} servidores están en el padrón de {community}",
+      "sortByAttendance": "Ordenar por asistencia",
+      "noData": "Sin dato de asistencia",
+      "badgeTooltip": "{percent}% de asistencia a las preparaciones ({attended} de {total})",
+      "loadError": "No se pudo cargar la asistencia del equipo servidor",
+      "scope": "{count} preparaciones celebradas",
+      "notSynced": "Sincroniza las preparaciones de este retiro para ver la asistencia",
+      "hide": "Ocultar asistencia a preparaciones"
     }
   },
   "bedAssignments": {
@@ -1984,6 +2001,23 @@
     "retreatClosed": {
       "title": "Este retiro ya terminó",
       "description": "El registro público está cerrado porque la fecha del retiro ya pasó."
+    },
+    "toasts": {
+      "validationTitle": "Revisa los datos",
+      "invalidEmail": "Por favor ingresa un correo electrónico válido.",
+      "fixStepTitle": "Corrige los errores del paso {step}",
+      "fixStepDescription": "Corrige los errores del paso {step} para continuar.",
+      "reviewAllSteps": "Revisa todos los pasos y corrige lo que falte.",
+      "successTitle": "¡Registro exitoso!",
+      "registrationFailedTitle": "No se pudo registrar",
+      "submissionFailedTitle": "No se pudo enviar tu registro",
+      "invalidLink": "El enlace de registro no es válido o el retiro no está abierto. Revisa el enlace que te compartieron."
+    },
+    "errors": {
+      "connectionLost": "Se perdió la conexión y lo intentamos otra vez sin éxito. Revisa tu internet y vuelve a intentarlo.",
+      "serverError": "No pudimos guardar tu registro en este momento (error {status}). Espera unos minutos y vuelve a intentarlo.",
+      "unknown": "No pudimos guardar tu registro. Vuelve a intentarlo en unos minutos.",
+      "alreadyRegisteredTitle": "Ya estabas registrado"
     },
     "emailLookup": {
       "title": "Buscar registro existente",
@@ -2472,7 +2506,9 @@
       "tryAnotherFilter": "Cambia el filtro o limpia la búsqueda para ver más reuniones.",
       "editPastTitle": "Esta reunión ya pasó",
       "editPastBody": "Editar una reunión histórica puede crear inconsistencias con las asistencias ya registradas. ¿Quieres continuar?",
-      "editAnyway": "Editar de todas formas"
+      "editAnyway": "Editar de todas formas",
+      "meetingType": "Tipo de reunión",
+      "meetingTypeHint": "Permite medir la asistencia por tipo, p. ej. sólo las preparaciones del equipo servidor."
     },
     "stats": {
       "totalMembers": "Total de Miembros",
@@ -2485,7 +2521,9 @@
       "noRecentMeetings": "No hay reuniones recientes",
       "quickActions": "Acciones Rápidas",
       "attendancePercent": "{percent}%",
-      "noData": "Sin datos disponibles"
+      "noData": "Sin datos disponibles",
+      "upcomingRetreats": "Retiros de la comunidad",
+      "serverTeamAttendance": "Asistencia del equipo"
     },
     "attendance": {
       "recordFor": "Registrar asistencia",
@@ -2593,6 +2631,78 @@
       "linkCreatedDesc": "Ya puedes compartir el enlace con el co-administrador.",
       "copied": "Copiado",
       "copiedDesc": "Enlace de invitación copiado al portapapeles."
+    },
+    "meetingTypes": {
+      "general": "Reunión general",
+      "preparation": "Preparación de retiro",
+      "formation": "Formación",
+      "service": "Servicio",
+      "fellowship": "Convivencia",
+      "other": "Otra"
+    },
+    "attendanceStats": {
+      "title": "Estadísticas de asistencia",
+      "description": "Asistencia a las reuniones de un tipo, para ver quién participa de verdad.",
+      "filters": "Filtros",
+      "allTypes": "Todos los tipos",
+      "from": "Desde",
+      "to": "Hasta",
+      "clearFilters": "Limpiar filtros",
+      "meetingsConsidered": "Reuniones consideradas",
+      "membersOnRoster": "Miembros en el padrón",
+      "averageAttendance": "Asistencia promedio",
+      "meetingsConsideredHint": "Sólo las ya celebradas (o con asistencia capturada). Las futuras no cuentan.",
+      "evolution": "Evolución de la asistencia",
+      "byMeeting": "Asistencia por reunión",
+      "byMember": "Ranking de miembros",
+      "meeting": "Reunión",
+      "date": "Fecha",
+      "attendees": "Asistentes",
+      "member": "Miembro",
+      "attendance": "Asistencia",
+      "state": "Estado",
+      "exportExcel": "Exportar a Excel",
+      "exportPdf": "Descargar PDF",
+      "exportSuccess": "Archivo generado",
+      "exportFailed": "No se pudo generar el archivo",
+      "loadError": "No se pudieron cargar las estadísticas",
+      "noMeetings": "Todavía no hay reuniones celebradas de este tipo",
+      "noMeetingsHint": "Cuando se registre la asistencia de una reunión aparecerá aquí.",
+      "noMembers": "Esta comunidad no tiene miembros en el padrón",
+      "showDeclined": "Incluir miembros que declinaron",
+      "retreatsServed": "Retiros servidos",
+      "retreatsServedShort": "{count} retiros servidos",
+      "retreat": "Retiro",
+      "allRetreats": "Todos los retiros",
+      "retreatNotSynced": "Este retiro no tiene preparaciones sincronizadas",
+      "retreatNotSyncedHint": "Sus preparaciones aún no existen como reuniones de la comunidad, así que no hay asistencia que medir. Sincronízalas desde el calendario del retiro.",
+      "goToPreparations": "Ir a las preparaciones"
+    },
+    "convoke": {
+      "action": "Convocar servidores",
+      "hint": "Se invita al padrón por WhatsApp, uno por uno, desde la bandeja de secuencias."
+    },
+    "duplicates": {
+      "action": "Duplicados",
+      "title": "Fichas duplicadas",
+      "description": "La misma persona puede existir dos veces: inscrita en un retiro y dada de alta aparte en el padrón. Al fusionarlas, todo lo de una pasa a la otra.",
+      "warning": "Son sugerencias, no certezas: la comparación ignora acentos y dos personas distintas pueden compartir teléfono. Revisa cada pareja antes de fusionar.",
+      "none": "No se encontraron fichas duplicadas",
+      "matchedBy": {
+        "name": "Mismo nombre",
+        "phone": "Mismo teléfono",
+        "email": "Mismo correo"
+      },
+      "references": "{count} registros asociados",
+      "hasUser": "tiene cuenta",
+      "inRoster": "en el padrón",
+      "keepsThis": "Ésta se conserva",
+      "preview": "Ver qué se movería",
+      "merge": "Fusionar",
+      "merged": "Fichas fusionadas",
+      "willMove": "Se moverán {count} registros a la ficha que se conserva.",
+      "blocked": "No se puede fusionar todavía:",
+      "groupOf": "Grupo de {count} fichas: se fusionan de dos en dos"
     }
   },
   "dataDelete": {
@@ -3252,7 +3362,8 @@
       "walker": "Caminantes",
       "server": "Servidores",
       "table_leaders": "Líderes/colíderes de mesa",
-      "responsables": "Responsables"
+      "responsables": "Responsables",
+      "community_roster": "Padrón de la comunidad"
     },
     "channels": {
       "email": "Email",
@@ -3421,7 +3532,19 @@
     "notFound": "No encontramos este retiro o su calendario no es público.",
     "description": "Descripción",
     "titleField": "Título",
-    "dateField": "Fecha"
+    "dateField": "Fecha",
+    "syncCommunity": "Sincronizar con la comunidad",
+    "syncCreated": "{count} reuniones creadas",
+    "syncAdopted": "{count} reuniones ya existentes vinculadas",
+    "syncNothing": "Todo estaba ya sincronizado",
+    "syncMismatched": "{count} sesiones tienen su reunión en otra fecha: revísalas, no se movieron solas para no falsear la asistencia ya capturada.",
+    "attendanceTooltip": "{attended} de {eligible} miembros del padrón",
+    "attendancePending": "Sin celebrar",
+    "createMeeting": "Crear reunión",
+    "meetingCreated": "Reunión creada en la comunidad",
+    "meetingAdopted": "Se vinculó la reunión que ya existía ese día",
+    "noCommunity": "Sin comunidad vinculada",
+    "noCommunityHint": "Vincula el retiro a una comunidad (Editar retiro → General) para poder pasar lista en sus preparaciones."
   },
   "retreatFlyerEditor": {
     "title": "Editor del volante",

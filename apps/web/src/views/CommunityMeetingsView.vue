@@ -17,17 +17,25 @@
             <span>{{ $t('community.meeting.title') }}</span>
           </div>
         </div>
-        <Tooltip>
-          <TooltipTrigger as-child>
-            <Button class="w-full sm:w-auto" @click="openCreateModal">
-              <CalendarPlus class="w-4 h-4 mr-2" />
-              {{ $t('community.meeting.addMeeting') }}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{{ $t('community.meeting.addMeeting') }}</p>
-          </TooltipContent>
-        </Tooltip>
+        <div class="flex flex-col sm:flex-row gap-2">
+          <Button variant="outline" as-child class="w-full sm:w-auto">
+            <router-link :to="{ name: 'community-attendance-stats', params: { id: currentCommunity.id } }">
+              <TrendingUp class="w-4 h-4 mr-2" />
+              {{ $t('community.attendanceStats.title') }}
+            </router-link>
+          </Button>
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <Button class="w-full sm:w-auto" @click="openCreateModal">
+                <CalendarPlus class="w-4 h-4 mr-2" />
+                {{ $t('community.meeting.addMeeting') }}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{{ $t('community.meeting.addMeeting') }}</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
       </div>
 
       <!-- Filter bar: tabs + search -->
@@ -78,6 +86,15 @@
               <div class="flex items-center gap-2 flex-wrap">
                 <Badge v-if="meeting.isAnnouncement" variant="secondary">
                   {{ $t('community.meeting.isAnnouncement') }}
+                </Badge>
+                <!-- El tipo se muestra solo cuando NO es el default: un badge
+                     "General" en cada tarjeta sería ruido, y lo que interesa
+                     detectar de un golpe es qué está clasificado. -->
+                <Badge
+                  v-else-if="meeting.meetingType && meeting.meetingType !== 'general'"
+                  variant="outline"
+                >
+                  {{ $t(`community.meetingTypes.${meeting.meetingType}`) }}
                 </Badge>
                 <Tooltip v-if="meeting.isRecurrenceTemplate">
                   <TooltipTrigger as-child>
@@ -306,7 +323,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useCommunityStore } from '@/stores/communityStore';
 import { pickFile } from '@/utils/filePicker';
 import { storeToRefs } from 'pinia';
-import { Loader2, CalendarPlus, Calendar, Clock, CheckSquare, ChevronRight, Pencil, Trash2, RefreshCw, Share, FileText, UserCheck, UserX, Search, ImagePlus } from 'lucide-vue-next';
+import { Loader2, CalendarPlus, Calendar, Clock, CheckSquare, ChevronRight, Pencil, Trash2, RefreshCw, Share, FileText, UserCheck, UserX, Search, ImagePlus, TrendingUp } from 'lucide-vue-next';
 import {
   Button, Card, CardHeader, CardTitle, CardDescription, Badge,
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,

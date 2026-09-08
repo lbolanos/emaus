@@ -21,6 +21,10 @@ export const sequenceAudience = z.enum([
 	'table_leaders',
 	// Titulares de cualquier responsabilidad del retiro (palanquero, sacerdotes…).
 	'responsables',
+	// Padrón de la comunidad a la que el retiro está vinculado (`retreat.communityId`).
+	// A diferencia del resto, NO sale de `retreat_participants`: es justo la gente que
+	// todavía no se ha inscrito, que es a quien hay que convocar para servir.
+	'community_roster',
 ]);
 export type SequenceAudience = z.infer<typeof sequenceAudience>;
 

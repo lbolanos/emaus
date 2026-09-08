@@ -34,6 +34,19 @@ reuniones previas a su ingreso a las que **no** asistió.
 
 Tests: `communityService.test.ts` → `getMembers - Attendance Rate` y `joinedAt custom`.
 
+### El denominador vive en un solo sitio (2026-09-07)
+
+La regla de arriba estaba **documentada pero no implementada** en la lista de miembros:
+`getMembers` sólo excluía las canceladas, así que las reuniones **futuras** y los **anuncios**
+entraban al denominador y hundían el porcentaje de todo el padrón. En Buen despacho el
+denominador real era 10 en vez de 8, y por eso el badge de la lista **no coincidía** con el
+promedio del dashboard, que sí filtraba bien.
+
+Desde entonces la regla vive en un único helper —`loadConsideredMeetings` /
+`computeMemberRates` en `apps/api/src/services/communityAttendanceStats.ts`— que consumen
+`getMembers` **y** el reporte de estadísticas, para que los dos números no puedan discrepar.
+Efecto visible al desplegar: los porcentajes de la lista de miembros **suben**.
+
 ## 2. Fecha de ingreso (`joinedAt`) editable
 
 `joinedAt` es la fecha desde la que cuentan las reuniones para la tasa. Es un

@@ -182,6 +182,84 @@ def split_birth_date(value):
     return match.group(1), match.group(2), match.group(3)
 
 
+def sanitize_for_csv(value):
+    """Make one value survive the CSV path of ImportParticipantsModal.
+
+    That parser has two behaviours the xlsx path does not (troubleshooting §25.6,
+    both found importing the Veracruz export):
+
+    - It splits the file on newlines BEFORE separating fields, so a newline inside
+      a quoted value shifts every column from there on. The health detail columns
+      carry real newlines — EH-0003 had "Metformina 850 mg…\nAlergia a la
+      penicilina" — so this is not hypothetical.
+    - `values[index] || null` turns an empty cell into NULL, and the importer
+      writes that NULL into NOT NULL columns, killing the row. In Veracruz that
+      was 272 mandatory cells.
+
+    A single space, not a dash: it survives the `|| null`, and the `str()` of
+    mapToEnglishKeys trims it back to an empty string — same result as the xlsx
+    path, and nothing visible in the import preview.
+    """
+    flattened = " / ".join(
+        part.strip() for part in str(value or "").splitlines() if part.strip()
+    )
+    return flattened if flattened else " "
+
+
+def resolve_shared_emails(records):
+    """Give a unique email to each person who shares one, in place.
+
+    The importer upserts on LOWER(email) within the retreat and there is a unique
+    index on (email, retreatId), so N people sharing an address enter as ONE.
+    It is not an edge case: in parishes where the coordinator signs everyone up
+    with his own address it is massive — 18 people under `notengo@gmail.com` in
+    the Veracruz export (troubleshooting §25.1).
+
+    Two rows with the same email are only merged on purpose when they are the
+    SAME person — a cancellation and its re-registration reconcile that way. So
+    the discriminator is the full name: same name keeps the shared address,
+    different name gets a synthetic one built from the mobile number.
+
+    The original address is kept and ends up in `notas`, so nothing is lost.
+    """
+    seen = {}          # email -> (folio, full name)
+    taken = set()      # synthetic addresses already handed out
+    resolved = []
+
+    for record in records:
+        email = record.get("Correo", "").strip().lower()
+        if not email:
+            continue
+        name = f"{record.get('Nombre', '')} {record.get('Apellidos', '')}".strip().upper()
+        folio = record.get("Folio", "?")
+
+        if email not in seen:
+            seen[email] = (folio, name)
+            taken.add(email)
+            continue
+
+        first_folio, first_name = seen[email]
+        if name == first_name:
+            # Same person twice: leave it, that is how the importer reconciles them.
+            continue
+
+        mobile = re.sub(r"\D", "", record.get("Teléfono celular", "")) or re.sub(
+            r"\W", "", folio
+        ).lower()
+        candidate = f"{mobile}@sincorreo.emaus.cc"
+        suffix = 2
+        while candidate in taken:
+            candidate = f"{mobile}-{suffix}@sincorreo.emaus.cc"
+            suffix += 1
+
+        record["__correo_original"] = record.get("Correo", "")
+        record["Correo"] = candidate
+        taken.add(candidate)
+        resolved.append((folio, first_folio, candidate))
+
+    return resolved
+
+
 def convert_row(source):
     """Translate one export row (dict keyed by Spanish header) into importer keys."""
     day, month, year = split_birth_date(source.get("Fecha de nacimiento", ""))
@@ -256,6 +334,9 @@ def convert_row(source):
     # The folio is how the parish refers to this person and how their payment is
     # reconciled, so it must survive the trip. There is no column for it.
     notes = [f"Folio {source['Folio']}"] if source.get("Folio") else []
+    # Su dirección real, cuando compartía correo y le dimos uno sintético.
+    if source.get("__correo_original"):
+        notes.append(f"Correo original: {source['__correo_original']}")
     # No destination in Participant: the model has medication and dietary fields
     # but nothing for a general health condition, so it rides along in the notes.
     if yes_no(source.get("¿Tiene condición médica?", "")) == "S":
@@ -277,7 +358,7 @@ def convert_row(source):
         notes.append(detalle)
     out["notas"] = " | ".join(notes)
 
-    return out
+    return {key: sanitize_for_csv(value) for key, value in out.items()}
 
 
 def main():
@@ -303,6 +384,7 @@ def main():
         print("El archivo no tiene registros con datos.")
         sys.exit(1)
 
+    resolved_emails = resolve_shared_emails(records)
     converted = [convert_row(record) for record in records]
 
     # utf-8-sig: without the BOM, Excel opens the file mangling every accent.
@@ -321,21 +403,12 @@ def main():
     # Veracruz de 2026-09 una sola dirección la compartían 15 personas.
     # Además, la fila siguiente a una que actualiza ha fallado con
     # "cannot start a transaction within a transaction" en importaciones grandes.
-    seen = {}
-    duplicated = []
-    for r in records:
-        key = r.get("Correo", "").strip().lower()
-        if not key:
-            continue
-        if key in seen:
-            duplicated.append((seen[key], r.get("Folio", "?")))
-        else:
-            seen[key] = r.get("Folio", "?")
-    if duplicated:
-        print("\n⚠️  CORREOS REPETIDOS — el importador los tomará como la MISMA persona:")
-        for first, dup in duplicated:
-            print(f"    {first} y {dup} comparten correo")
-        print("    Dale un correo propio a cada uno ANTES de importar, o uno de los dos se pierde.")
+    if resolved_emails:
+        print("\n📧 CORREOS COMPARTIDOS RESUELTOS (el importador los habría fundido en una persona):")
+        for folio, first_folio, synthetic in resolved_emails:
+            print(f"    {folio} compartía correo con {first_folio} -> {synthetic}")
+        print("    Su dirección real queda en `notas`. Si dos filas son LA MISMA persona,")
+        print("    se dejan con el correo compartido a propósito: así se reconcilian.")
 
     missing_email = [r["Folio"] for r in records if not r.get("Correo", "").strip()]
     if missing_email:

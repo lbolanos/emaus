@@ -21,6 +21,15 @@
           <RefreshCw class="h-4 w-4 mr-1" />
           {{ t('preparations.resyncDocs') }}
         </Button>
+        <Button
+          v-if="preparations.length"
+          variant="outline"
+          :disabled="syncingCommunity"
+          @click="syncWithCommunity"
+        >
+          <ClipboardCheck class="h-4 w-4 mr-1" />
+          {{ t('preparations.syncCommunity') }}
+        </Button>
         <Button variant="outline" @click="openAddEntry">
           <Plus class="h-4 w-4 mr-1" />
           {{ t('preparations.addEntry') }}
@@ -96,6 +105,48 @@
                   @change="(e: Event) => saveField(prep, 'time', (e.target as HTMLInputElement).value || null)"
                 />
                 <span v-if="prep.date" class="text-gray-500">{{ formatLongDate(prep.date) }}</span>
+                <!-- Asistencia de la reunión de comunidad vinculada. Ausente =
+                     no sincronizada; `pending` = aún no se celebra, y ahí NO se
+                     muestra 0%, que se leería como "no fue nadie". -->
+                <span
+                  v-if="prep.attendance && !prep.attendance.pending"
+                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold"
+                  :class="attendanceBadgeClass(prep.attendance.ratePercent)"
+                  :title="t('preparations.attendanceTooltip', {
+                    attended: prep.attendance.attended,
+                    eligible: prep.attendance.eligible,
+                  })"
+                >
+                  {{ Math.round(prep.attendance.ratePercent) }}%
+                  · {{ prep.attendance.attended }}/{{ prep.attendance.eligible }}
+                </span>
+                <span
+                  v-else-if="prep.attendance"
+                  class="inline-flex items-center rounded-full bg-gray-100 text-gray-600 px-2 py-0.5 text-xs"
+                >
+                  {{ t('preparations.attendancePending') }}
+                </span>
+                <!-- Sin reunión en la comunidad no se puede pasar lista. El botón
+                     va en la fila y no sólo arriba: cuando el coordinador añade
+                     una semana suelta, sólo le falta ésa. -->
+                <Button
+                  v-else-if="prep.type === 'session' && prep.date && retreatCommunityId"
+                  variant="outline"
+                  size="sm"
+                  class="h-7 text-xs"
+                  :disabled="creatingMeetingFor === prep.id"
+                  @click="createMeetingFor(prep)"
+                >
+                  <ClipboardCheck class="h-3.5 w-3.5 mr-1" />
+                  {{ t('preparations.createMeeting') }}
+                </Button>
+                <span
+                  v-else-if="prep.type === 'session' && prep.date"
+                  class="text-xs text-amber-700"
+                  :title="t('preparations.noCommunityHint')"
+                >
+                  {{ t('preparations.noCommunity') }}
+                </span>
               </div>
             </div>
           </div>
@@ -439,6 +490,7 @@ import {
   BookOpen,
   CalendarPlus,
   CalendarOff,
+  ClipboardCheck,
   FileDown,
   FileText,
   HelpCircle,
@@ -462,6 +514,8 @@ import { downloadPreparationPdf } from '@/composables/usePreparationPdf';
 import { useRetreatStore } from '@/stores/retreatStore';
 import {
   retreatPreparationApi,
+  createPreparationCommunityMeeting,
+  syncPreparationsToCommunity,
   apiErrorMessage,
   type RetreatPreparationDTO,
   type RetreatPreparationDocumentDTO,
@@ -804,6 +858,74 @@ async function confirmResync() {
   } finally {
     resyncBusy.value = false;
   }
+}
+
+/**
+ * Comunidad vinculada al retiro. Sin ella no hay dónde crear la reunión, así que
+ * la fila muestra un aviso en lugar del botón: el arreglo está en el retiro, no
+ * aquí.
+ */
+const retreatCommunityId = computed(
+  () => (retreat.value as { communityId?: string | null } | undefined)?.communityId ?? null,
+);
+
+const creatingMeetingFor = ref<string | null>(null);
+
+async function createMeetingFor(prep: RetreatPreparationDTO) {
+  creatingMeetingFor.value = prep.id;
+  try {
+    const result = await createPreparationCommunityMeeting(prep.id);
+    await reload();
+    toast({
+      title:
+        result.outcome === 'adopted'
+          ? t('preparations.meetingAdopted')
+          : t('preparations.meetingCreated'),
+    });
+  } catch (err) {
+    toast({ title: apiErrorMessage(err), variant: 'destructive' });
+  } finally {
+    creatingMeetingFor.value = null;
+  }
+}
+
+// -- Sincronizar el calendario con las reuniones de la comunidad --
+//
+// Materializa cada sesión como reunión de tipo `preparation` para poder pasar
+// lista. Adopta las reuniones que ya existan ese día en vez de duplicarlas, y
+// nunca reescribe una existente: si el calendario se movió respecto a su
+// reunión, lo reporta en `mismatched` y decide el coordinador.
+const syncingCommunity = ref(false);
+
+async function syncWithCommunity() {
+  if (!retreatId.value) return;
+  syncingCommunity.value = true;
+  try {
+    const result = await syncPreparationsToCommunity(retreatId.value);
+    await reload();
+    const parts: string[] = [];
+    if (result.created) parts.push(t('preparations.syncCreated', { count: result.created }));
+    if (result.adopted) parts.push(t('preparations.syncAdopted', { count: result.adopted }));
+    toast({
+      title: parts.length ? parts.join(' · ') : t('preparations.syncNothing'),
+      description: result.mismatched.length
+        ? t('preparations.syncMismatched', { count: result.mismatched.length })
+        : undefined,
+      variant: result.mismatched.length ? 'destructive' : undefined,
+    });
+  } catch (err) {
+    toast({ title: apiErrorMessage(err), variant: 'destructive' });
+  } finally {
+    syncingCommunity.value = false;
+  }
+}
+
+/** Mismo semáforo que comunidad y mesas: el color significa lo mismo en todo el sistema. */
+function attendanceBadgeClass(ratePercent: number): string {
+  if (ratePercent >= 75) return 'bg-emerald-100 text-emerald-800';
+  if (ratePercent >= 25) return 'bg-amber-100 text-amber-800';
+  if (ratePercent >= 1) return 'bg-red-100 text-red-800';
+  return 'bg-gray-100 text-gray-600';
 }
 
 async function confirmMarkdown() {

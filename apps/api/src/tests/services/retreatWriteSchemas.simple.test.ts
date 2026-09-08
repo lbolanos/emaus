@@ -29,6 +29,39 @@ const baseBody = {
   houseId: HOUSE_ID,
 };
 
+describe('retreatSchema — communityId opcional', () => {
+  const COMMUNITY_ID = '9f1c1f7a-2c4c-4d3f-9f5a-6b1e2d3c4a5b';
+
+  it('acepta communityId ausente (retiro sin comunidad)', () => {
+    const res = createRetreatSchema.shape.body.safeParse({ ...baseBody });
+    expect(res.success).toBe(true);
+  });
+
+  it('normaliza "" a null para poder desvincular desde el formulario', () => {
+    const res = createRetreatSchema.shape.body.safeParse({
+      ...baseBody,
+      communityId: '',
+    });
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.data.communityId).toBeNull();
+    }
+  });
+
+  it('acepta un uuid válido', () => {
+    const res = updateRetreatSchema.shape.body.safeParse({ communityId: COMMUNITY_ID });
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.data.communityId).toBe(COMMUNITY_ID);
+    }
+  });
+
+  it('rechaza un valor que no es uuid', () => {
+    const res = updateRetreatSchema.shape.body.safeParse({ communityId: 'no-soy-un-uuid' });
+    expect(res.success).toBe(false);
+  });
+});
+
 describe('createRetreatSchema — tolerancia de horas de llegada vacías', () => {
   it('acepta walker/serverArrivalTime = "" y los normaliza a undefined', () => {
     const res = createRetreatSchema.shape.body.safeParse({

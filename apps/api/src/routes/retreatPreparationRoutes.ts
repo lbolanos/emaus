@@ -3,6 +3,8 @@ import {
 	listPreparations,
 	generatePreparations,
 	resyncPreparationDefaultDocs,
+	syncPreparationsToCommunity,
+	syncOnePreparationToCommunity,
 	createPreparation,
 	updatePreparation,
 	deletePreparation,
@@ -50,6 +52,12 @@ router.post(
 	generatePreparations,
 );
 router.post(
+	'/retreats/:retreatId/sync-community-meetings',
+	requirePermission('retreatPreparation:manage'),
+	requireRetreatAccess('retreatId'),
+	syncPreparationsToCommunity,
+);
+router.post(
 	'/retreats/:retreatId/resync-default-docs',
 	validateRequest(ResyncRetreatPreparationDocsSchema),
 	requirePermission('retreatPreparation:manage'),
@@ -72,6 +80,11 @@ router.patch(
 	updatePreparation,
 );
 router.delete('/:id', requirePermission('retreatPreparation:manage'), deletePreparation);
+router.post(
+	'/:id/community-meeting',
+	requirePermission('retreatPreparation:manage'),
+	syncOnePreparationToCommunity,
+);
 router.post(
 	'/:id/skip',
 	validateRequest(SkipRetreatPreparationSchema),

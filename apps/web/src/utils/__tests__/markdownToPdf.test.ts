@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { marked } from 'marked';
 import { buildPreparationPdf, toUnits, flattenInline } from '../markdownToPdf';
 
@@ -154,5 +154,79 @@ describe('buildPreparationPdf', () => {
 			markdown: '![x](/preparation-assets/no-existe/img.png)\n\nTexto después.',
 		});
 		expect(blob.size).toBeGreaterThan(0);
+	});
+});
+
+/**
+ * Imágenes: en los documentos convertidos del .docx la ilustración va pegada
+ * al texto sin línea en blanco, así que marked la mete DENTRO del párrafo (o
+ * del encabezado) en vez de dejarla como bloque propio. Cuando solo se
+ * dibujaba el párrafo que era exclusivamente una imagen, 9 de las 13 de las
+ * plantillas no llegaban al PDF.
+ */
+describe('buildPreparationPdf — imágenes intercaladas', () => {
+	// Cuatro PNG 1x1 DISTINTOS, y sin canal alfa: jsPDF reutiliza un mismo
+	// XObject para dos imágenes idénticas (y añade uno extra para la máscara
+	// de las que llevan alfa), así que con un único PNG el conteo mentiría.
+	const PNGS = [
+		'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC',
+		'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNg+M8AAAICAQB7CYF4AAAAAElFTkSuQmCC',
+		'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNgYPgPAAEDAQAIicLsAAAAAElFTkSuQmCC',
+		'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4/58BAAT/Af9dfQKHAAAAAElFTkSuQmCC',
+	];
+
+	beforeEach(() => {
+		vi.stubGlobal('fetch', async (src: string) => {
+			const match = /^\/preparation-assets\/demo\/image(\d)\.png$/.exec(String(src));
+			if (!match) throw new Error(`404 ${src}`);
+			const bytes = Uint8Array.from(atob(PNGS[Number(match[1]) - 1]), (c) => c.charCodeAt(0));
+			return {
+				blob: async () => new Blob([bytes], { type: 'image/png' }),
+			} as unknown as Response;
+		});
+	});
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	const countImages = (pdf: string) => [...pdf.matchAll(/\/Subtype\s*\/Image/g)].length;
+	const img = (n: number) => `![](/preparation-assets/demo/image${n}.png)`;
+
+	it('incrusta la aislada, la pegada al texto y la del encabezado', async () => {
+		const pdf = await buildRaw(
+			[
+				img(1), // bloque propio
+				'',
+				`${img(2)}\n**Tema:** El servicio`, // pegada al párrafo siguiente
+				'',
+				`Un texto cualquiera.\n${img(3)}`, // pegada al párrafo anterior
+				'',
+				`## ${img(4)}`, // dentro del encabezado
+				'',
+				'Lecturas',
+			].join('\n'),
+		);
+		expect(countImages(pdf)).toBe(4);
+	});
+
+	it('el encabezado que solo lleva imagen no deja un marcador vacío', async () => {
+		const titles = outlineTitlesDecoded(await buildRaw(`## ${img(1)}\n\nLecturas`));
+		// El título del documento sale dos veces (metadatos + raíz del outline).
+		expect([...new Set(titles)]).toEqual(['1ª preparación — Servicio']);
+	});
+
+	it('el encabezado con texto e imagen conserva su marcador', async () => {
+		const titles = outlineTitlesDecoded(await buildRaw(`## ${img(1)} Lecturas`));
+		expect(titles).toContain('Lecturas');
+	});
+
+	// El editor in-app deja escribir markdown libre, así que la imagen puede caer
+	// en una lista o en una cita. Ahí `flattenInline` la tira igual que en un
+	// párrafo: mismo bug, otro tipo de bloque.
+	it('también incrusta las de una lista y las de una cita', async () => {
+		const pdf = await buildRaw(
+			[`- ${img(1)} primer punto`, '- segundo punto', '', `> ${img(2)} una cita`].join('\n'),
+		);
+		expect(countImages(pdf)).toBe(2);
 	});
 });

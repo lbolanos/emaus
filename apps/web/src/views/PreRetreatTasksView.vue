@@ -31,6 +31,8 @@ import { useAuthPermissions } from '@/composables/useAuthPermissions';
 import { useRekaDialogFix } from '@/composables/useRekaDialogFix';
 import PreRetreatTaskEditModal from '@/components/PreRetreatTaskEditModal.vue';
 import PreRetreatTaskAssignInline from '@/components/PreRetreatTaskAssignInline.vue';
+import PriestLetterDialog from '@/components/PriestLetterDialog.vue';
+import { isPriestLetterTask } from '@repo/utils';
 
 const route = useRoute();
 const store = usePreRetreatTaskStore();
@@ -38,6 +40,9 @@ const retreatStore = useRetreatStore();
 const { canManage } = useAuthPermissions();
 const { toast } = useToast();
 const { deferOpen } = useRekaDialogFix();
+
+// Carta al párroco: se abre desde el ⋮ de su tarea del checklist.
+const letterOpen = ref(false);
 
 const retreatId = computed(
   () => (route.params.id as string) || retreatStore.selectedRetreatId || '',
@@ -581,30 +586,40 @@ watch(retreatId, () => {
           </div>
 
           <div class="flex items-center gap-1 shrink-0">
-            <DropdownMenu v-if="canManage.preRetreatTask.value">
+            <DropdownMenu v-if="canManage.preRetreatTask.value || isPriestLetterTask(task)">
               <DropdownMenuTrigger as-child>
                 <Button variant="ghost" size="sm" class="h-8 w-8 p-0" :data-testid="`menu-${task.id}`">
                   <MoreVertical class="w-4 h-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem @select="deferOpen(() => openEdit(task))">✏️ Editar</DropdownMenuItem>
                 <DropdownMenuItem
-                  v-if="!task.parentId"
-                  @select="deferOpen(() => openCreate(task.id))"
+                  v-if="isPriestLetterTask(task)"
+                  data-testid="priest-letter-item"
+                  @select="deferOpen(() => (letterOpen = true))"
                 >
-                  ➕ Agregar sub-tarea
+                  📄 Imprimir carta al párroco
                 </DropdownMenuItem>
-                <DropdownMenuItem @select="onMarkNotApplicable(task)">
-                  {{ task.status === 'not_applicable' ? '↩️ Reactivar' : '🚫 Marcar no aplica' }}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  class="text-red-600"
-                  @select="deferOpen(() => openDelete(task))"
-                >
-                  🗑 Eliminar
-                </DropdownMenuItem>
+                <DropdownMenuSeparator v-if="isPriestLetterTask(task) && canManage.preRetreatTask.value" />
+                <template v-if="canManage.preRetreatTask.value">
+                  <DropdownMenuItem @select="deferOpen(() => openEdit(task))">✏️ Editar</DropdownMenuItem>
+                  <DropdownMenuItem
+                    v-if="!task.parentId"
+                    @select="deferOpen(() => openCreate(task.id))"
+                  >
+                    ➕ Agregar sub-tarea
+                  </DropdownMenuItem>
+                  <DropdownMenuItem @select="onMarkNotApplicable(task)">
+                    {{ task.status === 'not_applicable' ? '↩️ Reactivar' : '🚫 Marcar no aplica' }}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    class="text-red-600"
+                    @select="deferOpen(() => openDelete(task))"
+                  >
+                    🗑 Eliminar
+                  </DropdownMenuItem>
+                </template>
               </DropdownMenuContent>
             </DropdownMenu>
             <button
@@ -757,5 +772,8 @@ watch(retreatId, () => {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <!-- Carta de solicitud al párroco, desde la tarea del checklist -->
+    <PriestLetterDialog v-model:open="letterOpen" :retreat-id="retreatId" />
   </div>
 </template>

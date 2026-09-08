@@ -94,6 +94,33 @@ El script `start-worktree-dev.sh` ya lo hace si falta. Los otros paquetes (`@rep
 > navegador y falle ante el overlay de error de Vite y ante errores de consola. Ejemplo:
 > `apps/web/tests/e2e/participant-import-ui.spec.ts` (2026-08-25).
 
+## 3002/5174 no son tuyos: otra sesión los puede tener
+
+Este skill fija 3002/5174, así que **dos worktrees que lo sigan chocan**. El que arranca segundo
+pierde: `--strictPort` mata el suyo, o el primero ya tiene el puerto y el segundo muere en silencio.
+
+Lo caro no es el fallo, es el **falso negativo**: `localhost:5174` sigue respondiendo 200 y sirviendo
+la app… de la OTRA rama. Pasó el 2026-09-08 en emaus — el usuario estuvo mirando la vista sin el
+botón que acababa de implementarse, y la base que consultaba era la del otro worktree (el Minuto a
+Minuto importado "había desaparecido"). Media hora buscando un bug que no existía.
+
+**Antes de creerte que falta algo que acabas de escribir, comprueba de quién es el servidor:**
+
+```bash
+# ¿Qué sirve el puerto? Si el fuente no lleva tu cambio, no es tu servidor.
+curl -s http://localhost:5174/src/views/TuVista.vue | grep -c "algo-que-acabas-de-añadir"
+
+# ¿De qué worktree salen los dev servers que hay vivos?
+ps -Ao pid,args | grep -E "vite|nodemon" | grep worktrees | sed -E 's|.*/worktrees/([^/]+)/.*|\1|' | sort -u
+```
+
+Si hay otro worktree con dev arriba, **levanta el tuyo en otros puertos** (3003/5175, 3004/5176…)
+y ajusta los tres sitios: `FRONTEND_URL` del API, `.env.local` y `public/runtime-config.js`. Los
+dos últimos llevan el puerto **de la API**, no el del web.
+
+Y al terminar, mata solo los tuyos por PID — no `lsof -ti :3002 | xargs kill`, que se lleva el de
+la otra sesión.
+
 ## DB aislada (importante)
 
 **Nunca uses la DB del main en el worktree** — vas a contaminar el trabajo en curso del main (sesiones, datos de prueba, migrations a medias). Siempre copiá:
@@ -233,6 +260,17 @@ pnpm --filter web exec vue-tsc --noEmit
 El setup de puertos paralelos sólo se necesita para **probar end-to-end con browser** o validar el comportamiento integrado en navegador.
 
 ---
+
+## Dos bugs del script de arranque
+
+Verificados el 2026-09-08; si el script sigue igual, hazlo a mano:
+
+- **`pnpm --filter web dev -- --port 5174`**: el `--` extra llega a Vite como argumento literal, así
+  que **ignora los flags y arranca en 5173** — el puerto del main. Se ve en el log
+  (`vite "--" "--port" "5174"`). Sin el `--` funciona.
+- **La copia de la DB no se lleva el `-wal`**, así que la copia queda con un WAL desparejado y el
+  API muere con `SQLITE_CORRUPT: database disk image is malformed`. Copia los **tres** archivos
+  (`.sqlite`, `-wal`, `-shm`) con `cp`; nunca el `sqlite3` CLI sobre la base viva.
 
 ## Scripts incluidos
 

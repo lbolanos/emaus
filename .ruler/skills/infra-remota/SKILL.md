@@ -24,6 +24,8 @@ ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104
 | Backups locales | `/var/backups/emaus/` |
 | Log de backup | `/var/log/emaus-backup.log` |
 | Deploy web | `/var/www/emaus/apps/web/dist` |
+| Logs del sitio | `/var/log/nginx/emaus-access.log` y `emaus-error.log` (**no** `access.log`) |
+| Logs del API | `~/.pm2/logs/emaus-api-error.log` (rota diario, `…__<fecha>.log`) |
 | Zona horaria | `Etc/UTC` — y pm2 **no** define `TZ`, así que Node hereda UTC |
 
 > La zona del servidor es UTC, no CDMX. Todo cálculo de calendario en el API
@@ -32,6 +34,15 @@ ssh -i ~/.ssh/lightsail-emaus.pem ubuntu@18.116.102.104
 > del skill `timezone-handling`, y el origen del bug de 2026-09-07 en que una
 > serie semanal de los miércoles se materializaba los martes. Verificable con
 > `ssh … "timedatectl"`.
+
+> ⚠️ El `vhost` de emaus escribe en **`emaus-access.log`**, no en el `access.log` genérico (que
+> solo recoge lo que no cae en el server de emaus). Buscar una petición en `access.log` devuelve
+> vacío y se lee como "esa petición nunca llegó", que es una conclusión distinta y peligrosa:
+> pasó el 2026-09-08 investigando un registro perdido. Empezá siempre con `ls /var/log/nginx/`.
+>
+> Los errores del cliente reportados desde pantallas públicas salen en el log del API con el
+> prefijo `[CLIENT ERROR]` (los manda `POST /api/telemetry/public/client-error`):
+> `grep '\[CLIENT ERROR\]' ~/.pm2/logs/emaus-api-error.log | tail`.
 
 ## nginx en producción
 

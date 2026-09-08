@@ -456,7 +456,7 @@ import {
 	TabsTrigger,
 } from '@repo/ui';
 import { convertHtmlToWhatsApp, convertHtmlToEmail, replaceAllVariables, findEmptyVariables, ParticipantData, RetreatData, CommunityData, TableData, SpouseData } from '@/utils/message';
-import { resolveMemberProfile } from '@repo/utils';
+import { buildServerRegistrationLink, resolveMemberProfile } from '@repo/utils';
 import { sanitizeEmailHtml } from '@/utils/sanitize';
 import { sanitizePhoneForWhatsapp } from '@/utils/phone';
 import { useParticipantCommunicationStore, type ParticipantCommunication } from '@/stores/participantCommunicationStore';
@@ -848,7 +848,14 @@ const updateMessagePreview = () => {
 	// dialog open). Empty string when the participant has no upcoming
 	// community meetings — the placeholder still resolves cleanly.
 	const retreatData: RetreatData | null = baseRetreatData
-		? { ...baseRetreatData, nextMeetingDate: nextMeetingFormatted.value || '' }
+		? {
+				...baseRetreatData,
+				nextMeetingDate: nextMeetingFormatted.value || '',
+				serverRegistrationLink: buildServerRegistrationLink(
+					window.location.origin,
+					selectedRetreat.value,
+				),
+			}
 		: null;
 	// Cuando context=community, también poblamos los datos de la próxima
 	// reunión (title/date/attendanceLink) para que plantillas como

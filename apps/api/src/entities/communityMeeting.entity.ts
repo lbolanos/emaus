@@ -52,6 +52,14 @@ export class CommunityMeeting {
 	@Column({ type: 'boolean', default: false })
 	isAnnouncement!: boolean;
 
+	// Tipo de reunión, para medir asistencia por tipo (p. ej. sólo las
+	// preparaciones del equipo servidor). Catálogo cerrado validado en Zod:
+	// la columna NO lleva CHECK porque añadirlo exigiría recreate-table sobre
+	// una tabla con FK entrante desde community_attendance — ver skill
+	// `sqlite-migrations`.
+	@Column('varchar', { default: 'general' })
+	meetingType!: 'general' | 'preparation' | 'formation' | 'service' | 'fellowship' | 'other';
+
 	// Recurrence configuration
 	@Column({ type: 'varchar', nullable: true })
 	recurrenceFrequency?: 'daily' | 'weekly' | 'monthly' | null;

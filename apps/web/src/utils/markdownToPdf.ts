@@ -50,13 +50,33 @@ export interface PdfDocumentInput {
 	meta?: string;
 	/** Markdown YA resuelto — nunca la plantilla con `{...}` sin sustituir. */
 	markdown: string;
+	/**
+	 * Interlineado holgado para documentos cortos que se leen en papel. Las
+	 * preparaciones lo dejan apagado: su interlineado sale de los `.docx`.
+	 */
+	relaxedLeading?: boolean;
+	/** Bloque de firma al pie, con hueco real para firmar. */
+	signature?: { intro: string; label: string; dateLine?: boolean };
+	/** Logo sobre el título, como en la hoja A4 del navegador. */
+	logoUrl?: string;
 }
+
+/**
+ * Misma proporción que el `body.relaxed` de la hoja A4 (1.55 sobre el 1.42
+ * normal), para que las dos rutas de PDF no divergan.
+ */
+const RELAXED_LEADING = 1.09;
 
 interface Ctx {
 	doc: jsPDF;
 	y: number;
 	/** Títulos recogidos para el outline, con la página en la que caen. */
 	bookmarks: Array<{ level: number; text: string; page: number }>;
+	/**
+	 * Multiplicador del interlineado. 1 reproduce el `.docx` de las
+	 * preparaciones; la carta al párroco lo sube para leerse mejor en papel.
+	 */
+	leading: number;
 }
 
 /** Trozo de texto con su estilo, para componer párrafos con negritas. */
@@ -180,7 +200,7 @@ function writeRich(
 	const { doc } = ctx;
 	const family = opts.family ?? SANS;
 	const size = opts.size ?? 10.5;
-	const lineHeight = opts.lineHeight ?? size * 0.42;
+	const lineHeight = (opts.lineHeight ?? size * 0.42) * ctx.leading;
 	const indent = opts.indent ?? 0;
 	const maxWidth = opts.width ?? CONTENT_W - indent;
 	const color = opts.color ?? INK;
@@ -332,7 +352,117 @@ function drawParagraph(ctx: Ctx, token: Tokens.Paragraph) {
 	ctx.y += 1.8;
 }
 
-function drawList(ctx: Ctx, token: Tokens.List) {
+/** Token inline que no aporta texto: sobra al partir un bloque por imágenes. */
+function isBlankInline(token: Token): boolean {
+	if (token.type === 'br') return true;
+	if (token.type !== 'text' && token.type !== 'escape') return false;
+	return !((token as Tokens.Text).text ?? '').trim();
+}
+
+/**
+ * Recorta los blancos de los extremos de un tramo inline.
+ *
+ * Sin esto, el tramo que sigue a una imagen empieza por el salto de línea que
+ * la separaba del texto: `writeRich` abre un renglón vacío y, peor, el rótulo
+ * (`Tema:`) deja de ser el primer trozo y pierde su sangría francesa.
+ */
+function trimInline(tokens: Token[]): Token[] {
+	let start = 0;
+	let end = tokens.length;
+	while (start < end && isBlankInline(tokens[start])) start++;
+	while (end > start && isBlankInline(tokens[end - 1])) end--;
+	const out = tokens.slice(start, end);
+	if (!out.length) return out;
+	// `escape` cuenta como texto igual que en `isBlankInline`: si uno de los dos
+	// mira un tipo que el otro ignora, un extremo se queda sin recortar.
+	const trimmable = (token: Token) => token.type === 'text' || token.type === 'escape';
+	const first = out[0] as Tokens.Text;
+	if (trimmable(first)) out[0] = { ...first, text: first.text.replace(/^\s+/, '') } as Token;
+	const last = out[out.length - 1] as Tokens.Text;
+	if (trimmable(last)) {
+		out[out.length - 1] = { ...last, text: last.text.replace(/\s+$/, '') } as Token;
+	}
+	return out;
+}
+
+/** Separa las imágenes de un tramo inline; el resto queda para escribir. */
+function splitImages(tokens: Token[]): { images: string[]; text: Token[] } {
+	const images: string[] = [];
+	const text: Token[] = [];
+	for (const token of tokens) {
+		if (token.type === 'image') images.push((token as Tokens.Image).href);
+		else text.push(token);
+	}
+	return { images, text };
+}
+
+/**
+ * Párrafo que puede llevar imágenes intercaladas con el texto.
+ *
+ * En los documentos convertidos del .docx la ilustración va pegada al texto
+ * sin línea en blanco de por medio, así que marked la mete DENTRO del párrafo
+ * y no como bloque propio. Antes solo se dibujaba el párrafo que era
+ * exclusivamente una imagen: las otras nueve de las plantillas desaparecían
+ * sin dejar rastro, porque `flattenInline` descarta el token `image` (su
+ * único texto es el `alt`, que en estos documentos está vacío). Se parte el
+ * párrafo en tramos y se dibuja cada uno en su orden.
+ */
+async function drawParagraphBlock(ctx: Ctx, token: Tokens.Paragraph) {
+	let run: Token[] = [];
+	const flushRun = () => {
+		const inline = trimInline(run);
+		run = [];
+		if (inline.length) drawParagraph(ctx, { ...token, tokens: inline });
+	};
+
+	for (const child of token.tokens ?? []) {
+		if (child.type === 'image') {
+			flushRun();
+			await drawImage(ctx, (child as Tokens.Image).href);
+			continue;
+		}
+		run.push(child);
+	}
+	flushRun();
+}
+
+/**
+ * Encabezado que puede llevar una imagen. `## ![](…)` existe en la 3ª
+ * preparación: el texto resultante era vacío y `drawHeading` se iba de largo,
+ * perdiendo la imagen y el encabezado enteros.
+ *
+ * Solo distingue "antes del texto" y "después del texto": un encabezado con dos
+ * imágenes y texto entre medias las dibujaría las dos al final. No se afina más
+ * a propósito — respetar ese orden obligaría a partir el encabezado en varios,
+ * que tipográficamente es peor que el caso que arregla.
+ */
+async function drawHeadingBlock(ctx: Ctx, token: Tokens.Heading) {
+	const before: string[] = [];
+	const after: string[] = [];
+	const inline: Token[] = [];
+	let hasText = false;
+
+	for (const child of token.tokens ?? []) {
+		if (child.type === 'image') {
+			(hasText ? after : before).push((child as Tokens.Image).href);
+			continue;
+		}
+		inline.push(child);
+		if (!isBlankInline(child)) hasText = true;
+	}
+
+	for (const href of before) await drawImage(ctx, href);
+	// Sin texto no hay encabezado que pintar: `drawHeading` ya se sale solo.
+	drawHeading(ctx, { ...token, tokens: trimInline(inline) });
+	for (const href of after) await drawImage(ctx, href);
+}
+
+/**
+ * Lista. Un ítem también puede llevar imágenes —el editor in-app deja escribir
+ * `- ![](…) texto`— y `flattenInline` las tira igual que en un párrafo, así que
+ * se sacan aparte y se dibujan bajo el texto del ítem.
+ */
+async function drawList(ctx: Ctx, token: Tokens.List) {
 	for (const [index, item] of token.items.entries()) {
 		const bullet = token.ordered ? `${(Number(token.start) || 1) + index}.` : '•';
 		ensureSpace(ctx, 5);
@@ -340,25 +470,31 @@ function drawList(ctx: Ctx, token: Tokens.List) {
 		ctx.doc.setFontSize(10.5);
 		ctx.doc.setTextColor(...STEEL);
 		ctx.doc.text(bullet, MARGIN_X + 2, ctx.y);
-		const pieces = flattenInline(
-			(item.tokens ?? []).flatMap((t) =>
-				t.type === 'text' || t.type === 'paragraph' ? ((t as Tokens.Text).tokens ?? [t]) : [t],
-			) as Token[],
-		);
-		writeRich(ctx, pieces, { indent: 7, width: CONTENT_W - 7 });
+		const inline = (item.tokens ?? []).flatMap((t) =>
+			t.type === 'text' || t.type === 'paragraph' ? ((t as Tokens.Text).tokens ?? [t]) : [t],
+		) as Token[];
+		const { images, text } = splitImages(inline);
+		writeRich(ctx, flattenInline(text), { indent: 7, width: CONTENT_W - 7 });
+		for (const href of images) await drawImage(ctx, href);
 		ctx.y += 0.8;
 	}
 	ctx.y += 1.6;
 }
 
-function drawBlockquote(ctx: Ctx, token: Tokens.Blockquote) {
+async function drawBlockquote(ctx: Ctx, token: Tokens.Blockquote) {
 	const { doc } = ctx;
 	const paragraphs = (token.tokens ?? []).filter((t) => t.type === 'paragraph');
+	// Las imágenes de la cita van DEBAJO del recuadro: meterlas dentro obligaría
+	// a que la medición previa —que es lo que decide el alto del fondo— las
+	// tuviera en cuenta, y esa medición corre antes de saber cuánto ocupan.
+	const quoteImages = paragraphs.flatMap(
+		(child) => splitImages((child as Tokens.Paragraph).tokens ?? []).images,
+	);
 	const quoteOpts = { color: TEAL, italic: true, indent: 7, width: CONTENT_W - 11 } as const;
 
 	// Medir antes de pintar: el fondo tiene que ir DEBAJO del texto, así que
 	// hay que conocer el alto sin haber escrito nada todavía.
-	const probe: Ctx = { doc, y: 0, bookmarks: [] };
+	const probe: Ctx = { doc, y: 0, bookmarks: [], leading: ctx.leading };
 	for (const child of paragraphs) {
 		writeRich(probe, flattenInline((child as Tokens.Paragraph).tokens), {
 			...quoteOpts,
@@ -387,6 +523,7 @@ function drawBlockquote(ctx: Ctx, token: Tokens.Blockquote) {
 		ctx.y += 1.4;
 	}
 	ctx.y = fits ? top + boxHeight + 3 : ctx.y + 2;
+	for (const href of quoteImages) await drawImage(ctx, href);
 }
 
 function drawTable(ctx: Ctx, token: Tokens.Table) {
@@ -407,16 +544,45 @@ function drawTable(ctx: Ctx, token: Tokens.Table) {
 	ctx.y = (ctx.doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
 }
 
+async function fetchDataUrl(src: string): Promise<string> {
+	const res = await fetch(src);
+	const blob = await res.blob();
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(String(reader.result));
+		reader.onerror = reject;
+		reader.readAsDataURL(blob);
+	});
+}
+
+/**
+ * Logo sobre el título, acotado igual que en la hoja A4 del navegador
+ * (`header.doc-head img { max-height: 24mm }`), para que las dos rutas de PDF
+ * produzcan el mismo papel.
+ */
+async function drawHeaderLogo(ctx: Ctx, src: string) {
+	try {
+		const dataUrl = await fetchDataUrl(src);
+		const props = ctx.doc.getImageProperties(dataUrl);
+		const maxH = 24;
+		const maxW = 45;
+		let h = maxH;
+		let w = (props.width / props.height) * h;
+		if (w > maxW) {
+			w = maxW;
+			h = (props.height / props.width) * w;
+		}
+		ctx.doc.addImage(dataUrl, MARGIN_X + (CONTENT_W - w) / 2, ctx.y, w, h);
+		ctx.y += h + 3;
+	} catch (err) {
+		// Sin logo el documento sigue siendo válido; lo que no vale es tumbarlo.
+		console.warn('[markdownToPdf] no se pudo incrustar el logo', src, err);
+	}
+}
+
 async function drawImage(ctx: Ctx, src: string) {
 	try {
-		const res = await fetch(src);
-		const blob = await res.blob();
-		const dataUrl: string = await new Promise((resolve, reject) => {
-			const reader = new FileReader();
-			reader.onload = () => resolve(String(reader.result));
-			reader.onerror = reject;
-			reader.readAsDataURL(blob);
-		});
+		const dataUrl = await fetchDataUrl(src);
 		const props = ctx.doc.getImageProperties(dataUrl);
 		// Acotada: las ilustraciones del .docx vienen a tamaño natural y si no
 		// se comen media página.
@@ -431,8 +597,11 @@ async function drawImage(ctx: Ctx, src: string) {
 		ensureSpace(ctx, h + 4);
 		ctx.doc.addImage(dataUrl, MARGIN_X + (CONTENT_W - w) / 2, ctx.y, w, h);
 		ctx.y += h + 4;
-	} catch {
-		// Una imagen que no carga no debe tumbar el documento entero.
+	} catch (err) {
+		// Una imagen que no carga no debe tumbar el documento entero, pero un
+		// catch mudo convierte la pérdida en invisible: así al menos queda en
+		// la consola de quien descarga el PDF.
+		console.warn('[markdownToPdf] no se pudo incrustar la imagen', src, err);
 	}
 }
 
@@ -485,11 +654,59 @@ function addBookmarks(doc: jsPDF, input: PdfDocumentInput, bookmarks: Ctx['bookm
 	}
 }
 
+/**
+ * Bloque de firma al pie: rótulo, hueco para firmar, raya y nombre debajo.
+ *
+ * El hueco va ANTES de la raya para que la firma caiga sobre ella, igual que en
+ * la hoja A4 del navegador. Si no queda sitio en la página, salta a la
+ * siguiente: una raya de firma partida por el salto no sirve de nada.
+ */
+function drawSignature(
+	ctx: Ctx,
+	signature: { intro: string; label: string; dateLine?: boolean },
+) {
+	const { doc } = ctx;
+	const GAP = 12; // hueco para la firma, en mm
+	const needed = GAP + 16;
+	if (ctx.y + needed > PAGE_H - MARGIN_BOTTOM) {
+		doc.addPage();
+		ctx.y = MARGIN_TOP;
+	} else {
+		ctx.y += 5;
+	}
+
+	setFont(doc, SANS);
+	doc.setFontSize(10.5);
+	doc.setTextColor(...INK);
+	doc.text(signature.intro, MARGIN_X, ctx.y);
+
+	ctx.y += GAP;
+	const lineWidth = CONTENT_W * 0.62;
+	doc.setDrawColor(...INK);
+	doc.setLineWidth(0.25);
+	doc.line(MARGIN_X, ctx.y, MARGIN_X + lineWidth, ctx.y);
+
+	ctx.y += 4.5;
+	setFont(doc, SANS, true);
+	doc.setTextColor(...NAVY);
+	doc.text(signature.label, MARGIN_X, ctx.y);
+
+	if (signature.dateLine) {
+		ctx.y += 5.5;
+		setFont(doc, SANS);
+		doc.setFontSize(9.5);
+		doc.setTextColor(...SLATE);
+		doc.text('Fecha: ______ / ______ / __________', MARGIN_X, ctx.y);
+	}
+}
+
 export async function buildPreparationPdf(input: PdfDocumentInput): Promise<Blob> {
 	const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
 	doc.setProperties({ title: input.title });
 
-	const ctx: Ctx = { doc, y: MARGIN_TOP, bookmarks: [] };
+	const ctx: Ctx = { doc, y: MARGIN_TOP, bookmarks: [], leading: input.relaxedLeading ? RELAXED_LEADING : 1 };
+
+	if (input.logoUrl) await drawHeaderLogo(ctx, input.logoUrl);
 
 	// Título del documento, centrado en versalitas sobre un filete.
 	setFont(doc, SERIF, true);
@@ -505,22 +722,16 @@ export async function buildPreparationPdf(input: PdfDocumentInput): Promise<Blob
 	for (const token of marked.lexer(input.markdown ?? '')) {
 		switch (token.type) {
 			case 'heading':
-				drawHeading(ctx, token as Tokens.Heading);
+				await drawHeadingBlock(ctx, token as Tokens.Heading);
 				break;
-			case 'paragraph': {
-				const paragraph = token as Tokens.Paragraph;
-				const image = (paragraph.tokens ?? []).find((t) => t.type === 'image') as
-					| Tokens.Image
-					| undefined;
-				if (image && (paragraph.tokens ?? []).length === 1) await drawImage(ctx, image.href);
-				else drawParagraph(ctx, paragraph);
+			case 'paragraph':
+				await drawParagraphBlock(ctx, token as Tokens.Paragraph);
 				break;
-			}
 			case 'list':
-				drawList(ctx, token as Tokens.List);
+				await drawList(ctx, token as Tokens.List);
 				break;
 			case 'blockquote':
-				drawBlockquote(ctx, token as Tokens.Blockquote);
+				await drawBlockquote(ctx, token as Tokens.Blockquote);
 				break;
 			case 'table':
 				drawTable(ctx, token as Tokens.Table);
@@ -539,6 +750,8 @@ export async function buildPreparationPdf(input: PdfDocumentInput): Promise<Blob
 				break;
 		}
 	}
+
+	if (input.signature) drawSignature(ctx, input.signature);
 
 	paintChrome(doc, input);
 	addBookmarks(doc, input, ctx.bookmarks);

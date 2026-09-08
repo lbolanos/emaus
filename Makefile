@@ -12,7 +12,8 @@ ZAI_API_KEY  ?= $(shell grep -oP '(?<=ANTHROPIC_API_KEY=)\S+' $(ENV_FILE) 2>/dev
         prod-restart prod-rollback \
         render-build render-start \
         tunnel tunnel-setup tunnel-stop kill \
-        test-zai ruler-apply scripts
+        test-zai ruler-apply scripts \
+        walkers-convert walkers-check walkers-verify
 
 ## help: Show this help message
 help:
@@ -147,6 +148,20 @@ db-push:
 ## db-backup: Trigger a backup on the production server
 db-backup:
 	pnpm db:backup
+
+## ── Caminantes desde la parroquia ────────────────────────────────────────────
+
+## walkers-convert: Convertir el Excel de la parroquia (elige el archivo de Descargas)
+walkers-convert:
+	@bash scripts/walkers-import.sh convert
+
+## walkers-check: Comprobar el CSV ANTES de importarlo (elige el retiro)
+walkers-check:
+	@bash scripts/walkers-import.sh check
+
+## walkers-verify: Comprobar DESPUÉS de importar que no faltó nadie
+walkers-verify:
+	@bash scripts/walkers-import.sh verify
 
 ## ── Production ───────────────────────────────────────────────────────────────
 

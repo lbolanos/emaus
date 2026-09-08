@@ -402,6 +402,17 @@ export const retreatSchema = z.object({
 	startDate: z.coerce.date(),
 	endDate: z.coerce.date(),
 	houseId: idSchema,
+	// Vínculo OPCIONAL con la comunidad que organiza el retiro. NULL = retiro sin
+	// comunidad, que sigue siendo un caso válido y es el default. Estando puesto,
+	// la pantalla de mesas puede leer la asistencia a reuniones del equipo
+	// servidor para decidir a quién poner de líder.
+	// El preprocess de '' es obligatorio: el formulario manda cadena vacía al
+	// limpiar el selector y `idSchema.optional()` la rechazaría con un 400 —
+	// mismo motivo que en `slug` y `externalRegistrationUrl` más abajo.
+	communityId: z.preprocess(
+		(v) => (v === '' ? null : v),
+		idSchema.nullable().optional(),
+	),
 	openingNotes: z.string().optional(),
 	closingNotes: z.string().optional(),
 	thingsToBringNotes: z.string().optional(),

@@ -7,6 +7,7 @@ import { CommunityAttendance } from '../entities/communityAttendance.entity';
 import { User } from '../entities/user.entity';
 import { UserRole } from '../entities/userRole.entity';
 import { Participant } from '../entities/participant.entity';
+import { Retreat } from '../entities/retreat.entity';
 import { MemberState } from '@repo/types';
 import { In, MoreThanOrEqual, Not } from 'typeorm';
 import { calculateNextOccurrence, nextWeekdayOccurrence } from '../utils/recurrenceUtils';
@@ -29,6 +30,12 @@ import {
 	todayInTimezone,
 } from '@repo/utils';
 import { inferTimezoneFromCoords } from '../utils/date.transformer';
+import {
+	ROSTER_STATES,
+	computeMemberRates,
+	loadAttendedByMember,
+	loadConsideredMeetings,
+} from './communityAttendanceStats';
 
 /**
  * Devuelve la IANA timezone donde la community vive. Fallback a CDMX si la
@@ -306,6 +313,11 @@ export class CommunityService {
 	}
 
 	async deleteCommunity(id: string) {
+		// `retreat.communityId` no tiene FK física (se añadió por ALTER TABLE, ver
+		// la migración AddMeetingTypeAndRetreatCommunity), así que ningún
+		// ON DELETE SET NULL lo va a limpiar: hay que desvincular a mano o los
+		// retiros quedan apuntando a una comunidad que ya no existe.
+		await AppDataSource.getRepository(Retreat).update({ communityId: id }, { communityId: null });
 		await this.communityRepo.delete(id);
 	}
 
@@ -356,17 +368,16 @@ export class CommunityService {
 			}
 		}
 
-		// Calculate attendance rate for each member
-		// Get all past meetings for this community (with startDate for filtering).
-		// Excluir instancias canceladas: no deben contar contra la tasa de asistencia.
-		const pastMeetingsRaw = await this.meetingRepo.find({
-			where: { communityId },
-			select: ['id', 'startDate', 'exceptionType'],
-		});
-		const pastMeetings = pastMeetingsRaw.filter((m) => m.exceptionType !== 'cancelled');
+		// Tasa de asistencia por miembro. La regla de qué reuniones cuentan vive
+		// en `communityAttendanceStats` y es la MISMA que usa el reporte por tipo
+		// de reunión, para que el badge de esta lista y el ranking del reporte no
+		// puedan discrepar. Antes se calculaba aquí sobre `meetingRepo.find({
+		// communityId })` a secas: contaba anuncios y, peor, contaba las reuniones
+		// FUTURAS —a las que nadie ha asistido todavía— en el denominador de todos,
+		// hundiendo cada porcentaje frente al que mostraba el dashboard.
+		const { considered } = await loadConsideredMeetings(communityId);
 
-		// Only calculate if there are meetings
-		if (pastMeetings.length === 0) {
+		if (considered.length === 0) {
 			return members
 				.map((m) => ({
 					...m,
@@ -379,62 +390,19 @@ export class CommunityService {
 				.sort((a, b) => b.joinedAt.getTime() - a.joinedAt.getTime());
 		}
 
-		// Get all attendance records for these meetings
-		const attendances = await this.attendanceRepo.find({
-			where: { meetingId: In(pastMeetings.map((m) => m.id)) },
-		});
+		const attendedByMember = await loadAttendedByMember(considered.map((m) => m.id));
+		const rates = computeMemberRates(considered, attendedByMember, members);
 
-		// Group attendance by member - store meeting IDs they attended
-		const attendanceByMember: Record<string, string[]> = {};
-		for (const record of attendances) {
-			if (record.attended) {
-				if (!attendanceByMember[record.memberId]) {
-					attendanceByMember[record.memberId] = [];
-				}
-				attendanceByMember[record.memberId].push(record.meetingId);
-			}
-		}
-
-		// Add calculated rate and frequency to each member
 		const membersWithRate = members.map((member) => {
-			const attendedMeetingIds = attendanceByMember[member.id] || [];
-			const attendedIdSet = new Set(attendedMeetingIds);
-
-			// Reuniones que cuentan para la tasa: las ocurridas desde que el miembro se
-			// unió, MÁS cualquier reunión a la que tenga asistencia registrada
-			// (attended=true), aunque sea anterior a su joinedAt. Sin esto, dar de alta
-			// a un miembro DURANTE la reunión (su joinedAt queda después del startDate)
-			// y marcarlo presente lo dejaba en 0% falso, con la reunión excluida del
-			// denominador pese a tener asistencia.
-			const validMeetings = pastMeetings.filter(
-				(m) => m.startDate >= member.joinedAt || attendedIdSet.has(m.id),
-			);
-			const validMeetingIds = new Set(validMeetings.map((m) => m.id));
-
-			const attendedCount = attendedMeetingIds.filter((id) => validMeetingIds.has(id)).length;
-			const totalValidMeetings = validMeetings.length;
-			const rate = totalValidMeetings > 0 ? (attendedCount / totalValidMeetings) * 100 : 0;
-
-			// Determine frequency based on rate
-			let frequency: 'high' | 'medium' | 'low' | 'none' = 'none';
-			if (rate >= 75) {
-				frequency = 'high';
-			} else if (rate >= 25) {
-				frequency = 'medium';
-			} else if (rate >= 1) {
-				frequency = 'low';
-			} else {
-				frequency = 'none';
-			}
-
+			const rate = rates.get(member.id)!;
 			return {
 				...member,
-				lastMeetingsAttendanceRate: rate,
-				lastMeetingsFrequency: frequency,
+				lastMeetingsAttendanceRate: rate.ratePercent,
+				lastMeetingsFrequency: rate.frequency,
 				// Conteo que respalda el porcentaje (asistidas / total que le cuentan).
 				// El badge lo muestra como "Alta (100% · 1/1)" para dar contexto.
-				lastMeetingsAttended: attendedCount,
-				lastMeetingsTotal: totalValidMeetings,
+				lastMeetingsAttended: rate.attended,
+				lastMeetingsTotal: rate.total,
 				lastMessageSentAt: lastMessageByParticipant[member.participantId] || null,
 			};
 		});
@@ -1330,6 +1298,7 @@ export class CommunityService {
 		if (data.durationMinutes !== undefined) out.durationMinutes = data.durationMinutes;
 		if (data.flyerTemplate !== undefined) out.flyerTemplate = data.flyerTemplate;
 		if (data.isAnnouncement !== undefined) out.isAnnouncement = data.isAnnouncement;
+		if (data.meetingType !== undefined) out.meetingType = data.meetingType;
 		return out;
 	}
 
@@ -2123,7 +2092,14 @@ export class CommunityService {
 		const members = (
 			await this.memberRepo.find({ where: { communityId }, relations: ['participant'] })
 		).filter((m) => !m.participant?.dataDeletedAt);
-		const activeMembers = members.filter((m) => m.state === 'active_member');
+		// Roster canónico: active_member + pending_verification. Filtrar sólo a
+		// `active_member` dejaba fuera del denominador a los que están por
+		// contactar —que sí van a las reuniones— y hacía que este promedio no
+		// cuadrara con el del reporte de asistencia. Lista positiva a propósito:
+		// ver skill `community-state-semantics`.
+		const activeMembers = members.filter((m) =>
+			(ROSTER_STATES as readonly string[]).includes(m.state),
+		);
 
 		// 2. Member State Distribution
 		const stateDistribution = members.reduce(
@@ -2249,10 +2225,36 @@ export class CommunityService {
 			frequencyDistribution.none = members.length;
 		}
 
+		// Retiros de la comunidad. La comunidad existe para servir retiros, así que
+		// el dashboard debe decir cuál es el próximo; hasta ahora sólo hablaba de
+		// reuniones. Sólo los vinculados: sin `communityId` no hay forma de saber
+		// de quién es un retiro.
+		const retreatRepo = AppDataSource.getRepository(Retreat);
+		const communityRetreats = await retreatRepo.find({
+			where: { communityId },
+			order: { startDate: 'ASC' },
+		});
+		const toRetreatRow = (retreat: Retreat) => ({
+			id: retreat.id,
+			parish: retreat.parish,
+			numberVersion: retreat.retreat_number_version ?? null,
+			startDate: retreat.startDate,
+			endDate: retreat.endDate,
+			slug: retreat.slug ?? null,
+		});
+		// El corte es por `endDate`: un retiro que empezó ayer y acaba mañana sigue
+		// siendo "el próximo" para el coordinador, no historia.
+		const upcomingRetreats = communityRetreats
+			.filter((r) => new Date(r.endDate) >= now)
+			.slice(0, 3)
+			.map(toRetreatRow);
+
 		return {
 			memberCount: members.length,
 			meetingCount: pastMeetings.length,
 			upcomingMeetingsCount: upcomingMeetings.length,
+			upcomingRetreats,
+			retreatCount: communityRetreats.length,
 			averageAttendance,
 			recentMeetings,
 			memberStateDistribution: Object.entries(stateDistribution).map(([state, count]) => ({

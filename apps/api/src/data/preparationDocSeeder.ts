@@ -91,7 +91,7 @@ export const DEFAULT_PREPARATION_DOCS: DefaultPreparationDoc[] = [
 	},
 ];
 
-const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+export const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
 // Resolver relativo al cwd, NUNCA a __dirname: el bundle de prod es ESM
 // (`"type": "module"`) y `__dirname` no existe ahí → ReferenceError al cargar

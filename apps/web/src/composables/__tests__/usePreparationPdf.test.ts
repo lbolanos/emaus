@@ -5,7 +5,7 @@ vi.mock('@/utils/markdownToPdf', () => ({
   buildPreparationPdf: (...args: unknown[]) => mockBuild(...(args as [])),
 }));
 
-import { downloadPreparationPdf } from '../usePreparationPdf';
+import { downloadMarkdownPdf, downloadPreparationPdf } from '../usePreparationPdf';
 
 function doc(overrides: Record<string, unknown> = {}) {
   return {
@@ -76,6 +76,11 @@ describe('downloadPreparationPdf', () => {
     });
   });
 
+  it('NO pide interlineado holgado: su espaciado sale del .docx original', async () => {
+    await downloadPreparationPdf({ doc: doc() });
+    expect(mockBuild.mock.calls[0][0]).not.toMatchObject({ relaxedLeading: true });
+  });
+
   it('descarga con el nombre del documento y extensión .pdf', async () => {
     await downloadPreparationPdf({ doc: doc() });
     expect(clicked?.download).toBe('1ª preparación — Servicio.pdf');
@@ -86,6 +91,72 @@ describe('downloadPreparationPdf', () => {
     const onError = vi.fn();
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const ok = await downloadPreparationPdf({ doc: doc(), onError });
+    expect(ok).toBe(false);
+    expect(onError).toHaveBeenCalledOnce();
+  });
+});
+
+describe('downloadMarkdownPdf', () => {
+  let clicked: HTMLAnchorElement | null;
+
+  beforeEach(() => {
+    mockBuild.mockClear();
+    clicked = null;
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: vi.fn(() => 'blob:fake'),
+      revokeObjectURL: vi.fn(),
+    });
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      clicked = this;
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('pasa el markdown tal cual, sin resolver nada', async () => {
+    // A diferencia de las preparaciones, aquí el caller ya entrega el texto
+    // resuelto (y puede venir editado a mano en el diálogo de la carta).
+    const ok = await downloadMarkdownPdf({
+      fileName: 'solicitud-parroco-san-agustin',
+      title: 'Solicitud de Apoyo al Párroco',
+      markdown: 'Estimado Padre Juan…',
+      subtitle: 'San Agustín',
+      meta: 'Retiro del 5 al 7 de junio',
+    });
+    expect(ok).toBe(true);
+    expect(mockBuild.mock.calls[0][0]).toMatchObject({
+      title: 'Solicitud de Apoyo al Párroco',
+      markdown: 'Estimado Padre Juan…',
+      subtitle: 'San Agustín',
+      meta: 'Retiro del 5 al 7 de junio',
+    });
+  });
+
+  it('descarga con el fileName dado y extensión .pdf, distinto del título', async () => {
+    await downloadMarkdownPdf({
+      fileName: 'solicitud-parroco-san-agustin',
+      title: 'Solicitud de Apoyo al Párroco',
+      markdown: 'x',
+    });
+    expect(clicked?.download).toBe('solicitud-parroco-san-agustin.pdf');
+  });
+
+  it('propaga el interlineado holgado al generador', async () => {
+    await downloadMarkdownPdf({ fileName: 'f', title: 't', markdown: 'x', relaxedLeading: true });
+    expect(mockBuild.mock.calls[0][0]).toMatchObject({ relaxedLeading: true });
+  });
+
+  it('avisa y devuelve false si la generación falla', async () => {
+    mockBuild.mockRejectedValueOnce(new Error('boom'));
+    const onError = vi.fn();
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const ok = await downloadMarkdownPdf({ fileName: 'f', title: 't', markdown: 'x', onError });
     expect(ok).toBe(false);
     expect(onError).toHaveBeenCalledOnce();
   });

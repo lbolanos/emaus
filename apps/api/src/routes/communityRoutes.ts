@@ -28,6 +28,9 @@ import {
 	addCommunityAdminSchema,
 	publicRegisterCommunitySchema,
 	rejectCommunitySchema,
+	communityAttendanceStatsQuerySchema,
+	serverAttendanceQuerySchema,
+	mergeParticipantsSchema,
 } from '@repo/types';
 
 const router = Router();
@@ -257,6 +260,42 @@ router.post('/:id/meetings/:meetingId/attendance/single', requireCommunityAccess
 // Dashboard
 router.get('/:id/dashboard', requireCommunityAccess(), (req, res) =>
 	CommunityController.getDashboardStats(req, res),
+);
+
+// Estadísticas de asistencia por tipo de reunión
+router.get(
+	'/:id/attendance-stats',
+	requireCommunityAccess(),
+	validateRequest(communityAttendanceStatsQuerySchema),
+	(req, res) => CommunityController.getAttendanceStats(req, res),
+);
+
+// La misma tasa proyectada sobre el equipo servidor de un retiro.
+// SECURITY: cuelga de `requireCommunityAccess()` sobre el `:id` de la COMUNIDAD,
+// no del retiro. La asistencia es dato de la comunidad: leerla exige ser admin
+// activo de esa comunidad, no basta con coordinar el retiro. El servicio además
+// verifica que `retreat.communityId` sea esta comunidad.
+router.get(
+	'/:id/server-attendance/:retreatId',
+	requireCommunityAccess(),
+	validateRequest(serverAttendanceQuerySchema),
+	(req, res) => CommunityController.getRetreatServerAttendance(req, res),
+);
+
+// Fusión de participantes duplicados.
+// SECURITY: owner-only. Reapunta 23 columnas de 19 tablas y afecta retiros de
+// otras comunidades: es cirugía de identidad global, no una edición de padrón.
+router.get('/:id/duplicates', requireCommunityOwner(), (req, res) =>
+	CommunityController.getDuplicateCandidates(req, res),
+);
+router.get('/:id/duplicates/preview', requireCommunityOwner(), (req, res) =>
+	CommunityController.previewParticipantMerge(req, res),
+);
+router.post(
+	'/:id/duplicates/merge',
+	requireCommunityOwner(),
+	validateRequest(mergeParticipantsSchema),
+	(req, res) => CommunityController.mergeParticipantDuplicates(req, res),
 );
 
 // Admins

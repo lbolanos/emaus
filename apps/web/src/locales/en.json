@@ -732,6 +732,7 @@
       "WALKER_WELCOME": "Walker Welcome",
       "TABLE_LEADER_BRIEFING": "Table Leader Briefing",
       "WALKER_CONFIRMATION": "Walker Attendance Confirmation",
+      "SERVER_CONVOCATION": "Server Convocation",
       "SERVER_WELCOME": "Server Welcome",
       "EMERGENCY_CONTACT_VALIDATION": "Emergency Contact Validation",
       "PALANCA_REQUEST": "Palanca Request",
@@ -1319,7 +1320,10 @@
     "notificationSettings": "Email notifications on walker registration",
     "notificationSettingsDescription": "Configure which emails are sent when a new walker registers",
     "notifyParticipant": "Send welcome email to walker",
-    "notifyInviter": "Notify inviting server"
+    "notifyInviter": "Notify inviting server",
+    "community": "Community",
+    "communityNone": "No community",
+    "communityHint": "Optional. Linking it lets you see the server team meeting attendance when assigning tables."
   },
   "retreatDashboard": {
     "title": "Retreat Dashboard",
@@ -1632,6 +1636,19 @@
         "title": "Remove a participant from a table",
         "desc": "On mobile: tap the assigned participant → a red \"Remove from table\" button appears at the bottom. On desktop: drag the participant back to the unassigned section."
       }
+    },
+    "attendance": {
+      "title": "Preparation attendance",
+      "notLinked": "Link this retreat to a community to see the server team attendance.",
+      "notLinkedAction": "Edit the retreat",
+      "coverage": "{matched} of {total} servers are on the {community} roster",
+      "sortByAttendance": "Sort by attendance",
+      "noData": "No attendance data",
+      "badgeTooltip": "{percent}% preparation attendance ({attended} of {total})",
+      "loadError": "Could not load the server team attendance",
+      "scope": "{count} preparations held",
+      "notSynced": "Sync this retreat’s preparations to see attendance",
+      "hide": "Hide preparation attendance"
     }
   },
   "bedAssignments": {
@@ -1889,6 +1906,23 @@
       "title": "Serve at the Next Retreat",
       "subtitle": "Join us in service and fellowship. Register now to be a part of the team.",
       "cta": "Register Now"
+    },
+    "toasts": {
+      "validationTitle": "Check your answers",
+      "invalidEmail": "Please enter a valid email address.",
+      "fixStepTitle": "Please correct the errors in step {step}",
+      "fixStepDescription": "Correct the errors in step {step} to continue.",
+      "reviewAllSteps": "Please review all steps and correct any errors.",
+      "successTitle": "Registration successful",
+      "registrationFailedTitle": "Registration failed",
+      "submissionFailedTitle": "Could not submit your registration",
+      "invalidLink": "This registration link is not valid, or the retreat is not open for registration. Please check the link you were given."
+    },
+    "errors": {
+      "connectionLost": "The connection dropped and the retry failed too. Check your internet and try again.",
+      "serverError": "We could not save your registration right now (error {status}). Please wait a few minutes and try again.",
+      "unknown": "We could not save your registration. Please try again in a few minutes.",
+      "alreadyRegisteredTitle": "You were already registered"
     },
     "emailLookup": {
       "title": "Look up existing registration",
@@ -2357,7 +2391,9 @@
       "tryAnotherFilter": "Change the filter or clear the search to see more meetings.",
       "editPastTitle": "This meeting already happened",
       "editPastBody": "Editing a historical meeting may create inconsistencies with attendance already recorded. Do you want to continue?",
-      "editAnyway": "Edit anyway"
+      "editAnyway": "Edit anyway",
+      "meetingType": "Meeting type",
+      "meetingTypeHint": "Lets you measure attendance per type, e.g. only the server team preparations."
     },
     "stats": {
       "totalMembers": "Total Members",
@@ -2370,7 +2406,9 @@
       "noRecentMeetings": "No recent meetings yet",
       "quickActions": "Quick Actions",
       "attendancePercent": "{percent}%",
-      "noData": "No data available"
+      "noData": "No data available",
+      "upcomingRetreats": "Community retreats",
+      "serverTeamAttendance": "Team attendance"
     },
     "attendance": {
       "recordFor": "Record attendance",
@@ -2478,6 +2516,78 @@
       "linkCreatedDesc": "You can now share the link with the co-admin.",
       "copied": "Copied",
       "copiedDesc": "Invitation link copied to clipboard."
+    },
+    "meetingTypes": {
+      "general": "General meeting",
+      "preparation": "Retreat preparation",
+      "formation": "Formation",
+      "service": "Service",
+      "fellowship": "Fellowship",
+      "other": "Other"
+    },
+    "attendanceStats": {
+      "title": "Attendance statistics",
+      "description": "Attendance for meetings of one type, to see who actually takes part.",
+      "filters": "Filters",
+      "allTypes": "All types",
+      "from": "From",
+      "to": "To",
+      "clearFilters": "Clear filters",
+      "meetingsConsidered": "Meetings counted",
+      "membersOnRoster": "Members on the roster",
+      "averageAttendance": "Average attendance",
+      "meetingsConsideredHint": "Only meetings already held (or with attendance recorded). Upcoming ones do not count.",
+      "evolution": "Attendance over time",
+      "byMeeting": "Attendance per meeting",
+      "byMember": "Member ranking",
+      "meeting": "Meeting",
+      "date": "Date",
+      "attendees": "Attendees",
+      "member": "Member",
+      "attendance": "Attendance",
+      "state": "State",
+      "exportExcel": "Export to Excel",
+      "exportPdf": "Download PDF",
+      "exportSuccess": "File generated",
+      "exportFailed": "Could not generate the file",
+      "loadError": "Could not load the statistics",
+      "noMeetings": "No meetings of this type have been held yet",
+      "noMeetingsHint": "Once attendance is recorded for a meeting it will show up here.",
+      "noMembers": "This community has no members on the roster",
+      "showDeclined": "Include members who declined",
+      "retreatsServed": "Retreats served",
+      "retreatsServedShort": "{count} retreats served",
+      "retreat": "Retreat",
+      "allRetreats": "All retreats",
+      "retreatNotSynced": "This retreat has no synced preparations",
+      "retreatNotSyncedHint": "Its preparations do not exist as community meetings yet, so there is no attendance to measure. Sync them from the retreat calendar.",
+      "goToPreparations": "Go to preparations"
+    },
+    "convoke": {
+      "action": "Call for servers",
+      "hint": "The roster is invited over WhatsApp, one at a time, from the sequence queue."
+    },
+    "duplicates": {
+      "action": "Duplicates",
+      "title": "Duplicate records",
+      "description": "The same person can exist twice: registered for a retreat and added separately to the roster. Merging moves everything from one onto the other.",
+      "warning": "These are suggestions, not certainties: the comparison ignores accents and two different people can share a phone. Review each pair before merging.",
+      "none": "No duplicate records found",
+      "matchedBy": {
+        "name": "Same name",
+        "phone": "Same phone",
+        "email": "Same email"
+      },
+      "references": "{count} associated records",
+      "hasUser": "has an account",
+      "inRoster": "on the roster",
+      "keepsThis": "This one is kept",
+      "preview": "See what would move",
+      "merge": "Merge",
+      "merged": "Records merged",
+      "willMove": "{count} records will move to the record being kept.",
+      "blocked": "Cannot merge yet:",
+      "groupOf": "Group of {count} records: merged two at a time"
     }
   },
   "dataDelete": {
@@ -2926,7 +3036,8 @@
       "walker": "Walkers",
       "server": "Servers",
       "table_leaders": "Table leaders/co-leaders",
-      "responsables": "Responsibles"
+      "responsables": "Responsibles",
+      "community_roster": "Community roster"
     },
     "channels": {
       "email": "Email",
@@ -3095,7 +3206,19 @@
     "notFound": "We could not find this retreat or its calendar is not public.",
     "description": "Description",
     "titleField": "Title",
-    "dateField": "Date"
+    "dateField": "Date",
+    "syncCommunity": "Sync with the community",
+    "syncCreated": "{count} meetings created",
+    "syncAdopted": "{count} existing meetings linked",
+    "syncNothing": "Everything was already in sync",
+    "syncMismatched": "{count} sessions have their meeting on a different date: check them, they were not moved automatically so the attendance already recorded stays true.",
+    "attendanceTooltip": "{attended} of {eligible} roster members",
+    "attendancePending": "Not held yet",
+    "createMeeting": "Create meeting",
+    "meetingCreated": "Meeting created in the community",
+    "meetingAdopted": "Linked the meeting that already existed that day",
+    "noCommunity": "No community linked",
+    "noCommunityHint": "Link the retreat to a community (Edit retreat → General) to take attendance on its preparations."
   },
   "retreatFlyerEditor": {
     "title": "Flyer editor",

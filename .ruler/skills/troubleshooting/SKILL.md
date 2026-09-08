@@ -38,6 +38,9 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "importé el Excel y faltan personas", "subí 140 y salen 108", "el retiro no está abierto para registro público", "cannot start a transaction within a transaction", "hay tres personas en una habitación de dos", "se perdieron las habitaciones que ya había asignado la parroquia" | [#25 La importación del Excel pierde gente en silencio](#25-la-importación-del-excel-pierde-gente-en-silencio) |
 | "Cannot call trigger on an empty DOMWrapper", "el test no encuentra el thead/la fila", "el selector existe en la app pero no en el test", "el `mount()` me da la tabla vacía" (Vitest) | [#26 La vista montada sigue en el skeleton: falta `flushPromises`](#26-la-vista-montada-sigue-en-el-skeleton-falta-flushpromises) |
 | "el test que lee un archivo del repo revienta con ERR_INVALID_URL_SCHEME" | [#27 `import.meta.url` no es una URL file: bajo `src/test/`](#27-importmetaurl-no-es-una-url-file-bajo-srctest) |
+| "el PDF no trae las imágenes", "en el Word sí se ven y en el PDF no", "salen solo algunas fotos", "falta el dibujo de la charla" | [#28 El PDF pierde las imágenes que van pegadas al texto](#28-el-pdf-pierde-las-imágenes-que-van-pegadas-al-texto) |
+| "salió un error y no hay nada en el log del servidor", "An unexpected error occurred", "se registró desde la computadora porque el celular no lo dejó", "le dio error pero sí quedó registrado" | [#29 El error que no dejó rastro: la petición nunca llegó](#29-el-error-que-no-dejó-rastro-la-petición-nunca-llegó) |
+| "en producción sale la clave de traducción en pantalla", "dice serverRegistration.algo.otro en vez del texto", "el test pasa pero el texto sale mal" | [#30 Una clave de i18n inexistente pasa verde en toda la suite](#30-una-clave-de-i18n-inexistente-pasa-verde-en-toda-la-suite) |
 
 ---
 
@@ -219,6 +222,31 @@ grep -rn 'v-model:checked' apps/web/src/          # afecta a Switch
   apagado con el filtro aplicado.
 
 ---
+
+
+### El mismo defecto en `Progress`: `:value` deja la barra en cero (2026-09-07)
+
+No es exclusivo de los controles de formulario: **cualquier** envoltorio de `@repo/ui` sobre
+reka-ui hereda `…RootProps`, y ahí la prop es `modelValue`. `Progress.vue` la declara con
+`withDefaults(..., { modelValue: 0 })`, así que `:value="80"` cae como atributo y la barra se
+pinta **al 0 %** — sin error, sin warning, sin test rojo.
+
+```vue
+<Progress :value="rate" />        <!-- ❌ barra vacía siempre -->
+<Progress :model-value="rate" />  <!-- ✅ -->
+```
+
+**Cómo se detecta**: mirando la pantalla. El mock global de `@repo/ui` acepta cualquier prop, así
+que la suite pasa igual (misma causa que arriba). El guard es
+`apps/web/src/test/repoUiProgressApi.test.ts`, que importa el `Progress` real y además lleva una
+**allowlist de la deuda conocida**: 14 ocurrencias con `:value` (7 en `RetreatDashboardView.vue`,
+7 en `TelemetryDashboardView.vue`) que ya estaban y siguen pintando barras vacías. Si vas a tocar
+esas vistas, arreglalas y bajá el número de la allowlist; un archivo nuevo con `:value` rompe el
+test a propósito.
+
+Regla general que sale de las dos: **antes de pasarle una prop a un componente de `@repo/ui`,
+comprobá su nombre en `packages/ui/src/components/ui/<nombre>/`.** La intuición de Vue/HTML
+(`checked`, `value`, `indeterminate`) es justo la que falla, y falla en silencio.
 
 ## 5. Set/Map en `ref` no son reactivos
 
@@ -1122,6 +1150,120 @@ Nada que ver con la prohibición de `__dirname` en `apps/api`, que es por el bun
 producción: en un test de Vitest no hay bundle.
 
 **Casos**: 2026-09-07 `src/test/bootPayload.test.ts`.
+
+---
+
+## 28. El PDF pierde las imágenes que van pegadas al texto
+
+**Síntoma**: el usuario compara el `.docx` original con el PDF que baja la app y faltan fotos.
+No falta ninguna en concreto: **algunas** salen y otras no, sin patrón aparente para quien mira.
+En las preparaciones llegaban 4 de 13. Ningún test en rojo, ningún error en consola.
+
+**Causa**: el markdown que salió de convertir un `.docx` deja la imagen pegada al párrafo, sin
+línea en blanco. marked entonces **no** emite un bloque `image`: la mete dentro del `paragraph`
+(o del `heading`, en `## ![](…)`). Un renderizador que sólo dibuje el párrafo cuyo único token es
+la imagen se salta todas las demás, y `flattenInline` las tira sin ruido porque el único texto de
+un token `image` es su `alt`, vacío en estos documentos.
+
+Las que sobreviven son justo las que quedaron con una línea en blanco a cada lado — de ahí que
+parezca aleatorio.
+
+**Fix**: partir el bloque en tramos por sus tokens `image` y dibujar cada tramo en orden;
+recortar los blancos del tramo que sigue a una imagen o el rótulo pierde su sangría.
+`drawParagraphBlock` / `drawHeadingBlock` en `apps/web/src/utils/markdownToPdf.ts`.
+
+**Auditar el repo**:
+
+```bash
+# ¿Alguna plantilla tiene una imagen pegada a texto (sin línea en blanco)?
+grep -n -A1 '^!\[' apps/api/src/data/preparation-docs/*.md | grep -v '^--$' | grep -B0 '\S'
+# ¿Cuántas imágenes llegan de verdad al PDF? (ojo: >= , nunca ==)
+grep -c '/Subtype */Image' salida.pdf
+```
+
+**Casos**: 2026-09-07, `apps/web/src/utils/markdownToPdf.ts` — 9 de 13 imágenes perdidas en los
+documentos de las preparaciones durante tres semanas.
+
+**Detalle**: skill `printable-documents` (por qué el conteo de `/Subtype /Image` engaña: jsPDF
+deduplica imágenes idénticas y añade una máscara por cada PNG con alfa) y
+`docs/features/retreat-preparations.md`.
+
+## 29. El error que no dejó rastro: la petición nunca llegó
+
+**Síntoma**: alguien reporta un error en una pantalla pública —típicamente con captura— y en el
+servidor **no hay nada**: ni 4xx, ni 5xx, ni una línea en el access log. El mensaje suele ser
+genérico ("An unexpected error occurred"). Casi siempre desde un móvil, y a menudo con la pantalla
+llevando mucho tiempo abierta.
+
+**Causa**: la petición no obtuvo respuesta. Safari de iOS mata la conexión de una pestaña que
+estuvo suspendida, así que el primer XHR después falla al instante sin salir del teléfono; la red
+del móvil que se cae hace lo mismo. En axios eso es un error **sin `response`**, y todo código que
+lee `error.response?.data?.message` cae a su fallback.
+
+Antes de teorizar, dos comprobaciones que descartan medio árbol:
+
+```bash
+ls /var/log/nginx/                 # el vhost escribe en emaus-access.log, NO en access.log
+sudo grep <la-ruta> /var/log/nginx/emaus-access.log | tail
+```
+
+Buscar en el `access.log` genérico devuelve vacío **siempre**, y eso se lee como "no llegó" sin
+haberlo comprobado. Si de verdad no aparece, quedan dos culpables fuera del API: el teléfono y
+Cloudflare (un 403/challenge no toca el origen y solo se ve en Security Events).
+
+**Fix** — en el cliente, `apps/web/src/services/apiError.ts`:
+
+```ts
+if (isNetworkError(error)) …                          // no hubo respuesta
+await retryOnceOnNetworkError(send, { onRetry })      // repetir UNA vez
+wasRetriedAfterNoResponse(error)                      // ¿viene del segundo intento?
+```
+
+El reintento solo en operaciones repetibles sin duplicar, y **un 409 del segundo intento no se
+anuncia como éxito**: suele significar que el primero entró, pero con un correo compartido la fila
+puede ser de otra persona.
+
+**Y que la próxima deje rastro**: `POST /api/telemetry/public/client-error` escribe una línea
+`[CLIENT ERROR]` en el log del API (público, exento de CSRF porque `sendBeacon` no pone
+cabeceras, sin escribir en la base). Se reportan solo los fallos de los que no queda constancia.
+
+```bash
+grep '\[CLIENT ERROR\]' ~/.pm2/logs/emaus-api-error.log | tail
+```
+
+**Casos**: 2026-09-08, confirmación de registro de servidor desde un iPhone (iOS 18.7) con la
+pantalla 70 minutos abierta; la persona se fue a registrarse desde una computadora.
+
+**Detalle**: `docs/features/retreat-form-validation-and-error-messages.md` §4; rutas de logs en el
+skill `infra-remota`.
+
+---
+
+## 30. Una clave de i18n inexistente pasa verde en toda la suite
+
+**Síntoma**: en producción se ve la ruta de la clave en pantalla
+(`serverRegistration.toasts.algo`) en lugar del texto. Ningún test falló.
+
+**Causa**: `apps/web/src/test/setup.ts` mockea `vue-i18n` con `t: (key) => key`. Un `t()` con una
+clave mal escrita, o que quedó apuntando a un bloque que se movió de sitio, devuelve la clave —que
+es exactamente lo que el test espera ver— y pasa. El mock no puede distinguir una clave buena de
+una inexistente: para él todas son iguales.
+
+**Fix**: un guard que lea el archivo fuente y resuelva cada clave contra los dos locales.
+`apps/web/src/views/__tests__/participantRegistrationI18nKeys.test.ts` es la plantilla:
+
+```ts
+const keys = [...source.matchAll(/\$?t\(\s*'([a-zA-Z0-9_.]+)'/g)].map((m) => m[1]);
+// cada clave tiene que resolver a string en es.json Y en en.json
+```
+
+Va con un caso que comprueba que se encontraron claves: si el regex deja de casar, la aserción
+sobre el conjunto vacío pasaría igual.
+
+**Auditar el repo**: mover un bloque de claves de sitio es el disparador típico —
+`grep -rn "t('<prefijo-viejo>" apps/web/src` después de cualquier reorganización de locales.
+
+**Casos**: 2026-09-08, al mover `emailLookup.errors` → `errors` en el registro público.
 
 ---
 

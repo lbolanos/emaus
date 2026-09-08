@@ -12,7 +12,11 @@ import {
 } from "../services/retreatService";
 import { isRetreatPast } from "../services/participantService";
 import { listShirtTypes } from "../services/shirtTypeService";
-import { AuthenticatedRequest } from "../middleware/authorization";
+import {
+  AuthenticatedRequest,
+  authorizationService,
+} from "../middleware/authorization";
+import { CommunityService } from "../services/communityService";
 import { AppDataSource } from "../data-source";
 import { Retreat } from "../entities/retreat.entity";
 import { Participant } from "../entities/participant.entity";
@@ -175,6 +179,49 @@ export const checkSlugAvailability = async (
   }
 };
 
+/**
+ * Un retiro PUEDE pertenecer a una comunidad (`retreat.communityId`), y ese
+ * vínculo es lo que autoriza a la pantalla de mesas a leer la asistencia a
+ * reuniones del equipo servidor. Por eso ponerlo no puede ser libre: quien lo
+ * hace tiene que administrar esa comunidad. Sin esta comprobación, cualquiera
+ * con `retreat:update` podría colgar su retiro de una comunidad ajena — la
+ * lectura seguiría protegida por `requireCommunityAccess`, pero el vínculo
+ * falso ensucia el modelo y sostiene una escalada futura.
+ *
+ * Desvincular (`null`) no requiere permisos de comunidad: soltar el vínculo no
+ * da acceso a nada.
+ */
+const assertCanLinkCommunity = async (
+  body: Record<string, unknown>,
+  userId: string | undefined,
+): Promise<void> => {
+  if (!("communityId" in body)) return;
+  const communityId = body.communityId;
+  if (communityId == null) return;
+  if (!userId) {
+    const error: any = new Error("Unauthorized");
+    error.statusCode = 401;
+    throw error;
+  }
+  const isSuperadmin = await authorizationService.hasRole(userId, "superadmin");
+  // Instanciado aquí y no a nivel de módulo: CommunityService resuelve sus
+  // repositorios en el constructor, y el harness de Jest reemplaza
+  // AppDataSource despues del import — capturarlos al importar deja el
+  // servicio hablando con la base equivocada.
+  const role = await new CommunityService().getViewerRoleForCommunity(
+    userId,
+    String(communityId),
+    isSuperadmin,
+  );
+  if (!role) {
+    const error: any = new Error(
+      "No administras esa comunidad, así que no puedes vincularle este retiro",
+    );
+    error.statusCode = 403;
+    throw error;
+  }
+};
+
 export const updateRetreat = async (
   req: Request,
   res: Response,
@@ -182,14 +229,15 @@ export const updateRetreat = async (
 ) => {
   try {
     const refreshBeds = req.query.refreshBeds === "true";
+    await assertCanLinkCommunity(req.body, (req as any).user?.id);
     const retreat = await update(req.params.id, req.body, refreshBeds);
     if (!retreat) {
       return res.status(404).json({ message: "Retreat not found" });
     }
     res.json(retreat);
   } catch (error: any) {
-    if (error.statusCode === 409) {
-      return res.status(409).json({ message: error.message });
+    if (error.statusCode === 409 || error.statusCode === 403 || error.statusCode === 401) {
+      return res.status(error.statusCode).json({ message: error.message });
     }
     next(error);
   }
@@ -244,6 +292,8 @@ export const createRetreat = async (
       return res.status(401).json({ message: "Unauthorized" });
     }
 
+    await assertCanLinkCommunity(req.body, userId);
+
     // Add creator to the retreat data
     const retreatData = {
       ...req.body,
@@ -263,8 +313,11 @@ export const createRetreat = async (
 
     res.status(201).json(newRetreat);
   } catch (error: any) {
-    if (error.statusCode === 409) {
-      return res.status(409).json({ message: error.message });
+    // 403/401 salen de `assertCanLinkCommunity`. El errorHandler global solo
+    // traduce el 413, así que sin esto un vínculo a comunidad ajena responde
+    // 500 en vez del 403 con su explicación (mismo catch que updateRetreat).
+    if (error.statusCode === 409 || error.statusCode === 403 || error.statusCode === 401) {
+      return res.status(error.statusCode).json({ message: error.message });
     }
     next(error);
   }

@@ -56,6 +56,12 @@ export const PRINT_STYLESHEET = `
     font-variant: small-caps; letter-spacing: 0.3pt;
     margin: 0; border: none; padding: 0;
   }
+  /* Logo del encabezado (la carta al párroco lo lleva, como el .docx original).
+     Necesita su propio tope: la regla global de img permite 105mm y el logo se
+     comería un tercio del folio. */
+  header.doc-head img {
+    max-height: 24mm; width: auto; margin: 0 auto 6pt; display: block;
+  }
 
   h1, h2, h3, h4 {
     font-family: Cambria, 'Palatino Linotype', Georgia, serif;
@@ -72,6 +78,30 @@ export const PRINT_STYLESHEET = `
   h4 { font-size: 11pt; color: ${SLATE}; margin: 12pt 0 4pt; }
 
   p { margin: 0 0 8pt; text-align: justify; hyphens: auto; }
+
+  /* Interlineado holgado, opt-in con relaxedLeading. Las preparaciones NO lo
+     usan: su 1.42 reproduce el .docx original y subirlo les añadiría páginas.
+     Una carta de una hoja sí gana en legibilidad. */
+  /* Bloque de firma: el hueco para firmar es el margen inferior del rótulo de
+     arriba, y la raya es el borde superior de la línea del nombre — así la
+     firma cae SOBRE la raya, como en el papel. */
+  footer.signature {
+    margin-top: 5mm;
+    page-break-inside: avoid; break-inside: avoid;
+  }
+  footer.signature p { margin: 0; text-align: left; }
+  footer.signature .sig-intro { margin-bottom: 12mm; }
+  footer.signature .sig-line {
+    border-top: 0.75pt solid ${INK};
+    width: 62%; padding-top: 4pt;
+    font-weight: 600; color: ${NAVY};
+  }
+  footer.signature .sig-date { margin-top: 9pt; font-size: 10pt; color: ${SLATE}; }
+
+  body.relaxed { line-height: 1.55; }
+  body.relaxed p { margin: 0 0 9pt; }
+  body.relaxed h2 { margin: 16pt 0 7pt; }
+  body.relaxed h3 { margin: 14pt 0 6pt; }
   strong { color: ${BLUE}; }
 
   /* Párrafos rotulados ("Tema:", "Objetivo:", "Dónde estamos:"): sangría
@@ -170,6 +200,25 @@ export interface PrintableDocumentData {
 	 * Admite varias líneas con `\n`.
 	 */
 	meta?: string;
+	/**
+	 * Logo opcional sobre el título, con ruta raíz-relativa (`/man_logo.png`).
+	 * Lo resuelve el `<base href>` que inyecta `buildPrintableHtml`, y el script
+	 * de auto-impresión ya espera a que las imágenes carguen.
+	 */
+	logoUrl?: string;
+	/**
+	 * Bloque de firma al pie, con hueco real para firmar. Va aquí y no en el
+	 * cuerpo porque es un formulario, no prosa: no debe poder editarse ni
+	 * borrarse junto con el texto.
+	 */
+	signature?: {
+		/** Línea sobre el hueco de la firma. */
+		intro: string;
+		/** Rótulo bajo la raya ("Nombre y firma del Sr. Párroco"). */
+		label: string;
+		/** Añade una línea de fecha en blanco bajo el rótulo. */
+		dateLine?: boolean;
+	};
 	/** Cuerpo YA renderizado a HTML y sanitizado por el caller. */
 	bodyHtml: string;
 }
@@ -190,6 +239,12 @@ export interface PrintableHtmlOptions {
 	 * en el margen de cada página con el headerTemplate de Chrome.
 	 */
 	omitRunningHead?: boolean;
+	/**
+	 * Interlineado holgado para documentos cortos que se leen en papel (la carta
+	 * al párroco). Los documentos de preparación lo dejan apagado: su
+	 * interlineado sale de los `.docx` originales.
+	 */
+	relaxedLeading?: boolean;
 }
 
 export function escapeHtmlText(value: string): string {
@@ -264,14 +319,29 @@ export function buildPrintableHtml(
     window.addEventListener('afterprint', function () { window.close(); });`
 		: '';
 
+	const logo = data.logoUrl
+		? `<img src="${escapeHtmlText(data.logoUrl)}" alt="" />`
+		: '';
+
+	const signature = data.signature
+		? `<footer class="signature"><p class="sig-intro">${escapeHtmlText(
+				data.signature.intro,
+			)}</p><p class="sig-line">${escapeHtmlText(data.signature.label)}</p>${
+				data.signature.dateLine
+					? '<p class="sig-date">Fecha: ______ / ______ / __________</p>'
+					: ''
+			}</footer>`
+		: '';
+
 	return `<!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8" />
 ${base}
 <title>${title}</title>
-<style>${PRINT_STYLESHEET}</style></head><body>
+<style>${PRINT_STYLESHEET}</style></head><body${options.relaxedLeading ? ' class="relaxed"' : ''}>
 ${runningHead}
-<header class="doc-head"><h1>${title}</h1></header>
+<header class="doc-head">${logo}<h1>${title}</h1></header>
 ${data.bodyHtml}
+${signature}
 <script>
   (function () {
 ${rename}${LABELED_SCRIPT}${autoPrint}
