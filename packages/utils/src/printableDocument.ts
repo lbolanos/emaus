@@ -56,6 +56,12 @@ export const PRINT_STYLESHEET = `
     font-variant: small-caps; letter-spacing: 0.3pt;
     margin: 0; border: none; padding: 0;
   }
+  /* Logo del encabezado (la carta al párroco lo lleva, como el .docx original).
+     Necesita su propio tope: la regla global de img permite 105mm y el logo se
+     comería un tercio del folio. */
+  header.doc-head img {
+    max-height: 24mm; width: auto; margin: 0 auto 6pt; display: block;
+  }
 
   h1, h2, h3, h4 {
     font-family: Cambria, 'Palatino Linotype', Georgia, serif;
@@ -170,6 +176,12 @@ export interface PrintableDocumentData {
 	 * Admite varias líneas con `\n`.
 	 */
 	meta?: string;
+	/**
+	 * Logo opcional sobre el título, con ruta raíz-relativa (`/man_logo.png`).
+	 * Lo resuelve el `<base href>` que inyecta `buildPrintableHtml`, y el script
+	 * de auto-impresión ya espera a que las imágenes carguen.
+	 */
+	logoUrl?: string;
 	/** Cuerpo YA renderizado a HTML y sanitizado por el caller. */
 	bodyHtml: string;
 }
@@ -264,13 +276,17 @@ export function buildPrintableHtml(
     window.addEventListener('afterprint', function () { window.close(); });`
 		: '';
 
+	const logo = data.logoUrl
+		? `<img src="${escapeHtmlText(data.logoUrl)}" alt="" />`
+		: '';
+
 	return `<!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8" />
 ${base}
 <title>${title}</title>
 <style>${PRINT_STYLESHEET}</style></head><body>
 ${runningHead}
-<header class="doc-head"><h1>${title}</h1></header>
+<header class="doc-head">${logo}<h1>${title}</h1></header>
 ${data.bodyHtml}
 <script>
   (function () {

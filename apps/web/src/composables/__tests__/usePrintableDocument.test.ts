@@ -134,4 +134,23 @@ describe('printMarkdownDocument', () => {
     expect(printMarkdownDocument({ title: 'Doc', markdown: 'x' })).toBe(true);
     expect(fakeWin.document.close).toHaveBeenCalledOnce();
   });
+
+  it('pinta el logo dentro del encabezado del documento cuando se le pasa uno', () => {
+    printMarkdownDocument({ title: 'Carta', markdown: 'x', logoUrl: '/man_logo.png' });
+    expect(html()).toContain('<header class="doc-head"><img src="/man_logo.png" alt="" />');
+    // Tope propio: la regla global de img permite 105mm y se comeria el folio.
+    expect(PRINT_STYLESHEET).toContain('header.doc-head img');
+  });
+
+  it('no cambia la salida de quien no pasa logo (preparaciones y guiones)', () => {
+    printMarkdownDocument({ title: 'Guion', markdown: 'x' });
+    expect(html()).toContain('<header class="doc-head"><h1>Guion</h1></header>');
+    expect(html()).not.toContain('<img');
+  });
+
+  it('escapa la ruta del logo', () => {
+    printMarkdownDocument({ title: 'Carta', markdown: 'x', logoUrl: '/a"onerror="alert(1)' });
+    expect(html()).not.toContain('onerror="alert(1)"');
+    expect(html()).toContain('&quot;onerror=&quot;');
+  });
 });
