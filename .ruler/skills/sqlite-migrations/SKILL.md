@@ -43,6 +43,25 @@ Incidente real (2026-05-07):
 `community_meeting` sin error visible. Recuperación solo fue posible
 porque existía `database.sqlite.backup-pre-community-public`.
 
+### Quién decide la transacción (corregido el 2026-09-08)
+
+Durante meses esta propiedad fue **decorativa**. El runner propio miraba sólo el flag del
+llamador, así que:
+
+| Camino | flag | Resultado antes del arreglo |
+|---|---|---|
+| `pnpm migration:run` (CLI) | `--transaction` es opt-in → **off** | seguro por accidente |
+| Arranque del API (`MIGRATIONS_AUTO_RUN=true`) | **`true` hardcodeado** | **toda** recreate-table iba envuelta |
+
+El segundo es el camino **normal en dev** (nodemon reinicia con cada archivo guardado) y el de
+respaldo en prod (watchdog, `pm2 restart`, o un deploy cuyo `migration:run` falló). Es coherente
+con que el incidente del 2026-05-07 ocurriera pese a existir la convención.
+
+Ahora `shouldUseTransaction(migrationClass, callerWants)` decide: el llamador manda, pero un
+`transaction = false` de la migración lo anula. Si volvés a tocar `base-migration-manager.ts`,
+`migrationRunnerTransactionFlag.test.ts` te para — incluye la demostración ejecutable de que
+dentro de una transacción el PRAGMA se ignora y las filas hijas desaparecen.
+
 ## Árbol de decisión
 
 ```
@@ -89,13 +108,13 @@ export class FooBar20260507120000 implements MigrationInterface {
 	name = 'FooBar20260507120000';
 	timestamp = '20260507120000';
 
-	// OJO: el proyecto NO usa el runner de TypeORM, usa uno propio, y ese runner IGNORA esta
-	// propiedad — la transacción la decide el flag CLI `--transaction` (default OFF). Así que
-	// esto es inerte en runtime; se declara porque el guard
-	// `sqliteSafePattern.simple.test.ts` lo exige cuando hay DROP TABLE (incluido en down()).
-	// Lo que de verdad te protege es que `migration:run` corra SIN transacción envolvente: si
-	// hubiera una, SQLite ignoraría el PRAGMA foreign_keys=OFF de abajo y el DROP TABLE
-	// cascadearía a las hijas, borrando data silenciosamente.
+	// El proyecto NO usa el runner de TypeORM, usa uno propio — y desde 2026-09-08 ese runner
+	// SÍ respeta esta propiedad: `shouldUseTransaction()` en `database/transaction-policy.ts`
+	// la consulta antes de abrir la transacción, gane quien gane el flag del llamador.
+	// Declararla es lo que impide que el DROP TABLE de abajo corra envuelto, que es donde
+	// SQLite ignora el `PRAGMA foreign_keys = OFF` y cascadea a las hijas.
+	// El guard `sqliteSafePattern.simple.test.ts` la exige cuando hay DROP TABLE (down()
+	// incluido); `migrationRunnerTransactionFlag.test.ts` comprueba que el runner la obedece.
 	transaction = false as const;
 
 	public async up(queryRunner: QueryRunner): Promise<void> {
