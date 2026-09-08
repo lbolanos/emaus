@@ -220,6 +220,31 @@ grep -rn 'v-model:checked' apps/web/src/          # afecta a Switch
 
 ---
 
+
+### El mismo defecto en `Progress`: `:value` deja la barra en cero (2026-09-07)
+
+No es exclusivo de los controles de formulario: **cualquier** envoltorio de `@repo/ui` sobre
+reka-ui hereda `…RootProps`, y ahí la prop es `modelValue`. `Progress.vue` la declara con
+`withDefaults(..., { modelValue: 0 })`, así que `:value="80"` cae como atributo y la barra se
+pinta **al 0 %** — sin error, sin warning, sin test rojo.
+
+```vue
+<Progress :value="rate" />        <!-- ❌ barra vacía siempre -->
+<Progress :model-value="rate" />  <!-- ✅ -->
+```
+
+**Cómo se detecta**: mirando la pantalla. El mock global de `@repo/ui` acepta cualquier prop, así
+que la suite pasa igual (misma causa que arriba). El guard es
+`apps/web/src/test/repoUiProgressApi.test.ts`, que importa el `Progress` real y además lleva una
+**allowlist de la deuda conocida**: 14 ocurrencias con `:value` (7 en `RetreatDashboardView.vue`,
+7 en `TelemetryDashboardView.vue`) que ya estaban y siguen pintando barras vacías. Si vas a tocar
+esas vistas, arreglalas y bajá el número de la allowlist; un archivo nuevo con `:value` rompe el
+test a propósito.
+
+Regla general que sale de las dos: **antes de pasarle una prop a un componente de `@repo/ui`,
+comprobá su nombre en `packages/ui/src/components/ui/<nombre>/`.** La intuición de Vue/HTML
+(`checked`, `value`, `indeterminate`) es justo la que falla, y falla en silencio.
+
 ## 5. Set/Map en `ref` no son reactivos
 
 **Síntoma**: agregás/quitás elementos a un `Set` o `Map` envuelto en `ref()`, pero los `computed` o templates que dependen de `.has()` / `.get()` no se actualizan.
