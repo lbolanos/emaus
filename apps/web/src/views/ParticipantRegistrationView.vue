@@ -9,6 +9,13 @@ import { useParticipantStore } from '@/stores/participantStore'
 import { getApiUrl } from '@/config/runtimeConfig'
 import { getRecaptchaToken, RECAPTCHA_ACTIONS } from '@/services/recaptcha'
 import { checkParticipantExists, confirmExistingRegistration } from '@/services/api'
+import {
+  isNetworkError,
+  retryOnceOnNetworkError,
+  serverErrorMessage,
+  wasRetriedAfterNoResponse,
+} from '@/services/apiError'
+import { reportClientError } from '@/services/clientErrorReport'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui'
 import { Button } from '@repo/ui'
@@ -379,7 +386,7 @@ const validateStep = (step: number) => {
     })
     console.error(`Validation errors in step ${step}:`, result.error.errors)
     toast({
-      title: `Please correct the errors in step ${step}`,
+      title: t('serverRegistration.toasts.fixStepTitle', { step }),
       description: errors.join('\n'),
       variant: 'destructive',
     })
@@ -495,7 +502,7 @@ const handleEmailLookup = async () => {
   if (!emailLookup.value || !emailLookup.value.includes('@')) {
     toast({
       title: 'Error',
-      description: 'Por favor ingresa un correo electrónico válido.',
+      description: t('serverRegistration.toasts.invalidEmail'),
       variant: 'destructive',
     })
     return
@@ -552,10 +559,24 @@ const skipEmailLookup = () => {
   showEmailLookup.value = false
 }
 
+/**
+ * Qué decirle a la persona sobre un fallo al guardar su registro. Lo usan los
+ * dos caminos que escriben: confirmar identidad y enviar el formulario.
+ */
+const describeRegistrationError = (error: any): string => {
+  if (isNetworkError(error)) return t('serverRegistration.errors.connectionLost')
+  const fromServer = serverErrorMessage(error)
+  if (fromServer) return fromServer
+  // Respondió algo que no es del API: página de nginx, challenge de Cloudflare.
+  const status = error?.response?.status
+  return status
+    ? t('serverRegistration.errors.serverError', { status })
+    : t('serverRegistration.errors.unknown')
+}
+
 const handleConfirmIdentity = async () => {
   isConfirming.value = true
   try {
-    const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.PARTICIPANT_REGISTER)
     const effectiveType =
       props.type === 'server' && (formData.value as any).isAngelito
         ? 'partial_server'
@@ -595,15 +616,26 @@ const handleConfirmIdentity = async () => {
     const meals = (formData.value as any).isAngelito
       ? { mealCount: (formData.value as any).mealCount ?? null }
       : { takesFridayMeal: (formData.value as any).takesFridayMeal ?? false }
-    await confirmExistingRegistration(
-      emailLookup.value,
-      validRetreatId.value,
-      effectiveType,
-      recaptchaToken,
-      shirtSizes,
-      availability,
-      meals,
-    )
+    // Cada intento pide su propio token: el de reCAPTCHA v3 es de un solo uso
+    // y vive dos minutos.
+    const sendConfirmation = async () => {
+      const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.PARTICIPANT_REGISTER)
+      await confirmExistingRegistration(
+        emailLookup.value,
+        validRetreatId.value,
+        effectiveType,
+        recaptchaToken,
+        shirtSizes,
+        availability,
+        meals,
+      )
+    }
+
+    // Repetir la confirmación no duplica nada: el servidor la rechaza con 409
+    // si ya está hecha (assertNotDoubleRegisteredInRetreat).
+    await retryOnceOnNetworkError(sendConfirmation, {
+      onRetry: (err) => console.warn('Confirm registration: sin respuesta, reintentando una vez', err),
+    })
     // Show success screen briefly before closing
     showSuccessScreen.value = true
     clearDraft()
@@ -614,10 +646,24 @@ const handleConfirmIdentity = async () => {
     }, 2500)
   } catch (error: any) {
     console.error('Confirm registration error:', error)
+    // Este fallo no deja rastro en el servidor cuando la petición no llega:
+    // sin este reporte solo queda la captura de pantalla de la persona.
+    const retried = wasRetriedAfterNoResponse(error)
+    reportClientError({
+      context: 'confirm-registration',
+      message: String(error?.message ?? 'unknown'),
+      status: error?.response?.status,
+      retried,
+    })
+    // Un 409 después de nuestro propio reintento significa que el primer
+    // intento sí había entrado: no es un fallo, ya quedó registrada.
+    const alreadyRegistered = retried && error?.response?.status === 409
     toast({
-      title: 'Error',
-      description: error.response?.data?.message || 'An unexpected error occurred.',
-      variant: 'destructive',
+      title: alreadyRegistered
+        ? t('serverRegistration.errors.alreadyRegisteredTitle')
+        : 'Error',
+      description: describeRegistrationError(error),
+      variant: alreadyRegistered ? undefined : 'destructive',
     })
   } finally {
     isConfirming.value = false
@@ -652,6 +698,17 @@ watch(() => props.retreatId, (newRetreatId) => {
   formData.value.retreatId = newRetreatId
 }, { immediate: true })
 
+/** Cierre del registro. Se llega aquí tanto por el alta como por el 409 que
+ * confirma que el alta ya había entrado en un intento perdido. */
+const finishSuccessfulRegistration = () => {
+  toast({ title: t('serverRegistration.toasts.successTitle') })
+  clearDraft()
+  completedSteps.value.clear()
+  isDialogOpen.value = false
+  currentStep.value = 1
+  formData.value = getInitialFormData()
+}
+
 const onSubmit = async () => {
   // Clear previous errors
   for (const key in formErrors) {
@@ -664,8 +721,8 @@ const onSubmit = async () => {
       currentStep.value = step
       scrollToFirstError()
       toast({
-        title: 'Validation Error',
-        description: `Please correct the errors in step ${step}.`,
+        title: t('serverRegistration.toasts.validationTitle'),
+        description: t('serverRegistration.toasts.fixStepDescription', { step }),
         variant: 'destructive',
       })
       return
@@ -688,7 +745,7 @@ const onSubmit = async () => {
       formErrors.availability = t('serverRegistration.fields.angelitoAvailability.required')
       currentStep.value = 5
       toast({
-        title: 'Validation Error',
+        title: t('serverRegistration.toasts.validationTitle'),
         description: t('serverRegistration.fields.angelitoAvailability.required'),
         variant: 'destructive',
       })
@@ -701,7 +758,7 @@ const onSubmit = async () => {
         formErrors.availability = t('serverRegistration.fields.angelitoAvailability.invalidRange')
         currentStep.value = 5
         toast({
-          title: 'Validation Error',
+          title: t('serverRegistration.toasts.validationTitle'),
           description: t('serverRegistration.fields.angelitoAvailability.invalidRange'),
           variant: 'destructive',
         })
@@ -730,8 +787,8 @@ const onSubmit = async () => {
     })
     console.error('Validation Error:', zodResult.error.errors)
     toast({
-      title: 'Validation Error',
-      description: 'Please review all steps and correct any errors.',
+      title: t('serverRegistration.toasts.validationTitle'),
+      description: t('serverRegistration.toasts.reviewAllSteps'),
       variant: 'destructive',
     })
     return
@@ -779,27 +836,45 @@ const onSubmit = async () => {
       return
     }
 
-    await participantStore.createParticipant(result.data, recaptchaToken)
-    toast({ title: 'Registration Successful' })
-    clearDraft()
-    completedSteps.value.clear()
-    isDialogOpen.value = false
-    currentStep.value = 1
-    formData.value = getInitialFormData()
+    // Repetir el alta no duplica a nadie: `createParticipant` reusa la ficha
+    // por correo y rechaza con 409 si ya hay registro en este retiro.
+    await retryOnceOnNetworkError(
+      () => participantStore.createParticipant(result.data, recaptchaToken),
+      { onRetry: (err) => console.warn('Registro: sin respuesta, reintentando una vez', err) },
+    )
+    finishSuccessfulRegistration()
   } catch (error: any) {
     console.error('Submission error:', error)
-    if (error.response && error.response.status === 409) {
+    const retried = wasRetriedAfterNoResponse(error)
+    const alreadyRegistered = error?.response?.status === 409
+
+    // Un 409 después de nuestro propio reintento significa que el primer
+    // intento sí entró: la persona quedó registrada, no falló nada.
+    if (retried && alreadyRegistered) {
+      finishSuccessfulRegistration()
+      return
+    }
+
+    // Sin esto, un fallo que no llega al servidor no deja rastro en ninguna
+    // parte y solo se puede diagnosticar por una captura de pantalla.
+    reportClientError({
+      context: 'participant-registration',
+      message: String(error?.message ?? 'unknown'),
+      status: error?.response?.status,
+      retried,
+    })
+
+    if (alreadyRegistered) {
       toast({
-        title: 'Registration Failed',
+        title: t('serverRegistration.toasts.registrationFailedTitle'),
         description:
-          error.response?.data?.message ||
-          t('serverRegistration.emailLookup.alreadyRegistered'),
+          serverErrorMessage(error) || t('serverRegistration.emailLookup.alreadyRegistered'),
         variant: 'destructive',
       })
     } else {
       toast({
-        title: 'Submission Failed',
-        description: 'An unexpected error occurred during registration.',
+        title: t('serverRegistration.toasts.submissionFailedTitle'),
+        description: describeRegistrationError(error),
         variant: 'destructive',
       })
     }
@@ -913,8 +988,8 @@ onMounted(async () => {
     formData.value.retreatId = validRetreatId.value
   } catch (error) {
     toast({
-      title: 'Error',
-      description: 'Invalid retreat ID or retreat not available for registration. Please check your registration link.',
+      title: t('common.error'),
+      description: t('serverRegistration.toasts.invalidLink'),
       variant: 'destructive',
     })
   } finally {

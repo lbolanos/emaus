@@ -75,6 +75,9 @@ applyCsrfProtectionExcept(router, [
 	'/santisimo/public',
 	'/schedule/public',
 	'/retreat-preparations/public',
+	// El reporte de error del cliente viaja por sendBeacon, que no permite
+	// poner cabeceras (y por tanto no puede llevar el token CSRF).
+	'/telemetry/public',
 ]);
 
 // Resto de las rutas (con protección CSRF)
