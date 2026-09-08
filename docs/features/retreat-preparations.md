@@ -230,6 +230,33 @@ que sí es determinista. Ver `troubleshooting` #21.
 **Cuando el usuario cuestiona una decisión técnica, medir en vez de argumentar.** "Instalar Chrome
 consume mucha memoria que no tiene" era correcto, y el número lo confirmó en un minuto.
 
+## Sincronización con la comunidad (de dónde sale la asistencia)
+
+El calendario de preparaciones **no lleva asistencia propia**: la lista se pasa en la reunión de
+comunidad correspondiente, y `retreat_preparation.communityMeetingId` es el vínculo entre las dos.
+Se materializa desde esta pantalla, y sólo si el retiro tiene `communityId`:
+
+- **Botón por semana** en la sesión que aún no tiene reunión: crea la reunión de tipo `preparation`
+  en la comunidad, o **adopta** la que ya exista ese mismo día civil en vez de duplicarla.
+- **Sincronizar todas** (`POST /retreat-preparations/retreats/:retreatId/sync-community-meetings`):
+  idempotente — una segunda corrida devuelve `created: 0, adopted: 0`.
+- Cada sesión ya vinculada muestra `asistentes/elegibles` en el calendario. Las preparaciones cuya
+  fecha aún no llegó salen marcadas como `pending`, no como `0 %` — "sin dato" no es "no vino".
+
+Dos invariantes que se rompieron durante el desarrollo y ahora están cubiertas por tests:
+
+- La sincronización **nunca reescribe** el título ni la fecha de una reunión ya existente; si no
+  coinciden con la preparación, las reporta en `mismatched` y las deja como están. La primera
+  versión las renombraba y pisó títulos puestos por el coordinador.
+- Adoptar mira el **día civil**, no el instante, y sí adopta instancias de una serie recurrente
+  (llevan `isRecurrenceTemplate`); saltárselas duplicó cinco reuniones reales.
+
+Escribir en la comunidad exige ser **admin activo de esa comunidad** además de tener acceso al
+retiro — el permiso `retreatPreparation:manage` por sí solo no alcanza.
+
+> El reporte que consume esos datos (ranking de servidores por % de asistencia, filtro por tipo de
+> reunión y por retiro) está en **`docs/features/community-attendance-stats-by-meeting-type.md`**.
+
 ## Archivos clave
 
 | Capa | Archivo |

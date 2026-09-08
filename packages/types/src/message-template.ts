@@ -30,6 +30,10 @@ export const messageTemplateTypes = z.enum([
 	'TABLE_LEADER_BRIEFING',
 	// Confirmación de asistencia que el líder envía a cada caminante (con datos del retiro)
 	'WALKER_CONFIRMATION',
+	// Convocatoria a servir: va al padrón de la comunidad vinculada al retiro, es
+	// decir a gente que todavía NO está inscrita. Se despacha por la bandeja de
+	// WhatsApp, uno por uno, desde el teléfono del coordinador.
+	'SERVER_CONVOCATION',
 	// Family invitation to closing mass
 	'FAMILY_CLOSING_INVITATION_WHATSAPP',
 	'FAMILY_CLOSING_INVITATION_EMAIL',
@@ -92,6 +96,7 @@ const MESSAGE_TEMPLATE_AUDIENCE_BY_TYPE: Record<string, MessageTemplateAudience>
 	EMERGENCY_CONTACT_VALIDATION: 'participant',
 	// Servidor
 	SERVER_WELCOME: 'server',
+	SERVER_CONVOCATION: 'server',
 	// Líder/colíder de mesa
 	TABLE_LEADER_BRIEFING: 'table_leader',
 	// Responsable (palanquero recibe el aviso de nuevo caminante)

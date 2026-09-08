@@ -5,6 +5,14 @@ import {
 	PreparationNotFoundError,
 } from '../services/retreatPreparationService';
 import { authorizationService } from '../middleware/authorization';
+import { AppDataSource } from '../data-source';
+import { Retreat } from '../entities/retreat.entity';
+import { CommunityService } from '../services/communityService';
+import {
+	PreparationSyncError,
+	syncPreparationsToCommunityMeetings,
+	syncSinglePreparationToCommunity,
+} from '../services/preparationCommunitySync';
 
 function mapError(res: Response, err: unknown) {
 	if (err instanceof PreparationValidationError) {
@@ -61,6 +69,99 @@ export const resyncPreparationDefaultDocs = async (req: Request, res: Response) 
 		});
 		res.json(result);
 	} catch (err) {
+		mapError(res, err);
+	}
+};
+
+/**
+ * Materializa el calendario de preparaciones como reuniones de la comunidad
+ * vinculada, para poder pasar lista.
+ *
+ * SECURITY: `requireRetreatAccess` ya cubrió el retiro, pero esto ESCRIBE en la
+ * comunidad, así que además exige administrarla. Sin esa segunda comprobación,
+ * quien coordina un retiro podría inyectar reuniones en el calendario de una
+ * comunidad ajena — el recurso a validar es el más específico de la operación,
+ * no el de la ruta.
+ */
+export const syncPreparationsToCommunity = async (req: Request, res: Response) => {
+	try {
+		const { retreatId } = req.params;
+		const userId = (req.user as any)?.id;
+		if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+		const retreat = await AppDataSource.getRepository(Retreat).findOne({
+			where: { id: retreatId },
+			select: ['id', 'communityId'],
+		});
+		if (!retreat) return res.status(404).json({ message: 'Retiro no encontrado' });
+		if (!retreat.communityId) {
+			return res.status(400).json({
+				message: 'Vincula el retiro a una comunidad antes de sincronizar las preparaciones',
+			});
+		}
+		const isSuperadmin = await authorizationService.hasRole(userId, 'superadmin');
+		const role = await new CommunityService().getViewerRoleForCommunity(
+			userId,
+			retreat.communityId,
+			isSuperadmin,
+		);
+		if (!role) {
+			return res
+				.status(403)
+				.json({ message: 'No administras la comunidad vinculada a este retiro' });
+		}
+
+		const result = await syncPreparationsToCommunityMeetings(retreatId);
+		res.json(result);
+	} catch (err) {
+		if (err instanceof PreparationSyncError) {
+			return res.status(400).json({ message: err.message });
+		}
+		mapError(res, err);
+	}
+};
+
+/**
+ * Crea (o engancha) la reunión de UNA preparación.
+ *
+ * SECURITY: `loadPreparationWithAccess` cubre el retiro dueño; como esto ESCRIBE
+ * en la comunidad, además exige administrarla — mismo criterio que la
+ * sincronización completa.
+ */
+export const syncOnePreparationToCommunity = async (req: Request, res: Response) => {
+	const prep = await loadPreparationWithAccess(req, res);
+	if (!prep) return;
+	try {
+		const userId = (req.user as any)?.id;
+		if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+		const retreat = await AppDataSource.getRepository(Retreat).findOne({
+			where: { id: prep.retreatId },
+			select: ['id', 'communityId'],
+		});
+		if (!retreat?.communityId) {
+			return res.status(400).json({
+				message: 'Vincula el retiro a una comunidad antes de crear la reunión',
+			});
+		}
+		const isSuperadmin = await authorizationService.hasRole(userId, 'superadmin');
+		const role = await new CommunityService().getViewerRoleForCommunity(
+			userId,
+			retreat.communityId,
+			isSuperadmin,
+		);
+		if (!role) {
+			return res
+				.status(403)
+				.json({ message: 'No administras la comunidad vinculada a este retiro' });
+		}
+
+		const result = await syncSinglePreparationToCommunity(req.params.id);
+		res.json(result);
+	} catch (err) {
+		if (err instanceof PreparationSyncError) {
+			return res.status(400).json({ message: err.message });
+		}
 		mapError(res, err);
 	}
 };

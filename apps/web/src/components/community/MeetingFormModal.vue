@@ -62,6 +62,24 @@
               <p v-if="errors.title" class="text-sm text-red-500">{{ errors.title }}</p>
             </div>
 
+            <!-- Tipo de reunión (los anuncios no pasan lista, así que no lo tienen) -->
+            <div v-if="!form.isAnnouncement" class="space-y-2">
+              <Label for="meetingType">{{ $t('community.meeting.meetingType') }}</Label>
+              <Select v-model="form.meetingType">
+                <SelectTrigger id="meetingType">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="type in MEETING_TYPES" :key="type" :value="type">
+                    {{ $t(`community.meetingTypes.${type}`) }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p class="text-xs text-muted-foreground">
+                {{ $t('community.meeting.meetingTypeHint') }}
+              </p>
+            </div>
+
             <!-- Description -->
             <div class="space-y-2">
               <Label for="description">Descripción</Label>
@@ -289,11 +307,13 @@ import { Info, Loader2, Trash2, X, ImagePlus, Maximize2 } from 'lucide-vue-next'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
   Button, Label, Input, Textarea, Switch, Badge, Tabs, TabsList, TabsTrigger, TabsContent,
-  RadioGroup, RadioGroupItem
+  RadioGroup, RadioGroupItem,
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem
 } from '@repo/ui';
 import { useToast } from '@repo/ui';
 import { pickFile } from '@/utils/filePicker';
-import type { RecurrenceFrequency } from '@repo/types';
+import type { MeetingType, RecurrenceFrequency } from '@repo/types';
+import { MEETING_TYPES } from '@/constants/meetingTypes';
 import MeetingDateTimeForm from './forms/MeetingDateTimeForm.vue';
 import MeetingRecurrenceForm from './forms/MeetingRecurrenceForm.vue';
 import {
@@ -342,6 +362,7 @@ const form = ref({
   time: '',
   durationMinutes: 60,
   isAnnouncement: false,
+  meetingType: 'general' as MeetingType,
   isRecurring: false,
   recurrence: {
     frequency: 'weekly' as RecurrenceFrequency,
@@ -598,7 +619,10 @@ const handleSubmit = async () => {
       flyerTemplate: form.value.flyerTemplate.trim() || undefined,
       startDate,
       durationMinutes: form.value.isAnnouncement ? undefined : form.value.durationMinutes,
-      isAnnouncement: form.value.isAnnouncement
+      isAnnouncement: form.value.isAnnouncement,
+      // Un anuncio no pasa lista, así que su tipo no significaría nada en el
+      // reporte de asistencia: se manda siempre 'general'.
+      meetingType: form.value.isAnnouncement ? 'general' : form.value.meetingType,
     };
 
     // Add recurrence data only if meeting is recurring and not an announcement
@@ -691,6 +715,7 @@ const resetForm = () => {
     time: '',
     durationMinutes: 60,
     isAnnouncement: false,
+    meetingType: 'general',
     isRecurring: false,
     recurrence: {
       frequency: 'weekly',
@@ -732,6 +757,7 @@ watch(() => props.meetingToEdit, (meeting) => {
       time: `${pad(startDate.getHours())}:${pad(startDate.getMinutes())}`,
       durationMinutes: meeting.durationMinutes || 60,
       isAnnouncement: meeting.isAnnouncement === true,
+      meetingType: (meeting.meetingType || 'general') as MeetingType,
       isRecurring: isRecurring,
       recurrence: {
         frequency: meeting.recurrenceFrequency || 'weekly',

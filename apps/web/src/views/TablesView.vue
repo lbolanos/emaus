@@ -128,6 +128,22 @@
               {{ $t('tables.deleteEmpty') }}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            <!-- Sin comunidad vinculada la opción se deshabilita en vez de
+                 desaparecer: así el coordinador ve que existe y el `title`
+                 explica qué falta. -->
+            <DropdownMenuItem
+              :disabled="!attendanceIsLinked"
+              :title="attendanceIsLinked ? undefined : $t('tables.attendance.notLinked')"
+              @select="attendanceEnabled = !attendanceEnabled"
+            >
+              <TrendingUp class="mr-2 h-4 w-4" />
+              {{
+                attendanceEnabled
+                  ? $t('tables.attendance.hide')
+                  : $t('tables.attendance.title')
+              }}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <Printer class="mr-2 h-4 w-4" />
@@ -207,6 +223,38 @@
         </button>
       </div>
 
+      <!-- Barra de la métrica de asistencia. Se enciende desde el menú "⋮" y sólo
+           ocupa espacio cuando está activa: apagada, la pantalla queda como
+           siempre. -->
+      <div v-if="attendanceEnabled" class="flex flex-wrap items-center gap-2 text-xs mb-2">
+        <Loader2 v-if="attendanceLoading" class="h-3.5 w-3.5 animate-spin" />
+        <!-- Sin preparaciones sincronizadas no hay nada que medir, y hay que
+             decirlo: dejar las pastillas sin badge parecería un fallo. -->
+        <span v-else-if="attendanceLinkedMeetingCount === 0" class="text-muted-foreground">
+          {{ $t('tables.attendance.notSynced') }}
+        </span>
+        <template v-else>
+          <span class="text-muted-foreground">
+            {{ $t('tables.attendance.scope', { count: attendanceMeetingCount }) }}
+            ·
+            {{ $t('tables.attendance.coverage', {
+              matched: attendanceMatchedCount,
+              total: attendanceServerCount,
+              community: linkedCommunityName,
+            }) }}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            class="h-7 text-xs"
+            :class="{ 'bg-muted': sortServersByAttendance }"
+            @click="sortServersByAttendance = !sortServersByAttendance"
+          >
+            {{ $t('tables.attendance.sortByAttendance') }}
+          </Button>
+        </template>
+      </div>
+
       <!-- Desktop: side-by-side grid (hidden on mobile) -->
       <div class="hidden md:grid md:grid-cols-2 gap-4">
         <!-- Unassigned Servers -->
@@ -225,7 +273,7 @@
               :key="server.id"
               class="inline-flex items-center"
             >
-              <ParticipantInfoPopover :participant="server">
+              <ParticipantInfoPopover :participant="server" :attendance="attendanceFor(server.id)">
                 <ParticipantTooltip :participant="server">
                   <div
                     draggable="true"
@@ -239,6 +287,16 @@
                     :class="[getParticipantHighlightClass(server.id), { 'ring-2 ring-blue-500 ring-offset-1 scale-110': isTapSelected(server.id) }]"
                   >
                     {{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
+                    <span
+                      v-if="attendanceFor(server.id)"
+                      class="ml-1 px-1 rounded-sm text-[10px] font-semibold"
+                      :class="attendanceBadgeClass(attendanceFor(server.id)!.frequency)"
+                      :title="$t('tables.attendance.badgeTooltip', {
+                        percent: Math.round(attendanceFor(server.id)!.ratePercent),
+                        attended: attendanceFor(server.id)!.attended,
+                        total: attendanceFor(server.id)!.total,
+                      })"
+                    >{{ Math.round(attendanceFor(server.id)!.ratePercent) }}%</span>
                   </div>
                 </ParticipantTooltip>
               </ParticipantInfoPopover>
@@ -292,6 +350,7 @@
               v-for="server in unassignedServers"
               :key="server.id"
               :participant="server"
+              :attendance="attendanceFor(server.id)"
             >
               <span
                 @touchstart.passive="tapTouchStart"
@@ -300,6 +359,11 @@
                 :class="{ 'ring-2 ring-blue-500 ring-offset-1 scale-110': isTapSelected(server.id) }"
               >
                 {{ server.firstName.split(' ')[0] }} {{ server.lastName.charAt(0) }}.
+                <span
+                  v-if="attendanceFor(server.id)"
+                  class="ml-1 px-1 rounded-sm text-[10px] font-semibold"
+                  :class="attendanceBadgeClass(attendanceFor(server.id)!.frequency)"
+                >{{ Math.round(attendanceFor(server.id)!.ratePercent) }}%</span>
               </span>
             </ParticipantInfoPopover>
           </div>
@@ -345,6 +409,8 @@
           :key="table.id"
           :table="table"
           :search-highlight="searchHighlight"
+          :server-attendance="attendanceEnabled ? attendanceByParticipantId : {}"
+          :attendance-class-for="attendanceBadgeClass"
           class="table-card"
           @delete="handleDeleteTable"
           @refresh="tableMesaStore.fetchTables()"
@@ -492,6 +558,7 @@ import { nextTick, onMounted, onUnmounted, computed, ref, watch } from 'vue';
 import { useTableMesaStore } from '@/stores/tableMesaStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import { useParticipantStore } from '@/stores/participantStore';
+import { useCommunityStore } from '@/stores/communityStore';
 import TableCard from './TableCard.vue';
 import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, TooltipProvider, Popover, PopoverContent, PopoverTrigger } from '@repo/ui';
 import { buildTableData } from '@/utils/tableBriefing';
@@ -505,8 +572,9 @@ import TablesHelpDialog from '@/components/TablesHelpDialog.vue';
 import { useParticipantMessageDialog } from '@/composables/useParticipantMessageDialog';
 import { useToast } from '@repo/ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@repo/ui';
-import { ChevronLeft, ChevronRight, Download, HelpCircle, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw, Scissors, Send, Trash2, UserX, X } from 'lucide-vue-next';
-import type { Participant, TableMesa } from '@repo/types';
+import { ChevronLeft, ChevronRight, Download, HelpCircle, LayoutGrid, Loader2, MoreVertical, Plus, Printer, RefreshCw, Scissors, Send, Trash2, TrendingUp, UserX, X } from 'lucide-vue-next';
+import type { Participant, ParticipationFrequency, TableMesa } from '@repo/types';
+import { useServerAttendance } from '@/composables/useServerAttendance';
 import { useI18n } from 'vue-i18n';
 import { exportTablesToDocx, getCancelledParticipants } from '@/services/api';
 import { useDragState } from '@/composables/useDragState';
@@ -522,6 +590,48 @@ import {
 const tableMesaStore = useTableMesaStore();
 const retreatStore = useRetreatStore();
 const participantStore = useParticipantStore();
+const communityStore = useCommunityStore();
+
+// Asistencia a reuniones del equipo servidor. Es opt-in y sólo existe si el
+// retiro está vinculado a una comunidad: el dato es de la comunidad, no del
+// retiro. Sin vínculo la pantalla queda igual que siempre, con una nota que
+// explica cómo habilitarlo.
+// Se desestructura para que las bindings queden como refs de primer nivel: así
+// el template las usa sin `.value` y Vue las desenvuelve solo.
+const {
+  loading: attendanceLoading,
+  enabled: attendanceEnabled,
+  isLinked: attendanceIsLinked,
+  matchedCount: attendanceMatchedCount,
+  serverCount: attendanceServerCount,
+  meetingCount: attendanceMeetingCount,
+  linkedMeetingCount: attendanceLinkedMeetingCount,
+  byParticipantId: attendanceByParticipantId,
+  forParticipant: attendanceForParticipant,
+} = useServerAttendance(
+  () => retreatStore.selectedRetreatId,
+  () => (retreatStore.selectedRetreat as { communityId?: string | null } | null)?.communityId ?? null,
+);
+const sortServersByAttendance = ref(false);
+
+const linkedCommunityName = computed(() => {
+  const communityId = (retreatStore.selectedRetreat as { communityId?: string | null } | null)
+    ?.communityId;
+  if (!communityId) return '';
+  return communityStore.communities.find((c) => c.id === communityId)?.name ?? '';
+});
+
+const attendanceFor = (participantId: string) =>
+  attendanceEnabled.value ? attendanceForParticipant(participantId) : null;
+
+// Mismo significado de color que en la comunidad: verde = viene, ámbar = a
+// medias, rojo = casi nunca. Sin dato no se pinta nada (ver el composable).
+const attendanceBadgeClass = (frequency: ParticipationFrequency) => {
+  if (frequency === 'high') return 'bg-emerald-200 text-emerald-900 dark:bg-emerald-800 dark:text-emerald-100';
+  if (frequency === 'medium') return 'bg-amber-200 text-amber-900 dark:bg-amber-800 dark:text-amber-100';
+  if (frequency === 'low') return 'bg-red-200 text-red-900 dark:bg-red-800 dark:text-red-100';
+  return 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200';
+};
 const {
   isOpen: messageDialogOpen,
   participant: messageParticipant,
@@ -770,7 +880,20 @@ const unassignedServers = computed(() => {
   const assignedServerIds = new Set(
     tableMesaStore.tables.flatMap(t => [t.lider?.id, t.colider1?.id, t.colider2?.id].filter(Boolean))
   );
-  return (participantStore.participants || []).filter(p => p.type === 'server' && !p.isCancelled && !assignedServerIds.has(p.id));
+  const servers = (participantStore.participants || []).filter(
+    p => p.type === 'server' && !p.isCancelled && !assignedServerIds.has(p.id),
+  );
+  if (!sortServersByAttendance.value || !attendanceEnabled.value) return servers;
+  // Los servidores sin dato van al final: no se puede afirmar nada de ellos, y
+  // ordenarlos como 0% los pondría injustamente en la cola de "no viene".
+  return [...servers].sort((a, b) => {
+    const rateA = attendanceForParticipant(a.id)?.ratePercent;
+    const rateB = attendanceForParticipant(b.id)?.ratePercent;
+    if (rateA === undefined && rateB === undefined) return 0;
+    if (rateA === undefined) return 1;
+    if (rateB === undefined) return -1;
+    return rateB - rateA;
+  });
 });
 
 const unassignedWalkers = computed(() => {
@@ -1492,6 +1615,11 @@ watch(
       participantStore.fetchParticipants();
       tableMesaStore.fetchTables();
       loadCancelledParticipants(newRetreatId);
+      // Necesario para poner nombre a la comunidad vinculada en la leyenda de
+      // cobertura; el vínculo en sí viene con el retiro.
+      if (communityStore.communities.length === 0) {
+        communityStore.fetchCommunities();
+      }
     }
   },
   { immediate: true }

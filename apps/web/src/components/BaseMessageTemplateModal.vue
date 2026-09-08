@@ -421,7 +421,7 @@ import { useMessageTemplateStore } from '@/stores/messageTemplateStore';
 import { useRetreatStore } from '@/stores/retreatStore';
 import RichTextEditor from './RichTextEditor.vue';
 import { messageTemplateTypes, getMessageTemplateAudience } from '@repo/types';
-import { convertHtmlToWhatsApp, convertHtmlToEmail, detectEmailClient, copyRichTextToClipboard, testEmojiConversion, beautifyHtml, replaceAllVariables, ParticipantData, RetreatData } from '@/utils/message';
+import { convertHtmlToWhatsApp, convertHtmlToEmail, detectEmailClient, copyRichTextToClipboard, testEmojiConversion, beautifyHtml, replaceAllVariables, buildServerRegistrationLink, ParticipantData, RetreatData } from '@/utils/message';
 import { getParticipantNextMeeting } from '@/services/api';
 import { sanitizeHtml, sanitizeEmailHtml } from '@/utils/sanitize';
 
@@ -619,6 +619,7 @@ const retreatVariables = computed(() => [
   { key: 'paymentInfo', label: t ? t('messageTemplates.dialog.variables.retreatPaymentInfo') : 'Información de pago' },
   { key: 'thingsToBringNotes', label: t ? t('messageTemplates.dialog.variables.retreatThingsToBringNotes') : 'Cosas para traer' },
   { key: 'next_meeting_date', label: 'Próxima reunión (auto)' },
+  { key: 'serverRegistrationLink', label: 'Enlace de registro de servidores' },
   { key: 'closingChurchName', label: 'Iglesia de clausura — nombre' },
   { key: 'closingChurchAddress', label: 'Iglesia de clausura — dirección' },
   { key: 'closingChurchMapsUrl', label: 'Iglesia de clausura — link Google Maps' },
@@ -852,6 +853,12 @@ const previewMessage = computed(() => {
           previewNextMeetingDate.value && previewNextMeetingDate.value !== ''
             ? previewNextMeetingDate.value
             : baseRetreat.nextMeetingDate,
+        // El origen es del entorno, no del retiro: lo resuelve el caller con el
+        // mismo helper que usa el motor de secuencias.
+        serverRegistrationLink: buildServerRegistrationLink(
+          window.location.origin,
+          retreatStore.selectedRetreat,
+        ),
       }
     : baseRetreat;
 

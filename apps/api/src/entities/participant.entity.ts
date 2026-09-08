@@ -265,6 +265,17 @@ export class Participant {
 	@Column({ type: 'datetime', nullable: true })
 	dataDeletedAt?: Date | null;
 
+	/**
+	 * Si esta fila fue absorbida por otra en una fusión de duplicados, apunta al
+	 * `Participant` que sobrevivió. NULL en el caso normal.
+	 *
+	 * El absorbido NO se borra: queda como lápida para que la fusión sea
+	 * auditable y deshacible a mano. Los listados lo excluyen. Sin FK física
+	 * (columna añadida por ALTER, convención del repo).
+	 */
+	@Column({ type: 'uuid', nullable: true })
+	mergedIntoParticipantId?: string | null;
+
 	// --- RELACIONES ---
 
 	@Column({ type: 'uuid', nullable: true })

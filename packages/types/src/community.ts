@@ -22,6 +22,23 @@ export const MemberStateEnum = z.enum([
 ]);
 export type MemberState = z.infer<typeof MemberStateEnum>;
 
+// Meeting type catalog.
+//
+// Clasifica la reunión para poder medir asistencia por tipo (p. ej. sólo las
+// preparaciones del equipo servidor, sin diluirlas con las reuniones
+// generales). Es un catálogo cerrado a propósito: los porcentajes tienen que
+// ser comparables entre comunidades y traducibles. `isAnnouncement` sigue
+// siendo una dimensión aparte — un anuncio no participa en asistencia.
+export const MeetingTypeEnum = z.enum([
+	'general', // Reunión ordinaria de la comunidad
+	'preparation', // Preparación del equipo servidor previa a un retiro
+	'formation', // Formación / catequesis
+	'service', // Reunión de servicio (logística, tareas)
+	'fellowship', // Convivencia
+	'other',
+]);
+export type MeetingType = z.infer<typeof MeetingTypeEnum>;
+
 // Recurrence frequency enum for meetings
 export const RecurrenceFrequencyEnum = z.enum(['daily', 'weekly', 'monthly']);
 export type RecurrenceFrequency = z.infer<typeof RecurrenceFrequencyEnum>;
@@ -153,6 +170,7 @@ export const communityMeetingSchema = z.object({
 	endDate: z.coerce.date().optional(),
 	durationMinutes: z.number().int().positive(),
 	isAnnouncement: z.boolean().default(false),
+	meetingType: MeetingTypeEnum.default('general'),
 	// Recurrence fields
 	recurrenceFrequency: RecurrenceFrequencyEnum.nullable(),
 	recurrenceInterval: z.number().int().positive().nullable(),
@@ -228,6 +246,7 @@ export const createCommunityMeetingSchema = z.object({
 		endDate: z.coerce.date().optional(),
 		durationMinutes: z.number().int().positive().optional(),
 		isAnnouncement: z.boolean().default(false),
+		meetingType: MeetingTypeEnum.optional(),
 		// Recurrence fields - use optional() to allow undefined, nullable() to allow null
 		recurrenceFrequency: RecurrenceFrequencyEnum.optional(),
 		recurrenceInterval: z.number().int().positive().optional(),
@@ -427,6 +446,209 @@ export const bulkMemberAttendanceSchema = z.object({
 		memberId: z.string().uuid(),
 	}),
 });
+
+// --- Estadísticas de asistencia por tipo de reunión ---
+
+// Filtros del reporte. Todos opcionales: sin filtros devuelve todas las
+// reuniones consideradas de la comunidad.
+// `from`/`to` son date-only (YYYY-MM-DD) y se interpretan como día completo;
+// nunca `Date` en el transporte — skill `timezone-handling`.
+const dateOnly = z
+	.string()
+	.regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha debe venir como YYYY-MM-DD');
+
+export const attendanceStatsFiltersSchema = z.object({
+	meetingType: MeetingTypeEnum.optional(),
+	seriesId: z.string().uuid().optional(),
+	from: dateOnly.optional(),
+	to: dateOnly.optional(),
+	// Acota el ranking al equipo servidor de este retiro (que debe estar
+	// vinculado a la comunidad). No recorta las reuniones: el % de una reunión
+	// se mide contra su padrón, no contra el equipo de un retiro.
+	retreatId: z.string().uuid().optional(),
+});
+export type AttendanceStatsFilters = z.infer<typeof attendanceStatsFiltersSchema>;
+
+// El cliente manda cadena vacía cuando limpia un filtro; `.optional()` sobre un
+// enum o un regex la rechazaría con 400 (bug recurrente de este repo). El
+// preprocess la normaliza a undefined antes de validar.
+// Un `?meetingType=a&meetingType=b` llega como array desde Express. Se queda con
+// el primero en vez de reventar con un 400: el enlace repetido es un error del
+// cliente, no algo que deba tumbar el reporte. Sin esto el array llegaba al enum
+// y el `validateRequest` cortaba antes de que el controlador pudiera normalizarlo.
+const emptyToUndefined = (schema: z.ZodTypeAny) =>
+	z.preprocess((v) => {
+		const first: unknown = Array.isArray(v) ? (v as unknown[])[0] : v;
+		return first === '' || first === null ? undefined : first;
+	}, schema);
+
+export const communityAttendanceStatsQuerySchema = z.object({
+	query: z.object({
+		meetingType: emptyToUndefined(MeetingTypeEnum.optional()),
+		seriesId: emptyToUndefined(z.string().uuid().optional()),
+		from: emptyToUndefined(dateOnly.optional()),
+		to: emptyToUndefined(dateOnly.optional()),
+		retreatId: emptyToUndefined(z.string().uuid().optional()),
+	}),
+	params: z.object({ id: z.string().uuid() }),
+});
+
+// La asistencia del equipo servidor mide las preparaciones DEL RETIRO, así que
+// no lleva filtros: el conjunto ya está delimitado por su calendario.
+export const serverAttendanceQuerySchema = z.object({
+	params: z.object({
+		id: z.string().uuid(),
+		retreatId: z.string().uuid(),
+	}),
+});
+
+// Una reunión del conjunto considerado, con su porcentaje.
+// `eligible` = miembros del roster canónico que ya se habían unido a la fecha
+// de la reunión. Puede ser 0 en datos históricos; entonces `ratePercent` es 0.
+export const attendanceStatsMeetingRowSchema = z.object({
+	id: z.string().uuid(),
+	title: z.string(),
+	startDate: z.coerce.date(),
+	meetingType: MeetingTypeEnum,
+	attended: z.number().int().nonnegative(),
+	eligible: z.number().int().nonnegative(),
+	ratePercent: z.number(),
+});
+export type AttendanceStatsMeetingRow = z.infer<typeof attendanceStatsMeetingRowSchema>;
+
+// Un miembro del padrón con su tasa dentro del conjunto filtrado.
+// `total` es el denominador que le cuenta a ESE miembro (respeta su joinedAt),
+// así que dos miembros pueden tener denominadores distintos.
+export const attendanceStatsMemberRowSchema = z.object({
+	memberId: z.string().uuid(),
+	participantId: z.string().uuid(),
+	firstName: z.string(),
+	lastName: z.string(),
+	state: MemberStateEnum,
+	attended: z.number().int().nonnegative(),
+	total: z.number().int().nonnegative(),
+	ratePercent: z.number(),
+	frequency: ParticipationFrequencyEnum,
+	// Retiros DE ESTA COMUNIDAD en los que ha servido. Mide el compromiso en
+	// retiros, no sólo en reuniones.
+	retreatsServed: z.number().int().nonnegative(),
+});
+export type AttendanceStatsMemberRow = z.infer<typeof attendanceStatsMemberRowSchema>;
+
+export const communityAttendanceStatsSchema = z.object({
+	filters: attendanceStatsFiltersSchema,
+	meetings: z.array(attendanceStatsMeetingRowSchema),
+	members: z.array(attendanceStatsMemberRowSchema),
+	totals: z.object({
+		meetingCount: z.number().int().nonnegative(),
+		memberCount: z.number().int().nonnegative(),
+		averageRatePercent: z.number(),
+	}),
+	// Tipos que la comunidad realmente usa, para poblar el filtro sin ofrecer
+	// opciones vacías. Cuenta TODAS las reuniones del tipo (no sólo las
+	// consideradas), para que el coordinador vea que el tipo existe aunque su
+	// única reunión sea futura.
+	availableTypes: z.array(
+		z.object({ meetingType: MeetingTypeEnum, count: z.number().int().positive() }),
+	),
+	// Retiros de la comunidad, para el filtro por retiro.
+	retreats: z.array(
+		z.object({ id: z.string().uuid(), label: z.string(), startDate: z.coerce.date() }),
+	),
+	// Preparaciones del retiro filtrado que están sincronizadas. 0 con un retiro
+	// elegido = "sin sincronizar", que es distinto de "sin asistencia".
+	retreatLinkedMeetingCount: z.number().int().nonnegative(),
+});
+export type CommunityAttendanceStats = z.infer<typeof communityAttendanceStatsSchema>;
+
+// Proyección de la tasa sobre el equipo servidor de un retiro.
+// Un servidor que NO está en el padrón de la comunidad no aparece en `entries`:
+// "no está en el padrón" no es "no asistió", y devolverlo como 0% mentiría.
+export const serverAttendanceEntrySchema = z.object({
+	participantId: z.string().uuid(),
+	memberId: z.string().uuid(),
+	attended: z.number().int().nonnegative(),
+	total: z.number().int().nonnegative(),
+	ratePercent: z.number(),
+	frequency: ParticipationFrequencyEnum,
+});
+export type ServerAttendanceEntry = z.infer<typeof serverAttendanceEntrySchema>;
+
+export const retreatServerAttendanceSchema = z.object({
+	communityId: z.string().uuid(),
+	retreatId: z.string().uuid(),
+	meetingCount: z.number().int().nonnegative(),
+	serverCount: z.number().int().nonnegative(),
+	matchedCount: z.number().int().nonnegative(),
+	unmatchedCount: z.number().int().nonnegative(),
+	// 0 = el calendario del retiro no está sincronizado como reuniones.
+	retreatLinkedMeetingCount: z.number().int().nonnegative(),
+	entries: z.array(serverAttendanceEntrySchema),
+});
+export type RetreatServerAttendance = z.infer<typeof retreatServerAttendanceSchema>;
+
+// --- Fusión de participantes duplicados ---
+//
+// La misma persona puede existir dos veces: inscrita en un retiro y dada de alta
+// aparte en el padrón. Nada se fusiona solo: el preview enumera lo que se movería
+// y lo que BLOQUEA, y la fusión se niega si hay bloqueos.
+
+export const mergeParticipantsSchema = z.object({
+	body: z.object({
+		/** Ficha que sobrevive y absorbe. */
+		keepId: z.string().uuid(),
+		/** Ficha absorbida: queda como lápida, no se borra. */
+		mergeId: z.string().uuid(),
+	}),
+	params: z.object({ id: z.string().uuid() }),
+});
+
+/**
+ * Los dos ids del preview, que viajan como query params (`GET .../preview`).
+ * Aparte de `mergeParticipantsSchema`, que valida el POST y por eso está envuelto
+ * en `{ body, params }`: reusar ese aquí hacía que el parse fallara siempre.
+ */
+export const mergePreviewQuerySchema = z.object({
+	keepId: z.string().uuid(),
+	mergeId: z.string().uuid(),
+});
+
+export const duplicateCandidateSchema = z.object({
+	matchedBy: z.enum(['name', 'phone', 'email']),
+	participants: z.array(
+		z.object({
+			id: z.string().uuid(),
+			firstName: z.string(),
+			lastName: z.string(),
+			email: z.string().nullable(),
+			cellPhone: z.string().nullable(),
+			references: z.number().int().nonnegative(),
+			hasUser: z.boolean(),
+			isCommunityMember: z.boolean(),
+		}),
+	),
+});
+export type DuplicateCandidate = z.infer<typeof duplicateCandidateSchema>;
+
+export const mergePreviewSchema = z.object({
+	keepId: z.string().uuid(),
+	mergeId: z.string().uuid(),
+	keepLabel: z.string(),
+	mergeLabel: z.string(),
+	moves: z.array(
+		z.object({
+			table: z.string(),
+			column: z.string(),
+			rows: z.number().int().nonnegative(),
+			discarded: z.number().int().nonnegative(),
+		}),
+	),
+	blockers: z.array(z.object({ table: z.string(), column: z.string(), reason: z.string() })),
+	attendanceMoved: z.number().int().nonnegative(),
+	attendanceMerged: z.number().int().nonnegative(),
+	merged: z.boolean().optional(),
+});
+export type MergePreview = z.infer<typeof mergePreviewSchema>;
 
 export const inviteCommunityAdminSchema = z.object({
 	body: z.object({

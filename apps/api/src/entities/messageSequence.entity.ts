@@ -23,7 +23,15 @@ export type SequenceTrigger =
  * Audiencia base. 'table_leaders' = líderes/colíderes de mesa del retiro.
  * Fase 3 añade segmentId para audiencias dinámicas.
  */
-export type SequenceAudience = 'walker' | 'server' | 'all' | 'table_leaders' | 'responsables';
+export type SequenceAudience =
+	| 'walker'
+	| 'server'
+	| 'all'
+	| 'table_leaders'
+	| 'responsables'
+	// Padrón de la comunidad vinculada al retiro. Única audiencia que NO sale de
+	// `retreat_participants`: son los que aún no se han inscrito.
+	| 'community_roster';
 
 /**
  * Una secuencia de mensajes automatizada (drip) ligada a un retiro. Define un

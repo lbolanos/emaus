@@ -15,9 +15,17 @@ import { ParticipantCommunication } from '../entities/participantCommunication.e
 import { ParticipantFollowUp } from '../entities/participantFollowUp.entity';
 import { EmailService } from './emailService';
 import { makeDateInTimezone } from '../utils/date.transformer';
-import { replaceAllVariables, convertHtmlToEmail, type TableData } from '@repo/utils';
+import {
+	buildServerRegistrationLink,
+	convertHtmlToEmail,
+	replaceAllVariables,
+	type TableData,
+	isPlaceholderBirthDate,
+} from '@repo/utils';
 import { getMessageTemplateAudience } from '@repo/types';
 import { savedSegmentService } from './savedSegmentService';
+import { CommunityMember } from '../entities/communityMember.entity';
+import { EMAIL_SILENT_STATES } from './communityService';
 
 const DEFAULT_TZ = process.env.APP_TIMEZONE || 'America/Mexico_City';
 /** Máximo de reintentos de envío de email ante fallo (SMTP transitorio). */
@@ -184,6 +192,14 @@ export class MessageSequenceService {
 			}
 			case 'birthday': {
 				if (!participant.birthDate) return null;
+				// La columna es NOT NULL, así que quien nunca dio su fecha lleva el
+				// centinela (`BIRTH_DATE_SENTINEL`, que pone `createCommunityMember`).
+				// Sin este guard, una secuencia de cumpleaños sobre el padrón agenda a
+				// TODOS esos miembros el mismo día y sale un envío masivo sincronizado.
+				// `!birthDate` no lo detecta: el centinela es una fecha válida.
+				if (isPlaceholderBirthDate(participant.birthDate, participant.registrationDate)) {
+					return null;
+				}
 				const bd = ymdUtc(participant.birthDate);
 				const todayY = ymdInTz(new Date(), tz).y;
 				// Próxima ocurrencia del cumpleaños (este año o el siguiente).
@@ -246,6 +262,8 @@ export class MessageSequenceService {
 			participants = await this.getTableLeaders(seq.retreatId);
 		} else if (seq.audience === 'responsables') {
 			participants = await this.getResponsibleParticipants(seq.retreatId);
+		} else if (seq.audience === 'community_roster') {
+			participants = await this.getCommunityRoster(retreat);
 		} else {
 			const rpWhere: Record<string, unknown> = { retreatId: seq.retreatId, isCancelled: false };
 			if (seq.audience === 'walker') rpWhere.type = 'walker';
@@ -485,10 +503,20 @@ export class MessageSequenceService {
 		const tableData = message.includes('{table.')
 			? await this.buildTableData(participant.id, retreatId)
 			: null;
+		// El enlace de alta de servidores se resuelve aquí porque el origen es del
+		// entorno, no del retiro. Mismo helper que usa el cliente, para que la
+		// convocatoria mande exactamente la misma URL desde los dos caminos.
+		const retreatWithLinks = {
+			...retreat,
+			serverRegistrationLink: buildServerRegistrationLink(
+				process.env.FRONTEND_URL || 'http://localhost:5173',
+				retreat,
+			),
+		};
 		return replaceAllVariables(
 			message,
 			participant as any,
-			retreat as any,
+			retreatWithLinks as any,
 			contactKey,
 			null,
 			tableData,
@@ -510,6 +538,37 @@ export class MessageSequenceService {
 	}
 
 	/** Participantes que tienen asignada alguna responsabilidad del retiro (distintos). */
+	/**
+	 * Padrón de la comunidad vinculada al retiro — para convocar a servir.
+	 *
+	 * Es la única audiencia que NO sale de `retreat_participants`: precisamente
+	 * son los que todavía no se han inscrito. Sin `retreat.communityId` devuelve
+	 * vacío (y la secuencia no enrola a nadie), que es el caso por defecto.
+	 *
+	 * Filtros: se excluyen los estados de canal roto / no-contactar
+	 * (EMAIL_SILENT_STATES — la persona pidió pausa, tiene el contacto mal o está
+	 * vetada) y los participantes que ejercieron su derecho de borrado. El resto
+	 * del padrón entra: todos están invitados a servir, igual que todos están
+	 * invitados a las reuniones.
+	 */
+	private async getCommunityRoster(retreat: Retreat): Promise<Participant[]> {
+		if (!retreat.communityId) return [];
+		const members = await AppDataSource.getRepository(CommunityMember)
+			.createQueryBuilder('m')
+			.innerJoinAndSelect('m.participant', 'p')
+			.where('m.communityId = :cid', { cid: retreat.communityId })
+			.andWhere('m.state NOT IN (:...silentStates)', {
+				silentStates: [...EMAIL_SILENT_STATES],
+			})
+			.andWhere('p.dataDeletedAt IS NULL')
+			.getMany();
+		const byId = new Map<string, Participant>();
+		for (const member of members) {
+			if (member.participant) byId.set(member.participant.id, member.participant);
+		}
+		return [...byId.values()];
+	}
+
 	private async getResponsibleParticipants(retreatId: string): Promise<Participant[]> {
 		const resps = await AppDataSource.getRepository(Responsability).find({
 			where: { retreatId },

@@ -192,6 +192,36 @@
               </div>
             </div>
 
+            <!-- Comunidad organizadora (opcional) -->
+            <div class="p-4 border rounded-lg space-y-3">
+              <div class="space-y-1">
+                <Label for="retreatCommunity" class="font-medium">
+                  {{ $t('retreatModal.community') }}
+                </Label>
+                <p class="text-xs text-muted-foreground">
+                  {{ $t('retreatModal.communityHint') }}
+                </p>
+              </div>
+              <Select
+                :model-value="formData.communityId ?? '__none__'"
+                @update:model-value="onCommunitySelect"
+              >
+                <SelectTrigger id="retreatCommunity">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">{{ $t('retreatModal.communityNone') }}</SelectItem>
+                  <SelectItem
+                    v-for="community in availableCommunities"
+                    :key="community.id"
+                    :value="community.id"
+                  >
+                    {{ community.name }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <!-- Dates -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="space-y-2">
@@ -879,6 +909,7 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Button, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Textarea, RadioGroup, RadioGroupItem, Tabs, TabsContent, TabsList, TabsTrigger, Checkbox } from '@repo/ui';
 import { Loader2 } from 'lucide-vue-next';
 import { useHouseStore } from '@/stores/houseStore';
+import { useCommunityStore } from '@/stores/communityStore';
 import { api, scheduleTemplateApi, retreatScheduleApi, preRetreatTaskApi, preRetreatTaskTemplateApi, type ScheduleTemplateSetDTO, type PreRetreatTaskTemplateSetDTO } from '@/services/api';
 import { getApiUrl } from '@/config/runtimeConfig';
 import { useToast } from '@repo/ui';
@@ -903,6 +934,7 @@ const emit = defineEmits<{
 }>();
 
 const houseStore = useHouseStore();
+const communityStore = useCommunityStore();
 const { toast } = useToast();
 
 // State
@@ -1031,6 +1063,7 @@ const formData = ref({
   startDate: new Date(),
   endDate: new Date(),
   houseId: '',
+  communityId: null as string | null,
   timezone: null as string | null,
   openingNotes: '',
   closingNotes: '',
@@ -1177,6 +1210,11 @@ const availableHouses = computed(() => {
   return houseStore.houses;
 });
 
+// `getCommunities` ya devuelve sólo las comunidades que el usuario administra
+// (o todas, si es superadmin), que son exactamente las que el backend le dejará
+// vincular. Ofrecer más sería enseñar un desplegable que devuelve 403.
+const availableCommunities = computed(() => communityStore.communities);
+
 // Etiqueta de la casa en el desplegable (dirección, no ciudad). Ver util para el porqué.
 const houseLocationLabel = houseLabel;
 
@@ -1217,6 +1255,12 @@ const retreatTimezoneOptions = computed(() => {
 
 function onTimezoneSelect(value: string) {
   formData.value.timezone = value === '__inherit__' ? null : value;
+}
+
+// El sentinel evita mandar '' (que Zod rechazaría si no fuera por el
+// preprocess) y deja explícito el caso "sin comunidad", que es el default.
+function onCommunitySelect(value: string) {
+  formData.value.communityId = value === '__none__' ? null : value;
 }
 
 const houseCapacity = computed(() => {
@@ -1445,6 +1489,7 @@ const handleSubmit = async () => {
       const updateData = {
         parish: formData.value.parish,
         houseId: formData.value.houseId,
+        communityId: formData.value.communityId,
         timezone: formData.value.timezone,
         isPublic: formData.value.isPublic,
         roleInvitationEnabled: formData.value.roleInvitationEnabled,
@@ -1509,6 +1554,7 @@ const resetForm = () => {
     startDate: today,
     endDate: tomorrow,
     houseId: '',
+    communityId: null as string | null,
     timezone: null as string | null,
     openingNotes: '',
     closingNotes: '',
@@ -1703,6 +1749,7 @@ watch(() => props.open, (newOpen) => {
           startDate: props.retreat.startDate ? new Date(props.retreat.startDate) : new Date(),
           endDate: props.retreat.endDate ? new Date(props.retreat.endDate) : new Date(),
           houseId: props.retreat.houseId,
+          communityId: (props.retreat as any).communityId ?? null,
           timezone: (props.retreat as any).timezone ?? null,
           openingNotes: props.retreat.openingNotes || '',
           closingNotes: props.retreat.closingNotes || '',
@@ -1793,6 +1840,9 @@ watch(() => formData.value.houseId, async (newHouseId) => {
 onMounted(() => {
   if (houseStore.houses.length === 0) {
     houseStore.fetchHouses();
+  }
+  if (communityStore.communities.length === 0) {
+    communityStore.fetchCommunities();
   }
   validateDates();
 });

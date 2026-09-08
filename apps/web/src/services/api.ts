@@ -7,6 +7,10 @@ import type {
   CommunityMeeting,
   CommunityAdmin,
   CommunityAttendance,
+  CommunityAttendanceStats,
+  RetreatServerAttendance,
+  DuplicateCandidate,
+  MergePreview,
   MemberState,
   MessageTemplate,
   SavedSegment,
@@ -1551,6 +1555,122 @@ export async function getCommunityDashboardStats(
   communityId: string,
 ): Promise<any> {
   const response = await api.get(`/communities/${communityId}/dashboard`);
+  return response.data;
+}
+
+/**
+ * Filtros del reporte de asistencia. Se omiten los vacíos: el backend
+ * rechazaría un `meetingType=""` (enum) con un 400.
+ */
+export interface AttendanceStatsParams {
+  meetingType?: string;
+  seriesId?: string;
+  from?: string;
+  to?: string;
+  /** Acota el ranking al equipo servidor de este retiro. */
+  retreatId?: string;
+}
+
+const attendanceParams = (params: AttendanceStatsParams = {}) => {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (value) out[key] = value;
+  }
+  return out;
+};
+
+export async function getCommunityAttendanceStats(
+  communityId: string,
+  params: AttendanceStatsParams = {},
+): Promise<CommunityAttendanceStats> {
+  const response = await api.get(
+    `/communities/${communityId}/attendance-stats`,
+    { params: attendanceParams(params) },
+  );
+  return response.data;
+}
+
+/**
+ * Asistencia del equipo servidor de un retiro, proyectada desde el padrón de la
+ * comunidad a la que el retiro está vinculado. El `communityId` va en la ruta
+ * porque el permiso que se comprueba es el de la comunidad, no el del retiro.
+ */
+/**
+ * Asistencia del equipo servidor a las preparaciones DE ESE RETIRO. Sin
+ * parámetros: el conjunto lo delimita el calendario del retiro, no un filtro.
+ */
+export async function getRetreatServerAttendance(
+  communityId: string,
+  retreatId: string,
+): Promise<RetreatServerAttendance> {
+  const response = await api.get(
+    `/communities/${communityId}/server-attendance/${retreatId}`,
+  );
+  return response.data;
+}
+
+/**
+ * Candidatos a duplicado en el ámbito de una comunidad. Sólo PROPONE: la
+ * comparación de nombres dobla acentos (y la ñ), así que puede juntar a dos
+ * personas distintas que comparten teléfono. Confirma siempre una persona.
+ */
+export async function getCommunityDuplicates(
+  communityId: string,
+): Promise<DuplicateCandidate[]> {
+  const response = await api.get(`/communities/${communityId}/duplicates`);
+  return response.data;
+}
+
+/** Qué pasaría al fusionar dos fichas, sin tocar nada. */
+export async function previewParticipantMerge(
+  communityId: string,
+  keepId: string,
+  mergeId: string,
+): Promise<MergePreview> {
+  const response = await api.get(`/communities/${communityId}/duplicates/preview`, {
+    params: { keepId, mergeId },
+  });
+  return response.data;
+}
+
+/** Fusiona dos fichas. Se niega si el preview trae bloqueos. */
+export async function mergeParticipantDuplicates(
+  communityId: string,
+  keepId: string,
+  mergeId: string,
+): Promise<MergePreview> {
+  const response = await api.post(`/communities/${communityId}/duplicates/merge`, {
+    keepId,
+    mergeId,
+  });
+  return response.data;
+}
+
+/**
+ * Crea (o engancha) la reunión de UNA preparación. El botón de la fila, para
+ * cuando el coordinador añade una semana suelta y sólo le falta esa.
+ */
+export async function createPreparationCommunityMeeting(preparationId: string): Promise<{
+  preparationId: string;
+  meetingId: string;
+  outcome: 'created' | 'adopted' | 'linked' | 'mismatched';
+}> {
+  const response = await api.post(
+    `/retreat-preparations/${preparationId}/community-meeting`,
+  );
+  return response.data;
+}
+
+/** Materializa el calendario de preparaciones como reuniones de la comunidad. */
+export async function syncPreparationsToCommunity(retreatId: string): Promise<{
+  created: number;
+  adopted: number;
+  mismatched: { preparationId: string; meetingId: string; calendarDay: string; meetingDay: string }[];
+  skipped: number;
+}> {
+  const response = await api.post(
+    `/retreat-preparations/retreats/${retreatId}/sync-community-meetings`,
+  );
   return response.data;
 }
 
@@ -3134,6 +3254,19 @@ export interface RetreatPreparationDTO {
   date?: string | null; // YYYY-MM-DD
   time?: string | null; // HH:MM
   sortOrder: number;
+  /** Reunión de comunidad que materializa esta sesión (read-only). */
+  communityMeetingId?: string | null;
+  /**
+   * Asistencia de esa reunión. Ausente/null = no sincronizada; `pending` = la
+   * reunión aún no se celebró y NO debe mostrarse como 0%.
+   */
+  attendance?: {
+    meetingId: string;
+    attended: number;
+    eligible: number;
+    ratePercent: number;
+    pending: boolean;
+  } | null;
   documents?: RetreatPreparationDocumentDTO[];
   createdAt: string;
   updatedAt: string;

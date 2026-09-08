@@ -71,6 +71,20 @@
           </div>
         </div>
 
+        <!-- Asistencia a reuniones de la comunidad. Sólo aparece si la vista
+             que abre el popover la pasa; ausente = sin dato, no 0%. -->
+        <div v-if="attendance" class="space-y-1 border-t pt-2">
+          <div class="text-xs font-medium text-muted-foreground">
+            {{ $t('tables.attendance.title') }}
+          </div>
+          <div class="font-medium">
+            {{ Math.round(attendance.ratePercent) }}%
+            <span class="text-xs text-muted-foreground font-normal">
+              ({{ attendance.attended }}/{{ attendance.total }})
+            </span>
+          </div>
+        </div>
+
         <!-- Invitador -->
         <div v-if="hasInviterInfo" class="space-y-1 border-t pt-2">
           <div class="text-xs font-medium text-muted-foreground">{{ $t('tables.detail.inviter') }}</div>
@@ -116,13 +130,21 @@ import TagBadge from '@/components/TagBadge.vue';
 import { useParticipantStore } from '@/stores/participantStore';
 import { useParticipantMessageDialog } from '@/composables/useParticipantMessageDialog';
 import { useI18n } from 'vue-i18n';
+import type { ServerAttendanceState } from '@/composables/useServerAttendance';
 
 const props = defineProps<{
   participant: Participant;
+  /**
+   * Asistencia a reuniones de la comunidad, cuando la vista la tiene. Se omite
+   * a propósito en el resto de las pantallas: el dato vive en la comunidad y
+   * sólo existe si el retiro está vinculado a una.
+   */
+  attendance?: ServerAttendanceState | null;
 }>();
 
 const { t } = useI18n();
 const participantStore = useParticipantStore();
+const attendance = computed(() => props.attendance ?? null);
 const { open: openMessageDialog } = useParticipantMessageDialog();
 
 const popoverOpen = ref(false);

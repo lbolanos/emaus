@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { House } from './house.entity';
+import { Community } from './community.entity';
 import { Participant } from './participant.entity';
 import { TableMesa } from './tableMesa.entity';
 import { RetreatBed } from './retreatBed.entity';
@@ -33,6 +34,20 @@ export class Retreat {
 	@ManyToOne(() => House, 'retreats', { onDelete: 'RESTRICT' })
 	@JoinColumn({ name: 'houseId' })
 	house!: House;
+
+	// Comunidad que organiza el retiro. OPCIONAL: NULL es un retiro sin comunidad
+	// y es el default. Habilita leer la asistencia a reuniones del equipo servidor
+	// desde la pantalla de mesas.
+	// Sin FK física (la columna se añadió por ALTER TABLE, como
+	// retreat_participants.spouseParticipantId): la limpieza al borrar una
+	// comunidad la hace communityService.deleteCommunity, y el camino de lectura
+	// tolera un communityId colgado tratándolo como "sin comunidad".
+	@Column({ type: 'uuid', nullable: true })
+	communityId?: string | null;
+
+	@ManyToOne(() => Community, { nullable: true, createForeignKeyConstraints: false })
+	@JoinColumn({ name: 'communityId' })
+	community?: Community | null;
 
 	@OneToMany(() => Participant, (participant) => participant.retreat)
 	participants!: Participant[];

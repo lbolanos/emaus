@@ -631,6 +631,7 @@ export {
 	findEmptyVariables,
 	convertHtmlToEmail,
 	detectEmailClient,
+	buildServerRegistrationLink,
 } from '@repo/utils';
 
 // Shared utility functions are now imported from @repo/utils
