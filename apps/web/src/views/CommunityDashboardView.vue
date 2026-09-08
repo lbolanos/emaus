@@ -47,6 +47,12 @@
                 </router-link>
               </Button>
               <Button variant="outline" as-child class="shadow-sm hover:shadow-md transition-shadow">
+                <router-link :to="{ name: 'community-attendance-stats', params: { id: currentCommunity.id } }">
+                  <TrendingUp class="mr-2 h-4 w-4" />
+                  {{ $t('community.attendanceStats.title') }}
+                </router-link>
+              </Button>
+              <Button variant="outline" as-child class="shadow-sm hover:shadow-md transition-shadow">
                 <router-link :to="{ name: 'community-admins', params: { id: currentCommunity.id } }">
                   <UserCog class="mr-2 h-4 w-4" />
                   {{ $t('community.adminsLabel') }}
@@ -277,6 +283,51 @@
         </Card>
       </div>
 
+      <!-- Retiros de la comunidad -->
+      <Card v-if="stats?.upcomingRetreats?.length" class="overflow-hidden">
+        <CardHeader class="bg-muted/30">
+          <CardTitle class="flex items-center gap-2">
+            <CalendarCheck class="h-5 w-5 text-primary" />
+            {{ $t('community.stats.upcomingRetreats') }}
+          </CardTitle>
+        </CardHeader>
+        <CardContent class="p-4 space-y-3">
+          <div
+            v-for="retreat in stats.upcomingRetreats"
+            :key="retreat.id"
+            class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-lg border"
+          >
+            <div class="min-w-0">
+              <p class="font-medium">{{ retreat.parish }} {{ retreat.numberVersion || '' }}</p>
+              <p class="text-xs text-muted-foreground">
+                {{ formatRetreatDate(retreat.startDate) }} – {{ formatRetreatDate(retreat.endDate) }}
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" as-child>
+                <router-link
+                  :to="{ name: 'community-attendance-stats', params: { id: currentCommunity.id }, query: { meetingType: 'preparation', retreatId: retreat.id } }"
+                >
+                  <TrendingUp class="mr-2 h-4 w-4" />
+                  {{ $t('community.stats.serverTeamAttendance') }}
+                </router-link>
+              </Button>
+              <!-- La convocatoria NO se manda desde aquí: es una secuencia de
+                   WhatsApp que se despacha uno por uno desde la bandeja, así que
+                   este botón lleva al motor de secuencias del retiro. -->
+              <Button variant="outline" size="sm" as-child>
+                <router-link
+                  :to="{ name: 'message-sequences', params: { id: retreat.id } }"
+                >
+                  <Send class="mr-2 h-4 w-4" />
+                  {{ $t('community.convoke.action') }}
+                </router-link>
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <!-- Charts Section -->
       <div class="grid gap-4 md:grid-cols-2">
         <!-- Member Status Chart -->
@@ -361,6 +412,7 @@
       @created="onMeetingCreated"
     />
   </div>
+
 </template>
 
 <script setup lang="ts">
@@ -387,6 +439,7 @@ import {
 	MessageSquare,
 	Cake,
 	Check,
+	Send,
 } from 'lucide-vue-next';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from '@repo/ui';
 import { Pie } from 'vue-chartjs';
@@ -570,6 +623,17 @@ const STATE_COLORS: Record<string, string> = {
   do_not_contact: '#3f3f46',           // zinc-700
 };
 const FALLBACK_COLOR = '#94a3b8'; // slate-400 para estados no mapeados
+
+// Las fechas del retiro son date-only (medianoche UTC), a diferencia de las de
+// las reuniones, que son instantes. Formatearlas en la zona de la comunidad las
+// corre al día anterior — un retiro que empieza el 16 se mostraba como el 15.
+// Ver Regla N°3 del skill `timezone-handling`.
+const formatRetreatDate = (dateString: string) =>
+  new Date(dateString).toLocaleDateString('es-MX', {
+    timeZone: 'UTC',
+    dateStyle: 'medium',
+  });
+
 
 const statusChartData = computed(() => {
   if (!stats.value?.memberStateDistribution) return null;

@@ -455,6 +455,71 @@ export interface RetreatData {
 	 * si el participante no tiene reuniones próximas en sus comunidades.
 	 */
 	nextMeetingDate?: string;
+	/**
+	 * Enlace al alta de SERVIDORES del retiro, pre-resuelto por el caller con
+	 * `buildServerRegistrationLink` (el origen difiere: `window.location.origin`
+	 * en el cliente, `FRONTEND_URL` en el servidor). Lo usa la convocatoria de
+	 * servidores al padrón de la comunidad.
+	 */
+	serverRegistrationLink?: string;
+}
+
+/**
+ * Enlace al registro de SERVIDORES de un retiro.
+ *
+ * Vive aquí y no en cada caller para que el cliente y el motor de secuencias
+ * construyan exactamente el mismo enlace. Con slug es `/{slug}/server`; sin
+ * slug, la ruta de respaldo por id.
+ *
+ * Deliberadamente NO usa `externalRegistrationUrl`: ese es el registro de
+ * CAMINANTES que lleva la parroquia en su propio sitio, y mandar ahí a un
+ * servidor lo registraría como caminante.
+ */
+/**
+ * Normaliza un nombre de persona para compararlo: minúsculas, sin acentos y con
+ * los espacios colapsados.
+ *
+ * Vive aquí porque comparar nombres "a ojo" con `toLowerCase()` falla en
+ * castellano y ya mordió dos veces al contar duplicados: "Nicolás Méndez" y
+ * "Nicolas Mendez" son la misma persona y `lower()` de SQLite no dobla acentos.
+ * Cualquier detección de duplicados tiene que pasar por aquí.
+ *
+ * OJO: al descomponer, la `ñ` pierde su tilde, así que "Muñoz" y "Munoz" quedan
+ * iguales —lo que se busca, porque suele ser la misma persona escrita sin ñ—
+ * pero también "Peña" y "Pena", que son apellidos distintos. Es aceptable
+ * porque esto sólo PROPONE candidatos: la fusión siempre la confirma una
+ * persona. No usar esta función para decidir nada automáticamente.
+ */
+export function normalizePersonName(value: string | null | undefined): string {
+	return (value ?? '')
+		.normalize('NFD')
+		// Rango de los diacríticos combinantes: es lo que separa NFD del carácter
+		// base, así que quitarlos deja "méndez" → "mendez".
+		.replace(/[\u0300-\u036f]/g, '')
+		.toLowerCase()
+		.trim()
+		.split(/\s+/)
+		.join(' ');
+}
+
+/**
+ * Últimos 10 dígitos de un teléfono, para comparar entre formatos ("+52 55…",
+ * "044 55…", "55…"). Cadena vacía si no llega a 10 dígitos: comparar por menos
+ * daría falsos positivos.
+ */
+export function phoneFingerprint(value: string | null | undefined): string {
+	const digits = (value ?? '').replace(/\D/g, '');
+	return digits.length >= 10 ? digits.slice(-10) : '';
+}
+
+export function buildServerRegistrationLink(
+	origin: string,
+	retreat: { id?: string; slug?: string | null } | null | undefined,
+): string {
+	if (!retreat) return '';
+	const base = origin.replace(/\/+$/, '');
+	if (retreat.slug) return `${base}/${retreat.slug}/server`;
+	return retreat.id ? `${base}/register/server/${retreat.id}` : '';
 }
 
 /**
@@ -1030,6 +1095,7 @@ const getMockRetreat = (): RetreatData => {
 		closingChurchLatitude: 19.3776,
 		closingChurchLongitude: -99.1726,
 		nextMeetingDate: 'lunes, 1 de junio de 2026, 19:00',
+		serverRegistrationLink: 'https://emaus.cc/ejemplo/server',
 	};
 };
 
@@ -1065,6 +1131,7 @@ const buildRetreatReplacements = (retreatData: RetreatData): Record<string, stri
 			retreatData.closingChurchLongitude,
 		),
 		'retreat.next_meeting_date': retreatData.nextMeetingDate || '',
+		'retreat.serverRegistrationLink': retreatData.serverRegistrationLink || '',
 	};
 };
 

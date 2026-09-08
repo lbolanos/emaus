@@ -95,13 +95,18 @@ function followUpBadgeClass(status: string): string {
 const retreatId = computed(() => retreatStore.selectedRetreatId || '');
 
 const TRIGGERS = ['participant_created', 'days_before_retreat', 'days_after_retreat', 'birthday'] as const;
-const AUDIENCES = ['all', 'walker', 'server', 'table_leaders', 'responsables'] as const;
+const AUDIENCES = ['all', 'walker', 'server', 'table_leaders', 'responsables', 'community_roster'] as const;
 const CHANNELS = ['email', 'whatsapp'] as const;
 
 // Audiencias válidas según el disparador. "Al registrarse" solo aplica a quien
 // se registra (caminante/servidor); líderes/responsables se asignan después.
 const AUDIENCES_BY_TRIGGER: Record<string, readonly string[]> = {
 	participant_created: ['walker', 'server'],
+	// El padrón de comunidad queda fuera del cumpleaños: quien nunca dio su fecha
+	// lleva el centinela, y todos caerían el mismo día. El backend además los
+	// salta (`isPlaceholderBirthDate` en `computeScheduledFor`); esto es para no
+	// ofrecer una combinación que no va a hacer lo que el usuario espera.
+	birthday: ['walker', 'server', 'all'],
 };
 const availableAudiences = computed<string[]>(() => {
 	const base = [...(AUDIENCES_BY_TRIGGER[draft.value.trigger] ?? AUDIENCES)];
@@ -148,6 +153,10 @@ const recipientOptions = computed<string[]>(() => {
 	if (aud === 'walker' || aud === 'all') {
 		return ['participant', 'inviter', 'emergencyContact1', 'emergencyContact2', 'tableLeader', 'responsibility'];
 	}
+	// El padrón de la comunidad son personas que aún NO están inscritas en el
+	// retiro: no tienen contacto de emergencia capturado, ni invitador, ni mesa.
+	// Ofrecer esos destinatarios daría mensajes que se omiten por falta de dato.
+	if (aud === 'community_roster') return ['participant'];
 	// server / table_leaders / responsables → primero participante, líder y responsable
 	return ['participant', 'tableLeader', 'responsibility', 'inviter', 'emergencyContact1', 'emergencyContact2'];
 });
@@ -165,6 +174,9 @@ function recipientAudience(step: { recipientTarget: string }): string | null {
 		server: 'server',
 		table_leaders: 'table_leader',
 		responsables: 'responsible',
+		// El padrón se convoca a SERVIR: las plantillas que aplican son las de
+		// servidor (SERVER_CONVOCATION, SERVER_WELCOME…).
+		community_roster: 'server',
 		all: null,
 	};
 	return byAudience[draft.value.audience] ?? null;

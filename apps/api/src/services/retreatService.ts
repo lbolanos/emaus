@@ -73,6 +73,9 @@ const RETREAT_AUDIT_FIELDS = [
 	'mealCost',
 	'paymentInfo',
 	'houseId',
+	// El vínculo con la comunidad decide quién puede leer la asistencia del
+	// equipo servidor desde este retiro: cambiarlo se audita.
+	'communityId',
 	'timezone',
 	'memoryPhotoUrl',
 	'musicPlaylistUrl',

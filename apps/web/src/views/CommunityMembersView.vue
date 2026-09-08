@@ -51,6 +51,10 @@
                 <UserPlus class="w-4 h-4 mr-2" />
                 {{ $t('community.import.title') }}
               </Button>
+              <Button variant="outline" @click="isDuplicatesOpen = true">
+                <Users class="mr-2 h-4 w-4" />
+                {{ $t('community.duplicates.action') }}
+              </Button>
             </TooltipTrigger>
             <TooltipContent>
               <p>Importar miembros desde un retiro</p>
@@ -576,6 +580,12 @@
     />
 
     <!-- Message Dialog -->
+    <DuplicateMembersDialog
+      v-model:open="isDuplicatesOpen"
+      :community-id="props.id"
+      @merged="fetchMembers"
+    />
+
     <MessageDialog
       v-model:open="isMessageDialogOpen"
       context="community"
@@ -661,6 +671,7 @@ import SkeletonCard from '@/components/community/SkeletonCard.vue';
 import MemberNotesDialog from '@/components/community/MemberNotesDialog.vue';
 import MemberTimelineDialog from '@/components/community/MemberTimelineDialog.vue';
 import MessageDialog from '@/components/MessageDialog.vue';
+import DuplicateMembersDialog from '@/components/community/DuplicateMembersDialog.vue';
 import EditCommunityMemberDialog from '@/components/EditCommunityMemberDialog.vue';
 import MemberAvatar from '@/components/community/MemberAvatar.vue';
 import MemberPhotoDialog from '@/components/community/MemberPhotoDialog.vue';
@@ -719,6 +730,7 @@ const timelineLoading = ref(false);
 // Message dialog state
 const messageParticipant = ref<any>(null);
 const isMessageDialogOpen = ref(false);
+const isDuplicatesOpen = ref(false);
 
 // Edit member profile dialog state. Útil para corregir nombre/apellido/email
 // /teléfono de miembros creados por el bot o importados con datos faltantes.

@@ -571,6 +571,13 @@ const router = createRouter({
 					meta: { requiresRetreat: false },
 				},
 				{
+					path: 'communities/:id/attendance-stats',
+					name: 'community-attendance-stats',
+					component: () => import('../views/CommunityAttendanceStatsView.vue'),
+					props: true,
+					meta: { requiresRetreat: false },
+				},
+				{
 					path: 'communities/:id/admins',
 					name: 'community-admins',
 					component: () => import('../views/CommunityAdminsView.vue'),

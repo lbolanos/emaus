@@ -21,7 +21,7 @@
           @touchend.stop="(e: TouchEvent) => participant && onTouchEnd(e, participant, tableId, role)"
           @click.stop
         >
-          <ParticipantInfoPopover :participant="participant">
+          <ParticipantInfoPopover :participant="participant" :attendance="attendance">
             <ParticipantTooltip :participant="participant">
               <div
                 draggable="true"
@@ -34,6 +34,11 @@
                 :class="[highlightClass, { 'ring-2 ring-blue-500 ring-offset-1 scale-110': participant && isSelected(participant.id) }]"
               >
                 {{ participant.firstName.split(' ')[0] }} {{ participant.lastName.charAt(0) }}.
+                <span
+                  v-if="attendance"
+                  class="ml-1 px-1 rounded-sm text-[10px] font-semibold align-middle"
+                  :class="attendanceClass"
+                >{{ Math.round(attendance.ratePercent) }}%</span>
               </div>
             </ParticipantTooltip>
           </ParticipantInfoPopover>
@@ -50,6 +55,7 @@ import type { Participant } from '@repo/types';
 import ParticipantTooltip from '@/components/ParticipantTooltip.vue';
 import ParticipantInfoPopover from '@/components/ParticipantInfoPopover.vue';
 import { useTapAssign } from '@/composables/useTapAssign';
+import type { ServerAttendanceState } from '@/composables/useServerAttendance';
 
 defineProps({
   title: {
@@ -82,6 +88,20 @@ defineProps({
   },
   /** Search highlight, computed by the view that owns the search. */
   highlightClass: {
+    type: String,
+    default: '',
+  },
+  /**
+   * Asistencia a reuniones de este servidor, si la hay. `null` significa "sin
+   * dato" (no está en el padrón de la comunidad, o la métrica está apagada) y
+   * NO se pinta: sería indistinguible de un 0% real.
+   */
+  attendance: {
+    type: Object as PropType<ServerAttendanceState | null>,
+    default: null,
+  },
+  /** Clases del badge, calculadas por la vista dueña de la métrica. */
+  attendanceClass: {
     type: String,
     default: '',
   },

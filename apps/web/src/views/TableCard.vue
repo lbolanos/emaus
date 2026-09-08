@@ -69,6 +69,8 @@
               :is-invalid="isDropInvalid && dragOverRole === 'lider'"
               :is-tap-target="!table.lider && tappedParticipant?.type === 'server'"
               :highlight-class="getParticipantHighlightClass(table.lider)"
+              :attendance="attendanceFor(table.lider?.id)"
+              :attendance-class="attendanceFor(table.lider?.id) ? attendanceClassFor(attendanceFor(table.lider?.id)!.frequency) : ''"
               :table-id="table.id"
               @drop="onDrop($event, 'lider')"
               @dragover="onDragOver($event, 'server', 'lider')"
@@ -88,6 +90,8 @@
               :is-invalid="isDropInvalid && dragOverRole === 'colider1'"
               :is-tap-target="!table.colider1 && tappedParticipant?.type === 'server'"
               :highlight-class="getParticipantHighlightClass(table.colider1)"
+              :attendance="attendanceFor(table.colider1?.id)"
+              :attendance-class="attendanceFor(table.colider1?.id) ? attendanceClassFor(attendanceFor(table.colider1?.id)!.frequency) : ''"
               :table-id="table.id"
               @drop="onDrop($event, 'colider1')"
               @dragover="onDragOver($event, 'server', 'colider1')"
@@ -107,6 +111,8 @@
               :is-invalid="isDropInvalid && dragOverRole === 'colider2'"
               :is-tap-target="!table.colider2 && tappedParticipant?.type === 'server'"
               :highlight-class="getParticipantHighlightClass(table.colider2)"
+              :attendance="attendanceFor(table.colider2?.id)"
+              :attendance-class="attendanceFor(table.colider2?.id) ? attendanceClassFor(attendanceFor(table.colider2?.id)!.frequency) : ''"
               :table-id="table.id"
               @drop="onDrop($event, 'colider2')"
               @dragover="onDragOver($event, 'server', 'colider2')"
@@ -231,7 +237,8 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue';
 import type { PropType } from 'vue';
-import type { Participant, TableMesa } from '@repo/types';
+import type { Participant, ParticipationFrequency, TableMesa } from '@repo/types';
+import type { ServerAttendanceState } from '@/composables/useServerAttendance';
 import { Card, CardContent, CardHeader, CardTitle } from '@repo/ui';
 import { useTableMesaStore } from '@/stores/tableMesaStore';
 import { useParticipantStore } from '@/stores/participantStore';
@@ -262,7 +269,23 @@ const props = defineProps({
     type: Object as PropType<SearchHighlight>,
     default: () => ({ matchingIds: [], currentMatchId: null, searching: false }),
   },
+  /**
+   * Asistencia a reuniones por participantId. Lo calcula la vista dueña de la
+   * métrica (TablesView); un mapa vacío significa que está apagada o que el
+   * retiro no está vinculado a ninguna comunidad.
+   */
+  serverAttendance: {
+    type: Object as PropType<Record<string, ServerAttendanceState>>,
+    default: () => ({}),
+  },
+  attendanceClassFor: {
+    type: Function as PropType<(frequency: ParticipationFrequency) => string>,
+    default: () => () => '',
+  },
 });
+
+const attendanceFor = (participantId: string | undefined): ServerAttendanceState | null =>
+  participantId ? props.serverAttendance[participantId] ?? null : null;
 
 const emit = defineEmits(['delete', 'refresh']);
 

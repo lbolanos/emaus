@@ -12,10 +12,40 @@ import {
 	updateMemberStateSchema,
 	recordAttendanceSchema,
 	inviteCommunityAdminSchema,
+	attendanceStatsFiltersSchema,
+	mergePreviewQuerySchema,
 } from '@repo/types';
+import {
+	RetreatCommunityMismatchError,
+	getAttendanceStats,
+	getServerAttendanceForRetreat,
+} from '../services/communityAttendanceStats';
+import {
+	ParticipantMergeError,
+	findDuplicateCandidatesForCommunity,
+	mergeParticipants,
+	previewMerge,
+} from '../services/participantMergeService';
 
 const communityService = new CommunityService();
 const recaptchaService = new RecaptchaService();
+
+/**
+ * Express entrega la query como `Record<string, string | string[]>` y manda
+ * cadena vacía cuando el cliente limpia un filtro. Los enums y el regex de
+ * fecha rechazarían ese `''` con un 400 — el bug recurrente de este repo — así
+ * que se normaliza a `undefined` antes de validar. Un valor repetido
+ * (`?meetingType=a&meetingType=b`) se queda con el primero en vez de reventar.
+ */
+const normalizeFilterQuery = (query: Request['query']): Record<string, string | undefined> => {
+	const out: Record<string, string | undefined> = {};
+	for (const key of ['meetingType', 'seriesId', 'from', 'to', 'retreatId']) {
+		const raw = (query as Record<string, unknown>)[key];
+		const value = Array.isArray(raw) ? raw[0] : raw;
+		out[key] = typeof value === 'string' && value !== '' ? value : undefined;
+	}
+	return out;
+};
 
 export class CommunityController {
 	// --- Community CRUD ---
@@ -672,6 +702,103 @@ export class CommunityController {
 		const { id } = req.params;
 		const stats = await communityService.getDashboardStats(id);
 		res.json(stats);
+	}
+
+	/**
+	 * Asistencia agregada, filtrable por tipo de reunión. Responde la pregunta
+	 * "¿quién viene de verdad a las preparaciones?" que el coordinador necesita
+	 * para armar las mesas.
+	 */
+	static async getAttendanceStats(req: Request, res: Response) {
+		const { id } = req.params;
+		const filters = attendanceStatsFiltersSchema.parse(normalizeFilterQuery(req.query));
+		try {
+			const stats = await getAttendanceStats(id, filters);
+			res.json(stats);
+		} catch (error) {
+			// El filtro por retiro cruza dos padrones: si el retiro no es de esta
+			// comunidad, es un 400 explicado, no un 500.
+			if (error instanceof RetreatCommunityMismatchError) {
+				return res.status(400).json({ message: error.message });
+			}
+			throw error;
+		}
+	}
+
+	/**
+	 * La misma tasa, proyectada sobre el equipo servidor de un retiro.
+	 *
+	 * El `communityId` va en la ruta (protegido por `requireCommunityAccess`) y NO
+	 * se deduce del retiro: la asistencia es dato de la comunidad, así que quien
+	 * la lea tiene que administrar ESA comunidad. Deducirla del `retreatId`
+	 * dejaría el recurso validando el objeto menos específico de la ruta.
+	 */
+	static async getRetreatServerAttendance(req: Request, res: Response) {
+		const { id, retreatId } = req.params;
+		try {
+			const result = await getServerAttendanceForRetreat(id, retreatId);
+			res.json(result);
+		} catch (error) {
+			if (error instanceof RetreatCommunityMismatchError) {
+				return res.status(400).json({ message: error.message });
+			}
+			throw error;
+		}
+	}
+
+	/**
+	 * Duplicados candidatos en el ámbito de esta comunidad: su padrón más los
+	 * participantes de sus retiros. Sólo PROPONE — la normalización de nombres
+	 * dobla la ñ, así que "Peña" y "Pena" salen juntos y decide una persona.
+	 */
+	static async getDuplicateCandidates(req: Request, res: Response) {
+		const candidates = await findDuplicateCandidatesForCommunity(req.params.id);
+		res.json(candidates);
+	}
+
+	/** Qué pasaría al fusionar, sin tocar nada. */
+	static async previewParticipantMerge(req: Request, res: Response) {
+		try {
+			// Sin esto, un `keepId` ausente se convertía en la cadena "undefined" y el
+			// error que llegaba al usuario era "alguna de las dos fichas no existe",
+			// que no dice cuál es el problema.
+			const parsed = mergePreviewQuerySchema.safeParse({
+				keepId: req.query.keepId,
+				mergeId: req.query.mergeId,
+			});
+			if (!parsed.success) {
+				return res.status(400).json({
+					message: 'Faltan o son inválidos los ids a comparar (keepId, mergeId)',
+				});
+			}
+			res.json(await previewMerge(parsed.data.keepId, parsed.data.mergeId));
+		} catch (error) {
+			if (error instanceof ParticipantMergeError) {
+				return res.status(400).json({ message: error.message });
+			}
+			throw error;
+		}
+	}
+
+	/**
+	 * Fusiona dos fichas. Reapunta todas las referencias al superviviente y deja
+	 * al absorbido como lápida.
+	 *
+	 * SECURITY: va sobre `requireCommunityOwner`, no sobre el acceso normal a la
+	 * comunidad. Es cirugía de identidad global —toca 23 columnas de 19 tablas y
+	 * afecta a retiros de otras comunidades— así que el permiso más específico
+	 * que se puede exigir aquí es el más alto de la comunidad.
+	 */
+	static async mergeParticipantDuplicates(req: Request, res: Response) {
+		const { keepId, mergeId } = req.body ?? {};
+		try {
+			res.json(await mergeParticipants(keepId, mergeId));
+		} catch (error) {
+			if (error instanceof ParticipantMergeError) {
+				return res.status(400).json({ message: error.message });
+			}
+			throw error;
+		}
 	}
 
 	// --- Admin Management ---

@@ -420,6 +420,136 @@ describe('MessageSequenceService', () => {
 		});
 	});
 
+	describe('audiencia community_roster', () => {
+		// La convocatoria a servir va al padrón de la comunidad, no a
+		// `retreat_participants`: precisamente son los que aún NO se han inscrito.
+		// Y va por WhatsApp, que en este sistema NUNCA se envía solo — se encola.
+		const linkedRetreatWithRoster = async () => {
+			const user = await TestDataFactory.createTestUser();
+			const community = await TestDataFactory.createTestCommunity(user.id);
+			const retreat = await TestDataFactory.createTestRetreat({
+				timezone: 'America/Mexico_City',
+			});
+			await AppDataSource.getRepository(Retreat).update(retreat.id, {
+				communityId: community.id,
+			});
+			return { community, retreat };
+		};
+
+		const addRosterMember = async (
+			communityId: string,
+			retreatId: string,
+			overrides: Record<string, unknown> = {},
+			state = 'active_member',
+		) => {
+			const participant = await TestDataFactory.createTestParticipant(retreatId, overrides as any);
+			await TestDataFactory.createTestCommunityMember(communityId, participant.id, {
+				state: state as never,
+			});
+			return participant;
+		};
+
+		const convocationSeq = async (retreatId: string) =>
+			svc.createSequence({
+				name: 'Convocatoria de servidores',
+				retreatId,
+				trigger: 'days_before_retreat',
+				audience: 'community_roster',
+				steps: [
+					{
+						stepOrder: 0,
+						offsetDays: 45,
+						sendHour: 10,
+						templateType: 'GENERAL',
+						channel: 'whatsapp',
+					} as any,
+				],
+			});
+
+		it('enrola al padrón de la comunidad vinculada', async () => {
+			const { community, retreat } = await linkedRetreatWithRoster();
+			await addRosterMember(community.id, retreat.id, { cellPhone: '5511111111' });
+			await addRosterMember(community.id, retreat.id, { cellPhone: '5522222222' });
+
+			const seq = await convocationSeq(retreat.id);
+			const created = await svc.enrollSequence(seq);
+
+			expect(created).toBe(2);
+		});
+
+		it('un retiro sin comunidad vinculada no enrola a nadie', async () => {
+			const user = await TestDataFactory.createTestUser();
+			const community = await TestDataFactory.createTestCommunity(user.id);
+			const retreat = await TestDataFactory.createTestRetreat({
+				timezone: 'America/Mexico_City',
+			});
+			// El padrón existe, pero el retiro NO apunta a la comunidad.
+			await addRosterMember(community.id, retreat.id, { cellPhone: '5511111111' });
+
+			const seq = await convocationSeq(retreat.id);
+
+			expect(await svc.enrollSequence(seq)).toBe(0);
+		});
+
+		it('excluye los estados de canal roto y no-contactar', async () => {
+			const { community, retreat } = await linkedRetreatWithRoster();
+			await addRosterMember(community.id, retreat.id, { cellPhone: '5511111111' });
+			for (const state of ['wrong_contact_info', 'paused', 'do_not_contact']) {
+				await addRosterMember(community.id, retreat.id, { cellPhone: '5599999999' }, state);
+			}
+
+			const seq = await convocationSeq(retreat.id);
+
+			expect(await svc.enrollSequence(seq)).toBe(1);
+		});
+
+		it('incluye a un miembro que aún NO está inscrito en el retiro', async () => {
+			// El punto de la feature: la audiencia no puede depender de
+			// `retreat_participants`, porque a quien hay que convocar es justo a
+			// quien no aparece ahí.
+			const { community, retreat } = await linkedRetreatWithRoster();
+			const otherRetreat = await TestDataFactory.createTestRetreat();
+			const participant = await TestDataFactory.createTestParticipant(otherRetreat.id, {
+				cellPhone: '5533333333',
+			} as any);
+			await TestDataFactory.createTestCommunityMember(community.id, participant.id);
+
+			const seq = await convocationSeq(retreat.id);
+			await svc.enrollSequence(seq);
+
+			const scheduled = await AppDataSource.getRepository(ScheduledMessage).find({
+				where: { sequenceId: seq.id },
+			});
+			expect(scheduled.map((m) => m.participantId)).toContain(participant.id);
+		});
+
+		it('WhatsApp encola, no envía: el mensaje queda en la bandeja', async () => {
+			const { community, retreat } = await linkedRetreatWithRoster();
+			await addRosterMember(community.id, retreat.id, { cellPhone: '5511111111' });
+			// Sin plantilla del tipo en el retiro, `processDue` marca `skipped` — el
+			// fallo silencioso que ya documenta el CRM. Por eso la migración siembra
+			// SERVER_CONVOCATION en cada retiro.
+			await createTemplate(retreat.id, 'GENERAL', 'Hola {participant.firstName}, ¿sirves?');
+			(globalThis as any).__sentEmails = [];
+
+			const seq = await convocationSeq(retreat.id);
+			await svc.enrollSequence(seq);
+			// No se mueve el reloj: con `offsetDays: 45` sobre un retiro que empieza
+			// "hoy", el mensaje ya vence. Adelantar `now` un año dispararía el guard
+			// anti-backfill (`isRetreatClosed`) y el mensaje saldría `skipped` — que
+			// es precisamente lo que ese guard debe hacer.
+			await svc.processDue();
+
+			const scheduled = await AppDataSource.getRepository(ScheduledMessage).find({
+				where: { sequenceId: seq.id },
+			});
+			expect(scheduled).toHaveLength(1);
+			expect(scheduled[0].status).toBe('queued');
+			expect(scheduled[0].channel).toBe('whatsapp');
+			expect(((globalThis as any).__sentEmails as any[]).length).toBe(0);
+		});
+	});
+
 	describe('recipientTarget = contacto de emergencia', () => {
 		it('email: envía al contacto de emergencia 1 y resuelve su nombre', async () => {
 			const retreat = await TestDataFactory.createTestRetreat({ timezone: 'America/Mexico_City' });

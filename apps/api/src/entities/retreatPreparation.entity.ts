@@ -55,6 +55,23 @@ export class RetreatPreparation {
 	@Column({ type: 'integer', default: 0 })
 	sortOrder!: number;
 
+	/**
+	 * Reunión de comunidad que materializa esta preparación, cuando el retiro está
+	 * vinculado a una comunidad. Es lo que permite pasar lista: el calendario de
+	 * preparaciones tiene los documentos, `community_meeting` tiene la asistencia.
+	 *
+	 * NULL = no sincronizada (el caso por defecto). Guardar el id es lo que hace
+	 * la sincronización idempotente: sin él, volver a pulsar el botón duplicaría
+	 * la serie entera.
+	 *
+	 * Sin FK física (columna añadida por ALTER, convención del repo). Si la reunión
+	 * se borra desde el módulo de comunidad, aquí queda un id colgado: el camino de
+	 * lectura lo trata como "no sincronizada" y la siguiente sincronización la
+	 * vuelve a crear.
+	 */
+	@Column({ type: 'uuid', nullable: true })
+	communityMeetingId?: string | null;
+
 	@OneToMany(() => RetreatPreparationDocument, (d) => d.preparation)
 	documents?: RetreatPreparationDocument[];
 

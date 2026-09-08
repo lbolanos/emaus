@@ -40,6 +40,24 @@ export const RetreatPreparationSchema = z.object({
 	date: dateOnly.nullable().optional(),
 	time: timeOnly.nullable().optional(),
 	sortOrder: z.number().int().default(0),
+	// Reunión de comunidad que materializa esta preparación (read-only para el
+	// cliente: la pone el endpoint de sincronización, no el formulario).
+	communityMeetingId: idSchema.nullable().optional(),
+	// Solo lectura: asistencia capturada en esa reunión. Ausente si la preparación
+	// no está sincronizada.
+	attendance: z
+		.object({
+			meetingId: idSchema,
+			attended: z.number().int().nonnegative(),
+			eligible: z.number().int().nonnegative(),
+			ratePercent: z.number(),
+			// La reunión aún no ocurrió y nadie pasó lista: la UI muestra
+			// "pendiente", nunca 0 %. Si falta esta clave, el `.strip()` de Zod
+			// la borraría y volvería el 0 % falso que la feature evita.
+			pending: z.boolean(),
+		})
+		.nullable()
+		.optional(),
 	documents: z.array(RetreatPreparationDocumentSchema).optional(),
 	createdAt: z.coerce.date(),
 	updatedAt: z.coerce.date(),
