@@ -33,11 +33,10 @@ export class PreparationSyncAndConvocation20260907200000 implements MigrationInt
 	name = 'PreparationSyncAndConvocation20260907200000';
 	timestamp = '20260907200000';
 
-	// El runner propio del proyecto IGNORA esta propiedad (la transacción la decide
-	// el flag CLI `--transaction`, por defecto OFF); se declara porque el guard
-	// `sqliteSafePattern.simple.test.ts` la exige en cuanto hay un DROP TABLE, y
-	// porque documenta el requisito: con una transacción envolvente SQLite ignora
-	// el `PRAGMA foreign_keys = OFF` en silencio.
+	// El runner propio del proyecto respeta esta propiedad (`shouldUseTransaction`
+	// en `database/transaction-policy.ts`): sin ella, el arranque del API envuelve
+	// la migración en una transacción y SQLite ignora en silencio el
+	// `PRAGMA foreign_keys = OFF` de abajo, con lo que el DROP TABLE cascadearía.
 	transaction = false as const;
 
 	/** IDs estables para que la siembra sea idempotente y el down() sepa qué borrar. */

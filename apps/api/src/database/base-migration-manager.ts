@@ -2,6 +2,7 @@ import { DataSource, QueryRunner as TypeORMQueryRunner } from 'typeorm';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { shouldUseTransaction } from './transaction-policy';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -180,14 +181,17 @@ export class ${this.camelize(timestamp)}${this.camelize(name)} implements Migrat
 			if (!options.dryRun) {
 				const queryRunner = this.createQueryRunner();
 
-				if (options.transaction) {
+				// La clase se carga ANTES de abrir la transacción: su propiedad
+				// `transaction` es parte de la decisión.
+				console.log(`🔄 Running migration: ${migration.name}`);
+				const migrationClass = await this.loadMigration(migration.name);
+				const useTransaction = shouldUseTransaction(migrationClass, options.transaction);
+
+				if (useTransaction) {
 					await queryRunner.beginTransaction();
 				}
 
 				try {
-					// Load and execute migration
-					console.log(`🔄 Running migration: ${migration.name}`);
-					const migrationClass = await this.loadMigration(migration.name);
 					await migrationClass.up(queryRunner);
 					console.log(`✅ Migration ${migration.name} up() method completed`);
 
@@ -198,7 +202,7 @@ export class ${this.camelize(timestamp)}${this.camelize(name)} implements Migrat
 						executionTime: Date.now() - startTime,
 					});
 
-					if (options.transaction) {
+					if (useTransaction) {
 						await queryRunner.commitTransaction();
 					}
 
@@ -208,7 +212,7 @@ export class ${this.camelize(timestamp)}${this.camelize(name)} implements Migrat
 						executionTime: Date.now() - startTime,
 					};
 				} catch (error) {
-					if (options.transaction) {
+					if (useTransaction) {
 						await queryRunner.rollbackTransaction();
 					}
 					throw error;
@@ -239,13 +243,16 @@ export class ${this.camelize(timestamp)}${this.camelize(name)} implements Migrat
 			if (!options.dryRun) {
 				const queryRunner = this.createQueryRunner();
 
-				if (options.transaction) {
+				// Igual que en up(): el down() de una migración recreate-table
+				// también hace DROP TABLE y necesita quedar fuera de transacción.
+				const migrationClass = await this.loadMigration(migration.name);
+				const useTransaction = shouldUseTransaction(migrationClass, options.transaction);
+
+				if (useTransaction) {
 					await queryRunner.beginTransaction();
 				}
 
 				try {
-					// Load and execute migration down
-					const migrationClass = await this.loadMigration(migration.name);
 					if (migrationClass.down) {
 						await migrationClass.down(queryRunner);
 					}
@@ -253,7 +260,7 @@ export class ${this.camelize(timestamp)}${this.camelize(name)} implements Migrat
 					// Remove migration record
 					await this.removeMigrationRecord(migration.name);
 
-					if (options.transaction) {
+					if (useTransaction) {
 						await queryRunner.commitTransaction();
 					}
 
@@ -263,7 +270,7 @@ export class ${this.camelize(timestamp)}${this.camelize(name)} implements Migrat
 						executionTime: Date.now() - startTime,
 					};
 				} catch (error) {
-					if (options.transaction) {
+					if (useTransaction) {
 						await queryRunner.rollbackTransaction();
 					}
 					throw error;
