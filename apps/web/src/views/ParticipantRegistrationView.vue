@@ -878,7 +878,13 @@ const onSubmit = async () => {
   } catch (error: any) {
     console.error('Submission error:', error)
     const retried = wasRetriedAfterNoResponse(error)
-    const alreadyRegistered = error?.response?.status === 409
+    // El 409 por correo ajeno (Regla 3) NO es "ya estabas registrado": el alta se
+    // rechazó y no hay fila de esta persona en ningún lado. Contarlo con los demás
+    // 409 haría que, tras un reintento nuestro, se le anunciara en tono tranquilo
+    // que quedó inscrito — justo el engaño que ese aviso quiere evitar.
+    const emailOwnedByOther =
+      error?.response?.data?.code === 'EMAIL_BELONGS_TO_ANOTHER_PARTICIPANT'
+    const alreadyRegistered = error?.response?.status === 409 && !emailOwnedByOther
 
     if (isUnrecordedFailure(error)) {
       reportClientError({

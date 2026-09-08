@@ -247,4 +247,40 @@ describe('Server registration — enviar el formulario cuando la petición se pi
 
 		expect(vi.mocked(getRecaptchaToken)).toHaveBeenCalledTimes(2);
 	});
+
+	// El 409 por correo de otra persona lleva su propio `code` y significa lo
+	// contrario que el del guard de doble registro: el alta NO entró y no hay
+	// fila suya en ningún lado. Contarlo entre los "ya estabas registrado" le
+	// diría, tras un reintento nuestro y en tono tranquilo, que quedó inscrito.
+	const ownedByOther = () =>
+		responseError(409, {
+			message: 'Ese correo ya pertenece al registro de otra persona.',
+			code: 'EMAIL_BELONGS_TO_ANOTHER_PARTICIPANT',
+		});
+
+	it('el 409 por correo ajeno no se cuenta como "ya estabas registrado"', async () => {
+		createParticipantMock
+			.mockRejectedValueOnce(networkError())
+			.mockRejectedValueOnce(ownedByOther());
+		const vm = await mountAtSummary();
+
+		await runSubmit(vm);
+
+		expect(toastTitles()).not.toContain('serverRegistration.errors.alreadyRegisteredTitle');
+		expect(toastTitles()).not.toContain('serverRegistration.toasts.successTitle');
+		expect(vm.isDialogOpen).toBe(true);
+	});
+
+	it('el 409 por correo ajeno se dice como fallo, con el motivo del servidor', async () => {
+		createParticipantMock.mockRejectedValue(ownedByOther());
+		const vm = await mountAtSummary();
+
+		await runSubmit(vm);
+
+		expect(toastMock).toHaveBeenCalledWith({
+			title: 'serverRegistration.toasts.submissionFailedTitle',
+			description: 'Ese correo ya pertenece al registro de otra persona.',
+			variant: 'destructive',
+		});
+	});
 });
