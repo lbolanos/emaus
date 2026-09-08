@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import ParticipantRegistrationView from '../ParticipantRegistrationView.vue';
 import { confirmExistingRegistration } from '@/services/api';
 import { reportClientError } from '@/services/clientErrorReport';
+import { getRecaptchaToken } from '@/services/recaptcha';
 
 // El 2026-09-08 una persona confirmó su registro desde un iPhone, la petición
 // nunca llegó al servidor (ni una línea en el access log de nginx) y vio
@@ -176,9 +177,9 @@ describe('Server registration — confirmar identidad cuando la petición se pie
 		expect(toastMock).toHaveBeenCalledWith(
 			expect.objectContaining({ description: 'El retiro ya está cerrado', variant: 'destructive' }),
 		);
-		expect(vi.mocked(reportClientError)).toHaveBeenCalledWith(
-			expect.objectContaining({ status: 400, retried: false }),
-		);
+		// Un 400 con su motivo ya quedó en el log del servidor: reportarlo otra
+		// vez solo ensucia el canal [CLIENT ERROR], que vale por lo que NO se ve.
+		expect(vi.mocked(reportClientError)).not.toHaveBeenCalled();
 	});
 
 	it('no vuelca la página HTML de un 502 en el mensaje', async () => {
@@ -212,5 +213,19 @@ describe('Server registration — confirmar identidad cuando la petición se pie
 			description: 'Este correo ya está registrado en este retiro como servidor.',
 			variant: undefined,
 		});
+	});
+
+	// El token de reCAPTCHA v3 es de un solo uso: si el primer intento llegó al
+	// servidor y solo se perdió la respuesta, reusarlo hace morir el reintento
+	// con "timeout-or-duplicate" en vez de dar el 409 que se lee como hecho.
+	it('pide un token de reCAPTCHA nuevo en cada intento', async () => {
+		vi.mocked(confirmExistingRegistration)
+			.mockRejectedValueOnce(networkError())
+			.mockResolvedValueOnce({ id: 'p1' } as any);
+		const vm = await mountAtConfirmScreen();
+
+		await runConfirm(vm);
+
+		expect(vi.mocked(getRecaptchaToken)).toHaveBeenCalledTimes(2);
 	});
 });

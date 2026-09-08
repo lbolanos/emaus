@@ -3,6 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import ParticipantRegistrationView from '../ParticipantRegistrationView.vue';
 import { reportClientError } from '@/services/clientErrorReport';
+import { getRecaptchaToken } from '@/services/recaptcha';
 
 // Misma clase de fallo que el del 2026-09-08 (petición perdida sin respuesta),
 // pero en el envío del formulario completo, que es donde se crea la ficha.
@@ -192,8 +193,10 @@ describe('Server registration — enviar el formulario cuando la petición se pi
 	});
 
 	// Si el primer intento sí entró y solo se perdió la respuesta, el segundo
-	// choca con el guard de doble registro. La persona YA está registrada.
-	it('trata el 409 del reintento como registro hecho', async () => {
+	// choca con el guard de doble registro. Se dice el hecho cierto sin
+	// anunciarlo como éxito: con un correo compartido la fila puede ser de otra
+	// persona, y un falso "quedaste registrado" la manda a un retiro sin lugar.
+	it('el 409 del reintento se cuenta como "ya estabas registrado", no como éxito', async () => {
 		createParticipantMock
 			.mockRejectedValueOnce(networkError())
 			.mockRejectedValueOnce(responseError(409, { message: 'Ya está registrado en este retiro' }));
@@ -201,8 +204,14 @@ describe('Server registration — enviar el formulario cuando la petición se pi
 
 		await runSubmit(vm);
 
-		expect(toastTitles()).toEqual(['serverRegistration.toasts.successTitle']);
-		expect(vm.isDialogOpen).toBe(false);
+		expect(toastMock).toHaveBeenCalledWith({
+			title: 'serverRegistration.errors.alreadyRegisteredTitle',
+			description: 'Ya está registrado en este retiro',
+			variant: undefined,
+		});
+		expect(toastTitles()).not.toContain('serverRegistration.toasts.successTitle');
+		// El formulario queda abierto: no se pierde lo que escribió.
+		expect(vm.isDialogOpen).toBe(true);
 	});
 
 	// Sin reintento de por medio, un 409 es lo que siempre fue: ya estaba
@@ -221,6 +230,21 @@ describe('Server registration — enviar el formulario cuando la petición se pi
 			description: 'Ya está registrado en este retiro',
 			variant: 'destructive',
 		});
+		expect(vi.mocked(reportClientError)).not.toHaveBeenCalled();
 		expect(vm.isDialogOpen).toBe(true);
+	});
+
+	// El token de reCAPTCHA v3 es de un solo uso: si el primer intento llegó al
+	// servidor y solo se perdió la respuesta, reusarlo hace morir el reintento
+	// con "timeout-or-duplicate" en vez de dar el 409 que se lee como hecho.
+	it('pide un token de reCAPTCHA nuevo en cada intento', async () => {
+		createParticipantMock
+			.mockRejectedValueOnce(networkError())
+			.mockResolvedValueOnce({ id: 'p1' } as any);
+		const vm = await mountAtSummary();
+
+		await runSubmit(vm);
+
+		expect(vi.mocked(getRecaptchaToken)).toHaveBeenCalledTimes(2);
 	});
 });

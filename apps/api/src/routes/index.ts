@@ -77,7 +77,9 @@ applyCsrfProtectionExcept(router, [
 	'/retreat-preparations/public',
 	// El reporte de error del cliente viaja por sendBeacon, que no permite
 	// poner cabeceras (y por tanto no puede llevar el token CSRF).
-	'/telemetry/public',
+	// Con barra final: la comparación es startsWith, y sin ella una ruta
+	// futura tipo /telemetry/publicaciones quedaría exenta sin que nadie lo pida.
+	'/telemetry/public/',
 ]);
 
 // Resto de las rutas (con protección CSRF)

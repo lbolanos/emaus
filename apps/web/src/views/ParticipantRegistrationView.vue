@@ -560,6 +560,16 @@ const skipEmailLookup = () => {
 }
 
 /**
+ * Un fallo del que el servidor no dejó constancia: sin respuesta, o con una
+ * respuesta que no es del API (página de nginx, challenge de Cloudflare). Son
+ * los únicos que hay que reportar — un 400 o un 409 con su mensaje ya quedó
+ * registrado del lado del servidor, y meterlos en el canal [CLIENT ERROR] le
+ * quita justo el valor que tiene: que ahí solo hay lo que nadie más vio.
+ */
+const isUnrecordedFailure = (error: any): boolean =>
+  isNetworkError(error) || !serverErrorMessage(error)
+
+/**
  * Qué decirle a la persona sobre un fallo al guardar su registro. Lo usan los
  * dos caminos que escriben: confirmar identidad y enviar el formulario.
  */
@@ -649,12 +659,14 @@ const handleConfirmIdentity = async () => {
     // Este fallo no deja rastro en el servidor cuando la petición no llega:
     // sin este reporte solo queda la captura de pantalla de la persona.
     const retried = wasRetriedAfterNoResponse(error)
-    reportClientError({
-      context: 'confirm-registration',
-      message: String(error?.message ?? 'unknown'),
-      status: error?.response?.status,
-      retried,
-    })
+    if (isUnrecordedFailure(error)) {
+      reportClientError({
+        context: 'confirm-registration',
+        message: String(error?.message ?? 'unknown'),
+        status: error?.response?.status,
+        retried,
+      })
+    }
     // Un 409 después de nuestro propio reintento significa que el primer
     // intento sí había entrado: no es un fallo, ya quedó registrada.
     const alreadyRegistered = retried && error?.response?.status === 409
@@ -697,17 +709,6 @@ watch(isDialogOpen, (open) => {
 watch(() => props.retreatId, (newRetreatId) => {
   formData.value.retreatId = newRetreatId
 }, { immediate: true })
-
-/** Cierre del registro. Se llega aquí tanto por el alta como por el 409 que
- * confirma que el alta ya había entrado en un intento perdido. */
-const finishSuccessfulRegistration = () => {
-  toast({ title: t('serverRegistration.toasts.successTitle') })
-  clearDraft()
-  completedSteps.value.clear()
-  isDialogOpen.value = false
-  currentStep.value = 1
-  formData.value = getInitialFormData()
-}
 
 const onSubmit = async () => {
   // Clear previous errors
@@ -812,10 +813,9 @@ const onSubmit = async () => {
   }
 
   try {
-    // Get reCAPTCHA token for bot protection
-    const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.PARTICIPANT_REGISTER)
-
     if (isTestMode.value) {
+      // Get reCAPTCHA token for bot protection
+      const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.PARTICIPANT_REGISTER)
       const dryRunResult = await participantStore.createParticipant(result.data, recaptchaToken, true)
       const warnings = dryRunResult?.warnings?.length
         ? dryRunResult.warnings.join('\n')
@@ -838,38 +838,56 @@ const onSubmit = async () => {
 
     // Repetir el alta no duplica a nadie: `createParticipant` reusa la ficha
     // por correo y rechaza con 409 si ya hay registro en este retiro.
+    //
+    // Cada intento pide su propio token: el de reCAPTCHA v3 es de un solo uso.
+    // Reusarlo rompe justo el caso que motiva el reintento — si el primer
+    // intento llegó al servidor y solo se perdió la respuesta, el token ya se
+    // consumió y el segundo muere con "timeout-or-duplicate" en vez de dar el
+    // 409 que se lee como "ya estabas registrado".
     await retryOnceOnNetworkError(
-      () => participantStore.createParticipant(result.data, recaptchaToken),
+      async () => {
+        const recaptchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.PARTICIPANT_REGISTER)
+        return participantStore.createParticipant(result.data, recaptchaToken)
+      },
       { onRetry: (err) => console.warn('Registro: sin respuesta, reintentando una vez', err) },
     )
-    finishSuccessfulRegistration()
+    toast({ title: t('serverRegistration.toasts.successTitle') })
+    clearDraft()
+    completedSteps.value.clear()
+    isDialogOpen.value = false
+    currentStep.value = 1
+    formData.value = getInitialFormData()
   } catch (error: any) {
     console.error('Submission error:', error)
     const retried = wasRetriedAfterNoResponse(error)
     const alreadyRegistered = error?.response?.status === 409
 
-    // Un 409 después de nuestro propio reintento significa que el primer
-    // intento sí entró: la persona quedó registrada, no falló nada.
-    if (retried && alreadyRegistered) {
-      finishSuccessfulRegistration()
-      return
+    if (isUnrecordedFailure(error)) {
+      reportClientError({
+        context: 'participant-registration',
+        message: String(error?.message ?? 'unknown'),
+        status: error?.response?.status,
+        retried,
+      })
     }
 
-    // Sin esto, un fallo que no llega al servidor no deja rastro en ninguna
-    // parte y solo se puede diagnosticar por una captura de pantalla.
-    reportClientError({
-      context: 'participant-registration',
-      message: String(error?.message ?? 'unknown'),
-      status: error?.response?.status,
-      retried,
-    })
-
     if (alreadyRegistered) {
+      // Un 409 tras nuestro propio reintento suele significar que el primer
+      // intento sí entró. Pero NO se anuncia como éxito: con un correo
+      // compartido —caso real en este proyecto— la fila puede ser de otra
+      // persona, y decirle "quedaste registrado" a quien no lo está lo manda
+      // a un retiro sin lugar. Se dice el hecho que es cierto en los dos
+      // casos, sin variante destructiva si el reintento fue nuestro, y sin
+      // cerrar el formulario para no perder lo que escribió.
       toast({
-        title: t('serverRegistration.toasts.registrationFailedTitle'),
+        title: t(
+          retried
+            ? 'serverRegistration.errors.alreadyRegisteredTitle'
+            : 'serverRegistration.toasts.registrationFailedTitle',
+        ),
         description:
           serverErrorMessage(error) || t('serverRegistration.emailLookup.alreadyRegistered'),
-        variant: 'destructive',
+        variant: retried ? undefined : 'destructive',
       })
     } else {
       toast({
