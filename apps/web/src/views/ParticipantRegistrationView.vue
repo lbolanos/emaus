@@ -158,6 +158,9 @@ const emailLookup = ref('')
 const isSearching = ref(false)
 
 const existingParticipantName = ref('')
+// Quien respondió "no soy yo" en la pantalla de identidad no puede quedarse con el
+// correo del registro ajeno: el alta lo tomaría como suyo y sobrescribiría esa ficha.
+const deniedIdentity = ref(false)
 const isConfirming = ref(false)
 const showSuccessScreen = ref(false)
 const lookupShirtSizes = ref<Record<string, string>>({})
@@ -626,7 +629,14 @@ const handleConfirmIdentity = async () => {
 
 const handleDenyIdentity = () => {
   existingParticipantName.value = ''
-  formData.value.email = emailLookup.value
+  // El correo se limpia a propósito: si siguiera prellenado, el alta reutilizaría la
+  // ficha de la otra persona y le pisaría nombre e historial.
+  deniedIdentity.value = true
+  formData.value.email = ''
+  toast({
+    title: t('serverRegistration.emailLookup.deniedTitle'),
+    description: t('serverRegistration.emailLookup.deniedUseAnotherEmail'),
+  })
 }
 
 // Reset email lookup when dialog opens for server types
@@ -635,6 +645,7 @@ watch(isDialogOpen, (open) => {
     showEmailLookup.value = true
     emailLookup.value = ''
     existingParticipantName.value = ''
+    deniedIdentity.value = false
     lookupShirtSizes.value = {}
   }
   if (open) {
@@ -743,6 +754,12 @@ const onSubmit = async () => {
     ;(result.data as any).availability = (formData.value as any).availability
   }
 
+  // Tras un "no soy yo", el alta no puede adoptar una ficha ajena aunque el correo
+  // coincida: el backend la rechaza en vez de sobrescribirla.
+  if (deniedIdentity.value) {
+    ;(result.data as any).claimExisting = false
+  }
+
   // Para walkers: convertir tshirtSize al shirtType correspondiente en participant_shirt_size.
   // El tipo del walker es el marcado requiredForWalkers, o el primero por sortOrder.
   if (props.type === 'walker' && (result.data as any).tshirtSize) {
@@ -785,6 +802,7 @@ const onSubmit = async () => {
     completedSteps.value.clear()
     isDialogOpen.value = false
     currentStep.value = 1
+    deniedIdentity.value = false
     formData.value = getInitialFormData()
   } catch (error: any) {
     console.error('Submission error:', error)

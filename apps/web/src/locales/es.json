@@ -1997,6 +1997,8 @@
       "confirmMessage": "Hola {name}, al confirmar quedarás registrado(a) para este retiro.",
       "confirmButton": "Sí, soy yo",
       "denyButton": "No, registrarme como nuevo",
+      "deniedTitle": "Usa un correo propio",
+      "deniedUseAnotherEmail": "Ese correo pertenece al registro de otra persona, así que no podemos usarlo para el tuyo. Escribe un correo tuyo para continuar; si el registro sí era tuyo, regresa y confirma tu identidad.",
       "success": "¡Registro exitoso! Quedaste registrado(a) para este retiro.",
       "alreadyRegistered": "Este correo ya está registrado en este retiro.",
       "alreadyRegisteredAsWalker": "Este correo ya está registrado en este retiro como caminante.",

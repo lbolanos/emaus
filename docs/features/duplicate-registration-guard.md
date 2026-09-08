@@ -1,6 +1,6 @@
 # Public-registration guards
 
-Two related rules enforced for public retreat registration.
+Three related rules enforced for public retreat registration.
 
 ## Rule 1 — No double registration per retreat
 
@@ -23,6 +23,40 @@ The frontend landing page (`/:slug`, `/:slug/server`,
 `/register/:type/:retreatId`) also hides the "Register Now" CTA entirely
 and replaces it with the `serverRegistration.retreatClosed` card when the
 backend reports `isRegistrationClosed: true` on the public retreat endpoint.
+
+## Rule 3 — A denied identity cannot claim someone else's email
+
+Public registration identifies people **by email**: `createParticipant` reuses
+the Participant that already holds the address and `Object.assign`s the new
+form data over it. That is what makes re-registration work year after year,
+but it also means a shared address hands one person's record to another.
+
+It happens for real: an invitee's record gets captured with the inviter's
+email (the inviter fills the form and there is no other address at hand).
+When the inviter later registers with that address, the lookup screen offers
+them the invitee's identity, and the two paths available were *«Sí, soy yo»* —
+which registers them under the wrong name — and *«No, registrarme como nuevo»*,
+which resubmitted the same email and **overwrote the other person's record**,
+retreat history included. Neither outcome was correct.
+
+So the client now states its intent. When the registrant answers "that's not
+me", the submit carries `claimExisting: false`, and the backend rejects the
+alta instead of taking over the record:
+
+```json
+{
+  "message": "Ese correo ya pertenece al registro de otra persona. Usa un correo propio; si el registro es tuyo, regresa y confirma tu identidad.",
+  "code": "EMAIL_BELONGS_TO_ANOTHER_PARTICIPANT"
+}
+```
+
+When the flag is absent or `true` the behaviour is exactly the one described
+in Rule 1 — re-registrations, Excel imports and admin flows are untouched.
+
+**Trade-off:** two people who share one address can no longer both register
+through this flow; the second needs an address of their own. Couple
+registration uses a different endpoint (`/participants/couple/new`) and is
+unaffected.
 
 ### Timezone handling
 
@@ -74,6 +108,12 @@ early warning during the email-lookup step.
 - `createParticipant` and `confirmExistingParticipantEmail` map:
   - `ALREADY_REGISTERED_IN_RETREAT` (or legacy `message.includes('already exists')`) → **HTTP 409** with `{ message }`.
   - `RETREAT_CLOSED` / `RETREAT_NOT_PUBLIC` / `RETREAT_NOT_FOUND` → **HTTP 400** with `{ message, code }`.
+- `createParticipant` also enforces Rule 3: it destructures `claimExisting`
+  out of the body (so it never reaches the participant data) and, when it is
+  `false`, looks the email up with `findParticipantByEmail`. A hit returns
+  **HTTP 409** with `EMAIL_BELONGS_TO_ANOTHER_PARTICIPANT`. The check sits
+  after reCAPTCHA and Zod validation and **before** the dry-run branch, so
+  test mode reports the rejection instead of a valid registration.
 
 `apps/api/src/controllers/retreatController.ts`
 
@@ -97,6 +137,11 @@ early warning during the email-lookup step.
   does **not** advance the wizard nor pre-fill `formData.email`.
 - `onSubmit` surfaces the 409 body via `error.response?.data?.message` so the
   walker flow — which has no email-lookup step — still gets the correct text.
+- `handleDenyIdentity` (Rule 3) clears `formData.email` instead of pre-filling
+  it with the address that belongs to someone else, toasts
+  `emailLookup.deniedUseAnotherEmail`, and raises a `deniedIdentity` flag that
+  makes `onSubmit` send `claimExisting: false`. The flag resets when the dialog
+  reopens and after a successful alta.
 
 `apps/web/src/components/registration/ServerRegistrationForm.vue`
 
@@ -116,6 +161,8 @@ i18n (`apps/web/src/locales/{es,en}.json`, under `serverRegistration.*`):
 - `emailLookup.alreadyRegistered`
 - `emailLookup.alreadyRegisteredAsWalker`
 - `emailLookup.alreadyRegisteredAsServer`
+- `emailLookup.deniedTitle`
+- `emailLookup.deniedUseAnotherEmail`
 - `retreatClosed.title`
 - `retreatClosed.description`
 
@@ -156,6 +203,21 @@ retreat, the four retreat-scoped fields are omitted (or
 
 Same shape for `POST /api/participants/confirm-registration`.
 
+### POST `/api/participants/new` — 409 response (email owned by someone else)
+
+Body field `claimExisting: false` (optional; sent by the wizard after a
+*«No, registrarme como nuevo»*):
+
+```json
+{
+  "message": "Ese correo ya pertenece al registro de otra persona. Usa un correo propio; si el registro es tuyo, regresa y confirma tu identidad.",
+  "code": "EMAIL_BELONGS_TO_ANOTHER_PARTICIPANT"
+}
+```
+
+Returned for `dryRun: true` as well. Omitting the flag keeps the pre-existing
+reuse behaviour.
+
 ### POST `/api/participants/new` — 400 response (closed retreat)
 
 ```json
@@ -181,12 +243,22 @@ Adds `isRegistrationClosed: boolean` to the existing response shape.
 - `apps/api/src/tests/services/emailLookup.test.ts` — adds coverage for
   the controller: UUID-only `retreatId` forwarding, 409 mapping for the new
   error code, and retrocompat for the legacy `already exists` text.
+- `apps/api/src/tests/controllers/claimExistingParticipant.test.ts` — 6 tests
+  for Rule 3: the 409 and its code, that `createParticipant` is never reached,
+  the dry-run rejection, a free email going through, that `claimExisting` does
+  not leak into the participant data, and that omitting the flag keeps the
+  reuse behaviour.
+- `apps/web/src/views/__tests__/ParticipantRegistrationView.test.ts` — 3 tests
+  for the deny path: the email is cleared, the submit is flagged, and the
+  registrant is told to use their own address.
 
 Run:
 
 ```bash
 pnpm --filter api test -- src/tests/services/doubleRegistrationGuard.test.ts
 pnpm --filter api test -- src/tests/services/emailLookup.test.ts
+pnpm --filter api test -- src/tests/controllers/claimExistingParticipant.test.ts
+pnpm --filter web test src/views/__tests__/ParticipantRegistrationView.test.ts
 ```
 
 ## Manual verification
@@ -204,6 +276,11 @@ Preparation: two public retreats `R1`, `R2`; email `test@x.com`.
 8. `POST /confirm-registration` for an active email in `R1` → 409.
 9. Raw `POST /participants/new` bypassing the lookup → 409 (defense in depth).
 10. `GET /check-email/:email` without `retreatId` → legacy shape.
+11. Rule 3: look up an email that belongs to another participant, answer
+    *«No, registrarme como nuevo»* → the wizard opens with an **empty** email
+    field and a toast asking for one of your own. Typing that same address
+    again and submitting → 409 `EMAIL_BELONGS_TO_ANOTHER_PARTICIPANT`, and the
+    other person's row is unchanged.
 
 Useful SQL:
 
