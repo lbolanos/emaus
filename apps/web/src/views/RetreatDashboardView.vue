@@ -892,6 +892,12 @@
                   <p class="text-xs uppercase tracking-wider text-muted-foreground">{{ $t('retreatDashboard.walkersWithoutPalancas') }}</p>
                   <p class="text-2xl font-bold mt-1" :class="walkersWithoutPalancasCount > 0 ? 'text-amber-600' : ''">{{ walkersWithoutPalancasCount }}</p>
                 </div>
+                <!-- Fichas con las cartas en texto: no entran en el total. Se
+                     muestran aparte para que el número cuadre a la vista. -->
+                <div v-if="walkersWithUnknownPalancasCount > 0">
+                  <p class="text-xs uppercase tracking-wider text-muted-foreground">{{ $t('retreatDashboard.palancasUnknown') }}</p>
+                  <p class="text-2xl font-bold mt-1 text-purple-700">{{ walkersWithUnknownPalancasCount }}</p>
+                </div>
               </div>
             </template>
           </CardContent>
@@ -1283,7 +1289,7 @@ import {
   UserPlus,
   Users,
 } from 'lucide-vue-next';
-import { formatDate, buildClosingChurchWazeUrl } from '@repo/utils';
+import { formatDate, buildClosingChurchWazeUrl, resolvePalancas } from '@repo/utils';
 import { openLocation } from '@/utils/openLocation';
 import {
   isRetreatLive as isRetreatLiveUtil,
@@ -1492,22 +1498,42 @@ const activeWalkers = computed(() =>
 const walkersWithPalancasRequestedCount = computed(() =>
   activeWalkers.value.filter((p: any) => p.palancasRequested === true).length
 );
-const walkersWithPalancasReceivedCount = computed(() =>
-  activeWalkers.value.filter((p: any) => !!p.palancasReceived && String(p.palancasReceived).trim() !== '').length
-);
-const totalPalancasReceivedCount = computed(() =>
-  activeWalkers.value.reduce((acc: number, p: any) => {
-    const raw = p.palancasReceived;
-    if (raw === null || raw === undefined) return acc;
-    const n = parseInt(String(raw).trim(), 10);
-    return acc + (Number.isFinite(n) ? n : 0);
-  }, 0)
-);
-const walkersWithoutPalancasCount = computed(() =>
-  activeWalkers.value.filter((p: any) =>
-    !p.palancasReceived || String(p.palancasReceived).trim() === ''
-  ).length
-);
+/**
+ * Palancas con el criterio ÚNICO de `@repo/utils`.
+ *
+ * Estos tres contadores usaban criterios distintos entre sí: "texto no vacío"
+ * contaba como recibidas una ficha en prosa que el total con `parseInt` no
+ * sumaba, y el formulario la mostraba como pendiente. Ahora los tres leen lo
+ * mismo, y las fichas sin número se muestran aparte en vez de desaparecer
+ * silenciosamente del total.
+ */
+const palancasBreakdown = computed(() => {
+  const min = (selectedRetreat.value as any)?.minPalancasPerWalker ?? null;
+  let withLetters = 0;
+  let total = 0;
+  let none = 0;
+  let unknown = 0;
+  for (const p of activeWalkers.value as any[]) {
+    const { count, milestone } = resolvePalancas(p, min);
+    if (milestone === 'unknown') {
+      unknown += 1;
+      continue;
+    }
+    if (count && count > 0) {
+      withLetters += 1;
+      total += count;
+    } else {
+      none += 1;
+    }
+  }
+  return { withLetters, total, none, unknown };
+});
+
+const walkersWithPalancasReceivedCount = computed(() => palancasBreakdown.value.withLetters);
+const totalPalancasReceivedCount = computed(() => palancasBreakdown.value.total);
+const walkersWithoutPalancasCount = computed(() => palancasBreakdown.value.none);
+/** Fichas con las cartas anotadas como texto: no se pueden contar. */
+const walkersWithUnknownPalancasCount = computed(() => palancasBreakdown.value.unknown);
 
 const bagsCompletedCount = computed(() =>
   activeWalkers.value.filter((p: any) => p.bagMade === true).length

@@ -1475,7 +1475,8 @@
     "palancasRequested": "Solicitadas",
     "palancasReceived": "Recibidas",
     "walkersWithoutPalancas": "Sin Palancas",
-    "totalPalancasReceived": "Total Palancas"
+    "totalPalancasReceived": "Total Palancas",
+    "palancasUnknown": "Cartas sin capturar"
   },
   "retreatFlyer": {
     "printButton": "Imprimir Flyer",

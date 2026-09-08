@@ -147,8 +147,16 @@ Cada tarjeta te dice de un vistazo cuántas **cartas** lleva (verde = llegó al 
 está en la lista de no contactar y cuántas tareas abiertas tiene. Arriba puedes filtrar por nombre,
 por tipo y por cartas — **"por debajo del mínimo" responde de un clic a quién le falta palanca**.
 
-Si una tarjeta muestra `?` en las cartas, es que están anotadas como texto en vez de número. Ponlas
-como número en la ficha para que cuenten.
+Las cartas se capturan en la ficha del caminante (sección **Palancas** → *Cartas Recibidas*): sólo
+el número. Lo que quieras contar —de quién vinieron, si falta alguna— va en las notas de palancas.
+El mínimo por caminante se configura por retiro; si no se toca, son 3.
+
+Si una tarjeta muestra `?` en las cartas, es que están anotadas como texto ("tres de su mamá") en
+vez de número, así que no se pueden contar. Escribe el número en la ficha y la tarjeta se pone al
+día. En el tablero, el filtro **Sin capturar** te las junta todas.
+
+Cuando un caminante alcanza el mínimo, queda anotado en su historial con la fecha — así sabes
+*cuándo* se cubrió, no sólo que está cubierto.
 
 ### Historial y notas de una persona
 

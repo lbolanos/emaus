@@ -147,8 +147,16 @@ have sent, whether they are on the do-not-contact list, and how many open tasks 
 top you can filter by name, by type and by letters — **"below minimum" answers in one click who is
 still missing letters**.
 
-If a card shows `?` for letters, they were written as text instead of a number. Enter a number on
-the participant's record so they count.
+Letters are entered on the walker's record (**Palancas** section → *Cartas Recibidas*): the number
+only. Anything you want to note — who they came from, whether one is missing — goes in the palanca
+notes. The per-walker minimum is set per retreat; left alone, it is 3.
+
+If a card shows `?` for letters, they were written as text ("three from his mom") instead of a
+number, so they cannot be counted. Enter the number on the record and the card catches up. On the
+board, the **Not captured** filter gathers them all.
+
+When a walker reaches the minimum, it is recorded in their history with the date — so you know
+*when* it was covered, not just that it is.
 
 ### One person's history and notes
 

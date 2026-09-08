@@ -23,6 +23,8 @@ import {
   MAX_WALKERS_PER_TABLE,
 } from "./tableMesaService";
 import { domainAuditService, DomainAuditAction } from "./domainAuditService";
+import { parsePalancasCount } from "@repo/utils";
+import { crmService } from "./crmService";
 import { EmailService } from "./emailService";
 import { messageSequenceService } from "./messageSequenceService";
 
@@ -3042,6 +3044,7 @@ export const updateParticipant = async (
     palancasCoordinator,
     palancasRequested,
     palancasReceived,
+    palancasReceivedCount,
     palancasNotes,
     invitedBy,
     isInvitedByEmausMember,
@@ -3177,8 +3180,18 @@ export const updateParticipant = async (
       rpUpdates.palancasCoordinator = palancasCoordinator || null;
     if (palancasRequested !== undefined)
       rpUpdates.palancasRequested = palancasRequested;
-    if (palancasReceived !== undefined)
+    // El conteo numérico es la fuente de verdad; el texto heredado se mantiene
+    // en espejo para lo que aún lo lee (columna de la lista, exportaciones).
+    // Si sólo llega el texto (importaciones, clientes viejos), se deriva el
+    // conteo con el criterio único.
+    if (palancasReceivedCount !== undefined) {
+      const parsed = parsePalancasCount(palancasReceivedCount);
+      rpUpdates.palancasReceivedCount = parsed;
+      rpUpdates.palancasReceived = parsed === null ? null : String(parsed);
+    } else if (palancasReceived !== undefined) {
       rpUpdates.palancasReceived = palancasReceived || null;
+      rpUpdates.palancasReceivedCount = parsePalancasCount(palancasReceived);
+    }
     if (palancasNotes !== undefined)
       rpUpdates.palancasNotes = palancasNotes || null;
     // Inviter
@@ -3246,6 +3259,24 @@ export const updateParticipant = async (
         );
       } catch (err) {
         console.error("Error syncing retreat fields:", err);
+      }
+
+      // Hito de cartas: si este guardado hizo que el conteo alcance el mínimo
+      // del retiro, queda en el hilo de la persona. Best-effort — que falle no
+      // debe tumbar el guardado del participante.
+      // Va sin autor a propósito: es el sistema notando que se cruzó un umbral,
+      // no algo que alguien dijo. En importación masiva se omite (ruido).
+      if (rpUpdates.palancasReceivedCount !== undefined && !isImporting) {
+        try {
+          await crmService.recordPalancaMilestoneIfCrossed({
+            participantId: updatedParticipant.id,
+            retreatId: effectiveRetreatId,
+            previousCount: currentRp?.palancasReceivedCount ?? null,
+            newCount: rpUpdates.palancasReceivedCount,
+          });
+        } catch (err) {
+          console.error("Error recording palanca milestone:", err);
+        }
       }
     }
 

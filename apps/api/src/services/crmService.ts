@@ -275,6 +275,59 @@ export class CrmService {
 		return true;
 	}
 
+	/**
+	 * Deja en el hilo el momento en que un caminante alcanzó el mínimo de cartas
+	 * del retiro.
+	 *
+	 * Sólo escribe al CRUZAR el umbral hacia arriba: pasar de 3 a 4 cartas no
+	 * genera otra entrada, y bajar el conteo tampoco. El umbral se lee del retiro
+	 * (`minPalancasPerWalker`), así que si alguien lo baja después, un caminante
+	 * puede quedar por encima sin tener entrada — es un hito histórico ("cuándo
+	 * se cubrió"), no un estado derivado; el estado actual lo da el timeline.
+	 *
+	 * Idempotente: si ya hay un hito de palancas en el hilo, no agrega otro.
+	 */
+	async recordPalancaMilestoneIfCrossed(input: {
+		participantId: string;
+		retreatId: string;
+		previousCount: number | null;
+		newCount: number | null;
+	}): Promise<ParticipantNote | null> {
+		const { participantId, retreatId, previousCount, newCount } = input;
+		if (newCount === null) return null;
+
+		const retreat = await AppDataSource.getRepository(Retreat).findOne({
+			where: { id: retreatId },
+			select: ['id', 'minPalancasPerWalker'],
+		});
+		const threshold = effectiveMinPalancas(retreat?.minPalancasPerWalker);
+
+		const crossed = newCount >= threshold && (previousCount ?? 0) < threshold;
+		if (!crossed) return null;
+
+		const repo = AppDataSource.getRepository(ParticipantNote);
+		// `metadata` es simple-json, así que el filtro va en memoria: hay pocas
+		// entradas de sistema por persona.
+		const systemEntries = await repo.find({
+			where: { participantId, retreatId, kind: 'stage_change' },
+		});
+		if (systemEntries.some((n) => n.metadata?.milestone === 'palancas')) {
+			return null;
+		}
+
+		return repo.save(
+			repo.create({
+				participantId,
+				scope: 'retreat',
+				retreatId,
+				kind: 'stage_change',
+				body: null,
+				metadata: { milestone: 'palancas', count: newCount, threshold },
+				createdBy: null,
+			}),
+		);
+	}
+
 	// --- Timeline unificado ---
 
 	/**

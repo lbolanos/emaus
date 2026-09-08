@@ -260,7 +260,22 @@ estar en `no_answer`), son un dato derivado de un conteo, y el umbral cambia por
   `effectiveMinPalancas`. Deliberadamente estricto — `"3 de la mamá"` devuelve `null`, no `3`: un
   `parseInt` laxo es exactamente cómo nace un cuarto criterio.
 - **Cuatro estados, no tres**: `unknown` (capturado como texto, nadie sabe cuántas) es distinto de
-  `none` (no ha recibido). Colapsarlos es el bug vivo de `EditParticipantForm.vue`.
+  `none` (no ha recibido). Colapsarlos era el bug de `EditParticipantForm.vue`, ya corregido.
+- **Captura**: el campo "Cartas Recibidas" del formulario es numérico y escribe
+  `palancasReceivedCount`. El backend mantiene `palancasReceived` **en espejo** (`String(count)`)
+  para lo que aún lee el texto — la columna de la lista de palancas, exportaciones. Si sólo llega
+  el texto (importaciones, clientes viejos), el conteo se deriva con el criterio único.
+- **Los tres sitios ya leen lo mismo**: `EditParticipantForm.palancasStatus` y los contadores de
+  `RetreatDashboardView` llaman a `resolvePalancas`. El dashboard suma **sólo conteos conocidos** y
+  añade un contador propio, "Cartas sin capturar", para las fichas en prosa: antes desaparecían del
+  total y a la vez contaban como "recibidas" en el contador de al lado. Guard:
+  `palancasSingleCriterion.test.ts` fija que el formulario y el dashboard coincidan.
+- **Hito en el hilo**: `crmService.recordPalancaMilestoneIfCrossed`, llamado desde
+  `updateParticipant` cuando el guardado toca el conteo. Escribe **sólo al cruzar el umbral hacia
+  arriba** (de 3 a 4 no genera otra entrada), es idempotente (si el conteo baja y vuelve a subir no
+  se duplica), va **sin autor** (es el sistema notando un umbral, no algo que alguien dijo) y se
+  **omite en importación masiva** para no llenar el hilo de ruido. El estado actual lo da el
+  timeline; la entrada del hilo es el registro histórico de *cuándo* se cubrió.
 - `Participant.palancasReceivedCount` es **virtual, sin `@Column`**: la columna real vive sólo en
   `retreat_participants`. Declararla en la entidad la metería en el `SELECT` de `participants`,
   que no la tiene, y la query fallaría en runtime.
@@ -289,12 +304,26 @@ otros tres casos.
 
 ### Tests de la fase
 
-- Backend: `palancasMilestone.test.ts` (13, el criterio único), `crmService.test.ts` (hilo,
-  autoría, inmutabilidad de `stage_change`, sincronización de asistencia en los dos sentidos,
-  timeline), `sequenceRecipientsAndSeed.test.ts` (bloque `previewStep`, incl. el invitador).
+- Backend: `palancasMilestone.test.ts` (13, el criterio único), `crmService.test.ts` (20 — hilo,
+  autoría, inmutabilidad de `stage_change`, sincronización de asistencia en los dos sentidos, hito
+  de cartas, timeline), `sequenceRecipientsAndSeed.test.ts` (bloque `previewStep`, incl. el
+  invitador).
+- Autorización, a nivel de controlador: **`crmNotesAuthz.integration.test.ts`** (11). Separa dos
+  cosas que se confunden: acceso al retiro (403) y **autoría** — un compañero CON acceso al retiro
+  sigue sin poder editar ni borrar la nota de otro, ni tocar una entrada del sistema. Incluye el
+  IDOR cross-retiro en notas y timeline, y que una nota inexistente dé 404 y no 403.
+- Migración: **`addPalancasCountAndThreshold.test.ts`** (8). Lo que fija es que el backfill **no
+  puede perder información**: rellena los enteros limpios, deja `NULL` la prosa, no toca el texto
+  ni las notas, no adivina en `"3 de la mamá"`, y el guard `IS NULL` protege un conteo ya corregido
+  a mano.
 - Frontend: `FollowUpView.test.ts` (columna por defecto, arrastre, reversión al fallar, filtros,
   exclusión de borrados y cancelados), `ParticipantTimelinePanel.test.ts` (interlocutores, enlace
-  sin `text`, filtro por familiar, notas propias), `participantContacts.test.ts`, `phone.test.ts`.
+  sin `text`, filtro por familiar, notas propias), `participantContacts.test.ts`, `phone.test.ts`,
+  **`palancasSingleCriterion.test.ts`** (formulario y dashboard coinciden).
+- E2E (`crm-notes-timeline.spec.ts`): gating de las rutas nuevas — anónimo y autenticado sin acceso
+  al retiro, en notas, timeline y **preview** (que resuelve teléfonos y correos reales del invitador
+  y los familiares, así que es superficie de fuga). Los casos con login necesitan la migración
+  `SeedE2ETestUsers`, que sólo corre en CI; los anónimos corren en local.
 - El mock global de `vue-i18n` devuelve la clave, no la traducción: las aserciones de texto de UI
   van contra la clave.
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
 import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch, Textarea } from '@repo/ui';
-import { formatCurrency } from '@repo/utils';
+import { formatCurrency, resolvePalancas } from '@repo/utils';
 import TagSelector from './TagSelector.vue';
 import AngelitoAvailabilityEditor from './AngelitoAvailabilityEditor.vue';
 import { getParticipantTags, assignTagToParticipant, removeTagFromParticipant, getPalanqueroOptions as fetchPalanqueroOptions, santisimoApi } from '@/services/api';
@@ -75,9 +75,19 @@ const palanqueroOptions = ref([
   { value: 'Palanquero 3', label: 'Palanquero 3' },
 ]);
 
+/**
+ * Estado de palancas con el criterio ÚNICO de `@repo/utils`.
+ *
+ * Antes era `Number(p.palancasReceived) > 0`, que con una ficha en prosa
+ * ("tres cartas de su mamá") daba NaN y la mostraba como «Pendiente» aunque
+ * sí tuviera cartas. Ahora esa ficha se distingue: `unknown`.
+ */
+const palancas = computed(() => resolvePalancas(localParticipant.value ?? {}));
+
 const palancasStatus = computed(() => {
   const p = localParticipant.value;
-  if (p.palancasReceived && Number(p.palancasReceived) > 0) return 'received';
+  if (palancas.value.milestone === 'unknown') return 'unknown';
+  if ((palancas.value.count ?? 0) > 0) return 'received';
   if (p.palancasRequested) return 'requested';
   if (p.palancasCoordinator) return 'assigned';
   return 'pending';
@@ -86,6 +96,7 @@ const palancasStatus = computed(() => {
 const palancasStatusConfig = computed(() => {
   const configs: Record<string, { label: string; bg: string; text: string; dot: string }> = {
     received: { label: 'Recibidas', bg: 'bg-green-100', text: 'text-green-800', dot: 'bg-green-500' },
+    unknown: { label: 'Anotadas como texto', bg: 'bg-purple-100', text: 'text-purple-800', dot: 'bg-purple-500' },
     requested: { label: 'Solicitadas', bg: 'bg-blue-100', text: 'text-blue-800', dot: 'bg-blue-500' },
     assigned: { label: 'Coordinador Asignado', bg: 'bg-yellow-100', text: 'text-yellow-800', dot: 'bg-yellow-500' },
     pending: { label: 'Pendiente', bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' },
@@ -580,13 +591,21 @@ const calculateAge = (birthDate: string | Date) => {
 
           <!-- Row 2: Received -->
           <div class="space-y-2">
-            <Label for="palancasReceived" class="text-sm font-medium text-gray-700">Palancas Recibidas</Label>
+            <Label for="palancasReceivedCount" class="text-sm font-medium text-gray-700">Cartas Recibidas</Label>
             <Input
-              id="palancasReceived"
-              v-model="localParticipant.palancasReceived"
-              placeholder="Cantidad o descripci&oacute;n de palancas recibidas"
+              id="palancasReceivedCount"
+              v-model="localParticipant.palancasReceivedCount"
+              type="number"
+              min="0"
+              placeholder="Cu&aacute;ntas cartas lleva"
               class="w-full"
             />
+            <p class="text-xs text-gray-500">
+              S&oacute;lo el n&uacute;mero. Lo que quieras contar (de qui&eacute;n vinieron, si falta alguna) va en las notas de abajo.
+            </p>
+            <p v-if="palancas.milestone === 'unknown'" class="text-xs text-purple-700">
+              Estaba anotado como texto: &laquo;{{ localParticipant.palancasReceived }}&raquo;. Escribe el n&uacute;mero para que cuente.
+            </p>
           </div>
 
           <!-- Row 3: Notes -->

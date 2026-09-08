@@ -613,6 +613,13 @@ export const participantSchema = z.object({
 		(val) => (val === '' || val === null ? undefined : val),
 		z.string().optional(),
 	),
+	// Conteo numérico de cartas — fuente de verdad del hito. El input vacío del
+	// formulario llega como '' y debe significar "sin capturar" (null), no 0:
+	// "no ha recibido ninguna" y "nadie lo ha anotado" no son lo mismo.
+	palancasReceivedCount: z.preprocess(
+		(val) => (val === '' || val === undefined ? null : val),
+		z.coerce.number().int().min(0).nullable().optional(),
+	),
 	palancasNotes: z.preprocess(
 		(val) => (val === '' || val === null ? undefined : val),
 		z.string().optional(),

@@ -229,6 +229,136 @@ describe('CrmService', () => {
 		});
 	});
 
+	describe('hito de cartas (palancas)', () => {
+		const setCount = async (n: number | null) => {
+			const repo = AppDataSource.getRepository(RetreatParticipant);
+			const rp = await repo.findOne({
+				where: { participantId: participant.id, retreatId: retreat.id },
+			});
+			rp!.palancasReceivedCount = n;
+			await repo.save(rp!);
+		};
+
+		const milestones = async () =>
+			(await threadOf()).filter((n) => n.metadata?.milestone === 'palancas');
+
+		it('registra el hito al alcanzar el mínimo del retiro', async () => {
+			await setCount(3);
+			await svc.recordPalancaMilestoneIfCrossed({
+				participantId: participant.id,
+				retreatId: retreat.id,
+				previousCount: 2,
+				newCount: 3,
+			});
+
+			const found = await milestones();
+			expect(found).toHaveLength(1);
+			expect(found[0].metadata).toMatchObject({
+				milestone: 'palancas',
+				count: 3,
+				threshold: 3,
+			});
+			// Es un evento del sistema: sin autor y sin cuerpo.
+			expect(found[0].createdBy).toBeNull();
+			expect(found[0].body).toBeNull();
+		});
+
+		it('no registra nada si aún no llega al mínimo', async () => {
+			await svc.recordPalancaMilestoneIfCrossed({
+				participantId: participant.id,
+				retreatId: retreat.id,
+				previousCount: 0,
+				newCount: 2,
+			});
+			expect(await milestones()).toHaveLength(0);
+		});
+
+		it('no repite el hito al seguir subiendo el conteo', async () => {
+			await svc.recordPalancaMilestoneIfCrossed({
+				participantId: participant.id,
+				retreatId: retreat.id,
+				previousCount: 2,
+				newCount: 3,
+			});
+			// De 3 a 4 no vuelve a cruzar nada.
+			await svc.recordPalancaMilestoneIfCrossed({
+				participantId: participant.id,
+				retreatId: retreat.id,
+				previousCount: 3,
+				newCount: 4,
+			});
+			expect(await milestones()).toHaveLength(1);
+		});
+
+		it('es idempotente aunque el conteo baje y vuelva a subir', async () => {
+			await svc.recordPalancaMilestoneIfCrossed({
+				participantId: participant.id,
+				retreatId: retreat.id,
+				previousCount: 2,
+				newCount: 3,
+			});
+			// Alguien corrige a la baja y luego vuelve a subir: el hito histórico
+			// ya está, no debe duplicarse.
+			await svc.recordPalancaMilestoneIfCrossed({
+				participantId: participant.id,
+				retreatId: retreat.id,
+				previousCount: 1,
+				newCount: 5,
+			});
+			expect(await milestones()).toHaveLength(1);
+		});
+
+		it('un conteo sin capturar (null) no genera hito', async () => {
+			await svc.recordPalancaMilestoneIfCrossed({
+				participantId: participant.id,
+				retreatId: retreat.id,
+				previousCount: null,
+				newCount: null,
+			});
+			expect(await milestones()).toHaveLength(0);
+		});
+
+		it('respeta el umbral del retiro', async () => {
+			await AppDataSource.getRepository(Retreat).update(retreat.id, {
+				minPalancasPerWalker: 5,
+			} as any);
+
+			// 3 ya no alcanza.
+			await svc.recordPalancaMilestoneIfCrossed({
+				participantId: participant.id,
+				retreatId: retreat.id,
+				previousCount: 2,
+				newCount: 3,
+			});
+			expect(await milestones()).toHaveLength(0);
+
+			await svc.recordPalancaMilestoneIfCrossed({
+				participantId: participant.id,
+				retreatId: retreat.id,
+				previousCount: 3,
+				newCount: 5,
+			});
+			const found = await milestones();
+			expect(found).toHaveLength(1);
+			expect(found[0].metadata?.threshold).toBe(5);
+		});
+
+		it('el hito sale en el timeline con su texto', async () => {
+			await setCount(3);
+			await svc.recordPalancaMilestoneIfCrossed({
+				participantId: participant.id,
+				retreatId: retreat.id,
+				previousCount: 0,
+				newCount: 3,
+			});
+			const timeline = await svc.getParticipantTimeline(participant.id, retreat.id);
+			const hito = timeline.find(
+				(e) => e.type === 'stage_change' && /cartas/i.test(e.title),
+			);
+			expect(hito?.title).toContain('3');
+		});
+	});
+
 	describe('timeline', () => {
 		it('junta registro, notas, cambios de etapa y palancas, ordenado', async () => {
 			await svc.createNote({
