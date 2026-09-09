@@ -53,6 +53,10 @@ const walkers = [
 	{ palancasReceivedCount: 0 },
 	{ palancasReceived: '3' }, // heredado, aún sin conteo
 	{ palancasReceived: 'tres cartas de su mamá' }, // prosa
+	// El caso que DISCRIMINA: empieza con dígito, así que un `parseInt` laxo
+	// devolvería 3 y lo contaría. Sin esta ficha el test pasa igual aunque el
+	// criterio se relaje — verificado con un control negativo.
+	{ palancasReceived: '3 de la mamá' },
 	{}, // ficha en blanco
 ];
 
@@ -64,8 +68,10 @@ describe('criterio único de cartas — dashboard', () => {
 		expect(b.withLetters).toBe(3);
 		// El cero explícito y la ficha en blanco.
 		expect(b.none).toBe(2);
-		// Visible en su propio contador, no desaparecida del total.
-		expect(b.unknown).toBe(1);
+		// Las dos en prosa: visibles en su propio contador, no desaparecidas
+		// del total ni adivinadas. Si el criterio se relajara, '3 de la mamá'
+		// se colaría en `total` y este número bajaría a 1.
+		expect(b.unknown).toBe(2);
 	});
 
 	it('cada ficha cae en exactamente un contador', () => {
@@ -85,6 +91,8 @@ describe('criterio único de cartas — formulario', () => {
 	it('una ficha en prosa ya NO se muestra como pendiente', () => {
 		// El bug: `Number('tres cartas…') > 0` es false → «Pendiente».
 		expect(formStatus({ palancasReceived: 'tres cartas de su mamá' })).toBe('unknown');
+		// Y el caso que un `parseInt` laxo daría por bueno.
+		expect(formStatus({ palancasReceived: '3 de la mamá' })).toBe('unknown');
 	});
 
 	it('con cartas capturadas dice recibidas', () => {

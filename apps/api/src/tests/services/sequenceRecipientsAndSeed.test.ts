@@ -347,7 +347,9 @@ describe('MessageSequence — destinatarios invitador/responsabilidad + seed', (
 				recipientTarget: 'inviter',
 			});
 
-			expect(preview?.warning).toContain('no tiene ese vínculo');
+			// El mismo motivo que el motor escribe en `error` al cancelar, para que
+			// el preview y el log de la secuencia no se contradigan.
+			expect(preview?.warning).toBe('el caminante no registró invitador');
 		});
 
 		it('señala las variables que quedarían vacías', async () => {

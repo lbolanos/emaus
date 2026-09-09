@@ -123,9 +123,42 @@ export function buildParticipantContacts(p: any): ParticipantContact[] {
 	return rows;
 }
 
+/**
+ * Normaliza el `recipientContactKey` guardado a uno de los interlocutores.
+ *
+ * La columna acumuló TRES formatos a lo largo del tiempo, y hay filas vivas de
+ * los tres (verificado contra la base: `participant:email` 298,
+ * vacío 244, `inviter:email` 31, `cellPhone` 8):
+ *
+ *  1. `dueño:campo` — lo que escriben hoy `MessageDialog` y la cola de WhatsApp
+ *     (`participant:email`, `participant:cellPhone`, `inviter:email`).
+ *  2. Nombre de campo a secas — el formato original de la columna
+ *     (`cellPhone`, `emergencyContact1CellPhone`, `inviterEmail`).
+ *  3. Dueño a secas — lo que devuelve `resolveRecipient` del motor de
+ *     secuencias (`emergencyContact1`, `inviter`).
+ *
+ * Sin normalizar, filtrar por "Caminante" no encontraba nada (el filtro
+ * comparaba contra `participant` y la fila decía `participant:email`) y la
+ * etiqueta se pintaba en crudo.
+ */
+export function normalizeContactKey(raw: string | null | undefined): ContactKey | string {
+	const key = (raw ?? '').trim();
+	if (!key) return 'participant';
+	// Formato `dueño:campo`.
+	if (key.includes(':')) return key.slice(0, key.indexOf(':'));
+	// Nombre de campo (o dueño) a secas: el prefijo delata al dueño.
+	if (/^emergencyContact1/i.test(key)) return 'emergencyContact1';
+	if (/^emergencyContact2/i.test(key)) return 'emergencyContact2';
+	if (/^inviter/i.test(key)) return 'inviter';
+	if (/^tableLeader/i.test(key)) return 'tableLeader';
+	if (/^responsibility/i.test(key)) return 'responsibility';
+	// cellPhone / homePhone / workPhone / email → el propio caminante.
+	return 'participant';
+}
+
 /** Etiqueta legible de un `contactKey` para pintar el evento del hilo. */
 export function contactKeyLabel(key: string | null | undefined): string {
-	switch (key) {
+	switch (normalizeContactKey(key)) {
 		case 'emergencyContact1':
 			return 'Familiar 1';
 		case 'emergencyContact2':
@@ -136,11 +169,7 @@ export function contactKeyLabel(key: string | null | undefined): string {
 			return 'Líder de mesa';
 		case 'responsibility':
 			return 'Responsable';
-		case 'participant':
-		case null:
-		case undefined:
-			return 'Caminante';
 		default:
-			return key;
+			return 'Caminante';
 	}
 }

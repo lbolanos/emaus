@@ -500,10 +500,17 @@ export class MessageSequenceService {
 		contactKey: string | undefined,
 		retreatId: string,
 		escapeHtmlValues = false,
+		// El llamador puede pasar el roster ya construido. `buildTableData` hace
+		// ~6 consultas; el preview lo necesita también para `findEmptyVariables`
+		// y sin esto lo armaba dos veces por vista previa de un briefing.
+		precomputedTableData?: TableData | null,
 	): Promise<string> {
-		const tableData = message.includes('{table.')
-			? await this.buildTableData(participant.id, retreatId)
-			: null;
+		const tableData =
+			precomputedTableData !== undefined
+				? precomputedTableData
+				: message.includes('{table.')
+					? await this.buildTableData(participant.id, retreatId)
+					: null;
 		// El enlace de alta de servidores se resuelve aquí porque el origen es del
 		// entorno, no del retiro. Mismo helper que usa el cliente, para que la
 		// convocatoria mande exactamente la misma URL desde los dos caminos.
@@ -1093,6 +1100,12 @@ export class MessageSequenceService {
 			input.recipientResponsibility,
 		);
 
+		// Un solo armado del roster, compartido por el render y por el chequeo de
+		// variables vacías.
+		const tableData = template.message.includes('{table.')
+			? await this.buildTableData(participant.id, input.retreatId)
+			: null;
+
 		const content = await this.resolveContent(
 			template.message,
 			participant,
@@ -1100,13 +1113,11 @@ export class MessageSequenceService {
 			recipient.contactKey,
 			input.retreatId,
 			input.channel === 'email',
+			tableData,
 		);
 
 		// `findEmptyVariables` se evalúa sobre la plantilla CRUDA y su contexto,
 		// no sobre el texto ya resuelto (donde las variables ya no están).
-		const tableData = template.message.includes('{table.')
-			? await this.buildTableData(participant.id, input.retreatId)
-			: null;
 		const emptyVariables = findEmptyVariables(
 			template.message,
 			participant as any,
@@ -1121,7 +1132,9 @@ export class MessageSequenceService {
 		// Mismo criterio que el motor: destinatario sin contacto es accionable.
 		let warning: string | null = null;
 		if (!recipient.name && !contact) {
-			warning = 'El participante no tiene ese vínculo registrado';
+			// El mismo texto que el motor pone en `error` al cancelar, para que el
+			// preview y el motivo real del log digan lo mismo.
+			warning = this.missingRecipientReason(input.recipientTarget);
 		} else if (!contact) {
 			warning =
 				input.channel === 'email'

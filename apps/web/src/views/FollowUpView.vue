@@ -117,14 +117,23 @@ async function moveTo(participant: any, status: FollowUpStatus) {
 	const previous = statusByParticipant.value[participant.id] ?? 'pending';
 	if (previous === status) return;
 	// Movimiento optimista: la tarjeta salta ya, y si el POST falla se revierte.
-	const idx = followUps.value.findIndex((f) => f.participantId === participant.id);
-	const snapshot = idx !== -1 ? { ...followUps.value[idx] } : null;
-	if (idx !== -1) followUps.value[idx] = { ...followUps.value[idx], status };
-	else
-		followUps.value = [
-			...followUps.value,
-			{ participantId: participant.id, retreatId: retreatId.value, status } as any,
-		];
+	//
+	// La reversión busca por participantId, NO por el índice capturado antes del
+	// await: `setFollowUp` termina llamando a `fetchFollowUps`, que REEMPLAZA el
+	// array entero reordenado por `updatedAt`. Con dos arrastres concurrentes, un
+	// índice viejo apunta a la fila de otra persona y la reversión la pisaría.
+	const existia = followUps.value.some((f) => f.participantId === participant.id);
+	const snapshot = existia
+		? { ...followUps.value.find((f) => f.participantId === participant.id)! }
+		: null;
+	followUps.value = existia
+		? followUps.value.map((f) =>
+				f.participantId === participant.id ? { ...f, status } : f,
+			)
+		: [
+				...followUps.value,
+				{ participantId: participant.id, retreatId: retreatId.value, status } as any,
+			];
 
 	try {
 		await crmStore.setFollowUp({
@@ -138,8 +147,9 @@ async function moveTo(participant: any, status: FollowUpStatus) {
 		else if (status === 'declined') toast({ title: t('followUp.attendanceDeclined') });
 		await participantStore.fetchParticipants();
 	} catch {
-		if (snapshot && idx !== -1) followUps.value[idx] = snapshot;
-		else followUps.value = followUps.value.filter((f) => f.participantId !== participant.id);
+		followUps.value = snapshot
+			? followUps.value.map((f) => (f.participantId === participant.id ? snapshot : f))
+			: followUps.value.filter((f) => f.participantId !== participant.id);
 		toast({ title: t('followUp.moveError'), variant: 'destructive' });
 	} finally {
 		clearSelection();

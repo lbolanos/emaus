@@ -154,6 +154,20 @@ describe('ParticipantTimelinePanel', () => {
 		expect(w.text()).not.toContain('La mamá está enojada');
 	});
 
+	it('filtrar por el propio caminante tampoco muestra las notas', async () => {
+		// Las notas no llevan contactKey. Con el fallback a 'participant' se
+		// colaban al filtrar por el caminante, que es justo lo contrario de lo
+		// que el filtro promete.
+		const w = await mountPanel();
+		const boton = w.findAll('button').find((b) => b.text().includes('Andrei Ibarra'))!;
+		await boton.trigger('click');
+		await flushPromises();
+
+		expect(w.text()).toContain('Bienvenido al retiro');
+		expect(w.text()).not.toContain('La mamá está enojada');
+		expect(w.text()).not.toContain('Petición de palanca');
+	});
+
 	it('agrega una nota y recarga el hilo', async () => {
 		const w = await mountPanel();
 		await w.find('textarea').setValue('Habló la mamá, ya está tranquila');

@@ -46,9 +46,22 @@ export class CreateParticipantNotes20260908150000 implements MigrationInterface 
 			CREATE INDEX IF NOT EXISTS "IDX_participant_notes_thread"
 				ON "participant_notes" ("participantId", "retreatId", "createdAt")
 		`);
+		// El hito de cartas es único por persona y retiro. La comprobación en el
+		// servicio (leer y filtrar) no basta: dos guardados simultáneos —doble
+		// clic en Guardar, dos pestañas— leen ambos "todavía no hay hito" antes de
+		// que ninguno inserte, y el hilo acaba con dos "Alcanzó N cartas".
+		// El índice parcial lo cierra en la base, que es donde se puede cerrar.
+		await queryRunner.query(`
+			CREATE UNIQUE INDEX IF NOT EXISTS "UQ_participant_notes_palanca_milestone"
+				ON "participant_notes" ("participantId", "retreatId")
+				WHERE json_extract("metadata", '$.milestone') = 'palancas'
+		`);
 	}
 
 	public async down(queryRunner: QueryRunner): Promise<void> {
+		await queryRunner.query(
+			`DROP INDEX IF EXISTS "UQ_participant_notes_palanca_milestone"`,
+		);
 		await queryRunner.query(`DROP INDEX IF EXISTS "IDX_participant_notes_thread"`);
 		await queryRunner.query(`DROP TABLE IF EXISTS "participant_notes"`);
 	}

@@ -270,12 +270,26 @@ estar en `no_answer`), son un dato derivado de un conteo, y el umbral cambia por
   añade un contador propio, "Cartas sin capturar", para las fichas en prosa: antes desaparecían del
   total y a la vez contaban como "recibidas" en el contador de al lado. Guard:
   `palancasSingleCriterion.test.ts` fija que el formulario y el dashboard coincidan.
+- **Un `null` en el conteo NO borra el texto.** El formulario reenvía el participante completo, y
+  el listado hidrata `palancasReceivedCount = null` **explícito** en toda ficha cuyo conteo no se
+  pudo derivar. Interpretar ese `null` como "poner a null" borraba el texto de palancas en
+  cualquier guardado ajeno (corregir un teléfono) — justo lo que el backfill se cuidó de
+  conservar. Regla: **sólo un número manda**; "sin capturar" no es una orden de borrado.
+  Consecuencia aceptada: vaciar el campo numérico es un no-op (para "no recibió ninguna" se
+  captura `0`, que sí es un dato). Guard: `palancasCountWritePath.test.ts`.
 - **Hito en el hilo**: `crmService.recordPalancaMilestoneIfCrossed`, llamado desde
   `updateParticipant` cuando el guardado toca el conteo. Escribe **sólo al cruzar el umbral hacia
   arriba** (de 3 a 4 no genera otra entrada), es idempotente (si el conteo baja y vuelve a subir no
   se duplica), va **sin autor** (es el sistema notando un umbral, no algo que alguien dijo) y se
   **omite en importación masiva** para no llenar el hilo de ruido. El estado actual lo da el
   timeline; la entrada del hilo es el registro histórico de *cuándo* se cubrió.
+  La comprobación en memoria no cierra la carrera de dos guardados simultáneos: eso lo hace el
+  índice único parcial `UQ_participant_notes_palanca_milestone`
+  (`ON (participantId, retreatId) WHERE json_extract(metadata,'$.milestone') = 'palancas'`),
+  declarado **en la entidad y en la migración** — la DB de test la crea `synchronize` desde las
+  entidades, así que sin declararlo ahí el test correría sin la restricción que protege a
+  producción. El servicio traga la violación y devuelve `null`: un hito duplicado no justifica
+  tumbar el guardado del participante.
 - `Participant.palancasReceivedCount` es **virtual, sin `@Column`**: la columna real vive sólo en
   `retreat_participants`. Declararla en la entidad la metería en el `SELECT` de `participants`,
   que no la tiene, y la query fallaría en runtime.

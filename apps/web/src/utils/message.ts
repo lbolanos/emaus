@@ -25,7 +25,15 @@ export const convertHtmlToWhatsApp = (html: string): string => {
 		} else if (node.nodeType === Node.ELEMENT_NODE) {
 			const element = node as Element;
 
-			switch (element.tagName.toLowerCase()) {
+			// Los correos guardados son documentos HTML completos. Al asignarlos a
+			// `innerHTML`, el navegador descarta <html>/<head>/<body> y deja a sus
+			// hijos sueltos, así que <style>, <title> y <meta> quedan como
+			// hermanos del contenido: sin saltarlos, el historial mostraba el CSS
+			// crudo y un "Email Message" pegado al saludo.
+			const tag = element.tagName.toLowerCase();
+			if (['style', 'script', 'head', 'title', 'meta', 'link'].includes(tag)) return;
+
+			switch (tag) {
 				case 'strong':
 				case 'b': {
 					// Process all child nodes to preserve formatting within bold text

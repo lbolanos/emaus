@@ -45,6 +45,15 @@ export interface ParticipantNoteMetadata {
 
 @Entity('participant_notes')
 @Index('IDX_participant_notes_thread', ['participantId', 'retreatId', 'createdAt'])
+// El hito de cartas es único por persona y retiro; la comprobación en el
+// servicio no cierra la carrera de dos guardados simultáneos, el índice sí.
+// Declarado aquí Y en la migración: la DB de test la crea `synchronize` desde
+// las entidades, así que sin esto el test correría sin la restricción que
+// protege a producción.
+@Index('UQ_participant_notes_palanca_milestone', ['participantId', 'retreatId'], {
+	unique: true,
+	where: `json_extract("metadata", '$.milestone') = 'palancas'`,
+})
 export class ParticipantNote {
 	@PrimaryGeneratedColumn('uuid')
 	id!: string;

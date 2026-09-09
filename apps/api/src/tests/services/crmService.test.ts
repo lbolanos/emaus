@@ -318,6 +318,26 @@ describe('CrmService', () => {
 			expect(await milestones()).toHaveLength(0);
 		});
 
+		it('dos guardados simultáneos no duplican el hito', async () => {
+			// La comprobación en memoria no basta: ambos leen "todavía no hay
+			// hito" antes de que ninguno inserte. Lo cierra el índice único
+			// parcial de la migración, y el servicio traga la violación en vez de
+			// tumbar el guardado del participante.
+			const cruzar = () =>
+				svc.recordPalancaMilestoneIfCrossed({
+					participantId: participant.id,
+					retreatId: retreat.id,
+					previousCount: 2,
+					newCount: 3,
+				});
+
+			const [a, b] = await Promise.all([cruzar(), cruzar()]);
+
+			expect(await milestones()).toHaveLength(1);
+			// Uno insertó, el otro devolvió null; ninguno lanzó.
+			expect([a, b].filter(Boolean)).toHaveLength(1);
+		});
+
 		it('respeta el umbral del retiro', async () => {
 			await AppDataSource.getRepository(Retreat).update(retreat.id, {
 				minPalancasPerWalker: 5,

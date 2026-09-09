@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	buildParticipantContacts,
 	contactKeyLabel,
+	normalizeContactKey,
 } from '../participantContacts';
 
 const walker = {
@@ -104,5 +105,55 @@ describe('contactKeyLabel', () => {
 		// Un mensaje viejo sin contactKey es del caminante.
 		expect(contactKeyLabel(null)).toBe('Caminante');
 		expect(contactKeyLabel(undefined)).toBe('Caminante');
+	});
+});
+
+/**
+ * Las formas REALES que tiene la columna en la base — contadas el 2026-09-08:
+ * `participant:email` 298, vacío 244, `inviter:email` 31, `cellPhone` 8.
+ * Los tests originales usaban claves sintéticas limpias ('emergencyContact1') y
+ * por eso pasaban mientras el filtro no encontraba nada con datos de verdad.
+ */
+describe('normalizeContactKey — formatos reales de la columna', () => {
+	it('formato dueño:campo (el que escriben hoy MessageDialog y la cola)', () => {
+		expect(normalizeContactKey('participant:email')).toBe('participant');
+		expect(normalizeContactKey('participant:cellPhone')).toBe('participant');
+		expect(normalizeContactKey('inviter:email')).toBe('inviter');
+		expect(normalizeContactKey('emergencyContact1:cellPhone')).toBe('emergencyContact1');
+	});
+
+	it('nombre de campo a secas (el formato original de la columna)', () => {
+		expect(normalizeContactKey('cellPhone')).toBe('participant');
+		expect(normalizeContactKey('email')).toBe('participant');
+		expect(normalizeContactKey('homePhone')).toBe('participant');
+		expect(normalizeContactKey('inviterEmail')).toBe('inviter');
+		expect(normalizeContactKey('emergencyContact1CellPhone')).toBe('emergencyContact1');
+		expect(normalizeContactKey('emergencyContact2Email')).toBe('emergencyContact2');
+	});
+
+	it('dueño a secas (lo que devuelve el motor de secuencias)', () => {
+		expect(normalizeContactKey('participant')).toBe('participant');
+		expect(normalizeContactKey('emergencyContact1')).toBe('emergencyContact1');
+		expect(normalizeContactKey('inviter')).toBe('inviter');
+		expect(normalizeContactKey('tableLeader')).toBe('tableLeader');
+		expect(normalizeContactKey('responsibility')).toBe('responsibility');
+	});
+
+	it('las filas viejas sin clave son del propio caminante', () => {
+		expect(normalizeContactKey('')).toBe('participant');
+		expect(normalizeContactKey('   ')).toBe('participant');
+		expect(normalizeContactKey(null)).toBe('participant');
+		expect(normalizeContactKey(undefined)).toBe('participant');
+	});
+
+	it('la etiqueta nunca sale en crudo, sea cual sea el formato', () => {
+		// El síntoma que se vio en pantalla: "participant:email: Pepe Toño".
+		expect(contactKeyLabel('participant:email')).toBe('Caminante');
+		expect(contactKeyLabel('inviter:email')).toBe('Invitador');
+		expect(contactKeyLabel('cellPhone')).toBe('Caminante');
+		expect(contactKeyLabel('emergencyContact1CellPhone')).toBe('Familiar 1');
+		for (const k of ['participant:email', 'inviter:email', 'cellPhone', '', null]) {
+			expect(contactKeyLabel(k as any)).not.toContain(':');
+		}
 	});
 });

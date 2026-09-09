@@ -315,17 +315,28 @@ export class CrmService {
 			return null;
 		}
 
-		return repo.save(
-			repo.create({
-				participantId,
-				scope: 'retreat',
-				retreatId,
-				kind: 'stage_change',
-				body: null,
-				metadata: { milestone: 'palancas', count: newCount, threshold },
-				createdBy: null,
-			}),
-		);
+		try {
+			return await repo.save(
+				repo.create({
+					participantId,
+					scope: 'retreat',
+					retreatId,
+					kind: 'stage_change',
+					body: null,
+					metadata: { milestone: 'palancas', count: newCount, threshold },
+					createdBy: null,
+				}),
+			);
+		} catch (err) {
+			// El índice único parcial `UQ_participant_notes_palanca_milestone` es
+			// quien cierra de verdad la carrera: si otro guardado simultáneo ganó,
+			// el hito ya está y no hay nada que hacer. Anotar un hito duplicado no
+			// justifica tumbar el guardado del participante.
+			if (String((err as Error)?.message ?? '').includes('UNIQUE constraint failed')) {
+				return null;
+			}
+			throw err;
+		}
 	}
 
 	// --- Timeline unificado ---

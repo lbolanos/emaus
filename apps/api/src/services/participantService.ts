@@ -3184,11 +3184,25 @@ export const updateParticipant = async (
     // en espejo para lo que aún lo lee (columna de la lista, exportaciones).
     // Si sólo llega el texto (importaciones, clientes viejos), se deriva el
     // conteo con el criterio único.
-    if (palancasReceivedCount !== undefined) {
-      const parsed = parsePalancasCount(palancasReceivedCount);
-      rpUpdates.palancasReceivedCount = parsed;
-      rpUpdates.palancasReceived = parsed === null ? null : String(parsed);
+    //
+    // OJO con el `null`: el formulario reenvía el participante COMPLETO, y el
+    // listado hidrata `palancasReceivedCount = null` explícito en toda ficha
+    // cuyo conteo no se pudo derivar (las que el backfill dejó en prosa a
+    // propósito). Tratar ese `null` como "poner a null" borraba el texto en
+    // cualquier guardado que no tuviera nada que ver con palancas — justo la
+    // información que el backfill se cuidó de conservar.
+    //
+    // Regla: sólo un NÚMERO manda. "Sin capturar" no es una orden de borrado.
+    const parsedCount =
+      palancasReceivedCount !== undefined
+        ? parsePalancasCount(palancasReceivedCount)
+        : undefined;
+    if (parsedCount !== undefined && parsedCount !== null) {
+      rpUpdates.palancasReceivedCount = parsedCount;
+      rpUpdates.palancasReceived = String(parsedCount);
     } else if (palancasReceived !== undefined) {
+      // Sólo llegó el texto (importación, cliente viejo, o edición del campo
+      // heredado): se conserva y se deriva el conteo con el criterio único.
       rpUpdates.palancasReceived = palancasReceived || null;
       rpUpdates.palancasReceivedCount = parsePalancasCount(palancasReceived);
     }

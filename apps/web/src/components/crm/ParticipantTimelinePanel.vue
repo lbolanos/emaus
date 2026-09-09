@@ -26,6 +26,7 @@ import { convertHtmlToWhatsApp } from '@/utils/message';
 import {
 	buildParticipantContacts,
 	contactKeyLabel,
+	normalizeContactKey,
 	type ContactKey,
 } from './participantContacts';
 import type { TimelineEvent } from '@repo/types';
@@ -67,7 +68,7 @@ const messageStats = computed(() => {
 	const stats: Record<string, { count: number; last: string | Date | null }> = {};
 	for (const e of timeline.value) {
 		if (e.type !== 'message') continue;
-		const key = e.contactKey || 'participant';
+		const key = normalizeContactKey(e.contactKey);
 		const row = stats[key] || { count: 0, last: null };
 		row.count += 1;
 		if (e.at && (!row.last || new Date(e.at) > new Date(row.last))) row.last = e.at;
@@ -76,11 +77,19 @@ const messageStats = computed(() => {
 	return stats;
 });
 
+/** Eventos que van dirigidos a alguien; el resto no tiene interlocutor. */
+const DIRIGIDOS = ['message', 'message_scheduled'];
+
 const filteredTimeline = computed<TimelineEvent[]>(() => {
 	if (!contactFilter.value) return timeline.value;
-	// Sólo los eventos dirigidos a alguien se filtran; las notas y los hitos
-	// no tienen interlocutor y se ocultan al filtrar por uno.
-	return timeline.value.filter((e) => (e.contactKey || 'participant') === contactFilter.value);
+	// Al filtrar por un interlocutor se ven SÓLO los mensajes que le llegaron a
+	// esa persona. Las notas y los hitos no van dirigidos a nadie, así que se
+	// ocultan — incluso al filtrar por el propio caminante, que si no se colaban
+	// por el fallback a 'participant'.
+	return timeline.value.filter(
+		(e) =>
+			DIRIGIDOS.includes(e.type) && normalizeContactKey(e.contactKey) === contactFilter.value,
+	);
 });
 
 const currentStateEvents = computed(() =>
