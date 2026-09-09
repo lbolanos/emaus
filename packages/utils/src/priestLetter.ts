@@ -96,6 +96,7 @@ const RETREAT_TYPE_LABELS_ES: Record<string, string> = {
 export type PriestLetterItemRole =
 	| 'sendingMass'
 	| 'sacramentsTalk'
+	| 'priestArrival'
 	| 'confessions'
 	| 'nightMass'
 	| 'closingMass';
@@ -392,6 +393,15 @@ export function selectPriestScheduleItems(
 
 		if (responsabilityKey !== priestKey) continue;
 
+		// La recepción de los sacerdotes es `logistica`, así que se captura antes
+		// del filtro de tipo. Es la hora a la que se les CITA, que es la que el
+		// párroco necesita leer — las confesiones empiezan después, cuando los
+		// caminantes terminan la dinámica previa.
+		if (nameKey.includes('recepcion') && nameKey.includes('sacerdote')) {
+			claim('priestArrival', item);
+			continue;
+		}
+
 		// Not conditioned on `type`: confessions are seeded as `oracion`, but the
 		// letter must still find them if someone re-types them.
 		if (nameKey.includes('confesion')) {
@@ -408,6 +418,7 @@ export function selectPriestScheduleItems(
 	const order: PriestLetterItemRole[] = [
 		'sendingMass',
 		'sacramentsTalk',
+		'priestArrival',
 		'confessions',
 		'nightMass',
 		'closingMass',
@@ -544,11 +555,18 @@ export function buildPriestLetterMarkdown(data: PriestLetterData): string {
 	const sending = itemOf(items, 'sendingMass');
 	const talk = itemOf(items, 'sacramentsTalk');
 	const confessions = itemOf(items, 'confessions');
+	/**
+	 * Al párroco se le dice a qué hora lo esperamos, no a qué hora empiezan las
+	 * confesiones: los sacerdotes se citan antes, mientras los caminantes acaban
+	 * la dinámica previa. Si el Minuto a Minuto no tiene la recepción, se cae a
+	 * la hora de las confesiones, que es lo único que se sabe.
+	 */
+	const priestArrival = itemOf(items, 'priestArrival') ?? confessions;
 	const closing = itemOf(items, 'closingMass');
 
 	const sendingWhen = whenOf(sending);
 	const talkWhen = whenOf(talk);
-	const confessionsWhen = whenOf(confessions);
+	const confessionsWhen = whenOf(priestArrival);
 	const closingWhen = whenOf(closing);
 
 

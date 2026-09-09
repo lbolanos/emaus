@@ -47,6 +47,23 @@ describe('template Emaús — México: los actos del sacerdote', () => {
 		expect(itemNamed('Confesiones')?.locationHint).toBe('Casa de Retiro');
 	});
 
+	it('la citación de los sacerdotes es a las 20:40 y acaba cuando empiezan las confesiones', () => {
+		// «Las confesiones siempre LOS CITAMOS 20:30 o 20:40»: esa es la hora que
+		// va en la carta, no la del inicio de las confesiones (21:00, cuando los
+		// caminantes terminan La Pared). Corre en paralelo a esa dinámica a
+		// propósito — son equipos distintos.
+		const arrival = itemNamed('Recepción de sacerdotes (snack y oración)');
+		const confessions = itemNamed('Confesiones');
+		const toMinutes = (hhmm?: string) => {
+			const [h, m] = (hhmm ?? '').split(':').map(Number);
+			return h * 60 + m;
+		};
+		expect(arrival?.defaultStartTime).toBe('20:40');
+		expect(toMinutes(arrival?.defaultStartTime) + (arrival?.defaultDurationMinutes ?? 0)).toBe(
+			toMinutes(confessions?.defaultStartTime),
+		);
+	});
+
 	it('los cuatro actos siguen marcados con la responsabilidad que la carta filtra', () => {
 		// El filtro de la carta va por responsabilidad, no por nombre: si alguien
 		// se la quita a uno de estos, ese acto desaparece de la solicitud.

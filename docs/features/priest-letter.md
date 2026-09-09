@@ -185,9 +185,26 @@ La cuarta era dato, y se corrigió en el template `Emaús — México`: la **mis
 `apps/api/src/tests/services/scheduleTemplatePriestActs.simple.test.ts`, junto con el
 `locationHint` de la charla y las confesiones — sin ese campo la carta ya no puede decir dónde son.
 
-> Queda pendiente y es **dato, no código**: las confesiones salen a las 21:00 y el equipo las cita
-> «siempre 20:30 o 20:40». Se ajusta en el Minuto a Minuto de cada retiro, o en el template si se
-> confirma que es la práctica de todos.
+### La hora de las confesiones es la de CITACIÓN, no la del inicio
+
+El quinto comentario fue «las confesiones siempre **los citamos** 20:30 o 20:40, ¿de dónde sale
+que a las 21?». *Los* son los sacerdotes: esa hora es a la que se les espera, y es justo la que la
+carta les comunica. Las confesiones con los caminantes empiezan a las 21:00, cuando terminan la
+dinámica de La Pared.
+
+Así que el punto 3 usa el rol **`priestArrival`** —el ítem «Recepción de sacerdotes» del MaM, que
+es `logistica` y por eso se captura antes del filtro de tipo— y cae a la hora de las confesiones
+solo si ese ítem no existe. El **lugar** sigue siendo el de las confesiones: es donde se confiesa.
+
+En el template la recepción pasó de las 19:50 (con 1 minuto de duración, un placeholder) a
+**20:40 con 20 minutos**, de modo que termina exactamente cuando arrancan las confesiones. Corre
+en paralelo a La Pared **a propósito**: son equipos distintos, el de Snacks recibe a los
+sacerdotes mientras los caminantes están en su dinámica.
+
+> La trampa que esto enseña: mover una hora del template sin mirar la de al lado deja el Minuto a
+> Minuto incoherente. Pasó dos veces en esta tanda — la misa de envío quedó encima de la llegada
+> del equipo, y las confesiones habrían quedado encima de La Pared si se hubieran movido a 20:40.
+> `scheduleTemplatePriestActs.simple.test.ts` comprueba los encadenamientos, no solo las horas.
 
 ## Gotchas ganados a pulso
 

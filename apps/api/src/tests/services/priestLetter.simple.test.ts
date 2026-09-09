@@ -196,6 +196,7 @@ describe('priest request letter', () => {
 			expect(selected.map((entry) => [entry.role, entry.time])).toEqual([
 				['sendingMass', '13:00'],
 				['sacramentsTalk', '12:05'],
+				['priestArrival', '19:50'],
 				['confessions', '21:00'],
 				['nightMass', '22:30'],
 				['closingMass', '17:40'],
@@ -208,9 +209,14 @@ describe('priest request letter', () => {
 			expect(times).not.toContain('18:40'); // Dinámica Imposición de Ceniza
 		});
 
-		it('drops the priests reception, which is logistics', () => {
-			const times = selectPriestScheduleItems(mexicoAgenda).map((entry) => entry.time);
-			expect(times).not.toContain('19:50');
+		it('sí captura la recepción de sacerdotes: es la hora a la que se les cita', () => {
+			// Antes se descartaba por ser `logistica`. Pero «las confesiones siempre
+			// LOS CITAMOS 20:30 o 20:40» — esa hora es la que el párroco necesita
+			// leer, no la del inicio de las confesiones.
+			const arrival = selectPriestScheduleItems(mexicoAgenda).find(
+				(entry) => entry.role === 'priestArrival',
+			);
+			expect(arrival?.time).toBe('19:50');
 		});
 
 		it('leaves the sending mass out when the first day has no mass for the priest', () => {
@@ -357,9 +363,34 @@ describe('priest request letter', () => {
 			expect(md).toContain('envío de los servidores, viernes 5 de junio');
 			expect(md).toContain('Santa Misa de las 13:00 en');
 			expect(md).toContain('Charla de los Sacramentos sábado 6 de junio, a las 12:05 hrs.');
-			expect(md).toContain('Confesiones, sábado 6 de junio, a las 21:00 hrs.');
+			expect(md).toContain('Confesiones, sábado 6 de junio, a las 19:50 hrs.');
 			expect(md).toContain('Misa de Salida domingo 7 de junio');
 			expect(md).toContain('a las 17:40 horas');
+		});
+
+		it('el punto de confesiones dice la hora a la que se cita al sacerdote', () => {
+			const md = buildPriestLetterMarkdown({
+				...data,
+				scheduleItems: [
+					{ role: 'priestArrival', date: '2026-06-06', time: '20:40', location: null },
+					{ role: 'confessions', date: '2026-06-06', time: '21:00', location: 'Casa de Retiro' },
+				],
+			});
+			// 20:40 es cuando los esperamos; a las 21:00 empiezan a confesar.
+			expect(md).toContain('Confesiones, sábado 6 de junio, a las 20:40 hrs.');
+			expect(md).not.toContain('a las 21:00 hrs.');
+			// El lugar sigue siendo donde se confiesa.
+			expect(md).toContain('20:40 hrs. Casa de Retiro');
+		});
+
+		it('sin recepción en el MaM, cae a la hora de las confesiones', () => {
+			const md = buildPriestLetterMarkdown({
+				...data,
+				scheduleItems: [
+					{ role: 'confessions', date: '2026-06-06', time: '21:00', location: 'Casa de Retiro' },
+				],
+			});
+			expect(md).toContain('Confesiones, sábado 6 de junio, a las 21:00 hrs.');
 		});
 
 		it('NO dice la hora de la misa que sigue a las confesiones', () => {
