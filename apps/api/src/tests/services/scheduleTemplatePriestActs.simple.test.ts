@@ -24,6 +24,21 @@ describe('template Emaús — México: los actos del sacerdote', () => {
 		expect(mass?.defaultDay).toBe(1);
 	});
 
+	it('la llegada del equipo termina justo cuando empieza la misa', () => {
+		// Al adelantar la misa a las 12:00 se quedó encima de la llegada, que
+		// también empezaba a las 12:00 y duraba una hora. Lo cazó el code-review:
+		// mover una hora del template sin mirar la de al lado deja el Minuto a
+		// Minuto incoherente, y la vista lo pinta como «⚠ Se encima 40 min».
+		const arrival = itemNamed('Llegada de servidores a Casa de Retiro');
+		const mass = itemNamed('Misa de servidores');
+		const toMinutes = (hhmm?: string) => {
+			const [h, m] = (hhmm ?? '').split(':').map(Number);
+			return h * 60 + m;
+		};
+		const arrivalEnd = toMinutes(arrival?.defaultStartTime) + (arrival?.defaultDurationMinutes ?? 0);
+		expect(arrivalEnd).toBe(toMinutes(mass?.defaultStartTime));
+	});
+
 	it('la charla de Sacramentos y las confesiones dicen que son en la casa', () => {
 		// Sin `locationHint` la carta no puede decir dónde son: no lo inventa.
 		expect(itemNamed('Charla: Amando a Dios a través de los Sacramentos')?.locationHint).toBe(

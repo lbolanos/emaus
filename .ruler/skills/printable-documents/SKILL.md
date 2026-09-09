@@ -104,7 +104,7 @@ preparaciones (su salida no cambia):
 | Campo | Qué hace |
 |---|---|
 | `logoUrl` | Logo sobre el título, dentro de `header.doc-head`, acotado a 24mm |
-| `signature: { intro, label, dateLine? }` | Bloque de firma al pie: hueco, raya y rótulo |
+| `signature: { intro?, label, dateLine? }` | Bloque de firma al pie: hueco, raya y rótulo. Sin `intro` cuando firma el propio remitente |
 | `relaxedLeading` (opción) | `class="relaxed"` en el `<body>`: interlineado 1.55 en vez de 1.42 |
 
 **Van como cromo y NO dentro del markdown.** Es la lección de la carta al párroco: emitir el logo
@@ -115,6 +115,30 @@ marca al editar el texto. Un bloque de firma es un formulario, no prosa: lo mism
 Si añades un elemento así, dale **su propia regla acotada**: la global de `img` permite 105mm, y en
 un preview con `prose` de Tailwind hace falta acotarlo otra vez (`.letter-preview :deep(img)`) o el
 preview deja de mostrar lo que se va a imprimir.
+
+### En un documento que se entrega, no rellenes huecos con suposiciones
+
+La regla que más cara sale, y que ningún test detecta: **si el sistema no sabe un dato, el papel
+debe decir que no lo sabe.** Un hueco visible se corrige antes de firmar; un dato inventado se
+entrega.
+
+En la carta al párroco, el lugar de cada acto caía a un default «razonable» —las misas a la
+parroquia, la charla y las confesiones a la casa—. El resultado fue que la carta afirmaba «Misa de
+las 13:00 en la Parroquia» cuando a esa hora toca en la casa, y lo cazó el coordinador leyéndola,
+no la suite. El arreglo fue quitar el fallback: el lugar sale del Minuto a Minuto y, si no está,
+`_(por confirmar)_`.
+
+La excepción que sí vale: un campo cuyo nombre **es** el dato. `closingChurchName` es literalmente
+la iglesia de la misa de clausura, así que usarlo ahí no es suponer. La prueba: si tienes que
+explicar por qué el default es razonable, es una suposición.
+
+### Reproducir un documento: las omisiones del original también son decisiones
+
+Al pasar un `.docx` a código, la tentación es «mejorarlo». La carta original decía «Misa al
+terminar las confesiones», sin hora, y se le añadió «(a las 22:30 hrs.)» porque el dato estaba
+disponible. Resultó que la omisión era deliberada: *«no sabemos a qué hora terminaríamos»*.
+
+Antes de añadir al original algo que no tenía, pregunta por qué no lo tenía.
 
 ### El interlineado y el pie se pelean por la hoja: mídelo, no lo elijas
 

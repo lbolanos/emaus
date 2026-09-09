@@ -256,6 +256,18 @@ describe('PriestLetterDialog', () => {
     expect(draftOf(w)).toContain('Otro Retiro');
   });
 
+  it('el pie lo firma el remitente, no el párroco', async () => {
+    // Estaba al revés: un «Enterado y de acuerdo… Nombre y firma del Sr.
+    // Párroco», como si la carta fuera un acuse suyo. Corrección del
+    // coordinador, 2026-09-08.
+    const w = await mountDialog();
+    await w.find('[data-testid="priest-letter-print"]').trigger('click');
+    const { signature } = mockPrint.mock.calls[0][0];
+    expect(signature.label).toBe('Nombre y firma');
+    expect(signature.label).not.toContain('Párroco');
+    expect(signature.intro).toBeFalsy();
+  });
+
   it('manda el logo también al PDF, no solo a la impresora', async () => {
     const w = await mountDialog();
     await w.find('[data-testid="priest-letter-pdf"]').trigger('click');
