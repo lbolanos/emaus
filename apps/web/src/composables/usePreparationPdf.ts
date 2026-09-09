@@ -24,7 +24,7 @@ export interface MarkdownPdfOptions {
 	/** Interlineado holgado (documentos cortos que se leen en papel). */
 	relaxedLeading?: boolean;
 	/** Bloque de firma al pie, con hueco real para firmar. */
-	signature?: { intro: string; label: string; dateLine?: boolean };
+	signature?: { intro?: string; label: string; dateLine?: boolean };
 	/** Logo sobre el título, como en la hoja A4 del navegador. */
 	logoUrl?: string;
 	onError?: (message: string) => void;

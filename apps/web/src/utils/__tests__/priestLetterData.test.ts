@@ -204,7 +204,6 @@ describe('priestLetterData', () => {
 				retreatName: 'Emaús Hombres Polanco',
 				startDate: '2026-06-05',
 				endDate: '2026-06-07',
-				houseName: 'Casa de Retiro',
 				parishChurchName: 'Parroquia de San Agustín',
 			});
 			// El logo no viaja en los datos de la carta: lo resuelve el diálogo.

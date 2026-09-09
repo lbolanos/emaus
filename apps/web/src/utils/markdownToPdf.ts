@@ -56,7 +56,7 @@ export interface PdfDocumentInput {
 	 */
 	relaxedLeading?: boolean;
 	/** Bloque de firma al pie, con hueco real para firmar. */
-	signature?: { intro: string; label: string; dateLine?: boolean };
+	signature?: { intro?: string; label: string; dateLine?: boolean };
 	/** Logo sobre el título, como en la hoja A4 del navegador. */
 	logoUrl?: string;
 }
@@ -663,7 +663,7 @@ function addBookmarks(doc: jsPDF, input: PdfDocumentInput, bookmarks: Ctx['bookm
  */
 function drawSignature(
 	ctx: Ctx,
-	signature: { intro: string; label: string; dateLine?: boolean },
+	signature: { intro?: string; label: string; dateLine?: boolean },
 ) {
 	const { doc } = ctx;
 	const GAP = 12; // hueco para la firma, en mm
@@ -675,10 +675,12 @@ function drawSignature(
 		ctx.y += 5;
 	}
 
-	setFont(doc, SANS);
-	doc.setFontSize(10.5);
-	doc.setTextColor(...INK);
-	doc.text(signature.intro, MARGIN_X, ctx.y);
+	if (signature.intro) {
+		setFont(doc, SANS);
+		doc.setFontSize(10.5);
+		doc.setTextColor(...INK);
+		doc.text(signature.intro, MARGIN_X, ctx.y);
+	}
 
 	ctx.y += GAP;
 	const lineWidth = CONTENT_W * 0.62;

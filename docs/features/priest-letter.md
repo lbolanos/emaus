@@ -40,7 +40,8 @@ sea editable: hay tres cosas que el sistema no sabe y salen como `(por confirmar
 | Día, hora y cadencia de las reuniones | Calendario de `retreat_preparation` |
 | «Los avisos arrancarían el domingo 26 de abril» | Domingo en o antes de `startDate − 5 semanas` |
 | Iglesia de las misas | `retreat.closingChurchName`, recortado por `cleanChurchName` |
-| Casa (charla y confesiones) | `house.name`, o el `location` del ítem del MaM |
+| Lugar de cada acto | el `location` del ítem del MaM; si no está, «(por confirmar)» |
+| Destinatario | «Estimado Padre \_\_\_\_:» — hueco editable, no existe en el modelo |
 | Las cuatro horas de «Peticiones durante el retiro» | **Minuto a Minuto del retiro** |
 
 ### El Minuto a Minuto es la fuente de los horarios
@@ -160,6 +161,33 @@ Si algún día se alarga el cuerpo de la carta, hay que volver a medir:
 ```bash
 pdfinfo salida.pdf | grep -i "^Pages"
 ```
+
+## Correcciones del coordinador (2026-09-08)
+
+La primera versión salió a revisión con el equipo y volvió con cuatro cosas. Tres eran código:
+
+- **La hora de la misa que sigue a las confesiones se quitó.** Se había añadido «(a las 22:30
+  hrs.)» como mejora sobre el `.docx` original; el original no la tenía **a propósito**: «no
+  sabemos a qué hora terminaríamos». La carta vuelve a decir solo «Misa al terminar las
+  confesiones.»
+- **El lugar de cada acto ya no se rellena con una suposición.** Antes las misas caían a la
+  parroquia y la charla/confesiones a la casa, y eso hizo que la carta afirmara «Misa de las 13:00
+  en la Parroquia» cuando a esa hora toca en la casa. Ahora sale del `location` del ítem del MaM, y
+  si no está, «(por confirmar)». La única excepción es la misa de salida, que cae a
+  `closingChurchName` — no es una suposición, ese campo *es* la iglesia de la misa de clausura.
+- **La carta la firma el remitente, no el párroco.** Estaba al revés: un bloque «Enterado y de
+  acuerdo… Nombre y firma del Sr. Párroco», como si fuera un acuse. Es una solicitud nuestra, así
+  que el pie es una raya con «Nombre y firma» y la escribe a mano quien firme. Y se le añadió el
+  saludo de apertura, «Estimado Padre \_\_\_\_:», que faltaba.
+
+La cuarta era dato, y se corrigió en el template `Emaús — México`: la **misa de envío es a las
+12:00 en la casa**, no a las 13:00 en la parroquia. Lo fija
+`apps/api/src/tests/services/scheduleTemplatePriestActs.simple.test.ts`, junto con el
+`locationHint` de la charla y las confesiones — sin ese campo la carta ya no puede decir dónde son.
+
+> Queda pendiente y es **dato, no código**: las confesiones salen a las 21:00 y el equipo las cita
+> «siempre 20:30 o 20:40». Se ajusta en el Minuto a Minuto de cada retiro, o en el template si se
+> confirma que es la práctica de todos.
 
 ## Gotchas ganados a pulso
 

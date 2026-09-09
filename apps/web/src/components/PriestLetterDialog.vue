@@ -83,8 +83,10 @@ const previewHtml = computed(() => renderMarkdown(draft.value));
  * markdown: the coordinator should not be able to delete it by accident.
  */
 const SIGNATURE = {
-  intro: 'Enterado y de acuerdo con lo aquí solicitado:',
-  label: 'Nombre y firma del Sr. Párroco',
+  // Firma uno de nosotros, no el párroco: la carta es una solicitud nuestra, no
+  // un acuse suyo. Sin nombre impreso — lo escribe a mano quien la firme.
+  intro: '',
+  label: 'Nombre y firma',
 } as const;
 
 /** Right side of the running head: which retreat this paper belongs to. */

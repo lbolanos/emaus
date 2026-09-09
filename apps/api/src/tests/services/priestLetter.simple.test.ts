@@ -13,6 +13,7 @@ import {
 	formatRetreatDateRangeEs,
 	isPriestLetterTask,
 	previousSundayYmd,
+	PRIEST_LETTER_GREETING,
 	PRIEST_LETTER_PENDING,
 	retreatTypeLabelEs,
 	selectPriestScheduleItems,
@@ -333,7 +334,6 @@ describe('priest request letter', () => {
 			endDate: '2026-06-07',
 			retreatType: 'men',
 			parishChurchName: 'Parroquia de San Agustín',
-			houseName: 'Casa de Retiro',
 			meetings: { weekday: 2, time: '19:00', intervalDays: 14, sessionCount: 6 },
 			scheduleItems: selectPriestScheduleItems(mexicoAgenda),
 		};
@@ -355,12 +355,45 @@ describe('priest request letter', () => {
 		it('places each act with its own date and time', () => {
 			const md = buildPriestLetterMarkdown(data);
 			expect(md).toContain('envío de los servidores, viernes 5 de junio');
-			expect(md).toContain('Santa Misa de las 13:00 en Parroquia de San Agustín');
-			expect(md).toContain('Charla de los Sacramentos sábado 6 de junio, a las 12:05 hrs. Casa de Retiro');
-			expect(md).toContain('Confesiones, sábado 6 de junio, a las 21:00 hrs. Casa de Retiro');
-			expect(md).toContain('Misa al terminar las confesiones (a las 22:30 hrs.)');
+			expect(md).toContain('Santa Misa de las 13:00 en');
+			expect(md).toContain('Charla de los Sacramentos sábado 6 de junio, a las 12:05 hrs.');
+			expect(md).toContain('Confesiones, sábado 6 de junio, a las 21:00 hrs.');
 			expect(md).toContain('Misa de Salida domingo 7 de junio');
-			expect(md).toContain('Parroquia de San Agustín a las 17:40 horas');
+			expect(md).toContain('a las 17:40 horas');
+		});
+
+		it('NO dice la hora de la misa que sigue a las confesiones', () => {
+			// «no sabemos a qué hora terminaríamos» — el .docx original tampoco la
+			// ponía. Feedback del coordinador, 2026-09-08.
+			const md = buildPriestLetterMarkdown(data);
+			expect(md).toContain('Misa al terminar las confesiones.');
+			expect(md).not.toContain('Misa al terminar las confesiones (');
+		});
+
+		it('el lugar de cada acto sale del Minuto a Minuto, y si no está queda a la vista', () => {
+			// Rellenarlo con la parroquia hacía afirmar «Misa de las 13:00 en la
+			// Parroquia» cuando a esa hora toca en la casa.
+			const conLugar = buildPriestLetterMarkdown({
+				...data,
+				scheduleItems: [
+					{ role: 'sendingMass', date: '2026-06-05', time: '12:00', location: 'Casa de Retiro' },
+				],
+			});
+			expect(conLugar).toContain('Santa Misa de las 12:00 en Casa de Retiro');
+
+			const sinLugar = buildPriestLetterMarkdown({
+				...data,
+				scheduleItems: [{ role: 'sendingMass', date: '2026-06-05', time: '12:00', location: null }],
+			});
+			expect(sinLugar).toContain(`Santa Misa de las 12:00 en ${PRIEST_LETTER_PENDING}`);
+			// Ni la parroquia ni la casa se usan para rellenar ese hueco.
+			expect(sinLugar).not.toContain('Santa Misa de las 12:00 en Parroquia');
+		});
+
+		it('abre con el saludo al sacerdote, con hueco para su nombre', () => {
+			const md = buildPriestLetterMarkdown(data);
+			expect(md.startsWith(PRIEST_LETTER_GREETING)).toBe(true);
+			expect(md).toContain('Estimado Padre');
 		});
 
 		it('keeps every point when there is no data, marking the gaps', () => {
@@ -391,7 +424,7 @@ describe('priest request letter', () => {
 			const md = buildPriestLetterMarkdown(data);
 			expect(md).not.toContain('![');
 			expect(md).not.toContain('.png');
-			expect(md.startsWith('Por medio de este escrito')).toBe(true);
+			expect(md).toContain('Por medio de este escrito');
 		});
 
 		it('appends the retreat number to the name when there is one', () => {
@@ -404,9 +437,13 @@ describe('priest request letter', () => {
 			// Los nombres de casa del MaM vienen con punto ("San José Del Carmen.").
 			const md = buildPriestLetterMarkdown({
 				...data,
-				houseName: 'San José Del Carmen.',
 				scheduleItems: [
-					{ role: 'sacramentsTalk', date: '2026-06-06', time: '11:55', location: null },
+					{
+						role: 'sacramentsTalk',
+						date: '2026-06-06',
+						time: '11:55',
+						location: 'San José Del Carmen.',
+					},
 				],
 			});
 			expect(md).toContain('a las 11:55 hrs. San José Del Carmen. Esta charla');

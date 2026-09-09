@@ -212,8 +212,12 @@ export interface PrintableDocumentData {
 	 * borrarse junto con el texto.
 	 */
 	signature?: {
-		/** Línea sobre el hueco de la firma. */
-		intro: string;
+		/**
+		 * Línea sobre el hueco de la firma. Opcional: cuando quien firma es el
+		 * remitente no hay nada que decir ahí, pero el hueco se pinta igual — es
+		 * el espacio donde va la firma.
+		 */
+		intro?: string;
 		/** Rótulo bajo la raya ("Nombre y firma del Sr. Párroco"). */
 		label: string;
 		/** Añade una línea de fecha en blanco bajo el rótulo. */
@@ -325,7 +329,7 @@ export function buildPrintableHtml(
 
 	const signature = data.signature
 		? `<footer class="signature"><p class="sig-intro">${escapeHtmlText(
-				data.signature.intro,
+				data.signature.intro ?? '',
 			)}</p><p class="sig-line">${escapeHtmlText(data.signature.label)}</p>${
 				data.signature.dateLine
 					? '<p class="sig-date">Fecha: ______ / ______ / __________</p>'

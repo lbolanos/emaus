@@ -188,7 +188,6 @@ export function buildPriestLetterData(input: {
 		retreatType: retreat.retreat_type ?? null,
 		retreatNumber: retreat.retreat_number_version ?? null,
 		parishChurchName: cleanChurchName(retreat.closingChurchName),
-		houseName: retreat.house?.name ?? null,
 		meetings: derivePriestLetterMeetings(
 			(input.preparations ?? []).map((prep) => ({
 				type: prep.type,

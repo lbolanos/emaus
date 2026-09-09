@@ -28,6 +28,12 @@ export const PRIEST_LETTER_TITLE = 'Solicitud de Apoyo al Párroco';
 /** Shown wherever the system has no data. Italic so it stands out on paper. */
 export const PRIEST_LETTER_PENDING = '_(por confirmar)_';
 
+/**
+ * Saludo de apertura. El nombre del sacerdote no existe en el modelo, así que
+ * queda como hueco para escribirlo en el diálogo antes de imprimir.
+ */
+export const PRIEST_LETTER_GREETING = 'Estimado Padre ______________:';
+
 /** Weeks before the retreat when the parish announcements start. */
 export const ANNOUNCEMENT_LEAD_WEEKS = 5;
 
@@ -153,8 +159,6 @@ export interface PriestLetterData {
 	retreatNumber?: string | null;
 	/** Parish church where the masses happen — `retreat.closingChurchName`. */
 	parishChurchName?: string | null;
-	/** Retreat house, where the talk and the confessions happen. */
-	houseName?: string | null;
 	meetings?: PriestLetterMeetingCadence | null;
 	scheduleItems: PriestLetterScheduleItem[];
 }
@@ -514,11 +518,19 @@ function whenOf(item: PriestLetterScheduleItem | undefined): { date: string; tim
 export function buildPriestLetterMarkdown(data: PriestLetterData): string {
 	const items = data.scheduleItems ?? [];
 	const parishChurch = data.parishChurchName?.trim() || PRIEST_LETTER_PENDING;
-	const house = data.houseName?.trim() || PRIEST_LETTER_PENDING;
 
-	/** Talk and confessions happen at the retreat house; masses, at the parish. */
-	const atHouse = (item?: PriestLetterScheduleItem) => placeText(item?.location?.trim() || house);
-	const atParish = (item?: PriestLetterScheduleItem) => placeText(item?.location?.trim() || parishChurch);
+	/**
+	 * El lugar de cada acto sale del Minuto a Minuto y de ningún otro sitio.
+	 *
+	 * Antes se rellenaba con la parroquia (misas) o la casa (charla y
+	 * confesiones), y eso hacía afirmar cosas falsas: la carta decía «Misa de las
+	 * 13:00 en la Parroquia» cuando a esa hora toca en la casa. En un documento
+	 * que se entrega, un hueco visible es mejor que un dato inventado.
+	 */
+	const placeOf = (item?: PriestLetterScheduleItem, fallback?: string | null) => {
+		const location = item?.location?.trim() || fallback?.trim();
+		return location ? placeText(location) : PRIEST_LETTER_PENDING;
+	};
 
 	const retreatTitle = [data.retreatName?.trim(), data.retreatNumber?.trim()]
 		.filter(Boolean)
@@ -532,7 +544,6 @@ export function buildPriestLetterMarkdown(data: PriestLetterData): string {
 	const sending = itemOf(items, 'sendingMass');
 	const talk = itemOf(items, 'sacramentsTalk');
 	const confessions = itemOf(items, 'confessions');
-	const nightMass = itemOf(items, 'nightMass');
 	const closing = itemOf(items, 'closingMass');
 
 	const sendingWhen = whenOf(sending);
@@ -540,7 +551,6 @@ export function buildPriestLetterMarkdown(data: PriestLetterData): string {
 	const confessionsWhen = whenOf(confessions);
 	const closingWhen = whenOf(closing);
 
-	const nightMassSuffix = nightMass?.time ? ` (a las ${nightMass.time} hrs.)` : '';
 
 	// El logo NO va aquí: es cromo del documento y lo pinta la hoja A4 en su
 	// encabezado (`logoUrl` de `buildPrintableHtml`). Emitirlo también en el
@@ -548,6 +558,8 @@ export function buildPriestLetterMarkdown(data: PriestLetterData): string {
 	// `img { max-height: 105mm }` y se comía media hoja — y además dejaba al
 	// coordinador borrar la marca al editar el texto.
 	const blocks: string[] = [];
+
+	blocks.push(PRIEST_LETTER_GREETING);
 
 	blocks.push(
 		`Por medio de este escrito, hacemos una amable solicitud para su apoyo en nuestro próximo retiro de **${
@@ -584,32 +596,28 @@ export function buildPriestLetterMarkdown(data: PriestLetterData): string {
 	blocks.push(
 		point(
 			1,
-			`Misa de Arranque del retiro y envío de los servidores, ${sendingWhen.date}. Asistiremos a la Santa Misa de las ${sendingWhen.time} en ${atParish(sending)}.`,
+			`Misa de Arranque del retiro y envío de los servidores, ${sendingWhen.date}. Asistiremos a la Santa Misa de las ${sendingWhen.time} en ${placeOf(sending)}.`,
 		),
 	);
 
 	blocks.push(
 		point(
 			2,
-			`Charla de los Sacramentos ${talkWhen.date}, a las ${talkWhen.time} hrs. ${atHouse(
-				talk,
-			)}. Esta charla la da un Sacerdote.`,
+			`Charla de los Sacramentos ${talkWhen.date}, a las ${talkWhen.time} hrs. ${placeOf(talk)}. Esta charla la da un Sacerdote.`,
 		),
 	);
 
 	blocks.push(
 		point(
 			3,
-			`Confesiones, ${confessionsWhen.date}, a las ${confessionsWhen.time} hrs. ${atHouse(
-				confessions,
-			)}. (Entre 3 y 4 Sacerdotes) Nosotros pasaríamos por ellos a ${withArticle(parishChurch)} y los llevaríamos de regreso, al terminar las confesiones. Misa al terminar las confesiones${nightMassSuffix}.`,
+			`Confesiones, ${confessionsWhen.date}, a las ${confessionsWhen.time} hrs. ${placeOf(confessions)}. (Entre 3 y 4 Sacerdotes) Nosotros pasaríamos por ellos a ${withArticle(parishChurch)} y los llevaríamos de regreso, al terminar las confesiones. Misa al terminar las confesiones.`,
 		),
 	);
 
 	blocks.push(
 		point(
 			4,
-			`Misa de Salida ${closingWhen.date}. ${atParish(closing)} a las ${
+			`Misa de Salida ${closingWhen.date}. ${placeOf(closing, data.parishChurchName)} a las ${
 				closingWhen.time
 			} horas. (Nosotros separaríamos las primeras 3 bancas de cada lado, para los asistentes al retiro).`,
 		),
