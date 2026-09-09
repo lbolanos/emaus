@@ -2,6 +2,8 @@
 
 📺 **[Ver video tutorial: plantillas y secuencias](https://youtu.be/KpYW_kWYdMk)**
 
+📺 **[Ver video tutorial: seguimiento de caminantes](https://youtu.be/Xmxa8K-lg-E)**
+
 Esta sección explica cómo comunicarte con los participantes de forma más eficiente: enviar mensajes en grupo por WhatsApp, automatizar recordatorios y seguimientos, y llevar el control de a quién ya contactaste.
 
 ## Visión general

@@ -238,9 +238,15 @@ export const helpIndex: HelpSection[] = [
 			},
 			{
 				key: 'follow-up',
-				title: 'Tasks & follow-up',
-				titleEs: 'Tareas y seguimiento',
-				content: 'crm.md#tareas-y-seguimiento',
+				title: 'Walker follow-up',
+				titleEs: 'Seguimiento de caminantes',
+				content: 'crm.md#seguimiento-de-caminantes',
+			},
+			{
+				key: 'crm-tasks',
+				title: 'Tasks',
+				titleEs: 'Tareas',
+				content: 'crm.md#tareas',
 			},
 		],
 	},

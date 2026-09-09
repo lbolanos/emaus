@@ -41,6 +41,7 @@ Cuando el usuario reporta un problema, primero ubicá el **síntoma** en la tabl
 | "el PDF no trae las imágenes", "en el Word sí se ven y en el PDF no", "salen solo algunas fotos", "falta el dibujo de la charla" | [#28 El PDF pierde las imágenes que van pegadas al texto](#28-el-pdf-pierde-las-imágenes-que-van-pegadas-al-texto) |
 | "salió un error y no hay nada en el log del servidor", "An unexpected error occurred", "se registró desde la computadora porque el celular no lo dejó", "le dio error pero sí quedó registrado" | [#29 El error que no dejó rastro: la petición nunca llegó](#29-el-error-que-no-dejó-rastro-la-petición-nunca-llegó) |
 | "en producción sale la clave de traducción en pantalla", "dice serverRegistration.algo.otro en vez del texto", "el test pasa pero el texto sale mal" | [#30 Una clave de i18n inexistente pasa verde en toda la suite](#30-una-clave-de-i18n-inexistente-pasa-verde-en-toda-la-suite) |
+| "el contador de arriba no cuadra con la lista", "aquí dice recibidas y allá pendiente", "el total se come registros" | [#32 Un mismo campo con varios criterios](#32-un-mismo-campo-con-varios-criterios-que-se-contradicen) |
 
 ---
 
@@ -1286,3 +1287,69 @@ Cuando descubras un bug recurrente:
 - `vue-pinia-best-practices` — stores, reactividad, setup pattern.
 - `webapp-testing` — Playwright local, screenshots, logs.
 - `security-best-practices` — CORS, XSS, CSRF, rate limiting, OWASP Top 10.
+
+<!-- El #31 ("Un módulo con `import.meta` es invisible para Jest") vive en master, de otra rama.
+     Esta sección arranca en 32 para no colisionar al fusionar. -->
+
+## 32. Un mismo campo con varios criterios que se contradicen
+
+**Síntoma**: dos pantallas discrepan sobre el mismo registro. El usuario lo cuenta como *"aquí me
+dice que ya recibió y en la ficha dice pendiente"*, o *"el total no me cuadra con los que veo en
+la lista"*. Nada falla: cada pantalla es coherente consigo misma.
+
+**Causa**: una columna de texto libre que en la práctica guarda un dato estructurado, y cada sitio
+que la lee inventó su propia interpretación. Caso real (`retreat_participants.palancasReceived`,
+columna `TEXT` cuyo placeholder invitaba a mezclar — *"Cantidad o descripción de palancas
+recibidas"*), con **tres** criterios vivos a la vez sobre las mismas filas:
+
+| Dónde | Criterio | Con `"tres cartas de su mamá"` |
+| --- | --- | --- |
+| `EditParticipantForm.vue` | `Number(raw) > 0` | «Pendiente» (NaN > 0 es false) |
+| `RetreatDashboardView.vue` (recibidas) | texto no vacío | «Recibidas» |
+| `RetreatDashboardView.vue` (total) | `parseInt`, NaN suma 0 | no la cuenta |
+
+Los tres son defendibles por separado. Juntos, la misma ficha está recibida y pendiente al mismo
+tiempo, y desaparece del total sin que nadie lo note.
+
+**Cómo encontrarlos**: buscar todos los lectores del campo, no sólo el que reportaron.
+
+```bash
+grep -rn 'palancasReceived' apps/web/src apps/api/src packages | grep -v '\.test\.'
+```
+
+Si aparecen dos expresiones distintas para decidir lo mismo (`Number(x) > 0`, `x.trim() !== ''`,
+`parseInt(x)`), ya hay bug aunque nadie lo haya reportado todavía.
+
+**Fix**: un helper compartido en `@repo/utils` y **todos** los lectores llamándolo. No basta con
+crear el helper: si los sitios viejos siguen con su expresión, sólo se añadió un cuarto criterio
+— y es fácil darlo por hecho al escribir el resumen (memoria:
+`feedback_verify_summary_claims_against_diff`).
+
+Tres decisiones que importan al escribirlo:
+
+1. **Estricto, no permisivo.** `parsePalancasCount('3 de la mamá')` devuelve `null`, no `3`. Un
+   `parseInt` laxo *parece* más útil y es justo cómo nace el criterio siguiente.
+2. **"Sin capturar" es un estado propio.** `unknown` (hay texto que no se puede leer) no es `none`
+   (no ha recibido). Colapsarlos es el bug original. Cuatro estados, no tres.
+3. **Migrar el dato sin tocarlo.** Columna nueva `palancasReceivedCount` (integer) y backfill que
+   rellena sólo donde el texto es un entero limpio, deja `NULL` el resto y **no reescribe el
+   texto**. Así el backfill no puede perder información y correrlo dos veces no cambia nada
+   (`WHERE palancasReceivedCount IS NULL`, que además protege una corrección manual posterior).
+
+**El test tiene que incluir el caso que discrimina.** Un fixture con `"tres cartas de su mamá"`
+pasa igual con el criterio estricto y con el laxo, porque `parseInt` da `NaN` en los dos. El que
+separa un criterio del otro es **un texto que empieza con dígito** (`"3 de la mamá"`). Verificado
+con un control negativo: relajando el helper a propósito, el test que sólo tenía la prosa siguió
+verde y el que tenía `"3 de la mamá"` se puso rojo. Corolario general: **un fixture que no
+distingue las dos implementaciones no prueba el criterio**, aunque el test se llame como si lo
+hiciera.
+
+> **Al desplegar**: unificar criterios cambia algún número que el usuario ya conocía. Avisarlo y
+> mostrar el desglose de la diferencia (aquí, un contador aparte de "Cartas sin capturar"); si no,
+> el número correcto se lee como un bug nuevo.
+
+Guards: `apps/api/src/tests/services/palancasMilestone.test.ts` (el helper),
+`apps/web/src/components/__tests__/palancasSingleCriterion.test.ts` (que formulario y dashboard
+coincidan sobre las mismas fichas),
+`apps/api/src/tests/migrations/addPalancasCountAndThreshold.test.ts` (el backfill no pierde nada).
+

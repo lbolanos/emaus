@@ -160,3 +160,44 @@ test('alignChapterTimeline: replica el leadTrim de muxVideo (filtra por file y r
   assert.equal(out[1].offsetMs, 13700);
   assert.equal(out[2].offsetMs, 0); // clamp a 0, nunca negativo
 });
+
+test('maskNode enmascara los nombres sueltos del historial (recipientName/contactName/actorName)', async () => {
+  const { maskNode } = await import('./demo-lib.mjs');
+  // El historial del Seguimiento de caminantes trae el nombre real en una sola
+  // clave, sin firstName al lado. Se coló en un frame de la grabación antes de
+  // añadir estas claves.
+  const n = {
+    id: 'c1',
+    recipientName: 'Pepe Toño Aguilar',
+    contactName: 'Jose Aguilar',
+    actorName: 'Leonardo Bolaños',
+  };
+  maskNode(n);
+  assert.notEqual(n.recipientName, 'Pepe Toño Aguilar');
+  assert.notEqual(n.contactName, 'Jose Aguilar');
+  assert.notEqual(n.actorName, 'Leonardo Bolaños');
+  for (const v of [n.recipientName, n.contactName, n.actorName]) {
+    assert.match(v, /^\S+ \S+$/); // sigue pareciendo un nombre
+  }
+});
+
+test('maskNode: el teléfono falso NO puede ser el número de alguien', async () => {
+  const { maskNode } = await import('./demo-lib.mjs');
+  // Números con forma real de entrada (celular CDMX, con lada 52, y de Guadalajara).
+  const entradas = ['5549442834', '+52 55 7979 7705', '3321677397'];
+  const salidas = [];
+  for (const cellPhone of entradas) {
+    const n = { id: cellPhone, cellPhone };
+    maskNode(n);
+    salidas.push(n.cellPhone);
+  }
+  for (const out of salidas) {
+    // 10 dígitos: hay vistas que sólo pintan el botón de WhatsApp con 10.
+    assert.equal(out.replace(/\D/g, '').length, 10, `10 dígitos: ${out}`);
+    // Bloque de abonado que empieza con 00 → no asignable en México.
+    assert.match(out, /^5500\d{6}$/, `no asignable: ${out}`);
+  }
+  // No devuelve el número de entrada, y distingue personas.
+  assert.equal(salidas.filter((s, i) => s === entradas[i]).length, 0);
+  assert.equal(new Set(salidas).size, salidas.length);
+});
