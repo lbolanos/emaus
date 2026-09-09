@@ -115,15 +115,29 @@ export function maskNode(n) {
     if (/^(photo|avatar|picture)(Url)?$/i.test(k)) {
       n[k] = '';
     // Teléfonos en cualquier clave (cellPhone/homePhone/inviterCellPhone/emergencyContact1CellPhone/whatsapp…).
+    //
+    // El fake NO debe poder ser el número de alguien. La versión anterior
+    // (`'55' + 8 dígitos`) producía celulares de CDMX perfectamente válidos
+    // —5532090508, 5518647677— así que un video público podía mandar llamadas
+    // al teléfono de un desconocido.
+    //
+    // `5500` + 6 dígitos: en México el número de abonado dentro de una LADA no
+    // empieza con 0, así que el bloque 55-00xx-xxxx no es asignable. Se
+    // mantienen los 10 dígitos porque hay vistas que sólo muestran el botón de
+    // WhatsApp si el teléfono los tiene (p.ej. WhatsAppSendQueue).
     } else if (/phone|celular|tel[eé]fono|whatsapp/i.test(k) && v.replace(/\D/g, '').length >= 7) {
-      n[k] = '55' + String(10000000 + (hstr(v) % 90000000));
+      n[k] = '5500' + String(100000 + (hstr(v) % 900000));
     // Emails en cualquier clave; si el objeto es una persona, con SU mismo fake.
     } else if (/email/i.test(k) && v.includes('@')) {
       const f = person || fakeFor(v);
       n[k] = `${f.first}.${f.last}@correo.com`.toLowerCase();
     // Nombres completos en una sola clave: contactos de emergencia y quién lo invitó
     // (invitedBy es texto libre con el nombre real; se pinta como "{name} (Invitador)").
-    } else if (/emergencyContact\d*Name|invitedBy|inviterName/i.test(k) && v.trim()) {
+    // `recipientName`/`contactName`/`actorName` los introdujo el historial del
+    // Seguimiento de caminantes (participant_communications y el timeline):
+    // llevan el nombre real en una sola clave, sin firstName al lado, así que la
+    // rama de "identidad del objeto" de arriba no los alcanza.
+    } else if (/emergencyContact\d*Name|invitedBy|inviterName|recipientName|contactName|actorName/i.test(k) && v.trim()) {
       const f = fakeFor(v);
       n[k] = `${f.first} ${f.last}`;
     } else {

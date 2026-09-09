@@ -29,6 +29,8 @@ router.post('/', controller.createSequence);
 router.put('/:id', controller.updateSequence);
 router.delete('/:id', controller.deleteSequence);
 router.get('/scheduled/:id/detail', controller.getQueueItemDetail);
+// Vista previa de un paso: autoriza por retiro dentro del controller.
+router.post('/preview', controller.previewStep);
 router.post('/scheduled/:id/dispatch', controller.markDispatched);
 router.post('/scheduled/:id/open', controller.markOpened);
 router.post('/scheduled/:id/assign', controller.assign);

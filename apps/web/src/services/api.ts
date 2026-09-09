@@ -20,6 +20,9 @@ import type {
   ParticipantFollowUp,
   CrmTask,
   FollowUpStatus,
+  ParticipantNote,
+  TimelineEvent,
+  SequenceStepPreview,
   Retreat,
   Participant,
   FlyerTemplate,
@@ -4082,4 +4085,59 @@ export const updateCrmTask = async (
 
 export const deleteCrmTask = async (id: string): Promise<void> => {
   await api.delete(`/crm/tasks/${id}`);
+};
+
+// --- Hilo de notas y timeline por participante ---
+
+export const previewSequenceStep = async (data: {
+  retreatId: string;
+  participantId: string;
+  templateType: string;
+  channel: "email" | "whatsapp";
+  recipientTarget: string;
+  recipientResponsibility?: string | null;
+}): Promise<SequenceStepPreview> => {
+  const r = await api.post("/message-sequences/preview", data);
+  return r.data;
+};
+
+export const getParticipantNotes = async (
+  retreatId: string,
+  participantId: string,
+): Promise<(ParticipantNote & { author?: any })[]> => {
+  const r = await api.get(
+    `/crm/retreat/${retreatId}/participants/${participantId}/notes`,
+  );
+  return r.data;
+};
+
+export const getParticipantTimeline = async (
+  retreatId: string,
+  participantId: string,
+): Promise<TimelineEvent[]> => {
+  const r = await api.get(
+    `/crm/retreat/${retreatId}/participants/${participantId}/timeline`,
+  );
+  return r.data;
+};
+
+export const createParticipantNote = async (data: {
+  retreatId: string;
+  participantId: string;
+  body: string;
+}): Promise<ParticipantNote & { author?: any }> => {
+  const r = await api.post("/crm/notes", data);
+  return r.data;
+};
+
+export const updateParticipantNote = async (
+  id: string,
+  body: string,
+): Promise<ParticipantNote & { author?: any }> => {
+  const r = await api.put(`/crm/notes/${id}`, { body });
+  return r.data;
+};
+
+export const deleteParticipantNote = async (id: string): Promise<void> => {
+  await api.delete(`/crm/notes/${id}`);
 };

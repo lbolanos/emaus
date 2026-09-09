@@ -219,6 +219,14 @@ export class Participant {
 	@Column({ type: 'text', nullable: true })
 	palancasReceived?: string | null;
 
+	/**
+	 * Virtual — hidratado desde `retreat_participants` en query time.
+	 * SIN @Column a propósito: la columna real vive sólo en
+	 * `retreat_participants`; declararla aquí la metería en el SELECT de
+	 * `participants`, que no la tiene, y la query fallaría en runtime.
+	 */
+	palancasReceivedCount?: number | null;
+
 	@Column({ type: 'text', nullable: true })
 	palancasNotes?: string | null;
 

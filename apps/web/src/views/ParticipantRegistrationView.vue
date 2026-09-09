@@ -165,6 +165,9 @@ const emailLookup = ref('')
 const isSearching = ref(false)
 
 const existingParticipantName = ref('')
+// Quien respondió "no soy yo" en la pantalla de identidad no puede quedarse con el
+// correo del registro ajeno: el alta lo tomaría como suyo y sobrescribiría esa ficha.
+const deniedIdentity = ref(false)
 const isConfirming = ref(false)
 const showSuccessScreen = ref(false)
 const lookupShirtSizes = ref<Record<string, string>>({})
@@ -567,7 +570,20 @@ const skipEmailLookup = () => {
  * quita justo el valor que tiene: que ahí solo hay lo que nadie más vio.
  */
 const isUnrecordedFailure = (error: any): boolean =>
-  isNetworkError(error) || !serverErrorMessage(error)
+  isNetworkError(error) || !serverErrorMessage(error) || isRecaptchaRejection(error)
+
+/**
+ * Rechazo de reCAPTCHA. Las seis variantes que devuelve el API traen la palabra
+ * en el mensaje ("token is required", "verification failed: …", "score too low",
+ * "hostname mismatch", "configuration error", "Failed to verify …").
+ *
+ * Se reportan al canal [CLIENT ERROR] aunque traigan mensaje: el API los
+ * devuelve sin escribir nada en su log, así que hoy son invisibles — en nginx
+ * solo queda un 400 pelado. El 2026-09-08 a las 18:27 un iPhone se llevó uno y
+ * no hay forma de saber cuántos más.
+ */
+const isRecaptchaRejection = (error: any): boolean =>
+  /recaptcha/i.test(serverErrorMessage(error) ?? '')
 
 /**
  * Qué decirle a la persona sobre un fallo al guardar su registro. Lo usan los
@@ -575,6 +591,9 @@ const isUnrecordedFailure = (error: any): boolean =>
  */
 const describeRegistrationError = (error: any): string => {
   if (isNetworkError(error)) return t('serverRegistration.errors.connectionLost')
+  // El mensaje de reCAPTCHA viene de Google, en inglés y sin nada que hacer con
+  // él: "reCAPTCHA verification failed: browser-error" no le dice nada a nadie.
+  if (isRecaptchaRejection(error)) return t('serverRegistration.errors.recaptcha')
   const fromServer = serverErrorMessage(error)
   if (fromServer) return fromServer
   // Respondió algo que no es del API: página de nginx, challenge de Cloudflare.
@@ -684,7 +703,14 @@ const handleConfirmIdentity = async () => {
 
 const handleDenyIdentity = () => {
   existingParticipantName.value = ''
-  formData.value.email = emailLookup.value
+  // El correo se limpia a propósito: si siguiera prellenado, el alta reutilizaría la
+  // ficha de la otra persona y le pisaría nombre e historial.
+  deniedIdentity.value = true
+  formData.value.email = ''
+  toast({
+    title: t('serverRegistration.emailLookup.deniedTitle'),
+    description: t('serverRegistration.emailLookup.deniedUseAnotherEmail'),
+  })
 }
 
 // Reset email lookup when dialog opens for server types
@@ -693,6 +719,7 @@ watch(isDialogOpen, (open) => {
     showEmailLookup.value = true
     emailLookup.value = ''
     existingParticipantName.value = ''
+    deniedIdentity.value = false
     lookupShirtSizes.value = {}
   }
   if (open) {
@@ -801,6 +828,12 @@ const onSubmit = async () => {
     ;(result.data as any).availability = (formData.value as any).availability
   }
 
+  // Tras un "no soy yo", el alta no puede adoptar una ficha ajena aunque el correo
+  // coincida: el backend la rechaza en vez de sobrescribirla.
+  if (deniedIdentity.value) {
+    ;(result.data as any).claimExisting = false
+  }
+
   // Para walkers: convertir tshirtSize al shirtType correspondiente en participant_shirt_size.
   // El tipo del walker es el marcado requiredForWalkers, o el primero por sortOrder.
   if (props.type === 'walker' && (result.data as any).tshirtSize) {
@@ -856,11 +889,18 @@ const onSubmit = async () => {
     completedSteps.value.clear()
     isDialogOpen.value = false
     currentStep.value = 1
+    deniedIdentity.value = false
     formData.value = getInitialFormData()
   } catch (error: any) {
     console.error('Submission error:', error)
     const retried = wasRetriedAfterNoResponse(error)
-    const alreadyRegistered = error?.response?.status === 409
+    // El 409 por correo ajeno (Regla 3) NO es "ya estabas registrado": el alta se
+    // rechazó y no hay fila de esta persona en ningún lado. Contarlo con los demás
+    // 409 haría que, tras un reintento nuestro, se le anunciara en tono tranquilo
+    // que quedó inscrito — justo el engaño que ese aviso quiere evitar.
+    const emailOwnedByOther =
+      error?.response?.data?.code === 'EMAIL_BELONGS_TO_ANOTHER_PARTICIPANT'
+    const alreadyRegistered = error?.response?.status === 409 && !emailOwnedByOther
 
     if (isUnrecordedFailure(error)) {
       reportClientError({

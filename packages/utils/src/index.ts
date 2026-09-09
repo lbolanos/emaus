@@ -1966,3 +1966,95 @@ export const detectEmailClient = (): string => {
 	// In a real implementation, this could be enhanced with email domain detection
 	return 'enhanced';
 };
+
+// ---------------------------------------------------------------------------
+// Palancas (cartas) — criterio único
+// ---------------------------------------------------------------------------
+
+/**
+ * Cartas que un caminante necesita para considerarse cubierto, cuando el
+ * retiro no fija su propio umbral (`retreat.minPalancasPerWalker`).
+ */
+export const DEFAULT_MIN_PALANCAS_PER_WALKER = 3;
+
+/**
+ * Conteo de cartas recibidas, o `null` si no se puede afirmar.
+ *
+ * `palancasReceived` es una columna TEXT y el formulario permite prosa
+ * ("Cantidad o descripción…"), así que el repo llegó a tener tres criterios
+ * distintos y contradictorios para el mismo dato. Este es el único.
+ *
+ * Deliberadamente estricto: sólo un entero limpio cuenta. `"3 de la mamá"`
+ * devuelve `null`, no `3` — un `parseInt` laxo aquí es exactamente cómo nace
+ * un cuarto criterio, y "sin capturar" es una respuesta más honesta que un
+ * número adivinado.
+ */
+export function parsePalancasCount(
+	raw: string | number | null | undefined,
+): number | null {
+	if (raw === null || raw === undefined) return null;
+	if (typeof raw === 'number') {
+		return Number.isInteger(raw) && raw >= 0 ? raw : null;
+	}
+	const trimmed = String(raw).trim();
+	if (!/^\d+$/.test(trimmed)) return null;
+	const n = Number.parseInt(trimmed, 10);
+	return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Estado del hito de cartas.
+ *
+ *  - `met`     : llegó al umbral
+ *  - `below`   : recibió cartas pero no alcanza
+ *  - `none`    : no ha recibido ninguna (cero explícito o ficha en blanco)
+ *  - `unknown` : hay algo escrito pero no es un número — nadie sabe cuántas
+ *
+ * `unknown` y `none` NO son lo mismo: pintarlos igual es el bug que hace que
+ * un caminante con "tres cartas de su mamá" se vea como "Pendiente".
+ */
+export type PalancaMilestone = 'none' | 'below' | 'met' | 'unknown';
+
+export function palancaMilestone(
+	count: number | null | undefined,
+	threshold: number = DEFAULT_MIN_PALANCAS_PER_WALKER,
+	rawText?: string | null,
+): PalancaMilestone {
+	if (count === null || count === undefined) {
+		// Sin conteo: si además hay texto, alguien escribió algo que no pudimos leer.
+		return rawText && String(rawText).trim() !== '' ? 'unknown' : 'none';
+	}
+	if (count <= 0) return 'none';
+	return count >= Math.max(1, threshold) ? 'met' : 'below';
+}
+
+/** Umbral efectivo de un retiro. */
+export function effectiveMinPalancas(
+	retreatMin: number | null | undefined,
+): number {
+	return retreatMin != null && retreatMin > 0
+		? retreatMin
+		: DEFAULT_MIN_PALANCAS_PER_WALKER;
+}
+
+/**
+ * Resuelve conteo + hito de una ficha per-retiro en un solo paso, tomando
+ * `palancasReceivedCount` como fuente y cayendo al texto heredado cuando la
+ * columna nueva aún no está capturada.
+ */
+export function resolvePalancas(
+	source: {
+		palancasReceivedCount?: number | null;
+		palancasReceived?: string | null;
+	},
+	retreatMin?: number | null,
+): { count: number | null; threshold: number; milestone: PalancaMilestone } {
+	const threshold = effectiveMinPalancas(retreatMin);
+	const count =
+		source.palancasReceivedCount ?? parsePalancasCount(source.palancasReceived);
+	return {
+		count,
+		threshold,
+		milestone: palancaMilestone(count, threshold, source.palancasReceived),
+	};
+}

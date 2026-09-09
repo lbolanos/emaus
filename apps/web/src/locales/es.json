@@ -606,7 +606,7 @@
       "changePassword": "Cambiar Contraseña",
       "messageSequences": "Secuencias Automáticas",
       "communicationDashboard": "Tablero de Comunicación",
-      "followUp": "Tareas y Seguimiento",
+      "followUp": "Seguimiento de caminantes",
       "globalMessageSequences": "Secuencias Globales"
     },
     "telemetry": "Telemetría",
@@ -1475,7 +1475,8 @@
     "palancasRequested": "Solicitadas",
     "palancasReceived": "Recibidas",
     "walkersWithoutPalancas": "Sin Palancas",
-    "totalPalancasReceived": "Total Palancas"
+    "totalPalancasReceived": "Total Palancas",
+    "palancasUnknown": "Cartas sin capturar"
   },
   "retreatFlyer": {
     "printButton": "Imprimir Flyer",
@@ -2017,6 +2018,7 @@
       "connectionLost": "Se perdió la conexión y lo intentamos otra vez sin éxito. Revisa tu internet y vuelve a intentarlo.",
       "serverError": "No pudimos guardar tu registro en este momento (error {status}). Espera unos minutos y vuelve a intentarlo.",
       "unknown": "No pudimos guardar tu registro. Vuelve a intentarlo en unos minutos.",
+      "recaptcha": "No pudimos verificar que no eres un robot. Recarga la página y vuelve a intentarlo.",
       "alreadyRegisteredTitle": "Ya estabas registrado"
     },
     "emailLookup": {
@@ -2031,6 +2033,8 @@
       "confirmMessage": "Hola {name}, al confirmar quedarás registrado(a) para este retiro.",
       "confirmButton": "Sí, soy yo",
       "denyButton": "No, registrarme como nuevo",
+      "deniedTitle": "Usa un correo propio",
+      "deniedUseAnotherEmail": "Ese correo pertenece al registro de otra persona, así que no podemos usarlo para el tuyo. Escribe un correo tuyo para continuar; si el registro sí era tuyo, regresa y confirma tu identidad.",
       "success": "¡Registro exitoso! Quedaste registrado(a) para este retiro.",
       "alreadyRegistered": "Este correo ya está registrado en este retiro.",
       "alreadyRegisteredAsWalker": "Este correo ya está registrado en este retiro como caminante.",
@@ -3411,7 +3415,15 @@
       "cancelled": "Cancelado"
     },
     "deleteTitle": "Eliminar secuencia",
-    "deleteConfirm": "¿Eliminar «{name}»? Se cancelarán sus mensajes pendientes."
+    "deleteConfirm": "¿Eliminar «{name}»? Se cancelarán sus mensajes pendientes.",
+    "previewShow": "Ver vista previa de este paso",
+    "previewHide": "Ocultar vista previa",
+    "previewLoading": "Resolviendo…",
+    "previewError": "No se pudo generar la vista previa",
+    "previewRecipient": "Le llega a",
+    "previewEmptyVars": "Variables sin datos",
+    "previewParticipant": "Participante de muestra para las vistas previas",
+    "previewFirstParticipant": "El primero del retiro"
   },
   "globalSequences": {
     "title": "Plantillas globales de secuencias",
@@ -3441,8 +3453,33 @@
     "empty": "Aún no hay datos de comunicación para este retiro."
   },
   "followUp": {
-    "title": "Tareas y seguimiento",
-    "subtitle": "Recordatorios del coordinador y estado de seguimiento de cada participante.",
+    "title": "Seguimiento de caminantes",
+    "subtitle": "Tablero de etapas, historial y notas de cada participante.",
+    "boardTitle": "Tablero",
+    "search": "Buscar por nombre",
+    "showType": "Tipo",
+    "allTypes": "Todos",
+    "walkers": "Caminantes",
+    "servers": "Servidores",
+    "lettersFilter": "Cartas",
+    "lettersAll": "Todas",
+    "lettersNone": "Sin cartas",
+    "lettersBelow": "Por debajo del mínimo",
+    "lettersMet": "Completas",
+    "lettersUnknown": "Sin capturar",
+    "showMore": "Mostrar más",
+    "emptyColumn": "Nadie en esta etapa",
+    "noParticipants": "Este retiro aún no tiene participantes.",
+    "moveError": "No se pudo mover la tarjeta",
+    "attendanceSynced": "También se registró la confirmación de asistencia",
+    "attendanceDeclined": "También se registró que no asistirá",
+    "tapToMove": "Toca una etapa para mover a {name}",
+    "cancelMove": "Cancelar",
+    "letters": "Cartas",
+    "lettersOf": "{count} de {threshold}",
+    "lettersUnknownHint": "Las cartas están capturadas como texto. Ponlas como número para que cuenten.",
+    "doNotContact": "No contactar",
+    "openTasks": "{count} tarea | {count} tareas",
     "tasksTitle": "Tareas",
     "taskTitle": "Tarea",
     "taskPlaceholder": "Ej. Llamar a Juan para confirmar pago",
@@ -3463,7 +3500,7 @@
     "statuses": {
       "pending": "Por contactar",
       "contacted": "Contactado",
-      "confirmed": "Confirmado",
+      "confirmed": "Confirmó",
       "no_answer": "Sin respuesta",
       "declined": "Declinó"
     }
@@ -3680,5 +3717,42 @@
     "leaveWithoutSaving": "Tienes cambios sin guardar en el volante. ¿Salir de todas formas?",
     "undo": "Deshacer",
     "undoHint": "Deshacer el último cambio (⌘Z)"
+  },
+  "participantThread": {
+    "title": "Historial de {name}",
+    "loading": "Cargando historial…",
+    "empty": "Todavía no hay actividad registrada.",
+    "addNote": "Agregar nota",
+    "notePlaceholder": "Ej. La mamá está enojada, pide hablar con el coordinador",
+    "noteHint": "Ctrl+Enter para agregar",
+    "noteAdded": "Nota agregada",
+    "noteError": "No se pudo guardar la nota",
+    "edit": "Editar",
+    "delete": "Borrar",
+    "cancel": "Cancelar",
+    "saveNote": "Guardar",
+    "confirmDelete": "¿Borrar esta nota?",
+    "contactsTitle": "Con quién hemos hablado",
+    "openWhatsApp": "Abrir WhatsApp",
+    "writeTemplate": "Escribir",
+    "noPhone": "Sin teléfono",
+    "messagesSent": "{count} mensaje | {count} mensajes",
+    "lastMessage": "Último: {date}",
+    "filterAll": "Todos",
+    "sentFromEmaus": "Lo que enviamos desde Emaús — abre WhatsApp para ver las respuestas",
+    "currentState": "Estado actual",
+    "showFullMessage": "Ver completo",
+    "hideFullMessage": "Ver menos",
+    "types": {
+      "note": "Nota",
+      "stage_change": "Cambio de etapa",
+      "message": "Mensaje enviado",
+      "message_scheduled": "Mensaje programado",
+      "task": "Tarea",
+      "registered": "Registro",
+      "attendance": "Asistencia",
+      "payment": "Pago",
+      "palancas": "Cartas"
+    }
   }
 }

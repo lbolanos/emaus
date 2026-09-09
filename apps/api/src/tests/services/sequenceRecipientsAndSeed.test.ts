@@ -277,4 +277,115 @@ describe('MessageSequence — destinatarios invitador/responsabilidad + seed', (
 		});
 		expect(sm?.status).toBe('sent');
 	});
+
+	describe('previewStep (vista previa de un paso)', () => {
+		it('resuelve el destinatario invitador, no el participante', async () => {
+			const retreat = await TestDataFactory.createTestRetreat({
+				timezone: 'America/Mexico_City',
+			});
+			const walker = await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker',
+				firstName: 'Andrei',
+				cellPhone: '5512345678',
+				invitedBy: 'Pala Quero',
+				inviterCellPhone: '5599999999',
+			} as any);
+			await createTemplate(
+				retreat.id,
+				'GENERAL',
+				'Hola {participant.recipientName}, tu invitado {participant.firstName} se registró',
+			);
+
+			const preview = await svc.previewStep({
+				retreatId: retreat.id,
+				participantId: walker.id,
+				templateType: 'GENERAL',
+				channel: 'whatsapp',
+				recipientTarget: 'inviter',
+			});
+
+			// Éste es el caso que el preview del cliente hacía mal: pasaba
+			// `recipientTarget` como contactKey a secas y saludaba al caminante.
+			expect(preview?.recipientName).toBe('Pala Quero');
+			expect(preview?.recipientContact).toBe('5599999999');
+			expect(preview?.content).toContain('Hola Pala Quero');
+			expect(preview?.content).toContain('tu invitado Andrei');
+			expect(preview?.warning).toBeNull();
+		});
+
+		it('avisa cuando el retiro no tiene la plantilla del paso', async () => {
+			const retreat = await TestDataFactory.createTestRetreat();
+			const walker = await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker',
+			} as any);
+
+			const preview = await svc.previewStep({
+				retreatId: retreat.id,
+				participantId: walker.id,
+				templateType: 'NO_EXISTE',
+				channel: 'whatsapp',
+				recipientTarget: 'participant',
+			});
+
+			expect(preview?.content).toBe('');
+			expect(preview?.warning).toContain('NO_EXISTE');
+		});
+
+		it('avisa cuando el vínculo del destinatario no existe', async () => {
+			const retreat = await TestDataFactory.createTestRetreat();
+			// Caminante sin invitador registrado.
+			const walker = await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker',
+			} as any);
+			await createTemplate(retreat.id, 'GENERAL', 'Hola {participant.recipientName}');
+
+			const preview = await svc.previewStep({
+				retreatId: retreat.id,
+				participantId: walker.id,
+				templateType: 'GENERAL',
+				channel: 'whatsapp',
+				recipientTarget: 'inviter',
+			});
+
+			// El mismo motivo que el motor escribe en `error` al cancelar, para que
+			// el preview y el log de la secuencia no se contradigan.
+			expect(preview?.warning).toBe('el caminante no registró invitador');
+		});
+
+		it('señala las variables que quedarían vacías', async () => {
+			const retreat = await TestDataFactory.createTestRetreat();
+			const walker = await TestDataFactory.createTestParticipant(retreat.id, {
+				type: 'walker',
+				firstName: 'Andrei',
+			} as any);
+			await createTemplate(
+				retreat.id,
+				'GENERAL',
+				'Hola {participant.firstName}, tu apodo es {participant.nickname} y tu casa {retreat.houseName}',
+			);
+
+			const preview = await svc.previewStep({
+				retreatId: retreat.id,
+				participantId: walker.id,
+				templateType: 'GENERAL',
+				channel: 'whatsapp',
+				recipientTarget: 'participant',
+			});
+
+			expect(preview?.content).toContain('Hola Andrei');
+			expect(Array.isArray(preview?.emptyVariables)).toBe(true);
+		});
+
+		it('devuelve null si el participante o el retiro no existen', async () => {
+			const retreat = await TestDataFactory.createTestRetreat();
+			const preview = await svc.previewStep({
+				retreatId: retreat.id,
+				participantId: '00000000-0000-0000-0000-000000000000',
+				templateType: 'GENERAL',
+				channel: 'whatsapp',
+				recipientTarget: 'participant',
+			});
+			expect(preview).toBeNull();
+		});
+	});
 });

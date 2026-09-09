@@ -213,7 +213,8 @@ export const createParticipant = async (
   next: NextFunction,
 ) => {
   try {
-    const { recaptchaToken, dryRun, availability, ...participantData } = req.body;
+    const { recaptchaToken, dryRun, availability, claimExisting, ...participantData } =
+      req.body;
 
     // Verify reCAPTCHA token for public registration
     const recaptchaResult = await recaptchaService.verifyToken(recaptchaToken, {
@@ -271,6 +272,24 @@ export const createParticipant = async (
         validatedData as Record<string, string | null | undefined>,
         retreat?.house?.country,
       ) as typeof validatedData;
+    }
+
+    // El registro público identifica a la persona por su correo: createParticipant
+    // reutiliza —y sobrescribe— la ficha que ya lo tenga. Cuando quien se registra
+    // acaba de responder "no soy yo" en la pantalla de identidad, ese comportamiento
+    // pisaría los datos de un tercero, historial de retiros incluido. Con
+    // `claimExisting: false` el alta se rechaza en vez de sobrescribir.
+    if (claimExisting === false && validatedData.email) {
+      const emailOwner = await participantService.findParticipantByEmail(
+        validatedData.email,
+      );
+      if (emailOwner) {
+        return res.status(409).json({
+          message:
+            "Ese correo ya pertenece al registro de otra persona. Usa un correo propio; si el registro es tuyo, regresa y confirma tu identidad.",
+          code: "EMAIL_BELONGS_TO_ANOTHER_PARTICIPANT",
+        });
+      }
     }
 
     // Dry-run mode: validate only, no DB writes

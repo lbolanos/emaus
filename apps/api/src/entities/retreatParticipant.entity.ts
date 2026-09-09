@@ -123,8 +123,19 @@ export class RetreatParticipant {
 	@Column({ type: 'boolean', nullable: true })
 	palancasRequested?: boolean | null;
 
+	/**
+	 * Texto heredado: unas fichas traen "3" y el formulario permite prosa.
+	 * Para cualquier decisión (hito, contadores) usar `palancasReceivedCount`.
+	 */
 	@Column({ type: 'text', nullable: true })
 	palancasReceived?: string | null;
+
+	/**
+	 * Conteo numérico de cartas recibidas. Null = sin capturar (distinto de 0,
+	 * que significa "no ha recibido ninguna").
+	 */
+	@Column({ type: 'integer', nullable: true })
+	palancasReceivedCount?: number | null;
 
 	@Column({ type: 'text', nullable: true })
 	palancasNotes?: string | null;

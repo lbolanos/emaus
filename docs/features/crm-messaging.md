@@ -128,7 +128,7 @@ Caso palanquero coherente: disparador=registro de caminante (enrolamiento=camina
 - `participant.type` es **virtual**; la fuente per-retiro de type/isCancelled es `retreat_participants` (las queries de audiencia lo usan).
 - Resolución de variables en backend vía `@repo/utils` `replaceAllVariables` (acepta `contactKey` para resolver el destinatario contacto-de-emergencia).
 - Tabla real `participants` (plural) — las FKs de las migraciones deben usar `"participants"`, no `"participant"` (los tests con `synchronize` no detectan FKs colgadas; usar la migración real para validar).
-- Las migraciones con `DROP TABLE` en `down()` declaran `transaction = false` (guard `sqliteSafePattern`); inerte en runtime.
+- Las migraciones con `DROP TABLE` en `down()` declaran `transaction = false` (guard `sqliteSafePattern`). Desde 2026-09-08 el runner **obedece** ese flag (`database/transaction-policy.ts`): antes lo ignoraba y el arranque del API las envolvía en transacción, anulando el `PRAGMA foreign_keys = OFF`.
 - Navegación: rutas bajo `/app/settings/*` + `/app/follow-up`, items en `Sidebar.vue`.
 
 ## Ayuda al usuario
@@ -143,3 +143,206 @@ Caso palanquero coherente: disparador=registro de caminante (enrolamiento=camina
 - Plantillas globales de secuencias — Backend: `globalMessageSequence.test.ts` (CRUD, syncSteps, `copyToRetreat` clona inactiva con pasos) + `globalMessageSequenceSchema.simple.test.ts` (contrato Zod: defaults, sin `retreatId`/`segmentId`, rechazos).
 - Frontend: `WhatsAppSendQueue.test.ts`; `helpIndex.test.ts`; `globalMessageSequenceStore.test.ts`; `GlobalMessageSequencesView.test.ts`; `messageSequenceStore.test.ts` (despacho/ownership/opt-out + **retry/discard/regenerateQueue/bulkResolveIssues**). Suite web completa verde.
 - E2E (Playwright, nivel API en `apps/web/tests/e2e/global-message-sequences.spec.ts`): valida el gating de `/api/global-message-sequences` (anónimo → 401/403; `owner` sin permiso global → 403). Requiere la migración `SeedE2ETestUsers` (corre en CI). El camino anónimo se verificó también vía curl contra el server del worktree.
+
+## Fase 5 — Tablero de seguimiento, hilo de notas e historial por persona
+
+El coordinador llevaba el seguimiento de caminantes en Kommo (un CRM aparte): tablero de etapas,
+ficha con el historial y una caja para escribir notas al vuelo. Esta fase trae eso adentro.
+
+### Tablero (`FollowUpView.vue`, reescrita)
+
+Cinco columnas = los cinco estados de `ParticipantFollowUp`. Sin etapas configurables y sin
+migrar datos. Ruta y entrada de sidebar sin cambios (`/app/follow-up`).
+
+- Mezcla `crmStore.followUps` con `participantStore.participants`: **quien no tiene fila de
+  follow-up cuenta como `pending`**, así que el tablero arranca lleno sin sembrar nada.
+- Excluye cancelados y a quien ejerció el **derecho de borrado** (`dataDeletedAt`): una ficha
+  anonimizada no tiene teléfono ni correo, no se puede contactar y sólo sería ruido.
+- Arrastre HTML5 nativo (no se añadió librería de DnD) + `useTapAssign` para táctil, que es la
+  única ruta que funciona en el teléfono. `useDragState` no se usa: guarda un tipo
+  `'server' | 'walker'` que aquí no aplica; el id arrastrado se lleva en un `ref` local.
+- Movimiento optimista con reversión si el POST falla, buscador, filtro por tipo, filtro por
+  cartas y render por tandas de 50 (un retiro grande llena la primera columna).
+
+### Sincronización con la confirmación de asistencia (decisión con efecto colateral)
+
+`upsertFollowUp` es el punto único de cambio de etapa, así que ahí cuelga todo:
+
+- `confirmed` → `retreat_participants.attendanceConfirmation = 'confirmed'`; `declined` →
+  `'declined'`. **Sólo avanza**: mover la tarjeta hacia atrás NO revierte la asistencia (reabrir
+  el seguimiento de alguien que ya confirmó no significa "ya no viene").
+- ⚠️ **Mover una tarjeta a Confirmó apaga recordatorios**: los pasos con
+  `condition.attendanceFilter = 'pending'` dejan de enviarse. Es el comportamiento buscado, y la
+  UI lo dice con un toast explícito; el efecto queda registrado en el hilo con `attendanceSynced`.
+- Todo en una transacción: si la sincronización falla, la etapa no se mueve. Quedar con la
+  tarjeta en "Confirmó" y la asistencia en "pendiente" es justo la contradicción a evitar.
+
+### Hilo de notas (`participant_notes`)
+
+`ParticipantFollowUp.note` es **un** campo que se sobrescribe: no dice quién escribió qué ni
+cuándo. La tabla nueva es append-only, con `kind`:
+
+- `note` — escrita por una persona. Editable y borrable **sólo por su autor** (validado en el
+  servicio; el controller traduce el `null` a 403).
+- `stage_change` — escrita por el sistema, **inmutable**. Guarda `{from, to, attendanceSynced}` o
+  `{milestone: 'palancas', count, threshold}`.
+
+Los cambios de etapa viven aquí y no en `domain_audit_log` por tres razones: no hay que ampliar el
+enum `DomainAuditAction` ni su columna, notas y eventos salen en **una** consulta ya ordenada, y
+`attendanceConfirmation` **no tiene columna de fecha** — así que esta tabla es el único registro
+de *cuándo* se confirmó.
+
+El par `scope`/`retreatId`/`communityId` espeja `ParticipantCommunication` para que el hilo sirva
+a un miembro de comunidad más adelante; hoy sólo se escribe con scope `'retreat'`.
+
+> Registrada en **`PARTICIPANT_REFERENCES`** (`participantMergeService`) con política `repoint`.
+> El guard `participantMergeReferences.test.ts` lo exigió: sin eso, fusionar duplicados dejaba las
+> notas apuntando a una lápida, en silencio.
+
+### Timeline unificado
+
+`GET /crm/retreat/:retreatId/participants/:participantId/timeline` junta seis fuentes en un array
+ordenado: notas y cambios de etapa, `participant_communications`, `scheduled_messages`
+(`pending`/`queued`, para ver lo que viene), `crm_tasks`, registro/asistencia/palancas de
+`retreat_participants` y `payments`.
+
+- **Los mensajes a los familiares ya salían en esta consulta**: una petición de palanca a la mamá
+  se guarda con el `participantId` DEL CAMINANTE y `recipientContactKey='emergencyContact1'`. Lo
+  que faltaba era etiquetarlo por interlocutor, no traer más datos.
+- Eventos sin fecha (`at: null`) = estado actual, no un punto del pasado; el cliente los pinta
+  aparte. `attendanceConfirmation` cae ahí porque no tiene timestamp propio.
+- `Payment.amount` es `decimal`: SQLite lo devuelve como **string**, hay que convertir.
+
+### Panel de historial y conversaciones con los familiares
+
+`components/crm/ParticipantTimelinePanel.vue` — panel lateral con marcado propio (no hay `Sheet`
+en `@repo/ui`), lo que además esquiva el bug de `pointer-events` de los diálogos de reka-ui.
+
+- Caja de nota siempre a la vista (`Ctrl/Cmd+Enter` para agregar).
+- **Barra de contactos** (`components/crm/participantContacts.ts`): caminante, familiar 1,
+  familiar 2 e invitador, con parentesco, conteo de mensajes y fecha del último. Resuelve el
+  teléfono en el **mismo orden que el motor** (`cellPhone || homePhone || workPhone`) para no
+  ofrecer un número distinto del que recibió el mensaje.
+- **Abrir WhatsApp** → `buildWhatsAppChatLink` (`utils/phone.ts`): `api.whatsapp.com/send?phone=…`
+  **sin `text`**. Sin `text` WhatsApp abre la conversación y se ve el historial real; con `text`
+  abre el compositor. Hay un test que fija la ausencia del parámetro.
+- Los chips de la barra filtran el hilo por `recipientContactKey` ("¿qué le dijimos a la mamá?").
+- Los correos se aplanan con `convertHtmlToWhatsApp` en la vista plegada: si no, se lee
+  `<p>Hola…</p>` y parece que el mensaje salió roto.
+
+> **Límite, rotulado en la UI**: el contenido real de la conversación de WhatsApp vive en el
+> teléfono del coordinador. El envío es deep-link asistido a propósito (ver la decisión de canal
+> arriba), así que **no se puede importar lo que contestaron**. Emaús muestra lo que enviamos más
+> las notas, y el botón lleva al hilo real. El rótulo "Lo que enviamos desde Emaús — abre WhatsApp
+> para ver las respuestas" evita que se lea como un hilo incompleto por error.
+
+### Hito de cartas (palancas): indicador, no etapa
+
+"Recibió al menos 3 cartas" **no** es una columna del tablero: las cinco etapas son excluyentes y
+describen la gestión de contacto, mientras las cartas son ortogonales (se puede tener 4 cartas y
+estar en `no_answer`), son un dato derivado de un conteo, y el umbral cambia por retiro.
+
+**El dato estaba roto.** `palancasReceived` es `TEXT` y el formulario invita a mezclar
+(`placeholder="Cantidad o descripción…"`), así que había **tres criterios contradictorios**:
+
+| Dónde | Criterio | Con `"tres cartas de su mamá"` |
+| --- | --- | --- |
+| `EditParticipantForm.vue` | `Number(raw) > 0` | «Pendiente» |
+| `RetreatDashboardView.vue` | texto no vacío | «Recibidas» |
+| `RetreatDashboardView.vue` | `parseInt`, NaN suma 0 | no la cuenta en el total |
+
+- Migración aditiva `AddPalancasCountAndThreshold`: `retreat_participants.palancasReceivedCount`
+  (integer) y `retreat.minPalancasPerWalker` (integer, null ⇒ 3 en código).
+- **Backfill sin mutar nada**: rellena el conteo sólo donde el texto es un entero limpio, deja
+  `NULL` los demás y **no toca el texto**. Idempotente (`WHERE palancasReceivedCount IS NULL`).
+  En la base de septiembre 2026: 405 de 405 con texto quedaron con conteo, **cero** en prosa.
+- Criterio único en `@repo/utils`: `parsePalancasCount`, `palancaMilestone`, `resolvePalancas`,
+  `effectiveMinPalancas`. Deliberadamente estricto — `"3 de la mamá"` devuelve `null`, no `3`: un
+  `parseInt` laxo es exactamente cómo nace un cuarto criterio.
+- **Cuatro estados, no tres**: `unknown` (capturado como texto, nadie sabe cuántas) es distinto de
+  `none` (no ha recibido). Colapsarlos era el bug de `EditParticipantForm.vue`, ya corregido.
+- **Captura**: el campo "Cartas Recibidas" del formulario es numérico y escribe
+  `palancasReceivedCount`. El backend mantiene `palancasReceived` **en espejo** (`String(count)`)
+  para lo que aún lee el texto — la columna de la lista de palancas, exportaciones. Si sólo llega
+  el texto (importaciones, clientes viejos), el conteo se deriva con el criterio único.
+- **Los tres sitios ya leen lo mismo**: `EditParticipantForm.palancasStatus` y los contadores de
+  `RetreatDashboardView` llaman a `resolvePalancas`. El dashboard suma **sólo conteos conocidos** y
+  añade un contador propio, "Cartas sin capturar", para las fichas en prosa: antes desaparecían del
+  total y a la vez contaban como "recibidas" en el contador de al lado. Guard:
+  `palancasSingleCriterion.test.ts` fija que el formulario y el dashboard coincidan.
+- **Un `null` en el conteo NO borra el texto.** El formulario reenvía el participante completo, y
+  el listado hidrata `palancasReceivedCount = null` **explícito** en toda ficha cuyo conteo no se
+  pudo derivar. Interpretar ese `null` como "poner a null" borraba el texto de palancas en
+  cualquier guardado ajeno (corregir un teléfono) — justo lo que el backfill se cuidó de
+  conservar. Regla: **sólo un número manda**; "sin capturar" no es una orden de borrado.
+  Consecuencia aceptada: vaciar el campo numérico es un no-op (para "no recibió ninguna" se
+  captura `0`, que sí es un dato). Guard: `palancasCountWritePath.test.ts`.
+- **Hito en el hilo**: `crmService.recordPalancaMilestoneIfCrossed`, llamado desde
+  `updateParticipant` cuando el guardado toca el conteo. Escribe **sólo al cruzar el umbral hacia
+  arriba** (de 3 a 4 no genera otra entrada), es idempotente (si el conteo baja y vuelve a subir no
+  se duplica), va **sin autor** (es el sistema notando un umbral, no algo que alguien dijo) y se
+  **omite en importación masiva** para no llenar el hilo de ruido. El estado actual lo da el
+  timeline; la entrada del hilo es el registro histórico de *cuándo* se cubrió.
+  La comprobación en memoria no cierra la carrera de dos guardados simultáneos: eso lo hace el
+  índice único parcial `UQ_participant_notes_palanca_milestone`
+  (`ON (participantId, retreatId) WHERE json_extract(metadata,'$.milestone') = 'palancas'`),
+  declarado **en la entidad y en la migración** — la DB de test la crea `synchronize` desde las
+  entidades, así que sin declararlo ahí el test correría sin la restricción que protege a
+  producción. El servicio traga la violación y devuelve `null`: un hito duplicado no justifica
+  tumbar el guardado del participante.
+- `Participant.palancasReceivedCount` es **virtual, sin `@Column`**: la columna real vive sólo en
+  `retreat_participants`. Declararla en la entidad la metería en el `SELECT` de `participants`,
+  que no la tiene, y la query fallaría en runtime.
+
+### Vista previa por paso en el editor de secuencias
+
+`POST /message-sequences/preview` con `{retreatId, participantId, templateType, channel,
+recipientTarget, recipientResponsibility?}` → `{content, recipientName, recipientContact,
+emptyVariables, warning}`. `messageSequenceService.previewStep` reusa `resolveRecipient` y
+`resolveContent`, los mismos que usa el motor al enviar.
+
+**Por qué es un endpoint y no un cálculo del cliente**: `resolveRecipient` es async y consulta la
+base para `inviter`/`tableLeader`/`responsibility`, y `resolveContent` arma el contexto
+`{table.*}` con el roster e inyecta el enlace de alta de servidores. El `previewText` anterior
+sólo renderizaba **el primer paso** y pasaba `recipientTarget` como `contactKey` a secas, lo cual
+es correcto sólo para los contactos de emergencia y **saludaba a la persona equivocada** en los
+otros tres casos.
+
+- `findEmptyVariables` se evalúa sobre la plantilla **cruda** y su contexto, no sobre el texto ya
+  resuelto (donde las variables ya no están).
+- Avisos accionables: plantilla que no existe en el retiro, destinatario sin el vínculo
+  registrado, destinatario sin teléfono o sin correo según el canal.
+- Selector de participante de muestra en el editor (antes era `participants[0]` fijo).
+- **Fuera de alcance**: el editor de secuencias globales no tiene retiro ni participante, así que
+  su preview se queda como estaba.
+
+### Tests de la fase
+
+- Backend: `palancasMilestone.test.ts` (13, el criterio único), `crmService.test.ts` (20 — hilo,
+  autoría, inmutabilidad de `stage_change`, sincronización de asistencia en los dos sentidos, hito
+  de cartas, timeline), `sequenceRecipientsAndSeed.test.ts` (bloque `previewStep`, incl. el
+  invitador).
+- Autorización, a nivel de controlador: **`crmNotesAuthz.integration.test.ts`** (11). Separa dos
+  cosas que se confunden: acceso al retiro (403) y **autoría** — un compañero CON acceso al retiro
+  sigue sin poder editar ni borrar la nota de otro, ni tocar una entrada del sistema. Incluye el
+  IDOR cross-retiro en notas y timeline, y que una nota inexistente dé 404 y no 403.
+- Migración: **`addPalancasCountAndThreshold.test.ts`** (8). Lo que fija es que el backfill **no
+  puede perder información**: rellena los enteros limpios, deja `NULL` la prosa, no toca el texto
+  ni las notas, no adivina en `"3 de la mamá"`, y el guard `IS NULL` protege un conteo ya corregido
+  a mano.
+- Frontend: `FollowUpView.test.ts` (columna por defecto, arrastre, reversión al fallar, filtros,
+  exclusión de borrados y cancelados), `ParticipantTimelinePanel.test.ts` (interlocutores, enlace
+  sin `text`, filtro por familiar, notas propias), `participantContacts.test.ts`, `phone.test.ts`,
+  **`palancasSingleCriterion.test.ts`** (formulario y dashboard coinciden).
+- E2E (`crm-notes-timeline.spec.ts`): gating de las rutas nuevas — anónimo y autenticado sin acceso
+  al retiro, en notas, timeline y **preview** (que resuelve teléfonos y correos reales del invitador
+  y los familiares, así que es superficie de fuga). Los casos con login necesitan la migración
+  `SeedE2ETestUsers`, que sólo corre en CI; los anónimos corren en local.
+- El mock global de `vue-i18n` devuelve la clave, no la traducción: las aserciones de texto de UI
+  van contra la clave.
+
+### Alcance no cubierto
+
+Sólo retiro. `MemberNotesDialog.vue` y `MemberTimelineDialog.vue` (comunidad) siguen con la nota
+única y el timeline de asistencias; la entidad ya trae `scope` para enchufarlos sin migración.
+

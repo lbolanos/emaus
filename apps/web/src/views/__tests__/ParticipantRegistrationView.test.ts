@@ -312,3 +312,64 @@ describe('ParticipantRegistrationView - registro externo de caminantes', () => {
 		expect(replaceSpy).not.toHaveBeenCalled();
 	});
 });
+
+// Answering "that's not me" used to keep the other person's email prefilled, and the
+// alta then reused — and overwrote — their record, retreat history included. The email
+// is cleared and the submit is flagged so the backend refuses to adopt the record.
+describe('ParticipantRegistrationView - denying the found identity', () => {
+	let pinia: ReturnType<typeof createPinia>;
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		pinia = createPinia();
+		setActivePinia(pinia);
+		global.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ id: 'retreat-123', isPublic: true }),
+		});
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	const mountServerRegistration = () =>
+		mount(ParticipantRegistrationView, {
+			props: { retreatId: 'retreat-123', type: 'server' },
+			global: { plugins: [pinia], mocks: { $t: (key: string) => key } },
+		});
+
+	const denyIdentity = async () => {
+		const wrapper = mountServerRegistration();
+		await flushPromises();
+		const vm = wrapper.vm as any;
+		vm.emailLookup = 'shared@example.com';
+		vm.existingParticipantName = 'Andrés Salas';
+		vm.handleDenyIdentity();
+		await nextTick();
+		return vm;
+	};
+
+	it('clears the other person email instead of prefilling it', async () => {
+		const vm = await denyIdentity();
+
+		expect(vm.formData.email).toBe('');
+		expect(vm.existingParticipantName).toBe('');
+	});
+
+	it('flags the submit so the backend will not adopt the existing record', async () => {
+		const vm = await denyIdentity();
+
+		expect(vm.deniedIdentity).toBe(true);
+	});
+
+	it('tells the registrant to use an email of their own', async () => {
+		await denyIdentity();
+
+		expect(toastMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				description: expect.stringContaining('deniedUseAnotherEmail'),
+			}),
+		);
+	});
+});

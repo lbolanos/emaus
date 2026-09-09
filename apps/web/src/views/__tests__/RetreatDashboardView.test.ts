@@ -24,8 +24,12 @@ vi.mock('@/components/InviteUsersModal.vue', () => ({
 	default: { name: 'InviteUsersModal', template: '<div class="invite-modal"></div>', props: ['isOpen', 'retreatId'] },
 }));
 
-// Mock @repo/utils
-vi.mock('@repo/utils', () => ({
+// Mock PARCIAL de @repo/utils: sólo se sustituye formatDate (para aserciones
+// deterministas) y el resto pasa de largo. Con un mock de lista fija, cualquier
+// helper nuevo que la vista importe rompe los 25 tests con "No export is
+// defined on the mock" — pasó al añadir `resolvePalancas`.
+vi.mock('@repo/utils', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@repo/utils')>()),
 	formatDate: vi.fn((d: any) => `formatted-${d}`),
 }));
 

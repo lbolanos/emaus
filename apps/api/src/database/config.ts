@@ -76,6 +76,7 @@ import { SequenceStep } from '../entities/sequenceStep.entity';
 import { ScheduledMessage } from '../entities/scheduledMessage.entity';
 import { ParticipantFollowUp } from '../entities/participantFollowUp.entity';
 import { CrmTask } from '../entities/crmTask.entity';
+import { ParticipantNote } from '../entities/participantNote.entity';
 import { GlobalMessageSequence } from '../entities/globalMessageSequence.entity';
 import { GlobalSequenceStep } from '../entities/globalSequenceStep.entity';
 
@@ -177,6 +178,7 @@ export function createDatabaseConfig() {
 		// CRM: pipeline de seguimiento + tareas
 		ParticipantFollowUp,
 		CrmTask,
+		ParticipantNote,
 		// Temporarily excluding entities with enum issues
 		// PermissionOverride,
 		// RoleRequest,

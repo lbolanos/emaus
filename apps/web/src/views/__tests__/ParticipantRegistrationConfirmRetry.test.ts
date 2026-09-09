@@ -228,4 +228,32 @@ describe('Server registration — confirmar identidad cuando la petición se pie
 
 		expect(vi.mocked(getRecaptchaToken)).toHaveBeenCalledTimes(2);
 	});
+
+	// Los seis rechazos de reCAPTCHA llegan en inglés desde Google
+	// ("reCAPTCHA verification failed: browser-error") y no le dicen nada a un
+	// caminante. Y hay que reportarlos: el API los devuelve sin escribir en su
+	// log, así que en el servidor solo queda un 400 pelado.
+	it.each([
+		['reCAPTCHA token is required'],
+		['reCAPTCHA verification failed: browser-error'],
+		['reCAPTCHA score too low (0.10 < 0.5)'],
+	])('traduce y reporta el rechazo de reCAPTCHA: %s', async (serverMessage) => {
+		vi.mocked(confirmExistingRegistration).mockRejectedValue(
+			responseError(400, { message: serverMessage }),
+		);
+		const vm = await mountAtConfirmScreen();
+
+		await runConfirm(vm);
+
+		expect(vi.mocked(confirmExistingRegistration)).toHaveBeenCalledTimes(1);
+		expect(toastMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				description: 'serverRegistration.errors.recaptcha',
+				variant: 'destructive',
+			}),
+		);
+		expect(vi.mocked(reportClientError)).toHaveBeenCalledWith(
+			expect.objectContaining({ context: 'confirm-registration', status: 400 }),
+		);
+	});
 });

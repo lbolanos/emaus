@@ -2,6 +2,8 @@
 
 📺 **[Watch the tutorial: templates and sequences](https://youtu.be/KpYW_kWYdMk)** (Spanish)
 
+📺 **[Watch the tutorial: walker follow-up](https://youtu.be/Xmxa8K-lg-E)** (Spanish)
+
 This section explains how to communicate with participants more efficiently: send group messages over WhatsApp, automate reminders and follow-ups, and keep track of who you've already contacted.
 
 ## Overview
@@ -129,14 +131,56 @@ A quick summary of the retreat:
 - **Pending WhatsApp** to dispatch.
 - **Activity over the last 30 days** and the **most used templates**.
 
-## Tasks & follow-up
+## Walker follow-up
 
-To keep track of your work:
+A board with five columns, one per stage. **Drag the card** from one column to another (on a phone:
+tap the card, then the column). Everyone starts in *To contact* — nothing to set up.
 
-- **Tasks**: reminders for you (e.g. "Call Juan to confirm payment"), with an optional due date. Mark them done when finished.
-- **Participant follow-up**: record each person's status:
-  - **To contact** · **Contacted** · **Confirmed** · **No answer** · **Declined**
+- **To contact** · **Contacted** · **Confirmed** · **No answer** · **Declined**
 
-  You can add a note (e.g. "Confirms attendance over WhatsApp"). This helps you know who still needs follow-up.
+⚠️ **Moving a card to Confirmed or Declined also records the attendance confirmation**, which is
+what makes sequences stop chasing that person. That is usually what you want, but keep it in mind:
+if you move cards just to tidy the board, you will silence reminders. Moving a card back does not
+undo the confirmation.
+
+Each card shows at a glance how many **letters** the walker has (green = reached the retreat's
+minimum, amber = still short, grey = none), whether they confirmed attendance, how many messages we
+have sent, whether they are on the do-not-contact list, and how many open tasks they have. At the
+top you can filter by name, by type and by letters — **"below minimum" answers in one click who is
+still missing letters**.
+
+Letters are entered on the walker's record (**Palancas** section → *Cartas Recibidas*): the number
+only. Anything you want to note — who they came from, whether one is missing — goes in the palanca
+notes. The per-walker minimum is set per retreat; left alone, it is 3.
+
+If a card shows `?` for letters, they were written as text ("three from his mom") instead of a
+number, so they cannot be counted. Enter the number on the record and the card catches up. On the
+board, the **Not captured** filter gathers them all.
+
+When a walker reaches the minimum, it is recorded in their history with the date — so you know
+*when* it was covered, not just that it is.
+
+### One person's history and notes
+
+Click any card to open their full history:
+
+- **Who we have talked to**: the walker, their family contacts (with the relationship) and whoever
+  invited them. For each one you see how many messages we sent and when the last one was.
+  - **WhatsApp** opens the real conversation with that person, so you can read their replies.
+  - **Write** opens the template-based sending flow.
+  - Clicking a contact filters the history down to what we said **to them only**.
+- **Note box**, always at the top. Type and press *Add note* (or `Ctrl+Enter`). Notes pile up with
+  your name and the time — they are not overwritten. You can edit or delete your own.
+- **History**: sent and scheduled messages, notes, stage changes, payments, the registration, the
+  arrival at the retreat and the letters, all in order.
+
+> **What you see is what we sent from Emaús.** Replies arrive in *your* WhatsApp, not in the app, so
+> they do not show up here — that is what the button that opens the conversation is for. If someone
+> tells you something that matters, write it down: that is exactly what the note box is for.
+
+## Tasks
+
+Reminders for you (e.g. "Call Juan to confirm payment"), with an optional due date. Mark them done
+when finished. You create them from a person's history and they show up as a counter on their card.
 
 > Follow-up is a management marker for you; it doesn't change permissions or move the participant between lists.

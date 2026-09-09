@@ -603,7 +603,7 @@
       "changePassword": "Change Password",
       "messageSequences": "Automated Sequences",
       "communicationDashboard": "Communication Dashboard",
-      "followUp": "Tasks & Follow-up",
+      "followUp": "Walker follow-up",
       "globalMessageSequences": "Global Sequences"
     },
     "telemetry": "Telemetry",
@@ -1382,7 +1382,8 @@
     "palancasRequested": "Requested",
     "palancasReceived": "Received",
     "walkersWithoutPalancas": "Without Palancas",
-    "totalPalancasReceived": "Total Palancas"
+    "totalPalancasReceived": "Total Palancas",
+    "palancasUnknown": "Letters not captured"
   },
   "retreatFlyer": {
     "printButton": "Print Flyer",
@@ -1922,6 +1923,7 @@
       "connectionLost": "The connection dropped and the retry failed too. Check your internet and try again.",
       "serverError": "We could not save your registration right now (error {status}). Please wait a few minutes and try again.",
       "unknown": "We could not save your registration. Please try again in a few minutes.",
+      "recaptcha": "We could not verify that you are not a robot. Please reload the page and try again.",
       "alreadyRegisteredTitle": "You were already registered"
     },
     "emailLookup": {
@@ -1936,6 +1938,8 @@
       "confirmMessage": "Hello {name}, by confirming you will be registered for this retreat.",
       "confirmButton": "Yes, that's me",
       "denyButton": "No, register as new",
+      "deniedTitle": "Use your own email",
+      "deniedUseAnotherEmail": "That email belongs to someone else's registration, so it can't be used for yours. Enter an email of your own to continue; if the registration was in fact yours, go back and confirm your identity.",
       "success": "Registration successful! You are now registered for this retreat.",
       "alreadyRegistered": "This email is already registered for this retreat.",
       "alreadyRegisteredAsWalker": "This email is already registered for this retreat as a walker.",
@@ -3085,7 +3089,15 @@
       "cancelled": "Cancelled"
     },
     "deleteTitle": "Delete sequence",
-    "deleteConfirm": "Delete \"{name}\"? Its pending messages will be cancelled."
+    "deleteConfirm": "Delete \"{name}\"? Its pending messages will be cancelled.",
+    "previewShow": "Preview this step",
+    "previewHide": "Hide preview",
+    "previewLoading": "Resolving…",
+    "previewError": "Could not build the preview",
+    "previewRecipient": "Goes to",
+    "previewEmptyVars": "Variables with no data",
+    "previewParticipant": "Sample participant for previews",
+    "previewFirstParticipant": "First one in the retreat"
   },
   "globalSequences": {
     "title": "Global sequence templates",
@@ -3115,8 +3127,33 @@
     "empty": "No communication data for this retreat yet."
   },
   "followUp": {
-    "title": "Tasks & follow-up",
-    "subtitle": "Coordinator reminders and follow-up status for each participant.",
+    "title": "Walker follow-up",
+    "subtitle": "Stage board, history and notes for each participant.",
+    "boardTitle": "Board",
+    "search": "Search by name",
+    "showType": "Type",
+    "allTypes": "All",
+    "walkers": "Walkers",
+    "servers": "Servers",
+    "lettersFilter": "Letters",
+    "lettersAll": "All",
+    "lettersNone": "No letters",
+    "lettersBelow": "Below minimum",
+    "lettersMet": "Complete",
+    "lettersUnknown": "Not captured",
+    "showMore": "Show more",
+    "emptyColumn": "Nobody in this stage",
+    "noParticipants": "This retreat has no participants yet.",
+    "moveError": "Could not move the card",
+    "attendanceSynced": "Attendance confirmation was recorded too",
+    "attendanceDeclined": "Recorded that they will not attend",
+    "tapToMove": "Tap a stage to move {name}",
+    "cancelMove": "Cancel",
+    "letters": "Letters",
+    "lettersOf": "{count} of {threshold}",
+    "lettersUnknownHint": "Letters are stored as text. Enter a number so they count.",
+    "doNotContact": "Do not contact",
+    "openTasks": "{count} task | {count} tasks",
     "tasksTitle": "Tasks",
     "taskTitle": "Task",
     "taskPlaceholder": "e.g. Call Juan to confirm payment",
@@ -3354,5 +3391,42 @@
     "leaveWithoutSaving": "You have unsaved changes to the flyer. Leave anyway?",
     "undo": "Undo",
     "undoHint": "Undo the last change (⌘Z)"
+  },
+  "participantThread": {
+    "title": "History of {name}",
+    "loading": "Loading history…",
+    "empty": "No activity recorded yet.",
+    "addNote": "Add note",
+    "notePlaceholder": "e.g. Mom is upset, wants to talk to the coordinator",
+    "noteHint": "Ctrl+Enter to add",
+    "noteAdded": "Note added",
+    "noteError": "Could not save the note",
+    "edit": "Edit",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "saveNote": "Save",
+    "confirmDelete": "Delete this note?",
+    "contactsTitle": "Who we have talked to",
+    "openWhatsApp": "Open WhatsApp",
+    "writeTemplate": "Write",
+    "noPhone": "No phone",
+    "messagesSent": "{count} message | {count} messages",
+    "lastMessage": "Last: {date}",
+    "filterAll": "All",
+    "sentFromEmaus": "What we sent from Emaús — open WhatsApp to see the replies",
+    "currentState": "Current state",
+    "showFullMessage": "Show full",
+    "hideFullMessage": "Show less",
+    "types": {
+      "note": "Note",
+      "stage_change": "Stage change",
+      "message": "Message sent",
+      "message_scheduled": "Scheduled message",
+      "task": "Task",
+      "registered": "Registration",
+      "attendance": "Attendance",
+      "payment": "Payment",
+      "palancas": "Letters"
+    }
   }
 }

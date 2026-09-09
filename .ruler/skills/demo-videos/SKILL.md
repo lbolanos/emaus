@@ -307,6 +307,40 @@ todo", determinista desde `retreat.startDate`), no por sqlite. Patrón del wrapp
 `reset-tasks.mjs` (poblar limpio) → grabar → `reset-tasks.mjs` (revertir la toma). Ver también
 el skill **`db-production-resilience`** (WAL, locks, `.backup` vs `cp`).
 
+## PII: revisar frames a ojo NO es una verificación (sesión 2026-09-08)
+
+Grabando el Seguimiento de caminantes se colaron **tres** fugas que los frames de muestra no
+delataron, cada una por un motivo distinto:
+
+1. **`maskNode` no cubría los nombres sueltos del historial.** `recipientName`, `contactName` y
+   `actorName` traen el nombre real en UNA sola clave, sin `firstName` al lado, así que la rama de
+   "identidad del objeto" no los alcanzaba: la barra de contactos salía enmascarada y el hilo de
+   abajo decía el nombre real. Ya están en el regex (con test).
+2. **Una ruta específica GANA sobre `**/api/**` y se lleva el enmascarado con ella.** Al registrar
+   `page.route('**/api/crm/**/timeline', …)` para sustituir el cuerpo de los mensajes, ese endpoint
+   dejó de pasar por `maskRoute`. Regla: **toda ruta específica tiene que llamar `maskNode(data)`
+   ella misma.**
+3. **El cuerpo de un mensaje es texto libre con nombres dentro** ("Hola Pepe Toño, …"). Ninguna
+   regla por clave lo limpia: hay que **sustituirlo** por copia ficticia en el script.
+
+Y la que motivó el aviso del usuario: **el teléfono falso tampoco puede ser el de alguien.** El
+generador viejo (`'55' + 8 dígitos`) producía celulares de CDMX perfectamente válidos —5532090508,
+5518647677—, así que un video público mandaba llamadas al teléfono de un desconocido. Ahora es
+`5500` + 6 dígitos: en México el número de abonado no empieza con 0, así que ese bloque no es
+asignable, y conserva los 10 dígitos porque hay vistas que sólo pintan el botón de WhatsApp con 10.
+
+**La verificación que sí vale: una puerta automática.** `e2e/demo/_pii-gate.mjs` recorre las mismas
+pantallas con las mismas rutas, saca del sqlite los nombres completos, correos y teléfonos reales
+del retiro, y busca cada uno en el `innerText` de cada pantalla. Sale 0 o lista las fugas. Dos
+detalles que la hacen útil:
+
+- **Compara nombres COMPLETOS.** Un nombre de pila suelto ("Carlos", "Luis") está también en
+  `FAKE_FIRSTS`, así que buscarlo da falsos positivos y entrena a ignorar la salida.
+- **Antes de fiarte de un verde, córrela sin el enmascarado** y comprueba que detecta (dio 318).
+  Una puerta que no sabe fallar es peor que ninguna: da permiso para publicar.
+
+Adaptarla a otro video es cambiar el retiro, la URL y los clics; el resto sirve igual.
+
 ## Verificación (obligatoria antes de entregar)
 
 ```bash

@@ -23,6 +23,8 @@ import {
   MAX_WALKERS_PER_TABLE,
 } from "./tableMesaService";
 import { domainAuditService, DomainAuditAction } from "./domainAuditService";
+import { parsePalancasCount } from "@repo/utils";
+import { crmService } from "./crmService";
 import { EmailService } from "./emailService";
 import { messageSequenceService } from "./messageSequenceService";
 
@@ -774,6 +776,7 @@ export const findAllParticipants = async (
         "palancasCoordinator",
         "palancasRequested",
         "palancasReceived",
+        "palancasReceivedCount",
         "palancasNotes",
         "invitedBy",
         "isInvitedByEmausMember",
@@ -813,6 +816,8 @@ export const findAllParticipants = async (
           p.palancasRequested = h.palancasRequested;
         if (h.palancasReceived !== undefined)
           p.palancasReceived = h.palancasReceived;
+        if (h.palancasReceivedCount !== undefined)
+          p.palancasReceivedCount = h.palancasReceivedCount;
         if (h.palancasNotes !== undefined) p.palancasNotes = h.palancasNotes;
         if (h.invitedBy !== undefined) p.invitedBy = h.invitedBy;
         if (h.isInvitedByEmausMember !== undefined)
@@ -3039,6 +3044,7 @@ export const updateParticipant = async (
     palancasCoordinator,
     palancasRequested,
     palancasReceived,
+    palancasReceivedCount,
     palancasNotes,
     invitedBy,
     isInvitedByEmausMember,
@@ -3174,8 +3180,32 @@ export const updateParticipant = async (
       rpUpdates.palancasCoordinator = palancasCoordinator || null;
     if (palancasRequested !== undefined)
       rpUpdates.palancasRequested = palancasRequested;
-    if (palancasReceived !== undefined)
+    // El conteo numérico es la fuente de verdad; el texto heredado se mantiene
+    // en espejo para lo que aún lo lee (columna de la lista, exportaciones).
+    // Si sólo llega el texto (importaciones, clientes viejos), se deriva el
+    // conteo con el criterio único.
+    //
+    // OJO con el `null`: el formulario reenvía el participante COMPLETO, y el
+    // listado hidrata `palancasReceivedCount = null` explícito en toda ficha
+    // cuyo conteo no se pudo derivar (las que el backfill dejó en prosa a
+    // propósito). Tratar ese `null` como "poner a null" borraba el texto en
+    // cualquier guardado que no tuviera nada que ver con palancas — justo la
+    // información que el backfill se cuidó de conservar.
+    //
+    // Regla: sólo un NÚMERO manda. "Sin capturar" no es una orden de borrado.
+    const parsedCount =
+      palancasReceivedCount !== undefined
+        ? parsePalancasCount(palancasReceivedCount)
+        : undefined;
+    if (parsedCount !== undefined && parsedCount !== null) {
+      rpUpdates.palancasReceivedCount = parsedCount;
+      rpUpdates.palancasReceived = String(parsedCount);
+    } else if (palancasReceived !== undefined) {
+      // Sólo llegó el texto (importación, cliente viejo, o edición del campo
+      // heredado): se conserva y se deriva el conteo con el criterio único.
       rpUpdates.palancasReceived = palancasReceived || null;
+      rpUpdates.palancasReceivedCount = parsePalancasCount(palancasReceived);
+    }
     if (palancasNotes !== undefined)
       rpUpdates.palancasNotes = palancasNotes || null;
     // Inviter
@@ -3243,6 +3273,24 @@ export const updateParticipant = async (
         );
       } catch (err) {
         console.error("Error syncing retreat fields:", err);
+      }
+
+      // Hito de cartas: si este guardado hizo que el conteo alcance el mínimo
+      // del retiro, queda en el hilo de la persona. Best-effort — que falle no
+      // debe tumbar el guardado del participante.
+      // Va sin autor a propósito: es el sistema notando que se cruzó un umbral,
+      // no algo que alguien dijo. En importación masiva se omite (ruido).
+      if (rpUpdates.palancasReceivedCount !== undefined && !isImporting) {
+        try {
+          await crmService.recordPalancaMilestoneIfCrossed({
+            participantId: updatedParticipant.id,
+            retreatId: effectiveRetreatId,
+            previousCount: currentRp?.palancasReceivedCount ?? null,
+            newCount: rpUpdates.palancasReceivedCount,
+          });
+        } catch (err) {
+          console.error("Error recording palanca milestone:", err);
+        }
       }
     }
 

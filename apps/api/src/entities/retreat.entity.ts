@@ -155,6 +155,13 @@ export class Retreat {
 	@Column({ type: 'varchar', nullable: true })
 	externalRegistrationUrl?: string | null;
 
+	/**
+	 * Cartas (palancas) que un caminante necesita para considerarse cubierto.
+	 * Null cae a DEFAULT_MIN_PALANCAS_PER_WALKER (3) en código.
+	 */
+	@Column({ type: 'integer', nullable: true })
+	minPalancasPerWalker?: number | null;
+
 	@Column({ type: 'varchar', nullable: true })
 	memoryPhotoUrl?: string;
 

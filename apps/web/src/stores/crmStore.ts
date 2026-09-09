@@ -1,6 +1,12 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import type { CrmTask, ParticipantFollowUp, FollowUpStatus } from '@repo/types';
+import type {
+	CrmTask,
+	ParticipantFollowUp,
+	FollowUpStatus,
+	ParticipantNote,
+	TimelineEvent,
+} from '@repo/types';
 import {
 	getFollowUps,
 	upsertFollowUp,
@@ -8,16 +14,25 @@ import {
 	createCrmTask,
 	updateCrmTask,
 	deleteCrmTask,
+	getParticipantNotes,
+	getParticipantTimeline,
+	createParticipantNote,
+	updateParticipantNote,
+	deleteParticipantNote,
 } from '@/services/api';
 
 type FollowUpRow = ParticipantFollowUp & { participant?: any };
 type TaskRow = CrmTask & { participant?: any; assignee?: any };
+type NoteRow = ParticipantNote & { author?: any };
 
-/** Pipeline de seguimiento + tareas/recordatorios del coordinador. */
+/** Pipeline de seguimiento, tareas del coordinador e hilo por participante. */
 export const useCrmStore = defineStore('crm', () => {
 	const followUps = ref<FollowUpRow[]>([]);
 	const tasks = ref<TaskRow[]>([]);
+	const notes = ref<NoteRow[]>([]);
+	const timeline = ref<TimelineEvent[]>([]);
 	const loading = ref(false);
+	const timelineLoading = ref(false);
 
 	const fetchFollowUps = async (retreatId: string) => {
 		followUps.value = await getFollowUps(retreatId);
@@ -65,15 +80,76 @@ export const useCrmStore = defineStore('crm', () => {
 		tasks.value = tasks.value.filter((t) => t.id !== id);
 	};
 
+	// --- Hilo de notas y timeline ---
+
+	/**
+	 * Carga hilo y timeline del participante abierto en el panel.
+	 * El timeline ya incluye las notas, pero `notes` se mantiene aparte porque
+	 * la caja de edición necesita el registro crudo (con `kind` y autor) para
+	 * decidir qué se puede editar.
+	 */
+	const fetchThread = async (retreatId: string, participantId: string) => {
+		timelineLoading.value = true;
+		try {
+			const [n, t] = await Promise.all([
+				getParticipantNotes(retreatId, participantId),
+				getParticipantTimeline(retreatId, participantId),
+			]);
+			notes.value = n;
+			timeline.value = t;
+		} finally {
+			timelineLoading.value = false;
+		}
+	};
+
+	const clearThread = () => {
+		notes.value = [];
+		timeline.value = [];
+	};
+
+	const addNote = async (data: {
+		retreatId: string;
+		participantId: string;
+		body: string;
+	}) => {
+		await createParticipantNote(data);
+		await fetchThread(data.retreatId, data.participantId);
+	};
+
+	const editNote = async (
+		id: string,
+		body: string,
+		ctx: { retreatId: string; participantId: string },
+	) => {
+		await updateParticipantNote(id, body);
+		await fetchThread(ctx.retreatId, ctx.participantId);
+	};
+
+	const removeNote = async (
+		id: string,
+		ctx: { retreatId: string; participantId: string },
+	) => {
+		await deleteParticipantNote(id);
+		await fetchThread(ctx.retreatId, ctx.participantId);
+	};
+
 	return {
 		followUps,
 		tasks,
+		notes,
+		timeline,
 		loading,
+		timelineLoading,
 		fetchFollowUps,
 		setFollowUp,
 		fetchTasks,
 		addTask,
 		toggleTask,
 		removeTask,
+		fetchThread,
+		clearThread,
+		addNote,
+		editNote,
+		removeNote,
 	};
 });
