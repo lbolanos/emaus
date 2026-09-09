@@ -128,7 +128,7 @@ Caso palanquero coherente: disparador=registro de caminante (enrolamiento=camina
 - `participant.type` es **virtual**; la fuente per-retiro de type/isCancelled es `retreat_participants` (las queries de audiencia lo usan).
 - Resolución de variables en backend vía `@repo/utils` `replaceAllVariables` (acepta `contactKey` para resolver el destinatario contacto-de-emergencia).
 - Tabla real `participants` (plural) — las FKs de las migraciones deben usar `"participants"`, no `"participant"` (los tests con `synchronize` no detectan FKs colgadas; usar la migración real para validar).
-- Las migraciones con `DROP TABLE` en `down()` declaran `transaction = false` (guard `sqliteSafePattern`); inerte en runtime.
+- Las migraciones con `DROP TABLE` en `down()` declaran `transaction = false` (guard `sqliteSafePattern`). Desde 2026-09-08 el runner **obedece** ese flag (`database/transaction-policy.ts`): antes lo ignoraba y el arranque del API las envolvía en transacción, anulando el `PRAGMA foreign_keys = OFF`.
 - Navegación: rutas bajo `/app/settings/*` + `/app/follow-up`, items en `Sidebar.vue`.
 
 ## Ayuda al usuario

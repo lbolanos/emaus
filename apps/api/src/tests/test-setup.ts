@@ -65,6 +65,7 @@ import { GlobalSequenceStep } from '../entities/globalSequenceStep.entity';
 import { ScheduleTemplate } from '../entities/scheduleTemplate.entity';
 import { ScheduleTemplateSet } from '../entities/scheduleTemplateSet.entity';
 import { ResponsabilityAttachment } from '../entities/responsabilityAttachment.entity';
+import { ResponsabilityAttachmentHistory } from '../entities/responsabilityAttachmentHistory.entity';
 import { RetreatScheduleItem } from '../entities/retreatScheduleItem.entity';
 import { RetreatScheduleItemResponsable } from '../entities/retreatScheduleItemResponsable.entity';
 import { PreRetreatTaskTemplateSet } from '../entities/preRetreatTaskTemplateSet.entity';
@@ -133,6 +134,7 @@ const entities = [
 	ScheduleTemplate,
 	ScheduleTemplateSet,
 	ResponsabilityAttachment,
+	ResponsabilityAttachmentHistory,
 	RetreatScheduleItem,
 	RetreatScheduleItemResponsable,
 	PreRetreatTaskTemplateSet,

@@ -33,11 +33,10 @@ export class PreparationSyncAndConvocation20260907200000 implements MigrationInt
 	name = 'PreparationSyncAndConvocation20260907200000';
 	timestamp = '20260907200000';
 
-	// El runner propio del proyecto IGNORA esta propiedad (la transacción la decide
-	// el flag CLI `--transaction`, por defecto OFF); se declara porque el guard
-	// `sqliteSafePattern.simple.test.ts` la exige en cuanto hay un DROP TABLE, y
-	// porque documenta el requisito: con una transacción envolvente SQLite ignora
-	// el `PRAGMA foreign_keys = OFF` en silencio.
+	// El runner propio del proyecto respeta esta propiedad (`shouldUseTransaction`
+	// en `database/transaction-policy.ts`): sin ella, el arranque del API envuelve
+	// la migración en una transacción y SQLite ignora en silencio el
+	// `PRAGMA foreign_keys = OFF` de abajo, con lo que el DROP TABLE cascadearía.
 	transaction = false as const;
 
 	/** IDs estables para que la siembra sea idempotente y el down() sepa qué borrar. */
@@ -54,9 +53,19 @@ Si quieres estar, regístrate aquí: {retreat.serverRegistrationLink}
 Cualquier duda me dices. ¡Sería un gusto tenerte en el equipo!`;
 
 	public async up(queryRunner: QueryRunner): Promise<void> {
-		await queryRunner.query(
-			`ALTER TABLE "retreat_preparation" ADD COLUMN "communityMeetingId" varchar`,
+		// Idempotente a propósito. Al declarar `transaction = false` esta migración
+		// renuncia al rollback automático: si `up()` falla más abajo, este ADD COLUMN
+		// ya está aplicado y commiteado, la migración queda sin registrar y el
+		// siguiente intento la reejecuta desde arriba. Sin la guarda moriría con
+		// "duplicate column name" y quedaría atascada para siempre.
+		const columns: { name: string }[] = await queryRunner.query(
+			`PRAGMA table_info("retreat_preparation")`,
 		);
+		if (!columns.some((c) => c.name === 'communityMeetingId')) {
+			await queryRunner.query(
+				`ALTER TABLE "retreat_preparation" ADD COLUMN "communityMeetingId" varchar`,
+			);
+		}
 		await queryRunner.query(
 			`CREATE INDEX IF NOT EXISTS "idx_retreat_preparation_community_meeting" ON "retreat_preparation" ("communityMeetingId")`,
 		);

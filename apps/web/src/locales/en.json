@@ -1923,6 +1923,7 @@
       "connectionLost": "The connection dropped and the retry failed too. Check your internet and try again.",
       "serverError": "We could not save your registration right now (error {status}). Please wait a few minutes and try again.",
       "unknown": "We could not save your registration. Please try again in a few minutes.",
+      "recaptcha": "We could not verify that you are not a robot. Please reload the page and try again.",
       "alreadyRegisteredTitle": "You were already registered"
     },
     "emailLookup": {
@@ -1937,6 +1938,8 @@
       "confirmMessage": "Hello {name}, by confirming you will be registered for this retreat.",
       "confirmButton": "Yes, that's me",
       "denyButton": "No, register as new",
+      "deniedTitle": "Use your own email",
+      "deniedUseAnotherEmail": "That email belongs to someone else's registration, so it can't be used for yours. Enter an email of your own to continue; if the registration was in fact yours, go back and confirm your identity.",
       "success": "Registration successful! You are now registered for this retreat.",
       "alreadyRegistered": "This email is already registered for this retreat.",
       "alreadyRegisteredAsWalker": "This email is already registered for this retreat as a walker.",

@@ -2018,6 +2018,7 @@
       "connectionLost": "Se perdió la conexión y lo intentamos otra vez sin éxito. Revisa tu internet y vuelve a intentarlo.",
       "serverError": "No pudimos guardar tu registro en este momento (error {status}). Espera unos minutos y vuelve a intentarlo.",
       "unknown": "No pudimos guardar tu registro. Vuelve a intentarlo en unos minutos.",
+      "recaptcha": "No pudimos verificar que no eres un robot. Recarga la página y vuelve a intentarlo.",
       "alreadyRegisteredTitle": "Ya estabas registrado"
     },
     "emailLookup": {
@@ -2032,6 +2033,8 @@
       "confirmMessage": "Hola {name}, al confirmar quedarás registrado(a) para este retiro.",
       "confirmButton": "Sí, soy yo",
       "denyButton": "No, registrarme como nuevo",
+      "deniedTitle": "Usa un correo propio",
+      "deniedUseAnotherEmail": "Ese correo pertenece al registro de otra persona, así que no podemos usarlo para el tuyo. Escribe un correo tuyo para continuar; si el registro sí era tuyo, regresa y confirma tu identidad.",
       "success": "¡Registro exitoso! Quedaste registrado(a) para este retiro.",
       "alreadyRegistered": "Este correo ya está registrado en este retiro.",
       "alreadyRegisteredAsWalker": "Este correo ya está registrado en este retiro como caminante.",

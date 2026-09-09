@@ -720,6 +720,18 @@ El servicio cristiano puede exigir un precio muy a...
 
 ## Historia del Lema de Emaús
 
+### Objetivo
+Que el saludo del retiro deje de sonar a consigna y se entienda como lo que es: el anuncio central de la fe.
+
+### Por qué importa
+Se va a repetir decenas de veces durante el fin de semana. Explicado bien la primera vez, cada repetición reafirma lo mismo; explicado de prisa, queda en un grito simpático que se apaga el domingo.
+
+### La espiritualidad detrás
+"No está aquí: ha resucitado" (Lc 24,6). "Si Cristo no resucitó, vana es nuestra fe" (1Co 15,17). Todo lo que se hace en el retiro descansa sobre esa frase.
+
+### El regalo de servir aquí
+Pocas veces en la vida se tiene la oportunidad de decir en voz alta, delante de otros, lo más esencial de lo que uno cree.
+
 "Jesucristo Ha Resucitado… En Verdad Resucitó"
 
 Allá por el año 1930, un líder comunista llamado Bukharín viajó de Moscú a la ciudad de Kiev. Su misión era dirigirse a una gran multitud para hablar del comunismo y del ateísmo.
@@ -739,6 +751,18 @@ La gran concurrencia se levantó a una sola voz, y la respuesta se le estrelló 
   "Texto: Explicaci\u00f3n de la Confidencialidad": `# Anexo A-2-13
 
 ## La Confidencialidad
+
+### Objetivo
+Que cada caminante sepa, desde el principio y sin dudas, que lo que diga no saldrá de ahí.
+
+### Por qué importa
+Sin esa certeza nadie se abre, y sin apertura no hay retiro. No es una advertencia administrativa: es la condición que hace posible todo lo demás que va a pasar en esos tres días.
+
+### La espiritualidad detrás
+"El chismoso revela los secretos, el hombre de confianza los guarda" (Pr 11,13). Guardar lo que otro confía es una forma concreta de respetarlo.
+
+### El regalo de servir aquí
+Quien explica la confidencialidad se compromete el primero. Servir aquí es aprender a cargar en silencio con lo que otros te confiaron.
 
 **"Lo que aquí se dice, aquí se queda"**
 
@@ -772,6 +796,18 @@ La confidencialidad es con relación a estos tres aspectos del retiro:
 
 ## Significado de la Palanca
 
+### Objetivo
+Que el caminante entienda de dónde vienen las cosas que recibe y qué significan.
+
+### Por qué importa
+Sin la explicación, la palanca es un regalo bonito. Con ella, es la prueba de que gente que ni siquiera lo conoce estuvo pidiendo por él mientras él seguía con su vida.
+
+### La espiritualidad detrás
+"Oren unos por otros para que sean curados: la oración ferviente del justo tiene mucho poder" (St 5,16).
+
+### El regalo de servir aquí
+Explicar la palanca es contarle a alguien que fue sostenido sin enterarse. Casi nunca se puede dar una noticia así.
+
 ¿Qué significa Palanca? Es una palabra para describir una herramienta (barra rígida, o un palo de madera) que nos sirve para transmitir fuerza, y/o para levantar algo de gran peso.
 
 Podemos ilustrar la palanca como a un "sube y baja", donde un grupo de individuos se reúnen en un lado para levantar más alto que ellos a otro individuo o a un grupo que están en el otro lado. La idea visual de los individuos montándose en un lado del "sube y baja" para que su peso los lleve hacia abajo -al suelo- para levantar los otros hacia arriba.
@@ -789,6 +825,18 @@ Contando con la ayuda de la gracia de Dios, al pedir con la fuerza de la oració
   "Texto: Explicaci\u00f3n del \u00c1gape": `# Anexo A-2-15
 
 ## Ágape
+
+### Objetivo
+Que la comida deje de ser solo comida y se lea como el signo de la comunidad que lo está recibiendo.
+
+### Por qué importa
+Llega temprano en el fin de semana y cambia la forma en que el caminante mira todas las mesas que vienen después: entiende que ahí también está pasando algo.
+
+### La espiritualidad detrás
+"Acudían asiduamente a la enseñanza de los apóstoles, a la comunión, a la fracción del pan y a las oraciones" (Hch 2,42). Ágape es la palabra que los primeros cristianos usaban para el amor que se comparte a la mesa.
+
+### El regalo de servir aquí
+Poner nombre a lo que está pasando, para que otro pueda verlo.
 
 *(Viernes en la noche)*
 
@@ -1039,6 +1087,18 @@ Jesús siempre ha estado aquí siempre muy cerca de ti y en el camino de Emaús 
 
 ## Charla: Conocer a Dios a Través de Conocerte a Ti Mismo
 
+### Objetivo
+Que el caminante se atreva a mirarse de frente, sin excusas y sin condenarse.
+
+### Por qué importa
+Es la puerta de todo lo que sigue: sin verdad sobre uno mismo no hay nada que sanar, nada que perdonar y nada que entregar. Si esta charla se queda en la superficie, el resto del fin de semana trabaja sobre arena.
+
+### La espiritualidad detrás
+"Señor, tú me sondeas y me conoces" (Sal 139,1). "Conocerán la verdad, y la verdad los hará libres" (Jn 8,32). Mirarse a la luz de Dios no es acusarse: es dejarse mirar por alguien que ya sabe todo y quiere igual.
+
+### El regalo de servir aquí
+Nadie guía esta charla sin pasar antes por ella. Se prepara mirándose uno mismo primero.
+
 **Día 1 — Primera charla del retiro (Testimonio 1).** Rompe el hielo y abre los corazones de los caminantes. El charlista comparte su testimonio personal vinculando autoconocimiento con encuentro con Dios.
 
 ### Estructura sugerida
@@ -1059,6 +1119,18 @@ Jesús siempre ha estado aquí siempre muy cerca de ti y en el camino de Emaús 
   "Texto: Oración al Espíritu Santo": `# Anexo A-2-21
 
 ## Texto: Oración al Espíritu Santo
+
+### Objetivo
+Que el momento empiece pidiendo lo único que de verdad hace falta pedir.
+
+### Por qué importa
+Es la oración que abre. Deja claro, para el caminante y para el equipo, que lo que va a pasar no depende de la habilidad de nadie ni de lo bien preparado que esté el programa.
+
+### La espiritualidad detrás
+"El Paráclito, el Espíritu Santo, que el Padre enviará en mi nombre, les enseñará todo" (Jn 14,26). Los apóstoles esperaron así, "perseverando en la oración, con María, la madre de Jesús" (Hch 1,14).
+
+### El regalo de servir aquí
+Rezar en voz alta delante de otros cuesta la primera vez y no se olvida nunca.
 
 **Antes de cada charla, durante todo el retiro.** Esta breve oración invoca al Espíritu Santo para que abra los corazones de los caminantes y unja al charlista. Se entrega como tarjeta o se proyecta antes de iniciar.
 
@@ -1082,6 +1154,18 @@ Jesús siempre ha estado aquí siempre muy cerca de ti y en el camino de Emaús 
 
 ## Texto: Dinámica de la Carta de Jesús
 
+### Objetivo
+Que el caminante escriba, con sus propias palabras, lo que ha entendido y a qué se quiere comprometer.
+
+### Por qué importa
+Lo hablado se diluye; lo escrito se puede releer el día en que ya no se siente nada. Esta carta suele ser el papel que el caminante guarda más tiempo del fin de semana.
+
+### La espiritualidad detrás
+"Mira que estoy a la puerta y llamo: si alguien oye mi voz y me abre, entraré en su casa y cenaré con él" (Ap 3,20). Escribir la respuesta es abrir esa puerta con la mano.
+
+### El regalo de servir aquí
+Acompañar en silencio a alguien mientras escribe algo que no le va a enseñar a nadie.
+
 **Día 3 (domingo) — actividad central del último día.** Cada caminante escribe una carta personal a Jesús (o como si Jesús se la escribiera a él/ella, según la variante) reconociendo lo recibido en el retiro.
 
 ### Materiales
@@ -1104,6 +1188,18 @@ Jesús siempre ha estado aquí siempre muy cerca de ti y en el camino de Emaús 
   "Texto: Dinámica de Sanación": `# Anexo A-2-23
 
 ## Texto: Dinámica de Sanación de Recuerdos (3 voces)
+
+### Objetivo
+Que el caminante pueda poner en manos de Jesús la herida concreta que trajo consigo.
+
+### Por qué importa
+Es uno de los momentos más delicados del fin de semana: se toca lo viejo y lo que duele. Las voces que guían tienen que sostener el paso, nunca empujarlo; el ritmo lo pone el caminante, no el guion.
+
+### La espiritualidad detrás
+"Vengan a mí todos los que están fatigados y agobiados, y yo los aliviaré" (Mt 11,28). Quien sana es él; el equipo solo abre la puerta y se aparta.
+
+### El regalo de servir aquí
+Ser voz prestada. No vas a saber qué está pasando en cada uno mientras hablas, y aun así estás sirviendo de puente.
 
 **Día 2 sábado, después de la charla de Sanación de Recuerdos.** Es una meditación guiada dirigida por **3 voces** (3 servidores con voz pausada y experiencia espiritual) que acompañan a los caminantes con los ojos cerrados.
 
@@ -1136,6 +1232,18 @@ Jesús siempre ha estado aquí siempre muy cerca de ti y en el camino de Emaús 
 
 export const responsibilityDocumentation: Record<string, string> = {
   "Logistica": `## Equipo de Logística — Anexo A-5-3
+
+### Objetivo
+Que nadie tenga que preguntar dónde ir ni qué sigue: que el caminante gaste toda su energía en lo que pasa por dentro y ninguna en orientarse.
+
+### Por qué importa
+Un caminante perdido buscando el baño, o un charlista que se pasa veinte minutos, rompen un clima que costó horas construir. La logística no se nota cuando está bien hecha; se nota siempre que falla.
+
+### La espiritualidad detrás
+"Todo tiene su momento, y cada cosa su tiempo bajo el cielo" (Ecl 3,1). Preparar el camino, allanarlo y quitar los tropiezos es el oficio del precursor: hacer sitio para que el Señor pase.
+
+### El regalo de servir aquí
+Es un servicio casi invisible: si todo sale bien, nadie sabrá que estuviste. Enseña que el amor concreto se parece más a una flecha bien puesta que a un discurso.
 
 ### Logística General
 
@@ -1187,6 +1295,18 @@ export const responsibilityDocumentation: Record<string, string> = {
 
   "Música": `## Ministerio de la Música — Anexo A-5-8
 
+### Objetivo
+Sostener con la música el clima de cada momento: alegría cuando toca alegría, silencio cuando toca silencio.
+
+### Por qué importa
+La música llega antes que las palabras y prepara el corazón para recibirlas. Un canto fuera de lugar distrae de lo que Dios está haciendo; el canto justo abre lo que ninguna charla habría abierto.
+
+### La espiritualidad detrás
+"Canten agradecidos a Dios con salmos, himnos y cánticos inspirados" (Col 3,16). No es un concierto: es oración cantada, y el músico es el primero que ora.
+
+### El regalo de servir aquí
+Desde el frente se ve el momento exacto en que alguien se quiebra, cierra los ojos o se anima por fin a cantar. Este equipo toca y, mientras toca, mira.
+
 Este Equipo tiene la encomienda de dar la animación durante el programa: previo a las charlas, previo a las comidas, durante la dinámica del Examen de Conciencia, en la misa de bienvenida a la hermandad el sábado por la noche y en la de clausura del domingo por la tarde, entre otros.
 
 Es competencia de este Equipo, facilitar a las áreas de actividades, los equipos de sonido requeridos en cada caso. Es responsable de proporcionar un ambiente de alegría y otros de reflexión a través de la música.
@@ -1209,6 +1329,18 @@ Se encargará de proveer las grabaciones o CD que sean necesarios y requeridos p
 | 12 | Solicitar los cantos sugeridos a los charlistas con 1 mes de anticipación (los cantos deben ser preferiblemente católicos, o de ser protestantes, que no estén en contra de la doctrina católica). En caso de los charlistas no cumplir con el tiempo establecido, el ministerio de música tendrá la potestad de seleccionar en oración dichos cantos, de acuerdo a la temática de la charla. | Antes de iniciar el retiro | |`,
 
   "Comedor": `## Equipo del Comedor — Anexo A-5-6
+
+### Objetivo
+Que cada caminante encuentre siempre la mesa lista y a alguien sirviéndole con gusto.
+
+### Por qué importa
+El comedor es donde el caminante percibe con más fuerza la vocación de servicio del equipo: ahí se le sirve sin que haya pedido nada. Y es escenario de varias actividades del programa — si la mesa no está a tiempo, la actividad no ocurre.
+
+### La espiritualidad detrás
+"Yo estoy en medio de ustedes como el que sirve" (Lc 22,27). En el camino de Emaús, los discípulos lo reconocieron a la mesa, cuando partió el pan (Lc 24,30-31).
+
+### El regalo de servir aquí
+Servir la mesa es el gesto más antiguo de la Iglesia y el más difícil de fingir: se nota enseguida quién sirve de mala gana y quién disfruta viendo comer a otro.
 
 El Equipo del Comedor juega un papel muy importante, porque este lugar sirve de escenario para el desarrollo de numerables actividades como:
 
@@ -1235,6 +1367,18 @@ Además, es el escenario donde los caminantes pueden percibir con mayor intensid
 | 11 | Servir el desayuno o merienda para las hermanas después de la serenata | Sábado 4:30pm | Jardín del Complejo |`,
 
   "Salón": `## Equipo Orden y Limpieza — Anexo A-5-4
+
+### Objetivo
+Que el salón esté siempre listo, limpio y en orden antes de que entre el primer caminante, y que cada actividad encuentre el espacio dispuesto.
+
+### Por qué importa
+El salón es donde se dan las charlas y donde se dice lo que a muchos les cambiará el fin de semana. Un espacio desordenado dice, sin decirlo, que lo que va a pasar ahí no importa demasiado.
+
+### La espiritualidad detrás
+"Quítate las sandalias, porque el lugar que pisas es tierra sagrada" (Ex 3,5). Preparar el espacio es reconocer de antemano que allí va a hablar Dios.
+
+### El regalo de servir aquí
+Acomodás la última silla, apagás la luz y sabés que en una hora, ahí adentro, alguien va a cambiar de vida. Nadie sabrá que fuiste vos quien preparó el lugar.
 
 El Orden y la Limpieza son dos aspectos importantes a la hora de evaluar las cualidades de los participantes en cualquier actividad. Es muy agradable para cualquier persona, sentirse departir en espacios en orden y limpios.
 
@@ -1263,6 +1407,18 @@ Además, se encargará de los movimientos que sean necesarios de mobiliarios, si
 
   "Cuartos": `## Equipo Orden y Limpieza — Anexo A-5-4
 
+### Objetivo
+Que cada caminante encuentre su cama tendida, su baño limpio y su cuarto en orden cada vez que vuelva, sin importar la hora.
+
+### Por qué importa
+El cuarto es el único lugar privado del retiro: ahí se llora, se piensa y se descansa de todo lo que se está removiendo. Encontrarlo cuidado sostiene al caminante justo en las horas en que nadie lo ve.
+
+### La espiritualidad detrás
+"Vengan ustedes solos a un lugar apartado y descansen un poco" (Mc 6,31). El descanso no es una pausa del retiro: también es cuidado de Dios.
+
+### El regalo de servir aquí
+Nadie agradece una cama tendida — se agradece dormir bien. Es servicio en estado puro: hecho para alguien que ni siquiera sabrá que hubo alguien.
+
 El Orden y la Limpieza son dos aspectos importantes a la hora de evaluar las cualidades de los participantes en cualquier actividad. Es muy agradable para cualquier persona, sentirse departir en espacios en orden y limpios.
 
 Es responsabilidad de este Equipo, formar los grupos de trabajo necesarios para recibir bajo estas condiciones a los participantes al inicio del Retiro, mantenerlas durante su desarrollo y del mismo modo entregarlas a la administración del lugar al finalizar el mismo.
@@ -1290,6 +1446,18 @@ Además, se encargará de los movimientos que sean necesarios de mobiliarios, si
 
   "Oración de Intercesión": `## Equipo de Intercesión — Anexo A-5-12
 
+### Objetivo
+Que ninguna charla ni actividad del programa ocurra sin alguien orando por ella al mismo tiempo.
+
+### Por qué importa
+Lo que pasa en el salón no se explica solo por la habilidad del charlista. Este equipo sostiene por dentro lo que otros hacen por fuera; cuando un turno queda vacío, falta ese sostén.
+
+### La espiritualidad detrás
+Cuando a Moisés se le cansaban los brazos, Aarón y Jur se los sostuvieron hasta la puesta del sol (Ex 17,12). "El Espíritu viene en ayuda de nuestra debilidad e intercede por nosotros" (Rm 8,26).
+
+### El regalo de servir aquí
+Es el servicio que más se parece a la oración pura: no ves el resultado, nadie te aplaude, y sin embargo estás sosteniendo el retiro entero.
+
 El Santísimo expuesto durante el desarrollo del Retiro tiene un valor incalculable, el cual garantiza la presencia de Jesús vivo en medio del Retiro, para que derrame su gracia en cada uno de los participantes: Caminantes y Servidores.
 
 El Equipo responsable del Santísimo preparará el área destinada para su montaje. Debe tener custodia desde el momento que se expone, horas antes de iniciar el Retiro, hasta que es retirado, antes de iniciar la misa de clausura. En ambos momentos, exposición y guarda del Santísimo, debe hacerse en presencia de un religioso consagrado, o un ministro de la Eucaristía, quien se encargará de dirigir el ritual.
@@ -1314,6 +1482,18 @@ El Equipo responsable del Santísimo preparará el área destinada para su monta
 
   "Palanquitas": `## Equipo de Palanca — Anexo A-5-7
 
+### Objetivo
+Que cada caminante reciba, en el momento previsto, un signo que pueda tocar y llevarse.
+
+### Por qué importa
+Con el tiempo, el caminante no recordará todas las palabras del fin de semana, pero conservará los objetos que le dieron y con ellos volverá a lo que vivió. Que uno reciba y otro no, o que lleguen a destiempo, rompe ese lenguaje.
+
+### La espiritualidad detrás
+"La Palabra se hizo carne y habitó entre nosotros" (Jn 1,14). Dios no se comunica solo con ideas: usa cosas concretas, agua, aceite, pan. Esto sigue esa lógica.
+
+### El regalo de servir aquí
+Preparás con las manos algo que alguien va a guardar durante años en un cajón, y que va a sacar en un mal día.
+
 Concepto de Palanca: lo constituyen aquellos obsequios distribuidos durante el desarrollo de los Retiros, consistentes en Biblia, rosarios, estampas de oraciones, meditaciones, reflexiones, pines, agua bendita y cualquier otro material que inspire y ayude el crecimiento personal y espiritual de los participantes en el Retiro.
 
 Este Equipo será el encargado de recopilar todas las Palancas que se distribuirán en el desarrollo del Retiro: las recibidas de parte de los Servidores, Colaboradores y de parte de los familiares de los Caminantes.
@@ -1335,6 +1515,18 @@ Este Equipo será el encargado de recopilar todas las Palancas que se distribuir
 | 13 | Distribución de camisetas en las camas de los caminantes de acuerdo a su talla, junto con los botones y palancas del día domingo en la tarde. | Domingo al medio día durante el almuerzo | Habitaciones Caminantes |`,
 
   "Santísimo": `## Equipo de Intercesión — Anexo A-5-12
+
+### Objetivo
+Que el Santísimo esté expuesto y acompañado sin interrupción, desde antes de que llegue el primer caminante hasta la reserva del último día.
+
+### Por qué importa
+Es el corazón escondido del retiro: garantiza la presencia de Jesús vivo en medio de la casa. Que la capilla quede sola aunque sea un rato es lo único que este equipo no puede permitir.
+
+### La espiritualidad detrás
+"¿No han podido velar una hora conmigo?" (Mt 26,40). Velar es el servicio de los que se quedan cuando ya no hay nada más que hacer.
+
+### El regalo de servir aquí
+Las guardias, sobre todo las de madrugada, suelen ser lo que el servidor recuerda después como el momento más hondo de su propio retiro.
 
 El Santísimo expuesto durante el desarrollo del Retiro tiene un valor incalculable, el cual garantiza la presencia de Jesús vivo en medio del Retiro, para que derrame su gracia en cada uno de los participantes: Caminantes y Servidores.
 
@@ -1359,6 +1551,18 @@ El Equipo responsable del Santísimo preparará el área destinada para su monta
 | 15 | Coordinar grupo de 3 personas que apoyen en la intercesión en la dinámica de la pared | Durante Dinámica Pared (Sábado) | Lugar de dinámica |`,
 
   "Compras": `## Equipo Alimentos & Bebidas (Cocina) — Anexo A-5-5
+
+### Objetivo
+Que nada falte y que nada sobre: que cada equipo tenga a tiempo lo que necesita, cuidando el dinero de todos.
+
+### Por qué importa
+Una compra olvidada no se resuelve en la casa de retiro, y una compra de más se paga con el dinero que alguien dio con esfuerzo. Este equipo trabaja semanas antes para que durante el retiro nadie tenga que salir corriendo.
+
+### La espiritualidad detrás
+"El que es fiel en lo poco, también en lo mucho es fiel" (Lc 16,10). La previsión es una forma discreta de caridad: evita que otro cargue con la urgencia.
+
+### El regalo de servir aquí
+Es un servicio de pura anticipación. Cuando el retiro empieza, tu trabajo ya terminó — y todo lo que se usa esos tres días pasó por tus manos.
 
 El Equipo de A&B es el encargado de coordinar y preparar los alimentos y las bebidas que sean necesarios durante el desarrollo del Retiro, tanto para Caminantes como para Servidores.
 
@@ -1385,6 +1589,18 @@ La preparación previa al inicio del Retiro de un Menú de comidas y meriendas, 
 
   "Snacks": `## Equipo Alimentos & Bebidas (Cocina) — Anexo A-5-5
 
+### Objetivo
+Que entre una actividad y otra haya siempre algo caliente y algo dulce esperando.
+
+### Por qué importa
+Los huecos del programa son cuando el caminante procesa lo que acaba de escuchar, y suelen ser los ratos más duros del fin de semana. Un café a tiempo sostiene una conversación que a lo mejor era la que hacía falta.
+
+### La espiritualidad detrás
+Después de la resurrección, lo primero que Jesús hizo por los suyos fue preparar unas brasas junto al lago y decirles: "Vengan a comer" (Jn 21,9.12).
+
+### El regalo de servir aquí
+Cuidar lo pequeño en los ratos que nadie programa. La mesa de café es donde más veces alguien se acerca a hablar sin que nadie lo haya organizado.
+
 El Equipo de A&B es el encargado de coordinar y preparar los alimentos y las bebidas que sean necesarios durante el desarrollo del Retiro, tanto para Caminantes como para Servidores.
 
 Sirve de enlace entre el coordinador del Retiro y los responsables de preparar los alimentos en el lugar del Retiro, en caso de que el lugar ofrezca este servicio.
@@ -1410,6 +1626,18 @@ La preparación previa al inicio del Retiro de un Menú de comidas y meriendas, 
 
   "Palanquero 1": `## Equipo Palanquero — Líder principal de palanca
 
+### Objetivo
+Que ningún caminante se quede sin palanca y que cada una llegue a su destinatario en el momento previsto.
+
+### Por qué importa
+Para muchos caminantes es la primera prueba tangible de que alguien estuvo orando por ellos con nombre y apellido. Un sobre traspapelado deja a alguien mirando cómo los demás reciben.
+
+### La espiritualidad detrás
+"Lleven los unos las cargas de los otros" (Ga 6,2). Aquí esa carga compartida viene por escrito, de gente que ni siquiera está en la casa de retiro.
+
+### El regalo de servir aquí
+Coordinar este equipo es conocer de antemano la red de cariño que rodea a cada caminante, mucho antes de que él se entere de que existe.
+
 El **Palanquero 1** es el líder del equipo de palancas. Coordina la búsqueda, recopilación, distribución y entrega de las palancas espirituales (cartas, regalos, mensajes de oración) que los familiares, amigos y servidores envían para los caminantes.
 
 | # | Descripción | Cuándo | Dónde |
@@ -1424,6 +1652,18 @@ El **Palanquero 1** es el líder del equipo de palancas. Coordina la búsqueda, 
 
   "Palanquero 2": `## Equipo Palanquero — Apoyo y distribución
 
+### Objetivo
+Que la distribución ocurra en silencio, a tiempo y sin que nadie vea quién la dejó.
+
+### Por qué importa
+Buena parte del efecto depende de que el caminante encuentre las cosas, no de que se las entreguen. Si se ve la maniobra, se pierde justo lo que hacía especial el momento.
+
+### La espiritualidad detrás
+"Que tu mano izquierda no sepa lo que hace tu derecha; así tu limosna quedará en secreto, y tu Padre, que ve en lo secreto, te recompensará" (Mt 6,3-4).
+
+### El regalo de servir aquí
+Caminar los pasillos vacíos mientras todos están en el salón, dejando en cada cama algo que alguien preparó con cariño, es una de las horas más silenciosas y más plenas del servicio.
+
 El **Palanquero 2** apoya al Palanquero 1 en la recopilación y especialmente en la **distribución** de las palancas. Suele encargarse de la logística del Sábado en la noche.
 
 | # | Descripción | Cuándo | Dónde |
@@ -1436,6 +1676,18 @@ El **Palanquero 2** apoya al Palanquero 1 en la recopilación y especialmente en
 
   "Palanquero 3": `## Equipo Palanquero — Apoyo y entregas finales
 
+### Objetivo
+Que el último día todo lo que el caminante se lleva esté listo, completo y en su lugar.
+
+### Por qué importa
+Es el cierre material del retiro. Una talla equivocada o algo que falta es lo último que el caminante se lleva del fin de semana, y pesa más de lo que parece.
+
+### La espiritualidad detrás
+"Recojan los pedazos sobrantes, para que nada se pierda" (Jn 6,12). Terminar bien, hasta el último detalle, también es parte del cuidado.
+
+### El regalo de servir aquí
+Servir en el cierre es aprender a rematar lo que otros empezaron, sin que importe quién puso la primera piedra.
+
 El **Palanquero 3** apoya en la entrega del último día y en el cierre logístico de palancas (camisetas, pines, agua bendita).
 
 | # | Descripción | Cuándo | Dónde |
@@ -1447,6 +1699,18 @@ El **Palanquero 3** apoya en la entrega del último día y en el cierre logísti
 | 5 | Recoger sobres y materiales sobrantes al final | Domingo cierre | Oficina de palancas |`,
 
   "Inventario": `## Equipo de Inventario — Anexo A-5-x
+
+### Objetivo
+Saber en todo momento qué hay, dónde está y cuánto falta.
+
+### Por qué importa
+Todo lo que se usa durante el retiro pasó antes por este equipo. Sin un inventario confiable se compra dos veces lo que ya estaba en bodega y falta lo que nadie contó — y se descubre el mismo día, cuando ya no hay remedio.
+
+### La espiritualidad detrás
+"Que cada uno ponga al servicio de los demás el don que ha recibido, como buenos administradores de la multiforme gracia de Dios" (1P 4,10). Lo que se administra aquí no es propio: es de la comunidad.
+
+### El regalo de servir aquí
+Es un servicio de orden y confianza del que nadie habla, y sin el cual todos los demás equipos trabajarían a ciegas.
 
 Lleva el control físico de todos los materiales del retiro: biblias, rosarios, cuadernos, lápices, palancas, materiales de dinámicas, decoración, etc.
 
@@ -1462,6 +1726,18 @@ Lleva el control físico de todos los materiales del retiro: biblias, rosarios, 
 
   "Tesorero": `## Tesorero del Retiro
 
+### Objetivo
+Que el retiro se sostenga económicamente sin que ningún caminante sienta el peso del dinero.
+
+### Por qué importa
+Detrás de cada cuenta hay alguien que dio lo que tenía y alguien que no podía pagar y aun así vino. Llevar las cuentas claras protege a los dos, y protege también a la comunidad que confió el dinero.
+
+### La espiritualidad detrás
+"Donde está tu tesoro, allí estará también tu corazón" (Mt 6,21). Jesús no alabó al que dio mucho, sino a la viuda que echó dos moneditas, todo lo que tenía para vivir (Mc 12,41-44).
+
+### El regalo de servir aquí
+Es de los pocos servicios donde la generosidad callada de la comunidad se ve en números, uno por uno.
+
 Lleva la contabilidad del retiro: ingresos por inscripciones, becas (angelitos), gastos de comida, materiales, transporte y donaciones.
 
 | # | Descripción | Cuándo | Dónde |
@@ -1475,6 +1751,18 @@ Lleva la contabilidad del retiro: ingresos por inscripciones, becas (angelitos),
 | 7 | Conservar respaldos por al menos 1 año | Post-retiro | |`,
 
   "Sacerdotes": `## Sacerdotes del Retiro
+
+### Objetivo
+Que la atención sacramental esté disponible en el momento en que el caminante la necesita, no cuando sea cómodo.
+
+### Por qué importa
+Todo el fin de semana empuja hacia la reconciliación. Si en ese momento no hay sacerdote disponible, el caminante se queda con el corazón abierto y sin dónde ponerlo. Coordinar bien sus tiempos es cuidar el momento más delicado del retiro.
+
+### La espiritualidad detrás
+"A quienes les perdonen los pecados, les quedan perdonados" (Jn 20,23). "Somos embajadores de Cristo. En su nombre les pedimos: déjense reconciliar con Dios" (2Co 5,20).
+
+### El regalo de servir aquí
+Servir al que sirve. Estar cerca del sacerdote durante esas horas es asistir de primera fila a lo que se está desatando en cada confesión.
 
 Acompañan espiritualmente el retiro presidiendo las misas, dando algunas charlas (Sacramentos), confesando, ungiendo, bendiciendo materiales y dirigiendo la exposición y reserva del Santísimo.
 
@@ -1492,6 +1780,18 @@ Acompañan espiritualmente el retiro presidiendo las misas, dando algunas charla
 
   "Mantelitos": `## Equipo de Mantelitos
 
+### Objetivo
+Que cada caminante encuentre, sin esperarlo, un mensaje escrito a mano dirigido solo a él.
+
+### Por qué importa
+Después de dos días intensos, un mensaje personal confirma lo que el caminante empieza a sospechar: que no es uno más de un grupo, que alguien lo tuvo presente por su nombre.
+
+### La espiritualidad detrás
+"No temas, que yo te he rescatado, te he llamado por tu nombre, tú eres mío" (Is 43,1). Dios no trata con multitudes: trata con personas, y así se le anuncia.
+
+### El regalo de servir aquí
+Escribir para alguien a quien no conocés, y después verlo leer eso que escribiste, es de las cosas más desconcertantes y más bonitas del servicio.
+
 Prepara la **Dinámica de Mantelitos** del Día 3 (domingo) en el desayuno: mensajes personales bajo cada mantel para los caminantes.
 
 | # | Descripción | Cuándo | Dónde |
@@ -1503,6 +1803,18 @@ Prepara la **Dinámica de Mantelitos** del Día 3 (domingo) en el desayuno: mens
 | 5 | Guiar la dinámica: caminantes voltean el mantel, leen su mensaje, comparten | Durante desayuno Día 3 | Comedor |`,
 
   "Transporte": `## Equipo de Transporte
+
+### Objetivo
+Que llegar y volver sea seguro, puntual y sin preocupaciones para nadie.
+
+### Por qué importa
+El viaje enmarca el retiro: empieza cuando el caminante sube y termina cuando baja. Un traslado desorganizado gasta, antes de empezar, la paciencia y la disposición que hacían falta para lo que venía.
+
+### La espiritualidad detrás
+"El Señor guarda tu salida y tu entrada, ahora y por siempre" (Sal 121,8). Acompañar el camino de ida y de vuelta es un servicio con nombre propio en la Escritura.
+
+### El regalo de servir aquí
+Los primeros minutos y los últimos del retiro pasan aquí. Vas a ver las dos caras del mismo caminante: la de la ida y la de la vuelta.
 
 Coordina el traslado de los caminantes desde la parroquia a la casa de retiro y viceversa, así como otros traslados durante el retiro.
 
@@ -1517,6 +1829,18 @@ Coordina el traslado de los caminantes desde la parroquia a la casa de retiro y 
 | 7 | Recoger material e instrumentos al cierre | Día 3 cierre | |`,
 
   "Campanero": `## Campanero
+
+### Objetivo
+Que todo el retiro se mueva a tiempo con una sola señal, sin gritos ni prisas.
+
+### Por qué importa
+La campana sustituye al reloj que nadie trae puesto. Marca el pulso del fin de semana; cuando suena a tiempo el programa se sostiene solo, y cuando se olvida hay que empezar a apurar a la gente, que es justo lo que se quería evitar.
+
+### La espiritualidad detrás
+"Enséñanos a contar nuestros días, para que adquiramos un corazón sensato" (Sal 90,12). La campana ha llamado a la oración común desde hace siglos: convoca sin obligar.
+
+### El regalo de servir aquí
+Un servicio de una sola nota, que enseña algo que dura: la puntualidad también es una forma de respeto por el otro.
 
 Marca las transiciones del retiro tocando la campana en momentos clave para llamar a los caminantes a comedor, capilla, salón o transporte. Es la "voz" del cronograma.
 
@@ -1533,6 +1857,18 @@ Marca las transiciones del retiro tocando la campana en momentos clave para llam
 **Estilo del toque**: 3 toques cortos seguidos de un toque largo. Pausa, repetir si no se llamó la atención.`,
 
   "Continua": `## Servidor Continua — Lector del Camino de Emaús
+
+### Objetivo
+Que el pasaje de Emaús se escuche completo, por partes, como el hilo que sostiene todo el fin de semana.
+
+### Por qué importa
+El retiro entero es una relectura de ese camino: el desánimo, el desconocido que se acerca, el corazón que arde, el reconocerlo al partir el pan, el volver corriendo a contarlo. Leído de corrido o sin cuidado, el hilo se pierde y las charlas quedan sueltas.
+
+### La espiritualidad detrás
+"¿No ardía nuestro corazón mientras nos hablaba en el camino y nos explicaba las Escrituras?" (Lc 24,32).
+
+### El regalo de servir aquí
+Pocos servidores llegan a conocer este evangelio tan de cerca como quien lo lee en voz alta cinco veces en tres días.
 
 Lee las **5 secciones del Camino de Emaús** (Lc 24,13-35) que se distribuyen a lo largo del retiro como hilo conductor narrativo.
 
@@ -1552,6 +1888,18 @@ Lee las **5 secciones del Camino de Emaús** (Lc 24,13-35) que se distribuyen a 
 
   "Biblias": `## Equipo de Biblias
 
+### Objetivo
+Que cada caminante reciba su propia Biblia, bendecida y con su nombre escrito.
+
+### Por qué importa
+Para muchos es la primera Biblia que tienen en la vida, y es el objeto del retiro que más años sobrevive. No es un obsequio más: es la herramienta con la que va a seguir el camino cuando se acabe el fin de semana.
+
+### La espiritualidad detrás
+"La Palabra de Dios es viva y eficaz, más cortante que una espada de doble filo" (Hb 4,12). Poner el nombre de alguien en la portada es decirle que esa Palabra lo busca a él.
+
+### El regalo de servir aquí
+Escribir uno por uno los nombres termina siendo una forma de orar por cada caminante antes siquiera de conocerlo.
+
 Adquiere, prepara, bendice y entrega las **Biblias personales** a cada caminante el Día 1 en la noche.
 
 | # | Descripción | Cuándo | Dónde |
@@ -1566,6 +1914,18 @@ Adquiere, prepara, bendice y entrega las **Biblias personales** a cada caminante
 
   "Explicación Rosario y entrega": `## Explicación del Rosario y entrega
 
+### Objetivo
+Que el caminante se lleve un rosario y, sobre todo, que sepa cómo usarlo.
+
+### Por qué importa
+Sin la explicación, el rosario es un objeto bonito que se guarda en un cajón. Con ella, es una oración sencilla que el caminante puede repetir solo, en su casa, el resto de su vida.
+
+### La espiritualidad detrás
+"María guardaba todas estas cosas, meditándolas en su corazón" (Lc 2,19). El rosario es esa memoria hecha oración: recorrer con ella la vida de Jesús.
+
+### El regalo de servir aquí
+Enseñar a rezar es de las pocas cosas que uno entrega sin perderlas, y que el otro puede seguir usando cuando ya nadie lo acompañe.
+
 Adquiere y entrega rosarios a cada caminante (típicamente Día 3) y guía la explicación de su uso.
 
 | # | Descripción | Cuándo | Dónde |
@@ -1578,6 +1938,18 @@ Adquiere y entrega rosarios a cada caminante (típicamente Día 3) y guía la ex
 | 6 | Apoyar en el rezo del rosario durante el retiro (mañana, tarde, noche) | Durante retiro | Capilla del Santísimo |`,
 
   "Bolsas": `## Equipo de Bolsas / Kits de Salida
+
+### Objetivo
+Que el caminante se vaya con todo lo suyo y con todo lo que el retiro le regaló.
+
+### Por qué importa
+Es el último contacto del fin de semana. Lo que falte ahí — un celular, un recuerdo, un nombre mal puesto — se lleva parte de la alegría del cierre. Y es el momento en que el caminante recupera lo que entregó al llegar y nota, con las manos, cuánto cambió en tres días.
+
+### La espiritualidad detrás
+"Gratis lo recibieron, denlo gratis" (Mt 10,8). Todo lo que va en esa bolsa es regalo, y así debe entregarse.
+
+### El regalo de servir aquí
+Armar cada bolsa con su nombre es despedir a cada uno, uno por uno, antes de que se vaya.
 
 Prepara y entrega las **bolsas de salida** del Día 3: contienen recuerdos, palancas finales, camiseta, calcomanías, agua bendita, etc. También coordina la **devolución de celulares/relojes/medicinas** y la despedida final.
 
@@ -1595,6 +1967,18 @@ Prepara y entrega las **bolsas de salida** del Día 3: contienen recuerdos, pala
 
   "Resumen del día": `## Servidor Resumen del Día
 
+### Objetivo
+Que cada mañana el caminante sepa en qué punto del camino está parado.
+
+### Por qué importa
+Después de un día intenso, todo se mezcla y se confunde. Un resumen breve y con tono pastoral ordena lo vivido y prepara para lo que viene, sin adelantar nada de lo que sigue.
+
+### La espiritualidad detrás
+En el camino, "empezando por Moisés y siguiendo por todos los profetas, les explicó lo que se refería a él en todas las Escrituras" (Lc 24,27). Ayudar a leer lo vivido es un servicio antiguo.
+
+### El regalo de servir aquí
+Obliga a mirar el retiro con los ojos del caminante y no con los del equipo, y eso cambia la forma de servir todo lo que queda del fin de semana.
+
 Da un resumen breve de lo vivido el día anterior, conectándolo con lo que viene. Suele hacerlo el coordinador o un servidor con visión de conjunto.
 
 | # | Descripción | Cuándo | Dónde |
@@ -1606,6 +1990,18 @@ Da un resumen breve de lo vivido el día anterior, conectándolo con lo que vien
 | 5 | No revelar momentos íntimos de caminantes específicos — siempre genérico | Durante resumen | |`,
 
   "Recepción": `## Equipo de Recepción
+
+### Objetivo
+Que el caminante sea recibido por su nombre y con una sonrisa desde el primer segundo.
+
+### Por qué importa
+Los primeros cinco minutos deciden con qué disposición entra al fin de semana. Llega nervioso, entregando el celular, sin saber qué le espera y sin nada a qué agarrarse: la recepción es la primera prueba de que está entre gente que lo va a cuidar.
+
+### La espiritualidad detrás
+"Acójanse mutuamente como Cristo los acogió" (Rm 15,7). "No olviden la hospitalidad: gracias a ella algunos, sin saberlo, hospedaron a ángeles" (Hb 13,2).
+
+### El regalo de servir aquí
+Dar el primer abrazo del retiro, y ser la cara que el caminante recordará cuando piense en el momento en que llegó.
 
 Recibe a los caminantes a su llegada a la casa de retiro: registro, custodia de celulares/relojes/medicinas, asignación de cuartos.
 
@@ -1621,6 +2017,18 @@ Recibe a los caminantes a su llegada a la casa de retiro: registro, custodia de 
 
   "Reglamento de la Casa": `## Servidor Reglamento de la Casa
 
+### Objetivo
+Que todos sepan cómo funciona la casa, sin que la información suene a reprimenda.
+
+### Por qué importa
+Las reglas claras evitan la mitad de los problemas del fin de semana y le quitan al caminante la incomodidad de no saber qué se puede y qué no. Mal dichas, en cambio, lo ponen a la defensiva justo cuando necesitaba soltarse.
+
+### La espiritualidad detrás
+"Que todo se haga con decoro y orden" (1Co 14,40). El orden de afuera está al servicio de la libertad de adentro: nadie reza tranquilo si no sabe dónde está parado.
+
+### El regalo de servir aquí
+Son cinco minutos de hablar y un fin de semana entero de convivencia agradecida. Enseña a decir lo necesario sin una palabra de más.
+
 Presenta a los caminantes las **reglas operativas** de la casa de retiro: horarios, áreas, baños, dormitorios, normas básicas de convivencia.
 
 | # | Descripción | Cuándo | Dónde |
@@ -1632,6 +2040,33 @@ Presenta a los caminantes las **reglas operativas** de la casa de retiro: horari
 | 5 | Estar disponible para resolver dudas sobre el funcionamiento de la casa | Todo el retiro | |
 
 **Estilo**: claro, breve, sin tono autoritario. Es información práctica, no disciplinaria.`,
+
+  "Despedida": `## Servidor de Despedida
+
+### Objetivo
+Que el caminante cierre el retiro sintiéndose enviado, no simplemente devuelto a su casa.
+
+### Por qué importa
+Es el último tramo y el que más se recuerda: recupera sus cosas, reencuentra a los suyos y sale de vuelta a la vida de siempre. Hecho con prisa, el fin de semana termina en un trámite; hecho con calma, termina en un envío.
+
+### La espiritualidad detrás
+"Como el Padre me envió, también yo los envío" (Jn 20,21). Los de Emaús no se quedaron en la mesa: "se levantaron y volvieron a Jerusalén" a contar lo que les había pasado en el camino (Lc 24,33-35).
+
+### El regalo de servir aquí
+Ver salir por la puerta a alguien que llegó de otra manera hace tres días. Es el momento en que el equipo entiende para qué sirvió todo lo demás.
+
+| # | Descripción | Cuándo | Dónde |
+|---|-------------|--------|-------|
+| 1 | Coordinar con Recepción y Bolsas la entrega de pertenencias (celulares, relojes, medicinas) | Día 3 mañana | Recepción |
+| 2 | Verificar que cada sobre esté rotulado y completo antes de salir de la casa de retiro | Día 3 mediodía | Recepción |
+| 3 | Preparar el espacio donde se hará la despedida y el reencuentro | Día 3 tarde | Parroquia |
+| 4 | Recibir y ubicar a los familiares que esperan a los caminantes | Día 3 tarde | Parroquia |
+| 5 | Entregar a cada caminante sus pertenencias, por nombre | Día 3 tarde | Parroquia |
+| 6 | Acompañar el momento final y cuidar que nadie se vaya sin despedirse | Día 3 tarde | Parroquia |
+| 7 | Invitar a los caminantes a la siguiente reunión de la comunidad y dejar claro cómo seguir | Día 3 tarde | Parroquia |
+| 8 | Recoger el espacio y reportar objetos no reclamados al coordinador | Día 3 cierre | Parroquia |
+
+**Estilo**: sin prisa. Es el único momento del retiro en que el caminante vuelve a mirar el reloj — que no sienta que se lo están empujando a la puerta.`,
 
   // Re-exported from serviceTeamData.ts so this file is the authoritative
   // catalog for `responsibilityDocumentation` lookups (e.g. legacy

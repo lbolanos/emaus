@@ -43,6 +43,25 @@ Incidente real (2026-05-07):
 `community_meeting` sin error visible. Recuperación solo fue posible
 porque existía `database.sqlite.backup-pre-community-public`.
 
+### Quién decide la transacción (corregido el 2026-09-08)
+
+Durante meses esta propiedad fue **decorativa**. El runner propio miraba sólo el flag del
+llamador, así que:
+
+| Camino | flag | Resultado antes del arreglo |
+|---|---|---|
+| `pnpm migration:run` (CLI) | `--transaction` es opt-in → **off** | seguro por accidente |
+| Arranque del API (`MIGRATIONS_AUTO_RUN=true`) | **`true` hardcodeado** | **toda** recreate-table iba envuelta |
+
+El segundo es el camino **normal en dev** (nodemon reinicia con cada archivo guardado) y el de
+respaldo en prod (watchdog, `pm2 restart`, o un deploy cuyo `migration:run` falló). Es coherente
+con que el incidente del 2026-05-07 ocurriera pese a existir la convención.
+
+Ahora `shouldUseTransaction(migrationClass, callerWants)` decide: el llamador manda, pero un
+`transaction = false` de la migración lo anula. Si volvés a tocar `base-migration-manager.ts`,
+`migrationRunnerTransactionFlag.test.ts` te para — incluye la demostración ejecutable de que
+dentro de una transacción el PRAGMA se ignora y las filas hijas desaparecen.
+
 ## Árbol de decisión
 
 ```
@@ -89,13 +108,13 @@ export class FooBar20260507120000 implements MigrationInterface {
 	name = 'FooBar20260507120000';
 	timestamp = '20260507120000';
 
-	// OJO: el proyecto NO usa el runner de TypeORM, usa uno propio, y ese runner IGNORA esta
-	// propiedad — la transacción la decide el flag CLI `--transaction` (default OFF). Así que
-	// esto es inerte en runtime; se declara porque el guard
-	// `sqliteSafePattern.simple.test.ts` lo exige cuando hay DROP TABLE (incluido en down()).
-	// Lo que de verdad te protege es que `migration:run` corra SIN transacción envolvente: si
-	// hubiera una, SQLite ignoraría el PRAGMA foreign_keys=OFF de abajo y el DROP TABLE
-	// cascadearía a las hijas, borrando data silenciosamente.
+	// El proyecto NO usa el runner de TypeORM, usa uno propio — y desde 2026-09-08 ese runner
+	// SÍ respeta esta propiedad: `shouldUseTransaction()` en `database/transaction-policy.ts`
+	// la consulta antes de abrir la transacción, gane quien gane el flag del llamador.
+	// Declararla es lo que impide que el DROP TABLE de abajo corra envuelto, que es donde
+	// SQLite ignora el `PRAGMA foreign_keys = OFF` y cascadea a las hijas.
+	// El guard `sqliteSafePattern.simple.test.ts` la exige cuando hay DROP TABLE (down()
+	// incluido); `migrationRunnerTransactionFlag.test.ts` comprueba que el runner la obedece.
 	transaction = false as const;
 
 	public async up(queryRunner: QueryRunner): Promise<void> {
@@ -145,6 +164,32 @@ export class FooBar20260507120000 implements MigrationInterface {
 	}
 }
 ```
+
+### `transaction = false` renuncia al rollback: la migración tiene que ser reejecutable
+
+Es el precio del patrón, y no se puede evitar: no existe una configuración donde el
+`PRAGMA foreign_keys = OFF` funcione **y** haya una transacción envolvente. Consecuencia práctica:
+si `up()` revienta a mitad, lo anterior **ya está commiteado**, la migración **no** queda
+registrada, y el siguiente arranque la reejecuta desde la primera línea.
+
+Por eso, en toda migración con `transaction = false`, cada paso previo al recreate debe tolerar
+volver a correr. El caso que muerde es el `ADD COLUMN`: sin guarda, el reintento muere con
+*"duplicate column name"* y la migración queda atascada para siempre.
+
+```ts
+const columns: { name: string }[] = await queryRunner.query(`PRAGMA table_info("mi_tabla")`);
+if (!columns.some((c) => c.name === 'mi_columna')) {
+	await queryRunner.query(`ALTER TABLE "mi_tabla" ADD COLUMN "mi_columna" varchar`);
+}
+```
+
+Para índices y tablas basta `IF NOT EXISTS`; para los INSERT de seed, comparar antes.
+
+> Deuda conocida al 2026-09-08: cinco migraciones ya aplicadas declaran `transaction = false` y
+> tienen un `ADD COLUMN` sin guarda —`AddClosingChurchAndFamilyInvitationTemplates`,
+> `AddRetreatFeesMealsAndDebts`, `AddSourceToRetreatMemorySong`, `CrmSequencingSchemaAndSeed` e
+> `InventoryEnhancementsBundle`. No afecta a los entornos donde ya corrieron; sí a una base nueva
+> si fallan a mitad.
 
 ### Checklist por cada recreate-table
 

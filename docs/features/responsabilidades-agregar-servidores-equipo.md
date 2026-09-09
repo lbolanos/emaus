@@ -4,6 +4,9 @@ Desde la vista **Responsabilidades** (`ResponsabilitiesView.vue`, menú *Asignac
 
 > No se crean equipos nuevos: el botón solo agrega miembros al equipo que ya existe. El **responsable** de la responsabilidad es el **líder** del equipo (relación pre-existente, ver [`leaderSyncService`](#sincronización-existente)).
 
+> El **contenido** de cada documento de responsabilidad (y el bloque de sentido que lo abre)
+> se documenta aparte: [`responsabilidades-documentos-espiritualidad.md`](responsabilidades-documentos-espiritualidad.md).
+
 ## Comportamiento
 
 - El botón (icono `UserPlus`, índigo) aparece **solo** en responsabilidades cuyo nombre está en el **mapeo canónico** `RESPONSIBILITY_TEAM_TYPE_MAP` **y** cuyo equipo de ese tipo ya existe en el retiro.

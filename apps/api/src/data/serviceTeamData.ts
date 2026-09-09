@@ -29,6 +29,18 @@ export const moderadorDescription = `# Anexo A-4-4
 
 ## Guía para Moderadores
 
+### Objetivo
+Que el programa se cumpla y que nadie tenga que apurar lo que estaba pasando por dentro.
+
+### Por qué importa
+El moderador es la voz que hilvana el retiro. Si el horario se desborda se le quita tiempo a lo que viene; si corta de más, interrumpe. Y marca el tono: lo poco que dice entre una charla y otra se queda dando vueltas toda la tarde.
+
+### La espiritualidad detrás
+"Es preciso que él crezca y que yo disminuya" (Jn 3,30). El moderador anuncia lo que sigue y se aparta; el protagonismo es de lo que va a pasar, no de quien lo presenta.
+
+### El regalo de servir aquí
+Es el servicio más expuesto y el que más pide desaparecer detrás de lo que anuncia. Enseña a hablar poco y a tiempo, que no es poca cosa.
+
 ### Rol Principal
 **El papel más importante (sino el único) del moderador, es mantener el retiro estrictamente dentro del horario establecido en el programa general.**
 
@@ -51,6 +63,18 @@ Es deseable que el retiro se divida en **cinco (5) segmentos**, cada uno moderad
 Cada moderador debe recibir una copia del programa a desarrollar en su espacio de tiempo.`;
 
 export const diarioDescription = `## Diario del Caminante
+
+### Objetivo
+Que cada caminante tenga dónde escribir lo que todavía no puede decir en voz alta.
+
+### Por qué importa
+Mucho de lo que se remueve en el fin de semana no se comparte en la mesa. El diario recoge eso, y es además el recuerdo que el caminante se lleva y va a releer años después, cuando se le haya olvidado casi todo lo demás.
+
+### La espiritualidad detrás
+"Escribe la visión, grábala en tablillas, para que se lea de corrido" (Ha 2,2). Lo que se escribe se puede volver a leer el día en que ya no se siente.
+
+### El regalo de servir aquí
+Preparar cuadernos en blanco es preparar el lugar donde otro va a escribir, con sus propias palabras, su encuentro con Dios.
 
 ### ¿Qué es?
 El Diario es un cuadernillo personal que se entrega a cada caminante al inicio del retiro. Sirve como herramienta de reflexión donde el caminante puede escribir sus pensamientos, oraciones y notas durante las charlas y dinámicas.
