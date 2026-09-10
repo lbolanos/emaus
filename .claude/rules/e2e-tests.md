@@ -21,7 +21,11 @@ Cinco cosas que hacen fallar un spec nuevo por razones que no son del código:
   `page.addInitScript(() => localStorage.setItem('preferred-locale', 'es'))`.
 - **Nunca escribir en la base.** El registro público acepta `?test=true` (dry-run): el API valida
   el payload y no persiste nada. Si el spec envía un formulario, que use esa vía y afirme
-  `expect(body.dryRun).toBe(true)` sobre la request capturada, como guard explícito.
+  `expect(body.dryRun).toBe(true)` sobre la request capturada, como guard explícito. Ojo: el
+  dry-run cubre **solo el alta del formulario** (`createParticipant`); el confirm de la pantalla
+  «¿Eres tú?» (`confirmExistingRegistration`) escribe aunque la URL lleve `?test=true` — un spec
+  que la toque tiene que interceptarla con `page.route`, como hace
+  `registration-lost-request.spec.ts`.
 - **`count()` no espera.** Es el fallo más traicionero: contar elementos de un paso del asistente
   antes de que monte devuelve 0, el bucle no hace nada y el spec falla más adelante, en otro sitio.
   Poné un `await expect(<algo del paso>).toBeVisible()` antes de contar, y otro después de cada
