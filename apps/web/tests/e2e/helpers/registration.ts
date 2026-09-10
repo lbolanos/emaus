@@ -1,13 +1,13 @@
 import { type Page } from '@playwright/test';
 
 /**
- * Confirma el aviso "¿No necesitas playera?" cuando el registro se envía sin
- * ninguna talla elegida.
+ * Confirms the "¿No necesitas playera?" notice when the registration is
+ * submitted without a single size chosen.
  *
- * El select de playeras trae "No necesita" preseleccionado, así que la app
- * pregunta una vez antes de registrar. En retiros sin playeras para servidores
- * el aviso no existe y esto no hace nada, por eso se espera con timeout corto
- * en vez de asumir que aparece.
+ * The shirt select ships with "No necesita" preselected, so the app asks once
+ * before registering. On retreats with no shirts for servers the notice does
+ * not exist and this does nothing, which is why it waits with a short timeout
+ * instead of assuming it appears.
  */
 export async function confirmNoShirtIfNeeded(page: Page) {
 	const noShirtButton = page.getByRole('button', { name: /No necesito playera, regístrame/i });

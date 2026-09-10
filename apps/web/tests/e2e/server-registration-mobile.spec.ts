@@ -229,7 +229,7 @@ test.describe('Registro de servidor en el teléfono', () => {
 			(r) => r.url().includes('/participants/new') && r.method() === 'POST',
 		);
 		await page.getByRole('button', { name: /^Enviar$/ }).click();
-		// Sin ninguna talla elegida, la app pregunta por las playeras antes del alta.
+		// With no size chosen at all, the app asks about shirts before the submit.
 		await confirmNoShirtIfNeeded(page);
 		const body = (await postRequest).postDataJSON();
 

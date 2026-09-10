@@ -4,11 +4,12 @@ import { createPinia, setActivePinia } from 'pinia';
 import { nextTick } from 'vue';
 import ParticipantRegistrationView from '../ParticipantRegistrationView.vue';
 import { confirmExistingRegistration } from '@/services/api';
+import { getRecaptchaToken } from '@/services/recaptcha';
 
-// El select de playeras trae "No necesita" preseleccionado, así que un servidor
-// que no lo toca envía el registro sin talla sin haberlo decidido. Antes de
-// registrar hay que preguntarle una vez si de verdad no necesita playera —
-// en el formulario por pasos y en la pantalla de "¿Eres tú?".
+// The shirt select ships with "No necesita" preselected, so a server who never
+// touches it submits the registration without a size they never chose. Before
+// registering, the app must ask once whether they really need no shirt — both
+// in the multi-step form and on the "¿Eres tú?" identity screen.
 
 const toastMock = vi.fn();
 
@@ -55,8 +56,8 @@ vi.mock('@/services/recaptcha', () => ({
 	getRecaptchaToken: vi.fn().mockResolvedValue('mock-token'),
 	RECAPTCHA_ACTIONS: { PARTICIPANT_REGISTER: 'register', PARTICIPANT_EMAIL_CHECK: 'check' },
 }));
-// Los selectores cargan cada lista por separado: importar el paquete entero
-// arrastra city.json (7.7 MB) y era lo que tumbaba el paso en el iPhone.
+// The address selects load each list separately: importing the whole package
+// drags city.json (7.7 MB), which is what used to kill the step on the iPhone.
 vi.mock('country-state-city/lib/country', () => ({
 	default: { getAllCountries: vi.fn().mockReturnValue([{ name: 'Mexico', isoCode: 'MX' }]) },
 }));
@@ -81,8 +82,8 @@ const SHIRT_TYPES = [
 ];
 
 /**
- * Monte la vista con un retiro que ofrece playeras a servidores. `onIdentityScreen`
- * deja el estado en el que pone la búsqueda por correo: pantalla "¿Eres tú?".
+ * Mounts the view with a retreat that offers shirts to servers. `onIdentityScreen`
+ * leaves the state the email lookup produces: the "¿Eres tú?" identity screen.
  */
 const mountView = async (onIdentityScreen = false, shirtTypes: unknown[] = SHIRT_TYPES) => {
 	global.fetch = vi.fn().mockResolvedValue({
@@ -105,14 +106,18 @@ const mountView = async (onIdentityScreen = false, shirtTypes: unknown[] = SHIRT
 	return { wrapper, vm };
 };
 
-describe('Server registration — pregunta de playeras al enviar sin talla', () => {
+describe('Server registration — shirt question before submitting without a size', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		// restoreAllMocks (below) disarms every factory mock, not just the ones
+		// this test re-arms: without this line the view gets an undefined
+		// recaptcha token from the second test onward.
+		vi.mocked(getRecaptchaToken).mockResolvedValue('mock-token');
 		vi.mocked(confirmExistingRegistration).mockResolvedValue({ success: true, firstName: 'Ana', lastName: 'López' } as any);
 	});
 	afterEach(() => vi.restoreAllMocks());
 
-	it('formulario: pregunta en vez de enviar cuando no hay ninguna talla', async () => {
+	it('form: asks instead of submitting when no size is chosen', async () => {
 		const { wrapper, vm } = await mountView();
 		vm.currentStep = 6;
 		await nextTick();
@@ -122,11 +127,12 @@ describe('Server registration — pregunta de playeras al enviar sin talla', () 
 
 		expect(vm.shirtConfirmSource).toBe('form');
 		expect(wrapper.text()).toContain('serverRegistration.shirtConfirm.title');
-		// No llegó al alta: el formulario vacío habría tostado un error de validación.
+		// Never reached the submit: the empty form would have toasted a
+		// validation error.
 		expect(toastMock).not.toHaveBeenCalled();
 	});
 
-	it('formulario: con una talla elegida no pregunta', async () => {
+	it('form: does not ask when a size is chosen', async () => {
 		const { wrapper, vm } = await mountView();
 		vm.formData.shirtSizesByType = { 'type-white': 'M' };
 		vm.currentStep = 6;
@@ -138,7 +144,7 @@ describe('Server registration — pregunta de playeras al enviar sin talla', () 
 		expect(wrapper.text()).not.toContain('serverRegistration.shirtConfirm.title');
 	});
 
-	it('formulario: "quiero elegir talla" regresa al paso 5 y cierra la pregunta', async () => {
+	it('form: "I want to pick a size" goes back to step 5 and closes the question', async () => {
 		const { vm } = await mountView();
 		vm.currentStep = 6;
 		await nextTick();
@@ -151,7 +157,36 @@ describe('Server registration — pregunta de playeras al enviar sin talla', () 
 		expect(vm.currentStep).toBe(5);
 	});
 
-	it('formulario: confirmar la pregunta prosigue con el alta', async () => {
+	it('form: step navigation closes a pending question', async () => {
+		const { wrapper, vm } = await mountView();
+		vm.currentStep = 6;
+		await nextTick();
+		vm.attemptSubmit();
+		expect(vm.shirtConfirmSource).toBe('form');
+
+		vm.prevStep();
+
+		expect(vm.shirtConfirmSource).toBeNull();
+		expect(wrapper.text()).not.toContain('serverRegistration.shirtConfirm.title');
+	});
+
+	it('form: the submit button is disabled while a submission is in flight', async () => {
+		const { wrapper, vm } = await mountView();
+		vm.currentStep = 6;
+		await nextTick();
+
+		const submitButton = wrapper
+			.findAll('button')
+			.find((b) => b.classes().includes('bg-green-600') && b.classes().includes('hover:bg-green-700'));
+		expect(submitButton).toBeDefined();
+
+		vm.isSubmitting = true;
+		await nextTick();
+
+		expect(submitButton!.attributes('disabled')).toBeDefined();
+	});
+
+	it('form: confirming the question continues the submission', async () => {
 		const { vm } = await mountView();
 		vm.currentStep = 6;
 		await nextTick();
@@ -162,14 +197,14 @@ describe('Server registration — pregunta de playeras al enviar sin talla', () 
 		await flushPromises();
 
 		expect(vm.shirtConfirmSource).toBeNull();
-		// Evidencia de que el envío arrancó: onSubmit valida todo y con el
-		// formulario vacío tosta el error del paso que falta.
+		// Evidence the submit started: onSubmit validates everything, and with
+		// an empty form it toasts the error of the missing step.
 		expect(toastMock).toHaveBeenCalledWith(
 			expect.objectContaining({ title: 'serverRegistration.toasts.validationTitle' }),
 		);
 	});
 
-	it('pantalla de identidad: pregunta en vez de confirmar el registro', async () => {
+	it('identity screen: asks instead of confirming the registration', async () => {
 		const { wrapper, vm } = await mountView(true);
 
 		vm.attemptConfirmIdentity();
@@ -180,7 +215,7 @@ describe('Server registration — pregunta de playeras al enviar sin talla', () 
 		expect(confirmExistingRegistration).not.toHaveBeenCalled();
 	});
 
-	it('pantalla de identidad: con una talla elegida confirma directo', async () => {
+	it('identity screen: confirms right away when a size is chosen', async () => {
 		const { vm } = await mountView(true);
 		vm.lookupShirtSizes = { 'type-white': 'M' };
 
@@ -191,7 +226,7 @@ describe('Server registration — pregunta de playeras al enviar sin talla', () 
 		expect(confirmExistingRegistration).toHaveBeenCalledTimes(1);
 	});
 
-	it('pantalla de identidad: confirmar la pregunta sí registra', async () => {
+	it('identity screen: confirming the question does register', async () => {
 		const { vm } = await mountView(true);
 		vm.attemptConfirmIdentity();
 		expect(vm.shirtConfirmSource).toBe('lookup');
@@ -203,7 +238,28 @@ describe('Server registration — pregunta de playeras al enviar sin talla', () 
 		expect(confirmExistingRegistration).toHaveBeenCalledTimes(1);
 	});
 
-	it('retiro sin playeras para servidores: no pregunta', async () => {
+	it('identity screen: denying the identity closes a pending question', async () => {
+		const { vm } = await mountView(true);
+		vm.attemptConfirmIdentity();
+		expect(vm.shirtConfirmSource).toBe('lookup');
+
+		vm.handleDenyIdentity();
+
+		expect(vm.shirtConfirmSource).toBeNull();
+	});
+
+	it('picking a size while the question is open closes it', async () => {
+		const { vm } = await mountView(true);
+		vm.attemptConfirmIdentity();
+		expect(vm.shirtConfirmSource).toBe('lookup');
+
+		vm.lookupShirtSizes = { 'type-white': 'M' };
+		await nextTick();
+
+		expect(vm.shirtConfirmSource).toBeNull();
+	});
+
+	it('retreat with no shirts for servers: does not ask', async () => {
 		const { wrapper, vm } = await mountView(true, []);
 		vm.currentStep = 6;
 		await nextTick();

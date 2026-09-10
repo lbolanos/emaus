@@ -150,8 +150,8 @@ test.describe('Confirmar identidad cuando la petición se pierde', () => {
 		await page.route(`**${CONFIRM_PATH}`, (route) => route.abort('connectionfailed'));
 
 		await page.getByRole('button', { name: /Sí, soy yo/i }).click();
-		// El retiro ofrece playeras a servidores: sin talla elegida, la app
-		// pregunta antes de confirmar. El aviso no viaja a la red.
+		// The retreat offers shirts to servers: with no size chosen, the app
+		// asks before confirming. The notice never travels to the network.
 		await confirmNoShirtIfNeeded(page);
 
 		await expect(toast(page, /Se perdió la conexión/i)).toBeVisible({ timeout: 15000 });
@@ -182,8 +182,8 @@ test.describe('Confirmar identidad cuando la petición se pierde', () => {
 		);
 
 		await page.getByRole('button', { name: /Sí, soy yo/i }).click();
-		// El retiro ofrece playeras a servidores: sin talla elegida, la app
-		// pregunta antes de confirmar. El aviso no viaja a la red.
+		// The retreat offers shirts to servers: with no size chosen, the app
+		// asks before confirming. The notice never travels to the network.
 		await confirmNoShirtIfNeeded(page);
 
 		await expect(page.getByText(/Registro exitoso/i)).toBeVisible({ timeout: 15000 });
@@ -205,8 +205,8 @@ test.describe('Confirmar identidad cuando la petición se pierde', () => {
 		);
 
 		await page.getByRole('button', { name: /Sí, soy yo/i }).click();
-		// El retiro ofrece playeras a servidores: sin talla elegida, la app
-		// pregunta antes de confirmar. El aviso no viaja a la red.
+		// The retreat offers shirts to servers: with no size chosen, the app
+		// asks before confirming. The notice never travels to the network.
 		await confirmNoShirtIfNeeded(page);
 
 		await expect(toast(page, /Ya estabas registrado/i)).toBeVisible({ timeout: 15000 });
@@ -227,8 +227,8 @@ test.describe('Confirmar identidad cuando la petición se pierde', () => {
 		);
 
 		await page.getByRole('button', { name: /Sí, soy yo/i }).click();
-		// El retiro ofrece playeras a servidores: sin talla elegida, la app
-		// pregunta antes de confirmar. El aviso no viaja a la red.
+		// The retreat offers shirts to servers: with no size chosen, the app
+		// asks before confirming. The notice never travels to the network.
 		await confirmNoShirtIfNeeded(page);
 
 		await expect(toast(page, /ya terminó y no acepta/i)).toBeVisible({ timeout: 15000 });
