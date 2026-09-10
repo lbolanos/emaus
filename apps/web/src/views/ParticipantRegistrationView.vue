@@ -713,8 +713,59 @@ const handleDenyIdentity = () => {
   })
 }
 
+// Playeras: el select trae "No necesita" preseleccionado, así que enviar sin talla
+// casi nunca es una decisión consciente. Antes de registrar se pregunta una sola
+// vez; confirmar continúa el envío y volver deja los selects a la vista.
+const shirtConfirmSource = ref<'lookup' | 'form' | null>(null)
+
+const anyServerShirtChosen = (source: 'lookup' | 'form'): boolean => {
+  const sizes = source === 'lookup'
+    ? lookupShirtSizes.value
+    : ((formData.value as any).shirtSizesByType ?? {}) as Record<string, string>
+  return Object.values(sizes).some((size) => size && size !== 'null')
+}
+
+const needsShirtConfirm = (source: 'lookup' | 'form'): boolean =>
+  props.type === 'server'
+  && serverShirtTypes.value.length > 0
+  && !anyServerShirtChosen(source)
+
+/** Botón "Sí, soy yo, regístrame": pregunta por las playeras antes de confirmar. */
+const attemptConfirmIdentity = () => {
+  if (needsShirtConfirm('lookup')) {
+    shirtConfirmSource.value = 'lookup'
+    return
+  }
+  handleConfirmIdentity()
+}
+
+/** Botón "Enviar" del resumen: pregunta por las playeras antes de dar de alta. */
+const attemptSubmit = () => {
+  if (needsShirtConfirm('form')) {
+    shirtConfirmSource.value = 'form'
+    return
+  }
+  onSubmit()
+}
+
+const confirmNoShirtNeeded = () => {
+  const source = shirtConfirmSource.value
+  shirtConfirmSource.value = null
+  if (source === 'lookup') handleConfirmIdentity()
+  else onSubmit()
+}
+
+const backToShirtSelection = () => {
+  const source = shirtConfirmSource.value
+  shirtConfirmSource.value = null
+  // En el formulario por pasos, los selects viven en el paso 5.
+  if (source === 'form') currentStep.value = 5
+}
+
 // Reset email lookup when dialog opens for server types
 watch(isDialogOpen, (open) => {
+  // Un banner de playeras a medio decidir no sobrevive al cierre del diálogo.
+  shirtConfirmSource.value = null
   if (open && isServerType.value) {
     showEmailLookup.value = true
     emailLookup.value = ''
@@ -1352,6 +1403,28 @@ defineExpose({ validateStep, formData, formErrors, retreatData, retreatCountry, 
               </div>
             </div>
 
+            <!-- Confirmación de playeras: enviar sin talla no suele ser decisión consciente -->
+            <div v-if="shirtConfirmSource === 'lookup'" class="shrink-0 border-t pt-4 px-4 sm:px-6">
+              <div class="rounded-lg border border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 p-4 space-y-3 text-left">
+                <div class="space-y-0.5">
+                  <p class="font-semibold text-sm text-yellow-800 dark:text-yellow-200">
+                    {{ $t('serverRegistration.shirtConfirm.title') }}
+                  </p>
+                  <p class="text-sm text-yellow-800 dark:text-yellow-200">
+                    {{ $t('serverRegistration.shirtConfirm.description') }}
+                  </p>
+                </div>
+                <div class="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+                  <Button variant="outline" size="sm" @click="backToShirtSelection">
+                    {{ $t('serverRegistration.shirtConfirm.back') }}
+                  </Button>
+                  <Button size="sm" class="bg-green-600 hover:bg-green-700" @click="confirmNoShirtNeeded">
+                    {{ $t('serverRegistration.shirtConfirm.confirm') }}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
             <!-- Footer fijo: botones siempre visibles aunque el contenido scrollee -->
             <div class="shrink-0 border-t pt-4 px-4 sm:px-6 flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
               <Button
@@ -1365,7 +1438,7 @@ defineExpose({ validateStep, formData, formErrors, retreatData, retreatCountry, 
               </Button>
               <Button
                 size="lg"
-                @click="handleConfirmIdentity"
+                @click="attemptConfirmIdentity"
                 :disabled="isConfirming"
                 class="sm:min-w-[180px]"
               >
@@ -1467,6 +1540,28 @@ defineExpose({ validateStep, formData, formErrors, retreatData, retreatCountry, 
                 </div>
               </transition>
             </div>
+            <!-- Confirmación de playeras: enviar sin talla no suele ser decisión consciente -->
+            <div v-if="shirtConfirmSource === 'form'" class="shrink-0 border-t pt-4 px-1 sm:px-2">
+              <div class="rounded-lg border border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 p-4 space-y-3">
+                <div class="space-y-0.5">
+                  <p class="font-semibold text-sm text-yellow-800 dark:text-yellow-200">
+                    {{ $t('serverRegistration.shirtConfirm.title') }}
+                  </p>
+                  <p class="text-sm text-yellow-800 dark:text-yellow-200">
+                    {{ $t('serverRegistration.shirtConfirm.description') }}
+                  </p>
+                </div>
+                <div class="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+                  <Button variant="outline" size="sm" @click="backToShirtSelection">
+                    {{ $t('serverRegistration.shirtConfirm.back') }}
+                  </Button>
+                  <Button size="sm" class="bg-green-600 hover:bg-green-700" @click="confirmNoShirtNeeded">
+                    {{ $t('serverRegistration.shirtConfirm.confirm') }}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
             <DialogFooter class="gap-2 sm:gap-0 shrink-0 border-t pt-4">
               <Button variant="outline" @click="prevStep" v-if="currentStep > 1 || isServerType">
                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1480,7 +1575,7 @@ defineExpose({ validateStep, formData, formErrors, retreatData, retreatCountry, 
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                 </svg>
               </Button>
-              <Button @click="onSubmit" v-if="currentStep === totalSteps" class="bg-green-600 hover:bg-green-700">
+              <Button @click="attemptSubmit" v-if="currentStep === totalSteps" class="bg-green-600 hover:bg-green-700">
                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                 </svg>

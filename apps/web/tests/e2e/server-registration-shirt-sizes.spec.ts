@@ -15,6 +15,8 @@ import { test, expect, type APIRequestContext, type Page } from '@playwright/tes
  *    "No necesita" only where the server left the select alone.
  *  - The legacy labels never show up again.
  *  - The submitted payload carries `shirtSizes`, so the choice reaches the API.
+ *  - Submitting without a single size asks once whether a shirt is needed, and
+ *    "I want to pick a size" lands back on the step-5 selects.
  *
  * The flow always runs with `?test=true` (dry-run): the API validates the payload
  * and writes nothing, so the spec never creates participants in the dev database.
@@ -170,6 +172,36 @@ test.describe('Server registration — shirt sizes', () => {
 		for (const label of LEGACY_SHIRT_LABELS) {
 			await expect(page.getByText(label, { exact: false })).toHaveCount(0);
 		}
+	});
+
+	test('asks before submitting when no size was chosen', async ({ page, request }) => {
+		const shirtTypes = await fetchServerShirtTypes(request);
+		test.skip(shirtTypes.length === 0, `Retreat ${RETREAT_ID} has no shirt types for servers`);
+
+		await openNewServerRegistration(page);
+		await fillStepsUntilServerInfo(page);
+		await goToSummary(page);
+
+		// Without a single size picked, the submit stops at the question instead
+		// of sending anything.
+		await page.getByRole('button', { name: /^Enviar$/ }).click();
+		await expect(page.getByText('¿No necesitas playera?')).toBeVisible();
+
+		// "I want to pick a size" goes back to the step-5 selects.
+		await page.getByRole('button', { name: /Quiero elegir talla/i }).click();
+		await expect(page.locator(`#shirt-${shirtTypes[0].id}`)).toBeVisible();
+
+		// With a size picked, submitting no longer asks.
+		await pickSize(page, shirtTypes[0].id, 'M');
+		await goToSummary(page);
+		const postRequest = page.waitForRequest(
+			(r) => r.url().includes('/participants/new') && r.method() === 'POST',
+		);
+		await page.getByRole('button', { name: /^Enviar$/ }).click();
+		const body = (await postRequest).postDataJSON();
+
+		// Guard: the spec must never write to the database.
+		expect(body.dryRun).toBe(true);
 	});
 
 	test('submitted payload carries the chosen sizes', async ({ page, request }) => {

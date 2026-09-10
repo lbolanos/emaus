@@ -1,4 +1,5 @@
 import { test, expect, devices, type APIRequestContext, type Page } from '@playwright/test';
+import { confirmNoShirtIfNeeded } from './helpers/registration';
 
 /**
  * E2E coverage for the public server registration on a phone.
@@ -228,6 +229,8 @@ test.describe('Registro de servidor en el teléfono', () => {
 			(r) => r.url().includes('/participants/new') && r.method() === 'POST',
 		);
 		await page.getByRole('button', { name: /^Enviar$/ }).click();
+		// Sin ninguna talla elegida, la app pregunta por las playeras antes del alta.
+		await confirmNoShirtIfNeeded(page);
 		const body = (await postRequest).postDataJSON();
 
 		// Guard: the spec must never write to the database.
