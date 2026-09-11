@@ -14,6 +14,7 @@ import { MessageTemplate } from '../entities/messageTemplate.entity';
 import { ParticipantCommunication } from '../entities/participantCommunication.entity';
 import { ParticipantFollowUp } from '../entities/participantFollowUp.entity';
 import { EmailService } from './emailService';
+import { hydrateParticipantRetreatContext } from './participantRetreatHydration';
 import { makeDateInTimezone } from '../utils/date.transformer';
 import {
 	buildServerRegistrationLink,
@@ -603,6 +604,34 @@ export class MessageSequenceService {
 	}
 
 	/**
+	 * `{participant.paymentRemaining}` es la única variable de plantilla respaldada
+	 * por getters de la entidad (computeCharges/totalPaid), que necesitan las
+	 * relations y el overlay per-retiro para dar un monto real. El participante
+	 * que llega del join de processDue (o del findOne de previewStep) viene
+	 * "pelado": sin relations ni overlay la variable resolvía a $0.00.
+	 *
+	 * Se hidrata con el mismo criterio que el sidebar (findParticipantById,
+	 * extraído a participantRetreatHydration para evitar el import circular), y
+	 * solo cuando la plantilla usa la variable — patrón lazy igual que `{table.*}`.
+	 *
+	 * Una futura variable basada en getters debe sumarse a este guard.
+	 */
+	private async hydrateParticipantForTemplateVariables(
+		participant: Participant,
+		retreatId: string,
+		templateMessage: string,
+	): Promise<Participant> {
+		if (!templateMessage.includes('{participant.paymentRemaining}')) return participant;
+		const hydrated = await AppDataSource.getRepository(Participant).findOne({
+			where: { id: participant.id },
+			relations: ['retreat', 'payments', 'debts'],
+		});
+		if (!hydrated) return participant;
+		await hydrateParticipantRetreatContext(hydrated, retreatId);
+		return hydrated;
+	}
+
+	/**
 	 * Procesa los mensajes vencidos (status pending, scheduledFor <= now).
 	 * EMAIL: envía y registra. WHATSAPP: encola para despacho asistido.
 	 * El destinatario puede ser el participante o un contacto de emergencia.
@@ -771,9 +800,17 @@ export class MessageSequenceService {
 				continue;
 			}
 
+			// Variables basadas en getters ({participant.paymentRemaining}): el
+			// participante del join viene sin relations ni overlay per-retiro.
+			const participantForTemplate = await this.hydrateParticipantForTemplateVariables(
+				participant,
+				sm.retreatId,
+				template.message,
+			);
+
 			const target = (sm.recipientTarget || 'participant') as MessageRecipientTarget;
 			const recipient = await this.resolveRecipient(
-				participant,
+				participantForTemplate,
 				target,
 				sm.retreatId,
 				sm.step?.recipientResponsibility,
@@ -795,7 +832,7 @@ export class MessageSequenceService {
 			}
 			const content = await this.resolveContent(
 				template.message,
-				participant,
+				participantForTemplate,
 				retreat,
 				recipient.contactKey,
 				sm.retreatId,
@@ -832,7 +869,7 @@ export class MessageSequenceService {
 			// el `content` sin escapar para no mostrar entidades (&amp;) al destinatario.
 			const htmlContent = await this.resolveContent(
 				template.message,
-				participant,
+				participantForTemplate,
 				retreat,
 				recipient.contactKey,
 				sm.retreatId,
@@ -1093,8 +1130,16 @@ export class MessageSequenceService {
 			};
 		}
 
-		const recipient = await this.resolveRecipient(
+		// Variables basadas en getters ({participant.paymentRemaining}): el
+		// findOne de arriba viene sin relations ni overlay per-retiro.
+		const participantForTemplate = await this.hydrateParticipantForTemplateVariables(
 			participant,
+			input.retreatId,
+			template.message,
+		);
+
+		const recipient = await this.resolveRecipient(
+			participantForTemplate,
 			input.recipientTarget,
 			input.retreatId,
 			input.recipientResponsibility,
@@ -1103,12 +1148,12 @@ export class MessageSequenceService {
 		// Un solo armado del roster, compartido por el render y por el chequeo de
 		// variables vacías.
 		const tableData = template.message.includes('{table.')
-			? await this.buildTableData(participant.id, input.retreatId)
+			? await this.buildTableData(participantForTemplate.id, input.retreatId)
 			: null;
 
 		const content = await this.resolveContent(
 			template.message,
-			participant,
+			participantForTemplate,
 			retreat,
 			recipient.contactKey,
 			input.retreatId,
@@ -1120,7 +1165,7 @@ export class MessageSequenceService {
 		// no sobre el texto ya resuelto (donde las variables ya no están).
 		const emptyVariables = findEmptyVariables(
 			template.message,
-			participant as any,
+			participantForTemplate as any,
 			retreat as any,
 			recipient.contactKey,
 			null,
