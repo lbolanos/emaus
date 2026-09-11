@@ -631,9 +631,19 @@ export const findAllParticipants = async (
   }
 
   // Always include payments, debts, retreat, and tags relations for paz y salvo
-  // calculations and tag display
+  // calculations and tag display. shirtSizes (+ its shirtType) feeds the computed
+  // garment charge in computeCharges().
   const allRelations = [
-    ...new Set([...relations, "payments", "debts", "retreat", "tags", "tags.tag"]),
+    ...new Set([
+      ...relations,
+      "payments",
+      "debts",
+      "retreat",
+      "tags",
+      "tags.tag",
+      "shirtSizes",
+      "shirtSizes.shirtType",
+    ]),
   ];
   if (includePayments) {
     allRelations.push("payments.recordedByUser");
@@ -680,6 +690,15 @@ export const findAllParticipants = async (
             "debts",
             "debts.retreatId = :debtsRetreatId",
             { debtsRetreatId: retreatId },
+          );
+        } else if (parts[0] === "shirtSizes") {
+          // Scope the garment order to the requested retreat. participant_shirt_size
+          // has no retreatId of its own — the retreat lives on the shirt type.
+          queryBuilder.leftJoinAndSelect(
+            "participant.shirtSizes",
+            "shirtSizes",
+            "shirtSizes.shirtTypeId IN (SELECT id FROM retreat_shirt_type WHERE retreatId = :shirtRetreatId)",
+            { shirtRetreatId: retreatId },
           );
         } else {
           queryBuilder.leftJoinAndSelect(`participant.${parts[0]}`, parts[0]);
@@ -1167,16 +1186,33 @@ export const findParticipantById = async (
     }
   }
 
-  // Incluir tallas de playera del retiro actual
+  // Incluir tallas de playera del retiro actual, con el tipo embebido (id, nombre,
+  // precio): computeCharges() → totalShirtCharge lee shirtType.price de aquí. Sin el
+  // tipo embebido el cargo de prendas saldría 0 en la ficha del participante.
   if (overlayRetreatId) {
-    const shirtSizesRows: { shirtTypeId: string; size: string }[] = await AppDataSource.query(
-      `SELECT pss.shirtTypeId, pss.size
+    const shirtSizesRows: {
+      shirtTypeId: string;
+      size: string;
+      name: string;
+      price: string | number | null;
+    }[] = await AppDataSource.query(
+      `SELECT pss.shirtTypeId, pss.size, rst.name, rst.price
        FROM participant_shirt_size pss
        INNER JOIN retreat_shirt_type rst ON rst.id = pss.shirtTypeId
-       WHERE pss.participantId = ? AND rst.retreatId = ?`,
+       WHERE pss.participantId = ? AND rst.retreatId = ?
+       ORDER BY rst.sortOrder IS NULL, rst.sortOrder, rst.name`,
       [participant.id, overlayRetreatId],
     );
-    (participant as any).shirtSizes = shirtSizesRows;
+    (participant as any).shirtSizes = shirtSizesRows.map((r) => ({
+      shirtTypeId: r.shirtTypeId,
+      size: r.size,
+      shirtType: {
+        id: r.shirtTypeId,
+        name: r.name,
+        retreatId: overlayRetreatId,
+        price: r.price != null && r.price !== "" ? Number(r.price) : null,
+      },
+    }));
   }
 
   return participant;

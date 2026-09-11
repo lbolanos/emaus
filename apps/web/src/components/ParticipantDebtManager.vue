@@ -167,6 +167,10 @@ const removeDebt = async (id: string) => {
         <span class="text-gray-600">{{ $t('debts.meals') }}</span>
         <span>{{ fmt(breakdown.meals) }}</span>
       </div>
+      <div v-if="breakdown.shirts" class="flex justify-between">
+        <span class="text-gray-600">{{ $t('debts.shirts') }}</span>
+        <span>{{ fmt(breakdown.shirts) }}</span>
+      </div>
       <div class="flex justify-between">
         <span class="text-gray-600">{{ $t('debts.debts') }}</span>
         <span>{{ fmt(breakdown.debts) }}</span>

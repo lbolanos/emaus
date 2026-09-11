@@ -20,7 +20,7 @@ import { ParticipantShirtSize } from '@/entities/participantShirtSize.entity';
 import { v4 as uuidv4 } from 'uuid';
 
 import { createShirtType } from '@/services/shirtTypeService';
-import { getShirtOrdersForRetreat } from '@/services/shirtReportService';
+import { getShirtOrdersForRetreat, getParticipantShirtOrderSummary } from '@/services/shirtReportService';
 
 const getDS = () => TestDataFactory['testDataSource'];
 
@@ -228,5 +228,184 @@ describe('Shirt Report Service', () => {
 		expect(result.participants).toHaveLength(1);
 		expect(result.participants[0].shirts).toHaveLength(1);
 		expect(result.participants[0].shirts[0].shirtTypeName).toBe('Playera A');
+	});
+
+	// --- Precio / shirtCharge / totalCharge ---
+
+	it('shirtTypes in the response include the price (or null when not configured)', async () => {
+		const retreatId = await makeRetreat();
+		await createShirtType(retreatId, { name: 'Playera', sortOrder: 1, price: 135 });
+		await createShirtType(retreatId, { name: 'Chamarra', sortOrder: 2 });
+
+		const result = await getShirtOrdersForRetreat(retreatId);
+		const playera = result.shirtTypes.find((t) => t.name === 'Playera')!;
+		const chamarra = result.shirtTypes.find((t) => t.name === 'Chamarra')!;
+		expect(playera.price).toBe(135);
+		expect(chamarra.price).toBeNull();
+	});
+
+	it('shirtCharge per participant adds up the price of each garment ordered', async () => {
+		const retreatId = await makeRetreat();
+		const playera = await createShirtType(retreatId, { name: 'Playera', sortOrder: 1, price: 135 });
+		const chamarra = await createShirtType(retreatId, { name: 'Chamarra', sortOrder: 2, price: 275 });
+
+		const server = await TestDataFactory.createTestParticipant(retreatId, {
+			firstName: 'Ana',
+			lastName: 'López',
+			type: 'server',
+		} as any);
+		await assignShirtSize(server.id, playera.id, 'M');
+		await assignShirtSize(server.id, chamarra.id, 'G');
+
+		const result = await getShirtOrdersForRetreat(retreatId);
+		expect(result.participants[0].shirtCharge).toBe(410);
+		expect(result.participants[0].shirts.find((s) => s.shirtTypeName === 'Playera')?.price).toBe(
+			135,
+		);
+	});
+
+	it('shirtCharge is 0 when the type has no price configured', async () => {
+		const retreatId = await makeRetreat();
+		const shirt = await createShirtType(retreatId, { name: 'Playera' });
+
+		const server = await TestDataFactory.createTestParticipant(retreatId, {
+			firstName: 'Sin',
+			lastName: 'Precio',
+			type: 'server',
+		} as any);
+		await assignShirtSize(server.id, shirt.id, 'M');
+
+		const result = await getShirtOrdersForRetreat(retreatId);
+		expect(result.participants[0].shirtCharge).toBe(0);
+		expect(result.participants[0].shirts[0].price).toBeNull();
+	});
+
+	it('totalCharge in the response adds up the shirtCharge of all participants', async () => {
+		const retreatId = await makeRetreat();
+		const playera = await createShirtType(retreatId, { name: 'Playera', price: 135 });
+
+		const server = await TestDataFactory.createTestParticipant(retreatId, {
+			firstName: 'Ana',
+			lastName: 'López',
+			type: 'server',
+		} as any);
+		await assignShirtSize(server.id, playera.id, 'M');
+
+		const angel = await TestDataFactory.createTestParticipant(retreatId, {
+			firstName: 'Beto',
+			lastName: 'Pérez',
+			type: 'partial_server',
+		} as any);
+		await assignShirtSize(angel.id, playera.id, 'S');
+
+		const result = await getShirtOrdersForRetreat(retreatId);
+		expect(result.totalCharge).toBe(270);
+	});
+
+	it('totalCharge is 0 when there are no participants with garments', async () => {
+		const retreatId = await makeRetreat();
+		const result = await getShirtOrdersForRetreat(retreatId);
+		expect(result.totalCharge).toBe(0);
+	});
+});
+
+describe('getParticipantShirtOrderSummary', () => {
+	beforeAll(async () => {
+		await setupTestDatabase();
+	});
+
+	afterAll(async () => {
+		await teardownTestDatabase();
+	});
+
+	beforeEach(async () => {
+		await clearTestData();
+	});
+
+	it('server: charges for a garment with a configured price', async () => {
+		const retreatId = await makeRetreat();
+		const shirt = await createShirtType(retreatId, { name: 'Playera', price: 150 });
+		const server = await TestDataFactory.createTestParticipant(retreatId, {
+			type: 'server',
+		} as any);
+		await assignShirtSize(server.id, shirt.id, 'M');
+
+		const result = await getParticipantShirtOrderSummary(server.id, retreatId);
+		expect(result.shirtCharge).toBe(150);
+		expect(result.shirtOrderSummary).toContain('Playera');
+	});
+
+	it('partial_server (angelito): charges the same as a server', async () => {
+		const retreatId = await makeRetreat();
+		const shirt = await createShirtType(retreatId, { name: 'Playera', price: 150 });
+		const angel = await TestDataFactory.createTestParticipant(retreatId, {
+			type: 'partial_server',
+		} as any);
+		await assignShirtSize(angel.id, shirt.id, 'S');
+
+		const result = await getParticipantShirtOrderSummary(angel.id, retreatId);
+		expect(result.shirtCharge).toBe(150);
+	});
+
+	// Regression: `computeCharges()` on the entity only charges server/partial_server
+	// for garments — a walker's shirt is included in their retreat fee, not billed
+	// separately. Without this guard, `GET /participants/:id/shirt-order` would show
+	// a nonzero charge for a walker (they can have rows in `participant_shirt_size`
+	// via a `requiredForWalkers` garment type that independently carries a price),
+	// which the real balance never reflects — misleading in a manual message.
+	it('walker: never charges, even for a garment with a configured price (matches computeCharges)', async () => {
+		const retreatId = await makeRetreat();
+		const shirt = await createShirtType(retreatId, {
+			name: 'Playera',
+			price: 150,
+			requiredForWalkers: true,
+		});
+		const walker = await TestDataFactory.createTestParticipant(retreatId, {
+			type: 'walker',
+		} as any);
+		await assignShirtSize(walker.id, shirt.id, 'M');
+
+		const result = await getParticipantShirtOrderSummary(walker.id, retreatId);
+		expect(result.shirtCharge).toBe(0);
+		// The garment itself is still listed (informational), just without a price.
+		expect(result.shirtOrderSummary).toContain('Playera');
+		expect(result.shirtOrderSummary).not.toContain('150');
+	});
+
+	it('resolves the type via retreat_participants when participantType is not passed', async () => {
+		const retreatId = await makeRetreat();
+		const shirt = await createShirtType(retreatId, { name: 'Playera', price: 150 });
+		const walker = await TestDataFactory.createTestParticipant(retreatId, {
+			type: 'walker',
+		} as any);
+		await assignShirtSize(walker.id, shirt.id, 'M');
+
+		// No third argument: must look up the type itself and still exclude walkers.
+		const result = await getParticipantShirtOrderSummary(walker.id, retreatId);
+		expect(result.shirtCharge).toBe(0);
+	});
+
+	it('honors an explicit participantType, skipping the retreat_participants lookup', async () => {
+		const retreatId = await makeRetreat();
+		const shirt = await createShirtType(retreatId, { name: 'Playera', price: 150 });
+		const server = await TestDataFactory.createTestParticipant(retreatId, {
+			type: 'server',
+		} as any);
+		await assignShirtSize(server.id, shirt.id, 'M');
+
+		// Passing 'walker' explicitly (even though the row says 'server') should be honored.
+		const result = await getParticipantShirtOrderSummary(server.id, retreatId, 'walker');
+		expect(result.shirtCharge).toBe(0);
+	});
+
+	it('falls back to the "not configured" message when there are no rows', async () => {
+		const retreatId = await makeRetreat();
+		const server = await TestDataFactory.createTestParticipant(retreatId, {
+			type: 'server',
+		} as any);
+
+		const result = await getParticipantShirtOrderSummary(server.id, retreatId);
+		expect(result.shirtOrderSummary).toBe('Aún no has configurado tus tallas');
+		expect(result.shirtCharge).toBe(0);
 	});
 });

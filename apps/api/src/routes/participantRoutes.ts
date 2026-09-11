@@ -6,6 +6,7 @@ import {
 	getAllParticipants,
 	getParticipantById,
 	getParticipantNextMeeting,
+	getParticipantShirtOrder,
 	importParticipants,
 	updateParticipant,
 	updateSelfParticipant,
@@ -58,6 +59,11 @@ router.get(
 	'/:id/next-meeting',
 	requirePermission('participant:read'),
 	getParticipantNextMeeting,
+);
+router.get(
+	'/:id/shirt-order',
+	requirePermission('participant:read'),
+	getParticipantShirtOrder,
 );
 router.post(
 	'/import/:retreatId',

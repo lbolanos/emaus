@@ -1,6 +1,8 @@
 # Reporte de Camisetas
 
-Vista de **confirmación uno-a-uno** de las prendas (playera, chamarra, etc.) que pidieron servidores y angelitos de un retiro. Pensada para imprimirse y llevarse a la reunión semanal de preparación, donde el coordinador valida con cada persona qué pidió y de qué talla.
+Vista de **confirmación uno-a-uno** de las prendas (playera, chamarra, etc.) que pidieron servidores y angelitos de un retiro, con el **valor a cobrar** por cada una. Pensada para imprimirse y llevarse a la reunión semanal de preparación, donde el coordinador valida con cada persona qué pidió y de qué talla.
+
+Cada tipo de prenda puede tener un `price` (configurable en `/app/settings/shirt-types`); ese valor se suma al saldo esperado de servidores y angelitos (`Participant.chargeBreakdown.shirts`) — el caminante no lo paga aparte, va incluido en la cuota del retiro. Detalle del cargo: [Confirmación de camisetas y precio por prenda](./shirt-pricing-and-confirmation.md).
 
 > No confundir con [Reporte de Bolsas](./bags-report.md) (sólo caminantes, una talla simple) ni con el [Inventario](../../apps/api/src/services/inventoryService.ts) (conteos agregados para compra).
 
@@ -23,6 +25,7 @@ Permiso requerido: `participant:read` (mismo nivel que ver el listado de servido
 | Servidores | Cuenta de `type = 'server'` con al menos una prenda solicitada |
 | Angelitos | Cuenta de `type = 'partial_server'` con al menos una prenda solicitada |
 | Prendas | Total de filas en `participant_shirt_size` para los participantes listados |
+| Valor total | Suma de `shirtCharge` de todos los participantes listados (`totalCharge` de la respuesta) |
 
 Botón **Imprimir** a la derecha (icono de impresora) que ejecuta `window.print()`.
 
@@ -43,10 +46,11 @@ Después se agrega una columna por cada tipo de prenda configurado (orden por `s
 - Si la persona pidió esa prenda, muestra la talla en un badge índigo (`S`, `M`, `G`, `X`, `2`, etc.).
 - Si **no** la pidió, muestra `—`.
 
-Última columna fija:
+Últimas columnas fijas:
 
 | Columna fija | Descripción |
 |---|---|
+| Valor | `shirtCharge` de la persona (suma del precio de cada prenda con precio configurado; `$0.00` si ninguna lo tiene) |
 | `✓` | Cuadrito vacío con borde — para que el coordinador marque a mano cuando confirma con la persona |
 
 **Ordenamiento**: por `lastName`, luego `firstName` (alfabético, en SQL).
@@ -121,7 +125,7 @@ Internamente hace:
 2. **Single SQL query** con joins:
 
    ```sql
-   SELECT p.*, rp.idOnRetreat, rp.type, pss.shirtTypeId, rst.name, pss.size, ...
+   SELECT p.*, rp.idOnRetreat, rp.type, pss.shirtTypeId, rst.name, pss.size, rst.price, ...
      FROM participants p
      INNER JOIN retreat_participants rp
        ON rp.participantId = p.id
@@ -139,7 +143,7 @@ Internamente hace:
      ORDER BY p.lastName ASC, p.firstName ASC, rst.sortOrder ASC
    ```
 
-3. **Agrupar** las filas por `participantId` para producir el array `participants[].shirts[]`.
+3. **Agrupar** las filas por `participantId` para producir el array `participants[].shirts[]`, sumando `shirtCharge` por persona y `totalCharge` global (redondeo a centavos en cada suma; SQLite devuelve `decimal` como string, siempre `Number(...)` antes de sumar).
 
 #### Controller y route
 
@@ -157,12 +161,14 @@ Devuelve `ShirtReportResponse`:
 
 ```ts
 {
-  shirtTypes: Array<{ id, name, color, sortOrder }>,
+  shirtTypes: Array<{ id, name, color, sortOrder, price: number | null }>,
   participants: Array<{
     participantId, firstName, lastName, idOnRetreat,
     type: 'server' | 'partial_server',
-    shirts: Array<{ shirtTypeId, shirtTypeName, color, sortOrder, size }>,
+    shirts: Array<{ shirtTypeId, shirtTypeName, color, sortOrder, size, price: number | null }>,
+    shirtCharge: number,
   }>,
+  totalCharge: number,
 }
 ```
 
@@ -172,10 +178,10 @@ Devuelve `ShirtReportResponse`:
 packages/types/src/index.ts (sección "Shirt Report")
 ```
 
-- `shirtReportShirtSchema` / `ShirtReportShirt`
-- `shirtReportParticipantSchema` / `ShirtReportParticipant`
-- `shirtReportShirtTypeSchema` / `ShirtReportShirtType`
-- `shirtReportResponseSchema` / `ShirtReportResponse`
+- `shirtReportShirtSchema` / `ShirtReportShirt` — incluye `price: number | null`.
+- `shirtReportParticipantSchema` / `ShirtReportParticipant` — incluye `shirtCharge: number`.
+- `shirtReportShirtTypeSchema` / `ShirtReportShirtType` — incluye `price: number | null`.
+- `shirtReportResponseSchema` / `ShirtReportResponse` — incluye `totalCharge: number`.
 
 ### Frontend
 
@@ -198,7 +204,7 @@ Reusa las tablas existentes (no agrega ninguna):
 - `participants` — datos personales.
 - `retreat_participants` — overlay por retiro (`type`, `isCancelled`, `idOnRetreat`).
 - `participant_shirt_size` — relación M:N persona ↔ tipo de playera + talla.
-- `retreat_shirt_type` — catálogo de tipos por retiro.
+- `retreat_shirt_type` — catálogo de tipos por retiro; columna `price` (nullable, `NULL`/`0` = sin cargo) agregada por la migración `ServerShirtPricingAndConfirmation`.
 
 ---
 
@@ -210,7 +216,7 @@ Reusa las tablas existentes (no agrega ninguna):
 apps/api/src/tests/services/shirtReportService.test.ts
 ```
 
-8 casos:
+13 casos:
 
 - Devuelve arrays vacíos cuando no hay datos.
 - `shirtTypes` ordenados por `sortOrder` independientemente del orden de inserción.
@@ -220,6 +226,11 @@ apps/api/src/tests/services/shirtReportService.test.ts
 - Incluye ambos (server + partial_server) con todas sus prendas.
 - Filtra placeholders de talla (`''`, `'null'`, `NULL`).
 - No mezcla prendas de otro retiro.
+- `shirtTypes` incluyen el precio (o `null` si no está configurado).
+- `shirtCharge` por participante suma el precio de cada prenda pedida.
+- `shirtCharge` es 0 cuando el tipo no tiene precio configurado.
+- `totalCharge` suma el `shirtCharge` de todos los participantes.
+- `totalCharge` es 0 cuando no hay participantes con prendas.
 
 ```bash
 pnpm --filter api test src/tests/services/shirtReportService.test.ts
@@ -231,7 +242,7 @@ pnpm --filter api test src/tests/services/shirtReportService.test.ts
 apps/web/src/views/__tests__/ShirtsReportView.test.ts
 ```
 
-19 casos: carga inicial, header con totales, columnas dinámicas, badges de tipo, render de tallas y `—`, búsqueda por nombre/número/talla, estado vacío, footer con conteos, e impresión.
+18 casos: carga inicial, header con totales (incluye el tile de valor), columnas dinámicas (incluye la columna Valor), badges de tipo, render de tallas y `—`, búsqueda por nombre/número/talla, estado vacío, footer con conteos, e impresión.
 
 ```bash
 pnpm --filter web test src/views/__tests__/ShirtsReportView.test.ts

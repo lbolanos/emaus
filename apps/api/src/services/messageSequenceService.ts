@@ -28,10 +28,19 @@ import { getMessageTemplateAudience } from '@repo/types';
 import { savedSegmentService } from './savedSegmentService';
 import { CommunityMember } from '../entities/communityMember.entity';
 import { EMAIL_SILENT_STATES } from './communityService';
+import { getParticipantShirtOrderSummary } from './shirtReportService';
 
 const DEFAULT_TZ = process.env.APP_TIMEZONE || 'America/Mexico_City';
 /** Máximo de reintentos de envío de email ante fallo (SMTP transitorio). */
 const MAX_ATTEMPTS = 3;
+
+/**
+ * Contexto `{participant.shirt*}`. Alias local del tipo que exporta
+ * `shirtReportService.getParticipantShirtOrderSummary` — mismo shape,
+ * usado también por el endpoint `GET /participants/:id/shirt-order` que
+ * alimenta el envío manual (`MessageDialog.vue`/`BaseMessageTemplateModal.vue`).
+ */
+type ShirtOrderContext = { shirtOrderSummary: string; shirtCharge: number };
 /**
  * Días de gracia tras el fin del retiro durante los cuales una secuencia
  * `days_after_retreat` sigue siendo relevante (cubre offsets razonables del
@@ -505,6 +514,7 @@ export class MessageSequenceService {
 		// ~6 consultas; el preview lo necesita también para `findEmptyVariables`
 		// y sin esto lo armaba dos veces por vista previa de un briefing.
 		precomputedTableData?: TableData | null,
+		precomputedShirtOrder?: ShirtOrderContext | null,
 	): Promise<string> {
 		const tableData =
 			precomputedTableData !== undefined
@@ -512,6 +522,27 @@ export class MessageSequenceService {
 				: message.includes('{table.')
 					? await this.buildTableData(participant.id, retreatId)
 					: null;
+		// Mismo patrón lazy que {table.*}: el pedido de prendas sólo se consulta
+		// si la plantilla lo usa (confirmación de camisetas).
+		const shirtOrder =
+			precomputedShirtOrder !== undefined
+				? precomputedShirtOrder
+				: message.includes('{participant.shirt')
+					? await getParticipantShirtOrderSummary(participant.id, retreatId)
+					: null;
+		// OJO: `{...participant, ...}` NO alcanza — un spread de la instancia solo
+		// copia propiedades propias enumerables, y los getters de la clase
+		// (paymentRemaining, chargeBreakdown, paymentStatus, ...) viven en el
+		// prototipo, así que se perderían para CUALQUIER otra variable basada en
+		// getter que la plantilla combine con {participant.shirt*}. `toJSON()` ya
+		// resuelve exactamente este problema (ver su comentario en la entidad).
+		const participantWithShirtOrder = shirtOrder
+			? {
+					...participant.toJSON(),
+					shirtOrderSummary: shirtOrder.shirtOrderSummary,
+					shirtCharge: shirtOrder.shirtCharge,
+				}
+			: participant;
 		// El enlace de alta de servidores se resuelve aquí porque el origen es del
 		// entorno, no del retiro. Mismo helper que usa el cliente, para que la
 		// convocatoria mande exactamente la misma URL desde los dos caminos.
@@ -524,7 +555,7 @@ export class MessageSequenceService {
 		};
 		return replaceAllVariables(
 			message,
-			participant as any,
+			participantWithShirtOrder as any,
 			retreatWithLinks as any,
 			contactKey,
 			null,
@@ -1150,6 +1181,23 @@ export class MessageSequenceService {
 		const tableData = template.message.includes('{table.')
 			? await this.buildTableData(participantForTemplate.id, input.retreatId)
 			: null;
+		// Pedido de prendas para {participant.shirt*} (confirmación de camisetas):
+		// un solo armado, compartido por render y chequeo de vacías.
+		const shirtOrder = template.message.includes('{participant.shirt')
+			? await getParticipantShirtOrderSummary(participant.id, input.retreatId)
+			: null;
+		// Mismo motivo que en resolveContent: toJSON() en vez de spread para no
+		// perder los getters (paymentRemaining, chargeBreakdown, ...) cuando la
+		// plantilla combina {participant.shirt*} con otra variable calculada.
+		// Se arma desde el participante HIDRATADO: toJSON() resuelve los getters
+		// contra las relations y el overlay per-retiro, no contra el findOne pelado.
+		const participantWithShirtOrder = shirtOrder
+			? {
+					...participantForTemplate.toJSON(),
+					shirtOrderSummary: shirtOrder.shirtOrderSummary,
+					shirtCharge: shirtOrder.shirtCharge,
+				}
+			: participantForTemplate;
 
 		const content = await this.resolveContent(
 			template.message,
@@ -1159,13 +1207,14 @@ export class MessageSequenceService {
 			input.retreatId,
 			input.channel === 'email',
 			tableData,
+			shirtOrder,
 		);
 
 		// `findEmptyVariables` se evalúa sobre la plantilla CRUDA y su contexto,
 		// no sobre el texto ya resuelto (donde las variables ya no están).
 		const emptyVariables = findEmptyVariables(
 			template.message,
-			participantForTemplate as any,
+			participantWithShirtOrder as any,
 			retreat as any,
 			recipient.contactKey,
 			null,

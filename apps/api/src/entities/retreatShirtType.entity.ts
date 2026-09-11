@@ -43,6 +43,15 @@ export class RetreatShirtType {
 	@Column('simple-json', { nullable: true })
 	availableSizes?: string[] | null;
 
+	/**
+	 * Precio de esta prenda para el servidor que la pide. NULL/0 = sin cargo:
+	 * hasta que el coordinador fija precios, ningún saldo cambia. El cargo se
+	 * computa desde participant_shirt_size (nunca una deuda manual), así que
+	 * cambiar la talla recalcula el saldo solo.
+	 */
+	@Column('decimal', { precision: 10, scale: 2, nullable: true })
+	price?: number | null;
+
 	@OneToMany(() => ParticipantShirtSize, (s) => s.shirtType)
 	sizes?: ParticipantShirtSize[];
 

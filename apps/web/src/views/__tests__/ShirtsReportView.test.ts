@@ -54,6 +54,7 @@ vi.mock('lucide-vue-next', () => {
     Users: icon('users'),
     Sparkles: icon('sparkles'),
     Package: icon('package'),
+    Wallet: icon('wallet'),
   };
 });
 
@@ -214,8 +215,8 @@ describe('ShirtsReportView', () => {
       });
       await flushPromises();
       const headers = w.findAll('thead th').map((th) => th.text());
-      // # | Nombre | Playera | Chamarra | ✓
-      expect(headers).toEqual(['#', 'Nombre', 'Playera', 'Chamarra', '✓']);
+      // # | Nombre | Playera | Chamarra | Valor | ✓
+      expect(headers).toEqual(['#', 'Nombre', 'Playera', 'Chamarra', 'Valor', '✓']);
     });
 
     it('muestra la talla en la columna correcta y "—" cuando no pidió ese tipo', async () => {

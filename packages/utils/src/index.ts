@@ -391,6 +391,14 @@ export interface ParticipantData {
 	paymentAmount?: number;
 	/** Saldo pendiente (computado por el backend): 0 = paz y salvo. */
 	paymentRemaining?: number | string;
+	/**
+	 * Resumen legible de las prendas pedidas por un servidor (una línea por
+	 * prenda, con talla y precio), o texto de "sin configurar" si no pidió nada.
+	 * Lo hidrata el backend al resolver la secuencia de confirmación de prendas.
+	 */
+	shirtOrderSummary?: string;
+	/** Valor total de las prendas pedidas (computado por el backend). */
+	shirtCharge?: number | string;
 	isScholarship?: boolean;
 	palancasCoordinator?: string;
 	palancasRequested?: boolean;
@@ -806,6 +814,8 @@ const getMockParticipant = (): ParticipantData => {
 		paymentDate: '2024-01-15',
 		paymentAmount: 1500,
 		paymentRemaining: 1300,
+		shirtOrderSummary: 'Camiseta Blanca Emaús (talla M) — $250.00\nChamarra (talla G) — $500.00',
+		shirtCharge: 750,
 		isScholarship: false,
 		palancasCoordinator: 'Palanquero 1',
 		palanquero: {
@@ -963,6 +973,9 @@ const buildParticipantReplacements = (
 			participantData.paymentRemaining != null
 				? formatCurrency(participantData.paymentRemaining)
 				: '',
+		'participant.shirtOrderSummary': participantData.shirtOrderSummary || '',
+		'participant.shirtCharge':
+			participantData.shirtCharge != null ? formatCurrency(participantData.shirtCharge) : '',
 		'participant.isScholarship': participantData.isScholarship ? 'Sí' : 'No',
 		'participant.palancasCoordinator': participantData.palancasCoordinator || '',
 		'participant.palanqueroName': participantData.palanquero?.name || '',

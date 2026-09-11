@@ -975,6 +975,22 @@ export const getParticipantNextMeeting = async (
   return response.data;
 };
 
+/**
+ * Resumen del pedido de prendas de un participante en un retiro, para
+ * resolver `{participant.shirtOrderSummary}`/`{participant.shirtCharge}` al
+ * enviar un mensaje manual (el motor de secuencias automáticas ya las
+ * resuelve solo, server-side). Mismo patrón que `getParticipantNextMeeting`.
+ */
+export const getParticipantShirtOrder = async (
+  participantId: string,
+  retreatId: string,
+): Promise<{ shirtOrderSummary: string; shirtCharge: number }> => {
+  const response = await api.get(`/participants/${participantId}/shirt-order`, {
+    params: { retreatId },
+  });
+  return response.data;
+};
+
 export async function updateBagMade(
   retreatId: string,
   participantId: string,
@@ -3699,6 +3715,8 @@ export type ShirtTypeDTO = {
   optionalForServers: boolean;
   sortOrder: number;
   availableSizes?: string[] | null;
+  /** Precio de la prenda. Se cobra solo a servidores/angelitos. Null/0 = sin cargo. */
+  price?: number | null;
 };
 
 export const listShirtTypes = async (retreatId: string): Promise<ShirtTypeDTO[]> => {

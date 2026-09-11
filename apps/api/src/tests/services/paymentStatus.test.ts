@@ -4,6 +4,8 @@ import { Participant } from '../../entities/participant.entity';
 import { Payment } from '../../entities/payment.entity';
 import { ParticipantDebt } from '../../entities/participantDebt.entity';
 import { Retreat } from '../../entities/retreat.entity';
+import { ParticipantShirtSize } from '../../entities/participantShirtSize.entity';
+import { RetreatShirtType } from '../../entities/retreatShirtType.entity';
 
 const makePayment = (amount: number): Payment => {
 	const p = new Payment();
@@ -24,6 +26,7 @@ const makeRetreat = (
 	fees?: {
 		serverFeeAmount?: number | null;
 		mealCost?: number | null;
+		id?: string;
 	},
 ): Retreat => {
 	const r = new Retreat();
@@ -31,8 +34,25 @@ const makeRetreat = (
 	if (fees) {
 		if (fees.serverFeeAmount !== undefined) r.serverFeeAmount = fees.serverFeeAmount;
 		if (fees.mealCost !== undefined) r.mealCost = fees.mealCost;
+		if (fees.id !== undefined) r.id = fees.id;
 	}
 	return r;
+};
+
+const makeShirtType = (id: string, retreatId: string, price: number | null): RetreatShirtType => {
+	const t = new RetreatShirtType();
+	t.id = id;
+	t.retreatId = retreatId;
+	t.price = price;
+	return t;
+};
+
+const makeShirtSize = (shirtType: RetreatShirtType, size = 'M'): ParticipantShirtSize => {
+	const s = new ParticipantShirtSize();
+	s.shirtTypeId = shirtType.id;
+	s.shirtType = shirtType;
+	s.size = size;
+	return s;
 };
 
 const makeParticipant = (opts: {
@@ -43,6 +63,7 @@ const makeParticipant = (opts: {
 	mealCount?: number | null;
 	takesFridayMeal?: boolean | null;
 	retreat?: Retreat | null;
+	shirtSizes?: ParticipantShirtSize[];
 }): Participant => {
 	const p = new Participant();
 	if (opts.type !== undefined) (p as any).type = opts.type;
@@ -54,6 +75,7 @@ const makeParticipant = (opts: {
 	if (opts.retreat !== undefined) {
 		p.retreat = opts.retreat as any;
 	}
+	if (opts.shirtSizes !== undefined) p.shirtSizes = opts.shirtSizes;
 	return p;
 };
 
@@ -237,6 +259,116 @@ describe('Participant — cargos por tipo (paz y salvo v2)', () => {
 		});
 		expect(p.chargeBreakdown.expected).toBe(0);
 		expect(p.paymentStatus).toBe('scholarship');
+	});
+});
+
+describe('Participant — shirt charge (totalShirtCharge / chargeBreakdown.shirts)', () => {
+	const retreat = () => makeRetreat('$2,800', { serverFeeAmount: 1500, mealCost: 150, id: 'ret-1' });
+
+	it('server with one priced garment: it is added to the expected amount', () => {
+		const shirtType = makeShirtType('st-1', 'ret-1', 250);
+		const p = makeParticipant({
+			type: 'server',
+			retreat: retreat(),
+			takesFridayMeal: false,
+			shirtSizes: [makeShirtSize(shirtType)],
+		});
+		expect(p.chargeBreakdown.shirts).toBe(250);
+		expect(p.chargeBreakdown.expected).toBe(1750);
+	});
+
+	it('server with several garments: all of them are added up', () => {
+		const shirtType1 = makeShirtType('st-1', 'ret-1', 250);
+		const shirtType2 = makeShirtType('st-2', 'ret-1', 500);
+		const p = makeParticipant({
+			type: 'server',
+			retreat: retreat(),
+			takesFridayMeal: false,
+			shirtSizes: [makeShirtSize(shirtType1), makeShirtSize(shirtType2, 'G')],
+		});
+		expect(p.chargeBreakdown.shirts).toBe(750);
+		expect(p.chargeBreakdown.expected).toBe(2250);
+	});
+
+	it('walker with the same garment: it is NOT added (it is included in the retreat fee)', () => {
+		const shirtType = makeShirtType('st-1', 'ret-1', 250);
+		const p = makeParticipant({
+			type: 'walker',
+			retreat: retreat(),
+			shirtSizes: [makeShirtSize(shirtType)],
+		});
+		expect(p.chargeBreakdown.shirts).toBe(0);
+		expect(p.chargeBreakdown.expected).toBe(2800);
+	});
+
+	it('angelito (partial_server) with a garment: added the same as for a server', () => {
+		const shirtType = makeShirtType('st-1', 'ret-1', 300);
+		const p = makeParticipant({
+			type: 'partial_server',
+			retreat: retreat(),
+			mealCount: 2,
+			shirtSizes: [makeShirtSize(shirtType)],
+		});
+		expect(p.chargeBreakdown.shirts).toBe(300);
+		expect(p.chargeBreakdown.expected).toBe(600);
+	});
+
+	it('scholarship: exempt from the shirt charge too (expected 0)', () => {
+		const shirtType = makeShirtType('st-1', 'ret-1', 250);
+		const p = makeParticipant({
+			type: 'server',
+			isScholarship: true,
+			retreat: retreat(),
+			shirtSizes: [makeShirtSize(shirtType)],
+		});
+		expect(p.chargeBreakdown.shirts).toBe(0);
+		expect(p.chargeBreakdown.expected).toBe(0);
+	});
+
+	it('garment type with no price (null): adds nothing', () => {
+		const shirtType = makeShirtType('st-1', 'ret-1', null);
+		const p = makeParticipant({
+			type: 'server',
+			retreat: retreat(),
+			takesFridayMeal: false,
+			shirtSizes: [makeShirtSize(shirtType)],
+		});
+		expect(p.chargeBreakdown.shirts).toBe(0);
+		expect(p.chargeBreakdown.expected).toBe(1500);
+	});
+
+	it('garment from ANOTHER retreat (same global participant): excluded from the charge', () => {
+		// participant_shirt_size has no retreatId of its own — the filter is via
+		// shirtType.retreatId === participant.retreat.id. A row from another
+		// retreat must never be added to the balance of the retreat in context.
+		const shirtTypeOtherRetreat = makeShirtType('st-1', 'ret-OTHER', 250);
+		const p = makeParticipant({
+			type: 'server',
+			retreat: retreat(), // ret-1
+			takesFridayMeal: false,
+			shirtSizes: [makeShirtSize(shirtTypeOtherRetreat)],
+		});
+		expect(p.chargeBreakdown.shirts).toBe(0);
+		expect(p.chargeBreakdown.expected).toBe(1500);
+	});
+
+	it('with shirtSizes not loaded (relation not included): totalShirtCharge is 0, doesn\'t break', () => {
+		const p = makeParticipant({ type: 'server', retreat: retreat(), takesFridayMeal: false });
+		expect(p.totalShirtCharge).toBe(0);
+		expect(p.chargeBreakdown.shirts).toBe(0);
+	});
+
+	it('the shirt charge reduces paymentRemaining along with the rest of the charges', () => {
+		const shirtType = makeShirtType('st-1', 'ret-1', 250);
+		const p = makeParticipant({
+			type: 'server',
+			retreat: retreat(),
+			takesFridayMeal: false,
+			shirtSizes: [makeShirtSize(shirtType)],
+			payments: [makePayment(1000)],
+		});
+		// expected = 1500 (fee) + 250 (shirt) = 1750; paid 1000 → 750 remaining
+		expect(p.paymentRemaining).toBe(750);
 	});
 });
 

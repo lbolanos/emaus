@@ -38,6 +38,10 @@ export enum GlobalMessageTemplateType {
 	FAMILY_CLOSING_INVITATION_WHATSAPP = 'FAMILY_CLOSING_INVITATION_WHATSAPP',
 	FAMILY_CLOSING_INVITATION_EMAIL = 'FAMILY_CLOSING_INVITATION_EMAIL',
 
+	// Server garment (shirt/jacket) confirmation: notice + reminder
+	SERVER_SHIRT_CONFIRMATION = 'SERVER_SHIRT_CONFIRMATION',
+	SERVER_SHIRT_CONFIRMATION_REMINDER = 'SERVER_SHIRT_CONFIRMATION_REMINDER',
+
 	// System-wide templates with SYS_ prefix
 	SYS_PASSWORD_RESET = 'SYS_PASSWORD_RESET',
 	SYS_USER_INVITATION = 'SYS_USER_INVITATION',
@@ -89,6 +93,9 @@ export class GlobalMessageTemplate implements IGlobalMessageTemplate {
 		// Family invitation to closing mass
 		| 'FAMILY_CLOSING_INVITATION_WHATSAPP'
 		| 'FAMILY_CLOSING_INVITATION_EMAIL'
+		// Server garment (shirt/jacket) confirmation: notice + reminder
+		| 'SERVER_SHIRT_CONFIRMATION'
+		| 'SERVER_SHIRT_CONFIRMATION_REMINDER'
 		// System-wide templates with SYS_ prefix
 		| 'SYS_PASSWORD_RESET'
 		| 'SYS_USER_INVITATION'

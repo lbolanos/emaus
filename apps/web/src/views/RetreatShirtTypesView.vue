@@ -37,6 +37,7 @@ const draft = ref<Partial<ShirtTypeDTO> & { _newSize?: string }>({
   optionalForServers: true,
   sortOrder: 0,
   availableSizes: ['S', 'M', 'G', 'X', '2'],
+  price: null,
   _newSize: '',
 })
 
@@ -120,6 +121,7 @@ async function add() {
       optionalForServers: true,
       sortOrder: items.value.length + 1,
       availableSizes: carriedSizes,
+      price: null,
       _newSize: '',
     }
     await load()
@@ -199,10 +201,15 @@ watch(retreatId, (newId, oldId) => {
           </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <Label>Orden</Label>
             <Input type="number" v-model.number="draft.sortOrder" />
+          </div>
+          <div>
+            <Label>Precio ($)</Label>
+            <Input type="number" step="0.01" min="0" v-model.number="draft.price" placeholder="0.00" />
+            <p class="text-xs text-muted-foreground mt-1">Vacío o 0 = sin cargo</p>
           </div>
           <button
             type="button"
@@ -322,10 +329,15 @@ watch(retreatId, (newId, oldId) => {
               </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
               <div>
                 <Label class="text-xs">Orden</Label>
                 <Input type="number" v-model.number="item.sortOrder" />
+              </div>
+              <div>
+                <Label class="text-xs">Precio ($)</Label>
+                <Input type="number" step="0.01" min="0" v-model.number="item.price" placeholder="0.00" />
+                <p class="text-xs text-muted-foreground mt-1">Vacío o 0 = sin cargo</p>
               </div>
               <button
                 type="button"
