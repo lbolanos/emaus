@@ -1936,7 +1936,7 @@
       "notFound": "No previous registration found. Please fill out the form.",
       "confirmIdentity": "Is this you?",
       "confirmMessage": "Hello {name}, by confirming you will be registered for this retreat.",
-      "confirmButton": "Yes, that's me",
+      "confirmButton": "Yes, that's me — register me",
       "denyButton": "No, register as new",
       "deniedTitle": "Use your own email",
       "deniedUseAnotherEmail": "That email belongs to someone else's registration, so it can't be used for yours. Enter an email of your own to continue; if the registration was in fact yours, go back and confirm your identity.",
@@ -1944,6 +1944,12 @@
       "alreadyRegistered": "This email is already registered for this retreat.",
       "alreadyRegisteredAsWalker": "This email is already registered for this retreat as a walker.",
       "alreadyRegisteredAsServer": "This email is already registered for this retreat as a server."
+    },
+    "shirtConfirm": {
+      "title": "Don't you need a shirt?",
+      "description": "You did not pick a size for any shirt. If you need one, go back and choose your size before continuing.",
+      "confirm": "I don't need a shirt, register me",
+      "back": "I want to pick a size"
     },
     "tabs": {
       "personalInfo": "Personal Information",

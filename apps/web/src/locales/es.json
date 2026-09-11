@@ -2031,7 +2031,7 @@
       "notFound": "No se encontró un registro previo. Por favor llena el formulario.",
       "confirmIdentity": "¿Eres tú?",
       "confirmMessage": "Hola {name}, al confirmar quedarás registrado(a) para este retiro.",
-      "confirmButton": "Sí, soy yo",
+      "confirmButton": "Sí, soy yo, regístrame",
       "denyButton": "No, registrarme como nuevo",
       "deniedTitle": "Usa un correo propio",
       "deniedUseAnotherEmail": "Ese correo pertenece al registro de otra persona, así que no podemos usarlo para el tuyo. Escribe un correo tuyo para continuar; si el registro sí era tuyo, regresa y confirma tu identidad.",
@@ -2039,6 +2039,12 @@
       "alreadyRegistered": "Este correo ya está registrado en este retiro.",
       "alreadyRegisteredAsWalker": "Este correo ya está registrado en este retiro como caminante.",
       "alreadyRegisteredAsServer": "Este correo ya está registrado en este retiro como servidor."
+    },
+    "shirtConfirm": {
+      "title": "¿No necesitas playera?",
+      "description": "No registraste talla de ninguna playera. Si necesitas alguna, vuelve y elige tu talla antes de continuar.",
+      "confirm": "No necesito playera, regístrame",
+      "back": "Quiero elegir talla"
     },
     "tabs": {
       "personalInfo": "Información Personal",

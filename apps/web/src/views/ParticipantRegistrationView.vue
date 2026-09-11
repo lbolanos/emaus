@@ -27,6 +27,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 
 import { storeLocale } from '@/i18n'
 import Step1PersonalInfo from '@/components/registration/Step1PersonalInfo.vue'
+import ShirtConfirmBanner from '@/components/registration/ShirtConfirmBanner.vue'
 import Step2AddressInfo from '@/components/registration/Step2AddressInfo.vue'
 import Step3ServiceInfo from '@/components/registration/Step3ServiceInfo.vue'
 import Step4EmergencyContact from '@/components/registration/Step4EmergencyContact.vue'
@@ -442,12 +443,16 @@ const prevStep = () => {
   if (currentStep.value > 1) {
     currentStep.value--
   }
+  // Leaving the summary invalidates a pending shirt question: its confirm
+  // button must not submit from a step the person never reviewed the question on.
+  shirtConfirmSource.value = null
 }
 
 const goToStep = (step: number) => {
   if (step === currentStep.value) return
   if (step < currentStep.value || completedSteps.value.has(step - 1)) {
     currentStep.value = step
+    shirtConfirmSource.value = null
   }
 }
 
@@ -706,6 +711,9 @@ const handleDenyIdentity = () => {
   // El correo se limpia a propósito: si siguiera prellenado, el alta reutilizaría la
   // ficha de la otra persona y le pisaría nombre e historial.
   deniedIdentity.value = true
+  // A shirt question left open does not survive denying this identity: the next
+  // identity screen must ask again, not inherit the cancelled answer.
+  shirtConfirmSource.value = null
   formData.value.email = ''
   toast({
     title: t('serverRegistration.emailLookup.deniedTitle'),
@@ -713,8 +721,79 @@ const handleDenyIdentity = () => {
   })
 }
 
+// Shirts: the select ships with "No necesita" preselected, so submitting with
+// no size is almost never a conscious decision. Registration asks once;
+// confirming continues the submit and going back leaves the selects in view.
+// The banner holds UI state, not a memory of an answer: anything that changes
+// the context it describes (step navigation, denying the identity, picking a
+// size, closing the dialog) must clear it, or its confirm button fires the
+// submit from a screen that never saw the question.
+const shirtConfirmSource = ref<'lookup' | 'form' | null>(null)
+const isSubmitting = ref(false)
+
+const anyServerShirtChosen = (source: 'lookup' | 'form'): boolean => {
+  const sizes = source === 'lookup'
+    ? lookupShirtSizes.value
+    : ((formData.value as any).shirtSizesByType ?? {}) as Record<string, string>
+  return Object.values(sizes).some((size) => size && size !== 'null')
+}
+
+const needsShirtConfirm = (source: 'lookup' | 'form'): boolean =>
+  props.type === 'server'
+  && serverShirtTypes.value.length > 0
+  && !anyServerShirtChosen(source)
+
+/** "Sí, soy yo, regístrame" button: asks about shirts before confirming. */
+const attemptConfirmIdentity = () => {
+  if (needsShirtConfirm('lookup')) {
+    shirtConfirmSource.value = 'lookup'
+    return
+  }
+  handleConfirmIdentity()
+}
+
+/** Summary "Enviar" button: asks about shirts before the final submit. */
+const attemptSubmit = () => {
+  if (needsShirtConfirm('form')) {
+    shirtConfirmSource.value = 'form'
+    return
+  }
+  onSubmit()
+}
+
+const confirmNoShirtNeeded = () => {
+  const source = shirtConfirmSource.value
+  shirtConfirmSource.value = null
+  if (source === 'lookup') handleConfirmIdentity()
+  else onSubmit()
+}
+
+const backToShirtSelection = () => {
+  const source = shirtConfirmSource.value
+  shirtConfirmSource.value = null
+  // In the multi-step form, the shirt selects live on step 5.
+  if (source === 'form') currentStep.value = 5
+}
+
+// Picking a size while the banner is open answers the question by itself:
+// the confirm button's wording would contradict the payload being sent.
+watch(
+  () => [lookupShirtSizes.value, (formData.value as any).shirtSizesByType] as const,
+  () => {
+    if (shirtConfirmSource.value === 'lookup' && anyServerShirtChosen('lookup')) {
+      shirtConfirmSource.value = null
+    }
+    if (shirtConfirmSource.value === 'form' && anyServerShirtChosen('form')) {
+      shirtConfirmSource.value = null
+    }
+  },
+  { deep: true },
+)
+
 // Reset email lookup when dialog opens for server types
 watch(isDialogOpen, (open) => {
+  // A half-answered shirt banner does not survive the dialog closing.
+  shirtConfirmSource.value = null
   if (open && isServerType.value) {
     showEmailLookup.value = true
     emailLookup.value = ''
@@ -738,6 +817,19 @@ watch(() => props.retreatId, (newRetreatId) => {
 }, { immediate: true })
 
 const onSubmit = async () => {
+  // A submit already in flight owns the dialog: a second Enviar click (or the
+  // shirt banner re-armed mid-flight) would race the first one and surface the
+  // loser's 409 next to the winner's success toast.
+  if (isSubmitting.value) return
+  isSubmitting.value = true
+  try {
+    await submitRegistration()
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+const submitRegistration = async () => {
   // Clear previous errors
   for (const key in formErrors) {
     delete formErrors[key]
@@ -1352,6 +1444,11 @@ defineExpose({ validateStep, formData, formErrors, retreatData, retreatCountry, 
               </div>
             </div>
 
+            <!-- Shirts: submitting with no size is rarely a conscious choice -->
+            <div v-if="shirtConfirmSource === 'lookup'" class="shrink-0 border-t pt-4 px-4 sm:px-6 text-left">
+              <ShirtConfirmBanner :disabled="isConfirming" @confirm="confirmNoShirtNeeded" @back="backToShirtSelection" />
+            </div>
+
             <!-- Footer fijo: botones siempre visibles aunque el contenido scrollee -->
             <div class="shrink-0 border-t pt-4 px-4 sm:px-6 flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
               <Button
@@ -1365,7 +1462,7 @@ defineExpose({ validateStep, formData, formErrors, retreatData, retreatCountry, 
               </Button>
               <Button
                 size="lg"
-                @click="handleConfirmIdentity"
+                @click="attemptConfirmIdentity"
                 :disabled="isConfirming"
                 class="sm:min-w-[180px]"
               >
@@ -1467,6 +1564,11 @@ defineExpose({ validateStep, formData, formErrors, retreatData, retreatCountry, 
                 </div>
               </transition>
             </div>
+            <!-- Shirts: submitting with no size is rarely a conscious choice -->
+            <div v-if="shirtConfirmSource === 'form'" class="shrink-0 border-t pt-4 px-1 sm:px-2">
+              <ShirtConfirmBanner :disabled="isSubmitting" @confirm="confirmNoShirtNeeded" @back="backToShirtSelection" />
+            </div>
+
             <DialogFooter class="gap-2 sm:gap-0 shrink-0 border-t pt-4">
               <Button variant="outline" @click="prevStep" v-if="currentStep > 1 || isServerType">
                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1480,7 +1582,7 @@ defineExpose({ validateStep, formData, formErrors, retreatData, retreatCountry, 
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                 </svg>
               </Button>
-              <Button @click="onSubmit" v-if="currentStep === totalSteps" class="bg-green-600 hover:bg-green-700">
+              <Button @click="attemptSubmit" :disabled="isSubmitting" v-if="currentStep === totalSteps" class="bg-green-600 hover:bg-green-700">
                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                 </svg>

@@ -21,7 +21,11 @@ Cinco cosas que hacen fallar un spec nuevo por razones que no son del código:
   `page.addInitScript(() => localStorage.setItem('preferred-locale', 'es'))`.
 - **Nunca escribir en la base.** El registro público acepta `?test=true` (dry-run): el API valida
   el payload y no persiste nada. Si el spec envía un formulario, que use esa vía y afirme
-  `expect(body.dryRun).toBe(true)` sobre la request capturada, como guard explícito.
+  `expect(body.dryRun).toBe(true)` sobre la request capturada, como guard explícito. Ojo: el
+  dry-run cubre **solo el alta del formulario** (`createParticipant`); el confirm de la pantalla
+  «¿Eres tú?» (`confirmExistingRegistration`) escribe aunque la URL lleve `?test=true` — un spec
+  que la toque tiene que interceptarla con `page.route`, como hace
+  `registration-lost-request.spec.ts`.
 - **`count()` no espera.** Es el fallo más traicionero: contar elementos de un paso del asistente
   antes de que monte devuelve 0, el bucle no hace nada y el spec falla más adelante, en otro sitio.
   Poné un `await expect(<algo del paso>).toBeVisible()` antes de contar, y otro después de cada
@@ -41,10 +45,14 @@ primero a que la pantalla esté, o el test es un falso verde.
 
 Y si el spec mide **peticiones de red**, dos cosas más:
 
-- **Filtrá por origen antes de mirar la URL.** En dev, Vite sirve los módulos por su ruta de
-  fuente, así que un patrón como `/recaptcha/` hace match con `src/services/recaptcha.ts` —
-  el guard acusa a Google mirando código propio. Aplicá el patrón sólo a lo que no empiece por
-  el `baseURL`.
+- **Filtrá por tipo de recurso, no por origen.** El ruido a excluir en dev son los módulos que
+  Vite sirve por su ruta de fuente: un patrón como `/recaptcha/` hace match con
+  `src/services/recaptcha.ts` y el guard acusa a Google mirando código propio. Pero filtrar por
+  origen (`!url.startsWith(baseURL)`) **ciega el contador** al tráfico que viaja a otro origen:
+  el cliente axios del web apunta directo al API (`localhost:3084`, ver `getApiUrl()`), no pasa
+  por el proxy de Vite, y un contador filtrado por `5173` cuenta cero peticiones que sí salieron
+  (2026-09-10, `registration-lost-request.spec.ts`). `r.resourceType() === 'xhr' | 'fetch'`
+  excluye los módulos de Vite sin cegar el contador a ningún origen.
 - **No afirmes megabytes.** La misma página pesa varias veces más en dev que en producción, y la
   caché del navegador hace que la cifra dependa del orden de los tests. Afirmá *qué* se pide y
   *tras qué interacción*, que es idéntico en los dos entornos. Ejemplo:

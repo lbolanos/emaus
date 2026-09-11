@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
+import { confirmNoShirtIfNeeded } from './helpers/registration';
 
 /**
  * E2E coverage for a confirmation request that never gets an answer.
@@ -80,12 +81,14 @@ async function openIdentityScreen(page: Page) {
 }
 
 /** Counts the confirmation attempts that leave the browser, and their timing. */
-function trackAttempts(page: Page, baseURL: string | undefined) {
+function trackAttempts(page: Page) {
 	const at: number[] = [];
 	page.on('request', (r) => {
-		// Filtered by origin: in dev, Vite serves source files under their own
-		// path, so a bare substring can match the app's own modules.
-		if (baseURL && !r.url().startsWith(baseURL)) return;
+		// The axios client talks to the API at its own origin (localhost:3084),
+		// which does not share the web server's, so filtering by baseURL would
+		// blind the counter. The only same-path noise in dev is Vite serving
+		// source modules, and those are never XHR.
+		if (r.resourceType() !== 'xhr' && r.resourceType() !== 'fetch') return;
 		if (r.url().includes(CONFIRM_PATH)) at.push(Date.now());
 	});
 	return at;
@@ -140,13 +143,16 @@ const loseFirstThen = (response: { status: number; body: unknown }) => {
 const toast = (page: Page, copy: RegExp) => page.locator('li').filter({ hasText: copy });
 
 test.describe('Confirmar identidad cuando la petición se pierde', () => {
-	test('reintenta una vez, lo explica en español y lo reporta', async ({ page, baseURL }) => {
-		const attempts = trackAttempts(page, baseURL);
+	test('reintenta una vez, lo explica en español y lo reporta', async ({ page }) => {
+		const attempts = trackAttempts(page);
 		await openIdentityScreen(page);
 		await captureBeacons(page);
 		await page.route(`**${CONFIRM_PATH}`, (route) => route.abort('connectionfailed'));
 
 		await page.getByRole('button', { name: /Sí, soy yo/i }).click();
+		// The retreat offers shirts to servers: with no size chosen, the app
+		// asks before confirming. The notice never travels to the network.
+		await confirmNoShirtIfNeeded(page);
 
 		await expect(toast(page, /Se perdió la conexión/i)).toBeVisible({ timeout: 15000 });
 		expect(attempts).toHaveLength(2);
@@ -167,8 +173,8 @@ test.describe('Confirmar identidad cuando la petición se pierde', () => {
 		expect(report.body).not.toContain('@');
 	});
 
-	test('el segundo intento entra y da por registrada a la persona', async ({ page, baseURL }) => {
-		const attempts = trackAttempts(page, baseURL);
+	test('el segundo intento entra y da por registrada a la persona', async ({ page }) => {
+		const attempts = trackAttempts(page);
 		await openIdentityScreen(page);
 		await page.route(
 			`**${CONFIRM_PATH}`,
@@ -176,6 +182,9 @@ test.describe('Confirmar identidad cuando la petición se pierde', () => {
 		);
 
 		await page.getByRole('button', { name: /Sí, soy yo/i }).click();
+		// The retreat offers shirts to servers: with no size chosen, the app
+		// asks before confirming. The notice never travels to the network.
+		await confirmNoShirtIfNeeded(page);
 
 		await expect(page.getByText(/Registro exitoso/i)).toBeVisible({ timeout: 15000 });
 		expect(attempts).toHaveLength(2);
@@ -196,14 +205,17 @@ test.describe('Confirmar identidad cuando la petición se pierde', () => {
 		);
 
 		await page.getByRole('button', { name: /Sí, soy yo/i }).click();
+		// The retreat offers shirts to servers: with no size chosen, the app
+		// asks before confirming. The notice never travels to the network.
+		await confirmNoShirtIfNeeded(page);
 
 		await expect(toast(page, /Ya estabas registrado/i)).toBeVisible({ timeout: 15000 });
 		await expect(toast(page, /ya está registrado en este retiro/i)).toBeVisible();
 		await expect(toast(page, /Registro exitoso/i)).toHaveCount(0);
 	});
 
-	test('un rechazo del API con motivo no se reintenta ni se reporta', async ({ page, baseURL }) => {
-		const attempts = trackAttempts(page, baseURL);
+	test('un rechazo del API con motivo no se reintenta ni se reporta', async ({ page }) => {
+		const attempts = trackAttempts(page);
 		await openIdentityScreen(page);
 		await captureBeacons(page);
 		await page.route(`**${CONFIRM_PATH}`, (route) =>
@@ -215,6 +227,9 @@ test.describe('Confirmar identidad cuando la petición se pierde', () => {
 		);
 
 		await page.getByRole('button', { name: /Sí, soy yo/i }).click();
+		// The retreat offers shirts to servers: with no size chosen, the app
+		// asks before confirming. The notice never travels to the network.
+		await confirmNoShirtIfNeeded(page);
 
 		await expect(toast(page, /ya terminó y no acepta/i)).toBeVisible({ timeout: 15000 });
 		expect(attempts).toHaveLength(1);
